@@ -142,7 +142,6 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                 {/* 팀 합계 */}
                 <tr className="bg-gray-800/60 font-bold border-t-2 border-blue-500/50">
                   <td colSpan={2} className="px-2 py-2 text-left text-blue-400">팀 합계</td>
-                  <td className="px-2 py-2 text-gray-400">-</td>
                   <td className="px-2 py-2 text-white">{teamTotals.pts ?? 0}</td>
                   <td className="px-2 py-2">{teamTotals.reb ?? 0}</td>
                   <td className="px-2 py-2 text-blue-400">{teamTotals.ast ?? 0}</td>
