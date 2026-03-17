@@ -52,6 +52,7 @@ interface DashboardData {
     maxOppScore: GameRecord
     max3pm: GameRecord
     maxTov: GameRecord
+    maxMargin: GameRecord | null
   } | null
 }
 
@@ -279,6 +280,14 @@ export default function HomePage() {
                   record={teamRecords.maxTov}
                   onClick={() => openGame(teamRecords.maxTov)}
                 />
+                {teamRecords.maxMargin && (
+                  <GameRecordCard
+                    icon="💪" title="최대 점수차 승리"
+                    value={teamRecords.maxMargin.value} unit="점차"
+                    record={teamRecords.maxMargin}
+                    onClick={() => openGame(teamRecords.maxMargin!)}
+                  />
+                )}
               </div>
             </div>
           )}

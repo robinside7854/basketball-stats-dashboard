@@ -139,6 +139,16 @@ export async function GET() {
   const maxScoreGame = allGames.reduce((best, g) => (g.our_score as number) > (best.our_score as number) ? g : best)
   const maxOppScoreGame = allGames.reduce((best, g) => (g.opponent_score as number) > (best.opponent_score as number) ? g : best)
 
+  // 최대 점수차 승리 (승리한 경기 중에서만)
+  const winGames = allGames.filter(g => (g.our_score as number) > (g.opponent_score as number))
+  const maxMarginGame = winGames.length > 0
+    ? winGames.reduce((best, g) => {
+        const margin = (g.our_score as number) - (g.opponent_score as number)
+        const bestMargin = (best.our_score as number) - (best.opponent_score as number)
+        return margin > bestMargin ? g : best
+      })
+    : null
+
   let max3Game = allGames[0], max3 = 0
   let maxTovGame = allGames[0], maxTov = 0
   for (const g of allGames) {
@@ -153,6 +163,9 @@ export async function GET() {
     maxOppScore: { ...gameRecord(maxOppScoreGame), value: maxOppScoreGame.opponent_score as number },
     max3pm:      { ...gameRecord(max3Game),         value: max3 },
     maxTov:      { ...gameRecord(maxTovGame),       value: maxTov },
+    maxMargin:   maxMarginGame
+      ? { ...gameRecord(maxMarginGame), value: (maxMarginGame.our_score as number) - (maxMarginGame.opponent_score as number) }
+      : null,
   }
 
   return NextResponse.json({
