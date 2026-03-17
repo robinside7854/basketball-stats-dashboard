@@ -222,7 +222,7 @@ export default function HomePage() {
           {leaders && (
             <div>
               <h2 className="text-lg font-semibold mb-3 text-gray-300">부문별 리더</h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                 {[
                   { label: '득점왕', unit: 'PPG', icon: '🏀', data: leaders.ppg },
                   { label: '리바운드왕', unit: 'RPG', icon: '💪', data: leaders.rpg },
@@ -255,7 +255,7 @@ export default function HomePage() {
           {teamRecords && (
             <div>
               <h2 className="text-lg font-semibold mb-3 text-gray-300">팀 기록</h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                 <GameRecordCard
                   icon="🔥" title="최다 득점 경기"
                   value={teamRecords.maxScore.value} unit="점"

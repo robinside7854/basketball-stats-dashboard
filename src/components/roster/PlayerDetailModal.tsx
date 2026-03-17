@@ -171,7 +171,9 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
       <div className="relative z-10 w-full max-w-3xl max-h-[90vh] bg-gray-950 border border-gray-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
         {/* 헤더 닫기 버튼 */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 shrink-0">
-          <span className="text-sm text-gray-500">선수 상세 정보</span>
+          <span className="text-sm text-gray-400 font-medium">
+            {player ? <><span className="text-blue-400 font-bold">#{player.number}</span> <span className="text-white">{player.name}</span></> : '선수 상세 정보'}
+          </span>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800">
             <X size={18} />
           </button>
@@ -242,6 +244,7 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                     <div className="w-full sm:w-56 shrink-0">
                       <ShotStyleChart breakdown={shotBreakdown} total={totalShots} />
                     </div>
+                    <div className="hidden sm:block w-px self-stretch bg-gray-800" />
                     <div className="flex-1 w-full">
                       <p className="text-xs text-gray-500 mb-3">구역별 야투율</p>
                       <table className="w-full text-sm">
@@ -299,9 +302,9 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                           <th className="px-3 py-2">PPG</th>
                           <th className="px-3 py-2">RPG</th>
                           <th className="px-3 py-2">APG</th>
-                          <th className="px-3 py-2">STL</th>
-                          <th className="px-3 py-2">BLK</th>
-                          <th className="px-3 py-2">TOV</th>
+                          <th className="px-3 py-2">STLPG</th>
+                          <th className="px-3 py-2">BLKPG</th>
+                          <th className="px-3 py-2">TOVPG</th>
                           <th className="px-3 py-2">FG%</th>
                           <th className="px-3 py-2">3P%</th>
                         </tr>
@@ -349,7 +352,7 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                                       {g.date}
                                       {g.round && <span className="ml-1 text-gray-600">({g.round})</span>}
                                     </td>
-                                    <td className="px-3 py-1.5 text-left text-gray-400" colSpan={1}>vs {g.opponent}</td>
+                                    <td className="px-3 py-1.5 text-left text-gray-400" colSpan={2}>vs {g.opponent}</td>
                                     <td className="px-3 py-1.5">
                                       <span className={`px-1.5 py-0.5 rounded font-bold ${isWin ? 'bg-green-900/60 text-green-400' : 'bg-red-900/60 text-red-400'}`}>
                                         {isWin ? 'W' : 'L'} {g.our_score}-{g.opponent_score}

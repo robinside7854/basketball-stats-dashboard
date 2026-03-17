@@ -110,8 +110,9 @@ export default function StatsPage() {
   return (
     <div className="space-y-8">
       {/* 헤더 */}
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">시즌 통계</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <h1 className="text-2xl font-bold shrink-0">시즌 통계</h1>
+        <div className="flex items-center gap-3 flex-wrap">
         <Select value={selectedTId} onValueChange={v => setSelectedTId(v ?? '')}>
           <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-52">
             <SelectValue />
@@ -123,7 +124,7 @@ export default function StatsPage() {
         </Select>
 
         {/* 뷰 모드 토글 */}
-        <div className="flex rounded-lg overflow-hidden border border-gray-700 ml-auto">
+        <div className="flex rounded-lg overflow-hidden border border-gray-700">
           <button
             onClick={() => switchMode('avg')}
             className={`px-4 py-1.5 text-sm font-medium transition-colors ${viewMode === 'avg' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
@@ -136,6 +137,7 @@ export default function StatsPage() {
           >
             누적 볼륨
           </button>
+        </div>
         </div>
       </div>
 

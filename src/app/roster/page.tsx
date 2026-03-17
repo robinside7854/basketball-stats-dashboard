@@ -166,7 +166,7 @@ export default function RosterPage() {
           <button
             onClick={() => setSortMode('number')}
             className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-              sortMode === 'number' ? 'bg-gray-600 border-gray-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+              sortMode === 'number' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
             }`}
           >
             등번호순
@@ -174,7 +174,7 @@ export default function RosterPage() {
           <button
             onClick={() => setSortMode('age_asc')}
             className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-              sortMode === 'age_asc' ? 'bg-gray-600 border-gray-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+              sortMode === 'age_asc' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
             }`}
           >
             나이 많은순
@@ -182,7 +182,7 @@ export default function RosterPage() {
           <button
             onClick={() => setSortMode('age_desc')}
             className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-              sortMode === 'age_desc' ? 'bg-gray-600 border-gray-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+              sortMode === 'age_desc' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
             }`}
           >
             나이 어린순

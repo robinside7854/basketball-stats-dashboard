@@ -2,11 +2,11 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Home, Circle, ClipboardList, BarChart3, Users, Trophy, ScrollText } from 'lucide-react'
+import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, ScrollText } from 'lucide-react'
 
 const tabs = [
   { href: '/',            label: '홈',        icon: Home,          exact: true },
-  { href: '/record',      label: '경기 기록',  icon: Circle,        exact: false },
+  { href: '/record',      label: '경기 기록',  icon: PenLine,       exact: false },
   { href: '/boxscore',    label: '박스스코어', icon: ClipboardList, exact: false },
   { href: '/gamelog',     label: '게임 로그',  icon: ScrollText,    exact: false },
   { href: '/stats',       label: '시즌 통계',  icon: BarChart3,     exact: false },
