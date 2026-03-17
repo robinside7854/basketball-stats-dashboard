@@ -8,17 +8,25 @@ interface SeasonPlayer extends PlayerBoxScore {
   usg_pct: number
 }
 
+type ViewMode = 'avg' | 'vol'
+
 export default function StatsPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [selectedTId, setSelectedTId] = useState('all')
   const [players, setPlayers] = useState<SeasonPlayer[]>([])
-  const [sortKey, setSortKey] = useState<keyof SeasonPlayer>('pts')
+  const [viewMode, setViewMode] = useState<ViewMode>('avg')
+  const [sortKey, setSortKey] = useState<keyof SeasonPlayer>('pts_avg')
 
   useEffect(() => { fetch('/api/tournaments').then(r => r.json()).then(setTournaments) }, [])
   useEffect(() => {
     const url = selectedTId === 'all' ? '/api/stats/season' : `/api/stats/season?tournamentId=${selectedTId}`
     fetch(url).then(r => r.json()).then(d => setPlayers(d.players || []))
   }, [selectedTId])
+
+  function switchMode(mode: ViewMode) {
+    setViewMode(mode)
+    setSortKey(mode === 'avg' ? 'pts_avg' : 'pts')
+  }
 
   const sorted = [...players].sort((a, b) => (Number(b[sortKey]) || 0) - (Number(a[sortKey]) || 0))
 
@@ -31,10 +39,78 @@ export default function StatsPage() {
     { label: 'TS%', key: 'ts_pct', unit: '%', icon: '📊' },
   ] as const
 
+  const avgCols: { key: keyof SeasonPlayer; label: string }[] = [
+    { key: 'player_number', label: '#' },
+    { key: 'player_name', label: '이름' },
+    { key: 'games_played', label: 'GP' },
+    { key: 'pts_avg', label: 'PPG' },
+    { key: 'reb_avg', label: 'RPG' },
+    { key: 'ast_avg', label: 'APG' },
+    { key: 'usg_pct', label: 'USG%' },
+    { key: 'fg_pct', label: 'FG%' },
+    { key: 'fg3_pct', label: '3P%' },
+    { key: 'ft_pct', label: 'FT%' },
+    { key: 'efg_pct', label: 'eFG%' },
+    { key: 'ts_pct', label: 'TS%' },
+    { key: 'ast_tov', label: 'A/T' },
+    { key: 'stl', label: 'STL' },
+    { key: 'blk', label: 'BLK' },
+  ]
+
+  const volCols: { key: keyof SeasonPlayer; label: string }[] = [
+    { key: 'player_number', label: '#' },
+    { key: 'player_name', label: '이름' },
+    { key: 'games_played', label: 'GP' },
+    { key: 'pts', label: 'PTS' },
+    { key: 'reb', label: 'REB' },
+    { key: 'ast', label: 'AST' },
+    { key: 'stl', label: 'STL' },
+    { key: 'blk', label: 'BLK' },
+    { key: 'tov', label: 'TOV' },
+    { key: 'fgm', label: 'FGM' },
+    { key: 'fga', label: 'FGA' },
+    { key: 'fg3m', label: '3PM' },
+    { key: 'fg3a', label: '3PA' },
+    { key: 'ftm', label: 'FTM' },
+    { key: 'fta', label: 'FTA' },
+    { key: 'oreb', label: 'OR' },
+    { key: 'dreb', label: 'DR' },
+  ]
+
+  const cols = viewMode === 'avg' ? avgCols : volCols
+
+  function renderCell(s: SeasonPlayer, key: keyof SeasonPlayer) {
+    const v = s[key]
+    if (key === 'player_number') return <td key={key} className="px-2 py-2 font-bold text-blue-400">{v as number}</td>
+    if (key === 'player_name') return <td key={key} className="px-2 py-2 text-left font-medium whitespace-nowrap">{v as string}</td>
+    if (key === 'games_played') return <td key={key} className="px-2 py-2 text-gray-400">{v as number}</td>
+
+    const n = Number(v) || 0
+
+    if (viewMode === 'avg') {
+      if (key === 'pts_avg') return <td key={key} className="px-2 py-2 font-bold text-white">{n.toFixed(1)}</td>
+      if (key === 'reb_avg') return <td key={key} className="px-2 py-2">{n.toFixed(1)}</td>
+      if (key === 'ast_avg') return <td key={key} className="px-2 py-2 text-blue-400">{n.toFixed(1)}</td>
+      if (key === 'usg_pct') return <td key={key} className="px-2 py-2 text-purple-400">{n > 0 ? n.toFixed(1) : '-'}</td>
+      if (key === 'stl') return <td key={key} className="px-2 py-2 text-green-400">{n}</td>
+      if (key === 'blk') return <td key={key} className="px-2 py-2 text-indigo-400">{n}</td>
+      if (['fg_pct','fg3_pct','ft_pct','efg_pct','ts_pct','ast_tov'].includes(key as string))
+        return <td key={key} className="px-2 py-2">{n > 0 ? n.toFixed(1) : '-'}</td>
+    } else {
+      if (key === 'pts') return <td key={key} className="px-2 py-2 font-bold text-white">{n}</td>
+      if (key === 'reb') return <td key={key} className="px-2 py-2">{n}</td>
+      if (key === 'ast') return <td key={key} className="px-2 py-2 text-blue-400">{n}</td>
+      if (key === 'stl') return <td key={key} className="px-2 py-2 text-green-400">{n}</td>
+      if (key === 'blk') return <td key={key} className="px-2 py-2 text-indigo-400">{n}</td>
+      if (key === 'tov') return <td key={key} className="px-2 py-2 text-red-400">{n}</td>
+    }
+    return <td key={key} className="px-2 py-2">{n}</td>
+  }
+
   return (
     <div className="space-y-8">
-      {/* 대회 선택 */}
-      <div className="flex items-center gap-3">
+      {/* 헤더 */}
+      <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold">시즌 통계</h1>
         <Select value={selectedTId} onValueChange={v => setSelectedTId(v ?? '')}>
           <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-52">
@@ -45,10 +121,26 @@ export default function StatsPage() {
             {tournaments.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.year})</SelectItem>)}
           </SelectContent>
         </Select>
+
+        {/* 뷰 모드 토글 */}
+        <div className="flex rounded-lg overflow-hidden border border-gray-700 ml-auto">
+          <button
+            onClick={() => switchMode('avg')}
+            className={`px-4 py-1.5 text-sm font-medium transition-colors ${viewMode === 'avg' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+          >
+            경기당 평균
+          </button>
+          <button
+            onClick={() => switchMode('vol')}
+            className={`px-4 py-1.5 text-sm font-medium transition-colors ${viewMode === 'vol' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+          >
+            누적 볼륨
+          </button>
+        </div>
       </div>
 
-      {/* 리더보드 */}
-      {players.length > 0 && (
+      {/* 리더보드 — 평균 뷰에서만 */}
+      {players.length > 0 && viewMode === 'avg' && (
         <div>
           <h2 className="text-lg font-semibold mb-3 text-gray-300">부문별 리더</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -68,56 +160,36 @@ export default function StatsPage() {
         </div>
       )}
 
-      {/* 시즌 통계 테이블 */}
+      {/* 통계 테이블 */}
       {players.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold mb-3 text-gray-300">선수별 통계</h2>
+          <h2 className="text-lg font-semibold mb-3 text-gray-300">
+            선수별 통계
+            <span className="ml-2 text-sm font-normal text-gray-500">
+              {viewMode === 'avg' ? '경기당 평균' : '시즌 누적'}
+            </span>
+          </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-center border-collapse">
               <thead>
                 <tr className="bg-gray-800 text-gray-400">
-                  {[
-                    { key: 'player_number', label: '#' },
-                    { key: 'player_name', label: '이름' },
-                    { key: 'games_played', label: 'GP' },
-                    { key: 'pts_avg', label: 'PPG' },
-                    { key: 'reb_avg', label: 'RPG' },
-                    { key: 'ast_avg', label: 'APG' },
-                    { key: 'usg_pct', label: 'USG%' },
-                    { key: 'fg_pct', label: 'FG%' },
-                    { key: 'fg3_pct', label: '3P%' },
-                    { key: 'ft_pct', label: 'FT%' },
-                    { key: 'efg_pct', label: 'eFG%' },
-                    { key: 'ts_pct', label: 'TS%' },
-                    { key: 'ast_tov', label: 'A/T' },
-                    { key: 'stl', label: 'STL' },
-                    { key: 'blk', label: 'BLK' },
-                  ].map(col => (
-                    <th key={col.key} onClick={() => setSortKey(col.key as keyof SeasonPlayer)}
-                      className={`px-2 py-2 border-b border-gray-700 font-medium cursor-pointer hover:text-white whitespace-nowrap ${sortKey === col.key ? 'text-blue-400' : ''}`}>
-                      {col.label}
+                  {cols.map(col => (
+                    <th
+                      key={col.key as string}
+                      onClick={() => setSortKey(col.key)}
+                      className={`px-2 py-2 border-b border-gray-700 font-medium cursor-pointer hover:text-white whitespace-nowrap transition-colors
+                        ${col.key === 'player_name' ? 'text-left' : ''}
+                        ${sortKey === col.key ? 'text-blue-400' : ''}`}
+                    >
+                      {col.label}{sortKey === col.key ? ' ↓' : ''}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((s) => (
+                {sorted.map(s => (
                   <tr key={s.player_id} className="border-b border-gray-800 hover:bg-gray-900">
-                    <td className="px-2 py-2 font-bold text-blue-400">{s.player_number}</td>
-                    <td className="px-2 py-2 text-left font-medium whitespace-nowrap">{s.player_name}</td>
-                    <td className="px-2 py-2 text-gray-400">{s.games_played}</td>
-                    <td className="px-2 py-2 font-bold text-white">{s.pts_avg.toFixed(1)}</td>
-                    <td className="px-2 py-2">{s.reb_avg.toFixed(1)}</td>
-                    <td className="px-2 py-2 text-blue-400">{s.ast_avg.toFixed(1)}</td>
-                    <td className="px-2 py-2 text-purple-400">{s.usg_pct != null ? s.usg_pct.toFixed(1) : '-'}</td>
-                    <td className="px-2 py-2">{s.fg_pct > 0 ? s.fg_pct.toFixed(1) : '-'}</td>
-                    <td className="px-2 py-2">{s.fg3_pct > 0 ? s.fg3_pct.toFixed(1) : '-'}</td>
-                    <td className="px-2 py-2">{s.ft_pct > 0 ? s.ft_pct.toFixed(1) : '-'}</td>
-                    <td className="px-2 py-2">{s.efg_pct > 0 ? s.efg_pct.toFixed(1) : '-'}</td>
-                    <td className="px-2 py-2">{s.ts_pct > 0 ? s.ts_pct.toFixed(1) : '-'}</td>
-                    <td className="px-2 py-2">{s.ast_tov > 0 ? s.ast_tov.toFixed(1) : '-'}</td>
-                    <td className="px-2 py-2 text-green-400">{s.stl}</td>
-                    <td className="px-2 py-2 text-indigo-400">{s.blk}</td>
+                    {cols.map(col => renderCell(s, col.key))}
                   </tr>
                 ))}
               </tbody>
@@ -125,7 +197,7 @@ export default function StatsPage() {
           </div>
           <div className="flex flex-wrap gap-4 mt-3">
             <p className="text-xs text-gray-500">* 컬럼 클릭 시 정렬 변경</p>
-            <p className="text-xs text-gray-500">* USG%: 팀 전체 공격 점유 중 해당 선수 비율</p>
+            {viewMode === 'avg' && <p className="text-xs text-gray-500">* USG%: 팀 전체 공격 점유 중 해당 선수 비율</p>}
           </div>
         </div>
       )}
