@@ -7,34 +7,50 @@ import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
 
 interface ShotStat { label: string; made: number; attempted: number; pct: number }
 
-const PIE_COLORS: Record<string, string> = {
+const SHOT_COLORS: Record<string, string> = {
   shot_post: '#ef4444',
   shot_layup: '#f97316',
   shot_2p_mid: '#eab308',
   shot_3p: '#3b82f6',
 }
 
-function ShotPieChart({ breakdown, total }: { breakdown: Record<string, ShotStat>; total: number }) {
-  if (total === 0) return <div className="w-36 h-36 rounded-full bg-gray-800 flex items-center justify-center text-gray-600 text-xs">기록 없음</div>
-  const cx = 60, cy = 60, r = 52
-  let angle = -Math.PI / 2
-  const slices = Object.entries(breakdown).map(([type, s]) => {
-    const sweep = (s.attempted / total) * Math.PI * 2
-    const x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle)
-    angle += sweep
-    const x2 = cx + r * Math.cos(angle), y2 = cy + r * Math.sin(angle)
-    const large = sweep > Math.PI ? 1 : 0
-    return { type, s, path: `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z` }
-  })
+function ShotStyleChart({ breakdown, total }: { breakdown: Record<string, ShotStat>; total: number }) {
+  if (total === 0) return <div className="text-gray-600 text-xs py-4">기록 없음</div>
+  const types = Object.entries(breakdown)
+    .filter(([, s]) => s.attempted > 0)
+    .sort((a, b) => b[1].attempted - a[1].attempted)
   return (
-    <svg viewBox="0 0 120 120" className="w-40 h-40 shrink-0">
-      {slices.map(({ type, path }) => (
-        <path key={type} d={path} fill={PIE_COLORS[type] || '#6b7280'} stroke="#111827" strokeWidth="1.5" />
-      ))}
-      <circle cx={cx} cy={cy} r={28} fill="#111827" />
-      <text x={cx} y={cy - 5} textAnchor="middle" fill="#9ca3af" fontSize="9">총 시도</text>
-      <text x={cx} y={cy + 9} textAnchor="middle" fill="white" fontSize="13" fontWeight="bold">{total}</text>
-    </svg>
+    <div className="w-full">
+      {/* 스택바 */}
+      <div className="flex h-5 rounded-lg overflow-hidden mb-4 gap-px">
+        {types.map(([type, s]) => (
+          <div
+            key={type}
+            style={{ width: `${(s.attempted / total) * 100}%`, backgroundColor: SHOT_COLORS[type] ?? '#6b7280' }}
+            title={`${s.label} ${Math.round((s.attempted / total) * 1000) / 10}%`}
+          />
+        ))}
+      </div>
+      {/* 개별 비율바 */}
+      <div className="space-y-2.5">
+        {types.map(([type, s]) => {
+          const pct = Math.round((s.attempted / total) * 1000) / 10
+          return (
+            <div key={type} className="flex items-center gap-2">
+              <div className="w-14 text-xs text-gray-400 text-right shrink-0">{s.label}</div>
+              <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className="h-2 rounded-full transition-all"
+                  style={{ width: `${pct}%`, backgroundColor: SHOT_COLORS[type] ?? '#6b7280' }}
+                />
+              </div>
+              <div className="w-10 text-xs font-bold text-right shrink-0" style={{ color: SHOT_COLORS[type] ?? '#9ca3af' }}>{pct}%</div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="text-xs text-gray-600 mt-3">총 {total}회 시도</div>
+    </div>
   )
 }
 
@@ -222,22 +238,9 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
               {totalShots > 0 && (
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
                   <h2 className="text-base font-semibold mb-4 text-gray-300">공격 스타일</h2>
-                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                    <div className="flex flex-col items-center gap-3 shrink-0">
-                      <ShotPieChart breakdown={shotBreakdown} total={totalShots} />
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400">
-                        {FIELD_SHOT_TYPES.map(type => {
-                          const s = shotBreakdown[type]
-                          if (!s || s.attempted === 0) return null
-                          const share = Math.round((s.attempted / totalShots) * 1000) / 10
-                          return (
-                            <div key={type} className="flex items-center gap-1.5">
-                              <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: PIE_COLORS[type] }} />
-                              <span>{s.label} {share}%</span>
-                            </div>
-                          )
-                        })}
-                      </div>
+                  <div className="flex flex-col sm:flex-row items-start gap-6">
+                    <div className="w-full sm:w-56 shrink-0">
+                      <ShotStyleChart breakdown={shotBreakdown} total={totalShots} />
                     </div>
                     <div className="flex-1 w-full">
                       <p className="text-xs text-gray-500 mb-3">구역별 야투율</p>
@@ -250,12 +253,14 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                           </tr>
                         </thead>
                         <tbody>
-                          {FIELD_SHOT_TYPES.map(type => {
+                          {[...FIELD_SHOT_TYPES]
+                            .sort((a, b) => (shotBreakdown[b]?.attempted ?? 0) - (shotBreakdown[a]?.attempted ?? 0))
+                            .map(type => {
                             const s = shotBreakdown[type]
                             return (
                               <tr key={type} className="border-b border-gray-800/60">
                                 <td className="py-2 flex items-center gap-2">
-                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PIE_COLORS[type] }} />
+                                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SHOT_COLORS[type] }} />
                                   {s?.label ?? type}
                                 </td>
                                 <td className="py-2 text-right text-gray-400">{s?.made ?? 0}/{s?.attempted ?? 0}</td>
