@@ -98,7 +98,6 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                 <tr className="bg-gray-800 text-gray-400">
                   <th className="px-2 py-2 text-left">#</th>
                   <th className="px-2 py-2 text-left">이름</th>
-                  <th className="px-2 py-2">MIN</th>
                   <th className="px-2 py-2">PTS</th>
                   <th className="px-2 py-2">REB</th>
                   <th className="px-2 py-2">AST</th>
@@ -126,7 +125,6 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                       {s.double_double && <span className="ml-1 text-xs bg-yellow-600 px-1 rounded">DD</span>}
                       {s.triple_double && <span className="ml-1 text-xs bg-blue-600 px-1 rounded">TD</span>}
                     </td>
-                    <td className="px-2 py-2 text-gray-400">{s.min > 0 ? s.min.toFixed(0) : '-'}</td>
                     <td className="px-2 py-2 font-bold text-white">{s.pts}</td>
                     <td className="px-2 py-2">{s.reb}</td>
                     <td className="px-2 py-2 text-blue-400">{s.ast}</td>

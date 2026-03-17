@@ -369,7 +369,6 @@ export default function PlayerDetailPage() {
                   <th className="px-3 py-2 text-left">날짜</th>
                   <th className="px-3 py-2 text-left">상대</th>
                   <th className="px-3 py-2">결과</th>
-                  <th className="px-3 py-2">MIN</th>
                   <th className="px-3 py-2">PTS</th>
                   <th className="px-3 py-2">REB</th>
                   <th className="px-3 py-2">AST</th>
@@ -396,7 +395,6 @@ export default function PlayerDetailPage() {
                       </td>
                       {s ? (
                         <>
-                          <td className="px-3 py-2 text-gray-400">{s.min.toFixed(0)}</td>
                           <td className="px-3 py-2 font-bold text-white">{s.pts}</td>
                           <td className="px-3 py-2">{s.reb}</td>
                           <td className="px-3 py-2 text-blue-400">{s.ast}</td>
