@@ -156,7 +156,7 @@ export default function BoxScorePage() {
         const groupRounds = [...new Set(games.map(g => g.round ?? '친선'))]
           .sort((a, b) => (ROUND_ORDER[a] ?? 5) - (ROUND_ORDER[b] ?? 5))
 
-        function GameCardWithScore({ g, isGroup }: { g: Game; isGroup: boolean }) {
+        function GameCardWithScore({ g }: { g: Game }) {
           const isWin = g.our_score > g.opponent_score
           const isDraw = g.our_score === g.opponent_score
           const isSelected = selectedGId === g.id
@@ -313,15 +313,9 @@ export default function BoxScorePage() {
                     </span>
                     <div className="h-px flex-1 bg-gray-800" />
                   </div>
-                  {isGroup ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {roundGames.map(g => <GameCardWithScore key={g.id} g={g} isGroup={true} />)}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {roundGames.map(g => <GameCardWithScore key={g.id} g={g} isGroup={false} />)}
-                    </div>
-                  )}
+                  <div className="space-y-2">
+                    {roundGames.map(g => <GameCardWithScore key={g.id} g={g} />)}
+                  </div>
                 </div>
               )
             })}
