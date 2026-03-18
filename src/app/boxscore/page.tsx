@@ -117,7 +117,6 @@ export default function BoxScorePage() {
   }
 
   const selT = tournaments.find(t => t.id === selectedTId)
-  const selG = games.find(g => g.id === selectedGId)
 
   return (
     <div>
@@ -151,23 +150,43 @@ export default function BoxScorePage() {
             {tournaments.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.year})</SelectItem>)}
           </SelectContent>
         </Select>
-
-        {viewMode === 'game' && (
-          <Select
-            key={`g-${games.map(g => g.id).join('')}`}
-            value={selectedGId}
-            onValueChange={v => setSelectedGId(v ?? '')}
-            disabled={!selectedTId}
-          >
-            <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-52">
-              <SelectValue placeholder="경기 선택">{selG ? `${selG.date} vs ${selG.opponent}` : undefined}</SelectValue>
-            </SelectTrigger>
-            <SelectContent className="bg-gray-800 border-gray-700 text-white">
-              {games.map(g => <SelectItem key={g.id} value={g.id}>{g.date} vs {g.opponent}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        )}
       </div>
+
+      {/* ─── 경기 카드 그리드 (경기별 모드) ─── */}
+      {viewMode === 'game' && selectedTId && games.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {games.map(g => {
+            const isWin = g.our_score > g.opponent_score
+            const isDraw = g.our_score === g.opponent_score
+            const isSelected = selectedGId === g.id
+            return (
+              <button
+                key={g.id}
+                onClick={() => setSelectedGId(g.id)}
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-left transition-all
+                  ${isSelected
+                    ? 'bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-900/20'
+                    : 'bg-gray-900 border-gray-800 hover:border-gray-600'
+                  }`}
+              >
+                <span className={`text-xs font-bold px-1.5 py-0.5 rounded shrink-0
+                  ${isWin ? 'bg-green-900/60 text-green-400' : isDraw ? 'bg-gray-700 text-gray-400' : 'bg-red-900/60 text-red-400'}`}>
+                  {isWin ? '승' : isDraw ? '무' : '패'}
+                </span>
+                <div>
+                  <div className="text-xs text-gray-500">{g.date}{g.round ? ` · ${g.round}` : ''}</div>
+                  <div className="text-sm font-medium text-white">
+                    <span className={isWin ? 'text-green-400' : isDraw ? 'text-gray-300' : 'text-red-400'}>{g.our_score}</span>
+                    <span className="text-gray-600 mx-1">-</span>
+                    <span className="text-gray-400">{g.opponent_score}</span>
+                    <span className="text-gray-400 ml-2 font-normal">vs {g.opponent}</span>
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* ─── 경기별 뷰 ─── */}
       {viewMode === 'game' && (
