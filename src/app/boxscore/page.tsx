@@ -34,7 +34,6 @@ export default function BoxScorePage() {
   // 경기별
   const [boxScores, setBoxScores] = useState<PlayerBoxScore[]>([])
   const [teamTotals, setTeamTotals] = useState<Partial<PlayerBoxScore>>({})
-  const [selectedGame, setSelectedGame] = useState<Game | null>(null)
   const [sortKey, setSortKey] = useState<SortKey>('pts')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [quarterPts, setQuarterPts] = useState<Record<string, Record<number, number>>>({})
@@ -64,8 +63,6 @@ export default function BoxScorePage() {
 
   useEffect(() => {
     if (!selectedGId) return
-    const g = games.find(g => g.id === selectedGId) || null
-    setSelectedGame(g)
     fetch(`/api/stats/${selectedGId}`).then(r => r.json()).then(d => { setBoxScores(d.boxScores || []); setTeamTotals(d.teamTotals || {}); setQuarterPts(d.quarterPts || {}) })
   }, [selectedGId, games])
 
@@ -159,37 +156,143 @@ export default function BoxScorePage() {
         const groupRounds = [...new Set(games.map(g => g.round ?? '친선'))]
           .sort((a, b) => (ROUND_ORDER[a] ?? 5) - (ROUND_ORDER[b] ?? 5))
 
-        function GameCard({ g }: { g: Game }) {
+        function GameCardWithScore({ g, isGroup }: { g: Game; isGroup: boolean }) {
           const isWin = g.our_score > g.opponent_score
           const isDraw = g.our_score === g.opponent_score
           const isSelected = selectedGId === g.id
+
           return (
-            <button
-              onClick={() => setSelectedGId(g.id)}
-              className={`flex items-center gap-4 px-5 py-3 rounded-xl border text-left w-full transition-all
-                ${isSelected
-                  ? 'bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-900/20'
-                  : 'bg-gray-900 border-gray-800 hover:border-gray-600'
-                }`}
-            >
-              <span className={`text-sm font-bold px-2 py-1 rounded-lg shrink-0 min-w-[2.5rem] text-center
-                ${isWin ? 'bg-green-900/60 text-green-400' : isDraw ? 'bg-gray-700 text-gray-400' : 'bg-red-900/60 text-red-400'}`}>
-                {isWin ? '승' : isDraw ? '무' : '패'}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs text-gray-500 mb-0.5">{g.date}</div>
-                <div className="text-base font-semibold text-white truncate">
-                  vs <span className="text-gray-200">{g.opponent}</span>
+            <div>
+              <button
+                onClick={() => setSelectedGId(isSelected ? '' : g.id)}
+                className={`flex items-center gap-4 px-5 py-3 rounded-xl border text-left w-full transition-all
+                  ${isSelected
+                    ? 'bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-900/20 rounded-b-none border-b-0'
+                    : 'bg-gray-900 border-gray-800 hover:border-gray-600'
+                  }`}
+              >
+                <span className={`text-sm font-bold px-2 py-1 rounded-lg shrink-0 min-w-[2.5rem] text-center
+                  ${isWin ? 'bg-green-900/60 text-green-400' : isDraw ? 'bg-gray-700 text-gray-400' : 'bg-red-900/60 text-red-400'}`}>
+                  {isWin ? '승' : isDraw ? '무' : '패'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-gray-500 mb-0.5">{g.date}</div>
+                  <div className="text-base font-semibold text-white truncate">
+                    vs <span className="text-gray-200">{g.opponent}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="text-right shrink-0">
-                <div className="text-xl font-black">
-                  <span className={isWin ? 'text-green-400' : isDraw ? 'text-gray-300' : 'text-red-400'}>{g.our_score}</span>
-                  <span className="text-gray-700 mx-1.5 font-normal text-base">-</span>
-                  <span className="text-gray-400">{g.opponent_score}</span>
+                <div className="flex items-center gap-3">
+                  <div className="text-right shrink-0">
+                    <div className="text-xl font-black">
+                      <span className={isWin ? 'text-green-400' : isDraw ? 'text-gray-300' : 'text-red-400'}>{g.our_score}</span>
+                      <span className="text-gray-700 mx-1.5 font-normal text-base">-</span>
+                      <span className="text-gray-400">{g.opponent_score}</span>
+                    </div>
+                  </div>
+                  <span className={`text-gray-500 text-xs transition-transform ${isSelected ? 'rotate-180' : ''}`}>▼</span>
                 </div>
-              </div>
-            </button>
+              </button>
+
+              {/* 인라인 박스스코어 */}
+              {isSelected && (
+                <div className="border border-blue-500 border-t-0 rounded-b-xl bg-gray-950 p-3 overflow-x-auto">
+                  {boxScores.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 text-sm">기록된 데이터가 없습니다</div>
+                  ) : (
+                    <>
+                      <table className="w-full text-sm text-center border-collapse">
+                        <thead>
+                          <tr className="bg-gray-800 text-gray-400">
+                            <SortTh label="#"    k="player_number" className="text-left" />
+                            <SortTh label="이름"                   className="text-left" />
+                            <SortTh label="PTS"  k="pts" />
+                            <SortTh label="Q1" />
+                            <SortTh label="Q2" />
+                            <SortTh label="Q3" />
+                            <SortTh label="Q4" />
+                            <SortTh label="OT" />
+                            <SortTh label="FG" />
+                            <SortTh label="FG%"  k="fg_pct" />
+                            <SortTh label="3P" />
+                            <SortTh label="3P%"  k="fg3_pct" />
+                            <SortTh label="FT" />
+                            <SortTh label="FT%"  k="ft_pct" />
+                            <SortTh label="OR"   k="oreb" />
+                            <SortTh label="DR"   k="dreb" />
+                            <SortTh label="REB"  k="reb" />
+                            <SortTh label="AST"  k="ast" />
+                            <SortTh label="STL"  k="stl" />
+                            <SortTh label="BLK"  k="blk" />
+                            <SortTh label="TOV"  k="tov" />
+                            <SortTh label="PF"   k="pf" />
+                            <SortTh label="eFG%" k="efg_pct" />
+                            <SortTh label="TS%"  k="ts_pct" />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sorted.map(s => (
+                            <tr key={s.player_id} className="border-b border-gray-800 hover:bg-gray-900 transition-colors">
+                              <td className="px-2 py-2 font-bold text-blue-400 text-left">{s.player_number}</td>
+                              <td className="px-2 py-2 text-left font-medium whitespace-nowrap">
+                                {s.player_name}
+                                {s.double_double && <span className="ml-1 text-xs bg-yellow-600 px-1 rounded">DD</span>}
+                                {s.triple_double && <span className="ml-1 text-xs bg-blue-600 px-1 rounded">TD</span>}
+                              </td>
+                              <td className={`px-2 py-2 font-bold ${sortKey === 'pts' ? 'text-blue-300' : 'text-white'}`}>{s.pts}</td>
+                              <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[1] || '-'}</td>
+                              <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[2] || '-'}</td>
+                              <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[3] || '-'}</td>
+                              <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[4] || '-'}</td>
+                              <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[5] || '-'}</td>
+                              <td className="px-2 py-2 text-gray-300">{s.fgm}-{s.fga}</td>
+                              <td className="px-2 py-2"><Pct val={s.fg_pct} /></td>
+                              <td className="px-2 py-2 text-gray-300">{s.fg3m}-{s.fg3a}</td>
+                              <td className="px-2 py-2"><Pct val={s.fg3_pct} /></td>
+                              <td className="px-2 py-2 text-gray-300">{s.ftm}-{s.fta}</td>
+                              <td className="px-2 py-2"><Pct val={s.ft_pct} /></td>
+                              <td className="px-2 py-2">{s.oreb}</td>
+                              <td className="px-2 py-2">{s.dreb}</td>
+                              <td className={`px-2 py-2 font-medium ${sortKey === 'reb' ? 'text-blue-300' : ''}`}>{s.reb}</td>
+                              <td className={`px-2 py-2 font-medium ${sortKey === 'ast' ? 'text-blue-300' : 'text-blue-400'}`}>{s.ast}</td>
+                              <td className={`px-2 py-2 ${sortKey === 'stl' ? 'text-blue-300' : 'text-green-400'}`}>{s.stl}</td>
+                              <td className={`px-2 py-2 ${sortKey === 'blk' ? 'text-blue-300' : 'text-indigo-400'}`}>{s.blk}</td>
+                              <td className={`px-2 py-2 ${sortKey === 'tov' ? 'text-blue-300' : 'text-red-400'}`}>{s.tov}</td>
+                              <td className="px-2 py-2 text-yellow-600">{s.pf}</td>
+                              <td className="px-2 py-2"><Pct val={s.efg_pct} /></td>
+                              <td className="px-2 py-2"><Pct val={s.ts_pct} /></td>
+                            </tr>
+                          ))}
+                          <tr className="bg-gray-800 font-bold border-t-2 border-blue-500">
+                            <td colSpan={2} className="px-2 py-2 text-left text-blue-400">팀 합계</td>
+                            <td className="px-2 py-2 text-white">{teamTotals.pts ?? 0}</td>
+                            {[1,2,3,4,5].map(q => {
+                              const qTotal = Object.values(quarterPts).reduce((sum, pMap) => sum + (pMap[q] || 0), 0)
+                              return <td key={q} className="px-2 py-2 text-gray-300 text-xs">{qTotal || '-'}</td>
+                            })}
+                            <td className="px-2 py-2">{teamTotals.fgm ?? 0}-{teamTotals.fga ?? 0}</td>
+                            <td className="px-2 py-2"><Pct val={teamTotals.fga ? Math.round((teamTotals.fgm! / teamTotals.fga!) * 1000) / 10 : 0} /></td>
+                            <td className="px-2 py-2">{teamTotals.fg3m ?? 0}-{teamTotals.fg3a ?? 0}</td>
+                            <td className="px-2 py-2"><Pct val={teamTotals.fg3a ? Math.round((teamTotals.fg3m! / teamTotals.fg3a!) * 1000) / 10 : 0} /></td>
+                            <td className="px-2 py-2">{teamTotals.ftm ?? 0}-{teamTotals.fta ?? 0}</td>
+                            <td className="px-2 py-2"><Pct val={teamTotals.fta ? Math.round((teamTotals.ftm! / teamTotals.fta!) * 1000) / 10 : 0} /></td>
+                            <td className="px-2 py-2">{teamTotals.oreb ?? 0}</td>
+                            <td className="px-2 py-2">{teamTotals.dreb ?? 0}</td>
+                            <td className="px-2 py-2">{teamTotals.reb ?? 0}</td>
+                            <td className="px-2 py-2 text-blue-400">{teamTotals.ast ?? 0}</td>
+                            <td className="px-2 py-2 text-green-400">{teamTotals.stl ?? 0}</td>
+                            <td className="px-2 py-2 text-indigo-400">{teamTotals.blk ?? 0}</td>
+                            <td className="px-2 py-2 text-red-400">{teamTotals.tov ?? 0}</td>
+                            <td className="px-2 py-2 text-yellow-600">{teamTotals.pf ?? 0}</td>
+                            <td colSpan={2} />
+                          </tr>
+                        </tbody>
+                      </table>
+                      <p className="text-xs text-gray-600 mt-2">헤더 클릭 시 해당 스탯 기준 정렬 (↓ 내림차순 / ↑ 오름차순)</p>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           )
         }
 
@@ -211,14 +314,12 @@ export default function BoxScorePage() {
                     <div className="h-px flex-1 bg-gray-800" />
                   </div>
                   {isGroup ? (
-                    /* 예선: 가로 2열 그리드 */
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {roundGames.map(g => <GameCard key={g.id} g={g} />)}
+                      {roundGames.map(g => <GameCardWithScore key={g.id} g={g} isGroup={true} />)}
                     </div>
                   ) : (
-                    /* 토너먼트: 1열 세로 배치 */
                     <div className="space-y-2">
-                      {roundGames.map(g => <GameCard key={g.id} g={g} />)}
+                      {roundGames.map(g => <GameCardWithScore key={g.id} g={g} isGroup={false} />)}
                     </div>
                   )}
                 </div>
@@ -228,124 +329,8 @@ export default function BoxScorePage() {
         )
       })()}
 
-      {/* ─── 경기별 뷰 ─── */}
-      {viewMode === 'game' && (
-        <>
-          {selectedGame && (
-            <div className="mb-4 bg-gray-900 border border-gray-800 rounded-xl p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-400 text-sm">{selectedGame.date} · {selectedGame.venue || '-'}</span>
-                <div className="text-2xl font-bold">
-                  <span className={selectedGame.our_score > selectedGame.opponent_score ? 'text-green-400' : 'text-red-400'}>
-                    {selectedGame.our_score}
-                  </span>
-                  <span className="text-gray-500 mx-3">vs</span>
-                  <span className="text-gray-300">{selectedGame.opponent_score}</span>
-                  <span className="ml-4 text-gray-400 text-base font-normal">vs {selectedGame.opponent}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {boxScores.length === 0 && selectedGId ? (
-            <div className="text-center py-16 text-gray-500">기록된 데이터가 없습니다</div>
-          ) : sorted.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-center border-collapse">
-                <thead>
-                  <tr className="bg-gray-800 text-gray-400">
-                    <SortTh label="#"    k="player_number" className="text-left" />
-                    <SortTh label="이름"                   className="text-left" />
-                    <SortTh label="PTS"  k="pts" />
-                    <SortTh label="Q1" />
-                    <SortTh label="Q2" />
-                    <SortTh label="Q3" />
-                    <SortTh label="Q4" />
-                    <SortTh label="OT" />
-                    <SortTh label="FG" />
-                    <SortTh label="FG%"  k="fg_pct" />
-                    <SortTh label="3P" />
-                    <SortTh label="3P%"  k="fg3_pct" />
-                    <SortTh label="FT" />
-                    <SortTh label="FT%"  k="ft_pct" />
-                    <SortTh label="OR"   k="oreb" />
-                    <SortTh label="DR"   k="dreb" />
-                    <SortTh label="REB"  k="reb" />
-                    <SortTh label="AST"  k="ast" />
-                    <SortTh label="STL"  k="stl" />
-                    <SortTh label="BLK"  k="blk" />
-                    <SortTh label="TOV"  k="tov" />
-                    <SortTh label="PF"   k="pf" />
-                    <SortTh label="eFG%" k="efg_pct" />
-                    <SortTh label="TS%"  k="ts_pct" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map(s => (
-                    <tr key={s.player_id} className="border-b border-gray-800 hover:bg-gray-900 transition-colors">
-                      <td className="px-2 py-2 font-bold text-blue-400 text-left">{s.player_number}</td>
-                      <td className="px-2 py-2 text-left font-medium whitespace-nowrap">
-                        {s.player_name}
-                        {s.double_double && <span className="ml-1 text-xs bg-yellow-600 px-1 rounded">DD</span>}
-                        {s.triple_double && <span className="ml-1 text-xs bg-blue-600 px-1 rounded">TD</span>}
-                      </td>
-                      <td className={`px-2 py-2 font-bold ${sortKey === 'pts' ? 'text-blue-300' : 'text-white'}`}>{s.pts}</td>
-                      <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[1] || '-'}</td>
-                      <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[2] || '-'}</td>
-                      <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[3] || '-'}</td>
-                      <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[4] || '-'}</td>
-                      <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[5] || '-'}</td>
-                      <td className="px-2 py-2 text-gray-300">{s.fgm}-{s.fga}</td>
-                      <td className="px-2 py-2"><Pct val={s.fg_pct} /></td>
-                      <td className="px-2 py-2 text-gray-300">{s.fg3m}-{s.fg3a}</td>
-                      <td className="px-2 py-2"><Pct val={s.fg3_pct} /></td>
-                      <td className="px-2 py-2 text-gray-300">{s.ftm}-{s.fta}</td>
-                      <td className="px-2 py-2"><Pct val={s.ft_pct} /></td>
-                      <td className="px-2 py-2">{s.oreb}</td>
-                      <td className="px-2 py-2">{s.dreb}</td>
-                      <td className={`px-2 py-2 font-medium ${sortKey === 'reb' ? 'text-blue-300' : ''}`}>{s.reb}</td>
-                      <td className={`px-2 py-2 font-medium ${sortKey === 'ast' ? 'text-blue-300' : 'text-blue-400'}`}>{s.ast}</td>
-                      <td className={`px-2 py-2 ${sortKey === 'stl' ? 'text-blue-300' : 'text-green-400'}`}>{s.stl}</td>
-                      <td className={`px-2 py-2 ${sortKey === 'blk' ? 'text-blue-300' : 'text-indigo-400'}`}>{s.blk}</td>
-                      <td className={`px-2 py-2 ${sortKey === 'tov' ? 'text-blue-300' : 'text-red-400'}`}>{s.tov}</td>
-                      <td className="px-2 py-2 text-yellow-600">{s.pf}</td>
-                      <td className="px-2 py-2"><Pct val={s.efg_pct} /></td>
-                      <td className="px-2 py-2"><Pct val={s.ts_pct} /></td>
-                    </tr>
-                  ))}
-                  <tr className="bg-gray-800 font-bold border-t-2 border-blue-500">
-                    <td colSpan={2} className="px-2 py-2 text-left text-blue-400">팀 합계</td>
-                    <td className="px-2 py-2 text-white">{teamTotals.pts ?? 0}</td>
-                    {[1,2,3,4,5].map(q => {
-                      const qTotal = Object.values(quarterPts).reduce((sum, pMap) => sum + (pMap[q] || 0), 0)
-                      return <td key={q} className="px-2 py-2 text-gray-300 text-xs">{qTotal || '-'}</td>
-                    })}
-                    <td className="px-2 py-2">{teamTotals.fgm ?? 0}-{teamTotals.fga ?? 0}</td>
-                    <td className="px-2 py-2"><Pct val={teamTotals.fga ? Math.round((teamTotals.fgm! / teamTotals.fga!) * 1000) / 10 : 0} /></td>
-                    <td className="px-2 py-2">{teamTotals.fg3m ?? 0}-{teamTotals.fg3a ?? 0}</td>
-                    <td className="px-2 py-2"><Pct val={teamTotals.fg3a ? Math.round((teamTotals.fg3m! / teamTotals.fg3a!) * 1000) / 10 : 0} /></td>
-                    <td className="px-2 py-2">{teamTotals.ftm ?? 0}-{teamTotals.fta ?? 0}</td>
-                    <td className="px-2 py-2"><Pct val={teamTotals.fta ? Math.round((teamTotals.ftm! / teamTotals.fta!) * 1000) / 10 : 0} /></td>
-                    <td className="px-2 py-2">{teamTotals.oreb ?? 0}</td>
-                    <td className="px-2 py-2">{teamTotals.dreb ?? 0}</td>
-                    <td className="px-2 py-2">{teamTotals.reb ?? 0}</td>
-                    <td className="px-2 py-2 text-blue-400">{teamTotals.ast ?? 0}</td>
-                    <td className="px-2 py-2 text-green-400">{teamTotals.stl ?? 0}</td>
-                    <td className="px-2 py-2 text-indigo-400">{teamTotals.blk ?? 0}</td>
-                    <td className="px-2 py-2 text-red-400">{teamTotals.tov ?? 0}</td>
-                    <td className="px-2 py-2 text-yellow-600">{teamTotals.pf ?? 0}</td>
-                    <td colSpan={2} />
-                  </tr>
-                </tbody>
-              </table>
-              <p className="text-xs text-gray-600 mt-2">헤더 클릭 시 해당 스탯 기준 정렬 (↓ 내림차순 / ↑ 오름차순)</p>
-            </div>
-          )}
-
-          {!selectedGId && (
-            <div className="text-center py-16 text-gray-500">대회와 경기를 선택하면 박스스코어가 표시됩니다</div>
-          )}
-        </>
+      {viewMode === 'game' && !selectedTId && (
+        <div className="text-center py-16 text-gray-500">대회를 선택하면 경기 목록이 표시됩니다</div>
       )}
 
       {/* ─── 대회 전체 뷰 ─── */}
