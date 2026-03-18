@@ -153,40 +153,80 @@ export default function BoxScorePage() {
       </div>
 
       {/* ─── 경기 카드 그리드 (경기별 모드) ─── */}
-      {viewMode === 'game' && selectedTId && games.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          {games.map(g => {
-            const isWin = g.our_score > g.opponent_score
-            const isDraw = g.our_score === g.opponent_score
-            const isSelected = selectedGId === g.id
-            return (
-              <button
-                key={g.id}
-                onClick={() => setSelectedGId(g.id)}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-left transition-all
-                  ${isSelected
-                    ? 'bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-900/20'
-                    : 'bg-gray-900 border-gray-800 hover:border-gray-600'
-                  }`}
-              >
-                <span className={`text-xs font-bold px-1.5 py-0.5 rounded shrink-0
-                  ${isWin ? 'bg-green-900/60 text-green-400' : isDraw ? 'bg-gray-700 text-gray-400' : 'bg-red-900/60 text-red-400'}`}>
-                  {isWin ? '승' : isDraw ? '무' : '패'}
-                </span>
-                <div>
-                  <div className="text-xs text-gray-500">{g.date}{g.round ? ` · ${g.round}` : ''}</div>
-                  <div className="text-sm font-medium text-white">
-                    <span className={isWin ? 'text-green-400' : isDraw ? 'text-gray-300' : 'text-red-400'}>{g.our_score}</span>
-                    <span className="text-gray-600 mx-1">-</span>
-                    <span className="text-gray-400">{g.opponent_score}</span>
-                    <span className="text-gray-400 ml-2 font-normal">vs {g.opponent}</span>
-                  </div>
+      {viewMode === 'game' && selectedTId && games.length > 0 && (() => {
+        const ROUND_ORDER: Record<string, number> = { '결승': 0, '4강': 1, '8강': 2, '16강': 3, '조별예선': 4 }
+        const knockout = ['결승', '4강', '8강', '16강']
+        const groupRounds = [...new Set(games.map(g => g.round ?? '친선'))]
+          .sort((a, b) => (ROUND_ORDER[a] ?? 5) - (ROUND_ORDER[b] ?? 5))
+
+        function GameCard({ g }: { g: Game }) {
+          const isWin = g.our_score > g.opponent_score
+          const isDraw = g.our_score === g.opponent_score
+          const isSelected = selectedGId === g.id
+          return (
+            <button
+              onClick={() => setSelectedGId(g.id)}
+              className={`flex items-center gap-4 px-5 py-3 rounded-xl border text-left w-full transition-all
+                ${isSelected
+                  ? 'bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-900/20'
+                  : 'bg-gray-900 border-gray-800 hover:border-gray-600'
+                }`}
+            >
+              <span className={`text-sm font-bold px-2 py-1 rounded-lg shrink-0 min-w-[2.5rem] text-center
+                ${isWin ? 'bg-green-900/60 text-green-400' : isDraw ? 'bg-gray-700 text-gray-400' : 'bg-red-900/60 text-red-400'}`}>
+                {isWin ? '승' : isDraw ? '무' : '패'}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-gray-500 mb-0.5">{g.date}</div>
+                <div className="text-base font-semibold text-white truncate">
+                  vs <span className="text-gray-200">{g.opponent}</span>
                 </div>
-              </button>
-            )
-          })}
-        </div>
-      )}
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-xl font-black">
+                  <span className={isWin ? 'text-green-400' : isDraw ? 'text-gray-300' : 'text-red-400'}>{g.our_score}</span>
+                  <span className="text-gray-700 mx-1.5 font-normal text-base">-</span>
+                  <span className="text-gray-400">{g.opponent_score}</span>
+                </div>
+              </div>
+            </button>
+          )
+        }
+
+        return (
+          <div className="mb-6 space-y-6">
+            {groupRounds.map(round => {
+              const roundGames = games.filter(g => (g.round ?? '친선') === round)
+              const isGroup = round === '조별예선'
+              const isKnockout = knockout.includes(round)
+              return (
+                <div key={round}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className={`text-xs font-bold px-3 py-1 rounded-full border
+                      ${round === '결승' ? 'text-yellow-400 border-yellow-600 bg-yellow-900/20' :
+                        isKnockout ? 'text-blue-400 border-blue-700 bg-blue-900/20' :
+                        'text-gray-400 border-gray-700 bg-gray-900'}`}>
+                      {round}
+                    </span>
+                    <div className="h-px flex-1 bg-gray-800" />
+                  </div>
+                  {isGroup ? (
+                    /* 예선: 가로 2열 그리드 */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {roundGames.map(g => <GameCard key={g.id} g={g} />)}
+                    </div>
+                  ) : (
+                    /* 토너먼트: 1열 세로 배치 */
+                    <div className="space-y-2">
+                      {roundGames.map(g => <GameCard key={g.id} g={g} />)}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
+      })()}
 
       {/* ─── 경기별 뷰 ─── */}
       {viewMode === 'game' && (
