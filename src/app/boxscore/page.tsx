@@ -300,7 +300,6 @@ export default function BoxScorePage() {
           <div className="mb-6 space-y-6">
             {groupRounds.map(round => {
               const roundGames = games.filter(g => (g.round ?? '친선') === round)
-              const isGroup = round === '조별예선'
               const isKnockout = knockout.includes(round)
               return (
                 <div key={round}>
@@ -357,6 +356,7 @@ export default function BoxScorePage() {
                       <th className="px-2 py-1.5 border-b border-gray-700">FG</th>
                       <th className="px-2 py-1.5 border-b border-gray-700">FG%</th>
                       <th className="px-2 py-1.5 border-b border-gray-700">3P</th>
+                      <th className="px-2 py-1.5 border-b border-gray-700">3P%</th>
                       <th className="px-2 py-1.5 border-b border-gray-700">OR</th>
                       <th className="px-2 py-1.5 border-b border-gray-700">DR</th>
                       <th className="px-2 py-1.5 border-b border-gray-700">REB</th>
@@ -370,6 +370,7 @@ export default function BoxScorePage() {
                     {gameSummaries.map(g => {
                       const won = g.our_score > g.opponent_score
                       const fgPct = (g.totals.fga ?? 0) > 0 ? Math.round(((g.totals.fgm ?? 0) / g.totals.fga!) * 1000) / 10 : 0
+                      const fg3Pct = (g.totals.fg3a ?? 0) > 0 ? Math.round(((g.totals.fg3m ?? 0) / g.totals.fg3a!) * 1000) / 10 : 0
                       return (
                         <tr key={g.game_id} className="border-b border-gray-800 hover:bg-gray-900">
                           <td className="px-2 py-1.5 text-left text-gray-400">{g.date}</td>
@@ -388,6 +389,7 @@ export default function BoxScorePage() {
                           <td className="px-2 py-1.5 text-gray-300">{g.totals.fgm ?? 0}-{g.totals.fga ?? 0}</td>
                           <td className="px-2 py-1.5"><Pct val={fgPct} /></td>
                           <td className="px-2 py-1.5 text-gray-300">{g.totals.fg3m ?? 0}-{g.totals.fg3a ?? 0}</td>
+                          <td className="px-2 py-1.5"><Pct val={fg3Pct} /></td>
                           <td className="px-2 py-1.5">{g.totals.oreb ?? 0}</td>
                           <td className="px-2 py-1.5">{g.totals.dreb ?? 0}</td>
                           <td className="px-2 py-1.5">{g.totals.reb ?? 0}</td>
