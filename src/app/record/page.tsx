@@ -141,7 +141,8 @@ export default function RecordPage() {
       body: JSON.stringify({ is_complete: true }),
     })
     if (!res.ok) {
-      toast.error('저장 실패: DB 업데이트 오류')
+      const errData = await res.json().catch(() => ({}))
+      toast.error(`저장 실패: ${errData.error ?? res.status}`)
       return
     }
     setGameComplete(true)

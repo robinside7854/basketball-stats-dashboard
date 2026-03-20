@@ -16,7 +16,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const supabase = createServerClient()
   const body = await req.json()
   const { data, error } = await supabase.from('games').update(body).eq('id', id).select('*, tournament:tournaments(*)').single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('[PUT /api/games/[id]] Supabase error:', error)
+    return NextResponse.json({ error: error.message, code: error.code, details: error.details }, { status: 500 })
+  }
   return NextResponse.json(data)
 }
 
