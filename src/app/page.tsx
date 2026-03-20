@@ -45,7 +45,7 @@ interface GameInfo {
 interface DashboardData {
   recentGames: RecentGame[]
   seasonRecord: { wins: number; losses: number; total: number }
-  leaders: { ppg: Leader | null; rpg: Leader | null; apg: Leader | null } | null
+  leaders: { ppg: Leader | null; rpg: Leader | null; apg: Leader | null; fg3_pct: Leader | null; ts_pct: Leader | null } | null
   teamAvg: { pts_avg: number; opp_avg: number; fg_pct: number; fg3_pct: number; ft_pct: number } | null
   teamRecords: {
     maxScore: GameRecord
@@ -222,11 +222,13 @@ export default function HomePage() {
           {leaders && (
             <div>
               <h2 className="text-lg font-semibold mb-3 text-gray-300">부문별 리더</h2>
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {[
                   { label: '득점왕', unit: 'PPG', icon: '🏀', data: leaders.ppg },
                   { label: '리바운드왕', unit: 'RPG', icon: '💪', data: leaders.rpg },
                   { label: '어시스트왕', unit: 'APG', icon: '🤝', data: leaders.apg },
+                  { label: '3점슛왕', unit: '3P%', icon: '🎯', data: leaders.fg3_pct },
+                  { label: 'TS%', unit: '%', icon: '📊', data: leaders.ts_pct },
                 ].map(({ label, unit, icon, data: leader }) => {
                   if (!leader) return null
                   return (

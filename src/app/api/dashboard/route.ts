@@ -58,13 +58,17 @@ export async function GET() {
   const losses = allGames.filter(g => (g.our_score as number) < (g.opponent_score as number)).length
 
   const gameIds = allGames.map(g => g.id as string)
-  const [eventsRes, minutesRes, playersRes] = await Promise.all([
-    supabase.from('game_events').select('*').in('game_id', gameIds).limit(10000),
-    supabase.from('player_minutes').select('*').in('game_id', gameIds).limit(10000),
+
+  // 게임별 개별 조회로 Supabase max_rows(1000) 우회
+  const [playersRes, ...gameResults] = await Promise.all([
     supabase.from('players').select('*').eq('is_active', true).order('number'),
+    ...gameIds.map(gid => Promise.all([
+      supabase.from('game_events').select('*').eq('game_id', gid),
+      supabase.from('player_minutes').select('*').eq('game_id', gid),
+    ]))
   ])
 
-  if (eventsRes.error || minutesRes.error || playersRes.error) {
+  if (playersRes.error) {
     return NextResponse.json({
       recentGames,
       seasonRecord: { wins, losses, total: allGames.length },
@@ -74,16 +78,25 @@ export async function GET() {
     })
   }
 
-  const boxScores = calculateBoxScore(eventsRes.data, minutesRes.data, playersRes.data)
+  type EventRow = Record<string, unknown>
+  type MinuteRow = Record<string, unknown>
+  const allEvents: EventRow[] = []
+  const allMinutes: MinuteRow[] = []
+  for (const [evRes, minRes] of gameResults as Array<[{ data: EventRow[] | null }, { data: MinuteRow[] | null }]>) {
+    if (evRes.data) allEvents.push(...evRes.data)
+    if (minRes.data) allMinutes.push(...minRes.data)
+  }
+
+  const boxScores = calculateBoxScore(allEvents as never, allMinutes as never, playersRes.data)
   const teamTotals = calculateTeamTotals(boxScores)
 
-  const recordedGameIds = new Set(minutesRes.data.map((m: { game_id: string }) => m.game_id))
+  const recordedGameIds = new Set(allMinutes.map((m) => (m as { game_id: string }).game_id))
   const recordedGamesCount = recordedGameIds.size
 
   // 선수별 평균
   const withAverages = boxScores.map((s: PlayerBoxScore) => {
     const gp = new Set(
-      minutesRes.data.filter((m: { player_id: string }) => m.player_id === s.player_id).map((m: { game_id: string }) => m.game_id)
+      allMinutes.filter((m) => (m as { player_id: string }).player_id === s.player_id).map((m) => (m as { game_id: string }).game_id)
     ).size
     return {
       ...s,
@@ -116,9 +129,10 @@ export async function GET() {
 
   // ── 팀 기록 (경기별 집계) ─────────────────────────────────────
   const gameEventsMap = new Map<string, { fg3m: number; tov: number }>()
-  for (const e of eventsRes.data) {
-    if (!gameEventsMap.has(e.game_id)) gameEventsMap.set(e.game_id, { fg3m: 0, tov: 0 })
-    const gm = gameEventsMap.get(e.game_id)!
+  for (const e of allEvents) {
+    const gid = e.game_id as string
+    if (!gameEventsMap.has(gid)) gameEventsMap.set(gid, { fg3m: 0, tov: 0 })
+    const gm = gameEventsMap.get(gid)!
     if (e.type === 'shot_3p' && e.result === 'made') gm.fg3m++
     if (e.type === 'turnover') gm.tov++
   }
@@ -171,11 +185,28 @@ export async function GET() {
   return NextResponse.json({
     recentGames,
     seasonRecord: { wins, losses, total: allGames.length },
-    leaders: {
-      ppg: top('pts_avg') ? { player_id: top('pts_avg').player_id, player_name: top('pts_avg').player_name, player_number: top('pts_avg').player_number, value: top('pts_avg').pts_avg } : null,
-      rpg: top('reb_avg') ? { player_id: top('reb_avg').player_id, player_name: top('reb_avg').player_name, player_number: top('reb_avg').player_number, value: top('reb_avg').reb_avg } : null,
-      apg: top('ast_avg') ? { player_id: top('ast_avg').player_id, player_name: top('ast_avg').player_name, player_number: top('ast_avg').player_number, value: top('ast_avg').ast_avg } : null,
-    },
+    leaders: (() => {
+      function makeLeader(key: string, valKey: string) {
+        const p = top(key); if (!p) return null
+        return { player_id: p.player_id, player_name: p.player_name, player_number: p.player_number, value: Number((p as Record<string, unknown>)[valKey]) }
+      }
+      // 3P%·TS%는 최소 시도 수 필터 (노이즈 방지: 3PA≥5, FGA≥10)
+      const fg3Leaders = withAverages.filter(p => (p.fg3a ?? 0) >= 5)
+      const tsLeaders  = withAverages.filter(p => (p.fga  ?? 0) >= 10)
+      const topFg3 = fg3Leaders.length > 0
+        ? fg3Leaders.reduce((best, p) => (p.fg3_pct ?? 0) > (best.fg3_pct ?? 0) ? p : best)
+        : null
+      const topTs = tsLeaders.length > 0
+        ? tsLeaders.reduce((best, p) => (p.ts_pct ?? 0) > (best.ts_pct ?? 0) ? p : best)
+        : null
+      return {
+        ppg: makeLeader('pts_avg', 'pts_avg'),
+        rpg: makeLeader('reb_avg', 'reb_avg'),
+        apg: makeLeader('ast_avg', 'ast_avg'),
+        fg3_pct: topFg3 ? { player_id: topFg3.player_id, player_name: topFg3.player_name, player_number: topFg3.player_number, value: topFg3.fg3_pct ?? 0 } : null,
+        ts_pct:  topTs  ? { player_id: topTs.player_id,  player_name: topTs.player_name,  player_number: topTs.player_number,  value: topTs.ts_pct  ?? 0 } : null,
+      }
+    })(),
     teamAvg,
     teamRecords,
   })
