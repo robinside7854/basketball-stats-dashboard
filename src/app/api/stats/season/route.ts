@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { NextResponse } from 'next/server'
 import { calculateBoxScore, calculateTeamTotals, calculateQuarterPoints } from '@/lib/stats/calculator'
-import type { PlayerBoxScore } from '@/types/database'
+import type { PlayerBoxScore, GameEvent, PlayerMinutes } from '@/types/database'
 
 export async function GET(req: Request) {
   const supabase = createClient()
@@ -16,27 +16,35 @@ export async function GET(req: Request) {
   const gameIds = games.map((g) => g.id)
   if (gameIds.length === 0) return NextResponse.json({ players: [], teamTotals: {}, total_games: 0, game_summaries: [] })
 
-  const [eventsRes, minutesRes, playersRes] = await Promise.all([
-    supabase.from('game_events').select('*').in('game_id', gameIds).limit(10000),
-    supabase.from('player_minutes').select('*').in('game_id', gameIds).limit(10000),
+  // 게임별 개별 조회로 Supabase max_rows(1000) 우회
+  const [playersRes, ...gameResults] = await Promise.all([
     supabase.from('players').select('*').eq('is_active', true).order('number'),
+    ...gameIds.map(gid => Promise.all([
+      supabase.from('game_events').select('*').eq('game_id', gid),
+      supabase.from('player_minutes').select('*').eq('game_id', gid),
+    ]))
   ])
 
-  if (eventsRes.error || minutesRes.error || playersRes.error) {
-    return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 })
+  if (playersRes.error) return NextResponse.json({ error: 'Failed to fetch players' }, { status: 500 })
+
+  const allEvents: GameEvent[] = []
+  const allMinutes: PlayerMinutes[] = []
+  for (const [evRes, minRes] of gameResults as Array<[{ data: GameEvent[] | null }, { data: PlayerMinutes[] | null }]>) {
+    if (evRes.data) allEvents.push(...evRes.data)
+    if (minRes.data) allMinutes.push(...minRes.data)
   }
 
-  const boxScores = calculateBoxScore(eventsRes.data, minutesRes.data, playersRes.data)
+  const boxScores = calculateBoxScore(allEvents, allMinutes, playersRes.data)
   const teamTotals = calculateTeamTotals(boxScores)
 
   // 실제 기록된 경기 수 (player_minutes 존재하는 게임만)
-  const recordedGameIds = new Set(minutesRes.data.map((m: { game_id: string }) => m.game_id))
+  const recordedGameIds = new Set(allMinutes.map(m => m.game_id))
   const totalGames = recordedGameIds.size
 
   // 선수별 실제 출전 경기 수 (player_minutes 기준)
   const withAverages = boxScores.map((s: PlayerBoxScore) => {
     const playerGames = new Set(
-      minutesRes.data.filter((m: { player_id: string }) => m.player_id === s.player_id).map((m: { game_id: string }) => m.game_id)
+      allMinutes.filter(m => m.player_id === s.player_id).map(m => m.game_id)
     ).size
     return {
       ...s,
@@ -51,11 +59,10 @@ export async function GET(req: Request) {
   const game_summaries = games
     .filter(g => recordedGameIds.has(g.id))
     .map(g => {
-      const gameEvents = eventsRes.data.filter((e: { game_id: string }) => e.game_id === g.id)
-      const gameMinutes = minutesRes.data.filter((m: { game_id: string }) => m.game_id === g.id)
+      const gameEvents = allEvents.filter(e => e.game_id === g.id)
+      const gameMinutes = allMinutes.filter(m => m.game_id === g.id)
       const gameBoxScores = calculateBoxScore(gameEvents, gameMinutes, playersRes.data)
       const totals = calculateTeamTotals(gameBoxScores)
-      // 쿼터별 팀 득점
       const qPts = calculateQuarterPoints(gameEvents)
       const teamQPts: Record<number, number> = {}
       Object.values(qPts).forEach((qmap) => {
