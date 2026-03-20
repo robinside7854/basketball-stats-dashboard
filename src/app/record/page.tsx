@@ -273,7 +273,7 @@ export default function RecordPage() {
               </Button>
               {gameComplete ? (
                 <span className="text-green-400 text-sm font-semibold">✓ 기록 완료</span>
-              ) : gameStarted ? (
+              ) : (
                 <Button
                   size="sm"
                   onClick={completeGame}
@@ -281,7 +281,7 @@ export default function RecordPage() {
                 >
                   기록 완료
                 </Button>
-              ) : null}
+              )}
             </div>
           )}
         </div>
