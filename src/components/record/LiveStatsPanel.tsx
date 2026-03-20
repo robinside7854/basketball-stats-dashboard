@@ -28,7 +28,13 @@ export default function LiveStatsPanel({ gameId, refreshKey }: Props) {
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 flex-shrink-0">
-      <p className="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">실시간 스탯</p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">실시간 스탯</p>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">파란날개 총 득점</span>
+          <span className="text-lg font-black text-yellow-400">{teamTotals.pts ?? 0}</span>
+        </div>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
