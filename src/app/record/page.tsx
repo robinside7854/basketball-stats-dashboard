@@ -135,12 +135,17 @@ export default function RecordPage() {
     await Promise.all(open.map(m =>
       fetch('/api/minutes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: m.id, out_time: ts }) })
     ))
-    await fetch(`/api/games/${currentGame.id}`, {
+    const res = await fetch(`/api/games/${currentGame.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_complete: true }),
     })
+    if (!res.ok) {
+      toast.error('저장 실패: DB 업데이트 오류')
+      return
+    }
     setGameComplete(true)
+    setGameStarted(true)
     setCurrentGame({ ...currentGame, is_complete: true })
     setGames(prev => prev.map(g => g.id === currentGame.id ? { ...g, is_complete: true } : g))
     toast.success('경기 기록이 완료되었습니다')
@@ -297,7 +302,7 @@ export default function RecordPage() {
               startOffset={currentGame.youtube_start_offset}
             />
 
-            {gameStarted && (
+            {(gameStarted || gameComplete) && (
               <LiveStatsPanel gameId={currentGame.id} refreshKey={statsRefresh} />
             )}
           </div>
