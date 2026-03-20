@@ -4,6 +4,7 @@ import { Trash2, Scissors } from 'lucide-react'
 import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useGameStore } from '@/store/gameStore'
+import { useEditMode } from '@/contexts/EditModeContext'
 import { formatTimestamp } from '@/lib/youtube/utils'
 import { EVENT_LABELS } from '@/types/database'
 import type { Tournament, Game, GameEvent } from '@/types/database'
@@ -33,6 +34,7 @@ export default function GameLogPage() {
   const [events, setEvents] = useState<GameEvent[]>([])
   const [filterPlayer, setFilterPlayer] = useState('')
   const { seekTo } = useGameStore()
+  const { isEditMode } = useEditMode()
 
   // 쿼터 분리 팝오버 상태
   const [splitTarget, setSplitTarget] = useState<{ eventId: string; currentQ: number } | null>(null)
@@ -138,8 +140,8 @@ export default function GameLogPage() {
         )}
       </div>
 
-      {/* 안내 배너 */}
-      {selectedGId && events.length > 0 && (
+      {/* 안내 배너 — 편집 모드에서만 */}
+      {isEditMode && selectedGId && events.length > 0 && (
         <div className="mb-4 px-4 py-2.5 bg-blue-950/40 border border-blue-800/50 rounded-lg text-xs text-blue-300 flex items-center gap-2">
           <Scissors size={12} className="shrink-0" />
           각 이벤트 우측의 <strong>✂️ 버튼</strong>을 클릭하면 해당 이벤트부터 쿼터를 분리할 수 있습니다
@@ -184,18 +186,21 @@ export default function GameLogPage() {
                     {e.related_player && <span className="text-gray-500 text-xs ml-2">(어시스트: {e.related_player.name})</span>}
                     {e.type === 'opp_score' && <span className="ml-2 text-red-400">+{e.points}점</span>}
                   </div>
-                  {/* 쿼터 분리 버튼 */}
-                  <button
-                    onClick={() => openSplitPopover(e.id, e.quarter)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-yellow-500 hover:text-yellow-400 p-1"
-                    title="이 이벤트부터 쿼터 분리"
-                  >
-                    <Scissors size={13} />
-                  </button>
-                  {/* 삭제 버튼 */}
-                  <button onClick={() => deleteEvent(e.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-400 p-1">
-                    <Trash2 size={14} />
-                  </button>
+                  {/* 쿼터 분리 / 삭제 버튼 — 편집 모드에서만 */}
+                  {isEditMode && (
+                    <>
+                      <button
+                        onClick={() => openSplitPopover(e.id, e.quarter)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-yellow-500 hover:text-yellow-400 p-1"
+                        title="이 이벤트부터 쿼터 분리"
+                      >
+                        <Scissors size={13} />
+                      </button>
+                      <button onClick={() => deleteEvent(e.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-400 p-1">
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  )}
 
                   {/* 쿼터 분리 팝오버 */}
                   {splitTarget?.eventId === e.id && (
