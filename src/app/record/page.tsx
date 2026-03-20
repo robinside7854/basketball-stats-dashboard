@@ -11,7 +11,98 @@ import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
 import type { Tournament, Game, Player, PlayerMinutes } from '@/types/database'
 
+const SESSION_KEY = 'record_authed'
+
+function PinGate({ onAuth }: { onAuth: () => void }) {
+  const [digits, setDigits] = useState<string[]>([])
+  const [error, setError] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  async function handleDigit(d: string) {
+    if (loading) return
+    const next = [...digits, d]
+    setDigits(next)
+    setError(false)
+    if (next.length < 4) return
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/auth/pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: next.join('') }),
+      })
+      if (res.ok) {
+        sessionStorage.setItem(SESSION_KEY, '1')
+        onAuth()
+      } else {
+        setError(true)
+        setDigits([])
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleDelete() {
+    setDigits(prev => prev.slice(0, -1))
+    setError(false)
+  }
+
+  const PAD = ['1','2','3','4','5','6','7','8','9','','0','⌫']
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8">
+      <div className="text-center">
+        <div className="text-2xl font-bold mb-1">경기 기록</div>
+        <div className="text-gray-400 text-sm">PIN 번호를 입력하세요</div>
+      </div>
+
+      {/* 입력된 자리 표시 */}
+      <div className="flex gap-4">
+        {[0,1,2,3].map(i => (
+          <div key={i} className={`w-4 h-4 rounded-full border-2 transition-colors
+            ${error ? 'border-red-500 bg-red-500' : digits[i] !== undefined ? 'border-blue-400 bg-blue-400' : 'border-gray-600 bg-transparent'}`}
+          />
+        ))}
+      </div>
+      {error && <p className="text-red-400 text-sm -mt-4">PIN이 올바르지 않습니다</p>}
+
+      {/* 숫자 패드 */}
+      <div className="grid grid-cols-3 gap-3">
+        {PAD.map((key, i) => (
+          key === '' ? <div key={i} /> :
+          key === '⌫' ? (
+            <button key={i} onClick={handleDelete}
+              className="w-16 h-16 rounded-2xl bg-gray-800 text-gray-300 text-xl font-medium hover:bg-gray-700 active:scale-95 transition-all">
+              {key}
+            </button>
+          ) : (
+            <button key={i} onClick={() => handleDigit(key)} disabled={digits.length >= 4 || loading}
+              className="w-16 h-16 rounded-2xl bg-gray-800 text-white text-2xl font-bold hover:bg-gray-700 active:scale-95 transition-all disabled:opacity-40">
+              {key}
+            </button>
+          )
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function RecordPage() {
+  const [authed, setAuthed] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    setAuthed(sessionStorage.getItem(SESSION_KEY) === '1')
+  }, [])
+
+  if (authed === null) return null
+  if (!authed) return <PinGate onAuth={() => setAuthed(true)} />
+
+  return <RecordPageInner />
+}
+
+function RecordPageInner() {
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [games, setGames] = useState<Game[]>([])
   const [allPlayers, setAllPlayers] = useState<Player[]>([])
