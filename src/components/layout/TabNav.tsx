@@ -2,11 +2,11 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, ScrollText } from 'lucide-react'
+import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, ScrollText, Lock, Unlock } from 'lucide-react'
+import { useEditMode } from '@/contexts/EditModeContext'
 
-const tabs = [
+const publicTabs = [
   { href: '/',            label: '홈',        icon: Home,          exact: true },
-  { href: '/record',      label: '경기 기록',  icon: PenLine,       exact: false },
   { href: '/boxscore',    label: '박스스코어', icon: ClipboardList, exact: false },
   { href: '/gamelog',     label: '게임 로그',  icon: ScrollText,    exact: false },
   { href: '/stats',       label: '시즌 통계',  icon: BarChart3,     exact: false },
@@ -14,8 +14,14 @@ const tabs = [
   { href: '/tournaments', label: '대회 관리',  icon: Trophy,        exact: false },
 ]
 
+const editOnlyTab = { href: '/record', label: '경기 기록', icon: PenLine, exact: false }
+
 export default function TabNav() {
   const pathname = usePathname()
+  const { isEditMode, openPinModal, exitEditMode } = useEditMode()
+
+  const tabs = isEditMode ? [...publicTabs, editOnlyTab] : publicTabs
+
   return (
     <nav className="bg-gray-950 border-b border-blue-900/40 sticky top-0 z-50 shadow-md">
       <div className="container mx-auto px-4 max-w-[1600px]">
@@ -45,6 +51,27 @@ export default function TabNav() {
               </Link>
             )
           })}
+
+          {/* 편집 모드 버튼 — 우측 끝 */}
+          <div className="ml-auto pl-4 py-3 shrink-0">
+            {isEditMode ? (
+              <button
+                onClick={exitEditMode}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-red-900/30 hover:border-red-500/50 hover:text-red-400 transition-colors"
+              >
+                <Unlock size={13} />
+                편집 모드
+              </button>
+            ) : (
+              <button
+                onClick={openPinModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+              >
+                <Lock size={13} />
+                편집 모드
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </nav>

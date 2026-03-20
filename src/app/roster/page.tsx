@@ -8,6 +8,7 @@ import PlayerForm from '@/components/roster/PlayerForm'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { Player } from '@/types/database'
 import * as XLSX from 'xlsx'
+import { useEditMode } from '@/contexts/EditModeContext'
 
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
 type SortMode = 'number' | 'age_asc' | 'age_desc'
@@ -34,6 +35,7 @@ function parseExcelBirthdate(raw: string | number | undefined): string | null {
 }
 
 export default function RosterPage() {
+  const { isEditMode } = useEditMode()
   const [players, setPlayers] = useState<Player[]>([])
   const [showForm, setShowForm] = useState(false)
   const [editPlayer, setEditPlayer] = useState<Player | null>(null)
@@ -124,13 +126,17 @@ export default function RosterPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">선수 명단</h1>
         <div className="flex gap-2">
-          <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
-          <Button variant="outline" onClick={() => fileRef.current?.click()} className="border-gray-700 text-gray-300 hover:text-white">
-            <Upload size={16} className="mr-2" /> 엑셀 업로드
-          </Button>
-          <Button onClick={() => { setEditPlayer(null); setShowForm(true) }} className="bg-blue-500 hover:bg-blue-600">
-            <Plus size={16} className="mr-2" /> 선수 추가
-          </Button>
+          {isEditMode && (
+            <>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
+              <Button variant="outline" onClick={() => fileRef.current?.click()} className="border-gray-700 text-gray-300 hover:text-white">
+                <Upload size={16} className="mr-2" /> 엑셀 업로드
+              </Button>
+              <Button onClick={() => { setEditPlayer(null); setShowForm(true) }} className="bg-blue-500 hover:bg-blue-600">
+                <Plus size={16} className="mr-2" /> 선수 추가
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -244,8 +250,8 @@ export default function RosterPage() {
             <PlayerCard
               key={player.id}
               player={player}
-              onEdit={() => { setEditPlayer(player); setShowForm(true) }}
-              onDelete={() => handleDelete(player.id)}
+              onEdit={isEditMode ? () => { setEditPlayer(player); setShowForm(true) } : undefined}
+              onDelete={isEditMode ? () => handleDelete(player.id) : undefined}
               onDetail={() => setDetailPlayerId(player.id)}
             />
           ))}

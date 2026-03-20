@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import TournamentForm from '@/components/tournaments/TournamentForm'
 import GameForm from '@/components/tournaments/GameForm'
 import type { Tournament, Game } from '@/types/database'
+import { useEditMode } from '@/contexts/EditModeContext'
 
 const TYPE_LABELS: Record<string, string> = { pro: '선출부', amateur: '비선출부' }
 
@@ -49,6 +50,7 @@ function getTournamentSummary(games: Game[]): { record: string; placement: strin
 }
 
 export default function TournamentsPage() {
+  const { isEditMode } = useEditMode()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [games, setGames] = useState<Record<string, Game[]>>({})
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -92,9 +94,11 @@ export default function TournamentsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">대회 관리</h1>
-        <Button onClick={() => { setEditT(null); setShowTForm(true) }} className="bg-blue-500 hover:bg-blue-600">
-          <Plus size={16} className="mr-2" /> 대회 추가
-        </Button>
+        {isEditMode && (
+          <Button onClick={() => { setEditT(null); setShowTForm(true) }} className="bg-blue-500 hover:bg-blue-600">
+            <Plus size={16} className="mr-2" /> 대회 추가
+          </Button>
+        )}
       </div>
 
       {tournaments.length === 0 ? (
@@ -128,17 +132,19 @@ export default function TournamentsPage() {
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                    <Button size="sm" variant="outline" onClick={() => { setEditT(t); setShowTForm(true) }} className="h-8 border-gray-700 text-gray-300">
-                      <Pencil size={12} />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => deleteT(t.id)} className="h-8 border-gray-700 text-red-400">
-                      <Trash2 size={12} />
-                    </Button>
-                    <Button size="sm" onClick={() => { setEditG(null); setShowGForm(t.id) }} className="h-8 bg-blue-500 hover:bg-blue-600 text-white">
-                      <Plus size={12} className="mr-1" /> 경기
-                    </Button>
-                  </div>
+                  {isEditMode && (
+                    <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                      <Button size="sm" variant="outline" onClick={() => { setEditT(t); setShowTForm(true) }} className="h-8 border-gray-700 text-gray-300">
+                        <Pencil size={12} />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => deleteT(t.id)} className="h-8 border-gray-700 text-red-400">
+                        <Trash2 size={12} />
+                      </Button>
+                      <Button size="sm" onClick={() => { setEditG(null); setShowGForm(t.id) }} className="h-8 bg-blue-500 hover:bg-blue-600 text-white">
+                        <Plus size={12} className="mr-1" /> 경기
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {expanded === t.id && (
@@ -174,14 +180,16 @@ export default function TournamentsPage() {
                                 </a>
                               )}
                             </div>
-                            <div className="flex gap-2 flex-shrink-0">
-                              <Button size="sm" variant="outline" onClick={() => { setEditG(g); setShowGForm(t.id) }} className="h-7 border-gray-700 text-gray-300">
-                                <Pencil size={11} />
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => deleteG(g.id, t.id)} className="h-7 border-gray-700 text-red-400">
-                                <Trash2 size={11} />
-                              </Button>
-                            </div>
+                            {isEditMode && (
+                              <div className="flex gap-2 flex-shrink-0">
+                                <Button size="sm" variant="outline" onClick={() => { setEditG(g); setShowGForm(t.id) }} className="h-7 border-gray-700 text-gray-300">
+                                  <Pencil size={11} />
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => deleteG(g.id, t.id)} className="h-7 border-gray-700 text-red-400">
+                                  <Trash2 size={11} />
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

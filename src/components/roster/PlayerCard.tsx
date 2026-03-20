@@ -16,7 +16,7 @@ function calcAge(birthdate?: string): number | null {
   return age
 }
 
-interface Props { player: Player; onEdit: () => void; onDelete: () => void; onDetail: () => void }
+interface Props { player: Player; onEdit?: () => void; onDelete?: () => void; onDetail: () => void }
 
 export default function PlayerCard({ player, onEdit, onDelete, onDetail }: Props) {
   return (
@@ -56,16 +56,24 @@ export default function PlayerCard({ player, onEdit, onDelete, onDetail }: Props
         </div>
       </button>
 
-      {/* 편집/삭제 버튼 */}
-      <div className="flex border-t border-gray-800">
-        <button onClick={onEdit} className="flex-1 py-2 text-xs text-gray-400 hover:text-white hover:bg-gray-800/60 transition-colors flex items-center justify-center gap-1">
-          <Pencil size={11} /> 수정
-        </button>
-        <div className="w-px bg-gray-800" />
-        <button onClick={onDelete} className="flex-1 py-2 text-xs text-red-500 hover:text-red-400 hover:bg-gray-800/60 transition-colors flex items-center justify-center gap-1">
-          <Trash2 size={11} /> 삭제
-        </button>
-      </div>
+      {/* 편집/삭제 버튼 — 편집 모드에서만 표시 */}
+      {(onEdit || onDelete) && (
+        <div className="flex border-t border-gray-800">
+          {onEdit && (
+            <>
+              <button onClick={onEdit} className="flex-1 py-2 text-xs text-gray-400 hover:text-white hover:bg-gray-800/60 transition-colors flex items-center justify-center gap-1">
+                <Pencil size={11} /> 수정
+              </button>
+              <div className="w-px bg-gray-800" />
+            </>
+          )}
+          {onDelete && (
+            <button onClick={onDelete} className="flex-1 py-2 text-xs text-red-500 hover:text-red-400 hover:bg-gray-800/60 transition-colors flex items-center justify-center gap-1">
+              <Trash2 size={11} /> 삭제
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
