@@ -17,8 +17,8 @@ export async function GET(req: Request) {
   if (gameIds.length === 0) return NextResponse.json({ players: [], teamTotals: {}, total_games: 0, game_summaries: [] })
 
   const [eventsRes, minutesRes, playersRes] = await Promise.all([
-    supabase.from('game_events').select('*').in('game_id', gameIds),
-    supabase.from('player_minutes').select('*').in('game_id', gameIds),
+    supabase.from('game_events').select('*').in('game_id', gameIds).limit(10000),
+    supabase.from('player_minutes').select('*').in('game_id', gameIds).limit(10000),
     supabase.from('players').select('*').eq('is_active', true).order('number'),
   ])
 
