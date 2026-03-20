@@ -94,7 +94,10 @@ export default function StatsPage() {
       if (key === 'usg_pct') return <td key={key} className="px-2 py-2 text-purple-400">{n > 0 ? n.toFixed(1) : '-'}</td>
       if (key === 'stl') return <td key={key} className="px-2 py-2 text-green-400">{n}</td>
       if (key === 'blk') return <td key={key} className="px-2 py-2 text-indigo-400">{n}</td>
-      if (['fg_pct','fg3_pct','ft_pct','efg_pct','ts_pct','ast_tov'].includes(key as string))
+      if (key === 'fg_pct')  return <td key={key} className={`px-2 py-2 font-medium ${n >= 40 ? 'text-green-400' : n > 0 ? 'text-yellow-400' : 'text-gray-600'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
+      if (key === 'fg3_pct') return <td key={key} className={`px-2 py-2 font-medium ${n >= 33 ? 'text-green-400' : n > 0 ? 'text-yellow-400' : 'text-gray-600'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
+      if (key === 'ft_pct')  return <td key={key} className={`px-2 py-2 font-medium ${n >= 70 ? 'text-green-400' : n > 0 ? 'text-yellow-400' : 'text-gray-600'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
+      if (['efg_pct','ts_pct','ast_tov'].includes(key as string))
         return <td key={key} className="px-2 py-2">{n > 0 ? n.toFixed(1) : '-'}</td>
     } else {
       if (key === 'pts') return <td key={key} className="px-2 py-2 font-bold text-white">{n}</td>
