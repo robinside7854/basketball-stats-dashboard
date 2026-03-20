@@ -142,6 +142,7 @@ export default function RecordPage() {
     })
     setGameComplete(true)
     setCurrentGame({ ...currentGame, is_complete: true })
+    setGames(prev => prev.map(g => g.id === currentGame.id ? { ...g, is_complete: true } : g))
     toast.success('경기 기록이 완료되었습니다')
     setStatsRefresh(k => k + 1)
   }
@@ -291,6 +292,7 @@ export default function RecordPage() {
           {/* 좌 2/3: 영상 + 실시간 스탯 */}
           <div className="lg:col-span-2 space-y-3">
             <YouTubePlayer
+              key={currentGame.id}
               youtubeUrl={currentGame.youtube_url || ''}
               startOffset={currentGame.youtube_start_offset}
             />
