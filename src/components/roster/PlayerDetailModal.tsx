@@ -179,52 +179,83 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
             <div className="text-center py-24 text-gray-500">선수를 찾을 수 없습니다</div>
           ) : (
             <>
-              {/* 선수 프로필 헤더 */}
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-                {/* 사진 */}
-                <div className="relative shrink-0">
-                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                  <div
-                    className="w-20 h-20 rounded-2xl bg-gray-800 flex items-center justify-center overflow-hidden cursor-pointer group border-2 border-gray-700 hover:border-blue-500 transition-colors"
-                    onClick={() => !uploading && fileRef.current?.click()}
-                    title="클릭하여 사진 변경"
-                  >
-                    {player.photo_url
-                      ? <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover" />
-                      : <span className="text-2xl font-black text-blue-400">{player.number}</span>
-                    }
-                    <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      {uploading ? <span className="text-white text-xs">업로드 중...</span> : <Camera size={18} className="text-white" />}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => !uploading && fileRef.current?.click()}
-                    className="mt-1 w-full text-xs text-gray-500 hover:text-blue-400 text-center transition-colors"
-                  >
-                    사진 변경
-                  </button>
-                </div>
+              {/* === NBA 스타일 배너 === */}
+              {(() => {
+                const totalGP = tournamentStats.reduce((s, t) => s + t.games_played, 0)
+                const totalPts = tournamentStats.reduce((s, t) => s + (t.stats?.pts ?? 0), 0)
+                const totalReb = tournamentStats.reduce((s, t) => s + (t.stats?.reb ?? 0), 0)
+                const totalAst = tournamentStats.reduce((s, t) => s + (t.stats?.ast ?? 0), 0)
+                const ppg = totalGP > 0 ? (totalPts / totalGP).toFixed(1) : '-'
+                const rpg = totalGP > 0 ? (totalReb / totalGP).toFixed(1) : '-'
+                const apg = totalGP > 0 ? (totalAst / totalGP).toFixed(1) : '-'
+                const age = calcAge(player.birthdate)
+                const positions = player.position?.split(',').map(p => p.trim()).filter(Boolean) ?? []
+                return (
+                  <div className="space-y-0 rounded-xl overflow-hidden border border-gray-800">
+                    {/* 배너 */}
+                    <div className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0d1b2e 0%, #1a3050 100%)', minHeight: '200px' }}>
+                      {/* 배경 번호 워터마크 */}
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-white/5 select-none leading-none pointer-events-none" style={{ fontSize: '160px' }}>
+                        {player.number}
+                      </div>
 
-                {/* 선수 정보 */}
-                <div className="text-center sm:text-left flex-1">
-                  <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
-                    <span className="text-blue-400 font-black text-2xl">#{player.number}</span>
-                    <h1 className="text-2xl font-bold text-white">{player.name}</h1>
-                    {player.is_pro && <span className="text-xs bg-yellow-500 text-black px-2 py-0.5 rounded font-bold">선출</span>}
+                      <div className="flex items-stretch">
+                        {/* 선수 사진 */}
+                        <div className="relative w-36 sm:w-44 shrink-0" style={{ minHeight: '200px' }}>
+                          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                          <div
+                            className="w-full h-full cursor-pointer group overflow-hidden"
+                            onClick={() => !uploading && fileRef.current?.click()}
+                          >
+                            {player.photo_url
+                              ? <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover object-top" />
+                              : <div className="w-full h-full flex items-center justify-center"><span className="text-7xl font-black text-blue-300/30">{player.number}</span></div>
+                            }
+                            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                              {uploading ? <span className="text-white text-xs">업로드 중...</span> : <><Camera size={22} className="text-white" /><span className="text-white text-xs">사진 변경</span></>}
+                            </div>
+                          </div>
+                          <div className="absolute inset-y-0 right-0 w-10 pointer-events-none" style={{ background: 'linear-gradient(to right, transparent, #0d1b2e)' }} />
+                        </div>
+
+                        {/* 선수 정보 */}
+                        <div className="flex-1 px-5 py-5 z-10 flex flex-col justify-center">
+                          <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">
+                            파란날개 &nbsp;|&nbsp; #{player.number}{positions[0] && ` | ${positions[0]}`}
+                          </p>
+                          <h1 className="text-3xl sm:text-4xl font-black text-white leading-tight tracking-wide mb-3">
+                            {player.name}
+                          </h1>
+                          <div className="flex flex-wrap gap-1.5 mb-4">
+                            {positions.map(pos => (
+                              <span key={pos} className={`text-xs px-2 py-0.5 rounded text-white font-bold ${POSITION_COLORS[pos] || 'bg-gray-600'}`}>{pos}</span>
+                            ))}
+                            {player.is_pro && <span className="text-xs bg-yellow-500 text-black px-2 py-0.5 rounded font-bold">선출</span>}
+                          </div>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-2 border-t border-white/10 pt-3">
+                            {player.height_cm && <div><p className="text-xs text-gray-500 uppercase tracking-wider mb-0.5">HEIGHT</p><p className="text-sm font-bold text-white">{player.height_cm}cm</p></div>}
+                            {player.weight_kg && <div><p className="text-xs text-gray-500 uppercase tracking-wider mb-0.5">WEIGHT</p><p className="text-sm font-bold text-white">{player.weight_kg}kg</p></div>}
+                            {age !== null && <div><p className="text-xs text-gray-500 uppercase tracking-wider mb-0.5">AGE</p><p className="text-sm font-bold text-white">만 {age}세</p></div>}
+                            {player.birthdate && <div><p className="text-xs text-gray-500 uppercase tracking-wider mb-0.5">BIRTHDATE</p><p className="text-sm font-bold text-white">{player.birthdate.replace(/-/g, '.')}</p></div>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 주요 스탯 바 */}
+                    {totalGP > 0 && (
+                      <div className="grid grid-cols-3 border-t border-gray-800" style={{ background: '#0f1f35' }}>
+                        {[{ label: 'PPG', value: ppg }, { label: 'RPG', value: rpg }, { label: 'APG', value: apg }].map(({ label, value }, i) => (
+                          <div key={label} className={`py-4 text-center ${i > 0 ? 'border-l border-gray-800' : ''}`}>
+                            <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{label}</p>
+                            <p className="text-3xl font-black text-white">{value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-1.5 justify-center sm:justify-start mb-2">
-                    {player.position?.split(',').map(p => p.trim()).filter(Boolean).map(pos => (
-                      <span key={pos} className={`text-xs px-2 py-0.5 rounded-full text-white ${POSITION_COLORS[pos] || 'bg-gray-600'}`}>{pos}</span>
-                    ))}
-                  </div>
-                  <div className="flex flex-wrap gap-4 justify-center sm:justify-start text-sm text-gray-400">
-                    {player.height_cm && <span>키 {player.height_cm}cm</span>}
-                    {player.weight_kg && <span>몸무게 {player.weight_kg}kg</span>}
-                    {calcAge(player.birthdate) !== null && <span>만 {calcAge(player.birthdate)}세</span>}
-                    {player.birthdate && <span>{player.birthdate.replace(/-/g, '.')}</span>}
-                  </div>
-                </div>
-              </div>
+                )
+              })()}
 
               {/* 공격 스타일 */}
               {totalShots > 0 && (
