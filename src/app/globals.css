@@ -2,6 +2,29 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* ===== 파란날개 팀 컬러 테마 ===== */
+@theme {
+  /* 네이비 팔레트 (gray 대체) */
+  --color-gray-950: #030A14;
+  --color-gray-900: #070E1A;
+  --color-gray-800: #0D1A2E;
+  --color-gray-700: #122338;
+  --color-gray-600: #1E3A5C;
+  --color-gray-500: #3D5F7A;
+  --color-gray-400: #7AAEC8;
+  --color-gray-300: #A8CCE0;
+
+  /* 로열 블루 팔레트 (team primary) */
+  --color-blue-950: #030B1A;
+  --color-blue-900: #071528;
+  --color-blue-800: #0C2040;
+  --color-blue-700: #113060;
+  --color-blue-600: #1560BE;
+  --color-blue-500: #1A72D9;
+  --color-blue-400: #4DA8FF;
+  --color-blue-300: #80C4FF;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

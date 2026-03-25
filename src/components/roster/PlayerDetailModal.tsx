@@ -224,7 +224,7 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                 return (
                   <div className="space-y-0 rounded-xl overflow-hidden border border-gray-800">
                     {/* 배너 */}
-                    <div className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #0d1b2e 0%, #1a3050 100%)', minHeight: '200px' }}>
+                    <div className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #070E1A 0%, #0D1A2E 100%)', minHeight: '200px' }}>
                       {/* 배경 번호 워터마크 */}
                       <div className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-white/5 select-none leading-none pointer-events-none" style={{ fontSize: '160px' }}>
                         {player.number}
@@ -246,7 +246,7 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                               {uploading ? <span className="text-white text-xs">업로드 중...</span> : <><Camera size={22} className="text-white" /><span className="text-white text-xs">사진 변경</span></>}
                             </div>
                           </div>
-                          <div className="absolute inset-y-0 right-0 w-10 pointer-events-none" style={{ background: 'linear-gradient(to right, transparent, #0d1b2e)' }} />
+                          <div className="absolute inset-y-0 right-0 w-10 pointer-events-none" style={{ background: 'linear-gradient(to right, transparent, #070E1A)' }} />
                         </div>
 
                         {/* 선수 정보 */}
@@ -293,7 +293,7 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                         )
                       }
                       return (
-                        <div className="grid grid-cols-5 border-t border-gray-800" style={{ background: '#0f1f35' }}>
+                        <div className="grid grid-cols-5 border-t border-gray-800" style={{ background: '#070E1A' }}>
                           {[
                             { label: 'PPG', value: ppg, key: 'ppg' },
                             { label: 'RPG', value: rpg, key: 'rpg' },
