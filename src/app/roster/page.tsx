@@ -124,7 +124,7 @@ export default function RosterPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">선수 명단</h1>
+        <h1 className="text-2xl font-bold text-gray-900">선수 명단</h1>
         <div className="flex gap-2">
           {isEditMode && (
             <>
@@ -147,7 +147,7 @@ export default function RosterPage() {
           <button
             onClick={() => setFilterPos('')}
             className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-              filterPos === '' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+              filterPos === '' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'
             }`}
           >
             전체
@@ -157,7 +157,7 @@ export default function RosterPage() {
               key={pos}
               onClick={() => setFilterPos(p => p === pos ? '' : pos)}
               className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-                filterPos === pos ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                filterPos === pos ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'
               }`}
             >
               {pos}
@@ -165,14 +165,14 @@ export default function RosterPage() {
           ))}
         </div>
 
-        <div className="h-4 w-px bg-gray-700 mx-1" />
+        <div className="h-4 w-px bg-gray-300 mx-1" />
 
         {/* 정렬 */}
         <div className="flex gap-1.5">
           <button
             onClick={() => setSortMode('number')}
             className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-              sortMode === 'number' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+              sortMode === 'number' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'
             }`}
           >
             등번호순
@@ -180,7 +180,7 @@ export default function RosterPage() {
           <button
             onClick={() => setSortMode('age_asc')}
             className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-              sortMode === 'age_asc' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+              sortMode === 'age_asc' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'
             }`}
           >
             나이 많은순
@@ -188,14 +188,14 @@ export default function RosterPage() {
           <button
             onClick={() => setSortMode('age_desc')}
             className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-              sortMode === 'age_desc' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+              sortMode === 'age_desc' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-gray-300 text-gray-600 hover:text-gray-900 hover:border-gray-400'
             }`}
           >
             나이 어린순
           </button>
         </div>
 
-        <span className="ml-auto text-xs text-gray-500">{displayed.length}명</span>
+        <span className="ml-auto text-xs text-gray-400">{displayed.length}명</span>
       </div>
 
       {/* 엑셀 업로드 미리보기 */}
