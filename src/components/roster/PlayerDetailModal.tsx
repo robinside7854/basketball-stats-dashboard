@@ -2,7 +2,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { X, Camera } from 'lucide-react'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
 import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
 
 interface ShotStat { label: string; made: number; attempted: number; pct: number }
@@ -133,23 +132,14 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
     if (!file || !player) return
     setUploading(true)
     try {
-      const supabase = createClient()
-      const ext = file.name.split('.').pop()
-      const path = `${playerId}.${ext}`
-      const { error: uploadError } = await supabase.storage
-        .from('player-photos')
-        .upload(path, file, { upsert: true, contentType: file.type })
-      if (uploadError) throw new Error(uploadError.message)
-      const { data: { publicUrl } } = supabase.storage.from('player-photos').getPublicUrl(path)
-      const res = await fetch(`/api/players/${playerId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photo_url: publicUrl }),
-      })
-      if (!res.ok) throw new Error('저장 실패')
-      const updated = await res.json()
-      setPlayer(updated)
-      onPlayerUpdate?.(updated)
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('playerId', playerId)
+      const res = await fetch('/api/players/upload-photo', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '업로드 실패')
+      setPlayer(prev => prev ? { ...prev, photo_url: data.url } : prev)
+      onPlayerUpdate?.({ ...player, photo_url: data.url })
       toast.success('사진이 등록되었습니다')
     } catch (err) {
       toast.error(`사진 업로드 실패: ${(err as Error).message}`)
