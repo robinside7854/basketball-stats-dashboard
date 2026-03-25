@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <body className={`${inter.className} bg-white text-gray-900 min-h-screen`}>
+      <body className={`${inter.className} bg-gray-950 text-white min-h-screen`}>
         <Providers>
           <TabNav />
           <main className="container mx-auto px-4 py-4 max-w-[1600px]">

@@ -61,26 +61,26 @@ function GameRecordCard({ icon, title, value, unit, record, onClick }: {
 }) {
   return (
     <div
-      className="bg-blue-600 border border-blue-500/50 rounded-xl p-4 cursor-pointer hover:bg-blue-500 transition-colors"
+      className="bg-gray-900 border border-gray-800 rounded-xl p-4 cursor-pointer hover:border-blue-700 transition-colors"
       onClick={onClick}
     >
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xl">{icon}</span>
-        <span className="text-xs text-blue-200">{title}</span>
+        <span className="text-xs text-gray-400">{title}</span>
       </div>
       <div className="text-2xl font-black text-white mb-2">
-        {value}<span className="text-xs text-blue-200 ml-1">{unit}</span>
+        {value}<span className="text-xs text-gray-400 ml-1">{unit}</span>
       </div>
-      <div className="text-xs space-y-0.5">
+      <div className="text-xs text-gray-500 space-y-0.5">
         <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-blue-100">{record.date}</span>
-          {record.round && <span className="text-blue-200/60">· {record.round}</span>}
+          <span className="text-gray-300">{record.date}</span>
+          {record.round && <span className="text-gray-600">· {record.round}</span>}
         </div>
-        <div className="text-blue-200/70">
+        <div className="text-gray-600">
           vs {record.opponent}
           {record.tournament_name && <span className="ml-1">({record.tournament_name})</span>}
         </div>
-        <div className="text-blue-200/50">
+        <div className="text-gray-700">
           {record.our_score} - {record.opponent_score}
         </div>
       </div>
@@ -122,7 +122,7 @@ export default function HomePage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">홈</h1>
+        <h1 className="text-2xl font-bold text-white">홈</h1>
         <p className="text-sm text-gray-500 mt-1">파란날개 농구팀 시즌 현황</p>
       </div>
 
@@ -138,39 +138,39 @@ export default function HomePage() {
         <>
           {/* 시즌 성적 + 팀 평균 */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            <div className="bg-blue-600 border border-blue-500/50 rounded-xl p-4 text-center">
-              <div className="text-xs text-blue-200 mb-1">승</div>
-              <div className="text-3xl font-black text-green-300">{seasonRecord.wins}</div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+              <div className="text-xs text-gray-400 mb-1">승</div>
+              <div className="text-3xl font-black text-green-400">{seasonRecord.wins}</div>
             </div>
-            <div className="bg-blue-600 border border-blue-500/50 rounded-xl p-4 text-center">
-              <div className="text-xs text-blue-200 mb-1">패</div>
-              <div className="text-3xl font-black text-red-300">{seasonRecord.losses}</div>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+              <div className="text-xs text-gray-400 mb-1">패</div>
+              <div className="text-3xl font-black text-red-400">{seasonRecord.losses}</div>
             </div>
-            <div className="bg-blue-600 border border-blue-400/50 rounded-xl p-4 text-center">
-              <div className="text-xs text-blue-200 mb-1">승률</div>
-              <div className="text-3xl font-black text-white">{winPct}<span className="text-sm font-normal text-blue-200">%</span></div>
+            <div className="bg-gray-900 border border-blue-900/50 rounded-xl p-4 text-center">
+              <div className="text-xs text-gray-400 mb-1">승률</div>
+              <div className="text-3xl font-black text-blue-400">{winPct}<span className="text-sm font-normal text-gray-400">%</span></div>
             </div>
             {teamAvg && (
               <>
-                <div className="bg-blue-600 border border-blue-500/50 rounded-xl p-4 text-center">
-                  <div className="text-xs text-blue-200 mb-1">평균 득점</div>
-                  <div className="text-2xl font-black text-white">{teamAvg.pts_avg}<span className="text-xs text-blue-200 ml-1">PPG</span></div>
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+                  <div className="text-xs text-gray-400 mb-1">평균 득점</div>
+                  <div className="text-2xl font-black text-white">{teamAvg.pts_avg}<span className="text-xs text-gray-400 ml-1">PPG</span></div>
                 </div>
-                <div className="bg-blue-600 border border-blue-500/50 rounded-xl p-4 text-center">
-                  <div className="text-xs text-blue-200 mb-1">평균 실점</div>
-                  <div className="text-2xl font-black text-red-300">{teamAvg.opp_avg}<span className="text-xs text-blue-200 ml-1">PPG</span></div>
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+                  <div className="text-xs text-gray-400 mb-1">평균 실점</div>
+                  <div className="text-2xl font-black text-red-400">{teamAvg.opp_avg}<span className="text-xs text-gray-400 ml-1">PPG</span></div>
                 </div>
-                <div className="bg-blue-600 border border-blue-500/50 rounded-xl p-4 text-center">
-                  <div className="text-xs text-blue-200 mb-1">야투율</div>
-                  <div className="text-2xl font-black text-white">{teamAvg.fg_pct}<span className="text-xs text-blue-200 ml-1">%</span></div>
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+                  <div className="text-xs text-gray-400 mb-1">야투율</div>
+                  <div className="text-2xl font-black text-white">{teamAvg.fg_pct}<span className="text-xs text-gray-400 ml-1">%</span></div>
                 </div>
-                <div className="bg-blue-600 border border-blue-500/50 rounded-xl p-4 text-center">
-                  <div className="text-xs text-blue-200 mb-1">3점율</div>
-                  <div className="text-2xl font-black text-white">{teamAvg.fg3_pct}<span className="text-xs text-blue-200 ml-1">%</span></div>
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+                  <div className="text-xs text-gray-400 mb-1">3점율</div>
+                  <div className="text-2xl font-black text-white">{teamAvg.fg3_pct}<span className="text-xs text-gray-400 ml-1">%</span></div>
                 </div>
-                <div className="bg-blue-600 border border-blue-500/50 rounded-xl p-4 text-center">
-                  <div className="text-xs text-blue-200 mb-1">자유투율</div>
-                  <div className="text-2xl font-black text-white">{teamAvg.ft_pct}<span className="text-xs text-blue-200 ml-1">%</span></div>
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+                  <div className="text-xs text-gray-400 mb-1">자유투율</div>
+                  <div className="text-2xl font-black text-white">{teamAvg.ft_pct}<span className="text-xs text-gray-400 ml-1">%</span></div>
                 </div>
               </>
             )}
@@ -179,7 +179,7 @@ export default function HomePage() {
           {/* 최근 경기 */}
           {recentGames.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold mb-3 text-gray-700">최근 경기</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-300">최근 경기</h2>
               <div className="flex gap-3 overflow-x-auto pb-2">
                 {recentGames.map(g => {
                   const isWin = g.our_score > g.opponent_score
@@ -196,21 +196,21 @@ export default function HomePage() {
                         round: g.round,
                         tournament_name: g.tournament?.name ?? null,
                       })}
-                      className={`shrink-0 bg-blue-600 border rounded-xl p-4 w-44 text-center cursor-pointer hover:bg-blue-500 transition-colors
-                        ${isWin ? 'border-green-400/40' : isDraw ? 'border-blue-400/50' : 'border-red-400/40'}`}
+                      className={`shrink-0 bg-gray-900 border rounded-xl p-4 w-44 text-center cursor-pointer hover:border-blue-600 transition-colors
+                        ${isWin ? 'border-green-900/60' : isDraw ? 'border-gray-700' : 'border-red-900/60'}`}
                     >
                       <div className={`text-xs font-bold mb-2 px-2 py-0.5 rounded-full inline-block
-                        ${isWin ? 'bg-green-500/30 text-green-200' : isDraw ? 'bg-white/20 text-blue-100' : 'bg-red-500/30 text-red-200'}`}>
+                        ${isWin ? 'bg-green-900/50 text-green-400' : isDraw ? 'bg-gray-700 text-gray-400' : 'bg-red-900/50 text-red-400'}`}>
                         {isWin ? '승' : isDraw ? '무' : '패'}
                       </div>
-                      <div className="text-xs text-blue-200 mb-1">{g.date}</div>
-                      <div className="text-xs text-blue-200/70 mb-2 truncate">vs {g.opponent}</div>
+                      <div className="text-xs text-gray-400 mb-1">{g.date}</div>
+                      <div className="text-xs text-gray-500 mb-2 truncate">vs {g.opponent}</div>
                       <div className="text-xl font-black text-white">
                         {g.our_score}
-                        <span className="text-blue-300/60 mx-1 font-normal text-sm">-</span>
+                        <span className="text-gray-600 mx-1 font-normal text-sm">-</span>
                         {g.opponent_score}
                       </div>
-                      {g.round && <div className="text-xs text-blue-200/60 mt-1">{g.round}</div>}
+                      {g.round && <div className="text-xs text-gray-600 mt-1">{g.round}</div>}
                     </div>
                   )
                 })}
@@ -221,7 +221,7 @@ export default function HomePage() {
           {/* 부문별 리더 */}
           {leaders && (
             <div>
-              <h2 className="text-lg font-semibold mb-3 text-gray-700">부문별 리더</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-300">부문별 리더</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                 {[
                   { label: '득점왕', unit: 'PPG', icon: '🏀', data: leaders.ppg },
@@ -235,16 +235,16 @@ export default function HomePage() {
                     <div
                       key={label}
                       onClick={() => setPlayerModal(leader.player_id)}
-                      className="bg-blue-600 border border-blue-500/50 rounded-xl p-5 text-center cursor-pointer hover:bg-blue-500 transition-colors"
+                      className="bg-gray-900 border border-blue-900/40 rounded-xl p-5 text-center cursor-pointer hover:border-blue-500 transition-colors"
                     >
                       <div className="text-2xl mb-2">{icon}</div>
-                      <div className="text-xs text-blue-200 mb-1">{label}</div>
-                      <div className="font-bold text-white mb-1">
+                      <div className="text-xs text-gray-400 mb-1">{label}</div>
+                      <div className="font-bold text-blue-400 mb-1">
                         #{leader.player_number} {leader.player_name}
                       </div>
                       <div className="text-2xl font-black text-white">
                         {leader.value.toFixed(1)}
-                        <span className="text-xs text-blue-200 ml-1">{unit}</span>
+                        <span className="text-xs text-gray-400 ml-1">{unit}</span>
                       </div>
                     </div>
                   )
@@ -256,7 +256,7 @@ export default function HomePage() {
           {/* 팀 기록 */}
           {teamRecords && (
             <div>
-              <h2 className="text-lg font-semibold mb-3 text-gray-700">팀 기록</h2>
+              <h2 className="text-lg font-semibold mb-3 text-gray-300">팀 기록</h2>
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                 <GameRecordCard
                   icon="🔥" title="최다 득점 경기"
