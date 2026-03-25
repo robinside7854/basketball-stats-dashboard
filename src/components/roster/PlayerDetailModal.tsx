@@ -99,6 +99,7 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [expandedTournament, setExpandedTournament] = useState<string | null>(null)
+  const [teamRankings, setTeamRankings] = useState<Record<string, { rank: number; isTie: boolean }>>({})
 
   useEffect(() => {
     fetch(`/api/players/${playerId}/stats`)
@@ -111,6 +112,36 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
         setFreeThrow(d.freeThrow || null)
         setTournamentStats(d.tournamentStats || [])
         setLoading(false)
+      })
+  }, [playerId])
+
+  // 팀 내 랭킹 계산
+  useEffect(() => {
+    fetch('/api/stats/season')
+      .then(r => r.json())
+      .then(data => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const active = (data.players ?? []).filter((p: any) => p.games_played > 0)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        function rank(getValue: (p: any) => number) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sorted = [...active].sort((a: any, b: any) => getValue(b) - getValue(a))
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const me = sorted.find((p: any) => p.player_id === playerId)
+          if (!me) return null
+          const val = getValue(me)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const idx = sorted.findIndex((p: any) => getValue(p) === val)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return { rank: idx + 1, isTie: sorted.filter((p: any) => getValue(p) === val).length > 1 }
+        }
+        setTeamRankings({
+          ppg: rank(p => p.pts_avg) ?? { rank: 0, isTie: false },
+          rpg: rank(p => p.reb_avg) ?? { rank: 0, isTie: false },
+          apg: rank(p => p.ast_avg) ?? { rank: 0, isTie: false },
+          stl: rank(p => p.games_played > 0 ? p.stl / p.games_played : 0) ?? { rank: 0, isTie: false },
+          blk: rank(p => p.games_played > 0 ? p.blk / p.games_played : 0) ?? { rank: 0, isTie: false },
+        })
       })
   }, [playerId])
 
@@ -243,16 +274,42 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                     </div>
 
                     {/* 주요 스탯 바 */}
-                    {totalGP > 0 && (
-                      <div className="grid grid-cols-3 border-t border-gray-800" style={{ background: '#0f1f35' }}>
-                        {[{ label: 'PPG', value: ppg }, { label: 'RPG', value: rpg }, { label: 'APG', value: apg }].map(({ label, value }, i) => (
-                          <div key={label} className={`py-4 text-center ${i > 0 ? 'border-l border-gray-800' : ''}`}>
-                            <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{label}</p>
-                            <p className="text-3xl font-black text-white">{value}</p>
+                    {totalGP > 0 && (() => {
+                      const totalStl = tournamentStats.reduce((s, t) => s + (t.stats?.stl ?? 0), 0)
+                      const totalBlk = tournamentStats.reduce((s, t) => s + (t.stats?.blk ?? 0), 0)
+                      const slg = totalGP > 0 ? (totalStl / totalGP).toFixed(1) : '-'
+                      const bpg = totalGP > 0 ? (totalBlk / totalGP).toFixed(1) : '-'
+                      const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
+                      function RankBadge({ statKey }: { statKey: string }) {
+                        const r = teamRankings[statKey]
+                        if (!r || r.rank === 0) return null
+                        return (
+                          <div className="flex items-center justify-center gap-1 mt-1">
+                            {MEDAL[r.rank] && <span>{MEDAL[r.rank]}</span>}
+                            <span className={`text-xs font-bold ${r.rank === 1 ? 'text-yellow-400' : r.rank === 2 ? 'text-gray-300' : r.rank === 3 ? 'text-amber-600' : 'text-gray-500'}`}>
+                              {r.isTie ? `(T)${r.rank}위` : `${r.rank}위`}
+                            </span>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        )
+                      }
+                      return (
+                        <div className="grid grid-cols-5 border-t border-gray-800" style={{ background: '#0f1f35' }}>
+                          {[
+                            { label: 'PPG', value: ppg, key: 'ppg' },
+                            { label: 'RPG', value: rpg, key: 'rpg' },
+                            { label: 'APG', value: apg, key: 'apg' },
+                            { label: 'STL', value: slg, key: 'stl' },
+                            { label: 'BLK', value: bpg, key: 'blk' },
+                          ].map(({ label, value, key }, i) => (
+                            <div key={label} className={`py-3 text-center ${i > 0 ? 'border-l border-gray-800' : ''}`}>
+                              <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{label}</p>
+                              <p className="text-2xl font-black text-white">{value}</p>
+                              <RankBadge statKey={key} />
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()}
                   </div>
                 )
               })()}
