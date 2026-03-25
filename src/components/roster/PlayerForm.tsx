@@ -1,5 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { Camera } from 'lucide-react'
+import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,6 +29,30 @@ export default function PlayerForm({ player, onClose, onSaved }: Props) {
     height_cm: player?.height_cm ?? '',
     is_pro: player?.is_pro ?? false,
   })
+  const [photoUrl, setPhotoUrl] = useState<string>(player?.photo_url ?? '')
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !player?.id) {
+      toast.error('선수를 먼저 저장한 후 사진을 업로드해주세요')
+      return
+    }
+    setUploading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('playerId', player.id)
+    const res = await fetch('/api/players/upload-photo', { method: 'POST', body: fd })
+    const data = await res.json()
+    if (res.ok) {
+      setPhotoUrl(data.url)
+      toast.success('사진이 업로드되었습니다')
+    } else {
+      toast.error(data.error || '업로드 실패')
+    }
+    setUploading(false)
+  }
   const [birthYear, setBirthYear] = useState(bd.y)
   const [birthMonth, setBirthMonth] = useState(bd.m)
   const [birthDay, setBirthDay] = useState(bd.d)
@@ -65,6 +91,27 @@ export default function PlayerForm({ player, onClose, onSaved }: Props) {
           <DialogTitle>{player ? '선수 수정' : '선수 추가'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+          {/* 프로필 사진 */}
+          <div className="col-span-2 flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => player?.id ? fileInputRef.current?.click() : toast.error('선수를 먼저 저장한 후 사진을 업로드해주세요')}
+              className="relative w-20 h-20 rounded-full bg-gray-800 overflow-hidden flex items-center justify-center group border-2 border-gray-700 hover:border-blue-500 transition-colors"
+            >
+              {photoUrl
+                ? <img src={photoUrl} alt="프로필" className="w-full h-full object-cover" />
+                : <span className="text-2xl font-bold text-blue-400">{form.number || '?'}</span>
+              }
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {uploading ? <span className="text-xs text-white">업로드 중...</span> : <Camera size={20} className="text-white" />}
+              </div>
+            </button>
+            <span className="text-xs text-gray-500">
+              {player?.id ? '클릭하여 사진 변경' : '저장 후 사진 업로드 가능'}
+            </span>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+          </div>
+
           <div>
             <label className="text-sm text-gray-400 mb-1 block">등번호 *</label>
             <Input type="number" value={form.number} onChange={e => setForm(p => ({ ...p, number: e.target.value }))} required className="bg-gray-800 border-gray-700 text-white" />
