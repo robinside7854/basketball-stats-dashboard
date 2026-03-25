@@ -19,40 +19,48 @@ function calcAge(birthdate?: string): number | null {
 interface Props { player: Player; onEdit?: () => void; onDelete?: () => void; onDetail: () => void }
 
 export default function PlayerCard({ player, onEdit, onDelete, onDetail }: Props) {
+  const positions = player.position ? player.position.split(',').map(p => p.trim()).filter(Boolean) : []
+  const age = calcAge(player.birthdate)
+
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-blue-700 transition-colors">
-      {/* 클릭 → 상세 페이지 */}
-      <button onClick={onDetail} className="w-full p-4 flex flex-col items-center gap-3 text-left hover:bg-gray-800/40 transition-colors">
-        <div className="w-14 h-14 rounded-full bg-gray-800 overflow-hidden flex items-center justify-center text-2xl font-bold text-blue-400 shrink-0">
+      <button onClick={onDetail} className="w-full flex text-left hover:bg-gray-800/40 transition-colors">
+        {/* 좌측 4:5 이미지 */}
+        <div className="w-28 shrink-0 bg-gray-800 overflow-hidden flex items-center justify-center" style={{ aspectRatio: '4/5' }}>
           {player.photo_url
             ? <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover" />
-            : player.number
+            : <span className="text-4xl font-black text-blue-400">{player.number}</span>
           }
         </div>
-        <div className="text-center w-full">
-          <div className="flex items-center justify-center gap-1.5">
-            <p className="font-semibold">{player.name}</p>
-            {player.is_pro && <span className="text-xs bg-yellow-500 text-black px-1.5 py-0.5 rounded font-bold">선출</span>}
-          </div>
-          {player.position && (
-            <div className="flex flex-wrap gap-1 justify-center mt-0.5">
-              {player.position.split(',').map(p => p.trim()).filter(Boolean).map(pos => (
-                <span key={pos} className={`text-xs px-2 py-0.5 rounded-full text-white ${POSITION_COLORS[pos] || 'bg-gray-600'}`}>
-                  {pos}
-                </span>
-              ))}
+
+        {/* 우측 정보 */}
+        <div className="flex-1 px-4 py-3 flex flex-col justify-between min-h-0">
+          <div>
+            <div className="text-xs text-gray-500 mb-0.5">#{player.number}</div>
+            <div className="flex items-center gap-1.5 flex-wrap mb-2">
+              <span className="text-xl font-bold text-white leading-tight">{player.name}</span>
+              {player.is_pro && <span className="text-xs bg-yellow-500 text-black px-1.5 py-0.5 rounded font-bold shrink-0">선출</span>}
             </div>
-          )}
-        </div>
-        {(player.height_cm || player.birthdate) && (
-          <p className="text-xs text-gray-500">
-            {player.height_cm && `${player.height_cm}cm`}
-            {player.height_cm && player.birthdate && ' · '}
-            {calcAge(player.birthdate) !== null && `만 ${calcAge(player.birthdate)}세`}
-          </p>
-        )}
-        <div className="flex items-center gap-1 text-xs text-blue-400 opacity-60">
-          <span>상세 보기</span><ChevronRight size={12} />
+            {positions.length > 0 && (
+              <div className="flex flex-wrap gap-1 mb-2">
+                {positions.map(pos => (
+                  <span key={pos} className={`text-xs px-2 py-0.5 rounded-full text-white font-medium ${POSITION_COLORS[pos] || 'bg-gray-600'}`}>
+                    {pos}
+                  </span>
+                ))}
+              </div>
+            )}
+            {(player.height_cm || age !== null) && (
+              <p className="text-sm text-gray-400">
+                {player.height_cm && `${player.height_cm}cm`}
+                {player.height_cm && age !== null && ' · '}
+                {age !== null && `만 ${age}세`}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1 text-xs text-blue-400 opacity-60 mt-2">
+            <span>상세 보기</span><ChevronRight size={12} />
+          </div>
         </div>
       </button>
 
