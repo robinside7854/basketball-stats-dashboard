@@ -26,40 +26,40 @@ export default function PlayerCard({ player, onEdit, onDelete, onDetail }: Props
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-blue-700 transition-colors">
       <button onClick={onDetail} className="w-full flex text-left hover:bg-gray-800/40 transition-colors">
         {/* 좌측 4:5 이미지 */}
-        <div className="w-28 shrink-0 bg-gray-800 overflow-hidden flex items-center justify-center" style={{ aspectRatio: '4/5' }}>
+        <div className="w-20 shrink-0 bg-gray-800 overflow-hidden flex items-center justify-center" style={{ aspectRatio: '4/5' }}>
           {player.photo_url
             ? <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover" />
-            : <span className="text-4xl font-black text-blue-400">{player.number}</span>
+            : <span className="text-3xl font-black text-blue-400">{player.number}</span>
           }
         </div>
 
         {/* 우측 정보 */}
-        <div className="flex-1 px-4 py-3 flex flex-col justify-between min-h-0">
+        <div className="flex-1 px-3 py-2.5 flex flex-col justify-between min-h-0">
           <div>
             <div className="text-xs text-gray-500 mb-0.5">#{player.number}</div>
-            <div className="flex items-center gap-1.5 flex-wrap mb-2">
-              <span className="text-xl font-bold text-white leading-tight">{player.name}</span>
-              {player.is_pro && <span className="text-xs bg-yellow-500 text-black px-1.5 py-0.5 rounded font-bold shrink-0">선출</span>}
+            <div className="flex items-center gap-1 flex-wrap mb-1.5">
+              <span className="text-base font-bold text-white leading-tight">{player.name}</span>
+              {player.is_pro && <span className="text-xs bg-yellow-500 text-black px-1 py-0.5 rounded font-bold shrink-0">선출</span>}
             </div>
             {positions.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-2">
+              <div className="flex flex-wrap gap-1 mb-1.5">
                 {positions.map(pos => (
-                  <span key={pos} className={`text-xs px-2 py-0.5 rounded-full text-white font-medium ${POSITION_COLORS[pos] || 'bg-gray-600'}`}>
+                  <span key={pos} className={`text-xs px-1.5 py-0.5 rounded-full text-white font-medium ${POSITION_COLORS[pos] || 'bg-gray-600'}`}>
                     {pos}
                   </span>
                 ))}
               </div>
             )}
             {(player.height_cm || age !== null) && (
-              <p className="text-sm text-gray-400">
+              <p className="text-xs text-gray-400">
                 {player.height_cm && `${player.height_cm}cm`}
                 {player.height_cm && age !== null && ' · '}
                 {age !== null && `만 ${age}세`}
               </p>
             )}
           </div>
-          <div className="flex items-center gap-1 text-xs text-blue-400 opacity-60 mt-2">
-            <span>상세 보기</span><ChevronRight size={12} />
+          <div className="flex items-center gap-0.5 text-xs text-blue-400 opacity-60 mt-1.5">
+            <span>상세 보기</span><ChevronRight size={11} />
           </div>
         </div>
       </button>
