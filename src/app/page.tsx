@@ -68,8 +68,8 @@ function GameRecordCard({ icon, title, value, unit, record, onClick }: {
         <span className="text-xl">{icon}</span>
         <span className="text-xs text-gray-400">{title}</span>
       </div>
-      <div className="text-2xl font-black text-white mb-2">
-        {value}<span className="text-xs text-gray-400 ml-1">{unit}</span>
+      <div className="text-2xl font-black font-mono text-white mb-2">
+        {value}<span className="text-xs font-sans font-normal text-gray-400 ml-1">{unit}</span>
       </div>
       <div className="text-xs text-gray-500 space-y-0.5">
         <div className="flex items-center gap-1 flex-wrap">
@@ -138,39 +138,39 @@ export default function HomePage() {
         <>
           {/* 시즌 성적 + 팀 평균 */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center hover:border-green-700/60 transition-colors duration-200">
               <div className="text-xs text-gray-400 mb-1">승</div>
-              <div className="text-3xl font-black text-green-400">{seasonRecord.wins}</div>
+              <div className="text-3xl font-black font-mono text-green-400">{seasonRecord.wins}</div>
             </div>
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center hover:border-red-800/60 transition-colors duration-200">
               <div className="text-xs text-gray-400 mb-1">패</div>
-              <div className="text-3xl font-black text-red-400">{seasonRecord.losses}</div>
+              <div className="text-3xl font-black font-mono text-red-400">{seasonRecord.losses}</div>
             </div>
-            <div className="bg-gray-900 border border-blue-900/50 rounded-xl p-4 text-center">
+            <div className="bg-gray-900 border border-amber-500/30 rounded-xl p-4 text-center hover:border-amber-500/60 transition-colors duration-200">
               <div className="text-xs text-gray-400 mb-1">승률</div>
-              <div className="text-3xl font-black text-blue-400">{winPct}<span className="text-sm font-normal text-gray-400">%</span></div>
+              <div className="text-3xl font-black font-mono text-amber-400">{winPct}<span className="text-sm font-normal text-gray-400">%</span></div>
             </div>
             {teamAvg && (
               <>
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center hover:border-blue-700/60 transition-colors duration-200">
                   <div className="text-xs text-gray-400 mb-1">평균 득점</div>
-                  <div className="text-2xl font-black text-white">{teamAvg.pts_avg}<span className="text-xs text-gray-400 ml-1">PPG</span></div>
+                  <div className="text-2xl font-black font-mono text-white">{teamAvg.pts_avg}<span className="text-xs font-sans font-normal text-gray-400 ml-1">PPG</span></div>
                 </div>
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center hover:border-red-800/60 transition-colors duration-200">
                   <div className="text-xs text-gray-400 mb-1">평균 실점</div>
-                  <div className="text-2xl font-black text-red-400">{teamAvg.opp_avg}<span className="text-xs text-gray-400 ml-1">PPG</span></div>
+                  <div className="text-2xl font-black font-mono text-red-400">{teamAvg.opp_avg}<span className="text-xs font-sans font-normal text-gray-400 ml-1">PPG</span></div>
                 </div>
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center hover:border-blue-700/60 transition-colors duration-200">
                   <div className="text-xs text-gray-400 mb-1">야투율</div>
-                  <div className="text-2xl font-black text-white">{teamAvg.fg_pct}<span className="text-xs text-gray-400 ml-1">%</span></div>
+                  <div className="text-2xl font-black font-mono text-white">{teamAvg.fg_pct}<span className="text-xs font-sans font-normal text-gray-400 ml-1">%</span></div>
                 </div>
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center hover:border-blue-700/60 transition-colors duration-200">
                   <div className="text-xs text-gray-400 mb-1">3점율</div>
-                  <div className="text-2xl font-black text-white">{teamAvg.fg3_pct}<span className="text-xs text-gray-400 ml-1">%</span></div>
+                  <div className="text-2xl font-black font-mono text-white">{teamAvg.fg3_pct}<span className="text-xs font-sans font-normal text-gray-400 ml-1">%</span></div>
                 </div>
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center hover:border-blue-700/60 transition-colors duration-200">
                   <div className="text-xs text-gray-400 mb-1">자유투율</div>
-                  <div className="text-2xl font-black text-white">{teamAvg.ft_pct}<span className="text-xs text-gray-400 ml-1">%</span></div>
+                  <div className="text-2xl font-black font-mono text-white">{teamAvg.ft_pct}<span className="text-xs font-sans font-normal text-gray-400 ml-1">%</span></div>
                 </div>
               </>
             )}
@@ -205,9 +205,9 @@ export default function HomePage() {
                       </div>
                       <div className="text-xs text-gray-400 mb-1">{g.date}</div>
                       <div className="text-xs text-gray-500 mb-2 truncate">vs {g.opponent}</div>
-                      <div className="text-xl font-black text-white">
+                      <div className="text-xl font-black font-mono text-white">
                         {g.our_score}
-                        <span className="text-gray-600 mx-1 font-normal text-sm">-</span>
+                        <span className="text-gray-600 mx-1 font-sans font-normal text-sm">-</span>
                         {g.opponent_score}
                       </div>
                       {g.round && <div className="text-xs text-gray-600 mt-1">{g.round}</div>}
@@ -235,16 +235,16 @@ export default function HomePage() {
                     <div
                       key={label}
                       onClick={() => setPlayerModal(leader.player_id)}
-                      className="bg-gray-900 border border-blue-900/40 rounded-xl p-5 text-center cursor-pointer hover:border-blue-500 transition-colors"
+                      className="bg-gray-900 border border-blue-900/40 rounded-xl p-5 text-center cursor-pointer hover:border-amber-500/50 hover:bg-gray-800/80 transition-colors duration-200"
                     >
                       <div className="text-2xl mb-2">{icon}</div>
                       <div className="text-xs text-gray-400 mb-1">{label}</div>
-                      <div className="font-bold text-blue-400 mb-1">
+                      <div className="font-semibold text-blue-400 mb-1 text-sm">
                         #{leader.player_number} {leader.player_name}
                       </div>
-                      <div className="text-2xl font-black text-white">
+                      <div className="text-2xl font-black font-mono text-amber-400">
                         {leader.value.toFixed(1)}
-                        <span className="text-xs text-gray-400 ml-1">{unit}</span>
+                        <span className="text-xs font-sans font-normal text-gray-400 ml-1">{unit}</span>
                       </div>
                     </div>
                   )

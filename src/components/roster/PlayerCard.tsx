@@ -36,7 +36,7 @@ export default function PlayerCard({ player, onEdit, onDelete, onDetail }: Props
         {/* 우측 정보 — 카드 높이 꽉 채우기 */}
         <div className="flex-1 px-3 py-3 flex flex-col justify-between">
           <div className="space-y-1.5">
-            <div className="text-2xl font-black text-blue-400 leading-none">#{player.number}</div>
+            <div className="text-2xl font-black font-mono text-blue-400 leading-none">#{player.number}</div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-lg font-bold text-white leading-tight">{player.name}</span>
               {player.is_pro && <span className="text-xs bg-yellow-500 text-black px-1.5 py-0.5 rounded font-bold shrink-0">선출</span>}

@@ -4,6 +4,10 @@
 
 /* ===== 파란날개 팀 컬러 테마 ===== */
 @theme {
+  /* 폰트 */
+  --font-sans: var(--font-fira-sans), 'Fira Sans', system-ui, sans-serif;
+  --font-mono: var(--font-fira-code), 'Fira Code', monospace;
+
   /* 네이비 팔레트 (gray 대체) */
   --color-gray-950: #030A14;
   --color-gray-900: #070E1A;
@@ -23,6 +27,11 @@
   --color-blue-500: #1A72D9;
   --color-blue-400: #4DA8FF;
   --color-blue-300: #80C4FF;
+
+  /* 앰버 강조색 (챔피언십 골드) */
+  --color-amber-400: #FBBF24;
+  --color-amber-500: #F59E0B;
+  --color-amber-300: #FCD34D;
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -148,5 +157,14 @@
   }
   html {
     @apply font-sans;
+  }
+  /* 테이블 숫자 셀: Fira Code 적용 */
+  td {
+    font-family: var(--font-fira-code), 'Fira Code', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  /* 첫 번째 열(선수명)은 제외 */
+  td:first-child {
+    font-family: var(--font-fira-sans), 'Fira Sans', system-ui, sans-serif;
   }
 }

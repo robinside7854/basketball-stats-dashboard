@@ -303,7 +303,7 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                           ].map(({ label, value, key }, i) => (
                             <div key={label} className={`py-3 text-center ${i > 0 ? 'border-l border-gray-800' : ''}`}>
                               <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{label}</p>
-                              <p className="text-2xl font-black text-white">{value}</p>
+                              <p className="text-2xl font-black font-mono text-white">{value}</p>
                               <RankBadge statKey={key} />
                             </div>
                           ))}
