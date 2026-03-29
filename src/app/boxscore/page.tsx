@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { Tournament, Game, PlayerBoxScore } from '@/types/database'
 
 type SortKey = 'player_number' | 'pts' | 'fg_pct' | 'fg3_pct' | 'ft_pct' | 'oreb' | 'dreb' | 'reb' | 'ast' | 'stl' | 'blk' | 'tov' | 'pf' | 'efg_pct' | 'ts_pct'
@@ -37,6 +38,8 @@ export default function BoxScorePage() {
   const [sortKey, setSortKey] = useState<SortKey>('pts')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [quarterPts, setQuarterPts] = useState<Record<string, Record<number, number>>>({})
+
+  const [playerModal, setPlayerModal] = useState<string | null>(null)
 
   // 대회 전체
   const [seasonScores, setSeasonScores] = useState<SeasonBoxScore[]>([])
@@ -234,7 +237,9 @@ export default function BoxScorePage() {
                             <tr key={s.player_id} className="border-b border-gray-800 hover:bg-gray-900 transition-colors">
                               <td className="px-2 py-2 font-bold text-blue-400 text-left">{s.player_number}</td>
                               <td className="px-2 py-2 text-left font-medium whitespace-nowrap">
-                                {s.player_name}
+                                <button onClick={() => setPlayerModal(s.player_id)} className="hover:text-blue-400 hover:underline underline-offset-2 transition-colors cursor-pointer">
+                                  {s.player_name}
+                                </button>
                                 {s.double_double && <span className="ml-1 text-xs bg-yellow-600 px-1 rounded">DD</span>}
                                 {s.triple_double && <span className="ml-1 text-xs bg-blue-600 px-1 rounded">TD</span>}
                               </td>
@@ -447,7 +452,11 @@ export default function BoxScorePage() {
                   {seasonSorted.map(s => (
                     <tr key={s.player_id} className="border-b border-gray-800 hover:bg-gray-900 transition-colors">
                       <td className="px-2 py-2 font-bold text-blue-400 text-left">{s.player_number}</td>
-                      <td className="px-2 py-2 text-left font-medium whitespace-nowrap">{s.player_name}</td>
+                      <td className="px-2 py-2 text-left font-medium whitespace-nowrap">
+                        <button onClick={() => setPlayerModal(s.player_id)} className="hover:text-blue-400 hover:underline underline-offset-2 transition-colors cursor-pointer">
+                          {s.player_name}
+                        </button>
+                      </td>
                       <td className="px-2 py-2 text-gray-500 text-xs">{s.games_played}</td>
                       <td className={`px-2 py-2 font-bold ${seasonSortKey === 'pts' ? 'text-blue-300' : 'text-white'}`}>{s.pts}</td>
                       <td className={`px-2 py-2 ${seasonSortKey === 'pts_avg' ? 'text-blue-300 font-bold' : 'text-gray-300'}`}>{s.pts_avg}</td>
@@ -500,6 +509,13 @@ export default function BoxScorePage() {
             </div>
           )}
         </>
+      )}
+
+      {playerModal && (
+        <PlayerDetailModal
+          playerId={playerModal}
+          onClose={() => setPlayerModal(null)}
+        />
       )}
     </div>
   )

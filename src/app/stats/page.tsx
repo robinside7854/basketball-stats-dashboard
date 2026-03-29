@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { Tournament, PlayerBoxScore } from '@/types/database'
 
 interface SeasonPlayer extends PlayerBoxScore {
@@ -8,7 +9,13 @@ interface SeasonPlayer extends PlayerBoxScore {
   usg_pct: number
 }
 
-type ViewMode = 'avg' | 'vol'
+type ViewMode = 'avg' | 'vol' | 'per36'
+
+const GAME_MINUTES = 28 // 7분 × 4쿼터
+
+function toPer36(perGameValue: number): number {
+  return Math.round((perGameValue / GAME_MINUTES) * 36 * 10) / 10
+}
 
 export default function StatsPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([])
@@ -16,6 +23,7 @@ export default function StatsPage() {
   const [players, setPlayers] = useState<SeasonPlayer[]>([])
   const [viewMode, setViewMode] = useState<ViewMode>('avg')
   const [sortKey, setSortKey] = useState<keyof SeasonPlayer>('pts_avg')
+  const [playerModal, setPlayerModal] = useState<string | null>(null)
 
   useEffect(() => { fetch('/api/tournaments').then(r => r.json()).then(setTournaments) }, [])
   useEffect(() => {
@@ -25,7 +33,7 @@ export default function StatsPage() {
 
   function switchMode(mode: ViewMode) {
     setViewMode(mode)
-    setSortKey(mode === 'avg' ? 'pts_avg' : 'pts')
+    setSortKey(mode === 'avg' || mode === 'per36' ? 'pts_avg' : 'pts')
   }
 
   const sorted = [...players].sort((a, b) => (Number(b[sortKey]) || 0) - (Number(a[sortKey]) || 0))
@@ -57,6 +65,21 @@ export default function StatsPage() {
     { key: 'blk', label: 'BLK' },
   ]
 
+  const per36Cols: { key: keyof SeasonPlayer; label: string }[] = [
+    { key: 'player_number', label: '#' },
+    { key: 'player_name', label: '이름' },
+    { key: 'games_played', label: 'GP' },
+    { key: 'pts_avg', label: 'P/36' },
+    { key: 'reb_avg', label: 'R/36' },
+    { key: 'ast_avg', label: 'A/36' },
+    { key: 'fg_pct', label: 'FG%' },
+    { key: 'fg3_pct', label: '3P%' },
+    { key: 'ft_pct', label: 'FT%' },
+    { key: 'ts_pct', label: 'TS%' },
+    { key: 'stl', label: 'S/36' },
+    { key: 'blk', label: 'B/36' },
+  ]
+
   const volCols: { key: keyof SeasonPlayer; label: string }[] = [
     { key: 'player_number', label: '#' },
     { key: 'player_name', label: '이름' },
@@ -77,15 +100,46 @@ export default function StatsPage() {
     { key: 'dreb', label: 'DR' },
   ]
 
-  const cols = viewMode === 'avg' ? avgCols : volCols
+  const cols = viewMode === 'avg' ? avgCols : viewMode === 'per36' ? per36Cols : volCols
+
+  function NameCell({ s }: { s: SeasonPlayer }) {
+    return (
+      <td className="px-2 py-2 text-left whitespace-nowrap">
+        <button
+          onClick={() => setPlayerModal(s.player_id)}
+          className="font-medium hover:text-blue-400 hover:underline underline-offset-2 transition-colors cursor-pointer"
+        >
+          {s.player_name}
+        </button>
+      </td>
+    )
+  }
 
   function renderCell(s: SeasonPlayer, key: keyof SeasonPlayer) {
     const v = s[key]
     if (key === 'player_number') return <td key={key} className="px-2 py-2 font-bold text-blue-400">{v as number}</td>
-    if (key === 'player_name') return <td key={key} className="px-2 py-2 text-left font-medium whitespace-nowrap">{v as string}</td>
+    if (key === 'player_name') return <NameCell key={key} s={s} />
     if (key === 'games_played') return <td key={key} className="px-2 py-2 text-gray-400">{v as number}</td>
 
     const n = Number(v) || 0
+    const gp = s.games_played || 1
+
+    if (viewMode === 'per36') {
+      // 비율 지표는 그대로 표시
+      if (['fg_pct', 'fg3_pct', 'ft_pct', 'ts_pct'].includes(key as string)) {
+        return <td key={key} className={`px-2 py-2 font-medium ${n >= 40 && key === 'fg_pct' ? 'text-green-400' : n >= 33 && key === 'fg3_pct' ? 'text-green-400' : n >= 70 && key === 'ft_pct' ? 'text-green-400' : n > 0 ? 'text-yellow-400' : 'text-gray-600'}`}>
+          {n > 0 ? n.toFixed(1) : '-'}
+        </td>
+      }
+      // 평균 기반 환산 (pts_avg, reb_avg, ast_avg)
+      if (key === 'pts_avg') return <td key={key} className="px-2 py-2 font-bold text-white">{toPer36(n)}</td>
+      if (key === 'reb_avg') return <td key={key} className="px-2 py-2">{toPer36(n)}</td>
+      if (key === 'ast_avg') return <td key={key} className="px-2 py-2 text-blue-400">{toPer36(n)}</td>
+      // STL/BLK: 누적 ÷ GP × 36/28
+      if (key === 'stl') return <td key={key} className="px-2 py-2 text-green-400">{toPer36(n / gp)}</td>
+      if (key === 'blk') return <td key={key} className="px-2 py-2 text-indigo-400">{toPer36(n / gp)}</td>
+      return <td key={key} className="px-2 py-2">{n > 0 ? n.toFixed(1) : '-'}</td>
+    }
 
     if (viewMode === 'avg') {
       if (key === 'pts_avg') return <td key={key} className="px-2 py-2 font-bold text-white">{n.toFixed(1)}</td>
@@ -116,48 +170,76 @@ export default function StatsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <h1 className="text-2xl font-bold shrink-0">시즌 통계</h1>
         <div className="flex items-center gap-3 flex-wrap">
-        <Select value={selectedTId} onValueChange={v => setSelectedTId(v ?? '')}>
-          <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-52">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-gray-800 border-gray-700 text-white">
-            <SelectItem value="all">전체 경기</SelectItem>
-            {tournaments.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.year})</SelectItem>)}
-          </SelectContent>
-        </Select>
+          <Select value={selectedTId} onValueChange={v => setSelectedTId(v ?? '')}>
+            <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-52">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-gray-800 border-gray-700 text-white">
+              <SelectItem value="all">전체 경기</SelectItem>
+              {tournaments.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.year})</SelectItem>)}
+            </SelectContent>
+          </Select>
 
-        {/* 뷰 모드 토글 */}
-        <div className="flex rounded-lg overflow-hidden border border-gray-700">
-          <button
-            onClick={() => switchMode('avg')}
-            className={`px-4 py-1.5 text-sm font-medium transition-colors ${viewMode === 'avg' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
-          >
-            경기당 평균
-          </button>
-          <button
-            onClick={() => switchMode('vol')}
-            className={`px-4 py-1.5 text-sm font-medium transition-colors ${viewMode === 'vol' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
-          >
-            누적 볼륨
-          </button>
-        </div>
+          {/* 뷰 모드 토글 */}
+          <div className="flex rounded-lg overflow-hidden border border-gray-700">
+            <button
+              onClick={() => switchMode('avg')}
+              className={`px-4 py-1.5 text-sm font-medium transition-colors ${viewMode === 'avg' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            >
+              경기당 평균
+            </button>
+            <button
+              onClick={() => switchMode('per36')}
+              className={`px-4 py-1.5 text-sm font-medium transition-colors border-l border-gray-700 ${viewMode === 'per36' ? 'bg-amber-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            >
+              36분 환산
+            </button>
+            <button
+              onClick={() => switchMode('vol')}
+              className={`px-4 py-1.5 text-sm font-medium transition-colors border-l border-gray-700 ${viewMode === 'vol' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            >
+              누적 볼륨
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* 리더보드 — 평균 뷰에서만 */}
-      {players.length > 0 && viewMode === 'avg' && (
+      {/* 36분 환산 안내 배너 */}
+      {viewMode === 'per36' && (
+        <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3">
+          <span className="text-amber-400 text-lg shrink-0">📐</span>
+          <div>
+            <p className="text-sm text-amber-300 font-medium">NBA 스타일 36분 환산</p>
+            <p className="text-xs text-gray-400 mt-0.5">파란날개 기준 28분(7분×4쿼터)을 NBA 기준 36분으로 환산한 예상 수치입니다. FG%·3P%·FT%·TS%는 비율 지표로 환산하지 않습니다.</p>
+          </div>
+        </div>
+      )}
+
+      {/* 리더보드 — 평균/36분 뷰에서만 */}
+      {players.length > 0 && viewMode !== 'vol' && (
         <div>
           <h2 className="text-lg font-semibold mb-3 text-gray-300">부문별 리더</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {leaders.map(({ label, key, unit, icon }) => {
               const leader = [...players].sort((a, b) => (Number(b[key]) || 0) - (Number(a[key]) || 0))[0]
               if (!leader) return null
+              const displayVal = viewMode === 'per36' && ['pts_avg', 'reb_avg', 'ast_avg'].includes(key)
+                ? toPer36(Number(leader[key]))
+                : Number(leader[key]).toFixed(1)
+              const displayUnit = viewMode === 'per36' && ['pts_avg', 'reb_avg', 'ast_avg'].includes(key)
+                ? unit.replace('PG', '/36')
+                : unit
               return (
                 <div key={key} className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
                   <div className="text-2xl mb-1">{icon}</div>
                   <div className="text-xs text-gray-400 mb-1">{label}</div>
-                  <div className="font-bold text-blue-400">{leader.player_name}</div>
-                  <div className="text-xl font-black text-white mt-1">{Number(leader[key]).toFixed(1)}<span className="text-xs text-gray-400 ml-1">{unit}</span></div>
+                  <button
+                    onClick={() => setPlayerModal(leader.player_id)}
+                    className="font-bold text-blue-400 hover:text-blue-300 hover:underline underline-offset-2 transition-colors cursor-pointer block w-full"
+                  >
+                    {leader.player_name}
+                  </button>
+                  <div className="text-xl font-black font-mono text-white mt-1">{displayVal}<span className="text-xs font-sans font-normal text-gray-400 ml-1">{displayUnit}</span></div>
                 </div>
               )
             })}
@@ -171,7 +253,7 @@ export default function StatsPage() {
           <h2 className="text-lg font-semibold mb-3 text-gray-300">
             선수별 통계
             <span className="ml-2 text-sm font-normal text-gray-500">
-              {viewMode === 'avg' ? '경기당 평균' : '시즌 누적'}
+              {viewMode === 'avg' ? '경기당 평균' : viewMode === 'per36' ? '36분 환산' : '시즌 누적'}
             </span>
           </h2>
           <div className="overflow-x-auto">
@@ -201,8 +283,9 @@ export default function StatsPage() {
             </table>
           </div>
           <div className="flex flex-wrap gap-4 mt-3">
-            <p className="text-xs text-gray-500">* 컬럼 클릭 시 정렬 변경</p>
+            <p className="text-xs text-gray-500">* 컬럼 클릭 시 정렬 변경 / 이름 클릭 시 선수 상세</p>
             {viewMode === 'avg' && <p className="text-xs text-gray-500">* USG%: 팀 전체 공격 점유 중 해당 선수 비율</p>}
+            {viewMode === 'per36' && <p className="text-xs text-gray-500">* 28분 기준 → 36분 환산 (× 1.286)</p>}
           </div>
         </div>
       )}
@@ -212,6 +295,13 @@ export default function StatsPage() {
           <p>경기 기록 데이터가 없습니다</p>
           <p className="text-sm mt-2">경기 기록 탭에서 스탯을 입력하면 자동으로 집계됩니다</p>
         </div>
+      )}
+
+      {playerModal && (
+        <PlayerDetailModal
+          playerId={playerModal}
+          onClose={() => setPlayerModal(null)}
+        />
       )}
     </div>
   )

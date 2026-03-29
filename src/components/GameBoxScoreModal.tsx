@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
+import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { PlayerBoxScore } from '@/types/database'
 
 interface GameInfo {
@@ -27,6 +28,15 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
   const [boxScores, setBoxScores] = useState<PlayerBoxScore[]>([])
   const [teamTotals, setTeamTotals] = useState<Partial<PlayerBoxScore>>({})
   const [loading, setLoading] = useState(true)
+  const [internalPlayerModal, setInternalPlayerModal] = useState<string | null>(null)
+
+  function handlePlayerClick(playerId: string) {
+    if (onPlayerClick) {
+      onPlayerClick(playerId)
+    } else {
+      setInternalPlayerModal(playerId)
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/stats/${gameInfo.game_id}`)
@@ -116,12 +126,16 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                 {boxScores.map(s => (
                   <tr
                     key={s.player_id}
-                    className={`border-b border-gray-800 transition-colors ${onPlayerClick ? 'cursor-pointer hover:bg-blue-900/20' : 'hover:bg-gray-900'}`}
-                    onClick={() => onPlayerClick?.(s.player_id)}
+                    className="border-b border-gray-800 transition-colors hover:bg-gray-900"
                   >
                     <td className="px-2 py-2 font-bold text-blue-400 text-left">{s.player_number}</td>
                     <td className="px-2 py-2 text-left font-medium whitespace-nowrap">
-                      {s.player_name}
+                      <button
+                        onClick={() => handlePlayerClick(s.player_id)}
+                        className="hover:text-blue-400 hover:underline underline-offset-2 transition-colors cursor-pointer"
+                      >
+                        {s.player_name}
+                      </button>
                       {s.double_double && <span className="ml-1 text-xs bg-yellow-600 px-1 rounded">DD</span>}
                       {s.triple_double && <span className="ml-1 text-xs bg-blue-600 px-1 rounded">TD</span>}
                     </td>
@@ -158,11 +172,18 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
               </tbody>
             </table>
           )}
-          {onPlayerClick && !loading && boxScores.length > 0 && (
-            <p className="text-xs text-gray-600 mt-3 text-center">선수 행을 클릭하면 플레이어 카드가 열립니다</p>
+          {!loading && boxScores.length > 0 && (
+            <p className="text-xs text-gray-600 mt-3 text-center">이름 클릭 시 선수 상세 정보가 열립니다</p>
           )}
         </div>
       </div>
+
+      {internalPlayerModal && (
+        <PlayerDetailModal
+          playerId={internalPlayerModal}
+          onClose={() => setInternalPlayerModal(null)}
+        />
+      )}
     </div>
   )
 }
