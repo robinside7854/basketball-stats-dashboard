@@ -26,9 +26,8 @@ interface ShotBreakdown { att: number; made: number; pts: number }
 type ShotBreakdownMap = Record<string, ShotBreakdown>
 interface OppPlayerStat {
   player_id: string; player_number: string; player_name: string | null
-  games: number; pts: number; fgm: number; fga: number; reb: number
-  stl: number; blk: number; tov: number; fg_pct: number
-  shot_breakdown: ShotBreakdownMap
+  games: number; pts: number; fgm: number; fga: number; oreb: number
+  fg_pct: number; shot_breakdown: ShotBreakdownMap
 }
 interface OppGameDetail {
   game_id: string; date: string; our_score: number; opponent_score: number
@@ -59,19 +58,14 @@ function formatMMSS(seconds: number): string {
 
 // ─── Shot / event config ──────────────────────────────────────────────────────
 const SHOT_TYPES = [
-  { type: 'shot_3p',       label: '3P',    color: '#EAB308', pts: 3 },
-  { type: 'shot_2p_mid',   label: '미들',   color: '#3B82F6', pts: 2 },
-  { type: 'shot_2p_drive', label: '드라이브', color: '#06B6D4', pts: 2 },
-  { type: 'shot_layup',    label: '레이업', color: '#22C55E', pts: 2 },
-  { type: 'shot_post',     label: '골밑',   color: '#8B5CF6', pts: 2 },
-  { type: 'free_throw',    label: 'FT',    color: '#94A3B8', pts: 1 },
+  { type: 'shot_3p',     label: '3P',   color: '#EAB308', pts: 3 },
+  { type: 'shot_2p_mid', label: '미들',  color: '#3B82F6', pts: 2 },
+  { type: 'shot_layup',  label: '레이업', color: '#22C55E', pts: 2 },
+  { type: 'shot_post',   label: '골밑',  color: '#8B5CF6', pts: 2 },
+  { type: 'free_throw',  label: 'FT',   color: '#94A3B8', pts: 1 },
 ]
 const OTHER_EVENTS = [
-  { type: 'oreb',     label: 'OR',  colorClass: 'bg-green-700 hover:bg-green-600' },
-  { type: 'dreb',     label: 'DR',  colorClass: 'bg-green-600 hover:bg-green-500' },
-  { type: 'steal',    label: 'STL', colorClass: 'bg-purple-600 hover:bg-purple-500' },
-  { type: 'block',    label: 'BLK', colorClass: 'bg-indigo-600 hover:bg-indigo-500' },
-  { type: 'turnover', label: 'TOV', colorClass: 'bg-red-700 hover:bg-red-600' },
+  { type: 'oreb', label: '공격REB', colorClass: 'bg-green-700 hover:bg-green-600' },
 ]
 
 function eventLabel(type: string) {
@@ -687,7 +681,7 @@ export default function OpponentPage() {
                   <div className="bg-gray-900 border border-gray-700/50 rounded-xl overflow-hidden">
                     <div className="px-5 py-4 border-b border-gray-700/50">
                       <h2 className="font-semibold text-gray-100">선수별 누적 스탯</h2>
-                      <p className="text-xs text-gray-500 mt-0.5">공격 스타일 막대: 노랑=3P · 파랑=미들 · 청록=드라이브 · 초록=레이업 · 보라=골밑 · 회색=FT</p>
+                      <p className="text-xs text-gray-500 mt-0.5">공격 스타일 막대: 노랑=3P · 파랑=미들 · 초록=레이업 · 보라=골밑 · 회색=FT</p>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
@@ -698,10 +692,7 @@ export default function OpponentPage() {
                             <th className="px-3 py-2 text-center font-medium">PTS</th>
                             <th className="px-3 py-2 text-center font-medium">FG</th>
                             <th className="px-3 py-2 text-center font-medium">FG%</th>
-                            <th className="px-3 py-2 text-center font-medium">REB</th>
-                            <th className="px-3 py-2 text-center font-medium">STL</th>
-                            <th className="px-3 py-2 text-center font-medium">BLK</th>
-                            <th className="px-3 py-2 text-center font-medium">TOV</th>
+                            <th className="px-3 py-2 text-center font-medium">OR</th>
                             <th className="px-4 py-2 text-left font-medium min-w-[120px]">공격 스타일</th>
                           </tr>
                         </thead>
@@ -716,10 +707,7 @@ export default function OpponentPage() {
                               <td className="px-3 py-2.5 text-center font-bold text-yellow-400">{p.pts}</td>
                               <td className="px-3 py-2.5 text-center text-gray-300">{p.fgm}/{p.fga}</td>
                               <td className="px-3 py-2.5 text-center text-gray-300">{p.fg_pct}%</td>
-                              <td className="px-3 py-2.5 text-center text-gray-300">{p.reb}</td>
-                              <td className="px-3 py-2.5 text-center text-gray-300">{p.stl}</td>
-                              <td className="px-3 py-2.5 text-center text-gray-300">{p.blk}</td>
-                              <td className="px-3 py-2.5 text-center text-gray-300">{p.tov}</td>
+                              <td className="px-3 py-2.5 text-center text-gray-300">{p.oreb}</td>
                               <td className="px-4 py-2.5 min-w-[120px]"><ShotBar breakdown={p.shot_breakdown} size="sm" /></td>
                             </tr>
                           ))}

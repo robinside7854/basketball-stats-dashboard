@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/client'
 import { NextResponse } from 'next/server'
 
-const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_2p_drive', 'shot_layup', 'shot_post', 'free_throw'] as const
+const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'free_throw'] as const
 type ShotType = typeof SHOT_TYPES[number]
+// 드라이브는 레이업으로 통합
+const DRIVE_TO_LAYUP = 'shot_2p_drive'
 
 interface ShotBreakdown {
   att: number
@@ -19,8 +21,7 @@ interface OppPlayerStat {
   fgm: number; fga: number
   fg3m: number; fg3a: number
   ftm: number; fta: number
-  oreb: number; dreb: number
-  stl: number; blk: number; tov: number
+  oreb: number
   shot_breakdown: Record<ShotType, ShotBreakdown>
 }
 
@@ -73,7 +74,7 @@ export async function GET(req: Request) {
       player_name: p.name,
       games: new Set(),
       pts: 0, fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
-      oreb: 0, dreb: 0, stl: 0, blk: 0, tov: 0,
+      oreb: 0,
       shot_breakdown: emptyShotBreakdown(),
     })
   }
@@ -121,10 +122,13 @@ export async function GET(req: Request) {
       }
       const gameStat = gamePlayerMap.get(ev.player_id)!
 
-      if (SHOT_TYPES.includes(ev.type as ShotType)) {
-        const sType = ev.type as ShotType
+      // 드라이브 → 레이업으로 통합
+      const evType = ev.type === DRIVE_TO_LAYUP ? 'shot_layup' : ev.type
+
+      if (SHOT_TYPES.includes(evType as ShotType)) {
+        const sType = evType as ShotType
         const isMade = ev.result === 'made'
-        const pts = isMade ? shotPoints(ev.type) : 0
+        const pts = isMade ? shotPoints(evType) : 0
 
         // 누적 집계
         if (sType !== 'free_throw') { stat.fga++; gameStat.fga++ }
@@ -149,16 +153,8 @@ export async function GET(req: Request) {
         if (isMade) gameStat.shot_breakdown[sType].made++
         gameStat.shot_breakdown[sType].pts += pts
 
-      } else if (ev.type === 'oreb') {
+      } else if (evType === 'oreb') {
         stat.oreb++
-      } else if (ev.type === 'dreb') {
-        stat.dreb++
-      } else if (ev.type === 'steal') {
-        stat.stl++
-      } else if (ev.type === 'block') {
-        stat.blk++
-      } else if (ev.type === 'turnover') {
-        stat.tov++
       }
     }
 
@@ -170,7 +166,6 @@ export async function GET(req: Request) {
     .map(s => ({
       ...s,
       games: s.games.size,
-      reb: s.oreb + s.dreb,
       fg_pct: s.fga > 0 ? Math.round((s.fgm / s.fga) * 1000) / 10 : 0,
       fg3_pct: s.fg3a > 0 ? Math.round((s.fg3m / s.fg3a) * 1000) / 10 : 0,
       ft_pct: s.fta > 0 ? Math.round((s.ftm / s.fta) * 1000) / 10 : 0,
