@@ -46,6 +46,7 @@ function RecordPageInner() {
   const [gameComplete, setGameComplete] = useState(false)
   const [starterIds, setStarterIds] = useState<string[]>([])
   const [statsRefresh, setStatsRefresh] = useState(0)
+  const [teamPts, setTeamPts] = useState(0)
 
   const { currentGame, currentQuarter, setCurrentGame, setCurrentQuarter } = useGameStore()
   const { onCourt, setLineup, resetLineup } = useLineupStore()
@@ -87,14 +88,12 @@ function RecordPageInner() {
       const isComplete = game?.is_complete ?? false
       const open = data.filter((m: PlayerMinutes) => m.out_time == null)
       if (open.length > 0) {
-        // 진행 중: 최신 쿼터 + 중복 제거
         const maxQ = Math.max(...open.map((m: PlayerMinutes) => m.quarter))
         setCurrentQuarter(maxQ)
         const uniqueIds = [...new Set(open.filter((m: PlayerMinutes) => m.quarter === maxQ).map((m: PlayerMinutes) => m.player_id))]
         setLineup(uniqueIds)
         setGameStarted(true)
       } else if (isComplete && data.length > 0) {
-        // 완료된 경기: 선발 선택 화면 방지, 마지막 쿼터 복원
         const maxQ = Math.max(...data.map((m: PlayerMinutes) => m.quarter))
         setCurrentQuarter(maxQ)
         const lastIds = [...new Set(data.filter((m: PlayerMinutes) => m.quarter === maxQ).map((m: PlayerMinutes) => m.player_id))]
@@ -105,6 +104,10 @@ function RecordPageInner() {
         setGameStarted(false)
       }
     })
+    // 초기 팀 점수 로드
+    fetch(`/api/stats/${selectedGId}`).then(r => r.json()).then(d => {
+      setTeamPts(d?.teamTotals?.pts ?? 0)
+    }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGId, games])
 
@@ -114,10 +117,15 @@ function RecordPageInner() {
     setMinutes(data)
   }, [selectedGId])
 
-  const handleEventSaved = useCallback(() => {
+  const handleEventSaved = useCallback(async () => {
     fetchMinutes()
     setStatsRefresh(k => k + 1)
-  }, [fetchMinutes])
+    // 팀 점수 업데이트
+    if (selectedGId) {
+      const d = await fetch(`/api/stats/${selectedGId}`).then(r => r.json()).catch(() => null)
+      if (d?.teamTotals?.pts != null) setTeamPts(d.teamTotals.pts)
+    }
+  }, [fetchMinutes, selectedGId])
 
   async function startGame() {
     if (!currentGame || starterIds.length !== 5) { toast.error('선발 5명을 선택하세요'); return }
@@ -133,6 +141,7 @@ function RecordPageInner() {
 
   async function switchToQuarter(newQ: number) {
     if (!currentGame || newQ === currentQuarter) return
+    if (!confirm(`${newQ <= 4 ? `Q${newQ}` : 'OT'}로 전환하시겠습니까? 현재 코트 선수들의 출전 시간이 마감됩니다.`)) return
     const { getCurrentTimestamp } = useGameStore.getState()
     const ts = getCurrentTimestamp()
     const openIntervals = minutes.filter(m => m.game_id === currentGame.id && m.out_time == null)
@@ -206,13 +215,14 @@ function RecordPageInner() {
     setStarterIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 5 ? [...prev, id] : prev)
   }
 
-  // allPlayers·tournamentPlayerIds 어느 쪽이 늦게 로드되어도 올바르게 파생
+  // allPlayers·tournamentPlayerIds 어느 쪽이 늦게 로드되어도 올바르게 파생 (번호순 정렬)
   const activePlayers = useMemo(() => {
-    if (tournamentPlayerIds.length > 0) {
-      const filtered = allPlayers.filter(p => tournamentPlayerIds.includes(p.id))
-      return filtered.length > 0 ? filtered : allPlayers
-    }
-    return allPlayers
+    const base = tournamentPlayerIds.length > 0
+      ? (allPlayers.filter(p => tournamentPlayerIds.includes(p.id)).length > 0
+          ? allPlayers.filter(p => tournamentPlayerIds.includes(p.id))
+          : allPlayers)
+      : allPlayers
+    return [...base].sort((a, b) => a.number - b.number)
   }, [allPlayers, tournamentPlayerIds])
 
   const selectedTournament = tournaments.find(t => t.id === selectedTId)
@@ -272,9 +282,9 @@ function RecordPageInner() {
               ) : (
                 <span className="text-xs text-gray-500">전체 선수 표시 중</span>
               )}
-              {/* 쿼터 선택 버튼 */}
+              {/* 쿼터 선택 버튼 + 팀 점수 */}
               {gameStarted && !gameComplete && (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   {[1, 2, 3, 4, 5].map(q => (
                     <button
                       key={q}
@@ -288,7 +298,10 @@ function RecordPageInner() {
                       {q <= 4 ? `${q}Q` : 'OT'}
                     </button>
                   ))}
-                  <span className="text-gray-500 text-xs ml-1">코트:{onCourt.length}</span>
+                  <span className="text-gray-600 text-xs">·</span>
+                  <span className="text-xs text-gray-400">파란날개</span>
+                  <span className="text-sm font-black text-amber-400 font-mono">{teamPts}</span>
+                  <span className="text-gray-500 text-xs">코트:{onCourt.length}</span>
                 </div>
               )}
               {/* 초기화 버튼 */}
