@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, ScrollText, Lock, Unlock } from 'lucide-react'
+import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, ScrollText, Lock, Unlock, Swords } from 'lucide-react'
 import { useEditMode } from '@/contexts/EditModeContext'
 
 const publicTabs = [
@@ -12,6 +12,7 @@ const publicTabs = [
   { href: '/stats',       label: '시즌 통계',  icon: BarChart3,     exact: false },
   { href: '/roster',      label: '선수 명단',  icon: Users,         exact: false },
   { href: '/tournaments', label: '대회 관리',  icon: Trophy,        exact: false },
+  { href: '/opponent',    label: '상대 분석',  icon: Swords,        exact: false },
 ]
 
 const editOnlyTab = { href: '/record', label: '경기 기록', icon: PenLine, exact: false }
