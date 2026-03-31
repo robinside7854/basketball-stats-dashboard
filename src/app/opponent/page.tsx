@@ -77,19 +77,36 @@ function eventLabel(type: string) {
     ?? type
 }
 
-// ─── Mini stacked bar ─────────────────────────────────────────────────────────
-function ShotBar({ breakdown, size = 'sm' }: { breakdown: ShotBreakdownMap; size?: 'sm' | 'lg' }) {
+// ─── Labeled stacked bar (D안) ────────────────────────────────────────────────
+function ShotBarLabeled({ breakdown, height = 'md' }: { breakdown: ShotBreakdownMap; height?: 'sm' | 'md' | 'lg' }) {
   const total = SHOT_TYPES.reduce((s, t) => s + (breakdown[t.type]?.att ?? 0), 0)
   if (total === 0) return <span className="text-gray-600 text-xs">-</span>
-  const h = size === 'lg' ? 'h-4' : 'h-2.5'
+
+  const hClass = height === 'lg' ? 'h-12' : height === 'md' ? 'h-9' : 'h-6'
+  const sorted = [...SHOT_TYPES]
+    .map(t => ({ ...t, att: breakdown[t.type]?.att ?? 0, pct: Math.round(((breakdown[t.type]?.att ?? 0) / total) * 100) }))
+    .filter(t => t.att > 0)
+    .sort((a, b) => b.att - a.att)
+
   return (
-    <div className={`flex w-full ${h} rounded overflow-hidden gap-px`}
-      title={SHOT_TYPES.map(t => `${t.label}: ${breakdown[t.type]?.att ?? 0}`).join(' | ')}>
-      {SHOT_TYPES.map(({ type, color }) => {
-        const pct = ((breakdown[type]?.att ?? 0) / total) * 100
-        if (pct === 0) return null
-        return <div key={type} style={{ width: `${pct}%`, backgroundColor: color }} />
-      })}
+    <div className={`flex w-full ${hClass} rounded-lg overflow-hidden gap-[2px]`}>
+      {sorted.map(({ type, label, color, att, pct }) => (
+        <div
+          key={type}
+          className="flex items-center justify-center overflow-hidden transition-all relative shrink-0"
+          style={{ width: `${pct}%`, backgroundColor: color }}
+          title={`${label}: ${att}회 (${pct}%)`}
+        >
+          {pct >= 14 ? (
+            <div className="flex flex-col items-center leading-tight select-none">
+              <span className="text-white font-bold drop-shadow" style={{ fontSize: height === 'sm' ? '10px' : '11px' }}>{label}</span>
+              <span className="text-white/90 font-semibold drop-shadow" style={{ fontSize: height === 'sm' ? '9px' : '10px' }}>{pct}%</span>
+            </div>
+          ) : pct >= 7 ? (
+            <span className="text-white font-bold drop-shadow select-none" style={{ fontSize: '9px' }}>{pct}%</span>
+          ) : null}
+        </div>
+      ))}
     </div>
   )
 }
@@ -98,22 +115,32 @@ function ShotBar({ breakdown, size = 'sm' }: { breakdown: ShotBreakdownMap; size
 function TeamShotSummary({ breakdown, totalGames }: { breakdown: ShotBreakdownMap; totalGames: number }) {
   const totalAtt = SHOT_TYPES.reduce((s, t) => s + (breakdown[t.type]?.att ?? 0), 0)
   if (totalAtt === 0) return <p className="text-gray-500 text-sm">기록된 슈팅 없음</p>
+
+  const sorted = [...SHOT_TYPES]
+    .map(t => ({ ...t, b: breakdown[t.type] ?? { att: 0, made: 0, pts: 0 } }))
+    .filter(t => t.b.att > 0)
+    .sort((a, b) => b.b.att - a.b.att)
+
   return (
-    <div className="space-y-2">
-      <div className="mb-3"><ShotBar breakdown={breakdown} size="lg" /></div>
-      <div className="grid grid-cols-3 gap-2">
-        {SHOT_TYPES.map(({ type, label, color }) => {
-          const b = breakdown[type] ?? { att: 0, made: 0, pts: 0 }
-          if (b.att === 0) return null
+    <div className="space-y-4">
+      {/* 메인 라벨 바 */}
+      <ShotBarLabeled breakdown={breakdown} height="lg" />
+
+      {/* 상세 카드 */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mt-2">
+        {sorted.map(({ type, label, color, b }) => {
+          const pct = Math.round((b.att / totalAtt) * 100)
+          const fgPct = b.att > 0 ? Math.round((b.made / b.att) * 100) : 0
           return (
-            <div key={type} className="bg-gray-800/60 rounded-lg p-2.5 border border-gray-700/50">
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: color }} />
-                <span className="text-xs font-medium text-gray-300">{label}</span>
+            <div key={type} className="bg-gray-800/60 rounded-xl p-3 border border-gray-700/40 flex flex-col gap-1">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: color }} />
+                <span className="text-xs font-semibold text-gray-200">{label}</span>
               </div>
-              <div className="text-lg font-bold text-white">{Math.round((b.att / totalAtt) * 100)}%</div>
-              <div className="text-xs text-gray-400">{b.made}/{b.att} ({b.att > 0 ? Math.round((b.made / b.att) * 100) : 0}%)</div>
-              <div className="text-xs text-gray-500">{totalGames > 0 ? (b.att / totalGames).toFixed(1) : 0}회/경기</div>
+              <div className="text-2xl font-black text-white mt-0.5">{pct}%</div>
+              <div className="text-xs text-gray-400">{b.made}/{b.att} 성공</div>
+              <div className="text-xs text-gray-500">성공률 {fgPct}%</div>
+              <div className="text-xs text-gray-600">{totalGames > 0 ? (b.att / totalGames).toFixed(1) : 0}회/경기</div>
             </div>
           )
         })}
@@ -719,17 +746,23 @@ export default function OpponentPage() {
 
                     {/* Top scorers */}
                     <div className="mt-5 pt-4 border-t border-gray-700/50">
-                      <p className="text-xs text-gray-400 mb-3 font-medium">주요 슈터 (슈팅 시도 상위)</p>
-                      <div className="space-y-2">
+                      <p className="text-xs text-gray-400 mb-4 font-medium">주요 슈터 (슈팅 시도 상위)</p>
+                      <div className="space-y-3">
                         {[...stats.players].sort((a, b) => b.fga - a.fga).slice(0, 5).map((p, i) => (
-                          <div key={p.player_id} className="flex items-center gap-3">
-                            <span className="text-gray-600 text-xs w-4">{i + 1}</span>
-                            <span className="font-bold text-white text-sm w-24 shrink-0">
-                              #{p.player_number}{p.player_name ? ` ${p.player_name}` : ''}
-                            </span>
-                            <div className="flex-1"><ShotBar breakdown={p.shot_breakdown} size="sm" /></div>
-                            <span className="text-gray-400 text-xs w-20 text-right">{p.fgm}/{p.fga} ({p.fg_pct}%)</span>
-                            <span className="text-yellow-400 text-xs w-10 text-right font-bold">{p.pts}pts</span>
+                          <div key={p.player_id} className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-600 text-xs w-4">{i + 1}</span>
+                                <span className="font-bold text-white text-sm">
+                                  #{p.player_number}{p.player_name ? ` ${p.player_name}` : ''}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs">
+                                <span className="text-gray-400">{p.fgm}/{p.fga} ({p.fg_pct ?? '-'}%)</span>
+                                <span className="text-yellow-400 font-bold">{p.pts}pts</span>
+                              </div>
+                            </div>
+                            <ShotBarLabeled breakdown={p.shot_breakdown} height="md" />
                           </div>
                         ))}
                       </div>
@@ -756,7 +789,7 @@ export default function OpponentPage() {
                             <th className="px-3 py-2 text-center font-medium">FT</th>
                             <th className="px-3 py-2 text-center font-medium">FT%</th>
                             <th className="px-3 py-2 text-center font-medium">OR</th>
-                            <th className="px-4 py-2 text-left font-medium min-w-[120px]">공격 스타일</th>
+                            <th className="px-4 py-2 text-left font-medium min-w-[200px]">공격 스타일</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -781,7 +814,7 @@ export default function OpponentPage() {
                                 {p.ft_pct !== null ? `${p.ft_pct}%` : '-'}
                               </td>
                               <td className="px-3 py-2.5 text-center text-gray-300">{p.oreb}</td>
-                              <td className="px-4 py-2.5 min-w-[120px]"><ShotBar breakdown={p.shot_breakdown} size="sm" /></td>
+                              <td className="px-4 py-2.5 min-w-[200px]"><ShotBarLabeled breakdown={p.shot_breakdown} height="sm" /></td>
                             </tr>
                           ))}
                         </tbody>
@@ -818,7 +851,7 @@ export default function OpponentPage() {
                                       <th className="py-1.5 text-left font-medium">선수</th>
                                       <th className="py-1.5 text-center font-medium">PTS</th>
                                       <th className="py-1.5 text-center font-medium">FG</th>
-                                      <th className="py-1.5 text-left font-medium pl-4 min-w-[100px]">공격 스타일</th>
+                                      <th className="py-1.5 text-left font-medium pl-4 min-w-[160px]">공격 스타일</th>
                                     </tr>
                                   </thead>
                                   <tbody>
@@ -830,7 +863,7 @@ export default function OpponentPage() {
                                         </td>
                                         <td className="py-1.5 text-center text-yellow-400 font-bold">{p.pts}</td>
                                         <td className="py-1.5 text-center text-gray-300">{p.fgm}/{p.fga}</td>
-                                        <td className="py-1.5 pl-4 min-w-[100px]"><ShotBar breakdown={p.shot_breakdown} size="sm" /></td>
+                                        <td className="py-1.5 pl-4 min-w-[160px]"><ShotBarLabeled breakdown={p.shot_breakdown} height="sm" /></td>
                                       </tr>
                                     ))}
                                   </tbody>
