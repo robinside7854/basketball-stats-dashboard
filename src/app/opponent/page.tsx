@@ -42,6 +42,21 @@ interface OppStats {
   total_games: number
 }
 
+// ─── Time helpers ─────────────────────────────────────────────────────────────
+function parseMMSS(value: string): number {
+  if (!value || !value.trim()) return 0
+  const parts = value.trim().split(':')
+  if (parts.length === 1) return parseInt(parts[0]) || 0
+  return (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0)
+}
+
+function formatMMSS(seconds: number): string {
+  if (!seconds) return ''
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 // ─── Shot / event config ──────────────────────────────────────────────────────
 const SHOT_TYPES = [
   { type: 'shot_3p',       label: '3P',    color: '#EAB308', pts: 3 },
@@ -135,7 +150,7 @@ export default function OpponentPage() {
   const [newGameRound, setNewGameRound]           = useState('')
   const [newGameTournament, setNewGameTournament] = useState('')
   const [newGameYouTubeUrl, setNewGameYouTubeUrl] = useState('')
-  const [newGameStartOffset, setNewGameStartOffset] = useState(0)
+  const [newGameStartOffset, setNewGameStartOffset] = useState('') // MM:SS 형식
 
   // Recording
   const [events, setEvents]           = useState<OppEvent[]>([])
@@ -227,13 +242,13 @@ export default function OpponentPage() {
         round: newGameRound.trim() || null,
         tournament_name: newGameTournament.trim() || null,
         youtube_url: newGameYouTubeUrl.trim() || null,
-        youtube_start_offset: newGameStartOffset || 0,
+        youtube_start_offset: parseMMSS(newGameStartOffset),
       }),
     })
     if (!res.ok) { toast.error('경기 추가 실패'); return }
     const g = await res.json()
     setGames(prev => [g, ...prev])
-    setNewGameVsTeam(''); setNewGameRound(''); setNewGameYouTubeUrl(''); setNewGameStartOffset(0)
+    setNewGameVsTeam(''); setNewGameRound(''); setNewGameYouTubeUrl(''); setNewGameStartOffset('')
     toast.success('경기 추가됨')
   }
 
@@ -410,10 +425,14 @@ export default function OpponentPage() {
                       className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white" />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500 mb-1 block">영상 시작 오프셋 (초)</label>
-                    <input type="number" value={newGameStartOffset} onChange={e => setNewGameStartOffset(Number(e.target.value))}
-                      placeholder="0"
-                      className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white" />
+                    <label className="text-xs text-gray-500 mb-1 block">영상 시작 오프셋 (분:초)</label>
+                    <input
+                      value={newGameStartOffset}
+                      onChange={e => setNewGameStartOffset(e.target.value)}
+                      onBlur={e => setNewGameStartOffset(formatMMSS(parseMMSS(e.target.value)))}
+                      placeholder="0:00"
+                      className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-white"
+                    />
                   </div>
                   <button onClick={addGame} className="w-full py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors">
                     경기 추가
