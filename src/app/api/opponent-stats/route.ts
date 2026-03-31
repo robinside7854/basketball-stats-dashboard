@@ -23,6 +23,8 @@ interface OppPlayerStat {
   ftm: number; fta: number
   oreb: number
   shot_breakdown: Record<ShotType, ShotBreakdown>
+  // 계산된 비율 (map 단계에서 채움)
+  fg_pct?: number; fg3_pct?: number; ft_pct?: number
 }
 
 function emptyShotBreakdown(): Record<ShotType, ShotBreakdown> {
@@ -166,9 +168,9 @@ export async function GET(req: Request) {
     .map(s => ({
       ...s,
       games: s.games.size,
-      fg_pct: s.fga > 0 ? Math.round((s.fgm / s.fga) * 1000) / 10 : 0,
-      fg3_pct: s.fg3a > 0 ? Math.round((s.fg3m / s.fg3a) * 1000) / 10 : 0,
-      ft_pct: s.fta > 0 ? Math.round((s.ftm / s.fta) * 1000) / 10 : 0,
+      fg_pct:  s.fga  > 0 ? Math.round((s.fgm  / s.fga)  * 1000) / 10 : null,
+      fg3_pct: s.fg3a > 0 ? Math.round((s.fg3m / s.fg3a) * 1000) / 10 : null,
+      ft_pct:  s.fta  > 0 ? Math.round((s.ftm  / s.fta)  * 1000) / 10 : null,
     }))
     .sort((a, b) => b.pts - a.pts)
 

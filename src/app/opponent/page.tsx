@@ -15,6 +15,7 @@ interface OppGame   {
   our_score: number; opponent_score: number
   round: string | null; tournament_name: string | null
   youtube_url: string | null; youtube_start_offset: number
+  is_complete: boolean
 }
 interface OppEvent  {
   id: string; game_id: string; player_id: string; quarter: number
@@ -26,8 +27,10 @@ interface ShotBreakdown { att: number; made: number; pts: number }
 type ShotBreakdownMap = Record<string, ShotBreakdown>
 interface OppPlayerStat {
   player_id: string; player_number: string; player_name: string | null
-  games: number; pts: number; fgm: number; fga: number; oreb: number
-  fg_pct: number; shot_breakdown: ShotBreakdownMap
+  games: number; pts: number; fgm: number; fga: number
+  fg3m: number; fg3a: number; ftm: number; fta: number; oreb: number
+  fg_pct: number | null; fg3_pct: number | null; ft_pct: number | null
+  shot_breakdown: ShotBreakdownMap
 }
 interface OppGameDetail {
   game_id: string; date: string; our_score: number; opponent_score: number
@@ -156,8 +159,9 @@ export default function OpponentPage() {
   const ytPlayerRef = useRef<YT.Player | null>(null)
 
   // Stats
-  const [stats, setStats]             = useState<OppStats | null>(null)
+  const [stats, setStats]               = useState<OppStats | null>(null)
   const [expandedGame, setExpandedGame] = useState<string | null>(null)
+  const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
 
   // ── Loaders ──
   useEffect(() => {
@@ -283,6 +287,41 @@ export default function OpponentPage() {
     await fetch(`/api/opponent-events?id=${lastEventId}`, { method: 'DELETE' })
     setLastEventId(null); setLastEventLabel('')
     loadEvents(); toast.success('마지막 기록 취소')
+  }
+
+  async function deleteEvent(id: string) {
+    setDeletingEventId(id)
+    await fetch(`/api/opponent-events?id=${id}`, { method: 'DELETE' })
+    if (lastEventId === id) { setLastEventId(null); setLastEventLabel('') }
+    setDeletingEventId(null)
+    loadEvents(); toast.success('기록 삭제됨')
+  }
+
+  async function completeGame() {
+    if (!selectedGame) return
+    if (!confirm('이 경기 기록을 완료 처리합니까?')) return
+    const res = await fetch(`/api/opponent-games/${selectedGame.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_complete: true }),
+    })
+    if (!res.ok) { toast.error('완료 처리 실패'); return }
+    const updated = await res.json()
+    setSelectedGame(updated)
+    setGames(prev => prev.map(g => g.id === updated.id ? updated : g))
+    toast.success('경기 기록 완료!')
+  }
+
+  async function reopenGame() {
+    if (!selectedGame) return
+    const res = await fetch(`/api/opponent-games/${selectedGame.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_complete: false }),
+    })
+    if (!res.ok) return
+    const updated = await res.json()
+    setSelectedGame(updated)
+    setGames(prev => prev.map(g => g.id === updated.id ? updated : g))
+    toast.success('기록 재개')
   }
 
   const tabStyle = (t: Tab) => cn(
@@ -435,11 +474,12 @@ export default function OpponentPage() {
                 <div className="space-y-2 max-h-52 overflow-y-auto">
                   {games.map(g => (
                     <div key={g.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm">
-                      <div className="min-w-0">
-                        <span className="text-white font-medium">{g.date}</span>
-                        {g.vs_team && <span className="ml-2 text-blue-400 text-xs">vs {g.vs_team}</span>}
-                        {g.round && <span className="ml-2 text-gray-400 text-xs">{g.round}</span>}
-                        {g.youtube_url && <span className="ml-1 text-xs text-green-500">▶</span>}
+                      <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+                        {g.is_complete && <span className="text-green-400 text-xs font-bold">✓</span>}
+                        <span className={cn('font-medium', g.is_complete ? 'text-gray-400' : 'text-white')}>{g.date}</span>
+                        {g.vs_team && <span className="text-blue-400 text-xs">vs {g.vs_team}</span>}
+                        {g.round && <span className="text-gray-500 text-xs">{g.round}</span>}
+                        {g.youtube_url && <span className="text-green-500 text-xs">▶</span>}
                       </div>
                       <button onClick={() => deleteGame(g.id)} className="text-gray-600 hover:text-red-400 transition-colors ml-2 shrink-0">
                         <Trash2 size={13} />
@@ -486,14 +526,26 @@ export default function OpponentPage() {
                   </div>
                 )}
 
-                {lastEventLabel && (
-                  <div className="ml-auto flex items-center gap-2">
-                    <span className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">{lastEventLabel}</span>
-                    <button onClick={undoLast} className="flex items-center gap-1 px-2 py-1 bg-red-900/40 hover:bg-red-800/60 border border-red-700/50 text-red-400 text-xs rounded transition-colors">
-                      <Undo2 size={12} /> 취소
+                <div className="ml-auto flex items-center gap-2 flex-wrap">
+                  {lastEventLabel && (
+                    <>
+                      <span className="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">{lastEventLabel}</span>
+                      <button onClick={undoLast} className="flex items-center gap-1 px-2 py-1 bg-red-900/40 hover:bg-red-800/60 border border-red-700/50 text-red-400 text-xs rounded transition-colors">
+                        <Undo2 size={12} /> 취소
+                      </button>
+                    </>
+                  )}
+                  {selectedGame && !selectedGame.is_complete && (
+                    <button onClick={completeGame} className="flex items-center gap-1 px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors">
+                      <Check size={13} /> 기록 완료
                     </button>
-                  </div>
-                )}
+                  )}
+                  {selectedGame?.is_complete && (
+                    <button onClick={reopenGame} className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded-lg transition-colors">
+                      기록 재개
+                    </button>
+                  )}
+                </div>
               </div>
 
               {!selectedGame ? (
@@ -587,20 +639,27 @@ export default function OpponentPage() {
                     {/* Recent events */}
                     {events.length > 0 && (
                       <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
-                        <p className="text-xs text-gray-500 mb-2 font-medium">최근 기록 ({events.length})</p>
-                        <div className="space-y-0.5 max-h-40 overflow-y-auto">
-                          {[...events].reverse().slice(0, 30).map(ev => (
-                            <div key={ev.id} className="flex items-center gap-2 text-xs text-gray-400 px-1 py-0.5">
-                              <span className="text-gray-600 w-5">Q{ev.quarter}</span>
+                        <p className="text-xs text-gray-500 mb-2 font-medium">기록 목록 ({events.length}) — 휴지통으로 개별 삭제</p>
+                        <div className="space-y-0.5 max-h-52 overflow-y-auto">
+                          {[...events].reverse().map(ev => (
+                            <div key={ev.id} className="flex items-center gap-2 text-xs text-gray-400 px-1 py-0.5 hover:bg-gray-800/50 rounded group">
+                              <span className="text-gray-600 w-5 shrink-0">Q{ev.quarter}</span>
                               {ev.video_timestamp > 0 && (
-                                <span className="text-gray-600 text-[10px] w-10">{formatTimestamp(ev.video_timestamp)}</span>
+                                <span className="text-gray-600 text-[10px] w-10 shrink-0">{formatTimestamp(ev.video_timestamp)}</span>
                               )}
-                              <span className="font-bold text-white">
+                              <span className="font-bold text-white shrink-0">
                                 {ev.player?.name ?? `#${ev.player?.number ?? '?'}`}
                               </span>
-                              <span>{eventLabel(ev.type)}</span>
+                              <span className="flex-1">{eventLabel(ev.type)}</span>
                               {ev.result && <span className={ev.result === 'made' ? 'text-green-400' : 'text-red-400'}>{ev.result === 'made' ? '✓' : '✗'}</span>}
                               {ev.points > 0 && <span className="text-yellow-400">+{ev.points}</span>}
+                              <button
+                                onClick={() => deleteEvent(ev.id)}
+                                disabled={deletingEventId === ev.id}
+                                className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all shrink-0"
+                              >
+                                <Trash2 size={11} />
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -692,6 +751,10 @@ export default function OpponentPage() {
                             <th className="px-3 py-2 text-center font-medium">PTS</th>
                             <th className="px-3 py-2 text-center font-medium">FG</th>
                             <th className="px-3 py-2 text-center font-medium">FG%</th>
+                            <th className="px-3 py-2 text-center font-medium">3P</th>
+                            <th className="px-3 py-2 text-center font-medium">3P%</th>
+                            <th className="px-3 py-2 text-center font-medium">FT</th>
+                            <th className="px-3 py-2 text-center font-medium">FT%</th>
                             <th className="px-3 py-2 text-center font-medium">OR</th>
                             <th className="px-4 py-2 text-left font-medium min-w-[120px]">공격 스타일</th>
                           </tr>
@@ -706,7 +769,17 @@ export default function OpponentPage() {
                               <td className="px-3 py-2.5 text-center text-gray-300">{p.games}</td>
                               <td className="px-3 py-2.5 text-center font-bold text-yellow-400">{p.pts}</td>
                               <td className="px-3 py-2.5 text-center text-gray-300">{p.fgm}/{p.fga}</td>
-                              <td className="px-3 py-2.5 text-center text-gray-300">{p.fg_pct}%</td>
+                              <td className={cn('px-3 py-2.5 text-center font-medium', p.fg_pct !== null && p.fg_pct < 30 ? 'text-red-400' : 'text-gray-300')}>
+                                {p.fg_pct !== null ? `${p.fg_pct}%` : '-'}
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-gray-300">{p.fg3m}/{p.fg3a}</td>
+                              <td className={cn('px-3 py-2.5 text-center font-medium', p.fg3_pct !== null && p.fg3_pct < 30 ? 'text-red-400' : 'text-gray-300')}>
+                                {p.fg3_pct !== null ? `${p.fg3_pct}%` : '-'}
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-gray-300">{p.ftm}/{p.fta}</td>
+                              <td className={cn('px-3 py-2.5 text-center font-medium', p.ft_pct !== null && p.ft_pct < 60 ? 'text-red-400' : 'text-gray-300')}>
+                                {p.ft_pct !== null ? `${p.ft_pct}%` : '-'}
+                              </td>
                               <td className="px-3 py-2.5 text-center text-gray-300">{p.oreb}</td>
                               <td className="px-4 py-2.5 min-w-[120px]"><ShotBar breakdown={p.shot_breakdown} size="sm" /></td>
                             </tr>
