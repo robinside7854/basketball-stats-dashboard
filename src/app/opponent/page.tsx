@@ -236,6 +236,8 @@ export default function OpponentPage() {
   const [stats, setStats]               = useState<OppStats | null>(null)
   const [expandedGame, setExpandedGame] = useState<string | null>(null)
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null)
+  const [sortKey, setSortKey] = useState<string>('pts')
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
 
   // ── Loaders ──
   useEffect(() => {
@@ -799,24 +801,41 @@ export default function OpponentPage() {
                         const top5 = top7.slice(0, 5)
                         const rest = top7.slice(5)
 
-                        const PlayerCard = (p: typeof top7[0], i: number) => (
-                          <div key={p.player_id} className="bg-gray-800/40 rounded-xl p-3 flex flex-col items-center gap-2 border border-gray-700/30">
-                            {/* rank + name */}
-                            <div className="flex items-center gap-1.5 w-full">
-                              <span className="text-gray-500 text-xs shrink-0">{i + 1}</span>
-                              <span className="font-bold text-white text-sm truncate">
-                                #{p.player_number}{p.player_name ? ` ${p.player_name}` : ''}
-                              </span>
+                        const PlayerCard = (p: typeof top7[0], i: number) => {
+                          const top2 = [...SHOT_TYPES]
+                            .map(t => ({ ...t, att: p.shot_breakdown[t.type]?.att ?? 0 }))
+                            .filter(t => t.att > 0)
+                            .sort((a, b) => b.att - a.att)
+                            .slice(0, 2)
+                          return (
+                            <div key={p.player_id} className="bg-gray-800/40 rounded-xl p-3 flex flex-col items-center gap-2 border border-gray-700/30">
+                              {/* rank + name */}
+                              <div className="flex items-center gap-1.5 w-full">
+                                <span className="text-gray-500 text-xs shrink-0">{i + 1}</span>
+                                <span className="font-bold text-white text-sm truncate">
+                                  #{p.player_number}{p.player_name ? ` ${p.player_name}` : ''}
+                                </span>
+                              </div>
+                              {/* donut — fixed size */}
+                              <DonutChart breakdown={p.shot_breakdown} size={120} />
+                              {/* stats */}
+                              <div className="flex items-center justify-between w-full text-xs">
+                                <span className="text-gray-400">{p.fgm}/{p.fga} ({p.fg_pct ?? '-'}%)</span>
+                                <span className="text-yellow-400 font-bold">{p.pts}pts</span>
+                              </div>
+                              {/* top 2 attack options */}
+                              {top2.length > 0 && (
+                                <div className="flex items-center gap-1 w-full flex-wrap">
+                                  {top2.map((t, idx) => (
+                                    <span key={t.type} className="flex items-center gap-0.5 text-[10px] rounded-full px-1.5 py-0.5 font-semibold text-white" style={{ backgroundColor: t.color + 'cc' }}>
+                                      {idx + 1}. {t.label} {Math.round((t.att / (p.fga + (p.fta > 0 ? p.fta : 0) || 1)) * 100)}%
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
-                            {/* donut */}
-                            <DonutChart breakdown={p.shot_breakdown} size={120} />
-                            {/* stats */}
-                            <div className="flex items-center justify-between w-full text-xs">
-                              <span className="text-gray-400">{p.fgm}/{p.fga} ({p.fg_pct ?? '-'}%)</span>
-                              <span className="text-yellow-400 font-bold">{p.pts}pts</span>
-                            </div>
-                          </div>
-                        )
+                          )
+                        }
 
                         return (
                           <div className="space-y-4">
@@ -824,7 +843,7 @@ export default function OpponentPage() {
                             <div className="grid grid-cols-5 gap-3">
                               {top5.map((p, i) => PlayerCard(p, i))}
                             </div>
-                            {/* 6~7위 — 구분선 + 2열 */}
+                            {/* 6~7위 — 구분선 + 동일 5열 그리드 (카드 동일 크기) */}
                             {rest.length > 0 && (
                               <>
                                 <div className="flex items-center gap-2">
@@ -832,7 +851,7 @@ export default function OpponentPage() {
                                   <span className="text-xs text-gray-600">6~7위</span>
                                   <div className="flex-1 h-px bg-gray-700/50" />
                                 </div>
-                                <div className="grid grid-cols-2 gap-3 max-w-sm">
+                                <div className="grid grid-cols-5 gap-3">
                                   {rest.map((p, i) => PlayerCard(p, 5 + i))}
                                 </div>
                               </>
@@ -844,6 +863,44 @@ export default function OpponentPage() {
                   </div>
 
                   {/* ② 선수별 누적 스탯 */}
+                  {(() => {
+                    const toggleSort = (key: string) => {
+                      if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+                      else { setSortKey(key); setSortDir('desc') }
+                    }
+                    const SortTh = ({ k, label, cls = 'text-center' }: { k: string; label: React.ReactNode; cls?: string }) => (
+                      <th
+                        className={`px-3 py-2 font-medium cursor-pointer select-none hover:text-gray-300 transition-colors ${cls}`}
+                        onClick={() => toggleSort(k)}
+                      >
+                        <span className="inline-flex items-center gap-0.5">
+                          {label}
+                          {sortKey === k ? (
+                            <span className="text-blue-400">{sortDir === 'desc' ? ' ↓' : ' ↑'}</span>
+                          ) : (
+                            <span className="text-gray-700"> ↕</span>
+                          )}
+                        </span>
+                      </th>
+                    )
+                    const getValue = (p: OppPlayerStat, key: string): number => {
+                      if (key === 'number') return parseInt(p.player_number) || 0
+                      if (key === 'games') return p.games
+                      if (key === 'pts') return p.pts
+                      if (key === 'fga') return p.fga
+                      if (key === 'fg_pct') return p.fg_pct ?? -1
+                      if (key === 'fg3a') return p.fg3a
+                      if (key === 'fg3_pct') return p.fg3_pct ?? -1
+                      if (key === 'fta') return p.fta
+                      if (key === 'ft_pct') return p.ft_pct ?? -1
+                      if (key === 'oreb') return p.oreb
+                      return 0
+                    }
+                    const sorted = [...stats.players].sort((a, b) => {
+                      const va = getValue(a, sortKey), vb = getValue(b, sortKey)
+                      return sortDir === 'desc' ? vb - va : va - vb
+                    })
+                    return (
                   <div className="bg-gray-900 border border-gray-700/50 rounded-xl overflow-hidden">
                     <div className="px-5 py-4 border-b border-gray-700/50">
                       <h2 className="font-semibold text-gray-100">선수별 누적 스탯</h2>
@@ -852,16 +909,16 @@ export default function OpponentPage() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="text-xs text-gray-500 border-b border-gray-700/50">
-                            <th className="px-4 py-2 text-left font-medium">선수</th>
-                            <th className="px-3 py-2 text-center font-medium">G</th>
-                            <th className="px-3 py-2 text-center font-medium">PTS</th>
-                            <th className="px-3 py-2 text-center font-medium">FG</th>
-                            <th className="px-3 py-2 text-center font-medium">FG%</th>
-                            <th className="px-3 py-2 text-center font-medium">3P</th>
-                            <th className="px-3 py-2 text-center font-medium">3P%</th>
-                            <th className="px-3 py-2 text-center font-medium">FT</th>
-                            <th className="px-3 py-2 text-center font-medium">FT%</th>
-                            <th className="px-3 py-2 text-center font-medium">OR</th>
+                            <SortTh k="number" label="선수" cls="text-left px-4 py-2" />
+                            <SortTh k="games" label="G" />
+                            <SortTh k="pts" label="PTS" />
+                            <SortTh k="fga" label="FG" />
+                            <SortTh k="fg_pct" label="FG%" />
+                            <SortTh k="fg3a" label="3P" />
+                            <SortTh k="fg3_pct" label="3P%" />
+                            <SortTh k="fta" label="FT" />
+                            <SortTh k="ft_pct" label="FT%" />
+                            <SortTh k="oreb" label="OR" />
                             <th className="px-4 py-2 text-left font-medium min-w-[200px]">
                               <div className="flex flex-col gap-1">
                                 <span>공격 스타일</span>
@@ -878,7 +935,7 @@ export default function OpponentPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {stats.players.map(p => (
+                          {sorted.map(p => (
                             <tr key={p.player_id} className="border-b border-gray-800/60 hover:bg-gray-800/30 transition-colors">
                               <td className="px-4 py-2.5">
                                 <span className="font-bold text-white">#{p.player_number}</span>
@@ -906,6 +963,8 @@ export default function OpponentPage() {
                       </table>
                     </div>
                   </div>
+                    )
+                  })()}
 
                   {/* ③ 경기별 드릴다운 */}
                   <div className="bg-gray-900 border border-gray-700/50 rounded-xl overflow-hidden">
