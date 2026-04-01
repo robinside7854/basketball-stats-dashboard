@@ -246,7 +246,7 @@ export default function OpponentPage() {
 
   useEffect(() => {
     if (!selectedTeam) return
-    fetch(`/api/opponent-players?teamId=${selectedTeam.id}`).then(r => r.json()).then(setPlayers)
+    fetch(`/api/opponent-players?teamId=${selectedTeam.id}`).then(r => r.json()).then((data: OppPlayer[]) => setPlayers([...data].sort((a, b) => Number(a.number) - Number(b.number))))
     fetch(`/api/opponent-games?teamId=${selectedTeam.id}`).then(r => r.json()).then(setGames)
     setSelectedGame(null); setStats(null)
   }, [selectedTeam])
@@ -732,7 +732,7 @@ export default function OpponentPage() {
                               <button
                                 onClick={() => deleteEvent(ev.id)}
                                 disabled={deletingEventId === ev.id}
-                                className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all shrink-0"
+                                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all shrink-0"
                               >
                                 <Trash2 size={11} />
                               </button>
@@ -801,34 +801,40 @@ export default function OpponentPage() {
                         const top5 = top7.slice(0, 5)
                         const rest = top7.slice(5)
 
+                        const totalAtt = (p: typeof top7[0]) =>
+                          SHOT_TYPES.reduce((s, t) => s + (p.shot_breakdown[t.type]?.att ?? 0), 0)
+
                         const PlayerCard = (p: typeof top7[0], i: number) => {
+                          const tot = totalAtt(p)
                           const top2 = [...SHOT_TYPES]
                             .map(t => ({ ...t, att: p.shot_breakdown[t.type]?.att ?? 0 }))
                             .filter(t => t.att > 0)
                             .sort((a, b) => b.att - a.att)
                             .slice(0, 2)
                           return (
-                            <div key={p.player_id} className="bg-gray-800/40 rounded-xl p-3 flex flex-col items-center gap-2 border border-gray-700/30">
+                            <div key={p.player_id} className="bg-gray-800/40 rounded-xl p-2 sm:p-3 flex flex-col items-center gap-1.5 border border-gray-700/30">
                               {/* rank + name */}
-                              <div className="flex items-center gap-1.5 w-full">
-                                <span className="text-gray-500 text-xs shrink-0">{i + 1}</span>
-                                <span className="font-bold text-white text-sm truncate">
+                              <div className="flex items-center gap-1 w-full">
+                                <span className="text-gray-500 text-[10px] shrink-0">{i + 1}</span>
+                                <span className="font-bold text-white text-xs truncate">
                                   #{p.player_number}{p.player_name ? ` ${p.player_name}` : ''}
                                 </span>
                               </div>
-                              {/* donut — fixed size */}
-                              <DonutChart breakdown={p.shot_breakdown} size={120} />
+                              {/* donut — responsive size */}
+                              <DonutChart breakdown={p.shot_breakdown} size={96} />
                               {/* stats */}
-                              <div className="flex items-center justify-between w-full text-xs">
-                                <span className="text-gray-400">{p.fgm}/{p.fga} ({p.fg_pct ?? '-'}%)</span>
+                              <div className="flex items-center justify-between w-full" style={{ fontSize: '10px' }}>
+                                <span className="text-gray-400">{p.fgm}/{p.fga}</span>
                                 <span className="text-yellow-400 font-bold">{p.pts}pts</span>
                               </div>
                               {/* top 2 attack options */}
                               {top2.length > 0 && (
-                                <div className="flex items-center gap-1 w-full flex-wrap">
+                                <div className="flex flex-col gap-0.5 w-full">
                                   {top2.map((t, idx) => (
-                                    <span key={t.type} className="flex items-center gap-0.5 text-[10px] rounded-full px-1.5 py-0.5 font-semibold text-white" style={{ backgroundColor: t.color + 'cc' }}>
-                                      {idx + 1}. {t.label} {Math.round((t.att / (p.fga + (p.fta > 0 ? p.fta : 0) || 1)) * 100)}%
+                                    <span key={t.type} className="flex items-center gap-0.5 w-full rounded px-1 py-0.5 font-semibold text-white" style={{ backgroundColor: t.color + 'bb', fontSize: '10px' }}>
+                                      <span className="shrink-0">{idx + 1}.</span>
+                                      <span className="truncate">{t.label}</span>
+                                      <span className="ml-auto shrink-0">{tot > 0 ? Math.round((t.att / tot) * 100) : 0}%</span>
                                     </span>
                                   ))}
                                 </div>
@@ -838,12 +844,12 @@ export default function OpponentPage() {
                         }
 
                         return (
-                          <div className="space-y-4">
-                            {/* Top 5 — 5열 그리드 */}
-                            <div className="grid grid-cols-5 gap-3">
+                          <div className="space-y-3">
+                            {/* Top 5 — 모바일 3열, sm 이상 5열 */}
+                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                               {top5.map((p, i) => PlayerCard(p, i))}
                             </div>
-                            {/* 6~7위 — 구분선 + 동일 5열 그리드 (카드 동일 크기) */}
+                            {/* 6~7위 — 동일 그리드 */}
                             {rest.length > 0 && (
                               <>
                                 <div className="flex items-center gap-2">
@@ -851,7 +857,7 @@ export default function OpponentPage() {
                                   <span className="text-xs text-gray-600">6~7위</span>
                                   <div className="flex-1 h-px bg-gray-700/50" />
                                 </div>
-                                <div className="grid grid-cols-5 gap-3">
+                                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                                   {rest.map((p, i) => PlayerCard(p, 5 + i))}
                                 </div>
                               </>
