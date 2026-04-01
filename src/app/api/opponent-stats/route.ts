@@ -93,7 +93,7 @@ export async function GET(req: Request) {
     vs_team: g.vs_team ?? null,
     round: g.round ?? null,
     tournament_name: g.tournament_name ?? null,
-    players: [] as Array<{ player_id: string; player_number: string; player_name: string | null; pts: number; fga: number; fgm: number; shot_breakdown: Record<ShotType, ShotBreakdown> }>,
+    players: [] as Array<{ player_id: string; player_number: string; player_name: string | null; pts: number; fga: number; fgm: number; fg3a: number; fg3m: number; fta: number; ftm: number; oreb: number; shot_breakdown: Record<ShotType, ShotBreakdown> }>,
   }))
 
   // 이벤트 집계
@@ -103,7 +103,7 @@ export async function GET(req: Request) {
     const events = evRes.data
 
     // 게임별 선수 임시 map
-    const gamePlayerMap = new Map<string, { player_id: string; player_number: string; player_name: string | null; pts: number; fga: number; fgm: number; shot_breakdown: Record<ShotType, ShotBreakdown> }>()
+    const gamePlayerMap = new Map<string, { player_id: string; player_number: string; player_name: string | null; pts: number; fga: number; fgm: number; fg3a: number; fg3m: number; fta: number; ftm: number; oreb: number; shot_breakdown: Record<ShotType, ShotBreakdown> }>()
 
     for (const ev of events) {
       if (!ev.player_id) continue
@@ -119,7 +119,7 @@ export async function GET(req: Request) {
           player_id: stat.player_id,
           player_number: stat.player_number,
           player_name: stat.player_name,
-          pts: 0, fga: 0, fgm: 0,
+          pts: 0, fga: 0, fgm: 0, fg3a: 0, fg3m: 0, fta: 0, ftm: 0, oreb: 0,
           shot_breakdown: emptyShotBreakdown(),
         })
       }
@@ -135,12 +135,12 @@ export async function GET(req: Request) {
 
         // 누적 집계
         if (sType !== 'free_throw') { stat.fga++; gameStat.fga++ }
-        if (sType === 'shot_3p') { stat.fg3a++ }
-        if (sType === 'free_throw') { stat.fta++ }
+        if (sType === 'shot_3p') { stat.fg3a++; gameStat.fg3a++ }
+        if (sType === 'free_throw') { stat.fta++; gameStat.fta++ }
         if (isMade) {
           if (sType !== 'free_throw') { stat.fgm++; gameStat.fgm++ }
-          if (sType === 'shot_3p') stat.fg3m++
-          if (sType === 'free_throw') stat.ftm++
+          if (sType === 'shot_3p') { stat.fg3m++; gameStat.fg3m++ }
+          if (sType === 'free_throw') { stat.ftm++; gameStat.ftm++ }
           stat.pts += pts
           gameStat.pts += pts
         }
@@ -158,6 +158,7 @@ export async function GET(req: Request) {
 
       } else if (evType === 'oreb') {
         stat.oreb++
+        gameStat.oreb++
       }
     }
 

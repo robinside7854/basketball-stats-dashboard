@@ -35,7 +35,7 @@ interface OppPlayerStat {
 interface OppGameDetail {
   game_id: string; date: string; our_score: number; opponent_score: number
   vs_team: string | null; round: string | null; tournament_name: string | null
-  players: Array<{ player_id: string; player_number: string; player_name: string | null; pts: number; fga: number; fgm: number; shot_breakdown: ShotBreakdownMap }>
+  players: Array<{ player_id: string; player_number: string; player_name: string | null; pts: number; fga: number; fgm: number; fg3a: number; fg3m: number; fta: number; ftm: number; oreb: number; shot_breakdown: ShotBreakdownMap }>
 }
 interface OppStats {
   players: OppPlayerStat[]
@@ -996,29 +996,66 @@ export default function OpponentPage() {
                               {g.players.length === 0 ? (
                                 <p className="text-gray-500 text-xs py-2">이 경기에 기록된 데이터 없음</p>
                               ) : (
-                                <table className="w-full text-xs mt-2">
+                                <div className="overflow-x-auto mt-2">
+                                <table className="w-full text-xs">
                                   <thead>
                                     <tr className="text-gray-500 border-b border-gray-700/50">
-                                      <th className="py-1.5 text-left font-medium">선수</th>
-                                      <th className="py-1.5 text-center font-medium">PTS</th>
-                                      <th className="py-1.5 text-center font-medium">FG</th>
-                                      <th className="py-1.5 text-left font-medium pl-4 min-w-[160px]">공격 스타일</th>
+                                      <th className="py-1.5 text-left font-medium pr-3">선수</th>
+                                      <th className="py-1.5 text-center font-medium px-2">PTS</th>
+                                      <th className="py-1.5 text-center font-medium px-2">FG</th>
+                                      <th className="py-1.5 text-center font-medium px-2">FG%</th>
+                                      <th className="py-1.5 text-center font-medium px-2">3P</th>
+                                      <th className="py-1.5 text-center font-medium px-2">3P%</th>
+                                      <th className="py-1.5 text-center font-medium px-2">FT</th>
+                                      <th className="py-1.5 text-center font-medium px-2">FT%</th>
+                                      <th className="py-1.5 text-center font-medium px-2">OR</th>
+                                      <th className="py-1.5 text-left font-medium pl-3 min-w-[160px]">
+                                        <div className="flex flex-col gap-0.5">
+                                          <span>공격 스타일</span>
+                                          <div className="flex items-center gap-1 flex-wrap">
+                                            {SHOT_TYPES.map(t => (
+                                              <div key={t.type} className="flex items-center gap-0.5">
+                                                <span className="inline-flex items-center justify-center w-3 h-3 rounded text-white font-black" style={{ backgroundColor: t.color, fontSize: '8px' }}>{t.abbr}</span>
+                                                <span className="text-gray-600" style={{ fontSize: '9px' }}>{t.label}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </th>
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {g.players.map(p => (
-                                      <tr key={p.player_id} className="border-b border-gray-800/40">
-                                        <td className="py-1.5">
+                                    {g.players.map(p => {
+                                      const fgPct = p.fga > 0 ? Math.round((p.fgm / p.fga) * 1000) / 10 : null
+                                      const fg3Pct = p.fg3a > 0 ? Math.round((p.fg3m / p.fg3a) * 1000) / 10 : null
+                                      const ftPct = p.fta > 0 ? Math.round((p.ftm / p.fta) * 1000) / 10 : null
+                                      return (
+                                      <tr key={p.player_id} className="border-b border-gray-800/40 hover:bg-gray-800/20">
+                                        <td className="py-1.5 pr-3">
                                           <span className="font-bold text-white">#{p.player_number}</span>
                                           {p.player_name && <span className="ml-1 text-gray-400">{p.player_name}</span>}
                                         </td>
-                                        <td className="py-1.5 text-center text-yellow-400 font-bold">{p.pts}</td>
-                                        <td className="py-1.5 text-center text-gray-300">{p.fgm}/{p.fga}</td>
-                                        <td className="py-1.5 pl-4 min-w-[160px]"><ShotBarLabeled breakdown={p.shot_breakdown} height="sm" /></td>
+                                        <td className="py-1.5 text-center font-bold text-yellow-400 px-2">{p.pts}</td>
+                                        <td className="py-1.5 text-center text-gray-300 px-2">{p.fgm}/{p.fga}</td>
+                                        <td className={cn('py-1.5 text-center font-medium px-2', fgPct !== null && fgPct < 30 ? 'text-red-400' : 'text-gray-300')}>
+                                          {fgPct !== null ? `${fgPct}%` : '-'}
+                                        </td>
+                                        <td className="py-1.5 text-center text-gray-300 px-2">{p.fg3m}/{p.fg3a}</td>
+                                        <td className={cn('py-1.5 text-center font-medium px-2', fg3Pct !== null && fg3Pct < 30 ? 'text-red-400' : 'text-gray-300')}>
+                                          {fg3Pct !== null ? `${fg3Pct}%` : '-'}
+                                        </td>
+                                        <td className="py-1.5 text-center text-gray-300 px-2">{p.ftm}/{p.fta}</td>
+                                        <td className={cn('py-1.5 text-center font-medium px-2', ftPct !== null && ftPct < 60 ? 'text-red-400' : 'text-gray-300')}>
+                                          {ftPct !== null ? `${ftPct}%` : '-'}
+                                        </td>
+                                        <td className="py-1.5 text-center text-gray-300 px-2">{p.oreb}</td>
+                                        <td className="py-1.5 pl-3 min-w-[160px]"><ShotBarLabeled breakdown={p.shot_breakdown} height="sm" showLabels={true} /></td>
                                       </tr>
-                                    ))}
+                                      )
+                                    })}
                                   </tbody>
                                 </table>
+                                </div>
                               )}
                             </div>
                           )}
