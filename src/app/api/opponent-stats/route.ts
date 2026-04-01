@@ -85,11 +85,12 @@ export async function GET(req: Request) {
   const teamShotBreakdown = emptyShotBreakdown()
 
   // 게임별 상세 (분석 탭 드릴다운용)
-  const gameDetails = games.map((g: { id: string; date: string; our_score: number; opponent_score: number; round?: string; tournament_name?: string }) => ({
+  const gameDetails = games.map((g: { id: string; date: string; our_score: number; opponent_score: number; vs_team?: string; round?: string; tournament_name?: string }) => ({
     game_id: g.id,
     date: g.date,
     our_score: g.our_score,
     opponent_score: g.opponent_score,
+    vs_team: g.vs_team ?? null,
     round: g.round ?? null,
     tournament_name: g.tournament_name ?? null,
     players: [] as Array<{ player_id: string; player_number: string; player_name: string | null; pts: number; fga: number; fgm: number; shot_breakdown: Record<ShotType, ShotBreakdown> }>,

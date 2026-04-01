@@ -34,7 +34,7 @@ interface OppPlayerStat {
 }
 interface OppGameDetail {
   game_id: string; date: string; our_score: number; opponent_score: number
-  round: string | null; tournament_name: string | null
+  vs_team: string | null; round: string | null; tournament_name: string | null
   players: Array<{ player_id: string; player_number: string; player_name: string | null; pts: number; fga: number; fgm: number; shot_breakdown: ShotBreakdownMap }>
 }
 interface OppStats {
@@ -986,6 +986,7 @@ export default function OpponentPage() {
                           >
                             {expandedGame === g.game_id ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
                             <span className="text-gray-200 text-sm font-medium">{g.date}</span>
+                            {g.vs_team && <span className="text-white text-xs font-semibold">vs {g.vs_team}</span>}
                             {g.round && <span className="text-gray-400 text-xs bg-gray-800 px-2 py-0.5 rounded">{g.round}</span>}
                             {g.tournament_name && <span className="text-blue-400 text-xs">{g.tournament_name}</span>}
                             <span className="ml-auto text-xs text-gray-500">{g.players.length}명 기록</span>
