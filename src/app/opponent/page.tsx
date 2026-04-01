@@ -77,8 +77,12 @@ function eventLabel(type: string) {
     ?? type
 }
 
-// ─── Labeled stacked bar (D안) ────────────────────────────────────────────────
-function ShotBarLabeled({ breakdown, height = 'md' }: { breakdown: ShotBreakdownMap; height?: 'sm' | 'md' | 'lg' }) {
+// ─── Labeled stacked bar ──────────────────────────────────────────────────────
+function ShotBarLabeled({
+  breakdown, height = 'md', showLabels = true,
+}: {
+  breakdown: ShotBreakdownMap; height?: 'sm' | 'md' | 'lg'; showLabels?: boolean
+}) {
   const total = SHOT_TYPES.reduce((s, t) => s + (breakdown[t.type]?.att ?? 0), 0)
   if (total === 0) return <span className="text-gray-600 text-xs">-</span>
 
@@ -93,21 +97,69 @@ function ShotBarLabeled({ breakdown, height = 'md' }: { breakdown: ShotBreakdown
       {sorted.map(({ type, label, color, att, pct }) => (
         <div
           key={type}
-          className="flex items-center justify-center overflow-hidden transition-all relative shrink-0"
+          className="flex items-center justify-center overflow-hidden shrink-0"
           style={{ width: `${pct}%`, backgroundColor: color }}
           title={`${label}: ${att}회 (${pct}%)`}
         >
-          {pct >= 14 ? (
+          {showLabels && pct >= 14 ? (
             <div className="flex flex-col items-center leading-tight select-none">
               <span className="text-white font-bold drop-shadow" style={{ fontSize: height === 'sm' ? '10px' : '11px' }}>{label}</span>
               <span className="text-white/90 font-semibold drop-shadow" style={{ fontSize: height === 'sm' ? '9px' : '10px' }}>{pct}%</span>
             </div>
-          ) : pct >= 7 ? (
+          ) : showLabels && pct >= 7 ? (
             <span className="text-white font-bold drop-shadow select-none" style={{ fontSize: '9px' }}>{pct}%</span>
           ) : null}
         </div>
       ))}
     </div>
+  )
+}
+
+// ─── Donut chart (SVG) ─────────────────────────────────────────────────────────
+function DonutChart({ breakdown, size = 80 }: { breakdown: ShotBreakdownMap; size?: number }) {
+  const total = SHOT_TYPES.reduce((s, t) => s + (breakdown[t.type]?.att ?? 0), 0)
+  if (total === 0) return <div style={{ width: size, height: size }} className="rounded-full bg-gray-800" />
+
+  const cx = size / 2, cy = size / 2
+  const outerR = (size / 2) * 0.88
+  const innerR = (size / 2) * 0.52
+
+  const slices = [...SHOT_TYPES]
+    .map(t => ({ ...t, att: breakdown[t.type]?.att ?? 0 }))
+    .filter(t => t.att > 0)
+    .sort((a, b) => b.att - a.att)
+
+  function arc(startAngle: number, endAngle: number): string {
+    const x1 = cx + outerR * Math.cos(startAngle), y1 = cy + outerR * Math.sin(startAngle)
+    const x2 = cx + outerR * Math.cos(endAngle),   y2 = cy + outerR * Math.sin(endAngle)
+    const ix1 = cx + innerR * Math.cos(endAngle),  iy1 = cy + innerR * Math.sin(endAngle)
+    const ix2 = cx + innerR * Math.cos(startAngle),iy2 = cy + innerR * Math.sin(startAngle)
+    const large = endAngle - startAngle > Math.PI ? 1 : 0
+    return `M ${x1} ${y1} A ${outerR} ${outerR} 0 ${large} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${innerR} ${innerR} 0 ${large} 0 ${ix2} ${iy2} Z`
+  }
+
+  // top type label for center
+  const top = slices[0]
+  const topPct = Math.round((top.att / total) * 100)
+
+  let angle = -Math.PI / 2
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0">
+      {slices.map(s => {
+        const sweep = (s.att / total) * 2 * Math.PI
+        const end = angle + sweep
+        const path = arc(angle, end)
+        angle = end
+        return <path key={s.type} d={path} fill={s.color} stroke="#111827" strokeWidth="1.5" />
+      })}
+      {/* center label */}
+      <text x={cx} y={cy - 4} textAnchor="middle" fill="white" fontSize={size * 0.14} fontWeight="700" style={{ fontFamily: 'inherit' }}>
+        {top.label}
+      </text>
+      <text x={cx} y={cy + size * 0.14} textAnchor="middle" fill="rgba(255,255,255,0.75)" fontSize={size * 0.12} fontWeight="600">
+        {topPct}%
+      </text>
+    </svg>
   )
 }
 
@@ -746,13 +798,18 @@ export default function OpponentPage() {
 
                     {/* Top scorers */}
                     <div className="mt-5 pt-4 border-t border-gray-700/50">
-                      <p className="text-xs text-gray-400 mb-4 font-medium">주요 슈터 (슈팅 시도 상위)</p>
-                      <div className="space-y-3">
-                        {[...stats.players].sort((a, b) => b.fga - a.fga).slice(0, 5).map((p, i) => (
-                          <div key={p.player_id} className="space-y-1.5">
+                      <p className="text-xs text-gray-400 mb-4 font-medium">주요 슈터 (슈팅 시도 상위 7)</p>
+                      {(() => {
+                        const top7 = [...stats.players].sort((a, b) => b.fga - a.fga).slice(0, 7)
+                        const top5 = top7.slice(0, 5)
+                        const rest = top7.slice(5)
+
+                        const PlayerRow = (p: typeof top7[0], i: number) => (
+                          <div key={p.player_id} className="bg-gray-800/40 rounded-xl p-3 space-y-2 border border-gray-700/30">
+                            {/* Header */}
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                <span className="text-gray-600 text-xs w-4">{i + 1}</span>
+                                <span className="text-gray-500 text-xs w-4 shrink-0">{i + 1}</span>
                                 <span className="font-bold text-white text-sm">
                                   #{p.player_number}{p.player_name ? ` ${p.player_name}` : ''}
                                 </span>
@@ -762,10 +819,38 @@ export default function OpponentPage() {
                                 <span className="text-yellow-400 font-bold">{p.pts}pts</span>
                               </div>
                             </div>
-                            <ShotBarLabeled breakdown={p.shot_breakdown} height="md" />
+                            {/* Donut + Bar */}
+                            <div className="flex items-center gap-3">
+                              <DonutChart breakdown={p.shot_breakdown} size={72} />
+                              <div className="flex-1">
+                                <ShotBarLabeled breakdown={p.shot_breakdown} height="md" />
+                              </div>
+                            </div>
                           </div>
-                        ))}
-                      </div>
+                        )
+
+                        return (
+                          <div className="space-y-4">
+                            {/* Top 5 */}
+                            <div className="space-y-2">
+                              {top5.map((p, i) => PlayerRow(p, i))}
+                            </div>
+                            {/* 6~7위 */}
+                            {rest.length > 0 && (
+                              <>
+                                <div className="flex items-center gap-2 pt-1">
+                                  <div className="flex-1 h-px bg-gray-700/50" />
+                                  <span className="text-xs text-gray-600">6~7위</span>
+                                  <div className="flex-1 h-px bg-gray-700/50" />
+                                </div>
+                                <div className="space-y-2">
+                                  {rest.map((p, i) => PlayerRow(p, 5 + i))}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
 
@@ -773,7 +858,14 @@ export default function OpponentPage() {
                   <div className="bg-gray-900 border border-gray-700/50 rounded-xl overflow-hidden">
                     <div className="px-5 py-4 border-b border-gray-700/50">
                       <h2 className="font-semibold text-gray-100">선수별 누적 스탯</h2>
-                      <p className="text-xs text-gray-500 mt-0.5">공격 스타일 막대: 노랑=3P · 파랑=미들 · 초록=레이업 · 보라=골밑 · 회색=FT</p>
+                      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                        {[{label:'3P',color:'#EAB308'},{label:'미들',color:'#3B82F6'},{label:'레이업',color:'#22C55E'},{label:'골밑',color:'#8B5CF6'},{label:'FT',color:'#94A3B8'}].map(item => (
+                          <div key={item.label} className="flex items-center gap-1">
+                            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: item.color }} />
+                            <span className="text-xs text-gray-500">{item.label}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
@@ -814,7 +906,7 @@ export default function OpponentPage() {
                                 {p.ft_pct !== null ? `${p.ft_pct}%` : '-'}
                               </td>
                               <td className="px-3 py-2.5 text-center text-gray-300">{p.oreb}</td>
-                              <td className="px-4 py-2.5 min-w-[200px]"><ShotBarLabeled breakdown={p.shot_breakdown} height="sm" /></td>
+                              <td className="px-4 py-2.5 min-w-[200px]"><ShotBarLabeled breakdown={p.shot_breakdown} height="sm" showLabels={false} /></td>
                             </tr>
                           ))}
                         </tbody>
