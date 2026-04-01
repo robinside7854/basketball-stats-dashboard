@@ -61,11 +61,11 @@ function formatMMSS(seconds: number): string {
 
 // ─── Shot / event config ──────────────────────────────────────────────────────
 const SHOT_TYPES = [
-  { type: 'shot_3p',     label: '3P',   color: '#EAB308', pts: 3 },
-  { type: 'shot_2p_mid', label: '미들',  color: '#3B82F6', pts: 2 },
-  { type: 'shot_layup',  label: '레이업', color: '#22C55E', pts: 2 },
-  { type: 'shot_post',   label: '골밑',  color: '#8B5CF6', pts: 2 },
-  { type: 'free_throw',  label: 'FT',   color: '#94A3B8', pts: 1 },
+  { type: 'shot_3p',     label: '3P',   abbr: '3', color: '#EAB308', pts: 3 },
+  { type: 'shot_2p_mid', label: '미들',  abbr: 'M', color: '#3B82F6', pts: 2 },
+  { type: 'shot_layup',  label: '레이업', abbr: 'L', color: '#22C55E', pts: 2 },
+  { type: 'shot_post',   label: '골밑',  abbr: 'D', color: '#8B5CF6', pts: 2 },
+  { type: 'free_throw',  label: 'FT',   abbr: 'F', color: '#94A3B8', pts: 1 },
 ]
 const OTHER_EVENTS = [
   { type: 'oreb', label: '공격REB', colorClass: 'bg-green-700 hover:bg-green-600' },
@@ -94,20 +94,15 @@ function ShotBarLabeled({
 
   return (
     <div className={`flex w-full ${hClass} rounded-lg overflow-hidden gap-[2px]`}>
-      {sorted.map(({ type, label, color, att, pct }) => (
+      {sorted.map(({ type, label, abbr, color, att, pct }) => (
         <div
           key={type}
           className="flex items-center justify-center overflow-hidden shrink-0"
           style={{ width: `${pct}%`, backgroundColor: color }}
           title={`${label}: ${att}회 (${pct}%)`}
         >
-          {showLabels && pct >= 14 ? (
-            <div className="flex flex-col items-center leading-tight select-none">
-              <span className="text-white font-bold drop-shadow" style={{ fontSize: height === 'sm' ? '10px' : '11px' }}>{label}</span>
-              <span className="text-white/90 font-semibold drop-shadow" style={{ fontSize: height === 'sm' ? '9px' : '10px' }}>{pct}%</span>
-            </div>
-          ) : showLabels && pct >= 7 ? (
-            <span className="text-white font-bold drop-shadow select-none" style={{ fontSize: '9px' }}>{pct}%</span>
+          {showLabels && pct >= 8 ? (
+            <span className="text-white font-black drop-shadow select-none" style={{ fontSize: height === 'sm' ? '10px' : '12px' }}>{abbr}</span>
           ) : null}
         </div>
       ))}
@@ -804,47 +799,41 @@ export default function OpponentPage() {
                         const top5 = top7.slice(0, 5)
                         const rest = top7.slice(5)
 
-                        const PlayerRow = (p: typeof top7[0], i: number) => (
-                          <div key={p.player_id} className="bg-gray-800/40 rounded-xl p-3 space-y-2 border border-gray-700/30">
-                            {/* Header */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="text-gray-500 text-xs w-4 shrink-0">{i + 1}</span>
-                                <span className="font-bold text-white text-sm">
-                                  #{p.player_number}{p.player_name ? ` ${p.player_name}` : ''}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-3 text-xs">
-                                <span className="text-gray-400">{p.fgm}/{p.fga} ({p.fg_pct ?? '-'}%)</span>
-                                <span className="text-yellow-400 font-bold">{p.pts}pts</span>
-                              </div>
+                        const PlayerCard = (p: typeof top7[0], i: number) => (
+                          <div key={p.player_id} className="bg-gray-800/40 rounded-xl p-3 flex flex-col items-center gap-2 border border-gray-700/30">
+                            {/* rank + name */}
+                            <div className="flex items-center gap-1.5 w-full">
+                              <span className="text-gray-500 text-xs shrink-0">{i + 1}</span>
+                              <span className="font-bold text-white text-sm truncate">
+                                #{p.player_number}{p.player_name ? ` ${p.player_name}` : ''}
+                              </span>
                             </div>
-                            {/* Donut + Bar */}
-                            <div className="flex items-center gap-3">
-                              <DonutChart breakdown={p.shot_breakdown} size={72} />
-                              <div className="flex-1">
-                                <ShotBarLabeled breakdown={p.shot_breakdown} height="md" />
-                              </div>
+                            {/* donut */}
+                            <DonutChart breakdown={p.shot_breakdown} size={120} />
+                            {/* stats */}
+                            <div className="flex items-center justify-between w-full text-xs">
+                              <span className="text-gray-400">{p.fgm}/{p.fga} ({p.fg_pct ?? '-'}%)</span>
+                              <span className="text-yellow-400 font-bold">{p.pts}pts</span>
                             </div>
                           </div>
                         )
 
                         return (
                           <div className="space-y-4">
-                            {/* Top 5 */}
-                            <div className="space-y-2">
-                              {top5.map((p, i) => PlayerRow(p, i))}
+                            {/* Top 5 — 5열 그리드 */}
+                            <div className="grid grid-cols-5 gap-3">
+                              {top5.map((p, i) => PlayerCard(p, i))}
                             </div>
-                            {/* 6~7위 */}
+                            {/* 6~7위 — 구분선 + 2열 */}
                             {rest.length > 0 && (
                               <>
-                                <div className="flex items-center gap-2 pt-1">
+                                <div className="flex items-center gap-2">
                                   <div className="flex-1 h-px bg-gray-700/50" />
                                   <span className="text-xs text-gray-600">6~7위</span>
                                   <div className="flex-1 h-px bg-gray-700/50" />
                                 </div>
-                                <div className="space-y-2">
-                                  {rest.map((p, i) => PlayerRow(p, 5 + i))}
+                                <div className="grid grid-cols-2 gap-3 max-w-sm">
+                                  {rest.map((p, i) => PlayerCard(p, 5 + i))}
                                 </div>
                               </>
                             )}
@@ -858,14 +847,6 @@ export default function OpponentPage() {
                   <div className="bg-gray-900 border border-gray-700/50 rounded-xl overflow-hidden">
                     <div className="px-5 py-4 border-b border-gray-700/50">
                       <h2 className="font-semibold text-gray-100">선수별 누적 스탯</h2>
-                      <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                        {[{label:'3P',color:'#EAB308'},{label:'미들',color:'#3B82F6'},{label:'레이업',color:'#22C55E'},{label:'골밑',color:'#8B5CF6'},{label:'FT',color:'#94A3B8'}].map(item => (
-                          <div key={item.label} className="flex items-center gap-1">
-                            <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: item.color }} />
-                            <span className="text-xs text-gray-500">{item.label}</span>
-                          </div>
-                        ))}
-                      </div>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
@@ -881,7 +862,19 @@ export default function OpponentPage() {
                             <th className="px-3 py-2 text-center font-medium">FT</th>
                             <th className="px-3 py-2 text-center font-medium">FT%</th>
                             <th className="px-3 py-2 text-center font-medium">OR</th>
-                            <th className="px-4 py-2 text-left font-medium min-w-[200px]">공격 스타일</th>
+                            <th className="px-4 py-2 text-left font-medium min-w-[200px]">
+                              <div className="flex flex-col gap-1">
+                                <span>공격 스타일</span>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {SHOT_TYPES.map(t => (
+                                    <div key={t.type} className="flex items-center gap-0.5">
+                                      <span className="inline-flex items-center justify-center w-4 h-4 rounded text-white font-black text-[9px]" style={{ backgroundColor: t.color }}>{t.abbr}</span>
+                                      <span className="text-gray-500 text-[10px]">{t.label}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -906,7 +899,7 @@ export default function OpponentPage() {
                                 {p.ft_pct !== null ? `${p.ft_pct}%` : '-'}
                               </td>
                               <td className="px-3 py-2.5 text-center text-gray-300">{p.oreb}</td>
-                              <td className="px-4 py-2.5 min-w-[200px]"><ShotBarLabeled breakdown={p.shot_breakdown} height="sm" showLabels={false} /></td>
+                              <td className="px-4 py-2.5 min-w-[200px]"><ShotBarLabeled breakdown={p.shot_breakdown} height="sm" showLabels={true} /></td>
                             </tr>
                           ))}
                         </tbody>
