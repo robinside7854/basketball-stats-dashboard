@@ -770,31 +770,14 @@ export default function OpponentPage() {
                         {selectedGame.tournament_name && <span className="text-gray-400 text-xs">{selectedGame.tournament_name}</span>}
                         <span className="ml-auto text-gray-500 text-xs">{events.length}개 기록</span>
                       </div>
-                      {/* 누적 점수 — 쿼터별 */}
+                      {/* 누적 득점 합계 */}
                       {events.length > 0 && (() => {
-                        const quarters = [1,2,3,4]
-                        const qPts = (q: number) => events.filter(e => e.quarter === q).reduce((s, e) => s + e.points, 0)
                         const total = events.reduce((s, e) => s + e.points, 0)
                         return (
-                          <div className="mt-2 pt-2 border-t border-gray-800 flex items-center gap-3 flex-wrap">
-                            <span className="text-xs text-gray-500 shrink-0">누적 득점</span>
-                            <div className="flex items-center gap-2">
-                              {quarters.map(q => {
-                                const pts = qPts(q)
-                                if (pts === 0 && q > 1 && qPts(q-1) === 0) return null
-                                return (
-                                  <div key={q} className="flex items-center gap-1 text-xs">
-                                    <span className="text-gray-600">Q{q}</span>
-                                    <span className={pts > 0 ? 'text-white font-bold' : 'text-gray-600'}>{pts}</span>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                            <div className="ml-auto flex items-center gap-1.5">
-                              <span className="text-xs text-gray-500">합계</span>
-                              <span className="text-xl font-black font-mono text-yellow-400">{total}</span>
-                              <span className="text-xs text-gray-500">점</span>
-                            </div>
+                          <div className="mt-2 pt-2 border-t border-gray-800 flex items-center gap-2">
+                            <span className="text-xs text-gray-500">누적 득점</span>
+                            <span className="text-xl font-black font-mono text-yellow-400 ml-auto">{total}</span>
+                            <span className="text-xs text-gray-500">점</span>
                           </div>
                         )
                       })()}
