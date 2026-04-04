@@ -787,6 +787,45 @@ export default function OpponentPage() {
 
               {stats && stats.total_games > 0 && (
                 <>
+                  {/* ── 누적 스코어 배너 ── */}
+                  {(() => {
+                    const ourTotal = stats.games.reduce((s, g) => s + g.our_score, 0)
+                    const oppTotal = stats.games.reduce((s, g) => s + g.opponent_score, 0)
+                    const wins   = stats.games.filter(g => g.our_score > g.opponent_score).length
+                    const losses = stats.games.filter(g => g.our_score < g.opponent_score).length
+                    return (
+                      <div className="bg-gray-900 border border-gray-700/50 rounded-xl px-5 py-4 flex items-center gap-6 flex-wrap">
+                        <div className="flex items-center gap-4">
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500 mb-0.5">{selectedTeam?.name ?? '상대팀'}</div>
+                            <div className="text-3xl font-black font-mono text-red-400">{oppTotal}</div>
+                          </div>
+                          <div className="text-gray-600 font-bold text-lg">vs</div>
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500 mb-0.5">파란날개</div>
+                            <div className="text-3xl font-black font-mono text-blue-400">{ourTotal}</div>
+                          </div>
+                        </div>
+                        <div className="h-10 w-px bg-gray-700/60 hidden sm:block" />
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500 mb-0.5">경기</div>
+                            <div className="font-bold text-white">{stats.total_games}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500 mb-0.5">승</div>
+                            <div className="font-bold text-green-400">{wins}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xs text-gray-500 mb-0.5">패</div>
+                            <div className="font-bold text-red-400">{losses}</div>
+                          </div>
+                        </div>
+                        <div className="ml-auto text-xs text-gray-600">{stats.total_games}경기 누적 스코어</div>
+                      </div>
+                    )
+                  })()}
+
                   {/* ① 팀 공격 스타일 */}
                   <div className="bg-gray-900 border border-gray-700/50 rounded-xl p-5">
                     <h2 className="font-semibold text-gray-100 mb-1">팀 공격 스타일</h2>
