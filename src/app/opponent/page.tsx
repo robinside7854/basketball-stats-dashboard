@@ -761,7 +761,7 @@ export default function OpponentPage() {
                       </div>
                     )}
 
-                    {/* Game info */}
+                    {/* Game info + 누적 스코어 */}
                     <div className="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm">
                       <div className="flex items-center gap-4 flex-wrap">
                         <span className="text-gray-400">{selectedGame.date}</span>
@@ -770,6 +770,34 @@ export default function OpponentPage() {
                         {selectedGame.tournament_name && <span className="text-gray-400 text-xs">{selectedGame.tournament_name}</span>}
                         <span className="ml-auto text-gray-500 text-xs">{events.length}개 기록</span>
                       </div>
+                      {/* 누적 점수 — 쿼터별 */}
+                      {events.length > 0 && (() => {
+                        const quarters = [1,2,3,4]
+                        const qPts = (q: number) => events.filter(e => e.quarter === q).reduce((s, e) => s + e.points, 0)
+                        const total = events.reduce((s, e) => s + e.points, 0)
+                        return (
+                          <div className="mt-2 pt-2 border-t border-gray-800 flex items-center gap-3 flex-wrap">
+                            <span className="text-xs text-gray-500 shrink-0">누적 득점</span>
+                            <div className="flex items-center gap-2">
+                              {quarters.map(q => {
+                                const pts = qPts(q)
+                                if (pts === 0 && q > 1 && qPts(q-1) === 0) return null
+                                return (
+                                  <div key={q} className="flex items-center gap-1 text-xs">
+                                    <span className="text-gray-600">Q{q}</span>
+                                    <span className={pts > 0 ? 'text-white font-bold' : 'text-gray-600'}>{pts}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            <div className="ml-auto flex items-center gap-1.5">
+                              <span className="text-xs text-gray-500">합계</span>
+                              <span className="text-xl font-black font-mono text-yellow-400">{total}</span>
+                              <span className="text-xs text-gray-500">점</span>
+                            </div>
+                          </div>
+                        )
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -787,45 +815,6 @@ export default function OpponentPage() {
 
               {stats && stats.total_games > 0 && (
                 <>
-                  {/* ── 누적 스코어 배너 ── */}
-                  {(() => {
-                    const ourTotal = stats.games.reduce((s, g) => s + g.our_score, 0)
-                    const oppTotal = stats.games.reduce((s, g) => s + g.opponent_score, 0)
-                    const wins   = stats.games.filter(g => g.our_score > g.opponent_score).length
-                    const losses = stats.games.filter(g => g.our_score < g.opponent_score).length
-                    return (
-                      <div className="bg-gray-900 border border-gray-700/50 rounded-xl px-5 py-4 flex items-center gap-6 flex-wrap">
-                        <div className="flex items-center gap-4">
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-0.5">{selectedTeam?.name ?? '상대팀'}</div>
-                            <div className="text-3xl font-black font-mono text-red-400">{oppTotal}</div>
-                          </div>
-                          <div className="text-gray-600 font-bold text-lg">vs</div>
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-0.5">파란날개</div>
-                            <div className="text-3xl font-black font-mono text-blue-400">{ourTotal}</div>
-                          </div>
-                        </div>
-                        <div className="h-10 w-px bg-gray-700/60 hidden sm:block" />
-                        <div className="flex items-center gap-4 text-sm">
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-0.5">경기</div>
-                            <div className="font-bold text-white">{stats.total_games}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-0.5">승</div>
-                            <div className="font-bold text-green-400">{wins}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-0.5">패</div>
-                            <div className="font-bold text-red-400">{losses}</div>
-                          </div>
-                        </div>
-                        <div className="ml-auto text-xs text-gray-600">{stats.total_games}경기 누적 스코어</div>
-                      </div>
-                    )
-                  })()}
-
                   {/* ① 팀 공격 스타일 */}
                   <div className="bg-gray-900 border border-gray-700/50 rounded-xl p-5">
                     <h2 className="font-semibold text-gray-100 mb-1">팀 공격 스타일</h2>
