@@ -591,9 +591,6 @@ export default function OpponentPage() {
                   ))}
                 </select>
 
-                {selectedGame && (
-                  <div className="flex items-center gap-1">
-                )}
 
                 <div className="ml-auto flex items-center gap-2 flex-wrap">
                   {lastEventLabel && (
