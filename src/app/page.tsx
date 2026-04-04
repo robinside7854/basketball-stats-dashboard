@@ -71,16 +71,16 @@ function GameRecordCard({ icon, title, value, unit, record, onClick }: {
       <div className="text-2xl font-black font-mono text-white mb-2">
         {value}<span className="text-xs font-sans font-normal text-gray-400 ml-1">{unit}</span>
       </div>
-      <div className="text-xs text-gray-500 space-y-0.5">
+      <div className="text-xs space-y-0.5">
         <div className="flex items-center gap-1 flex-wrap">
           <span className="text-gray-300">{record.date}</span>
-          {record.round && <span className="text-gray-600">· {record.round}</span>}
+          {record.round && <span className="text-gray-400">· {record.round}</span>}
         </div>
-        <div className="text-gray-600">
+        <div className="text-gray-300">
           vs {record.opponent}
-          {record.tournament_name && <span className="ml-1">({record.tournament_name})</span>}
+          {record.tournament_name && <span className="text-gray-400 ml-1">({record.tournament_name})</span>}
         </div>
-        <div className="text-gray-700">
+        <div className="text-gray-400">
           {record.our_score} - {record.opponent_score}
         </div>
       </div>
@@ -204,13 +204,13 @@ export default function HomePage() {
                         {isWin ? '승' : isDraw ? '무' : '패'}
                       </div>
                       <div className="text-xs text-gray-400 mb-1">{g.date}</div>
-                      <div className="text-xs text-gray-500 mb-2 truncate">vs {g.opponent}</div>
+                      <div className="text-xs text-gray-300 mb-2 truncate">vs {g.opponent}</div>
                       <div className="text-xl font-black font-mono text-white">
                         {g.our_score}
-                        <span className="text-gray-600 mx-1 font-sans font-normal text-sm">-</span>
+                        <span className="text-gray-400 mx-1 font-sans font-normal text-sm">-</span>
                         {g.opponent_score}
                       </div>
-                      {g.round && <div className="text-xs text-gray-600 mt-1">{g.round}</div>}
+                      {g.round && <div className="text-xs text-gray-400 mt-1">{g.round}</div>}
                     </div>
                   )
                 })}
