@@ -225,7 +225,7 @@ export default function OpponentPage() {
 
   // Recording
   const [events, setEvents]           = useState<OppEvent[]>([])
-  const [recQuarter, setRecQuarter]   = useState(1)
+  const recQuarter = 1
   const [selPlayer, setSelPlayer]     = useState<string | null>(null)
   const [pendingShot, setPendingShot] = useState<string | null>(null)
   const [lastEventId, setLastEventId] = useState<string | null>(null)
@@ -353,7 +353,7 @@ export default function OpponentPage() {
     const pName = players.find(p => p.id === selPlayer)?.name
     const pLabel = pName ? `${pName}(#${pNum})` : `#${pNum}`
     const tsLabel = ts > 0 ? ` [${formatTimestamp(ts)}]` : ''
-    setLastEventLabel(`${pLabel} — ${eventLabel(type)}${result ? (result === 'made' ? ' ✓' : ' ✗') : ''} Q${recQuarter}${tsLabel}`)
+    setLastEventLabel(`${pLabel} — ${eventLabel(type)}${result ? (result === 'made' ? ' ✓' : ' ✗') : ''}${tsLabel}`)
     toast.success('기록 완료')
     loadEvents()
   }
@@ -579,7 +579,7 @@ export default function OpponentPage() {
                   onChange={e => {
                     const g = games.find(g => g.id === e.target.value) ?? null
                     setSelectedGame(g); setSelPlayer(null); setPendingShot(null)
-                    setLastEventId(null); setLastEventLabel(''); setRecQuarter(1)
+                    setLastEventId(null); setLastEventLabel('')
                     ytPlayerRef.current = null
                   }}
                 >
@@ -593,13 +593,6 @@ export default function OpponentPage() {
 
                 {selectedGame && (
                   <div className="flex items-center gap-1">
-                    {[1,2,3,4].map(q => (
-                      <button key={q} onClick={() => setRecQuarter(q)}
-                        className={cn('w-8 h-8 rounded-lg text-sm font-bold transition-colors',
-                          recQuarter === q ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
-                        )}>Q{q}</button>
-                    ))}
-                  </div>
                 )}
 
                 <div className="ml-auto flex items-center gap-2 flex-wrap">
@@ -719,7 +712,6 @@ export default function OpponentPage() {
                         <div className="space-y-0.5 max-h-52 overflow-y-auto">
                           {[...events].reverse().map(ev => (
                             <div key={ev.id} className="flex items-center gap-2 text-xs text-gray-400 px-1 py-0.5 hover:bg-gray-800/50 rounded group">
-                              <span className="text-gray-600 w-5 shrink-0">Q{ev.quarter}</span>
                               {ev.video_timestamp > 0 && (
                                 <span className="text-gray-600 text-[10px] w-10 shrink-0">{formatTimestamp(ev.video_timestamp)}</span>
                               )}
