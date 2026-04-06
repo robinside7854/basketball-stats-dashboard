@@ -59,7 +59,6 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
   const [lastEventLabel, setLastEventLabel] = useState<string>('')
 
   const onCourtPlayers = players.filter(p => onCourt.includes(p.id))
-  const benchPlayers = players.filter(p => !onCourt.includes(p.id))
   const assistCandidates = onCourtPlayers.filter(p => p.id !== selectedPlayer)
 
   async function saveEvent(result?: 'made' | 'missed') {
@@ -157,28 +156,6 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
           ))}
         </div>
 
-        {/* 벤치 — 항상 표시 */}
-        {benchPlayers.length > 0 && (
-          <div className="mt-2">
-            <p className="text-xs text-gray-600 mb-1">벤치</p>
-            <div className="grid grid-cols-5 gap-1 opacity-50">
-              {benchPlayers.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setSelectedPlayer(p.id)}
-                  className={`py-2 rounded-lg text-sm font-bold transition-colors ${
-                    selectedPlayer === p.id
-                      ? 'bg-blue-500 text-white ring-2 ring-blue-300 opacity-100'
-                      : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                  }`}
-                >
-                  <div>{p.number}</div>
-                  <div className="text-xs font-normal truncate px-1">{p.name}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ── 2. 이벤트 (그룹핑) ── */}
