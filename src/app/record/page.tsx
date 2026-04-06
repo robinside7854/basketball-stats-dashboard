@@ -47,6 +47,7 @@ function RecordPageInner() {
   const [starterIds, setStarterIds] = useState<string[]>([])
   const [statsRefresh, setStatsRefresh] = useState(0)
   const [teamPts, setTeamPts] = useState(0)
+  const [mobileTab, setMobileTab] = useState<'record' | 'view'>('record')
 
   const { currentGame, currentQuarter, setCurrentGame, setCurrentQuarter } = useGameStore()
   const { onCourt, setLineup, resetLineup } = useLineupStore()
@@ -330,9 +331,26 @@ function RecordPageInner() {
       </div>
 
       {currentGame ? (
+        <>
+          {/* 모바일 탭 전환 (lg 이상에서는 숨김) */}
+          <div className="lg:hidden flex rounded-xl overflow-hidden border border-gray-700 mb-3">
+            <button
+              onClick={() => setMobileTab('record')}
+              className={`flex-1 py-2.5 text-sm font-bold transition-colors ${mobileTab === 'record' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}
+            >
+              📝 기록
+            </button>
+            <button
+              onClick={() => setMobileTab('view')}
+              className={`flex-1 py-2.5 text-sm font-bold border-l border-gray-700 transition-colors ${mobileTab === 'view' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}
+            >
+              📹 영상·스탯
+            </button>
+          </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* 좌 2/3: 영상 + 실시간 스탯 */}
-          <div className="lg:col-span-2 space-y-3">
+          <div className={`lg:col-span-2 space-y-3 ${mobileTab !== 'view' ? 'hidden lg:block' : ''}`}>
             <YouTubePlayer
               key={currentGame.id}
               youtubeUrl={currentGame.youtube_url || ''}
@@ -345,7 +363,7 @@ function RecordPageInner() {
           </div>
 
           {/* 우 1/3: 이벤트 입력 + 선수교체 (sticky 고정) */}
-          <div className="lg:sticky lg:top-[60px] lg:self-start bg-gray-900 border border-gray-800 rounded-xl p-3 max-h-[calc(100vh-80px)] overflow-y-auto space-y-3">
+          <div className={`lg:sticky lg:top-[60px] lg:self-start bg-gray-900 border border-gray-800 rounded-xl p-3 max-h-[calc(100vh-80px)] overflow-y-auto space-y-3 ${mobileTab !== 'record' ? 'hidden lg:block' : ''}`}>
             {gameComplete ? (
               <div className="flex flex-col items-center justify-center text-center gap-4 py-10">
                 <div className="text-5xl">✅</div>
@@ -411,6 +429,8 @@ function RecordPageInner() {
             )}
           </div>
         </div>
+        </div>
+        </>
       ) : (
         <div className="flex items-center justify-center py-20 text-gray-500">
           <div className="text-center">

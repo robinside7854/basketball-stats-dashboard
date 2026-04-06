@@ -63,12 +63,12 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center sm:p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-      <div className="relative z-10 w-full max-w-4xl max-h-[90vh] bg-gray-950 border border-gray-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+      <div className="relative z-10 w-full max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[90vh] bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
         {/* 헤더 */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-3">

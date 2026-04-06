@@ -26,11 +26,11 @@ export default function TabNav() {
   return (
     <nav className="bg-gray-950 border-b border-blue-600/40 sticky top-0 z-50 shadow-lg" style={{ boxShadow: '0 4px 24px rgba(59,130,246,0.12)' }}>
       <div className="container mx-auto px-4 max-w-[1600px]">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          <div className="flex items-center gap-2 mr-5 py-3 shrink-0">
-            <span className="text-2xl">🏀</span>
-            <span className="text-white font-bold text-base tracking-tight whitespace-nowrap">
-              파란날개 <span className="text-blue-400">게임로그</span>
+        <div className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex items-center gap-1.5 mr-3 sm:mr-5 py-3 shrink-0">
+            <span className="text-xl sm:text-2xl">🏀</span>
+            <span className="text-white font-bold text-sm sm:text-base tracking-tight whitespace-nowrap">
+              파란날개 <span className="text-blue-400 hidden sm:inline">게임로그</span>
             </span>
           </div>
           <div className="w-px h-5 bg-gray-700 mr-2 shrink-0" />
@@ -41,13 +41,13 @@ export default function TabNav() {
                 key={href}
                 href={href}
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors',
+                  'flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-3 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 transition-colors',
                   isActive
                     ? 'border-blue-500 text-blue-400'
                     : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
                 )}
               >
-                <Icon size={15} />
+                <Icon size={14} />
                 {label}
               </Link>
             )

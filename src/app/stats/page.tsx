@@ -4,6 +4,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { Tournament, PlayerBoxScore } from '@/types/database'
 
+interface AssistPlayer { id: string; name: string; number: number }
+interface AssistData {
+  players: AssistPlayer[]
+  matrix: Record<string, Record<string, number>>
+  topPairs: { assister: AssistPlayer; scorer: AssistPlayer; count: number }[]
+}
+
 interface SeasonPlayer extends PlayerBoxScore {
   pts_avg: number; reb_avg: number; ast_avg: number; games_played: number
   usg_pct: number
@@ -25,8 +32,14 @@ export default function StatsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('avg')
   const [sortKey, setSortKey] = useState<keyof SeasonPlayer>('pts_avg')
   const [playerModal, setPlayerModal] = useState<string | null>(null)
+  const [assistData, setAssistData] = useState<AssistData | null>(null)
 
   useEffect(() => { fetch('/api/tournaments').then(r => r.json()).then(setTournaments) }, [])
+  useEffect(() => {
+    const url = selectedTId === 'all' ? '/api/stats/assists' : `/api/stats/assists?tournamentId=${selectedTId}`
+    fetch(url).then(r => r.json()).then(setAssistData)
+  }, [selectedTId])
+
   useEffect(() => {
     const url = selectedTId === 'all' ? '/api/stats/season' : `/api/stats/season?tournamentId=${selectedTId}`
     fetch(url).then(r => r.json()).then(d => {
@@ -309,6 +322,115 @@ export default function StatsPage() {
           <p className="text-sm mt-2">경기 기록 탭에서 스탯을 입력하면 자동으로 집계됩니다</p>
         </div>
       )}
+
+      {/* 어시스트 네트워크 */}
+      {assistData && assistData.topPairs.length > 0 && (() => {
+        const { players: aPlayers, matrix, topPairs } = assistData
+        const maxCount = Math.max(...topPairs.map(p => p.count), 1)
+        const MEDAL: Record<number, string> = { 0: '🥇', 1: '🥈', 2: '🥉' }
+        function cellBg(count: number) {
+          if (!count) return ''
+          const ratio = count / maxCount
+          if (ratio >= 0.8) return 'bg-blue-500 text-white font-bold'
+          if (ratio >= 0.5) return 'bg-blue-700/70 text-blue-200 font-semibold'
+          if (ratio >= 0.25) return 'bg-blue-900/60 text-blue-300'
+          return 'bg-gray-800/60 text-gray-400'
+        }
+        return (
+          <div>
+            <h2 className="text-lg font-semibold mb-3 text-gray-300">어시스트 네트워크</h2>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* 히트맵 매트릭스 */}
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                <p className="text-xs text-gray-500 mb-3">↓ 어시스트 제공 → 득점 선수</p>
+                <div className="overflow-x-auto">
+                  <table className="text-xs border-collapse w-full">
+                    <thead>
+                      <tr>
+                        <th className="w-16 py-1.5 text-gray-600 text-left pr-2">A↓ / S→</th>
+                        {aPlayers.map(p => (
+                          <th key={p.id} className="py-1.5 px-1 text-gray-400 font-medium min-w-[36px]">
+                            <div className="text-center">
+                              <div className="text-blue-400 font-bold">{p.number}</div>
+                              <div className="text-gray-500 text-[10px] truncate max-w-[36px]">{p.name.slice(0, 3)}</div>
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {aPlayers.map(assister => (
+                        <tr key={assister.id} className="border-t border-gray-800/50">
+                          <td className="py-1.5 pr-2 text-right">
+                            <span className="text-blue-400 font-bold">{assister.number}</span>
+                            <span className="text-gray-400 ml-1">{assister.name.slice(0, 3)}</span>
+                          </td>
+                          {aPlayers.map(scorer => {
+                            const count = matrix[assister.id]?.[scorer.id] ?? 0
+                            return (
+                              <td key={scorer.id} className="py-1.5 px-1 text-center">
+                                {assister.id === scorer.id ? (
+                                  <span className="text-gray-800">—</span>
+                                ) : count > 0 ? (
+                                  <span className={`inline-block min-w-[28px] py-0.5 rounded text-center text-xs ${cellBg(count)}`}>
+                                    {count}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-800">·</span>
+                                )}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center gap-3 mt-3 pt-2 border-t border-gray-800">
+                  <span className="text-xs text-gray-600">연결 강도</span>
+                  {[['낮음', 'bg-gray-800/60'], ['중간', 'bg-blue-900/60'], ['높음', 'bg-blue-700/70'], ['최다', 'bg-blue-500']].map(([label, cls]) => (
+                    <div key={label} className="flex items-center gap-1">
+                      <span className={`w-4 h-4 rounded ${cls} inline-block`} />
+                      <span className="text-xs text-gray-500">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 상위 어시스트 커넥션 */}
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                <p className="text-xs text-gray-500 mb-3">최다 어시스트 연결</p>
+                <div className="space-y-2">
+                  {topPairs.map((pair, i) => (
+                    <div key={i} className="flex items-center gap-3 bg-gray-800/50 rounded-lg px-3 py-2.5">
+                      <span className="text-lg shrink-0">{MEDAL[i] ?? '🏅'}</span>
+                      <div className="flex-1 flex items-center gap-2">
+                        <div className="text-center shrink-0">
+                          <div className="text-blue-400 font-black text-sm">#{pair.assister.number}</div>
+                          <div className="text-white text-xs font-medium">{pair.assister.name}</div>
+                        </div>
+                        <div className="flex-1 flex items-center justify-center gap-1">
+                          <div className="h-px flex-1 bg-gradient-to-r from-blue-500 to-transparent" />
+                          <span className="text-xs text-gray-500">→</span>
+                          <div className="h-px flex-1 bg-gradient-to-l from-green-500 to-transparent" />
+                        </div>
+                        <div className="text-center shrink-0">
+                          <div className="text-green-400 font-black text-sm">#{pair.scorer.number}</div>
+                          <div className="text-white text-xs font-medium">{pair.scorer.name}</div>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="text-xl font-black font-mono text-amber-400">{pair.count}</div>
+                        <div className="text-xs text-gray-500">회</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {playerModal && (
         <PlayerDetailModal
