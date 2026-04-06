@@ -374,9 +374,9 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                     <table className="w-full text-sm text-center border-collapse">
                       <thead>
                         <tr className="bg-gray-800 text-gray-400 text-xs">
-                          <th className="px-3 py-2 text-left">대회</th>
-                          <th className="px-3 py-2">연도</th>
-                          <th className="px-3 py-2">GP</th>
+                          <th className="px-3 py-2 text-left whitespace-nowrap">대회</th>
+                          <th className="px-3 py-2 whitespace-nowrap">연도</th>
+                          <th className="px-3 py-2 whitespace-nowrap">GP</th>
                           <th className="px-3 py-2">PPG</th>
                           <th className="px-3 py-2">RPG</th>
                           <th className="px-3 py-2">APG</th>
@@ -396,7 +396,7 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                                 className="border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer"
                                 onClick={() => games_played > 0 ? setExpandedTournament(isExpanded ? null : tournament.id) : undefined}
                               >
-                                <td className="px-3 py-2 text-left">
+                                <td className="px-3 py-2 text-left whitespace-nowrap">
                                   <span className={`font-medium text-xs ${games_played > 0 ? 'text-blue-400' : 'text-white'}`}>
                                     {tournament.name}
                                     {games_played > 0 && <span className="ml-1 text-gray-600">{isExpanded ? '▲' : '▼'}</span>}
@@ -426,11 +426,11 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                                 const s = g.stats
                                 return (
                                   <tr key={g.game_id} className="border-b border-gray-800/40 bg-gray-800/20 text-xs">
-                                    <td className="px-3 py-1.5 text-left text-gray-500 pl-6">
+                                    <td className="px-3 py-1.5 text-left text-gray-500 pl-6 whitespace-nowrap">
                                       {g.date}
                                       {g.round && <span className="ml-1 text-gray-600">({g.round})</span>}
                                     </td>
-                                    <td className="px-3 py-1.5 text-left text-gray-400" colSpan={2}>vs {g.opponent}</td>
+                                    <td className="px-3 py-1.5 text-left text-gray-400 whitespace-nowrap" colSpan={2}>vs {g.opponent}</td>
                                     <td className="px-3 py-1.5">
                                       <span className={`px-1.5 py-0.5 rounded font-bold ${isWin ? 'bg-green-900/60 text-green-400' : 'bg-red-900/60 text-red-400'}`}>
                                         {isWin ? 'W' : 'L'} {g.our_score}-{g.opponent_score}
