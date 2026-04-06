@@ -230,7 +230,7 @@ export default function StatsPage() {
                 ? unit.replace('PG', '/36')
                 : unit
               return (
-                <div key={key} className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
+                <div key={key} className="bg-gray-900 border border-gray-700/70 rounded-xl p-4 text-center hover:border-blue-500/60 transition-colors cursor-pointer">
                   <div className="text-2xl mb-1">{icon}</div>
                   <div className="text-xs text-gray-400 mb-1">{label}</div>
                   <button

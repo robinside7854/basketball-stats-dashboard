@@ -23,7 +23,7 @@ export default function PlayerCard({ player, onEdit, onDelete, onDetail }: Props
   const age = calcAge(player.birthdate)
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-blue-700 transition-colors">
+    <div className="bg-gray-900 border border-gray-700/60 rounded-xl overflow-hidden hover:border-blue-500 transition-colors">
       <button onClick={onDetail} className="w-full flex text-left hover:bg-gray-800/40 transition-colors">
         {/* 좌측 4:5 이미지 */}
         <div className="w-24 shrink-0 bg-gray-800 overflow-hidden flex items-center justify-center" style={{ aspectRatio: '4/5' }}>

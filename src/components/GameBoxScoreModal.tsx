@@ -83,7 +83,7 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
               </span>
               <span className="ml-2 text-gray-400 text-sm">vs {gameInfo.opponent}</span>
             </div>
-            <div className="text-xs text-gray-600">
+            <div className="text-xs text-gray-400">
               {gameInfo.date}
               {gameInfo.round && ` · ${gameInfo.round}`}
               {gameInfo.tournament_name && ` · ${gameInfo.tournament_name}`}
@@ -126,7 +126,7 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                 {boxScores.map(s => (
                   <tr
                     key={s.player_id}
-                    className="border-b border-gray-800 transition-colors hover:bg-gray-900"
+                    className="border-b border-gray-700/40 transition-colors hover:bg-gray-800/60"
                   >
                     <td className="px-2 py-2 font-bold text-blue-400 text-left">{s.player_number}</td>
                     <td className="px-2 py-2 text-left font-medium whitespace-nowrap">

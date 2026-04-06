@@ -61,7 +61,7 @@ function GameRecordCard({ icon, title, value, unit, record, onClick }: {
 }) {
   return (
     <div
-      className="bg-gray-900 border border-gray-800 rounded-xl p-4 cursor-pointer hover:border-blue-700 transition-colors"
+      className="bg-gray-900 border border-gray-700/60 rounded-xl p-4 cursor-pointer hover:border-blue-500 transition-colors"
       onClick={onClick}
     >
       <div className="flex items-center gap-2 mb-2">
@@ -196,15 +196,15 @@ export default function HomePage() {
                         round: g.round,
                         tournament_name: g.tournament?.name ?? null,
                       })}
-                      className={`shrink-0 bg-gray-900 border rounded-xl p-4 w-44 text-center cursor-pointer hover:border-blue-600 transition-colors
-                        ${isWin ? 'border-green-900/60' : isDraw ? 'border-gray-700' : 'border-red-900/60'}`}
+                      className={`shrink-0 bg-gray-900 border rounded-xl p-4 w-44 text-center cursor-pointer hover:border-blue-500 transition-colors
+                        ${isWin ? 'border-green-700/50' : isDraw ? 'border-gray-600' : 'border-red-700/50'}`}
                     >
                       <div className={`text-xs font-bold mb-2 px-2 py-0.5 rounded-full inline-block
                         ${isWin ? 'bg-green-900/50 text-green-400' : isDraw ? 'bg-gray-700 text-gray-400' : 'bg-red-900/50 text-red-400'}`}>
                         {isWin ? '승' : isDraw ? '무' : '패'}
                       </div>
                       <div className="text-xs text-gray-400 mb-1">{g.date}</div>
-                      <div className="text-xs text-gray-300 mb-2 truncate">vs {g.opponent}</div>
+                      <div className="text-xs text-white mb-2 truncate font-medium">vs {g.opponent}</div>
                       <div className="text-xl font-black font-mono text-white">
                         {g.our_score}
                         <span className="text-gray-400 mx-1 font-sans font-normal text-sm">-</span>
@@ -235,7 +235,7 @@ export default function HomePage() {
                     <div
                       key={label}
                       onClick={() => setPlayerModal(leader.player_id)}
-                      className="bg-gray-900 border border-blue-900/40 rounded-xl p-5 text-center cursor-pointer hover:border-amber-500/50 hover:bg-gray-800/80 transition-colors duration-200"
+                      className="bg-gray-900 border border-blue-700/50 rounded-xl p-5 text-center cursor-pointer hover:border-blue-500 hover:bg-gray-800/80 transition-colors duration-200"
                     >
                       <div className="text-2xl mb-2">{icon}</div>
                       <div className="text-xs text-gray-400 mb-1">{label}</div>

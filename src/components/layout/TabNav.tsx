@@ -24,7 +24,7 @@ export default function TabNav() {
   const tabs = isEditMode ? [...publicTabs, editOnlyTab] : publicTabs
 
   return (
-    <nav className="bg-gray-950 border-b border-blue-700/30 sticky top-0 z-50 shadow-lg" style={{ boxShadow: '0 4px 20px rgba(26,114,217,0.08)' }}>
+    <nav className="bg-gray-950 border-b border-blue-600/40 sticky top-0 z-50 shadow-lg" style={{ boxShadow: '0 4px 24px rgba(59,130,246,0.12)' }}>
       <div className="container mx-auto px-4 max-w-[1600px]">
         <div className="flex items-center gap-1 overflow-x-auto">
           <div className="flex items-center gap-2 mr-5 py-3 shrink-0">

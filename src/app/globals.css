@@ -8,25 +8,25 @@
   --font-sans: var(--font-fira-sans), 'Fira Sans', system-ui, sans-serif;
   --font-mono: var(--font-fira-code), 'Fira Code', monospace;
 
-  /* 네이비 팔레트 (gray 대체) */
+  /* 네이비 다크 팔레트 (배경/카드) */
   --color-gray-950: #030A14;
-  --color-gray-900: #070E1A;
+  --color-gray-900: #070F1C;
   --color-gray-800: #0D1A2E;
-  --color-gray-700: #122338;
-  --color-gray-600: #1E3A5C;
-  --color-gray-500: #3D5F7A;
-  --color-gray-400: #7AAEC8;
-  --color-gray-300: #A8CCE0;
+  --color-gray-700: #152840;
+  --color-gray-600: #2A4D6E;  /* dimmed text — 충분한 대비 확보 */
+  --color-gray-500: #4D7A9C;  /* secondary text — 읽기 가능 */
+  --color-gray-400: #82B4D0;  /* label text — 명확 */
+  --color-gray-300: #B0CDE0;  /* body text — 선명 */
 
   /* 로열 블루 팔레트 (team primary) */
   --color-blue-950: #030B1A;
   --color-blue-900: #071528;
   --color-blue-800: #0C2040;
-  --color-blue-700: #113060;
-  --color-blue-600: #1560BE;
-  --color-blue-500: #1A72D9;
-  --color-blue-400: #4DA8FF;
-  --color-blue-300: #80C4FF;
+  --color-blue-700: #1E40AF;  /* deep royal */
+  --color-blue-600: #2563EB;  /* royal blue — button bg */
+  --color-blue-500: #3B82F6;  /* royal blue — active/main */
+  --color-blue-400: #60A5FA;  /* bright royal blue — accent */
+  --color-blue-300: #93C5FD;  /* light royal blue */
 
   /* 앰버 강조색 (챔피언십 골드) */
   --color-amber-400: #FBBF24;
