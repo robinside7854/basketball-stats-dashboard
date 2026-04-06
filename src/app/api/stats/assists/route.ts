@@ -93,25 +93,27 @@ export async function GET(request: Request) {
     assistedFgm: number
     assistedPts: number
     unassistedPts: number
-    byType: Record<string, number>   // shot type → assisted count
+    byType: Record<string, number>            // shot type → assisted count
+    unassistedByType: Record<string, number>  // shot type → unassisted count
   }
   const scorerMap = new Map<string, ScorerAcc>()
 
   for (const e of fieldGoals) {
     if (!e.player_id) continue
     if (!scorerMap.has(e.player_id)) {
-      scorerMap.set(e.player_id, { totalFgm: 0, assistedFgm: 0, assistedPts: 0, unassistedPts: 0, byType: {} })
+      scorerMap.set(e.player_id, { totalFgm: 0, assistedFgm: 0, assistedPts: 0, unassistedPts: 0, byType: {}, unassistedByType: {} })
     }
     const acc = scorerMap.get(e.player_id)!
     acc.totalFgm++
     const pts = e.points ?? 0
+    const t = e.type ?? 'unknown'
     if (e.related_player_id) {
       acc.assistedFgm++
       acc.assistedPts += pts
-      const t = e.type ?? 'unknown'
       acc.byType[t] = (acc.byType[t] || 0) + 1
     } else {
       acc.unassistedPts += pts
+      acc.unassistedByType[t] = (acc.unassistedByType[t] || 0) + 1
     }
   }
 
@@ -129,6 +131,7 @@ export async function GET(request: Request) {
         unassistedPts: s.unassistedPts,
         assistedRatio: s.totalFgm > 0 ? Math.round((s.assistedFgm / s.totalFgm) * 1000) / 10 : 0,
         byType: s.byType,
+        unassistedByType: s.unassistedByType,
       }
     })
     .sort((a, b) => b.assistedPts - a.assistedPts)

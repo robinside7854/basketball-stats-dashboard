@@ -8,7 +8,7 @@ interface AssistPlayer { id: string; name: string; number: number }
 interface ScorerStat {
   playerId: string; playerName: string; playerNumber: number
   totalFgm: number; assistedFgm: number; assistedPts: number; unassistedPts: number
-  assistedRatio: number; byType: Record<string, number>
+  assistedRatio: number; byType: Record<string, number>; unassistedByType: Record<string, number>
 }
 interface AssistData {
   players: AssistPlayer[]
@@ -41,11 +41,13 @@ export default function StatsPage() {
   const [sortKey, setSortKey] = useState<keyof SeasonPlayer>('pts_avg')
   const [playerModal, setPlayerModal] = useState<string | null>(null)
   const [assistData, setAssistData] = useState<AssistData | null>(null)
+  const [selectedAssistPlayer, setSelectedAssistPlayer] = useState<{ playerId: string; name: string; mode: 'assisted' | 'unassisted' } | null>(null)
 
   useEffect(() => { fetch('/api/tournaments').then(r => r.json()).then(setTournaments) }, [])
   useEffect(() => {
     const url = selectedTId === 'all' ? '/api/stats/assists' : `/api/stats/assists?tournamentId=${selectedTId}`
     fetch(url).then(r => r.json()).then(setAssistData)
+    setSelectedAssistPlayer(null)
   }, [selectedTId])
 
   useEffect(() => {
@@ -450,7 +452,10 @@ export default function StatsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* 선수별 어시스트 득점 */}
               <div className="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-xl p-4">
-                <p className="text-xs text-gray-500 mb-3">선수별 어시스트 득점 현황</p>
+                <p className="text-xs text-gray-500 mb-3">
+                  선수별 어시스트 득점 현황
+                  <span className="ml-2 text-gray-600">득점 숫자 클릭 → 우측 공격 스타일 확인</span>
+                </p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
                     <thead>
@@ -465,6 +470,8 @@ export default function StatsPage() {
                       {scorerStats.filter(s => s.totalFgm > 0).map(s => {
                         const totalPts = s.assistedPts + s.unassistedPts
                         const assistedPtsPct = totalPts > 0 ? Math.round((s.assistedPts / totalPts) * 100) : 0
+                        const isSelA = selectedAssistPlayer?.playerId === s.playerId && selectedAssistPlayer.mode === 'assisted'
+                        const isSelU = selectedAssistPlayer?.playerId === s.playerId && selectedAssistPlayer.mode === 'unassisted'
                         return (
                           <tr key={s.playerId} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                             <td className="py-2 pr-3 whitespace-nowrap">
@@ -472,11 +479,37 @@ export default function StatsPage() {
                               <span className="text-white ml-1.5">{s.playerName}</span>
                             </td>
                             <td className="py-2 px-2 text-center">
-                              <span className="text-green-400 font-bold">{s.assistedPts}</span>
+                              <button
+                                onClick={() => setSelectedAssistPlayer(
+                                  isSelA ? null : { playerId: s.playerId, name: s.playerName, mode: 'assisted' }
+                                )}
+                                disabled={s.assistedFgm === 0}
+                                className={`font-bold px-1.5 py-0.5 rounded transition-colors disabled:cursor-default
+                                  ${isSelA
+                                    ? 'bg-green-500 text-white ring-2 ring-green-400'
+                                    : s.assistedFgm > 0
+                                      ? 'text-green-400 hover:bg-green-900/40 cursor-pointer'
+                                      : 'text-gray-600'}`}
+                              >
+                                {s.assistedPts}
+                              </button>
                               <span className="text-gray-600 ml-1 text-[10px]">({s.assistedFgm}개)</span>
                             </td>
                             <td className="py-2 px-2 text-center">
-                              <span className="text-gray-300">{s.unassistedPts}</span>
+                              <button
+                                onClick={() => setSelectedAssistPlayer(
+                                  isSelU ? null : { playerId: s.playerId, name: s.playerName, mode: 'unassisted' }
+                                )}
+                                disabled={s.totalFgm - s.assistedFgm === 0}
+                                className={`font-bold px-1.5 py-0.5 rounded transition-colors disabled:cursor-default
+                                  ${isSelU
+                                    ? 'bg-gray-400 text-black ring-2 ring-gray-300'
+                                    : s.totalFgm - s.assistedFgm > 0
+                                      ? 'text-gray-300 hover:bg-gray-700/60 cursor-pointer'
+                                      : 'text-gray-700'}`}
+                              >
+                                {s.unassistedPts}
+                              </button>
                               <span className="text-gray-600 ml-1 text-[10px]">({s.totalFgm - s.assistedFgm}개)</span>
                             </td>
                             <td className="py-2 px-2">
@@ -501,55 +534,91 @@ export default function StatsPage() {
                 <p className="text-[10px] text-gray-700 mt-2">* 어시스트 비중 = 어시스트 득점 / (어시스트+단독) 총득점. 자유투 제외.</p>
               </div>
 
-              {/* 슛 유형 분석 */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                <p className="text-xs text-gray-500 mb-3">어시스트 슛 유형</p>
-                {totalAssisted > 0 ? (
-                  <div className="space-y-3">
-                    {/* 스택 바 */}
-                    <div className="flex h-4 rounded-lg overflow-hidden gap-px">
-                      {Object.entries(shotTypeBreakdown)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([type, count]) => (
-                          <div
-                            key={type}
-                            style={{ width: `${(count / totalAssisted) * 100}%`, backgroundColor: SHOT_COLORS[type] ?? '#6b7280' }}
-                            title={`${shotLabels[type] ?? type} ${count}회`}
-                          />
-                        ))}
+              {/* 슛 유형 분석 — 선택 선수 or 팀 전체 */}
+              {(() => {
+                // 선택된 선수가 있으면 해당 선수 데이터, 없으면 팀 전체
+                let breakdown: Record<string, number>
+                let totalCount: number
+                let title: string
+                let subtitle: string
+
+                if (selectedAssistPlayer) {
+                  const stat = scorerStats.find(s => s.playerId === selectedAssistPlayer.playerId)
+                  breakdown = selectedAssistPlayer.mode === 'assisted'
+                    ? (stat?.byType ?? {})
+                    : (stat?.unassistedByType ?? {})
+                  totalCount = Object.values(breakdown).reduce((s, v) => s + v, 0)
+                  title = `${selectedAssistPlayer.name} · ${selectedAssistPlayer.mode === 'assisted' ? '어시스트 득점' : '단독 득점'}`
+                  subtitle = selectedAssistPlayer.mode === 'assisted' ? '어시스트 받은 슛 유형' : '단독으로 넣은 슛 유형'
+                } else {
+                  breakdown = shotTypeBreakdown
+                  totalCount = totalAssisted
+                  title = '팀 전체 · 어시스트 슛 유형'
+                  subtitle = '선수 득점 숫자 클릭 시 개인 현황'
+                }
+
+                return (
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                    <div className="flex items-start justify-between mb-1">
+                      <div>
+                        <p className="text-xs font-semibold text-white">{title}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">{subtitle}</p>
+                      </div>
+                      {selectedAssistPlayer && (
+                        <button
+                          onClick={() => setSelectedAssistPlayer(null)}
+                          className="text-[10px] text-gray-500 hover:text-gray-300 px-1.5 py-0.5 rounded hover:bg-gray-800 transition-colors shrink-0"
+                        >
+                          전체 보기
+                        </button>
+                      )}
                     </div>
-                    {/* 개별 항목 */}
-                    <div className="space-y-2.5 mt-3">
-                      {Object.entries(shotTypeBreakdown)
-                        .sort((a, b) => b[1] - a[1])
-                        .map(([type, count]) => {
-                          const pct = Math.round((count / totalAssisted) * 100)
-                          const color = SHOT_COLORS[type] ?? '#6b7280'
-                          return (
-                            <div key={type}>
-                              <div className="flex items-center justify-between text-xs mb-1">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: color }} />
-                                  <span className="text-gray-300">{shotLabels[type] ?? type}</span>
+                    {totalCount > 0 ? (
+                      <div className="space-y-3 mt-3">
+                        <div className="flex h-4 rounded-lg overflow-hidden gap-px">
+                          {Object.entries(breakdown)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([type, count]) => (
+                              <div
+                                key={type}
+                                style={{ width: `${(count / totalCount) * 100}%`, backgroundColor: SHOT_COLORS[type] ?? '#6b7280' }}
+                                title={`${shotLabels[type] ?? type} ${count}회`}
+                              />
+                            ))}
+                        </div>
+                        <div className="space-y-2.5">
+                          {Object.entries(breakdown)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([type, count]) => {
+                              const pct = Math.round((count / totalCount) * 100)
+                              const color = SHOT_COLORS[type] ?? '#6b7280'
+                              return (
+                                <div key={type}>
+                                  <div className="flex items-center justify-between text-xs mb-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: color }} />
+                                      <span className="text-gray-300">{shotLabels[type] ?? type}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-gray-500">{count}회</span>
+                                      <span className="font-bold w-8 text-right" style={{ color }}>{pct}%</span>
+                                    </div>
+                                  </div>
+                                  <div className="bg-gray-800 rounded-full h-1.5 overflow-hidden">
+                                    <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-gray-500">{count}회</span>
-                                  <span className="font-bold w-8 text-right" style={{ color }}>{pct}%</span>
-                                </div>
-                              </div>
-                              <div className="bg-gray-800 rounded-full h-1.5 overflow-hidden">
-                                <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
-                              </div>
-                            </div>
-                          )
-                        })}
-                    </div>
-                    <p className="text-[10px] text-gray-700 mt-2">총 {totalAssisted}회 어시스트 슛</p>
+                              )
+                            })}
+                        </div>
+                        <p className="text-[10px] text-gray-700">총 {totalCount}회</p>
+                      </div>
+                    ) : (
+                      <p className="text-gray-600 text-xs mt-3">데이터 없음</p>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-gray-600 text-xs">데이터 없음</p>
-                )}
-              </div>
+                )
+              })()}
             </div>
           </div>
         )
