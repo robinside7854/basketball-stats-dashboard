@@ -5,10 +5,18 @@ import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { Tournament, PlayerBoxScore } from '@/types/database'
 
 interface AssistPlayer { id: string; name: string; number: number }
+interface ScorerStat {
+  playerId: string; playerName: string; playerNumber: number
+  totalFgm: number; assistedFgm: number; assistedPts: number; unassistedPts: number
+  assistedRatio: number; byType: Record<string, number>
+}
 interface AssistData {
   players: AssistPlayer[]
   matrix: Record<string, Record<string, number>>
   topPairs: { assister: AssistPlayer; scorer: AssistPlayer; count: number }[]
+  scorerStats: ScorerStat[]
+  shotTypeBreakdown: Record<string, number>
+  shotLabels: Record<string, string>
 }
 
 interface SeasonPlayer extends PlayerBoxScore {
@@ -325,9 +333,13 @@ export default function StatsPage() {
 
       {/* 어시스트 네트워크 */}
       {assistData && assistData.topPairs.length > 0 && (() => {
-        const { players: aPlayers, matrix, topPairs } = assistData
+        const { players: aPlayers, matrix, topPairs, scorerStats, shotTypeBreakdown, shotLabels } = assistData
         const maxCount = Math.max(...topPairs.map(p => p.count), 1)
         const MEDAL: Record<number, string> = { 0: '🥇', 1: '🥈', 2: '🥉' }
+        const SHOT_COLORS: Record<string, string> = {
+          shot_3p: '#3b82f6', shot_layup: '#f97316', shot_2p_mid: '#eab308', shot_post: '#ef4444',
+        }
+
         function cellBg(count: number) {
           if (!count) return ''
           const ratio = count / maxCount
@@ -336,9 +348,14 @@ export default function StatsPage() {
           if (ratio >= 0.25) return 'bg-blue-900/60 text-blue-300'
           return 'bg-gray-800/60 text-gray-400'
         }
+
+        const totalAssisted = Object.values(shotTypeBreakdown).reduce((s, v) => s + v, 0)
+
         return (
-          <div>
-            <h2 className="text-lg font-semibold mb-3 text-gray-300">어시스트 네트워크</h2>
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold text-gray-300">어시스트 네트워크</h2>
+
+            {/* Row 1: 히트맵 + 상위 커넥션 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* 히트맵 매트릭스 */}
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
@@ -361,7 +378,7 @@ export default function StatsPage() {
                     <tbody>
                       {aPlayers.map(assister => (
                         <tr key={assister.id} className="border-t border-gray-800/50">
-                          <td className="py-1.5 pr-2 text-right">
+                          <td className="py-1.5 pr-2 text-right whitespace-nowrap">
                             <span className="text-blue-400 font-bold">{assister.number}</span>
                             <span className="text-gray-400 ml-1">{assister.name.slice(0, 3)}</span>
                           </td>
@@ -404,12 +421,12 @@ export default function StatsPage() {
                   {topPairs.map((pair, i) => (
                     <div key={i} className="flex items-center gap-3 bg-gray-800/50 rounded-lg px-3 py-2.5">
                       <span className="text-lg shrink-0">{MEDAL[i] ?? '🏅'}</span>
-                      <div className="flex-1 flex items-center gap-2">
+                      <div className="flex-1 flex items-center gap-2 min-w-0">
                         <div className="text-center shrink-0">
                           <div className="text-blue-400 font-black text-sm">#{pair.assister.number}</div>
                           <div className="text-white text-xs font-medium">{pair.assister.name}</div>
                         </div>
-                        <div className="flex-1 flex items-center justify-center gap-1">
+                        <div className="flex-1 flex items-center justify-center gap-1 min-w-0">
                           <div className="h-px flex-1 bg-gradient-to-r from-blue-500 to-transparent" />
                           <span className="text-xs text-gray-500">→</span>
                           <div className="h-px flex-1 bg-gradient-to-l from-green-500 to-transparent" />
@@ -426,6 +443,112 @@ export default function StatsPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            {/* Row 2: 선수별 어시스트 득점 현황 + 슛 유형 */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* 선수별 어시스트 득점 */}
+              <div className="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-xl p-4">
+                <p className="text-xs text-gray-500 mb-3">선수별 어시스트 득점 현황</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="text-gray-500 border-b border-gray-800">
+                        <th className="py-1.5 text-left font-normal pr-3">선수</th>
+                        <th className="py-1.5 text-center font-normal px-2 whitespace-nowrap">어시스트 득점</th>
+                        <th className="py-1.5 text-center font-normal px-2 whitespace-nowrap">단독 득점</th>
+                        <th className="py-1.5 font-normal px-2 whitespace-nowrap">어시스트 비중</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scorerStats.filter(s => s.totalFgm > 0).map(s => {
+                        const totalPts = s.assistedPts + s.unassistedPts
+                        const assistedPtsPct = totalPts > 0 ? Math.round((s.assistedPts / totalPts) * 100) : 0
+                        return (
+                          <tr key={s.playerId} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                            <td className="py-2 pr-3 whitespace-nowrap">
+                              <span className="text-blue-400 font-bold">#{s.playerNumber}</span>
+                              <span className="text-white ml-1.5">{s.playerName}</span>
+                            </td>
+                            <td className="py-2 px-2 text-center">
+                              <span className="text-green-400 font-bold">{s.assistedPts}</span>
+                              <span className="text-gray-600 ml-1 text-[10px]">({s.assistedFgm}개)</span>
+                            </td>
+                            <td className="py-2 px-2 text-center">
+                              <span className="text-gray-300">{s.unassistedPts}</span>
+                              <span className="text-gray-600 ml-1 text-[10px]">({s.totalFgm - s.assistedFgm}개)</span>
+                            </td>
+                            <td className="py-2 px-2">
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden min-w-[60px]">
+                                  <div
+                                    className="h-2 rounded-full bg-green-500 transition-all"
+                                    style={{ width: `${assistedPtsPct}%` }}
+                                  />
+                                </div>
+                                <span className={`font-bold w-8 text-right ${assistedPtsPct >= 50 ? 'text-green-400' : 'text-gray-400'}`}>
+                                  {assistedPtsPct}%
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[10px] text-gray-700 mt-2">* 어시스트 비중 = 어시스트 득점 / (어시스트+단독) 총득점. 자유투 제외.</p>
+              </div>
+
+              {/* 슛 유형 분석 */}
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                <p className="text-xs text-gray-500 mb-3">어시스트 슛 유형</p>
+                {totalAssisted > 0 ? (
+                  <div className="space-y-3">
+                    {/* 스택 바 */}
+                    <div className="flex h-4 rounded-lg overflow-hidden gap-px">
+                      {Object.entries(shotTypeBreakdown)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([type, count]) => (
+                          <div
+                            key={type}
+                            style={{ width: `${(count / totalAssisted) * 100}%`, backgroundColor: SHOT_COLORS[type] ?? '#6b7280' }}
+                            title={`${shotLabels[type] ?? type} ${count}회`}
+                          />
+                        ))}
+                    </div>
+                    {/* 개별 항목 */}
+                    <div className="space-y-2.5 mt-3">
+                      {Object.entries(shotTypeBreakdown)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([type, count]) => {
+                          const pct = Math.round((count / totalAssisted) * 100)
+                          const color = SHOT_COLORS[type] ?? '#6b7280'
+                          return (
+                            <div key={type}>
+                              <div className="flex items-center justify-between text-xs mb-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: color }} />
+                                  <span className="text-gray-300">{shotLabels[type] ?? type}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-gray-500">{count}회</span>
+                                  <span className="font-bold w-8 text-right" style={{ color }}>{pct}%</span>
+                                </div>
+                              </div>
+                              <div className="bg-gray-800 rounded-full h-1.5 overflow-hidden">
+                                <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                              </div>
+                            </div>
+                          )
+                        })}
+                    </div>
+                    <p className="text-[10px] text-gray-700 mt-2">총 {totalAssisted}회 어시스트 슛</p>
+                  </div>
+                ) : (
+                  <p className="text-gray-600 text-xs">데이터 없음</p>
+                )}
               </div>
             </div>
           </div>
