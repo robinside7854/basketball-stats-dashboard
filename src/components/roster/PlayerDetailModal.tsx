@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { X, Camera } from 'lucide-react'
 import { toast } from 'sonner'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
 
 interface ShotStat { label: string; made: number; attempted: number; pct: number }
@@ -100,6 +101,7 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
   const [loading, setLoading] = useState(true)
   const [expandedTournament, setExpandedTournament] = useState<string | null>(null)
   const [teamRankings, setTeamRankings] = useState<Record<string, { rank: number; isTie: boolean }>>({})
+  const [chartMetric, setChartMetric] = useState<'PPG' | 'RPG' | 'APG' | 'FG%' | '3P%'>('PPG')
 
   useEffect(() => {
     fetch(`/api/players/${playerId}/stats`)
@@ -365,6 +367,64 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
                   </div>
                 </div>
               )}
+
+              {/* 대회별 추이 차트 */}
+              {(() => {
+                const chartData = tournamentStats
+                  .filter(t => t.games_played > 0 && t.stats)
+                  .map(t => ({
+                    name: t.tournament.name.length > 8 ? t.tournament.name.slice(0, 8) + '…' : t.tournament.name,
+                    PPG: t.stats!.pts_avg,
+                    RPG: t.stats!.reb_avg,
+                    APG: t.stats!.ast_avg,
+                    'FG%': t.stats!.fg_pct,
+                    '3P%': t.stats!.fg3_pct,
+                  }))
+                if (chartData.length < 2) return null
+                const METRIC_COLOR: Record<string, string> = {
+                  PPG: '#3b82f6', RPG: '#f97316', APG: '#22c55e', 'FG%': '#eab308', '3P%': '#a855f7'
+                }
+                const METRIC_TABS = ['PPG', 'RPG', 'APG', 'FG%', '3P%'] as const
+                return (
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-base font-semibold text-gray-300">대회별 추이</h2>
+                      <div className="flex gap-1">
+                        {METRIC_TABS.map(m => (
+                          <button
+                            key={m}
+                            onClick={() => setChartMetric(m)}
+                            className={`px-2.5 py-1 text-xs font-bold rounded transition-colors ${chartMetric === m ? 'text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+                            style={chartMetric === m ? { backgroundColor: METRIC_COLOR[m] } : undefined}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <LineChart data={chartData} margin={{ top: 4, right: 16, left: -20, bottom: 4 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                        <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
+                        <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
+                          labelStyle={{ color: '#d1d5db' }}
+                          itemStyle={{ color: METRIC_COLOR[chartMetric] }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey={chartMetric}
+                          stroke={METRIC_COLOR[chartMetric]}
+                          strokeWidth={2.5}
+                          dot={{ fill: METRIC_COLOR[chartMetric], r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )
+              })()}
 
               {/* 대회별 성적 */}
               {tournamentStats.length > 0 && (

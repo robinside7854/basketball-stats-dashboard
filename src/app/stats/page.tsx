@@ -7,6 +7,7 @@ import type { Tournament, PlayerBoxScore } from '@/types/database'
 interface SeasonPlayer extends PlayerBoxScore {
   pts_avg: number; reb_avg: number; ast_avg: number; games_played: number
   usg_pct: number
+  eff: number
 }
 
 type ViewMode = 'avg' | 'vol' | 'per36'
@@ -28,7 +29,17 @@ export default function StatsPage() {
   useEffect(() => { fetch('/api/tournaments').then(r => r.json()).then(setTournaments) }, [])
   useEffect(() => {
     const url = selectedTId === 'all' ? '/api/stats/season' : `/api/stats/season?tournamentId=${selectedTId}`
-    fetch(url).then(r => r.json()).then(d => setPlayers(d.players || []))
+    fetch(url).then(r => r.json()).then(d => {
+      const raw = d.players || []
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const withEff = raw.map((p: any) => {
+        const gp = p.games_played || 1
+        const positive = p.pts_avg + p.reb_avg + p.ast_avg + (p.stl ?? 0) / gp + (p.blk ?? 0) / gp
+        const negative = ((p.fga ?? 0) - (p.fgm ?? 0)) / gp + ((p.fta ?? 0) - (p.ftm ?? 0)) / gp + (p.tov ?? 0) / gp
+        return { ...p, eff: Math.round((positive - negative) * 10) / 10 }
+      })
+      setPlayers(withEff)
+    })
   }, [selectedTId])
 
   function switchMode(mode: ViewMode) {
@@ -63,6 +74,7 @@ export default function StatsPage() {
     { key: 'ast_tov', label: 'A/T' },
     { key: 'stl', label: 'STL' },
     { key: 'blk', label: 'BLK' },
+    { key: 'eff', label: 'EFF' },
   ]
 
   const per36Cols: { key: keyof SeasonPlayer; label: string }[] = [
@@ -151,6 +163,7 @@ export default function StatsPage() {
       if (key === 'fg_pct')  return <td key={key} className={`px-2 py-2 font-medium ${n >= 40 ? 'text-green-400' : n > 0 ? 'text-yellow-400' : 'text-gray-600'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
       if (key === 'fg3_pct') return <td key={key} className={`px-2 py-2 font-medium ${n >= 33 ? 'text-green-400' : n > 0 ? 'text-yellow-400' : 'text-gray-600'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
       if (key === 'ft_pct')  return <td key={key} className={`px-2 py-2 font-medium ${n >= 70 ? 'text-green-400' : n > 0 ? 'text-yellow-400' : 'text-gray-600'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
+      if (key === 'eff') return <td key={key} className={`px-2 py-2 font-bold ${n >= 10 ? 'text-blue-400' : n >= 0 ? 'text-gray-300' : 'text-red-400'}`}>{n.toFixed(1)}</td>
       if (['efg_pct','ts_pct','ast_tov'].includes(key as string))
         return <td key={key} className="px-2 py-2">{n > 0 ? n.toFixed(1) : '-'}</td>
     } else {
@@ -284,7 +297,7 @@ export default function StatsPage() {
           </div>
           <div className="flex flex-wrap gap-4 mt-3">
             <p className="text-xs text-gray-500">* 컬럼 클릭 시 정렬 변경 / 이름 클릭 시 선수 상세</p>
-            {viewMode === 'avg' && <p className="text-xs text-gray-500">* USG%: 팀 전체 공격 점유 중 해당 선수 비율</p>}
+            {viewMode === 'avg' && <p className="text-xs text-gray-500">* USG%: 팀 전체 공격 점유 중 해당 선수 비율 / EFF: (PTS+REB+AST+STL+BLK)-(빗나간FG+빗나간FT+TOV) 경기당</p>}
             {viewMode === 'per36' && <p className="text-xs text-gray-500">* 28분 기준 → 36분 환산 (× 1.286)</p>}
           </div>
         </div>

@@ -45,6 +45,7 @@ interface GameInfo {
 interface DashboardData {
   recentGames: RecentGame[]
   seasonRecord: { wins: number; losses: number; total: number }
+  streak: { count: number; type: 'win' | 'loss' | null }
   leaders: { ppg: Leader | null; rpg: Leader | null; apg: Leader | null; fg3_pct: Leader | null; ts_pct: Leader | null } | null
   teamAvg: { pts_avg: number; opp_avg: number; fg_pct: number; fg3_pct: number; ft_pct: number } | null
   teamRecords: {
@@ -112,7 +113,7 @@ export default function HomePage() {
     )
   }
 
-  const { recentGames, seasonRecord, leaders, teamAvg, teamRecords } = data
+  const { recentGames, seasonRecord, streak, leaders, teamAvg, teamRecords } = data
   const winPct = seasonRecord.total > 0
     ? Math.round((seasonRecord.wins / seasonRecord.total) * 1000) / 10
     : 0
@@ -122,7 +123,18 @@ export default function HomePage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-white">홈</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-white">홈</h1>
+          {streak?.type && streak.count > 0 && (
+            <span className={`text-sm font-bold px-3 py-1 rounded-full border ${
+              streak.type === 'win'
+                ? 'bg-green-900/50 text-green-400 border-green-700/50'
+                : 'bg-red-900/50 text-red-400 border-red-700/50'
+            }`}>
+              {streak.count}연{streak.type === 'win' ? '승 🔥' : '패 😰'}
+            </span>
+          )}
+        </div>
         <p className="text-sm text-gray-500 mt-1">파란날개 농구팀 시즌 현황</p>
       </div>
 

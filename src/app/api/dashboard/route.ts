@@ -182,9 +182,27 @@ export async function GET() {
       : null,
   }
 
+  // 현재 연승/연패 스트릭 계산 (날짜 내림차순 allGames 기준)
+  let streak = 0
+  let streakType: 'win' | 'loss' | null = null
+  for (const g of allGames) {
+    const isW = (g.our_score as number) > (g.opponent_score as number)
+    const isL = (g.our_score as number) < (g.opponent_score as number)
+    if (streakType === null) {
+      if (isW) { streakType = 'win'; streak = 1 }
+      else if (isL) { streakType = 'loss'; streak = 1 }
+      else continue // 무 → skip
+    } else {
+      if (streakType === 'win' && isW) streak++
+      else if (streakType === 'loss' && isL) streak++
+      else break
+    }
+  }
+
   return NextResponse.json({
     recentGames,
     seasonRecord: { wins, losses, total: allGames.length },
+    streak: { count: streak, type: streakType },
     leaders: (() => {
       function makeLeader(key: string, valKey: string) {
         const p = top(key); if (!p) return null
