@@ -28,6 +28,18 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
     setIsEditMode(sessionStorage.getItem(SESSION_KEY) === '1')
   }, [])
 
+  // 키보드 입력 지원
+  useEffect(() => {
+    if (!showModal) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key >= '0' && e.key <= '9') handleDigit(e.key)
+      else if (e.key === 'Backspace') handleDelete()
+      else if (e.key === 'Escape') setShowModal(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [showModal, digits, loading])
+
   function openPinModal() { setShowModal(true); setDigits([]); setError(false) }
   function exitEditMode() { sessionStorage.removeItem(SESSION_KEY); setIsEditMode(false) }
 
