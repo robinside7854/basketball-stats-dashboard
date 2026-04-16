@@ -89,7 +89,7 @@ export async function GET(req: Request) {
       channelId,
       q: '파란날개',
       type: 'video',
-      eventType: 'completed', // 완료된 라이브 스트림
+      // eventType 제한 없음 — 라이브 스트림 + 일반 업로드 모두 포함
       maxResults: '50',
       key: apiKey,
       ...(afterISO ? { publishedAfter: afterISO } : {}),
