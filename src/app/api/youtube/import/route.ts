@@ -138,22 +138,43 @@ export async function GET(req: Request) {
     groupMap.get(key)!.push(v)
   }
 
-  // DB에서 기존 대회 + 기등록된 youtube_url 조회
+  // DB에서 기존 대회 + 기등록 경기 조회
   const supabase = createClient()
-  const [{ data: existingTournaments }, { data: existingGames }] = await Promise.all([
-    supabase.from('tournaments').select('id, name, year, type').eq('team_type', team),
-    supabase.from('games').select('youtube_url').not('youtube_url', 'is', null),
-  ])
+  const { data: existingTournaments } = await supabase
+    .from('tournaments').select('id, name, year, type').eq('team_type', team)
 
-  // 기등록 URL Set (video ID 기준으로 비교)
+  const teamTournamentIds = (existingTournaments ?? []).map(t => t.id)
+
+  // 기등록 경기 조회 (youtube_url + date + opponent)
+  const { data: existingGames } = teamTournamentIds.length > 0
+    ? await supabase
+        .from('games')
+        .select('youtube_url, date, opponent')
+        .in('tournament_id', teamTournamentIds)
+    : { data: [] }
+
+  // 감지 방법 1: video ID 매칭
   const registeredVideoIds = new Set(
     (existingGames ?? [])
+      .filter(g => g.youtube_url)
       .map(g => {
         const m = (g.youtube_url as string).match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
         return m ? m[1] : null
       })
       .filter(Boolean) as string[]
   )
+
+  // 감지 방법 2: 날짜 + 상대팀 매칭 (youtube_url 없이 수동 등록된 경기 대응)
+  const registeredDateOpponent = new Set(
+    (existingGames ?? []).map(g =>
+      `${g.date}__${(g.opponent as string ?? '').toLowerCase().trim()}`
+    )
+  )
+
+  function isAlreadyRegistered(videoId: string, date: string, opponent: string): boolean {
+    if (registeredVideoIds.has(videoId)) return true
+    return registeredDateOpponent.has(`${date}__${opponent.toLowerCase().trim()}`)
+  }
 
   const groups: TournamentGroup[] = Array.from(groupMap.entries()).map(([tournament_name, vids]) => {
     const year = vids[0].parsed.year
@@ -173,7 +194,7 @@ export async function GET(req: Request) {
         date: v.parsed.date,
         opponent: v.parsed.opponent,
         round: v.parsed.round,
-        already_registered: registeredVideoIds.has(v.video_id),
+        already_registered: isAlreadyRegistered(v.video_id, v.parsed.date, v.parsed.opponent),
       }))
       .sort((a, b) => {
         const ra = ROUND_PRIORITY[a.round] ?? 9
