@@ -19,9 +19,9 @@ function parseBirthdate(val?: string): { y: string; m: string; d: string } {
   return { y: '', m: '', d: '' }
 }
 
-interface Props { player: Player | null; onClose: () => void; onSaved: () => void }
+interface Props { player: Player | null; teamType?: string; onClose: () => void; onSaved: () => void }
 
-export default function PlayerForm({ player, onClose, onSaved }: Props) {
+export default function PlayerForm({ player, teamType, onClose, onSaved }: Props) {
   const bd = parseBirthdate(player?.birthdate)
   const [form, setForm] = useState({
     number: player?.number ?? '',
@@ -77,6 +77,7 @@ export default function PlayerForm({ player, onClose, onSaved }: Props) {
       number: Number(form.number),
       height_cm: form.height_cm ? Number(form.height_cm) : null,
       birthdate,
+      ...(teamType && !player ? { team_type: teamType } : {}),
     }
     const url = player ? `/api/players/${player.id}` : '/api/players'
     const method = player ? 'PUT' : 'POST'

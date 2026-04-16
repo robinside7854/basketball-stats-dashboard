@@ -21,13 +21,26 @@ function roundPriority(round?: string | null): number {
   return 50
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const supabase = createClient()
+  const { searchParams } = new URL(req.url)
+  const team = searchParams.get('team')
 
-  const { data: allGamesRaw, error: gamesError } = await supabase
-    .from('games')
-    .select('*, tournament:tournaments(id, name)')
-    .order('date', { ascending: false })
+  // If team filter requested, scope to that team's tournament IDs
+  let tournamentIds: string[] | null = null
+  if (team) {
+    const { data: teamTournaments } = await supabase.from('tournaments').select('id').eq('team_type', team)
+    tournamentIds = (teamTournaments ?? []).map(t => t.id)
+  }
+
+  let gamesQuery = supabase.from('games').select('*, tournament:tournaments(id, name)').order('date', { ascending: false })
+  if (tournamentIds !== null) {
+    if (tournamentIds.length === 0) {
+      return NextResponse.json({ recentGames: [], seasonRecord: { wins: 0, losses: 0, total: 0 }, leaders: null, teamAvg: null, teamRecords: null })
+    }
+    gamesQuery = gamesQuery.in('tournament_id', tournamentIds)
+  }
+  const { data: allGamesRaw, error: gamesError } = await gamesQuery
 
   if (gamesError) {
     return NextResponse.json({ error: gamesError.message }, { status: 500 })
@@ -60,8 +73,10 @@ export async function GET() {
   const gameIds = allGames.map(g => g.id as string)
 
   // 게임별 개별 조회로 Supabase max_rows(1000) 우회
+  let playersQuery = supabase.from('players').select('*').eq('is_active', true).order('number')
+  if (team) playersQuery = playersQuery.eq('team_type', team)
   const [playersRes, ...gameResults] = await Promise.all([
-    supabase.from('players').select('*').eq('is_active', true).order('number'),
+    playersQuery,
     ...gameIds.map(gid => Promise.all([
       supabase.from('game_events').select('*').eq('game_id', gid),
       supabase.from('player_minutes').select('*').eq('game_id', gid),

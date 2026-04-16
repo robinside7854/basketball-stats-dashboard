@@ -7,9 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Tournament, Player } from '@/types/database'
 
-interface Props { tournament: Tournament | null; onClose: () => void; onSaved: () => void }
+interface Props { tournament: Tournament | null; teamType?: string; onClose: () => void; onSaved: () => void }
 
-export default function TournamentForm({ tournament, onClose, onSaved }: Props) {
+export default function TournamentForm({ tournament, teamType, onClose, onSaved }: Props) {
   const [form, setForm] = useState({
     name: tournament?.name ?? '',
     year: tournament?.year ?? new Date().getFullYear(),
@@ -20,7 +20,8 @@ export default function TournamentForm({ tournament, onClose, onSaved }: Props) 
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([])
 
   useEffect(() => {
-    fetch('/api/players').then(r => r.json()).then((data: Player[]) => {
+    const teamParam = teamType ? `?team=${teamType}` : ''
+    fetch(`/api/players${teamParam}`).then(r => r.json()).then((data: Player[]) => {
       setAllPlayers(data.filter(p => p.is_active))
     })
     if (tournament) {
@@ -40,7 +41,8 @@ export default function TournamentForm({ tournament, onClose, onSaved }: Props) 
     e.preventDefault()
     const url = tournament ? `/api/tournaments/${tournament.id}` : '/api/tournaments'
     const method = tournament ? 'PUT' : 'POST'
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+    const body = teamType && !tournament ? { ...form, team_type: teamType } : form
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     if (!res.ok) { toast.error('대회 저장 실패'); return }
     const saved = await res.json()
     const tId = saved.id ?? tournament?.id

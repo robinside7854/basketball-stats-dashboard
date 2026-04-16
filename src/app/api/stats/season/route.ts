@@ -7,6 +7,7 @@ export async function GET(req: Request) {
   const supabase = createClient()
   const { searchParams } = new URL(req.url)
   const tournamentId = searchParams.get('tournamentId')
+  const team = searchParams.get('team')
 
   let gamesQuery = supabase.from('games').select('id, date, opponent, our_score, opponent_score, round')
   if (tournamentId) gamesQuery = gamesQuery.eq('tournament_id', tournamentId)
@@ -17,8 +18,10 @@ export async function GET(req: Request) {
   if (gameIds.length === 0) return NextResponse.json({ players: [], teamTotals: {}, total_games: 0, game_summaries: [] })
 
   // 게임별 개별 조회로 Supabase max_rows(1000) 우회
+  let playersQuery = supabase.from('players').select('*').eq('is_active', true).order('number')
+  if (team) playersQuery = playersQuery.eq('team_type', team)
   const [playersRes, ...gameResults] = await Promise.all([
-    supabase.from('players').select('*').eq('is_active', true).order('number'),
+    playersQuery,
     ...gameIds.map(gid => Promise.all([
       supabase.from('game_events').select('*').eq('game_id', gid),
       supabase.from('player_minutes').select('*').eq('game_id', gid),

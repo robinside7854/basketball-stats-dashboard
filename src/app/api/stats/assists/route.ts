@@ -12,14 +12,13 @@ const FIELD_SHOT_TYPES = new Set(['shot_3p', 'shot_layup', 'shot_2p_mid', 'shot_
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const tournamentId = searchParams.get('tournamentId')
+  const team = searchParams.get('team')
 
   const supabase = createClient()
 
-  const { data: players } = await supabase
-    .from('players')
-    .select('id, name, number')
-    .eq('is_active', true)
-    .order('number')
+  let playersQuery = supabase.from('players').select('id, name, number').eq('is_active', true).order('number')
+  if (team) playersQuery = playersQuery.eq('team_type', team)
+  const { data: players } = await playersQuery
 
   let gameIds: string[] | null = null
   if (tournamentId) {
