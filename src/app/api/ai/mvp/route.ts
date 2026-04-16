@@ -18,18 +18,27 @@ export interface MvpResult {
   x_factor: AwardEntry | null
 }
 
-// ── Opus 설계 기준 적용: MVP Score ──────────────────────────────
+// ── MVP Score ────────────────────────────────────────────────────
+// 핵심 철학: 높은 야투 효율 + 다득점이 MVP의 1순위 경로
+// pts 기본 가중치 상향 + 효율 연동 보너스로 "효율적 다득점" 강력 우대
 function calcMvpScore(s: PlayerBoxScore): number {
   const efgPct = s.efg_pct / 100
   const tsPct = s.ts_pct / 100
 
+  // 효율적 득점 보너스: FGA 6회 이상 + eFG% 45% 이상인 선수에게 pts의 40% 추가
+  // → 22pts 54%eFG 선수가 5pts 허슬 선수보다 명확히 우위를 갖게 함
+  const efficientScoringBonus =
+    s.fga >= 6 && s.efg_pct >= 45 ? s.pts * 0.4 : 0
+
+  // 비효율 슈터 페널티: 10회 이상 쏘고 FG% 30% 미만
   const chuckerPenalty =
     s.fga >= 10 && s.fg_pct < 30 ? (s.fga - s.fgm) * 0.3 : 0
 
   return (
-    s.pts * 1.0 +
-    efgPct * 20 +
-    tsPct * 15 +
+    s.pts * 1.5 +               // 1.0 → 1.5 상향
+    efficientScoringBonus +     // 효율 다득점 보너스 (최대 ~+10)
+    efgPct * 12 +               // 효율 자체 가치 (20 → 12, 보너스로 이동)
+    tsPct * 8 +                 // TS% (15 → 8)
     s.ast * 1.5 +
     s.reb * 0.8 +
     s.oreb * 0.5 +
@@ -37,15 +46,15 @@ function calcMvpScore(s: PlayerBoxScore): number {
     s.blk * 1.2 +
     s.fg3m * 0.5 +
     (s.double_double ? 3.0 : 0) +
-    (s.triple_double ? 5.0 : 0) +
-    s.plus_minus * 0.3 -
+    (s.triple_double ? 5.0 : 0) -
     s.tov * 1.5 -
     s.pf * 0.3 -
     chuckerPenalty
   )
 }
 
-// ── Opus 설계 기준 적용: X-FACTOR Score ─────────────────────────
+// ── X-FACTOR Score ───────────────────────────────────────────────
+// 허슬·조력 중심, 고득점자 억제 유지
 function calcXfactorScore(s: PlayerBoxScore, teamHighPts: number): number {
   const highScorerPenalty = s.pts >= teamHighPts * 0.8 ? s.pts * 0.5 : 0
   const burstBonus =
@@ -61,7 +70,6 @@ function calcXfactorScore(s: PlayerBoxScore, teamHighPts: number): number {
     s.blk * 2.5 +
     s.pts * 0.3 +
     s.fg3m * 0.3 +
-    s.plus_minus * 0.4 +
     s.ftm * 0.2 -
     s.tov * 1.0 -
     highScorerPenalty +
@@ -74,12 +82,12 @@ function statsLine(s: PlayerBoxScore): string {
   const fg = s.fga > 0 ? `${s.fgm}/${s.fga} FG(${s.fg_pct.toFixed(0)}%)` : '0/0 FG'
   const tp = s.fg3a > 0 ? ` ${s.fg3m}/${s.fg3a} 3P` : ''
   const ft = s.fta > 0 ? ` ${s.ftm}/${s.fta} FT` : ''
+  const efg = s.fga > 0 ? ` eFG:${s.efg_pct.toFixed(0)}%` : ''
   return (
     `#${s.player_number} ${s.player_name}: ` +
-    `${s.pts}pts ${fg}${tp}${ft} | ` +
+    `${s.pts}pts ${fg}${tp}${ft}${efg} | ` +
     `${s.reb}reb(OR${s.oreb}/DR${s.dreb}) ${s.ast}ast ` +
-    `${s.stl}stl ${s.blk}blk ${s.tov}tov ${s.pf}pf ` +
-    `+/-:${s.plus_minus >= 0 ? '+' : ''}${s.plus_minus}`
+    `${s.stl}stl ${s.blk}blk ${s.tov}tov`
   )
 }
 
@@ -302,8 +310,9 @@ export async function POST(req: Request) {
     if (s.stl > season.stl_high) highs.push(`스틸 시즌하이(기존 ${season.stl_high} → ${s.stl})`)
     if (highs.length > 0) lines.push(`★ 시즌하이 달성: ${highs.join(', ')}`)
     const exceeded: string[] = []
-    if (s.pts > season.pts_avg * 1.4) exceeded.push(`득점(평균 ${season.pts_avg} 대비 ${s.pts}pts)`)
-    if (s.efg_pct > season.efg_pct_avg + 10) exceeded.push(`eFG%(평균 ${season.efg_pct_avg.toFixed(1)}% 대비 ${s.efg_pct.toFixed(1)}%)`)
+    if (s.pts > season.pts_avg * 1.4) exceeded.push(`득점(시즌평균 ${season.pts_avg}pts → 이날 ${s.pts}pts)`)
+    if (s.efg_pct > season.efg_pct_avg + 8) exceeded.push(`eFG% 급등(시즌평균 ${season.efg_pct_avg.toFixed(1)}% → 이날 ${s.efg_pct.toFixed(1)}%)`)
+    if (s.ts_pct > season.ts_pct_avg + 8) exceeded.push(`TS% 급등(시즌평균 ${season.ts_pct_avg.toFixed(1)}% → 이날 ${s.ts_pct.toFixed(1)}%)`)
     if (exceeded.length > 0) lines.push(`↑ 기대 초과 지표: ${exceeded.join(', ')}`)
     return lines.join('\n')
   }
@@ -358,6 +367,7 @@ ${xfCarryCtx}` : '(조건 충족 선수 없음)'}
 - 한국어로 작성. NBA 시상식처럼 진지하고 품격 있는 톤
 - 반드시 구체적인 수치 포함 (야투율, 득점, 특정 지표 등)
 - 공식·계산 방식 언급 금지. "선정 공식에 의해" 같은 표현 금지
+- +/- 수치 언급 절대 금지 (측정 신뢰도가 낮음)
 - 문장은 3~5문장 사이로 작성 (짧으면 안 됨)
 
 [MVP 코멘트에 반드시 포함할 내용 — 해당되는 경우]
