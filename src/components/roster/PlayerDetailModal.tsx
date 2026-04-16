@@ -85,11 +85,12 @@ function calcAge(birthdate?: string) {
 
 interface Props {
   playerId: string
+  team?: string
   onClose: () => void
   onPlayerUpdate?: (player: Player) => void
 }
 
-export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }: Props) {
+export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpdate }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [player, setPlayer] = useState<Player | null>(null)
   const [recentGames, setRecentGames] = useState<RecentGame[]>([])
@@ -119,7 +120,7 @@ export default function PlayerDetailModal({ playerId, onClose, onPlayerUpdate }:
 
   // 팀 내 랭킹 계산
   useEffect(() => {
-    fetch('/api/stats/season')
+    fetch(`/api/stats/season${team ? `?team=${team}` : ''}`)
       .then(r => r.json())
       .then(data => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

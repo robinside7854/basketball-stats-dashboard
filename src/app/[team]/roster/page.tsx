@@ -259,6 +259,7 @@ export default function RosterPage() {
       {detailPlayerId && (
         <PlayerDetailModal
           playerId={detailPlayerId}
+          team={team}
           onClose={() => setDetailPlayerId(null)}
           onPlayerUpdate={(updated) => setPlayers(prev => prev.map(p => p.id === updated.id ? updated : p))}
         />

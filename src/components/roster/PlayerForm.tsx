@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import type { Player } from '@/types/database'
 
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
-const YEARS = Array.from({ length: 41 }, (_, i) => 1970 + i) // 1970-2010
+const YEARS = Array.from({ length: 51 }, (_, i) => 1960 + i) // 1960-2010
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1)
 

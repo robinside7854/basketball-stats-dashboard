@@ -101,11 +101,24 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (playerRes.error) return NextResponse.json({ error: 'Player not found' }, { status: 404 })
   const player = playerRes.data
 
-  // 2. 팀 전체 경기 (round 포함)
-  const { data: allTeamGames } = await supabase
+  // 2. 선수 소속 팀의 대회 ID 먼저 조회
+  const playerTeamType = player.team_type || 'youth'
+  const { data: teamTournaments } = await supabase
+    .from('tournaments')
+    .select('id')
+    .eq('team_type', playerTeamType)
+
+  const teamTournamentIds = (teamTournaments ?? []).map(t => t.id)
+
+  // 팀 전체 경기 (해당 팀 대회만, round 포함)
+  const gamesQueryBase = supabase
     .from('games')
     .select('id, date, opponent, our_score, opponent_score, tournament_id, round, tournament:tournaments(id, name, year)')
     .order('date', { ascending: false })
+
+  const { data: allTeamGames } = teamTournamentIds.length > 0
+    ? await gamesQueryBase.in('tournament_id', teamTournamentIds)
+    : await gamesQueryBase.in('tournament_id', ['__none__'])
 
   const allTeamGameIds = (allTeamGames || []).map((g: Record<string, unknown>) => g.id as string)
 
@@ -191,7 +204,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
   // ── 대회별 성적 ──────────────────────────────────────────────
   const { data: allTournaments } = await supabase
-    .from('tournaments').select('*').order('year', { ascending: false })
+    .from('tournaments').select('*')
+    .eq('team_type', playerTeamType)
+    .order('year', { ascending: false })
 
   const tournamentStats = (allTournaments || []).map((t: Record<string, unknown>) => {
     const teamGamesInT = (allTeamGames || []).filter((g: Record<string, unknown>) => {
