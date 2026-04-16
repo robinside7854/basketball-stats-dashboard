@@ -342,6 +342,85 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                 )
               })()}
 
+              {/* 커리어 하이 */}
+              {(() => {
+                type ChGame = {
+                  value: number; date: string; opponent: string; round: string | null
+                  tournament_name: string; our_score: number; opponent_score: number
+                }
+                const allGames: Array<{ stats: PlayerBoxScore; date: string; opponent: string; round: string | null; tournament_name: string; our_score: number; opponent_score: number }> = []
+                for (const t of tournamentStats) {
+                  for (const g of t.games) {
+                    if (g.stats) allGames.push({ stats: g.stats, date: g.date, opponent: g.opponent, round: g.round, tournament_name: t.tournament.name, our_score: g.our_score, opponent_score: g.opponent_score })
+                  }
+                }
+                if (allGames.length === 0) return null
+
+                function best(getValue: (s: PlayerBoxScore) => number, filter?: (s: PlayerBoxScore) => boolean): ChGame | null {
+                  const pool = filter ? allGames.filter(g => filter(g.stats)) : allGames
+                  if (pool.length === 0) return null
+                  const top = pool.reduce((b, g) => getValue(g.stats) > getValue(b.stats) ? g : b)
+                  const val = getValue(top.stats)
+                  if (val === 0) return null
+                  return { value: val, date: top.date, opponent: top.opponent, round: top.round, tournament_name: top.tournament_name, our_score: top.our_score, opponent_score: top.opponent_score }
+                }
+
+                const highs = {
+                  pts:    best(s => s.pts),
+                  reb:    best(s => s.reb),
+                  ast:    best(s => s.ast),
+                  stl:    best(s => s.stl),
+                  blk:    best(s => s.blk),
+                  fg_pct: best(s => s.fg_pct, s => s.fga >= 4),
+                }
+
+                if (Object.values(highs).every(v => v === null)) return null
+
+                const ITEMS: { key: keyof typeof highs; label: string; color: string; fmt?: (v: number) => string }[] = [
+                  { key: 'pts',    label: 'PTS',  color: 'text-yellow-400' },
+                  { key: 'reb',    label: 'REB',  color: 'text-orange-400' },
+                  { key: 'ast',    label: 'AST',  color: 'text-blue-400' },
+                  { key: 'stl',    label: 'STL',  color: 'text-green-400' },
+                  { key: 'blk',    label: 'BLK',  color: 'text-indigo-400' },
+                  { key: 'fg_pct', label: 'FG%',  color: 'text-teal-400', fmt: v => `${v.toFixed(1)}%` },
+                ]
+
+                return (
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                    <h2 className="text-base font-semibold mb-4 text-gray-300">커리어 하이</h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {ITEMS.map(({ key, label, color, fmt }) => {
+                        const h = highs[key]
+                        if (!h) return null
+                        const isWin = h.our_score > h.opponent_score
+                        const displayVal = fmt ? fmt(h.value) : String(h.value)
+                        return (
+                          <div key={key} className="bg-gray-800/60 rounded-xl p-3.5 border border-gray-700/40">
+                            <div className="flex items-end gap-1.5 mb-2.5">
+                              <span className={`text-3xl font-black font-mono leading-none ${color}`}>{displayVal}</span>
+                              <span className="text-xs text-gray-500 mb-0.5 uppercase tracking-wider">{label}</span>
+                            </div>
+                            <div className="border-t border-gray-700/40 pt-2.5 space-y-1">
+                              <p className="text-xs text-gray-500">{h.date}</p>
+                              <p className="text-xs text-white font-medium">
+                                vs {h.opponent}
+                                {h.round && <span className="text-gray-500 ml-1">[{h.round}]</span>}
+                              </p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${isWin ? 'bg-green-900/60 text-green-400' : 'bg-red-900/60 text-red-400'}`}>
+                                  {isWin ? 'W' : 'L'} {h.our_score}-{h.opponent_score}
+                                </span>
+                                <span className="text-xs text-gray-600 truncate">{h.tournament_name}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* 공격 스타일 */}
               {totalShots > 0 && (
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
