@@ -28,6 +28,12 @@ type GameSummary = {
   team_quarter_pts: Record<number, number>
 }
 
+type GameBoxData = {
+  boxScores: PlayerBoxScore[]
+  teamTotals: Partial<PlayerBoxScore>
+  quarterPts: Record<string, Record<number, number>>
+}
+
 function Pct({ val }: { val: number }) {
   return <span className={val >= 50 ? 'text-green-400' : val > 0 ? 'text-yellow-400' : 'text-gray-500'}>{val > 0 ? val.toFixed(1) : '-'}</span>
 }
@@ -37,33 +43,58 @@ export default function BoxScorePage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [games, setGames] = useState<Game[]>([])
   const [selectedTId, setSelectedTId] = useState('')
-  const [selectedGId, setSelectedGId] = useState('')
   const [viewMode, setViewMode] = useState<ViewMode>('game')
 
-  const [boxScores, setBoxScores] = useState<PlayerBoxScore[]>([])
-  const [teamTotals, setTeamTotals] = useState<Partial<PlayerBoxScore>>({})
+  // 멀티 오픈: 여러 경기 동시 펼침
+  const [expandedGIds, setExpandedGIds] = useState<Set<string>>(new Set())
+  const [gameData, setGameData] = useState<Record<string, GameBoxData | 'loading'>>({})
+
   const [sortKey, setSortKey] = useState<SortKey>('pts')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
-  const [quarterPts, setQuarterPts] = useState<Record<string, Record<number, number>>>({})
 
   const [playerModal, setPlayerModal] = useState<string | null>(null)
   const [mvpResults, setMvpResults] = useState<Record<string, MvpResult | 'loading' | 'error'>>({})
 
-  // 경기 선택 시 저장된 MVP 자동 로드 (캐시 있으면 즉시 표시)
-  useEffect(() => {
-    if (!selectedGId) return
-    // 이미 불러온 경우 재요청 안 함
-    if (mvpResults[selectedGId]) return
-    fetch(`/api/ai/mvp?gameId=${selectedGId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data) setMvpResults(prev => ({ ...prev, [selectedGId]: data }))
-      })
-      .catch(() => {})
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedGId])
+  // 전체 AI 생성 상태
+  const [generatingAll, setGeneratingAll] = useState(false)
+  const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null)
 
-  // 버튼 클릭 시 AI 분석 실행 (POST)
+  async function toggleExpand(gameId: string) {
+    // 이미 펼쳐진 경기는 닫기
+    if (expandedGIds.has(gameId)) {
+      setExpandedGIds(prev => { const n = new Set(prev); n.delete(gameId); return n })
+      return
+    }
+    // 새로 펼치기
+    setExpandedGIds(prev => new Set([...prev, gameId]))
+
+    // 박스스코어 데이터 로드 (처음 펼칠 때만)
+    if (!gameData[gameId]) {
+      setGameData(prev => ({ ...prev, [gameId]: 'loading' }))
+      try {
+        const d = await fetch(`/api/stats/${gameId}`).then(r => r.json())
+        setGameData(prev => ({
+          ...prev,
+          [gameId]: {
+            boxScores: d.boxScores || [],
+            teamTotals: d.teamTotals || {},
+            quarterPts: d.quarterPts || {},
+          },
+        }))
+      } catch {
+        setGameData(prev => ({ ...prev, [gameId]: { boxScores: [], teamTotals: {}, quarterPts: {} } }))
+      }
+    }
+
+    // 저장된 MVP 자동 로드 (캐시만, AI 실행 안 함)
+    if (!mvpResults[gameId]) {
+      fetch(`/api/ai/mvp?gameId=${gameId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) setMvpResults(prev => ({ ...prev, [gameId]: data })) })
+        .catch(() => {})
+    }
+  }
+
   async function fetchMvp(gameId: string) {
     setMvpResults(prev => ({ ...prev, [gameId]: 'loading' }))
     try {
@@ -83,6 +114,19 @@ export default function BoxScorePage() {
   async function resetMvp(gameId: string) {
     await fetch(`/api/ai/mvp?gameId=${gameId}`, { method: 'DELETE' })
     setMvpResults(prev => { const n = { ...prev }; delete n[gameId]; return n })
+  }
+
+  async function generateAllMvp() {
+    const pendingGames = games.filter(g => !mvpResults[g.id] || mvpResults[g.id] === 'error')
+    if (pendingGames.length === 0) return
+    setGeneratingAll(true)
+    setGenProgress({ current: 0, total: pendingGames.length })
+    for (let i = 0; i < pendingGames.length; i++) {
+      setGenProgress({ current: i + 1, total: pendingGames.length })
+      await fetchMvp(pendingGames[i].id)
+    }
+    setGeneratingAll(false)
+    setGenProgress(null)
   }
 
   const [seasonScores, setSeasonScores] = useState<SeasonBoxScore[]>([])
@@ -107,11 +151,6 @@ export default function BoxScorePage() {
     }
   }, [selectedTId, viewMode, team])
 
-  useEffect(() => {
-    if (!selectedGId) return
-    fetch(`/api/stats/${selectedGId}`).then(r => r.json()).then(d => { setBoxScores(d.boxScores || []); setTeamTotals(d.teamTotals || {}); setQuarterPts(d.quarterPts || {}) })
-  }, [selectedGId, games])
-
   function handleSort(key: SortKey) {
     if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setSortKey(key); setSortDir('desc') }
@@ -121,11 +160,6 @@ export default function BoxScorePage() {
     if (seasonSortKey === key) setSeasonSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setSeasonSortKey(key); setSeasonSortDir('desc') }
   }
-
-  const sorted = [...boxScores].sort((a, b) => {
-    const av = a[sortKey] as number, bv = b[sortKey] as number
-    return sortDir === 'desc' ? bv - av : av - bv
-  })
 
   const seasonSorted = [...seasonScores].sort((a, b) => {
     const av = a[seasonSortKey as keyof SeasonBoxScore] as number
@@ -182,7 +216,12 @@ export default function BoxScorePage() {
         <Select
           key={`t-${tournaments.map(t => t.id).join('')}`}
           value={selectedTId}
-          onValueChange={v => { setSelectedTId(v ?? ''); setSelectedGId('') }}
+          onValueChange={v => {
+            setSelectedTId(v ?? '')
+            setExpandedGIds(new Set())
+            setGameData({})
+            setMvpResults({})
+          }}
         >
           <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-52">
             <SelectValue placeholder="대회 선택">{selT ? `${selT.name} (${selT.year})` : undefined}</SelectValue>
@@ -191,6 +230,30 @@ export default function BoxScorePage() {
             {tournaments.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.year})</SelectItem>)}
           </SelectContent>
         </Select>
+
+        {/* 전체 AI 생성 버튼 */}
+        {viewMode === 'game' && selectedTId && games.length > 0 && (
+          <button
+            onClick={generateAllMvp}
+            disabled={generatingAll}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all
+              ${generatingAll
+                ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed'
+                : 'bg-gradient-to-r from-yellow-600/20 to-purple-600/20 border-yellow-700/40 text-yellow-300 hover:from-yellow-600/40 hover:to-purple-600/40 cursor-pointer'
+              }`}
+          >
+            {generatingAll ? (
+              <>
+                <span className="inline-block w-3.5 h-3.5 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                {genProgress ? `${genProgress.current}/${genProgress.total} 생성 중...` : '준비 중...'}
+              </>
+            ) : (
+              <>
+                <span>✦</span> 전체 AI 선정
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {viewMode === 'game' && selectedTId && games.length > 0 && (() => {
@@ -202,14 +265,24 @@ export default function BoxScorePage() {
         function GameCardWithScore({ g }: { g: Game }) {
           const isWin = g.our_score > g.opponent_score
           const isDraw = g.our_score === g.opponent_score
-          const isSelected = selectedGId === g.id
+          const isExpanded = expandedGIds.has(g.id)
+          const gData = gameData[g.id]
+          const isLoading = gData === 'loading'
+          const boxScores = (!isLoading && gData) ? gData.boxScores : []
+          const teamTotals = (!isLoading && gData) ? gData.teamTotals : {}
+          const quarterPts = (!isLoading && gData) ? gData.quarterPts : {}
+
+          const sorted = [...boxScores].sort((a, b) => {
+            const av = a[sortKey] as number, bv = b[sortKey] as number
+            return sortDir === 'desc' ? bv - av : av - bv
+          })
 
           return (
             <div>
               <button
-                onClick={() => setSelectedGId(isSelected ? '' : g.id)}
+                onClick={() => toggleExpand(g.id)}
                 className={`flex items-center gap-4 px-5 py-3 rounded-xl border text-left w-full transition-all
-                  ${isSelected
+                  ${isExpanded
                     ? 'bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-900/20 rounded-b-none border-b-0'
                     : 'bg-gray-900 border-gray-800 hover:border-gray-600'
                   }`}
@@ -225,6 +298,13 @@ export default function BoxScorePage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
+                  {/* MVP 수상 배지 표시 */}
+                  {mvpResults[g.id] && mvpResults[g.id] !== 'loading' && mvpResults[g.id] !== 'error' && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-yellow-500">🏅</span>
+                      <span className="text-xs text-purple-400">⚡</span>
+                    </div>
+                  )}
                   <div className="text-right shrink-0">
                     <div className="text-xl font-black">
                       <span className={isWin ? 'text-green-400' : isDraw ? 'text-gray-300' : 'text-red-400'}>{g.our_score}</span>
@@ -232,13 +312,18 @@ export default function BoxScorePage() {
                       <span className="text-gray-400">{g.opponent_score}</span>
                     </div>
                   </div>
-                  <span className={`text-gray-500 text-xs transition-transform ${isSelected ? 'rotate-180' : ''}`}>▼</span>
+                  <span className={`text-gray-500 text-xs transition-transform ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                 </div>
               </button>
 
-              {isSelected && (
+              {isExpanded && (
                 <div className="border border-blue-500 border-t-0 rounded-b-xl bg-gray-950 p-3 overflow-x-auto">
-                  {boxScores.length === 0 ? (
+                  {isLoading ? (
+                    <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-400">
+                      <span className="inline-block w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                      로딩 중...
+                    </div>
+                  ) : boxScores.length === 0 ? (
                     <div className="text-center py-8 text-gray-500 text-sm">기록된 데이터가 없습니다</div>
                   ) : (
                     <>
@@ -338,7 +423,7 @@ export default function BoxScorePage() {
                         {!mvpResults[g.id] ? (
                           <button
                             onClick={() => fetchMvp(g.id)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-600/30 to-purple-600/30 border border-yellow-700/40 text-yellow-300 text-sm font-medium hover:from-yellow-600/50 hover:to-purple-600/50 transition-all"
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-600/30 to-purple-600/30 border border-yellow-700/40 text-yellow-300 text-sm font-medium hover:from-yellow-600/50 hover:to-purple-600/50 transition-all cursor-pointer"
                           >
                             <span>✦</span> AI MVP + X-FACTOR 선정
                           </button>
@@ -350,7 +435,7 @@ export default function BoxScorePage() {
                         ) : mvpResults[g.id] === 'error' ? (
                           <div className="flex items-center gap-3">
                             <p className="text-sm text-red-400">분석 실패</p>
-                            <button onClick={() => fetchMvp(g.id)} className="text-xs text-gray-400 hover:text-white underline">재시도</button>
+                            <button onClick={() => fetchMvp(g.id)} className="text-xs text-gray-400 hover:text-white underline cursor-pointer">재시도</button>
                           </div>
                         ) : (() => {
                           const result = mvpResults[g.id] as MvpResult
@@ -360,7 +445,7 @@ export default function BoxScorePage() {
                                 <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">AI 경기 시상</p>
                                 <button
                                   onClick={() => resetMvp(g.id)}
-                                  className="text-xs text-gray-600 hover:text-orange-400 transition-colors"
+                                  className="text-xs text-gray-600 hover:text-orange-400 transition-colors cursor-pointer"
                                   title="재선정 (기존 기록 삭제 후 다시 분석)"
                                 >
                                   ↺ 재선정
