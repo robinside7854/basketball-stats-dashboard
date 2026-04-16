@@ -356,22 +356,36 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                 }
                 if (allGames.length === 0) return null
 
-                function best(getValue: (s: PlayerBoxScore) => number, filter?: (s: PlayerBoxScore) => boolean): ChGame | null {
+                function best(
+                  getValue: (s: PlayerBoxScore) => number,
+                  tiebreakers: Array<(s: PlayerBoxScore) => number> = [],
+                  filter?: (s: PlayerBoxScore) => boolean
+                ): ChGame | null {
                   const pool = filter ? allGames.filter(g => filter(g.stats)) : allGames
                   if (pool.length === 0) return null
-                  const top = pool.reduce((b, g) => getValue(g.stats) > getValue(b.stats) ? g : b)
+                  const top = pool.reduce((b, g) => {
+                    const bv = getValue(b.stats), gv = getValue(g.stats)
+                    if (gv > bv) return g
+                    if (gv < bv) return b
+                    for (const tb of tiebreakers) {
+                      const btb = tb(b.stats), gtb = tb(g.stats)
+                      if (gtb > btb) return g
+                      if (gtb < btb) return b
+                    }
+                    return b
+                  })
                   const val = getValue(top.stats)
                   if (val === 0) return null
                   return { value: val, date: top.date, opponent: top.opponent, round: top.round, tournament_name: top.tournament_name, our_score: top.our_score, opponent_score: top.opponent_score }
                 }
 
                 const highs = {
-                  pts:    best(s => s.pts),
+                  pts:    best(s => s.pts,    [s => s.fg_pct, s => s.fga]),
                   reb:    best(s => s.reb),
                   ast:    best(s => s.ast),
                   stl:    best(s => s.stl),
                   blk:    best(s => s.blk),
-                  fg_pct: best(s => s.fg_pct, s => s.fga >= 4),
+                  fg_pct: best(s => s.fg_pct, [s => s.fga, s => s.pts], s => s.fga >= 4),
                 }
 
                 if (Object.values(highs).every(v => v === null)) return null
