@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { Plus, Trash2, ChevronDown, ChevronRight, Undo2, Pencil, Check, X } from 'lucide-react'
 import OpponentYouTubePlayer from '@/components/record/OpponentYouTubePlayer'
 import { formatTimestamp } from '@/lib/youtube/utils'
+import { useTeam } from '@/contexts/TeamContext'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface OppTeam   { id: string; name: string }
@@ -200,6 +201,7 @@ function TeamShotSummary({ breakdown, totalGames }: { breakdown: ShotBreakdownMa
 type Tab = 'manage' | 'record' | 'analyze'
 
 export default function OpponentPage() {
+  const team = useTeam()
   const [tab, setTab] = useState<Tab>('manage')
 
   // Teams
@@ -241,8 +243,8 @@ export default function OpponentPage() {
 
   // ── Loaders ──
   useEffect(() => {
-    fetch('/api/opponent-teams').then(r => r.json()).then(setTeams)
-  }, [])
+    fetch(`/api/opponent-teams?team=${team}`).then(r => r.json()).then(setTeams)
+  }, [team])
 
   useEffect(() => {
     if (!selectedTeam) return
@@ -266,7 +268,7 @@ export default function OpponentPage() {
   // ── Team actions ──
   async function addTeam() {
     if (!newTeamName.trim()) return
-    const res = await fetch('/api/opponent-teams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newTeamName.trim() }) })
+    const res = await fetch('/api/opponent-teams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newTeamName.trim(), team_type: team }) })
     if (!res.ok) { toast.error('팀 추가 실패'); return }
     const t = await res.json()
     setTeams(prev => [t, ...prev]); setNewTeamName('')
