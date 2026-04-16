@@ -125,8 +125,8 @@ export default function BoxScorePage() {
       const checks = await Promise.all(
         unloaded.map(g =>
           fetch(`/api/ai/mvp?gameId=${g.id}`)
-            .then(r => r.ok ? r.json().then((d: MvpResult) => ({ id: g.id, result: d })) : { id: g.id, result: null })
-            .catch(() => ({ id: g.id, result: null }))
+            .then(r => r.ok ? r.json().then((d: MvpResult) => ({ id: g.id, result: d as MvpResult | null })) : { id: g.id, result: null as MvpResult | null })
+            .catch(() => ({ id: g.id, result: null as MvpResult | null }))
         )
       )
       const updates: Record<string, MvpResult> = {}
