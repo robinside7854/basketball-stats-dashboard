@@ -67,7 +67,22 @@ export default function TournamentForm({ tournament, teamType, onClose, onSaved 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-sm text-gray-400 mb-1 block">대회명 *</label>
-            <Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} required className="bg-gray-800 border-gray-700 text-white" />
+            <Input
+              value={form.name}
+              onChange={e => {
+                const name = e.target.value
+                const yearMatch = name.match(/20[1-9]\d/)
+                setForm(p => ({
+                  ...p,
+                  name,
+                  ...(yearMatch ? { year: parseInt(yearMatch[0]) } : {}),
+                }))
+              }}
+              required
+              className="bg-gray-800 border-gray-700 text-white"
+              placeholder="제 9회 광명평화동굴배 전국농구대회 2026"
+            />
+            <p className="text-xs text-gray-600 mt-1">이름에 연도(예: 2026) 포함 시 연도 자동 입력</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

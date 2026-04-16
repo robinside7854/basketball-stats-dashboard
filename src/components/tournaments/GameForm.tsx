@@ -1,10 +1,21 @@
 'use client'
 import { useState } from 'react'
+import { Search } from 'lucide-react'
+import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Game } from '@/types/database'
+
+interface YTVideo {
+  video_id: string
+  title: string
+  url: string
+  thumbnail: string | null
+  parsed: { round?: string; opponent?: string; date?: string; tournament?: string }
+  score: number
+}
 
 const ROUNDS = ['조별예선', '16강', '8강', '4강', '결승']
 
@@ -28,6 +39,27 @@ function mmssToSeconds(value: string): number {
 }
 
 export default function GameForm({ tournamentId, game, onClose, onSaved }: Props) {
+  const [ytSearching, setYtSearching] = useState(false)
+  const [ytSuggestions, setYtSuggestions] = useState<YTVideo[]>([])
+
+  async function searchYouTube() {
+    if (!form.date || !form.opponent) return
+    setYtSearching(true)
+    setYtSuggestions([])
+    const res = await fetch(
+      `/api/youtube/search?date=${form.date}&opponent=${encodeURIComponent(form.opponent)}`
+    )
+    const data = await res.json()
+    if (!res.ok) {
+      toast.error(data.error ?? 'YouTube 검색 실패')
+    } else if (data.videos?.length === 0) {
+      toast.info('일치하는 영상을 찾지 못했습니다')
+    } else {
+      setYtSuggestions(data.videos ?? [])
+    }
+    setYtSearching(false)
+  }
+
   const [form, setForm] = useState({
     date: game?.date ?? new Date().toISOString().split('T')[0],
     opponent: game?.opponent ?? '',
@@ -88,7 +120,55 @@ export default function GameForm({ tournamentId, game, onClose, onSaved }: Props
           </div>
           <div>
             <label className="text-sm text-gray-400 mb-1 block">YouTube URL</label>
-            <Input value={form.youtube_url} onChange={e => setForm(p => ({ ...p, youtube_url: e.target.value }))} placeholder="https://youtu.be/..." className="bg-gray-800 border-gray-700 text-white" />
+            <div className="flex gap-2">
+              <Input
+                value={form.youtube_url}
+                onChange={e => { setForm(p => ({ ...p, youtube_url: e.target.value })); setYtSuggestions([]) }}
+                placeholder="https://youtu.be/..."
+                className="bg-gray-800 border-gray-700 text-white flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={searchYouTube}
+                disabled={!form.date || !form.opponent || ytSearching}
+                className="border-gray-700 text-gray-400 hover:text-white shrink-0 px-3 disabled:opacity-40"
+                title={!form.date || !form.opponent ? '날짜와 상대팀을 먼저 입력하세요' : 'basket-lab 채널에서 자동 검색'}
+              >
+                {ytSearching
+                  ? <span className="text-xs whitespace-nowrap">검색 중...</span>
+                  : <><Search size={14} className="mr-1" /><span className="text-xs">자동검색</span></>
+                }
+              </Button>
+            </div>
+            {/* 검색 결과 */}
+            {ytSuggestions.length > 0 && (
+              <div className="mt-1.5 border border-gray-700 rounded-lg overflow-hidden bg-gray-900">
+                <p className="text-xs text-gray-500 px-3 py-1.5 border-b border-gray-800">basket-lab 채널 검색 결과 — 클릭하면 URL 자동 입력</p>
+                {ytSuggestions.slice(0, 4).map(v => (
+                  <button
+                    key={v.video_id}
+                    type="button"
+                    onClick={() => { setForm(p => ({ ...p, youtube_url: v.url })); setYtSuggestions([]) }}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-gray-800 border-b border-gray-800/60 last:border-0 flex items-start gap-2.5 transition-colors"
+                  >
+                    {v.thumbnail && (
+                      <img src={v.thumbnail} alt="" className="w-14 h-10 object-cover rounded shrink-0 opacity-80" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-gray-200 line-clamp-2 leading-snug">{v.title}</p>
+                      <p className="text-gray-500 mt-0.5">
+                        {v.parsed.date ?? ''}{v.parsed.round ? ` · ${v.parsed.round}` : ''}
+                        {v.score >= 10 && <span className="ml-1.5 text-green-500 font-bold">추천</span>}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {!form.youtube_url && !ytSearching && ytSuggestions.length === 0 && (
+              <p className="text-xs text-gray-600 mt-1">날짜·상대팀 입력 후 자동검색 버튼으로 basket-lab 영상 연결</p>
+            )}
           </div>
           <div>
             <label className="text-sm text-gray-400 mb-1 block">영상 시작 오프셋 (예: 08:40)</label>
