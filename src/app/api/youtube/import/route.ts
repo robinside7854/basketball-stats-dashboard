@@ -40,6 +40,7 @@ export interface GameData {
   date: string
   opponent: string
   round: string
+  already_registered: boolean
 }
 
 export interface TournamentGroup {
@@ -137,12 +138,22 @@ export async function GET(req: Request) {
     groupMap.get(key)!.push(v)
   }
 
-  // DB에서 기존 대회 조회 (팀 기준)
+  // DB에서 기존 대회 + 기등록된 youtube_url 조회
   const supabase = createClient()
-  const { data: existingTournaments } = await supabase
-    .from('tournaments')
-    .select('id, name, year, type')
-    .eq('team_type', team)
+  const [{ data: existingTournaments }, { data: existingGames }] = await Promise.all([
+    supabase.from('tournaments').select('id, name, year, type').eq('team_type', team),
+    supabase.from('games').select('youtube_url').not('youtube_url', 'is', null),
+  ])
+
+  // 기등록 URL Set (video ID 기준으로 비교)
+  const registeredVideoIds = new Set(
+    (existingGames ?? [])
+      .map(g => {
+        const m = (g.youtube_url as string).match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+        return m ? m[1] : null
+      })
+      .filter(Boolean) as string[]
+  )
 
   const groups: TournamentGroup[] = Array.from(groupMap.entries()).map(([tournament_name, vids]) => {
     const year = vids[0].parsed.year
@@ -162,6 +173,7 @@ export async function GET(req: Request) {
         date: v.parsed.date,
         opponent: v.parsed.opponent,
         round: v.parsed.round,
+        already_registered: registeredVideoIds.has(v.video_id),
       }))
       .sort((a, b) => {
         const ra = ROUND_PRIORITY[a.round] ?? 9

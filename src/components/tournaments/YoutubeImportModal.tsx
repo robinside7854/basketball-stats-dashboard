@@ -81,7 +81,8 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
         expanded: true,
       }
       g.games.forEach(game => {
-        vs[game.video_id] = { selected: true, our_score: '', opponent_score: '' }
+        // 기등록 경기는 기본 선택 해제
+        vs[game.video_id] = { selected: !game.already_registered, our_score: '', opponent_score: '' }
       })
     })
 
@@ -235,7 +236,22 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
             <p className="text-xs text-gray-500 mt-2">
               {totalFound === 0
                 ? '해당 기간에 파란날개 영상이 없습니다'
-                : `${totalFound}개 영상 발견 · ${groups.length}개 대회 그룹`}
+                : (() => {
+                    const alreadyCount = groups.flatMap(g => g.games).filter(g => g.already_registered).length
+                    const newCount = totalFound - alreadyCount
+                    return (
+                      <span>
+                        {totalFound}개 영상 발견 · {groups.length}개 대회 그룹
+                        {alreadyCount > 0 && (
+                          <span className="ml-2">
+                            <span className="text-green-500">{alreadyCount}개 이미 등록됨</span>
+                            {newCount > 0 && <span className="text-white ml-1">· 신규 {newCount}개</span>}
+                          </span>
+                        )}
+                      </span>
+                    )
+                  })()
+              }
             </p>
           )}
         </div>
@@ -362,6 +378,11 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
                                   )}
                                   <span className="text-xs text-gray-400">{game.date}</span>
                                   <span className="text-sm font-medium">vs {game.opponent}</span>
+                                  {game.already_registered && (
+                                    <span className="text-xs px-2 py-0.5 rounded border bg-green-900/30 text-green-400 border-green-700/50 font-medium">
+                                      ✓ 이미 등록됨
+                                    </span>
+                                  )}
                                   <a
                                     href={game.url}
                                     target="_blank"
