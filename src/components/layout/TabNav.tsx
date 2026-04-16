@@ -31,6 +31,9 @@ export default function TabNav() {
   const team = (segments[0] === 'youth' || segments[0] === 'senior') ? segments[0] as TeamType : null
   const prefix = team ? `/${team}` : ''
 
+  // 홈(/) 랜딩 페이지에서는 NavBar 숨김
+  if (pathname === '/') return null
+
   const tabs = TAB_DEFS.map(t => ({
     href: prefix + t.path || prefix || '/',
     label: t.label,

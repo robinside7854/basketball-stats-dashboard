@@ -3,14 +3,15 @@ import { TeamProvider, type TeamType } from '@/contexts/TeamContext'
 
 const VALID_TEAMS: TeamType[] = ['youth', 'senior']
 
-export default function TeamLayout({
+export default async function TeamLayout({
   children,
   params,
 }: {
   children: React.ReactNode
-  params: { team: string }
+  params: Promise<{ team: string }>
 }) {
-  const team = params.team as TeamType
+  const { team: teamParam } = await params
+  const team = teamParam as TeamType
   if (!VALID_TEAMS.includes(team)) notFound()
 
   return (
