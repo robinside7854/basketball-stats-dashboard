@@ -118,7 +118,7 @@ export async function POST(req: Request) {
   // ── 2. 기존 저장 결과 재확인 (중복 실행 방지) ─────────────────
   const { data: gameRow } = await supabase
     .from('games')
-    .select('ai_mvp, date, opponent, our_score, opponent_score, tournament:tournaments(name, year)')
+    .select('ai_mvp, date, opponent, our_score, opponent_score, tournament_id, tournament:tournaments(name, year)')
     .eq('id', gameId)
     .single()
 
@@ -128,7 +128,14 @@ export async function POST(req: Request) {
     return NextResponse.json(gameRow.ai_mvp as MvpResult)
   }
 
-  // ── 3. 스탯 수집 ────────────────────────────────────────────
+  // ── 3. 이 경기 스탯 수집 ────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const gameInfo = gameRow as unknown as {
+    date: string; opponent: string; our_score: number; opponent_score: number;
+    tournament_id?: string
+    tournament?: { name: string; year: number } | null
+  }
+
   const [eventsRes, minutesRes, playersRes] = await Promise.all([
     supabase.from('game_events').select('*').eq('game_id', gameId).order('created_at'),
     supabase.from('player_minutes').select('*').eq('game_id', gameId),
@@ -141,7 +148,6 @@ export async function POST(req: Request) {
 
   const allBoxScores = calculateBoxScore(eventsRes.data, minutesRes.data, playersRes.data)
 
-  // 참여 선수만 (이벤트가 있는 선수)
   const activePlayerIds = new Set(
     (eventsRes.data ?? []).map((e: { player_id?: string }) => e.player_id).filter(Boolean)
   )
@@ -153,28 +159,121 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '기록된 선수가 부족합니다 (최소 2명 필요)' }, { status: 400 })
   }
 
-  // ── 4. MVP 선정 (서버사이드 계산) ───────────────────────────
+  // ── 4. 시즌 통계 수집 (같은 대회 내 이전 경기들) ────────────────
+  type SeasonAvg = {
+    pts_avg: number; reb_avg: number; ast_avg: number; stl_avg: number
+    blk_avg: number; fg_pct_avg: number; fg3_pct_avg: number
+    efg_pct_avg: number; ts_pct_avg: number
+    pts_high: number; reb_high: number; ast_high: number
+    stl_high: number; blk_high: number; games_played: number
+  }
+  const seasonMap = new Map<string, SeasonAvg>()
+
+  // 같은 대회의 다른 경기 ID 조회
+  const { data: tournamentGames } = gameInfo.tournament_id
+    ? await supabase
+        .from('games')
+        .select('id')
+        .eq('tournament_id', gameInfo.tournament_id)
+        .neq('id', gameId)
+    : { data: [] }
+
+  const prevGameIds = (tournamentGames ?? []).map((g: { id: string }) => g.id)
+
+  if (prevGameIds.length > 0) {
+    const participantIds = participants.map(p => p.player_id)
+
+    // 이전 경기 이벤트 + 분 조회 (참가선수만)
+    const [prevEventsRes, prevMinsRes] = await Promise.all([
+      supabase.from('game_events').select('*').in('game_id', prevGameIds)
+        .in('player_id', participantIds).limit(5000),
+      supabase.from('player_minutes').select('*').in('game_id', prevGameIds)
+        .in('player_id', participantIds).limit(5000),
+    ])
+
+    const prevBoxes = calculateBoxScore(prevEventsRes.data ?? [], prevMinsRes.data ?? [], playersRes.data)
+
+    // 경기별로 분리해서 per-game 집계
+    for (const pid of participantIds) {
+      const perGameStats: PlayerBoxScore[] = []
+      for (const gid of prevGameIds) {
+        const gEvents = (prevEventsRes.data ?? []).filter((e: { game_id: string }) => e.game_id === gid)
+        const gMins = (prevMinsRes.data ?? []).filter((m: { game_id: string }) => m.game_id === gid)
+        const hasActivity = gEvents.some((e: { player_id?: string }) => e.player_id === pid)
+        const hasMins = gMins.some((m: { player_id: string }) => m.player_id === pid)
+        if (!hasActivity && !hasMins) continue
+        const bs = calculateBoxScore(gEvents, gMins, playersRes.data)
+        const stat = bs.find(s => s.player_id === pid)
+        if (stat) perGameStats.push(stat)
+      }
+
+      if (perGameStats.length === 0) continue
+      const gp = perGameStats.length
+      const avg = (key: keyof PlayerBoxScore) =>
+        Math.round((perGameStats.reduce((s, g) => s + (g[key] as number), 0) / gp) * 10) / 10
+      const high = (key: keyof PlayerBoxScore) =>
+        Math.max(...perGameStats.map(g => g[key] as number))
+
+      // 전체 시즌 박스(누적)에서 효율 평균
+      const cumBox = prevBoxes.find(s => s.player_id === pid)
+      seasonMap.set(pid, {
+        pts_avg: avg('pts'), reb_avg: avg('reb'), ast_avg: avg('ast'),
+        stl_avg: avg('stl'), blk_avg: avg('blk'),
+        fg_pct_avg: cumBox?.fg_pct ?? 0,
+        fg3_pct_avg: cumBox?.fg3_pct ?? 0,
+        efg_pct_avg: cumBox?.efg_pct ?? 0,
+        ts_pct_avg: cumBox?.ts_pct ?? 0,
+        pts_high: high('pts'), reb_high: high('reb'), ast_high: high('ast'),
+        stl_high: high('stl'), blk_high: high('blk'),
+        games_played: gp,
+      })
+    }
+  }
+
+  // ── 5. MVP 선정 ──────────────────────────────────────────────
+  // 시즌하이 보너스 포함한 최종 점수
+  function mvpScoreWithBonus(s: PlayerBoxScore): number {
+    const base = calcMvpScore(s)
+    const season = seasonMap.get(s.player_id)
+    if (!season || season.games_played < 1) return base
+    let bonus = 0
+    if (s.pts > season.pts_high) bonus += 2.0        // 시즌 득점 하이
+    if (s.reb > season.reb_high) bonus += 1.0        // 시즌 리바운드 하이
+    if (s.ast > season.ast_high) bonus += 1.0        // 시즌 어시스트 하이
+    if (s.pts > season.pts_avg * 1.4) bonus += 1.0   // 기대 초과 득점
+    if (s.efg_pct > season.efg_pct_avg + 10) bonus += 1.5 // 효율 대폭 향상
+    return base + bonus
+  }
+
   const mvpCandidates = participants.filter(s => {
-    // 부적격 조건: pts<4 AND fg_pct<25 AND (ast+reb+stl+blk)<3 → 제외
     const isStruggling = s.pts < 4 && s.fg_pct < 25 && (s.ast + s.reb + s.stl + s.blk) < 3
     if (isStruggling) return false
-    // 최소 활동 조건
     return s.fga >= 2 || (s.ast + s.reb) >= 4
   })
 
-  // 후보 0명이면 전체에서 선정
   const mvpPool = mvpCandidates.length > 0 ? mvpCandidates : participants
   const mvpSorted = [...mvpPool].sort((a, b) => {
-    const sa = calcMvpScore(a), sb = calcMvpScore(b)
+    const sa = mvpScoreWithBonus(a), sb = mvpScoreWithBonus(b)
     if (sb !== sa) return sb - sa
     if (b.efg_pct !== a.efg_pct) return b.efg_pct - a.efg_pct
     return b.ast - a.ast
   })
   const mvpPlayer = mvpSorted[0]
 
-  // ── 5. X-FACTOR 선정 ────────────────────────────────────────
+  // ── 6. X-FACTOR 선정 ─────────────────────────────────────────
   const teamHighPts = Math.max(...participants.map(s => s.pts))
   const topScorerIds = new Set(participants.filter(s => s.pts === teamHighPts).map(s => s.player_id))
+
+  function xfScoreWithBonus(s: PlayerBoxScore): number {
+    const base = calcXfactorScore(s, teamHighPts)
+    const season = seasonMap.get(s.player_id)
+    if (!season || season.games_played < 1) return base
+    let bonus = 0
+    if (s.stl > season.stl_high) bonus += 2.0
+    if (s.reb > season.reb_high) bonus += 1.5
+    if (s.ast > season.ast_high) bonus += 1.5
+    return base + bonus
+  }
 
   const xfCandidates = participants.filter(s => {
     if (s.player_id === mvpPlayer.player_id) return false
@@ -183,53 +282,103 @@ export async function POST(req: Request) {
   })
 
   const xfSorted = [...xfCandidates].sort((a, b) => {
-    const sa = calcXfactorScore(a, teamHighPts)
-    const sb = calcXfactorScore(b, teamHighPts)
+    const sa = xfScoreWithBonus(a), sb = xfScoreWithBonus(b)
     if (sb !== sa) return sb - sa
     return (b.stl + b.blk) - (a.stl + a.blk)
   })
   const xfPlayer = xfSorted[0] ?? null
 
-  // ── 6. AI 코멘트 생성 (Haiku — 빠르고 저렴) ─────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const gameInfo = gameRow as unknown as {
-    date: string; opponent: string; our_score: number; opponent_score: number;
-    tournament?: { name: string; year: number } | null
+  // ── 7. 시즌 컨텍스트 분석 (AI 코멘트용) ─────────────────────
+  function buildSeasonContext(s: PlayerBoxScore): string {
+    const season = seasonMap.get(s.player_id)
+    if (!season || season.games_played < 1) return '(시즌 비교 데이터 없음 — 이번 경기가 첫 기록)'
+    const lines: string[] = [`시즌 평균 (${season.games_played}경기): ${season.pts_avg}pts / ${season.reb_avg}reb / ${season.ast_avg}ast / ${season.stl_avg}stl`]
+    lines.push(`시즌 효율: FG% ${season.fg_pct_avg.toFixed(1)} / 3P% ${season.fg3_pct_avg.toFixed(1)} / eFG% ${season.efg_pct_avg.toFixed(1)} / TS% ${season.ts_pct_avg.toFixed(1)}`)
+    lines.push(`시즌 단일 경기 최고: ${season.pts_high}pts / ${season.reb_high}reb / ${season.ast_high}ast / ${season.stl_high}stl`)
+    const highs: string[] = []
+    if (s.pts > season.pts_high) highs.push(`득점 시즌하이(기존 ${season.pts_high}pts → ${s.pts}pts)`)
+    if (s.reb > season.reb_high) highs.push(`리바운드 시즌하이(기존 ${season.reb_high} → ${s.reb})`)
+    if (s.ast > season.ast_high) highs.push(`어시스트 시즌하이(기존 ${season.ast_high} → ${s.ast})`)
+    if (s.stl > season.stl_high) highs.push(`스틸 시즌하이(기존 ${season.stl_high} → ${s.stl})`)
+    if (highs.length > 0) lines.push(`★ 시즌하이 달성: ${highs.join(', ')}`)
+    const exceeded: string[] = []
+    if (s.pts > season.pts_avg * 1.4) exceeded.push(`득점(평균 ${season.pts_avg} 대비 ${s.pts}pts)`)
+    if (s.efg_pct > season.efg_pct_avg + 10) exceeded.push(`eFG%(평균 ${season.efg_pct_avg.toFixed(1)}% 대비 ${s.efg_pct.toFixed(1)}%)`)
+    if (exceeded.length > 0) lines.push(`↑ 기대 초과 지표: ${exceeded.join(', ')}`)
+    return lines.join('\n')
   }
+
+  function buildTeamCarryContext(s: PlayerBoxScore): string {
+    const others = participants.filter(p => p.player_id !== s.player_id)
+    const carry: string[] = []
+    const teamReb = others.reduce((sum, p) => sum + p.reb, 0)
+    const teamAst = others.reduce((sum, p) => sum + p.ast, 0)
+    const teamStl = others.reduce((sum, p) => sum + p.stl, 0)
+    const teamBlk = others.reduce((sum, p) => sum + p.blk, 0)
+    if (teamReb > 0 && s.reb >= teamReb * 0.5) carry.push(`리바운드 팀 전체 합산의 ${Math.round(s.reb / (s.reb + teamReb) * 100)}% 차지`)
+    if (teamAst > 0 && s.ast >= teamAst * 0.5) carry.push(`어시스트 팀의 ${Math.round(s.ast / (s.ast + teamAst) * 100)}%`)
+    if (teamStl > 0 && s.stl >= teamStl * 0.5) carry.push(`스틸 팀의 ${Math.round(s.stl / (s.stl + teamStl) * 100)}%`)
+    if (teamBlk > 0 && s.blk >= teamBlk * 0.5) carry.push(`블락 팀의 ${Math.round(s.blk / (s.blk + teamBlk) * 100)}%`)
+    return carry.length > 0 ? `팀 내 독보적 기여: ${carry.join(', ')}` : ''
+  }
+
+  // ── 8. AI 코멘트 생성 ────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tournament = gameInfo.tournament as any
+  const tournament = (gameInfo.tournament as any)
   const tournamentStr = tournament ? `${tournament.name} ${tournament.year}년` : '대회'
   const resultStr = gameInfo.our_score > gameInfo.opponent_score ? '승' : gameInfo.our_score < gameInfo.opponent_score ? '패' : '무'
 
-  const xfLine = xfPlayer
-    ? `\nX-FACTOR 선정 선수: ${xfPlayer.player_name}\n스탯: ${statsLine(xfPlayer)}`
-    : '\nX-FACTOR: 해당 없음 (조건 충족 선수 없음)'
+  const mvpSeasonCtx = buildSeasonContext(mvpPlayer)
+  const mvpCarryCtx = buildTeamCarryContext(mvpPlayer)
+  const xfSeasonCtx = xfPlayer ? buildSeasonContext(xfPlayer) : ''
+  const xfCarryCtx = xfPlayer ? buildTeamCarryContext(xfPlayer) : ''
 
-  const prompt = `당신은 농구팀 "파란날개"의 공식 경기 기록 AI입니다. 아래 데이터는 이미 수학적 공식으로 수상자가 결정된 결과입니다. 당신의 역할은 각 수상자에 대한 **최대 3문장의 한국어 선정 코멘트**를 작성하는 것입니다.
+  const prompt = `당신은 NBA 수준의 농구 통계 분석관입니다. 아마추어 농구팀 "파란날개"의 공식 경기 시상 코멘트를 작성합니다.
+수상자는 이미 통계 공식으로 선정되었으므로, 당신의 역할은 **정성스럽고 구체적인 수상 코멘트**를 작성하는 것입니다.
+이 코멘트는 팀 기록으로 영구 보관됩니다.
 
-경기: ${tournamentStr} vs ${gameInfo.opponent} (${gameInfo.date}) — 파란날개 ${gameInfo.our_score}:${gameInfo.opponent_score} ${resultStr}
+━━━ 경기 정보 ━━━
+${tournamentStr} vs ${gameInfo.opponent} (${gameInfo.date}) — 파란날개 ${gameInfo.our_score}:${gameInfo.opponent_score} ${resultStr}
 
-전체 박스스코어:
+━━━ 전체 박스스코어 ━━━
 ${participants.map(s => statsLine(s)).join('\n')}
 
-MVP 선정 선수: ${mvpPlayer.player_name}
-스탯: ${statsLine(mvpPlayer)}
-${xfLine}
+━━━ MVP 선정: ${mvpPlayer.player_name} ━━━
+이번 경기 스탯: ${statsLine(mvpPlayer)}
+${mvpSeasonCtx}
+${mvpCarryCtx}
 
-[코멘트 작성 규칙]
-- 각 수상자에 대해 최대 3문장
-- 구체적인 숫자(득점, 어시스트, 리바운드 등) 반드시 포함
-- MVP: 효율성과 팀 기여도 강조. 부진 선수 언급 금지
-- X-FACTOR: 눈에 잘 안 띄지만 팀에 기여한 허슬 플레이 강조. "득점보다 팀플레이로 빛났다" 톤
-- 친근하고 진지한 톤 (공식 수상 기록으로 영구 보관됨)
-- 공식 계산 방식 언급 금지
+━━━ X-FACTOR 선정: ${xfPlayer ? xfPlayer.player_name : '해당 없음'} ━━━
+${xfPlayer ? `이번 경기 스탯: ${statsLine(xfPlayer)}
+${xfSeasonCtx}
+${xfCarryCtx}` : '(조건 충족 선수 없음)'}
 
-[출력 형식 — JSON만 출력, 다른 텍스트 없음]
+━━━ 코멘트 작성 지침 ━━━
+[공통]
+- 한국어로 작성. NBA 시상식처럼 진지하고 품격 있는 톤
+- 반드시 구체적인 수치 포함 (야투율, 득점, 특정 지표 등)
+- 공식·계산 방식 언급 금지. "선정 공식에 의해" 같은 표현 금지
+- 문장은 3~5문장 사이로 작성 (짧으면 안 됨)
+
+[MVP 코멘트에 반드시 포함할 내용 — 해당되는 경우]
+- 야투 효율이 우수했다면 eFG% 또는 TS%를 문장에 녹여 언급
+- 특정 스탯을 팀 내에서 홀로 캐리했다면 그 사실을 강조
+- 시즌하이 달성 항목이 있다면 "이번 시즌 최고 기록을 경신했다" 식으로 반드시 언급
+- 시즌 평균 대비 기대 이상의 성적이면 "평소 X점 평균에서 이날은 Y점" 식으로 비교
+- 승리 경기라면 기여도, 패배 경기라면 "팀이 어려운 상황에서도 분전했다" 톤 유지
+
+[X-FACTOR 코멘트에 반드시 포함할 내용 — 해당되는 경우]
+- 허슬 스탯(리바운드, 스틸, 어시스트, 블락)을 중심으로 서술
+- "득점판에는 잘 드러나지 않지만" 또는 "화려하진 않았지만" 같은 표현 활용
+- 시즌하이나 팀 내 캐리 내용 있으면 언급
+- 팀을 위한 희생과 헌신의 가치를 강조
+
+[출력 형식 — JSON만 출력, 앞뒤 다른 텍스트 없음]
 ${xfPlayer ? `{
-  "mvp_reason": "MVP 코멘트 (최대 3문장)",
-  "xf_reason": "X-FACTOR 코멘트 (최대 3문장)"
+  "mvp_reason": "MVP 코멘트 3~5문장",
+  "xf_reason": "X-FACTOR 코멘트 3~5문장"
 }` : `{
-  "mvp_reason": "MVP 코멘트 (최대 3문장)",
+  "mvp_reason": "MVP 코멘트 3~5문장",
   "xf_reason": null
 }`}`
 
@@ -241,7 +390,7 @@ ${xfPlayer ? `{
   try {
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 400,
+      max_tokens: 900,
       messages: [{ role: 'user', content: prompt }],
     })
     const raw = message.content[0].type === 'text' ? message.content[0].text.trim() : ''
