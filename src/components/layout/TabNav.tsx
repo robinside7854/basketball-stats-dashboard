@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, ScrollText, Lock, Unlock, Swords, ChevronLeft } from 'lucide-react'
+import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, ScrollText, Lock, Unlock, Swords, ArrowLeftRight } from 'lucide-react'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { TEAM_LABELS, type TeamType } from '@/contexts/TeamContext'
 
@@ -18,16 +18,15 @@ const TAB_DEFS = [
 
 const EDIT_ONLY_PATH = '/record'
 
-const TEAM_COLORS: Record<TeamType, string> = {
-  youth: 'text-blue-400',
-  senior: 'text-orange-400',
+const TEAM_STYLES: Record<TeamType, { badge: string; dot: string }> = {
+  youth:  { badge: 'bg-blue-500/20 border-blue-500/50 text-blue-300',   dot: 'bg-blue-400' },
+  senior: { badge: 'bg-orange-500/20 border-orange-500/50 text-orange-300', dot: 'bg-orange-400' },
 }
 
 export default function TabNav() {
   const pathname = usePathname()
   const { isEditMode, openPinModal, exitEditMode } = useEditMode()
 
-  // Extract team from pathname: /youth/... or /senior/...
   const segments = pathname.split('/').filter(Boolean)
   const team = (segments[0] === 'youth' || segments[0] === 'senior') ? segments[0] as TeamType : null
   const prefix = team ? `/${team}` : ''
@@ -52,30 +51,36 @@ export default function TabNav() {
     <nav className="bg-gray-950 border-b border-blue-600/40 sticky top-0 z-50 shadow-lg" style={{ boxShadow: '0 4px 24px rgba(59,130,246,0.12)' }}>
       <div className="container mx-auto px-4 max-w-[1600px]">
         <div className="flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex items-center gap-1.5 mr-3 sm:mr-5 py-3 shrink-0">
-            {team ? (
-              <Link href="/" className="flex items-center gap-1.5 group">
-                <ChevronLeft size={14} className="text-gray-500 group-hover:text-gray-300 transition-colors" />
-                <span className="text-xl sm:text-2xl">🏀</span>
-                <div className="flex flex-col leading-none">
-                  <span className="text-white font-bold text-sm sm:text-base tracking-tight whitespace-nowrap">
-                    파란날개
-                  </span>
-                  <span className={`text-xs font-semibold ${TEAM_COLORS[team]}`}>
-                    {TEAM_LABELS[team]}
-                  </span>
-                </div>
-              </Link>
-            ) : (
-              <>
-                <span className="text-xl sm:text-2xl">🏀</span>
-                <span className="text-white font-bold text-sm sm:text-base tracking-tight whitespace-nowrap">
-                  파란날개 <span className="text-blue-400 hidden sm:inline">게임로그</span>
-                </span>
-              </>
-            )}
+
+          {/* 로고 */}
+          <div className="flex items-center gap-2 mr-2 sm:mr-4 py-3 shrink-0">
+            <span className="text-xl">🏀</span>
+            <span className="text-white font-bold text-sm sm:text-base tracking-tight whitespace-nowrap hidden sm:inline">
+              파란날개
+            </span>
           </div>
-          <div className="w-px h-5 bg-gray-700 mr-2 shrink-0" />
+
+          {/* 팀 배지 — 팀 페이지일 때만 표시 */}
+          {team && (
+            <>
+              <Link
+                href="/"
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold whitespace-nowrap shrink-0 transition-all mr-1',
+                  TEAM_STYLES[team].badge,
+                  'hover:opacity-70'
+                )}
+                title="팀 전환"
+              >
+                <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', TEAM_STYLES[team].dot)} />
+                {TEAM_LABELS[team]}
+                <ArrowLeftRight size={11} className="opacity-60 ml-0.5" />
+              </Link>
+            </>
+          )}
+
+          <div className="w-px h-5 bg-gray-700 mx-1 shrink-0" />
+
           {allTabs.map(({ href, label, icon: Icon, exact }) => {
             const isActive = exact ? pathname === href : pathname.startsWith(href)
             return (
