@@ -117,7 +117,63 @@ export default function BoxScorePage() {
   }
 
   async function generateAllMvp() {
+    if (games.length === 0) return
+
+    // 1. 현재 세션에서 아직 로드 안 된 경기들 → DB에서 기존 결과 일괄 조회
+    const unloaded = games.filter(g => !mvpResults[g.id])
+    if (unloaded.length > 0) {
+      const checks = await Promise.all(
+        unloaded.map(g =>
+          fetch(`/api/ai/mvp?gameId=${g.id}`)
+            .then(r => r.ok ? r.json().then((d: MvpResult) => ({ id: g.id, result: d })) : { id: g.id, result: null })
+            .catch(() => ({ id: g.id, result: null }))
+        )
+      )
+      const updates: Record<string, MvpResult> = {}
+      for (const { id, result } of checks) {
+        if (result) updates[id] = result
+      }
+      if (Object.keys(updates).length > 0) {
+        setMvpResults(prev => ({ ...prev, ...updates }))
+        // 확인 팝업을 위해 최신 상태 반영 후 진행
+        const alreadyDone = games.filter(g => updates[g.id] || (mvpResults[g.id] && mvpResults[g.id] !== 'error')).length
+        const pending = games.filter(g => !updates[g.id] && (!mvpResults[g.id] || mvpResults[g.id] === 'error'))
+        if (alreadyDone > 0) {
+          const ok = window.confirm(
+            `이미 AI 선정이 완료된 경기가 ${alreadyDone}개 있습니다.\n미선정 경기 ${pending.length}개만 진행합니다.\n\n계속하시겠습니까?`
+          )
+          if (!ok) return
+        }
+        if (pending.length === 0) {
+          window.alert('모든 경기의 AI 선정이 이미 완료되어 있습니다.')
+          return
+        }
+        setGeneratingAll(true)
+        setGenProgress({ current: 0, total: pending.length })
+        for (let i = 0; i < pending.length; i++) {
+          setGenProgress({ current: i + 1, total: pending.length })
+          await fetchMvp(pending[i].id)
+        }
+        setGeneratingAll(false)
+        setGenProgress(null)
+        return
+      }
+    }
+
+    // 2. 이미 모두 로드된 경우 — 상태 기반으로 바로 판단
+    const alreadyDone = games.filter(g => mvpResults[g.id] && mvpResults[g.id] !== 'loading' && mvpResults[g.id] !== 'error').length
     const pendingGames = games.filter(g => !mvpResults[g.id] || mvpResults[g.id] === 'error')
+
+    if (alreadyDone > 0 && pendingGames.length > 0) {
+      const ok = window.confirm(
+        `이미 AI 선정이 완료된 경기가 ${alreadyDone}개 있습니다.\n미선정 경기 ${pendingGames.length}개만 진행합니다.\n\n계속하시겠습니까?`
+      )
+      if (!ok) return
+    } else if (alreadyDone > 0 && pendingGames.length === 0) {
+      window.alert('모든 경기의 AI 선정이 이미 완료되어 있습니다.')
+      return
+    }
+
     if (pendingGames.length === 0) return
     setGeneratingAll(true)
     setGenProgress({ current: 0, total: pendingGames.length })
