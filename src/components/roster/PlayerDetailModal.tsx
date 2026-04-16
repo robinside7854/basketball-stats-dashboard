@@ -103,6 +103,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
   const [expandedTournament, setExpandedTournament] = useState<string | null>(null)
   const [teamRankings, setTeamRankings] = useState<Record<string, { rank: number; isTie: boolean }>>({})
   const [chartMetric, setChartMetric] = useState<'PPG' | 'RPG' | 'APG' | 'FG%' | '3P%'>('PPG')
+  const [awards, setAwards] = useState<{ mvp_count: number; xfactor_count: number } | null>(null)
 
   useEffect(() => {
     fetch(`/api/players/${playerId}/stats`)
@@ -114,6 +115,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
         setTotalShots(d.totalShotAttempts || 0)
         setFreeThrow(d.freeThrow || null)
         setTournamentStats(d.tournamentStats || [])
+        setAwards(d.awards ?? null)
         setLoading(false)
       })
   }, [playerId])
@@ -275,6 +277,29 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                         </div>
                       </div>
                     </div>
+
+                    {/* AI 수상 배지 */}
+                    {awards && (awards.mvp_count > 0 || awards.xfactor_count > 0) && (
+                      <div className="flex items-center gap-2 px-5 py-2.5 border-t border-gray-800/60" style={{ background: '#070E1A' }}>
+                        <span className="text-xs text-gray-600 uppercase tracking-wider mr-1">Awards</span>
+                        {awards.mvp_count > 0 && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-900/30 border border-yellow-700/50">
+                            <span className="text-sm">🏅</span>
+                            <span className="text-xs font-bold text-yellow-400">MVP</span>
+                            <span className="text-xs font-black text-yellow-300 ml-0.5">{awards.mvp_count}</span>
+                            <span className="text-xs text-yellow-600">회</span>
+                          </div>
+                        )}
+                        {awards.xfactor_count > 0 && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-900/30 border border-purple-700/50">
+                            <span className="text-sm">⚡</span>
+                            <span className="text-xs font-bold text-purple-400">X-FACTOR</span>
+                            <span className="text-xs font-black text-purple-300 ml-0.5">{awards.xfactor_count}</span>
+                            <span className="text-xs text-purple-600">회</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* 주요 스탯 바 */}
                     {totalGP > 0 && (() => {

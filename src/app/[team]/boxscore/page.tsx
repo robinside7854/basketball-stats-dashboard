@@ -7,9 +7,10 @@ import type { Tournament, Game, PlayerBoxScore } from '@/types/database'
 
 type SortKey = 'player_number' | 'pts' | 'fg_pct' | 'fg3_pct' | 'ft_pct' | 'oreb' | 'dreb' | 'reb' | 'ast' | 'stl' | 'blk' | 'tov' | 'pf' | 'efg_pct' | 'ts_pct'
 
+type AwardEntry = { player_id: string; player_name: string; reason: string }
 type MvpResult = {
-  mvp: { player_name: string; reason: string }
-  hidden_hero: { player_name: string; reason: string }
+  mvp: AwardEntry
+  x_factor: AwardEntry | null
 }
 type SeasonSortKey = SortKey | 'pts_avg' | 'reb_avg' | 'ast_avg'
 type ViewMode = 'game' | 'season'
@@ -48,6 +49,20 @@ export default function BoxScorePage() {
   const [playerModal, setPlayerModal] = useState<string | null>(null)
   const [mvpResults, setMvpResults] = useState<Record<string, MvpResult | 'loading' | 'error'>>({})
 
+  // 경기 선택 시 저장된 MVP 자동 로드 (캐시 있으면 즉시 표시)
+  useEffect(() => {
+    if (!selectedGId) return
+    // 이미 불러온 경우 재요청 안 함
+    if (mvpResults[selectedGId]) return
+    fetch(`/api/ai/mvp?gameId=${selectedGId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) setMvpResults(prev => ({ ...prev, [selectedGId]: data }))
+      })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGId])
+
   async function fetchMvp(gameId: string) {
     setMvpResults(prev => ({ ...prev, [gameId]: 'loading' }))
     try {
@@ -62,6 +77,11 @@ export default function BoxScorePage() {
       console.error(err)
       setMvpResults(prev => ({ ...prev, [gameId]: 'error' }))
     }
+  }
+
+  async function resetMvp(gameId: string) {
+    await fetch(`/api/ai/mvp?gameId=${gameId}`, { method: 'DELETE' })
+    setMvpResults(prev => { const n = { ...prev }; delete n[gameId]; return n })
   }
 
   const [seasonScores, setSeasonScores] = useState<SeasonBoxScore[]>([])
@@ -312,19 +332,19 @@ export default function BoxScorePage() {
                       </table>
                       <p className="text-xs text-gray-600 mt-2">헤더 클릭 시 해당 스탯 기준 정렬 (↓ 내림차순 / ↑ 오름차순)</p>
 
-                      {/* ── AI MVP 선정 ── */}
+                      {/* ── AI MVP + X-FACTOR 선정 ── */}
                       <div className="mt-4 pt-3 border-t border-gray-800">
                         {!mvpResults[g.id] ? (
                           <button
                             onClick={() => fetchMvp(g.id)}
                             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-600/30 to-purple-600/30 border border-yellow-700/40 text-yellow-300 text-sm font-medium hover:from-yellow-600/50 hover:to-purple-600/50 transition-all"
                           >
-                            <span>✦</span> AI MVP + 숨은 조력자 선정
+                            <span>✦</span> AI MVP + X-FACTOR 선정
                           </button>
                         ) : mvpResults[g.id] === 'loading' ? (
                           <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
                             <span className="inline-block w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                            AI가 분석 중입니다...
+                            AI 분석 중...
                           </div>
                         ) : mvpResults[g.id] === 'error' ? (
                           <div className="flex items-center gap-3">
@@ -335,33 +355,42 @@ export default function BoxScorePage() {
                           const result = mvpResults[g.id] as MvpResult
                           return (
                             <div className="space-y-2">
-                              <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">AI 선정</p>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">AI 경기 시상</p>
+                                <button
+                                  onClick={() => resetMvp(g.id)}
+                                  className="text-xs text-gray-600 hover:text-orange-400 transition-colors"
+                                  title="재선정 (기존 기록 삭제 후 다시 분석)"
+                                >
+                                  ↺ 재선정
+                                </button>
+                              </div>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {/* MVP 카드 */}
                                 <div className="rounded-xl bg-yellow-900/20 border border-yellow-600/40 p-3.5">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-lg">🏅</span>
-                                    <span className="text-xs font-bold text-yellow-400 uppercase tracking-wide">MVP</span>
+                                    <span className="text-base">🏅</span>
+                                    <span className="text-xs font-bold text-yellow-400 uppercase tracking-widest">MVP</span>
                                   </div>
-                                  <p className="text-base font-bold text-white mb-1">{result.mvp.player_name}</p>
+                                  <p className="text-base font-bold text-white mb-1.5">{result.mvp.player_name}</p>
                                   <p className="text-xs text-yellow-200/70 leading-relaxed">{result.mvp.reason}</p>
                                 </div>
-                                {/* 숨은 조력자 카드 */}
-                                <div className="rounded-xl bg-purple-900/20 border border-purple-600/40 p-3.5">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-lg">🌟</span>
-                                    <span className="text-xs font-bold text-purple-400 uppercase tracking-wide">숨은 조력자</span>
+                                {/* X-FACTOR 카드 */}
+                                {result.x_factor ? (
+                                  <div className="rounded-xl bg-purple-900/20 border border-purple-600/40 p-3.5">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className="text-base">⚡</span>
+                                      <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">X-FACTOR</span>
+                                    </div>
+                                    <p className="text-base font-bold text-white mb-1.5">{result.x_factor.player_name}</p>
+                                    <p className="text-xs text-purple-200/70 leading-relaxed">{result.x_factor.reason}</p>
                                   </div>
-                                  <p className="text-base font-bold text-white mb-1">{result.hidden_hero.player_name}</p>
-                                  <p className="text-xs text-purple-200/70 leading-relaxed">{result.hidden_hero.reason}</p>
-                                </div>
+                                ) : (
+                                  <div className="rounded-xl bg-gray-800/40 border border-gray-700/40 p-3.5 flex items-center justify-center">
+                                    <p className="text-xs text-gray-600">X-FACTOR 해당 없음</p>
+                                  </div>
+                                )}
                               </div>
-                              <button
-                                onClick={() => setMvpResults(prev => { const n = {...prev}; delete n[g.id]; return n })}
-                                className="text-xs text-gray-600 hover:text-gray-400 transition-colors mt-1"
-                              >
-                                ↩ 초기화
-                              </button>
                             </div>
                           )
                         })()}

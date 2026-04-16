@@ -262,5 +262,24 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     }
   }).filter(Boolean)
 
-  return NextResponse.json({ player, recentGames, shotBreakdown, totalShotAttempts, freeThrow, tournamentStats })
+  // ── AI 수상 횟수 ──────────────────────────────────────────────
+  const [mvpGamesRes, xfGamesRes] = await Promise.all([
+    supabase
+      .from('games')
+      .select('id')
+      .in('tournament_id', teamTournamentIds)
+      .contains('ai_mvp', { mvp: { player_id: id } }),
+    supabase
+      .from('games')
+      .select('id')
+      .in('tournament_id', teamTournamentIds)
+      .contains('ai_mvp', { x_factor: { player_id: id } }),
+  ])
+
+  const awards = {
+    mvp_count: (mvpGamesRes.data ?? []).length,
+    xfactor_count: (xfGamesRes.data ?? []).length,
+  }
+
+  return NextResponse.json({ player, recentGames, shotBreakdown, totalShotAttempts, freeThrow, tournamentStats, awards })
 }
