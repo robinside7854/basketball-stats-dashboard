@@ -83,14 +83,39 @@ function statsLine(s: PlayerBoxScore): string {
   )
 }
 
+// GET: 캐시된 결과만 반환 (AI 실행 없음)
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const gameId = searchParams.get('gameId')
   if (!gameId) return NextResponse.json({ error: 'gameId required' }, { status: 400 })
 
   const supabase = createClient()
+  const { data: gameRow } = await supabase
+    .from('games')
+    .select('ai_mvp')
+    .eq('id', gameId)
+    .single()
 
-  // ── 1. DB 캐시 확인 ─────────────────────────────────────────
+  if (!gameRow) return NextResponse.json({ error: '경기를 찾을 수 없습니다' }, { status: 404 })
+  if (!gameRow.ai_mvp) return new Response(null, { status: 204 })
+
+  return NextResponse.json(gameRow.ai_mvp as MvpResult)
+}
+
+// POST: AI 분석 실행 + DB 저장 (버튼 클릭 시 호출)
+export async function POST(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const gameId = searchParams.get('gameId')
+  if (!gameId) return NextResponse.json({ error: 'gameId required' }, { status: 400 })
+
+  // ── 1. API 키 확인 ───────────────────────────────────────────
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json({ error: 'ANTHROPIC_API_KEY가 설정되지 않았습니다' }, { status: 503 })
+  }
+
+  const supabase = createClient()
+
+  // ── 2. 기존 저장 결과 재확인 (중복 실행 방지) ─────────────────
   const { data: gameRow } = await supabase
     .from('games')
     .select('ai_mvp, date, opponent, our_score, opponent_score, tournament:tournaments(name, year)')
@@ -99,14 +124,8 @@ export async function GET(req: Request) {
 
   if (!gameRow) return NextResponse.json({ error: '경기를 찾을 수 없습니다' }, { status: 404 })
 
-  // 이미 저장된 결과가 있으면 즉시 반환
   if (gameRow.ai_mvp) {
     return NextResponse.json(gameRow.ai_mvp as MvpResult)
-  }
-
-  // ── 2. AI 분석 요청 시 API 키 확인 ──────────────────────────
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: 'ANTHROPIC_API_KEY가 설정되지 않았습니다' }, { status: 503 })
   }
 
   // ── 3. 스탯 수집 ────────────────────────────────────────────

@@ -63,10 +63,11 @@ export default function BoxScorePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGId])
 
+  // 버튼 클릭 시 AI 분석 실행 (POST)
   async function fetchMvp(gameId: string) {
     setMvpResults(prev => ({ ...prev, [gameId]: 'loading' }))
     try {
-      const res = await fetch(`/api/ai/mvp?gameId=${gameId}`)
+      const res = await fetch(`/api/ai/mvp?gameId=${gameId}`, { method: 'POST' })
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error ?? '오류 발생')
