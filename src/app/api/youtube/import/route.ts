@@ -15,18 +15,34 @@ async function getChannelId(apiKey: string): Promise<string | null> {
   return id
 }
 
-// [라운드] 파란날개 : 상대팀 [대회명] YYYY/MM/DD
+// 패턴 1: [라운드] 파란날개 : 상대팀 [대회명] YYYY/MM/DD  (결승/4강 등)
+// 패턴 2: 파란날개 : 상대팀 [대회명] YYYY/MM/DD           (예선, 라운드 표기 없음)
 function parseTitle(title: string) {
-  const match = title.match(
+  // 패턴 1 — 라운드 브래킷 있음
+  const m1 = title.match(
     /\[([^\]]+)\]\s*(.*?)\s*:\s*(.*?)\s*\[([^\]]+)\]\s*(\d{4}\/\d{2}\/\d{2})/
   )
-  if (!match) return null
-  const [, round, team1, team2, tournamentName, dateRaw] = match
-  const isPalanFirst = team1.includes('파란날개')
-  const opponent = (isPalanFirst ? team2 : team1).trim()
-  const date = dateRaw.replace(/\//g, '-')
-  const year = parseInt(date.slice(0, 4))
-  return { round: round.trim(), opponent, tournament_name: tournamentName.trim(), date, year }
+  if (m1) {
+    const [, round, team1, team2, tournamentName, dateRaw] = m1
+    const opponent = (team1.includes('파란날개') ? team2 : team1).trim()
+    const date = dateRaw.replace(/\//g, '-')
+    return { round: round.trim(), opponent, tournament_name: tournamentName.trim(), date, year: parseInt(date.slice(0, 4)) }
+  }
+
+  // 패턴 2 — 라운드 브래킷 없이 팀 : 팀 [대회명] 날짜
+  const m2 = title.match(
+    /^(.*?)\s*:\s*(.*?)\s*\[([^\]]+)\]\s*(\d{4}\/\d{2}\/\d{2})/
+  )
+  if (m2) {
+    const [, team1, team2, tournamentName, dateRaw] = m2
+    const isPalanFirst = team1.includes('파란날개')
+    if (!isPalanFirst && !team2.includes('파란날개')) return null // 파란날개 없으면 무시
+    const opponent = (isPalanFirst ? team2 : team1).trim()
+    const date = dateRaw.replace(/\//g, '-')
+    return { round: '', opponent, tournament_name: tournamentName.trim(), date, year: parseInt(date.slice(0, 4)) }
+  }
+
+  return null
 }
 
 const ROUND_PRIORITY: Record<string, number> = {
