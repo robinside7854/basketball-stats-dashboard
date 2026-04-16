@@ -1,10 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Plus, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react'
+import { Plus, ChevronDown, ChevronUp, Pencil, Trash2, Youtube } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import TournamentForm from '@/components/tournaments/TournamentForm'
 import GameForm from '@/components/tournaments/GameForm'
+import YoutubeImportModal from '@/components/tournaments/YoutubeImportModal'
 import type { Tournament, Game } from '@/types/database'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { useTeam } from '@/contexts/TeamContext'
@@ -60,6 +61,7 @@ export default function TournamentsPage() {
   const [editT, setEditT] = useState<Tournament | null>(null)
   const [showGForm, setShowGForm] = useState<string | null>(null)
   const [editG, setEditG] = useState<Game | null>(null)
+  const [showYtImport, setShowYtImport] = useState(false)
 
   async function fetchTournaments() {
     const res = await fetch(`/api/tournaments?team=${team}`)
@@ -97,9 +99,18 @@ export default function TournamentsPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">대회 관리</h1>
         {isEditMode && (
-          <Button onClick={() => { setEditT(null); setShowTForm(true) }} className="bg-blue-500 hover:bg-blue-600">
-            <Plus size={16} className="mr-2" /> 대회 추가
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowYtImport(true)}
+              className="border-gray-700 text-gray-300 hover:text-white"
+            >
+              <Youtube size={15} className="mr-1.5 text-red-400" /> YouTube 가져오기
+            </Button>
+            <Button onClick={() => { setEditT(null); setShowTForm(true) }} className="bg-blue-500 hover:bg-blue-600">
+              <Plus size={16} className="mr-2" /> 대회 추가
+            </Button>
+          </div>
         )}
       </div>
 
@@ -202,6 +213,14 @@ export default function TournamentsPage() {
             )
           })}
         </div>
+      )}
+
+      {showYtImport && (
+        <YoutubeImportModal
+          team={team}
+          onClose={() => setShowYtImport(false)}
+          onSaved={() => { setShowYtImport(false); fetchTournaments() }}
+        />
       )}
 
       {showTForm && (

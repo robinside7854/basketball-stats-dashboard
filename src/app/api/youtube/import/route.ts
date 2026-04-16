@@ -1,0 +1,180 @@
+import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/client'
+
+const YT_BASE = 'https://www.googleapis.com/youtube/v3'
+const CHANNEL_HANDLE = 'basket-lab'
+
+let cachedChannelId: string | null = null
+
+async function getChannelId(apiKey: string): Promise<string | null> {
+  if (cachedChannelId) return cachedChannelId
+  const res = await fetch(`${YT_BASE}/channels?part=id&forHandle=${CHANNEL_HANDLE}&key=${apiKey}`)
+  const data = await res.json()
+  const id = data.items?.[0]?.id ?? null
+  if (id) cachedChannelId = id
+  return id
+}
+
+// [라운드] 파란날개 : 상대팀 [대회명] YYYY/MM/DD
+function parseTitle(title: string) {
+  const match = title.match(
+    /\[([^\]]+)\]\s*(.*?)\s*:\s*(.*?)\s*\[([^\]]+)\]\s*(\d{4}\/\d{2}\/\d{2})/
+  )
+  if (!match) return null
+  const [, round, team1, team2, tournamentName, dateRaw] = match
+  const isPalanFirst = team1.includes('파란날개')
+  const opponent = (isPalanFirst ? team2 : team1).trim()
+  const date = dateRaw.replace(/\//g, '-')
+  const year = parseInt(date.slice(0, 4))
+  return { round: round.trim(), opponent, tournament_name: tournamentName.trim(), date, year }
+}
+
+const ROUND_PRIORITY: Record<string, number> = {
+  '결승': 0, '4강': 1, '준결승': 1, '8강': 2, '16강': 3, '조별예선': 4,
+}
+
+export interface GameData {
+  video_id: string
+  title: string
+  url: string
+  date: string
+  opponent: string
+  round: string
+}
+
+export interface TournamentGroup {
+  tournament_name: string
+  year: number
+  existing_tournament: { id: string; name: string; year: number; type: string } | null
+  games: GameData[]
+}
+
+export async function GET(req: Request) {
+  const apiKey = process.env.YOUTUBE_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ error: 'YOUTUBE_API_KEY가 설정되지 않았습니다' }, { status: 503 })
+  }
+
+  const { searchParams } = new URL(req.url)
+  const after = searchParams.get('after')   // YYYY-MM-DD
+  const before = searchParams.get('before') // YYYY-MM-DD
+  const team = searchParams.get('team') ?? 'youth'
+
+  const channelId = await getChannelId(apiKey)
+  if (!channelId) {
+    return NextResponse.json({ error: '@basket-lab 채널을 찾을 수 없습니다' }, { status: 404 })
+  }
+
+  // 기간 파라미터 계산 (before는 +1일 하여 당일 포함)
+  const afterISO = after ? new Date(after).toISOString() : undefined
+  const beforeDate = before ? new Date(before) : new Date()
+  beforeDate.setDate(beforeDate.getDate() + 1)
+  const beforeISO = beforeDate.toISOString()
+
+  // 페이지네이션 포함 전체 수집
+  const rawVideos: Array<{
+    video_id: string
+    title: string
+    url: string
+    published_at: string
+    parsed: NonNullable<ReturnType<typeof parseTitle>>
+  }> = []
+
+  let pageToken: string | undefined
+
+  do {
+    const params = new URLSearchParams({
+      part: 'snippet',
+      channelId,
+      q: '파란날개',
+      type: 'video',
+      eventType: 'completed', // 완료된 라이브 스트림
+      maxResults: '50',
+      key: apiKey,
+      ...(afterISO ? { publishedAfter: afterISO } : {}),
+      publishedBefore: beforeISO,
+      ...(pageToken ? { pageToken } : {}),
+    })
+
+    const res = await fetch(`${YT_BASE}/search?${params}`)
+    const data = await res.json()
+
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: data.error?.message ?? 'YouTube API 오류' },
+        { status: 500 }
+      )
+    }
+
+    type YTSearchItem = {
+      id: { videoId: string }
+      snippet: { title: string; publishedAt: string }
+    }
+
+    for (const item of (data.items ?? []) as YTSearchItem[]) {
+      const videoId = item.id.videoId
+      const title = item.snippet.title
+      if (!title.includes('파란날개')) continue
+      const parsed = parseTitle(title)
+      if (!parsed) continue
+      rawVideos.push({
+        video_id: videoId,
+        title,
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        published_at: item.snippet.publishedAt,
+        parsed,
+      })
+    }
+
+    pageToken = data.nextPageToken
+  } while (pageToken)
+
+  // 대회명 기준 그룹핑
+  const groupMap = new Map<string, typeof rawVideos>()
+  for (const v of rawVideos) {
+    const key = v.parsed.tournament_name
+    if (!groupMap.has(key)) groupMap.set(key, [])
+    groupMap.get(key)!.push(v)
+  }
+
+  // DB에서 기존 대회 조회 (팀 기준)
+  const supabase = createClient()
+  const { data: existingTournaments } = await supabase
+    .from('tournaments')
+    .select('id, name, year, type')
+    .eq('team_type', team)
+
+  const groups: TournamentGroup[] = Array.from(groupMap.entries()).map(([tournament_name, vids]) => {
+    const year = vids[0].parsed.year
+
+    // 기존 대회 이름 매칭 (부분 포함)
+    const existing = existingTournaments?.find(t =>
+      t.name === tournament_name ||
+      t.name.includes(tournament_name) ||
+      tournament_name.includes(t.name)
+    ) ?? null
+
+    const games: GameData[] = vids
+      .map(v => ({
+        video_id: v.video_id,
+        title: v.title,
+        url: v.url,
+        date: v.parsed.date,
+        opponent: v.parsed.opponent,
+        round: v.parsed.round,
+      }))
+      .sort((a, b) => {
+        const ra = ROUND_PRIORITY[a.round] ?? 9
+        const rb = ROUND_PRIORITY[b.round] ?? 9
+        if (ra !== rb) return ra - rb
+        return b.date.localeCompare(a.date)
+      })
+
+    return { tournament_name, year, existing_tournament: existing, games }
+  })
+
+  // 연도 내림차순 정렬
+  groups.sort((a, b) => b.year - a.year)
+
+  return NextResponse.json({ groups, total: rawVideos.length })
+}
