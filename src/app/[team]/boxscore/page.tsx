@@ -149,7 +149,22 @@ export default function BoxScorePage() {
 
   useEffect(() => {
     if (!selectedTId) return
-    fetch(`/api/games?tournamentId=${selectedTId}`).then(r => r.json()).then(setGames)
+    fetch(`/api/games?tournamentId=${selectedTId}`)
+      .then(r => r.json())
+      .then(async (loadedGames: Game[]) => {
+        setGames(loadedGames)
+        // 대회 선택 시 모든 경기 MVP 결과 백그라운드 프리로드 → 아이콘 즉시 표시
+        const pairs = await Promise.all(
+          loadedGames.map(g =>
+            fetch(`/api/ai/mvp?gameId=${g.id}`)
+              .then(r => r.ok ? r.json().then((d: MvpResult) => [g.id, d] as const) : null)
+              .catch(() => null)
+          )
+        )
+        const updates: Record<string, MvpResult> = {}
+        for (const p of pairs) { if (p) updates[p[0]] = p[1] }
+        if (Object.keys(updates).length > 0) setMvpResults(prev => ({ ...prev, ...updates }))
+      })
     if (viewMode === 'season') {
       fetch(`/api/stats/season?tournamentId=${selectedTId}&team=${team}`).then(r => r.json()).then(d => {
         setSeasonScores(d.players || [])
@@ -232,7 +247,7 @@ export default function BoxScorePage() {
             setMvpResults({})
           }}
         >
-          <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-52">
+          <SelectTrigger className="bg-gray-800 border-gray-700 text-white min-w-52 max-w-xs w-auto">
             <SelectValue placeholder="대회 선택">{selT ? `${selT.name} (${selT.year})` : undefined}</SelectValue>
           </SelectTrigger>
           <SelectContent className="bg-gray-800 border-gray-700 text-white">
