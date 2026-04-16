@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useTeam } from '@/contexts/TeamContext'
+import { useEditMode } from '@/contexts/EditModeContext'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { Tournament, Game, PlayerBoxScore } from '@/types/database'
@@ -40,6 +41,7 @@ function Pct({ val }: { val: number }) {
 
 export default function BoxScorePage() {
   const team = useTeam()
+  const { isEditMode } = useEditMode()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [games, setGames] = useState<Game[]>([])
   const [selectedTId, setSelectedTId] = useState('')
@@ -255,8 +257,8 @@ export default function BoxScorePage() {
           </SelectContent>
         </Select>
 
-        {/* 전체 AI 생성 버튼 */}
-        {viewMode === 'game' && selectedTId && games.length > 0 && (
+        {/* 전체 AI 선정 버튼 — 편집 모드 전용 */}
+        {isEditMode && viewMode === 'game' && selectedTId && games.length > 0 && (
           <button
             onClick={generateAllMvp}
             disabled={generatingAll}
@@ -445,35 +447,41 @@ export default function BoxScorePage() {
                       {/* ── AI MVP + X-FACTOR 선정 ── */}
                       <div className="mt-4 pt-3 border-t border-gray-800">
                         {!mvpResults[g.id] ? (
-                          <button
-                            onClick={() => fetchMvp(g.id)}
-                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-600/30 to-purple-600/30 border border-yellow-700/40 text-yellow-300 text-sm font-medium hover:from-yellow-600/50 hover:to-purple-600/50 transition-all cursor-pointer"
-                          >
-                            <span>✦</span> AI MVP + X-FACTOR 선정
-                          </button>
+                          isEditMode ? (
+                            <button
+                              onClick={() => fetchMvp(g.id)}
+                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-600/30 to-purple-600/30 border border-yellow-700/40 text-yellow-300 text-sm font-medium hover:from-yellow-600/50 hover:to-purple-600/50 transition-all cursor-pointer"
+                            >
+                              <span>✦</span> AI MVP + X-FACTOR 선정
+                            </button>
+                          ) : null
                         ) : mvpResults[g.id] === 'loading' ? (
                           <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
                             <span className="inline-block w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
                             AI 분석 중...
                           </div>
                         ) : mvpResults[g.id] === 'error' ? (
-                          <div className="flex items-center gap-3">
-                            <p className="text-sm text-red-400">분석 실패</p>
-                            <button onClick={() => fetchMvp(g.id)} className="text-xs text-gray-400 hover:text-white underline cursor-pointer">재시도</button>
-                          </div>
+                          isEditMode ? (
+                            <div className="flex items-center gap-3">
+                              <p className="text-sm text-red-400">분석 실패</p>
+                              <button onClick={() => fetchMvp(g.id)} className="text-xs text-gray-400 hover:text-white underline cursor-pointer">재시도</button>
+                            </div>
+                          ) : null
                         ) : (() => {
                           const result = mvpResults[g.id] as MvpResult
                           return (
                             <div className="space-y-2">
                               <div className="flex items-center justify-between mb-2">
                                 <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide">AI 경기 시상</p>
-                                <button
-                                  onClick={() => resetMvp(g.id)}
-                                  className="text-xs text-gray-600 hover:text-orange-400 transition-colors cursor-pointer"
-                                  title="재선정 (기존 기록 삭제 후 다시 분석)"
-                                >
-                                  ↺ 재선정
-                                </button>
+                                {isEditMode && (
+                                  <button
+                                    onClick={() => resetMvp(g.id)}
+                                    className="text-xs text-gray-600 hover:text-orange-400 transition-colors cursor-pointer"
+                                    title="재선정 (기존 기록 삭제 후 다시 분석)"
+                                  >
+                                    ↺ 재선정
+                                  </button>
+                                )}
                               </div>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {/* MVP 카드 */}
