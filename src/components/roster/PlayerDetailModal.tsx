@@ -1,9 +1,12 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { X, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
+
+const GameBoxScoreModal = dynamic(() => import('@/components/GameBoxScoreModal'), { ssr: false })
 
 interface ShotStat { label: string; made: number; attempted: number; pct: number }
 
@@ -104,6 +107,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
   const [teamRankings, setTeamRankings] = useState<Record<string, { rank: number; isTie: boolean }>>({})
   const [chartMetric, setChartMetric] = useState<'PPG' | 'RPG' | 'APG' | 'FG%' | '3P%'>('PPG')
   const [awards, setAwards] = useState<{ mvp_count: number; xfactor_count: number } | null>(null)
+  const [boxScoreGame, setBoxScoreGame] = useState<{ game_id: string; date: string; opponent: string; round: string | null; our_score: number; opponent_score: number; tournament_name: string } | null>(null)
 
   useEffect(() => {
     fetch(`/api/players/${playerId}/stats`)
@@ -321,8 +325,9 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                         )
                       }
                       return (
-                        <div className="grid grid-cols-5 border-t border-gray-800" style={{ background: '#070E1A' }}>
+                        <div className="grid grid-cols-3 sm:grid-cols-6 border-t border-gray-800" style={{ background: '#070E1A' }}>
                           {[
+                            { label: 'GP',  value: String(totalGP), key: 'gp' },
                             { label: 'PPG', value: ppg, key: 'ppg' },
                             { label: 'RPG', value: rpg, key: 'rpg' },
                             { label: 'APG', value: apg, key: 'apg' },
@@ -347,11 +352,13 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                 type ChGame = {
                   value: number; date: string; opponent: string; round: string | null
                   tournament_name: string; our_score: number; opponent_score: number
+                  game_id: string; stats: PlayerBoxScore
+                  sub?: string
                 }
-                const allGames: Array<{ stats: PlayerBoxScore; date: string; opponent: string; round: string | null; tournament_name: string; our_score: number; opponent_score: number }> = []
+                const allGames: Array<{ game_id: string; stats: PlayerBoxScore; date: string; opponent: string; round: string | null; tournament_name: string; our_score: number; opponent_score: number }> = []
                 for (const t of tournamentStats) {
                   for (const g of t.games) {
-                    if (g.stats) allGames.push({ stats: g.stats, date: g.date, opponent: g.opponent, round: g.round, tournament_name: t.tournament.name, our_score: g.our_score, opponent_score: g.opponent_score })
+                    if (g.stats) allGames.push({ game_id: g.game_id, stats: g.stats, date: g.date, opponent: g.opponent, round: g.round, tournament_name: t.tournament.name, our_score: g.our_score, opponent_score: g.opponent_score })
                   }
                 }
                 if (allGames.length === 0) return null
@@ -359,7 +366,8 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                 function best(
                   getValue: (s: PlayerBoxScore) => number,
                   tiebreakers: Array<(s: PlayerBoxScore) => number> = [],
-                  filter?: (s: PlayerBoxScore) => boolean
+                  filter?: (s: PlayerBoxScore) => boolean,
+                  getSub?: (s: PlayerBoxScore) => string,
                 ): ChGame | null {
                   const pool = filter ? allGames.filter(g => filter(g.stats)) : allGames
                   if (pool.length === 0) return null
@@ -376,16 +384,28 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                   })
                   const val = getValue(top.stats)
                   if (val === 0) return null
-                  return { value: val, date: top.date, opponent: top.opponent, round: top.round, tournament_name: top.tournament_name, our_score: top.our_score, opponent_score: top.opponent_score }
+                  return {
+                    value: val,
+                    date: top.date, opponent: top.opponent, round: top.round,
+                    tournament_name: top.tournament_name,
+                    our_score: top.our_score, opponent_score: top.opponent_score,
+                    game_id: top.game_id, stats: top.stats,
+                    sub: getSub ? getSub(top.stats) : undefined,
+                  }
                 }
 
                 const highs = {
-                  pts:    best(s => s.pts,    [s => s.fg_pct, s => s.fga]),
-                  reb:    best(s => s.reb),
+                  pts:    best(s => s.pts,    [s => s.fg_pct, s => s.fga], undefined,
+                               s => s.fga > 0 ? `FG ${s.fg_pct.toFixed(1)}% (${s.fgm}/${s.fga})` : ''),
+                  reb:    best(s => s.reb,    [], undefined,
+                               s => `OR ${s.oreb} / DR ${s.dreb}`),
                   ast:    best(s => s.ast),
                   stl:    best(s => s.stl),
                   blk:    best(s => s.blk),
                   fg_pct: best(s => s.fg_pct, [s => s.fga, s => s.pts], s => s.fga >= 4),
+                  fg3m:   best(s => s.fg3m,   [s => s.fg3_pct]),
+                  ftm:    best(s => s.ftm,    [s => s.ft_pct], undefined,
+                               s => s.fta > 0 ? `FT ${s.ft_pct.toFixed(1)}% (${s.ftm}/${s.fta})` : ''),
                 }
 
                 if (Object.values(highs).every(v => v === null)) return null
@@ -397,23 +417,40 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                   { key: 'stl',    label: 'STL',  color: 'text-green-400' },
                   { key: 'blk',    label: 'BLK',  color: 'text-indigo-400' },
                   { key: 'fg_pct', label: 'FG%',  color: 'text-teal-400', fmt: v => `${v.toFixed(1)}%` },
+                  { key: 'fg3m',   label: '3PM',  color: 'text-purple-400' },
+                  { key: 'ftm',    label: 'FTM',  color: 'text-pink-400' },
                 ]
 
                 return (
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
                     <h2 className="text-base font-semibold mb-4 text-gray-300">커리어 하이</h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {ITEMS.map(({ key, label, color, fmt }) => {
                         const h = highs[key]
                         if (!h) return null
                         const isWin = h.our_score > h.opponent_score
                         const displayVal = fmt ? fmt(h.value) : String(h.value)
                         return (
-                          <div key={key} className="bg-gray-800/60 rounded-xl p-3.5 border border-gray-700/40">
-                            <div className="flex items-end gap-1.5 mb-2.5">
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setBoxScoreGame({
+                              game_id: h.game_id,
+                              date: h.date,
+                              opponent: h.opponent,
+                              round: h.round,
+                              our_score: h.our_score,
+                              opponent_score: h.opponent_score,
+                              tournament_name: h.tournament_name,
+                            })}
+                            className="text-left bg-gray-800/60 rounded-xl p-3.5 border border-gray-700/40 hover:border-gray-600 hover:bg-gray-800 transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-end gap-1.5 mb-1">
                               <span className={`text-3xl font-black font-mono leading-none ${color}`}>{displayVal}</span>
                               <span className="text-xs text-gray-500 mb-0.5 uppercase tracking-wider">{label}</span>
                             </div>
+                            {h.sub && <p className="text-[11px] text-gray-400 mb-2 font-mono">{h.sub}</p>}
+                            {!h.sub && <div className="h-2" />}
                             <div className="border-t border-gray-700/40 pt-2.5 space-y-1">
                               <p className="text-xs text-gray-500">{h.date}</p>
                               <p className="text-xs text-white font-medium">
@@ -427,7 +464,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                                 <span className="text-xs text-gray-600 truncate">{h.tournament_name}</span>
                               </div>
                             </div>
-                          </div>
+                          </button>
                         )
                       })}
                     </div>
@@ -706,6 +743,13 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
           )}
         </div>
       </div>
+
+      {boxScoreGame && (
+        <GameBoxScoreModal
+          gameInfo={boxScoreGame}
+          onClose={() => setBoxScoreGame(null)}
+        />
+      )}
     </div>
   )
 }

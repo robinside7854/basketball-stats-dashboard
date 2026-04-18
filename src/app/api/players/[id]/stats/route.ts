@@ -49,7 +49,7 @@ function calcStats(
   const mins = gameIds ? minutes.filter(m => gameIds.includes(m.game_id)) : minutes
 
   let pts = 0, fgm = 0, fga = 0, fg3m = 0, fg3a = 0, ftm = 0, fta = 0
-  let reb = 0, ast = 0, stl = 0, blk = 0, tov = 0
+  let oreb = 0, dreb = 0, ast = 0, stl = 0, blk = 0, tov = 0
 
   for (const e of evts) {
     switch (e.type) {
@@ -69,8 +69,10 @@ function calcStats(
         if (e.result === 'made') { ftm++; pts += 1 }
         break
       case 'oreb':
+        oreb++
+        break
       case 'dreb':
-        reb++
+        dreb++
         break
       case 'steal':
         stl++
@@ -85,11 +87,13 @@ function calcStats(
   }
 
   ast = assts.length
+  const reb = oreb + dreb
   const min = totalMinutes(mins)
   const fg_pct = fga > 0 ? Math.round((fgm / fga) * 1000) / 10 : 0
   const fg3_pct = fg3a > 0 ? Math.round((fg3m / fg3a) * 1000) / 10 : 0
+  const ft_pct = fta > 0 ? Math.round((ftm / fta) * 1000) / 10 : 0
 
-  return { pts, fgm, fga, fg_pct, fg3m, fg3a, fg3_pct, ftm, fta, reb, ast, stl, blk, tov, min: Math.round(min * 10) / 10 }
+  return { pts, fgm, fga, fg_pct, fg3m, fg3a, fg3_pct, ftm, fta, ft_pct, oreb, dreb, reb, ast, stl, blk, tov, min: Math.round(min * 10) / 10 }
 }
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
