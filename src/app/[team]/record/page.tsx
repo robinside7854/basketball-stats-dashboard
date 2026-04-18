@@ -15,6 +15,8 @@ import type { Tournament, Game, Player, PlayerMinutes } from '@/types/database'
 
 const SESS_TID = 'bball_record_tid'
 const SESS_GID = 'bball_record_gid'
+const SESS_YT_TIME = 'bball_record_yt_time'
+const SESS_YT_GID  = 'bball_record_yt_gid'
 
 export default function RecordPage() {
   const { isEditMode, openPinModal } = useEditMode()
@@ -54,6 +56,8 @@ function RecordPageInner() {
   const [teamPts, setTeamPts] = useState(0)
   const [mobileTab, setMobileTab] = useState<'record' | 'view'>('record')
 
+  const [ytResumeAt, setYtResumeAt] = useState<number | undefined>(undefined)
+
   // Feature 3: opponent score modal
   const [showCompleteModal, setShowCompleteModal] = useState(false)
   const [oppScoreInput, setOppScoreInput] = useState('')
@@ -91,6 +95,31 @@ function RecordPageInner() {
   // Feature 1: persist selection
   useEffect(() => { if (selectedTId) sessionStorage.setItem(SESS_TID, selectedTId) }, [selectedTId])
   useEffect(() => { if (selectedGId) sessionStorage.setItem(SESS_GID, selectedGId) }, [selectedGId])
+
+  // Restore saved YT position when game is selected
+  useEffect(() => {
+    if (!selectedGId) return
+    const savedGId = sessionStorage.getItem(SESS_YT_GID)
+    const savedTime = sessionStorage.getItem(SESS_YT_TIME)
+    if (savedGId === selectedGId && savedTime) {
+      setYtResumeAt(parseFloat(savedTime))
+    } else {
+      setYtResumeAt(undefined)
+    }
+  }, [selectedGId])
+
+  // Save YT position every 3s during active recording
+  useEffect(() => {
+    if (!gameStarted || gameComplete || !selectedGId) return
+    const interval = setInterval(() => {
+      const ts = useGameStore.getState().getCurrentTimestamp()
+      if (ts > 0) {
+        sessionStorage.setItem(SESS_YT_TIME, String(ts))
+        sessionStorage.setItem(SESS_YT_GID, selectedGId)
+      }
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [gameStarted, gameComplete, selectedGId])
 
   useEffect(() => {
     if (!selectedTId) return
@@ -226,6 +255,9 @@ function RecordPageInner() {
       fetch(`/api/minutes?gameId=${currentGame.id}`, { method: 'DELETE' }),
       fetch(`/api/games/${currentGame.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_complete: false }) }),
     ])
+    sessionStorage.removeItem(SESS_YT_TIME)
+    sessionStorage.removeItem(SESS_YT_GID)
+    setYtResumeAt(undefined)
     resetLineup()
     setGameStarted(false)
     setGameComplete(false)
@@ -483,6 +515,7 @@ function RecordPageInner() {
               key={currentGame.id}
               youtubeUrl={currentGame.youtube_url || ''}
               startOffset={currentGame.youtube_start_offset}
+              resumeAt={ytResumeAt}
             />
 
             {(gameStarted || gameComplete) && (

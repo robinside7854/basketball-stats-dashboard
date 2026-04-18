@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { extractYouTubeId } from '@/lib/youtube/utils'
 
-interface Props { youtubeUrl: string; startOffset: number }
+interface Props { youtubeUrl: string; startOffset: number; resumeAt?: number }
 
 declare global {
   interface Window {
@@ -12,7 +12,7 @@ declare global {
   }
 }
 
-export default function YouTubePlayer({ youtubeUrl, startOffset }: Props) {
+export default function YouTubePlayer({ youtubeUrl, startOffset, resumeAt }: Props) {
   const playerRef = useRef<HTMLDivElement>(null)
   const setYtPlayer = useGameStore(s => s.setYtPlayer)
   const videoId = extractYouTubeId(youtubeUrl)
@@ -23,7 +23,7 @@ export default function YouTubePlayer({ youtubeUrl, startOffset }: Props) {
       if (!playerRef.current) return
       const player = new window.YT.Player(playerRef.current, {
         videoId: videoId as string,
-        playerVars: { start: startOffset, rel: 0, modestbranding: 1 },
+        playerVars: { start: Math.floor(resumeAt ?? startOffset), rel: 0, modestbranding: 1 },
         events: {
           onReady: () => setYtPlayer(player),
           onError: () => console.warn('YouTube player error'),
