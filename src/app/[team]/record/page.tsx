@@ -67,26 +67,25 @@ function RecordPageInner() {
   const { currentGame, currentQuarter, setCurrentGame, setCurrentQuarter } = useGameStore()
   const { onCourt, setLineup, resetLineup } = useLineupStore()
 
-  // Feature 1: restore last session on mount
+  // Feature 1: restore session immediately on mount (before async fetches)
+  useEffect(() => {
+    if (currentGame) {
+      setSelectedTId(currentGame.tournament_id)
+      setSelectedGId(currentGame.id)
+    } else {
+      const tid = sessionStorage.getItem(SESS_TID)
+      const gid = sessionStorage.getItem(SESS_GID)
+      if (tid) setSelectedTId(tid)
+      if (gid) setSelectedGId(gid)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     fetch(`/api/players?team=${team}`).then(r => r.json()).then((data: Player[]) => {
       setAllPlayers(data.filter((p: Player) => p.is_active))
     })
-    fetch(`/api/tournaments?team=${team}`).then(r => r.json()).then((data: Tournament[]) => {
-      setTournaments(data)
-      if (currentGame) {
-        setSelectedTId(currentGame.tournament_id)
-        setSelectedGId(currentGame.id)
-      } else {
-        const tid = sessionStorage.getItem(SESS_TID)
-        const gid = sessionStorage.getItem(SESS_GID)
-        if (tid) {
-          setSelectedTId(tid)
-          if (gid) setSelectedGId(gid)
-        }
-      }
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetch(`/api/tournaments?team=${team}`).then(r => r.json()).then(setTournaments)
   }, [team])
 
   // Feature 1: persist selection
@@ -192,7 +191,7 @@ function RecordPageInner() {
 
   async function confirmComplete() {
     if (!currentGame) return
-    const oppScore = parseInt(oppScoreInput)
+    const oppScore = parseInt(oppScoreInput, 10)
     if (isNaN(oppScore) || oppScore < 0) { toast.error('상대 점수를 올바르게 입력하세요'); return }
     const { getCurrentTimestamp } = useGameStore.getState()
     const ts = getCurrentTimestamp()
@@ -253,7 +252,7 @@ function RecordPageInner() {
       const res = await fetch('/api/players', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ number: parseInt(newPlayerNum), name: newPlayerName.trim(), team_type: team, is_active: true }),
+        body: JSON.stringify({ number: parseInt(newPlayerNum, 10), name: newPlayerName.trim(), team_type: team, is_active: true }),
       })
       if (!res.ok) { toast.error('선수 추가 실패'); return }
       const player: Player = await res.json()
