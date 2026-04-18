@@ -25,7 +25,10 @@ export default function YouTubePlayer({ youtubeUrl, startOffset, resumeAt }: Pro
         videoId: videoId as string,
         playerVars: { start: Math.floor(resumeAt ?? startOffset), rel: 0, modestbranding: 1 },
         events: {
-          onReady: () => setYtPlayer(player),
+          onReady: () => {
+            if (resumeAt && resumeAt > 1) player.seekTo(Math.floor(resumeAt), true)
+            setYtPlayer(player)
+          },
           onError: () => console.warn('YouTube player error'),
         },
       })
