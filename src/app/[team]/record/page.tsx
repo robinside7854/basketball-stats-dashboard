@@ -13,6 +13,9 @@ import { useEditMode } from '@/contexts/EditModeContext'
 import { useTeam } from '@/contexts/TeamContext'
 import type { Tournament, Game, Player, PlayerMinutes } from '@/types/database'
 
+const SESS_TID = 'bball_record_tid'
+const SESS_GID = 'bball_record_gid'
+
 export default function RecordPage() {
   const { isEditMode, openPinModal } = useEditMode()
 
@@ -51,9 +54,20 @@ function RecordPageInner() {
   const [teamPts, setTeamPts] = useState(0)
   const [mobileTab, setMobileTab] = useState<'record' | 'view'>('record')
 
+  // Feature 3: opponent score modal
+  const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const [oppScoreInput, setOppScoreInput] = useState('')
+
+  // Feature 2: add player inline
+  const [showAddPlayer, setShowAddPlayer] = useState(false)
+  const [newPlayerNum, setNewPlayerNum] = useState('')
+  const [newPlayerName, setNewPlayerName] = useState('')
+  const [addingPlayer, setAddingPlayer] = useState(false)
+
   const { currentGame, currentQuarter, setCurrentGame, setCurrentQuarter } = useGameStore()
   const { onCourt, setLineup, resetLineup } = useLineupStore()
 
+  // Feature 1: restore last session on mount
   useEffect(() => {
     fetch(`/api/players?team=${team}`).then(r => r.json()).then((data: Player[]) => {
       setAllPlayers(data.filter((p: Player) => p.is_active))
@@ -63,10 +77,21 @@ function RecordPageInner() {
       if (currentGame) {
         setSelectedTId(currentGame.tournament_id)
         setSelectedGId(currentGame.id)
+      } else {
+        const tid = sessionStorage.getItem(SESS_TID)
+        const gid = sessionStorage.getItem(SESS_GID)
+        if (tid) {
+          setSelectedTId(tid)
+          if (gid) setSelectedGId(gid)
+        }
       }
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [team])
+
+  // Feature 1: persist selection
+  useEffect(() => { if (selectedTId) sessionStorage.setItem(SESS_TID, selectedTId) }, [selectedTId])
+  useEffect(() => { if (selectedGId) sessionStorage.setItem(SESS_GID, selectedGId) }, [selectedGId])
 
   useEffect(() => {
     if (!selectedTId) return
@@ -158,9 +183,17 @@ function RecordPageInner() {
     fetchMinutes()
   }
 
-  async function completeGame() {
+  // Feature 3: show modal instead of confirm
+  function completeGame() {
     if (!currentGame) return
-    if (!confirm('기록을 완료하시겠습니까?')) return
+    setOppScoreInput('')
+    setShowCompleteModal(true)
+  }
+
+  async function confirmComplete() {
+    if (!currentGame) return
+    const oppScore = parseInt(oppScoreInput)
+    if (isNaN(oppScore) || oppScore < 0) { toast.error('상대 점수를 올바르게 입력하세요'); return }
     const { getCurrentTimestamp } = useGameStore.getState()
     const ts = getCurrentTimestamp()
     const open = minutes.filter(m => m.out_time == null)
@@ -170,18 +203,19 @@ function RecordPageInner() {
     const res = await fetch(`/api/games/${currentGame.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_complete: true }),
+      body: JSON.stringify({ is_complete: true, our_score: teamPts, opponent_score: oppScore }),
     })
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}))
       toast.error(`저장 실패: ${errData.error ?? res.status}`)
       return
     }
+    setShowCompleteModal(false)
     setGameComplete(true)
     setGameStarted(true)
     setCurrentGame({ ...currentGame, is_complete: true })
-    setGames(prev => prev.map(g => g.id === currentGame.id ? { ...g, is_complete: true } : g))
-    toast.success('경기 기록이 완료되었습니다')
+    setGames(prev => prev.map(g => g.id === currentGame.id ? { ...g, is_complete: true, our_score: teamPts, opponent_score: oppScore } : g))
+    toast.success(`경기 완료! 파란날개 ${teamPts} : ${oppScore} 상대팀`)
     setStatsRefresh(k => k + 1)
   }
 
@@ -211,6 +245,35 @@ function RecordPageInner() {
     toast(`상대팀 +${pts}점`)
   }
 
+  // Feature 2: add player to tournament roster
+  async function addPlayerQuick() {
+    if (!newPlayerName.trim() || !newPlayerNum.trim() || !selectedTId) return
+    setAddingPlayer(true)
+    try {
+      const res = await fetch('/api/players', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ number: parseInt(newPlayerNum), name: newPlayerName.trim(), team_type: team, is_active: true }),
+      })
+      if (!res.ok) { toast.error('선수 추가 실패'); return }
+      const player: Player = await res.json()
+      const newIds = [...tournamentPlayerIds, player.id]
+      await fetch('/api/tournament-players', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tournament_id: selectedTId, player_ids: newIds }),
+      })
+      setAllPlayers(prev => [...prev, player])
+      setTournamentPlayerIds(newIds)
+      setNewPlayerNum('')
+      setNewPlayerName('')
+      setShowAddPlayer(false)
+      toast.success(`${player.number}번 ${player.name} 추가 완료`)
+    } finally {
+      setAddingPlayer(false)
+    }
+  }
+
   const toggleStarter = (id: string) => {
     setStarterIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : prev.length < 5 ? [...prev, id] : prev)
   }
@@ -227,8 +290,82 @@ function RecordPageInner() {
   const selectedTournament = tournaments.find(t => t.id === selectedTId)
   const selectedGame = games.find(g => g.id === selectedGId)
 
+  const addPlayerForm = (
+    <div className="flex gap-2">
+      <input
+        type="number"
+        placeholder="번호"
+        value={newPlayerNum}
+        onChange={e => setNewPlayerNum(e.target.value)}
+        className="w-16 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+      />
+      <input
+        type="text"
+        placeholder="이름"
+        value={newPlayerName}
+        onChange={e => setNewPlayerName(e.target.value)}
+        onKeyDown={e => e.key === 'Enter' && addPlayerQuick()}
+        className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+      />
+      <button
+        onClick={addPlayerQuick}
+        disabled={addingPlayer || !newPlayerName.trim() || !newPlayerNum.trim()}
+        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+      >
+        {addingPlayer ? '...' : '추가'}
+      </button>
+    </div>
+  )
+
   return (
     <div className="space-y-3">
+      {/* Feature 3: opponent score modal */}
+      {showCompleteModal && (
+        <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 flex flex-col gap-5 shadow-2xl w-full max-w-sm">
+            <div className="text-center">
+              <div className="text-2xl mb-1">🏁</div>
+              <div className="text-lg font-bold">경기 완료</div>
+              <div className="text-gray-400 text-sm mt-1">상대팀 최종 점수를 입력하세요</div>
+            </div>
+            <div className="flex items-center justify-center gap-6">
+              <div className="text-center">
+                <div className="text-xs text-blue-400 mb-1">파란날개</div>
+                <div className="text-4xl font-black text-amber-400 font-mono">{teamPts}</div>
+              </div>
+              <div className="text-gray-500 text-2xl font-bold">:</div>
+              <div className="text-center">
+                <div className="text-xs text-red-400 mb-1">상대팀</div>
+                <input
+                  type="number"
+                  min="0"
+                  value={oppScoreInput}
+                  onChange={e => setOppScoreInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && confirmComplete()}
+                  placeholder="0"
+                  autoFocus
+                  className="w-20 text-4xl font-black font-mono text-center bg-gray-800 border border-gray-600 rounded-xl py-1 text-white focus:outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCompleteModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-600 text-gray-400 hover:bg-gray-800 text-sm font-medium transition-colors cursor-pointer"
+              >
+                취소
+              </button>
+              <button
+                onClick={confirmComplete}
+                className="flex-1 py-2.5 rounded-xl bg-green-700 hover:bg-green-600 text-white text-sm font-bold transition-colors cursor-pointer"
+              >
+                기록 완료
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 flex-shrink-0 mb-3">
         <div className="flex flex-wrap items-center gap-2">
           <Select
@@ -285,7 +422,7 @@ function RecordPageInner() {
                     <button
                       key={q}
                       onClick={() => switchToQuarter(q)}
-                      className={`px-2 py-0.5 rounded text-xs font-bold transition-colors ${
+                      className={`px-2 py-0.5 rounded text-xs font-bold transition-colors cursor-pointer ${
                         currentQuarter === q
                           ? 'bg-blue-500 text-white'
                           : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white'
@@ -364,7 +501,7 @@ function RecordPageInner() {
                 </div>
                 <button
                   onClick={resetGame}
-                  className="mt-2 px-4 py-2 rounded-lg border border-red-800 text-red-400 hover:bg-red-900/30 text-sm font-medium transition-colors"
+                  className="mt-2 px-4 py-2 rounded-lg border border-red-800 text-red-400 hover:bg-red-900/30 text-sm font-medium transition-colors cursor-pointer"
                 >
                   다시 기록하기
                 </button>
@@ -379,7 +516,7 @@ function RecordPageInner() {
                     <button
                       key={p.id}
                       onClick={() => toggleStarter(p.id)}
-                      className={`py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      className={`py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
                         starterIds.includes(p.id)
                           ? 'bg-blue-500 text-white'
                           : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
@@ -389,7 +526,21 @@ function RecordPageInner() {
                       <div className="font-normal">{p.name}</div>
                     </button>
                   ))}
+                  {/* Feature 2: add player button in grid */}
+                  <button
+                    onClick={() => setShowAddPlayer(v => !v)}
+                    className="py-1.5 rounded-lg text-xs border border-dashed border-gray-600 text-gray-500 hover:border-gray-400 hover:text-gray-300 transition-colors cursor-pointer"
+                  >
+                    <div className="text-base leading-none mb-0.5">+</div>
+                    <div>선수 추가</div>
+                  </button>
                 </div>
+                {showAddPlayer && (
+                  <div className="bg-gray-800 rounded-xl p-3 mb-3 space-y-2">
+                    <p className="text-xs text-gray-400 font-medium">대회 로스터에 선수를 추가합니다</p>
+                    {addPlayerForm}
+                  </div>
+                )}
                 <Button
                   onClick={startGame}
                   disabled={starterIds.length !== 5}
@@ -409,11 +560,26 @@ function RecordPageInner() {
                       <button
                         key={pts}
                         onClick={() => recordOppScore(pts)}
-                        className="px-2 py-1 bg-red-900 hover:bg-red-800 text-red-300 text-xs rounded font-bold"
+                        className="px-2 py-1 bg-red-900 hover:bg-red-800 text-red-300 text-xs rounded font-bold cursor-pointer"
                       >
                         +{pts}
                       </button>
                     ))}
+                  </div>
+                  {/* Feature 2: add player during recording */}
+                  <div className="border-t border-gray-800 pt-2">
+                    <button
+                      onClick={() => setShowAddPlayer(v => !v)}
+                      className="text-xs text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <span className="text-xs">{showAddPlayer ? '▲' : '▼'}</span>
+                      선수 추가
+                    </button>
+                    {showAddPlayer && (
+                      <div className="mt-2">
+                        {addPlayerForm}
+                      </div>
+                    )}
                   </div>
                 </div>
               </>
