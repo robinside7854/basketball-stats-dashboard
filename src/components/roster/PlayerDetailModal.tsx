@@ -106,7 +106,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
   const [expandedTournament, setExpandedTournament] = useState<string | null>(null)
   const [teamRankings, setTeamRankings] = useState<Record<string, { rank: number; isTie: boolean }>>({})
   const [chartMetric, setChartMetric] = useState<'PPG' | 'RPG' | 'APG' | 'FG%' | '3P%'>('PPG')
-  const [awards, setAwards] = useState<{ mvp_count: number; xfactor_count: number } | null>(null)
+  const [awards, setAwards] = useState<{ mvp_count: number; xfactor_count: number; warrior_count: number } | null>(null)
   const [boxScoreGame, setBoxScoreGame] = useState<{ game_id: string; date: string; opponent: string; round: string | null; our_score: number; opponent_score: number; tournament_name: string } | null>(null)
 
   useEffect(() => {
@@ -283,7 +283,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                     </div>
 
                     {/* AI 수상 배지 */}
-                    {awards && (awards.mvp_count > 0 || awards.xfactor_count > 0) && (
+                    {awards && (awards.mvp_count > 0 || awards.xfactor_count > 0 || awards.warrior_count > 0) && (
                       <div className="flex items-center gap-2 px-5 py-2.5 border-t border-gray-800/60" style={{ background: '#070E1A' }}>
                         <span className="text-xs text-gray-600 uppercase tracking-wider mr-1">Awards</span>
                         {awards.mvp_count > 0 && (
@@ -300,6 +300,14 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                             <span className="text-xs font-bold text-purple-400">X-FACTOR</span>
                             <span className="text-xs font-black text-purple-300 ml-0.5">{awards.xfactor_count}</span>
                             <span className="text-xs text-purple-600">회</span>
+                          </div>
+                        )}
+                        {awards.warrior_count > 0 && (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-900/30 border border-orange-700/50">
+                            <span className="text-sm">🔥</span>
+                            <span className="text-xs font-bold text-orange-400">투혼상</span>
+                            <span className="text-xs font-black text-orange-300 ml-0.5">{awards.warrior_count}</span>
+                            <span className="text-xs text-orange-600">회</span>
                           </div>
                         )}
                       </div>

@@ -14,8 +14,9 @@ export interface AwardEntry {
 }
 
 export interface MvpResult {
-  mvp: AwardEntry
-  x_factor: AwardEntry | null
+  mvp?: AwardEntry | null
+  x_factor?: AwardEntry | null
+  warrior?: AwardEntry | null
 }
 
 // ── MVP Score ────────────────────────────────────────────────────
@@ -50,6 +51,25 @@ function calcMvpScore(s: PlayerBoxScore): number {
     s.tov * 1.5 -
     s.pf * 0.3 -
     chuckerPenalty
+  )
+}
+
+// ── Warrior Score ────────────────────────────────────────────────
+// 투혼상: 패배 경기에서 가장 고군분투한 선수 선정
+// 허슬 스탯 + 팀 기여도 중심, 포기하지 않은 선수 우대
+function calcWarriorScore(s: PlayerBoxScore, teamTotalPts: number): number {
+  const teamCarryBonus =
+    teamTotalPts > 0 && s.pts >= teamTotalPts * 0.3 ? s.pts * 0.5 : 0
+  return (
+    s.pts * 1.2 +
+    teamCarryBonus +
+    s.stl * 2.5 +
+    s.oreb * 2.5 +
+    s.blk * 2.0 +
+    s.dreb * 1.0 +
+    s.ast * 1.5 +
+    s.fg3m * 0.5 -
+    s.tov * 0.8
   )
 }
 
@@ -119,6 +139,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}))
   const mvpHintId: string | undefined = body.mvpHintId || undefined
   const xfactorHintId: string | undefined = body.xfactorHintId || undefined
+  const warriorHintId: string | undefined = body.warriorHintId || undefined
   const gameMemo: string | undefined = body.gameMemo?.trim() || undefined
 
   // ── 1. API 키 확인 ───────────────────────────────────────────
@@ -264,6 +285,110 @@ export async function POST(req: Request) {
   ])
   builtTournamentMap.forEach((v, k) => seasonMap.set(k, v))
   builtYearMap.forEach((v, k) => yearSeasonMap.set(k, v))
+
+  const isLoss = gameInfo.our_score < gameInfo.opponent_score
+
+  // ── 5W. 투혼상 경로 (패배 경기) ──────────────────────────────
+  if (isLoss) {
+    const teamTotalPts = participants.reduce((s, p) => s + p.pts, 0)
+
+    function warriorScoreWithBonus(s: PlayerBoxScore): number {
+      const base = calcWarriorScore(s, teamTotalPts)
+      let bonus = 0
+      const season = seasonMap.get(s.player_id)
+      if (season && season.games_played >= 1) {
+        if (s.stl > season.stl_high) bonus += 2.0
+        if (s.reb > season.reb_high) bonus += 1.5
+        if (s.pts > season.pts_avg * 1.3) bonus += 1.0
+      }
+      if (warriorHintId && s.player_id === warriorHintId) bonus += 30.0
+      return base + bonus
+    }
+
+    const warriorPool = participants.filter(
+      s => s.pts > 0 || (s.reb + s.ast + s.stl + s.blk) >= 2 || s.player_id === warriorHintId
+    )
+    const warriorSorted = (warriorPool.length > 0 ? warriorPool : participants).sort(
+      (a, b) => warriorScoreWithBonus(b) - warriorScoreWithBonus(a)
+    )
+    const warriorPlayer = warriorSorted[0]
+
+    const wTournCtx = buildTournamentContext(warriorPlayer)
+    const wYearCtx  = buildYearSeasonContext(warriorPlayer)
+    const wCarryCtx = buildTeamCarryContext(warriorPlayer)
+
+    const scoreGap = gameInfo.opponent_score - gameInfo.our_score
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tournament = (gameInfo.tournament as any)
+    const tournamentStr = tournament ? `${tournament.name} ${tournament.year}년` : '대회'
+
+    const warriorPrompt = `당신은 아마추어 농구팀 "파란날개"의 공식 경기 시상 코멘트 작성관입니다.
+이번 경기는 파란날개가 패배한 경기입니다. 패배한 경기에서 가장 고군분투한 선수 1명에게 수여하는 "투혼상"의 수상 코멘트를 작성합니다.
+이 코멘트는 팀 기록으로 영구 보관됩니다.
+
+━━━ 경기 정보 ━━━
+${tournamentStr} vs ${gameInfo.opponent} (${gameInfo.date}) — 파란날개 ${gameInfo.our_score}:${gameInfo.opponent_score} 패 (${scoreGap}점 차)
+
+━━━ 전체 박스스코어 ━━━
+${participants.map(s => statsLine(s)).join('\n')}
+
+━━━ 투혼상 선정: ${warriorPlayer.player_name} ━━━
+이번 경기 스탯: ${statsLine(warriorPlayer)}
+${wTournCtx ? wTournCtx + '\n' : ''}${wYearCtx ? wYearCtx + '\n' : ''}${wCarryCtx}
+
+${gameMemo ? `━━━ 경기 관찰 메모 (코멘트 작성 시 참고) ━━━
+${gameMemo}
+※ 메모 내용을 그대로 인용하거나 "메모에 따르면" 같은 표현은 사용하지 마세요.
+
+` : ''}━━━ 코멘트 작성 지침 ━━━
+- 한국어로 작성. NBA 시상식처럼 진지하고 품격 있는 톤
+- 패배했지만 포기하지 않은 선수의 분전과 투혼을 강조
+- 허슬 스탯(스틸, 공격 리바운드, 블락, 어시스트)이 있다면 중심적으로 서술
+- "패배 속에서도", "마지막까지 포기하지 않았다", "팀의 희망을 놓지 않았다" 등 투지·헌신 표현 활용
+- 반드시 구체적인 수치 포함 (야투율, 득점, 특정 허슬 스탯 등)
+- 공식·계산 방식 언급 금지. "선정 공식에 의해" 같은 표현 금지
+- +/- 수치 언급 절대 금지
+- 상대팀 수비 효율·야투율 관련 내용 일절 금지
+- 문장은 3~5문장 사이로 작성
+
+[출력 형식 — JSON만 출력, 앞뒤 다른 텍스트 없음]
+{
+  "warrior_reason": "투혼상 코멘트 3~5문장"
+}`
+
+    let warriorReason = `${warriorPlayer.pts}pts ${warriorPlayer.stl}stl ${warriorPlayer.reb}reb의 투혼으로 패배 속에서도 팀을 이끌었습니다.`
+
+    try {
+      const message = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: warriorPrompt }],
+      })
+      const raw = message.content[0].type === 'text' ? message.content[0].text.trim() : ''
+      const json = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
+      const parsed = JSON.parse(json)
+      if (parsed.warrior_reason) warriorReason = parsed.warrior_reason
+    } catch (err) {
+      console.warn('Warrior AI comment failed, using fallback:', err)
+    }
+
+    const result: MvpResult = {
+      warrior: {
+        player_id: warriorPlayer.player_id,
+        player_name: warriorPlayer.player_name,
+        reason: warriorReason,
+      },
+    }
+
+    try {
+      const admin = createAdmin()
+      await admin.from('games').update({ ai_mvp: result }).eq('id', gameId)
+    } catch (err) {
+      console.error('Failed to save warrior to DB:', err)
+    }
+
+    return NextResponse.json(result)
+  }
 
   // ── 5. MVP 선정 ──────────────────────────────────────────────
   // 시즌하이 보너스 포함한 최종 점수

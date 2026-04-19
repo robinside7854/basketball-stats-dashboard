@@ -16,8 +16,9 @@ type SortKey = 'player_number' | 'pts' | 'fg_pct' | 'fg3_pct' | 'ft_pct' | 'oreb
 
 type AwardEntry = { player_id: string; player_name: string; reason: string }
 type MvpResult = {
-  mvp: AwardEntry
-  x_factor: AwardEntry | null
+  mvp?: AwardEntry | null
+  x_factor?: AwardEntry | null
+  warrior?: AwardEntry | null
 }
 type SeasonSortKey = SortKey | 'pts_avg' | 'reb_avg' | 'ast_avg'
 type ViewMode = 'game' | 'season'
@@ -69,8 +70,10 @@ export default function BoxScorePage() {
 
   // 후보 힌트 모달
   const [hintGameId, setHintGameId] = useState<string | null>(null)
+  const [hintIsLoss, setHintIsLoss] = useState(false)
   const [hintMvp, setHintMvp] = useState('')
   const [hintXf, setHintXf] = useState('')
+  const [hintWarrior, setHintWarrior] = useState('')
   const [hintMemo, setHintMemo] = useState('')
 
   function getHintPlayers(gameId: string) {
@@ -82,9 +85,12 @@ export default function BoxScorePage() {
   }
 
   function openHintModal(gameId: string) {
+    const g = games.find(g => g.id === gameId)
+    setHintIsLoss(!!g && g.our_score < g.opponent_score)
     setHintGameId(gameId)
     setHintMvp('')
     setHintXf('')
+    setHintWarrior('')
     setHintMemo('')
   }
 
@@ -124,12 +130,13 @@ export default function BoxScorePage() {
     }
   }
 
-  async function fetchMvp(gameId: string, mvpHintId?: string, xfactorHintId?: string, gameMemo?: string) {
+  async function fetchMvp(gameId: string, mvpHintId?: string, xfactorHintId?: string, gameMemo?: string, warriorHintId?: string) {
     setMvpResults(prev => ({ ...prev, [gameId]: 'loading' }))
     try {
       const body: Record<string, string> = {}
       if (mvpHintId) body.mvpHintId = mvpHintId
       if (xfactorHintId) body.xfactorHintId = xfactorHintId
+      if (warriorHintId) body.warriorHintId = warriorHintId
       if (gameMemo) body.gameMemo = gameMemo
       const res = await fetch(`/api/ai/mvp?gameId=${gameId}`, {
         method: 'POST',
@@ -151,12 +158,18 @@ export default function BoxScorePage() {
   async function submitHint() {
     if (!hintGameId) return
     const gid = hintGameId
+    const isLoss = hintIsLoss
     const memo = hintMemo.trim() || undefined
     setHintGameId(null)
     setHintMvp('')
     setHintXf('')
+    setHintWarrior('')
     setHintMemo('')
-    await fetchMvp(gid, hintMvp || undefined, hintXf || undefined, memo)
+    if (isLoss) {
+      await fetchMvp(gid, undefined, undefined, memo, hintWarrior || undefined)
+    } else {
+      await fetchMvp(gid, hintMvp || undefined, hintXf || undefined, memo)
+    }
   }
 
   async function resetMvp(gameId: string) {
@@ -276,45 +289,65 @@ export default function BoxScorePage() {
           <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-5 shadow-2xl">
               <div className="text-center">
-                <div className="text-xl font-bold mb-1">후보 힌트 지정</div>
+                <div className="text-xl font-bold mb-1">
+                  {hintIsLoss ? '🔥 투혼상 후보 힌트' : '후보 힌트 지정'}
+                </div>
                 <p className="text-gray-400 text-xs leading-relaxed">
                   선택사항입니다. AI가 해당 선수를 우선 검토하며,<br/>
                   통계상 더 적합한 선수가 있으면 그쪽이 선정될 수 있습니다.
                 </p>
               </div>
               <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-yellow-400 font-semibold mb-1.5 block">🏅 MVP 추천 (선택)</label>
-                  <select
-                    value={hintMvp}
-                    onChange={e => setHintMvp(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500 cursor-pointer"
-                  >
-                    <option value="">-- 추천 없음</option>
-                    {players.map(p => (
-                      <option key={p.id} value={p.id}>#{p.number} {p.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-purple-400 font-semibold mb-1.5 block">⚡ X-FACTOR 추천 (선택)</label>
-                  <select
-                    value={hintXf}
-                    onChange={e => setHintXf(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 cursor-pointer"
-                  >
-                    <option value="">-- 추천 없음</option>
-                    {players.map(p => (
-                      <option key={p.id} value={p.id}>#{p.number} {p.name}</option>
-                    ))}
-                  </select>
-                </div>
+                {hintIsLoss ? (
+                  <div>
+                    <label className="text-xs text-orange-400 font-semibold mb-1.5 block">🔥 투혼상 추천 (선택)</label>
+                    <select
+                      value={hintWarrior}
+                      onChange={e => setHintWarrior(e.target.value)}
+                      className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500 cursor-pointer"
+                    >
+                      <option value="">-- 추천 없음</option>
+                      {players.map(p => (
+                        <option key={p.id} value={p.id}>#{p.number} {p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="text-xs text-yellow-400 font-semibold mb-1.5 block">🏅 MVP 추천 (선택)</label>
+                      <select
+                        value={hintMvp}
+                        onChange={e => setHintMvp(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500 cursor-pointer"
+                      >
+                        <option value="">-- 추천 없음</option>
+                        {players.map(p => (
+                          <option key={p.id} value={p.id}>#{p.number} {p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-purple-400 font-semibold mb-1.5 block">⚡ X-FACTOR 추천 (선택)</label>
+                      <select
+                        value={hintXf}
+                        onChange={e => setHintXf(e.target.value)}
+                        className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 cursor-pointer"
+                      >
+                        <option value="">-- 추천 없음</option>
+                        {players.map(p => (
+                          <option key={p.id} value={p.id}>#{p.number} {p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
                 <div>
                   <label className="text-xs text-gray-400 font-semibold mb-1.5 block">📝 경기 메모 (선택)</label>
                   <textarea
                     value={hintMemo}
                     onChange={e => setHintMemo(e.target.value)}
-                    placeholder="예: 3번이 수비에서 팀 분위기를 살렸고, 후반 흐름을 바꿨음"
+                    placeholder={hintIsLoss ? '예: 4번이 끝까지 포기하지 않고 팀을 이끌었음' : '예: 3번이 수비에서 팀 분위기를 살렸고, 후반 흐름을 바꿨음'}
                     rows={3}
                     className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-400 resize-none"
                   />
@@ -322,14 +355,18 @@ export default function BoxScorePage() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => { setHintGameId(null); setHintMvp(''); setHintXf('') }}
+                  onClick={() => { setHintGameId(null); setHintMvp(''); setHintXf(''); setHintWarrior('') }}
                   className="flex-1 py-2.5 rounded-xl border border-gray-600 text-gray-400 hover:bg-gray-800 text-sm font-medium transition-colors cursor-pointer"
                 >
                   취소
                 </button>
                 <button
                   onClick={submitHint}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-yellow-600 to-purple-600 hover:from-yellow-500 hover:to-purple-500 text-white text-sm font-bold transition-all cursor-pointer"
+                  className={`flex-1 py-2.5 rounded-xl text-white text-sm font-bold transition-all cursor-pointer ${
+                    hintIsLoss
+                      ? 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500'
+                      : 'bg-gradient-to-r from-yellow-600 to-purple-600 hover:from-yellow-500 hover:to-purple-500'
+                  }`}
                 >
                   선정 시작
                 </button>
@@ -442,13 +479,16 @@ export default function BoxScorePage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  {/* MVP 수상 배지 표시 */}
-                  {mvpResults[g.id] && mvpResults[g.id] !== 'loading' && mvpResults[g.id] !== 'error' && (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-yellow-500">🏅</span>
-                      <span className="text-xs text-purple-400">⚡</span>
-                    </div>
-                  )}
+                  {/* 수상 배지 표시 */}
+                  {mvpResults[g.id] && mvpResults[g.id] !== 'loading' && mvpResults[g.id] !== 'error' && (() => {
+                    const r = mvpResults[g.id] as MvpResult
+                    return r.warrior
+                      ? <span className="text-xs text-orange-400">🔥</span>
+                      : <div className="flex items-center gap-1">
+                          <span className="text-xs text-yellow-500">🏅</span>
+                          <span className="text-xs text-purple-400">⚡</span>
+                        </div>
+                  })()}
                   <div className="text-right shrink-0">
                     <div className="text-xl font-black">
                       <span className={isWin ? 'text-green-400' : isDraw ? 'text-gray-300' : 'text-red-400'}>{g.our_score}</span>
@@ -568,9 +608,14 @@ export default function BoxScorePage() {
                           isEditMode ? (
                             <button
                               onClick={() => openHintModal(g.id)}
-                              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-600/30 to-purple-600/30 border border-yellow-700/40 text-yellow-300 text-sm font-medium hover:from-yellow-600/50 hover:to-purple-600/50 transition-all cursor-pointer"
+                              className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-all cursor-pointer ${
+                                g.our_score < g.opponent_score
+                                  ? 'bg-gradient-to-r from-orange-600/30 to-red-600/30 border-orange-700/40 text-orange-300 hover:from-orange-600/50 hover:to-red-600/50'
+                                  : 'bg-gradient-to-r from-yellow-600/30 to-purple-600/30 border-yellow-700/40 text-yellow-300 hover:from-yellow-600/50 hover:to-purple-600/50'
+                              }`}
                             >
-                              <span>✦</span> AI MVP + X-FACTOR 선정
+                              <span>✦</span>
+                              {g.our_score < g.opponent_score ? 'AI 투혼상 선정' : 'AI MVP + X-FACTOR 선정'}
                             </button>
                           ) : null
                         ) : mvpResults[g.id] === 'loading' ? (
@@ -601,32 +646,46 @@ export default function BoxScorePage() {
                                   </button>
                                 )}
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {/* MVP 카드 */}
-                                <div className="rounded-xl bg-yellow-900/20 border border-yellow-600/40 p-3.5">
+                              {result.warrior ? (
+                                /* 투혼상 카드 (패배 경기) */
+                                <div className="rounded-xl bg-orange-900/20 border border-orange-600/40 p-3.5">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-base">🏅</span>
-                                    <span className="text-xs font-bold text-yellow-400 uppercase tracking-widest">MVP</span>
+                                    <span className="text-base">🔥</span>
+                                    <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">투혼상</span>
                                   </div>
-                                  <p className="text-base font-bold text-white mb-1.5">{result.mvp.player_name}</p>
-                                  <p className="text-xs text-yellow-200/70 leading-relaxed">{result.mvp.reason}</p>
+                                  <p className="text-base font-bold text-white mb-1.5">{result.warrior.player_name}</p>
+                                  <p className="text-xs text-orange-200/70 leading-relaxed">{result.warrior.reason}</p>
                                 </div>
-                                {/* X-FACTOR 카드 */}
-                                {result.x_factor ? (
-                                  <div className="rounded-xl bg-purple-900/20 border border-purple-600/40 p-3.5">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <span className="text-base">⚡</span>
-                                      <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">X-FACTOR</span>
+                              ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {/* MVP 카드 */}
+                                  {result.mvp && (
+                                    <div className="rounded-xl bg-yellow-900/20 border border-yellow-600/40 p-3.5">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-base">🏅</span>
+                                        <span className="text-xs font-bold text-yellow-400 uppercase tracking-widest">MVP</span>
+                                      </div>
+                                      <p className="text-base font-bold text-white mb-1.5">{result.mvp.player_name}</p>
+                                      <p className="text-xs text-yellow-200/70 leading-relaxed">{result.mvp.reason}</p>
                                     </div>
-                                    <p className="text-base font-bold text-white mb-1.5">{result.x_factor.player_name}</p>
-                                    <p className="text-xs text-purple-200/70 leading-relaxed">{result.x_factor.reason}</p>
-                                  </div>
-                                ) : (
-                                  <div className="rounded-xl bg-gray-800/40 border border-gray-700/40 p-3.5 flex items-center justify-center">
-                                    <p className="text-xs text-gray-600">X-FACTOR 해당 없음</p>
-                                  </div>
-                                )}
-                              </div>
+                                  )}
+                                  {/* X-FACTOR 카드 */}
+                                  {result.x_factor ? (
+                                    <div className="rounded-xl bg-purple-900/20 border border-purple-600/40 p-3.5">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-base">⚡</span>
+                                        <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">X-FACTOR</span>
+                                      </div>
+                                      <p className="text-base font-bold text-white mb-1.5">{result.x_factor.player_name}</p>
+                                      <p className="text-xs text-purple-200/70 leading-relaxed">{result.x_factor.reason}</p>
+                                    </div>
+                                  ) : result.mvp ? (
+                                    <div className="rounded-xl bg-gray-800/40 border border-gray-700/40 p-3.5 flex items-center justify-center">
+                                      <p className="text-xs text-gray-600">X-FACTOR 해당 없음</p>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              )}
                             </div>
                           )
                         })()}
