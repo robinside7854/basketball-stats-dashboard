@@ -6,6 +6,12 @@ import { Plus, Trash2, ChevronDown, ChevronRight, Undo2, Pencil, Check, X } from
 import OpponentYouTubePlayer from '@/components/record/OpponentYouTubePlayer'
 import { formatTimestamp } from '@/lib/youtube/utils'
 import { useTeam } from '@/contexts/TeamContext'
+import SubTabNav from '@/components/layout/SubTabNav'
+
+const STATS_SUB_TABS = [
+  { path: '/stats',    label: '시즌 통계' },
+  { path: '/opponent', label: '상대 분석' },
+]
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface OppTeam   { id: string; name: string }
@@ -409,6 +415,8 @@ export default function OpponentPage() {
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-[1600px]">
+      <SubTabNav tabs={STATS_SUB_TABS} />
+
       <h1 className="text-2xl font-bold mb-1">상대팀 분석</h1>
       <p className="text-gray-400 text-sm mb-6">상대팀 경기 기록 및 공격 패턴 분석</p>
 

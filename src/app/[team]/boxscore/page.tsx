@@ -5,6 +5,12 @@ import { useEditMode } from '@/contexts/EditModeContext'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { Tournament, Game, PlayerBoxScore } from '@/types/database'
+import SubTabNav from '@/components/layout/SubTabNav'
+
+const GAME_SUB_TABS = [
+  { path: '/boxscore', label: '박스스코어' },
+  { path: '/gamelog',  label: '게임 로그' },
+]
 
 type SortKey = 'player_number' | 'pts' | 'fg_pct' | 'fg3_pct' | 'ft_pct' | 'oreb' | 'dreb' | 'reb' | 'ast' | 'stl' | 'blk' | 'tov' | 'pf' | 'efg_pct' | 'ts_pct'
 
@@ -332,6 +338,8 @@ export default function BoxScorePage() {
           </div>
         )
       })()}
+
+      <SubTabNav tabs={GAME_SUB_TABS} />
 
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="flex rounded-lg overflow-hidden border border-gray-700">

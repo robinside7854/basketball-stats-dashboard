@@ -4,6 +4,12 @@ import { useTeam } from '@/contexts/TeamContext'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { Tournament, PlayerBoxScore } from '@/types/database'
+import SubTabNav from '@/components/layout/SubTabNav'
+
+const STATS_SUB_TABS = [
+  { path: '/stats',    label: '시즌 통계' },
+  { path: '/opponent', label: '상대 분석' },
+]
 
 interface AssistPlayer { id: string; name: string; number: number }
 interface ScorerStat {
@@ -201,6 +207,8 @@ export default function StatsPage() {
 
   return (
     <div className="space-y-8">
+      <SubTabNav tabs={STATS_SUB_TABS} />
+
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <h1 className="text-2xl font-bold shrink-0">시즌 통계</h1>
         <div className="flex items-center gap-3 flex-wrap">

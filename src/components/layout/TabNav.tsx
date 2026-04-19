@@ -2,18 +2,16 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, ScrollText, Lock, Unlock, Swords, ArrowLeftRight } from 'lucide-react'
+import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, Lock, Unlock, ArrowLeftRight } from 'lucide-react'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { TEAM_LABELS, type TeamType } from '@/contexts/TeamContext'
 
 const TAB_DEFS = [
-  { path: '',           label: '홈',        icon: Home,          exact: true },
-  { path: '/boxscore',  label: '박스스코어', icon: ClipboardList, exact: false },
-  { path: '/gamelog',   label: '게임 로그',  icon: ScrollText,    exact: false },
-  { path: '/stats',     label: '시즌 통계',  icon: BarChart3,     exact: false },
-  { path: '/roster',    label: '선수 명단',  icon: Users,         exact: false },
-  { path: '/tournaments', label: '대회 관리', icon: Trophy,       exact: false },
-  { path: '/opponent',  label: '상대 분석',  icon: Swords,        exact: false },
+  { path: '',             label: '홈',       icon: Home,          exact: true,  also: '' },
+  { path: '/boxscore',    label: '경기',     icon: ClipboardList, exact: false, also: '/gamelog' },
+  { path: '/stats',       label: '통계',     icon: BarChart3,     exact: false, also: '/opponent' },
+  { path: '/roster',      label: '선수 명단', icon: Users,        exact: false, also: '' },
+  { path: '/tournaments', label: '대회 관리', icon: Trophy,       exact: false, also: '' },
 ]
 
 const EDIT_ONLY_PATH = '/record'
@@ -39,6 +37,7 @@ export default function TabNav() {
     label: t.label,
     icon: t.icon,
     exact: t.exact,
+    also: t.also ? `${prefix}${t.also}` : '',
   }))
 
   const editTab = {
@@ -46,6 +45,7 @@ export default function TabNav() {
     label: '경기 기록',
     icon: PenLine,
     exact: false,
+    also: '',
   }
 
   const allTabs = isEditMode ? [...tabs, editTab] : tabs
@@ -84,8 +84,10 @@ export default function TabNav() {
 
           <div className="w-px h-5 bg-gray-700 mx-1 shrink-0" />
 
-          {allTabs.map(({ href, label, icon: Icon, exact }) => {
-            const isActive = exact ? pathname === href : pathname.startsWith(href)
+          {allTabs.map(({ href, label, icon: Icon, exact, also }) => {
+            const isActive = exact
+              ? pathname === href
+              : pathname.startsWith(href) || (also ? pathname.startsWith(also) : false)
             return (
               <Link
                 key={href}
