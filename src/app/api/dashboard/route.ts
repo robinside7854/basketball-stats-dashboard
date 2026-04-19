@@ -29,7 +29,10 @@ export async function GET(req: Request) {
   // If team filter requested, scope to that team's tournament IDs
   let tournamentIds: string[] | null = null
   if (team) {
-    const { data: teamTournaments } = await supabase.from('tournaments').select('id').eq('team_type', team)
+    const { getTeamId } = await import('@/lib/supabase/get-team-id')
+    const teamId = await getTeamId(team)
+    if (!teamId) return NextResponse.json({ recentGames: [], seasonRecord: { wins: 0, losses: 0, total: 0 }, leaders: null, teamAvg: null, teamRecords: null })
+    const { data: teamTournaments } = await supabase.from('tournaments').select('id').eq('team_id', teamId)
     tournamentIds = (teamTournaments ?? []).map(t => t.id)
   }
 

@@ -19,7 +19,11 @@ export async function GET(req: Request) {
 
   // 게임별 개별 조회로 Supabase max_rows(1000) 우회
   let playersQuery = supabase.from('players').select('*').eq('is_active', true).order('number')
-  if (team) playersQuery = playersQuery.eq('team_type', team)
+  if (team) {
+    const { getTeamId } = await import('@/lib/supabase/get-team-id')
+    const teamId = await getTeamId(team)
+    if (teamId) playersQuery = playersQuery.eq('team_id', teamId)
+  }
   const [playersRes, ...gameResults] = await Promise.all([
     playersQuery,
     ...gameIds.map(gid => Promise.all([
