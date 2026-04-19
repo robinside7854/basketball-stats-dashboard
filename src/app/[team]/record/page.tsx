@@ -55,6 +55,7 @@ function RecordPageInner() {
   const [statsRefresh, setStatsRefresh] = useState(0)
   const [teamPts, setTeamPts] = useState(0)
   const [mobileTab, setMobileTab] = useState<'record' | 'view'>('record')
+  const [tournamentsFetched, setTournamentsFetched] = useState(false)
 
   const [ytResumeAt, setYtResumeAt] = useState<number | undefined>(undefined)
 
@@ -86,11 +87,28 @@ function RecordPageInner() {
   }, [])
 
   useEffect(() => {
+    setTournamentsFetched(false)
     fetch(`/api/players?team=${team}`).then(r => r.json()).then((data: Player[]) => {
       setAllPlayers(data.filter((p: Player) => p.is_active))
     })
-    fetch(`/api/tournaments?team=${team}`).then(r => r.json()).then(setTournaments)
+    fetch(`/api/tournaments?team=${team}`).then(r => r.json()).then(data => {
+      setTournaments(data)
+      setTournamentsFetched(true)
+    })
   }, [team])
+
+  // 팀 전환 시 다른 팀 소속 tournament가 세션에 남아있으면 초기화
+  useEffect(() => {
+    if (!tournamentsFetched) return
+    if (selectedTId && !tournaments.find(t => t.id === selectedTId)) {
+      setSelectedTId('')
+      setSelectedGId('')
+      setGames([])
+      sessionStorage.removeItem(SESS_TID)
+      sessionStorage.removeItem(SESS_GID)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tournamentsFetched])
 
   // Feature 1: persist selection
   useEffect(() => { if (selectedTId) sessionStorage.setItem(SESS_TID, selectedTId) }, [selectedTId])
