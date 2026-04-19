@@ -7,7 +7,7 @@ export default function LandingPage() {
 
       {/* ── 청년부 (좌) ── */}
       <Link
-        href="/youth"
+        href="/paranalgae/youth"
         className="group relative flex-1 flex flex-col items-center justify-center gap-6 cursor-pointer overflow-hidden bg-gray-950"
       >
         {/* 배경 그라디언트 */}
@@ -62,7 +62,7 @@ export default function LandingPage() {
 
       {/* ── 장년부 (우) ── */}
       <Link
-        href="/senior"
+        href="/paranalgae/senior"
         className="group relative flex-1 flex flex-col items-center justify-center gap-6 cursor-pointer overflow-hidden bg-gray-950"
       >
         {/* 배경 그라디언트 */}

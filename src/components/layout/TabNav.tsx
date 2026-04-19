@@ -26,8 +26,11 @@ export default function TabNav() {
   const { isEditMode, openPinModal, exitEditMode } = useEditMode()
 
   const segments = pathname.split('/').filter(Boolean)
-  const team = (segments[0] === 'youth' || segments[0] === 'senior') ? segments[0] as TeamType : null
-  const prefix = team ? `/${team}` : ''
+  // URL: /[org]/[team]/... — segments[0]=org, segments[1]=team
+  const isOrgTeamPath = segments.length >= 2 && (segments[1] === 'youth' || segments[1] === 'senior')
+  const org = isOrgTeamPath ? segments[0] : null
+  const team = isOrgTeamPath ? segments[1] as TeamType : null
+  const prefix = (org && team) ? `/${org}/${team}` : ''
 
   // 홈(/) 랜딩 페이지에서는 NavBar 숨김
   if (pathname === '/') return null
@@ -64,7 +67,7 @@ export default function TabNav() {
           </div>
 
           {/* 팀 배지 — 팀 페이지일 때만 표시 */}
-          {team && (
+          {team && org && (
             <>
               <Link
                 href="/"

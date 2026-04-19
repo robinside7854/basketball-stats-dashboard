@@ -52,10 +52,14 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
 
     setLoading(true)
     try {
+      const segments = window.location.pathname.split('/').filter(Boolean)
+      const org = (segments.length >= 2 && (segments[1] === 'youth' || segments[1] === 'senior'))
+        ? segments[0]
+        : 'paranalgae'
       const res = await fetch('/api/auth/pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: next.join('') }),
+        body: JSON.stringify({ pin: next.join(''), org }),
       })
       if (res.ok) {
         sessionStorage.setItem(SESSION_KEY, '1')
