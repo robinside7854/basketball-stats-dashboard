@@ -40,6 +40,8 @@ const ROUND_BADGE: Record<string, string> = {
 export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
   const [after, setAfter] = useState('')
   const [before, setBefore] = useState(new Date().toISOString().split('T')[0])
+  const [channelHandle, setChannelHandle] = useState('basket-lab')
+  const [teamName, setTeamName] = useState('파란날개')
   const [loading, setLoading] = useState(false)
   const [registering, setRegistering] = useState(false)
   const [groups, setGroups] = useState<TournamentGroup[]>([])
@@ -55,7 +57,7 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
     setGroupStates({})
     setGameStates({})
 
-    const params = new URLSearchParams({ after, before, team })
+    const params = new URLSearchParams({ after, before, team, channel: channelHandle, teamName })
     const res = await fetch(`/api/youtube/import?${params}`)
     const data = await res.json()
 
@@ -192,11 +194,35 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
           <div className="flex items-center gap-2">
             <Youtube size={18} className="text-red-400" />
             <span className="font-semibold">YouTube에서 경기 가져오기</span>
-            <span className="text-xs text-gray-500">@basket-lab · 파란날개</span>
+            <span className="text-xs text-gray-500">@{channelHandle} · {teamName}</span>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors">
             <X size={18} />
           </button>
+        </div>
+
+        {/* 채널 설정 */}
+        <div className="px-5 pt-4 pb-3 border-b border-gray-800 shrink-0">
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="text-xs text-gray-400 mb-1 block">YouTube 채널 핸들</label>
+              <Input
+                value={channelHandle}
+                onChange={e => setChannelHandle(e.target.value.replace(/^@/, ''))}
+                placeholder="basket-lab"
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-xs text-gray-400 mb-1 block">팀명 (영상 제목 검색어)</label>
+              <Input
+                value={teamName}
+                onChange={e => setTeamName(e.target.value)}
+                placeholder="파란날개"
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+            </div>
+          </div>
         </div>
 
         {/* 기간 입력 */}

@@ -2,29 +2,28 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/client'
 
 const YT_BASE = 'https://www.googleapis.com/youtube/v3'
-const CHANNEL_HANDLE = 'basket-lab'
 
-let cachedChannelId: string | null = null
+const channelIdCache = new Map<string, string>()
 
-async function getChannelId(apiKey: string): Promise<string | null> {
-  if (cachedChannelId) return cachedChannelId
-  const res = await fetch(`${YT_BASE}/channels?part=id&forHandle=${CHANNEL_HANDLE}&key=${apiKey}`)
+async function getChannelId(apiKey: string, handle: string): Promise<string | null> {
+  if (channelIdCache.has(handle)) return channelIdCache.get(handle)!
+  const res = await fetch(`${YT_BASE}/channels?part=id&forHandle=${handle}&key=${apiKey}`)
   const data = await res.json()
   const id = data.items?.[0]?.id ?? null
-  if (id) cachedChannelId = id
+  if (id) channelIdCache.set(handle, id)
   return id
 }
 
-// 패턴 1: [라운드] 파란날개 : 상대팀 [대회명] YYYY/MM/DD  (결승/4강 등)
-// 패턴 2: 파란날개 : 상대팀 [대회명] YYYY/MM/DD           (예선, 라운드 표기 없음)
-function parseTitle(title: string) {
+// 패턴 1: [라운드] {팀명} : 상대팀 [대회명] YYYY/MM/DD  (결승/4강 등)
+// 패턴 2: {팀명} : 상대팀 [대회명] YYYY/MM/DD           (예선, 라운드 표기 없음)
+function parseTitle(title: string, teamName: string) {
   // 패턴 1 — 라운드 브래킷 있음
   const m1 = title.match(
     /\[([^\]]+)\]\s*(.*?)\s*:\s*(.*?)\s*\[([^\]]+)\]\s*(\d{4}\/\d{2}\/\d{2})/
   )
   if (m1) {
     const [, round, team1, team2, tournamentName, dateRaw] = m1
-    const opponent = (team1.includes('파란날개') ? team2 : team1).trim()
+    const opponent = (team1.includes(teamName) ? team2 : team1).trim()
     const date = dateRaw.replace(/\//g, '-')
     return { round: round.trim(), opponent, tournament_name: tournamentName.trim(), date, year: parseInt(date.slice(0, 4)) }
   }
@@ -35,8 +34,8 @@ function parseTitle(title: string) {
   )
   if (m2) {
     const [, team1, team2, tournamentName, dateRaw] = m2
-    const isPalanFirst = team1.includes('파란날개')
-    if (!isPalanFirst && !team2.includes('파란날개')) return null // 파란날개 없으면 무시
+    const isPalanFirst = team1.includes(teamName)
+    if (!isPalanFirst && !team2.includes(teamName)) return null // 팀명 없으면 무시
     const opponent = (isPalanFirst ? team2 : team1).trim()
     const date = dateRaw.replace(/\//g, '-')
     return { round: '', opponent, tournament_name: tournamentName.trim(), date, year: parseInt(date.slice(0, 4)) }
@@ -76,10 +75,12 @@ export async function GET(req: Request) {
   const after = searchParams.get('after')   // YYYY-MM-DD
   const before = searchParams.get('before') // YYYY-MM-DD
   const team = searchParams.get('team') ?? 'youth'
+  const channelHandle = searchParams.get('channel') ?? 'basket-lab'
+  const teamName = searchParams.get('teamName') ?? '파란날개'
 
-  const channelId = await getChannelId(apiKey)
+  const channelId = await getChannelId(apiKey, channelHandle)
   if (!channelId) {
-    return NextResponse.json({ error: '@basket-lab 채널을 찾을 수 없습니다' }, { status: 404 })
+    return NextResponse.json({ error: `@${channelHandle} 채널을 찾을 수 없습니다` }, { status: 404 })
   }
 
   // 기간 파라미터 계산 (before는 +1일 하여 당일 포함)
@@ -103,7 +104,7 @@ export async function GET(req: Request) {
     const params = new URLSearchParams({
       part: 'snippet',
       channelId,
-      q: '파란날개',
+      q: teamName,
       type: 'video',
       // eventType 제한 없음 — 라이브 스트림 + 일반 업로드 모두 포함
       maxResults: '50',
@@ -131,8 +132,8 @@ export async function GET(req: Request) {
     for (const item of (data.items ?? []) as YTSearchItem[]) {
       const videoId = item.id.videoId
       const title = item.snippet.title
-      if (!title.includes('파란날개')) continue
-      const parsed = parseTitle(title)
+      if (!title.includes(teamName)) continue
+      const parsed = parseTitle(title, teamName)
       if (!parsed) continue
       rawVideos.push({
         video_id: videoId,
