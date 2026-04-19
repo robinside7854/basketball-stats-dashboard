@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     const org = new URL(req.url).searchParams.get('org') ?? 'paranalgae'
     const teamId = await getTeamId(org)
     if (!teamId) return NextResponse.json({ recentGames: [], seasonRecord: { wins: 0, losses: 0, total: 0 }, leaders: null, teamAvg: null, teamRecords: null })
-    const { data: teamTournaments } = await supabase.from('tournaments').select('id').eq('team_id', teamId).eq('sub_type', team)
+    const { data: teamTournaments } = await supabase.from('tournaments').select('id').eq('team_id', teamId).eq('team_type', team)
     tournamentIds = (teamTournaments ?? []).map(t => t.id)
   }
 

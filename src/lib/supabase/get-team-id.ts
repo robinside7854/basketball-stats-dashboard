@@ -6,7 +6,7 @@ const cache = new Map<string, string>()
 /**
  * orgSlug → teams.id (UUID) 반환
  * 예) getTeamId('paranalgae') → 'xxxxxxxx-...'
- * sub_type(youth/senior)은 teams 테이블이 아닌 players/tournaments 컬럼으로 구분
+ * team_type(youth/senior)은 teams 테이블이 아닌 players/tournaments 컬럼으로 구분
  */
 export async function getTeamId(orgSlug = 'paranalgae'): Promise<string | null> {
   if (cache.has(orgSlug)) return cache.get(orgSlug)!

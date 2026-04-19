@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     const { getTeamId } = await import('@/lib/supabase/get-team-id')
     const org = new URL(req.url).searchParams.get('org') ?? 'paranalgae'
     const teamId = await getTeamId(org)
-    if (teamId) playersQuery = playersQuery.eq('team_id', teamId).eq('sub_type', team)
+    if (teamId) playersQuery = playersQuery.eq('team_id', teamId).eq('team_type', team)
   }
   const [playersRes, ...gameResults] = await Promise.all([
     playersQuery,

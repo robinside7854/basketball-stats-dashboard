@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   if (team) {
     const teamId = await getTeamId(org)
     if (!teamId) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
-    query = query.eq('team_id', teamId).eq('sub_type', team)
+    query = query.eq('team_id', teamId).eq('team_type', team)
   }
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     const teamId = await getTeamId(org)
     if (!teamId) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
     body.team_id = teamId
-    body.sub_type = body.sub_type ?? team
+    body.team_type = body.team_type ?? team
   }
   const { data, error } = await supabase.from('tournaments').insert(body).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
