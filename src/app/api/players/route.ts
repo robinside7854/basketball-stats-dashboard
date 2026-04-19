@@ -5,12 +5,13 @@ import { getTeamId } from '@/lib/supabase/get-team-id'
 export async function GET(req: Request) {
   const supabase = createClient()
   const { searchParams } = new URL(req.url)
-  const team = searchParams.get('team')
+  const team = searchParams.get('team')   // 'youth' | 'senior'
+  const org  = searchParams.get('org') ?? 'paranalgae'
   let query = supabase.from('players').select('*').order('number', { ascending: true })
   if (team) {
-    const teamId = await getTeamId(team)
+    const teamId = await getTeamId(org)
     if (!teamId) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
-    query = query.eq('team_id', teamId)
+    query = query.eq('team_id', teamId).eq('sub_type', team)
   }
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -21,11 +22,13 @@ export async function POST(req: Request) {
   const supabase = createClient()
   const { searchParams } = new URL(req.url)
   const team = searchParams.get('team')
+  const org  = searchParams.get('org') ?? 'paranalgae'
   const body = await req.json()
   if (team && !body.team_id) {
-    const teamId = await getTeamId(team)
+    const teamId = await getTeamId(org)
     if (!teamId) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
     body.team_id = teamId
+    body.sub_type = body.sub_type ?? team
   }
   const { data, error } = await supabase.from('players').insert(body).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

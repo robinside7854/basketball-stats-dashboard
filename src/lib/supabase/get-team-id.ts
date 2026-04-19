@@ -1,25 +1,24 @@
 import { createClient } from '@/lib/supabase/client'
 
-// 메모리 캐시 — 프로세스 수명 동안 동일 slug 반복 조회 방지
+// 메모리 캐시 — 프로세스 수명 동안 동일 org 반복 조회 방지
 const cache = new Map<string, string>()
 
 /**
- * (orgSlug, subSlug) → teams.id (UUID) 반환
- * 예) getTeamId('paranalgae', 'youth') → 'xxxxxxxx-...'
+ * orgSlug → teams.id (UUID) 반환
+ * 예) getTeamId('paranalgae') → 'xxxxxxxx-...'
+ * sub_type(youth/senior)은 teams 테이블이 아닌 players/tournaments 컬럼으로 구분
  */
-export async function getTeamId(subSlug: string, orgSlug = 'paranalgae'): Promise<string | null> {
-  const key = `${orgSlug}:${subSlug}`
-  if (cache.has(key)) return cache.get(key)!
+export async function getTeamId(orgSlug = 'paranalgae'): Promise<string | null> {
+  if (cache.has(orgSlug)) return cache.get(orgSlug)!
 
   const supabase = createClient()
   const { data, error } = await supabase
     .from('teams')
     .select('id')
     .eq('org_slug', orgSlug)
-    .eq('sub_slug', subSlug)
     .single()
 
   if (error || !data) return null
-  cache.set(key, data.id)
+  cache.set(orgSlug, data.id)
   return data.id
 }

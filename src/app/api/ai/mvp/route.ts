@@ -152,7 +152,7 @@ export async function POST(req: Request) {
   // ── 2. 기존 저장 결과 재확인 (중복 실행 방지) ─────────────────
   const { data: gameRow } = await supabase
     .from('games')
-    .select('ai_mvp, date, opponent, our_score, opponent_score, tournament_id, tournament:tournaments(name, year, team_id)')
+    .select('ai_mvp, date, opponent, our_score, opponent_score, tournament_id, tournament:tournaments(name, year, team_id, sub_type)')
     .eq('id', gameId)
     .single()
 
@@ -174,9 +174,11 @@ export async function POST(req: Request) {
     supabase.from('game_events').select('*').eq('game_id', gameId).order('created_at'),
     supabase.from('player_minutes').select('*').eq('game_id', gameId),
     (() => {
-      const teamId = (gameRow.tournament as { team_id?: string } | null)?.team_id
-      const q = supabase.from('players').select('*').eq('is_active', true).order('number')
-      return teamId ? q.eq('team_id', teamId) : q
+      const t = gameRow.tournament as { team_id?: string; sub_type?: string } | null
+      let q = supabase.from('players').select('*').eq('is_active', true).order('number')
+      if (t?.team_id)  q = q.eq('team_id', t.team_id)
+      if (t?.sub_type) q = q.eq('sub_type', t.sub_type)
+      return q
     })(),
   ])
 
