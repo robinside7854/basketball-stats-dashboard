@@ -500,7 +500,7 @@ export default function BoxScorePage() {
                                 <button onClick={() => setPlayerModal(s.player_id)} className="hover:text-blue-400 hover:underline underline-offset-2 transition-colors cursor-pointer">
                                   {s.player_name}
                                 </button>
-                                {s.double_double && <span className="ml-1 text-xs bg-yellow-600 px-1 rounded">DD</span>}
+                                {s.double_double && !s.triple_double && <span className="ml-1 text-xs bg-yellow-600 px-1 rounded">DD</span>}
                                 {s.triple_double && <span className="ml-1 text-xs bg-blue-600 px-1 rounded">TD</span>}
                               </td>
                               <td className={`px-2 py-2 font-bold ${sortKey === 'pts' ? 'text-blue-300' : 'text-white'}`}>{s.pts}</td>
