@@ -256,7 +256,7 @@ export async function POST(req: Request) {
       if (s.pts > season.pts_avg * 1.4) bonus += 1.0   // 기대 초과 득점
       if (s.efg_pct > season.efg_pct_avg + 10) bonus += 1.5 // 효율 대폭 향상
     }
-    if (mvpHintId && s.player_id === mvpHintId) bonus += 5.0  // 감독 추천 보너스
+    if (mvpHintId && s.player_id === mvpHintId) bonus += 30.0  // 감독 추천 보너스
     return base + bonus
   }
 
@@ -289,7 +289,7 @@ export async function POST(req: Request) {
       if (s.reb > season.reb_high) bonus += 1.5
       if (s.ast > season.ast_high) bonus += 1.5
     }
-    if (xfactorHintId && s.player_id === xfactorHintId) bonus += 4.0  // 감독 추천 보너스
+    if (xfactorHintId && s.player_id === xfactorHintId) bonus += 25.0  // 감독 추천 보너스
     return base + bonus
   }
 
