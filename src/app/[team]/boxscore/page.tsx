@@ -61,6 +61,25 @@ export default function BoxScorePage() {
   const [generatingAll, setGeneratingAll] = useState(false)
   const [genProgress, setGenProgress] = useState<{ current: number; total: number } | null>(null)
 
+  // 후보 힌트 모달
+  const [hintGameId, setHintGameId] = useState<string | null>(null)
+  const [hintMvp, setHintMvp] = useState('')
+  const [hintXf, setHintXf] = useState('')
+
+  function getHintPlayers(gameId: string) {
+    const data = gameData[gameId]
+    if (!data || data === 'loading') return []
+    return [...data.boxScores]
+      .sort((a, b) => a.player_number - b.player_number)
+      .map(s => ({ id: s.player_id, name: s.player_name, number: s.player_number }))
+  }
+
+  function openHintModal(gameId: string) {
+    setHintGameId(gameId)
+    setHintMvp('')
+    setHintXf('')
+  }
+
   async function toggleExpand(gameId: string) {
     // 이미 펼쳐진 경기는 닫기
     if (expandedGIds.has(gameId)) {
@@ -97,10 +116,17 @@ export default function BoxScorePage() {
     }
   }
 
-  async function fetchMvp(gameId: string) {
+  async function fetchMvp(gameId: string, mvpHintId?: string, xfactorHintId?: string) {
     setMvpResults(prev => ({ ...prev, [gameId]: 'loading' }))
     try {
-      const res = await fetch(`/api/ai/mvp?gameId=${gameId}`, { method: 'POST' })
+      const body: Record<string, string> = {}
+      if (mvpHintId) body.mvpHintId = mvpHintId
+      if (xfactorHintId) body.xfactorHintId = xfactorHintId
+      const res = await fetch(`/api/ai/mvp?gameId=${gameId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error ?? '오류 발생')
@@ -111,6 +137,15 @@ export default function BoxScorePage() {
       console.error(err)
       setMvpResults(prev => ({ ...prev, [gameId]: 'error' }))
     }
+  }
+
+  async function submitHint() {
+    if (!hintGameId) return
+    const gid = hintGameId
+    setHintGameId(null)
+    await fetchMvp(gid, hintMvp || undefined, hintXf || undefined)
+    setHintMvp('')
+    setHintXf('')
   }
 
   async function resetMvp(gameId: string) {
@@ -223,6 +258,66 @@ export default function BoxScorePage() {
 
   return (
     <div>
+      {/* 후보 힌트 모달 */}
+      {hintGameId && (() => {
+        const players = getHintPlayers(hintGameId)
+        return (
+          <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-5 shadow-2xl">
+              <div className="text-center">
+                <div className="text-xl font-bold mb-1">후보 힌트 지정</div>
+                <p className="text-gray-400 text-xs leading-relaxed">
+                  선택사항입니다. AI가 해당 선수를 우선 검토하며,<br/>
+                  통계상 더 적합한 선수가 있으면 그쪽이 선정될 수 있습니다.
+                </p>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-yellow-400 font-semibold mb-1.5 block">🏅 MVP 추천 (선택)</label>
+                  <select
+                    value={hintMvp}
+                    onChange={e => setHintMvp(e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-yellow-500 cursor-pointer"
+                  >
+                    <option value="">-- 추천 없음</option>
+                    {players.map(p => (
+                      <option key={p.id} value={p.id}>#{p.number} {p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-purple-400 font-semibold mb-1.5 block">⚡ X-FACTOR 추천 (선택)</label>
+                  <select
+                    value={hintXf}
+                    onChange={e => setHintXf(e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500 cursor-pointer"
+                  >
+                    <option value="">-- 추천 없음</option>
+                    {players.map(p => (
+                      <option key={p.id} value={p.id}>#{p.number} {p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setHintGameId(null); setHintMvp(''); setHintXf('') }}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-600 text-gray-400 hover:bg-gray-800 text-sm font-medium transition-colors cursor-pointer"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={submitHint}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-yellow-600 to-purple-600 hover:from-yellow-500 hover:to-purple-500 text-white text-sm font-bold transition-all cursor-pointer"
+                >
+                  선정 시작
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="flex rounded-lg overflow-hidden border border-gray-700">
           <button
@@ -449,7 +544,7 @@ export default function BoxScorePage() {
                         {!mvpResults[g.id] ? (
                           isEditMode ? (
                             <button
-                              onClick={() => fetchMvp(g.id)}
+                              onClick={() => openHintModal(g.id)}
                               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-600/30 to-purple-600/30 border border-yellow-700/40 text-yellow-300 text-sm font-medium hover:from-yellow-600/50 hover:to-purple-600/50 transition-all cursor-pointer"
                             >
                               <span>✦</span> AI MVP + X-FACTOR 선정

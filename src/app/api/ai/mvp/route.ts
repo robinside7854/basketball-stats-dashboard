@@ -116,6 +116,10 @@ export async function POST(req: Request) {
   const gameId = searchParams.get('gameId')
   if (!gameId) return NextResponse.json({ error: 'gameId required' }, { status: 400 })
 
+  const body = await req.json().catch(() => ({}))
+  const mvpHintId: string | undefined = body.mvpHintId || undefined
+  const xfactorHintId: string | undefined = body.xfactorHintId || undefined
+
   // ── 1. API 키 확인 ───────────────────────────────────────────
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY가 설정되지 않았습니다' }, { status: 503 })
@@ -243,20 +247,23 @@ export async function POST(req: Request) {
   function mvpScoreWithBonus(s: PlayerBoxScore): number {
     const base = calcMvpScore(s)
     const season = seasonMap.get(s.player_id)
-    if (!season || season.games_played < 1) return base
     let bonus = 0
-    if (s.pts > season.pts_high) bonus += 2.0        // 시즌 득점 하이
-    if (s.reb > season.reb_high) bonus += 1.0        // 시즌 리바운드 하이
-    if (s.ast > season.ast_high) bonus += 1.0        // 시즌 어시스트 하이
-    if (s.pts > season.pts_avg * 1.4) bonus += 1.0   // 기대 초과 득점
-    if (s.efg_pct > season.efg_pct_avg + 10) bonus += 1.5 // 효율 대폭 향상
+    if (season && season.games_played >= 1) {
+      if (s.pts > season.pts_high) bonus += 2.0        // 시즌 득점 하이
+      if (s.reb > season.reb_high) bonus += 1.0        // 시즌 리바운드 하이
+      if (s.ast > season.ast_high) bonus += 1.0        // 시즌 어시스트 하이
+      if (s.pts > season.pts_avg * 1.4) bonus += 1.0   // 기대 초과 득점
+      if (s.efg_pct > season.efg_pct_avg + 10) bonus += 1.5 // 효율 대폭 향상
+    }
+    if (mvpHintId && s.player_id === mvpHintId) bonus += 5.0  // 감독 추천 보너스
     return base + bonus
   }
 
   const mvpCandidates = participants.filter(s => {
     const isStruggling = s.pts < 4 && s.fg_pct < 25 && (s.ast + s.reb + s.stl + s.blk) < 3
-    if (isStruggling) return false
-    return s.fga >= 2 || (s.ast + s.reb) >= 4
+    // 힌트 선수는 필터에서 제외하지 않음
+    if (isStruggling && s.player_id !== mvpHintId) return false
+    return s.fga >= 2 || (s.ast + s.reb) >= 4 || s.player_id === mvpHintId
   })
 
   const mvpPool = mvpCandidates.length > 0 ? mvpCandidates : participants
@@ -275,18 +282,20 @@ export async function POST(req: Request) {
   function xfScoreWithBonus(s: PlayerBoxScore): number {
     const base = calcXfactorScore(s, teamHighPts)
     const season = seasonMap.get(s.player_id)
-    if (!season || season.games_played < 1) return base
     let bonus = 0
-    if (s.stl > season.stl_high) bonus += 2.0
-    if (s.reb > season.reb_high) bonus += 1.5
-    if (s.ast > season.ast_high) bonus += 1.5
+    if (season && season.games_played >= 1) {
+      if (s.stl > season.stl_high) bonus += 2.0
+      if (s.reb > season.reb_high) bonus += 1.5
+      if (s.ast > season.ast_high) bonus += 1.5
+    }
+    if (xfactorHintId && s.player_id === xfactorHintId) bonus += 4.0  // 감독 추천 보너스
     return base + bonus
   }
 
   const xfCandidates = participants.filter(s => {
     if (s.player_id === mvpPlayer.player_id) return false
-    if (topScorerIds.has(s.player_id)) return false
-    return (s.ast + s.reb + s.stl + s.blk) >= 2
+    if (topScorerIds.has(s.player_id) && s.player_id !== xfactorHintId) return false
+    return (s.ast + s.reb + s.stl + s.blk) >= 2 || s.player_id === xfactorHintId
   })
 
   const xfSorted = [...xfCandidates].sort((a, b) => {
@@ -362,7 +371,13 @@ ${xfPlayer ? `이번 경기 스탯: ${statsLine(xfPlayer)}
 ${xfSeasonCtx}
 ${xfCarryCtx}` : '(조건 충족 선수 없음)'}
 
-━━━ 코멘트 작성 지침 ━━━
+${(mvpHintId || xfactorHintId) ? `━━━ 감독/기록자 추천 후보 ━━━
+${mvpHintId ? `MVP 추천: ${participants.find(s => s.player_id === mvpHintId)?.player_name ?? mvpHintId}` : ''}
+${xfactorHintId ? `X-FACTOR 추천: ${participants.find(s => s.player_id === xfactorHintId)?.player_name ?? xfactorHintId}` : ''}
+※ 추천 선수가 실제 선정되었다면 코멘트에서 자연스럽게 그 이유를 언급하세요.
+  다른 선수가 선정되었다면 "치열한 경쟁 속에서도" 식으로 자연스럽게 처리하세요.
+
+` : ''}━━━ 코멘트 작성 지침 ━━━
 [공통]
 - 한국어로 작성. NBA 시상식처럼 진지하고 품격 있는 톤
 - 반드시 구체적인 수치 포함 (야투율, 득점, 특정 지표 등)
