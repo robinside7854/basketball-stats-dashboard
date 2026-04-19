@@ -9,6 +9,7 @@ import YoutubeImportModal from '@/components/tournaments/YoutubeImportModal'
 import type { Tournament, Game } from '@/types/database'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { useTeam } from '@/contexts/TeamContext'
+import { ArrowUpDown } from 'lucide-react'
 
 const TYPE_LABELS: Record<string, string> = { pro: '선출부', amateur: '비선출부' }
 
@@ -62,6 +63,7 @@ export default function TournamentsPage() {
   const [showGForm, setShowGForm] = useState<string | null>(null)
   const [editG, setEditG] = useState<Game | null>(null)
   const [showYtImport, setShowYtImport] = useState(false)
+  const [sortDesc, setSortDesc] = useState(true)
 
   async function fetchTournaments() {
     const res = await fetch(`/api/tournaments?team=${team}`)
@@ -97,7 +99,17 @@ export default function TournamentsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">대회 관리</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">대회 관리</h1>
+          <button
+            onClick={() => setSortDesc(v => !v)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+            title="정렬 순서 변경"
+          >
+            <ArrowUpDown size={13} />
+            {sortDesc ? '최신순' : '오래된순'}
+          </button>
+        </div>
         {isEditMode && (
           <div className="flex gap-2">
             <Button
@@ -120,7 +132,7 @@ export default function TournamentsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {tournaments.map(t => {
+          {[...tournaments].sort((a, b) => sortDesc ? b.year - a.year : a.year - b.year).map(t => {
             const tGames = games[t.id] || []
             const summary = getTournamentSummary(tGames)
             const sorted = sortGamesByRound(tGames)
