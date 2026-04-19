@@ -65,6 +65,7 @@ export default function BoxScorePage() {
   const [hintGameId, setHintGameId] = useState<string | null>(null)
   const [hintMvp, setHintMvp] = useState('')
   const [hintXf, setHintXf] = useState('')
+  const [hintMemo, setHintMemo] = useState('')
 
   function getHintPlayers(gameId: string) {
     const data = gameData[gameId]
@@ -78,6 +79,7 @@ export default function BoxScorePage() {
     setHintGameId(gameId)
     setHintMvp('')
     setHintXf('')
+    setHintMemo('')
   }
 
   async function toggleExpand(gameId: string) {
@@ -116,12 +118,13 @@ export default function BoxScorePage() {
     }
   }
 
-  async function fetchMvp(gameId: string, mvpHintId?: string, xfactorHintId?: string) {
+  async function fetchMvp(gameId: string, mvpHintId?: string, xfactorHintId?: string, gameMemo?: string) {
     setMvpResults(prev => ({ ...prev, [gameId]: 'loading' }))
     try {
       const body: Record<string, string> = {}
       if (mvpHintId) body.mvpHintId = mvpHintId
       if (xfactorHintId) body.xfactorHintId = xfactorHintId
+      if (gameMemo) body.gameMemo = gameMemo
       const res = await fetch(`/api/ai/mvp?gameId=${gameId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -142,10 +145,12 @@ export default function BoxScorePage() {
   async function submitHint() {
     if (!hintGameId) return
     const gid = hintGameId
+    const memo = hintMemo.trim() || undefined
     setHintGameId(null)
-    await fetchMvp(gid, hintMvp || undefined, hintXf || undefined)
     setHintMvp('')
     setHintXf('')
+    setHintMemo('')
+    await fetchMvp(gid, hintMvp || undefined, hintXf || undefined, memo)
   }
 
   async function resetMvp(gameId: string) {
@@ -297,6 +302,16 @@ export default function BoxScorePage() {
                       <option key={p.id} value={p.id}>#{p.number} {p.name}</option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-400 font-semibold mb-1.5 block">📝 경기 메모 (선택)</label>
+                  <textarea
+                    value={hintMemo}
+                    onChange={e => setHintMemo(e.target.value)}
+                    placeholder="예: 3번이 수비에서 팀 분위기를 살렸고, 후반 흐름을 바꿨음"
+                    rows={3}
+                    className="w-full bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-gray-400 resize-none"
+                  />
                 </div>
               </div>
               <div className="flex gap-2">

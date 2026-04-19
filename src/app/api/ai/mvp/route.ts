@@ -119,6 +119,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}))
   const mvpHintId: string | undefined = body.mvpHintId || undefined
   const xfactorHintId: string | undefined = body.xfactorHintId || undefined
+  const gameMemo: string | undefined = body.gameMemo?.trim() || undefined
 
   // ── 1. API 키 확인 ───────────────────────────────────────────
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -371,11 +372,9 @@ ${xfPlayer ? `이번 경기 스탯: ${statsLine(xfPlayer)}
 ${xfSeasonCtx}
 ${xfCarryCtx}` : '(조건 충족 선수 없음)'}
 
-${(mvpHintId || xfactorHintId) ? `━━━ 감독/기록자 추천 후보 ━━━
-${mvpHintId ? `MVP 추천: ${participants.find(s => s.player_id === mvpHintId)?.player_name ?? mvpHintId}` : ''}
-${xfactorHintId ? `X-FACTOR 추천: ${participants.find(s => s.player_id === xfactorHintId)?.player_name ?? xfactorHintId}` : ''}
-※ 추천 선수가 실제 선정되었다면 코멘트에서 자연스럽게 그 이유를 언급하세요.
-  다른 선수가 선정되었다면 "치열한 경쟁 속에서도" 식으로 자연스럽게 처리하세요.
+${gameMemo ? `━━━ 경기 관찰 메모 (코멘트 작성 시 참고) ━━━
+${gameMemo}
+※ 위 메모는 코멘트의 방향과 뉘앙스를 잡는 데 활용하세요. 메모 내용을 그대로 인용하거나 "메모에 따르면" 같은 표현은 사용하지 마세요.
 
 ` : ''}━━━ 코멘트 작성 지침 ━━━
 [공통]
