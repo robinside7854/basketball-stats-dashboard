@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import { TeamProvider, type TeamType } from '@/contexts/TeamContext'
 import { OrgProvider } from '@/contexts/OrgContext'
-import { createServerClient } from '@/lib/supabase/server'
 
 const VALID_TEAMS: TeamType[] = ['youth', 'senior']
 
@@ -16,13 +15,8 @@ export default async function OrgTeamLayout({
   const team = teamParam as TeamType
   if (!VALID_TEAMS.includes(team)) notFound()
 
-  const supabase = createServerClient()
-  const { data } = await supabase
-    .from('teams')
-    .select('id')
-    .eq('org_slug', org)
-    .maybeSingle()
-  if (!data) notFound()
+  // org 유효성은 페이지 레벨에서 API 응답으로 처리 (서버사이드 DB 쿼리 제거)
+  if (!org || org.length < 2) notFound()
 
   return (
     <OrgProvider org={org}>
