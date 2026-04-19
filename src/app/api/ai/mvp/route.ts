@@ -172,7 +172,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '기록된 선수가 부족합니다 (최소 2명 필요)' }, { status: 400 })
   }
 
-  // ── 4. 시즌 통계 수집 (같은 대회 내 이전 경기들) ────────────────
+  // ── 4. 통계 수집 ────────────────────────────────────────────────
   type SeasonAvg = {
     pts_avg: number; reb_avg: number; ast_avg: number; stl_avg: number
     blk_avg: number; fg_pct_avg: number; fg3_pct_avg: number
@@ -180,9 +180,16 @@ export async function POST(req: Request) {
     pts_high: number; reb_high: number; ast_high: number
     stl_high: number; blk_high: number; games_played: number
   }
+  // 대회 평균: 이번 대회 내 이전 경기 (스코어링 보너스 + 대회 평균 코멘트용)
   const seasonMap = new Map<string, SeasonAvg>()
+  // 시즌 평균: 이번 연도 전체 대회 경기 (시즌 평균 코멘트용)
+  const yearSeasonMap = new Map<string, SeasonAvg>()
 
-  // 같은 대회의 다른 경기 ID 조회
+  const participantIds = participants.map(p => p.player_id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tournamentYear = (gameInfo.tournament as any)?.year as number | undefined
+
+  // 4a. 이번 대회 이전 경기 ID
   const { data: tournamentGames } = gameInfo.tournament_id
     ? await supabase
         .from('games')
@@ -190,58 +197,73 @@ export async function POST(req: Request) {
         .eq('tournament_id', gameInfo.tournament_id)
         .neq('id', gameId)
     : { data: [] }
-
   const prevGameIds = (tournamentGames ?? []).map((g: { id: string }) => g.id)
 
-  if (prevGameIds.length > 0) {
-    const participantIds = participants.map(p => p.player_id)
-
-    // 이전 경기 이벤트 + 분 조회 (참가선수만)
-    const [prevEventsRes, prevMinsRes] = await Promise.all([
-      supabase.from('game_events').select('*').in('game_id', prevGameIds)
-        .in('player_id', participantIds).limit(5000),
-      supabase.from('player_minutes').select('*').in('game_id', prevGameIds)
-        .in('player_id', participantIds).limit(5000),
-    ])
-
-    const prevBoxes = calculateBoxScore(prevEventsRes.data ?? [], prevMinsRes.data ?? [], playersRes.data)
-
-    // 경기별로 분리해서 per-game 집계
-    for (const pid of participantIds) {
-      const perGameStats: PlayerBoxScore[] = []
-      for (const gid of prevGameIds) {
-        const gEvents = (prevEventsRes.data ?? []).filter((e: { game_id: string }) => e.game_id === gid)
-        const gMins = (prevMinsRes.data ?? []).filter((m: { game_id: string }) => m.game_id === gid)
-        const hasActivity = gEvents.some((e: { player_id?: string }) => e.player_id === pid)
-        const hasMins = gMins.some((m: { player_id: string }) => m.player_id === pid)
-        if (!hasActivity && !hasMins) continue
-        const bs = calculateBoxScore(gEvents, gMins, playersRes.data)
-        const stat = bs.find(s => s.player_id === pid)
-        if (stat) perGameStats.push(stat)
-      }
-
-      if (perGameStats.length === 0) continue
-      const gp = perGameStats.length
-      const avg = (key: keyof PlayerBoxScore) =>
-        Math.round((perGameStats.reduce((s, g) => s + (g[key] as number), 0) / gp) * 10) / 10
-      const high = (key: keyof PlayerBoxScore) =>
-        Math.max(...perGameStats.map(g => g[key] as number))
-
-      // 전체 시즌 박스(누적)에서 효율 평균
-      const cumBox = prevBoxes.find(s => s.player_id === pid)
-      seasonMap.set(pid, {
-        pts_avg: avg('pts'), reb_avg: avg('reb'), ast_avg: avg('ast'),
-        stl_avg: avg('stl'), blk_avg: avg('blk'),
-        fg_pct_avg: cumBox?.fg_pct ?? 0,
-        fg3_pct_avg: cumBox?.fg3_pct ?? 0,
-        efg_pct_avg: cumBox?.efg_pct ?? 0,
-        ts_pct_avg: cumBox?.ts_pct ?? 0,
-        pts_high: high('pts'), reb_high: high('reb'), ast_high: high('ast'),
-        stl_high: high('stl'), blk_high: high('blk'),
-        games_played: gp,
-      })
+  // 4b. 이번 연도 전체 대회 경기 ID (다른 대회 포함)
+  let yearGameIds: string[] = []
+  if (tournamentYear) {
+    const { data: yearTournaments } = await supabase
+      .from('tournaments')
+      .select('id')
+      .eq('year', tournamentYear)
+    const yearTIds = (yearTournaments ?? []).map((t: { id: string }) => t.id)
+    if (yearTIds.length > 0) {
+      const { data: yearGames } = await supabase
+        .from('games')
+        .select('id')
+        .in('tournament_id', yearTIds)
+        .neq('id', gameId)
+      yearGameIds = (yearGames ?? []).map((g: { id: string }) => g.id)
     }
   }
+
+  // 공통: 게임 ID 목록으로 per-player 평균 맵 빌드
+  async function buildAvgMap(gameIds: string[]): Promise<Map<string, SeasonAvg>> {
+    const map = new Map<string, SeasonAvg>()
+    if (gameIds.length === 0) return map
+    const [evRes, mnRes] = await Promise.all([
+      supabase.from('game_events').select('*').in('game_id', gameIds)
+        .in('player_id', participantIds).limit(8000),
+      supabase.from('player_minutes').select('*').in('game_id', gameIds)
+        .in('player_id', participantIds).limit(8000),
+    ])
+    const allPlayers = playersRes.data ?? []
+    const cumBoxes = calculateBoxScore(evRes.data ?? [], mnRes.data ?? [], allPlayers)
+    for (const pid of participantIds) {
+      const perGame: PlayerBoxScore[] = []
+      for (const gid of gameIds) {
+        const gEv = (evRes.data ?? []).filter((e: { game_id: string }) => e.game_id === gid)
+        const gMn = (mnRes.data ?? []).filter((m: { game_id: string }) => m.game_id === gid)
+        const active = gEv.some((e: { player_id?: string }) => e.player_id === pid)
+          || gMn.some((m: { player_id: string }) => m.player_id === pid)
+        if (!active) continue
+        const stat = calculateBoxScore(gEv, gMn, allPlayers).find(s => s.player_id === pid)
+        if (stat) perGame.push(stat)
+      }
+      if (perGame.length === 0) continue
+      const gp = perGame.length
+      const avg = (key: keyof PlayerBoxScore) =>
+        Math.round((perGame.reduce((s, g) => s + (g[key] as number), 0) / gp) * 10) / 10
+      const high = (key: keyof PlayerBoxScore) => Math.max(...perGame.map(g => g[key] as number))
+      const cum = cumBoxes.find(s => s.player_id === pid)
+      map.set(pid, {
+        pts_avg: avg('pts'), reb_avg: avg('reb'), ast_avg: avg('ast'),
+        stl_avg: avg('stl'), blk_avg: avg('blk'),
+        fg_pct_avg: cum?.fg_pct ?? 0, fg3_pct_avg: cum?.fg3_pct ?? 0,
+        efg_pct_avg: cum?.efg_pct ?? 0, ts_pct_avg: cum?.ts_pct ?? 0,
+        pts_high: high('pts'), reb_high: high('reb'), ast_high: high('ast'),
+        stl_high: high('stl'), blk_high: high('blk'), games_played: gp,
+      })
+    }
+    return map
+  }
+
+  const [builtTournamentMap, builtYearMap] = await Promise.all([
+    buildAvgMap(prevGameIds),
+    buildAvgMap(yearGameIds),
+  ])
+  builtTournamentMap.forEach((v, k) => seasonMap.set(k, v))
+  builtYearMap.forEach((v, k) => yearSeasonMap.set(k, v))
 
   // ── 5. MVP 선정 ──────────────────────────────────────────────
   // 시즌하이 보너스 포함한 최종 점수
@@ -306,24 +328,44 @@ export async function POST(req: Request) {
   })
   const xfPlayer = xfSorted[0] ?? null
 
-  // ── 7. 시즌 컨텍스트 분석 (AI 코멘트용) ─────────────────────
-  function buildSeasonContext(s: PlayerBoxScore): string {
-    const season = seasonMap.get(s.player_id)
-    if (!season || season.games_played < 1) return '(시즌 비교 데이터 없음 — 이번 경기가 첫 기록)'
-    const lines: string[] = [`시즌 평균 (${season.games_played}경기): ${season.pts_avg}pts / ${season.reb_avg}reb / ${season.ast_avg}ast / ${season.stl_avg}stl`]
-    lines.push(`시즌 효율: FG% ${season.fg_pct_avg.toFixed(1)} / 3P% ${season.fg3_pct_avg.toFixed(1)} / eFG% ${season.efg_pct_avg.toFixed(1)} / TS% ${season.ts_pct_avg.toFixed(1)}`)
-    lines.push(`시즌 단일 경기 최고: ${season.pts_high}pts / ${season.reb_high}reb / ${season.ast_high}ast / ${season.stl_high}stl`)
+  // ── 7. 컨텍스트 분석 (AI 코멘트용) ──────────────────────────
+  // 대회 평균: 이번 대회 기준
+  function buildTournamentContext(s: PlayerBoxScore): string {
+    const d = seasonMap.get(s.player_id)
+    if (!d || d.games_played < 1) return ''
+    const lines: string[] = [`대회 평균 (${d.games_played}경기): ${d.pts_avg}pts / ${d.reb_avg}reb / ${d.ast_avg}ast / ${d.stl_avg}stl`]
+    lines.push(`대회 효율: FG% ${d.fg_pct_avg.toFixed(1)} / eFG% ${d.efg_pct_avg.toFixed(1)} / TS% ${d.ts_pct_avg.toFixed(1)}`)
+    lines.push(`대회 단일 경기 최고: ${d.pts_high}pts / ${d.reb_high}reb / ${d.ast_high}ast / ${d.stl_high}stl`)
     const highs: string[] = []
-    if (s.pts > season.pts_high) highs.push(`득점 시즌하이(기존 ${season.pts_high}pts → ${s.pts}pts)`)
-    if (s.reb > season.reb_high) highs.push(`리바운드 시즌하이(기존 ${season.reb_high} → ${s.reb})`)
-    if (s.ast > season.ast_high) highs.push(`어시스트 시즌하이(기존 ${season.ast_high} → ${s.ast})`)
-    if (s.stl > season.stl_high) highs.push(`스틸 시즌하이(기존 ${season.stl_high} → ${s.stl})`)
+    if (s.pts > d.pts_high) highs.push(`득점 대회최고(기존 ${d.pts_high}pts → ${s.pts}pts)`)
+    if (s.reb > d.reb_high) highs.push(`리바운드 대회최고(기존 ${d.reb_high} → ${s.reb})`)
+    if (s.ast > d.ast_high) highs.push(`어시스트 대회최고(기존 ${d.ast_high} → ${s.ast})`)
+    if (s.stl > d.stl_high) highs.push(`스틸 대회최고(기존 ${d.stl_high} → ${s.stl})`)
+    if (highs.length > 0) lines.push(`★ 대회 개인 기록 경신: ${highs.join(', ')}`)
+    const exceeded: string[] = []
+    if (s.pts > d.pts_avg * 1.4) exceeded.push(`득점(대회평균 ${d.pts_avg}pts → 이날 ${s.pts}pts)`)
+    if (s.efg_pct > d.efg_pct_avg + 8) exceeded.push(`eFG% 급등(대회평균 ${d.efg_pct_avg.toFixed(1)}% → 이날 ${s.efg_pct.toFixed(1)}%)`)
+    if (exceeded.length > 0) lines.push(`↑ 대회 평균 대비 기대 초과: ${exceeded.join(', ')}`)
+    return lines.join('\n')
+  }
+
+  // 시즌 평균: 이번 연도 전체 대회 기준
+  function buildYearSeasonContext(s: PlayerBoxScore): string {
+    const d = yearSeasonMap.get(s.player_id)
+    if (!d || d.games_played < 1) return ''
+    const lines: string[] = [`시즌 평균 (${tournamentYear}년 전체 ${d.games_played}경기): ${d.pts_avg}pts / ${d.reb_avg}reb / ${d.ast_avg}ast / ${d.stl_avg}stl`]
+    lines.push(`시즌 효율: FG% ${d.fg_pct_avg.toFixed(1)} / eFG% ${d.efg_pct_avg.toFixed(1)} / TS% ${d.ts_pct_avg.toFixed(1)}`)
+    lines.push(`시즌 단일 경기 최고: ${d.pts_high}pts / ${d.reb_high}reb / ${d.ast_high}ast / ${d.stl_high}stl`)
+    const highs: string[] = []
+    if (s.pts > d.pts_high) highs.push(`득점 시즌하이(기존 ${d.pts_high}pts → ${s.pts}pts)`)
+    if (s.reb > d.reb_high) highs.push(`리바운드 시즌하이(기존 ${d.reb_high} → ${s.reb})`)
+    if (s.ast > d.ast_high) highs.push(`어시스트 시즌하이(기존 ${d.ast_high} → ${s.ast})`)
+    if (s.stl > d.stl_high) highs.push(`스틸 시즌하이(기존 ${d.stl_high} → ${s.stl})`)
     if (highs.length > 0) lines.push(`★ 시즌하이 달성: ${highs.join(', ')}`)
     const exceeded: string[] = []
-    if (s.pts > season.pts_avg * 1.4) exceeded.push(`득점(시즌평균 ${season.pts_avg}pts → 이날 ${s.pts}pts)`)
-    if (s.efg_pct > season.efg_pct_avg + 8) exceeded.push(`eFG% 급등(시즌평균 ${season.efg_pct_avg.toFixed(1)}% → 이날 ${s.efg_pct.toFixed(1)}%)`)
-    if (s.ts_pct > season.ts_pct_avg + 8) exceeded.push(`TS% 급등(시즌평균 ${season.ts_pct_avg.toFixed(1)}% → 이날 ${s.ts_pct.toFixed(1)}%)`)
-    if (exceeded.length > 0) lines.push(`↑ 기대 초과 지표: ${exceeded.join(', ')}`)
+    if (s.pts > d.pts_avg * 1.4) exceeded.push(`득점(시즌평균 ${d.pts_avg}pts → 이날 ${s.pts}pts)`)
+    if (s.efg_pct > d.efg_pct_avg + 8) exceeded.push(`eFG% 급등(시즌평균 ${d.efg_pct_avg.toFixed(1)}% → 이날 ${s.efg_pct.toFixed(1)}%)`)
+    if (exceeded.length > 0) lines.push(`↑ 시즌 평균 대비 기대 초과: ${exceeded.join(', ')}`)
     return lines.join('\n')
   }
 
@@ -347,10 +389,12 @@ export async function POST(req: Request) {
   const tournamentStr = tournament ? `${tournament.name} ${tournament.year}년` : '대회'
   const resultStr = gameInfo.our_score > gameInfo.opponent_score ? '승' : gameInfo.our_score < gameInfo.opponent_score ? '패' : '무'
 
-  const mvpSeasonCtx = buildSeasonContext(mvpPlayer)
+  const mvpTournCtx = buildTournamentContext(mvpPlayer)
+  const mvpYearCtx  = buildYearSeasonContext(mvpPlayer)
   const mvpCarryCtx = buildTeamCarryContext(mvpPlayer)
-  const xfSeasonCtx = xfPlayer ? buildSeasonContext(xfPlayer) : ''
-  const xfCarryCtx = xfPlayer ? buildTeamCarryContext(xfPlayer) : ''
+  const xfTournCtx  = xfPlayer ? buildTournamentContext(xfPlayer) : ''
+  const xfYearCtx   = xfPlayer ? buildYearSeasonContext(xfPlayer) : ''
+  const xfCarryCtx  = xfPlayer ? buildTeamCarryContext(xfPlayer) : ''
 
   const prompt = `당신은 NBA 수준의 농구 통계 분석관입니다. 아마추어 농구팀 "파란날개"의 공식 경기 시상 코멘트를 작성합니다.
 수상자는 이미 통계 공식으로 선정되었으므로, 당신의 역할은 **정성스럽고 구체적인 수상 코멘트**를 작성하는 것입니다.
@@ -364,13 +408,11 @@ ${participants.map(s => statsLine(s)).join('\n')}
 
 ━━━ MVP 선정: ${mvpPlayer.player_name} ━━━
 이번 경기 스탯: ${statsLine(mvpPlayer)}
-${mvpSeasonCtx}
-${mvpCarryCtx}
+${mvpTournCtx ? mvpTournCtx + '\n' : ''}${mvpYearCtx ? mvpYearCtx + '\n' : ''}${mvpCarryCtx}
 
 ━━━ X-FACTOR 선정: ${xfPlayer ? xfPlayer.player_name : '해당 없음'} ━━━
 ${xfPlayer ? `이번 경기 스탯: ${statsLine(xfPlayer)}
-${xfSeasonCtx}
-${xfCarryCtx}` : '(조건 충족 선수 없음)'}
+${xfTournCtx ? xfTournCtx + '\n' : ''}${xfYearCtx ? xfYearCtx + '\n' : ''}${xfCarryCtx}` : '(조건 충족 선수 없음)'}
 
 ${gameMemo ? `━━━ 경기 관찰 메모 (코멘트 작성 시 참고) ━━━
 ${gameMemo}
@@ -383,6 +425,12 @@ ${gameMemo}
 - 공식·계산 방식 언급 금지. "선정 공식에 의해" 같은 표현 금지
 - +/- 수치 언급 절대 금지 (측정 신뢰도가 낮음)
 - 문장은 3~5문장 사이로 작성 (짧으면 안 됨)
+
+[용어 구분 — 반드시 준수]
+- "시즌 평균"은 이번 연도 전체 대회를 통틀어 계산한 평균을 말합니다
+- "대회 평균"은 이번 대회(현재 진행 중인 대회)에서의 평균을 말합니다
+- 위 두 용어를 혼용하지 말고 데이터 출처에 맞게 정확히 구분해서 사용하세요
+- 시즌하이는 연도 전체 기준, 대회 최고 기록은 이번 대회 기준입니다
 
 [MVP 코멘트에 반드시 포함할 내용 — 해당되는 경우]
 - 야투 효율이 우수했다면 eFG% 또는 TS%를 문장에 녹여 언급
