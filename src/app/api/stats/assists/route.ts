@@ -13,11 +13,16 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const tournamentId = searchParams.get('tournamentId')
   const team = searchParams.get('team')
+  const org  = searchParams.get('org') ?? 'paranalgae'
 
   const supabase = createClient()
 
   let playersQuery = supabase.from('players').select('id, name, number').eq('is_active', true).order('number')
-  if (team) playersQuery = playersQuery.eq('team_type', team)
+  if (team) {
+    const { getTeamId } = await import('@/lib/supabase/get-team-id')
+    const teamId = await getTeamId(org, team)
+    if (teamId) playersQuery = playersQuery.eq('team_id', teamId)
+  }
   const { data: players } = await playersQuery
 
   let gameIds: string[] | null = null

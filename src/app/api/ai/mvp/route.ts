@@ -152,7 +152,7 @@ export async function POST(req: Request) {
   // ── 2. 기존 저장 결과 재확인 (중복 실행 방지) ─────────────────
   const { data: gameRow } = await supabase
     .from('games')
-    .select('ai_mvp, date, opponent, our_score, opponent_score, tournament_id, tournament:tournaments(name, year, team_id, team_type)')
+    .select('ai_mvp, date, opponent, our_score, opponent_score, tournament_id, tournament:tournaments(name, year, team_id)')
     .eq('id', gameId)
     .single()
 
@@ -174,10 +174,9 @@ export async function POST(req: Request) {
     supabase.from('game_events').select('*').eq('game_id', gameId).order('created_at'),
     supabase.from('player_minutes').select('*').eq('game_id', gameId),
     (() => {
-      const t = gameRow.tournament as { team_id?: string; team_type?: string } | null
+      const t = gameRow.tournament as { team_id?: string } | null
       let q = supabase.from('players').select('*').eq('is_active', true).order('number')
-      if (t?.team_id)  q = q.eq('team_id', t.team_id)
-      if (t?.team_type) q = q.eq('team_type', t.team_type)
+      if (t?.team_id) q = q.eq('team_id', t.team_id)
       return q
     })(),
   ])

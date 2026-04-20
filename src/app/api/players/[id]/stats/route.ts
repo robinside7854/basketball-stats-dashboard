@@ -105,12 +105,15 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   if (playerRes.error) return NextResponse.json({ error: 'Player not found' }, { status: 404 })
   const player = playerRes.data
 
-  // 2. 선수 소속 팀의 대회 ID 먼저 조회
-  const playerTeamType = player.team_type || 'youth'
+  // 2. 선수 소속 팀의 대회 ID 먼저 조회 (team_id 기반 — org 격리 보장)
+  const playerTeamId = player.team_id
+  if (!playerTeamId) {
+    return NextResponse.json({ player, recentGames: [], shotBreakdown: {}, totalShotAttempts: 0, freeThrow: null, tournamentStats: [] })
+  }
   const { data: teamTournaments } = await supabase
     .from('tournaments')
     .select('id')
-    .eq('team_type', playerTeamType)
+    .eq('team_id', playerTeamId)
 
   const teamTournamentIds = (teamTournaments ?? []).map(t => t.id)
 
@@ -209,7 +212,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   // ── 대회별 성적 ──────────────────────────────────────────────
   const { data: allTournaments } = await supabase
     .from('tournaments').select('*')
-    .eq('team_type', playerTeamType)
+    .eq('team_id', playerTeamId)
     .order('year', { ascending: false })
 
   const tournamentStats = (allTournaments || []).map((t: Record<string, unknown>) => {

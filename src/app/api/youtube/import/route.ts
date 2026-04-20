@@ -75,6 +75,7 @@ export async function GET(req: Request) {
   const after = searchParams.get('after')   // YYYY-MM-DD
   const before = searchParams.get('before') // YYYY-MM-DD
   const team = searchParams.get('team') ?? 'youth'
+  const org  = searchParams.get('org') ?? 'paranalgae'
   const channelHandle = searchParams.get('channel') ?? 'basket-lab'
   const teamName = searchParams.get('teamName') ?? '파란날개'
 
@@ -157,8 +158,11 @@ export async function GET(req: Request) {
 
   // DB에서 기존 대회 + 기등록 경기 조회
   const supabase = createClient()
-  const { data: existingTournaments } = await supabase
-    .from('tournaments').select('id, name, year, type').eq('team_type', team)
+  const { getTeamId } = await import('@/lib/supabase/get-team-id')
+  const teamId = await getTeamId(org, team)
+  const { data: existingTournaments } = teamId
+    ? await supabase.from('tournaments').select('id, name, year, type').eq('team_id', teamId)
+    : { data: [] }
 
   const teamTournamentIds = (existingTournaments ?? []).map(t => t.id)
 

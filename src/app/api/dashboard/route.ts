@@ -28,12 +28,13 @@ export async function GET(req: Request) {
 
   // If team filter requested, scope to that team's tournament IDs
   let tournamentIds: string[] | null = null
+  let scopedTeamId: string | null = null
   if (team) {
     const { getTeamId } = await import('@/lib/supabase/get-team-id')
     const org = new URL(req.url).searchParams.get('org') ?? 'paranalgae'
-    const teamId = await getTeamId(org)
-    if (!teamId) return NextResponse.json({ recentGames: [], seasonRecord: { wins: 0, losses: 0, total: 0 }, leaders: null, teamAvg: null, teamRecords: null })
-    const { data: teamTournaments } = await supabase.from('tournaments').select('id').eq('team_id', teamId).eq('team_type', team)
+    scopedTeamId = await getTeamId(org, team)
+    if (!scopedTeamId) return NextResponse.json({ recentGames: [], seasonRecord: { wins: 0, losses: 0, total: 0 }, leaders: null, teamAvg: null, teamRecords: null })
+    const { data: teamTournaments } = await supabase.from('tournaments').select('id').eq('team_id', scopedTeamId)
     tournamentIds = (teamTournaments ?? []).map(t => t.id)
   }
 
@@ -78,7 +79,7 @@ export async function GET(req: Request) {
 
   // 게임별 개별 조회로 Supabase max_rows(1000) 우회
   let playersQuery = supabase.from('players').select('*').eq('is_active', true).order('number')
-  if (team) playersQuery = playersQuery.eq('team_type', team)
+  if (scopedTeamId) playersQuery = playersQuery.eq('team_id', scopedTeamId)
   const [playersRes, ...gameResults] = await Promise.all([
     playersQuery,
     ...gameIds.map(gid => Promise.all([

@@ -9,9 +9,9 @@ export async function GET(req: Request) {
   const org  = searchParams.get('org') ?? 'paranalgae'
   let query = supabase.from('players').select('*').order('number', { ascending: true })
   if (team) {
-    const teamId = await getTeamId(org)
+    const teamId = await getTeamId(org, team)
     if (!teamId) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
-    query = query.eq('team_id', teamId).eq('team_type', team)
+    query = query.eq('team_id', teamId)
   }
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -25,10 +25,9 @@ export async function POST(req: Request) {
   const org  = searchParams.get('org') ?? 'paranalgae'
   const body = await req.json()
   if (team && !body.team_id) {
-    const teamId = await getTeamId(org)
+    const teamId = await getTeamId(org, team)
     if (!teamId) return NextResponse.json({ error: 'Team not found' }, { status: 404 })
     body.team_id = teamId
-    body.team_type = body.team_type ?? team
   }
   const { data, error } = await supabase.from('players').insert(body).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
