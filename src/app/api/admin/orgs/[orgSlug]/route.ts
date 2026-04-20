@@ -8,15 +8,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orgSlu
 
   const { orgSlug } = await params
   const body = await req.json()
+  const { sub_slug, ...fields } = body
 
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from('teams')
-    .update(body)
-    .eq('org_slug', orgSlug)
-    .select()
-    .single()
+  let query = supabase.from('teams').update(fields).eq('org_slug', orgSlug)
+  if (sub_slug) query = query.eq('sub_slug', sub_slug)
 
+  const { data, error } = await query.select()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }

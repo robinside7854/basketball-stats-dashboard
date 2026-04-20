@@ -6,23 +6,25 @@ export default async function AdminOrgDetailPage({ params }: { params: Promise<{
   const { orgSlug } = await params
   const supabase = createClient()
 
-  const { data: org } = await supabase.from('teams').select('*').eq('org_slug', orgSlug).maybeSingle()
-  if (!org) notFound()
+  const { data: teams } = await supabase.from('teams').select('*').eq('org_slug', orgSlug).order('sub_slug')
+  if (!teams || teams.length === 0) notFound()
 
-  const [players, tournaments, games] = await Promise.all([
-    supabase.from('players').select('id', { count: 'exact' }).eq('team_id', org.id),
-    supabase.from('tournaments').select('id', { count: 'exact' }).eq('team_id', org.id),
-    supabase.from('games').select('id', { count: 'exact' }),
-  ])
+  // sub-team별 선수/대회 수 집계
+  const statsPerTeam = await Promise.all(
+    teams.map(async t => {
+      const [players, tournaments] = await Promise.all([
+        supabase.from('players').select('id', { count: 'exact' }).eq('team_id', t.id),
+        supabase.from('tournaments').select('id', { count: 'exact' }).eq('team_id', t.id),
+      ])
+      return { teamId: t.id, players: players.count ?? 0, tournaments: tournaments.count ?? 0 }
+    })
+  )
 
   return (
     <OrgDetailClient
-      org={org}
-      stats={{
-        players: players.count ?? 0,
-        tournaments: tournaments.count ?? 0,
-        games: games.count ?? 0,
-      }}
+      orgSlug={orgSlug}
+      teams={teams}
+      statsPerTeam={statsPerTeam}
     />
   )
 }
