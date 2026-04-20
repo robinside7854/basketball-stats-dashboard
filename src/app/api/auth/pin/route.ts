@@ -6,13 +6,16 @@ export async function POST(req: Request) {
   if (!pin) return NextResponse.json({ ok: false }, { status: 400 })
 
   const supabase = createServerClient()
+  // org 내 어느 sub-team이든 PIN이 일치하면 OK
   const { data } = await supabase
     .from('teams')
     .select('edit_pin')
     .eq('org_slug', org)
+    .eq('edit_pin', pin)
+    .limit(1)
     .maybeSingle()
 
-  if (!data || data.edit_pin !== pin) {
+  if (!data) {
     return NextResponse.json({ ok: false }, { status: 401 })
   }
   return NextResponse.json({ ok: true })
