@@ -142,8 +142,8 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   },
   {
     code: 'KICKOUT', name: '킥아웃 전도사', icon: '\u{1F3A6}', category: 'playmaking', theme: T.violet, minGames: 3, unit: '%',
-    description: '어시스트의 40% 이상이 3점슛으로 이어지는 외곽 연결 플레이메이커',
-    criteria: '3점 연결 어시스트 / 전체 어시스트 \u266540% (최소 어시스트 10개)',
+    description: '어시스트의 50% 이상이 3점슛으로 이어지는 외곽 연결 플레이메이커',
+    criteria: '3점 연결 어시스트 / 전체 어시스트 \u266550% (최소 어시스트 10개)',
   },
   {
     code: 'FLOOR_GENERAL', name: '지휘자', icon: '\u{1F451}', category: 'playmaking', theme: T.indigo, minGames: 3, unit: 'APG',
@@ -152,8 +152,8 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   },
   {
     code: 'POCKET_PASSER', name: '포켓패서', icon: '\u{1F3AF}', category: 'playmaking', theme: T.purple, minGames: 3, unit: '%',
-    description: '어시스트의 40% 이상이 골밑슛·레이업으로 연결되는 내부 침투 플레이메이커',
-    criteria: '골밑·레이업 연결 어시스트 / 전체 어시스트 \u266540% (최소 어시스트 10개)',
+    description: '어시스트의 50% 이상이 골밑슛·레이업으로 연결되는 내부 침투 플레이메이커',
+    criteria: '골밑·레이업 연결 어시스트 / 전체 어시스트 \u266550% (최소 어시스트 10개)',
   },
   {
     code: 'ALL_ROUNDER', name: '올라운더', icon: '\u{1F527}', category: 'playmaking', theme: T.violet, minGames: 3, unit: '항목',
@@ -322,10 +322,10 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
     '기준: AST/TOV\u22652.0, 최소AST10'))
 
   const ast3r = s.ast > 0 && (s.ast3pts ?? 0) > 0 ? (s.ast3pts ?? 0) / s.ast * 100 : 0
-  results.push(make('KICKOUT', ok(s.ast >= 10 && ast3r >= 40),
-    r(ast3r), 40,
+  results.push(make('KICKOUT', ok(s.ast >= 10 && ast3r >= 50),
+    r(ast3r), 50,
     `3점 어시스트 ${s.ast3pts ?? 0}/${s.ast} = ${r(ast3r)}%`,
-    '기준: 3점연결AST\u266540%, 최소AST10'))
+    '기준: 3점연결AST\u266550%, 최소AST10'))
 
   const fgTh = r(team.astPerGame * 1.5)
   results.push(make('FLOOR_GENERAL', ok(s.ast >= 10 && team.astPerGame > 0 && s.apg >= team.astPerGame * 1.5),
@@ -335,8 +335,8 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
 
   const astPaint = s.astPaint ?? 0
   const ppRatio = s.ast > 0 ? astPaint / s.ast * 100 : 0
-  results.push(make('POCKET_PASSER', ok(s.ast >= 10 && ppRatio >= 40),
-    r(ppRatio), 40,
+  results.push(make('POCKET_PASSER', ok(s.ast >= 10 && ppRatio >= 50),
+    r(ppRatio), 50,
     `골밑·레이업 연결 어시스트 ${astPaint}/${s.ast} = ${r(ppRatio)}%`,
     '기준: 골밑·레이업AST\u266540%, 최소AST10'))
 
