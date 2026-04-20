@@ -1,11 +1,12 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Plus, Upload, X, Check } from 'lucide-react'
+import { Plus, Upload, X, Check, Merge } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import PlayerCard from '@/components/roster/PlayerCard'
 import PlayerForm from '@/components/roster/PlayerForm'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
+import PlayerMergeModal from '@/components/roster/PlayerMergeModal'
 import type { Player } from '@/types/database'
 import * as XLSX from 'xlsx'
 import { useEditMode } from '@/contexts/EditModeContext'
@@ -46,6 +47,7 @@ export default function RosterPage() {
   const [filterPos, setFilterPos] = useState<string>('')
   const [sortMode, setSortMode] = useState<SortMode>('number')
   const [detailPlayerId, setDetailPlayerId] = useState<string | null>(null)
+  const [showMerge, setShowMerge] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function fetchPlayers() {
@@ -133,6 +135,9 @@ export default function RosterPage() {
               <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
               <Button variant="outline" onClick={() => fileRef.current?.click()} className="border-gray-700 text-gray-300 hover:text-white">
                 <Upload size={16} className="mr-2" /> 엑셀 업로드
+              </Button>
+              <Button variant="outline" onClick={() => setShowMerge(true)} className="border-orange-700/60 text-orange-400 hover:text-orange-300 hover:border-orange-500">
+                <Merge size={16} className="mr-2" /> 선수 통합
               </Button>
               <Button onClick={() => { setEditPlayer(null); setShowForm(true) }} className="bg-blue-500 hover:bg-blue-600">
                 <Plus size={16} className="mr-2" /> 선수 추가
@@ -271,6 +276,14 @@ export default function RosterPage() {
           teamType={team}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); fetchPlayers(); toast.success(editPlayer ? '수정 완료' : '선수 추가 완료') }}
+        />
+      )}
+
+      {showMerge && (
+        <PlayerMergeModal
+          players={players}
+          onClose={() => setShowMerge(false)}
+          onMerged={fetchPlayers}
         />
       )}
     </div>
