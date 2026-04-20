@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/admin'
 import { auth } from '@/lib/auth'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ orgSlug: string }> }) {
@@ -9,7 +9,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orgSlu
   const { orgSlug } = await params
   const body = await req.json()
 
-  const supabase = createAdminClient()
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('teams')
     .update(body)
@@ -26,7 +26,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ orgSl
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { orgSlug } = await params
-  const supabase = createAdminClient()
+  const supabase = createClient()
 
   const { data: team } = await supabase.from('teams').select('id').eq('org_slug', orgSlug).maybeSingle()
   if (!team) return NextResponse.json({ error: 'Not found' }, { status: 404 })

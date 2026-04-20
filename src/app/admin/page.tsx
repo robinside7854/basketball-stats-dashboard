@@ -1,9 +1,9 @@
-import { createAdminClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/admin'
 import { Users, Trophy, Calendar, Building2 } from 'lucide-react'
 import Link from 'next/link'
 
 async function getStats() {
-  const supabase = createAdminClient()
+  const supabase = createClient()
   const [orgs, players, tournaments, games] = await Promise.all([
     supabase.from('teams').select('id, org_slug, name, accent_color, is_active', { count: 'exact' }),
     supabase.from('players').select('id', { count: 'exact' }).eq('is_active', true),
@@ -19,7 +19,7 @@ async function getStats() {
   }
 }
 
-export default async function DashboardHome() {
+export default async function AdminDashboardPage() {
   const { orgs, orgCount, playerCount, tournamentCount, gameCount } = await getStats()
 
   const kpis = [
@@ -36,7 +36,6 @@ export default async function DashboardHome() {
         <p className="text-gray-400 text-sm mt-1">전체 현황 요약</p>
       </div>
 
-      {/* KPI 카드 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className={`rounded-xl border p-5 ${bg}`}>
@@ -49,11 +48,10 @@ export default async function DashboardHome() {
         ))}
       </div>
 
-      {/* Org 목록 */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white">등록된 Org</h2>
-          <Link href="/orgs/new" className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors">
+          <Link href="/admin/orgs/new" className="text-xs px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors">
             + 새 Org 추가
           </Link>
         </div>
@@ -66,13 +64,10 @@ export default async function DashboardHome() {
           {orgs.map(org => (
             <Link
               key={org.id}
-              href={`/orgs/${org.org_slug}`}
+              href={`/admin/orgs/${org.org_slug}`}
               className="flex items-center gap-4 p-4 bg-gray-900 border border-gray-800 rounded-xl hover:border-gray-600 transition-colors"
             >
-              <div
-                className="w-3 h-3 rounded-full shrink-0"
-                style={{ backgroundColor: org.accent_color ?? '#3b82f6' }}
-              />
+              <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: org.accent_color ?? '#3b82f6' }} />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-white text-sm">{org.name}</p>
                 <p className="text-xs text-gray-500">{org.org_slug}</p>

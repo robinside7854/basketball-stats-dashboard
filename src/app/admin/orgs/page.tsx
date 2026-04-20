@@ -1,13 +1,10 @@
-import { createAdminClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { Plus, ExternalLink } from 'lucide-react'
 
-export default async function OrgsPage() {
-  const supabase = createAdminClient()
-  const { data: orgs } = await supabase
-    .from('teams')
-    .select('*')
-    .order('created_at', { ascending: false })
+export default async function AdminOrgsPage() {
+  const supabase = createClient()
+  const { data: orgs } = await supabase.from('teams').select('*').order('created_at', { ascending: false })
 
   return (
     <div className="space-y-6">
@@ -17,7 +14,7 @@ export default async function OrgsPage() {
           <p className="text-gray-400 text-sm mt-1">등록된 농구 클럽 조직 목록</p>
         </div>
         <Link
-          href="/orgs/new"
+          href="/admin/orgs/new"
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
         >
           <Plus size={15} />
@@ -54,7 +51,7 @@ export default async function OrgsPage() {
                 사이트
               </a>
               <Link
-                href={`/orgs/${org.org_slug}`}
+                href={`/admin/orgs/${org.org_slug}`}
                 className="text-xs text-blue-400 hover:text-blue-300 px-2.5 py-1.5 rounded-lg border border-blue-500/30 hover:border-blue-400/60 transition-colors"
               >
                 관리

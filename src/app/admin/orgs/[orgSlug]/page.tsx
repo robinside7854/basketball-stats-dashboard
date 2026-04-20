@@ -1,17 +1,12 @@
-import { createAdminClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import OrgDetailClient from './OrgDetailClient'
 
-export default async function OrgDetailPage({ params }: { params: Promise<{ orgSlug: string }> }) {
+export default async function AdminOrgDetailPage({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = await params
-  const supabase = createAdminClient()
+  const supabase = createClient()
 
-  const { data: org } = await supabase
-    .from('teams')
-    .select('*')
-    .eq('org_slug', orgSlug)
-    .maybeSingle()
-
+  const { data: org } = await supabase.from('teams').select('*').eq('org_slug', orgSlug).maybeSingle()
   if (!org) notFound()
 
   const [players, tournaments, games] = await Promise.all([

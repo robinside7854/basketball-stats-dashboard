@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/admin'
 import { auth } from '@/lib/auth'
 
 export async function POST(req: Request) {
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '필수 항목 누락' }, { status: 400 })
   }
 
-  const supabase = createAdminClient()
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('teams')
     .insert({ name, org_slug, accent_color: accent_color ?? '#3b82f6', edit_pin, is_active: true })
