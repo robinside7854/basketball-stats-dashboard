@@ -34,7 +34,7 @@ function totalMinutes(minutes: { in_time: number; out_time: number | null }[]): 
   }, 0)
 }
 
-type RawEvent = { game_id: string; type: string; result: string; points?: number }
+type RawEvent = { game_id: string; type: string; result: string; points?: number; quarter?: number }
 type RawMinute = { game_id: string; in_time: number; out_time: number | null }
 
 // 선수 이벤트만으로 박스스코어 직접 집계
@@ -134,7 +134,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const [playerEventsRes, assistEventsRes, playerMinutesRes] = await Promise.all([
     supabase
       .from('game_events')
-      .select('game_id, type, result, points')
+      .select('game_id, type, result, points, quarter')
       .eq('player_id', id)
       .in('game_id', allTeamGameIds)
       .limit(10000),
@@ -291,5 +291,18 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     warrior_count: (warriorGamesRes.data ?? []).length,
   }
 
-  return NextResponse.json({ player, recentGames, shotBreakdown, totalShotAttempts, freeThrow, tournamentStats, awards })
+  // ── 쿼터별 커리어 득점 합산 ──────────────────────────────────
+  const quarterPts = { q1: 0, q2: 0, q3: 0, q4: 0 }
+  const SCORE_TYPES = new Set(['shot_3p', 'shot_post', 'shot_layup', 'shot_2p_mid', 'shot_2p_drive', 'free_throw'])
+  for (const e of playerEvents) {
+    if (e.result !== 'made' || !SCORE_TYPES.has(e.type)) continue
+    const pts = e.type === 'shot_3p' ? 3 : e.type === 'free_throw' ? 1 : 2
+    const q = e.quarter
+    if (q === 1) quarterPts.q1 += pts
+    else if (q === 2) quarterPts.q2 += pts
+    else if (q === 3) quarterPts.q3 += pts
+    else if (q === 4) quarterPts.q4 += pts
+  }
+
+  return NextResponse.json({ player, recentGames, shotBreakdown, totalShotAttempts, freeThrow, tournamentStats, awards, quarterPts })
 }

@@ -5,6 +5,8 @@ import { X, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
+import { calculateBadges, CATEGORY_LABELS } from '@/lib/stats/badges'
+import type { EarnedBadge } from '@/lib/stats/badges'
 
 const GameBoxScoreModal = dynamic(() => import('@/components/GameBoxScoreModal'), { ssr: false })
 
@@ -107,6 +109,8 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
   const [teamRankings, setTeamRankings] = useState<Record<string, { rank: number; isTie: boolean }>>({})
   const [chartMetric, setChartMetric] = useState<'PPG' | 'RPG' | 'APG' | 'FG%' | '3P%'>('PPG')
   const [awards, setAwards] = useState<{ mvp_count: number; xfactor_count: number; warrior_count: number } | null>(null)
+  const [quarterPts, setQuarterPts] = useState<{ q1: number; q2: number; q3: number; q4: number } | null>(null)
+  const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([])
   const [boxScoreGame, setBoxScoreGame] = useState<{ game_id: string; date: string; opponent: string; round: string | null; our_score: number; opponent_score: number; tournament_name: string } | null>(null)
 
   useEffect(() => {
@@ -120,11 +124,12 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
         setFreeThrow(d.freeThrow || null)
         setTournamentStats(d.tournamentStats || [])
         setAwards(d.awards ?? null)
+        setQuarterPts(d.quarterPts ?? null)
         setLoading(false)
       })
   }, [playerId])
 
-  // 팀 내 랭킹 계산
+  // 팀 내 랭킹 + 뱃지 계산
   useEffect(() => {
     fetch(`/api/stats/season${team ? `?team=${team}` : ''}`)
       .then(r => r.json())
@@ -151,8 +156,69 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
           stl: rank(p => p.games_played > 0 ? p.stl / p.games_played : 0) ?? { rank: 0, isTie: false },
           blk: rank(p => p.games_played > 0 ? p.blk / p.games_played : 0) ?? { rank: 0, isTie: false },
         })
+
+        // 팀 평균 계산 (뱃지용)
+        if (active.length === 0) return
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const avg = (fn: (p: any) => number) => active.reduce((s: number, p: any) => s + fn(p), 0) / active.length
+        const teamAvg = {
+          ftaPerGame: avg((p) => p.games_played > 0 ? (p.fta ?? 0) / p.games_played : 0),
+          fg3aPerGame: avg((p) => p.games_played > 0 ? (p.fg3a ?? 0) / p.games_played : 0),
+          stlPerGame: avg((p) => p.games_played > 0 ? (p.stl ?? 0) / p.games_played : 0),
+          blkPerGame: avg((p) => p.games_played > 0 ? (p.blk ?? 0) / p.games_played : 0),
+          astPerGame: avg((p) => p.games_played > 0 ? (p.ast ?? 0) / p.games_played : 0),
+        }
+
+        // 선수 시즌 스탯
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const me = active.find((p: any) => p.player_id === playerId)
+        if (!me) return
+
+        const gp = me.games_played
+        const fgm = me.fgm ?? 0; const fga = me.fga ?? 0
+        const fg3m = me.fg3m ?? 0; const fg3a = me.fg3a ?? 0
+        const fg2m = fgm - fg3m; const fg2a = fga - fg3a
+        const ftm = me.ftm ?? 0; const fta = me.fta ?? 0
+        const oreb = me.oreb ?? 0; const dreb = me.dreb ?? 0
+        const ast = me.ast ?? 0; const tov = me.tov ?? 0
+        const stl = me.stl ?? 0; const blk = me.blk ?? 0
+
+        // double/triple double: per-game stats에서 계산
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const gamesList: any[] = data.gamesByPlayer?.[playerId] ?? []
+        let doubleDoubles = 0; let tripleDoubles = 0
+        for (const g of gamesList) {
+          const cats = [g.pts ?? 0, g.reb ?? 0, g.ast ?? 0, g.stl ?? 0, g.blk ?? 0].filter(v => v >= 10).length
+          if (cats >= 3) tripleDoubles++
+          else if (cats >= 2) doubleDoubles++
+        }
+
+        const badges = calculateBadges({
+          gamesPlayed: gp,
+          totalTeamGames: data.totalGames ?? gp,
+          pts: me.pts ?? 0,
+          fgm, fga, fg2m, fg2a, fg3m, fg3a, ftm, fta,
+          oreb, dreb, reb: oreb + dreb,
+          ast, stl, blk, tov,
+          ppg: me.pts_avg ?? 0,
+          rpg: me.reb_avg ?? 0,
+          apg: me.ast_avg ?? 0,
+          spg: gp > 0 ? stl / gp : 0,
+          bpg: gp > 0 ? blk / gp : 0,
+          fg3Pct: fg3a > 0 ? (fg3m / fg3a) * 100 : 0,
+          ftPct: fta > 0 ? (ftm / fta) * 100 : 0,
+          astToTov: tov > 0 ? ast / tov : ast,
+          doubleDoubles,
+          tripleDoubles,
+          q1pts: quarterPts?.q1 ?? 0,
+          q2pts: quarterPts?.q2 ?? 0,
+          q3pts: quarterPts?.q3 ?? 0,
+          q4pts: quarterPts?.q4 ?? 0,
+        }, teamAvg)
+
+        setEarnedBadges(badges)
       })
-  }, [playerId])
+  }, [playerId, quarterPts])
 
   // ESC 키로 닫기
   useEffect(() => {
@@ -310,6 +376,23 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                             <span className="text-xs text-orange-600">회</span>
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* 능력 뱃지 */}
+                    {earnedBadges.length > 0 && (
+                      <div className="flex items-start gap-2 px-5 py-3 border-t border-gray-800/60 flex-wrap" style={{ background: '#070E1A' }}>
+                        <span className="text-xs text-gray-600 uppercase tracking-wider mr-1 mt-0.5 shrink-0">Badges</span>
+                        {earnedBadges.map(badge => (
+                          <div
+                            key={badge.code}
+                            title={badge.tooltip}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold cursor-default ${badge.theme.bg} ${badge.theme.text} ${badge.theme.border}`}
+                          >
+                            <span>{badge.icon}</span>
+                            <span>{badge.name}</span>
+                          </div>
+                        ))}
                       </div>
                     )}
 
