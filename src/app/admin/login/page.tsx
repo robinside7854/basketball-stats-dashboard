@@ -15,11 +15,15 @@ export default function AdminLoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const res = await signIn('credentials', { email, password, redirect: false })
-    if (res?.ok) {
-      router.push('/admin')
-    } else {
-      setError('이메일 또는 비밀번호가 올바르지 않습니다')
+    try {
+      const res = await signIn('credentials', { email, password, redirect: false })
+      if (res?.ok) {
+        router.push('/admin')
+      } else {
+        setError(`로그인 실패: ${res?.error ?? '이메일 또는 비밀번호를 확인하세요'}`)
+      }
+    } catch (err) {
+      setError(`오류 발생: ${err instanceof Error ? err.message : String(err)}`)
     }
     setLoading(false)
   }
