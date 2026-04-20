@@ -89,7 +89,7 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   {
     code: 'JUNG_DAEMAN', name: '정대만', icon: '\u{1F3AF}', category: 'shooting', theme: T.blue, minGames: 3, unit: '%',
     description: '슛이 전부다. FGA의 50% 이상을 3점슛으로만 해결',
-    criteria: '3점슛 시도 / 전체 FGA \u226550% (최소 15회 3점 시도)',
+    criteria: '3점슛 시도 / 전체 FGA \u226550% (최소 10회 3점 시도)',
   },
   {
     code: 'DONG_HO_CURRY', name: '동호회커리', icon: '\u{1F35B}', category: 'shooting', theme: T.sky, minGames: 3, unit: '%',
@@ -259,7 +259,7 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
 
   // ---- 슈팅 ----
   const threeShare = s.fga > 0 ? s.fg3a / s.fga * 100 : 0
-  results.push(make('JUNG_DAEMAN', ok(s.fg3a >= 15 && threeShare >= 50),
+  results.push(make('JUNG_DAEMAN', ok(s.fg3a >= 10 && threeShare >= 50),
     r(threeShare), 50,
     `3점슛 비중 ${r(threeShare)}% (${s.fg3a}/${s.fga})`,
     '기준: 3PA/FGA\u226550%, 최소15회'))
