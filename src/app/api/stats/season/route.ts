@@ -49,6 +49,14 @@ export async function GET(req: Request) {
   const recordedGameIds = new Set(allMinutes.map(m => m.game_id))
   const totalGames = recordedGameIds.size
 
+  // 3점슛으로 이어진 어시스트 수 (킥아웃 전도사 뱃지용)
+  const ast3ptsMap: Record<string, number> = {}
+  for (const e of allEvents) {
+    if (e.type === 'shot_3p' && e.result === 'made' && e.related_player_id) {
+      ast3ptsMap[e.related_player_id] = (ast3ptsMap[e.related_player_id] ?? 0) + 1
+    }
+  }
+
   // 선수별 실제 출전 경기 수 (player_minutes 기준)
   const withAverages = boxScores.map((s: PlayerBoxScore) => {
     const playerGames = new Set(
@@ -60,6 +68,7 @@ export async function GET(req: Request) {
       reb_avg: playerGames > 0 ? Math.round((s.reb / playerGames) * 10) / 10 : 0,
       ast_avg: playerGames > 0 ? Math.round((s.ast / playerGames) * 10) / 10 : 0,
       games_played: playerGames,
+      ast3pts: ast3ptsMap[s.player_id] ?? 0,
     }
   })
 

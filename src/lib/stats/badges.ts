@@ -1,11 +1,22 @@
-export type BadgeCategory = 'scoring' | 'rebounding' | 'defense' | 'playmaking' | 'clutch' | 'special'
+// === 카테고리 (4종) ===
+export type BadgeCategory = 'attack' | 'shooting' | 'defense' | 'playmaking'
 
-export interface BadgeTheme {
-  bg: string
-  text: string
-  border: string
-  dot: string
+export const CATEGORY_LABELS: Record<BadgeCategory, string> = {
+  attack:     '공격',
+  shooting:   '슈팅',
+  defense:    '수비',
+  playmaking: '플레이메이킹',
 }
+
+export const CATEGORY_COLORS: Record<BadgeCategory, { header: string; badge: string }> = {
+  attack:     { header: 'text-orange-400', badge: 'bg-orange-950/60 text-orange-300 border-orange-700/60' },
+  shooting:   { header: 'text-blue-400',   badge: 'bg-blue-950/60   text-blue-300   border-blue-700/60'   },
+  defense:    { header: 'text-green-400',  badge: 'bg-green-950/60  text-green-300  border-green-700/60'  },
+  playmaking: { header: 'text-purple-400', badge: 'bg-purple-950/60 text-purple-300 border-purple-700/60' },
+}
+
+// === 타입 ===
+export interface BadgeTheme { bg: string; text: string; border: string; dot: string }
 
 export interface BadgeDefinition {
   code: string
@@ -16,183 +27,148 @@ export interface BadgeDefinition {
   category: BadgeCategory
   theme: BadgeTheme
   minGames: number
+  unit: string
 }
 
-export interface EarnedBadge extends BadgeDefinition {
+export interface EvaluatedBadge extends BadgeDefinition {
   achievedValue: number
   threshold: number
-  tooltip: string
+  achievedLabel: string
+  thresholdLabel: string
+  earned: boolean
 }
 
-const T = {
-  red:    { bg: 'bg-red-950/60',    text: 'text-red-400',    border: 'border-red-700/60',    dot: 'bg-red-500' },
-  orange: { bg: 'bg-orange-950/60', text: 'text-orange-400', border: 'border-orange-700/60', dot: 'bg-orange-500' },
-  amber:  { bg: 'bg-amber-950/60',  text: 'text-amber-400',  border: 'border-amber-700/60',  dot: 'bg-amber-500' },
-  green:  { bg: 'bg-green-950/60',  text: 'text-green-400',  border: 'border-green-700/60',  dot: 'bg-green-500' },
-  teal:   { bg: 'bg-teal-950/60',   text: 'text-teal-400',   border: 'border-teal-700/60',   dot: 'bg-teal-500' },
-  blue:   { bg: 'bg-blue-950/60',   text: 'text-blue-400',   border: 'border-blue-700/60',   dot: 'bg-blue-500' },
-  indigo: { bg: 'bg-indigo-950/60', text: 'text-indigo-400', border: 'border-indigo-700/60', dot: 'bg-indigo-500' },
-  purple: { bg: 'bg-purple-950/60', text: 'text-purple-400', border: 'border-purple-700/60', dot: 'bg-purple-500' },
-  pink:   { bg: 'bg-pink-950/60',   text: 'text-pink-400',   border: 'border-pink-700/60',   dot: 'bg-pink-500' },
-  slate:  { bg: 'bg-slate-800/60',  text: 'text-slate-300',  border: 'border-slate-600/60',  dot: 'bg-slate-400' },
-  yellow: { bg: 'bg-yellow-950/60', text: 'text-yellow-400', border: 'border-yellow-700/60', dot: 'bg-yellow-500' },
+export type EarnedBadge = EvaluatedBadge
+
+// === 테마 ===
+const T: Record<string, BadgeTheme> = {
+  orange:  { bg: 'bg-orange-950/60',  text: 'text-orange-300',  border: 'border-orange-700/60',  dot: 'bg-orange-500'  },
+  amber:   { bg: 'bg-amber-950/60',   text: 'text-amber-300',   border: 'border-amber-700/60',   dot: 'bg-amber-500'   },
+  blue:    { bg: 'bg-blue-950/60',    text: 'text-blue-300',    border: 'border-blue-700/60',    dot: 'bg-blue-500'    },
+  sky:     { bg: 'bg-sky-950/60',     text: 'text-sky-300',     border: 'border-sky-700/60',     dot: 'bg-sky-500'     },
+  cyan:    { bg: 'bg-cyan-950/60',    text: 'text-cyan-300',    border: 'border-cyan-700/60',    dot: 'bg-cyan-500'    },
+  teal:    { bg: 'bg-teal-950/60',    text: 'text-teal-300',    border: 'border-teal-700/60',    dot: 'bg-teal-500'    },
+  green:   { bg: 'bg-green-950/60',   text: 'text-green-300',   border: 'border-green-700/60',   dot: 'bg-green-500'   },
+  emerald: { bg: 'bg-emerald-950/60', text: 'text-emerald-300', border: 'border-emerald-700/60', dot: 'bg-emerald-500' },
+  indigo:  { bg: 'bg-indigo-950/60',  text: 'text-indigo-300',  border: 'border-indigo-700/60',  dot: 'bg-indigo-500'  },
+  purple:  { bg: 'bg-purple-950/60',  text: 'text-purple-300',  border: 'border-purple-700/60',  dot: 'bg-purple-500'  },
+  violet:  { bg: 'bg-violet-950/60',  text: 'text-violet-300',  border: 'border-violet-700/60',  dot: 'bg-violet-500'  },
 }
 
+// === 뱃지 정의 20개 ===
 export const BADGE_DEFINITIONS: BadgeDefinition[] = [
-  // ─── 클러치 ───
+
+  // -- 공격 (5) --
   {
-    code: 'FOURTH_QUARTER_MAN',
-    name: '4쿼터의 사나이',
-    icon: '⏰',
-    description: '승부처에서 빛나는 선수. 커리어 득점의 40% 이상을 4쿼터에서 기록',
-    criteria: 'Q4 득점 / 총 득점 ≥ 40% (최소 5경기, 총 30득점 이상)',
-    category: 'clutch',
-    theme: T.red,
-    minGames: 5,
+    code: 'PAINT_BUSTER', name: '골밑파괴자', icon: '\u2694\ufe0f', category: 'attack', theme: T.orange, minGames: 3, unit: '%',
+    description: '포스트슛으로 골밑을 지배하는 인사이드 킬러',
+    criteria: '포스트슛 시도 비중 \u226535% & 성공률 \u226540% (최소 10회 시도)',
   },
   {
-    code: 'ICE_IN_VEINS',
-    name: '강심장',
-    icon: '🧊',
-    description: '압박 상황에서도 자유투를 꽂아넣는 멘탈. FTA 팀 평균 이상 + FT% 70%',
-    criteria: 'FTA/G ≥ 팀평균 & FT% ≥ 70% (최소 20시도)',
-    category: 'clutch',
-    theme: T.blue,
-    minGames: 5,
+    code: 'GLASS_EATER', name: '로드맨', icon: '\ud83d\udcaa', category: 'attack', theme: T.amber, minGames: 3, unit: '%',
+    description: 'Dennis Rodman 계보의 공격 리바운드 기계',
+    criteria: '공격 리바운드 / 전체 리바운드 \u226535% (최소 15개)',
+  },
+  {
+    code: 'FINISHER', name: '피니셔', icon: '\ud83c\udfc3', category: 'attack', theme: T.orange, minGames: 3, unit: '%',
+    description: '빠른 발과 감각으로 레이업을 완성하는 마무리 전문가',
+    criteria: '레이업 시도 비중 \u226525% & 성공률 \u226540% (최소 10회 시도)',
+  },
+  {
+    code: 'CLUTCH_Q4', name: '4쿼터의 사나이', icon: '\u23f0', category: 'attack', theme: T.amber, minGames: 3, unit: '%',
+    description: '4쿼터에서 더욱 강해지는 클러치 플레이어',
+    criteria: '4쿼터 득점 / 총 득점 \u226535% (총 득점 30점 이상)',
+  },
+  {
+    code: 'SCORING_MACHINE', name: '득점 화신', icon: '\ud83d\udd25', category: 'attack', theme: T.orange, minGames: 3, unit: 'PPG',
+    description: '팀 평균 1.5배 이상을 혼자 책임지는 에이스 스코어러',
+    criteria: 'PPG \u2265 팀 평균 \xd7 1.5배 (최소 3경기)',
   },
 
-  // ─── 득점 ───
+  // -- 슈팅 (5) --
   {
-    code: 'SNIPER',
-    name: '3점 저격수',
-    icon: '🏹',
-    description: '팀 평균 이상 3점을 쏘면서 35% 이상 성공. 외곽 지향 슈터',
-    criteria: '3PA/G ≥ 팀평균 & 3P% ≥ 35% (최소 3PA×5경기)',
-    category: 'scoring',
-    theme: T.purple,
-    minGames: 5,
+    code: 'JUNG_DAEMAN', name: '정대만', icon: '\ud83c\udfaf', category: 'shooting', theme: T.blue, minGames: 3, unit: '%',
+    description: '슛이 전부다. FGA의 55% 이상을 3점슛으로만 해결',
+    criteria: '3점슛 시도 / 전체 FGA \u226555% (최소 15회 3점 시도)',
   },
   {
-    code: 'PAINT_MASTER',
-    name: '골밑 지배자',
-    icon: '🏛️',
-    description: '전체 슛의 80% 이상이 2점 슛이고 2P FG% 50% 이상인 인사이드 킬러',
-    criteria: '2P FGM / 전체 FGM ≥ 80% & 2P FG% ≥ 50% (최소 FGA 20)',
-    category: 'scoring',
-    theme: T.orange,
-    minGames: 5,
+    code: 'DONG_HO_CURRY', name: '동호회커리', icon: '\ud83c\udf5b', category: 'shooting', theme: T.sky, minGames: 3, unit: '%',
+    description: '3점슛 성공률 35% 이상의 준수한 외곽 슈터',
+    criteria: '3점슛 성공률 \u226535% (최소 15회 시도)',
   },
   {
-    code: 'FLAMETHROWER',
-    name: '득점 화신',
-    icon: '🔥',
-    description: '경기당 20점 이상을 꾸준히 뽑아내는 팀의 에이스 스코어러',
-    criteria: 'PPG ≥ 20.0 (최소 5경기)',
-    category: 'scoring',
-    theme: T.amber,
-    minGames: 5,
+    code: 'ICE_VEINS', name: '강심장', icon: '\ud83e\uddca', category: 'shooting', theme: T.cyan, minGames: 3, unit: '%',
+    description: '긴장된 순간에도 자유투를 확실히 꽂아넣는 철의 멘탈',
+    criteria: 'FT% \u226570% & FTA \u2265 팀 평균 (최소 15회 시도)',
   },
   {
-    code: 'FOUL_MAGNET',
-    name: '파울 자판기',
-    icon: '📢',
-    description: '수비수를 괴롭혀 자유투를 뽑아내는 파울 유도 전문가',
-    criteria: 'FTA/G ≥ 팀 평균의 1.5배 (최소 20시도)',
-    category: 'scoring',
-    theme: T.pink,
-    minGames: 5,
+    code: 'MID_MAESTRO', name: '미드레인지 장인', icon: '\ud83d\udccd', category: 'shooting', theme: T.sky, minGames: 3, unit: '%',
+    description: '사라진 중거리를 부활시키는 정확한 미드레인지 슈터',
+    criteria: '미드레인지 시도 비중 \u226530% & 성공률 \u226540% (최소 10회 시도)',
+  },
+  {
+    code: 'EFFICIENCY_GOD', name: '효율의 신', icon: '\u2728', category: 'shooting', theme: T.blue, minGames: 3, unit: '%',
+    description: 'FG% 55% 이상의 압도적 효율로 팀을 이끄는 선수',
+    criteria: 'FG% \u226555% (최소 FGA 20회)',
   },
 
-  // ─── 리바운드 ───
+  // -- 수비 (5) --
   {
-    code: 'RODMAN',
-    name: '로드맨',
-    icon: '💪',
-    description: 'Dennis Rodman 계승자. 공격 리바운드 비중 40% 이상의 허슬맨',
-    criteria: 'OREB / 총 REB ≥ 40% (최소 REB 20개)',
-    category: 'rebounding',
-    theme: T.slate,
-    minGames: 5,
+    code: 'GLASS_CLEANER', name: '유리청소부', icon: '\ud83e\ude9f', category: 'defense', theme: T.teal, minGames: 3, unit: '%',
+    description: '상대 2차 공격을 원천 봉쇄하는 수비 리바운드 전문가',
+    criteria: '수비 리바운드 / 전체 리바운드 \u226560% (최소 15개)',
   },
   {
-    code: 'GLASS_CLEANER',
-    name: '유리청소부',
-    icon: '🧹',
-    description: '수비 리바운드 전문가. DREB 비중 70% 이상으로 상대 2차 공격 원천 차단',
-    criteria: 'DREB / 총 REB ≥ 70% (최소 REB 20개)',
-    category: 'rebounding',
-    theme: T.teal,
-    minGames: 5,
-  },
-
-  // ─── 수비 ───
-  {
-    code: 'PICKPOCKET',
-    name: '소매치기',
-    icon: '🥷',
-    description: '상대 볼을 빼앗는 수비 전문가. SPG 2.0 이상 + 팀 평균 초과',
-    criteria: 'SPG ≥ 2.0 & 팀 평균 이상 (최소 5경기)',
-    category: 'defense',
-    theme: T.indigo,
-    minGames: 5,
+    code: 'PICKPOCKET', name: '대도', icon: '\ud83e\uddb5', category: 'defense', theme: T.green, minGames: 3, unit: 'SPG',
+    description: '날카로운 눈과 빠른 손으로 볼을 낚아채는 스틸 전문가',
+    criteria: 'SPG \u2265 팀 평균 \xd7 2배 (최소 3경기)',
   },
   {
-    code: 'RIM_PROTECTOR',
-    name: '골밑 수문장',
-    icon: '🛡️',
-    description: '골밑의 수호자. BPG 1.5 이상 + 팀 평균 초과',
-    criteria: 'BPG ≥ 1.5 & 팀 평균 이상 (최소 5경기)',
-    category: 'defense',
-    theme: T.green,
-    minGames: 5,
+    code: 'SHOT_BLOCKER', name: '골밑 수문장', icon: '\ud83d\udee1\ufe0f', category: 'defense', theme: T.emerald, minGames: 3, unit: 'BPG',
+    description: '골밑을 지키는 수호자. 상대의 슛을 걷어내는 블로킹 전문가',
+    criteria: 'BPG \u2265 팀 평균 \xd7 2배 (최소 3경기)',
+  },
+  {
+    code: 'HUSTLE_KING', name: '허슬킹', icon: '\u26a1', category: 'defense', theme: T.green, minGames: 3, unit: '/G',
+    description: '스틸+블록+수비리바운드 합산이 팀 평균의 1.3배 이상',
+    criteria: '(STL+BLK+DREB)/경기 \u2265 팀 평균 \xd7 1.3배 (최소 3경기)',
+  },
+  {
+    code: 'IRON_MAN', name: '철인', icon: '\u2699\ufe0f', category: 'defense', theme: T.teal, minGames: 3, unit: '%',
+    description: '팀 전체 경기의 90% 이상을 출전하는 헌신 그 자체',
+    criteria: '출전 경기 / 팀 전체 경기 \u226590% (최소 3경기)',
   },
 
-  // ─── 플레이메이킹 ───
+  // -- 플레이메이킹 (5) --
   {
-    code: 'MAESTRO',
-    name: '지휘자',
-    icon: '🎼',
-    description: '경기를 꿰뚫어 보는 눈을 가진 플레이메이커. APG 5 이상 + AST/TOV 2 이상',
-    criteria: 'APG ≥ 5.0 & AST/TOV ≥ 2.0 (최소 5경기)',
-    category: 'playmaking',
-    theme: T.yellow,
-    minGames: 5,
+    code: 'CLEAN_HANDS', name: '안전운반', icon: '\ud83e\udd1d', category: 'playmaking', theme: T.purple, minGames: 3, unit: 'AST/TOV',
+    description: '볼을 잃지 않는 안정적인 볼 핸들러. AST/TOV 2.0 이상',
+    criteria: 'AST/TOV \u22652.0 (최소 어시스트 10개)',
   },
   {
-    code: 'SAFE_HANDS',
-    name: '안전한 손',
-    icon: '🤲',
-    description: '볼을 잃지 않는 볼 핸들러. AST/TOV 비율 3.0 이상',
-    criteria: 'AST/TOV ≥ 3.0 & 총 AST ≥ 15 (최소 5경기)',
-    category: 'playmaking',
-    theme: T.teal,
-    minGames: 5,
-  },
-
-  // ─── 특수 ───
-  {
-    code: 'STAT_STUFFER',
-    name: '만능재주꾼',
-    icon: '🎭',
-    description: '득점·리바·어시 가리지 않는 팔방미인. 더블더블 3회 이상 또는 트리플더블 1회',
-    criteria: '더블더블 ≥ 3 또는 트리플더블 ≥ 1 (최소 5경기)',
-    category: 'special',
-    theme: T.purple,
-    minGames: 5,
+    code: 'KICKOUT', name: '킥아웃 전도사', icon: '\ud83c\udfa6', category: 'playmaking', theme: T.violet, minGames: 3, unit: '%',
+    description: '어시스트의 40% 이상이 3점슛으로 이어지는 외곽 연결 플레이메이커',
+    criteria: '3점 연결 어시스트 / 전체 어시스트 \u226540% (최소 어시스트 10개)',
   },
   {
-    code: 'IRON_MAN',
-    name: '철인',
-    icon: '🦾',
-    description: '팀의 모든 경기에 빠짐없이 참여하는 헌신과 체력의 아이콘',
-    criteria: '전체 팀 경기의 80% 이상 출전 (최소 5경기)',
-    category: 'special',
-    theme: T.amber,
-    minGames: 5,
+    code: 'FLOOR_GENERAL', name: '지휘자', icon: '\ud83d\udc51', category: 'playmaking', theme: T.indigo, minGames: 3, unit: 'APG',
+    description: '경기 전체를 조율하는 사령탑. APG가 팀 평균의 1.5배 이상',
+    criteria: 'APG \u2265 팀 평균 \xd7 1.5배 (최소 어시스트 10개)',
+  },
+  {
+    code: 'DOUBLE_DOUBLE', name: '만능재주꾼', icon: '\ud83d\udcca', category: 'playmaking', theme: T.purple, minGames: 3, unit: '%',
+    description: '두 스탯을 동시에 두 자릿수로 채우는 팔방미인',
+    criteria: '더블더블 경기 비율 \u226520% (최소 3경기)',
+  },
+  {
+    code: 'ALL_ROUNDER', name: '올라운더', icon: '\ud83d\udd27', category: 'playmaking', theme: T.violet, minGames: 3, unit: '항목',
+    description: '득점·리바운드·어시스트 모두 팀 평균 이상을 기록하는 만능 선수',
+    criteria: 'PPG & RPG & APG 모두 팀 평균 이상 (최소 3경기)',
   },
 ]
 
-interface PlayerCareerInput {
+// === 입력 타입 ===
+export interface PlayerCareerInput {
   gamesPlayed: number
   totalTeamGames: number
   pts: number
@@ -207,139 +183,136 @@ interface PlayerCareerInput {
   astToTov: number
   doubleDoubles: number; tripleDoubles: number
   q1pts: number; q2pts: number; q3pts: number; q4pts: number
+  ast3pts?: number
+  shotBreakdown?: Record<string, { attempted: number; made: number; pct: number }>
 }
 
-interface TeamAverages {
+export interface TeamAverages {
   ftaPerGame: number
   fg3aPerGame: number
   stlPerGame: number
   blkPerGame: number
   astPerGame: number
+  ptsPerGame: number
+  rebPerGame: number
+  hustlePerGame: number
 }
 
-export function calculateBadges(
-  s: PlayerCareerInput,
-  team: TeamAverages,
-): EarnedBadge[] {
-  const earned: EarnedBadge[] = []
+// === 평가 함수 (전체 20개 반환) ===
+export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): EvaluatedBadge[] {
   const gp = s.gamesPlayed
-  const def = (code: string) => BADGE_DEFINITIONS.find(b => b.code === code)!
+  const sb = s.shotBreakdown ?? {}
+  const trackedFGA = Object.values(sb).reduce((sum, v) => sum + v.attempted, 0)
+  const shotSharePct = (key: string) => trackedFGA > 0 ? (sb[key]?.attempted ?? 0) / trackedFGA * 100 : 0
+  const shotSuccPct  = (key: string) => {
+    const a = sb[key]?.attempted ?? 0
+    return a > 0 ? (sb[key]?.made ?? 0) / a * 100 : 0
+  }
+  const r = (v: number, d = 1) => Math.round(v * Math.pow(10, d)) / Math.pow(10, d)
 
-  function push(code: string, achievedValue: number, threshold: number, tooltip: string) {
-    earned.push({ ...def(code), achievedValue, threshold, tooltip })
+  function make(
+    code: string, earned: boolean,
+    av: number, th: number,
+    avLabel: string, thLabel: string,
+  ): EvaluatedBadge {
+    const def = BADGE_DEFINITIONS.find(b => b.code === code)!
+    return { ...def, earned, achievedValue: av, threshold: th, achievedLabel: avLabel, thresholdLabel: thLabel }
   }
 
-  // 4쿼터의 사나이
-  if (gp >= 5 && s.pts >= 30) {
-    const ratio = s.pts > 0 ? s.q4pts / s.pts : 0
-    if (ratio >= 0.4) {
-      push('FOURTH_QUARTER_MAN', Math.round(ratio * 1000) / 10, 40,
-        `4쿼터 ${s.q4pts}pts / 총 ${s.pts}pts = ${Math.round(ratio * 1000) / 10}%`)
-    }
-  }
+  const ok = (cond: boolean) => gp >= 3 && cond
+  const results: EvaluatedBadge[] = []
 
-  // 강심장
+  // ---- 공격 ----
+  const postPct  = shotSharePct('shot_post');  const postSP   = shotSuccPct('shot_post');  const postA = sb['shot_post']?.attempted ?? 0
+  results.push(make('PAINT_BUSTER', ok(postA >= 10 && postPct >= 35 && postSP >= 40),
+    r(postPct), 35, `포스트슛 비중 ${r(postPct)}% (성공률 ${r(postSP, 0)}%)`, '기준: 비중\u226535%, 성공률\u226540%, 최소10회'))
+
+  const orebPct = s.reb > 0 ? s.oreb / s.reb * 100 : 0
+  results.push(make('GLASS_EATER', ok(s.reb >= 15 && orebPct >= 35),
+    r(orebPct), 35, `공격리바 비중 ${r(orebPct)}% (${s.oreb}/${s.reb})`, '기준: OREB/REB\u226535%, 최소15개'))
+
+  const layupPct = shotSharePct('shot_layup'); const layupSP = shotSuccPct('shot_layup'); const layupA = sb['shot_layup']?.attempted ?? 0
+  results.push(make('FINISHER', ok(layupA >= 10 && layupPct >= 25 && layupSP >= 40),
+    r(layupPct), 25, `레이업 비중 ${r(layupPct)}% (성공률 ${r(layupSP, 0)}%)`, '기준: 비중\u226525%, 성공률\u226540%, 최소10회'))
+
+  const q4Ratio = s.pts > 0 ? s.q4pts / s.pts * 100 : 0
+  results.push(make('CLUTCH_Q4', ok(s.pts >= 30 && q4Ratio >= 35),
+    r(q4Ratio), 35, `4Q ${s.q4pts}pts / 합계 ${s.pts}pts = ${r(q4Ratio)}%`, '기준: 4Q득점 비중\u226535%, 총득점30+'))
+
+  const smTh = r(team.ptsPerGame * 1.5)
+  results.push(make('SCORING_MACHINE', ok(team.ptsPerGame > 0 && s.ppg >= team.ptsPerGame * 1.5),
+    r(s.ppg), smTh, `PPG ${r(s.ppg)} (팀 평균 ${r(team.ptsPerGame)})`, `기준: PPG\u2265${smTh} (팀평균\xd71.5배)`))
+
+  // ---- 슈팅 ----
+  const threeShare = s.fga > 0 ? s.fg3a / s.fga * 100 : 0
+  results.push(make('JUNG_DAEMAN', ok(s.fg3a >= 15 && threeShare >= 55),
+    r(threeShare), 55, `3점슛 비중 ${r(threeShare)}% (${s.fg3a}/${s.fga})`, '기준: 3PA/FGA\u226555%, 최소15회'))
+
+  results.push(make('DONG_HO_CURRY', ok(s.fg3a >= 15 && s.fg3Pct >= 35),
+    r(s.fg3Pct), 35, `3점슛 성공률 ${r(s.fg3Pct)}% (${s.fg3m}/${s.fg3a})`, '기준: 3P%\u226535%, 최소15회'))
+
   const ftaPerGame = gp > 0 ? s.fta / gp : 0
-  if (gp >= 5 && s.fta >= 20 && ftaPerGame >= team.ftaPerGame && s.ftPct >= 70) {
-    push('ICE_IN_VEINS', s.ftPct, 70,
-      `FT ${s.ftm}/${s.fta} (${s.ftPct}%) · 팀평균 FTA ${team.ftaPerGame.toFixed(1)}/G`)
-  }
+  results.push(make('ICE_VEINS', ok(s.fta >= 15 && s.ftPct >= 70 && ftaPerGame >= team.ftaPerGame),
+    r(s.ftPct), 70, `FT ${s.ftm}/${s.fta} = ${r(s.ftPct)}%`, '기준: FT%\u226570%, FTA\u2265팀평균'))
 
-  // 3점 저격수
-  const fg3aPerGame = gp > 0 ? s.fg3a / gp : 0
-  if (gp >= 5 && s.fg3a >= 15 && fg3aPerGame >= team.fg3aPerGame && s.fg3Pct >= 35) {
-    push('SNIPER', s.fg3Pct, 35,
-      `3P ${s.fg3m}/${s.fg3a} (${s.fg3Pct}%) · 경기당 ${fg3aPerGame.toFixed(1)}시도`)
-  }
+  const midPct = shotSharePct('shot_2p_mid'); const midSP = shotSuccPct('shot_2p_mid'); const midA = sb['shot_2p_mid']?.attempted ?? 0
+  results.push(make('MID_MAESTRO', ok(midA >= 10 && midPct >= 30 && midSP >= 40),
+    r(midPct), 30, `미드레인지 비중 ${r(midPct)}% (성공률 ${r(midSP, 0)}%)`, '기준: 비중\u226530%, 성공률\u226540%, 최소10회'))
 
-  // 골밑 지배자
-  if (gp >= 5 && s.fga >= 20) {
-    const fg2Ratio = s.fgm > 0 ? s.fg2m / s.fgm : 0
-    const fg2Pct = s.fg2a > 0 ? (s.fg2m / s.fg2a) * 100 : 0
-    if (fg2Ratio >= 0.8 && fg2Pct >= 50) {
-      push('PAINT_MASTER', Math.round(fg2Ratio * 1000) / 10, 80,
-        `2점 슛 ${s.fg2m}/${s.fg2a} (${Math.round(fg2Pct)}%) · 비중 ${Math.round(fg2Ratio * 100)}%`)
-    }
-  }
+  const fgPct = s.fga > 0 ? s.fgm / s.fga * 100 : 0
+  results.push(make('EFFICIENCY_GOD', ok(s.fga >= 20 && fgPct >= 55),
+    r(fgPct), 55, `FG% ${r(fgPct)}% (${s.fgm}/${s.fga})`, '기준: FG%\u226555%, 최소FGA20회'))
 
-  // 득점 화신
-  if (gp >= 5 && s.ppg >= 20) {
-    push('FLAMETHROWER', s.ppg, 20, `PPG ${s.ppg.toFixed(1)}`)
-  }
+  // ---- 수비 ----
+  const drebPct = s.reb > 0 ? s.dreb / s.reb * 100 : 0
+  results.push(make('GLASS_CLEANER', ok(s.reb >= 15 && drebPct >= 60),
+    r(drebPct), 60, `수비리바 비중 ${r(drebPct)}% (${s.dreb}/${s.reb})`, '기준: DREB/REB\u226560%, 최소15개'))
 
-  // 파울 자판기
-  if (gp >= 5 && s.fta >= 20 && ftaPerGame >= team.ftaPerGame * 1.5) {
-    push('FOUL_MAGNET', Math.round(ftaPerGame * 10) / 10, Math.round(team.ftaPerGame * 1.5 * 10) / 10,
-      `FTA ${s.fta}회 · 경기당 ${ftaPerGame.toFixed(1)} (팀평균 ${team.ftaPerGame.toFixed(1)})`)
-  }
+  const ppTh = r(team.stlPerGame * 2)
+  results.push(make('PICKPOCKET', ok(team.stlPerGame > 0 && s.spg >= team.stlPerGame * 2),
+    r(s.spg), ppTh, `SPG ${r(s.spg)} (팀 평균 ${r(team.stlPerGame)})`, `기준: SPG\u2265${ppTh} (팀평균\xd72배)`))
 
-  // 로드맨
-  if (gp >= 5 && s.reb >= 20) {
-    const orebRatio = s.reb > 0 ? (s.oreb / s.reb) * 100 : 0
-    if (orebRatio >= 40) {
-      push('RODMAN', Math.round(orebRatio * 10) / 10, 40,
-        `OREB ${s.oreb} / 총 REB ${s.reb} = ${Math.round(orebRatio * 10) / 10}%`)
-    }
-  }
+  const sbTh = r(team.blkPerGame * 2)
+  results.push(make('SHOT_BLOCKER', ok(team.blkPerGame > 0 && s.bpg >= team.blkPerGame * 2),
+    r(s.bpg), sbTh, `BPG ${r(s.bpg)} (팀 평균 ${r(team.blkPerGame)})`, `기준: BPG\u2265${sbTh} (팀평균\xd72배)`))
 
-  // 유리청소부
-  if (gp >= 5 && s.reb >= 20) {
-    const drebRatio = s.reb > 0 ? (s.dreb / s.reb) * 100 : 0
-    if (drebRatio >= 70) {
-      push('GLASS_CLEANER', Math.round(drebRatio * 10) / 10, 70,
-        `DREB ${s.dreb} / 총 REB ${s.reb} = ${Math.round(drebRatio * 10) / 10}%`)
-    }
-  }
+  const hustlePerGame = gp > 0 ? (s.stl + s.blk + s.dreb) / gp : 0
+  const hustleTh = r(team.hustlePerGame * 1.3)
+  results.push(make('HUSTLE_KING', ok(team.hustlePerGame > 0 && hustlePerGame >= team.hustlePerGame * 1.3),
+    r(hustlePerGame), hustleTh, `허슬 ${r(hustlePerGame)}/G (팀 평균 ${r(team.hustlePerGame)})`,
+    `기준: (STL+BLK+DREB)/G\u2265${hustleTh} (팀평균\xd71.3배)`))
 
-  // 소매치기
-  if (gp >= 5 && s.spg >= 2.0 && s.spg > team.stlPerGame) {
-    push('PICKPOCKET', s.spg, 2.0,
-      `SPG ${s.spg.toFixed(1)} · 팀평균 ${team.stlPerGame.toFixed(1)}`)
-  }
+  const attendPct = s.totalTeamGames > 0 ? s.gamesPlayed / s.totalTeamGames * 100 : 0
+  results.push(make('IRON_MAN', ok(s.totalTeamGames > 0 && attendPct >= 90),
+    r(attendPct, 0), 90, `출전율 ${r(attendPct, 0)}% (${s.gamesPlayed}/${s.totalTeamGames})`, '기준: 출전율\u226590%'))
 
-  // 골밑 수문장
-  if (gp >= 5 && s.bpg >= 1.5 && s.bpg > team.blkPerGame) {
-    push('RIM_PROTECTOR', s.bpg, 1.5,
-      `BPG ${s.bpg.toFixed(1)} · 팀평균 ${team.blkPerGame.toFixed(1)}`)
-  }
+  // ---- 플레이메이킹 ----
+  results.push(make('CLEAN_HANDS', ok(s.ast >= 10 && s.astToTov >= 2.0),
+    r(s.astToTov), 2.0, `AST/TOV ${r(s.astToTov)} (A${s.ast} T${s.tov})`, '기준: AST/TOV\u22652.0, 최소AST10'))
 
-  // 지휘자
-  if (gp >= 5 && s.apg >= 5.0 && s.astToTov >= 2.0) {
-    push('MAESTRO', s.apg, 5.0,
-      `APG ${s.apg.toFixed(1)} · AST/TOV ${s.astToTov.toFixed(1)}`)
-  }
+  const ast3r = s.ast > 0 && (s.ast3pts ?? 0) > 0 ? (s.ast3pts ?? 0) / s.ast * 100 : 0
+  results.push(make('KICKOUT', ok(s.ast >= 10 && ast3r >= 40),
+    r(ast3r), 40, `3점 어시스트 ${s.ast3pts ?? 0}/${s.ast} = ${r(ast3r)}%`, '기준: 3점연결AST\u226540%, 최소AST10'))
 
-  // 안전한 손
-  if (gp >= 5 && s.ast >= 15 && s.astToTov >= 3.0) {
-    push('SAFE_HANDS', s.astToTov, 3.0,
-      `AST/TOV ${s.astToTov.toFixed(1)} · 총 AST ${s.ast}`)
-  }
+  const fgTh = r(team.astPerGame * 1.5)
+  results.push(make('FLOOR_GENERAL', ok(s.ast >= 10 && team.astPerGame > 0 && s.apg >= team.astPerGame * 1.5),
+    r(s.apg), fgTh, `APG ${r(s.apg)} (팀 평균 ${r(team.astPerGame)})`, `기준: APG\u2265${fgTh} (팀평균\xd71.5배), 최소AST10`))
 
-  // 만능재주꾼
-  if (gp >= 5 && (s.doubleDoubles >= 3 || s.tripleDoubles >= 1)) {
-    const val = s.tripleDoubles >= 1 ? s.tripleDoubles : s.doubleDoubles
-    const thr = s.tripleDoubles >= 1 ? 1 : 3
-    const label = s.tripleDoubles >= 1 ? `트리플더블 ${s.tripleDoubles}회` : `더블더블 ${s.doubleDoubles}회`
-    push('STAT_STUFFER', val, thr, label)
-  }
+  const ddRatio = gp > 0 ? s.doubleDoubles / gp * 100 : 0
+  results.push(make('DOUBLE_DOUBLE', ok(ddRatio >= 20),
+    r(ddRatio, 0), 20, `더블더블 ${s.doubleDoubles}/${gp} = ${r(ddRatio, 0)}%`, '기준: DD비율\u226520%'))
 
-  // 철인
-  if (gp >= 5 && s.totalTeamGames > 0) {
-    const attendance = s.gamesPlayed / s.totalTeamGames
-    if (attendance >= 0.8) {
-      push('IRON_MAN', Math.round(attendance * 1000) / 10, 80,
-        `${s.gamesPlayed} / ${s.totalTeamGames}경기 출전 (${Math.round(attendance * 100)}%)`)
-    }
-  }
+  const arPts = team.ptsPerGame > 0 && s.ppg >= team.ptsPerGame
+  const arReb = team.rebPerGame > 0 && s.rpg >= team.rebPerGame
+  const arAst = team.astPerGame > 0 && s.apg >= team.astPerGame
+  const arCount = [arPts, arReb, arAst].filter(Boolean).length
+  const arLabel = `PTS${arPts ? '\u2705' : '\u274c'} REB${arReb ? '\u2705' : '\u274c'} AST${arAst ? '\u2705' : '\u274c'}`
+  results.push(make('ALL_ROUNDER', ok(arPts && arReb && arAst), arCount, 3, arLabel,
+    `기준: PPG\u2265${r(team.ptsPerGame)} & RPG\u2265${r(team.rebPerGame)} & APG\u2265${r(team.astPerGame)}`))
 
-  return earned
+  return results
 }
 
-export const CATEGORY_LABELS: Record<BadgeCategory, string> = {
-  clutch: '클러치',
-  scoring: '득점',
-  rebounding: '리바운드',
-  defense: '수비',
-  playmaking: '플레이메이킹',
-  special: '특수',
+export function calculateBadges(s: PlayerCareerInput, team: TeamAverages): EarnedBadge[] {
+  return evaluateAllBadges(s, team).filter(b => b.earned)
 }

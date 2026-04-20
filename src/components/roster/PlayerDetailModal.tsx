@@ -5,9 +5,10 @@ import { X, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
-import { calculateBadges, CATEGORY_LABELS } from '@/lib/stats/badges'
-import type { EarnedBadge } from '@/lib/stats/badges'
+import { evaluateAllBadges, CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/stats/badges'
+import type { EvaluatedBadge } from '@/lib/stats/badges'
 
+const BadgeMasterbook = dynamic(() => import('@/components/roster/BadgeMasterbook'), { ssr: false })
 const GameBoxScoreModal = dynamic(() => import('@/components/GameBoxScoreModal'), { ssr: false })
 
 interface ShotStat { label: string; made: number; attempted: number; pct: number }
@@ -110,7 +111,9 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
   const [chartMetric, setChartMetric] = useState<'PPG' | 'RPG' | 'APG' | 'FG%' | '3P%'>('PPG')
   const [awards, setAwards] = useState<{ mvp_count: number; xfactor_count: number; warrior_count: number } | null>(null)
   const [quarterPts, setQuarterPts] = useState<{ q1: number; q2: number; q3: number; q4: number } | null>(null)
-  const [earnedBadges, setEarnedBadges] = useState<EarnedBadge[]>([])
+  const [evaluatedBadges, setEvaluatedBadges] = useState<EvaluatedBadge[]>([])
+  const [activeBadgeCode, setActiveBadgeCode] = useState<string | null>(null)
+  const [masterbookOpen, setMasterbookOpen] = useState(false)
   const [boxScoreGame, setBoxScoreGame] = useState<{ game_id: string; date: string; opponent: string; round: string | null; our_score: number; opponent_score: number; tournament_name: string } | null>(null)
 
   useEffect(() => {
@@ -162,11 +165,14 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const avg = (fn: (p: any) => number) => active.reduce((s: number, p: any) => s + fn(p), 0) / active.length
         const teamAvg = {
-          ftaPerGame: avg((p) => p.games_played > 0 ? (p.fta ?? 0) / p.games_played : 0),
-          fg3aPerGame: avg((p) => p.games_played > 0 ? (p.fg3a ?? 0) / p.games_played : 0),
-          stlPerGame: avg((p) => p.games_played > 0 ? (p.stl ?? 0) / p.games_played : 0),
-          blkPerGame: avg((p) => p.games_played > 0 ? (p.blk ?? 0) / p.games_played : 0),
-          astPerGame: avg((p) => p.games_played > 0 ? (p.ast ?? 0) / p.games_played : 0),
+          ftaPerGame:   avg(p => p.games_played > 0 ? (p.fta  ?? 0) / p.games_played : 0),
+          fg3aPerGame:  avg(p => p.games_played > 0 ? (p.fg3a ?? 0) / p.games_played : 0),
+          stlPerGame:   avg(p => p.games_played > 0 ? (p.stl  ?? 0) / p.games_played : 0),
+          blkPerGame:   avg(p => p.games_played > 0 ? (p.blk  ?? 0) / p.games_played : 0),
+          astPerGame:   avg(p => p.games_played > 0 ? (p.ast  ?? 0) / p.games_played : 0),
+          ptsPerGame:   avg(p => p.pts_avg ?? 0),
+          rebPerGame:   avg(p => p.reb_avg ?? 0),
+          hustlePerGame: avg(p => p.games_played > 0 ? ((p.stl ?? 0) + (p.blk ?? 0) + (p.dreb ?? 0)) / p.games_played : 0),
         }
 
         // 선수 시즌 스탯
@@ -193,7 +199,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
           else if (cats >= 2) doubleDoubles++
         }
 
-        const badges = calculateBadges({
+        const allBadges = evaluateAllBadges({
           gamesPlayed: gp,
           totalTeamGames: data.totalGames ?? gp,
           pts: me.pts ?? 0,
@@ -214,9 +220,11 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
           q2pts: quarterPts?.q2 ?? 0,
           q3pts: quarterPts?.q3 ?? 0,
           q4pts: quarterPts?.q4 ?? 0,
+          ast3pts: me.ast3pts ?? 0,
+          shotBreakdown,
         }, teamAvg)
 
-        setEarnedBadges(badges)
+        setEvaluatedBadges(allBadges)
       })
   }, [playerId, quarterPts])
 
@@ -380,21 +388,70 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                     )}
 
                     {/* 능력 뱃지 */}
-                    {earnedBadges.length > 0 && (
-                      <div className="flex items-start gap-2 px-5 py-3 border-t border-gray-800/60 flex-wrap" style={{ background: '#070E1A' }}>
-                        <span className="text-xs text-gray-600 uppercase tracking-wider mr-1 mt-0.5 shrink-0">Badges</span>
-                        {earnedBadges.map(badge => (
-                          <div
-                            key={badge.code}
-                            title={badge.tooltip}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold cursor-default ${badge.theme.bg} ${badge.theme.text} ${badge.theme.border}`}
-                          >
-                            <span>{badge.icon}</span>
-                            <span>{badge.name}</span>
+                    {evaluatedBadges.length > 0 && (() => {
+                      const earnedBadges = evaluatedBadges.filter(b => b.earned)
+                      const activeBadge = evaluatedBadges.find(b => b.code === activeBadgeCode)
+                      return (
+                        <div className="border-t border-gray-800/60" style={{ background: '#070E1A' }}>
+                          {/* 뱃지 행 */}
+                          <div className="flex items-start gap-2 px-5 py-3 flex-wrap">
+                            <span className="text-xs text-gray-600 uppercase tracking-wider mr-1 mt-0.5 shrink-0">Badges</span>
+                            {earnedBadges.length === 0 && (
+                              <span className="text-xs text-gray-700 italic mt-0.5">아직 달성한 뱃지가 없습니다</span>
+                            )}
+                            {earnedBadges.map(badge => {
+                              const colors = CATEGORY_COLORS[badge.category]
+                              const isActive = activeBadgeCode === badge.code
+                              return (
+                                <button
+                                  key={badge.code}
+                                  onClick={() => setActiveBadgeCode(isActive ? null : badge.code)}
+                                  onMouseEnter={() => setActiveBadgeCode(badge.code)}
+                                  onMouseLeave={() => setActiveBadgeCode(null)}
+                                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold cursor-pointer transition-all
+                                    ${colors.badge} ${isActive ? 'ring-1 ring-white/30 scale-105' : 'hover:scale-105'}`}
+                                >
+                                  <span>{badge.icon}</span>
+                                  <span>{badge.name}</span>
+                                </button>
+                              )
+                            })}
+                            <button
+                              onClick={() => setMasterbookOpen(true)}
+                              className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-700/50 bg-gray-800/40 text-xs text-gray-500 hover:text-gray-300 hover:border-gray-600 transition-colors cursor-pointer"
+                            >
+                              <span>📖</span>
+                              <span>도감</span>
+                            </button>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          {/* 뱃지 상세 패널 (클릭/호버 시) */}
+                          {activeBadge && (
+                            <div className="mx-5 mb-3 rounded-xl border border-gray-700/50 bg-gray-900/80 p-3">
+                              <div className="flex items-start gap-2.5 mb-2">
+                                <span className="text-2xl">{activeBadge.icon}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-bold text-white">{activeBadge.name}</span>
+                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[activeBadge.category].badge}`}>
+                                      {CATEGORY_LABELS[activeBadge.category]}
+                                    </span>
+                                    <span className="text-xs text-green-400 font-bold">✅ 달성</span>
+                                  </div>
+                                  <p className="text-xs text-gray-400 mt-0.5">{activeBadge.description}</p>
+                                </div>
+                              </div>
+                              <div className="border-t border-gray-700/40 pt-2 space-y-1.5">
+                                <p className="text-[11px] text-gray-500">{activeBadge.thresholdLabel}</p>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-400">달성값</span>
+                                  <span className="text-sm font-bold text-white">{activeBadge.achievedLabel}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
 
                     {/* 주요 스탯 바 */}
                     {totalGP > 0 && (() => {
@@ -839,6 +896,12 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
         <GameBoxScoreModal
           gameInfo={boxScoreGame}
           onClose={() => setBoxScoreGame(null)}
+        />
+      )}
+      {masterbookOpen && (
+        <BadgeMasterbook
+          evaluatedBadges={evaluatedBadges.length > 0 ? evaluatedBadges : undefined}
+          onClose={() => setMasterbookOpen(false)}
         />
       )}
     </div>
