@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { cn, sortJerseyNum } from '@/lib/utils'
 import { Plus, Trash2, ChevronDown, ChevronRight, Undo2, Pencil, Check, X } from 'lucide-react'
 import OpponentYouTubePlayer from '@/components/record/OpponentYouTubePlayer'
 import { formatTimestamp } from '@/lib/youtube/utils'
@@ -254,7 +254,7 @@ export default function OpponentPage() {
 
   useEffect(() => {
     if (!selectedTeam) return
-    fetch(`/api/opponent-players?teamId=${selectedTeam.id}`).then(r => r.json()).then((data: OppPlayer[]) => setPlayers([...data].sort((a, b) => Number(a.number) - Number(b.number))))
+    fetch(`/api/opponent-players?teamId=${selectedTeam.id}`).then(r => r.json()).then((data: OppPlayer[]) => setPlayers([...data].sort((a, b) => sortJerseyNum(a.number, b.number))))
     fetch(`/api/opponent-games?teamId=${selectedTeam.id}`).then(r => r.json()).then(setGames)
     setSelectedGame(null); setStats(null)
   }, [selectedTeam])
@@ -295,7 +295,7 @@ export default function OpponentPage() {
     const res = await fetch('/api/opponent-players', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ team_id: selectedTeam.id, number: newPlayerNumber.trim() }) })
     if (!res.ok) { toast.error('선수 추가 실패'); return }
     const p = await res.json()
-    setPlayers(prev => [...prev, p].sort((a, b) => Number(a.number) - Number(b.number)))
+    setPlayers(prev => [...prev, p].sort((a, b) => sortJerseyNum(a.number, b.number)))
     setNewPlayerNumber('')
   }
 
@@ -913,6 +913,10 @@ export default function OpponentPage() {
                       return 0
                     }
                     const sorted = [...stats.players].sort((a, b) => {
+                      if (sortKey === 'number') {
+                        const r = sortJerseyNum(a.player_number, b.player_number)
+                        return sortDir === 'desc' ? -r : r
+                      }
                       const va = getValue(a, sortKey), vb = getValue(b, sortKey)
                       return sortDir === 'desc' ? vb - va : va - vb
                     })

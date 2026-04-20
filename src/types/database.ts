@@ -24,7 +24,7 @@ export type Position = 'PG' | 'SG' | 'SF' | 'PF' | 'C' | ''
 
 export interface Player {
   id: string
-  number: number
+  number: string
   name: string
   position?: string
   birthdate?: string
@@ -98,7 +98,7 @@ export interface PlayerMinutes {
 export interface PlayerBoxScore {
   player_id: string
   player_name: string
-  player_number: number
+  player_number: string
   min: number
   pts: number
   fgm: number

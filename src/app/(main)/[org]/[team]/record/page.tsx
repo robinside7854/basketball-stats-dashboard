@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
+import { sortJerseyNum } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
@@ -333,7 +334,7 @@ function RecordPageInner() {
           ? allPlayers.filter(p => tournamentPlayerIds.includes(p.id))
           : allPlayers)
       : allPlayers
-    return [...base].sort((a, b) => a.number - b.number)
+    return [...base].sort((a, b) => sortJerseyNum(a.number, b.number))
   }, [allPlayers, tournamentPlayerIds])
 
   const selectedTournament = tournaments.find(t => t.id === selectedTId)

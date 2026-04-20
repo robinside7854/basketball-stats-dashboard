@@ -1,12 +1,13 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { sortJerseyNum } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { Tournament, PlayerBoxScore } from '@/types/database'
 
-interface AssistPlayer { id: string; name: string; number: number }
+interface AssistPlayer { id: string; name: string; number: string }
 interface ScorerStat {
-  playerId: string; playerName: string; playerNumber: number
+  playerId: string; playerName: string; playerNumber: string
   totalFgm: number; assistedFgm: number; assistedPts: number; unassistedPts: number
   assistedRatio: number; byType: Record<string, number>; unassistedByType: Record<string, number>
 }
@@ -70,7 +71,10 @@ export default function StatsPage() {
     setSortKey(mode === 'avg' || mode === 'per36' ? 'pts_avg' : 'pts')
   }
 
-  const sorted = [...players].sort((a, b) => (Number(b[sortKey]) || 0) - (Number(a[sortKey]) || 0))
+  const sorted = [...players].sort((a, b) => {
+    if (sortKey === 'player_number') return sortJerseyNum(a.player_number, b.player_number)
+    return (Number(b[sortKey]) || 0) - (Number(a[sortKey]) || 0)
+  })
 
   const leaders = [
     { label: '득점왕', key: 'pts_avg', unit: 'PPG', icon: '🏀' },
@@ -152,7 +156,7 @@ export default function StatsPage() {
 
   function renderCell(s: SeasonPlayer, key: keyof SeasonPlayer) {
     const v = s[key]
-    if (key === 'player_number') return <td key={key} className="px-2 py-2 font-bold text-blue-400">{v as number}</td>
+    if (key === 'player_number') return <td key={key} className="px-2 py-2 font-bold text-blue-400">{v as string}</td>
     if (key === 'player_name') return <NameCell key={key} s={s} />
     if (key === 'games_played') return <td key={key} className="px-2 py-2 text-gray-400">{v as number}</td>
 

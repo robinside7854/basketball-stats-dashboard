@@ -18,7 +18,7 @@ interface RecentGame {
 interface Leader {
   player_id: string
   player_name: string
-  player_number: number
+  player_number: string
   value: number
 }
 

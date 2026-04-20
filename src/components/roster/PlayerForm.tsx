@@ -74,7 +74,7 @@ export default function PlayerForm({ player, teamType, onClose, onSaved }: Props
     const body = {
       ...form,
       position: selectedPositions.join(','),
-      number: Number(form.number),
+      number: form.number,
       height_cm: form.height_cm ? Number(form.height_cm) : null,
       birthdate,
       ...(teamType && !player ? { team_type: teamType } : {}),
@@ -115,7 +115,7 @@ export default function PlayerForm({ player, teamType, onClose, onSaved }: Props
 
           <div>
             <label className="text-sm text-gray-400 mb-1 block">등번호 *</label>
-            <Input type="number" value={form.number} onChange={e => setForm(p => ({ ...p, number: e.target.value }))} required className="bg-gray-800 border-gray-700 text-white" />
+            <Input type="text" inputMode="numeric" pattern="0{0,1}[0-9]{1,2}" placeholder="0, 00, 1-99" value={form.number} onChange={e => setForm(p => ({ ...p, number: e.target.value.replace(/[^0-9]/g, '').slice(0, 2) }))} required className="bg-gray-800 border-gray-700 text-white" />
           </div>
           <div>
             <label className="text-sm text-gray-400 mb-1 block">이름 *</label>

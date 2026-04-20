@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { sortJerseyNum } from '@/lib/utils'
 import { Plus, Upload, X, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import PlayerCard from '@/components/roster/PlayerCard'
@@ -113,7 +114,7 @@ export default function RosterPage() {
       ? players.filter(p => p.position?.split(',').map(s => s.trim()).includes(filterPos))
       : players
     list = [...list].sort((a, b) => {
-      if (sortMode === 'number') return a.number - b.number
+      if (sortMode === 'number') return sortJerseyNum(a.number, b.number)
       const da = a.birthdate ?? '9999'
       const db = b.birthdate ?? '9999'
       return sortMode === 'age_asc' ? da.localeCompare(db) : db.localeCompare(da)

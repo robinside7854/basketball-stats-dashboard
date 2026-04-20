@@ -128,7 +128,7 @@ export async function GET(request: Request) {
       return {
         playerId: pid,
         playerName: p?.name ?? '?',
-        playerNumber: p?.number ?? 0,
+        playerNumber: p?.number ?? '0',
         totalFgm: s.totalFgm,
         assistedFgm: s.assistedFgm,
         assistedPts: s.assistedPts,

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { sortJerseyNum } from '@/lib/utils'
 import { useTeam } from '@/contexts/TeamContext'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -80,7 +81,7 @@ export default function BoxScorePage() {
     const data = gameData[gameId]
     if (!data || data === 'loading') return []
     return [...data.boxScores]
-      .sort((a, b) => a.player_number - b.player_number)
+      .sort((a, b) => sortJerseyNum(a.player_number, b.player_number))
       .map(s => ({ id: s.player_id, name: s.player_name, number: s.player_number }))
   }
 
@@ -247,6 +248,10 @@ export default function BoxScorePage() {
   }
 
   const seasonSorted = [...seasonScores].sort((a, b) => {
+    if (seasonSortKey === 'player_number') {
+      const r = sortJerseyNum(a.player_number, b.player_number)
+      return seasonSortDir === 'desc' ? -r : r
+    }
     const av = a[seasonSortKey as keyof SeasonBoxScore] as number
     const bv = b[seasonSortKey as keyof SeasonBoxScore] as number
     return seasonSortDir === 'desc' ? bv - av : av - bv
@@ -454,6 +459,10 @@ export default function BoxScorePage() {
           const quarterPts = (!isLoading && gData) ? gData.quarterPts : {}
 
           const sorted = [...boxScores].sort((a, b) => {
+            if (sortKey === 'player_number') {
+              const r = sortJerseyNum(a.player_number, b.player_number)
+              return sortDir === 'desc' ? -r : r
+            }
             const av = a[sortKey] as number, bv = b[sortKey] as number
             return sortDir === 'desc' ? bv - av : av - bv
           })
