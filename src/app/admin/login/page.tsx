@@ -2,6 +2,7 @@
 import { useActionState } from 'react'
 import { loginAction } from './actions'
 import { Loader2 } from 'lucide-react'
+import { Toaster } from '@/components/ui/sonner'
 
 export default function AdminLoginPage() {
   const [error, formAction, pending] = useActionState(loginAction, undefined)
@@ -49,6 +50,7 @@ export default function AdminLoginPage() {
           </button>
         </form>
       </div>
+      <Toaster richColors theme="dark" />
     </div>
   )
 }

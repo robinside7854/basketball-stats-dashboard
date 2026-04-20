@@ -1,9 +1,6 @@
 import type { Metadata } from 'next'
 import { Fira_Code, Fira_Sans } from 'next/font/google'
 import './globals.css'
-import TabNav from '@/components/layout/TabNav'
-import Providers from '@/components/layout/Providers'
-import { Toaster } from '@/components/ui/sonner'
 
 const firaCode = Fira_Code({
   subsets: ['latin'],
@@ -26,13 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko">
       <body className={`${firaCode.variable} ${firaSans.variable} font-sans bg-gray-950 text-white min-h-screen`}>
-        <Providers>
-          <TabNav />
-          <main className="container mx-auto px-4 py-4 max-w-[1600px]">
-            {children}
-          </main>
-          <Toaster richColors theme="dark" />
-        </Providers>
+        {children}
       </body>
     </html>
   )

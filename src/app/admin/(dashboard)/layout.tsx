@@ -2,6 +2,7 @@ import { auth, signOut } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { LayoutDashboard, Building2, LogOut } from 'lucide-react'
+import { Toaster } from '@/components/ui/sonner'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
@@ -49,6 +50,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <main className="flex-1 p-8 overflow-y-auto">
         {children}
       </main>
+      <Toaster richColors theme="dark" />
     </div>
   )
 }
