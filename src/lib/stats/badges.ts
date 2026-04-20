@@ -61,8 +61,8 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   // -- 공격 (5) --
   {
     code: 'PAINT_BUSTER', name: '골밑파괴자', icon: '\u2694\ufe0f', category: 'attack', theme: T.orange, minGames: 3, unit: '%',
-    description: '포스트슛으로 골밑을 지배하는 인사이드 킬러',
-    criteria: '포스트슛 시도 비중 \u226535% & 성공률 \u226540% (최소 10회 시도)',
+    description: '골밑슛으로 골밑을 지배하는 인사이드 킬러',
+    criteria: '골밑슛 시도 비중 \u226535% & 성공률 \u226540% (최소 10회 시도)',
   },
   {
     code: 'GLASS_EATER', name: '로드맨', icon: '\u{1F4AA}', category: 'attack', theme: T.amber, minGames: 3, unit: '%',
@@ -75,9 +75,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     criteria: '레이업 시도 비중 \u226525% & 성공률 \u226540% (최소 10회 시도)',
   },
   {
-    code: 'CLUTCH_Q4', name: '4쿼터의 사나이', icon: '\u23f0', category: 'attack', theme: T.amber, minGames: 3, unit: '%',
+    code: 'CLUTCH_Q4', name: '4쿼터의 사나이', icon: '\u23f0', category: 'attack', theme: T.amber, minGames: 3, unit: 'pts',
     description: '4쿼터에서 더욱 강해지는 클러치 플레이어',
-    criteria: '4쿼터 득점 / 총 득점 \u226535% (총 득점 30점 이상)',
+    criteria: '4쿼터 평균 득점이 1~3쿼터 평균보다 모두 높은 선수 (최소 3경기)',
   },
   {
     code: 'SCORING_MACHINE', name: '득점 화신', icon: '\u{1F525}', category: 'attack', theme: T.orange, minGames: 3, unit: 'PPG',
@@ -88,13 +88,13 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   // -- 슈팅 (5) --
   {
     code: 'JUNG_DAEMAN', name: '정대만', icon: '\u{1F3AF}', category: 'shooting', theme: T.blue, minGames: 3, unit: '%',
-    description: '슛이 전부다. FGA의 55% 이상을 3점슛으로만 해결',
-    criteria: '3점슛 시도 / 전체 FGA \u226555% (최소 15회 3점 시도)',
+    description: '슛이 전부다. FGA의 50% 이상을 3점슛으로만 해결',
+    criteria: '3점슛 시도 / 전체 FGA \u226550% (최소 15회 3점 시도)',
   },
   {
     code: 'DONG_HO_CURRY', name: '동호회커리', icon: '\u{1F35B}', category: 'shooting', theme: T.sky, minGames: 3, unit: '%',
-    description: '3점슛 성공률 35% 이상의 준수한 외곽 슈터',
-    criteria: '3점슛 성공률 \u226535% (최소 15회 시도)',
+    description: '3점슛 성공률 33% 이상의 준수한 외곽 슈터',
+    criteria: '3점슛 성공률 \u226533% (최소 15회 시도)',
   },
   {
     code: 'ICE_VEINS', name: '강심장', icon: '\u{1F9CA}', category: 'shooting', theme: T.cyan, minGames: 3, unit: '%',
@@ -108,8 +108,8 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   },
   {
     code: 'EFFICIENCY_GOD', name: '효율의 신', icon: '\u2728', category: 'shooting', theme: T.blue, minGames: 3, unit: '%',
-    description: 'FG% 55% 이상의 압도적 효율로 팀을 이끄는 선수',
-    criteria: 'FG% \u266555% (최소 FGA 20회)',
+    description: 'FG% 50% 이상의 압도적 효율로 팀을 이끄는 선수',
+    criteria: 'FG% \u266550% (최소 FGA 20회)',
   },
 
   // -- 수비 (5) --
@@ -133,11 +133,6 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     description: '스틸+블록+수비리바운드 합산이 팀 평균의 1.3배 이상',
     criteria: '(STL+BLK+DREB)/경기 \u2265 팀 평균 \xd7 1.3배 (최소 3경기)',
   },
-  {
-    code: 'IRON_MAN', name: '철인', icon: '\u2699\ufe0f', category: 'defense', theme: T.teal, minGames: 3, unit: '%',
-    description: '팀 전체 경기의 90% 이상을 출전하는 헌신 그 자체',
-    criteria: '출전 경기 / 팀 전체 경기 \u226590% (최소 3경기)',
-  },
 
   // -- 플레이메이킹 (5) --
   {
@@ -156,9 +151,9 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     criteria: 'APG \u2265 팀 평균 \xd7 1.5배 (최소 어시스트 10개)',
   },
   {
-    code: 'DOUBLE_DOUBLE', name: '만능재주꾼', icon: '\u{1F4CA}', category: 'playmaking', theme: T.purple, minGames: 3, unit: '%',
-    description: '두 스탯을 동시에 두 자릿수로 채우는 팔방미인',
-    criteria: '더블더블 경기 비율 \u266520% (최소 3경기)',
+    code: 'POCKET_PASSER', name: '포켓패서', icon: '\u{1F3AF}', category: 'playmaking', theme: T.purple, minGames: 3, unit: '%',
+    description: '어시스트의 40% 이상이 골밑슛·레이업으로 연결되는 내부 침투 플레이메이커',
+    criteria: '골밑·레이업 연결 어시스트 / 전체 어시스트 \u266540% (최소 어시스트 10개)',
   },
   {
     code: 'ALL_ROUNDER', name: '올라운더', icon: '\u{1F527}', category: 'playmaking', theme: T.violet, minGames: 3, unit: '항목',
@@ -184,6 +179,7 @@ export interface PlayerCareerInput {
   doubleDoubles: number; tripleDoubles: number
   q1pts: number; q2pts: number; q3pts: number; q4pts: number
   ast3pts?: number
+  astPaint?: number
   shotBreakdown?: Record<string, { attempted: number; made: number; pct: number }>
 }
 
@@ -245,11 +241,15 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
     `레이업 비중 ${r(layupPct)}% (성공률 ${r(layupSP, 0)}%)`,
     '기준: 비중\u226525%, 성공률\u266540%, 최소10회'))
 
-  const q4Ratio = s.pts > 0 ? s.q4pts / s.pts * 100 : 0
-  results.push(make('CLUTCH_Q4', ok(s.pts >= 30 && q4Ratio >= 35),
-    r(q4Ratio), 35,
-    `4Q ${s.q4pts}pts / 합계 ${s.pts}pts = ${r(q4Ratio)}%`,
-    '기준: 4Q득점 비중\u226535%, 총득점30+'))
+  const q1avg = gp > 0 ? s.q1pts / gp : 0
+  const q2avg = gp > 0 ? s.q2pts / gp : 0
+  const q3avg = gp > 0 ? s.q3pts / gp : 0
+  const q4avg = gp > 0 ? s.q4pts / gp : 0
+  const isQ4Best = q4avg > 0 && q4avg > q1avg && q4avg > q2avg && q4avg > q3avg
+  results.push(make('CLUTCH_Q4', ok(isQ4Best),
+    r(q4avg), Math.max(r(q1avg), r(q2avg), r(q3avg)),
+    `Q1:${r(q1avg)} Q2:${r(q2avg)} Q3:${r(q3avg)} Q4:${r(q4avg)} pts/G`,
+    '기준: 4Q평균득점이 1~3Q 평균보다 모두 높을 것'))
 
   const smTh = r(team.ptsPerGame * 1.5)
   results.push(make('SCORING_MACHINE', ok(team.ptsPerGame > 0 && s.ppg >= team.ptsPerGame * 1.5),
@@ -259,15 +259,15 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
 
   // ---- 슈팅 ----
   const threeShare = s.fga > 0 ? s.fg3a / s.fga * 100 : 0
-  results.push(make('JUNG_DAEMAN', ok(s.fg3a >= 15 && threeShare >= 55),
-    r(threeShare), 55,
+  results.push(make('JUNG_DAEMAN', ok(s.fg3a >= 15 && threeShare >= 50),
+    r(threeShare), 50,
     `3점슛 비중 ${r(threeShare)}% (${s.fg3a}/${s.fga})`,
-    '기준: 3PA/FGA\u226555%, 최소15회'))
+    '기준: 3PA/FGA\u226550%, 최소15회'))
 
-  results.push(make('DONG_HO_CURRY', ok(s.fg3a >= 15 && s.fg3Pct >= 35),
-    r(s.fg3Pct), 35,
+  results.push(make('DONG_HO_CURRY', ok(s.fg3a >= 15 && s.fg3Pct >= 33),
+    r(s.fg3Pct), 33,
     `3점슛 성공률 ${r(s.fg3Pct)}% (${s.fg3m}/${s.fg3a})`,
-    '기준: 3P%\u226535%, 최소15회'))
+    '기준: 3P%\u266533%, 최소15회'))
 
   const ftaPerGame = gp > 0 ? s.fta / gp : 0
   results.push(make('ICE_VEINS', ok(s.fta >= 15 && s.ftPct >= 70 && ftaPerGame >= team.ftaPerGame),
@@ -284,10 +284,10 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
     '기준: 비중\u266530%, 성공률\u266540%, 최소10회'))
 
   const fgPct = s.fga > 0 ? s.fgm / s.fga * 100 : 0
-  results.push(make('EFFICIENCY_GOD', ok(s.fga >= 20 && fgPct >= 55),
-    r(fgPct), 55,
+  results.push(make('EFFICIENCY_GOD', ok(s.fga >= 20 && fgPct >= 50),
+    r(fgPct), 50,
     `FG% ${r(fgPct)}% (${s.fgm}/${s.fga})`,
-    '기준: FG%\u266555%, 최소FGA20회'))
+    '기준: FG%\u266550%, 최소FGA20회'))
 
   // ---- 수비 ----
   const drebPct = s.reb > 0 ? s.dreb / s.reb * 100 : 0
@@ -315,12 +315,6 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
     `허슬 ${r(hustlePerGame)}/G (팀 평균 ${r(team.hustlePerGame)})`,
     `기준: (STL+BLK+DREB)/G\u2265${hustleTh} (팀평균\xd71.3배)`))
 
-  const attendPct = s.totalTeamGames > 0 ? s.gamesPlayed / s.totalTeamGames * 100 : 0
-  results.push(make('IRON_MAN', ok(s.totalTeamGames > 0 && attendPct >= 90),
-    r(attendPct, 0), 90,
-    `출전율 ${r(attendPct, 0)}% (${s.gamesPlayed}/${s.totalTeamGames})`,
-    '기준: 출전율\u266590%'))
-
   // ---- 플레이메이킹 ----
   results.push(make('CLEAN_HANDS', ok(s.ast >= 10 && s.astToTov >= 2.0),
     r(s.astToTov), 2.0,
@@ -339,11 +333,12 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
     `APG ${r(s.apg)} (팀 평균 ${r(team.astPerGame)})`,
     `기준: APG\u2265${fgTh} (팀평균\xd71.5배), 최소AST10`))
 
-  const ddRatio = gp > 0 ? s.doubleDoubles / gp * 100 : 0
-  results.push(make('DOUBLE_DOUBLE', ok(ddRatio >= 20),
-    r(ddRatio, 0), 20,
-    `더블더블 ${s.doubleDoubles}/${gp} = ${r(ddRatio, 0)}%`,
-    '기준: DD비율\u266520%'))
+  const astPaint = s.astPaint ?? 0
+  const ppRatio = s.ast > 0 ? astPaint / s.ast * 100 : 0
+  results.push(make('POCKET_PASSER', ok(s.ast >= 10 && ppRatio >= 40),
+    r(ppRatio), 40,
+    `골밑·레이업 연결 어시스트 ${astPaint}/${s.ast} = ${r(ppRatio)}%`,
+    '기준: 골밑·레이업AST\u266540%, 최소AST10'))
 
   const arPts = team.ptsPerGame > 0 && s.ppg >= team.ptsPerGame
   const arReb = team.rebPerGame > 0 && s.rpg >= team.rebPerGame

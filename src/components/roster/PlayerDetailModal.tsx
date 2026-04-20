@@ -221,6 +221,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
           q3pts: quarterPts?.q3 ?? 0,
           q4pts: quarterPts?.q4 ?? 0,
           ast3pts: me.ast3pts ?? 0,
+          astPaint: (me as Record<string, unknown>).astPaint as number ?? 0,
           shotBreakdown,
         }, teamAvg)
 

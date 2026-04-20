@@ -49,11 +49,15 @@ export async function GET(req: Request) {
   const recordedGameIds = new Set(allMinutes.map(m => m.game_id))
   const totalGames = recordedGameIds.size
 
-  // 3점슛으로 이어진 어시스트 수 (킥아웃 전도사 뱃지용)
+  // 어시스트 유형별 집계 (뱃지용)
   const ast3ptsMap: Record<string, number> = {}
+  const astPaintMap: Record<string, number> = {}
   for (const e of allEvents) {
     if (e.type === 'shot_3p' && e.result === 'made' && e.related_player_id) {
       ast3ptsMap[e.related_player_id] = (ast3ptsMap[e.related_player_id] ?? 0) + 1
+    }
+    if ((e.type === 'shot_post' || e.type === 'shot_layup') && e.result === 'made' && e.related_player_id) {
+      astPaintMap[e.related_player_id] = (astPaintMap[e.related_player_id] ?? 0) + 1
     }
   }
 
@@ -69,6 +73,7 @@ export async function GET(req: Request) {
       ast_avg: playerGames > 0 ? Math.round((s.ast / playerGames) * 10) / 10 : 0,
       games_played: playerGames,
       ast3pts: ast3ptsMap[s.player_id] ?? 0,
+      astPaint: astPaintMap[s.player_id] ?? 0,
     }
   })
 

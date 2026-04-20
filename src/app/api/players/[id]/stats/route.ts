@@ -143,7 +143,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       .limit(10000),
     supabase
       .from('game_events')
-      .select('game_id')
+      .select('game_id, type, result')
       .eq('related_player_id', id)
       .in('game_id', allTeamGameIds)
       .limit(10000),
@@ -156,7 +156,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   ])
 
   const playerEvents: RawEvent[] = playerEventsRes.data || []
-  const assistEvents: { game_id: string }[] = assistEventsRes.data || []
+  const assistEvents: { game_id: string; type: string; result: string }[] = assistEventsRes.data || []
   const playerMinutes: RawMinute[] = playerMinutesRes.data || []
 
   // 4. 이 선수가 참여한 경기 ID 집합
@@ -307,5 +307,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     else if (q === 4) quarterPts.q4 += pts
   }
 
-  return NextResponse.json({ player, recentGames, shotBreakdown, totalShotAttempts, freeThrow, tournamentStats, awards, quarterPts })
+  const astPaint = assistEvents.filter(
+    e => (e.type === 'shot_post' || e.type === 'shot_layup') && e.result === 'made'
+  ).length
+
+  return NextResponse.json({ player, recentGames, shotBreakdown, totalShotAttempts, freeThrow, tournamentStats, awards, quarterPts, astPaint })
 }
