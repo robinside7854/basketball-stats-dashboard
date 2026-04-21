@@ -35,12 +35,12 @@ export default function BadgeMasterbook({ evaluatedBadges, onClose }: Props) {
     >
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
-      <div className="relative z-10 w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[88vh] bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+      <div className="relative z-10 w-full max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[88vh] bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
         {/* 헤더 */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-800 shrink-0">
           <div>
             <h2 className="text-base font-bold text-white">뱃지 도감</h2>
-            <p className="text-xs text-gray-500 mt-0.5">총 {BADGE_DEFINITIONS.length}종 · 4카테고리 · 3티어</p>
+            <p className="text-xs md:text-sm text-gray-500 mt-0.5">총 {BADGE_DEFINITIONS.length}종 · 4카테고리 · 3티어</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer">
             <X size={18} />
@@ -84,10 +84,10 @@ export default function BadgeMasterbook({ evaluatedBadges, onClose }: Props) {
               <div key={cat} className="border-b border-gray-800/60 last:border-0">
                 {/* 카테고리 헤더 */}
                 <div className="px-5 py-3 bg-gray-900/50 flex items-center gap-2">
-                  <span className={`text-xs font-bold uppercase tracking-wider ${colors.header}`}>
+                  <span className={`text-xs md:text-sm font-bold uppercase tracking-wider ${colors.header}`}>
                     {CATEGORY_LABELS[cat]}
                   </span>
-                  <span className="text-xs text-gray-600">{badges.length}종</span>
+                  <span className="text-xs md:text-sm text-gray-600">{badges.length}종</span>
                   {evaluatedBadges && (
                     <div className="ml-auto flex items-center gap-2 text-[11px]">
                       {catGold   > 0 && <span className="text-amber-400 font-bold">🥇{catGold}</span>}
@@ -119,39 +119,48 @@ export default function BadgeMasterbook({ evaluatedBadges, onClose }: Props) {
                           <BadgeIcon code={badge.code} tier={tier} size="md" showLabel={earned} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <p className={`text-sm font-bold ${earned ? 'text-white' : 'text-gray-500'}`}>{badge.name}</p>
+                              <p className={`text-sm md:text-base font-bold ${earned ? 'text-white' : 'text-gray-500'}`}>{badge.name}</p>
                               {tier && ts && (
-                                <span className={`text-[10px] font-bold tracking-widest ${ts.labelColor} shrink-0`}>{ts.label}</span>
+                                <span className={`text-[10px] md:text-xs font-bold tracking-widest ${ts.labelColor} shrink-0`}>{ts.label}</span>
                               )}
                             </div>
-                            <p className="text-[11px] text-gray-500 leading-relaxed">{badge.description}</p>
+                            <p className="text-xs md:text-sm text-gray-500 leading-relaxed">{badge.description}</p>
                           </div>
                         </div>
 
-                        {/* 달성 기준 */}
-                        <p className="text-[11px] text-gray-600 leading-relaxed mt-2 mb-1.5">{badge.criteria}</p>
+                        {/* 티어별 달성 기준 */}
+                        <div className="mt-2.5 space-y-1">
+                          {(['bronze', 'silver', 'gold'] as NonNullable<BadgeTier>[]).map(t => {
+                            const isCurrent = tier === t
+                            const tierIdx = { bronze: 0, silver: 1, gold: 2 }
+                            const isSurpassed = tier !== null && tierIdx[tier] > tierIdx[t]
+                            return (
+                              <div key={t} className={`flex items-center gap-2 text-xs md:text-sm rounded-lg px-2 py-1 transition-colors ${
+                                isCurrent
+                                  ? t === 'gold'   ? 'bg-amber-950/70 text-amber-200'
+                                  : t === 'silver' ? 'bg-slate-800/70 text-slate-200'
+                                  :                  'bg-orange-950/70 text-orange-200'
+                                : isSurpassed
+                                  ? 'text-gray-600'
+                                : t === 'gold'   ? 'text-amber-800/70'
+                                : t === 'silver' ? 'text-slate-500/70'
+                                :                  'text-orange-800/70'
+                              }`}>
+                                <span className="shrink-0 text-sm">{t === 'gold' ? '🥇' : t === 'silver' ? '🥈' : '🥉'}</span>
+                                <span className={isCurrent ? 'font-semibold' : ''}>{badge.tierCriteria[t]}</span>
+                                {isCurrent && <span className="ml-auto shrink-0 text-[10px] md:text-xs opacity-70 font-bold">← 달성</span>}
+                                {isSurpassed && <span className="ml-auto shrink-0 text-[10px] opacity-50">✓</span>}
+                              </div>
+                            )
+                          })}
+                        </div>
 
                         {/* 선수 달성 수치 */}
                         {ev && (
-                          <div className={`text-[11px] px-2 py-1 rounded-md ${
+                          <div className={`text-xs md:text-sm px-2 py-1 rounded-md mt-1.5 ${
                             earned ? 'bg-black/30 text-gray-300' : 'bg-gray-800/50 text-gray-500'
                           }`}>
                             {ev.achievedLabel}
-                          </div>
-                        )}
-
-                        {/* 티어 기준 힌트 (미달성 시) */}
-                        {!earned && (
-                          <div className="mt-2 flex gap-1.5 flex-wrap">
-                            {(['bronze','silver','gold'] as NonNullable<BadgeTier>[]).map(t => (
-                              <span key={t} className={`text-[10px] px-1.5 py-0.5 rounded border ${
-                                t === 'gold'   ? 'border-amber-700/40 text-amber-600' :
-                                t === 'silver' ? 'border-slate-600/40 text-slate-500' :
-                                                 'border-orange-700/40 text-orange-600'
-                              }`}>
-                                {TIER_LABELS[t]}
-                              </span>
-                            ))}
                           </div>
                         )}
                       </div>

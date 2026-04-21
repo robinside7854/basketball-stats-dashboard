@@ -26,6 +26,7 @@ export interface BadgeDefinition {
   icon: string
   description: string
   criteria: string
+  tierCriteria: { bronze: string; silver: string; gold: string }
   category: BadgeCategory
   theme: BadgeTheme
   minGames: number
@@ -66,26 +67,31 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     code: 'PAINT_BUSTER', name: '골밑파괴자', icon: '\u2694\ufe0f', category: 'attack', theme: T.orange, minGames: 3, unit: '%',
     description: '골밑슛으로 골밑을 지배하는 인사이드 킬러',
     criteria: '골밑슛 시도 비중 \u226535% & 성공률 \u226540% (최소 10회 시도)',
+    tierCriteria: { bronze: '비중≥35% & 성공률≥40%', silver: '비중≥40% & 성공률≥48%', gold: '비중≥45% & 성공률≥55%' },
   },
   {
     code: 'GLASS_EATER', name: '로드맨', icon: '\u{1F4AA}', category: 'attack', theme: T.amber, minGames: 3, unit: '%',
     description: 'Dennis Rodman 계보의 공격 리바운드 기계',
     criteria: '공격 리바운드 / 전체 리바운드 \u226535% (최소 15개)',
+    tierCriteria: { bronze: 'OREB/REB ≥35%', silver: 'OREB/REB ≥43%', gold: 'OREB/REB ≥52%' },
   },
   {
     code: 'FINISHER', name: '피니셔', icon: '\u{1F3C3}', category: 'attack', theme: T.orange, minGames: 3, unit: '%',
     description: '빠른 발과 감각으로 레이업을 완성하는 마무리 전문가',
     criteria: '레이업 시도 비중 \u226525% & 성공률 \u226540% (최소 10회 시도)',
+    tierCriteria: { bronze: '비중≥25% & 성공률≥40%', silver: '비중≥30% & 성공률≥50%', gold: '비중≥35% & 성공률≥60%' },
   },
   {
     code: 'CLUTCH_Q4', name: '4쿼터의 사나이', icon: '\u23f0', category: 'attack', theme: T.amber, minGames: 3, unit: 'pts',
     description: '4쿼터에서 더욱 강해지는 클러치 플레이어',
     criteria: '4쿼터 평균 득점이 1~3쿼터 평균보다 모두 높은 선수 (최소 3경기)',
+    tierCriteria: { bronze: 'Q4 평균 > 1~3Q 최고치', silver: 'Q4 차이 ≥1.5pts', gold: 'Q4 차이 ≥3.0pts' },
   },
   {
     code: 'SCORING_MACHINE', name: '득점 화신', icon: '\u{1F525}', category: 'attack', theme: T.orange, minGames: 3, unit: 'PPG',
     description: '팀 평균 1.5배 이상을 혼자 책임지는 에이스 스코어러',
     criteria: 'PPG \u2265 팀 평균 \xd7 1.5배 (최소 3경기)',
+    tierCriteria: { bronze: 'PPG ≥ 팀평균 ×1.5배', silver: 'PPG ≥ 팀평균 ×1.8배', gold: 'PPG ≥ 팀평균 ×2.2배' },
   },
 
   // -- 슈팅 (5) --
@@ -93,26 +99,31 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     code: 'JUNG_DAEMAN', name: '정대만', icon: '\u{1F3AF}', category: 'shooting', theme: T.blue, minGames: 3, unit: '%',
     description: '슛이 전부다. FGA의 50% 이상을 3점슛으로만 해결',
     criteria: '3점슛 시도 / 전체 FGA \u226550% (최소 10회 3점 시도)',
+    tierCriteria: { bronze: '3PA/FGA ≥50%', silver: '3PA/FGA ≥62%', gold: '3PA/FGA ≥75%' },
   },
   {
     code: 'DONG_HO_CURRY', name: '동호회커리', icon: '\u{1F35B}', category: 'shooting', theme: T.sky, minGames: 3, unit: '%',
     description: '3점슛 성공률 33% 이상의 준수한 외곽 슈터',
     criteria: '3점슛 성공률 \u266533% (최소 15회 시도)',
+    tierCriteria: { bronze: '3P% ≥33%', silver: '3P% ≥38%', gold: '3P% ≥43%' },
   },
   {
     code: 'ICE_VEINS', name: '강심장', icon: '\u{1F9CA}', category: 'shooting', theme: T.cyan, minGames: 3, unit: '%',
     description: '긴장된 순간에도 자유투를 확실히 꽂아넣는 철의 멘탈',
     criteria: 'FT% \u266570% & FTA \u2265 팀 평균 (최소 15회 시도)',
+    tierCriteria: { bronze: 'FT% ≥70%', silver: 'FT% ≥80%', gold: 'FT% ≥90%' },
   },
   {
     code: 'MID_MAESTRO', name: '미드레인지 장인', icon: '\u{1F4CD}', category: 'shooting', theme: T.sky, minGames: 3, unit: '%',
     description: '사라진 중거리를 부활시키는 정확한 미드레인지 슈터',
     criteria: '미드레인지 시도 비중 \u266530% & 성공률 \u266540% (최소 10회 시도)',
+    tierCriteria: { bronze: '비중≥30% & 성공률≥40%', silver: '비중≥33% & 성공률≥46%', gold: '비중≥37% & 성공률≥52%' },
   },
   {
     code: 'EFFICIENCY_GOD', name: '효율의 신', icon: '\u2728', category: 'shooting', theme: T.blue, minGames: 3, unit: '%',
     description: 'FG% 50% 이상의 압도적 효율로 팀을 이끄는 선수',
     criteria: 'FG% \u266550% (최소 FGA 20회)',
+    tierCriteria: { bronze: 'FG% ≥50%', silver: 'FG% ≥56%', gold: 'FG% ≥62%' },
   },
 
   // -- 수비 (5) --
@@ -120,21 +131,25 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     code: 'GLASS_CLEANER', name: '유리청소부', icon: '\u{1FA9F}', category: 'defense', theme: T.teal, minGames: 3, unit: '%',
     description: '상대 2차 공격을 원천 봉쇄하는 수비 리바운드 전문가',
     criteria: '수비 리바운드 / 전체 리바운드 \u266560% (최소 15개)',
+    tierCriteria: { bronze: 'DREB/REB ≥60%', silver: 'DREB/REB ≥70%', gold: 'DREB/REB ≥80%' },
   },
   {
     code: 'PICKPOCKET', name: '대도', icon: '\u{1F985}', category: 'defense', theme: T.green, minGames: 3, unit: 'SPG',
     description: '날카로운 눈과 빠른 손으로 볼을 낚아채는 스틸 전문가',
     criteria: 'SPG \u2265 팀 평균 \xd7 2배 (최소 3경기)',
+    tierCriteria: { bronze: 'SPG ≥ 팀평균 ×2.0배', silver: 'SPG ≥ 팀평균 ×2.5배', gold: 'SPG ≥ 팀평균 ×3.0배' },
   },
   {
     code: 'SHOT_BLOCKER', name: '골밑 수문장', icon: '\u{1F6E1}\ufe0f', category: 'defense', theme: T.emerald, minGames: 3, unit: 'BPG',
     description: '골밑을 지키는 수호자. 상대의 슛을 걷어내는 블로킹 전문가',
     criteria: 'BPG \u2265 팀 평균 \xd7 2배 (최소 3경기)',
+    tierCriteria: { bronze: 'BPG ≥ 팀평균 ×2.0배', silver: 'BPG ≥ 팀평균 ×2.5배', gold: 'BPG ≥ 팀평균 ×3.0배' },
   },
   {
     code: 'HUSTLE_KING', name: '허슬킹', icon: '\u26a1', category: 'defense', theme: T.green, minGames: 3, unit: '/G',
     description: '스틸+블록+수비리바운드 합산이 팀 평균의 1.3배 이상',
     criteria: '(STL+BLK+DREB)/경기 \u2265 팀 평균 \xd7 1.3배 (최소 3경기)',
+    tierCriteria: { bronze: '허슬/G ≥ 팀평균 ×1.3배', silver: '허슬/G ≥ 팀평균 ×1.6배', gold: '허슬/G ≥ 팀평균 ×2.0배' },
   },
 
   // -- 플레이메이킹 (5) --
@@ -142,26 +157,31 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     code: 'CLEAN_HANDS', name: '안전운반', icon: '\u{1F91D}', category: 'playmaking', theme: T.purple, minGames: 3, unit: 'AST/TOV',
     description: '볼을 잃지 않는 안정적인 볼 핸들러. AST/TOV 2.0 이상',
     criteria: 'AST/TOV \u22652.0 (최소 어시스트 10개)',
+    tierCriteria: { bronze: 'AST/TOV ≥2.0', silver: 'AST/TOV ≥3.0', gold: 'AST/TOV ≥4.5' },
   },
   {
     code: 'KICKOUT', name: '킥아웃 전도사', icon: '\u{1F3A6}', category: 'playmaking', theme: T.violet, minGames: 3, unit: '%',
     description: '어시스트의 50% 이상이 3점슛으로 이어지는 외곽 연결 플레이메이커',
     criteria: '3점 연결 어시스트 / 전체 어시스트 \u266550% (최소 어시스트 10개)',
+    tierCriteria: { bronze: '3점 연결AST ≥50%', silver: '3점 연결AST ≥62%', gold: '3점 연결AST ≥75%' },
   },
   {
     code: 'FLOOR_GENERAL', name: '지휘자', icon: '\u{1F451}', category: 'playmaking', theme: T.indigo, minGames: 3, unit: 'APG',
     description: '경기 전체를 조율하는 사령탑. APG가 팀 평균의 1.5배 이상',
     criteria: 'APG \u2265 팀 평균 \xd7 1.5배 (최소 어시스트 10개)',
+    tierCriteria: { bronze: 'APG ≥ 팀평균 ×1.5배', silver: 'APG ≥ 팀평균 ×2.0배', gold: 'APG ≥ 팀평균 ×2.5배' },
   },
   {
     code: 'POCKET_PASSER', name: '포켓패서', icon: '\u{1F3AF}', category: 'playmaking', theme: T.purple, minGames: 3, unit: '%',
     description: '어시스트의 50% 이상이 골밑슛·레이업으로 연결되는 내부 침투 플레이메이커',
     criteria: '골밑·레이업 연결 어시스트 / 전체 어시스트 \u266550% (최소 어시스트 10개)',
+    tierCriteria: { bronze: '골밑 연결AST ≥50%', silver: '골밑 연결AST ≥62%', gold: '골밑 연결AST ≥75%' },
   },
   {
     code: 'ALL_ROUNDER', name: '올라운더', icon: '\u{1F527}', category: 'playmaking', theme: T.violet, minGames: 3, unit: '항목',
     description: '득점·리바운드·어시스트 모두 팀 평균 이상을 기록하는 만능 선수',
     criteria: 'PPG & RPG & APG 모두 팀 평균 이상 (최소 3경기)',
+    tierCriteria: { bronze: 'PTS·REB·AST 모두 팀평균 ×1.0배', silver: '모두 팀평균 ×1.2배', gold: '모두 팀평균 ×1.5배' },
   },
 ]
 
