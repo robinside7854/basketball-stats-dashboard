@@ -16,6 +16,8 @@ export const CATEGORY_COLORS: Record<BadgeCategory, { header: string; badge: str
 }
 
 // === 타입 ===
+export type BadgeTier = 'gold' | 'silver' | 'bronze' | null
+
 export interface BadgeTheme { bg: string; text: string; border: string; dot: string }
 
 export interface BadgeDefinition {
@@ -31,11 +33,12 @@ export interface BadgeDefinition {
 }
 
 export interface EvaluatedBadge extends BadgeDefinition {
+  tier: BadgeTier
+  earned: boolean        // tier !== null  (keep for backward compat)
   achievedValue: number
-  threshold: number
+  threshold: number      // bronze 기준값
   achievedLabel: string
   thresholdLabel: string
-  earned: boolean
 }
 
 export type EarnedBadge = EvaluatedBadge
@@ -55,7 +58,7 @@ const T: Record<string, BadgeTheme> = {
   violet:  { bg: 'bg-violet-950/60',  text: 'text-violet-300',  border: 'border-violet-700/60',  dot: 'bg-violet-500'  },
 }
 
-// === 뱃지 정의 20개 ===
+// === 뱃지 정의 19개 ===
 export const BADGE_DEFINITIONS: BadgeDefinition[] = [
 
   // -- 공격 (5) --
@@ -94,17 +97,17 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   {
     code: 'DONG_HO_CURRY', name: '동호회커리', icon: '\u{1F35B}', category: 'shooting', theme: T.sky, minGames: 3, unit: '%',
     description: '3점슛 성공률 33% 이상의 준수한 외곽 슈터',
-    criteria: '3점슛 성공률 \u226533% (최소 15회 시도)',
+    criteria: '3점슛 성공률 \u266533% (최소 15회 시도)',
   },
   {
     code: 'ICE_VEINS', name: '강심장', icon: '\u{1F9CA}', category: 'shooting', theme: T.cyan, minGames: 3, unit: '%',
     description: '긴장된 순간에도 자유투를 확실히 꽂아넣는 철의 멘탈',
-    criteria: 'FT% \u226570% & FTA \u2265 팀 평균 (최소 15회 시도)',
+    criteria: 'FT% \u266570% & FTA \u2265 팀 평균 (최소 15회 시도)',
   },
   {
     code: 'MID_MAESTRO', name: '미드레인지 장인', icon: '\u{1F4CD}', category: 'shooting', theme: T.sky, minGames: 3, unit: '%',
     description: '사라진 중거리를 부활시키는 정확한 미드레인지 슈터',
-    criteria: '미드레인지 시도 비중 \u226530% & 성공률 \u226540% (최소 10회 시도)',
+    criteria: '미드레인지 시도 비중 \u266530% & 성공률 \u266540% (최소 10회 시도)',
   },
   {
     code: 'EFFICIENCY_GOD', name: '효율의 신', icon: '\u2728', category: 'shooting', theme: T.blue, minGames: 3, unit: '%',
@@ -194,7 +197,7 @@ export interface TeamAverages {
   hustlePerGame: number
 }
 
-// === 평가 함수 (전체 20개 반환) ===
+// === 평가 함수 (전체 19개 반환) ===
 export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): EvaluatedBadge[] {
   const gp = s.gamesPlayed
   const sb = s.shotBreakdown ?? {}
@@ -207,151 +210,199 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
   const r = (v: number, d = 1) => Math.round(v * Math.pow(10, d)) / Math.pow(10, d)
 
   function make(
-    code: string, earned: boolean,
+    code: string, tier: BadgeTier,
     av: number, th: number,
     avLabel: string, thLabel: string,
   ): EvaluatedBadge {
     const def = BADGE_DEFINITIONS.find(b => b.code === code)!
-    return { ...def, earned, achievedValue: av, threshold: th, achievedLabel: avLabel, thresholdLabel: thLabel }
+    return { ...def, tier, earned: tier !== null, achievedValue: av, threshold: th, achievedLabel: avLabel, thresholdLabel: thLabel }
   }
 
-  const ok = (cond: boolean) => gp >= 3 && cond
+  // 단순 단일 지표 티어 계산
+  function t1(minCond: boolean, value: number, b: number, sv: number, g: number): BadgeTier {
+    if (gp < 3 || !minCond) return null
+    if (value >= g) return 'gold'
+    if (value >= sv) return 'silver'
+    if (value >= b) return 'bronze'
+    return null
+  }
+
+  // 복합 조건 (두 지표 모두 충족)
+  function t2(minCond: boolean, v1: number, v2: number,
+    bg: [number,number], sg: [number,number], gg: [number,number]): BadgeTier {
+    if (gp < 3 || !minCond) return null
+    if (v1 >= gg[0] && v2 >= gg[1]) return 'gold'
+    if (v1 >= sg[0] && v2 >= sg[1]) return 'silver'
+    if (v1 >= bg[0] && v2 >= bg[1]) return 'bronze'
+    return null
+  }
+
   const results: EvaluatedBadge[] = []
 
   // ---- 공격 ----
   const postPct = shotSharePct('shot_post')
   const postSP  = shotSuccPct('shot_post')
   const postA   = sb['shot_post']?.attempted ?? 0
-  results.push(make('PAINT_BUSTER', ok(postA >= 10 && postPct >= 35 && postSP >= 40),
+  results.push(make('PAINT_BUSTER',
+    t2(postA >= 10, postPct, postSP, [35,40], [40,48], [45,55]),
     r(postPct), 35,
-    `포스트슛 비중 ${r(postPct)}% (성공률 ${r(postSP, 0)}%)`,
-    '기준: 비중\u226535%, 성공률\u266540%, 최소10회'))
+    `포스트슛 비중 ${r(postPct)}% (성공률 ${r(postSP,0)}%)`,
+    '기준: 비중≥35%, 성공률≥40%, 최소10회'))
 
   const orebPct = s.reb > 0 ? s.oreb / s.reb * 100 : 0
-  results.push(make('GLASS_EATER', ok(s.reb >= 15 && orebPct >= 35),
+  results.push(make('GLASS_EATER',
+    t1(s.reb >= 15, orebPct, 35, 43, 52),
     r(orebPct), 35,
     `공격리바 비중 ${r(orebPct)}% (${s.oreb}/${s.reb})`,
-    '기준: OREB/REB\u226535%, 최소15개'))
+    '기준: OREB/REB≥35%, 최소15개'))
 
   const layupPct = shotSharePct('shot_layup')
   const layupSP  = shotSuccPct('shot_layup')
   const layupA   = sb['shot_layup']?.attempted ?? 0
-  results.push(make('FINISHER', ok(layupA >= 10 && layupPct >= 25 && layupSP >= 40),
+  results.push(make('FINISHER',
+    t2(layupA >= 10, layupPct, layupSP, [25,40], [30,50], [35,60]),
     r(layupPct), 25,
-    `레이업 비중 ${r(layupPct)}% (성공률 ${r(layupSP, 0)}%)`,
-    '기준: 비중\u226525%, 성공률\u266540%, 최소10회'))
+    `레이업 비중 ${r(layupPct)}% (성공률 ${r(layupSP,0)}%)`,
+    '기준: 비중≥25%, 성공률≥40%, 최소10회'))
 
   const q1avg = gp > 0 ? s.q1pts / gp : 0
   const q2avg = gp > 0 ? s.q2pts / gp : 0
   const q3avg = gp > 0 ? s.q3pts / gp : 0
   const q4avg = gp > 0 ? s.q4pts / gp : 0
-  const isQ4Best = q4avg > 0 && q4avg > q1avg && q4avg > q2avg && q4avg > q3avg
-  results.push(make('CLUTCH_Q4', ok(isQ4Best),
+  const q4margin = q4avg - Math.max(q1avg, q2avg, q3avg)
+  const clutchTier: BadgeTier = (() => {
+    if (gp < 3 || q4avg <= 0 || q4margin <= 0) return null
+    if (q4margin >= 3.0) return 'gold'
+    if (q4margin >= 1.5) return 'silver'
+    return 'bronze'
+  })()
+  results.push(make('CLUTCH_Q4', clutchTier,
     r(q4avg), Math.max(r(q1avg), r(q2avg), r(q3avg)),
     `Q1:${r(q1avg)} Q2:${r(q2avg)} Q3:${r(q3avg)} Q4:${r(q4avg)} pts/G`,
     '기준: 4Q평균득점이 1~3Q 평균보다 모두 높을 것'))
 
-  const smTh = r(team.ptsPerGame * 1.5)
-  results.push(make('SCORING_MACHINE', ok(team.ptsPerGame > 0 && s.ppg >= team.ptsPerGame * 1.5),
-    r(s.ppg), smTh,
+  const smRatio = team.ptsPerGame > 0 ? s.ppg / team.ptsPerGame : 0
+  results.push(make('SCORING_MACHINE',
+    t1(team.ptsPerGame > 0, smRatio, 1.5, 1.8, 2.2),
+    r(s.ppg), r(team.ptsPerGame * 1.5),
     `PPG ${r(s.ppg)} (팀 평균 ${r(team.ptsPerGame)})`,
-    `기준: PPG\u2265${smTh} (팀평균\xd71.5배)`))
+    `기준: PPG≥${r(team.ptsPerGame*1.5)} (팀평균×1.5배)`))
 
   // ---- 슈팅 ----
   const threeShare = s.fga > 0 ? s.fg3a / s.fga * 100 : 0
-  results.push(make('JUNG_DAEMAN', ok(s.fg3a >= 10 && threeShare >= 50),
+  results.push(make('JUNG_DAEMAN',
+    t1(s.fg3a >= 10, threeShare, 50, 62, 75),
     r(threeShare), 50,
     `3점슛 비중 ${r(threeShare)}% (${s.fg3a}/${s.fga})`,
-    '기준: 3PA/FGA\u226550%, 최소15회'))
+    '기준: 3PA/FGA≥50%, 최소10회'))
 
-  results.push(make('DONG_HO_CURRY', ok(s.fg3a >= 15 && s.fg3Pct >= 33),
+  results.push(make('DONG_HO_CURRY',
+    t1(s.fg3a >= 15, s.fg3Pct, 33, 38, 43),
     r(s.fg3Pct), 33,
     `3점슛 성공률 ${r(s.fg3Pct)}% (${s.fg3m}/${s.fg3a})`,
-    '기준: 3P%\u266533%, 최소15회'))
+    '기준: 3P%≥33%, 최소15회'))
 
   const ftaPerGame = gp > 0 ? s.fta / gp : 0
-  results.push(make('ICE_VEINS', ok(s.fta >= 15 && s.ftPct >= 70 && ftaPerGame >= team.ftaPerGame),
+  results.push(make('ICE_VEINS',
+    t1(s.fta >= 15 && ftaPerGame >= team.ftaPerGame, s.ftPct, 70, 80, 90),
     r(s.ftPct), 70,
     `FT ${s.ftm}/${s.fta} = ${r(s.ftPct)}%`,
-    '기준: FT%\u266570%, FTA\u2265팀평균'))
+    '기준: FT%≥70%, FTA≥팀평균'))
 
   const midPct = shotSharePct('shot_2p_mid')
   const midSP  = shotSuccPct('shot_2p_mid')
   const midA   = sb['shot_2p_mid']?.attempted ?? 0
-  results.push(make('MID_MAESTRO', ok(midA >= 10 && midPct >= 30 && midSP >= 40),
+  results.push(make('MID_MAESTRO',
+    t2(midA >= 10, midPct, midSP, [30,40], [33,46], [37,52]),
     r(midPct), 30,
-    `미드레인지 비중 ${r(midPct)}% (성공률 ${r(midSP, 0)}%)`,
-    '기준: 비중\u266530%, 성공률\u266540%, 최소10회'))
+    `미드레인지 비중 ${r(midPct)}% (성공률 ${r(midSP,0)}%)`,
+    '기준: 비중≥30%, 성공률≥40%, 최소10회'))
 
   const fgPct = s.fga > 0 ? s.fgm / s.fga * 100 : 0
-  results.push(make('EFFICIENCY_GOD', ok(s.fga >= 20 && fgPct >= 50),
+  results.push(make('EFFICIENCY_GOD',
+    t1(s.fga >= 20, fgPct, 50, 56, 62),
     r(fgPct), 50,
     `FG% ${r(fgPct)}% (${s.fgm}/${s.fga})`,
-    '기준: FG%\u266550%, 최소FGA20회'))
+    '기준: FG%≥50%, 최소FGA20회'))
 
   // ---- 수비 ----
   const drebPct = s.reb > 0 ? s.dreb / s.reb * 100 : 0
-  results.push(make('GLASS_CLEANER', ok(s.reb >= 15 && drebPct >= 60),
+  results.push(make('GLASS_CLEANER',
+    t1(s.reb >= 15, drebPct, 60, 70, 80),
     r(drebPct), 60,
     `수비리바 비중 ${r(drebPct)}% (${s.dreb}/${s.reb})`,
-    '기준: DREB/REB\u266560%, 최소15개'))
+    '기준: DREB/REB≥60%, 최소15개'))
 
-  const ppTh = r(team.stlPerGame * 2)
-  results.push(make('PICKPOCKET', ok(team.stlPerGame > 0 && s.spg >= team.stlPerGame * 2),
-    r(s.spg), ppTh,
+  const ppRatioVal = team.stlPerGame > 0 ? s.spg / team.stlPerGame : 0
+  results.push(make('PICKPOCKET',
+    t1(team.stlPerGame > 0, ppRatioVal, 2.0, 2.5, 3.0),
+    r(s.spg), r(team.stlPerGame * 2),
     `SPG ${r(s.spg)} (팀 평균 ${r(team.stlPerGame)})`,
-    `기준: SPG\u2265${ppTh} (팀평균\xd72배)`))
+    `기준: SPG≥${r(team.stlPerGame*2)} (팀평균×2배)`))
 
-  const sbTh = r(team.blkPerGame * 2)
-  results.push(make('SHOT_BLOCKER', ok(team.blkPerGame > 0 && s.bpg >= team.blkPerGame * 2),
-    r(s.bpg), sbTh,
+  const sbRatioVal = team.blkPerGame > 0 ? s.bpg / team.blkPerGame : 0
+  results.push(make('SHOT_BLOCKER',
+    t1(team.blkPerGame > 0, sbRatioVal, 2.0, 2.5, 3.0),
+    r(s.bpg), r(team.blkPerGame * 2),
     `BPG ${r(s.bpg)} (팀 평균 ${r(team.blkPerGame)})`,
-    `기준: BPG\u2265${sbTh} (팀평균\xd72배)`))
+    `기준: BPG≥${r(team.blkPerGame*2)} (팀평균×2배)`))
 
   const hustlePerGame = gp > 0 ? (s.stl + s.blk + s.dreb) / gp : 0
-  const hustleTh = r(team.hustlePerGame * 1.3)
-  results.push(make('HUSTLE_KING', ok(team.hustlePerGame > 0 && hustlePerGame >= team.hustlePerGame * 1.3),
-    r(hustlePerGame), hustleTh,
+  const hustleRatio = team.hustlePerGame > 0 ? hustlePerGame / team.hustlePerGame : 0
+  results.push(make('HUSTLE_KING',
+    t1(team.hustlePerGame > 0, hustleRatio, 1.3, 1.6, 2.0),
+    r(hustlePerGame), r(team.hustlePerGame * 1.3),
     `허슬 ${r(hustlePerGame)}/G (팀 평균 ${r(team.hustlePerGame)})`,
-    `기준: (STL+BLK+DREB)/G\u2265${hustleTh} (팀평균\xd71.3배)`))
+    `기준: (STL+BLK+DREB)/G≥${r(team.hustlePerGame*1.3)} (팀평균×1.3배)`))
 
   // ---- 플레이메이킹 ----
-  results.push(make('CLEAN_HANDS', ok(s.ast >= 10 && s.astToTov >= 2.0),
+  results.push(make('CLEAN_HANDS',
+    t1(s.ast >= 10, s.astToTov, 2.0, 3.0, 4.5),
     r(s.astToTov), 2.0,
     `AST/TOV ${r(s.astToTov)} (A${s.ast} T${s.tov})`,
-    '기준: AST/TOV\u22652.0, 최소AST10'))
+    '기준: AST/TOV≥2.0, 최소AST10'))
 
   const ast3r = s.ast > 0 && (s.ast3pts ?? 0) > 0 ? (s.ast3pts ?? 0) / s.ast * 100 : 0
-  results.push(make('KICKOUT', ok(s.ast >= 10 && ast3r >= 50),
+  results.push(make('KICKOUT',
+    t1(s.ast >= 10, ast3r, 50, 62, 75),
     r(ast3r), 50,
     `3점 어시스트 ${s.ast3pts ?? 0}/${s.ast} = ${r(ast3r)}%`,
-    '기준: 3점연결AST\u266550%, 최소AST10'))
+    '기준: 3점연결AST≥50%, 최소AST10'))
 
-  const fgTh = r(team.astPerGame * 1.5)
-  results.push(make('FLOOR_GENERAL', ok(s.ast >= 10 && team.astPerGame > 0 && s.apg >= team.astPerGame * 1.5),
-    r(s.apg), fgTh,
+  const fgRatio = team.astPerGame > 0 ? s.apg / team.astPerGame : 0
+  results.push(make('FLOOR_GENERAL',
+    t1(s.ast >= 10 && team.astPerGame > 0, fgRatio, 1.5, 2.0, 2.5),
+    r(s.apg), r(team.astPerGame * 1.5),
     `APG ${r(s.apg)} (팀 평균 ${r(team.astPerGame)})`,
-    `기준: APG\u2265${fgTh} (팀평균\xd71.5배), 최소AST10`))
+    `기준: APG≥${r(team.astPerGame*1.5)} (팀평균×1.5배), 최소AST10`))
 
   const astPaint = s.astPaint ?? 0
   const ppRatio = s.ast > 0 ? astPaint / s.ast * 100 : 0
-  results.push(make('POCKET_PASSER', ok(s.ast >= 10 && ppRatio >= 50),
+  results.push(make('POCKET_PASSER',
+    t1(s.ast >= 10, ppRatio, 50, 62, 75),
     r(ppRatio), 50,
     `골밑·레이업 연결 어시스트 ${astPaint}/${s.ast} = ${r(ppRatio)}%`,
-    '기준: 골밑·레이업AST\u266540%, 최소AST10'))
+    '기준: 골밑·레이업AST≥50%, 최소AST10'))
 
+  const arTier: BadgeTier = (() => {
+    if (gp < 3 || team.ptsPerGame <= 0 || team.rebPerGame <= 0 || team.astPerGame <= 0) return null
+    const m = [s.ppg / team.ptsPerGame, s.rpg / team.rebPerGame, s.apg / team.astPerGame]
+    if (m.every(v => v >= 1.5)) return 'gold'
+    if (m.every(v => v >= 1.2)) return 'silver'
+    if (m.every(v => v >= 1.0)) return 'bronze'
+    return null
+  })()
   const arPts = team.ptsPerGame > 0 && s.ppg >= team.ptsPerGame
   const arReb = team.rebPerGame > 0 && s.rpg >= team.rebPerGame
   const arAst = team.astPerGame > 0 && s.apg >= team.astPerGame
-  const arCount = [arPts, arReb, arAst].filter(Boolean).length
-  results.push(make('ALL_ROUNDER', ok(arPts && arReb && arAst),
-    arCount, 3,
-    `PTS${arPts ? '\u2705' : '\u274c'} REB${arReb ? '\u2705' : '\u274c'} AST${arAst ? '\u2705' : '\u274c'}`,
-    `기준: PPG\u2265${r(team.ptsPerGame)} & RPG\u2265${r(team.rebPerGame)} & APG\u2265${r(team.astPerGame)}`))
+  results.push(make('ALL_ROUNDER', arTier,
+    [arPts, arReb, arAst].filter(Boolean).length, 3,
+    `PTS${arPts?'✅':'❌'} REB${arReb?'✅':'❌'} AST${arAst?'✅':'❌'}`,
+    `기준: PPG≥${r(team.ptsPerGame)} & RPG≥${r(team.rebPerGame)} & APG≥${r(team.astPerGame)}`))
 
   return results
 }
 
 export function calculateBadges(s: PlayerCareerInput, team: TeamAverages): EarnedBadge[] {
-  return evaluateAllBadges(s, team).filter(b => b.earned)
+  return evaluateAllBadges(s, team).filter(b => b.tier !== null)
 }

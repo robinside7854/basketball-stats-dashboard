@@ -5,8 +5,9 @@ import { X, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
-import { evaluateAllBadges, CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/stats/badges'
+import { evaluateAllBadges, CATEGORY_LABELS } from '@/lib/stats/badges'
 import type { EvaluatedBadge } from '@/lib/stats/badges'
+import BadgeIcon, { TIER_STYLES } from '@/components/badges/BadgeIcon'
 
 const BadgeMasterbook = dynamic(() => import('@/components/roster/BadgeMasterbook'), { ssr: false })
 const GameBoxScoreModal = dynamic(() => import('@/components/GameBoxScoreModal'), { ssr: false })
@@ -390,66 +391,81 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
 
                     {/* 능력 뱃지 */}
                     {evaluatedBadges.length > 0 && (() => {
-                      const earnedBadges = evaluatedBadges.filter(b => b.earned)
+                      const earnedBadges = evaluatedBadges.filter(b => b.tier !== null)
+                      // Sort: gold first, then silver, bronze
+                      const tierOrder: Record<string, number> = { gold: 0, silver: 1, bronze: 2 }
+                      const sortedBadges = [...earnedBadges].sort((a, b) => (tierOrder[a.tier!] ?? 3) - (tierOrder[b.tier!] ?? 3))
                       const activeBadge = evaluatedBadges.find(b => b.code === activeBadgeCode)
+
+                      const goldC   = earnedBadges.filter(b => b.tier === 'gold').length
+                      const silverC = earnedBadges.filter(b => b.tier === 'silver').length
+                      const bronzeC = earnedBadges.filter(b => b.tier === 'bronze').length
+
                       return (
                         <div className="border-t border-gray-800/60" style={{ background: '#070E1A' }}>
-                          {/* 뱃지 행 */}
-                          <div className="flex items-start gap-2 px-5 py-3 flex-wrap">
-                            <span className="text-xs text-gray-600 uppercase tracking-wider mr-1 mt-0.5 shrink-0">Badges</span>
-                            {earnedBadges.length === 0 && (
-                              <span className="text-xs text-gray-700 italic mt-0.5">아직 달성한 뱃지가 없습니다</span>
-                            )}
-                            {earnedBadges.map(badge => {
-                              const colors = CATEGORY_COLORS[badge.category]
-                              const isActive = activeBadgeCode === badge.code
-                              return (
+                          <div className="px-5 py-3 space-y-2">
+                            {/* 티어 요약 */}
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="text-gray-600 uppercase tracking-wider text-[10px] mr-1">Badges</span>
+                              {goldC   > 0 && <span className="text-amber-400 font-bold">🥇 {goldC}</span>}
+                              {silverC > 0 && <span className="text-slate-400 font-bold">🥈 {silverC}</span>}
+                              {bronzeC > 0 && <span className="text-orange-400 font-bold">🥉 {bronzeC}</span>}
+                              <button
+                                onClick={() => setMasterbookOpen(true)}
+                                className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-700/50 bg-gray-800/40 text-xs text-gray-500 hover:text-gray-300 hover:border-gray-600 transition-colors cursor-pointer"
+                              >
+                                <span>📖</span>
+                                <span>도감</span>
+                              </button>
+                            </div>
+
+                            {/* 뱃지 아이콘 행 */}
+                            <div className="flex flex-wrap gap-1.5">
+                              {earnedBadges.length === 0 && (
+                                <span className="text-xs text-gray-700 italic">아직 달성한 뱃지가 없습니다</span>
+                              )}
+                              {sortedBadges.map(badge => (
                                 <button
                                   key={badge.code}
-                                  onClick={() => setActiveBadgeCode(isActive ? null : badge.code)}
+                                  onClick={() => setActiveBadgeCode(activeBadgeCode === badge.code ? null : badge.code)}
                                   onMouseEnter={() => setActiveBadgeCode(badge.code)}
                                   onMouseLeave={() => setActiveBadgeCode(null)}
-                                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold cursor-pointer transition-all
-                                    ${colors.badge} ${isActive ? 'ring-1 ring-white/30 scale-105' : 'hover:scale-105'}`}
+                                  className="cursor-pointer"
+                                  title={badge.name}
                                 >
-                                  <span>{badge.icon}</span>
-                                  <span>{badge.name}</span>
+                                  <BadgeIcon code={badge.code} tier={badge.tier} size="sm" />
                                 </button>
-                              )
-                            })}
-                            <button
-                              onClick={() => setMasterbookOpen(true)}
-                              className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-700/50 bg-gray-800/40 text-xs text-gray-500 hover:text-gray-300 hover:border-gray-600 transition-colors cursor-pointer"
-                            >
-                              <span>📖</span>
-                              <span>도감</span>
-                            </button>
-                          </div>
-                          {/* 뱃지 상세 패널 (클릭/호버 시) */}
-                          {activeBadge && (
-                            <div className="mx-5 mb-3 rounded-xl border border-gray-700/50 bg-gray-900/80 p-3">
-                              <div className="flex items-start gap-2.5 mb-2">
-                                <span className="text-2xl">{activeBadge.icon}</span>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-sm font-bold text-white">{activeBadge.name}</span>
-                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${CATEGORY_COLORS[activeBadge.category].badge}`}>
-                                      {CATEGORY_LABELS[activeBadge.category]}
-                                    </span>
-                                    <span className="text-xs text-green-400 font-bold">✅ 달성</span>
-                                  </div>
-                                  <p className="text-xs text-gray-400 mt-0.5">{activeBadge.description}</p>
-                                </div>
-                              </div>
-                              <div className="border-t border-gray-700/40 pt-2 space-y-1.5">
-                                <p className="text-[11px] text-gray-500">{activeBadge.thresholdLabel}</p>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-400">달성값</span>
-                                  <span className="text-sm font-bold text-white">{activeBadge.achievedLabel}</span>
-                                </div>
-                              </div>
+                              ))}
                             </div>
-                          )}
+
+                            {/* 선택된 뱃지 상세 패널 */}
+                            {activeBadge && activeBadge.tier && (
+                              <div className={`rounded-xl p-3 border transition-all ${
+                                activeBadge.tier === 'gold'   ? 'bg-amber-950/50 border-amber-600/40' :
+                                activeBadge.tier === 'silver' ? 'bg-slate-800/50 border-slate-500/40' :
+                                                                'bg-orange-950/50 border-orange-700/40'
+                              }`}>
+                                <div className="flex items-start gap-2.5">
+                                  <BadgeIcon code={activeBadge.code} tier={activeBadge.tier} size="md" showLabel />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                      <span className="text-sm font-bold text-white">{activeBadge.name}</span>
+                                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                        activeBadge.tier === 'gold'   ? 'bg-amber-900/60 text-amber-300' :
+                                        activeBadge.tier === 'silver' ? 'bg-slate-700/60 text-slate-300' :
+                                                                         'bg-orange-900/60 text-orange-300'
+                                      }`}>{CATEGORY_LABELS[activeBadge.category]}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-0.5">{activeBadge.description}</p>
+                                  </div>
+                                </div>
+                                <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
+                                  <p className="text-[11px] text-gray-500">{activeBadge.thresholdLabel}</p>
+                                  <p className="text-sm font-bold text-white">{activeBadge.achievedLabel}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )
                     })()}
