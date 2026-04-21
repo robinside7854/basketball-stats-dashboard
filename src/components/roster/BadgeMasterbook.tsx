@@ -112,19 +112,19 @@ export default function BadgeMasterbook({ evaluatedBadges, onClose }: Props) {
                           tier === 'gold'   ? `bg-amber-950/50 border-amber-600/50 ${TIER_STYLES.gold.glow}` :
                           tier === 'silver' ? `bg-slate-800/50 border-slate-500/50 ${TIER_STYLES.silver.glow}` :
                           tier === 'bronze' ? `bg-orange-950/50 border-orange-700/50 ${TIER_STYLES.bronze.glow}` :
-                          'bg-gray-900/40 border-gray-800/40 opacity-50'
+                          'bg-gray-900/60 border-gray-700/60'
                         }`}
                       >
                         <div className="flex items-start gap-3">
                           <BadgeIcon code={badge.code} tier={tier} size="md" showLabel={earned} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-1 mb-0.5">
-                              <p className={`text-sm md:text-base font-bold ${earned ? 'text-white' : 'text-gray-500'}`}>{badge.name}</p>
+                              <p className={`text-sm md:text-base font-bold ${earned ? 'text-white' : 'text-gray-400'}`}>{badge.name}</p>
                               {tier && ts && (
                                 <span className={`text-[10px] md:text-xs font-bold tracking-widest ${ts.labelColor} shrink-0`}>{ts.label}</span>
                               )}
                             </div>
-                            <p className="text-xs md:text-sm text-gray-500 leading-relaxed">{badge.description}</p>
+                            <p className={`text-xs md:text-sm leading-relaxed ${earned ? 'text-gray-400' : 'text-gray-500'}`}>{badge.description}</p>
                           </div>
                         </div>
 
@@ -141,10 +141,10 @@ export default function BadgeMasterbook({ evaluatedBadges, onClose }: Props) {
                                   : t === 'silver' ? 'bg-slate-800/70 text-slate-200'
                                   :                  'bg-orange-950/70 text-orange-200'
                                 : isSurpassed
-                                  ? 'text-gray-600'
-                                : t === 'gold'   ? 'text-amber-800/70'
-                                : t === 'silver' ? 'text-slate-500/70'
-                                :                  'text-orange-800/70'
+                                  ? 'text-gray-500'
+                                : t === 'gold'   ? 'text-amber-600/80'
+                                : t === 'silver' ? 'text-slate-400/80'
+                                :                  'text-orange-500/70'
                               }`}>
                                 <span className="shrink-0 text-sm">{t === 'gold' ? '🥇' : t === 'silver' ? '🥈' : '🥉'}</span>
                                 <span className={isCurrent ? 'font-semibold' : ''}>{badge.tierCriteria[t]}</span>
@@ -158,7 +158,7 @@ export default function BadgeMasterbook({ evaluatedBadges, onClose }: Props) {
                         {/* 선수 달성 수치 */}
                         {ev && (
                           <div className={`text-xs md:text-sm px-2 py-1 rounded-md mt-1.5 ${
-                            earned ? 'bg-black/30 text-gray-300' : 'bg-gray-800/50 text-gray-500'
+                            earned ? 'bg-black/30 text-gray-300' : 'bg-gray-800/60 text-gray-400'
                           }`}>
                             {ev.achievedLabel}
                           </div>

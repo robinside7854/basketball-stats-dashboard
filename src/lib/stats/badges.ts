@@ -66,23 +66,23 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   {
     code: 'PAINT_BUSTER', name: '골밑파괴자', icon: '\u2694\ufe0f', category: 'attack', theme: T.orange, minGames: 3, unit: '%',
     description: '골밑슛으로 골밑을 지배하는 인사이드 킬러',
-    criteria: '골밑슛 시도 비중 \u226535% & 성공률 \u226540% (최소 10회 시도)',
-    tierCriteria: { bronze: '비중≥35% & 성공률≥40%', silver: '비중≥40% & 성공률≥48%', gold: '비중≥45% & 성공률≥55%' },
+    criteria: '골밑슛 시도 비중 \u226540% & 성공률 \u226540% (최소 10회 시도)',
+    tierCriteria: { bronze: '비중≥40% & 성공률≥40%', silver: '비중≥40% & 성공률≥45%', gold: '비중≥40% & 성공률≥50%' },
   },
   {
     code: 'GLASS_EATER', name: '로드맨', icon: '\u{1F4AA}', category: 'attack', theme: T.amber, minGames: 3, unit: '%',
     description: 'Dennis Rodman 계보의 공격 리바운드 기계',
-    criteria: '공격 리바운드 / 전체 리바운드 \u226535% (최소 15개)',
-    tierCriteria: { bronze: 'OREB/REB ≥35%', silver: 'OREB/REB ≥43%', gold: 'OREB/REB ≥52%' },
+    criteria: '공격 리바운드 / 전체 리바운드 \u226529.9% (최소 15개)',
+    tierCriteria: { bronze: 'OREB/REB ≥29.9%', silver: 'OREB/REB ≥40%', gold: 'OREB/REB ≥50%' },
   },
   {
     code: 'FINISHER', name: '피니셔', icon: '\u{1F3C3}', category: 'attack', theme: T.orange, minGames: 3, unit: '%',
     description: '빠른 발과 감각으로 레이업을 완성하는 마무리 전문가',
-    criteria: '레이업 시도 비중 \u226525% & 성공률 \u226540% (최소 10회 시도)',
-    tierCriteria: { bronze: '비중≥25% & 성공률≥40%', silver: '비중≥30% & 성공률≥50%', gold: '비중≥35% & 성공률≥60%' },
+    criteria: '레이업 시도 비중 \u226535% & 성공률 \u226540% (최소 10회 시도)',
+    tierCriteria: { bronze: '비중≥35% & 성공률≥40%', silver: '비중≥35% & 성공률≥50%', gold: '비중≥35% & 성공률≥60%' },
   },
   {
-    code: 'CLUTCH_Q4', name: '4쿼터의 사나이', icon: '\u23f0', category: 'attack', theme: T.amber, minGames: 3, unit: 'pts',
+    code: 'CLUTCH_Q4', name: 'Mr. Clutch', icon: '\u23f0', category: 'attack', theme: T.amber, minGames: 3, unit: 'pts',
     description: '4쿼터에서 더욱 강해지는 클러치 플레이어',
     criteria: '4쿼터 평균 득점이 1~3쿼터 평균보다 모두 높은 선수 (최소 3경기)',
     tierCriteria: { bronze: 'Q4 평균 > 1~3Q 최고치', silver: 'Q4 차이 ≥1.5pts', gold: 'Q4 차이 ≥3.0pts' },
@@ -96,16 +96,16 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
 
   // -- 슈팅 (5) --
   {
-    code: 'JUNG_DAEMAN', name: '정대만', icon: '\u{1F3AF}', category: 'shooting', theme: T.blue, minGames: 3, unit: '%',
-    description: '슛이 전부다. FGA의 50% 이상을 3점슛으로만 해결',
-    criteria: '3점슛 시도 / 전체 FGA \u226550% (최소 10회 3점 시도)',
-    tierCriteria: { bronze: '3PA/FGA ≥50%', silver: '3PA/FGA ≥62%', gold: '3PA/FGA ≥75%' },
+    code: 'JUNG_DAEMAN', name: '발맞으면쏜다!', icon: '\u{1F3AF}', category: 'shooting', theme: T.blue, minGames: 3, unit: '%',
+    description: '슛이 전부다. FGA의 40% 이상을 3점슛으로만 해결',
+    criteria: '3점슛 시도 / 전체 FGA \u226540% (최소 10회 3점 시도)',
+    tierCriteria: { bronze: '3PA/FGA ≥40%', silver: '3PA/FGA ≥50%', gold: '3PA/FGA ≥60%' },
   },
   {
     code: 'DONG_HO_CURRY', name: '동호회커리', icon: '\u{1F35B}', category: 'shooting', theme: T.sky, minGames: 3, unit: '%',
     description: '3점슛 성공률 33% 이상의 준수한 외곽 슈터',
-    criteria: '3점슛 성공률 \u266533% (최소 15회 시도)',
-    tierCriteria: { bronze: '3P% ≥33%', silver: '3P% ≥38%', gold: '3P% ≥43%' },
+    criteria: '3점슛 성공률 \u266530% (최소 15회 시도)',
+    tierCriteria: { bronze: '3P% ≥30%', silver: '3P% ≥35%', gold: '3P% ≥38%' },
   },
   {
     code: 'ICE_VEINS', name: '강심장', icon: '\u{1F9CA}', category: 'shooting', theme: T.cyan, minGames: 3, unit: '%',
@@ -116,34 +116,34 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   {
     code: 'MID_MAESTRO', name: '미드레인지 장인', icon: '\u{1F4CD}', category: 'shooting', theme: T.sky, minGames: 3, unit: '%',
     description: '사라진 중거리를 부활시키는 정확한 미드레인지 슈터',
-    criteria: '미드레인지 시도 비중 \u266530% & 성공률 \u266540% (최소 10회 시도)',
-    tierCriteria: { bronze: '비중≥30% & 성공률≥40%', silver: '비중≥33% & 성공률≥46%', gold: '비중≥37% & 성공률≥52%' },
+    criteria: '미드레인지 시도 비중 \u266533% & 성공률 \u266540% (최소 10회 시도)',
+    tierCriteria: { bronze: '비중≥33% & 성공률≥40%', silver: '비중≥33% & 성공률≥45%', gold: '비중≥33% & 성공률≥50%' },
   },
   {
-    code: 'EFFICIENCY_GOD', name: '효율의 신', icon: '\u2728', category: 'shooting', theme: T.blue, minGames: 3, unit: '%',
-    description: 'FG% 50% 이상의 압도적 효율로 팀을 이끄는 선수',
-    criteria: 'FG% \u266550% (최소 FGA 20회)',
-    tierCriteria: { bronze: 'FG% ≥50%', silver: 'FG% ≥56%', gold: 'FG% ≥62%' },
+    code: 'EFFICIENCY_GOD', name: '극한의효율충', icon: '\u2728', category: 'shooting', theme: T.blue, minGames: 3, unit: '%',
+    description: 'FG% 45% 이상의 압도적 효율로 팀을 이끄는 선수',
+    criteria: 'FG% \u266545% (최소 FGA 20회)',
+    tierCriteria: { bronze: 'FG% ≥45%', silver: 'FG% ≥50%', gold: 'FG% ≥55%' },
   },
 
   // -- 수비 (5) --
   {
-    code: 'GLASS_CLEANER', name: '유리청소부', icon: '\u{1FA9F}', category: 'defense', theme: T.teal, minGames: 3, unit: '%',
+    code: 'GLASS_CLEANER', name: '수비의 끝은 리바운드', icon: '\u{1FA9F}', category: 'defense', theme: T.teal, minGames: 3, unit: '%',
     description: '상대 2차 공격을 원천 봉쇄하는 수비 리바운드 전문가',
     criteria: '수비 리바운드 / 전체 리바운드 \u266560% (최소 15개)',
     tierCriteria: { bronze: 'DREB/REB ≥60%', silver: 'DREB/REB ≥70%', gold: 'DREB/REB ≥80%' },
   },
   {
-    code: 'PICKPOCKET', name: '대도', icon: '\u{1F985}', category: 'defense', theme: T.green, minGames: 3, unit: 'SPG',
+    code: 'PICKPOCKET', name: '소매치기', icon: '\u{1F985}', category: 'defense', theme: T.green, minGames: 3, unit: 'SPG',
     description: '날카로운 눈과 빠른 손으로 볼을 낚아채는 스틸 전문가',
-    criteria: 'SPG \u2265 팀 평균 \xd7 2배 (최소 3경기)',
-    tierCriteria: { bronze: 'SPG ≥ 팀평균 ×2.0배', silver: 'SPG ≥ 팀평균 ×2.5배', gold: 'SPG ≥ 팀평균 ×3.0배' },
+    criteria: 'SPG \u2265 팀 평균 \xd7 1.5배 (최소 3경기)',
+    tierCriteria: { bronze: 'SPG ≥ 팀평균 ×1.5배', silver: 'SPG ≥ 팀평균 ×2.0배', gold: 'SPG ≥ 팀평균 ×2.5배' },
   },
   {
-    code: 'SHOT_BLOCKER', name: '골밑 수문장', icon: '\u{1F6E1}\ufe0f', category: 'defense', theme: T.emerald, minGames: 3, unit: 'BPG',
+    code: 'SHOT_BLOCKER', name: '남동타워', icon: '\u{1F6E1}\ufe0f', category: 'defense', theme: T.emerald, minGames: 3, unit: 'BPG',
     description: '골밑을 지키는 수호자. 상대의 슛을 걷어내는 블로킹 전문가',
-    criteria: 'BPG \u2265 팀 평균 \xd7 2배 (최소 3경기)',
-    tierCriteria: { bronze: 'BPG ≥ 팀평균 ×2.0배', silver: 'BPG ≥ 팀평균 ×2.5배', gold: 'BPG ≥ 팀평균 ×3.0배' },
+    criteria: 'BPG \u2265 팀 평균 \xd7 1.5배 (최소 3경기)',
+    tierCriteria: { bronze: 'BPG ≥ 팀평균 ×1.5배', silver: 'BPG ≥ 팀평균 ×2.0배', gold: 'BPG ≥ 팀평균 ×2.5배' },
   },
   {
     code: 'HUSTLE_KING', name: '허슬킹', icon: '\u26a1', category: 'defense', theme: T.green, minGames: 3, unit: '/G',
@@ -156,17 +156,17 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
   {
     code: 'CLEAN_HANDS', name: '안전운반', icon: '\u{1F91D}', category: 'playmaking', theme: T.purple, minGames: 3, unit: 'AST/TOV',
     description: '볼을 잃지 않는 안정적인 볼 핸들러. AST/TOV 2.0 이상',
-    criteria: 'AST/TOV \u22652.0 (최소 어시스트 10개)',
-    tierCriteria: { bronze: 'AST/TOV ≥2.0', silver: 'AST/TOV ≥3.0', gold: 'AST/TOV ≥4.5' },
+    criteria: 'AST/TOV \u22651.8 (최소 어시스트 10개)',
+    tierCriteria: { bronze: 'AST/TOV ≥1.8', silver: 'AST/TOV ≥2.3', gold: 'AST/TOV ≥2.8' },
   },
   {
     code: 'KICKOUT', name: '킥아웃 전도사', icon: '\u{1F3A6}', category: 'playmaking', theme: T.violet, minGames: 3, unit: '%',
     description: '어시스트의 50% 이상이 3점슛으로 이어지는 외곽 연결 플레이메이커',
     criteria: '3점 연결 어시스트 / 전체 어시스트 \u266550% (최소 어시스트 10개)',
-    tierCriteria: { bronze: '3점 연결AST ≥50%', silver: '3점 연결AST ≥62%', gold: '3점 연결AST ≥75%' },
+    tierCriteria: { bronze: '3점 연결AST ≥50%', silver: '3점 연결AST ≥60%', gold: '3점 연결AST ≥70%' },
   },
   {
-    code: 'FLOOR_GENERAL', name: '지휘자', icon: '\u{1F451}', category: 'playmaking', theme: T.indigo, minGames: 3, unit: 'APG',
+    code: 'FLOOR_GENERAL', name: '마에스트로', icon: '\u{1F451}', category: 'playmaking', theme: T.indigo, minGames: 3, unit: 'APG',
     description: '경기 전체를 조율하는 사령탑. APG가 팀 평균의 1.5배 이상',
     criteria: 'APG \u2265 팀 평균 \xd7 1.5배 (최소 어시스트 10개)',
     tierCriteria: { bronze: 'APG ≥ 팀평균 ×1.5배', silver: 'APG ≥ 팀평균 ×2.0배', gold: 'APG ≥ 팀평균 ×2.5배' },
@@ -175,7 +175,7 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     code: 'POCKET_PASSER', name: '포켓패서', icon: '\u{1F3AF}', category: 'playmaking', theme: T.purple, minGames: 3, unit: '%',
     description: '어시스트의 50% 이상이 골밑슛·레이업으로 연결되는 내부 침투 플레이메이커',
     criteria: '골밑·레이업 연결 어시스트 / 전체 어시스트 \u266550% (최소 어시스트 10개)',
-    tierCriteria: { bronze: '골밑 연결AST ≥50%', silver: '골밑 연결AST ≥62%', gold: '골밑 연결AST ≥75%' },
+    tierCriteria: { bronze: '골밑 연결AST ≥50%', silver: '골밑 연결AST ≥60%', gold: '골밑 연결AST ≥70%' },
   },
   {
     code: 'ALL_ROUNDER', name: '올라운더', icon: '\u{1F527}', category: 'playmaking', theme: T.violet, minGames: 3, unit: '항목',
@@ -264,26 +264,26 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
   const postSP  = shotSuccPct('shot_post')
   const postA   = sb['shot_post']?.attempted ?? 0
   results.push(make('PAINT_BUSTER',
-    t2(postA >= 10, postPct, postSP, [35,40], [40,48], [45,55]),
-    r(postPct), 35,
+    t2(postA >= 10, postPct, postSP, [40,40], [40,45], [40,50]),
+    r(postPct), 40,
     `포스트슛 비중 ${r(postPct)}% (성공률 ${r(postSP,0)}%)`,
-    '기준: 비중≥35%, 성공률≥40%, 최소10회'))
+    '기준: 비중≥40%, 성공률≥40%, 최소10회'))
 
   const orebPct = s.reb > 0 ? s.oreb / s.reb * 100 : 0
   results.push(make('GLASS_EATER',
-    t1(s.reb >= 15, orebPct, 35, 43, 52),
-    r(orebPct), 35,
+    t1(s.reb >= 15, orebPct, 29.9, 40, 50),
+    r(orebPct), 29.9,
     `공격리바 비중 ${r(orebPct)}% (${s.oreb}/${s.reb})`,
-    '기준: OREB/REB≥35%, 최소15개'))
+    '기준: OREB/REB≥29.9%, 최소15개'))
 
   const layupPct = shotSharePct('shot_layup')
   const layupSP  = shotSuccPct('shot_layup')
   const layupA   = sb['shot_layup']?.attempted ?? 0
   results.push(make('FINISHER',
-    t2(layupA >= 10, layupPct, layupSP, [25,40], [30,50], [35,60]),
-    r(layupPct), 25,
+    t2(layupA >= 10, layupPct, layupSP, [35,40], [35,50], [35,60]),
+    r(layupPct), 35,
     `레이업 비중 ${r(layupPct)}% (성공률 ${r(layupSP,0)}%)`,
-    '기준: 비중≥25%, 성공률≥40%, 최소10회'))
+    '기준: 비중≥35%, 성공률≥40%, 최소10회'))
 
   const q1avg = gp > 0 ? s.q1pts / gp : 0
   const q2avg = gp > 0 ? s.q2pts / gp : 0
@@ -311,16 +311,16 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
   // ---- 슈팅 ----
   const threeShare = s.fga > 0 ? s.fg3a / s.fga * 100 : 0
   results.push(make('JUNG_DAEMAN',
-    t1(s.fg3a >= 10, threeShare, 50, 62, 75),
-    r(threeShare), 50,
+    t1(s.fg3a >= 10, threeShare, 40, 50, 60),
+    r(threeShare), 40,
     `3점슛 비중 ${r(threeShare)}% (${s.fg3a}/${s.fga})`,
-    '기준: 3PA/FGA≥50%, 최소10회'))
+    '기준: 3PA/FGA≥40%, 최소10회'))
 
   results.push(make('DONG_HO_CURRY',
-    t1(s.fg3a >= 15, s.fg3Pct, 33, 38, 43),
-    r(s.fg3Pct), 33,
+    t1(s.fg3a >= 15, s.fg3Pct, 30, 35, 38),
+    r(s.fg3Pct), 30,
     `3점슛 성공률 ${r(s.fg3Pct)}% (${s.fg3m}/${s.fg3a})`,
-    '기준: 3P%≥33%, 최소15회'))
+    '기준: 3P%≥30%, 최소15회'))
 
   const ftaPerGame = gp > 0 ? s.fta / gp : 0
   results.push(make('ICE_VEINS',
@@ -333,17 +333,17 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
   const midSP  = shotSuccPct('shot_2p_mid')
   const midA   = sb['shot_2p_mid']?.attempted ?? 0
   results.push(make('MID_MAESTRO',
-    t2(midA >= 10, midPct, midSP, [30,40], [33,46], [37,52]),
-    r(midPct), 30,
+    t2(midA >= 10, midPct, midSP, [33,40], [33,45], [33,50]),
+    r(midPct), 33,
     `미드레인지 비중 ${r(midPct)}% (성공률 ${r(midSP,0)}%)`,
-    '기준: 비중≥30%, 성공률≥40%, 최소10회'))
+    '기준: 비중≥33%, 성공률≥40%, 최소10회'))
 
   const fgPct = s.fga > 0 ? s.fgm / s.fga * 100 : 0
   results.push(make('EFFICIENCY_GOD',
-    t1(s.fga >= 20, fgPct, 50, 56, 62),
-    r(fgPct), 50,
+    t1(s.fga >= 20, fgPct, 45, 50, 55),
+    r(fgPct), 45,
     `FG% ${r(fgPct)}% (${s.fgm}/${s.fga})`,
-    '기준: FG%≥50%, 최소FGA20회'))
+    '기준: FG%≥45%, 최소FGA20회'))
 
   // ---- 수비 ----
   const drebPct = s.reb > 0 ? s.dreb / s.reb * 100 : 0
@@ -355,17 +355,17 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
 
   const ppRatioVal = team.stlPerGame > 0 ? s.spg / team.stlPerGame : 0
   results.push(make('PICKPOCKET',
-    t1(team.stlPerGame > 0, ppRatioVal, 2.0, 2.5, 3.0),
-    r(s.spg), r(team.stlPerGame * 2),
+    t1(team.stlPerGame > 0, ppRatioVal, 1.5, 2.0, 2.5),
+    r(s.spg), r(team.stlPerGame * 1.5),
     `SPG ${r(s.spg)} (팀 평균 ${r(team.stlPerGame)})`,
-    `기준: SPG≥${r(team.stlPerGame*2)} (팀평균×2배)`))
+    `기준: SPG≥${r(team.stlPerGame*1.5)} (팀평균×1.5배)`))
 
   const sbRatioVal = team.blkPerGame > 0 ? s.bpg / team.blkPerGame : 0
   results.push(make('SHOT_BLOCKER',
-    t1(team.blkPerGame > 0, sbRatioVal, 2.0, 2.5, 3.0),
-    r(s.bpg), r(team.blkPerGame * 2),
+    t1(team.blkPerGame > 0, sbRatioVal, 1.5, 2.0, 2.5),
+    r(s.bpg), r(team.blkPerGame * 1.5),
     `BPG ${r(s.bpg)} (팀 평균 ${r(team.blkPerGame)})`,
-    `기준: BPG≥${r(team.blkPerGame*2)} (팀평균×2배)`))
+    `기준: BPG≥${r(team.blkPerGame*1.5)} (팀평균×1.5배)`))
 
   const hustlePerGame = gp > 0 ? (s.stl + s.blk + s.dreb) / gp : 0
   const hustleRatio = team.hustlePerGame > 0 ? hustlePerGame / team.hustlePerGame : 0
@@ -377,14 +377,14 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
 
   // ---- 플레이메이킹 ----
   results.push(make('CLEAN_HANDS',
-    t1(s.ast >= 10, s.astToTov, 2.0, 3.0, 4.5),
-    r(s.astToTov), 2.0,
+    t1(s.ast >= 10, s.astToTov, 1.8, 2.3, 2.8),
+    r(s.astToTov), 1.8,
     `AST/TOV ${r(s.astToTov)} (A${s.ast} T${s.tov})`,
-    '기준: AST/TOV≥2.0, 최소AST10'))
+    '기준: AST/TOV≥1.8, 최소AST10'))
 
   const ast3r = s.ast > 0 && (s.ast3pts ?? 0) > 0 ? (s.ast3pts ?? 0) / s.ast * 100 : 0
   results.push(make('KICKOUT',
-    t1(s.ast >= 10, ast3r, 50, 62, 75),
+    t1(s.ast >= 10, ast3r, 50, 60, 70),
     r(ast3r), 50,
     `3점 어시스트 ${s.ast3pts ?? 0}/${s.ast} = ${r(ast3r)}%`,
     '기준: 3점연결AST≥50%, 최소AST10'))
@@ -399,7 +399,7 @@ export function evaluateAllBadges(s: PlayerCareerInput, team: TeamAverages): Eva
   const astPaint = s.astPaint ?? 0
   const ppRatio = s.ast > 0 ? astPaint / s.ast * 100 : 0
   results.push(make('POCKET_PASSER',
-    t1(s.ast >= 10, ppRatio, 50, 62, 75),
+    t1(s.ast >= 10, ppRatio, 50, 60, 70),
     r(ppRatio), 50,
     `골밑·레이업 연결 어시스트 ${astPaint}/${s.ast} = ${r(ppRatio)}%`,
     '기준: 골밑·레이업AST≥50%, 최소AST10'))
