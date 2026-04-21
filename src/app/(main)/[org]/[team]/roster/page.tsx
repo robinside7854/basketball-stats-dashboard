@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { sortJerseyNum } from '@/lib/utils'
-import { Plus, Upload, X, Check, Merge } from 'lucide-react'
+import { Plus, Upload, X, Check, Merge, ChevronUp, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import PlayerCard from '@/components/roster/PlayerCard'
 import PlayerForm from '@/components/roster/PlayerForm'
@@ -12,9 +12,11 @@ import type { Player } from '@/types/database'
 import * as XLSX from 'xlsx'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { useTeam } from '@/contexts/TeamContext'
+import { useOrg } from '@/contexts/OrgContext'
 
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
-type SortMode = 'number' | 'age_asc' | 'age_desc'
+type SortKey = 'number' | 'age' | 'games'
+type SortDir = 'asc' | 'desc'
 
 interface UploadRow {
   number: number
@@ -39,14 +41,17 @@ function parseExcelBirthdate(raw: string | number | undefined): string | null {
 
 export default function RosterPage() {
   const team = useTeam()
+  const org = useOrg()
   const { isEditMode } = useEditMode()
   const [players, setPlayers] = useState<Player[]>([])
+  const [gamesCount, setGamesCount] = useState<Record<string, number>>({})
   const [showForm, setShowForm] = useState(false)
   const [editPlayer, setEditPlayer] = useState<Player | null>(null)
   const [uploadRows, setUploadRows] = useState<UploadRow[] | null>(null)
   const [uploading, setUploading] = useState(false)
   const [filterPos, setFilterPos] = useState<string>('')
-  const [sortMode, setSortMode] = useState<SortMode>('number')
+  const [sortKey, setSortKey] = useState<SortKey>('number')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [detailPlayerId, setDetailPlayerId] = useState<string | null>(null)
   const [showMerge, setShowMerge] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -57,7 +62,15 @@ export default function RosterPage() {
     setPlayers(data)
   }
 
-  useEffect(() => { fetchPlayers() }, [team])
+  async function fetchGamesCount() {
+    const res = await fetch(`/api/players/games-count?team=${team}&org=${org}`)
+    setGamesCount(await res.json())
+  }
+
+  useEffect(() => {
+    fetchPlayers()
+    fetchGamesCount()
+  }, [team])
 
   async function handleDelete(id: string) {
     if (!confirm('선수를 삭제하시겠습니까?')) return
@@ -113,18 +126,36 @@ export default function RosterPage() {
     toast.success(`${success}명 업로드 완료`)
   }
 
+  function handleSortClick(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir(key === 'number' ? 'asc' : 'desc')
+    }
+  }
+
   const displayed = useMemo(() => {
     let list = filterPos
       ? players.filter(p => p.position?.split(',').map(s => s.trim()).includes(filterPos))
       : players
     list = [...list].sort((a, b) => {
-      if (sortMode === 'number') return sortJerseyNum(a.number, b.number)
-      const da = a.birthdate ?? '9999'
-      const db = b.birthdate ?? '9999'
-      return sortMode === 'age_asc' ? da.localeCompare(db) : db.localeCompare(da)
+      let cmp = 0
+      if (sortKey === 'number') {
+        cmp = sortJerseyNum(a.number, b.number)
+      } else if (sortKey === 'age') {
+        const da = a.birthdate ?? '9999'
+        const db = b.birthdate ?? '9999'
+        cmp = da.localeCompare(db)
+      } else {
+        const ga = gamesCount[a.id] ?? 0
+        const gb = gamesCount[b.id] ?? 0
+        cmp = ga - gb
+      }
+      return sortDir === 'asc' ? cmp : -cmp
     })
     return list
-  }, [players, filterPos, sortMode])
+  }, [players, filterPos, sortKey, sortDir, gamesCount])
 
   return (
     <div>
@@ -174,30 +205,26 @@ export default function RosterPage() {
         <div className="h-4 w-px bg-gray-700 mx-1" />
 
         <div className="flex gap-1.5">
-          <button
-            onClick={() => setSortMode('number')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-              sortMode === 'number' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
-            }`}
-          >
-            등번호순
-          </button>
-          <button
-            onClick={() => setSortMode('age_asc')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-              sortMode === 'age_asc' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
-            }`}
-          >
-            나이 많은순
-          </button>
-          <button
-            onClick={() => setSortMode('age_desc')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-              sortMode === 'age_desc' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
-            }`}
-          >
-            나이 어린순
-          </button>
+          {([
+            { key: 'number', label: '등번호' },
+            { key: 'age',    label: '나이' },
+            { key: 'games',  label: '출전경기' },
+          ] as { key: SortKey; label: string }[]).map(({ key, label }) => {
+            const active = sortKey === key
+            const Icon = sortDir === 'asc' ? ChevronUp : ChevronDown
+            return (
+              <button
+                key={key}
+                onClick={() => handleSortClick(key)}
+                className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+                  active ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                }`}
+              >
+                {label}
+                {active && <Icon size={11} />}
+              </button>
+            )
+          })}
         </div>
 
         <span className="ml-auto text-xs text-gray-500">{displayed.length}명</span>
