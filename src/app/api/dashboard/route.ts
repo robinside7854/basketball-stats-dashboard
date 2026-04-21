@@ -72,8 +72,10 @@ export async function GET(req: Request) {
   // 최근 5경기 → reverse로 좌=오래된(예선), 우=최신(결승) 배치
   const recentGames = allGames.slice(0, 5).reverse()
 
-  const wins = allGames.filter(g => (g.our_score as number) > (g.opponent_score as number)).length
-  const losses = allGames.filter(g => (g.our_score as number) < (g.opponent_score as number)).length
+  const completeGames = allGames.filter(g => g.is_complete === true)
+  const incompleteCount = allGames.length - completeGames.length
+  const wins = completeGames.filter(g => (g.our_score as number) > (g.opponent_score as number)).length
+  const losses = completeGames.filter(g => (g.our_score as number) < (g.opponent_score as number)).length
 
   const gameIds = allGames.map(g => g.id as string)
 
@@ -91,7 +93,7 @@ export async function GET(req: Request) {
   if (playersRes.error) {
     return NextResponse.json({
       recentGames,
-      seasonRecord: { wins, losses, total: allGames.length },
+      seasonRecord: { wins, losses, total: completeGames.length, incompleteCount },
       leaders: null,
       teamAvg: null,
       teamRecords: null,
@@ -221,7 +223,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     recentGames,
-    seasonRecord: { wins, losses, total: allGames.length },
+    seasonRecord: { wins, losses, total: completeGames.length, incompleteCount },
     streak: { count: streak, type: streakType },
     leaders: (() => {
       function makeLeader(key: string, valKey: string) {

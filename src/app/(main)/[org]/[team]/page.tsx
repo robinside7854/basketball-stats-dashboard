@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useTeam, TEAM_LABELS } from '@/contexts/TeamContext'
+import { useOrg } from '@/contexts/OrgContext'
 import GameBoxScoreModal from '@/components/GameBoxScoreModal'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 
@@ -45,7 +47,7 @@ interface GameInfo {
 
 interface DashboardData {
   recentGames: RecentGame[]
-  seasonRecord: { wins: number; losses: number; total: number }
+  seasonRecord: { wins: number; losses: number; total: number; incompleteCount: number }
   streak: { count: number; type: 'win' | 'loss' | null }
   leaders: { ppg: Leader | null; rpg: Leader | null; apg: Leader | null; fg3_pct: Leader | null; ts_pct: Leader | null } | null
   teamAvg: { pts_avg: number; opp_avg: number; fg_pct: number; fg3_pct: number; ft_pct: number } | null
@@ -92,6 +94,7 @@ function GameRecordCard({ icon, title, value, unit, record, onClick }: {
 
 export default function TeamHomePage() {
   const team = useTeam()
+  const org = useOrg()
   const [data, setData] = useState<DashboardData | null>(null)
   const [gameModal, setGameModal] = useState<GameInfo | null>(null)
   const [playerModal, setPlayerModal] = useState<string | null>(null)
@@ -115,8 +118,9 @@ export default function TeamHomePage() {
   const winPct = seasonRecord.total > 0
     ? Math.round((seasonRecord.wins / seasonRecord.total) * 1000) / 10
     : 0
+  const incompleteCount = seasonRecord.incompleteCount ?? 0
 
-  const hasData = seasonRecord.total > 0
+  const hasData = seasonRecord.total > 0 || incompleteCount > 0
 
   return (
     <div className="space-y-8">
@@ -185,6 +189,29 @@ export default function TeamHomePage() {
               </>
             )}
           </div>
+
+          {/* 미완료 경기 알림 */}
+          {incompleteCount > 0 && (
+            <div className="flex items-center justify-between gap-3 bg-yellow-950/40 border border-yellow-700/50 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-yellow-400 text-lg shrink-0">⚠️</span>
+                <div>
+                  <p className="text-sm font-semibold text-yellow-300">
+                    기록 미완료 경기 {incompleteCount}경기
+                  </p>
+                  <p className="text-xs text-yellow-600 mt-0.5">
+                    승/패/승률은 기록 완료된 경기({seasonRecord.total}경기)만 반영됩니다
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={`/${org}/${team}/record`}
+                className="shrink-0 text-xs font-bold bg-yellow-500 hover:bg-yellow-400 text-black px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+              >
+                기록하러 가기 →
+              </Link>
+            </div>
+          )}
 
           {/* 최근 경기 */}
           {recentGames.length > 0 && (
