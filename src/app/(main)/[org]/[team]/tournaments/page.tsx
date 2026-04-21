@@ -9,6 +9,7 @@ import YoutubeImportModal from '@/components/tournaments/YoutubeImportModal'
 import type { Tournament, Game } from '@/types/database'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { useTeam } from '@/contexts/TeamContext'
+import { useOrg } from '@/contexts/OrgContext'
 import { ArrowUpDown } from 'lucide-react'
 
 const TYPE_LABELS: Record<string, string> = { pro: '선출부', amateur: '비선출부' }
@@ -54,6 +55,7 @@ function getTournamentSummary(games: Game[]): { record: string; placement: strin
 
 export default function TournamentsPage() {
   const team = useTeam()
+  const org = useOrg()
   const { isEditMode } = useEditMode()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [games, setGames] = useState<Record<string, Game[]>>({})
@@ -236,7 +238,7 @@ export default function TournamentsPage() {
       )}
 
       {showTForm && (
-        <TournamentForm tournament={editT} teamType={team} onClose={() => setShowTForm(false)}
+        <TournamentForm tournament={editT} teamType={team} org={org} onClose={() => setShowTForm(false)}
           onSaved={() => { setShowTForm(false); fetchTournaments(); toast.success('저장 완료') }} />
       )}
       {showGForm && (

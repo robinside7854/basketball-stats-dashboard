@@ -7,9 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { Tournament, Player } from '@/types/database'
 
-interface Props { tournament: Tournament | null; teamType?: string; onClose: () => void; onSaved: () => void }
+interface Props { tournament: Tournament | null; teamType?: string; org?: string; onClose: () => void; onSaved: () => void }
 
-export default function TournamentForm({ tournament, teamType, onClose, onSaved }: Props) {
+export default function TournamentForm({ tournament, teamType, org, onClose, onSaved }: Props) {
   const [form, setForm] = useState({
     name: tournament?.name ?? '',
     year: tournament?.year ?? new Date().getFullYear(),
@@ -39,9 +39,13 @@ export default function TournamentForm({ tournament, teamType, onClose, onSaved 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const url = tournament ? `/api/tournaments/${tournament.id}` : '/api/tournaments'
+    let url = tournament ? `/api/tournaments/${tournament.id}` : '/api/tournaments'
+    if (!tournament && teamType) {
+      const params = new URLSearchParams({ team: teamType, org: org ?? 'paranalgae' })
+      url += `?${params}`
+    }
     const method = tournament ? 'PUT' : 'POST'
-    const body = teamType && !tournament ? { ...form, team_type: teamType } : form
+    const body = form
     const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     if (!res.ok) { toast.error('대회 저장 실패'); return }
     const saved = await res.json()
