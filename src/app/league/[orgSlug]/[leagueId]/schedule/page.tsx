@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import LeagueSchedule from '@/components/league/LeagueSchedule'
 import type { League, LeagueGame, LeagueTeam } from '@/types/league'

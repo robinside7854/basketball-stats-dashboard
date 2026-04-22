@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import type { League } from '@/types/league'
 
