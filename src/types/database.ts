@@ -125,6 +125,7 @@ export interface PlayerBoxScore {
   double_double: boolean
   triple_double: boolean
   usg_pct?: number
+  game_score?: number
 }
 
 export const EVENT_LABELS: Record<EventType, string> = {

@@ -5,6 +5,40 @@ function pct(made: number, attempted: number): number {
   return Math.round((made / attempted) * 1000) / 10
 }
 
+// Hollinger Game Score: 한 경기의 종합 퍼포먼스 점수
+export function calcGameScore(s: {
+  pts: number; fgm: number; fga: number; ftm: number; fta: number
+  oreb: number; dreb: number; stl: number; ast: number; blk: number; pf: number; tov: number
+}): number {
+  const raw =
+    s.pts
+    + 0.4 * s.fgm
+    - 0.7 * s.fga
+    - 0.4 * (s.fta - s.ftm)
+    + 0.7 * s.oreb
+    + 0.3 * s.dreb
+    + s.stl
+    + 0.7 * s.ast
+    + 0.7 * s.blk
+    - 0.4 * s.pf
+    - s.tov
+  return Math.round(raw * 10) / 10
+}
+
+// Dean Oliver Four Factors (우리 팀 자체 효율)
+export function calcFourFactors(t: Partial<PlayerBoxScore>) {
+  const fgm = t.fgm ?? 0, fga = t.fga ?? 0, fg3m = t.fg3m ?? 0
+  const fta = t.fta ?? 0, tov = t.tov ?? 0
+  const oreb = t.oreb ?? 0, dreb = t.dreb ?? 0
+  const efg_pct = fga > 0 ? Math.round(((fgm + 0.5 * fg3m) / fga) * 1000) / 10 : 0
+  const poss = fga + 0.44 * fta + tov
+  const tov_pct = poss > 0 ? Math.round((tov / poss) * 1000) / 10 : 0
+  const totalReb = oreb + dreb
+  const orb_pct = totalReb > 0 ? Math.round((oreb / totalReb) * 1000) / 10 : 0
+  const ft_rate = fga > 0 ? Math.round((fta / fga) * 1000) / 1000 : 0
+  return { efg_pct, tov_pct, orb_pct, ft_rate }
+}
+
 function calcTotalMinutes(intervals: PlayerMinutes[], currentTime?: number): number {
   return intervals.reduce((total, interval) => {
     const out = interval.out_time ?? currentTime ?? interval.in_time
@@ -122,6 +156,7 @@ export function calculateBoxScore(
     stat.ast_tov = stat.tov > 0 ? Math.round((stat.ast / stat.tov) * 10) / 10 : stat.ast
     stat.double_double = isDoubleDouble(stat)
     stat.triple_double = isTripleDouble(stat)
+    stat.game_score = calcGameScore(stat)
   }
 
   // PER / USG% — 팀 합계가 필요하므로 2차 패스

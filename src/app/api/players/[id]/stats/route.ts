@@ -49,7 +49,7 @@ function calcStats(
   const mins = gameIds ? minutes.filter(m => gameIds.includes(m.game_id)) : minutes
 
   let pts = 0, fgm = 0, fga = 0, fg3m = 0, fg3a = 0, ftm = 0, fta = 0
-  let oreb = 0, dreb = 0, ast = 0, stl = 0, blk = 0, tov = 0
+  let oreb = 0, dreb = 0, ast = 0, stl = 0, blk = 0, tov = 0, pf = 0
 
   for (const e of evts) {
     switch (e.type) {
@@ -83,6 +83,9 @@ function calcStats(
       case 'turnover':
         tov++
         break
+      case 'foul':
+        pf++
+        break
     }
   }
 
@@ -92,8 +95,12 @@ function calcStats(
   const fg_pct = fga > 0 ? Math.round((fgm / fga) * 1000) / 10 : 0
   const fg3_pct = fg3a > 0 ? Math.round((fg3m / fg3a) * 1000) / 10 : 0
   const ft_pct = fta > 0 ? Math.round((ftm / fta) * 1000) / 10 : 0
+  const game_score = Math.round((
+    pts + 0.4 * fgm - 0.7 * fga - 0.4 * (fta - ftm)
+    + 0.7 * oreb + 0.3 * dreb + stl + 0.7 * ast + 0.7 * blk - 0.4 * pf - tov
+  ) * 10) / 10
 
-  return { pts, fgm, fga, fg_pct, fg3m, fg3a, fg3_pct, ftm, fta, ft_pct, oreb, dreb, reb, ast, stl, blk, tov, min: Math.round(min * 10) / 10 }
+  return { pts, fgm, fga, fg_pct, fg3m, fg3a, fg3_pct, ftm, fta, ft_pct, oreb, dreb, reb, ast, stl, blk, tov, pf, game_score, min: Math.round(min * 10) / 10 }
 }
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {

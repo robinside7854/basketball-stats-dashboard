@@ -827,9 +827,10 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                                         <td className="px-3 py-1.5 text-red-400">{s.tov}</td>
                                         <td className="px-3 py-1.5">{s.fgm}/{s.fga}</td>
                                         <td className="px-3 py-1.5">{s.fg3m}/{s.fg3a}</td>
+                                        <td className="px-3 py-1.5 font-bold text-amber-300">{s.game_score?.toFixed(1) ?? '-'}</td>
                                       </>
                                     ) : (
-                                      <td colSpan={8} className="px-3 py-1.5 text-gray-600 italic">기록 없음</td>
+                                      <td colSpan={9} className="px-3 py-1.5 text-gray-600 italic">기록 없음</td>
                                     )}
                                   </tr>
                                 )
@@ -859,6 +860,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                           <th className="px-3 py-2">AST</th>
                           <th className="px-3 py-2">FG</th>
                           <th className="px-3 py-2">3P</th>
+                          <th className="px-3 py-2" title="Hollinger Game Score">GmSc</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -885,9 +887,10 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                                   <td className="px-3 py-2 text-blue-400 text-xs">{s.ast}</td>
                                   <td className="px-3 py-2 text-xs">{s.fgm}/{s.fga}</td>
                                   <td className="px-3 py-2 text-xs">{s.fg3m}/{s.fg3a}</td>
+                                  <td className="px-3 py-2 font-bold text-amber-300 text-xs">{s.game_score?.toFixed(1) ?? '-'}</td>
                                 </>
                               ) : (
-                                <td colSpan={6} className="px-3 py-2 text-gray-600 italic text-xs">기록 없음</td>
+                                <td colSpan={7} className="px-3 py-2 text-gray-600 italic text-xs">기록 없음</td>
                               )}
                             </tr>
                           )
