@@ -1,0 +1,1 @@
+ALTER TABLE leagues ADD COLUMN IF NOT EXISTS games_per_round INT DEFAULT 1;

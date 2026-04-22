@@ -6,6 +6,7 @@ export interface League {
   start_date: string
   match_day: string
   total_rounds: number
+  games_per_round: number
   status: 'upcoming' | 'active' | 'completed'
   created_at: string
 }

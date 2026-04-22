@@ -1,11 +1,12 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Trash2, Loader2, Calendar, Users, Trophy, ClipboardList, UserPlus } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Calendar, Users, Trophy, ClipboardList, UserPlus, Download, Upload, X, Check } from 'lucide-react'
 import Link from 'next/link'
+import * as XLSX from 'xlsx'
 import type { League, LeagueTeamWithPlayers, LeagueGame, LeaguePlayer } from '@/types/league'
 
 function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -102,6 +103,8 @@ function TeamsTab({ leagueId, teams, onRefresh }: { leagueId: string; teams: Lea
   )
 }
 
+interface UploadRow { name: string; position: string | null; birthdate: string | null; note: string | null }
+
 // ─── 선수 등록 탭 ─────────────────────────────────────
 function RosterTab({ leagueId }: { leagueId: string }) {
   const [players, setPlayers] = useState<LeaguePlayer[]>([])
@@ -110,6 +113,9 @@ function RosterTab({ leagueId }: { leagueId: string }) {
   const [number, setNumber] = useState('')
   const [position, setPosition] = useState('')
   const [adding, setAdding] = useState(false)
+  const [uploadRows, setUploadRows] = useState<UploadRow[] | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const loadPlayers = useCallback(async () => {
     setLoading(true)
@@ -119,6 +125,61 @@ function RosterTab({ leagueId }: { leagueId: string }) {
   }, [leagueId])
 
   useEffect(() => { loadPlayers() }, [loadPlayers])
+
+  function downloadTemplate() {
+    const headers = ['이름', '포지션', '생년월일', '비고']
+    const example = ['홍길동', 'SG', '1995-03-15', '']
+    const ws = XLSX.utils.aoa_to_sheet([headers, example])
+    ws['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 20 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '선수명단')
+    XLSX.writeFile(wb, '리그선수명단_템플릿.xlsx')
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const data = new Uint8Array(ev.target!.result as ArrayBuffer)
+      const wb = XLSX.read(data, { type: 'array' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+      const parsed: UploadRow[] = []
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i] as unknown[]
+        const n = String(row[0] ?? '').trim()
+        if (!n) continue
+        parsed.push({
+          name: n,
+          position: String(row[1] ?? '').trim() || null,
+          birthdate: String(row[2] ?? '').trim() || null,
+          note: String(row[3] ?? '').trim() || null,
+        })
+      }
+      setUploadRows(parsed)
+    }
+    reader.readAsArrayBuffer(file)
+    e.target.value = ''
+  }
+
+  async function handleBulkUpload() {
+    if (!uploadRows) return
+    setUploading(true)
+    let success = 0
+    for (const row of uploadRows) {
+      const res = await fetch(`/api/leagues/${leagueId}/players`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: row.name, position: row.position }),
+      })
+      if (res.ok) success++
+    }
+    setUploading(false)
+    setUploadRows(null)
+    await loadPlayers()
+    toast.success(`${success}명 등록 완료`)
+  }
 
   async function addPlayer() {
     if (!name.trim()) { toast.error('이름은 필수입니다'); return }
@@ -150,8 +211,63 @@ function RosterTab({ leagueId }: { leagueId: string }) {
 
   return (
     <div className="space-y-4">
+      {/* 상단 액션 버튼 */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-gray-500">선수를 직접 입력하거나 엑셀로 대량 등록하세요</p>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={downloadTemplate} className="text-xs border-gray-700 text-gray-400 hover:text-white cursor-pointer">
+            <Download size={13} className="mr-1.5" /> 템플릿 다운로드
+          </Button>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileChange} />
+          <Button variant="outline" onClick={() => fileRef.current?.click()} className="text-xs border-gray-700 text-gray-300 hover:text-white cursor-pointer">
+            <Upload size={13} className="mr-1.5" /> 엑셀 업로드
+          </Button>
+        </div>
+      </div>
+
+      {/* 엑셀 업로드 미리보기 */}
+      {uploadRows && (
+        <div className="bg-gray-900 border border-gray-700 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-white">{uploadRows.length}명 미리보기</p>
+            <button onClick={() => setUploadRows(null)} className="text-gray-400 hover:text-white cursor-pointer p-1">
+              <X size={14} />
+            </button>
+          </div>
+          <div className="overflow-x-auto max-h-48 overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-gray-800 text-gray-400">
+                <tr>
+                  <th className="px-3 py-2 text-left">이름</th>
+                  <th className="px-3 py-2 text-left">포지션</th>
+                  <th className="px-3 py-2 text-left">생년월일</th>
+                  <th className="px-3 py-2 text-left">비고</th>
+                </tr>
+              </thead>
+              <tbody>
+                {uploadRows.map((r, i) => (
+                  <tr key={i} className="border-t border-gray-800">
+                    <td className="px-3 py-1.5 text-white font-medium">{r.name}</td>
+                    <td className="px-3 py-1.5 text-gray-400">{r.position ?? '-'}</td>
+                    <td className="px-3 py-1.5 text-gray-400">{r.birthdate ?? '-'}</td>
+                    <td className="px-3 py-1.5 text-gray-500">{r.note ?? '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={handleBulkUpload} disabled={uploading} className="text-xs bg-blue-600 hover:bg-blue-500 cursor-pointer">
+              {uploading ? <Loader2 size={12} className="animate-spin mr-1.5" /> : <Check size={12} className="mr-1.5" />}
+              {uploading ? '등록 중...' : `${uploadRows.length}명 등록`}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* 개별 등록 폼 */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
-        <h3 className="font-semibold text-white text-sm">선수 등록</h3>
+        <h3 className="font-semibold text-white text-sm">개별 등록</h3>
         <div className="flex gap-2 flex-wrap">
           <Input
             value={number}

@@ -7,18 +7,29 @@ import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
+const DOW_OPTIONS = [
+  { value: 'monday',    label: '월요일' },
+  { value: 'tuesday',   label: '화요일' },
+  { value: 'wednesday', label: '수요일' },
+  { value: 'thursday',  label: '목요일' },
+  { value: 'friday',    label: '금요일' },
+  { value: 'saturday',  label: '토요일' },
+  { value: 'sunday',    label: '일요일' },
+]
+
 export default function NewLeaguePage() {
   const router = useRouter()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
+  const [matchDay, setMatchDay] = useState('saturday')
   const [startDate, setStartDate] = useState('')
-  const [totalRounds, setTotalRounds] = useState(8)
+  const [totalRounds, setTotalRounds] = useState(9)
+  const [gamesPerRound, setGamesPerRound] = useState(1)
   const [seasonYear, setSeasonYear] = useState(new Date().getFullYear())
   const [loading, setLoading] = useState(false)
 
   function handleNameChange(v: string) {
     setName(v)
-    // 슬러그 자동 생성
     const auto = v.toLowerCase().replace(/[^a-z0-9가-힣]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
     setSlug(auto)
   }
@@ -26,7 +37,7 @@ export default function NewLeaguePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim() || !startDate || !slug.trim()) {
-      toast.error('이름, 공개 슬러그, 시작일은 필수입니다')
+      toast.error('이름, 공개 슬러그, 첫 정기 일정 날짜는 필수입니다')
       return
     }
     setLoading(true)
@@ -38,7 +49,9 @@ export default function NewLeaguePage() {
         name: name.trim(),
         season_year: seasonYear,
         start_date: startDate,
+        match_day: matchDay,
         total_rounds: totalRounds,
+        games_per_round: gamesPerRound,
       }),
     })
     setLoading(false)
@@ -65,6 +78,8 @@ export default function NewLeaguePage() {
       </div>
 
       <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-5">
+
+        {/* 리그 이름 */}
         <div className="space-y-1.5">
           <label className="text-xs text-gray-400">리그 이름 *</label>
           <Input
@@ -75,6 +90,7 @@ export default function NewLeaguePage() {
           />
         </div>
 
+        {/* 공개 슬러그 */}
         <div className="space-y-1.5">
           <label className="text-xs text-gray-400">공개 URL 슬러그 *</label>
           <div className="flex items-center gap-2">
@@ -86,41 +102,80 @@ export default function NewLeaguePage() {
               className="bg-gray-800 border-gray-700 text-white font-mono"
             />
           </div>
-          <p className="text-xs text-gray-600">공개 페이지 URL: basketball-stats-dashboard.vercel.app/league/{slug || '...'}</p>
+          <p className="text-xs text-gray-600">
+            공개 페이지: basketball-stats-dashboard.vercel.app/league/{slug || '...'}
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="border-t border-gray-800 pt-4 space-y-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">정기 일정 설정</p>
+
+          {/* 정기 경기 요일 */}
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400">시즌 연도</label>
-            <Input
-              type="number"
-              value={seasonYear}
-              onChange={e => setSeasonYear(Number(e.target.value))}
-              className="bg-gray-800 border-gray-700 text-white"
-            />
+            <label className="text-xs text-gray-400">정기 경기 요일</label>
+            <select
+              value={matchDay}
+              onChange={e => setMatchDay(e.target.value)}
+              className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer"
+            >
+              {DOW_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
           </div>
+
+          {/* 첫 정기 일정 날짜 */}
           <div className="space-y-1.5">
-            <label className="text-xs text-gray-400">총 라운드 수</label>
+            <label className="text-xs text-gray-400">첫 정기 일정 날짜 *</label>
             <Input
-              type="number"
-              min={1}
-              max={30}
-              value={totalRounds}
-              onChange={e => setTotalRounds(Number(e.target.value))}
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
               className="bg-gray-800 border-gray-700 text-white"
             />
+            <p className="text-xs text-gray-600">
+              이 날짜를 기준으로 매 {DOW_OPTIONS.find(d => d.value === matchDay)?.label} 일정이 자동 생성됩니다
+            </p>
+          </div>
+
+          {/* 정규일정 횟수 + 경기 수 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs text-gray-400">정규일정 총 횟수</label>
+              <Input
+                type="number"
+                min={1}
+                max={52}
+                value={totalRounds}
+                onChange={e => setTotalRounds(Number(e.target.value))}
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+              <p className="text-xs text-gray-600">몇 주(번) 동안 진행하는지</p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-gray-400">정규일정 당 경기 수</label>
+              <Input
+                type="number"
+                min={1}
+                max={10}
+                value={gamesPerRound}
+                onChange={e => setGamesPerRound(Number(e.target.value))}
+                className="bg-gray-800 border-gray-700 text-white"
+              />
+              <p className="text-xs text-gray-600">경기일마다 열리는 경기 수</p>
+            </div>
           </div>
         </div>
 
+        {/* 시즌 연도 */}
         <div className="space-y-1.5">
-          <label className="text-xs text-gray-400">시작일 *</label>
+          <label className="text-xs text-gray-400">시즌 연도</label>
           <Input
-            type="date"
-            value={startDate}
-            onChange={e => setStartDate(e.target.value)}
+            type="number"
+            value={seasonYear}
+            onChange={e => setSeasonYear(Number(e.target.value))}
             className="bg-gray-800 border-gray-700 text-white"
           />
-          <p className="text-xs text-gray-600">매주 토요일 기준으로 자동 일정이 생성됩니다</p>
         </div>
 
         <Button
