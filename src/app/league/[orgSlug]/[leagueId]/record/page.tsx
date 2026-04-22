@@ -1,16 +1,30 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
+import { useGameStore } from '@/store/gameStore'
+import { useLineupStore } from '@/store/lineupStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Lock, Loader2, Check, ChevronDown, ChevronUp } from 'lucide-react'
-import type { LeagueGame, LeagueTeam } from '@/types/league'
+import { Lock, Loader2, Play, Square } from 'lucide-react'
+import YouTubePlayer from '@/components/record/YouTubePlayer'
+import LeagueEventInputPad from '@/components/league/LeagueEventInputPad'
+import LeagueSubstitutionPanel from '@/components/league/LeagueSubstitutionPanel'
+import LeagueStatsPanel from '@/components/league/LeagueStatsPanel'
+import type { LeaguePlayer, LeagueTeamWithPlayers } from '@/types/league'
 
-type GameWithTeams = LeagueGame & { home_team?: LeagueTeam; away_team?: LeagueTeam }
+type GameRow = {
+  id: string; round_num: number; date: string; is_complete: boolean; is_started: boolean
+  home_score: number; away_score: number
+  youtube_url?: string | null; youtube_start_offset?: number
+  home_team?: { id: string; name: string; color: string }
+  away_team?: { id: string; name: string; color: string }
+}
 
-type RoundGroup = { round: number; games: GameWithTeams[] }
+type MinRow = { id: string; league_player_id: string; league_game_id: string; out_time: number | null }
+
+const QUARTERS = [1, 2, 3, 4]
 
 export default function LeagueRecordPage() {
   const params = useParams<{ leagueId: string }>()
@@ -23,12 +37,9 @@ export default function LeagueRecordPage() {
         <Lock size={32} className="text-gray-600" />
         <div>
           <div className="text-lg font-bold text-white">편집 모드 전용</div>
-          <p className="text-gray-400 text-sm mt-1">경기 결과 입력은 편집 모드에서만 가능합니다</p>
+          <p className="text-gray-400 text-sm mt-1">경기 기록은 편집 모드에서만 가능합니다</p>
         </div>
-        <button
-          onClick={openPinModal}
-          className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors cursor-pointer"
-        >
+        <button onClick={openPinModal} className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium cursor-pointer transition-colors">
           PIN 입력
         </button>
       </div>
@@ -39,218 +50,324 @@ export default function LeagueRecordPage() {
 }
 
 function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHeaders: Record<string, string> }) {
-  const [games, setGames] = useState<GameWithTeams[]>([])
-  const [loading, setLoading] = useState(true)
-  const [scores, setScores] = useState<Record<string, { home: string; away: string }>>({})
-  const [saving, setSaving] = useState<string | null>(null)
-  const [openRounds, setOpenRounds] = useState<Set<number>>(new Set([1]))
+  const { currentQuarter, setCurrentQuarter, setCurrentGame } = useGameStore()
+  const { setLineup, resetLineup } = useLineupStore()
 
-  async function load() {
-    setLoading(true)
-    const res = await fetch(`/api/leagues/${leagueId}/games`)
-    if (res.ok) {
-      const data: GameWithTeams[] = await res.json()
-      setGames(data)
-      // init score inputs from existing data
-      const init: Record<string, { home: string; away: string }> = {}
-      data.forEach(g => {
-        init[g.id] = {
-          home: g.is_complete ? String(g.home_score) : '',
-          away: g.is_complete ? String(g.away_score) : '',
-        }
-      })
-      setScores(init)
-    }
-    setLoading(false)
+  const [games, setGames] = useState<GameRow[]>([])
+  const [allPlayers, setAllPlayers] = useState<LeaguePlayer[]>([])
+  const [minutes, setMinutes] = useState<MinRow[]>([])
+  const [selectedGameId, setSelectedGameId] = useState('')
+  const [statsRefresh, setStatsRefresh] = useState(0)
+  const [mobileTab, setMobileTab] = useState<'record' | 'view'>('record')
+  const [ytInput, setYtInput] = useState('')
+  const [savingYt, setSavingYt] = useState(false)
+  const [gameStarted, setGameStarted] = useState(false)
+  const [starterIds, setStarterIds] = useState<string[]>([])
+  const [showStarterPicker, setShowStarterPicker] = useState(false)
+  const [oppScore, setOppScore] = useState('')
+  const [showComplete, setShowComplete] = useState(false)
+  const [loadingGames, setLoadingGames] = useState(true)
+
+  const selectedGame = games.find(g => g.id === selectedGameId)
+
+  // load games + players
+  async function loadGames() {
+    setLoadingGames(true)
+    const [gRes, pRes] = await Promise.all([
+      fetch(`/api/leagues/${leagueId}/games`),
+      fetch(`/api/leagues/${leagueId}/players`),
+    ])
+    const [gData, pData] = await Promise.all([gRes.json(), pRes.json()])
+    setGames(gData ?? [])
+    setAllPlayers(pData ?? [])
+    setLoadingGames(false)
   }
 
-  useEffect(() => { load() }, [leagueId])
+  async function loadMinutes(gameId: string) {
+    const res = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${gameId}`)
+    if (res.ok) setMinutes(await res.json())
+  }
 
-  async function saveGame(game: GameWithTeams) {
-    const s = scores[game.id]
-    const home = Number(s?.home ?? '')
-    const away = Number(s?.away ?? '')
-    if (isNaN(home) || isNaN(away) || s?.home === '' || s?.away === '') {
-      toast.error('점수를 입력하세요')
-      return
-    }
-    setSaving(game.id)
-    const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${game.id}`, {
+  useEffect(() => { loadGames() }, [leagueId])
+
+  // on game select
+  useEffect(() => {
+    if (!selectedGameId) return
+    const g = games.find(x => x.id === selectedGameId)
+    if (!g) return
+    setYtInput(g.youtube_url ?? '')
+    setGameStarted(g.is_started ?? false)
+    resetLineup()
+    // fake game object for gameStore (just needs .id)
+    setCurrentGame({ id: selectedGameId } as never)
+    setCurrentQuarter(1)
+    loadMinutes(selectedGameId)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGameId])
+
+  async function saveYouTubeUrl() {
+    if (!selectedGameId) return
+    setSavingYt(true)
+    const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedGameId}`, {
       method: 'PATCH',
       headers: leagueHeaders,
-      body: JSON.stringify({ home_score: home, away_score: away, is_complete: true }),
+      body: JSON.stringify({ youtube_url: ytInput.trim() || null }),
     })
-    setSaving(null)
-    if (res.ok) { toast.success('저장 완료'); load() }
+    setSavingYt(false)
+    if (res.ok) { toast.success('YouTube URL 저장 완료'); loadGames() }
     else toast.error('저장 실패')
   }
 
-  async function resetGame(game: GameWithTeams) {
-    if (!confirm('이 경기 결과를 초기화하시겠습니까?')) return
-    setSaving(game.id)
-    const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${game.id}`, {
+  function handleEventSaved() {
+    setStatsRefresh(k => k + 1)
+    if (selectedGameId) loadMinutes(selectedGameId)
+  }
+
+  // 선발 선택 후 게임 시작
+  async function startGame() {
+    if (starterIds.length === 0) { toast.error('선발 선수를 1명 이상 선택하세요'); return }
+    // start each starter minute interval
+    await Promise.all(starterIds.map(pid =>
+      fetch(`/api/leagues/${leagueId}/minutes`, {
+        method: 'POST',
+        headers: leagueHeaders,
+        body: JSON.stringify({ league_game_id: selectedGameId, league_player_id: pid, quarter: currentQuarter, in_time: 0 }),
+      })
+    ))
+    setLineup(starterIds)
+    setGameStarted(true)
+    setShowStarterPicker(false)
+    await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedGameId}`, {
       method: 'PATCH',
       headers: leagueHeaders,
-      body: JSON.stringify({ home_score: 0, away_score: 0, is_complete: false }),
+      body: JSON.stringify({ is_started: true }),
     })
-    setSaving(null)
-    if (res.ok) {
-      setScores(prev => ({ ...prev, [game.id]: { home: '', away: '' } }))
-      load()
-    } else toast.error('초기화 실패')
+    loadGames()
   }
 
-  function toggleRound(round: number) {
-    setOpenRounds(prev => {
-      const next = new Set(prev)
-      if (next.has(round)) next.delete(round)
-      else next.add(round)
-      return next
-    })
+  async function endGame() {
+    setShowComplete(true)
   }
 
-  if (loading) return (
-    <div className="flex justify-center py-12">
-      <Loader2 size={24} className="animate-spin text-gray-500" />
-    </div>
-  )
+  async function completeGame() {
+    const opp = Number(oppScore)
+    if (isNaN(opp) || oppScore === '') { toast.error('상대 팀 점수를 입력하세요'); return }
+    const myScore = statsRefresh // placeholder — use actual pts from stats
+    await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedGameId}`, {
+      method: 'PATCH',
+      headers: leagueHeaders,
+      body: JSON.stringify({ is_complete: true, away_score: opp }),
+    })
+    setShowComplete(false)
+    toast.success('경기 완료 처리됨')
+    loadGames()
+  }
 
-  if (games.length === 0) return (
-    <div className="text-center py-12 text-gray-500">
-      <p className="text-sm">생성된 일정이 없습니다</p>
-      <p className="text-xs mt-1">어드민 설정 페이지에서 일정을 먼저 생성하세요</p>
-    </div>
-  )
+  const homeTeamPlayers = (() => {
+    if (!selectedGame?.home_team) return allPlayers
+    return allPlayers // for now show all — can filter by team assignment later
+  })()
 
-  // round grouping
-  const rounds: RoundGroup[] = []
-  const roundMap: Record<number, GameWithTeams[]> = {}
-  games.forEach(g => {
-    if (!roundMap[g.round_num]) roundMap[g.round_num] = []
-    roundMap[g.round_num].push(g)
-  })
-  Object.entries(roundMap).forEach(([r, gs]) => rounds.push({ round: Number(r), games: gs }))
-  rounds.sort((a, b) => a.round - b.round)
-
-  const completedCount = games.filter(g => g.is_complete).length
+  if (loadingGames) return <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin text-gray-500" /></div>
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-white">경기 기록</h2>
-          <p className="text-gray-500 text-sm">{completedCount}/{games.length}경기 완료</p>
-        </div>
+        <h2 className="text-xl font-bold text-white">경기 기록</h2>
+        {selectedGame && gameStarted && (
+          <button
+            onClick={endGame}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-red-900/30 border border-red-700 text-red-400 hover:bg-red-900/50 cursor-pointer transition-colors"
+          >
+            <Square size={12} />경기 종료
+          </button>
+        )}
       </div>
 
-      <div className="space-y-3">
-        {rounds.map(({ round, games: rGames }) => {
-          const allComplete = rGames.every(g => g.is_complete)
-          const open = openRounds.has(round)
-          return (
-            <div key={round} className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-              <button
-                onClick={() => toggleRound(round)}
-                className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-800/50 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-white text-sm">{round}라운드</span>
-                  {allComplete && <Check size={14} className="text-green-400" />}
-                </div>
-                <div className="flex items-center gap-2 text-gray-500">
-                  <span className="text-xs">{rGames.filter(g => g.is_complete).length}/{rGames.length}</span>
-                  {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </div>
-              </button>
+      {/* 경기 선택 */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+        <label className="text-xs text-gray-400 font-medium">경기 선택</label>
+        <select
+          value={selectedGameId}
+          onChange={e => setSelectedGameId(e.target.value)}
+          className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer"
+        >
+          <option value="">-- 경기를 선택하세요 --</option>
+          {games.map(g => (
+            <option key={g.id} value={g.id}>
+              {g.round_num}R · {g.date} · {g.home_team?.name ?? '?'} vs {g.away_team?.name ?? '?'}
+              {g.is_complete ? ' ✓' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
 
-              {open && (
-                <div className="border-t border-gray-800 divide-y divide-gray-800/50">
-                  {rGames.map(game => {
-                    const s = scores[game.id] ?? { home: '', away: '' }
-                    const isSaving = saving === game.id
-                    return (
-                      <div key={game.id} className="px-5 py-4 space-y-3">
-                        <div className="text-xs text-gray-500">{game.date}</div>
-                        <div className="flex items-center gap-3">
-                          {/* Home */}
-                          <div className="flex-1 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              {game.home_team?.color && (
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: game.home_team.color }} />
-                              )}
-                              <span className="text-sm font-medium text-white">{game.home_team?.name ?? '홈'}</span>
-                            </div>
-                          </div>
-
-                          {/* Score inputs */}
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <Input
-                              type="number"
-                              min={0}
-                              value={s.home}
-                              onChange={e => setScores(prev => ({
-                                ...prev,
-                                [game.id]: { ...prev[game.id], home: e.target.value }
-                              }))}
-                              className="w-14 text-center bg-gray-800 border-gray-700 text-white font-mono text-lg"
-                              placeholder="0"
-                            />
-                            <span className="text-gray-600 font-bold">:</span>
-                            <Input
-                              type="number"
-                              min={0}
-                              value={s.away}
-                              onChange={e => setScores(prev => ({
-                                ...prev,
-                                [game.id]: { ...prev[game.id], away: e.target.value }
-                              }))}
-                              className="w-14 text-center bg-gray-800 border-gray-700 text-white font-mono text-lg"
-                              placeholder="0"
-                            />
-                          </div>
-
-                          {/* Away */}
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              {game.away_team?.color && (
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: game.away_team.color }} />
-                              )}
-                              <span className="text-sm font-medium text-white">{game.away_team?.name ?? '어웨이'}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2 justify-end">
-                          {game.is_complete && (
-                            <button
-                              onClick={() => resetGame(game)}
-                              disabled={isSaving}
-                              className="text-xs text-gray-500 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40"
-                            >
-                              초기화
-                            </button>
-                          )}
-                          <Button
-                            onClick={() => saveGame(game)}
-                            disabled={isSaving}
-                            size="sm"
-                            className={`text-xs cursor-pointer ${game.is_complete ? 'bg-green-700 hover:bg-green-600' : 'bg-blue-600 hover:bg-blue-500'}`}
-                          >
-                            {isSaving
-                              ? <Loader2 size={12} className="animate-spin mr-1" />
-                              : game.is_complete ? <Check size={12} className="mr-1" /> : null}
-                            {game.is_complete ? '수정' : '저장'}
-                          </Button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+      {selectedGame && (
+        <>
+          {/* YouTube URL */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <p className="text-xs text-gray-400 font-medium mb-2">YouTube 영상</p>
+            <div className="flex gap-2">
+              <Input
+                value={ytInput}
+                onChange={e => setYtInput(e.target.value)}
+                placeholder="https://youtu.be/..."
+                className="bg-gray-800 border-gray-700 text-white text-sm flex-1"
+              />
+              <Button onClick={saveYouTubeUrl} disabled={savingYt} size="sm" className="bg-blue-600 hover:bg-blue-500 cursor-pointer shrink-0">
+                {savingYt ? <Loader2 size={13} className="animate-spin" /> : '저장'}
+              </Button>
             </div>
-          )
-        })}
-      </div>
+          </div>
+
+          {/* YouTube player */}
+          {selectedGame.youtube_url && (
+            <YouTubePlayer
+              youtubeUrl={selectedGame.youtube_url}
+              startOffset={selectedGame.youtube_start_offset ?? 0}
+            />
+          )}
+
+          {/* 쿼터 선택 */}
+          <div className="flex gap-2">
+            {QUARTERS.map(q => (
+              <button
+                key={q}
+                onClick={() => setCurrentQuarter(q)}
+                className={`flex-1 py-2 rounded-xl text-sm font-bold border cursor-pointer transition-colors ${
+                  currentQuarter === q ? 'border-blue-500 bg-blue-600/20 text-white' : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-500'
+                }`}
+              >
+                Q{q}
+              </button>
+            ))}
+            <button
+              onClick={() => setCurrentQuarter(5)}
+              className={`px-3 py-2 rounded-xl text-sm font-bold border cursor-pointer transition-colors ${
+                currentQuarter === 5 ? 'border-orange-500 bg-orange-600/20 text-orange-300' : 'border-gray-700 bg-gray-800 text-gray-500 hover:border-gray-500'
+              }`}
+            >OT</button>
+          </div>
+
+          {/* 경기 시작 전 */}
+          {!gameStarted && !showStarterPicker && (
+            <div className="text-center py-6">
+              <p className="text-gray-400 text-sm mb-3">선발 선수를 구성하고 경기를 시작하세요</p>
+              <Button onClick={() => setShowStarterPicker(true)} className="bg-green-600 hover:bg-green-500 cursor-pointer">
+                <Play size={14} className="mr-1.5" />경기 시작
+              </Button>
+            </div>
+          )}
+
+          {/* 선발 선택 */}
+          {showStarterPicker && (
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-white">선발 선수 선택</p>
+              <div className="grid grid-cols-4 gap-1.5">
+                {allPlayers.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setStarterIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id])}
+                    className={`py-2 px-1 rounded-lg text-xs border transition-colors cursor-pointer ${
+                      starterIds.includes(p.id) ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="font-mono text-[10px] text-gray-400">{p.number ?? '—'}</div>
+                    <div className="truncate">{p.name}</div>
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={startGame} className="bg-green-600 hover:bg-green-500 cursor-pointer flex-1">
+                  경기 시작 ({starterIds.length}명)
+                </Button>
+                <Button onClick={() => setShowStarterPicker(false)} variant="outline" className="border-gray-700 text-gray-300 cursor-pointer">
+                  취소
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* 경기 진행 중 */}
+          {gameStarted && (
+            <>
+              {/* 모바일 탭 */}
+              <div className="flex gap-1 md:hidden">
+                {(['record', 'view'] as const).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setMobileTab(t)}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${
+                      mobileTab === t ? 'bg-gray-700 text-white' : 'bg-gray-800 text-gray-400'
+                    }`}
+                  >
+                    {t === 'record' ? '기록' : '통계'}
+                  </button>
+                ))}
+              </div>
+
+              <div className="md:grid md:grid-cols-2 md:gap-4 space-y-4 md:space-y-0">
+                {/* 기록 패드 */}
+                <div className={mobileTab === 'record' ? 'block' : 'hidden md:block'}>
+                  <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-5">
+                    <LeagueEventInputPad
+                      leagueId={leagueId}
+                      gameId={selectedGameId}
+                      players={allPlayers}
+                      leagueHeaders={leagueHeaders}
+                      onEventSaved={handleEventSaved}
+                    />
+                    <div className="border-t border-gray-800 pt-4">
+                      <LeagueSubstitutionPanel
+                        leagueId={leagueId}
+                        gameId={selectedGameId}
+                        players={allPlayers}
+                        minutes={minutes}
+                        leagueHeaders={leagueHeaders}
+                        onSubstitution={handleEventSaved}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 실시간 스탯 */}
+                <div className={mobileTab === 'view' ? 'block' : 'hidden md:block'}>
+                  <LeagueStatsPanel
+                    leagueId={leagueId}
+                    gameId={selectedGameId}
+                    players={allPlayers}
+                    refreshKey={statsRefresh}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* 경기 종료 모달 */}
+      {showComplete && (
+        <div className="fixed inset-0 z-[200] bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <h3 className="font-bold text-white text-lg">경기 종료</h3>
+            <div className="space-y-1.5">
+              <label className="text-xs text-gray-400">상대 팀 최종 점수</label>
+              <Input
+                type="number"
+                value={oppScore}
+                onChange={e => setOppScore(e.target.value)}
+                placeholder="0"
+                className="bg-gray-800 border-gray-700 text-white text-center text-xl font-mono"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={completeGame} className="flex-1 bg-blue-600 hover:bg-blue-500 cursor-pointer">확인</Button>
+              <Button onClick={() => setShowComplete(false)} variant="outline" className="border-gray-700 text-gray-300 cursor-pointer">취소</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

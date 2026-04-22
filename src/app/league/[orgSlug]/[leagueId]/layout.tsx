@@ -16,6 +16,7 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
     { href: `${base}/teams`, label: '팀 구성' },
     { href: `${base}/schedule`, label: '일정' },
     { href: `${base}/record`, label: '경기기록' },
+    { href: `${base}/settings`, label: '설정' },
   ]
 
   return (

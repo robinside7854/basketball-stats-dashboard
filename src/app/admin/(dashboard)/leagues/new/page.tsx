@@ -4,57 +4,48 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
-
-const DOW_OPTIONS = [
-  { value: 'monday',    label: '월요일' },
-  { value: 'tuesday',   label: '화요일' },
-  { value: 'wednesday', label: '수요일' },
-  { value: 'thursday',  label: '목요일' },
-  { value: 'friday',    label: '금요일' },
-  { value: 'saturday',  label: '토요일' },
-  { value: 'sunday',    label: '일요일' },
-]
 
 export default function NewLeaguePage() {
   const router = useRouter()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
-  const [matchDay, setMatchDay] = useState('saturday')
-  const [startDate, setStartDate] = useState('')
-  const [seasonType, setSeasonType] = useState<'annual' | 'quarterly'>('annual')
-  const [gamesPerRound, setGamesPerRound] = useState(1)
-  const [seasonYear, setSeasonYear] = useState(new Date().getFullYear())
+  const [pin, setPin] = useState('')
+  const [pinVisible, setPinVisible] = useState(false)
   const [loading, setLoading] = useState(false)
 
   function handleNameChange(v: string) {
     setName(v)
-    const auto = v.toLowerCase().replace(/[^a-z0-9가-힣]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
-    setSlug(auto)
+    const auto = v.toLowerCase()
+      .replace(/[가-힣]/g, c => {
+        // 간단한 음역: 한글은 그냥 제거하고 영문/숫자만 유지
+        return ''
+      })
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+    setSlug(auto || '')
+  }
+
+  function randomPin() {
+    setPin(String(Math.floor(1000 + Math.random() * 9000)))
+    setPinVisible(true)
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!name.trim() || !startDate || !slug.trim()) {
-      toast.error('이름, 공개 슬러그, 첫 정기 일정 날짜는 필수입니다')
-      return
-    }
+    if (!name.trim()) { toast.error('리그 이름을 입력하세요'); return }
+    if (!slug.trim()) { toast.error('슬러그 URL을 입력하세요'); return }
+    if (!/^\d{4}$/.test(pin)) { toast.error('PIN은 숫자 4자리여야 합니다'); return }
+
     setLoading(true)
     const res = await fetch('/api/leagues', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        org_slug: slug.trim(),
-        name: name.trim(),
-        season_year: seasonYear,
-        start_date: startDate,
-        match_day: matchDay,
-        season_type: seasonType,
-        games_per_round: gamesPerRound,
-      }),
+      body: JSON.stringify({ name: name.trim(), org_slug: slug.trim(), edit_pin: pin }),
     })
     setLoading(false)
+
     if (!res.ok) {
       const d = await res.json()
       toast.error(d.error ?? '생성 실패')
@@ -62,18 +53,18 @@ export default function NewLeaguePage() {
     }
     const data = await res.json()
     toast.success('리그가 생성되었습니다')
-    router.push(`/admin/leagues/${data.id}`)
+    router.push(`/league/${data.org_slug}/${data.id}`)
   }
 
   return (
-    <div className="max-w-lg space-y-6">
+    <div className="max-w-md space-y-6">
       <div className="flex items-center gap-3">
         <Link href="/admin/leagues" className="text-gray-400 hover:text-white transition-colors">
           <ArrowLeft size={20} />
         </Link>
         <div>
           <h1 className="text-xl font-bold text-white">새 리그 생성</h1>
-          <p className="text-gray-500 text-sm">독립 리그를 생성합니다</p>
+          <p className="text-gray-500 text-sm">생성 후 리그 대시보드에서 상세 설정을 진행합니다</p>
         </div>
       </div>
 
@@ -81,20 +72,21 @@ export default function NewLeaguePage() {
 
         {/* 리그 이름 */}
         <div className="space-y-1.5">
-          <label className="text-xs text-gray-400">리그 이름 *</label>
+          <label className="text-xs text-gray-400 font-medium">리그 이름 *</label>
           <Input
             value={name}
             onChange={e => handleNameChange(e.target.value)}
-            placeholder="예) 미라클모닝농구단 2026 봄리그"
+            placeholder="예) 미라클모닝 2026 봄리그"
             className="bg-gray-800 border-gray-700 text-white"
+            autoFocus
           />
         </div>
 
-        {/* 공개 슬러그 */}
+        {/* 슬러그 */}
         <div className="space-y-1.5">
-          <label className="text-xs text-gray-400">공개 URL 슬러그 *</label>
+          <label className="text-xs text-gray-400 font-medium">공개 URL 슬러그 *</label>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 shrink-0">/league/</span>
+            <span className="text-xs text-gray-500 shrink-0 font-mono">/league/</span>
             <Input
               value={slug}
               onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
@@ -102,103 +94,48 @@ export default function NewLeaguePage() {
               className="bg-gray-800 border-gray-700 text-white font-mono"
             />
           </div>
-          <p className="text-xs text-gray-600">
-            공개 페이지: basketball-stats-dashboard.vercel.app/league/{slug || '...'}
-          </p>
+          {slug && (
+            <p className="text-xs text-gray-600 font-mono">
+              basketball-stats-dashboard.vercel.app/league/{slug}
+            </p>
+          )}
         </div>
 
-        <div className="border-t border-gray-800 pt-4 space-y-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">정기 일정 설정</p>
-
-          {/* 정기 경기 요일 */}
-          <div className="space-y-1.5">
-            <label className="text-xs text-gray-400">정기 경기 요일</label>
-            <select
-              value={matchDay}
-              onChange={e => setMatchDay(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer"
-            >
-              {DOW_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* 첫 정기 일정 날짜 */}
-          <div className="space-y-1.5">
-            <label className="text-xs text-gray-400">첫 정기 일정 날짜 *</label>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={e => setStartDate(e.target.value)}
-              className="bg-gray-800 border-gray-700 text-white"
-            />
-            <p className="text-xs text-gray-600">
-              이 날짜를 기준으로 매 {DOW_OPTIONS.find(d => d.value === matchDay)?.label} 일정이 자동 생성됩니다
-            </p>
-          </div>
-
-          {/* 시즌 구분 */}
-          <div className="space-y-2">
-            <label className="text-xs text-gray-400">시즌 구분</label>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { value: 'annual', label: '연간 (1년)', desc: '첫 정기일 기준 12개월' },
-                { value: 'quarterly', label: '분기별 (3개월)', desc: '첫 정기일 기준 3개월' },
-              ].map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setSeasonType(opt.value as 'annual' | 'quarterly')}
-                  className={`text-left p-3 rounded-xl border transition-colors cursor-pointer ${
-                    seasonType === opt.value
-                      ? 'border-blue-500 bg-blue-500/10 text-white'
-                      : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-500'
-                  }`}
-                >
-                  <p className="text-sm font-semibold">{opt.label}</p>
-                  <p className="text-xs opacity-70 mt-0.5">{opt.desc}</p>
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-gray-600">
-              일정은 첫 정기일부터 {seasonType === 'quarterly' ? '3개월(분기)' : '1년'} 간의 {DOW_OPTIONS.find(d => d.value === matchDay)?.label} 전체가 자동 생성됩니다
-            </p>
-          </div>
-
-          {/* 정규일정 당 경기 수 */}
-          <div className="space-y-1.5">
-            <label className="text-xs text-gray-400">정규일정 당 경기 수</label>
-            <Input
-              type="number"
-              min={1}
-              max={10}
-              value={gamesPerRound}
-              onChange={e => setGamesPerRound(Number(e.target.value))}
-              className="bg-gray-800 border-gray-700 text-white"
-            />
-            <p className="text-xs text-gray-600">경기일마다 열리는 경기 수</p>
-          </div>
-        </div>
-
-        {/* 시즌 연도 */}
+        {/* PIN */}
         <div className="space-y-1.5">
-          <label className="text-xs text-gray-400">시즌 연도</label>
-          <Input
-            type="number"
-            value={seasonYear}
-            onChange={e => setSeasonYear(Number(e.target.value))}
-            className="bg-gray-800 border-gray-700 text-white"
-          />
+          <label className="text-xs text-gray-400 font-medium">편집 PIN *</label>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Input
+                type={pinVisible ? 'text' : 'password'}
+                value={pin}
+                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="4자리 숫자"
+                maxLength={4}
+                className="bg-gray-800 border-gray-700 text-white font-mono text-xl tracking-[0.5em] pr-10"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setPinVisible(v => !v)}
+              className="p-2.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer shrink-0"
+            >
+              {pinVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+            <button
+              type="button"
+              onClick={randomPin}
+              className="px-3 py-2 rounded-lg border border-gray-700 text-gray-400 hover:text-white text-xs transition-colors cursor-pointer shrink-0"
+            >
+              랜덤
+            </button>
+          </div>
+          <p className="text-xs text-gray-600">리그 대시보드의 편집 모드 진입 시 사용합니다</p>
         </div>
 
-        <Button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-500 cursor-pointer"
-        >
+        <Button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 cursor-pointer mt-2">
           {loading ? <Loader2 size={14} className="animate-spin mr-2" /> : null}
-          리그 생성
+          리그 생성 및 대시보드 열기
         </Button>
       </form>
     </div>
