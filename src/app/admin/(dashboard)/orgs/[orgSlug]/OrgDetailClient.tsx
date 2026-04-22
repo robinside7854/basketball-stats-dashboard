@@ -192,6 +192,18 @@ export default function OrgDetailClient({ orgSlug, teams, statsPerTeam }: Props)
           <PinCard key={team.id} team={team} orgSlug={orgSlug} />
         ))}
       </div>
+
+      {/* 리그 관리 */}
+      <Link
+        href={`/admin/orgs/${orgSlug}/leagues`}
+        className="block bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-gray-600 transition-colors"
+      >
+        <div className="flex items-center justify-between">
+          <span className="font-semibold text-white">리그 관리</span>
+          <span className="text-gray-500 text-sm">→</span>
+        </div>
+        <p className="text-xs text-gray-500 mt-1">자체 리그 시즌 생성 및 일정·순위 관리</p>
+      </Link>
     </div>
   )
 }
