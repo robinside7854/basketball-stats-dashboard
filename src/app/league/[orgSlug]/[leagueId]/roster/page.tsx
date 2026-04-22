@@ -1,11 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Loader2, Lock } from 'lucide-react'
+import { Plus, Trash2, Loader2, Lock, Download, Upload } from 'lucide-react'
 import type { LeaguePlayer } from '@/types/league'
 
 const POSITIONS = ['G', 'F', 'C', 'PG', 'SG', 'SF', 'PF']
@@ -21,6 +21,8 @@ export default function LeagueRosterPage() {
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ name: '', number: '', position: '' })
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [bulkUploading, setBulkUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function load() {
     setLoading(true)
@@ -55,6 +57,60 @@ export default function LeagueRosterPage() {
     }
   }
 
+  async function downloadTemplate() {
+    const xlsx = await import('xlsx')
+    const ws = xlsx.utils.aoa_to_sheet([
+      ['이름', '포지션', '비고'],
+      ['홍길동', 'PG', ''],
+      ['김철수', 'SF', '주장'],
+    ])
+    ws['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 16 }]
+    const wb = xlsx.utils.book_new()
+    xlsx.utils.book_append_sheet(wb, ws, '선수명단')
+    xlsx.writeFile(wb, '선수명단_템플릿.xlsx')
+  }
+
+  async function handleBulkUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+
+    setBulkUploading(true)
+    try {
+      const xlsx = await import('xlsx')
+      const buf = await file.arrayBuffer()
+      const wb = xlsx.read(buf)
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows = xlsx.utils.sheet_to_json<Record<string, string | number>>(ws, { defval: '' })
+
+      const players = rows
+        .filter(r => String(r['이름'] ?? '').trim())
+        .map(r => ({
+          name: String(r['이름']).trim(),
+          position: String(r['포지션'] ?? '').trim() || null,
+          number: null as number | null,
+        }))
+
+      if (players.length === 0) { toast.error('유효한 선수 데이터가 없습니다'); setBulkUploading(false); return }
+
+      const res = await fetch(`/api/leagues/${leagueId}/players/bulk`, {
+        method: 'POST',
+        headers: leagueHeaders,
+        body: JSON.stringify({ players }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(`${data.inserted}명 등록 완료`)
+        load()
+      } else {
+        toast.error(data.error ?? '등록 실패')
+      }
+    } catch {
+      toast.error('파일 처리 중 오류가 발생했습니다')
+    }
+    setBulkUploading(false)
+  }
+
   async function deletePlayer(id: string) {
     if (!confirm('이 선수를 삭제하시겠습니까?')) return
     setDeletingId(id)
@@ -75,13 +131,31 @@ export default function LeagueRosterPage() {
           <p className="text-gray-500 text-sm">{players.length}명 등록</p>
         </div>
         {isEditMode ? (
-          <Button
-            onClick={() => setShowForm(v => !v)}
-            className="bg-blue-600 hover:bg-blue-500 cursor-pointer"
-            size="sm"
-          >
-            <Plus size={14} className="mr-1" />선수 추가
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={downloadTemplate}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer"
+              title="엑셀 템플릿 다운로드"
+            >
+              <Download size={12} />템플릿
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={bulkUploading}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer disabled:opacity-40"
+              title="엑셀 파일로 대량 등록"
+            >
+              {bulkUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}대량 등록
+            </button>
+            <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleBulkUpload} />
+            <Button
+              onClick={() => setShowForm(v => !v)}
+              className="bg-blue-600 hover:bg-blue-500 cursor-pointer"
+              size="sm"
+            >
+              <Plus size={14} className="mr-1" />선수 추가
+            </Button>
+          </div>
         ) : (
           <button
             onClick={openPinModal}

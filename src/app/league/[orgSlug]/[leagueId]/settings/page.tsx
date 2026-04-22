@@ -5,7 +5,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Loader2, Lock, Eye, EyeOff, RefreshCw } from 'lucide-react'
+import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube } from 'lucide-react'
 import type { League } from '@/types/league'
 
 const DOW_OPTIONS = [
@@ -37,6 +37,12 @@ export default function LeagueSettingsPage() {
   const [pin, setPin] = useState('')
   const [pinVisible, setPinVisible] = useState(false)
   const [saving, setSaving] = useState<string | null>(null)
+
+  // YouTube sync
+  const [ytChannel, setYtChannel] = useState('')
+  const [ytDate, setYtDate] = useState('')
+  const [ytSyncing, setYtSyncing] = useState(false)
+  const [ytResult, setYtResult] = useState<{ mapped: number; total_videos: number; total_games: number } | null>(null)
 
   async function load() {
     setLoading(true)
@@ -79,6 +85,26 @@ export default function LeagueSettingsPage() {
     setSaving(null)
     if (res.ok) toast.success('PIN 변경 완료 — 재로그인이 필요합니다')
     else toast.error('저장 실패')
+  }
+
+  async function syncYoutube() {
+    if (!ytChannel.trim()) { toast.error('채널명을 입력하세요'); return }
+    if (!ytDate) { toast.error('날짜를 선택하세요'); return }
+    setYtSyncing(true)
+    setYtResult(null)
+    const res = await fetch(`/api/leagues/${leagueId}/youtube-sync`, {
+      method: 'POST',
+      headers: leagueHeaders,
+      body: JSON.stringify({ channelHandle: ytChannel.trim(), date: ytDate }),
+    })
+    setYtSyncing(false)
+    const data = await res.json()
+    if (res.ok) {
+      setYtResult(data)
+      toast.success(`${data.mapped}개 경기에 YouTube 영상 연동 완료`)
+    } else {
+      toast.error(data.error ?? '연동 실패')
+    }
   }
 
   async function generateSchedule() {
@@ -224,6 +250,47 @@ export default function LeagueSettingsPage() {
         >
           {saving === 'schedule' ? <Loader2 size={13} className="animate-spin mr-1" /> : null}일정 자동 생성
         </Button>
+      </div>
+
+      {/* YouTube 자동 연동 */}
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Youtube size={16} className="text-red-500" />
+          <h3 className="font-semibold text-white text-sm">YouTube 자동 연동</h3>
+        </div>
+        <p className="text-xs text-gray-500">채널명과 날짜를 입력하면 해당 날짜의 경기 영상을 자동으로 매핑합니다.<br />영상 제목 형식: <span className="font-mono text-gray-400">260418 경기 9</span></p>
+
+        <div className="space-y-2">
+          <Input
+            placeholder="채널명 (예: @미라클모닝농구단)"
+            value={ytChannel}
+            onChange={e => setYtChannel(e.target.value)}
+            className="bg-gray-800 border-gray-700 text-white"
+          />
+          <Input
+            type="date"
+            value={ytDate}
+            onChange={e => setYtDate(e.target.value)}
+            className="bg-gray-800 border-gray-700 text-white"
+          />
+        </div>
+
+        <Button
+          onClick={syncYoutube}
+          disabled={ytSyncing}
+          className="w-full bg-red-600 hover:bg-red-500 cursor-pointer"
+          size="sm"
+        >
+          {ytSyncing ? <Loader2 size={13} className="animate-spin mr-1" /> : <Youtube size={13} className="mr-1" />}
+          자동 연동 실행
+        </Button>
+
+        {ytResult && (
+          <div className="bg-gray-800 rounded-xl p-3 space-y-1 text-xs">
+            <div className="text-green-400 font-medium">{ytResult.mapped}개 경기 연동 완료</div>
+            <div className="text-gray-500">영상 {ytResult.total_videos}개 검색 · 일정 {ytResult.total_games}경기 중 {ytResult.mapped}경기 매핑</div>
+          </div>
+        )}
       </div>
 
       {/* PIN 변경 */}
