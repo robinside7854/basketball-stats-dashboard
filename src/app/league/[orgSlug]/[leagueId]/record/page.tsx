@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import {
   Lock, Loader2, Play, Square, ChevronLeft,
-  CheckCircle2, Circle, Youtube,
+  CheckCircle2, Circle, Youtube, RefreshCw,
 } from 'lucide-react'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
 import LeagueEventInputPad from '@/components/league/LeagueEventInputPad'
@@ -63,10 +63,12 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [slots, setSlots] = useState<GameSlot[]>([])
   const [teams, setTeams] = useState<LeagueTeam[]>([])
   const [allPlayers, setAllPlayers] = useState<LeaguePlayer[]>([])
+  const [leagueYtChannel, setLeagueYtChannel] = useState<string | null>(null)
   const [selectedSlotId, setSelectedSlotId] = useState('')
   const [loadingDates, setLoadingDates] = useState(true)
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [initializingSlots, setInitializingSlots] = useState(false)
+  const [ytSyncing, setYtSyncing] = useState(false)
   const [minutes, setMinutes] = useState<MinRow[]>([])
   const [statsRefresh, setStatsRefresh] = useState(0)
   const [mobileTab, setMobileTab] = useState<'record' | 'stats'>('record')
@@ -89,14 +91,19 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   useEffect(() => {
     async function init() {
       setLoadingDates(true)
-      const [dRes, tRes, pRes] = await Promise.all([
+      const [dRes, tRes, pRes, lRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/schedule-dates`),
         fetch(`/api/leagues/${leagueId}/teams`),
         fetch(`/api/leagues/${leagueId}/players`),
+        fetch(`/api/leagues/${leagueId}`),
       ])
       if (dRes.ok) setScheduleDates(await dRes.json())
       if (tRes.ok) setTeams(await tRes.json())
       if (pRes.ok) setAllPlayers(await pRes.json())
+      if (lRes.ok) {
+        const ld = await lRes.json()
+        setLeagueYtChannel(ld.youtube_channel ?? null)
+      }
       setLoadingDates(false)
     }
     init()
@@ -150,6 +157,24 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       toast.success('팀 저장 완료')
       await refreshSlots()
     } else toast.error('팀 저장 실패')
+  }
+
+  async function syncYoutube() {
+    if (!leagueYtChannel) { toast.error('설정 탭에서 YouTube 채널을 먼저 지정하세요'); return }
+    setYtSyncing(true)
+    const res = await fetch(`/api/leagues/${leagueId}/youtube-sync`, {
+      method: 'POST',
+      headers: leagueHeaders,
+      body: JSON.stringify({ channelHandle: leagueYtChannel, date: selectedDate }),
+    })
+    setYtSyncing(false)
+    const data = await res.json()
+    if (res.ok) {
+      toast.success(`${data.mapped}개 경기 YouTube 연동 완료`)
+      await refreshSlots()
+    } else {
+      toast.error(data.error ?? 'YouTube 연동 실패')
+    }
   }
 
   async function refreshSlots() {
@@ -278,6 +303,24 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           <ChevronLeft size={20} />
         </button>
         <h2 className="text-xl font-bold text-white">{dateLabel} 경기 기록</h2>
+      </div>
+
+      {/* YouTube 자동 연동 */}
+      <div className="flex items-center justify-between bg-gray-900/60 border border-gray-800 rounded-xl px-4 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <Youtube size={14} className="text-red-400 shrink-0" />
+          {leagueYtChannel
+            ? <span className="font-mono text-red-300">{leagueYtChannel}</span>
+            : <span className="text-gray-600">채널 미설정 — 설정 탭에서 지정</span>}
+        </div>
+        <button
+          onClick={syncYoutube}
+          disabled={ytSyncing || !leagueYtChannel}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
+        >
+          {ytSyncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+          YouTube 자동 연동
+        </button>
       </div>
 
       {/* 슬랏 그리드 */}

@@ -9,6 +9,7 @@ export interface League {
   total_rounds?: number
   games_per_round: number
   edit_pin?: string
+  youtube_channel?: string | null
   status: 'upcoming' | 'active' | 'completed'
   created_at: string
 }

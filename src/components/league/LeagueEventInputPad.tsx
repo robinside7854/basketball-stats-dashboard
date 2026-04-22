@@ -193,32 +193,39 @@ export default function LeagueEventInputPad({ leagueId, gameId, players, leagueH
             <div key={group.label}>
               <p className="text-[10px] text-gray-600 mb-1">{group.label}</p>
               <div className="flex flex-wrap gap-1.5">
-                {group.buttons.map(btn => (
-                  <button
-                    key={btn.type}
-                    onClick={() => {
-                      if (btn.needsResult) { setPendingShot(btn); setAwaitingAssist(false) }
-                      else saveInstant(btn)
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all active:scale-95 cursor-pointer ${btn.color} ${pendingShot?.type === btn.type ? 'ring-2 ring-white/50 scale-105' : ''}`}
-                  >
-                    {btn.label}
-                  </button>
-                ))}
+                {group.buttons.map(btn => {
+                  // O/X 인라인 — 슛 버튼 자리에서 바로 교체
+                  const isActive = !!btn.needsResult && pendingShot?.type === btn.type
+                  if (isActive) {
+                    return (
+                      <div key={btn.type} className="flex rounded-lg overflow-hidden gap-px h-[30px] min-w-[72px]">
+                        <button
+                          onClick={() => handleResult('made')}
+                          className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black text-sm active:scale-95 cursor-pointer"
+                        >O</button>
+                        <button
+                          onClick={() => handleResult('missed')}
+                          className="flex-1 bg-red-700 hover:bg-red-600 text-white font-black text-sm active:scale-95 cursor-pointer"
+                        >X</button>
+                      </div>
+                    )
+                  }
+                  return (
+                    <button
+                      key={btn.type}
+                      onClick={() => {
+                        if (btn.needsResult) { setPendingShot(btn); setAwaitingAssist(false) }
+                        else saveInstant(btn)
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all active:scale-95 cursor-pointer ${btn.color}`}
+                    >
+                      {btn.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {/* O/X 결과 */}
-      {pendingShot && !awaitingAssist && (
-        <div>
-          <p className="text-xs text-gray-400 mb-1.5">3. 결과 선택 — {pendingShot.label}</p>
-          <div className="flex gap-2">
-            <button onClick={() => handleResult('made')}   className="flex-1 py-3 rounded-xl bg-green-700 hover:bg-green-600 text-white font-bold text-lg active:scale-95 cursor-pointer">O</button>
-            <button onClick={() => handleResult('missed')} className="flex-1 py-3 rounded-xl bg-red-700 hover:bg-red-600 text-white font-bold text-lg active:scale-95 cursor-pointer">X</button>
-          </div>
         </div>
       )}
 
