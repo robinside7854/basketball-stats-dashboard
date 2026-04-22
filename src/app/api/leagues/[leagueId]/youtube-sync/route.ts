@@ -24,24 +24,29 @@ function parseTitle(title: string): { date: string; gameNum: number } | null {
   return { date, gameNum: Number(match[2]) }
 }
 
-async function getChannelId(handle: string, apiKey: string): Promise<string | null> {
+async function getChannelId(handle: string, apiKey: string): Promise<{ id: string | null; debug: string[] }> {
+  const debug: string[] = []
   const clean = handle.replace(/^@/, '')
+
   // Try forHandle first (newer API)
   let res = await fetch(`${YT_API}/channels?part=id&forHandle=${encodeURIComponent('@' + clean)}&key=${apiKey}`)
   let json = await res.json()
-  if (json.items?.length) return json.items[0].id
+  debug.push(`forHandle status: ${res.status}, items: ${json.items?.length ?? 0}${json.error ? ` error: ${json.error.message}` : ''}`)
+  if (json.items?.length) return { id: json.items[0].id, debug }
 
   // Fallback: forUsername
   res = await fetch(`${YT_API}/channels?part=id&forUsername=${encodeURIComponent(clean)}&key=${apiKey}`)
   json = await res.json()
-  if (json.items?.length) return json.items[0].id
+  debug.push(`forUsername status: ${res.status}, items: ${json.items?.length ?? 0}`)
+  if (json.items?.length) return { id: json.items[0].id, debug }
 
   // Fallback: search
   res = await fetch(`${YT_API}/search?part=snippet&type=channel&q=${encodeURIComponent(handle)}&maxResults=5&key=${apiKey}`)
   json = await res.json()
-  if (json.items?.length) return json.items[0].snippet.channelId
+  debug.push(`search status: ${res.status}, items: ${json.items?.length ?? 0}`)
+  if (json.items?.length) return { id: json.items[0].snippet.channelId, debug }
 
-  return null
+  return { id: null, debug }
 }
 
 async function searchVideos(channelId: string, dateStr: string, apiKey: string) {
@@ -70,14 +75,14 @@ export async function POST(
   if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const apiKey = process.env.YOUTUBE_API_KEY
-  if (!apiKey) return NextResponse.json({ error: 'YouTube API 키가 설정되지 않았습니다' }, { status: 500 })
+  if (!apiKey) return NextResponse.json({ error: 'YouTube API 키 미설정 — Vercel 환경변수에 YOUTUBE_API_KEY를 추가하세요' }, { status: 500 })
 
   const { channelHandle, date } = await req.json()
   if (!channelHandle || !date) return NextResponse.json({ error: '채널명과 날짜를 입력하세요' }, { status: 400 })
 
   // 1. 채널 ID 조회
-  const channelId = await getChannelId(channelHandle, apiKey)
-  if (!channelId) return NextResponse.json({ error: `채널을 찾을 수 없습니다: ${channelHandle}` }, { status: 404 })
+  const { id: channelId, debug: channelDebug } = await getChannelId(channelHandle, apiKey)
+  if (!channelId) return NextResponse.json({ error: `채널을 찾을 수 없습니다: ${channelHandle}`, debug: channelDebug }, { status: 404 })
 
   // 2. 영상 목록 검색
   const videos = await searchVideos(channelId, date, apiKey)
@@ -99,17 +104,23 @@ export async function POST(
   }
 
   if (matched.length === 0) {
-    return NextResponse.json({ error: `${date} 날짜의 경기 영상을 찾지 못했습니다`, channelId }, { status: 404 })
+    const parts = date.split('-')
+    const yymmdd = parts[0].slice(2) + parts[1] + parts[2]
+    return NextResponse.json({
+      error: `"${yymmdd} 경기 N" 형식의 영상을 찾지 못했습니다. 채널: ${channelHandle}, 날짜: ${date}`,
+      channelId,
+      searched_videos: videos.length,
+    }, { status: 404 })
   }
 
-  // 4. 해당 날짜의 league_games 조회 (round_num 오름차순)
+  // 4. 해당 날짜의 league_games 조회 (slot_num 오름차순)
   const supabase = createClient()
   const { data: games, error } = await supabase
     .from('league_games')
-    .select('id, round_num, home_team_id, away_team_id')
+    .select('id, slot_num, home_team_id, away_team_id')
     .eq('league_id', leagueId)
     .eq('date', date)
-    .order('round_num', { ascending: true })
+    .order('slot_num', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!games || games.length === 0) {

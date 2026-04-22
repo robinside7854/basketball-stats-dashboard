@@ -161,19 +161,27 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
   async function syncYoutube() {
     if (!leagueYtChannel) { toast.error('설정 탭에서 YouTube 채널을 먼저 지정하세요'); return }
+    if (!selectedDate) { toast.error('날짜를 먼저 선택하세요'); return }
     setYtSyncing(true)
-    const res = await fetch(`/api/leagues/${leagueId}/youtube-sync`, {
-      method: 'POST',
-      headers: leagueHeaders,
-      body: JSON.stringify({ channelHandle: leagueYtChannel, date: selectedDate }),
-    })
-    setYtSyncing(false)
-    const data = await res.json()
-    if (res.ok) {
-      toast.success(`${data.mapped}개 경기 YouTube 연동 완료`)
-      await refreshSlots()
-    } else {
-      toast.error(data.error ?? 'YouTube 연동 실패')
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/youtube-sync`, {
+        method: 'POST',
+        headers: leagueHeaders,
+        body: JSON.stringify({ channelHandle: leagueYtChannel, date: selectedDate }),
+      })
+      let data: Record<string, unknown> = {}
+      try { data = await res.json() } catch { /* non-JSON response */ }
+      if (res.ok) {
+        toast.success(`${data.mapped}개 경기 YouTube 연동 완료`)
+        await refreshSlots()
+      } else {
+        const msg = (data.error as string) ?? `YouTube 연동 실패 (${res.status})`
+        toast.error(msg, { duration: 6000 })
+      }
+    } catch (e) {
+      toast.error(`네트워크 오류: ${e instanceof Error ? e.message : '알 수 없는 오류'}`, { duration: 6000 })
+    } finally {
+      setYtSyncing(false)
     }
   }
 
