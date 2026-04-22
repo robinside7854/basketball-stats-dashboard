@@ -4,20 +4,10 @@ import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Trash2, Loader2, Calendar, Users, Trophy, ClipboardList } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Calendar, Users, Trophy, ClipboardList, UserPlus } from 'lucide-react'
 import Link from 'next/link'
-import type { League, LeagueTeamWithPlayers, LeagueGame } from '@/types/league'
+import type { League, LeagueTeamWithPlayers, LeagueGame, LeaguePlayer } from '@/types/league'
 
-// ─── 타입 ─────────────────────────────────────────────
-interface Player {
-  id: string
-  name: string
-  number: string
-  position: string | null
-  team_type: string
-}
-
-// ─── 탭 컴포넌트 ──────────────────────────────────────
 function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
@@ -39,6 +29,7 @@ function TeamsTab({ leagueId, teams, onRefresh }: { leagueId: string; teams: Lea
 
   async function addTeam() {
     if (!newName.trim()) { toast.error('팀 이름을 입력하세요'); return }
+    if (teams.length >= 4) { toast.error('팀은 최대 4개까지 생성 가능합니다'); return }
     setLoading(true)
     const res = await fetch(`/api/leagues/${leagueId}/teams`, {
       method: 'POST',
@@ -60,12 +51,12 @@ function TeamsTab({ leagueId, teams, onRefresh }: { leagueId: string; teams: Lea
   return (
     <div className="space-y-4">
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
-        <h3 className="font-semibold text-white text-sm">팀 추가</h3>
+        <h3 className="font-semibold text-white text-sm">팀 추가 <span className="text-gray-500 font-normal">(최대 4팀)</span></h3>
         <div className="flex gap-2">
           <Input
             value={newName}
             onChange={e => setNewName(e.target.value)}
-            placeholder="팀 이름"
+            placeholder="팀 이름 (예: 락다운)"
             className="bg-gray-800 border-gray-700 text-white flex-1"
             onKeyDown={e => e.key === 'Enter' && addTeam()}
           />
@@ -111,53 +102,151 @@ function TeamsTab({ leagueId, teams, onRefresh }: { leagueId: string; teams: Lea
   )
 }
 
+// ─── 선수 등록 탭 ─────────────────────────────────────
+function RosterTab({ leagueId }: { leagueId: string }) {
+  const [players, setPlayers] = useState<LeaguePlayer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [name, setName] = useState('')
+  const [number, setNumber] = useState('')
+  const [position, setPosition] = useState('')
+  const [adding, setAdding] = useState(false)
+
+  const loadPlayers = useCallback(async () => {
+    setLoading(true)
+    const res = await fetch(`/api/leagues/${leagueId}/players`)
+    if (res.ok) setPlayers(await res.json())
+    setLoading(false)
+  }, [leagueId])
+
+  useEffect(() => { loadPlayers() }, [loadPlayers])
+
+  async function addPlayer() {
+    if (!name.trim()) { toast.error('이름은 필수입니다'); return }
+    setAdding(true)
+    const res = await fetch(`/api/leagues/${leagueId}/players`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), number: number ? Number(number) : null, position: position || null }),
+    })
+    setAdding(false)
+    if (res.ok) {
+      toast.success('선수 등록 완료')
+      setName(''); setNumber(''); setPosition('')
+      loadPlayers()
+    } else {
+      const d = await res.json()
+      toast.error(d.error ?? '등록 실패')
+    }
+  }
+
+  async function deletePlayer(playerId: string, playerName: string) {
+    if (!confirm(`"${playerName}"을 리그에서 삭제하시겠습니까?`)) return
+    const res = await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, { method: 'DELETE' })
+    if (res.ok) { toast.success('삭제 완료'); loadPlayers() }
+    else { toast.error('삭제 실패') }
+  }
+
+  const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
+        <h3 className="font-semibold text-white text-sm">선수 등록</h3>
+        <div className="flex gap-2 flex-wrap">
+          <Input
+            value={number}
+            onChange={e => setNumber(e.target.value)}
+            placeholder="등번호"
+            type="number"
+            className="bg-gray-800 border-gray-700 text-white w-24 shrink-0"
+          />
+          <Input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="이름 *"
+            className="bg-gray-800 border-gray-700 text-white flex-1 min-w-32"
+            onKeyDown={e => e.key === 'Enter' && addPlayer()}
+          />
+          <select
+            value={position}
+            onChange={e => setPosition(e.target.value)}
+            className="bg-gray-800 border border-gray-700 text-gray-300 rounded-md px-2 text-sm cursor-pointer"
+          >
+            <option value="">포지션</option>
+            {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+          <Button onClick={addPlayer} disabled={adding} className="bg-blue-600 hover:bg-blue-500 cursor-pointer shrink-0">
+            {adding ? <Loader2 size={14} className="animate-spin" /> : <UserPlus size={14} />}
+          </Button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-gray-500" /></div>
+      ) : players.length === 0 ? (
+        <div className="text-center py-10 text-gray-500 text-sm">등록된 선수가 없습니다</div>
+      ) : (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-800 text-xs text-gray-500">
+            총 {players.length}명
+          </div>
+          <div className="divide-y divide-gray-800">
+            {players.map(p => (
+              <div key={p.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-800/50">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-mono text-gray-500 w-7 text-right">{p.number ?? '-'}</span>
+                  <span className="text-sm text-white font-medium">{p.name}</span>
+                  {p.position && <span className="text-xs text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">{p.position}</span>}
+                </div>
+                <button
+                  onClick={() => deletePlayer(p.id, p.name)}
+                  className="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── 선수 배정 탭 ─────────────────────────────────────
-function PlayersTab({
-  leagueId,
-  orgSlug,
-  teams,
-  onRefresh,
-}: {
-  leagueId: string
-  orgSlug: string
-  teams: LeagueTeamWithPlayers[]
-  onRefresh: () => void
-}) {
-  const [allPlayers, setAllPlayers] = useState<Player[]>([])
+function DraftTab({ leagueId, teams, onRefresh }: { leagueId: string; teams: LeagueTeamWithPlayers[]; onRefresh: () => void }) {
+  const [allPlayers, setAllPlayers] = useState<LeaguePlayer[]>([])
   const [loadingPlayers, setLoadingPlayers] = useState(true)
   const [assigning, setAssigning] = useState<string | null>(null)
 
-  const assignedPlayerIds = new Set(teams.flatMap(t => t.players.map(p => p.league_player_id)))
+  const assignedIds = new Set(teams.flatMap(t => t.players.map(p => p.league_player_id)))
 
   useEffect(() => {
     async function load() {
       setLoadingPlayers(true)
-      const res = await fetch(`/api/admin/orgs/${orgSlug}/players`)
-      if (res.ok) {
-        const data = await res.json()
-        setAllPlayers(data)
-      }
+      const res = await fetch(`/api/leagues/${leagueId}/players`)
+      if (res.ok) setAllPlayers(await res.json())
       setLoadingPlayers(false)
     }
     load()
-  }, [orgSlug])
+  }, [leagueId])
 
-  const unassigned = allPlayers.filter(p => !assignedPlayerIds.has(p.id))
+  const unassigned = allPlayers.filter(p => !assignedIds.has(p.id))
 
-  async function assignPlayer(playerId: string, teamId: string) {
-    setAssigning(playerId)
+  async function assignPlayer(leaguePlayerId: string, teamId: string) {
+    setAssigning(leaguePlayerId)
     const res = await fetch(`/api/leagues/${leagueId}/teams/${teamId}/players`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ player_id: playerId }),
+      body: JSON.stringify({ league_player_id: leaguePlayerId }),
     })
     setAssigning(null)
     if (res.ok) { onRefresh() }
     else { const d = await res.json(); toast.error(d.error ?? '배정 실패') }
   }
 
-  async function unassignPlayer(playerId: string, teamId: string) {
-    const res = await fetch(`/api/leagues/${leagueId}/teams/${teamId}/players?player_id=${playerId}`, {
+  async function unassignPlayer(leaguePlayerId: string, teamId: string) {
+    const res = await fetch(`/api/leagues/${leagueId}/teams/${teamId}/players?league_player_id=${leaguePlayerId}`, {
       method: 'DELETE',
     })
     if (res.ok) { onRefresh() }
@@ -167,10 +256,12 @@ function PlayersTab({
   if (teams.length === 0) {
     return <div className="text-center py-10 text-gray-500 text-sm">먼저 팀을 생성해주세요</div>
   }
+  if (allPlayers.length === 0 && !loadingPlayers) {
+    return <div className="text-center py-10 text-gray-500 text-sm">먼저 선수를 등록해주세요</div>
+  }
 
   return (
     <div className="space-y-6">
-      {/* 미배정 선수 */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
         <h3 className="font-semibold text-white text-sm">미배정 선수 ({unassigned.length}명)</h3>
         {loadingPlayers ? (
@@ -182,7 +273,7 @@ function PlayersTab({
             {unassigned.map(player => (
               <div key={player.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-gray-800">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-gray-500 w-7 text-right">{player.number}</span>
+                  <span className="text-xs font-mono text-gray-500 w-7 text-right">{player.number ?? '-'}</span>
                   <span className="text-sm text-white">{player.name}</span>
                   {player.position && <span className="text-xs text-gray-500">{player.position}</span>}
                 </div>
@@ -203,7 +294,6 @@ function PlayersTab({
         )}
       </div>
 
-      {/* 팀별 배정 현황 */}
       <div className="space-y-3">
         {teams.map(team => (
           <div key={team.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
@@ -218,7 +308,7 @@ function PlayersTab({
                 {team.players.map(p => (
                   <div key={p.league_player_id} className="flex items-center justify-between py-1 px-2 rounded hover:bg-gray-800">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-gray-500 w-7 text-right">{p.player_number}</span>
+                      <span className="text-xs font-mono text-gray-500 w-7 text-right">{p.player_number ?? '-'}</span>
                       <span className="text-sm text-white">{p.player_name}</span>
                     </div>
                     <button
@@ -263,7 +353,6 @@ function ScheduleTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamW
   }
 
   const rounds = Array.from(new Set(games.map(g => g.round_num))).sort((a, b) => a - b)
-
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
 
   return (
@@ -293,8 +382,8 @@ function ScheduleTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamW
                 <p className="text-xs font-semibold text-gray-400 mb-2">R{r} · {date}</p>
                 <div className="space-y-1.5">
                   {roundGames.map(g => {
-                    const home = (g.home_team ?? teamMap[g.home_team_id])
-                    const away = (g.away_team ?? teamMap[g.away_team_id])
+                    const home = g.home_team ?? teamMap[g.home_team_id]
+                    const away = g.away_team ?? teamMap[g.away_team_id]
                     return (
                       <div key={g.id} className="bg-gray-900 border border-gray-800 rounded-lg px-4 py-2.5 flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
@@ -352,11 +441,7 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
     const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${gameId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        home_score: Number(s.home),
-        away_score: Number(s.away),
-        is_complete: isComplete,
-      }),
+      body: JSON.stringify({ home_score: Number(s.home), away_score: Number(s.away), is_complete: isComplete }),
     })
     setSaving(null)
     if (res.ok) { toast.success('저장 완료'); loadGames() }
@@ -383,18 +468,12 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
             <span className="text-sm text-white">{home?.name ?? '?'}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <Input
-              type="number"
-              min={0}
-              value={s.home}
+            <Input type="number" min={0} value={s.home}
               onChange={e => setScores(prev => ({ ...prev, [game.id]: { ...prev[game.id], home: e.target.value } }))}
               className="w-14 bg-gray-800 border-gray-700 text-white text-center font-mono"
             />
             <span className="text-gray-500">-</span>
-            <Input
-              type="number"
-              min={0}
-              value={s.away}
+            <Input type="number" min={0} value={s.away}
               onChange={e => setScores(prev => ({ ...prev, [game.id]: { ...prev[game.id], away: e.target.value } }))}
               className="w-14 bg-gray-800 border-gray-700 text-white text-center font-mono"
             />
@@ -405,22 +484,13 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
           </div>
         </div>
         <div className="flex justify-end gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={isSaving}
-            onClick={() => saveResult(game.id, false)}
-            className="text-xs border-gray-700 text-gray-400 hover:text-white cursor-pointer"
-          >
+          <Button size="sm" variant="outline" disabled={isSaving} onClick={() => saveResult(game.id, false)}
+            className="text-xs border-gray-700 text-gray-400 hover:text-white cursor-pointer">
             저장
           </Button>
           {!game.is_complete && (
-            <Button
-              size="sm"
-              disabled={isSaving}
-              onClick={() => saveResult(game.id, true)}
-              className="text-xs bg-green-700 hover:bg-green-600 cursor-pointer"
-            >
+            <Button size="sm" disabled={isSaving} onClick={() => saveResult(game.id, true)}
+              className="text-xs bg-green-700 hover:bg-green-600 cursor-pointer">
               {isSaving ? <Loader2 size={12} className="animate-spin" /> : '완료 처리'}
             </Button>
           )}
@@ -451,12 +521,12 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
 }
 
 // ─── 메인 페이지 ──────────────────────────────────────
-export default function LeagueDetailPage() {
-  const params = useParams<{ orgSlug: string; leagueId: string }>()
-  const { orgSlug, leagueId } = params
+export default function LeagueAdminPage() {
+  const params = useParams<{ leagueId: string }>()
+  const { leagueId } = params
   const router = useRouter()
 
-  const [activeTab, setActiveTab] = useState<'teams' | 'players' | 'schedule' | 'results'>('teams')
+  const [activeTab, setActiveTab] = useState<'teams' | 'roster' | 'draft' | 'schedule' | 'results'>('teams')
   const [league, setLeague] = useState<League | null>(null)
   const [teams, setTeams] = useState<LeagueTeamWithPlayers[]>([])
   const [loadingLeague, setLoadingLeague] = useState(true)
@@ -471,39 +541,48 @@ export default function LeagueDetailPage() {
       setLoadingLeague(true)
       const res = await fetch(`/api/leagues/${leagueId}`)
       if (res.ok) setLeague(await res.json())
-      else router.push(`/admin/orgs/${orgSlug}/leagues`)
+      else router.push('/admin/leagues')
       setLoadingLeague(false)
     }
     init()
     loadTeams()
-  }, [leagueId, orgSlug, router, loadTeams])
+  }, [leagueId, router, loadTeams])
 
   if (loadingLeague) return (
     <div className="flex justify-center items-center h-40">
       <Loader2 size={24} className="animate-spin text-gray-500" />
     </div>
   )
-
   if (!league) return null
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-3">
-        <Link href={`/admin/orgs/${orgSlug}/leagues`} className="text-gray-400 hover:text-white transition-colors">
+        <Link href="/admin/leagues" className="text-gray-400 hover:text-white transition-colors">
           <ArrowLeft size={20} />
         </Link>
-        <div>
+        <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold text-white">{league.name}</h1>
-          <p className="text-gray-500 text-sm">{league.season_year}시즌 · {league.total_rounds}라운드</p>
+          <p className="text-gray-500 text-sm">{league.season_year}시즌 · {league.total_rounds}라운드 · /league/{league.org_slug}</p>
         </div>
+        <a
+          href={`https://basketball-stats-dashboard.vercel.app/league/${league.org_slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-gray-500 hover:text-white px-2.5 py-1.5 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors shrink-0"
+        >
+          공개 페이지 →
+        </a>
       </div>
 
-      {/* 탭 */}
       <div className="flex gap-1 flex-wrap">
         <Tab active={activeTab === 'teams'} onClick={() => setActiveTab('teams')}>
           <div className="flex items-center gap-1.5"><Trophy size={13} /> 팀 구성</div>
         </Tab>
-        <Tab active={activeTab === 'players'} onClick={() => setActiveTab('players')}>
+        <Tab active={activeTab === 'roster'} onClick={() => setActiveTab('roster')}>
+          <div className="flex items-center gap-1.5"><UserPlus size={13} /> 선수 등록</div>
+        </Tab>
+        <Tab active={activeTab === 'draft'} onClick={() => setActiveTab('draft')}>
           <div className="flex items-center gap-1.5"><Users size={13} /> 선수 배정</div>
         </Tab>
         <Tab active={activeTab === 'schedule'} onClick={() => setActiveTab('schedule')}>
@@ -514,19 +593,11 @@ export default function LeagueDetailPage() {
         </Tab>
       </div>
 
-      {/* 탭 내용 */}
-      {activeTab === 'teams' && (
-        <TeamsTab leagueId={leagueId} teams={teams} onRefresh={loadTeams} />
-      )}
-      {activeTab === 'players' && (
-        <PlayersTab leagueId={leagueId} orgSlug={orgSlug} teams={teams} onRefresh={loadTeams} />
-      )}
-      {activeTab === 'schedule' && (
-        <ScheduleTab leagueId={leagueId} teams={teams} />
-      )}
-      {activeTab === 'results' && (
-        <ResultsTab leagueId={leagueId} teams={teams} />
-      )}
+      {activeTab === 'teams' && <TeamsTab leagueId={leagueId} teams={teams} onRefresh={loadTeams} />}
+      {activeTab === 'roster' && <RosterTab leagueId={leagueId} />}
+      {activeTab === 'draft' && <DraftTab leagueId={leagueId} teams={teams} onRefresh={loadTeams} />}
+      {activeTab === 'schedule' && <ScheduleTab leagueId={leagueId} teams={teams} />}
+      {activeTab === 'results' && <ResultsTab leagueId={leagueId} teams={teams} />}
     </div>
   )
 }

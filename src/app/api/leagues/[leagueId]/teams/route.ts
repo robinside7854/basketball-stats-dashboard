@@ -20,7 +20,7 @@ export async function GET(
 
   const { data: assignments } = await supabase
     .from('league_team_players')
-    .select('league_team_id, player_id, players(id, name, number, position)')
+    .select('league_team_id, league_player_id, league_players(id, name, number, position)')
     .in('league_team_id', teams.map(t => t.id))
 
   const teamsWithPlayers = teams.map(team => ({
@@ -28,11 +28,11 @@ export async function GET(
     players: (assignments ?? [])
       .filter(a => a.league_team_id === team.id)
       .map(a => {
-        const p = (Array.isArray(a.players) ? a.players[0] : a.players) as { id: string; name: string; number: string; position: string | null } | null
+        const p = (Array.isArray(a.league_players) ? a.league_players[0] : a.league_players) as { id: string; name: string; number: number | null; position: string | null } | null
         return {
-          player_id: a.player_id,
+          league_player_id: a.league_player_id,
           player_name: p?.name ?? '',
-          player_number: p?.number ?? '',
+          player_number: p?.number ?? null,
           position: p?.position ?? null,
         }
       }),

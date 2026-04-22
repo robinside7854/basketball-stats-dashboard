@@ -17,8 +17,17 @@ export interface LeagueTeam {
   color: string
 }
 
+export interface LeaguePlayer {
+  id: string
+  league_id: string
+  name: string
+  number: number | null
+  position: string | null
+  created_at: string
+}
+
 export interface LeagueTeamWithPlayers extends LeagueTeam {
-  players: { player_id: string; player_name: string; player_number: string; position: string | null }[]
+  players: { league_player_id: string; player_name: string; player_number: number | null; position: string | null }[]
 }
 
 export interface LeagueGame {
