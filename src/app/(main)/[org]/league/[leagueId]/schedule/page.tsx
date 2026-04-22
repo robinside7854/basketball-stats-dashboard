@@ -39,8 +39,8 @@ export default async function LeagueSchedulePage({
 
   const gameList = ((games as LeagueGame[]) ?? []).map(g => ({
     ...g,
-    home_team: teamMap[g.home_team_id],
-    away_team: teamMap[g.away_team_id],
+    home_team: g.home_team_id ? teamMap[g.home_team_id] : null,
+    away_team: g.away_team_id ? teamMap[g.away_team_id] : null,
   }))
 
   return (

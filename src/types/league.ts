@@ -36,15 +36,26 @@ export interface LeagueTeamWithPlayers extends LeagueTeam {
 export interface LeagueGame {
   id: string
   league_id: string
-  home_team_id: string
-  away_team_id: string
-  home_team?: LeagueTeam
-  away_team?: LeagueTeam
+  home_team_id: string | null
+  away_team_id: string | null
+  home_team?: LeagueTeam | null
+  away_team?: LeagueTeam | null
   date: string
   round_num: number
+  slot_num?: number
   home_score: number
   away_score: number
   is_complete: boolean
+  is_started?: boolean
+  youtube_url?: string | null
+  youtube_start_offset?: number
+}
+
+export interface LeagueScheduleDate {
+  id: string
+  league_id: string
+  date: string
+  created_at: string
 }
 
 export interface LeagueStanding {

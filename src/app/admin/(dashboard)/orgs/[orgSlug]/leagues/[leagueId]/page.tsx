@@ -293,8 +293,8 @@ function ScheduleTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamW
                 <p className="text-xs font-semibold text-gray-400 mb-2">R{r} · {date}</p>
                 <div className="space-y-1.5">
                   {roundGames.map(g => {
-                    const home = (g.home_team ?? teamMap[g.home_team_id])
-                    const away = (g.away_team ?? teamMap[g.away_team_id])
+                    const home = (g.home_team ?? (g.home_team_id ? teamMap[g.home_team_id] : null))
+                    const away = (g.away_team ?? (g.away_team_id ? teamMap[g.away_team_id] : null))
                     return (
                       <div key={g.id} className="bg-gray-900 border border-gray-800 rounded-lg px-4 py-2.5 flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
@@ -367,8 +367,8 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
   const complete = games.filter(g => g.is_complete)
 
   function GameRow({ game }: { game: LeagueGame }) {
-    const home = game.home_team ?? teamMap[game.home_team_id]
-    const away = game.away_team ?? teamMap[game.away_team_id]
+    const home = game.home_team ?? (game.home_team_id ? teamMap[game.home_team_id] : null)
+    const away = game.away_team ?? (game.away_team_id ? teamMap[game.away_team_id] : null)
     const s = scores[game.id] ?? { home: '0', away: '0' }
     const isSaving = saving === game.id
     return (

@@ -42,8 +42,8 @@ export default async function LeagueDetailPage({
 
   const gameList = ((games as LeagueGame[]) ?? []).map(g => ({
     ...g,
-    home_team: teamMap[g.home_team_id],
-    away_team: teamMap[g.away_team_id],
+    home_team: g.home_team_id ? teamMap[g.home_team_id] : null,
+    away_team: g.away_team_id ? teamMap[g.away_team_id] : null,
   }))
 
   // 순위 계산
@@ -51,9 +51,9 @@ export default async function LeagueDetailPage({
   for (const t of teamList) {
     standing[t.id] = { team: t, played: 0, wins: 0, draws: 0, losses: 0, points: 0, goals_for: 0, goals_against: 0, goal_diff: 0 }
   }
-  for (const g of gameList.filter(g => g.is_complete)) {
-    const h = standing[g.home_team_id]
-    const a = standing[g.away_team_id]
+  for (const g of gameList.filter(g => g.is_complete && g.home_team_id && g.away_team_id)) {
+    const h = standing[g.home_team_id!]
+    const a = standing[g.away_team_id!]
     if (!h || !a) continue
     h.played++; a.played++
     h.goals_for += g.home_score; h.goals_against += g.away_score
