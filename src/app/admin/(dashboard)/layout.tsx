@@ -1,7 +1,7 @@
 import { auth, signOut } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Building2, LogOut } from 'lucide-react'
+import { LayoutDashboard, Building2, LogOut, Trophy } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -30,6 +30,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/orgs" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
             <Building2 size={16} />
             Org 관리
+          </Link>
+          <Link href="/admin/leagues" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
+            <Trophy size={16} />
+            리그 관리
           </Link>
         </nav>
 
