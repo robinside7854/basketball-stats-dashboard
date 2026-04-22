@@ -69,7 +69,7 @@ export default async function LeaguesPage({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-white">{league.name}</p>
-                  <p className="text-sm text-gray-500 mt-0.5">{league.season_year}시즌 · {league.total_rounds}라운드</p>
+                  <p className="text-sm text-gray-500 mt-0.5">{league.season_year}시즌 · {league.season_type === 'quarterly' ? '분기별(3개월)' : '연간(1년)'}</p>
                 </div>
                 <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusClass[league.status] ?? statusClass.upcoming}`}>
                   {statusLabel[league.status] ?? league.status}

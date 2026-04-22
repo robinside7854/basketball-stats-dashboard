@@ -23,7 +23,7 @@ export default function NewLeaguePage() {
   const [slug, setSlug] = useState('')
   const [matchDay, setMatchDay] = useState('saturday')
   const [startDate, setStartDate] = useState('')
-  const [totalRounds, setTotalRounds] = useState(9)
+  const [seasonType, setSeasonType] = useState<'annual' | 'quarterly'>('annual')
   const [gamesPerRound, setGamesPerRound] = useState(1)
   const [seasonYear, setSeasonYear] = useState(new Date().getFullYear())
   const [loading, setLoading] = useState(false)
@@ -50,7 +50,7 @@ export default function NewLeaguePage() {
         season_year: seasonYear,
         start_date: startDate,
         match_day: matchDay,
-        total_rounds: totalRounds,
+        season_type: seasonType,
         games_per_round: gamesPerRound,
       }),
     })
@@ -138,32 +138,46 @@ export default function NewLeaguePage() {
             </p>
           </div>
 
-          {/* 정규일정 횟수 + 경기 수 */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs text-gray-400">정규일정 총 횟수</label>
-              <Input
-                type="number"
-                min={1}
-                max={52}
-                value={totalRounds}
-                onChange={e => setTotalRounds(Number(e.target.value))}
-                className="bg-gray-800 border-gray-700 text-white"
-              />
-              <p className="text-xs text-gray-600">몇 주(번) 동안 진행하는지</p>
+          {/* 시즌 구분 */}
+          <div className="space-y-2">
+            <label className="text-xs text-gray-400">시즌 구분</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'annual', label: '연간 (1년)', desc: '첫 정기일 기준 12개월' },
+                { value: 'quarterly', label: '분기별 (3개월)', desc: '첫 정기일 기준 3개월' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSeasonType(opt.value as 'annual' | 'quarterly')}
+                  className={`text-left p-3 rounded-xl border transition-colors cursor-pointer ${
+                    seasonType === opt.value
+                      ? 'border-blue-500 bg-blue-500/10 text-white'
+                      : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-500'
+                  }`}
+                >
+                  <p className="text-sm font-semibold">{opt.label}</p>
+                  <p className="text-xs opacity-70 mt-0.5">{opt.desc}</p>
+                </button>
+              ))}
             </div>
-            <div className="space-y-1.5">
-              <label className="text-xs text-gray-400">정규일정 당 경기 수</label>
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                value={gamesPerRound}
-                onChange={e => setGamesPerRound(Number(e.target.value))}
-                className="bg-gray-800 border-gray-700 text-white"
-              />
-              <p className="text-xs text-gray-600">경기일마다 열리는 경기 수</p>
-            </div>
+            <p className="text-xs text-gray-600">
+              일정은 첫 정기일부터 {seasonType === 'quarterly' ? '3개월(분기)' : '1년'} 간의 {DOW_OPTIONS.find(d => d.value === matchDay)?.label} 전체가 자동 생성됩니다
+            </p>
+          </div>
+
+          {/* 정규일정 당 경기 수 */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-gray-400">정규일정 당 경기 수</label>
+            <Input
+              type="number"
+              min={1}
+              max={10}
+              value={gamesPerRound}
+              onChange={e => setGamesPerRound(Number(e.target.value))}
+              className="bg-gray-800 border-gray-700 text-white"
+            />
+            <p className="text-xs text-gray-600">경기일마다 열리는 경기 수</p>
           </div>
         </div>
 

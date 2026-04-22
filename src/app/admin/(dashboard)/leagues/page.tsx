@@ -67,7 +67,7 @@ export default async function AdminLeaguesPage() {
                   </span>
                 </div>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  {league.season_year}시즌 · {league.total_rounds}라운드 · 시작일 {league.start_date}
+                  {league.season_year}시즌 · {league.season_type === 'quarterly' ? '분기별' : '연간'} · 시작일 {league.start_date}
                 </p>
                 <p className="text-xs text-gray-600 mt-0.5 font-mono">/league/{league.org_slug}</p>
               </div>

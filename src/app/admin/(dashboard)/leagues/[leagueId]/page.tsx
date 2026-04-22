@@ -679,7 +679,7 @@ export default function LeagueAdminPage() {
         </Link>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold text-white">{league.name}</h1>
-          <p className="text-gray-500 text-sm">{league.season_year}시즌 · {league.total_rounds}라운드 · /league/{league.org_slug}</p>
+          <p className="text-gray-500 text-sm">{league.season_year}시즌 · {league.season_type === 'quarterly' ? '분기별' : '연간'} · /league/{league.org_slug}</p>
         </div>
         <a
           href={`https://basketball-stats-dashboard.vercel.app/league/${league.org_slug}`}

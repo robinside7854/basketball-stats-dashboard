@@ -71,7 +71,7 @@ export default async function LeagueDetailPage({
               {statusLabel[l.status] ?? l.status}
             </span>
           </div>
-          <p className="text-gray-500 text-sm">{l.season_year}시즌 · {l.total_rounds}라운드 · 시작일 {l.start_date}</p>
+          <p className="text-gray-500 text-sm">{l.season_year}시즌 · {l.season_type === 'quarterly' ? '분기별(3개월)' : '연간(1년)'} · 시작일 {l.start_date}</p>
         </div>
 
         {/* 시즌 전환 (다른 시즌이 있을 때만) */}
