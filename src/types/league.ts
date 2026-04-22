@@ -8,6 +8,7 @@ export interface League {
   season_type: 'annual' | 'quarterly'
   total_rounds?: number
   games_per_round: number
+  edit_pin?: string
   status: 'upcoming' | 'active' | 'completed'
   created_at: string
 }

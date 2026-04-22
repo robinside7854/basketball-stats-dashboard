@@ -1,7 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 import LeagueSchedule from '@/components/league/LeagueSchedule'
 import type { League, LeagueGame, LeagueTeam } from '@/types/league'
 
@@ -30,21 +28,13 @@ export default async function LeagueSchedulePage({
   }))
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        <div className="flex items-center gap-3">
-          <Link href={`/league/${orgSlug}/${leagueId}`} className="text-gray-400 hover:text-white transition-colors">
-            <ArrowLeft size={20} />
-          </Link>
-          <div>
-            <h1 className="text-xl font-bold text-white">전체 일정</h1>
-            <p className="text-gray-500 text-sm">{l.name} · {l.season_year}시즌</p>
-          </div>
-        </div>
-
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-          <LeagueSchedule games={gameList} />
-        </div>
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-xl font-bold text-white">전체 일정</h2>
+        <p className="text-gray-500 text-sm">{l.name} · {l.season_year}시즌 · 총 {gameList.length}경기</p>
+      </div>
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+        <LeagueSchedule games={gameList} />
       </div>
     </div>
   )

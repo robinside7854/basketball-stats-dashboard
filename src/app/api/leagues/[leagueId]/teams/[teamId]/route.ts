@@ -1,14 +1,13 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ leagueId: string; teamId: string }> }
 ) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { teamId } = await params
+  const { leagueId, teamId } = await params
+  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
   const supabase = createClient()
   const { data, error } = await supabase
@@ -22,12 +21,11 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ leagueId: string; teamId: string }> }
 ) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { teamId } = await params
+  const { leagueId, teamId } = await params
+  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = createClient()
   const { error } = await supabase.from('league_teams').delete().eq('id', teamId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
