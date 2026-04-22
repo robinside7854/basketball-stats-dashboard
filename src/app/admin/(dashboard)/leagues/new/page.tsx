@@ -53,7 +53,7 @@ export default function NewLeaguePage() {
     }
     const data = await res.json()
     toast.success('리그가 생성되었습니다')
-    router.push(`/league/${data.org_slug}/${data.id}`)
+    router.push('/admin/leagues')
   }
 
   return (
