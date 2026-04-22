@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { sortJerseyNum } from '@/lib/utils'
-import { Plus, Upload, X, Check, Merge, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Upload, X, Check, Merge, ChevronUp, ChevronDown, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import PlayerCard from '@/components/roster/PlayerCard'
 import PlayerForm from '@/components/roster/PlayerForm'
@@ -60,6 +60,16 @@ export default function RosterPage() {
     const res = await fetch(`/api/players?team=${team}`)
     const data = await res.json()
     setPlayers(data)
+  }
+
+  function downloadTemplate() {
+    const headers = ['순번', '생년월일(YYMMDD)', '이름', '등번호', '포지션', '키(cm)', '선출여부(선출/공란)']
+    const example = [1, '950315', '홍길동', '23', 'SG', 185, '']
+    const ws = XLSX.utils.aoa_to_sheet([headers, example])
+    ws['!cols'] = headers.map((_, i) => ({ wch: [6, 18, 10, 8, 8, 8, 18][i] }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '선수명단')
+    XLSX.writeFile(wb, '선수명단_템플릿.xlsx')
   }
 
   async function fetchGamesCount() {
@@ -162,6 +172,9 @@ export default function RosterPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">선수 명단</h1>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={downloadTemplate} className="border-gray-700 text-gray-400 hover:text-white hover:border-gray-500">
+            <Download size={16} className="mr-2" /> 템플릿 다운로드
+          </Button>
           {isEditMode && (
             <>
               <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
