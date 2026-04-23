@@ -76,13 +76,16 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
+  try {
   const { leagueId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized — X-League-Pin 헤더 확인' }, { status: 401 })
 
   const apiKey = process.env.YOUTUBE_API_KEY
   if (!apiKey) return NextResponse.json({ error: 'YouTube API 키 미설정 — Vercel 환경변수에 YOUTUBE_API_KEY를 추가하세요' }, { status: 500 })
 
-  const { channelHandle, date } = await req.json()
+  let body: { channelHandle?: string; date?: string } = {}
+  try { body = await req.json() } catch { return NextResponse.json({ error: 'request body 파싱 실패' }, { status: 400 }) }
+  const { channelHandle, date } = body
   if (!channelHandle || !date) return NextResponse.json({ error: '채널명과 날짜를 입력하세요' }, { status: 400 })
 
   // 1. 채널 ID 조회
@@ -157,4 +160,9 @@ export async function POST(
     total_games: games.length,
     details: updates,
   })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[youtube-sync] unhandled error:', msg)
+    return NextResponse.json({ error: `서버 오류: ${msg}` }, { status: 500 })
+  }
 }
