@@ -14,27 +14,23 @@ function parseYymmdd(s: string): string | null {
   return `${year}-${mm}-${dd}`
 }
 
-// 제목에서 날짜(YYMMDD)와 경기 번호 파싱
-// 지원 형식: "260103 경기 9", "26.01.03 경기9", "260103경기 9", "260103 9경기" 등
+// 제목에서 날짜(YYMMDD)와 경기 번호를 독립적으로 파싱
+// 지원: "260103 경기1", "260103 경기 9", "26.01.03 경기9", "2경기 260103" 등
 function parseTitle(title: string): { date: string; gameNum: number } | null {
-  // 패턴 1: YYMMDD + 경기 + N  (기본)
-  let m = title.match(/(\d{6})\s*[가-힣]*\s*경기\s*#?(\d+)/)
-  if (m) {
-    const date = parseYymmdd(m[1])
-    if (date) return { date, gameNum: Number(m[2]) }
-  }
-  // 패턴 2: YY.MM.DD 경기 N
-  m = title.match(/(\d{2})\.(\d{2})\.(\d{2})\s*[가-힣]*\s*경기\s*#?(\d+)/)
-  if (m) {
-    const date = parseYymmdd(m[1] + m[2] + m[3])
-    if (date) return { date, gameNum: Number(m[4]) }
-  }
-  // 패턴 3: N경기 + YYMMDD  (순서 반대)
-  m = title.match(/#?(\d+)\s*경기\s*[가-힣]*\s*(\d{6})/)
-  if (m) {
-    const date = parseYymmdd(m[2])
-    if (date) return { date, gameNum: Number(m[1]) }
-  }
+  // 1. 제목에서 6자리 숫자(날짜) 추출
+  const dateM = title.match(/(\d{6})/)
+  if (!dateM) return null
+  const date = parseYymmdd(dateM[1])
+  if (!date) return null
+
+  // 2. "경기" 다음 숫자 추출 (경기1, 경기 1, 경기#1 모두 지원)
+  const gameM = title.match(/경기\s*#?(\d+)/)
+  if (gameM) return { date, gameNum: Number(gameM[1]) }
+
+  // 3. 숫자 먼저 오는 경우: "1경기", "9번째경기"
+  const reverseM = title.match(/(\d+)\s*(?:번째)?\s*경기/)
+  if (reverseM) return { date, gameNum: Number(reverseM[1]) }
+
   return null
 }
 
