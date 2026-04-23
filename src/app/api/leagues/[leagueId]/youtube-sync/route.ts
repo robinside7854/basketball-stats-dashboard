@@ -67,6 +67,11 @@ async function searchVideos(channelId: string, dateStr: string, apiKey: string) 
   return json.items ?? []
 }
 
+// Health check — confirms route is registered
+export async function GET() {
+  return NextResponse.json({ ok: true, route: 'youtube-sync' })
+}
+
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
