@@ -166,7 +166,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     try {
       const res = await fetch(`/api/leagues/${leagueId}/youtube-sync`, {
         method: 'POST',
-        headers: leagueHeaders,
+        headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({ channelHandle: leagueYtChannel, date: selectedDate }),
       })
       let data: Record<string, unknown> = {}
@@ -323,7 +323,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         </div>
         <button
           onClick={syncYoutube}
-          disabled={ytSyncing || !leagueYtChannel}
+          disabled={ytSyncing}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
         >
           {ytSyncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
