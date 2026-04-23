@@ -15,35 +15,69 @@ function parseYymmdd(s: string): string | null {
 }
 
 // 제목에서 날짜(YYMMDD)와 경기 번호 파싱
-// 예: "260418 경기 9" → { date: '2026-04-18', gameNum: 9 }
+// 지원 형식: "260103 경기 9", "26.01.03 경기9", "260103경기 9", "260103 9경기" 등
 function parseTitle(title: string): { date: string; gameNum: number } | null {
-  const match = title.match(/(\d{6})\s*[가-힣]*\s*경기\s*(\d+)/)
-  if (!match) return null
-  const date = parseYymmdd(match[1])
-  if (!date) return null
-  return { date, gameNum: Number(match[2]) }
+  // 패턴 1: YYMMDD + 경기 + N  (기본)
+  let m = title.match(/(\d{6})\s*[가-힣]*\s*경기\s*#?(\d+)/)
+  if (m) {
+    const date = parseYymmdd(m[1])
+    if (date) return { date, gameNum: Number(m[2]) }
+  }
+  // 패턴 2: YY.MM.DD 경기 N
+  m = title.match(/(\d{2})\.(\d{2})\.(\d{2})\s*[가-힣]*\s*경기\s*#?(\d+)/)
+  if (m) {
+    const date = parseYymmdd(m[1] + m[2] + m[3])
+    if (date) return { date, gameNum: Number(m[4]) }
+  }
+  // 패턴 3: N경기 + YYMMDD  (순서 반대)
+  m = title.match(/#?(\d+)\s*경기\s*[가-힣]*\s*(\d{6})/)
+  if (m) {
+    const date = parseYymmdd(m[2])
+    if (date) return { date, gameNum: Number(m[1]) }
+  }
+  return null
 }
 
-async function getChannelId(handle: string, apiKey: string): Promise<{ id: string | null; debug: string[] }> {
+// 채널 핸들(@xxx), 채널 URL(youtube.com/@xxx), 채널 ID(UCxxx) 모두 처리
+async function getChannelId(input: string, apiKey: string): Promise<{ id: string | null; debug: string[] }> {
   const debug: string[] = []
+
+  // 이미 채널 ID (UC로 시작하는 24자)
+  if (/^UC[\w-]{22}$/.test(input.trim())) {
+    debug.push(`direct channelId: ${input.trim()}`)
+    return { id: input.trim(), debug }
+  }
+
+  // URL에서 핸들/ID 추출
+  // youtube.com/@handle, youtube.com/channel/UCxxx, youtube.com/c/name
+  let handle = input.trim()
+  const urlMatch = input.match(/youtube\.com\/(?:channel\/(UC[\w-]{22})|(?:@|c\/)?([\w가-힣.-]+))/)
+  if (urlMatch) {
+    if (urlMatch[1]) {
+      debug.push(`extracted channelId from URL: ${urlMatch[1]}`)
+      return { id: urlMatch[1], debug }
+    }
+    handle = '@' + urlMatch[2].replace(/^@/, '')
+  }
+
   const clean = handle.replace(/^@/, '')
 
-  // Try forHandle first (newer API)
+  // forHandle (최신 API)
   let res = await fetch(`${YT_API}/channels?part=id&forHandle=${encodeURIComponent('@' + clean)}&key=${apiKey}`)
   let json = await res.json()
-  debug.push(`forHandle status: ${res.status}, items: ${json.items?.length ?? 0}${json.error ? ` error: ${json.error.message}` : ''}`)
+  debug.push(`forHandle(@${clean}): ${res.status}, items:${json.items?.length ?? 0}${json.error ? ` err:${json.error.message}` : ''}`)
   if (json.items?.length) return { id: json.items[0].id, debug }
 
-  // Fallback: forUsername
+  // forUsername fallback
   res = await fetch(`${YT_API}/channels?part=id&forUsername=${encodeURIComponent(clean)}&key=${apiKey}`)
   json = await res.json()
-  debug.push(`forUsername status: ${res.status}, items: ${json.items?.length ?? 0}`)
+  debug.push(`forUsername(${clean}): ${res.status}, items:${json.items?.length ?? 0}`)
   if (json.items?.length) return { id: json.items[0].id, debug }
 
-  // Fallback: search
+  // 채널 검색 fallback
   res = await fetch(`${YT_API}/search?part=snippet&type=channel&q=${encodeURIComponent(handle)}&maxResults=5&key=${apiKey}`)
   json = await res.json()
-  debug.push(`search status: ${res.status}, items: ${json.items?.length ?? 0}`)
+  debug.push(`search(${handle}): ${res.status}, items:${json.items?.length ?? 0}`)
   if (json.items?.length) return { id: json.items[0].snippet.channelId, debug }
 
   return { id: null, debug }
@@ -114,10 +148,15 @@ export async function POST(
   if (matched.length === 0) {
     const parts = date.split('-')
     const yymmdd = parts[0].slice(2) + parts[1] + parts[2]
+    // 실제 영상 제목 목록 반환 (디버그용)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const foundTitles: string[] = videos.slice(0, 10).map((v: any) => v.snippet?.title ?? '')
     return NextResponse.json({
       error: `"${yymmdd} 경기 N" 형식의 영상을 찾지 못했습니다. 채널: ${channelHandle}, 날짜: ${date}`,
+      hint: '아래 실제 영상 제목을 확인해 설정 탭 YouTube 채널을 수정하거나 제목 형식을 맞춰주세요',
       channelId,
       searched_videos: videos.length,
+      found_titles: foundTitles,
     }, { status: 404 })
   }
 
