@@ -203,7 +203,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   async function refreshSlots() {
     if (!selectedDate) return
     setLoadingSlots(true)
-    const res = await fetch(`/api/leagues/${leagueId}/games?date=${selectedDate}`)
+    const res = await fetch(`/api/leagues/${leagueId}/games?date=${selectedDate}`, { cache: 'no-store' })
     if (res.ok) {
       const updated: GameSlot[] = await res.json()
       setSlots(updated)

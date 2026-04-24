@@ -4,36 +4,6 @@ import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 
 const YT_API = 'https://www.googleapis.com/youtube/v3'
 
-// YYMMDD → YYYY-MM-DD (e.g. 260418 → 2026-04-18)
-function parseYymmdd(s: string): string | null {
-  if (!/^\d{6}$/.test(s)) return null
-  const yy = s.slice(0, 2)
-  const mm = s.slice(2, 4)
-  const dd = s.slice(4, 6)
-  const year = Number(yy) >= 50 ? `19${yy}` : `20${yy}`
-  return `${year}-${mm}-${dd}`
-}
-
-// 제목에서 날짜(YYMMDD)와 경기 번호를 독립적으로 파싱
-// 지원: "260103 경기1", "260103 경기 9", "26.01.03 경기9", "2경기 260103" 등
-function parseTitle(title: string): { date: string; gameNum: number } | null {
-  // 1. 제목에서 6자리 숫자(날짜) 추출
-  const dateM = title.match(/(\d{6})/)
-  if (!dateM) return null
-  const date = parseYymmdd(dateM[1])
-  if (!date) return null
-
-  // 2. "경기" 다음 숫자 추출 (경기1, 경기 1, 경기#1 모두 지원)
-  const gameM = title.match(/경기\s*#?(\d+)/)
-  if (gameM) return { date, gameNum: Number(gameM[1]) }
-
-  // 3. 숫자 먼저 오는 경우: "1경기", "9번째경기"
-  const reverseM = title.match(/(\d+)\s*(?:번째)?\s*경기/)
-  if (reverseM) return { date, gameNum: Number(reverseM[1]) }
-
-  return null
-}
-
 // 채널 핸들(@xxx), 채널 URL(youtube.com/@xxx), 채널 ID(UCxxx) 모두 처리
 async function getChannelId(input: string, apiKey: string): Promise<{ id: string | null; debug: string[] }> {
   const debug: string[] = []
@@ -126,24 +96,29 @@ export async function POST(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const videos: any[] = await searchVideos(channelId, date, apiKey)
 
-  // 3. 제목에서 경기 번호 추출 — 한글 regex 불사용
-  // 원리: 제목 내 모든 숫자 시퀀스 중 6자리(날짜)를 제외한 1~2자리 숫자 = 경기 번호
-  // 예: "260103 경기1" → ["260103","1"] → 1자리 "1" → gameNum=1
-  //     "260117 경기 9" → ["260117","9"] → 1자리 "9" → gameNum=9
+  // 3. 제목에서 경기 번호 추출
+  // 규칙: 6자리 날짜를 제외한 1~2자리 숫자(1-9) = 경기 번호
+  // 중복 gameNum: YouTube가 컴필레이션·하이라이트 영상도 반환할 수 있음
+  //   → 첫 번째 등장한 영상만 사용 (YouTube는 관련성 높은 순 반환)
   type VideoMatch = { videoId: string; title: string; gameNum: number; url: string }
   const matched: VideoMatch[] = []
+  const seenGameNums = new Set<number>()
+
   for (const item of videos) {
     const title: string = item.snippet?.title ?? ''
     const videoId: string = item.id?.videoId ?? ''
     if (!videoId) continue
 
     const allNums = title.match(/\d+/g) ?? []
-    // 1~2자리 숫자만 (6자리 날짜 코드 제외)
     const candidates = allNums.filter(n => n.length <= 2).map(Number).filter(n => n >= 1 && n <= 9)
     if (candidates.length === 0) continue
 
-    // 마지막 후보가 경기 번호 (제목 끝에 위치하는 경우가 대부분)
     const gameNum = candidates[candidates.length - 1]
+
+    // 중복 gameNum이면 건너뜀 (첫 번째 영상이 가장 관련성 높음)
+    if (seenGameNums.has(gameNum)) continue
+    seenGameNums.add(gameNum)
+
     matched.push({
       videoId,
       title,
@@ -214,10 +189,23 @@ export async function POST(
     }
   }
 
+  // 6. 업데이트 후 DB 재조회 — 실제 저장된 값 검증
+  const { data: verifyGames } = await supabase
+    .from('league_games')
+    .select('slot_num, youtube_url')
+    .eq('league_id', leagueId)
+    .eq('date', date)
+    .order('slot_num', { ascending: true })
+
   return NextResponse.json({
     mapped: results.filter(r => !r.action.startsWith('err')).length,
     total_videos: matched.length,
     details: results,
+    db_state: (verifyGames ?? []).map(g => ({
+      slot: g.slot_num,
+      has_url: !!g.youtube_url,
+      url_tail: g.youtube_url ? g.youtube_url.slice(-12) : null,
+    })),
   })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
