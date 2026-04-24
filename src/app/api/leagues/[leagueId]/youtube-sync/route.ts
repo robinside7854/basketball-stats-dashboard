@@ -126,25 +126,29 @@ export async function POST(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const videos: any[] = await searchVideos(channelId, date, apiKey)
 
-  // 3. 제목에서 경기 번호만 추출 (날짜 비교 없음 — 검색 쿼리가 이미 날짜 필터)
+  // 3. 제목에서 경기 번호 추출 — 한글 regex 불사용
+  // 원리: 제목 내 모든 숫자 시퀀스 중 6자리(날짜)를 제외한 1~2자리 숫자 = 경기 번호
+  // 예: "260103 경기1" → ["260103","1"] → 1자리 "1" → gameNum=1
+  //     "260117 경기 9" → ["260117","9"] → 1자리 "9" → gameNum=9
   type VideoMatch = { videoId: string; title: string; gameNum: number; url: string }
   const matched: VideoMatch[] = []
   for (const item of videos) {
     const title: string = item.snippet?.title ?? ''
-    // NFC 정규화 — YouTube API가 NFD(자모 분해)로 반환 시 한글 regex 매칭 실패 방지
-    const t = title.normalize('NFC')
-    // 1순위: "경기1", "경기 1" 형식
-    let gameM = t.match(/경기\s*#?(\d+)/)
-    // 2순위: 제목 끝 숫자 — "260103 경기9" 같이 끝에 단독 숫자인 경우
-    if (!gameM) gameM = t.match(/\s(\d{1,2})$/)
-    // 3순위: 날짜 다음 처음 나오는 1~2자리 숫자
-    if (!gameM) { const allNums = t.match(/\d+/g); if (allNums && allNums.length >= 2) gameM = [allNums[allNums.length - 1], allNums[allNums.length - 1]] }
-    if (!gameM) continue
+    const videoId: string = item.id?.videoId ?? ''
+    if (!videoId) continue
+
+    const allNums = title.match(/\d+/g) ?? []
+    // 1~2자리 숫자만 (6자리 날짜 코드 제외)
+    const candidates = allNums.filter(n => n.length <= 2).map(Number).filter(n => n >= 1 && n <= 9)
+    if (candidates.length === 0) continue
+
+    // 마지막 후보가 경기 번호 (제목 끝에 위치하는 경우가 대부분)
+    const gameNum = candidates[candidates.length - 1]
     matched.push({
-      videoId: item.id?.videoId ?? '',
+      videoId,
       title,
-      gameNum: Number(gameM[1]),
-      url: `https://www.youtube.com/watch?v=${item.id?.videoId}`,
+      gameNum,
+      url: `https://www.youtube.com/watch?v=${videoId}`,
     })
   }
 
