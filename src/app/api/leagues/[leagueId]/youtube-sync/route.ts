@@ -131,8 +131,14 @@ export async function POST(
   const matched: VideoMatch[] = []
   for (const item of videos) {
     const title: string = item.snippet?.title ?? ''
-    // "경기1", "경기 1", "경기#1" 형식에서 숫자 추출
-    const gameM = title.match(/경기\s*#?(\d+)/)
+    // NFC 정규화 — YouTube API가 NFD(자모 분해)로 반환 시 한글 regex 매칭 실패 방지
+    const t = title.normalize('NFC')
+    // 1순위: "경기1", "경기 1" 형식
+    let gameM = t.match(/경기\s*#?(\d+)/)
+    // 2순위: 제목 끝 숫자 — "260103 경기9" 같이 끝에 단독 숫자인 경우
+    if (!gameM) gameM = t.match(/\s(\d{1,2})$/)
+    // 3순위: 날짜 다음 처음 나오는 1~2자리 숫자
+    if (!gameM) { const allNums = t.match(/\d+/g); if (allNums && allNums.length >= 2) gameM = [allNums[allNums.length - 1], allNums[allNums.length - 1]] }
     if (!gameM) continue
     matched.push({
       videoId: item.id?.videoId ?? '',
