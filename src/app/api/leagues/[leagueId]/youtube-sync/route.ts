@@ -164,64 +164,60 @@ export async function POST(
     }, { status: 404 })
   }
 
-  // 4. 필요한 slot_num 목록 추출 (1~9만, 경기번호=슬랏번호 직접 매핑)
-  const neededSlots = [...new Set(
-    matched.map(v => v.gameNum).filter(n => n >= 1 && n <= 9)
-  )]
-
-  // 5. 기존 슬랏 조회 → 없는 슬랏 자동 생성
+  // 4. 해당 날짜의 모든 기존 슬랏 조회
   const supabase = createClient()
   const { data: existingGames, error: gErr } = await supabase
     .from('league_games')
     .select('id, slot_num')
     .eq('league_id', leagueId)
     .eq('date', date)
-    .in('slot_num', neededSlots)
+    .order('id', { ascending: true }) // 중복 slot_num 있을 경우 첫 번째 row 우선
 
   if (gErr) return NextResponse.json({ error: gErr.message }, { status: 500 })
 
-  const slotMap = new Map<number, string>((existingGames ?? []).map(g => [g.slot_num, g.id]))
-
-  // 없는 슬랏 insert
-  const missingSlots = neededSlots.filter(s => !slotMap.has(s))
-  if (missingSlots.length > 0) {
-    const toInsert = missingSlots.map(slot_num => ({
-      league_id: leagueId,
-      date,
-      slot_num,
-      round_num: slot_num,
-      home_score: 0,
-      away_score: 0,
-      is_complete: false,
-      is_started: false,
-    }))
-    const { data: inserted, error: insErr } = await supabase
-      .from('league_games')
-      .insert(toInsert)
-      .select('id, slot_num')
-    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
-    ;(inserted ?? []).forEach((g: { slot_num: number; id: string }) => slotMap.set(g.slot_num, g.id))
+  // slot_num → 첫 번째 game id (중복 row 방어)
+  const slotToId = new Map<number, string>()
+  for (const g of existingGames ?? []) {
+    if (!slotToId.has(g.slot_num)) slotToId.set(g.slot_num, g.id)
   }
 
-  // 6. slot_num === gameNum 직접 매핑 (인덱스 방식 제거)
-  const updates: { gameId: string; url: string; gameNum: number; title: string }[] = []
+  // 5. 각 영상에 대해 slot_num으로 update (없으면 insert)
+  const results: { gameNum: number; title: string; url: string; action: string }[] = []
+
   for (const v of matched) {
-    const gameId = slotMap.get(v.gameNum)
-    if (gameId) updates.push({ gameId, url: v.url, gameNum: v.gameNum, title: v.title })
+    if (slotToId.has(v.gameNum)) {
+      // 기존 슬랏: slot_num 기준으로 직접 update (ID 오염 방지)
+      const { error } = await supabase
+        .from('league_games')
+        .update({ youtube_url: v.url })
+        .eq('league_id', leagueId)
+        .eq('date', date)
+        .eq('slot_num', v.gameNum)
+      results.push({ gameNum: v.gameNum, title: v.title, url: v.url, action: error ? `err:${error.message}` : 'updated' })
+    } else {
+      // 없는 슬랏: 신규 insert
+      const { error } = await supabase
+        .from('league_games')
+        .insert({
+          league_id: leagueId,
+          date,
+          slot_num: v.gameNum,
+          round_num: v.gameNum,
+          youtube_url: v.url,
+          home_score: 0,
+          away_score: 0,
+          is_complete: false,
+          is_started: false,
+        })
+      slotToId.set(v.gameNum, 'new')
+      results.push({ gameNum: v.gameNum, title: v.title, url: v.url, action: error ? `err:${error.message}` : 'created' })
+    }
   }
-
-  // 7. youtube_url 업데이트
-  await Promise.all(
-    updates.map(u =>
-      supabase.from('league_games').update({ youtube_url: u.url }).eq('id', u.gameId)
-    )
-  )
 
   return NextResponse.json({
-    mapped: updates.length,
+    mapped: results.filter(r => !r.action.startsWith('err')).length,
     total_videos: matched.length,
-    created_slots: missingSlots.length,
-    details: updates,
+    details: results,
   })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
