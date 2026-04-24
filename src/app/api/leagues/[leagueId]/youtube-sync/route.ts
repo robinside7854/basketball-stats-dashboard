@@ -123,33 +123,31 @@ export async function POST(
   if (!channelId) return NextResponse.json({ error: `채널을 찾을 수 없습니다: ${channelHandle}`, debug: channelDebug }, { status: 404 })
 
   // 2. 영상 목록 검색
-  const videos = await searchVideos(channelId, date, apiKey)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const videos: any[] = await searchVideos(channelId, date, apiKey)
 
-  // 3. 제목 파싱 — 해당 날짜의 경기만 필터
-  type VideoMatch = { videoId: string; title: string; date: string; gameNum: number; url: string }
+  // 3. 제목에서 경기 번호만 추출 (날짜 비교 없음 — 검색 쿼리가 이미 날짜 필터)
+  type VideoMatch = { videoId: string; title: string; gameNum: number; url: string }
   const matched: VideoMatch[] = []
   for (const item of videos) {
     const title: string = item.snippet?.title ?? ''
-    const parsed = parseTitle(title)
-    if (!parsed || parsed.date !== date) continue
+    // "경기1", "경기 1", "경기#1" 형식에서 숫자 추출
+    const gameM = title.match(/경기\s*#?(\d+)/)
+    if (!gameM) continue
     matched.push({
-      videoId: item.id.videoId,
+      videoId: item.id?.videoId ?? '',
       title,
-      date: parsed.date,
-      gameNum: parsed.gameNum,
-      url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+      gameNum: Number(gameM[1]),
+      url: `https://www.youtube.com/watch?v=${item.id?.videoId}`,
     })
   }
 
   if (matched.length === 0) {
-    const parts = date.split('-')
-    const yymmdd = parts[0].slice(2) + parts[1] + parts[2]
-    // 실제 영상 제목 목록 반환 (디버그용)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const foundTitles: string[] = videos.slice(0, 10).map((v: any) => v.snippet?.title ?? '')
     return NextResponse.json({
-      error: `"${yymmdd} 경기 N" 형식의 영상을 찾지 못했습니다. 채널: ${channelHandle}, 날짜: ${date}`,
-      hint: '아래 실제 영상 제목을 확인해 설정 탭 YouTube 채널을 수정하거나 제목 형식을 맞춰주세요',
+      error: `경기 번호가 포함된 영상을 찾지 못했습니다. 채널: ${channelHandle}, 날짜: ${date}`,
+      hint: '영상 제목에 "경기1", "경기 1" 형식이 포함되어야 합니다',
       channelId,
       searched_videos: videos.length,
       found_titles: foundTitles,
