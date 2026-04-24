@@ -5,7 +5,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { CalendarDays, Plus, Trash2, Loader2, Lock } from 'lucide-react'
+import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap } from 'lucide-react'
 
 type ScheduleDate = { id: string; date: string }
 
@@ -18,6 +18,7 @@ export default function LeagueSchedulePage() {
   const [loading, setLoading] = useState(true)
   const [newDate, setNewDate] = useState('')
   const [adding, setAdding] = useState(false)
+  const [autoGenerating, setAutoGenerating] = useState(false)
   const [deletingDate, setDeletingDate] = useState<string | null>(null)
 
   async function load() {
@@ -28,6 +29,31 @@ export default function LeagueSchedulePage() {
   }
 
   useEffect(() => { load() }, [leagueId])
+
+  async function autoGenerate() {
+    setAutoGenerating(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/schedule-dates/auto`, {
+        method: 'POST',
+        headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        if (data.inserted === 0) {
+          toast.success(data.message ?? '이미 모두 등록되어 있습니다')
+        } else {
+          toast.success(`${data.inserted}개 날짜 자동 등록 완료 (${data.from} ~ ${data.to})`)
+        }
+        load()
+      } else {
+        toast.error(data.error ?? '자동 생성 실패')
+      }
+    } catch {
+      toast.error('네트워크 오류')
+    }
+    setAutoGenerating(false)
+  }
 
   async function addDate() {
     if (!newDate) { toast.error('날짜를 선택하세요'); return }
@@ -89,7 +115,16 @@ export default function LeagueSchedulePage() {
           <h2 className="text-xl font-bold text-white">경기 일정</h2>
           <p className="text-gray-500 text-sm">총 {dates.length}개 날짜 등록됨</p>
         </div>
-        {!isEditMode && (
+        {isEditMode ? (
+          <button
+            onClick={autoGenerate}
+            disabled={autoGenerating}
+            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {autoGenerating ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+            자동 일정 등록
+          </button>
+        ) : (
           <button
             onClick={openPinModal}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer"
