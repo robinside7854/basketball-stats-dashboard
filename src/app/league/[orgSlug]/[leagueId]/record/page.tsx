@@ -64,6 +64,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [teams, setTeams] = useState<LeagueTeam[]>([])
   const [allPlayers, setAllPlayers] = useState<LeaguePlayer[]>([])
   const [leagueYtChannel, setLeagueYtChannel] = useState<string | null>(null)
+  const [dateStats, setDateStats] = useState<Record<string, { total: number; yt: number }>>({})
   const [selectedSlotId, setSelectedSlotId] = useState('')
   const [loadingDates, setLoadingDates] = useState(true)
   const [loadingSlots, setLoadingSlots] = useState(false)
@@ -87,15 +88,26 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
   const selectedSlot = slots.find(s => s.id === selectedSlotId) ?? null
 
+  function buildDateStats(games: { date: string; youtube_url?: string | null }[]) {
+    const stats: Record<string, { total: number; yt: number }> = {}
+    for (const g of games) {
+      if (!stats[g.date]) stats[g.date] = { total: 0, yt: 0 }
+      stats[g.date].total++
+      if (g.youtube_url) stats[g.date].yt++
+    }
+    setDateStats(stats)
+  }
+
   // 초기 로드
   useEffect(() => {
     async function init() {
       setLoadingDates(true)
-      const [dRes, tRes, pRes, lRes] = await Promise.all([
+      const [dRes, tRes, pRes, lRes, gRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/schedule-dates`),
         fetch(`/api/leagues/${leagueId}/teams`),
         fetch(`/api/leagues/${leagueId}/players`),
         fetch(`/api/leagues/${leagueId}`),
+        fetch(`/api/leagues/${leagueId}/games`),
       ])
       if (dRes.ok) setScheduleDates(await dRes.json())
       if (tRes.ok) setTeams(await tRes.json())
@@ -104,6 +116,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         const ld = await lRes.json()
         setLeagueYtChannel(ld.youtube_channel ?? null)
       }
+      if (gRes.ok) buildDateStats(await gRes.json())
       setLoadingDates(false)
     }
     init()
@@ -174,6 +187,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       if (res.ok) {
         toast.success(`${data.mapped}개 경기 YouTube 연동 완료`)
         await refreshSlots()
+        // dateStats 갱신
+        fetch(`/api/leagues/${leagueId}/games`).then(r => r.json()).then(buildDateStats).catch(() => null)
       } else {
         const msg = (data.error as string) ?? `YouTube 연동 실패 (${res.status})`
         toast.error(msg, { duration: 6000 })
@@ -270,16 +285,26 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           {scheduleDates.map(sd => {
             const d = new Date(sd.date + 'T00:00:00')
             const days = ['일', '월', '화', '수', '목', '금', '토']
+            const stat = dateStats[sd.date]
+            const allLinked = stat && stat.total > 0 && stat.yt === stat.total
             return (
               <button
                 key={sd.id}
                 onClick={() => selectDate(sd.date)}
                 className="w-full text-left bg-gray-900 border border-gray-800 hover:border-blue-500/50 rounded-xl px-5 py-4 transition-colors cursor-pointer"
               >
-                <span className="text-white font-medium">
-                  {d.getFullYear()}년 {d.getMonth() + 1}월 {d.getDate()}일
-                  <span className="text-gray-400 ml-2 text-sm">({days[d.getDay()]})</span>
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-medium">
+                    {d.getFullYear()}년 {d.getMonth() + 1}월 {d.getDate()}일
+                    <span className="text-gray-400 ml-2 text-sm">({days[d.getDay()]})</span>
+                  </span>
+                  {stat && stat.total > 0 && (
+                    <span className={`flex items-center gap-1 text-xs font-mono shrink-0 ${allLinked ? 'text-red-400' : 'text-gray-500'}`}>
+                      <Youtube size={11} className={allLinked ? 'text-red-400' : 'text-gray-600'} />
+                      {allLinked ? `${stat.yt}/${stat.total} 연동 완료!` : `${stat.yt}/${stat.total}`}
+                    </span>
+                  )}
+                </div>
               </button>
             )
           })}
@@ -351,7 +376,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             >
               <span className="text-base">{slot.slot_num}</span>
               <div className="flex items-center gap-0.5 mt-1">
-                {hasYT ? <Youtube size={9} className="text-red-400" /> : <span className="w-2" />}
+                {hasYT && <Youtube size={9} className="text-red-400" />}
                 {slot.is_complete
                   ? <CheckCircle2 size={9} className="text-green-400" />
                   : slot.is_started
