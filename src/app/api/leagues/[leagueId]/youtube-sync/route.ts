@@ -160,43 +160,63 @@ export async function POST(
     }, { status: 404 })
   }
 
-  // 4. 해당 날짜의 league_games 조회 (slot_num 오름차순)
+  // 4. 필요한 slot_num 목록 추출 (1~9만, 경기번호=슬랏번호 직접 매핑)
+  const neededSlots = [...new Set(
+    matched.map(v => v.gameNum).filter(n => n >= 1 && n <= 9)
+  )]
+
+  // 5. 기존 슬랏 조회 → 없는 슬랏 자동 생성
   const supabase = createClient()
-  const { data: games, error } = await supabase
+  const { data: existingGames, error: gErr } = await supabase
     .from('league_games')
-    .select('id, slot_num, home_team_id, away_team_id')
+    .select('id, slot_num')
     .eq('league_id', leagueId)
     .eq('date', date)
-    .order('slot_num', { ascending: true })
+    .in('slot_num', neededSlots)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!games || games.length === 0) {
-    return NextResponse.json({ error: `${date}에 등록된 경기 일정이 없습니다` }, { status: 404 })
+  if (gErr) return NextResponse.json({ error: gErr.message }, { status: 500 })
+
+  const slotMap = new Map<number, string>((existingGames ?? []).map(g => [g.slot_num, g.id]))
+
+  // 없는 슬랏 insert
+  const missingSlots = neededSlots.filter(s => !slotMap.has(s))
+  if (missingSlots.length > 0) {
+    const toInsert = missingSlots.map(slot_num => ({
+      league_id: leagueId,
+      date,
+      slot_num,
+      round_num: slot_num,
+      home_score: 0,
+      away_score: 0,
+      is_complete: false,
+      is_started: false,
+    }))
+    const { data: inserted, error: insErr } = await supabase
+      .from('league_games')
+      .insert(toInsert)
+      .select('id, slot_num')
+    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
+    ;(inserted ?? []).forEach((g: { slot_num: number; id: string }) => slotMap.set(g.slot_num, g.id))
   }
 
-  // 5. gameNum 기준으로 매핑 (경기 1 → games[0], 경기 9 → games[8])
+  // 6. slot_num === gameNum 직접 매핑 (인덱스 방식 제거)
   const updates: { gameId: string; url: string; gameNum: number; title: string }[] = []
   for (const v of matched) {
-    const idx = v.gameNum - 1
-    if (idx >= 0 && idx < games.length) {
-      updates.push({ gameId: games[idx].id, url: v.url, gameNum: v.gameNum, title: v.title })
-    }
+    const gameId = slotMap.get(v.gameNum)
+    if (gameId) updates.push({ gameId, url: v.url, gameNum: v.gameNum, title: v.title })
   }
 
-  // 6. league_games.youtube_url 업데이트
+  // 7. youtube_url 업데이트
   await Promise.all(
     updates.map(u =>
-      supabase
-        .from('league_games')
-        .update({ youtube_url: u.url })
-        .eq('id', u.gameId)
+      supabase.from('league_games').update({ youtube_url: u.url }).eq('id', u.gameId)
     )
   )
 
   return NextResponse.json({
     mapped: updates.length,
     total_videos: matched.length,
-    total_games: games.length,
+    created_slots: missingSlots.length,
     details: updates,
   })
   } catch (e) {
