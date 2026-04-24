@@ -431,17 +431,21 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             </div>
           </div>
 
+          {/* YouTube 플레이어 — 팀 설정 여부와 무관하게 URL이 있으면 표시 */}
+          {selectedSlot.youtube_url && (
+            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <YouTubePlayer
+                youtubeUrl={selectedSlot.youtube_url}
+                startOffset={selectedSlot.youtube_start_offset ?? 0}
+              />
+            </div>
+          )}
+
           {/* 팀이 지정된 경우에만 기록 UI 표시 */}
           {selectedSlot.home_team_id && selectedSlot.away_team_id ? (
             <>
-              {/* YouTube + 경기 제어 */}
+              {/* 경기 제어 */}
               <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                {selectedSlot.youtube_url && (
-                  <YouTubePlayer
-                    youtubeUrl={selectedSlot.youtube_url}
-                    startOffset={selectedSlot.youtube_start_offset ?? 0}
-                  />
-                )}
                 <div className="p-4 space-y-3">
                   {/* 쿼터 */}
                   <div className="flex gap-1.5">
