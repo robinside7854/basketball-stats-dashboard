@@ -183,13 +183,14 @@ UPDATE league_games
    AND date IS NOT NULL;
 
 -- 9-2. 기존 league_game_events → team_id 채우기
+-- PostgreSQL UPDATE...FROM 에서 업데이트 대상 테이블 alias는 WHERE 절에서만 참조 가능
 UPDATE league_game_events e
    SET team_id = lpq.team_id
-  FROM league_games g
-  JOIN league_player_quarters lpq
-    ON lpq.quarter_id       = g.quarter_id
+  FROM league_games g,
+       league_player_quarters lpq
+ WHERE e.league_game_id     = g.id
+   AND lpq.quarter_id       = g.quarter_id
    AND lpq.league_player_id = e.league_player_id
- WHERE e.league_game_id = g.id
    AND e.team_id IS NULL
    AND g.quarter_id IS NOT NULL;
 
