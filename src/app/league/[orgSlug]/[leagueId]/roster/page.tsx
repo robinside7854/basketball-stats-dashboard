@@ -5,17 +5,57 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Pencil, Check, X } from 'lucide-react'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
-const POSITIONS = ['G', 'F', 'C', 'PG', 'SG', 'SF', 'PF']
+const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F']
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
 type PlayerQuarterMap = Record<string, Record<string, { team_id: string | null; is_regular: boolean | null }>>
-// playerQuarterMap[quarterId][playerId] = { team_id, is_regular }
-
 type LeaderMap = Record<string, Record<string, string | null>>
-// leaderMap[quarterId][teamId] = leader_player_id
+
+function parsePositions(pos: string | null): string[] {
+  if (!pos) return []
+  return pos.split(',').map(p => p.trim()).filter(Boolean)
+}
+
+function PositionBadge({ pos }: { pos: string }) {
+  const colors: Record<string, string> = {
+    PG: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+    SG: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+    SF: 'bg-green-500/20 text-green-300 border-green-500/40',
+    PF: 'bg-orange-500/20 text-orange-300 border-orange-500/40',
+    C:  'bg-red-500/20 text-red-300 border-red-500/40',
+    G:  'bg-sky-500/20 text-sky-300 border-sky-500/40',
+    F:  'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+  }
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${colors[pos] ?? 'bg-gray-700 text-gray-300 border-gray-600'}`}>
+      {pos}
+    </span>
+  )
+}
+
+function formatBirthDate(dateStr: string | null): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return dateStr
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}.${m}.${day}`
+}
+
+function calcAge(dateStr: string | null): string {
+  if (!dateStr) return ''
+  const birth = new Date(dateStr)
+  if (isNaN(birth.getTime())) return ''
+  const now = new Date()
+  let age = now.getFullYear() - birth.getFullYear()
+  const monthDiff = now.getMonth() - birth.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age--
+  return `${age}세`
+}
 
 export default function LeagueRosterPage() {
   const params = useParams<{ leagueId: string }>()
@@ -29,24 +69,34 @@ export default function LeagueRosterPage() {
   const [leaderMap, setLeaderMap] = useState<LeaderMap>({})
   const [loading, setLoading] = useState(true)
 
+  // Add form
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ name: '', number: '', position: '' })
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [form, setForm] = useState({ name: '', position: [] as string[], birth_date: '' })
+
+  // Bulk
   const [bulkUploading, setBulkUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Delete
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // Inline edit (card)
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', position: [] as string[], birth_date: '' })
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  // Quarter cell edit
   const [editingCell, setEditingCell] = useState<{ playerId: string; quarterId: string } | null>(null)
   const [savingCell, setSavingCell] = useState<string | null>(null)
 
-  // New quarter form
+  // Quarter form
   const [showQForm, setShowQForm] = useState(false)
   const [qYear, setQYear] = useState(new Date().getFullYear())
   const [qQuarter, setQQuarter] = useState(1)
   const [savingQ, setSavingQ] = useState(false)
 
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
   const currentYear = new Date().getFullYear()
-  // Show only current year quarters (show all if none for current year)
   const displayQuarters = quarters.filter(q => q.year === currentYear).length > 0
     ? quarters.filter(q => q.year === currentYear)
     : quarters
@@ -71,7 +121,6 @@ export default function LeagueRosterPage() {
     setTeams(teamsData)
     setQuarters(quartersData)
 
-    // Fetch player memberships + leaders for each quarter
     if (quartersData.length > 0) {
       const results = await Promise.all(quartersData.map(q =>
         Promise.all([
@@ -119,14 +168,14 @@ export default function LeagueRosterPage() {
       headers: leagueHeaders,
       body: JSON.stringify({
         name: form.name.trim(),
-        number: form.number ? Number(form.number) : null,
-        position: form.position || null,
+        position: form.position.length > 0 ? form.position.join(',') : null,
+        birth_date: form.birth_date || null,
       }),
     })
     setSaving(false)
     if (res.ok) {
       toast.success('선수 추가 완료')
-      setForm({ name: '', number: '', position: '' })
+      setForm({ name: '', position: [], birth_date: '' })
       setShowForm(false)
       load()
     } else {
@@ -135,14 +184,54 @@ export default function LeagueRosterPage() {
     }
   }
 
+  function startEdit(p: LeaguePlayer) {
+    setEditingPlayerId(p.id)
+    setEditForm({
+      name: p.name,
+      position: parsePositions(p.position),
+      birth_date: p.birth_date ?? '',
+    })
+  }
+
+  async function saveEdit(playerId: string) {
+    if (!editForm.name.trim()) { toast.error('이름을 입력하세요'); return }
+    setSavingEdit(true)
+    const res = await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, {
+      method: 'PATCH',
+      headers: leagueHeaders,
+      body: JSON.stringify({
+        name: editForm.name.trim(),
+        position: editForm.position.length > 0 ? editForm.position.join(',') : null,
+        birth_date: editForm.birth_date || null,
+      }),
+    })
+    setSavingEdit(false)
+    if (res.ok) {
+      toast.success('수정 완료')
+      setEditingPlayerId(null)
+      load()
+    } else {
+      const d = await res.json()
+      toast.error(d.error ?? '수정 실패')
+    }
+  }
+
+  function cancelEdit() {
+    setEditingPlayerId(null)
+  }
+
+  function togglePosition(pos: string, arr: string[], setArr: (v: string[]) => void) {
+    setArr(arr.includes(pos) ? arr.filter(p => p !== pos) : [...arr, pos])
+  }
+
   async function downloadTemplate() {
     const xlsx = await import('xlsx')
     const ws = xlsx.utils.aoa_to_sheet([
-      ['이름', '포지션', '비고'],
-      ['홍길동', 'PG', ''],
-      ['김철수', 'SF', '주장'],
+      ['이름', '포지션', '생년월일'],
+      ['홍길동', 'PG', '1995-03-15'],
+      ['김철수', 'SF,PF', '1998-07-22'],
     ])
-    ws['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 16 }]
+    ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 14 }]
     const wb = xlsx.utils.book_new()
     xlsx.utils.book_append_sheet(wb, ws, '선수명단')
     xlsx.writeFile(wb, '선수명단_템플릿.xlsx')
@@ -166,6 +255,7 @@ export default function LeagueRosterPage() {
         .map(r => ({
           name: String(r['이름']).trim(),
           position: String(r['포지션'] ?? '').trim() || null,
+          birth_date: String(r['생년월일'] ?? '').trim() || null,
           number: null as number | null,
         }))
 
@@ -265,6 +355,13 @@ export default function LeagueRosterPage() {
     return team?.name ?? '—'
   }
 
+  function getCellTeamColor(quarterId: string, playerId: string): string | null {
+    const m = membershipMap[quarterId]?.[playerId]
+    if (!m || !m.is_regular || !m.team_id) return null
+    const team = teams.find(t => t.id === m.team_id)
+    return team?.color ?? null
+  }
+
   function getCellTeamId(quarterId: string, playerId: string): string | null {
     return membershipMap[quarterId]?.[playerId]?.team_id ?? null
   }
@@ -274,8 +371,12 @@ export default function LeagueRosterPage() {
     return leaderMap[quarterId]?.[teamId] === playerId
   }
 
+  function getCellIsRegular(quarterId: string, playerId: string): boolean | null {
+    return membershipMap[quarterId]?.[playerId]?.is_regular ?? null
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
@@ -320,30 +421,42 @@ export default function LeagueRosterPage() {
 
       {/* 선수 추가 폼 */}
       {showForm && isEditMode && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+        <div className="bg-gray-900 border border-blue-500/30 rounded-xl p-4 space-y-3">
           <h3 className="text-sm font-semibold text-white">새 선수 추가</h3>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               placeholder="이름 *"
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              className="bg-gray-800 border-gray-700 text-white col-span-1"
-            />
-            <Input
-              placeholder="등번호"
-              type="number"
-              value={form.number}
-              onChange={e => setForm(f => ({ ...f, number: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && addPlayer()}
               className="bg-gray-800 border-gray-700 text-white"
             />
-            <select
-              value={form.position}
-              onChange={e => setForm(f => ({ ...f, position: e.target.value }))}
-              className="bg-gray-800 border border-gray-700 rounded-md text-white text-sm px-3"
-            >
-              <option value="">포지션</option>
-              {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+            <Input
+              placeholder="생년월일 (예: 1998-03-15)"
+              type="date"
+              value={form.birth_date}
+              onChange={e => setForm(f => ({ ...f, birth_date: e.target.value }))}
+              className="bg-gray-800 border-gray-700 text-white"
+            />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 mb-2">포지션 (복수 선택 가능)</p>
+            <div className="flex flex-wrap gap-2">
+              {POSITIONS.map(pos => (
+                <button
+                  key={pos}
+                  type="button"
+                  onClick={() => togglePosition(pos, form.position, v => setForm(f => ({ ...f, position: v })))}
+                  className={`px-3 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer ${
+                    form.position.includes(pos)
+                      ? 'bg-blue-600 border-blue-500 text-white'
+                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
+                  }`}
+                >
+                  {pos}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex gap-2">
             <Button onClick={addPlayer} disabled={saving} className="bg-blue-600 hover:bg-blue-500 cursor-pointer" size="sm">
@@ -356,7 +469,7 @@ export default function LeagueRosterPage() {
         </div>
       )}
 
-      {/* 선수 목록 */}
+      {/* 선수 카드 그리드 */}
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 size={24} className="animate-spin text-gray-500" />
@@ -367,117 +480,214 @@ export default function LeagueRosterPage() {
           {isEditMode && <p className="text-xs mt-1">위 버튼으로 선수를 추가하세요</p>}
         </div>
       ) : (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-800 text-gray-500 text-xs">
-                <th className="text-left px-4 py-3 w-12 shrink-0">#</th>
-                <th className="text-left px-4 py-3 min-w-[80px]">이름</th>
-                <th className="text-left px-4 py-3 w-16">포지션</th>
-                {displayQuarters.map(q => (
-                  <th key={q.id} className="text-center px-3 py-3 min-w-[80px] whitespace-nowrap">
-                    <span className={q.is_current ? 'text-blue-400' : ''}>
-                      {String(q.year).slice(2)}.{q.quarter}Q
-                    </span>
-                  </th>
-                ))}
-                {isEditMode && <th className="w-10 px-4 py-3" />}
-              </tr>
-            </thead>
-            <tbody>
-              {players.map((p, i) => (
-                <tr key={p.id} className={`border-b border-gray-800/50 ${i % 2 === 0 ? '' : 'bg-gray-900/50'} hover:bg-gray-800/30 transition-colors`}>
-                  <td className="px-4 py-2.5 text-gray-400 font-mono text-xs">{p.number ?? '—'}</td>
-                  <td className="px-4 py-2.5 text-white font-medium">{p.name}</td>
-                  <td className="px-4 py-2.5 text-gray-400 text-xs">{p.position ?? '—'}</td>
-                  {displayQuarters.map(q => {
-                    const cellKey = `${q.id}:${p.id}`
-                    const isSaving = savingCell === cellKey
-                    const isEditing = editingCell?.quarterId === q.id && editingCell?.playerId === p.id
-                    const label = getCellLabel(q.id, p.id)
-                    const teamId = getCellTeamId(q.id, p.id)
-                    const isPlayerLeader = isLeader(q.id, teamId, p.id)
-                    const m = membershipMap[q.id]?.[p.id]
-                    const isRegular = m?.is_regular ?? null
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {players.map(p => {
+            const positions = parsePositions(p.position)
+            const isEditing = editingPlayerId === p.id
 
-                    return (
-                      <td key={q.id} className="px-2 py-2 text-center">
-                        {isEditing && isEditMode ? (
-                          <div className="flex flex-col gap-1 min-w-[110px]">
-                            <select
-                              autoFocus
-                              defaultValue={teamId ?? ''}
-                              onBlur={e => {
-                                const val = e.target.value
-                                if (val === '__irregular') updateMembership(q.id, p.id, null, false)
-                                else if (val === '') { setEditingCell(null) }
-                                else updateMembership(q.id, p.id, val, true)
-                              }}
-                              onChange={e => {
-                                const val = e.target.value
-                                if (val === '__irregular') updateMembership(q.id, p.id, null, false)
-                                else if (val !== '') updateMembership(q.id, p.id, val, true)
-                              }}
-                              className="w-full bg-gray-800 border border-blue-500 text-white rounded px-2 py-1 text-xs cursor-pointer"
-                            >
-                              <option value="">미배정</option>
-                              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                              <option value="__irregular">비정규</option>
-                            </select>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center gap-1">
-                            {isSaving ? (
-                              <Loader2 size={12} className="animate-spin text-gray-500" />
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => isEditMode && setEditingCell({ playerId: p.id, quarterId: q.id })}
-                                  className={`text-xs px-2 py-0.5 rounded transition-colors ${
-                                    isEditMode ? 'cursor-pointer hover:bg-gray-700' : 'cursor-default'
-                                  } ${
-                                    label === '비정규' ? 'text-gray-500' :
-                                    label === '—' ? 'text-gray-700' :
-                                    'text-white font-medium'
-                                  }`}
-                                >
-                                  {label}
-                                  {isEditMode && label !== '—' && <ChevronDown size={9} className="inline ml-0.5 opacity-40" />}
-                                </button>
-                                {isRegular && teamId && isEditMode && (
-                                  <button
-                                    onClick={() => toggleLeader(q.id, teamId, p.id)}
-                                    title="팀 리더 지정/해제"
-                                    className={`transition-colors cursor-pointer ${isPlayerLeader ? 'text-yellow-400' : 'text-gray-700 hover:text-yellow-600'}`}
-                                  >
-                                    <Crown size={11} />
-                                  </button>
-                                )}
-                                {isRegular && teamId && !isEditMode && isPlayerLeader && (
-                                  <Crown size={11} className="text-yellow-400" />
-                                )}
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    )
-                  })}
-                  {isEditMode && (
-                    <td className="px-4 py-2.5">
+            // Check if leader in any current quarter
+            const isAnyLeader = displayQuarters.some(q => {
+              const teamId = getCellTeamId(q.id, p.id)
+              return teamId ? isLeader(q.id, teamId, p.id) : false
+            })
+
+            return (
+              <div
+                key={p.id}
+                className="bg-gray-900 border border-gray-800 rounded-2xl p-4 hover:border-gray-700 transition-all"
+              >
+                {isEditing ? (
+                  /* ── 편집 모드 ── */
+                  <div className="space-y-3">
+                    <Input
+                      autoFocus
+                      value={editForm.name}
+                      onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="이름"
+                      className="bg-gray-800 border-gray-700 text-white text-sm"
+                    />
+                    <Input
+                      type="date"
+                      value={editForm.birth_date}
+                      onChange={e => setEditForm(f => ({ ...f, birth_date: e.target.value }))}
+                      className="bg-gray-800 border-gray-700 text-white text-sm"
+                    />
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1.5">포지션</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {POSITIONS.map(pos => (
+                          <button
+                            key={pos}
+                            type="button"
+                            onClick={() => togglePosition(pos, editForm.position, v => setEditForm(f => ({ ...f, position: v })))}
+                            className={`px-2.5 py-0.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
+                              editForm.position.includes(pos)
+                                ? 'bg-blue-600 border-blue-500 text-white'
+                                : 'bg-gray-800 border-gray-700 text-gray-500 hover:border-gray-500'
+                            }`}
+                          >
+                            {pos}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
                       <button
-                        onClick={() => deletePlayer(p.id)}
-                        disabled={deletingId === p.id}
-                        className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40"
+                        onClick={() => saveEdit(p.id)}
+                        disabled={savingEdit}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium cursor-pointer disabled:opacity-50 transition-colors"
                       >
-                        {deletingId === p.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                        {savingEdit ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}저장
                       </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      <button
+                        onClick={cancelEdit}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs cursor-pointer transition-colors"
+                      >
+                        <X size={11} />취소
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* ── 뷰 모드 ── */
+                  <>
+                    {/* 카드 헤더: 이름 + 편집/삭제 버튼 */}
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {isAnyLeader && <Crown size={13} className="text-yellow-400 shrink-0" />}
+                        <span className="text-base font-bold text-white truncate">{p.name}</span>
+                      </div>
+                      {isEditMode && (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => startEdit(p)}
+                            className="text-gray-600 hover:text-blue-400 transition-colors cursor-pointer p-1"
+                            title="선수 정보 수정"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            onClick={() => deletePlayer(p.id)}
+                            disabled={deletingId === p.id}
+                            className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40 p-1"
+                            title="선수 삭제"
+                          >
+                            {deletingId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 포지션 배지 */}
+                    <div className="flex flex-wrap gap-1 mb-2 min-h-[22px]">
+                      {positions.length > 0
+                        ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
+                        : <span className="text-xs text-gray-700">포지션 미지정</span>
+                      }
+                    </div>
+
+                    {/* 생년월일 */}
+                    {p.birth_date ? (
+                      <p className="text-xs text-gray-500 mb-3">
+                        {formatBirthDate(p.birth_date)}
+                        <span className="ml-1.5 text-gray-600">({calcAge(p.birth_date)})</span>
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-700 mb-3">생년월일 미입력</p>
+                    )}
+
+                    {/* 분기별 팀 배정 */}
+                    {displayQuarters.length > 0 && (
+                      <div className="border-t border-gray-800 pt-2.5 mt-2 space-y-1.5">
+                        {displayQuarters.map(q => {
+                          const cellKey = `${q.id}:${p.id}`
+                          const isSaving = savingCell === cellKey
+                          const isEditingCell = editingCell?.quarterId === q.id && editingCell?.playerId === p.id
+                          const label = getCellLabel(q.id, p.id)
+                          const teamId = getCellTeamId(q.id, p.id)
+                          const teamColor = getCellTeamColor(q.id, p.id)
+                          const isRegular = getCellIsRegular(q.id, p.id)
+                          const isPlayerLeader = isLeader(q.id, teamId, p.id)
+
+                          return (
+                            <div key={q.id} className="flex items-center justify-between gap-2">
+                              <span className={`text-xs font-mono shrink-0 ${q.is_current ? 'text-blue-400' : 'text-gray-600'}`}>
+                                {String(q.year).slice(2)}.{q.quarter}Q
+                              </span>
+
+                              {isSaving ? (
+                                <Loader2 size={11} className="animate-spin text-gray-500 ml-auto" />
+                              ) : isEditingCell && isEditMode ? (
+                                <select
+                                  autoFocus
+                                  defaultValue={teamId ?? ''}
+                                  onBlur={e => {
+                                    const val = e.target.value
+                                    if (val === '__irregular') updateMembership(q.id, p.id, null, false)
+                                    else if (val === '') setEditingCell(null)
+                                    else updateMembership(q.id, p.id, val, true)
+                                  }}
+                                  onChange={e => {
+                                    const val = e.target.value
+                                    if (val === '__irregular') updateMembership(q.id, p.id, null, false)
+                                    else if (val !== '') updateMembership(q.id, p.id, val, true)
+                                  }}
+                                  className="flex-1 bg-gray-800 border border-blue-500 text-white rounded px-2 py-0.5 text-xs cursor-pointer"
+                                >
+                                  <option value="">미배정</option>
+                                  {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                  <option value="__irregular">비정규</option>
+                                </select>
+                              ) : (
+                                <div className="flex items-center gap-1.5 ml-auto">
+                                  {isRegular && teamId && (
+                                    <>
+                                      {isEditMode && (
+                                        <button
+                                          onClick={() => toggleLeader(q.id, teamId, p.id)}
+                                          title="팀 리더 지정/해제"
+                                          className={`transition-colors cursor-pointer ${isPlayerLeader ? 'text-yellow-400' : 'text-gray-700 hover:text-yellow-600'}`}
+                                        >
+                                          <Crown size={10} />
+                                        </button>
+                                      )}
+                                      {!isEditMode && isPlayerLeader && (
+                                        <Crown size={10} className="text-yellow-400" />
+                                      )}
+                                    </>
+                                  )}
+                                  <button
+                                    onClick={() => isEditMode && setEditingCell({ playerId: p.id, quarterId: q.id })}
+                                    className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-colors ${
+                                      isEditMode ? 'cursor-pointer hover:bg-gray-800' : 'cursor-default'
+                                    }`}
+                                  >
+                                    {label !== '—' && label !== '비정규' && teamColor ? (
+                                      <span
+                                        className="inline-block w-2 h-2 rounded-full shrink-0"
+                                        style={{ backgroundColor: teamColor }}
+                                      />
+                                    ) : null}
+                                    <span className={
+                                      label === '비정규' ? 'text-gray-600' :
+                                      label === '—' ? 'text-gray-700' :
+                                      'text-white font-medium'
+                                    }>
+                                      {label}
+                                    </span>
+                                    {isEditMode && <ChevronDown size={9} className="text-gray-600" />}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 

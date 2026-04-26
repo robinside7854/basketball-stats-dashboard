@@ -27,6 +27,7 @@ export interface LeaguePlayer {
   name: string
   number: number | null
   position: string | null
+  birth_date: string | null
   created_at: string
 }
 
