@@ -17,7 +17,7 @@ interface Props {
 }
 
 export default function LeagueSubstitutionPanel({ leagueId, gameId, players, minutes, leagueHeaders, onSubstitution }: Props) {
-  const { currentQuarter, getCurrentTimestamp } = useGameStore()
+  const { getCurrentTimestamp } = useGameStore()
   const { onCourt, addPlayer, removePlayer } = useLineupStore()
 
   const [tapMode, setTapMode] = useState(false)
@@ -39,11 +39,11 @@ export default function LeagueSubstitutionPanel({ leagueId, gameId, players, min
     await fetch(`/api/leagues/${leagueId}/minutes`, {
       method: 'POST',
       headers: leagueHeaders,
-      body: JSON.stringify({ league_game_id: gameId, league_player_id: inId, quarter: currentQuarter, in_time: ts }),
+      body: JSON.stringify({ league_game_id: gameId, league_player_id: inId, quarter: 1, in_time: ts }),
     })
     await Promise.all([
-      fetch(`/api/leagues/${leagueId}/events`, { method: 'POST', headers: leagueHeaders, body: JSON.stringify({ league_game_id: gameId, quarter: currentQuarter, video_timestamp: ts, type: 'sub_out', league_player_id: outId, points: 0 }) }),
-      fetch(`/api/leagues/${leagueId}/events`, { method: 'POST', headers: leagueHeaders, body: JSON.stringify({ league_game_id: gameId, quarter: currentQuarter, video_timestamp: ts, type: 'sub_in', league_player_id: inId, points: 0 }) }),
+      fetch(`/api/leagues/${leagueId}/events`, { method: 'POST', headers: leagueHeaders, body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: ts, type: 'sub_out', league_player_id: outId, points: 0 }) }),
+      fetch(`/api/leagues/${leagueId}/events`, { method: 'POST', headers: leagueHeaders, body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: ts, type: 'sub_in', league_player_id: inId, points: 0 }) }),
     ])
     removePlayer(outId)
     addPlayer(inId)

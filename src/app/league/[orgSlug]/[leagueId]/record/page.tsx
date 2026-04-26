@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import {
   Lock, Loader2, Play, Square, ChevronLeft,
-  CheckCircle2, Circle, Youtube, RefreshCw,
+  CheckCircle2, Circle, Youtube, RefreshCw, UserPlus,
 } from 'lucide-react'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
 import LeagueEventInputPad from '@/components/league/LeagueEventInputPad'
@@ -22,13 +22,13 @@ type GameSlot = {
   home_score: number; away_score: number
   youtube_url?: string | null; youtube_start_offset?: number
   home_team_id?: string | null; away_team_id?: string | null
+  quarter_id?: string | null
   home_team?: { id: string; name: string; color: string } | null
   away_team?: { id: string; name: string; color: string } | null
 }
 type MinRow = { id: string; league_player_id: string; league_game_id: string; out_time: number | null }
 type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
-
-const QUARTERS = [1, 2, 3, 4]
+type IrregularPlayer = LeaguePlayer & { team_id: string | null; is_regular: boolean | null }
 
 // ── 메인 페이지 ──────────────────────────────────────────────
 export default function LeagueRecordPage() {
@@ -56,7 +56,7 @@ export default function LeagueRecordPage() {
 
 // ── 내부 컴포넌트 ─────────────────────────────────────────────
 function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHeaders: Record<string, string> }) {
-  const { currentQuarter, setCurrentQuarter, setCurrentGame } = useGameStore()
+  const { setCurrentGame } = useGameStore()
   const { setLineup, resetLineup } = useLineupStore()
 
   const [scheduleDates, setScheduleDates] = useState<ScheduleDate[]>([])
@@ -81,7 +81,10 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   // 분기별 홈/어웨이 선수 명단
   const [homeRoster, setHomeRoster] = useState<RosterPlayer[]>([])
   const [awayRoster, setAwayRoster] = useState<RosterPlayer[]>([])
+  const [irregularRoster, setIrregularRoster] = useState<IrregularPlayer[]>([])
   const [rosterLoading, setRosterLoading] = useState(false)
+  const [pendingIrregular, setPendingIrregular] = useState<IrregularPlayer | null>(null)
+  const [addingIrregular, setAddingIrregular] = useState(false)
 
   // 팀 선택 (슬랏별)
   const [pendingHome, setPendingHome] = useState('')
@@ -90,8 +93,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
   // 경기 진행
   const [gameStarted, setGameStarted] = useState(false)
-  const [starterIds, setStarterIds] = useState<string[]>([])
-  const [showStarterPicker, setShowStarterPicker] = useState(false)
+  const [startingGame, setStartingGame] = useState(false)
   const [showComplete, setShowComplete] = useState(false)
   const [liveScore, setLiveScore] = useState<{ home: number; away: number } | null>(null)
 
@@ -99,7 +101,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
   async function bulkSyncYoutube() {
     if (!leagueYtChannel) { toast.error('설정 탭에서 YouTube 채널을 먼저 지정하세요'); return }
-    // 이미 전부 연동된 날짜 제외 — 미연동 날짜만
     const targets = scheduleDates.filter(sd => {
       const stat = dateStats[sd.date]
       return !stat || stat.yt < stat.total || stat.total === 0
@@ -121,7 +122,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       setBulkProgress(p => ({ ...p, done: p.done + 1 }))
     }
     setBulkSyncing(false)
-    // dateStats 갱신
     fetch(`/api/leagues/${leagueId}/games`).then(r => r.json()).then(buildDateStats).catch(() => null)
     toast.success(`일괄 연동 완료: ${successCount}/${targets.length}개 날짜 처리됨`)
   }
@@ -161,6 +161,33 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     init()
   }, [leagueId])
 
+  async function loadRoster(slot: GameSlot) {
+    if (!slot.home_team_id || !slot.away_team_id) return
+    setRosterLoading(true)
+    const rRes = await fetch(`/api/leagues/${leagueId}/games/${slot.id}/roster`)
+    if (rRes.ok) {
+      const rd = await rRes.json()
+      const home: RosterPlayer[] = rd.home ?? []
+      const away: RosterPlayer[] = rd.away ?? []
+      // is_regular 만 메인 그리드에
+      setHomeRoster(home.filter(p => p.is_regular !== false))
+      setAwayRoster(away.filter(p => p.is_regular !== false))
+    }
+    // 비정규 선수: quarter players에서 is_regular=false (team_id 없는 것 위주) 로드
+    if (slot.quarter_id) {
+      const qRes = await fetch(`/api/leagues/${leagueId}/quarters/${slot.quarter_id}/players`)
+      if (qRes.ok) {
+        const qd: IrregularPlayer[] = await qRes.json()
+        setIrregularRoster(qd.filter(p => p.is_regular === false))
+      } else {
+        setIrregularRoster([])
+      }
+    } else {
+      setIrregularRoster([])
+    }
+    setRosterLoading(false)
+  }
+
   // 날짜 선택 → 슬랏 초기화 + 로드
   async function selectDate(date: string) {
     setSelectedDate(date)
@@ -188,23 +215,13 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     setPendingAway(slot.away_team_id ?? '')
     setGameStarted(slot.is_started ?? false)
     setCurrentGame({ id: slot.id } as never)
-    setCurrentQuarter(1)
     resetLineup()
     setHomeRoster([])
     setAwayRoster([])
+    setIrregularRoster([])
     setLiveScore(null)
 
-    // 분기별 홈/어웨이 선수 명단 로드
-    if (slot.home_team_id && slot.away_team_id) {
-      setRosterLoading(true)
-      const rRes = await fetch(`/api/leagues/${leagueId}/games/${slot.id}/roster`)
-      if (rRes.ok) {
-        const rd = await rRes.json()
-        setHomeRoster(rd.home ?? [])
-        setAwayRoster(rd.away ?? [])
-      }
-      setRosterLoading(false)
-    }
+    await loadRoster(slot)
 
     // 출전 기록 로드
     const res = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${slot.id}`)
@@ -224,13 +241,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     if (res.ok) {
       toast.success('팀 저장 완료')
       await refreshSlots()
-      // roster 재로드
-      const rRes = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/roster`)
-      if (rRes.ok) {
-        const rd = await rRes.json()
-        setHomeRoster(rd.home ?? [])
-        setAwayRoster(rd.away ?? [])
-      }
+      const updated = slots.find(s => s.id === selectedSlotId)
+      if (updated) await loadRoster({ ...updated, home_team_id: pendingHome, away_team_id: pendingAway })
     } else toast.error('팀 저장 실패')
   }
 
@@ -249,7 +261,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       if (res.ok) {
         toast.success(`${data.mapped}개 경기 YouTube 연동 완료`)
         await refreshSlots()
-        // dateStats 갱신
         fetch(`/api/leagues/${leagueId}/games`).then(r => r.json()).then(buildDateStats).catch(() => null)
       } else {
         const msg = (data.error as string) ?? `YouTube 연동 실패 (${res.status})`
@@ -281,28 +292,37 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     setLoadingSlots(false)
   }
 
+  // 자동 시작: 모든 roster 선수를 onCourt 로 + minutes INSERT
   async function startGame() {
-    if (starterIds.length === 0) { toast.error('선발 선수를 1명 이상 선택하세요'); return }
-    await Promise.all(starterIds.map(pid =>
+    if (!selectedSlotId) return
+    if (homeRoster.length === 0 && awayRoster.length === 0) {
+      toast.error('출전 가능한 선수가 없습니다')
+      return
+    }
+    setStartingGame(true)
+    const allIds = [...homeRoster.map(p => p.id), ...awayRoster.map(p => p.id)]
+    await Promise.all(allIds.map(pid =>
       fetch(`/api/leagues/${leagueId}/minutes`, {
         method: 'POST',
         headers: leagueHeaders,
-        body: JSON.stringify({ league_game_id: selectedSlotId, league_player_id: pid, quarter: currentQuarter, in_time: 0 }),
+        body: JSON.stringify({ league_game_id: selectedSlotId, league_player_id: pid, quarter: 1, in_time: 0 }),
       })
     ))
-    setLineup(starterIds)
+    setLineup(allIds)
     setGameStarted(true)
-    setShowStarterPicker(false)
     await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
       method: 'PATCH',
       headers: leagueHeaders,
       body: JSON.stringify({ is_started: true }),
     })
+    // minutes 재로드
+    const r = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
+    if (r.ok) setMinutes(await r.json())
     refreshSlots()
+    setStartingGame(false)
   }
 
   async function completeGame() {
-    // 이벤트 기반 점수 재계산
     const recomputeRes = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/recompute`, {
       method: 'POST',
       headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
@@ -312,7 +332,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       const scores = await recomputeRes.json()
       setLiveScore(scores)
     }
-    // 경기 완료 처리
     await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
       method: 'PATCH',
       headers: leagueHeaders,
@@ -340,6 +359,43 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         .then(r => r.json()).then(setMinutes)
     }
   }
+
+  // 비정규 선수를 홈/어웨이 팀에 추가
+  async function addIrregularToTeam(player: IrregularPlayer, side: 'home' | 'away') {
+    if (!selectedSlot?.quarter_id) { toast.error('분기 정보가 없습니다'); return }
+    const teamId = side === 'home' ? selectedSlot.home_team_id : selectedSlot.away_team_id
+    if (!teamId) { toast.error('팀이 지정되지 않았습니다'); return }
+    setAddingIrregular(true)
+    // 분기 멤버십을 팀에 묶음 (여전히 is_regular=false 유지 — 일회성 추가)
+    const res = await fetch(`/api/leagues/${leagueId}/quarters/${selectedSlot.quarter_id}/players`, {
+      method: 'PATCH',
+      headers: leagueHeaders,
+      body: JSON.stringify({ league_player_id: player.id, team_id: teamId, is_regular: false }),
+    })
+    if (!res.ok) {
+      setAddingIrregular(false)
+      toast.error('비정규 선수 추가 실패')
+      return
+    }
+    // 게임이 시작된 경우, minutes도 INSERT
+    if (gameStarted) {
+      await fetch(`/api/leagues/${leagueId}/minutes`, {
+        method: 'POST',
+        headers: leagueHeaders,
+        body: JSON.stringify({ league_game_id: selectedSlotId, league_player_id: player.id, quarter: 1, in_time: 0 }),
+      })
+      const r = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
+      if (r.ok) setMinutes(await r.json())
+    }
+    // roster 재로드
+    if (selectedSlot) await loadRoster(selectedSlot)
+    setPendingIrregular(null)
+    setAddingIrregular(false)
+    toast.success(`${player.name} → ${side === 'home' ? selectedSlot.home_team?.name ?? '홈' : selectedSlot.away_team?.name ?? '어웨이'} 추가됨`)
+  }
+
+  // 이미 홈/어웨이 명단에 들어있는지 체크
+  const assignedIds = new Set([...homeRoster.map(p => p.id), ...awayRoster.map(p => p.id)])
 
   // ── 로딩 ─────────────────────────────────────────────────
   if (loadingDates) {
@@ -527,7 +583,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             </div>
           </div>
 
-          {/* YouTube 플레이어 — 팀 설정 여부와 무관하게 URL이 있으면 표시 */}
+          {/* YouTube 플레이어 */}
           {selectedSlot.youtube_url && (
             <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
               <YouTubePlayer
@@ -543,30 +599,17 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             <>
               {/* 경기 제어 */}
               <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                <div className="p-4 space-y-3">
-                  {/* 쿼터 */}
-                  <div className="flex gap-1.5">
-                    {QUARTERS.map(q => (
-                      <button
-                        key={q}
-                        onClick={() => setCurrentQuarter(q)}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${currentQuarter === q ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
-                      >Q{q}</button>
-                    ))}
-                    <button
-                      onClick={() => setCurrentQuarter(5)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${currentQuarter === 5 ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
-                    >OT</button>
-                  </div>
-
-                  {/* 게임 시작/종료 */}
+                <div className="p-4">
                   {!gameStarted ? (
                     <Button
-                      onClick={() => setShowStarterPicker(true)}
+                      onClick={startGame}
+                      disabled={startingGame || rosterLoading || (homeRoster.length === 0 && awayRoster.length === 0)}
                       className="w-full bg-green-600 hover:bg-green-500 cursor-pointer"
                       size="sm"
                     >
-                      <Play size={13} className="mr-1" />선발 선택 후 시작
+                      {startingGame
+                        ? <><Loader2 size={13} className="mr-1 animate-spin" />시작 중...</>
+                        : <><Play size={13} className="mr-1" />경기 시작 ({homeRoster.length + awayRoster.length}명 자동 출전)</>}
                     </Button>
                   ) : (
                     <div className="flex gap-2">
@@ -575,71 +618,14 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       </div>
                       <button
                         onClick={() => setShowComplete(true)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-800 text-gray-400 hover:text-red-400 text-xs cursor-pointer transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-900/40 border border-red-800/50 text-red-300 hover:bg-red-800/40 hover:text-white text-xs cursor-pointer transition-colors"
                       >
-                        <Square size={11} />종료
+                        <Square size={11} />마감
                       </button>
                     </div>
                   )}
                 </div>
               </div>
-
-              {/* 선발 선택 모달 — 홈/어웨이 분리 */}
-              {showStarterPicker && (
-                <div className="bg-gray-900 border border-blue-500/40 rounded-xl p-4 space-y-3">
-                  <h3 className="text-sm font-semibold text-white">선발 선수 선택</h3>
-                  {rosterLoading ? (
-                    <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin text-gray-500" /></div>
-                  ) : homeRoster.length > 0 || awayRoster.length > 0 ? (
-                    // 분기별 명단 존재: 홈/어웨이 분리
-                    <div className="space-y-3 max-h-64 overflow-y-auto">
-                      {[
-                        { label: selectedSlot?.home_team?.name ?? '홈팀', color: selectedSlot?.home_team?.color, roster: homeRoster },
-                        { label: selectedSlot?.away_team?.name ?? '어웨이팀', color: selectedSlot?.away_team?.color, roster: awayRoster },
-                      ].map(({ label, color, roster }) => (
-                        <div key={label}>
-                          <p className="text-[10px] font-bold mb-1" style={{ color: color ?? '#9ca3af' }}>{label}</p>
-                          <div className="grid grid-cols-2 gap-1">
-                            {roster.map(p => {
-                              const on = starterIds.includes(p.id)
-                              return (
-                                <button key={p.id}
-                                  onClick={() => setStarterIds(ids => on ? ids.filter(x => x !== p.id) : [...ids, p.id])}
-                                  className={`px-3 py-1.5 rounded-lg text-xs text-left border transition-colors cursor-pointer ${on ? 'border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
-                                  style={on ? { backgroundColor: color ?? '#3b82f6', borderColor: color } : {}}
-                                >
-                                  {p.number ? `#${p.number} ` : ''}{p.name}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    // 분기 명단 없음: 레거시 단일 목록
-                    <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
-                      {allPlayers.map(p => {
-                        const on = starterIds.includes(p.id)
-                        return (
-                          <button key={p.id}
-                            onClick={() => setStarterIds(ids => on ? ids.filter(x => x !== p.id) : [...ids, p.id])}
-                            className={`px-3 py-2 rounded-lg text-xs text-left border transition-colors cursor-pointer ${on ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
-                          >
-                            {p.number ? `#${p.number} ` : ''}{p.name}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                  <div className="flex gap-2">
-                    <Button onClick={startGame} disabled={starterIds.length === 0} className="flex-1 bg-green-600 hover:bg-green-500 cursor-pointer" size="sm">
-                      <Play size={12} className="mr-1" />시작 ({starterIds.length}명)
-                    </Button>
-                    <Button onClick={() => setShowStarterPicker(false)} variant="outline" size="sm" className="border-gray-700 text-gray-400 cursor-pointer">취소</Button>
-                  </div>
-                </div>
-              )}
 
               {/* 모바일 탭 */}
               <div className="flex gap-1 lg:hidden">
@@ -668,6 +654,36 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         plusOneAge={plusOneAge}
                         onEventSaved={() => { handleEventSaved(); fetchLiveScore() }}
                       />
+
+                      {/* 비정규 선수 추가 */}
+                      {irregularRoster.length > 0 && (
+                        <div className="mt-3 bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <UserPlus size={12} className="text-gray-500" />
+                            <p className="text-xs text-gray-400 font-medium">비정규 선수 추가</p>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {irregularRoster.map(p => {
+                              const isAdded = assignedIds.has(p.id)
+                              return (
+                                <button
+                                  key={p.id}
+                                  onClick={() => !isAdded && setPendingIrregular(p)}
+                                  disabled={isAdded}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
+                                    isAdded
+                                      ? 'bg-gray-800/40 border-gray-800 text-gray-600 cursor-not-allowed line-through'
+                                      : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-blue-500 hover:text-blue-300 cursor-pointer'
+                                  }`}
+                                >
+                                  {p.number ? `#${p.number} ` : ''}{p.name}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="mt-3">
                         <LeagueSubstitutionPanel
                           leagueId={leagueId}
@@ -689,11 +705,45 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                 </div>
               </div>
 
-              {/* 경기 종료 모달 — 이벤트 자동 점수계산 */}
+              {/* 비정규 선수 팀 선택 미니 모달 */}
+              {pendingIrregular && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+                  <div className="bg-gray-900 border border-gray-700 rounded-2xl p-5 w-full max-w-xs space-y-3">
+                    <h3 className="text-white font-bold text-sm">
+                      {pendingIrregular.name}을(를) 어느 팀에 추가할까요?
+                    </h3>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => addIrregularToTeam(pendingIrregular, 'home')}
+                        disabled={addingIrregular}
+                        className="flex-1 py-2 rounded-lg text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-opacity"
+                        style={{ backgroundColor: selectedSlot?.home_team?.color ?? '#3b82f6' }}
+                      >
+                        {selectedSlot?.home_team?.name ?? '홈팀'}
+                      </button>
+                      <button
+                        onClick={() => addIrregularToTeam(pendingIrregular, 'away')}
+                        disabled={addingIrregular}
+                        className="flex-1 py-2 rounded-lg text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-opacity"
+                        style={{ backgroundColor: selectedSlot?.away_team?.color ?? '#ef4444' }}
+                      >
+                        {selectedSlot?.away_team?.name ?? '어웨이팀'}
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setPendingIrregular(null)}
+                      disabled={addingIrregular}
+                      className="w-full py-1.5 rounded-lg bg-gray-800 text-gray-400 text-xs cursor-pointer hover:bg-gray-700"
+                    >취소</button>
+                  </div>
+                </div>
+              )}
+
+              {/* 경기 종료 모달 */}
               {showComplete && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                   <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm space-y-4">
-                    <h3 className="text-white font-bold">경기 종료</h3>
+                    <h3 className="text-white font-bold">경기 마감</h3>
                     <p className="text-xs text-gray-400">이벤트 기반 점수로 자동 계산됩니다.</p>
                     {liveScore && (
                       <div className="bg-gray-800 rounded-xl p-4 text-center">
@@ -738,6 +788,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           )}
         </div>
       )}
+
+      {loadingSlots && <div className="hidden" />}
     </div>
   )
 }
