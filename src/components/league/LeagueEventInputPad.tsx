@@ -209,7 +209,7 @@ export default function LeagueEventInputPad({
     onEventSaved()
   }
 
-  // 선수 버튼 렌더
+  // 선수 버튼 (파란날개 스타일: 등번호 크게, 이름 작게)
   function renderPlayerBtn(p: RosterPlayer, teamColor: string) {
     const isSelected = selectedPlayer === p.id
     const isPlusOne = plusOneAge != null && calcAge((p as LeaguePlayer).birth_date) >= plusOneAge
@@ -217,43 +217,41 @@ export default function LeagueEventInputPad({
       <button
         key={p.id}
         onClick={() => { setSelectedPlayer(p.id); setPendingShot(null); setAwaitingAssist(false) }}
-        className={`py-2 px-1.5 rounded-lg text-center text-xs font-medium transition-all cursor-pointer border ${
-          isSelected
-            ? 'border-blue-500 text-white'
-            : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
+        className={`relative py-3 px-1 rounded-xl text-center transition-all cursor-pointer border active:scale-95 ${
+          isSelected ? 'text-white' : 'bg-gray-800/80 border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-500'
         }`}
         style={isSelected ? { backgroundColor: teamColor, borderColor: teamColor } : {}}
       >
-        <div className="font-mono text-[10px] opacity-70">{p.number ?? '—'}</div>
-        <div className="truncate">{p.name}</div>
+        <div className="text-xl font-black font-mono leading-none mb-0.5 opacity-80">
+          {p.number ?? '—'}
+        </div>
+        <div className="text-[11px] font-medium truncate leading-tight">{p.name}</div>
         {isPlusOne && (
-          <div className="text-[8px] font-black text-amber-300 leading-none mt-0.5">+1</div>
+          <span className="absolute top-1 right-1 text-[8px] font-black text-amber-300 leading-none">+1</span>
         )}
       </button>
     )
   }
 
   return (
-    <div className="space-y-3">
-      {/* 헤더 — 선택된 선수 표시 */}
-      <div className="flex items-center gap-2">
+    <div className="space-y-2">
+      {/* 헤더 — 선택된 선수 + 취소 */}
+      <div className="flex items-center gap-2 min-h-[32px]">
         {selectedPlayerObj ? (
           <span
-            className="shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold text-white"
+            className="shrink-0 px-3 py-1 rounded-lg text-sm font-bold text-white"
             style={{ backgroundColor: selectedTeam?.color ?? '#3b82f6' }}
           >
             {selectedPlayerObj.name}
             {selectedTeam ? ` · ${selectedTeam.name}` : ''}
           </span>
         ) : (
-          <span className="shrink-0 px-2.5 py-1 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 text-xs font-bold">
+          <span className="shrink-0 px-3 py-1 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 text-sm font-bold">
             선수를 선택하세요
           </span>
         )}
         {selectedPlayerIsPlusOne && (
-          <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-black">
-            +1 적용
-          </span>
+          <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-black">+1</span>
         )}
         {lastEventLabel && <span className="flex-1 text-xs text-gray-400 truncate">{lastEventLabel}</span>}
         <button
@@ -263,109 +261,106 @@ export default function LeagueEventInputPad({
         >↩ 취소</button>
       </div>
 
-      {/* 선수 선택 — 두 팀 병렬 배치 */}
+      {/* ── 선수 선택: 두 팀 2열 ── */}
       {hasRoster ? (
         <div className="grid grid-cols-2 gap-2">
-          {/* 홈 */}
+          {/* 홈팀 */}
           <div>
-            <p
-              className="text-[10px] font-bold mb-1 px-1.5 py-0.5 rounded"
-              style={{
-                color: homeTeam?.color ?? '#3b82f6',
-                backgroundColor: `${homeTeam?.color ?? '#3b82f6'}20`,
-              }}
+            <div
+              className="text-[11px] font-bold mb-1.5 px-2 py-1 rounded-lg text-center"
+              style={{ color: homeTeam?.color ?? '#3b82f6', backgroundColor: `${homeTeam?.color ?? '#3b82f6'}18` }}
             >
               {homeTeam?.name ?? '홈팀'}
-            </p>
-            <div className="grid grid-cols-2 gap-1">
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
               {homePlayers.map(p => renderPlayerBtn(p, homeTeam?.color ?? '#3b82f6'))}
             </div>
           </div>
-          {/* 어웨이 */}
+          {/* 어웨이팀 */}
           <div>
-            <p
-              className="text-[10px] font-bold mb-1 px-1.5 py-0.5 rounded"
-              style={{
-                color: awayTeam?.color ?? '#ef4444',
-                backgroundColor: `${awayTeam?.color ?? '#ef4444'}20`,
-              }}
+            <div
+              className="text-[11px] font-bold mb-1.5 px-2 py-1 rounded-lg text-center"
+              style={{ color: awayTeam?.color ?? '#ef4444', backgroundColor: `${awayTeam?.color ?? '#ef4444'}18` }}
             >
               {awayTeam?.name ?? '어웨이팀'}
-            </p>
-            <div className="grid grid-cols-2 gap-1">
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
               {awayPlayers.map(p => renderPlayerBtn(p, awayTeam?.color ?? '#ef4444'))}
             </div>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-5 gap-1">
+        <div className="grid grid-cols-4 gap-1.5">
           {(legacyPlayers ?? []).map(p => (
             <button key={p.id}
               onClick={() => { setSelectedPlayer(p.id); setPendingShot(null); setAwaitingAssist(false) }}
-              className={`py-2 px-1 rounded-lg text-center text-xs font-medium transition-all cursor-pointer border ${
-                selectedPlayer === p.id
-                  ? 'bg-blue-600 border-blue-500 text-white'
-                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
+              className={`py-3 px-1 rounded-xl text-center transition-all cursor-pointer border ${
+                selectedPlayer === p.id ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
               }`}
             >
-              <div className="font-mono text-gray-400 text-[10px]">{p.number ?? '—'}</div>
-              <div className="truncate">{p.name}</div>
+              <div className="text-xl font-black font-mono opacity-80">{p.number ?? '—'}</div>
+              <div className="text-[11px] truncate">{p.name}</div>
             </button>
           ))}
         </div>
       )}
 
-      {/* 이벤트 버튼 */}
+      {/* ── 이벤트 버튼 (선수 선택 후, 파란날개 스타일: 전체 폭) ── */}
       {selectedPlayer && !awaitingAssist && (
-        <div className="space-y-2">
-          {EVENT_GROUPS.map(group => (
-            <div key={group.label}>
-              <p className="text-[10px] text-gray-600 mb-1">{group.label}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {group.buttons.map(btn => {
-                  const isActive = !!btn.needsResult && pendingShot?.type === btn.type
-                  if (isActive) {
+        <div className="space-y-2 pt-1">
+          {EVENT_GROUPS.map(group => {
+            const isShooting = group.label === '슈팅'
+            const isRebound  = group.label === '리바운드'
+            return (
+              <div key={group.label}>
+                <p className="text-[10px] text-gray-500 mb-1">{group.label}</p>
+                <div className={`grid gap-1.5 ${
+                  isShooting ? 'grid-cols-5' :
+                  isRebound  ? 'grid-cols-2' :
+                               'grid-cols-4'
+                }`}>
+                  {group.buttons.map(btn => {
+                    const isActive = !!btn.needsResult && pendingShot?.type === btn.type
+                    if (isActive) {
+                      return (
+                        <div key={btn.type} className="col-span-1 flex rounded-xl overflow-hidden gap-px h-[44px]">
+                          <button onClick={() => handleResult('made')}
+                            className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black text-lg active:scale-95 cursor-pointer">O</button>
+                          <button onClick={() => handleResult('missed')}
+                            className="flex-1 bg-red-700 hover:bg-red-600 text-white font-black text-lg active:scale-95 cursor-pointer">X</button>
+                        </div>
+                      )
+                    }
                     return (
-                      <div key={btn.type} className="flex rounded-lg overflow-hidden gap-px h-[30px] min-w-[72px]">
-                        <button
-                          onClick={() => handleResult('made')}
-                          className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black text-sm active:scale-95 cursor-pointer"
-                        >O</button>
-                        <button
-                          onClick={() => handleResult('missed')}
-                          className="flex-1 bg-red-700 hover:bg-red-600 text-white font-black text-sm active:scale-95 cursor-pointer"
-                        >X</button>
-                      </div>
+                      <button
+                        key={btn.type}
+                        onClick={() => {
+                          if (btn.needsResult) { setPendingShot(btn); setAwaitingAssist(false) }
+                          else saveInstant(btn)
+                        }}
+                        className={`py-3 rounded-xl text-sm font-bold text-white transition-all active:scale-95 cursor-pointer ${btn.color}`}
+                      >
+                        {btn.label}
+                      </button>
                     )
-                  }
-                  return (
-                    <button
-                      key={btn.type}
-                      onClick={() => {
-                        if (btn.needsResult) { setPendingShot(btn); setAwaitingAssist(false) }
-                        else saveInstant(btn)
-                      }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all active:scale-95 cursor-pointer ${btn.color}`}
-                    >
-                      {btn.label}
-                    </button>
-                  )
-                })}
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
-      {/* 어시스트 */}
+      {/* ── 어시스트 ── */}
       {awaitingAssist && (
-        <div>
-          <p className="text-xs text-gray-400 mb-1.5">어시스트 선수 (없으면 건너뜀)</p>
-          <div className="flex flex-wrap gap-1.5">
-            <button onClick={() => saveShot('made')} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 cursor-pointer">없음</button>
+        <div className="pt-1">
+          <p className="text-xs text-gray-400 mb-2">어시스트 선수 (없으면 건너뜀)</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            <button onClick={() => saveShot('made')}
+              className="py-3 rounded-xl text-sm font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 cursor-pointer">없음</button>
             {assistCandidates.map(p => (
               <button key={p.id} onClick={() => saveShot('made', p.id)}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-800 text-blue-200 hover:bg-blue-700 cursor-pointer">
+                className="py-3 rounded-xl text-sm font-bold bg-blue-800 text-blue-200 hover:bg-blue-700 cursor-pointer truncate px-1">
                 {p.name}
               </button>
             ))}

@@ -586,7 +586,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           {/* 팀이 지정된 경우: 비디오(좌) + 기록(우) 2열 레이아웃 */}
           {selectedSlot.home_team_id && selectedSlot.away_team_id ? (
             <>
-            <div className="lg:grid lg:grid-cols-[1fr_1fr] lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
+            <div className="lg:grid lg:grid-cols-[3fr_2fr] lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
 
               {/* ── 좌측: 비디오 + 경기 제어 (sticky) ── */}
               <div className="lg:sticky lg:top-4 space-y-3">
