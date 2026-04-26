@@ -65,6 +65,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [teams, setTeams] = useState<LeagueTeam[]>([])
   const [allPlayers, setAllPlayers] = useState<LeaguePlayer[]>([])
   const [leagueYtChannel, setLeagueYtChannel] = useState<string | null>(null)
+  const [plusOneAge, setPlusOneAge] = useState<number | null>(null)
   const [dateStats, setDateStats] = useState<Record<string, { total: number; yt: number }>>({})
   const [selectedSlotId, setSelectedSlotId] = useState('')
   const [loadingDates, setLoadingDates] = useState(true)
@@ -152,6 +153,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       if (lRes.ok) {
         const ld = await lRes.json()
         setLeagueYtChannel(ld.youtube_channel ?? null)
+        setPlusOneAge(ld.plus_one_age ?? null)
       }
       if (gRes.ok) buildDateStats(await gRes.json())
       setLoadingDates(false)
@@ -663,6 +665,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         homeTeam={selectedSlot?.home_team ?? undefined}
                         awayTeam={selectedSlot?.away_team ?? undefined}
                         players={allPlayers}
+                        plusOneAge={plusOneAge}
                         onEventSaved={() => { handleEventSaved(); fetchLiveScore() }}
                       />
                       <div className="mt-3">

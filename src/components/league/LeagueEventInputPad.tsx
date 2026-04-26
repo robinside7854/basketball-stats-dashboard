@@ -17,6 +17,7 @@ interface Props {
   awayPlayers?: RosterPlayer[]
   homeTeam?: { id: string; name: string; color: string }
   awayTeam?: { id: string; name: string; color: string }
+  plusOneAge?: number | null   // 플러스원 나이 기준 (만 나이)
   leagueHeaders: Record<string, string>
   onEventSaved: () => void
 }
@@ -58,11 +59,24 @@ const EVENT_GROUPS: { label: string; buttons: EventBtn[] }[] = [
   },
 ]
 
-function calcPoints(type: string, result: string): number {
+function calcAge(birthDate: string | null | undefined): number {
+  if (!birthDate) return 0
+  const birth = new Date(birthDate)
+  if (isNaN(birth.getTime())) return 0
+  const now = new Date()
+  let age = now.getFullYear() - birth.getFullYear()
+  const md = now.getMonth() - birth.getMonth()
+  if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--
+  return age
+}
+
+function calcPoints(type: string, result: string, isPlusOne = false): number {
   if (result !== 'made') return 0
-  if (type === 'shot_3p') return 3
-  if (['shot_2p_mid','shot_layup','shot_post'].includes(type)) return 2
+  // 자유투(FT)는 +1 미적용
   if (type === 'free_throw') return 1
+  const bonus = isPlusOne ? 1 : 0
+  if (type === 'shot_3p') return 3 + bonus
+  if (['shot_2p_mid','shot_layup','shot_post'].includes(type)) return 2 + bonus
   return 0
 }
 
@@ -71,6 +85,7 @@ export default function LeagueEventInputPad({
   players: legacyPlayers,
   homePlayers = [], awayPlayers = [],
   homeTeam, awayTeam,
+  plusOneAge,
   leagueHeaders, onEventSaved,
 }: Props) {
   const { currentQuarter, getCurrentTimestamp } = useGameStore()
@@ -106,9 +121,17 @@ export default function LeagueEventInputPad({
   const assistCandidates = allOnCourt.filter(p => p.id !== selectedPlayer)
 
   // 선택된 선수의 팀 ID (이벤트 저장 시 team_id 전달)
-  const selectedPlayerTeamId = selectedPlayer
-    ? (allPlayers.find(p => p.id === selectedPlayer) as RosterPlayer | undefined)?.team_id ?? null
+  const selectedPlayerObj = selectedPlayer
+    ? (allPlayers.find(p => p.id === selectedPlayer) as RosterPlayer | undefined) ?? null
     : null
+  const selectedPlayerTeamId = selectedPlayerObj?.team_id ?? null
+
+  // 플러스원 여부: 선택된 선수의 만 나이 >= plusOneAge
+  const selectedPlayerIsPlusOne = !!(
+    plusOneAge != null &&
+    selectedPlayerObj &&
+    calcAge((selectedPlayerObj as LeaguePlayer).birth_date) >= plusOneAge
+  )
 
   async function saveEvent(body: object): Promise<string | null> {
     const res = await fetch(`/api/leagues/${leagueId}/events`, {
@@ -123,7 +146,7 @@ export default function LeagueEventInputPad({
 
   async function saveShot(result: 'made' | 'missed', assistId?: string) {
     if (!selectedPlayer || !pendingShot) return
-    const pts = calcPoints(pendingShot.type, result)
+    const pts = calcPoints(pendingShot.type, result, selectedPlayerIsPlusOne)
     const id = await saveEvent({
       league_game_id: gameId,
       quarter: currentQuarter,
@@ -197,6 +220,11 @@ export default function LeagueEventInputPad({
         <span className="shrink-0 px-2.5 py-1 rounded-lg bg-blue-600/30 border border-blue-500/40 text-blue-300 text-xs font-bold">
           Q{currentQuarter} 기록 중
         </span>
+        {selectedPlayerIsPlusOne && (
+          <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-black">
+            +1 적용
+          </span>
+        )}
         {lastEventLabel && <span className="flex-1 text-xs text-gray-400 truncate">{lastEventLabel}</span>}
         <button
           onClick={undoLastEvent}
@@ -231,6 +259,9 @@ export default function LeagueEventInputPad({
                     >
                       <div className="font-mono text-[10px] opacity-70">{p.number ?? '—'}</div>
                       <div className="truncate">{p.name}</div>
+                      {plusOneAge != null && calcAge((p as LeaguePlayer).birth_date) >= plusOneAge && (
+                        <div className="text-[8px] font-black text-amber-300 leading-none mt-0.5">+1</div>
+                      )}
                     </button>
                   ))}
                 </div>
@@ -255,6 +286,9 @@ export default function LeagueEventInputPad({
                     >
                       <div className="font-mono text-[10px] opacity-70">{p.number ?? '—'}</div>
                       <div className="truncate">{p.name}</div>
+                      {plusOneAge != null && calcAge((p as LeaguePlayer).birth_date) >= plusOneAge && (
+                        <div className="text-[8px] font-black text-amber-300 leading-none mt-0.5">+1</div>
+                      )}
                     </button>
                   ))}
                 </div>
