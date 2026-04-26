@@ -19,6 +19,51 @@ function parsePositions(pos: string | null): string[] {
   return pos.split(',').map(p => p.trim()).filter(Boolean)
 }
 
+// 생년월일 분리 입력 컴포넌트 (년 4자리 / 월 2자리 / 일 2자리)
+function BirthDateInput({ value, onChange, className }: {
+  value: string
+  onChange: (v: string) => void
+  className?: string
+}) {
+  const parts = value ? value.split('-') : ['', '', '']
+  const y = parts[0] ?? '', m = parts[1] ?? '', d = parts[2] ?? ''
+
+  function update(newY: string, newM: string, newD: string) {
+    if (!newY && !newM && !newD) { onChange(''); return }
+    const yy = newY.padStart(4, '0').slice(0, 4)
+    const mm = newM.padStart(2, '0').slice(0, 2)
+    const dd = newD.padStart(2, '0').slice(0, 2)
+    if (newY.length === 4 || newM || newD) onChange(`${yy}-${mm}-${dd}`)
+    else onChange(newY ? `${newY}-${mm}-${dd}` : '')
+  }
+
+  const base = `bg-gray-800 border border-gray-700 text-white rounded-lg text-center focus:outline-none focus:border-blue-500 ${className ?? ''}`
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="number" placeholder="년도" min={1900} max={2099}
+        value={y} maxLength={4}
+        onChange={e => update(e.target.value.slice(0, 4), m, d)}
+        className={`${base} w-16 px-1 py-1.5 text-xs`}
+      />
+      <span className="text-gray-600 text-xs">/</span>
+      <input
+        type="number" placeholder="월" min={1} max={12}
+        value={Number(m) || ''} maxLength={2}
+        onChange={e => update(y, String(e.target.value).padStart(2,'0').slice(0,2), d)}
+        className={`${base} w-12 px-1 py-1.5 text-xs`}
+      />
+      <span className="text-gray-600 text-xs">/</span>
+      <input
+        type="number" placeholder="일" min={1} max={31}
+        value={Number(d) || ''} maxLength={2}
+        onChange={e => update(y, m, String(e.target.value).padStart(2,'0').slice(0,2))}
+        className={`${base} w-12 px-1 py-1.5 text-xs`}
+      />
+    </div>
+  )
+}
+
 function PositionBadge({ pos }: { pos: string }) {
   const colors: Record<string, string> = {
     PG: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
@@ -431,12 +476,9 @@ export default function LeagueRosterPage() {
               onKeyDown={e => e.key === 'Enter' && addPlayer()}
               className="bg-gray-800 border-gray-700 text-white"
             />
-            <Input
-              placeholder="생년월일 (예: 1998-03-15)"
-              type="date"
+            <BirthDateInput
               value={form.birth_date}
-              onChange={e => setForm(f => ({ ...f, birth_date: e.target.value }))}
-              className="bg-gray-800 border-gray-700 text-white"
+              onChange={v => setForm(f => ({ ...f, birth_date: v }))}
             />
           </div>
           <div>
@@ -506,11 +548,9 @@ export default function LeagueRosterPage() {
                       placeholder="이름"
                       className="bg-gray-800 border-gray-700 text-white text-sm"
                     />
-                    <Input
-                      type="date"
+                    <BirthDateInput
                       value={editForm.birth_date}
-                      onChange={e => setEditForm(f => ({ ...f, birth_date: e.target.value }))}
-                      className="bg-gray-800 border-gray-700 text-white text-sm"
+                      onChange={v => setEditForm(f => ({ ...f, birth_date: v }))}
                     />
                     <div>
                       <p className="text-xs text-gray-500 mb-1.5">포지션</p>
