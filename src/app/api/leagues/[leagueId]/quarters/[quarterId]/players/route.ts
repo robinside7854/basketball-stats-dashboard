@@ -15,7 +15,7 @@ export async function GET(
 
   const { data: players, error: pErr } = await supabase
     .from('league_players')
-    .select('id, name, number, position')
+    .select('id, name, number, position, birth_date')
     .eq('league_id', leagueId)
     .order('name')
 

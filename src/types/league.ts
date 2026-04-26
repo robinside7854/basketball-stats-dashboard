@@ -10,6 +10,7 @@ export interface League {
   games_per_round: number
   edit_pin?: string
   youtube_channel?: string | null
+  plus_one_age?: number | null
   status: 'upcoming' | 'active' | 'completed'
   created_at: string
 }

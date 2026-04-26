@@ -43,6 +43,9 @@ export default function LeagueSettingsPage() {
   // YouTube 채널 핸들 (DB 저장)
   const [ytChannel, setYtChannel] = useState('')
 
+  // 플러스원 나이 기준
+  const [plusOneAge, setPlusOneAge] = useState<string>('')
+
   // 분기 날짜 범위 관리
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [editingQuarter, setEditingQuarter] = useState<string | null>(null)
@@ -66,6 +69,7 @@ export default function LeagueSettingsPage() {
       setGamesPerRound(data.games_per_round)
       setPin(data.edit_pin ?? '0000')
       setYtChannel(data.youtube_channel ?? '')
+      setPlusOneAge(data.plus_one_age != null ? String(data.plus_one_age) : '')
     }
     if (qRes.ok) setQuarters(await qRes.json())
     setLoading(false)
@@ -289,6 +293,38 @@ export default function LeagueSettingsPage() {
         </div>
         {league.youtube_channel && (
           <p className="text-xs text-gray-600">현재: <span className="text-red-400 font-mono">{league.youtube_channel}</span></p>
+        )}
+      </div>
+
+      {/* 플러스원(+1) 나이 기준 */}
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full">+1</span>
+          <h3 className="font-semibold text-white text-sm">플러스원 나이 기준</h3>
+        </div>
+        <p className="text-xs text-gray-500">
+          해당 만 나이 이상 선수에게 자유투 제외 득점 +1이 가산됩니다.<br />
+          비워두면 플러스원 제도 미사용.
+        </p>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number" min={1} max={99} placeholder="예: 40"
+            value={plusOneAge}
+            onChange={e => setPlusOneAge(e.target.value)}
+            className="bg-gray-800 border-gray-700 text-white w-24"
+          />
+          <span className="text-sm text-gray-400">세 이상</span>
+          <Button
+            onClick={() => save('plus_one_age', { plus_one_age: plusOneAge ? Number(plusOneAge) : null })}
+            disabled={saving === 'plus_one_age'}
+            className="bg-amber-600 hover:bg-amber-500 cursor-pointer shrink-0"
+            size="sm"
+          >
+            {saving === 'plus_one_age' ? <Loader2 size={13} className="animate-spin" /> : '저장'}
+          </Button>
+        </div>
+        {league.plus_one_age && (
+          <p className="text-xs text-gray-600">현재 기준: <span className="text-amber-400 font-mono">만 {league.plus_one_age}세</span> 이상</p>
         )}
       </div>
 

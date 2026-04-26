@@ -18,6 +18,18 @@ type TeamPlayer = {
   position: string | null
   is_regular: boolean
   team_id: string
+  birth_date?: string | null
+}
+
+function calcAgeNum(dateStr: string | null | undefined): number {
+  if (!dateStr) return 0
+  const birth = new Date(dateStr)
+  if (isNaN(birth.getTime())) return 0
+  const now = new Date()
+  let age = now.getFullYear() - birth.getFullYear()
+  const md = now.getMonth() - birth.getMonth()
+  if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--
+  return age
 }
 
 type TeamData = {
@@ -35,20 +47,24 @@ export default function LeagueTeamsPage() {
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [selectedQuarterId, setSelectedQuarterId] = useState<string>('')
   const [teams, setTeams] = useState<TeamData[]>([])
+  const [irregulars, setIrregulars] = useState<TeamPlayer[]>([])
+  const [plusOneAge, setPlusOneAge] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingTeams, setLoadingTeams] = useState(false)
 
-  // 분기 목록 로드
+  // 분기 목록 + 리그 설정 로드
   useEffect(() => {
-    fetch(`/api/leagues/${leagueId}/quarters`)
-      .then(r => r.json())
-      .then((qs: Quarter[]) => {
-        setQuarters(qs)
-        const current = qs.find(q => q.is_current) ?? qs[qs.length - 1]
-        if (current) setSelectedQuarterId(current.id)
-        else setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    Promise.all([
+      fetch(`/api/leagues/${leagueId}/quarters`),
+      fetch(`/api/leagues/${leagueId}`),
+    ]).then(async ([qRes, lRes]) => {
+      const qs: Quarter[] = qRes.ok ? await qRes.json() : []
+      if (lRes.ok) { const ld = await lRes.json(); setPlusOneAge(ld.plus_one_age ?? null) }
+      setQuarters(qs)
+      const current = qs.find(q => q.is_current) ?? qs[qs.length - 1]
+      if (current) setSelectedQuarterId(current.id)
+      else setLoading(false)
+    }).catch(() => setLoading(false))
   }, [leagueId])
 
   // 분기별 팀 구성 로드
@@ -68,27 +84,39 @@ export default function LeagueTeamsPage() {
 
         const leaderMap = Object.fromEntries(leadersRaw.map(l => [l.team_id, l.leader_player_id]))
 
-        // 팀별 선수 그룹핑 (정규선수만 포함, team_id 있는 선수만)
+        // 팀별 선수 그룹핑 (정규선수만)
         const teamMap: Record<string, TeamPlayer[]> = {}
+        const irregularList: TeamPlayer[] = []
+
         for (const p of playersRaw) {
-          if (!p.team_id || p.is_regular === false) continue
+          if (p.is_regular === false) {
+            irregularList.push(p)
+            continue
+          }
+          if (!p.team_id) continue
           if (!teamMap[p.team_id]) teamMap[p.team_id] = []
           teamMap[p.team_id].push(p)
         }
 
-        // 팀 데이터 구성
-        const result: TeamData[] = teamsRaw.map((t: { id: string; name: string; color: string }) => ({
-          id: t.id,
-          name: t.name,
-          color: t.color,
-          players: (teamMap[t.id] ?? []).sort((a: TeamPlayer, b: TeamPlayer) => a.name.localeCompare(b.name)),
-          leader_player_id: leaderMap[t.id] ?? null,
-        }))
+        // 팀 데이터 구성 — 리더 최상단, 나머지 이름순
+        const result: TeamData[] = teamsRaw.map((t: { id: string; name: string; color: string }) => {
+          const leaderId = leaderMap[t.id] ?? null
+          const sorted = (teamMap[t.id] ?? []).sort((a: TeamPlayer, b: TeamPlayer) => {
+            if (a.id === leaderId) return -1
+            if (b.id === leaderId) return 1
+            return a.name.localeCompare(b.name)
+          })
+          return { id: t.id, name: t.name, color: t.color, players: sorted, leader_player_id: leaderId }
+        })
 
-        // 선수가 있는 팀만 표시 (없는 팀은 뒤로)
+        // 선수가 있는 팀 우선
         result.sort((a, b) => b.players.length - a.players.length)
 
+        // 비정규 선수 이름순
+        irregularList.sort((a, b) => a.name.localeCompare(b.name))
+
         setTeams(result)
+        setIrregulars(irregularList)
         setLoading(false)
         setLoadingTeams(false)
       })
@@ -168,6 +196,7 @@ export default function LeagueTeamsPage() {
                 <div className="px-3 pb-3 space-y-1">
                   {team.players.map(p => {
                     const isLeader = team.leader_player_id === p.id
+                    const plusOne = plusOneAge != null && calcAgeNum(p.birth_date) >= plusOneAge
                     return (
                       <div
                         key={p.id}
@@ -175,10 +204,10 @@ export default function LeagueTeamsPage() {
                           isLeader ? 'bg-yellow-500/10 border border-yellow-500/20' : 'bg-gray-800/60'
                         }`}
                       >
-                        <span className="font-mono text-gray-500 text-[11px] w-6 shrink-0 text-right">
-                          {p.number ?? '—'}
-                        </span>
                         <span className="flex-1 text-sm text-white truncate">{p.name}</span>
+                        {plusOne && (
+                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">+1</span>
+                        )}
                         {p.position && (
                           <span className="text-[10px] text-gray-600 shrink-0">{p.position}</span>
                         )}
@@ -193,11 +222,30 @@ export default function LeagueTeamsPage() {
             </div>
           ))}
 
-          {/* 미배정 선수 표시 (있을 경우) */}
-          {(() => {
-            // 분기에 배정된 선수 전체 로드는 별도 API — 여기선 unassigned 별도 표시 생략
-            return null
-          })()}
+          {/* 비정규 선수 하단 병렬 배치 */}
+          {irregulars.length > 0 && (
+            <div className="lg:col-span-3 sm:col-span-2 col-span-1">
+              <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-400">비정규 선수</span>
+                  <span className="text-xs text-gray-600 font-mono">{irregulars.length}명</span>
+                </div>
+                <div className="px-3 py-3 flex flex-wrap gap-2">
+                  {irregulars.map(p => {
+                    const plusOne = plusOneAge != null && calcAgeNum(p.birth_date) >= plusOneAge
+                    return (
+                      <div key={p.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-800/60">
+                        <span className="text-sm text-gray-400">{p.name}</span>
+                        {plusOne && (
+                          <span className="text-[9px] font-black px-1 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">+1</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

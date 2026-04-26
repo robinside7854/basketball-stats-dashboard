@@ -8,8 +8,8 @@ import { toast } from 'sonner'
 import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Pencil, Check, X } from 'lucide-react'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
-const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C', 'G', 'F']
-const POSITION_FILTER_OPTIONS = ['ALL', 'PG', 'SG', 'SF', 'PF', 'C', 'G', 'F']
+const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
+const POSITION_FILTER_OPTIONS = ['ALL', 'PG', 'SG', 'SF', 'PF', 'C']
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
 type PlayerQuarterMap = Record<string, Record<string, { team_id: string | null; is_regular: boolean | null }>>
@@ -161,8 +161,21 @@ function calcAgeNum(dateStr: string | null): number {
 }
 
 // ── 수정 3: 선수 상세 모달 (파란날개 PlayerDetailModal 다크 스타일) ───────────
+// 플러스원 여부 판정 (만 나이 기준)
+function isPlusOne(birthDate: string | null, plusOneAge: number | null): boolean {
+  if (!plusOneAge || !birthDate) return false
+  const birth = new Date(birthDate)
+  if (isNaN(birth.getTime())) return false
+  const now = new Date()
+  let age = now.getFullYear() - birth.getFullYear()
+  const md = now.getMonth() - birth.getMonth()
+  if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--
+  return age >= plusOneAge
+}
+
 interface PlayerModalProps {
   player: LeaguePlayer
+  plusOneAge: number | null
   isEditMode: boolean
   leagueHeaders: Record<string, string>
   leagueId: string
@@ -177,6 +190,7 @@ interface PlayerModalProps {
 
 function PlayerModal({
   player,
+  plusOneAge,
   isEditMode,
   leagueHeaders,
   leagueId,
@@ -327,7 +341,12 @@ function PlayerModal({
 
               {/* 이름 + 포지션 */}
               <div className="z-10 flex-1 min-w-0">
-                <h1 className="text-3xl font-black text-white leading-tight tracking-wide mb-2">{player.name}</h1>
+                <div className="flex items-center gap-2 mb-2">
+                  <h1 className="text-3xl font-black text-white leading-tight tracking-wide">{player.name}</h1>
+                  {isPlusOne(player.birth_date, plusOneAge) && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">+1</span>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {positions.length > 0
                     ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
@@ -468,6 +487,7 @@ export default function LeagueRosterPage() {
   const [players, setPlayers] = useState<LeaguePlayer[]>([])
   const [teams, setTeams] = useState<LeagueTeam[]>([])
   const [quarters, setQuarters] = useState<Quarter[]>([])
+  const [plusOneAge, setPlusOneAge] = useState<number | null>(null)
   const [membershipMap, setMembershipMap] = useState<PlayerQuarterMap>({})
   const [leaderMap, setLeaderMap] = useState<LeaderMap>({})
   const [loading, setLoading] = useState(true)
@@ -508,12 +528,14 @@ export default function LeagueRosterPage() {
 
   async function load() {
     setLoading(true)
-    const [pRes, tRes, qRes] = await Promise.all([
+    const [pRes, tRes, qRes, lRes] = await Promise.all([
       fetch(`/api/leagues/${leagueId}/players`),
       fetch(`/api/leagues/${leagueId}/teams`),
       fetch(`/api/leagues/${leagueId}/quarters`),
+      fetch(`/api/leagues/${leagueId}`),
     ])
 
+    if (lRes.ok) { const ld = await lRes.json(); setPlusOneAge(ld.plus_one_age ?? null) }
     const playersData: LeaguePlayer[] = pRes.ok ? await pRes.json() : []
     const teamsData: LeagueTeam[] = tRes.ok ? (await tRes.json()).map((t: LeagueTeam & { players?: unknown[] }) => {
       const { players: _, ...rest } = t as LeagueTeam & { players?: unknown[] }
@@ -1124,6 +1146,7 @@ export default function LeagueRosterPage() {
       {selectedPlayer && (
         <PlayerModal
           player={selectedPlayer}
+          plusOneAge={plusOneAge}
           isEditMode={isEditMode}
           leagueHeaders={leagueHeaders}
           leagueId={leagueId}
