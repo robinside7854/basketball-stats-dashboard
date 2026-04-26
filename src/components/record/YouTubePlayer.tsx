@@ -14,11 +14,20 @@ declare global {
 
 export default function YouTubePlayer({ youtubeUrl, startOffset, resumeAt }: Props) {
   const playerRef = useRef<HTMLDivElement>(null)
+  const ytPlayerRef = useRef<YT.Player | null>(null)
   const setYtPlayer = useGameStore(s => s.setYtPlayer)
   const videoId = extractYouTubeId(youtubeUrl)
 
   useEffect(() => {
     if (!videoId) return
+
+    // 기존 플레이어 완전 파괴 후 div 초기화
+    if (ytPlayerRef.current) {
+      try { ytPlayerRef.current.destroy() } catch { /* ignore */ }
+      ytPlayerRef.current = null
+    }
+    if (playerRef.current) playerRef.current.innerHTML = ''
+
     function initPlayer() {
       if (!playerRef.current) return
       const player = new window.YT.Player(playerRef.current, {
@@ -27,6 +36,7 @@ export default function YouTubePlayer({ youtubeUrl, startOffset, resumeAt }: Pro
         events: {
           onReady: () => {
             if (resumeAt && resumeAt > 1) player.seekTo(Math.floor(resumeAt), true)
+            ytPlayerRef.current = player
             setYtPlayer(player)
           },
           onError: () => console.warn('YouTube player error'),
@@ -43,7 +53,14 @@ export default function YouTubePlayer({ youtubeUrl, startOffset, resumeAt }: Pro
       window.onYouTubeIframeAPIReady = initPlayer
     }
 
-    return () => setYtPlayer(null)
+    return () => {
+      if (ytPlayerRef.current) {
+        try { ytPlayerRef.current.destroy() } catch { /* ignore */ }
+        ytPlayerRef.current = null
+      }
+      if (playerRef.current) playerRef.current.innerHTML = ''
+      setYtPlayer(null)
+    }
   }, [videoId, startOffset, setYtPlayer])
 
   if (!videoId) {

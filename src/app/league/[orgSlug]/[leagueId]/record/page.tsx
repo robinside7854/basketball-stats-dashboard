@@ -435,6 +435,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           {selectedSlot.youtube_url && (
             <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
               <YouTubePlayer
+                key={selectedSlot.youtube_url ?? selectedSlot.id}
                 youtubeUrl={selectedSlot.youtube_url}
                 startOffset={selectedSlot.youtube_start_offset ?? 0}
               />
