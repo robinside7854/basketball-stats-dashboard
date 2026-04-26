@@ -26,6 +26,7 @@ type GameSlot = {
   away_team?: { id: string; name: string; color: string } | null
 }
 type MinRow = { id: string; league_player_id: string; league_game_id: string; out_time: number | null }
+type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
 
 const QUARTERS = [1, 2, 3, 4]
 
@@ -76,6 +77,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [statsRefresh, setStatsRefresh] = useState(0)
   const [mobileTab, setMobileTab] = useState<'record' | 'stats'>('record')
 
+  // 분기별 홈/어웨이 선수 명단
+  const [homeRoster, setHomeRoster] = useState<RosterPlayer[]>([])
+  const [awayRoster, setAwayRoster] = useState<RosterPlayer[]>([])
+  const [rosterLoading, setRosterLoading] = useState(false)
+
   // 팀 선택 (슬랏별)
   const [pendingHome, setPendingHome] = useState('')
   const [pendingAway, setPendingAway] = useState('')
@@ -86,7 +92,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [starterIds, setStarterIds] = useState<string[]>([])
   const [showStarterPicker, setShowStarterPicker] = useState(false)
   const [showComplete, setShowComplete] = useState(false)
-  const [oppScore, setOppScore] = useState('')
+  const [liveScore, setLiveScore] = useState<{ home: number; away: number } | null>(null)
 
   const selectedSlot = slots.find(s => s.id === selectedSlotId) ?? null
 
@@ -182,6 +188,22 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     setCurrentGame({ id: slot.id } as never)
     setCurrentQuarter(1)
     resetLineup()
+    setHomeRoster([])
+    setAwayRoster([])
+    setLiveScore(null)
+
+    // 분기별 홈/어웨이 선수 명단 로드
+    if (slot.home_team_id && slot.away_team_id) {
+      setRosterLoading(true)
+      const rRes = await fetch(`/api/leagues/${leagueId}/games/${slot.id}/roster`)
+      if (rRes.ok) {
+        const rd = await rRes.json()
+        setHomeRoster(rd.home ?? [])
+        setAwayRoster(rd.away ?? [])
+      }
+      setRosterLoading(false)
+    }
+
     // 출전 기록 로드
     const res = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${slot.id}`)
     if (res.ok) setMinutes(await res.json())
@@ -200,6 +222,13 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     if (res.ok) {
       toast.success('팀 저장 완료')
       await refreshSlots()
+      // roster 재로드
+      const rRes = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/roster`)
+      if (rRes.ok) {
+        const rd = await rRes.json()
+        setHomeRoster(rd.home ?? [])
+        setAwayRoster(rd.away ?? [])
+      }
     } else toast.error('팀 저장 실패')
   }
 
@@ -271,16 +300,35 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   }
 
   async function completeGame() {
-    const opp = Number(oppScore)
-    if (isNaN(opp) || oppScore === '') { toast.error('상대 점수를 입력하세요'); return }
+    // 이벤트 기반 점수 재계산
+    const recomputeRes = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/recompute`, {
+      method: 'POST',
+      headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    if (recomputeRes.ok) {
+      const scores = await recomputeRes.json()
+      setLiveScore(scores)
+    }
+    // 경기 완료 처리
     await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
       method: 'PATCH',
       headers: leagueHeaders,
-      body: JSON.stringify({ is_complete: true, away_score: opp }),
+      body: JSON.stringify({ is_complete: true }),
     })
     setShowComplete(false)
     toast.success('경기 완료 처리됨')
     refreshSlots()
+  }
+
+  async function fetchLiveScore() {
+    if (!selectedSlotId) return
+    const res = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/recompute`, {
+      method: 'POST',
+      headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    if (res.ok) setLiveScore(await res.json())
   }
 
   function handleEventSaved() {
@@ -534,24 +582,54 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                 </div>
               </div>
 
-              {/* 선발 선택 모달 */}
+              {/* 선발 선택 모달 — 홈/어웨이 분리 */}
               {showStarterPicker && (
                 <div className="bg-gray-900 border border-blue-500/40 rounded-xl p-4 space-y-3">
                   <h3 className="text-sm font-semibold text-white">선발 선수 선택</h3>
-                  <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
-                    {allPlayers.map(p => {
-                      const on = starterIds.includes(p.id)
-                      return (
-                        <button
-                          key={p.id}
-                          onClick={() => setStarterIds(ids => on ? ids.filter(x => x !== p.id) : [...ids, p.id])}
-                          className={`px-3 py-2 rounded-lg text-xs text-left border transition-colors cursor-pointer ${on ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
-                        >
-                          {p.number ? `#${p.number} ` : ''}{p.name}
-                        </button>
-                      )
-                    })}
-                  </div>
+                  {rosterLoading ? (
+                    <div className="flex justify-center py-4"><Loader2 size={18} className="animate-spin text-gray-500" /></div>
+                  ) : homeRoster.length > 0 || awayRoster.length > 0 ? (
+                    // 분기별 명단 존재: 홈/어웨이 분리
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                      {[
+                        { label: selectedSlot?.home_team?.name ?? '홈팀', color: selectedSlot?.home_team?.color, roster: homeRoster },
+                        { label: selectedSlot?.away_team?.name ?? '어웨이팀', color: selectedSlot?.away_team?.color, roster: awayRoster },
+                      ].map(({ label, color, roster }) => (
+                        <div key={label}>
+                          <p className="text-[10px] font-bold mb-1" style={{ color: color ?? '#9ca3af' }}>{label}</p>
+                          <div className="grid grid-cols-2 gap-1">
+                            {roster.map(p => {
+                              const on = starterIds.includes(p.id)
+                              return (
+                                <button key={p.id}
+                                  onClick={() => setStarterIds(ids => on ? ids.filter(x => x !== p.id) : [...ids, p.id])}
+                                  className={`px-3 py-1.5 rounded-lg text-xs text-left border transition-colors cursor-pointer ${on ? 'border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+                                  style={on ? { backgroundColor: color ?? '#3b82f6', borderColor: color } : {}}
+                                >
+                                  {p.number ? `#${p.number} ` : ''}{p.name}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    // 분기 명단 없음: 레거시 단일 목록
+                    <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
+                      {allPlayers.map(p => {
+                        const on = starterIds.includes(p.id)
+                        return (
+                          <button key={p.id}
+                            onClick={() => setStarterIds(ids => on ? ids.filter(x => x !== p.id) : [...ids, p.id])}
+                            className={`px-3 py-2 rounded-lg text-xs text-left border transition-colors cursor-pointer ${on ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'}`}
+                          >
+                            {p.number ? `#${p.number} ` : ''}{p.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <Button onClick={startGame} disabled={starterIds.length === 0} className="flex-1 bg-green-600 hover:bg-green-500 cursor-pointer" size="sm">
                       <Play size={12} className="mr-1" />시작 ({starterIds.length}명)
@@ -580,8 +658,12 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         leagueId={leagueId}
                         gameId={selectedSlotId}
                         leagueHeaders={leagueHeaders}
+                        homePlayers={homeRoster}
+                        awayPlayers={awayRoster}
+                        homeTeam={selectedSlot?.home_team ?? undefined}
+                        awayTeam={selectedSlot?.away_team ?? undefined}
                         players={allPlayers}
-                        onEventSaved={handleEventSaved}
+                        onEventSaved={() => { handleEventSaved(); fetchLiveScore() }}
                       />
                       <div className="mt-3">
                         <LeagueSubstitutionPanel
@@ -604,25 +686,43 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                 </div>
               </div>
 
-              {/* 경기 종료 모달 */}
+              {/* 경기 종료 모달 — 이벤트 자동 점수계산 */}
               {showComplete && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                  <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-xs space-y-4">
+                  <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm space-y-4">
                     <h3 className="text-white font-bold">경기 종료</h3>
-                    <div>
-                      <label className="text-xs text-gray-400">상대 팀 최종 점수</label>
-                      <input
-                        type="number"
-                        value={oppScore}
-                        onChange={e => setOppScore(e.target.value)}
-                        className="w-full mt-1 bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-xl font-bold text-center"
-                        placeholder="0"
-                        autoFocus
-                      />
-                    </div>
+                    <p className="text-xs text-gray-400">이벤트 기반 점수로 자동 계산됩니다.</p>
+                    {liveScore && (
+                      <div className="bg-gray-800 rounded-xl p-4 text-center">
+                        <div className="flex items-center justify-center gap-4">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1" style={{ color: selectedSlot?.home_team?.color }}>
+                              {selectedSlot?.home_team?.name ?? '홈'}
+                            </p>
+                            <p className="text-3xl font-black text-white">{liveScore.home}</p>
+                          </div>
+                          <span className="text-gray-600 font-bold text-lg">vs</span>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1" style={{ color: selectedSlot?.away_team?.color }}>
+                              {selectedSlot?.away_team?.name ?? '어웨이'}
+                            </p>
+                            <p className="text-3xl font-black text-white">{liveScore.away}</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-2">이벤트 합산 기준</p>
+                      </div>
+                    )}
+                    {!liveScore && (
+                      <button
+                        onClick={fetchLiveScore}
+                        className="w-full py-2 rounded-lg bg-gray-800 text-gray-400 text-sm cursor-pointer hover:bg-gray-700"
+                      >
+                        현재 점수 확인
+                      </button>
+                    )}
                     <div className="flex gap-2">
                       <Button onClick={completeGame} className="flex-1 bg-blue-600 hover:bg-blue-500 cursor-pointer" size="sm">완료 처리</Button>
-                      <Button onClick={() => setShowComplete(false)} variant="outline" size="sm" className="border-gray-700 text-gray-400 cursor-pointer">취소</Button>
+                      <Button onClick={() => { setShowComplete(false); setLiveScore(null) }} variant="outline" size="sm" className="border-gray-700 text-gray-400 cursor-pointer">취소</Button>
                     </div>
                   </div>
                 </div>

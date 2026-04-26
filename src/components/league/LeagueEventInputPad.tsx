@@ -5,10 +5,18 @@ import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
 import type { LeaguePlayer } from '@/types/league'
 
+type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
+
 interface Props {
   leagueId: string
   gameId: string
-  players: LeaguePlayer[]
+  // 기존 호환: 분기 배정 없을 때 단일 배열
+  players?: LeaguePlayer[]
+  // 신규: 홈/어웨이 분리 명단
+  homePlayers?: RosterPlayer[]
+  awayPlayers?: RosterPlayer[]
+  homeTeam?: { id: string; name: string; color: string }
+  awayTeam?: { id: string; name: string; color: string }
   leagueHeaders: Record<string, string>
   onEventSaved: () => void
 }
@@ -58,9 +66,15 @@ function calcPoints(type: string, result: string): number {
   return 0
 }
 
-export default function LeagueEventInputPad({ leagueId, gameId, players, leagueHeaders, onEventSaved }: Props) {
+export default function LeagueEventInputPad({
+  leagueId, gameId,
+  players: legacyPlayers,
+  homePlayers = [], awayPlayers = [],
+  homeTeam, awayTeam,
+  leagueHeaders, onEventSaved,
+}: Props) {
   const { currentQuarter, getCurrentTimestamp } = useGameStore()
-  const { onCourt } = useLineupStore()
+  const { onCourt, homeOnCourt, awayOnCourt } = useLineupStore()
 
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
   const [pendingShot, setPendingShot] = useState<EventBtn | null>(null)
@@ -68,8 +82,33 @@ export default function LeagueEventInputPad({ leagueId, gameId, players, leagueH
   const [lastEventId, setLastEventId] = useState<string | null>(null)
   const [lastEventLabel, setLastEventLabel] = useState('')
 
-  const onCourtPlayers = players.filter(p => onCourt.includes(p.id))
-  const assistCandidates = onCourtPlayers.filter(p => p.id !== selectedPlayer)
+  // 홈/어웨이 분리 모드 vs 레거시 단일 모드
+  const hasRoster = homePlayers.length > 0 || awayPlayers.length > 0
+  const allPlayers: RosterPlayer[] = hasRoster
+    ? [...homePlayers, ...awayPlayers]
+    : (legacyPlayers ?? [])
+
+  // 출전 선수 필터 (분리 모드: homeOnCourt+awayOnCourt, 레거시: onCourt)
+  const homeOnCourtPlayers = homePlayers.filter(p =>
+    hasRoster ? homeOnCourt.includes(p.id) : onCourt.includes(p.id)
+  )
+  const awayOnCourtPlayers = awayPlayers.filter(p =>
+    hasRoster ? awayOnCourt.includes(p.id) : onCourt.includes(p.id)
+  )
+  const legacyOnCourtPlayers = !hasRoster
+    ? (legacyPlayers ?? []).filter(p => onCourt.includes(p.id))
+    : []
+
+  const allOnCourt = hasRoster
+    ? [...homeOnCourtPlayers, ...awayOnCourtPlayers]
+    : legacyOnCourtPlayers
+
+  const assistCandidates = allOnCourt.filter(p => p.id !== selectedPlayer)
+
+  // 선택된 선수의 팀 ID (이벤트 저장 시 team_id 전달)
+  const selectedPlayerTeamId = selectedPlayer
+    ? (allPlayers.find(p => p.id === selectedPlayer) as RosterPlayer | undefined)?.team_id ?? null
+    : null
 
   async function saveEvent(body: object): Promise<string | null> {
     const res = await fetch(`/api/leagues/${leagueId}/events`, {
@@ -91,14 +130,15 @@ export default function LeagueEventInputPad({ leagueId, gameId, players, leagueH
       video_timestamp: getCurrentTimestamp(),
       type: pendingShot.type,
       league_player_id: selectedPlayer,
+      team_id: selectedPlayerTeamId,
       result,
       related_player_id: assistId ?? null,
       points: pts,
     })
     if (!id) return
 
-    const pName = players.find(p => p.id === selectedPlayer)?.name ?? ''
-    const assistP = assistId ? players.find(p => p.id === assistId) : null
+    const pName = allPlayers.find(p => p.id === selectedPlayer)?.name ?? ''
+    const assistP = assistId ? allPlayers.find(p => p.id === assistId) : null
     const mark = result === 'made' ? ' ✓' : ' ✗'
     const label = `${pName} — ${pendingShot.label}${mark}${assistP ? ` (A: ${assistP.name})` : ''} (Q${currentQuarter})`
     setLastEventId(id)
@@ -117,12 +157,13 @@ export default function LeagueEventInputPad({ leagueId, gameId, players, leagueH
       video_timestamp: getCurrentTimestamp(),
       type: btn.type,
       league_player_id: selectedPlayer,
+      team_id: selectedPlayerTeamId,
       result: null,
       related_player_id: null,
       points: 0,
     })
     if (!id) return
-    const pName = players.find(p => p.id === selectedPlayer)?.name ?? ''
+    const pName = allPlayers.find(p => p.id === selectedPlayer)?.name ?? ''
     const label = `${pName} — ${btn.label} (Q${currentQuarter})`
     setLastEventId(id)
     setLastEventLabel(label)
@@ -165,24 +206,82 @@ export default function LeagueEventInputPad({ leagueId, gameId, players, leagueH
       </div>
 
       {/* 선수 선택 */}
-      <div>
-        <p className="text-xs text-gray-400 mb-1.5">1. 선수 선택</p>
-        <div className="grid grid-cols-5 gap-1">
-          {onCourtPlayers.map(p => (
-            <button
-              key={p.id}
-              onClick={() => { setSelectedPlayer(p.id); setPendingShot(null); setAwaitingAssist(false) }}
-              className={`py-2 px-1 rounded-lg text-center text-xs font-medium transition-all cursor-pointer border ${
-                selectedPlayer === p.id
-                  ? 'bg-blue-600 border-blue-500 text-white'
-                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
-              }`}
-            >
-              <div className="font-mono text-gray-400 text-[10px]">{p.number ?? '—'}</div>
-              <div className="truncate">{p.name}</div>
-            </button>
-          ))}
-        </div>
+      <div className="space-y-2">
+        <p className="text-xs text-gray-400">1. 선수 선택</p>
+
+        {hasRoster ? (
+          // ── 홈/어웨이 분리 모드 ─────────────────────────────
+          <>
+            {homeOnCourtPlayers.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold mb-1"
+                   style={{ color: homeTeam?.color ?? '#3b82f6' }}>
+                  🏠 {homeTeam?.name ?? '홈팀'}
+                </p>
+                <div className="grid grid-cols-5 gap-1">
+                  {homeOnCourtPlayers.map(p => (
+                    <button key={p.id}
+                      onClick={() => { setSelectedPlayer(p.id); setPendingShot(null); setAwaitingAssist(false) }}
+                      className={`py-2 px-1 rounded-lg text-center text-xs font-medium transition-all cursor-pointer border ${
+                        selectedPlayer === p.id
+                          ? 'border-blue-500 text-white'
+                          : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
+                      }`}
+                      style={selectedPlayer === p.id ? { backgroundColor: homeTeam?.color ?? '#3b82f6', borderColor: homeTeam?.color } : {}}
+                    >
+                      <div className="font-mono text-[10px] opacity-70">{p.number ?? '—'}</div>
+                      <div className="truncate">{p.name}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {awayOnCourtPlayers.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold mb-1"
+                   style={{ color: awayTeam?.color ?? '#ef4444' }}>
+                  ✈ {awayTeam?.name ?? '어웨이팀'}
+                </p>
+                <div className="grid grid-cols-5 gap-1">
+                  {awayOnCourtPlayers.map(p => (
+                    <button key={p.id}
+                      onClick={() => { setSelectedPlayer(p.id); setPendingShot(null); setAwaitingAssist(false) }}
+                      className={`py-2 px-1 rounded-lg text-center text-xs font-medium transition-all cursor-pointer border ${
+                        selectedPlayer === p.id
+                          ? 'border-blue-500 text-white'
+                          : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
+                      }`}
+                      style={selectedPlayer === p.id ? { backgroundColor: awayTeam?.color ?? '#ef4444', borderColor: awayTeam?.color } : {}}
+                    >
+                      <div className="font-mono text-[10px] opacity-70">{p.number ?? '—'}</div>
+                      <div className="truncate">{p.name}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {homeOnCourtPlayers.length === 0 && awayOnCourtPlayers.length === 0 && (
+              <p className="text-xs text-gray-600">선발 선수를 먼저 선택하세요</p>
+            )}
+          </>
+        ) : (
+          // ── 레거시 단일 모드 ────────────────────────────────
+          <div className="grid grid-cols-5 gap-1">
+            {legacyOnCourtPlayers.map(p => (
+              <button key={p.id}
+                onClick={() => { setSelectedPlayer(p.id); setPendingShot(null); setAwaitingAssist(false) }}
+                className={`py-2 px-1 rounded-lg text-center text-xs font-medium transition-all cursor-pointer border ${
+                  selectedPlayer === p.id
+                    ? 'bg-blue-600 border-blue-500 text-white'
+                    : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
+                }`}
+              >
+                <div className="font-mono text-gray-400 text-[10px]">{p.number ?? '—'}</div>
+                <div className="truncate">{p.name}</div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 이벤트 버튼 */}

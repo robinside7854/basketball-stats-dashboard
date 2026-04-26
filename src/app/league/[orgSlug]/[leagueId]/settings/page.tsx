@@ -5,8 +5,10 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube } from 'lucide-react'
+import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube, Calendar } from 'lucide-react'
 import type { League } from '@/types/league'
+
+type Quarter = { id: string; year: number; quarter: number; is_current: boolean; start_date: string | null; end_date: string | null }
 
 const DOW_OPTIONS = [
   { value: 'monday', label: '월요일' }, { value: 'tuesday', label: '화요일' },
@@ -41,9 +43,19 @@ export default function LeagueSettingsPage() {
   // YouTube 채널 핸들 (DB 저장)
   const [ytChannel, setYtChannel] = useState('')
 
+  // 분기 날짜 범위 관리
+  const [quarters, setQuarters] = useState<Quarter[]>([])
+  const [editingQuarter, setEditingQuarter] = useState<string | null>(null)
+  const [qStartDate, setQStartDate] = useState('')
+  const [qEndDate, setQEndDate] = useState('')
+  const [savingQuarter, setSavingQuarter] = useState<string | null>(null)
+
   async function load() {
     setLoading(true)
-    const res = await fetch(`/api/leagues/${leagueId}`)
+    const [res, qRes] = await Promise.all([
+      fetch(`/api/leagues/${leagueId}`),
+      fetch(`/api/leagues/${leagueId}/quarters`),
+    ])
     if (res.ok) {
       const data: League = await res.json()
       setLeague(data)
@@ -55,7 +67,26 @@ export default function LeagueSettingsPage() {
       setPin(data.edit_pin ?? '0000')
       setYtChannel(data.youtube_channel ?? '')
     }
+    if (qRes.ok) setQuarters(await qRes.json())
     setLoading(false)
+  }
+
+  async function saveQuarterDates(quarterId: string) {
+    setSavingQuarter(quarterId)
+    const res = await fetch(`/api/leagues/${leagueId}/quarters`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...leagueHeaders },
+      body: JSON.stringify({ quarterId, start_date: qStartDate || null, end_date: qEndDate || null }),
+    })
+    setSavingQuarter(null)
+    if (res.ok) {
+      toast.success('분기 날짜 저장 완료')
+      setEditingQuarter(null)
+      const qRes = await fetch(`/api/leagues/${leagueId}/quarters`)
+      if (qRes.ok) setQuarters(await qRes.json())
+    } else {
+      toast.error('저장 실패')
+    }
   }
 
   useEffect(() => { load() }, [leagueId])
@@ -289,6 +320,69 @@ export default function LeagueSettingsPage() {
         </div>
         <p className="text-xs text-gray-600">PIN 변경 후 현재 세션은 유지되며 다음 접속 시 새 PIN이 적용됩니다</p>
       </div>
+
+      {/* 분기 날짜 범위 설정 */}
+      {quarters.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Calendar size={16} className="text-blue-400" />
+            <h3 className="font-semibold text-white text-sm">분기별 날짜 범위</h3>
+          </div>
+          <p className="text-xs text-gray-500">
+            각 분기의 시작일/종료일을 지정하면 경기 날짜 → 분기 자동 매핑, 분기별 스탯 집계에 사용됩니다.
+          </p>
+          <div className="space-y-2">
+            {quarters.map(q => (
+              <div key={q.id} className="bg-gray-800 rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-sm font-semibold ${q.is_current ? 'text-blue-400' : 'text-white'}`}>
+                    {String(q.year).slice(2)}.{q.quarter}Q {q.is_current ? '● 현재' : ''}
+                  </span>
+                  {editingQuarter !== q.id && (
+                    <button
+                      onClick={() => {
+                        setEditingQuarter(q.id)
+                        setQStartDate(q.start_date ?? '')
+                        setQEndDate(q.end_date ?? '')
+                      }}
+                      className="text-xs text-gray-400 hover:text-white cursor-pointer"
+                    >편집</button>
+                  )}
+                </div>
+                {editingQuarter === q.id ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[10px] text-gray-500">시작일</label>
+                        <Input type="date" value={qStartDate} onChange={e => setQStartDate(e.target.value)}
+                          className="bg-gray-700 border-gray-600 text-white text-xs mt-0.5" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-gray-500">종료일</label>
+                        <Input type="date" value={qEndDate} onChange={e => setQEndDate(e.target.value)}
+                          className="bg-gray-700 border-gray-600 text-white text-xs mt-0.5" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => saveQuarterDates(q.id)}
+                        disabled={savingQuarter === q.id}
+                        className="bg-blue-600 hover:bg-blue-500 cursor-pointer text-xs">
+                        {savingQuarter === q.id ? <Loader2 size={11} className="animate-spin" /> : '저장'}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setEditingQuarter(null)}
+                        className="border-gray-700 text-gray-400 cursor-pointer text-xs">취소</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    {q.start_date ? `${q.start_date} ~ ${q.end_date ?? '미지정'}` : '날짜 미설정 (달력 분기 자동 계산)'}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
