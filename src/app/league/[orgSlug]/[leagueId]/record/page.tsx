@@ -551,55 +551,61 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
       {/* 선택된 슬랏 기록 UI */}
       {selectedSlot && (
-        <div className="space-y-4 border-t border-gray-800 pt-4">
-          {/* 팀 선택 */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
-            <h3 className="text-sm font-semibold text-gray-300">경기 {selectedSlot.slot_num} — 팀 설정</h3>
-            <div className="flex items-center gap-3">
+        <div className="border-t border-gray-800 pt-4">
+          {/* 팀 설정 (항상 상단 compact) */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 shrink-0">경기 {selectedSlot.slot_num}</span>
               <select
                 value={pendingHome}
                 onChange={e => setPendingHome(e.target.value)}
                 disabled={gameStarted}
-                className="flex-1 bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer disabled:opacity-50"
+                className="flex-1 bg-gray-800 border border-gray-700 text-white rounded-md px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50"
               >
                 <option value="">홈 팀 선택</option>
                 {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
-              <span className="text-gray-500 font-bold text-sm shrink-0">vs</span>
+              <span className="text-gray-500 font-bold text-xs shrink-0">vs</span>
               <select
                 value={pendingAway}
                 onChange={e => setPendingAway(e.target.value)}
                 disabled={gameStarted}
-                className="flex-1 bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer disabled:opacity-50"
+                className="flex-1 bg-gray-800 border border-gray-700 text-white rounded-md px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50"
               >
                 <option value="">어웨이 팀 선택</option>
                 {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
               {!gameStarted && (
-                <Button onClick={saveTeams} disabled={savingTeam} size="sm" className="bg-blue-600 hover:bg-blue-500 cursor-pointer shrink-0">
-                  {savingTeam ? <Loader2 size={12} className="animate-spin" /> : '저장'}
+                <Button onClick={saveTeams} disabled={savingTeam} size="sm" className="bg-blue-600 hover:bg-blue-500 cursor-pointer shrink-0 text-xs px-3">
+                  {savingTeam ? <Loader2 size={11} className="animate-spin" /> : '저장'}
                 </Button>
               )}
             </div>
           </div>
 
-          {/* YouTube 플레이어 */}
-          {selectedSlot.youtube_url && (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-              <YouTubePlayer
-                key={selectedSlot.youtube_url ?? selectedSlot.id}
-                youtubeUrl={selectedSlot.youtube_url}
-                startOffset={selectedSlot.youtube_start_offset ?? 0}
-              />
-            </div>
-          )}
-
-          {/* 팀이 지정된 경우에만 기록 UI 표시 */}
+          {/* 팀이 지정된 경우: 비디오(좌) + 기록(우) 2열 레이아웃 */}
           {selectedSlot.home_team_id && selectedSlot.away_team_id ? (
             <>
-              {/* 경기 제어 */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                <div className="p-4">
+            <div className="lg:grid lg:grid-cols-[1fr_1fr] lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
+
+              {/* ── 좌측: 비디오 + 경기 제어 (sticky) ── */}
+              <div className="lg:sticky lg:top-4 space-y-3">
+                {selectedSlot.youtube_url ? (
+                  <div className="bg-black rounded-xl overflow-hidden">
+                    <YouTubePlayer
+                      key={selectedSlot.youtube_url ?? selectedSlot.id}
+                      youtubeUrl={selectedSlot.youtube_url}
+                      startOffset={selectedSlot.youtube_start_offset ?? 0}
+                    />
+                  </div>
+                ) : (
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-center h-40 text-gray-700 text-sm">
+                    영상 미연동
+                  </div>
+                )}
+
+                {/* 경기 시작/마감 */}
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
                   {!gameStarted ? (
                     <Button
                       onClick={startGame}
@@ -609,7 +615,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                     >
                       {startingGame
                         ? <><Loader2 size={13} className="mr-1 animate-spin" />시작 중...</>
-                        : <><Play size={13} className="mr-1" />경기 시작 ({homeRoster.length + awayRoster.length}명 자동 출전)</>}
+                        : <><Play size={13} className="mr-1" />경기 시작 ({homeRoster.length + awayRoster.length}명)</>}
                     </Button>
                   ) : (
                     <div className="flex gap-2">
@@ -618,29 +624,34 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       </div>
                       <button
                         onClick={() => setShowComplete(true)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-900/40 border border-red-800/50 text-red-300 hover:bg-red-800/40 hover:text-white text-xs cursor-pointer transition-colors"
+                        className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-white text-xs font-bold cursor-pointer transition-colors"
                       >
                         <Square size={11} />마감
                       </button>
                     </div>
                   )}
                 </div>
+
+                {/* 통계 (데스크탑 좌측 하단) */}
+                <div className="hidden lg:block">
+                  <LeagueStatsPanel leagueId={leagueId} gameId={selectedSlotId} players={allPlayers} refreshKey={statsRefresh} />
+                </div>
               </div>
 
-              {/* 모바일 탭 */}
-              <div className="flex gap-1 lg:hidden">
-                {(['record', 'stats'] as const).map(tab => (
-                  <button key={tab} onClick={() => setMobileTab(tab)}
-                    className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${mobileTab === tab ? 'bg-gray-700 text-white' : 'bg-gray-900 text-gray-500'}`}>
-                    {tab === 'record' ? '기록' : '통계'}
-                  </button>
-                ))}
-              </div>
+              {/* ── 우측: 기록 패널 ── */}
+              <div className="space-y-3">
+                {/* 모바일 탭 */}
+                <div className="flex gap-1 lg:hidden">
+                  {(['record', 'stats'] as const).map(tab => (
+                    <button key={tab} onClick={() => setMobileTab(tab)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors cursor-pointer ${mobileTab === tab ? 'bg-gray-700 text-white' : 'bg-gray-900 text-gray-500'}`}>
+                      {tab === 'record' ? '기록' : '통계'}
+                    </button>
+                  ))}
+                </div>
 
-              {/* 기록 + 통계 */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className={mobileTab === 'record' ? '' : 'hidden lg:block'}>
-                  {gameStarted && (
+                  {gameStarted ? (
                     <>
                       <LeagueEventInputPad
                         leagueId={leagueId}
@@ -698,14 +709,21 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         />
                       </div>
                     </>
+                  ) : (
+                    <div className="text-center py-12 text-gray-600 text-sm">
+                      경기 시작 버튼을 눌러 기록을 시작하세요
+                    </div>
                   )}
                 </div>
-                <div className={mobileTab === 'stats' ? '' : 'hidden lg:block'}>
+
+                {/* 통계 (모바일) */}
+                <div className={mobileTab === 'stats' ? 'lg:hidden' : 'hidden'}>
                   <LeagueStatsPanel leagueId={leagueId} gameId={selectedSlotId} players={allPlayers} refreshKey={statsRefresh} />
                 </div>
               </div>
+            </div>
 
-              {/* 비정규 선수 팀 선택 미니 모달 */}
+            {/* 비정규 선수 팀 선택 미니 모달 */}
               {pendingIrregular && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                   <div className="bg-gray-900 border border-gray-700 rounded-2xl p-5 w-full max-w-xs space-y-3">
