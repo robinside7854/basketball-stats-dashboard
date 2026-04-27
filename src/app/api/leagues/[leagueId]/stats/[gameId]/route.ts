@@ -50,8 +50,14 @@ export async function GET(
     const made = e.result === 'made'
 
     if (e.type === 'shot_3p') { s.fg3a++; s.fga++; if (made) { s.fg3m++; s.fgm++; s.pts += 3 } }
-    else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post') { s.fga++; if (made) { s.fgm++; s.pts += 2 } }
+    else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post' || e.type === 'shot_2p_drive') { s.fga++; if (made) { s.fgm++; s.pts += 2 } }
     else if (e.type === 'free_throw') { s.fta++; if (made) { s.ftm++; s.pts += 1 } }
+    // 리그 특수: 2P파울 FT (1샷, 성공 시 2점)
+    else if (e.type === 'ft_2pt') { s.fta++; if (made) { s.ftm++; s.pts += 2 } }
+    // 리그 특수: 3P파울 1구 (성공 시 2점)
+    else if (e.type === 'ft_3pt_1') { s.fta++; if (made) { s.ftm++; s.pts += 2 } }
+    // 리그 특수: 3P파울 2구 (성공 시 1점)
+    else if (e.type === 'ft_3pt_2') { s.fta++; if (made) { s.ftm++; s.pts += 1 } }
     else if (e.type === 'oreb') { s.oreb++; s.reb++ }
     else if (e.type === 'dreb') { s.dreb++; s.reb++ }
     else if (e.type === 'steal') s.stl++

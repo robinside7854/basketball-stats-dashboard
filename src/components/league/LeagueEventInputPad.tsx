@@ -37,7 +37,14 @@ const EVENT_GROUPS: { label: string; buttons: EventBtn[] }[] = [
       { type: 'shot_2p_mid', label: '미들슛', color: 'bg-blue-600 hover:bg-blue-500',    needsResult: true, needsRelated: true },
       { type: 'shot_layup',  label: '레이업', color: 'bg-blue-700 hover:bg-blue-600',    needsResult: true, needsRelated: true },
       { type: 'shot_post',   label: '골밑슛', color: 'bg-violet-700 hover:bg-violet-600',needsResult: true, needsRelated: true },
-      { type: 'free_throw',  label: 'FT',    color: 'bg-cyan-600 hover:bg-cyan-500',     needsResult: true },
+    ],
+  },
+  {
+    label: '자유투',
+    buttons: [
+      { type: 'ft_2pt',    label: '2P파울 FT', color: 'bg-cyan-600 hover:bg-cyan-500',  needsResult: true },
+      { type: 'ft_3pt_1',  label: '3P파울 1구', color: 'bg-teal-600 hover:bg-teal-500',  needsResult: true },
+      { type: 'ft_3pt_2',  label: '3P파울 2구', color: 'bg-teal-700 hover:bg-teal-600',  needsResult: true },
     ],
   },
   {
@@ -71,11 +78,14 @@ function calcAge(birthDate: string | null | undefined): number {
 
 function calcPoints(type: string, result: string, isPlusOne = false): number {
   if (result !== 'made') return 0
-  // 자유투(FT)는 +1 미적용
-  if (type === 'free_throw') return 1
+  // 자유투: +1 미적용 (규칙)
+  if (type === 'ft_2pt')    return 2  // 2점 파울 1샷
+  if (type === 'ft_3pt_1')  return 2  // 3점 파울 1구
+  if (type === 'ft_3pt_2')  return 1  // 3점 파울 2구
+  if (type === 'free_throw') return 1 // 하위 호환
   const bonus = isPlusOne ? 1 : 0
   if (type === 'shot_3p') return 3 + bonus
-  if (['shot_2p_mid','shot_layup','shot_post'].includes(type)) return 2 + bonus
+  if (['shot_2p_mid','shot_layup','shot_post','shot_2p_drive'].includes(type)) return 2 + bonus
   return 0
 }
 
@@ -164,7 +174,8 @@ export default function LeagueEventInputPad({
     setLastEventLabel(label)
     toast.success(`기록: ${label}`)
     setAwaitingAssist(false)
-    if (pendingShot.type !== 'free_throw') setPendingShot(null)
+    const ftTypes = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2']
+    if (!ftTypes.includes(pendingShot.type)) setPendingShot(null)
     onEventSaved()
   }
 
@@ -310,12 +321,14 @@ export default function LeagueEventInputPad({
         <div className="space-y-2 pt-1">
           {EVENT_GROUPS.map(group => {
             const isShooting = group.label === '슈팅'
+            const isFT       = group.label === '자유투'
             const isRebound  = group.label === '리바운드'
             return (
               <div key={group.label}>
                 <p className="text-[10px] text-gray-500 mb-1">{group.label}</p>
                 <div className={`grid gap-1.5 ${
-                  isShooting ? 'grid-cols-5' :
+                  isShooting ? 'grid-cols-4' :
+                  isFT       ? 'grid-cols-3' :
                   isRebound  ? 'grid-cols-2' :
                                'grid-cols-4'
                 }`}>
