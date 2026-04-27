@@ -58,7 +58,7 @@ export default function LeagueRecordPage() {
 // ── 내부 컴포넌트 ─────────────────────────────────────────────
 function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHeaders: Record<string, string> }) {
   const { setCurrentGame } = useGameStore()
-  const { setLineup, resetLineup } = useLineupStore()
+  const { setLineup, resetLineup, onCourt } = useLineupStore()
 
   const [scheduleDates, setScheduleDates] = useState<ScheduleDate[]>([])
   const [selectedDate, setSelectedDate] = useState('')
@@ -844,8 +844,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         leagueId={leagueId}
                         gameId={selectedSlotId}
                         leagueHeaders={leagueHeaders}
-                        homePlayers={homeRoster}
-                        awayPlayers={awayRoster}
+                        homePlayers={homeRoster.filter(p => onCourt.includes(p.id))}
+                        awayPlayers={awayRoster.filter(p => onCourt.includes(p.id))}
                         homeTeam={selectedSlot?.home_team ?? undefined}
                         awayTeam={selectedSlot?.away_team ?? undefined}
                         onEventSaved={() => { handleEventSaved(); fetchLiveScore() }}
