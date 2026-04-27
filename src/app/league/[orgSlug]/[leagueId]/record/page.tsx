@@ -8,12 +8,13 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import {
   Lock, Loader2, Play, Square, ChevronLeft,
-  CheckCircle2, Circle, Youtube, RefreshCw, UserPlus,
+  CheckCircle2, Circle, Youtube, RefreshCw, UserPlus, ClipboardList,
 } from 'lucide-react'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
 import LeagueEventInputPad from '@/components/league/LeagueEventInputPad'
 import LeagueSubstitutionPanel from '@/components/league/LeagueSubstitutionPanel'
 import LeagueStatsPanel from '@/components/league/LeagueStatsPanel'
+import GameLogModal from '@/components/league/GameLogModal'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
 type ScheduleDate = { id: string; date: string }
@@ -97,6 +98,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [showComplete, setShowComplete] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [liveScore, setLiveScore] = useState<{ home: number; away: number } | null>(null)
+  const [showGameLog, setShowGameLog] = useState(false)
 
   // 선발 체크: 선택된 선수 ID 셋 (홈+어웨이 통합)
   const [showStarterPicker, setShowStarterPicker] = useState(false)
@@ -790,6 +792,14 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             <p className="text-4xl font-black text-white tabular-nums leading-none">{liveScore?.away ?? 0}</p>
                           </div>
                         </div>
+                        {/* 게임 로그 버튼 */}
+                        <button
+                          onClick={() => setShowGameLog(true)}
+                          className="w-full py-2 border-t border-gray-800 flex items-center justify-center gap-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-900/60 text-[11px] font-medium transition-colors cursor-pointer"
+                        >
+                          <ClipboardList size={12} />
+                          게임 이벤트 로그
+                        </button>
                       </div>
 
                       <div className="mt-3">
@@ -1066,6 +1076,22 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       )}
 
       {loadingSlots && <div className="hidden" />}
+
+      {/* 게임 이벤트 로그 모달 */}
+      {showGameLog && selectedSlotId && (
+        <GameLogModal
+          gameId={selectedSlotId}
+          leagueId={leagueId}
+          leagueHeaders={leagueHeaders}
+          allPlayers={[...homeRoster, ...awayRoster]}
+          isEditMode={true}
+          onClose={() => setShowGameLog(false)}
+          onChanged={() => {
+            fetchLiveScore()
+            setStatsRefresh(k => k + 1)
+          }}
+        />
+      )}
     </div>
   )
 }
