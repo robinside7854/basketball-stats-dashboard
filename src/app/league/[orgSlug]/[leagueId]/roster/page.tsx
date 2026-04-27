@@ -5,7 +5,8 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Pencil, Check, X } from 'lucide-react'
+import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Pencil, Check, X, BookOpen } from 'lucide-react'
+import BadgeBookModal from '@/components/league/BadgeBookModal'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
@@ -903,6 +904,7 @@ export default function LeagueRosterPage() {
 
   // 수정 3: 선수 상세 모달
   const [selectedPlayer, setSelectedPlayer] = useState<LeaguePlayer | null>(null)
+  const [badgeBookPlayer, setBadgeBookPlayer] = useState<LeaguePlayer | null>(null)
 
   // Quarter cell edit
   const [editingCell, setEditingCell] = useState<{ playerId: string; quarterId: string } | null>(null)
@@ -1431,6 +1433,16 @@ export default function LeagueRosterPage() {
                     <p className="text-xs text-gray-700 mb-2">생년월일 미입력</p>
                   )}
 
+                  {/* 도감 버튼 */}
+                  <button
+                    onClick={e => { e.stopPropagation(); setBadgeBookPlayer(p) }}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-800/60 hover:bg-indigo-900/30 border border-gray-700/60 hover:border-indigo-500/50 text-gray-600 hover:text-indigo-400 text-[11px] font-medium transition-colors cursor-pointer mb-2.5"
+                    title="배지 도감 보기"
+                  >
+                    <BookOpen size={11} />
+                    도감
+                  </button>
+
                   {/* 분기별 팀 배정 */}
                   {displayQuarters.length > 0 && (
                     <div className="border-t border-gray-800 pt-2.5 mt-1 space-y-1.5">
@@ -1579,6 +1591,15 @@ export default function LeagueRosterPage() {
           onClose={() => setSelectedPlayer(null)}
           onSaved={() => load()}
           onDeleted={() => load()}
+        />
+      )}
+
+      {badgeBookPlayer && (
+        <BadgeBookModal
+          playerId={badgeBookPlayer.id}
+          playerName={badgeBookPlayer.name}
+          leagueId={leagueId}
+          onClose={() => setBadgeBookPlayer(null)}
         />
       )}
     </div>

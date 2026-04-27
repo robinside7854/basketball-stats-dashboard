@@ -181,8 +181,14 @@ export async function GET(
     pts: number; reb: number; oreb: number; dreb: number
     ast: number; stl: number; blk: number; tov: number; pf: number
     fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
+    midA: number; slashA: number; postA: number; andOneM: number  // Phase 2
     gp: number
   }
+  const emptyAS = (): AS => ({
+    pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
+    fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
+    midA: 0, slashA: 0, postA: 0, andOneM: 0, gp: 0,
+  })
   const allMap: Record<string, AS> = {}
   const allGp: Record<string, Set<string>> = {}
 
@@ -191,20 +197,21 @@ export async function GET(
     const made = e.result === 'made'
     const isP1 = plusOneSet.has(pid)
     const gId = e.league_game_id as string
-    if (!allMap[pid]) allMap[pid] = {
-      pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
-      fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0, gp: 0,
-    }
+    if (!allMap[pid]) allMap[pid] = emptyAS()
     if (!allGp[pid]) allGp[pid] = new Set()
     allGp[pid].add(gId)
     const s = allMap[pid]
     if (made) {
       if (e.type === 'shot_3p') { s.pts += isP1 ? 4 : 3; s.fg3m++; s.fgm++ }
       else if (['shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'].includes(e.type as string)) { s.pts += isP1 ? 3 : 2; s.fgm++ }
-      else if (['and_one', 'free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) { s.pts += (e.points as number) ?? 1; s.ftm++ }
+      else if (['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) { s.pts += (e.points as number) ?? 1; s.ftm++ }
+      else if (e.type === 'and_one') { s.pts += (e.points as number) ?? 1; s.ftm++; s.andOneM++ }
     }
     if (e.type === 'shot_3p') { s.fg3a++; s.fga++ }
-    else if (['shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'].includes(e.type as string)) s.fga++
+    else if (e.type === 'shot_2p_mid')   { s.fga++; s.midA++ }
+    else if (e.type === 'shot_layup')    { s.fga++; s.slashA++ }
+    else if (e.type === 'shot_2p_drive') { s.fga++; s.slashA++ }
+    else if (e.type === 'shot_post')     { s.fga++; s.postA++ }
     else if (['and_one', 'free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) s.fta++
     else if (e.type === 'oreb') { s.oreb++; s.reb++ }
     else if (e.type === 'dreb') { s.dreb++; s.reb++ }
@@ -214,10 +221,7 @@ export async function GET(
     else if (e.type === 'foul') s.pf++
     if (e.related_player_id && made && (SHOT_TYPES as readonly string[]).includes(e.type as string)) {
       const ap = e.related_player_id as string
-      if (!allMap[ap]) allMap[ap] = {
-        pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
-        fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0, gp: 0,
-      }
+      if (!allMap[ap]) allMap[ap] = emptyAS()
       if (!allGp[ap]) allGp[ap] = new Set()
       allGp[ap].add(gId)
       allMap[ap].ast++
@@ -226,7 +230,7 @@ export async function GET(
   for (const pid of Object.keys(allMap)) allMap[pid].gp = allGp[pid]?.size ?? 0
 
   // per-game 통계 + 배지 메트릭
-  const toMetrics = (pid: string, s: AS): PlayerMetrics => {
+  const toMetrics = (_pid: string, s: AS): PlayerMetrics => {
     const gp = s.gp || 1
     const ppg = s.pts / gp; const rpg = s.reb / gp; const apg = s.ast / gp
     const spg = s.stl / gp; const bpg = s.blk / gp; const topg = s.tov / gp
@@ -241,10 +245,21 @@ export async function GET(
     const defComposite = spg + bpg
     const hustleComposite = spg + bpg + orebPerG
     const stlTotal = s.stl
+    // Phase 2
+    const midPerG   = s.midA / gp
+    const slashPerG = s.slashA / gp
+    const postPerG  = s.postA / gp
+    const andOnePerG = s.andOneM / gp
+    const fieldFGA  = s.fg3a + s.midA + s.slashA + s.postA
+    const threeDistPct = fieldFGA > 0 ? s.fg3a  / fieldFGA * 100 : 0
+    const midDistPct   = fieldFGA > 0 ? s.midA   / fieldFGA * 100 : 0
+    const slashDistPct = fieldFGA > 0 ? s.slashA / fieldFGA * 100 : 0
     return {
       gp: s.gp, ppg, rpg, apg, spg, bpg, topg, drebPerG, orebPerG, pfPerG,
       fg3_pct, fg3aPerG, efg_pct, fgaPerG, ft_pct, ftaPerG,
       atoRatio, defComposite, hustleComposite, stlTotal,
+      midPerG, slashPerG, postPerG, andOnePerG,
+      threeDistPct, midDistPct, slashDistPct,
     }
   }
 
@@ -272,7 +287,7 @@ export async function GET(
   const playerEntry = allMap[playerId]
   const playerMetrics: PlayerMetrics = playerEntry
     ? toMetrics(playerId, playerEntry)
-    : { gp: 0, ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0, topg: 0, drebPerG: 0, orebPerG: 0, pfPerG: 0, fg3_pct: 0, fg3aPerG: 0, efg_pct: 0, fgaPerG: 0, ft_pct: 0, ftaPerG: 0, atoRatio: 0, defComposite: 0, hustleComposite: 0, stlTotal: 0 }
+    : { gp: 0, ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0, topg: 0, drebPerG: 0, orebPerG: 0, pfPerG: 0, fg3_pct: 0, fg3aPerG: 0, efg_pct: 0, fgaPerG: 0, ft_pct: 0, ftaPerG: 0, atoRatio: 0, defComposite: 0, hustleComposite: 0, stlTotal: 0, midPerG: 0, slashPerG: 0, postPerG: 0, andOnePerG: 0, threeDistPct: 0, midDistPct: 0, slashDistPct: 0 }
   const badges = computeBadges(playerMetrics, allMetricsList)
 
   // ── Shot breakdown ───────────────────────────────────────────
