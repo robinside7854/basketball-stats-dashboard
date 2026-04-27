@@ -160,22 +160,8 @@ function calcAgeNum(dateStr: string | null): number {
   return age
 }
 
-// ── 수정 3: 선수 상세 모달 (파란날개 PlayerDetailModal 다크 스타일) ───────────
-// 플러스원 여부 판정 (만 나이 기준)
-function isPlusOne(birthDate: string | null, plusOneAge: number | null): boolean {
-  if (!plusOneAge || !birthDate) return false
-  const birth = new Date(birthDate)
-  if (isNaN(birth.getTime())) return false
-  const now = new Date()
-  let age = now.getFullYear() - birth.getFullYear()
-  const md = now.getMonth() - birth.getMonth()
-  if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age--
-  return age >= plusOneAge
-}
-
 interface PlayerModalProps {
   player: LeaguePlayer
-  plusOneAge: number | null
   isEditMode: boolean
   leagueHeaders: Record<string, string>
   leagueId: string
@@ -189,45 +175,81 @@ interface PlayerModalProps {
 }
 
 function PlayerModal({
-  player,
-  plusOneAge,
-  isEditMode,
-  leagueHeaders,
-  leagueId,
-  membershipMap,
-  displayQuarters,
-  teams,
-  leaderMap,
-  onClose,
-  onSaved,
-  onDeleted,
+  player, isEditMode, leagueHeaders, leagueId,
+  membershipMap, displayQuarters, teams, leaderMap,
+  onClose, onSaved, onDeleted,
 }: PlayerModalProps) {
+  const [isP1, setIsP1] = useState(player.plus_one)
   const [editForm, setEditForm] = useState({
     name: player.name,
     position: parsePositions(player.position),
     birth_date: player.birth_date ?? '',
   })
   const [saving, setSaving] = useState(false)
+  const [togglingP1, setTogglingP1] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
 
-  // ESC 닫기
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  // 스크롤 잠금
   useEffect(() => {
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
   }, [])
 
+  // 분기별 팀 정보 helpers
+  function getQLabel(qId: string, pid: string): string {
+    const m = membershipMap[qId]?.[pid]
+    if (!m || m.is_regular === null) return '—'
+    if (!m.is_regular) return '비정규'
+    return teams.find(t => t.id === m.team_id)?.name ?? '—'
+  }
+  function getQTeamColor(qId: string, pid: string): string | null {
+    const m = membershipMap[qId]?.[pid]
+    if (!m || !m.is_regular || !m.team_id) return null
+    return teams.find(t => t.id === m.team_id)?.color ?? null
+  }
+  function getQTeamId(qId: string, pid: string): string | null {
+    return membershipMap[qId]?.[pid]?.team_id ?? null
+  }
+  function isPlayerLeader(qId: string, teamId: string | null, pid: string): boolean {
+    if (!teamId) return false
+    return leaderMap[qId]?.[teamId] === pid
+  }
+
+  // 현재 분기 팀 컬러 → 히어로 배경에 사용
+  const curQ = displayQuarters.find(q => q.is_current) ?? displayQuarters[displayQuarters.length - 1]
+  const heroColor = curQ ? getQTeamColor(curQ.id, player.id) : null
+
+  const positions = parsePositions(player.position)
+
+  async function handleToggleP1() {
+    const newVal = !isP1
+    setIsP1(newVal)
+    setTogglingP1(true)
+    const res = await fetch(`/api/leagues/${leagueId}/players?playerId=${player.id}`, {
+      method: 'PATCH',
+      headers: leagueHeaders,
+      body: JSON.stringify({ plus_one: newVal }),
+    })
+    setTogglingP1(false)
+    if (res.ok) {
+      toast.success(newVal ? '+1 활성화' : '+1 해제')
+      onSaved()
+    } else {
+      setIsP1(!newVal)
+      toast.error('+1 업데이트 실패')
+    }
+  }
+
   function togglePos(pos: string) {
     setEditForm(f => ({
       ...f,
-      position: f.position.includes(pos) ? f.position.filter(p => p !== pos) : [...f.position, pos]
+      position: f.position.includes(pos) ? f.position.filter(p => p !== pos) : [...f.position, pos],
     }))
   }
 
@@ -244,14 +266,8 @@ function PlayerModal({
       }),
     })
     setSaving(false)
-    if (res.ok) {
-      toast.success('수정 완료')
-      onSaved()
-      onClose()
-    } else {
-      const d = await res.json()
-      toast.error(d.error ?? '수정 실패')
-    }
+    if (res.ok) { toast.success('수정 완료'); onSaved(); onClose() }
+    else { const d = await res.json(); toast.error(d.error ?? '수정 실패') }
   }
 
   async function handleDelete() {
@@ -262,217 +278,224 @@ function PlayerModal({
       headers: leagueHeaders,
     })
     setDeleting(false)
-    if (res.ok) {
-      toast.success('삭제 완료')
-      onDeleted()
-      onClose()
-    } else {
-      toast.error('삭제 실패')
-    }
-  }
-
-  const positions = parsePositions(player.position)
-
-  // 분기별 팀 정보
-  function getQLabel(quarterId: string, playerId: string): string {
-    const m = membershipMap[quarterId]?.[playerId]
-    if (!m || m.is_regular === null) return '—'
-    if (!m.is_regular) return '비정규'
-    const team = teams.find(t => t.id === m.team_id)
-    return team?.name ?? '—'
-  }
-  function getQTeamColor(quarterId: string, playerId: string): string | null {
-    const m = membershipMap[quarterId]?.[playerId]
-    if (!m || !m.is_regular || !m.team_id) return null
-    const team = teams.find(t => t.id === m.team_id)
-    return team?.color ?? null
-  }
-  function getQTeamId(quarterId: string, playerId: string): string | null {
-    return membershipMap[quarterId]?.[playerId]?.team_id ?? null
-  }
-  function isPlayerLeader(quarterId: string, teamId: string | null, playerId: string): boolean {
-    if (!teamId) return false
-    return leaderMap[quarterId]?.[teamId] === playerId
+    if (res.ok) { toast.success('삭제 완료'); onDeleted(); onClose() }
+    else toast.error('삭제 실패')
   }
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      {/* 배경 딤 */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
-      {/* 모달 */}
-      <div className="relative z-10 w-full max-w-lg h-[100dvh] sm:h-auto sm:max-h-[85vh] bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+      {/* 모달 — PC 기준 max-w-2xl, 카드 스타일 */}
+      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] bg-[#080e1a] border border-gray-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
 
-        {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 shrink-0">
-          <span className="text-sm font-medium text-gray-400">선수 상세</span>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800 cursor-pointer"
-          >
-            <X size={18} />
+        {/* 상단 닫기 버튼 */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800/60 shrink-0">
+          <span className="text-xs font-medium text-gray-500 tracking-widest uppercase">Player Profile</span>
+          <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-gray-800 cursor-pointer">
+            <X size={16} />
           </button>
         </div>
 
-        {/* 스크롤 영역 */}
-        <div className="overflow-y-auto flex-1 p-5 space-y-4">
-
-          {/* NBA 스타일 배너 (파란날개 PlayerDetailModal 디자인 참조) */}
-          <div className="rounded-xl overflow-hidden border border-gray-800">
+        <div className="overflow-y-auto flex-1">
+          {/* ── 히어로 섹션 ─────────────────────────────────── */}
+          <div className="relative overflow-hidden" style={{ minHeight: '200px' }}>
+            {/* 팀 컬러 그라디언트 배경 */}
             <div
-              className="relative overflow-hidden flex items-center gap-5 px-6 py-6"
-              style={{ background: 'linear-gradient(135deg, #070E1A 0%, #0D1A2E 100%)', minHeight: '140px' }}
-            >
-              {/* 배경 번호 워터마크 (이름 첫글자) */}
-              <div
-                className="absolute right-4 top-1/2 -translate-y-1/2 font-black text-white/5 select-none leading-none pointer-events-none"
-                style={{ fontSize: '120px' }}
+              className="absolute inset-0"
+              style={{
+                background: heroColor
+                  ? `linear-gradient(135deg, ${heroColor}18 0%, #050a14 55%, #080e1a 100%)`
+                  : 'linear-gradient(135deg, #0d1a2e 0%, #050a14 100%)',
+              }}
+            />
+            {/* 상단 컬러 스트립 */}
+            {heroColor && (
+              <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${heroColor}, transparent)` }} />
+            )}
+            {/* 거대 등번호/이니셜 워터마크 */}
+            <div className="absolute right-0 top-0 bottom-0 flex items-center overflow-hidden pointer-events-none select-none">
+              <span
+                className="font-black leading-none pr-6"
+                style={{
+                  fontSize: '220px',
+                  color: heroColor ? `${heroColor}0d` : 'rgba(255,255,255,0.025)',
+                }}
               >
-                {player.name.charAt(0)}
+                {player.number !== null ? player.number : player.name.charAt(0)}
+              </span>
+            </div>
+
+            {/* 콘텐츠 */}
+            <div className="relative z-10 flex items-center gap-6 px-7 py-8">
+              {/* 아바타 원형 */}
+              <div
+                className="w-28 h-28 shrink-0 rounded-full flex items-center justify-center border-2 shadow-lg"
+                style={{
+                  backgroundColor: heroColor ? `${heroColor}20` : '#162032',
+                  borderColor: heroColor ? `${heroColor}50` : '#1d4ed8',
+                  boxShadow: heroColor ? `0 0 30px ${heroColor}20` : undefined,
+                }}
+              >
+                {player.number !== null ? (
+                  <span className="text-5xl font-black" style={{ color: heroColor ?? '#93c5fd' }}>
+                    {player.number}
+                  </span>
+                ) : (
+                  <span className="text-4xl font-black text-blue-300">{player.name.charAt(0)}</span>
+                )}
               </div>
 
-              {/* 아바타 */}
-              <div className="w-20 h-20 shrink-0 rounded-full bg-blue-900/40 border-2 border-blue-700/50 flex items-center justify-center z-10">
-                <span className="text-3xl font-black text-blue-300">{player.name.charAt(0)}</span>
-              </div>
-
-              {/* 이름 + 포지션 */}
-              <div className="z-10 flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-2">
-                  <h1 className="text-3xl font-black text-white leading-tight tracking-wide">{player.name}</h1>
-                  {isPlusOne(player.birth_date, plusOneAge) && (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40 shrink-0">+1</span>
-                  )}
+              {/* 이름/정보 */}
+              <div className="flex-1 min-w-0">
+                {/* 이름 + +1 토글 */}
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div className="min-w-0">
+                    <h1 className="text-5xl font-black text-white leading-none tracking-tight mb-1">{player.name}</h1>
+                    {player.number !== null && (
+                      <span className="text-sm text-gray-500 font-mono">#{player.number}</span>
+                    )}
+                  </div>
+                  {/* +1 토글 버튼 */}
+                  <button
+                    onClick={isEditMode ? handleToggleP1 : undefined}
+                    disabled={togglingP1}
+                    className={`mt-1 shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl border-2 transition-all disabled:opacity-50 ${
+                      isP1
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/60 shadow-[0_0_24px_rgba(245,158,11,0.25)]'
+                        : 'bg-gray-800/50 text-gray-600 border-gray-700'
+                    } ${isEditMode ? 'cursor-pointer hover:scale-105 active:scale-95' : 'cursor-default'}`}
+                    title={isEditMode ? (isP1 ? '+1 해제' : '+1 활성화') : undefined}
+                  >
+                    +1
+                  </button>
                 </div>
+
+                {/* 포지션 */}
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {positions.length > 0
                     ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
-                    : <span className="text-xs text-gray-600">포지션 미지정</span>
+                    : <span className="text-xs text-gray-700">포지션 미지정</span>
                   }
                 </div>
+
+                {/* 생년월일 */}
                 {player.birth_date ? (
-                  <p className="text-xs text-gray-400">
+                  <p className="text-sm text-gray-400">
                     {formatBirthDate(player.birth_date)}
-                    <span className="ml-1.5 text-gray-500">({calcAge(player.birth_date)})</span>
+                    <span className="ml-2 text-gray-600">({calcAge(player.birth_date)})</span>
                   </p>
                 ) : (
-                  <p className="text-xs text-gray-700">생년월일 미입력</p>
+                  <p className="text-sm text-gray-700">생년월일 미입력</p>
                 )}
               </div>
             </div>
+          </div>
 
-            {/* 분기별 소속팀 */}
-            {displayQuarters.length > 0 && (
-              <div className="border-t border-gray-800/60 px-5 py-3 space-y-2" style={{ background: '#070E1A' }}>
-                <p className="text-xs text-gray-600 uppercase tracking-wider mb-2">분기별 소속</p>
+          {/* ── 분기별 소속 ──────────────────────────────────── */}
+          {displayQuarters.length > 0 && (
+            <div className="px-6 py-4 border-t border-gray-800/60">
+              <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">분기별 소속</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {displayQuarters.map(q => {
                   const label = getQLabel(q.id, player.id)
                   const teamColor = getQTeamColor(q.id, player.id)
                   const teamId = getQTeamId(q.id, player.id)
-                  const isLeader = isPlayerLeader(q.id, teamId, player.id)
+                  const isLdr = isPlayerLeader(q.id, teamId, player.id)
                   return (
-                    <div key={q.id} className="flex items-center justify-between">
-                      <span className={`text-xs font-mono ${q.is_current ? 'text-blue-400' : 'text-gray-600'}`}>
+                    <div
+                      key={q.id}
+                      className={`flex items-center justify-between px-3 py-2 rounded-xl border ${
+                        q.is_current
+                          ? 'bg-blue-900/15 border-blue-800/30'
+                          : 'bg-gray-900/40 border-gray-800/40'
+                      }`}
+                    >
+                      <span className={`text-xs font-mono font-bold ${q.is_current ? 'text-blue-400' : 'text-gray-600'}`}>
                         {String(q.year).slice(2)}.{q.quarter}Q
                         {q.is_current && <span className="ml-1 text-blue-500">●</span>}
                       </span>
                       <div className="flex items-center gap-1.5">
-                        {isLeader && <Crown size={10} className="text-yellow-400" />}
+                        {isLdr && <Crown size={11} className="text-yellow-400" />}
                         {label !== '—' && label !== '비정규' && teamColor && (
-                          <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: teamColor }} />
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: teamColor }} />
                         )}
-                        <span className={`text-xs ${
+                        <span className={`text-xs font-medium ${
                           label === '비정규' ? 'text-gray-600' :
-                          label === '—' ? 'text-gray-700' :
-                          'text-white font-medium'
+                          label === '—' ? 'text-gray-700' : 'text-white'
                         }`}>{label}</span>
                       </div>
                     </div>
                   )
                 })}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* 편집 폼 (편집모드 + showEdit 시) */}
-          {isEditMode && showEdit && (
-            <div className="bg-gray-900 border border-blue-500/30 rounded-xl p-4 space-y-3">
-              <h3 className="text-sm font-semibold text-white">선수 정보 수정</h3>
-              <div className="space-y-2">
-                <label className="text-xs text-gray-500">이름</label>
-                <Input
-                  autoFocus
-                  value={editForm.name}
-                  onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="이름"
-                  className="bg-gray-800 border-gray-700 text-white text-sm"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs text-gray-500">생년월일</label>
-                <BirthDateInput
-                  value={editForm.birth_date}
-                  onChange={v => setEditForm(f => ({ ...f, birth_date: v }))}
-                />
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs text-gray-500">포지션 (복수 선택)</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {POSITIONS.map(pos => (
-                    <button
-                      key={pos}
-                      type="button"
-                      onClick={() => togglePos(pos)}
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
-                        editForm.position.includes(pos)
-                          ? 'bg-blue-600 border-blue-500 text-white'
-                          : 'bg-gray-800 border-gray-700 text-gray-500 hover:border-gray-500'
-                      }`}
-                    >
-                      {pos}
-                    </button>
-                  ))}
+          {/* ── 편집 영역 ─────────────────────────────────────── */}
+          <div className="px-6 py-4 border-t border-gray-800/60 space-y-3">
+            {isEditMode && showEdit && (
+              <div className="bg-gray-900/60 border border-blue-500/20 rounded-xl p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-white">선수 정보 수정</h3>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-500">이름</label>
+                  <Input
+                    autoFocus value={editForm.name}
+                    onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                    placeholder="이름" className="bg-gray-800 border-gray-700 text-white text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs text-gray-500">생년월일</label>
+                  <BirthDateInput value={editForm.birth_date} onChange={v => setEditForm(f => ({ ...f, birth_date: v }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-xs text-gray-500">포지션 (복수 선택)</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {POSITIONS.map(pos => (
+                      <button key={pos} type="button" onClick={() => togglePos(pos)}
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
+                          editForm.position.includes(pos)
+                            ? 'bg-blue-600 border-blue-500 text-white'
+                            : 'bg-gray-800 border-gray-700 text-gray-500 hover:border-gray-500'
+                        }`}
+                      >{pos}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleSave} disabled={saving}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium cursor-pointer disabled:opacity-50 transition-colors"
+                  >
+                    {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}저장
+                  </button>
+                  <button onClick={() => setShowEdit(false)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs cursor-pointer transition-colors"
+                  >
+                    <X size={11} />취소
+                  </button>
                 </div>
               </div>
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium cursor-pointer disabled:opacity-50 transition-colors"
+            )}
+
+            {isEditMode && !showEdit && (
+              <div className="flex gap-2">
+                <button onClick={() => setShowEdit(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-xs font-medium cursor-pointer transition-colors border border-gray-700"
                 >
-                  {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}저장
+                  <Pencil size={12} />정보 수정
                 </button>
-                <button
-                  onClick={() => setShowEdit(false)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs cursor-pointer transition-colors"
+                <button onClick={handleDelete} disabled={deleting}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-900/20 hover:bg-red-900/40 text-red-400 hover:text-red-300 text-xs font-medium cursor-pointer transition-colors border border-red-800/40 disabled:opacity-50"
                 >
-                  <X size={11} />취소
+                  {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}삭제
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* 편집모드 액션 버튼 */}
-          {isEditMode && !showEdit && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowEdit(true)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-xs font-medium cursor-pointer transition-colors border border-gray-700"
-              >
-                <Pencil size={12} />수정
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 text-xs font-medium cursor-pointer transition-colors border border-red-800/50 disabled:opacity-50"
-              >
-                {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}삭제
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -680,6 +703,20 @@ export default function LeagueRosterPage() {
     setDeletingId(null)
     if (res.ok) { toast.success('삭제 완료'); load() }
     else toast.error('삭제 실패')
+  }
+
+  async function togglePlusOne(playerId: string, currentVal: boolean) {
+    const newVal = !currentVal
+    setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, plus_one: newVal } : p))
+    const res = await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, {
+      method: 'PATCH',
+      headers: leagueHeaders,
+      body: JSON.stringify({ plus_one: newVal }),
+    })
+    if (!res.ok) {
+      setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, plus_one: currentVal } : p))
+      toast.error('+1 업데이트 실패')
+    }
   }
 
   async function createQuarter() {
@@ -943,149 +980,161 @@ export default function LeagueRosterPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredAndSortedPlayers.map(p => {
             const positions = parsePositions(p.position)
-
-            // Check if leader in any current quarter
             const isAnyLeader = displayQuarters.some(q => {
               const teamId = getCellTeamId(q.id, p.id)
               return teamId ? isLeader(q.id, teamId, p.id) : false
             })
+            // 현재 분기 팀 컬러 → 카드 왼쪽 스트립
+            const curQ = displayQuarters.find(q => q.is_current)
+            const cardAccent = curQ ? getCellTeamColor(curQ.id, p.id) : null
 
             return (
               <div
                 key={p.id}
-                className="bg-gray-900 border border-gray-800 rounded-2xl p-4 hover:border-gray-700 transition-all cursor-pointer"
+                className="relative bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-gray-700 transition-all cursor-pointer group"
                 onClick={() => setSelectedPlayer(p)}
               >
-                {/* 카드 헤더: 이름 + 삭제 버튼 (카드 클릭은 모달 열기) */}
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    {isAnyLeader && <Crown size={13} className="text-yellow-400 shrink-0" />}
-                    <span className="text-base font-bold text-white truncate">{p.name}</span>
+                {/* 팀 컬러 왼쪽 스트립 */}
+                {cardAccent && (
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: cardAccent }} />
+                )}
+
+                <div className="p-4 pl-5">
+                  {/* 헤더: 등번호 + 이름 + +1 + 삭제 */}
+                  <div className="flex items-center gap-2 mb-2">
+                    {p.number !== null && (
+                      <span className="text-xs font-mono font-bold text-gray-600 w-8 shrink-0">#{p.number}</span>
+                    )}
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      {isAnyLeader && <Crown size={12} className="text-yellow-400 shrink-0" />}
+                      <span className="text-base font-bold text-white truncate">{p.name}</span>
+                    </div>
+                    {/* +1 배지/토글 */}
+                    {isEditMode ? (
+                      <button
+                        onClick={e => { e.stopPropagation(); togglePlusOne(p.id, p.plus_one) }}
+                        className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-black border transition-all cursor-pointer ${
+                          p.plus_one
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
+                            : 'bg-gray-800 text-gray-700 border-gray-700 hover:border-gray-500 hover:text-gray-500'
+                        }`}
+                        title={p.plus_one ? '+1 해제' : '+1 활성화'}
+                      >
+                        +1
+                      </button>
+                    ) : p.plus_one ? (
+                      <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                        +1
+                      </span>
+                    ) : null}
+                    {isEditMode && (
+                      <button
+                        onClick={e => { e.stopPropagation(); deletePlayer(p.id) }}
+                        disabled={deletingId === p.id}
+                        className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40 p-1 shrink-0"
+                        title="선수 삭제"
+                      >
+                        {deletingId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                      </button>
+                    )}
                   </div>
-                  {isEditMode && (
-                    <button
-                      onClick={e => { e.stopPropagation(); deletePlayer(p.id) }}
-                      disabled={deletingId === p.id}
-                      className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40 p-1 shrink-0"
-                      title="선수 삭제"
-                    >
-                      {deletingId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                    </button>
+
+                  {/* 포지션 배지 */}
+                  <div className="flex flex-wrap gap-1 mb-2 min-h-[22px]">
+                    {positions.length > 0
+                      ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
+                      : <span className="text-xs text-gray-700">포지션 미지정</span>
+                    }
+                  </div>
+
+                  {/* 생년월일 */}
+                  {p.birth_date ? (
+                    <p className="text-xs text-gray-500 mb-3">
+                      {formatBirthDate(p.birth_date)}
+                      <span className="ml-1.5 text-gray-600">({calcAge(p.birth_date)})</span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-700 mb-2">생년월일 미입력</p>
                   )}
-                </div>
 
-                {/* 포지션 배지 */}
-                <div className="flex flex-wrap gap-1 mb-2 min-h-[22px]">
-                  {positions.length > 0
-                    ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
-                    : <span className="text-xs text-gray-700">포지션 미지정</span>
-                  }
-                </div>
-
-                {/* 생년월일 */}
-                {p.birth_date ? (
-                  <p className="text-xs text-gray-500 mb-3">
-                    {formatBirthDate(p.birth_date)}
-                    <span className="ml-1.5 text-gray-600">({calcAge(p.birth_date)})</span>
-                  </p>
-                ) : (
-                  <p className="text-xs text-gray-700 mb-3">생년월일 미입력</p>
-                )}
-
-                {/* 분기별 팀 배정 */}
-                {displayQuarters.length > 0 && (
-                  <div className="border-t border-gray-800 pt-2.5 mt-2 space-y-1.5">
-                    {displayQuarters.map(q => {
-                      const cellKey = `${q.id}:${p.id}`
-                      const isSaving = savingCell === cellKey
-                      const isEditingCell = editingCell?.quarterId === q.id && editingCell?.playerId === p.id
-                      const label = getCellLabel(q.id, p.id)
-                      const teamId = getCellTeamId(q.id, p.id)
-                      const teamColor = getCellTeamColor(q.id, p.id)
-                      const isRegular = getCellIsRegular(q.id, p.id)
-                      const isPlayerLeader = isLeader(q.id, teamId, p.id)
-
-                      return (
-                        <div key={q.id} className="flex items-center justify-between gap-2">
-                          <span className={`text-xs font-mono shrink-0 ${q.is_current ? 'text-blue-400' : 'text-gray-600'}`}>
-                            {String(q.year).slice(2)}.{q.quarter}Q
-                          </span>
-
-                          {isSaving ? (
-                            <Loader2 size={11} className="animate-spin text-gray-500 ml-auto" />
-                          ) : isEditingCell && isEditMode ? (
-                            <select
-                              autoFocus
-                              defaultValue={teamId ?? ''}
-                              onClick={e => e.stopPropagation()}
-                              onBlur={e => {
-                                const val = e.target.value
-                                if (val === '__irregular') updateMembership(q.id, p.id, null, false)
-                                else if (val === '') setEditingCell(null)
-                                else updateMembership(q.id, p.id, val, true)
-                              }}
-                              onChange={e => {
-                                const val = e.target.value
-                                if (val === '__irregular') updateMembership(q.id, p.id, null, false)
-                                else if (val !== '') updateMembership(q.id, p.id, val, true)
-                              }}
-                              className="flex-1 bg-gray-800 border border-blue-500 text-white rounded px-2 py-0.5 text-xs cursor-pointer"
-                            >
-                              <option value="">미배정</option>
-                              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                              <option value="__irregular">비정규</option>
-                            </select>
-                          ) : (
-                            <div className="flex items-center gap-1.5 ml-auto">
-                              {isRegular && teamId && (
-                                <>
-                                  {isEditMode && (
-                                    <button
-                                      onClick={e => { e.stopPropagation(); toggleLeader(q.id, teamId, p.id) }}
-                                      title="팀 리더 지정/해제"
-                                      className={`transition-colors cursor-pointer ${isPlayerLeader ? 'text-yellow-400' : 'text-gray-700 hover:text-yellow-600'}`}
-                                    >
-                                      <Crown size={10} />
-                                    </button>
-                                  )}
-                                  {!isEditMode && isPlayerLeader && (
-                                    <Crown size={10} className="text-yellow-400" />
-                                  )}
-                                </>
-                              )}
-                              <button
-                                onClick={e => { e.stopPropagation(); if (isEditMode) setEditingCell({ playerId: p.id, quarterId: q.id }) }}
-                                className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-colors ${
-                                  isEditMode ? 'cursor-pointer hover:bg-gray-800' : 'cursor-default'
-                                }`}
+                  {/* 분기별 팀 배정 */}
+                  {displayQuarters.length > 0 && (
+                    <div className="border-t border-gray-800 pt-2.5 mt-1 space-y-1.5">
+                      {displayQuarters.map(q => {
+                        const cellKey = `${q.id}:${p.id}`
+                        const isSaving = savingCell === cellKey
+                        const isEditingCell = editingCell?.quarterId === q.id && editingCell?.playerId === p.id
+                        const label = getCellLabel(q.id, p.id)
+                        const teamId = getCellTeamId(q.id, p.id)
+                        const teamColor = getCellTeamColor(q.id, p.id)
+                        const isRegular = getCellIsRegular(q.id, p.id)
+                        const isPlayerLeader = isLeader(q.id, teamId, p.id)
+                        return (
+                          <div key={q.id} className="flex items-center justify-between gap-2">
+                            <span className={`text-xs font-mono shrink-0 ${q.is_current ? 'text-blue-400' : 'text-gray-600'}`}>
+                              {String(q.year).slice(2)}.{q.quarter}Q
+                            </span>
+                            {isSaving ? (
+                              <Loader2 size={11} className="animate-spin text-gray-500 ml-auto" />
+                            ) : isEditingCell && isEditMode ? (
+                              <select
+                                autoFocus defaultValue={teamId ?? ''}
+                                onClick={e => e.stopPropagation()}
+                                onBlur={e => {
+                                  const val = e.target.value
+                                  if (val === '__irregular') updateMembership(q.id, p.id, null, false)
+                                  else if (val === '') setEditingCell(null)
+                                  else updateMembership(q.id, p.id, val, true)
+                                }}
+                                onChange={e => {
+                                  const val = e.target.value
+                                  if (val === '__irregular') updateMembership(q.id, p.id, null, false)
+                                  else if (val !== '') updateMembership(q.id, p.id, val, true)
+                                }}
+                                className="flex-1 bg-gray-800 border border-blue-500 text-white rounded px-2 py-0.5 text-xs cursor-pointer"
                               >
-                                {label !== '—' && label !== '비정규' && teamColor ? (
-                                  <span
-                                    className="inline-block w-2 h-2 rounded-full shrink-0"
-                                    style={{ backgroundColor: teamColor }}
-                                  />
-                                ) : null}
-                                <span className={
-                                  label === '비정규' ? 'text-gray-600' :
-                                  label === '—' ? 'text-gray-700' :
-                                  'text-white font-medium'
-                                }>
-                                  {label}
-                                </span>
-                                {isEditMode && <ChevronDown size={9} className="text-gray-600" />}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
+                                <option value="">미배정</option>
+                                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                                <option value="__irregular">비정규</option>
+                              </select>
+                            ) : (
+                              <div className="flex items-center gap-1.5 ml-auto">
+                                {isRegular && teamId && (
+                                  <>
+                                    {isEditMode ? (
+                                      <button
+                                        onClick={e => { e.stopPropagation(); toggleLeader(q.id, teamId, p.id) }}
+                                        className={`transition-colors cursor-pointer ${isPlayerLeader ? 'text-yellow-400' : 'text-gray-700 hover:text-yellow-600'}`}
+                                      ><Crown size={10} /></button>
+                                    ) : isPlayerLeader ? (
+                                      <Crown size={10} className="text-yellow-400" />
+                                    ) : null}
+                                  </>
+                                )}
+                                <button
+                                  onClick={e => { e.stopPropagation(); if (isEditMode) setEditingCell({ playerId: p.id, quarterId: q.id }) }}
+                                  className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-colors ${isEditMode ? 'cursor-pointer hover:bg-gray-800' : 'cursor-default'}`}
+                                >
+                                  {label !== '—' && label !== '비정규' && teamColor
+                                    ? <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: teamColor }} />
+                                    : null}
+                                  <span className={label === '비정규' ? 'text-gray-600' : label === '—' ? 'text-gray-700' : 'text-white font-medium'}>
+                                    {label}
+                                  </span>
+                                  {isEditMode && <ChevronDown size={9} className="text-gray-600" />}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
 
-                {/* 상세 보기 힌트 */}
-                <div className="mt-2 pt-2 border-t border-gray-800/50 text-xs text-gray-700 flex items-center gap-1">
-                  <Pencil size={9} />
-                  <span>클릭하여 상세 보기</span>
+                  {/* 카드 클릭 힌트 */}
+                  <p className="mt-2 pt-2 border-t border-gray-800/40 text-[11px] text-gray-700 group-hover:text-gray-600 transition-colors">
+                    클릭하여 프로필 보기
+                  </p>
                 </div>
               </div>
             )
@@ -1146,7 +1195,6 @@ export default function LeagueRosterPage() {
       {selectedPlayer && (
         <PlayerModal
           player={selectedPlayer}
-          plusOneAge={plusOneAge}
           isEditMode={isEditMode}
           leagueHeaders={leagueHeaders}
           leagueId={leagueId}

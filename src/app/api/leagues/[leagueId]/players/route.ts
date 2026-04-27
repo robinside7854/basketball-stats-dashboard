@@ -56,16 +56,17 @@ export async function PATCH(
   const playerId = searchParams.get('playerId')
   if (!playerId) return NextResponse.json({ error: 'playerId is required' }, { status: 400 })
   const body = await req.json()
-  const { name, position, birth_date } = body
+  const { name, position, birth_date, plus_one } = body
   if (name !== undefined && !String(name).trim()) return NextResponse.json({ error: '이름은 필수입니다' }, { status: 400 })
   // position may be an array → join to comma-separated string
   const positionStr = Array.isArray(position)
     ? position.join(',')
     : (position ?? null)
-  const updatePayload: Record<string, string | null> = {}
+  const updatePayload: Record<string, string | null | boolean> = {}
   if (name !== undefined) updatePayload.name = String(name).trim()
   if (position !== undefined) updatePayload.position = positionStr
   if (birth_date !== undefined) updatePayload.birth_date = birth_date ?? null
+  if (plus_one !== undefined) updatePayload.plus_one = Boolean(plus_one)
   if (Object.keys(updatePayload).length === 0) return NextResponse.json({ error: '수정할 값이 없습니다' }, { status: 400 })
   const supabase = createClient()
   const { data, error } = await supabase

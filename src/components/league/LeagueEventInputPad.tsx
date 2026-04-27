@@ -16,7 +16,7 @@ interface Props {
   awayPlayers?: RosterPlayer[]
   homeTeam?: { id: string; name: string; color: string }
   awayTeam?: { id: string; name: string; color: string }
-  plusOneAge?: number | null   // 플러스원 나이 기준 (만 나이)
+  plusOneAge?: number | null   // deprecated — plus_one now stored per player
   leagueHeaders: Record<string, string>
   onEventSaved: () => void
 }
@@ -132,12 +132,8 @@ export default function LeagueEventInputPad({
          selectedPlayerObj.team_id === awayTeam?.id ? awayTeam : null)
       : null
 
-  // 플러스원 여부: 선택된 선수의 만 나이 >= plusOneAge
-  const selectedPlayerIsPlusOne = !!(
-    plusOneAge != null &&
-    selectedPlayerObj &&
-    calcAge((selectedPlayerObj as LeaguePlayer).birth_date) >= plusOneAge
-  )
+  // 플러스원 여부: 선수별 plus_one 플래그 직접 참조
+  const selectedPlayerIsPlusOne = !!(selectedPlayerObj as LeaguePlayer | null)?.plus_one
 
   async function saveEvent(body: object): Promise<string | null> {
     const res = await fetch(`/api/leagues/${leagueId}/events`, {
