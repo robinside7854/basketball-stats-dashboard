@@ -225,18 +225,26 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     setHomeRoster([])
     setAwayRoster([])
     setIrregularRoster([])
-    setLiveScore(null)
+    // DB에 저장된 값으로 즉시 초기화 (navigation 복귀 시 0:0 방지)
+    if (slot.is_started) {
+      setLiveScore({ home: slot.home_score ?? 0, away: slot.away_score ?? 0 })
+    } else {
+      setLiveScore(null)
+    }
 
     await loadRoster(slot)
 
-    // 이미 시작된 경기면 현재 점수 로드
+    // 이미 시작된 경기면 이벤트 기반 재계산으로 갱신
     if (slot.is_started) {
       const scoreRes = await fetch(`/api/leagues/${leagueId}/games/${slot.id}/recompute`, {
         method: 'POST',
         headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       })
-      if (scoreRes.ok) setLiveScore(await scoreRes.json())
+      if (scoreRes.ok) {
+        const scores = await scoreRes.json()
+        setLiveScore({ home: scores.home_score ?? scores.home ?? 0, away: scores.away_score ?? scores.away ?? 0 })
+      }
     }
 
     // 출전 기록 로드
@@ -412,7 +420,10 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     })
-    if (res.ok) setLiveScore(await res.json())
+    if (res.ok) {
+      const data = await res.json()
+      setLiveScore({ home: data.home_score ?? data.home ?? 0, away: data.away_score ?? data.away ?? 0 })
+    }
   }
 
   function handleEventSaved() {
@@ -661,7 +672,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       startOffset={selectedSlot.youtube_start_offset ?? 0}
                     />
                     {/* 스코어보드 오버레이 — 영상 우하단 */}
-                    {gameStarted && liveScore && (
+                    {gameStarted && (
                       <div className="absolute bottom-10 right-3 z-10 pointer-events-none">
                         <div className="flex items-stretch gap-px rounded-xl overflow-hidden shadow-2xl bg-black/80 backdrop-blur-sm border border-white/10 text-white">
                           {/* 홈팀 */}
@@ -671,7 +682,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                               {selectedSlot.home_team?.name ?? 'HOME'}
                             </span>
                             <span className="text-3xl font-black tabular-nums leading-none mt-0.5">
-                              {liveScore.home}
+                              {liveScore?.home ?? selectedSlot.home_score ?? 0}
                             </span>
                           </div>
                           {/* 구분선 + LIVE */}
@@ -686,7 +697,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                               {selectedSlot.away_team?.name ?? 'AWAY'}
                             </span>
                             <span className="text-3xl font-black tabular-nums leading-none mt-0.5">
-                              {liveScore.away}
+                              {liveScore?.away ?? selectedSlot.away_score ?? 0}
                             </span>
                           </div>
                         </div>
@@ -849,7 +860,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             <p className="text-[11px] font-bold mb-1 truncate" style={{ color: selectedSlot?.home_team?.color ?? '#3b82f6' }}>
                               {selectedSlot?.home_team?.name ?? '홈팀'}
                             </p>
-                            <p className="text-4xl font-black text-white tabular-nums leading-none">{liveScore?.home ?? 0}</p>
+                            <p className="text-4xl font-black text-white tabular-nums leading-none">{liveScore?.home ?? selectedSlot?.home_score ?? 0}</p>
                           </div>
                           <div className="flex flex-col items-center justify-center px-3 border-x border-gray-800">
                             <span className="text-[9px] text-green-400 font-bold tracking-widest">LIVE</span>
@@ -859,7 +870,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             <p className="text-[11px] font-bold mb-1 truncate" style={{ color: selectedSlot?.away_team?.color ?? '#ef4444' }}>
                               {selectedSlot?.away_team?.name ?? '어웨이팀'}
                             </p>
-                            <p className="text-4xl font-black text-white tabular-nums leading-none">{liveScore?.away ?? 0}</p>
+                            <p className="text-4xl font-black text-white tabular-nums leading-none">{liveScore?.away ?? selectedSlot?.away_score ?? 0}</p>
                           </div>
                         </div>
                         {/* 게임 로그 버튼 */}
