@@ -1031,6 +1031,51 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       </div>
                     </div>
 
+                    {/* 비정규 선수 팀 배정 (경기 시작 전) */}
+                    {irregularRoster.filter(p => !assignedIds.has(p.id)).length > 0 && (
+                      <div className="border-t border-gray-800 pt-4 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <UserPlus size={13} className="text-gray-500" />
+                          <p className="text-xs text-gray-400 font-medium">비정규 선수 팀 배정</p>
+                          <span className="text-[11px] text-gray-600">팀을 선택하면 선발 명단에 자동 추가됩니다</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {irregularRoster.filter(p => !assignedIds.has(p.id)).map(p => (
+                            <div key={p.id} className="flex items-center gap-2 px-2.5 py-2 bg-gray-800/40 border border-gray-700/50 rounded-lg">
+                              <span className="flex-1 text-sm text-gray-300">
+                                {p.number ? <span className="text-xs font-mono text-gray-500 mr-1">#{p.number}</span> : null}
+                                {p.name}
+                              </span>
+                              <button
+                                onClick={() => addIrregularToTeam(p, 'home')}
+                                disabled={addingIrregular}
+                                className="px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer disabled:opacity-40 transition-opacity"
+                                style={{
+                                  backgroundColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}33`,
+                                  color: selectedSlot?.home_team?.color ?? '#3b82f6',
+                                  border: `1px solid ${selectedSlot?.home_team?.color ?? '#3b82f6'}55`,
+                                }}
+                              >
+                                {selectedSlot?.home_team?.name ?? '홈팀'}
+                              </button>
+                              <button
+                                onClick={() => addIrregularToTeam(p, 'away')}
+                                disabled={addingIrregular}
+                                className="px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer disabled:opacity-40 transition-opacity"
+                                style={{
+                                  backgroundColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}33`,
+                                  color: selectedSlot?.away_team?.color ?? '#ef4444',
+                                  border: `1px solid ${selectedSlot?.away_team?.color ?? '#ef4444'}55`,
+                                }}
+                              >
+                                {selectedSlot?.away_team?.name ?? '어웨이팀'}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex gap-2 pt-2 border-t border-gray-800">
                       <Button
                         onClick={startGame}
