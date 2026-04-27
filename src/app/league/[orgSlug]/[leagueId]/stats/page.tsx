@@ -250,17 +250,17 @@ export default function LeagueStatsPage() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-800">
-                    <th className="text-left px-4 py-2.5 sticky left-0 bg-gray-900 text-[10px] text-gray-500 font-bold min-w-[110px]">선수</th>
+                    <th className="text-left px-4 py-3 sticky left-0 bg-gray-900 text-xs text-gray-500 font-bold min-w-[130px]">선수</th>
                     {COLS.map(({ key, label }) => (
                       <th key={key} onClick={() => handleSort(key)}
-                        className={`px-3 py-2.5 text-center text-[10px] font-bold cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${sortKey === key ? 'text-blue-400' : 'text-gray-500'}`}>
+                        className={`px-3 py-3 text-center text-xs font-bold cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${sortKey === key ? 'text-blue-400' : 'text-gray-500'}`}>
                         {label}
                         {sortKey === key
-                          ? (sortDir === 'desc' ? <ChevronDown size={9} className="inline ml-0.5" /> : <ChevronUp size={9} className="inline ml-0.5" />)
-                          : <ChevronsUpDown size={9} className="inline ml-0.5 opacity-30" />}
+                          ? (sortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
+                          : <ChevronsUpDown size={10} className="inline ml-0.5 opacity-30" />}
                       </th>
                     ))}
                   </tr>
@@ -269,15 +269,15 @@ export default function LeagueStatsPage() {
                   {filtered.map((p, i) => (
                     <tr key={p.player_id}
                       className={`border-b border-gray-800/50 ${i % 2 === 0 ? '' : 'bg-gray-900/50'} hover:bg-gray-800/30 transition-colors`}>
-                      <td className="px-4 py-2.5 sticky left-0 bg-inherit">
+                      <td className="px-4 py-3 sticky left-0 bg-inherit">
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-medium text-white hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[100px] block">
+                          className="font-bold text-white hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[120px] block text-sm">
                           {p.name}
                         </button>
-                        <div className="text-gray-600 text-[10px]">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
+                        <div className="text-gray-600 text-xs">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
                       {COLS.map(({ key }) => (
-                        <td key={key} className={`px-3 py-2.5 text-center ${sortKey === key ? 'text-yellow-400 font-bold' : 'text-gray-300'}`}>
+                        <td key={key} className={`px-3 py-3 text-center text-sm ${sortKey === key ? 'text-yellow-400 font-bold' : 'text-gray-300'}`}>
                           {cellVal(p, key)}
                         </td>
                       ))}

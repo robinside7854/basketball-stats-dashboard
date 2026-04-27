@@ -5,7 +5,8 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap } from 'lucide-react'
+import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2 } from 'lucide-react'
+import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 
 type ScheduleDate = { id: string; date: string }
 
@@ -20,6 +21,7 @@ export default function LeagueSchedulePage() {
   const [adding, setAdding] = useState(false)
   const [autoGenerating, setAutoGenerating] = useState(false)
   const [deletingDate, setDeletingDate] = useState<string | null>(null)
+  const [boxscoreDate, setBoxscoreDate] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -109,6 +111,7 @@ export default function LeagueSchedulePage() {
   }
 
   return (
+    <>
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
@@ -177,21 +180,37 @@ export default function LeagueSchedulePage() {
                 <CalendarDays size={16} className="text-blue-400 shrink-0" />
                 <span className="text-white font-medium">{formatDate(sd.date)}</span>
               </div>
-              {isEditMode && (
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => removeDate(sd.date)}
-                  disabled={deletingDate === sd.date}
-                  className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40"
+                  onClick={() => setBoxscoreDate(sd.date)}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-900/30 border border-indigo-700/40 text-indigo-400 hover:bg-indigo-900/50 hover:text-indigo-300 cursor-pointer transition-colors"
                 >
-                  {deletingDate === sd.date
-                    ? <Loader2 size={14} className="animate-spin" />
-                    : <Trash2 size={14} />}
+                  <BarChart2 size={12} />박스스코어
                 </button>
-              )}
+                {isEditMode && (
+                  <button
+                    onClick={() => removeDate(sd.date)}
+                    disabled={deletingDate === sd.date}
+                    className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40 p-1"
+                  >
+                    {deletingDate === sd.date
+                      ? <Loader2 size={14} className="animate-spin" />
+                      : <Trash2 size={14} />}
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
       )}
     </div>
+    {boxscoreDate && (
+      <DailyBoxscoreModal
+        leagueId={leagueId}
+        date={boxscoreDate}
+        onClose={() => setBoxscoreDate(null)}
+      />
+    )}
+    </>
   )
 }

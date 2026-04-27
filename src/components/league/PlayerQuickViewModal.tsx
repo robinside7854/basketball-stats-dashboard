@@ -15,7 +15,7 @@ type SeasonStats = {
   fg_pct: number; fg3_pct: number; ft_pct: number; efg_pct: number
 }
 
-type BadgeResult = { id: string; name: string; icon: string; tier: 'gold'|'silver'|'bronze'; category: string }
+type BadgeResult = { id: string; name: string; nameEn: string; icon: string; tier: 'gold'|'silver'|'bronze'; category: string; description: string }
 
 type WLStats = { ppg: number; rpg: number; apg: number; spg: number; bpg: number } | null
 
@@ -148,10 +148,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     { label: 'BLK', value: stats.bpg.toFixed(1),        rank: detail?.rankings.bpg ?? 0, accent: false },
                   ].map(({ label, value, rank, accent }) => (
                     <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-blue-900/20 border-blue-800/30' : 'bg-gray-900/50 border-gray-800/40'}`}>
-                      <p className="text-[8px] text-gray-600 mb-1 uppercase">{label}</p>
-                      <p className={`text-xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
+                      <p className="text-[10px] text-gray-600 mb-1 uppercase">{label}</p>
+                      <p className={`text-2xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
                       {rank > 0 && (
-                        <p className={`text-[9px] font-bold mt-1 ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>{rank}위</p>
+                        <p className={`text-[10px] font-bold mt-1 ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>{rank}위</p>
                       )}
                     </div>
                   ))}
@@ -163,9 +163,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     { label: 'FT%', pct: stats.ft_pct, m: stats.ftm, a: stats.fta },
                   ].map(({ label, pct, m, a }) => (
                     <div key={label} className="bg-gray-900/50 border border-gray-800/40 rounded-xl p-2.5 text-center">
-                      <p className="text-[9px] text-gray-600 mb-1 uppercase">{label}</p>
-                      <p className="text-lg font-black text-white leading-none">{a > 0 ? `${pct.toFixed(1)}%` : '—'}</p>
-                      <p className="text-[10px] text-gray-700 mt-0.5">{m}/{a}</p>
+                      <p className="text-xs text-gray-600 mb-1 uppercase">{label}</p>
+                      <p className="text-xl font-black text-white leading-none">{a > 0 ? `${pct.toFixed(1)}%` : '—'}</p>
+                      <p className="text-xs text-gray-700 mt-0.5">{m}/{a}</p>
                     </div>
                   ))}
                 </div>
@@ -182,27 +182,32 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               <div className="px-5 py-6 text-center text-sm text-gray-600 border-b border-gray-800/60">아직 기록된 스탯이 없습니다</div>
             )}
 
-            {/* 배지 미리보기 */}
+            {/* 배지 — 보유한 것만 + 획득 기준 */}
             {earnedBadges.length > 0 && (
               <div className="px-5 py-4 border-b border-gray-800/60">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">배지 {earnedBadges.length}개</p>
+                  <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">보유 배지 {earnedBadges.length}개</p>
                   <button onClick={() => setShowBadgeBook(true)} className="text-[10px] text-indigo-400 hover:text-indigo-300 cursor-pointer">전체 도감 →</button>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-2">
                   {earnedBadges.map(b => (
-                    <div key={b.id} title={b.name}
-                      className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center text-lg ${TIER_BG[b.tier]}`}>
-                      {b.icon}
+                    <div key={b.id} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${TIER_BG[b.tier]}`}>
+                      <span className="text-2xl shrink-0">{b.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className={`text-sm font-black ${TIER_COLOR[b.tier]}`}>{b.name}</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
+                            b.tier === 'gold'   ? 'bg-yellow-400/20 border-yellow-400/50 text-yellow-300' :
+                            b.tier === 'silver' ? 'bg-gray-300/15 border-gray-300/40 text-gray-300' :
+                                                  'bg-orange-500/15 border-orange-500/40 text-orange-400'
+                          }`}>
+                            {b.tier === 'gold' ? '🥇 GOLD' : b.tier === 'silver' ? '🥈 SILVER' : '🥉 BRONZE'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-gray-500 leading-snug">{b.description}</p>
+                      </div>
                     </div>
                   ))}
-                </div>
-                <div className="flex gap-3 mt-2">
-                  {(['gold', 'silver', 'bronze'] as const).map(t => {
-                    const cnt = earnedBadges.filter(b => b.tier === t).length
-                    if (!cnt) return null
-                    return <span key={t} className={`text-xs font-bold ${TIER_COLOR[t]}`}>{t === 'gold' ? '🥇' : t === 'silver' ? '🥈' : '🥉'} {cnt}</span>
-                  })}
                 </div>
               </div>
             )}
