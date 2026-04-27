@@ -115,18 +115,22 @@ export default function LeagueStatsPage() {
   ]
   const COLS = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
 
+  const PCT_KEYS = new Set<SortKey>(['fg_pct', 'fg3_pct', 'ft_pct', 'efg_pct'])
+
   function cellVal(p: PlayerStat, key: SortKey): string {
     if (viewMode === 'avg') {
       if (key === 'gp') return String(p.gp)
-      if (key === 'fg_pct') return p.fga > 0 ? `${avg(p,'fg_pct')}%` : '—'
-      if (key === 'fg3_pct') return p.fg3a > 0 ? `${avg(p,'fg3_pct')}%` : '—'
-      if (key === 'ft_pct') return p.fta > 0 ? `${avg(p,'ft_pct')}%` : '—'
-      if (key === 'efg_pct') return p.fga > 0 ? `${avg(p,'efg_pct')}%` : '—'
+      // % 지표는 ×5 환산 미적용 (MAX 100%)
+      if (key === 'fg_pct')  return p.fga  > 0 ? `${p.fg_pct}%`  : '—'
+      if (key === 'fg3_pct') return p.fg3a > 0 ? `${p.fg3_pct}%` : '—'
+      if (key === 'ft_pct')  return p.fta  > 0 ? `${p.ft_pct}%`  : '—'
+      if (key === 'efg_pct') return p.fga  > 0 ? `${p.efg_pct}%` : '—'
       return String(avg(p, key as keyof PlayerStat))
     } else {
-      if (key === 'fg_pct') return p.fga > 0 ? `${p.fg_pct}%` : '—'
+      if (key === 'fg_pct')  return p.fga  > 0 ? `${p.fg_pct}%`  : '—'
       if (key === 'fg3_pct') return p.fg3a > 0 ? `${p.fg3_pct}%` : '—'
-      if (key === 'ft_pct') return p.fta > 0 ? `${p.ft_pct}%` : '—'
+      if (key === 'ft_pct')  return p.fta  > 0 ? `${p.ft_pct}%`  : '—'
+      if (key === 'efg_pct') return p.fga  > 0 ? `${p.efg_pct}%` : '—'
       return String((p as unknown as Record<string, number>)[key] ?? 0)
     }
   }
@@ -164,15 +168,24 @@ export default function LeagueStatsPage() {
       ) : (
         <>
           {/* 리더보드 카드 */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-            {[
-              { key: 'ppg' as SortKey, label: '득점왕', unit: 'PPG' },
-              { key: 'rpg' as SortKey, label: '리바운드왕', unit: 'RPG' },
-              { key: 'apg' as SortKey, label: '어시스트왕', unit: 'APG' },
-            ].map(({ key, label, unit }) => {
-              const leaders = top3(key)
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+            {([
+              { key: 'ppg'     as SortKey, label: '득점왕',      unit: 'PPG',  pct: false },
+              { key: 'rpg'     as SortKey, label: '리바운드왕',  unit: 'RPG',  pct: false },
+              { key: 'apg'     as SortKey, label: '어시스트왕',  unit: 'APG',  pct: false },
+              { key: 'spg'     as SortKey, label: '스틸왕',      unit: 'SPG',  pct: false },
+              { key: 'bpg'     as SortKey, label: '블락왕',      unit: 'BPG',  pct: false },
+              { key: 'fg_pct'  as SortKey, label: '야투율 1위',  unit: 'FG%',  pct: true  },
+              { key: 'fg3_pct' as SortKey, label: '3점% 1위',   unit: '3P%',  pct: true  },
+            ] as { key: SortKey; label: string; unit: string; pct: boolean }[]).map(({ key, label, unit, pct }) => {
+              // % 지표는 fga/fg3a > 0인 선수만 집계
+              const pool = pct
+                ? players.filter(p => p.gp >= minGP && (key === 'fg3_pct' ? p.fg3a > 0 : p.fga > 0))
+                : players.filter(p => p.gp >= minGP)
+              const leaders = [...pool].sort((a, b) => (b[key] as number) - (a[key] as number)).slice(0, 3)
               const top = leaders[0]
               if (!top) return null
+              const fmt = (p: PlayerStat) => pct ? `${(p[key] as number)}%` : String(p[key] as number)
               return (
                 <div key={key} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
                   <div className="flex items-center gap-1.5 mb-3">
@@ -183,7 +196,7 @@ export default function LeagueStatsPage() {
                     className="text-lg font-black text-white truncate hover:text-blue-300 transition-colors cursor-pointer text-left w-full hover:underline underline-offset-2">
                     {top.name}
                   </button>
-                  <p className="text-2xl font-black text-yellow-400">{top[key]}</p>
+                  <p className="text-2xl font-black text-yellow-400">{fmt(top)}</p>
                   <p className="text-[10px] text-gray-600 mt-0.5">{unit} · {top.gp}경기</p>
                   {leaders.slice(1).map((p, i) => (
                     <div key={p.player_id} className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-800">
@@ -191,7 +204,7 @@ export default function LeagueStatsPage() {
                         className="text-xs text-gray-500 hover:text-blue-300 cursor-pointer transition-colors hover:underline underline-offset-1">
                         {i + 2}위 {p.name}
                       </button>
-                      <span className="text-xs font-bold text-gray-400">{p[key]}</span>
+                      <span className="text-xs font-bold text-gray-400">{fmt(p)}</span>
                     </div>
                   ))}
                 </div>
