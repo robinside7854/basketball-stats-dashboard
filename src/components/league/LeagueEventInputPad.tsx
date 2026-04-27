@@ -165,6 +165,16 @@ export default function LeagueEventInputPad({
     return () => { clearTimeout(timer); clearInterval(tick) }
   }, [awaitingAssist]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── 앤드원 4초 자동 스킵 ────────────────────────────────────
+  const [andOneCountdown, setAndOneCountdown] = useState(0)
+  useEffect(() => {
+    if (!showAndOnePrompt) { setAndOneCountdown(0); return }
+    setAndOneCountdown(4)
+    const tick = setInterval(() => setAndOneCountdown(n => Math.max(0, n - 1)), 1000)
+    const timer = setTimeout(() => { clearInterval(tick); setShowAndOnePrompt(false) }, 4000)
+    return () => { clearTimeout(timer); clearInterval(tick) }
+  }, [showAndOnePrompt]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── API ──────────────────────────────────────────────────────
   async function saveEvent(body: object): Promise<string | null> {
     const r = await fetch(`/api/leagues/${leagueId}/events`, { method: 'POST', headers: leagueHeaders, body: JSON.stringify(body) })
@@ -609,7 +619,7 @@ export default function LeagueEventInputPad({
           </button>
           <button onClick={() => setShowAndOnePrompt(false)}
             className="px-2 py-1.5 bg-gray-700 text-gray-400 text-xs rounded-lg cursor-pointer hover:bg-gray-600">
-            건너뛰기
+            <span className={andOneCountdown <= 1 ? 'text-red-400 font-bold' : ''}>{andOneCountdown}s</span>
           </button>
         </div>
       )}
