@@ -67,7 +67,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [allPlayers, setAllPlayers] = useState<LeaguePlayer[]>([])
   const [leagueYtChannel, setLeagueYtChannel] = useState<string | null>(null)
   const [plusOneAge, setPlusOneAge] = useState<number | null>(null)
-  const [dateStats, setDateStats] = useState<Record<string, { total: number; yt: number }>>({})
+  const [dateStats, setDateStats] = useState<Record<string, { total: number; yt: number; complete: number; started: number }>>({})
   const [selectedSlotId, setSelectedSlotId] = useState('')
   const [loadingDates, setLoadingDates] = useState(true)
   const [initializingSlots, setInitializingSlots] = useState(false)
@@ -133,12 +133,14 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     toast.success(`일괄 연동 완료: ${successCount}/${targets.length}개 날짜 처리됨`)
   }
 
-  function buildDateStats(games: { date: string; youtube_url?: string | null }[]) {
-    const stats: Record<string, { total: number; yt: number }> = {}
+  function buildDateStats(games: { date: string; youtube_url?: string | null; is_complete?: boolean; is_started?: boolean }[]) {
+    const stats: Record<string, { total: number; yt: number; complete: number; started: number }> = {}
     for (const g of games) {
-      if (!stats[g.date]) stats[g.date] = { total: 0, yt: 0 }
+      if (!stats[g.date]) stats[g.date] = { total: 0, yt: 0, complete: 0, started: 0 }
       stats[g.date].total++
       if (g.youtube_url) stats[g.date].yt++
+      if (g.is_complete) stats[g.date].complete++
+      else if (g.is_started) stats[g.date].started++
     }
     setDateStats(stats)
   }
@@ -519,9 +521,15 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
   // ── 날짜 선택 화면 ─────────────────────────────────────────
   if (!selectedDate) {
+    // 전체 요약 집계
+    const totalGames    = Object.values(dateStats).reduce((s, d) => s + d.total,    0)
+    const totalComplete = Object.values(dateStats).reduce((s, d) => s + d.complete, 0)
+    const totalStarted  = Object.values(dateStats).reduce((s, d) => s + d.started,  0)
+    const totalPending  = totalGames - totalComplete - totalStarted
+
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h2 className="text-xl font-bold text-white">경기 기록</h2>
             <p className="text-gray-400 text-sm">기록할 날짜를 선택하세요</p>
@@ -538,29 +546,72 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             </button>
           )}
         </div>
+
+        {/* 전체 경기 완료 현황 요약 */}
+        {totalGames > 0 && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3 flex items-center gap-6 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 size={13} className="text-green-400" />
+              <span className="text-xs text-gray-400">완료</span>
+              <span className="text-sm font-black text-green-400 ml-1">{totalComplete}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Play size={13} className="text-amber-400" />
+              <span className="text-xs text-gray-400">기록 중</span>
+              <span className="text-sm font-black text-amber-400 ml-1">{totalStarted}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Circle size={13} className="text-gray-600" />
+              <span className="text-xs text-gray-400">미시작</span>
+              <span className="text-sm font-black text-gray-400 ml-1">{totalPending}</span>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-gray-600">전체 {totalGames}경기</span>
+              <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${totalGames > 0 ? (totalComplete / totalGames * 100) : 0}%` }} />
+              </div>
+              <span className="text-xs font-bold text-green-400">{totalGames > 0 ? Math.round(totalComplete / totalGames * 100) : 0}%</span>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           {scheduleDates.map(sd => {
             const d = new Date(sd.date + 'T00:00:00')
             const days = ['일', '월', '화', '수', '목', '금', '토']
             const stat = dateStats[sd.date]
             const allLinked = stat && stat.total > 0 && stat.yt === stat.total
+            const allDone   = stat && stat.total > 0 && stat.complete === stat.total
             return (
               <button
                 key={sd.id}
                 onClick={() => selectDate(sd.date)}
-                className="w-full text-left bg-gray-900 border border-gray-800 hover:border-blue-500/50 rounded-xl px-5 py-4 transition-colors cursor-pointer"
+                className={`w-full text-left bg-gray-900 border rounded-xl px-5 py-4 transition-colors cursor-pointer ${allDone ? 'border-green-800/50 hover:border-green-600/60' : 'border-gray-800 hover:border-blue-500/50'}`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-white font-medium">
                     {d.getFullYear()}년 {d.getMonth() + 1}월 {d.getDate()}일
                     <span className="text-gray-400 ml-2 text-sm">({days[d.getDay()]})</span>
                   </span>
-                  {stat && stat.total > 0 && (
-                    <span className={`flex items-center gap-1 text-xs font-mono shrink-0 ${allLinked ? 'text-red-400' : 'text-gray-500'}`}>
-                      <Youtube size={11} className={allLinked ? 'text-red-400' : 'text-gray-600'} />
-                      {allLinked ? `${stat.yt}/${stat.total} 연동 완료!` : `${stat.yt}/${stat.total}`}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-3 shrink-0">
+                    {/* 완료 현황 */}
+                    {stat && stat.total > 0 && (
+                      <span className={`flex items-center gap-1 text-xs font-bold ${allDone ? 'text-green-400' : stat.complete > 0 ? 'text-amber-400' : 'text-gray-600'}`}>
+                        <CheckCircle2 size={11} />
+                        {stat.complete}/{stat.total}
+                        {stat.started > 0 && !allDone && (
+                          <span className="text-amber-500 ml-1">({stat.started}진행)</span>
+                        )}
+                      </span>
+                    )}
+                    {/* YouTube 연동 */}
+                    {stat && stat.total > 0 && stat.yt > 0 && (
+                      <span className={`flex items-center gap-1 text-xs font-mono ${allLinked ? 'text-red-400' : 'text-gray-500'}`}>
+                        <Youtube size={11} />
+                        {stat.yt}/{stat.total}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
             )
