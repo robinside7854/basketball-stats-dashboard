@@ -3,6 +3,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Lock, Unlock } from 'lucide-react'
+import { Toaster } from '@/components/ui/sonner'
 
 function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
   const pathname = usePathname()
@@ -95,6 +96,7 @@ export default function LeagueLayoutClient({
           {children}
         </RecordAwareContainer>
       </div>
+      <Toaster richColors theme="dark" />
     </LeagueEditModeProvider>
   )
 }

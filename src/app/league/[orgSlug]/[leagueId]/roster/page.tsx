@@ -396,7 +396,7 @@ function PlayerModal({
               {/* 아바타 3:4 증명사진 + 사진 업로드 */}
               <div className="relative shrink-0 group/avatar">
                 <div
-                  className="w-24 h-32 rounded-xl flex items-center justify-center border-2 shadow-lg overflow-hidden"
+                  className="w-36 h-48 rounded-xl flex items-center justify-center border-2 shadow-lg overflow-hidden"
                   style={{
                     backgroundColor: heroColor ? `${heroColor}20` : '#162032',
                     borderColor: heroColor ? `${heroColor}50` : '#1d4ed8',
@@ -422,16 +422,27 @@ function PlayerModal({
                         const file = e.target.files?.[0]
                         if (!file) return
                         setUploadingPhoto(true)
-                        const fd = new FormData()
-                        fd.append('file', file)
-                        const photoHeaders: Record<string, string> = {}
-                        if (leagueHeaders['X-League-Pin']) photoHeaders['X-League-Pin'] = leagueHeaders['X-League-Pin']
-                        const res = await fetch(`/api/leagues/${leagueId}/players/${player.id}/photo`, {
-                          method: 'POST', headers: photoHeaders, body: fd,
-                        })
-                        setUploadingPhoto(false)
-                        if (res.ok) { const d = await res.json(); setPhotoUrl(d.url); toast.success('사진 저장됨') }
-                        else toast.error('사진 업로드 실패')
+                        try {
+                          const fd = new FormData()
+                          fd.append('file', file)
+                          const photoHeaders: Record<string, string> = {}
+                          if (leagueHeaders['X-League-Pin']) photoHeaders['X-League-Pin'] = leagueHeaders['X-League-Pin']
+                          const res = await fetch(`/api/leagues/${leagueId}/players/${player.id}/photo`, {
+                            method: 'POST', headers: photoHeaders, body: fd,
+                          })
+                          if (res.ok) {
+                            const d = await res.json()
+                            setPhotoUrl(d.url)
+                            toast.success('사진 저장됨')
+                          } else {
+                            const err = await res.json().catch(() => ({}))
+                            toast.error(`업로드 실패: ${err.error ?? res.status}`)
+                          }
+                        } catch (ex) {
+                          toast.error('네트워크 오류로 업로드 실패')
+                        } finally {
+                          setUploadingPhoto(false)
+                        }
                       }}
                     />
                   </label>
@@ -1436,7 +1447,7 @@ export default function LeagueRosterPage() {
 
                 <div className="p-4 pl-5 flex gap-3">
                   {/* 3:4 썸네일 */}
-                  <div className="shrink-0 w-11 h-[58px] rounded-lg overflow-hidden border border-gray-700 flex items-center justify-center bg-gray-800">
+                  <div className="shrink-0 w-16 h-[85px] rounded-lg overflow-hidden border border-gray-700 flex items-center justify-center bg-gray-800">
                     {p.photo_url ? (
                       <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover object-top" />
                     ) : (
