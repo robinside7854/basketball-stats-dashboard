@@ -105,6 +105,7 @@ export default function LeagueEventInputPad({
   const [showLastMenu, setShowLastMenu] = useState(false)
   const [addingAssistForLast, setAddingAssistForLast] = useState(false)
   const [assistCountdown, setAssistCountdown] = useState(0)
+  const [awaitingRebound, setAwaitingRebound] = useState(false)
 
   const allPlayers: RosterPlayer[] = [...homePlayers, ...awayPlayers]
   const selectedObj   = selectedPlayer ? (allPlayers.find(p => p.id === selectedPlayer) ?? null) : null
@@ -205,12 +206,42 @@ export default function LeagueEventInputPad({
 
   function handleResult(result: 'made' | 'missed') {
     if (!pendingShot) return
-    if (result === 'missed' || !pendingShot.needsRelated) {
+    if (result === 'missed' && SHOT_TYPES.includes(pendingShot.type)) {
+      // 필드골 실패 → 리바운드 선택 플로우
+      setAwaitingRebound(true)
+    } else if (result === 'missed' || !pendingShot.needsRelated) {
       saveShot(result)
     } else {
       setPendingResult('made')
       setAwaitingAssist(true)
     }
+  }
+
+  async function handleReboundAfterMiss(rebounderId: string | null) {
+    if (!selectedPlayer || !pendingShot) return
+    const shooterTeamId = selectedTeamId  // capture before state changes
+
+    // 1. 슛 실패 기록
+    await saveShot('missed')
+
+    // 2. 리바운드 기록 (아웃바운드면 null)
+    if (rebounderId) {
+      const rebounder = allPlayers.find(p => p.id === rebounderId)
+      const rebType = rebounder?.team_id === shooterTeamId ? 'oreb' : 'dreb'
+      const rebId = await saveEvent({
+        league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
+        type: rebType, league_player_id: rebounderId,
+        team_id: rebounder?.team_id ?? null,
+        result: null, related_player_id: null, points: 0,
+      })
+      if (rebId) {
+        const rName = rebounder?.name ?? ''
+        toast.success(`기록: ${rName} — ${rebType === 'oreb' ? '공격REB' : '수비REB'}`)
+        onEventSaved()
+      }
+    }
+
+    setAwaitingRebound(false)
   }
 
   async function undoLast() {
@@ -361,8 +392,48 @@ export default function LeagueEventInputPad({
         </div>
       </div>
 
+      {/* ── 슛 실패 후 리바운드 선택 ── */}
+      {awaitingRebound && pendingShot && (
+        <div className="pt-1 space-y-2">
+          <p className="text-xs text-gray-400">
+            <span className="text-red-400 font-bold">{pendingShot.label} ✗</span> — 리바운드 선수 선택
+          </p>
+          {/* 아웃바운드 (아무도 안잡음) */}
+          <button
+            onClick={() => handleReboundAfterMiss(null)}
+            className="w-full py-2.5 rounded-xl text-sm font-bold bg-gray-700/60 border border-gray-600/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 cursor-pointer transition-colors"
+          >
+            🌀 아웃바운드 / 미기록
+          </button>
+          {/* 팀별 리바운드 선택 (슈터 팀 = 공격리바, 상대 팀 = 수비리바) */}
+          {[
+            { players: homePlayers, team: homeTeam, isShooterTeam: selectedTeamId === homeTeam?.id },
+            { players: awayPlayers, team: awayTeam, isShooterTeam: selectedTeamId === awayTeam?.id },
+          ].map(({ players: tPlayers, team, isShooterTeam }) => tPlayers.length === 0 ? null : (
+            <div key={team?.id ?? 'team'}>
+              <p className="text-[10px] font-bold mb-1.5 px-1" style={{ color: team?.color ?? '#9ca3af' }}>
+                {team?.name ?? '팀'} — {isShooterTeam ? '공격리바' : '수비리바'}
+              </p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {tPlayers.map(p => (
+                  <button key={p.id} onClick={() => handleReboundAfterMiss(p.id)}
+                    className="py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer active:scale-95 transition-all"
+                    style={{ backgroundColor: `${team?.color ?? '#6b7280'}cc` }}>
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          <button onClick={() => { setAwaitingRebound(false); saveShot('missed') }}
+            className="text-[11px] text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center py-1">
+            리바운드 건너뛰기
+          </button>
+        </div>
+      )}
+
       {/* ── 이벤트 버튼 (선수 선택 후) ── */}
-      {selectedPlayer && !awaitingAssist && !addingAssistForLast && (
+      {selectedPlayer && !awaitingAssist && !addingAssistForLast && !awaitingRebound && (
         <div className="space-y-2 pt-1">
           {EVENT_GROUPS.map(group => {
             const groupHasPending = pendingShot && group.buttons.some(b => b.type === pendingShot.type)
