@@ -102,7 +102,6 @@ export default function LeagueEventInputPad({
   const [awaitingAssist, setAwaitingAssist] = useState(false)
   const [pendingResult, setPendingResult] = useState<'made' | 'missed' | null>(null)
   const [lastEvent, setLastEvent] = useState<LastEventDetails | null>(null)
-  const [recentIds, setRecentIds] = useState<string[]>([])
   const [showLastMenu, setShowLastMenu] = useState(false)
   const [addingAssistForLast, setAddingAssistForLast] = useState(false)
   const [assistCountdown, setAssistCountdown] = useState(0)
@@ -123,8 +122,6 @@ export default function LeagueEventInputPad({
     ? allPlayers.filter(p => p.id !== lastEvent.playerId && allPlayers.find(a => a.id === lastEvent.playerId)?.team_id && p.team_id === allPlayers.find(a => a.id === lastEvent.playerId)?.team_id)
     : []
 
-  const recentPlayers = recentIds.map(id => allPlayers.find(p => p.id === id)).filter(Boolean) as RosterPlayer[]
-
   // 항상 최신 상태를 참조하는 ref (어시스트 타임아웃용)
   const liveRef = useRef({ selectedPlayer, pendingShot, pendingResult, isPlusOne, selectedTeamId })
   liveRef.current = { selectedPlayer, pendingShot, pendingResult, isPlusOne, selectedTeamId }
@@ -133,7 +130,6 @@ export default function LeagueEventInputPad({
     setSelectedPlayer(id)
     setPendingShot(null)
     setAwaitingAssist(false)
-    setRecentIds(prev => [id, ...prev.filter(x => x !== id)].slice(0, 5))
   }
 
   // ── 어시스트 2초 자동 타임아웃 ──────────────────────────────
@@ -267,7 +263,6 @@ export default function LeagueEventInputPad({
   // ── 선수 카드 렌더 ────────────────────────────────────────────
   function renderPlayerBtn(p: RosterPlayer, teamColor: string) {
     const isSelected = selectedPlayer === p.id
-    const isRecent   = recentIds.includes(p.id)
     return (
       <button
         key={p.id}
@@ -275,9 +270,7 @@ export default function LeagueEventInputPad({
         className={`relative py-3 px-1 rounded-xl text-center transition-all cursor-pointer border active:scale-95 ${
           isSelected
             ? 'text-white shadow-lg'
-            : isRecent
-              ? 'bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700'
-              : 'bg-gray-800/80 border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-500'
+            : 'bg-gray-800/80 border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-500'
         } ${p.plus_one ? 'ring-1 ring-amber-400/60' : ''}`}
         style={isSelected ? { backgroundColor: teamColor, borderColor: teamColor } : {}}
       >
@@ -346,28 +339,6 @@ export default function LeagueEventInputPad({
         )}
       </div>
 
-      {/* ── 최근 5명 quick-bar ── */}
-      {recentPlayers.length > 0 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-          {recentPlayers.map(p => {
-            const tc = allPlayers.find(a => a.id === p.id) as RosterPlayer | undefined
-            const color = tc?.team_id === homeTeam?.id ? homeTeam?.color : awayTeam?.color
-            const isSelected = selectedPlayer === p.id
-            return (
-              <button key={p.id} onClick={() => selectPlayer(p.id)}
-                className={`shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border cursor-pointer transition-all active:scale-95 ${
-                  isSelected ? 'text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
-                }`}
-                style={isSelected ? { backgroundColor: color ?? '#3b82f6', borderColor: color ?? '#3b82f6' } : {}}>
-                {p.number != null && <span className="font-mono opacity-60 text-[10px]">#{p.number}</span>}
-                {p.name}
-              </button>
-            )
-          })}
-          <div className="shrink-0 w-1" />
-        </div>
-      )}
-
       {/* ── 선수 선택: 두 팀 2열 ── */}
       <div className="grid grid-cols-2 gap-2">
         <div>
@@ -393,32 +364,48 @@ export default function LeagueEventInputPad({
       {/* ── 이벤트 버튼 (선수 선택 후) ── */}
       {selectedPlayer && !awaitingAssist && !addingAssistForLast && (
         <div className="space-y-2 pt-1">
-          {EVENT_GROUPS.map(group => (
-            <div key={group.label}>
-              <p className="text-[10px] text-gray-500 mb-1">{group.label}</p>
-              <div className={`grid gap-1.5 grid-cols-${group.cols}`}>
-                {group.buttons.map(btn => {
-                  const isActive = pendingShot?.type === btn.type
-                  return (
-                    <button
-                      key={btn.type}
-                      onClick={() => {
-                        if (btn.needsResult) { setPendingShot(btn); setAwaitingAssist(false) }
-                        else saveInstant(btn)
-                      }}
-                      className={`py-4 rounded-xl text-sm font-bold text-white transition-all active:scale-95 cursor-pointer border-2 ${
-                        isActive
-                          ? `${btn.activeColor} border-white/60 shadow-lg scale-[1.02]`
-                          : `${btn.color} border-transparent`
-                      }`}
-                    >
-                      {btn.label}
+          {EVENT_GROUPS.map(group => {
+            const groupHasPending = pendingShot && group.buttons.some(b => b.type === pendingShot.type)
+            return (
+              <div key={group.label}>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] text-gray-500">{group.label}</p>
+                  {groupHasPending && (
+                    <button onClick={() => { setPendingShot(null); setAwaitingAssist(false) }}
+                      className="text-[10px] text-gray-600 hover:text-gray-400 cursor-pointer">취소</button>
+                  )}
+                </div>
+                {groupHasPending ? (
+                  /* 해당 그룹을 O/X 버튼으로 덮기 */
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => handleResult('made')}
+                      className="py-5 bg-green-600 hover:bg-green-500 text-white text-2xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
+                      ✓ 성공
                     </button>
-                  )
-                })}
+                    <button onClick={() => handleResult('missed')}
+                      className="py-5 bg-red-700 hover:bg-red-600 text-white text-2xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
+                      ✗ 실패
+                    </button>
+                  </div>
+                ) : (
+                  <div className={`grid gap-1.5 grid-cols-${group.cols}`}>
+                    {group.buttons.map(btn => (
+                      <button
+                        key={btn.type}
+                        onClick={() => {
+                          if (btn.needsResult) { setPendingShot(btn); setAwaitingAssist(false) }
+                          else saveInstant(btn)
+                        }}
+                        className={`py-4 rounded-xl text-sm font-bold text-white transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent`}
+                      >
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -463,30 +450,6 @@ export default function LeagueEventInputPad({
         </div>
       )}
 
-      {/* ── O/X 하단 Fixed Bar ── */}
-      {pendingShot && !awaitingAssist && !addingAssistForLast && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-gray-950/95 backdrop-blur-sm border-t border-gray-800 px-4 py-3">
-          <div className="max-w-lg mx-auto space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500 font-medium">{pendingShot.label} — 결과 선택</span>
-              <button onClick={() => { setPendingShot(null); setAwaitingAssist(false) }}
-                className="text-[11px] text-gray-600 hover:text-gray-400 cursor-pointer">취소</button>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => handleResult('made')}
-                className="py-5 bg-green-600 hover:bg-green-500 text-white text-2xl font-black rounded-2xl active:scale-95 cursor-pointer transition-transform shadow-lg">
-                ✓ 성공
-              </button>
-              <button onClick={() => handleResult('missed')}
-                className="py-5 bg-red-700 hover:bg-red-600 text-white text-2xl font-black rounded-2xl active:scale-95 cursor-pointer transition-transform shadow-lg">
-                ✗ 실패
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* O/X 바 공간 확보 (fixed bar가 콘텐츠를 가리지 않도록) */}
-      {pendingShot && !awaitingAssist && !addingAssistForLast && <div className="h-28" />}
     </div>
   )
 }
