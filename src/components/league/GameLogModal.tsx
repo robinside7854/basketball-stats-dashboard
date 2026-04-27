@@ -41,6 +41,13 @@ const FT_TYPES   = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2']
 
 function getLabel(type: string) { return EVENT_OPTS.find(e => e.v === type)?.l ?? type }
 
+function fmtTs(sec: number | null): string {
+  if (sec == null || sec < 0) return '—'
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
 function eventColor(type: string, result: string | null) {
   const isMade = result === 'made'
   const isMiss = result === 'missed'
@@ -266,6 +273,12 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
             return (
               <div key={e.id}
                 className="flex items-center gap-3 px-3 py-2.5 bg-gray-900/60 border border-gray-800/40 rounded-xl hover:border-gray-700/60 transition-colors group">
+                {/* 타임스탬프 */}
+                <div className="shrink-0 w-10 text-center">
+                  <span className="text-[11px] font-mono font-bold text-gray-600 tabular-nums">
+                    {fmtTs(e.video_timestamp)}
+                  </span>
+                </div>
                 <div className="flex-1 min-w-0 space-y-0.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-white text-sm font-semibold">
