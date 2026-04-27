@@ -107,6 +107,9 @@ export default function LeagueEventInputPad({
   const [assistCountdown, setAssistCountdown] = useState(0)
   const [awaitingRebound, setAwaitingRebound] = useState(false)
   const [reboundShooterTeamId, setReboundShooterTeamId] = useState<string | null>(null)
+  const [showAndOnePrompt, setShowAndOnePrompt] = useState(false)  // Phase 2-F
+  const [awaitingTovPair, setAwaitingTovPair] = useState(false)    // Phase 2-G
+  const [stealerTeamId, setStealerTeamId] = useState<string | null>(null)
 
   const allPlayers: RosterPlayer[] = [...homePlayers, ...awayPlayers]
   const selectedObj   = selectedPlayer ? (allPlayers.find(p => p.id === selectedPlayer) ?? null) : null
@@ -197,6 +200,52 @@ export default function LeagueEventInputPad({
       setReboundShooterTeamId(shooterTeamId)
       setAwaitingRebound(true)
     }
+
+    // Phase 2-F: 필드골 성공 후 앤드원 프롬프트
+    if (result === 'made' && SHOT_TYPES.includes(shotType)) {
+      setShowAndOnePrompt(true)
+    }
+  }
+
+  // Phase 2-F: 앤드원 처리
+  async function handleAndOne(result: 'made' | 'missed') {
+    const shooterId = lastEvent?.playerId ?? selectedPlayer
+    if (!shooterId) { setShowAndOnePrompt(false); return }
+    const shooter = allPlayers.find(p => p.id === shooterId)
+    const pts = result === 'made' ? 1 : 0
+    const id = await saveEvent({
+      league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
+      type: 'and_one', league_player_id: shooterId,
+      team_id: shooter?.team_id ?? null,
+      result, related_player_id: null, points: pts,
+    })
+    setShowAndOnePrompt(false)
+    if (!id) return
+    const name = shooter?.name ?? ''
+    toast.success(`기록: ${name} — 앤드원 ${result === 'made' ? '✓' : '✗'}`)
+    onEventSaved()
+    if (result === 'missed') {
+      setReboundShooterTeamId(shooter?.team_id ?? null)
+      setAwaitingRebound(true)
+    }
+  }
+
+  // Phase 2-G: 스틸 후 TOV 페어
+  async function handleTovPair(tovPlayerId: string | null) {
+    if (tovPlayerId) {
+      const p = allPlayers.find(x => x.id === tovPlayerId)
+      const id = await saveEvent({
+        league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
+        type: 'turnover', league_player_id: tovPlayerId,
+        team_id: p?.team_id ?? null, result: null, related_player_id: null, points: 0,
+      })
+      if (id) {
+        toast.success(`기록: ${p?.name ?? ''} — TOV (페어)`)
+        onEventSaved()
+      }
+    }
+    setAwaitingTovPair(false)
+    setStealerTeamId(null)
   }
 
   async function saveInstant(btn: EventBtn) {
@@ -220,6 +269,12 @@ export default function LeagueEventInputPad({
       const offenseTeamId = blockerTeamId === homeTeam?.id ? awayTeam?.id : homeTeam?.id
       setReboundShooterTeamId(offenseTeamId ?? null)
       setAwaitingRebound(true)
+    }
+
+    // Phase 2-G: 스틸 후 상대팀 TOV 페어 피커
+    if (btn.type === 'steal') {
+      setStealerTeamId(selectedTeamId)
+      setAwaitingTovPair(true)
     }
   }
 
@@ -452,7 +507,7 @@ export default function LeagueEventInputPad({
       )}
 
       {/* ── 이벤트 버튼 (선수 선택 후) ── */}
-      {selectedPlayer && !awaitingAssist && !addingAssistForLast && !awaitingRebound && (
+      {selectedPlayer && !awaitingAssist && !addingAssistForLast && !awaitingRebound && !awaitingTovPair && (
         <div className="space-y-2 pt-1">
           {EVENT_GROUPS.map(group => {
             const groupHasPending = pendingShot && group.buttons.some(b => b.type === pendingShot.type)
@@ -537,6 +592,60 @@ export default function LeagueEventInputPad({
           </div>
           <button onClick={() => { setAddingAssistForLast(false); setPendingShot(null) }}
             className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center py-1">취소</button>
+        </div>
+      )}
+
+      {/* ── Phase 2-F: 앤드원 프롬프트 (필드골 성공 직후) ── */}
+      {showAndOnePrompt && (
+        <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-900/25 border border-amber-600/40 rounded-xl">
+          <span className="text-amber-300 font-black text-sm flex-1">⚡ 앤드원?</span>
+          <button onClick={() => handleAndOne('made')}
+            className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-black rounded-lg cursor-pointer active:scale-95 transition-all">
+            ✓ 성공
+          </button>
+          <button onClick={() => handleAndOne('missed')}
+            className="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs font-black rounded-lg cursor-pointer active:scale-95 transition-all">
+            ✗ 실패
+          </button>
+          <button onClick={() => setShowAndOnePrompt(false)}
+            className="px-2 py-1.5 bg-gray-700 text-gray-400 text-xs rounded-lg cursor-pointer hover:bg-gray-600">
+            건너뛰기
+          </button>
+        </div>
+      )}
+
+      {/* ── Phase 2-G: 스틸→TOV 페어 피커 ── */}
+      {awaitingTovPair && (
+        <div className="pt-1 space-y-2">
+          <p className="text-xs text-gray-400">🎣 스틸 → 턴오버 선수 선택</p>
+          <button onClick={() => handleTovPair(null)}
+            className="w-full py-2.5 rounded-xl text-sm font-bold bg-gray-700/60 border border-gray-600/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 cursor-pointer transition-colors">
+            불명 / 미기록
+          </button>
+          {(() => {
+            const opposing = allPlayers.filter(p => p.team_id !== stealerTeamId)
+            const oppTeam = opposing[0]?.team_id === homeTeam?.id ? homeTeam : awayTeam
+            return opposing.length > 0 ? (
+              <div>
+                <p className="text-[10px] font-bold mb-1.5 px-1" style={{ color: oppTeam?.color ?? '#9ca3af' }}>
+                  {oppTeam?.name ?? '상대팀'}
+                </p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {opposing.map(p => (
+                    <button key={p.id} onClick={() => handleTovPair(p.id)}
+                      className="py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer active:scale-95 transition-all"
+                      style={{ backgroundColor: `${oppTeam?.color ?? '#6b7280'}cc` }}>
+                      {p.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null
+          })()}
+          <button onClick={() => handleTovPair(null)}
+            className="text-[11px] text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center py-1">
+            건너뛰기
+          </button>
         </div>
       )}
 
