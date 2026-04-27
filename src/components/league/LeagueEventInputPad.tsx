@@ -281,8 +281,10 @@ export default function LeagueEventInputPad({
         } ${p.plus_one ? 'ring-1 ring-amber-400/60' : ''}`}
         style={isSelected ? { backgroundColor: teamColor, borderColor: teamColor } : {}}
       >
-        <div className="text-2xl font-black font-mono leading-none mb-1 opacity-90">{p.number ?? '—'}</div>
-        <div className="text-xs font-semibold truncate leading-tight px-0.5">{p.name}</div>
+        {p.number != null && (
+          <div className="text-lg font-black font-mono leading-none mb-0.5 opacity-70">#{p.number}</div>
+        )}
+        <div className={`font-semibold truncate leading-tight px-0.5 ${p.number != null ? 'text-xs' : 'text-sm'}`}>{p.name}</div>
         {p.plus_one && (
           <span className="absolute top-1 right-1 text-[8px] font-black text-amber-300 leading-none">+1</span>
         )}
@@ -357,7 +359,7 @@ export default function LeagueEventInputPad({
                   isSelected ? 'text-white' : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500'
                 }`}
                 style={isSelected ? { backgroundColor: color ?? '#3b82f6', borderColor: color ?? '#3b82f6' } : {}}>
-                <span className="font-mono opacity-70">#{p.number ?? '—'}</span>
+                {p.number != null && <span className="font-mono opacity-60 text-[10px]">#{p.number}</span>}
                 {p.name}
               </button>
             )

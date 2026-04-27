@@ -209,7 +209,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                       <select value={editForm.playerId} onChange={ev => setEditForm(f => ({ ...f, playerId: ev.target.value }))}
                         className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
                         <option value="">없음</option>
-                        {allPlayers.map(p => <option key={p.id} value={p.id}>#{p.number ?? '—'} {p.name}</option>)}
+                        {allPlayers.map(p => <option key={p.id} value={p.id}>{p.number != null ? `#${p.number} ` : ''}{p.name}</option>)}
                       </select>
                     </div>
                     <div>
@@ -250,7 +250,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                         className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
                         <option value="">없음</option>
                         {allPlayers.filter(p => p.id !== editForm.playerId).map(p => (
-                          <option key={p.id} value={p.id}>#{p.number ?? '—'} {p.name}</option>
+                          <option key={p.id} value={p.id}>{p.number != null ? `#${p.number} ` : ''}{p.name}</option>
                         ))}
                       </select>
                     </div>
@@ -282,7 +282,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                 <div className="flex-1 min-w-0 space-y-0.5">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-white text-sm font-semibold">
-                      {player ? `#${player.number ?? '—'} ${player.name}` : '—'}
+                      {player ? `${player.number != null ? `#${player.number} ` : ''}${player.name}` : '—'}
                     </span>
                     <span className={`text-xs font-bold ${eventColor(e.type, e.result)}`}>{getLabel(e.type)}</span>
                     {e.result && (
@@ -296,7 +296,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                   </div>
                   {relPlayer && (
                     <p className="text-[11px] text-gray-600">
-                      어시스트 → #{relPlayer.number ?? '—'} {relPlayer.name}
+                      어시스트 → {relPlayer.number != null ? `#${relPlayer.number} ` : ''}{relPlayer.name}
                     </p>
                   )}
                 </div>

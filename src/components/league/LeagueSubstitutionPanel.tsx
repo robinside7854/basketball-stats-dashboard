@@ -98,7 +98,7 @@ export default function LeagueSubstitutionPanel({ leagueId, gameId, players, min
                 'bg-gray-800 border-gray-700 text-gray-200'
               }`}
             >
-              <span className="text-gray-400 font-mono mr-1 text-xs">{p.number ?? '—'}</span>
+              {p.number != null && <span className="text-gray-400 font-mono mr-1 text-xs">#{p.number}</span>}
               {p.name}
             </button>
           ))}
@@ -118,7 +118,7 @@ export default function LeagueSubstitutionPanel({ leagueId, gameId, players, min
                 'bg-gray-800 border-gray-700 text-gray-500 cursor-default'
               }`}
             >
-              <span className="text-gray-600 font-mono mr-1 text-xs">{p.number ?? '—'}</span>
+              {p.number != null && <span className="text-gray-600 font-mono mr-1 text-xs">#{p.number}</span>}
               {p.name}
             </button>
           ))}
