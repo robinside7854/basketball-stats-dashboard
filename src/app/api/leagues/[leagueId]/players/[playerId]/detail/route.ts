@@ -290,6 +290,41 @@ export async function GET(
     : { gp: 0, ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0, topg: 0, drebPerG: 0, orebPerG: 0, pfPerG: 0, fg3_pct: 0, fg3aPerG: 0, efg_pct: 0, fgaPerG: 0, ft_pct: 0, ftaPerG: 0, atoRatio: 0, defComposite: 0, hustleComposite: 0, stlTotal: 0, midPerG: 0, slashPerG: 0, postPerG: 0, andOnePerG: 0, threeDistPct: 0, midDistPct: 0, slashDistPct: 0 }
   const badges = computeBadges(playerMetrics, allMetricsList)
 
+  // ── Win/Loss impact ──────────────────────────────────────────
+  type WLS = { pts: number; reb: number; ast: number; stl: number; blk: number; gp: number }
+  const winS:  WLS = { pts:0, reb:0, ast:0, stl:0, blk:0, gp:0 }
+  const lossS: WLS = { pts:0, reb:0, ast:0, stl:0, blk:0, gp:0 }
+  let playerPtsTotal = 0, teamPtsTotal = 0
+
+  for (const gId of playedGames) {
+    const s = perGame[gId]
+    const g = gameMap[gId]
+    if (!g) continue
+    const tid = g.quarter_id ? qTeamMap[g.quarter_id] : undefined
+    if (!tid) continue
+    const isHome = g.home_team_id === tid
+    const myPts  = isHome ? (g.home_score as number) : (g.away_score as number)
+    const oppPts = isHome ? (g.away_score as number) : (g.home_score as number)
+    const won = myPts > oppPts
+    playerPtsTotal += s.pts
+    teamPtsTotal   += myPts
+    const bucket = won ? winS : lossS
+    bucket.pts += s.pts; bucket.reb += s.reb; bucket.ast += s.ast
+    bucket.stl += s.stl; bucket.blk += s.blk; bucket.gp++
+  }
+  const avgWLS = (b: WLS) => b.gp === 0 ? null : ({
+    ppg: +(b.pts / b.gp).toFixed(1), rpg: +(b.reb / b.gp).toFixed(1),
+    apg: +(b.ast / b.gp).toFixed(1), spg: +(b.stl / b.gp).toFixed(1),
+    bpg: +(b.blk / b.gp).toFixed(1),
+  })
+  const winLoss = {
+    wins: winS.gp, losses: lossS.gp,
+    win_rate: (winS.gp + lossS.gp) > 0 ? +(winS.gp / (winS.gp + lossS.gp) * 100).toFixed(1) : 0,
+    win_stats:  avgWLS(winS),
+    loss_stats: avgWLS(lossS),
+    pts_share:  teamPtsTotal > 0 ? +(playerPtsTotal / teamPtsTotal * 100).toFixed(1) : 0,
+  }
+
   // ── Shot breakdown ───────────────────────────────────────────
   const totalFGA = sb.layup.a + sb.mid.a + sb.post.a + sb.drive.a + sb.three.a
   const pct = (m: number, a: number) => a > 0 ? +(m / a * 100).toFixed(1) : 0
@@ -304,5 +339,5 @@ export async function GET(
     total_fga: totalFGA,
   }
 
-  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges })
+  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss })
 }

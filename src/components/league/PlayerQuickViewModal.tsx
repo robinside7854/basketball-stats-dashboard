@@ -17,12 +17,19 @@ type SeasonStats = {
 
 type BadgeResult = { id: string; name: string; icon: string; tier: 'gold'|'silver'|'bronze'; category: string }
 
+type WLStats = { ppg: number; rpg: number; apg: number; spg: number; bpg: number } | null
+
 type Detail = {
   rankings: { ppg: number; rpg: number; apg: number; spg: number; bpg: number; total: number }
   badges: BadgeResult[]
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; pts: number; reb: number; ast: number; fgm: number; fga: number }>
+  win_loss?: {
+    wins: number; losses: number; win_rate: number
+    win_stats: WLStats; loss_stats: WLStats
+    pts_share: number
+  }
 }
 
 function calcAge(birthDate: string | null): number | null {
@@ -199,6 +206,76 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 </div>
               </div>
             )}
+
+            {/* 출전 임팩트 */}
+            {detail?.win_loss && (detail.win_loss.wins + detail.win_loss.losses) > 0 && (() => {
+              const wl = detail.win_loss
+              const WL_STATS: { key: keyof NonNullable<WLStats>; label: string }[] = [
+                { key: 'ppg', label: 'PPG' }, { key: 'rpg', label: 'RPG' },
+                { key: 'apg', label: 'APG' }, { key: 'spg', label: 'SPG' },
+                { key: 'bpg', label: 'BPG' },
+              ]
+              return (
+                <div className="px-5 py-4 border-b border-gray-800/60">
+                  <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">출전 임팩트</p>
+
+                  {/* W-L + 승률 + 팀 기여도 */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex-1 bg-gray-900/60 border border-gray-800/50 rounded-xl p-3 text-center">
+                      <p className="text-[9px] text-gray-600 mb-1 uppercase">전적</p>
+                      <p className="text-base font-black leading-none">
+                        <span className="text-green-400">{wl.wins}W</span>
+                        <span className="text-gray-600 mx-1">·</span>
+                        <span className="text-red-400">{wl.losses}L</span>
+                      </p>
+                    </div>
+                    <div className="flex-1 bg-gray-900/60 border border-gray-800/50 rounded-xl p-3 text-center">
+                      <p className="text-[9px] text-gray-600 mb-1 uppercase">출전 승률</p>
+                      <p className={`text-xl font-black leading-none ${wl.win_rate >= 60 ? 'text-green-400' : wl.win_rate >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {wl.win_rate}%
+                      </p>
+                    </div>
+                    <div className="flex-1 bg-gray-900/60 border border-gray-800/50 rounded-xl p-3 text-center">
+                      <p className="text-[9px] text-gray-600 mb-1 uppercase">팀 득점 기여</p>
+                      <p className="text-xl font-black text-blue-300 leading-none">{wl.pts_share}%</p>
+                    </div>
+                  </div>
+
+                  {/* 팀 득점 기여 바 */}
+                  <div className="mb-4">
+                    <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
+                      <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${Math.min(wl.pts_share, 100)}%` }} />
+                    </div>
+                    <p className="text-[10px] text-gray-600 mt-1">팀 전체 득점 중 이 선수 비중</p>
+                  </div>
+
+                  {/* 승/패 스탯 비교 */}
+                  {(wl.win_stats || wl.loss_stats) && (
+                    <div>
+                      <div className="grid grid-cols-7 gap-1 text-center mb-1">
+                        <div />
+                        {WL_STATS.map(({ label }) => (
+                          <div key={label} className="text-[9px] text-gray-600 font-bold uppercase">{label}</div>
+                        ))}
+                      </div>
+                      {([
+                        { label: '이길 때', stats: wl.win_stats,  color: 'text-green-400', bg: 'bg-green-900/10 border-green-800/30' },
+                        { label: '질 때',   stats: wl.loss_stats, color: 'text-red-400',   bg: 'bg-red-900/10 border-red-800/30'   },
+                      ] as const).map(({ label, stats, color, bg }) => (
+                        <div key={label} className={`grid grid-cols-7 gap-1 items-center rounded-lg border px-2 py-2 mb-1.5 ${bg}`}>
+                          <p className={`text-[10px] font-bold ${color} whitespace-nowrap`}>{label}</p>
+                          {WL_STATS.map(({ key }) => (
+                            <p key={key} className="text-[11px] font-black text-white text-center">
+                              {stats ? stats[key] : '—'}
+                            </p>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* 공격 스타일 */}
             {detail?.shot_breakdown && detail.shot_breakdown.total_fga > 0 && (
