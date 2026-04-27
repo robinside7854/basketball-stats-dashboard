@@ -508,8 +508,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         </button>
       </div>
 
-      {/* 슬랏 그리드 */}
-      <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
+      {/* 슬랏 그리드 — PC에서 크게 */}
+      <div className="grid grid-cols-5 lg:grid-cols-9 gap-2">
         {slots.map(slot => {
           const isSelected = slot.id === selectedSlotId
           const hasTeams = slot.home_team_id && slot.away_team_id
@@ -518,7 +518,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             <button
               key={slot.id}
               onClick={() => selectSlot(slot)}
-              className={`relative flex flex-col items-center justify-center py-3 rounded-xl border text-sm font-bold transition-all cursor-pointer ${
+              className={`relative flex flex-col items-center justify-center py-4 rounded-xl border text-base font-bold transition-all cursor-pointer ${
                 isSelected
                   ? 'bg-blue-600 border-blue-500 text-white'
                   : slot.is_complete
@@ -526,15 +526,15 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                   : 'bg-gray-900 border-gray-800 text-gray-300 hover:border-gray-600'
               }`}
             >
-              <span className="text-base">{slot.slot_num}</span>
+              <span className="text-lg">{slot.slot_num}</span>
               <div className="flex items-center gap-0.5 mt-1">
-                {hasYT && <Youtube size={9} className="text-red-400" />}
+                {hasYT && <Youtube size={10} className="text-red-400" />}
                 {slot.is_complete
-                  ? <CheckCircle2 size={9} className="text-green-400" />
+                  ? <CheckCircle2 size={10} className="text-green-400" />
                   : slot.is_started
-                  ? <Circle size={9} className="text-yellow-400" />
+                  ? <Circle size={10} className="text-yellow-400" />
                   : hasTeams
-                  ? <Circle size={9} className="text-gray-500" />
+                  ? <Circle size={10} className="text-gray-500" />
                   : null}
               </div>
             </button>
@@ -586,10 +586,10 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           {/* 팀이 지정된 경우: 비디오(좌) + 기록(우) 2열 레이아웃 */}
           {selectedSlot.home_team_id && selectedSlot.away_team_id ? (
             <>
-            <div className="lg:grid lg:grid-cols-[3fr_2fr] lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
+            <div className="lg:grid lg:grid-cols-[5fr_3fr] lg:gap-3 lg:items-start space-y-4 lg:space-y-0">
 
               {/* ── 좌측: 비디오 + 경기 제어 (sticky) ── */}
-              <div className="lg:sticky lg:top-4 space-y-3">
+              <div className="lg:sticky lg:top-[52px] space-y-2">
                 {selectedSlot.youtube_url ? (
                   <div className="bg-black rounded-xl overflow-hidden">
                     <YouTubePlayer

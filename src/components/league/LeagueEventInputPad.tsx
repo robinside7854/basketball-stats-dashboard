@@ -222,10 +222,10 @@ export default function LeagueEventInputPad({
         }`}
         style={isSelected ? { backgroundColor: teamColor, borderColor: teamColor } : {}}
       >
-        <div className="text-xl font-black font-mono leading-none mb-0.5 opacity-80">
+        <div className="text-2xl font-black font-mono leading-none mb-1 opacity-90">
           {p.number ?? '—'}
         </div>
-        <div className="text-[11px] font-medium truncate leading-tight">{p.name}</div>
+        <div className="text-xs font-semibold truncate leading-tight px-0.5">{p.name}</div>
         {isPlusOne && (
           <span className="absolute top-1 right-1 text-[8px] font-black text-amber-300 leading-none">+1</span>
         )}
@@ -323,11 +323,11 @@ export default function LeagueEventInputPad({
                     const isActive = !!btn.needsResult && pendingShot?.type === btn.type
                     if (isActive) {
                       return (
-                        <div key={btn.type} className="col-span-1 flex rounded-xl overflow-hidden gap-px h-[44px]">
+                        <div key={btn.type} className="col-span-1 flex rounded-xl overflow-hidden gap-px h-[52px]">
                           <button onClick={() => handleResult('made')}
-                            className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black text-lg active:scale-95 cursor-pointer">O</button>
+                            className="flex-1 bg-green-600 hover:bg-green-500 text-white font-black text-xl active:scale-95 cursor-pointer">O</button>
                           <button onClick={() => handleResult('missed')}
-                            className="flex-1 bg-red-700 hover:bg-red-600 text-white font-black text-lg active:scale-95 cursor-pointer">X</button>
+                            className="flex-1 bg-red-700 hover:bg-red-600 text-white font-black text-xl active:scale-95 cursor-pointer">X</button>
                         </div>
                       )
                     }
@@ -338,7 +338,7 @@ export default function LeagueEventInputPad({
                           if (btn.needsResult) { setPendingShot(btn); setAwaitingAssist(false) }
                           else saveInstant(btn)
                         }}
-                        className={`py-3 rounded-xl text-sm font-bold text-white transition-all active:scale-95 cursor-pointer ${btn.color}`}
+                        className={`py-4 rounded-xl text-sm font-bold text-white transition-all active:scale-95 cursor-pointer ${btn.color}`}
                       >
                         {btn.label}
                       </button>

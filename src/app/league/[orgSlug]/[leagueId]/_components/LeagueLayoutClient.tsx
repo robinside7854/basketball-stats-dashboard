@@ -9,6 +9,8 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
   const { isEditMode, openPinModal, exitEditMode } = useLeagueEditMode()
 
   const base = `/league/${orgSlug}/${leagueId}`
+  const isRecord = pathname.startsWith(`${base}/record`)
+
   const tabs = [
     { href: base, label: '홈' },
     { href: `${base}/roster`, label: '선수단' },
@@ -21,7 +23,7 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
 
   return (
     <div className="sticky top-0 z-10 bg-gray-950 border-b border-gray-800">
-      <div className="max-w-2xl mx-auto px-4">
+      <div className={isRecord ? 'px-4' : 'max-w-2xl mx-auto px-4'}>
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
           {tabs.map(tab => {
             const isActive = tab.href === base
@@ -64,6 +66,17 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
   )
 }
 
+function RecordAwareContainer({
+  orgSlug, leagueId, children,
+}: { orgSlug: string; leagueId: string; children: React.ReactNode }) {
+  const pathname = usePathname()
+  const isRecord = pathname.startsWith(`/league/${orgSlug}/${leagueId}/record`)
+  if (isRecord) {
+    return <div className="px-3 py-3">{children}</div>
+  }
+  return <div className="max-w-2xl mx-auto px-4 py-6">{children}</div>
+}
+
 export default function LeagueLayoutClient({
   orgSlug,
   leagueId,
@@ -77,9 +90,9 @@ export default function LeagueLayoutClient({
     <LeagueEditModeProvider leagueId={leagueId}>
       <div className="min-h-screen bg-gray-950 text-white">
         <TabNav orgSlug={orgSlug} leagueId={leagueId} />
-        <div className="max-w-2xl mx-auto px-4 py-6">
+        <RecordAwareContainer orgSlug={orgSlug} leagueId={leagueId}>
           {children}
-        </div>
+        </RecordAwareContainer>
       </div>
     </LeagueEditModeProvider>
   )
