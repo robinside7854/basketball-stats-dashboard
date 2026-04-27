@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { computeBadges, type PlayerMetrics } from '@/lib/league/badges'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'] as const
 
@@ -175,8 +176,13 @@ export async function GET(
       return { ...gameInfo(gId, tid), pts: s.pts, reb: s.reb, ast: s.ast, fgm: s.fgm, fga: s.fga }
     })
 
-  // ── Rankings ─────────────────────────────────────────────────
-  type AS = { pts: number; reb: number; ast: number; stl: number; blk: number; gp: number }
+  // ── Rankings + Badge metrics ──────────────────────────────────
+  type AS = {
+    pts: number; reb: number; oreb: number; dreb: number
+    ast: number; stl: number; blk: number; tov: number; pf: number
+    fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
+    gp: number
+  }
   const allMap: Record<string, AS> = {}
   const allGp: Record<string, Set<string>> = {}
 
@@ -185,21 +191,33 @@ export async function GET(
     const made = e.result === 'made'
     const isP1 = plusOneSet.has(pid)
     const gId = e.league_game_id as string
-    if (!allMap[pid]) allMap[pid] = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, gp: 0 }
+    if (!allMap[pid]) allMap[pid] = {
+      pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
+      fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0, gp: 0,
+    }
     if (!allGp[pid]) allGp[pid] = new Set()
     allGp[pid].add(gId)
     const s = allMap[pid]
     if (made) {
-      if (e.type === 'shot_3p') s.pts += isP1 ? 4 : 3
-      else if (['shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'].includes(e.type as string)) s.pts += isP1 ? 3 : 2
-      else if (['and_one', 'free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) s.pts += (e.points as number) ?? 1
+      if (e.type === 'shot_3p') { s.pts += isP1 ? 4 : 3; s.fg3m++; s.fgm++ }
+      else if (['shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'].includes(e.type as string)) { s.pts += isP1 ? 3 : 2; s.fgm++ }
+      else if (['and_one', 'free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) { s.pts += (e.points as number) ?? 1; s.ftm++ }
     }
-    if (e.type === 'oreb' || e.type === 'dreb') s.reb++
-    if (e.type === 'steal') s.stl++
-    if (e.type === 'block') s.blk++
+    if (e.type === 'shot_3p') { s.fg3a++; s.fga++ }
+    else if (['shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'].includes(e.type as string)) s.fga++
+    else if (['and_one', 'free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) s.fta++
+    else if (e.type === 'oreb') { s.oreb++; s.reb++ }
+    else if (e.type === 'dreb') { s.dreb++; s.reb++ }
+    else if (e.type === 'steal') s.stl++
+    else if (e.type === 'block') s.blk++
+    else if (e.type === 'turnover') s.tov++
+    else if (e.type === 'foul') s.pf++
     if (e.related_player_id && made && (SHOT_TYPES as readonly string[]).includes(e.type as string)) {
       const ap = e.related_player_id as string
-      if (!allMap[ap]) allMap[ap] = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, gp: 0 }
+      if (!allMap[ap]) allMap[ap] = {
+        pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
+        fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0, gp: 0,
+      }
       if (!allGp[ap]) allGp[ap] = new Set()
       allGp[ap].add(gId)
       allMap[ap].ast++
@@ -207,16 +225,37 @@ export async function GET(
   }
   for (const pid of Object.keys(allMap)) allMap[pid].gp = allGp[pid]?.size ?? 0
 
-  const ranked = Object.entries(allMap)
+  // per-game 통계 + 배지 메트릭
+  const toMetrics = (pid: string, s: AS): PlayerMetrics => {
+    const gp = s.gp || 1
+    const ppg = s.pts / gp; const rpg = s.reb / gp; const apg = s.ast / gp
+    const spg = s.stl / gp; const bpg = s.blk / gp; const topg = s.tov / gp
+    const drebPerG = s.dreb / gp; const orebPerG = s.oreb / gp; const pfPerG = s.pf / gp
+    const fg3_pct = s.fg3a > 0 ? s.fg3m / s.fg3a * 100 : 0
+    const fg3aPerG = s.fg3a / gp
+    const efg_pct = s.fga > 0 ? (s.fgm + 0.5 * s.fg3m) / s.fga * 100 : 0
+    const fgaPerG = s.fga / gp
+    const ft_pct = s.fta > 0 ? s.ftm / s.fta * 100 : 0
+    const ftaPerG = s.fta / gp
+    const atoRatio = s.tov > 0 ? s.ast / s.tov : s.ast
+    const defComposite = spg + bpg
+    const hustleComposite = spg + bpg + orebPerG
+    const stlTotal = s.stl
+    return {
+      gp: s.gp, ppg, rpg, apg, spg, bpg, topg, drebPerG, orebPerG, pfPerG,
+      fg3_pct, fg3aPerG, efg_pct, fgaPerG, ft_pct, ftaPerG,
+      atoRatio, defComposite, hustleComposite, stlTotal,
+    }
+  }
+
+  const allMetricsList = Object.entries(allMap)
     .filter(([, s]) => s.gp > 0)
-    .map(([pid, s]) => ({
-      pid,
-      ppg: +(s.pts / s.gp).toFixed(1),
-      rpg: +(s.reb / s.gp).toFixed(1),
-      apg: +(s.ast / s.gp).toFixed(1),
-      spg: +(s.stl / s.gp).toFixed(1),
-      bpg: +(s.blk / s.gp).toFixed(1),
-    }))
+    .map(([pid, s]) => ({ pid, ...toMetrics(pid, s) }))
+
+  const ranked = allMetricsList.map(m => ({
+    pid: m.pid, ppg: +m.ppg.toFixed(1), rpg: +m.rpg.toFixed(1),
+    apg: +m.apg.toFixed(1), spg: +m.spg.toFixed(1), bpg: +m.bpg.toFixed(1),
+  }))
 
   const getRank = (stat: 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg') => {
     const sorted = [...ranked].sort((a, b) => b[stat] - a[stat])
@@ -228,6 +267,13 @@ export async function GET(
     spg: getRank('spg'), bpg: getRank('bpg'),
     total: ranked.length,
   }
+
+  // 배지 계산
+  const playerEntry = allMap[playerId]
+  const playerMetrics: PlayerMetrics = playerEntry
+    ? toMetrics(playerId, playerEntry)
+    : { gp: 0, ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0, topg: 0, drebPerG: 0, orebPerG: 0, pfPerG: 0, fg3_pct: 0, fg3aPerG: 0, efg_pct: 0, fgaPerG: 0, ft_pct: 0, ftaPerG: 0, atoRatio: 0, defComposite: 0, hustleComposite: 0, stlTotal: 0 }
+  const badges = computeBadges(playerMetrics, allMetricsList)
 
   // ── Shot breakdown ───────────────────────────────────────────
   const totalFGA = sb.layup.a + sb.mid.a + sb.post.a + sb.drive.a + sb.three.a
@@ -243,5 +289,5 @@ export async function GET(
     total_fga: totalFGA,
   }
 
-  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames })
+  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges })
 }
