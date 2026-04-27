@@ -56,8 +56,10 @@ export async function GET(
 
     if (e.type === 'shot_3p') { s.fg3a++; s.fga++; if (made) { s.fg3m++; s.fgm++; s.pts += isPlusOne ? 4 : 3 } }
     else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post' || e.type === 'shot_2p_drive') { s.fga++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 } }
-    // 자유투: 1구 = 1점 고정 (ft_2pt/ft_3pt_1의 과거 잘못된 points=2 무시)
-    else if (['and_one','free_throw','ft_2pt','ft_3pt_1','ft_3pt_2'].includes(e.type as string)) {
+    // 앤드원: FTA/FTM 제외, 득점 +1만
+    else if (e.type === 'and_one') { if (made) s.pts += 1 }
+    // 자유투: 1구 = 1점 고정
+    else if (['free_throw','ft_2pt','ft_3pt_1','ft_3pt_2'].includes(e.type as string)) {
       s.fta++; if (made) { s.ftm++; s.pts += 1 }
     }
     else if (e.type === 'oreb') { s.oreb++; s.reb++ }

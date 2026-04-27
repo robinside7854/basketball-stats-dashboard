@@ -79,7 +79,9 @@ export async function GET(
         s.fga++
         if (made) { s.fgm++; s.pts += isP1 ? 3 : 2 }
         break
-      case 'and_one': case 'ft_2pt': case 'ft_3pt_1': case 'ft_3pt_2': case 'free_throw':
+      case 'and_one':
+        if (made) { s.pts += 1 }; break
+      case 'ft_2pt': case 'ft_3pt_1': case 'ft_3pt_2': case 'free_throw':
         s.fta++; if (made) { s.ftm++; s.pts += 1 }; break
       case 'oreb': s.oreb++; s.reb++; break
       case 'dreb': s.dreb++; s.reb++; break

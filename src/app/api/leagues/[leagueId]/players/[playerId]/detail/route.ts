@@ -106,7 +106,9 @@ export async function GET(
       case 'shot_layup':  s.fga++; sb.layup.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.layup.m++ }; break
       case 'shot_post':   s.fga++; sb.post.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.post.m++ }; break
       case 'shot_2p_drive': s.fga++; sb.drive.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.drive.m++ }; break
-      case 'and_one': case 'free_throw': case 'ft_2pt': case 'ft_3pt_1': case 'ft_3pt_2':
+      case 'and_one':
+        if (made) { s.pts += 1 }; break
+      case 'free_throw': case 'ft_2pt': case 'ft_3pt_1': case 'ft_3pt_2':
         s.fta++; sb.ft.a++; if (made) { s.ftm++; s.pts += 1; sb.ft.m++ }; break
       case 'oreb': s.oreb++; s.reb++; break
       case 'dreb': s.dreb++; s.reb++; break
@@ -205,14 +207,14 @@ export async function GET(
       if (e.type === 'shot_3p') { s.pts += isP1 ? 4 : 3; s.fg3m++; s.fgm++ }
       else if (['shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'].includes(e.type as string)) { s.pts += isP1 ? 3 : 2; s.fgm++ }
       else if (['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) { s.pts += 1; s.ftm++ }
-      else if (e.type === 'and_one') { s.pts += 1; s.ftm++; s.andOneM++ }
+      else if (e.type === 'and_one') { s.pts += 1; s.andOneM++ }
     }
     if (e.type === 'shot_3p') { s.fg3a++; s.fga++ }
     else if (e.type === 'shot_2p_mid')   { s.fga++; s.midA++ }
     else if (e.type === 'shot_layup')    { s.fga++; s.slashA++ }
     else if (e.type === 'shot_2p_drive') { s.fga++; s.slashA++ }
     else if (e.type === 'shot_post')     { s.fga++; s.postA++ }
-    else if (['and_one', 'free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) s.fta++
+    else if (['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) s.fta++
     else if (e.type === 'oreb') { s.oreb++; s.reb++ }
     else if (e.type === 'dreb') { s.dreb++; s.reb++ }
     else if (e.type === 'steal') s.stl++
