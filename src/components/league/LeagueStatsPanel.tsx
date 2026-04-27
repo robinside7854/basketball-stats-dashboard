@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import type { LeaguePlayer } from '@/types/league'
+import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 
 type PlayerStat = {
   player_id: string
@@ -98,7 +99,10 @@ export default function LeagueStatsPanel({
   const [boxScores, setBoxScores] = useState<PlayerStat[]>([])
   const [totals, setTotals] = useState<Partial<PlayerStat>>({})
   const [sortCol, setSortCol] = useState<SortCol>('pts')
+  const [quickViewId, setQuickViewId] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  const playerMap = Object.fromEntries(players.map(p => [p.id, p]))
 
   useEffect(() => {
     if (!gameId) return
@@ -158,7 +162,12 @@ export default function LeagueStatsPanel({
     return (
       <tr key={s.player_id} className="text-gray-300">
         <td className="py-1 pr-2 font-medium text-white whitespace-nowrap">
-          {p ? `${p.number ? `#${p.number} ` : ''}${p.name}` : s.player_id.slice(0, 6)}
+          <button
+            onClick={() => setQuickViewId(s.player_id)}
+            className="hover:text-blue-300 transition-colors cursor-pointer text-left underline-offset-2 hover:underline"
+          >
+            {p ? `${p.number ? `#${p.number} ` : ''}${p.name}` : s.player_id.slice(0, 6)}
+          </button>
         </td>
         {cells.map(({ col, content, extraClass }) => (
           <td key={col} className={`py-1 px-1 text-center ${extraClass ?? ''} ${mdOnlyCols.has(col) ? 'hidden md:table-cell' : ''}`}>
@@ -214,10 +223,10 @@ export default function LeagueStatsPanel({
     const active = boxScores.filter(b => b.pts > 0 || b.reb > 0 || b.ast > 0 || b.stl > 0 || b.blk > 0 || b.tov > 0)
     if (active.length === 0) return null
 
-    const playerMap = Object.fromEntries(players.map(p => [p.id, p]))
     const sorted = applySortRows(active, sortCol, sortDir)
 
     return (
+      <>
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 overflow-x-auto">
         <table className="w-full text-xs whitespace-nowrap">
           <thead>{renderThead()}</thead>
@@ -245,6 +254,15 @@ export default function LeagueStatsPanel({
           )}
         </table>
       </div>
+      {quickViewId && (
+        <PlayerQuickViewModal
+          leagueId={leagueId}
+          playerId={quickViewId}
+          playerName={playerMap[quickViewId]?.name ?? quickViewId.slice(0, 6)}
+          onClose={() => setQuickViewId(null)}
+        />
+      )}
+      </>
     )
   }
 
@@ -267,6 +285,7 @@ export default function LeagueStatsPanel({
   const awayPlayerMap = Object.fromEntries(awayPlayers.map(p => [p.id, p]))
 
   return (
+    <>
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 overflow-x-auto">
       <table className="w-full text-xs whitespace-nowrap">
         <thead>{renderThead()}</thead>
@@ -298,5 +317,14 @@ export default function LeagueStatsPanel({
         </tfoot>
       </table>
     </div>
+    {quickViewId && (
+      <PlayerQuickViewModal
+        leagueId={leagueId}
+        playerId={quickViewId}
+        playerName={playerMap[quickViewId]?.name ?? quickViewId.slice(0, 6)}
+        onClose={() => setQuickViewId(null)}
+      />
+    )}
+    </>
   )
 }

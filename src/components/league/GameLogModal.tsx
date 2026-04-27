@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Loader2, Trash2, Pencil, Check, X, RotateCcw } from 'lucide-react'
+import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 
 type RosterPlayer = { id: string; name: string; number?: number | null; team_id?: string }
 
@@ -82,6 +83,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [resetting, setResetting] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [quickViewId, setQuickViewId] = useState<string | null>(null)
 
   const playerMap = Object.fromEntries(allPlayers.map(p => [p.id, p]))
 
@@ -281,9 +283,12 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                 </div>
                 <div className="flex-1 min-w-0 space-y-0.5">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-white text-sm font-semibold">
+                    <button
+                      onClick={() => e.league_player_id && setQuickViewId(e.league_player_id)}
+                      className="text-white text-sm font-semibold hover:text-blue-300 transition-colors cursor-pointer hover:underline underline-offset-2"
+                    >
                       {player ? `${player.number != null ? `#${player.number} ` : ''}${player.name}` : '—'}
-                    </span>
+                    </button>
                     <span className={`text-xs font-bold ${eventColor(e.type, e.result)}`}>{getLabel(e.type)}</span>
                     {e.result && (
                       <span className={`text-[11px] px-1.5 py-0.5 rounded font-bold ${e.result === 'made' ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
@@ -348,6 +353,15 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
             </div>
           </div>
         </div>
+      )}
+
+      {quickViewId && (
+        <PlayerQuickViewModal
+          leagueId={leagueId}
+          playerId={quickViewId}
+          playerName={playerMap[quickViewId]?.name ?? ''}
+          onClose={() => setQuickViewId(null)}
+        />
       )}
     </div>
   )

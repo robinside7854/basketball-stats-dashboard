@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { Loader2, Trophy, TrendingUp } from 'lucide-react'
+import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
 
@@ -45,6 +46,7 @@ export default function LeagueStatsPage() {
   const [players, setPlayers] = useState<PlayerStat[]>([])
   const [loading, setLoading] = useState(true)
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
+  const [quickViewPlayer, setQuickViewPlayer] = useState<{ id: string; name: string } | null>(null)
   const [minGP, setMinGP] = useState(1)
 
   useEffect(() => {
@@ -122,12 +124,18 @@ export default function LeagueStatsPage() {
                     <Trophy size={13} className="text-yellow-400" />
                     <p className="text-xs text-gray-400 font-medium">{label}</p>
                   </div>
-                  <p className="text-lg font-black text-white truncate">{top.name}</p>
+                  <button onClick={() => setQuickViewPlayer({ id: top.player_id, name: top.name })}
+                    className="text-lg font-black text-white truncate hover:text-blue-300 transition-colors cursor-pointer text-left w-full hover:underline underline-offset-2">
+                    {top.name}
+                  </button>
                   <p className="text-2xl font-black text-yellow-400">{top[key]}</p>
                   <p className="text-[10px] text-gray-600 mt-0.5">{unit} · {top.gp}경기</p>
                   {leaders.slice(1).map((p, i) => (
                     <div key={p.player_id} className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-800">
-                      <span className="text-xs text-gray-500">{i + 2}위 {p.name}</span>
+                      <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
+                        className="text-xs text-gray-500 hover:text-blue-300 cursor-pointer transition-colors hover:underline underline-offset-1">
+                        {i + 2}위 {p.name}
+                      </button>
                       <span className="text-xs font-bold text-gray-400">{p[key]}</span>
                     </div>
                   ))}
@@ -187,7 +195,10 @@ export default function LeagueStatsPage() {
                     <tr key={p.player_id}
                       className={`border-b border-gray-800/50 ${i % 2 === 0 ? '' : 'bg-gray-900/50'} hover:bg-gray-800/30 transition-colors`}>
                       <td className="px-4 py-2.5 sticky left-0 bg-inherit">
-                        <div className="font-medium text-white truncate max-w-[90px]">{p.name}</div>
+                        <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
+                          className="font-medium text-white truncate max-w-[90px] hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1">
+                          {p.name}
+                        </button>
                         <div className="text-gray-600 text-[10px]">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
                       <td className="px-3 py-2.5 text-center text-gray-400">{p.gp}</td>
@@ -208,6 +219,15 @@ export default function LeagueStatsPage() {
             </div>
           </div>
         </>
+      )}
+
+      {quickViewPlayer && (
+        <PlayerQuickViewModal
+          leagueId={leagueId}
+          playerId={quickViewPlayer.id}
+          playerName={quickViewPlayer.name}
+          onClose={() => setQuickViewPlayer(null)}
+        />
       )}
     </div>
   )
