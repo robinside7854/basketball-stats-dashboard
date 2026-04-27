@@ -232,6 +232,7 @@ function PlayerModal({
   const [stats, setStats] = useState<PlayerSeasonStats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
   const [detail, setDetail] = useState<PlayerDetail | null>(null)
+  const [showBadgeBook, setShowBadgeBook] = useState(false)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -341,6 +342,7 @@ function PlayerModal({
   }
 
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
@@ -633,7 +635,16 @@ function PlayerModal({
           {/* ── 배지 도감 ─────────────────────────────────────── */}
           {detail && (
             <div className="px-6 py-4 border-t border-gray-800/60">
-              <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">배지 도감</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">배지 도감</p>
+                <button
+                  onClick={() => setShowBadgeBook(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/40 text-indigo-400 text-[11px] font-bold cursor-pointer transition-colors"
+                >
+                  <BookOpen size={11} />
+                  전체 도감
+                </button>
+              </div>
               {(() => {
                 const earned = detail.badges ?? []
                 const cats: { key: 'offensive' | 'defensive' | 'playmaking'; label: string; color: string }[] = [
@@ -874,6 +885,17 @@ function PlayerModal({
         </div>
       </div>
     </div>
+
+    {/* 배지 도감 팝업 (PlayerModal 내부에서 열림) */}
+    {showBadgeBook && (
+      <BadgeBookModal
+        playerId={player.id}
+        playerName={player.name}
+        leagueId={leagueId}
+        onClose={() => setShowBadgeBook(false)}
+      />
+    )}
+    </>
   )
 }
 
