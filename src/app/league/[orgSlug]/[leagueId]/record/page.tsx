@@ -672,7 +672,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
                 {/* 경기 시작/마감 */}
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
-                  {!gameStarted ? (
+                  {selectedSlot?.is_complete ? (
+                    <div className="flex items-center justify-center gap-2 py-1.5 rounded-lg bg-gray-800/60 border border-gray-700/50 text-gray-500 text-xs font-medium">
+                      <CheckCircle2 size={13} className="text-gray-600" />경기 마감 완료
+                    </div>
+                  ) : !gameStarted ? (
                     <Button
                       onClick={openStarterPicker}
                       disabled={startingGame || rosterLoading || (homeRoster.length === 0 && awayRoster.length === 0)}
@@ -728,7 +732,47 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                 </div>
 
                 <div className={mobileTab === 'record' ? '' : 'hidden lg:block'}>
-                  {gameStarted ? (
+                  {selectedSlot?.is_complete ? (
+                    /* ── 마감된 경기 배너 ── */
+                    <div className="space-y-3">
+                      <div className="bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden">
+                        {/* 최종 스코어 */}
+                        <div className="grid grid-cols-[1fr_auto_1fr]">
+                          <div className="py-5 px-4 text-center">
+                            <p className="text-[11px] font-bold mb-2 truncate" style={{ color: selectedSlot.home_team?.color ?? '#3b82f6' }}>
+                              {selectedSlot.home_team?.name ?? '홈팀'}
+                            </p>
+                            <p className="text-5xl font-black text-white tabular-nums leading-none">{liveScore?.home ?? selectedSlot.home_score}</p>
+                          </div>
+                          <div className="flex flex-col items-center justify-center px-4 border-x border-gray-800">
+                            <span className="text-2xl text-gray-600 font-black leading-none">:</span>
+                          </div>
+                          <div className="py-5 px-4 text-center">
+                            <p className="text-[11px] font-bold mb-2 truncate" style={{ color: selectedSlot.away_team?.color ?? '#ef4444' }}>
+                              {selectedSlot.away_team?.name ?? '어웨이팀'}
+                            </p>
+                            <p className="text-5xl font-black text-white tabular-nums leading-none">{liveScore?.away ?? selectedSlot.away_score}</p>
+                          </div>
+                        </div>
+                        {/* 마감 배너 */}
+                        <div className="border-t border-gray-800 py-4 px-6 flex flex-col items-center gap-1.5">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 size={18} className="text-gray-500" />
+                            <span className="text-lg font-black text-gray-400 tracking-tight">마감된 경기입니다</span>
+                          </div>
+                          <p className="text-[11px] text-gray-700">더 이상 이벤트를 기록할 수 없습니다</p>
+                        </div>
+                        {/* 게임 로그 버튼 */}
+                        <button
+                          onClick={() => setShowGameLog(true)}
+                          className="w-full py-2.5 border-t border-gray-800/60 flex items-center justify-center gap-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-900/60 text-[11px] font-medium transition-colors cursor-pointer"
+                        >
+                          <ClipboardList size={12} />
+                          게임 이벤트 로그 보기
+                        </button>
+                      </div>
+                    </div>
+                  ) : gameStarted ? (
                     <>
                       <LeagueEventInputPad
                         leagueId={leagueId}
