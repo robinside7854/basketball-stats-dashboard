@@ -169,6 +169,29 @@ type PlayerSeasonStats = {
   fg_pct: number; fg3_pct: number; ft_pct: number; efg_pct: number
 }
 
+type ShotBreakdown = {
+  layup: { m: number; a: number; dist: number; fg_pct: number }
+  mid:   { m: number; a: number; dist: number; fg_pct: number }
+  post:  { m: number; a: number; dist: number; fg_pct: number }
+  drive: { m: number; a: number; dist: number; fg_pct: number }
+  three: { m: number; a: number; dist: number; fg_pct: number }
+  ft:    { m: number; a: number; ft_pct: number }
+  total_fga: number
+}
+type CareerHighEntry = {
+  value: number; extra?: string; date?: string; opponent?: string
+  round_num?: number; result?: string; score?: string; league_name?: string
+}
+type PlayerDetail = {
+  rankings: { ppg: number; rpg: number; apg: number; spg: number; bpg: number; total: number }
+  career_high: Record<string, CareerHighEntry>
+  shot_breakdown: ShotBreakdown
+  recent_games: Array<{
+    date?: string; opponent?: string; round_num?: number; result?: string; score?: string
+    pts: number; reb: number; ast: number; fgm: number; fga: number; league_name?: string
+  }>
+}
+
 interface PlayerModalProps {
   player: LeaguePlayer
   isEditMode: boolean
@@ -200,6 +223,7 @@ function PlayerModal({
   const [showEdit, setShowEdit] = useState(false)
   const [stats, setStats] = useState<PlayerSeasonStats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
+  const [detail, setDetail] = useState<PlayerDetail | null>(null)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -212,12 +236,17 @@ function PlayerModal({
     return () => { document.body.style.overflow = '' }
   }, [])
 
-  // 선수 시즌 스탯 로드
+  // 선수 시즌 스탯 + 상세 데이터 로드
   useEffect(() => {
     setStatsLoading(true)
-    fetch(`/api/leagues/${leagueId}/stats?playerId=${player.id}`)
-      .then(r => r.json())
-      .then(data => { setStats(data.players?.[0] ?? null) })
+    Promise.all([
+      fetch(`/api/leagues/${leagueId}/stats?playerId=${player.id}`).then(r => r.json()),
+      fetch(`/api/leagues/${leagueId}/players/${player.id}/detail`).then(r => r.json()),
+    ])
+      .then(([statsData, detailData]) => {
+        setStats(statsData.players?.[0] ?? null)
+        setDetail(detailData)
+      })
       .catch(() => {})
       .finally(() => setStatsLoading(false))
   }, [leagueId, player.id])
@@ -465,17 +494,24 @@ function PlayerModal({
               </div>
             ) : stats ? (
               <div className="space-y-3">
-                {/* 주요 평균 4칸 */}
-                <div className="grid grid-cols-4 gap-2">
+                {/* 주요 평균 — GP / PPG / RPG / APG / STL / BLK with ranks */}
+                <div className="grid grid-cols-6 gap-2">
                   {[
-                    { label: 'PPG', value: stats.ppg.toFixed(1), accent: true },
-                    { label: 'RPG', value: stats.rpg.toFixed(1) },
-                    { label: 'APG', value: stats.apg.toFixed(1) },
-                    { label: 'GP',  value: String(stats.gp) },
-                  ].map(({ label, value, accent }) => (
-                    <div key={label} className={`rounded-xl p-3 text-center border ${accent ? 'bg-blue-900/20 border-blue-800/30' : 'bg-gray-900/50 border-gray-800/40'}`}>
-                      <p className="text-[9px] text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
-                      <p className={`text-2xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
+                    { label: 'GP',  value: String(stats.gp),           rank: 0,                          accent: false },
+                    { label: 'PPG', value: stats.ppg.toFixed(1),       rank: detail?.rankings.ppg ?? 0,  accent: true  },
+                    { label: 'RPG', value: stats.rpg.toFixed(1),       rank: detail?.rankings.rpg ?? 0,  accent: false },
+                    { label: 'APG', value: stats.apg.toFixed(1),       rank: detail?.rankings.apg ?? 0,  accent: false },
+                    { label: 'STL', value: stats.spg.toFixed(1),       rank: detail?.rankings.spg ?? 0,  accent: false },
+                    { label: 'BLK', value: stats.bpg.toFixed(1),       rank: detail?.rankings.bpg ?? 0,  accent: false },
+                  ].map(({ label, value, rank, accent }) => (
+                    <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-blue-900/20 border-blue-800/30' : 'bg-gray-900/50 border-gray-800/40'}`}>
+                      <p className="text-[8px] text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
+                      <p className={`text-xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
+                      {rank > 0 && (
+                        <p className={`text-[9px] font-bold mt-1 leading-none ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>
+                          {rank}위
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -512,11 +548,9 @@ function PlayerModal({
                   ))}
                 </div>
 
-                {/* SPG / BPG / eFG% 보조 지표 */}
-                <div className="flex items-center gap-2 pt-1">
+                {/* TOPG / eFG% 보조 */}
+                <div className="flex items-center gap-2">
                   {[
-                    { label: 'SPG', value: stats.spg.toFixed(1) },
-                    { label: 'BPG', value: stats.bpg.toFixed(1) },
                     { label: 'TOPG', value: stats.topg.toFixed(1) },
                     { label: 'eFG%', value: stats.fga > 0 ? `${stats.efg_pct.toFixed(1)}%` : '—' },
                   ].map(({ label, value }) => (
@@ -531,6 +565,147 @@ function PlayerModal({
               <p className="text-center text-xs text-gray-700 py-4">아직 기록된 스탯이 없습니다</p>
             )}
           </div>
+
+          {/* ── 공격 스타일 ───────────────────────────────────── */}
+          {detail?.shot_breakdown && detail.shot_breakdown.total_fga > 0 && (
+            <div className="px-6 py-4 border-t border-gray-800/60">
+              <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">공격 스타일</p>
+              {(() => {
+                const sb = detail.shot_breakdown
+                const zones = [
+                  { key: 'layup', label: '레이업',   color: '#f97316', data: sb.layup },
+                  { key: 'mid',   label: '미드레인지', color: '#eab308', data: sb.mid   },
+                  { key: 'post',  label: '골밑슛',   color: '#ef4444', data: sb.post  },
+                  { key: 'drive', label: '드라이브', color: '#14b8a6', data: sb.drive },
+                  { key: 'three', label: '3점슛',    color: '#3b82f6', data: sb.three },
+                ].filter(z => z.data.a > 0)
+                return (
+                  <div className="flex gap-4">
+                    <div className="flex-1 space-y-2">
+                      {/* 적층 바 */}
+                      <div className="flex h-3 rounded-full overflow-hidden">
+                        {zones.map(z => (
+                          <div key={z.key} style={{ width: `${z.data.dist}%`, backgroundColor: z.color }} />
+                        ))}
+                      </div>
+                      {/* 범례 */}
+                      <div className="space-y-1.5">
+                        {zones.map(z => (
+                          <div key={z.key} className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
+                            <span className="text-[11px] text-gray-400 flex-1">{z.label}</span>
+                            <span className="text-[11px] font-bold" style={{ color: z.color }}>{z.data.dist}%</span>
+                          </div>
+                        ))}
+                        <p className="text-[10px] text-gray-700 mt-1">총 {sb.total_fga}회 시도</p>
+                      </div>
+                    </div>
+                    {/* 구역별 야투율 테이블 */}
+                    <div className="w-44 shrink-0">
+                      <div className="grid grid-cols-3 gap-x-2 text-[9px] text-gray-600 mb-1 px-0.5">
+                        <span>구역</span><span className="text-right">성공/시도</span><span className="text-right">성공률</span>
+                      </div>
+                      {[...zones, ...(sb.ft.a > 0 ? [{ key: 'ft', label: '자유투', color: '#9ca3af', data: { m: sb.ft.m, a: sb.ft.a, dist: 0, fg_pct: sb.ft.ft_pct } }] : [])].map(z => (
+                        <div key={z.key} className="grid grid-cols-3 gap-x-2 py-0.5 border-b border-gray-800/40 px-0.5">
+                          <div className="flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
+                            <span className="text-[10px] text-gray-400 truncate">{z.label}</span>
+                          </div>
+                          <span className="text-[10px] text-gray-500 text-right">{z.data.m}/{z.data.a}</span>
+                          <span className="text-[10px] font-bold text-white text-right">{z.data.fg_pct}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {/* ── 커리어 하이 ───────────────────────────────────── */}
+          {detail && Object.keys(detail.career_high).length > 0 && (
+            <div className="px-6 py-4 border-t border-gray-800/60">
+              <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">커리어 하이</p>
+              {(() => {
+                const ch = detail.career_high
+                const items = [
+                  { key: 'pts',   label: 'PTS',   color: 'text-yellow-400',  accent: '#eab308' },
+                  { key: 'reb',   label: 'REB',   color: 'text-orange-400',  accent: '#f97316' },
+                  { key: 'ast',   label: 'AST',   color: 'text-cyan-400',    accent: '#22d3ee' },
+                  { key: 'stl',   label: 'STL',   color: 'text-green-400',   accent: '#4ade80' },
+                  { key: 'blk',   label: 'BLK',   color: 'text-purple-400',  accent: '#c084fc' },
+                  { key: 'fgPct', label: 'FG%',   color: 'text-teal-400',    accent: '#2dd4bf' },
+                  { key: 'ftm',   label: 'FTM',   color: 'text-pink-400',    accent: '#f472b6' },
+                ].filter(i => ch[i.key])
+                return (
+                  <div className="grid grid-cols-2 gap-2">
+                    {items.map(({ key, label, color }) => {
+                      const e = ch[key]!
+                      return (
+                        <div key={key} className="bg-gray-900/60 border border-gray-800/50 rounded-xl p-3">
+                          <div className="flex items-baseline gap-1.5 mb-1">
+                            <span className={`text-2xl font-black leading-none ${color}`}>{key === 'fgPct' ? `${e.value}%` : e.value}</span>
+                            <span className="text-[10px] text-gray-600 font-bold">{label}</span>
+                          </div>
+                          {e.extra && <p className="text-[10px] text-gray-500 mb-1.5">{e.extra}</p>}
+                          {e.date && <p className="text-[10px] text-gray-700">{e.date}</p>}
+                          {e.opponent && (
+                            <p className="text-[11px] text-gray-400">
+                              vs {e.opponent}{e.round_num != null ? ` [R${e.round_num}]` : ''}
+                            </p>
+                          )}
+                          {e.result && (
+                            <span className={`inline-block mt-1 text-[10px] font-black px-1.5 py-0.5 rounded ${e.result === 'W' ? 'bg-green-900/60 text-green-400' : 'bg-red-900/60 text-red-400'}`}>
+                              {e.result} {e.score}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {/* ── 최근 5경기 ─────────────────────────────────────── */}
+          {detail && detail.recent_games.length > 0 && (
+            <div className="px-6 py-4 border-t border-gray-800/60">
+              <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">최근 5경기</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-800/60">
+                      {['날짜','상대','결과','PTS','REB','AST','FG'].map(h => (
+                        <th key={h} className="pb-1.5 text-[10px] text-gray-600 font-bold text-left first:text-left text-right first:pr-2">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.recent_games.map((g, i) => (
+                      <tr key={i} className="border-b border-gray-800/30 last:border-0">
+                        <td className="py-1.5 pr-2 text-gray-600 text-[10px] whitespace-nowrap">{g.date?.slice(5) ?? '—'}</td>
+                        <td className="py-1.5 pr-2 text-gray-300 text-[11px] whitespace-nowrap">
+                          vs {g.opponent ?? '—'}{g.round_num != null ? ` [R${g.round_num}]` : ''}
+                        </td>
+                        <td className="py-1.5 pr-2">
+                          {g.result ? (
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${g.result === 'W' ? 'text-green-400 bg-green-900/40' : 'text-red-400 bg-red-900/40'}`}>
+                              {g.result} {g.score}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="py-1.5 text-right text-white font-bold">{g.pts}</td>
+                        <td className="py-1.5 text-right text-gray-300">{g.reb}</td>
+                        <td className="py-1.5 text-right text-gray-300">{g.ast}</td>
+                        <td className="py-1.5 text-right text-gray-500 text-[10px]">{g.fgm}/{g.fga}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* ── 편집 영역 ─────────────────────────────────────── */}
           <div className="px-6 py-4 border-t border-gray-800/60 space-y-3">
