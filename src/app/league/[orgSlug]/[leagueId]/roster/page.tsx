@@ -393,10 +393,10 @@ function PlayerModal({
 
             {/* 콘텐츠 */}
             <div className="relative z-10 flex items-center gap-6 px-7 py-8">
-              {/* 아바타 원형 + 사진 업로드 */}
+              {/* 아바타 3:4 증명사진 + 사진 업로드 */}
               <div className="relative shrink-0 group/avatar">
                 <div
-                  className="w-28 h-28 rounded-full flex items-center justify-center border-2 shadow-lg overflow-hidden"
+                  className="w-24 h-32 rounded-xl flex items-center justify-center border-2 shadow-lg overflow-hidden"
                   style={{
                     backgroundColor: heroColor ? `${heroColor}20` : '#162032',
                     borderColor: heroColor ? `${heroColor}50` : '#1d4ed8',
@@ -404,16 +404,16 @@ function PlayerModal({
                   }}
                 >
                   {photoUrl ? (
-                    <img src={photoUrl} alt={player.name} className="w-full h-full object-cover" />
-                  ) : player.number !== null ? (
-                    <span className="text-5xl font-black" style={{ color: heroColor ?? '#93c5fd' }}>{player.number}</span>
+                    <img src={photoUrl} alt={player.name} className="w-full h-full object-cover object-top" />
                   ) : (
-                    <span className="text-4xl font-black text-blue-300">{player.name.charAt(0)}</span>
+                    <span className="text-3xl font-black text-blue-300 leading-none">
+                      {player.name.length > 1 ? player.name.slice(1) : player.name}
+                    </span>
                   )}
                 </div>
                 {/* 편집 모드일 때 사진 업로드 오버레이 */}
                 {isEditMode && (
-                  <label className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 cursor-pointer transition-opacity">
+                  <label className="absolute inset-0 rounded-xl bg-black/60 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 cursor-pointer transition-opacity">
                     {uploadingPhoto
                       ? <Loader2 size={18} className="animate-spin text-white" />
                       : <span className="text-white text-[10px] font-bold text-center px-2">📷 사진</span>}
@@ -1434,7 +1434,19 @@ export default function LeagueRosterPage() {
                   <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: cardAccent }} />
                 )}
 
-                <div className="p-4 pl-5">
+                <div className="p-4 pl-5 flex gap-3">
+                  {/* 3:4 썸네일 */}
+                  <div className="shrink-0 w-11 h-[58px] rounded-lg overflow-hidden border border-gray-700 flex items-center justify-center bg-gray-800">
+                    {p.photo_url ? (
+                      <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover object-top" />
+                    ) : (
+                      <span className="text-xs font-black text-gray-400 leading-none text-center px-0.5">
+                        {p.name.length > 1 ? p.name.slice(1) : p.name}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
                   {/* 헤더: 등번호 + 이름 + +1 + 삭제 */}
                   <div className="flex items-center gap-2 mb-2">
                     {p.number !== null && (
@@ -1580,6 +1592,7 @@ export default function LeagueRosterPage() {
                   <p className="mt-2 pt-2 border-t border-gray-800/40 text-[11px] text-gray-700 group-hover:text-gray-600 transition-colors">
                     클릭하여 프로필 보기
                   </p>
+                  </div>{/* flex-1 end */}
                 </div>
               </div>
             )
