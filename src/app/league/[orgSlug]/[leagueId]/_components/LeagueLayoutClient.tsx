@@ -23,7 +23,7 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
 
   return (
     <div className="sticky top-0 z-10 bg-gray-950 border-b border-gray-800">
-      <div className="px-4 lg:px-6">
+      <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
           {tabs.map(tab => {
             const isActive = tab.href === base
@@ -75,7 +75,7 @@ function RecordAwareContainer({
   if (isRecord) {
     return <div className="px-3 py-3">{children}</div>
   }
-  return <div className="px-4 lg:px-8 py-6">{children}</div>
+  return <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">{children}</div>
 }
 
 export default function LeagueLayoutClient({

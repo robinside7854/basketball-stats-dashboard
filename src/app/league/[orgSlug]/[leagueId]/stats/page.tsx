@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { Loader2, Trophy, TrendingUp } from 'lucide-react'
+import { Loader2, Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
@@ -17,15 +17,18 @@ type PlayerStat = {
   ast: number; apg: number
   stl: number; blk: number
   tov: number
+  spg: number; bpg: number; topg: number
   fgm: number; fga: number; fg_pct: number
   fg3m: number; fg3a: number; fg3_pct: number
   ftm: number; fta: number; ft_pct: number
   efg_pct: number
 }
 
-type SortKey = 'ppg' | 'rpg' | 'apg' | 'stl' | 'blk' | 'fg_pct' | 'fg3_pct' | 'ft_pct' | 'efg_pct'
+type ViewMode = 'avg' | 'total'
+type SortKey = 'ppg'|'rpg'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
 
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _SORT_OPTIONS_LEGACY: { key: SortKey; label: string }[] = [
   { key: 'ppg',     label: '득점(PPG)' },
   { key: 'rpg',     label: '리바운드(RPG)' },
   { key: 'apg',     label: '어시스트(APG)' },
@@ -46,6 +49,9 @@ export default function LeagueStatsPage() {
   const [players, setPlayers] = useState<PlayerStat[]>([])
   const [loading, setLoading] = useState(true)
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
+  const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
+  const [viewMode, setViewMode] = useState<ViewMode>('avg')
+  const [projection, setProjection] = useState(false)  // ×5 환산
   const [quickViewPlayer, setQuickViewPlayer] = useState<{ id: string; name: string } | null>(null)
   const [minGP, setMinGP] = useState(1)
 
@@ -72,30 +78,79 @@ export default function LeagueStatsPage() {
       .catch(() => setLoading(false))
   }, [leagueId, selectedQuarterId])
 
+  function handleSort(key: SortKey) {
+    if (key === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortKey(key); setSortDir('desc') }
+  }
+
   const filtered = players
     .filter(p => p.gp >= minGP)
-    .sort((a, b) => (b[sortKey] as number) - (a[sortKey] as number))
+    .sort((a, b) => {
+      const diff = (a[sortKey] as number) - (b[sortKey] as number)
+      return sortDir === 'desc' ? -diff : diff
+    })
 
   const top3 = (key: SortKey) =>
     [...players].filter(p => p.gp >= minGP).sort((a, b) => (b[key] as number) - (a[key] as number)).slice(0, 3)
 
+  // 평균 컬럼 (×5 환산 포함)
+  const MULT = (projection && viewMode === 'avg') ? 5 : 1
+  function avg(p: PlayerStat, key: keyof PlayerStat) {
+    return +((p[key] as number) * MULT).toFixed(1)
+  }
+
+  // 테이블 컬럼 정의
+  const AVG_COLS: { key: SortKey; label: string }[] = [
+    { key: 'gp', label: 'GP' }, { key: 'ppg', label: 'PPG' }, { key: 'rpg', label: 'RPG' },
+    { key: 'apg', label: 'APG' }, { key: 'spg', label: 'SPG' }, { key: 'bpg', label: 'BPG' },
+    { key: 'topg', label: 'TOPG' }, { key: 'fg_pct', label: 'FG%' }, { key: 'fg3_pct', label: '3P%' },
+    { key: 'ft_pct', label: 'FT%' }, { key: 'efg_pct', label: 'eFG%' },
+  ]
+  const TOTAL_COLS: { key: SortKey; label: string }[] = [
+    { key: 'gp', label: 'GP' }, { key: 'pts', label: 'PTS' }, { key: 'reb', label: 'REB' },
+    { key: 'ast', label: 'AST' }, { key: 'stl', label: 'STL' }, { key: 'blk', label: 'BLK' },
+    { key: 'tov', label: 'TOV' }, { key: 'fgm', label: 'FGM' },
+    { key: 'fg3m', label: '3PM' }, { key: 'ftm', label: 'FTM' },
+    { key: 'fg_pct', label: 'FG%' }, { key: 'fg3_pct', label: '3P%' }, { key: 'ft_pct', label: 'FT%' },
+  ]
+  const COLS = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
+
+  function cellVal(p: PlayerStat, key: SortKey): string {
+    if (viewMode === 'avg') {
+      if (key === 'gp') return String(p.gp)
+      if (key === 'fg_pct') return p.fga > 0 ? `${avg(p,'fg_pct')}%` : '—'
+      if (key === 'fg3_pct') return p.fg3a > 0 ? `${avg(p,'fg3_pct')}%` : '—'
+      if (key === 'ft_pct') return p.fta > 0 ? `${avg(p,'ft_pct')}%` : '—'
+      if (key === 'efg_pct') return p.fga > 0 ? `${avg(p,'efg_pct')}%` : '—'
+      return String(avg(p, key as keyof PlayerStat))
+    } else {
+      if (key === 'fg_pct') return p.fga > 0 ? `${p.fg_pct}%` : '—'
+      if (key === 'fg3_pct') return p.fg3a > 0 ? `${p.fg3_pct}%` : '—'
+      if (key === 'ft_pct') return p.fta > 0 ? `${p.ft_pct}%` : '—'
+      return String((p as unknown as Record<string, number>)[key] ?? 0)
+    }
+  }
+
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <h2 className="text-xl font-bold text-white">리그 스탯</h2>
-        {/* 분기 필터 */}
-        <select
-          value={selectedQuarterId}
-          onChange={e => setSelectedQuarterId(e.target.value)}
-          className="bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-1.5 text-sm cursor-pointer"
-        >
-          <option value="all">전체 시즌</option>
+        {/* 분기 버튼 필터 */}
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setSelectedQuarterId('all')}
+            className={`px-3 py-1.5 rounded-xl text-sm font-bold border transition-all cursor-pointer ${
+              selectedQuarterId === 'all' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
+            }`}>전체</button>
           {quarters.map(q => (
-            <option key={q.id} value={q.id}>
-              {String(q.year).slice(2)}.{q.quarter}Q{q.is_current ? ' (현재)' : ''}
-            </option>
+            <button key={q.id} onClick={() => setSelectedQuarterId(q.id)}
+              className={`px-3 py-1.5 rounded-xl text-sm font-bold border transition-all cursor-pointer ${
+                selectedQuarterId === q.id ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
+              }`}>
+              {String(q.year).slice(2)}.{q.quarter}Q
+              {q.is_current && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />}
+            </button>
           ))}
-        </select>
+        </div>
       </div>
 
       {loading ? (
@@ -153,20 +208,29 @@ export default function LeagueStatsPage() {
                 <span className="text-sm font-semibold text-white">전체 스탯</span>
               </div>
               <div className="flex items-center gap-2 ml-auto flex-wrap">
-                <select
-                  value={sortKey}
-                  onChange={e => setSortKey(e.target.value as SortKey)}
-                  className="bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1 text-xs cursor-pointer"
-                >
-                  {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label} 순</option>)}
-                </select>
+                {/* 누적/평균 토글 */}
+                <div className="flex rounded-lg overflow-hidden border border-gray-700">
+                  {(['avg','total'] as ViewMode[]).map(m => (
+                    <button key={m} onClick={() => { setViewMode(m); if (m === 'total') setProjection(false) }}
+                      className={`px-3 py-1 text-xs font-bold cursor-pointer transition-colors ${viewMode === m ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                      {m === 'avg' ? '평균' : '누적'}
+                    </button>
+                  ))}
+                </div>
+                {/* x5 환산 (평균 모드만) */}
+                {viewMode === 'avg' && (
+                  <button onClick={() => setProjection(v => !v)}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg border cursor-pointer transition-all ${
+                      projection ? 'bg-amber-600/30 border-amber-500/60 text-amber-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                    }`}>
+                    ×5 환산
+                  </button>
+                )}
                 <div className="flex items-center gap-1 text-xs text-gray-500">
                   <span>최소</span>
-                  <input
-                    type="number" min={1} max={20} value={minGP}
+                  <input type="number" min={1} max={20} value={minGP}
                     onChange={e => setMinGP(Number(e.target.value))}
-                    className="w-12 bg-gray-800 border border-gray-700 text-white rounded px-1.5 py-1 text-center"
-                  />
+                    className="w-12 bg-gray-800 border border-gray-700 text-white rounded px-1.5 py-1 text-center text-xs" />
                   <span>경기</span>
                 </div>
               </div>
@@ -175,19 +239,17 @@ export default function LeagueStatsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-gray-800 text-gray-500">
-                    <th className="text-left px-4 py-2.5 sticky left-0 bg-gray-900 min-w-[100px]">선수</th>
-                    <th className="px-3 py-2.5 text-center">GP</th>
-                    <th className="px-3 py-2.5 text-center font-bold text-white">PPG</th>
-                    <th className="px-3 py-2.5 text-center">RPG</th>
-                    <th className="px-3 py-2.5 text-center">APG</th>
-                    <th className="px-3 py-2.5 text-center">STL</th>
-                    <th className="px-3 py-2.5 text-center">BLK</th>
-                    <th className="px-3 py-2.5 text-center">TOV</th>
-                    <th className="px-3 py-2.5 text-center">FG%</th>
-                    <th className="px-3 py-2.5 text-center">3P%</th>
-                    <th className="px-3 py-2.5 text-center">FT%</th>
-                    <th className="px-3 py-2.5 text-center">eFG%</th>
+                  <tr className="border-b border-gray-800">
+                    <th className="text-left px-4 py-2.5 sticky left-0 bg-gray-900 text-[10px] text-gray-500 font-bold min-w-[110px]">선수</th>
+                    {COLS.map(({ key, label }) => (
+                      <th key={key} onClick={() => handleSort(key)}
+                        className={`px-3 py-2.5 text-center text-[10px] font-bold cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${sortKey === key ? 'text-blue-400' : 'text-gray-500'}`}>
+                        {label}
+                        {sortKey === key
+                          ? (sortDir === 'desc' ? <ChevronDown size={9} className="inline ml-0.5" /> : <ChevronUp size={9} className="inline ml-0.5" />)
+                          : <ChevronsUpDown size={9} className="inline ml-0.5 opacity-30" />}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -196,22 +258,16 @@ export default function LeagueStatsPage() {
                       className={`border-b border-gray-800/50 ${i % 2 === 0 ? '' : 'bg-gray-900/50'} hover:bg-gray-800/30 transition-colors`}>
                       <td className="px-4 py-2.5 sticky left-0 bg-inherit">
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-medium text-white truncate max-w-[90px] hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1">
+                          className="font-medium text-white hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[100px] block">
                           {p.name}
                         </button>
                         <div className="text-gray-600 text-[10px]">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
-                      <td className="px-3 py-2.5 text-center text-gray-400">{p.gp}</td>
-                      <td className={`px-3 py-2.5 text-center font-bold ${sortKey === 'ppg' ? 'text-yellow-400' : 'text-white'}`}>{p.ppg}</td>
-                      <td className={`px-3 py-2.5 text-center ${sortKey === 'rpg' ? 'text-yellow-400 font-bold' : 'text-gray-300'}`}>{p.rpg}</td>
-                      <td className={`px-3 py-2.5 text-center ${sortKey === 'apg' ? 'text-yellow-400 font-bold' : 'text-gray-300'}`}>{p.apg}</td>
-                      <td className={`px-3 py-2.5 text-center ${sortKey === 'stl' ? 'text-yellow-400 font-bold' : 'text-gray-400'}`}>{p.stl}</td>
-                      <td className={`px-3 py-2.5 text-center ${sortKey === 'blk' ? 'text-yellow-400 font-bold' : 'text-gray-400'}`}>{p.blk}</td>
-                      <td className="px-3 py-2.5 text-center text-gray-500">{p.tov}</td>
-                      <td className={`px-3 py-2.5 text-center ${sortKey === 'fg_pct' ? 'text-yellow-400 font-bold' : 'text-gray-400'}`}>{p.fg_pct}</td>
-                      <td className={`px-3 py-2.5 text-center ${sortKey === 'fg3_pct' ? 'text-yellow-400 font-bold' : 'text-gray-400'}`}>{p.fg3_pct}</td>
-                      <td className={`px-3 py-2.5 text-center ${sortKey === 'ft_pct' ? 'text-yellow-400 font-bold' : 'text-gray-400'}`}>{p.ft_pct}</td>
-                      <td className={`px-3 py-2.5 text-center ${sortKey === 'efg_pct' ? 'text-yellow-400 font-bold' : 'text-gray-400'}`}>{p.efg_pct}</td>
+                      {COLS.map(({ key }) => (
+                        <td key={key} className={`px-3 py-2.5 text-center ${sortKey === key ? 'text-yellow-400 font-bold' : 'text-gray-300'}`}>
+                          {cellVal(p, key)}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>

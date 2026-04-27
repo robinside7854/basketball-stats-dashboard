@@ -229,6 +229,8 @@ function PlayerModal({
   const [togglingP1, setTogglingP1] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(player.photo_url ?? null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [stats, setStats] = useState<PlayerSeasonStats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
   const [detail, setDetail] = useState<PlayerDetail | null>(null)
@@ -391,21 +393,46 @@ function PlayerModal({
 
             {/* 콘텐츠 */}
             <div className="relative z-10 flex items-center gap-6 px-7 py-8">
-              {/* 아바타 원형 */}
-              <div
-                className="w-28 h-28 shrink-0 rounded-full flex items-center justify-center border-2 shadow-lg"
-                style={{
-                  backgroundColor: heroColor ? `${heroColor}20` : '#162032',
-                  borderColor: heroColor ? `${heroColor}50` : '#1d4ed8',
-                  boxShadow: heroColor ? `0 0 30px ${heroColor}20` : undefined,
-                }}
-              >
-                {player.number !== null ? (
-                  <span className="text-5xl font-black" style={{ color: heroColor ?? '#93c5fd' }}>
-                    {player.number}
-                  </span>
-                ) : (
-                  <span className="text-4xl font-black text-blue-300">{player.name.charAt(0)}</span>
+              {/* 아바타 원형 + 사진 업로드 */}
+              <div className="relative shrink-0 group/avatar">
+                <div
+                  className="w-28 h-28 rounded-full flex items-center justify-center border-2 shadow-lg overflow-hidden"
+                  style={{
+                    backgroundColor: heroColor ? `${heroColor}20` : '#162032',
+                    borderColor: heroColor ? `${heroColor}50` : '#1d4ed8',
+                    boxShadow: heroColor ? `0 0 30px ${heroColor}20` : undefined,
+                  }}
+                >
+                  {photoUrl ? (
+                    <img src={photoUrl} alt={player.name} className="w-full h-full object-cover" />
+                  ) : player.number !== null ? (
+                    <span className="text-5xl font-black" style={{ color: heroColor ?? '#93c5fd' }}>{player.number}</span>
+                  ) : (
+                    <span className="text-4xl font-black text-blue-300">{player.name.charAt(0)}</span>
+                  )}
+                </div>
+                {/* 편집 모드일 때 사진 업로드 오버레이 */}
+                {isEditMode && (
+                  <label className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 cursor-pointer transition-opacity">
+                    {uploadingPhoto
+                      ? <Loader2 size={18} className="animate-spin text-white" />
+                      : <span className="text-white text-[10px] font-bold text-center px-2">📷 사진</span>}
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={async e => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        setUploadingPhoto(true)
+                        const fd = new FormData()
+                        fd.append('file', file)
+                        const res = await fetch(`/api/leagues/${leagueId}/players/${player.id}/photo`, {
+                          method: 'POST', headers: leagueHeaders, body: fd,
+                        })
+                        setUploadingPhoto(false)
+                        if (res.ok) { const d = await res.json(); setPhotoUrl(d.url); toast.success('사진 저장됨') }
+                        else toast.error('사진 업로드 실패')
+                      }}
+                    />
+                  </label>
                 )}
               </div>
 
