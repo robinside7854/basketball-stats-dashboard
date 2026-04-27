@@ -22,12 +22,15 @@ export default function LeagueStandings({ standings }: Props) {
             <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 w-8">#</th>
             <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500">팀</th>
             <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10">G</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10">W</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10">D</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10">L</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10">GF</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10">GA</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10">GD</th>
+            {/* 모바일 전용 통합 W-D-L */}
+            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-16 md:hidden">전적</th>
+            {/* 데스크탑 W/D/L 분리 */}
+            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10 hidden md:table-cell">W</th>
+            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10 hidden md:table-cell">D</th>
+            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10 hidden md:table-cell">L</th>
+            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10 hidden md:table-cell">GF</th>
+            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10 hidden md:table-cell">GA</th>
+            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-12">GD</th>
             <th className="text-center py-2.5 px-3 text-xs font-semibold text-blue-400 w-12">PTS</th>
           </tr>
         </thead>
@@ -49,11 +52,19 @@ export default function LeagueStandings({ standings }: Props) {
                   </div>
                 </td>
                 <td className="py-3 px-2 text-center text-gray-400">{s.played}</td>
-                <td className="py-3 px-2 text-center text-green-400 font-medium">{s.wins}</td>
-                <td className="py-3 px-2 text-center text-gray-400">{s.draws}</td>
-                <td className="py-3 px-2 text-center text-red-400">{s.losses}</td>
-                <td className="py-3 px-2 text-center text-gray-400">{s.goals_for}</td>
-                <td className="py-3 px-2 text-center text-gray-400">{s.goals_against}</td>
+                {/* 모바일: 통합 W-D-L (D=0이면 W-L만) */}
+                <td className="py-3 px-2 text-center text-xs font-mono md:hidden whitespace-nowrap">
+                  <span className="text-green-400 font-semibold">{s.wins}</span>
+                  {s.draws > 0 && <><span className="text-gray-600">-</span><span className="text-gray-400">{s.draws}</span></>}
+                  <span className="text-gray-600">-</span>
+                  <span className="text-red-400">{s.losses}</span>
+                </td>
+                {/* 데스크탑 W/D/L 분리 */}
+                <td className="py-3 px-2 text-center text-green-400 font-medium hidden md:table-cell">{s.wins}</td>
+                <td className="py-3 px-2 text-center text-gray-400 hidden md:table-cell">{s.draws}</td>
+                <td className="py-3 px-2 text-center text-red-400 hidden md:table-cell">{s.losses}</td>
+                <td className="py-3 px-2 text-center text-gray-400 hidden md:table-cell">{s.goals_for}</td>
+                <td className="py-3 px-2 text-center text-gray-400 hidden md:table-cell">{s.goals_against}</td>
                 <td className="py-3 px-2 text-center text-gray-400">
                   {s.goal_diff > 0 ? `+${s.goal_diff}` : s.goal_diff}
                 </td>

@@ -85,16 +85,90 @@ function StatsTable({
     return <p className="text-xs text-gray-700 py-4 text-center">기록된 스탯이 없습니다</p>
   }
 
+  // 모바일 카드용 셀 값 추출 (정렬 키별)
+  function valOf(p: PlayerStat, key: SortKey): string {
+    if (key === 'gp' || key === 'pts' || key === 'reb' || key === 'ast' ||
+        key === 'stl' || key === 'blk' || key === 'tov' || key === 'pf' ||
+        key === 'fgm' || key === 'fg3m' || key === 'ftm') {
+      return String(p[key as keyof PlayerStat] ?? 0)
+    }
+    if (key === 'fg_pct')  return p.fga  > 0 ? `${p.fg_pct.toFixed(1)}%`  : '—'
+    if (key === 'fg3_pct') return p.fg3a > 0 ? `${p.fg3_pct.toFixed(1)}%` : '—'
+    if (key === 'ft_pct')  return p.fta  > 0 ? `${p.ft_pct.toFixed(1)}%`  : '—'
+    if (key === 'efg_pct') return p.fga  > 0 ? `${p.efg_pct.toFixed(1)}%` : '—'
+    return (p[key as keyof PlayerStat] as number).toFixed(1)
+  }
+
   return (
     <>
-    <div className="overflow-x-auto">
+    {/* 모바일 정렬 칩 + 카드뷰 (md 미만) */}
+    <div className="md:hidden">
+      <div className="px-1 pb-2 overflow-x-auto">
+        <div className="flex gap-1.5 whitespace-nowrap">
+          {STAT_HEADERS.map(({ key, label }) => (
+            <button key={key} onClick={() => handleSort(key)}
+              className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
+                sortKey === key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+              }`}>
+              {label}
+              {sortKey === key && (sortDir === 'desc' ? ' ↓' : ' ↑')}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="divide-y divide-gray-800/60 rounded-xl overflow-hidden bg-gray-900/40">
+        {sorted.map((p, i) => {
+          const isLeader = leaderId && p.player_id === leaderId
+          const sortLabel = STAT_HEADERS.find(h => h.key === sortKey)?.label ?? ''
+          // 부수 지표: 정렬 키가 아닌 핵심 4개
+          const baseSubKeys: SortKey[] = ['gp', 'ppg', 'rpg', 'apg']
+          const subKeys = baseSubKeys.filter(k => k !== sortKey).slice(0, 4)
+          const filledSubs = subKeys.length < 4
+            ? [...subKeys, ...(['spg','fg_pct'] as SortKey[]).filter(k => k !== sortKey && !subKeys.includes(k))].slice(0, 4)
+            : subKeys
+          return (
+            <button key={p.player_id} onClick={() => setQuickView({ id: p.player_id, name: p.name })}
+              className="w-full text-left px-3 py-2.5 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-sm font-black text-gray-500 font-mono w-5 shrink-0">{i + 1}</span>
+                {isLeader && <Crown size={11} className="text-yellow-400 shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-white text-sm truncate">
+                    {p.name}
+                    {p.number != null && <span className="text-gray-600 font-mono ml-1 text-xs">#{p.number}</span>}
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-xl font-black leading-none" style={{ color: color ?? '#facc15' }}>{valOf(p, sortKey)}</div>
+                  <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gray-800/60">
+                {filledSubs.map(k => {
+                  const lbl = STAT_HEADERS.find(h => h.key === k)?.label ?? k
+                  return (
+                    <div key={k} className="text-center">
+                      <div className="text-[11px] text-gray-500">{lbl}</div>
+                      <div className="text-xs font-bold text-gray-200">{valOf(p, k)}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+
+    {/* 데스크탑 테이블 (md 이상) */}
+    <div className="hidden md:block overflow-x-auto">
       <table className="w-full text-xs whitespace-nowrap">
         <thead>
           <tr className="border-b border-gray-800">
-            <th className="text-left py-2 pr-3 text-[10px] text-gray-600 font-bold sticky left-0 bg-gray-900 min-w-[90px]">선수</th>
+            <th className="text-left py-2 pr-3 text-xs text-gray-600 font-bold sticky left-0 bg-gray-900 min-w-[90px]">선수</th>
             {STAT_HEADERS.map(({ key, label }) => (
               <th key={key} onClick={() => handleSort(key)}
-                className={`py-2 px-1.5 text-[10px] font-bold cursor-pointer select-none text-right ${sortKey === key ? 'text-blue-400' : 'text-gray-600'} hover:text-gray-300 transition-colors`}>
+                className={`py-2 px-1.5 text-xs font-bold cursor-pointer select-none text-right ${sortKey === key ? 'text-blue-400' : 'text-gray-600'} hover:text-gray-300 transition-colors`}>
                 {label}<SortIcon active={sortKey === key} dir={sortDir} />
               </th>
             ))}
@@ -110,7 +184,7 @@ function StatsTable({
                     className="flex items-center gap-1.5 hover:text-blue-300 cursor-pointer transition-colors text-left">
                     {isLeader && <Crown size={10} className="text-yellow-400 shrink-0" />}
                     <span className="text-white font-medium">
-                      {p.number != null && <span className="text-gray-600 font-mono mr-1 text-[10px]">#{p.number}</span>}
+                      {p.number != null && <span className="text-gray-600 font-mono mr-1 text-xs">#{p.number}</span>}
                       {p.name}
                     </span>
                   </button>
@@ -327,7 +401,7 @@ export default function LeagueTeamsPage() {
                   </div>
                   {/* 상대 전적 */}
                   <div className="px-4 py-3 space-y-1.5">
-                    <p className="text-[10px] text-gray-700 uppercase font-bold mb-2">상대 전적</p>
+                    <p className="text-xs text-gray-700 uppercase font-bold mb-2">상대 전적</p>
                     {teams.filter(op => op.id !== t.id).map(op => {
                       const rec = h2h[t.id]?.[op.id] ?? { w: 0, l: 0 }
                       const total = rec.w + rec.l

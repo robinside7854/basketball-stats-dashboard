@@ -197,7 +197,7 @@ export default function LeagueStatsPage() {
                     {top.name}
                   </button>
                   <p className="text-2xl font-black text-yellow-400">{fmt(top)}</p>
-                  <p className="text-[10px] text-gray-600 mt-0.5">{unit} · {top.gp}경기</p>
+                  <p className="text-xs text-gray-600 mt-0.5">{unit} · {top.gp}경기</p>
                   {leaders.slice(1).map((p, i) => (
                     <div key={p.player_id} className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-800">
                       <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
@@ -225,7 +225,7 @@ export default function LeagueStatsPage() {
                 <div className="flex rounded-lg overflow-hidden border border-gray-700">
                   {(['avg','total'] as ViewMode[]).map(m => (
                     <button key={m} onClick={() => { setViewMode(m); if (m === 'total') setProjection(false) }}
-                      className={`px-3 py-1 text-xs font-bold cursor-pointer transition-colors ${viewMode === m ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                      className={`px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors ${viewMode === m ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
                       {m === 'avg' ? '평균' : '누적'}
                     </button>
                   ))}
@@ -233,7 +233,7 @@ export default function LeagueStatsPage() {
                 {/* x5 환산 (평균 모드만) */}
                 {viewMode === 'avg' && (
                   <button onClick={() => setProjection(v => !v)}
-                    className={`px-3 py-1 text-xs font-bold rounded-lg border cursor-pointer transition-all ${
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border cursor-pointer transition-all ${
                       projection ? 'bg-amber-600/30 border-amber-500/60 text-amber-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
                     }`}>
                     ×5 환산
@@ -243,13 +243,63 @@ export default function LeagueStatsPage() {
                   <span>최소</span>
                   <input type="number" min={1} max={20} value={minGP}
                     onChange={e => setMinGP(Number(e.target.value))}
-                    className="w-12 bg-gray-800 border border-gray-700 text-white rounded px-1.5 py-1 text-center text-xs" />
+                    className="w-12 bg-gray-800 border border-gray-700 text-white rounded px-1.5 py-1.5 text-center text-xs" />
                   <span>경기</span>
                 </div>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* 모바일 정렬 칩 (md 미만) */}
+            <div className="md:hidden border-b border-gray-800 px-3 py-2.5 overflow-x-auto">
+              <div className="flex gap-1.5 whitespace-nowrap">
+                {COLS.map(({ key, label }) => (
+                  <button key={key} onClick={() => handleSort(key)}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
+                      sortKey === key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                    }`}>
+                    {label}
+                    {sortKey === key && (sortDir === 'desc' ? ' ↓' : ' ↑')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 모바일 카드뷰 (md 미만) */}
+            <div className="md:hidden divide-y divide-gray-800/60">
+              {filtered.map((p, i) => {
+                const sortLabel = COLS.find(c => c.key === sortKey)?.label ?? ''
+                const sortVal = cellVal(p, sortKey)
+                // 부수 지표 4개 (현재 sort key가 아닌 것 중 앞 4개)
+                const subCols = COLS.filter(c => c.key !== sortKey).slice(0, 4)
+                return (
+                  <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
+                    className="w-full text-left px-4 py-3 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-base font-black text-gray-500 font-mono w-6 shrink-0">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-white text-sm truncate">{p.name}</div>
+                        <div className="text-gray-600 text-xs">{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · GP {p.gp}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-2xl font-black text-yellow-400 leading-none">{sortVal}</div>
+                        <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-800/60">
+                      {subCols.map(({ key, label }) => (
+                        <div key={key} className="text-center">
+                          <div className="text-xs text-gray-500">{label}</div>
+                          <div className="text-sm font-bold text-gray-200">{cellVal(p, key)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 데스크탑 테이블 (md 이상) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-800">
