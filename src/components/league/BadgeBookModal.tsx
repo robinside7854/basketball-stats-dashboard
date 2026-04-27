@@ -142,7 +142,7 @@ export default function BadgeBookModal({ playerId, playerName, leagueId, onClose
                         {earnedTier === t && <span className="ml-1 text-[9px] opacity-70">← 보유</span>}
                       </p>
                     ))}
-                    <p className="text-[9px] text-gray-700 mt-0.5">최소 {b.minGP}경기 출전 필요</p>
+                    <p className="text-[9px] text-gray-700 mt-0.5">최소 {b.minGP}경기 출전 + 기록 시작 필요</p>
                   </div>
                 </div>
               </div>

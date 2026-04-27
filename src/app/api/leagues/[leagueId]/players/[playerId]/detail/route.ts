@@ -23,7 +23,7 @@ export async function GET(
       .from('league_games')
       .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num')
       .eq('league_id', leagueId)
-      .eq('is_complete', true)
+      .eq('is_started', true)   // 마감 여부와 무관하게 기록 시작된 게임 전체 포함
       .order('date', { ascending: false }),
     supabase.from('league_teams').select('id, name').eq('league_id', leagueId),
     supabase.from('leagues').select('name').eq('id', leagueId).single(),

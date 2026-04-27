@@ -92,7 +92,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'offensive', icon: '🎯',
     description: '리그를 압도하는 득점력을 보유한 선수',
     tierDesc: { gold: '리그 득점 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => tier(pct('ppg')),
   },
   {
@@ -100,7 +100,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'offensive', icon: '🏹',
     description: '3점 슛을 즐기고 성공시키는 명사수 (3PA ≥ 1.5/G)',
     tierDesc: { gold: '3점 시도 1.5/G 이상 + 3P% 상위 8%', silver: '3P% 상위 15%', bronze: '3P% 상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => p.fg3aPerG >= 1.5 ? tier(pct('fg3_pct')) : null,
   },
   {
@@ -108,7 +108,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'offensive', icon: '🔥',
     description: '중거리 슛을 즐겨 쏘는 미드레인지 스페셜리스트',
     tierDesc: { gold: '미들슛 시도 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => p.midPerG > 0 ? tier(pct('midPerG')) : null,
   },
   {
@@ -116,7 +116,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'offensive', icon: '⚡',
     description: '레이업과 드라이브로 림을 끈질기게 공략하는 슬래셔',
     tierDesc: { gold: '레이업+드라이브 시도 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => p.slashPerG > 0 ? tier(pct('slashPerG')) : null,
   },
   {
@@ -124,7 +124,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'offensive', icon: '💪',
     description: '포스트업으로 상대를 짓누르는 골밑의 지배자',
     tierDesc: { gold: '골밑슛 시도 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => p.postPerG > 0 ? tier(pct('postPerG')) : null,
   },
   {
@@ -132,7 +132,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'offensive', icon: '🎓',
     description: '적은 슛으로 최대 득점을 뽑아내는 효율 스코어러 (FGA ≥ 3/G)',
     tierDesc: { gold: 'FGA 3/G 이상 + eFG% 상위 8%', silver: 'eFG% 상위 15%', bronze: 'eFG% 상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => p.fgaPerG >= 3 ? tier(pct('efg_pct')) : null,
   },
   {
@@ -140,7 +140,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'offensive', icon: '🆓',
     description: '클러치 상황에서 흔들리지 않는 자유투 라인의 달인 (FTA ≥ 1/G)',
     tierDesc: { gold: 'FTA 1/G 이상 + FT% 상위 8%', silver: 'FT% 상위 15%', bronze: 'FT% 상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => p.ftaPerG >= 1 ? tier(pct('ft_pct')) : null,
   },
   {
@@ -148,7 +148,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'offensive', icon: '💥',
     description: '파울을 유도하며 득점을 동시에 해내는 앤드원 전문가',
     tierDesc: { gold: '앤드원 시도 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => p.andOnePerG > 0 ? tier(pct('andOnePerG')) : null,
   },
   {
@@ -156,7 +156,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'offensive', icon: '♻️',
     description: '공격 리바운드를 잡고 높은 효율로 득점하는 2차 공격의 달인',
     tierDesc: { gold: '공격리바 상위 10% + eFG% 상위 25%', silver: '상위 20% + 상위 35%', bronze: '상위 30% + 상위 45%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => {
       const o = pct('orebPerG'); const e = pct('efg_pct')
       if (o >= 90 && e >= 75) return 'gold'
@@ -170,7 +170,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'offensive', icon: '👑',
     description: '3점·중거리·림 공략을 모두 균형있게 갖춘 올라운드 스코어러',
     tierDesc: { gold: '3P·미들·레이업 각 25%↑ + PPG 상위 20%', silver: '각 22%↑', bronze: '각 18%↑' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => {
       const { threeDistPct, midDistPct, slashDistPct } = p
       if (threeDistPct >= 25 && midDistPct >= 25 && slashDistPct >= 25 && pct('ppg') >= 80) return 'gold'
@@ -185,7 +185,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'defensive', icon: '✋',
     description: '패스 길목에서 공을 가로채는 수비의 사신',
     tierDesc: { gold: '스틸 평균 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => tier(pct('spg')),
   },
   {
@@ -193,7 +193,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'defensive', icon: '🚫',
     description: '골밑에서 상대의 슛을 막아내는 블록 전문가',
     tierDesc: { gold: '블록 평균 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => tier(pct('bpg')),
   },
   {
@@ -201,7 +201,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'defensive', icon: '🪟',
     description: '수비 리바운드를 지배하며 상대의 2차 공격을 차단',
     tierDesc: { gold: '수비리바 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => tier(pct('drebPerG')),
   },
   {
@@ -209,7 +209,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'defensive', icon: '🧱',
     description: '스틸과 블록을 모두 갖춘 종합 수비 능력자',
     tierDesc: { gold: '스틸+블록 합산 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => tier(pct('defComposite')),
   },
   {
@@ -217,7 +217,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'defensive', icon: '🦴',
     description: '적은 파울로 강한 수비를 유지하는 영리한 디펜더',
     tierDesc: { gold: '수비 기여 상위 35% + 파울 최소 상위 8%', silver: '파울 최소 상위 15%', bronze: '파울 최소 상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => {
       if (Math.max(pct('spg'), pct('bpg')) < 65) return null
       return tier(pct('pfPerG', true))
@@ -228,7 +228,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'defensive', icon: '🎣',
     description: '시즌 누적 스틸 절대량이 리그 최상위권인 선수',
     tierDesc: { gold: '누적 스틸 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => tier(pct('stlTotal')),
   },
   {
@@ -236,7 +236,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'defensive', icon: '⛓️',
     description: '공수 양면에서 리바운드를 지배하는 보드 장악 선수',
     tierDesc: { gold: '총 리바운드 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => tier(pct('rpg')),
   },
   {
@@ -244,7 +244,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'defensive', icon: '🐝',
     description: '스틸·블록·공격리바를 모두 챙기는 허슬의 화신',
     tierDesc: { gold: '허슬 종합(STL+BLK+OREB) 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => tier(pct('hustleComposite')),
   },
   // ══════════════════ 플레이메이킹 ══════════════════
@@ -253,7 +253,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'playmaking', icon: '🎩',
     description: '팀 공격의 사령탑으로 가장 많은 어시스트를 기록하는 선수',
     tierDesc: { gold: '어시스트 평균 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => tier(pct('apg')),
   },
   {
@@ -261,7 +261,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'playmaking', icon: '🧠',
     description: '어시스트는 많고 턴오버는 적은 영리한 볼 핸들러 (APG ≥ 1.5)',
     tierDesc: { gold: 'APG ≥ 1.5 + A/TO 비율 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => p.apg >= 1.5 ? tier(pct('atoRatio')) : null,
   },
   {
@@ -269,7 +269,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'playmaking', icon: '🛡️',
     description: '볼을 안전하게 운반하며 턴오버를 최소화하는 선수 (APG ≥ 1/G)',
     tierDesc: { gold: 'APG ≥ 1 + 턴오버 최소 상위 8%', silver: '상위 15%', bronze: '상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => p.apg >= 1 ? tier(pct('topg', true)) : null,
   },
   {
@@ -277,7 +277,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'playmaking', icon: '🤝',
     description: '득점과 어시스트 두 가지 모두 상위권인 양면 위협 선수',
     tierDesc: { gold: 'PPG & APG 모두 상위 8%', silver: '모두 상위 15%', bronze: '모두 상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => tierBoth(pct('ppg'), pct('apg')),
   },
   {
@@ -285,7 +285,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'playmaking', icon: '📊',
     description: '득점·리바운드·어시스트 세 가지 모두 균형잡힌 만능 선수',
     tierDesc: { gold: 'PPG·RPG·APG 모두 상위 8%', silver: '모두 상위 15%', bronze: '모두 상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => tierAll([pct('ppg'), pct('rpg'), pct('apg')]),
   },
   {
@@ -293,7 +293,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'playmaking', icon: '🪄',
     description: '어시스트 상위권 + 높은 A/TO 비율의 믿음직한 볼 핸들러',
     tierDesc: { gold: 'APG 상위 8% + A/TO ≥ 2.0', silver: 'APG 상위 15% + A/TO ≥ 1.5', bronze: 'APG 상위 30% + A/TO ≥ 1.2' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => {
       const a = pct('apg')
       if (a < 70) return null
@@ -308,7 +308,7 @@ const BADGE_DEFS: BadgeDef[] = [
     category: 'playmaking', icon: '🌟',
     description: 'PPG·RPG·APG·SPG·BPG 중 4개 이상이 상위권인 완성형 선수',
     tierDesc: { gold: '5개 스탯 중 4개 이상 상위 8%', silver: '4개 이상 상위 15%', bronze: '4개 이상 상위 30%' },
-    minGP: 5,
+    minGP: 3,
     compute: (p, pct) => {
       const pcts = [pct('ppg'), pct('rpg'), pct('apg'), pct('spg'), pct('bpg')]
       if (pcts.filter(x => x >= 92).length >= 4) return 'gold'
