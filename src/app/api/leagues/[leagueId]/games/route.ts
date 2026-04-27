@@ -8,7 +8,9 @@ export async function GET(
 ) {
   const { leagueId } = await params
   const { searchParams } = new URL(req.url)
-  const date = searchParams.get('date')
+  const date       = searchParams.get('date')
+  const quarterId  = searchParams.get('quarterId')
+  const complete   = searchParams.get('complete')
   const supabase = createClient()
 
   let q = supabase
@@ -20,11 +22,10 @@ export async function GET(
     `)
     .eq('league_id', leagueId)
 
-  if (date) {
-    q = q.eq('date', date).order('slot_num', { ascending: true })
-  } else {
-    q = q.order('date', { ascending: true }).order('slot_num', { ascending: true })
-  }
+  if (date)      q = q.eq('date', date).order('slot_num', { ascending: true })
+  if (quarterId) q = q.eq('quarter_id', quarterId)
+  if (complete === 'true') q = q.eq('is_complete', true)
+  if (!date)     q = q.order('date', { ascending: true }).order('slot_num', { ascending: true })
 
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
