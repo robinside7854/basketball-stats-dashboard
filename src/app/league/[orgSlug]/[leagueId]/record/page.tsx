@@ -174,9 +174,9 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       const rd = await rRes.json()
       const home: RosterPlayer[] = rd.home ?? []
       const away: RosterPlayer[] = rd.away ?? []
-      // is_regular 만 메인 그리드에
-      setHomeRoster(home.filter(p => p.is_regular !== false))
-      setAwayRoster(away.filter(p => p.is_regular !== false))
+      // team_id 배정된 선수 전원 포함 (비정규도 팀에 배정되면 선택 가능)
+      setHomeRoster(home)
+      setAwayRoster(away)
     }
     // 비정규 선수: quarter players에서 is_regular=false (team_id 없는 것 위주) 로드
     if (slot.quarter_id) {

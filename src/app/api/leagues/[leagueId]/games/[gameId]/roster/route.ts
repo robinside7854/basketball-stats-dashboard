@@ -47,7 +47,7 @@ export async function GET(
       team_id,
       is_regular,
       league_player_id,
-      league_players!inner(id, name, number, position, birth_date)
+      league_players!inner(id, name, number, position, birth_date, plus_one)
     `)
     .eq('league_id', leagueId)
     .eq('quarter_id', game.quarter_id)
@@ -61,6 +61,7 @@ export async function GET(
     number: number | null
     position: string | null
     birth_date: string | null
+    plus_one: boolean
     is_regular: boolean
     team_id: string
   }
@@ -77,6 +78,7 @@ export async function GET(
       number: p.number,
       position: p.position,
       birth_date: p.birth_date ?? null,
+      plus_one: p.plus_one ?? false,
       is_regular: m.is_regular,
       team_id: m.team_id,
     }
