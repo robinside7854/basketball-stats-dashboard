@@ -424,8 +424,10 @@ function PlayerModal({
                         setUploadingPhoto(true)
                         const fd = new FormData()
                         fd.append('file', file)
+                        const photoHeaders: Record<string, string> = {}
+                        if (leagueHeaders['X-League-Pin']) photoHeaders['X-League-Pin'] = leagueHeaders['X-League-Pin']
                         const res = await fetch(`/api/leagues/${leagueId}/players/${player.id}/photo`, {
-                          method: 'POST', headers: leagueHeaders, body: fd,
+                          method: 'POST', headers: photoHeaders, body: fd,
                         })
                         setUploadingPhoto(false)
                         if (res.ok) { const d = await res.json(); setPhotoUrl(d.url); toast.success('사진 저장됨') }
