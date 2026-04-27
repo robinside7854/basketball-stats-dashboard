@@ -304,7 +304,7 @@ export default function LeagueTeamsPage() {
         {/* ── 섹션 1: 팀별 전적 + 상대 전적 ── */}
         <div className="space-y-3">
           <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">팀 전적</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {standings.map((s, idx) => {
               const t = teamMap[s.teamId]
               if (!t) return null

@@ -109,7 +109,7 @@ export default function LeagueStatsPage() {
       ) : (
         <>
           {/* 리더보드 카드 */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
             {[
               { key: 'ppg' as SortKey, label: '득점왕', unit: 'PPG' },
               { key: 'rpg' as SortKey, label: '리바운드왕', unit: 'RPG' },

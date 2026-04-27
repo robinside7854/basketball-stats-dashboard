@@ -23,7 +23,7 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
 
   return (
     <div className="sticky top-0 z-10 bg-gray-950 border-b border-gray-800">
-      <div className={isRecord ? 'px-4' : 'max-w-2xl mx-auto px-4'}>
+      <div className="px-4 lg:px-6">
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
           {tabs.map(tab => {
             const isActive = tab.href === base
@@ -71,10 +71,11 @@ function RecordAwareContainer({
 }: { orgSlug: string; leagueId: string; children: React.ReactNode }) {
   const pathname = usePathname()
   const isRecord = pathname.startsWith(`/league/${orgSlug}/${leagueId}/record`)
+  // 경기기록은 더 촘촘하게, 나머지는 전체 너비
   if (isRecord) {
     return <div className="px-3 py-3">{children}</div>
   }
-  return <div className="max-w-2xl mx-auto px-4 py-6">{children}</div>
+  return <div className="px-4 lg:px-8 py-6">{children}</div>
 }
 
 export default function LeagueLayoutClient({
