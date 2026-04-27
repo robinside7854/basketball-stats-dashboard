@@ -105,7 +105,7 @@ export async function GET(
       case 'shot_layup':  s.fga++; sb.layup.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.layup.m++ }; break
       case 'shot_post':   s.fga++; sb.post.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.post.m++ }; break
       case 'shot_2p_drive': s.fga++; sb.drive.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.drive.m++ }; break
-      case 'free_throw': case 'ft_2pt': case 'ft_3pt_1': case 'ft_3pt_2':
+      case 'and_one': case 'free_throw': case 'ft_2pt': case 'ft_3pt_1': case 'ft_3pt_2':
         s.fta++; sb.ft.a++; if (made) { s.ftm++; s.pts += e.points ?? 1; sb.ft.m++ }; break
       case 'oreb': s.oreb++; s.reb++; break
       case 'dreb': s.dreb++; s.reb++; break
@@ -192,7 +192,7 @@ export async function GET(
     if (made) {
       if (e.type === 'shot_3p') s.pts += isP1 ? 4 : 3
       else if (['shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'].includes(e.type as string)) s.pts += isP1 ? 3 : 2
-      else if (['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) s.pts += (e.points as number) ?? 1
+      else if (['and_one', 'free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) s.pts += (e.points as number) ?? 1
     }
     if (e.type === 'oreb' || e.type === 'dreb') s.reb++
     if (e.type === 'steal') s.stl++

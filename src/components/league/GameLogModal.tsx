@@ -24,6 +24,7 @@ const EVENT_OPTS = [
   { v: 'shot_post',     l: '골밑슛'       },
   { v: 'shot_2p_drive', l: '드라이브'     },
   { v: 'free_throw',    l: '자유투'       },
+  { v: 'and_one',       l: '앤드원 +1'    },
   { v: 'ft_2pt',        l: '2P파울 FT'    },
   { v: 'ft_3pt_1',      l: '3P파울 1구'   },
   { v: 'ft_3pt_2',      l: '3P파울 2구'   },

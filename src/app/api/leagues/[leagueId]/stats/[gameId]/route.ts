@@ -56,7 +56,8 @@ export async function GET(
 
     if (e.type === 'shot_3p') { s.fg3a++; s.fga++; if (made) { s.fg3m++; s.fgm++; s.pts += isPlusOne ? 4 : 3 } }
     else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post' || e.type === 'shot_2p_drive') { s.fga++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 } }
-    // 자유투: 저장된 points 사용 (ft_2pt=2, ft_3pt_1=2, ft_3pt_2=1, free_throw=1)
+    // 자유투: 저장된 points 사용
+    else if (e.type === 'and_one') { s.fta++; if (made) { s.ftm++; s.pts += e.points ?? 1 } }
     else if (e.type === 'free_throw') { s.fta++; if (made) { s.ftm++; s.pts += e.points ?? 1 } }
     else if (e.type === 'ft_2pt') { s.fta++; if (made) { s.ftm++; s.pts += e.points ?? 2 } }
     else if (e.type === 'ft_3pt_1') { s.fta++; if (made) { s.ftm++; s.pts += e.points ?? 2 } }

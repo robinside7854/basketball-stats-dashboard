@@ -55,20 +55,22 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
     ],
   },
   {
-    label: '자유투', cols: 3,
+    label: '자유투', cols: 4,
     buttons: [
-      { type: 'ft_2pt',   label: '2P파울 FT',  color: 'bg-teal-600 hover:bg-teal-500', activeColor: 'bg-teal-500', needsResult: true },
-      { type: 'ft_3pt_1', label: '3P파울 1구', color: 'bg-teal-700 hover:bg-teal-600', activeColor: 'bg-teal-600', needsResult: true },
-      { type: 'ft_3pt_2', label: '3P파울 2구', color: 'bg-teal-800 hover:bg-teal-700', activeColor: 'bg-teal-700', needsResult: true },
+      { type: 'and_one',  label: '앤드원',     color: 'bg-amber-600 hover:bg-amber-500', activeColor: 'bg-amber-500', needsResult: true },
+      { type: 'ft_2pt',   label: '2P파울 FT',  color: 'bg-teal-600 hover:bg-teal-500',  activeColor: 'bg-teal-500',  needsResult: true },
+      { type: 'ft_3pt_1', label: '3P파울 1구', color: 'bg-teal-700 hover:bg-teal-600',  activeColor: 'bg-teal-600',  needsResult: true },
+      { type: 'ft_3pt_2', label: '3P파울 2구', color: 'bg-teal-800 hover:bg-teal-700',  activeColor: 'bg-teal-700',  needsResult: true },
     ],
   },
 ]
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
-const FT_TYPES   = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2']
+const FT_TYPES   = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'and_one']
 
 function calcPoints(type: string, result: string, isPlusOne = false): number {
   if (result !== 'made') return 0
+  if (type === 'and_one')   return 1   // 득점인정반칙: 슛 성공 + 1점 추가
   if (type === 'ft_2pt')    return 2
   if (type === 'ft_3pt_1')  return 2
   if (type === 'ft_3pt_2')  return 1

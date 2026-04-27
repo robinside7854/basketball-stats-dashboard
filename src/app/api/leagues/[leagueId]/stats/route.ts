@@ -110,7 +110,8 @@ export async function GET(
         s.fga++
         if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 }
         break
-      // 자유투: +1 미적용, 저장된 points 값 사용 (ft_2pt=2, ft_3pt_1=2, ft_3pt_2=1, free_throw=1)
+      // 자유투: +1 미적용, 저장된 points 값 사용
+      case 'and_one':    // 득점인정반칙 추가 1점
       case 'free_throw':
       case 'ft_2pt':
       case 'ft_3pt_1':
