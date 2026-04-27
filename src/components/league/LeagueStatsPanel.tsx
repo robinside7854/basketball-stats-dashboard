@@ -19,27 +19,25 @@ interface Props {
   gameId: string
   players: LeaguePlayer[]
   refreshKey: number
-  homeTeamId?: string
-  awayTeamId?: string
   homePlayers?: RosterPlayer[]
   awayPlayers?: RosterPlayer[]
   homeTeam?: { id: string; name: string; color: string }
   awayTeam?: { id: string; name: string; color: string }
 }
 
-const HEADERS: { col: SortCol; label: string; small?: boolean }[] = [
+const HEADERS: { col: SortCol; label: string; small?: boolean; mdOnly?: boolean }[] = [
   { col: 'pts', label: 'PTS' },
   { col: 'reb', label: 'REB' },
   { col: 'ast', label: 'AST' },
-  { col: 'stl', label: 'STL' },
-  { col: 'blk', label: 'BLK' },
+  { col: 'stl', label: 'STL', mdOnly: true },
+  { col: 'blk', label: 'BLK', mdOnly: true },
   { col: 'tov', label: 'TOV' },
   { col: 'fgm', label: 'FG' },
-  { col: 'fg_pct', label: 'FG%', small: true },
+  { col: 'fg_pct', label: 'FG%', small: true, mdOnly: true },
   { col: 'fg3m', label: '3P' },
-  { col: 'fg3_pct', label: '3P%', small: true },
+  { col: 'fg3_pct', label: '3P%', small: true, mdOnly: true },
   { col: 'ftm', label: 'FT' },
-  { col: 'ft_pct', label: 'FT%', small: true },
+  { col: 'ft_pct', label: 'FT%', small: true, mdOnly: true },
 ]
 const COL_COUNT = HEADERS.length + 1
 
@@ -126,11 +124,11 @@ export default function LeagueStatsPanel({
     return (
       <tr>
         <th className="text-left pb-1.5 pr-2 text-gray-500 text-[10px]">선수</th>
-        {HEADERS.map(({ col, label, small }) => (
+        {HEADERS.map(({ col, label, small, mdOnly }) => (
           <th
             key={col}
             onClick={() => handleSort(col)}
-            className={`pb-1.5 px-1 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${small ? 'text-[9px]' : 'text-[10px]'} ${sortCol === col ? 'text-blue-400' : 'text-gray-500'}`}
+            className={`pb-1.5 px-1 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${small ? 'text-[9px]' : 'text-[10px]'} ${sortCol === col ? 'text-blue-400' : 'text-gray-500'} ${mdOnly ? 'hidden md:table-cell' : ''}`}
           >
             {label}{sortIcon(col)}
           </th>
@@ -139,24 +137,34 @@ export default function LeagueStatsPanel({
     )
   }
 
+  // mdOnly 인덱스 목록 (td 순서 맞추기용)
+  const mdOnlyCols = new Set(HEADERS.filter(h => h.mdOnly).map(h => h.col))
+
   function renderRow(s: PlayerStat, p: RosterPlayer | undefined) {
+    const cells: { content: React.ReactNode; col: SortCol; extraClass?: string }[] = [
+      { col: 'pts',     content: s.pts,               extraClass: 'font-bold text-white' },
+      { col: 'reb',     content: s.reb },
+      { col: 'ast',     content: s.ast },
+      { col: 'stl',     content: s.stl },
+      { col: 'blk',     content: s.blk },
+      { col: 'tov',     content: s.tov,               extraClass: 'text-red-400' },
+      { col: 'fgm',     content: `${s.fgm}/${s.fga}` },
+      { col: 'fg_pct',  content: pct(s.fgm, s.fga),  extraClass: 'text-gray-500 text-[10px]' },
+      { col: 'fg3m',    content: `${s.fg3m}/${s.fg3a}` },
+      { col: 'fg3_pct', content: pct(s.fg3m, s.fg3a), extraClass: 'text-gray-500 text-[10px]' },
+      { col: 'ftm',     content: `${s.ftm}/${s.fta}` },
+      { col: 'ft_pct',  content: pct(s.ftm, s.fta),  extraClass: 'text-gray-500 text-[10px]' },
+    ]
     return (
       <tr key={s.player_id} className="text-gray-300">
         <td className="py-1 pr-2 font-medium text-white whitespace-nowrap">
           {p ? `${p.number ? `#${p.number} ` : ''}${p.name}` : s.player_id.slice(0, 6)}
         </td>
-        <td className="py-1 px-1 text-center font-bold text-white">{s.pts}</td>
-        <td className="py-1 px-1 text-center">{s.reb}</td>
-        <td className="py-1 px-1 text-center">{s.ast}</td>
-        <td className="py-1 px-1 text-center">{s.stl}</td>
-        <td className="py-1 px-1 text-center">{s.blk}</td>
-        <td className="py-1 px-1 text-center text-red-400">{s.tov}</td>
-        <td className="py-1 px-1 text-center">{s.fgm}/{s.fga}</td>
-        <td className="py-1 px-1 text-center text-gray-500 text-[10px]">{pct(s.fgm, s.fga)}</td>
-        <td className="py-1 px-1 text-center">{s.fg3m}/{s.fg3a}</td>
-        <td className="py-1 px-1 text-center text-gray-500 text-[10px]">{pct(s.fg3m, s.fg3a)}</td>
-        <td className="py-1 px-1 text-center">{s.ftm}/{s.fta}</td>
-        <td className="py-1 px-1 text-center text-gray-500 text-[10px]">{pct(s.ftm, s.fta)}</td>
+        {cells.map(({ col, content, extraClass }) => (
+          <td key={col} className={`py-1 px-1 text-center ${extraClass ?? ''} ${mdOnlyCols.has(col) ? 'hidden md:table-cell' : ''}`}>
+            {content}
+          </td>
+        ))}
       </tr>
     )
   }
@@ -171,15 +179,15 @@ export default function LeagueStatsPanel({
         <td className="py-1 px-1 text-center text-white">{t.pts ?? 0}</td>
         <td className="py-1 px-1 text-center">{t.reb ?? 0}</td>
         <td className="py-1 px-1 text-center">{t.ast ?? 0}</td>
-        <td className="py-1 px-1 text-center">{t.stl ?? 0}</td>
-        <td className="py-1 px-1 text-center">{t.blk ?? 0}</td>
+        <td className="py-1 px-1 text-center hidden md:table-cell">{t.stl ?? 0}</td>
+        <td className="py-1 px-1 text-center hidden md:table-cell">{t.blk ?? 0}</td>
         <td className="py-1 px-1 text-center">{t.tov ?? 0}</td>
         <td className="py-1 px-1 text-center">{fgm}/{fga}</td>
-        <td className="py-1 px-1 text-center text-gray-500">{pct(fgm, fga)}</td>
+        <td className="py-1 px-1 text-center text-gray-500 hidden md:table-cell">{pct(fgm, fga)}</td>
         <td className="py-1 px-1 text-center">{fg3m}/{fg3a}</td>
-        <td className="py-1 px-1 text-center text-gray-500">{pct(fg3m, fg3a)}</td>
+        <td className="py-1 px-1 text-center text-gray-500 hidden md:table-cell">{pct(fg3m, fg3a)}</td>
         <td className="py-1 px-1 text-center">{ftm}/{fta}</td>
-        <td className="py-1 px-1 text-center text-gray-500">{pct(ftm, fta)}</td>
+        <td className="py-1 px-1 text-center text-gray-500 hidden md:table-cell">{pct(ftm, fta)}</td>
       </tr>
     )
   }

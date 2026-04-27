@@ -70,7 +70,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [dateStats, setDateStats] = useState<Record<string, { total: number; yt: number }>>({})
   const [selectedSlotId, setSelectedSlotId] = useState('')
   const [loadingDates, setLoadingDates] = useState(true)
-  const [loadingSlots, setLoadingSlots] = useState(false)
   const [initializingSlots, setInitializingSlots] = useState(false)
   const [ytSyncing, setYtSyncing] = useState(false)
   const [bulkSyncing, setBulkSyncing] = useState(false)
@@ -292,7 +291,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
   async function refreshSlots() {
     if (!selectedDate) return
-    setLoadingSlots(true)
     const res = await fetch(`/api/leagues/${leagueId}/games?date=${selectedDate}`, { cache: 'no-store' })
     if (res.ok) {
       const updated: GameSlot[] = await res.json()
@@ -306,7 +304,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         }
       }
     }
-    setLoadingSlots(false)
   }
 
   // 선발 체크 모달 열기 (기본: 모두 해제)
@@ -709,8 +706,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                     gameId={selectedSlotId}
                     players={allPlayers}
                     refreshKey={statsRefresh}
-                    homeTeamId={selectedSlot?.home_team_id ?? undefined}
-                    awayTeamId={selectedSlot?.away_team_id ?? undefined}
+
                     homePlayers={homeRoster}
                     awayPlayers={awayRoster}
                     homeTeam={selectedSlot?.home_team ?? undefined}
@@ -782,8 +778,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         awayPlayers={awayRoster}
                         homeTeam={selectedSlot?.home_team ?? undefined}
                         awayTeam={selectedSlot?.away_team ?? undefined}
-                        players={allPlayers}
-                        plusOneAge={plusOneAge}
                         onEventSaved={() => { handleEventSaved(); fetchLiveScore() }}
                       />
 
@@ -874,8 +868,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                     gameId={selectedSlotId}
                     players={allPlayers}
                     refreshKey={statsRefresh}
-                    homeTeamId={selectedSlot?.home_team_id ?? undefined}
-                    awayTeamId={selectedSlot?.away_team_id ?? undefined}
+
                     homePlayers={homeRoster}
                     awayPlayers={awayRoster}
                     homeTeam={selectedSlot?.home_team ?? undefined}
@@ -1163,8 +1156,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           )}
         </div>
       )}
-
-      {loadingSlots && <div className="hidden" />}
 
       {/* 게임 이벤트 로그 모달 */}
       {showGameLog && selectedSlotId && (

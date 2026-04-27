@@ -20,7 +20,7 @@ export default function LeagueSubstitutionPanel({ leagueId, gameId, players, min
   const { getCurrentTimestamp } = useGameStore()
   const { onCourt, addPlayer, removePlayer } = useLineupStore()
 
-  const [tapMode, setTapMode] = useState(false)
+  const [tapMode, setTapMode] = useState(true)
   const [tapOut, setTapOut] = useState<string | null>(null)
 
   const onCourtPlayers = players.filter(p => onCourt.includes(p.id))
@@ -57,7 +57,7 @@ export default function LeagueSubstitutionPanel({ leagueId, gameId, players, min
   function handleTapPlayer(id: string) {
     if (!tapMode) return
     if (!tapOut) {
-      if (!onCourt.includes(id)) { toast('먼저 벤치 선수를 선택하려면 코트 선수를 먼저 선택하세요'); return }
+      if (!onCourt.includes(id)) return
       setTapOut(id)
     } else {
       if (onCourt.includes(id)) { setTapOut(id); return }
@@ -92,13 +92,13 @@ export default function LeagueSubstitutionPanel({ leagueId, gameId, players, min
             <button
               key={p.id}
               onClick={() => handleTapPlayer(p.id)}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
+              className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
                 tapOut === p.id ? 'bg-orange-600 border-orange-500 text-white' :
                 tapMode ? 'bg-gray-700 border-gray-600 text-white hover:border-orange-500' :
                 'bg-gray-800 border-gray-700 text-gray-200'
               }`}
             >
-              <span className="text-gray-400 font-mono mr-1 text-[10px]">{p.number ?? '—'}</span>
+              <span className="text-gray-400 font-mono mr-1 text-xs">{p.number ?? '—'}</span>
               {p.name}
             </button>
           ))}
@@ -112,12 +112,13 @@ export default function LeagueSubstitutionPanel({ leagueId, gameId, players, min
             <button
               key={p.id}
               onClick={() => tapMode && tapOut ? executeSubstitution(tapOut, p.id) : undefined}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
                 tapMode && tapOut ? 'bg-gray-800 border-gray-700 text-gray-300 hover:border-blue-500 hover:text-blue-300 cursor-pointer' :
+                tapMode ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-default opacity-60' :
                 'bg-gray-800 border-gray-700 text-gray-500 cursor-default'
               }`}
             >
-              <span className="text-gray-600 font-mono mr-1 text-[10px]">{p.number ?? '—'}</span>
+              <span className="text-gray-600 font-mono mr-1 text-xs">{p.number ?? '—'}</span>
               {p.name}
             </button>
           ))}
