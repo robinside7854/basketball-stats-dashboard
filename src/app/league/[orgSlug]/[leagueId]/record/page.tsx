@@ -248,9 +248,16 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       }
     }
 
-    // 출전 기록 로드
+    // 출전 기록 로드 + 코트 상태 복원 (out_time=null인 선수가 현재 코트)
     const res = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${slot.id}`)
-    if (res.ok) setMinutes(await res.json())
+    if (res.ok) {
+      const mins: MinRow[] = await res.json()
+      setMinutes(mins)
+      if (slot.is_started) {
+        const courtIds = mins.filter(m => m.out_time === null).map(m => m.league_player_id)
+        setLineup(courtIds)
+      }
+    }
   }
 
   async function saveTeams() {
@@ -421,6 +428,14 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     if (!res.ok) { toast.error('전환 실패'); return }
     toast.success('기록 모드로 복귀했습니다. 기존 이벤트는 유지됩니다.')
     await refreshSlots()
+    // 코트 상태 복원 (다시 기록하기 후에도 선수 표시 유지)
+    const mRes = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
+    if (mRes.ok) {
+      const mins: MinRow[] = await mRes.json()
+      setMinutes(mins)
+      const courtIds = mins.filter(m => m.out_time === null).map(m => m.league_player_id)
+      setLineup(courtIds)
+    }
   }
 
   // 마감 버튼 클릭 핸들러: 점수 미리 계산 후 모달 표시
