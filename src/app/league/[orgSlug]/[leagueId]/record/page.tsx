@@ -96,6 +96,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [startingGame, setStartingGame] = useState(false)
   const [showComplete, setShowComplete] = useState(false)
   const [completing, setCompleting] = useState(false)
+  const [reopening, setReopening] = useState(false)
   const [liveScore, setLiveScore] = useState<{ home: number; away: number } | null>(null)
   const [showGameLog, setShowGameLog] = useState(false)
 
@@ -405,6 +406,21 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     } finally {
       setCompleting(false)
     }
+  }
+
+  // 마감된 경기를 다시 기록 모드로 복귀 (이벤트 유지, is_complete만 해제)
+  async function reopenGame() {
+    if (!selectedSlotId) return
+    setReopening(true)
+    const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
+      method: 'PATCH',
+      headers: leagueHeaders,
+      body: JSON.stringify({ is_complete: false }),
+    })
+    setReopening(false)
+    if (!res.ok) { toast.error('전환 실패'); return }
+    toast.success('기록 모드로 복귀했습니다. 기존 이벤트는 유지됩니다.')
+    await refreshSlots()
   }
 
   // 마감 버튼 클릭 핸들러: 점수 미리 계산 후 모달 표시
@@ -799,16 +815,27 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             <CheckCircle2 size={18} className="text-gray-500" />
                             <span className="text-lg font-black text-gray-400 tracking-tight">마감된 경기입니다</span>
                           </div>
-                          <p className="text-[11px] text-gray-700">더 이상 이벤트를 기록할 수 없습니다</p>
+                          <p className="text-[11px] text-gray-700">이벤트 로그에서 수정·삭제, 또는 아래에서 기록 모드로 복귀할 수 있습니다</p>
                         </div>
-                        {/* 게임 로그 버튼 */}
-                        <button
-                          onClick={() => setShowGameLog(true)}
-                          className="w-full py-2.5 border-t border-gray-800/60 flex items-center justify-center gap-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-900/60 text-[11px] font-medium transition-colors cursor-pointer"
-                        >
-                          <ClipboardList size={12} />
-                          게임 이벤트 로그 보기
-                        </button>
+                        {/* 하단 버튼 행 */}
+                        <div className="grid grid-cols-2 border-t border-gray-800/60">
+                          <button
+                            onClick={() => setShowGameLog(true)}
+                            className="py-2.5 flex items-center justify-center gap-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-900/60 text-[11px] font-medium transition-colors cursor-pointer border-r border-gray-800/60"
+                          >
+                            <ClipboardList size={12} />
+                            이벤트 로그
+                          </button>
+                          <button
+                            onClick={reopenGame}
+                            disabled={reopening}
+                            className="py-2.5 flex items-center justify-center gap-1.5 text-blue-500 hover:text-blue-400 hover:bg-blue-900/20 text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {reopening
+                              ? <><Loader2 size={12} className="animate-spin" />복귀 중...</>
+                              : <><RefreshCw size={12} />다시 기록하기</>}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : gameStarted ? (
