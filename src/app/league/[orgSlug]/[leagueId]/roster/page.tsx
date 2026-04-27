@@ -9,6 +9,33 @@ import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Penc
 import BadgeBookModal from '@/components/league/BadgeBookModal'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
+// 업로드 전 이미지를 600×800(3:4) 이하로 리사이즈 + JPEG 압축
+async function compressImage(file: File, maxW = 600, maxH = 800, quality = 0.82): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width > maxW || height > maxH) {
+        const ratio = Math.min(maxW / width, maxH / height)
+        width = Math.round(width * ratio)
+        height = Math.round(height * ratio)
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(blob => {
+        if (!blob) return reject(new Error('compress failed'))
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }))
+      }, 'image/jpeg', quality)
+    }
+    img.onerror = reject
+    img.src = url
+  })
+}
+
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
 const POSITION_FILTER_OPTIONS = ['ALL', 'PG', 'SG', 'SF', 'PF', 'C']
 
@@ -423,8 +450,9 @@ function PlayerModal({
                         if (!file) return
                         setUploadingPhoto(true)
                         try {
+                          const compressed = await compressImage(file)
                           const fd = new FormData()
-                          fd.append('file', file)
+                          fd.append('file', compressed)
                           const photoHeaders: Record<string, string> = {}
                           if (leagueHeaders['X-League-Pin']) photoHeaders['X-League-Pin'] = leagueHeaders['X-League-Pin']
                           const res = await fetch(`/api/leagues/${leagueId}/players/${player.id}/photo`, {
