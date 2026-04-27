@@ -173,7 +173,7 @@ export async function GET(
       const s = perGame[gId]
       const g = gameMap[gId]
       const tid = g?.quarter_id ? qTeamMap[g.quarter_id] : undefined
-      return { ...gameInfo(gId, tid), pts: s.pts, reb: s.reb, ast: s.ast, fgm: s.fgm, fga: s.fga }
+      return { ...gameInfo(gId, tid), pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk, fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a }
     })
 
   // ── Rankings + Badge metrics ──────────────────────────────────

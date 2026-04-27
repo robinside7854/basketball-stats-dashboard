@@ -245,25 +245,34 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-gray-800/60">
-                        {['날짜','상대','결과','PTS','REB','AST','FG'].map(h => (
-                          <th key={h} className="pb-1.5 text-[10px] text-gray-600 font-bold text-left">{h}</th>
+                        {['날짜','상대','결과','PTS','REB','AST','STL','BLK','FG','FG%','3P%'].map(h => (
+                          <th key={h} className="pb-1.5 text-[10px] text-gray-600 font-bold text-right first:text-left">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {detail.recent_games.map((g, i) => (
+                      {detail.recent_games.map((g, i) => {
+                        const r = g as typeof g & { stl?: number; blk?: number; fg3m?: number; fg3a?: number }
+                        const fgPct  = g.fga > 0 ? Math.round(g.fgm / g.fga * 100) : null
+                        const fg3Pct = (r.fg3a ?? 0) > 0 ? Math.round((r.fg3m ?? 0) / (r.fg3a ?? 1) * 100) : null
+                        return (
                         <tr key={i} className="border-b border-gray-800/30 last:border-0">
-                          <td className="py-1.5 text-gray-600 text-[10px]">{g.date?.slice(5) ?? '—'}</td>
-                          <td className="py-1.5 text-gray-300 text-[11px]">vs {g.opponent ?? '—'}</td>
-                          <td className="py-1.5">
+                          <td className="py-1.5 text-gray-600 text-[10px] pr-1 whitespace-nowrap">{g.date?.slice(5) ?? '—'}</td>
+                          <td className="py-1.5 text-gray-300 text-[11px] pr-1 whitespace-nowrap">vs {g.opponent ?? '—'}</td>
+                          <td className="py-1.5 pr-1">
                             {g.result && <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${g.result === 'W' ? 'text-green-400 bg-green-900/40' : 'text-red-400 bg-red-900/40'}`}>{g.result} {g.score}</span>}
                           </td>
-                          <td className="py-1.5 text-white font-bold">{g.pts}</td>
-                          <td className="py-1.5 text-gray-300">{g.reb}</td>
-                          <td className="py-1.5 text-gray-300">{g.ast}</td>
-                          <td className="py-1.5 text-gray-500 text-[10px]">{g.fgm}/{g.fga}</td>
+                          <td className="py-1.5 text-right text-white font-bold">{g.pts}</td>
+                          <td className="py-1.5 text-right text-gray-300">{g.reb}</td>
+                          <td className="py-1.5 text-right text-gray-300">{g.ast}</td>
+                          <td className="py-1.5 text-right text-purple-400">{r.stl ?? 0}</td>
+                          <td className="py-1.5 text-right text-indigo-400">{r.blk ?? 0}</td>
+                          <td className="py-1.5 text-right text-gray-500 text-[10px]">{g.fgm}/{g.fga}</td>
+                          <td className="py-1.5 text-right text-gray-400 text-[10px]">{fgPct != null ? `${fgPct}%` : '—'}</td>
+                          <td className="py-1.5 text-right text-yellow-600 text-[10px]">{fg3Pct != null ? `${fg3Pct}%` : '—'}</td>
                         </tr>
-                      ))}
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>

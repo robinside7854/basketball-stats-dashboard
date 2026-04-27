@@ -790,19 +790,22 @@ function PlayerModal({
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-gray-800/60">
-                      {['날짜','상대','결과','PTS','REB','AST','FG'].map(h => (
-                        <th key={h} className="pb-1.5 text-[10px] text-gray-600 font-bold text-left first:text-left text-right first:pr-2">{h}</th>
+                      {['날짜','상대','결과','PTS','REB','AST','STL','BLK','FG','FG%','3P%'].map(h => (
+                        <th key={h} className="pb-1.5 text-[10px] text-gray-600 font-bold text-right first:text-left">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {detail.recent_games.map((g, i) => (
+                    {detail.recent_games.map((g, i) => {
+                      const fgPct  = g.fga  > 0 ? Math.round(g.fgm  / g.fga  * 100) : null
+                      const fg3Pct = (g as {fg3a?:number}).fg3a ?? 0 > 0 ? Math.round(((g as {fg3m?:number}).fg3m ?? 0) / ((g as {fg3a?:number}).fg3a ?? 1) * 100) : null
+                      return (
                       <tr key={i} className="border-b border-gray-800/30 last:border-0">
                         <td className="py-1.5 pr-2 text-gray-600 text-[10px] whitespace-nowrap">{g.date?.slice(5) ?? '—'}</td>
                         <td className="py-1.5 pr-2 text-gray-300 text-[11px] whitespace-nowrap">
                           vs {g.opponent ?? '—'}{g.round_num != null ? ` [R${g.round_num}]` : ''}
                         </td>
-                        <td className="py-1.5 pr-2">
+                        <td className="py-1.5 pr-1">
                           {g.result ? (
                             <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${g.result === 'W' ? 'text-green-400 bg-green-900/40' : 'text-red-400 bg-red-900/40'}`}>
                               {g.result} {g.score}
@@ -812,9 +815,14 @@ function PlayerModal({
                         <td className="py-1.5 text-right text-white font-bold">{g.pts}</td>
                         <td className="py-1.5 text-right text-gray-300">{g.reb}</td>
                         <td className="py-1.5 text-right text-gray-300">{g.ast}</td>
+                        <td className="py-1.5 text-right text-purple-400">{(g as {stl?:number}).stl ?? 0}</td>
+                        <td className="py-1.5 text-right text-indigo-400">{(g as {blk?:number}).blk ?? 0}</td>
                         <td className="py-1.5 text-right text-gray-500 text-[10px]">{g.fgm}/{g.fga}</td>
+                        <td className="py-1.5 text-right text-gray-400 text-[10px]">{fgPct != null ? `${fgPct}%` : '—'}</td>
+                        <td className="py-1.5 text-right text-yellow-600 text-[10px]">{fg3Pct != null ? `${fg3Pct}%` : '—'}</td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
