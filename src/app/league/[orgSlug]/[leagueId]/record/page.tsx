@@ -654,12 +654,44 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
               {/* ── 좌측: 비디오 + 경기 제어 (sticky) ── */}
               <div className="lg:sticky lg:top-[52px] space-y-2">
                 {selectedSlot.youtube_url ? (
-                  <div className="bg-black rounded-xl overflow-hidden">
+                  <div className="relative bg-black rounded-xl overflow-hidden">
                     <YouTubePlayer
                       key={selectedSlot.youtube_url ?? selectedSlot.id}
                       youtubeUrl={selectedSlot.youtube_url}
                       startOffset={selectedSlot.youtube_start_offset ?? 0}
                     />
+                    {/* 스코어보드 오버레이 — 영상 우하단 */}
+                    {gameStarted && liveScore && (
+                      <div className="absolute bottom-10 right-3 z-10 pointer-events-none">
+                        <div className="flex items-stretch gap-px rounded-xl overflow-hidden shadow-2xl bg-black/80 backdrop-blur-sm border border-white/10 text-white">
+                          {/* 홈팀 */}
+                          <div className="flex flex-col items-center px-3 py-1.5 min-w-[64px]">
+                            <span className="text-[10px] font-bold truncate max-w-[60px]"
+                              style={{ color: selectedSlot.home_team?.color ?? '#3b82f6' }}>
+                              {selectedSlot.home_team?.name ?? 'HOME'}
+                            </span>
+                            <span className="text-3xl font-black tabular-nums leading-none mt-0.5">
+                              {liveScore.home}
+                            </span>
+                          </div>
+                          {/* 구분선 + LIVE */}
+                          <div className="flex flex-col items-center justify-center px-2 border-x border-white/10">
+                            <span className="text-[8px] text-green-400 font-black tracking-widest">LIVE</span>
+                            <span className="text-lg font-black text-gray-500 leading-none">:</span>
+                          </div>
+                          {/* 어웨이팀 */}
+                          <div className="flex flex-col items-center px-3 py-1.5 min-w-[64px]">
+                            <span className="text-[10px] font-bold truncate max-w-[60px]"
+                              style={{ color: selectedSlot.away_team?.color ?? '#ef4444' }}>
+                              {selectedSlot.away_team?.name ?? 'AWAY'}
+                            </span>
+                            <span className="text-3xl font-black tabular-nums leading-none mt-0.5">
+                              {liveScore.away}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-center h-40 text-gray-700 text-sm">
