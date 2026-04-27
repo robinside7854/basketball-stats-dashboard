@@ -160,6 +160,15 @@ function calcAgeNum(dateStr: string | null): number {
   return age
 }
 
+type PlayerSeasonStats = {
+  gp: number; pts: number
+  fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
+  oreb: number; dreb: number; reb: number
+  ast: number; stl: number; blk: number; tov: number; pf: number
+  ppg: number; rpg: number; apg: number; spg: number; bpg: number; topg: number
+  fg_pct: number; fg3_pct: number; ft_pct: number; efg_pct: number
+}
+
 interface PlayerModalProps {
   player: LeaguePlayer
   isEditMode: boolean
@@ -189,6 +198,8 @@ function PlayerModal({
   const [togglingP1, setTogglingP1] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+  const [stats, setStats] = useState<PlayerSeasonStats | null>(null)
+  const [statsLoading, setStatsLoading] = useState(true)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -200,6 +211,16 @@ function PlayerModal({
     document.body.style.overflow = 'hidden'
     return () => { document.body.style.overflow = '' }
   }, [])
+
+  // 선수 시즌 스탯 로드
+  useEffect(() => {
+    setStatsLoading(true)
+    fetch(`/api/leagues/${leagueId}/stats?playerId=${player.id}`)
+      .then(r => r.json())
+      .then(data => { setStats(data.players?.[0] ?? null) })
+      .catch(() => {})
+      .finally(() => setStatsLoading(false))
+  }, [leagueId, player.id])
 
   // 분기별 팀 정보 helpers
   function getQLabel(qId: string, pid: string): string {
@@ -434,6 +455,82 @@ function PlayerModal({
               </div>
             </div>
           )}
+
+          {/* ── 시즌 스탯 ────────────────────────────────────── */}
+          <div className="px-6 py-4 border-t border-gray-800/60">
+            <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
+            {statsLoading ? (
+              <div className="flex justify-center py-4">
+                <Loader2 size={18} className="animate-spin text-gray-700" />
+              </div>
+            ) : stats ? (
+              <div className="space-y-3">
+                {/* 주요 평균 4칸 */}
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { label: 'PPG', value: stats.ppg.toFixed(1), accent: true },
+                    { label: 'RPG', value: stats.rpg.toFixed(1) },
+                    { label: 'APG', value: stats.apg.toFixed(1) },
+                    { label: 'GP',  value: String(stats.gp) },
+                  ].map(({ label, value, accent }) => (
+                    <div key={label} className={`rounded-xl p-3 text-center border ${accent ? 'bg-blue-900/20 border-blue-800/30' : 'bg-gray-900/50 border-gray-800/40'}`}>
+                      <p className="text-[9px] text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
+                      <p className={`text-2xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 슈팅 퍼센트 3칸 */}
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'FG%', pct: stats.fg_pct, made: stats.fgm, att: stats.fga },
+                    { label: '3P%', pct: stats.fg3_pct, made: stats.fg3m, att: stats.fg3a },
+                    { label: 'FT%', pct: stats.ft_pct, made: stats.ftm, att: stats.fta },
+                  ].map(({ label, pct, made, att }) => (
+                    <div key={label} className="bg-gray-900/50 border border-gray-800/40 rounded-xl p-3 text-center">
+                      <p className="text-[9px] text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
+                      <p className="text-xl font-black text-white leading-none">{att > 0 ? `${pct.toFixed(1)}%` : '—'}</p>
+                      <p className="text-[10px] text-gray-700 mt-1">{made}/{att}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 시즌 누적 6칸 */}
+                <div className="grid grid-cols-6 gap-1.5">
+                  {[
+                    { label: 'PTS', value: stats.pts, hi: true },
+                    { label: 'REB', value: stats.reb },
+                    { label: 'AST', value: stats.ast },
+                    { label: 'STL', value: stats.stl },
+                    { label: 'BLK', value: stats.blk },
+                    { label: 'TOV', value: stats.tov },
+                  ].map(({ label, value, hi }) => (
+                    <div key={label} className={`rounded-xl p-2 text-center border ${hi ? 'bg-blue-900/15 border-blue-800/25' : 'bg-gray-900/40 border-gray-800/30'}`}>
+                      <p className="text-[8px] text-gray-600 mb-0.5 uppercase tracking-wider">{label}</p>
+                      <p className={`text-sm font-black leading-none ${hi ? 'text-blue-300' : 'text-white'}`}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* SPG / BPG / eFG% 보조 지표 */}
+                <div className="flex items-center gap-2 pt-1">
+                  {[
+                    { label: 'SPG', value: stats.spg.toFixed(1) },
+                    { label: 'BPG', value: stats.bpg.toFixed(1) },
+                    { label: 'TOPG', value: stats.topg.toFixed(1) },
+                    { label: 'eFG%', value: stats.fga > 0 ? `${stats.efg_pct.toFixed(1)}%` : '—' },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex-1 text-center py-2 bg-gray-900/30 rounded-lg border border-gray-800/30">
+                      <p className="text-[9px] text-gray-700 uppercase">{label}</p>
+                      <p className="text-xs font-bold text-gray-400">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-xs text-gray-700 py-4">아직 기록된 스탯이 없습니다</p>
+            )}
+          </div>
 
           {/* ── 편집 영역 ─────────────────────────────────────── */}
           <div className="px-6 py-4 border-t border-gray-800/60 space-y-3">

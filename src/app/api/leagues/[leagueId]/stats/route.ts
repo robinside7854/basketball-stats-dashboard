@@ -40,6 +40,7 @@ export async function GET(
     .from('league_game_events')
     .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id')
     .in('league_game_id', gameIds)
+    .not('league_player_id', 'is', null)
 
   if (teamId)   eQuery = eQuery.eq('team_id', teamId)
   if (playerId) eQuery = eQuery.eq('league_player_id', playerId)
@@ -85,41 +86,34 @@ export async function GET(
     gpMap[pid].add(gId)
 
     const made = e.result === 'made'
+    const pts = e.points ?? 0
 
     switch (e.type) {
       case 'shot_3p':
         s.fg3a++; s.fga++
-        if (made) { s.fg3m++; s.fgm++; s.pts += 3 }
+        if (made) { s.fg3m++; s.fgm++; s.pts += pts || 3 }
         break
       case 'shot_2p_mid':
       case 'shot_layup':
       case 'shot_post':
       case 'shot_2p_drive':
         s.fga++
-        if (made) { s.fgm++; s.pts += 2 }
+        if (made) { s.fgm++; s.pts += pts || 2 }
         break
+      // 자유투: 모든 타입 통합 (ft_2pt=2pts, ft_3pt_1=2pts, ft_3pt_2=1pt, free_throw=1pt)
       case 'free_throw':
+      case 'ft_2pt':
+      case 'ft_3pt_1':
+      case 'ft_3pt_2':
         s.fta++
-        if (made) { s.ftm++; s.pts += 1 }
+        if (made) { s.ftm++; s.pts += pts || 1 }
         break
-      case 'oreb':
-        s.oreb++; s.reb++
-        break
-      case 'dreb':
-        s.dreb++; s.reb++
-        break
-      case 'steal':
-        s.stl++
-        break
-      case 'block':
-        s.blk++
-        break
-      case 'turnover':
-        s.tov++
-        break
-      case 'foul':
-        s.pf++
-        break
+      case 'oreb': s.oreb++; s.reb++; break
+      case 'dreb': s.dreb++; s.reb++; break
+      case 'steal': s.stl++; break
+      case 'block': s.blk++; break
+      case 'turnover': s.tov++; break
+      case 'foul': s.pf++; break
     }
 
     // 어시스트: 슛 성공 + related_player_id → 어시스터에게 ast 추가
