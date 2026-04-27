@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Loader2, X, BookOpen } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
+import { ALL_BADGE_DEFS } from '@/lib/league/badges'
 
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
@@ -182,7 +183,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               <div className="px-5 py-6 text-center text-sm text-gray-600 border-b border-gray-800/60">아직 기록된 스탯이 없습니다</div>
             )}
 
-            {/* 배지 — 보유한 것만 + 획득 기준 */}
+            {/* 배지 — 보유한 것만 + 설명 + 획득 기준 */}
             {earnedBadges.length > 0 && (
               <div className="px-5 py-4 border-b border-gray-800/60">
                 <div className="flex items-center justify-between mb-3">
@@ -190,24 +191,35 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   <button onClick={() => setShowBadgeBook(true)} className="text-[10px] text-indigo-400 hover:text-indigo-300 cursor-pointer">전체 도감 →</button>
                 </div>
                 <div className="space-y-2">
-                  {earnedBadges.map(b => (
-                    <div key={b.id} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 ${TIER_BG[b.tier]}`}>
-                      <span className="text-2xl shrink-0">{b.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className={`text-sm font-black ${TIER_COLOR[b.tier]}`}>{b.name}</span>
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
-                            b.tier === 'gold'   ? 'bg-yellow-400/20 border-yellow-400/50 text-yellow-300' :
-                            b.tier === 'silver' ? 'bg-gray-300/15 border-gray-300/40 text-gray-300' :
-                                                  'bg-orange-500/15 border-orange-500/40 text-orange-400'
-                          }`}>
-                            {b.tier === 'gold' ? '🥇 GOLD' : b.tier === 'silver' ? '🥈 SILVER' : '🥉 BRONZE'}
-                          </span>
+                  {earnedBadges.map(b => {
+                    const def = ALL_BADGE_DEFS.find(d => d.id === b.id)
+                    const criteria = def?.tierDesc[b.tier]
+                    return (
+                      <div key={b.id} className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 ${TIER_BG[b.tier]}`}>
+                        <span className="text-2xl shrink-0 mt-0.5">{b.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <span className={`text-sm font-black ${TIER_COLOR[b.tier]}`}>{b.name}</span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
+                              b.tier === 'gold'   ? 'bg-yellow-400/20 border-yellow-400/50 text-yellow-300' :
+                              b.tier === 'silver' ? 'bg-gray-300/15 border-gray-300/40 text-gray-300' :
+                                                    'bg-orange-500/15 border-orange-500/40 text-orange-400'
+                            }`}>
+                              {b.tier === 'gold' ? '🥇 GOLD' : b.tier === 'silver' ? '🥈 SILVER' : '🥉 BRONZE'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-400 leading-snug">{b.description}</p>
+                          {criteria && (
+                            <p className={`text-[10px] mt-1 font-medium ${
+                              b.tier === 'gold' ? 'text-yellow-500/80' : b.tier === 'silver' ? 'text-gray-400' : 'text-orange-500/80'
+                            }`}>
+                              {b.tier === 'gold' ? '🥇' : b.tier === 'silver' ? '🥈' : '🥉'} {criteria}
+                            </p>
+                          )}
                         </div>
-                        <p className="text-[10px] text-gray-500 leading-snug">{b.description}</p>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}
