@@ -228,6 +228,16 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
     await loadRoster(slot)
 
+    // 이미 시작된 경기면 현재 점수 로드
+    if (slot.is_started) {
+      const scoreRes = await fetch(`/api/leagues/${leagueId}/games/${slot.id}/recompute`, {
+        method: 'POST',
+        headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (scoreRes.ok) setLiveScore(await scoreRes.json())
+    }
+
     // 출전 기록 로드
     const res = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${slot.id}`)
     if (res.ok) setMinutes(await res.json())
@@ -759,6 +769,28 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                           </div>
                         </div>
                       )}
+
+                      {/* 실시간 스코어보드 */}
+                      <div className="mt-3 bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
+                        <div className="grid grid-cols-[1fr_auto_1fr]">
+                          <div className="py-3 px-4 text-center">
+                            <p className="text-[11px] font-bold mb-1 truncate" style={{ color: selectedSlot?.home_team?.color ?? '#3b82f6' }}>
+                              {selectedSlot?.home_team?.name ?? '홈팀'}
+                            </p>
+                            <p className="text-4xl font-black text-white tabular-nums leading-none">{liveScore?.home ?? 0}</p>
+                          </div>
+                          <div className="flex flex-col items-center justify-center px-3 border-x border-gray-800">
+                            <span className="text-[9px] text-green-400 font-bold tracking-widest">LIVE</span>
+                            <span className="text-xl text-gray-500 font-black leading-none mt-0.5">:</span>
+                          </div>
+                          <div className="py-3 px-4 text-center">
+                            <p className="text-[11px] font-bold mb-1 truncate" style={{ color: selectedSlot?.away_team?.color ?? '#ef4444' }}>
+                              {selectedSlot?.away_team?.name ?? '어웨이팀'}
+                            </p>
+                            <p className="text-4xl font-black text-white tabular-nums leading-none">{liveScore?.away ?? 0}</p>
+                          </div>
+                        </div>
+                      </div>
 
                       <div className="mt-3">
                         <LeagueSubstitutionPanel
