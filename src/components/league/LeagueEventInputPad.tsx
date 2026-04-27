@@ -139,7 +139,7 @@ export default function LeagueEventInputPad({
   // ── 어시스트 2초 자동 타임아웃 ──────────────────────────────
   useEffect(() => {
     if (!awaitingAssist) { setAssistCountdown(0); return }
-    setAssistCountdown(2)
+    setAssistCountdown(3)
     const tick = setInterval(() => setAssistCountdown(n => Math.max(0, n - 1)), 1000)
     const timer = setTimeout(async () => {
       clearInterval(tick)
@@ -160,7 +160,7 @@ export default function LeagueEventInputPad({
       setPendingResult(null)
       if (!FT_TYPES.includes(shot.type)) setPendingShot(null)
       onEventSaved()
-    }, 2000)
+    }, 3000)
     return () => { clearTimeout(timer); clearInterval(tick) }
   }, [awaitingAssist]) // eslint-disable-line react-hooks/exhaustive-deps
 
