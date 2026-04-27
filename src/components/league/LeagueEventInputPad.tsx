@@ -71,8 +71,8 @@ const FT_TYPES   = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'and_one']
 function calcPoints(type: string, result: string, isPlusOne = false): number {
   if (result !== 'made') return 0
   if (type === 'and_one')   return 1   // 득점인정반칙: 슛 성공 + 1점 추가
-  if (type === 'ft_2pt')    return 2
-  if (type === 'ft_3pt_1')  return 2
+  if (type === 'ft_2pt')    return 1
+  if (type === 'ft_3pt_1')  return 1
   if (type === 'ft_3pt_2')  return 1
   if (type === 'free_throw') return 1
   const bonus = isPlusOne ? 1 : 0

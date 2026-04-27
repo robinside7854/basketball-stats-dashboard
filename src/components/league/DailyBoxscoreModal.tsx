@@ -1,11 +1,12 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, X, ChevronDown, ChevronUp, Youtube, CheckCircle2, Circle } from 'lucide-react'
+import { Loader2, X, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, CheckCircle2, Circle } from 'lucide-react'
 
 type PlayerRow = {
   player_id: string; name: string; number: number | null
   team_id: string | null; team_name: string | null; team_color: string | null
-  pts: number; reb: number; ast: number; stl: number; blk: number; tov: number
+  pts: number; reb: number; oreb: number; dreb: number
+  ast: number; stl: number; blk: number; tov: number
   fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
   fg_pct: number | null; fg3_pct: number | null
 }
@@ -22,10 +23,13 @@ type GameData = {
 
 type DailyStat = {
   player_id: string; name: string; number: number | null; gp: number
-  pts: number; reb: number; ast: number; stl: number; blk: number; tov: number
+  pts: number; reb: number; oreb: number; dreb: number
+  ast: number; stl: number; blk: number; tov: number
   fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
   fg_pct: number | null; fg3_pct: number | null
 }
+
+type ColDef = { key: string; label: string; sortKey?: string }
 
 interface Props {
   leagueId: string
@@ -34,57 +38,98 @@ interface Props {
 }
 
 function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean }) {
-  const COLS = [
-    ...(showGP ? [{ key: 'gp', label: 'GP' }] : []),
-    { key: 'pts', label: 'PTS' }, { key: 'reb', label: 'REB' }, { key: 'ast', label: 'AST' },
-    { key: 'stl', label: 'STL' }, { key: 'blk', label: 'BLK' }, { key: 'tov', label: 'TOV' },
-    { key: 'fgm_fga', label: 'FG' }, { key: 'fg_pct', label: 'FG%' },
-    { key: 'fg3m_fg3a', label: '3P' }, { key: 'fg3_pct', label: '3P%' },
-    { key: 'ftm_fta', label: 'FT' },
+  const [sortKey, setSortKey] = useState('pts')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+
+  const COLS: ColDef[] = [
+    ...(showGP ? [{ key: 'gp', label: 'GP', sortKey: 'gp' }] : []),
+    { key: 'pts',     label: 'PTS',  sortKey: 'pts'  },
+    { key: 'reb',     label: 'REB',  sortKey: 'reb'  },
+    { key: 'oreb',    label: 'OR',   sortKey: 'oreb' },
+    { key: 'dreb',    label: 'DR',   sortKey: 'dreb' },
+    { key: 'ast',     label: 'AST',  sortKey: 'ast'  },
+    { key: 'stl',     label: 'STL',  sortKey: 'stl'  },
+    { key: 'blk',     label: 'BLK',  sortKey: 'blk'  },
+    { key: 'tov',     label: 'TOV',  sortKey: 'tov'  },
+    { key: 'fgm_fga', label: 'FG',   sortKey: 'fgm'  },
+    { key: 'fg_pct',  label: 'FG%',  sortKey: 'fg_pct' },
+    { key: 'fg3m_fg3a', label: '3P', sortKey: 'fg3m' },
+    { key: 'fg3_pct', label: '3P%',  sortKey: 'fg3_pct' },
+    { key: 'ftm_fta', label: 'FT',   sortKey: 'ftm'  },
   ]
+
+  function handleSort(sk: string) {
+    if (sk === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortKey(sk); setSortDir('desc') }
+  }
+
+  const sorted = [...rows].sort((a, b) => {
+    const rr = (x: PlayerRow | DailyStat) => (x as Record<string, unknown>)[sortKey] as number ?? 0
+    const diff = rr(a) - rr(b)
+    return sortDir === 'desc' ? -diff : diff
+  })
+
+  function cellVal(rr: PlayerRow & DailyStat, key: string): string {
+    if (key === 'gp')       return String(rr.gp ?? 1)
+    if (key === 'pts')      return String(rr.pts)
+    if (key === 'reb')      return String(rr.reb)
+    if (key === 'oreb')     return String(rr.oreb ?? 0)
+    if (key === 'dreb')     return String(rr.dreb ?? 0)
+    if (key === 'ast')      return String(rr.ast)
+    if (key === 'stl')      return String(rr.stl)
+    if (key === 'blk')      return String(rr.blk)
+    if (key === 'tov')      return String(rr.tov)
+    if (key === 'fgm_fga')  return `${rr.fgm}/${rr.fga}`
+    if (key === 'fg_pct')   return rr.fg_pct  != null ? `${rr.fg_pct}%`  : '—'
+    if (key === 'fg3m_fg3a') return `${rr.fg3m}/${rr.fg3a}`
+    if (key === 'fg3_pct')  return rr.fg3_pct != null ? `${rr.fg3_pct}%` : '—'
+    if (key === 'ftm_fta')  return `${rr.ftm}/${rr.fta}`
+    return '—'
+  }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-800">
-            <th className="text-left py-2 px-3 text-xs text-gray-500 font-bold sticky left-0 bg-gray-900 min-w-[120px]">선수</th>
+            <th className="text-left py-2.5 px-3 text-xs text-gray-500 font-bold sticky left-0 bg-gray-900 min-w-[150px]">선수 / 팀</th>
             {COLS.map(c => (
-              <th key={c.key} className="py-2 px-2 text-center text-xs text-gray-500 font-bold whitespace-nowrap">{c.label}</th>
+              <th key={c.key}
+                onClick={() => c.sortKey && handleSort(c.sortKey)}
+                className={`py-2.5 px-2 text-center text-xs font-bold whitespace-nowrap cursor-pointer select-none transition-colors hover:text-gray-200 ${
+                  sortKey === c.sortKey ? 'text-blue-400' : 'text-gray-500'
+                }`}>
+                {c.label}
+                {c.sortKey && (sortKey === c.sortKey
+                  ? (sortDir === 'desc' ? <ChevronDown size={9} className="inline ml-0.5" /> : <ChevronUp size={9} className="inline ml-0.5" />)
+                  : <ChevronsUpDown size={9} className="inline ml-0.5 opacity-30" />)}
+              </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => {
+          {sorted.map((r, i) => {
             const rr = r as PlayerRow & DailyStat
             return (
               <tr key={rr.player_id} className={`border-b border-gray-800/40 ${i % 2 === 0 ? '' : 'bg-gray-900/30'} hover:bg-gray-800/30`}>
                 <td className="py-2 px-3 sticky left-0 bg-inherit">
                   <div className="flex items-center gap-2">
                     {rr.team_color && <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
-                    <span className="font-bold text-white text-sm whitespace-nowrap">{rr.name}</span>
+                    <div>
+                      <span className="font-bold text-white text-sm whitespace-nowrap">{rr.name}</span>
+                      {rr.team_name && <p className="text-[10px] text-gray-500 leading-none mt-0.5">{rr.team_name}</p>}
+                    </div>
                   </div>
                 </td>
-                {COLS.map(c => {
-                  let val: string = '—'
-                  if (c.key === 'gp') val = String(rr.gp ?? 1)
-                  else if (c.key === 'pts') val = String(rr.pts)
-                  else if (c.key === 'reb') val = String(rr.reb)
-                  else if (c.key === 'ast') val = String(rr.ast)
-                  else if (c.key === 'stl') val = String(rr.stl)
-                  else if (c.key === 'blk') val = String(rr.blk)
-                  else if (c.key === 'tov') val = String(rr.tov)
-                  else if (c.key === 'fgm_fga') val = `${rr.fgm}/${rr.fga}`
-                  else if (c.key === 'fg_pct')  val = rr.fg_pct  != null ? `${rr.fg_pct}%`  : '—'
-                  else if (c.key === 'fg3m_fg3a') val = `${rr.fg3m}/${rr.fg3a}`
-                  else if (c.key === 'fg3_pct') val = rr.fg3_pct != null ? `${rr.fg3_pct}%` : '—'
-                  else if (c.key === 'ftm_fta') val = `${rr.ftm}/${rr.fta}`
-                  const isHighlight = c.key === 'pts'
-                  return (
-                    <td key={c.key} className={`py-2 px-2 text-center text-sm ${isHighlight ? 'font-black text-white' : 'text-gray-300'} whitespace-nowrap`}>
-                      {val}
-                    </td>
-                  )
-                })}
+                {COLS.map(c => (
+                  <td key={c.key} className={`py-2 px-2 text-center text-sm whitespace-nowrap ${
+                    c.key === 'pts' ? 'font-black text-white' :
+                    c.key === 'oreb' ? 'text-orange-400/80' :
+                    c.key === 'dreb' ? 'text-blue-400/80' : 'text-gray-300'
+                  } ${sortKey === c.sortKey ? 'text-yellow-400 font-bold' : ''}`}>
+                    {cellVal(rr, c.key)}
+                  </td>
+                ))}
               </tr>
             )
           })}
