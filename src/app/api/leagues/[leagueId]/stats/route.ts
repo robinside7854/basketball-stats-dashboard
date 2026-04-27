@@ -18,7 +18,16 @@ export async function GET(
 
   const supabase = createClient()
 
-  // 1. 대상 완료 게임 ID 추출
+  // 1. 선수 메타 + plus_one 플래그를 이벤트 루프 전에 미리 조회
+  const { data: allLeaguePlayers } = await supabase
+    .from('league_players')
+    .select('id, name, number, position, plus_one')
+    .eq('league_id', leagueId)
+
+  const plusOneSet = new Set((allLeaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
+  const metaMap = Object.fromEntries((allLeaguePlayers ?? []).map(p => [p.id, p]))
+
+  // 2. 대상 완료 게임 ID 추출
   let gQuery = supabase
     .from('league_games')
     .select('id')
@@ -35,7 +44,7 @@ export async function GET(
   const gameIds = (games ?? []).map(g => g.id)
   if (gameIds.length === 0) return NextResponse.json({ players: [] })
 
-  // 2. 이벤트 조회
+  // 3. 이벤트 조회
   let eQuery = supabase
     .from('league_game_events')
     .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id')
@@ -48,7 +57,7 @@ export async function GET(
   const { data: events, error: eErr } = await eQuery
   if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 })
 
-  // 3. 선수별 스탯 집계
+  // 4. 선수별 스탯 집계
   type PlayerStats = {
     player_id: string
     gp: number
@@ -86,27 +95,28 @@ export async function GET(
     gpMap[pid].add(gId)
 
     const made = e.result === 'made'
-    const pts = e.points ?? 0
+    // 필드골 득점은 현재 plus_one 플래그 기준으로 동적 계산 (과거 기록 보정 포함)
+    const isPlusOne = plusOneSet.has(pid)
 
     switch (e.type) {
       case 'shot_3p':
         s.fg3a++; s.fga++
-        if (made) { s.fg3m++; s.fgm++; s.pts += pts || 3 }
+        if (made) { s.fg3m++; s.fgm++; s.pts += isPlusOne ? 4 : 3 }
         break
       case 'shot_2p_mid':
       case 'shot_layup':
       case 'shot_post':
       case 'shot_2p_drive':
         s.fga++
-        if (made) { s.fgm++; s.pts += pts || 2 }
+        if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 }
         break
-      // 자유투: 모든 타입 통합 (ft_2pt=2pts, ft_3pt_1=2pts, ft_3pt_2=1pt, free_throw=1pt)
+      // 자유투: +1 미적용, 저장된 points 값 사용 (ft_2pt=2, ft_3pt_1=2, ft_3pt_2=1, free_throw=1)
       case 'free_throw':
       case 'ft_2pt':
       case 'ft_3pt_1':
       case 'ft_3pt_2':
         s.fta++
-        if (made) { s.ftm++; s.pts += pts || 1 }
+        if (made) { s.ftm++; s.pts += e.points ?? 1 }
         break
       case 'oreb': s.oreb++; s.reb++; break
       case 'dreb': s.dreb++; s.reb++; break
@@ -132,18 +142,8 @@ export async function GET(
     statsMap[pid].gp = gpMap[pid]?.size ?? 0
   }
 
-  // 4. 선수 메타데이터 조회
-  const allPlayerIds = Object.keys(statsMap)
-  if (allPlayerIds.length === 0) return NextResponse.json({ players: [] })
-
-  const { data: playerMeta } = await supabase
-    .from('league_players')
-    .select('id, name, number, position')
-    .in('id', allPlayerIds)
-
-  const metaMap = Object.fromEntries((playerMeta ?? []).map(p => [p.id, p]))
-
   // 5. 평균/퍼센트 계산 후 반환
+  if (Object.keys(statsMap).length === 0) return NextResponse.json({ players: [] })
   const result = Object.values(statsMap)
     .filter(s => s.gp > 0)
     .map(s => {
