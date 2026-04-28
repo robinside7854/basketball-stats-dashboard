@@ -117,6 +117,11 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
   const [masterbookOpen, setMasterbookOpen] = useState(false)
   const [boxScoreGame, setBoxScoreGame] = useState<{ game_id: string; date: string; opponent: string; round: string | null; our_score: number; opponent_score: number; tournament_name: string } | null>(null)
   const [mobileTab, setMobileTab] = useState<'overview' | 'career' | 'tournaments'>('overview')
+  const [splits, setSplits] = useState<{
+    wins: { gp: number; pts_avg: number; reb_avg: number; ast_avg: number; fg_pct: number; fg3_pct: number; gmsc_avg: number } | null
+    losses: { gp: number; pts_avg: number; reb_avg: number; ast_avg: number; fg_pct: number; fg3_pct: number; gmsc_avg: number } | null
+    byRound: Array<{ name: string; gp: number; pts_avg: number; reb_avg: number; ast_avg: number; fg_pct: number; fg3_pct: number; gmsc_avg: number }>
+  } | null>(null)
 
   useEffect(() => {
     fetch(`/api/players/${playerId}/stats`)
@@ -130,6 +135,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
         setTournamentStats(d.tournamentStats || [])
         setAwards(d.awards ?? null)
         setQuarterPts(d.quarterPts ?? null)
+        setSplits(d.splits ?? null)
         setLoading(false)
       })
   }, [playerId])
@@ -778,6 +784,97 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                   </div>
                 )
               })()}
+
+              {/* 스플릿 (W/L + 라운드별) */}
+              {splits && ((splits.wins?.gp ?? 0) > 0 || (splits.losses?.gp ?? 0) > 0 || splits.byRound.length > 0) && (
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-5">
+                  <h2 className="text-base font-semibold text-gray-300">스플릿</h2>
+
+                  {/* W/L 비교 */}
+                  {(splits.wins || splits.losses) && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-2 font-bold">승 vs 패</p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-center border-collapse">
+                          <thead>
+                            <tr className="bg-gray-800/60 text-xs text-gray-500">
+                              <th className="px-3 py-2 text-left">결과</th>
+                              <th className="px-3 py-2">GP</th>
+                              <th className="px-3 py-2">PPG</th>
+                              <th className="px-3 py-2">RPG</th>
+                              <th className="px-3 py-2">APG</th>
+                              <th className="px-3 py-2">FG%</th>
+                              <th className="px-3 py-2">3P%</th>
+                              <th className="px-3 py-2 text-amber-300">GmSc</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[
+                              { label: 'W', tone: 'text-green-400', stat: splits.wins },
+                              { label: 'L', tone: 'text-red-400', stat: splits.losses },
+                            ].map(({ label, tone, stat }) => (
+                              <tr key={label} className="border-b border-gray-800/40">
+                                <td className={`px-3 py-2 text-left font-bold ${tone}`}>{label}</td>
+                                {stat ? (
+                                  <>
+                                    <td className="px-3 py-2 text-gray-400 text-xs">{stat.gp}</td>
+                                    <td className="px-3 py-2 font-bold text-white">{stat.pts_avg.toFixed(1)}</td>
+                                    <td className="px-3 py-2">{stat.reb_avg.toFixed(1)}</td>
+                                    <td className="px-3 py-2 text-blue-400">{stat.ast_avg.toFixed(1)}</td>
+                                    <td className="px-3 py-2 text-xs">{stat.fg_pct > 0 ? `${stat.fg_pct.toFixed(1)}%` : '-'}</td>
+                                    <td className="px-3 py-2 text-xs">{stat.fg3_pct > 0 ? `${stat.fg3_pct.toFixed(1)}%` : '-'}</td>
+                                    <td className="px-3 py-2 font-bold text-amber-300">{stat.gmsc_avg.toFixed(1)}</td>
+                                  </>
+                                ) : (
+                                  <td colSpan={7} className="px-3 py-2 text-gray-700 italic text-xs">기록 없음</td>
+                                )}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 라운드별 */}
+                  {splits.byRound.length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-2 font-bold">라운드별</p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-center border-collapse">
+                          <thead>
+                            <tr className="bg-gray-800/60 text-xs text-gray-500">
+                              <th className="px-3 py-2 text-left whitespace-nowrap">라운드</th>
+                              <th className="px-3 py-2">GP</th>
+                              <th className="px-3 py-2">PPG</th>
+                              <th className="px-3 py-2">RPG</th>
+                              <th className="px-3 py-2">APG</th>
+                              <th className="px-3 py-2">FG%</th>
+                              <th className="px-3 py-2">3P%</th>
+                              <th className="px-3 py-2 text-amber-300">GmSc</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {splits.byRound.map(r => (
+                              <tr key={r.name} className="border-b border-gray-800/40">
+                                <td className="px-3 py-2 text-left font-medium text-gray-300 whitespace-nowrap">{r.name}</td>
+                                <td className="px-3 py-2 text-gray-400 text-xs">{r.gp}</td>
+                                <td className="px-3 py-2 font-bold text-white">{r.pts_avg.toFixed(1)}</td>
+                                <td className="px-3 py-2">{r.reb_avg.toFixed(1)}</td>
+                                <td className="px-3 py-2 text-blue-400">{r.ast_avg.toFixed(1)}</td>
+                                <td className="px-3 py-2 text-xs">{r.fg_pct > 0 ? `${r.fg_pct.toFixed(1)}%` : '-'}</td>
+                                <td className="px-3 py-2 text-xs">{r.fg3_pct > 0 ? `${r.fg3_pct.toFixed(1)}%` : '-'}</td>
+                                <td className="px-3 py-2 font-bold text-amber-300">{r.gmsc_avg.toFixed(1)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-[11px] text-gray-700 mt-2">결승에 가까울수록 압박 큰 환경 — 빅게임 퍼포먼스 가늠</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* 대회별 성적 */}
               {tournamentStats.length > 0 && (

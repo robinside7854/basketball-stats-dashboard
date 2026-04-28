@@ -8,6 +8,8 @@ import PlayerCard from '@/components/roster/PlayerCard'
 import PlayerForm from '@/components/roster/PlayerForm'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import PlayerMergeModal from '@/components/roster/PlayerMergeModal'
+import PlayerCompareModal from '@/components/roster/PlayerCompareModal'
+import { ArrowLeftRight } from 'lucide-react'
 import type { Player } from '@/types/database'
 import * as XLSX from 'xlsx'
 import { useEditMode } from '@/contexts/EditModeContext'
@@ -54,6 +56,7 @@ export default function RosterPage() {
   const [sortDir, setSortDir] = useState<SortDir>('asc')
   const [detailPlayerId, setDetailPlayerId] = useState<string | null>(null)
   const [showMerge, setShowMerge] = useState(false)
+  const [showCompare, setShowCompare] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function fetchPlayers() {
@@ -172,6 +175,9 @@ export default function RosterPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">선수 명단</h1>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowCompare(true)} className="border-blue-700/60 text-blue-400 hover:text-blue-300 hover:border-blue-500">
+            <ArrowLeftRight size={16} className="mr-2" /> 선수 비교
+          </Button>
           <Button variant="outline" onClick={downloadTemplate} className="border-gray-700 text-gray-400 hover:text-white hover:border-gray-500">
             <Download size={16} className="mr-2" /> 템플릿 다운로드
           </Button>
@@ -325,6 +331,13 @@ export default function RosterPage() {
           players={players}
           onClose={() => setShowMerge(false)}
           onMerged={fetchPlayers}
+        />
+      )}
+
+      {showCompare && (
+        <PlayerCompareModal
+          candidates={players}
+          onClose={() => setShowCompare(false)}
         />
       )}
     </div>

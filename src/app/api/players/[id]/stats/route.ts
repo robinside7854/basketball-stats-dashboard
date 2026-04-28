@@ -318,5 +318,57 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     e => (e.type === 'shot_post' || e.type === 'shot_layup') && e.result === 'made'
   ).length
 
-  return NextResponse.json({ player, recentGames, shotBreakdown, totalShotAttempts, freeThrow, tournamentStats, awards, quarterPts, astPaint })
+  // ── W/L + 라운드별 스플릿 ──────────────────────────────────
+  // 우리 팀 입장 — our_score > opp_score = win
+  const winGameIds: string[] = []
+  const lossGameIds: string[] = []
+  for (const g of playerGames) {
+    const ourScore = (g.our_score as number) ?? 0
+    const oppScore = (g.opponent_score as number) ?? 0
+    const gid = g.id as string
+    if (ourScore > oppScore) winGameIds.push(gid)
+    else if (ourScore < oppScore) lossGameIds.push(gid)
+  }
+
+  function statsWithGp(ids: string[]) {
+    if (ids.length === 0) return null
+    const s = calcStats(playerEvents, assistEvents, playerMinutes, ids)
+    return {
+      gp: ids.length,
+      ...s,
+      pts_avg: Math.round((s.pts / ids.length) * 10) / 10,
+      reb_avg: Math.round((s.reb / ids.length) * 10) / 10,
+      ast_avg: Math.round((s.ast / ids.length) * 10) / 10,
+      stl_avg: Math.round((s.stl / ids.length) * 10) / 10,
+      blk_avg: Math.round((s.blk / ids.length) * 10) / 10,
+      tov_avg: Math.round((s.tov / ids.length) * 10) / 10,
+      gmsc_avg: Math.round((s.game_score / ids.length) * 10) / 10,
+    }
+  }
+
+  const ROUND_BUCKETS: { name: string; min: number; max: number }[] = [
+    { name: '예선/조별',  min: 0,   max: 35  },
+    { name: '16강',       min: 55,  max: 65  },
+    { name: '8강',        min: 65,  max: 75  },
+    { name: '준결승/3위', min: 75,  max: 95  },
+    { name: '결승',       min: 95,  max: 105 },
+  ]
+  const byRound = ROUND_BUCKETS.map(({ name, min, max }) => {
+    const ids = playerGames
+      .filter(g => {
+        const p = roundPriority(g.round as string | null)
+        return p > min && p <= max
+      })
+      .map(g => g.id as string)
+    const stats = statsWithGp(ids)
+    return stats ? { name, ...stats } : null
+  }).filter(Boolean)
+
+  const splits = {
+    wins: statsWithGp(winGameIds),
+    losses: statsWithGp(lossGameIds),
+    byRound,
+  }
+
+  return NextResponse.json({ player, recentGames, shotBreakdown, totalShotAttempts, freeThrow, tournamentStats, awards, quarterPts, astPaint, splits })
 }

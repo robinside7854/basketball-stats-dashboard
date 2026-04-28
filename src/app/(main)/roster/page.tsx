@@ -2,11 +2,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { sortJerseyNum } from '@/lib/utils'
-import { Plus, Upload, X, Check } from 'lucide-react'
+import { Plus, Upload, X, Check, ArrowLeftRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import PlayerCard from '@/components/roster/PlayerCard'
 import PlayerForm from '@/components/roster/PlayerForm'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
+import PlayerCompareModal from '@/components/roster/PlayerCompareModal'
 import type { Player } from '@/types/database'
 import * as XLSX from 'xlsx'
 import { useEditMode } from '@/contexts/EditModeContext'
@@ -45,6 +46,7 @@ export default function RosterPage() {
   const [filterPos, setFilterPos] = useState<string>('')
   const [sortMode, setSortMode] = useState<SortMode>('number')
   const [detailPlayerId, setDetailPlayerId] = useState<string | null>(null)
+  const [showCompare, setShowCompare] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   async function fetchPlayers() {
@@ -127,6 +129,9 @@ export default function RosterPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">선수 명단</h1>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowCompare(true)} className="border-blue-700/60 text-blue-400 hover:text-blue-300 hover:border-blue-500">
+            <ArrowLeftRight size={16} className="mr-2" /> 선수 비교
+          </Button>
           {isEditMode && (
             <>
               <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
@@ -272,6 +277,13 @@ export default function RosterPage() {
           player={editPlayer}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); fetchPlayers(); toast.success(editPlayer ? '수정 완료' : '선수 추가 완료') }}
+        />
+      )}
+
+      {showCompare && (
+        <PlayerCompareModal
+          candidates={players}
+          onClose={() => setShowCompare(false)}
         />
       )}
     </div>
