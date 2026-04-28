@@ -184,11 +184,11 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
   const completedCount = games.filter(g => g.is_complete).length
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto"
+    <div className="fixed inset-0 z-50 flex items-start justify-center sm:p-4 overflow-y-auto"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-5xl my-4 z-10 shadow-2xl">
+      <div className="relative bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl w-full max-w-5xl min-h-[100dvh] sm:min-h-0 sm:my-4 z-10 shadow-2xl">
 
         {/* Header */}
         <div className="sticky top-0 z-10 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800 px-6 py-4 flex items-center justify-between rounded-t-2xl">

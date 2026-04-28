@@ -96,11 +96,11 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
   return (
     <>
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto z-10 shadow-2xl">
+      <div className="relative bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl w-full max-w-lg h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800 px-5 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">

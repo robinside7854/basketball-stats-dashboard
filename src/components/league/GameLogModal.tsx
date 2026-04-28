@@ -165,9 +165,9 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
   const needsResult = isShotType || isFtType
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-2xl max-h-[88vh] flex flex-col z-10 shadow-2xl">
+      <div className="relative bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[88vh] flex flex-col z-10 shadow-2xl">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-800 shrink-0">
