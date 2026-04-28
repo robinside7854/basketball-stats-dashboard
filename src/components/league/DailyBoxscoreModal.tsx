@@ -191,7 +191,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
       <div className="relative bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl w-full max-w-5xl min-h-[100dvh] sm:min-h-0 sm:my-4 z-10 shadow-2xl">
 
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+        <div className="sticky top-0 z-10 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800 px-6 pt-safe-or-4 pb-4 flex items-center justify-between sm:rounded-t-2xl">
           <div>
             <h2 className="text-white font-black text-xl">{dateLabel} 박스스코어</h2>
             <p className="text-gray-500 text-sm mt-0.5">

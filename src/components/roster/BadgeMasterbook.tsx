@@ -37,7 +37,7 @@ export default function BadgeMasterbook({ evaluatedBadges, onClose }: Props) {
 
       <div className="relative z-10 w-full max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[88vh] bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-800 shrink-0">
+        <div className="flex items-center justify-between px-5 pt-safe-or-3 pb-3.5 border-b border-gray-800 shrink-0">
           <div>
             <h2 className="text-base font-bold text-white">뱃지 도감</h2>
             <p className="text-xs md:text-sm text-gray-500 mt-0.5">총 {BADGE_DEFINITIONS.length}종 · 4카테고리 · 3티어</p>

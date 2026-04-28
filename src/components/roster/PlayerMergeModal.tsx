@@ -122,7 +122,7 @@ export default function PlayerMergeModal({ players, onClose, onMerged }: Props) 
       <div className="relative z-10 w-full max-w-lg h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl shadow-2xl">
 
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+        <div className="flex items-center justify-between px-5 pt-safe-or-4 pb-4 border-b border-gray-800">
           <div>
             <h2 className="text-base font-bold text-white">선수 데이터 통합</h2>
             <p className="text-xs text-gray-500 mt-0.5">중복 등록된 선수의 기록을 하나로 합칩니다</p>

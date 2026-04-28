@@ -106,7 +106,7 @@ export default function GameLogPage() {
     <div>
       <div className="flex flex-wrap gap-3 mb-6">
         <Select value={selectedTId} onValueChange={v => { setSelectedTId(v ?? ''); setSelectedGId('') }}>
-          <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-52">
+          <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-full sm:w-52">
             <SelectValue placeholder="대회 선택">
               {selectedTId ? (() => { const t = tournaments.find(t => t.id === selectedTId); return t ? `${t.name} (${t.year})` : undefined })() : undefined}
             </SelectValue>
@@ -116,7 +116,7 @@ export default function GameLogPage() {
           </SelectContent>
         </Select>
         <Select value={selectedGId} onValueChange={v => setSelectedGId(v ?? '')} disabled={!selectedTId}>
-          <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-52">
+          <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-full sm:w-52">
             <SelectValue placeholder="경기 선택">
               {selectedGId ? (() => { const g = games.find(g => g.id === selectedGId); return g ? `${g.date} vs ${g.opponent}` : undefined })() : undefined}
             </SelectValue>
@@ -127,7 +127,7 @@ export default function GameLogPage() {
         </Select>
         {uniquePlayers.length > 0 && (
           <Select value={filterPlayer} onValueChange={v => setFilterPlayer(v ?? '')}>
-            <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-40">
+            <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-full sm:w-40">
               <SelectValue placeholder="선수 필터">
                 {filterPlayer ? (() => { const p = uniquePlayers.find(p => p.id === filterPlayer); return p ? `${p.number}번 ${p.name}` : undefined })() : undefined}
               </SelectValue>

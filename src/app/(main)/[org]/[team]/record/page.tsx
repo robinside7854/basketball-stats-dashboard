@@ -423,7 +423,7 @@ function RecordPageInner() {
             value={selectedTId}
             onValueChange={v => { setSelectedTId(v ?? ''); setSelectedGId('') }}
           >
-            <SelectTrigger className="bg-gray-800 border-gray-700 text-white h-8 w-48 text-sm">
+            <SelectTrigger className="bg-gray-800 border-gray-700 text-white h-8 w-full sm:w-48 text-sm">
               <SelectValue placeholder="대회 선택">
                 {selectedTournament
                   ? `${selectedTournament.name} (${selectedTournament.year})`
@@ -443,7 +443,7 @@ function RecordPageInner() {
             onValueChange={v => setSelectedGId(v ?? '')}
             disabled={!selectedTId}
           >
-            <SelectTrigger className="bg-gray-800 border-gray-700 text-white h-8 w-52 text-sm">
+            <SelectTrigger className="bg-gray-800 border-gray-700 text-white h-8 w-full sm:w-52 text-sm">
               <SelectValue placeholder="경기 선택">
                 {selectedGame
                   ? `${selectedGame.is_complete ? '✓ ' : ''}${selectedGame.date} vs ${selectedGame.opponent}`

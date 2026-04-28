@@ -170,7 +170,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
       <div className="relative bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[88vh] flex flex-col z-10 shadow-2xl">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-800 shrink-0">
+        <div className="flex items-center justify-between px-5 pt-safe-or-3 pb-3.5 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-3">
             <h2 className="text-white font-bold text-sm">게임 이벤트 로그</h2>
             {!loading && <span className="text-[11px] text-gray-600">{events.length}개</span>}

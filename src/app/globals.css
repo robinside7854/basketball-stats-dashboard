@@ -173,3 +173,15 @@
 .hexagon {
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
 }
+
+/* iOS 노치/홈바 safe-area 유틸리티 */
+@layer utilities {
+  .pt-safe   { padding-top: env(safe-area-inset-top); }
+  .pb-safe   { padding-bottom: env(safe-area-inset-bottom); }
+  .pl-safe   { padding-left: env(safe-area-inset-left); }
+  .pr-safe   { padding-right: env(safe-area-inset-right); }
+  /* 본래 padding을 유지하면서 safe-area 만큼 늘림 (둘 중 큰 값) */
+  .pb-safe-or-3 { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+  .pb-safe-or-4 { padding-bottom: max(1rem,    env(safe-area-inset-bottom)); }
+  .pt-safe-or-3 { padding-top: max(0.75rem,    env(safe-area-inset-top)); }
+}

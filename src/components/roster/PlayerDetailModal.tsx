@@ -276,7 +276,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
       {/* 모달 */}
       <div className="relative z-10 w-full max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[90vh] bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
         {/* 헤더 닫기 버튼 */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 shrink-0">
+        <div className="flex items-center justify-between px-5 pt-safe-or-3 pb-3 border-b border-gray-800 shrink-0">
           <span className="text-sm text-gray-400 font-medium">
             {player ? <><span className="text-blue-400 font-bold">#{player.number}</span> <span className="text-white">{player.name}</span></> : '선수 상세 정보'}
           </span>
@@ -723,10 +723,19 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                         ))}
                       </div>
                     </div>
-                    <ResponsiveContainer width="100%" height={180}>
-                      <LineChart data={chartData} margin={{ top: 4, right: 16, left: -20, bottom: 4 }}>
+                    <ResponsiveContainer width="100%" height={210}>
+                      <LineChart data={chartData} margin={{ top: 4, right: 16, left: -20, bottom: 30 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
-                        <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fill: '#6b7280', fontSize: 11 }}
+                          tickLine={false}
+                          axisLine={false}
+                          angle={-30}
+                          textAnchor="end"
+                          height={50}
+                          interval={0}
+                        />
                         <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
                         <Tooltip
                           contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}

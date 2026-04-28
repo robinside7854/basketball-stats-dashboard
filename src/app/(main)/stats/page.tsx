@@ -211,7 +211,7 @@ export default function StatsPage() {
         <h1 className="text-2xl font-bold shrink-0">시즌 통계</h1>
         <div className="flex items-center gap-3 flex-wrap">
           <Select value={selectedTId} onValueChange={v => setSelectedTId(v ?? '')}>
-            <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-52">
+            <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-full sm:w-52">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-gray-800 border-gray-700 text-white">
@@ -361,10 +361,10 @@ export default function StatsPage() {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-gray-300">어시스트 네트워크</h2>
 
-            {/* Row 1: 히트맵 + 상위 커넥션 */}
+            {/* Row 1: 히트맵 + 상위 커넥션 (히트맵은 모바일에서 숨김) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* 히트맵 매트릭스 */}
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+              {/* 히트맵 매트릭스 — lg 이상만 표시 */}
+              <div className="hidden lg:block bg-gray-900 border border-gray-800 rounded-xl p-4">
                 <p className="text-xs text-gray-500 mb-3">↓ 어시스트 제공 → 득점 선수</p>
                 <div className="overflow-x-auto">
                   <table className="text-xs border-collapse w-full">

@@ -152,7 +152,7 @@ export default function BoxScorePage() {
           value={selectedTId}
           onValueChange={v => { setSelectedTId(v ?? ''); setSelectedGId('') }}
         >
-          <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-52">
+          <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-full sm:w-52">
             <SelectValue placeholder="대회 선택">{selT ? `${selT.name} (${selT.year})` : undefined}</SelectValue>
           </SelectTrigger>
           <SelectContent className="bg-gray-800 border-gray-700 text-white">

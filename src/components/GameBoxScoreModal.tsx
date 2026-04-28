@@ -192,7 +192,7 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       <div className="relative z-10 w-full max-w-4xl h-[100dvh] sm:h-auto sm:max-h-[90vh] bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800 shrink-0">
+        <div className="flex items-center justify-between px-5 pt-safe-or-3 pb-3 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${isWin ? 'bg-green-900/60 text-green-400' : 'bg-red-900/60 text-red-400'}`}>
               {isWin ? '승' : '패'}

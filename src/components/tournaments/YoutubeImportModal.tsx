@@ -190,7 +190,7 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
       <div className="relative z-10 w-full max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[90vh] bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl flex flex-col shadow-2xl overflow-hidden">
 
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 shrink-0">
+        <div className="flex items-center justify-between px-5 pt-safe-or-4 pb-4 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-2">
             <Youtube size={18} className="text-red-400" />
             <span className="font-semibold">YouTube에서 경기 가져오기</span>

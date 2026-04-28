@@ -58,7 +58,7 @@ export default function BadgeBookModal({ playerId, playerName, leagueId, onClose
       <div className="relative bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl w-full max-w-lg h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col z-10 shadow-2xl">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 shrink-0">
+        <div className="flex items-center justify-between px-5 pt-safe-or-4 pb-4 border-b border-gray-800 shrink-0">
           <div>
             <h2 className="text-white font-black text-base">배지 도감</h2>
             <p className="text-[11px] text-gray-500 mt-0.5">{playerName}</p>
