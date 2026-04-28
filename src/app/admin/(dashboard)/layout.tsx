@@ -1,7 +1,7 @@
 import { auth, signOut } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Building2, LogOut, Trophy } from 'lucide-react'
+import { LayoutDashboard, Building2, LogOut, Trophy, Medal } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -22,17 +22,27 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
 
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3">
           <Link href="/admin" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
             <LayoutDashboard size={16} />
             대시보드
           </Link>
+
+          {/* 토너먼트 섹션 */}
+          <div className="mt-4 mb-1 px-3">
+            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">토너먼트</p>
+          </div>
           <Link href="/admin/orgs" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
             <Building2 size={16} />
             Org 관리
           </Link>
+
+          {/* 리그 섹션 */}
+          <div className="mt-4 mb-1 px-3">
+            <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">리그</p>
+          </div>
           <Link href="/admin/leagues" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors text-sm">
-            <Trophy size={16} />
+            <Medal size={16} />
             리그 관리
           </Link>
         </nav>
