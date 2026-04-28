@@ -125,7 +125,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/40 text-indigo-400 text-xs font-bold cursor-pointer transition-colors">
               <BookOpen size={12} /> 도감
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors">
+            <button onClick={onClose} className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
               <X size={18} />
             </button>
           </div>

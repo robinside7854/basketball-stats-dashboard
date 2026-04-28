@@ -665,7 +665,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       </div>
 
       {/* 슬랏 그리드 — PC에서 크게 */}
-      <div className="grid grid-cols-5 lg:grid-cols-9 gap-2">
+      <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-9 gap-2">
         {slots.map(slot => {
           const isSelected = slot.id === selectedSlotId
           const hasTeams = slot.home_team_id && slot.away_team_id

@@ -42,7 +42,7 @@ export default function BadgeMasterbook({ evaluatedBadges, onClose }: Props) {
             <h2 className="text-base font-bold text-white">뱃지 도감</h2>
             <p className="text-xs md:text-sm text-gray-500 mt-0.5">총 {BADGE_DEFINITIONS.length}종 · 4카테고리 · 3티어</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer">
+          <button onClick={onClose} className="text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors cursor-pointer inline-flex items-center justify-center min-h-11 min-w-11">
             <X size={18} />
           </button>
         </div>

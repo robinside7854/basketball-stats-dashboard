@@ -127,7 +127,7 @@ export default function PlayerMergeModal({ players, onClose, onMerged }: Props) 
             <h2 className="text-base font-bold text-white">선수 데이터 통합</h2>
             <p className="text-xs text-gray-500 mt-0.5">중복 등록된 선수의 기록을 하나로 합칩니다</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer">
+          <button onClick={onClose} className="text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors cursor-pointer inline-flex items-center justify-center min-h-11 min-w-11">
             <X size={18} />
           </button>
         </div>

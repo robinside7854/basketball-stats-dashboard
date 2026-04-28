@@ -334,6 +334,9 @@ export default function LeagueSettingsPage() {
         <div className="flex items-center gap-2">
           <Input
             type={pinVisible ? 'text' : 'password'}
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="off"
             value={pin}
             onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             maxLength={4}

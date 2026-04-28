@@ -211,7 +211,7 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
               {gameInfo.tournament_name && ` · ${gameInfo.tournament_name}`}
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800 shrink-0">
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-gray-800 shrink-0 inline-flex items-center justify-center min-h-11 min-w-11">
             <X size={18} />
           </button>
         </div>
@@ -368,10 +368,10 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                           {canJump && (
                             <button
                               onClick={() => setJumpTo(e.video_timestamp!)}
-                              className="shrink-0 p-1 rounded text-gray-500 hover:text-blue-400 hover:bg-gray-800 transition-colors"
+                              className="shrink-0 rounded text-gray-500 hover:text-blue-400 hover:bg-gray-800 transition-colors inline-flex items-center justify-center min-h-11 min-w-11"
                               title="영상 이 시점으로 이동"
                             >
-                              <Play size={12} />
+                              <Play size={14} />
                             </button>
                           )}
                         </li>

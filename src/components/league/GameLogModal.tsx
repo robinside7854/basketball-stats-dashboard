@@ -185,7 +185,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                 전체 초기화
               </button>
             )}
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors">
+            <button onClick={onClose} className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
               <X size={18} />
             </button>
           </div>
@@ -307,14 +307,14 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                 </div>
 
                 {isEditMode && (
-                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button onClick={() => startEdit(e)}
-                      className="p-1.5 rounded-lg bg-gray-800 hover:bg-blue-900/40 text-gray-500 hover:text-blue-400 cursor-pointer transition-colors">
-                      <Pencil size={13} />
+                      className="rounded-lg bg-gray-800 hover:bg-blue-900/40 text-gray-500 hover:text-blue-400 cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
+                      <Pencil size={14} />
                     </button>
                     <button onClick={() => handleDelete(e.id)} disabled={deletingId === e.id}
-                      className="p-1.5 rounded-lg bg-gray-800 hover:bg-red-900/40 text-gray-500 hover:text-red-400 cursor-pointer transition-colors disabled:opacity-50">
-                      {deletingId === e.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                      className="rounded-lg bg-gray-800 hover:bg-red-900/40 text-gray-500 hover:text-red-400 cursor-pointer transition-colors disabled:opacity-50 inline-flex items-center justify-center min-h-11 min-w-11">
+                      {deletingId === e.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                     </button>
                   </div>
                 )}

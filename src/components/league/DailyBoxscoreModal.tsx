@@ -199,7 +199,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
               {games.length - completedCount > 0 && <span className="text-gray-600"> · {games.length - completedCount}미완료</span>}
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors">
+          <button onClick={onClose} className="rounded-xl hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
             <X size={20} />
           </button>
         </div>

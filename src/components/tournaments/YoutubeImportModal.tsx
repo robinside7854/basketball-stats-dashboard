@@ -196,7 +196,7 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
             <span className="font-semibold">YouTube에서 경기 가져오기</span>
             <span className="text-xs text-gray-500">@{channelHandle} · {teamName}</span>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 transition-colors">
+          <button onClick={onClose} className="text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
             <X size={18} />
           </button>
         </div>

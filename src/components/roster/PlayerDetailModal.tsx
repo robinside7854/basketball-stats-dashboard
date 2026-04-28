@@ -280,7 +280,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
           <span className="text-sm text-gray-400 font-medium">
             {player ? <><span className="text-blue-400 font-bold">#{player.number}</span> <span className="text-white">{player.name}</span></> : '선수 상세 정보'}
           </span>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-800">
+          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-gray-800 inline-flex items-center justify-center min-h-11 min-w-11">
             <X size={18} />
           </button>
         </div>
