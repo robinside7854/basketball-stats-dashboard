@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Pencil, Check, X, BookOpen } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
+import { ALL_BADGE_DEFS } from '@/lib/league/badges'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
 // 업로드 전 이미지를 600×800(3:4) 이하로 리사이즈 + JPEG 압축
@@ -704,7 +705,7 @@ function PlayerModal({
           {detail && (
             <div className="px-6 py-4 border-t border-gray-800/60">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">배지 도감</p>
+                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">보유 배지</p>
                 <button
                   onClick={() => setShowBadgeBook(true)}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/40 text-indigo-400 text-[11px] font-bold cursor-pointer transition-colors"
@@ -715,89 +716,55 @@ function PlayerModal({
               </div>
               {(() => {
                 const earned = detail.badges ?? []
-                const cats: { key: 'offensive' | 'defensive' | 'playmaking'; label: string; color: string }[] = [
-                  { key: 'offensive',   label: '오펜시브',     color: 'text-orange-400' },
-                  { key: 'defensive',   label: '디펜시브',     color: 'text-blue-400'   },
-                  { key: 'playmaking',  label: '플레이메이킹', color: 'text-purple-400' },
-                ]
-                const tierStyle = (t: BadgeResult['tier'] | null) => {
-                  if (t === 'gold')   return 'bg-yellow-400/20 border-yellow-400/60 shadow-[0_0_8px_rgba(250,204,21,0.3)]'
-                  if (t === 'silver') return 'bg-gray-300/20 border-gray-300/50'
-                  if (t === 'bronze') return 'bg-orange-700/25 border-orange-500/50'
-                  return 'bg-gray-800/40 border-gray-700/40 opacity-35'
+                if (earned.length === 0) return (
+                  <p className="text-xs text-gray-700">아직 획득한 배지가 없습니다</p>
+                )
+                const TIER_BG = {
+                  gold:   'bg-yellow-400/20 border-yellow-400/50 shadow-[0_0_8px_rgba(250,204,21,0.2)]',
+                  silver: 'bg-gray-300/15 border-gray-300/40',
+                  bronze: 'bg-orange-500/15 border-orange-500/40',
                 }
-                const tierText = (t: BadgeResult['tier'] | null) => {
-                  if (t === 'gold')   return 'text-yellow-300'
-                  if (t === 'silver') return 'text-gray-300'
-                  if (t === 'bronze') return 'text-orange-400'
-                  return 'text-gray-700'
-                }
-                // 카테고리별 획득/미획득 배지 정의 (미획득도 표시)
-                const ALL_BY_CAT: Record<string, { id: string; name: string; icon: string; description: string }[]> = {
-                  offensive: [
-                    { id: 'O1', name: '득점 머신',   icon: '🎯', description: '리그를 압도하는 득점력' },
-                    { id: 'O2', name: '외곽 저격수', icon: '🏹', description: '3점 슛 명사수' },
-                    { id: 'O6', name: '효율의 정석', icon: '🎓', description: '적은 슛으로 최대 득점' },
-                    { id: 'O7', name: '자유투 장인', icon: '🆓', description: '클러치 자유투 라인' },
-                  ],
-                  defensive: [
-                    { id: 'D1', name: '스틸 마스터',  icon: '✋', description: '패스 길목의 사신' },
-                    { id: 'D2', name: '림 프로텍터',  icon: '🚫', description: '골밑 차단 전문가' },
-                    { id: 'D3', name: '수비 리바 왕', icon: '🪟', description: '수비 리바운드 지배' },
-                    { id: 'D4', name: '철벽 수비수',  icon: '🧱', description: '스틸+블록 종합 수비' },
-                    { id: 'D5', name: '클린 디펜더',  icon: '🦴', description: '적은 파울로 강한 수비' },
-                    { id: 'D6', name: '인터셉터',     icon: '🎣', description: '시즌 전체 스틸 절대량' },
-                    { id: 'D7', name: '리바운드 머신', icon: '⛓️', description: '공·수 리바운드 모두' },
-                    { id: 'D8', name: '허슬 플레이어', icon: '🐝', description: '스틸+블록+공격리바 종합' },
-                  ],
-                  playmaking: [
-                    { id: 'P1', name: '플로어 제너럴', icon: '🎩', description: '리그 최고의 패서' },
-                    { id: 'P2', name: '영리한 핸들러', icon: '🧠', description: '어시스트 대비 턴오버 적음' },
-                    { id: 'P3', name: '볼 안전 요원', icon: '🛡️', description: '턴오버 최소화' },
-                    { id: 'P4', name: '듀얼 위협',    icon: '🤝', description: '득점+어시스트 모두 상위' },
-                    { id: 'P5', name: '트리플 위협',  icon: '📊', description: '득점+리바+어시스트 균형' },
-                    { id: 'P6', name: '클러치 핸들러', icon: '🪄', description: '어시스트 상위+A/TO 우수' },
-                    { id: 'P7', name: '만능 스탯',    icon: '🌟', description: '5개 스탯 중 4개 이상 상위' },
-                  ],
-                }
-                const earnedMap = Object.fromEntries(earned.map(b => [b.id, b.tier]))
-                const totalEarned = earned.length
-                const goldCount  = earned.filter(b => b.tier === 'gold').length
+                const TIER_COLOR = { gold: 'text-yellow-300', silver: 'text-gray-300', bronze: 'text-orange-400' }
+                const goldCount   = earned.filter(b => b.tier === 'gold').length
                 const silverCount = earned.filter(b => b.tier === 'silver').length
                 const bronzeCount = earned.filter(b => b.tier === 'bronze').length
                 return (
-                  <div className="space-y-4">
-                    {/* 요약 */}
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-500">{totalEarned}개 보유</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-xs text-gray-500">{earned.length}개 보유</span>
                       {goldCount   > 0 && <span className="text-xs font-bold text-yellow-300">🥇 {goldCount}</span>}
                       {silverCount > 0 && <span className="text-xs font-bold text-gray-300">🥈 {silverCount}</span>}
                       {bronzeCount > 0 && <span className="text-xs font-bold text-orange-400">🥉 {bronzeCount}</span>}
                     </div>
-                    {/* 카테고리별 그리드 */}
-                    {cats.map(cat => (
-                      <div key={cat.key}>
-                        <p className={`text-[10px] font-bold mb-2 ${cat.color}`}>{cat.label}</p>
-                        <div className="grid grid-cols-4 gap-2">
-                          {ALL_BY_CAT[cat.key].map(b => {
-                            const t = earnedMap[b.id] as BadgeResult['tier'] | undefined ?? null
-                            return (
-                              <div key={b.id} className="flex flex-col items-center gap-1" title={b.description}>
-                                <div className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center text-xl transition-all ${tierStyle(t)}`}>
-                                  {b.icon}
-                                </div>
-                                <div className="text-center">
-                                  <p className={`text-[9px] font-bold leading-tight ${tierText(t)}`}>{b.name}</p>
-                                  {t && <p className={`text-[8px] font-black mt-0.5 ${t === 'gold' ? 'text-yellow-400' : t === 'silver' ? 'text-gray-400' : 'text-orange-500'}`}>
-                                    {t === 'gold' ? 'GOLD' : t === 'silver' ? 'SILVER' : 'BRONZE'}
-                                  </p>}
-                                </div>
-                              </div>
-                            )
-                          })}
+                    {earned.map(b => {
+                      const def = ALL_BADGE_DEFS.find(d => d.id === b.id)
+                      const criteria = def?.tierDesc[b.tier]
+                      return (
+                        <div key={b.id} className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 ${TIER_BG[b.tier]}`}>
+                          <span className="text-2xl shrink-0 mt-0.5">{b.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                              <span className={`text-sm font-black ${TIER_COLOR[b.tier]}`}>{b.name}</span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
+                                b.tier === 'gold'   ? 'bg-yellow-400/20 border-yellow-400/50 text-yellow-300' :
+                                b.tier === 'silver' ? 'bg-gray-300/15 border-gray-300/40 text-gray-300' :
+                                                      'bg-orange-500/15 border-orange-500/40 text-orange-400'
+                              }`}>
+                                {b.tier === 'gold' ? '🥇 GOLD' : b.tier === 'silver' ? '🥈 SILVER' : '🥉 BRONZE'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-400 leading-snug">{b.description}</p>
+                            {criteria && (
+                              <p className={`text-[10px] mt-1 font-medium ${
+                                b.tier === 'gold' ? 'text-yellow-500/80' : b.tier === 'silver' ? 'text-gray-400' : 'text-orange-500/80'
+                              }`}>
+                                {b.tier === 'gold' ? '🥇' : b.tier === 'silver' ? '🥈' : '🥉'} {criteria}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )
               })()}
