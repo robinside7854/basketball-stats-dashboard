@@ -334,7 +334,7 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
           ) : (
             <div className="flex flex-col">
               {videoId ? (
-                <div className="bg-black shrink-0">
+                <div className="bg-black shrink-0 sticky top-0 z-10">
                   <div className="aspect-video max-h-[320px] mx-auto">
                     <iframe
                       key={`${videoId}-${jumpTo ?? 'init'}`}

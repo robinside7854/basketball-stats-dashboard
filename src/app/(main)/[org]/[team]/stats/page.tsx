@@ -298,7 +298,68 @@ export default function StatsPage() {
               {viewMode === 'avg' ? '경기당 평균' : viewMode === 'per36' ? '36분 환산' : '시즌 누적'}
             </span>
           </h2>
-          <div className="overflow-x-auto">
+          {/* 모바일 정렬 칩 + 카드뷰 (md 미만) */}
+          <div className="md:hidden">
+            <div className="px-1 pb-2 overflow-x-auto">
+              <div className="flex gap-1.5 whitespace-nowrap">
+                {cols.filter(c => c.key !== 'player_name' && c.key !== 'player_number').map(col => (
+                  <button key={col.key as string} onClick={() => setSortKey(col.key)}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
+                      sortKey === col.key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                    }`}>
+                    {col.label}{sortKey === col.key ? ' ↓' : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              {sorted.map((s, i) => {
+                const sortLabel = cols.find(c => c.key === sortKey)?.label ?? ''
+                const sortVal = (s as unknown as Record<string, unknown>)[sortKey as string]
+                const subKeys: (keyof SeasonPlayer)[] = (viewMode === 'vol'
+                  ? ['games_played','pts','reb','ast']
+                  : viewMode === 'per36'
+                  ? ['games_played','pts_avg','reb_avg','ast_avg']
+                  : ['games_played','pts_avg','reb_avg','ast_avg']) as (keyof SeasonPlayer)[]
+                const filteredSubKeys = subKeys.filter(k => k !== sortKey).slice(0, 4)
+                return (
+                  <button key={s.player_id} onClick={() => setPlayerModal(s.player_id)}
+                    className="w-full text-left bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 hover:bg-gray-800/60 transition-colors active:bg-gray-800/80">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-sm font-black text-gray-500 font-mono w-5 shrink-0">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-white text-sm truncate">
+                          {s.player_name}
+                          <span className="text-gray-600 font-mono ml-1 text-xs">#{s.player_number}</span>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-xl font-black text-yellow-400 leading-none">
+                          {typeof sortVal === 'number' ? sortVal : String(sortVal ?? '-')}
+                        </div>
+                        <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-gray-800/60">
+                      {filteredSubKeys.map(k => {
+                        const lbl = cols.find(c => c.key === k)?.label ?? String(k)
+                        const v = (s as unknown as Record<string, unknown>)[k as string]
+                        return (
+                          <div key={k as string} className="text-center">
+                            <div className="text-[11px] text-gray-500">{lbl}</div>
+                            <div className="text-xs font-bold text-gray-200">{typeof v === 'number' ? v : String(v ?? '-')}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 데스크탑 테이블 (md 이상) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm text-center border-collapse">
               <thead>
                 <tr className="bg-gray-800 text-gray-400">

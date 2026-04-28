@@ -216,6 +216,33 @@ export default function LeagueStatsPanel({
     )
   }
 
+  function MobileCard({ s, p }: { s: PlayerStat; p: RosterPlayer | LeaguePlayer | undefined }) {
+    return (
+      <button
+        onClick={() => setQuickViewId(s.player_id)}
+        className="w-full text-left bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-2 hover:bg-gray-800/60 transition-colors active:bg-gray-800/80"
+      >
+        <div className="flex items-center gap-2 mb-1.5">
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-white text-sm truncate">
+              {p ? <>{p.number != null && <span className="text-gray-600 font-mono mr-1 text-xs">#{p.number}</span>}{p.name}</> : s.player_id.slice(0, 6)}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-right"><div className="text-lg font-black text-white leading-none">{s.pts}</div><div className="text-[10px] text-gray-500 font-bold">PTS</div></div>
+            <div className="text-right"><div className="text-base font-bold text-gray-300 leading-none">{s.reb}</div><div className="text-[10px] text-gray-500 font-bold">REB</div></div>
+            <div className="text-right"><div className="text-base font-bold text-blue-400 leading-none">{s.ast}</div><div className="text-[10px] text-gray-500 font-bold">AST</div></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-1 pt-1 border-t border-gray-800/60 text-[10px] text-gray-400">
+          <div className="text-center">FG <span className="font-bold text-gray-200">{s.fgm}/{s.fga}</span> <span className="text-gray-600">({pct(s.fgm, s.fga)})</span></div>
+          <div className="text-center">3P <span className="font-bold text-gray-200">{s.fg3m}/{s.fg3a}</span></div>
+          <div className="text-center">FT <span className="font-bold text-gray-200">{s.ftm}/{s.fta}</span></div>
+        </div>
+      </button>
+    )
+  }
+
   const hasRoster = homePlayers.length > 0 || awayPlayers.length > 0
 
   // Legacy mode: 이벤트가 있는 선수만 (기존 동작 유지)
@@ -227,7 +254,14 @@ export default function LeagueStatsPanel({
 
     return (
       <>
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 overflow-x-auto">
+      {/* 모바일 카드뷰 */}
+      <div className="md:hidden space-y-1.5">
+        {sorted.map(s => (
+          <MobileCard key={s.player_id} s={s} p={playerMap[s.player_id]} />
+        ))}
+      </div>
+      {/* 데스크탑 테이블 */}
+      <div className="hidden md:block bg-gray-900 border border-gray-800 rounded-xl p-3 overflow-x-auto">
         <table className="w-full text-xs whitespace-nowrap">
           <thead>{renderThead()}</thead>
           <tbody className="divide-y divide-gray-800/50">
@@ -286,7 +320,41 @@ export default function LeagueStatsPanel({
 
   return (
     <>
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 overflow-x-auto">
+    {/* 모바일 카드뷰 */}
+    <div className="md:hidden space-y-2">
+      {homePlayers.length > 0 && (
+        <>
+          <div className="inline-block px-2 py-0.5 rounded text-[11px] font-bold mb-1"
+            style={{ color: homeTeam?.color ?? '#9ca3af', backgroundColor: `${homeTeam?.color ?? '#9ca3af'}22` }}>
+            {homeTeam?.name ?? '홈팀'}
+          </div>
+          <div className="space-y-1.5">
+            {homeStats.map(s => <MobileCard key={s.player_id} s={s} p={homePlayerMap[s.player_id]} />)}
+          </div>
+          <div className="bg-gray-800/40 rounded-lg px-2.5 py-1.5 text-[11px] flex items-center justify-between">
+            <span style={{ color: homeTeam?.color ?? '#9ca3af' }} className="font-bold">{homeTeam?.name ?? '홈팀'} 합계</span>
+            <span className="text-gray-300">PTS <b className="text-white">{homeTotals.pts ?? 0}</b> · REB {homeTotals.reb ?? 0} · AST {homeTotals.ast ?? 0}</span>
+          </div>
+        </>
+      )}
+      {awayPlayers.length > 0 && (
+        <>
+          <div className="inline-block px-2 py-0.5 rounded text-[11px] font-bold mt-3 mb-1"
+            style={{ color: awayTeam?.color ?? '#9ca3af', backgroundColor: `${awayTeam?.color ?? '#9ca3af'}22` }}>
+            {awayTeam?.name ?? '어웨이팀'}
+          </div>
+          <div className="space-y-1.5">
+            {awayStats.map(s => <MobileCard key={s.player_id} s={s} p={awayPlayerMap[s.player_id]} />)}
+          </div>
+          <div className="bg-gray-800/40 rounded-lg px-2.5 py-1.5 text-[11px] flex items-center justify-between">
+            <span style={{ color: awayTeam?.color ?? '#9ca3af' }} className="font-bold">{awayTeam?.name ?? '어웨이팀'} 합계</span>
+            <span className="text-gray-300">PTS <b className="text-white">{awayTotals.pts ?? 0}</b> · REB {awayTotals.reb ?? 0} · AST {awayTotals.ast ?? 0}</span>
+          </div>
+        </>
+      )}
+    </div>
+    {/* 데스크탑 테이블 */}
+    <div className="hidden md:block bg-gray-900 border border-gray-800 rounded-xl p-3 overflow-x-auto">
       <table className="w-full text-xs whitespace-nowrap">
         <thead>{renderThead()}</thead>
         <tbody className="divide-y divide-gray-800/50">

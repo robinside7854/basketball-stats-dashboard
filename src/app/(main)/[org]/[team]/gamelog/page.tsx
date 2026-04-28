@@ -207,9 +207,12 @@ export default function GameLogPage() {
                   )}
 
                   {splitTarget?.eventId === e.id && (
+                    <>
+                    {/* 모바일 백드롭 */}
+                    <div className="sm:hidden fixed inset-0 bg-black/60 z-40" onClick={() => setSplitTarget(null)} />
                     <div
                       ref={popoverRef}
-                      className="absolute right-16 top-0 z-50 bg-gray-800 border border-yellow-600/50 rounded-xl shadow-2xl p-4 w-64"
+                      className="fixed bottom-0 inset-x-0 sm:absolute sm:right-16 sm:top-0 sm:bottom-auto sm:inset-x-auto z-50 bg-gray-800 border border-yellow-600/50 rounded-t-2xl sm:rounded-xl shadow-2xl p-4 w-full sm:w-64 pb-safe-or-4 sm:pb-4"
                     >
                       <div className="text-xs text-yellow-400 font-bold mb-2 flex items-center gap-1.5">
                         <Scissors size={12} />
@@ -244,6 +247,7 @@ export default function GameLogPage() {
                         </button>
                       </div>
                     </div>
+                    </>
                   )}
                 </div>
               ))}

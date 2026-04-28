@@ -510,7 +510,7 @@ export default function BoxScorePage() {
               </button>
 
               {isExpanded && (
-                <div className="border border-blue-500 border-t-0 rounded-b-xl bg-gray-950 p-3 overflow-x-auto">
+                <div className="border border-blue-500 border-t-0 rounded-b-xl bg-gray-950 p-3">
                   {isLoading ? (
                     <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-400">
                       <span className="inline-block w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
@@ -520,6 +520,49 @@ export default function BoxScorePage() {
                     <div className="text-center py-8 text-gray-500 text-sm">기록된 데이터가 없습니다</div>
                   ) : (
                     <>
+                      {/* 모바일 카드뷰 (md 미만) */}
+                      <div className="md:hidden space-y-2">
+                        {sorted.map(s => (
+                          <button key={s.player_id} onClick={() => setPlayerModal(s.player_id)}
+                            className="w-full text-left bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 hover:bg-gray-800/60 transition-colors active:bg-gray-800/80">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className="text-blue-400 font-bold font-mono text-xs w-6 shrink-0">{s.player_number}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-bold text-white text-sm truncate">
+                                  {s.player_name}
+                                  {s.double_double && !s.triple_double && <span className="ml-1 text-[10px] bg-yellow-600 px-1 rounded">DD</span>}
+                                  {s.triple_double && <span className="ml-1 text-[10px] bg-blue-600 px-1 rounded">TD</span>}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className="text-2xl font-black text-yellow-400 leading-none">{s.pts}</div>
+                                <div className="text-[11px] text-gray-500 font-bold mt-0.5">PTS</div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-gray-800/60">
+                              <div className="text-center">
+                                <div className="text-[11px] text-gray-500">REB</div>
+                                <div className="text-xs font-bold text-gray-200">{s.reb}</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-[11px] text-gray-500">AST</div>
+                                <div className="text-xs font-bold text-blue-400">{s.ast}</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-[11px] text-gray-500">FG%</div>
+                                <div className="text-xs font-bold text-gray-200">{s.fg_pct > 0 ? `${s.fg_pct.toFixed(0)}%` : '-'}</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-[11px] text-gray-500">3P%</div>
+                                <div className="text-xs font-bold text-gray-200">{s.fg3_pct > 0 ? `${s.fg3_pct.toFixed(0)}%` : '-'}</div>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* 데스크탑 테이블 (md 이상) */}
+                      <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-sm text-center border-collapse">
                         <thead>
                           <tr className="bg-gray-800 text-gray-400">
@@ -609,7 +652,8 @@ export default function BoxScorePage() {
                           </tr>
                         </tbody>
                       </table>
-                      <p className="text-xs text-gray-600 mt-2">헤더 클릭 시 해당 스탯 기준 정렬 (↓ 내림차순 / ↑ 오름차순)</p>
+                      </div>
+                      <p className="hidden md:block text-xs text-gray-600 mt-2">헤더 클릭 시 해당 스탯 기준 정렬 (↓ 내림차순 / ↑ 오름차순)</p>
 
                       {/* ── AI MVP + X-FACTOR 선정 ── */}
                       <div className="mt-4 pt-3 border-t border-gray-800">
@@ -821,10 +865,38 @@ export default function BoxScorePage() {
           )}
 
           {seasonSorted.length > 0 && (
-            <div className="overflow-x-auto">
+            <div>
               <div className="flex items-center gap-3 mb-3">
                 <span className="text-sm text-gray-400">총 <span className="text-blue-400 font-bold">{totalGames}</span>경기 · 평균은 실제 출전 경기 기준</span>
               </div>
+              {/* 모바일 카드뷰 */}
+              <div className="md:hidden space-y-2">
+                {seasonSorted.map(s => (
+                  <button key={s.player_id} onClick={() => setPlayerModal(s.player_id)}
+                    className="w-full text-left bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 hover:bg-gray-800/60 transition-colors active:bg-gray-800/80">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-blue-400 font-bold font-mono text-xs w-6 shrink-0">{s.player_number}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-white text-sm truncate">{s.player_name}</div>
+                        <div className="text-gray-600 text-xs">GP {s.games_played}</div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-2xl font-black text-yellow-400 leading-none">{s.pts_avg}</div>
+                        <div className="text-[11px] text-gray-500 font-bold mt-0.5">PPG</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-gray-800/60">
+                      <div className="text-center"><div className="text-[11px] text-gray-500">RPG</div><div className="text-xs font-bold text-gray-200">{s.reb_avg}</div></div>
+                      <div className="text-center"><div className="text-[11px] text-gray-500">APG</div><div className="text-xs font-bold text-blue-400">{s.ast_avg}</div></div>
+                      <div className="text-center"><div className="text-[11px] text-gray-500">FG%</div><div className="text-xs font-bold text-gray-200">{s.fg_pct > 0 ? `${s.fg_pct.toFixed(0)}%` : '-'}</div></div>
+                      <div className="text-center"><div className="text-[11px] text-gray-500">3P%</div><div className="text-xs font-bold text-gray-200">{s.fg3_pct > 0 ? `${s.fg3_pct.toFixed(0)}%` : '-'}</div></div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* 데스크탑 테이블 */}
+              <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm text-center border-collapse">
                 <thead>
                   <tr className="bg-gray-800 text-gray-400">
@@ -910,7 +982,8 @@ export default function BoxScorePage() {
                   </tr>
                 </tbody>
               </table>
-              <p className="text-xs text-gray-600 mt-2">헤더 클릭 시 해당 스탯 기준 정렬 · 평균P/R/A = 경기당 평균</p>
+              </div>
+              <p className="hidden md:block text-xs text-gray-600 mt-2">헤더 클릭 시 해당 스탯 기준 정렬 · 평균P/R/A = 경기당 평균</p>
             </div>
           )}
         </>

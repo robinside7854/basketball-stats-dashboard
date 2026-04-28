@@ -116,6 +116,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
   const [activeBadgeCode, setActiveBadgeCode] = useState<string | null>(null)
   const [masterbookOpen, setMasterbookOpen] = useState(false)
   const [boxScoreGame, setBoxScoreGame] = useState<{ game_id: string; date: string; opponent: string; round: string | null; our_score: number; opponent_score: number; tournament_name: string } | null>(null)
+  const [mobileTab, setMobileTab] = useState<'overview' | 'career' | 'tournaments'>('overview')
 
   useEffect(() => {
     fetch(`/api/players/${playerId}/stats`)
@@ -512,7 +513,25 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                 )
               })()}
 
+              {/* 모바일 탭 (md 미만) */}
+              <div className="md:hidden -mx-5 sticky top-0 z-20 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800 flex">
+                {([
+                  { id: 'overview',    label: '개요' },
+                  { id: 'career',      label: '커리어' },
+                  { id: 'tournaments', label: '대회' },
+                ] as const).map(t => (
+                  <button key={t.id}
+                    onClick={() => setMobileTab(t.id)}
+                    className={`flex-1 py-2.5 text-xs font-bold border-b-2 transition-colors ${
+                      mobileTab === t.id ? 'border-blue-500 text-white' : 'border-transparent text-gray-500'
+                    }`}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
               {/* 커리어 하이 */}
+              <div className={`${mobileTab === 'career' ? 'block' : 'hidden'} md:block`}>
               {(() => {
                 type ChGame = {
                   value: number; date: string; opponent: string; round: string | null
@@ -636,8 +655,10 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                   </div>
                 )
               })()}
+              </div>
 
               {/* 공격 스타일 */}
+              <div className={`${mobileTab === 'career' ? 'block' : 'hidden'} md:block`}>
               {totalShots > 0 && (
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
                   <h2 className="text-base font-semibold mb-4 text-gray-300">공격 스타일</h2>
@@ -688,8 +709,10 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                   </div>
                 </div>
               )}
+              </div>
 
               {/* 대회별 추이 차트 */}
+              <div className={`${mobileTab === 'tournaments' ? 'block' : 'hidden'} md:block`}>
               {(() => {
                 const chartData = tournamentStats
                   .filter(t => t.games_played > 0 && t.stats)
@@ -852,8 +875,10 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                   </div>
                 </div>
               )}
+              </div>
 
               {/* 최근 5경기 */}
+              <div className={`${mobileTab === 'overview' ? 'block' : 'hidden'} md:block`}>
               {recentGames.length > 0 && (
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
                   <h2 className="text-base font-semibold mb-4 text-gray-300">최근 {recentGames.length}경기</h2>
@@ -909,6 +934,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                   </div>
                 </div>
               )}
+              </div>
 
               {recentGames.length === 0 && totalShots === 0 && tournamentStats.every(t => t.games_played === 0) && (
                 <div className="text-center py-12 text-gray-500">
