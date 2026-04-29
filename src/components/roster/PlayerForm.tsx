@@ -19,9 +19,9 @@ function parseBirthdate(val?: string): { y: string; m: string; d: string } {
   return { y: '', m: '', d: '' }
 }
 
-interface Props { player: Player | null; teamType?: string; onClose: () => void; onSaved: () => void }
+interface Props { player: Player | null; teamType?: string; org?: string; onClose: () => void; onSaved: () => void }
 
-export default function PlayerForm({ player, teamType, onClose, onSaved }: Props) {
+export default function PlayerForm({ player, teamType, org = 'paranalgae', onClose, onSaved }: Props) {
   const bd = parseBirthdate(player?.birthdate)
   const [form, setForm] = useState({
     number: player?.number ?? '',
@@ -77,12 +77,17 @@ export default function PlayerForm({ player, teamType, onClose, onSaved }: Props
       number: form.number,
       height_cm: form.height_cm ? Number(form.height_cm) : null,
       birthdate,
-      ...(teamType && !player ? { team_type: teamType } : {}),
     }
-    const url = player ? `/api/players/${player.id}` : '/api/players'
+    const qs = !player && teamType ? `?team=${teamType}&org=${org}` : ''
+    const url = player ? `/api/players/${player.id}` : `/api/players${qs}`
     const method = player ? 'PUT' : 'POST'
     const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    if (res.ok) onSaved()
+    if (res.ok) {
+      onSaved()
+    } else {
+      const data = await res.json().catch(() => ({}))
+      toast.error(data.error || '저장에 실패했습니다')
+    }
   }
 
   return (

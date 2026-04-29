@@ -321,6 +321,7 @@ export default function RosterPage() {
         <PlayerForm
           player={editPlayer}
           teamType={team}
+          org={org}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); fetchPlayers(); toast.success(editPlayer ? '수정 완료' : '선수 추가 완료') }}
         />
