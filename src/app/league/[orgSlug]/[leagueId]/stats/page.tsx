@@ -327,7 +327,7 @@ export default function LeagueStatsPage() {
                         <div className="text-gray-600 text-xs">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
                       {COLS.map(({ key }) => (
-                        <td key={key} className={`px-3 py-3 text-center text-sm ${sortKey === key ? 'text-yellow-400 font-bold' : 'text-gray-300'}`}>
+                        <td key={key} className={`px-3 py-3 text-center text-sm tabular-nums ${sortKey === key ? 'text-yellow-400 font-bold' : 'text-gray-300'}`}>
                           {cellVal(p, key)}
                         </td>
                       ))}

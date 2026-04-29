@@ -60,7 +60,7 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
-              className="p-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors duration-200 cursor-pointer"
+              className="p-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors duration-200 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
             </button>

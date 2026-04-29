@@ -60,7 +60,7 @@ export default async function LeagueDetailPage({
   const otherLeagues = (allLeagues ?? []).filter(ol => ol.id !== leagueId)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* 헤더 */}
       <div className="space-y-1">
         <div className="flex items-center justify-between">
@@ -79,7 +79,7 @@ export default async function LeagueDetailPage({
             <Link
               key={ol.id}
               href={`/league/${orgSlug}/${ol.id}`}
-              className="text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+              className="text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors cursor-pointer"
             >
               {ol.name} ({ol.season_year})
             </Link>

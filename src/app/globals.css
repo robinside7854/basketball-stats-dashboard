@@ -239,3 +239,23 @@
   .pb-safe-or-4 { padding-bottom: max(1rem,    env(safe-area-inset-bottom)); }
   .pt-safe-or-3 { padding-top: max(0.75rem,    env(safe-area-inset-top)); }
 }
+
+/* ===== UI/UX Polish ===== */
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Light mode: stronger card borders */
+:root:not(.dark) .border-gray-800 { border-color: #cbd5e1; }
+:root:not(.dark) .border-gray-700 { border-color: #94a3b8; }
+
+/* Light mode: text contrast fixes (WCAG 4.5:1+) */
+:root:not(.dark) .text-gray-400 { color: #475569; }  /* slate-600 */
+:root:not(.dark) .text-gray-500 { color: #334155; }  /* slate-700 */
+:root:not(.dark) .text-gray-600 { color: #1e293b; }  /* slate-800 */

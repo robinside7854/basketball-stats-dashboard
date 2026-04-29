@@ -122,7 +122,7 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
                   </div>
                 </td>
                 {COLS.map(c => (
-                  <td key={c.key} className={`py-2 px-2 text-center text-sm whitespace-nowrap ${
+                  <td key={c.key} className={`py-2 px-2 text-center text-sm whitespace-nowrap tabular-nums ${
                     c.key === 'pts' ? 'font-black text-white' :
                     c.key === 'oreb' ? 'text-orange-400/80' :
                     c.key === 'dreb' ? 'text-blue-400/80' : 'text-gray-300'
