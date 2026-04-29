@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Pencil, Check, X, BookOpen } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
+import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 import { ALL_BADGE_DEFS } from '@/lib/league/badges'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
@@ -226,6 +227,7 @@ type PlayerDetail = {
     pts: number; reb: number; ast: number; fgm: number; fga: number; league_name?: string
   }>
   badges: BadgeResult[]
+  zone_stats?: Record<string, { m: number; a: number }>
 }
 
 interface PlayerModalProps {
@@ -783,6 +785,19 @@ function PlayerModal({
                   </div>
                 )
               })()}
+            </div>
+          )}
+
+          {/* ── 슛 차트 ─────────────────────────────────────── */}
+          {detail && (
+            <div className="px-6 py-4 border-t border-gray-800/60">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">슛 차트</p>
+                {Object.keys(detail.zone_stats ?? {}).length === 0 && (
+                  <span className="text-[10px] text-gray-500">차트ON으로 기록된 데이터 없음</span>
+                )}
+              </div>
+              <HalfCourtShotChart zoneStats={detail.zone_stats ?? {}} width={340} />
             </div>
           )}
 
