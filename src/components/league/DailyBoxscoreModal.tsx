@@ -191,10 +191,10 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
       <div className="absolute inset-0 bg-black/85 backdrop-blur-md" onClick={onClose} />
 
       {/* 모달 본체 — 테두리/그림자 강화 */}
-      <div className="relative bg-[#0d1117] border border-gray-600/80 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col z-10 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_64px_rgba(0,0,0,0.9)]">
+      <div className="relative bg-gray-900 border border-gray-600/80 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col z-10 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_64px_rgba(0,0,0,0.9)]">
 
         {/* Header */}
-        <div className="shrink-0 bg-[#0d1117] border-b border-gray-700/60 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+        <div className="shrink-0 bg-gray-900 border-b border-gray-700/60 px-6 py-4 flex items-center justify-between rounded-t-2xl">
           <div>
             <h2 className="text-white font-black text-xl">{dateLabel} 박스스코어</h2>
             <p className="text-gray-400 text-sm mt-0.5">
@@ -209,7 +209,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
 
         {/* 탭 바 */}
         {!loading && games.length > 0 && (
-          <div className="shrink-0 flex border-b border-gray-700/60 bg-[#0d1117]">
+          <div className="shrink-0 flex border-b border-gray-700/60 bg-gray-900">
             {([
               { key: 'overall', label: '전체 스탯', count: dailyStats.length },
               { key: 'games',   label: '경기별',    count: games.length },

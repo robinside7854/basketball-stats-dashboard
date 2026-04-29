@@ -380,7 +380,7 @@ function PlayerModal({
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
       {/* 모달 — PC 기준 max-w-2xl, 카드 스타일 */}
-      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] bg-[#080e1a] border border-gray-800 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+      <div className="relative z-10 w-full max-w-2xl max-h-[90vh] bg-gray-900 border border-gray-700 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
 
         {/* 상단 닫기 버튼 */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800/60 shrink-0">
