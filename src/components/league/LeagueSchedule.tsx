@@ -19,14 +19,22 @@ function formatDate(dateStr: string) {
 export default function LeagueSchedule({ games, leagueId, limit }: Props) {
   const [boxscoreDate, setBoxscoreDate] = useState<string | null>(null)
 
-  // 날짜별 그룹화 (날짜 내림차순 — 최근 먼저)
+  // 날짜별 그룹화
   const dateMap: Record<string, LeagueGame[]> = {}
   for (const g of games) {
     if (!dateMap[g.date]) dateMap[g.date] = []
     dateMap[g.date].push(g)
   }
-  const dates = Object.keys(dateMap).sort((a, b) => b.localeCompare(a))
-  const displayed = limit ? dates.slice(0, limit) : dates
+  // 완료 경기 있는 날짜 → 최신순, 나머지(예정) → 가장 가까운 미래 순
+  const allDates = Object.keys(dateMap)
+  const completedDates = allDates
+    .filter(d => dateMap[d].some(g => g.is_complete))
+    .sort((a, b) => b.localeCompare(a))
+  const upcomingDates = allDates
+    .filter(d => !dateMap[d].some(g => g.is_complete))
+    .sort((a, b) => a.localeCompare(b))
+  const sorted = [...completedDates, ...upcomingDates]
+  const displayed = limit ? sorted.slice(0, limit) : sorted
 
   if (displayed.length === 0) {
     return <div className="text-center py-10 text-gray-500 text-sm">일정이 없습니다</div>
