@@ -155,6 +155,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedGame, setExpandedGame] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'overall' | 'games'>('overall')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -184,25 +185,47 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
   const completedCount = games.filter(g => g.is_complete).length
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center sm:p-4 overflow-y-auto"
+    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-6"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      {/* 배경 오버레이 — 더 진하게 */}
+      <div className="absolute inset-0 bg-black/85 backdrop-blur-md" onClick={onClose} />
 
-      <div className="relative bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl w-full max-w-5xl min-h-[100dvh] sm:min-h-0 sm:my-4 z-10 shadow-2xl">
+      {/* 모달 본체 — 테두리/그림자 강화 */}
+      <div className="relative bg-[#0d1117] border border-gray-600/80 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col z-10 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_64px_rgba(0,0,0,0.9)]">
 
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800 px-6 pt-safe-or-4 pb-4 flex items-center justify-between sm:rounded-t-2xl">
+        <div className="shrink-0 bg-[#0d1117] border-b border-gray-700/60 px-6 py-4 flex items-center justify-between rounded-t-2xl">
           <div>
             <h2 className="text-white font-black text-xl">{dateLabel} 박스스코어</h2>
-            <p className="text-gray-500 text-sm mt-0.5">
+            <p className="text-gray-400 text-sm mt-0.5">
               {games.length}경기 · <span className="text-green-400 font-bold">{completedCount}완료</span>
-              {games.length - completedCount > 0 && <span className="text-gray-600"> · {games.length - completedCount}미완료</span>}
+              {games.length - completedCount > 0 && <span className="text-gray-500"> · {games.length - completedCount}미완료</span>}
             </p>
           </div>
-          <button onClick={onClose} className="rounded-xl hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
+          <button onClick={onClose} className="rounded-xl hover:bg-gray-700/60 text-gray-400 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-10 min-w-10">
             <X size={20} />
           </button>
         </div>
+
+        {/* 탭 바 */}
+        {!loading && games.length > 0 && (
+          <div className="shrink-0 flex border-b border-gray-700/60 bg-[#0d1117]">
+            {([
+              { key: 'overall', label: '전체 스탯', count: dailyStats.length },
+              { key: 'games',   label: '경기별',    count: games.length },
+            ] as const).map(tab => (
+              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors cursor-pointer ${
+                  activeTab === tab.key
+                    ? 'border-blue-500 text-white'
+                    : 'border-transparent text-gray-500 hover:text-gray-300'
+                }`}>
+                {tab.label}
+                <span className="ml-2 text-xs text-gray-600">{tab.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-gray-600" /></div>
@@ -211,27 +234,23 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
             <p className="text-base">이 날 기록된 경기가 없습니다</p>
           </div>
         ) : (
-          <div className="p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto">
 
-            {/* 당일 전체 스탯 */}
-            {dailyStats.length > 0 && (
-              <section>
-                <h3 className="text-base font-black text-white mb-3 flex items-center gap-2">
-                  <span className="w-1 h-5 rounded-full bg-blue-500 inline-block" />
-                  당일 전체 스탯 합산
-                </h3>
-                <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                  <StatTable rows={dailyStats} showGP />
-                </div>
-              </section>
+            {/* 탭 1: 전체 스탯 */}
+            {activeTab === 'overall' && (
+              <div className="p-5">
+                {dailyStats.length > 0
+                  ? <div className="bg-gray-900/80 border border-gray-700/50 rounded-xl overflow-hidden">
+                      <StatTable rows={dailyStats} showGP />
+                    </div>
+                  : <p className="text-gray-600 text-sm text-center py-10">집계된 스탯이 없습니다</p>}
+              </div>
             )}
 
-            {/* 경기별 박스스코어 */}
+            {/* 탭 2: 경기별 박스스코어 */}
+            {activeTab === 'games' && (
+            <div className="p-5 space-y-3">
             <section className="space-y-3">
-              <h3 className="text-base font-black text-white flex items-center gap-2">
-                <span className="w-1 h-5 rounded-full bg-amber-500 inline-block" />
-                경기별 박스스코어
-              </h3>
 
               {games.map(g => {
                 const isExpanded = expandedGame === g.id
@@ -300,6 +319,9 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                 )
               })}
             </section>
+            </div>
+            )}
+
           </div>
         )}
       </div>
