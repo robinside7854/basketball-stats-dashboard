@@ -34,7 +34,7 @@ function totalMinutes(minutes: { in_time: number; out_time: number | null }[]): 
   }, 0)
 }
 
-type RawEvent = { game_id: string; type: string; result: string; points?: number; quarter?: number }
+type RawEvent = { game_id: string; type: string; result: string; points?: number; quarter?: number; shot_zone?: string | null }
 type RawMinute = { game_id: string; in_time: number; out_time: number | null }
 
 // 선수 이벤트만으로 박스스코어 직접 집계
@@ -144,7 +144,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   const [playerEventsRes, assistEventsRes, playerMinutesRes] = await Promise.all([
     supabase
       .from('game_events')
-      .select('game_id, type, result, points, quarter')
+      .select('game_id, type, result, points, quarter, shot_zone')
       .eq('player_id', id)
       .in('game_id', allTeamGameIds)
       .limit(10000),
@@ -370,5 +370,41 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     byRound,
   }
 
-  return NextResponse.json({ player, recentGames, shotBreakdown, totalShotAttempts, freeThrow, tournamentStats, awards, quarterPts, astPaint, splits })
+  // ── 슛 존(zone) 집계 ──────────────────────────────────────
+  // 11개 zone 집계 + 자동 추론 (legacy 데이터: layup/post/drive → paint)
+  const PAINT_AUTO_TYPES = new Set(['shot_layup', 'shot_post', 'shot_2p_drive'])
+  const SHOT_TYPES_FOR_ZONE = new Set(['shot_3p', 'shot_2p_mid', 'shot_2p_drive', 'shot_layup', 'shot_post'])
+  const ALL_ZONES = [
+    'paint',
+    'mid_baseline_l', 'mid_elbow_l', 'mid_top', 'mid_elbow_r', 'mid_baseline_r',
+    '3p_corner_l', '3p_wing_l', '3p_top', '3p_wing_r', '3p_corner_r',
+  ] as const
+
+  const zoneAgg: Record<string, { made: number; attempted: number }> = {}
+  for (const z of ALL_ZONES) zoneAgg[z] = { made: 0, attempted: 0 }
+  let untaggedAttempts = 0
+
+  for (const e of playerEvents) {
+    if (!SHOT_TYPES_FOR_ZONE.has(e.type)) continue
+    let zone = e.shot_zone ?? null
+    if (!zone && PAINT_AUTO_TYPES.has(e.type)) zone = 'paint'  // legacy 추론
+    if (!zone) { untaggedAttempts++; continue }
+    if (!zoneAgg[zone]) continue  // unknown zone string은 skip
+    zoneAgg[zone].attempted++
+    if (e.result === 'made') zoneAgg[zone].made++
+  }
+
+  const shotZones = Object.fromEntries(
+    Object.entries(zoneAgg).map(([k, v]) => [k, {
+      ...v,
+      pct: v.attempted > 0 ? Math.round((v.made / v.attempted) * 1000) / 10 : 0,
+    }])
+  )
+  const totalZonedAttempts = Object.values(zoneAgg).reduce((s, v) => s + v.attempted, 0)
+
+  return NextResponse.json({
+    player, recentGames, shotBreakdown, totalShotAttempts, freeThrow,
+    tournamentStats, awards, quarterPts, astPaint, splits,
+    shotZones, totalZonedAttempts, untaggedAttempts,
+  })
 }
