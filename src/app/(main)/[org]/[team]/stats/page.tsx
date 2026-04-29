@@ -4,6 +4,7 @@ import { sortJerseyNum } from '@/lib/utils'
 import { useTeam } from '@/contexts/TeamContext'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
+import HalfCourtChart from '@/components/roster/HalfCourtChart'
 import type { Tournament, PlayerBoxScore } from '@/types/database'
 import SubTabNav from '@/components/layout/SubTabNav'
 
@@ -51,6 +52,9 @@ export default function StatsPage() {
   const [playerModal, setPlayerModal] = useState<string | null>(null)
   const [assistData, setAssistData] = useState<AssistData | null>(null)
   const [selectedAssistPlayer, setSelectedAssistPlayer] = useState<{ playerId: string; name: string; mode: 'assisted' | 'unassisted' } | null>(null)
+  const [teamShotZones, setTeamShotZones] = useState<Record<string, { made: number; attempted: number; pct: number }>>({})
+  const [teamZonedTotal, setTeamZonedTotal] = useState(0)
+  const [teamZoneUntagged, setTeamZoneUntagged] = useState(0)
 
   useEffect(() => { fetch(`/api/tournaments?team=${team}`).then(r => r.json()).then(setTournaments) }, [team])
   useEffect(() => {
@@ -71,6 +75,9 @@ export default function StatsPage() {
         return { ...p, eff: Math.round((positive - negative) * 10) / 10 }
       })
       setPlayers(withEff)
+      setTeamShotZones(d.teamShotZones ?? {})
+      setTeamZonedTotal(d.teamZonedTotal ?? 0)
+      setTeamZoneUntagged(d.teamZoneUntagged ?? 0)
     })
   }, [selectedTId, team])
 
@@ -397,6 +404,22 @@ export default function StatsPage() {
         <div className="text-center py-20 text-gray-500">
           <p>경기 기록 데이터가 없습니다</p>
           <p className="text-sm mt-2">경기 기록 탭에서 스탯을 입력하면 자동으로 집계됩니다</p>
+        </div>
+      )}
+
+      {/* 팀 슛 차트 */}
+      {(teamZonedTotal > 0 || teamZoneUntagged > 0) && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-5 space-y-3">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-lg font-semibold text-gray-300">팀 슛 차트</h2>
+            <span className="text-[11px] text-gray-600">코트 위치별 팀 야투율 · 핫존 🔥 / 콜드존 ❄️</span>
+          </div>
+          <HalfCourtChart
+            zones={teamShotZones}
+            totalAttempts={teamZonedTotal}
+            untaggedAttempts={teamZoneUntagged}
+            minAttempts={5}
+          />
         </div>
       )}
 

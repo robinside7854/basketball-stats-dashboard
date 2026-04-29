@@ -104,5 +104,39 @@ export async function GET(req: Request) {
       }
     })
 
-  return NextResponse.json({ players: withAverages, teamTotals, total_games: totalGames, game_summaries })
+  // ── 팀 슛 zone 집계 ──────────────────────────────────────
+  const PAINT_AUTO = new Set(['shot_layup', 'shot_post', 'shot_2p_drive'])
+  const SHOT_TYPES = new Set(['shot_3p', 'shot_2p_mid', 'shot_2p_drive', 'shot_layup', 'shot_post'])
+  const ALL_ZONES = [
+    'paint',
+    'mid_baseline_l', 'mid_elbow_l', 'mid_top', 'mid_elbow_r', 'mid_baseline_r',
+    '3p_corner_l', '3p_wing_l', '3p_top', '3p_wing_r', '3p_corner_r',
+  ] as const
+  const teamZoneAgg: Record<string, { made: number; attempted: number }> = {}
+  for (const z of ALL_ZONES) teamZoneAgg[z] = { made: 0, attempted: 0 }
+  let teamZoneUntagged = 0
+  // 팀 선수 ID 집합 (필터링이 적용된 경우)
+  const teamPlayerIds = new Set(playersRes.data.map(p => p.id))
+  for (const e of allEvents) {
+    if (!SHOT_TYPES.has(e.type)) continue
+    if (!e.player_id || !teamPlayerIds.has(e.player_id)) continue
+    let zone = (e as { shot_zone?: string | null }).shot_zone ?? null
+    if (!zone && PAINT_AUTO.has(e.type)) zone = 'paint'
+    if (!zone) { teamZoneUntagged++; continue }
+    if (!teamZoneAgg[zone]) continue
+    teamZoneAgg[zone].attempted++
+    if (e.result === 'made') teamZoneAgg[zone].made++
+  }
+  const teamShotZones = Object.fromEntries(
+    Object.entries(teamZoneAgg).map(([k, v]) => [k, {
+      ...v,
+      pct: v.attempted > 0 ? Math.round((v.made / v.attempted) * 1000) / 10 : 0,
+    }])
+  )
+  const teamZonedTotal = Object.values(teamZoneAgg).reduce((s, v) => s + v.attempted, 0)
+
+  return NextResponse.json({
+    players: withAverages, teamTotals, total_games: totalGames, game_summaries,
+    teamShotZones, teamZonedTotal, teamZoneUntagged,
+  })
 }
