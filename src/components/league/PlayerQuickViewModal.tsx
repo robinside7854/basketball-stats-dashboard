@@ -88,8 +88,33 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const positions = (player?.position ?? '').split(',').map(p => p.trim()).filter(Boolean)
   const age = calcAge(player?.birth_date ?? null)
 
-  const TIER_COLOR = { gold: 'text-yellow-300', silver: 'text-gray-300', bronze: 'text-orange-400' } as const
-  const TIER_BG   = { gold: 'bg-yellow-400/20 border-yellow-400/50 shadow-[0_0_8px_rgba(250,204,21,0.2)]', silver: 'bg-gray-300/15 border-gray-300/40', bronze: 'bg-orange-500/15 border-orange-500/40' } as const
+  const TIER_COLOR = {
+    gold:   'text-amber-700 dark:text-yellow-300',
+    silver: 'text-slate-600 dark:text-gray-300',
+    bronze: 'text-orange-700 dark:text-orange-400',
+  } as const
+  const TIER_BG = {
+    gold:   'bg-yellow-400/15 border-yellow-500/40 dark:bg-yellow-400/20 dark:border-yellow-400/50',
+    silver: 'bg-slate-200/60 border-slate-300/60 dark:bg-gray-300/15 dark:border-gray-300/40',
+    bronze: 'bg-orange-100/60 border-orange-300/50 dark:bg-orange-500/15 dark:border-orange-500/40',
+  } as const
+  const TIER_CHIP = {
+    gold:   'bg-yellow-100 border-yellow-400/50 text-amber-700 dark:bg-yellow-400/20 dark:border-yellow-400/50 dark:text-yellow-300',
+    silver: 'bg-slate-100 border-slate-300 text-slate-600 dark:bg-gray-300/15 dark:border-gray-300/40 dark:text-gray-300',
+    bronze: 'bg-orange-50 border-orange-300/60 text-orange-700 dark:bg-orange-500/15 dark:border-orange-500/40 dark:text-orange-400',
+  } as const
+  const TIER_CRIT = {
+    gold:   'text-amber-600 dark:text-yellow-500/80',
+    silver: 'text-slate-500 dark:text-gray-400',
+    bronze: 'text-orange-600 dark:text-orange-500/80',
+  } as const
+  // 티어 → 카테고리 순 정렬
+  const TIER_ORD = { gold: 0, silver: 1, bronze: 2 } as const
+  const CAT_ORD  = { offensive: 0, defensive: 1, playmaking: 2 } as const
+  const earnedBadgesSorted = [...(detail?.badges ?? [])].sort((a, b) =>
+    TIER_ORD[a.tier] - TIER_ORD[b.tier] ||
+    CAT_ORD[a.category as keyof typeof CAT_ORD] - CAT_ORD[b.category as keyof typeof CAT_ORD]
+  )
 
   const earnedBadges = detail?.badges ?? []
   const earnedMap = Object.fromEntries(earnedBadges.map(b => [b.id, b]))
@@ -184,14 +209,14 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             )}
 
             {/* 배지 — 보유한 것만 + 설명 + 획득 기준 */}
-            {earnedBadges.length > 0 && (
+            {earnedBadgesSorted.length > 0 && (
               <div className="px-5 py-4 border-b border-gray-800/60">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">보유 배지 {earnedBadges.length}개</p>
+                  <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">보유 배지 {earnedBadgesSorted.length}개</p>
                   <button onClick={() => setShowBadgeBook(true)} className="text-[10px] text-indigo-400 hover:text-indigo-300 cursor-pointer">전체 도감 →</button>
                 </div>
                 <div className="space-y-2">
-                  {earnedBadges.map(b => {
+                  {earnedBadgesSorted.map(b => {
                     const def = ALL_BADGE_DEFS.find(d => d.id === b.id)
                     const criteria = def?.tierDesc[b.tier]
                     return (
@@ -200,19 +225,13 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                             <span className={`text-sm font-black ${TIER_COLOR[b.tier]}`}>{b.name}</span>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${
-                              b.tier === 'gold'   ? 'bg-yellow-400/20 border-yellow-400/50 text-yellow-300' :
-                              b.tier === 'silver' ? 'bg-gray-300/15 border-gray-300/40 text-gray-300' :
-                                                    'bg-orange-500/15 border-orange-500/40 text-orange-400'
-                            }`}>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${TIER_CHIP[b.tier]}`}>
                               {b.tier === 'gold' ? '🥇 GOLD' : b.tier === 'silver' ? '🥈 SILVER' : '🥉 BRONZE'}
                             </span>
                           </div>
                           <p className="text-[11px] text-gray-400 leading-snug">{b.description}</p>
                           {criteria && (
-                            <p className={`text-[10px] mt-1 font-medium ${
-                              b.tier === 'gold' ? 'text-yellow-500/80' : b.tier === 'silver' ? 'text-gray-400' : 'text-orange-500/80'
-                            }`}>
+                            <p className={`text-[10px] mt-1 font-medium ${TIER_CRIT[b.tier]}`}>
                               {b.tier === 'gold' ? '🥇' : b.tier === 'silver' ? '🥈' : '🥉'} {criteria}
                             </p>
                           )}
