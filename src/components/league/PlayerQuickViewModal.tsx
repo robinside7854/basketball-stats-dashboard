@@ -353,10 +353,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             )}
 
             {/* 슛 차트 */}
-            {detail?.zone_stats && Object.keys(detail.zone_stats).length > 0 && (
+            {detail && (
               <div className="px-5 py-4 border-b border-gray-800/60">
-                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">슛 차트</p>
-                <HalfCourtShotChart zoneStats={detail.zone_stats} width={260} />
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">슛 차트</p>
+                  {Object.keys(detail.zone_stats ?? {}).length === 0 && (
+                    <span className="text-[10px] text-gray-600">차트ON으로 기록된 데이터 없음</span>
+                  )}
+                </div>
+                <HalfCourtShotChart zoneStats={detail.zone_stats ?? {}} width={260} />
               </div>
             )}
 
