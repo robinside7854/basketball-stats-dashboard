@@ -154,3 +154,50 @@ export const SCORING_EVENTS: EventType[] = ['shot_3p', 'shot_2p_mid', 'shot_layu
 export const REBOUND_EVENTS: EventType[] = ['oreb', 'dreb']
 export const SUB_EVENTS: EventType[] = ['sub_in', 'sub_out']
 export const FLOW_EVENTS: EventType[] = ['quarter_start', 'quarter_end', 'sub_in', 'sub_out']
+
+// ── Shot Zone (코트 구역) ──────────────────────────────────────
+export type ShotZone =
+  | 'paint'
+  | 'mid_baseline_l' | 'mid_elbow_l' | 'mid_top' | 'mid_elbow_r' | 'mid_baseline_r'
+  | '3p_corner_l' | '3p_wing_l' | '3p_top' | '3p_wing_r' | '3p_corner_r'
+
+export const SHOT_ZONE_LABELS: Record<ShotZone, string> = {
+  paint:           '페인트',
+  mid_baseline_l:  '좌 베이스라인',
+  mid_elbow_l:     '좌 엘보우',
+  mid_top:         '자유투 라인',
+  mid_elbow_r:     '우 엘보우',
+  mid_baseline_r:  '우 베이스라인',
+  '3p_corner_l':   '좌 코너 3',
+  '3p_wing_l':     '좌 윙 3',
+  '3p_top':        '탑 3',
+  '3p_wing_r':     '우 윙 3',
+  '3p_corner_r':   '우 코너 3',
+}
+
+// 미드/3P 슛은 5존 picker 대상; layup/post/drive는 'paint' 자동 추론
+export const MID_ZONES: ShotZone[] = ['mid_baseline_l', 'mid_elbow_l', 'mid_top', 'mid_elbow_r', 'mid_baseline_r']
+export const THREE_ZONES: ShotZone[] = ['3p_corner_l', '3p_wing_l', '3p_top', '3p_wing_r', '3p_corner_r']
+
+// 슛 타입에서 자동 추론되는 존 (없으면 picker 또는 NULL)
+export function inferShotZone(eventType: EventType): ShotZone | null {
+  switch (eventType) {
+    case 'shot_layup':
+    case 'shot_post':
+    case 'shot_2p_drive':
+      return 'paint'
+    default:
+      return null
+  }
+}
+
+// picker가 필요한 슛 타입
+export function needsZonePicker(eventType: EventType): boolean {
+  return eventType === 'shot_2p_mid' || eventType === 'shot_3p'
+}
+
+export function zonesFor(eventType: EventType): ShotZone[] {
+  if (eventType === 'shot_2p_mid') return MID_ZONES
+  if (eventType === 'shot_3p') return THREE_ZONES
+  return []
+}

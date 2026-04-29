@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
-import type { Player, EventType } from '@/types/database'
+import type { Player, EventType, ShotZone } from '@/types/database'
+import { SHOT_ZONE_LABELS, inferShotZone, needsZonePicker, zonesFor } from '@/types/database'
 
 interface Props {
   players: Player[]
@@ -53,9 +54,20 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
 
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
   const [pendingShot, setPendingShot] = useState<EventBtn | null>(null)
+  const [pendingZone, setPendingZone] = useState<ShotZone | null>(null)
+  const [showZonePicker, setShowZonePicker] = useState(false)
   const [awaitingAssist, setAwaitingAssist] = useState(false)
   const [lastEventId, setLastEventId] = useState<string | null>(null)
   const [lastEventLabel, setLastEventLabel] = useState<string>('')
+  const [chartMode, setChartMode] = useState<boolean>(false)
+
+  // 차트 모드 localStorage persist
+  useEffect(() => {
+    setChartMode(localStorage.getItem('shot_chart_mode') === '1')
+  }, [])
+  useEffect(() => {
+    localStorage.setItem('shot_chart_mode', chartMode ? '1' : '0')
+  }, [chartMode])
 
   const onCourtPlayers = players.filter(p => onCourt.includes(p.id))
   const assistCandidates = onCourtPlayers.filter(p => p.id !== selectedPlayer)
@@ -71,6 +83,7 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
       player_id: selectedPlayer,
       result,
       related_player_id: assistId ?? null,
+      shot_zone: pendingZone,
     }
     const res = await fetch('/api/events', {
       method: 'POST',
@@ -83,12 +96,15 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
     const playerName = players.find(p => p.id === selectedPlayer)?.name ?? ''
     const assistPlayer = assistId ? players.find(p => p.id === assistId) : null
     const mark = result === 'made' ? ' ✓' : ' ✗'
-    const label = `${playerName} — ${pendingShot.label}${mark}${assistPlayer ? ` (A: ${assistPlayer.name})` : ''} (Q${currentQuarter})`
+    const zoneLabel = pendingZone ? ` @${SHOT_ZONE_LABELS[pendingZone]}` : ''
+    const label = `${playerName} — ${pendingShot.label}${mark}${zoneLabel}${assistPlayer ? ` (A: ${assistPlayer.name})` : ''} (Q${currentQuarter})`
     setLastEventId(saved.id)
     setLastEventLabel(label)
     toast.success(`기록: ${label}`)
 
     setAwaitingAssist(false)
+    setPendingZone(null)
+    setShowZonePicker(false)
     if (pendingShot.type !== 'free_throw') setPendingShot(null) // FT는 연속 모드 유지
     onEventSaved()
   }
@@ -132,6 +148,31 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
     }
   }
 
+  // ── 슛 타입 클릭: 자동 zone 추론 또는 picker 표시 ─────────────────
+  function handleShotClick(btn: EventBtn) {
+    setPendingShot(btn)
+    setAwaitingAssist(false)
+    const inferred = inferShotZone(btn.type)
+    if (inferred) {
+      // layup/post/drive → paint 자동 (UI 없음)
+      setPendingZone(inferred)
+      setShowZonePicker(false)
+    } else if (chartMode && needsZonePicker(btn.type)) {
+      // 차트 모드 ON + mid/3p → picker 표시
+      setPendingZone(null)
+      setShowZonePicker(true)
+    } else {
+      // 차트 모드 OFF 또는 FT → zone 없이 진행
+      setPendingZone(null)
+      setShowZonePicker(false)
+    }
+  }
+
+  function pickZone(zone: ShotZone | null) {
+    setPendingZone(zone)
+    setShowZonePicker(false)
+  }
+
   // ── 어시스트 선택 후 저장 ─────────────────────────────────────────
   function handleAssist(assistId: string | null) {
     saveShot('made', assistId ?? undefined)
@@ -155,13 +196,24 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
   return (
     <div className="space-y-3">
 
-      {/* ── 헤더: 쿼터 + 마지막 기록 + Undo ── */}
-      <div className="flex items-center gap-2">
+      {/* ── 헤더: 쿼터 + 차트 모드 + 마지막 기록 + Undo ── */}
+      <div className="flex items-center gap-2 flex-wrap">
         <span className="shrink-0 px-2.5 py-1 rounded-lg bg-blue-600/30 border border-blue-500/40 text-blue-300 text-xs font-bold">
           Q{currentQuarter} 기록 중
         </span>
+        <button
+          onClick={() => setChartMode(v => !v)}
+          title="ON 시 미들/3점 슛에 위치(존) 선택 단계 추가"
+          className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors hidden lg:inline-flex items-center gap-1 ${
+            chartMode
+              ? 'bg-amber-600/30 border-amber-500/50 text-amber-300'
+              : 'bg-gray-800 border-gray-700 text-gray-500 hover:text-white'
+          }`}
+        >
+          🎯 차트 {chartMode ? 'ON' : 'OFF'}
+        </button>
         {lastEventLabel && (
-          <span className="flex-1 text-xs text-gray-400 truncate">{lastEventLabel}</span>
+          <span className="flex-1 min-w-0 text-xs text-gray-400 truncate">{lastEventLabel}</span>
         )}
         <button
           onClick={undoLastEvent}
@@ -183,6 +235,8 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
               onClick={() => {
                 setSelectedPlayer(p.id)
                 setPendingShot(null)
+                setPendingZone(null)
+                setShowZonePicker(false)
                 setAwaitingAssist(false)
               }}
               className={`py-2 rounded-lg text-sm font-bold transition-colors ${
@@ -216,7 +270,12 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
                     const isActive = pendingShot?.type === btn.type
                     return (
                       <div key={btn.type}>
-                        {isActive ? (
+                        {isActive && showZonePicker ? (
+                          // 위치 선택 대기 중
+                          <div className="flex items-center justify-center h-9 rounded-lg bg-amber-900/30 border border-amber-600/40 text-amber-300 text-[11px] font-bold">
+                            위치 선택 ↓
+                          </div>
+                        ) : isActive ? (
                           // 분할 O/X 버튼
                           <div className="flex rounded-lg overflow-hidden h-9 gap-px">
                             <button
@@ -236,7 +295,7 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
                           // 일반 버튼
                           <button
                             disabled={!selectedPlayer || awaitingAssist}
-                            onClick={() => { setPendingShot(btn); setAwaitingAssist(false) }}
+                            onClick={() => handleShotClick(btn)}
                             className={`w-full py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-30 text-white ${btn.color}`}
                           >
                             {btn.label}
@@ -259,6 +318,34 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
                   }
                 })}
               </div>
+
+              {/* ── 위치(존) 피커 (슛팅 그룹 바로 아래) ── */}
+              {group.label === '슈팅' && showZonePicker && pendingShot && (
+                <div className="mt-2 px-3 py-2.5 rounded-xl bg-gray-800/80 border border-amber-600/40">
+                  <div className="flex items-baseline justify-between mb-2">
+                    <p className="text-xs text-amber-400 font-medium">
+                      위치 선택 <span className="text-gray-500 font-normal">· {pendingShot.label}</span>
+                    </p>
+                    <button
+                      onClick={() => pickZone(null)}
+                      className="text-[11px] text-gray-500 hover:text-gray-300 underline-offset-2 hover:underline"
+                    >
+                      건너뛰기
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1">
+                    {zonesFor(pendingShot.type).map(z => (
+                      <button
+                        key={z}
+                        onClick={() => pickZone(z)}
+                        className="py-2 rounded-lg text-[11px] font-bold bg-gray-700 text-white hover:bg-amber-600 active:bg-amber-500 transition-colors"
+                      >
+                        {SHOT_ZONE_LABELS[z]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* ── 어시스트 피커 (슛팅 그룹 바로 아래) ── */}
               {group.label === '슈팅' && awaitingAssist && (

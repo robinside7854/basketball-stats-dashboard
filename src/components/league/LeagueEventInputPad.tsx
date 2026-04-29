@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import type { LeaguePlayer } from '@/types/league'
+import type { ShotZone, EventType } from '@/types/database'
+import { SHOT_ZONE_LABELS, inferShotZone, needsZonePicker, zonesFor } from '@/types/database'
 
 type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
 
@@ -99,12 +101,18 @@ export default function LeagueEventInputPad({
 
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
   const [pendingShot, setPendingShot] = useState<EventBtn | null>(null)
+  const [pendingZone, setPendingZone] = useState<ShotZone | null>(null)
+  const [showZonePicker, setShowZonePicker] = useState(false)
   const [awaitingAssist, setAwaitingAssist] = useState(false)
   const [pendingResult, setPendingResult] = useState<'made' | 'missed' | null>(null)
   const [lastEvent, setLastEvent] = useState<LastEventDetails | null>(null)
   const [showLastMenu, setShowLastMenu] = useState(false)
   const [addingAssistForLast, setAddingAssistForLast] = useState(false)
   const [assistCountdown, setAssistCountdown] = useState(0)
+  const [chartMode, setChartMode] = useState<boolean>(false)
+
+  useEffect(() => { setChartMode(localStorage.getItem('shot_chart_mode') === '1') }, [])
+  useEffect(() => { localStorage.setItem('shot_chart_mode', chartMode ? '1' : '0') }, [chartMode])
   const [awaitingRebound, setAwaitingRebound] = useState(false)
   const [reboundShooterTeamId, setReboundShooterTeamId] = useState<string | null>(null)
   const [showAndOnePrompt, setShowAndOnePrompt] = useState(false)  // Phase 2-F
@@ -128,13 +136,36 @@ export default function LeagueEventInputPad({
     : []
 
   // 항상 최신 상태를 참조하는 ref (어시스트 타임아웃용)
-  const liveRef = useRef({ selectedPlayer, pendingShot, pendingResult, isPlusOne, selectedTeamId })
-  liveRef.current = { selectedPlayer, pendingShot, pendingResult, isPlusOne, selectedTeamId }
+  const liveRef = useRef({ selectedPlayer, pendingShot, pendingResult, pendingZone, isPlusOne, selectedTeamId })
+  liveRef.current = { selectedPlayer, pendingShot, pendingResult, pendingZone, isPlusOne, selectedTeamId }
 
   function selectPlayer(id: string) {
     setSelectedPlayer(id)
     setPendingShot(null)
+    setPendingZone(null)
+    setShowZonePicker(false)
     setAwaitingAssist(false)
+  }
+
+  function handleShotClick(btn: EventBtn) {
+    setPendingShot(btn)
+    setAwaitingAssist(false)
+    const inferred = inferShotZone(btn.type as EventType)
+    if (inferred) {
+      setPendingZone(inferred)
+      setShowZonePicker(false)
+    } else if (chartMode && needsZonePicker(btn.type as EventType)) {
+      setPendingZone(null)
+      setShowZonePicker(true)
+    } else {
+      setPendingZone(null)
+      setShowZonePicker(false)
+    }
+  }
+
+  function pickZone(zone: ShotZone | null) {
+    setPendingZone(zone)
+    setShowZonePicker(false)
   }
 
   // ── 어시스트 2초 자동 타임아웃 ──────────────────────────────
@@ -144,12 +175,12 @@ export default function LeagueEventInputPad({
     const tick = setInterval(() => setAssistCountdown(n => Math.max(0, n - 1)), 1000)
     const timer = setTimeout(async () => {
       clearInterval(tick)
-      const { selectedPlayer: pid, pendingShot: shot, pendingResult: res, isPlusOne: isP1, selectedTeamId: tid } = liveRef.current
+      const { selectedPlayer: pid, pendingShot: shot, pendingResult: res, pendingZone: zn, isPlusOne: isP1, selectedTeamId: tid } = liveRef.current
       if (!pid || !shot || !res) return
       const pts = calcPoints(shot.type, res, isP1)
       const r = await fetch(`/api/leagues/${leagueId}/events`, {
         method: 'POST', headers: leagueHeaders,
-        body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(), type: shot.type, league_player_id: pid, team_id: tid, result: res, related_player_id: null, points: pts }),
+        body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(), type: shot.type, league_player_id: pid, team_id: tid, result: res, related_player_id: null, points: pts, shot_zone: zn }),
       })
       if (!r.ok) { toast.error('저장 실패'); return }
       const saved = await r.json()
@@ -159,6 +190,7 @@ export default function LeagueEventInputPad({
       toast.success(`기록: ${lbl}`)
       setAwaitingAssist(false)
       setPendingResult(null)
+      setPendingZone(null)
       if (!FT_TYPES.includes(shot.type)) setPendingShot(null)
       onEventSaved()
     }, 3000)
@@ -189,18 +221,22 @@ export default function LeagueEventInputPad({
       league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
       type: pendingShot.type, league_player_id: selectedPlayer, team_id: selectedTeamId,
       result, related_player_id: assistId ?? null, points: pts,
+      shot_zone: pendingZone,
     })
     if (!id) return
     const pName = allPlayers.find(p => p.id === selectedPlayer)?.name ?? ''
     const aPName = assistId ? allPlayers.find(p => p.id === assistId)?.name : null
     const mark  = result === 'made' ? ' ✓' : ' ✗'
-    const lbl   = `${pName} — ${pendingShot.label}${mark}${aPName ? ` (A: ${aPName})` : ''}`
+    const zoneLabel = pendingZone ? ` @${SHOT_ZONE_LABELS[pendingZone]}` : ''
+    const lbl   = `${pName} — ${pendingShot.label}${mark}${zoneLabel}${aPName ? ` (A: ${aPName})` : ''}`
     const shotType = pendingShot.type  // capture before potential clear
     const shooterTeamId = selectedTeamId
     setLastEvent({ id, type: shotType, result, playerId: selectedPlayer, label: lbl })
     toast.success(`기록: ${lbl}`)
     setAwaitingAssist(false)
     setPendingResult(null)
+    setPendingZone(null)
+    setShowZonePicker(false)
     if (!FT_TYPES.includes(shotType)) setPendingShot(null)
     onEventSaved()
 
@@ -415,6 +451,19 @@ export default function LeagueEventInputPad({
           <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-black">+1</span>
         )}
 
+        {/* 차트 모드 토글 (PC만) */}
+        <button
+          onClick={() => setChartMode(v => !v)}
+          title="ON 시 미들/3점 슛에 위치(존) 선택 단계 추가"
+          className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors hidden lg:inline-flex items-center gap-1 ${
+            chartMode
+              ? 'bg-amber-600/30 border-amber-500/50 text-amber-300'
+              : 'bg-gray-800 border-gray-700 text-gray-500 hover:text-white'
+          }`}
+        >
+          🎯 차트 {chartMode ? 'ON' : 'OFF'}
+        </button>
+
         {/* 마지막 이벤트 — 클릭하면 빠른 수정 메뉴 */}
         {lastEvent && (
           <button
@@ -526,11 +575,30 @@ export default function LeagueEventInputPad({
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-[10px] text-gray-500">{group.label}</p>
                   {groupHasPending && (
-                    <button onClick={() => { setPendingShot(null); setAwaitingAssist(false) }}
+                    <button onClick={() => { setPendingShot(null); setPendingZone(null); setShowZonePicker(false); setAwaitingAssist(false) }}
                       className="text-[10px] text-gray-600 hover:text-gray-400 cursor-pointer">취소</button>
                   )}
                 </div>
-                {groupHasPending ? (
+                {groupHasPending && showZonePicker && pendingShot ? (
+                  /* 위치(존) 선택 */
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-amber-400 font-bold">📍 위치 선택 · {pendingShot.label}</p>
+                      <button onClick={() => pickZone(null)} className="text-[11px] text-gray-500 hover:text-gray-300 underline-offset-2 hover:underline cursor-pointer">건너뛰기</button>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {(pendingShot.type === 'shot_2p_mid' || pendingShot.type === 'shot_3p'
+                        ? zonesFor(pendingShot.type)
+                        : []
+                      ).map(z => (
+                        <button key={z} onClick={() => pickZone(z)}
+                          className="py-3 rounded-xl text-[11px] font-bold bg-amber-700 hover:bg-amber-600 active:bg-amber-500 text-white transition-colors cursor-pointer">
+                          {SHOT_ZONE_LABELS[z]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : groupHasPending ? (
                   /* 해당 그룹을 O/X 버튼으로 덮기 */
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => handleResult('made')}
@@ -548,7 +616,7 @@ export default function LeagueEventInputPad({
                       <button
                         key={btn.type}
                         onClick={() => {
-                          if (btn.needsResult) { setPendingShot(btn); setAwaitingAssist(false) }
+                          if (btn.needsResult) handleShotClick(btn)
                           else saveInstant(btn)
                         }}
                         className={`py-4 rounded-xl text-sm font-bold text-white transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent`}

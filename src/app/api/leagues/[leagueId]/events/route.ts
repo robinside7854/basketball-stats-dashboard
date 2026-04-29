@@ -39,6 +39,7 @@ export async function POST(
       result: body.result ?? null,
       related_player_id: body.related_player_id ?? null,
       points: body.points ?? 0,
+      shot_zone: body.shot_zone ?? null,
     })
     .select()
     .single()
