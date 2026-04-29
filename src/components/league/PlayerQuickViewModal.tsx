@@ -193,7 +193,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     <div key={label} className="bg-gray-900/50 border border-gray-800/40 rounded-xl p-2.5 text-center">
                       <p className="text-xs text-gray-600 mb-1 uppercase">{label}</p>
                       <p className="text-xl font-black text-white leading-none">{a > 0 ? `${pct.toFixed(1)}%` : '—'}</p>
-                      <p className="text-xs text-gray-700 mt-0.5">{m}/{a}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{m}/{a}</p>
                     </div>
                   ))}
                 </div>

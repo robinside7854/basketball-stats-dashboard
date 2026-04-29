@@ -82,7 +82,7 @@ function StatsTable({
   }
 
   if (players.length === 0) {
-    return <p className="text-xs text-gray-700 py-4 text-center">기록된 스탯이 없습니다</p>
+    return <p className="text-xs text-gray-500 py-4 text-center">기록된 스탯이 없습니다</p>
   }
 
   // 모바일 카드용 셀 값 추출 (정렬 키별)
@@ -401,7 +401,7 @@ export default function LeagueTeamsPage() {
                   </div>
                   {/* 상대 전적 */}
                   <div className="px-4 py-3 space-y-1.5">
-                    <p className="text-xs text-gray-700 uppercase font-bold mb-2">상대 전적</p>
+                    <p className="text-xs text-gray-500 uppercase font-bold mb-2">상대 전적</p>
                     {teams.filter(op => op.id !== t.id).map(op => {
                       const rec = h2h[t.id]?.[op.id] ?? { w: 0, l: 0 }
                       const total = rec.w + rec.l
@@ -412,7 +412,7 @@ export default function LeagueTeamsPage() {
                             <span className="text-xs text-gray-400">vs {op.name}</span>
                           </div>
                           {total === 0 ? (
-                            <span className="text-xs text-gray-700">기록 없음</span>
+                            <span className="text-xs text-gray-500">기록 없음</span>
                           ) : (
                             <span className={`text-xs font-black ${rec.w > rec.l ? 'text-green-400' : rec.w < rec.l ? 'text-red-400' : 'text-gray-400'}`}>
                               {rec.w}승 {rec.l}패
@@ -421,7 +421,7 @@ export default function LeagueTeamsPage() {
                         </div>
                       )
                     })}
-                    {totalPlayed === 0 && <p className="text-xs text-gray-700 py-1">완료된 경기 없음</p>}
+                    {totalPlayed === 0 && <p className="text-xs text-gray-500 py-1">완료된 경기 없음</p>}
                   </div>
                 </div>
               )

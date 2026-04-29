@@ -104,7 +104,7 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
                   </div>
                 )}
 
-                <ChevronRight size={14} className="text-gray-700 group-hover:text-blue-400 transition-colors shrink-0" />
+                <ChevronRight size={14} className="text-gray-500 group-hover:text-blue-400 transition-colors shrink-0" />
               </div>
             </button>
           )

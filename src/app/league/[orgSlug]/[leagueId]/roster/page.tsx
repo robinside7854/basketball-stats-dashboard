@@ -507,7 +507,7 @@ function PlayerModal({
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {positions.length > 0
                     ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
-                    : <span className="text-xs text-gray-700">포지션 미지정</span>
+                    : <span className="text-xs text-gray-500">포지션 미지정</span>
                   }
                 </div>
 
@@ -518,7 +518,7 @@ function PlayerModal({
                     <span className="ml-2 text-gray-600">({calcAge(player.birth_date)})</span>
                   </p>
                 ) : (
-                  <p className="text-sm text-gray-700">생년월일 미입력</p>
+                  <p className="text-sm text-gray-500">생년월일 미입력</p>
                 )}
               </div>
             </div>
@@ -554,7 +554,7 @@ function PlayerModal({
                         )}
                         <span className={`text-xs font-medium ${
                           label === '비정규' ? 'text-gray-600' :
-                          label === '—' ? 'text-gray-700' : 'text-white'
+                          label === '—' ? 'text-gray-500' : 'text-white'
                         }`}>{label}</span>
                       </div>
                     </div>
@@ -569,7 +569,7 @@ function PlayerModal({
             <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
             {statsLoading ? (
               <div className="flex justify-center py-4">
-                <Loader2 size={18} className="animate-spin text-gray-700" />
+                <Loader2 size={18} className="animate-spin text-gray-500" />
               </div>
             ) : stats ? (
               <div className="space-y-3">
@@ -605,7 +605,7 @@ function PlayerModal({
                     <div key={label} className="bg-gray-900/50 border border-gray-800/40 rounded-xl p-3 text-center">
                       <p className="text-[9px] text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
                       <p className="text-xl font-black text-white leading-none">{att > 0 ? `${pct.toFixed(1)}%` : '—'}</p>
-                      <p className="text-[10px] text-gray-700 mt-1">{made}/{att}</p>
+                      <p className="text-[10px] text-gray-500 mt-1">{made}/{att}</p>
                     </div>
                   ))}
                 </div>
@@ -634,14 +634,14 @@ function PlayerModal({
                     { label: 'eFG%', value: stats.fga > 0 ? `${stats.efg_pct.toFixed(1)}%` : '—' },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex-1 text-center py-2 bg-gray-900/30 rounded-lg border border-gray-800/30">
-                      <p className="text-[9px] text-gray-700 uppercase">{label}</p>
+                      <p className="text-[9px] text-gray-500 uppercase">{label}</p>
                       <p className="text-xs font-bold text-gray-400">{value}</p>
                     </div>
                   ))}
                 </div>
               </div>
             ) : (
-              <p className="text-center text-xs text-gray-700 py-4">아직 기록된 스탯이 없습니다</p>
+              <p className="text-center text-xs text-gray-500 py-4">아직 기록된 스탯이 없습니다</p>
             )}
           </div>
 
@@ -676,7 +676,7 @@ function PlayerModal({
                             <span className="text-[11px] font-bold" style={{ color: z.color }}>{z.data.dist}%</span>
                           </div>
                         ))}
-                        <p className="text-[10px] text-gray-700 mt-1">총 {sb.total_fga}회 시도</p>
+                        <p className="text-[10px] text-gray-500 mt-1">총 {sb.total_fga}회 시도</p>
                       </div>
                     </div>
                     {/* 구역별 야투율 테이블 */}
@@ -717,7 +717,7 @@ function PlayerModal({
               {(() => {
                 const earned = detail.badges ?? []
                 if (earned.length === 0) return (
-                  <p className="text-xs text-gray-700">아직 획득한 배지가 없습니다</p>
+                  <p className="text-xs text-gray-500">아직 획득한 배지가 없습니다</p>
                 )
                 const TIER_BG = {
                   gold:   'bg-yellow-400/15 border-yellow-500/40 dark:bg-yellow-400/20 dark:border-yellow-400/50',
@@ -812,7 +812,7 @@ function PlayerModal({
                             <span className="text-[10px] text-gray-600 font-bold">{label}</span>
                           </div>
                           {e.extra && <p className="text-[10px] text-gray-500 mb-1.5">{e.extra}</p>}
-                          {e.date && <p className="text-[10px] text-gray-700">{e.date}</p>}
+                          {e.date && <p className="text-[10px] text-gray-500">{e.date}</p>}
                           {e.opponent && (
                             <p className="text-[11px] text-gray-400">
                               vs {e.opponent}{e.round_num != null ? ` [R${e.round_num}]` : ''}
@@ -1484,7 +1484,7 @@ export default function LeagueRosterPage() {
                         className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-black border transition-all cursor-pointer ${
                           p.plus_one
                             ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
-                            : 'bg-gray-800 text-gray-700 border-gray-700 hover:border-gray-500 hover:text-gray-500'
+                            : 'bg-gray-800 text-gray-500 border-gray-700 hover:border-gray-500 hover:text-gray-500'
                         }`}
                         title={p.plus_one ? '+1 해제' : '+1 활성화'}
                       >
@@ -1511,7 +1511,7 @@ export default function LeagueRosterPage() {
                   <div className="flex flex-wrap gap-1 mb-2 min-h-[22px]">
                     {positions.length > 0
                       ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
-                      : <span className="text-xs text-gray-700">포지션 미지정</span>
+                      : <span className="text-xs text-gray-500">포지션 미지정</span>
                     }
                   </div>
 
@@ -1522,7 +1522,7 @@ export default function LeagueRosterPage() {
                       <span className="ml-1.5 text-gray-600">({calcAge(p.birth_date)})</span>
                     </p>
                   ) : (
-                    <p className="text-xs text-gray-700 mb-2">생년월일 미입력</p>
+                    <p className="text-xs text-gray-500 mb-2">생년월일 미입력</p>
                   )}
 
                   {/* 도감 버튼 */}
@@ -1582,7 +1582,7 @@ export default function LeagueRosterPage() {
                                     {isEditMode ? (
                                       <button
                                         onClick={e => { e.stopPropagation(); toggleLeader(q.id, teamId, p.id) }}
-                                        className={`transition-colors cursor-pointer ${isPlayerLeader ? 'text-yellow-400' : 'text-gray-700 hover:text-yellow-600'}`}
+                                        className={`transition-colors cursor-pointer ${isPlayerLeader ? 'text-yellow-400' : 'text-gray-500 hover:text-yellow-600'}`}
                                       ><Crown size={10} /></button>
                                     ) : isPlayerLeader ? (
                                       <Crown size={10} className="text-yellow-400" />
@@ -1596,7 +1596,7 @@ export default function LeagueRosterPage() {
                                   {label !== '—' && label !== '비정규' && teamColor
                                     ? <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: teamColor }} />
                                     : null}
-                                  <span className={label === '비정규' ? 'text-gray-600' : label === '—' ? 'text-gray-700' : 'text-white font-medium'}>
+                                  <span className={label === '비정규' ? 'text-gray-600' : label === '—' ? 'text-gray-500' : 'text-white font-medium'}>
                                     {label}
                                   </span>
                                   {isEditMode && <ChevronDown size={9} className="text-gray-600" />}
@@ -1610,7 +1610,7 @@ export default function LeagueRosterPage() {
                   )}
 
                   {/* 카드 클릭 힌트 */}
-                  <p className="mt-2 pt-2 border-t border-gray-800/40 text-[11px] text-gray-700 group-hover:text-gray-600 transition-colors">
+                  <p className="mt-2 pt-2 border-t border-gray-800/40 text-[11px] text-gray-500 group-hover:text-gray-600 transition-colors">
                     클릭하여 프로필 보기
                   </p>
                   </div>{/* flex-1 end */}

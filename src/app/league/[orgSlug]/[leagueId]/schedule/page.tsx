@@ -168,7 +168,7 @@ export default function LeagueSchedulePage() {
         </div>
       ) : dates.length === 0 ? (
         <div className="text-center py-12 border border-dashed border-gray-800 rounded-xl text-gray-500">
-          <CalendarDays size={28} className="mx-auto mb-2 text-gray-700" />
+          <CalendarDays size={28} className="mx-auto mb-2 text-gray-500" />
           <p className="text-sm">등록된 일정이 없습니다</p>
           {isEditMode && <p className="text-xs mt-1">위 입력창에서 날짜를 추가하세요</p>}
         </div>

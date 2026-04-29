@@ -787,7 +787,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                     )}
                   </div>
                 ) : (
-                  <div className="bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-center h-40 text-gray-700 text-sm">
+                  <div className="bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-center h-40 text-gray-500 text-sm">
                     영상 미연동
                   </div>
                 )}
@@ -881,7 +881,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             <CheckCircle2 size={18} className="text-gray-500" />
                             <span className="text-lg font-black text-gray-400 tracking-tight">마감된 경기입니다</span>
                           </div>
-                          <p className="text-[11px] text-gray-700">이벤트 로그에서 수정·삭제, 또는 아래에서 기록 모드로 복귀할 수 있습니다</p>
+                          <p className="text-[11px] text-gray-500">이벤트 로그에서 수정·삭제, 또는 아래에서 기록 모드로 복귀할 수 있습니다</p>
                         </div>
                         {/* 하단 버튼 행 */}
                         <div className="grid grid-cols-2 border-t border-gray-800/60">

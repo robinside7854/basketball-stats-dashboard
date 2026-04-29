@@ -161,7 +161,7 @@ export default function LeagueStatsPage() {
         <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-500" /></div>
       ) : players.length === 0 ? (
         <div className="text-center py-16 text-gray-500">
-          <Trophy size={32} className="mx-auto mb-3 text-gray-700" />
+          <Trophy size={32} className="mx-auto mb-3 text-gray-500" />
           <p>아직 완료된 경기 데이터가 없습니다</p>
           <p className="text-xs mt-1 text-gray-600">경기를 기록하고 완료 처리하면 스탯이 집계됩니다</p>
         </div>

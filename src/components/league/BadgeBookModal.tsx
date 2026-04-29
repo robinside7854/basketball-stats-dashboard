@@ -17,9 +17,9 @@ const CATEGORIES = [
 ]
 
 const TIER_STYLE = {
-  gold:   { ring: 'border-yellow-400/70 shadow-[0_0_12px_rgba(250,204,21,0.25)]', icon: 'bg-yellow-400/15', text: 'text-yellow-300', label: '🥇 GOLD' },
-  silver: { ring: 'border-gray-300/60',  icon: 'bg-gray-300/15',  text: 'text-gray-300',   label: '🥈 SILVER' },
-  bronze: { ring: 'border-orange-500/60', icon: 'bg-orange-500/15', text: 'text-orange-400', label: '🥉 BRONZE' },
+  gold:   { ring: 'border-yellow-400/70 shadow-[0_0_12px_rgba(250,204,21,0.25)]', icon: 'bg-yellow-400/15', text: 'text-amber-700 dark:text-yellow-300', label: '🥇 GOLD' },
+  silver: { ring: 'border-gray-300/60',  icon: 'bg-gray-300/15',  text: 'text-slate-600 dark:text-gray-300',   label: '🥈 SILVER' },
+  bronze: { ring: 'border-orange-500/60', icon: 'bg-orange-500/15', text: 'text-orange-700 dark:text-orange-400', label: '🥉 BRONZE' },
 }
 
 export default function BadgeBookModal({ playerId, playerName, leagueId, onClose }: Props) {
@@ -67,9 +67,9 @@ export default function BadgeBookModal({ playerId, playerName, leagueId, onClose
             {!loading && (
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-gray-600">{badges.length}개 보유</span>
-                {goldCount   > 0 && <span className="font-bold text-yellow-300">🥇{goldCount}</span>}
-                {silverCount > 0 && <span className="font-bold text-gray-300">🥈{silverCount}</span>}
-                {bronzeCount > 0 && <span className="font-bold text-orange-400">🥉{bronzeCount}</span>}
+                {goldCount   > 0 && <span className="font-bold text-amber-700 dark:text-yellow-300">🥇{goldCount}</span>}
+                {silverCount > 0 && <span className="font-bold text-slate-600 dark:text-gray-300">🥈{silverCount}</span>}
+                {bronzeCount > 0 && <span className="font-bold text-orange-700 dark:text-orange-400">🥉{bronzeCount}</span>}
               </div>
             )}
             <button onClick={onClose} className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
@@ -118,7 +118,7 @@ export default function BadgeBookModal({ playerId, playerName, leagueId, onClose
                 {/* Info */}
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-sm font-black ${ts ? ts.text : 'text-gray-700'}`}>{b.name}</span>
+                    <span className={`text-sm font-black ${ts ? ts.text : 'text-gray-500'}`}>{b.name}</span>
                     <span className="text-[10px] text-gray-600">{b.nameEn}</span>
                     {ts && (
                       <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${ts.icon} ${ts.text}`}>
@@ -126,7 +126,7 @@ export default function BadgeBookModal({ playerId, playerName, leagueId, onClose
                       </span>
                     )}
                   </div>
-                  <p className={`text-[11px] ${ts ? 'text-gray-400' : 'text-gray-700'}`}>{b.description}</p>
+                  <p className={`text-[11px] ${ts ? 'text-gray-400' : 'text-gray-500'}`}>{b.description}</p>
                   {/* Tier conditions */}
                   <div className="space-y-0.5 pt-0.5">
                     {([
@@ -135,14 +135,14 @@ export default function BadgeBookModal({ playerId, playerName, leagueId, onClose
                       { tier: 'bronze' as const, label: '🥉', style: 'text-orange-500' },
                     ]).map(({ tier: t, label, style }) => (
                       <p key={t} className={`text-[10px] flex items-start gap-1 ${
-                        earnedTier === t ? style + ' font-bold' : 'text-gray-700'
+                        earnedTier === t ? style + ' font-bold' : 'text-gray-500'
                       }`}>
                         <span className="shrink-0">{label}</span>
                         <span>{b.tierDesc[t]}</span>
                         {earnedTier === t && <span className="ml-1 text-[9px] opacity-70">← 보유</span>}
                       </p>
                     ))}
-                    <p className="text-[9px] text-gray-700 mt-0.5">최소 {b.minGP}경기 출전 + 기록 시작 필요</p>
+                    <p className="text-[9px] text-gray-500 mt-0.5">최소 {b.minGP}경기 출전 + 기록 시작 필요</p>
                   </div>
                 </div>
               </div>
