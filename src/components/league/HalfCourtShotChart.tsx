@@ -10,84 +10,124 @@ interface Props {
   shotType?: string
 }
 
-const COURT_W = 300
-const COURT_H = 270
-const ARC_CX = 150
-const ARC_CY = 28
-const ARC_R = 137
+// viewBox: 500 × 470. Baseline at TOP, basket near top, half-court extends downward.
+// Basket center: (250, 52). 3pt arc: r=238, centered at (250,52).
+// Corner x=30: arc meets at y = 52 + sqrt(238²−220²) = 52+90.8 ≈ 143
+// Paint box: x=170, y=0, w=160, h=190. FT line y=190. FT circle: cx=250, cy=190, r=60.
 
-// 코트 색상 — 밝은 라인으로 가시성 확보
-const LINE_COLOR = '#94a3b8'       // 밝은 슬레이트 — 코트 라인
-const LINE_W = '1.8'
-const PAINT_FILL = 'rgba(30,64,175,0.25)'  // 파란색 페인트 구역
-const BASKET_COLOR = '#f97316'     // 오렌지 — 링
-const BACKBOARD_COLOR = '#cbd5e1'  // 밝은 백보드
+const VB_W = 500
+const VB_H = 470
+const ASPECT = VB_H / VB_W
 
-const ZONE_PATHS: Record<string, string> = {
-  '3p_corner_l':    'M 0,0 L 20,0 L 20,77 L 0,77 Z',
-  '3p_corner_r':    'M 280,0 L 300,0 L 300,77 L 280,77 Z',
-  '3p_wing_l':      'M 0,77 L 20,77 A 137,137 0 0,1 90,200 L 0,200 Z',
-  '3p_wing_r':      'M 280,77 A 137,137 0 0,0 210,200 L 300,200 L 300,77 Z',
-  '3p_top':         'M 90,200 A 137,137 0 0,1 210,200 L 190,107 L 110,107 Z',
-  'mid_baseline_l': 'M 0,53 L 110,53 L 110,107 L 0,107 Z',
-  'mid_baseline_r': 'M 190,53 L 300,53 L 300,107 L 190,107 Z',
-  'mid_elbow_l':    'M 0,0 L 110,0 L 110,53 L 0,53 Z',
-  'mid_elbow_r':    'M 190,0 L 300,0 L 300,53 L 190,53 Z',
-  'mid_top':        'M 110,0 L 190,0 L 190,107 L 110,107 Z',
-}
-
-const ZONE_LABEL_POS: Record<string, [number, number]> = {
-  '3p_corner_l':    [10, 40],
-  '3p_corner_r':    [290, 40],
-  '3p_wing_l':      [28, 148],
-  '3p_wing_r':      [272, 148],
-  '3p_top':         [150, 218],
-  'mid_baseline_l': [55, 85],
-  'mid_baseline_r': [245, 85],
-  'mid_elbow_l':    [55, 28],
-  'mid_elbow_r':    [245, 28],
-  'mid_top':        [150, 58],
-}
-
-const ZONE_SHORT: Record<string, string> = {
-  '3p_corner_l':    '좌코너',
-  '3p_corner_r':    '우코너',
-  '3p_wing_l':      '좌윙',
-  '3p_wing_r':      '우윙',
-  '3p_top':         '탑3P',
-  'mid_baseline_l': '좌베이스',
-  'mid_baseline_r': '우베이스',
-  'mid_elbow_l':    '좌엘보',
-  'mid_elbow_r':    '우엘보',
-  'mid_top':        'FT라인',
-}
+const CORNER_L_X = 30
+const CORNER_R_X = 470
+const CORNER_Y = 143
 
 const MID_ZONES = new Set(['mid_baseline_l', 'mid_elbow_l', 'mid_top', 'mid_elbow_r', 'mid_baseline_r'])
 const THREE_ZONES = new Set(['3p_corner_l', '3p_wing_l', '3p_top', '3p_wing_r', '3p_corner_r'])
 const ALL_ZONES = [...MID_ZONES, ...THREE_ZONES]
 
-function fgColor(m: number, a: number): string {
-  if (a === 0) return 'rgba(15,23,42,0)'   // 데이터 없음 → 투명 (코트 바닥 보임)
-  const pct = m / a
-  if (pct < 0.30) return 'rgba(239,68,68,0.75)'    // red-500
-  if (pct < 0.40) return 'rgba(249,115,22,0.75)'   // orange-500
-  if (pct < 0.50) return 'rgba(234,179,8,0.75)'    // yellow-500
-  return 'rgba(34,197,94,0.75)'                     // green-500
+// Raw zone paths (clipping handles arc boundary)
+// Mid zones sit outside paint box spatially (except mid_top which needs extra clip).
+const ZONE_PATHS: Record<string, string> = {
+  paint:          'M 170,0 L 330,0 L 330,190 L 170,190 Z',
+  mid_baseline_l: 'M 30,0 L 170,0 L 170,190 L 30,190 Z',
+  mid_elbow_l:    'M 30,190 L 170,190 L 170,330 L 30,330 Z',
+  mid_top:        'M 170,190 L 330,190 L 330,330 L 170,330 Z',
+  mid_elbow_r:    'M 330,190 L 470,190 L 470,330 L 330,330 Z',
+  mid_baseline_r: 'M 330,0 L 470,0 L 470,190 L 330,190 Z',
+  '3p_corner_l':  'M 0,0 L 30,0 L 30,143 L 0,143 Z',
+  '3p_wing_l':    'M 0,143 L 30,143 L 30,470 L 0,470 Z',
+  '3p_top':       'M 30,143 L 470,143 L 470,470 L 30,470 Z',
+  '3p_wing_r':    'M 470,143 L 500,143 L 500,470 L 470,470 Z',
+  '3p_corner_r':  'M 470,0 L 500,0 L 500,143 L 470,143 Z',
 }
 
-function getPath(zone: string): string {
-  return ZONE_PATHS[zone] ?? ''
+type ClipGroup = 'none' | 'inside3pt' | 'midtop' | 'outside3pt'
+const ZONE_CLIP: Record<string, ClipGroup> = {
+  paint:          'none',
+  mid_baseline_l: 'inside3pt',
+  mid_elbow_l:    'inside3pt',
+  mid_top:        'midtop',
+  mid_elbow_r:    'inside3pt',
+  mid_baseline_r: 'inside3pt',
+  '3p_corner_l':  'outside3pt',
+  '3p_wing_l':    'outside3pt',
+  '3p_top':       'outside3pt',
+  '3p_wing_r':    'outside3pt',
+  '3p_corner_r':  'outside3pt',
 }
+
+function getClipAttr(clip: ClipGroup): string | undefined {
+  if (clip === 'inside3pt') return 'url(#clipInside3pt)'
+  if (clip === 'midtop') return 'url(#clipMidTop)'
+  if (clip === 'outside3pt') return 'url(#clipOutside3pt)'
+  return undefined
+}
+
+const ZONE_LABEL_POS: Record<string, [number, number]> = {
+  paint:          [250, 100],
+  mid_baseline_l: [100,  65],
+  mid_elbow_l:    [100, 220],
+  mid_top:        [250, 260],
+  mid_elbow_r:    [400, 220],
+  mid_baseline_r: [400,  65],
+  '3p_corner_l':  [ 15,  65],
+  '3p_wing_l':    [ 55, 290],
+  '3p_top':       [250, 420],
+  '3p_wing_r':    [445, 290],
+  '3p_corner_r':  [485,  65],
+}
+
+const ZONE_SHORT: Record<string, string> = {
+  paint:          '페인트',
+  mid_baseline_l: '좌베이스',
+  mid_baseline_r: '우베이스',
+  mid_elbow_l:    '좌엘보',
+  mid_elbow_r:    '우엘보',
+  mid_top:        'FT라인',
+  '3p_corner_l':  '좌코너',
+  '3p_corner_r':  '우코너',
+  '3p_wing_l':    '좌윙',
+  '3p_wing_r':    '우윙',
+  '3p_top':       '탑3P',
+}
+
+function fgColor(m: number, a: number): string {
+  if (a === 0) return 'rgba(80,80,80,0.25)'
+  const pct = m / a
+  if (pct < 0.33) return 'rgba(220,60,60,0.65)'
+  if (pct < 0.40) return 'rgba(220,130,60,0.65)'
+  if (pct < 0.47) return 'rgba(200,180,50,0.65)'
+  return 'rgba(60,180,80,0.65)'
+}
+
+function interactiveFill(zone: string, selectable: boolean, selected: boolean): string {
+  if (selected) return 'rgba(251,191,36,0.9)'
+  if (!selectable) return 'rgba(80,80,80,0.2)'
+  if (THREE_ZONES.has(zone)) return 'rgba(59,130,246,0.55)'
+  return 'rgba(251,191,36,0.55)'
+}
+
+// SVG path for "inside 3pt" clip region:
+// top edge (y=0) from x=30 to x=470, down to corner y=143, arc sweeping back
+const INSIDE_3PT_PATH = `M 30,0 L 470,0 L 470,${CORNER_Y} A 238,238 0 0,0 30,${CORNER_Y} Z`
+
+// "Outside 3pt" = full viewBox minus inside region (evenodd)
+const OUTSIDE_3PT_PATH = `M 0,0 L ${VB_W},0 L ${VB_W},${VB_H} L 0,${VB_H} Z M 30,0 L 470,0 L 470,${CORNER_Y} A 238,238 0 0,0 30,${CORNER_Y} Z`
+
+// "MidTop" clip = inside3pt minus paint box bottom area
+const MIDTOP_PATH = `M 30,0 L 470,0 L 470,${CORNER_Y} A 238,238 0 0,0 30,${CORNER_Y} Z M 170,190 L 330,190 L 330,330 L 170,330 Z`
 
 export default function HalfCourtShotChart({
   zoneStats,
   interactive = false,
   selectedZone,
   onZoneClick,
-  width = 300,
+  width = 500,
   shotType,
 }: Props) {
-  const height = Math.round((COURT_H / COURT_W) * width)
+  const height = Math.round(ASPECT * width)
 
   function isSelectable(zone: string): boolean {
     if (!interactive) return false
@@ -97,67 +137,126 @@ export default function HalfCourtShotChart({
     return false
   }
 
+  const interactiveZones = [...MID_ZONES, ...THREE_ZONES]
+  const displayZones = ['paint', ...ALL_ZONES]
+
   return (
     <div
-      style={{ width, height, background: '#0f172a' }}
+      style={{ width, height }}
       className="relative rounded-xl overflow-hidden"
       aria-label="슛 차트"
     >
       <svg
-        viewBox={`0 0 ${COURT_W} ${COURT_H}`}
+        viewBox={`0 0 ${VB_W} ${VB_H}`}
         width={width}
         height={height}
         style={{ display: 'block' }}
       >
         <defs>
-          <clipPath id="ftClip">
-            <rect x="0" y="107" width={COURT_W} height={COURT_H - 107} />
+          <filter id="woodGrain" x="0%" y="0%" width="100%" height="100%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" seed="2" result="noise" />
+            <feColorMatrix type="saturate" values="0.3" in="noise" result="desatNoise" />
+            <feBlend in="SourceGraphic" in2="desatNoise" mode="multiply" />
+          </filter>
+
+          <filter id="courtShadow" x="-2%" y="-2%" width="104%" height="104%">
+            <feDropShadow dx="0" dy="2" stdDeviation="6" floodColor="#000" floodOpacity="0.35" />
+          </filter>
+
+          <clipPath id="clipInside3pt">
+            <path d={INSIDE_3PT_PATH} />
           </clipPath>
-          <clipPath id="ftTopClip">
-            <rect x="0" y="0" width={COURT_W} height="107" />
+
+          <clipPath id="clipOutside3pt">
+            <path fillRule="evenodd" d={OUTSIDE_3PT_PATH} />
+          </clipPath>
+
+          <clipPath id="clipMidTop">
+            <path fillRule="evenodd" d={MIDTOP_PATH} />
           </clipPath>
         </defs>
 
-        {/* 코트 배경 */}
-        <rect x="0" y="0" width={COURT_W} height={COURT_H} fill="#0f172a" />
+        {/* Wooden court background */}
+        <rect
+          x="0" y="0" width={VB_W} height={VB_H}
+          rx="12" ry="12"
+          fill="#c8a060"
+          filter="url(#courtShadow)"
+        />
 
-        {/* 페인트 구역 채움 (파란색) */}
-        <rect x="110" y="0" width="80" height="107" fill={PAINT_FILL} />
+        {/* Wood grain horizontal lines */}
+        {Array.from({ length: 28 }, (_, i) => (
+          <line
+            key={`g1-${i}`}
+            x1="0" y1={i * 17}
+            x2={VB_W} y2={i * 17 + 4}
+            stroke="#b8924a" strokeWidth="0.6" opacity="0.28"
+          />
+        ))}
+        {Array.from({ length: 14 }, (_, i) => (
+          <line
+            key={`g2-${i}`}
+            x1="0" y1={i * 34 + 8}
+            x2={VB_W} y2={i * 34 + 12}
+            stroke="#a07838" strokeWidth="0.4" opacity="0.18"
+          />
+        ))}
 
-        {/* ── 존 채움 ────────────────────────────────────────── */}
-        {ALL_ZONES.map(zone => {
+        {/* Paint box subtle tint */}
+        <rect x="170" y="0" width="160" height="190" fill="rgba(180,130,60,0.3)" />
+
+        {/* ── Heat map fills (display mode) ── */}
+        {!interactive && displayZones.map(zone => {
           const stat = zoneStats[zone]
           const a = stat?.a ?? 0
           const m = stat?.m ?? 0
-          const selectable = isSelectable(zone)
-          const isSelected = interactive && selectedZone === zone
-          const dimmed = interactive && !selectable
-
-          let fill: string
-          if (interactive) {
-            if (isSelected) fill = 'rgba(245,158,11,0.85)'
-            else if (THREE_ZONES.has(zone)) fill = selectable ? 'rgba(29,78,216,0.6)' : 'rgba(15,23,42,0.3)'
-            else fill = selectable ? 'rgba(146,64,14,0.6)' : 'rgba(15,23,42,0.3)'
-          } else {
-            fill = fgColor(m, a)
-          }
-
-          const pathD = getPath(zone)
+          const pathD = ZONE_PATHS[zone]
           if (!pathD) return null
+          const clip = ZONE_CLIP[zone] ?? 'none'
+          const clipAttr = getClipAttr(clip)
+
+          if (zone === 'paint') {
+            return (
+              <rect
+                key="paint-fill"
+                x="170" y="0" width="160" height="190"
+                fill={fgColor(m, a)}
+              />
+            )
+          }
+          return (
+            <path
+              key={`fill-${zone}`}
+              d={pathD}
+              fill={fgColor(m, a)}
+              clipPath={clipAttr}
+            />
+          )
+        })}
+
+        {/* ── Interactive zone fills ── */}
+        {interactive && interactiveZones.map(zone => {
+          const selectable = isSelectable(zone)
+          const isSelected = selectedZone === zone
+          const pathD = ZONE_PATHS[zone]
+          if (!pathD) return null
+          const clip = ZONE_CLIP[zone] ?? 'none'
+          const clipAttr = getClipAttr(clip)
+          const fill = interactiveFill(zone, selectable, isSelected)
 
           return (
             <path
-              key={zone}
+              key={`interactive-${zone}`}
               d={pathD}
               fill={fill}
-              fillOpacity={dimmed ? 0.2 : 1}
-              stroke={LINE_COLOR}
-              strokeWidth="0.5"
-              strokeOpacity="0.4"
+              clipPath={clipAttr}
+              stroke={isSelected ? '#ffffff' : 'rgba(255,255,255,0.15)'}
+              strokeWidth={isSelected ? '2' : '0.5'}
               className={selectable ? 'cursor-pointer' : undefined}
+              style={{ transition: 'fill 150ms ease' }}
               onClick={selectable ? () => onZoneClick?.(zone) : undefined}
               onMouseEnter={selectable ? (e) => {
-                ;(e.currentTarget as SVGPathElement).style.filter = 'brightness(1.3)'
+                ;(e.currentTarget as SVGPathElement).style.filter = 'brightness(1.25)'
               } : undefined}
               onMouseLeave={selectable ? (e) => {
                 ;(e.currentTarget as SVGPathElement).style.filter = ''
@@ -169,123 +268,154 @@ export default function HalfCourtShotChart({
           )
         })}
 
-        {/* ── 코트 라인 (밝은 색으로) ─────────────────────────── */}
-        {/* 외곽선 */}
-        <rect x="1" y="1" width={COURT_W - 2} height={COURT_H - 2}
-          fill="none" stroke={LINE_COLOR} strokeWidth={LINE_W} />
+        {/* ── Court lines drawn over zone fills ── */}
 
-        {/* 페인트 구역 테두리 */}
-        <rect x="110" y="0" width="80" height="107"
-          fill="none" stroke={LINE_COLOR} strokeWidth={LINE_W} />
+        {/* 3-point corner vertical lines */}
+        <line x1={CORNER_L_X} y1="0" x2={CORNER_L_X} y2={CORNER_Y}
+          stroke="#ffffff" strokeWidth="2" />
+        <line x1={CORNER_R_X} y1="0" x2={CORNER_R_X} y2={CORNER_Y}
+          stroke="#ffffff" strokeWidth="2" />
 
-        {/* FT 서클 — 아랫반원 (실선) */}
-        <circle cx="150" cy="107" r="30"
-          fill="none" stroke={LINE_COLOR} strokeWidth={LINE_W}
-          clipPath="url(#ftClip)" />
-        {/* FT 서클 — 윗반원 (점선) */}
-        <circle cx="150" cy="107" r="30"
-          fill="none" stroke={LINE_COLOR} strokeWidth={LINE_W}
-          strokeDasharray="5 4" clipPath="url(#ftTopClip)" />
+        {/* 3-point arc */}
+        <path
+          d={`M ${CORNER_L_X},${CORNER_Y} A 238,238 0 0,1 ${CORNER_R_X},${CORNER_Y}`}
+          fill="none" stroke="#ffffff" strokeWidth="2"
+        />
 
-        {/* 제한구역 아크 */}
-        <path d={`M 130,28 A 20,20 0 0,1 170,28`}
-          fill="none" stroke={LINE_COLOR} strokeWidth={LINE_W} />
+        {/* Paint box (key) */}
+        <rect x="170" y="0" width="160" height="190"
+          fill="none" stroke="#ffffff" strokeWidth="2" />
 
-        {/* 3점 코너 수직선 */}
-        <line x1="20" y1="0" x2="20" y2="77" stroke={LINE_COLOR} strokeWidth={LINE_W} />
-        <line x1="280" y1="0" x2="280" y2="77" stroke={LINE_COLOR} strokeWidth={LINE_W} />
+        {/* Lane hash marks */}
+        {([-80, 80] as const).map(offset => (
+          <React.Fragment key={`hash-${offset}`}>
+            <line x1={250 + offset} y1="120" x2={250 + offset} y2="132"
+              stroke="#ffffff" strokeWidth="1.5" opacity="0.7" />
+            <line x1={250 + offset} y1="153" x2={250 + offset} y2="165"
+              stroke="#ffffff" strokeWidth="1.5" opacity="0.7" />
+          </React.Fragment>
+        ))}
 
-        {/* 3점 아크 */}
-        <path d={`M 20,77 A ${ARC_R},${ARC_R} 0 0,1 280,77`}
-          fill="none" stroke={LINE_COLOR} strokeWidth={LINE_W} />
+        {/* FT circle — upper half dashed (inside paint) */}
+        <path d="M 190,190 A 60,60 0 0,1 310,190"
+          fill="none" stroke="#ffffff" strokeWidth="1.8" strokeDasharray="7 5" />
+        {/* FT circle — lower half solid */}
+        <path d="M 190,190 A 60,60 0 0,0 310,190"
+          fill="none" stroke="#ffffff" strokeWidth="1.8" />
 
-        {/* 백보드 */}
-        <line x1="125" y1="4" x2="175" y2="4"
-          stroke={BACKBOARD_COLOR} strokeWidth="3" strokeLinecap="round" />
+        {/* Restricted area arc */}
+        <path d="M 210,52 A 40,40 0 0,1 290,52"
+          fill="none" stroke="#ffffff" strokeWidth="1.8" />
 
-        {/* 링 (오렌지) */}
-        <circle cx={ARC_CX} cy={ARC_CY} r="8"
-          fill="none" stroke={BASKET_COLOR} strokeWidth="2.5" />
-        {/* 골대 연결선 */}
-        <line x1={ARC_CX} y1="4" x2={ARC_CX} y2={ARC_CY - 8}
-          stroke={BASKET_COLOR} strokeWidth="1.5" />
+        {/* Backboard */}
+        <line x1="215" y1="30" x2="285" y2="30"
+          stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round" />
 
-        {/* ── 존 텍스트 레이블 (표시 모드) ───────────────────── */}
-        {!interactive && ALL_ZONES.map(zone => {
+        {/* Basket pole */}
+        <line x1="250" y1="30" x2="250" y2="40"
+          stroke="#ffffff" strokeWidth="2" />
+
+        {/* Basket rim */}
+        <circle cx="250" cy="52" r="13"
+          fill="none" stroke="#f97316" strokeWidth="2.5" />
+
+        {/* ── Zone stat labels (display mode) ── */}
+        {!interactive && displayZones.map(zone => {
           const stat = zoneStats[zone]
           const a = stat?.a ?? 0
           const m = stat?.m ?? 0
-          const [cx, cy] = ZONE_LABEL_POS[zone] ?? [0, 0]
-          if (!cx && !cy) return null
+          const pos = ZONE_LABEL_POS[zone]
+          if (!pos) return null
+          const [cx, cy] = pos
 
           if (a === 0) {
             return (
-              <text key={`empty-${zone}`} x={cx} y={cy + 4}
-                textAnchor="middle" fontSize="9" fill="#475569"
+              <text key={`empty-${zone}`}
+                x={cx} y={cy + 4}
+                textAnchor="middle" fontSize="14" fill="rgba(30,20,10,0.45)"
                 style={{ userSelect: 'none' }} aria-hidden="true">
                 —
               </text>
             )
           }
 
-          const pct = Math.round(m / a * 100)
+          const pct = (m / a * 100).toFixed(1)
 
           return (
             <g key={`label-${zone}`} aria-hidden="true">
-              {/* 텍스트 가시성을 위한 반투명 배경 */}
               <rect
-                x={cx - 16} y={cy - 13}
-                width="32" height="20"
-                rx="3" ry="3"
-                fill="rgba(0,0,0,0.55)"
+                x={cx - 30} y={cy - 20}
+                width="60" height="38"
+                rx="5" ry="5"
+                fill="rgba(15,15,15,0.80)"
               />
-              <text x={cx} y={cy - 3}
-                textAnchor="middle" fontSize="7.5" fontWeight="700"
-                fill="#ffffff" style={{ userSelect: 'none' }}>
+              <text
+                x={cx} y={cy - 5}
+                textAnchor="middle"
+                fontSize="13" fontWeight="700"
+                fill="#ffffff"
+                style={{ userSelect: 'none' }}
+              >
                 {m}/{a}
               </text>
-              <text x={cx} y={cy + 6}
-                textAnchor="middle" fontSize="7.5" fontWeight="800"
-                fill="#ffffff" style={{ userSelect: 'none' }}>
+              <text
+                x={cx} y={cy + 13}
+                textAnchor="middle"
+                fontSize="11" fontWeight="600"
+                fill="#e2e8f0"
+                style={{ userSelect: 'none' }}
+              >
                 {pct}%
               </text>
             </g>
           )
         })}
 
-        {/* ── 존 텍스트 (인터랙티브 모드) ─────────────────────── */}
-        {interactive && ALL_ZONES.map(zone => {
+        {/* ── Zone name labels (interactive mode) ── */}
+        {interactive && interactiveZones.map(zone => {
           const selectable = isSelectable(zone)
           if (!selectable) return null
-          const [cx, cy] = ZONE_LABEL_POS[zone] ?? [0, 0]
-          if (!cx && !cy) return null
+          const pos = ZONE_LABEL_POS[zone]
+          if (!pos) return null
+          const [cx, cy] = pos
+          const isSelected = selectedZone === zone
+
           return (
             <text key={`ilabel-${zone}`}
-              x={cx} y={cy + 4}
-              textAnchor="middle" fontSize="8.5" fontWeight="700"
-              fill={selectedZone === zone ? '#fff' : '#e2e8f0'}
+              x={cx} y={cy + 5}
+              textAnchor="middle"
+              fontSize="14" fontWeight="700"
+              fill={isSelected ? '#ffffff' : 'rgba(255,255,255,0.88)'}
               style={{ userSelect: 'none', pointerEvents: 'none' }}
-              aria-hidden="true">
+              aria-hidden="true"
+            >
               {ZONE_SHORT[zone]}
             </text>
           )
         })}
       </svg>
 
-      {/* 범례 */}
+      {/* Heat map legend */}
       {!interactive && (
-        <div className="absolute bottom-1.5 left-0 right-0 flex items-center justify-center gap-2.5"
-          aria-hidden="true">
+        <div
+          className="absolute bottom-2 left-0 right-0 flex items-center justify-center gap-3"
+          aria-hidden="true"
+        >
           {[
-            { color: 'rgba(239,68,68,0.85)',  label: '<30%' },
-            { color: 'rgba(249,115,22,0.85)', label: '30-40%' },
-            { color: 'rgba(234,179,8,0.85)',  label: '40-50%' },
-            { color: 'rgba(34,197,94,0.85)',  label: '>50%' },
+            { color: 'rgba(220,60,60,0.85)',   label: '<33%' },
+            { color: 'rgba(220,130,60,0.85)',  label: '33–40%' },
+            { color: 'rgba(200,180,50,0.85)',  label: '40–47%' },
+            { color: 'rgba(60,180,80,0.85)',   label: '>47%' },
+            { color: 'rgba(80,80,80,0.55)',    label: '기록없음' },
           ].map(({ color, label }) => (
             <div key={label} className="flex items-center gap-1">
-              <div className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                style={{ backgroundColor: color }} />
-              <span className="text-[9px] text-slate-300 leading-none font-medium">{label}</span>
+              <div
+                className="w-3 h-3 rounded-sm flex-shrink-0"
+                style={{ backgroundColor: color }}
+              />
+              <span className="text-[10px] font-medium text-amber-900">
+                {label}
+              </span>
             </div>
           ))}
         </div>
