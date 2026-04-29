@@ -1,13 +1,15 @@
 'use client'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
-import { Lock, Unlock } from 'lucide-react'
+import { Lock, Unlock, Sun, Moon } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 
 function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
   const pathname = usePathname()
   const { isEditMode, openPinModal, exitEditMode } = useLeagueEditMode()
+  const { theme, setTheme } = useTheme()
 
   const base = `/league/${orgSlug}/${leagueId}`
   const isRecord = pathname.startsWith(`${base}/record`)
@@ -52,8 +54,17 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
             <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-gray-950 to-transparent pointer-events-none sm:hidden" />
           </div>
 
-          {/* 우측: 편집 모드 버튼 (항상 고정) */}
-          <div className="pl-2 sm:pl-3 py-2 shrink-0">
+          {/* 우측: 테마 토글 + 편집 모드 버튼 (항상 고정) */}
+          <div className="flex items-center gap-1.5 pl-2 sm:pl-3 py-2 shrink-0">
+            {/* 라이트/다크 토글 */}
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
+              className="p-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors duration-200 cursor-pointer"
+            >
+              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            </button>
+
             {isEditMode ? (
               <button
                 onClick={exitEditMode}
@@ -90,6 +101,29 @@ function RecordAwareContainer({
   return <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">{children}</div>
 }
 
+function LeagueLayout({
+  orgSlug,
+  leagueId,
+  children,
+}: {
+  orgSlug: string
+  leagueId: string
+  children: React.ReactNode
+}) {
+  const { theme } = useTheme()
+  return (
+    <LeagueEditModeProvider leagueId={leagueId}>
+      <div className="min-h-screen bg-gray-950 text-gray-300">
+        <TabNav orgSlug={orgSlug} leagueId={leagueId} />
+        <RecordAwareContainer orgSlug={orgSlug} leagueId={leagueId}>
+          {children}
+        </RecordAwareContainer>
+      </div>
+      <Toaster richColors theme={theme === 'light' ? 'light' : 'dark'} />
+    </LeagueEditModeProvider>
+  )
+}
+
 export default function LeagueLayoutClient({
   orgSlug,
   leagueId,
@@ -99,15 +133,5 @@ export default function LeagueLayoutClient({
   leagueId: string
   children: React.ReactNode
 }) {
-  return (
-    <LeagueEditModeProvider leagueId={leagueId}>
-      <div className="min-h-screen bg-gray-950 text-white">
-        <TabNav orgSlug={orgSlug} leagueId={leagueId} />
-        <RecordAwareContainer orgSlug={orgSlug} leagueId={leagueId}>
-          {children}
-        </RecordAwareContainer>
-      </div>
-      <Toaster richColors theme="dark" />
-    </LeagueEditModeProvider>
-  )
+  return <LeagueLayout orgSlug={orgSlug} leagueId={leagueId}>{children}</LeagueLayout>
 }

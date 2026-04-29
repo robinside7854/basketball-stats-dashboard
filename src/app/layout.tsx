@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Fira_Code, Fira_Sans } from 'next/font/google'
+import { ThemeProvider } from '@/components/ThemeProvider'
 import './globals.css'
 
 const firaCode = Fira_Code({
@@ -21,9 +22,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko">
-      <body className={`${firaCode.variable} ${firaSans.variable} font-sans bg-gray-950 text-white min-h-screen`}>
-        {children}
+    <html lang="ko" suppressHydrationWarning>
+      <body className={`${firaCode.variable} ${firaSans.variable} font-sans bg-gray-950 text-gray-300 min-h-screen`}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+        >
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )
