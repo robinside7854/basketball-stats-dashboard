@@ -4,7 +4,8 @@ import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import type { LeaguePlayer } from '@/types/league'
 import type { ShotZone, EventType } from '@/types/database'
-import { SHOT_ZONE_LABELS, inferShotZone, needsZonePicker, zonesFor } from '@/types/database'
+import { SHOT_ZONE_LABELS, inferShotZone, needsZonePicker } from '@/types/database'
+import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 
 type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
 
@@ -580,23 +581,20 @@ export default function LeagueEventInputPad({
                   )}
                 </div>
                 {groupHasPending && showZonePicker && pendingShot ? (
-                  /* 위치(존) 선택 */
+                  /* 위치(존) 선택 — 비주얼 코트 */
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-amber-400 font-bold">📍 위치 선택 · {pendingShot.label}</p>
-                      <button onClick={() => pickZone(null)} className="text-[11px] text-gray-500 hover:text-gray-300 underline-offset-2 hover:underline cursor-pointer">건너뛰기</button>
+                      <button onClick={() => pickZone(null)} className="text-[11px] text-gray-500 hover:text-gray-300 cursor-pointer">건너뛰기</button>
                     </div>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {(pendingShot.type === 'shot_2p_mid' || pendingShot.type === 'shot_3p'
-                        ? zonesFor(pendingShot.type)
-                        : []
-                      ).map(z => (
-                        <button key={z} onClick={() => pickZone(z)}
-                          className="py-3 rounded-xl text-[11px] font-bold bg-amber-700 hover:bg-amber-600 active:bg-amber-500 text-white transition-colors cursor-pointer">
-                          {SHOT_ZONE_LABELS[z]}
-                        </button>
-                      ))}
-                    </div>
+                    <HalfCourtShotChart
+                      zoneStats={{}}
+                      interactive
+                      selectedZone={pendingZone}
+                      onZoneClick={(zone) => pickZone(zone as ShotZone)}
+                      width={280}
+                      shotType={pendingShot.type}
+                    />
                   </div>
                 ) : groupHasPending ? (
                   /* 해당 그룹을 O/X 버튼으로 덮기 */

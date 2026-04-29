@@ -57,7 +57,7 @@ export async function GET(
   ] = await Promise.all([
     supabase
       .from('league_game_events')
-      .select('league_game_id, type, result, points')
+      .select('league_game_id, type, result, points, shot_zone')
       .in('league_game_id', gameIds)
       .eq('league_player_id', playerId),
     supabase
@@ -341,5 +341,17 @@ export async function GET(
     total_fga: totalFGA,
   }
 
-  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss })
+  // ── Zone stats ───────────────────────────────────────────────
+  const zoneStats: Record<string, { m: number; a: number }> = {}
+  const SHOT_TYPES_FOR_ZONE = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
+  for (const e of playerEvents ?? []) {
+    const zone = (e as { shot_zone?: string }).shot_zone
+    if (!zone) continue
+    if (!SHOT_TYPES_FOR_ZONE.includes(e.type as string)) continue
+    if (!zoneStats[zone]) zoneStats[zone] = { m: 0, a: 0 }
+    zoneStats[zone].a++
+    if (e.result === 'made') zoneStats[zone].m++
+  }
+
+  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss, zone_stats: zoneStats })
 }
