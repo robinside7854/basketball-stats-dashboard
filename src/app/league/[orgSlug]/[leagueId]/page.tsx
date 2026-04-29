@@ -109,7 +109,7 @@ export default async function LeagueDetailPage({
           </Link>
         </div>
         <div className="p-4">
-          <LeagueSchedule games={gameList} limit={6} />
+          <LeagueSchedule games={gameList} leagueId={leagueId} limit={6} />
         </div>
       </div>
     </div>
