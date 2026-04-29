@@ -395,11 +395,11 @@ function PlayerModal({
           <div className="relative overflow-hidden" style={{ minHeight: '200px' }}>
             {/* 팀 컬러 그라디언트 배경 */}
             <div
-              className="absolute inset-0"
+              className="absolute inset-0 bg-gray-900"
               style={{
                 background: heroColor
-                  ? `linear-gradient(135deg, ${heroColor}18 0%, #050a14 55%, #080e1a 100%)`
-                  : 'linear-gradient(135deg, #0d1a2e 0%, #050a14 100%)',
+                  ? `linear-gradient(135deg, ${heroColor}22 0%, var(--hero-bg-mid, #050a14) 55%, var(--hero-bg-end, #080e1a) 100%)`
+                  : undefined,
               }}
             />
             {/* 상단 컬러 스트립 */}
@@ -412,7 +412,7 @@ function PlayerModal({
                 className="font-black leading-none pr-6"
                 style={{
                   fontSize: '220px',
-                  color: heroColor ? `${heroColor}0d` : 'rgba(255,255,255,0.025)',
+                  color: heroColor ? `${heroColor}18` : 'rgba(100,116,139,0.15)',
                 }}
               >
                 {player.number !== null ? player.number : player.name.charAt(0)}
@@ -426,8 +426,8 @@ function PlayerModal({
                 <div
                   className="w-36 h-48 rounded-xl flex items-center justify-center border-2 shadow-lg overflow-hidden"
                   style={{
-                    backgroundColor: heroColor ? `${heroColor}20` : '#162032',
-                    borderColor: heroColor ? `${heroColor}50` : '#1d4ed8',
+                    backgroundColor: heroColor ? `${heroColor}20` : 'var(--color-gray-800)',
+                    borderColor: heroColor ? `${heroColor}50` : 'var(--color-blue-600,#2563eb)',
                     boxShadow: heroColor ? `0 0 30px ${heroColor}20` : undefined,
                   }}
                 >
