@@ -57,7 +57,7 @@ export default async function LeagueSchedulePage({
         </div>
 
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
-          <LeagueSchedule games={gameList} />
+          <LeagueSchedule games={gameList} leagueId={leagueId} />
         </div>
       </div>
     </div>
