@@ -175,15 +175,15 @@ export default function LeagueSchedulePage() {
       ) : (
         <div className="space-y-2">
           {dates.map(sd => (
-            <div key={sd.id} className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex items-center justify-between hover:border-gray-700 transition-colors">
+            <div key={sd.id} className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex items-center justify-between hover:border-gray-700 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
               <div className="flex items-center gap-3">
                 <CalendarDays size={16} className="text-blue-400 shrink-0" />
-                <span className="text-white font-medium">{formatDate(sd.date)}</span>
+                <span className="text-white font-semibold text-base">{formatDate(sd.date)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setBoxscoreDate(sd.date)}
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-900/30 border border-indigo-700/40 text-indigo-400 hover:bg-indigo-900/50 hover:text-indigo-300 cursor-pointer transition-colors"
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-900/30 border border-indigo-700/40 text-indigo-400 hover:bg-indigo-900/50 hover:text-indigo-300 cursor-pointer transition-colors btn-press"
                 >
                   <BarChart2 size={12} />박스스코어
                 </button>

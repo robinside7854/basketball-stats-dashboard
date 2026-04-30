@@ -527,7 +527,7 @@ function PlayerModal({
           {/* ── 분기별 소속 ──────────────────────────────────── */}
           {displayQuarters.length > 0 && (
             <div className="px-6 py-4 border-t border-gray-800/60">
-              <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">분기별 소속</p>
+              <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">분기별 소속</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {displayQuarters.map(q => {
                   const label = getQLabel(q.id, player.id)
@@ -566,7 +566,7 @@ function PlayerModal({
 
           {/* ── 시즌 스탯 ────────────────────────────────────── */}
           <div className="px-6 py-4 border-t border-gray-800/60">
-            <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
+            <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
             {statsLoading ? (
               <div className="flex justify-center py-4">
                 <Loader2 size={18} className="animate-spin text-gray-500" />
@@ -584,10 +584,10 @@ function PlayerModal({
                     { label: 'BLK', value: stats.bpg.toFixed(1),       rank: detail?.rankings.bpg ?? 0,  accent: false },
                   ].map(({ label, value, rank, accent }) => (
                     <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-blue-900/20 border-blue-800/30' : 'bg-gray-900/50 border-gray-800/40'}`}>
-                      <p className="text-[8px] text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
-                      <p className={`text-xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
+                      <p className="text-[10px] text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
+                      <p className={`text-2xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
                       {rank > 0 && (
-                        <p className={`text-[9px] font-bold mt-1 leading-none ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>
+                        <p className={`text-[10px] font-bold mt-1 leading-none ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>
                           {rank}위
                         </p>
                       )}
@@ -603,7 +603,7 @@ function PlayerModal({
                     { label: 'FT%', pct: stats.ft_pct, made: stats.ftm, att: stats.fta },
                   ].map(({ label, pct, made, att }) => (
                     <div key={label} className="bg-gray-900/50 border border-gray-800/40 rounded-xl p-3 text-center">
-                      <p className="text-[9px] text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
+                      <p className="text-[10px] text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
                       <p className="text-xl font-black text-white leading-none">{att > 0 ? `${pct.toFixed(1)}%` : '—'}</p>
                       <p className="text-[10px] text-gray-500 mt-1">{made}/{att}</p>
                     </div>
@@ -621,8 +621,8 @@ function PlayerModal({
                     { label: 'TOV', value: stats.tov },
                   ].map(({ label, value, hi }) => (
                     <div key={label} className={`rounded-xl p-2 text-center border ${hi ? 'bg-blue-900/15 border-blue-800/25' : 'bg-gray-900/40 border-gray-800/30'}`}>
-                      <p className="text-[8px] text-gray-600 mb-0.5 uppercase tracking-wider">{label}</p>
-                      <p className={`text-sm font-black leading-none ${hi ? 'text-blue-300' : 'text-white'}`}>{value}</p>
+                      <p className="text-[10px] text-gray-600 mb-0.5 uppercase tracking-wider">{label}</p>
+                      <p className={`text-base font-black leading-none ${hi ? 'text-blue-300' : 'text-white'}`}>{value}</p>
                     </div>
                   ))}
                 </div>
@@ -648,7 +648,7 @@ function PlayerModal({
           {/* ── 공격 스타일 ───────────────────────────────────── */}
           {detail?.shot_breakdown && detail.shot_breakdown.total_fga > 0 && (
             <div className="px-6 py-4 border-t border-gray-800/60">
-              <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">공격 스타일</p>
+              <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">공격 스타일</p>
               {(() => {
                 const sb = detail.shot_breakdown
                 const zones = [
@@ -705,7 +705,7 @@ function PlayerModal({
           {detail && (
             <div className="px-6 py-4 border-t border-gray-800/60">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">보유 배지</p>
+                <p className="text-xs text-gray-600 uppercase tracking-widest font-bold">보유 배지</p>
                 <button
                   onClick={() => setShowBadgeBook(true)}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/40 text-indigo-400 text-[11px] font-bold cursor-pointer transition-colors"
@@ -789,7 +789,7 @@ function PlayerModal({
           {/* ── 커리어 하이 ───────────────────────────────────── */}
           {detail && Object.keys(detail.career_high).length > 0 && (
             <div className="px-6 py-4 border-t border-gray-800/60">
-              <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">커리어 하이</p>
+              <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">커리어 하이</p>
               {(() => {
                 const ch = detail.career_high
                 const items = [
@@ -835,7 +835,7 @@ function PlayerModal({
           {/* ── 최근 5경기 ─────────────────────────────────────── */}
           {detail && detail.recent_games.length > 0 && (
             <div className="px-6 py-4 border-t border-gray-800/60">
-              <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">최근 5경기</p>
+              <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">최근 5경기</p>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -912,7 +912,7 @@ function PlayerModal({
                 </div>
                 <div className="flex gap-2">
                   <button onClick={handleSave} disabled={saving}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium cursor-pointer disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium cursor-pointer disabled:opacity-50 transition-colors btn-press"
                   >
                     {saving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}저장
                   </button>
@@ -933,7 +933,7 @@ function PlayerModal({
                   <Pencil size={12} />정보 수정
                 </button>
                 <button onClick={handleDelete} disabled={deleting}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-900/20 hover:bg-red-900/40 text-red-400 hover:text-red-300 text-xs font-medium cursor-pointer transition-colors border border-red-800/40 disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-900/20 hover:bg-red-900/40 text-red-400 hover:text-red-300 text-xs font-medium cursor-pointer transition-colors border border-red-800/40 disabled:opacity-50 btn-press"
                 >
                   {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}삭제
                 </button>
@@ -1447,7 +1447,7 @@ export default function LeagueRosterPage() {
             return (
               <div
                 key={p.id}
-                className="relative bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-gray-700 transition-all cursor-pointer group"
+                className="relative bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-gray-700 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 cursor-pointer group"
                 onClick={() => setSelectedPlayer(p)}
               >
                 {/* 팀 컬러 왼쪽 스트립 */}
@@ -1475,7 +1475,7 @@ export default function LeagueRosterPage() {
                     )}
                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
                       {isAnyLeader && <Crown size={12} className="text-yellow-400 shrink-0" />}
-                      <span className="text-base font-bold text-white truncate">{p.name}</span>
+                      <span className="text-lg font-bold text-white truncate">{p.name}</span>
                     </div>
                     {/* +1 배지/토글 */}
                     {isEditMode ? (

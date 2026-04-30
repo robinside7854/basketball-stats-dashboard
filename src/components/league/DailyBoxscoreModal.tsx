@@ -92,11 +92,11 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-800">
-            <th className="text-left py-2.5 px-3 text-xs text-gray-500 font-bold sticky left-0 bg-gray-900 min-w-[150px]">선수 / 팀</th>
+            <th className="text-left py-2.5 px-3 text-sm text-gray-500 font-bold sticky left-0 bg-gray-900 min-w-[150px]">선수 / 팀</th>
             {COLS.map(c => (
               <th key={c.key}
                 onClick={() => c.sortKey && handleSort(c.sortKey)}
-                className={`py-2.5 px-2 text-center text-xs font-bold whitespace-nowrap cursor-pointer select-none transition-colors hover:text-gray-200 ${
+                className={`py-2.5 px-2 text-center text-sm font-bold whitespace-nowrap cursor-pointer select-none transition-colors hover:text-gray-200 ${
                   sortKey === c.sortKey ? 'text-blue-400' : 'text-gray-500'
                 }`}>
                 {c.label}
@@ -215,7 +215,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
               { key: 'games',   label: '경기별',    count: games.length },
             ] as const).map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                className={`px-6 py-3 text-sm font-bold border-b-2 transition-colors cursor-pointer ${
+                className={`px-6 py-3 text-sm font-bold border-b-2 transition-all duration-200 cursor-pointer ${
                   activeTab === tab.key
                     ? 'border-blue-500 text-white'
                     : 'border-transparent text-gray-500 hover:text-gray-300'
@@ -261,7 +261,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                   <div key={g.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
                     {/* 경기 헤더 */}
                     <button
-                      className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-gray-800/40 cursor-pointer transition-colors"
+                      className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-gray-800/60 cursor-pointer transition-colors duration-150"
                       onClick={() => setExpandedGame(isExpanded ? null : g.id)}
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">

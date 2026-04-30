@@ -136,10 +136,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               </h2>
               <div className="flex items-center gap-2 mt-1">
                 {positions.map(pos => (
-                  <span key={pos} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300 border border-blue-700/40">{pos}</span>
+                  <span key={pos} className="text-xs font-bold px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300 border border-blue-700/40">{pos}</span>
                 ))}
                 {player?.plus_one && (
-                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300">+1</span>
+                  <span className="text-xs font-black px-1.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300">+1</span>
                 )}
                 {age && <span className="text-xs text-gray-600">만 {age}세</span>}
               </div>
@@ -163,7 +163,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {/* 시즌 스탯 */}
             {stats ? (
               <div className="px-5 py-4 border-b border-gray-800/60">
-                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
+                <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
                 <div className="grid grid-cols-6 gap-2 mb-3">
                   {[
                     { label: 'GP',  value: String(stats.gp),            rank: 0,                         accent: false },
@@ -174,8 +174,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     { label: 'BLK', value: stats.bpg.toFixed(1),        rank: detail?.rankings.bpg ?? 0, accent: false },
                   ].map(({ label, value, rank, accent }) => (
                     <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-blue-900/20 border-blue-800/30' : 'bg-gray-900/50 border-gray-800/40'}`}>
-                      <p className="text-[10px] text-gray-600 mb-1 uppercase">{label}</p>
-                      <p className={`text-2xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
+                      <p className="text-xs font-bold text-gray-600 mb-1 uppercase">{label}</p>
+                      <p className={`text-3xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
                       {rank > 0 && (
                         <p className={`text-[10px] font-bold mt-1 ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>{rank}위</p>
                       )}
@@ -198,8 +198,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 <div className="grid grid-cols-6 gap-1.5">
                   {[['PTS', stats.pts, true], ['REB', stats.reb], ['AST', stats.ast], ['STL', stats.stl], ['BLK', stats.blk], ['TOV', stats.tov]].map(([l, v, hi]) => (
                     <div key={l as string} className={`rounded-xl p-2 text-center border ${hi ? 'bg-blue-900/15 border-blue-800/25' : 'bg-gray-900/40 border-gray-800/30'}`}>
-                      <p className="text-[8px] text-gray-600 mb-0.5 uppercase">{l as string}</p>
-                      <p className={`text-sm font-black ${hi ? 'text-blue-300' : 'text-white'}`}>{v as number}</p>
+                      <p className="text-[10px] text-gray-600 mb-0.5 uppercase">{l as string}</p>
+                      <p className={`text-base font-black ${hi ? 'text-blue-300' : 'text-white'}`}>{v as number}</p>
                     </div>
                   ))}
                 </div>
@@ -212,7 +212,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {earnedBadgesSorted.length > 0 && (
               <div className="px-5 py-4 border-b border-gray-800/60">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">보유 배지 {earnedBadgesSorted.length}개</p>
+                  <p className="text-xs text-gray-600 uppercase tracking-widest font-bold">보유 배지 {earnedBadgesSorted.length}개</p>
                   <button onClick={() => setShowBadgeBook(true)} className="text-[10px] text-indigo-400 hover:text-indigo-300 cursor-pointer">전체 도감 →</button>
                 </div>
                 <div className="space-y-2">
@@ -224,7 +224,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         <span className="text-2xl shrink-0 mt-0.5">{b.icon}</span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                            <span className={`text-sm font-black ${TIER_COLOR[b.tier]}`}>{b.name}</span>
+                            <span className={`text-base font-black ${TIER_COLOR[b.tier]}`}>{b.name}</span>
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${TIER_CHIP[b.tier]}`}>
                               {b.tier === 'gold' ? '🥇 GOLD' : b.tier === 'silver' ? '🥈 SILVER' : '🥉 BRONZE'}
                             </span>
@@ -253,12 +253,12 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               ]
               return (
                 <div className="px-5 py-4 border-b border-gray-800/60">
-                  <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">출전 임팩트</p>
+                  <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">출전 임팩트</p>
 
                   {/* W-L + 승률 + 팀 기여도 */}
                   <div className="flex items-center gap-3 mb-4">
                     <div className="flex-1 bg-gray-900/60 border border-gray-800/50 rounded-xl p-3 text-center">
-                      <p className="text-[9px] text-gray-600 mb-1 uppercase">전적</p>
+                      <p className="text-[10px] text-gray-600 mb-1 uppercase">전적</p>
                       <p className="text-base font-black leading-none">
                         <span className="text-green-400">{wl.wins}W</span>
                         <span className="text-gray-600 mx-1">·</span>
@@ -266,13 +266,13 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       </p>
                     </div>
                     <div className="flex-1 bg-gray-900/60 border border-gray-800/50 rounded-xl p-3 text-center">
-                      <p className="text-[9px] text-gray-600 mb-1 uppercase">출전 승률</p>
+                      <p className="text-[10px] text-gray-600 mb-1 uppercase">출전 승률</p>
                       <p className={`text-xl font-black leading-none ${wl.win_rate >= 60 ? 'text-green-400' : wl.win_rate >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
                         {wl.win_rate}%
                       </p>
                     </div>
                     <div className="flex-1 bg-gray-900/60 border border-gray-800/50 rounded-xl p-3 text-center">
-                      <p className="text-[9px] text-gray-600 mb-1 uppercase">팀 득점 기여</p>
+                      <p className="text-[10px] text-gray-600 mb-1 uppercase">팀 득점 기여</p>
                       <p className="text-xl font-black text-blue-300 leading-none">{wl.pts_share}%</p>
                     </div>
                   </div>
@@ -291,7 +291,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       <div className="grid grid-cols-7 gap-1 text-center mb-1">
                         <div />
                         {WL_STATS.map(({ label }) => (
-                          <div key={label} className="text-[9px] text-gray-600 font-bold uppercase">{label}</div>
+                          <div key={label} className="text-[10px] text-gray-600 font-bold uppercase">{label}</div>
                         ))}
                       </div>
                       {([
@@ -301,7 +301,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         <div key={label} className={`grid grid-cols-7 gap-1 items-center rounded-lg border px-2 py-2 mb-1.5 ${bg}`}>
                           <p className={`text-[10px] font-bold ${color} whitespace-nowrap`}>{label}</p>
                           {WL_STATS.map(({ key }) => (
-                            <p key={key} className="text-[11px] font-black text-white text-center">
+                            <p key={key} className="text-sm font-black text-white text-center">
                               {stats ? stats[key] : '—'}
                             </p>
                           ))}
@@ -316,7 +316,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {/* 공격 스타일 */}
             {detail?.shot_breakdown && detail.shot_breakdown.total_fga > 0 && (
               <div className="px-5 py-4 border-b border-gray-800/60">
-                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">공격 스타일</p>
+                <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">공격 스타일</p>
                 {(() => {
                   const sb = detail.shot_breakdown
                   const zones = [

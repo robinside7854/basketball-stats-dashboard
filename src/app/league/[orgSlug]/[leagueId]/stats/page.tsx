@@ -142,12 +142,12 @@ export default function LeagueStatsPage() {
         {/* 분기 버튼 필터 */}
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setSelectedQuarterId('all')}
-            className={`px-3 py-1.5 rounded-xl text-sm font-bold border transition-all cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-sm font-bold border transition-all cursor-pointer btn-press ${
               selectedQuarterId === 'all' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
             }`}>전체</button>
           {quarters.map(q => (
             <button key={q.id} onClick={() => setSelectedQuarterId(q.id)}
-              className={`px-3 py-1.5 rounded-xl text-sm font-bold border transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-sm font-bold border transition-all cursor-pointer btn-press ${
                 selectedQuarterId === q.id ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
               }`}>
               {String(q.year).slice(2)}.{q.quarter}Q
@@ -187,16 +187,16 @@ export default function LeagueStatsPage() {
               if (!top) return null
               const fmt = (p: PlayerStat) => pct ? `${(p[key] as number)}%` : String(p[key] as number)
               return (
-                <div key={key} className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+                <div key={key} className="bg-gray-900 border border-gray-800 rounded-2xl p-4 card-lift">
                   <div className="flex items-center gap-1.5 mb-3">
                     <Trophy size={13} className="text-yellow-400" />
                     <p className="text-xs text-gray-400 font-medium">{label}</p>
                   </div>
                   <button onClick={() => setQuickViewPlayer({ id: top.player_id, name: top.name })}
-                    className="text-lg font-black text-white truncate hover:text-blue-300 transition-colors cursor-pointer text-left w-full hover:underline underline-offset-2">
+                    className="text-xl font-black text-white truncate hover:text-blue-300 transition-colors cursor-pointer text-left w-full hover:underline underline-offset-2">
                     {top.name}
                   </button>
-                  <p className="text-2xl font-black text-yellow-400">{fmt(top)}</p>
+                  <p className="text-3xl font-black text-yellow-400">{fmt(top)}</p>
                   <p className="text-xs text-gray-600 mt-0.5">{unit} · {top.gp}경기</p>
                   {leaders.slice(1).map((p, i) => (
                     <div key={p.player_id} className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-800">
@@ -225,7 +225,7 @@ export default function LeagueStatsPage() {
                 <div className="flex rounded-lg overflow-hidden border border-gray-700">
                   {(['avg','total'] as ViewMode[]).map(m => (
                     <button key={m} onClick={() => { setViewMode(m); if (m === 'total') setProjection(false) }}
-                      className={`px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors ${viewMode === m ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                      className={`px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors btn-press ${viewMode === m ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
                       {m === 'avg' ? '평균' : '누적'}
                     </button>
                   ))}
@@ -233,7 +233,7 @@ export default function LeagueStatsPage() {
                 {/* x5 환산 (평균 모드만) */}
                 {viewMode === 'avg' && (
                   <button onClick={() => setProjection(v => !v)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border cursor-pointer transition-all ${
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border cursor-pointer transition-all btn-press ${
                       projection ? 'bg-amber-600/30 border-amber-500/60 text-amber-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
                     }`}>
                     ×5 환산
@@ -303,10 +303,10 @@ export default function LeagueStatsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-800">
-                    <th className="text-left px-4 py-3 sticky left-0 bg-gray-900 text-xs text-gray-500 font-bold min-w-[130px]">선수</th>
+                    <th className="text-left px-4 py-3 sticky left-0 bg-gray-900 text-sm text-gray-500 font-bold min-w-[130px]">선수</th>
                     {COLS.map(({ key, label }) => (
                       <th key={key} onClick={() => handleSort(key)}
-                        className={`px-3 py-3 text-center text-xs font-bold cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${sortKey === key ? 'text-blue-400' : 'text-gray-500'}`}>
+                        className={`px-3 py-3 text-center text-sm font-bold cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${sortKey === key ? 'text-blue-400' : 'text-gray-500'}`}>
                         {label}
                         {sortKey === key
                           ? (sortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
@@ -321,13 +321,13 @@ export default function LeagueStatsPage() {
                       className={`border-b border-gray-800/50 ${i % 2 === 0 ? '' : 'bg-gray-900/50'} hover:bg-gray-800/30 transition-colors`}>
                       <td className="px-4 py-3 sticky left-0 bg-inherit">
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-bold text-white hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[120px] block text-sm">
+                          className="font-bold text-white hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[120px] block text-base">
                           {p.name}
                         </button>
                         <div className="text-gray-600 text-xs">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
                       {COLS.map(({ key }) => (
-                        <td key={key} className={`px-3 py-3 text-center text-sm tabular-nums ${sortKey === key ? 'text-yellow-400 font-bold' : 'text-gray-300'}`}>
+                        <td key={key} className={`px-3 py-3 text-center text-sm tabular-nums font-medium ${sortKey === key ? 'text-yellow-400 font-bold' : 'text-gray-300'}`}>
                           {cellVal(p, key)}
                         </td>
                       ))}

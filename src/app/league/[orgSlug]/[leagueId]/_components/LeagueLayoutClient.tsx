@@ -39,10 +39,10 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
                   <Link
                     key={tab.href}
                     href={tab.href}
-                    className={`shrink-0 px-3 py-3.5 text-sm font-medium border-b-2 transition-colors ${
+                    className={`shrink-0 px-3 py-3.5 text-sm border-b-2 transition-all duration-200 ${
                       isActive
-                        ? 'border-blue-500 text-white'
-                        : 'border-transparent text-gray-400 hover:text-gray-200'
+                        ? 'border-blue-500 text-white font-semibold'
+                        : 'border-transparent text-gray-400 font-medium hover:text-white'
                     }`}
                   >
                     {tab.label}
@@ -60,7 +60,7 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
-              className="p-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors duration-200 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="p-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors duration-200 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press"
             >
               {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
             </button>
@@ -68,7 +68,7 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
             {isEditMode ? (
               <button
                 onClick={exitEditMode}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30 transition-colors cursor-pointer btn-press"
               >
                 <Unlock size={12} />
                 <span className="hidden sm:inline">편집 중</span>
@@ -76,7 +76,7 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
             ) : (
               <button
                 onClick={openPinModal}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors cursor-pointer btn-press"
               >
                 <Lock size={12} />
                 <span className="hidden sm:inline">편집</span>

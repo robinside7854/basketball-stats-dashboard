@@ -79,7 +79,7 @@ export default async function LeagueDetailPage({
             <Link
               key={ol.id}
               href={`/league/${orgSlug}/${ol.id}`}
-              className="text-xs px-3 py-1.5 rounded-full border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors cursor-pointer"
+              className="text-sm px-4 py-2 rounded-full border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors cursor-pointer btn-press"
             >
               {ol.name} ({ol.season_year})
             </Link>

@@ -68,15 +68,15 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
             <button
               key={date}
               onClick={() => setBoxscoreDate(date)}
-              className="w-full text-left bg-gray-900/60 border border-gray-800 hover:border-blue-500/40 hover:bg-gray-900 rounded-xl px-4 py-3.5 transition-all cursor-pointer group"
+              className="w-full text-left bg-gray-900/60 border border-gray-800 hover:border-blue-500/40 hover:bg-gray-900 hover:-translate-y-0.5 hover:shadow-md rounded-xl px-4 py-3.5 transition-all duration-200 cursor-pointer group"
             >
               <div className="flex items-center justify-between gap-3">
                 {/* 날짜 + 경기 수 */}
                 <div className="flex items-center gap-2.5">
                   <BarChart2 size={14} className="text-gray-600 group-hover:text-blue-400 transition-colors shrink-0" />
                   <div>
-                    <p className="text-sm font-bold text-white">{formatDate(date)}</p>
-                    <p className="text-[11px] text-gray-500 mt-0.5">
+                    <p className="text-base font-bold text-white">{formatDate(date)}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
                       {hasCompleted ? `${completed.length}/${dayGames.length}경기 완료` : `${dayGames.length}경기 예정`}
                     </p>
                   </div>
@@ -95,7 +95,7 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
                           <span className="text-xs font-bold text-white tabular-nums">
                             {t.w}W {t.l}L
                           </span>
-                          <span className={`text-[10px] font-bold tabular-nums ${winPct >= 50 ? 'text-green-400' : 'text-red-400'}`}>
+                          <span className={`text-xs font-bold tabular-nums ${winPct >= 50 ? 'text-green-400' : 'text-red-400'}`}>
                             {winPct}%
                           </span>
                         </div>

@@ -586,12 +586,12 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
               <button
                 key={sd.id}
                 onClick={() => selectDate(sd.date)}
-                className={`w-full text-left bg-gray-900 border rounded-xl px-5 py-4 transition-colors cursor-pointer ${allDone ? 'border-green-800/50 hover:border-green-600/60' : 'border-gray-800 hover:border-blue-500/50'}`}
+                className={`w-full text-left bg-gray-900 border rounded-xl px-5 py-4 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer ${allDone ? 'border-green-800/50 hover:border-green-600/60' : 'border-gray-800 hover:border-blue-500/50'}`}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-white font-medium">
+                  <span className="text-white font-semibold text-base">
                     {d.getFullYear()}년 {d.getMonth() + 1}월 {d.getDate()}일
-                    <span className="text-gray-400 ml-2 text-sm">({days[d.getDay()]})</span>
+                    <span className="text-gray-400 ml-2 text-base">({days[d.getDay()]})</span>
                   </span>
                   <div className="flex items-center gap-3 shrink-0">
                     {/* 완료 현황 */}
@@ -674,7 +674,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             <button
               key={slot.id}
               onClick={() => selectSlot(slot)}
-              className={`relative flex flex-col items-center justify-center py-4 rounded-xl border text-base font-bold transition-all cursor-pointer ${
+              className={`relative flex flex-col items-center justify-center py-4 rounded-xl border text-base font-bold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${
                 isSelected
                   ? 'bg-blue-600 border-blue-500 text-white'
                   : slot.is_complete
@@ -816,7 +816,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       </div>
                       <button
                         onClick={openCompleteModal}
-                        className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-white text-xs font-bold cursor-pointer transition-colors"
+                        className="flex items-center gap-1 px-4 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-white text-xs font-bold cursor-pointer transition-colors btn-press"
                       >
                         <Square size={11} />마감
                       </button>
@@ -895,7 +895,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                           <button
                             onClick={reopenGame}
                             disabled={reopening}
-                            className="py-2.5 flex items-center justify-center gap-1.5 text-blue-500 hover:text-blue-400 hover:bg-blue-900/20 text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
+                            className="py-2.5 flex items-center justify-center gap-1.5 text-blue-500 hover:text-blue-400 hover:bg-blue-900/20 text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50 btn-press"
                           >
                             {reopening
                               ? <><Loader2 size={12} className="animate-spin" />복귀 중...</>

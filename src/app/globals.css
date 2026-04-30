@@ -238,6 +238,25 @@
   .pb-safe-or-3 { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
   .pb-safe-or-4 { padding-bottom: max(1rem,    env(safe-area-inset-bottom)); }
   .pt-safe-or-3 { padding-top: max(0.75rem,    env(safe-area-inset-top)); }
+
+  /* ── Typography scale-up (league pages) ── */
+
+  /* Stat number emphasis */
+  .stat-num {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  /* Smooth button press */
+  .btn-press {
+    transition: transform 120ms ease, box-shadow 120ms ease, background-color 150ms ease;
+  }
+  .btn-press:hover  { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.25); }
+  .btn-press:active { transform: translateY(0px) scale(0.97); box-shadow: none; }
+  /* Card lift */
+  .card-lift {
+    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+  }
+  .card-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.18); }
 }
 
 /* ===== UI/UX Polish ===== */
