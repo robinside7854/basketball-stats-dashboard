@@ -63,13 +63,14 @@ const ZONE_SHORT: Record<string, string> = {
 const MID_ZONES = new Set(['mid_baseline_l', 'mid_elbow_l', 'mid_top', 'mid_elbow_r', 'mid_baseline_r'])
 const THREE_ZONES = new Set(['3p_corner_l', '3p_wing_l', '3p_top', '3p_wing_r', '3p_corner_r'])
 
+// Color scale matching reference: blue(cold) → green → orange → red(hot)
 function heatColor(m: number, a: number): string {
-  if (a === 0) return 'rgba(100,100,100,0.25)'
+  if (a === 0) return '#e8e8e8'          // no data: light gray
   const p = m / a
-  if (p < 0.33) return 'rgba(210,50,50,0.72)'
-  if (p < 0.40) return 'rgba(210,120,50,0.72)'
-  if (p < 0.47) return 'rgba(190,170,40,0.72)'
-  return 'rgba(50,170,80,0.72)'
+  if (p < 0.33) return '#6baed6'          // < 33%: blue
+  if (p < 0.40) return '#d4eda0'          // 33–40%: light green-yellow
+  if (p < 0.47) return '#fd8d3c'          // 40–47%: orange
+  return '#e31a1c'                         // > 47%: red (hot)
 }
 
 export default function HalfCourtShotChart({
@@ -151,30 +152,9 @@ export default function HalfCourtShotChart({
           </clipPath>
         </defs>
 
-        {/* Wooden court background */}
-        <rect
-          x="0" y="0" width="500" height="470"
-          rx="14" ry="14"
-          fill="#c8a060"
-        />
-
-        {/* Wood grain lines */}
-        {Array.from({ length: 28 }, (_, i) => (
-          <line
-            key={`grain-a-${i}`}
-            x1="0" y1={i * 17}
-            x2="500" y2={i * 17 + 4}
-            stroke="#b8924a" strokeWidth="0.6" opacity="0.28"
-          />
-        ))}
-        {Array.from({ length: 14 }, (_, i) => (
-          <line
-            key={`grain-b-${i}`}
-            x1="0" y1={i * 34 + 8}
-            x2="500" y2={i * 34 + 12}
-            stroke="#a07838" strokeWidth="0.4" opacity="0.18"
-          />
-        ))}
+        {/* Court background — white with light border */}
+        <rect x="0" y="0" width="500" height="470" rx="10" ry="10" fill="#FAFAF8" />
+        <rect x="0" y="0" width="500" height="470" rx="10" ry="10" fill="none" stroke="#ccc" strokeWidth="1.5" />
 
         {/* ── DISPLAY MODE: heat map fills ── */}
         {!interactive && (
@@ -296,49 +276,49 @@ export default function HalfCourtShotChart({
         {/* Paint rect border */}
         <rect
           x="170" y="0" width="160" height="200"
-          fill="none" stroke="white" strokeWidth="2"
+          fill="none" stroke="#222" strokeWidth="2"
         />
 
         {/* FT line */}
-        <line x1="170" y1="200" x2="330" y2="200" stroke="white" strokeWidth="2" />
+        <line x1="170" y1="200" x2="330" y2="200" stroke="#222" strokeWidth="2" />
 
         {/* FT circle upper half (dashed arc toward basket) */}
         <path
           d="M 190,200 A 60,60 0 0,1 310,200"
-          stroke="white" strokeWidth="2" fill="none"
+          stroke="#222" strokeWidth="2" fill="none"
           strokeDasharray="6 4"
         />
 
         {/* 3pt arc */}
         <path
           d="M 30,144 A 238,238 0 0,1 470,144"
-          stroke="white" strokeWidth="2.5" fill="none"
+          stroke="#222" strokeWidth="2.5" fill="none"
         />
 
         {/* Corner lines */}
-        <line x1="30" y1="0" x2="30" y2="144" stroke="white" strokeWidth="2.5" />
-        <line x1="470" y1="0" x2="470" y2="144" stroke="white" strokeWidth="2.5" />
+        <line x1="30" y1="0" x2="30" y2="144" stroke="#222" strokeWidth="2.5" />
+        <line x1="470" y1="0" x2="470" y2="144" stroke="#222" strokeWidth="2.5" />
 
-        {/* Restricted area (lower half arc going away from basket) */}
+        {/* Restricted area arc */}
         <path
           d="M 210,53 A 40,40 0 0,1 290,53"
-          stroke="white" strokeWidth="1.5" fill="none"
+          stroke="#222" strokeWidth="1.5" fill="none"
         />
 
         {/* Lane hash marks */}
-        <line x1="158" y1="120" x2="170" y2="120" stroke="white" strokeWidth="1.5" />
-        <line x1="330" y1="120" x2="342" y2="120" stroke="white" strokeWidth="1.5" />
-        <line x1="158" y1="155" x2="170" y2="155" stroke="white" strokeWidth="1.5" />
-        <line x1="330" y1="155" x2="342" y2="155" stroke="white" strokeWidth="1.5" />
+        <line x1="158" y1="120" x2="170" y2="120" stroke="#222" strokeWidth="1.5" />
+        <line x1="330" y1="120" x2="342" y2="120" stroke="#222" strokeWidth="1.5" />
+        <line x1="158" y1="155" x2="170" y2="155" stroke="#222" strokeWidth="1.5" />
+        <line x1="330" y1="155" x2="342" y2="155" stroke="#222" strokeWidth="1.5" />
 
         {/* Backboard */}
-        <line x1="228" y1="28" x2="272" y2="28" stroke="white" strokeWidth="4" strokeLinecap="round" />
+        <line x1="228" y1="28" x2="272" y2="28" stroke="#222" strokeWidth="4" strokeLinecap="round" />
 
         {/* Basket pole */}
-        <line x1="250" y1="28" x2="250" y2="40" stroke="white" strokeWidth="2" />
+        <line x1="250" y1="28" x2="250" y2="40" stroke="#222" strokeWidth="2" />
 
         {/* Basket rim */}
-        <circle cx="250" cy="53" r="13" fill="none" stroke="#f97316" strokeWidth="3" />
+        <circle cx="250" cy="53" r="13" fill="none" stroke="#e05a00" strokeWidth="3" />
 
         {/* ── Zone stat labels (display mode only) ── */}
         {!interactive && allZones.map(zone => {
@@ -355,14 +335,14 @@ export default function HalfCourtShotChart({
 
           return (
             <g key={`label-${zone}`} transform={`translate(${cx}, ${cy})`} aria-hidden="true">
-              <rect x="-26" y="-20" width="52" height="40" rx="4" fill="rgba(15,15,15,0.78)" />
+              <rect x="-26" y="-20" width="52" height="40" rx="4" fill="rgba(10,10,10,0.65)" />
               <text
-                x="0" y="-5"
+                x="0" y="-4"
                 textAnchor="middle"
-                fill="white"
-                fontSize="11"
+                fill="#fff"
+                fontSize="12"
                 fontWeight="700"
-                fontFamily="monospace"
+                fontFamily="'Fira Code', monospace"
                 style={{ userSelect: 'none' }}
               >
                 {m}/{a}
@@ -370,9 +350,9 @@ export default function HalfCourtShotChart({
               <text
                 x="0" y="13"
                 textAnchor="middle"
-                fill="white"
-                fontSize="10"
-                fontFamily="monospace"
+                fill="#fff"
+                fontSize="11"
+                fontFamily="'Fira Code', monospace"
                 style={{ userSelect: 'none' }}
               >
                 {pct}%
@@ -410,15 +390,15 @@ export default function HalfCourtShotChart({
         {!interactive && (
           <g transform="translate(10, 445)">
             {[
-              { color: 'rgba(210,50,50,0.8)',   label: '<33%' },
-              { color: 'rgba(210,120,50,0.8)',  label: '33-40%' },
-              { color: 'rgba(190,170,40,0.8)',  label: '40-47%' },
-              { color: 'rgba(50,170,80,0.8)',   label: '>47%' },
-              { color: 'rgba(100,100,100,0.4)', label: '기록없음' },
-            ].map(({ color, label }, i) => (
+              { color: '#6baed6', label: '<33%' },
+              { color: '#d4eda0', label: '33–40%', border: '#888' },
+              { color: '#fd8d3c', label: '40–47%' },
+              { color: '#e31a1c', label: '>47%' },
+              { color: '#e8e8e8', label: '기록없음', border: '#aaa' },
+            ].map(({ color, label, border }, i) => (
               <g key={i} transform={`translate(${i * 88}, 0)`}>
-                <circle r="7" cx="7" cy="0" fill={color} />
-                <text x="19" y="4" fontSize="11" fill="#5a4000" fontFamily="sans-serif">
+                <circle r="7" cx="7" cy="0" fill={color} stroke={border ?? 'none'} strokeWidth={border ? 1 : 0} />
+                <text x="19" y="4" fontSize="11" fill="#333" fontFamily="sans-serif">
                   {label}
                 </text>
               </g>
