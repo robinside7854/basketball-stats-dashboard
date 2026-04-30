@@ -9,7 +9,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ gameId: st
   const [eventsRes, minutesRes, playersRes, gameRes] = await Promise.all([
     supabase.from('game_events').select('*').eq('game_id', gameId).order('quarter').order('video_timestamp', { nullsFirst: false }).order('created_at'),
     supabase.from('player_minutes').select('*').eq('game_id', gameId),
-    supabase.from('players').select('*').eq('is_active', true).order('number'),
+    supabase.from('players').select('*').order('number'),
     supabase.from('games').select('youtube_url, youtube_start_offset').eq('id', gameId).single(),
   ])
 
