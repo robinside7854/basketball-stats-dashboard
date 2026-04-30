@@ -74,17 +74,19 @@
   box-shadow: 0 20px 60px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.06);
 }
 
-/* ===== 다크 모드: 원래 팔레트 복원 ===== */
+/* ===== 다크 모드: 배경은 다크, 텍스트는 밝게 ===== */
 .dark {
   --color-white: #ffffff;
+  /* 배경 (유지) */
   --color-gray-950: #030A14;
   --color-gray-900: #070F1C;
   --color-gray-800: #0D1A2E;
   --color-gray-700: #152840;
-  --color-gray-600: #2A4D6E;
-  --color-gray-500: #4D7A9C;
-  --color-gray-400: #82B4D0;
-  --color-gray-300: #B0CDE0;
+  /* 텍스트 — 기존 대비 한 단계씩 밝게 조정 */
+  --color-gray-600: #4a7a9b;   /* dimmed text (was #2A4D6E → +35%) */
+  --color-gray-500: #7cb5d4;   /* secondary text (was #4D7A9C → +30%) */
+  --color-gray-400: #a8d0e8;   /* label text (was #82B4D0 → +15%) */
+  --color-gray-300: #daeef8;   /* body text (was #B0CDE0 → near-white) */
   --color-blue-950: #030B1A;
   --color-blue-900: #071528;
   --color-blue-800: #0C2040;
