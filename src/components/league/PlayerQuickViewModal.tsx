@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Loader2, X, BookOpen } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
-import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 import { ALL_BADGE_DEFS } from '@/lib/league/badges'
 
 type PlayerInfo = {
@@ -27,7 +26,6 @@ type Detail = {
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; pts: number; reb: number; ast: number; fgm: number; fga: number }>
-  zone_stats?: Record<string, { m: number; a: number }>
   win_loss?: {
     wins: number; losses: number; win_rate: number
     win_stats: WLStats; loss_stats: WLStats
@@ -349,19 +347,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     </div>
                   )
                 })()}
-              </div>
-            )}
-
-            {/* 슛 차트 */}
-            {detail && (
-              <div className="px-5 py-4 border-b border-gray-800/60">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">슛 차트</p>
-                  {Object.keys(detail.zone_stats ?? {}).length === 0 && (
-                    <span className="text-[10px] text-gray-600">차트ON으로 기록된 데이터 없음</span>
-                  )}
-                </div>
-                <HalfCourtShotChart zoneStats={detail.zone_stats ?? {}} width={260} />
               </div>
             )}
 
