@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { Loader2, Crown, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { Loader2, Crown, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucide-react'
 import Link from 'next/link'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 
@@ -85,7 +85,6 @@ function StatsTable({
     return <p className="text-xs text-gray-500 py-4 text-center">기록된 스탯이 없습니다</p>
   }
 
-  // 모바일 카드용 셀 값 추출 (정렬 키별)
   function valOf(p: PlayerStat, key: SortKey): string {
     if (key === 'gp' || key === 'pts' || key === 'reb' || key === 'ast' ||
         key === 'stl' || key === 'blk' || key === 'tov' || key === 'pf' ||
@@ -120,7 +119,6 @@ function StatsTable({
         {sorted.map((p, i) => {
           const isLeader = leaderId && p.player_id === leaderId
           const sortLabel = STAT_HEADERS.find(h => h.key === sortKey)?.label ?? ''
-          // 부수 지표: 정렬 키가 아닌 핵심 4개
           const baseSubKeys: SortKey[] = ['gp', 'ppg', 'rpg', 'apg']
           const subKeys = baseSubKeys.filter(k => k !== sortKey).slice(0, 4)
           const filledSubs = subKeys.length < 4
@@ -227,12 +225,228 @@ function StatsTable({
   )
 }
 
+// ── TeamDetailPanel ────────────────────────────────────────────────────────
+type StandingEntry = { teamId: string; w: number; l: number; gf: number; ga: number }
+
+function TeamDetailPanel({
+  teamId, team, standing, h2h, players, allTeams, leagueId, games,
+}: {
+  teamId: string
+  team: Team
+  standing: StandingEntry
+  h2h: Record<string, { w: number; l: number }>
+  players: PlayerStat[]
+  allTeams: Team[]
+  leagueId: string
+  games: Game[]
+}) {
+  const [quickView, setQuickView] = useState<{ id: string; name: string } | null>(null)
+
+  const teamGames = useMemo(() => {
+    return games.filter(g =>
+      (g.home_team_id === teamId || g.away_team_id === teamId) && g.is_complete
+    )
+  }, [games, teamId])
+
+  const gp = teamGames.length || (standing.w + standing.l) || 1
+
+  const computed = useMemo(() => {
+    if (players.length === 0) return null
+
+    const totPts    = players.reduce((s, p) => s + p.pts, 0)
+    const totFgm    = players.reduce((s, p) => s + p.fgm, 0)
+    const totFga    = players.reduce((s, p) => s + p.fga, 0)
+    const totFg3m   = players.reduce((s, p) => s + p.fg3m, 0)
+    const totFg3a   = players.reduce((s, p) => s + p.fg3a, 0)
+    const totFtm    = players.reduce((s, p) => s + p.ftm, 0)
+    const totFta    = players.reduce((s, p) => s + p.fta, 0)
+    const totStl    = players.reduce((s, p) => s + p.stl, 0)
+    const totBlk    = players.reduce((s, p) => s + p.blk, 0)
+
+    const ppg    = totPts / gp
+    const fgPct  = totFga  > 0 ? totFgm / totFga * 100 : 0
+    const efgPct = totFga  > 0 ? (totFgm + 0.5 * totFg3m) / totFga * 100 : 0
+    const defPg  = (totStl + totBlk) / gp
+    const ftPct  = totFta  > 0 ? totFtm / totFta * 100 : 0
+    const threePct = totFga > 0 ? totFg3a / totFga * 100 : 0
+
+    // Top performers
+    const byPpg   = [...players].sort((a, b) => b.ppg   - a.ppg)[0]
+    const byRpg   = [...players].sort((a, b) => b.rpg   - a.rpg)[0]
+    const byApg   = [...players].sort((a, b) => b.apg   - a.apg)[0]
+    const byDef   = [...players].sort((a, b) => (b.spg + b.bpg) - (a.spg + a.bpg))[0]
+    const byEfg   = [...players].filter(p => p.fga > 0).sort((a, b) => b.efg_pct - a.efg_pct)[0]
+
+    // Fun: ace dependency
+    const topScorer = byPpg
+    const acePct = totPts > 0 && topScorer ? topScorer.pts / totPts * 100 : 0
+
+    return { ppg, fgPct, efgPct, defPg, ftPct, threePct, acePct, byPpg, byRpg, byApg, byDef, byEfg }
+  }, [players, gp])
+
+  const played = standing.w + standing.l
+  const winPct = played > 0 ? (standing.w / played * 100).toFixed(1) : '—'
+
+  // avg pts/allowed from games
+  const { avgPf, avgPa } = useMemo(() => {
+    if (teamGames.length === 0) return { avgPf: 0, avgPa: 0 }
+    let pf = 0; let pa = 0
+    for (const g of teamGames) {
+      if (g.home_team_id === teamId) { pf += g.home_score; pa += g.away_score }
+      else { pf += g.away_score; pa += g.home_score }
+    }
+    return { avgPf: pf / teamGames.length, avgPa: pa / teamGames.length }
+  }, [teamGames, teamId])
+
+  return (
+    <div
+      className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden mt-3"
+      style={{ borderTopColor: team.color, borderTopWidth: 3 }}
+    >
+      {/* Header */}
+      <div className="px-5 py-4 border-b border-gray-800/60 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
+          <span className="font-black text-white text-lg">{team.name}</span>
+          <span className="text-sm text-gray-500 font-semibold">{standing.w}승 {standing.l}패</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-4 text-sm">
+            <span className="text-gray-400">승률 <span className="font-black text-white">{winPct}{played > 0 ? '%' : ''}</span></span>
+            {avgPf > 0 && <span className="text-gray-400">평균득점 <span className="font-black text-green-400">{avgPf.toFixed(1)}</span></span>}
+            {avgPa > 0 && <span className="text-gray-400">평균실점 <span className="font-black text-red-400">{avgPa.toFixed(1)}</span></span>}
+          </div>
+        </div>
+      </div>
+
+      <div className="p-5 space-y-6">
+        {/* 모바일 요약 바 */}
+        <div className="sm:hidden flex flex-wrap gap-3 text-sm">
+          <span className="text-gray-400">승률 <span className="font-black text-white">{winPct}{played > 0 ? '%' : ''}</span></span>
+          {avgPf > 0 && <span className="text-gray-400">평균득점 <span className="font-black text-green-400">{avgPf.toFixed(1)}</span></span>}
+          {avgPa > 0 && <span className="text-gray-400">평균실점 <span className="font-black text-red-400">{avgPa.toFixed(1)}</span></span>}
+        </div>
+
+        {players.length === 0 ? (
+          <p className="text-gray-500 text-sm text-center py-6">팀 없음 — 스탯이 없습니다</p>
+        ) : (
+          <>
+            {/* B. 팀 스탯 Grid */}
+            {computed && (
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">팀 스탯</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {[
+                    { label: '팀 PPG', value: computed.ppg.toFixed(1), sub: '평균 득점', color: team.color },
+                    { label: '팀 FG%', value: `${computed.fgPct.toFixed(1)}%`, sub: '야투율', color: '#34d399' },
+                    { label: '팀 eFG%', value: `${computed.efgPct.toFixed(1)}%`, sub: '유효 야투율', color: '#2dd4bf' },
+                    { label: 'STL+BLK/G', value: computed.defPg.toFixed(1), sub: '수비 이벤트', color: '#a78bfa' },
+                  ].map(card => (
+                    <div key={card.label} className="bg-gray-800/60 rounded-xl p-3 text-center border border-gray-700/40">
+                      <div className="text-2xl font-black leading-none" style={{ color: card.color }}>{card.value}</div>
+                      <div className="text-[11px] font-bold text-white mt-1">{card.label}</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">{card.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* C. Top Performers */}
+            {computed && (
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">팀 내 1위</p>
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                  {[
+                    { label: '득점왕', player: computed.byPpg, val: computed.byPpg ? `${computed.byPpg.ppg.toFixed(1)} PPG` : null },
+                    { label: '리바운드', player: computed.byRpg, val: computed.byRpg ? `${computed.byRpg.rpg.toFixed(1)} RPG` : null },
+                    { label: '어시스트', player: computed.byApg, val: computed.byApg ? `${computed.byApg.apg.toFixed(1)} APG` : null },
+                    { label: '수비왕', player: computed.byDef, val: computed.byDef ? `${(computed.byDef.spg + computed.byDef.bpg).toFixed(1)} SPG+BPG` : null },
+                    { label: '효율왕', player: computed.byEfg, val: computed.byEfg ? `${computed.byEfg.efg_pct.toFixed(1)}% eFG` : null },
+                  ].filter(item => item.player && item.val).map(item => (
+                    <button
+                      key={item.label}
+                      onClick={() => item.player && setQuickView({ id: item.player.player_id, name: item.player.name })}
+                      className="shrink-0 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl px-3.5 py-2.5 text-left transition-colors cursor-pointer"
+                    >
+                      <div className="text-[10px] text-gray-500 font-bold mb-0.5">{item.label}</div>
+                      <div className="text-sm font-bold text-white whitespace-nowrap">{item.player?.name}</div>
+                      <div className="text-[11px] font-semibold whitespace-nowrap" style={{ color: team.color }}>{item.val}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* D. 재미있는 팀 통계 */}
+            {computed && (
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">팀 특성</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {[
+                    {
+                      title: '에이스 의존도',
+                      value: `${computed.acePct.toFixed(0)}%`,
+                      desc: `에이스 비중 ${computed.acePct.toFixed(0)}%`,
+                      colorClass: computed.acePct > 40 ? 'text-red-400' : computed.acePct > 30 ? 'text-yellow-400' : 'text-green-400',
+                    },
+                    {
+                      title: '외곽 스타일',
+                      value: `${computed.threePct.toFixed(0)}%`,
+                      desc: `3점 시도 비율`,
+                      colorClass: computed.threePct > 35 ? 'text-yellow-400' : 'text-blue-400',
+                    },
+                    {
+                      title: '수비 강도',
+                      value: computed.defPg.toFixed(1),
+                      desc: `게임당 수비 이벤트`,
+                      colorClass: computed.defPg > 5 ? 'text-green-400' : computed.defPg > 3 ? 'text-yellow-400' : 'text-gray-400',
+                    },
+                    {
+                      title: '자유투 성공률',
+                      value: `${computed.ftPct.toFixed(1)}%`,
+                      desc: `팀 클러치 지표`,
+                      colorClass: computed.ftPct > 75 ? 'text-green-400' : computed.ftPct > 60 ? 'text-yellow-400' : 'text-red-400',
+                    },
+                  ].map(tile => (
+                    <div key={tile.title} className="bg-gray-800/40 rounded-xl p-3 border border-gray-700/30">
+                      <div className={`text-xl font-black leading-none ${tile.colorClass}`}>{tile.value}</div>
+                      <div className="text-[11px] font-bold text-white mt-1">{tile.title}</div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">{tile.desc}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* E. Player Stats Table */}
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">선수 스탯</p>
+              <StatsTable players={players} leagueId={leagueId} color={team.color} />
+            </div>
+          </>
+        )}
+      </div>
+
+      {quickView && (
+        <PlayerQuickViewModal
+          leagueId={leagueId}
+          playerId={quickView.id}
+          playerName={quickView.name}
+          onClose={() => setQuickView(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────
 export default function LeagueTeamsPage() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
 
   const [quarters, setQuarters] = useState<Quarter[]>([])
-  const [selectedQId, setSelectedQId] = useState<string>('')
+  const [selectedQId, setSelectedQId] = useState<string | 'all'>('all')
   const [teams, setTeams] = useState<Team[]>([])
   const [games, setGames] = useState<Game[]>([])
   const [allStats, setAllStats] = useState<PlayerStat[]>([])
@@ -240,6 +454,7 @@ export default function LeagueTeamsPage() {
   const [leaders, setLeaders] = useState<Leader[]>([])
   const [loading, setLoading] = useState(true)
   const [dataLoading, setDataLoading] = useState(false)
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
 
   // 분기 + 팀 초기 로드
   useEffect(() => {
@@ -250,8 +465,9 @@ export default function LeagueTeamsPage() {
       setQuarters(qs ?? [])
       setTeams(ts ?? [])
       const cur = (qs ?? []).find((q: Quarter) => q.is_current) ?? (qs ?? []).at(-1)
+      // Default: current quarter if exists, otherwise 'all'
       if (cur) setSelectedQId(cur.id)
-      else setLoading(false)
+      else { setSelectedQId('all'); setLoading(false) }
     }).catch(() => setLoading(false))
   }, [leagueId])
 
@@ -259,26 +475,62 @@ export default function LeagueTeamsPage() {
   useEffect(() => {
     if (!selectedQId) return
     setDataLoading(true)
-    Promise.all([
-      fetch(`/api/leagues/${leagueId}/games?quarterId=${selectedQId}&complete=true`).then(r => r.json()),
-      fetch(`/api/leagues/${leagueId}/stats?quarterId=${selectedQId}`).then(r => r.json()),
-      fetch(`/api/leagues/${leagueId}/quarters/${selectedQId}/players`).then(r => r.json()),
-      fetch(`/api/leagues/${leagueId}/quarters/${selectedQId}/leaders`).then(r => r.json()),
-    ]).then(([gs, st, qp, ld]) => {
-      setGames(gs ?? [])
-      setAllStats(st.players ?? [])
-      setQPlayers(qp ?? [])
-      setLeaders(ld ?? [])
-      setLoading(false)
-      setDataLoading(false)
-    }).catch(() => { setLoading(false); setDataLoading(false) })
+
+    if (selectedQId === 'all') {
+      // 전체 모드: no quarterId param, merge all qPlayers
+      Promise.all([
+        fetch(`/api/leagues/${leagueId}/games?complete=true`).then(r => r.json()),
+        fetch(`/api/leagues/${leagueId}/stats`).then(r => r.json()),
+      ]).then(async ([gs, st]) => {
+        setGames(gs ?? [])
+        setAllStats(st.players ?? [])
+        setLeaders([]) // no leaders in all mode
+
+        // Merge qPlayers from all quarters
+        if (quarters.length > 0) {
+          const allQPlayerResults = await Promise.all(
+            quarters.map(q =>
+              fetch(`/api/leagues/${leagueId}/quarters/${q.id}/players`).then(r => r.json())
+            )
+          )
+          const playerTeamMap: Record<string, QuarterPlayer> = {}
+          for (const qResult of allQPlayerResults) {
+            for (const p of (qResult ?? []) as QuarterPlayer[]) {
+              if (!playerTeamMap[p.id] || (p.is_regular && p.team_id)) {
+                playerTeamMap[p.id] = p
+              }
+            }
+          }
+          setQPlayers(Object.values(playerTeamMap))
+        } else {
+          setQPlayers([])
+        }
+
+        setLoading(false)
+        setDataLoading(false)
+      }).catch(() => { setLoading(false); setDataLoading(false) })
+    } else {
+      Promise.all([
+        fetch(`/api/leagues/${leagueId}/games?quarterId=${selectedQId}&complete=true`).then(r => r.json()),
+        fetch(`/api/leagues/${leagueId}/stats?quarterId=${selectedQId}`).then(r => r.json()),
+        fetch(`/api/leagues/${leagueId}/quarters/${selectedQId}/players`).then(r => r.json()),
+        fetch(`/api/leagues/${leagueId}/quarters/${selectedQId}/leaders`).then(r => r.json()),
+      ]).then(([gs, st, qp, ld]) => {
+        setGames(gs ?? [])
+        setAllStats(st.players ?? [])
+        setQPlayers(qp ?? [])
+        setLeaders(ld ?? [])
+        setLoading(false)
+        setDataLoading(false)
+      }).catch(() => { setLoading(false); setDataLoading(false) })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId, selectedQId])
 
   // ── 데이터 가공 ───────────────────────────────────────────
   const teamMap = useMemo(() => Object.fromEntries(teams.map(t => [t.id, t])), [teams])
   const leaderMap = useMemo(() => Object.fromEntries(leaders.map(l => [l.team_id, l.leader_player_id])), [leaders])
 
-  // 정규/비정규 선수 구분
   const regularTeamMap = useMemo(() => {
     const m: Record<string, string> = {}
     for (const p of qPlayers) { if (p.is_regular && p.team_id) m[p.id] = p.team_id }
@@ -290,7 +542,6 @@ export default function LeagueTeamsPage() {
     return new Set(qPlayers.filter(p => !p.is_regular).map(p => p.id).filter(id => !reg.has(id)))
   }, [qPlayers, regularTeamMap])
 
-  // 팀별 전적 계산
   const standings = useMemo(() => {
     const st: Record<string, { w: number; l: number; gf: number; ga: number; teamId: string }> = {}
     for (const t of teams) st[t.id] = { w: 0, l: 0, gf: 0, ga: 0, teamId: t.id }
@@ -311,7 +562,6 @@ export default function LeagueTeamsPage() {
       })
   }, [teams, games])
 
-  // 상대 전적 (H2H)
   const h2h = useMemo(() => {
     const m: Record<string, Record<string, { w: number; l: number }>> = {}
     for (const t of teams) { m[t.id] = {}; for (const t2 of teams) if (t.id !== t2.id) m[t.id][t2.id] = { w: 0, l: 0 } }
@@ -324,7 +574,6 @@ export default function LeagueTeamsPage() {
     return m
   }, [teams, games])
 
-  // 팀별 선수 스탯
   const teamStats = useMemo(() => {
     const m: Record<string, PlayerStat[]> = {}
     for (const t of teams) m[t.id] = []
@@ -335,7 +584,6 @@ export default function LeagueTeamsPage() {
     return m
   }, [allStats, teams, regularTeamMap])
 
-  // 비정규 선수 스탯
   const irregularStats = useMemo(() => allStats.filter(s => irregularIds.has(s.player_id)), [allStats, irregularIds])
 
   const rosterHref = `/league/${orgSlug}/${leagueId}/roster`
@@ -357,6 +605,17 @@ export default function LeagueTeamsPage() {
       <div>
         <h2 className="text-xl font-bold text-white mb-3">팀 구성</h2>
         <div className="flex flex-wrap gap-2">
+          {/* 전체 버튼 */}
+          <button
+            onClick={() => setSelectedQId('all')}
+            className={`px-4 py-1.5 rounded-xl text-sm font-bold border transition-all cursor-pointer ${
+              selectedQId === 'all'
+                ? 'bg-blue-600 border-blue-500 text-white shadow-lg'
+                : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
+            }`}
+          >
+            전체
+          </button>
           {quarters.map(q => (
             <button key={q.id} onClick={() => setSelectedQId(q.id)}
               className={`px-4 py-1.5 rounded-xl text-sm font-bold border transition-all cursor-pointer ${
@@ -378,17 +637,34 @@ export default function LeagueTeamsPage() {
         {/* ── 섹션 1: 팀별 전적 + 상대 전적 ── */}
         <div className="space-y-3">
           <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">팀 전적</h3>
+
+          {/* 팀 카드 그리드 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {standings.map((s, idx) => {
               const t = teamMap[s.teamId]
               if (!t) return null
               const played = s.w + s.l
               const winPct = played > 0 ? (s.w / played * 100).toFixed(1) : '—'
+              const isSelected = selectedTeamId === t.id
               return (
-                <div key={t.id} className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden"
-                  style={{ borderTopColor: t.color, borderTopWidth: 3 }}>
-                  {/* 팀 헤더 */}
-                  <div className="px-4 py-3 flex items-center justify-between border-b border-gray-800/60">
+                <div
+                  key={t.id}
+                  className={`bg-gray-900 border rounded-2xl overflow-hidden transition-all ${
+                    isSelected ? 'border-gray-600 ring-1' : 'border-gray-800'
+                  }`}
+                  style={{
+                    borderTopColor: t.color,
+                    borderTopWidth: 3,
+                    ...(isSelected ? { ringColor: t.color } : {}),
+                  }}
+                >
+                  {/* 팀 헤더 — 클릭하면 상세 패널 토글 */}
+                  <button
+                    className="w-full px-4 py-3 flex items-center justify-between border-b border-gray-800/60 hover:bg-gray-800/30 transition-colors cursor-pointer"
+                    onClick={() => setSelectedTeamId(prev => prev === t.id ? null : t.id)}
+                    aria-expanded={isSelected}
+                    aria-label={`${t.name} 상세 정보 ${isSelected ? '닫기' : '열기'}`}
+                  >
                     <div className="flex items-center gap-2">
                       <span className="text-2xl font-black text-gray-500 font-mono w-8">{idx + 1}</span>
                       <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
@@ -398,7 +674,7 @@ export default function LeagueTeamsPage() {
                       <p className="text-2xl font-black" style={{ color: t.color }}>{winPct}{played > 0 ? '%' : ''}</p>
                       <p className="text-xs text-gray-600">{s.w}승 {s.l}패 · {played}경기</p>
                     </div>
-                  </div>
+                  </button>
                   {/* 상대 전적 */}
                   <div className="px-4 py-3 space-y-1.5">
                     <p className="text-xs text-gray-500 uppercase font-bold mb-2">상대 전적</p>
@@ -427,6 +703,33 @@ export default function LeagueTeamsPage() {
               )
             })}
           </div>
+
+          {/* 선택된 팀 상세 패널 (그리드 아래에 full-width) */}
+          {selectedTeamId && teamMap[selectedTeamId] && (() => {
+            const selStanding = standings.find(s => s.teamId === selectedTeamId)
+            if (!selStanding) return null
+            return (
+              <div className="relative">
+                <button
+                  className="absolute top-4 right-4 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  onClick={() => setSelectedTeamId(null)}
+                  aria-label="패널 닫기"
+                >
+                  <X size={14} />
+                </button>
+                <TeamDetailPanel
+                  teamId={selectedTeamId}
+                  team={teamMap[selectedTeamId]}
+                  standing={selStanding}
+                  h2h={h2h[selectedTeamId] ?? {}}
+                  players={teamStats[selectedTeamId] ?? []}
+                  allTeams={teams}
+                  leagueId={leagueId}
+                  games={games}
+                />
+              </div>
+            )
+          })()}
         </div>
 
         {/* ── 섹션 2: 팀별 선수 스탯 ── */}
