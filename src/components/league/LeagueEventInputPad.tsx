@@ -452,7 +452,8 @@ export default function LeagueEventInputPad({
         )}
       </div>
 
-      {/* ── 선수 선택: 두 팀 2열 ── */}
+      {/* ── 선수 선택: 두 팀 2열 (연계 동작 중에는 숨김) ── */}
+      {!pendingShot && !awaitingAssist && !awaitingRebound && !awaitingTovPair && !addingAssistForLast && (
       <div className="grid grid-cols-2 gap-2">
         <div>
           <div className="flex items-center justify-between mb-1.5 px-2 py-1 rounded-lg"
@@ -475,6 +476,7 @@ export default function LeagueEventInputPad({
           </div>
         </div>
       </div>
+      )}
 
       {/* ── 리바운드 선택 (슛 실패 / 블락 / FT 미스 공통) ── */}
       {awaitingRebound && (
@@ -515,7 +517,9 @@ export default function LeagueEventInputPad({
       {/* ── 이벤트 버튼 (선수 선택 후) ── */}
       {selectedPlayer && !awaitingAssist && !addingAssistForLast && !awaitingRebound && !awaitingTovPair && (
         <div className="space-y-2 pt-1">
-          {EVENT_GROUPS.map(group => {
+          {EVENT_GROUPS
+            .filter(group => !pendingShot || group.buttons.some(b => b.type === pendingShot.type))
+            .map(group => {
             const groupHasPending = pendingShot && group.buttons.some(b => b.type === pendingShot.type)
             return (
               <div key={group.label}>
