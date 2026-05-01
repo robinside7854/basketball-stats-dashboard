@@ -67,11 +67,15 @@ export async function GET(
   }
   const home: PlayerRow[] = []
   const away: PlayerRow[] = []
+  const includedIds = new Set<string>()
 
+  // 정규 선수: league_player_quarters (is_regular=true or null)
   for (const m of memberships ?? []) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = (Array.isArray(m.league_players) ? m.league_players[0] : m.league_players) as any
     if (!p) continue
+    // 비정규이고 team_id 없는 경우는 스킵 (league_game_players로 처리)
+    if (m.is_regular === false && !m.team_id) continue
     const row: PlayerRow = {
       id: p.id,
       name: p.name,
@@ -82,9 +86,37 @@ export async function GET(
       is_regular: m.is_regular,
       team_id: m.team_id,
     }
-    if (m.team_id === game.home_team_id) home.push(row)
-    else if (m.team_id === game.away_team_id) away.push(row)
+    if (m.team_id === game.home_team_id) { home.push(row); includedIds.add(p.id) }
+    else if (m.team_id === game.away_team_id) { away.push(row); includedIds.add(p.id) }
   }
+
+  // 비정규 선수: league_game_players (이 경기에만 유효한 per-game 배정)
+  const { data: gamePlayers } = await supabase
+    .from('league_game_players')
+    .select('league_player_id, team_id, league_players!inner(id, name, number, position, birth_date, plus_one)')
+    .eq('league_game_id', gameId)
+
+  for (const gp of gamePlayers ?? []) {
+    if (includedIds.has(gp.league_player_id)) continue // 이미 포함된 경우 스킵
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = (Array.isArray(gp.league_players) ? gp.league_players[0] : gp.league_players) as any
+    if (!p) continue
+    const row: PlayerRow = {
+      id: p.id,
+      name: p.name,
+      number: p.number,
+      position: p.position,
+      birth_date: p.birth_date ?? null,
+      plus_one: p.plus_one ?? false,
+      is_regular: false,
+      team_id: gp.team_id,
+    }
+    if (gp.team_id === game.home_team_id) { home.push(row); includedIds.add(p.id) }
+    else if (gp.team_id === game.away_team_id) { away.push(row); includedIds.add(p.id) }
+  }
+
+  // 이 경기에 이미 배정된 비정규 선수 ID 목록 (picker 필터용)
+  const assignedIrregularIds = (gamePlayers ?? []).map(gp => gp.league_player_id)
 
   // 이름 정렬
   home.sort((a, b) => a.name.localeCompare(b.name))
@@ -95,5 +127,6 @@ export async function GET(
     away,
     unassigned: [],
     quarter_id: game.quarter_id,
+    assigned_irregular_ids: assignedIrregularIds,
   })
 }

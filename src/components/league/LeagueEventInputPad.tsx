@@ -71,7 +71,7 @@ const FT_TYPES   = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'and_one']
 function calcPoints(type: string, result: string, isPlusOne = false): number {
   if (result !== 'made') return 0
   if (type === 'and_one')   return 1   // 득점인정반칙: 슛 성공 + 1점 추가
-  if (type === 'ft_2pt')    return 1
+  if (type === 'ft_2pt')    return 2   // 2점 파울 FT: 1회 시도로 2점
   if (type === 'ft_3pt_1')  return 1
   if (type === 'ft_3pt_2')  return 1
   if (type === 'free_throw') return 1
@@ -164,7 +164,7 @@ export default function LeagueEventInputPad({
       toast.success(`기록: ${lbl}`)
       setAwaitingAssist(false)
       setPendingResult(null)
-      if (!FT_TYPES.includes(shot.type)) setPendingShot(null)
+      if (!FT_TYPES.includes(shot.type) || shot.type === 'ft_2pt') setPendingShot(null)
       onEventSaved()
     }, 3000)
     return () => { clearTimeout(timer); clearInterval(tick) }
@@ -206,7 +206,7 @@ export default function LeagueEventInputPad({
     toast.success(`기록: ${lbl}`)
     setAwaitingAssist(false)
     setPendingResult(null)
-    if (!FT_TYPES.includes(shotType)) setPendingShot(null)
+    if (!FT_TYPES.includes(shotType) || shotType === 'ft_2pt') setPendingShot(null)
     onEventSaved()
 
     // Phase 1-B: 마지막 자유투 실패 시 리바운드 피커 자동 등장

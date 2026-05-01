@@ -180,21 +180,21 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   async function loadRoster(slot: GameSlot) {
     if (!slot.home_team_id || !slot.away_team_id) return
     setRosterLoading(true)
+    let assignedIrregularIds: string[] = []
     const rRes = await fetch(`/api/leagues/${leagueId}/games/${slot.id}/roster`)
     if (rRes.ok) {
       const rd = await rRes.json()
-      const home: RosterPlayer[] = rd.home ?? []
-      const away: RosterPlayer[] = rd.away ?? []
-      // team_id 배정된 선수 전원 포함 (비정규도 팀에 배정되면 선택 가능)
-      setHomeRoster(home)
-      setAwayRoster(away)
+      setHomeRoster(rd.home ?? [])
+      setAwayRoster(rd.away ?? [])
+      assignedIrregularIds = rd.assigned_irregular_ids ?? []
     }
-    // 비정규 선수: quarter players에서 is_regular=false (team_id 없는 것 위주) 로드
+    // 비정규 선수 picker: 분기 내 비정규 선수 중 이 경기에 아직 배정 안 된 선수
     if (slot.quarter_id) {
       const qRes = await fetch(`/api/leagues/${leagueId}/quarters/${slot.quarter_id}/players`)
       if (qRes.ok) {
         const qd: IrregularPlayer[] = await qRes.json()
-        setIrregularRoster(qd.filter(p => p.is_regular === false))
+        const assignedSet = new Set(assignedIrregularIds)
+        setIrregularRoster(qd.filter(p => p.is_regular === false && !assignedSet.has(p.id)))
       } else {
         setIrregularRoster([])
       }
@@ -474,17 +474,17 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     }
   }
 
-  // 비정규 선수를 홈/어웨이 팀에 추가
+  // 비정규 선수를 홈/어웨이 팀에 추가 (해당 날짜 경기에만 유효)
   async function addIrregularToTeam(player: IrregularPlayer, side: 'home' | 'away') {
-    if (!selectedSlot?.quarter_id) { toast.error('분기 정보가 없습니다'); return }
-    const teamId = side === 'home' ? selectedSlot.home_team_id : selectedSlot.away_team_id
+    if (!selectedSlotId) { toast.error('경기를 선택하세요'); return }
+    const teamId = side === 'home' ? selectedSlot?.home_team_id : selectedSlot?.away_team_id
     if (!teamId) { toast.error('팀이 지정되지 않았습니다'); return }
     setAddingIrregular(true)
-    // 분기 멤버십을 팀에 묶음 (여전히 is_regular=false 유지 — 일회성 추가)
-    const res = await fetch(`/api/leagues/${leagueId}/quarters/${selectedSlot.quarter_id}/players`, {
-      method: 'PATCH',
+    // 경기별 배정 (league_game_players) — 같은 날짜 같은 팀 경기에도 자동 배정
+    const res = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/irregular-players`, {
+      method: 'POST',
       headers: leagueHeaders,
-      body: JSON.stringify({ league_player_id: player.id, team_id: teamId, is_regular: false }),
+      body: JSON.stringify({ league_player_id: player.id, team_id: teamId }),
     })
     if (!res.ok) {
       setAddingIrregular(false)
@@ -505,7 +505,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     if (selectedSlot) await loadRoster(selectedSlot)
     setPendingIrregular(null)
     setAddingIrregular(false)
-    toast.success(`${player.name} → ${side === 'home' ? selectedSlot.home_team?.name ?? '홈' : selectedSlot.away_team?.name ?? '어웨이'} 추가됨`)
+    toast.success(`${player.name} → ${side === 'home' ? selectedSlot?.home_team?.name ?? '홈' : selectedSlot?.away_team?.name ?? '어웨이'} 추가됨`)
   }
 
   // 이미 홈/어웨이 명단에 들어있는지 체크
