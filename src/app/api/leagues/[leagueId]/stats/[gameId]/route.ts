@@ -58,8 +58,9 @@ export async function GET(
     else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post' || e.type === 'shot_2p_drive') { s.fga++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 } }
     // 앤드원: FTA/FTM 제외, 득점 +1만
     else if (e.type === 'and_one') { if (made) s.pts += 1 }
-    // 자유투: 1구 = 1점 고정
-    else if (['free_throw','ft_2pt','ft_3pt_1','ft_3pt_2'].includes(e.type as string)) {
+    // ft_2pt: 1회 시도 2점 / 나머지 자유투: 1점
+    else if (e.type === 'ft_2pt') { s.fta++; if (made) { s.ftm++; s.pts += 2 } }
+    else if (['free_throw','ft_3pt_1','ft_3pt_2'].includes(e.type as string)) {
       s.fta++; if (made) { s.ftm++; s.pts += 1 }
     }
     else if (e.type === 'oreb') { s.oreb++; s.reb++ }

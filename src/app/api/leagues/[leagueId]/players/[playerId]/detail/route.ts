@@ -206,7 +206,8 @@ export async function GET(
     if (made) {
       if (e.type === 'shot_3p') { s.pts += isP1 ? 4 : 3; s.fg3m++; s.fgm++ }
       else if (['shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'].includes(e.type as string)) { s.pts += isP1 ? 3 : 2; s.fgm++ }
-      else if (['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) { s.pts += 1; s.ftm++ }
+      else if (e.type === 'ft_2pt') { s.pts += 2; s.ftm++ }
+      else if (['free_throw', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) { s.pts += 1; s.ftm++ }
       else if (e.type === 'and_one') { s.pts += 1; s.andOneM++ }
     }
     if (e.type === 'shot_3p') { s.fg3a++; s.fga++ }

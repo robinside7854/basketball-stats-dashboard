@@ -34,9 +34,9 @@ export async function POST(
     if (type === 'shot_3p') return isP1 ? 4 : 3
     if (SHOT_TYPES.includes(type)) return isP1 ? 3 : 2
     if (type === 'and_one')   return 1   // 득점인정반칙 추가 1점
-    if (type === 'ft_2pt') return 1
-    if (type === 'ft_3pt_1') return 1
-    if (type === 'ft_3pt_2') return 1
+    if (type === 'ft_2pt')    return 2   // 2점파울 FT: 1회 시도 2점
+    if (type === 'ft_3pt_1')  return 1
+    if (type === 'ft_3pt_2')  return 1
     if (type === 'free_throw') return 1
     return 0
   }

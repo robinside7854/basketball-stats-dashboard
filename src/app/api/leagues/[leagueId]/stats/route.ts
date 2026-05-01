@@ -113,8 +113,10 @@ export async function GET(
       // 앤드원: FTA/FTM 제외, 득점 +1만
       case 'and_one':
         if (made) s.pts += 1; break
-      // 자유투: 1구 = 1점 고정
-      case 'free_throw': case 'ft_2pt': case 'ft_3pt_1': case 'ft_3pt_2':
+      // ft_2pt: 1회 시도 2점 / 나머지 자유투: 1점
+      case 'ft_2pt':
+        s.fta++; if (made) { s.ftm++; s.pts += 2 }; break
+      case 'free_throw': case 'ft_3pt_1': case 'ft_3pt_2':
         s.fta++; if (made) { s.ftm++; s.pts += 1 }; break
       case 'oreb': s.oreb++; s.reb++; break
       case 'dreb': s.dreb++; s.reb++; break
