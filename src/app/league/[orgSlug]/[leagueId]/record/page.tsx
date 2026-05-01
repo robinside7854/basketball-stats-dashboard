@@ -817,16 +817,9 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       <CheckCircle2 size={13} className="text-gray-600" />경기 마감 완료
                     </div>
                   ) : !gameStarted ? (
-                    <Button
-                      onClick={startGame}
-                      disabled={startingGame || rosterLoading || (homeRoster.length === 0 && awayRoster.length === 0)}
-                      className="w-full bg-green-600 hover:bg-green-500 cursor-pointer"
-                      size="sm"
-                    >
-                      {startingGame
-                        ? <><Loader2 size={13} className="mr-1 animate-spin" />시작 중...</>
-                        : <><Play size={13} className="mr-1" />경기 시작</>}
-                    </Button>
+                    <div className="flex items-center justify-center gap-2 py-1.5 rounded-lg bg-gray-800/40 border border-gray-700/40 text-gray-600 text-xs">
+                      <Play size={12} />우측에서 선발 선수 선택 후 시작
+                    </div>
                   ) : (
                     <div className="flex gap-2">
                       <div className="flex-1 py-1.5 rounded-lg bg-green-900/30 border border-green-800/50 text-green-400 text-xs text-center font-medium">
@@ -1027,7 +1020,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             </span>
                             <button onClick={() => selectAllTeam('home')} className="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer">전체</button>
                           </div>
-                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                          <div className="space-y-1">
                             {homeRoster.map(p => {
                               const checked = selectedStarters.has(p.id)
                               return (
@@ -1053,7 +1046,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             </span>
                             <button onClick={() => selectAllTeam('away')} className="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer">전체</button>
                           </div>
-                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                          <div className="space-y-1">
                             {awayRoster.map(p => {
                               const checked = selectedStarters.has(p.id)
                               return (
@@ -1070,6 +1063,17 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                           </div>
                         </div>
                       </div>
+
+                      {/* 경기 시작 버튼 — 선발 선택 바로 아래 */}
+                      <Button
+                        onClick={startGame}
+                        disabled={startingGame || rosterLoading || (homeRoster.length === 0 && awayRoster.length === 0)}
+                        className="w-full bg-green-600 hover:bg-green-500 cursor-pointer"
+                      >
+                        {startingGame
+                          ? <><Loader2 size={14} className="mr-1.5 animate-spin" />시작 중...</>
+                          : <><Play size={14} className="mr-1.5" />경기 시작</>}
+                      </Button>
                     </div>
                   )}
                 </div>
