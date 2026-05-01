@@ -277,15 +277,6 @@ export default function LeagueEventInputPad({
     toast.success(`기록: ${lbl}`)
     onEventSaved()
 
-    // Phase 1-A: 블락 후 리바운드 피커 자동 등장
-    if (btn.type === 'block') {
-      // 블락한 선수의 반대팀이 슛을 쐈으므로, 그 팀이 공격리바 기준
-      const blockerTeamId = selectedTeamId
-      const offenseTeamId = blockerTeamId === homeTeam?.id ? awayTeam?.id : homeTeam?.id
-      setReboundShooterTeamId(offenseTeamId ?? null)
-      setAwaitingRebound(true)
-    }
-
     // Phase 2-G: 스틸 후 상대팀 TOV 페어 피커
     if (btn.type === 'steal') {
       setStealerTeamId(selectedTeamId)

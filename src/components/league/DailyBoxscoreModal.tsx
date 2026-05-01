@@ -269,16 +269,21 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                       <p className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-2.5">당일 스탯 리더</p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
                         {leaders.map(({ icon, label, name, val, sub }) => (
-                          <div key={label} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 flex flex-col gap-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-base">{icon}</span>
-                              <span className="text-[10px] text-gray-500 font-bold uppercase">{label}</span>
+                          <div key={label} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 flex flex-col gap-0.5">
+                            {/* 카테고리 레이블 */}
+                            <div className="flex items-center gap-1 mb-1">
+                              <span className="text-sm">{icon}</span>
+                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">{label}</span>
                             </div>
-                            <p className="text-xl font-black text-white tabular-nums leading-none">
-                              {val ?? '—'}
+                            {/* 선수 이름 — 주인공 */}
+                            <p className="text-base font-black text-white leading-tight truncate">
+                              {name ?? '—'}
                             </p>
-                            <p className="text-xs text-gray-400 font-medium truncate">{name ?? '—'}</p>
-                            {sub && <p className="text-[10px] text-gray-600">{sub}</p>}
+                            {/* 기록 — 보조 */}
+                            <p className="text-xs font-bold tabular-nums" style={{ color: '#60a5fa' }}>
+                              {val ?? ''}
+                            </p>
+                            {sub && <p className="text-[10px] text-gray-500">{sub}</p>}
                           </div>
                         ))}
                       </div>
