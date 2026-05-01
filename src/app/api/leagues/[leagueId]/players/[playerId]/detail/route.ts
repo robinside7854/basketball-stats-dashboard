@@ -108,7 +108,9 @@ export async function GET(
       case 'shot_2p_drive': s.fga++; sb.drive.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.drive.m++ }; break
       case 'and_one':
         if (made) { s.pts += 1 }; break
-      case 'free_throw': case 'ft_2pt': case 'ft_3pt_1': case 'ft_3pt_2':
+      case 'ft_2pt':
+        s.fta++; sb.ft.a++; if (made) { s.ftm++; s.pts += 2; sb.ft.m++ }; break
+      case 'free_throw': case 'ft_3pt_1': case 'ft_3pt_2':
         s.fta++; sb.ft.a++; if (made) { s.ftm++; s.pts += 1; sb.ft.m++ }; break
       case 'oreb': s.oreb++; s.reb++; break
       case 'dreb': s.dreb++; s.reb++; break
