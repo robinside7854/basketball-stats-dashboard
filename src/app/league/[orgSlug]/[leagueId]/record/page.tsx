@@ -106,6 +106,13 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
   const selectedSlot = slots.find(s => s.id === selectedSlotId) ?? null
 
+  // 팀 로스터 로드 시 선발 전체 선택으로 자동 초기화
+  useEffect(() => {
+    if (!gameStarted && (homeRoster.length > 0 || awayRoster.length > 0)) {
+      setSelectedStarters(new Set([...homeRoster, ...awayRoster].map(p => p.id)))
+    }
+  }, [homeRoster, awayRoster]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function bulkSyncYoutube() {
     if (!leagueYtChannel) { toast.error('설정 탭에서 YouTube 채널을 먼저 지정하세요'); return }
     const targets = scheduleDates.filter(sd => {
@@ -739,6 +746,17 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             </div>
           </div>
 
+          {/* 영상 먼저 — 팀 미지정이어도 슬롯 선택 시 즉시 표시 */}
+          {selectedSlot.youtube_url && !selectedSlot.home_team_id && (
+            <div className="mb-4 rounded-xl overflow-hidden bg-black">
+              <YouTubePlayer
+                key={selectedSlot.youtube_url + '-pre'}
+                youtubeUrl={selectedSlot.youtube_url}
+                startOffset={selectedSlot.youtube_start_offset ?? 0}
+              />
+            </div>
+          )}
+
           {/* 팀이 지정된 경우: 비디오(좌) + 기록(우) 2열 레이아웃 */}
           {selectedSlot.home_team_id && selectedSlot.away_team_id ? (
             <>
@@ -800,14 +818,14 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                     </div>
                   ) : !gameStarted ? (
                     <Button
-                      onClick={openStarterPicker}
+                      onClick={startGame}
                       disabled={startingGame || rosterLoading || (homeRoster.length === 0 && awayRoster.length === 0)}
                       className="w-full bg-green-600 hover:bg-green-500 cursor-pointer"
                       size="sm"
                     >
                       {startingGame
                         ? <><Loader2 size={13} className="mr-1 animate-spin" />시작 중...</>
-                        : <><Play size={13} className="mr-1" />경기 시작 (선발 선택)</>}
+                        : <><Play size={13} className="mr-1" />경기 시작</>}
                     </Button>
                   ) : (
                     <div className="flex gap-2">
@@ -991,8 +1009,67 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       </div>
                     </>
                   ) : (
-                    <div className="text-center py-12 text-gray-600 text-sm">
-                      경기 시작 버튼을 눌러 기록을 시작하세요
+                    /* 인라인 선발 선수 선택 — 영상 보면서 선택 가능 */
+                    <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-bold text-white">선발 선수 선택</h4>
+                        <span className="text-xs text-gray-500">{selectedStarters.size}명 선택됨</span>
+                      </div>
+                      <p className="text-xs text-gray-500">영상을 보면서 출전 선수를 확인하세요. 미선택 선수는 벤치 시작입니다.</p>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* 홈팀 */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded"
+                              style={{ color: selectedSlot?.home_team?.color ?? '#3b82f6', backgroundColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}22` }}>
+                              {selectedSlot?.home_team?.name ?? '홈팀'}
+                            </span>
+                            <button onClick={() => selectAllTeam('home')} className="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer">전체</button>
+                          </div>
+                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                            {homeRoster.map(p => {
+                              const checked = selectedStarters.has(p.id)
+                              return (
+                                <label key={p.id} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer border text-xs transition-colors ${
+                                  checked ? 'bg-blue-900/30 border-blue-700/50 text-white' : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:bg-gray-800'
+                                }`}>
+                                  <input type="checkbox" checked={checked} onChange={() => toggleStarter(p.id)} className="w-3.5 h-3.5 cursor-pointer accent-blue-500" />
+                                  {p.number && <span className="font-mono text-gray-600 w-6">#{p.number}</span>}
+                                  <span className="font-medium">{p.name}</span>
+                                </label>
+                              )
+                            })}
+                            {homeRoster.length === 0 && <p className="text-xs text-gray-600 px-2 py-2">선수 없음</p>}
+                          </div>
+                        </div>
+
+                        {/* 어웨이팀 */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded"
+                              style={{ color: selectedSlot?.away_team?.color ?? '#ef4444', backgroundColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}22` }}>
+                              {selectedSlot?.away_team?.name ?? '어웨이팀'}
+                            </span>
+                            <button onClick={() => selectAllTeam('away')} className="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer">전체</button>
+                          </div>
+                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                            {awayRoster.map(p => {
+                              const checked = selectedStarters.has(p.id)
+                              return (
+                                <label key={p.id} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer border text-xs transition-colors ${
+                                  checked ? 'bg-red-900/30 border-red-700/50 text-white' : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:bg-gray-800'
+                                }`}>
+                                  <input type="checkbox" checked={checked} onChange={() => toggleStarter(p.id)} className="w-3.5 h-3.5 cursor-pointer accent-red-500" />
+                                  {p.number && <span className="font-mono text-gray-600 w-6">#{p.number}</span>}
+                                  <span className="font-medium">{p.name}</span>
+                                </label>
+                              )
+                            })}
+                            {awayRoster.length === 0 && <p className="text-xs text-gray-600 px-2 py-2">선수 없음</p>}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1044,188 +1121,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       disabled={addingIrregular}
                       className="w-full py-1.5 rounded-lg bg-gray-800 text-gray-400 text-xs cursor-pointer hover:bg-gray-700"
                     >취소</button>
-                  </div>
-                </div>
-              )}
-
-              {/* 선발 체크 모달 */}
-              {showStarterPicker && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-                  <div className="bg-gray-900 border border-gray-700 rounded-2xl p-5 w-full max-w-2xl max-h-[85vh] overflow-y-auto space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-white font-bold">선발 선수 선택</h3>
-                      <span className="text-xs text-gray-500">{selectedStarters.size}명 선택됨</span>
-                    </div>
-                    <p className="text-xs text-gray-400">출전할 선수를 체크하세요. 선택되지 않은 선수는 벤치에서 시작합니다.</p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* 홈팀 */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span
-                            className="text-xs font-bold px-2 py-0.5 rounded"
-                            style={{
-                              color: selectedSlot?.home_team?.color ?? '#3b82f6',
-                              backgroundColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}22`,
-                            }}
-                          >
-                            {selectedSlot?.home_team?.name ?? '홈팀'} ({homeRoster.length}명)
-                          </span>
-                          <button
-                            onClick={() => selectAllTeam('home')}
-                            className="text-[11px] text-blue-400 hover:text-blue-300 cursor-pointer"
-                          >
-                            전체 선택
-                          </button>
-                        </div>
-                        <div className="space-y-1">
-                          {homeRoster.map(p => {
-                            const checked = selectedStarters.has(p.id)
-                            return (
-                              <label
-                                key={p.id}
-                                className={`flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer border transition-colors ${
-                                  checked
-                                    ? 'bg-blue-900/30 border-blue-700/50 text-white'
-                                    : 'bg-gray-800/50 border-gray-700 text-gray-300 hover:bg-gray-800'
-                                }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() => toggleStarter(p.id)}
-                                  className="w-4 h-4 cursor-pointer accent-blue-500"
-                                />
-                                <span className="text-xs font-mono text-gray-500 w-7">
-                                  {p.number ? `#${p.number}` : ''}
-                                </span>
-                                <span className="text-sm font-medium">{p.name}</span>
-                              </label>
-                            )
-                          })}
-                          {homeRoster.length === 0 && (
-                            <p className="text-xs text-gray-600 px-2 py-3">홈팀 선수가 없습니다</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* 어웨이팀 */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span
-                            className="text-xs font-bold px-2 py-0.5 rounded"
-                            style={{
-                              color: selectedSlot?.away_team?.color ?? '#ef4444',
-                              backgroundColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}22`,
-                            }}
-                          >
-                            {selectedSlot?.away_team?.name ?? '어웨이팀'} ({awayRoster.length}명)
-                          </span>
-                          <button
-                            onClick={() => selectAllTeam('away')}
-                            className="text-[11px] text-blue-400 hover:text-blue-300 cursor-pointer"
-                          >
-                            전체 선택
-                          </button>
-                        </div>
-                        <div className="space-y-1">
-                          {awayRoster.map(p => {
-                            const checked = selectedStarters.has(p.id)
-                            return (
-                              <label
-                                key={p.id}
-                                className={`flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer border transition-colors ${
-                                  checked
-                                    ? 'bg-blue-900/30 border-blue-700/50 text-white'
-                                    : 'bg-gray-800/50 border-gray-700 text-gray-300 hover:bg-gray-800'
-                                }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={() => toggleStarter(p.id)}
-                                  className="w-4 h-4 cursor-pointer accent-blue-500"
-                                />
-                                <span className="text-xs font-mono text-gray-500 w-7">
-                                  {p.number ? `#${p.number}` : ''}
-                                </span>
-                                <span className="text-sm font-medium">{p.name}</span>
-                              </label>
-                            )
-                          })}
-                          {awayRoster.length === 0 && (
-                            <p className="text-xs text-gray-600 px-2 py-3">어웨이팀 선수가 없습니다</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 비정규 선수 팀 배정 (경기 시작 전) */}
-                    {irregularRoster.filter(p => !assignedIds.has(p.id)).length > 0 && (
-                      <div className="border-t border-gray-800 pt-4 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <UserPlus size={13} className="text-gray-500" />
-                          <p className="text-xs text-gray-400 font-medium">비정규 선수 팀 배정</p>
-                          <span className="text-[11px] text-gray-600">팀을 선택하면 선발 명단에 자동 추가됩니다</span>
-                        </div>
-                        <div className="space-y-1.5">
-                          {irregularRoster.filter(p => !assignedIds.has(p.id)).map(p => (
-                            <div key={p.id} className="flex items-center gap-2 px-2.5 py-2 bg-gray-800/40 border border-gray-700/50 rounded-lg">
-                              <span className="flex-1 text-sm text-gray-300">
-                                {p.number ? <span className="text-xs font-mono text-gray-500 mr-1">#{p.number}</span> : null}
-                                {p.name}
-                              </span>
-                              <button
-                                onClick={() => addIrregularToTeam(p, 'home')}
-                                disabled={addingIrregular}
-                                className="px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer disabled:opacity-40 transition-opacity"
-                                style={{
-                                  backgroundColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}33`,
-                                  color: selectedSlot?.home_team?.color ?? '#3b82f6',
-                                  border: `1px solid ${selectedSlot?.home_team?.color ?? '#3b82f6'}55`,
-                                }}
-                              >
-                                {selectedSlot?.home_team?.name ?? '홈팀'}
-                              </button>
-                              <button
-                                onClick={() => addIrregularToTeam(p, 'away')}
-                                disabled={addingIrregular}
-                                className="px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer disabled:opacity-40 transition-opacity"
-                                style={{
-                                  backgroundColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}33`,
-                                  color: selectedSlot?.away_team?.color ?? '#ef4444',
-                                  border: `1px solid ${selectedSlot?.away_team?.color ?? '#ef4444'}55`,
-                                }}
-                              >
-                                {selectedSlot?.away_team?.name ?? '어웨이팀'}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2 pt-2 border-t border-gray-800">
-                      <Button
-                        onClick={startGame}
-                        disabled={startingGame || selectedStarters.size === 0}
-                        className="flex-1 bg-green-600 hover:bg-green-500 cursor-pointer disabled:opacity-50"
-                        size="sm"
-                      >
-                        {startingGame
-                          ? <><Loader2 size={13} className="mr-1 animate-spin" />시작 중...</>
-                          : <><Play size={13} className="mr-1" />경기 시작 ({selectedStarters.size}명)</>}
-                      </Button>
-                      <Button
-                        onClick={() => setShowStarterPicker(false)}
-                        disabled={startingGame}
-                        variant="outline"
-                        size="sm"
-                        className="border-gray-700 text-gray-400 cursor-pointer"
-                      >
-                        취소
-                      </Button>
-                    </div>
                   </div>
                 </div>
               )}
