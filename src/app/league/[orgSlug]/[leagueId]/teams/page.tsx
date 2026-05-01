@@ -188,7 +188,7 @@ function StatsTable({
                   </button>
                 </td>
                 <td className="py-2 px-1.5 text-right text-gray-400">{p.gp}</td>
-                <td className="py-2 px-1.5 text-right font-bold" style={{ color: color ?? 'white' }}>{p.ppg.toFixed(1)}</td>
+                <td className="py-2 px-1.5 text-right font-bold text-white" style={color ? { color } : undefined}>{p.ppg.toFixed(1)}</td>
                 <td className="py-2 px-1.5 text-right text-gray-300">{p.rpg.toFixed(1)}</td>
                 <td className="py-2 px-1.5 text-right text-gray-300">{p.apg.toFixed(1)}</td>
                 <td className="py-2 px-1.5 text-right text-purple-400">{p.spg.toFixed(1)}</td>
