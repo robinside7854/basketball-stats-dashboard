@@ -238,7 +238,54 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
 
             {/* 탭 1: 전체 스탯 */}
             {activeTab === 'overall' && (
-              <div className="p-5">
+              <div className="p-5 space-y-4">
+                {/* 당일 스탯 리더 */}
+                {dailyStats.length > 0 && (() => {
+                  const MIN_FGA = 3, MIN_FG3A = 2
+                  const byPts  = [...dailyStats].sort((a,b) => b.pts - a.pts)[0]
+                  const byReb  = [...dailyStats].sort((a,b) => b.reb - a.reb)[0]
+                  const byAst  = [...dailyStats].sort((a,b) => b.ast - a.ast)[0]
+                  const byBlk  = [...dailyStats].sort((a,b) => b.blk - a.blk)[0]
+                  const byStl  = [...dailyStats].sort((a,b) => b.stl - a.stl)[0]
+                  const byFgPct = [...dailyStats]
+                    .filter(p => p.fga >= MIN_FGA)
+                    .sort((a,b) => (b.fg_pct ?? 0) - (a.fg_pct ?? 0))[0]
+                  const byFg3  = [...dailyStats]
+                    .filter(p => p.fg3a >= MIN_FG3A)
+                    .sort((a,b) => b.fg3m - a.fg3m)[0]
+
+                  const leaders = [
+                    { icon: '🏀', label: '득점',   name: byPts?.name,   val: byPts?.pts != null ? `${byPts.pts}점` : null,      sub: `${byPts?.gp ?? 0}경기` },
+                    { icon: '💪', label: '리바운드', name: byReb?.name,   val: byReb?.reb != null ? `${byReb.reb}개` : null,      sub: `OR ${byReb?.oreb ?? 0} / DR ${byReb?.dreb ?? 0}` },
+                    { icon: '🎯', label: '어시스트', name: byAst?.name,   val: byAst?.ast != null ? `${byAst.ast}개` : null,      sub: `${byAst?.gp ?? 0}경기` },
+                    { icon: '🚫', label: '블락',    name: byBlk?.name,   val: byBlk?.blk != null ? `${byBlk.blk}개` : null,      sub: `${byBlk?.gp ?? 0}경기` },
+                    { icon: '✋', label: '스틸',    name: byStl?.name,   val: byStl?.stl != null ? `${byStl.stl}개` : null,      sub: `${byStl?.gp ?? 0}경기` },
+                    { icon: '📊', label: '야투율',   name: byFgPct?.name, val: byFgPct?.fg_pct != null ? `${byFgPct.fg_pct}%` : null, sub: byFgPct ? `${byFgPct.fgm}/${byFgPct.fga}` : '' },
+                    { icon: '🎪', label: '3점슛',   name: byFg3?.name,   val: byFg3?.fg3m != null ? `${byFg3.fg3m}개` : null,   sub: byFg3 && byFg3.fg3a > 0 ? `${byFg3.fg3_pct}%` : '' },
+                  ]
+
+                  return (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-2.5">당일 스탯 리더</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                        {leaders.map(({ icon, label, name, val, sub }) => (
+                          <div key={label} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-base">{icon}</span>
+                              <span className="text-[10px] text-gray-500 font-bold uppercase">{label}</span>
+                            </div>
+                            <p className="text-xl font-black text-white tabular-nums leading-none">
+                              {val ?? '—'}
+                            </p>
+                            <p className="text-xs text-gray-400 font-medium truncate">{name ?? '—'}</p>
+                            {sub && <p className="text-[10px] text-gray-600">{sub}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+
                 {dailyStats.length > 0
                   ? <div className="bg-gray-900/80 border border-gray-700/50 rounded-xl overflow-hidden">
                       <StatTable rows={dailyStats} showGP />
