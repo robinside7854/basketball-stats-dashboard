@@ -760,12 +760,12 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           {/* 팀이 지정된 경우: 비디오(좌) + 기록(우) 2열 레이아웃 */}
           {selectedSlot.home_team_id && selectedSlot.away_team_id ? (
             <>
-            <div className="lg:grid lg:grid-cols-[5fr_3fr] lg:gap-3 lg:items-start space-y-4 lg:space-y-0">
+            <div className="lg:grid lg:grid-cols-[5fr_3fr] lg:gap-3 space-y-4 lg:space-y-0">
 
-              {/* ── 좌측: 비디오 + 경기 제어 (sticky) ── */}
-              <div className="lg:sticky lg:top-[52px] space-y-2">
+              {/* ── 좌측: 비디오 + 경기 제어 (sticky, 뷰포트 높이 고정) ── */}
+              <div className="lg:sticky lg:top-[52px] lg:flex lg:flex-col lg:max-h-[calc(100vh-60px)] space-y-2 lg:space-y-2">
                 {selectedSlot.youtube_url ? (
-                  <div className="relative bg-black rounded-xl overflow-hidden">
+                  <div className="relative bg-black rounded-xl overflow-hidden lg:flex-shrink-0">
                     <YouTubePlayer
                       key={selectedSlot.youtube_url ?? selectedSlot.id}
                       youtubeUrl={selectedSlot.youtube_url}
@@ -811,7 +811,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                 )}
 
                 {/* 경기 시작/마감 */}
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 lg:flex-shrink-0">
                   {selectedSlot?.is_complete ? (
                     <div className="flex items-center justify-center gap-2 py-1.5 rounded-lg bg-gray-800/60 border border-gray-700/50 text-gray-500 text-xs font-medium">
                       <CheckCircle2 size={13} className="text-gray-600" />경기 마감 완료
@@ -835,8 +835,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                   )}
                 </div>
 
-                {/* 통계 (데스크탑 좌측 하단) */}
-                <div className="hidden lg:block">
+                {/* 통계 (데스크탑 좌측 하단) — flex-1로 남은 공간 채우고 내부 스크롤 */}
+                <div className="hidden lg:block lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
                   <LeagueStatsPanel
                     leagueId={leagueId}
                     gameId={selectedSlotId}
