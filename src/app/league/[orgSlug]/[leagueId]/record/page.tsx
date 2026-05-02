@@ -99,6 +99,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [reopening, setReopening] = useState(false)
   const [liveScore, setLiveScore] = useState<{ home: number; away: number } | null>(null)
   const [showGameLog, setShowGameLog] = useState(false)
+  const [showSubModal, setShowSubModal] = useState(false)
+  const [showBoxscoreModal, setShowBoxscoreModal] = useState(false)
 
   // 선발 체크: 선택된 선수 ID 셋 (홈+어웨이 통합)
   const [showStarterPicker, setShowStarterPicker] = useState(false)
@@ -642,33 +644,29 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   // ── 슬랏 그리드 + 기록 UI ─────────────────────────────────
   return (
     <div className="space-y-4">
-      {/* 날짜 헤더 */}
-      <div className="flex items-center gap-3">
+      {/* 날짜 헤더 + YouTube 연동 (1행) */}
+      <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={() => { setSelectedDate(''); setSelectedSlotId(''); setSlots([]) }}
-          className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+          className="text-gray-400 hover:text-white transition-colors cursor-pointer shrink-0"
         >
           <ChevronLeft size={20} />
         </button>
-        <h2 className="text-xl font-bold text-white">{dateLabel} 경기 기록</h2>
-      </div>
-
-      {/* YouTube 자동 연동 */}
-      <div className="flex items-center justify-between bg-gray-900/60 border border-gray-800 rounded-xl px-4 py-2.5">
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          <Youtube size={14} className="text-red-400 shrink-0" />
-          {leagueYtChannel
-            ? <span className="font-mono text-red-300">{leagueYtChannel}</span>
-            : <span className="text-gray-600">채널 미설정 — 설정 탭에서 지정</span>}
+        <h2 className="text-base font-bold text-white">{dateLabel} 경기 기록</h2>
+        {/* YouTube sync — compact, moved inline */}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {leagueYtChannel && (
+            <span className="text-xs font-mono text-red-300/70 hidden sm:inline">{leagueYtChannel}</span>
+          )}
+          <button
+            onClick={syncYoutube}
+            disabled={ytSyncing}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          >
+            {ytSyncing ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+            <span className="hidden sm:inline">YouTube 연동</span>
+          </button>
         </div>
-        <button
-          onClick={syncYoutube}
-          disabled={ytSyncing}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
-        >
-          {ytSyncing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-          YouTube 자동 연동
-        </button>
       </div>
 
       {/* 슬랏 그리드 — PC에서 크게 */}
@@ -681,7 +679,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             <button
               key={slot.id}
               onClick={() => selectSlot(slot)}
-              className={`relative flex flex-col items-center justify-center py-4 rounded-xl border text-base font-bold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${
+              className={`relative flex flex-col items-center justify-center py-2.5 rounded-xl border text-base font-bold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${
                 isSelected
                   ? 'bg-blue-600 border-blue-500 text-white'
                   : slot.is_complete
@@ -689,7 +687,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                   : 'bg-gray-900 border-gray-800 text-gray-300 hover:border-gray-600'
               }`}
             >
-              <span className="text-lg">{slot.slot_num}</span>
+              <span className="text-base">{slot.slot_num}</span>
               <div className="flex items-center gap-0.5 mt-1">
                 {hasYT && <Youtube size={10} className="text-red-400" />}
                 {slot.is_complete
@@ -763,9 +761,9 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             <div className="lg:grid lg:grid-cols-[5fr_3fr] lg:gap-3 space-y-4 lg:space-y-0">
 
               {/* ── 좌측: 비디오 + 경기 제어 (sticky, 뷰포트 높이 고정) ── */}
-              <div className="lg:sticky lg:top-[52px] lg:flex lg:flex-col lg:max-h-[calc(100vh-60px)] space-y-2 lg:space-y-2">
+              <div className="lg:sticky lg:top-[52px] space-y-2">
                 {selectedSlot.youtube_url ? (
-                  <div className="relative bg-black rounded-xl overflow-hidden lg:flex-shrink-0">
+                  <div className="relative bg-black rounded-xl overflow-hidden">
                     <YouTubePlayer
                       key={selectedSlot.youtube_url ?? selectedSlot.id}
                       youtubeUrl={selectedSlot.youtube_url}
@@ -811,7 +809,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                 )}
 
                 {/* 경기 시작/마감 */}
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 lg:flex-shrink-0">
+                <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
                   {selectedSlot?.is_complete ? (
                     <div className="flex items-center justify-center gap-2 py-1.5 rounded-lg bg-gray-800/60 border border-gray-700/50 text-gray-500 text-xs font-medium">
                       <CheckCircle2 size={13} className="text-gray-600" />경기 마감 완료
@@ -835,20 +833,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                   )}
                 </div>
 
-                {/* 통계 (데스크탑 좌측 하단) — flex-1로 남은 공간 채우고 내부 스크롤 */}
-                <div className="hidden lg:block lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
-                  <LeagueStatsPanel
-                    leagueId={leagueId}
-                    gameId={selectedSlotId}
-                    players={allPlayers}
-                    refreshKey={statsRefresh}
-
-                    homePlayers={homeRoster}
-                    awayPlayers={awayRoster}
-                    homeTeam={selectedSlot?.home_team ?? undefined}
-                    awayTeam={selectedSlot?.away_team ?? undefined}
-                  />
-                </div>
               </div>
 
               {/* ── 우측: 기록 패널 ── */}
@@ -947,21 +931,21 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             <ClipboardList size={11} />
                             <span className="hidden sm:inline">로그</span>
                           </button>
+                          <button
+                            onClick={() => setShowSubModal(true)}
+                            className="border-l border-gray-800 px-2.5 flex items-center gap-1 text-[10px] text-orange-400 hover:text-orange-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
+                          >
+                            <RefreshCw size={11} />
+                            <span className="hidden sm:inline">교체</span>
+                          </button>
+                          <button
+                            onClick={() => setShowBoxscoreModal(true)}
+                            className="border-l border-gray-800 px-2.5 flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
+                          >
+                            <ClipboardList size={11} />
+                            <span className="hidden sm:inline">스탯</span>
+                          </button>
                         </div>
-                      </div>
-
-                      <div>
-                        <LeagueSubstitutionPanel
-                          leagueId={leagueId}
-                          gameId={selectedSlotId}
-                          leagueHeaders={leagueHeaders}
-                          players={allPlayers}
-                          minutes={minutes}
-                          onSubstitution={() => {
-                            fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
-                              .then(r => r.json()).then(setMinutes)
-                          }}
-                        />
                       </div>
 
                       <LeagueEventInputPad
@@ -1128,6 +1112,55 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       disabled={addingIrregular}
                       className="w-full py-1.5 rounded-lg bg-gray-800 text-gray-400 text-xs cursor-pointer hover:bg-gray-700"
                     >취소</button>
+                  </div>
+                </div>
+              )}
+
+              {/* 교체 모달 */}
+              {showSubModal && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setShowSubModal(false)}>
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                  <div className="relative w-full max-w-lg bg-gray-900 border border-gray-700 rounded-2xl p-4 shadow-2xl"
+                    onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-bold text-white">선수 교체</h3>
+                      <button onClick={() => setShowSubModal(false)} className="text-gray-500 hover:text-white cursor-pointer transition-colors text-xs">닫기</button>
+                    </div>
+                    <LeagueSubstitutionPanel
+                      leagueId={leagueId}
+                      gameId={selectedSlotId}
+                      leagueHeaders={leagueHeaders}
+                      players={allPlayers}
+                      minutes={minutes}
+                      onSubstitution={() => {
+                        fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
+                          .then(r => r.json()).then(setMinutes)
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 박스스코어 모달 */}
+              {showBoxscoreModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowBoxscoreModal(false)}>
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+                  <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-gray-900 border border-gray-700 rounded-2xl p-4 shadow-2xl"
+                    onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-bold text-white">실시간 박스스코어</h3>
+                      <button onClick={() => setShowBoxscoreModal(false)} className="text-gray-500 hover:text-white cursor-pointer transition-colors text-xs">닫기</button>
+                    </div>
+                    <LeagueStatsPanel
+                      leagueId={leagueId}
+                      gameId={selectedSlotId}
+                      players={allPlayers}
+                      refreshKey={statsRefresh}
+                      homePlayers={homeRoster}
+                      awayPlayers={awayRoster}
+                      homeTeam={selectedSlot?.home_team ?? undefined}
+                      awayTeam={selectedSlot?.away_team ?? undefined}
+                    />
                   </div>
                 </div>
               )}
