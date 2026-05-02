@@ -11,7 +11,7 @@ WHERE league_game_id IN (
 );
 
 -- 3. 출전 시간 기록 삭제
-DELETE FROM league_minutes
+DELETE FROM league_player_minutes
 WHERE league_game_id IN (
   SELECT id FROM league_games WHERE date = '2026-05-02'
 );
