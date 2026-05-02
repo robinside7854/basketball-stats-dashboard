@@ -90,9 +90,11 @@ export async function GET(
     const s = ensure(pid)
     const gId = e.league_game_id
 
-    // 출전 경기 수 집계
-    if (!gpMap[pid]) gpMap[pid] = new Set()
-    gpMap[pid].add(gId)
+    // 출전 경기 수 집계 — sub_in/sub_out은 제외 (실제 스탯 이벤트만 GP 카운트)
+    if (e.type !== 'sub_in' && e.type !== 'sub_out') {
+      if (!gpMap[pid]) gpMap[pid] = new Set()
+      gpMap[pid].add(gId)
+    }
 
     const made = e.result === 'made'
     // 필드골 득점은 현재 plus_one 플래그 기준으로 동적 계산 (과거 기록 보정 포함)

@@ -202,8 +202,11 @@ export async function GET(
     const isP1 = plusOneSet.has(pid)
     const gId = e.league_game_id as string
     if (!allMap[pid]) allMap[pid] = emptyAS()
-    if (!allGp[pid]) allGp[pid] = new Set()
-    allGp[pid].add(gId)
+    // sub_in/sub_out은 GP 카운트 제외
+    if (e.type !== 'sub_in' && e.type !== 'sub_out') {
+      if (!allGp[pid]) allGp[pid] = new Set()
+      allGp[pid].add(gId)
+    }
     const s = allMap[pid]
     if (made) {
       if (e.type === 'shot_3p') { s.pts += isP1 ? 4 : 3; s.fg3m++; s.fgm++ }
