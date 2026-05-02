@@ -28,6 +28,5 @@ SET
   is_started   = false,
   is_complete  = false,
   home_score   = 0,
-  away_score   = 0,
-  ai_mvp       = NULL
+  away_score   = 0
 WHERE date = '2026-05-02';

@@ -51,18 +51,37 @@ export async function POST(
   let homeScore = 0
   let awayScore = 0
 
-  // team_id 없는 이벤트를 위한 분기 멤버십 역추적
+  // team_id 없는 이벤트를 위한 팀 역추적
   const eventsWithoutTeam = (events ?? []).filter(e => !e.team_id)
   const playerTeamMap: Record<string, string> = {}
 
-  if (eventsWithoutTeam.length > 0 && game.quarter_id) {
+  if (eventsWithoutTeam.length > 0) {
     const playerIds = [...new Set(eventsWithoutTeam.map(e => e.league_player_id).filter(Boolean))] as string[]
-    const { data: memberships } = await supabase
-      .from('league_player_quarters')
-      .select('league_player_id, team_id')
-      .eq('quarter_id', game.quarter_id)
-      .in('league_player_id', playerIds)
-    for (const m of memberships ?? []) playerTeamMap[m.league_player_id] = m.team_id
+
+    // 1차: league_player_quarters (정규 선수)
+    if (game.quarter_id) {
+      const { data: memberships } = await supabase
+        .from('league_player_quarters')
+        .select('league_player_id, team_id')
+        .eq('quarter_id', game.quarter_id)
+        .in('league_player_id', playerIds)
+      for (const m of memberships ?? []) {
+        if (m.team_id) playerTeamMap[m.league_player_id] = m.team_id
+      }
+    }
+
+    // 2차: league_game_players (비정규 선수 — 1차에서 못 찾은 경우)
+    const stillMissing = playerIds.filter(id => !playerTeamMap[id])
+    if (stillMissing.length > 0) {
+      const { data: gameMemberships } = await supabase
+        .from('league_game_players')
+        .select('league_player_id, team_id')
+        .eq('league_game_id', gameId)
+        .in('league_player_id', stillMissing)
+      for (const m of gameMemberships ?? []) {
+        if (m.team_id) playerTeamMap[m.league_player_id] = m.team_id
+      }
+    }
   }
 
   for (const e of events ?? []) {
