@@ -13,10 +13,10 @@ export async function GET(
   const { leagueId, gameId } = await params
   const supabase = createClient()
 
-  // 게임 정보 조회
+  // 게임 정보 조회 (date 포함 — 같은 날짜 비정규 상속용)
   const { data: game, error: gErr } = await supabase
     .from('league_games')
-    .select('quarter_id, home_team_id, away_team_id')
+    .select('quarter_id, home_team_id, away_team_id, date')
     .eq('id', gameId)
     .eq('league_id', leagueId)
     .single()
@@ -90,14 +90,58 @@ export async function GET(
     else if (m.team_id === game.away_team_id) { away.push(row); includedIds.add(p.id) }
   }
 
-  // 비정규 선수: league_game_players (이 경기에만 유효한 per-game 배정)
+  // 비정규 선수: league_game_players
+  // 1) 이 경기에 이미 배정된 선수 조회
   const { data: gamePlayers } = await supabase
     .from('league_game_players')
     .select('league_player_id, team_id, league_players!inner(id, name, number, position, birth_date, plus_one)')
     .eq('league_game_id', gameId)
 
+  // 2) 같은 날짜 다른 경기에서 배정된 비정규 선수 상속 (이 경기에 없는 경우만)
+  if (game.date) {
+    const { data: sameDateGames } = await supabase
+      .from('league_games')
+      .select('id, home_team_id, away_team_id')
+      .eq('league_id', leagueId)
+      .eq('date', game.date)
+      .neq('id', gameId)
+
+    const sameTeamGameIds = (sameDateGames ?? [])
+      .filter(g => g.home_team_id === game.home_team_id || g.away_team_id === game.home_team_id ||
+                   g.home_team_id === game.away_team_id || g.away_team_id === game.away_team_id)
+      .map(g => g.id)
+
+    if (sameTeamGameIds.length > 0) {
+      const alreadyAssigned = new Set((gamePlayers ?? []).map(gp => `${gp.league_player_id}:${gp.team_id}`))
+
+      const { data: inheritedPlayers } = await supabase
+        .from('league_game_players')
+        .select('league_player_id, team_id, league_players!inner(id, name, number, position, birth_date, plus_one)')
+        .in('league_game_id', sameTeamGameIds)
+        .in('team_id', teamIds) // 이 경기에 참여하는 팀만
+
+      // 아직 이 경기에 없는 선수 → auto-insert
+      const toInsert = (inheritedPlayers ?? []).filter(
+        gp => !alreadyAssigned.has(`${gp.league_player_id}:${gp.team_id}`)
+      )
+      if (toInsert.length > 0) {
+        await supabase.from('league_game_players').upsert(
+          toInsert.map(gp => ({
+            league_id: leagueId,
+            league_game_id: gameId,
+            league_player_id: gp.league_player_id,
+            team_id: gp.team_id,
+          })),
+          { onConflict: 'league_game_id,league_player_id', ignoreDuplicates: true }
+        )
+        // 새로 삽입된 선수를 gamePlayers에 합산
+        ;(gamePlayers as typeof inheritedPlayers ?? []).push(...toInsert)
+      }
+    }
+  }
+
   for (const gp of gamePlayers ?? []) {
-    if (includedIds.has(gp.league_player_id)) continue // 이미 포함된 경우 스킵
+    if (includedIds.has(gp.league_player_id)) continue
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = (Array.isArray(gp.league_players) ? gp.league_players[0] : gp.league_players) as any
     if (!p) continue
@@ -115,7 +159,7 @@ export async function GET(
     else if (gp.team_id === game.away_team_id) { away.push(row); includedIds.add(p.id) }
   }
 
-  // 이 경기에 이미 배정된 비정규 선수 ID 목록 (picker 필터용)
+  // 이 경기에 배정된 비정규 선수 ID 목록 (picker 필터용)
   const assignedIrregularIds = (gamePlayers ?? []).map(gp => gp.league_player_id)
 
   // 이름 정렬
