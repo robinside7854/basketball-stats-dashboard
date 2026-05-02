@@ -242,7 +242,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       if (qRes.ok) {
         const qd: IrregularPlayer[] = await qRes.json()
         const assignedSet = new Set(assignedIrregularIds)
-        setIrregularRoster(qd.filter(p => p.is_regular === false && !assignedSet.has(p.id)))
+        // is_regular=false(명시적 비정규) + null(분기 미배정)은 모두 비정규 후보
+        setIrregularRoster(qd.filter(p => p.is_regular !== true && !assignedSet.has(p.id)))
       } else {
         setIrregularRoster([])
       }
