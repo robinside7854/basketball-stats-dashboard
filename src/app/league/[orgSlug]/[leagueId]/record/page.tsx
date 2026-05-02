@@ -917,6 +917,53 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                     </div>
                   ) : gameStarted ? (
                     <>
+                      {/* 컴팩트 스코어 스트립 */}
+                      <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
+                        <div className="flex items-stretch">
+                          <div className="flex-1 py-2 px-3 flex items-center gap-2">
+                            <span className="text-[10px] font-bold truncate" style={{ color: selectedSlot?.home_team?.color ?? '#3b82f6' }}>
+                              {selectedSlot?.home_team?.name ?? '홈팀'}
+                            </span>
+                            <span className="text-2xl font-black text-white tabular-nums leading-none ml-auto">
+                              {liveScore?.home ?? selectedSlot?.home_score ?? 0}
+                            </span>
+                          </div>
+                          <div className="flex flex-col items-center justify-center px-2 border-x border-gray-800 shrink-0">
+                            <span className="text-[7px] text-green-400 font-bold tracking-widest">LIVE</span>
+                            <span className="text-sm text-gray-500 font-black leading-none">:</span>
+                          </div>
+                          <div className="flex-1 py-2 px-3 flex items-center gap-2">
+                            <span className="text-2xl font-black text-white tabular-nums leading-none mr-auto">
+                              {liveScore?.away ?? selectedSlot?.away_score ?? 0}
+                            </span>
+                            <span className="text-[10px] font-bold truncate" style={{ color: selectedSlot?.away_team?.color ?? '#ef4444' }}>
+                              {selectedSlot?.away_team?.name ?? '어웨이팀'}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => setShowGameLog(true)}
+                            className="border-l border-gray-800 px-3 flex items-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
+                          >
+                            <ClipboardList size={11} />
+                            <span className="hidden sm:inline">로그</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <LeagueSubstitutionPanel
+                          leagueId={leagueId}
+                          gameId={selectedSlotId}
+                          leagueHeaders={leagueHeaders}
+                          players={allPlayers}
+                          minutes={minutes}
+                          onSubstitution={() => {
+                            fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
+                              .then(r => r.json()).then(setMinutes)
+                          }}
+                        />
+                      </div>
+
                       <LeagueEventInputPad
                         leagueId={leagueId}
                         gameId={selectedSlotId}
@@ -930,7 +977,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
                       {/* 비정규 선수 추가 */}
                       {irregularRoster.length > 0 && (
-                        <div className="mt-3 bg-gray-900/60 border border-gray-800 rounded-xl p-3">
+                        <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-3">
                           <div className="flex items-center gap-1.5 mb-2">
                             <UserPlus size={12} className="text-gray-500" />
                             <p className="text-xs text-gray-400 font-medium">비정규 선수 추가</p>
@@ -956,50 +1003,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                           </div>
                         </div>
                       )}
-
-                      {/* 실시간 스코어보드 */}
-                      <div className="mt-3 bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
-                        <div className="grid grid-cols-[1fr_auto_1fr]">
-                          <div className="py-3 px-4 text-center">
-                            <p className="text-[11px] font-bold mb-1 truncate" style={{ color: selectedSlot?.home_team?.color ?? '#3b82f6' }}>
-                              {selectedSlot?.home_team?.name ?? '홈팀'}
-                            </p>
-                            <p className="text-4xl font-black text-white tabular-nums leading-none">{liveScore?.home ?? selectedSlot?.home_score ?? 0}</p>
-                          </div>
-                          <div className="flex flex-col items-center justify-center px-3 border-x border-gray-800">
-                            <span className="text-[9px] text-green-400 font-bold tracking-widest">LIVE</span>
-                            <span className="text-xl text-gray-500 font-black leading-none mt-0.5">:</span>
-                          </div>
-                          <div className="py-3 px-4 text-center">
-                            <p className="text-[11px] font-bold mb-1 truncate" style={{ color: selectedSlot?.away_team?.color ?? '#ef4444' }}>
-                              {selectedSlot?.away_team?.name ?? '어웨이팀'}
-                            </p>
-                            <p className="text-4xl font-black text-white tabular-nums leading-none">{liveScore?.away ?? selectedSlot?.away_score ?? 0}</p>
-                          </div>
-                        </div>
-                        {/* 게임 로그 버튼 */}
-                        <button
-                          onClick={() => setShowGameLog(true)}
-                          className="w-full py-2 border-t border-gray-800 flex items-center justify-center gap-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-900/60 text-[11px] font-medium transition-colors cursor-pointer"
-                        >
-                          <ClipboardList size={12} />
-                          게임 이벤트 로그
-                        </button>
-                      </div>
-
-                      <div className="mt-3">
-                        <LeagueSubstitutionPanel
-                          leagueId={leagueId}
-                          gameId={selectedSlotId}
-                          leagueHeaders={leagueHeaders}
-                          players={allPlayers}
-                          minutes={minutes}
-                          onSubstitution={() => {
-                            fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
-                              .then(r => r.json()).then(setMinutes)
-                          }}
-                        />
-                      </div>
                     </>
                   ) : (
                     /* 인라인 선발 선수 선택 — 영상 보면서 선택 가능 */

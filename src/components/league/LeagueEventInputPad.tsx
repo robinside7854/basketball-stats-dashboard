@@ -375,7 +375,7 @@ export default function LeagueEventInputPad({
       <button
         key={p.id}
         onClick={() => selectPlayer(p.id)}
-        className={`relative py-3 px-1 rounded-xl text-center transition-all cursor-pointer border active:scale-95 ${
+        className={`relative py-2 px-1 rounded-xl text-center transition-all cursor-pointer border active:scale-95 ${
           isSelected
             ? 'text-white shadow-lg'
             : 'bg-gray-800/80 border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-500'
@@ -383,7 +383,7 @@ export default function LeagueEventInputPad({
         style={isSelected ? { backgroundColor: teamColor, borderColor: teamColor } : {}}
       >
         {p.number != null && (
-          <div className="text-lg font-black font-mono leading-none mb-0.5 opacity-70">#{p.number}</div>
+          <div className="text-base font-black font-mono leading-none mb-0.5 opacity-70">#{p.number}</div>
         )}
         <div className={`font-semibold truncate leading-tight px-0.5 ${p.number != null ? 'text-xs' : 'text-sm'}`}>{p.name}</div>
         {p.plus_one && (
@@ -484,7 +484,7 @@ export default function LeagueEventInputPad({
           <p className="text-xs text-gray-400">리바운드 선수 선택</p>
           <button
             onClick={() => doRebound(null)}
-            className="w-full py-2.5 rounded-xl text-sm font-bold bg-gray-700/60 border border-gray-600/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 cursor-pointer transition-colors"
+            className="w-full py-2 rounded-xl text-sm font-bold bg-gray-700/60 border border-gray-600/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 cursor-pointer transition-colors"
           >
             🌀 아웃바운드 / 미기록
           </button>
@@ -499,7 +499,7 @@ export default function LeagueEventInputPad({
               <div className="grid grid-cols-3 gap-1.5">
                 {tPlayers.map(p => (
                   <button key={p.id} onClick={() => doRebound(p.id)}
-                    className="py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer active:scale-95 transition-all"
+                    className="py-2 rounded-xl text-sm font-bold text-white cursor-pointer active:scale-95 transition-all"
                     style={{ backgroundColor: `${team?.color ?? '#6b7280'}cc` }}>
                     {p.name}
                   </button>
@@ -516,7 +516,7 @@ export default function LeagueEventInputPad({
 
       {/* ── 이벤트 버튼 (선수 선택 후) ── */}
       {selectedPlayer && !awaitingAssist && !addingAssistForLast && !awaitingRebound && !awaitingTovPair && (
-        <div className="space-y-2 pt-1">
+        <div className="space-y-1.5 pt-1">
           {EVENT_GROUPS
             .filter(group => !pendingShot || group.buttons.some(b => b.type === pendingShot.type))
             .map(group => {
@@ -534,11 +534,11 @@ export default function LeagueEventInputPad({
                   /* 해당 그룹을 O/X 버튼으로 덮기 */
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => handleResult('made')}
-                      className="py-5 bg-green-600 hover:bg-green-500 text-white text-2xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
+                      className="py-4 bg-green-600 hover:bg-green-500 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                       ✓ 성공
                     </button>
                     <button onClick={() => handleResult('missed')}
-                      className="py-5 bg-red-700 hover:bg-red-600 text-white text-2xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
+                      className="py-4 bg-red-700 hover:bg-red-600 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                       ✗ 실패
                     </button>
                   </div>
@@ -551,7 +551,7 @@ export default function LeagueEventInputPad({
                           if (btn.needsResult) handleShotClick(btn)
                           else saveInstant(btn)
                         }}
-                        className={`py-4 rounded-xl text-sm font-bold text-white transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent`}
+                        className={`py-3 rounded-xl text-sm font-bold text-white transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent`}
                       >
                         {btn.label}
                       </button>
@@ -629,7 +629,7 @@ export default function LeagueEventInputPad({
         <div className="pt-1 space-y-2">
           <p className="text-xs text-gray-400">🎣 스틸 → 턴오버 선수 선택</p>
           <button onClick={() => handleTovPair(null)}
-            className="w-full py-2.5 rounded-xl text-sm font-bold bg-gray-700/60 border border-gray-600/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 cursor-pointer transition-colors">
+            className="w-full py-2 rounded-xl text-sm font-bold bg-gray-700/60 border border-gray-600/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 cursor-pointer transition-colors">
             불명 / 미기록
           </button>
           {(() => {
@@ -643,7 +643,7 @@ export default function LeagueEventInputPad({
                 <div className="grid grid-cols-3 gap-1.5">
                   {opposing.map(p => (
                     <button key={p.id} onClick={() => handleTovPair(p.id)}
-                      className="py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer active:scale-95 transition-all"
+                      className="py-2 rounded-xl text-sm font-bold text-white cursor-pointer active:scale-95 transition-all"
                       style={{ backgroundColor: `${oppTeam?.color ?? '#6b7280'}cc` }}>
                       {p.name}
                     </button>
