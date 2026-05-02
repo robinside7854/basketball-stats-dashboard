@@ -159,8 +159,10 @@ export async function GET(
     else if (gp.team_id === game.away_team_id) { away.push(row); includedIds.add(p.id) }
   }
 
-  // 이 경기에 배정된 비정규 선수 ID 목록 (picker 필터용)
-  const assignedIrregularIds = (gamePlayers ?? []).map(gp => gp.league_player_id)
+  // picker 필터: 이 경기 팀에 실제 매칭된 선수만 제외 (다른 팀 배정은 picker에 계속 노출)
+  const assignedIrregularIds = (gamePlayers ?? [])
+    .filter(gp => gp.team_id === game.home_team_id || gp.team_id === game.away_team_id)
+    .map(gp => gp.league_player_id)
 
   // 이름 정렬
   home.sort((a, b) => a.name.localeCompare(b.name))

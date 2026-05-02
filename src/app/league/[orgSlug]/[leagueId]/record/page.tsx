@@ -418,6 +418,13 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       toast.error('선발 선수를 1명 이상 선택하세요')
       return
     }
+    // 팀당 5명 초과 검증
+    const homeStarters = starterIds.filter(id => homeRoster.some(p => p.id === id))
+    const awayStarters = starterIds.filter(id => awayRoster.some(p => p.id === id))
+    if (homeStarters.length > 5 || awayStarters.length > 5) {
+      toast.error(`팀당 선발은 최대 5명입니다 (홈 ${homeStarters.length}명 / 어웨이 ${awayStarters.length}명)`)
+      return
+    }
     setStartingGame(true)
     await Promise.all(starterIds.map(pid =>
       fetch(`/api/leagues/${leagueId}/minutes`, {
@@ -1090,10 +1097,23 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                   ) : (
                     /* 인라인 선발 선수 선택 — 영상 보면서 선택 가능 */
                     <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-bold text-white">선발 선수 선택</h4>
-                        <span className="text-xs text-gray-500">{selectedStarters.size}명 선택됨</span>
-                      </div>
+                      {(() => {
+                        const hc = homeRoster.filter(p => selectedStarters.has(p.id)).length
+                        const ac = awayRoster.filter(p => selectedStarters.has(p.id)).length
+                        return (
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-bold text-white">선발 선수 선택</h4>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className={hc > 5 ? 'font-bold text-red-400' : 'text-gray-500'}>
+                                홈 {hc}/5{hc > 5 && ' ⚠'}
+                              </span>
+                              <span className={ac > 5 ? 'font-bold text-red-400' : 'text-gray-500'}>
+                                어웨이 {ac}/5{ac > 5 && ' ⚠'}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })()}
                       <p className="text-xs text-gray-500">영상을 보면서 출전 선수를 확인하세요. 미선택 선수는 벤치 시작입니다.</p>
 
                       <div className="grid grid-cols-2 gap-3">
