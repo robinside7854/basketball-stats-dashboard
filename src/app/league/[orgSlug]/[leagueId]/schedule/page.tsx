@@ -22,11 +22,19 @@ export default function LeagueSchedulePage() {
   const [autoGenerating, setAutoGenerating] = useState(false)
   const [deletingDate, setDeletingDate] = useState<string | null>(null)
   const [boxscoreDate, setBoxscoreDate] = useState<string | null>(null)
+  const [datesWithStats, setDatesWithStats] = useState<Set<string>>(new Set())
 
   async function load() {
     setLoading(true)
-    const res = await fetch(`/api/leagues/${leagueId}/schedule-dates`)
-    if (res.ok) setDates(await res.json())
+    const [dRes, gRes] = await Promise.all([
+      fetch(`/api/leagues/${leagueId}/schedule-dates`),
+      fetch(`/api/leagues/${leagueId}/games?complete=true`),
+    ])
+    if (dRes.ok) setDates(await dRes.json())
+    if (gRes.ok) {
+      const games: { date: string }[] = await gRes.json()
+      setDatesWithStats(new Set(games.map(g => g.date)))
+    }
     setLoading(false)
   }
 
@@ -181,12 +189,18 @@ export default function LeagueSchedulePage() {
                 <span className="text-white font-semibold text-base">{formatDate(sd.date)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setBoxscoreDate(sd.date)}
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-900/30 border border-indigo-700/40 text-indigo-400 hover:bg-indigo-900/50 hover:text-indigo-300 cursor-pointer transition-colors btn-press"
-                >
-                  <BarChart2 size={12} />박스스코어
-                </button>
+                {datesWithStats.has(sd.date) ? (
+                  <button
+                    onClick={() => setBoxscoreDate(sd.date)}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-900/40 border border-indigo-600/60 text-indigo-300 hover:bg-indigo-800/60 hover:text-indigo-200 cursor-pointer transition-colors btn-press"
+                  >
+                    <BarChart2 size={12} />박스스코어
+                  </button>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-gray-800/30 border border-gray-800/50 text-gray-700 cursor-not-allowed select-none">
+                    <BarChart2 size={12} />박스스코어
+                  </span>
+                )}
                 {isEditMode && (
                   <button
                     onClick={() => removeDate(sd.date)}
