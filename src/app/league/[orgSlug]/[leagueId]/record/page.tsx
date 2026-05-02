@@ -1115,6 +1115,55 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         </div>
                       </div>
 
+                      {/* 비정규 선수 등록 — 경기 시작 전 */}
+                      {irregularRoster.length > 0 && (
+                        <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-3 space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <UserPlus size={12} className="text-amber-400 shrink-0" />
+                            <p className="text-xs font-bold text-amber-400">비정규 선수 등록</p>
+                            <span className="text-[10px] text-gray-600">팀 배정 후 선발 체크 가능</span>
+                          </div>
+                          {/* 선수 선택 전: 칩 목록 */}
+                          {!pendingIrregular ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {irregularRoster.map(p => (
+                                <button
+                                  key={p.id}
+                                  onClick={() => setPendingIrregular(p)}
+                                  className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-800 border border-amber-700/40 text-amber-300 hover:border-amber-500 hover:bg-amber-900/20 cursor-pointer transition-colors"
+                                >
+                                  {p.number ? `#${p.number} ` : ''}{p.name}
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            /* 팀 배정 선택 */
+                            <div className="space-y-2">
+                              <p className="text-xs text-white font-semibold">{pendingIrregular.name} → 어느 팀?</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  onClick={() => addIrregularToTeam(pendingIrregular, 'home')}
+                                  disabled={addingIrregular}
+                                  className="py-2 rounded-lg text-xs font-bold border cursor-pointer transition-colors disabled:opacity-50"
+                                  style={{ color: selectedSlot?.home_team?.color ?? '#3b82f6', borderColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}60`, backgroundColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}18` }}
+                                >
+                                  {selectedSlot?.home_team?.name ?? '홈팀'}
+                                </button>
+                                <button
+                                  onClick={() => addIrregularToTeam(pendingIrregular, 'away')}
+                                  disabled={addingIrregular}
+                                  className="py-2 rounded-lg text-xs font-bold border cursor-pointer transition-colors disabled:opacity-50"
+                                  style={{ color: selectedSlot?.away_team?.color ?? '#ef4444', borderColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}60`, backgroundColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}18` }}
+                                >
+                                  {selectedSlot?.away_team?.name ?? '어웨이팀'}
+                                </button>
+                              </div>
+                              <button onClick={() => setPendingIrregular(null)} className="text-[10px] text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center">취소</button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* 경기 시작 버튼 — 선발 선택 바로 아래 */}
                       <Button
                         onClick={startGame}
