@@ -139,7 +139,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   // 팀 로스터 로드 시 선발 전체 선택으로 자동 초기화
   useEffect(() => {
     if (!gameStarted && (homeRoster.length > 0 || awayRoster.length > 0)) {
-      setSelectedStarters(new Set([...homeRoster, ...awayRoster].map(p => p.id)))
+      // 정규 선수만 자동 선택 — 비정규(is_regular=false)는 기본 미체크 (GP 오염 방지)
+      const regularIds = [...homeRoster, ...awayRoster]
+        .filter(p => p.is_regular !== false)
+        .map(p => p.id)
+      setSelectedStarters(new Set(regularIds))
     }
   }, [homeRoster, awayRoster]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1066,6 +1070,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                           <div className="space-y-1">
                             {homeRoster.map(p => {
                               const checked = selectedStarters.has(p.id)
+                              const isIrregular = p.is_regular === false
                               return (
                                 <label key={p.id} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer border text-xs transition-colors ${
                                   checked ? 'bg-blue-900/30 border-blue-700/50 text-white' : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:bg-gray-800'
@@ -1073,6 +1078,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                                   <input type="checkbox" checked={checked} onChange={() => toggleStarter(p.id)} className="w-3.5 h-3.5 cursor-pointer accent-blue-500" />
                                   {p.number && <span className="font-mono text-gray-600 w-6">#{p.number}</span>}
                                   <span className="font-medium">{p.name}</span>
+                                  {isIrregular && <span className="ml-auto text-[9px] font-bold text-amber-500 border border-amber-700/50 rounded px-1">비정규</span>}
                                 </label>
                               )
                             })}
@@ -1092,6 +1098,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                           <div className="space-y-1">
                             {awayRoster.map(p => {
                               const checked = selectedStarters.has(p.id)
+                              const isIrregular = p.is_regular === false
                               return (
                                 <label key={p.id} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer border text-xs transition-colors ${
                                   checked ? 'bg-red-900/30 border-red-700/50 text-white' : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:bg-gray-800'
@@ -1099,6 +1106,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                                   <input type="checkbox" checked={checked} onChange={() => toggleStarter(p.id)} className="w-3.5 h-3.5 cursor-pointer accent-red-500" />
                                   {p.number && <span className="font-mono text-gray-600 w-6">#{p.number}</span>}
                                   <span className="font-medium">{p.name}</span>
+                                  {isIrregular && <span className="ml-auto text-[9px] font-bold text-amber-500 border border-amber-700/50 rounded px-1">비정규</span>}
                                 </label>
                               )
                             })}
