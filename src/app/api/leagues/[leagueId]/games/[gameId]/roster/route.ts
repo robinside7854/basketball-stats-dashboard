@@ -74,8 +74,8 @@ export async function GET(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const p = (Array.isArray(m.league_players) ? m.league_players[0] : m.league_players) as any
     if (!p) continue
-    // 비정규이고 team_id 없는 경우는 스킵 (league_game_players로 처리)
-    if (m.is_regular === false && !m.team_id) continue
+    // 비정규 선수는 league_player_quarters에서 완전 제외 → league_game_players(per-game)로만 처리
+    if (m.is_regular === false) continue
     const row: PlayerRow = {
       id: p.id,
       name: p.name,
