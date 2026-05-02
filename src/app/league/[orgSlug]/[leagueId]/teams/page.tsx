@@ -287,16 +287,10 @@ function TeamDetailPanel({
   const played = standing.w + standing.l
   const winPct = played > 0 ? (standing.w / played * 100).toFixed(1) : '—'
 
-  // avg pts/allowed from games
-  const { avgPf, avgPa } = useMemo(() => {
-    if (teamGames.length === 0) return { avgPf: 0, avgPa: 0 }
-    let pf = 0; let pa = 0
-    for (const g of teamGames) {
-      if (g.home_team_id === teamId) { pf += g.home_score; pa += g.away_score }
-      else { pf += g.away_score; pa += g.home_score }
-    }
-    return { avgPf: pf / teamGames.length, avgPa: pa / teamGames.length }
-  }, [teamGames, teamId])
+  // standings.gf/ga가 가장 신뢰성 있는 소스 (games 루프와 동일 기준)
+  const avgPf = played > 0 ? standing.gf / played : 0
+  const avgPa = played > 0 ? standing.ga / played : 0
+  const ptsDiff = standing.gf - standing.ga
 
   return (
     <div
@@ -335,9 +329,11 @@ function TeamDetailPanel({
             {computed && (
               <div>
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">팀 스탯</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                   {[
                     { label: '팀 PPG', value: computed.ppg.toFixed(1), sub: '평균 득점', color: team.color },
+                    { label: '평균 실점', value: avgPa.toFixed(1), sub: '경기당 허용', color: '#f87171' },
+                    { label: '득실차', value: (ptsDiff >= 0 ? '+' : '') + ptsDiff.toFixed(0), sub: `총 ${ptsDiff >= 0 ? '양수' : '음수'}`, color: ptsDiff >= 0 ? '#4ade80' : '#f87171' },
                     { label: '팀 FG%', value: `${computed.fgPct.toFixed(1)}%`, sub: '야투율', color: '#34d399' },
                     { label: '팀 eFG%', value: `${computed.efgPct.toFixed(1)}%`, sub: '유효 야투율', color: '#2dd4bf' },
                     { label: 'STL+BLK/G', value: computed.defPg.toFixed(1), sub: '수비 이벤트', color: '#a78bfa' },
