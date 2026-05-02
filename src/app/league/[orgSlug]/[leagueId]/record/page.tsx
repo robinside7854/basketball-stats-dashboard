@@ -96,6 +96,9 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [leagueYtChannel, setLeagueYtChannel] = useState<string | null>(null)
   const [plusOneAge, setPlusOneAge] = useState<number | null>(null)
   const [dateStats, setDateStats] = useState<Record<string, { total: number; yt: number; complete: number; started: number }>>({})
+  const [quarters, setQuarters] = useState<{ id: string; year: number; quarter: number }[]>([])
+  const [selectedQFilter, setSelectedQFilter] = useState<'all' | string>('all')
+  const [dateQuarterMap, setDateQuarterMap] = useState<Record<string, string>>({})
   const [selectedSlotId, setSelectedSlotId] = useState('')
   const [loadingDates, setLoadingDates] = useState(true)
   const [initializingSlots, setInitializingSlots] = useState(false)
@@ -190,12 +193,13 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   useEffect(() => {
     async function init() {
       setLoadingDates(true)
-      const [dRes, tRes, pRes, lRes, gRes] = await Promise.all([
+      const [dRes, tRes, pRes, lRes, gRes, qRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/schedule-dates`),
         fetch(`/api/leagues/${leagueId}/teams`),
         fetch(`/api/leagues/${leagueId}/players`),
         fetch(`/api/leagues/${leagueId}`),
         fetch(`/api/leagues/${leagueId}/games`),
+        fetch(`/api/leagues/${leagueId}/quarters`),
       ])
       if (dRes.ok) setScheduleDates(await dRes.json())
       if (tRes.ok) setTeams(await tRes.json())
@@ -205,7 +209,17 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         setLeagueYtChannel(ld.youtube_channel ?? null)
         setPlusOneAge(ld.plus_one_age ?? null)
       }
-      if (gRes.ok) buildDateStats(await gRes.json())
+      if (qRes.ok) setQuarters(await qRes.json())
+      if (gRes.ok) {
+        const games = await gRes.json()
+        buildDateStats(games)
+        // 날짜 → 분기 맵 (게임 기준)
+        const dqMap: Record<string, string> = {}
+        for (const g of games) {
+          if (g.date && g.quarter_id && !dqMap[g.date]) dqMap[g.date] = g.quarter_id
+        }
+        setDateQuarterMap(dqMap)
+      }
       setLoadingDates(false)
     }
     init()
@@ -568,6 +582,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     const totalStarted  = Object.values(dateStats).reduce((s, d) => s + d.started,  0)
     const totalPending  = totalGames - totalComplete - totalStarted
 
+    // 필터 + 역순 정렬
+    const filteredDates = [...scheduleDates]
+      .filter(sd => selectedQFilter === 'all' || dateQuarterMap[sd.date] === selectedQFilter)
+      .sort((a, b) => b.date.localeCompare(a.date))
+
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
@@ -616,8 +635,27 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           </div>
         )}
 
+        {/* 분기 필터 탭 */}
+        {quarters.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {[{ id: 'all', label: '전체' }, ...quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q` }))].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setSelectedQFilter(tab.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer border ${
+                  selectedQFilter === tab.id
+                    ? 'bg-blue-600 border-blue-500 text-white'
+                    : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="space-y-2">
-          {scheduleDates.map(sd => {
+          {filteredDates.map(sd => {
             const d = new Date(sd.date + 'T00:00:00')
             const days = ['일', '월', '화', '수', '목', '금', '토']
             const stat = dateStats[sd.date]
