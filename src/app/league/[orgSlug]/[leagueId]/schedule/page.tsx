@@ -9,6 +9,7 @@ import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2 } from 'lucid
 import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 
 type ScheduleDate = { id: string; date: string }
+type Quarter = { id: string; year: number; quarter: number }
 
 export default function LeagueSchedulePage() {
   const params = useParams<{ leagueId: string }>()
@@ -23,18 +24,28 @@ export default function LeagueSchedulePage() {
   const [deletingDate, setDeletingDate] = useState<string | null>(null)
   const [boxscoreDate, setBoxscoreDate] = useState<string | null>(null)
   const [datesWithStats, setDatesWithStats] = useState<Set<string>>(new Set())
+  const [quarters, setQuarters] = useState<Quarter[]>([])
+  const [selectedQFilter, setSelectedQFilter] = useState<'all' | string>('all')
+  const [dateQuarterMap, setDateQuarterMap] = useState<Record<string, string>>({})
 
   async function load() {
     setLoading(true)
-    const [dRes, gRes] = await Promise.all([
+    const [dRes, gRes, qRes] = await Promise.all([
       fetch(`/api/leagues/${leagueId}/schedule-dates`),
       fetch(`/api/leagues/${leagueId}/games?complete=true`),
+      fetch(`/api/leagues/${leagueId}/quarters`),
     ])
     if (dRes.ok) setDates(await dRes.json())
     if (gRes.ok) {
-      const games: { date: string }[] = await gRes.json()
+      const games: { date: string; quarter_id?: string }[] = await gRes.json()
       setDatesWithStats(new Set(games.map(g => g.date)))
+      const dqMap: Record<string, string> = {}
+      for (const g of games) {
+        if (g.date && g.quarter_id && !dqMap[g.date]) dqMap[g.date] = g.quarter_id
+      }
+      setDateQuarterMap(dqMap)
     }
+    if (qRes.ok) setQuarters(await qRes.json())
     setLoading(false)
   }
 
@@ -181,8 +192,30 @@ export default function LeagueSchedulePage() {
           {isEditMode && <p className="text-xs mt-1">위 입력창에서 날짜를 추가하세요</p>}
         </div>
       ) : (
+        <>
+        {/* 분기 필터 탭 */}
+        {quarters.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {[{ id: 'all', label: '전체' }, ...quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q` }))].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setSelectedQFilter(tab.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer border ${
+                  selectedQFilter === tab.id
+                    ? 'bg-blue-600 border-blue-500 text-white'
+                    : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="space-y-2">
-          {dates.map(sd => (
+          {[...dates]
+            .filter(sd => selectedQFilter === 'all' || dateQuarterMap[sd.date] === selectedQFilter)
+            .sort((a, b) => b.date.localeCompare(a.date))
+            .map(sd => (
             <div key={sd.id} className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex items-center justify-between hover:border-gray-700 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
               <div className="flex items-center gap-3">
                 <CalendarDays size={16} className="text-blue-400 shrink-0" />
@@ -216,6 +249,7 @@ export default function LeagueSchedulePage() {
             </div>
           ))}
         </div>
+        </>
       )}
     </div>
     {boxscoreDate && (
