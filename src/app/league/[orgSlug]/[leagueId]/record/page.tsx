@@ -57,8 +57,36 @@ export default function LeagueRecordPage() {
 
 // ── 내부 컴포넌트 ─────────────────────────────────────────────
 function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHeaders: Record<string, string> }) {
-  const { setCurrentGame } = useGameStore()
+  const { setCurrentGame, ytPlayer } = useGameStore()
   const { setLineup, resetLineup, onCourt } = useLineupStore()
+
+  // ── YouTube 원격 제어 ────────────────────────────────────────
+  function seekRelative(delta: number) {
+    if (!ytPlayer) return
+    try { ytPlayer.seekTo((ytPlayer.getCurrentTime() ?? 0) + delta, true) } catch {}
+  }
+  function togglePlay() {
+    if (!ytPlayer) return
+    try {
+      const state = ytPlayer.getPlayerState()
+      if (state === 1 /* PLAYING */) ytPlayer.pauseVideo()
+      else ytPlayer.playVideo()
+    } catch {}
+  }
+
+  // 키보드 단축키: Space(재생/정지), ←/→(±5s), Shift+←/→(±10s)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (!ytPlayer) return
+      if (e.code === 'Space')      { e.preventDefault(); togglePlay() }
+      else if (e.code === 'ArrowLeft')  { e.preventDefault(); seekRelative(e.shiftKey ? -10 : -5) }
+      else if (e.code === 'ArrowRight') { e.preventDefault(); seekRelative(e.shiftKey ? 10 : 5) }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [ytPlayer]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [scheduleDates, setScheduleDates] = useState<ScheduleDate[]>([])
   const [selectedDate, setSelectedDate] = useState('')
@@ -769,6 +797,34 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       youtubeUrl={selectedSlot.youtube_url}
                       startOffset={selectedSlot.youtube_start_offset ?? 0}
                     />
+                    {/* 트랜스포트 컨트롤 오버레이 — 영상 좌하단 */}
+                    {ytPlayer && (
+                      <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1 bg-black/75 backdrop-blur-sm rounded-xl px-2 py-1.5">
+                        {[
+                          { label: '−10', delta: -10 },
+                          { label: '−5',  delta: -5  },
+                        ].map(({ label, delta }) => (
+                          <button key={label} onClick={() => seekRelative(delta)}
+                            className="px-2 py-1 rounded-lg text-[11px] font-bold text-gray-300 hover:text-white hover:bg-white/15 cursor-pointer transition-colors">
+                            {label}
+                          </button>
+                        ))}
+                        <button onClick={togglePlay}
+                          className="px-2.5 py-1 rounded-lg text-sm font-black text-white hover:bg-white/20 cursor-pointer transition-colors mx-0.5">
+                          ⏯
+                        </button>
+                        {[
+                          { label: '+5',  delta: 5  },
+                          { label: '+10', delta: 10 },
+                        ].map(({ label, delta }) => (
+                          <button key={label} onClick={() => seekRelative(delta)}
+                            className="px-2 py-1 rounded-lg text-[11px] font-bold text-gray-300 hover:text-white hover:bg-white/15 cursor-pointer transition-colors">
+                            {label}
+                          </button>
+                        ))}
+                        <span className="text-[9px] text-gray-600 ml-1 hidden lg:inline">Space·←·→</span>
+                      </div>
+                    )}
                     {/* 스코어보드 오버레이 — 영상 우하단 */}
                     {gameStarted && (
                       <div className="absolute bottom-10 right-3 z-10 pointer-events-none">
