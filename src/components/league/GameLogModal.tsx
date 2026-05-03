@@ -116,7 +116,11 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
   // Filtered events
   const filteredEvents = useMemo(() => {
     return events.filter(e => {
-      if (filterTeam !== 'all' && e.team_id !== filterTeam) return false
+      if (filterTeam !== 'all') {
+        // 이벤트 team_id 우선, 없으면 playerMap fallback (비정규 선수 포함)
+        const effectiveTeam = e.team_id ?? (e.league_player_id ? playerMap[e.league_player_id]?.team_id : null)
+        if (effectiveTeam !== filterTeam) return false
+      }
       if (filterPlayer !== 'all' && e.league_player_id !== filterPlayer) return false
       if (filterEventGroup !== 'all') {
         if (filterEventGroup === 'shot' && !SHOT_TYPES.includes(e.type)) return false
