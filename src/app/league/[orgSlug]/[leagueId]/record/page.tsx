@@ -237,9 +237,26 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     const rRes = await fetch(`/api/leagues/${leagueId}/games/${slot.id}/roster`)
     if (rRes.ok) {
       const rd = await rRes.json()
-      setHomeRoster(rd.home ?? [])
-      setAwayRoster(rd.away ?? [])
+      const home: RosterPlayer[] = rd.home ?? []
+      const away: RosterPlayer[] = rd.away ?? []
+      setHomeRoster(home)
+      setAwayRoster(away)
       assignedIrregularIds = rd.assigned_irregular_ids ?? []
+
+      // 이미 시작된 경기 로드 시: plus_one 충돌 있으면 자동 팝업
+      if (slot.is_started) {
+        const homePO = home.filter(p => p.plus_one)
+        const awayPO = away.filter(p => p.plus_one)
+        const conflict = homePO.length >= 2
+          ? { teamName: slot.home_team?.name ?? '홈팀', players: homePO }
+          : awayPO.length >= 2
+          ? { teamName: slot.away_team?.name ?? '어웨이팀', players: awayPO }
+          : null
+        if (conflict) {
+          setPlusOneConflict(conflict)
+          setShowPlusOneModal(true)
+        }
+      }
     }
     // 비정규 선수 picker: 분기 내 비정규 선수 중 이 경기에 아직 배정 안 된 선수
     if (slot.quarter_id) {
@@ -1092,6 +1109,27 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             <ClipboardList size={11} />
                             <span className="hidden sm:inline">로그</span>
                           </button>
+                          {/* 플러스원 선수 재설정 버튼 — plus_one 선수가 있을 때만 표시 */}
+                          {[...homeRoster, ...awayRoster].some(p => p.plus_one) && (
+                            <button
+                              onClick={() => {
+                                const homePO = homeRoster.filter(p => p.plus_one)
+                                const awayPO = awayRoster.filter(p => p.plus_one)
+                                const conflict = homePO.length >= 2
+                                  ? { teamName: selectedSlot?.home_team?.name ?? '홈팀', players: homePO }
+                                  : awayPO.length >= 2
+                                  ? { teamName: selectedSlot?.away_team?.name ?? '어웨이팀', players: awayPO }
+                                  : { teamName: '플러스원', players: [...homePO, ...awayPO] }
+                                setPlusOneConflict(conflict)
+                                setShowPlusOneModal(true)
+                              }}
+                              className="border-l border-gray-800 px-2.5 flex items-center gap-1 text-[10px] text-amber-400 hover:text-amber-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
+                              title="플러스원 선수 설정"
+                            >
+                              <span className="text-xs">⚡</span>
+                              <span className="hidden sm:inline">+1</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => setShowSubModal(true)}
                             className="border-l border-gray-800 px-2.5 flex items-center gap-1 text-[10px] text-orange-400 hover:text-orange-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
