@@ -104,6 +104,8 @@ export async function GET(
   }
 
   for (const e of playerEvents ?? []) {
+    // sub_in/sub_out은 실제 출전 기록이 아니므로 perGame 엔트리 생성 안 함 (GP 인플레이션 방지)
+    if (e.type === 'sub_in' || e.type === 'sub_out') continue
     const s = ensureG(e.league_game_id)
     const made = e.result === 'made'
     const gamePlusOne = gamePlusOneMap[e.league_game_id]
