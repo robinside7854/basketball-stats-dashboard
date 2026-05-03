@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Loader2, Trash2, Pencil, Check, X, RotateCcw } from 'lucide-react'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
@@ -39,6 +39,9 @@ const EVENT_OPTS = [
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
 const FT_TYPES   = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2']
+const REB_TYPES  = ['oreb', 'dreb']
+const DEF_TYPES  = ['steal', 'block', 'turnover', 'foul']
+const FT_ALL     = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'and_one']
 
 function getLabel(type: string) { return EVENT_OPTS.find(e => e.v === type)?.l ?? type }
 
@@ -72,9 +75,11 @@ interface Props {
   isEditMode: boolean
   onClose: () => void
   onChanged: () => void
+  homeTeam?: { id: string; name: string; color: string }
+  awayTeam?: { id: string; name: string; color: string }
 }
 
-export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlayers, isEditMode, onClose, onChanged }: Props) {
+export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlayers, isEditMode, onClose, onChanged, homeTeam, awayTeam }: Props) {
   const [events, setEvents] = useState<EventRow[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -84,6 +89,12 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
   const [resetting, setResetting] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [quickViewId, setQuickViewId] = useState<string | null>(null)
+
+  // Filter states
+  const [filterTeam, setFilterTeam] = useState<'all' | string>('all')
+  const [filterPlayer, setFilterPlayer] = useState<string>('all')
+  const [filterEventGroup, setFilterEventGroup] = useState<'all' | 'shot' | 'reb' | 'def' | 'ft'>('all')
+  const [filterResult, setFilterResult] = useState<'all' | 'made' | 'missed'>('all')
 
   const playerMap = Object.fromEntries(allPlayers.map(p => [p.id, p]))
 
@@ -101,6 +112,36 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [onClose])
+
+  // Filtered events
+  const filteredEvents = useMemo(() => {
+    return events.filter(e => {
+      if (filterTeam !== 'all' && e.team_id !== filterTeam) return false
+      if (filterPlayer !== 'all' && e.league_player_id !== filterPlayer) return false
+      if (filterEventGroup !== 'all') {
+        if (filterEventGroup === 'shot' && !SHOT_TYPES.includes(e.type)) return false
+        if (filterEventGroup === 'reb' && !REB_TYPES.includes(e.type)) return false
+        if (filterEventGroup === 'def' && !DEF_TYPES.includes(e.type)) return false
+        if (filterEventGroup === 'ft' && !FT_ALL.includes(e.type)) return false
+      }
+      if (filterResult !== 'all') {
+        const hasResult = [...SHOT_TYPES, ...FT_ALL].includes(e.type)
+        if (!hasResult) return false
+        if (e.result !== filterResult) return false
+      }
+      return true
+    })
+  }, [events, filterTeam, filterPlayer, filterEventGroup, filterResult])
+
+  // Unique players who appear in events
+  const eventPlayerIds = useMemo(() => {
+    const ids = new Set<string>()
+    events.forEach(e => { if (e.league_player_id) ids.add(e.league_player_id) })
+    return Array.from(ids)
+  }, [events])
+
+  const isFiltered = filterTeam !== 'all' || filterPlayer !== 'all' || filterEventGroup !== 'all' || filterResult !== 'all'
+  const showResultFilter = filterEventGroup === 'all' || filterEventGroup === 'shot' || filterEventGroup === 'ft'
 
   async function handleDelete(id: string) {
     setDeletingId(id)
@@ -164,6 +205,11 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
   const isFtType   = FT_TYPES.includes(editForm.type)
   const needsResult = isShotType || isFtType
 
+  // Chip style helpers
+  const chipBase = 'px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors'
+  const chipInactive = `${chipBase} border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500`
+  const chipActive = `${chipBase} bg-blue-600 border-blue-500 text-white`
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
@@ -173,7 +219,11 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
         <div className="flex items-center justify-between px-5 pt-safe-or-3 pb-3.5 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-3">
             <h2 className="text-white font-bold text-sm">게임 이벤트 로그</h2>
-            {!loading && <span className="text-[11px] text-gray-600">{events.length}개</span>}
+            {!loading && (
+              <span className="text-[11px] text-gray-600">
+                {isFiltered ? `${filteredEvents.length}/${events.length}개` : `${events.length}개`}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {isEditMode && (
@@ -191,13 +241,80 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
           </div>
         </div>
 
+        {/* Filter bar */}
+        <div className="shrink-0 px-4 py-2.5 border-b border-gray-800 space-y-2">
+          {/* Row 1: Team + Result */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1 flex-wrap">
+              <button
+                onClick={() => setFilterTeam('all')}
+                className={filterTeam === 'all' ? chipActive : chipInactive}
+              >전체</button>
+              {homeTeam && (
+                <button
+                  onClick={() => setFilterTeam(filterTeam === homeTeam.id ? 'all' : homeTeam.id)}
+                  className={chipBase + (filterTeam === homeTeam.id ? ' text-white' : ' border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500')}
+                  style={filterTeam === homeTeam.id ? { backgroundColor: homeTeam.color, borderColor: homeTeam.color } : undefined}
+                >{homeTeam.name}</button>
+              )}
+              {awayTeam && (
+                <button
+                  onClick={() => setFilterTeam(filterTeam === awayTeam.id ? 'all' : awayTeam.id)}
+                  className={chipBase + (filterTeam === awayTeam.id ? ' text-white' : ' border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500')}
+                  style={filterTeam === awayTeam.id ? { backgroundColor: awayTeam.color, borderColor: awayTeam.color } : undefined}
+                >{awayTeam.name}</button>
+              )}
+            </div>
+            {showResultFilter && (
+              <div className="flex items-center gap-1">
+                <button onClick={() => setFilterResult('all')} className={filterResult === 'all' ? chipActive : chipInactive}>전체</button>
+                <button onClick={() => setFilterResult(filterResult === 'made' ? 'all' : 'made')} className={filterResult === 'made' ? chipActive : chipInactive}>성공</button>
+                <button onClick={() => setFilterResult(filterResult === 'missed' ? 'all' : 'missed')} className={filterResult === 'missed' ? chipActive : chipInactive}>실패</button>
+              </div>
+            )}
+          </div>
+
+          {/* Row 2: Event group + Player */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1 flex-wrap">
+              {(['all', 'shot', 'reb', 'def', 'ft'] as const).map(g => (
+                <button
+                  key={g}
+                  onClick={() => { setFilterEventGroup(g); if (g !== 'shot' && g !== 'ft') setFilterResult('all') }}
+                  className={filterEventGroup === g ? chipActive : chipInactive}
+                >
+                  {g === 'all' ? '전체' : g === 'shot' ? '슛' : g === 'reb' ? '리바운드' : g === 'def' ? '수비' : '자유투'}
+                </button>
+              ))}
+            </div>
+            <select
+              value={filterPlayer}
+              onChange={e => setFilterPlayer(e.target.value)}
+              className="bg-gray-900 border border-gray-700 text-gray-400 text-[11px] rounded-lg px-2 py-1 cursor-pointer"
+            >
+              <option value="all">전체 선수</option>
+              {eventPlayerIds.map(id => {
+                const p = playerMap[id]
+                if (!p) return null
+                return (
+                  <option key={id} value={id}>
+                    {p.number != null ? `#${p.number} ` : ''}{p.name}
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+        </div>
+
         {/* Event list */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
           {loading ? (
             <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-gray-600" /></div>
-          ) : events.length === 0 ? (
-            <p className="text-center text-sm text-gray-600 py-10">이벤트가 없습니다</p>
-          ) : events.map(e => {
+          ) : filteredEvents.length === 0 ? (
+            <p className="text-center text-sm text-gray-600 py-10">
+              {isFiltered && events.length > 0 ? '필터 조건에 맞는 이벤트가 없습니다' : '이벤트가 없습니다'}
+            </p>
+          ) : filteredEvents.map(e => {
             const player    = e.league_player_id ? playerMap[e.league_player_id] : null
             const relPlayer = e.related_player_id ? playerMap[e.related_player_id] : null
             const isEditing = editingId === e.id

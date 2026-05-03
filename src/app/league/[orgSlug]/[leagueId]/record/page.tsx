@@ -1406,13 +1406,15 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           gameId={selectedSlotId}
           leagueId={leagueId}
           leagueHeaders={leagueHeaders}
-          allPlayers={[...homeRoster, ...awayRoster]}
+          allPlayers={[...homeRoster, ...awayRoster, ...allPlayers.filter(p => !homeRoster.some(r => r.id === p.id) && !awayRoster.some(r => r.id === p.id))]}
           isEditMode={true}
           onClose={() => setShowGameLog(false)}
           onChanged={() => {
             fetchLiveScore()
             setStatsRefresh(k => k + 1)
           }}
+          homeTeam={selectedSlot?.home_team ?? undefined}
+          awayTeam={selectedSlot?.away_team ?? undefined}
         />
       )}
     </div>
