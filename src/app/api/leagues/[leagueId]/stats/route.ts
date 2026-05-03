@@ -62,7 +62,6 @@ export async function GET(
 
   const { data: events, error: eErr } = await eQuery
   if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 })
-
   // 4. 선수별 스탯 집계
   type PlayerStats = {
     player_id: string
@@ -183,5 +182,15 @@ export async function GET(
     })
     .sort((a, b) => b.pts - a.pts) // 득점 순 정렬
 
-  return NextResponse.json({ players: result, games_count: gameIds.length })
+  const robinEvents = (events ?? []).filter(e => e.league_player_id === 'de588497-78ed-472c-b3b0-f2b43c63e506')
+  return NextResponse.json({
+    players: result,
+    _debug: {
+      quarterId_received: quarterId,
+      games_count: gameIds.length,
+      events_count: events?.length ?? 0,
+      robin_events: robinEvents.length,
+      robin_distinct_games: new Set(robinEvents.map(e => e.league_game_id)).size,
+    }
+  })
 }
