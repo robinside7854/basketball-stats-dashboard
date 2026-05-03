@@ -102,7 +102,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
 
   function seekToTimestamp(sec: number | null) {
     if (sec == null || !ytPlayer) return
-    try { ytPlayer.seekTo(sec, true); ytPlayer.playVideo() } catch {}
+    try { ytPlayer.seekTo(sec, true); ytPlayer.unMute(); ytPlayer.playVideo() } catch {}
   }
 
   const loadEvents = useCallback(async () => {

@@ -63,14 +63,17 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   // ── YouTube 원격 제어 ────────────────────────────────────────
   function seekRelative(delta: number) {
     if (!ytPlayer) return
-    try { ytPlayer.seekTo((ytPlayer.getCurrentTime() ?? 0) + delta, true) } catch {}
+    try {
+      ytPlayer.seekTo((ytPlayer.getCurrentTime() ?? 0) + delta, true)
+      ytPlayer.unMute()
+    } catch {}
   }
   function togglePlay() {
     if (!ytPlayer) return
     try {
       const state = ytPlayer.getPlayerState()
       if (state === 1 /* PLAYING */) ytPlayer.pauseVideo()
-      else ytPlayer.playVideo()
+      else { ytPlayer.unMute(); ytPlayer.playVideo() }
     } catch {}
   }
 
