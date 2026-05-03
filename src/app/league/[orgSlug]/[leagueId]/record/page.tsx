@@ -1361,8 +1361,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
                       {/* 타팀 임시 출전 — 정규 선수를 이번 경기에만 상대팀으로 이동 */}
                       {(() => {
-                        const homeLendable = homeRoster.filter(p => p.is_regular !== false && !assignedIds.has(p.id))
-                        const awayLendable = awayRoster.filter(p => p.is_regular !== false && !assignedIds.has(p.id))
+                        const homeLendable = homeRoster.filter(p => p.is_regular !== false)
+                        const awayLendable = awayRoster.filter(p => p.is_regular !== false)
                         if (homeLendable.length === 0 && awayLendable.length === 0) return null
                         return (
                           <div className="bg-gray-800/40 border border-orange-700/30 rounded-xl p-3 space-y-2">
