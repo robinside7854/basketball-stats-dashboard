@@ -361,27 +361,27 @@ export async function GET(
     total_fga: totalFGA,
   }
 
-  const playerAllStats = allMap[playerId]
-  const playerGp = playerAllStats?.gp ?? 0
-  const pGp = Math.max(playerGp, 1)
-  const player_stats = playerAllStats ? {
-    gp: playerGp,
-    ppg: +(playerAllStats.pts / pGp).toFixed(1),
-    rpg: +(playerAllStats.reb / pGp).toFixed(1),
-    apg: +(playerAllStats.ast / pGp).toFixed(1),
-    spg: +(playerAllStats.stl / pGp).toFixed(1),
-    bpg: +(playerAllStats.blk / pGp).toFixed(1),
-    topg: +(playerAllStats.tov / pGp).toFixed(1),
-    fgm: playerAllStats.fgm, fga: playerAllStats.fga,
-    fg3m: playerAllStats.fg3m, fg3a: playerAllStats.fg3a,
-    ftm: playerAllStats.ftm, fta: playerAllStats.fta,
-    pts: playerAllStats.pts, reb: playerAllStats.reb,
-    ast: playerAllStats.ast, stl: playerAllStats.stl,
-    blk: playerAllStats.blk, tov: playerAllStats.tov,
-    fg_pct: playerAllStats.fga > 0 ? +(playerAllStats.fgm / playerAllStats.fga * 100).toFixed(1) : 0,
-    fg3_pct: playerAllStats.fg3a > 0 ? +(playerAllStats.fg3m / playerAllStats.fg3a * 100).toFixed(1) : 0,
-    ft_pct: playerAllStats.fta > 0 ? +(playerAllStats.ftm / playerAllStats.fta * 100).toFixed(1) : 0,
-  } : null
+  // player_stats: allMap은 전체 allEvents 1000행 제한에 걸릴 수 있으므로
+  // 선수 특화 조회(playerEvents + assistEvents)로 만든 perGame에서 직접 집계
+  const playedGIds = Object.keys(perGame)
+  const playerGp = playedGIds.length
+  const player_stats = playerGp > 0 ? (() => {
+    let pts=0,reb=0,ast=0,stl=0,blk=0,tov=0,fgm=0,fga=0,fg3m=0,fg3a=0,ftm=0,fta=0
+    for (const gId of playedGIds) {
+      const s = perGame[gId]
+      pts+=s.pts; reb+=s.reb; ast+=s.ast; stl+=s.stl; blk+=s.blk; tov+=s.tov
+      fgm+=s.fgm; fga+=s.fga; fg3m+=s.fg3m; fg3a+=s.fg3a; ftm+=s.ftm; fta+=s.fta
+    }
+    const gp = playerGp; const g = Math.max(gp, 1)
+    return {
+      gp, pts, reb, ast, stl, blk, tov, fgm, fga, fg3m, fg3a, ftm, fta,
+      ppg: +(pts/g).toFixed(1), rpg: +(reb/g).toFixed(1), apg: +(ast/g).toFixed(1),
+      spg: +(stl/g).toFixed(1), bpg: +(blk/g).toFixed(1), topg: +(tov/g).toFixed(1),
+      fg_pct:  fga  > 0 ? +(fgm/fga*100).toFixed(1)   : 0,
+      fg3_pct: fg3a > 0 ? +(fg3m/fg3a*100).toFixed(1) : 0,
+      ft_pct:  fta  > 0 ? +(ftm/fta*100).toFixed(1)   : 0,
+    }
+  })() : null
 
   return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss, player_stats })
 }
