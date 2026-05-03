@@ -990,9 +990,9 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             </div>
           </div>
 
-          {/* 영상 먼저 — 팀 미지정이어도 슬롯 선택 시 즉시 표시 */}
+          {/* 영상 먼저 — 팀 미지정 시 컴팩트 크기로 표시 */}
           {selectedSlot.youtube_url && !selectedSlot.home_team_id && (
-            <div className="mb-4 rounded-xl overflow-hidden bg-black">
+            <div className="mb-3 rounded-xl overflow-hidden bg-black max-h-44">
               <YouTubePlayer
                 key={selectedSlot.youtube_url + '-pre'}
                 youtubeUrl={selectedSlot.youtube_url}
