@@ -139,11 +139,15 @@ export async function GET(
     }
   })
 
-  // Aggregate daily stats per player
-  const dailyMap: Record<string, GS & { gp: number; name: string; number: number | null }> = {}
+  // Aggregate daily stats per player (팀 정보 포함)
+  type DailyEntry = GS & { gp: number; name: string; number: number | null; team_id: string | null; team_name: string | null; team_color: string | null }
+  const dailyMap: Record<string, DailyEntry> = {}
   for (const g of gameList) {
     for (const row of g.players) {
-      if (!dailyMap[row.player_id]) dailyMap[row.player_id] = { ...emptyGS(), gp: 0, name: row.name, number: row.number }
+      if (!dailyMap[row.player_id]) dailyMap[row.player_id] = {
+        ...emptyGS(), gp: 0, name: row.name, number: row.number,
+        team_id: row.team_id ?? null, team_name: row.team_name ?? null, team_color: row.team_color ?? null,
+      }
       const d = dailyMap[row.player_id]
       d.gp++; d.pts+=row.pts; d.reb+=row.reb; d.oreb+=row.oreb; d.dreb+=row.dreb
       d.ast+=row.ast; d.stl+=row.stl; d.blk+=row.blk; d.tov+=row.tov
@@ -153,6 +157,7 @@ export async function GET(
   const dailyStats = Object.entries(dailyMap)
     .map(([pid, d]) => ({
       player_id: pid, name: d.name, number: d.number, gp: d.gp,
+      team_id: d.team_id, team_name: d.team_name, team_color: d.team_color,
       pts: d.pts, reb: d.reb, oreb: d.oreb, dreb: d.dreb, ast: d.ast, stl: d.stl, blk: d.blk, tov: d.tov,
       fgm: d.fgm, fga: d.fga, fg3m: d.fg3m, fg3a: d.fg3a, ftm: d.ftm, fta: d.fta,
       fg_pct: pct(d.fgm, d.fga), fg3_pct: pct(d.fg3m, d.fg3a),

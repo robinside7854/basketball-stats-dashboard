@@ -23,6 +23,7 @@ type GameData = {
 
 type DailyStat = {
   player_id: string; name: string; number: number | null; gp: number
+  team_id: string | null; team_name: string | null; team_color: string | null
   pts: number; reb: number; oreb: number; dreb: number
   ast: number; stl: number; blk: number; tov: number
   fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
@@ -156,6 +157,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
   const [loading, setLoading] = useState(true)
   const [expandedGame, setExpandedGame] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overall' | 'games'>('overall')
+  const [teamFilter, setTeamFilter] = useState<string>('all')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -237,20 +239,50 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
           <div className="flex-1 overflow-y-auto">
 
             {/* 탭 1: 전체 스탯 */}
-            {activeTab === 'overall' && (
+            {activeTab === 'overall' && (() => {
+              // 팀 목록 추출 (team_id 있는 선수만)
+              const teamList = Array.from(
+                new Map(
+                  dailyStats
+                    .filter(d => d.team_id && d.team_name)
+                    .map(d => [d.team_id!, { id: d.team_id!, name: d.team_name!, color: d.team_color }])
+                ).values()
+              )
+              const filteredStats = teamFilter === 'all'
+                ? dailyStats
+                : dailyStats.filter(d => d.team_id === teamFilter)
+
+              return (
               <div className="p-5 space-y-4">
+                {/* 팀 필터 탭 */}
+                {teamList.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => setTeamFilter('all')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${teamFilter === 'all' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                    >전체</button>
+                    {teamList.map(t => (
+                      <button
+                        key={t.id}
+                        onClick={() => setTeamFilter(t.id)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${teamFilter === t.id ? 'text-white border-transparent' : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                        style={teamFilter === t.id ? { backgroundColor: t.color ?? '#3b82f6', borderColor: t.color ?? '#3b82f6' } : {}}
+                      >{t.name}</button>
+                    ))}
+                  </div>
+                )}
                 {/* 당일 스탯 리더 */}
-                {dailyStats.length > 0 && (() => {
+                {filteredStats.length > 0 && (() => {
                   const MIN_FGA = 3, MIN_FG3A = 2
-                  const byPts  = [...dailyStats].sort((a,b) => b.pts - a.pts)[0]
-                  const byReb  = [...dailyStats].sort((a,b) => b.reb - a.reb)[0]
-                  const byAst  = [...dailyStats].sort((a,b) => b.ast - a.ast)[0]
-                  const byBlk  = [...dailyStats].sort((a,b) => b.blk - a.blk)[0]
-                  const byStl  = [...dailyStats].sort((a,b) => b.stl - a.stl)[0]
-                  const byFgPct = [...dailyStats]
+                  const byPts  = [...filteredStats].sort((a,b) => b.pts - a.pts)[0]
+                  const byReb  = [...filteredStats].sort((a,b) => b.reb - a.reb)[0]
+                  const byAst  = [...filteredStats].sort((a,b) => b.ast - a.ast)[0]
+                  const byBlk  = [...filteredStats].sort((a,b) => b.blk - a.blk)[0]
+                  const byStl  = [...filteredStats].sort((a,b) => b.stl - a.stl)[0]
+                  const byFgPct = [...filteredStats]
                     .filter(p => p.fga >= MIN_FGA)
                     .sort((a,b) => (b.fg_pct ?? 0) - (a.fg_pct ?? 0))[0]
-                  const byFg3  = [...dailyStats]
+                  const byFg3  = [...filteredStats]
                     .filter(p => p.fg3a >= MIN_FG3A)
                     .sort((a,b) => b.fg3m - a.fg3m)[0]
 
@@ -291,13 +323,14 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                   )
                 })()}
 
-                {dailyStats.length > 0
+                {filteredStats.length > 0
                   ? <div className="bg-gray-900/80 border border-gray-700/50 rounded-xl overflow-hidden">
-                      <StatTable rows={dailyStats} showGP />
+                      <StatTable rows={filteredStats} showGP />
                     </div>
                   : <p className="text-gray-600 text-sm text-center py-10">집계된 스탯이 없습니다</p>}
               </div>
-            )}
+              )
+            })()}
 
             {/* 탭 2: 경기별 박스스코어 */}
             {activeTab === 'games' && (
