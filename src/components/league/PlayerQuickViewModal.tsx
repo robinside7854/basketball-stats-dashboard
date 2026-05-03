@@ -63,9 +63,13 @@ interface Props {
   playerId: string
   playerName: string // 로딩 전 즉시 표시용
   onClose: () => void
+  isEditMode?: boolean
+  leagueHeaders?: Record<string, string>
+  onSaved?: () => void
+  onDeleted?: () => void
 }
 
-export default function PlayerQuickViewModal({ leagueId, playerId, playerName, onClose }: Props) {
+export default function PlayerQuickViewModal({ leagueId, playerId, playerName, onClose, isEditMode, leagueHeaders, onSaved, onDeleted }: Props) {
   const [player, setPlayer] = useState<PlayerInfo | null>(null)
   const [stats, setStats] = useState<SeasonStats | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
@@ -75,6 +79,12 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [selectedQuarterId, setSelectedQuarterId] = useState<string | null>(null)
   const [quarterDetail, setQuarterDetail] = useState<Detail | null>(null)
   const [quarterLoading, setQuarterLoading] = useState(false)
+  const [showEditPanel, setShowEditPanel] = useState(false)
+  const [togglingP1, setTogglingP1] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [editForm, setEditForm] = useState({ name: '', position: '', birth_date: '' })
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -107,6 +117,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [onClose])
+
+  useEffect(() => {
+    if (player) setEditForm({ name: player.name, position: player.position ?? '', birth_date: player.birth_date ?? '' })
+  }, [player])
 
   // 분기 선택 시 해당 분기 detail 패치
   useEffect(() => {
@@ -190,11 +204,89 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/40 text-indigo-400 text-xs font-bold cursor-pointer transition-colors">
               <BookOpen size={12} /> 도감
             </button>
+            {isEditMode && (
+              <button
+                onClick={() => setShowEditPanel(v => !v)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors border ${showEditPanel ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:text-white'}`}
+              >
+                <span>✏️</span> 편집
+              </button>
+            )}
             <button onClick={onClose} className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
               <X size={18} />
             </button>
           </div>
         </div>
+
+        {showEditPanel && isEditMode && (
+          <div className="px-5 py-4 border-b border-gray-800 bg-gray-800/30 space-y-3">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">선수 정보 수정</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] text-gray-500 block mb-1">이름</label>
+                <input value={editForm.name} onChange={e => setEditForm(f => ({...f, name: e.target.value}))}
+                  className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-2.5 py-1.5 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 block mb-1">포지션</label>
+                <input value={editForm.position} onChange={e => setEditForm(f => ({...f, position: e.target.value}))}
+                  placeholder="PG,SG,SF" className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-2.5 py-1.5 text-xs" />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-500 block mb-1">생년월일</label>
+                <input type="date" value={editForm.birth_date} onChange={e => setEditForm(f => ({...f, birth_date: e.target.value}))}
+                  className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-2.5 py-1.5 text-xs" />
+              </div>
+              <div className="flex items-end">
+                <button onClick={async () => {
+                  if (!leagueHeaders) return
+                  setSavingEdit(true)
+                  await fetch(`/api/leagues/${leagueId}/players/${playerId}`, {
+                    method: 'PATCH', headers: {...leagueHeaders, 'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name: editForm.name, position: editForm.position || null, birth_date: editForm.birth_date || null }),
+                  })
+                  setSavingEdit(false); onSaved?.(); setShowEditPanel(false)
+                }} disabled={savingEdit} className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50">
+                  {savingEdit ? '저장 중...' : '저장'}
+                </button>
+              </div>
+            </div>
+            {/* Plus_one toggle */}
+            <div className="flex items-center justify-between py-2 px-3 bg-gray-800/60 rounded-lg">
+              <span className="text-xs text-gray-400">+1 플러스원 선수</span>
+              <button onClick={async () => {
+                if (!leagueHeaders || !player) return
+                setTogglingP1(true)
+                const newVal = !player.plus_one
+                await fetch(`/api/leagues/${leagueId}/players/${playerId}`, {
+                  method: 'PATCH', headers: {...leagueHeaders, 'Content-Type': 'application/json'},
+                  body: JSON.stringify({ plus_one: newVal }),
+                })
+                setTogglingP1(false); onSaved?.()
+              }} disabled={togglingP1} className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors disabled:opacity-50 ${player?.plus_one ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' : 'bg-gray-700 border border-gray-600 text-gray-400 hover:border-amber-500/40'}`}>
+                {player?.plus_one ? '+1 ON' : '+1 OFF'}
+              </button>
+            </div>
+            {/* Delete */}
+            {!confirmDelete ? (
+              <button onClick={() => setConfirmDelete(true)} className="w-full py-2 rounded-lg bg-red-900/20 border border-red-800/40 text-red-400 text-xs font-bold cursor-pointer hover:bg-red-900/40 transition-colors">
+                선수 삭제
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button onClick={async () => {
+                  if (!leagueHeaders) return
+                  setDeleting(true)
+                  await fetch(`/api/leagues/${leagueId}/players/${playerId}`, { method: 'DELETE', headers: leagueHeaders })
+                  setDeleting(false); onDeleted?.(); onClose()
+                }} disabled={deleting} className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50">
+                  {deleting ? '삭제 중...' : '삭제 확인'}
+                </button>
+                <button onClick={() => setConfirmDelete(false)} className="flex-1 py-2 rounded-lg bg-gray-800 text-gray-300 text-xs font-bold cursor-pointer">취소</button>
+              </div>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-600" /></div>

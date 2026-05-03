@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Pencil, Check, X, BookOpen } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
+import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import { ALL_BADGE_DEFS } from '@/lib/league/badges'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
@@ -1681,18 +1682,15 @@ export default function LeagueRosterPage() {
 
       {/* 수정 3: 선수 상세 모달 */}
       {selectedPlayer && (
-        <PlayerModal
-          player={selectedPlayer}
+        <PlayerQuickViewModal
+          leagueId={leagueId}
+          playerId={selectedPlayer.id}
+          playerName={selectedPlayer.name}
           isEditMode={isEditMode}
           leagueHeaders={leagueHeaders}
-          leagueId={leagueId}
-          membershipMap={membershipMap}
-          displayQuarters={displayQuarters}
-          teams={teams}
-          leaderMap={leaderMap}
-          onClose={() => setSelectedPlayer(null)}
           onSaved={() => load()}
-          onDeleted={() => load()}
+          onDeleted={() => { setSelectedPlayer(null); load() }}
+          onClose={() => setSelectedPlayer(null)}
         />
       )}
 
