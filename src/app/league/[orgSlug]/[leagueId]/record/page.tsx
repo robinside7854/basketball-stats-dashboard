@@ -990,14 +990,16 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             </div>
           </div>
 
-          {/* 영상 먼저 — 팀 미지정 시 컴팩트 크기로 표시 */}
+          {/* 영상 먼저 — 팀 미지정 시 절반 크기로 표시 (16:9 비율 유지) */}
           {selectedSlot.youtube_url && !selectedSlot.home_team_id && (
-            <div className="mb-3 rounded-xl overflow-hidden bg-black max-h-44">
-              <YouTubePlayer
-                key={selectedSlot.youtube_url + '-pre'}
-                youtubeUrl={selectedSlot.youtube_url}
-                startOffset={selectedSlot.youtube_start_offset ?? 0}
-              />
+            <div className="mb-3 flex justify-center">
+              <div className="w-1/2 rounded-xl overflow-hidden bg-black">
+                <YouTubePlayer
+                  key={selectedSlot.youtube_url + '-pre'}
+                  youtubeUrl={selectedSlot.youtube_url}
+                  startOffset={selectedSlot.youtube_start_offset ?? 0}
+                />
+              </div>
             </div>
           )}
 
