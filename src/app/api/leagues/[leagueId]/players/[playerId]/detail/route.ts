@@ -79,7 +79,8 @@ export async function GET(
       .from('league_game_events')
       .select('league_player_id, league_game_id, related_player_id, type, result, points')
       .in('league_game_id', gameIds)
-      .not('league_player_id', 'is', null),
+      .not('league_player_id', 'is', null)
+      .limit(20000),  // Supabase 기본 1000행 제한 우회 (stats API와 동일)
   ])
 
   // ── Per-game stats ───────────────────────────────────────────
