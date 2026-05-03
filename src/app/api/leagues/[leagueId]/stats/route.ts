@@ -27,12 +27,12 @@ export async function GET(
   const plusOneSet = new Set((allLeaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
   const metaMap = Object.fromEntries((allLeaguePlayers ?? []).map(p => [p.id, p]))
 
-  // 2. 대상 완료 게임 ID 추출
+  // 2. 대상 게임 ID 추출 — is_started=true 기준 (detail API와 동일, 마감 미처리 경기도 포함)
   let gQuery = supabase
     .from('league_games')
     .select('id, plus_one_player_id')
     .eq('league_id', leagueId)
-    .eq('is_complete', true)
+    .eq('is_started', true)
 
   if (quarterId) gQuery = gQuery.eq('quarter_id', quarterId)
   if (from)      gQuery = gQuery.gte('date', from)
