@@ -30,7 +30,7 @@ export async function GET(
   // 2. 대상 완료 게임 ID 추출
   let gQuery = supabase
     .from('league_games')
-    .select('id')
+    .select('id, plus_one_player_id')
     .eq('league_id', leagueId)
     .eq('is_complete', true)
 
@@ -43,6 +43,11 @@ export async function GET(
 
   const gameIds = (games ?? []).map(g => g.id)
   if (gameIds.length === 0) return NextResponse.json({ players: [] })
+
+  const gamePlusOneMap: Record<string, string | null> = {}
+  for (const g of (games ?? [])) {
+    gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
+  }
 
   // 3. 이벤트 조회
   let eQuery = supabase
@@ -97,8 +102,11 @@ export async function GET(
     }
 
     const made = e.result === 'made'
-    // 필드골 득점은 현재 plus_one 플래그 기준으로 동적 계산 (과거 기록 보정 포함)
-    const isPlusOne = plusOneSet.has(pid)
+    // 필드골 득점: 게임별 plus_one_player_id 오버라이드 우선, 없으면 영구 플래그 사용
+    const gamePlusOneOverride = gamePlusOneMap[e.league_game_id]
+    const isPlusOne = gamePlusOneOverride !== null
+      ? pid === gamePlusOneOverride
+      : plusOneSet.has(pid)
 
     switch (e.type) {
       case 'shot_3p':

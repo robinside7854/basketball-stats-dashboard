@@ -21,7 +21,7 @@ export async function GET(
   ] = await Promise.all([
     supabase
       .from('league_games')
-      .select('id, slot_num, date, home_team_id, away_team_id, home_score, away_score, is_complete, is_started, youtube_url, youtube_start_offset, quarter_id, round_num')
+      .select('id, slot_num, date, home_team_id, away_team_id, home_score, away_score, is_complete, is_started, youtube_url, youtube_start_offset, quarter_id, round_num, plus_one_player_id')
       .eq('league_id', leagueId)
       .eq('date', date)
       .eq('is_started', true)
@@ -43,6 +43,8 @@ export async function GET(
   const teamMap = Object.fromEntries((teams ?? []).map(t => [t.id, t]))
   const playerMap = Object.fromEntries((players ?? []).map(p => [p.id, p]))
   const plusOneSet = new Set((players ?? []).filter(p => p.plus_one).map(p => p.id))
+  const gamePlusOneMap: Record<string, string | null> = {}
+  for (const g of games ?? []) gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
 
   // quarter_id → team_id for each player (정규 선수)
   const qTeamMap: Record<string, Record<string, string>> = {}
@@ -76,7 +78,8 @@ export async function GET(
     const gId = e.league_game_id as string
     const pid = e.league_player_id as string
     const made = e.result === 'made'
-    const isP1 = plusOneSet.has(pid)
+    const gamePlusOne = gamePlusOneMap[gId]
+    const isP1 = gamePlusOne !== null ? pid === gamePlusOne : plusOneSet.has(pid)
     if (!gamePlayerStats[gId]) continue
     if (!gamePlayerStats[gId][pid]) gamePlayerStats[gId][pid] = emptyGS()
     const s = gamePlayerStats[gId][pid]

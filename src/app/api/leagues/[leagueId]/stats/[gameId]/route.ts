@@ -33,13 +33,15 @@ export async function GET(
   const { leagueId, gameId } = await params
   const supabase = createClient()
 
-  const [{ data: events }, { data: mins }, { data: leaguePlayers }] = await Promise.all([
+  const [{ data: events }, { data: mins }, { data: leaguePlayers }, { data: gameRow }] = await Promise.all([
     supabase.from('league_game_events').select('league_player_id,type,result,points,related_player_id').eq('league_game_id', gameId),
     supabase.from('league_player_minutes').select('league_player_id,in_time,out_time').eq('league_game_id', gameId),
     supabase.from('league_players').select('id,plus_one').eq('league_id', leagueId),
+    supabase.from('league_games').select('id,home_team_id,away_team_id,quarter_id,plus_one_player_id').eq('id', gameId).single(),
   ])
 
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
+  const gamePlusOneOverride = (gameRow as Record<string, unknown> | null)?.plus_one_player_id as string | null ?? null
 
   const statsMap: Record<string, PlayerStat> = {}
   function getOrCreate(pid: string): PlayerStat {
@@ -51,8 +53,10 @@ export async function GET(
     if (!e.league_player_id) continue
     const s = getOrCreate(e.league_player_id)
     const made = e.result === 'made'
-    // 필드골 득점: 현재 plus_one 플래그 기준 동적 계산
-    const isPlusOne = plusOneSet.has(e.league_player_id)
+    // 필드골 득점: 게임별 plus_one_player_id 오버라이드 우선, 없으면 영구 플래그 사용
+    const isPlusOne = gamePlusOneOverride !== null
+      ? e.league_player_id === gamePlusOneOverride
+      : plusOneSet.has(e.league_player_id)
 
     if (e.type === 'shot_3p') { s.fg3a++; s.fga++; if (made) { s.fg3m++; s.fgm++; s.pts += isPlusOne ? 4 : 3 } }
     else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post' || e.type === 'shot_2p_drive') { s.fga++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 } }

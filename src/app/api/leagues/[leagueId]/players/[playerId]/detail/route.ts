@@ -23,7 +23,7 @@ export async function GET(
     supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
     supabase
       .from('league_games')
-      .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num')
+      .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num, plus_one_player_id')
       .eq('league_id', leagueId)
       .eq('is_started', true)   // 마감 여부와 무관하게 기록 시작된 게임 전체 포함
       .order('date', { ascending: false }),
@@ -42,10 +42,11 @@ export async function GET(
     : (allGames ?? [])
 
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
-  const isPlusOne = plusOneSet.has(playerId)
   const teamMap = Object.fromEntries((teams ?? []).map(t => [t.id, t.name]))
   const gameIds = (games ?? []).map(g => g.id)
   const gameMap = Object.fromEntries((games ?? []).map(g => [g.id, g]))
+  const gamePlusOneMap: Record<string, string | null> = {}
+  for (const g of games ?? []) gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
   const leagueName = (league as { name?: string } | null)?.name ?? ''
 
   const qTeamMap: Record<string, string> = {}
@@ -104,6 +105,8 @@ export async function GET(
   for (const e of playerEvents ?? []) {
     const s = ensureG(e.league_game_id)
     const made = e.result === 'made'
+    const gamePlusOne = gamePlusOneMap[e.league_game_id]
+    const isPlusOne = gamePlusOne !== null ? playerId === gamePlusOne : plusOneSet.has(playerId)
     switch (e.type) {
       case 'shot_3p':
         s.fg3a++; s.fga++; sb.three.a++
@@ -208,8 +211,9 @@ export async function GET(
   for (const e of allEvents ?? []) {
     const pid = e.league_player_id as string
     const made = e.result === 'made'
-    const isP1 = plusOneSet.has(pid)
     const gId = e.league_game_id as string
+    const gamePlusOne = gamePlusOneMap[gId]
+    const isP1 = gamePlusOne !== null ? pid === gamePlusOne : plusOneSet.has(pid)
     if (!allMap[pid]) allMap[pid] = emptyAS()
     // sub_in/sub_out은 GP 카운트 제외
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
