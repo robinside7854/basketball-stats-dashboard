@@ -1078,9 +1078,19 @@ export default function LeagueRosterPage() {
         birth_date: form.birth_date || null,
       }),
     })
-    setSaving(false)
     if (res.ok) {
-      toast.success('선수 추가 완료')
+      const newPlayer = await res.json()
+      // 모든 분기에 비정규로 자동 등록
+      if (newPlayer?.id && quarters.length > 0) {
+        await Promise.all(quarters.map(q =>
+          fetch(`/api/leagues/${leagueId}/quarters/${q.id}/players`, {
+            method: 'PATCH',
+            headers: leagueHeaders,
+            body: JSON.stringify({ league_player_id: newPlayer.id, team_id: null, is_regular: false }),
+          })
+        ))
+      }
+      toast.success('선수 추가 완료 (비정규 등록)')
       setForm({ name: '', position: [], birth_date: '' })
       setShowForm(false)
       load()
@@ -1088,6 +1098,7 @@ export default function LeagueRosterPage() {
       const d = await res.json()
       toast.error(d.error ?? '추가 실패')
     }
+    setSaving(false)
   }
 
   function togglePosition(pos: string, arr: string[], setArr: (v: string[]) => void) {
@@ -1556,24 +1567,22 @@ export default function LeagueRosterPage() {
                               <Loader2 size={11} className="animate-spin text-gray-500 ml-auto" />
                             ) : isEditingCell && isEditMode ? (
                               <select
-                                autoFocus defaultValue={teamId ?? ''}
+                                autoFocus defaultValue={isRegular === false ? '__irregular' : (teamId ?? '__irregular')}
                                 onClick={e => e.stopPropagation()}
                                 onBlur={e => {
                                   const val = e.target.value
                                   if (val === '__irregular') updateMembership(q.id, p.id, null, false)
-                                  else if (val === '') setEditingCell(null)
                                   else updateMembership(q.id, p.id, val, true)
                                 }}
                                 onChange={e => {
                                   const val = e.target.value
                                   if (val === '__irregular') updateMembership(q.id, p.id, null, false)
-                                  else if (val !== '') updateMembership(q.id, p.id, val, true)
+                                  else updateMembership(q.id, p.id, val, true)
                                 }}
                                 className="flex-1 bg-gray-800 border border-blue-500 text-white rounded px-2 py-0.5 text-xs cursor-pointer"
                               >
-                                <option value="">미배정</option>
-                                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                                 <option value="__irregular">비정규</option>
+                                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                               </select>
                             ) : (
                               <div className="flex items-center gap-1.5 ml-auto">
