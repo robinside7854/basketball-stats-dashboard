@@ -1,14 +1,20 @@
--- quarter_id가 NULL인 기존 게임들을 date 기준으로 분기에 매핑
--- league_quarters에 start_date/end_date 또는 is_current가 설정되어 있어야 동작
+-- ─────────────────────────────────────────────────────────────────
+-- 분기 규칙: 1~3월 = 1분기, 4~6월 = 2분기, 7~9월 = 3분기, 10~12월 = 4분기 (매년 동일)
+-- date의 연도 + CEIL(month/3) 으로 league_quarters를 직접 매핑
+-- ─────────────────────────────────────────────────────────────────
 
--- 1. 현재 quarter_id NULL 게임 현황 확인용
--- SELECT league_id, COUNT(*) FROM league_games WHERE quarter_id IS NULL GROUP BY league_id;
+-- 1. 모든 게임 quarter_id 재설정 (NULL + 기존 값 모두)
+UPDATE league_games lg
+SET quarter_id = lq.id
+FROM league_quarters lq
+WHERE lq.league_id = lg.league_id
+  AND lq.year      = EXTRACT(YEAR FROM lg.date)::INT
+  AND lq.quarter   = CEIL(EXTRACT(MONTH FROM lg.date)::NUMERIC / 3)::INT
+  AND lg.date IS NOT NULL;
 
--- 2. NULL인 게임들에 quarter_id 백필 (트리거 함수 재사용)
-UPDATE league_games
-SET quarter_id = resolve_league_quarter(league_id, date)
-WHERE quarter_id IS NULL
-  AND date IS NOT NULL;
-
--- 3. 백필 후 현황 재확인
--- SELECT league_id, quarter_id, COUNT(*) FROM league_games GROUP BY league_id, quarter_id;
+-- 2. 확인용 (실행 후 결과 보기)
+-- SELECT lg.date, lq.year, lq.quarter, lg.quarter_id
+-- FROM league_games lg
+-- LEFT JOIN league_quarters lq ON lg.quarter_id = lq.id
+-- WHERE lg.is_started = true
+-- ORDER BY lg.date DESC LIMIT 20;
