@@ -118,7 +118,9 @@ export async function GET(
       // ft_2pt: 1회 시도 2점 / 나머지 자유투: 1점
       case 'ft_2pt':
         s.fta++; if (made) { s.ftm++; s.pts += 2 }; break
-      case 'free_throw': case 'ft_3pt_1': case 'ft_3pt_2':
+      case 'ft_3pt_1':
+        s.fta++; if (made) { s.ftm++; s.pts += 2 }; break
+      case 'free_throw': case 'ft_3pt_2':
         s.fta++; if (made) { s.ftm++; s.pts += 1 }; break
       case 'oreb': s.oreb++; s.reb++; break
       case 'dreb': s.dreb++; s.reb++; break

@@ -59,8 +59,7 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
     buttons: [
       { type: 'and_one',  label: '앤드원',     color: 'bg-amber-600 hover:bg-amber-500', activeColor: 'bg-amber-500', needsResult: true },
       { type: 'ft_2pt',   label: '2P파울 FT',  color: 'bg-teal-600 hover:bg-teal-500',  activeColor: 'bg-teal-500',  needsResult: true },
-      { type: 'ft_3pt_1', label: '3P파울 1구', color: 'bg-teal-700 hover:bg-teal-600',  activeColor: 'bg-teal-600',  needsResult: true },
-      { type: 'ft_3pt_2', label: '3P파울 2구', color: 'bg-teal-800 hover:bg-teal-700',  activeColor: 'bg-teal-700',  needsResult: true },
+      { type: 'ft_3pt_1', label: '3P파울 FT',  color: 'bg-teal-700 hover:bg-teal-600',  activeColor: 'bg-teal-600',  needsResult: true },
     ],
   },
 ]
@@ -72,7 +71,7 @@ function calcPoints(type: string, result: string, isPlusOne = false): number {
   if (result !== 'made') return 0
   if (type === 'and_one')   return 1   // 득점인정반칙: 슛 성공 + 1점 추가
   if (type === 'ft_2pt')    return 2   // 2점 파울 FT: 1회 시도로 2점
-  if (type === 'ft_3pt_1')  return 1
+  if (type === 'ft_3pt_1')  return 2
   if (type === 'ft_3pt_2')  return 1
   if (type === 'free_throw') return 1
   const bonus = isPlusOne ? 1 : 0
@@ -206,7 +205,13 @@ export default function LeagueEventInputPad({
     toast.success(`기록: ${lbl}`)
     setAwaitingAssist(false)
     setPendingResult(null)
-    if (!FT_TYPES.includes(shotType) || shotType === 'ft_2pt') setPendingShot(null)
+    if (shotType === 'ft_3pt_1') {
+      // 2구 자동 진입
+      setPendingShot({ type: 'ft_3pt_2', label: '3P파울 2구', color: 'bg-teal-800 hover:bg-teal-700', activeColor: 'bg-teal-700', needsResult: true })
+      setPendingResult(null)
+    } else if (!FT_TYPES.includes(shotType) || shotType === 'ft_2pt') {
+      setPendingShot(null)
+    }
     onEventSaved()
 
     // Phase 1-B: 마지막 자유투 실패 시 리바운드 피커 자동 등장

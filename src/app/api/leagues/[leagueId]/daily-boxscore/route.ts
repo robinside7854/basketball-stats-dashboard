@@ -83,7 +83,9 @@ export async function GET(
         if (made) { s.pts += 1 }; break
       case 'ft_2pt':
         s.fta++; if (made) { s.ftm++; s.pts += 2 }; break
-      case 'ft_3pt_1': case 'ft_3pt_2': case 'free_throw':
+      case 'ft_3pt_1':
+        s.fta++; if (made) { s.ftm++; s.pts += 2 }; break
+      case 'ft_3pt_2': case 'free_throw':
         s.fta++; if (made) { s.ftm++; s.pts += 1 }; break
       case 'oreb': s.oreb++; s.reb++; break
       case 'dreb': s.dreb++; s.reb++; break
