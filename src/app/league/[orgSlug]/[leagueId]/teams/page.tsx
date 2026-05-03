@@ -86,7 +86,7 @@ function StatsTable({
 
   function valOf(p: PlayerStat, key: SortKey): string {
     if (key === 'gp' || key === 'pts' || key === 'reb' || key === 'ast' ||
-        key === 'stl' || key === 'blk' || key === 'tov' || key === 'pf' ||
+        key === 'stl' || key === 'blk' || key === 'tov' ||
         key === 'fgm' || key === 'fg3m' || key === 'ftm') {
       return String(p[key as keyof PlayerStat] ?? 0)
     }
