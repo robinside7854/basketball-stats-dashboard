@@ -49,19 +49,26 @@ export async function GET(
     gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
   }
 
-  // 3. 이벤트 조회
-  let eQuery = supabase
-    .from('league_game_events')
-    .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id')
-    .in('league_game_id', gameIds)
-    .not('league_player_id', 'is', null)
-
-  if (teamId)   eQuery = eQuery.eq('team_id', teamId)
-  if (playerId) eQuery = eQuery.eq('league_player_id', playerId)
-  eQuery = eQuery.limit(20000)  // Supabase 기본 1000행 제한 우회
-
-  const { data: events, error: eErr } = await eQuery
-  if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 })
+  // 3. 이벤트 조회 — Supabase 서버 max-rows(1000) 제한을 피해 페이지네이션으로 전체 수집
+  type EventRow = { league_player_id: string | null; related_player_id: string | null; team_id: string | null; type: string; result: string | null; points: number | null; league_game_id: string }
+  const events: EventRow[] = []
+  const PAGE = 1000
+  let page = 0
+  while (true) {
+    let q = supabase
+      .from('league_game_events')
+      .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id')
+      .in('league_game_id', gameIds)
+      .not('league_player_id', 'is', null)
+      .range(page * PAGE, (page + 1) * PAGE - 1)
+    if (teamId)   q = q.eq('team_id', teamId)
+    if (playerId) q = q.eq('league_player_id', playerId)
+    const { data: chunk, error: eErr } = await q
+    if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 })
+    if (chunk && chunk.length > 0) events.push(...(chunk as EventRow[]))
+    if (!chunk || chunk.length < PAGE) break
+    page++
+  }
   // 4. 선수별 스탯 집계
   type PlayerStats = {
     player_id: string
@@ -182,15 +189,5 @@ export async function GET(
     })
     .sort((a, b) => b.pts - a.pts) // 득점 순 정렬
 
-  const robinEvents = (events ?? []).filter(e => e.league_player_id === 'de588497-78ed-472c-b3b0-f2b43c63e506')
-  return NextResponse.json({
-    players: result,
-    _debug: {
-      quarterId_received: quarterId,
-      games_count: gameIds.length,
-      events_count: events?.length ?? 0,
-      robin_events: robinEvents.length,
-      robin_distinct_games: new Set(robinEvents.map(e => e.league_game_id)).size,
-    }
-  })
+  return NextResponse.json({ players: result, games_count: gameIds.length })
 }
