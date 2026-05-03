@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Loader2, Trash2, Pencil, Check, X, RotateCcw } from 'lucide-react'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+import { useGameStore } from '@/store/gameStore'
 
 type RosterPlayer = { id: string; name: string; number?: number | null; team_id?: string }
 
@@ -96,7 +97,13 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
   const [filterEventGroup, setFilterEventGroup] = useState<'all' | 'shot' | 'reb' | 'def' | 'ft'>('all')
   const [filterResult, setFilterResult] = useState<'all' | 'made' | 'missed'>('all')
 
+  const ytPlayer = useGameStore(s => s.ytPlayer)
   const playerMap = Object.fromEntries(allPlayers.map(p => [p.id, p]))
+
+  function seekToTimestamp(sec: number | null) {
+    if (sec == null || !ytPlayer) return
+    try { ytPlayer.seekTo(sec, true); ytPlayer.playVideo() } catch {}
+  }
 
   const loadEvents = useCallback(async () => {
     setLoading(true)
@@ -396,11 +403,21 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
             return (
               <div key={e.id}
                 className="flex items-center gap-3 px-3 py-2.5 bg-gray-900/60 border border-gray-800/40 rounded-xl hover:border-gray-700/60 transition-colors group">
-                {/* 타임스탬프 */}
+                {/* 타임스탬프 — 클릭 시 영상 해당 시간으로 이동 */}
                 <div className="shrink-0 w-10 text-center">
-                  <span className="text-[11px] font-mono font-bold text-gray-600 tabular-nums">
-                    {fmtTs(e.video_timestamp)}
-                  </span>
+                  {e.video_timestamp != null && ytPlayer ? (
+                    <button
+                      onClick={() => seekToTimestamp(e.video_timestamp)}
+                      className="text-[11px] font-mono font-bold text-blue-500 hover:text-blue-300 tabular-nums cursor-pointer transition-colors hover:underline underline-offset-2"
+                      title="클릭하여 해당 시간으로 이동"
+                    >
+                      {fmtTs(e.video_timestamp)}
+                    </button>
+                  ) : (
+                    <span className="text-[11px] font-mono font-bold text-gray-600 tabular-nums">
+                      {fmtTs(e.video_timestamp)}
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0 space-y-0.5">
                   <div className="flex items-center gap-2 flex-wrap">
