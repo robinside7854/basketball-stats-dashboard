@@ -30,7 +30,7 @@ type QuarterPlayer = {
 }
 type Leader = { team_id: string; leader_player_id: string | null }
 
-type SortKey = 'gp'|'ppg'|'rpg'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'pts'|'reb'|'ast'|'stl'|'blk'|'tov'|'pf'|'fgm'|'fg3m'|'ftm'
+type SortKey = 'gp'|'ppg'|'rpg'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'pts'|'reb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
 
 const STAT_HEADERS: { key: SortKey; label: string; tooltip?: string }[] = [
   { key: 'gp',      label: 'GP'   },
@@ -52,7 +52,6 @@ const STAT_HEADERS: { key: SortKey; label: string; tooltip?: string }[] = [
   { key: 'fgm',     label: 'FGM'  },
   { key: 'fg3m',    label: '3PM'  },
   { key: 'ftm',     label: 'FTM'  },
-  { key: 'pf',      label: 'PF'   },
 ]
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc'|'desc' }) {
@@ -206,7 +205,6 @@ function StatsTable({
                 <td className="py-2 px-1.5 text-right text-gray-500">{p.fgm}/{p.fga}</td>
                 <td className="py-2 px-1.5 text-right text-gray-500">{p.fg3m}/{p.fg3a}</td>
                 <td className="py-2 px-1.5 text-right text-gray-500">{p.ftm}/{p.fta}</td>
-                <td className="py-2 px-1.5 text-right text-orange-600">{p.pf}</td>
               </tr>
             )
           })}

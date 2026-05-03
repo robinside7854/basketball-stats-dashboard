@@ -58,6 +58,7 @@ export async function GET(
 
   if (teamId)   eQuery = eQuery.eq('team_id', teamId)
   if (playerId) eQuery = eQuery.eq('league_player_id', playerId)
+  eQuery = eQuery.limit(20000)  // Supabase 기본 1000행 제한 우회
 
   const { data: events, error: eErr } = await eQuery
   if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 })
