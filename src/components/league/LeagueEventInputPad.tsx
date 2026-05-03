@@ -108,6 +108,7 @@ export default function LeagueEventInputPad({
   const [assistCountdown, setAssistCountdown] = useState(0)
   const [awaitingRebound, setAwaitingRebound] = useState(false)
   const [reboundShooterTeamId, setReboundShooterTeamId] = useState<string | null>(null)
+  const [lastReboundId, setLastReboundId] = useState<string | null>(null) // 슛 직후 저장된 리바운드 ID
   const [showAndOnePrompt, setShowAndOnePrompt] = useState(false)  // Phase 2-F
   const [awaitingTovPair, setAwaitingTovPair] = useState(false)    // Phase 2-G
   const [stealerTeamId, setStealerTeamId] = useState<string | null>(null)
@@ -164,6 +165,7 @@ export default function LeagueEventInputPad({
       const pName = allPlayers.find(p => p.id === pid)?.name ?? ''
       const lbl = `${pName} — ${shot.label} ✓ (어시스트 없음)`
       setLastEvent({ id: saved.id, type: shot.type, result: res, playerId: pid, label: lbl })
+      setLastReboundId(null)
       toast.success(`기록: ${lbl}`)
       setAwaitingAssist(false)
       setPendingResult(null)
@@ -206,6 +208,7 @@ export default function LeagueEventInputPad({
     const shotType = pendingShot.type  // capture before potential clear
     const shooterTeamId = selectedTeamId
     setLastEvent({ id, type: shotType, result, playerId: selectedPlayer, label: lbl })
+    setLastReboundId(null)  // 새 슛 이벤트 → 이전 리바운드 연계 해제
     toast.success(`기록: ${lbl}`)
     setAwaitingAssist(false)
     setPendingResult(null)
@@ -283,6 +286,7 @@ export default function LeagueEventInputPad({
     const pName = allPlayers.find(p => p.id === selectedPlayer)?.name ?? ''
     const lbl = `${pName} — ${btn.label}`
     setLastEvent({ id, type: btn.type, result: 'missed', playerId: selectedPlayer, label: lbl })
+    setLastReboundId(null)  // 새 즉각 이벤트 → 이전 리바운드 연계 해제
     toast.success(`기록: ${lbl}`)
     onEventSaved()
 
@@ -321,10 +325,13 @@ export default function LeagueEventInputPad({
         result: null, related_player_id: null, points: 0,
       })
       if (rebId) {
+        setLastReboundId(rebId)  // 슛과 연계된 리바운드로 추적
         const rName = rebounder?.name ?? ''
         toast.success(`기록: ${rName} — ${rebType === 'oreb' ? '공격REB' : '수비REB'}`)
         onEventSaved()
       }
+    } else {
+      setLastReboundId(null)  // 아웃바운드/건너뛰기
     }
     setAwaitingRebound(false)
     setReboundShooterTeamId(null)
@@ -332,9 +339,15 @@ export default function LeagueEventInputPad({
 
   async function undoLast() {
     if (!lastEvent) return
+    // 슛 취소 시 연계된 리바운드도 함께 삭제
+    const rebId = lastReboundId
+    if (rebId) {
+      await fetch(`/api/leagues/${leagueId}/events/${rebId}`, { method: 'DELETE', headers: leagueHeaders })
+      setLastReboundId(null)
+    }
     const r = await fetch(`/api/leagues/${leagueId}/events/${lastEvent.id}`, { method: 'DELETE', headers: leagueHeaders })
     if (!r.ok) { toast.error('취소 실패'); return }
-    toast(`↩ 취소: ${lastEvent.label}`)
+    toast(`↩ 취소: ${lastEvent.label}${rebId ? ' + 리바운드' : ''}`)
     setLastEvent(null)
     setShowLastMenu(false)
     onEventSaved()
