@@ -539,7 +539,25 @@ export default function LeagueEventInputPad({
       {/* ── 이벤트 버튼 (선수 선택 후) ── */}
       {selectedPlayer && !awaitingAssist && !addingAssistForLast && !awaitingRebound && !awaitingTovPair && (
         <div className="space-y-1.5 pt-1">
-          {EVENT_GROUPS
+          {/* ft_3pt_2: EVENT_GROUPS에 없는 자동 진입 2구 — 직접 O/X 표시 */}
+          {pendingShot?.type === 'ft_3pt_2' ? (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[10px] text-gray-500">3P파울 2구</p>
+                <button onClick={() => setPendingShot(null)} className="text-[10px] text-gray-600 hover:text-gray-400 cursor-pointer">취소</button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => handleResult('made')}
+                  className="py-4 bg-green-600 hover:bg-green-500 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
+                  ✓ 성공
+                </button>
+                <button onClick={() => handleResult('missed')}
+                  className="py-4 bg-red-700 hover:bg-red-600 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
+                  ✗ 실패
+                </button>
+              </div>
+            </div>
+          ) : EVENT_GROUPS
             .filter(group => !pendingShot || group.buttons.some(b => b.type === pendingShot.type))
             .map(group => {
             const groupHasPending = pendingShot && group.buttons.some(b => b.type === pendingShot.type)
