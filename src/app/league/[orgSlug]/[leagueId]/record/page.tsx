@@ -499,11 +499,14 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     setShowPlusOneModal(false)
     const conflictTeam = plusOneConflict
     setPlusOneConflict(null)
-    const allPlusOne = [...homeRoster, ...awayRoster]
-      .filter(p => selectedStarters.has(p.id) && p.plus_one)
-      .map(p => p.id)
+
+    // 이미 시작된 경기면 전체 로스터 기준, 아니면 선발 기준
+    const base = gameStarted
+      ? [...homeRoster, ...awayRoster].filter(p => p.plus_one).map(p => p.id)
+      : [...homeRoster, ...awayRoster].filter(p => selectedStarters.has(p.id) && p.plus_one).map(p => p.id)
+
     // 충돌 팀은 선택된 선수만, 나머지 팀은 전부
-    const finalPlusOneIds = allPlusOne.filter(id => {
+    const finalPlusOneIds = base.filter(id => {
       if (conflictTeam?.players.some(p => p.id === id)) return id === selectedId
       return true
     })
@@ -516,8 +519,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       body: JSON.stringify({ plus_one_player_id: selectedId }),
     })
 
-    const starterIds = Array.from(selectedStarters)
-    await doStartGame(starterIds)
+    // 이미 시작된 경기라면 doStartGame 호출 안 함 (라인업 중복 방지)
+    if (!gameStarted) {
+      const starterIds = Array.from(selectedStarters)
+      await doStartGame(starterIds)
+    }
   }
 
   async function completeGame() {
