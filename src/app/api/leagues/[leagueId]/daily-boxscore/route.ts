@@ -44,12 +44,23 @@ export async function GET(
   const playerMap = Object.fromEntries((players ?? []).map(p => [p.id, p]))
   const plusOneSet = new Set((players ?? []).filter(p => p.plus_one).map(p => p.id))
 
-  // quarter_id → team_id for each player
+  // quarter_id → team_id for each player (정규 선수)
   const qTeamMap: Record<string, Record<string, string>> = {}
   for (const m of memberships ?? []) {
     if (!m.quarter_id) continue
     if (!qTeamMap[m.quarter_id]) qTeamMap[m.quarter_id] = {}
     qTeamMap[m.quarter_id][m.league_player_id] = m.team_id
+  }
+
+  // 비정규 선수: league_game_players (game_id → player_id → team_id)
+  const { data: gamePlayerRows } = await supabase
+    .from('league_game_players')
+    .select('league_game_id, league_player_id, team_id')
+    .in('league_game_id', gameIds)
+  const gpTeamMap: Record<string, Record<string, string>> = {}
+  for (const r of gamePlayerRows ?? []) {
+    if (!gpTeamMap[r.league_game_id]) gpTeamMap[r.league_game_id] = {}
+    gpTeamMap[r.league_game_id][r.league_player_id] = r.team_id
   }
 
   type GS = { pts: number; reb: number; oreb: number; dreb: number; ast: number; stl: number; blk: number; tov: number; fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number }
@@ -112,7 +123,8 @@ export async function GET(
 
     const rows = Object.entries(gps).map(([pid, s]) => {
       const p = playerMap[pid]
-      const teamId = qId && qTeamMap[qId]?.[pid]
+      // 1차: league_player_quarters (정규) → 2차: league_game_players (비정규)
+      const teamId = (qId && qTeamMap[qId]?.[pid]) || gpTeamMap[g.id]?.[pid] || null
       const team = teamId ? teamMap[teamId] : null
       return {
         player_id: pid,
