@@ -137,6 +137,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [showStarterPicker, setShowStarterPicker] = useState(false)
   const [selectedStarters, setSelectedStarters] = useState<Set<string>>(new Set())
 
+  // 플러스원 충돌 모달
+  const [showPlusOneModal, setShowPlusOneModal] = useState(false)
+  const [plusOneConflict, setPlusOneConflict] = useState<{ teamName: string; players: RosterPlayer[] } | null>(null)
+  const [activePlusOneIds, setActivePlusOneIds] = useState<string[]>([])
+
   const selectedSlot = slots.find(s => s.id === selectedSlotId) ?? null
 
   // 팀 로스터 로드 시 선발 전체 선택으로 자동 초기화
@@ -410,21 +415,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     })
   }
 
-  // 선발 체크된 선수만 onCourt + minutes INSERT
-  async function startGame() {
-    if (!selectedSlotId) return
-    const starterIds = Array.from(selectedStarters)
-    if (starterIds.length === 0) {
-      toast.error('선발 선수를 1명 이상 선택하세요')
-      return
-    }
-    // 팀당 5명 초과 검증
-    const homeStarters = starterIds.filter(id => homeRoster.some(p => p.id === id))
-    const awayStarters = starterIds.filter(id => awayRoster.some(p => p.id === id))
-    if (homeStarters.length > 5 || awayStarters.length > 5) {
-      toast.error(`팀당 선발은 최대 5명입니다 (홈 ${homeStarters.length}명 / 어웨이 ${awayStarters.length}명)`)
-      return
-    }
+  // 선발 체크된 선수만 onCourt + minutes INSERT (실제 로직)
+  async function doStartGame(starterIds: string[]) {
     setStartingGame(true)
     await Promise.all(starterIds.map(pid =>
       fetch(`/api/leagues/${leagueId}/minutes`, {
@@ -446,6 +438,69 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     if (r.ok) setMinutes(await r.json())
     refreshSlots()
     setStartingGame(false)
+  }
+
+  // 플러스원 충돌 체크 후 경기 시작
+  async function startGame() {
+    if (!selectedSlotId) return
+    const starterIds = Array.from(selectedStarters)
+    if (starterIds.length === 0) { toast.error('선발 선수를 1명 이상 선택하세요'); return }
+    const homeStarters = starterIds.filter(id => homeRoster.some(p => p.id === id))
+    const awayStarters = starterIds.filter(id => awayRoster.some(p => p.id === id))
+    if (homeStarters.length > 5 || awayStarters.length > 5) {
+      toast.error(`팀당 선발은 최대 5명입니다 (홈 ${homeStarters.length}명 / 어웨이 ${awayStarters.length}명)`)
+      return
+    }
+
+    // 플러스원 충돌 체크: 같은 팀 스타터 중 plus_one=true가 2명 이상
+    function checkPlusOneConflict(teamStarters: string[], roster: RosterPlayer[], teamName: string) {
+      const plusOnePlayers = teamStarters
+        .map(id => roster.find(p => p.id === id))
+        .filter((p): p is RosterPlayer => !!(p?.plus_one))
+      if (plusOnePlayers.length >= 2) return { teamName, players: plusOnePlayers }
+      return null
+    }
+    const homeConflict = checkPlusOneConflict(homeStarters, homeRoster, selectedSlot?.home_team?.name ?? '홈팀')
+    const awayConflict = checkPlusOneConflict(awayStarters, awayRoster, selectedSlot?.away_team?.name ?? '어웨이팀')
+    const conflict = homeConflict || awayConflict
+    if (conflict) {
+      setPlusOneConflict(conflict)
+      setShowPlusOneModal(true)
+      return
+    }
+
+    // 플러스원 충돌 없으면 기존 plus_one 플래그 사용
+    const allPlusOneIds = [...homeRoster, ...awayRoster]
+      .filter(p => selectedStarters.has(p.id) && p.plus_one)
+      .map(p => p.id)
+    setActivePlusOneIds(allPlusOneIds)
+    await doStartGame(starterIds)
+  }
+
+  // 플러스원 충돌 모달에서 선택 처리
+  async function handlePlusOneSelect(selectedId: string) {
+    setShowPlusOneModal(false)
+    const conflictTeam = plusOneConflict
+    setPlusOneConflict(null)
+    const allPlusOne = [...homeRoster, ...awayRoster]
+      .filter(p => selectedStarters.has(p.id) && p.plus_one)
+      .map(p => p.id)
+    // 충돌 팀은 선택된 선수만, 나머지 팀은 전부
+    const finalPlusOneIds = allPlusOne.filter(id => {
+      if (conflictTeam?.players.some(p => p.id === id)) return id === selectedId
+      return true
+    })
+    setActivePlusOneIds(finalPlusOneIds)
+
+    // DB에 plus_one_player_id 저장
+    await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
+      method: 'PATCH',
+      headers: leagueHeaders,
+      body: JSON.stringify({ plus_one_player_id: selectedId }),
+    })
+
+    const starterIds = Array.from(selectedStarters)
+    await doStartGame(starterIds)
   }
 
   async function completeGame() {
@@ -1063,6 +1118,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         homeTeam={selectedSlot?.home_team ?? undefined}
                         awayTeam={selectedSlot?.away_team ?? undefined}
                         onEventSaved={() => { handleEventSaved(); fetchLiveScore() }}
+                        activePlusOneIds={activePlusOneIds.length > 0 ? activePlusOneIds : undefined}
                       />
 
                       {/* 비정규 선수 추가 */}
@@ -1333,6 +1389,37 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       homeTeam={selectedSlot?.home_team ?? undefined}
                       awayTeam={selectedSlot?.away_team ?? undefined}
                     />
+                  </div>
+                </div>
+              )}
+
+              {/* 플러스원 선수 선택 모달 */}
+              {showPlusOneModal && plusOneConflict && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowPlusOneModal(false)}>
+                  <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+                  <div className="relative bg-gray-900 border border-amber-600/50 rounded-2xl p-6 w-full max-w-sm z-10 space-y-4 shadow-2xl"
+                    onClick={e => e.stopPropagation()}>
+                    <div className="text-center space-y-1.5">
+                      <div className="text-2xl">⚡</div>
+                      <h3 className="text-white font-black text-base">플러스원 선수 선택</h3>
+                      <p className="text-gray-400 text-sm">
+                        <span className="text-amber-300 font-bold">{plusOneConflict.teamName}</span>에 +1 선수가 {plusOneConflict.players.length}명입니다.<br/>
+                        이 경기에서 +1 혜택을 받을 선수를 선택하세요.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {plusOneConflict.players.map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => handlePlusOneSelect(p.id)}
+                          className="w-full py-3 px-4 rounded-xl bg-amber-900/30 border border-amber-600/50 text-amber-200 font-bold text-sm hover:bg-amber-900/50 hover:border-amber-500 cursor-pointer transition-colors flex items-center justify-between"
+                        >
+                          <span>{p.number != null ? `#${p.number} ` : ''}{p.name}</span>
+                          <span className="text-amber-400 text-xs font-black">+1 선택</span>
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => setShowPlusOneModal(false)} className="w-full text-center text-xs text-gray-600 hover:text-gray-400 cursor-pointer py-1">취소</button>
                   </div>
                 </div>
               )}

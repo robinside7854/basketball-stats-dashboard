@@ -15,6 +15,7 @@ interface Props {
   awayTeam?: { id: string; name: string; color: string }
   leagueHeaders: Record<string, string>
   onEventSaved: () => void
+  activePlusOneIds?: string[]  // per-game override; if set, only these player IDs get +1
 }
 
 type EventBtn = {
@@ -93,6 +94,7 @@ export default function LeagueEventInputPad({
   homePlayers = [], awayPlayers = [],
   homeTeam, awayTeam,
   leagueHeaders, onEventSaved,
+  activePlusOneIds,
 }: Props) {
   const { getCurrentTimestamp } = useGameStore()
 
@@ -116,7 +118,9 @@ export default function LeagueEventInputPad({
   const selectedTeam   = selectedObj
     ? (selectedObj.team_id === homeTeam?.id ? homeTeam : selectedObj.team_id === awayTeam?.id ? awayTeam : null)
     : null
-  const isPlusOne = !!(selectedObj as LeaguePlayer | null)?.plus_one
+  const isPlusOne = activePlusOneIds !== undefined
+    ? activePlusOneIds.includes(selectedPlayer ?? '')
+    : !!(selectedObj as LeaguePlayer | null)?.plus_one
 
   const assistCandidates = allPlayers.filter(p =>
     p.id !== selectedPlayer && selectedTeamId && p.team_id === selectedTeamId
@@ -384,14 +388,14 @@ export default function LeagueEventInputPad({
           isSelected
             ? 'text-white shadow-lg'
             : 'bg-gray-800/80 border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-500'
-        } ${p.plus_one ? 'ring-1 ring-amber-400/60' : ''}`}
+        } ${(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) ? 'ring-1 ring-amber-400/60' : ''}`}
         style={isSelected ? { backgroundColor: teamColor, borderColor: teamColor } : {}}
       >
         {p.number != null && (
           <div className="text-base font-black font-mono leading-none mb-0.5 opacity-70">#{p.number}</div>
         )}
         <div className={`font-semibold truncate leading-tight px-0.5 ${p.number != null ? 'text-xs' : 'text-sm'}`}>{p.name}</div>
-        {p.plus_one && (
+        {(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) && (
           <span className="absolute top-1 right-1 text-[8px] font-black text-amber-300 leading-none">+1</span>
         )}
       </button>

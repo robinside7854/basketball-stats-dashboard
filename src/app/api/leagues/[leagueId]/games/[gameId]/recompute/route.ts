@@ -18,14 +18,17 @@ export async function POST(
   const supabase = createClient()
 
   const [{ data: game, error: gErr }, { data: leaguePlayers }] = await Promise.all([
-    supabase.from('league_games').select('home_team_id, away_team_id, quarter_id').eq('id', gameId).eq('league_id', leagueId).single(),
+    supabase.from('league_games').select('home_team_id, away_team_id, quarter_id, plus_one_player_id').eq('id', gameId).eq('league_id', leagueId).single(),
     supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
   ])
 
   if (gErr || !game) return NextResponse.json({ error: '게임을 찾을 수 없습니다' }, { status: 404 })
 
   // plus_one 플래그 맵 (stats API와 동일한 방식으로 득점 계산)
-  const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
+  // game.plus_one_player_id가 설정된 경우 해당 선수만 +1 (충돌 해결 결과)
+  const plusOneSet = (game as { plus_one_player_id?: string | null }).plus_one_player_id
+    ? new Set([(game as { plus_one_player_id: string }).plus_one_player_id])
+    : new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
 
   const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
   function calcPts(type: string, result: string, playerId: string): number {
