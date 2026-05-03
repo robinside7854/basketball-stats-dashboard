@@ -55,6 +55,17 @@ export async function GET(
 
   if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 })
 
+  // 비정규 선수 / 타팀 임시 출전: league_game_players
+  // 먼저 조회해야 quarter 배정 루프에서 override 스킵이 가능함
+  // 1) 이 경기에 이미 배정된 선수 조회
+  const { data: gamePlayers } = await supabase
+    .from('league_game_players')
+    .select('league_player_id, team_id, league_players!inner(id, name, number, position, birth_date, plus_one)')
+    .eq('league_game_id', gameId)
+
+  // league_game_players에 per-game 배정이 있는 선수 ID 셋 (타팀 임시 출전 override 용)
+  const gameOverrideIds = new Set((gamePlayers ?? []).map(gp => gp.league_player_id))
+
   type PlayerRow = {
     id: string
     name: string
@@ -76,6 +87,8 @@ export async function GET(
     if (!p) continue
     // 비정규 선수는 league_player_quarters에서 완전 제외 → league_game_players(per-game)로만 처리
     if (m.is_regular === false) continue
+    // per-game 배정이 있는 선수는 league_game_players 기준으로 처리 (타팀 임시 출전 override)
+    if (gameOverrideIds.has(m.league_player_id)) continue
     const row: PlayerRow = {
       id: p.id,
       name: p.name,
@@ -89,13 +102,6 @@ export async function GET(
     if (m.team_id === game.home_team_id) { home.push(row); includedIds.add(p.id) }
     else if (m.team_id === game.away_team_id) { away.push(row); includedIds.add(p.id) }
   }
-
-  // 비정규 선수: league_game_players
-  // 1) 이 경기에 이미 배정된 선수 조회
-  const { data: gamePlayers } = await supabase
-    .from('league_game_players')
-    .select('league_player_id, team_id, league_players!inner(id, name, number, position, birth_date, plus_one)')
-    .eq('league_game_id', gameId)
 
   // 2) 같은 날짜 다른 경기에서 배정된 비정규 선수 상속 (이 경기에 없는 경우만)
   if (game.date) {
