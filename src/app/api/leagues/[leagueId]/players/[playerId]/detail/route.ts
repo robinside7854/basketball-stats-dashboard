@@ -61,7 +61,6 @@ export async function GET(
   const [
     { data: playerEvents },
     { data: assistEvents },
-    { data: allEvents },
   ] = await Promise.all([
     supabase
       .from('league_game_events')
@@ -75,13 +74,26 @@ export async function GET(
       .eq('related_player_id', playerId)
       .eq('result', 'made')
       .in('type', SHOT_TYPES),
-    supabase
-      .from('league_game_events')
-      .select('league_player_id, league_game_id, related_player_id, type, result, points')
-      .in('league_game_id', gameIds)
-      .not('league_player_id', 'is', null)
-      .limit(20000),  // Supabase 기본 1000행 제한 우회 (stats API와 동일)
   ])
+
+  // allEvents: 랭킹/배지 계산용 — 1000행 서버 제한을 피해 페이지네이션으로 전체 수집
+  type AllEventRow = { league_player_id: string | null; league_game_id: string; related_player_id: string | null; type: string; result: string | null; points: number | null }
+  const allEvents: AllEventRow[] = []
+  {
+    const PAGE = 1000
+    let pg = 0
+    while (true) {
+      const { data: chunk } = await supabase
+        .from('league_game_events')
+        .select('league_player_id, league_game_id, related_player_id, type, result, points')
+        .in('league_game_id', gameIds)
+        .not('league_player_id', 'is', null)
+        .range(pg * PAGE, (pg + 1) * PAGE - 1)
+      if (chunk && chunk.length > 0) allEvents.push(...(chunk as AllEventRow[]))
+      if (!chunk || chunk.length < PAGE) break
+      pg++
+    }
+  }
 
   // ── Per-game stats ───────────────────────────────────────────
   type GS = {
