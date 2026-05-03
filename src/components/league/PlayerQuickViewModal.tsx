@@ -31,6 +31,12 @@ type Detail = {
     win_stats: WLStats; loss_stats: WLStats
     pts_share: number
   }
+  player_stats: {
+    gp: number; ppg: number; rpg: number; apg: number; spg: number; bpg: number; topg: number
+    fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
+    pts: number; reb: number; ast: number; stl: number; blk: number; tov: number
+    fg_pct: number; fg3_pct: number; ft_pct: number
+  } | null
 }
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
@@ -195,7 +201,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         ) : (
           <div className="space-y-0">
             {/* 시즌 스탯 */}
-            {stats ? (
+            {activeDetail?.player_stats ? (
               <div className="px-5 py-4 border-b border-gray-800/60">
                 {/* 분기 필터 탭 */}
                 {quarters.length > 0 && (
@@ -234,12 +240,12 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
                     <div className="grid grid-cols-6 gap-2 mb-3">
                       {[
-                        { label: 'GP',  value: String(stats.gp),            rank: 0,                         accent: false },
-                        { label: 'PPG', value: stats.ppg.toFixed(1),        rank: detail?.rankings.ppg ?? 0, accent: true  },
-                        { label: 'RPG', value: stats.rpg.toFixed(1),        rank: detail?.rankings.rpg ?? 0, accent: false },
-                        { label: 'APG', value: stats.apg.toFixed(1),        rank: detail?.rankings.apg ?? 0, accent: false },
-                        { label: 'STL', value: stats.spg.toFixed(1),        rank: detail?.rankings.spg ?? 0, accent: false },
-                        { label: 'BLK', value: stats.bpg.toFixed(1),        rank: detail?.rankings.bpg ?? 0, accent: false },
+                        { label: 'GP',  value: String(activeDetail?.player_stats?.gp ?? 0),                    rank: 0,                         accent: false },
+                        { label: 'PPG', value: (activeDetail?.player_stats?.ppg ?? 0).toFixed(1), rank: detail?.rankings.ppg ?? 0, accent: true  },
+                        { label: 'RPG', value: (activeDetail?.player_stats?.rpg ?? 0).toFixed(1), rank: detail?.rankings.rpg ?? 0, accent: false },
+                        { label: 'APG', value: (activeDetail?.player_stats?.apg ?? 0).toFixed(1), rank: detail?.rankings.apg ?? 0, accent: false },
+                        { label: 'STL', value: (activeDetail?.player_stats?.spg ?? 0).toFixed(1), rank: detail?.rankings.spg ?? 0, accent: false },
+                        { label: 'BLK', value: (activeDetail?.player_stats?.bpg ?? 0).toFixed(1), rank: detail?.rankings.bpg ?? 0, accent: false },
                       ].map(({ label, value, rank, accent }) => (
                         <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-blue-900/20 border-blue-800/30' : 'bg-gray-900/50 border-gray-800/40'}`}>
                           <p className="text-xs font-bold text-gray-600 mb-1 uppercase">{label}</p>
@@ -252,9 +258,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     </div>
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       {[
-                        { label: 'FG%', pct: stats.fg_pct, m: stats.fgm, a: stats.fga },
-                        { label: '3P%', pct: stats.fg3_pct, m: stats.fg3m, a: stats.fg3a },
-                        { label: 'FT%', pct: stats.ft_pct, m: stats.ftm, a: stats.fta },
+                        { label: 'FG%', pct: activeDetail?.player_stats?.fg_pct ?? 0, m: activeDetail?.player_stats?.fgm ?? 0, a: activeDetail?.player_stats?.fga ?? 0 },
+                        { label: '3P%', pct: activeDetail?.player_stats?.fg3_pct ?? 0, m: activeDetail?.player_stats?.fg3m ?? 0, a: activeDetail?.player_stats?.fg3a ?? 0 },
+                        { label: 'FT%', pct: activeDetail?.player_stats?.ft_pct ?? 0, m: activeDetail?.player_stats?.ftm ?? 0, a: activeDetail?.player_stats?.fta ?? 0 },
                       ].map(({ label, pct, m, a }) => (
                         <div key={label} className="bg-gray-900/50 border border-gray-800/40 rounded-xl p-2.5 text-center">
                           <p className="text-xs text-gray-600 mb-1 uppercase">{label}</p>
@@ -292,7 +298,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     })()}
 
                     <div className="grid grid-cols-6 gap-1.5 mt-2">
-                      {[['PTS', stats.pts, true], ['REB', stats.reb], ['AST', stats.ast], ['STL', stats.stl], ['BLK', stats.blk], ['TOV', stats.tov]].map(([l, v, hi]) => (
+                      {[['PTS', activeDetail?.player_stats?.pts ?? 0, true], ['REB', activeDetail?.player_stats?.reb ?? 0], ['AST', activeDetail?.player_stats?.ast ?? 0], ['STL', activeDetail?.player_stats?.stl ?? 0], ['BLK', activeDetail?.player_stats?.blk ?? 0], ['TOV', activeDetail?.player_stats?.tov ?? 0]].map(([l, v, hi]) => (
                         <div key={l as string} className={`rounded-xl p-2 text-center border ${hi ? 'bg-blue-900/15 border-blue-800/25' : 'bg-gray-900/40 border-gray-800/30'}`}>
                           <p className="text-[10px] text-gray-600 mb-0.5 uppercase">{l as string}</p>
                           <p className={`text-base font-black ${hi ? 'text-blue-300' : 'text-white'}`}>{v as number}</p>

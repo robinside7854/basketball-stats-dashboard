@@ -55,7 +55,7 @@ export async function GET(
   }
 
   if (gameIds.length === 0) {
-    return NextResponse.json({ rankings: {}, career_high: {}, shot_breakdown: {}, recent_games: [] })
+    return NextResponse.json({ rankings: {}, career_high: {}, shot_breakdown: {}, recent_games: [], player_stats: null })
   }
 
   const [
@@ -361,5 +361,27 @@ export async function GET(
     total_fga: totalFGA,
   }
 
-  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss })
+  const playerAllStats = allMap[playerId]
+  const playerGp = playerAllStats?.gp ?? 0
+  const pGp = Math.max(playerGp, 1)
+  const player_stats = playerAllStats ? {
+    gp: playerGp,
+    ppg: +(playerAllStats.pts / pGp).toFixed(1),
+    rpg: +(playerAllStats.reb / pGp).toFixed(1),
+    apg: +(playerAllStats.ast / pGp).toFixed(1),
+    spg: +(playerAllStats.stl / pGp).toFixed(1),
+    bpg: +(playerAllStats.blk / pGp).toFixed(1),
+    topg: +(playerAllStats.tov / pGp).toFixed(1),
+    fgm: playerAllStats.fgm, fga: playerAllStats.fga,
+    fg3m: playerAllStats.fg3m, fg3a: playerAllStats.fg3a,
+    ftm: playerAllStats.ftm, fta: playerAllStats.fta,
+    pts: playerAllStats.pts, reb: playerAllStats.reb,
+    ast: playerAllStats.ast, stl: playerAllStats.stl,
+    blk: playerAllStats.blk, tov: playerAllStats.tov,
+    fg_pct: playerAllStats.fga > 0 ? +(playerAllStats.fgm / playerAllStats.fga * 100).toFixed(1) : 0,
+    fg3_pct: playerAllStats.fg3a > 0 ? +(playerAllStats.fg3m / playerAllStats.fg3a * 100).toFixed(1) : 0,
+    ft_pct: playerAllStats.fta > 0 ? +(playerAllStats.ftm / playerAllStats.fta * 100).toFixed(1) : 0,
+  } : null
+
+  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss, player_stats })
 }
