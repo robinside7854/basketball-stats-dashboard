@@ -137,6 +137,10 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [showStarterPicker, setShowStarterPicker] = useState(false)
   const [selectedStarters, setSelectedStarters] = useState<Set<string>>(new Set())
 
+  // 드래그 앤 드롭
+  const [dragOverSide, setDragOverSide] = useState<'home' | 'away' | null>(null)
+  const [draggingPlayerId, setDraggingPlayerId] = useState<string | null>(null)
+
   // 플러스원 충돌 모달
   const [showPlusOneModal, setShowPlusOneModal] = useState(false)
   const [plusOneConflict, setPlusOneConflict] = useState<{ teamName: string; players: RosterPlayer[] } | null>(null)
@@ -430,6 +434,92 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       else ids.forEach(id => next.add(id))
       return next
     })
+  }
+
+  // ── 드래그 앤 드롭 헬퍼 ───────────────────────────────────────
+
+  async function handleDrop(e: React.DragEvent, side: 'home' | 'away') {
+    e.preventDefault()
+    setDragOverSide(null)
+    setDraggingPlayerId(null)
+    const playerId = e.dataTransfer.getData('playerId')
+    if (!playerId) return
+
+    const allPoolPlayers = [...homeRoster, ...awayRoster, ...irregularRoster]
+    const player = allPoolPlayers.find(p => p.id === playerId)
+    if (!player) return
+
+    const isHome = homeRoster.some(p => p.id === playerId)
+    const isAway = awayRoster.some(p => p.id === playerId)
+
+    if ((side === 'home' && isHome) || (side === 'away' && isAway)) {
+      // 같은 팀에 드롭 → 선발 토글
+      toggleStarter(playerId)
+      return
+    }
+
+    // 다른 팀 또는 미배정 풀 → addIrregularToTeam 호출
+    await addIrregularToTeam(player as IrregularPlayer, side)
+  }
+
+  function renderStarterCard(p: RosterPlayer, side: 'home' | 'away') {
+    const checked = selectedStarters.has(p.id)
+    const isIrregular = p.is_regular === false
+    const isDragging = draggingPlayerId === p.id
+    const checkedBg = side === 'home'
+      ? 'bg-blue-900/40 border-blue-600/60 text-white'
+      : 'bg-red-900/40 border-red-600/60 text-white'
+    const accentClass = side === 'home' ? 'accent-blue-500' : 'accent-red-500'
+    return (
+      <div
+        key={p.id}
+        draggable
+        onDragStart={e => {
+          setDraggingPlayerId(p.id)
+          e.dataTransfer.setData('playerId', p.id)
+          e.dataTransfer.setData('playerType', p.is_regular === false ? 'irregular' : 'regular')
+        }}
+        onDragEnd={() => setDraggingPlayerId(null)}
+        onClick={() => toggleStarter(p.id)}
+        className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab border text-xs transition-colors select-none ${
+          isDragging ? 'opacity-40' : ''
+        } ${checked ? checkedBg : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:bg-gray-800'}`}
+      >
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={() => toggleStarter(p.id)}
+          onClick={e => e.stopPropagation()}
+          className={`w-3.5 h-3.5 cursor-pointer shrink-0 ${accentClass}`}
+        />
+        {p.number && <span className="font-mono text-gray-500 w-6">#{p.number}</span>}
+        <span className="font-medium truncate">{p.name}</span>
+        {isIrregular && (
+          <span className="ml-auto shrink-0 text-[9px] font-bold text-amber-500 border border-amber-700/50 rounded px-1">비정규</span>
+        )}
+      </div>
+    )
+  }
+
+  function renderDraggableChip(p: IrregularPlayer) {
+    const isDragging = draggingPlayerId === p.id
+    return (
+      <div
+        key={p.id}
+        draggable
+        onDragStart={e => {
+          setDraggingPlayerId(p.id)
+          e.dataTransfer.setData('playerId', p.id)
+          e.dataTransfer.setData('playerType', p.is_regular === false ? 'irregular' : 'regular')
+        }}
+        onDragEnd={() => setDraggingPlayerId(null)}
+        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-800 border border-amber-700/40 text-amber-300 hover:border-amber-500 hover:bg-amber-900/20 cursor-grab transition-colors select-none ${
+          isDragging ? 'opacity-40' : ''
+        }`}
+      >
+        {p.number ? `#${p.number} ` : ''}{p.name}
+      </div>
+    )
   }
 
   // 선발 체크된 선수만 onCourt + minutes INSERT (실제 로직)
@@ -1231,8 +1321,9 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       })()}
                     </>
                   ) : (
-                    /* 인라인 선발 선수 선택 — 영상 보면서 선택 가능 */
+                    /* 드래그 앤 드롭 선발 선수 선택 */
                     <div className="bg-gray-900 border border-gray-700 rounded-xl p-3 space-y-3">
+                      {/* 헤더 */}
                       {(() => {
                         const hc = homeRoster.filter(p => selectedStarters.has(p.id)).length
                         const ac = awayRoster.filter(p => selectedStarters.has(p.id)).length
@@ -1250,12 +1341,20 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                           </div>
                         )
                       })()}
-                      <p className="text-xs text-gray-500">영상을 보면서 출전 선수를 확인하세요. 미선택 선수는 벤치 시작입니다.</p>
+                      <p className="text-xs text-gray-500">선수를 끌어다 팀에 배정하세요. 정규선수 이동은 이번 경기만 적용됩니다.</p>
 
+                      {/* 드롭 존 — 홈/어웨이 2컬럼 */}
                       <div className="grid grid-cols-2 gap-3">
-                        {/* 홈팀 */}
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
+                        {/* 홈팀 드롭 존 */}
+                        <div
+                          onDragOver={e => { e.preventDefault(); setDragOverSide('home') }}
+                          onDragLeave={() => setDragOverSide(null)}
+                          onDrop={e => handleDrop(e, 'home')}
+                          className={`min-h-[180px] rounded-xl p-2 border-2 border-dashed transition-colors ${
+                            dragOverSide === 'home' ? 'border-blue-500 bg-blue-900/20' : 'border-gray-700/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2 px-1">
                             <span className="text-xs font-bold px-2 py-0.5 rounded"
                               style={{ color: selectedSlot?.home_team?.color ?? '#3b82f6', backgroundColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}22` }}>
                               {selectedSlot?.home_team?.name ?? '홈팀'}
@@ -1263,180 +1362,49 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             <button onClick={() => selectAllTeam('home')} className="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer">전체</button>
                           </div>
                           <div className="space-y-1">
-                            {homeRoster.map(p => {
-                              const checked = selectedStarters.has(p.id)
-                              const isIrregular = p.is_regular === false
-                              return (
-                                <label key={p.id} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer border text-xs transition-colors ${
-                                  checked ? 'bg-blue-900/30 border-blue-700/50 text-white' : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:bg-gray-800'
-                                }`}>
-                                  <input type="checkbox" checked={checked} onChange={() => toggleStarter(p.id)} className="w-3.5 h-3.5 cursor-pointer accent-blue-500" />
-                                  {p.number && <span className="font-mono text-gray-600 w-6">#{p.number}</span>}
-                                  <span className="font-medium">{p.name}</span>
-                                  {isIrregular && <span className="ml-auto text-[9px] font-bold text-amber-500 border border-amber-700/50 rounded px-1">비정규</span>}
-                                </label>
-                              )
-                            })}
-                            {homeRoster.length === 0 && <p className="text-xs text-gray-600 px-2 py-2">선수 없음</p>}
+                            {homeRoster.map(p => renderStarterCard(p, 'home'))}
+                            {homeRoster.length === 0 && (
+                              <p className="text-xs text-gray-600 px-2 py-4 text-center">선수를 여기로 드래그</p>
+                            )}
                           </div>
                         </div>
 
-                        {/* 어웨이팀 */}
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
+                        {/* 어웨이팀 드롭 존 */}
+                        <div
+                          onDragOver={e => { e.preventDefault(); setDragOverSide('away') }}
+                          onDragLeave={() => setDragOverSide(null)}
+                          onDrop={e => handleDrop(e, 'away')}
+                          className={`min-h-[180px] rounded-xl p-2 border-2 border-dashed transition-colors ${
+                            dragOverSide === 'away' ? 'border-red-500 bg-red-900/20' : 'border-gray-700/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2 px-1">
                             <span className="text-xs font-bold px-2 py-0.5 rounded"
                               style={{ color: selectedSlot?.away_team?.color ?? '#ef4444', backgroundColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}22` }}>
                               {selectedSlot?.away_team?.name ?? '어웨이팀'}
                             </span>
-                            <button onClick={() => selectAllTeam('away')} className="text-[10px] text-blue-400 hover:text-blue-300 cursor-pointer">전체</button>
+                            <button onClick={() => selectAllTeam('away')} className="text-[10px] text-red-400 hover:text-red-300 cursor-pointer">전체</button>
                           </div>
                           <div className="space-y-1">
-                            {awayRoster.map(p => {
-                              const checked = selectedStarters.has(p.id)
-                              const isIrregular = p.is_regular === false
-                              return (
-                                <label key={p.id} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer border text-xs transition-colors ${
-                                  checked ? 'bg-red-900/30 border-red-700/50 text-white' : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:bg-gray-800'
-                                }`}>
-                                  <input type="checkbox" checked={checked} onChange={() => toggleStarter(p.id)} className="w-3.5 h-3.5 cursor-pointer accent-red-500" />
-                                  {p.number && <span className="font-mono text-gray-600 w-6">#{p.number}</span>}
-                                  <span className="font-medium">{p.name}</span>
-                                  {isIrregular && <span className="ml-auto text-[9px] font-bold text-amber-500 border border-amber-700/50 rounded px-1">비정규</span>}
-                                </label>
-                              )
-                            })}
-                            {awayRoster.length === 0 && <p className="text-xs text-gray-600 px-2 py-2">선수 없음</p>}
+                            {awayRoster.map(p => renderStarterCard(p, 'away'))}
+                            {awayRoster.length === 0 && (
+                              <p className="text-xs text-gray-600 px-2 py-4 text-center">선수를 여기로 드래그</p>
+                            )}
                           </div>
                         </div>
                       </div>
 
-                      {/* 비정규 선수 등록 — 경기 시작 전 */}
+                      {/* 미배정 풀 — 비정규 선수 */}
                       {irregularRoster.length > 0 && (
-                        <div className="bg-gray-800/40 border border-gray-700/50 rounded-xl p-3 space-y-2">
-                          <div className="flex items-center gap-1.5">
-                            <UserPlus size={12} className="text-amber-400 shrink-0" />
-                            <p className="text-xs font-bold text-amber-400">비정규 선수 등록</p>
-                            <span className="text-[10px] text-gray-600">팀 배정 후 선발 체크 가능</span>
+                        <div>
+                          <p className="text-xs text-gray-500 mb-2">위로 드래그하여 팀 배정 / 미배정 선수</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {irregularRoster.map(p => renderDraggableChip(p))}
                           </div>
-                          {/* 선수 선택 전: 칩 목록 */}
-                          {!pendingIrregular ? (
-                            <div className="flex flex-wrap gap-1.5">
-                              {irregularRoster.map(p => (
-                                <button
-                                  key={p.id}
-                                  onClick={() => setPendingIrregular(p)}
-                                  className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-800 border border-amber-700/40 text-amber-300 hover:border-amber-500 hover:bg-amber-900/20 cursor-pointer transition-colors"
-                                >
-                                  {p.number ? `#${p.number} ` : ''}{p.name}
-                                </button>
-                              ))}
-                            </div>
-                          ) : (
-                            /* 팀 배정 선택 */
-                            <div className="space-y-2">
-                              <p className="text-xs text-white font-semibold">{pendingIrregular.name} → 어느 팀?</p>
-                              <div className="grid grid-cols-2 gap-2">
-                                <button
-                                  onClick={() => addIrregularToTeam(pendingIrregular, 'home')}
-                                  disabled={addingIrregular}
-                                  className="py-2 rounded-lg text-xs font-bold border cursor-pointer transition-colors disabled:opacity-50"
-                                  style={{ color: selectedSlot?.home_team?.color ?? '#3b82f6', borderColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}60`, backgroundColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}18` }}
-                                >
-                                  {selectedSlot?.home_team?.name ?? '홈팀'}
-                                </button>
-                                <button
-                                  onClick={() => addIrregularToTeam(pendingIrregular, 'away')}
-                                  disabled={addingIrregular}
-                                  className="py-2 rounded-lg text-xs font-bold border cursor-pointer transition-colors disabled:opacity-50"
-                                  style={{ color: selectedSlot?.away_team?.color ?? '#ef4444', borderColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}60`, backgroundColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}18` }}
-                                >
-                                  {selectedSlot?.away_team?.name ?? '어웨이팀'}
-                                </button>
-                              </div>
-                              <button onClick={() => setPendingIrregular(null)} className="text-[10px] text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center">취소</button>
-                            </div>
-                          )}
                         </div>
                       )}
 
-                      {/* 타팀 임시 출전 — 정규 선수를 이번 경기에만 상대팀으로 이동 */}
-                      {(() => {
-                        const homeLendable = homeRoster.filter(p => p.is_regular !== false)
-                        const awayLendable = awayRoster.filter(p => p.is_regular !== false)
-                        if (homeLendable.length === 0 && awayLendable.length === 0) return null
-                        return (
-                          <div className="bg-gray-800/40 border border-orange-700/30 rounded-xl p-3 space-y-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs">🔄</span>
-                              <p className="text-xs font-bold text-orange-400">타팀 임시 출전</p>
-                              <span className="text-[10px] text-gray-600">이번 경기에만 적용</span>
-                            </div>
-                            {!pendingIrregular ? (
-                              <div className="grid grid-cols-2 gap-2">
-                                {homeLendable.length > 0 && (
-                                  <div>
-                                    <p className="text-[10px] text-gray-500 mb-1">{selectedSlot?.home_team?.name} → {selectedSlot?.away_team?.name}</p>
-                                    <div className="flex flex-wrap gap-1">
-                                      {homeLendable.map(p => (
-                                        <button
-                                          key={p.id}
-                                          onClick={() => setPendingIrregular(p as IrregularPlayer)}
-                                          disabled={addingIrregular}
-                                          className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-800 border border-orange-700/40 text-orange-300 hover:border-orange-500 cursor-pointer transition-colors disabled:opacity-50"
-                                        >
-                                          {p.name}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                                {awayLendable.length > 0 && (
-                                  <div>
-                                    <p className="text-[10px] text-gray-500 mb-1">{selectedSlot?.away_team?.name} → {selectedSlot?.home_team?.name}</p>
-                                    <div className="flex flex-wrap gap-1">
-                                      {awayLendable.map(p => (
-                                        <button
-                                          key={p.id}
-                                          onClick={() => setPendingIrregular(p as IrregularPlayer)}
-                                          disabled={addingIrregular}
-                                          className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-800 border border-orange-700/40 text-orange-300 hover:border-orange-500 cursor-pointer transition-colors disabled:opacity-50"
-                                        >
-                                          {p.name}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="space-y-2">
-                                <p className="text-xs text-white font-semibold">{pendingIrregular.name} → 어느 팀?</p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <button
-                                    onClick={() => addIrregularToTeam(pendingIrregular, 'home')}
-                                    disabled={addingIrregular}
-                                    className="py-2 rounded-lg text-xs font-bold border cursor-pointer disabled:opacity-50 transition-colors"
-                                    style={{ color: selectedSlot?.home_team?.color ?? '#3b82f6', borderColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}60`, backgroundColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}18` }}
-                                  >
-                                    {selectedSlot?.home_team?.name ?? '홈팀'}
-                                  </button>
-                                  <button
-                                    onClick={() => addIrregularToTeam(pendingIrregular, 'away')}
-                                    disabled={addingIrregular}
-                                    className="py-2 rounded-lg text-xs font-bold border cursor-pointer disabled:opacity-50 transition-colors"
-                                    style={{ color: selectedSlot?.away_team?.color ?? '#ef4444', borderColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}60`, backgroundColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}18` }}
-                                  >
-                                    {selectedSlot?.away_team?.name ?? '어웨이팀'}
-                                  </button>
-                                </div>
-                                <button onClick={() => setPendingIrregular(null)} className="text-[10px] text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center">취소</button>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })()}
-
-                      {/* 경기 시작 버튼 — 선발 선택 바로 아래 */}
+                      {/* 경기 시작 버튼 */}
                       <Button
                         onClick={startGame}
                         disabled={startingGame || rosterLoading || (homeRoster.length === 0 && awayRoster.length === 0)}
