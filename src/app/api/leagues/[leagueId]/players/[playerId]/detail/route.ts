@@ -5,15 +5,17 @@ import { computeBadges, type PlayerMetrics } from '@/lib/league/badges'
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'] as const
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ leagueId: string; playerId: string }> }
 ) {
   const { leagueId, playerId } = await params
+  const { searchParams } = new URL(req.url)
+  const quarterId = searchParams.get('quarterId') ?? undefined
   const supabase = createClient()
 
   const [
     { data: leaguePlayers },
-    { data: games },
+    { data: allGames },
     { data: teams },
     { data: league },
     { data: memberships },
@@ -33,6 +35,11 @@ export async function GET(
       .eq('league_player_id', playerId)
       .eq('league_id', leagueId),
   ])
+
+  // quarterId 필터: 해당 분기 게임만
+  const games = quarterId
+    ? (allGames ?? []).filter(g => g.quarter_id === quarterId)
+    : (allGames ?? [])
 
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
   const isPlusOne = plusOneSet.has(playerId)

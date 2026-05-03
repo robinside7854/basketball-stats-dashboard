@@ -24,7 +24,7 @@ type Detail = {
   rankings: { ppg: number; rpg: number; apg: number; spg: number; bpg: number; total: number }
   badges: BadgeResult[]
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
-  shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
+  shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; drive: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; pts: number; reb: number; ast: number; fgm: number; fga: number }>
   win_loss?: {
     wins: number; losses: number; win_rate: number
@@ -32,6 +32,8 @@ type Detail = {
     pts_share: number
   }
 }
+
+type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
 
 function calcAge(birthDate: string | null): number | null {
   if (!birthDate) return null
@@ -42,6 +44,12 @@ function calcAge(birthDate: string | null): number | null {
   const md = now.getMonth() - b.getMonth()
   if (md < 0 || (md === 0 && now.getDate() < b.getDate())) age--
   return age
+}
+
+function pctColor(pct: number): string {
+  if (pct >= 50) return 'text-emerald-400'
+  if (pct >= 30) return 'text-yellow-400'
+  return 'text-red-400'
 }
 
 interface Props {
@@ -57,14 +65,19 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [detail, setDetail] = useState<Detail | null>(null)
   const [loading, setLoading] = useState(true)
   const [showBadgeBook, setShowBadgeBook] = useState(false)
+  const [quarters, setQuarters] = useState<Quarter[]>([])
+  const [selectedQuarterId, setSelectedQuarterId] = useState<string | null>(null)
+  const [quarterDetail, setQuarterDetail] = useState<Detail | null>(null)
+  const [quarterLoading, setQuarterLoading] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [playersRes, statsRes, detailRes] = await Promise.all([
+      const [playersRes, statsRes, detailRes, quartersRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/players`),
         fetch(`/api/leagues/${leagueId}/stats?playerId=${playerId}`),
         fetch(`/api/leagues/${leagueId}/players/${playerId}/detail`),
+        fetch(`/api/leagues/${leagueId}/quarters`),
       ])
       if (playersRes.ok) {
         const all: PlayerInfo[] = await playersRes.json()
@@ -75,6 +88,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         setStats(d.players?.[0] ?? null)
       }
       if (detailRes.ok) setDetail(await detailRes.json())
+      if (quartersRes.ok) {
+        const qs: Quarter[] = await quartersRes.json()
+        setQuarters(qs)
+      }
     } finally { setLoading(false) }
   }, [leagueId, playerId])
 
@@ -84,6 +101,20 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [onClose])
+
+  // 분기 선택 시 해당 분기 detail 패치
+  useEffect(() => {
+    if (!selectedQuarterId) { setQuarterDetail(null); return }
+    let cancelled = false
+    setQuarterLoading(true)
+    fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?quarterId=${selectedQuarterId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled) setQuarterDetail(d) })
+      .finally(() => { if (!cancelled) setQuarterLoading(false) })
+    return () => { cancelled = true }
+  }, [leagueId, playerId, selectedQuarterId])
+
+  const activeDetail = selectedQuarterId ? (quarterDetail ?? detail) : detail
 
   const positions = (player?.position ?? '').split(',').map(p => p.trim()).filter(Boolean)
   const age = calcAge(player?.birth_date ?? null)
@@ -108,7 +139,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     silver: 'text-slate-500 dark:text-gray-400',
     bronze: 'text-orange-600 dark:text-orange-500/80',
   } as const
-  // 티어 → 카테고리 순 정렬
   const TIER_ORD = { gold: 0, silver: 1, bronze: 2 } as const
   const CAT_ORD  = { offensive: 0, defensive: 1, playmaking: 2 } as const
   const earnedBadgesSorted = [...(detail?.badges ?? [])].sort((a, b) =>
@@ -118,6 +148,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
   const earnedBadges = detail?.badges ?? []
   const earnedMap = Object.fromEntries(earnedBadges.map(b => [b.id, b]))
+  void earnedMap // suppress unused warning
+
+  // 분기 탭 레이블
+  const quarterLabel = (q: Quarter) => `${String(q.year).slice(2)}.${q.quarter}Q`
 
   return (
     <>
@@ -163,79 +197,143 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {/* 시즌 스탯 */}
             {stats ? (
               <div className="px-5 py-4 border-b border-gray-800/60">
-                <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
-                <div className="grid grid-cols-6 gap-2 mb-3">
-                  {[
-                    { label: 'GP',  value: String(stats.gp),            rank: 0,                         accent: false },
-                    { label: 'PPG', value: stats.ppg.toFixed(1),        rank: detail?.rankings.ppg ?? 0, accent: true  },
-                    { label: 'RPG', value: stats.rpg.toFixed(1),        rank: detail?.rankings.rpg ?? 0, accent: false },
-                    { label: 'APG', value: stats.apg.toFixed(1),        rank: detail?.rankings.apg ?? 0, accent: false },
-                    { label: 'STL', value: stats.spg.toFixed(1),        rank: detail?.rankings.spg ?? 0, accent: false },
-                    { label: 'BLK', value: stats.bpg.toFixed(1),        rank: detail?.rankings.bpg ?? 0, accent: false },
-                  ].map(({ label, value, rank, accent }) => (
-                    <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-blue-900/20 border-blue-800/30' : 'bg-gray-900/50 border-gray-800/40'}`}>
-                      <p className="text-xs font-bold text-gray-600 mb-1 uppercase">{label}</p>
-                      <p className={`text-3xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
-                      {rank > 0 && (
-                        <p className={`text-[10px] font-bold mt-1 ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>{rank}위</p>
-                      )}
+                {/* 분기 필터 탭 */}
+                {quarters.length > 0 && (
+                  <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-0.5">
+                    <button
+                      onClick={() => setSelectedQuarterId(null)}
+                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors border ${
+                        selectedQuarterId === null
+                          ? 'bg-blue-600 border-blue-500 text-white'
+                          : 'bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200'
+                      }`}
+                    >
+                      전체
+                    </button>
+                    {quarters.map(q => (
+                      <button
+                        key={q.id}
+                        onClick={() => setSelectedQuarterId(q.id)}
+                        className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors border ${
+                          selectedQuarterId === q.id
+                            ? 'bg-blue-600 border-blue-500 text-white'
+                            : 'bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        {quarterLabel(q)}
+                        {q.is_current && <span className="ml-1 text-[9px] text-blue-300">현재</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {quarterLoading ? (
+                  <div className="flex justify-center py-8"><Loader2 size={18} className="animate-spin text-gray-600" /></div>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
+                    <div className="grid grid-cols-6 gap-2 mb-3">
+                      {[
+                        { label: 'GP',  value: String(stats.gp),            rank: 0,                         accent: false },
+                        { label: 'PPG', value: stats.ppg.toFixed(1),        rank: detail?.rankings.ppg ?? 0, accent: true  },
+                        { label: 'RPG', value: stats.rpg.toFixed(1),        rank: detail?.rankings.rpg ?? 0, accent: false },
+                        { label: 'APG', value: stats.apg.toFixed(1),        rank: detail?.rankings.apg ?? 0, accent: false },
+                        { label: 'STL', value: stats.spg.toFixed(1),        rank: detail?.rankings.spg ?? 0, accent: false },
+                        { label: 'BLK', value: stats.bpg.toFixed(1),        rank: detail?.rankings.bpg ?? 0, accent: false },
+                      ].map(({ label, value, rank, accent }) => (
+                        <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-blue-900/20 border-blue-800/30' : 'bg-gray-900/50 border-gray-800/40'}`}>
+                          <p className="text-xs font-bold text-gray-600 mb-1 uppercase">{label}</p>
+                          <p className={`text-3xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
+                          {rank > 0 && (
+                            <p className={`text-[10px] font-bold mt-1 ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>{rank}위</p>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-3 gap-2 mb-2">
-                  {[
-                    { label: 'FG%', pct: stats.fg_pct, m: stats.fgm, a: stats.fga },
-                    { label: '3P%', pct: stats.fg3_pct, m: stats.fg3m, a: stats.fg3a },
-                    { label: 'FT%', pct: stats.ft_pct, m: stats.ftm, a: stats.fta },
-                  ].map(({ label, pct, m, a }) => (
-                    <div key={label} className="bg-gray-900/50 border border-gray-800/40 rounded-xl p-2.5 text-center">
-                      <p className="text-xs text-gray-600 mb-1 uppercase">{label}</p>
-                      <p className="text-xl font-black text-white leading-none">{a > 0 ? `${pct.toFixed(1)}%` : '—'}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{m}/{a}</p>
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      {[
+                        { label: 'FG%', pct: stats.fg_pct, m: stats.fgm, a: stats.fga },
+                        { label: '3P%', pct: stats.fg3_pct, m: stats.fg3m, a: stats.fg3a },
+                        { label: 'FT%', pct: stats.ft_pct, m: stats.ftm, a: stats.fta },
+                      ].map(({ label, pct, m, a }) => (
+                        <div key={label} className="bg-gray-900/50 border border-gray-800/40 rounded-xl p-2.5 text-center">
+                          <p className="text-xs text-gray-600 mb-1 uppercase">{label}</p>
+                          <p className="text-xl font-black text-white leading-none">{a > 0 ? `${pct.toFixed(1)}%` : '—'}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{m}/{a}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-6 gap-1.5">
-                  {[['PTS', stats.pts, true], ['REB', stats.reb], ['AST', stats.ast], ['STL', stats.stl], ['BLK', stats.blk], ['TOV', stats.tov]].map(([l, v, hi]) => (
-                    <div key={l as string} className={`rounded-xl p-2 text-center border ${hi ? 'bg-blue-900/15 border-blue-800/25' : 'bg-gray-900/40 border-gray-800/30'}`}>
-                      <p className="text-[10px] text-gray-600 mb-0.5 uppercase">{l as string}</p>
-                      <p className={`text-base font-black ${hi ? 'text-blue-300' : 'text-white'}`}>{v as number}</p>
+
+                    {/* 승/패/승률 row */}
+                    {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (() => {
+                      const wl = activeDetail.win_loss!
+                      const total = ranked_total(detail)
+                      return (
+                        <div className="mt-2 bg-gray-900/50 border border-gray-800/40 rounded-xl px-3 py-2.5 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-green-400 font-black text-base">{wl.wins}W</span>
+                            <span className="text-gray-600">·</span>
+                            <span className="text-red-400 font-black text-base">{wl.losses}L</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-600">출전 승률</span>
+                            <span className={`font-black text-base ${wl.win_rate >= 60 ? 'text-green-400' : wl.win_rate >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>
+                              {wl.win_rate}%
+                            </span>
+                            {total > 0 && (() => {
+                              const rank = computeWinRateRank(wl.win_rate, total)
+                              return rank > 0 ? (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-800 ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-500'}`}>{rank}위</span>
+                              ) : null
+                            })()}
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    <div className="grid grid-cols-6 gap-1.5 mt-2">
+                      {[['PTS', stats.pts, true], ['REB', stats.reb], ['AST', stats.ast], ['STL', stats.stl], ['BLK', stats.blk], ['TOV', stats.tov]].map(([l, v, hi]) => (
+                        <div key={l as string} className={`rounded-xl p-2 text-center border ${hi ? 'bg-blue-900/15 border-blue-800/25' : 'bg-gray-900/40 border-gray-800/30'}`}>
+                          <p className="text-[10px] text-gray-600 mb-0.5 uppercase">{l as string}</p>
+                          <p className={`text-base font-black ${hi ? 'text-blue-300' : 'text-white'}`}>{v as number}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
               </div>
             ) : (
               <div className="px-5 py-6 text-center text-sm text-gray-600 border-b border-gray-800/60">아직 기록된 스탯이 없습니다</div>
             )}
 
-            {/* 배지 — 보유한 것만 + 설명 + 획득 기준 */}
+            {/* 배지 — 2-3열 그리드 */}
             {earnedBadgesSorted.length > 0 && (
               <div className="px-5 py-4 border-b border-gray-800/60">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs text-gray-600 uppercase tracking-widest font-bold">보유 배지 {earnedBadgesSorted.length}개</p>
                   <button onClick={() => setShowBadgeBook(true)} className="text-[10px] text-indigo-400 hover:text-indigo-300 cursor-pointer">전체 도감 →</button>
                 </div>
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {earnedBadgesSorted.map(b => {
                     const def = ALL_BADGE_DEFS.find(d => d.id === b.id)
                     const criteria = def?.tierDesc[b.tier]
                     return (
-                      <div key={b.id} className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 ${TIER_BG[b.tier]}`}>
-                        <span className="text-2xl shrink-0 mt-0.5">{b.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                            <span className={`text-base font-black ${TIER_COLOR[b.tier]}`}>{b.name}</span>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${TIER_CHIP[b.tier]}`}>
-                              {b.tier === 'gold' ? '🥇 GOLD' : b.tier === 'silver' ? '🥈 SILVER' : '🥉 BRONZE'}
+                      <div key={b.id} className={`flex flex-col gap-1.5 rounded-xl border px-2.5 py-2 ${TIER_BG[b.tier]}`}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xl shrink-0">{b.icon}</span>
+                          <div className="min-w-0">
+                            <p className={`text-sm font-black leading-tight truncate ${TIER_COLOR[b.tier]}`}>{b.name}</p>
+                            <span className={`text-[9px] font-bold px-1 py-0.5 rounded-full border inline-block ${TIER_CHIP[b.tier]}`}>
+                              {b.tier === 'gold' ? 'GOLD' : b.tier === 'silver' ? 'SILVER' : 'BRONZE'}
                             </span>
                           </div>
-                          <p className="text-[11px] text-gray-400 leading-snug">{b.description}</p>
-                          {criteria && (
-                            <p className={`text-[10px] mt-1 font-medium ${TIER_CRIT[b.tier]}`}>
-                              {b.tier === 'gold' ? '🥇' : b.tier === 'silver' ? '🥈' : '🥉'} {criteria}
-                            </p>
-                          )}
                         </div>
+                        <p className="text-[10px] text-gray-400 leading-snug line-clamp-2">{b.description}</p>
+                        {criteria && (
+                          <p className={`text-[9px] font-medium ${TIER_CRIT[b.tier]}`}>
+                            {b.tier === 'gold' ? '🥇' : b.tier === 'silver' ? '🥈' : '🥉'} {criteria}
+                          </p>
+                        )}
                       </div>
                     )
                   })}
@@ -297,12 +395,12 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       {([
                         { label: '이길 때', stats: wl.win_stats,  color: 'text-green-400', bg: 'bg-green-900/10 border-green-800/30' },
                         { label: '질 때',   stats: wl.loss_stats, color: 'text-red-400',   bg: 'bg-red-900/10 border-red-800/30'   },
-                      ] as const).map(({ label, stats, color, bg }) => (
+                      ] as const).map(({ label, stats: wls, color, bg }) => (
                         <div key={label} className={`grid grid-cols-7 gap-1 items-center rounded-lg border px-2 py-2 mb-1.5 ${bg}`}>
                           <p className={`text-[10px] font-bold ${color} whitespace-nowrap`}>{label}</p>
                           {WL_STATS.map(({ key }) => (
                             <p key={key} className="text-sm font-black text-white text-center">
-                              {stats ? stats[key] : '—'}
+                              {wls ? wls[key] : '—'}
                             </p>
                           ))}
                         </div>
@@ -313,36 +411,67 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               )
             })()}
 
-            {/* 공격 스타일 */}
-            {detail?.shot_breakdown && detail.shot_breakdown.total_fga > 0 && (
+            {/* 공격 스타일 — 골밑 → 레이업/드라이브 → 미들 → 3점 */}
+            {activeDetail?.shot_breakdown && activeDetail.shot_breakdown.total_fga > 0 && (
               <div className="px-5 py-4 border-b border-gray-800/60">
                 <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">공격 스타일</p>
                 {(() => {
-                  const sb = detail.shot_breakdown
-                  const zones = [
-                    { label: '레이업',  color: '#f97316', data: sb.layup },
-                    { label: '미들슛', color: '#eab308', data: sb.mid   },
-                    { label: '골밑슛', color: '#ef4444', data: sb.post  },
-                    { label: '3점슛',  color: '#3b82f6', data: sb.three },
+                  const sb = activeDetail.shot_breakdown
+                  // 골밑 + 드라이브/레이업 합산 표기
+                  const slashLayup = {
+                    label: '레이업/드라이브',
+                    color: '#f97316',
+                    m: sb.layup.m + (sb.drive?.m ?? 0),
+                    a: sb.layup.a + (sb.drive?.a ?? 0),
+                    dist: sb.layup.dist + (sb.drive?.dist ?? 0),
+                    fg_pct: (() => {
+                      const totalA = sb.layup.a + (sb.drive?.a ?? 0)
+                      const totalM = sb.layup.m + (sb.drive?.m ?? 0)
+                      return totalA > 0 ? +(totalM / totalA * 100).toFixed(1) : 0
+                    })(),
+                  }
+                  const rawZones = [
+                    { label: '골밑',         color: '#ef4444', data: sb.post  },
+                    { label: '레이업/드라이브', color: '#f97316', data: { m: slashLayup.m, a: slashLayup.a, dist: slashLayup.dist, fg_pct: slashLayup.fg_pct } },
+                    { label: '미들슛',        color: '#eab308', data: sb.mid   },
+                    { label: '3점슛',         color: '#3b82f6', data: sb.three },
                   ].filter(z => z.data.a > 0)
+
+                  const ftZone = sb.ft.a > 0
+                    ? [{ label: '자유투', color: '#9ca3af', data: { m: sb.ft.m, a: sb.ft.a, dist: 0, fg_pct: sb.ft.ft_pct } }]
+                    : []
+
                   return (
-                    <div className="space-y-2">
-                      <div className="flex h-3 rounded-full overflow-hidden">
-                        {zones.map(z => <div key={z.label} style={{ width: `${z.data.dist}%`, backgroundColor: z.color }} />)}
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                        {[...zones, ...(sb.ft.a > 0 ? [{ label: '자유투', color: '#9ca3af', data: { m: sb.ft.m, a: sb.ft.a, dist: 0, fg_pct: sb.ft.ft_pct } }] : [])].map(z => (
-                          <div key={z.label} className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
-                              <span className="text-[11px] text-gray-400">{z.label}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-[11px]">
-                              <span className="text-gray-600">{z.data.m}/{z.data.a}</span>
-                              <span className="font-bold text-white">{z.data.fg_pct}%</span>
-                            </div>
-                          </div>
+                    <div className="space-y-3">
+                      {/* 분포 바 */}
+                      <div className="flex h-3 rounded-full overflow-hidden gap-px">
+                        {rawZones.map(z => z.data.dist > 0 && (
+                          <div key={z.label} style={{ width: `${z.data.dist}%`, backgroundColor: z.color }} />
                         ))}
+                      </div>
+
+                      {/* 존별 카드 그리드 */}
+                      <div className="grid grid-cols-2 gap-2">
+                        {[...rawZones, ...ftZone].map(z => {
+                          const pct = z.data.fg_pct
+                          const colorClass = pctColor(pct)
+                          return (
+                            <div key={z.label} className="bg-gray-800/50 border border-gray-700/50 rounded-xl px-3 py-2.5 flex items-center gap-3">
+                              <div className="w-2 h-10 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] text-gray-500 font-bold uppercase truncate">{z.label}</p>
+                                <p className="text-[11px] text-gray-500 mt-0.5">{z.data.m}/{z.data.a} 시도</p>
+                              </div>
+                              <div className="text-right">
+                                <p className={`text-2xl font-black leading-none ${colorClass}`}>{pct}%</p>
+                                {/* mini bar */}
+                                <div className="w-12 h-1.5 rounded-full bg-gray-700 overflow-hidden mt-1">
+                                  <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: z.color }} />
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   )
@@ -406,4 +535,14 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     )}
     </>
   )
+}
+
+// 승률 순위 계산을 위한 헬퍼 — 실제 전체 랭킹 데이터가 없으므로 임시로 0 반환
+function ranked_total(detail: Detail | null): number {
+  return detail?.rankings?.total ?? 0
+}
+
+function computeWinRateRank(_winRate: number, _total: number): number {
+  // 전체 선수 승률 데이터가 API에 없으므로 순위 표시는 생략 (0 반환)
+  return 0
 }
