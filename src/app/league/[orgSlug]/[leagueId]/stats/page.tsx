@@ -3,6 +3,32 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { Loader2, Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+import PlayerCompareModal from '@/components/league/PlayerCompareModal'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+
+function TopScorersChart({ players, color }: { players: Array<{name:string;ppg:number;fg_pct:number}>, color?: string }) {
+  const top5 = [...players].sort((a,b)=>b.ppg-a.ppg).slice(0,5)
+  const barColor = color ?? '#3b82f6'
+  return (
+    <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4">
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">득점 Top 5</p>
+      <ResponsiveContainer width="100%" height={160}>
+        <BarChart data={top5} layout="vertical" margin={{ left: 8, right: 24, top: 0, bottom: 0 }}>
+          <XAxis type="number" domain={[0,'auto']} tick={{fill:'#6b7280',fontSize:10}} axisLine={false} tickLine={false} />
+          <YAxis type="category" dataKey="name" tick={{fill:'#d1d5db',fontSize:11,fontWeight:600}} axisLine={false} tickLine={false} width={48} />
+          <Tooltip
+            contentStyle={{background:'#1f2937',border:'1px solid #374151',borderRadius:8,fontSize:12}}
+            formatter={(v) => [`${Number(v).toFixed(1)} PPG`]}
+            labelStyle={{color:'#f9fafb',fontWeight:600}}
+          />
+          <Bar dataKey="ppg" radius={[0,4,4,0]}>
+            {top5.map((_,i) => <Cell key={i} fill={i===0?'#f59e0b':i===1?'#9ca3af':i===2?'#b45309': barColor} fillOpacity={i<3?1:0.7} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
 
@@ -54,6 +80,19 @@ export default function LeagueStatsPage() {
   const [projection, setProjection] = useState(false)  // ×5 환산
   const [quickViewPlayer, setQuickViewPlayer] = useState<{ id: string; name: string } | null>(null)
   const [minGP, setMinGP] = useState(1)
+  const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
+  const [compareModalOpen, setCompareModalOpen] = useState(false)
+
+  const toggleCompare = (player: PlayerStat) => {
+    setCompareIds(prev => {
+      const next = new Set(prev)
+      if (next.has(player.player_id)) next.delete(player.player_id)
+      else if (next.size < 2) next.add(player.player_id)
+      return next
+    })
+  }
+  const compareList = Array.from(compareIds)
+  const compareNamesById: Record<string, string> = Object.fromEntries(players.map(p => [p.player_id, p.name]))
 
   useEffect(() => {
     fetch(`/api/leagues/${leagueId}/quarters`)
@@ -167,6 +206,56 @@ export default function LeagueStatsPage() {
         </div>
       ) : (
         <>
+          {/* 차트 섹션 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <TopScorersChart players={players.filter(p => p.gp >= minGP).map(p => ({ name: p.name, ppg: p.ppg, fg_pct: p.fg_pct }))} />
+            {selectedQuarterId !== 'all' && (() => {
+              // 팀 FG% 비교 — quarter players의 team_id로 그룹핑은 복잡하므로 간단히 선수 fg% top 8로 대체
+              const fgData = [...players]
+                .filter(p => p.gp >= minGP && p.fga >= 5)
+                .sort((a, b) => b.fg_pct - a.fg_pct)
+                .slice(0, 8)
+                .map(p => ({ name: p.name, fg_pct: p.fg_pct }))
+              return (
+                <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">FG% Top 8</p>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <BarChart data={fgData} layout="vertical" margin={{ left: 8, right: 24, top: 0, bottom: 0 }}>
+                      <XAxis type="number" domain={[0,'auto']} tick={{fill:'#6b7280',fontSize:10}} axisLine={false} tickLine={false} />
+                      <YAxis type="category" dataKey="name" tick={{fill:'#d1d5db',fontSize:11,fontWeight:600}} axisLine={false} tickLine={false} width={48} />
+                      <Tooltip
+                        contentStyle={{background:'#1f2937',border:'1px solid #374151',borderRadius:8,fontSize:12}}
+                        formatter={(v) => [`${Number(v).toFixed(1)}%`]}
+                        labelStyle={{color:'#f9fafb',fontWeight:600}}
+                      />
+                      <Bar dataKey="fg_pct" fill="#10b981" radius={[0,4,4,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* 비교하기 버튼 */}
+          {compareIds.size > 0 && (
+            <div className="flex items-center gap-2 bg-blue-950/40 border border-blue-800/40 rounded-xl px-3 py-2">
+              <span className="text-xs text-blue-300 font-bold">선택: {compareList.map(id => compareNamesById[id]).filter(Boolean).join(' vs ')}</span>
+              <button
+                onClick={() => setCompareModalOpen(true)}
+                disabled={compareIds.size !== 2}
+                className="ml-auto px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                비교하기 ({compareIds.size}/2)
+              </button>
+              <button
+                onClick={() => setCompareIds(new Set())}
+                className="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs cursor-pointer transition-colors"
+              >
+                초기화
+              </button>
+            </div>
+          )}
+
           {/* 리더보드 카드 */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             {([
@@ -303,6 +392,7 @@ export default function LeagueStatsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-800">
+                    <th className="px-2 py-3 text-center text-xs text-gray-600 w-8">비교</th>
                     <th className="text-left px-4 py-3 sticky left-0 bg-gray-900 text-sm text-gray-500 font-bold min-w-[130px]">선수</th>
                     {COLS.map(({ key, label }) => (
                       <th key={key} onClick={() => handleSort(key)}
@@ -319,6 +409,16 @@ export default function LeagueStatsPage() {
                   {filtered.map((p, i) => (
                     <tr key={p.player_id}
                       className={`border-b border-gray-800/50 ${i % 2 === 0 ? '' : 'bg-gray-900/50'} hover:bg-gray-800/30 transition-colors`}>
+                      <td className="px-2 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={compareIds.has(p.player_id)}
+                          disabled={!compareIds.has(p.player_id) && compareIds.size >= 2}
+                          onChange={() => toggleCompare(p)}
+                          aria-label={`${p.name} 비교 선택`}
+                          className="cursor-pointer accent-blue-500 w-4 h-4 disabled:cursor-not-allowed disabled:opacity-30"
+                        />
+                      </td>
                       <td className="px-4 py-3 sticky left-0 bg-inherit">
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
                           className="font-bold text-white hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[120px] block text-base">
@@ -346,6 +446,17 @@ export default function LeagueStatsPage() {
           playerId={quickViewPlayer.id}
           playerName={quickViewPlayer.name}
           onClose={() => setQuickViewPlayer(null)}
+        />
+      )}
+
+      {compareModalOpen && compareList.length === 2 && (
+        <PlayerCompareModal
+          leagueId={leagueId}
+          player1Id={compareList[0]}
+          player2Id={compareList[1]}
+          player1Name={compareNamesById[compareList[0]] ?? ''}
+          player2Name={compareNamesById[compareList[1]] ?? ''}
+          onClose={() => setCompareModalOpen(false)}
         />
       )}
     </div>

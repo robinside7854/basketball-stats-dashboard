@@ -77,7 +77,7 @@ export async function GET(
   ])
 
   // allEvents: 랭킹/배지 계산용 — 1000행 서버 제한을 피해 페이지네이션으로 전체 수집
-  type AllEventRow = { league_player_id: string | null; league_game_id: string; related_player_id: string | null; type: string; result: string | null; points: number | null }
+  type AllEventRow = { league_player_id: string | null; league_game_id: string; related_player_id: string | null; type: string; result: string | null; points: number | null; team_id: string | null }
   const allEvents: AllEventRow[] = []
   {
     const PAGE = 1000
@@ -85,7 +85,7 @@ export async function GET(
     while (true) {
       const { data: chunk } = await supabase
         .from('league_game_events')
-        .select('league_player_id, league_game_id, related_player_id, type, result, points')
+        .select('league_player_id, league_game_id, related_player_id, type, result, points, team_id')
         .in('league_game_id', gameIds)
         .not('league_player_id', 'is', null)
         .range(pg * PAGE, (pg + 1) * PAGE - 1)
@@ -222,6 +222,8 @@ export async function GET(
   })
   const allMap: Record<string, AS> = {}
   const allGp: Record<string, Set<string>> = {}
+  // playerTeamInGame[pid][gId] = team_id (for win_rate computation)
+  const playerTeamInGame: Record<string, Record<string, string>> = {}
 
   for (const e of allEvents ?? []) {
     const pid = e.league_player_id as string
@@ -234,6 +236,12 @@ export async function GET(
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
       if (!allGp[pid]) allGp[pid] = new Set()
       allGp[pid].add(gId)
+    }
+    // track team_id from event (column may not exist in select; rely on qTeamMap as fallback)
+    const evTeamId = (e as Record<string, unknown>).team_id as string | undefined
+    if (evTeamId) {
+      if (!playerTeamInGame[pid]) playerTeamInGame[pid] = {}
+      if (!playerTeamInGame[pid][gId]) playerTeamInGame[pid][gId] = evTeamId
     }
     const s = allMap[pid]
     if (made) {
@@ -314,10 +322,39 @@ export async function GET(
     const idx = sorted.findIndex(p => p.pid === playerId)
     return idx >= 0 ? idx + 1 : 0
   }
+
+  // 승률 순위 계산 (gp >= 3 인 선수만)
+  const winRateMap: Record<string, { wins: number; losses: number; rate: number; gp: number }> = {}
+  for (const pid of Object.keys(allMap)) {
+    let wins = 0, losses = 0
+    const gpSet = allGp[pid] ?? new Set<string>()
+    for (const gId of gpSet) {
+      const g = gameMap[gId]
+      if (!g) continue
+      // 플레이어 팀 결정: 이벤트에서 추출한 team_id 우선, 없으면 분기-팀 매핑 fallback (본인 한정)
+      let tid = playerTeamInGame[pid]?.[gId]
+      if (!tid && pid === playerId && g.quarter_id) tid = qTeamMap[g.quarter_id]
+      if (!tid) continue
+      const isHome = g.home_team_id === tid
+      const myPts = isHome ? (g.home_score as number) : (g.away_score as number)
+      const oppPts = isHome ? (g.away_score as number) : (g.home_score as number)
+      if (myPts > oppPts) wins++
+      else if (myPts < oppPts) losses++
+    }
+    const total = wins + losses
+    winRateMap[pid] = { wins, losses, rate: total > 0 ? wins / total * 100 : 0, gp: gpSet.size }
+  }
+  const winRateEligible = Object.entries(winRateMap)
+    .filter(([, w]) => w.gp >= 3 && (w.wins + w.losses) > 0)
+    .sort(([, a], [, b]) => b.rate - a.rate)
+  const winRateRankIdx = winRateEligible.findIndex(([pid]) => pid === playerId)
+  const win_rate_rank = winRateRankIdx >= 0 ? winRateRankIdx + 1 : 0
+
   const rankings = {
     ppg: getRank('ppg'), rpg: getRank('rpg'), apg: getRank('apg'),
     spg: getRank('spg'), bpg: getRank('bpg'),
     total: ranked.length,
+    win_rate_rank,
   }
 
   // 배지 계산

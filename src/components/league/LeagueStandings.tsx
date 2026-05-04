@@ -50,6 +50,15 @@ export default function LeagueStandings({ standings }: Props) {
                     <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.team.color }} />
                     <span className={`font-medium ${isFirst ? 'text-white' : 'text-gray-300'}`}>{s.team.name}</span>
                   </div>
+                  <div className="w-full bg-gray-800 rounded-full h-1 mt-1">
+                    <div
+                      className="h-1 rounded-full transition-all"
+                      style={{
+                        width: `${s.played > 0 ? (s.wins / s.played * 100) : 0}%`,
+                        backgroundColor: s.team.color ?? '#3b82f6',
+                      }}
+                    />
+                  </div>
                 </td>
                 <td className="py-3 px-2 text-center text-gray-400">{s.played}</td>
                 {/* 모바일: 통합 W-D-L (D=0이면 W-L만) */}

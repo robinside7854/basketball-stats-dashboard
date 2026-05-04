@@ -478,15 +478,17 @@ export default function LeagueTeamsPage() {
       ]).then(async ([gs, st]) => {
         setGames(gs ?? [])
         setAllStats(st.players ?? [])
-        setLeaders([]) // no leaders in all mode
 
-        // Merge qPlayers from all quarters
+        // Merge qPlayers + leaders from all quarters in parallel
         if (quarters.length > 0) {
-          const allQPlayerResults = await Promise.all(
-            quarters.map(q =>
+          const [allQPlayerResults, allLeaderResults] = await Promise.all([
+            Promise.all(quarters.map(q =>
               fetch(`/api/leagues/${leagueId}/quarters/${q.id}/players`).then(r => r.json())
-            )
-          )
+            )),
+            Promise.all(quarters.map(q =>
+              fetch(`/api/leagues/${leagueId}/quarters/${q.id}/leaders`).then(r => r.json())
+            )),
+          ])
           const playerTeamMap: Record<string, QuarterPlayer> = {}
           for (const qResult of allQPlayerResults) {
             for (const p of (qResult ?? []) as QuarterPlayer[]) {
@@ -496,8 +498,18 @@ export default function LeagueTeamsPage() {
             }
           }
           setQPlayers(Object.values(playerTeamMap))
+
+          // Merge leaders: later quarters override earlier ones
+          const leaderTeamMap: Record<string, Leader> = {}
+          for (const ldResult of allLeaderResults) {
+            for (const l of (ldResult ?? []) as Leader[]) {
+              if (l.leader_player_id) leaderTeamMap[l.team_id] = l
+            }
+          }
+          setLeaders(Object.values(leaderTeamMap))
         } else {
           setQPlayers([])
+          setLeaders([])
         }
 
         setLoading(false)

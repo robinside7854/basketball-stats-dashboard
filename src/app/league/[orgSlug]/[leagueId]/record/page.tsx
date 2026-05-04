@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { useGameStore } from '@/store/gameStore'
@@ -77,11 +77,20 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     } catch {}
   }
 
-  // 키보드 단축키: Space(재생/정지), ←/→(±5s), Shift+←/→(±10s)
+  // Backspace 핸들러를 위해 최신 selectedSlotId 보관 (state 정의 전에 ref 생성)
+  const selectedSlotIdRef = useRef<string>('')
+  const deleteLastEventRef = useRef<() => Promise<void>>(async () => {})
+
+  // 키보드 단축키: Space(재생/정지), ←/→(±5s), Shift+←/→(±10s), Backspace(마지막 이벤트 삭제)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (e.code === 'Backspace') {
+        e.preventDefault()
+        deleteLastEventRef.current()
+        return
+      }
       if (!ytPlayer) return
       if (e.code === 'Space')      { e.preventDefault(); togglePlay() }
       else if (e.code === 'ArrowLeft')  { e.preventDefault(); seekRelative(e.shiftKey ? -10 : -5) }
@@ -700,6 +709,31 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         .then(r => r.json()).then(setMinutes)
     }
   }
+
+  // Backspace 단축키용: 최신 selectedSlotId와 deleteLastEvent 함수를 ref로 노출
+  useEffect(() => {
+    selectedSlotIdRef.current = selectedSlotId
+    deleteLastEventRef.current = async () => {
+      const slotId = selectedSlotIdRef.current
+      if (!slotId) return
+      try {
+        const r = await fetch(`/api/leagues/${leagueId}/events?gameId=${slotId}`)
+        if (!r.ok) return
+        const events = await r.json() as Array<{ id: string; created_at?: string }>
+        if (!Array.isArray(events) || events.length === 0) return
+        const last = events[events.length - 1]
+        if (!last?.id) return
+        const del = await fetch(`/api/leagues/${leagueId}/events/${last.id}`, {
+          method: 'DELETE',
+          headers: leagueHeaders,
+        })
+        if (del.ok) {
+          handleEventSaved()
+          fetchLiveScore()
+        }
+      } catch {}
+    }
+  }, [selectedSlotId, leagueId, leagueHeaders]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 비정규 선수를 홈/어웨이 팀에 추가 (해당 날짜 경기에만 유효)
   async function addIrregularToTeam(player: IrregularPlayer, side: 'home' | 'away') {

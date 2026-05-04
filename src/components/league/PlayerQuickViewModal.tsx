@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Loader2, X, BookOpen } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
 import { ALL_BADGE_DEFS } from '@/lib/league/badges'
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, LineChart, Line, XAxis, Tooltip } from 'recharts'
 
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
@@ -21,11 +22,11 @@ type BadgeResult = { id: string; name: string; nameEn: string; icon: string; tie
 type WLStats = { ppg: number; rpg: number; apg: number; spg: number; bpg: number } | null
 
 type Detail = {
-  rankings: { ppg: number; rpg: number; apg: number; spg: number; bpg: number; total: number }
+  rankings: { ppg: number; rpg: number; apg: number; spg: number; bpg: number; total: number; win_rate_rank?: number }
   badges: BadgeResult[]
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; drive: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
-  recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; pts: number; reb: number; ast: number; fgm: number; fga: number }>
+  recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; pts: number; reb: number; ast: number; stl?: number; blk?: number; fgm: number; fga: number; fg3m?: number; fg3a?: number }>
   win_loss?: {
     wins: number; losses: number; win_rate: number
     win_stats: WLStats; loss_stats: WLStats
@@ -362,6 +363,29 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       ))}
                     </div>
 
+                    {/* 능력치 레이더 */}
+                    {activeDetail?.player_stats && (() => {
+                      const ps = activeDetail.player_stats
+                      const radarData = [
+                        { stat: '득점', value: Math.min(ps.ppg * 10, 100) },
+                        { stat: '리바운드', value: Math.min(ps.rpg * 15, 100) },
+                        { stat: '어시스트', value: Math.min(ps.apg * 20, 100) },
+                        { stat: '스틸', value: Math.min(ps.spg * 40, 100) },
+                        { stat: '블록', value: Math.min(ps.bpg * 50, 100) },
+                      ]
+                      return (
+                        <div className="mt-2">
+                          <ResponsiveContainer width="100%" height={160}>
+                            <RadarChart data={radarData} margin={{top:8,right:20,bottom:8,left:20}}>
+                              <PolarGrid stroke="#374151" />
+                              <PolarAngleAxis dataKey="stat" tick={{fill:'#9ca3af',fontSize:10,fontWeight:600}} />
+                              <Radar dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.25} strokeWidth={2} />
+                            </RadarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )
+                    })()}
+
                     {/* 승/패/승률 row */}
                     {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (() => {
                       const wl = activeDetail.win_loss!
@@ -379,7 +403,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                               {wl.win_rate}%
                             </span>
                             {total > 0 && (() => {
-                              const rank = computeWinRateRank(wl.win_rate, total)
+                              const rank = computeWinRateRank(activeDetail)
                               return rank > 0 ? (
                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-800 ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-500'}`}>{rank}위</span>
                               ) : null
@@ -581,6 +605,27 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {detail && detail.recent_games.length > 0 && (
               <div className="px-5 py-4">
                 <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">최근 5경기</p>
+                {detail.recent_games.length >= 2 && (() => {
+                  const chartData = [...detail.recent_games]
+                    .reverse()
+                    .map((g, i) => ({ game: `G${i+1}`, pts: g.pts, date: g.date?.slice(5) }))
+                  return (
+                    <div className="mb-3">
+                      <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-1">득점 추이</p>
+                      <ResponsiveContainer width="100%" height={60}>
+                        <LineChart data={chartData} margin={{top:4,right:4,bottom:0,left:0}}>
+                          <XAxis dataKey="date" tick={{fill:'#6b7280',fontSize:9}} axisLine={false} tickLine={false} />
+                          <Tooltip
+                            contentStyle={{background:'#1f2937',border:'none',borderRadius:6,fontSize:11,padding:'4px 8px'}}
+                            formatter={(v) => [`${v}pts`]}
+                            labelStyle={{color:'#9ca3af'}}
+                          />
+                          <Line type="monotone" dataKey="pts" stroke="#3b82f6" strokeWidth={2} dot={{fill:'#3b82f6',r:3}} activeDot={{r:4}} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )
+                })()}
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
@@ -635,12 +680,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   )
 }
 
-// 승률 순위 계산을 위한 헬퍼 — 실제 전체 랭킹 데이터가 없으므로 임시로 0 반환
 function ranked_total(detail: Detail | null): number {
   return detail?.rankings?.total ?? 0
 }
 
-function computeWinRateRank(_winRate: number, _total: number): number {
-  // 전체 선수 승률 데이터가 API에 없으므로 순위 표시는 생략 (0 반환)
-  return 0
+function computeWinRateRank(detail: Detail | null): number {
+  return detail?.rankings?.win_rate_rank ?? 0
 }
