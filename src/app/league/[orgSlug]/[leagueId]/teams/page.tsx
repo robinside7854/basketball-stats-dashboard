@@ -224,7 +224,7 @@ function StatsTable({
 }
 
 // ── TeamDetailPanel ────────────────────────────────────────────────────────
-type StandingEntry = { teamId: string; w: number; l: number; gf: number; ga: number }
+type StandingEntry = { teamId: string; w: number; d: number; l: number; gf: number; ga: number }
 
 function TeamDetailPanel({
   teamId, team, standing, h2h, players, allTeams, leagueId, games,
@@ -232,7 +232,7 @@ function TeamDetailPanel({
   teamId: string
   team: Team
   standing: StandingEntry
-  h2h: Record<string, { w: number; l: number }>
+  h2h: Record<string, { w: number; d: number; l: number }>
   players: PlayerStat[]
   allTeams: Team[]
   leagueId: string
@@ -246,7 +246,7 @@ function TeamDetailPanel({
     )
   }, [games, teamId])
 
-  const gp = teamGames.length || (standing.w + standing.l) || 1
+  const gp = teamGames.length || (standing.w + standing.d + standing.l) || 1
 
   const computed = useMemo(() => {
     if (players.length === 0) return null
@@ -282,7 +282,7 @@ function TeamDetailPanel({
     return { ppg, fgPct, efgPct, defPg, ftPct, threePct, acePct, byPpg, byRpg, byApg, byDef, byEfg }
   }, [players, gp])
 
-  const played = standing.w + standing.l
+  const played = standing.w + standing.d + standing.l
   const winPct = played > 0 ? (standing.w / played * 100).toFixed(1) : '—'
 
   // standings.gf/ga가 가장 신뢰성 있는 소스 (games 루프와 동일 기준)
@@ -300,7 +300,7 @@ function TeamDetailPanel({
         <div className="flex items-center gap-2.5">
           <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
           <span className="font-black text-white text-lg">{team.name}</span>
-          <span className="text-sm text-gray-500 font-semibold">{standing.w}승 {standing.l}패</span>
+          <span className="text-sm text-gray-500 font-semibold">{standing.w}승 {standing.d > 0 ? `${standing.d}무 ` : ''}{standing.l}패</span>
         </div>
         <div className="flex items-center gap-4">
           <div className="hidden sm:flex items-center gap-4 text-sm">
@@ -549,8 +549,8 @@ export default function LeagueTeamsPage() {
   }, [qPlayers, regularTeamMap])
 
   const standings = useMemo(() => {
-    const st: Record<string, { w: number; l: number; gf: number; ga: number; teamId: string }> = {}
-    for (const t of teams) st[t.id] = { w: 0, l: 0, gf: 0, ga: 0, teamId: t.id }
+    const st: Record<string, { w: number; d: number; l: number; gf: number; ga: number; teamId: string }> = {}
+    for (const t of teams) st[t.id] = { w: 0, d: 0, l: 0, gf: 0, ga: 0, teamId: t.id }
     for (const g of games) {
       if (!g.home_team_id || !g.away_team_id) continue
       const h = st[g.home_team_id]; const a = st[g.away_team_id]
@@ -559,23 +559,25 @@ export default function LeagueTeamsPage() {
       a.gf += g.away_score; a.ga += g.home_score
       if (g.home_score > g.away_score) { h.w++; a.l++ }
       else if (g.home_score < g.away_score) { a.w++; h.l++ }
+      else { h.d++; a.d++ }
     }
     return Object.values(st)
       .sort((a, b) => {
-        const aPts = a.w * 3; const bPts = b.w * 3
+        const aPts = a.w * 3 + a.d; const bPts = b.w * 3 + b.d
         if (bPts !== aPts) return bPts - aPts
         return (b.gf - b.ga) - (a.gf - a.ga)
       })
   }, [teams, games])
 
   const h2h = useMemo(() => {
-    const m: Record<string, Record<string, { w: number; l: number }>> = {}
-    for (const t of teams) { m[t.id] = {}; for (const t2 of teams) if (t.id !== t2.id) m[t.id][t2.id] = { w: 0, l: 0 } }
+    const m: Record<string, Record<string, { w: number; d: number; l: number }>> = {}
+    for (const t of teams) { m[t.id] = {}; for (const t2 of teams) if (t.id !== t2.id) m[t.id][t2.id] = { w: 0, d: 0, l: 0 } }
     for (const g of games) {
       const h = g.home_team_id; const a = g.away_team_id
       if (!h || !a || !m[h] || !m[a]) continue
       if (g.home_score > g.away_score) { m[h][a].w++; m[a][h].l++ }
       else if (g.home_score < g.away_score) { m[a][h].w++; m[h][a].l++ }
+      else { m[h][a].d++; m[a][h].d++ }
     }
     return m
   }, [teams, games])
@@ -603,7 +605,7 @@ export default function LeagueTeamsPage() {
     </div>
   )
 
-  const totalPlayed = standings.reduce((s, t) => s + t.w + t.l, 0) / 2
+  const totalPlayed = standings.reduce((s, t) => s + t.w + t.d + t.l, 0) / 2
 
   return (
     <div className="space-y-6">
@@ -649,7 +651,7 @@ export default function LeagueTeamsPage() {
             {standings.map((s, idx) => {
               const t = teamMap[s.teamId]
               if (!t) return null
-              const played = s.w + s.l
+              const played = s.w + s.d + s.l
               const winPct = played > 0 ? (s.w / played * 100).toFixed(1) : '—'
               const isSelected = selectedTeamId === t.id
               return (
@@ -678,10 +680,11 @@ export default function LeagueTeamsPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-black" style={{ color: t.color }}>{winPct}{played > 0 ? '%' : ''}</p>
-                      <p className="text-xs text-gray-600">{s.w}승 {s.l}패 · {played}경기</p>
+                      <p className="text-xs text-gray-600">{s.w}승 {s.d > 0 ? `${s.d}무 ` : ''}{s.l}패 · {played}경기</p>
                       {played > 0 && (
                         <div className="flex h-1 rounded-full overflow-hidden w-16 mt-1 ml-auto">
                           <div className="h-full" style={{ width: `${s.w/played*100}%`, backgroundColor: t.color }} />
+                          {s.d > 0 && <div className="h-full bg-yellow-500/60" style={{ width: `${s.d/played*100}%` }} />}
                           <div className="h-full bg-gray-700 flex-1" />
                         </div>
                       )}
@@ -691,8 +694,8 @@ export default function LeagueTeamsPage() {
                   <div className="px-4 py-3">
                     <p className="text-xs text-gray-500 uppercase font-bold mb-2">상대 전적</p>
                     {teams.filter(op => op.id !== t.id).map(op => {
-                      const rec = h2h[t.id]?.[op.id] ?? { w: 0, l: 0 }
-                      const total = rec.w + rec.l
+                      const rec = h2h[t.id]?.[op.id] ?? { w: 0, d: 0, l: 0 }
+                      const total = rec.w + rec.d + rec.l
                       return (
                         <div key={op.id} className={`flex items-center justify-between px-2 py-1 rounded-lg border mb-1 ${
                           rec.w > rec.l ? 'bg-green-900/20 border-green-800/30' :
@@ -708,6 +711,7 @@ export default function LeagueTeamsPage() {
                           ) : (
                             <div className="flex items-center gap-1 text-xs font-black">
                               <span className={rec.w > rec.l ? 'text-green-400' : 'text-gray-400'}>{rec.w}W</span>
+                              {rec.d > 0 && <><span className="text-gray-600">·</span><span className="text-yellow-500">{rec.d}D</span></>}
                               <span className="text-gray-600">·</span>
                               <span className={rec.l > rec.w ? 'text-red-400' : 'text-gray-400'}>{rec.l}L</span>
                             </div>

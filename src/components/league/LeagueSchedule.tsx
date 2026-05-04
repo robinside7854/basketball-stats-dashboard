@@ -50,20 +50,20 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
           const hasCompleted = completed.length > 0
 
           // 팀별 W/L 집계 (해당 날 완료된 경기 기준)
-          const teamRecord: Record<string, { name: string; color: string; w: number; l: number }> = {}
+          const teamRecord: Record<string, { name: string; color: string; w: number; d: number; l: number }> = {}
           for (const g of completed) {
             const hId = g.home_team_id
             const aId = g.away_team_id
             if (!hId || !aId) continue
             const h = g.home_team
             const a = g.away_team
-            if (h && !teamRecord[hId]) teamRecord[hId] = { name: h.name, color: h.color, w: 0, l: 0 }
-            if (a && !teamRecord[aId]) teamRecord[aId] = { name: a.name, color: a.color, w: 0, l: 0 }
+            if (h && !teamRecord[hId]) teamRecord[hId] = { name: h.name, color: h.color, w: 0, d: 0, l: 0 }
+            if (a && !teamRecord[aId]) teamRecord[aId] = { name: a.name, color: a.color, w: 0, d: 0, l: 0 }
             if (g.home_score > g.away_score) { if (teamRecord[hId]) teamRecord[hId].w++; if (teamRecord[aId]) teamRecord[aId].l++ }
             else if (g.home_score < g.away_score) { if (teamRecord[aId]) teamRecord[aId].w++; if (teamRecord[hId]) teamRecord[hId].l++ }
-            else { if (teamRecord[hId]) { teamRecord[hId].w++; } if (teamRecord[aId]) { teamRecord[aId].w++; } }
+            else { if (teamRecord[hId]) teamRecord[hId].d++; if (teamRecord[aId]) teamRecord[aId].d++ }
           }
-          const teamRows = Object.values(teamRecord).sort((a, b) => b.w - a.w || a.l - b.l)
+          const teamRows = Object.values(teamRecord).sort((a, b) => (b.w*3+b.d) - (a.w*3+a.d) || a.l - b.l)
 
           const isToday = date === today
           const allUpcoming = !hasCompleted
@@ -104,14 +104,14 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
                 {teamRows.length > 0 && (
                   <div className="flex items-center gap-3 flex-wrap justify-end">
                     {teamRows.map(t => {
-                      const total = t.w + t.l
+                      const total = t.w + t.d + t.l
                       const winPct = total > 0 ? Math.round(t.w / total * 100) : 0
                       return (
                         <div key={t.name} className="flex items-center gap-1.5">
                           <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
                           <span className="text-xs text-gray-400">{t.name}</span>
                           <span className="text-xs font-bold text-white tabular-nums">
-                            {t.w}W {t.l}L
+                            {t.w}W {t.d > 0 ? <span className="text-yellow-500">{t.d}D </span> : ''}{t.l}L
                           </span>
                           <span className={`text-xs font-bold tabular-nums ${winPct >= 50 ? 'text-green-400' : 'text-red-400'}`}>
                             {winPct}%
