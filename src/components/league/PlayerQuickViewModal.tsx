@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Loader2, X, BookOpen, Crown } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
 import { ALL_BADGE_DEFS } from '@/lib/league/badges'
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, LineChart, Line, XAxis, Tooltip } from 'recharts'
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar } from 'recharts'
 
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
@@ -38,6 +38,47 @@ type Detail = {
     pts: number; reb: number; ast: number; stl: number; blk: number; tov: number
     fg_pct: number; fg3_pct: number; ft_pct: number
   } | null
+  monthly_stats?: Array<{
+    month: string; label: string; gp: number
+    ppg: number; rpg: number; apg: number; spg: number; bpg: number; fg_pct: number
+  }>
+}
+
+const MONTH_STATS = [
+  {key:'ppg',label:'득점'},{key:'rpg',label:'리바'},
+  {key:'apg',label:'어시'},{key:'spg',label:'스틸'},
+  {key:'bpg',label:'블록'},{key:'fg_pct',label:'FG%'},
+] as const
+type MonthStatKey = typeof MONTH_STATS[number]['key']
+
+function MonthlyStatsChart({ data }: { data: NonNullable<Detail['monthly_stats']> }) {
+  const [monthStat, setMonthStat] = useState<MonthStatKey>('ppg')
+  return (
+    <div className="px-5 py-4 border-b border-gray-800/60">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-gray-600 uppercase tracking-widest font-bold">월별 성장지표</p>
+        <div className="flex gap-1">
+          {MONTH_STATS.map(s => (
+            <button key={s.key} onClick={() => setMonthStat(s.key)}
+              className={`px-2 py-0.5 text-[10px] font-bold rounded border cursor-pointer transition-colors ${
+                monthStat === s.key ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-500 hover:text-gray-300'
+              }`}>{s.label}</button>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={100}>
+        <BarChart data={data} margin={{top:4,right:4,bottom:0,left:-20}}>
+          <XAxis dataKey="label" tick={{fill:'#6b7280',fontSize:10}} axisLine={false} tickLine={false} />
+          <YAxis tick={{fill:'#6b7280',fontSize:9}} axisLine={false} tickLine={false} />
+          <Tooltip
+            contentStyle={{background:'#1f2937',border:'1px solid #374151',borderRadius:6,fontSize:11}}
+            formatter={(v) => [String(v), MONTH_STATS.find(s=>s.key===monthStat)?.label ?? '']}
+          />
+          <Bar dataKey={monthStat} fill="#3b82f6" radius={[3,3,0,0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  )
 }
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
@@ -643,31 +684,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               </div>
             )}
 
+            {/* 월별 성장지표 */}
+            {activeDetail?.monthly_stats && activeDetail.monthly_stats.length >= 2 && (
+              <MonthlyStatsChart data={activeDetail.monthly_stats} />
+            )}
+
             {/* 최근 5경기 */}
             {detail && detail.recent_games.length > 0 && (
               <div className="px-5 py-4">
                 <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">최근 5경기</p>
-                {detail.recent_games.length >= 2 && (() => {
-                  const chartData = [...detail.recent_games]
-                    .reverse()
-                    .map((g, i) => ({ game: `G${i+1}`, pts: g.pts, date: g.date?.slice(5) }))
-                  return (
-                    <div className="mb-3">
-                      <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-1">득점 추이</p>
-                      <ResponsiveContainer width="100%" height={60}>
-                        <LineChart data={chartData} margin={{top:4,right:4,bottom:0,left:0}}>
-                          <XAxis dataKey="date" tick={{fill:'#6b7280',fontSize:9}} axisLine={false} tickLine={false} />
-                          <Tooltip
-                            contentStyle={{background:'#1f2937',border:'none',borderRadius:6,fontSize:11,padding:'4px 8px'}}
-                            formatter={(v) => [`${v}pts`]}
-                            labelStyle={{color:'#9ca3af'}}
-                          />
-                          <Line type="monotone" dataKey="pts" stroke="#3b82f6" strokeWidth={2} dot={{fill:'#3b82f6',r:3}} activeDot={{r:4}} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  )
-                })()}
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>

@@ -5,49 +5,51 @@ import { Loader2, Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } f
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import PlayerCompareModal from '@/components/league/PlayerCompareModal'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import type { Quarter, PlayerStat } from '@/types/league'
 
-function TopScorersChart({ players, color }: { players: Array<{name:string;ppg:number;fg_pct:number}>, color?: string }) {
-  const top5 = [...players].sort((a,b)=>b.ppg-a.ppg).slice(0,5)
+const CHART_STATS = [
+  { key: 'ppg',    label: '득점',    unit: 'PPG' },
+  { key: 'rpg',    label: '리바운드', unit: 'RPG' },
+  { key: 'apg',    label: '어시스트', unit: 'APG' },
+  { key: 'spg',    label: '스틸',    unit: 'SPG' },
+  { key: 'bpg',    label: '블록',    unit: 'BPG' },
+  { key: 'fg_pct', label: 'FG%',    unit: '%'   },
+  { key: 'fg3_pct',label: '3P%',    unit: '%'   },
+] as const
+type ChartStatKey = typeof CHART_STATS[number]['key']
+
+function TopScorersChart({ players, statKey, statLabel, statUnit, color }: {
+  players: PlayerStat[]
+  statKey: ChartStatKey
+  statLabel: string
+  statUnit: string
+  color?: string
+}) {
+  const top5 = [...players]
+    .filter(p => p.gp >= 1)
+    .sort((a, b) => (b[statKey] as number) - (a[statKey] as number))
+    .slice(0, 5)
   const barColor = color ?? '#3b82f6'
+  const isPct = statUnit === '%'
   return (
     <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4">
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">득점 Top 5</p>
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">{statLabel} TOP 5</p>
       <ResponsiveContainer width="100%" height={160}>
         <BarChart data={top5} layout="vertical" margin={{ left: 8, right: 24, top: 0, bottom: 0 }}>
           <XAxis type="number" domain={[0,'auto']} tick={{fill:'#6b7280',fontSize:10}} axisLine={false} tickLine={false} />
           <YAxis type="category" dataKey="name" tick={{fill:'#d1d5db',fontSize:11,fontWeight:600}} axisLine={false} tickLine={false} width={48} />
           <Tooltip
             contentStyle={{background:'#1f2937',border:'1px solid #374151',borderRadius:8,fontSize:12}}
-            formatter={(v) => [`${Number(v).toFixed(1)} PPG`]}
+            formatter={(v) => [`${Number(v).toFixed(1)}${isPct ? '%' : ''} ${statUnit}`]}
             labelStyle={{color:'#f9fafb',fontWeight:600}}
           />
-          <Bar dataKey="ppg" radius={[0,4,4,0]}>
+          <Bar dataKey={statKey} radius={[0,4,4,0]}>
             {top5.map((_,i) => <Cell key={i} fill={i===0?'#f59e0b':i===1?'#9ca3af':i===2?'#b45309': barColor} fillOpacity={i<3?1:0.7} />)}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
   )
-}
-
-type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
-
-type PlayerStat = {
-  player_id: string
-  name: string
-  number: number | null
-  position: string | null
-  gp: number
-  pts: number; ppg: number
-  reb: number; rpg: number
-  ast: number; apg: number
-  stl: number; blk: number
-  tov: number
-  spg: number; bpg: number; topg: number
-  fgm: number; fga: number; fg_pct: number
-  fg3m: number; fg3a: number; fg3_pct: number
-  ftm: number; fta: number; ft_pct: number
-  efg_pct: number
 }
 
 type ViewMode = 'avg' | 'total'
@@ -82,6 +84,7 @@ export default function LeagueStatsPage() {
   const [minGP, setMinGP] = useState(1)
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
   const [compareModalOpen, setCompareModalOpen] = useState(false)
+  const [selectedChartStat, setSelectedChartStat] = useState<ChartStatKey>('ppg')
 
   const toggleCompare = (player: PlayerStat) => {
     setCompareIds(prev => {
@@ -206,9 +209,32 @@ export default function LeagueStatsPage() {
         </div>
       ) : (
         <>
+          {/* 차트 필터 칩 */}
+          <div className="flex gap-1.5 flex-wrap">
+            {CHART_STATS.map(s => (
+              <button key={s.key}
+                onClick={() => setSelectedChartStat(s.key)}
+                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors cursor-pointer ${
+                  selectedChartStat === s.key
+                    ? 'bg-blue-600 border-blue-500 text-white'
+                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                }`}>{s.label}</button>
+            ))}
+          </div>
+
           {/* 차트 섹션 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <TopScorersChart players={players.filter(p => p.gp >= minGP).map(p => ({ name: p.name, ppg: p.ppg, fg_pct: p.fg_pct }))} />
+            {(() => {
+              const cur = CHART_STATS.find(s => s.key === selectedChartStat)!
+              return (
+                <TopScorersChart
+                  players={players.filter(p => p.gp >= minGP)}
+                  statKey={cur.key}
+                  statLabel={cur.label}
+                  statUnit={cur.unit}
+                />
+              )
+            })()}
             {selectedQuarterId !== 'all' && (() => {
               // 팀 FG% 비교 — quarter players의 team_id로 그룹핑은 복잡하므로 간단히 선수 fg% top 8로 대체
               const fgData = [...players]

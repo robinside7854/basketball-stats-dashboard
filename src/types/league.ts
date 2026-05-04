@@ -74,3 +74,46 @@ export interface LeagueStanding {
   goals_against: number
   goal_diff: number
 }
+
+export type Quarter = {
+  id: string
+  year: number
+  quarter: number
+  is_current: boolean
+  start_date?: string | null
+  end_date?: string | null
+}
+
+export type PlayerStat = {
+  player_id: string
+  name: string
+  number: number | null
+  position: string | null
+  gp: number
+  pts: number; ppg: number
+  reb: number; rpg: number
+  ast: number; apg: number
+  stl: number; spg: number
+  blk: number; bpg: number
+  tov: number; topg: number
+  pf: number
+  fgm: number; fga: number; fg_pct: number
+  fg3m: number; fg3a: number; fg3_pct: number
+  ftm: number; fta: number; ft_pct: number
+  efg_pct: number
+}
+
+export type QuarterPlayer = {
+  id: string
+  name: string
+  number: number | null
+  position: string | null
+  is_regular: boolean
+  team_id: string | null
+  plus_one: boolean
+}
+
+export type Leader = {
+  team_id: string
+  leader_player_id: string | null
+}

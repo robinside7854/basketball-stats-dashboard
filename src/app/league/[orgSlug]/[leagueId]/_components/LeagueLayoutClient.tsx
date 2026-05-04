@@ -1,12 +1,15 @@
 'use client'
+import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
-import { Lock, Unlock, Sun, Moon } from 'lucide-react'
+import { Lock, Unlock, Sun, Moon, Search } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
+import GlobalSearchModal from '@/components/league/GlobalSearchModal'
+import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 
-function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
+function TabNav({ orgSlug, leagueId, onOpenSearch }: { orgSlug: string; leagueId: string; onOpenSearch: () => void }) {
   const pathname = usePathname()
   const { isEditMode, openPinModal, exitEditMode } = useLeagueEditMode()
   const { theme, setTheme } = useTheme()
@@ -54,8 +57,18 @@ function TabNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
             <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-gray-950 to-transparent pointer-events-none sm:hidden" />
           </div>
 
-          {/* 우측: 테마 토글 + 편집 모드 버튼 (항상 고정) */}
+          {/* 우측: 검색 + 테마 토글 + 편집 모드 버튼 (항상 고정) */}
           <div className="flex items-center gap-1.5 pl-2 sm:pl-3 py-2 shrink-0">
+            {/* 글로벌 검색 */}
+            <button
+              onClick={onOpenSearch}
+              aria-label="선수 검색"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700 text-gray-400 hover:text-white text-xs font-medium cursor-pointer transition-colors min-h-[44px]"
+            >
+              <Search size={13} />
+              <span className="hidden sm:inline">검색</span>
+              <kbd className="hidden md:inline text-[10px] text-gray-600 bg-gray-900 border border-gray-700 rounded px-1">⌘K</kbd>
+            </button>
             {/* 라이트/다크 토글 */}
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -111,14 +124,46 @@ function LeagueLayout({
   children: React.ReactNode
 }) {
   const { theme } = useTheme()
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [selectedPlayer, setSelectedPlayer] = useState<{ id: string; name: string } | null>(null)
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen(v => !v)
+      }
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [])
+
   return (
     <LeagueEditModeProvider leagueId={leagueId}>
       <div className="min-h-screen bg-gray-950 text-gray-300">
-        <TabNav orgSlug={orgSlug} leagueId={leagueId} />
+        <TabNav orgSlug={orgSlug} leagueId={leagueId} onOpenSearch={() => setSearchOpen(true)} />
         <RecordAwareContainer orgSlug={orgSlug} leagueId={leagueId}>
           {children}
         </RecordAwareContainer>
       </div>
+      {searchOpen && (
+        <GlobalSearchModal
+          leagueId={leagueId}
+          onClose={() => setSearchOpen(false)}
+          onSelectPlayer={(id, name) => {
+            setSelectedPlayer({ id, name })
+            setSearchOpen(false)
+          }}
+        />
+      )}
+      {selectedPlayer && (
+        <PlayerQuickViewModal
+          leagueId={leagueId}
+          playerId={selectedPlayer.id}
+          playerName={selectedPlayer.name}
+          onClose={() => setSelectedPlayer(null)}
+        />
+      )}
       <Toaster richColors theme={theme === 'light' ? 'light' : 'dark'} />
     </LeagueEditModeProvider>
   )

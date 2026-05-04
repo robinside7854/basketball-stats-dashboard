@@ -435,5 +435,37 @@ export async function GET(
     }
   })() : null
 
-  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss, player_stats })
+  // ── Monthly stats — group perGame by YYYY-MM ────────────────
+  const monthlyMap: Record<string, { pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; gp: number }> = {}
+  for (const gId of playedGames) {
+    const g = gameMap[gId]
+    if (!g?.date) continue
+    const month = (g.date as string).slice(0, 7) // YYYY-MM
+    if (!monthlyMap[month]) monthlyMap[month] = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, gp: 0 }
+    const s = perGame[gId]
+    monthlyMap[month].pts += s.pts
+    monthlyMap[month].reb += s.reb
+    monthlyMap[month].ast += s.ast
+    monthlyMap[month].stl += s.stl
+    monthlyMap[month].blk += s.blk
+    monthlyMap[month].fgm += s.fgm
+    monthlyMap[month].fga += s.fga
+    monthlyMap[month].gp++
+  }
+
+  const monthly_stats = Object.entries(monthlyMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, s]) => ({
+      month,
+      label: `${parseInt(month.slice(5))}월`,
+      gp: s.gp,
+      ppg:     +(s.pts / s.gp).toFixed(1),
+      rpg:     +(s.reb / s.gp).toFixed(1),
+      apg:     +(s.ast / s.gp).toFixed(1),
+      spg:     +(s.stl / s.gp).toFixed(1),
+      bpg:     +(s.blk / s.gp).toFixed(1),
+      fg_pct:  s.fga > 0 ? +(s.fgm / s.fga * 100).toFixed(1) : 0,
+    }))
+
+  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss, player_stats, monthly_stats })
 }
