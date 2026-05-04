@@ -59,6 +59,11 @@ export default async function LeagueDetailPage({
 
   const otherLeagues = (allLeagues ?? []).filter(ol => ol.id !== leagueId)
 
+  const today = new Date().toISOString().slice(0, 10)
+  const nextGame = gameList
+    .filter(g => !g.is_complete && g.date >= today && g.home_team_id && g.away_team_id)
+    .sort((a, b) => a.date.localeCompare(b.date))[0]
+
   return (
     <div className="space-y-5">
       {/* 헤더 */}
@@ -96,6 +101,40 @@ export default async function LeagueDetailPage({
           <LeagueStandings standings={standings} />
         </div>
       </div>
+
+      {/* 다음 경기 하이라이트 */}
+      {nextGame && (() => {
+        const home = nextGame.home_team_id ? teamMap[nextGame.home_team_id] : null
+        const away = nextGame.away_team_id ? teamMap[nextGame.away_team_id] : null
+        const isToday = nextGame.date === today
+        return (
+          <div className="bg-gradient-to-r from-blue-950/40 via-gray-900 to-gray-900 border border-blue-900/40 rounded-2xl px-5 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                {isToday ? (
+                  <span className="flex items-center gap-1.5 text-xs font-bold text-green-400">
+                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />오늘 경기
+                  </span>
+                ) : (
+                  <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">다음 경기</span>
+                )}
+                <span className="text-xs text-gray-500">· {nextGame.date}</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-center gap-4 mt-3">
+              <div className="flex items-center gap-2">
+                {home && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: home.color }} />}
+                <span className="text-base font-black text-white">{home?.name ?? '—'}</span>
+              </div>
+              <span className="text-sm font-bold text-gray-600">VS</span>
+              <div className="flex items-center gap-2">
+                {away && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: away.color }} />}
+                <span className="text-base font-black text-white">{away?.name ?? '—'}</span>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* 최근 일정 / 결과 */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">

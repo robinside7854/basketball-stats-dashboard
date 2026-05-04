@@ -1,4 +1,5 @@
 'use client'
+import { Crown } from 'lucide-react'
 import type { LeagueStanding } from '@/types/league'
 
 interface Props {
@@ -37,13 +38,17 @@ export default function LeagueStandings({ standings }: Props) {
         <tbody>
           {standings.map((s, idx) => {
             const isFirst = idx === 0
+            const rankColor = idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-gray-400' : idx === 2 ? 'text-orange-500' : 'text-gray-600'
             return (
               <tr
                 key={s.team.id}
                 className={`border-b border-gray-800/50 ${isFirst ? 'bg-blue-950/20' : 'hover:bg-gray-900/50'} transition-colors`}
               >
                 <td className="py-3 px-3 text-center">
-                  <span className={`text-xs font-bold ${isFirst ? 'text-blue-400' : 'text-gray-500'}`}>{idx + 1}</span>
+                  <span className={`text-xs font-black inline-flex items-center justify-center gap-0.5 ${rankColor}`}>
+                    {idx === 0 && <Crown size={10} />}
+                    {idx + 1}
+                  </span>
                 </td>
                 <td className="py-3 px-3">
                   <div className="flex items-center gap-2">

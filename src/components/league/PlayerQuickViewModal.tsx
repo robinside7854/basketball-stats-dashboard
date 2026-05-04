@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, X, BookOpen } from 'lucide-react'
+import { Loader2, X, BookOpen, Crown } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
 import { ALL_BADGE_DEFS } from '@/lib/league/badges'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, LineChart, Line, XAxis, Tooltip } from 'recharts'
@@ -51,6 +51,14 @@ function calcAge(birthDate: string | null): number | null {
   const md = now.getMonth() - b.getMonth()
   if (md < 0 || (md === 0 && now.getDate() < b.getDate())) age--
   return age
+}
+
+const POSITION_COLORS: Record<string, string> = {
+  PG: 'bg-purple-900/40 text-purple-300 border-purple-700/40',
+  SG: 'bg-blue-900/40 text-blue-300 border-blue-700/40',
+  SF: 'bg-green-900/40 text-green-300 border-green-700/40',
+  PF: 'bg-orange-900/40 text-orange-300 border-orange-700/40',
+  C:  'bg-red-900/40 text-red-300 border-red-700/40',
 }
 
 function pctColor(pct: number): string {
@@ -191,7 +199,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               </h2>
               <div className="flex items-center gap-2 mt-1">
                 {positions.map(pos => (
-                  <span key={pos} className="text-xs font-bold px-1.5 py-0.5 rounded bg-blue-900/40 text-blue-300 border border-blue-700/40">{pos}</span>
+                  <span key={pos} className={`text-xs font-bold px-1.5 py-0.5 rounded border ${POSITION_COLORS[pos] ?? 'bg-blue-900/40 text-blue-300 border-blue-700/40'}`}>{pos}</span>
                 ))}
                 {player?.plus_one && (
                   <span className="text-xs font-black px-1.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300">+1</span>
@@ -289,6 +297,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
           </div>
         )}
 
+        <div className="h-0.5 w-full bg-gradient-to-r from-blue-500/60 via-blue-500/20 to-transparent" />
+
         {loading ? (
           <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-600" /></div>
         ) : (
@@ -344,7 +354,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                           <p className="text-xs font-bold text-gray-600 mb-1 uppercase">{label}</p>
                           <p className={`text-3xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
                           {rank > 0 && (
-                            <p className={`text-[10px] font-bold mt-1 ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>{rank}위</p>
+                            <p className={`text-[10px] font-bold mt-1 flex items-center justify-center gap-0.5 ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>
+                              {rank === 1 && <Crown size={8} />}
+                              {rank}위
+                            </p>
                           )}
                         </div>
                       ))}
@@ -598,6 +611,35 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     </div>
                   )
                 })()}
+              </div>
+            )}
+
+            {/* 커리어 하이 */}
+            {detail?.career_high && Object.keys(detail.career_high).length > 0 && (
+              <div className="px-5 py-4 border-b border-gray-800/60">
+                <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">커리어 하이</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {Object.entries(detail.career_high).map(([key, ch]) => (
+                    <div key={key} className="bg-gray-900/60 border border-gray-800/50 rounded-xl px-3 py-2.5">
+                      <div className="flex items-baseline gap-1.5">
+                        <p className="text-3xl font-black text-yellow-300 leading-none">{ch.value}</p>
+                        <p className="text-[10px] text-gray-500 font-bold uppercase">{key}</p>
+                      </div>
+                      {(ch.date || ch.opponent || ch.result) && (
+                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                          {ch.date && <span className="text-[10px] text-gray-500">{ch.date.slice(5)}</span>}
+                          {ch.opponent && <span className="text-[10px] text-gray-400">vs {ch.opponent}</span>}
+                          {ch.result && (
+                            <span className={`text-[9px] font-black px-1 py-0.5 rounded ${ch.result === 'W' ? 'text-green-400 bg-green-900/40' : 'text-red-400 bg-red-900/40'}`}>
+                              {ch.result}{ch.score ? ` ${ch.score}` : ''}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {ch.extra && <p className="text-[10px] text-gray-500 mt-1">{ch.extra}</p>}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

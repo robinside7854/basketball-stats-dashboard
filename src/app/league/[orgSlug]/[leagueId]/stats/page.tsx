@@ -360,17 +360,18 @@ export default function LeagueStatsPage() {
                 const sortVal = cellVal(p, sortKey)
                 // 부수 지표 4개 (현재 sort key가 아닌 것 중 앞 4개)
                 const subCols = COLS.filter(c => c.key !== sortKey).slice(0, 4)
+                const rankBorder = i === 0 ? 'border-l-2 border-l-yellow-500/60' : i === 1 ? 'border-l-2 border-l-gray-400/40' : i === 2 ? 'border-l-2 border-l-orange-500/40' : ''
                 return (
                   <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                    className="w-full text-left px-4 py-3 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60">
+                    className={`w-full text-left px-4 py-3 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60 ${rankBorder}`}>
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="text-base font-black text-gray-500 font-mono w-6 shrink-0">{i + 1}</span>
+                      <span className={`text-base font-black font-mono w-6 shrink-0 ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-500':'text-gray-500'}`}>{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-white text-sm truncate">{p.name}</div>
                         <div className="text-gray-600 text-xs">{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · GP {p.gp}</div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-2xl font-black text-yellow-400 leading-none">{sortVal}</div>
+                        <div className="text-3xl font-black text-yellow-400 leading-none">{sortVal}</div>
                         <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
                       </div>
                     </div>
@@ -392,6 +393,7 @@ export default function LeagueStatsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-800">
+                    <th className="py-2 pl-2 pr-1 text-xs text-gray-600 font-bold text-right w-8">#</th>
                     <th className="px-2 py-3 text-center text-xs text-gray-600 w-8">비교</th>
                     <th className="text-left px-4 py-3 sticky left-0 bg-gray-900 text-sm text-gray-500 font-bold min-w-[130px]">선수</th>
                     {COLS.map(({ key, label }) => (
@@ -408,7 +410,15 @@ export default function LeagueStatsPage() {
                 <tbody>
                   {filtered.map((p, i) => (
                     <tr key={p.player_id}
-                      className={`border-b border-gray-800/50 ${i % 2 === 0 ? '' : 'bg-gray-900/50'} hover:bg-gray-800/30 transition-colors`}>
+                      className={`border-b border-gray-800/50 ${
+                        i === 0 ? 'bg-yellow-400/3 hover:bg-yellow-400/5' :
+                        i === 1 ? 'hover:bg-gray-800/30' :
+                        i === 2 ? 'bg-orange-400/3 hover:bg-orange-400/5' :
+                        i % 2 === 0 ? 'hover:bg-gray-800/30' : 'bg-gray-900/50 hover:bg-gray-800/30'
+                      } transition-colors`}>
+                      <td className={`py-2 pl-2 pr-1 text-right font-black text-sm ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-600':'text-gray-600'}`}>
+                        {i+1}
+                      </td>
                       <td className="px-2 py-3 text-center">
                         <input
                           type="checkbox"

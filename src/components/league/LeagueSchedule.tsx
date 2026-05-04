@@ -18,6 +18,7 @@ function formatDate(dateStr: string) {
 
 export default function LeagueSchedule({ games, leagueId, limit }: Props) {
   const [boxscoreDate, setBoxscoreDate] = useState<string | null>(null)
+  const today = new Date().toISOString().slice(0, 10)
 
   // 날짜별 그룹화
   const dateMap: Record<string, LeagueGame[]> = {}
@@ -64,18 +65,35 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
           }
           const teamRows = Object.values(teamRecord).sort((a, b) => b.w - a.w || a.l - b.l)
 
+          const isToday = date === today
+          const allUpcoming = !hasCompleted
           return (
             <button
               key={date}
               onClick={() => setBoxscoreDate(date)}
-              className="w-full text-left bg-gray-900/60 border border-gray-800 hover:border-blue-500/40 hover:bg-gray-900 hover:-translate-y-0.5 hover:shadow-md rounded-xl px-4 py-3.5 transition-all duration-200 cursor-pointer group"
+              className={`w-full text-left border rounded-xl px-4 py-3.5 transition-all duration-200 cursor-pointer group ${
+                allUpcoming
+                  ? 'bg-gray-800/30 border-gray-800 hover:border-blue-500/40 hover:bg-gray-800/50 hover:-translate-y-0.5 hover:shadow-md'
+                  : 'bg-gray-900/60 border-gray-800 hover:border-blue-500/40 hover:bg-gray-900 hover:-translate-y-0.5 hover:shadow-md opacity-90'
+              }`}
             >
               <div className="flex items-center justify-between gap-3">
                 {/* 날짜 + 경기 수 */}
                 <div className="flex items-center gap-2.5">
                   <BarChart2 size={14} className="text-gray-600 group-hover:text-blue-400 transition-colors shrink-0" />
                   <div>
-                    <p className="text-base font-bold text-white">{formatDate(date)}</p>
+                    <div className="flex items-center gap-2">
+                      <p className={`text-base font-bold ${hasCompleted ? 'text-gray-400' : 'text-white'}`}>{formatDate(date)}</p>
+                      {allUpcoming && (
+                        isToday ? (
+                          <span className="flex items-center gap-1 text-[10px] font-bold text-green-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />오늘
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold text-gray-500 px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700">예정</span>
+                        )
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {hasCompleted ? `${completed.length}/${dayGames.length}경기 완료` : `${dayGames.length}경기 예정`}
                     </p>

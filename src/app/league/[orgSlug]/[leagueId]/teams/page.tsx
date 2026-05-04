@@ -679,26 +679,38 @@ export default function LeagueTeamsPage() {
                     <div className="text-right">
                       <p className="text-2xl font-black" style={{ color: t.color }}>{winPct}{played > 0 ? '%' : ''}</p>
                       <p className="text-xs text-gray-600">{s.w}승 {s.l}패 · {played}경기</p>
+                      {played > 0 && (
+                        <div className="flex h-1 rounded-full overflow-hidden w-16 mt-1 ml-auto">
+                          <div className="h-full" style={{ width: `${s.w/played*100}%`, backgroundColor: t.color }} />
+                          <div className="h-full bg-gray-700 flex-1" />
+                        </div>
+                      )}
                     </div>
                   </button>
                   {/* 상대 전적 */}
-                  <div className="px-4 py-3 space-y-1.5">
+                  <div className="px-4 py-3">
                     <p className="text-xs text-gray-500 uppercase font-bold mb-2">상대 전적</p>
                     {teams.filter(op => op.id !== t.id).map(op => {
                       const rec = h2h[t.id]?.[op.id] ?? { w: 0, l: 0 }
                       const total = rec.w + rec.l
                       return (
-                        <div key={op.id} className="flex items-center justify-between">
+                        <div key={op.id} className={`flex items-center justify-between px-2 py-1 rounded-lg border mb-1 ${
+                          rec.w > rec.l ? 'bg-green-900/20 border-green-800/30' :
+                          rec.w < rec.l ? 'bg-red-900/20 border-red-800/30' :
+                          'bg-gray-800/30 border-gray-700/20'
+                        }`}>
                           <div className="flex items-center gap-1.5">
                             <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: op.color }} />
-                            <span className="text-xs text-gray-400">vs {op.name}</span>
+                            <span className="text-xs text-gray-300">vs {op.name}</span>
                           </div>
                           {total === 0 ? (
-                            <span className="text-xs text-gray-500">기록 없음</span>
+                            <span className="text-xs text-gray-600">기록 없음</span>
                           ) : (
-                            <span className={`text-xs font-black ${rec.w > rec.l ? 'text-green-400' : rec.w < rec.l ? 'text-red-400' : 'text-gray-400'}`}>
-                              {rec.w}승 {rec.l}패
-                            </span>
+                            <div className="flex items-center gap-1 text-xs font-black">
+                              <span className={rec.w > rec.l ? 'text-green-400' : 'text-gray-400'}>{rec.w}W</span>
+                              <span className="text-gray-600">·</span>
+                              <span className={rec.l > rec.w ? 'text-red-400' : 'text-gray-400'}>{rec.l}L</span>
+                            </div>
                           )}
                         </div>
                       )
