@@ -151,15 +151,36 @@ export async function GET(
 
   const playedGames = Object.keys(perGame)
 
+  // ── 일별 집계 (dayMap): 같은 날 여러 경기 → 하나의 일 단위로 합산 ──────
+  const dayMap: Record<string, GS> = {}
+  for (const gId of playedGames) {
+    const date = (gameMap[gId] as { date?: string })?.date ?? gId
+    if (!dayMap[date]) dayMap[date] = { pts:0, reb:0, oreb:0, dreb:0, ast:0, stl:0, blk:0, tov:0, pf:0, fgm:0, fga:0, fg3m:0, fg3a:0, ftm:0, fta:0 }
+    const s = perGame[gId]
+    dayMap[date].pts  += s.pts;  dayMap[date].reb   += s.reb;  dayMap[date].oreb += s.oreb
+    dayMap[date].dreb += s.dreb; dayMap[date].ast   += s.ast;  dayMap[date].stl  += s.stl
+    dayMap[date].blk  += s.blk;  dayMap[date].tov   += s.tov;  dayMap[date].pf   += s.pf
+    dayMap[date].fgm  += s.fgm;  dayMap[date].fga   += s.fga;  dayMap[date].fg3m += s.fg3m
+    dayMap[date].fg3a += s.fg3a; dayMap[date].ftm   += s.ftm;  dayMap[date].fta  += s.fta
+  }
+  const playedDays = Object.keys(dayMap).sort()
+  // dateToFirstGame: career high / recent games 컨텍스트용
+  const dateToFirstGame: Record<string, string> = {}
+  for (const gId of playedGames) {
+    const date = (gameMap[gId] as { date?: string })?.date ?? gId
+    if (!dateToFirstGame[date]) dateToFirstGame[date] = gId
+  }
+
   // ── Career High ──────────────────────────────────────────────
   type CH = { value: number; gameId: string; extra?: string }
   const ch: Record<string, CH | null> = {
     pts: null, reb: null, ast: null, stl: null, blk: null, fgPct: null, ftm: null,
   }
-  for (const gId of playedGames) {
-    const s = perGame[gId]
+  for (const date of playedDays) {
+    const s = dayMap[date]
+    const firstGId = dateToFirstGame[date]
     const upd = (key: string, val: number, extra?: string) => {
-      if (val > (ch[key]?.value ?? -1)) ch[key] = { value: val, gameId: gId, extra }
+      if (val > (ch[key]?.value ?? -1)) ch[key] = { value: val, gameId: firstGId, extra }
     }
     upd('pts', s.pts, s.fga > 0 ? `FG ${+(s.fgm / s.fga * 100).toFixed(1)}% (${s.fgm}/${s.fga})` : undefined)
     upd('reb', s.reb, `OR ${s.oreb} / DR ${s.dreb}`)
@@ -195,16 +216,16 @@ export async function GET(
     careerHigh[key] = { value: entry.value, extra: entry.extra, ...gameInfo(entry.gameId, tid) }
   }
 
-  // ── Recent 5 games ───────────────────────────────────────────
-  const recentGames = playedGames
-    .filter(gId => gameMap[gId])
-    .sort((a, b) => new Date(gameMap[b].date).getTime() - new Date(gameMap[a].date).getTime())
+  // ── Recent 5 days ──────────────────────────────────────────
+  const recentGames = playedDays
+    .slice().reverse()
     .slice(0, 5)
-    .map(gId => {
-      const s = perGame[gId]
-      const g = gameMap[gId]
+    .map(date => {
+      const s = dayMap[date]
+      const firstGId = dateToFirstGame[date]
+      const g = firstGId ? gameMap[firstGId] : null
       const tid = g?.quarter_id ? qTeamMap[g.quarter_id] : undefined
-      return { ...gameInfo(gId, tid), pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk, fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a }
+      return { ...gameInfo(firstGId ?? '', tid), pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk, fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a }
     })
 
   // ── Rankings + Badge metrics ──────────────────────────────────
@@ -232,10 +253,10 @@ export async function GET(
     const gamePlusOne = gamePlusOneMap[gId]
     const isP1 = gamePlusOne !== null ? pid === gamePlusOne : plusOneSet.has(pid)
     if (!allMap[pid]) allMap[pid] = emptyAS()
-    // sub_in/sub_out은 GP 카운트 제외
+    // 일수 기준 GP 카운트 (날짜로 중복 제거)
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
       if (!allGp[pid]) allGp[pid] = new Set()
-      allGp[pid].add(gId)
+      allGp[pid].add((gameMap[gId] as {date?: string})?.date ?? gId)
     }
     // track team_id from event (column may not exist in select; rely on qTeamMap as fallback)
     const evTeamId = (e as Record<string, unknown>).team_id as string | undefined
@@ -268,7 +289,7 @@ export async function GET(
       const ap = e.related_player_id as string
       if (!allMap[ap]) allMap[ap] = emptyAS()
       if (!allGp[ap]) allGp[ap] = new Set()
-      allGp[ap].add(gId)
+      allGp[ap].add((gameMap[gId] as {date?: string})?.date ?? gId)
       allMap[ap].ast++
     }
   }
@@ -413,14 +434,12 @@ export async function GET(
     total_fga: totalFGA,
   }
 
-  // player_stats: allMap은 전체 allEvents 1000행 제한에 걸릴 수 있으므로
-  // 선수 특화 조회(playerEvents + assistEvents)로 만든 perGame에서 직접 집계
-  const playedGIds = Object.keys(perGame)
-  const playerGp = playedGIds.length
+  // player_stats: dayMap 기반 일별 집계 → 평균은 일 단위(일별 스탯)
+  const playerGp = playedDays.length  // 경기일 수
   const player_stats = playerGp > 0 ? (() => {
     let pts=0,reb=0,ast=0,stl=0,blk=0,tov=0,fgm=0,fga=0,fg3m=0,fg3a=0,ftm=0,fta=0
-    for (const gId of playedGIds) {
-      const s = perGame[gId]
+    for (const date of playedDays) {
+      const s = dayMap[date]
       pts+=s.pts; reb+=s.reb; ast+=s.ast; stl+=s.stl; blk+=s.blk; tov+=s.tov
       fgm+=s.fgm; fga+=s.fga; fg3m+=s.fg3m; fg3a+=s.fg3a; ftm+=s.ftm; fta+=s.fta
     }
@@ -435,22 +454,16 @@ export async function GET(
     }
   })() : null
 
-  // ── Monthly stats — group perGame by YYYY-MM ────────────────
-  const monthlyMap: Record<string, { pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; gp: number }> = {}
-  for (const gId of playedGames) {
-    const g = gameMap[gId]
-    if (!g?.date) continue
-    const month = (g.date as string).slice(0, 7) // YYYY-MM
-    if (!monthlyMap[month]) monthlyMap[month] = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, gp: 0 }
-    const s = perGame[gId]
-    monthlyMap[month].pts += s.pts
-    monthlyMap[month].reb += s.reb
-    monthlyMap[month].ast += s.ast
-    monthlyMap[month].stl += s.stl
-    monthlyMap[month].blk += s.blk
-    monthlyMap[month].fgm += s.fgm
-    monthlyMap[month].fga += s.fga
-    monthlyMap[month].gp++
+  // ── Monthly stats — dayMap 기반 일별 → 월별 그룹 ──────────────
+  const monthlyMap: Record<string, { pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; days: number }> = {}
+  for (const date of playedDays) {
+    const month = date.slice(0, 7) // YYYY-MM
+    if (!monthlyMap[month]) monthlyMap[month] = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, days: 0 }
+    const s = dayMap[date]
+    monthlyMap[month].pts  += s.pts;  monthlyMap[month].reb += s.reb
+    monthlyMap[month].ast  += s.ast;  monthlyMap[month].stl += s.stl
+    monthlyMap[month].blk  += s.blk;  monthlyMap[month].fgm += s.fgm
+    monthlyMap[month].fga  += s.fga;  monthlyMap[month].days++
   }
 
   const monthly_stats = Object.entries(monthlyMap)
@@ -458,12 +471,12 @@ export async function GET(
     .map(([month, s]) => ({
       month,
       label: `${parseInt(month.slice(5))}월`,
-      gp: s.gp,
-      ppg:     +(s.pts / s.gp).toFixed(1),
-      rpg:     +(s.reb / s.gp).toFixed(1),
-      apg:     +(s.ast / s.gp).toFixed(1),
-      spg:     +(s.stl / s.gp).toFixed(1),
-      bpg:     +(s.blk / s.gp).toFixed(1),
+      gp: s.days,
+      ppg:     +(s.pts / s.days).toFixed(1),
+      rpg:     +(s.reb / s.days).toFixed(1),
+      apg:     +(s.ast / s.days).toFixed(1),
+      spg:     +(s.stl / s.days).toFixed(1),
+      bpg:     +(s.blk / s.days).toFixed(1),
       fg_pct:  s.fga > 0 ? +(s.fgm / s.fga * 100).toFixed(1) : 0,
     }))
 

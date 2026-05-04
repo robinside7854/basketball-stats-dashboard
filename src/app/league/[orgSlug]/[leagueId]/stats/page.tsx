@@ -143,13 +143,13 @@ export default function LeagueStatsPage() {
 
   // 테이블 컬럼 정의
   const AVG_COLS: { key: SortKey; label: string }[] = [
-    { key: 'gp', label: 'GP' }, { key: 'ppg', label: 'PPG' }, { key: 'rpg', label: 'RPG' },
+    { key: 'gp', label: '일수' }, { key: 'ppg', label: 'PPG' }, { key: 'rpg', label: 'RPG' },
     { key: 'apg', label: 'APG' }, { key: 'spg', label: 'SPG' }, { key: 'bpg', label: 'BPG' },
     { key: 'topg', label: 'TOPG' }, { key: 'fg_pct', label: 'FG%' }, { key: 'fg3_pct', label: '3P%' },
     { key: 'ft_pct', label: 'FT%' }, { key: 'efg_pct', label: 'eFG%' },
   ]
   const TOTAL_COLS: { key: SortKey; label: string }[] = [
-    { key: 'gp', label: 'GP' }, { key: 'pts', label: 'PTS' }, { key: 'reb', label: 'REB' },
+    { key: 'gp', label: '일수' }, { key: 'pts', label: 'PTS' }, { key: 'reb', label: 'REB' },
     { key: 'ast', label: 'AST' }, { key: 'stl', label: 'STL' }, { key: 'blk', label: 'BLK' },
     { key: 'tov', label: 'TOV' }, { key: 'fgm', label: 'FGM' },
     { key: 'fg3m', label: '3PM' }, { key: 'ftm', label: 'FTM' },
@@ -312,7 +312,7 @@ export default function LeagueStatsPage() {
                     {top.name}
                   </button>
                   <p className="text-3xl font-black text-yellow-400">{fmt(top)}</p>
-                  <p className="text-xs text-gray-600 mt-0.5">{unit} · {top.gp}경기</p>
+                  <p className="text-xs text-gray-600 mt-0.5">{unit} · {top.gp}일</p>
                   {leaders.slice(1).map((p, i) => (
                     <div key={p.player_id} className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-800">
                       <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
@@ -394,7 +394,7 @@ export default function LeagueStatsPage() {
                       <span className={`text-base font-black font-mono w-6 shrink-0 ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-500':'text-gray-500'}`}>{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-white text-sm truncate">{p.name}</div>
-                        <div className="text-gray-600 text-xs">{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · GP {p.gp}</div>
+                        <div className="text-gray-600 text-xs">{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}일</div>
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-3xl font-black text-yellow-400 leading-none">{sortVal}</div>

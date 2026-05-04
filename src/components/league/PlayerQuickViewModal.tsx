@@ -384,7 +384,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
                     <div className="grid grid-cols-6 gap-2 mb-3">
                       {[
-                        { label: 'GP',  value: String(activeDetail?.player_stats?.gp ?? 0),                    rank: 0,                         accent: false },
+                        { label: '일수', value: String(activeDetail?.player_stats?.gp ?? 0),                    rank: 0,                         accent: false },
                         { label: 'PPG', value: (activeDetail?.player_stats?.ppg ?? 0).toFixed(1), rank: detail?.rankings.ppg ?? 0, accent: true  },
                         { label: 'RPG', value: (activeDetail?.player_stats?.rpg ?? 0).toFixed(1), rank: detail?.rankings.rpg ?? 0, accent: false },
                         { label: 'APG', value: (activeDetail?.player_stats?.apg ?? 0).toFixed(1), rank: detail?.rankings.apg ?? 0, accent: false },

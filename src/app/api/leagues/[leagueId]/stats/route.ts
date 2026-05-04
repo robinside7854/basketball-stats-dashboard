@@ -30,7 +30,7 @@ export async function GET(
   // 2. 대상 게임 ID 추출 — is_started=true 기준 (detail API와 동일, 마감 미처리 경기도 포함)
   let gQuery = supabase
     .from('league_games')
-    .select('id, plus_one_player_id')
+    .select('id, plus_one_player_id, date')
     .eq('league_id', leagueId)
     .eq('is_started', true)
 
@@ -45,8 +45,10 @@ export async function GET(
   if (gameIds.length === 0) return NextResponse.json({ players: [] })
 
   const gamePlusOneMap: Record<string, string | null> = {}
+  const gameToDate: Record<string, string> = {}
   for (const g of (games ?? [])) {
     gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
+    gameToDate[g.id] = (g as Record<string, unknown>).date as string ?? g.id
   }
 
   // 3. 이벤트 조회 — Supabase 서버 max-rows(1000) 제한을 피해 페이지네이션으로 전체 수집
@@ -102,10 +104,10 @@ export async function GET(
     const s = ensure(pid)
     const gId = e.league_game_id
 
-    // 출전 경기 수 집계 — sub_in/sub_out은 제외 (실제 스탯 이벤트만 GP 카운트)
+    // 출전 일수 집계 — sub_in/sub_out 제외, 날짜 기준으로 카운트 (일별 스탯)
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
       if (!gpMap[pid]) gpMap[pid] = new Set()
-      gpMap[pid].add(gId)
+      gpMap[pid].add(gameToDate[gId] ?? gId)
     }
 
     const made = e.result === 'made'
@@ -152,7 +154,7 @@ export async function GET(
       const as = ensure(e.related_player_id)
       as.ast++
       if (!gpMap[e.related_player_id]) gpMap[e.related_player_id] = new Set()
-      gpMap[e.related_player_id].add(gId)
+      gpMap[e.related_player_id].add(gameToDate[gId] ?? gId)
     }
   }
 
