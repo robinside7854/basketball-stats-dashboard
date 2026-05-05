@@ -721,7 +721,7 @@ export default function LeagueTeamsPage() {
             return (
               <div className="relative">
                 <button
-                  className="absolute top-4 right-4 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  className="absolute top-3 right-3 z-10 w-11 h-11 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer"
                   onClick={() => setSelectedTeamId(null)}
                   aria-label="패널 닫기"
                 >

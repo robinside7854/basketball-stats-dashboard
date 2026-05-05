@@ -230,7 +230,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-lg h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl">
+      <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-lg sm:max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 px-5 pt-safe-or-3 pb-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -395,7 +395,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 ) : (
                   <>
                     <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
-                    <div className="grid grid-cols-6 gap-1.5 mb-3">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3">
                       {[
                         { label: statUnit === 'round' ? '라운드' : 'GP', value: String(activeDetail?.player_stats?.gp ?? 0),                    rank: 0,                         accent: false },
                         { label: 'PPG', value: (activeDetail?.player_stats?.ppg ?? 0).toFixed(1), rank: detail?.rankings.ppg ?? 0, accent: true  },
@@ -485,7 +485,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       )
                     })()}
 
-                    <div className="grid grid-cols-6 gap-1.5 mt-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mt-2">
                       {[['PTS', activeDetail?.player_stats?.pts ?? 0, true], ['REB', activeDetail?.player_stats?.reb ?? 0], ['AST', activeDetail?.player_stats?.ast ?? 0], ['STL', activeDetail?.player_stats?.stl ?? 0], ['BLK', activeDetail?.player_stats?.blk ?? 0], ['TOV', activeDetail?.player_stats?.tov ?? 0]].map(([l, v, hi]) => (
                         <div key={l as string} className={`rounded-xl p-2 text-center border ${hi ? 'bg-blue-900/30 border-blue-700/50' : 'bg-gray-800/50 border-gray-700/60'}`}>
                           <p className="text-[10px] text-gray-600 mb-0.5 uppercase">{l as string}</p>

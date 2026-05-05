@@ -92,64 +92,70 @@ export default async function LeagueDetailPage({
         </div>
       )}
 
-      {/* 순위표 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-800">
-          <h2 className="font-semibold text-white">순위표</h2>
-        </div>
-        <div className="p-2">
-          <LeagueStandings standings={standings} />
-        </div>
-      </div>
+      {/* PC: 2컬럼 (순위표 우측 고정 + 좌측 일정), 모바일: 스택 */}
+      <div className="lg:grid lg:grid-cols-[3fr_2fr] lg:gap-8 lg:items-start space-y-5 lg:space-y-0">
 
-      {/* 다음 경기 하이라이트 */}
-      {nextGame && (() => {
-        const home = nextGame.home_team_id ? teamMap[nextGame.home_team_id] : null
-        const away = nextGame.away_team_id ? teamMap[nextGame.away_team_id] : null
-        const isToday = nextGame.date === today
-        return (
-          <div className="bg-gradient-to-r from-blue-950/40 via-gray-900 to-gray-900 border border-blue-900/40 rounded-2xl px-5 py-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                {isToday ? (
-                  <span className="flex items-center gap-1.5 text-xs font-bold text-green-400">
-                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />오늘 경기
-                  </span>
-                ) : (
-                  <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">다음 경기</span>
-                )}
-                <span className="text-xs text-gray-500">· {nextGame.date}</span>
+        {/* 좌측: 다음 경기 + 일정 */}
+        <div className="space-y-5">
+          {/* 다음 경기 하이라이트 */}
+          {nextGame && (() => {
+            const home = nextGame.home_team_id ? teamMap[nextGame.home_team_id] : null
+            const away = nextGame.away_team_id ? teamMap[nextGame.away_team_id] : null
+            const isToday = nextGame.date === today
+            return (
+              <div className="bg-gradient-to-r from-blue-950/40 via-gray-900 to-gray-900 border border-blue-900/40 rounded-2xl px-5 py-4">
+                <div className="flex items-center gap-2 mb-3">
+                  {isToday ? (
+                    <span className="flex items-center gap-1.5 text-xs font-bold text-green-400">
+                      <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />오늘 경기
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">다음 경기</span>
+                  )}
+                  <span className="text-xs text-gray-500">· {nextGame.date}</span>
+                </div>
+                <div className="flex items-center justify-center gap-4">
+                  <div className="flex items-center gap-2">
+                    {home && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: home.color }} />}
+                    <span className="text-base font-black text-white">{home?.name ?? '—'}</span>
+                  </div>
+                  <span className="text-sm font-bold text-gray-600">VS</span>
+                  <div className="flex items-center gap-2">
+                    {away && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: away.color }} />}
+                    <span className="text-base font-black text-white">{away?.name ?? '—'}</span>
+                  </div>
+                </div>
               </div>
+            )
+          })()}
+
+          {/* 최근 일정 / 결과 */}
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+              <h2 className="font-semibold text-white">일정 · 결과</h2>
+              <Link href={`/league/${orgSlug}/${leagueId}/schedule`}
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                전체 보기 →
+              </Link>
             </div>
-            <div className="flex items-center justify-center gap-4 mt-3">
-              <div className="flex items-center gap-2">
-                {home && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: home.color }} />}
-                <span className="text-base font-black text-white">{home?.name ?? '—'}</span>
-              </div>
-              <span className="text-sm font-bold text-gray-600">VS</span>
-              <div className="flex items-center gap-2">
-                {away && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: away.color }} />}
-                <span className="text-base font-black text-white">{away?.name ?? '—'}</span>
-              </div>
+            <div className="p-4">
+              <LeagueSchedule games={gameList} leagueId={leagueId} limit={6} />
             </div>
           </div>
-        )
-      })()}
+        </div>
 
-      {/* 최근 일정 / 결과 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
-          <h2 className="font-semibold text-white">일정 · 결과</h2>
-          <Link
-            href={`/league/${orgSlug}/${leagueId}/schedule`}
-            className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-          >
-            전체 보기 →
-          </Link>
+        {/* 우측: 순위표 (PC에서 sticky) */}
+        <div className="lg:sticky lg:top-20">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-800">
+              <h2 className="font-semibold text-white">순위표</h2>
+            </div>
+            <div className="p-2">
+              <LeagueStandings standings={standings} />
+            </div>
+          </div>
         </div>
-        <div className="p-4">
-          <LeagueSchedule games={gameList} leagueId={leagueId} limit={6} />
-        </div>
+
       </div>
     </div>
   )

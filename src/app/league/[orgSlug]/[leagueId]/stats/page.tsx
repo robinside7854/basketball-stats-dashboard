@@ -185,17 +185,18 @@ export default function LeagueStatsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between flex-wrap gap-3">
+      {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}
+      <div className="space-y-2">
         <h2 className="text-xl font-bold text-white">리그 스탯</h2>
-        {/* 분기 버튼 필터 */}
-        <div className="flex flex-wrap gap-2">
+        {/* 1줄: 분기 선택 */}
+        <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
           <button onClick={() => setSelectedQuarterId('all')}
-            className={`px-3 py-1.5 rounded-xl text-sm font-bold border transition-all cursor-pointer btn-press ${
+            className={`shrink-0 px-3 py-2 rounded-xl text-sm font-bold border transition-all cursor-pointer btn-press min-h-[44px] ${
               selectedQuarterId === 'all' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
             }`}>전체</button>
           {quarters.map(q => (
             <button key={q.id} onClick={() => setSelectedQuarterId(q.id)}
-              className={`px-3 py-1.5 rounded-xl text-sm font-bold border transition-all cursor-pointer btn-press ${
+              className={`shrink-0 px-3 py-2 rounded-xl text-sm font-bold border transition-all cursor-pointer btn-press min-h-[44px] ${
                 selectedQuarterId === q.id ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
               }`}>
               {String(q.year).slice(2)}.{q.quarter}Q
@@ -335,38 +336,38 @@ export default function LeagueStatsPage() {
 
           {/* 전체 스탯 테이블 */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-            {/* 테이블 컨트롤 */}
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800 flex-wrap">
-              <div className="flex items-center gap-2">
+            {/* 테이블 컨트롤 — 모바일 2줄 / PC 1줄 */}
+            <div className="px-4 py-3 border-b border-gray-800 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-3">
+              <div className="flex items-center gap-2 shrink-0">
                 <TrendingUp size={14} className="text-blue-400" />
                 <span className="text-sm font-semibold text-white">전체 스탯</span>
               </div>
-              <div className="flex items-center gap-2 ml-auto flex-wrap">
+              {/* 컨트롤 그룹 — 모바일에서 스크롤 가능한 가로 행 */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide sm:ml-auto sm:flex-wrap">
                 {/* 누적/평균 토글 */}
-                <div className="flex rounded-lg overflow-hidden border border-gray-700">
+                <div className="flex rounded-lg overflow-hidden border border-gray-700 shrink-0">
                   {(['avg','total'] as ViewMode[]).map(m => (
                     <button key={m} onClick={() => { setViewMode(m); if (m === 'total') setProjection(false) }}
-                      className={`px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors btn-press ${viewMode === m ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                      className={`px-3 py-2 text-xs font-bold cursor-pointer transition-colors btn-press min-h-[40px] ${viewMode === m ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
                       {m === 'avg' ? '평균' : '누적'}
                     </button>
                   ))}
                 </div>
                 {/* 단위 토글 (라운드/GP) */}
-                <div className="flex items-center gap-1 bg-gray-800/60 rounded-lg p-0.5">
+                <div className="flex items-center gap-1 bg-gray-800/60 rounded-lg p-0.5 shrink-0">
                   {(['round','game'] as const).map(u => (
                     <button key={u} onClick={() => setStatUnit(u)}
-                      className={`px-3 py-1 text-xs font-bold rounded-md cursor-pointer transition-colors ${
+                      className={`px-3 py-1.5 text-xs font-bold rounded-md cursor-pointer transition-colors ${
                         statUnit === u ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
                       }`}>
                       {u === 'round' ? '라운드' : 'GP'}
                     </button>
                   ))}
                 </div>
-                {/* x5 환산 (평균 모드만, round 모드에서는 비활성) */}
+                {/* x5 환산 */}
                 {viewMode === 'avg' && (
-                  <button onClick={() => setProjection(v => !v)}
-                    disabled={statUnit === 'round'}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all btn-press ${
+                  <button onClick={() => setProjection(v => !v)} disabled={statUnit === 'round'}
+                    className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg border transition-all btn-press min-h-[40px] ${
                       statUnit === 'round'
                         ? 'bg-gray-800 border-gray-700 text-gray-400 opacity-30 cursor-not-allowed'
                         : projection
@@ -376,11 +377,11 @@ export default function LeagueStatsPage() {
                     ×5 환산
                   </button>
                 )}
-                <div className="flex items-center gap-1 text-xs text-gray-500">
+                <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0">
                   <span>최소</span>
                   <input type="number" min={1} max={20} value={minGP}
                     onChange={e => setMinGP(Number(e.target.value))}
-                    className="w-12 bg-gray-800 border border-gray-700 text-white rounded px-1.5 py-1.5 text-center text-xs" />
+                    className="w-12 bg-gray-800 border border-gray-700 text-white rounded px-1.5 py-2 text-center text-xs min-h-[40px]" />
                   <span>경기</span>
                 </div>
               </div>
