@@ -274,14 +274,20 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         }
       }
     }
-    // 비정규 선수 picker: 분기 내 비정규 선수 중 이 경기에 아직 배정 안 된 선수
+    // 미배정 풀: 비정규/미배정 선수 + 이 경기에 출전하지 않는 다른 팀 선수(임대 가능)
     if (slot.quarter_id) {
       const qRes = await fetch(`/api/leagues/${leagueId}/quarters/${slot.quarter_id}/players`)
       if (qRes.ok) {
         const qd: IrregularPlayer[] = await qRes.json()
         const assignedSet = new Set(assignedIrregularIds)
-        // is_regular=false(명시적 비정규) + null(분기 미배정)은 모두 비정규 후보
-        setIrregularRoster(qd.filter(p => p.is_regular !== true && !assignedSet.has(p.id)))
+        setIrregularRoster(qd.filter(p => {
+          if (assignedSet.has(p.id)) return false
+          // 비정규/미배정 → 포함 (기존 동작)
+          if (p.is_regular !== true) return true
+          // 다른 팀 정규선수 → 임대 후보로 포함
+          if (p.team_id && p.team_id !== slot.home_team_id && p.team_id !== slot.away_team_id) return true
+          return false
+        }))
       } else {
         setIrregularRoster([])
       }
@@ -515,6 +521,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
   function renderDraggableChip(p: IrregularPlayer) {
     const isDragging = draggingPlayerId === p.id
+    const isOtherTeam = p.is_regular === true && !!p.team_id
+    const teamName = isOtherTeam ? teams.find(t => t.id === p.team_id)?.name : null
     return (
       <div
         key={p.id}
@@ -522,14 +530,20 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         onDragStart={e => {
           setDraggingPlayerId(p.id)
           e.dataTransfer.setData('playerId', p.id)
-          e.dataTransfer.setData('playerType', p.is_regular === false ? 'irregular' : 'regular')
+          e.dataTransfer.setData('playerType', 'irregular')
         }}
         onDragEnd={() => setDraggingPlayerId(null)}
-        className={`px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-800 border border-amber-700/40 text-amber-300 hover:border-amber-500 hover:bg-amber-900/20 cursor-grab transition-colors select-none ${
+        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium cursor-grab transition-colors select-none ${
           isDragging ? 'opacity-40' : ''
+        } ${isOtherTeam
+          ? 'bg-gray-800 border border-purple-700/40 text-purple-300 hover:border-purple-500 hover:bg-purple-900/20'
+          : 'bg-gray-800 border border-amber-700/40 text-amber-300 hover:border-amber-500 hover:bg-amber-900/20'
         }`}
       >
         {p.number ? `#${p.number} ` : ''}{p.name}
+        {teamName && (
+          <span className="text-[9px] font-bold text-purple-400 border border-purple-700/40 rounded px-1 ml-0.5">{teamName}</span>
+        )}
       </div>
     )
   }
