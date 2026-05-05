@@ -11,6 +11,7 @@ export async function GET(
   const { leagueId, playerId } = await params
   const { searchParams } = new URL(req.url)
   const quarterId = searchParams.get('quarterId') ?? undefined
+  const unit = searchParams.get('unit') ?? 'round'
   const supabase = createClient()
 
   const [
@@ -151,34 +152,45 @@ export async function GET(
 
   const playedGames = Object.keys(perGame)
 
-  // ── 일별 집계 (dayMap): 같은 날 여러 경기 → 하나의 일 단위로 합산 ──────
-  const dayMap: Record<string, GS> = {}
+  // ── 집계 단위 (aggregateMap): round=라운드별, game=경기별 ──────
+  const aggregateMap: Record<string, GS> = {}
+  const unitToFirstGame: Record<string, string> = {}  // unitKey → first gameId
   for (const gId of playedGames) {
-    const date = (gameMap[gId] as { date?: string })?.date ?? gId
-    if (!dayMap[date]) dayMap[date] = { pts:0, reb:0, oreb:0, dreb:0, ast:0, stl:0, blk:0, tov:0, pf:0, fgm:0, fga:0, fg3m:0, fg3a:0, ftm:0, fta:0 }
+    const g = gameMap[gId] as { date?: string; round_num?: number } | undefined
+    let unitKey: string
+    if (unit === 'round') {
+      unitKey = g?.round_num != null ? `r${g.round_num}` : (g?.date ?? gId)
+    } else {
+      unitKey = gId
+    }
+    if (!aggregateMap[unitKey]) {
+      aggregateMap[unitKey] = { pts:0, reb:0, oreb:0, dreb:0, ast:0, stl:0, blk:0, tov:0, pf:0, fgm:0, fga:0, fg3m:0, fg3a:0, ftm:0, fta:0 }
+      unitToFirstGame[unitKey] = gId
+    }
     const s = perGame[gId]
-    dayMap[date].pts  += s.pts;  dayMap[date].reb   += s.reb;  dayMap[date].oreb += s.oreb
-    dayMap[date].dreb += s.dreb; dayMap[date].ast   += s.ast;  dayMap[date].stl  += s.stl
-    dayMap[date].blk  += s.blk;  dayMap[date].tov   += s.tov;  dayMap[date].pf   += s.pf
-    dayMap[date].fgm  += s.fgm;  dayMap[date].fga   += s.fga;  dayMap[date].fg3m += s.fg3m
-    dayMap[date].fg3a += s.fg3a; dayMap[date].ftm   += s.ftm;  dayMap[date].fta  += s.fta
+    aggregateMap[unitKey].pts  += s.pts;  aggregateMap[unitKey].reb   += s.reb
+    aggregateMap[unitKey].oreb += s.oreb; aggregateMap[unitKey].dreb  += s.dreb
+    aggregateMap[unitKey].ast  += s.ast;  aggregateMap[unitKey].stl   += s.stl
+    aggregateMap[unitKey].blk  += s.blk;  aggregateMap[unitKey].tov   += s.tov
+    aggregateMap[unitKey].pf   += s.pf;   aggregateMap[unitKey].fgm   += s.fgm
+    aggregateMap[unitKey].fga  += s.fga;  aggregateMap[unitKey].fg3m  += s.fg3m
+    aggregateMap[unitKey].fg3a += s.fg3a; aggregateMap[unitKey].ftm   += s.ftm
+    aggregateMap[unitKey].fta  += s.fta
   }
-  const playedDays = Object.keys(dayMap).sort()
-  // dateToFirstGame: career high / recent games 컨텍스트용
-  const dateToFirstGame: Record<string, string> = {}
-  for (const gId of playedGames) {
-    const date = (gameMap[gId] as { date?: string })?.date ?? gId
-    if (!dateToFirstGame[date]) dateToFirstGame[date] = gId
-  }
+  const playedUnits = Object.keys(aggregateMap).sort((a, b) => {
+    const da = (gameMap[unitToFirstGame[a]] as {date?:string})?.date ?? a
+    const db = (gameMap[unitToFirstGame[b]] as {date?:string})?.date ?? b
+    return da.localeCompare(db)
+  })
 
   // ── Career High ──────────────────────────────────────────────
   type CH = { value: number; gameId: string; extra?: string }
   const ch: Record<string, CH | null> = {
     pts: null, reb: null, ast: null, stl: null, blk: null, fgPct: null, ftm: null,
   }
-  for (const date of playedDays) {
-    const s = dayMap[date]
-    const firstGId = dateToFirstGame[date]
+  for (const unitKey of playedUnits) {
+    const s = aggregateMap[unitKey]
+    const firstGId = unitToFirstGame[unitKey]
     const upd = (key: string, val: number, extra?: string) => {
       if (val > (ch[key]?.value ?? -1)) ch[key] = { value: val, gameId: firstGId, extra }
     }
@@ -216,13 +228,13 @@ export async function GET(
     careerHigh[key] = { value: entry.value, extra: entry.extra, ...gameInfo(entry.gameId, tid) }
   }
 
-  // ── Recent 5 days ──────────────────────────────────────────
-  const recentGames = playedDays
+  // ── Recent 5 units ─────────────────────────────────────────
+  const recentGames = playedUnits
     .slice().reverse()
     .slice(0, 5)
-    .map(date => {
-      const s = dayMap[date]
-      const firstGId = dateToFirstGame[date]
+    .map(unitKey => {
+      const s = aggregateMap[unitKey]
+      const firstGId = unitToFirstGame[unitKey]
       const g = firstGId ? gameMap[firstGId] : null
       const tid = g?.quarter_id ? qTeamMap[g.quarter_id] : undefined
       return { ...gameInfo(firstGId ?? '', tid), pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk, fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a }
@@ -256,7 +268,10 @@ export async function GET(
     // 일수 기준 GP 카운트 (날짜로 중복 제거)
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
       if (!allGp[pid]) allGp[pid] = new Set()
-      allGp[pid].add((gameMap[gId] as {date?: string})?.date ?? gId)
+      const aKey = unit === 'round'
+        ? ((gameMap[gId] as {round_num?:number})?.round_num != null ? `r${(gameMap[gId] as {round_num?:number}).round_num}` : (gameMap[gId] as {date?:string})?.date ?? gId)
+        : gId
+      allGp[pid].add(aKey)
     }
     // track team_id from event (column may not exist in select; rely on qTeamMap as fallback)
     const evTeamId = (e as Record<string, unknown>).team_id as string | undefined
@@ -289,7 +304,10 @@ export async function GET(
       const ap = e.related_player_id as string
       if (!allMap[ap]) allMap[ap] = emptyAS()
       if (!allGp[ap]) allGp[ap] = new Set()
-      allGp[ap].add((gameMap[gId] as {date?: string})?.date ?? gId)
+      const aKey = unit === 'round'
+        ? ((gameMap[gId] as {round_num?:number})?.round_num != null ? `r${(gameMap[gId] as {round_num?:number}).round_num}` : (gameMap[gId] as {date?:string})?.date ?? gId)
+        : gId
+      allGp[ap].add(aKey)
       allMap[ap].ast++
     }
   }
@@ -434,12 +452,12 @@ export async function GET(
     total_fga: totalFGA,
   }
 
-  // player_stats: dayMap 기반 일별 집계 → 평균은 일 단위(일별 스탯)
-  const playerGp = playedDays.length  // 경기일 수
+  // player_stats: aggregateMap 기반 단위별 집계 → 평균은 unit 단위(round/game)
+  const playerGp = playedUnits.length  // 단위 수 (round 또는 game)
   const player_stats = playerGp > 0 ? (() => {
     let pts=0,reb=0,ast=0,stl=0,blk=0,tov=0,fgm=0,fga=0,fg3m=0,fg3a=0,ftm=0,fta=0
-    for (const date of playedDays) {
-      const s = dayMap[date]
+    for (const unitKey of playedUnits) {
+      const s = aggregateMap[unitKey]
       pts+=s.pts; reb+=s.reb; ast+=s.ast; stl+=s.stl; blk+=s.blk; tov+=s.tov
       fgm+=s.fgm; fga+=s.fga; fg3m+=s.fg3m; fg3a+=s.fg3a; ftm+=s.ftm; fta+=s.fta
     }
@@ -454,12 +472,14 @@ export async function GET(
     }
   })() : null
 
-  // ── Monthly stats — dayMap 기반 일별 → 월별 그룹 ──────────────
+  // ── Monthly stats — aggregateMap 기반 단위별 → 월별 그룹 ──────────────
   const monthlyMap: Record<string, { pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; days: number }> = {}
-  for (const date of playedDays) {
+  for (const unitKey of playedUnits) {
+    const date = (gameMap[unitToFirstGame[unitKey]] as {date?:string})?.date ?? ''
     const month = date.slice(0, 7) // YYYY-MM
+    if (!month) continue
     if (!monthlyMap[month]) monthlyMap[month] = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, days: 0 }
-    const s = dayMap[date]
+    const s = aggregateMap[unitKey]
     monthlyMap[month].pts  += s.pts;  monthlyMap[month].reb += s.reb
     monthlyMap[month].ast  += s.ast;  monthlyMap[month].stl += s.stl
     monthlyMap[month].blk  += s.blk;  monthlyMap[month].fgm += s.fgm
@@ -480,5 +500,5 @@ export async function GET(
       fg_pct:  s.fga > 0 ? +(s.fgm / s.fga * 100).toFixed(1) : 0,
     }))
 
-  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss, player_stats, monthly_stats })
+  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss, player_stats, monthly_stats, unit })
 }

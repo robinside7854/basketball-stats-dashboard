@@ -85,6 +85,7 @@ export default function LeagueStatsPage() {
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
   const [compareModalOpen, setCompareModalOpen] = useState(false)
   const [selectedChartStat, setSelectedChartStat] = useState<ChartStatKey>('ppg')
+  const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
 
   const toggleCompare = (player: PlayerStat) => {
     setCompareIds(prev => {
@@ -111,14 +112,19 @@ export default function LeagueStatsPage() {
   useEffect(() => {
     setLoading(true)
     const url = selectedQuarterId === 'all'
-      ? `/api/leagues/${leagueId}/stats`
-      : `/api/leagues/${leagueId}/stats?quarterId=${selectedQuarterId}`
+      ? `/api/leagues/${leagueId}/stats?unit=${statUnit}`
+      : `/api/leagues/${leagueId}/stats?quarterId=${selectedQuarterId}&unit=${statUnit}`
 
     fetch(url)
       .then(r => r.json())
       .then(d => { setPlayers(d.players ?? []); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [leagueId, selectedQuarterId])
+  }, [leagueId, selectedQuarterId, statUnit])
+
+  // round 모드일 때 ×5 환산 비활성 → 자동 해제
+  useEffect(() => {
+    if (statUnit === 'round' && projection) setProjection(false)
+  }, [statUnit, projection])
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -345,11 +351,27 @@ export default function LeagueStatsPage() {
                     </button>
                   ))}
                 </div>
-                {/* x5 환산 (평균 모드만) */}
+                {/* 단위 토글 (라운드/GP) */}
+                <div className="flex items-center gap-1 bg-gray-800/60 rounded-lg p-0.5">
+                  {(['round','game'] as const).map(u => (
+                    <button key={u} onClick={() => setStatUnit(u)}
+                      className={`px-3 py-1 text-xs font-bold rounded-md cursor-pointer transition-colors ${
+                        statUnit === u ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                      }`}>
+                      {u === 'round' ? '라운드' : 'GP'}
+                    </button>
+                  ))}
+                </div>
+                {/* x5 환산 (평균 모드만, round 모드에서는 비활성) */}
                 {viewMode === 'avg' && (
                   <button onClick={() => setProjection(v => !v)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border cursor-pointer transition-all btn-press ${
-                      projection ? 'bg-amber-600/30 border-amber-500/60 text-amber-300' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                    disabled={statUnit === 'round'}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all btn-press ${
+                      statUnit === 'round'
+                        ? 'bg-gray-800 border-gray-700 text-gray-400 opacity-30 cursor-not-allowed'
+                        : projection
+                          ? 'bg-amber-600/30 border-amber-500/60 text-amber-300 cursor-pointer'
+                          : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white cursor-pointer'
                     }`}>
                     ×5 환산
                   </button>
@@ -372,7 +394,7 @@ export default function LeagueStatsPage() {
                     className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
                       sortKey === key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                     }`}>
-                    {label}
+                    {key === 'gp' ? (statUnit === 'round' ? '라운드' : 'GP') : label}
                     {sortKey === key && (sortDir === 'desc' ? ' ↓' : ' ↑')}
                   </button>
                 ))}
@@ -382,7 +404,9 @@ export default function LeagueStatsPage() {
             {/* 모바일 카드뷰 (md 미만) */}
             <div className="md:hidden divide-y divide-gray-800/60">
               {filtered.map((p, i) => {
-                const sortLabel = COLS.find(c => c.key === sortKey)?.label ?? ''
+                const sortLabel = sortKey === 'gp'
+                  ? (statUnit === 'round' ? '라운드' : 'GP')
+                  : (COLS.find(c => c.key === sortKey)?.label ?? '')
                 const sortVal = cellVal(p, sortKey)
                 // 부수 지표 4개 (현재 sort key가 아닌 것 중 앞 4개)
                 const subCols = COLS.filter(c => c.key !== sortKey).slice(0, 4)
@@ -394,7 +418,7 @@ export default function LeagueStatsPage() {
                       <span className={`text-base font-black font-mono w-6 shrink-0 ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-500':'text-gray-500'}`}>{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-white text-sm truncate">{p.name}</div>
-                        <div className="text-gray-600 text-xs">{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}일</div>
+                        <div className="text-gray-600 text-xs">{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}{statUnit === 'round' ? 'R' : 'G'}</div>
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-3xl font-black text-yellow-400 leading-none">{sortVal}</div>
@@ -404,7 +428,7 @@ export default function LeagueStatsPage() {
                     <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-800/60">
                       {subCols.map(({ key, label }) => (
                         <div key={key} className="text-center">
-                          <div className="text-xs text-gray-500">{label}</div>
+                          <div className="text-xs text-gray-500">{key === 'gp' ? (statUnit === 'round' ? '라운드' : 'GP') : label}</div>
                           <div className="text-sm font-bold text-gray-200">{cellVal(p, key)}</div>
                         </div>
                       ))}
@@ -425,7 +449,7 @@ export default function LeagueStatsPage() {
                     {COLS.map(({ key, label }) => (
                       <th key={key} onClick={() => handleSort(key)}
                         className={`px-3 py-3 text-center text-sm font-bold cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${sortKey === key ? 'text-blue-400' : 'text-gray-500'}`}>
-                        {label}
+                        {key === 'gp' ? (statUnit === 'round' ? '라운드' : 'GP') : label}
                         {sortKey === key
                           ? (sortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
                           : <ChevronsUpDown size={10} className="inline ml-0.5 opacity-30" />}

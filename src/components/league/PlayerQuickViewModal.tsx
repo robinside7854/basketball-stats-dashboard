@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Loader2, X, BookOpen, Crown } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
 import { ALL_BADGE_DEFS } from '@/lib/league/badges'
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar } from 'recharts'
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar } from 'recharts'
 
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
@@ -135,6 +135,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', position: '', birth_date: '' })
   const [savingEdit, setSavingEdit] = useState(false)
+  const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -142,7 +143,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       const [playersRes, statsRes, detailRes, quartersRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/players`),
         fetch(`/api/leagues/${leagueId}/stats?playerId=${playerId}`),
-        fetch(`/api/leagues/${leagueId}/players/${playerId}/detail`),
+        fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?unit=${statUnit}`),
         fetch(`/api/leagues/${leagueId}/quarters`),
       ])
       if (playersRes.ok) {
@@ -159,7 +160,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         setQuarters(qs)
       }
     } finally { setLoading(false) }
-  }, [leagueId, playerId])
+  }, [leagueId, playerId, statUnit])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
@@ -177,12 +178,12 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     if (!selectedQuarterId) { setQuarterDetail(null); return }
     let cancelled = false
     setQuarterLoading(true)
-    fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?quarterId=${selectedQuarterId}`)
+    fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?quarterId=${selectedQuarterId}&unit=${statUnit}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (!cancelled) setQuarterDetail(d) })
       .finally(() => { if (!cancelled) setQuarterLoading(false) })
     return () => { cancelled = true }
-  }, [leagueId, playerId, selectedQuarterId])
+  }, [leagueId, playerId, selectedQuarterId, statUnit])
 
   const activeDetail = selectedQuarterId ? (quarterDetail ?? detail) : detail
 
@@ -348,50 +349,62 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {activeDetail?.player_stats ? (
               <div className="px-5 py-4 border-b border-gray-800/60">
                 {/* 분기 필터 탭 */}
-                {quarters.length > 0 && (
-                  <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-0.5">
-                    <button
-                      onClick={() => setSelectedQuarterId(null)}
-                      className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors border ${
-                        selectedQuarterId === null
-                          ? 'bg-blue-600 border-blue-500 text-white'
-                          : 'bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200'
-                      }`}
-                    >
-                      전체
-                    </button>
-                    {quarters.map(q => (
+                <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-0.5">
+                  {quarters.length > 0 && (
+                    <>
                       <button
-                        key={q.id}
-                        onClick={() => setSelectedQuarterId(q.id)}
+                        onClick={() => setSelectedQuarterId(null)}
                         className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors border ${
-                          selectedQuarterId === q.id
+                          selectedQuarterId === null
                             ? 'bg-blue-600 border-blue-500 text-white'
                             : 'bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200'
                         }`}
                       >
-                        {quarterLabel(q)}
-                        {q.is_current && <span className="ml-1 text-[9px] text-blue-300">현재</span>}
+                        전체
+                      </button>
+                      {quarters.map(q => (
+                        <button
+                          key={q.id}
+                          onClick={() => setSelectedQuarterId(q.id)}
+                          className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors border ${
+                            selectedQuarterId === q.id
+                              ? 'bg-blue-600 border-blue-500 text-white'
+                              : 'bg-gray-800/60 border-gray-700/50 text-gray-400 hover:text-gray-200'
+                          }`}
+                        >
+                          {quarterLabel(q)}
+                          {q.is_current && <span className="ml-1 text-[9px] text-blue-300">현재</span>}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                  <div className="flex items-center gap-1 bg-gray-800/40 rounded-lg p-0.5 ml-auto shrink-0">
+                    {(['round','game'] as const).map(u => (
+                      <button key={u} onClick={() => setStatUnit(u)}
+                        className={`px-2.5 py-0.5 text-[10px] font-bold rounded cursor-pointer transition-colors ${
+                          statUnit === u ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-200'
+                        }`}>
+                        {u === 'round' ? '라운드' : 'GP'}
                       </button>
                     ))}
                   </div>
-                )}
+                </div>
 
                 {quarterLoading ? (
                   <div className="flex justify-center py-8"><Loader2 size={18} className="animate-spin text-gray-600" /></div>
                 ) : (
                   <>
                     <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
-                    <div className="grid grid-cols-6 gap-2 mb-3">
+                    <div className="grid grid-cols-6 gap-1.5 mb-3">
                       {[
-                        { label: '일수', value: String(activeDetail?.player_stats?.gp ?? 0),                    rank: 0,                         accent: false },
+                        { label: statUnit === 'round' ? '라운드' : 'GP', value: String(activeDetail?.player_stats?.gp ?? 0),                    rank: 0,                         accent: false },
                         { label: 'PPG', value: (activeDetail?.player_stats?.ppg ?? 0).toFixed(1), rank: detail?.rankings.ppg ?? 0, accent: true  },
                         { label: 'RPG', value: (activeDetail?.player_stats?.rpg ?? 0).toFixed(1), rank: detail?.rankings.rpg ?? 0, accent: false },
                         { label: 'APG', value: (activeDetail?.player_stats?.apg ?? 0).toFixed(1), rank: detail?.rankings.apg ?? 0, accent: false },
                         { label: 'STL', value: (activeDetail?.player_stats?.spg ?? 0).toFixed(1), rank: detail?.rankings.spg ?? 0, accent: false },
                         { label: 'BLK', value: (activeDetail?.player_stats?.bpg ?? 0).toFixed(1), rank: detail?.rankings.bpg ?? 0, accent: false },
                       ].map(({ label, value, rank, accent }) => (
-                        <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-blue-900/20 border-blue-800/30' : 'bg-gray-900/50 border-gray-800/40'}`}>
+                        <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-blue-900/30 border-blue-700/50' : 'bg-gray-800/50 border-gray-700/60'}`}>
                           <p className="text-xs font-bold text-gray-600 mb-1 uppercase">{label}</p>
                           <p className={`text-3xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
                           {rank > 0 && (
@@ -417,15 +430,18 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       ))}
                     </div>
 
-                    {/* 능력치 레이더 */}
-                    {activeDetail?.player_stats && (() => {
-                      const ps = activeDetail.player_stats
+                    {/* 능력치 레이더 — 리그 백분위 (rankings 기반) */}
+                    {activeDetail?.player_stats && detail?.rankings && (() => {
+                      const total = detail.rankings.total ?? 1
+                      const pctile = (rank: number) => rank > 0 && total > 0
+                        ? Math.round((total - rank + 1) / total * 100)
+                        : 50
                       const radarData = [
-                        { stat: '득점', value: Math.min(ps.ppg * 10, 100) },
-                        { stat: '리바운드', value: Math.min(ps.rpg * 15, 100) },
-                        { stat: '어시스트', value: Math.min(ps.apg * 20, 100) },
-                        { stat: '스틸', value: Math.min(ps.spg * 40, 100) },
-                        { stat: '블록', value: Math.min(ps.bpg * 50, 100) },
+                        { stat: '득점',     value: pctile(detail.rankings.ppg ?? 0) },
+                        { stat: '리바운드', value: pctile(detail.rankings.rpg ?? 0) },
+                        { stat: '어시스트', value: pctile(detail.rankings.apg ?? 0) },
+                        { stat: '스틸',     value: pctile(detail.rankings.spg ?? 0) },
+                        { stat: '블록',     value: pctile(detail.rankings.bpg ?? 0) },
                       ]
                       return (
                         <div className="mt-2">
@@ -433,9 +449,11 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                             <RadarChart data={radarData} margin={{top:8,right:20,bottom:8,left:20}}>
                               <PolarGrid stroke="#374151" />
                               <PolarAngleAxis dataKey="stat" tick={{fill:'#9ca3af',fontSize:10,fontWeight:600}} />
+                              <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
                               <Radar dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.25} strokeWidth={2} />
                             </RadarChart>
                           </ResponsiveContainer>
+                          <p className="text-[9px] text-gray-600 text-center mt-0.5">리그 백분위 (100 = 1위)</p>
                         </div>
                       )
                     })()}
@@ -469,7 +487,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
                     <div className="grid grid-cols-6 gap-1.5 mt-2">
                       {[['PTS', activeDetail?.player_stats?.pts ?? 0, true], ['REB', activeDetail?.player_stats?.reb ?? 0], ['AST', activeDetail?.player_stats?.ast ?? 0], ['STL', activeDetail?.player_stats?.stl ?? 0], ['BLK', activeDetail?.player_stats?.blk ?? 0], ['TOV', activeDetail?.player_stats?.tov ?? 0]].map(([l, v, hi]) => (
-                        <div key={l as string} className={`rounded-xl p-2 text-center border ${hi ? 'bg-blue-900/15 border-blue-800/25' : 'bg-gray-900/40 border-gray-800/30'}`}>
+                        <div key={l as string} className={`rounded-xl p-2 text-center border ${hi ? 'bg-blue-900/30 border-blue-700/50' : 'bg-gray-800/50 border-gray-700/60'}`}>
                           <p className="text-[10px] text-gray-600 mb-0.5 uppercase">{l as string}</p>
                           <p className={`text-base font-black ${hi ? 'text-blue-300' : 'text-white'}`}>{v as number}</p>
                         </div>

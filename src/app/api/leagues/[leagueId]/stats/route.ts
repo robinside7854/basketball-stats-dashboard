@@ -15,6 +15,7 @@ export async function GET(
   const playerId  = sp.get('playerId')
   const from      = sp.get('from')
   const to        = sp.get('to')
+  const unit      = sp.get('unit') ?? 'round'  // 'round' | 'game'
 
   const supabase = createClient()
 
@@ -30,7 +31,7 @@ export async function GET(
   // 2. 대상 게임 ID 추출 — is_started=true 기준 (detail API와 동일, 마감 미처리 경기도 포함)
   let gQuery = supabase
     .from('league_games')
-    .select('id, plus_one_player_id, date')
+    .select('id, plus_one_player_id, date, round_num')
     .eq('league_id', leagueId)
     .eq('is_started', true)
 
@@ -46,9 +47,12 @@ export async function GET(
 
   const gamePlusOneMap: Record<string, string | null> = {}
   const gameToDate: Record<string, string> = {}
+  const gameToRoundKey: Record<string, string> = {}
   for (const g of (games ?? [])) {
     gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
     gameToDate[g.id] = (g as Record<string, unknown>).date as string ?? g.id
+    const rn = (g as Record<string, unknown>).round_num
+    gameToRoundKey[g.id] = rn != null ? `r${rn}` : (gameToDate[g.id] ?? g.id)
   }
 
   // 3. 이벤트 조회 — Supabase 서버 max-rows(1000) 제한을 피해 페이지네이션으로 전체 수집
@@ -107,7 +111,7 @@ export async function GET(
     // 출전 일수 집계 — sub_in/sub_out 제외, 날짜 기준으로 카운트 (일별 스탯)
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
       if (!gpMap[pid]) gpMap[pid] = new Set()
-      gpMap[pid].add(gameToDate[gId] ?? gId)
+      gpMap[pid].add(unit === 'round' ? (gameToRoundKey[gId] ?? gId) : gId)
     }
 
     const made = e.result === 'made'
@@ -154,7 +158,7 @@ export async function GET(
       const as = ensure(e.related_player_id)
       as.ast++
       if (!gpMap[e.related_player_id]) gpMap[e.related_player_id] = new Set()
-      gpMap[e.related_player_id].add(gameToDate[gId] ?? gId)
+      gpMap[e.related_player_id].add(unit === 'round' ? (gameToRoundKey[gId] ?? gId) : gId)
     }
   }
 
@@ -191,5 +195,5 @@ export async function GET(
     })
     .sort((a, b) => b.pts - a.pts) // 득점 순 정렬
 
-  return NextResponse.json({ players: result, games_count: gameIds.length })
+  return NextResponse.json({ players: result, games_count: gameIds.length, unit })
 }
