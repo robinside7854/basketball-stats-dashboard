@@ -47,13 +47,11 @@ export async function GET(
 
   const gamePlusOneMap: Record<string, string | null> = {}
   const gameToDate: Record<string, string> = {}
-  const gameToRoundKey: Record<string, string> = {}
   for (const g of (games ?? [])) {
     gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
     gameToDate[g.id] = (g as Record<string, unknown>).date as string ?? g.id
-    const rn = (g as Record<string, unknown>).round_num
-    gameToRoundKey[g.id] = rn != null ? `r${rn}` : (gameToDate[g.id] ?? g.id)
   }
+  // '라운드' = 경기일(date) 기준 그룹핑 (round_num은 하루 내 슬롯 번호라 부정확)
 
   // 3. 이벤트 조회 — Supabase 서버 max-rows(1000) 제한을 피해 페이지네이션으로 전체 수집
   type EventRow = { league_player_id: string | null; related_player_id: string | null; team_id: string | null; type: string; result: string | null; points: number | null; league_game_id: string }
@@ -111,7 +109,7 @@ export async function GET(
     // 출전 일수 집계 — sub_in/sub_out 제외, 날짜 기준으로 카운트 (일별 스탯)
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
       if (!gpMap[pid]) gpMap[pid] = new Set()
-      gpMap[pid].add(unit === 'round' ? (gameToRoundKey[gId] ?? gId) : gId)
+      gpMap[pid].add(unit === 'round' ? (gameToDate[gId] ?? gId) : gId)
     }
 
     const made = e.result === 'made'
@@ -158,7 +156,7 @@ export async function GET(
       const as = ensure(e.related_player_id)
       as.ast++
       if (!gpMap[e.related_player_id]) gpMap[e.related_player_id] = new Set()
-      gpMap[e.related_player_id].add(unit === 'round' ? (gameToRoundKey[gId] ?? gId) : gId)
+      gpMap[e.related_player_id].add(unit === 'round' ? (gameToDate[gId] ?? gId) : gId)
     }
   }
 

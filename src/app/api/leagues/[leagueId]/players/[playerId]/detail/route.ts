@@ -156,13 +156,9 @@ export async function GET(
   const aggregateMap: Record<string, GS> = {}
   const unitToFirstGame: Record<string, string> = {}  // unitKey → first gameId
   for (const gId of playedGames) {
-    const g = gameMap[gId] as { date?: string; round_num?: number } | undefined
-    let unitKey: string
-    if (unit === 'round') {
-      unitKey = g?.round_num != null ? `r${g.round_num}` : (g?.date ?? gId)
-    } else {
-      unitKey = gId
-    }
+    const g = gameMap[gId] as { date?: string } | undefined
+    // '라운드' = 경기일(date) 기준 그룹핑 (round_num은 하루 내 슬롯 번호라 부정확)
+    const unitKey = unit === 'round' ? (g?.date ?? gId) : gId
     if (!aggregateMap[unitKey]) {
       aggregateMap[unitKey] = { pts:0, reb:0, oreb:0, dreb:0, ast:0, stl:0, blk:0, tov:0, pf:0, fgm:0, fga:0, fg3m:0, fg3a:0, ftm:0, fta:0 }
       unitToFirstGame[unitKey] = gId
@@ -268,10 +264,7 @@ export async function GET(
     // 일수 기준 GP 카운트 (날짜로 중복 제거)
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
       if (!allGp[pid]) allGp[pid] = new Set()
-      const aKey = unit === 'round'
-        ? ((gameMap[gId] as {round_num?:number})?.round_num != null ? `r${(gameMap[gId] as {round_num?:number}).round_num}` : (gameMap[gId] as {date?:string})?.date ?? gId)
-        : gId
-      allGp[pid].add(aKey)
+      allGp[pid].add(unit === 'round' ? ((gameMap[gId] as {date?:string})?.date ?? gId) : gId)
     }
     // track team_id from event (column may not exist in select; rely on qTeamMap as fallback)
     const evTeamId = (e as Record<string, unknown>).team_id as string | undefined
@@ -304,10 +297,7 @@ export async function GET(
       const ap = e.related_player_id as string
       if (!allMap[ap]) allMap[ap] = emptyAS()
       if (!allGp[ap]) allGp[ap] = new Set()
-      const aKey = unit === 'round'
-        ? ((gameMap[gId] as {round_num?:number})?.round_num != null ? `r${(gameMap[gId] as {round_num?:number}).round_num}` : (gameMap[gId] as {date?:string})?.date ?? gId)
-        : gId
-      allGp[ap].add(aKey)
+      allGp[ap].add(unit === 'round' ? ((gameMap[gId] as {date?:string})?.date ?? gId) : gId)
       allMap[ap].ast++
     }
   }
