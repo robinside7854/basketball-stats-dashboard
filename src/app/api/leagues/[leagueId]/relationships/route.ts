@@ -81,15 +81,19 @@ export async function GET(
   const stlEvents  = events.filter(e => e.type === 'steal')
   const tovEvents  = events.filter(e => e.type === 'turnover')
 
-  // (gameId, timestamp) → { [teamId]: tov_player_id[] } 인덱스
-  type TovKey = string
-  const tovIndex = new Map<TovKey, { playerId: string; teamId: string }[]>()
+  // gameId → TOV 이벤트 목록 인덱스 (타임스탬프 범위 검색용)
+  const tovByGame = new Map<string, { playerId: string; teamId: string; ts: number }[]>()
   for (const t of tovEvents) {
     if (!t.league_game_id || t.video_timestamp == null || !t.league_player_id) continue
-    const key: TovKey = `${t.league_game_id}:${t.video_timestamp}`
-    if (!tovIndex.has(key)) tovIndex.set(key, [])
-    tovIndex.get(key)!.push({ playerId: t.league_player_id, teamId: t.team_id ?? '' })
+    if (!tovByGame.has(t.league_game_id)) tovByGame.set(t.league_game_id, [])
+    tovByGame.get(t.league_game_id)!.push({
+      playerId: t.league_player_id,
+      teamId: t.team_id ?? '',
+      ts: t.video_timestamp,
+    })
   }
+
+  const STL_TOV_WINDOW = 2  // 초 단위 허용 오차
 
   const stlMap: Record<string, Record<string, number>> = {}
   for (const s of stlEvents) {
@@ -102,10 +106,12 @@ export async function GET(
       // 신규 데이터: 명시적 링크 사용
       tovPlayerId = s.related_player_id
     } else if (s.league_game_id && s.video_timestamp != null) {
-      // 기존 데이터: 같은 타임스탬프의 상대팀 TOV 이벤트 매칭
-      const key: TovKey = `${s.league_game_id}:${s.video_timestamp}`
-      const candidates = tovIndex.get(key) ?? []
-      const match = candidates.find(c => c.teamId !== (s.team_id ?? ''))
+      // 기존 데이터: 같은 게임 + 2초 이내 + 상대팀 TOV 이벤트 매칭
+      const candidates = tovByGame.get(s.league_game_id) ?? []
+      const match = candidates.find(
+        c => c.teamId !== (s.team_id ?? '') &&
+             Math.abs(c.ts - s.video_timestamp!) <= STL_TOV_WINDOW
+      )
       if (match) tovPlayerId = match.playerId
     }
 
