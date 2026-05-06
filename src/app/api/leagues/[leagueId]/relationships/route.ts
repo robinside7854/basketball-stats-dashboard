@@ -32,18 +32,6 @@ export async function GET(
     return NextResponse.json({ assistPairs: [], stlTovPairs: [] })
   }
 
-  // 어시스트용: related_player_id 있는 슛 이벤트
-  // 스틸용: steal + turnover 이벤트 전체 (기존 데이터는 video_timestamp 매칭으로 복원)
-  const { data: events } = await supabase
-    .from('league_game_events')
-    .select('id, type, league_player_id, related_player_id, result, team_id, league_game_id, video_timestamp')
-    .in('league_game_id', gameIds)
-    .in('type', [...FIELD_SHOT_TYPES, 'steal', 'turnover'])
-
-  if (!events || events.length === 0) {
-    return NextResponse.json({ assistPairs: [], stlTovPairs: [] })
-  }
-
   // 선수 메타
   const { data: players } = await supabase
     .from('league_players')
@@ -51,20 +39,22 @@ export async function GET(
     .eq('league_id', leagueId)
   const playerMap = new Map((players ?? []).map((p: { id: string; name: string; number: string | null }) => [p.id, p]))
 
-  // ── 어시스트 관계 집계 ────────────────────────────────────────
+  // ── 어시스트 쿼리 (별도): made + related_player_id 있는 슛만 ──
+  const { data: assistEvents } = await supabase
+    .from('league_game_events')
+    .select('league_player_id, related_player_id, type')
+    .in('league_game_id', gameIds)
+    .in('type', [...FIELD_SHOT_TYPES])
+    .eq('result', 'made')
+    .not('related_player_id', 'is', null)
+
   const assistMap: Record<string, Record<string, number>> = {}
-  for (const e of events) {
-    if (
-      FIELD_SHOT_TYPES.has(e.type) &&
-      e.result === 'made' &&
-      e.related_player_id &&
-      e.league_player_id
-    ) {
-      const aid = e.related_player_id   // 어시스터
-      const sid = e.league_player_id    // 득점자
-      if (!assistMap[aid]) assistMap[aid] = {}
-      assistMap[aid][sid] = (assistMap[aid][sid] ?? 0) + 1
-    }
+  for (const e of (assistEvents ?? [])) {
+    if (!e.related_player_id || !e.league_player_id) continue
+    const aid = e.related_player_id   // 어시스터
+    const sid = e.league_player_id    // 득점자
+    if (!assistMap[aid]) assistMap[aid] = {}
+    assistMap[aid][sid] = (assistMap[aid][sid] ?? 0) + 1
   }
 
   const assistPairs: { assisterId: string; scorerId: string; count: number }[] = []
@@ -75,11 +65,15 @@ export async function GET(
   }
   assistPairs.sort((a, b) => b.count - a.count)
 
-  // ── 스틸-턴오버 관계 집계 ─────────────────────────────────────
-  // 신규: STL.related_player_id 직접 사용
-  // 기존: 같은 game + 같은 video_timestamp 의 STL↔TOV 이벤트 매칭
-  const stlEvents  = events.filter(e => e.type === 'steal')
-  const tovEvents  = events.filter(e => e.type === 'turnover')
+  // ── 스틸-TOV 쿼리 (별도): steal + turnover 이벤트만 ──────────
+  const { data: stlTovEvents } = await supabase
+    .from('league_game_events')
+    .select('type, league_player_id, related_player_id, team_id, league_game_id, video_timestamp')
+    .in('league_game_id', gameIds)
+    .in('type', ['steal', 'turnover'])
+
+  const stlEvents  = (stlTovEvents ?? []).filter(e => e.type === 'steal')
+  const tovEvents  = (stlTovEvents ?? []).filter(e => e.type === 'turnover')
 
   // gameId → TOV 이벤트 목록 인덱스 (타임스탬프 범위 검색용)
   const tovByGame = new Map<string, { playerId: string; teamId: string; ts: number }[]>()
