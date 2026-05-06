@@ -60,6 +60,7 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
   const [lastEventId, setLastEventId] = useState<string | null>(null)
   const [lastEventLabel, setLastEventLabel] = useState<string>('')
   const [chartMode, setChartMode] = useState<boolean>(false)
+  const [possessionPlayerId, setPossessionPlayerId] = useState<string | null>(null)
 
   // 차트 모드 localStorage persist
   useEffect(() => {
@@ -105,6 +106,7 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
     setAwaitingAssist(false)
     setPendingZone(null)
     setShowZonePicker(false)
+    setPossessionPlayerId(null)
     if (pendingShot.type !== 'free_throw') setPendingShot(null) // FT는 연속 모드 유지
     onEventSaved()
   }
@@ -133,6 +135,12 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
     setLastEventId(saved.id)
     setLastEventLabel(label)
     toast.success(`기록: ${label}`)
+    const POSSESSION_TYPES = new Set(['oreb', 'dreb', 'steal'])
+    if (POSSESSION_TYPES.has(btn.type)) {
+      setPossessionPlayerId(selectedPlayer)
+    } else {
+      setPossessionPlayerId(null)
+    }
     onEventSaved()
   }
 
@@ -234,19 +242,24 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
               key={p.id}
               onClick={() => {
                 setSelectedPlayer(p.id)
+                setPossessionPlayerId(null)
                 setPendingShot(null)
                 setPendingZone(null)
                 setShowZonePicker(false)
                 setAwaitingAssist(false)
               }}
               className={`py-2 rounded-lg text-sm font-bold transition-colors ${
-                selectedPlayer === p.id
-                  ? 'bg-blue-500 text-white ring-2 ring-blue-300'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                possessionPlayerId === p.id
+                  ? 'bg-green-600 text-white ring-2 ring-green-300'
+                  : selectedPlayer === p.id
+                    ? 'bg-blue-500 text-white ring-2 ring-blue-300'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
               }`}
             >
               <div>{p.number}</div>
-              <div className="text-xs font-normal truncate px-1">{p.name}</div>
+              <div className="text-xs font-normal truncate px-1">
+                {possessionPlayerId === p.id ? `▶ ${p.name}` : p.name}
+              </div>
             </button>
           ))}
         </div>

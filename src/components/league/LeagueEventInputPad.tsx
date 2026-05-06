@@ -99,6 +99,7 @@ export default function LeagueEventInputPad({
   const { getCurrentTimestamp } = useGameStore()
 
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
+  const [possessionPlayerId, setPossessionPlayerId] = useState<string | null>(null)
   const [pendingShot, setPendingShot] = useState<EventBtn | null>(null)
   const [awaitingAssist, setAwaitingAssist] = useState(false)
   const [pendingResult, setPendingResult] = useState<'made' | 'missed' | null>(null)
@@ -112,6 +113,7 @@ export default function LeagueEventInputPad({
   const [showAndOnePrompt, setShowAndOnePrompt] = useState(false)  // Phase 2-F
   const [awaitingTovPair, setAwaitingTovPair] = useState(false)    // Phase 2-G
   const [stealerTeamId, setStealerTeamId] = useState<string | null>(null)
+  const [lastStlEventId, setLastStlEventId] = useState<string | null>(null)
 
   const allPlayers: RosterPlayer[] = [...homePlayers, ...awayPlayers]
   const selectedObj   = selectedPlayer ? (allPlayers.find(p => p.id === selectedPlayer) ?? null) : null
@@ -137,6 +139,7 @@ export default function LeagueEventInputPad({
 
   function selectPlayer(id: string) {
     setSelectedPlayer(id)
+    setPossessionPlayerId(null)
     setPendingShot(null)
     setAwaitingAssist(false)
   }
@@ -270,7 +273,16 @@ export default function LeagueEventInputPad({
         toast.success(`기록: ${p?.name ?? ''} — TOV (페어)`)
         onEventSaved()
       }
+      // STL 이벤트에 TOV 선수 ID 연결 (스틸-턴오버 관계 분석용)
+      if (lastStlEventId) {
+        fetch(`/api/leagues/${leagueId}/events/${lastStlEventId}`, {
+          method: 'PATCH',
+          headers: leagueHeaders,
+          body: JSON.stringify({ related_player_id: tovPlayerId }),
+        }).catch(() => {})
+      }
     }
+    setLastStlEventId(null)
     setAwaitingTovPair(false)
     setStealerTeamId(null)
   }
@@ -288,10 +300,17 @@ export default function LeagueEventInputPad({
     setLastEvent({ id, type: btn.type, result: 'missed', playerId: selectedPlayer, label: lbl })
     setLastReboundId(null)  // 새 즉각 이벤트 → 이전 리바운드 연계 해제
     toast.success(`기록: ${lbl}`)
+    const POSSESSION_TYPES = new Set(['oreb', 'dreb', 'steal'])
+    if (POSSESSION_TYPES.has(btn.type)) {
+      setPossessionPlayerId(selectedPlayer)
+    } else {
+      setPossessionPlayerId(null)
+    }
     onEventSaved()
 
     // Phase 2-G: 스틸 후 상대팀 TOV 페어 피커
     if (btn.type === 'steal') {
+      setLastStlEventId(id)
       setStealerTeamId(selectedTeamId)
       setAwaitingTovPair(true)
     }
@@ -326,6 +345,8 @@ export default function LeagueEventInputPad({
       })
       if (rebId) {
         setLastReboundId(rebId)  // 슛과 연계된 리바운드로 추적
+        setSelectedPlayer(rebounderId)       // 리바운더가 공 소유 → 자동 선택
+        setPossessionPlayerId(rebounderId)   // 포제션 인디케이터 활성화
         const rName = rebounder?.name ?? ''
         toast.success(`기록: ${rName} — ${rebType === 'oreb' ? '공격REB' : '수비REB'}`)
         onEventSaved()
@@ -393,21 +414,24 @@ export default function LeagueEventInputPad({
   // ── 선수 카드 렌더 ────────────────────────────────────────────
   function renderPlayerBtn(p: RosterPlayer, teamColor: string) {
     const isSelected = selectedPlayer === p.id
+    const hasPossession = possessionPlayerId === p.id
     return (
       <button
         key={p.id}
         onClick={() => selectPlayer(p.id)}
         className={`relative py-2 px-1 rounded-xl text-center transition-all cursor-pointer border active:scale-95 ${
           isSelected
-            ? 'text-white shadow-lg'
+            ? `text-white shadow-lg ${hasPossession ? 'ring-2 ring-green-300 ring-offset-1 ring-offset-gray-900' : ''}`
             : 'bg-gray-800/80 border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-500'
         } ${(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) ? 'ring-1 ring-amber-400/60' : ''}`}
-        style={isSelected ? { backgroundColor: teamColor, borderColor: teamColor } : {}}
+        style={isSelected ? { backgroundColor: hasPossession ? '#16a34a' : teamColor, borderColor: hasPossession ? '#16a34a' : teamColor } : {}}
       >
         {p.number != null && (
           <div className="text-base font-black font-mono leading-none mb-0.5 opacity-70">#{p.number}</div>
         )}
-        <div className={`font-semibold truncate leading-tight px-0.5 ${p.number != null ? 'text-xs' : 'text-sm'}`}>{p.name}</div>
+        <div className={`font-semibold truncate leading-tight px-0.5 ${p.number != null ? 'text-xs' : 'text-sm'}`}>
+          {hasPossession ? `▶ ${p.name}` : p.name}
+        </div>
         {(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) && (
           <span className="absolute top-1 right-1 text-[8px] font-black text-amber-300 leading-none">+1</span>
         )}

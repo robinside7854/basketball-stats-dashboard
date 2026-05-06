@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import { Loader2, Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import PlayerCompareModal from '@/components/league/PlayerCompareModal'
+import LeagueDuoPanel from '@/components/league/LeagueDuoPanel'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import type { Quarter, PlayerStat } from '@/types/league'
 
@@ -333,6 +334,9 @@ export default function LeagueStatsPage() {
               )
             })}
           </div>
+
+          {/* 듀오 분석: 어시스트 관계 + 스틸-턴오버 관계 */}
+          <LeagueDuoPanel leagueId={leagueId} quarterId={selectedQuarterId} />
 
           {/* 전체 스탯 테이블 */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
