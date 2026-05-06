@@ -32,12 +32,13 @@ export async function GET(
     return NextResponse.json({ assistPairs: [], stlTovPairs: [] })
   }
 
-  // related_player_id 가 있는 이벤트만 조회 (어시스트·스틸 관계 대상)
+  // 어시스트용: related_player_id 있는 슛 이벤트
+  // 스틸용: steal + turnover 이벤트 전체 (기존 데이터는 video_timestamp 매칭으로 복원)
   const { data: events } = await supabase
     .from('league_game_events')
-    .select('type, league_player_id, related_player_id, result')
+    .select('id, type, league_player_id, related_player_id, result, team_id, league_game_id, video_timestamp')
     .in('league_game_id', gameIds)
-    .not('related_player_id', 'is', null)
+    .in('type', [...FIELD_SHOT_TYPES, 'steal', 'turnover'])
 
   if (!events || events.length === 0) {
     return NextResponse.json({ assistPairs: [], stlTovPairs: [] })
@@ -51,7 +52,6 @@ export async function GET(
   const playerMap = new Map((players ?? []).map((p: { id: string; name: string; number: string | null }) => [p.id, p]))
 
   // ── 어시스트 관계 집계 ────────────────────────────────────────
-  // 슛 성공 + related_player_id → 어시스터
   const assistMap: Record<string, Record<string, number>> = {}
   for (const e of events) {
     if (
@@ -75,16 +75,43 @@ export async function GET(
   }
   assistPairs.sort((a, b) => b.count - a.count)
 
-  // ── 스틸-턴오버 관계 집계 ────────────────────────────────────
-  // STL 이벤트 + related_player_id → 공 뺏긴 선수
+  // ── 스틸-턴오버 관계 집계 ─────────────────────────────────────
+  // 신규: STL.related_player_id 직접 사용
+  // 기존: 같은 game + 같은 video_timestamp 의 STL↔TOV 이벤트 매칭
+  const stlEvents  = events.filter(e => e.type === 'steal')
+  const tovEvents  = events.filter(e => e.type === 'turnover')
+
+  // (gameId, timestamp) → { [teamId]: tov_player_id[] } 인덱스
+  type TovKey = string
+  const tovIndex = new Map<TovKey, { playerId: string; teamId: string }[]>()
+  for (const t of tovEvents) {
+    if (!t.league_game_id || t.video_timestamp == null || !t.league_player_id) continue
+    const key: TovKey = `${t.league_game_id}:${t.video_timestamp}`
+    if (!tovIndex.has(key)) tovIndex.set(key, [])
+    tovIndex.get(key)!.push({ playerId: t.league_player_id, teamId: t.team_id ?? '' })
+  }
+
   const stlMap: Record<string, Record<string, number>> = {}
-  for (const e of events) {
-    if (e.type === 'steal' && e.related_player_id && e.league_player_id) {
-      const sid  = e.league_player_id   // 스틸한 선수
-      const tovId = e.related_player_id // 공 뺏긴 선수
-      if (!stlMap[sid]) stlMap[sid] = {}
-      stlMap[sid][tovId] = (stlMap[sid][tovId] ?? 0) + 1
+  for (const s of stlEvents) {
+    if (!s.league_player_id) continue
+    const stealerId = s.league_player_id
+
+    let tovPlayerId: string | null = null
+
+    if (s.related_player_id) {
+      // 신규 데이터: 명시적 링크 사용
+      tovPlayerId = s.related_player_id
+    } else if (s.league_game_id && s.video_timestamp != null) {
+      // 기존 데이터: 같은 타임스탬프의 상대팀 TOV 이벤트 매칭
+      const key: TovKey = `${s.league_game_id}:${s.video_timestamp}`
+      const candidates = tovIndex.get(key) ?? []
+      const match = candidates.find(c => c.teamId !== (s.team_id ?? ''))
+      if (match) tovPlayerId = match.playerId
     }
+
+    if (!tovPlayerId) continue
+    if (!stlMap[stealerId]) stlMap[stealerId] = {}
+    stlMap[stealerId][tovPlayerId] = (stlMap[stealerId][tovPlayerId] ?? 0) + 1
   }
 
   const stlTovPairs: { stealerId: string; tovId: string; count: number }[] = []
