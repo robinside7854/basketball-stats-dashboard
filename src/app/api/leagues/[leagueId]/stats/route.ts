@@ -179,6 +179,8 @@ export async function GET(
         // 평균
         ppg:  s.gp > 0 ? +(s.pts  / s.gp).toFixed(1) : 0,
         rpg:  s.gp > 0 ? +(s.reb  / s.gp).toFixed(1) : 0,
+        orp:  s.gp > 0 ? +(s.oreb / s.gp).toFixed(1) : 0,
+        drp:  s.gp > 0 ? +(s.dreb / s.gp).toFixed(1) : 0,
         apg:  s.gp > 0 ? +(s.ast  / s.gp).toFixed(1) : 0,
         spg:  s.gp > 0 ? +(s.stl  / s.gp).toFixed(1) : 0,
         bpg:  s.gp > 0 ? +(s.blk  / s.gp).toFixed(1) : 0,

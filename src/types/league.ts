@@ -92,6 +92,8 @@ export type PlayerStat = {
   gp: number
   pts: number; ppg: number
   reb: number; rpg: number
+  oreb: number; orp: number
+  dreb: number; drp: number
   ast: number; apg: number
   stl: number; spg: number
   blk: number; bpg: number

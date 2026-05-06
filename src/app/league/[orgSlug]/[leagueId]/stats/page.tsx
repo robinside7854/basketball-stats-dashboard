@@ -54,7 +54,8 @@ function TopScorersChart({ players, statKey, statLabel, statUnit, color }: {
 }
 
 type ViewMode = 'avg' | 'total'
-type SortKey = 'ppg'|'rpg'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
+type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
+type AdvKey = 'ts_pct'|'efg_pct'|'at_ratio'|'usg_pct'|'fg3a_rate'|'ft_rate'|'ast_pct'|'tov_pct'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _SORT_OPTIONS_LEGACY: { key: SortKey; label: string }[] = [
@@ -79,6 +80,7 @@ export default function LeagueStatsPage() {
   const [loading, setLoading] = useState(true)
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
+  const [statMode, setStatMode] = useState<'basic'|'advanced'>('basic')
   const [viewMode, setViewMode] = useState<ViewMode>('avg')
   const [projection, setProjection] = useState(false)  // ×5 환산
   const [quickViewPlayer, setQuickViewPlayer] = useState<{ id: string; name: string } | null>(null)
@@ -150,18 +152,49 @@ export default function LeagueStatsPage() {
 
   // 테이블 컬럼 정의
   const AVG_COLS: { key: SortKey; label: string }[] = [
-    { key: 'gp', label: '일수' }, { key: 'ppg', label: 'PPG' }, { key: 'rpg', label: 'RPG' },
+    { key: 'gp', label: '일수' }, { key: 'ppg', label: 'PPG' },
+    { key: 'rpg', label: 'RPG' }, { key: 'orp', label: 'ORpg' }, { key: 'drp', label: 'DRpg' },
     { key: 'apg', label: 'APG' }, { key: 'spg', label: 'SPG' }, { key: 'bpg', label: 'BPG' },
     { key: 'topg', label: 'TOPG' }, { key: 'fg_pct', label: 'FG%' }, { key: 'fg3_pct', label: '3P%' },
     { key: 'ft_pct', label: 'FT%' }, { key: 'efg_pct', label: 'eFG%' },
   ]
   const TOTAL_COLS: { key: SortKey; label: string }[] = [
-    { key: 'gp', label: '일수' }, { key: 'pts', label: 'PTS' }, { key: 'reb', label: 'REB' },
+    { key: 'gp', label: '일수' }, { key: 'pts', label: 'PTS' },
+    { key: 'reb', label: 'REB' }, { key: 'oreb', label: 'OR' }, { key: 'dreb', label: 'DR' },
     { key: 'ast', label: 'AST' }, { key: 'stl', label: 'STL' }, { key: 'blk', label: 'BLK' },
-    { key: 'tov', label: 'TOV' }, { key: 'fgm', label: 'FGM' },
-    { key: 'fg3m', label: '3PM' }, { key: 'ftm', label: 'FTM' },
+    { key: 'tov', label: 'TOV' },
+    { key: 'fgm', label: 'FG' }, { key: 'fg3m', label: '3P' }, { key: 'ftm', label: 'FT' },
     { key: 'fg_pct', label: 'FG%' }, { key: 'fg3_pct', label: '3P%' }, { key: 'ft_pct', label: 'FT%' },
   ]
+
+  // Advanced stats 컬럼
+  const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
+    { key: 'efg_pct',   label: 'eFG%',  desc: '유효야투율 · (FGM+0.5×3PM)/FGA' },
+    { key: 'ts_pct',    label: 'TS%',   desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
+    { key: 'at_ratio',  label: 'A/T',   desc: '어시스트/턴오버 비율' },
+    { key: 'usg_pct',   label: 'USG%',  desc: '리그 볼소유 비중 · (FGA+0.44×FTA+TOV)/리그합계' },
+    { key: 'fg3a_rate', label: '3PAr',  desc: '야투 중 3점슛 비중 · FG3A/FGA' },
+    { key: 'ft_rate',   label: 'FTr',   desc: '야투 대비 자유투 시도 · FTA/FGA' },
+    { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
+    { key: 'tov_pct',   label: 'TOV%',  desc: '볼소유 중 턴오버 비중' },
+  ]
+
+  // Advanced stats 계산 (전체 선수 기준 USG% 포함)
+  const leaguePoss = filtered.reduce((s, p) => s + p.fga + 0.44 * p.fta + p.tov, 0)
+  function calcAdv(p: PlayerStat): Record<AdvKey, number> {
+    const poss = p.fga + 0.44 * p.fta + p.tov
+    return {
+      efg_pct:   p.efg_pct,
+      ts_pct:    (p.fga + 0.44 * p.fta) > 0 ? +(p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100).toFixed(1) : 0,
+      at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : (p.ast > 0 ? 99 : 0),
+      usg_pct:   leaguePoss > 0 ? +(poss / leaguePoss * 100).toFixed(1) : 0,
+      fg3a_rate: p.fga > 0 ? +(p.fg3a / p.fga * 100).toFixed(1) : 0,
+      ft_rate:   p.fga > 0 ? +(p.fta / p.fga * 100).toFixed(1) : 0,
+      ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
+      tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,
+    }
+  }
+
   const COLS = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
 
   const PCT_KEYS = new Set<SortKey>(['fg_pct', 'fg3_pct', 'ft_pct', 'efg_pct'])
@@ -169,7 +202,6 @@ export default function LeagueStatsPage() {
   function cellVal(p: PlayerStat, key: SortKey): string {
     if (viewMode === 'avg') {
       if (key === 'gp') return String(p.gp)
-      // % 지표는 ×5 환산 미적용 (MAX 100%)
       if (key === 'fg_pct')  return p.fga  > 0 ? `${p.fg_pct}%`  : '—'
       if (key === 'fg3_pct') return p.fg3a > 0 ? `${p.fg3_pct}%` : '—'
       if (key === 'ft_pct')  return p.fta  > 0 ? `${p.ft_pct}%`  : '—'
@@ -180,6 +212,10 @@ export default function LeagueStatsPage() {
       if (key === 'fg3_pct') return p.fg3a > 0 ? `${p.fg3_pct}%` : '—'
       if (key === 'ft_pct')  return p.fta  > 0 ? `${p.ft_pct}%`  : '—'
       if (key === 'efg_pct') return p.fga  > 0 ? `${p.efg_pct}%` : '—'
+      // 누적 뷰: 야투는 메이드/시도 형식
+      if (key === 'fgm')  return `${p.fgm}/${p.fga}`
+      if (key === 'fg3m') return `${p.fg3m}/${p.fg3a}`
+      if (key === 'ftm')  return `${p.ftm}/${p.fta}`
       return String((p as unknown as Record<string, number>)[key] ?? 0)
     }
   }
@@ -348,8 +384,17 @@ export default function LeagueStatsPage() {
               </div>
               {/* 컨트롤 그룹 — 모바일에서 스크롤 가능한 가로 행 */}
               <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide sm:ml-auto sm:flex-wrap">
-                {/* 누적/평균 토글 */}
+                {/* Basic / Advanced 토글 */}
                 <div className="flex rounded-lg overflow-hidden border border-gray-700 shrink-0">
+                  {(['basic','advanced'] as const).map(m => (
+                    <button key={m} onClick={() => setStatMode(m)}
+                      className={`px-3 py-2 text-xs font-bold cursor-pointer transition-colors btn-press min-h-[40px] ${statMode === m ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                      {m === 'basic' ? 'Basic' : 'Advanced'}
+                    </button>
+                  ))}
+                </div>
+                {/* 누적/평균 토글 (Basic 모드에서만 의미 있음) */}
+                <div className={`flex rounded-lg overflow-hidden border border-gray-700 shrink-0 ${statMode === 'advanced' ? 'opacity-40 pointer-events-none' : ''}`}>
                   {(['avg','total'] as ViewMode[]).map(m => (
                     <button key={m} onClick={() => { setViewMode(m); if (m === 'total') setProjection(false) }}
                       className={`px-3 py-2 text-xs font-bold cursor-pointer transition-colors btn-press min-h-[40px] ${viewMode === m ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
@@ -391,7 +436,8 @@ export default function LeagueStatsPage() {
               </div>
             </div>
 
-            {/* 모바일 정렬 칩 (md 미만) */}
+            {statMode === 'basic' ? (<>
+            {/* Basic — 모바일 정렬 칩 */}
             <div className="md:hidden border-b border-gray-800 px-3 py-2.5 overflow-x-auto">
               <div className="flex gap-1.5 whitespace-nowrap">
                 {COLS.map(({ key, label }) => (
@@ -406,14 +452,13 @@ export default function LeagueStatsPage() {
               </div>
             </div>
 
-            {/* 모바일 카드뷰 (md 미만) */}
+            {/* Basic — 모바일 카드뷰 */}
             <div className="md:hidden divide-y divide-gray-800/60">
               {filtered.map((p, i) => {
                 const sortLabel = sortKey === 'gp'
                   ? (statUnit === 'round' ? '라운드' : 'GP')
                   : (COLS.find(c => c.key === sortKey)?.label ?? '')
                 const sortVal = cellVal(p, sortKey)
-                // 부수 지표 4개 (현재 sort key가 아닌 것 중 앞 4개)
                 const subCols = COLS.filter(c => c.key !== sortKey).slice(0, 4)
                 const rankBorder = i === 0 ? 'border-l-2 border-l-yellow-500/60' : i === 1 ? 'border-l-2 border-l-gray-400/40' : i === 2 ? 'border-l-2 border-l-orange-500/40' : ''
                 return (
@@ -443,7 +488,7 @@ export default function LeagueStatsPage() {
               })}
             </div>
 
-            {/* 데스크탑 테이블 (md 이상) */}
+            {/* Basic — 데스크탑 테이블 */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -471,18 +516,12 @@ export default function LeagueStatsPage() {
                         i === 2 ? 'bg-orange-400/3 hover:bg-orange-400/5' :
                         i % 2 === 0 ? 'hover:bg-gray-800/30' : 'bg-gray-900/50 hover:bg-gray-800/30'
                       } transition-colors`}>
-                      <td className={`py-2 pl-2 pr-1 text-right font-black text-sm ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-600':'text-gray-600'}`}>
-                        {i+1}
-                      </td>
+                      <td className={`py-2 pl-2 pr-1 text-right font-black text-sm ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-600':'text-gray-600'}`}>{i+1}</td>
                       <td className="px-2 py-3 text-center">
-                        <input
-                          type="checkbox"
-                          checked={compareIds.has(p.player_id)}
+                        <input type="checkbox" checked={compareIds.has(p.player_id)}
                           disabled={!compareIds.has(p.player_id) && compareIds.size >= 2}
-                          onChange={() => toggleCompare(p)}
-                          aria-label={`${p.name} 비교 선택`}
-                          className="cursor-pointer accent-blue-500 w-4 h-4 disabled:cursor-not-allowed disabled:opacity-30"
-                        />
+                          onChange={() => toggleCompare(p)} aria-label={`${p.name} 비교 선택`}
+                          className="cursor-pointer accent-blue-500 w-4 h-4 disabled:cursor-not-allowed disabled:opacity-30" />
                       </td>
                       <td className="px-4 py-3 sticky left-0 bg-inherit">
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
@@ -501,6 +540,89 @@ export default function LeagueStatsPage() {
                 </tbody>
               </table>
             </div>
+            </>) : (<>
+            {/* Advanced — 모바일 카드뷰 */}
+            <div className="md:hidden divide-y divide-gray-800/60">
+              {filtered.map((p, i) => {
+                const adv = calcAdv(p)
+                const rankBorder = i === 0 ? 'border-l-2 border-l-yellow-500/60' : i === 1 ? 'border-l-2 border-l-gray-400/40' : i === 2 ? 'border-l-2 border-l-orange-500/40' : ''
+                return (
+                  <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
+                    className={`w-full text-left px-4 py-3 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60 ${rankBorder}`}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`text-sm font-black font-mono w-5 shrink-0 ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-500':'text-gray-500'}`}>{i+1}</span>
+                      <span className="font-bold text-white text-sm">{p.name}</span>
+                      <span className="text-gray-600 text-xs ml-auto">{p.gp}G</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 pt-1 border-t border-gray-800/60">
+                      {ADV_COLS.slice(0, 8).map(({ key, label }) => (
+                        <div key={key} className="text-center">
+                          <div className="text-[10px] text-gray-500 font-bold">{label}</div>
+                          <div className="text-sm font-bold text-violet-300">{key === 'at_ratio' ? adv[key] : `${adv[key]}${['ts_pct','efg_pct','usg_pct','fg3a_rate','ft_rate','ast_pct','tov_pct'].includes(key) ? '%' : ''}`}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Advanced — 데스크탑 테이블 */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-800">
+                    <th className="py-2 pl-2 pr-1 text-xs text-gray-600 font-bold text-right w-8">#</th>
+                    <th className="text-left px-4 py-3 sticky left-0 bg-gray-900 text-sm text-gray-500 font-bold min-w-[130px]">선수</th>
+                    <th className="px-3 py-3 text-center text-xs text-gray-500 font-bold">GP</th>
+                    {ADV_COLS.map(({ key, label, desc }) => (
+                      <th key={key} title={desc}
+                        className="px-3 py-3 text-center text-xs font-bold text-violet-400 whitespace-nowrap cursor-help">
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((p, i) => {
+                    const adv = calcAdv(p)
+                    return (
+                      <tr key={p.player_id}
+                        className={`border-b border-gray-800/50 ${i % 2 === 0 ? 'hover:bg-gray-800/30' : 'bg-gray-900/50 hover:bg-gray-800/30'} transition-colors`}>
+                        <td className={`py-2 pl-2 pr-1 text-right font-black text-sm ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-600':'text-gray-600'}`}>{i+1}</td>
+                        <td className="px-4 py-3 sticky left-0 bg-inherit">
+                          <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
+                            className="font-bold text-white hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[120px] block text-base">
+                            {p.name}
+                          </button>
+                          <div className="text-gray-600 text-xs">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
+                        </td>
+                        <td className="px-3 py-3 text-center text-sm text-gray-500">{p.gp}</td>
+                        {ADV_COLS.map(({ key }) => {
+                          const val = adv[key]
+                          const isRatio = key === 'at_ratio'
+                          const isPct = !isRatio
+                          return (
+                            <td key={key} className="px-3 py-3 text-center text-sm tabular-nums font-medium text-violet-300">
+                              {isRatio ? val : `${val}${isPct ? '%' : ''}`}
+                            </td>
+                          )
+                        })}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              {/* 지표 설명 범례 */}
+              <div className="px-4 py-3 border-t border-gray-800 flex flex-wrap gap-x-4 gap-y-1">
+                {ADV_COLS.map(({ key, label, desc }) => (
+                  <span key={key} className="text-[10px] text-gray-600">
+                    <span className="font-bold text-gray-500">{label}</span> {desc}
+                  </span>
+                ))}
+              </div>
+            </div>
+            </>)}
           </div>
         </>
       )}
