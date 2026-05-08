@@ -81,6 +81,8 @@ export default function LeagueStatsPage() {
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
   const [statMode, setStatMode] = useState<'basic'|'advanced'>('basic')
+  const [advSortKey, setAdvSortKey] = useState<AdvKey>('ts_pct')
+  const [advSortDir, setAdvSortDir] = useState<'asc'|'desc'>('desc')
   const [viewMode, setViewMode] = useState<ViewMode>('avg')
   const [projection, setProjection] = useState(false)  // ×5 환산
   const [quickViewPlayer, setQuickViewPlayer] = useState<{ id: string; name: string } | null>(null)
@@ -193,6 +195,19 @@ export default function LeagueStatsPage() {
       ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
       tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,
     }
+  }
+
+  // Advanced 정렬된 리스트
+  const filteredAdv = [...filtered]
+    .map(p => ({ p, adv: calcAdv(p) }))
+    .sort((a, b) => {
+      const diff = a.adv[advSortKey] - b.adv[advSortKey]
+      return advSortDir === 'desc' ? -diff : diff
+    })
+
+  function handleAdvSort(key: AdvKey) {
+    if (key === advSortKey) setAdvSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setAdvSortKey(key); setAdvSortDir('desc') }
   }
 
   const COLS = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
@@ -541,10 +556,23 @@ export default function LeagueStatsPage() {
               </table>
             </div>
             </>) : (<>
+            {/* Advanced — 모바일 정렬 칩 */}
+            <div className="md:hidden border-b border-gray-800 px-3 py-2.5 overflow-x-auto">
+              <div className="flex gap-1.5 whitespace-nowrap">
+                {ADV_COLS.map(({ key, label }) => (
+                  <button key={key} onClick={() => handleAdvSort(key)}
+                    className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
+                      advSortKey === key ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                    }`}>
+                    {label}{advSortKey === key && (advSortDir === 'desc' ? ' ↓' : ' ↑')}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Advanced — 모바일 카드뷰 */}
             <div className="md:hidden divide-y divide-gray-800/60">
-              {filtered.map((p, i) => {
-                const adv = calcAdv(p)
+              {filteredAdv.map(({ p, adv }, i) => {
                 const rankBorder = i === 0 ? 'border-l-2 border-l-yellow-500/60' : i === 1 ? 'border-l-2 border-l-gray-400/40' : i === 2 ? 'border-l-2 border-l-orange-500/40' : ''
                 return (
                   <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
@@ -555,12 +583,16 @@ export default function LeagueStatsPage() {
                       <span className="text-gray-600 text-xs ml-auto">{p.gp}G</span>
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-1 border-t border-gray-800/60">
-                      {ADV_COLS.slice(0, 8).map(({ key, label }) => (
-                        <div key={key} className="text-center">
-                          <div className="text-[10px] text-gray-500 font-bold">{label}</div>
-                          <div className="text-sm font-bold text-violet-300">{key === 'at_ratio' ? adv[key] : `${adv[key]}${['ts_pct','efg_pct','usg_pct','fg3a_rate','ft_rate','ast_pct','tov_pct'].includes(key) ? '%' : ''}`}</div>
-                        </div>
-                      ))}
+                      {ADV_COLS.slice(0, 8).map(({ key, label }) => {
+                        const isRatio = key === 'at_ratio'
+                        const active = advSortKey === key
+                        return (
+                          <div key={key} className="text-center">
+                            <div className={`text-[10px] font-bold ${active ? 'text-violet-400' : 'text-gray-500'}`}>{label}</div>
+                            <div className={`text-sm font-bold ${active ? 'text-yellow-400' : 'text-violet-300'}`}>{isRatio ? adv[key] : `${adv[key]}%`}</div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </button>
                 )
@@ -576,41 +608,45 @@ export default function LeagueStatsPage() {
                     <th className="text-left px-4 py-3 sticky left-0 bg-gray-900 text-sm text-gray-500 font-bold min-w-[130px]">선수</th>
                     <th className="px-3 py-3 text-center text-xs text-gray-500 font-bold">GP</th>
                     {ADV_COLS.map(({ key, label, desc }) => (
-                      <th key={key} title={desc}
-                        className="px-3 py-3 text-center text-xs font-bold text-violet-400 whitespace-nowrap cursor-help">
+                      <th key={key} onClick={() => handleAdvSort(key)} title={desc}
+                        className={`px-3 py-3 text-center text-xs font-bold whitespace-nowrap cursor-pointer select-none transition-colors ${advSortKey === key ? 'text-yellow-400' : 'text-violet-400 hover:text-violet-200'}`}>
                         {label}
+                        {advSortKey === key
+                          ? (advSortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
+                          : <ChevronsUpDown size={10} className="inline ml-0.5 opacity-30" />}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((p, i) => {
-                    const adv = calcAdv(p)
-                    return (
-                      <tr key={p.player_id}
-                        className={`border-b border-gray-800/50 ${i % 2 === 0 ? 'hover:bg-gray-800/30' : 'bg-gray-900/50 hover:bg-gray-800/30'} transition-colors`}>
-                        <td className={`py-2 pl-2 pr-1 text-right font-black text-sm ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-600':'text-gray-600'}`}>{i+1}</td>
-                        <td className="px-4 py-3 sticky left-0 bg-inherit">
-                          <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                            className="font-bold text-white hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[120px] block text-base">
-                            {p.name}
-                          </button>
-                          <div className="text-gray-600 text-xs">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
-                        </td>
-                        <td className="px-3 py-3 text-center text-sm text-gray-500">{p.gp}</td>
-                        {ADV_COLS.map(({ key }) => {
-                          const val = adv[key]
-                          const isRatio = key === 'at_ratio'
-                          const isPct = !isRatio
-                          return (
-                            <td key={key} className="px-3 py-3 text-center text-sm tabular-nums font-medium text-violet-300">
-                              {isRatio ? val : `${val}${isPct ? '%' : ''}`}
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    )
-                  })}
+                  {filteredAdv.map(({ p, adv }, i) => (
+                    <tr key={p.player_id}
+                      className={`border-b border-gray-800/50 ${
+                        i === 0 ? 'bg-yellow-400/3 hover:bg-yellow-400/5' :
+                        i === 2 ? 'bg-orange-400/3 hover:bg-orange-400/5' :
+                        i % 2 === 0 ? 'hover:bg-gray-800/30' : 'bg-gray-900/50 hover:bg-gray-800/30'
+                      } transition-colors`}>
+                      <td className={`py-2 pl-2 pr-1 text-right font-black text-sm ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-600':'text-gray-600'}`}>{i+1}</td>
+                      <td className="px-4 py-3 sticky left-0 bg-inherit">
+                        <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
+                          className="font-bold text-white hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[120px] block text-base">
+                          {p.name}
+                        </button>
+                        <div className="text-gray-600 text-xs">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
+                      </td>
+                      <td className="px-3 py-3 text-center text-sm text-gray-500">{p.gp}</td>
+                      {ADV_COLS.map(({ key }) => {
+                        const val = adv[key]
+                        const isRatio = key === 'at_ratio'
+                        const active = advSortKey === key
+                        return (
+                          <td key={key} className={`px-3 py-3 text-center text-sm tabular-nums font-medium ${active ? 'text-yellow-400 font-bold' : 'text-violet-300'}`}>
+                            {isRatio ? val : `${val}%`}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
                 </tbody>
               </table>
               {/* 지표 설명 범례 */}
