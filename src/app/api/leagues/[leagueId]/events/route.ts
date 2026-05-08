@@ -36,6 +36,7 @@ export async function POST(
       video_timestamp: body.video_timestamp ?? null,
       type: body.type,
       league_player_id: body.league_player_id ?? null,
+      team_id: body.team_id ?? null,
       result: body.result ?? null,
       related_player_id: body.related_player_id ?? null,
       points: body.points ?? 0,
