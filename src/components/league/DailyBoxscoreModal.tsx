@@ -25,9 +25,16 @@ type DailyStat = {
   player_id: string; name: string; number: number | null; gp: number
   team_id: string | null; team_name: string | null; team_color: string | null
   pts: number; reb: number; oreb: number; dreb: number
-  ast: number; stl: number; blk: number; tov: number
+  ast: number; stl: number; blk: number; tov: number; pf: number
   fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
   fg_pct: number | null; fg3_pct: number | null
+}
+
+type TeamAgg = {
+  id: string; name: string; color: string | null
+  pts: number; reb: number; oreb: number; dreb: number
+  ast: number; stl: number; blk: number; tov: number; pf: number
+  fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
 }
 
 type ColDef = { key: string; label: string; sortKey?: string }
@@ -156,7 +163,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedGame, setExpandedGame] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overall' | 'games'>('overall')
+  const [activeTab, setActiveTab] = useState<'overall' | 'games' | 'team'>('overall')
   const [teamFilter, setTeamFilter] = useState<string>('all')
 
   const load = useCallback(async () => {
@@ -215,6 +222,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
             {([
               { key: 'overall', label: '전체 스탯', count: dailyStats.length },
               { key: 'games',   label: '경기별',    count: games.length },
+              { key: 'team',    label: '팀 비교',   count: 0 },
             ] as const).map(tab => (
               <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                 className={`px-6 py-3 text-sm font-bold border-b-2 transition-all duration-200 cursor-pointer ${
@@ -223,7 +231,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                     : 'border-transparent text-gray-500 hover:text-gray-300'
                 }`}>
                 {tab.label}
-                <span className="ml-2 text-xs text-gray-600">{tab.count}</span>
+                {tab.count > 0 && <span className="ml-2 text-xs text-gray-600">{tab.count}</span>}
               </button>
             ))}
           </div>
@@ -407,8 +415,181 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
             </div>
             )}
 
+            {/* 탭 3: 팀 비교 */}
+            {activeTab === 'team' && (
+              <div className="p-5">
+                <TeamComparePanel dailyStats={dailyStats} games={games} />
+              </div>
+            )}
+
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── 팀 비교 패널 ──────────────────────────────────────────────
+function aggregateTeams(dailyStats: DailyStat[]): TeamAgg[] {
+  const map: Record<string, TeamAgg> = {}
+  for (const d of dailyStats) {
+    if (!d.team_id || !d.team_name) continue
+    if (!map[d.team_id]) {
+      map[d.team_id] = {
+        id: d.team_id, name: d.team_name, color: d.team_color,
+        pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
+        fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
+      }
+    }
+    const t = map[d.team_id]
+    t.pts += d.pts; t.reb += d.reb; t.oreb += d.oreb; t.dreb += d.dreb
+    t.ast += d.ast; t.stl += d.stl; t.blk += d.blk; t.tov += d.tov; t.pf += d.pf
+    t.fgm += d.fgm; t.fga += d.fga; t.fg3m += d.fg3m; t.fg3a += d.fg3a
+    t.ftm += d.ftm; t.fta += d.fta
+  }
+  return Object.values(map).sort((a, b) => b.pts - a.pts)
+}
+
+function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; games: GameData[] }) {
+  const teams = aggregateTeams(dailyStats)
+  const [teamAId, setTeamAId] = useState<string | null>(teams[0]?.id ?? null)
+  const [teamBId, setTeamBId] = useState<string | null>(teams[1]?.id ?? null)
+
+  useEffect(() => {
+    if (!teamAId && teams[0]) setTeamAId(teams[0].id)
+    if (!teamBId && teams[1]) setTeamBId(teams[1].id)
+  }, [teams, teamAId, teamBId])
+
+  const allComplete = games.length > 0 && games.every(g => g.is_complete)
+
+  if (teams.length < 2) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        <p className="text-sm">팀 비교를 위해 최소 2팀 이상의 기록이 필요합니다.</p>
+      </div>
+    )
+  }
+
+  const A = teams.find(t => t.id === teamAId) ?? teams[0]
+  const B = teams.find(t => t.id === teamBId) ?? teams[1]
+
+  const pct = (m: number, a: number) => a > 0 ? Math.round(m / a * 1000) / 10 : 0
+  const items: { label: string; a: number; b: number; suffix?: string; fraction?: [number, number, number, number] }[] = [
+    { label: '득점', a: A.pts, b: B.pts },
+    { label: '리바운드', a: A.reb, b: B.reb },
+    { label: '오펜스\n리바운드', a: A.oreb, b: B.oreb },
+    { label: '디펜스\n리바운드', a: A.dreb, b: B.dreb },
+    { label: '어시스트', a: A.ast, b: B.ast },
+    { label: '스틸', a: A.stl, b: B.stl },
+    { label: '블록', a: A.blk, b: B.blk },
+    { label: '턴오버', a: A.tov, b: B.tov },
+    { label: '파울', a: A.pf, b: B.pf },
+    { label: 'FG%', a: pct(A.fgm, A.fga), b: pct(B.fgm, B.fga), suffix: '%', fraction: [A.fgm, A.fga, B.fgm, B.fga] },
+    { label: '3P%', a: pct(A.fg3m, A.fg3a), b: pct(B.fg3m, B.fg3a), suffix: '%', fraction: [A.fg3m, A.fg3a, B.fg3m, B.fg3a] },
+    { label: 'FT%', a: pct(A.ftm, A.fta), b: pct(B.ftm, B.fta), suffix: '%', fraction: [A.ftm, A.fta, B.ftm, B.fta] },
+  ]
+
+  const colorA = A.color ?? '#dc2626'
+  const colorB = B.color ?? '#2563eb'
+
+  return (
+    <div className="space-y-4">
+      {!allComplete && (
+        <div className="text-[11px] text-amber-400/80 bg-amber-900/20 border border-amber-700/30 rounded-lg px-3 py-2">
+          ⚠ 이 날의 일부 경기가 아직 마감되지 않았습니다 — 최종 수치는 마감 후 확정됩니다.
+        </div>
+      )}
+
+      {/* 팀 선택기 */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-[10px] text-gray-500 font-bold mb-1.5">HOME</p>
+          <div className="flex flex-wrap gap-1.5">
+            {teams.map(t => (
+              <button key={t.id} onClick={() => setTeamAId(t.id)}
+                className={`px-2.5 py-1 rounded-md text-xs font-bold border transition-colors cursor-pointer ${teamAId === t.id ? 'text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                style={teamAId === t.id ? { backgroundColor: t.color ?? '#dc2626', borderColor: t.color ?? '#dc2626' } : {}}>
+                {t.name}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="text-[10px] text-gray-500 font-bold mb-1.5">AWAY</p>
+          <div className="flex flex-wrap gap-1.5">
+            {teams.map(t => (
+              <button key={t.id} onClick={() => setTeamBId(t.id)}
+                className={`px-2.5 py-1 rounded-md text-xs font-bold border transition-colors cursor-pointer ${teamBId === t.id ? 'text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                style={teamBId === t.id ? { backgroundColor: t.color ?? '#2563eb', borderColor: t.color ?? '#2563eb' } : {}}>
+                {t.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 팀명 헤더 */}
+      <div className="flex items-center justify-center gap-6 py-2 border-b border-gray-800">
+        <div className="text-right">
+          <div className="text-lg font-black" style={{ color: colorA }}>{A.name}</div>
+          <div className="text-[10px] text-gray-600 font-bold tracking-wider">HOME</div>
+        </div>
+        <span className="text-gray-600 font-bold text-sm">VS</span>
+        <div className="text-left">
+          <div className="text-lg font-black" style={{ color: colorB }}>{B.name}</div>
+          <div className="text-[10px] text-gray-600 font-bold tracking-wider">AWAY</div>
+        </div>
+      </div>
+
+      {/* 비교 막대 */}
+      <div className="space-y-1.5">
+        {items.map(item => {
+          const max = Math.max(item.a, item.b, 1)
+          const aWin = item.a > item.b
+          const bWin = item.b > item.a
+          const labelA = item.fraction
+            ? `${item.a}% (${item.fraction[0]}/${item.fraction[1]})`
+            : `${item.a}${item.suffix ?? ''}`
+          const labelB = item.fraction
+            ? `${item.b}% (${item.fraction[2]}/${item.fraction[3]})`
+            : `${item.b}${item.suffix ?? ''}`
+          return (
+            <div key={item.label} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              {/* 좌측 (홈) — 막대 오른쪽 정렬, 라벨은 막대 왼쪽 */}
+              <div className="flex items-center justify-end gap-2 min-h-[28px]">
+                <span className={`text-sm tabular-nums font-bold whitespace-nowrap ${aWin ? '' : 'opacity-60'}`} style={aWin ? { color: colorA } : { color: '#9ca3af' }}>
+                  {labelA}
+                </span>
+                <div className="h-5 rounded-l-md" style={{
+                  width: `${(item.a / max) * 100}%`,
+                  backgroundColor: colorA,
+                  opacity: aWin ? 1 : 0.55,
+                  minWidth: item.a > 0 ? 2 : 0,
+                }} />
+              </div>
+
+              {/* 중앙 라벨 */}
+              <div className="text-center px-2">
+                <span className="text-[11px] text-gray-400 font-bold whitespace-pre-line leading-tight block">
+                  {item.label}
+                </span>
+              </div>
+
+              {/* 우측 (어웨이) */}
+              <div className="flex items-center justify-start gap-2 min-h-[28px]">
+                <div className="h-5 rounded-r-md" style={{
+                  width: `${(item.b / max) * 100}%`,
+                  backgroundColor: colorB,
+                  opacity: bWin ? 1 : 0.55,
+                  minWidth: item.b > 0 ? 2 : 0,
+                }} />
+                <span className={`text-sm tabular-nums font-bold whitespace-nowrap ${bWin ? '' : 'opacity-60'}`} style={bWin ? { color: colorB } : { color: '#9ca3af' }}>
+                  {labelB}
+                </span>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

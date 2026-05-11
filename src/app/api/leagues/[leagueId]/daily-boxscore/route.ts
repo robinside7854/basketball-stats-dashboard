@@ -65,8 +65,8 @@ export async function GET(
     gpTeamMap[r.league_game_id][r.league_player_id] = r.team_id
   }
 
-  type GS = { pts: number; reb: number; oreb: number; dreb: number; ast: number; stl: number; blk: number; tov: number; fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number }
-  const emptyGS = (): GS => ({ pts:0,reb:0,oreb:0,dreb:0,ast:0,stl:0,blk:0,tov:0,fgm:0,fga:0,fg3m:0,fg3a:0,ftm:0,fta:0 })
+  type GS = { pts: number; reb: number; oreb: number; dreb: number; ast: number; stl: number; blk: number; tov: number; pf: number; fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number }
+  const emptyGS = (): GS => ({ pts:0,reb:0,oreb:0,dreb:0,ast:0,stl:0,blk:0,tov:0,pf:0,fgm:0,fga:0,fg3m:0,fg3a:0,ftm:0,fta:0 })
 
   // per game → per player stats
   const gamePlayerStats: Record<string, Record<string, GS>> = {}
@@ -106,6 +106,7 @@ export async function GET(
       case 'steal': s.stl++; break
       case 'block': s.blk++; break
       case 'turnover': s.tov++; break
+      case 'foul': s.pf++; break
     }
     // assists
     if (e.related_player_id && made && SHOT_TYPES.includes(e.type as string)) {
@@ -137,7 +138,7 @@ export async function GET(
         team_name: team?.name ?? null,
         team_color: team?.color ?? null,
         pts: s.pts, reb: s.reb, oreb: s.oreb, dreb: s.dreb,
-        ast: s.ast, stl: s.stl, blk: s.blk, tov: s.tov,
+        ast: s.ast, stl: s.stl, blk: s.blk, tov: s.tov, pf: s.pf,
         fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a, ftm: s.ftm, fta: s.fta,
         fg_pct: pct(s.fgm, s.fga),
         fg3_pct: pct(s.fg3m, s.fg3a),
@@ -167,7 +168,7 @@ export async function GET(
       }
       const d = dailyMap[row.player_id]
       d.gp++; d.pts+=row.pts; d.reb+=row.reb; d.oreb+=row.oreb; d.dreb+=row.dreb
-      d.ast+=row.ast; d.stl+=row.stl; d.blk+=row.blk; d.tov+=row.tov
+      d.ast+=row.ast; d.stl+=row.stl; d.blk+=row.blk; d.tov+=row.tov; d.pf+=row.pf
       d.fgm+=row.fgm; d.fga+=row.fga; d.fg3m+=row.fg3m; d.fg3a+=row.fg3a; d.ftm+=row.ftm; d.fta+=row.fta
     }
   }
@@ -175,7 +176,7 @@ export async function GET(
     .map(([pid, d]) => ({
       player_id: pid, name: d.name, number: d.number, gp: d.gp,
       team_id: d.team_id, team_name: d.team_name, team_color: d.team_color,
-      pts: d.pts, reb: d.reb, oreb: d.oreb, dreb: d.dreb, ast: d.ast, stl: d.stl, blk: d.blk, tov: d.tov,
+      pts: d.pts, reb: d.reb, oreb: d.oreb, dreb: d.dreb, ast: d.ast, stl: d.stl, blk: d.blk, tov: d.tov, pf: d.pf,
       fgm: d.fgm, fga: d.fga, fg3m: d.fg3m, fg3a: d.fg3a, ftm: d.ftm, fta: d.fta,
       fg_pct: pct(d.fgm, d.fga), fg3_pct: pct(d.fg3m, d.fg3a),
     }))
