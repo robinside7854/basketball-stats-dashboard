@@ -22,6 +22,7 @@ export async function GET(
     .from('league_games')
     .select('id, home_team_id, away_team_id, home_score, away_score, quarter_id')
     .eq('league_id', leagueId).eq('is_complete', true)
+    .eq('is_exhibition', false)  // 친선전 제외
   if (quarterId) gQuery = gQuery.eq('quarter_id', quarterId)
 
   const { data: completedGames, error: gamesError } = await gQuery

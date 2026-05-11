@@ -51,32 +51,36 @@ export async function POST(
   // 이미 있는 슬랏 확인
   const { data: existing } = await supabase
     .from('league_games')
-    .select('slot_num')
+    .select('slot_num, is_exhibition')
     .eq('league_id', leagueId)
     .eq('date', date)
 
-  const existingSlots = new Set((existing ?? []).map(g => g.slot_num))
+  // 친선전 슬롯이 하나라도 있으면 추가 생성하지 않음
+  // (exhibition/init API가 8개 슬롯을 일괄 생성하므로 정규전 슬롯 채우기 금지)
+  const hasExhibition = (existing ?? []).some(g => g.is_exhibition)
 
-  // 없는 슬랏만 생성
-  const toInsert = []
-  for (let i = 1; i <= slotCount; i++) {
-    if (!existingSlots.has(i)) {
-      toInsert.push({
-        league_id: leagueId,
-        date,
-        slot_num: i,
-        round_num: i,
-        home_score: 0,
-        away_score: 0,
-        is_complete: false,
-        is_started: false,
-      })
+  if (!hasExhibition) {
+    const existingSlots = new Set((existing ?? []).map(g => g.slot_num))
+    const toInsert = []
+    for (let i = 1; i <= slotCount; i++) {
+      if (!existingSlots.has(i)) {
+        toInsert.push({
+          league_id: leagueId,
+          date,
+          slot_num: i,
+          round_num: i,
+          home_score: 0,
+          away_score: 0,
+          is_complete: false,
+          is_started: false,
+        })
+      }
     }
-  }
 
-  if (toInsert.length > 0) {
-    const { error } = await supabase.from('league_games').insert(toInsert)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (toInsert.length > 0) {
+      const { error } = await supabase.from('league_games').insert(toInsert)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    }
   }
 
   // 생성 후 전체 슬랏 반환

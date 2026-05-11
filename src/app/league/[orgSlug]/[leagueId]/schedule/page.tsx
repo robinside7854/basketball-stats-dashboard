@@ -95,6 +95,31 @@ export default function LeagueSchedulePage() {
     }
   }
 
+  async function addExhibitionDate() {
+    if (!newDate) { toast.error('날짜를 선택하세요'); return }
+    if (!confirm(
+      `${newDate} 친선 4쿼터·2경기를 등록하시겠습니까?\n\n` +
+      `· 미라클 vs 모닝 2팀 (없으면 자동 생성)\n` +
+      `· 8개 슬롯 (1·2차전 × 4쿼터)\n` +
+      `· 리그 순위에서 제외 / 개인 스탯에는 반영`
+    )) return
+    setAdding(true)
+    const res = await fetch(`/api/leagues/${leagueId}/exhibition/init`, {
+      method: 'POST',
+      headers: leagueHeaders,
+      body: JSON.stringify({ date: newDate }),
+    })
+    setAdding(false)
+    if (res.ok) {
+      toast.success('친선 4쿼터·2경기 등록 완료')
+      setNewDate('')
+      load()
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error ?? '친선전 등록 실패')
+    }
+  }
+
   async function removeDate(date: string) {
     if (!confirm(`${date} 일정을 삭제하시겠습니까?\n해당 날짜의 경기 슬랏도 모두 삭제됩니다.`)) return
     setDeletingDate(date)
@@ -175,7 +200,17 @@ export default function LeagueSchedulePage() {
             size="sm"
           >
             {adding ? <Loader2 size={13} className="animate-spin mr-1" /> : <Plus size={13} className="mr-1" />}
-            추가
+            정규전 추가
+          </Button>
+          <Button
+            onClick={addExhibitionDate}
+            disabled={adding}
+            title="2팀(미라클 vs 모닝) · 10분 4쿼터 · 2경기 — 리그 순위 제외"
+            className="bg-amber-600 hover:bg-amber-500 cursor-pointer shrink-0"
+            size="sm"
+          >
+            {adding ? <Loader2 size={13} className="animate-spin mr-1" /> : <Plus size={13} className="mr-1" />}
+            친선전 추가
           </Button>
         </div>
       )}
