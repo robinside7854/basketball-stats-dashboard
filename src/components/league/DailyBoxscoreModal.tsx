@@ -216,6 +216,13 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
           </button>
         </div>
 
+        {/* 그날의 경기 전적 (스코어보드) */}
+        {!loading && games.length > 0 && (
+          <div className="shrink-0 bg-gray-900/60 border-b border-gray-700/60 px-6 py-4">
+            <DailyScoreboard games={games} />
+          </div>
+        )}
+
         {/* 탭 바 */}
         {!loading && games.length > 0 && (
           <div className="shrink-0 flex border-b border-gray-700/60 bg-gray-900">
@@ -510,10 +517,14 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
 
   if (!teamAId || !teamBId) return null
 
+  // 같은 팀 선택 또는 맞붙은 경기 없음 → 필터는 계속 표시하고 본문만 안내 메시지로 대체
   if (teamAId === teamBId) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        <p className="text-sm">서로 다른 두 팀을 선택해주세요.</p>
+      <div className="space-y-4">
+        <TeamSelectorBars teams={teams} teamAId={teamAId} teamBId={teamBId} onChangeA={setTeamAId} onChangeB={setTeamBId} />
+        <div className="text-center py-10 text-gray-500 border border-dashed border-gray-700 rounded-xl">
+          <p className="text-sm">서로 다른 두 팀을 선택해주세요.</p>
+        </div>
       </div>
     )
   }
@@ -634,6 +645,92 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ── 그날의 스코어보드 ─────────────────────────────────────────
+function DailyScoreboard({ games }: { games: GameData[] }) {
+  const completed = games.filter(g => g.is_complete)
+  const ongoing = games.filter(g => g.is_started && !g.is_complete)
+  const upcoming = games.filter(g => !g.is_started)
+
+  // 팀별 전적 (완료 경기만)
+  const recordMap = new Map<string, { id: string; name: string; color: string | null; W: number; L: number; D: number; PF: number; PA: number }>()
+  for (const g of completed) {
+    if (!g.home_team || !g.away_team) continue
+    const home = recordMap.get(g.home_team.id) ?? { id: g.home_team.id, name: g.home_team.name, color: g.home_team.color, W: 0, L: 0, D: 0, PF: 0, PA: 0 }
+    const away = recordMap.get(g.away_team.id) ?? { id: g.away_team.id, name: g.away_team.name, color: g.away_team.color, W: 0, L: 0, D: 0, PF: 0, PA: 0 }
+    home.PF += g.home_score; home.PA += g.away_score
+    away.PF += g.away_score; away.PA += g.home_score
+    if (g.home_score > g.away_score) { home.W++; away.L++ }
+    else if (g.home_score < g.away_score) { home.L++; away.W++ }
+    else { home.D++; away.D++ }
+    recordMap.set(g.home_team.id, home)
+    recordMap.set(g.away_team.id, away)
+  }
+  const records = [...recordMap.values()].sort((a, b) => (b.W - b.L) - (a.W - a.L) || (b.PF - b.PA) - (a.PF - a.PA))
+
+  return (
+    <div className="space-y-3">
+      {/* 경기별 스코어 카드 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {[...completed, ...ongoing, ...upcoming].map(g => {
+          const homeWin = g.is_complete && g.home_score > g.away_score
+          const awayWin = g.is_complete && g.away_score > g.home_score
+          const homeColor = g.home_team?.color ?? '#9ca3af'
+          const awayColor = g.away_team?.color ?? '#9ca3af'
+          return (
+            <div key={g.id}
+              className={`rounded-xl px-3 py-2.5 border ${g.is_complete ? 'bg-gray-800/60 border-gray-700' : g.is_started ? 'bg-amber-900/15 border-amber-700/40' : 'bg-gray-900/40 border-gray-800'}`}>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[10px] text-gray-500 font-mono">#{g.slot_num}</span>
+                {g.is_complete && <span className="text-[10px] text-green-400 font-bold">완료</span>}
+                {!g.is_complete && g.is_started && <span className="text-[10px] text-amber-400 font-bold">진행 중</span>}
+                {!g.is_started && <span className="text-[10px] text-gray-600 font-bold">예정</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                {/* HOME */}
+                <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: homeColor }} />
+                  <span className={`text-sm font-bold truncate ${homeWin ? 'text-white' : g.is_complete ? 'text-gray-500' : 'text-gray-300'}`}>
+                    {g.home_team?.name ?? '미정'}
+                  </span>
+                </div>
+                <span className={`text-xl font-black tabular-nums ${homeWin ? 'text-white' : g.is_complete ? 'text-gray-500' : 'text-gray-400'}`}>{g.home_score}</span>
+                <span className="text-gray-700 text-xs font-bold">:</span>
+                <span className={`text-xl font-black tabular-nums ${awayWin ? 'text-white' : g.is_complete ? 'text-gray-500' : 'text-gray-400'}`}>{g.away_score}</span>
+                {/* AWAY */}
+                <div className="flex-1 min-w-0 flex items-center gap-1.5 justify-end">
+                  <span className={`text-sm font-bold truncate text-right ${awayWin ? 'text-white' : g.is_complete ? 'text-gray-500' : 'text-gray-300'}`}>
+                    {g.away_team?.name ?? '미정'}
+                  </span>
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: awayColor }} />
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 팀별 일일 전적 (완료 경기 기반) */}
+      {records.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <span className="text-[10px] text-gray-500 font-bold mr-1">일일 전적</span>
+          {records.map(r => (
+            <div key={r.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-800/60 border border-gray-700">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: r.color ?? '#9ca3af' }} />
+              <span className="text-xs font-bold text-white">{r.name}</span>
+              <span className="text-[11px] tabular-nums">
+                <span className="text-green-400 font-bold">{r.W}승</span>
+                {r.D > 0 && <span className="text-gray-400 ml-1">{r.D}무</span>}
+                <span className="text-red-400 font-bold ml-1">{r.L}패</span>
+              </span>
+              <span className="text-[10px] text-gray-500 tabular-nums">({r.PF}-{r.PA})</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
