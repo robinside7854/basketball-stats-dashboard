@@ -127,8 +127,10 @@ export async function GET(
 
     const rows = Object.entries(gps).map(([pid, s]) => {
       const p = playerMap[pid]
-      // 1차: league_player_quarters (정규) → 2차: league_game_players (비정규)
-      const teamId = (qId && qTeamMap[qId]?.[pid]) || gpTeamMap[g.id]?.[pid] || null
+      // 1차: league_game_players (이 경기 한정 배정 — 비정규/타팀 임시 출전) → 2차: league_player_quarters (정규 분기 소속)
+      // 이 우선순위가 반대로 되어 있으면 정규 팀으로 뛰지 않은 비정규 출전 선수가 본인의 정규 팀으로 잡혀
+      // '팀 비교' 등의 team_id 매칭에서 누락된다.
+      const teamId = gpTeamMap[g.id]?.[pid] || (qId && qTeamMap[qId]?.[pid]) || null
       const team = teamId ? teamMap[teamId] : null
       return {
         player_id: pid,

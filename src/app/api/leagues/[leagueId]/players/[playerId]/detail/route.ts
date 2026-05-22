@@ -20,6 +20,7 @@ export async function GET(
     { data: teams },
     { data: league },
     { data: memberships },
+    { data: gpRows },
   ] = await Promise.all([
     supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
     supabase
@@ -33,6 +34,12 @@ export async function GET(
     supabase
       .from('league_player_quarters')
       .select('quarter_id, team_id')
+      .eq('league_player_id', playerId)
+      .eq('league_id', leagueId),
+    // 게임별 비정규/타팀 임시 출전 배정 (정규 팀보다 우선 적용)
+    supabase
+      .from('league_game_players')
+      .select('league_game_id, team_id')
       .eq('league_player_id', playerId)
       .eq('league_id', leagueId),
   ])
@@ -53,6 +60,16 @@ export async function GET(
   const qTeamMap: Record<string, string> = {}
   for (const m of memberships ?? []) {
     if (m.quarter_id) qTeamMap[m.quarter_id] = m.team_id
+  }
+  // 게임별 배정 (비정규/타팀 임시 출전) — 정규 팀보다 우선
+  const gpTeamMap: Record<string, string> = {}
+  for (const r of gpRows ?? []) {
+    if (r.league_game_id && r.team_id) gpTeamMap[r.league_game_id] = r.team_id
+  }
+  // 헬퍼: 게임 g 에서 이 선수가 실제로 뛴 팀 ID
+  function teamForGame(g: { id: string; quarter_id?: string | null } | null | undefined): string | undefined {
+    if (!g) return undefined
+    return gpTeamMap[g.id] ?? (g.quarter_id ? qTeamMap[g.quarter_id] : undefined)
   }
 
   if (gameIds.length === 0) {
@@ -220,7 +237,7 @@ export async function GET(
   for (const [key, entry] of Object.entries(ch)) {
     if (!entry) continue
     const g = gameMap[entry.gameId]
-    const tid = g?.quarter_id ? qTeamMap[g.quarter_id] : undefined
+    const tid = teamForGame(g)
     careerHigh[key] = { value: entry.value, extra: entry.extra, ...gameInfo(entry.gameId, tid) }
   }
 
@@ -232,7 +249,7 @@ export async function GET(
       const s = aggregateMap[unitKey]
       const firstGId = unitToFirstGame[unitKey]
       const g = firstGId ? gameMap[firstGId] : null
-      const tid = g?.quarter_id ? qTeamMap[g.quarter_id] : undefined
+      const tid = teamForGame(g)
       return { ...gameInfo(firstGId ?? '', tid), pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk, fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a }
     })
 
@@ -360,9 +377,9 @@ export async function GET(
     for (const gId of gpSet) {
       const g = gameMap[gId]
       if (!g) continue
-      // 플레이어 팀 결정: 이벤트에서 추출한 team_id 우선, 없으면 분기-팀 매핑 fallback (본인 한정)
-      let tid = playerTeamInGame[pid]?.[gId]
-      if (!tid && pid === playerId && g.quarter_id) tid = qTeamMap[g.quarter_id]
+      // 플레이어 팀 결정: 이벤트에서 추출한 team_id 우선, 없으면 게임별 배정/분기-팀 매핑 fallback (본인 한정)
+      let tid: string | undefined = playerTeamInGame[pid]?.[gId]
+      if (!tid && pid === playerId) tid = teamForGame(g)
       if (!tid) continue
       const isHome = g.home_team_id === tid
       const myPts = isHome ? (g.home_score as number) : (g.away_score as number)
@@ -403,7 +420,7 @@ export async function GET(
     const s = perGame[gId]
     const g = gameMap[gId]
     if (!g) continue
-    const tid = g.quarter_id ? qTeamMap[g.quarter_id] : undefined
+    const tid = teamForGame(g)
     if (!tid) continue
     const isHome = g.home_team_id === tid
     const myPts  = isHome ? (g.home_score as number) : (g.away_score as number)
