@@ -1537,10 +1537,22 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       gameId={selectedSlotId}
                       leagueHeaders={leagueHeaders}
                       players={allPlayers}
+                      homeRoster={homeRoster}
+                      awayRoster={awayRoster}
+                      homeTeam={selectedSlot?.home_team ?? undefined}
+                      awayTeam={selectedSlot?.away_team ?? undefined}
                       minutes={minutes}
-                      onSubstitution={() => {
-                        fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
-                          .then(r => r.json()).then(setMinutes)
+                      onSubstitution={async () => {
+                        await Promise.all([
+                          fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
+                            .then(r => r.json()).then(setMinutes),
+                          fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/roster`)
+                            .then(r => r.ok ? r.json() : null)
+                            .then(d => {
+                              if (d?.home) setHomeRoster(d.home)
+                              if (d?.away) setAwayRoster(d.away)
+                            }),
+                        ])
                       }}
                     />
                   </div>
