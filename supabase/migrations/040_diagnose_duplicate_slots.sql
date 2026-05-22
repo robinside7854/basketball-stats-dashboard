@@ -16,11 +16,12 @@ HAVING COUNT(*) > 1
 ORDER BY date DESC, slot_num NULLS FIRST;
 
 -- 2) 특정 날짜(예: 2026-02-14) 의 모든 슬롯 상세
+--    is_exhibition 은 039 마이그레이션 이후에만 존재하므로 여기서는 제외
 SELECT
   id, slot_num, round_num,
   home_team_id, away_team_id,
   home_score, away_score,
-  is_complete, is_started, is_exhibition,
+  is_complete, is_started,
   (SELECT COUNT(*) FROM league_game_events e WHERE e.league_game_id = g.id) AS event_count,
   created_at
 FROM league_games g
