@@ -196,16 +196,30 @@ export async function GET(
     return da.localeCompare(db)
   })
 
-  // ── Career High ──────────────────────────────────────────────
-  type CH = { value: number; gameId: string; extra?: string }
-  const ch: Record<string, CH | null> = {
+  // ── Career High Day (unit 파라미터와 무관하게 항상 "일자" 기준 집계) ──
+  // 같은 날의 여러 경기를 합산한 하루치 스탯에서 최고점 선정
+  type CHDay = { value: number; date: string; extra?: string }
+  const chDay: Record<string, CHDay | null> = {
     pts: null, reb: null, ast: null, stl: null, blk: null, fgPct: null, ftm: null,
   }
-  for (const unitKey of playedUnits) {
-    const s = aggregateMap[unitKey]
-    const firstGId = unitToFirstGame[unitKey]
+  const dayMap: Record<string, GS> = {}
+  for (const gId of playedGames) {
+    const g = gameMap[gId] as { date?: string } | undefined
+    if (!g?.date) continue
+    if (!dayMap[g.date]) dayMap[g.date] = {
+      pts:0, reb:0, oreb:0, dreb:0, ast:0, stl:0, blk:0, tov:0, pf:0,
+      fgm:0, fga:0, fg3m:0, fg3a:0, ftm:0, fta:0,
+    }
+    const s = perGame[gId]
+    const d = dayMap[g.date]
+    d.pts += s.pts; d.reb += s.reb; d.oreb += s.oreb; d.dreb += s.dreb
+    d.ast += s.ast; d.stl += s.stl; d.blk += s.blk; d.tov += s.tov
+    d.pf += s.pf;   d.fgm += s.fgm; d.fga += s.fga
+    d.fg3m += s.fg3m; d.fg3a += s.fg3a; d.ftm += s.ftm; d.fta += s.fta
+  }
+  for (const [date, s] of Object.entries(dayMap)) {
     const upd = (key: string, val: number, extra?: string) => {
-      if (val > (ch[key]?.value ?? -1)) ch[key] = { value: val, gameId: firstGId, extra }
+      if (val > (chDay[key]?.value ?? -1)) chDay[key] = { value: val, date, extra }
     }
     upd('pts', s.pts, s.fga > 0 ? `FG ${+(s.fgm / s.fga * 100).toFixed(1)}% (${s.fgm}/${s.fga})` : undefined)
     upd('reb', s.reb, `OR ${s.oreb} / DR ${s.dreb}`)
@@ -213,7 +227,7 @@ export async function GET(
     upd('stl', s.stl)
     upd('blk', s.blk)
     upd('ftm', s.ftm, s.fta > 0 ? `FT ${+(s.ftm / s.fta * 100).toFixed(1)}% (${s.ftm}/${s.fta})` : undefined)
-    if (s.fga >= 3) upd('fgPct', +(s.fgm / s.fga * 100).toFixed(1), `${s.fgm}/${s.fga}`)
+    if (s.fga >= 5) upd('fgPct', +(s.fgm / s.fga * 100).toFixed(1), `${s.fgm}/${s.fga}`)
   }
 
   function gameInfo(gId: string, teamId?: string) {
@@ -234,11 +248,10 @@ export async function GET(
   }
 
   const careerHigh: Record<string, unknown> = {}
-  for (const [key, entry] of Object.entries(ch)) {
+  for (const [key, entry] of Object.entries(chDay)) {
     if (!entry) continue
-    const g = gameMap[entry.gameId]
-    const tid = teamForGame(g)
-    careerHigh[key] = { value: entry.value, extra: entry.extra, ...gameInfo(entry.gameId, tid) }
+    // Career High Day: date + extra (opponent/result는 일자 기반이라 의미 모호 — 제외)
+    careerHigh[key] = { value: entry.value, date: entry.date, extra: entry.extra, league_name: leagueName }
   }
 
   // ── Recent 5 units ─────────────────────────────────────────
