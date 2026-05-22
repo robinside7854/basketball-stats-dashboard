@@ -79,7 +79,11 @@ export async function POST(
 
     if (toInsert.length > 0) {
       const { error } = await supabase.from('league_games').insert(toInsert)
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      // 23505 = unique_violation — 동시 요청 race condition으로 다른 인스턴스가 먼저 insert한 경우.
+      // UNIQUE INDEX league_games_slot_unique 가 적용되어 있으면 중복은 방지되므로 안전하게 무시.
+      if (error && error.code !== '23505') {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
     }
   }
 
