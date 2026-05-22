@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);const p=j.tool_input&&(j.tool_input.file_path||'');if(/(^|\\\\\\\\|\\/)\\.env(\\.|$|[^a-z])/i.test(p)){console.error('🚫 BLOCKED: .env 파일은 사용자가 직접 수정해야 합니다 (Anthropic 키, Supabase Service Role, NextAuth Secret 보호). 필요한 환경변수 추가는 사용자에게 안내하세요.');process.exit(2)}}catch(e){}})\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);const p=j.tool_input&&(j.tool_input.file_path||'');if(!/\\.(ts|tsx)$/.test(p))return;const{execSync}=require('child_process');try{const out=execSync('npx tsc --noEmit',{cwd:process.cwd(),encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:60000});}catch(e){const msg=(e.stdout||'')+(e.stderr||'');const lines=msg.split('\\\\n').filter(l=>l.trim()).slice(0,20).join('\\\\n');console.error('⚠ TypeScript 오류 감지:\\\\n'+lines);process.exit(2)}}catch(e){}})\""
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run build:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
