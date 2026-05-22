@@ -6,7 +6,7 @@ type PlayerRow = {
   player_id: string; name: string; number: number | null
   team_id: string | null; team_name: string | null; team_color: string | null
   pts: number; reb: number; oreb: number; dreb: number
-  ast: number; stl: number; blk: number; tov: number
+  ast: number; stl: number; blk: number; tov: number; pf: number
   fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
   fg_pct: number | null; fg3_pct: number | null
 }
@@ -430,35 +430,73 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
 }
 
 // ── 팀 비교 패널 ──────────────────────────────────────────────
-function aggregateTeams(dailyStats: DailyStat[]): TeamAgg[] {
-  const map: Record<string, TeamAgg> = {}
-  for (const d of dailyStats) {
-    if (!d.team_id || !d.team_name) continue
-    if (!map[d.team_id]) {
-      map[d.team_id] = {
-        id: d.team_id, name: d.team_name, color: d.team_color,
-        pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
-        fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
-      }
-    }
-    const t = map[d.team_id]
-    t.pts += d.pts; t.reb += d.reb; t.oreb += d.oreb; t.dreb += d.dreb
-    t.ast += d.ast; t.stl += d.stl; t.blk += d.blk; t.tov += d.tov; t.pf += d.pf
-    t.fgm += d.fgm; t.fga += d.fga; t.fg3m += d.fg3m; t.fg3a += d.fg3a
-    t.ftm += d.ftm; t.fta += d.fta
+// 그날 출전한 모든 팀 목록 (선택지용)
+function extractTeams(games: GameData[]): { id: string; name: string; color: string | null }[] {
+  const map = new Map<string, { id: string; name: string; color: string | null }>()
+  for (const g of games) {
+    if (g.home_team) map.set(g.home_team.id, { id: g.home_team.id, name: g.home_team.name, color: g.home_team.color })
+    if (g.away_team) map.set(g.away_team.id, { id: g.away_team.id, name: g.away_team.name, color: g.away_team.color })
   }
-  return Object.values(map).sort((a, b) => b.pts - a.pts)
+  return [...map.values()]
+}
+
+// 두 팀이 맞붙은 경기에서만 집계 (head-to-head 상대 전적)
+function aggregateHeadToHead(
+  games: GameData[],
+  teamAId: string,
+  teamBId: string,
+  meta: Map<string, { name: string; color: string | null }>,
+): { A: TeamAgg; B: TeamAgg; gameCount: number } {
+  const h2hGames = games.filter(g => {
+    if (!g.home_team || !g.away_team) return false
+    const ids = [g.home_team.id, g.away_team.id]
+    return ids.includes(teamAId) && ids.includes(teamBId)
+  })
+
+  const init = (id: string): TeamAgg => ({
+    id,
+    name: meta.get(id)?.name ?? '?',
+    color: meta.get(id)?.color ?? null,
+    pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
+    fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
+  })
+  const A = init(teamAId)
+  const B = init(teamBId)
+
+  for (const g of h2hGames) {
+    for (const p of g.players) {
+      const target = p.team_id === teamAId ? A : p.team_id === teamBId ? B : null
+      if (!target) continue
+      target.pts += p.pts; target.reb += p.reb; target.oreb += p.oreb; target.dreb += p.dreb
+      target.ast += p.ast; target.stl += p.stl; target.blk += p.blk; target.tov += p.tov; target.pf += (p.pf ?? 0)
+      target.fgm += p.fgm; target.fga += p.fga; target.fg3m += p.fg3m; target.fg3a += p.fg3a
+      target.ftm += p.ftm; target.fta += p.fta
+    }
+  }
+
+  return { A, B, gameCount: h2hGames.length }
 }
 
 function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; games: GameData[] }) {
-  const teams = aggregateTeams(dailyStats)
-  const [teamAId, setTeamAId] = useState<string | null>(teams[0]?.id ?? null)
-  const [teamBId, setTeamBId] = useState<string | null>(teams[1]?.id ?? null)
+  void dailyStats  // 더 이상 직접 사용하지 않음 (games 기반 head-to-head 집계)
+  const teams = extractTeams(games)
+  const teamMeta = new Map(teams.map(t => [t.id, { name: t.name, color: t.color }]))
 
+  const [teamAId, setTeamAId] = useState<string | null>(null)
+  const [teamBId, setTeamBId] = useState<string | null>(null)
+
+  // 기본값: 그날 첫 경기의 홈/어웨이
   useEffect(() => {
-    if (!teamAId && teams[0]) setTeamAId(teams[0].id)
-    if (!teamBId && teams[1]) setTeamBId(teams[1].id)
-  }, [teams, teamAId, teamBId])
+    if (teamAId && teamBId) return
+    const firstGame = games.find(g => g.home_team && g.away_team)
+    if (firstGame) {
+      setTeamAId(firstGame.home_team!.id)
+      setTeamBId(firstGame.away_team!.id)
+    } else if (teams.length >= 2) {
+      setTeamAId(teams[0].id)
+      setTeamBId(teams[1].id)
+    }
+  }, [games, teams, teamAId, teamBId])
 
   const allComplete = games.length > 0 && games.every(g => g.is_complete)
 
@@ -470,8 +508,36 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
     )
   }
 
-  const A = teams.find(t => t.id === teamAId) ?? teams[0]
-  const B = teams.find(t => t.id === teamBId) ?? teams[1]
+  if (!teamAId || !teamBId) return null
+
+  if (teamAId === teamBId) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        <p className="text-sm">서로 다른 두 팀을 선택해주세요.</p>
+      </div>
+    )
+  }
+
+  const h2h = aggregateHeadToHead(games, teamAId, teamBId, teamMeta)
+  const A = h2h.A
+  const B = h2h.B
+
+  if (h2h.gameCount === 0) {
+    return (
+      <div className="space-y-4">
+        <TeamSelectorBars teams={teams} teamAId={teamAId} teamBId={teamBId} onChangeA={setTeamAId} onChangeB={setTeamBId} />
+        <div className="text-center py-10 text-gray-500 border border-dashed border-gray-700 rounded-xl">
+          <p className="text-sm">
+            <span className="text-white font-bold">{teamMeta.get(teamAId)?.name}</span>
+            {' vs '}
+            <span className="text-white font-bold">{teamMeta.get(teamBId)?.name}</span>
+            {' — 이 날짜에 맞붙은 경기가 없습니다.'}
+          </p>
+          <p className="text-xs text-gray-600 mt-1">두 팀이 실제 맞붙은 경기 기록만 집계됩니다.</p>
+        </div>
+      </div>
+    )
+  }
 
   const pct = (m: number, a: number) => a > 0 ? Math.round(m / a * 1000) / 10 : 0
   const items: { label: string; a: number; b: number; suffix?: string; fraction?: [number, number, number, number] }[] = [
@@ -500,41 +566,18 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
         </div>
       )}
 
-      {/* 팀 선택기 */}
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <p className="text-[10px] text-gray-500 font-bold mb-1.5">HOME</p>
-          <div className="flex flex-wrap gap-1.5">
-            {teams.map(t => (
-              <button key={t.id} onClick={() => setTeamAId(t.id)}
-                className={`px-2.5 py-1 rounded-md text-xs font-bold border transition-colors cursor-pointer ${teamAId === t.id ? 'text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
-                style={teamAId === t.id ? { backgroundColor: t.color ?? '#dc2626', borderColor: t.color ?? '#dc2626' } : {}}>
-                {t.name}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <p className="text-[10px] text-gray-500 font-bold mb-1.5">AWAY</p>
-          <div className="flex flex-wrap gap-1.5">
-            {teams.map(t => (
-              <button key={t.id} onClick={() => setTeamBId(t.id)}
-                className={`px-2.5 py-1 rounded-md text-xs font-bold border transition-colors cursor-pointer ${teamBId === t.id ? 'text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
-                style={teamBId === t.id ? { backgroundColor: t.color ?? '#2563eb', borderColor: t.color ?? '#2563eb' } : {}}>
-                {t.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <TeamSelectorBars teams={teams} teamAId={teamAId} teamBId={teamBId} onChangeA={setTeamAId} onChangeB={setTeamBId} />
 
-      {/* 팀명 헤더 */}
+      {/* 팀명 헤더 + 맞대결 경기 수 */}
       <div className="flex items-center justify-center gap-6 py-2 border-b border-gray-800">
         <div className="text-right">
           <div className="text-lg font-black" style={{ color: colorA }}>{A.name}</div>
           <div className="text-[10px] text-gray-600 font-bold tracking-wider">HOME</div>
         </div>
-        <span className="text-gray-600 font-bold text-sm">VS</span>
+        <div className="flex flex-col items-center">
+          <span className="text-gray-600 font-bold text-sm">VS</span>
+          <span className="text-[10px] text-gray-500 mt-0.5">맞대결 {h2h.gameCount}경기</span>
+        </div>
         <div className="text-left">
           <div className="text-lg font-black" style={{ color: colorB }}>{B.name}</div>
           <div className="text-[10px] text-gray-600 font-bold tracking-wider">AWAY</div>
@@ -590,6 +633,45 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+function TeamSelectorBars({
+  teams, teamAId, teamBId, onChangeA, onChangeB,
+}: {
+  teams: { id: string; name: string; color: string | null }[]
+  teamAId: string | null
+  teamBId: string | null
+  onChangeA: (id: string) => void
+  onChangeB: (id: string) => void
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div>
+        <p className="text-[10px] text-gray-500 font-bold mb-1.5">HOME</p>
+        <div className="flex flex-wrap gap-1.5">
+          {teams.map(t => (
+            <button key={t.id} onClick={() => onChangeA(t.id)}
+              className={`px-2.5 py-1 rounded-md text-xs font-bold border transition-colors cursor-pointer ${teamAId === t.id ? 'text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+              style={teamAId === t.id ? { backgroundColor: t.color ?? '#dc2626', borderColor: t.color ?? '#dc2626' } : {}}>
+              {t.name}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="text-[10px] text-gray-500 font-bold mb-1.5">AWAY</p>
+        <div className="flex flex-wrap gap-1.5">
+          {teams.map(t => (
+            <button key={t.id} onClick={() => onChangeB(t.id)}
+              className={`px-2.5 py-1 rounded-md text-xs font-bold border transition-colors cursor-pointer ${teamBId === t.id ? 'text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+              style={teamBId === t.id ? { backgroundColor: t.color ?? '#2563eb', borderColor: t.color ?? '#2563eb' } : {}}>
+              {t.name}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
