@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import { Loader2, Crown, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucide-react'
 import Link from 'next/link'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+import TeamInsights from '@/components/league/TeamInsights'
 import type { Quarter, PlayerStat, QuarterPlayer, Leader } from '@/types/league'
 
 type Team = { id: string; name: string; color: string }
@@ -215,7 +216,7 @@ function StatsTable({
 type StandingEntry = { teamId: string; w: number; d: number; l: number; gf: number; ga: number }
 
 function TeamDetailPanel({
-  teamId, team, standing, h2h, players, allTeams, leagueId, games,
+  teamId, team, standing, h2h, players, allTeams, leagueId, games, quarterId,
 }: {
   teamId: string
   team: Team
@@ -225,6 +226,7 @@ function TeamDetailPanel({
   allTeams: Team[]
   leagueId: string
   games: Game[]
+  quarterId: string | 'all'
 }) {
   const [quickView, setQuickView] = useState<{ id: string; name: string } | null>(null)
 
@@ -400,6 +402,14 @@ function TeamDetailPanel({
                 </div>
               </div>
             )}
+
+            {/* F·G·H. 팀 인사이트 (하이라이트 + Four Factors + Advanced) */}
+            <TeamInsights
+              leagueId={leagueId}
+              teamId={teamId}
+              quarterId={quarterId}
+              teamColor={team.color}
+            />
 
             {/* E. Player Stats Table */}
             <div>
@@ -736,6 +746,7 @@ export default function LeagueTeamsPage() {
                   allTeams={teams}
                   leagueId={leagueId}
                   games={games}
+                  quarterId={selectedQId}
                 />
               </div>
             )
