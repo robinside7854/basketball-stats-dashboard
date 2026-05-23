@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 // 팀의 단일 일자 기록 + Four Factors + Advanced Metrics (자기 팀 + 상대 비교)
 // 친선전(is_exhibition=true)은 제외
 
-const SHOT_TYPES = new Set(['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'])
+const FIELD_SHOT_TYPES = new Set(['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'])
 
 type Agg = {
   pts: number
@@ -20,7 +20,7 @@ const emptyAgg = (): Agg => ({
   ast:0, stl:0, blk:0, tov:0, pf:0,
 })
 
-function addToAgg(agg: Agg, e: { type: string; result: string | null; points: number | null }) {
+function addToAgg(agg: Agg, e: { type: string; result: string | null; points: number | null; related_player_id: string | null }) {
   const made = e.result === 'made'
   const pts = e.points ?? 0
   switch (e.type) {
@@ -42,6 +42,10 @@ function addToAgg(agg: Agg, e: { type: string; result: string | null; points: nu
     case 'block': agg.blk++; break
     case 'turnover': agg.tov++; break
     case 'foul': agg.pf++; break
+  }
+  // 어시스트는 별도 이벤트가 아니라 슛 이벤트의 related_player_id 필드 — 슛 성공 + 어시스터 지정 시 +1
+  if (made && e.related_player_id && FIELD_SHOT_TYPES.has(e.type)) {
+    agg.ast++
   }
 }
 
@@ -87,16 +91,16 @@ export async function GET(
     .eq('league_id', leagueId)
   const teamMap = Object.fromEntries((teams ?? []).map(t => [t.id, t]))
 
-  // 2) 해당 경기들의 모든 이벤트
+  // 2) 해당 경기들의 모든 이벤트 (related_player_id 포함 — 어시스트 카운트용)
   const gameIds = games.map(g => g.id)
-  type EvRow = { league_game_id: string; team_id: string | null; type: string; result: string | null; points: number | null }
+  type EvRow = { league_game_id: string; team_id: string | null; type: string; result: string | null; points: number | null; related_player_id: string | null }
   const events: EvRow[] = []
   const PAGE = 1000
   let page = 0
   while (true) {
     const { data: chunk } = await supabase
       .from('league_game_events')
-      .select('league_game_id, team_id, type, result, points')
+      .select('league_game_id, team_id, type, result, points, related_player_id')
       .in('league_game_id', gameIds)
       .range(page * PAGE, (page + 1) * PAGE - 1)
     if (chunk && chunk.length > 0) events.push(...(chunk as EvRow[]))
@@ -226,5 +230,3 @@ export async function GET(
     },
   })
 }
-// SHOT_TYPES referenced in agent doc comments only; unused at runtime
-void SHOT_TYPES
