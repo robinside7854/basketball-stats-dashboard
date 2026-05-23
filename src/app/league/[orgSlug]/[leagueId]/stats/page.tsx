@@ -295,19 +295,30 @@ export default function LeagueStatsPage() {
               )
             })()}
             {selectedQuarterId !== 'all' && (() => {
-              // 팀 FG% 비교 — quarter players의 team_id로 그룹핑은 복잡하므로 간단히 선수 fg% top 8로 대체
+              // FG% TOP 8 — minGP / 최소 5개 시도
               const fgData = [...players]
                 .filter(p => p.gp >= minGP && p.fga >= 5)
                 .sort((a, b) => b.fg_pct - a.fg_pct)
                 .slice(0, 8)
                 .map(p => ({ name: p.name, fg_pct: p.fg_pct }))
+              // 가장 긴 이름 길이에 비례한 YAxis 폭 (한글 1자 ≈ 12-14px @ 11px bold)
+              const maxNameLen = fgData.reduce((m, d) => Math.max(m, d.name.length), 0)
+              const yAxisWidth = Math.max(72, Math.min(140, maxNameLen * 14 + 12))
               return (
                 <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4">
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">FG% Top 8</p>
-                  <ResponsiveContainer width="100%" height={160}>
-                    <BarChart data={fgData} layout="vertical" margin={{ left: 8, right: 24, top: 0, bottom: 0 }}>
+                  <ResponsiveContainer width="100%" height={Math.max(160, fgData.length * 22)}>
+                    <BarChart data={fgData} layout="vertical" margin={{ left: 0, right: 32, top: 0, bottom: 0 }}>
                       <XAxis type="number" domain={[0,'auto']} tick={{fill:'#6b7280',fontSize:10}} axisLine={false} tickLine={false} />
-                      <YAxis type="category" dataKey="name" tick={{fill:'#d1d5db',fontSize:11,fontWeight:600}} axisLine={false} tickLine={false} width={48} />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        tick={{fill:'#d1d5db',fontSize:11,fontWeight:600}}
+                        axisLine={false}
+                        tickLine={false}
+                        width={yAxisWidth}
+                        interval={0}
+                      />
                       <Tooltip
                         contentStyle={{background:'#1f2937',border:'1px solid #374151',borderRadius:8,fontSize:12}}
                         formatter={(v) => [`${Number(v).toFixed(1)}%`]}

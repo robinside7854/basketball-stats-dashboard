@@ -569,14 +569,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     </div>
                   </div>
 
-                  {/* 팀 득점 기여 바 */}
-                  <div className="mb-4">
-                    <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
-                      <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${Math.min(wl.pts_share, 100)}%` }} />
-                    </div>
-                    <p className="text-[10px] text-gray-600 mt-1">팀 전체 득점 중 이 선수 비중</p>
-                  </div>
-
                   {/* 승/패 스탯 비교 */}
                   {(wl.win_stats || wl.loss_stats) && (
                     <div>
@@ -701,15 +693,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               <MonthlyStatsChart data={activeDetail.monthly_stats} />
             )}
 
-            {/* 최근 5경기 */}
+            {/* 최근 5일 (일자 단위 — 같은 날 여러 경기는 합산됨, 단일 상대 개념 없음) */}
             {detail && detail.recent_games.length > 0 && (
               <div className="px-5 py-4">
-                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">최근 5경기</p>
+                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">최근 5일</p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-gray-800/60">
-                        {['날짜','상대','결과','PTS','REB','AST','STL','BLK','FG','FG%','3P%'].map(h => (
+                        {['날짜','PTS','REB','AST','STL','BLK','FG','FG%','3P%'].map(h => (
                           <th key={h} className="pb-1.5 text-[10px] text-gray-600 font-bold text-right first:text-left">{h}</th>
                         ))}
                       </tr>
@@ -721,11 +713,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         const fg3Pct = (r.fg3a ?? 0) > 0 ? Math.round((r.fg3m ?? 0) / (r.fg3a ?? 1) * 100) : null
                         return (
                         <tr key={i} className="border-b border-gray-800/30 last:border-0">
-                          <td className="py-1.5 text-gray-600 text-[10px] pr-1 whitespace-nowrap">{g.date?.slice(5) ?? '—'}</td>
-                          <td className="py-1.5 text-gray-300 text-[11px] pr-1 whitespace-nowrap">vs {g.opponent ?? '—'}</td>
-                          <td className="py-1.5 pr-1">
-                            {g.result && <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${g.result === 'W' ? 'text-green-400 bg-green-900/40' : 'text-red-400 bg-red-900/40'}`}>{g.result} {g.score}</span>}
-                          </td>
+                          <td className="py-1.5 text-gray-300 text-[11px] pr-2 whitespace-nowrap">{g.date?.slice(5) ?? '—'}</td>
                           <td className="py-1.5 text-right text-white font-bold">{g.pts}</td>
                           <td className="py-1.5 text-right text-gray-300">{g.reb}</td>
                           <td className="py-1.5 text-right text-gray-300">{g.ast}</td>

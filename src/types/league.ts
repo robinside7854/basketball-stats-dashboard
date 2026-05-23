@@ -52,6 +52,8 @@ export interface LeagueGame {
   away_score: number
   is_complete: boolean
   is_started?: boolean
+  is_exhibition?: boolean
+  quarter_id?: string | null
   youtube_url?: string | null
   youtube_start_offset?: number
 }
