@@ -286,29 +286,13 @@ function TeamDetailPanel({
       style={{ borderTopColor: team.color, borderTopWidth: 3 }}
     >
       {/* Header */}
-      <div className="px-5 py-4 border-b border-gray-800/60 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
-          <span className="font-black text-white text-lg">{team.name}</span>
-          <span className="text-sm text-gray-500 font-semibold">{standing.w}승 {standing.d > 0 ? `${standing.d}무 ` : ''}{standing.l}패</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="hidden sm:flex items-center gap-4 text-sm">
-            <span className="text-gray-400">승률 <span className="font-black text-white">{winPct}{played > 0 ? '%' : ''}</span></span>
-            {avgPf > 0 && <span className="text-gray-400">평균득점 <span className="font-black text-green-400">{avgPf.toFixed(1)}</span></span>}
-            {avgPa > 0 && <span className="text-gray-400">평균실점 <span className="font-black text-red-400">{avgPa.toFixed(1)}</span></span>}
-          </div>
-        </div>
+      <div className="px-5 py-4 border-b border-gray-800/60 flex items-center gap-2.5">
+        <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
+        <span className="font-black text-white text-lg">{team.name}</span>
+        <span className="text-sm text-gray-500 font-semibold">{standing.w}승 {standing.d > 0 ? `${standing.d}무 ` : ''}{standing.l}패</span>
       </div>
 
       <div className="p-5 space-y-6">
-        {/* 모바일 요약 바 */}
-        <div className="sm:hidden flex flex-wrap gap-3 text-sm">
-          <span className="text-gray-400">승률 <span className="font-black text-white">{winPct}{played > 0 ? '%' : ''}</span></span>
-          {avgPf > 0 && <span className="text-gray-400">평균득점 <span className="font-black text-green-400">{avgPf.toFixed(1)}</span></span>}
-          {avgPa > 0 && <span className="text-gray-400">평균실점 <span className="font-black text-red-400">{avgPa.toFixed(1)}</span></span>}
-        </div>
-
         {players.length === 0 ? (
           <p className="text-gray-500 text-sm text-center py-6">팀 없음 — 스탯이 없습니다</p>
         ) : (
