@@ -192,6 +192,9 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
   })()
 
   const completedCount = games.filter(g => g.is_complete).length
+  const recordedCount = games.filter(g => g.is_started || g.is_complete).length  // 실제 진행된 경기 (미사용 슬롯 제외)
+  const skippedCount = games.length - recordedCount
+  const allRecordedComplete = recordedCount > 0 && recordedCount === completedCount
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-6"
@@ -205,10 +208,16 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
         {/* Header */}
         <div className="shrink-0 bg-gray-900 border-b border-gray-700/60 px-6 py-4 flex items-center justify-between rounded-t-2xl">
           <div>
-            <h2 className="text-white font-black text-xl">{dateLabel} 박스스코어</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-white font-black text-xl">{dateLabel} 박스스코어</h2>
+              {allRecordedComplete && (
+                <span className="text-[10px] font-bold text-green-400 px-1.5 py-0.5 rounded bg-green-900/30 border border-green-700/40">✓ 완료</span>
+              )}
+            </div>
             <p className="text-gray-400 text-sm mt-0.5">
-              {games.length}경기 · <span className="text-green-400 font-bold">{completedCount}완료</span>
-              {games.length - completedCount > 0 && <span className="text-gray-500"> · {games.length - completedCount}미완료</span>}
+              진행 {recordedCount}경기 · <span className="text-green-400 font-bold">{completedCount}완료</span>
+              {recordedCount - completedCount > 0 && <span className="text-gray-500"> · {recordedCount - completedCount}미완료</span>}
+              {skippedCount > 0 && <span className="text-gray-600"> · 미사용 슬롯 {skippedCount}</span>}
             </p>
           </div>
           <button onClick={onClose} className="rounded-xl hover:bg-gray-700/60 text-gray-400 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-10 min-w-10">

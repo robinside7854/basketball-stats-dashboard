@@ -47,7 +47,11 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
         {displayed.map(date => {
           const dayGames = dateMap[date]
           const completed = dayGames.filter(g => g.is_complete)
+          // 실제 진행된 경기 = 시작했거나 완료된 슬롯 (미사용 슬롯은 카운트 제외)
+          const recorded = dayGames.filter(g => g.is_started || g.is_complete)
           const hasCompleted = completed.length > 0
+          // 모든 진행된 경기가 완료 → 그 날은 완료 처리 (정원 9 미달이어도)
+          const allDone = recorded.length > 0 && recorded.length === completed.length
 
           // 팀별 W/L 집계 (해당 날 완료된 경기 기준)
           const teamRecord: Record<string, { name: string; color: string; w: number; d: number; l: number }> = {}
@@ -93,9 +97,14 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
                           <span className="text-[10px] font-bold text-gray-500 px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700">예정</span>
                         )
                       )}
+                      {allDone && (
+                        <span className="text-[10px] font-bold text-green-400 px-1.5 py-0.5 rounded bg-green-900/30 border border-green-700/40">✓ 완료</span>
+                      )}
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {hasCompleted ? `${completed.length}/${dayGames.length}경기 완료` : `${dayGames.length}경기 예정`}
+                      {hasCompleted
+                        ? `${completed.length}/${recorded.length}경기 완료${recorded.length < dayGames.length ? ` · 미사용 슬롯 ${dayGames.length - recorded.length}` : ''}`
+                        : `${dayGames.length}경기 예정`}
                     </p>
                   </div>
                 </div>
