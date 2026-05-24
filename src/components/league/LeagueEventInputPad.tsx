@@ -219,7 +219,8 @@ export default function LeagueEventInputPad({
       // 2구 자동 진입
       setPendingShot({ type: 'ft_3pt_2', label: '3P파울 2구', color: 'bg-teal-800 hover:bg-teal-700', activeColor: 'bg-teal-700', needsResult: true })
       setPendingResult(null)
-    } else if (!FT_TYPES.includes(shotType) || shotType === 'ft_2pt') {
+    } else if (!FT_TYPES.includes(shotType) || shotType === 'ft_2pt' || shotType === 'ft_3pt_2') {
+      // ft_3pt_2(3P파울 2구)는 마지막 자유투 → 일반 입력 상태로 복귀
       setPendingShot(null)
     }
     onEventSaved()
