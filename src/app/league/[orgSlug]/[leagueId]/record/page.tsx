@@ -160,16 +160,22 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
   const selectedSlot = slots.find(s => s.id === selectedSlotId) ?? null
 
-  // 팀 로스터 로드 시 선발 전체 선택으로 자동 초기화
+  // 슬롯 단위로 한 번만 자동 초기화 — 비정규 선수 추가 등 같은 슬롯 내 roster 변경 시엔 유지
+  const initializedSlotRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!gameStarted && (homeRoster.length > 0 || awayRoster.length > 0)) {
-      // 정규 선수만 자동 선택 — 비정규(is_regular=false)는 기본 미체크 (GP 오염 방지)
-      const regularIds = [...homeRoster, ...awayRoster]
-        .filter(p => p.is_regular !== false)
-        .map(p => p.id)
-      setSelectedStarters(new Set(regularIds))
-    }
-  }, [homeRoster, awayRoster]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (gameStarted) return
+    if (!selectedSlotId) { initializedSlotRef.current = null; return }
+    if (homeRoster.length === 0 && awayRoster.length === 0) return
+    // 같은 슬롯에서 이미 초기화 완료 → 추가 갱신은 사용자의 선택을 보존
+    if (initializedSlotRef.current === selectedSlotId) return
+
+    // 정규 선수만 기본 체크 (비정규는 기본 미체크 — GP 오염 방지)
+    const regularIds = [...homeRoster, ...awayRoster]
+      .filter(p => p.is_regular !== false)
+      .map(p => p.id)
+    setSelectedStarters(new Set(regularIds))
+    initializedSlotRef.current = selectedSlotId
+  }, [homeRoster, awayRoster, gameStarted, selectedSlotId])
 
   async function bulkSyncYoutube() {
     if (!leagueYtChannel) { toast.error('설정 탭에서 YouTube 채널을 먼저 지정하세요'); return }
