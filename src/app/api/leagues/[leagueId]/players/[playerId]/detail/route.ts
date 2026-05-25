@@ -201,7 +201,7 @@ export async function GET(
   // 같은 날의 여러 경기를 합산한 하루치 스탯에서 최고점 선정
   type CHDay = { value: number; date: string; extra?: string }
   const chDay: Record<string, CHDay | null> = {
-    pts: null, reb: null, ast: null, stl: null, blk: null, fgPct: null, ftm: null,
+    pts: null, reb: null, ast: null, stl: null, blk: null, fgPct: null, fg3m: null,
   }
   const dayMap: Record<string, GS> = {}
   for (const gId of playedGames) {
@@ -227,7 +227,7 @@ export async function GET(
     upd('ast', s.ast)
     upd('stl', s.stl)
     upd('blk', s.blk)
-    upd('ftm', s.ftm, s.fta > 0 ? `FT ${+(s.ftm / s.fta * 100).toFixed(1)}% (${s.ftm}/${s.fta})` : undefined)
+    upd('fg3m', s.fg3m, s.fg3a > 0 ? `3P ${+(s.fg3m / s.fg3a * 100).toFixed(1)}% (${s.fg3m}/${s.fg3a})` : undefined)
     if (s.fga >= 5) upd('fgPct', +(s.fgm / s.fga * 100).toFixed(1), `${s.fgm}/${s.fga}`)
   }
 

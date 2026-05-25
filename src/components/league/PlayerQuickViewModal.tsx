@@ -690,27 +690,38 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             )}
 
             {/* Career High Day — 하루(같은 날의 여러 경기 합산) 기준 최고점 */}
-            {detail?.career_high && Object.keys(detail.career_high).length > 0 && (
-              <div className="px-5 py-4 border-b border-gray-800/60">
-                <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">
-                  Career High <span className="text-amber-400">Day</span>
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {Object.entries(detail.career_high).map(([key, ch]) => (
-                    <div key={key} className="bg-gray-900/60 border border-gray-800/50 rounded-xl px-3 py-2.5">
-                      <div className="flex items-baseline gap-1.5">
-                        <p className="text-3xl font-black text-yellow-300 leading-none">{ch.value}</p>
-                        <p className="text-[10px] text-gray-500 font-bold uppercase">{key}</p>
+            {detail?.career_high && Object.keys(detail.career_high).length > 0 && (() => {
+              const CH_LABEL: Record<string, string> = {
+                pts: 'PTS', reb: 'REB', ast: 'AST', stl: 'STL', blk: 'BLK',
+                fgPct: 'FG%', fg3m: '3PM',
+              }
+              const CH_ORDER = ['pts', 'reb', 'ast', 'stl', 'blk', 'fg3m', 'fgPct']
+              const entries = CH_ORDER
+                .filter(k => detail.career_high[k])
+                .map(k => [k, detail.career_high[k]] as const)
+              if (entries.length === 0) return null
+              return (
+                <div className="px-5 py-4 border-b border-gray-800/60">
+                  <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">
+                    Career High <span className="text-amber-400">Day</span>
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {entries.map(([key, ch]) => (
+                      <div key={key} className="bg-gray-900/60 border border-gray-800/50 rounded-xl px-3 py-2.5">
+                        <div className="flex items-baseline gap-1.5">
+                          <p className="text-3xl font-black text-yellow-300 leading-none">{ch.value}</p>
+                          <p className="text-[10px] text-gray-500 font-bold">{CH_LABEL[key] ?? key.toUpperCase()}</p>
+                        </div>
+                        {ch.date && (
+                          <p className="text-[10px] text-gray-400 mt-1.5 font-medium">{ch.date}</p>
+                        )}
+                        {ch.extra && <p className="text-[10px] text-gray-500 mt-0.5">{ch.extra}</p>}
                       </div>
-                      {ch.date && (
-                        <p className="text-[10px] text-gray-400 mt-1.5 font-medium">{ch.date}</p>
-                      )}
-                      {ch.extra && <p className="text-[10px] text-gray-500 mt-0.5">{ch.extra}</p>}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* 상대팀별 스탯 (vs Opponents) */}
             {detail?.vs_opponents && detail.vs_opponents.length > 0 && (
