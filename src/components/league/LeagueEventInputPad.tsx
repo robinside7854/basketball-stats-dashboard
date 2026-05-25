@@ -58,7 +58,7 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
   {
     label: '자유투', cols: 4,
     buttons: [
-      { type: 'and_one',  label: '앤드원',     color: 'bg-amber-600 hover:bg-amber-500', activeColor: 'bg-amber-500', needsResult: true },
+      { type: 'and_one',  label: '앤드원',     color: 'bg-amber-600 hover:bg-amber-500', activeColor: 'bg-amber-500' },
       { type: 'ft_2pt',   label: '2P파울 FT',  color: 'bg-teal-600 hover:bg-teal-500',  activeColor: 'bg-teal-500',  needsResult: true },
       { type: 'ft_3pt_1', label: '3P파울 FT',  color: 'bg-teal-700 hover:bg-teal-600',  activeColor: 'bg-teal-600',  needsResult: true },
     ],
@@ -290,15 +290,17 @@ export default function LeagueEventInputPad({
 
   async function saveInstant(btn: EventBtn) {
     if (!selectedPlayer) return
+    // 앤드원: 단순 클릭으로 즉시 성공(+1점) 저장 — 성공/실패 분기 없음
+    const isAndOne = btn.type === 'and_one'
     const id = await saveEvent({
       league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
       type: btn.type, league_player_id: selectedPlayer, team_id: selectedTeamId,
-      result: null, related_player_id: null, points: 0,
+      result: isAndOne ? 'made' : null, related_player_id: null, points: isAndOne ? 1 : 0,
     })
     if (!id) return
     const pName = allPlayers.find(p => p.id === selectedPlayer)?.name ?? ''
-    const lbl = `${pName} — ${btn.label}`
-    setLastEvent({ id, type: btn.type, result: 'missed', playerId: selectedPlayer, label: lbl })
+    const lbl = isAndOne ? `${pName} — 앤드원 ✓` : `${pName} — ${btn.label}`
+    setLastEvent({ id, type: btn.type, result: isAndOne ? 'made' : 'missed', playerId: selectedPlayer, label: lbl })
     setLastReboundId(null)  // 새 즉각 이벤트 → 이전 리바운드 연계 해제
     toast.success(`기록: ${lbl}`)
     const POSSESSION_TYPES = new Set(['oreb', 'dreb', 'steal'])
@@ -442,6 +444,28 @@ export default function LeagueEventInputPad({
 
   return (
     <div className="space-y-2">
+      {/* ── 앤드원 프롬프트 (필드골 성공 직후 최상단) — 토스트에 가려지지 않게 sticky ── */}
+      {showAndOnePrompt && (
+        <div className="sticky top-0 z-30 -mx-1 px-1">
+          <div className="flex items-center gap-2 px-3 py-3 bg-amber-500/95 border-2 border-amber-300 rounded-xl shadow-2xl shadow-amber-900/50 ring-2 ring-amber-200/30 animate-pulse">
+            <span className="text-white font-black text-sm flex-1 drop-shadow">⚡ 앤드원 발생?</span>
+            <button onClick={() => handleAndOne('made')}
+              className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-black rounded-lg cursor-pointer active:scale-95 transition-all shadow-md">
+              ✓ 성공 +1
+            </button>
+            <button onClick={() => handleAndOne('missed')}
+              className="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs font-black rounded-lg cursor-pointer active:scale-95 transition-all shadow-md">
+              ✗ 실패
+            </button>
+            <button onClick={() => setShowAndOnePrompt(false)}
+              title="닫기 (자동 스킵 카운트다운)"
+              className="px-2 py-1.5 bg-gray-800/80 text-gray-200 text-xs rounded-lg cursor-pointer hover:bg-gray-700">
+              <span className={andOneCountdown <= 1 ? 'text-red-300 font-bold' : ''}>{andOneCountdown}s</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── 헤더: 선택된 선수 + 마지막 이벤트 + 취소 ── */}
       <div className="flex items-center gap-2 min-h-[32px] relative">
         {selectedObj ? (
@@ -667,25 +691,6 @@ export default function LeagueEventInputPad({
           </div>
           <button onClick={() => { setAddingAssistForLast(false); setPendingShot(null) }}
             className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center py-1">취소</button>
-        </div>
-      )}
-
-      {/* ── Phase 2-F: 앤드원 프롬프트 (필드골 성공 직후) ── */}
-      {showAndOnePrompt && (
-        <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-900/25 border border-amber-600/40 rounded-xl">
-          <span className="text-amber-300 font-black text-sm flex-1">⚡ 앤드원?</span>
-          <button onClick={() => handleAndOne('made')}
-            className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-black rounded-lg cursor-pointer active:scale-95 transition-all">
-            ✓ 성공
-          </button>
-          <button onClick={() => handleAndOne('missed')}
-            className="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs font-black rounded-lg cursor-pointer active:scale-95 transition-all">
-            ✗ 실패
-          </button>
-          <button onClick={() => setShowAndOnePrompt(false)}
-            className="px-2 py-1.5 bg-gray-700 text-gray-400 text-xs rounded-lg cursor-pointer hover:bg-gray-600">
-            <span className={andOneCountdown <= 1 ? 'text-red-400 font-bold' : ''}>{andOneCountdown}s</span>
-          </button>
         </div>
       )}
 
