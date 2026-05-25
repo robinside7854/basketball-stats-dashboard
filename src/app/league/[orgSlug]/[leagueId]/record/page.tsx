@@ -985,15 +985,13 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                     </span>
                   )}
 
-                  {/* YouTube 연동 — 우측 끝 */}
-                  <div className="ml-auto flex items-center gap-3 shrink-0">
-                    {stat && stat.total > 0 && stat.yt > 0 && (
-                      <span className={`flex items-center gap-1 text-xs font-mono ${allLinked ? 'text-red-400' : 'text-gray-500'}`}>
-                        <Youtube size={11} />
-                        {stat.yt}/{stat.total}
-                      </span>
-                    )}
-                  </div>
+                  {/* YouTube 연동 — 다른 배지들과 같은 줄, 인접 배치 */}
+                  {stat && stat.total > 0 && stat.yt > 0 && (
+                    <span className={`flex items-center gap-1 text-xs font-mono ${allLinked ? 'text-red-400' : 'text-gray-500'}`}>
+                      <Youtube size={11} />
+                      {stat.yt}/{stat.total}
+                    </span>
+                  )}
                 </div>
               </button>
             )
