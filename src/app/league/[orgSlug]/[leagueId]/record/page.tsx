@@ -108,7 +108,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [allPlayers, setAllPlayers] = useState<LeaguePlayer[]>([])
   const [leagueYtChannel, setLeagueYtChannel] = useState<string | null>(null)
   const [plusOneAge, setPlusOneAge] = useState<number | null>(null)
-  const [dateStats, setDateStats] = useState<Record<string, { total: number; yt: number; complete: number; started: number }>>({})
+  const [dateStats, setDateStats] = useState<Record<string, { total: number; yt: number; complete: number; started: number; unused: number; pending: number }>>({})
   const [quarters, setQuarters] = useState<{ id: string; year: number; quarter: number }[]>([])
   const [selectedQFilter, setSelectedQFilter] = useState<'all' | string>('all')
   const [dateQuarterMap, setDateQuarterMap] = useState<Record<string, string>>({})
@@ -206,13 +206,23 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   }
 
   function buildDateStats(games: { date: string; youtube_url?: string | null; is_complete?: boolean; is_started?: boolean }[]) {
-    const stats: Record<string, { total: number; yt: number; complete: number; started: number }> = {}
+    const today = new Date().toISOString().slice(0, 10)
+    const stats: Record<string, { total: number; yt: number; complete: number; started: number; unused: number; pending: number }> = {}
     for (const g of games) {
-      if (!stats[g.date]) stats[g.date] = { total: 0, yt: 0, complete: 0, started: 0 }
+      if (!stats[g.date]) stats[g.date] = { total: 0, yt: 0, complete: 0, started: 0, unused: 0, pending: 0 }
       stats[g.date].total++
       if (g.youtube_url) stats[g.date].yt++
-      if (g.is_complete) stats[g.date].complete++
-      else if (g.is_started) stats[g.date].started++
+      if (g.is_complete) {
+        stats[g.date].complete++
+      } else if (g.is_started) {
+        stats[g.date].started++
+      } else {
+        // !started && !complete
+        // 과거 날짜 = 미사용 슬롯 (영상이 9개 안 됐던 날의 남은 슬롯)
+        // 미래·오늘 날짜 = 진짜 미시작
+        if (g.date < today) stats[g.date].unused++
+        else stats[g.date].pending++
+      }
     }
     setDateStats(stats)
   }
@@ -836,7 +846,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     const totalGames    = Object.values(dateStats).reduce((s, d) => s + d.total,    0)
     const totalComplete = Object.values(dateStats).reduce((s, d) => s + d.complete, 0)
     const totalStarted  = Object.values(dateStats).reduce((s, d) => s + d.started,  0)
-    const totalPending  = totalGames - totalComplete - totalStarted
+    const totalPending  = Object.values(dateStats).reduce((s, d) => s + (d.pending ?? 0), 0)
+    const totalUnused   = Object.values(dateStats).reduce((s, d) => s + (d.unused ?? 0), 0)
+    // 진행률은 미사용 슬롯 분모에서 제외 → 실제 진행할 경기 대비 비율
+    const totalActive = totalGames - totalUnused
+    const completionPct = totalActive > 0 ? (totalComplete / totalActive * 100) : 0
 
     // 필터 + 역순 정렬
     const filteredDates = [...scheduleDates]
@@ -876,17 +890,24 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
               <span className="text-xs text-gray-400">기록 중</span>
               <span className="text-sm font-black text-amber-400 ml-1">{totalStarted}</span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5" title="아직 진행되지 않은 미래·오늘 슬롯">
               <Circle size={13} className="text-gray-600" />
               <span className="text-xs text-gray-400">미시작</span>
               <span className="text-sm font-black text-gray-400 ml-1">{totalPending}</span>
             </div>
-            <div className="ml-auto flex items-center gap-2">
-              <span className="text-xs text-gray-600">전체 {totalGames}경기</span>
-              <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${totalGames > 0 ? (totalComplete / totalGames * 100) : 0}%` }} />
+            {totalUnused > 0 && (
+              <div className="flex items-center gap-1.5" title="과거 날짜에 만들어졌으나 영상·기록이 없는 슬롯 (영상 9개 미만 진행된 날의 잔여)">
+                <span className="text-gray-700 text-base leading-none">○</span>
+                <span className="text-xs text-gray-500">미사용</span>
+                <span className="text-sm font-black text-gray-500 ml-1">{totalUnused}</span>
               </div>
-              <span className="text-xs font-bold text-green-400">{totalGames > 0 ? Math.round(totalComplete / totalGames * 100) : 0}%</span>
+            )}
+            <div className="ml-auto flex items-center gap-2">
+              <span className="text-xs text-gray-600">진행 대상 {totalActive}/{totalGames}경기</span>
+              <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${completionPct}%` }} />
+              </div>
+              <span className="text-xs font-bold text-green-400">{Math.round(completionPct)}%</span>
             </div>
           </div>
         )}
@@ -916,30 +937,56 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             const days = ['일', '월', '화', '수', '목', '금', '토']
             const stat = dateStats[sd.date]
             const allLinked = stat && stat.total > 0 && stat.yt === stat.total
-            const allDone   = stat && stat.total > 0 && stat.complete === stat.total
+            // 진행 대상 = 전체 - 미사용. 진행 대상이 모두 완료되면 그 날 완료로 처리
+            const activeTotal = stat ? stat.total - stat.unused : 0
+            const allDone = stat && activeTotal > 0 && stat.complete === activeTotal
             return (
               <button
                 key={sd.id}
                 onClick={() => selectDate(sd.date)}
-                className={`w-full text-left bg-gray-900 border rounded-xl px-5 py-4 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer ${allDone ? 'border-green-800/50 hover:border-green-600/60' : 'border-gray-800 hover:border-blue-500/50'}`}
+                className={`w-full text-left bg-gray-900 border rounded-xl px-4 py-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer ${allDone ? 'border-green-800/50 hover:border-green-600/60' : 'border-gray-800 hover:border-blue-500/50'}`}
               >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-white font-semibold text-base">
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* 날짜 */}
+                  <span className="text-white font-semibold text-base whitespace-nowrap">
                     {d.getFullYear()}년 {d.getMonth() + 1}월 {d.getDate()}일
-                    <span className="text-gray-400 ml-2 text-base">({days[d.getDay()]})</span>
+                    <span className="text-gray-400 ml-1.5 text-sm">({days[d.getDay()]})</span>
                   </span>
-                  <div className="flex items-center gap-3 shrink-0">
-                    {/* 완료 현황 */}
-                    {stat && stat.total > 0 && (
-                      <span className={`flex items-center gap-1 text-xs font-bold ${allDone ? 'text-green-400' : stat.complete > 0 ? 'text-amber-400' : 'text-gray-600'}`}>
-                        <CheckCircle2 size={11} />
-                        {stat.complete}/{stat.total}
-                        {stat.started > 0 && !allDone && (
-                          <span className="text-amber-500 ml-1">({stat.started}진행)</span>
-                        )}
-                      </span>
-                    )}
-                    {/* YouTube 연동 */}
+
+                  {/* 상태 배지들 — 날짜 바로 옆 */}
+                  {stat && stat.total > 0 && (
+                    <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md ${
+                      allDone ? 'bg-green-900/40 text-green-400 border border-green-700/40' :
+                      stat.complete > 0 ? 'bg-amber-900/30 text-amber-400 border border-amber-700/40' :
+                      'bg-gray-800 text-gray-500 border border-gray-700'
+                    }`}>
+                      <CheckCircle2 size={11} />
+                      {stat.complete}/{activeTotal}
+                      {allDone && <span className="ml-0.5">완료</span>}
+                    </span>
+                  )}
+
+                  {stat && stat.started > 0 && !allDone && (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md bg-amber-900/30 text-amber-300 border border-amber-700/40">
+                      <Play size={11} />
+                      {stat.started} 진행
+                    </span>
+                  )}
+
+                  {stat && stat.pending > 0 && (
+                    <span className="text-xs text-gray-500">
+                      미시작 {stat.pending}
+                    </span>
+                  )}
+
+                  {stat && stat.unused > 0 && (
+                    <span className="text-xs text-gray-600" title="영상이 없거나 진행 안 한 잔여 슬롯">
+                      미사용 {stat.unused}
+                    </span>
+                  )}
+
+                  {/* YouTube 연동 — 우측 끝 */}
+                  <div className="ml-auto flex items-center gap-3 shrink-0">
                     {stat && stat.total > 0 && stat.yt > 0 && (
                       <span className={`flex items-center gap-1 text-xs font-mono ${allLinked ? 'text-red-400' : 'text-gray-500'}`}>
                         <Youtube size={11} />
