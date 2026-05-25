@@ -25,11 +25,11 @@ export async function GET(
     supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
     supabase
       .from('league_games')
-      .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num, plus_one_player_id')
+      .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num, plus_one_player_id, is_exhibition')
       .eq('league_id', leagueId)
       .eq('is_started', true)   // 마감 여부와 무관하게 기록 시작된 게임 전체 포함
       .order('date', { ascending: false }),
-    supabase.from('league_teams').select('id, name').eq('league_id', leagueId),
+    supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
     supabase.from('leagues').select('name').eq('id', leagueId).single(),
     supabase
       .from('league_player_quarters')
@@ -51,6 +51,7 @@ export async function GET(
 
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
   const teamMap = Object.fromEntries((teams ?? []).map(t => [t.id, t.name]))
+  const teamFullMap = Object.fromEntries((teams ?? []).map(t => [t.id, { id: t.id, name: t.name, color: (t as { color?: string }).color ?? '#9ca3af' }]))
   const gameIds = (games ?? []).map(g => g.id)
   const gameMap = Object.fromEntries((games ?? []).map(g => [g.id, g]))
   const gamePlusOneMap: Record<string, string | null> = {}
@@ -520,5 +521,73 @@ export async function GET(
       fg_pct:  s.fga > 0 ? +(s.fgm / s.fga * 100).toFixed(1) : 0,
     }))
 
-  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss, player_stats, monthly_stats, unit })
+  // ── 상대팀별 스탯 (vs Opponents) ──────────────────────────────
+  // 본인 팀 제외, 친선전 제외. GP = 출전한 슬롯(쿼터/경기) 수.
+  type OppAgg = {
+    team_id: string; team_name: string; team_color: string
+    gp: number; pts: number; reb: number; oreb: number; dreb: number
+    ast: number; stl: number; blk: number; tov: number
+    fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
+    wins: number; losses: number
+  }
+  const oppMap: Record<string, OppAgg> = {}
+
+  for (const gId of Object.keys(perGame)) {
+    const g = gameMap[gId] as { home_team_id?: string; away_team_id?: string; home_score?: number; away_score?: number; is_exhibition?: boolean } | undefined
+    if (!g) continue
+    if (g.is_exhibition) continue  // 친선전 제외
+
+    const myTeamId = teamForGame(gameMap[gId])
+    if (!myTeamId) continue
+    const oppTeamId = g.home_team_id === myTeamId ? g.away_team_id : g.home_team_id
+    if (!oppTeamId) continue
+
+    const meta = teamFullMap[oppTeamId]
+    if (!meta) continue
+
+    if (!oppMap[oppTeamId]) {
+      oppMap[oppTeamId] = {
+        team_id: oppTeamId, team_name: meta.name, team_color: meta.color,
+        gp: 0, pts: 0, reb: 0, oreb: 0, dreb: 0,
+        ast: 0, stl: 0, blk: 0, tov: 0,
+        fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
+        wins: 0, losses: 0,
+      }
+    }
+    const o = oppMap[oppTeamId]
+    const s = perGame[gId]
+    o.gp++
+    o.pts += s.pts; o.reb += s.reb; o.oreb += s.oreb; o.dreb += s.dreb
+    o.ast += s.ast; o.stl += s.stl; o.blk += s.blk; o.tov += s.tov
+    o.fgm += s.fgm; o.fga += s.fga; o.fg3m += s.fg3m; o.fg3a += s.fg3a
+    o.ftm += s.ftm; o.fta += s.fta
+
+    // 슬롯 단위 승/패 (재미 요소)
+    const isHome = g.home_team_id === myTeamId
+    const myScore = isHome ? (g.home_score ?? 0) : (g.away_score ?? 0)
+    const oppScore = isHome ? (g.away_score ?? 0) : (g.home_score ?? 0)
+    if (myScore > oppScore) o.wins++
+    else if (myScore < oppScore) o.losses++
+  }
+
+  const vs_opponents = Object.values(oppMap)
+    .map(o => ({
+      team_id: o.team_id, team_name: o.team_name, team_color: o.team_color,
+      gp: o.gp,
+      pts: o.pts, reb: o.reb, oreb: o.oreb, dreb: o.dreb,
+      ast: o.ast, stl: o.stl, blk: o.blk, tov: o.tov,
+      fgm: o.fgm, fga: o.fga, fg3m: o.fg3m, fg3a: o.fg3a, ftm: o.ftm, fta: o.fta,
+      ppg: o.gp > 0 ? +(o.pts / o.gp).toFixed(1) : 0,
+      rpg: o.gp > 0 ? +(o.reb / o.gp).toFixed(1) : 0,
+      apg: o.gp > 0 ? +(o.ast / o.gp).toFixed(1) : 0,
+      spg: o.gp > 0 ? +(o.stl / o.gp).toFixed(1) : 0,
+      bpg: o.gp > 0 ? +(o.blk / o.gp).toFixed(1) : 0,
+      fg_pct:  o.fga  > 0 ? +(o.fgm  / o.fga  * 100).toFixed(1) : null,
+      fg3_pct: o.fg3a > 0 ? +(o.fg3m / o.fg3a * 100).toFixed(1) : null,
+      ft_pct:  o.fta  > 0 ? +(o.ftm  / o.fta  * 100).toFixed(1) : null,
+      wins: o.wins, losses: o.losses,
+    }))
+    .sort((a, b) => b.gp - a.gp)
+
+  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss, player_stats, monthly_stats, vs_opponents, unit })
 }

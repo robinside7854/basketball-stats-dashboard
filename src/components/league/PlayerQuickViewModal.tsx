@@ -42,6 +42,16 @@ type Detail = {
     month: string; label: string; gp: number
     ppg: number; rpg: number; apg: number; spg: number; bpg: number; fg_pct: number
   }>
+  vs_opponents?: Array<{
+    team_id: string; team_name: string; team_color: string
+    gp: number
+    pts: number; reb: number; oreb: number; dreb: number
+    ast: number; stl: number; blk: number; tov: number
+    fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
+    ppg: number; rpg: number; apg: number; spg: number; bpg: number
+    fg_pct: number | null; fg3_pct: number | null; ft_pct: number | null
+    wins: number; losses: number
+  }>
 }
 
 const MONTH_STATS = [
@@ -50,6 +60,20 @@ const MONTH_STATS = [
   {key:'bpg',label:'블록'},{key:'fg_pct',label:'FG%'},
 ] as const
 type MonthStatKey = typeof MONTH_STATS[number]['key']
+
+function Cell({ label, value, highlight = false, mono = false }: {
+  label: string; value: string | number
+  highlight?: boolean; mono?: boolean
+}) {
+  return (
+    <div className="bg-gray-800/50 rounded-md px-1.5 py-1 text-center">
+      <div className="text-[9px] text-gray-500 font-bold uppercase">{label}</div>
+      <div className={`text-sm tabular-nums leading-tight ${highlight ? 'text-white font-black' : mono ? 'text-gray-300 font-bold' : 'text-gray-200 font-bold'}`}>
+        {value}
+      </div>
+    </div>
+  )
+}
 
 function MonthlyStatsChart({ data }: { data: NonNullable<Detail['monthly_stats']> }) {
   const [monthStat, setMonthStat] = useState<MonthStatKey>('ppg')
@@ -682,6 +706,54 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         <p className="text-[10px] text-gray-400 mt-1.5 font-medium">{ch.date}</p>
                       )}
                       {ch.extra && <p className="text-[10px] text-gray-500 mt-0.5">{ch.extra}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 상대팀별 스탯 (vs Opponents) */}
+            {detail?.vs_opponents && detail.vs_opponents.length > 0 && (
+              <div className="px-5 py-4 border-b border-gray-800/60">
+                <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">
+                  상대팀별 스탯
+                  <span className="text-[10px] text-gray-600 ml-2 font-normal">친선전 제외 · GP는 출전 슬롯(쿼터) 수</span>
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {detail.vs_opponents.map(o => (
+                    <div key={o.team_id} className="bg-gray-900/60 border border-gray-800/50 rounded-xl px-4 py-3"
+                         style={{ borderLeft: `3px solid ${o.team_color}` }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: o.team_color }} />
+                          <span className="font-bold text-white text-sm whitespace-nowrap">vs {o.team_name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[10px] text-gray-500 tabular-nums">{o.gp} GP</span>
+                          <span className="text-[10px] tabular-nums">
+                            <span className="text-green-400 font-bold">{o.wins}W</span>
+                            <span className="text-gray-600">·</span>
+                            <span className="text-red-400 font-bold">{o.losses}L</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 주요 지표 6개 */}
+                      <div className="grid grid-cols-3 gap-1.5 mb-2">
+                        <Cell label="PPG" value={o.ppg} highlight />
+                        <Cell label="RPG" value={o.rpg} />
+                        <Cell label="APG" value={o.apg} />
+                        <Cell label="STL" value={o.spg} mono />
+                        <Cell label="BLK" value={o.bpg} mono />
+                        <Cell label="FG%" value={o.fg_pct != null ? `${o.fg_pct}%` : '—'} mono />
+                      </div>
+
+                      {/* 누적 보조 */}
+                      <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-gray-800/40 text-[10px] text-gray-500">
+                        <div className="text-center">총 {o.pts} pts</div>
+                        <div className="text-center">FG <span className="text-gray-300">{o.fgm}/{o.fga}</span></div>
+                        <div className="text-center">3P <span className="text-gray-300">{o.fg3m}/{o.fg3a}</span></div>
+                      </div>
                     </div>
                   ))}
                 </div>
