@@ -50,10 +50,10 @@ export default function LeagueStandings({ standings }: Props) {
                     {idx + 1}
                   </span>
                 </td>
-                <td className="py-3 px-3">
+                <td className="py-3 px-3 min-w-[4.5rem]">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.team.color }} />
-                    <span className={`font-medium ${isFirst ? 'text-white' : 'text-gray-300'}`}>{s.team.name}</span>
+                    <span className={`font-medium whitespace-nowrap ${isFirst ? 'text-white' : 'text-gray-300'}`}>{s.team.name}</span>
                   </div>
                   <div className="w-full bg-gray-800 rounded-full h-1 mt-1">
                     <div
