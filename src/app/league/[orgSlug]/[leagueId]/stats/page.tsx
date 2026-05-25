@@ -1,11 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { Loader2, Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import PlayerCompareModal from '@/components/league/PlayerCompareModal'
 import LeagueDuoPanel from '@/components/league/LeagueDuoPanel'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
 import type { Quarter, PlayerStat } from '@/types/league'
 
 const CHART_STATS = [
@@ -32,20 +32,31 @@ function TopScorersChart({ players, statKey, statLabel, statUnit, color }: {
     .slice(0, 5)
   const barColor = color ?? '#3b82f6'
   const isPct = statUnit === '%'
+  // 이름 길이에 따라 YAxis 폭 조정 (이름 잘림 방지)
+  const maxNameLen = top5.reduce((m, p) => Math.max(m, p.name.length), 0)
+  const yAxisWidth = Math.max(56, Math.min(120, maxNameLen * 14 + 8))
   return (
     <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4">
       <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">{statLabel} TOP 5</p>
-      <ResponsiveContainer width="100%" height={160}>
-        <BarChart data={top5} layout="vertical" margin={{ left: 8, right: 24, top: 0, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={180}>
+        <BarChart data={top5} layout="vertical" margin={{ left: 0, right: 48, top: 4, bottom: 0 }}>
           <XAxis type="number" domain={[0,'auto']} tick={{fill:'#6b7280',fontSize:10}} axisLine={false} tickLine={false} />
-          <YAxis type="category" dataKey="name" tick={{fill:'#d1d5db',fontSize:11,fontWeight:600}} axisLine={false} tickLine={false} width={48} />
+          <YAxis type="category" dataKey="name" tick={{fill:'#d1d5db',fontSize:11,fontWeight:600}} axisLine={false} tickLine={false} width={yAxisWidth} interval={0} />
           <Tooltip
+            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
             contentStyle={{background:'#1f2937',border:'1px solid #374151',borderRadius:8,fontSize:12}}
             formatter={(v) => [`${Number(v).toFixed(1)}${isPct ? '%' : ''} ${statUnit}`]}
             labelStyle={{color:'#f9fafb',fontWeight:600}}
+            itemStyle={{color:'#f9fafb'}}
           />
           <Bar dataKey={statKey} radius={[0,4,4,0]}>
             {top5.map((_,i) => <Cell key={i} fill={i===0?'#f59e0b':i===1?'#9ca3af':i===2?'#b45309': barColor} fillOpacity={i<3?1:0.7} />)}
+            <LabelList
+              dataKey={statKey}
+              position="right"
+              formatter={(v: unknown) => `${Number(v).toFixed(1)}${isPct ? '%' : ''}`}
+              style={{ fill: '#f9fafb', fontSize: 12, fontWeight: 700 }}
+            />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -136,15 +147,21 @@ export default function LeagueStatsPage() {
     else { setSortKey(key); setSortDir('desc') }
   }
 
+  // 자동 임계값: 가장 많이 뛴 선수의 GP 기준 2/3 (리그 활동량 G의 2/3 근사)
+  // 리더보드/차트의 최소 출전 기준 — 사용자 수동 입력보다 큰 값이 적용됨
+  const maxPlayerGP = useMemo(() => players.reduce((m, p) => Math.max(m, p.gp), 0), [players])
+  const autoMinGP = Math.max(1, Math.ceil(maxPlayerGP * 2 / 3))
+  const effectiveMinGP = Math.max(minGP, autoMinGP)
+
   const filtered = players
-    .filter(p => p.gp >= minGP)
+    .filter(p => p.gp >= effectiveMinGP)
     .sort((a, b) => {
       const diff = (a[sortKey] as number) - (b[sortKey] as number)
       return sortDir === 'desc' ? -diff : diff
     })
 
   const top3 = (key: SortKey) =>
-    [...players].filter(p => p.gp >= minGP).sort((a, b) => (b[key] as number) - (a[key] as number)).slice(0, 3)
+    [...players].filter(p => p.gp >= effectiveMinGP).sort((a, b) => (b[key] as number) - (a[key] as number)).slice(0, 3)
 
   // 평균 컬럼 (×5 환산 포함)
   const MULT = (projection && viewMode === 'avg') ? 5 : 1
@@ -287,7 +304,7 @@ export default function LeagueStatsPage() {
               const cur = CHART_STATS.find(s => s.key === selectedChartStat)!
               return (
                 <TopScorersChart
-                  players={players.filter(p => p.gp >= minGP)}
+                  players={players.filter(p => p.gp >= effectiveMinGP)}
                   statKey={cur.key}
                   statLabel={cur.label}
                   statUnit={cur.unit}
@@ -297,7 +314,7 @@ export default function LeagueStatsPage() {
             {selectedQuarterId !== 'all' && (() => {
               // FG% TOP 8 — minGP / 최소 5개 시도
               const fgData = [...players]
-                .filter(p => p.gp >= minGP && p.fga >= 5)
+                .filter(p => p.gp >= effectiveMinGP && p.fga >= 5)
                 .sort((a, b) => b.fg_pct - a.fg_pct)
                 .slice(0, 8)
                 .map(p => ({ name: p.name, fg_pct: p.fg_pct }))
@@ -365,8 +382,8 @@ export default function LeagueStatsPage() {
             ] as { key: SortKey; label: string; unit: string; pct: boolean }[]).map(({ key, label, unit, pct }) => {
               // % 지표는 fga/fg3a > 0인 선수만 집계
               const pool = pct
-                ? players.filter(p => p.gp >= minGP && (key === 'fg3_pct' ? p.fg3a > 0 : p.fga > 0))
-                : players.filter(p => p.gp >= minGP)
+                ? players.filter(p => p.gp >= effectiveMinGP && (key === 'fg3_pct' ? p.fg3a > 0 : p.fga > 0))
+                : players.filter(p => p.gp >= effectiveMinGP)
               const leaders = [...pool].sort((a, b) => (b[key] as number) - (a[key] as number)).slice(0, 3)
               const top = leaders[0]
               if (!top) return null
@@ -452,12 +469,15 @@ export default function LeagueStatsPage() {
                     ×5 환산
                   </button>
                 )}
-                <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0">
+                <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0" title={`자동 임계값 ${autoMinGP}경기 (리그 최다 출전 ${maxPlayerGP}경기의 2/3)`}>
                   <span>최소</span>
-                  <input type="number" min={1} max={20} value={minGP}
+                  <input type="number" min={1} max={200} value={minGP}
                     onChange={e => setMinGP(Number(e.target.value))}
-                    className="w-12 bg-gray-800 border border-gray-700 text-white rounded px-1.5 py-2 text-center text-xs min-h-[40px]" />
+                    className="w-14 bg-gray-800 border border-gray-700 text-white rounded px-1.5 py-2 text-center text-xs min-h-[40px]" />
                   <span>경기</span>
+                  {effectiveMinGP > minGP && (
+                    <span className="text-[10px] text-amber-400 font-bold ml-1">→ {effectiveMinGP} 적용 (G·2/3)</span>
+                  )}
                 </div>
               </div>
             </div>
