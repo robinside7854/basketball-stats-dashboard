@@ -73,6 +73,7 @@ interface Props {
   leagueId: string
   leagueHeaders: Record<string, string>
   allPlayers: RosterPlayer[]
+  onCourtIds?: string[]   // 현재 코트에 있는 선수 ID — 수정 드롭다운 필터용
   isEditMode: boolean
   onClose: () => void
   onChanged: () => void
@@ -80,7 +81,7 @@ interface Props {
   awayTeam?: { id: string; name: string; color: string }
 }
 
-export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlayers, isEditMode, onClose, onChanged, homeTeam, awayTeam }: Props) {
+export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlayers, onCourtIds, isEditMode, onClose, onChanged, homeTeam, awayTeam }: Props) {
   const [events, setEvents] = useState<EventRow[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -99,6 +100,18 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
 
   const ytPlayer = useGameStore(s => s.ytPlayer)
   const playerMap = Object.fromEntries(allPlayers.map(p => [p.id, p]))
+
+  // 수정 드롭다운: 코트 선수만. 단, 현재 선택된 선수(코트에 없을 수도 있음)는 무조건 포함해서 선택 유지.
+  function editPlayerOptions(currentId: string | undefined | null): RosterPlayer[] {
+    if (!onCourtIds || onCourtIds.length === 0) return allPlayers
+    const courtSet = new Set(onCourtIds)
+    const onCourt = allPlayers.filter(p => courtSet.has(p.id))
+    if (currentId && !courtSet.has(currentId)) {
+      const cur = allPlayers.find(p => p.id === currentId)
+      if (cur) return [cur, ...onCourt]
+    }
+    return onCourt
+  }
 
   function seekToTimestamp(sec: number | null) {
     if (sec == null || !ytPlayer) return
@@ -339,7 +352,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                       <select value={editForm.playerId} onChange={ev => setEditForm(f => ({ ...f, playerId: ev.target.value }))}
                         className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
                         <option value="">없음</option>
-                        {allPlayers.map(p => <option key={p.id} value={p.id}>{p.number != null ? `#${p.number} ` : ''}{p.name}</option>)}
+                        {editPlayerOptions(editForm.playerId).map(p => <option key={p.id} value={p.id}>{p.number != null ? `#${p.number} ` : ''}{p.name}</option>)}
                       </select>
                     </div>
                     <div>
@@ -379,7 +392,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                       <select value={editForm.relatedId} onChange={ev => setEditForm(f => ({ ...f, relatedId: ev.target.value }))}
                         className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
                         <option value="">없음</option>
-                        {allPlayers.filter(p => p.id !== editForm.playerId).map(p => (
+                        {editPlayerOptions(editForm.relatedId).filter(p => p.id !== editForm.playerId).map(p => (
                           <option key={p.id} value={p.id}>{p.number != null ? `#${p.number} ` : ''}{p.name}</option>
                         ))}
                       </select>

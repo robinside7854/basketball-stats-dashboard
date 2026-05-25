@@ -1799,6 +1799,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           leagueId={leagueId}
           leagueHeaders={leagueHeaders}
           allPlayers={[...homeRoster, ...awayRoster, ...allPlayers.filter(p => !homeRoster.some(r => r.id === p.id) && !awayRoster.some(r => r.id === p.id))]}
+          onCourtIds={onCourt}
           isEditMode={true}
           onClose={() => setShowGameLog(false)}
           onChanged={() => {
