@@ -150,9 +150,11 @@ export default function LeagueSubstitutionPanel({
 
   // ── 드래그 이벤트 핸들러 ──────────────────────────────────────
   function startDrag(e: React.DragEvent, id: string) {
-    setDraggingId(id)
+    // 드래그 데이터부터 즉시 세팅 (브라우저 native drag 초기화 우선)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', id)
+    // 상태 업데이트는 다음 프레임으로 미뤄서 드래그 이미지 캡처에 간섭하지 않게 함
+    requestAnimationFrame(() => setDraggingId(id))
   }
   function endDrag() { setDraggingId(null); setDragOverKey(null) }
   function overEl(e: React.DragEvent, key: string) {
@@ -216,19 +218,22 @@ export default function LeagueSubstitutionPanel({
         onDragOver={e => overEl(e, `chip:${p.id}`)}
         onDragLeave={leaveEl}
         onDrop={e => onDropOnChip(e, p.id)}
-        className={`px-2.5 py-1 rounded-lg text-xs font-medium border whitespace-nowrap transition-all
+        className={`px-2.5 py-1 rounded-lg text-xs font-medium border whitespace-nowrap transition-[opacity,box-shadow,border-color,background-color] duration-150 select-none
           ${busy ? 'cursor-wait' : 'cursor-grab active:cursor-grabbing'}
-          ${isDragging ? 'opacity-40 scale-95' : ''}
-          ${isDragOver ? 'ring-2 ring-blue-300 scale-105 z-10 relative' : ''}
+          ${isDragging ? 'opacity-40' : ''}
+          ${isDragOver ? 'ring-2 ring-blue-300 z-10 relative' : ''}
         `}
         style={{
           backgroundColor: `${color}33`,
           borderColor: `${color}88`,
           color: 'white',
+          touchAction: 'none',
+          WebkitUserSelect: 'none',
+          userSelect: 'none',
         }}
       >
-        {p.number != null && <span className="font-mono mr-1 text-[10px] opacity-70">#{p.number}</span>}
-        {p.name}
+        {p.number != null && <span className="font-mono mr-1 text-[10px] opacity-70" style={{ pointerEvents: 'none' }}>#{p.number}</span>}
+        <span style={{ pointerEvents: 'none' }}>{p.name}</span>
       </div>
     )
   }
@@ -300,7 +305,7 @@ export default function LeagueSubstitutionPanel({
   }
 
   return (
-    <div className="space-y-3 select-none">
+    <div className="space-y-3">
       <p className="text-[11px] text-gray-500">
         드래그로 자유롭게 이동 — 코트로 보내면 그 팀 소속으로 출전 처리됩니다.
         선수끼리 드래그하면 자리를 교환하고, 빈 영역에 드롭하면 그쪽으로 이동합니다.
