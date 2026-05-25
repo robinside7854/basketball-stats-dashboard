@@ -519,15 +519,25 @@ export default function LeagueTeamsPage() {
   const teamMap = useMemo(() => Object.fromEntries(teams.map(t => [t.id, t])), [teams])
   const leaderMap = useMemo(() => Object.fromEntries(leaders.map(l => [l.team_id, l.leader_player_id])), [leaders])
 
+  // 정규 멤버십 (분기 등록된 정규 선수만)
   const regularTeamMap = useMemo(() => {
     const m: Record<string, string> = {}
     for (const p of qPlayers) { if (p.is_regular && p.team_id) m[p.id] = p.team_id }
     return m
   }, [qPlayers])
 
+  // 팀 스탯 그룹핑용 — 정규/비정규 가리지 않고 team_id가 있는 모든 선수
+  // (API에서 분기 정규 멤버십 → 게임별 출전 가장 많은 팀 순으로 이미 해석되어 옴)
+  const playerTeamMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const p of qPlayers) { if (p.team_id) m[p.id] = p.team_id }
+    return m
+  }, [qPlayers])
+
+  // 비정규 선수 ID — 분기에 등록은 됐지만 정규가 아닌 선수
   const irregularIds = useMemo(() => {
     const reg = new Set(Object.keys(regularTeamMap))
-    return new Set(qPlayers.filter(p => !p.is_regular).map(p => p.id).filter(id => !reg.has(id)))
+    return new Set(qPlayers.filter(p => p.is_regular === false).map(p => p.id).filter(id => !reg.has(id)))
   }, [qPlayers, regularTeamMap])
 
   const standings = useMemo(() => {
@@ -568,13 +578,17 @@ export default function LeagueTeamsPage() {
     const m: Record<string, PlayerStat[]> = {}
     for (const t of teams) m[t.id] = []
     for (const s of allStats) {
-      const tid = regularTeamMap[s.player_id]
+      // 정규 + 비정규 게임 출전 포함 (playerTeamMap)
+      const tid = playerTeamMap[s.player_id]
       if (tid && m[tid]) m[tid].push(s)
     }
     return m
-  }, [allStats, teams, regularTeamMap])
+  }, [allStats, teams, playerTeamMap])
 
-  const irregularStats = useMemo(() => allStats.filter(s => irregularIds.has(s.player_id)), [allStats, irregularIds])
+  // 비정규 섹션 — 어디에도 팀 매핑이 안 된 선수만 (모든 팀에 속한 선수는 위 teamStats에서 처리됨)
+  const irregularStats = useMemo(() => {
+    return allStats.filter(s => !playerTeamMap[s.player_id] && irregularIds.has(s.player_id))
+  }, [allStats, playerTeamMap, irregularIds])
 
   const rosterHref = `/league/${orgSlug}/${leagueId}/roster`
 
