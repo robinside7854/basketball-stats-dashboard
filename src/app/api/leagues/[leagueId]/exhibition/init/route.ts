@@ -61,18 +61,45 @@ export async function POST(
     await supabase.from('league_schedule_dates').insert({ league_id: leagueId, date })
   }
 
-  // 3) 이미 해당 날짜에 슬롯이 있으면 중복 생성 방지
+  // 3) 이미 해당 날짜에 슬롯이 있는 경우 처리
+  //    - 모두 빈 슬롯(is_started=false, is_complete=false, 이벤트 0개)이면 자동 삭제 후 재구성
+  //    - 기록·시작된 슬롯이 하나라도 있으면 차단
   const { data: existing } = await supabase
     .from('league_games')
-    .select('id, slot_num, is_exhibition')
+    .select('id, slot_num, is_exhibition, is_started, is_complete')
     .eq('league_id', leagueId)
     .eq('date', date)
 
-  if ((existing ?? []).length > 0) {
-    return NextResponse.json({
-      error: '이 날짜에 이미 경기가 등록되어 있습니다. 먼저 삭제 후 다시 시도하세요.',
-      existing,
-    }, { status: 400 })
+  const existingRows = existing ?? []
+  if (existingRows.length > 0) {
+    const existingIds = existingRows.map(g => g.id)
+    const allEmpty = existingRows.every(g => !g.is_started && !g.is_complete)
+
+    // 빈 슬롯이라도 이벤트가 남아있는지 확인 (안전 가드)
+    let eventCount = 0
+    if (allEmpty && existingIds.length > 0) {
+      const { count } = await supabase
+        .from('league_game_events')
+        .select('id', { count: 'exact', head: true })
+        .in('league_game_id', existingIds)
+      eventCount = count ?? 0
+    }
+
+    if (!allEmpty || eventCount > 0) {
+      return NextResponse.json({
+        error: '이 날짜에 이미 기록된 경기가 있습니다. 개별 경기는 record 페이지의 친선전 토글을 사용하세요.',
+        existing: existingRows,
+      }, { status: 400 })
+    }
+
+    // 자동 삭제 — 완전히 빈 슬롯만
+    const { error: delErr } = await supabase
+      .from('league_games')
+      .delete()
+      .in('id', existingIds)
+    if (delErr) {
+      return NextResponse.json({ error: `기존 빈 슬롯 정리 실패: ${delErr.message}` }, { status: 500 })
+    }
   }
 
   // 4) 8개 슬롯 생성

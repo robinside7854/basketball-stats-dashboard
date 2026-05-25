@@ -101,7 +101,9 @@ export default function LeagueSchedulePage() {
       `${newDate} 친선 4쿼터·2경기를 등록하시겠습니까?\n\n` +
       `· 미라클 vs 모닝 2팀 (없으면 자동 생성)\n` +
       `· 8개 슬롯 (1·2차전 × 4쿼터)\n` +
-      `· 리그 순위에서 제외 / 개인 스탯에는 반영`
+      `· 리그 순위에서 제외 / 개인 스탯에는 반영\n\n` +
+      `※ 이 날짜에 빈 정규 슬롯이 있으면 자동 삭제 후 재구성됩니다.\n` +
+      `※ 이미 기록·시작된 경기가 있으면 차단됩니다 — record 페이지의 개별 친선 토글을 사용하세요.`
     )) return
     setAdding(true)
     const res = await fetch(`/api/leagues/${leagueId}/exhibition/init`, {
