@@ -397,6 +397,24 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     } else toast.error('팀 저장 실패')
   }
 
+  // 선택된 슬롯의 YouTube URL 제거 (잘못 매핑된 영상 수동 정리용)
+  async function clearYoutubeUrl() {
+    if (!selectedSlotId || !selectedSlot) return
+    if (!selectedSlot.youtube_url) return
+    if (!confirm('이 슬롯의 YouTube 영상 링크를 제거하시겠습니까?\n\n· 잘못 매핑된 영상을 정리할 때 사용\n· 이후 \"전체 날짜 YouTube 연동\" 버튼으로 재매핑 가능')) return
+    const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
+      method: 'PATCH',
+      headers: leagueHeaders,
+      body: JSON.stringify({ youtube_url: null, youtube_start_offset: 0 }),
+    })
+    if (res.ok) {
+      toast.success('YouTube 영상 링크 제거됨')
+      await refreshSlots()
+    } else {
+      toast.error('제거 실패')
+    }
+  }
+
   // 개별 경기 친선 토글 (리그 순위 제외 ↔ 정규전 복귀)
   async function toggleExhibition() {
     if (!selectedSlotId || !selectedSlot) return
@@ -1126,6 +1144,15 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
               >
                 {selectedSlot.is_exhibition ? '친선전 해제' : '친선전으로 표시'}
               </button>
+              {selectedSlot.youtube_url && (
+                <button
+                  onClick={clearYoutubeUrl}
+                  title="잘못 매핑된 YouTube 영상 링크 제거"
+                  className="shrink-0 text-[11px] font-bold px-2.5 py-1.5 rounded-md border bg-gray-800 border-gray-700 text-gray-400 hover:text-red-300 hover:border-red-700/50 transition-colors cursor-pointer"
+                >
+                  영상 링크 제거
+                </button>
+              )}
             </div>
           </div>
 

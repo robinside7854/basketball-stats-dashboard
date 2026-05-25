@@ -109,11 +109,22 @@ export async function POST(
     const videoId: string = item.id?.videoId ?? ''
     if (!videoId) continue
 
-    const allNums = title.match(/\d+/g) ?? []
-    const candidates = allNums.filter(n => n.length <= 2).map(Number).filter(n => n >= 1 && n <= 9)
-    if (candidates.length === 0) continue
+    // 1순위: "경기 N" 패턴 명시적 매칭 — 제목 설명(2분, 5점 등)과 헷갈리지 않음
+    let gameNum: number | null = null
+    const explicit = title.match(/경기\s*(\d+)/)
+    if (explicit) {
+      const n = parseInt(explicit[1], 10)
+      if (n >= 1 && n <= 9) gameNum = n
+    }
 
-    const gameNum = candidates[candidates.length - 1]
+    // 2순위: 폴백 — 1-2자리 숫자 중 '첫 번째' 후보 사용 (이전 버전은 마지막을 써서 '2분' 같은 설명 숫자를 잘못 잡았음)
+    if (gameNum == null) {
+      const allNums = title.match(/\d+/g) ?? []
+      const candidates = allNums.filter(n => n.length <= 2).map(Number).filter(n => n >= 1 && n <= 9)
+      if (candidates.length > 0) gameNum = candidates[0]
+    }
+
+    if (gameNum == null) continue
 
     // 중복 gameNum이면 건너뜀 (첫 번째 영상이 가장 관련성 높음)
     if (seenGameNums.has(gameNum)) continue
