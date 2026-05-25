@@ -20,6 +20,7 @@ import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 type ScheduleDate = { id: string; date: string }
 type GameSlot = {
   id: string; slot_num: number; date: string; is_complete: boolean; is_started: boolean
+  is_exhibition?: boolean
   home_score: number; away_score: number
   youtube_url?: string | null; youtube_start_offset?: number
   home_team_id?: string | null; away_team_id?: string | null
@@ -384,6 +385,28 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       const updated = slots.find(s => s.id === selectedSlotId)
       if (updated) await loadRoster({ ...updated, home_team_id: pendingHome, away_team_id: pendingAway })
     } else toast.error('팀 저장 실패')
+  }
+
+  // 개별 경기 친선 토글 (리그 순위 제외 ↔ 정규전 복귀)
+  async function toggleExhibition() {
+    if (!selectedSlotId || !selectedSlot) return
+    const current = !!selectedSlot.is_exhibition
+    const next = !current
+    const msg = next
+      ? '이 경기를 친선전으로 표시하시겠습니까?\n\n· 리그 순위(승·패) 집계에서 제외됨\n· 개인 스탯에는 그대로 반영됨'
+      : '이 경기를 정규전으로 되돌리시겠습니까?\n\n· 리그 순위 집계에 다시 포함됨'
+    if (!confirm(msg)) return
+    const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
+      method: 'PATCH',
+      headers: leagueHeaders,
+      body: JSON.stringify({ is_exhibition: next }),
+    })
+    if (res.ok) {
+      toast.success(next ? '친선전으로 변경됨' : '정규전으로 복귀')
+      await refreshSlots()
+    } else {
+      toast.error('변경 실패')
+    }
   }
 
   async function syncYoutube() {
@@ -1018,8 +1041,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         <div className="border-t border-gray-800 pt-4">
           {/* 팀 설정 (항상 상단 compact) */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 mb-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-gray-500 shrink-0">경기 {selectedSlot.slot_num}</span>
+              {selectedSlot.is_exhibition && (
+                <span className="text-[10px] font-bold text-amber-300 px-1.5 py-0.5 rounded bg-amber-900/30 border border-amber-700/40 shrink-0">친선</span>
+              )}
               <select
                 value={pendingHome}
                 onChange={e => setPendingHome(e.target.value)}
@@ -1044,6 +1070,17 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                   {savingTeam ? <Loader2 size={11} className="animate-spin" /> : '저장'}
                 </Button>
               )}
+              <button
+                onClick={toggleExhibition}
+                title={selectedSlot.is_exhibition ? '정규전으로 되돌리기' : '친선전으로 표시 (리그 순위 제외)'}
+                className={`shrink-0 text-[11px] font-bold px-2.5 py-1.5 rounded-md border transition-colors cursor-pointer ${
+                  selectedSlot.is_exhibition
+                    ? 'bg-amber-900/40 border-amber-600/50 text-amber-300 hover:bg-amber-900/60'
+                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-amber-300 hover:border-amber-700/50'
+                }`}
+              >
+                {selectedSlot.is_exhibition ? '친선전 해제' : '친선전으로 표시'}
+              </button>
             </div>
           </div>
 
