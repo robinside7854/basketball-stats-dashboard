@@ -524,11 +524,14 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               <div className="px-5 py-6 text-center text-sm text-gray-600 border-b border-gray-800/60">아직 기록된 스탯이 없습니다</div>
             )}
 
-            {/* 배지 — 2-3열 그리드 */}
+            {/* 배지 — 2-3열 그리드 (항상 전체 시즌 기준) */}
             {earnedBadgesSorted.length > 0 && (
               <div className="px-5 py-4 border-b border-gray-800/60">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs text-gray-600 uppercase tracking-widest font-bold">보유 배지 {earnedBadgesSorted.length}개</p>
+                <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs text-gray-600 uppercase tracking-widest font-bold">보유 배지 {earnedBadgesSorted.length}개</p>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-900/40 border border-indigo-700/50 text-indigo-300">전체 시즌 기준</span>
+                  </div>
                   <button onClick={() => setShowBadgeBook(true)} className="text-[10px] text-indigo-400 hover:text-indigo-300 cursor-pointer">전체 도감 →</button>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

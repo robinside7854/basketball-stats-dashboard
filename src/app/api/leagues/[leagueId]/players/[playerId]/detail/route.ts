@@ -417,12 +417,85 @@ export async function GET(
     win_rate_rank,
   }
 
-  // 배지 계산
-  const playerEntry = allMap[playerId]
-  const playerMetrics: PlayerMetrics = playerEntry
-    ? toMetrics(playerId, playerEntry)
+  // ── 배지: 분기 필터와 무관하게 항상 시즌 전체 기준 ───────────
+  let badgeMap: Record<string, AS> = allMap
+  let badgeGp: Record<string, Set<string>> = allGp
+  if (quarterId) {
+    // 분기 필터가 적용된 상태 → allMap은 부분 집합. 시즌 전체를 별도 페치/집계.
+    const seasonGameIds = (allGames ?? []).map(g => g.id)
+    if (seasonGameIds.length > 0) {
+      const seasonEvents: AllEventRow[] = []
+      const PAGE = 1000
+      let pg = 0
+      while (true) {
+        const { data: chunk } = await supabase
+          .from('league_game_events')
+          .select('league_player_id, league_game_id, related_player_id, type, result, points, team_id')
+          .in('league_game_id', seasonGameIds)
+          .not('league_player_id', 'is', null)
+          .range(pg * PAGE, (pg + 1) * PAGE - 1)
+        if (chunk && chunk.length > 0) seasonEvents.push(...(chunk as AllEventRow[]))
+        if (!chunk || chunk.length < PAGE) break
+        pg++
+      }
+      const seasonGameMap: Record<string, { date?: string }> = Object.fromEntries(
+        (allGames ?? []).map(g => [g.id as string, g as { date?: string }])
+      )
+      badgeMap = {}
+      badgeGp = {}
+      for (const e of seasonEvents) {
+        const pid = e.league_player_id as string
+        const made = e.result === 'made'
+        const gId = e.league_game_id as string
+        const gamePlusOne = gamePlusOneMap[gId]
+        const isP1 = gamePlusOne !== null ? pid === gamePlusOne : plusOneSet.has(pid)
+        if (!badgeMap[pid]) badgeMap[pid] = emptyAS()
+        if (e.type !== 'sub_in' && e.type !== 'sub_out') {
+          if (!badgeGp[pid]) badgeGp[pid] = new Set()
+          badgeGp[pid].add(unit === 'round' ? (seasonGameMap[gId]?.date ?? gId) : gId)
+        }
+        const s = badgeMap[pid]
+        if (made) {
+          if (e.type === 'shot_3p') { s.pts += isP1 ? 4 : 3; s.fg3m++; s.fgm++ }
+          else if (['shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'].includes(e.type)) { s.pts += isP1 ? 3 : 2; s.fgm++ }
+          else if (e.type === 'ft_2pt') { s.pts += 2; s.ftm++ }
+          else if (e.type === 'ft_3pt_1') { s.pts += 2; s.ftm++ }
+          else if (['free_throw', 'ft_3pt_2'].includes(e.type)) { s.pts += 1; s.ftm++ }
+          else if (e.type === 'and_one') { s.pts += 1; s.andOneM++ }
+        }
+        if (e.type === 'shot_3p') { s.fg3a++; s.fga++ }
+        else if (e.type === 'shot_2p_mid')   { s.fga++; s.midA++ }
+        else if (e.type === 'shot_layup')    { s.fga++; s.slashA++ }
+        else if (e.type === 'shot_2p_drive') { s.fga++; s.slashA++ }
+        else if (e.type === 'shot_post')     { s.fga++; s.postA++ }
+        else if (['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type)) s.fta++
+        else if (e.type === 'oreb') { s.oreb++; s.reb++ }
+        else if (e.type === 'dreb') { s.dreb++; s.reb++ }
+        else if (e.type === 'steal') s.stl++
+        else if (e.type === 'block') s.blk++
+        else if (e.type === 'turnover') s.tov++
+        else if (e.type === 'foul') s.pf++
+        if (e.related_player_id && made && (SHOT_TYPES as readonly string[]).includes(e.type)) {
+          const ap = e.related_player_id as string
+          if (!badgeMap[ap]) badgeMap[ap] = emptyAS()
+          if (!badgeGp[ap]) badgeGp[ap] = new Set()
+          badgeGp[ap].add(unit === 'round' ? (seasonGameMap[gId]?.date ?? gId) : gId)
+          badgeMap[ap].ast++
+        }
+      }
+      for (const pid of Object.keys(badgeMap)) badgeMap[pid].gp = badgeGp[pid]?.size ?? 0
+    }
+  }
+
+  const badgeMetricsList = Object.entries(badgeMap)
+    .filter(([, s]) => s.gp > 0)
+    .map(([pid, s]) => ({ pid, ...toMetrics(pid, s) }))
+
+  const badgePlayerEntry = badgeMap[playerId]
+  const playerMetrics: PlayerMetrics = badgePlayerEntry
+    ? toMetrics(playerId, badgePlayerEntry)
     : { gp: 0, ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0, topg: 0, drebPerG: 0, orebPerG: 0, pfPerG: 0, fg3_pct: 0, fg3aPerG: 0, efg_pct: 0, fgaPerG: 0, ft_pct: 0, ftaPerG: 0, atoRatio: 0, defComposite: 0, hustleComposite: 0, stlTotal: 0, midPerG: 0, slashPerG: 0, postPerG: 0, andOnePerG: 0, threeDistPct: 0, midDistPct: 0, slashDistPct: 0 }
-  const badges = computeBadges(playerMetrics, allMetricsList)
+  const badges = computeBadges(playerMetrics, badgeMetricsList)
 
   // ── Win/Loss impact ──────────────────────────────────────────
   type WLS = { pts: number; reb: number; ast: number; stl: number; blk: number; gp: number }
@@ -589,5 +662,10 @@ export async function GET(
     }))
     .sort((a, b) => b.gp - a.gp)
 
-  return NextResponse.json({ rankings, career_high: careerHigh, shot_breakdown: shotBreakdown, recent_games: recentGames, badges, win_loss: winLoss, player_stats, monthly_stats, vs_opponents, unit })
+  return NextResponse.json({
+    rankings, career_high: careerHigh, shot_breakdown: shotBreakdown,
+    recent_games: recentGames,
+    badges, badges_scope: 'season' as const,
+    win_loss: winLoss, player_stats, monthly_stats, vs_opponents, unit,
+  })
 }
