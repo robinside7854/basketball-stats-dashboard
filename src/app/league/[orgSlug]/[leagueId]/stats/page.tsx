@@ -98,6 +98,7 @@ export default function LeagueStatsPage() {
   const [projection, setProjection] = useState(false)  // ×5 환산
   const [quickViewPlayer, setQuickViewPlayer] = useState<{ id: string; name: string } | null>(null)
   const [minGP, setMinGP] = useState(1)
+  const [showAll, setShowAll] = useState(false)  // 자동 임계값(2/3) 무시하고 전체 표시
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
   const [compareModalOpen, setCompareModalOpen] = useState(false)
   const [selectedChartStat, setSelectedChartStat] = useState<ChartStatKey>('ppg')
@@ -149,9 +150,10 @@ export default function LeagueStatsPage() {
 
   // 자동 임계값: 가장 많이 뛴 선수의 GP 기준 2/3 (리그 활동량 G의 2/3 근사)
   // 리더보드/차트의 최소 출전 기준 — 사용자 수동 입력보다 큰 값이 적용됨
+  // showAll=true 면 자동 임계값을 무시하고 사용자 입력만 사용 (전체 선수 보기)
   const maxPlayerGP = useMemo(() => players.reduce((m, p) => Math.max(m, p.gp), 0), [players])
   const autoMinGP = Math.max(1, Math.ceil(maxPlayerGP * 2 / 3))
-  const effectiveMinGP = Math.max(minGP, autoMinGP)
+  const effectiveMinGP = showAll ? minGP : Math.max(minGP, autoMinGP)
 
   const filtered = players
     .filter(p => p.gp >= effectiveMinGP)
@@ -480,10 +482,19 @@ export default function LeagueStatsPage() {
                     onChange={e => setMinGP(Number(e.target.value))}
                     className="w-14 bg-gray-800 border border-gray-700 text-white rounded px-1.5 py-2 text-center text-xs min-h-[40px]" />
                   <span>경기</span>
-                  {effectiveMinGP > minGP && (
+                  {!showAll && effectiveMinGP > minGP && (
                     <span className="text-[10px] text-amber-400 font-bold ml-1">→ {effectiveMinGP} 적용 (G·2/3)</span>
                   )}
                 </div>
+                <button onClick={() => setShowAll(v => !v)}
+                  title="활동량 임계값(2/3) 무시하고 전체 선수 표시"
+                  className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg border transition-all btn-press min-h-[40px] cursor-pointer ${
+                    showAll
+                      ? 'bg-emerald-600/30 border-emerald-500/60 text-emerald-300'
+                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                  }`}>
+                  전체 선수
+                </button>
               </div>
             </div>
 
