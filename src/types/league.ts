@@ -105,6 +105,7 @@ export type PlayerStat = {
   fg3m: number; fg3a: number; fg3_pct: number
   ftm: number; fta: number; ft_pct: number
   efg_pct: number
+  and_one: number  // 성공한 앤드원 횟수
 }
 
 export type QuarterPlayer = {

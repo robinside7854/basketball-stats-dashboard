@@ -84,6 +84,7 @@ export async function GET(
     oreb: number; dreb: number; reb: number
     ast: number; stl: number; blk: number
     tov: number; pf: number
+    and_one: number  // 성공한 앤드원 횟수
   }
 
   const statsMap: Record<string, PlayerStats> = {}
@@ -95,6 +96,7 @@ export async function GET(
         player_id: pid, gp: 0,
         pts: 0, fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
         oreb: 0, dreb: 0, reb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
+        and_one: 0,
       }
     }
     return statsMap[pid]
@@ -131,9 +133,10 @@ export async function GET(
         s.fga++
         if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 }
         break
-      // 앤드원: FTA/FTM 제외, 득점 +1만
+      // 앤드원: FTA/FTM 제외, 득점 +1, 카운트도 집계
       case 'and_one':
-        if (made) s.pts += 1; break
+        if (made) { s.pts += 1; s.and_one++ }
+        break
       // ft_2pt: 1회 시도 2점 / 나머지 자유투: 1점
       case 'ft_2pt':
         s.fta++; if (made) { s.ftm++; s.pts += 2 }; break
