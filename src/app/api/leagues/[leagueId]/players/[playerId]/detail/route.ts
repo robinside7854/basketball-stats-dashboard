@@ -67,11 +67,6 @@ export async function GET(
   for (const r of gpRows ?? []) {
     if (r.league_game_id && r.team_id) gpTeamMap[r.league_game_id] = r.team_id
   }
-  // 헬퍼: 게임 g 에서 이 선수가 실제로 뛴 팀 ID
-  function teamForGame(g: { id: string; quarter_id?: string | null } | null | undefined): string | undefined {
-    if (!g) return undefined
-    return gpTeamMap[g.id] ?? (g.quarter_id ? qTeamMap[g.quarter_id] : undefined)
-  }
 
   if (gameIds.length === 0) {
     return NextResponse.json({ rankings: {}, career_high: {}, shot_breakdown: {}, recent_games: [], player_stats: null })
@@ -83,17 +78,47 @@ export async function GET(
   ] = await Promise.all([
     supabase
       .from('league_game_events')
-      .select('league_game_id, type, result, points')
+      .select('league_game_id, type, result, points, team_id')
       .in('league_game_id', gameIds)
       .eq('league_player_id', playerId),
     supabase
       .from('league_game_events')
-      .select('league_game_id')
+      .select('league_game_id, team_id')
       .in('league_game_id', gameIds)
       .eq('related_player_id', playerId)
       .eq('result', 'made')
       .in('type', SHOT_TYPES),
   ])
+
+  // 이벤트의 team_id 기반 게임별 출전 팀 결정 (진실의 원천 — 실제 발생한 사건 기준)
+  // 같은 게임 안에서 다수결 (정상 데이터는 모두 동일하지만 데이터 일관성 보호 차원)
+  const eventTeamCount: Record<string, Record<string, number>> = {}
+  for (const e of (playerEvents ?? [])) {
+    if (e.type === 'sub_in' || e.type === 'sub_out') continue
+    const tid = (e as { team_id?: string | null }).team_id
+    if (!tid) continue
+    if (!eventTeamCount[e.league_game_id]) eventTeamCount[e.league_game_id] = {}
+    eventTeamCount[e.league_game_id][tid] = (eventTeamCount[e.league_game_id][tid] ?? 0) + 1
+  }
+  // 어시스트 이벤트도 반영 (관전 안 한 게임에서 어시스트만 있을 수 있음)
+  for (const e of (assistEvents ?? [])) {
+    const tid = (e as { team_id?: string | null }).team_id
+    if (!tid) continue
+    if (!eventTeamCount[e.league_game_id]) eventTeamCount[e.league_game_id] = {}
+    eventTeamCount[e.league_game_id][tid] = (eventTeamCount[e.league_game_id][tid] ?? 0) + 1
+  }
+  const eventTeamMap: Record<string, string> = {}
+  for (const [gId, counts] of Object.entries(eventTeamCount)) {
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
+    if (top) eventTeamMap[gId] = top[0]
+  }
+
+  // 헬퍼: 게임 g 에서 이 선수가 실제로 뛴 팀 ID
+  // 우선순위: ① 이벤트 team_id 다수결 (진실) → ② league_game_players → ③ league_player_quarters
+  function teamForGame(g: { id: string; quarter_id?: string | null } | null | undefined): string | undefined {
+    if (!g) return undefined
+    return eventTeamMap[g.id] ?? gpTeamMap[g.id] ?? (g.quarter_id ? qTeamMap[g.quarter_id] : undefined)
+  }
 
   // allEvents: 랭킹/배지 계산용 — 1000행 서버 제한을 피해 페이지네이션으로 전체 수집
   type AllEventRow = { league_player_id: string | null; league_game_id: string; related_player_id: string | null; type: string; result: string | null; points: number | null; team_id: string | null }
