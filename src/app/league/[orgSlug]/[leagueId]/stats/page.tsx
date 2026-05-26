@@ -66,7 +66,7 @@ function TopScorersChart({ players, statKey, statLabel, statUnit, color }: {
 
 type ViewMode = 'avg' | 'total'
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
-type AdvKey = 'ts_pct'|'efg_pct'|'at_ratio'|'usg_pct'|'fg3a_rate'|'ft_rate'|'ast_pct'|'tov_pct'|'ao_total'|'ao_rate'
+type AdvKey = 'ts_pct'|'efg_pct'|'at_ratio'|'usg_pct'|'fg3a_rate'|'ft_rate'|'ast_pct'|'tov_pct'|'a1_total'|'a1_rate'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _SORT_OPTIONS_LEGACY: { key: SortKey; label: string }[] = [
@@ -196,15 +196,15 @@ export default function LeagueStatsPage() {
     { key: 'ft_rate',   label: 'FTr',   desc: '야투 대비 자유투 시도 · FTA/FGA' },
     { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
     { key: 'tov_pct',   label: 'TOV%',  desc: '볼소유 중 턴오버 비중' },
-    { key: 'ao_total',  label: 'AO',    desc: '성공한 앤드원 횟수 (누적)' },
-    { key: 'ao_rate',   label: 'AO%',   desc: '야투 성공 중 앤드원 비율 · AO/FGM' },
+    { key: 'a1_total',  label: 'A1',    desc: '성공한 앤드원(And-One) 횟수 (누적)' },
+    { key: 'a1_rate',   label: 'A1%',   desc: '야투 성공 중 앤드원 비율 · A1/FGM' },
   ]
 
   // Advanced stats 계산 (전체 선수 기준 USG% 포함)
   const leaguePoss = filtered.reduce((s, p) => s + p.fga + 0.44 * p.fta + p.tov, 0)
   function calcAdv(p: PlayerStat): Record<AdvKey, number> {
     const poss = p.fga + 0.44 * p.fta + p.tov
-    const ao = p.and_one ?? 0
+    const a1 = p.and_one ?? 0
     return {
       efg_pct:   p.efg_pct,
       ts_pct:    (p.fga + 0.44 * p.fta) > 0 ? +(p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100).toFixed(1) : 0,
@@ -214,8 +214,8 @@ export default function LeagueStatsPage() {
       ft_rate:   p.fga > 0 ? +(p.fta / p.fga * 100).toFixed(1) : 0,
       ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
       tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,
-      ao_total:  ao,
-      ao_rate:   p.fgm > 0 ? +(ao / p.fgm * 100).toFixed(1) : 0,
+      a1_total:  a1,
+      a1_rate:   p.fgm > 0 ? +(a1 / p.fgm * 100).toFixed(1) : 0,
     }
   }
 
@@ -621,7 +621,7 @@ export default function LeagueStatsPage() {
                     <div className="grid grid-cols-4 gap-2 pt-1 border-t border-gray-800/60">
                       {ADV_COLS.map(({ key, label }) => {
                         const isRatio = key === 'at_ratio'
-                        const isCount = key === 'ao_total'
+                        const isCount = key === 'a1_total'
                         const active = advSortKey === key
                         return (
                           <div key={key} className="text-center">
@@ -675,7 +675,7 @@ export default function LeagueStatsPage() {
                       {ADV_COLS.map(({ key }) => {
                         const val = adv[key]
                         const isRatio = key === 'at_ratio'
-                        const isCount = key === 'ao_total'
+                        const isCount = key === 'a1_total'
                         const active = advSortKey === key
                         return (
                           <td key={key} className={`px-3 py-3 text-center text-sm tabular-nums font-medium ${active ? 'text-yellow-400 font-bold' : 'text-violet-300'}`}>
