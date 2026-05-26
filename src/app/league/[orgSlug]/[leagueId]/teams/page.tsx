@@ -5,7 +5,7 @@ import { Loader2, Crown, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucid
 import Link from 'next/link'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import TeamInsights from '@/components/league/TeamInsights'
-import type { Quarter, PlayerStat, QuarterPlayer, Leader } from '@/types/league'
+import type { Quarter, PlayerStat, Leader } from '@/types/league'
 
 type Team = { id: string; name: string; color: string }
 type Game = {
@@ -19,29 +19,83 @@ type Game = {
   away_team?: { id: string; name: string; color: string } | null
 }
 
-type SortKey = 'gp'|'ppg'|'rpg'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'pts'|'reb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
+type BasicKey =
+  | 'gp'|'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'
+  | 'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'
+  | 'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'
+  | 'fgm'|'fg3m'|'ftm'
+type AdvKey = 'efg_pct'|'ts_pct'|'at_ratio'|'usg_pct'|'fg3a_rate'|'ft_rate'|'ast_pct'|'tov_pct'|'a1_total'|'a1_rate'
 
-const STAT_HEADERS: { key: SortKey; label: string; tooltip?: string }[] = [
-  { key: 'gp',      label: 'R'     },
+const AVG_COLS: { key: BasicKey; label: string }[] = [
+  { key: 'gp',      label: 'R'    },
   { key: 'ppg',     label: 'PPG'  },
   { key: 'rpg',     label: 'RPG'  },
+  { key: 'orp',     label: 'ORpg' },
+  { key: 'drp',     label: 'DRpg' },
   { key: 'apg',     label: 'APG'  },
-  { key: 'spg',     label: 'STL'  },
-  { key: 'bpg',     label: 'BLK'  },
-  { key: 'topg',    label: 'TOV'  },
+  { key: 'spg',     label: 'SPG'  },
+  { key: 'bpg',     label: 'BPG'  },
+  { key: 'topg',    label: 'TOPG' },
   { key: 'fg_pct',  label: 'FG%'  },
   { key: 'fg3_pct', label: '3P%'  },
   { key: 'ft_pct',  label: 'FT%'  },
   { key: 'efg_pct', label: 'eFG%' },
+]
+const TOTAL_COLS: { key: BasicKey; label: string }[] = [
+  { key: 'gp',      label: 'R'    },
   { key: 'pts',     label: 'PTS'  },
   { key: 'reb',     label: 'REB'  },
+  { key: 'oreb',    label: 'OR'   },
+  { key: 'dreb',    label: 'DR'   },
   { key: 'ast',     label: 'AST'  },
-  { key: 'stl',     label: 'STL↑' },
-  { key: 'blk',     label: 'BLK↑' },
-  { key: 'fgm',     label: 'FGM'  },
-  { key: 'fg3m',    label: '3PM'  },
-  { key: 'ftm',     label: 'FTM'  },
+  { key: 'stl',     label: 'STL'  },
+  { key: 'blk',     label: 'BLK'  },
+  { key: 'tov',     label: 'TOV'  },
+  { key: 'fgm',     label: 'FG'   },
+  { key: 'fg3m',    label: '3P'   },
+  { key: 'ftm',     label: 'FT'   },
+  { key: 'fg_pct',  label: 'FG%'  },
+  { key: 'fg3_pct', label: '3P%'  },
+  { key: 'ft_pct',  label: 'FT%'  },
 ]
+const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
+  { key: 'efg_pct',   label: 'eFG%',  desc: '유효야투율 · (FGM+0.5×3PM)/FGA' },
+  { key: 'ts_pct',    label: 'TS%',   desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
+  { key: 'at_ratio',  label: 'A/T',   desc: '어시스트/턴오버 비율' },
+  { key: 'usg_pct',   label: 'USG%',  desc: '팀 볼소유 중 이 선수 비중 · (FGA+0.44×FTA+TOV)/팀합계' },
+  { key: 'fg3a_rate', label: '3PAr',  desc: '야투 중 3점슛 비중 · FG3A/FGA' },
+  { key: 'ft_rate',   label: 'FTr',   desc: '야투 대비 자유투 시도 · FTA/FGA' },
+  { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
+  { key: 'tov_pct',   label: 'TOV%',  desc: '볼소유 중 턴오버 비중' },
+  { key: 'a1_total',  label: 'A1',    desc: '성공한 앤드원(And-One) 횟수 (누적)' },
+  { key: 'a1_rate',   label: 'A1%',   desc: '야투 성공 중 앤드원 비율 · A1/FGM' },
+]
+
+const BASIC_PCT_KEYS = new Set<BasicKey>(['fg_pct', 'fg3_pct', 'ft_pct', 'efg_pct'])
+const BASIC_INT_KEYS = new Set<BasicKey>(['gp','pts','reb','oreb','dreb','ast','stl','blk','tov','fgm','fg3m','ftm'])
+
+// 기본 색상 (셀)
+const BASIC_COLOR: Partial<Record<BasicKey, string>> = {
+  gp: 'text-gray-400',
+  ppg: 'font-bold text-white', pts: 'font-bold text-white',
+  rpg: 'text-gray-300', reb: 'text-gray-300',
+  orp: 'text-gray-400', oreb: 'text-gray-400',
+  drp: 'text-gray-400', dreb: 'text-gray-400',
+  apg: 'text-gray-300', ast: 'text-gray-300',
+  spg: 'text-purple-400', stl: 'text-purple-400',
+  bpg: 'text-indigo-400', blk: 'text-indigo-400',
+  topg: 'text-red-400', tov: 'text-red-400',
+  fg_pct: 'text-gray-400', fg3_pct: 'text-yellow-600',
+  ft_pct: 'text-cyan-600', efg_pct: 'text-teal-500',
+  fgm: 'text-gray-500', fg3m: 'text-gray-500', ftm: 'text-gray-500',
+}
+const ADV_COLOR: Partial<Record<AdvKey, string>> = {
+  efg_pct: 'text-teal-500', ts_pct: 'text-teal-400',
+  at_ratio: 'text-blue-400', usg_pct: 'text-violet-400',
+  fg3a_rate: 'text-yellow-600', ft_rate: 'text-cyan-600',
+  ast_pct: 'text-purple-400', tov_pct: 'text-red-400',
+  a1_total: 'text-orange-400', a1_rate: 'text-amber-400',
+}
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc'|'desc' }) {
   if (!active) return <ChevronsUpDown size={9} className="inline ml-0.5 opacity-30" />
@@ -50,41 +104,108 @@ function SortIcon({ active, dir }: { active: boolean; dir: 'asc'|'desc' }) {
     : <ChevronUp   size={9} className="inline ml-0.5 text-blue-400" />
 }
 
+function calcAdv(p: PlayerStat, teamPoss: number): Record<AdvKey, number> {
+  const poss = p.fga + 0.44 * p.fta + p.tov
+  const a1 = p.and_one ?? 0
+  return {
+    efg_pct:   p.efg_pct,
+    ts_pct:    (p.fga + 0.44 * p.fta) > 0 ? +(p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100).toFixed(1) : 0,
+    at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : (p.ast > 0 ? 99 : 0),
+    usg_pct:   teamPoss > 0 ? +(poss / teamPoss * 100).toFixed(1) : 0,
+    fg3a_rate: p.fga > 0 ? +(p.fg3a / p.fga * 100).toFixed(1) : 0,
+    ft_rate:   p.fga > 0 ? +(p.fta / p.fga * 100).toFixed(1) : 0,
+    ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
+    tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,
+    a1_total:  a1,
+    a1_rate:   p.fgm > 0 ? +(a1 / p.fgm * 100).toFixed(1) : 0,
+  }
+}
+
 function StatsTable({
-  players, leagueId, leaderId, color,
-}: { players: PlayerStat[]; leagueId: string; leaderId?: string | null; color?: string }) {
-  const [sortKey, setSortKey] = useState<SortKey>('ppg')
-  const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
+  players, leagueId, leaderId, color, viewMode, statMode,
+}: {
+  players: PlayerStat[]
+  leagueId: string
+  leaderId?: string | null
+  color?: string
+  viewMode: 'avg'|'total'
+  statMode: 'basic'|'advanced'
+}) {
+  const defaultBasicSort: BasicKey = viewMode === 'avg' ? 'ppg' : 'pts'
+  const [basicSortKey, setBasicSortKey] = useState<BasicKey>(defaultBasicSort)
+  const [basicSortDir, setBasicSortDir] = useState<'asc'|'desc'>('desc')
+  const [advSortKey, setAdvSortKey] = useState<AdvKey>('efg_pct')
+  const [advSortDir, setAdvSortDir] = useState<'asc'|'desc'>('desc')
   const [quickView, setQuickView] = useState<{ id: string; name: string } | null>(null)
 
-  const sorted = useMemo(() => {
-    return [...players].sort((a, b) => {
-      const diff = (a[sortKey] as number) - (b[sortKey] as number)
-      return sortDir === 'desc' ? -diff : diff
-    })
-  }, [players, sortKey, sortDir])
+  // viewMode 변경 시 basicSortKey가 새 col 셋에 없으면 기본값으로
+  useEffect(() => {
+    const cols = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
+    if (!cols.some(c => c.key === basicSortKey)) {
+      setBasicSortKey(viewMode === 'avg' ? 'ppg' : 'pts')
+      setBasicSortDir('desc')
+    }
+  }, [viewMode, basicSortKey])
 
-  function handleSort(key: SortKey) {
-    if (key === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
-    else { setSortKey(key); setSortDir('desc') }
+  const teamPoss = useMemo(
+    () => players.reduce((s, p) => s + p.fga + 0.44 * p.fta + p.tov, 0),
+    [players]
+  )
+
+  const basicSorted = useMemo(() => {
+    return [...players].sort((a, b) => {
+      const diff = ((a[basicSortKey] as number) ?? 0) - ((b[basicSortKey] as number) ?? 0)
+      return basicSortDir === 'desc' ? -diff : diff
+    })
+  }, [players, basicSortKey, basicSortDir])
+
+  const advSorted = useMemo(() => {
+    return [...players]
+      .map(p => ({ p, adv: calcAdv(p, teamPoss) }))
+      .sort((a, b) => {
+        const diff = a.adv[advSortKey] - b.adv[advSortKey]
+        return advSortDir === 'desc' ? -diff : diff
+      })
+  }, [players, advSortKey, advSortDir, teamPoss])
+
+  function handleBasicSort(key: BasicKey) {
+    if (key === basicSortKey) setBasicSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setBasicSortKey(key); setBasicSortDir('desc') }
+  }
+  function handleAdvSort(key: AdvKey) {
+    if (key === advSortKey) setAdvSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setAdvSortKey(key); setAdvSortDir('desc') }
   }
 
   if (players.length === 0) {
     return <p className="text-xs text-gray-500 py-4 text-center">기록된 스탯이 없습니다</p>
   }
 
-  function valOf(p: PlayerStat, key: SortKey): string {
-    if (key === 'gp' || key === 'pts' || key === 'reb' || key === 'ast' ||
-        key === 'stl' || key === 'blk' || key === 'tov' ||
-        key === 'fgm' || key === 'fg3m' || key === 'ftm') {
-      return String(p[key as keyof PlayerStat] ?? 0)
+  // Basic 셀 텍스트 변환
+  function basicVal(p: PlayerStat, key: BasicKey): string {
+    if (BASIC_INT_KEYS.has(key) && !BASIC_PCT_KEYS.has(key)) {
+      if (key === 'fgm')  return `${p.fgm}/${p.fga}`
+      if (key === 'fg3m') return `${p.fg3m}/${p.fg3a}`
+      if (key === 'ftm')  return `${p.ftm}/${p.fta}`
+      return String((p as unknown as Record<string, number>)[key] ?? 0)
     }
     if (key === 'fg_pct')  return p.fga  > 0 ? `${p.fg_pct.toFixed(1)}%`  : '—'
     if (key === 'fg3_pct') return p.fg3a > 0 ? `${p.fg3_pct.toFixed(1)}%` : '—'
     if (key === 'ft_pct')  return p.fta  > 0 ? `${p.ft_pct.toFixed(1)}%`  : '—'
     if (key === 'efg_pct') return p.fga  > 0 ? `${p.efg_pct.toFixed(1)}%` : '—'
-    return (p[key as keyof PlayerStat] as number).toFixed(1)
+    // 평균 키
+    return ((p as unknown as Record<string, number>)[key] ?? 0).toFixed(1)
   }
+
+  function advVal(adv: Record<AdvKey, number>, key: AdvKey): string {
+    if (key === 'at_ratio') {
+      return adv.at_ratio >= 99 ? '∞' : adv.at_ratio.toFixed(2)
+    }
+    if (key === 'a1_total') return String(adv.a1_total)
+    return `${adv[key].toFixed(1)}%`
+  }
+
+  const basicCols = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
 
   return (
     <>
@@ -92,57 +213,99 @@ function StatsTable({
     <div className="md:hidden">
       <div className="px-1 pb-2 overflow-x-auto">
         <div className="flex gap-1.5 whitespace-nowrap">
-          {STAT_HEADERS.map(({ key, label }) => (
-            <button key={key} onClick={() => handleSort(key)}
-              className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
-                sortKey === key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
-              }`}>
-              {label}
-              {sortKey === key && (sortDir === 'desc' ? ' ↓' : ' ↑')}
-            </button>
-          ))}
+          {statMode === 'basic'
+            ? basicCols.map(({ key, label }) => (
+                <button key={key} onClick={() => handleBasicSort(key)}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
+                    basicSortKey === key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                  }`}>
+                  {label}{basicSortKey === key && (basicSortDir === 'desc' ? ' ↓' : ' ↑')}
+                </button>
+              ))
+            : ADV_COLS.map(({ key, label }) => (
+                <button key={key} onClick={() => handleAdvSort(key)}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
+                    advSortKey === key ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                  }`}>
+                  {label}{advSortKey === key && (advSortDir === 'desc' ? ' ↓' : ' ↑')}
+                </button>
+              ))
+          }
         </div>
       </div>
       <div className="divide-y divide-gray-800/60 rounded-xl overflow-hidden bg-gray-900/40">
-        {sorted.map((p, i) => {
-          const isLeader = leaderId && p.player_id === leaderId
-          const sortLabel = STAT_HEADERS.find(h => h.key === sortKey)?.label ?? ''
-          const baseSubKeys: SortKey[] = ['gp', 'ppg', 'rpg', 'apg']
-          const subKeys = baseSubKeys.filter(k => k !== sortKey).slice(0, 4)
-          const filledSubs = subKeys.length < 4
-            ? [...subKeys, ...(['spg','fg_pct'] as SortKey[]).filter(k => k !== sortKey && !subKeys.includes(k))].slice(0, 4)
-            : subKeys
-          return (
-            <button key={p.player_id} onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-              className="w-full text-left px-3 py-2.5 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60">
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-sm font-black text-gray-500 font-mono w-5 shrink-0">{i + 1}</span>
-                {isLeader && <Crown size={11} className="text-yellow-400 shrink-0" />}
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-white text-sm truncate">
-                    {p.name}
-                    {p.number != null && <span className="text-gray-600 font-mono ml-1 text-xs">#{p.number}</span>}
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="text-xl font-black leading-none" style={{ color: color ?? '#facc15' }}>{valOf(p, sortKey)}</div>
-                  <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
-                </div>
-              </div>
-              <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gray-800/60">
-                {filledSubs.map(k => {
-                  const lbl = STAT_HEADERS.find(h => h.key === k)?.label ?? k
-                  return (
-                    <div key={k} className="text-center">
-                      <div className="text-[11px] text-gray-500">{lbl}</div>
-                      <div className="text-xs font-bold text-gray-200">{valOf(p, k)}</div>
+        {statMode === 'basic'
+          ? basicSorted.map((p, i) => {
+              const isLeader = leaderId && p.player_id === leaderId
+              const sortLabel = basicCols.find(c => c.key === basicSortKey)?.label ?? ''
+              const subKeys = basicCols.map(c => c.key).filter(k => k !== basicSortKey).slice(0, 4)
+              return (
+                <button key={p.player_id} onClick={() => setQuickView({ id: p.player_id, name: p.name })}
+                  className="w-full text-left px-3 py-2.5 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-sm font-black text-gray-500 font-mono w-5 shrink-0">{i + 1}</span>
+                    {isLeader && <Crown size={11} className="text-yellow-400 shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-white text-sm truncate">
+                        {p.name}
+                        {p.number != null && <span className="text-gray-600 font-mono ml-1 text-xs">#{p.number}</span>}
+                      </div>
                     </div>
-                  )
-                })}
-              </div>
-            </button>
-          )
-        })}
+                    <div className="text-right shrink-0">
+                      <div className="text-xl font-black leading-none" style={{ color: color ?? '#facc15' }}>{basicVal(p, basicSortKey)}</div>
+                      <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gray-800/60">
+                    {subKeys.map(k => {
+                      const lbl = basicCols.find(c => c.key === k)?.label ?? k
+                      return (
+                        <div key={k} className="text-center">
+                          <div className="text-[11px] text-gray-500">{lbl}</div>
+                          <div className="text-xs font-bold text-gray-200">{basicVal(p, k)}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </button>
+              )
+            })
+          : advSorted.map(({ p, adv }, i) => {
+              const isLeader = leaderId && p.player_id === leaderId
+              const sortLabel = ADV_COLS.find(c => c.key === advSortKey)?.label ?? ''
+              const subKeys = ADV_COLS.map(c => c.key).filter(k => k !== advSortKey).slice(0, 4)
+              return (
+                <button key={p.player_id} onClick={() => setQuickView({ id: p.player_id, name: p.name })}
+                  className="w-full text-left px-3 py-2.5 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-sm font-black text-gray-500 font-mono w-5 shrink-0">{i + 1}</span>
+                    {isLeader && <Crown size={11} className="text-yellow-400 shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-white text-sm truncate">
+                        {p.name}
+                        {p.number != null && <span className="text-gray-600 font-mono ml-1 text-xs">#{p.number}</span>}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="text-xl font-black leading-none" style={{ color: color ?? '#a78bfa' }}>{advVal(adv, advSortKey)}</div>
+                      <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gray-800/60">
+                    {subKeys.map(k => {
+                      const lbl = ADV_COLS.find(c => c.key === k)?.label ?? k
+                      return (
+                        <div key={k} className="text-center">
+                          <div className="text-[11px] text-gray-500">{lbl}</div>
+                          <div className="text-xs font-bold text-gray-200">{advVal(adv, k)}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </button>
+              )
+            })
+        }
       </div>
     </div>
 
@@ -152,51 +315,79 @@ function StatsTable({
         <thead>
           <tr className="border-b border-gray-800">
             <th className="text-left py-2 pr-3 text-xs text-gray-600 font-bold sticky left-0 bg-gray-900 min-w-[90px]">선수</th>
-            {STAT_HEADERS.map(({ key, label }) => (
-              <th key={key} onClick={() => handleSort(key)}
-                className={`py-2 px-1.5 text-xs font-bold cursor-pointer select-none text-right ${sortKey === key ? 'text-blue-400' : 'text-gray-600'} hover:text-gray-300 transition-colors`}>
-                {label}<SortIcon active={sortKey === key} dir={sortDir} />
-              </th>
-            ))}
+            {statMode === 'basic'
+              ? basicCols.map(({ key, label }) => (
+                  <th key={key} onClick={() => handleBasicSort(key)}
+                    className={`py-2 px-1.5 text-xs font-bold cursor-pointer select-none text-right ${basicSortKey === key ? 'text-blue-400' : 'text-gray-600'} hover:text-gray-300 transition-colors`}>
+                    {label}<SortIcon active={basicSortKey === key} dir={basicSortDir} />
+                  </th>
+                ))
+              : ADV_COLS.map(({ key, label, desc }) => (
+                  <th key={key} onClick={() => handleAdvSort(key)} title={desc}
+                    className={`py-2 px-1.5 text-xs font-bold cursor-pointer select-none text-right ${advSortKey === key ? 'text-violet-400' : 'text-gray-600'} hover:text-gray-300 transition-colors`}>
+                    {label}<SortIcon active={advSortKey === key} dir={advSortDir} />
+                  </th>
+                ))
+            }
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-800/40">
-          {sorted.map(p => {
-            const isLeader = leaderId && p.player_id === leaderId
-            return (
-              <tr key={p.player_id} className="hover:bg-gray-800/30 transition-colors">
-                <td className="py-2 pr-3 sticky left-0 bg-gray-900 group-hover:bg-gray-800/30">
-                  <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                    className="flex items-center gap-1.5 hover:text-blue-300 cursor-pointer transition-colors text-left">
-                    {isLeader && <Crown size={10} className="text-yellow-400 shrink-0" />}
-                    <span className="text-white font-medium">
-                      {p.number != null && <span className="text-gray-600 font-mono mr-1 text-xs">#{p.number}</span>}
-                      {p.name}
-                    </span>
-                  </button>
-                </td>
-                <td className="py-2 px-1.5 text-right text-gray-400">{p.gp}</td>
-                <td className="py-2 px-1.5 text-right font-bold text-white" style={color ? { color } : undefined}>{p.ppg.toFixed(1)}</td>
-                <td className="py-2 px-1.5 text-right text-gray-300">{p.rpg.toFixed(1)}</td>
-                <td className="py-2 px-1.5 text-right text-gray-300">{p.apg.toFixed(1)}</td>
-                <td className="py-2 px-1.5 text-right text-purple-400">{p.spg.toFixed(1)}</td>
-                <td className="py-2 px-1.5 text-right text-indigo-400">{p.bpg.toFixed(1)}</td>
-                <td className="py-2 px-1.5 text-right text-red-400">{p.topg.toFixed(1)}</td>
-                <td className="py-2 px-1.5 text-right text-gray-400">{p.fga > 0 ? `${p.fg_pct.toFixed(1)}%` : '—'}</td>
-                <td className="py-2 px-1.5 text-right text-yellow-600">{p.fg3a > 0 ? `${p.fg3_pct.toFixed(1)}%` : '—'}</td>
-                <td className="py-2 px-1.5 text-right text-cyan-600">{p.fta > 0 ? `${p.ft_pct.toFixed(1)}%` : '—'}</td>
-                <td className="py-2 px-1.5 text-right text-teal-500">{p.fga > 0 ? `${p.efg_pct.toFixed(1)}%` : '—'}</td>
-                <td className="py-2 px-1.5 text-right text-white font-bold">{p.pts}</td>
-                <td className="py-2 px-1.5 text-right text-gray-300">{p.reb}</td>
-                <td className="py-2 px-1.5 text-right text-gray-300">{p.ast}</td>
-                <td className="py-2 px-1.5 text-right text-purple-400">{p.stl}</td>
-                <td className="py-2 px-1.5 text-right text-indigo-400">{p.blk}</td>
-                <td className="py-2 px-1.5 text-right text-gray-500">{p.fgm}/{p.fga}</td>
-                <td className="py-2 px-1.5 text-right text-gray-500">{p.fg3m}/{p.fg3a}</td>
-                <td className="py-2 px-1.5 text-right text-gray-500">{p.ftm}/{p.fta}</td>
-              </tr>
-            )
-          })}
+          {statMode === 'basic'
+            ? basicSorted.map(p => {
+                const isLeader = leaderId && p.player_id === leaderId
+                return (
+                  <tr key={p.player_id} className="hover:bg-gray-800/30 transition-colors">
+                    <td className="py-2 pr-3 sticky left-0 bg-gray-900">
+                      <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
+                        className="flex items-center gap-1.5 hover:text-blue-300 cursor-pointer transition-colors text-left">
+                        {isLeader && <Crown size={10} className="text-yellow-400 shrink-0" />}
+                        <span className="text-white font-medium">
+                          {p.number != null && <span className="text-gray-600 font-mono mr-1 text-xs">#{p.number}</span>}
+                          {p.name}
+                        </span>
+                      </button>
+                    </td>
+                    {basicCols.map(({ key }) => {
+                      const isSortLeader = key === basicSortKey
+                      const baseClass = BASIC_COLOR[key] ?? 'text-gray-300'
+                      const style = isSortLeader && color ? { color } : undefined
+                      return (
+                        <td key={key} className={`py-2 px-1.5 text-right ${baseClass}`} style={style}>
+                          {basicVal(p, key)}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })
+            : advSorted.map(({ p, adv }) => {
+                const isLeader = leaderId && p.player_id === leaderId
+                return (
+                  <tr key={p.player_id} className="hover:bg-gray-800/30 transition-colors">
+                    <td className="py-2 pr-3 sticky left-0 bg-gray-900">
+                      <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
+                        className="flex items-center gap-1.5 hover:text-blue-300 cursor-pointer transition-colors text-left">
+                        {isLeader && <Crown size={10} className="text-yellow-400 shrink-0" />}
+                        <span className="text-white font-medium">
+                          {p.number != null && <span className="text-gray-600 font-mono mr-1 text-xs">#{p.number}</span>}
+                          {p.name}
+                        </span>
+                      </button>
+                    </td>
+                    {ADV_COLS.map(({ key }) => {
+                      const isSortLeader = key === advSortKey
+                      const baseClass = ADV_COLOR[key] ?? 'text-gray-300'
+                      const style = isSortLeader && color ? { color } : undefined
+                      return (
+                        <td key={key} className={`py-2 px-1.5 text-right ${baseClass}`} style={style}>
+                          {advVal(adv, key)}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                )
+              })
+          }
         </tbody>
       </table>
     </div>
@@ -398,7 +589,7 @@ function TeamDetailPanel({
             {/* E. Player Stats Table */}
             <div>
               <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">선수 스탯</p>
-              <StatsTable players={players} leagueId={leagueId} color={team.color} />
+              <StatsTable players={players} leagueId={leagueId} color={team.color} viewMode="avg" statMode="basic" />
             </div>
           </>
         )}
@@ -426,11 +617,13 @@ export default function LeagueTeamsPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [games, setGames] = useState<Game[]>([])
   const [allStats, setAllStats] = useState<PlayerStat[]>([])
-  const [qPlayers, setQPlayers] = useState<QuarterPlayer[]>([])
   const [leaders, setLeaders] = useState<Leader[]>([])
   const [loading, setLoading] = useState(true)
   const [dataLoading, setDataLoading] = useState(false)
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+  const [teamStatsApi, setTeamStatsApi] = useState<Record<string, PlayerStat[]>>({})
+  const [statMode, setStatMode] = useState<'basic'|'advanced'>('basic')
+  const [viewMode, setViewMode] = useState<'avg'|'total'>('avg')
 
   // 분기 + 팀 초기 로드
   useEffect(() => {
@@ -453,7 +646,6 @@ export default function LeagueTeamsPage() {
     setDataLoading(true)
 
     if (selectedQId === 'all') {
-      // 전체 모드: no quarterId param, merge all qPlayers
       Promise.all([
         fetch(`/api/leagues/${leagueId}/games?complete=true`).then(r => r.json()),
         fetch(`/api/leagues/${leagueId}/stats`).then(r => r.json()),
@@ -461,27 +653,10 @@ export default function LeagueTeamsPage() {
         setGames(gs ?? [])
         setAllStats(st.players ?? [])
 
-        // Merge qPlayers + leaders from all quarters in parallel
         if (quarters.length > 0) {
-          const [allQPlayerResults, allLeaderResults] = await Promise.all([
-            Promise.all(quarters.map(q =>
-              fetch(`/api/leagues/${leagueId}/quarters/${q.id}/players`).then(r => r.json())
-            )),
-            Promise.all(quarters.map(q =>
-              fetch(`/api/leagues/${leagueId}/quarters/${q.id}/leaders`).then(r => r.json())
-            )),
-          ])
-          const playerTeamMap: Record<string, QuarterPlayer> = {}
-          for (const qResult of allQPlayerResults) {
-            for (const p of (qResult ?? []) as QuarterPlayer[]) {
-              if (!playerTeamMap[p.id] || (p.is_regular && p.team_id)) {
-                playerTeamMap[p.id] = p
-              }
-            }
-          }
-          setQPlayers(Object.values(playerTeamMap))
-
-          // Merge leaders: later quarters override earlier ones
+          const allLeaderResults = await Promise.all(quarters.map(q =>
+            fetch(`/api/leagues/${leagueId}/quarters/${q.id}/leaders`).then(r => r.json())
+          ))
           const leaderTeamMap: Record<string, Leader> = {}
           for (const ldResult of allLeaderResults) {
             for (const l of (ldResult ?? []) as Leader[]) {
@@ -490,7 +665,6 @@ export default function LeagueTeamsPage() {
           }
           setLeaders(Object.values(leaderTeamMap))
         } else {
-          setQPlayers([])
           setLeaders([])
         }
 
@@ -501,12 +675,10 @@ export default function LeagueTeamsPage() {
       Promise.all([
         fetch(`/api/leagues/${leagueId}/games?quarterId=${selectedQId}&complete=true`).then(r => r.json()),
         fetch(`/api/leagues/${leagueId}/stats?quarterId=${selectedQId}`).then(r => r.json()),
-        fetch(`/api/leagues/${leagueId}/quarters/${selectedQId}/players`).then(r => r.json()),
         fetch(`/api/leagues/${leagueId}/quarters/${selectedQId}/leaders`).then(r => r.json()),
-      ]).then(([gs, st, qp, ld]) => {
+      ]).then(([gs, st, ld]) => {
         setGames(gs ?? [])
         setAllStats(st.players ?? [])
-        setQPlayers(qp ?? [])
         setLeaders(ld ?? [])
         setLoading(false)
         setDataLoading(false)
@@ -515,30 +687,28 @@ export default function LeagueTeamsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId, selectedQId])
 
+  // 팀별 스탯 병렬 페치 — 각 팀에서 실제로 뛴 선수만 (team_id 이벤트 기준)
+  useEffect(() => {
+    if (!selectedQId || teams.length === 0) { setTeamStatsApi({}); return }
+    let cancelled = false
+    const qParam = selectedQId === 'all' ? '' : `&quarterId=${selectedQId}`
+    Promise.all(teams.map(t =>
+      fetch(`/api/leagues/${leagueId}/stats?teamId=${t.id}${qParam}`)
+        .then(r => r.json())
+        .then(d => [t.id, (d.players ?? []) as PlayerStat[]] as const)
+        .catch(() => [t.id, [] as PlayerStat[]] as const)
+    )).then(results => {
+      if (cancelled) return
+      const m: Record<string, PlayerStat[]> = {}
+      for (const [tid, players] of results) m[tid] = players
+      setTeamStatsApi(m)
+    })
+    return () => { cancelled = true }
+  }, [leagueId, selectedQId, teams])
+
   // ── 데이터 가공 ───────────────────────────────────────────
   const teamMap = useMemo(() => Object.fromEntries(teams.map(t => [t.id, t])), [teams])
   const leaderMap = useMemo(() => Object.fromEntries(leaders.map(l => [l.team_id, l.leader_player_id])), [leaders])
-
-  // 정규 멤버십 (분기 등록된 정규 선수만)
-  const regularTeamMap = useMemo(() => {
-    const m: Record<string, string> = {}
-    for (const p of qPlayers) { if (p.is_regular && p.team_id) m[p.id] = p.team_id }
-    return m
-  }, [qPlayers])
-
-  // 팀 스탯 그룹핑용 — 정규/비정규 가리지 않고 team_id가 있는 모든 선수
-  // (API에서 분기 정규 멤버십 → 게임별 출전 가장 많은 팀 순으로 이미 해석되어 옴)
-  const playerTeamMap = useMemo(() => {
-    const m: Record<string, string> = {}
-    for (const p of qPlayers) { if (p.team_id) m[p.id] = p.team_id }
-    return m
-  }, [qPlayers])
-
-  // 비정규 선수 ID — 분기에 등록은 됐지만 정규가 아닌 선수
-  const irregularIds = useMemo(() => {
-    const reg = new Set(Object.keys(regularTeamMap))
-    return new Set(qPlayers.filter(p => p.is_regular === false).map(p => p.id).filter(id => !reg.has(id)))
-  }, [qPlayers, regularTeamMap])
 
   const standings = useMemo(() => {
     const st: Record<string, { w: number; d: number; l: number; gf: number; ga: number; teamId: string }> = {}
@@ -574,21 +744,22 @@ export default function LeagueTeamsPage() {
     return m
   }, [teams, games])
 
+  // 팀별 선수 스탯: API에서 team_id 이벤트 기준으로 분할된 데이터를 그대로 사용
+  // → 같은 선수가 여러 팀에서 뛰었으면 각 팀에 그 팀에서의 스탯만 표시됨
   const teamStats = useMemo(() => {
     const m: Record<string, PlayerStat[]> = {}
-    for (const t of teams) m[t.id] = []
-    for (const s of allStats) {
-      // 정규 + 비정규 게임 출전 포함 (playerTeamMap)
-      const tid = playerTeamMap[s.player_id]
-      if (tid && m[tid]) m[tid].push(s)
-    }
+    for (const t of teams) m[t.id] = teamStatsApi[t.id] ?? []
     return m
-  }, [allStats, teams, playerTeamMap])
+  }, [teams, teamStatsApi])
 
-  // 비정규 섹션 — 어디에도 팀 매핑이 안 된 선수만 (모든 팀에 속한 선수는 위 teamStats에서 처리됨)
+  // 비정규 섹션 — 어떤 팀에도 team_id로 귀속되지 않은 선수 (이벤트의 team_id가 모두 null)
   const irregularStats = useMemo(() => {
-    return allStats.filter(s => !playerTeamMap[s.player_id] && irregularIds.has(s.player_id))
-  }, [allStats, playerTeamMap, irregularIds])
+    const teamPlayerIds = new Set<string>()
+    for (const tid of Object.keys(teamStatsApi)) {
+      for (const p of teamStatsApi[tid]) teamPlayerIds.add(p.player_id)
+    }
+    return allStats.filter(s => !teamPlayerIds.has(s.player_id))
+  }, [allStats, teamStatsApi])
 
   const rosterHref = `/league/${orgSlug}/${leagueId}/roster`
 
@@ -753,7 +924,36 @@ export default function LeagueTeamsPage() {
 
         {/* ── 섹션 2: 팀별 선수 스탯 ── */}
         <div className="space-y-4">
-          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">팀별 선수 스탯</h3>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">팀별 선수 스탯</h3>
+              <p className="text-[11px] text-gray-600 mt-0.5">이 팀에서 뛴 경기 기준 (정규/비정규 무관) · 한 선수가 여러 팀에서 뛰었다면 각 팀에 분리 표시</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Basic / Advanced */}
+              <div className="flex rounded-lg overflow-hidden border border-gray-700 shrink-0">
+                {(['basic','advanced'] as const).map(m => (
+                  <button key={m} onClick={() => setStatMode(m)}
+                    className={`px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors min-h-[36px] ${
+                      statMode === m ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                    }`}>
+                    {m === 'basic' ? 'Basic' : 'Advanced'}
+                  </button>
+                ))}
+              </div>
+              {/* 평균 / 누적 (Basic 모드에서만 의미) */}
+              <div className={`flex rounded-lg overflow-hidden border border-gray-700 shrink-0 ${statMode === 'advanced' ? 'opacity-40 pointer-events-none' : ''}`}>
+                {(['avg','total'] as const).map(m => (
+                  <button key={m} onClick={() => setViewMode(m)}
+                    className={`px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors min-h-[36px] ${
+                      viewMode === m ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                    }`}>
+                    {m === 'avg' ? '평균' : '누적'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
           {standings.map(s => {
             const t = teamMap[s.teamId]
             if (!t) return null
@@ -768,7 +968,14 @@ export default function LeagueTeamsPage() {
                   <span className="text-xs text-gray-600 ml-auto">{players.length}명</span>
                 </div>
                 <div className="px-4 py-3">
-                  <StatsTable players={players} leagueId={leagueId} leaderId={leaderId} color={t.color} />
+                  <StatsTable
+                    players={players}
+                    leagueId={leagueId}
+                    leaderId={leaderId}
+                    color={t.color}
+                    viewMode={viewMode}
+                    statMode={statMode}
+                  />
                 </div>
               </div>
             )
@@ -779,14 +986,19 @@ export default function LeagueTeamsPage() {
         {irregularStats.length > 0 && (
           <div className="space-y-2">
             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">비정규 선수</h3>
-            <p className="text-[11px] text-gray-600">팀 배정 없이 게임에 참가한 선수</p>
+            <p className="text-[11px] text-gray-600">팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)</p>
             <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-800/60 flex items-center justify-between">
                 <span className="text-sm font-semibold text-gray-400">비정규 참가자</span>
                 <span className="text-xs text-gray-600">{irregularStats.length}명</span>
               </div>
               <div className="px-4 py-3">
-                <StatsTable players={irregularStats} leagueId={leagueId} />
+                <StatsTable
+                  players={irregularStats}
+                  leagueId={leagueId}
+                  viewMode={viewMode}
+                  statMode={statMode}
+                />
               </div>
             </div>
           </div>
