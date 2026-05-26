@@ -64,6 +64,8 @@ export async function GET(
       .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id')
       .in('league_game_id', gameIds)
       .not('league_player_id', 'is', null)
+      // ⚠ ORDER BY 없으면 페이지네이션 중복/누락 발생 (PostgreSQL 동작 — 일관 정렬 필요)
+      .order('id', { ascending: true })
       .range(page * PAGE, (page + 1) * PAGE - 1)
     if (teamId)   q = q.eq('team_id', teamId)
     if (playerId) q = q.eq('league_player_id', playerId)

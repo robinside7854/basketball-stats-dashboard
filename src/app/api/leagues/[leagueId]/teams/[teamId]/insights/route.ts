@@ -102,6 +102,7 @@ export async function GET(
       .from('league_game_events')
       .select('league_game_id, team_id, type, result, points, related_player_id')
       .in('league_game_id', gameIds)
+      .order('id', { ascending: true })
       .range(page * PAGE, (page + 1) * PAGE - 1)
     if (chunk && chunk.length > 0) events.push(...(chunk as EvRow[]))
     if (!chunk || chunk.length < PAGE) break

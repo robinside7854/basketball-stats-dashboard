@@ -107,6 +107,7 @@ export async function GET(
         .select('league_player_id, league_game_id, related_player_id, type, result, points, team_id')
         .in('league_game_id', gameIds)
         .not('league_player_id', 'is', null)
+        .order('id', { ascending: true })
         .range(pg * PAGE, (pg + 1) * PAGE - 1)
       if (chunk && chunk.length > 0) allEvents.push(...(chunk as AllEventRow[]))
       if (!chunk || chunk.length < PAGE) break
@@ -416,6 +417,7 @@ export async function GET(
           .select('league_player_id, league_game_id, related_player_id, type, result, points, team_id')
           .in('league_game_id', seasonGameIds)
           .not('league_player_id', 'is', null)
+          .order('id', { ascending: true })
           .range(pg * PAGE, (pg + 1) * PAGE - 1)
         if (chunk && chunk.length > 0) seasonEvents.push(...(chunk as AllEventRow[]))
         if (!chunk || chunk.length < PAGE) break
