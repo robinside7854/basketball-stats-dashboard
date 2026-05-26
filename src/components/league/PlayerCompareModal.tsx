@@ -59,7 +59,7 @@ export default function PlayerCompareModal({ leagueId, player1Id, player2Id, pla
 
   type StatKey = 'gp' | 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg' | 'fg_pct' | 'fg3_pct'
   const ROWS: { key: StatKey; label: string; isPct?: boolean; higherIsBetter?: boolean }[] = [
-    { key: 'gp',      label: 'GP'  },
+    { key: 'gp',      label: 'R'   },
     { key: 'ppg',     label: 'PPG' },
     { key: 'rpg',     label: 'RPG' },
     { key: 'apg',     label: 'APG' },

@@ -83,7 +83,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
       <div>
         <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
           팀 하이라이트
-          <span className="text-[10px] text-gray-600 ml-2 font-normal">단일 일자 최고 기록 · {data.day_count}일 · {data.game_count}경기</span>
+          <span className="text-[10px] text-gray-600 ml-2 font-normal">라운드 단위 최고 기록 · {data.day_count}R · {data.game_count}G</span>
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
           {recordCards.filter(c => c.record).map(c => (

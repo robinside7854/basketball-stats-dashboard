@@ -22,7 +22,7 @@ type Game = {
 type SortKey = 'gp'|'ppg'|'rpg'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'pts'|'reb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
 
 const STAT_HEADERS: { key: SortKey; label: string; tooltip?: string }[] = [
-  { key: 'gp',      label: '일수'  },
+  { key: 'gp',      label: 'R'     },
   { key: 'ppg',     label: 'PPG'  },
   { key: 'rpg',     label: 'RPG'  },
   { key: 'apg',     label: 'APG'  },

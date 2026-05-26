@@ -408,7 +408,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         className={`px-2.5 py-0.5 text-[10px] font-bold rounded cursor-pointer transition-colors ${
                           statUnit === u ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-200'
                         }`}>
-                        {u === 'round' ? '라운드' : 'GP'}
+                        {u === 'round' ? 'R' : 'G'}
                       </button>
                     ))}
                   </div>
@@ -421,7 +421,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3">
                       {[
-                        { label: statUnit === 'round' ? '라운드' : 'GP', value: String(activeDetail?.player_stats?.gp ?? 0),                    rank: 0,                         accent: false },
+                        { label: statUnit === 'round' ? 'R' : 'G', value: String(activeDetail?.player_stats?.gp ?? 0),                    rank: 0,                         accent: false },
                         { label: 'PPG', value: (activeDetail?.player_stats?.ppg ?? 0).toFixed(1), rank: detail?.rankings.ppg ?? 0, accent: true  },
                         { label: 'RPG', value: (activeDetail?.player_stats?.rpg ?? 0).toFixed(1), rank: detail?.rankings.rpg ?? 0, accent: false },
                         { label: 'APG', value: (activeDetail?.player_stats?.apg ?? 0).toFixed(1), rank: detail?.rankings.apg ?? 0, accent: false },
@@ -728,7 +728,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               <div className="px-5 py-4 border-b border-gray-800/60">
                 <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">
                   상대팀별 스탯
-                  <span className="text-[10px] text-gray-600 ml-2 font-normal">친선전 제외 · GP는 출전 슬롯(쿼터) 수</span>
+                  <span className="text-[10px] text-gray-600 ml-2 font-normal">친선전 제외 · G는 출전 슬롯(쿼터) 수</span>
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {detail.vs_opponents.map(o => (
@@ -740,7 +740,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                           <span className="font-bold text-white text-sm whitespace-nowrap">vs {o.team_name}</span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[10px] text-gray-500 tabular-nums">{o.gp} GP</span>
+                          <span className="text-[10px] text-gray-500 tabular-nums">{o.gp} G</span>
                           <span className="text-[10px] tabular-nums">
                             <span className="text-green-400 font-bold">{o.wins}W</span>
                             <span className="text-gray-600">·</span>
@@ -776,10 +776,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               <MonthlyStatsChart data={activeDetail.monthly_stats} />
             )}
 
-            {/* 최근 5일 (일자 단위 — 같은 날 여러 경기는 합산됨, 단일 상대 개념 없음) */}
+            {/* 최근 5R (R = 라운드 단위, 같은 날 여러 경기는 합산. 단일 상대 개념 없음) */}
             {detail && detail.recent_games.length > 0 && (
               <div className="px-5 py-4">
-                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">최근 5일</p>
+                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold mb-3">최근 5R</p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>

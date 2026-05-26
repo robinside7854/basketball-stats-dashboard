@@ -50,7 +50,7 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   const COLS: ColDef[] = [
-    ...(showGP ? [{ key: 'gp', label: 'GP', sortKey: 'gp' }] : []),
+    ...(showGP ? [{ key: 'gp', label: 'G', sortKey: 'gp' }] : []),
     { key: 'pts',     label: 'PTS',  sortKey: 'pts'  },
     { key: 'reb',     label: 'REB',  sortKey: 'reb'  },
     { key: 'oreb',    label: 'OR',   sortKey: 'oreb' },

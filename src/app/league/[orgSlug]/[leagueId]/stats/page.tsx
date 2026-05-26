@@ -171,14 +171,14 @@ export default function LeagueStatsPage() {
 
   // 테이블 컬럼 정의
   const AVG_COLS: { key: SortKey; label: string }[] = [
-    { key: 'gp', label: '일수' }, { key: 'ppg', label: 'PPG' },
+    { key: 'gp', label: 'R' }, { key: 'ppg', label: 'PPG' },
     { key: 'rpg', label: 'RPG' }, { key: 'orp', label: 'ORpg' }, { key: 'drp', label: 'DRpg' },
     { key: 'apg', label: 'APG' }, { key: 'spg', label: 'SPG' }, { key: 'bpg', label: 'BPG' },
     { key: 'topg', label: 'TOPG' }, { key: 'fg_pct', label: 'FG%' }, { key: 'fg3_pct', label: '3P%' },
     { key: 'ft_pct', label: 'FT%' }, { key: 'efg_pct', label: 'eFG%' },
   ]
   const TOTAL_COLS: { key: SortKey; label: string }[] = [
-    { key: 'gp', label: '일수' }, { key: 'pts', label: 'PTS' },
+    { key: 'gp', label: 'R' }, { key: 'pts', label: 'PTS' },
     { key: 'reb', label: 'REB' }, { key: 'oreb', label: 'OR' }, { key: 'dreb', label: 'DR' },
     { key: 'ast', label: 'AST' }, { key: 'stl', label: 'STL' }, { key: 'blk', label: 'BLK' },
     { key: 'tov', label: 'TOV' },
@@ -399,7 +399,7 @@ export default function LeagueStatsPage() {
                     {top.name}
                   </button>
                   <p className="text-3xl font-black text-yellow-400">{fmt(top)}</p>
-                  <p className="text-xs text-gray-600 mt-0.5">{unit} · {top.gp}일</p>
+                  <p className="text-xs text-gray-600 mt-0.5">{unit} · {top.gp}R</p>
                   {leaders.slice(1).map((p, i) => (
                     <div key={p.player_id} className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-800">
                       <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
@@ -452,7 +452,7 @@ export default function LeagueStatsPage() {
                       className={`px-3 py-1.5 text-xs font-bold rounded-md cursor-pointer transition-colors ${
                         statUnit === u ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
                       }`}>
-                      {u === 'round' ? '라운드' : 'GP'}
+                      {u === 'round' ? 'R' : 'G'}
                     </button>
                   ))}
                 </div>
@@ -491,7 +491,7 @@ export default function LeagueStatsPage() {
                     className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
                       sortKey === key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                     }`}>
-                    {key === 'gp' ? (statUnit === 'round' ? '라운드' : 'GP') : label}
+                    {key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label}
                     {sortKey === key && (sortDir === 'desc' ? ' ↓' : ' ↑')}
                   </button>
                 ))}
@@ -502,7 +502,7 @@ export default function LeagueStatsPage() {
             <div className="md:hidden divide-y divide-gray-800/60">
               {filtered.map((p, i) => {
                 const sortLabel = sortKey === 'gp'
-                  ? (statUnit === 'round' ? '라운드' : 'GP')
+                  ? (statUnit === 'round' ? 'R' : 'G')
                   : (COLS.find(c => c.key === sortKey)?.label ?? '')
                 const sortVal = cellVal(p, sortKey)
                 const subCols = COLS.filter(c => c.key !== sortKey).slice(0, 4)
@@ -524,7 +524,7 @@ export default function LeagueStatsPage() {
                     <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-800/60">
                       {subCols.map(({ key, label }) => (
                         <div key={key} className="text-center">
-                          <div className="text-xs text-gray-500">{key === 'gp' ? (statUnit === 'round' ? '라운드' : 'GP') : label}</div>
+                          <div className="text-xs text-gray-500">{key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label}</div>
                           <div className="text-sm font-bold text-gray-200">{cellVal(p, key)}</div>
                         </div>
                       ))}
@@ -545,7 +545,7 @@ export default function LeagueStatsPage() {
                     {COLS.map(({ key, label }) => (
                       <th key={key} onClick={() => handleSort(key)}
                         className={`px-3 py-3 text-center text-sm font-bold cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${sortKey === key ? 'text-blue-400' : 'text-gray-500'}`}>
-                        {key === 'gp' ? (statUnit === 'round' ? '라운드' : 'GP') : label}
+                        {key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label}
                         {sortKey === key
                           ? (sortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
                           : <ChevronsUpDown size={10} className="inline ml-0.5 opacity-30" />}
