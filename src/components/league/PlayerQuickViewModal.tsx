@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Loader2, X, BookOpen, Crown } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
-import { ALL_BADGE_DEFS } from '@/lib/league/badges'
+import { type EvaluatedBadge, type BadgeCategory } from '@/lib/stats/badges'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar } from 'recharts'
 
 type PlayerInfo = {
@@ -17,13 +17,11 @@ type SeasonStats = {
   fg_pct: number; fg3_pct: number; ft_pct: number; efg_pct: number
 }
 
-type BadgeResult = { id: string; name: string; nameEn: string; icon: string; tier: 'gold'|'silver'|'bronze'; category: string; description: string }
-
 type WLStats = { ppg: number; rpg: number; apg: number; spg: number; bpg: number } | null
 
 type Detail = {
   rankings: { ppg: number; rpg: number; apg: number; spg: number; bpg: number; total: number; win_rate_rank?: number }
-  badges: BadgeResult[]
+  badges: EvaluatedBadge[]
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; drive: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; pts: number; reb: number; ast: number; stl?: number; blk?: number; fgm: number; fga: number; fg3m?: number; fg3a?: number }>
@@ -235,15 +233,13 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     bronze: 'text-orange-600 dark:text-orange-500/80',
   } as const
   const TIER_ORD = { gold: 0, silver: 1, bronze: 2 } as const
-  const CAT_ORD  = { offensive: 0, defensive: 1, playmaking: 2 } as const
-  const earnedBadgesSorted = [...(detail?.badges ?? [])].sort((a, b) =>
-    TIER_ORD[a.tier] - TIER_ORD[b.tier] ||
-    CAT_ORD[a.category as keyof typeof CAT_ORD] - CAT_ORD[b.category as keyof typeof CAT_ORD]
-  )
-
-  const earnedBadges = detail?.badges ?? []
-  const earnedMap = Object.fromEntries(earnedBadges.map(b => [b.id, b]))
-  void earnedMap // suppress unused warning
+  const CAT_ORD: Record<BadgeCategory, number> = { attack: 0, shooting: 1, defense: 2, playmaking: 3 }
+  const earnedBadgesSorted = [...(detail?.badges ?? [])]
+    .filter(b => b.tier !== null)
+    .sort((a, b) =>
+      TIER_ORD[a.tier as keyof typeof TIER_ORD] - TIER_ORD[b.tier as keyof typeof TIER_ORD] ||
+      CAT_ORD[a.category] - CAT_ORD[b.category]
+    )
 
   // 분기 탭 레이블
   const quarterLabel = (q: Quarter) => `${String(q.year).slice(2)}.${q.quarter}Q`
@@ -536,23 +532,23 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {earnedBadgesSorted.map(b => {
-                    const def = ALL_BADGE_DEFS.find(d => d.id === b.id)
-                    const criteria = def?.tierDesc[b.tier]
+                    const tier = b.tier as 'gold' | 'silver' | 'bronze'
+                    const criteria = b.tierCriteria[tier]
                     return (
-                      <div key={b.id} className={`flex flex-col gap-1.5 rounded-xl border px-2.5 py-2 ${TIER_BG[b.tier]}`}>
+                      <div key={b.code} className={`flex flex-col gap-1.5 rounded-xl border px-2.5 py-2 ${TIER_BG[tier]}`}>
                         <div className="flex items-center gap-1.5">
                           <span className="text-xl shrink-0">{b.icon}</span>
                           <div className="min-w-0">
-                            <p className={`text-sm font-black leading-tight truncate ${TIER_COLOR[b.tier]}`}>{b.name}</p>
-                            <span className={`text-[9px] font-bold px-1 py-0.5 rounded-full border inline-block ${TIER_CHIP[b.tier]}`}>
-                              {b.tier === 'gold' ? 'GOLD' : b.tier === 'silver' ? 'SILVER' : 'BRONZE'}
+                            <p className={`text-sm font-black leading-tight truncate ${TIER_COLOR[tier]}`}>{b.name}</p>
+                            <span className={`text-[9px] font-bold px-1 py-0.5 rounded-full border inline-block ${TIER_CHIP[tier]}`}>
+                              {tier === 'gold' ? 'GOLD' : tier === 'silver' ? 'SILVER' : 'BRONZE'}
                             </span>
                           </div>
                         </div>
                         <p className="text-[10px] text-gray-400 leading-snug line-clamp-2">{b.description}</p>
                         {criteria && (
-                          <p className={`text-[9px] font-medium ${TIER_CRIT[b.tier]}`}>
-                            {b.tier === 'gold' ? '🥇' : b.tier === 'silver' ? '🥈' : '🥉'} {criteria}
+                          <p className={`text-[9px] font-medium ${TIER_CRIT[tier]}`}>
+                            {tier === 'gold' ? '🥇' : tier === 'silver' ? '🥈' : '🥉'} {criteria}
                           </p>
                         )}
                       </div>

@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Pencil, Check, X, BookOpen } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
-import { ALL_BADGE_DEFS } from '@/lib/league/badges'
+import { type EvaluatedBadge, type BadgeCategory } from '@/lib/stats/badges'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
 // 업로드 전 이미지를 600×800(3:4) 이하로 리사이즈 + JPEG 압축
@@ -212,12 +212,6 @@ type CareerHighEntry = {
   value: number; extra?: string; date?: string; opponent?: string
   round_num?: number; result?: string; score?: string; league_name?: string
 }
-type BadgeResult = {
-  id: string; name: string; nameEn: string
-  category: 'offensive' | 'defensive' | 'playmaking'
-  icon: string; description: string
-  tier: 'gold' | 'silver' | 'bronze'
-}
 type PlayerDetail = {
   rankings: { ppg: number; rpg: number; apg: number; spg: number; bpg: number; total: number }
   career_high: Record<string, CareerHighEntry>
@@ -226,7 +220,7 @@ type PlayerDetail = {
     date?: string; opponent?: string; round_num?: number; result?: string; score?: string
     pts: number; reb: number; ast: number; fgm: number; fga: number; league_name?: string
   }>
-  badges: BadgeResult[]
+  badges: EvaluatedBadge[]
 }
 
 interface PlayerModalProps {
@@ -716,65 +710,65 @@ function PlayerModal({
                 </button>
               </div>
               {(() => {
-                const earned = detail.badges ?? []
-                if (earned.length === 0) return (
+                const earnedAll = (detail.badges ?? []).filter(b => b.tier !== null)
+                if (earnedAll.length === 0) return (
                   <p className="text-xs text-gray-500">아직 획득한 배지가 없습니다</p>
                 )
                 const TIER_BG = {
                   gold:   'bg-yellow-400/15 border-yellow-500/40 dark:bg-yellow-400/20 dark:border-yellow-400/50',
                   silver: 'bg-slate-200/60 border-slate-300/60 dark:bg-gray-300/15 dark:border-gray-300/40',
                   bronze: 'bg-orange-100/60 border-orange-300/50 dark:bg-orange-500/15 dark:border-orange-500/40',
-                }
+                } as const
                 const TIER_COLOR = {
                   gold:   'text-amber-700 dark:text-yellow-300',
                   silver: 'text-slate-600 dark:text-gray-300',
                   bronze: 'text-orange-700 dark:text-orange-400',
-                }
+                } as const
                 const TIER_CHIP = {
                   gold:   'bg-yellow-100 border-yellow-400/50 text-amber-700 dark:bg-yellow-400/20 dark:border-yellow-400/50 dark:text-yellow-300',
                   silver: 'bg-slate-100 border-slate-300 text-slate-600 dark:bg-gray-300/15 dark:border-gray-300/40 dark:text-gray-300',
                   bronze: 'bg-orange-50 border-orange-300/60 text-orange-700 dark:bg-orange-500/15 dark:border-orange-500/40 dark:text-orange-400',
-                }
+                } as const
                 const TIER_CRIT = {
                   gold:   'text-amber-600 dark:text-yellow-500/80',
                   silver: 'text-slate-500 dark:text-gray-400',
                   bronze: 'text-orange-600 dark:text-orange-500/80',
-                }
+                } as const
                 // 티어 → 카테고리 순 정렬
                 const TIER_ORD = { gold: 0, silver: 1, bronze: 2 } as const
-                const CAT_ORD  = { offensive: 0, defensive: 1, playmaking: 2 } as const
-                const sorted = [...earned].sort((a, b) =>
-                  TIER_ORD[a.tier] - TIER_ORD[b.tier] ||
-                  CAT_ORD[a.category as keyof typeof CAT_ORD] - CAT_ORD[b.category as keyof typeof CAT_ORD]
+                const CAT_ORD: Record<BadgeCategory, number> = { attack: 0, shooting: 1, defense: 2, playmaking: 3 }
+                const sorted = [...earnedAll].sort((a, b) =>
+                  TIER_ORD[a.tier as keyof typeof TIER_ORD] - TIER_ORD[b.tier as keyof typeof TIER_ORD] ||
+                  CAT_ORD[a.category] - CAT_ORD[b.category]
                 )
-                const goldCount   = earned.filter(b => b.tier === 'gold').length
-                const silverCount = earned.filter(b => b.tier === 'silver').length
-                const bronzeCount = earned.filter(b => b.tier === 'bronze').length
+                const goldCount   = earnedAll.filter(b => b.tier === 'gold').length
+                const silverCount = earnedAll.filter(b => b.tier === 'silver').length
+                const bronzeCount = earnedAll.filter(b => b.tier === 'bronze').length
                 return (
                   <div className="space-y-2">
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="text-xs text-gray-500">{earned.length}개 보유</span>
+                      <span className="text-xs text-gray-500">{earnedAll.length}개 보유</span>
                       {goldCount   > 0 && <span className="text-xs font-bold text-amber-600 dark:text-yellow-300">🥇 {goldCount}</span>}
                       {silverCount > 0 && <span className="text-xs font-bold text-slate-500 dark:text-gray-300">🥈 {silverCount}</span>}
                       {bronzeCount > 0 && <span className="text-xs font-bold text-orange-600 dark:text-orange-400">🥉 {bronzeCount}</span>}
                     </div>
                     {sorted.map(b => {
-                      const def = ALL_BADGE_DEFS.find(d => d.id === b.id)
-                      const criteria = def?.tierDesc[b.tier]
+                      const tier = b.tier as 'gold' | 'silver' | 'bronze'
+                      const criteria = b.tierCriteria[tier]
                       return (
-                        <div key={b.id} className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 ${TIER_BG[b.tier]}`}>
+                        <div key={b.code} className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 ${TIER_BG[tier]}`}>
                           <span className="text-2xl shrink-0 mt-0.5">{b.icon}</span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                              <span className={`text-sm font-black ${TIER_COLOR[b.tier]}`}>{b.name}</span>
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${TIER_CHIP[b.tier]}`}>
-                                {b.tier === 'gold' ? '🥇 GOLD' : b.tier === 'silver' ? '🥈 SILVER' : '🥉 BRONZE'}
+                              <span className={`text-sm font-black ${TIER_COLOR[tier]}`}>{b.name}</span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${TIER_CHIP[tier]}`}>
+                                {tier === 'gold' ? '🥇 GOLD' : tier === 'silver' ? '🥈 SILVER' : '🥉 BRONZE'}
                               </span>
                             </div>
                             <p className="text-[11px] text-gray-400 dark:text-gray-400 leading-snug">{b.description}</p>
                             {criteria && (
-                              <p className={`text-[10px] mt-1 font-medium ${TIER_CRIT[b.tier]}`}>
-                                {b.tier === 'gold' ? '🥇' : b.tier === 'silver' ? '🥈' : '🥉'} {criteria}
+                              <p className={`text-[10px] mt-1 font-medium ${TIER_CRIT[tier]}`}>
+                                {tier === 'gold' ? '🥇' : tier === 'silver' ? '🥈' : '🥉'} {criteria}
                               </p>
                             )}
                           </div>

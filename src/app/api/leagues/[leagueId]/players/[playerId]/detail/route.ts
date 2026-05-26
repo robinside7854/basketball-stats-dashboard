@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { computeBadges, type PlayerMetrics } from '@/lib/league/badges'
+import { evaluateAllBadges, type PlayerCareerInput, type TeamAverages } from '@/lib/stats/badges'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'] as const
 
@@ -334,43 +334,21 @@ export async function GET(
   }
   for (const pid of Object.keys(allMap)) allMap[pid].gp = allGp[pid]?.size ?? 0
 
-  // per-game 통계 + 배지 메트릭
-  const toMetrics = (_pid: string, s: AS): PlayerMetrics => {
+  // per-game 통계 (ranking 전용 — 배지는 별도 evaluateAllBadges 사용)
+  const toMetrics = (s: AS) => {
     const gp = s.gp || 1
-    const ppg = s.pts / gp; const rpg = s.reb / gp; const apg = s.ast / gp
-    const spg = s.stl / gp; const bpg = s.blk / gp; const topg = s.tov / gp
-    const drebPerG = s.dreb / gp; const orebPerG = s.oreb / gp; const pfPerG = s.pf / gp
-    const fg3_pct = s.fg3a > 0 ? s.fg3m / s.fg3a * 100 : 0
-    const fg3aPerG = s.fg3a / gp
-    const efg_pct = s.fga > 0 ? (s.fgm + 0.5 * s.fg3m) / s.fga * 100 : 0
-    const fgaPerG = s.fga / gp
-    const ft_pct = s.fta > 0 ? s.ftm / s.fta * 100 : 0
-    const ftaPerG = s.fta / gp
-    const atoRatio = s.tov > 0 ? s.ast / s.tov : s.ast
-    const defComposite = spg + bpg
-    const hustleComposite = spg + bpg + orebPerG
-    const stlTotal = s.stl
-    // Phase 2
-    const midPerG   = s.midA / gp
-    const slashPerG = s.slashA / gp
-    const postPerG  = s.postA / gp
-    const andOnePerG = s.andOneM / gp
-    const fieldFGA  = s.fg3a + s.midA + s.slashA + s.postA
-    const threeDistPct = fieldFGA > 0 ? s.fg3a  / fieldFGA * 100 : 0
-    const midDistPct   = fieldFGA > 0 ? s.midA   / fieldFGA * 100 : 0
-    const slashDistPct = fieldFGA > 0 ? s.slashA / fieldFGA * 100 : 0
     return {
-      gp: s.gp, ppg, rpg, apg, spg, bpg, topg, drebPerG, orebPerG, pfPerG,
-      fg3_pct, fg3aPerG, efg_pct, fgaPerG, ft_pct, ftaPerG,
-      atoRatio, defComposite, hustleComposite, stlTotal,
-      midPerG, slashPerG, postPerG, andOnePerG,
-      threeDistPct, midDistPct, slashDistPct,
+      ppg: s.pts / gp,
+      rpg: s.reb / gp,
+      apg: s.ast / gp,
+      spg: s.stl / gp,
+      bpg: s.blk / gp,
     }
   }
 
   const allMetricsList = Object.entries(allMap)
     .filter(([, s]) => s.gp > 0)
-    .map(([pid, s]) => ({ pid, ...toMetrics(pid, s) }))
+    .map(([pid, s]) => ({ pid, ...toMetrics(s) }))
 
   const ranked = allMetricsList.map(m => ({
     pid: m.pid, ppg: +m.ppg.toFixed(1), rpg: +m.rpg.toFixed(1),
@@ -418,8 +396,13 @@ export async function GET(
   }
 
   // ── 배지: 분기 필터와 무관하게 항상 시즌 전체 기준 ───────────
+  // badgeAllEvents: 시즌 전체 이벤트 (quarterId 무관)
+  let badgeAllEvents: AllEventRow[] = allEvents
   let badgeMap: Record<string, AS> = allMap
   let badgeGp: Record<string, Set<string>> = allGp
+  let badgeGameMap: Record<string, { date?: string }> = Object.fromEntries(
+    (games ?? []).map(g => [g.id as string, g as { date?: string }])
+  )
   if (quarterId) {
     // 분기 필터가 적용된 상태 → allMap은 부분 집합. 시즌 전체를 별도 페치/집계.
     const seasonGameIds = (allGames ?? []).map(g => g.id)
@@ -438,7 +421,8 @@ export async function GET(
         if (!chunk || chunk.length < PAGE) break
         pg++
       }
-      const seasonGameMap: Record<string, { date?: string }> = Object.fromEntries(
+      badgeAllEvents = seasonEvents
+      badgeGameMap = Object.fromEntries(
         (allGames ?? []).map(g => [g.id as string, g as { date?: string }])
       )
       badgeMap = {}
@@ -452,7 +436,7 @@ export async function GET(
         if (!badgeMap[pid]) badgeMap[pid] = emptyAS()
         if (e.type !== 'sub_in' && e.type !== 'sub_out') {
           if (!badgeGp[pid]) badgeGp[pid] = new Set()
-          badgeGp[pid].add(unit === 'round' ? (seasonGameMap[gId]?.date ?? gId) : gId)
+          badgeGp[pid].add(unit === 'round' ? (badgeGameMap[gId]?.date ?? gId) : gId)
         }
         const s = badgeMap[pid]
         if (made) {
@@ -479,7 +463,7 @@ export async function GET(
           const ap = e.related_player_id as string
           if (!badgeMap[ap]) badgeMap[ap] = emptyAS()
           if (!badgeGp[ap]) badgeGp[ap] = new Set()
-          badgeGp[ap].add(unit === 'round' ? (seasonGameMap[gId]?.date ?? gId) : gId)
+          badgeGp[ap].add(unit === 'round' ? (badgeGameMap[gId]?.date ?? gId) : gId)
           badgeMap[ap].ast++
         }
       }
@@ -487,15 +471,138 @@ export async function GET(
     }
   }
 
-  const badgeMetricsList = Object.entries(badgeMap)
-    .filter(([, s]) => s.gp > 0)
-    .map(([pid, s]) => ({ pid, ...toMetrics(pid, s) }))
+  // ── 파란날개 19개 배지 평가 (PlayerCareerInput + TeamAverages) ───
+  // 1. 타겟 선수의 슛 유형별 made/attempted + 어시스트 세부 (3P/Paint) + 주 팀 결정
+  const tShot: Record<string, { attempted: number; made: number }> = {
+    shot_post:     { attempted: 0, made: 0 },
+    shot_layup:    { attempted: 0, made: 0 },
+    shot_2p_drive: { attempted: 0, made: 0 },
+    shot_2p_mid:   { attempted: 0, made: 0 },
+    shot_3p:       { attempted: 0, made: 0 },
+  }
+  let ast3pts = 0
+  let astPaint = 0
+  const playerTeamCount: Record<string, number> = {}
+  for (const e of badgeAllEvents) {
+    if (e.league_player_id === playerId) {
+      if (e.team_id && e.type !== 'sub_in' && e.type !== 'sub_out') {
+        playerTeamCount[e.team_id] = (playerTeamCount[e.team_id] ?? 0) + 1
+      }
+      if (tShot[e.type]) {
+        tShot[e.type].attempted++
+        if (e.result === 'made') tShot[e.type].made++
+      }
+    }
+    if (e.related_player_id === playerId && e.result === 'made') {
+      if (e.type === 'shot_3p') ast3pts++
+      else if (e.type === 'shot_layup' || e.type === 'shot_post' || e.type === 'shot_2p_drive') astPaint++
+    }
+  }
+  let primaryTeamId: string | undefined
+  {
+    let maxCnt = 0
+    for (const [tid, c] of Object.entries(playerTeamCount)) {
+      if (c > maxCnt) { maxCnt = c; primaryTeamId = tid }
+    }
+  }
 
-  const badgePlayerEntry = badgeMap[playerId]
-  const playerMetrics: PlayerMetrics = badgePlayerEntry
-    ? toMetrics(playerId, badgePlayerEntry)
-    : { gp: 0, ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0, topg: 0, drebPerG: 0, orebPerG: 0, pfPerG: 0, fg3_pct: 0, fg3aPerG: 0, efg_pct: 0, fgaPerG: 0, ft_pct: 0, ftaPerG: 0, atoRatio: 0, defComposite: 0, hustleComposite: 0, stlTotal: 0, midPerG: 0, slashPerG: 0, postPerG: 0, andOnePerG: 0, threeDistPct: 0, midDistPct: 0, slashDistPct: 0 }
-  const badges = computeBadges(playerMetrics, badgeMetricsList)
+  // 2. 팀별 평균 산출 (선수-단위 평균: 같은 팀에 속한 선수들의 합계 / 선수-단위 출전 수)
+  type TeamAgg = {
+    pts: number; reb: number; dreb: number; ast: number
+    stl: number; blk: number; fta: number; fg3a: number
+    playerUnits: Set<string>
+  }
+  const teamAgg: Record<string, TeamAgg> = {}
+  const ensureTeamAgg = (tid: string): TeamAgg => {
+    if (!teamAgg[tid]) teamAgg[tid] = {
+      pts: 0, reb: 0, dreb: 0, ast: 0, stl: 0, blk: 0, fta: 0, fg3a: 0,
+      playerUnits: new Set(),
+    }
+    return teamAgg[tid]
+  }
+  for (const e of badgeAllEvents) {
+    const tid = e.team_id
+    if (!tid) continue
+    const t = ensureTeamAgg(tid)
+    const gId = e.league_game_id
+    const unitKey = unit === 'round' ? (badgeGameMap[gId]?.date ?? gId) : gId
+    const pid = e.league_player_id
+    const made = e.result === 'made'
+    const gpo = gamePlusOneMap[gId]
+    const isP1 = pid != null && (gpo != null ? pid === gpo : plusOneSet.has(pid))
+    if (pid && e.type !== 'sub_in' && e.type !== 'sub_out') {
+      t.playerUnits.add(`${pid}:${unitKey}`)
+    }
+    if (made) {
+      if (e.type === 'shot_3p') t.pts += isP1 ? 4 : 3
+      else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post' || e.type === 'shot_2p_drive') t.pts += isP1 ? 3 : 2
+      else if (e.type === 'ft_2pt' || e.type === 'ft_3pt_1') t.pts += 2
+      else if (e.type === 'free_throw' || e.type === 'ft_3pt_2') t.pts += 1
+      else if (e.type === 'and_one') t.pts += 1
+    }
+    if (e.type === 'shot_3p') t.fg3a++
+    else if (e.type === 'free_throw' || e.type === 'ft_2pt' || e.type === 'ft_3pt_1' || e.type === 'ft_3pt_2') t.fta++
+    else if (e.type === 'oreb') t.reb++
+    else if (e.type === 'dreb') { t.reb++; t.dreb++ }
+    else if (e.type === 'steal') t.stl++
+    else if (e.type === 'block') t.blk++
+    if (made && e.related_player_id && (SHOT_TYPES as readonly string[]).includes(e.type)) {
+      t.ast++
+      t.playerUnits.add(`${e.related_player_id}:${unitKey}`)
+    }
+  }
+  const teamAverages: TeamAverages = primaryTeamId && teamAgg[primaryTeamId]
+    ? (() => {
+        const t = teamAgg[primaryTeamId!]
+        const n = t.playerUnits.size || 1
+        return {
+          ptsPerGame: t.pts / n,
+          rebPerGame: t.reb / n,
+          astPerGame: t.ast / n,
+          stlPerGame: t.stl / n,
+          blkPerGame: t.blk / n,
+          ftaPerGame: t.fta / n,
+          fg3aPerGame: t.fg3a / n,
+          hustlePerGame: (t.stl + t.blk + t.dreb) / n,
+        }
+      })()
+    : { ptsPerGame: 0, rebPerGame: 0, astPerGame: 0, stlPerGame: 0, blkPerGame: 0, ftaPerGame: 0, fg3aPerGame: 0, hustlePerGame: 0 }
+
+  // 3. PlayerCareerInput 빌드 후 평가
+  const ps = badgeMap[playerId] ?? emptyAS()
+  const psGp = ps.gp || 0
+  const careerInput: PlayerCareerInput = {
+    gamesPlayed: psGp,
+    totalTeamGames: psGp,
+    pts: ps.pts,
+    fgm: ps.fgm, fga: ps.fga,
+    fg2m: ps.fgm - ps.fg3m, fg2a: ps.fga - ps.fg3a,
+    fg3m: ps.fg3m, fg3a: ps.fg3a,
+    ftm: ps.ftm, fta: ps.fta,
+    oreb: ps.oreb, dreb: ps.dreb, reb: ps.reb,
+    ast: ps.ast, stl: ps.stl, blk: ps.blk, tov: ps.tov,
+    ppg: psGp > 0 ? ps.pts / psGp : 0,
+    rpg: psGp > 0 ? ps.reb / psGp : 0,
+    apg: psGp > 0 ? ps.ast / psGp : 0,
+    spg: psGp > 0 ? ps.stl / psGp : 0,
+    bpg: psGp > 0 ? ps.blk / psGp : 0,
+    fg3Pct: ps.fg3a > 0 ? ps.fg3m / ps.fg3a * 100 : 0,
+    ftPct:  ps.fta  > 0 ? ps.ftm  / ps.fta  * 100 : 0,
+    astToTov: ps.tov > 0 ? ps.ast / ps.tov : ps.ast,
+    doubleDoubles: 0,
+    tripleDoubles: 0,
+    q1pts: 0, q2pts: 0, q3pts: 0, q4pts: 0,  // 리그엔 쿼터별 분리 데이터 없음 → CLUTCH_Q4 자동 미부여
+    ast3pts,
+    astPaint,
+    shotBreakdown: Object.fromEntries(
+      Object.entries(tShot).map(([k, v]) => [k, {
+        attempted: v.attempted,
+        made: v.made,
+        pct: v.attempted > 0 ? +(v.made / v.attempted * 100).toFixed(1) : 0,
+      }])
+    ),
+  }
+  const badges = evaluateAllBadges(careerInput, teamAverages).filter(b => b.tier !== null)
 
   // ── Win/Loss impact ──────────────────────────────────────────
   type WLS = { pts: number; reb: number; ast: number; stl: number; blk: number; gp: number }
