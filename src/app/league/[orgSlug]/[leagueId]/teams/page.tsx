@@ -5,6 +5,7 @@ import { Loader2, Crown, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucid
 import Link from 'next/link'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import TeamInsights from '@/components/league/TeamInsights'
+import { PercentBar } from '@/components/league/StatCell'
 import type { Quarter, PlayerStat, Leader } from '@/types/league'
 
 type Team = { id: string; name: string; color: string }
@@ -70,18 +71,18 @@ const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
   { key: 'drb_pct',   label: 'DRB%',  desc: '본인 리바운드 중 수비 리바운드 비중 · DREB/REB' },
   { key: 'trb_pct',   label: 'TRB%',  desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
 ]
-const SHOOTING_COLS: { key: ShootingKey; label: string; desc: string }[] = [
-  { key: 'fg_pct',      label: 'FG%',   desc: '전체 야투 성공률 · FGM/FGA' },
-  { key: 'fg2_pct',     label: '2P%',   desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)' },
-  { key: 'fg3_pct',     label: '3P%',   desc: '3점 야투 성공률 · 3PM/3PA' },
-  { key: 'efg_pct',     label: 'eFG%',  desc: '유효야투율 · (FGM+0.5×3PM)/FGA' },
-  { key: 'ft_pct',      label: 'FT%',   desc: '자유투 성공률 · FTM/FTA' },
-  { key: 'ts_pct',      label: 'TS%',   desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
-  { key: 'ft_rate',     label: 'FTr',   desc: '야투 대비 자유투 시도 · FTA/FGA' },
-  { key: 'ds_pct',      label: 'DS',    desc: '골밑슛 비중 · 골밑슛시도/전체야투시도' },
-  { key: 'lu_pct',      label: 'LU',    desc: '레이업 비중 · (레이업+드라이브) 시도/전체야투시도' },
-  { key: 'md_pct',      label: 'MD',    desc: '미드레인지 비중 · 미들시도/전체야투시도' },
-  { key: 'three_share', label: '3P',    desc: '3점 비중 · 3PA/FGA' },
+const SHOOTING_COLS: { key: ShootingKey; label: string; desc: string; barColor: string }[] = [
+  { key: 'fg_pct',      label: 'FG%',   desc: '전체 야투 성공률 · FGM/FGA',                        barColor: '#34d399' },
+  { key: 'fg2_pct',     label: '2P%',   desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)',             barColor: '#fb923c' },
+  { key: 'fg3_pct',     label: '3P%',   desc: '3점 야투 성공률 · 3PM/3PA',                          barColor: '#eab308' },
+  { key: 'efg_pct',     label: 'eFG%',  desc: '유효야투율 · (FGM+0.5×3PM)/FGA',                     barColor: '#14b8a6' },
+  { key: 'ft_pct',      label: 'FT%',   desc: '자유투 성공률 · FTM/FTA',                            barColor: '#06b6d4' },
+  { key: 'ts_pct',      label: 'TS%',   desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))',                barColor: '#2dd4bf' },
+  { key: 'ft_rate',     label: 'FTr',   desc: '야투 대비 자유투 시도 · FTA/FGA',                     barColor: '#0891b2' },
+  { key: 'ds_pct',      label: 'DS',    desc: '골밑슛 비중 · 골밑슛시도/전체야투시도',                barColor: '#ef4444' },
+  { key: 'lu_pct',      label: 'LU',    desc: '레이업 비중 · (레이업+드라이브) 시도/전체야투시도',   barColor: '#f97316' },
+  { key: 'md_pct',      label: 'MD',    desc: '미드레인지 비중 · 미들시도/전체야투시도',             barColor: '#eab308' },
+  { key: 'three_share', label: '3P',    desc: '3점 비중 · 3PA/FGA',                                 barColor: '#3b82f6' },
 ]
 
 const BASIC_PCT_KEYS = new Set<BasicKey>(['fg_pct', 'fg3_pct', 'ft_pct', 'efg_pct'])
@@ -480,14 +481,16 @@ function StatsTable({
                       </span>
                     </button>
                   </td>
-                  {SHOOTING_COLS.map(({ key }, idx) => {
+                  {SHOOTING_COLS.map(({ key, barColor }, idx) => {
                     const isSortLeader = key === shootSortKey
                     const baseClass = SHOOT_COLOR[key] ?? 'text-gray-300'
                     const style = isSortLeader && color ? { color } : undefined
                     const divider = idx === 7 ? 'border-l border-gray-800' : ''
+                    const barMax = key === 'ft_rate' ? 80 : 100
                     return (
-                      <td key={key} className={`py-2 px-1.5 text-right ${divider} ${baseClass}`} style={style}>
+                      <td key={key} className={`relative py-2 px-1.5 text-right ${divider} ${baseClass}`} style={style}>
                         {shootVal(sh, key)}
+                        <PercentBar value={sh[key]} max={barMax} color={barColor} />
                       </td>
                     )
                   })}

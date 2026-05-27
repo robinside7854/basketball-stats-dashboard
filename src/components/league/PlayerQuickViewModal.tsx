@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Loader2, X, BookOpen, Crown } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
+import { CountUp, FormDots } from '@/components/league/StatCell'
 import { type EvaluatedBadge, type BadgeCategory } from '@/lib/stats/badges'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar } from 'recharts'
 
@@ -417,16 +418,18 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3">
                       {[
-                        { label: statUnit === 'round' ? 'R' : 'G', value: String(activeDetail?.player_stats?.gp ?? 0),                    rank: 0,                         accent: false },
-                        { label: 'PPG', value: (activeDetail?.player_stats?.ppg ?? 0).toFixed(1), rank: detail?.rankings.ppg ?? 0, accent: true  },
-                        { label: 'RPG', value: (activeDetail?.player_stats?.rpg ?? 0).toFixed(1), rank: detail?.rankings.rpg ?? 0, accent: false },
-                        { label: 'APG', value: (activeDetail?.player_stats?.apg ?? 0).toFixed(1), rank: detail?.rankings.apg ?? 0, accent: false },
-                        { label: 'STL', value: (activeDetail?.player_stats?.spg ?? 0).toFixed(1), rank: detail?.rankings.spg ?? 0, accent: false },
-                        { label: 'BLK', value: (activeDetail?.player_stats?.bpg ?? 0).toFixed(1), rank: detail?.rankings.bpg ?? 0, accent: false },
-                      ].map(({ label, value, rank, accent }) => (
+                        { label: statUnit === 'round' ? 'R' : 'G', value: activeDetail?.player_stats?.gp ?? 0,  decimals: 0, rank: 0,                         accent: false },
+                        { label: 'PPG', value: activeDetail?.player_stats?.ppg ?? 0, decimals: 1, rank: detail?.rankings.ppg ?? 0, accent: true  },
+                        { label: 'RPG', value: activeDetail?.player_stats?.rpg ?? 0, decimals: 1, rank: detail?.rankings.rpg ?? 0, accent: false },
+                        { label: 'APG', value: activeDetail?.player_stats?.apg ?? 0, decimals: 1, rank: detail?.rankings.apg ?? 0, accent: false },
+                        { label: 'STL', value: activeDetail?.player_stats?.spg ?? 0, decimals: 1, rank: detail?.rankings.spg ?? 0, accent: false },
+                        { label: 'BLK', value: activeDetail?.player_stats?.bpg ?? 0, decimals: 1, rank: detail?.rankings.bpg ?? 0, accent: false },
+                      ].map(({ label, value, decimals, rank, accent }) => (
                         <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-blue-900/30 border-blue-700/50' : 'bg-gray-800/50 border-gray-700/60'}`}>
                           <p className="text-xs font-bold text-gray-600 mb-1 uppercase">{label}</p>
-                          <p className={`text-3xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
+                          <p className={`text-3xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>
+                            <CountUp value={value} decimals={decimals} />
+                          </p>
                           {rank > 0 && (
                             <p className={`text-[10px] font-bold mt-1 flex items-center justify-center gap-0.5 ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>
                               {rank === 1 && <Crown size={8} />}
@@ -444,7 +447,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       ].map(({ label, pct, m, a }) => (
                         <div key={label} className="bg-gray-900/50 border border-gray-800/40 rounded-xl p-2.5 text-center">
                           <p className="text-xs text-gray-600 mb-1 uppercase">{label}</p>
-                          <p className="text-xl font-black text-white leading-none">{a > 0 ? `${pct.toFixed(1)}%` : '—'}</p>
+                          <p className="text-xl font-black text-white leading-none">
+                            {a > 0 ? <><CountUp value={pct} decimals={1} />%</> : '—'}
+                          </p>
                           <p className="text-xs text-gray-500 mt-0.5">{m}/{a}</p>
                         </div>
                       ))}
@@ -482,12 +487,24 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (() => {
                       const wl = activeDetail.win_loss!
                       const total = ranked_total(detail)
+                      // 최근 5R 의 결과를 닷으로 (오래된 → 최신 순)
+                      const recent = (activeDetail?.recent_games ?? []).slice(0, 5)
+                      const form = [...recent].reverse().map(g => {
+                        const r = g.result
+                        return (r === 'W' || r === 'L' || r === 'D') ? r : null
+                      })
                       return (
-                        <div className="mt-2 bg-gray-900/50 border border-gray-800/40 rounded-xl px-3 py-2.5 flex items-center justify-between">
+                        <div className="mt-2 bg-gray-900/50 border border-gray-800/40 rounded-xl px-3 py-2.5 flex items-center justify-between flex-wrap gap-2">
                           <div className="flex items-center gap-3">
                             <span className="text-green-400 font-black text-base">{wl.wins}W</span>
                             <span className="text-gray-600">·</span>
                             <span className="text-red-400 font-black text-base">{wl.losses}L</span>
+                            {form.length > 0 && (
+                              <div className="flex items-center gap-1.5 ml-1">
+                                <span className="text-[9px] text-gray-600 font-bold uppercase tracking-wide">최근</span>
+                                <FormDots results={form} size={7} />
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-600">출전 승률</span>
@@ -506,10 +523,19 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     })()}
 
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mt-2">
-                      {[['PTS', activeDetail?.player_stats?.pts ?? 0, true], ['REB', activeDetail?.player_stats?.reb ?? 0], ['AST', activeDetail?.player_stats?.ast ?? 0], ['STL', activeDetail?.player_stats?.stl ?? 0], ['BLK', activeDetail?.player_stats?.blk ?? 0], ['TOV', activeDetail?.player_stats?.tov ?? 0]].map(([l, v, hi]) => (
-                        <div key={l as string} className={`rounded-xl p-2 text-center border ${hi ? 'bg-blue-900/30 border-blue-700/50' : 'bg-gray-800/50 border-gray-700/60'}`}>
-                          <p className="text-[10px] text-gray-600 mb-0.5 uppercase">{l as string}</p>
-                          <p className={`text-base font-black ${hi ? 'text-blue-300' : 'text-white'}`}>{v as number}</p>
+                      {([
+                        ['PTS', activeDetail?.player_stats?.pts ?? 0, true ],
+                        ['REB', activeDetail?.player_stats?.reb ?? 0, false],
+                        ['AST', activeDetail?.player_stats?.ast ?? 0, false],
+                        ['STL', activeDetail?.player_stats?.stl ?? 0, false],
+                        ['BLK', activeDetail?.player_stats?.blk ?? 0, false],
+                        ['TOV', activeDetail?.player_stats?.tov ?? 0, false],
+                      ] as const).map(([l, v, hi]) => (
+                        <div key={l} className={`rounded-xl p-2 text-center border ${hi ? 'bg-blue-900/30 border-blue-700/50' : 'bg-gray-800/50 border-gray-700/60'}`}>
+                          <p className="text-[10px] text-gray-600 mb-0.5 uppercase">{l}</p>
+                          <p className={`text-base font-black ${hi ? 'text-blue-300' : 'text-white'}`}>
+                            <CountUp value={v} decimals={0} />
+                          </p>
                         </div>
                       ))}
                     </div>
