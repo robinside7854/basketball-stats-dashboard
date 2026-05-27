@@ -102,10 +102,17 @@ export type PlayerStat = {
   tov: number; topg: number
   pf: number
   fgm: number; fga: number; fg_pct: number
+  fg2m: number; fg2a: number; fg2_pct: number  // 2점 야투 (계산값)
   fg3m: number; fg3a: number; fg3_pct: number
   ftm: number; fta: number; ft_pct: number
   efg_pct: number
   and_one: number  // 성공한 앤드원 횟수
+  // 슛 분포 (존별 made/attempted)
+  ds_a: number; ds_m: number   // 골밑슛 (Dunk Spot, shot_post)
+  lu_a: number; lu_m: number   // 레이업 (shot_layup + shot_2p_drive)
+  md_a: number; md_m: number   // 미드레인지 (shot_2p_mid)
+  // TRB% 계산용
+  team_reb_in_games: number    // 본인 출전 경기의 본인 팀 총 리바운드
 }
 
 export type QuarterPlayer = {

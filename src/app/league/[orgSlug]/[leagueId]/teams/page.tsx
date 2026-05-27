@@ -24,7 +24,9 @@ type BasicKey =
   | 'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'
   | 'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'
   | 'fgm'|'fg3m'|'ftm'
-type AdvKey = 'efg_pct'|'ts_pct'|'at_ratio'|'usg_pct'|'fg3a_rate'|'ft_rate'|'ast_pct'|'tov_pct'|'a1_total'|'a1_rate'
+type AdvKey = 'at_ratio'|'ast_pct'|'tov_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
+type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'ds_pct'|'lu_pct'|'md_pct'|'three_share'
+type StatMode = 'basic'|'shooting'|'advanced'
 
 const AVG_COLS: { key: BasicKey; label: string }[] = [
   { key: 'gp',      label: 'R'    },
@@ -59,16 +61,27 @@ const TOTAL_COLS: { key: BasicKey; label: string }[] = [
   { key: 'ft_pct',  label: 'FT%'  },
 ]
 const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
-  { key: 'efg_pct',   label: 'eFG%',  desc: '유효야투율 · (FGM+0.5×3PM)/FGA' },
-  { key: 'ts_pct',    label: 'TS%',   desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
   { key: 'at_ratio',  label: 'A/T',   desc: '어시스트/턴오버 비율' },
-  { key: 'usg_pct',   label: 'USG%',  desc: '팀 볼소유 중 이 선수 비중 · (FGA+0.44×FTA+TOV)/팀합계' },
-  { key: 'fg3a_rate', label: '3PAr',  desc: '야투 중 3점슛 비중 · FG3A/FGA' },
-  { key: 'ft_rate',   label: 'FTr',   desc: '야투 대비 자유투 시도 · FTA/FGA' },
   { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
   { key: 'tov_pct',   label: 'TOV%',  desc: '볼소유 중 턴오버 비중' },
   { key: 'a1_total',  label: 'A1',    desc: '성공한 앤드원(And-One) 횟수 (누적)' },
   { key: 'a1_rate',   label: 'A1%',   desc: '야투 성공 중 앤드원 비율 · A1/FGM' },
+  { key: 'orb_pct',   label: 'ORB%',  desc: '본인 리바운드 중 공격 리바운드 비중 · OREB/REB' },
+  { key: 'drb_pct',   label: 'DRB%',  desc: '본인 리바운드 중 수비 리바운드 비중 · DREB/REB' },
+  { key: 'trb_pct',   label: 'TRB%',  desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
+]
+const SHOOTING_COLS: { key: ShootingKey; label: string; desc: string }[] = [
+  { key: 'fg_pct',      label: 'FG%',   desc: '전체 야투 성공률 · FGM/FGA' },
+  { key: 'fg2_pct',     label: '2P%',   desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)' },
+  { key: 'fg3_pct',     label: '3P%',   desc: '3점 야투 성공률 · 3PM/3PA' },
+  { key: 'efg_pct',     label: 'eFG%',  desc: '유효야투율 · (FGM+0.5×3PM)/FGA' },
+  { key: 'ft_pct',      label: 'FT%',   desc: '자유투 성공률 · FTM/FTA' },
+  { key: 'ts_pct',      label: 'TS%',   desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
+  { key: 'ft_rate',     label: 'FTr',   desc: '야투 대비 자유투 시도 · FTA/FGA' },
+  { key: 'ds_pct',      label: 'DS',    desc: '골밑슛 비중 · 골밑슛시도/전체야투시도' },
+  { key: 'lu_pct',      label: 'LU',    desc: '레이업 비중 · (레이업+드라이브) 시도/전체야투시도' },
+  { key: 'md_pct',      label: 'MD',    desc: '미드레인지 비중 · 미들시도/전체야투시도' },
+  { key: 'three_share', label: '3P',    desc: '3점 비중 · 3PA/FGA' },
 ]
 
 const BASIC_PCT_KEYS = new Set<BasicKey>(['fg_pct', 'fg3_pct', 'ft_pct', 'efg_pct'])
@@ -90,11 +103,16 @@ const BASIC_COLOR: Partial<Record<BasicKey, string>> = {
   fgm: 'text-gray-500', fg3m: 'text-gray-500', ftm: 'text-gray-500',
 }
 const ADV_COLOR: Partial<Record<AdvKey, string>> = {
-  efg_pct: 'text-teal-500', ts_pct: 'text-teal-400',
-  at_ratio: 'text-blue-400', usg_pct: 'text-violet-400',
-  fg3a_rate: 'text-yellow-600', ft_rate: 'text-cyan-600',
+  at_ratio: 'text-blue-400',
   ast_pct: 'text-purple-400', tov_pct: 'text-red-400',
   a1_total: 'text-orange-400', a1_rate: 'text-amber-400',
+  orb_pct: 'text-amber-400', drb_pct: 'text-emerald-400', trb_pct: 'text-violet-400',
+}
+const SHOOT_COLOR: Partial<Record<ShootingKey, string>> = {
+  fg_pct: 'text-gray-300', fg2_pct: 'text-orange-300', fg3_pct: 'text-yellow-500',
+  efg_pct: 'text-teal-500', ft_pct: 'text-cyan-500', ts_pct: 'text-teal-400',
+  ft_rate: 'text-cyan-600',
+  ds_pct: 'text-red-400', lu_pct: 'text-orange-400', md_pct: 'text-yellow-500', three_share: 'text-blue-400',
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc'|'desc' }) {
@@ -104,20 +122,35 @@ function SortIcon({ active, dir }: { active: boolean; dir: 'asc'|'desc' }) {
     : <ChevronUp   size={9} className="inline ml-0.5 text-blue-400" />
 }
 
-function calcAdv(p: PlayerStat, teamPoss: number): Record<AdvKey, number> {
+function calcAdv(p: PlayerStat): Record<AdvKey, number> {
   const poss = p.fga + 0.44 * p.fta + p.tov
   const a1 = p.and_one ?? 0
+  const teamReb = p.team_reb_in_games ?? 0
   return {
-    efg_pct:   p.efg_pct,
-    ts_pct:    (p.fga + 0.44 * p.fta) > 0 ? +(p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100).toFixed(1) : 0,
     at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : (p.ast > 0 ? 99 : 0),
-    usg_pct:   teamPoss > 0 ? +(poss / teamPoss * 100).toFixed(1) : 0,
-    fg3a_rate: p.fga > 0 ? +(p.fg3a / p.fga * 100).toFixed(1) : 0,
-    ft_rate:   p.fga > 0 ? +(p.fta / p.fga * 100).toFixed(1) : 0,
     ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
     tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,
     a1_total:  a1,
     a1_rate:   p.fgm > 0 ? +(a1 / p.fgm * 100).toFixed(1) : 0,
+    orb_pct:   p.reb > 0 ? +(p.oreb / p.reb * 100).toFixed(1) : 0,
+    drb_pct:   p.reb > 0 ? +(p.dreb / p.reb * 100).toFixed(1) : 0,
+    trb_pct:   teamReb > 0 ? +(p.reb / teamReb * 100).toFixed(1) : 0,
+  }
+}
+
+function calcShoot(p: PlayerStat): Record<ShootingKey, number> {
+  return {
+    fg_pct:      p.fg_pct ?? 0,
+    fg2_pct:     p.fg2_pct ?? 0,
+    fg3_pct:     p.fg3_pct ?? 0,
+    efg_pct:     p.efg_pct ?? 0,
+    ft_pct:      p.ft_pct ?? 0,
+    ts_pct:      (p.fga + 0.44 * p.fta) > 0 ? +(p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100).toFixed(1) : 0,
+    ft_rate:     p.fga > 0 ? +(p.fta / p.fga * 100).toFixed(1) : 0,
+    ds_pct:      p.fga > 0 ? +((p.ds_a ?? 0) / p.fga * 100).toFixed(1) : 0,
+    lu_pct:      p.fga > 0 ? +((p.lu_a ?? 0) / p.fga * 100).toFixed(1) : 0,
+    md_pct:      p.fga > 0 ? +((p.md_a ?? 0) / p.fga * 100).toFixed(1) : 0,
+    three_share: p.fga > 0 ? +(p.fg3a / p.fga * 100).toFixed(1) : 0,
   }
 }
 
@@ -129,13 +162,15 @@ function StatsTable({
   leaderId?: string | null
   color?: string
   viewMode: 'avg'|'total'
-  statMode: 'basic'|'advanced'
+  statMode: StatMode
 }) {
   const defaultBasicSort: BasicKey = viewMode === 'avg' ? 'ppg' : 'pts'
   const [basicSortKey, setBasicSortKey] = useState<BasicKey>(defaultBasicSort)
   const [basicSortDir, setBasicSortDir] = useState<'asc'|'desc'>('desc')
-  const [advSortKey, setAdvSortKey] = useState<AdvKey>('efg_pct')
+  const [advSortKey, setAdvSortKey] = useState<AdvKey>('at_ratio')
   const [advSortDir, setAdvSortDir] = useState<'asc'|'desc'>('desc')
+  const [shootSortKey, setShootSortKey] = useState<ShootingKey>('efg_pct')
+  const [shootSortDir, setShootSortDir] = useState<'asc'|'desc'>('desc')
   const [quickView, setQuickView] = useState<{ id: string; name: string } | null>(null)
 
   // viewMode 변경 시 basicSortKey가 새 col 셋에 없으면 기본값으로
@@ -147,11 +182,6 @@ function StatsTable({
     }
   }, [viewMode, basicSortKey])
 
-  const teamPoss = useMemo(
-    () => players.reduce((s, p) => s + p.fga + 0.44 * p.fta + p.tov, 0),
-    [players]
-  )
-
   const basicSorted = useMemo(() => {
     return [...players].sort((a, b) => {
       const diff = ((a[basicSortKey] as number) ?? 0) - ((b[basicSortKey] as number) ?? 0)
@@ -161,12 +191,21 @@ function StatsTable({
 
   const advSorted = useMemo(() => {
     return [...players]
-      .map(p => ({ p, adv: calcAdv(p, teamPoss) }))
+      .map(p => ({ p, adv: calcAdv(p) }))
       .sort((a, b) => {
         const diff = a.adv[advSortKey] - b.adv[advSortKey]
         return advSortDir === 'desc' ? -diff : diff
       })
-  }, [players, advSortKey, advSortDir, teamPoss])
+  }, [players, advSortKey, advSortDir])
+
+  const shootSorted = useMemo(() => {
+    return [...players]
+      .map(p => ({ p, sh: calcShoot(p) }))
+      .sort((a, b) => {
+        const diff = a.sh[shootSortKey] - b.sh[shootSortKey]
+        return shootSortDir === 'desc' ? -diff : diff
+      })
+  }, [players, shootSortKey, shootSortDir])
 
   function handleBasicSort(key: BasicKey) {
     if (key === basicSortKey) setBasicSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -175,6 +214,10 @@ function StatsTable({
   function handleAdvSort(key: AdvKey) {
     if (key === advSortKey) setAdvSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setAdvSortKey(key); setAdvSortDir('desc') }
+  }
+  function handleShootSort(key: ShootingKey) {
+    if (key === shootSortKey) setShootSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setShootSortKey(key); setShootSortDir('desc') }
   }
 
   if (players.length === 0) {
@@ -205,6 +248,10 @@ function StatsTable({
     return `${adv[key].toFixed(1)}%`
   }
 
+  function shootVal(sh: Record<ShootingKey, number>, key: ShootingKey): string {
+    return `${sh[key].toFixed(1)}%`
+  }
+
   const basicCols = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
 
   return (
@@ -213,99 +260,146 @@ function StatsTable({
     <div className="md:hidden">
       <div className="px-1 pb-2 overflow-x-auto">
         <div className="flex gap-1.5 whitespace-nowrap">
-          {statMode === 'basic'
-            ? basicCols.map(({ key, label }) => (
-                <button key={key} onClick={() => handleBasicSort(key)}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
-                    basicSortKey === key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
-                  }`}>
-                  {label}{basicSortKey === key && (basicSortDir === 'desc' ? ' ↓' : ' ↑')}
-                </button>
-              ))
-            : ADV_COLS.map(({ key, label }) => (
-                <button key={key} onClick={() => handleAdvSort(key)}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
-                    advSortKey === key ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
-                  }`}>
-                  {label}{advSortKey === key && (advSortDir === 'desc' ? ' ↓' : ' ↑')}
-                </button>
-              ))
-          }
+          {statMode === 'basic' ? (
+            basicCols.map(({ key, label }) => (
+              <button key={key} onClick={() => handleBasicSort(key)}
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
+                  basicSortKey === key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                }`}>
+                {label}{basicSortKey === key && (basicSortDir === 'desc' ? ' ↓' : ' ↑')}
+              </button>
+            ))
+          ) : statMode === 'shooting' ? (
+            SHOOTING_COLS.map(({ key, label }) => (
+              <button key={key} onClick={() => handleShootSort(key)}
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
+                  shootSortKey === key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                }`}>
+                {label}{shootSortKey === key && (shootSortDir === 'desc' ? ' ↓' : ' ↑')}
+              </button>
+            ))
+          ) : (
+            ADV_COLS.map(({ key, label }) => (
+              <button key={key} onClick={() => handleAdvSort(key)}
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
+                  advSortKey === key ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                }`}>
+                {label}{advSortKey === key && (advSortDir === 'desc' ? ' ↓' : ' ↑')}
+              </button>
+            ))
+          )}
         </div>
       </div>
       <div className="divide-y divide-gray-800/60 rounded-xl overflow-hidden bg-gray-900/40">
-        {statMode === 'basic'
-          ? basicSorted.map((p, i) => {
-              const isLeader = leaderId && p.player_id === leaderId
-              const sortLabel = basicCols.find(c => c.key === basicSortKey)?.label ?? ''
-              const subKeys = basicCols.map(c => c.key).filter(k => k !== basicSortKey).slice(0, 4)
-              return (
-                <button key={p.player_id} onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                  className="w-full text-left px-3 py-2.5 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-sm font-black text-gray-500 font-mono w-5 shrink-0">{i + 1}</span>
-                    {isLeader && <Crown size={11} className="text-yellow-400 shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-white text-sm truncate">
-                        {p.name}
-                        {p.number != null && <span className="text-gray-600 font-mono ml-1 text-xs">#{p.number}</span>}
+        {statMode === 'basic' ? (
+          basicSorted.map((p, i) => {
+            const isLeader = leaderId && p.player_id === leaderId
+            const sortLabel = basicCols.find(c => c.key === basicSortKey)?.label ?? ''
+            const subKeys = basicCols.map(c => c.key).filter(k => k !== basicSortKey).slice(0, 4)
+            return (
+              <button key={p.player_id} onClick={() => setQuickView({ id: p.player_id, name: p.name })}
+                className="w-full text-left px-3 py-2.5 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-sm font-black text-gray-500 font-mono w-5 shrink-0">{i + 1}</span>
+                  {isLeader && <Crown size={11} className="text-yellow-400 shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-white text-sm truncate">
+                      {p.name}
+                      {p.number != null && <span className="text-gray-600 font-mono ml-1 text-xs">#{p.number}</span>}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-xl font-black leading-none" style={{ color: color ?? '#facc15' }}>{basicVal(p, basicSortKey)}</div>
+                    <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gray-800/60">
+                  {subKeys.map(k => {
+                    const lbl = basicCols.find(c => c.key === k)?.label ?? k
+                    return (
+                      <div key={k} className="text-center">
+                        <div className="text-[11px] text-gray-500">{lbl}</div>
+                        <div className="text-xs font-bold text-gray-200">{basicVal(p, k)}</div>
                       </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-xl font-black leading-none" style={{ color: color ?? '#facc15' }}>{basicVal(p, basicSortKey)}</div>
-                      <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                    )
+                  })}
+                </div>
+              </button>
+            )
+          })
+        ) : statMode === 'shooting' ? (
+          shootSorted.map(({ p, sh }, i) => {
+            const isLeader = leaderId && p.player_id === leaderId
+            const sortLabel = SHOOTING_COLS.find(c => c.key === shootSortKey)?.label ?? ''
+            const subKeys = SHOOTING_COLS.map(c => c.key).filter(k => k !== shootSortKey).slice(0, 4)
+            return (
+              <button key={p.player_id} onClick={() => setQuickView({ id: p.player_id, name: p.name })}
+                className="w-full text-left px-3 py-2.5 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-sm font-black text-gray-500 font-mono w-5 shrink-0">{i + 1}</span>
+                  {isLeader && <Crown size={11} className="text-yellow-400 shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-white text-sm truncate">
+                      {p.name}
+                      {p.number != null && <span className="text-gray-600 font-mono ml-1 text-xs">#{p.number}</span>}
                     </div>
                   </div>
-                  <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gray-800/60">
-                    {subKeys.map(k => {
-                      const lbl = basicCols.find(c => c.key === k)?.label ?? k
-                      return (
-                        <div key={k} className="text-center">
-                          <div className="text-[11px] text-gray-500">{lbl}</div>
-                          <div className="text-xs font-bold text-gray-200">{basicVal(p, k)}</div>
-                        </div>
-                      )
-                    })}
+                  <div className="text-right shrink-0">
+                    <div className="text-xl font-black leading-none" style={{ color: color ?? '#60a5fa' }}>{shootVal(sh, shootSortKey)}</div>
+                    <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
                   </div>
-                </button>
-              )
-            })
-          : advSorted.map(({ p, adv }, i) => {
-              const isLeader = leaderId && p.player_id === leaderId
-              const sortLabel = ADV_COLS.find(c => c.key === advSortKey)?.label ?? ''
-              const subKeys = ADV_COLS.map(c => c.key).filter(k => k !== advSortKey).slice(0, 4)
-              return (
-                <button key={p.player_id} onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                  className="w-full text-left px-3 py-2.5 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-sm font-black text-gray-500 font-mono w-5 shrink-0">{i + 1}</span>
-                    {isLeader && <Crown size={11} className="text-yellow-400 shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-white text-sm truncate">
-                        {p.name}
-                        {p.number != null && <span className="text-gray-600 font-mono ml-1 text-xs">#{p.number}</span>}
+                </div>
+                <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gray-800/60">
+                  {subKeys.map(k => {
+                    const lbl = SHOOTING_COLS.find(c => c.key === k)?.label ?? k
+                    return (
+                      <div key={k} className="text-center">
+                        <div className="text-[11px] text-gray-500">{lbl}</div>
+                        <div className="text-xs font-bold text-gray-200">{shootVal(sh, k)}</div>
                       </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-xl font-black leading-none" style={{ color: color ?? '#a78bfa' }}>{advVal(adv, advSortKey)}</div>
-                      <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                    )
+                  })}
+                </div>
+              </button>
+            )
+          })
+        ) : (
+          advSorted.map(({ p, adv }, i) => {
+            const isLeader = leaderId && p.player_id === leaderId
+            const sortLabel = ADV_COLS.find(c => c.key === advSortKey)?.label ?? ''
+            const subKeys = ADV_COLS.map(c => c.key).filter(k => k !== advSortKey).slice(0, 4)
+            return (
+              <button key={p.player_id} onClick={() => setQuickView({ id: p.player_id, name: p.name })}
+                className="w-full text-left px-3 py-2.5 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-sm font-black text-gray-500 font-mono w-5 shrink-0">{i + 1}</span>
+                  {isLeader && <Crown size={11} className="text-yellow-400 shrink-0" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-white text-sm truncate">
+                      {p.name}
+                      {p.number != null && <span className="text-gray-600 font-mono ml-1 text-xs">#{p.number}</span>}
                     </div>
                   </div>
-                  <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gray-800/60">
-                    {subKeys.map(k => {
-                      const lbl = ADV_COLS.find(c => c.key === k)?.label ?? k
-                      return (
-                        <div key={k} className="text-center">
-                          <div className="text-[11px] text-gray-500">{lbl}</div>
-                          <div className="text-xs font-bold text-gray-200">{advVal(adv, k)}</div>
-                        </div>
-                      )
-                    })}
+                  <div className="text-right shrink-0">
+                    <div className="text-xl font-black leading-none" style={{ color: color ?? '#a78bfa' }}>{advVal(adv, advSortKey)}</div>
+                    <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
                   </div>
-                </button>
-              )
-            })
-        }
+                </div>
+                <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gray-800/60">
+                  {subKeys.map(k => {
+                    const lbl = ADV_COLS.find(c => c.key === k)?.label ?? k
+                    return (
+                      <div key={k} className="text-center">
+                        <div className="text-[11px] text-gray-500">{lbl}</div>
+                        <div className="text-xs font-bold text-gray-200">{advVal(adv, k)}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </button>
+            )
+          })
+        )}
       </div>
     </div>
 
@@ -315,79 +409,120 @@ function StatsTable({
         <thead>
           <tr className="border-b border-gray-800">
             <th className="text-left py-2 pr-3 text-xs text-gray-600 font-bold sticky left-0 bg-gray-900 min-w-[90px]">선수</th>
-            {statMode === 'basic'
-              ? basicCols.map(({ key, label }) => (
-                  <th key={key} onClick={() => handleBasicSort(key)}
-                    className={`py-2 px-1.5 text-xs font-bold cursor-pointer select-none text-right ${basicSortKey === key ? 'text-blue-400' : 'text-gray-600'} hover:text-gray-300 transition-colors`}>
-                    {label}<SortIcon active={basicSortKey === key} dir={basicSortDir} />
+            {statMode === 'basic' ? (
+              basicCols.map(({ key, label }) => (
+                <th key={key} onClick={() => handleBasicSort(key)}
+                  className={`py-2 px-1.5 text-xs font-bold cursor-pointer select-none text-right ${basicSortKey === key ? 'text-blue-400' : 'text-gray-600'} hover:text-gray-300 transition-colors`}>
+                  {label}<SortIcon active={basicSortKey === key} dir={basicSortDir} />
+                </th>
+              ))
+            ) : statMode === 'shooting' ? (
+              SHOOTING_COLS.map(({ key, label, desc }, idx) => {
+                const divider = idx === 7 ? 'border-l border-gray-800' : ''
+                return (
+                  <th key={key} onClick={() => handleShootSort(key)} title={desc}
+                    className={`py-2 px-1.5 text-xs font-bold cursor-pointer select-none text-right ${divider} ${shootSortKey === key ? 'text-blue-400' : 'text-gray-600'} hover:text-gray-300 transition-colors`}>
+                    {label}<SortIcon active={shootSortKey === key} dir={shootSortDir} />
                   </th>
-                ))
-              : ADV_COLS.map(({ key, label, desc }) => (
-                  <th key={key} onClick={() => handleAdvSort(key)} title={desc}
-                    className={`py-2 px-1.5 text-xs font-bold cursor-pointer select-none text-right ${advSortKey === key ? 'text-violet-400' : 'text-gray-600'} hover:text-gray-300 transition-colors`}>
-                    {label}<SortIcon active={advSortKey === key} dir={advSortDir} />
-                  </th>
-                ))
-            }
+                )
+              })
+            ) : (
+              ADV_COLS.map(({ key, label, desc }) => (
+                <th key={key} onClick={() => handleAdvSort(key)} title={desc}
+                  className={`py-2 px-1.5 text-xs font-bold cursor-pointer select-none text-right ${advSortKey === key ? 'text-violet-400' : 'text-gray-600'} hover:text-gray-300 transition-colors`}>
+                  {label}<SortIcon active={advSortKey === key} dir={advSortDir} />
+                </th>
+              ))
+            )}
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-800/40">
-          {statMode === 'basic'
-            ? basicSorted.map(p => {
-                const isLeader = leaderId && p.player_id === leaderId
-                return (
-                  <tr key={p.player_id} className="hover:bg-gray-800/30 transition-colors">
-                    <td className="py-2 pr-3 sticky left-0 bg-gray-900">
-                      <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                        className="flex items-center gap-1.5 hover:text-blue-300 cursor-pointer transition-colors text-left">
-                        {isLeader && <Crown size={10} className="text-yellow-400 shrink-0" />}
-                        <span className="text-white font-medium">
-                          {p.number != null && <span className="text-gray-600 font-mono mr-1 text-xs">#{p.number}</span>}
-                          {p.name}
-                        </span>
-                      </button>
-                    </td>
-                    {basicCols.map(({ key }) => {
-                      const isSortLeader = key === basicSortKey
-                      const baseClass = BASIC_COLOR[key] ?? 'text-gray-300'
-                      const style = isSortLeader && color ? { color } : undefined
-                      return (
-                        <td key={key} className={`py-2 px-1.5 text-right ${baseClass}`} style={style}>
-                          {basicVal(p, key)}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                )
-              })
-            : advSorted.map(({ p, adv }) => {
-                const isLeader = leaderId && p.player_id === leaderId
-                return (
-                  <tr key={p.player_id} className="hover:bg-gray-800/30 transition-colors">
-                    <td className="py-2 pr-3 sticky left-0 bg-gray-900">
-                      <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                        className="flex items-center gap-1.5 hover:text-blue-300 cursor-pointer transition-colors text-left">
-                        {isLeader && <Crown size={10} className="text-yellow-400 shrink-0" />}
-                        <span className="text-white font-medium">
-                          {p.number != null && <span className="text-gray-600 font-mono mr-1 text-xs">#{p.number}</span>}
-                          {p.name}
-                        </span>
-                      </button>
-                    </td>
-                    {ADV_COLS.map(({ key }) => {
-                      const isSortLeader = key === advSortKey
-                      const baseClass = ADV_COLOR[key] ?? 'text-gray-300'
-                      const style = isSortLeader && color ? { color } : undefined
-                      return (
-                        <td key={key} className={`py-2 px-1.5 text-right ${baseClass}`} style={style}>
-                          {advVal(adv, key)}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                )
-              })
-          }
+          {statMode === 'basic' ? (
+            basicSorted.map(p => {
+              const isLeader = leaderId && p.player_id === leaderId
+              return (
+                <tr key={p.player_id} className="hover:bg-gray-800/30 transition-colors">
+                  <td className="py-2 pr-3 sticky left-0 bg-gray-900">
+                    <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
+                      className="flex items-center gap-1.5 hover:text-blue-300 cursor-pointer transition-colors text-left">
+                      {isLeader && <Crown size={10} className="text-yellow-400 shrink-0" />}
+                      <span className="text-white font-medium">
+                        {p.number != null && <span className="text-gray-600 font-mono mr-1 text-xs">#{p.number}</span>}
+                        {p.name}
+                      </span>
+                    </button>
+                  </td>
+                  {basicCols.map(({ key }) => {
+                    const isSortLeader = key === basicSortKey
+                    const baseClass = BASIC_COLOR[key] ?? 'text-gray-300'
+                    const style = isSortLeader && color ? { color } : undefined
+                    return (
+                      <td key={key} className={`py-2 px-1.5 text-right ${baseClass}`} style={style}>
+                        {basicVal(p, key)}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })
+          ) : statMode === 'shooting' ? (
+            shootSorted.map(({ p, sh }) => {
+              const isLeader = leaderId && p.player_id === leaderId
+              return (
+                <tr key={p.player_id} className="hover:bg-gray-800/30 transition-colors">
+                  <td className="py-2 pr-3 sticky left-0 bg-gray-900">
+                    <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
+                      className="flex items-center gap-1.5 hover:text-blue-300 cursor-pointer transition-colors text-left">
+                      {isLeader && <Crown size={10} className="text-yellow-400 shrink-0" />}
+                      <span className="text-white font-medium">
+                        {p.number != null && <span className="text-gray-600 font-mono mr-1 text-xs">#{p.number}</span>}
+                        {p.name}
+                      </span>
+                    </button>
+                  </td>
+                  {SHOOTING_COLS.map(({ key }, idx) => {
+                    const isSortLeader = key === shootSortKey
+                    const baseClass = SHOOT_COLOR[key] ?? 'text-gray-300'
+                    const style = isSortLeader && color ? { color } : undefined
+                    const divider = idx === 7 ? 'border-l border-gray-800' : ''
+                    return (
+                      <td key={key} className={`py-2 px-1.5 text-right ${divider} ${baseClass}`} style={style}>
+                        {shootVal(sh, key)}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })
+          ) : (
+            advSorted.map(({ p, adv }) => {
+              const isLeader = leaderId && p.player_id === leaderId
+              return (
+                <tr key={p.player_id} className="hover:bg-gray-800/30 transition-colors">
+                  <td className="py-2 pr-3 sticky left-0 bg-gray-900">
+                    <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
+                      className="flex items-center gap-1.5 hover:text-blue-300 cursor-pointer transition-colors text-left">
+                      {isLeader && <Crown size={10} className="text-yellow-400 shrink-0" />}
+                      <span className="text-white font-medium">
+                        {p.number != null && <span className="text-gray-600 font-mono mr-1 text-xs">#{p.number}</span>}
+                        {p.name}
+                      </span>
+                    </button>
+                  </td>
+                  {ADV_COLS.map(({ key }) => {
+                    const isSortLeader = key === advSortKey
+                    const baseClass = ADV_COLOR[key] ?? 'text-gray-300'
+                    const style = isSortLeader && color ? { color } : undefined
+                    return (
+                      <td key={key} className={`py-2 px-1.5 text-right ${baseClass}`} style={style}>
+                        {advVal(adv, key)}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })
+          )}
         </tbody>
       </table>
     </div>
@@ -622,7 +757,7 @@ export default function LeagueTeamsPage() {
   const [dataLoading, setDataLoading] = useState(false)
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [teamStatsApi, setTeamStatsApi] = useState<Record<string, PlayerStat[]>>({})
-  const [statMode, setStatMode] = useState<'basic'|'advanced'>('basic')
+  const [statMode, setStatMode] = useState<StatMode>('basic')
   const [viewMode, setViewMode] = useState<'avg'|'total'>('avg')
 
   // 분기 + 팀 초기 로드
@@ -930,19 +1065,23 @@ export default function LeagueTeamsPage() {
               <p className="text-[11px] text-gray-600 mt-0.5">이 팀에서 뛴 경기 기준 (정규/비정규 무관) · 한 선수가 여러 팀에서 뛰었다면 각 팀에 분리 표시</p>
             </div>
             <div className="flex items-center gap-2">
-              {/* Basic / Advanced */}
+              {/* Basic / Shooting / Advanced */}
               <div className="flex rounded-lg overflow-hidden border border-gray-700 shrink-0">
-                {(['basic','advanced'] as const).map(m => (
-                  <button key={m} onClick={() => setStatMode(m)}
+                {([
+                  { k: 'basic'    as StatMode, label: 'Basic' },
+                  { k: 'shooting' as StatMode, label: 'Shooting' },
+                  { k: 'advanced' as StatMode, label: 'Advanced' },
+                ]).map(({ k, label }) => (
+                  <button key={k} onClick={() => setStatMode(k)}
                     className={`px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors min-h-[36px] ${
-                      statMode === m ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                      statMode === k ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                     }`}>
-                    {m === 'basic' ? 'Basic' : 'Advanced'}
+                    {label}
                   </button>
                 ))}
               </div>
               {/* 평균 / 누적 (Basic 모드에서만 의미) */}
-              <div className={`flex rounded-lg overflow-hidden border border-gray-700 shrink-0 ${statMode === 'advanced' ? 'opacity-40 pointer-events-none' : ''}`}>
+              <div className={`flex rounded-lg overflow-hidden border border-gray-700 shrink-0 ${statMode !== 'basic' ? 'opacity-40 pointer-events-none' : ''}`}>
                 {(['avg','total'] as const).map(m => (
                   <button key={m} onClick={() => setViewMode(m)}
                     className={`px-3 py-1.5 text-xs font-bold cursor-pointer transition-colors min-h-[36px] ${

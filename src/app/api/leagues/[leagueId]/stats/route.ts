@@ -87,10 +87,20 @@ export async function GET(
     ast: number; stl: number; blk: number
     tov: number; pf: number
     and_one: number  // 성공한 앤드원 횟수
+    // 슛 분포 — 존별 made/attempted (DS=골밑, LU=레이업+드라이브, MD=미들)
+    ds_a: number; ds_m: number
+    lu_a: number; lu_m: number
+    md_a: number; md_m: number
+    // TRB% 계산용: 본인이 뛴 경기에서 본인 팀의 총 리바운드
+    team_reb_in_games: number
   }
 
   const statsMap: Record<string, PlayerStats> = {}
   const gpMap: Record<string, Set<string>> = {}  // player_id → game_ids set
+  // (team_id, game_id) → 그 팀의 그 경기 리바운드 수
+  const teamRebByGame: Record<string, Record<string, number>> = {}
+  // player_id → game_id → team_id → count (선수가 그 경기에서 어느 팀으로 뛰었는지 다수결)
+  const playerTeamGameCount: Record<string, Record<string, Record<string, number>>> = {}
 
   const ensure = (pid: string): PlayerStats => {
     if (!statsMap[pid]) {
@@ -99,6 +109,8 @@ export async function GET(
         pts: 0, fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
         oreb: 0, dreb: 0, reb: 0, ast: 0, stl: 0, blk: 0, tov: 0, pf: 0,
         and_one: 0,
+        ds_a: 0, ds_m: 0, lu_a: 0, lu_m: 0, md_a: 0, md_m: 0,
+        team_reb_in_games: 0,
       }
     }
     return statsMap[pid]
@@ -116,6 +128,13 @@ export async function GET(
       gpMap[pid].add(unit === 'round' ? (gameToDate[gId] ?? gId) : gId)
     }
 
+    // 선수-게임별 team_id 카운트 (TRB% 계산용 — 다수결로 본인 팀 결정)
+    if (e.team_id && e.type !== 'sub_in' && e.type !== 'sub_out') {
+      if (!playerTeamGameCount[pid]) playerTeamGameCount[pid] = {}
+      if (!playerTeamGameCount[pid][gId]) playerTeamGameCount[pid][gId] = {}
+      playerTeamGameCount[pid][gId][e.team_id] = (playerTeamGameCount[pid][gId][e.team_id] ?? 0) + 1
+    }
+
     const made = e.result === 'made'
     // 필드골 득점: 게임별 plus_one_player_id 오버라이드 우선, 없으면 영구 플래그 사용
     const gamePlusOneOverride = gamePlusOneMap[e.league_game_id]
@@ -128,12 +147,18 @@ export async function GET(
         s.fg3a++; s.fga++
         if (made) { s.fg3m++; s.fgm++; s.pts += isPlusOne ? 4 : 3 }
         break
-      case 'shot_2p_mid':
-      case 'shot_layup':
       case 'shot_post':
+        s.fga++; s.ds_a++
+        if (made) { s.fgm++; s.ds_m++; s.pts += isPlusOne ? 3 : 2 }
+        break
+      case 'shot_layup':
       case 'shot_2p_drive':
-        s.fga++
-        if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 }
+        s.fga++; s.lu_a++
+        if (made) { s.fgm++; s.lu_m++; s.pts += isPlusOne ? 3 : 2 }
+        break
+      case 'shot_2p_mid':
+        s.fga++; s.md_a++
+        if (made) { s.fgm++; s.md_m++; s.pts += isPlusOne ? 3 : 2 }
         break
       // 앤드원: FTA/FTM 제외, 득점 +1, 카운트도 집계
       case 'and_one':
@@ -154,6 +179,12 @@ export async function GET(
       case 'foul': s.pf++; break
     }
 
+    // 팀-게임 reb 카운트 (TRB% 계산용)
+    if ((e.type === 'oreb' || e.type === 'dreb') && e.team_id) {
+      if (!teamRebByGame[e.team_id]) teamRebByGame[e.team_id] = {}
+      teamRebByGame[e.team_id][gId] = (teamRebByGame[e.team_id][gId] ?? 0) + 1
+    }
+
     // 어시스트: 슛 성공 + related_player_id → 어시스터에게 ast 추가
     if (made &&
         ['shot_3p','shot_2p_mid','shot_layup','shot_post','shot_2p_drive'].includes(e.type) &&
@@ -162,12 +193,31 @@ export async function GET(
       as.ast++
       if (!gpMap[e.related_player_id]) gpMap[e.related_player_id] = new Set()
       gpMap[e.related_player_id].add(unit === 'round' ? (gameToDate[gId] ?? gId) : gId)
+      // 어시스터의 팀도 카운트 (관전만 한 게임에서 어시스트만 있을 수 있음)
+      if (e.team_id) {
+        if (!playerTeamGameCount[e.related_player_id]) playerTeamGameCount[e.related_player_id] = {}
+        if (!playerTeamGameCount[e.related_player_id][gId]) playerTeamGameCount[e.related_player_id][gId] = {}
+        playerTeamGameCount[e.related_player_id][gId][e.team_id] = (playerTeamGameCount[e.related_player_id][gId][e.team_id] ?? 0) + 1
+      }
     }
   }
 
-  // gp 채우기
+  // gp 채우기 + team_reb_in_games 계산
   for (const pid of Object.keys(statsMap)) {
     statsMap[pid].gp = gpMap[pid]?.size ?? 0
+
+    // TRB% 계산: 본인이 뛴 각 경기에서 본인 팀(다수결)의 리바운드 합산
+    let teamRebSum = 0
+    const gameTeams = playerTeamGameCount[pid] ?? {}
+    for (const gid of Object.keys(gameTeams)) {
+      const teams = gameTeams[gid]
+      const top = Object.entries(teams).sort((a, b) => b[1] - a[1])[0]
+      if (top) {
+        const teamId = top[0]
+        teamRebSum += teamRebByGame[teamId]?.[gid] ?? 0
+      }
+    }
+    statsMap[pid].team_reb_in_games = teamRebSum
   }
 
   // 5. 평균/퍼센트 계산 후 반환
@@ -196,6 +246,10 @@ export async function GET(
         ft_pct:  s.fta  > 0 ? +(s.ftm  / s.fta  * 100).toFixed(1) : 0,
         // eFG% = (FGM + 0.5 * FG3M) / FGA
         efg_pct: s.fga  > 0 ? +((s.fgm + 0.5 * s.fg3m) / s.fga * 100).toFixed(1) : 0,
+        // 2P% = (FGM - FG3M) / (FGA - FG3A)
+        fg2m: s.fgm - s.fg3m,
+        fg2a: s.fga - s.fg3a,
+        fg2_pct: (s.fga - s.fg3a) > 0 ? +((s.fgm - s.fg3m) / (s.fga - s.fg3a) * 100).toFixed(1) : 0,
       }
     })
     .sort((a, b) => b.pts - a.pts) // 득점 순 정렬
