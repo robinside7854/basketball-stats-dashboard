@@ -3,7 +3,111 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import LeagueStandingsTabs from '@/components/league/LeagueStandingsTabs'
 import LeagueSchedule from '@/components/league/LeagueSchedule'
+import HighlightBanner, { type HighlightPlayer } from '@/components/league/HighlightBanner'
 import type { League, LeagueStanding, LeagueGame, LeagueTeam, Quarter } from '@/types/league'
+
+const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
+
+// 최근 N일 MVP / Hot Hand 계산 (서버 컴포넌트 안에서 직접)
+async function computeHighlights(
+  supabase: ReturnType<typeof createClient>,
+  leagueId: string,
+  daysAgo: number = 7,
+): Promise<{ mvp: HighlightPlayer | null; hotHand: HighlightPlayer | null; rangeLabel: string }> {
+  const today = new Date()
+  const from = new Date(today.getTime() - daysAgo * 24 * 60 * 60 * 1000)
+  const fromIso = from.toISOString().slice(0, 10)
+  const toIso = today.toISOString().slice(0, 10)
+  const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`
+  const rangeLabel = `${fmt(from)} ~ ${fmt(today)}`
+
+  // 최근 N일 is_started 게임만 (마감 안 된 경기 포함)
+  const { data: games } = await supabase
+    .from('league_games')
+    .select('id, plus_one_player_id')
+    .eq('league_id', leagueId)
+    .eq('is_started', true)
+    .gte('date', fromIso)
+    .lte('date', toIso)
+  const gameIds = (games ?? []).map(g => g.id)
+  if (gameIds.length === 0) return { mvp: null, hotHand: null, rangeLabel }
+  const gamePlusOneMap: Record<string, string | null> = Object.fromEntries(
+    (games ?? []).map(g => [g.id as string, (g.plus_one_player_id as string | null) ?? null])
+  )
+
+  // 선수 플러스원 + 메타
+  const { data: players } = await supabase
+    .from('league_players')
+    .select('id, name, number, plus_one')
+    .eq('league_id', leagueId)
+  const plusOneSet = new Set((players ?? []).filter(p => p.plus_one).map(p => p.id))
+  const meta = Object.fromEntries((players ?? []).map(p => [p.id, p]))
+
+  // 이벤트 페이지네이션
+  type EvRow = { league_player_id: string | null; type: string; result: string | null; league_game_id: string }
+  const events: EvRow[] = []
+  const PAGE = 1000
+  let pg = 0
+  while (true) {
+    const { data: chunk } = await supabase
+      .from('league_game_events')
+      .select('league_player_id, type, result, league_game_id')
+      .in('league_game_id', gameIds)
+      .not('league_player_id', 'is', null)
+      .order('id', { ascending: true })
+      .range(pg * PAGE, (pg + 1) * PAGE - 1)
+    if (chunk?.length) events.push(...(chunk as EvRow[]))
+    if (!chunk || chunk.length < PAGE) break
+    pg++
+  }
+
+  // 집계
+  const agg: Record<string, { pts: number; fg3m: number; fg3a: number; gp: Set<string> }> = {}
+  const ensure = (pid: string) => {
+    if (!agg[pid]) agg[pid] = { pts: 0, fg3m: 0, fg3a: 0, gp: new Set() }
+    return agg[pid]
+  }
+  for (const e of events) {
+    if (!e.league_player_id) continue
+    const pid = e.league_player_id
+    const s = ensure(pid)
+    if (e.type !== 'sub_in' && e.type !== 'sub_out') s.gp.add(e.league_game_id)
+    const made = e.result === 'made'
+    const gpo = gamePlusOneMap[e.league_game_id]
+    const isP1 = gpo !== null ? pid === gpo : plusOneSet.has(pid)
+    switch (e.type) {
+      case 'shot_3p':
+        s.fg3a++; if (made) { s.fg3m++; s.pts += isP1 ? 4 : 3 }; break
+      case 'shot_2p_mid': case 'shot_layup': case 'shot_post': case 'shot_2p_drive':
+        if (made) s.pts += isP1 ? 3 : 2; break
+      case 'ft_2pt': case 'ft_3pt_1': if (made) s.pts += 2; break
+      case 'free_throw': case 'ft_3pt_2': case 'and_one': if (made) s.pts += 1; break
+    }
+  }
+
+  // 평탄화 + 최소 기준
+  const list = Object.entries(agg)
+    .map(([pid, s]) => ({
+      player_id: pid,
+      name: (meta[pid]?.name as string) ?? '알 수 없음',
+      number: (meta[pid]?.number as number | null) ?? null,
+      pts: s.pts,
+      gp: s.gp.size,
+      ppg: s.gp.size > 0 ? +(s.pts / s.gp.size).toFixed(1) : 0,
+      fg3m: s.fg3m,
+      fg3a: s.fg3a,
+      fg3_pct: s.fg3a > 0 ? +(s.fg3m / s.fg3a * 100).toFixed(1) : 0,
+    }))
+    .filter(p => p.gp > 0)
+  void SHOT_TYPES  // unused-vars 회피
+
+  // MVP: 누적 PTS 최다
+  const mvp = list.slice().sort((a, b) => b.pts - a.pts)[0] ?? null
+  // Hot Hand: 3P% 최고 (최소 5회 시도)
+  const hotHand = list.filter(p => p.fg3a >= 5).sort((a, b) => b.fg3_pct - a.fg3_pct)[0] ?? null
+
+  return { mvp, hotHand, rangeLabel }
+}
 
 const TARGET_SEASON_YEAR = 2026  // 분기 탭은 2026 시즌 기준
 
@@ -15,12 +119,13 @@ export default async function LeagueDetailPage({
   const { orgSlug, leagueId } = await params
   const supabase = createClient()
 
-  const [{ data: league }, { data: teams }, { data: games }, { data: allLeagues }, { data: quartersRaw }] = await Promise.all([
+  const [{ data: league }, { data: teams }, { data: games }, { data: allLeagues }, { data: quartersRaw }, highlights] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single(),
     supabase.from('league_teams').select('*').eq('league_id', leagueId),
     supabase.from('league_games').select('*').eq('league_id', leagueId).order('round_num', { ascending: true }),
     supabase.from('leagues').select('id, name, status, season_year').eq('org_slug', orgSlug).order('created_at', { ascending: false }),
     supabase.from('league_quarters').select('*').eq('league_id', leagueId).eq('year', TARGET_SEASON_YEAR).order('quarter', { ascending: true }),
+    computeHighlights(supabase, leagueId, 7),
   ])
 
   if (!league) notFound()
@@ -106,6 +211,14 @@ export default async function LeagueDetailPage({
           ))}
         </div>
       )}
+
+      {/* 이 주의 하이라이트 (최근 7일 MVP + Hot Hand) */}
+      <HighlightBanner
+        leagueId={leagueId}
+        mvp={highlights.mvp}
+        hotHand={highlights.hotHand}
+        dateRangeLabel={highlights.rangeLabel}
+      />
 
       {/* PC: 2컬럼 (순위표 우측 고정 + 좌측 일정), 모바일: 스택 */}
       <div className="lg:grid lg:grid-cols-[3fr_2fr] lg:gap-8 lg:items-start space-y-5 lg:space-y-0">
