@@ -4,7 +4,7 @@ import { Loader2, X, BookOpen, Crown } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
 import { CountUp, FormDots } from '@/components/league/StatCell'
 import { type EvaluatedBadge, type BadgeCategory } from '@/lib/stats/badges'
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar } from 'recharts'
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, PieChart, Pie, Cell as PieCell } from 'recharts'
 
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
@@ -676,37 +676,89 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     ? [{ label: '자유투', color: '#9ca3af', data: { m: sb.ft.m, a: sb.ft.a, dist: 0, fg_pct: sb.ft.ft_pct } }]
                     : []
 
+                  // 도넛 데이터 — 비중 0 제외, 야투 시도 4종만 (자유투는 별도)
+                  const donutData = rawZones
+                    .filter(z => z.data.dist > 0)
+                    .map(z => ({
+                      name: z.label,
+                      value: +z.data.dist.toFixed(1),
+                      fg_pct: z.data.fg_pct,
+                      m: z.data.m,
+                      a: z.data.a,
+                      color: z.color,
+                    }))
+                  const totalFGA = sb.total_fga
+                  const totalFGM = sb.layup.m + (sb.drive?.m ?? 0) + sb.mid.m + sb.post.m + sb.three.m
+                  const overallFGPct = totalFGA > 0 ? +(totalFGM / totalFGA * 100).toFixed(1) : 0
+
                   return (
                     <div className="space-y-3">
-                      {/* 분포 바 */}
-                      <div className="flex h-3 rounded-full overflow-hidden gap-px">
-                        {rawZones.map(z => z.data.dist > 0 && (
-                          <div key={z.label} style={{ width: `${z.data.dist}%`, backgroundColor: z.color }} />
-                        ))}
-                      </div>
-
-                      {/* 존별 카드 그리드 */}
-                      <div className="grid grid-cols-2 gap-2">
-                        {[...rawZones, ...ftZone].map(z => {
-                          const pct = z.data.fg_pct
-                          const colorClass = pctColor(pct)
-                          return (
-                            <div key={z.label} className="bg-gray-800/50 border border-gray-700/50 rounded-xl px-3 py-2.5 flex items-center gap-3">
-                              <div className="w-2 h-10 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[10px] text-gray-500 font-bold uppercase truncate">{z.label}</p>
-                                <p className="text-[11px] text-gray-500 mt-0.5">{z.data.m}/{z.data.a} 시도</p>
-                              </div>
-                              <div className="text-right">
-                                <p className={`text-2xl font-black leading-none ${colorClass}`}>{pct}%</p>
-                                {/* mini bar */}
-                                <div className="w-12 h-1.5 rounded-full bg-gray-700 overflow-hidden mt-1">
-                                  <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: z.color }} />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                        {/* 도넛 차트 */}
+                        <div className="relative" style={{ height: 180 }}>
+                          <ResponsiveContainer width="100%" height={180}>
+                            <PieChart>
+                              <Pie
+                                data={donutData}
+                                dataKey="value"
+                                nameKey="name"
+                                innerRadius="58%"
+                                outerRadius="86%"
+                                paddingAngle={2}
+                                stroke="none"
+                                isAnimationActive
+                                animationDuration={600}
+                              >
+                                {donutData.map((d, i) => <PieCell key={i} fill={d.color} />)}
+                              </Pie>
+                              <Tooltip
+                                content={({ active, payload }) => {
+                                  if (!active || !payload?.length) return null
+                                  const p = payload[0].payload as typeof donutData[number]
+                                  return (
+                                    <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs shadow-xl">
+                                      <p className="font-black" style={{ color: p.color }}>{p.name}</p>
+                                      <p className="text-gray-300 mt-0.5">{p.m}/{p.a} · FG {p.fg_pct}%</p>
+                                      <p className="text-gray-500">비중 {p.value}%</p>
+                                    </div>
+                                  )
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          {/* 중앙 라벨 */}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="text-center">
+                              <p className="text-2xl font-black text-white leading-none">
+                                <CountUp value={totalFGA} />
+                              </p>
+                              <p className="text-[9px] text-gray-500 uppercase tracking-wider font-bold mt-1">시도</p>
+                              <p className={`text-[11px] font-bold mt-0.5 ${pctColor(overallFGPct)}`}>{overallFGPct}%</p>
+                            </div>
+                          </div>
+                        </div>
+                        {/* 존별 카드 리스트 (도넛 우측) */}
+                        <div className="space-y-1.5">
+                          {[...rawZones, ...ftZone].map(z => {
+                            const pct = z.data.fg_pct
+                            const colorClass = pctColor(pct)
+                            return (
+                              <div key={z.label} className="bg-gray-800/50 border border-gray-700/50 rounded-lg px-2.5 py-2 flex items-center gap-2">
+                                <div className="w-1.5 h-8 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[10px] text-gray-400 font-bold uppercase truncate leading-tight">{z.label}</p>
+                                  <p className="text-[10px] text-gray-500 leading-tight">{z.data.m}/{z.data.a}{z.data.dist > 0 ? ` · ${(+z.data.dist).toFixed(1)}%` : ''}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className={`text-lg font-black leading-none ${colorClass}`}>{pct}%</p>
+                                  <div className="w-10 h-1 rounded-full bg-gray-700 overflow-hidden mt-1 ml-auto">
+                                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: z.color }} />
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          )
-                        })}
+                            )
+                          })}
+                        </div>
                       </div>
                     </div>
                   )
