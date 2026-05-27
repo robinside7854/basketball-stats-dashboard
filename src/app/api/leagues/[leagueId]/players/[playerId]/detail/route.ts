@@ -796,10 +796,54 @@ export async function GET(
     }))
     .sort((a, b) => b.gp - a.gp)
 
+  // ── Active Streaks (현재 진행 중인 연속 기록) ────────────────────
+  // unit 기준(round 또는 game)으로 최신부터 역방향 walk, 조건 깨지면 stop
+  const sortedUnitsDesc = [...playedUnits].reverse()
+  let s10 = 0, s10Done = false
+  let s20 = 0, s20Done = false
+  let s3p = 0, s3pDone = false
+  let sWin = 0, sWinDone = false
+
+  for (const unitKey of sortedUnitsDesc) {
+    const agg = aggregateMap[unitKey]
+    if (!s10Done) {
+      if (agg.pts >= 10) s10++; else s10Done = true
+    }
+    if (!s20Done) {
+      if (agg.pts >= 20) s20++; else s20Done = true
+    }
+    if (!s3pDone) {
+      if (agg.fg3m >= 1) s3p++; else s3pDone = true
+    }
+    if (!sWinDone) {
+      // 단위 W/L: 그 단위의 모든 슬랏 게임을 합쳐 본인 팀 W가 더 많으면 W
+      // (round 모드: 그날 본인 출전 슬랏들의 W>L 비교 / game 모드: 1슬랏 W/L 그대로)
+      let unitWins = 0, unitLosses = 0
+      for (const gId of playedGames) {
+        const g = gameMap[gId] as { date?: string; home_team_id?: string; away_team_id?: string; home_score?: number; away_score?: number } | undefined
+        if (!g) continue
+        const thisUnitKey = unit === 'round' ? (g.date ?? gId) : gId
+        if (thisUnitKey !== unitKey) continue
+        const tid = teamForGame(gameMap[gId])
+        if (!tid) continue
+        const isHome = g.home_team_id === tid
+        const my = isHome ? (g.home_score ?? 0) : (g.away_score ?? 0)
+        const opp = isHome ? (g.away_score ?? 0) : (g.home_score ?? 0)
+        if (my > opp) unitWins++
+        else if (my < opp) unitLosses++
+      }
+      if (unitWins > unitLosses) sWin++
+      else sWinDone = true
+    }
+    if (s10Done && s20Done && s3pDone && sWinDone) break
+  }
+  const active_streaks = { ten: s10, twenty: s20, three: s3p, win: sWin }
+
   return NextResponse.json({
     rankings, career_high: careerHigh, shot_breakdown: shotBreakdown,
     recent_games: recentGames,
     badges, badges_scope: 'season' as const,
     win_loss: winLoss, player_stats, monthly_stats, vs_opponents, unit,
+    active_streaks,
   })
 }

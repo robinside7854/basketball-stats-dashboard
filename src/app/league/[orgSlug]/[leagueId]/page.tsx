@@ -141,11 +141,11 @@ export default async function LeagueDetailPage({
     away_team: g.away_team_id ? teamMap[g.away_team_id] : null,
   }))
 
-  // 주어진 게임 목록으로 순위 계산
+  // 주어진 게임 목록으로 순위 계산 (+ 팀 streak)
   function computeStandings(filteredGames: typeof gameList): LeagueStanding[] {
     const standing: Record<string, LeagueStanding> = {}
     for (const t of teamList) {
-      standing[t.id] = { team: t, played: 0, wins: 0, draws: 0, losses: 0, points: 0, goals_for: 0, goals_against: 0, goal_diff: 0 }
+      standing[t.id] = { team: t, played: 0, wins: 0, draws: 0, losses: 0, points: 0, goals_for: 0, goals_against: 0, goal_diff: 0, streak: null }
     }
     for (const g of filteredGames.filter(g => g.is_complete && g.home_team_id && g.away_team_id && !g.is_exhibition)) {
       const h = standing[g.home_team_id!]
@@ -159,6 +159,29 @@ export default async function LeagueDetailPage({
       else { h.draws++; h.points++; a.draws++; a.points++ }
     }
     for (const s of Object.values(standing)) s.goal_diff = s.goals_for - s.goals_against
+
+    // 팀별 streak — 본인 팀이 참가한 완료 경기를 날짜 desc 순으로 walk
+    // 같은 결과 연속 길이를 count. 첫 다른 결과에서 중단.
+    const completedGames = filteredGames
+      .filter(g => g.is_complete && g.home_team_id && g.away_team_id && !g.is_exhibition)
+      .sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date)
+        return (b.slot_num ?? 0) - (a.slot_num ?? 0)
+      })
+    for (const teamId of Object.keys(standing)) {
+      let type: 'W'|'L'|'D'|null = null
+      let count = 0
+      for (const g of completedGames) {
+        if (g.home_team_id !== teamId && g.away_team_id !== teamId) continue
+        const isHome = g.home_team_id === teamId
+        const myPts = isHome ? g.home_score : g.away_score
+        const oppPts = isHome ? g.away_score : g.home_score
+        const result: 'W'|'L'|'D' = myPts > oppPts ? 'W' : myPts < oppPts ? 'L' : 'D'
+        if (type === null) { type = result; count = 1; continue }
+        if (result === type) { count++ } else break
+      }
+      if (type !== null && count > 0) standing[teamId].streak = { type, count }
+    }
     return Object.values(standing).sort((a, b) => b.points - a.points || b.goal_diff - a.goal_diff || b.goals_for - a.goals_for)
   }
 

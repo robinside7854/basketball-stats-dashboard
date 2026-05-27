@@ -33,6 +33,7 @@ export default function LeagueStandings({ standings }: Props) {
             <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10 hidden md:table-cell">GA</th>
             <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-12">GD</th>
             <th className="text-center py-2.5 px-3 text-xs font-semibold text-blue-400 w-12">PTS</th>
+            <th className="text-center py-2.5 px-2 text-xs font-semibold text-amber-400 w-14">STREAK</th>
           </tr>
         </thead>
         <tbody>
@@ -84,6 +85,22 @@ export default function LeagueStandings({ standings }: Props) {
                 </td>
                 <td className="py-3 px-3 text-center">
                   <span className={`font-bold ${isFirst ? 'text-blue-400' : 'text-white'}`}>{s.points}</span>
+                </td>
+                <td className="py-3 px-2 text-center">
+                  {s.streak ? (() => {
+                    const { type, count } = s.streak
+                    const hot = type === 'W' && count >= 3
+                    const cls = type === 'W'
+                      ? (hot ? 'text-amber-300 font-black' : 'text-emerald-400 font-bold')
+                      : type === 'L'
+                        ? 'text-red-400 font-bold'
+                        : 'text-gray-400 font-medium'
+                    return (
+                      <span className={`inline-flex items-center gap-0.5 text-xs ${cls}`}>
+                        {type}{count}{hot && <span className="text-[10px]">🔥</span>}
+                      </span>
+                    )
+                  })() : <span className="text-gray-700 text-xs">—</span>}
                 </td>
               </tr>
             )

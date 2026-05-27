@@ -75,6 +75,8 @@ export interface LeagueStanding {
   goals_for: number
   goals_against: number
   goal_diff: number
+  // 현재 진행 중인 streak — 최신 경기부터 역방향 walk, 같은 결과 연속 길이
+  streak?: { type: 'W' | 'L' | 'D'; count: number } | null
 }
 
 export type Quarter = {

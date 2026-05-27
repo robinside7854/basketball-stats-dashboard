@@ -22,6 +22,7 @@ type WLStats = { ppg: number; rpg: number; apg: number; spg: number; bpg: number
 
 type Detail = {
   rankings: { ppg: number; rpg: number; apg: number; spg: number; bpg: number; total: number; win_rate_rank?: number }
+  active_streaks?: { ten: number; twenty: number; three: number; win: number }
   badges: EvaluatedBadge[]
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; drive: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
@@ -592,6 +593,19 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 { key: 'apg', label: 'APG' }, { key: 'spg', label: 'SPG' },
                 { key: 'bpg', label: 'BPG' },
               ]
+              const streaks = detail?.active_streaks
+              const streakChips = streaks ? ([
+                { count: streaks.ten,    label: '두자릿수 득점', icon: '🔥', color: 'amber',    minShow: 2 },
+                { count: streaks.twenty, label: '20+ 득점',      icon: '⭐', color: 'orange',  minShow: 2 },
+                { count: streaks.three,  label: '3P 메이드',     icon: '🎯', color: 'blue',     minShow: 2 },
+                { count: streaks.win,    label: '출전 연승',     icon: '🟢', color: 'emerald',  minShow: 2 },
+              ] as const).filter(c => c.count >= c.minShow) : []
+              const STREAK_CLS: Record<typeof streakChips[number]['color'], string> = {
+                amber:   'bg-amber-900/30 border-amber-700/50 text-amber-300',
+                orange:  'bg-orange-900/30 border-orange-700/50 text-orange-300',
+                blue:    'bg-blue-900/30 border-blue-700/50 text-blue-300',
+                emerald: 'bg-emerald-900/30 border-emerald-700/50 text-emerald-300',
+              }
               return (
                 <div className="px-5 py-4 border-b border-gray-800/60">
                   <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">출전 임팩트</p>
@@ -617,6 +631,20 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       <p className="text-xl font-black text-blue-300 leading-none">{wl.pts_share}%</p>
                     </div>
                   </div>
+
+                  {/* Active Streaks — 2회 이상만 표시 */}
+                  {streakChips.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {streakChips.map(c => (
+                        <span key={c.label}
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[11px] font-bold ${STREAK_CLS[c.color]}`}>
+                          <span>{c.icon}</span>
+                          <span>{c.label}</span>
+                          <span className="font-black">{c.count}{statUnit === 'round' ? 'R' : 'G'}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {/* 승/패 스탯 비교 */}
                   {(wl.win_stats || wl.loss_stats) && (
