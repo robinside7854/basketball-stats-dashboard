@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Loader2, X, BookOpen, Crown } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
 import { CountUp, FormDots } from '@/components/league/StatCell'
+import { BasketballLoader } from '@/components/league/BasketballIcons'
 import { type EvaluatedBadge, type BadgeCategory } from '@/lib/stats/badges'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, PieChart, Pie, Cell as PieCell } from 'recharts'
 
@@ -257,9 +258,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 px-5 pt-safe-or-3 pb-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div>
-              <h2 className="text-white font-black text-lg leading-none">
-                {player?.number != null && <span className="text-gray-500 font-mono text-base mr-1.5">#{player.number}</span>}
-                {player?.name ?? playerName}
+              <h2 className="text-white font-black text-lg leading-none flex items-center gap-2 flex-wrap">
+                {player?.number != null && <span className="jersey-num text-sm">{player.number}</span>}
+                <span>{player?.name ?? playerName}</span>
               </h2>
               <div className="flex items-center gap-2 mt-1">
                 {positions.map(pos => (
@@ -364,7 +365,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         <div className="h-0.5 w-full bg-gradient-to-r from-blue-500/60 via-blue-500/20 to-transparent" />
 
         {loading ? (
-          <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-600" /></div>
+          <div className="flex justify-center py-16"><BasketballLoader size={28} /></div>
         ) : (
           <div className="space-y-0">
             {/* 시즌 스탯 */}
@@ -413,7 +414,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 </div>
 
                 {quarterLoading ? (
-                  <div className="flex justify-center py-8"><Loader2 size={18} className="animate-spin text-gray-600" /></div>
+                  <div className="flex justify-center py-8"><BasketballLoader size={22} /></div>
                 ) : (
                   <>
                     <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
@@ -426,9 +427,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         { label: 'STL', value: activeDetail?.player_stats?.spg ?? 0, decimals: 1, rank: detail?.rankings.spg ?? 0, accent: false },
                         { label: 'BLK', value: activeDetail?.player_stats?.bpg ?? 0, decimals: 1, rank: detail?.rankings.bpg ?? 0, accent: false },
                       ].map(({ label, value, decimals, rank, accent }) => (
-                        <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-blue-900/30 border-blue-700/50' : 'bg-gray-800/50 border-gray-700/60'}`}>
-                          <p className="text-xs font-bold text-gray-600 mb-1 uppercase">{label}</p>
-                          <p className={`text-3xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>
+                        <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-orange-900/20 border-orange-700/50' : 'bg-gray-800/50 border-gray-700/60'}`}>
+                          <p className="font-jersey text-xs font-bold text-gray-600 mb-1 uppercase tracking-widest">{label}</p>
+                          <p className={`font-display text-4xl leading-none ${accent ? 'text-orange-300' : 'text-white'}`}>
                             <CountUp value={value} decimals={decimals} />
                           </p>
                           {rank > 0 && (

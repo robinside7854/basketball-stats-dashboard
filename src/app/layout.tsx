@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Fira_Code, Fira_Sans } from 'next/font/google'
+import { Fira_Code, Fira_Sans, Bebas_Neue, Barlow_Condensed } from 'next/font/google'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import './globals.css'
 
@@ -15,6 +15,20 @@ const firaSans = Fira_Sans({
   variable: '--font-fira-sans',
 })
 
+// 농구 정체성 — 스코어보드/저지 느낌의 디스플레이 폰트
+const bebasNeue = Bebas_Neue({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-bebas',
+})
+
+// 농구 정체성 — 컨덴스드 헤더 폰트 (저지 글꼴)
+const barlowCondensed = Barlow_Condensed({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800', '900'],
+  variable: '--font-barlow-condensed',
+})
+
 export const metadata: Metadata = {
   title: '파란날개 게임로그',
   description: '파란날개 농구팀 경기 기록 및 통계 대시보드',
@@ -23,7 +37,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body className={`${firaCode.variable} ${firaSans.variable} font-sans bg-gray-950 text-gray-300 min-h-screen`}>
+      <body className={`${firaCode.variable} ${firaSans.variable} ${bebasNeue.variable} ${barlowCondensed.variable} font-sans bg-gray-950 text-gray-300 min-h-screen`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

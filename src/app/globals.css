@@ -7,6 +7,18 @@
   /* 폰트 */
   --font-sans: var(--font-fira-sans), 'Fira Sans', system-ui, sans-serif;
   --font-mono: var(--font-fira-code), 'Fira Code', monospace;
+  /* 농구 정체성 — Bebas Neue (스코어보드 디스플레이), Barlow Condensed (저지·헤더) */
+  --font-display: var(--font-bebas), 'Bebas Neue', 'Barlow Condensed', 'Impact', sans-serif;
+  --font-jersey:  var(--font-barlow-condensed), 'Barlow Condensed', 'Oswald', sans-serif;
+
+  /* 농구 정체성 컬러 — 가죽공 오렌지 + 챔피언십 골드 + 하드우드 톤 */
+  --color-hoop-orange-500: #EA580C;  /* 가죽공 메인 — primary accent */
+  --color-hoop-orange-400: #F97316;
+  --color-hoop-orange-300: #FB923C;
+  --color-hoop-orange-600: #C2410C;  /* deep brown-orange */
+  --color-court-charcoal:  #0B0B0F;  /* 진한 코트 차콜 */
+  --color-court-line:      rgba(234, 88, 12, 0.18);  /* 코트 라인용 옅은 오렌지 */
+  --color-hardwood-light:  #2A1810;  /* 옅은 하드우드 톤 */
 
   /* 네이비 다크 팔레트 (배경/카드) */
   --color-gray-950: #030A14;
@@ -280,3 +292,85 @@
 :root:not(.dark) .text-gray-400 { color: #475569; }  /* slate-600 */
 :root:not(.dark) .text-gray-500 { color: #334155; }  /* slate-700 */
 :root:not(.dark) .text-gray-600 { color: #1e293b; }  /* slate-800 */
+
+/* ===== 농구 정체성: 폰트 / 텍스처 / 모티프 유틸 ===== */
+@layer utilities {
+  /* 디스플레이 폰트 — Bebas Neue (스코어보드 / MVP 큰 숫자) */
+  .font-display {
+    font-family: var(--font-bebas), 'Bebas Neue', Impact, sans-serif;
+    letter-spacing: 0.01em;
+  }
+  /* 저지 폰트 — Barlow Condensed (헤더, 등번호) */
+  .font-jersey {
+    font-family: var(--font-barlow-condensed), 'Barlow Condensed', 'Oswald', sans-serif;
+  }
+
+  /* 저지 등번호 칩 — 본격 농구 유니폼 등번호 느낌 */
+  .jersey-num {
+    font-family: var(--font-barlow-condensed), 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3em;
+    min-width: 1.5em;
+    border-radius: 4px;
+    background: rgba(234, 88, 12, 0.12);
+    border: 1px solid rgba(234, 88, 12, 0.35);
+    color: rgb(251, 146, 60);
+    line-height: 1.2;
+  }
+  :root:not(.dark) .jersey-num {
+    background: rgba(234, 88, 12, 0.10);
+    color: rgb(194, 65, 12);
+  }
+
+  /* 하드우드 코트 텍스처 — 옅은 가로 우드 라인 (배경용) */
+  .court-bg {
+    background-image:
+      radial-gradient(ellipse at top, rgba(234, 88, 12, 0.04), transparent 60%),
+      repeating-linear-gradient(90deg, rgba(120, 53, 15, 0.025) 0px, rgba(120, 53, 15, 0.025) 2px, transparent 2px, transparent 80px);
+  }
+  :root:not(.dark) .court-bg {
+    background-image:
+      radial-gradient(ellipse at top, rgba(234, 88, 12, 0.05), transparent 60%),
+      repeating-linear-gradient(90deg, rgba(120, 53, 15, 0.03) 0px, rgba(120, 53, 15, 0.03) 2px, transparent 2px, transparent 80px);
+  }
+
+  /* 3점 라인 호 데코 (배너/헤더 좌하단·우상단 등에 absolute 배치) */
+  .court-arc-bg {
+    position: relative;
+    overflow: hidden;
+  }
+  .court-arc-bg::before {
+    content: '';
+    position: absolute;
+    inset: -40% -10% auto auto;
+    width: 280px;
+    height: 280px;
+    border: 2px solid rgba(234, 88, 12, 0.18);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .court-arc-bg::after {
+    content: '';
+    position: absolute;
+    inset: auto auto -40% -10%;
+    width: 220px;
+    height: 220px;
+    border: 2px solid rgba(234, 88, 12, 0.12);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  /* 농구공 스피너 회전 — 농구공 SVG 가 가운데 축으로 회전 */
+  @keyframes ball-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  .animate-ball-spin {
+    animation: ball-spin 1.2s linear infinite;
+  }
+}
