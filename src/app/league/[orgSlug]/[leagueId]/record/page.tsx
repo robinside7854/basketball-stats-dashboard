@@ -10,6 +10,7 @@ import {
   Lock, Loader2, Play, Square, ChevronLeft,
   CheckCircle2, Circle, Youtube, RefreshCw, UserPlus, ClipboardList,
 } from 'lucide-react'
+import { BasketballLoader } from '@/components/league/BasketballIcons'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
 import LeagueEventInputPad from '@/components/league/LeagueEventInputPad'
 import LeagueSubstitutionPanel from '@/components/league/LeagueSubstitutionPanel'
@@ -845,7 +846,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
   // ── 로딩 ─────────────────────────────────────────────────
   if (loadingDates) {
-    return <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin text-gray-500" /></div>
+    return <div className="flex justify-center py-12"><BasketballLoader size={32} /></div>
   }
 
   // ── 날짜 없음 ─────────────────────────────────────────────

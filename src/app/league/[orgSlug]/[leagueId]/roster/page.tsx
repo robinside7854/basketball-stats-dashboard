@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Pencil, Check, X, BookOpen } from 'lucide-react'
+import { BasketballLoader } from '@/components/league/BasketballIcons'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import { type EvaluatedBadge, type BadgeCategory } from '@/lib/stats/badges'
@@ -1421,7 +1422,7 @@ export default function LeagueRosterPage() {
       {/* 선수 카드 그리드 */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-gray-500" />
+          <BasketballLoader size={32} />
         </div>
       ) : players.length === 0 ? (
         <div className="text-center py-12 text-gray-500">

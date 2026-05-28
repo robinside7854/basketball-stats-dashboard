@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube, Calendar } from 'lucide-react'
+import { BasketballLoader } from '@/components/league/BasketballIcons'
 import type { League } from '@/types/league'
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean; start_date: string | null; end_date: string | null }
@@ -137,7 +138,7 @@ export default function LeagueSettingsPage() {
     }
   }
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin text-gray-500" /></div>
+  if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={32} /></div>
   if (!league) return null
 
   if (!isEditMode) {

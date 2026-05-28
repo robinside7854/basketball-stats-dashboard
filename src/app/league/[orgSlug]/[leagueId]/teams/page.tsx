@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { Loader2, Crown, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucide-react'
+import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucide-react'
+import { BasketballLoader } from '@/components/league/BasketballIcons'
 import Link from 'next/link'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import TeamInsights from '@/components/league/TeamInsights'
@@ -901,7 +902,7 @@ export default function LeagueTeamsPage() {
 
   const rosterHref = `/league/${orgSlug}/${leagueId}/roster`
 
-  if (loading) return <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin text-gray-500" /></div>
+  if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={32} /></div>
 
   if (quarters.length === 0) return (
     <div className="text-center py-16 text-gray-500">
@@ -944,7 +945,7 @@ export default function LeagueTeamsPage() {
       </div>
 
       {dataLoading ? (
-        <div className="flex justify-center py-12"><Loader2 size={20} className="animate-spin text-gray-500" /></div>
+        <div className="flex justify-center py-12"><BasketballLoader size={28} /></div>
       ) : (
         <>
         {/* ── 섹션 1: 팀별 전적 + 상대 전적 ── */}

@@ -4,6 +4,7 @@ import { Loader2, X, BookOpen, Crown } from 'lucide-react'
 import BadgeBookModal from '@/components/league/BadgeBookModal'
 import { CountUp, FormDots } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
+import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 import { type EvaluatedBadge, type BadgeCategory } from '@/lib/stats/badges'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, PieChart, Pie, Cell as PieCell } from 'recharts'
 
@@ -161,6 +162,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [editForm, setEditForm] = useState({ name: '', position: '', birth_date: '' })
   const [savingEdit, setSavingEdit] = useState(false)
   const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
+  const [shotView, setShotView] = useState<'court'|'donut'>('court')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -678,7 +680,20 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {/* 공격 스타일 — 골밑 → 레이업/드라이브 → 미들 → 3점 */}
             {activeDetail?.shot_breakdown && activeDetail.shot_breakdown.total_fga > 0 && (
               <div className="px-5 py-4 border-b border-gray-800/60">
-                <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">공격 스타일</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-jersey text-xs text-orange-400 uppercase tracking-[0.18em] font-bold">공격 스타일</p>
+                  {/* 코트 / 도넛 토글 */}
+                  <div className="flex rounded-lg overflow-hidden border border-gray-700 shrink-0">
+                    {(['court', 'donut'] as const).map(v => (
+                      <button key={v} onClick={() => setShotView(v)}
+                        className={`px-2.5 py-1 text-[10px] font-bold cursor-pointer transition-colors ${
+                          shotView === v ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                        }`}>
+                        {v === 'court' ? '코트' : '도넛'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {(() => {
                   const sb = activeDetail.shot_breakdown
                   // 골밑 + 드라이브/레이업 합산 표기
@@ -720,52 +735,66 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   const totalFGM = sb.layup.m + (sb.drive?.m ?? 0) + sb.mid.m + sb.post.m + sb.three.m
                   const overallFGPct = totalFGA > 0 ? +(totalFGM / totalFGA * 100).toFixed(1) : 0
 
+                  // 코트 차트용 zones 구조 (m/a/fg_pct)
+                  const courtZones = {
+                    post:  { m: sb.post.m,                          a: sb.post.a,                          fg_pct: sb.post.fg_pct  },
+                    layup: { m: slashLayup.m,                       a: slashLayup.a,                       fg_pct: slashLayup.fg_pct },
+                    mid:   { m: sb.mid.m,                           a: sb.mid.a,                           fg_pct: sb.mid.fg_pct   },
+                    three: { m: sb.three.m,                         a: sb.three.a,                         fg_pct: sb.three.fg_pct },
+                  }
+
                   return (
                     <div className="space-y-3">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                        {/* 도넛 차트 */}
-                        <div className="relative" style={{ height: 180 }}>
-                          <ResponsiveContainer width="100%" height={180}>
-                            <PieChart>
-                              <Pie
-                                data={donutData}
-                                dataKey="value"
-                                nameKey="name"
-                                innerRadius="58%"
-                                outerRadius="86%"
-                                paddingAngle={2}
-                                stroke="none"
-                                isAnimationActive
-                                animationDuration={600}
-                              >
-                                {donutData.map((d, i) => <PieCell key={i} fill={d.color} />)}
-                              </Pie>
-                              <Tooltip
-                                content={({ active, payload }) => {
-                                  if (!active || !payload?.length) return null
-                                  const p = payload[0].payload as typeof donutData[number]
-                                  return (
-                                    <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs shadow-xl">
-                                      <p className="font-black" style={{ color: p.color }}>{p.name}</p>
-                                      <p className="text-gray-300 mt-0.5">{p.m}/{p.a} · FG {p.fg_pct}%</p>
-                                      <p className="text-gray-500">비중 {p.value}%</p>
-                                    </div>
-                                  )
-                                }}
-                              />
-                            </PieChart>
-                          </ResponsiveContainer>
-                          {/* 중앙 라벨 */}
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="text-center">
-                              <p className="text-2xl font-black text-white leading-none">
-                                <CountUp value={totalFGA} />
-                              </p>
-                              <p className="text-[9px] text-gray-500 uppercase tracking-wider font-bold mt-1">시도</p>
-                              <p className={`text-[11px] font-bold mt-0.5 ${pctColor(overallFGPct)}`}>{overallFGPct}%</p>
+                        {/* 좌측: 코트 또는 도넛 (토글) */}
+                        {shotView === 'court' ? (
+                          <div className="flex justify-center">
+                            <HalfCourtShotChart zones={courtZones} size={320} />
+                          </div>
+                        ) : (
+                          <div className="relative" style={{ height: 180 }}>
+                            <ResponsiveContainer width="100%" height={180}>
+                              <PieChart>
+                                <Pie
+                                  data={donutData}
+                                  dataKey="value"
+                                  nameKey="name"
+                                  innerRadius="58%"
+                                  outerRadius="86%"
+                                  paddingAngle={2}
+                                  stroke="none"
+                                  isAnimationActive
+                                  animationDuration={600}
+                                >
+                                  {donutData.map((d, i) => <PieCell key={i} fill={d.color} />)}
+                                </Pie>
+                                <Tooltip
+                                  content={({ active, payload }) => {
+                                    if (!active || !payload?.length) return null
+                                    const p = payload[0].payload as typeof donutData[number]
+                                    return (
+                                      <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs shadow-xl">
+                                        <p className="font-black" style={{ color: p.color }}>{p.name}</p>
+                                        <p className="text-gray-300 mt-0.5">{p.m}/{p.a} · FG {p.fg_pct}%</p>
+                                        <p className="text-gray-500">비중 {p.value}%</p>
+                                      </div>
+                                    )
+                                  }}
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            {/* 중앙 라벨 */}
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <div className="text-center">
+                                <p className="font-display text-3xl text-white leading-none">
+                                  <CountUp value={totalFGA} />
+                                </p>
+                                <p className="font-jersey text-[9px] text-gray-500 uppercase tracking-wider font-bold mt-1">시도</p>
+                                <p className={`text-[11px] font-bold mt-0.5 ${pctColor(overallFGPct)}`}>{overallFGPct}%</p>
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        )}
                         {/* 존별 카드 리스트 (도넛 우측) */}
                         <div className="space-y-1.5">
                           {[...rawZones, ...ftZone].map(z => {

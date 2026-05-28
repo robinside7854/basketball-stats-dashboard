@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2 } from 'lucide-react'
+import { BasketballLoader } from '@/components/league/BasketballIcons'
 import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 
 type ScheduleDate = { id: string; date: string }
@@ -220,7 +221,7 @@ export default function LeagueSchedulePage() {
       {/* 날짜 목록 */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-gray-500" />
+          <BasketballLoader size={32} />
         </div>
       ) : dates.length === 0 ? (
         <div className="text-center py-12 border border-dashed border-gray-800 rounded-xl text-gray-500">

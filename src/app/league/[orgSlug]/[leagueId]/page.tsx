@@ -209,15 +209,15 @@ export default async function LeagueDetailPage({
 
   return (
     <div className="space-y-5">
-      {/* 헤더 */}
-      <div className="space-y-1">
+      {/* 헤더 — 코트 미세 텍스처 배경 + 저지 폰트 */}
+      <div className="relative court-bg rounded-2xl px-5 py-4 -mx-2 sm:mx-0 border border-gray-800/40">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">{l.name}</h1>
+          <h1 className="font-jersey text-3xl font-bold text-white tracking-wide uppercase">{l.name}</h1>
           <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusColor[l.status] ?? 'bg-gray-800 text-gray-400'}`}>
             {statusLabel[l.status] ?? l.status}
           </span>
         </div>
-        <p className="text-gray-500 text-sm">{l.season_year}시즌 · {l.season_type === 'quarterly' ? '분기별(3개월)' : '연간(1년)'} · 시작일 {l.start_date}</p>
+        <p className="text-gray-500 text-sm mt-1">{l.season_year}시즌 · {l.season_type === 'quarterly' ? '분기별(3개월)' : '연간(1년)'} · 시작일 {l.start_date}</p>
       </div>
 
       {/* 시즌 전환 */}
@@ -299,8 +299,8 @@ export default async function LeagueDetailPage({
         <div className="lg:sticky lg:top-20">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
-              <h2 className="font-semibold text-white">순위표</h2>
-              <span className="text-[10px] text-gray-500">{TARGET_SEASON_YEAR} 시즌</span>
+              <h2 className="font-jersey text-lg font-bold text-white uppercase tracking-wide">순위표</h2>
+              <span className="font-jersey text-[10px] text-orange-400 tracking-widest">{TARGET_SEASON_YEAR} 시즌</span>
             </div>
             <LeagueStandingsTabs cumulative={cumulativeStandings} quarters={quarterStandings} />
           </div>

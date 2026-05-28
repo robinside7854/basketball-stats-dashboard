@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { Loader2, Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import PlayerCompareModal from '@/components/league/PlayerCompareModal'
 import LeagueDuoPanel from '@/components/league/LeagueDuoPanel'
@@ -326,7 +327,7 @@ export default function LeagueStatsPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><Loader2 size={24} className="animate-spin text-gray-500" /></div>
+        <div className="flex justify-center py-16"><BasketballLoader size={32} /></div>
       ) : players.length === 0 ? (
         <div className="text-center py-16 text-gray-500">
           <Trophy size={32} className="mx-auto mb-3 text-gray-500" />
