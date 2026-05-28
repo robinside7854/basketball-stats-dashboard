@@ -1,18 +1,21 @@
 'use client'
 import { useState } from 'react'
 
-// 하프코트 슛 차트 — FIBA 표준 비례 적용
+// 하프코트 슛 차트 — 첨부된 표준 농구 코트 다이어그램 비례에 맞춤
 //
-// 좌표계: viewBox 400 × 380, 1m ≈ 27px
-//   - 코트 폭: 15m × 27 ≈ 400  (사이드라인 = x=0, x=400)
-//   - 베이스라인 → 하프코트: 14m × 27 ≈ 378  (베이스라인 = y=0)
-//   - 림 중심: (200, 35)
-//   - 페인트(키): 4.9m × 5.8m → x=134~266, y=0~160
-//   - 자유투 라인: y=160
-//   - 자유투 호: r=49 (1.8m), center (200, 160)
-//   - 3점 코너 직선: x=24, x=376 (사이드라인에서 0.9m)
-//   - 3점 호: r=180 (6.75m), 림에서. 시작 (24, 76) → 정점 (200, 215) → (376, 76)
-//   - 제한 구역 (DS): r=34 (1.25m) 반원 around rim
+// 좌표 (viewBox 400 × 400):
+//   - 베이스라인 = y=0 (위), 하프코트 라인 ≈ y=380 (아래)
+//   - 림 중심: (200, 40)
+//   - 페인트(키): x=140~260, y=0~150 (페인트 전체 = LU 영역)
+//   - 제한 구역 (DS): r=28 반원 around rim (페인트 안, 림 바로 옆 영역)
+//   - 코너-3 직선: x=24, x=376 (사이드라인에서 0.9m 안쪽), 베이스라인부터 y=190 까지 길게
+//   - 3점 호: r=235 from rim, 코너 직선 끝에서 시작, y=275 정점
+//
+// Zone 매핑 (첨부 이미지의 14개 spot 기준):
+//   - DS  (13, 14): 림 바로 옆 (페인트 상부 중앙)
+//   - LU  (11, 12): 페인트 안 (DS 제외 영역)
+//   - MD  (6~10):   페인트 밖, 3점 라인 안쪽 (윙 · 엘보 · 탑오브키)
+//   - 3P  (1~5):    3점 라인 바깥
 
 interface Zone {
   m: number
@@ -22,15 +25,14 @@ interface Zone {
 
 interface Props {
   zones: {
-    post: Zone   // 골밑 (Dunk Spot)
-    layup: Zone  // 레이업+드라이브
-    mid: Zone    // 미드레인지
-    three: Zone  // 3점
+    post: Zone   // DS — 골밑슛
+    layup: Zone  // LU — 레이업+드라이브
+    mid: Zone    // MD — 미드레인지
+    three: Zone  // 3P — 3점슛
   }
-  size?: number  // 너비 (높이는 자동 비율)
+  size?: number
 }
 
-// FG% → 색상 강도 (배경 베이스 + opacity)
 function pctToFill(pct: number, baseColor: string): { fill: string; opacity: number } {
   if (pct <= 0) return { fill: baseColor, opacity: 0.10 }
   let opacity = 0.25
@@ -54,31 +56,35 @@ const COLORS = {
   three: '#3b82f6',
 }
 
-// SVG 좌표 상수 — 위 주석의 FIBA 비례 기반
+// SVG 좌표 상수 — 첨부된 표준 코트 비례 기반
+const VBW = 400
+const VBH = 400
 const RIM_X = 200
-const RIM_Y = 35
-const RIM_R = 9           // 림 표시용 (시각용, 실제 0.45m=12px 보다 약간 작게)
-const DS_R = 34           // 골밑 zone 반경 (1.25m)
-const LU_BOTTOM = 115     // 레이업 zone 의 아래쪽 한계 — 자유투 라인까지 가지 않게 컷
-const PAINT_LEFT = 134
-const PAINT_RIGHT = 266
-const PAINT_BOTTOM = 160  // 자유투 라인
-const FT_CIRCLE_R = 49    // 자유투 호 반경 (1.8m)
-const THREE_R = 180       // 3점 호 반경 (6.75m)
-const CORNER_X_L = 24     // 좌측 코너-3 직선 (사이드라인에서 0.9m)
-const CORNER_X_R = 376    // 우측 코너-3 직선
-const CORNER_Y = 76       // 코너-3 직선이 호와 만나는 y 좌표
-const ARC_BOTTOM_Y = RIM_Y + THREE_R  // 215 — 호의 정점 (코트 안쪽으로 가장 깊은 곳)
+const RIM_Y = 40
+const RIM_R = 9
+const DS_R = 28
+const PAINT_LEFT = 140
+const PAINT_RIGHT = 260
+const PAINT_BOTTOM = 150      // 자유투 라인
+const FT_CIRCLE_R = 48
+const THREE_R = 235           // 3점 호 반경 (실제 첨부도면 비례 매칭 — 6.75m 보다 약간 크게 시각화)
+const CORNER_X_L = 24
+const CORNER_X_R = 376
+// 코너-3 직선과 호가 만나는 y 좌표
+// 식: (CORNER_X_L - RIM_X)² + (CORNER_Y - RIM_Y)² = THREE_R²
+//     176² + (CORNER_Y - 40)² = 235²  →  CORNER_Y = 40 + √(55225 - 30976) ≈ 40 + 155.7 ≈ 196
+const CORNER_Y = 196
+const ARC_BOTTOM_Y = RIM_Y + THREE_R  // 275 — 3점 호의 정점
 
 export default function HalfCourtShotChart({ zones, size = 360 }: Props) {
   const [hover, setHover] = useState<keyof typeof COLORS | null>(null)
 
-  const aspectRatio = 380 / 400
+  const aspectRatio = VBH / VBW
 
   return (
     <div className="relative" style={{ width: size, maxWidth: '100%' }}>
       <svg
-        viewBox="0 0 400 380"
+        viewBox={`0 0 ${VBW} ${VBH}`}
         width="100%"
         height={size * aspectRatio}
         className="block"
@@ -86,21 +92,20 @@ export default function HalfCourtShotChart({ zones, size = 360 }: Props) {
         aria-label="하프코트 슛 차트"
       >
         <defs>
-          <radialGradient id="hoopGlow" cx="50%" cy="9%" r="40%">
-            <stop offset="0%" stopColor="#ea580c" stopOpacity="0.18" />
+          <radialGradient id="hoopGlow" cx="50%" cy="10%" r="40%">
+            <stop offset="0%" stopColor="#ea580c" stopOpacity="0.20" />
             <stop offset="100%" stopColor="#ea580c" stopOpacity="0" />
           </radialGradient>
         </defs>
 
         {/* ── 하드우드 배경 ── */}
-        <rect x="0" y="0" width="400" height="380" fill="#0a0a0c" />
-        <rect x="0" y="0" width="400" height="380" fill="url(#hoopGlow)" />
-        {/* 가로 우드 라인 (희미) */}
-        {[60, 120, 180, 240, 300, 360].map(y => (
-          <line key={y} x1="0" y1={y} x2="400" y2={y} stroke="#5c2e0e" strokeWidth="0.5" opacity="0.20" />
+        <rect x="0" y="0" width={VBW} height={VBH} fill="#0a0a0c" />
+        <rect x="0" y="0" width={VBW} height={VBH} fill="url(#hoopGlow)" />
+        {[60, 130, 200, 270, 340].map(y => (
+          <line key={y} x1="0" y1={y} x2={VBW} y2={y} stroke="#5c2e0e" strokeWidth="0.5" opacity="0.18" />
         ))}
 
-        {/* ── 슛 존 색상 (FG% 강도 매핑) ── */}
+        {/* ── 슛 존 색상 ── */}
 
         {/* 3P — 코트 외곽 ~ 3점 라인 바깥 */}
         {(() => {
@@ -111,9 +116,9 @@ export default function HalfCourtShotChart({ zones, size = 360 }: Props) {
             L ${CORNER_X_L} ${CORNER_Y}
             A ${THREE_R} ${THREE_R} 0 0 1 ${CORNER_X_R} ${CORNER_Y}
             L ${CORNER_X_R} 0
-            L 400 0
-            L 400 380
-            L 0 380
+            L ${VBW} 0
+            L ${VBW} ${VBH}
+            L 0 ${VBH}
             Z
           `
           return (
@@ -129,10 +134,10 @@ export default function HalfCourtShotChart({ zones, size = 360 }: Props) {
           )
         })()}
 
-        {/* MD — 3점 라인 안쪽 ~ 레이업 사각형(하부 페인트) 바깥 (즉, 2-pt 전체 − LU) */}
+        {/* MD — 3점 라인 안쪽 ~ 페인트 바깥 (윙 + 엘보 + 탑오브키) */}
         {(() => {
           const m = pctToFill(zones.mid.fg_pct, COLORS.mid)
-          // 2-pt U-shape (3점 라인 안쪽 영역) + LU 사각형 구멍 (evenodd)
+          // 2-pt U-shape (3점 라인 안쪽 전체) - 페인트 사각형 구멍 (evenodd)
           const path = `
             M ${CORNER_X_L} 0
             L ${CORNER_X_L} ${CORNER_Y}
@@ -141,8 +146,8 @@ export default function HalfCourtShotChart({ zones, size = 360 }: Props) {
             Z
             M ${PAINT_LEFT} 0
             L ${PAINT_RIGHT} 0
-            L ${PAINT_RIGHT} ${LU_BOTTOM}
-            L ${PAINT_LEFT} ${LU_BOTTOM}
+            L ${PAINT_RIGHT} ${PAINT_BOTTOM}
+            L ${PAINT_LEFT} ${PAINT_BOTTOM}
             Z
           `
           return (
@@ -159,14 +164,14 @@ export default function HalfCourtShotChart({ zones, size = 360 }: Props) {
           )
         })()}
 
-        {/* LU — 페인트 하부 (자유투 라인까지 가지 않음) — 윗쪽 일부분 */}
+        {/* LU — 페인트 전체 (DS 제외 영역은 위에 DS 가 덮어쓰기) */}
         {(() => {
           const l = pctToFill(zones.layup.fg_pct, COLORS.layup)
           const path = `
             M ${PAINT_LEFT} 0
             L ${PAINT_RIGHT} 0
-            L ${PAINT_RIGHT} ${LU_BOTTOM}
-            L ${PAINT_LEFT} ${LU_BOTTOM}
+            L ${PAINT_RIGHT} ${PAINT_BOTTOM}
+            L ${PAINT_LEFT} ${PAINT_BOTTOM}
             Z
           `
           return (
@@ -182,7 +187,7 @@ export default function HalfCourtShotChart({ zones, size = 360 }: Props) {
           )
         })()}
 
-        {/* DS — 림 주변 제한구역 (반원, 코트 안쪽 방향) */}
+        {/* DS — 림 옆 제한구역 (반원, 코트 안쪽 방향) */}
         {(() => {
           const p = pctToFill(zones.post.fg_pct, COLORS.post)
           const path = `
@@ -205,83 +210,84 @@ export default function HalfCourtShotChart({ zones, size = 360 }: Props) {
 
         {/* ── 코트 라인 (존 위에 그려짐) ── */}
         {/* 외곽 */}
-        <rect x="0" y="0" width="400" height="380" fill="none" stroke="#fff" strokeWidth="2" opacity="0.7" />
-        {/* 백보드 (위쪽 끝선) */}
-        <line x1="170" y1="18" x2="230" y2="18" stroke="#fff" strokeWidth="3" opacity="0.9" />
+        <rect x="0" y="0" width={VBW} height={VBH} fill="none" stroke="#fff" strokeWidth="2" opacity="0.7" />
+        {/* 백보드 */}
+        <line x1="170" y1="22" x2="230" y2="22" stroke="#fff" strokeWidth="3" opacity="0.9" />
         {/* 림 */}
         <circle cx={RIM_X} cy={RIM_Y} r={RIM_R} fill="none" stroke="#ea580c" strokeWidth="2" />
         {/* 키(paint) */}
-        <rect x={PAINT_LEFT} y="0" width={PAINT_RIGHT - PAINT_LEFT} height={PAINT_BOTTOM} fill="none" stroke="#fff" strokeWidth="1.5" opacity="0.55" />
+        <rect x={PAINT_LEFT} y="0" width={PAINT_RIGHT - PAINT_LEFT} height={PAINT_BOTTOM} fill="none" stroke="#fff" strokeWidth="1.5" opacity="0.65" />
         {/* 자유투 라인 */}
-        <line x1={PAINT_LEFT} y1={PAINT_BOTTOM} x2={PAINT_RIGHT} y2={PAINT_BOTTOM} stroke="#fff" strokeWidth="1.5" opacity="0.55" />
-        {/* 자유투 호 (하부 반원 — 페인트 바깥, 실선) */}
+        <line x1={PAINT_LEFT} y1={PAINT_BOTTOM} x2={PAINT_RIGHT} y2={PAINT_BOTTOM} stroke="#fff" strokeWidth="1.5" opacity="0.65" />
+        {/* 자유투 호 (페인트 바깥, 실선) */}
         <path
           d={`M ${PAINT_LEFT} ${PAINT_BOTTOM} A ${FT_CIRCLE_R} ${FT_CIRCLE_R} 0 0 0 ${PAINT_RIGHT} ${PAINT_BOTTOM}`}
-          fill="none" stroke="#fff" strokeWidth="1.5" opacity="0.55"
+          fill="none" stroke="#fff" strokeWidth="1.5" opacity="0.65"
         />
-        {/* 자유투 호 (상부 반원 — 페인트 안쪽, 점선) */}
+        {/* 자유투 호 (페인트 안쪽, 점선) */}
         <path
           d={`M ${PAINT_LEFT} ${PAINT_BOTTOM} A ${FT_CIRCLE_R} ${FT_CIRCLE_R} 0 0 1 ${PAINT_RIGHT} ${PAINT_BOTTOM}`}
-          fill="none" stroke="#fff" strokeWidth="1" opacity="0.30" strokeDasharray="3 3"
+          fill="none" stroke="#fff" strokeWidth="1" opacity="0.35" strokeDasharray="3 3"
         />
         {/* 제한구역(restricted area) 호 */}
         <path
           d={`M ${RIM_X - DS_R} ${RIM_Y} A ${DS_R} ${DS_R} 0 0 0 ${RIM_X + DS_R} ${RIM_Y}`}
-          fill="none" stroke="#fff" strokeWidth="1" opacity="0.40"
-        />
-        {/* LU 경계선 (가로 점선 — 레이업/미드레인지 분할선) */}
-        <line
-          x1={PAINT_LEFT} y1={LU_BOTTOM} x2={PAINT_RIGHT} y2={LU_BOTTOM}
-          stroke="#fff" strokeWidth="0.8" opacity="0.20" strokeDasharray="3 3"
+          fill="none" stroke="#fff" strokeWidth="1" opacity="0.45"
         />
         {/* 3점 코너 직선 */}
-        <line x1={CORNER_X_L} y1="0" x2={CORNER_X_L} y2={CORNER_Y} stroke="#fff" strokeWidth="1.5" opacity="0.65" />
-        <line x1={CORNER_X_R} y1="0" x2={CORNER_X_R} y2={CORNER_Y} stroke="#fff" strokeWidth="1.5" opacity="0.65" />
+        <line x1={CORNER_X_L} y1="0" x2={CORNER_X_L} y2={CORNER_Y} stroke="#fff" strokeWidth="1.5" opacity="0.7" />
+        <line x1={CORNER_X_R} y1="0" x2={CORNER_X_R} y2={CORNER_Y} stroke="#fff" strokeWidth="1.5" opacity="0.7" />
         {/* 3점 호 */}
         <path
           d={`M ${CORNER_X_L} ${CORNER_Y} A ${THREE_R} ${THREE_R} 0 0 1 ${CORNER_X_R} ${CORNER_Y}`}
-          fill="none" stroke="#fff" strokeWidth="1.5" opacity="0.65"
+          fill="none" stroke="#fff" strokeWidth="1.5" opacity="0.7"
+        />
+        {/* 하프코트 라인 (아래) — 절반만 보이는 센터 서클 */}
+        <line x1="0" y1={VBH - 1} x2={VBW} y2={VBH - 1} stroke="#fff" strokeWidth="1.5" opacity="0.55" />
+        <path
+          d={`M ${RIM_X - 36} ${VBH} A 36 36 0 0 1 ${RIM_X + 36} ${VBH}`}
+          fill="none" stroke="#fff" strokeWidth="1.5" opacity="0.55"
         />
 
         {/* ── 존 라벨 ── */}
-        {/* DS — 림 바로 아래 */}
+        {/* DS — 림 바로 옆 */}
         <g pointerEvents="none">
-          <text x={RIM_X} y={RIM_Y + 16} textAnchor="middle" className="font-display fill-white" style={{ fontSize: 11, letterSpacing: 0.5 }} opacity={hover === 'post' ? 1 : 0.9}>DS</text>
-          <text x={RIM_X} y={RIM_Y + 30} textAnchor="middle" className="fill-white" style={{ fontSize: 11, fontWeight: 800 }} opacity={hover === 'post' ? 1 : 0.95}>
+          <text x={RIM_X} y={RIM_Y + 15} textAnchor="middle" className="font-display fill-white" style={{ fontSize: 10, letterSpacing: 0.5 }} opacity={hover === 'post' ? 1 : 0.9}>DS</text>
+          <text x={RIM_X} y={RIM_Y + 28} textAnchor="middle" className="fill-white" style={{ fontSize: 10, fontWeight: 800 }} opacity={hover === 'post' ? 1 : 0.95}>
             {zones.post.fg_pct > 0 ? `${zones.post.fg_pct}%` : '—'}
           </text>
-          <text x={RIM_X} y={RIM_Y + 44} textAnchor="middle" className="fill-gray-300" style={{ fontSize: 9 }}>{zones.post.m}/{zones.post.a}</text>
         </g>
-        {/* LU — 페인트 하부 중앙 */}
+        {/* LU — 페인트 중앙 (DS 아래) */}
         <g pointerEvents="none">
-          <text x={RIM_X} y={88} textAnchor="middle" className="font-display fill-white" style={{ fontSize: 14, letterSpacing: 0.5 }} opacity={hover === 'layup' ? 1 : 0.95}>LU</text>
-          <text x={RIM_X} y={107} textAnchor="middle" className="fill-white" style={{ fontSize: 13, fontWeight: 800 }} opacity={hover === 'layup' ? 1 : 0.95}>
+          <text x={RIM_X} y={95} textAnchor="middle" className="font-display fill-white" style={{ fontSize: 14, letterSpacing: 0.5 }} opacity={hover === 'layup' ? 1 : 0.95}>LU</text>
+          <text x={RIM_X} y={114} textAnchor="middle" className="fill-white" style={{ fontSize: 14, fontWeight: 800 }} opacity={hover === 'layup' ? 1 : 0.95}>
             {zones.layup.fg_pct > 0 ? `${zones.layup.fg_pct}%` : '—'}
           </text>
+          <text x={RIM_X} y={132} textAnchor="middle" className="fill-gray-300" style={{ fontSize: 10 }}>{zones.layup.m}/{zones.layup.a}</text>
         </g>
-        {/* MD — 좌측 윙 (가장 큰 미드레인지 영역) */}
+        {/* MD — 좌측 윙 (가장 넓은 영역) */}
         <g pointerEvents="none">
-          <text x="78" y="160" textAnchor="middle" className="font-display fill-white" style={{ fontSize: 14, letterSpacing: 0.5 }} opacity={hover === 'mid' ? 1 : 0.92}>MD</text>
-          <text x="78" y="180" textAnchor="middle" className="fill-white" style={{ fontSize: 13, fontWeight: 800 }} opacity={hover === 'mid' ? 1 : 0.95}>
+          <text x="78" y="130" textAnchor="middle" className="font-display fill-white" style={{ fontSize: 14, letterSpacing: 0.5 }} opacity={hover === 'mid' ? 1 : 0.92}>MD</text>
+          <text x="78" y="150" textAnchor="middle" className="fill-white" style={{ fontSize: 13, fontWeight: 800 }} opacity={hover === 'mid' ? 1 : 0.95}>
             {zones.mid.fg_pct > 0 ? `${zones.mid.fg_pct}%` : '—'}
           </text>
-          <text x="78" y="194" textAnchor="middle" className="fill-gray-300" style={{ fontSize: 9 }}>{zones.mid.m}/{zones.mid.a}</text>
+          <text x="78" y="166" textAnchor="middle" className="fill-gray-300" style={{ fontSize: 10 }}>{zones.mid.m}/{zones.mid.a}</text>
         </g>
-        {/* 3P — 호 바깥 하단 중앙 */}
+        {/* 3P — 호 바깥, 가운데 (탑오브키 3점 위치) */}
         <g pointerEvents="none">
-          <text x={RIM_X} y="265" textAnchor="middle" className="font-display fill-white" style={{ fontSize: 15, letterSpacing: 0.5 }} opacity={hover === 'three' ? 1 : 0.95}>3P</text>
-          <text x={RIM_X} y="285" textAnchor="middle" className="fill-white" style={{ fontSize: 14, fontWeight: 800 }} opacity={hover === 'three' ? 1 : 0.95}>
+          <text x={RIM_X} y={ARC_BOTTOM_Y + 28} textAnchor="middle" className="font-display fill-white" style={{ fontSize: 15, letterSpacing: 0.5 }} opacity={hover === 'three' ? 1 : 0.95}>3P</text>
+          <text x={RIM_X} y={ARC_BOTTOM_Y + 48} textAnchor="middle" className="fill-white" style={{ fontSize: 14, fontWeight: 800 }} opacity={hover === 'three' ? 1 : 0.95}>
             {zones.three.fg_pct > 0 ? `${zones.three.fg_pct}%` : '—'}
           </text>
-          <text x={RIM_X} y="301" textAnchor="middle" className="fill-gray-300" style={{ fontSize: 10 }}>{zones.three.m}/{zones.three.a}</text>
+          <text x={RIM_X} y={ARC_BOTTOM_Y + 64} textAnchor="middle" className="fill-gray-300" style={{ fontSize: 10 }}>{zones.three.m}/{zones.three.a}</text>
         </g>
       </svg>
 
-      {/* 호버 상세 — 차트 하단 */}
+      {/* 호버 상세 */}
       <div className="mt-2 min-h-[28px] text-center text-[11px]">
         {hover ? (() => {
           const z = zones[hover]
-          const labelMap = { post: '골밑 (DS) · 제한구역', layup: '레이업·드라이브 (LU) · 페인트 하부', mid: '미드레인지 (MD) · 윙·엘보·탑오브키', three: '3점 (3P)' }
+          const labelMap = { post: '골밑 (DS) · 제한구역', layup: '레이업·드라이브 (LU) · 페인트 안', mid: '미드레인지 (MD) · 윙·엘보·탑오브키', three: '3점 (3P)' }
           return (
             <div className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-gray-900/80 border border-gray-700/50">
               <span className="font-bold" style={{ color: COLORS[hover] }}>{labelMap[hover]}</span>
