@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Trash2, Loader2, Calendar, Users, Trophy, ClipboardList } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Calendar, Users, Trophy, ClipboardList, KeyRound } from 'lucide-react'
 import Link from 'next/link'
 import type { League, LeagueTeamWithPlayers, LeagueGame } from '@/types/league'
 
@@ -488,14 +488,22 @@ export default function LeagueDetailPage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center gap-3">
-        <Link href={`/admin/orgs/${orgSlug}/leagues`} className="text-gray-400 hover:text-white transition-colors">
-          <ArrowLeft size={20} />
-        </Link>
-        <div>
-          <h1 className="text-xl font-bold text-white">{league.name}</h1>
-          <p className="text-gray-500 text-sm">{league.season_year}시즌 · {league.season_type === 'quarterly' ? '분기별' : '연간'}</p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <Link href={`/admin/orgs/${orgSlug}/leagues`} className="text-gray-400 hover:text-white transition-colors">
+            <ArrowLeft size={20} />
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold text-white">{league.name}</h1>
+            <p className="text-gray-500 text-sm">{league.season_year}시즌 · {league.season_type === 'quarterly' ? '분기별' : '연간'}</p>
+          </div>
         </div>
+        <Link
+          href={`/admin/orgs/${orgSlug}/leagues/${leagueId}/draft`}
+          className="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold flex items-center gap-1.5 transition-colors"
+        >
+          <KeyRound size={14} /> 드래프트 관리
+        </Link>
       </div>
 
       {/* 탭 */}
