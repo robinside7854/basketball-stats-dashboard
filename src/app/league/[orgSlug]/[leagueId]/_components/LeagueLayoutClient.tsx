@@ -20,6 +20,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch }: { orgSlug: string; leagueId
     { href: base, label: '홈' },
     { href: `${base}/roster`, label: '선수단' },
     { href: `${base}/teams`, label: '팀 구성' },
+    { href: `${base}/draft`, label: '드래프트' },
     { href: `${base}/schedule`, label: '일정' },
     { href: `${base}/record`, label: '경기기록' },
     { href: `${base}/stats`, label: '스탯' },

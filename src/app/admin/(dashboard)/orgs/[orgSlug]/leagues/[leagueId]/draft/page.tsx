@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { ArrowLeft, KeyRound, Trash2, Copy, Check, ToggleLeft, ToggleRight } from 'lucide-react'
 import Link from 'next/link'
 import type { Quarter } from '@/types/league'
+import DraftSessionControl from './_components/DraftSessionControl'
 
 interface DraftCode {
   id: string
@@ -285,12 +286,10 @@ export default function AdminDraftPage() {
             </div>
           </section>
 
-          {/* Phase 2 — 드래프트 세션 관리 (자리표시) */}
+          {/* 드래프트 세션 관리 */}
           <section className="space-y-3 mt-8">
             <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest">드래프트 세션</h2>
-            <div className="bg-gray-900 border border-gray-800 border-dashed rounded-xl p-6 text-center">
-              <p className="text-sm text-gray-500">Phase 2 에서 추가됩니다 — 드래프트 세션 생성·시작·종료·리셋 컨트롤</p>
-            </div>
+            <DraftSessionControl leagueId={leagueId} quarterId={selectedQid} teams={teams} />
           </section>
         </>
       )}
