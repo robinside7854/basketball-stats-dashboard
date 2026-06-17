@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, ExternalLink, Eye, EyeOff, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Loader2, ExternalLink, Eye, EyeOff, RefreshCw, KeyRound } from 'lucide-react'
 import Link from 'next/link'
 import type { League } from '@/types/league'
 
@@ -111,6 +111,18 @@ export default function LeagueAdminSettingsPage() {
           <div><p className="text-xs text-gray-500">첫 정기 일정</p><p className="text-white">{league.start_date}</p></div>
           <div><p className="text-xs text-gray-500">시즌 구분</p><p className="text-white">{league.season_type === 'quarterly' ? '분기별 (3개월)' : '연간 (1년)'}</p></div>
         </div>
+      </div>
+
+      {/* 드래프트 관리 */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
+        <h2 className="font-semibold text-white text-sm">드래프트</h2>
+        <p className="text-xs text-gray-500">단장·감독관 코드 발급, 팀장 지정, 풀 선별, 추첨·세션 진행을 관리합니다.</p>
+        <Link
+          href={`/admin/orgs/${league.org_slug}/leagues/${leagueId}/draft`}
+          className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium transition-colors"
+        >
+          <KeyRound size={14} /> 드래프트 관리 열기
+        </Link>
       </div>
 
       {/* 리그 상태 */}
