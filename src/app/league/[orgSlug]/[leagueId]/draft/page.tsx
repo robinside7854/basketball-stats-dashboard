@@ -13,6 +13,8 @@ import DraftSessionControl from '@/components/league/DraftSessionControl'
 import DraftChat from '@/components/league/DraftChat'
 import DraftPlayerStatsModal, { type DraftStatRow } from '@/components/league/DraftPlayerStatsModal'
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
+import DraftTeamStats from '@/components/league/DraftTeamStats'
+import DraftStatTable from '@/components/league/DraftStatTable'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { overallScorePerGame } from '@/lib/leagueStats'
 import type { Quarter } from '@/types/league'
@@ -590,6 +592,7 @@ export default function LeagueDraftPage() {
         </div>
       ) : (
         // in_progress / completed
+        <>
         <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4">
           {/* 좌측 픽 보드 */}
           <div className="space-y-3">
@@ -818,6 +821,11 @@ export default function LeagueDraftPage() {
             </div>
           </div>
         </div>
+
+        {/* 팀 구성 성적 + 남은 선수 성적표 (하단) */}
+        <DraftTeamStats teams={teams} picks={(state?.picks ?? []).map(p => ({ team_id: p.team_id, player_id: p.player_id }))} leaders={state?.leaders ?? []} stats={prevStats} />
+        <DraftStatTable leagueId={leagueId} availablePlayers={(state?.available_players ?? []).map(p => ({ id: p.id, name: p.name, number: p.number }))} prevStats={prevStats} prevQuarterId={prevQuarter?.id ?? null} prevQuarterLabel={prevQuarterLabel} />
+        </>
       )}
 
       {/* 선수 스탯 팝업 */}

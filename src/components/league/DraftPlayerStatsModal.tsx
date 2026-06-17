@@ -21,7 +21,7 @@ interface Props {
   onClose: () => void
 }
 
-type StatDef = { key: keyof DraftStatRow; label: string; lowerBetter?: boolean; pct?: boolean }
+type StatDef = { key: keyof DraftStatRow; label: string; lowerBetter?: boolean; pct?: boolean; madeKey?: keyof DraftStatRow; attKey?: keyof DraftStatRow }
 
 const CUMULATIVE: StatDef[] = [
   { key: 'pts', label: '득점' },
@@ -38,16 +38,15 @@ const AVERAGE: StatDef[] = [
   { key: 'spg', label: '스틸' },
   { key: 'bpg', label: '블록' },
   { key: 'topg', label: '턴오버', lowerBetter: true },
-  { key: 'fg_pct', label: '야투%', pct: true },
-  { key: 'fg3_pct', label: '3점%', pct: true },
-  { key: 'ft_pct', label: '자유투%', pct: true },
+  { key: 'fg_pct', label: '야투%', pct: true, madeKey: 'fgm', attKey: 'fga' },
+  { key: 'fg3_pct', label: '3점%', pct: true, madeKey: 'fg3m', attKey: 'fg3a' },
+  { key: 'ft_pct', label: '자유투%', pct: true, madeKey: 'ftm', attKey: 'fta' },
 ]
 
 export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuarterLabel, onClose }: Props) {
   const [tab, setTab] = useState<'avg' | 'cum'>('avg')
   const row = stats[player.id]
 
-  // 풀 내 랭킹 — gp>0 인 풀 선수만 대상
   const ranked = poolIds.map(id => stats[id]).filter((r): r is DraftStatRow => !!r && r.gp > 0)
 
   function rankOf(def: StatDef): { rank: number; total: number } | null {
@@ -57,9 +56,7 @@ export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuar
       const av = Number(a[def.key] ?? 0), bv = Number(b[def.key] ?? 0)
       return def.lowerBetter ? av - bv : bv - av
     })
-    const idx = sorted.findIndex(r => r.player_id === player.id)
-    if (idx < 0) return null
-    // 동점 처리: 같은 값이면 같은 순위
+    if (!sorted.some(r => r.player_id === player.id)) return null
     let rank = 1
     for (const r of sorted) {
       if (r.player_id === player.id) break
@@ -105,14 +102,19 @@ export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuar
                 const raw = Number(row[def.key] ?? 0)
                 const display = def.pct ? `${raw.toFixed(1)}%` : (tab === 'avg' ? raw.toFixed(1) : String(raw))
                 const r = rankOf(def)
-                const top = r && r.rank === 1
+                const top5 = !!r && r.rank <= 5
+                const top1 = !!r && r.rank === 1
+                const madeAtt = def.pct && def.madeKey && def.attKey ? `${Number(row[def.madeKey] ?? 0)}/${Number(row[def.attKey] ?? 0)}` : null
                 return (
-                  <div key={String(def.key)} className="flex items-center gap-3 bg-gray-800/50 rounded-lg px-3 py-2">
+                  <div key={String(def.key)}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 border ${top5 ? 'bg-amber-500/15 border-amber-500/50' : 'bg-gray-800/50 border-transparent'}`}>
                     <span className="text-sm text-gray-300 font-bold w-20">{def.label}</span>
-                    <span className="font-display text-xl text-white tabular-nums flex-1">{display}</span>
+                    <span className={`font-display text-xl tabular-nums ${top5 ? 'text-amber-300' : 'text-white'}`}>{display}</span>
+                    {madeAtt && <span className="text-[11px] text-gray-500">({madeAtt})</span>}
+                    <span className="flex-1" />
                     {r ? (
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${top ? 'bg-amber-500/20 text-amber-300' : 'bg-gray-700/60 text-gray-300'}`}>
-                        풀 {r.rank}위 / {r.total}
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${top1 ? 'bg-amber-500 text-black' : top5 ? 'bg-amber-500/30 text-amber-200' : 'bg-gray-700/60 text-gray-300'}`}>
+                        {r.rank}위 / {r.total}
                       </span>
                     ) : (
                       <span className="text-[10px] text-gray-600">—</span>
@@ -120,12 +122,6 @@ export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuar
                   </div>
                 )
               })}
-              {tab === 'cum' && (
-                <div className="flex items-center gap-3 bg-gray-800/30 rounded-lg px-3 py-2 mt-1">
-                  <span className="text-xs text-gray-500 w-20">슈팅</span>
-                  <span className="text-xs text-gray-400">FG {row.fgm}/{row.fga} · 3P {row.fg3m}/{row.fg3a} · FT {row.ftm}/{row.fta}</span>
-                </div>
-              )}
             </div>
           </>
         )}
