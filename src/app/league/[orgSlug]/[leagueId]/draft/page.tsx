@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, ArrowRight, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2 } from 'lucide-react'
+import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, ArrowRight, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2, Minimize2, Maximize2 } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import DraftCodeManager from '@/components/league/DraftCodeManager'
@@ -85,9 +85,12 @@ export default function LeagueDraftPage() {
   const [reveal, setReveal] = useState<Pick | null>(null)
   const lastPickRef = useRef<number>(0)
   const revealTimer = useRef<number | null>(null)
-  // 추첨 공개 (한 번만)
+  // 추첨 공개 (한 번만) + 단계별 긴장감 애니메이션
   const [showLottery, setShowLottery] = useState(false)
+  const [lotteryStep, setLotteryStep] = useState(0) // 아래(마지막 픽)부터 공개된 칸 수
   const lotteryShownRef = useRef(false)
+  // 집중(포커스) 모드 — 진행 중일 때 다른 UI 숨김
+  const [focusMode, setFocusMode] = useState(true)
 
   const sessionKey = selectedQid ? `draft_code_${leagueId}_${selectedQid}` : null
 
@@ -153,14 +156,32 @@ export default function LeagueDraftPage() {
     }
   }, [state?.picks])
 
-  // 추첨 완료 감지 → 순서 공개 (한 번만)
+  // 추첨 완료 감지 → 순서 공개 (한 번만), 마지막 픽부터 한 칸씩 긴장감 공개
   useEffect(() => {
     if (state?.draft?.lottery_done && state.draft.draft_order.length > 0 && !lotteryShownRef.current) {
       lotteryShownRef.current = true
+      setLotteryStep(0)
       setShowLottery(true)
-      window.setTimeout(() => setShowLottery(false), 6000)
     }
   }, [state?.draft?.lottery_done, state?.draft?.draft_order.length])
+
+  // 추첨 단계별 공개 타이머 (showLottery 동안)
+  useEffect(() => {
+    if (!showLottery) return
+    const n = draft?.draft_order.length ?? 0
+    if (n === 0) return
+    setLotteryStep(0)
+    let step = 0
+    const id = window.setInterval(() => {
+      step += 1
+      setLotteryStep(step)
+      if (step >= n) window.clearInterval(id)
+    }, 1900)
+    // 전부 공개 후 여유시간 뒤 자동 닫기
+    const closeId = window.setTimeout(() => setShowLottery(false), n * 1900 + 6000)
+    return () => { window.clearInterval(id); window.clearTimeout(closeId) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showLottery])
 
   async function submitCode() {
     if (!selectedQid || !codeInput.trim()) return
@@ -274,95 +295,139 @@ export default function LeagueDraftPage() {
   const teams = state?.teams ?? []
   const allReady = teams.every(t => ready[t.id]) && (!state?.supervisor_exists || ready['supervisor'])
   const myReady = authedRole === 'supervisor' ? !!ready['supervisor'] : (authedTeamId ? !!ready[authedTeamId] : false)
+  // 집중 모드 — 진행 중일 때 다른 UI 숨기고 드래프트에만 집중
+  const isFocus = draft?.status === 'in_progress' && focusMode
 
   return (
-    <div className="space-y-5">
-      {/* 픽 공개 히어로 오버레이 */}
-      {reveal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="text-center">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-4"
-              style={{ backgroundColor: `${teamMap[reveal.team_id]?.color}22`, border: `1px solid ${teamMap[reveal.team_id]?.color}` }}>
-              <div className="w-3 h-3 rounded-full animate-pulse" style={{ backgroundColor: teamMap[reveal.team_id]?.color }} />
-              <span className="text-white font-black tracking-wide">{teamMap[reveal.team_id]?.name}</span>
-              <span className="text-gray-400 text-sm">· {reveal.round_number}R #{reveal.pick_number}</span>
+    <div className={isFocus ? 'fixed inset-0 z-[45] bg-gray-950 overflow-y-auto p-4 sm:p-6 space-y-4' : 'space-y-5'}>
+      {/* 픽 공개 히어로 오버레이 — 모두에게 강조되는 임팩트 */}
+      {reveal && (() => {
+        const rc = teamMap[reveal.team_id]?.color ?? '#f59e0b'
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-300"
+            style={{ background: `radial-gradient(circle at center, ${rc}33 0%, rgba(0,0,0,0.92) 70%)` }}>
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-5 animate-in slide-in-from-top-4 duration-500"
+                style={{ backgroundColor: `${rc}33`, border: `2px solid ${rc}` }}>
+                <div className="w-3.5 h-3.5 rounded-full animate-pulse" style={{ backgroundColor: rc }} />
+                <span className="text-white font-black tracking-wide text-lg">{teamMap[reveal.team_id]?.name}</span>
+                <span className="text-gray-300 text-sm">{reveal.round_number}R · 전체 {reveal.pick_number}순위</span>
+              </div>
+              <p className="font-jersey text-base uppercase tracking-[0.4em] mb-2 animate-pulse" style={{ color: rc }}>THE PICK IS IN</p>
+              <h2 className="font-display text-6xl sm:text-8xl font-black text-white animate-in zoom-in-90 duration-500"
+                style={{ textShadow: `0 0 40px ${rc}, 0 0 80px ${rc}88` }}>
+                {reveal.player_name}
+              </h2>
+              {reveal.player_number != null && (
+                <p className="jersey-num text-4xl mt-3" style={{ color: rc }}>#{reveal.player_number}</p>
+              )}
+              <p className="text-gray-400 text-sm mt-4 font-bold">{teamMap[reveal.team_id]?.name} 지명 완료</p>
             </div>
-            <p className="font-jersey text-sm uppercase tracking-[0.3em] text-amber-400 mb-2">DRAFTED</p>
-            <h2 className="font-display text-6xl sm:text-8xl font-black text-white drop-shadow-[0_0_30px_rgba(245,158,11,0.5)]">
-              {reveal.player_name}
-            </h2>
-            {reveal.player_number != null && (
-              <p className="jersey-num text-3xl text-amber-300 mt-3">#{reveal.player_number}</p>
-            )}
           </div>
-        </div>
-      )}
+        )
+      })()}
 
-      {/* 추첨 결과 공개 오버레이 */}
-      {showLottery && draft?.draft_order && (
-        <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={() => setShowLottery(false)}>
-          <div className="text-center max-w-lg w-full">
-            <Dice5 size={40} className="mx-auto text-amber-400 mb-3 animate-bounce" />
-            <p className="font-jersey text-sm uppercase tracking-[0.3em] text-amber-400 mb-1">LOTTERY RESULT</p>
-            <h2 className="text-2xl font-black text-white mb-5">드래프트 픽 순서 확정</h2>
-            <div className="space-y-2">
-              {draft.draft_order.map((tid, idx) => {
-                const t = teamMap[tid]
-                const odd = draft.lottery_odds?.[tid]
-                return (
-                  <div key={`${tid}-${idx}`} className="flex items-center gap-3 bg-gray-900/80 border border-gray-700 rounded-xl px-4 py-3"
-                    style={{ animationDelay: `${idx * 150}ms` }}>
-                    <span className="font-display text-3xl text-amber-300 w-10">{idx + 1}</span>
-                    <div className="w-4 h-4 rounded-full" style={{ backgroundColor: t?.color }} />
-                    <span className="text-white font-black text-lg flex-1 text-left">{t?.name}</span>
-                    {odd != null && <span className="text-xs text-gray-400">1픽 확률 {(odd * 100).toFixed(0)}%</span>}
-                  </div>
-                )
-              })}
+      {/* 추첨 결과 공개 오버레이 — 마지막 픽부터 한 칸씩 긴장감 공개 (NBA 로터리 방식) */}
+      {showLottery && draft?.draft_order && (() => {
+        const n = draft.draft_order.length
+        const allRevealed = lotteryStep >= n
+        // 다음에 공개될 칸 = idx (n - lotteryStep - 1), 위에서부터 #1 이 마지막
+        const nextRevealIdx = n - lotteryStep - 1
+        return (
+          <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={() => allRevealed && setShowLottery(false)}>
+            <div className="text-center max-w-lg w-full">
+              <Dice5 size={40} className={`mx-auto text-amber-400 mb-3 ${allRevealed ? '' : 'animate-spin'}`} />
+              <p className="font-jersey text-sm uppercase tracking-[0.3em] text-amber-400 mb-1">DRAFT LOTTERY</p>
+              <h2 className="text-2xl font-black text-white mb-5">
+                {allRevealed ? '픽 순서 확정!' : `${nextRevealIdx + 1}순위 추첨 중...`}
+              </h2>
+              <div className="space-y-2">
+                {draft.draft_order.map((tid, idx) => {
+                  const t = teamMap[tid]
+                  const odd = draft.lottery_odds?.[tid]
+                  const revealed = idx >= n - lotteryStep
+                  const justRevealed = idx === nextRevealIdx + 1 // 방금 공개된 칸 강조
+                  const isNext = idx === nextRevealIdx && !allRevealed
+                  return (
+                    <div key={`${tid}-${idx}`}
+                      className={`flex items-center gap-3 rounded-xl px-4 py-3 border transition-all duration-500 ${
+                        revealed
+                          ? `bg-gray-900/90 ${justRevealed ? 'scale-105 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : ''}`
+                          : isNext ? 'bg-amber-950/40 border-amber-600 animate-pulse' : 'bg-gray-900/40 border-gray-800'
+                      }`}
+                      style={revealed && t ? { borderColor: t.color } : undefined}>
+                      <span className={`font-display text-3xl w-10 ${idx === 0 ? 'text-amber-300' : 'text-gray-400'}`}>{idx + 1}</span>
+                      {revealed ? (
+                        <>
+                          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: t?.color }} />
+                          <span className="text-white font-black text-lg flex-1 text-left">{t?.name}</span>
+                          {idx === 0 && <span className="text-[10px] font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full">1픽!</span>}
+                          {odd != null && <span className="text-xs text-gray-400">{(odd * 100).toFixed(0)}%</span>}
+                        </>
+                      ) : (
+                        <span className="text-gray-500 font-black text-lg flex-1 text-left tracking-widest">{isNext ? '???' : '—'}</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-gray-500 mt-4">
+                {allRevealed ? '탭하여 닫기 · 지난 분기 승률 기반 가중 추첨' : '하위 팀일수록 1픽 확률이 높습니다'}
+              </p>
             </div>
-            <p className="text-xs text-gray-500 mt-4">탭하여 닫기 · 지난 분기 승률 기반 가중 추첨</p>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* 헤더 + 분기 */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h1 className="font-jersey text-2xl font-black text-white uppercase tracking-wide flex items-center gap-2">
             <Sparkles size={20} className="text-amber-400" /> 드래프트
+            {isFocus && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 border border-emerald-700/50 text-emerald-300 normal-case tracking-normal">집중 모드 · LIVE</span>}
           </h1>
-          {isAuthed ? (
-            <div className="flex items-center gap-2">
-              <span className={`px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 ${
-                authedRole === 'supervisor' ? 'bg-amber-900/50 border border-amber-700/50 text-amber-300' : 'bg-emerald-900/50 border border-emerald-700/50 text-emerald-300'
-              }`}>
-                {authedRole === 'supervisor' ? <ShieldCheck size={12} /> : <div className="w-2 h-2 rounded-full" style={{ backgroundColor: authedTeam?.color }} />}
-                {authedRole === 'supervisor' ? '감독관' : authedTeam?.name} · {authedLabel}
-              </span>
-              <button onClick={exitAuth} className="text-xs text-gray-500 hover:text-red-400 cursor-pointer">해제</button>
-            </div>
-          ) : (
-            <Button onClick={() => setShowCodeModal(true)} className="bg-amber-600 hover:bg-amber-500 text-white text-sm">
-              <KeyRound size={14} className="mr-1.5" /> 코드 입력
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {draft?.status === 'in_progress' && (
+              <button onClick={() => setFocusMode(v => !v)}
+                className="text-xs px-2.5 py-1 rounded-lg border border-gray-700 text-gray-400 hover:text-white cursor-pointer inline-flex items-center gap-1">
+                {focusMode ? <><Minimize2 size={12} /> 집중 해제</> : <><Maximize2 size={12} /> 집중 모드</>}
+              </button>
+            )}
+            {isAuthed ? (
+              <>
+                <span className={`px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 ${
+                  authedRole === 'supervisor' ? 'bg-amber-900/50 border border-amber-700/50 text-amber-300' : 'bg-emerald-900/50 border border-emerald-700/50 text-emerald-300'
+                }`}>
+                  {authedRole === 'supervisor' ? <ShieldCheck size={12} /> : <div className="w-2 h-2 rounded-full" style={{ backgroundColor: authedTeam?.color }} />}
+                  {authedRole === 'supervisor' ? '감독관' : authedTeam?.name} · {authedLabel}
+                </span>
+                <button onClick={exitAuth} className="text-xs text-gray-500 hover:text-red-400 cursor-pointer">해제</button>
+              </>
+            ) : (
+              <Button onClick={() => setShowCodeModal(true)} className="bg-amber-600 hover:bg-amber-500 text-white text-sm">
+                <KeyRound size={14} className="mr-1.5" /> 코드 입력
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="flex gap-2 flex-wrap">
-          {quarters.map(q => (
-            <button key={q.id} onClick={() => setSelectedQid(q.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition-colors cursor-pointer ${
-                selectedQid === q.id ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
-              }`}>
-              {String(q.year).slice(2)}.{q.quarter}Q
-              {q.is_current && <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />}
-            </button>
-          ))}
-        </div>
+        {!isFocus && (
+          <div className="flex gap-2 flex-wrap">
+            {quarters.map(q => (
+              <button key={q.id} onClick={() => setSelectedQid(q.id)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition-colors cursor-pointer ${
+                  selectedQid === q.id ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                }`}>
+                {String(q.year).slice(2)}.{q.quarter}Q
+                {q.is_current && <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* 관리 패널 — 편집 모드(리그 PIN) 에서만 표시 */}
-      {isEditMode && selectedQid && (
+      {/* 관리 패널 — 편집 모드(리그 PIN), 집중 모드 아닐 때만 표시 */}
+      {isEditMode && selectedQid && !isFocus && (
         <div className="border border-amber-700/40 rounded-2xl overflow-hidden">
           <button onClick={() => setShowManage(v => !v)}
             className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-amber-950/30 hover:bg-amber-950/50 transition-colors cursor-pointer">
@@ -593,7 +658,7 @@ export default function LeagueDraftPage() {
                 ) : isMyTurn ? (
                   <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-3">
                     <p className="font-jersey text-xs text-emerald-400 uppercase tracking-widest mb-2">선수 선택</p>
-                    <p className="text-[10px] text-gray-500 mb-2">{state?.available_players.length}명 가능</p>
+                    <p className="text-[10px] text-gray-500 mb-2">{state?.available_players.length}명 선택 가능 · 드래프트 풀 {state?.pool_size ?? 0}명</p>
                     <div className="max-h-[60vh] overflow-y-auto space-y-1.5 pr-1">
                       {state?.available_players.map(p => (
                         <button key={p.id} onClick={() => pickPlayer(p.id)} disabled={picking !== null}

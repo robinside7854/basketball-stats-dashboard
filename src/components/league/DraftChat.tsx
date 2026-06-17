@@ -113,7 +113,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
   if (!open) {
     return (
       <button onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl cursor-pointer">
+        className="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl cursor-pointer">
         <MessageCircle size={18} />
         <span className="text-sm font-bold">채팅</span>
         {unread > 0 && (
@@ -124,7 +124,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 w-[92vw] max-w-sm h-[60vh] max-h-[480px] flex flex-col bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl">
+    <div className="fixed bottom-4 right-4 z-50 w-[92vw] max-w-sm h-[60vh] max-h-[480px] flex flex-col bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl">
       <div className="px-4 py-2.5 border-b border-gray-800 flex items-center gap-2">
         <MessageCircle size={15} className="text-blue-400" />
         <p className="text-xs font-bold text-gray-200 uppercase tracking-widest">드래프트 채팅</p>
