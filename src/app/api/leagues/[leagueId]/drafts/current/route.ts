@@ -28,6 +28,8 @@ interface DraftRow {
   ready_state: Record<string, boolean>
   lottery_odds: Record<string, number> | null
   lottery_done: boolean
+  pick_deadline: string | null
+  extensions_used: Record<string, number>
 }
 
 function computeCurrentTeam(d: DraftRow): string | null {
@@ -57,7 +59,7 @@ export async function GET(
   const [{ data: draft }, { data: teams }, { data: players }, { data: leaders }, { data: supCode }] = await Promise.all([
     supabase
       .from('league_drafts')
-      .select('id, status, draft_order, current_pick_index, current_round, total_picks, method, started_at, completed_at, ready_state, lottery_odds, lottery_done')
+      .select('id, status, draft_order, current_pick_index, current_round, total_picks, method, started_at, completed_at, ready_state, lottery_odds, lottery_done, pick_deadline, extensions_used')
       .eq('league_id', leagueId)
       .eq('quarter_id', quarterId)
       .maybeSingle(),

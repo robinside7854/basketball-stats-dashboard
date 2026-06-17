@@ -11,6 +11,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import DraftCodeManager from '@/components/league/DraftCodeManager'
 import DraftSessionControl from '@/components/league/DraftSessionControl'
 import DraftChat from '@/components/league/DraftChat'
+import { MAX_EXTENSIONS, EXTENSION_SECONDS } from '@/lib/draftTimer'
 import type { Quarter } from '@/types/league'
 
 interface Team { id: string; name: string; color: string }
@@ -43,6 +44,8 @@ interface DraftState {
     ready_state: Record<string, boolean>
     lottery_odds: Record<string, number> | null
     lottery_done: boolean
+    pick_deadline: string | null
+    extensions_used: Record<string, number>
     started_at: string | null
     completed_at: string | null
   } | null
@@ -91,6 +94,9 @@ export default function LeagueDraftPage() {
   const lotteryShownRef = useRef(false)
   // 집중(포커스) 모드 — 진행 중일 때 다른 UI 숨김
   const [focusMode, setFocusMode] = useState(true)
+  // 픽 타이머 — 1초마다 갱신되는 현재 시각
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  const [extending, setExtending] = useState(false)
 
   const sessionKey = selectedQid ? `draft_code_${leagueId}_${selectedQid}` : null
 
@@ -141,6 +147,13 @@ export default function LeagueDraftPage() {
     pollRef.current = window.setInterval(fetchState, interval)
     return () => { if (pollRef.current) window.clearInterval(pollRef.current) }
   }, [state?.draft?.status, fetchState])
+
+  // 픽 타이머 — 1초마다 현재 시각 갱신 (진행 중일 때만)
+  useEffect(() => {
+    if (state?.draft?.status !== 'in_progress') return
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [state?.draft?.status])
 
   // 새 픽 감지 → 히어로 공개
   useEffect(() => {
@@ -260,6 +273,24 @@ export default function LeagueDraftPage() {
       toast.success('추첨 완료!')
       fetchState()
     } finally { setActing(false) }
+  }
+
+  // 추가 시간 (현재 차례 단장)
+  async function extendTime() {
+    if (!state?.draft || !authedTeamId || !authedCode || authedRole !== 'manager') return
+    if (state.current_team_id !== authedTeamId) { toast.error('본인 차례가 아닙니다'); return }
+    setExtending(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/drafts/${state.draft.id}/extend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Draft-Code': authedCode },
+        body: JSON.stringify({ team_id: authedTeamId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(data.error ?? '추가 실패'); return }
+      toast.success(`+${EXTENSION_SECONDS}초 (남은 ${data.remaining}회)`)
+      fetchState()
+    } finally { setExtending(false) }
   }
 
   async function pickPlayer(playerId: string) {
@@ -546,24 +577,49 @@ export default function LeagueDraftPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4">
           {/* 좌측 픽 보드 */}
           <div className="space-y-3">
-            {draft.status === 'in_progress' && currentTeam && (
-              <div className={`rounded-xl p-4 border-2 transition-colors ${isMyTurn ? 'bg-emerald-900/30 border-emerald-500' : 'bg-gray-900 border-gray-800'}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-4 h-4 rounded-full ${isMyTurn ? 'animate-pulse' : ''}`} style={{ backgroundColor: currentTeam.color }} />
-                  <div className="flex-1">
-                    <p className="font-jersey text-[10px] uppercase tracking-widest text-gray-500">현재 차례</p>
-                    <p className="font-black text-xl text-white">
-                      {currentTeam.name}
-                      {isMyTurn && <span className="ml-2 text-emerald-400 text-sm">← 내 차례!</span>}
-                    </p>
+            {draft.status === 'in_progress' && currentTeam && (() => {
+              const deadline = draft.pick_deadline ? new Date(draft.pick_deadline).getTime() : null
+              const remain = deadline ? Math.max(0, Math.ceil((deadline - nowMs) / 1000)) : null
+              const expired = remain !== null && remain <= 0
+              const curUsed = state?.current_team_id ? (draft.extensions_used?.[state.current_team_id] ?? 0) : 0
+              const myUsed = authedTeamId ? (draft.extensions_used?.[authedTeamId] ?? 0) : 0
+              const timerColor = expired ? 'text-red-400' : remain !== null && remain <= 10 ? 'text-red-400' : remain !== null && remain <= 30 ? 'text-amber-300' : 'text-emerald-300'
+              const mm = remain !== null ? Math.floor(remain / 60) : 0
+              const ss = remain !== null ? remain % 60 : 0
+              return (
+                <div className={`rounded-xl p-4 border-2 transition-colors ${isMyTurn ? 'bg-emerald-900/30 border-emerald-500' : 'bg-gray-900 border-gray-800'} ${expired ? 'animate-pulse border-red-500' : ''}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-full ${isMyTurn ? 'animate-pulse' : ''}`} style={{ backgroundColor: currentTeam.color }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-jersey text-[10px] uppercase tracking-widest text-gray-500">현재 차례 · {draft.total_picks + 1}순위</p>
+                      <p className="font-black text-xl text-white truncate">
+                        {currentTeam.name}
+                        {isMyTurn && <span className="ml-2 text-emerald-400 text-sm">← 내 차례!</span>}
+                      </p>
+                    </div>
+                    {remain !== null && (
+                      <div className="text-right">
+                        <p className={`font-display text-4xl tabular-nums ${timerColor}`}>{expired ? '0:00' : `${mm}:${String(ss).padStart(2, '0')}`}</p>
+                        <p className="text-[10px] text-gray-500 font-bold">{expired ? '시간 초과' : '남은 시간'}</p>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-right">
-                    <p className="font-display text-3xl text-amber-300">{draft.total_picks + 1}</p>
-                    <p className="text-[10px] text-gray-500 font-bold">PICK</p>
-                  </div>
+                  {/* 추가 시간 — 현재 차례 단장에게만 */}
+                  {isMyTurn && (
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-gray-400">추가 시간 {myUsed}/{MAX_EXTENSIONS} 사용</span>
+                      <Button onClick={extendTime} disabled={extending || myUsed >= MAX_EXTENSIONS}
+                        className="bg-amber-600 hover:bg-amber-500 text-white text-xs h-8">
+                        +{EXTENSION_SECONDS}초 추가 {myUsed >= MAX_EXTENSIONS ? '(소진)' : `(${MAX_EXTENSIONS - myUsed}회 남음)`}
+                      </Button>
+                    </div>
+                  )}
+                  {!isMyTurn && curUsed > 0 && (
+                    <p className="mt-2 text-[10px] text-gray-500">{currentTeam.name} 추가 시간 {curUsed}/{MAX_EXTENSIONS} 사용</p>
+                  )}
                 </div>
-              </div>
-            )}
+              )
+            })()}
 
             <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
               <div className="px-4 py-2.5 border-b border-gray-800 flex items-center justify-between">
