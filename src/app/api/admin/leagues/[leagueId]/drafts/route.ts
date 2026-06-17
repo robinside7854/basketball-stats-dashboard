@@ -16,15 +16,15 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { auth } from '@/lib/auth'
+import { isDraftManager } from '@/lib/draftManagerAuth'
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const { leagueId } = await params
+  if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const session = await auth()
   const body = await req.json().catch(() => null) as
     | { quarter_id?: string; method?: 'snake'|'linear'; leaders?: Record<string, string | null>; pool_player_ids?: string[] }
     | null
@@ -72,7 +72,7 @@ export async function POST(
       status: 'setup',
       draft_order: [],
       method,
-      created_by: session.user?.email ?? null,
+      created_by: session?.user?.email ?? null,
     })
     .select()
     .single()
@@ -109,10 +109,8 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const { leagueId } = await params
+  if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const quarterId = searchParams.get('quarterId')
   if (!quarterId) return NextResponse.json({ error: 'quarterId 필요' }, { status: 400 })

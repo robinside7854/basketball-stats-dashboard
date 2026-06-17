@@ -6,17 +6,15 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
-import { auth } from '@/lib/auth'
+import { isDraftManager } from '@/lib/draftManagerAuth'
 import { hashDraftCode } from '@/lib/leagueDraftAuth'
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const { leagueId } = await params
+  if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json().catch(() => null) as
     | { quarter_id?: string; team_id?: string; plain_code?: string; label?: string; role?: 'manager' | 'supervisor' }
     | null
@@ -83,10 +81,8 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const { leagueId } = await params
+  if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const quarterId = searchParams.get('quarterId')
 

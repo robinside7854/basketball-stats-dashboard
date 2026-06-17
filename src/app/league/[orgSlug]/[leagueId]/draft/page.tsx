@@ -5,8 +5,11 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, ArrowRight, CheckCircle2, Circle, Dice5, Crown, ShieldCheck } from 'lucide-react'
+import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, ArrowRight, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2 } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
+import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
+import DraftCodeManager from '@/components/league/DraftCodeManager'
+import DraftSessionControl from '@/components/league/DraftSessionControl'
 import type { Quarter } from '@/types/league'
 
 interface Team { id: string; name: string; color: string }
@@ -56,6 +59,8 @@ const POLL_INTERVAL_MS = 1500
 export default function LeagueDraftPage() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
+  const { isEditMode, leagueHeaders } = useLeagueEditMode()
+  const [showManage, setShowManage] = useState(true)
 
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [selectedQid, setSelectedQid] = useState<string | null>(null)
@@ -354,6 +359,34 @@ export default function LeagueDraftPage() {
           ))}
         </div>
       </div>
+
+      {/* 관리 패널 — 편집 모드(리그 PIN) 에서만 표시 */}
+      {isEditMode && selectedQid && (
+        <div className="border border-amber-700/40 rounded-2xl overflow-hidden">
+          <button onClick={() => setShowManage(v => !v)}
+            className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-amber-950/30 hover:bg-amber-950/50 transition-colors cursor-pointer">
+            <span className="flex items-center gap-2 text-amber-300 font-bold text-sm">
+              <Settings2 size={16} /> 드래프트 관리 (편집 모드)
+            </span>
+            <span className="text-xs text-gray-400">{showManage ? '접기 ▲' : '펼치기 ▼'}</span>
+          </button>
+          {showManage && (
+            <div className="p-4 space-y-6 bg-gray-950/40">
+              <p className="text-xs text-gray-500">
+                리그 PIN으로 드래프트를 직접 관리합니다. 어드민 콘솔 없이 코드 발급·팀장 지정·풀 선별·추첨까지 여기서 진행할 수 있습니다.
+              </p>
+              <section className="space-y-2">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">코드 발급</h3>
+                <DraftCodeManager leagueId={leagueId} quarterId={selectedQid} teams={state?.teams ?? []} authHeaders={leagueHeaders} />
+              </section>
+              <section className="space-y-2">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">드래프트 세션</h3>
+                <DraftSessionControl leagueId={leagueId} quarterId={selectedQid} teams={state?.teams ?? []} authHeaders={leagueHeaders} />
+              </section>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 코드 입력 모달 */}
       {showCodeModal && (
