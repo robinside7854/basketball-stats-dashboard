@@ -72,6 +72,10 @@ export async function POST(
       total_picks: 0,
       started_at: null,
       completed_at: null,
+      draft_order: [],
+      ready_state: {},
+      lottery_odds: null,
+      lottery_done: false,
     })
     .eq('id', draftId)
     .select()

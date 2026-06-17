@@ -25,6 +25,9 @@ interface DraftRow {
   method: 'snake' | 'linear'
   started_at: string | null
   completed_at: string | null
+  ready_state: Record<string, boolean>
+  lottery_odds: Record<string, number> | null
+  lottery_done: boolean
 }
 
 function computeCurrentTeam(d: DraftRow): string | null {
@@ -50,11 +53,11 @@ export async function GET(
 
   const supabase = createClient()
 
-  // 병렬: draft, teams, all players
-  const [{ data: draft }, { data: teams }, { data: players }] = await Promise.all([
+  // 병렬: draft, teams, all players, 팀장, 감독관 코드 존재여부
+  const [{ data: draft }, { data: teams }, { data: players }, { data: leaders }, { data: supCode }] = await Promise.all([
     supabase
       .from('league_drafts')
-      .select('id, status, draft_order, current_pick_index, current_round, total_picks, method, started_at, completed_at')
+      .select('id, status, draft_order, current_pick_index, current_round, total_picks, method, started_at, completed_at, ready_state, lottery_odds, lottery_done')
       .eq('league_id', leagueId)
       .eq('quarter_id', quarterId)
       .maybeSingle(),
@@ -67,25 +70,48 @@ export async function GET(
       .select('id, name, number, position, plus_one')
       .eq('league_id', leagueId)
       .order('name'),
+    supabase
+      .from('league_team_quarter_leaders')
+      .select('team_id, leader_player_id')
+      .eq('quarter_id', quarterId),
+    supabase
+      .from('league_draft_codes')
+      .select('id')
+      .eq('league_id', leagueId)
+      .eq('quarter_id', quarterId)
+      .eq('role', 'supervisor')
+      .eq('is_active', true)
+      .maybeSingle(),
   ])
+
+  const leaderList = (leaders ?? []) as { team_id: string; leader_player_id: string | null }[]
+  const supervisorExists = !!supCode
 
   if (!draft) {
     return NextResponse.json({
       draft: null,
       current_team_id: null,
       picks: [],
-      available_players: players ?? [],
+      available_players: [],
       teams: teams ?? [],
+      leaders: leaderList,
+      supervisor_exists: supervisorExists,
     })
   }
   const d = draft as DraftRow
 
-  // 픽 + 선수명 join (manual)
-  const { data: picksRaw } = await supabase
-    .from('league_draft_picks')
-    .select('pick_number, round_number, team_id, league_player_id, picked_at')
-    .eq('draft_id', d.id)
-    .order('pick_number', { ascending: true })
+  // 픽 + 풀 병렬 조회
+  const [{ data: picksRaw }, { data: poolRaw }] = await Promise.all([
+    supabase
+      .from('league_draft_picks')
+      .select('pick_number, round_number, team_id, league_player_id, picked_at')
+      .eq('draft_id', d.id)
+      .order('pick_number', { ascending: true }),
+    supabase
+      .from('league_draft_pool')
+      .select('league_player_id')
+      .eq('draft_id', d.id),
+  ])
   const playerMap = Object.fromEntries((players ?? []).map(p => [p.id, p]))
   const picks = (picksRaw ?? []).map(p => ({
     pick_number: p.pick_number,
@@ -98,13 +124,18 @@ export async function GET(
   }))
 
   const pickedPlayerIds = new Set(picks.map(p => p.player_id))
-  const available = (players ?? []).filter(p => !pickedPlayerIds.has(p.id))
+  const poolIds = new Set((poolRaw ?? []).map(p => p.league_player_id))
+  // 풀에 속하면서 아직 안 픽된 선수만
+  const available = (players ?? []).filter(p => poolIds.has(p.id) && !pickedPlayerIds.has(p.id))
 
   return NextResponse.json({
     draft: d,
     current_team_id: computeCurrentTeam(d),
     picks,
     available_players: available,
+    pool_size: poolIds.size,
     teams: teams ?? [],
+    leaders: leaderList,
+    supervisor_exists: supervisorExists,
   })
 }

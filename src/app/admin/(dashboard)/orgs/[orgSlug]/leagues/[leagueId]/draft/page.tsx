@@ -12,7 +12,8 @@ import DraftSessionControl from './_components/DraftSessionControl'
 interface DraftCode {
   id: string
   quarter_id: string
-  team_id: string
+  team_id: string | null
+  role: 'manager' | 'supervisor'
   label: string
   is_active: boolean
   last_used_at: string | null
@@ -34,8 +35,9 @@ export default function AdminDraftPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [codes, setCodes] = useState<DraftCode[]>([])
   const [loading, setLoading] = useState(true)
-  // 신규 발급 폼 (팀별)
+  // 신규 발급 폼 (팀별 + 감독관)
   const [drafting, setDrafting] = useState<Record<string, { label: string; code: string }>>({})
+  const [supForm, setSupForm] = useState<{ label: string; code: string }>({ label: '', code: '' })
   // 발급 직후 평문 공개 (한 번만)
   const [revealed, setRevealed] = useState<{ codeId: string; plain: string; teamName: string } | null>(null)
   const [copied, setCopied] = useState(false)
@@ -97,6 +99,22 @@ export default function AdminDraftPage() {
     fetchCodes()
   }
 
+  async function issueSupervisor() {
+    if (!supForm.label.trim() || !supForm.code.trim()) { toast.error('레이블과 코드를 모두 입력하세요'); return }
+    if (supForm.code.trim().length < 4) { toast.error('코드는 최소 4자 이상이어야 합니다'); return }
+    const res = await fetch(`/api/admin/leagues/${leagueId}/draft-codes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quarter_id: selectedQid, role: 'supervisor', plain_code: supForm.code.trim(), label: supForm.label.trim() }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error ?? '코드 발급 실패'); return }
+    toast.success('감독관 코드 발급 완료')
+    setRevealed({ codeId: data.id, plain: supForm.code.trim(), teamName: '감독관(총무)' })
+    setSupForm({ label: '', code: '' })
+    fetchCodes()
+  }
+
   async function toggleActive(c: DraftCode) {
     const res = await fetch(`/api/admin/leagues/${leagueId}/draft-codes/${c.id}`, {
       method: 'PATCH',
@@ -108,8 +126,8 @@ export default function AdminDraftPage() {
   }
 
   async function deleteCode(c: DraftCode) {
-    const team = teams.find(t => t.id === c.team_id)
-    if (!confirm(`"${team?.name ?? '?'}" 의 "${c.label}" 코드를 삭제하시겠습니까?\n단장이 더 이상 입장할 수 없게 됩니다.`)) return
+    const who = c.role === 'supervisor' ? '감독관(총무)' : (teams.find(t => t.id === c.team_id)?.name ?? '?')
+    if (!confirm(`"${who}" 의 "${c.label}" 코드를 삭제하시겠습니까?\n해당 사용자가 더 이상 입장할 수 없게 됩니다.`)) return
     const res = await fetch(`/api/admin/leagues/${leagueId}/draft-codes/${c.id}`, { method: 'DELETE' })
     if (res.ok) { toast.success('삭제 완료'); fetchCodes() }
     else { toast.error('삭제 실패') }
@@ -124,7 +142,8 @@ export default function AdminDraftPage() {
   }
 
   const selectedQuarter = quarters.find(q => q.id === selectedQid)
-  const codesByTeam = Object.fromEntries(codes.map(c => [c.team_id, c]))
+  const codesByTeam = Object.fromEntries(codes.filter(c => c.role !== 'supervisor' && c.team_id).map(c => [c.team_id as string, c]))
+  const supervisorCode = codes.find(c => c.role === 'supervisor') ?? null
 
   return (
     <div className="space-y-5 p-6">
@@ -141,7 +160,7 @@ export default function AdminDraftPage() {
               <KeyRound size={20} className="text-amber-400" />
               드래프트 관리
             </h1>
-            <p className="text-xs text-gray-500 mt-0.5">단장 코드 발급 · 드래프트 세션 (Phase 2 진행 중)</p>
+            <p className="text-xs text-gray-500 mt-0.5">단장·감독관 코드 발급 · 팀장 지정 · 풀 선별 · 승률 가중 추첨</p>
           </div>
         </div>
       </div>
@@ -283,6 +302,55 @@ export default function AdminDraftPage() {
                   </div>
                 )
               })}
+            </div>
+
+            {/* 감독관(총무) 코드 */}
+            <div className="mt-4">
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-widest">감독관(총무) 코드</h3>
+                <span className="text-[10px] text-gray-500">준비 체크 · 추첨 진행 제어 (선수 픽 불가)</span>
+              </div>
+              <div className="bg-gray-900 border border-amber-800/40 rounded-xl p-4 max-w-md" style={{ borderTopColor: '#f59e0b', borderTopWidth: 3 }}>
+                {supervisorCode ? (
+                  <div className="space-y-2">
+                    <div className={`px-3 py-2 rounded-lg border ${supervisorCode.is_active ? 'bg-emerald-950/40 border-emerald-700/50' : 'bg-gray-800/60 border-gray-700/50 opacity-60'}`}>
+                      <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">레이블</p>
+                      <p className="text-sm text-white font-bold">{supervisorCode.label}</p>
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        {supervisorCode.last_used_at ? `마지막 사용: ${new Date(supervisorCode.last_used_at).toLocaleString('ko-KR')}` : '아직 사용 안 됨'}
+                      </p>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button onClick={() => toggleActive(supervisorCode)}
+                        className={`flex-1 py-1.5 rounded-md text-xs font-bold cursor-pointer transition-colors flex items-center justify-center gap-1 ${
+                          supervisorCode.is_active ? 'bg-emerald-900/60 hover:bg-emerald-800 text-emerald-300' : 'bg-gray-800 hover:bg-gray-700 text-gray-400'
+                        }`}>
+                        {supervisorCode.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
+                        {supervisorCode.is_active ? '활성' : '비활성'}
+                      </button>
+                      <button onClick={() => deleteCode(supervisorCode)}
+                        className="px-2.5 py-1.5 rounded-md bg-red-900/40 hover:bg-red-800 text-red-300 text-xs font-bold cursor-pointer transition-colors flex items-center gap-1">
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div>
+                      <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">레이블</label>
+                      <Input value={supForm.label} onChange={e => setSupForm(f => ({ ...f, label: e.target.value }))}
+                        placeholder="홍길동 총무" className="bg-gray-800 border-gray-700 text-white h-8 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">코드 (4~32자)</label>
+                      <Input value={supForm.code} onChange={e => setSupForm(f => ({ ...f, code: e.target.value }))}
+                        placeholder="admin-q3-2026" className="bg-gray-800 border-gray-700 text-white h-8 text-sm font-mono"
+                        onKeyDown={e => e.key === 'Enter' && issueSupervisor()} />
+                    </div>
+                    <Button onClick={issueSupervisor} className="w-full bg-amber-600 hover:bg-amber-500 text-white text-xs h-8">감독관 코드 발급</Button>
+                  </div>
+                )}
+              </div>
             </div>
           </section>
 
