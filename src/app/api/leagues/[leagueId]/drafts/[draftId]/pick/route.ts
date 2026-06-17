@@ -15,6 +15,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { verifyDraftCode } from '@/lib/leagueDraftAuth'
+import { newPickDeadline } from '@/lib/draftTimer'
 
 interface DraftRow {
   id: string
@@ -177,7 +178,9 @@ export async function POST(
       current_pick_index: nextIndex,
       current_round: nextRound,
       total_picks: newTotalPicks,
-      ...(isComplete ? { status: 'completed', completed_at: new Date().toISOString() } : {}),
+      ...(isComplete
+        ? { status: 'completed', completed_at: new Date().toISOString(), pick_deadline: null }
+        : { pick_deadline: newPickDeadline() }),
     })
     .eq('id', draftId)
     .select()
