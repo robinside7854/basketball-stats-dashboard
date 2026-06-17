@@ -6,16 +6,14 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
-import { auth } from '@/lib/auth'
+import { isDraftManager } from '@/lib/draftManagerAuth'
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ leagueId: string; draftId: string }> },
 ) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const { leagueId, draftId } = await params
+  if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = createClient()
 
   const { data: draft } = await supabase

@@ -2,16 +2,14 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
-import { auth } from '@/lib/auth'
+import { isDraftManager } from '@/lib/draftManagerAuth'
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ leagueId: string; codeId: string }> },
 ) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const { leagueId, codeId } = await params
+  if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json().catch(() => null) as { is_active?: boolean; label?: string } | null
   if (!body) return NextResponse.json({ error: '본문 누락' }, { status: 400 })
 
@@ -44,10 +42,8 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ leagueId: string; codeId: string }> },
 ) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const { leagueId, codeId } = await params
+  if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = createClient()
   const { error } = await supabase
     .from('league_draft_codes')

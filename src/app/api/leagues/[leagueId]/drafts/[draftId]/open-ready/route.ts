@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { auth } from '@/lib/auth'
 import { verifySupervisorCode } from '@/lib/leagueDraftAuth'
+import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 
 export async function POST(
   req: Request,
@@ -24,11 +25,13 @@ export async function POST(
   if (!draft) return NextResponse.json({ error: '세션을 찾을 수 없습니다' }, { status: 404 })
   const d = draft as { id: string; quarter_id: string; status: string }
 
-  // 권한: 어드민 세션 OR 감독관 코드
+  // 권한: 어드민 세션 OR 감독관 코드 OR 리그 편집 PIN
   const session = await auth()
   if (!session) {
     const sup = await verifySupervisorCode(req, leagueId, d.quarter_id)
-    if (!sup.valid) return NextResponse.json({ error: '권한 없음 (어드민/감독관 전용)' }, { status: 401 })
+    if (!sup.valid && !await verifyLeaguePin(req, leagueId)) {
+      return NextResponse.json({ error: '권한 없음 (어드민/감독관/PIN 전용)' }, { status: 401 })
+    }
   }
 
   if (d.status !== 'setup' && d.status !== 'ready_check') {
