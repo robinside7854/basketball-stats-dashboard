@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { playDrumroll, primeAudio } from '@/lib/draftSounds'
 
 interface Team { id: string; name: string; color: string }
 
@@ -24,6 +25,8 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
 
   function draw() {
     if (phase !== 'ready') return
+    primeAudio()
+    playDrumroll()
     setPhase('drawing')
     setTimeout(() => setPhase('revealed'), 3000)
   }

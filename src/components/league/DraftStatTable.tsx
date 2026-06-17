@@ -11,9 +11,11 @@ interface Props {
   prevStats: Record<string, DraftStatRow>
   prevQuarterId: string | null
   prevQuarterLabel: string | null
-  // 픽 기능 (현재 차례 단장에게만)
+  // 픽 기능 (현재 차례 단장에게만) — 선택 상태는 부모가 제어
   canPick?: boolean
   picking?: boolean
+  selectedId?: string | null
+  onSelectId?: (id: string | null) => void
   onPick?: (playerId: string) => void
   onShowStats?: (p: PlayerLite) => void
 }
@@ -38,12 +40,11 @@ function overallOf(s?: DraftStatRow): number {
   return overallScorePerGame({ ppg: s.ppg, rpg: s.rpg, apg: s.apg, spg: s.spg, bpg: s.bpg, topg: s.topg })
 }
 
-export default function DraftStatTable({ leagueId, availablePlayers, prevStats, prevQuarterId, prevQuarterLabel, canPick, picking, onPick, onShowStats }: Props) {
+export default function DraftStatTable({ leagueId, availablePlayers, prevStats, prevQuarterId, prevQuarterLabel, canPick, picking, selectedId = null, onSelectId, onPick, onShowStats }: Props) {
   const [scope, setScope] = useState<'prev' | 'all'>('prev')
   const [allStats, setAllStats] = useState<Record<string, DraftStatRow>>({})
   const [sortKey, setSortKey] = useState<ColKey>('overall')
   const [dir, setDir] = useState<'desc' | 'asc'>('desc')
-  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`/api/leagues/${leagueId}/stats?unit=round`)
@@ -73,10 +74,11 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
 
   function recommend() {
     if (availablePlayers.length === 0) return
+    // 추천은 항상 지난 분기 기준 (자동픽과 동일)
     let best = availablePlayers[0].id, bestScore = -1
-    for (const p of availablePlayers) { const sc = overallOf(data[p.id]); if (sc > bestScore) { bestScore = sc; best = p.id } }
+    for (const p of availablePlayers) { const sc = overallOf(prevStats[p.id]); if (sc > bestScore) { bestScore = sc; best = p.id } }
     if (bestScore <= 0) best = availablePlayers[Math.floor(Math.random() * availablePlayers.length)].id
-    setSelectedId(best)
+    onSelectId?.(best)
   }
 
   const rows = [...availablePlayers].sort((a, b) => {
@@ -133,7 +135,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                 const sel = activeId === p.id
                 return (
                   <tr key={p.id}
-                    onClick={canPick ? () => setSelectedId(sel ? null : p.id) : undefined}
+                    onClick={canPick ? () => onSelectId?.(sel ? null : p.id) : undefined}
                     className={`border-b border-gray-800/30 ${canPick ? 'cursor-pointer' : ''} ${sel ? 'bg-emerald-700/30' : 'hover:bg-gray-800/30'}`}>
                     <td className={`p-2.5 text-left sticky left-0 ${sel ? 'bg-emerald-900/40' : 'bg-gray-900'}`}>
                       <div className="flex items-center gap-1.5">

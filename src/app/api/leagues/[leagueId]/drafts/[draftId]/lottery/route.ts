@@ -13,7 +13,6 @@ import { auth } from '@/lib/auth'
 import { verifySupervisorCode } from '@/lib/leagueDraftAuth'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 import { recordsToWeights, computeOdds, weightedOrder, type TeamRecord } from '@/lib/draftLottery'
-import { newPickDeadline } from '@/lib/draftTimer'
 
 export async function POST(
   req: Request,
@@ -124,7 +123,7 @@ export async function POST(
       current_pick_index: 0,
       current_round: 1,
       started_at: new Date().toISOString(),
-      pick_deadline: newPickDeadline(),
+      pick_deadline: null,   // 첫 픽 타이머는 추첨 연출 종료 후 start-clock 에서 시작
       extensions_used: {},
     })
     .eq('id', draftId)

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2, Minimize2, Maximize2 } from 'lucide-react'
+import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2, Minimize2, Maximize2, Shuffle, Check, ChevronDown, Volume2, VolumeX } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import DraftCodeManager from '@/components/league/DraftCodeManager'
@@ -15,7 +15,11 @@ import DraftPlayerStatsModal, { type DraftStatRow } from '@/components/league/Dr
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
 import DraftTeamStats from '@/components/league/DraftTeamStats'
 import DraftStatTable from '@/components/league/DraftStatTable'
-import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
+import DraftSummaryCard from '@/components/league/DraftSummaryCard'
+import Confetti from '@/components/league/Confetti'
+import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS, PICK_SECONDS } from '@/lib/draftTimer'
+import { playBeep, playBuzzer, primeAudio, setMuted as setSoundMuted } from '@/lib/draftSounds'
+import { overallScorePerGame } from '@/lib/leagueStats'
 import type { Quarter } from '@/types/league'
 
 interface Team { id: string; name: string; color: string }
@@ -105,7 +109,11 @@ export default function LeagueDraftPage() {
   // 지난 분기 스탯 (드래프트 풀 랭킹·자동픽용)
   const [prevStats, setPrevStats] = useState<Record<string, DraftStatRow>>({})
   const [statsPlayer, setStatsPlayer] = useState<{ id: string; name: string; number: number | null } | null>(null)
+  const [selectedPickId, setSelectedPickId] = useState<string | null>(null)  // 성적표에서 선택한 픽 후보
+  const [muted, setMuted] = useState(false)
   const autoPickRef = useRef<string | null>(null) // 자동픽 중복 방지 (deadline 키)
+  const startClockRef = useRef<string | null>(null) // 첫 픽 타이머 시작 중복 방지
+  const beepSecRef = useRef<number>(-1) // 카운트다운 비프 중복 방지
 
   const sessionKey = selectedQid ? `draft_code_${leagueId}_${selectedQid}` : null
 
@@ -205,6 +213,39 @@ export default function LeagueDraftPage() {
     }).catch(() => null)
   }, [nowMs, state?.draft, authedCode, isEditMode, leagueHeaders, leagueId, fetchState])
 
+  // 첫 픽 타이머 시작 — 추첨 연출(showLottery)이 닫힌 뒤, 아직 시계가 없으면 시작
+  useEffect(() => {
+    const d = state?.draft
+    if (!d || d.status !== 'in_progress' || d.pick_deadline || d.total_picks > 0 || showLottery) return
+    const headers: Record<string, string> | null = authedCode ? { 'X-Draft-Code': authedCode } : (isEditMode ? leagueHeaders : null)
+    if (!headers) return
+    if (startClockRef.current === d.id) return
+    startClockRef.current = d.id
+    fetch(`/api/leagues/${leagueId}/drafts/${d.id}/start-clock`, { method: 'POST', headers })
+      .then(() => fetchState()).catch(() => null)
+  }, [state?.draft, showLottery, authedCode, isEditMode, leagueHeaders, leagueId, fetchState])
+
+  // 재추첨 대비 — lottery_done 이 false 가 되면 연출/시계 플래그 초기화
+  useEffect(() => {
+    if (!state?.draft?.lottery_done) { lotteryShownRef.current = false; startClockRef.current = null }
+  }, [state?.draft?.lottery_done])
+
+  // 뮤트 동기화
+  useEffect(() => { setSoundMuted(muted) }, [muted])
+
+  // 카운트다운 비프 (마지막 10초 + 만료 유예)
+  useEffect(() => {
+    const d = state?.draft
+    if (!d || d.status !== 'in_progress' || !d.pick_deadline) { beepSecRef.current = -1; return }
+    const remain = Math.ceil((new Date(d.pick_deadline).getTime() - nowMs) / 1000)
+    if (remain > 0 && remain <= 10) {
+      if (beepSecRef.current !== remain) { beepSecRef.current = remain; playBeep(remain <= 3) }
+    } else if (remain <= 0) {
+      const grace = Math.ceil((new Date(d.pick_deadline).getTime() + AUTOPICK_GRACE_SECONDS * 1000 - nowMs) / 1000)
+      if (grace > 0 && beepSecRef.current !== -100 - grace) { beepSecRef.current = -100 - grace; playBeep(true) }
+    }
+  }, [nowMs, state?.draft])
+
   // 새 픽 감지 → 히어로 공개 (1픽 포함 모든 픽)
   useEffect(() => {
     if (!state) return  // 로딩 전엔 기준선 설정 금지
@@ -219,6 +260,7 @@ export default function LeagueDraftPage() {
     if (latestNum > lastPickRef.current) {
       lastPickRef.current = latestNum
       setReveal(picks[picks.length - 1])
+      playBuzzer()
       if (revealTimer.current) window.clearTimeout(revealTimer.current)
       revealTimer.current = window.setTimeout(() => setReveal(null), 4500)
     }
@@ -329,6 +371,20 @@ export default function LeagueDraftPage() {
     } finally { setExtending(false) }
   }
 
+  // 추천(랜덤픽) — 지난 분기 종합 1위를 선택 후보로 (모바일 바·표 공용)
+  function recommendBest() {
+    const avail = state?.available_players ?? []
+    if (avail.length === 0) return
+    let best = avail[0].id, score = -1
+    for (const p of avail) {
+      const s = prevStats[p.id]
+      const sc = s && s.gp > 0 ? overallScorePerGame({ ppg: s.ppg, rpg: s.rpg, apg: s.apg, spg: s.spg, bpg: s.bpg, topg: s.topg }) : 0
+      if (sc > score) { score = sc; best = p.id }
+    }
+    if (score <= 0) best = avail[Math.floor(Math.random() * avail.length)].id
+    setSelectedPickId(best)
+  }
+
   // 픽 실행 (성적표에서 선택한 선수)
   async function pickById(playerId: string) {
     if (!playerId || !state?.draft || !authedTeamId || !authedCode || authedRole !== 'manager') return
@@ -343,6 +399,7 @@ export default function LeagueDraftPage() {
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? '픽 실패'); return }
       toast.success('픽 완료')
+      setSelectedPickId(null)
       fetchState()
     } finally { setPicking(null) }
   }
@@ -393,6 +450,10 @@ export default function LeagueDraftPage() {
         )
       })()}
 
+      {/* 픽 폭죽 */}
+      <Confetti trigger={reveal?.pick_number ?? null}
+        colors={reveal ? [teamMap[reveal.team_id]?.color ?? '#f59e0b', '#ffffff', '#f59e0b', '#10b981'] : undefined} />
+
       {/* 추첨 — 로또 머신 애니메이션 */}
       {showLottery && draft?.draft_order && draft.draft_order.length > 0 && (
         <DraftLotteryReveal
@@ -411,6 +472,10 @@ export default function LeagueDraftPage() {
             {isFocus && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 border border-emerald-700/50 text-emerald-300">집중 모드 · LIVE</span>}
           </h1>
           <div className="flex items-center gap-2 flex-wrap justify-end">
+            <button onClick={() => { primeAudio(); setMuted(v => !v) }} title={muted ? '소리 켜기' : '소리 끄기'}
+              className="text-xs px-2 py-1 rounded-lg border border-gray-700 text-gray-400 hover:text-white cursor-pointer">
+              {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            </button>
             {draft?.status === 'in_progress' && (
               <button onClick={() => setFocusMode(v => !v)}
                 className="text-xs px-2.5 py-1 rounded-lg border border-gray-700 text-gray-400 hover:text-white cursor-pointer inline-flex items-center gap-1">
@@ -580,8 +645,6 @@ export default function LeagueDraftPage() {
               const curUsed = state?.current_team_id ? (draft.extensions_used?.[state.current_team_id] ?? 0) : 0
               const myUsed = authedTeamId ? (draft.extensions_used?.[authedTeamId] ?? 0) : 0
               const timerColor = expired ? 'text-red-400' : remain !== null && remain <= 10 ? 'text-red-400' : remain !== null && remain <= 30 ? 'text-amber-300' : 'text-emerald-300'
-              const mm = remain !== null ? Math.floor(remain / 60) : 0
-              const ss = remain !== null ? remain % 60 : 0
               return (
                 <div className={`rounded-xl p-4 border-2 transition-colors ${isMyTurn ? 'bg-emerald-900/30 border-emerald-500' : 'bg-gray-900 border-gray-800'} ${expired ? 'animate-pulse border-red-500' : ''}`}>
                   <div className="flex items-center gap-3">
@@ -593,12 +656,24 @@ export default function LeagueDraftPage() {
                         {isMyTurn && <span className="ml-2 text-emerald-400 text-sm">← 내 차례!</span>}
                       </p>
                     </div>
-                    {remain !== null && (
-                      <div className="text-right">
-                        <p className={`font-display text-4xl tabular-nums ${timerColor}`}>{expired ? '0:00' : `${mm}:${String(ss).padStart(2, '0')}`}</p>
-                        <p className="text-[10px] text-gray-500 font-bold">{expired ? '시간 종료' : '남은 시간'}</p>
-                      </div>
-                    )}
+                    {remain !== null && (() => {
+                      const frac = Math.max(0, Math.min(1, remain / PICK_SECONDS))
+                      const R = 26, C = 2 * Math.PI * R
+                      const stroke = expired ? '#ef4444' : remain <= 10 ? '#ef4444' : remain <= 30 ? '#fbbf24' : '#34d399'
+                      return (
+                        <div className="relative w-16 h-16 shrink-0">
+                          <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+                            <circle cx="32" cy="32" r={R} fill="none" stroke="#1f2937" strokeWidth="6" />
+                            <circle cx="32" cy="32" r={R} fill="none" stroke={stroke} strokeWidth="6" strokeLinecap="round"
+                              strokeDasharray={C} strokeDashoffset={C * (1 - frac)} className="transition-all duration-500" />
+                          </svg>
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span className={`font-display text-lg leading-none tabular-nums ${timerColor}`}>{expired ? '0' : remain}</span>
+                            <span className="text-[8px] text-gray-500">초</span>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                   {/* 시간 종료 — 자동 선택 최종 카운트다운 */}
                   {expired && graceLeft !== null && (
@@ -663,16 +738,17 @@ export default function LeagueDraftPage() {
                             </td>
                             {draft.draft_order.map((tid, ci) => {
                               const pick = state!.picks.find(p => p.round_number === r && p.team_id === tid)
+                              const tColor = teamMap[tid]?.color
                               const isCurrentCell = draft.status === 'in_progress' && r === draft.current_round && tid === currentTeam?.id
                               return (
-                                <td key={ci} className={`p-1.5 text-center ${isCurrentCell ? 'bg-emerald-900/30' : ''}`}>
+                                <td key={ci} className={`p-1.5 text-center ${isCurrentCell ? 'bg-emerald-900/40 ring-1 ring-emerald-500/60' : ''}`}>
                                   {pick ? (
-                                    <div>
-                                      <div className="text-white font-bold text-xs">{pick.player_name}</div>
-                                      <div className="text-[9px] text-gray-600">#{pick.pick_number}</div>
+                                    <div className="rounded-md py-1" style={{ backgroundColor: tColor ? `${tColor}1f` : undefined, borderLeft: tColor ? `3px solid ${tColor}` : undefined }}>
+                                      <div className="text-white font-bold text-xs leading-tight px-1">{pick.player_name}</div>
+                                      <div className="text-[9px] text-gray-500">#{pick.pick_number}</div>
                                     </div>
                                   ) : isCurrentCell ? (
-                                    <div className="text-emerald-400 text-xs font-bold animate-pulse">선택 중...</div>
+                                    <div className="text-emerald-300 text-xs font-bold animate-pulse">선택 중...</div>
                                   ) : (
                                     <div className="text-gray-700">—</div>
                                   )}
@@ -759,9 +835,49 @@ export default function LeagueDraftPage() {
           </div>
         </div>
 
+        {/* 완료 시 결과 요약 카드 */}
+        {draft.status === 'completed' && (
+          <DraftSummaryCard
+            teams={teams}
+            picks={(state?.picks ?? []).map(p => ({ team_id: p.team_id, player_id: p.player_id, player_name: p.player_name, pick_number: p.pick_number }))}
+            leaders={state?.leaders ?? []}
+            playerNames={{
+              ...Object.fromEntries(Object.values(prevStats).map(s => [s.player_id, s.name ?? ''])),
+              ...Object.fromEntries((state?.picks ?? []).map(p => [p.player_id, p.player_name])),
+            }}
+          />
+        )}
+
         {/* 팀 구성 성적 + 남은 선수 성적표 (하단) */}
         <DraftTeamStats teams={teams} picks={(state?.picks ?? []).map(p => ({ team_id: p.team_id, player_id: p.player_id }))} leaders={state?.leaders ?? []} stats={prevStats} />
-        <DraftStatTable leagueId={leagueId} availablePlayers={(state?.available_players ?? []).map(p => ({ id: p.id, name: p.name, number: p.number }))} prevStats={prevStats} prevQuarterId={prevQuarter?.id ?? null} prevQuarterLabel={prevQuarterLabel} canPick={!!isMyTurn} picking={picking !== null} onPick={pickById} onShowStats={p => setStatsPlayer({ id: p.id, name: p.name, number: p.number })} />
+        <div id="draft-stat-table">
+          <DraftStatTable leagueId={leagueId} availablePlayers={(state?.available_players ?? []).map(p => ({ id: p.id, name: p.name, number: p.number }))} prevStats={prevStats} prevQuarterId={prevQuarter?.id ?? null} prevQuarterLabel={prevQuarterLabel} canPick={!!isMyTurn} picking={picking !== null} selectedId={selectedPickId} onSelectId={setSelectedPickId} onPick={pickById} onShowStats={p => setStatsPlayer({ id: p.id, name: p.name, number: p.number })} />
+        </div>
+
+        {/* 모바일 스티키 바 가림 방지 여백 */}
+        {isMyTurn && <div className="lg:hidden h-16" />}
+
+        {/* 모바일 '내 차례' 스티키 액션 바 */}
+        {isMyTurn && (
+          <div className="lg:hidden fixed bottom-0 inset-x-0 z-[46] bg-gray-900/95 backdrop-blur border-t border-emerald-700/50 p-2.5 flex items-center gap-2">
+            {selectedPickId ? (
+              <button onClick={() => pickById(selectedPickId)} disabled={picking !== null}
+                className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold flex items-center justify-center gap-1.5">
+                <Check size={16} /> {state?.available_players.find(p => p.id === selectedPickId)?.name} 픽 확정
+              </button>
+            ) : (
+              <>
+                <button onClick={recommendBest} className="flex-1 py-2.5 rounded-lg bg-purple-700 hover:bg-purple-600 text-white font-bold flex items-center justify-center gap-1.5">
+                  <Shuffle size={15} /> 랜덤픽(추천)
+                </button>
+                <button onClick={() => document.getElementById('draft-stat-table')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="flex-1 py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold flex items-center justify-center gap-1.5">
+                  <ChevronDown size={15} /> 성적표에서 선택
+                </button>
+              </>
+            )}
+          </div>
+        )}
         </>
       )}
 
