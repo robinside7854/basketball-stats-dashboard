@@ -12,7 +12,8 @@ import DraftCodeManager from '@/components/league/DraftCodeManager'
 import DraftSessionControl from '@/components/league/DraftSessionControl'
 import DraftChat from '@/components/league/DraftChat'
 import DraftPlayerStatsModal, { type DraftStatRow } from '@/components/league/DraftPlayerStatsModal'
-import { MAX_EXTENSIONS, EXTENSION_SECONDS } from '@/lib/draftTimer'
+import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
+import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { overallScorePerGame } from '@/lib/leagueStats'
 import type { Quarter } from '@/types/league'
 
@@ -90,10 +91,10 @@ export default function LeagueDraftPage() {
   // 픽 공개 히어로
   const [reveal, setReveal] = useState<Pick | null>(null)
   const lastPickRef = useRef<number>(0)
+  const revealInitRef = useRef(false)
   const revealTimer = useRef<number | null>(null)
-  // 추첨 공개 (한 번만) + 단계별 긴장감 애니메이션
+  // 추첨 공개 (한 번만) — 로또 머신 애니메이션
   const [showLottery, setShowLottery] = useState(false)
-  const [lotteryStep, setLotteryStep] = useState(0) // 아래(마지막 픽)부터 공개된 칸 수
   const lotteryShownRef = useRef(false)
   // 집중(포커스) 모드 — 진행 중일 때 다른 UI 숨김
   const [focusMode, setFocusMode] = useState(true)
@@ -132,6 +133,7 @@ export default function LeagueDraftPage() {
       setAuthedTeamId(null); setAuthedRole(null); setAuthedLabel(null); setAuthedCode(null)
     }
     lastPickRef.current = 0
+    revealInitRef.current = false
     lotteryShownRef.current = false
   }, [sessionKey])
 
@@ -173,7 +175,7 @@ export default function LeagueDraftPage() {
   const prevQuarterLabel = prevQuarter ? `${String(prevQuarter.year).slice(2)}.${prevQuarter.quarter}Q` : null
   useEffect(() => {
     if (!prevQuarter || !state?.draft) return
-    fetch(`/api/leagues/${leagueId}/stats?quarterId=${prevQuarter.id}&unit=game`)
+    fetch(`/api/leagues/${leagueId}/stats?quarterId=${prevQuarter.id}&unit=round`)
       .then(r => r.json())
       .then((d: { players?: DraftStatRow[] }) => {
         const map: Record<string, DraftStatRow> = {}
@@ -191,7 +193,7 @@ export default function LeagueDraftPage() {
     const deadlineMs = new Date(d.pick_deadline).getTime()
     const canTrigger = authedRole === 'supervisor' || (authedRole === 'manager' && state?.current_team_id === authedTeamId)
     if (!canTrigger) return
-    if (nowMs <= deadlineMs + 1500) return
+    if (nowMs <= deadlineMs + AUTOPICK_GRACE_SECONDS * 1000) return  // 만료 후 5초 유예 뒤 자동 선택
     if (autoPickRef.current === d.pick_deadline) return // 이 마감건 이미 시도
     autoPickRef.current = d.pick_deadline
     fetch(`/api/leagues/${leagueId}/drafts/${d.id}/auto-pick`, {
@@ -204,46 +206,32 @@ export default function LeagueDraftPage() {
   // 차례가 바뀌면 선택(확인 전) 초기화
   useEffect(() => { setSelectedPick(null) }, [state?.current_team_id])
 
-  // 새 픽 감지 → 히어로 공개
+  // 새 픽 감지 → 히어로 공개 (1픽 포함 모든 픽)
   useEffect(() => {
-    const picks = state?.picks ?? []
-    if (picks.length === 0) { lastPickRef.current = 0; return }
-    const latest = picks[picks.length - 1]
-    if (lastPickRef.current === 0) { lastPickRef.current = latest.pick_number; return }
-    if (latest.pick_number > lastPickRef.current) {
-      lastPickRef.current = latest.pick_number
-      setReveal(latest)
+    if (!state) return  // 로딩 전엔 기준선 설정 금지
+    const picks = state.picks
+    const latestNum = picks.length ? picks[picks.length - 1].pick_number : 0
+    // 첫 로드 시점의 기준선 설정 (기존 픽은 공개하지 않음)
+    if (!revealInitRef.current) {
+      revealInitRef.current = true
+      lastPickRef.current = latestNum
+      return
+    }
+    if (latestNum > lastPickRef.current) {
+      lastPickRef.current = latestNum
+      setReveal(picks[picks.length - 1])
       if (revealTimer.current) window.clearTimeout(revealTimer.current)
       revealTimer.current = window.setTimeout(() => setReveal(null), 4500)
     }
-  }, [state?.picks])
+  }, [state])
 
-  // 추첨 완료 감지 → 순서 공개 (한 번만), 마지막 픽부터 한 칸씩 긴장감 공개
+  // 추첨 완료 감지 → 로또 머신 공개 (한 번만)
   useEffect(() => {
     if (state?.draft?.lottery_done && state.draft.draft_order.length > 0 && !lotteryShownRef.current) {
       lotteryShownRef.current = true
-      setLotteryStep(0)
       setShowLottery(true)
     }
   }, [state?.draft?.lottery_done, state?.draft?.draft_order.length])
-
-  // 추첨 단계별 공개 타이머 (showLottery 동안)
-  useEffect(() => {
-    if (!showLottery) return
-    const n = draft?.draft_order.length ?? 0
-    if (n === 0) return
-    setLotteryStep(0)
-    let step = 0
-    const id = window.setInterval(() => {
-      step += 1
-      setLotteryStep(step)
-      if (step >= n) window.clearInterval(id)
-    }, 1900)
-    // 전부 공개 후 여유시간 뒤 자동 닫기
-    const closeId = window.setTimeout(() => setShowLottery(false), n * 1900 + 6000)
-    return () => { window.clearInterval(id); window.clearTimeout(closeId) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showLottery])
 
   async function submitCode() {
     if (!selectedQid || !codeInput.trim()) return
@@ -428,57 +416,15 @@ export default function LeagueDraftPage() {
         )
       })()}
 
-      {/* 추첨 결과 공개 오버레이 — 마지막 픽부터 한 칸씩 긴장감 공개 (NBA 로터리 방식) */}
-      {showLottery && draft?.draft_order && (() => {
-        const n = draft.draft_order.length
-        const allRevealed = lotteryStep >= n
-        // 다음에 공개될 칸 = idx (n - lotteryStep - 1), 위에서부터 #1 이 마지막
-        const nextRevealIdx = n - lotteryStep - 1
-        return (
-          <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-300" onClick={() => allRevealed && setShowLottery(false)}>
-            <div className="text-center max-w-lg w-full">
-              <Dice5 size={40} className={`mx-auto text-amber-400 mb-3 ${allRevealed ? '' : 'animate-spin'}`} />
-              <p className="font-jersey text-sm uppercase tracking-[0.3em] text-amber-400 mb-1">DRAFT LOTTERY</p>
-              <h2 className="text-2xl font-black text-white mb-5">
-                {allRevealed ? '픽 순서 확정!' : `${nextRevealIdx + 1}순위 추첨 중...`}
-              </h2>
-              <div className="space-y-2">
-                {draft.draft_order.map((tid, idx) => {
-                  const t = teamMap[tid]
-                  const odd = draft.lottery_odds?.[tid]
-                  const revealed = idx >= n - lotteryStep
-                  const justRevealed = idx === nextRevealIdx + 1 // 방금 공개된 칸 강조
-                  const isNext = idx === nextRevealIdx && !allRevealed
-                  return (
-                    <div key={`${tid}-${idx}`}
-                      className={`flex items-center gap-3 rounded-xl px-4 py-3 border transition-all duration-500 ${
-                        revealed
-                          ? `bg-gray-900/90 ${justRevealed ? 'scale-105 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : ''}`
-                          : isNext ? 'bg-amber-950/40 border-amber-600 animate-pulse' : 'bg-gray-900/40 border-gray-800'
-                      }`}
-                      style={revealed && t ? { borderColor: t.color } : undefined}>
-                      <span className={`font-display text-3xl w-10 ${idx === 0 ? 'text-amber-300' : 'text-gray-400'}`}>{idx + 1}</span>
-                      {revealed ? (
-                        <>
-                          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: t?.color }} />
-                          <span className="text-white font-black text-lg flex-1 text-left">{t?.name}</span>
-                          {idx === 0 && <span className="text-[10px] font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full">1픽!</span>}
-                          {odd != null && <span className="text-xs text-gray-400">{(odd * 100).toFixed(0)}%</span>}
-                        </>
-                      ) : (
-                        <span className="text-gray-500 font-black text-lg flex-1 text-left tracking-widest">{isNext ? '???' : '—'}</span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-              <p className="text-xs text-gray-500 mt-4">
-                {allRevealed ? '탭하여 닫기 · 지난 분기 승률 기반 가중 추첨' : '하위 팀일수록 1픽 확률이 높습니다'}
-              </p>
-            </div>
-          </div>
-        )
-      })()}
+      {/* 추첨 — 로또 머신 애니메이션 */}
+      {showLottery && draft?.draft_order && draft.draft_order.length > 0 && (
+        <DraftLotteryReveal
+          order={draft.draft_order}
+          odds={draft.lottery_odds}
+          teams={teams}
+          onClose={() => setShowLottery(false)}
+        />
+      )}
 
       {/* 헤더 + 분기 */}
       <div className="space-y-2">
@@ -651,6 +597,8 @@ export default function LeagueDraftPage() {
               const deadline = draft.pick_deadline ? new Date(draft.pick_deadline).getTime() : null
               const remain = deadline ? Math.max(0, Math.ceil((deadline - nowMs) / 1000)) : null
               const expired = remain !== null && remain <= 0
+              // 만료 후 자동 선택까지 남은 유예(초)
+              const graceLeft = deadline && expired ? Math.max(0, Math.ceil((deadline + AUTOPICK_GRACE_SECONDS * 1000 - nowMs) / 1000)) : null
               const curUsed = state?.current_team_id ? (draft.extensions_used?.[state.current_team_id] ?? 0) : 0
               const myUsed = authedTeamId ? (draft.extensions_used?.[authedTeamId] ?? 0) : 0
               const timerColor = expired ? 'text-red-400' : remain !== null && remain <= 10 ? 'text-red-400' : remain !== null && remain <= 30 ? 'text-amber-300' : 'text-emerald-300'
@@ -670,10 +618,17 @@ export default function LeagueDraftPage() {
                     {remain !== null && (
                       <div className="text-right">
                         <p className={`font-display text-4xl tabular-nums ${timerColor}`}>{expired ? '0:00' : `${mm}:${String(ss).padStart(2, '0')}`}</p>
-                        <p className="text-[10px] text-gray-500 font-bold">{expired ? '시간 초과' : '남은 시간'}</p>
+                        <p className="text-[10px] text-gray-500 font-bold">{expired ? '시간 종료' : '남은 시간'}</p>
                       </div>
                     )}
                   </div>
+                  {/* 시간 종료 — 자동 선택 최종 카운트다운 */}
+                  {expired && graceLeft !== null && (
+                    <div className="mt-3 rounded-lg bg-red-950/60 border border-red-600 px-3 py-2 flex items-center justify-center gap-2 animate-pulse">
+                      <span className="text-red-300 text-sm font-bold">⏰ 시간 종료 — {graceLeft}초 뒤 자동으로 선수가 선택됩니다</span>
+                      <span className="font-display text-2xl text-red-400 tabular-nums">{graceLeft}</span>
+                    </div>
+                  )}
                   {/* 추가 시간 — 현재 차례 단장에게만 */}
                   {isMyTurn && (
                     <div className="mt-3 flex items-center justify-between gap-2">
