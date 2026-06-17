@@ -235,7 +235,7 @@ function LeagueLayout({
           onClose={() => setSelectedPlayer(null)}
         />
       )}
-      <Toaster richColors theme={theme === 'light' ? 'light' : 'dark'} />
+      <Toaster richColors theme={theme === 'light' ? 'light' : 'dark'} position="top-center" />
     </LeagueEditModeProvider>
   )
 }
