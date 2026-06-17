@@ -5,13 +5,15 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, ArrowRight, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2, Minimize2, Maximize2 } from 'lucide-react'
+import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2, Minimize2, Maximize2, BarChart3, Shuffle, Check } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import DraftCodeManager from '@/components/league/DraftCodeManager'
 import DraftSessionControl from '@/components/league/DraftSessionControl'
 import DraftChat from '@/components/league/DraftChat'
+import DraftPlayerStatsModal, { type DraftStatRow } from '@/components/league/DraftPlayerStatsModal'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS } from '@/lib/draftTimer'
+import { overallScorePerGame } from '@/lib/leagueStats'
 import type { Quarter } from '@/types/league'
 
 interface Team { id: string; name: string; color: string }
@@ -53,6 +55,7 @@ interface DraftState {
   picks: Pick[]
   available_players: Player[]
   pool_size?: number
+  pool_player_ids?: string[]
   teams: Team[]
   leaders: Leader[]
   supervisor_exists: boolean
@@ -97,6 +100,12 @@ export default function LeagueDraftPage() {
   // 픽 타이머 — 1초마다 갱신되는 현재 시각
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [extending, setExtending] = useState(false)
+  // 지난 분기 스탯 (드래프트 풀 랭킹·자동픽용)
+  const [prevStats, setPrevStats] = useState<Record<string, DraftStatRow>>({})
+  const [statsPlayer, setStatsPlayer] = useState<{ id: string; name: string; number: number | null } | null>(null)
+  // 픽 선택(확인 전) + 랜덤픽 진행
+  const [selectedPick, setSelectedPick] = useState<string | null>(null)
+  const autoPickRef = useRef<string | null>(null) // 자동픽 중복 방지 (deadline 키)
 
   const sessionKey = selectedQid ? `draft_code_${leagueId}_${selectedQid}` : null
 
@@ -154,6 +163,46 @@ export default function LeagueDraftPage() {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000)
     return () => window.clearInterval(id)
   }, [state?.draft?.status])
+
+  // 지난 분기 스탯 로드 (드래프트 풀 랭킹·자동픽 추천용)
+  const prevQuarter = (() => {
+    if (!selectedQid || quarters.length === 0) return null
+    const idx = quarters.findIndex(q => q.id === selectedQid)
+    return idx > 0 ? quarters[idx - 1] : null
+  })()
+  const prevQuarterLabel = prevQuarter ? `${String(prevQuarter.year).slice(2)}.${prevQuarter.quarter}Q` : null
+  useEffect(() => {
+    if (!prevQuarter || !state?.draft) return
+    fetch(`/api/leagues/${leagueId}/stats?quarterId=${prevQuarter.id}&unit=game`)
+      .then(r => r.json())
+      .then((d: { players?: DraftStatRow[] }) => {
+        const map: Record<string, DraftStatRow> = {}
+        for (const p of d.players ?? []) map[p.player_id] = p
+        setPrevStats(map)
+      })
+      .catch(() => null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leagueId, prevQuarter?.id, state?.draft?.id])
+
+  // 자동픽 — 타이머 만료 시 (현재 차례 단장 또는 감독관 클라이언트가 트리거)
+  useEffect(() => {
+    const d = state?.draft
+    if (!d || d.status !== 'in_progress' || !d.pick_deadline || !authedCode) return
+    const deadlineMs = new Date(d.pick_deadline).getTime()
+    const canTrigger = authedRole === 'supervisor' || (authedRole === 'manager' && state?.current_team_id === authedTeamId)
+    if (!canTrigger) return
+    if (nowMs <= deadlineMs + 1500) return
+    if (autoPickRef.current === d.pick_deadline) return // 이 마감건 이미 시도
+    autoPickRef.current = d.pick_deadline
+    fetch(`/api/leagues/${leagueId}/drafts/${d.id}/auto-pick`, {
+      method: 'POST', headers: { 'X-Draft-Code': authedCode },
+    }).then(async r => {
+      if (r.ok) { const data = await r.json().catch(() => ({})); if (data.auto) toast.message('시간 초과 — 자동 픽 되었습니다'); fetchState() }
+    }).catch(() => null)
+  }, [nowMs, state?.draft, state?.current_team_id, authedRole, authedTeamId, authedCode, leagueId, fetchState])
+
+  // 차례가 바뀌면 선택(확인 전) 초기화
+  useEffect(() => { setSelectedPick(null) }, [state?.current_team_id])
 
   // 새 픽 감지 → 히어로 공개
   useEffect(() => {
@@ -293,11 +342,31 @@ export default function LeagueDraftPage() {
     } finally { setExtending(false) }
   }
 
-  async function pickPlayer(playerId: string) {
-    if (!state?.draft || !authedTeamId || !authedCode || authedRole !== 'manager') return
+  // 종합 점수 (지난 분기 평균 기반) — 서버 자동픽과 동일 공식
+  function overallOf(playerId: string): number {
+    const s = prevStats[playerId]
+    if (!s || s.gp <= 0) return 0
+    return overallScorePerGame({ ppg: s.ppg, rpg: s.rpg, apg: s.apg, spg: s.spg, bpg: s.bpg, topg: s.topg })
+  }
+
+  // 랜덤픽(추천) — 남은 선수 중 종합 스탯 1위를 선택 후보로 지정
+  function recommendPick() {
+    const avail = state?.available_players ?? []
+    if (avail.length === 0) return
+    let best = avail[0].id, bestScore = -1
+    for (const p of avail) { const sc = overallOf(p.id); if (sc > bestScore) { bestScore = sc; best = p.id } }
+    // 데이터가 전혀 없으면 랜덤
+    if (bestScore <= 0) best = avail[Math.floor(Math.random() * avail.length)].id
+    setSelectedPick(best)
+    const name = avail.find(p => p.id === best)?.name
+    toast.message(`추천: ${name}${bestScore > 0 ? ' (종합 스탯 1위)' : ' (랜덤)'} — 최종 확인을 눌러 픽하세요`)
+  }
+
+  // 최종 확인 → 픽 실행
+  async function confirmPick() {
+    const playerId = selectedPick
+    if (!playerId || !state?.draft || !authedTeamId || !authedCode || authedRole !== 'manager') return
     if (state.current_team_id !== authedTeamId) { toast.error('본인 차례가 아닙니다'); return }
-    const pname = state.available_players.find(p => p.id === playerId)?.name
-    if (!confirm(`${pname} 선수를 픽하시겠습니까?`)) return
     setPicking(playerId)
     try {
       const res = await fetch(`/api/leagues/${leagueId}/drafts/${state.draft.id}/pick`, {
@@ -308,6 +377,7 @@ export default function LeagueDraftPage() {
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? '픽 실패'); return }
       toast.success('픽 완료')
+      setSelectedPick(null)
       fetchState()
     } finally { setPicking(null) }
   }
@@ -713,21 +783,46 @@ export default function LeagueDraftPage() {
                   </div>
                 ) : isMyTurn ? (
                   <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-3">
-                    <p className="font-jersey text-xs text-emerald-400 uppercase tracking-widest mb-2">선수 선택</p>
-                    <p className="text-[10px] text-gray-500 mb-2">{state?.available_players.length}명 선택 가능 · 드래프트 풀 {state?.pool_size ?? 0}명</p>
-                    <div className="max-h-[60vh] overflow-y-auto space-y-1.5 pr-1">
-                      {state?.available_players.map(p => (
-                        <button key={p.id} onClick={() => pickPlayer(p.id)} disabled={picking !== null}
-                          className="w-full text-left bg-gray-800 hover:bg-emerald-900/40 border border-gray-700 hover:border-emerald-600 rounded-lg px-3 py-2 transition-colors cursor-pointer disabled:opacity-40 flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            {p.number != null && <span className="jersey-num text-xs">{p.number}</span>}
-                            <span className="text-white font-bold text-sm truncate">{p.name}</span>
-                            {p.position && <span className="text-[10px] text-gray-500">{p.position}</span>}
-                            {p.plus_one && <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-500/20 text-amber-300">+1</span>}
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-jersey text-xs text-emerald-400 uppercase tracking-widest">선수 선택</p>
+                      <button onClick={recommendPick} className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded bg-purple-700/60 hover:bg-purple-600 text-purple-100 cursor-pointer">
+                        <Shuffle size={11} /> 랜덤픽(추천)
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-gray-500 mb-2">{state?.available_players.length}명 선택 가능 · 드래프트 풀 {state?.pool_size ?? 0}명 · 이름 선택 후 최종 확인</p>
+                    <div className="max-h-[52vh] overflow-y-auto space-y-1.5 pr-1">
+                      {state?.available_players.map(p => {
+                        const sel = selectedPick === p.id
+                        return (
+                          <div key={p.id}
+                            className={`w-full rounded-lg px-3 py-2 border flex items-center justify-between gap-2 transition-colors ${
+                              sel ? 'bg-emerald-700/40 border-emerald-400' : 'bg-gray-800 border-gray-700 hover:border-emerald-600'
+                            }`}>
+                            <button onClick={() => setSelectedPick(sel ? null : p.id)} disabled={picking !== null}
+                              className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer disabled:opacity-40">
+                              {sel ? <Check size={14} className="text-emerald-300 shrink-0" /> : <Circle size={12} className="text-gray-600 shrink-0" />}
+                              {p.number != null && <span className="jersey-num text-xs">{p.number}</span>}
+                              <span className="text-white font-bold text-sm truncate">{p.name}</span>
+                              {p.position && <span className="text-[10px] text-gray-500">{p.position}</span>}
+                              {p.plus_one && <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-500/20 text-amber-300">+1</span>}
+                            </button>
+                            <button onClick={() => setStatsPlayer({ id: p.id, name: p.name, number: p.number })}
+                              title="지난 분기 스탯" className="text-blue-400 hover:text-blue-300 cursor-pointer shrink-0 p-1">
+                              <BarChart3 size={15} />
+                            </button>
                           </div>
-                          {picking === p.id ? <BasketballLoader size={14} /> : <ArrowRight size={12} className="text-emerald-400 shrink-0" />}
-                        </button>
-                      ))}
+                        )
+                      })}
+                    </div>
+                    {/* 최종 확인 바 */}
+                    <div className="mt-2 pt-2 border-t border-emerald-800/40">
+                      {selectedPick ? (
+                        <Button onClick={confirmPick} disabled={picking !== null} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white">
+                          {picking ? <BasketballLoader size={14} /> : <><Check size={14} className="mr-1.5" /> {state?.available_players.find(p => p.id === selectedPick)?.name} 최종 확인</>}
+                        </Button>
+                      ) : (
+                        <p className="text-center text-[11px] text-gray-500 py-1.5">선수 이름을 눌러 선택하세요</p>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -768,6 +863,17 @@ export default function LeagueDraftPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 선수 스탯 팝업 */}
+      {statsPlayer && (
+        <DraftPlayerStatsModal
+          player={statsPlayer}
+          stats={prevStats}
+          poolIds={state?.pool_player_ids ?? []}
+          prevQuarterLabel={prevQuarterLabel}
+          onClose={() => setStatsPlayer(null)}
+        />
       )}
 
       {/* 드래프트 채팅 — 코드 인증한 단장/감독관 전용 */}

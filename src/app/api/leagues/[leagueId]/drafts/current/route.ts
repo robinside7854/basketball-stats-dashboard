@@ -136,6 +136,7 @@ export async function GET(
     picks,
     available_players: available,
     pool_size: poolIds.size,
+    pool_player_ids: Array.from(poolIds),
     teams: teams ?? [],
     leaders: leaderList,
     supervisor_exists: supervisorExists,
