@@ -31,6 +31,7 @@ export async function POST(
       team_id: result.teamId,
       label: result.label,
       code_id: result.codeId,
+      role: result.role,
     },
   })
 }

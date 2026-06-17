@@ -86,13 +86,19 @@ export async function POST(
     )
   }
 
-  // 선수가 이 리그 소속인지 + 이미 픽되지 않았는지
-  const [{ data: player }, { data: existPick }] = await Promise.all([
+  // 선수가 이 리그 소속인지 + 드래프트 풀 대상인지 + 이미 픽되지 않았는지
+  const [{ data: player }, { data: inPool }, { data: existPick }] = await Promise.all([
     supabase
       .from('league_players')
       .select('id')
       .eq('id', body.league_player_id)
       .eq('league_id', leagueId)
+      .maybeSingle(),
+    supabase
+      .from('league_draft_pool')
+      .select('league_player_id')
+      .eq('draft_id', draftId)
+      .eq('league_player_id', body.league_player_id)
       .maybeSingle(),
     supabase
       .from('league_draft_picks')
@@ -102,6 +108,7 @@ export async function POST(
       .maybeSingle(),
   ])
   if (!player) return NextResponse.json({ error: '해당 선수가 이 리그에 없습니다' }, { status: 400 })
+  if (!inPool) return NextResponse.json({ error: '드래프트 대상(풀)에 없는 선수입니다' }, { status: 400 })
   if (existPick) return NextResponse.json({ error: '이미 픽된 선수입니다' }, { status: 409 })
 
   // pick_number 계산
@@ -157,16 +164,20 @@ export async function POST(
   }
   const newTotalPicks = pickNumber
 
-  // 모든 선수 픽되면 완료
-  // (총 픽 수가 draft_order.length × 가능한 라운드와 같으면 종료하는 게 일반적이지만,
-  //  현재는 라운드 수가 정해지지 않았으므로 완료 조건은 별도 — 어드민이 강제 종료하거나
-  //  나중에 max_rounds 컬럼 도입 시 자동 종료)
+  // 풀의 모든 선수가 픽되면 자동 완료
+  const { count: poolCount } = await supabase
+    .from('league_draft_pool')
+    .select('league_player_id', { count: 'exact', head: true })
+    .eq('draft_id', draftId)
+  const isComplete = typeof poolCount === 'number' && newTotalPicks >= poolCount
+
   const { data: updated, error: updErr } = await supabase
     .from('league_drafts')
     .update({
       current_pick_index: nextIndex,
       current_round: nextRound,
       total_picks: newTotalPicks,
+      ...(isComplete ? { status: 'completed', completed_at: new Date().toISOString() } : {}),
     })
     .eq('id', draftId)
     .select()

@@ -18,10 +18,12 @@ export async function POST(
 
   const { leagueId } = await params
   const body = await req.json().catch(() => null) as
-    | { quarter_id?: string; team_id?: string; plain_code?: string; label?: string }
+    | { quarter_id?: string; team_id?: string; plain_code?: string; label?: string; role?: 'manager' | 'supervisor' }
     | null
-  if (!body?.quarter_id || !body?.team_id || !body?.plain_code || !body?.label) {
-    return NextResponse.json({ error: 'quarter_id, team_id, plain_code, label 필요' }, { status: 400 })
+  const role = body?.role === 'supervisor' ? 'supervisor' : 'manager'
+  // 단장(manager) 은 team_id 필수, 감독관(supervisor) 은 team_id 불필요
+  if (!body?.quarter_id || !body?.plain_code || !body?.label || (role === 'manager' && !body?.team_id)) {
+    return NextResponse.json({ error: 'quarter_id, plain_code, label (manager 는 team_id) 필요' }, { status: 400 })
   }
   const plainCode = body.plain_code.trim()
   const label = body.label.trim()
@@ -31,20 +33,24 @@ export async function POST(
   if (label.length < 1 || label.length > 60) {
     return NextResponse.json({ error: '레이블은 1~60자 사이여야 합니다' }, { status: 400 })
   }
+  const teamId = role === 'supervisor' ? null : body.team_id!
 
   const supabase = createClient()
 
-  // 기존 코드 (quarter_id, team_id) 가 있으면 충돌
-  const { data: existing } = await supabase
+  // 기존 코드 충돌 검사 — manager: (quarter, team), supervisor: (quarter, role)
+  let existQ = supabase
     .from('league_draft_codes')
     .select('id')
     .eq('league_id', leagueId)
     .eq('quarter_id', body.quarter_id)
-    .eq('team_id', body.team_id)
-    .maybeSingle()
+    .eq('role', role)
+  existQ = role === 'supervisor' ? existQ.is('team_id', null) : existQ.eq('team_id', teamId!)
+  const { data: existing } = await existQ.maybeSingle()
   if (existing) {
     return NextResponse.json(
-      { error: '이미 이 분기·팀에 코드가 발급되어 있습니다. 기존 코드를 삭제 후 다시 발급하세요.' },
+      { error: role === 'supervisor'
+          ? '이미 이 분기에 감독관 코드가 발급되어 있습니다. 기존 코드를 삭제 후 다시 발급하세요.'
+          : '이미 이 분기·팀에 코드가 발급되어 있습니다. 기존 코드를 삭제 후 다시 발급하세요.' },
       { status: 409 },
     )
   }
@@ -55,12 +61,13 @@ export async function POST(
     .insert({
       league_id: leagueId,
       quarter_id: body.quarter_id,
-      team_id: body.team_id,
+      team_id: teamId,
+      role,
       code_hash,
       label,
       is_active: true,
     })
-    .select('id, league_id, quarter_id, team_id, label, is_active, last_used_at, created_at')
+    .select('id, league_id, quarter_id, team_id, role, label, is_active, last_used_at, created_at')
     .single()
 
   if (error) {
@@ -86,7 +93,7 @@ export async function GET(
   const supabase = createClient()
   let q = supabase
     .from('league_draft_codes')
-    .select('id, quarter_id, team_id, label, is_active, last_used_at, created_at')
+    .select('id, quarter_id, team_id, role, label, is_active, last_used_at, created_at')
     .eq('league_id', leagueId)
     .order('created_at', { ascending: false })
   if (quarterId) q = q.eq('quarter_id', quarterId)
