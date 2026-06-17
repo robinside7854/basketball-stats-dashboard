@@ -10,6 +10,7 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import DraftCodeManager from '@/components/league/DraftCodeManager'
 import DraftSessionControl from '@/components/league/DraftSessionControl'
+import DraftChat from '@/components/league/DraftChat'
 import type { Quarter } from '@/types/league'
 
 interface Team { id: string; name: string; color: string }
@@ -525,39 +526,39 @@ export default function LeagueDraftPage() {
                   <tbody>
                     {(() => {
                       const maxRound = Math.max(draft.current_round, ...state!.picks.map(p => p.round_number), 1)
-                      const matrix: (Pick | null)[][] = []
+                      const rows = []
                       for (let r = 1; r <= maxRound; r++) {
-                        const row: (Pick | null)[] = draft.draft_order.map((tid, idx) => {
-                          const actualSlot = draft.method === 'snake' && r % 2 === 0 ? draft.draft_order.length - 1 - idx : idx
-                          const expectedTid = draft.draft_order[actualSlot]
-                          const pick = state!.picks.find(p => p.round_number === r && p.team_id === expectedTid)
-                          return pick ?? null
-                        })
-                        matrix.push(row)
+                        const reversed = draft.method === 'snake' && r % 2 === 0
+                        rows.push(
+                          <tr key={r} className="border-b border-gray-800/30">
+                            <td className="p-2 text-gray-500 font-bold whitespace-nowrap">
+                              {r}
+                              {draft.method === 'snake' && (
+                                <span className="ml-1 text-[9px] text-amber-500/70" title={reversed ? '역순' : '정순'}>{reversed ? '←' : '→'}</span>
+                              )}
+                            </td>
+                            {draft.draft_order.map((tid, ci) => {
+                              const pick = state!.picks.find(p => p.round_number === r && p.team_id === tid)
+                              const isCurrentCell = draft.status === 'in_progress' && r === draft.current_round && tid === currentTeam?.id
+                              return (
+                                <td key={ci} className={`p-1.5 text-center ${isCurrentCell ? 'bg-emerald-900/30' : ''}`}>
+                                  {pick ? (
+                                    <div>
+                                      <div className="text-white font-bold text-xs">{pick.player_name}</div>
+                                      <div className="text-[9px] text-gray-600">#{pick.pick_number}</div>
+                                    </div>
+                                  ) : isCurrentCell ? (
+                                    <div className="text-emerald-400 text-xs font-bold animate-pulse">선택 중...</div>
+                                  ) : (
+                                    <div className="text-gray-700">—</div>
+                                  )}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        )
                       }
-                      return matrix.map((row, ri) => (
-                        <tr key={ri} className="border-b border-gray-800/30">
-                          <td className="p-2 text-gray-500 font-bold">{ri + 1}</td>
-                          {row.map((pick, ci) => {
-                            const tid = draft.method === 'snake' && (ri + 1) % 2 === 0 ? draft.draft_order[draft.draft_order.length - 1 - ci] : draft.draft_order[ci]
-                            const isCurrentCell = draft.status === 'in_progress' && ri + 1 === draft.current_round && tid === currentTeam?.id
-                            return (
-                              <td key={ci} className={`p-1.5 text-center ${isCurrentCell ? 'bg-emerald-900/30' : ''}`}>
-                                {pick ? (
-                                  <div>
-                                    <div className="text-white font-bold text-xs">{pick.player_name}</div>
-                                    <div className="text-[9px] text-gray-600">#{pick.pick_number}</div>
-                                  </div>
-                                ) : isCurrentCell ? (
-                                  <div className="text-emerald-400 text-xs font-bold animate-pulse">선택 중...</div>
-                                ) : (
-                                  <div className="text-gray-700">—</div>
-                                )}
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      ))
+                      return rows
                     })()}
                   </tbody>
                 </table>
@@ -646,6 +647,11 @@ export default function LeagueDraftPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 드래프트 채팅 — 코드 인증한 단장/감독관 전용 */}
+      {isAuthed && draft && authedCode && (
+        <DraftChat leagueId={leagueId} draftId={draft.id} authedCode={authedCode} teams={teams} />
       )}
     </div>
   )
