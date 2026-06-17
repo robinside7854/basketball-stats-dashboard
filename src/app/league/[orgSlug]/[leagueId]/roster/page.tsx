@@ -990,6 +990,8 @@ export default function LeagueRosterPage() {
   const [showQForm, setShowQForm] = useState(false)
   const [qYear, setQYear] = useState(new Date().getFullYear())
   const [qQuarter, setQQuarter] = useState(1)
+  const [qStart, setQStart] = useState('')
+  const [qEnd, setQEnd] = useState('')
   const [savingQ, setSavingQ] = useState(false)
 
   // 수정 2: 정렬/필터 state
@@ -997,6 +999,26 @@ export default function LeagueRosterPage() {
   const [filterPosition, setFilterPosition] = useState<string>('ALL')
 
   const currentYear = new Date().getFullYear()
+
+  // 분기별 기본 기간 (Q1: 1~3월, Q2: 4~6월, Q3: 7~9월, Q4: 10~12월)
+  const defaultQuarterDates = (year: number, quarter: number) => {
+    const startMonth = (quarter - 1) * 3 + 1            // 1, 4, 7, 10
+    const endMonth = startMonth + 2                      // 3, 6, 9, 12
+    const lastDay = new Date(year, endMonth, 0).getDate()
+    const mm = (m: number) => String(m).padStart(2, '0')
+    return {
+      start: `${year}-${mm(startMonth)}-01`,
+      end: `${year}-${mm(endMonth)}-${lastDay}`,
+    }
+  }
+
+  // 연도/분기 변경 시 기본 기간 자동 채움
+  useEffect(() => {
+    const { start, end } = defaultQuarterDates(qYear, qQuarter)
+    setQStart(start)
+    setQEnd(end)
+  }, [qYear, qQuarter])
+
   const displayQuarters = quarters.filter(q => q.year === currentYear).length > 0
     ? quarters.filter(q => q.year === currentYear)
     : quarters
@@ -1187,7 +1209,7 @@ export default function LeagueRosterPage() {
     const res = await fetch(`/api/leagues/${leagueId}/quarters`, {
       method: 'POST',
       headers: leagueHeaders,
-      body: JSON.stringify({ year: qYear, quarter: qQuarter, is_current: false }),
+      body: JSON.stringify({ year: qYear, quarter: qQuarter, is_current: false, start_date: qStart || null, end_date: qEnd || null }),
     })
     setSavingQ(false)
     if (res.ok) {
@@ -1651,25 +1673,42 @@ export default function LeagueRosterPage() {
             </div>
           )}
           {showQForm && (
-            <div className="flex items-center gap-2 pt-1">
-              <select
-                value={qYear}
-                onChange={e => setQYear(Number(e.target.value))}
-                className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer"
-              >
-                {[currentYear - 1, currentYear, currentYear + 1].map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-              <select
-                value={qQuarter}
-                onChange={e => setQQuarter(Number(e.target.value))}
-                className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer"
-              >
-                {[1, 2, 3, 4].map(q => <option key={q} value={q}>{q}Q</option>)}
-              </select>
-              <Button onClick={createQuarter} disabled={savingQ} size="sm" className="bg-blue-600 hover:bg-blue-500 cursor-pointer">
-                {savingQ ? <Loader2 size={13} className="animate-spin" /> : '생성'}
-              </Button>
-              <Button onClick={() => setShowQForm(false)} variant="outline" size="sm" className="border-gray-700 text-gray-400 cursor-pointer">취소</Button>
+            <div className="space-y-2 pt-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={qYear}
+                  onChange={e => setQYear(Number(e.target.value))}
+                  className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer"
+                >
+                  {[currentYear - 1, currentYear, currentYear + 1].map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <select
+                  value={qQuarter}
+                  onChange={e => setQQuarter(Number(e.target.value))}
+                  className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer"
+                >
+                  {[1, 2, 3, 4].map(q => <option key={q} value={q}>{q}Q</option>)}
+                </select>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col gap-0.5">
+                  <label className="text-[10px] text-gray-500 font-bold">시작일</label>
+                  <input type="date" value={qStart} onChange={e => setQStart(e.target.value)}
+                    className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer" />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <label className="text-[10px] text-gray-500 font-bold">종료일</label>
+                  <input type="date" value={qEnd} onChange={e => setQEnd(e.target.value)}
+                    className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer" />
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-600">기간은 분기 선택 시 자동 입력됩니다 (Q3 = 7~9월, Q4 = 10~12월). 필요 시 직접 수정하세요.</p>
+              <div className="flex items-center gap-2">
+                <Button onClick={createQuarter} disabled={savingQ} size="sm" className="bg-blue-600 hover:bg-blue-500 cursor-pointer">
+                  {savingQ ? <Loader2 size={13} className="animate-spin" /> : '생성'}
+                </Button>
+                <Button onClick={() => setShowQForm(false)} variant="outline" size="sm" className="border-gray-700 text-gray-400 cursor-pointer">취소</Button>
+              </div>
             </div>
           )}
         </div>
