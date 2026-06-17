@@ -29,7 +29,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
   const [msgs, setMsgs] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
   const [unread, setUnread] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const lastTsRef = useRef<string | null>(null)

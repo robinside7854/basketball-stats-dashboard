@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2, Minimize2, Maximize2, BarChart3, Shuffle, Check } from 'lucide-react'
+import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2, Minimize2, Maximize2 } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import DraftCodeManager from '@/components/league/DraftCodeManager'
@@ -16,7 +16,6 @@ import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
 import DraftTeamStats from '@/components/league/DraftTeamStats'
 import DraftStatTable from '@/components/league/DraftStatTable'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
-import { overallScorePerGame } from '@/lib/leagueStats'
 import type { Quarter } from '@/types/league'
 
 interface Team { id: string; name: string; color: string }
@@ -106,8 +105,6 @@ export default function LeagueDraftPage() {
   // 지난 분기 스탯 (드래프트 풀 랭킹·자동픽용)
   const [prevStats, setPrevStats] = useState<Record<string, DraftStatRow>>({})
   const [statsPlayer, setStatsPlayer] = useState<{ id: string; name: string; number: number | null } | null>(null)
-  // 픽 선택(확인 전) + 랜덤픽 진행
-  const [selectedPick, setSelectedPick] = useState<string | null>(null)
   const autoPickRef = useRef<string | null>(null) // 자동픽 중복 방지 (deadline 키)
 
   const sessionKey = selectedQid ? `draft_code_${leagueId}_${selectedQid}` : null
@@ -188,25 +185,25 @@ export default function LeagueDraftPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId, prevQuarter?.id, state?.draft?.id])
 
-  // 자동픽 — 타이머 만료 시 (현재 차례 단장 또는 감독관 클라이언트가 트리거)
+  // 자동픽 — 타이머 만료 시. 테스트(혼자 진행) 편의를 위해 인증된 누구나(단장/감독관)
+  // 또는 편집(PIN) 모드면 트리거 가능. 서버가 만료·현재팀을 검증하므로 안전.
   useEffect(() => {
     const d = state?.draft
-    if (!d || d.status !== 'in_progress' || !d.pick_deadline || !authedCode) return
+    if (!d || d.status !== 'in_progress' || !d.pick_deadline) return
+    const headers: Record<string, string> | null = authedCode
+      ? { 'X-Draft-Code': authedCode }
+      : (isEditMode ? leagueHeaders : null)
+    if (!headers) return
     const deadlineMs = new Date(d.pick_deadline).getTime()
-    const canTrigger = authedRole === 'supervisor' || (authedRole === 'manager' && state?.current_team_id === authedTeamId)
-    if (!canTrigger) return
     if (nowMs <= deadlineMs + AUTOPICK_GRACE_SECONDS * 1000) return  // 만료 후 5초 유예 뒤 자동 선택
     if (autoPickRef.current === d.pick_deadline) return // 이 마감건 이미 시도
     autoPickRef.current = d.pick_deadline
     fetch(`/api/leagues/${leagueId}/drafts/${d.id}/auto-pick`, {
-      method: 'POST', headers: { 'X-Draft-Code': authedCode },
+      method: 'POST', headers,
     }).then(async r => {
       if (r.ok) { const data = await r.json().catch(() => ({})); if (data.auto) toast.message('시간 초과 — 자동 픽 되었습니다'); fetchState() }
     }).catch(() => null)
-  }, [nowMs, state?.draft, state?.current_team_id, authedRole, authedTeamId, authedCode, leagueId, fetchState])
-
-  // 차례가 바뀌면 선택(확인 전) 초기화
-  useEffect(() => { setSelectedPick(null) }, [state?.current_team_id])
+  }, [nowMs, state?.draft, authedCode, isEditMode, leagueHeaders, leagueId, fetchState])
 
   // 새 픽 감지 → 히어로 공개 (1픽 포함 모든 픽)
   useEffect(() => {
@@ -332,29 +329,8 @@ export default function LeagueDraftPage() {
     } finally { setExtending(false) }
   }
 
-  // 종합 점수 (지난 분기 평균 기반) — 서버 자동픽과 동일 공식
-  function overallOf(playerId: string): number {
-    const s = prevStats[playerId]
-    if (!s || s.gp <= 0) return 0
-    return overallScorePerGame({ ppg: s.ppg, rpg: s.rpg, apg: s.apg, spg: s.spg, bpg: s.bpg, topg: s.topg })
-  }
-
-  // 랜덤픽(추천) — 남은 선수 중 종합 스탯 1위를 선택 후보로 지정
-  function recommendPick() {
-    const avail = state?.available_players ?? []
-    if (avail.length === 0) return
-    let best = avail[0].id, bestScore = -1
-    for (const p of avail) { const sc = overallOf(p.id); if (sc > bestScore) { bestScore = sc; best = p.id } }
-    // 데이터가 전혀 없으면 랜덤
-    if (bestScore <= 0) best = avail[Math.floor(Math.random() * avail.length)].id
-    setSelectedPick(best)
-    const name = avail.find(p => p.id === best)?.name
-    toast.message(`추천: ${name}${bestScore > 0 ? ' (종합 스탯 1위)' : ' (랜덤)'} — 최종 확인을 눌러 픽하세요`)
-  }
-
-  // 최종 확인 → 픽 실행
-  async function confirmPick() {
-    const playerId = selectedPick
+  // 픽 실행 (성적표에서 선택한 선수)
+  async function pickById(playerId: string) {
     if (!playerId || !state?.draft || !authedTeamId || !authedCode || authedRole !== 'manager') return
     if (state.current_team_id !== authedTeamId) { toast.error('본인 차례가 아닙니다'); return }
     setPicking(playerId)
@@ -367,7 +343,6 @@ export default function LeagueDraftPage() {
       const data = await res.json()
       if (!res.ok) { toast.error(data.error ?? '픽 실패'); return }
       toast.success('픽 완료')
-      setSelectedPick(null)
       fetchState()
     } finally { setPicking(null) }
   }
@@ -431,11 +406,11 @@ export default function LeagueDraftPage() {
       {/* 헤더 + 분기 */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="font-jersey text-2xl font-black text-white uppercase tracking-wide flex items-center gap-2">
-            <Sparkles size={20} className="text-amber-400" /> 드래프트
-            {isFocus && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 border border-emerald-700/50 text-emerald-300 normal-case tracking-normal">집중 모드 · LIVE</span>}
+          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
+            <Sparkles size={22} className="text-amber-400" /> 드래프트
+            {isFocus && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 border border-emerald-700/50 text-emerald-300">집중 모드 · LIVE</span>}
           </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {draft?.status === 'in_progress' && (
               <button onClick={() => setFocusMode(v => !v)}
                 className="text-xs px-2.5 py-1 rounded-lg border border-gray-700 text-gray-400 hover:text-white cursor-pointer inline-flex items-center gap-1">
@@ -529,14 +504,14 @@ export default function LeagueDraftPage() {
       {/* 메인 — 상태별 */}
       {!draft ? (
         <div className="bg-gray-900 border border-gray-800 border-dashed rounded-2xl p-12 text-center">
-          <Trophy size={32} className="mx-auto text-gray-600 mb-2" />
-          <p className="text-gray-500">이 분기는 아직 드래프트 세션이 만들어지지 않았습니다</p>
-          <p className="text-xs text-gray-600 mt-1">어드민이 세션을 생성하면 여기에 표시됩니다</p>
+          <Trophy size={36} className="mx-auto text-gray-600 mb-3" />
+          <p className="text-gray-200 text-base sm:text-lg font-semibold">이 분기는 아직 드래프트 세션이 만들어지지 않았습니다</p>
+          <p className="text-sm text-gray-400 mt-1.5">어드민이 세션을 생성하면 여기에 표시됩니다</p>
         </div>
       ) : draft.status === 'setup' ? (
         <div className="bg-gray-900 border border-blue-700/40 rounded-2xl p-8 text-center space-y-3">
-          <p className="text-blue-300 font-bold">드래프트 준비 중</p>
-          <p className="text-xs text-gray-500">감독관 또는 어드민이 준비 체크를 시작하면 진행됩니다</p>
+          <p className="text-blue-200 font-bold text-xl">드래프트 준비 중</p>
+          <p className="text-sm text-gray-400">감독관 또는 어드민이 준비 체크를 시작하면 진행됩니다</p>
           {authedRole === 'supervisor' && (
             <Button onClick={openReady} disabled={acting} className="bg-amber-600 hover:bg-amber-500 text-white">
               <Dice5 size={14} className="mr-1.5" /> 준비 체크 시작
@@ -546,9 +521,9 @@ export default function LeagueDraftPage() {
       ) : draft.status === 'ready_check' ? (
         <div className="bg-gray-900 border border-amber-700/40 rounded-2xl p-6 space-y-5">
           <div className="text-center">
-            <p className="font-jersey text-sm uppercase tracking-[0.2em] text-amber-400">READY CHECK</p>
-            <p className="text-white font-black text-xl mt-1">모든 참가자 준비 대기</p>
-            <p className="text-xs text-gray-500 mt-1">단장 3명 + 감독관이 모두 준비하면 추첨을 진행할 수 있습니다</p>
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-400">READY CHECK</p>
+            <p className="text-white font-bold text-2xl mt-1.5">모든 참가자 준비 대기</p>
+            <p className="text-sm text-gray-400 mt-1.5">단장 3명 + 감독관이 모두 준비하면 추첨을 진행할 수 있습니다</p>
           </div>
 
           {/* 참가자 준비 현황 */}
@@ -587,7 +562,7 @@ export default function LeagueDraftPage() {
               )}
             </div>
           ) : (
-            <p className="text-center text-xs text-gray-500">코드를 입력하면 준비 버튼이 표시됩니다</p>
+            <p className="text-center text-sm text-gray-400">코드를 입력하면 준비 버튼이 표시됩니다</p>
           )}
         </div>
       ) : (
@@ -740,53 +715,15 @@ export default function LeagueDraftPage() {
                         </>}
                   </div>
                 ) : isMyTurn ? (
-                  <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-jersey text-xs text-emerald-400 uppercase tracking-widest">선수 선택</p>
-                      <button onClick={recommendPick} className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded bg-purple-700/60 hover:bg-purple-600 text-purple-100 cursor-pointer">
-                        <Shuffle size={11} /> 랜덤픽(추천)
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-gray-500 mb-2">{state?.available_players.length}명 선택 가능 · 드래프트 풀 {state?.pool_size ?? 0}명 · 이름 선택 후 최종 확인</p>
-                    <div className="max-h-[52vh] overflow-y-auto space-y-1.5 pr-1">
-                      {state?.available_players.map(p => {
-                        const sel = selectedPick === p.id
-                        return (
-                          <div key={p.id}
-                            className={`w-full rounded-lg px-3 py-2 border flex items-center justify-between gap-2 transition-colors ${
-                              sel ? 'bg-emerald-700/40 border-emerald-400' : 'bg-gray-800 border-gray-700 hover:border-emerald-600'
-                            }`}>
-                            <button onClick={() => setSelectedPick(sel ? null : p.id)} disabled={picking !== null}
-                              className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer disabled:opacity-40">
-                              {sel ? <Check size={14} className="text-emerald-300 shrink-0" /> : <Circle size={12} className="text-gray-600 shrink-0" />}
-                              {p.number != null && <span className="jersey-num text-xs">{p.number}</span>}
-                              <span className="text-white font-bold text-sm truncate">{p.name}</span>
-                              {p.position && <span className="text-[10px] text-gray-500">{p.position}</span>}
-                              {p.plus_one && <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-500/20 text-amber-300">+1</span>}
-                            </button>
-                            <button onClick={() => setStatsPlayer({ id: p.id, name: p.name, number: p.number })}
-                              title="지난 분기 스탯" className="text-blue-400 hover:text-blue-300 cursor-pointer shrink-0 p-1">
-                              <BarChart3 size={15} />
-                            </button>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    {/* 최종 확인 바 */}
-                    <div className="mt-2 pt-2 border-t border-emerald-800/40">
-                      {selectedPick ? (
-                        <Button onClick={confirmPick} disabled={picking !== null} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white">
-                          {picking ? <BasketballLoader size={14} /> : <><Check size={14} className="mr-1.5" /> {state?.available_players.find(p => p.id === selectedPick)?.name} 최종 확인</>}
-                        </Button>
-                      ) : (
-                        <p className="text-center text-[11px] text-gray-500 py-1.5">선수 이름을 눌러 선택하세요</p>
-                      )}
-                    </div>
+                  <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-4 text-center">
+                    <p className="text-emerald-300 font-black text-lg">🏀 내 차례입니다!</p>
+                    <p className="text-sm text-gray-300 mt-1">아래 <b className="text-white">남은 선수 성적표</b>에서 선수를 선택해 픽하세요.</p>
+                    <p className="text-xs text-gray-500 mt-1">{state?.available_players.length}명 선택 가능 · 랜덤픽(추천) 버튼도 성적표에 있습니다.</p>
                   </div>
                 ) : (
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 text-center">
-                    <p className="text-gray-400 text-sm mb-1">본인 차례가 아닙니다</p>
-                    <p className="text-xs text-gray-500">현재: <span className="text-white font-bold">{currentTeam?.name}</span></p>
+                    <p className="text-gray-300 text-base mb-1">본인 차례가 아닙니다</p>
+                    <p className="text-sm text-gray-500">현재: <span className="text-white font-bold">{currentTeam?.name}</span></p>
                   </div>
                 )}
               </>
@@ -824,7 +761,7 @@ export default function LeagueDraftPage() {
 
         {/* 팀 구성 성적 + 남은 선수 성적표 (하단) */}
         <DraftTeamStats teams={teams} picks={(state?.picks ?? []).map(p => ({ team_id: p.team_id, player_id: p.player_id }))} leaders={state?.leaders ?? []} stats={prevStats} />
-        <DraftStatTable leagueId={leagueId} availablePlayers={(state?.available_players ?? []).map(p => ({ id: p.id, name: p.name, number: p.number }))} prevStats={prevStats} prevQuarterId={prevQuarter?.id ?? null} prevQuarterLabel={prevQuarterLabel} />
+        <DraftStatTable leagueId={leagueId} availablePlayers={(state?.available_players ?? []).map(p => ({ id: p.id, name: p.name, number: p.number }))} prevStats={prevStats} prevQuarterId={prevQuarter?.id ?? null} prevQuarterLabel={prevQuarterLabel} canPick={!!isMyTurn} picking={picking !== null} onPick={pickById} onShowStats={p => setStatsPlayer({ id: p.id, name: p.name, number: p.number })} />
         </>
       )}
 
