@@ -97,7 +97,7 @@ export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuar
                   </button>
                 ))}
               </div>
-              <span className="text-[10px] text-gray-500 ml-auto">{row.gp}경기 출전</span>
+              <span className="text-[10px] text-gray-500 ml-auto">{row.gp}일 출전 · 날짜 평균</span>
             </div>
 
             <div className="p-4 overflow-y-auto space-y-1.5">

@@ -38,14 +38,19 @@ export async function aggregateQuarterStats(
 
   const { data: games } = await supabase
     .from('league_games')
-    .select('id, plus_one_player_id')
+    .select('id, plus_one_player_id, date')
     .eq('league_id', leagueId)
     .eq('quarter_id', quarterId)
     .eq('is_started', true)
   const gameIds = (games ?? []).map(g => g.id)
   if (gameIds.length === 0) return {}
   const gamePlusOneMap: Record<string, string | null> = {}
-  for (const g of games ?? []) gamePlusOneMap[g.id] = (g as { plus_one_player_id: string | null }).plus_one_player_id ?? null
+  const gameToDate: Record<string, string> = {}
+  for (const g of games ?? []) {
+    const gg = g as { id: string; plus_one_player_id: string | null; date: string | null }
+    gamePlusOneMap[gg.id] = gg.plus_one_player_id ?? null
+    gameToDate[gg.id] = gg.date ?? gg.id
+  }
 
   const events: EventRow[] = []
   const PAGE = 1000
@@ -77,7 +82,7 @@ export async function aggregateQuarterStats(
     const gId = e.league_game_id
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
       if (!gpMap[pid]) gpMap[pid] = new Set()
-      gpMap[pid].add(gId)
+      gpMap[pid].add(gameToDate[gId] ?? gId)  // 날짜 기준 (날짜 평균)
     }
     const made = e.result === 'made'
     const override = gamePlusOneMap[gId]
@@ -102,7 +107,7 @@ export async function aggregateQuarterStats(
       const as = ensure(e.related_player_id)
       as.ast++
       if (!gpMap[e.related_player_id]) gpMap[e.related_player_id] = new Set()
-      gpMap[e.related_player_id].add(gId)
+      gpMap[e.related_player_id].add(gameToDate[gId] ?? gId)
     }
   }
   for (const pid of Object.keys(statsMap)) statsMap[pid].gp = gpMap[pid]?.size ?? 0
