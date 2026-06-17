@@ -27,8 +27,8 @@ export async function POST(
   }
   const plainCode = body.plain_code.trim()
   const label = body.label.trim()
-  if (plainCode.length < 4 || plainCode.length > 32) {
-    return NextResponse.json({ error: '코드는 4~32자 사이여야 합니다' }, { status: 400 })
+  if (plainCode.length < 3 || plainCode.length > 32) {
+    return NextResponse.json({ error: '코드는 3~32자 사이여야 합니다' }, { status: 400 })
   }
   if (label.length < 1 || label.length > 60) {
     return NextResponse.json({ error: '레이블은 1~60자 사이여야 합니다' }, { status: 400 })
