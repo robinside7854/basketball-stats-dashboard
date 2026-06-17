@@ -651,7 +651,7 @@ export default function LeagueDraftPage() {
 
       {/* 드래프트 채팅 — 코드 인증한 단장/감독관 전용 */}
       {isAuthed && draft && authedCode && (
-        <DraftChat leagueId={leagueId} draftId={draft.id} authedCode={authedCode} teams={teams} />
+        <DraftChat leagueId={leagueId} draftId={draft.id} authedCode={authedCode} teams={teams} authedRole={authedRole} authedTeamId={authedTeamId} authedLabel={authedLabel} />
       )}
     </div>
   )
