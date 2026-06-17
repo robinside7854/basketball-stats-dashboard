@@ -129,14 +129,14 @@ export default function LeagueDraftPage() {
 
   useEffect(() => { fetchState() }, [fetchState])
 
-  // 폴링 — 준비체크 / 진행중
+  // 폴링 — 무음 갱신. 활성(진행/준비체크) 1.5초, 그 외(설정/완료) 5초로
+  // 리셋·새 세션·완료 전환도 모든 화면에 반영되게 한다.
   const pollRef = useRef<number | null>(null)
   useEffect(() => {
     const st = state?.draft?.status
-    if (st === 'in_progress' || st === 'ready_check') {
-      pollRef.current = window.setInterval(fetchState, POLL_INTERVAL_MS)
-      return () => { if (pollRef.current) window.clearInterval(pollRef.current) }
-    }
+    const interval = st === 'in_progress' || st === 'ready_check' ? POLL_INTERVAL_MS : 5000
+    pollRef.current = window.setInterval(fetchState, interval)
+    return () => { if (pollRef.current) window.clearInterval(pollRef.current) }
   }, [state?.draft?.status, fetchState])
 
   // 새 픽 감지 → 히어로 공개
@@ -382,7 +382,7 @@ export default function LeagueDraftPage() {
               </section>
               <section className="space-y-2">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">드래프트 세션</h3>
-                <DraftSessionControl leagueId={leagueId} quarterId={selectedQid} teams={state?.teams ?? []} authHeaders={leagueHeaders} />
+                <DraftSessionControl leagueId={leagueId} quarterId={selectedQid} teams={state?.teams ?? []} authHeaders={leagueHeaders} onChanged={fetchState} />
               </section>
             </div>
           )}
