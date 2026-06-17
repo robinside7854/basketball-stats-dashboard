@@ -73,8 +73,8 @@ export default function AdminDraftPage() {
       toast.error('레이블과 코드를 모두 입력하세요')
       return
     }
-    if (form.code.trim().length < 4) {
-      toast.error('코드는 최소 4자 이상이어야 합니다')
+    if (form.code.trim().length < 3) {
+      toast.error('코드는 최소 3자 이상이어야 합니다')
       return
     }
     const res = await fetch(`/api/admin/leagues/${leagueId}/draft-codes`, {
@@ -101,7 +101,7 @@ export default function AdminDraftPage() {
 
   async function issueSupervisor() {
     if (!supForm.label.trim() || !supForm.code.trim()) { toast.error('레이블과 코드를 모두 입력하세요'); return }
-    if (supForm.code.trim().length < 4) { toast.error('코드는 최소 4자 이상이어야 합니다'); return }
+    if (supForm.code.trim().length < 3) { toast.error('코드는 최소 3자 이상이어야 합니다'); return }
     const res = await fetch(`/api/admin/leagues/${leagueId}/draft-codes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -282,11 +282,12 @@ export default function AdminDraftPage() {
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">코드 (4~32자)</label>
+                          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">코드 (영문 3자)</label>
                           <Input
                             value={form.code}
                             onChange={e => setDrafting(d => ({ ...d, [t.id]: { ...form, code: e.target.value } }))}
-                            placeholder="lakdown-q1-2026"
+                            placeholder="예: LAK"
+                            maxLength={32}
                             className="bg-gray-800 border-gray-700 text-white h-8 text-sm font-mono"
                             onKeyDown={e => e.key === 'Enter' && issueCode(t.id)}
                           />
@@ -342,9 +343,9 @@ export default function AdminDraftPage() {
                         placeholder="홍길동 총무" className="bg-gray-800 border-gray-700 text-white h-8 text-sm" />
                     </div>
                     <div>
-                      <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">코드 (4~32자)</label>
+                      <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1">코드 (영문 3자)</label>
                       <Input value={supForm.code} onChange={e => setSupForm(f => ({ ...f, code: e.target.value }))}
-                        placeholder="admin-q3-2026" className="bg-gray-800 border-gray-700 text-white h-8 text-sm font-mono"
+                        placeholder="예: ADM" maxLength={32} className="bg-gray-800 border-gray-700 text-white h-8 text-sm font-mono"
                         onKeyDown={e => e.key === 'Enter' && issueSupervisor()} />
                     </div>
                     <Button onClick={issueSupervisor} className="w-full bg-amber-600 hover:bg-amber-500 text-white text-xs h-8">감독관 코드 발급</Button>
