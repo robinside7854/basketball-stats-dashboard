@@ -1,4 +1,5 @@
 'use client'
+import LeagueSubTabs from '@/components/league/LeagueSubTabs'
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
@@ -1034,6 +1035,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   // ── 슬랏 그리드 + 기록 UI ─────────────────────────────────
   return (
     <div className="space-y-4">
+      <LeagueSubTabs group="games" />
       {/* 날짜 헤더 + YouTube 연동 (1행) */}
       <div className="flex items-center gap-3 flex-wrap">
         <button

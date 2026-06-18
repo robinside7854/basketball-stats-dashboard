@@ -9,7 +9,7 @@ import { Toaster } from '@/components/ui/sonner'
 import GlobalSearchModal from '@/components/league/GlobalSearchModal'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 
-function TabNav({ orgSlug, leagueId, onOpenSearch }: { orgSlug: string; leagueId: string; onOpenSearch: () => void }) {
+function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: string; leagueId: string; onOpenSearch: () => void; showDraft: boolean }) {
   const pathname = usePathname()
   const { isEditMode, openPinModal, exitEditMode } = useLeagueEditMode()
   const { theme, setTheme } = useTheme()
@@ -17,15 +17,15 @@ function TabNav({ orgSlug, leagueId, onOpenSearch }: { orgSlug: string; leagueId
   const base = `/league/${orgSlug}/${leagueId}`
 
   const tabs = [
-    { href: base, label: '홈' },
-    { href: `${base}/roster`, label: '선수단' },
-    { href: `${base}/teams`, label: '팀 구성' },
-    { href: `${base}/draft`, label: '드래프트' },
-    { href: `${base}/schedule`, label: '일정' },
-    { href: `${base}/record`, label: '경기기록' },
-    { href: `${base}/stats`, label: '스탯' },
-    { href: `${base}/settings`, label: '설정' },
+    { href: base, label: '홈', match: [] as string[] },
+    { href: `${base}/roster`, label: '선수·팀', match: [`${base}/roster`, `${base}/teams`] },
+    { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/record`] },
+    { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`] },
+    ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
+    { href: `${base}/settings`, label: '설정', match: [`${base}/settings`] },
   ]
+  const tabActive = (tab: { href: string; match: string[] }) =>
+    tab.href === base ? pathname === base : (tab.match.length ? tab.match.some(m => pathname.startsWith(m)) : pathname.startsWith(tab.href))
 
   return (
     <div className="sticky top-0 z-10 bg-gray-950 border-b border-gray-800">
@@ -35,9 +35,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch }: { orgSlug: string; leagueId
           <div className="relative flex-1 min-w-0 hidden lg:block">
             <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
               {tabs.map(tab => {
-                const isActive = tab.href === base
-                  ? pathname === base
-                  : pathname.startsWith(tab.href)
+                const isActive = tabActive(tab)
                 return (
                   <Link
                     key={tab.href}
@@ -58,7 +56,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch }: { orgSlug: string; leagueId
           {/* 모바일: 현재 페이지 제목 표시 */}
           <div className="flex-1 min-w-0 lg:hidden px-1 py-2">
             {(() => {
-              const current = tabs.find(t => t.href === base ? pathname === base : pathname.startsWith(t.href))
+              const current = tabs.find(tabActive)
               return <span className="text-sm font-semibold text-white">{current?.label ?? ''}</span>
             })()}
           </div>
@@ -94,20 +92,19 @@ function TabNav({ orgSlug, leagueId, onOpenSearch }: { orgSlug: string; leagueId
   )
 }
 
-function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string }) {
+function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId: string; showDraft: boolean }) {
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
   const base = `/league/${orgSlug}/${leagueId}`
 
   const mainTabs = [
     { href: base,            label: '홈',    Icon: Home },
-    { href: `${base}/teams`, label: '팀구성', Icon: Users },
+    { href: `${base}/roster`, label: '선수·팀', Icon: Users },
+    { href: `${base}/schedule`, label: '경기', Icon: Calendar },
     { href: `${base}/stats`, label: '스탯',  Icon: BarChart2 },
-    { href: `${base}/schedule`, label: '일정', Icon: Calendar },
   ]
   const moreTabs = [
-    { href: `${base}/roster`, label: '선수단',   Icon: Users },
-    { href: `${base}/record`, label: '경기기록', Icon: ClipboardList },
+    ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', Icon: ClipboardList }] : []),
     { href: `${base}/settings`, label: '설정',   Icon: Settings },
   ]
 
@@ -193,6 +190,22 @@ function LeagueLayout({
   const { theme } = useTheme()
   const [searchOpen, setSearchOpen] = useState(false)
   const [selectedPlayer, setSelectedPlayer] = useState<{ id: string; name: string } | null>(null)
+  // 드래프트 메뉴 조건부 표시 — 현재 분기에 진행 중(미완료) 세션이 있을 때만
+  const [showDraft, setShowDraft] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const qs = await fetch(`/api/leagues/${leagueId}/quarters`).then(r => r.json())
+        const cur = (qs ?? []).find((q: { is_current?: boolean }) => q.is_current) ?? (qs ?? [])[qs.length - 1]
+        if (!cur) return
+        const d = await fetch(`/api/leagues/${leagueId}/drafts/current?quarterId=${cur.id}`).then(r => r.json())
+        if (!cancelled) setShowDraft(!!d.draft && d.draft.status !== 'completed')
+      } catch { /* ignore */ }
+    })()
+    return () => { cancelled = true }
+  }, [leagueId])
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -208,14 +221,14 @@ function LeagueLayout({
   return (
     <LeagueEditModeProvider leagueId={leagueId}>
       <div className="min-h-screen bg-gray-950 text-gray-300">
-        <TabNav orgSlug={orgSlug} leagueId={leagueId} onOpenSearch={() => setSearchOpen(true)} />
+        <TabNav orgSlug={orgSlug} leagueId={leagueId} onOpenSearch={() => setSearchOpen(true)} showDraft={showDraft} />
         {/* pb-16 lg:pb-0: 모바일 하단 탭바 높이만큼 여백 */}
         <div className="pb-16 lg:pb-0">
           <RecordAwareContainer orgSlug={orgSlug} leagueId={leagueId}>
             {children}
           </RecordAwareContainer>
         </div>
-        <BottomNav orgSlug={orgSlug} leagueId={leagueId} />
+        <BottomNav orgSlug={orgSlug} leagueId={leagueId} showDraft={showDraft} />
       </div>
       {searchOpen && (
         <GlobalSearchModal
