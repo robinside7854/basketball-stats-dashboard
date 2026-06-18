@@ -1,4 +1,5 @@
 'use client'
+import LeagueSubTabs from '@/components/league/LeagueSubTabs'
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucide-react'
@@ -915,6 +916,7 @@ export default function LeagueTeamsPage() {
 
   return (
     <div className="space-y-6">
+      <LeagueSubTabs group="squad" />
       {/* ── 분기 버튼 탭 ── */}
       <div>
         <h2 className="text-xl font-bold text-white mb-3">팀 구성</h2>

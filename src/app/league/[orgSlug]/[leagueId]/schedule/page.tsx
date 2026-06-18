@@ -1,4 +1,5 @@
 'use client'
+import LeagueSubTabs from '@/components/league/LeagueSubTabs'
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
@@ -160,6 +161,7 @@ export default function LeagueSchedulePage() {
   return (
     <>
     <div className="space-y-5">
+      <LeagueSubTabs group="games" />
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-white">경기 일정</h2>

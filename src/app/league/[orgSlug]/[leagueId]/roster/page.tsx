@@ -1,4 +1,5 @@
 'use client'
+import LeagueSubTabs from '@/components/league/LeagueSubTabs'
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
@@ -1303,10 +1304,11 @@ export default function LeagueRosterPage() {
 
   return (
     <div className="space-y-5">
+      <LeagueSubTabs group="squad" />
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-xl font-bold text-white">선수단</h2>
+          <h2 className="text-xl font-bold text-white">선수 명단</h2>
           <p className="text-gray-500 text-sm">{players.length}명 등록</p>
         </div>
         {isEditMode ? (

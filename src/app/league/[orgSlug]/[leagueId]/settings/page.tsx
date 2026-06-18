@@ -121,23 +121,6 @@ export default function LeagueSettingsPage() {
     else toast.error('저장 실패')
   }
 
-  async function generateSchedule() {
-    if (!confirm('기존 일정이 모두 삭제되고 새로 생성됩니다. 계속하시겠습니까?')) return
-    setSaving('schedule')
-    const res = await fetch(`/api/leagues/${leagueId}/schedule`, {
-      method: 'POST',
-      headers: leagueHeaders,
-    })
-    setSaving(null)
-    if (res.ok) {
-      const d = await res.json()
-      toast.success(`일정 ${d.count}개 생성 완료`)
-    } else {
-      const d = await res.json().catch(() => ({}))
-      toast.error(d.error ?? '생성 실패')
-    }
-  }
-
   if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={32} /></div>
   if (!league) return null
 
@@ -251,20 +234,7 @@ export default function LeagueSettingsPage() {
         </Button>
       </div>
 
-      {/* 일정 자동 생성 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-3">
-        <h3 className="font-semibold text-white text-sm">일정 자동 생성</h3>
-        <p className="text-xs text-gray-500">팀 구성이 완료된 후 위 설정 기준으로 일정을 생성합니다. 기존 일정은 삭제됩니다.</p>
-        <Button
-          onClick={generateSchedule}
-          disabled={saving === 'schedule'}
-          variant="outline"
-          className="w-full border-gray-700 text-gray-300 hover:text-white cursor-pointer"
-          size="sm"
-        >
-          {saving === 'schedule' ? <Loader2 size={13} className="animate-spin mr-1" /> : null}일정 자동 생성
-        </Button>
-      </div>
+      {/* 일정 자동 생성은 '경기 > 일정' 페이지로 이동했습니다 */}
 
       {/* YouTube 채널 설정 */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-3">
