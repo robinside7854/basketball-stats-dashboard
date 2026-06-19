@@ -110,7 +110,6 @@ export default function LeagueEventInputPad({
   const [awaitingRebound, setAwaitingRebound] = useState(false)
   const [reboundShooterTeamId, setReboundShooterTeamId] = useState<string | null>(null)
   const [lastReboundId, setLastReboundId] = useState<string | null>(null) // 슛 직후 저장된 리바운드 ID
-  const [showAndOnePrompt, setShowAndOnePrompt] = useState(false)  // Phase 2-F
   const [awaitingTovPair, setAwaitingTovPair] = useState(false)    // Phase 2-G
   const [stealerTeamId, setStealerTeamId] = useState<string | null>(null)
   const [lastStlEventId, setLastStlEventId] = useState<string | null>(null)
@@ -178,16 +177,6 @@ export default function LeagueEventInputPad({
     return () => { clearTimeout(timer); clearInterval(tick) }
   }, [awaitingAssist]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 앤드원 4초 자동 스킵 ────────────────────────────────────
-  const [andOneCountdown, setAndOneCountdown] = useState(0)
-  useEffect(() => {
-    if (!showAndOnePrompt) { setAndOneCountdown(0); return }
-    setAndOneCountdown(4)
-    const tick = setInterval(() => setAndOneCountdown(n => Math.max(0, n - 1)), 1000)
-    const timer = setTimeout(() => { clearInterval(tick); setShowAndOnePrompt(false) }, 4000)
-    return () => { clearTimeout(timer); clearInterval(tick) }
-  }, [showAndOnePrompt]) // eslint-disable-line react-hooks/exhaustive-deps
-
   // ── API ──────────────────────────────────────────────────────
   async function saveEvent(body: object): Promise<string | null> {
     const r = await fetch(`/api/leagues/${leagueId}/events`, { method: 'POST', headers: leagueHeaders, body: JSON.stringify(body) })
@@ -232,33 +221,6 @@ export default function LeagueEventInputPad({
       setAwaitingRebound(true)
     }
 
-    // Phase 2-F: 필드골 성공 후 앤드원 프롬프트
-    if (result === 'made' && SHOT_TYPES.includes(shotType)) {
-      setShowAndOnePrompt(true)
-    }
-  }
-
-  // Phase 2-F: 앤드원 처리
-  async function handleAndOne(result: 'made' | 'missed') {
-    const shooterId = lastEvent?.playerId ?? selectedPlayer
-    if (!shooterId) { setShowAndOnePrompt(false); return }
-    const shooter = allPlayers.find(p => p.id === shooterId)
-    const pts = result === 'made' ? 1 : 0
-    const id = await saveEvent({
-      league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
-      type: 'and_one', league_player_id: shooterId,
-      team_id: shooter?.team_id ?? null,
-      result, related_player_id: null, points: pts,
-    })
-    setShowAndOnePrompt(false)
-    if (!id) return
-    const name = shooter?.name ?? ''
-    toast.success(`기록: ${name} — 앤드원 ${result === 'made' ? '✓' : '✗'}`)
-    onEventSaved()
-    if (result === 'missed') {
-      setReboundShooterTeamId(shooter?.team_id ?? null)
-      setAwaitingRebound(true)
-    }
   }
 
   // Phase 2-G: 스틸 후 TOV 페어
@@ -444,28 +406,6 @@ export default function LeagueEventInputPad({
 
   return (
     <div className="space-y-2">
-      {/* ── 앤드원 프롬프트 (필드골 성공 직후 최상단) — 토스트에 가려지지 않게 sticky ── */}
-      {showAndOnePrompt && (
-        <div className="sticky top-0 z-30 -mx-1 px-1">
-          <div className="flex items-center gap-2 px-3 py-3 bg-amber-500/95 border-2 border-amber-300 rounded-xl shadow-2xl shadow-amber-900/50 ring-2 ring-amber-200/30 animate-pulse">
-            <span className="text-white font-black text-sm flex-1 drop-shadow">⚡ 앤드원 발생?</span>
-            <button onClick={() => handleAndOne('made')}
-              className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-black rounded-lg cursor-pointer active:scale-95 transition-all shadow-md">
-              ✓ 성공 +1
-            </button>
-            <button onClick={() => handleAndOne('missed')}
-              className="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs font-black rounded-lg cursor-pointer active:scale-95 transition-all shadow-md">
-              ✗ 실패
-            </button>
-            <button onClick={() => setShowAndOnePrompt(false)}
-              title="닫기 (자동 스킵 카운트다운)"
-              className="px-2 py-1.5 bg-gray-800/80 text-gray-200 text-xs rounded-lg cursor-pointer hover:bg-gray-700">
-              <span className={andOneCountdown <= 1 ? 'text-red-300 font-bold' : ''}>{andOneCountdown}s</span>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ── 헤더: 선택된 선수 + 마지막 이벤트 + 취소 ── */}
       <div className="flex items-center gap-2 min-h-[32px] relative">
         {selectedObj ? (
