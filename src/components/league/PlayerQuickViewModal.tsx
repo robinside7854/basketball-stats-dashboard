@@ -294,7 +294,18 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
           </div>
         </div>
 
-        {showEditPanel && isEditMode && (
+        {showEditPanel && isEditMode && (() => {
+          const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'] as const
+          const positionList = editForm.position
+            ? editForm.position.split(',').map(s => s.trim()).filter(Boolean)
+            : []
+          const togglePosition = (p: string) => {
+            const next = positionList.includes(p)
+              ? positionList.filter(x => x !== p)
+              : [...positionList, p]
+            setEditForm(f => ({ ...f, position: next.join(',') }))
+          }
+          return (
           <div className="px-5 py-4 border-b border-gray-800 bg-gray-800/30 space-y-3">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">선수 정보 수정</p>
             <div className="grid grid-cols-2 gap-2">
@@ -304,25 +315,48 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-2.5 py-1.5 text-xs" />
               </div>
               <div>
-                <label className="text-[10px] text-gray-500 block mb-1">포지션</label>
-                <input value={editForm.position} onChange={e => setEditForm(f => ({...f, position: e.target.value}))}
-                  placeholder="PG,SG,SF" className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-2.5 py-1.5 text-xs" />
-              </div>
-              <div>
                 <label className="text-[10px] text-gray-500 block mb-1">생년월일</label>
                 <input type="date" value={editForm.birth_date} onChange={e => setEditForm(f => ({...f, birth_date: e.target.value}))}
                   className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-2.5 py-1.5 text-xs" />
               </div>
-              <div className="flex items-end">
+              <div className="col-span-2">
+                <label className="text-[10px] text-gray-500 block mb-1">포지션 (다중 선택)</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {POSITIONS.map(p => {
+                    const active = positionList.includes(p)
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => togglePosition(p)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-bold border transition-colors cursor-pointer ${
+                          active
+                            ? 'bg-blue-600 border-blue-500 text-white'
+                            : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className="col-span-2">
                 <button onClick={async () => {
                   if (!leagueHeaders) return
                   setSavingEdit(true)
-                  await fetch(`/api/leagues/${leagueId}/players/${playerId}`, {
+                  const res = await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, {
                     method: 'PATCH', headers: {...leagueHeaders, 'Content-Type': 'application/json'},
                     body: JSON.stringify({ name: editForm.name, position: editForm.position || null, birth_date: editForm.birth_date || null }),
                   })
-                  setSavingEdit(false); onSaved?.(); setShowEditPanel(false)
-                }} disabled={savingEdit} className="w-full py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50">
+                  setSavingEdit(false)
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({ error: '저장 실패' }))
+                    alert(err.error || '저장 실패')
+                    return
+                  }
+                  onSaved?.(); setShowEditPanel(false)
+                }} disabled={savingEdit} className="w-full py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50">
                   {savingEdit ? '저장 중...' : '저장'}
                 </button>
               </div>
@@ -334,7 +368,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 if (!leagueHeaders || !player) return
                 setTogglingP1(true)
                 const newVal = !player.plus_one
-                await fetch(`/api/leagues/${leagueId}/players/${playerId}`, {
+                await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, {
                   method: 'PATCH', headers: {...leagueHeaders, 'Content-Type': 'application/json'},
                   body: JSON.stringify({ plus_one: newVal }),
                 })
@@ -353,7 +387,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 <button onClick={async () => {
                   if (!leagueHeaders) return
                   setDeleting(true)
-                  await fetch(`/api/leagues/${leagueId}/players/${playerId}`, { method: 'DELETE', headers: leagueHeaders })
+                  await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, { method: 'DELETE', headers: leagueHeaders })
                   setDeleting(false); onDeleted?.(); onClose()
                 }} disabled={deleting} className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50">
                   {deleting ? '삭제 중...' : '삭제 확인'}
@@ -362,7 +396,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               </div>
             )}
           </div>
-        )}
+          )
+        })()}
 
         <div className="h-0.5 w-full bg-gradient-to-r from-blue-500/60 via-blue-500/20 to-transparent" />
 
