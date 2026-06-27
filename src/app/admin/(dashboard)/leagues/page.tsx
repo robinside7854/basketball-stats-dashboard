@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, ExternalLink, Trophy, Trash2, Loader2 } from 'lucide-react'
+import { Plus, ExternalLink, Trophy, Trash2, Loader2, Settings } from 'lucide-react'
 import { toast } from 'sonner'
 
 type League = {
@@ -104,6 +104,13 @@ export default function AdminLeaguesPage() {
                   <p className="text-xs text-gray-600 mt-0.5 font-mono">/league/{league.org_slug}/{league.id.slice(0, 8)}…</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  <Link
+                    href={`/admin/leagues/${league.id}`}
+                    className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 px-2.5 py-1.5 rounded-lg border border-blue-900/50 bg-blue-950/30 hover:border-blue-700 hover:bg-blue-950/50 transition-colors"
+                  >
+                    <Settings size={12} />
+                    관리
+                  </Link>
                   <Link
                     href={`/league/${league.org_slug}/${league.id}`}
                     target="_blank"
