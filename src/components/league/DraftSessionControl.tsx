@@ -11,7 +11,7 @@ interface Draft {
   id: string
   league_id: string
   quarter_id: string
-  status: 'setup' | 'ready_check' | 'in_progress' | 'completed'
+  status: 'setup' | 'ready_check' | 'lottery_waiting' | 'lottery_done' | 'in_progress' | 'completed'
   draft_order: string[]
   current_pick_index: number
   current_round: number
@@ -133,17 +133,44 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     else { const d = await res.json(); toast.error(d.error ?? '실패') }
   }
 
-  async function runLottery(force: boolean) {
+  // ① 추첨 대기 화면 열기 — ready_check → lottery_waiting
+  async function openLotteryWait(force: boolean) {
     if (!draft) return
-    if (force && !confirm('아직 준비 안 된 참가자가 있어도 강제로 추첨하시겠습니까?')) return
+    if (force && !confirm('아직 준비 안 된 참가자가 있어도 강제로 추첨 대기 화면을 여시겠습니까?')) return
     setActing(true)
-    const res = await fetch(`/api/leagues/${leagueId}/drafts/${draft.id}/lottery`, {
+    const res = await fetch(`/api/leagues/${leagueId}/drafts/${draft.id}/lottery/open`, {
       method: 'POST', headers: jsonHeaders, body: JSON.stringify({ force }),
     })
     setActing(false)
     const d = await res.json()
-    if (res.ok) { toast.success('추첨 완료 — 드래프트 시작!'); fetchData(true); onChanged?.() }
+    if (res.ok) { toast.success('추첨 대기 화면이 열렸습니다 — 모두 시청 후 추첨 시작'); fetchData(true); onChanged?.() }
+    else { toast.error(d.error ?? '실패') }
+  }
+
+  // ② 추첨 실행 — lottery_waiting → lottery_done
+  async function runLottery() {
+    if (!draft) return
+    setActing(true)
+    const res = await fetch(`/api/leagues/${leagueId}/drafts/${draft.id}/lottery`, {
+      method: 'POST', headers: jsonHeaders,
+    })
+    setActing(false)
+    const d = await res.json()
+    if (res.ok) { toast.success('🎲 추첨 완료 — 결과를 시청 후 드래프트 시작'); fetchData(true); onChanged?.() }
     else { toast.error(d.error ?? '추첨 실패') }
+  }
+
+  // ③ 드래프트 시작 — lottery_done → in_progress
+  async function startDraft() {
+    if (!draft) return
+    setActing(true)
+    const res = await fetch(`/api/leagues/${leagueId}/drafts/${draft.id}/start-draft`, {
+      method: 'POST', headers: jsonHeaders,
+    })
+    setActing(false)
+    const d = await res.json()
+    if (res.ok) { toast.success('🏀 드래프트 시작!'); fetchData(true); onChanged?.() }
+    else { toast.error(d.error ?? '시작 실패') }
   }
 
   async function completeSession() {
@@ -338,9 +365,15 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         <div className="flex gap-1.5 flex-wrap">
           {draft.status === 'ready_check' && (
             <>
-              <Button onClick={() => runLottery(false)} disabled={acting || !allTeamsReady} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8"><Dice5 size={12} className="mr-1" /> 추첨 시작</Button>
-              <Button onClick={() => runLottery(true)} disabled={acting} variant="outline" className="text-xs h-8">강제 추첨</Button>
+              <Button onClick={() => openLotteryWait(false)} disabled={acting || !allTeamsReady} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8"><Dice5 size={12} className="mr-1" /> 추첨 대기 화면 열기</Button>
+              <Button onClick={() => openLotteryWait(true)} disabled={acting} variant="outline" className="text-xs h-8">강제 열기</Button>
             </>
+          )}
+          {draft.status === 'lottery_waiting' && (
+            <Button onClick={runLottery} disabled={acting} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8"><Dice5 size={12} className="mr-1" /> 추첨 시작</Button>
+          )}
+          {draft.status === 'lottery_done' && (
+            <Button onClick={startDraft} disabled={acting} className="bg-orange-600 hover:bg-orange-500 text-white text-xs h-8"><Play size={12} className="mr-1" /> 🏀 드래프트 시작</Button>
           )}
           {draft.status === 'in_progress' && (
             <Button onClick={completeSession} disabled={acting} className="bg-orange-600 hover:bg-orange-500 text-white text-xs h-8"><Square size={12} className="mr-1" /> 강제 종료</Button>

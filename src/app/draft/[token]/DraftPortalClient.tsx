@@ -36,7 +36,7 @@ interface Pick {
 interface DraftState {
   draft: {
     id: string
-    status: 'setup' | 'ready_check' | 'in_progress' | 'completed'
+    status: 'setup' | 'ready_check' | 'lottery_waiting' | 'lottery_done' | 'in_progress' | 'completed'
     draft_order: string[]
     current_pick_index: number
     current_round: number
@@ -279,6 +279,61 @@ export default function DraftPortalClient({
     }
   }, [remainingSeconds, draftRow?.pick_deadline, draftRow?.status])
 
+  // ────────────────── lottery 흐름 (감독관 전용) ──────────────────
+  const [actingLottery, setActingLottery] = useState(false)
+
+  async function openLotteryScreen() {
+    if (!auth || auth.role !== 'supervisor') return
+    setActingLottery(true)
+    try {
+      const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/lottery/open`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Draft-Code': auth.plain },
+        body: JSON.stringify({}),
+      })
+      const data = await r.json()
+      if (!r.ok) { toast.error(data.error ?? '실패'); return }
+      toast.success('🎬 추첨 대기 화면 열림 — 모두 시청 중')
+      fetchState()
+    } finally {
+      setActingLottery(false)
+    }
+  }
+
+  async function runLottery() {
+    if (!auth || auth.role !== 'supervisor') return
+    setActingLottery(true)
+    try {
+      const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/lottery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Draft-Code': auth.plain },
+      })
+      const data = await r.json()
+      if (!r.ok) { toast.error(data.error ?? '추첨 실패'); return }
+      toast.success('🎲 추첨 완료!')
+      fetchState()
+    } finally {
+      setActingLottery(false)
+    }
+  }
+
+  async function startDraft() {
+    if (!auth || auth.role !== 'supervisor') return
+    setActingLottery(true)
+    try {
+      const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/start-draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Draft-Code': auth.plain },
+      })
+      const data = await r.json()
+      if (!r.ok) { toast.error(data.error ?? '시작 실패'); return }
+      toast.success('🏀 드래프트 시작!')
+      fetchState()
+    } finally {
+      setActingLottery(false)
+    }
+  }
+
   // ────────────────── READY 토글 ──────────────────
   const [togglingReady, setTogglingReady] = useState(false)
   async function toggleReady() {
@@ -470,7 +525,7 @@ export default function DraftPortalClient({
             </div>
           )}
 
-          {/* READY 진행 상황 패널 (ready_check 단계) */}
+          {/* READY 진행 상황 패널 (ready_check 단계) — 모두 준비 시 감독관에게 '추첨 대기 화면 열기' 버튼 */}
           {draft.status === 'ready_check' && (
             <ReadyPanel
               teams={state?.teams ?? []}
@@ -479,6 +534,31 @@ export default function DraftPortalClient({
               auth={auth}
               onToggle={toggleReady}
               toggling={togglingReady}
+              onOpenLottery={auth?.role === 'supervisor' ? openLotteryScreen : undefined}
+              opening={actingLottery}
+            />
+          )}
+
+          {/* 추첨 대기 화면 (lottery_waiting) — 모두에게 큰 시청 카드 + 감독관 "추첨 시작" 버튼 */}
+          {draft.status === 'lottery_waiting' && (
+            <LotteryWaitScreen
+              teams={state?.teams ?? []}
+              draftOrder={draft.draft_order}
+              isSupervisor={auth?.role === 'supervisor'}
+              onStartLottery={runLottery}
+              acting={actingLottery}
+            />
+          )}
+
+          {/* 추첨 완료 (lottery_done) — 결과 표시 + 감독관 "드래프트 시작" 버튼 */}
+          {draft.status === 'lottery_done' && (
+            <LotteryDoneScreen
+              teams={state?.teams ?? []}
+              draftOrder={draft.draft_order}
+              odds={draft.lottery_odds}
+              isSupervisor={auth?.role === 'supervisor'}
+              onStartDraft={startDraft}
+              acting={actingLottery}
             />
           )}
 
@@ -748,6 +828,8 @@ function ReadyPanel({
   auth,
   onToggle,
   toggling,
+  onOpenLottery,
+  opening,
 }: {
   teams: Team[]
   readyState: Record<string, boolean>
@@ -755,6 +837,8 @@ function ReadyPanel({
   auth: { role: 'manager' | 'supervisor'; teamId: string | null; label: string } | null
   onToggle: () => Promise<void>
   toggling: boolean
+  onOpenLottery?: () => Promise<void>
+  opening?: boolean
 }) {
   const myKey = auth ? (auth.role === 'supervisor' ? 'supervisor' : auth.teamId) : null
   const iAmReady = myKey ? !!readyState[myKey] : false
@@ -807,6 +891,136 @@ function ReadyPanel({
             감독관
           </span>
         )}
+      </div>
+      {/* 전원 준비 시 감독관에게 노출 */}
+      {allReady && onOpenLottery && (
+        <div className="mt-4 pt-4 border-t border-emerald-700/40 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-emerald-200 flex items-center gap-2">
+            <ShieldCheck size={14} className="text-amber-400" />
+            감독관 권한: 모두 추첨 대기 화면으로 이동합니다
+          </p>
+          <Button
+            onClick={onOpenLottery}
+            disabled={opening}
+            className="bg-purple-600 hover:bg-purple-500 text-white font-bold"
+          >
+            🎬 추첨 대기 화면 열기
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function LotteryWaitScreen({ teams, draftOrder, isSupervisor, onStartLottery, acting }: {
+  teams: Team[]
+  draftOrder: string[]
+  isSupervisor: boolean
+  onStartLottery: () => Promise<void>
+  acting: boolean
+}) {
+  return (
+    <div className="mb-4 rounded-2xl border-2 border-purple-700/50 bg-gradient-to-br from-purple-950/50 via-indigo-950/40 to-gray-950 p-6 sm:p-10 text-center overflow-hidden relative">
+      {/* 배경 글로우 */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none"
+        style={{ background: 'radial-gradient(circle at center, rgba(168,85,247,0.3), transparent 60%)' }} />
+
+      <div className="relative">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-900/60 border border-purple-600/60 text-purple-200 text-xs font-bold uppercase tracking-widest mb-4">
+          <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" /> 추첨 대기 중
+        </div>
+        <h2 className="text-3xl sm:text-5xl font-black text-white mb-3 tracking-tight" style={{ fontFamily: 'var(--font-bebas, sans-serif)' }}>
+          🎰 추첨 임박 🎰
+        </h2>
+        <p className="text-sm sm:text-base text-purple-200 mb-6">
+          감독관의 신호를 기다리고 있습니다 — 곧 NBA 스타일 로또볼 추첨이 시작됩니다
+        </p>
+
+        {/* 참가 팀들 표시 */}
+        <div className="flex flex-wrap justify-center gap-2 mb-6">
+          {teams.map(t => (
+            <div key={t.id} className="px-3 py-1.5 rounded-lg bg-gray-900/80 border-2 text-sm font-bold animate-pulse" style={{ borderColor: t.color, color: '#fff' }}>
+              <div className="w-2 h-2 inline-block rounded-full mr-2" style={{ background: t.color }} />
+              {t.name}
+            </div>
+          ))}
+        </div>
+
+        {isSupervisor && (
+          <Button
+            onClick={onStartLottery}
+            disabled={acting || draftOrder.length > 0}
+            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-base px-8 h-12 shadow-2xl"
+          >
+            {acting ? '추첨 중...' : '🎲 추첨 시작'}
+          </Button>
+        )}
+        {!isSupervisor && (
+          <p className="text-xs text-gray-400 mt-2">감독관만 추첨을 시작할 수 있습니다</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function LotteryDoneScreen({ teams, draftOrder, odds, isSupervisor, onStartDraft, acting }: {
+  teams: Team[]
+  draftOrder: string[]
+  odds: Record<string, number> | null
+  isSupervisor: boolean
+  onStartDraft: () => Promise<void>
+  acting: boolean
+}) {
+  const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
+  return (
+    <div className="mb-4 rounded-2xl border-2 border-amber-700/60 bg-gradient-to-br from-amber-950/40 via-orange-950/30 to-gray-950 p-6 sm:p-8 overflow-hidden relative">
+      <div className="absolute inset-0 opacity-20 pointer-events-none"
+        style={{ background: 'radial-gradient(circle at center, rgba(245,158,11,0.3), transparent 60%)' }} />
+
+      <div className="relative">
+        <div className="text-center mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-900/60 border border-amber-600/60 text-amber-200 text-xs font-bold uppercase tracking-widest mb-3">
+            🎲 추첨 완료
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">픽 순서 확정</h2>
+        </div>
+
+        {/* 픽 순서 큰 카드 */}
+        <div className="flex flex-wrap justify-center gap-2 mb-6">
+          {draftOrder.map((tid, idx) => {
+            const t = teamMap[tid]
+            const odd = odds?.[tid]
+            return (
+              <div
+                key={`${tid}-${idx}`}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl border-2 bg-gray-900/80 shadow-lg"
+                style={{ borderColor: t?.color }}
+              >
+                <span className="text-2xl font-black tabular-nums" style={{ color: t?.color, fontFamily: 'var(--font-bebas, sans-serif)' }}>
+                  {idx + 1}
+                </span>
+                <div className="text-left">
+                  <p className="text-xs font-bold text-white">{t?.name ?? '?'}</p>
+                  {odd != null && <p className="text-[9px] text-gray-400">{(odd * 100).toFixed(0)}% 확률</p>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="text-center">
+          {isSupervisor ? (
+            <Button
+              onClick={onStartDraft}
+              disabled={acting}
+              className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black text-base px-8 h-12 shadow-2xl"
+            >
+              {acting ? '시작 중...' : '🏀 드래프트 시작'}
+            </Button>
+          ) : (
+            <p className="text-xs text-gray-400">감독관이 드래프트를 시작할 때까지 기다려주세요</p>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -925,10 +1139,12 @@ function PickSecondsCard({ currentSeconds, onChange }: { currentSeconds: number;
   )
 }
 
-function StatusBadge({ status }: { status: 'setup' | 'ready_check' | 'in_progress' | 'completed' }) {
+function StatusBadge({ status }: { status: 'setup' | 'ready_check' | 'lottery_waiting' | 'lottery_done' | 'in_progress' | 'completed' }) {
   const map = {
     setup: { label: '준비', color: 'bg-gray-800 text-gray-400 border-gray-700' },
     ready_check: { label: '레디 체크', color: 'bg-blue-950/60 text-blue-300 border-blue-700/50' },
+    lottery_waiting: { label: '추첨 대기', color: 'bg-purple-950/60 text-purple-300 border-purple-700/50' },
+    lottery_done: { label: '추첨 완료', color: 'bg-amber-950/60 text-amber-300 border-amber-700/50' },
     in_progress: { label: '진행 중', color: 'bg-amber-950/60 text-amber-300 border-amber-700/50' },
     completed: { label: '완료', color: 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50' },
   } as const
