@@ -16,14 +16,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { auth } from '@/lib/auth'
-import { isDraftManager } from '@/lib/draftManagerAuth'
+import { isDraftManager, isDraftSessionController } from '@/lib/draftManagerAuth'
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
-  if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const session = await auth()
   const body = await req.json().catch(() => null) as
     | { quarter_id?: string; method?: 'snake'|'linear'; leaders?: Record<string, string | null>; pool_player_ids?: string[] }
@@ -31,6 +30,10 @@ export async function POST(
 
   if (!body?.quarter_id) {
     return NextResponse.json({ error: 'quarter_id 필요' }, { status: 400 })
+  }
+  // 권한: 어드민 ∥ PIN ∥ 이 분기 감독관 코드 — 방 모델에서 감독관도 세션 생성 가능
+  if (!await isDraftSessionController(req, leagueId, body.quarter_id)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const poolIds = Array.isArray(body.pool_player_ids) ? body.pool_player_ids.filter(id => typeof id === 'string' && id) : []
   if (poolIds.length === 0) {
@@ -110,10 +113,10 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
-  if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const quarterId = searchParams.get('quarterId')
   if (!quarterId) return NextResponse.json({ error: 'quarterId 필요' }, { status: 400 })
+  if (!await isDraftSessionController(req, leagueId, quarterId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = createClient()
   const { data: draft } = await supabase

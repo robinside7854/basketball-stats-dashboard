@@ -2,8 +2,9 @@
 //
 // 흐름:
 //   1. status='ready_check' + 모든 참가자(단장들 + 감독관) 준비 완료 확인 (force 로 우회 가능)
-//   2. 지난 분기 승률 계산 → 가중치(하위 팀 1픽 확률↑) → 비복원 추첨으로 draft_order 생성
-//   3. lottery_odds 기록 + status='in_progress' + started_at
+//   2. 모든 팀 동등 가중치 → Fisher-Yates 완전 무작위 셔플로 draft_order 생성
+//      (새 분기마다 팀이 새로 만들어지므로 지난 분기 성적과 무관)
+//   3. lottery_odds 는 1/N 균등으로 기록 (표시용) + status='in_progress' + started_at
 //
 // body (optional): { force?: boolean }  — 준비 미완료 상태에서도 강제 추첨
 
@@ -12,7 +13,14 @@ import { createClient } from '@/lib/supabase/admin'
 import { auth } from '@/lib/auth'
 import { verifySupervisorCode } from '@/lib/leagueDraftAuth'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
-import { recordsToWeights, computeOdds, weightedOrder, type TeamRecord } from '@/lib/draftLottery'
+
+function shuffleInPlace<T>(arr: T[]): T[] {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
 
 export async function POST(
   req: Request,
@@ -75,43 +83,13 @@ export async function POST(
     }
   }
 
-  // ── 지난 분기 승률 계산 ──
-  const { data: quarters } = await supabase
-    .from('league_quarters')
-    .select('id, year, quarter')
-    .eq('league_id', leagueId)
-    .order('year', { ascending: true })
-    .order('quarter', { ascending: true })
-  const ordered = (quarters ?? []) as { id: string; year: number; quarter: number }[]
-  const curIdx = ordered.findIndex(q => q.id === d.quarter_id)
-  const prevQuarter = curIdx > 0 ? ordered[curIdx - 1] : null
-
-  const records: TeamRecord[] = teamIds.map(tid => ({ teamId: tid, played: 0, wins: 0 }))
-  const recMap = Object.fromEntries(records.map(r => [r.teamId, r]))
-
-  if (prevQuarter) {
-    const { data: games } = await supabase
-      .from('league_games')
-      .select('home_team_id, away_team_id, home_score, away_score')
-      .eq('league_id', leagueId)
-      .eq('quarter_id', prevQuarter.id)
-      .eq('is_complete', true)
-      .eq('is_exhibition', false)
-    for (const g of (games ?? []) as { home_team_id: string | null; away_team_id: string | null; home_score: number; away_score: number }[]) {
-      if (!g.home_team_id || !g.away_team_id) continue
-      const h = recMap[g.home_team_id]
-      const a = recMap[g.away_team_id]
-      if (!h || !a) continue
-      h.played++; a.played++
-      if (g.home_score > g.away_score) h.wins++
-      else if (g.away_score > g.home_score) a.wins++
-    }
-  }
-
-  // ── 가중 추첨 ──
-  const weights = recordsToWeights(records)
-  const odds = computeOdds(weights)
-  const order = weightedOrder(weights)
+  // ── 완전 무작위 추첨 (Fisher-Yates) ──
+  // 분기마다 팀이 새로 구성되어 지난 분기 성적 가중치가 의미 없음.
+  // 모든 팀 동등 확률 (1/N).
+  const order = shuffleInPlace([...teamIds])
+  const equalOdd = teamIds.length > 0 ? 1 / teamIds.length : 0
+  const odds: Record<string, number> = Object.fromEntries(teamIds.map(tid => [tid, equalOdd]))
+  const prevQuarter: { year: number; quarter: number } | null = null
 
   const { data: updated, error } = await supabase
     .from('league_drafts')
@@ -137,6 +115,6 @@ export async function POST(
     draft: updated,
     draft_order: order,
     lottery_odds: odds,
-    previous_quarter: prevQuarter ? { year: prevQuarter.year, quarter: prevQuarter.quarter } : null,
+    previous_quarter: prevQuarter,
   })
 }

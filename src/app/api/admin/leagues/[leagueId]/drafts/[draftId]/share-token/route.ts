@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'node:crypto'
 import { createClient } from '@/lib/supabase/admin'
-import { isDraftManager } from '@/lib/draftManagerAuth'
+import { isDraftSessionControllerByDraftId } from '@/lib/draftManagerAuth'
 
 function newToken(): string {
   return randomBytes(12).toString('base64url') // 16자, URL-safe
@@ -17,7 +17,7 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string; draftId: string }> },
 ) {
   const { leagueId, draftId } = await params
-  if (!await isDraftManager(req, leagueId)) {
+  if (!await isDraftSessionControllerByDraftId(req, leagueId, draftId)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const supabase = createClient()
@@ -38,7 +38,7 @@ export async function DELETE(
   { params }: { params: Promise<{ leagueId: string; draftId: string }> },
 ) {
   const { leagueId, draftId } = await params
-  if (!await isDraftManager(req, leagueId)) {
+  if (!await isDraftSessionControllerByDraftId(req, leagueId, draftId)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const supabase = createClient()

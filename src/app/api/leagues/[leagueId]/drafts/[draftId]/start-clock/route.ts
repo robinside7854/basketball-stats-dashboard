@@ -17,12 +17,12 @@ export async function POST(
 
   const { data: draft } = await supabase
     .from('league_drafts')
-    .select('id, quarter_id, status, pick_deadline, total_picks')
+    .select('id, quarter_id, status, pick_deadline, total_picks, pick_seconds')
     .eq('id', draftId)
     .eq('league_id', leagueId)
     .maybeSingle()
   if (!draft) return NextResponse.json({ error: '세션을 찾을 수 없습니다' }, { status: 404 })
-  const d = draft as { id: string; quarter_id: string; status: string; pick_deadline: string | null; total_picks: number }
+  const d = draft as { id: string; quarter_id: string; status: string; pick_deadline: string | null; total_picks: number; pick_seconds: number }
 
   // 권한: 이 분기 코드 또는 리그 PIN
   const plain = req.headers.get('X-Draft-Code')?.trim()
@@ -38,7 +38,7 @@ export async function POST(
 
   const { data: updated, error } = await supabase
     .from('league_drafts')
-    .update({ pick_deadline: newPickDeadline() })
+    .update({ pick_deadline: newPickDeadline(Date.now(), d.pick_seconds) })
     .eq('id', draftId)
     .eq('status', 'in_progress')
     .is('pick_deadline', null)

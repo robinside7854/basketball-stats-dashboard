@@ -15,6 +15,7 @@ interface DraftRow {
   id: string; quarter_id: string; status: string
   draft_order: string[]; current_pick_index: number; current_round: number
   total_picks: number; method: 'snake' | 'linear'; pick_deadline: string | null
+  pick_seconds: number
 }
 
 function teamOnTurn(d: DraftRow): string | null {
@@ -35,7 +36,7 @@ export async function POST(
 
   const { data: draft } = await supabase
     .from('league_drafts')
-    .select('id, quarter_id, status, draft_order, current_pick_index, current_round, total_picks, method, pick_deadline')
+    .select('id, quarter_id, status, draft_order, current_pick_index, current_round, total_picks, method, pick_deadline, pick_seconds')
     .eq('id', draftId)
     .eq('league_id', leagueId)
     .maybeSingle()
@@ -108,7 +109,7 @@ export async function POST(
       current_pick_index: nextIndex, current_round: nextRound, total_picks: pickNumber,
       ...(isComplete
         ? { status: 'completed', completed_at: new Date().toISOString(), pick_deadline: null }
-        : { pick_deadline: newPickDeadline() }),
+        : { pick_deadline: newPickDeadline(Date.now(), d.pick_seconds) }),
     })
     .eq('id', draftId)
     .select()

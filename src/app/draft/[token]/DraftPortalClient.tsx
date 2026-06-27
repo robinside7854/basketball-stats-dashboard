@@ -1,19 +1,22 @@
 'use client'
-// 드래프트 공유 포털 클라이언트 — 미니멀 풀스크린 보드.
-// 기능:
-//   - 1.5초 폴링으로 보드 갱신 (기존 /drafts/current 재사용)
-//   - 단장/감독관 코드 인증 (sessionStorage 캐싱)
-//   - 본인 차례에 픽 액션 (단장만)
-//   - 시청자는 그냥 보드만 봄
+// 드래프트 공유 포털 클라이언트 — 방(/draft/[token]) 풀스크린 진입.
 //
-// 일부러 lottery/chat/ai-recommend 등은 제외. 필요시 추후 확장.
+// 권한별 표시:
+//   - 시청자(미인증)        : 보드 + 상태 시청만
+//   - 단장(manager)         : 보드 + 본인 차례에 픽 액션 + 채팅
+//   - 감독관(supervisor)    : 보드 + 세션 관리 패널(풀/팀장/추첨/시작/완료/리셋/픽 시간) + 채팅
+//
+// 모든 사용자가 같은 URL 로 입장 → 입력한 코드에 따라 자동 역할 분기.
+// 어드민 페이지를 통하지 않고 방 안에서 모든 운영이 가능.
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { KeyRound, Trophy, Crown, ShieldCheck, CheckCircle2, LogOut, Lock } from 'lucide-react'
+import { KeyRound, Trophy, Crown, ShieldCheck, CheckCircle2, LogOut, Lock, Timer } from 'lucide-react'
+import DraftSessionControl from '@/components/league/DraftSessionControl'
+import DraftChat from '@/components/league/DraftChat'
 
 interface Team { id: string; name: string; color: string }
 interface Player { id: string; name: string; number: number | null; position: string | null; plus_one: boolean }
@@ -37,6 +40,7 @@ interface DraftState {
     method: 'snake' | 'linear'
     started_at: string | null
     completed_at: string | null
+    pick_seconds: number
   } | null
   current_team_id: string | null
   picks: Pick[]
@@ -166,6 +170,23 @@ export default function DraftPortalClient({
   function closeCodeModal() {
     setCodeInput('')
     setShowCodeModal(false)
+  }
+
+  // 픽 시간 변경 (감독관 권한)
+  async function changePickSeconds(newSeconds: number) {
+    if (!auth || auth.role !== 'supervisor' || !state?.draft) return
+    const r = await fetch(`/api/admin/leagues/${leagueId}/drafts/${draftId}/pick-seconds`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Draft-Code': auth.plain },
+      body: JSON.stringify({ pick_seconds: newSeconds }),
+    })
+    const data = await r.json()
+    if (!r.ok) {
+      toast.error(data.error ?? '픽 시간 변경 실패')
+    } else {
+      toast.success(`픽 시간이 ${newSeconds}초로 변경되었습니다`)
+      fetchState()
+    }
   }
 
   async function makePick() {
@@ -360,17 +381,53 @@ export default function DraftPortalClient({
                 </div>
               )}
 
+              {auth?.role === 'supervisor' && draft.status !== 'completed' && (
+                <PickSecondsCard
+                  currentSeconds={draft.pick_seconds ?? 80}
+                  onChange={changePickSeconds}
+                />
+              )}
+
               {auth?.role === 'supervisor' && (
                 <div className="bg-amber-950/30 border border-amber-700/40 rounded-2xl p-4 space-y-1">
                   <p className="text-amber-300 text-sm font-bold flex items-center gap-1.5">
                     <ShieldCheck size={14} /> 감독관 모드
                   </p>
-                  <p className="text-xs text-gray-400">진행 제어는 어드민에서 수행합니다. 이 화면은 시청·검수용입니다.</p>
+                  <p className="text-xs text-gray-400">아래 세션 관리 패널에서 풀·팀장·추첨·시작/완료 등 모든 진행을 제어할 수 있습니다.</p>
                 </div>
               )}
             </aside>
           </div>
+
+          {/* 감독관 전용 — 세션 관리 패널 (방 안에서 모든 진행 제어) */}
+          {auth?.role === 'supervisor' && (
+            <div className="mt-6 space-y-3">
+              <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                <ShieldCheck size={14} className="text-amber-400" /> 세션 관리
+              </h2>
+              <DraftSessionControl
+                leagueId={leagueId}
+                quarterId={quarterId}
+                teams={state?.teams ?? []}
+                authHeaders={{ 'X-Draft-Code': auth.plain }}
+                onChanged={fetchState}
+              />
+            </div>
+          )}
         </>
+      )}
+
+      {/* 채팅 — 인증된 사용자에게만 floating */}
+      {auth && state?.draft && (
+        <DraftChat
+          leagueId={leagueId}
+          draftId={state.draft.id}
+          authedCode={auth.plain}
+          teams={state.teams ?? []}
+          authedRole={auth.role}
+          authedTeamId={auth.teamId}
+          authedLabel={auth.label}
+        />
       )}
 
       {/* 코드 입력 모달 */}
@@ -396,6 +453,43 @@ export default function DraftPortalClient({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function PickSecondsCard({ currentSeconds, onChange }: { currentSeconds: number; onChange: (n: number) => Promise<void> }) {
+  const [val, setVal] = useState(String(currentSeconds))
+  const [saving, setSaving] = useState(false)
+  useEffect(() => { setVal(String(currentSeconds)) }, [currentSeconds])
+  async function submit() {
+    const n = parseInt(val, 10)
+    if (!Number.isFinite(n) || n < 30 || n > 600) { toast.error('30~600초 사이의 숫자'); return }
+    if (n === currentSeconds) return
+    setSaving(true)
+    await onChange(n)
+    setSaving(false)
+  }
+  return (
+    <div className="bg-blue-950/30 border border-blue-800/40 rounded-2xl p-4 space-y-2">
+      <p className="text-blue-300 text-sm font-bold flex items-center gap-1.5">
+        <Timer size={14} /> 픽 시간 (초)
+      </p>
+      <p className="text-[10px] text-gray-500">단장들과 채팅 합의 후 변경 — 다음 픽부터 적용됩니다.</p>
+      <div className="flex gap-1.5">
+        <Input
+          type="number"
+          min={30}
+          max={600}
+          step={5}
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          className="bg-gray-900 border-gray-700 text-white text-sm h-8 flex-1 font-mono"
+        />
+        <Button onClick={submit} disabled={saving || parseInt(val, 10) === currentSeconds} className="bg-blue-600 hover:bg-blue-500 text-white h-8 text-xs">
+          {saving ? '저장 중...' : '적용'}
+        </Button>
+      </div>
+      <p className="text-[10px] text-gray-600">현재: {currentSeconds}초</p>
     </div>
   )
 }

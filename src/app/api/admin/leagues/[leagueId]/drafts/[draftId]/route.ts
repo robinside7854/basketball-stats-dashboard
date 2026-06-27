@@ -6,14 +6,15 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
-import { isDraftManager } from '@/lib/draftManagerAuth'
+import { isDraftManager, isDraftSessionControllerByDraftId } from '@/lib/draftManagerAuth'
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ leagueId: string; draftId: string }> },
 ) {
   const { leagueId, draftId } = await params
-  if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // PATCH (풀·팀장) 는 감독관도 가능 — 방 모델
+  if (!await isDraftSessionControllerByDraftId(req, leagueId, draftId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json().catch(() => null) as
     | { leaders?: Record<string, string | null>; pool_player_ids?: string[] }

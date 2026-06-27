@@ -27,6 +27,7 @@ interface DraftRow {
   current_round: number
   total_picks: number
   method: 'snake' | 'linear'
+  pick_seconds: number
 }
 
 /**
@@ -62,7 +63,7 @@ export async function POST(
   // 드래프트 조회
   const { data: draft } = await supabase
     .from('league_drafts')
-    .select('id, league_id, quarter_id, status, draft_order, current_pick_index, current_round, total_picks, method')
+    .select('id, league_id, quarter_id, status, draft_order, current_pick_index, current_round, total_picks, method, pick_seconds')
     .eq('id', draftId)
     .eq('league_id', leagueId)
     .maybeSingle()
@@ -180,7 +181,7 @@ export async function POST(
       total_picks: newTotalPicks,
       ...(isComplete
         ? { status: 'completed', completed_at: new Date().toISOString(), pick_deadline: null }
-        : { pick_deadline: newPickDeadline() }),
+        : { pick_deadline: newPickDeadline(Date.now(), d.pick_seconds) }),
     })
     .eq('id', draftId)
     .select()
