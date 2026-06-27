@@ -62,10 +62,11 @@ export async function POST(
       team_id: teamId,
       role,
       code_hash,
+      plain_code: plainCode,
       label,
       is_active: true,
     })
-    .select('id, league_id, quarter_id, team_id, role, label, is_active, last_used_at, created_at')
+    .select('id, league_id, quarter_id, team_id, role, label, is_active, last_used_at, created_at, plain_code')
     .single()
 
   if (error) {
@@ -89,7 +90,7 @@ export async function GET(
   const supabase = createClient()
   let q = supabase
     .from('league_draft_codes')
-    .select('id, quarter_id, team_id, role, label, is_active, last_used_at, created_at')
+    .select('id, quarter_id, team_id, role, label, is_active, last_used_at, created_at, plain_code')
     .eq('league_id', leagueId)
     .order('created_at', { ascending: false })
   if (quarterId) q = q.eq('quarter_id', quarterId)

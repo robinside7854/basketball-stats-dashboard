@@ -3,7 +3,40 @@ import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Trash2, Copy, Check, ToggleLeft, ToggleRight, ShieldCheck, Pencil, Plus, X } from 'lucide-react'
+import { Trash2, Copy, Check, ToggleLeft, ToggleRight, ShieldCheck, Pencil, Plus, X, AlertCircle } from 'lucide-react'
+
+function PlainCodeLine({ plain }: { plain: string | null }) {
+  const [copied, setCopied] = useState(false)
+  function copy() {
+    if (!plain) return
+    navigator.clipboard.writeText(plain).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+  if (!plain) {
+    return (
+      <div className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-400">
+        <AlertCircle size={10} />
+        <span>이전 발급(평문 없음) — 수정에서 새 코드 설정 필요</span>
+      </div>
+    )
+  }
+  return (
+    <div className="mt-1.5 flex items-center gap-1.5 bg-gray-900/80 border border-gray-700 rounded-md px-2 py-1">
+      <code className="font-mono text-sm text-amber-300 tracking-wider flex-1 select-all">{plain}</code>
+      <button
+        type="button"
+        onClick={copy}
+        className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer flex items-center gap-0.5 transition-colors ${copied ? 'bg-emerald-600 text-white' : 'bg-amber-700 hover:bg-amber-600 text-white'}`}
+        title="복사"
+      >
+        {copied ? <Check size={10} /> : <Copy size={10} />}
+        {copied ? '복사됨' : '복사'}
+      </button>
+    </div>
+  )
+}
 
 interface Team { id: string; name: string; color: string }
 interface DraftCode {
@@ -15,6 +48,7 @@ interface DraftCode {
   is_active: boolean
   last_used_at: string | null
   created_at: string
+  plain_code: string | null
 }
 
 interface Props {
@@ -31,8 +65,6 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
   const [codes, setCodes] = useState<DraftCode[]>([])
   const [drafting, setDrafting] = useState<Record<string, { label: string; code: string }>>({})
   const [supDraft, setSupDraft] = useState<{ open: boolean; label: string; code: string }>({ open: false, label: '', code: '' })
-  const [revealed, setRevealed] = useState<{ plain: string; who: string } | null>(null)
-  const [copied, setCopied] = useState(false)
   // 인라인 수정 상태 — 단장 코드 행 또는 팀 행 단위
   const [editingCode, setEditingCode] = useState<{ id: string; label: string; plain_code: string } | null>(null)
   const [editingTeam, setEditingTeam] = useState<{ id: string; name: string; color: string } | null>(null)
@@ -62,8 +94,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
     })
     const data = await res.json()
     if (!res.ok) { toast.error(data.error ?? '코드 발급 실패'); return }
-    const team = teams.find(t => t.id === teamId)
-    setRevealed({ plain: form.code.trim(), who: `${team?.name ?? ''} 단장` })
+    toast.success('단장 코드 발급 완료 — 카드에 평문이 표시됩니다')
     setDrafting(d => ({ ...d, [teamId]: { label: '', code: '' } }))
     fetchCodes()
   }
@@ -77,7 +108,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
     })
     const data = await res.json()
     if (!res.ok) { toast.error(data.error ?? '코드 발급 실패'); return }
-    setRevealed({ plain: supDraft.code.trim(), who: `감독관: ${supDraft.label.trim()}` })
+    toast.success(`감독관 "${supDraft.label.trim()}" 코드 발급 완료`)
     setSupDraft({ open: false, label: '', code: '' })
     fetchCodes()
   }
@@ -104,12 +135,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
     }
     const ok = await patchCode(prevCode.id, payload)
     if (!ok) return
-    if (payload.plain_code) {
-      const team = teams.find(t => t.id === prevCode.team_id)
-      setRevealed({ plain: payload.plain_code, who: isSupervisor ? `감독관: ${state.label || prevCode.label}` : `${team?.name ?? ''} 단장` })
-    } else {
-      toast.success('레이블이 변경되었습니다')
-    }
+    toast.success(payload.plain_code ? '코드가 재설정되었습니다 — 카드에 새 평문이 표시됩니다' : '레이블이 변경되었습니다')
     isSupervisor ? setEditingSup(null) : setEditingCode(null)
     fetchCodes()
   }
@@ -142,33 +168,11 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
     onTeamsChanged?.()
   }
 
-  function copyRevealed() {
-    if (!revealed) return
-    navigator.clipboard.writeText(revealed.plain).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
-  }
-
   const codesByTeam = Object.fromEntries(codes.filter(c => c.role !== 'supervisor' && c.team_id).map(c => [c.team_id as string, c]))
   const supervisorCodes = codes.filter(c => c.role === 'supervisor')
 
   return (
     <div className="space-y-4">
-      {/* 평문 공개 모달 */}
-      {revealed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setRevealed(null)}>
-          <div className="bg-gray-900 border border-amber-700/60 rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
-            <h3 className="text-amber-400 font-black text-lg mb-2">⚠ 코드는 한 번만 표시됩니다</h3>
-            <p className="text-sm text-gray-400 mb-4"><strong className="text-white">{revealed.who}</strong> 에게 아래 코드를 전달하세요.</p>
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 flex items-center justify-between gap-2 mb-4">
-              <code className="font-mono text-xl text-amber-300 tracking-wider">{revealed.plain}</code>
-              <button onClick={copyRevealed} className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold flex items-center gap-1.5 cursor-pointer">
-                {copied ? <Check size={14} /> : <Copy size={14} />}{copied ? '복사됨' : '복사'}
-              </button>
-            </div>
-            <Button onClick={() => setRevealed(null)} className="w-full bg-blue-600 hover:bg-blue-500 text-white">확인 (창 닫기)</Button>
-          </div>
-        </div>
-      )}
-
       {/* 단장 카드 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {teams.map(t => {
@@ -217,6 +221,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
                     <div className={`px-3 py-2 rounded-lg border ${existing.is_active ? 'bg-emerald-950/40 border-emerald-700/50' : 'bg-gray-800/60 border-gray-700/50 opacity-60'}`}>
                       <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">단장</p>
                       <p className="text-sm text-white font-bold">{existing.label}</p>
+                      <PlainCodeLine plain={existing.plain_code} />
                       <p className="text-[10px] text-gray-500 mt-1">{existing.last_used_at ? `마지막 사용: ${new Date(existing.last_used_at).toLocaleString('ko-KR')}` : '아직 사용 안 됨'}</p>
                     </div>
                     <div className="flex gap-1.5">
@@ -265,6 +270,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
               ) : (
                 <div key={c.id} className={`rounded-lg border p-3 space-y-2 ${c.is_active ? 'bg-emerald-950/40 border-emerald-700/50' : 'bg-gray-800/60 border-gray-700/50 opacity-60'}`}>
                   <p className="text-sm text-white font-bold">{c.label}</p>
+                  <PlainCodeLine plain={c.plain_code} />
                   <p className="text-[10px] text-gray-500">{c.last_used_at ? `사용: ${new Date(c.last_used_at).toLocaleString('ko-KR')}` : '아직 사용 안 됨'}</p>
                   <div className="flex gap-1.5 pt-1">
                     <button onClick={() => setEditingSup({ id: c.id, label: c.label, plain_code: '' })} className="px-2 py-1 rounded-md bg-blue-900/40 hover:bg-blue-800 text-blue-300 text-[11px] font-bold cursor-pointer flex items-center gap-1" title="수정"><Pencil size={11} /></button>

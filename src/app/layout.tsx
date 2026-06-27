@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Fira_Code, Fira_Sans, Bebas_Neue, Barlow_Condensed } from 'next/font/google'
+import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import './globals.css'
 
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           enableSystem={false}
         >
           {children}
+          <Toaster position="top-right" richColors closeButton theme="dark" />
         </ThemeProvider>
       </body>
     </html>

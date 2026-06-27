@@ -14,7 +14,7 @@ export async function PATCH(
   const body = await req.json().catch(() => null) as { is_active?: boolean; label?: string; plain_code?: string } | null
   if (!body) return NextResponse.json({ error: '본문 누락' }, { status: 400 })
 
-  const update: { is_active?: boolean; label?: string; code_hash?: string } = {}
+  const update: { is_active?: boolean; label?: string; code_hash?: string; plain_code?: string } = {}
   if (typeof body.is_active === 'boolean') update.is_active = body.is_active
   if (typeof body.label === 'string') {
     const trimmed = body.label.trim()
@@ -29,6 +29,7 @@ export async function PATCH(
       return NextResponse.json({ error: '코드는 3~32자 사이여야 합니다' }, { status: 400 })
     }
     update.code_hash = await hashDraftCode(trimmed)
+    update.plain_code = trimmed
   }
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: '변경할 필드 없음' }, { status: 400 })
@@ -40,7 +41,7 @@ export async function PATCH(
     .update(update)
     .eq('id', codeId)
     .eq('league_id', leagueId)
-    .select('id, quarter_id, team_id, label, is_active, last_used_at, created_at')
+    .select('id, quarter_id, team_id, label, is_active, last_used_at, created_at, plain_code')
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
