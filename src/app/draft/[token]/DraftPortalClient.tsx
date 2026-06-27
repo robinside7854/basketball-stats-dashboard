@@ -118,7 +118,7 @@ export default function DraftPortalClient({
       })
       const data = await r.json()
       if (!r.ok || !data.matched) {
-        toast.error(data.error ?? '일치하는 코드가 없습니다')
+        toast.error('일치하는 코드가 없습니다 — 대소문자 / 공백 / 분기를 확인하세요', { duration: 5000 })
         setAuthing(false)
         return
       }
@@ -134,8 +134,14 @@ export default function DraftPortalClient({
       sessionStorage.setItem(authKey, JSON.stringify(sa))
       setShowCodeModal(false)
       setCodeInput('')
+      setSelectedPlayerId(null)
       const teamName = state?.teams.find(t => t.id === sa.teamId)?.name
-      toast.success(sa.role === 'supervisor' ? `감독관 인증 완료: ${sa.label}` : `${teamName ?? ''} 단장 인증 완료: ${sa.label}`)
+      toast.success(
+        sa.role === 'supervisor'
+          ? `✅ 감독관 인증: ${sa.label}`
+          : `✅ ${teamName ?? ''} 단장 인증: ${sa.label}`,
+        { duration: 4000 },
+      )
     } catch {
       toast.error('인증 실패')
     } finally {
@@ -146,7 +152,20 @@ export default function DraftPortalClient({
   function logout() {
     sessionStorage.removeItem(authKey)
     setAuth(null)
-    toast('인증 해제')
+    setCodeInput('')
+    setSelectedPlayerId(null)
+    setShowCodeModal(false)
+    toast('인증 해제 — 다른 코드로 입장하세요')
+  }
+
+  function openCodeModal() {
+    setCodeInput('')
+    setShowCodeModal(true)
+  }
+
+  function closeCodeModal() {
+    setCodeInput('')
+    setShowCodeModal(false)
   }
 
   async function makePick() {
@@ -202,7 +221,7 @@ export default function DraftPortalClient({
         </div>
         <div className="flex items-center gap-2">
           {!auth ? (
-            <Button onClick={() => setShowCodeModal(true)} className="bg-amber-600 hover:bg-amber-500 text-white text-xs sm:text-sm">
+            <Button onClick={openCodeModal} className="bg-amber-600 hover:bg-amber-500 text-white text-xs sm:text-sm">
               <KeyRound size={14} className="mr-1.5" /> 단장/감독관 입장
             </Button>
           ) : (
@@ -356,10 +375,10 @@ export default function DraftPortalClient({
 
       {/* 코드 입력 모달 */}
       {showCodeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setShowCodeModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={closeCodeModal}>
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
             <h3 className="font-black text-lg mb-1">단장/감독관 입장</h3>
-            <p className="text-xs text-gray-500 mb-4">어드민에게 발급받은 코드를 입력하세요.</p>
+            <p className="text-xs text-gray-500 mb-4">어드민에게 발급받은 코드를 입력하세요. (대소문자 구분)</p>
             <Input
               value={codeInput}
               onChange={e => setCodeInput(e.target.value)}
@@ -369,7 +388,7 @@ export default function DraftPortalClient({
               autoFocus
             />
             <div className="flex gap-2 mt-4">
-              <Button onClick={() => setShowCodeModal(false)} variant="outline" className="flex-1 bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700">취소</Button>
+              <Button onClick={closeCodeModal} variant="outline" className="flex-1 bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700">취소</Button>
               <Button onClick={submitCode} disabled={authing} className="flex-1 bg-amber-600 hover:bg-amber-500 text-white">
                 {authing ? '확인 중...' : '입장'}
               </Button>
