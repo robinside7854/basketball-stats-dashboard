@@ -9,14 +9,17 @@
 // 모든 사용자가 같은 URL 로 입장 → 입력한 코드에 따라 자동 역할 분기.
 // 어드민 페이지를 통하지 않고 방 안에서 모든 운영이 가능.
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { KeyRound, Trophy, Crown, ShieldCheck, CheckCircle2, LogOut, Lock, Timer } from 'lucide-react'
+import { KeyRound, Trophy, Crown, ShieldCheck, CheckCircle2, Circle, LogOut, Lock, Timer, Zap, AlertTriangle, Info, Users } from 'lucide-react'
 import DraftSessionControl from '@/components/league/DraftSessionControl'
 import DraftChat from '@/components/league/DraftChat'
+import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
+import DraftPickReveal, { type PickRevealData } from '@/components/league/DraftPickReveal'
+import { MAX_EXTENSIONS, EXTENSION_SECONDS } from '@/lib/draftTimer'
 
 interface Team { id: string; name: string; color: string }
 interface Player { id: string; name: string; number: number | null; position: string | null; plus_one: boolean }
@@ -27,6 +30,7 @@ interface Pick {
   player_id: string
   player_name: string
   player_number: number | null
+  player_position: string | null
   picked_at: string
 }
 interface DraftState {
@@ -41,11 +45,19 @@ interface DraftState {
     started_at: string | null
     completed_at: string | null
     pick_seconds: number
+    ready_state: Record<string, boolean>
+    lottery_odds: Record<string, number> | null
+    lottery_done: boolean
+    pick_deadline: string | null
+    extensions_used: Record<string, number>
   } | null
   current_team_id: string | null
   picks: Pick[]
   available_players: Player[]
+  pool_size?: number
+  pool_player_ids?: string[]
   teams: Team[]
+  supervisor_exists?: boolean
 }
 
 interface SessionAuth {
@@ -172,6 +184,142 @@ export default function DraftPortalClient({
     setShowCodeModal(false)
   }
 
+  // ────────────────── 첫 픽 타이머 자동 시작 ──────────────────
+  // status=in_progress 이고 pick_deadline=null 이며 첫 픽 전 — start-clock 호출.
+  // 라우트가 멱등이라 여러 클라가 동시 호출해도 안전.
+  const startClockTriedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!auth) return // 시청자는 호출 안 함
+    if (!state?.draft || !draftId) return
+    if (state.draft.status !== 'in_progress') return
+    if (state.draft.pick_deadline) return
+    if (state.draft.total_picks > 0) return
+    if (startClockTriedRef.current === draftId) return
+    startClockTriedRef.current = draftId
+    fetch(`/api/leagues/${leagueId}/drafts/${draftId}/start-clock`, {
+      method: 'POST',
+      headers: { 'X-Draft-Code': auth.plain },
+    }).then(() => fetchState()).catch(() => null)
+  }, [state?.draft, draftId, leagueId, auth, fetchState])
+
+  // ────────────────── 추첨 결과 1회 표시 ──────────────────
+  const [showLottery, setShowLottery] = useState(false)
+  const lotteryDoneRef = useRef<boolean>(false)
+  useEffect(() => {
+    if (!state?.draft) return
+    const done = state.draft.lottery_done
+    // 처음 lottery_done=true 가 들어오면 sessionStorage 체크 후 1회 표시
+    if (done && !lotteryDoneRef.current) {
+      lotteryDoneRef.current = true
+      try {
+        const seen = sessionStorage.getItem(`draft_lottery_seen_${draftId}`)
+        if (!seen) setShowLottery(true)
+      } catch { /* ignore */ }
+    }
+  }, [state?.draft, draftId])
+
+  // ────────────────── 픽 이팩트 감지 ──────────────────
+  const [pickReveal, setPickReveal] = useState<PickRevealData | null>(null)
+  const lastPickNumberRef = useRef<number>(0)
+  useEffect(() => {
+    if (!state?.picks || state.picks.length === 0) return
+    const sorted = [...state.picks].sort((a, b) => a.pick_number - b.pick_number)
+    const latest = sorted[sorted.length - 1]
+    if (latest.pick_number <= lastPickNumberRef.current) return
+    // 첫 마운트 시점에는 이팩트 발화 안 함 — 누적 픽만 기록
+    if (lastPickNumberRef.current === 0) {
+      lastPickNumberRef.current = latest.pick_number
+      return
+    }
+    const team = state.teams.find(t => t.id === latest.team_id)
+    setPickReveal({
+      pickNumber: latest.pick_number,
+      roundNumber: latest.round_number,
+      teamName: team?.name ?? '?',
+      teamColor: team?.color ?? '#6b7280',
+      playerName: latest.player_name,
+      playerNumber: latest.player_number,
+      playerPosition: latest.player_position,
+    })
+    lastPickNumberRef.current = latest.pick_number
+  }, [state?.picks, state?.teams, state?.available_players])
+
+  // ────────────────── 타이머 ──────────────────
+  const [now, setNow] = useState<number>(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const draftRow = state?.draft
+  const remainingSeconds = useMemo(() => {
+    if (!draftRow?.pick_deadline) return null
+    const diff = Math.max(0, Math.floor((new Date(draftRow.pick_deadline).getTime() - now) / 1000))
+    return diff
+  }, [draftRow?.pick_deadline, now])
+
+  // 시간 임박 알림 (15초, 5초)
+  const warnedAtRef = useRef<{ deadline: string | null; warned15: boolean; warned5: boolean }>({
+    deadline: null, warned15: false, warned5: false,
+  })
+  useEffect(() => {
+    if (remainingSeconds == null || !draftRow?.pick_deadline || draftRow.status !== 'in_progress') return
+    const w = warnedAtRef.current
+    if (w.deadline !== draftRow.pick_deadline) {
+      // 새 픽 데드라인 — reset
+      warnedAtRef.current = { deadline: draftRow.pick_deadline, warned15: false, warned5: false }
+    }
+    if (!warnedAtRef.current.warned15 && remainingSeconds <= 15 && remainingSeconds > 5) {
+      warnedAtRef.current.warned15 = true
+      toast.warning(`⏰ 15초 남음 — 픽을 서둘러주세요`, { duration: 3000 })
+    }
+    if (!warnedAtRef.current.warned5 && remainingSeconds <= 5 && remainingSeconds > 0) {
+      warnedAtRef.current.warned5 = true
+      toast.error(`🚨 5초 — 픽 임박!`, { duration: 3000 })
+    }
+  }, [remainingSeconds, draftRow?.pick_deadline, draftRow?.status])
+
+  // ────────────────── READY 토글 ──────────────────
+  const [togglingReady, setTogglingReady] = useState(false)
+  async function toggleReady() {
+    if (!auth || !state?.draft) return
+    if (auth.role === 'manager' && !auth.teamId) return
+    setTogglingReady(true)
+    try {
+      const ready_state = state.draft.ready_state ?? {}
+      const myKey = auth.role === 'supervisor' ? 'supervisor' : auth.teamId!
+      const currentlyReady = !!ready_state[myKey]
+      const body = auth.role === 'supervisor'
+        ? { ready: !currentlyReady }
+        : { team_id: auth.teamId, ready: !currentlyReady }
+      const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/ready`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Draft-Code': auth.plain },
+        body: JSON.stringify(body),
+      })
+      const data = await r.json()
+      if (!r.ok) { toast.error(data.error ?? 'READY 변경 실패'); return }
+      toast.success(currentlyReady ? '준비 해제' : '✅ 준비 완료 — 감독관에게 알림 전송됨')
+      fetchState()
+    } finally {
+      setTogglingReady(false)
+    }
+  }
+
+  // ────────────────── 픽 연장 ──────────────────
+  async function extendPick() {
+    if (!auth || auth.role !== 'manager' || !auth.teamId) return
+    const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/extend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Draft-Code': auth.plain },
+      body: JSON.stringify({ team_id: auth.teamId }),
+    })
+    const data = await r.json()
+    if (!r.ok) { toast.error(data.error ?? '연장 실패'); return }
+    toast.success(`⏱ +${EXTENSION_SECONDS}초 연장`)
+    fetchState()
+  }
+
   // 픽 시간 변경 (감독관 권한)
   async function changePickSeconds(newSeconds: number) {
     if (!auth || auth.role !== 'supervisor' || !state?.draft) return
@@ -277,7 +425,62 @@ export default function DraftPortalClient({
                 현재: <span className="font-bold ml-1">{currentTeam.name}</span>
               </Tag>
             )}
+            {/* 타이머 — 모두에게 동일하게 보임 (서버 절대 시각 기준) */}
+            {draft.status === 'in_progress' && remainingSeconds != null && (
+              <BigTimer
+                seconds={remainingSeconds}
+                extensionsUsed={(auth?.role === 'manager' && auth.teamId) ? (draft.extensions_used?.[auth.teamId] ?? 0) : 0}
+                canExtend={!!isMyTurn}
+                onExtend={extendPick}
+              />
+            )}
           </div>
+
+          {/* 드래프트 설정 정보 (시작 전 — 모두에게 보임) */}
+          {(draft.status === 'setup' || draft.status === 'ready_check') && (
+            <div className="mb-4 rounded-2xl border border-blue-800/40 bg-gradient-to-br from-blue-950/30 to-indigo-950/20 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Info size={15} className="text-blue-300" />
+                <h3 className="text-sm font-bold text-blue-200 uppercase tracking-widest">드래프트 설정</h3>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <SettingPill label="픽 시간" value={`${draft.pick_seconds ?? 80}초`} />
+                <SettingPill label="추첨 방식" value="완전 무작위" />
+                <SettingPill label="진행 방식" value={draft.method === 'snake' ? '스네이크' : '리니어'} />
+                <SettingPill label="연장 찬스" value={`+${EXTENSION_SECONDS}초 × ${MAX_EXTENSIONS}`} />
+              </div>
+              {/* 픽 순서 — 추첨 후에만 표시 */}
+              {draft.lottery_done && draft.draft_order.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-blue-800/30">
+                  <p className="text-[10px] uppercase tracking-widest text-blue-300 mb-1.5">픽 순서 (추첨 완료)</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {draft.draft_order.map((tid, idx) => {
+                      const t = teamsById[tid]
+                      return (
+                        <div key={`${tid}-${idx}`} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-900/60 border border-gray-700">
+                          <span className="text-[10px] font-black text-gray-500">{idx + 1}.</span>
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color }} />
+                          <span className="text-xs font-bold text-white">{t?.name ?? '?'}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* READY 진행 상황 패널 (ready_check 단계) */}
+          {draft.status === 'ready_check' && (
+            <ReadyPanel
+              teams={state?.teams ?? []}
+              readyState={draft.ready_state ?? {}}
+              supervisorExists={state?.supervisor_exists ?? false}
+              auth={auth}
+              onToggle={toggleReady}
+              toggling={togglingReady}
+            />
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
             {/* 픽 보드 */}
@@ -345,13 +548,30 @@ export default function DraftPortalClient({
                       selectedId={selectedPlayerId}
                       onSelect={setSelectedPlayerId}
                     />
-                    <Button
-                      onClick={makePick}
-                      disabled={!selectedPlayerId || picking}
-                      className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold disabled:opacity-40"
-                    >
-                      {picking ? '픽 등록 중...' : '픽 확정'}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={makePick}
+                        disabled={!selectedPlayerId || picking}
+                        className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold disabled:opacity-40"
+                      >
+                        {picking ? '픽 등록 중...' : '픽 확정'}
+                      </Button>
+                      {(() => {
+                        const used = auth?.teamId ? (draft.extensions_used?.[auth.teamId] ?? 0) : 0
+                        const left = Math.max(0, MAX_EXTENSIONS - used)
+                        return (
+                          <Button
+                            onClick={extendPick}
+                            disabled={left === 0}
+                            variant="outline"
+                            className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 disabled:opacity-40 text-xs"
+                            title={`연장 ${left}회 남음`}
+                          >
+                            ⏱ +{EXTENSION_SECONDS}s ({left}/{MAX_EXTENSIONS})
+                          </Button>
+                        )
+                      })()}
+                    </div>
                   </div>
                 ) : (
                   <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 text-center">
@@ -399,6 +619,15 @@ export default function DraftPortalClient({
             </aside>
           </div>
 
+          {/* 팀별 누적 픽 — 포지션 밸런스 확인용 (in_progress / completed) */}
+          {(draft.status === 'in_progress' || draft.status === 'completed') && (
+            <TeamPickRoster
+              teams={state?.teams ?? []}
+              picks={state?.picks ?? []}
+              draftOrder={draft.draft_order}
+            />
+          )}
+
           {/* 감독관 전용 — 세션 관리 패널 (방 안에서 모든 진행 제어) */}
           {auth?.role === 'supervisor' && (
             <div className="mt-6 space-y-3">
@@ -430,6 +659,22 @@ export default function DraftPortalClient({
         />
       )}
 
+      {/* 픽 이팩트 — 새 픽 들어올 때 3초간 전체화면 */}
+      <DraftPickReveal data={pickReveal} onClose={() => setPickReveal(null)} />
+
+      {/* 추첨 결과 애니메이션 — lottery_done 직후 한 번만 (모두에게) */}
+      {state?.draft?.lottery_done && state.draft.draft_order.length > 0 && showLottery && (
+        <DraftLotteryReveal
+          order={state.draft.draft_order}
+          odds={state.draft.lottery_odds}
+          teams={state.teams ?? []}
+          onClose={() => {
+            setShowLottery(false)
+            try { sessionStorage.setItem(`draft_lottery_seen_${draftId}`, '1') } catch { /* ignore */ }
+          }}
+        />
+      )}
+
       {/* 코드 입력 모달 */}
       {showCodeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={closeCodeModal}>
@@ -453,6 +698,192 @@ export default function DraftPortalClient({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function BigTimer({ seconds, extensionsUsed, canExtend, onExtend }: {
+  seconds: number
+  extensionsUsed: number
+  canExtend: boolean
+  onExtend: () => Promise<void>
+}) {
+  const urgent = seconds <= 10
+  const warn = seconds <= 30
+  const leftExt = Math.max(0, MAX_EXTENSIONS - extensionsUsed)
+  return (
+    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border font-mono ${
+      urgent ? 'bg-red-950/70 border-red-500/60 text-red-300 animate-pulse' :
+      warn ? 'bg-amber-950/60 border-amber-600/50 text-amber-300' :
+      'bg-gray-900 border-gray-700 text-gray-200'
+    }`}>
+      <Timer size={14} className={urgent ? 'text-red-400' : warn ? 'text-amber-400' : 'text-gray-400'} />
+      <span className="font-black text-lg leading-none tabular-nums">{seconds}s</span>
+      {canExtend && leftExt > 0 && (
+        <button
+          onClick={onExtend}
+          className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-700/40 hover:bg-emerald-600/60 text-emerald-200 cursor-pointer"
+          title={`연장 ${leftExt}회 남음`}
+        >
+          +{EXTENSION_SECONDS}s
+        </button>
+      )}
+    </div>
+  )
+}
+
+function SettingPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-gray-900/60 border border-gray-700 px-2.5 py-1.5">
+      <p className="text-[9px] uppercase tracking-widest text-gray-500 font-bold">{label}</p>
+      <p className="text-sm font-bold text-white mt-0.5">{value}</p>
+    </div>
+  )
+}
+
+function ReadyPanel({
+  teams,
+  readyState,
+  supervisorExists,
+  auth,
+  onToggle,
+  toggling,
+}: {
+  teams: Team[]
+  readyState: Record<string, boolean>
+  supervisorExists: boolean
+  auth: { role: 'manager' | 'supervisor'; teamId: string | null; label: string } | null
+  onToggle: () => Promise<void>
+  toggling: boolean
+}) {
+  const myKey = auth ? (auth.role === 'supervisor' ? 'supervisor' : auth.teamId) : null
+  const iAmReady = myKey ? !!readyState[myKey] : false
+  const total = teams.length + (supervisorExists ? 1 : 0)
+  const readyCount = teams.filter(t => readyState[t.id]).length + (supervisorExists && readyState['supervisor'] ? 1 : 0)
+  const allReady = total > 0 && readyCount === total
+  return (
+    <div className={`mb-4 rounded-2xl border p-4 transition-colors ${
+      allReady ? 'border-emerald-700/60 bg-emerald-950/30' : 'border-blue-800/40 bg-blue-950/20'
+    }`}>
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+        <div className="flex items-center gap-2">
+          <Users size={15} className={allReady ? 'text-emerald-300' : 'text-blue-300'} />
+          <h3 className="text-sm font-bold uppercase tracking-widest">
+            {allReady ? <span className="text-emerald-200">✅ 전원 준비 완료 — 추첨 가능</span> : <span className="text-blue-200">READY 체크</span>}
+          </h3>
+          <span className="text-[11px] text-gray-500 font-mono">{readyCount}/{total}</span>
+        </div>
+        {auth && myKey && (
+          <Button
+            onClick={onToggle}
+            disabled={toggling}
+            className={`text-xs h-8 font-bold ${
+              iAmReady ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+            }`}
+          >
+            {iAmReady ? '준비 해제' : '✋ 준비 완료'}
+          </Button>
+        )}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {teams.map(t => {
+          const ready = !!readyState[t.id]
+          return (
+            <span key={t.id} className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs ${
+              ready ? 'bg-emerald-900/40 border-emerald-700/60 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-400'
+            }`}>
+              {ready ? <CheckCircle2 size={11} /> : <Circle size={11} />}
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: t.color }} />
+              {t.name} 단장
+            </span>
+          )
+        })}
+        {supervisorExists && (
+          <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs ${
+            readyState['supervisor'] ? 'bg-emerald-900/40 border-emerald-700/60 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-400'
+          }`}>
+            {readyState['supervisor'] ? <CheckCircle2 size={11} /> : <Circle size={11} />}
+            <ShieldCheck size={11} className="text-amber-400" />
+            감독관
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TeamPickRoster({ teams, picks, draftOrder }: {
+  teams: Team[]
+  picks: Pick[]
+  draftOrder: string[]
+}) {
+  // draftOrder 순서대로 정렬 + draftOrder 에 없는 팀도 뒤에 표시
+  const orderedTeams = [
+    ...draftOrder.map(id => teams.find(t => t.id === id)).filter(Boolean) as Team[],
+    ...teams.filter(t => !draftOrder.includes(t.id)),
+  ]
+  const picksByTeam: Record<string, Pick[]> = {}
+  for (const p of picks) (picksByTeam[p.team_id] ||= []).push(p)
+  for (const tid of Object.keys(picksByTeam)) picksByTeam[tid].sort((a, b) => a.pick_number - b.pick_number)
+
+  return (
+    <div className="mt-6 space-y-3">
+      <div className="flex items-center gap-2">
+        <Users size={14} className="text-blue-300" />
+        <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest">팀별 누적 픽</h2>
+        <span className="text-[10px] text-gray-600">포지션 밸런스 확인용</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        {orderedTeams.map(t => {
+          const list = picksByTeam[t.id] ?? []
+          // 포지션 카운트
+          const posCount: Record<string, number> = {}
+          for (const p of list) {
+            const positions = (p.player_position ?? '').split(',').map(s => s.trim()).filter(Boolean)
+            for (const pos of positions) posCount[pos] = (posCount[pos] ?? 0) + 1
+          }
+          return (
+            <div
+              key={t.id}
+              className="bg-gray-900/60 border border-gray-800 rounded-xl p-3"
+              style={{ borderTopColor: t.color, borderTopWidth: 3 }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.color }} />
+                <p className="text-sm font-bold text-white">{t.name}</p>
+                <span className="text-[10px] text-gray-500 ml-auto font-mono">{list.length}명</span>
+              </div>
+              {Object.keys(posCount).length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2 pb-2 border-b border-gray-800">
+                  {Object.entries(posCount).map(([pos, n]) => (
+                    <span key={pos} className="px-1.5 py-0.5 rounded bg-blue-950/40 border border-blue-800/40 text-[10px] font-bold text-blue-300">
+                      {pos} <span className="text-blue-400">×{n}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {list.length === 0 ? (
+                <p className="text-xs text-gray-600 text-center py-3">아직 픽 없음</p>
+              ) : (
+                <div className="space-y-1">
+                  {list.map(p => (
+                    <div key={p.pick_number} className="flex items-center gap-1.5 text-xs">
+                      <span className="text-[10px] text-gray-500 font-mono w-7">#{p.pick_number}</span>
+                      {p.player_number != null && (
+                        <span className="text-amber-300 font-mono font-bold w-7">#{p.player_number}</span>
+                      )}
+                      <span className="text-white font-bold flex-1 truncate">{p.player_name}</span>
+                      {p.player_position && (
+                        <span className="text-[10px] text-gray-500 font-mono">{p.player_position.split(',').map(s => s.trim()).join('·')}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

@@ -122,6 +122,7 @@ export async function GET(
     player_id: p.league_player_id,
     player_name: playerMap[p.league_player_id]?.name ?? '?',
     player_number: playerMap[p.league_player_id]?.number ?? null,
+    player_position: playerMap[p.league_player_id]?.position ?? null,
     picked_at: p.picked_at,
   }))
 

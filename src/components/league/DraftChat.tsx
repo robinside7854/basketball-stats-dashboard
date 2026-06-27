@@ -109,13 +109,13 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
     return m.sender_role === 'supervisor' || m.team_id === authedTeamId
   }
 
-  // 접힌 상태 — 플로팅 버튼
+  // 접힌 상태 — 우하단 작은 플로팅 버튼 (PC), 우하단 모바일에서도 작게
   if (!open) {
     return (
       <button onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl cursor-pointer">
-        <MessageCircle size={18} />
-        <span className="text-sm font-bold">채팅</span>
+        className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 px-3 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl cursor-pointer">
+        <MessageCircle size={16} />
+        <span className="text-xs font-bold hidden sm:inline">채팅</span>
         {unread > 0 && (
           <span className="min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>
         )}
@@ -123,8 +123,18 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
     )
   }
 
+  // 열린 상태 —
+  //   PC: 우측 sticky 사이드 패널 (340px), 본문 가리지 않음
+  //   모바일: 우측에서 슬라이드 인 (88vw, 닫으면 본문 보임)
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-[92vw] max-w-sm h-[60vh] max-h-[480px] flex flex-col bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl">
+    <div className="fixed top-0 right-0 z-40 h-screen w-[88vw] sm:w-[340px] flex flex-col bg-gray-900 border-l border-gray-700 shadow-2xl animate-slideInRight">
+      <style jsx>{`
+        @keyframes slideInRight {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+        .animate-slideInRight { animation: slideInRight 0.22s ease-out; }
+      `}</style>
       <div className="px-4 py-2.5 border-b border-gray-800 flex items-center gap-2">
         <MessageCircle size={15} className="text-blue-400" />
         <p className="text-xs font-bold text-gray-200 uppercase tracking-widest">드래프트 채팅</p>
