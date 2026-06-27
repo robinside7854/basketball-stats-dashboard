@@ -70,8 +70,40 @@ function RecordPageInner() {
   const [newPlayerName, setNewPlayerName] = useState('')
   const [addingPlayer, setAddingPlayer] = useState(false)
 
-  const { currentGame, currentQuarter, setCurrentGame, setCurrentQuarter } = useGameStore()
+  const { currentGame, currentQuarter, setCurrentGame, setCurrentQuarter, ytPlayer } = useGameStore()
   const { onCourt, setLineup, resetLineup } = useLineupStore()
+
+  // ── YouTube 원격 제어 (리그 모드와 동일) ─────────────────────
+  // 유튜브 iframe을 클릭하지 않아도 화면 어디서든 키보드로 재생 제어
+  function seekRelative(delta: number) {
+    if (!ytPlayer) return
+    try {
+      ytPlayer.seekTo((ytPlayer.getCurrentTime() ?? 0) + delta, true)
+      ytPlayer.unMute()
+    } catch {}
+  }
+  function togglePlay() {
+    if (!ytPlayer) return
+    try {
+      const state = ytPlayer.getPlayerState()
+      if (state === 1 /* PLAYING */) ytPlayer.pauseVideo()
+      else { ytPlayer.unMute(); ytPlayer.playVideo() }
+    } catch {}
+  }
+
+  // 키보드 단축키: Space(재생/정지), ←/→(±5s), Shift+←/→(±10s)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (!ytPlayer) return
+      if (e.code === 'Space')           { e.preventDefault(); togglePlay() }
+      else if (e.code === 'ArrowLeft')  { e.preventDefault(); seekRelative(e.shiftKey ? -10 : -5) }
+      else if (e.code === 'ArrowRight') { e.preventDefault(); seekRelative(e.shiftKey ? 10 : 5) }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [ytPlayer]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Feature 1: restore session immediately on mount (before async fetches)
   useEffect(() => {
