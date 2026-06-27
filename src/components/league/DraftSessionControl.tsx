@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Play, Square, RotateCcw, Dice5, CheckCircle2, Circle, Crown, Users, RefreshCw, Trash2, Save } from 'lucide-react'
+import { Play, Square, RotateCcw, Dice5, CheckCircle2, Circle, Crown, Users, RefreshCw, Trash2, Save, Link2, Copy, Check, X } from 'lucide-react'
 
 interface Team { id: string; name: string; color: string }
 interface Player { id: string; name: string; number: number | null; position: string | null; plus_one?: boolean }
@@ -22,6 +22,7 @@ interface Draft {
   lottery_done: boolean
   started_at: string | null
   completed_at: string | null
+  share_token: string | null
 }
 
 interface Pick {
@@ -56,6 +57,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
 
   const [leaderDraft, setLeaderDraft] = useState<Record<string, string>>({})
   const [poolSel, setPoolSel] = useState<Set<string>>(new Set())
+  const [tokenCopied, setTokenCopied] = useState(false)
 
   const jsonHeaders = { 'Content-Type': 'application/json', ...authHeaders }
 
@@ -174,6 +176,45 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     setActing(false)
     if (res.ok) { toast.success('세션 삭제 완료'); fetchData(true); onChanged?.() }
     else { const d = await res.json(); toast.error(d.error ?? '삭제 실패') }
+  }
+
+  async function generateShareToken() {
+    if (!draft) return
+    const isReissue = !!draft.share_token
+    if (isReissue && !confirm('기존 공유 링크가 폐기되고 새 링크가 발급됩니다. 진행하시겠습니까?')) return
+    setActing(true)
+    const res = await fetch(`/api/admin/leagues/${leagueId}/drafts/${draft.id}/share-token`, { method: 'POST', headers: jsonHeaders })
+    setActing(false)
+    if (res.ok) {
+      toast.success(isReissue ? '공유 링크 재발급 완료' : '공유 링크 생성 완료')
+      fetchData(true)
+    } else {
+      const d = await res.json()
+      toast.error(d.error ?? '실패')
+    }
+  }
+
+  async function revokeShareToken() {
+    if (!draft || !draft.share_token) return
+    if (!confirm('공유 링크를 폐기하시겠습니까? 기존 링크는 더 이상 동작하지 않습니다.')) return
+    setActing(true)
+    const res = await fetch(`/api/admin/leagues/${leagueId}/drafts/${draft.id}/share-token`, { method: 'DELETE', headers: authHeaders })
+    setActing(false)
+    if (res.ok) { toast.success('공유 링크 폐기 완료'); fetchData(true) }
+    else { const d = await res.json(); toast.error(d.error ?? '실패') }
+  }
+
+  async function copyShareUrl() {
+    if (!draft?.share_token) return
+    const url = `${window.location.origin}/draft/${draft.share_token}`
+    try {
+      await navigator.clipboard.writeText(url)
+      setTokenCopied(true)
+      setTimeout(() => setTokenCopied(false), 2000)
+      toast.success('링크가 복사되었습니다')
+    } catch {
+      toast.error('복사 실패 — 직접 선택해서 복사하세요')
+    }
   }
 
   if (loading) return <div className="text-center text-gray-500 py-8">로딩 중...</div>
@@ -361,6 +402,42 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* 공유 링크 — 단장·감독관용 별도 진입 페이지 */}
+      {draft.status !== 'completed' && (
+        <div className="rounded-lg border border-blue-900/50 bg-blue-950/20 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Link2 size={14} className="text-blue-400" />
+            <p className="text-xs font-bold text-blue-300 uppercase tracking-widest">공유 링크</p>
+            <span className="text-[10px] text-gray-500">단장·감독관 전용 진입 페이지 — 어드민 사이트 외부</span>
+          </div>
+          {draft.share_token ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5 bg-gray-900 border border-gray-700 rounded-md p-2">
+                <code className="font-mono text-xs text-blue-300 flex-1 truncate select-all">
+                  {typeof window !== 'undefined' ? `${window.location.origin}/draft/${draft.share_token}` : `/draft/${draft.share_token}`}
+                </code>
+                <button onClick={copyShareUrl} className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-colors ${tokenCopied ? 'bg-emerald-700 text-white' : 'bg-blue-700 hover:bg-blue-600 text-white'}`}>
+                  {tokenCopied ? <Check size={11} /> : <Copy size={11} />}
+                  {tokenCopied ? '복사됨' : '복사'}
+                </button>
+              </div>
+              <div className="flex gap-1.5">
+                <Button onClick={generateShareToken} disabled={acting} variant="outline" className="text-xs h-7 bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700">
+                  <RotateCcw size={11} className="mr-1" /> 재발급
+                </Button>
+                <Button onClick={revokeShareToken} disabled={acting} variant="outline" className="text-xs h-7 bg-red-950/40 border-red-800/50 text-red-300 hover:bg-red-900/40">
+                  <X size={11} className="mr-1" /> 폐기
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button onClick={generateShareToken} disabled={acting} className="bg-blue-600 hover:bg-blue-500 text-white text-xs h-8 w-full sm:w-auto">
+              <Link2 size={12} className="mr-1" /> 공유 링크 생성
+            </Button>
+          )}
         </div>
       )}
 

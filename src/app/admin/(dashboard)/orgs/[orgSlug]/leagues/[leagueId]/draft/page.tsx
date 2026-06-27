@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, KeyRound } from 'lucide-react'
 import Link from 'next/link'
@@ -17,6 +17,10 @@ export default function AdminDraftPage() {
   const [selectedQid, setSelectedQid] = useState<string | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
+
+  const fetchTeams = useCallback(() => {
+    fetch(`/api/leagues/${leagueId}/teams`).then(r => r.json()).then(ts => setTeams(ts ?? [])).catch(() => null)
+  }, [leagueId])
 
   useEffect(() => {
     Promise.all([
@@ -71,7 +75,7 @@ export default function AdminDraftPage() {
               <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest">코드 발급</h2>
               {selectedQuarter && <span className="text-xs text-gray-500">{selectedQuarter.year}.{selectedQuarter.quarter}Q</span>}
             </div>
-            <DraftCodeManager leagueId={leagueId} quarterId={selectedQid} teams={teams} />
+            <DraftCodeManager leagueId={leagueId} quarterId={selectedQid} teams={teams} onTeamsChanged={fetchTeams} />
           </section>
 
           <section className="space-y-3 mt-8">

@@ -35,22 +35,22 @@ export async function POST(
 
   const supabase = createClient()
 
-  // 기존 코드 충돌 검사 — manager: (quarter, team), supervisor: (quarter, role)
-  let existQ = supabase
-    .from('league_draft_codes')
-    .select('id')
-    .eq('league_id', leagueId)
-    .eq('quarter_id', body.quarter_id)
-    .eq('role', role)
-  existQ = role === 'supervisor' ? existQ.is('team_id', null) : existQ.eq('team_id', teamId!)
-  const { data: existing } = await existQ.maybeSingle()
-  if (existing) {
-    return NextResponse.json(
-      { error: role === 'supervisor'
-          ? '이미 이 분기에 감독관 코드가 발급되어 있습니다. 기존 코드를 삭제 후 다시 발급하세요.'
-          : '이미 이 분기·팀에 코드가 발급되어 있습니다. 기존 코드를 삭제 후 다시 발급하세요.' },
-      { status: 409 },
-    )
+  // 단장(manager)은 (quarter, team) 당 1개. 감독관(supervisor)은 무제한 발급 가능.
+  if (role === 'manager') {
+    const { data: existing } = await supabase
+      .from('league_draft_codes')
+      .select('id')
+      .eq('league_id', leagueId)
+      .eq('quarter_id', body.quarter_id)
+      .eq('role', 'manager')
+      .eq('team_id', teamId!)
+      .maybeSingle()
+    if (existing) {
+      return NextResponse.json(
+        { error: '이미 이 분기·팀에 코드가 발급되어 있습니다. 기존 코드를 삭제 후 다시 발급하세요.' },
+        { status: 409 },
+      )
+    }
   }
 
   const code_hash = await hashDraftCode(plainCode)

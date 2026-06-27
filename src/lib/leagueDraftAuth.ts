@@ -60,8 +60,9 @@ export async function verifyDraftCode(
 }
 
 /**
- * X-Draft-Code 헤더가 해당 분기의 감독관(supervisor) 코드와 일치하는지 검증.
- * 감독관은 팀이 없으므로 team_id 없이 (league, quarter, role='supervisor') 로 조회.
+ * X-Draft-Code 헤더가 해당 분기의 감독관(supervisor) 코드 중 어느 하나라도
+ * 일치하는지 검증. 분기당 감독관 코드는 무제한 발급 가능 — 부총무 등 복수
+ * 권한 부여 시 사용. (이전엔 .limit(1) 로 한 명만 인증됐음)
  */
 export async function verifySupervisorCode(
   req: Request,
@@ -79,20 +80,17 @@ export async function verifySupervisorCode(
     .eq('quarter_id', quarterId)
     .eq('role', 'supervisor')
     .eq('is_active', true)
-    .limit(1)
 
-  const row = (rows ?? [])[0] as { id: string; code_hash: string; label: string } | undefined
-  if (!row) return { valid: false }
-
-  const ok = await bcrypt.compare(plain, row.code_hash)
-  if (!ok) return { valid: false }
-
-  await supabase
-    .from('league_draft_codes')
-    .update({ last_used_at: new Date().toISOString() })
-    .eq('id', row.id)
-
-  return { valid: true, codeId: row.id, label: row.label, role: 'supervisor' }
+  for (const row of (rows ?? []) as { id: string; code_hash: string; label: string }[]) {
+    if (await bcrypt.compare(plain, row.code_hash)) {
+      await supabase
+        .from('league_draft_codes')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('id', row.id)
+      return { valid: true, codeId: row.id, label: row.label, role: 'supervisor' }
+    }
+  }
+  return { valid: false }
 }
 
 /**
