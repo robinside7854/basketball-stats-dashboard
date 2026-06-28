@@ -119,6 +119,14 @@ export default function DraftPortalClient({
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
   const [extending, setExtending] = useState(false)
+  // 픽 확정 전 한 번 더 확인 — 실수 픽 방지용 모달 상태.
+  // null 이면 모달 닫힘. 값이 있으면 모달 표시 + 확정 버튼 클릭 시 makePick(id) 호출.
+  const [confirmPick, setConfirmPick] = useState<{
+    playerId: string
+    playerName: string
+    playerNumber: number | null
+    playerPosition: string | null
+  } | null>(null)
   // 채팅 열림 상태 — 부모에서 보유해야 lg+ 에서 본문 우측에 패널 공간을 확보할 수 있다.
   // 닫힘 상태에서는 FAB(56px) 만 있어 본문을 가리지 않으므로 패딩 불필요.
   const [chatOpen, setChatOpen] = useState(false)
@@ -791,8 +799,10 @@ export default function DraftPortalClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.draft?.pick_seconds, draftId])
 
-  async function makePick() {
-    if (!auth || auth.role !== 'manager' || !auth.teamId || !selectedPlayerId) return
+  // 실제 픽 제출 — 확인 모달에서 사용자가 '확정' 을 누르면 호출.
+  // playerId 를 명시적으로 받아 모달 상태와 selectedPlayerId 의 desync 위험 차단.
+  async function makePick(playerId: string) {
+    if (!auth || auth.role !== 'manager' || !auth.teamId || !playerId) return
     try { primeAudio() } catch { /* ignore */ }
     setPicking(true)
     try {
@@ -802,7 +812,7 @@ export default function DraftPortalClient({
           'Content-Type': 'application/json',
           'X-Draft-Code': auth.plain,
         },
-        body: JSON.stringify({ team_id: auth.teamId, league_player_id: selectedPlayerId }),
+        body: JSON.stringify({ team_id: auth.teamId, league_player_id: playerId }),
       })
       const data = await r.json()
       if (!r.ok) {
@@ -818,7 +828,21 @@ export default function DraftPortalClient({
       toast.error('네트워크 오류')
     } finally {
       setPicking(false)
+      setConfirmPick(null)
     }
+  }
+
+  // 픽 확정 버튼 클릭 → 확인 모달 오픈. selectedPlayerId 기반으로 메타데이터 스냅샷.
+  function requestConfirmPick() {
+    if (!auth || auth.role !== 'manager' || !auth.teamId || !selectedPlayerId) return
+    const player = state?.available_players.find(p => p.id === selectedPlayerId)
+    if (!player) { toast.error('선택한 선수를 찾을 수 없습니다'); return }
+    setConfirmPick({
+      playerId: player.id,
+      playerName: player.name,
+      playerNumber: player.number,
+      playerPosition: player.position,
+    })
   }
 
   const draft = state?.draft
@@ -1134,8 +1158,8 @@ export default function DraftPortalClient({
                     />
                     <div className="flex gap-2">
                       <Button
-                        onClick={makePick}
-                        disabled={!selectedPlayerId || picking}
+                        onClick={requestConfirmPick}
+                        disabled={!selectedPlayerId || picking || !!confirmPick}
                         className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold disabled:opacity-40 min-h-[56px] text-base sm:text-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 transition-colors"
                       >
                         {picking
@@ -1317,6 +1341,17 @@ export default function DraftPortalClient({
           />
         )
       })()}
+
+      {/* 픽 확정 확인 모달 — 실수로 잘못된 선수를 픽하는 사고 방지.
+          배경/Escape 로 취소, '확정' 버튼만 실제 픽 제출. */}
+      {confirmPick && (
+        <ConfirmPickModal
+          data={confirmPick}
+          loading={picking}
+          onCancel={() => setConfirmPick(null)}
+          onConfirm={() => makePick(confirmPick.playerId)}
+        />
+      )}
 
       {/* 코드 입력 모달 */}
       {showCodeModal && (
@@ -1762,6 +1797,88 @@ function Tag({ color, children }: { color: 'amber' | 'purple' | 'blue' | 'gray';
     gray: 'bg-gray-800 text-gray-300 border-gray-700',
   }
   return <span className={`px-3 py-1.5 rounded-md border text-sm font-bold ${colors[color]}`}>{children}</span>
+}
+
+function ConfirmPickModal({
+  data,
+  loading,
+  onCancel,
+  onConfirm,
+}: {
+  data: { playerId: string; playerName: string; playerNumber: number | null; playerPosition: string | null }
+  loading: boolean
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  // Escape 키로 취소 + 백드롭 클릭으로 취소. 단, 로딩 중에는 모두 무시(중복 제출/사용자 혼란 방지).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !loading) onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [loading, onCancel])
+
+  const numberSuffix = data.playerNumber != null ? ` #${data.playerNumber}` : ''
+
+  return (
+    <div
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+      style={{
+        paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+      }}
+      onClick={loading ? undefined : onCancel}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-pick-title"
+    >
+      <div
+        className="bg-gray-900 border-2 border-amber-500 rounded-2xl p-5 sm:p-6 max-w-md w-full shadow-2xl"
+        style={{ boxShadow: '0 0 60px rgba(245, 158, 11, 0.35)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <h3
+          id="confirm-pick-title"
+          className="text-lg sm:text-xl font-black text-amber-300 mb-3 flex items-center gap-2"
+        >
+          <CheckCircle2 size={20} className="shrink-0" /> 픽 확인
+        </h3>
+        <p className="text-xl sm:text-2xl font-bold text-white leading-relaxed break-keep">
+          정말로{' '}
+          <span className="text-amber-300">
+            {data.playerName}
+            {numberSuffix && <span className="tabular-nums">{numberSuffix}</span>}
+          </span>
+          을(를) 드래프트하시겠습니까?
+        </p>
+        {data.playerPosition && (
+          <p className="text-sm text-gray-300 mt-2 font-mono">
+            포지션: <span className="text-gray-100">{data.playerPosition.split(',').map(s => s.trim()).join(' · ')}</span>
+          </p>
+        )}
+        <p className="text-sm text-amber-200/80 mt-3 leading-relaxed">⚠ 확정 후에는 되돌릴 수 없습니다.</p>
+        <div className="flex gap-3 mt-5">
+          <Button
+            onClick={onCancel}
+            disabled={loading}
+            variant="outline"
+            className="flex-1 bg-gray-800 border-gray-700 text-gray-100 hover:bg-gray-700 min-h-[48px] h-12 text-base font-bold disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+          >
+            취소
+          </Button>
+          <Button
+            onClick={onConfirm}
+            disabled={loading}
+            autoFocus
+            className="flex-1 bg-amber-600 hover:bg-amber-500 text-black font-black min-h-[48px] h-12 text-base disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 transition-colors"
+          >
+            {loading ? '확정 중...' : '✓ 확정'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function PlayerPicker({ players, selectedId, onSelect }: { players: Player[]; selectedId: string | null; onSelect: (id: string) => void }) {
