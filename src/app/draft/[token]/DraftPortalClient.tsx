@@ -64,6 +64,7 @@ interface DraftState {
   pool_size?: number
   pool_player_ids?: string[]
   teams: Team[]
+  leaders?: LeaderRow[]
   supervisor_exists?: boolean
 }
 
@@ -74,6 +75,16 @@ interface SessionAuth {
   label: string
   plain: string // 헤더로 재사용
 }
+
+// 채팅 패널에 inline 표시되는 ephemeral 시스템 메시지 — 총무 발화/픽 안내/READY 변경 등
+export interface SystemMessage {
+  id: string                          // 발화 key — 중복 방지용
+  text: string
+  timestamp: number
+  kind: 'commissioner' | 'system'
+}
+
+interface LeaderRow { team_id: string; leader_player_id: string | null }
 
 const POLL_INTERVAL_MS = 1500
 
@@ -312,6 +323,8 @@ export default function DraftPortalClient({
   const finalSeenRef = useRef<boolean>(false)
   const [commEvent, setCommEvent] = useState<CommissionerEvent | null>(null)
   const lastCommKeyRef = useRef<string | null>(null)
+  // 채팅 시스템 메시지 (총무 발화 + 시스템 알림) — 클라이언트 ephemeral, DB 미저장.
+  const [chatSystemMessages, setChatSystemMessages] = useState<SystemMessage[]>([])
   const initialPicksSnapshotRef = useRef<number | null>(null)
   const lastPickNumberRef = useRef<number>(0)
   const pendingRevealRef = useRef<PickRevealData | null>(null)
@@ -361,13 +374,25 @@ export default function DraftPortalClient({
     } catch { /* ignore */ }
   }, [state?.draft?.status, draftId])
 
-  // ────────────────── 코미셔너 중계 트리거 ──────────────────
+  // ────────────────── 미라클 총무 중계 트리거 ──────────────────
   // status 전환, 추첨 결과, 새 픽 도착에 맞춰 멘트를 띄운다.
   // lastCommKeyRef 로 같은 이벤트 중복 발화 차단.
+  // pushCommAndChat(): 말풍선 + 채팅 시스템 메시지 동시 발화 — 시청자 전원 동일 정보.
   function fireComm(next: CommissionerEvent) {
     if (lastCommKeyRef.current === next.key) return
     lastCommKeyRef.current = next.key
     setCommEvent(next)
+  }
+  function pushCommAndChat(next: CommissionerEvent) {
+    fireComm(next)
+    // 같은 key 의 중복 추가 방지
+    setChatSystemMessages(prev => {
+      if (prev.some(m => m.id === next.key)) return prev
+      const added: SystemMessage = { id: next.key, text: next.text, timestamp: Date.now(), kind: 'commissioner' }
+      const merged = [...prev, added]
+      // 메모리 leak 방지 — 최근 50개만 유지
+      return merged.length > 50 ? merged.slice(merged.length - 50) : merged
+    })
   }
 
   // 1) 드래프트 시작 / 종료
@@ -375,25 +400,38 @@ export default function DraftPortalClient({
     if (!state?.draft) return
     const s = state.draft.status
     if (s === 'in_progress' && state.draft.total_picks === 0) {
-      fireComm({ key: `${draftId}:draftStart`, text: pickLine('draftStart', draftId), durationMs: 5000 })
+      pushCommAndChat({ key: `${draftId}:draftStart`, text: pickLine('draftStart', draftId), durationMs: 5000 })
     }
     if (s === 'completed') {
-      fireComm({ key: `${draftId}:draftEnd`, text: pickLine('draftEnd', draftId), durationMs: 6000 })
+      pushCommAndChat({ key: `${draftId}:draftEnd`, text: pickLine('draftEnd', draftId), durationMs: 6000 })
+      // 최종 픽 코멘트 — 별도 라인으로 자연스러운 마무리
+      const t = setTimeout(() => {
+        pushCommAndChat({ key: `${draftId}:finalPick`, text: pickLine('finalPick', draftId), durationMs: 5500 })
+      }, 5200)
+      return () => clearTimeout(t)
     }
   }, [state?.draft, draftId])
 
-  // 2) 추첨 시작 / 결과
+  // 2) 추첨 — 자기소개(intro) → 시작 안내(lotteryStart) → 결과 발표(lotteryResult)
+  // status 가 lottery_waiting 으로 처음 들어왔을 때 인트로 한 번.
+  const introFiredRef = useRef<boolean>(false)
   useEffect(() => {
     if (!state?.draft) return
-    if (state.draft.status === 'lottery_waiting') {
-      fireComm({ key: `${draftId}:lotteryStart`, text: pickLine('lotteryStart', draftId), durationMs: 4500 })
+    if (state.draft.status === 'lottery_waiting' && !introFiredRef.current) {
+      introFiredRef.current = true
+      pushCommAndChat({ key: `${draftId}:intro`, text: pickLine('intro', draftId), durationMs: 6000 })
+      // 인트로 직후 5.5s 뒤 추첨 시작 안내 (말풍선이 인트로 발화를 덮지 않도록)
+      const t = setTimeout(() => {
+        pushCommAndChat({ key: `${draftId}:lotteryStart`, text: pickLine('lotteryStart', draftId), durationMs: 4500 })
+      }, 5500)
+      return () => clearTimeout(t)
     }
     if (state.draft.lottery_done && state.draft.draft_order.length > 0) {
       const firstTeamId = state.draft.draft_order[0]
       const firstTeam = state.teams.find(t => t.id === firstTeamId)
       if (firstTeam) {
         const t = setTimeout(() => {
-          fireComm({
+          pushCommAndChat({
             key: `${draftId}:lotteryResult`,
             text: pickLine('lotteryResult', draftId, { teamName: firstTeam.name }),
             durationMs: 6000,
@@ -1225,8 +1263,10 @@ export default function DraftPortalClient({
       {/* 픽 이팩트 — 새 픽 들어올 때 3초간 전체화면 */}
       <DraftPickReveal data={pickReveal} onClose={() => setPickReveal(null)} />
 
-      {/* AI 코미셔너 — 픽셀 캐릭터가 말풍선으로 중계 */}
-      <DraftCommissioner event={commEvent} />
+      {/* 미라클 총무 — 픽셀 캐릭터가 말풍선으로 중계 (setup/ready_check 단계에서는 숨김) */}
+      {state?.draft && state.draft.status !== 'setup' && state.draft.status !== 'ready_check' && (
+        <DraftCommissioner event={commEvent} />
+      )}
 
       {/* 추첨 결과 애니메이션 — lottery_done 직후 한 번만 (모두에게 동시).
           waiting/ready_check 단계에서는 절대 노출되지 않도록 status 가드 포함. */}

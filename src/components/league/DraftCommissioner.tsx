@@ -1,5 +1,5 @@
 'use client'
-// AI 코미셔너 — 픽셀 캐릭터 + 말풍선으로 드래프트 이벤트 중계.
+// 미라클 총무 — 픽셀 캐릭터 + 말풍선으로 드래프트 이벤트 중계.
 //
 // - 외부에서 setEvent({ key, text, durationMs }) 호출 → 캐릭터가 4~6초 말풍선 표시
 // - 타입라이터 효과 (30ms/char); prefers-reduced-motion 일 때는 즉시 표시
@@ -99,13 +99,15 @@ export default function DraftCommissioner({ event }: Props) {
       }}
       aria-live="polite"
       aria-atomic="true"
+      aria-label="미라클 총무 안내"
     >
       <PixelCommissioner speaking={speaking} />
       <div
-        className="relative rounded-lg bg-white text-gray-900 px-3 py-2 shadow-2xl border-2 border-gray-900 max-w-[260px] sm:max-w-[340px] min-w-0"
+        className="relative rounded-lg bg-white text-gray-900 px-3 py-2 shadow-2xl border-2 border-gray-900 max-w-[240px] sm:max-w-[340px] min-w-0"
         style={{
           boxShadow: '4px 4px 0 0 rgba(0,0,0,0.6)',
         }}
+        role="status"
       >
         {/* 말풍선 꼬리 */}
         <div className="absolute -left-2 bottom-3 w-0 h-0"
@@ -122,7 +124,7 @@ export default function DraftCommissioner({ event }: Props) {
             borderRight: '8px solid #ffffff',
           }}
         />
-        <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-0.5">코미셔너</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-0.5">미라클 총무</p>
         <p className="text-sm sm:text-base font-bold leading-snug break-keep">
           {typed}
           {speaking && <span className="inline-block w-1.5 h-3 bg-gray-900 ml-0.5 animate-pulse align-middle" />}
@@ -132,7 +134,7 @@ export default function DraftCommissioner({ event }: Props) {
   )
 }
 
-/** 16x20 픽셀 캐릭터 — 정장 입은 단순한 코미셔너 (인라인 SVG). */
+/** 16x20 픽셀 캐릭터 — 정장 입은 단순한 미라클 총무 (인라인 SVG). */
 function PixelCommissioner({ speaking }: { speaking: boolean }) {
   // 색 정의
   const SKIN = '#fcd5b5'
