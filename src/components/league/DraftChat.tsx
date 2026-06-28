@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Send, MessageCircle, ShieldCheck, X, AlertTriangle } from 'lucide-react'
+import { playChatDing } from '@/lib/draftSounds'
 
 interface Team { id: string; name: string; color: string }
 interface ChatMsg {
@@ -17,7 +18,7 @@ interface Props {
   draftId: string
   authedCode: string
   teams: Team[]
-  /** 본인 식별 (내 메시지 강조용) */
+  /** 본인 식별 (내 메시지 강조용 + ding 자기 메시지 제외) */
   authedRole: 'manager' | 'supervisor' | null
   authedTeamId: string | null
   authedLabel: string | null
@@ -27,6 +28,7 @@ interface Props {
 }
 
 const POLL_MS = 2500
+const DING_COOLDOWN_MS = 1500
 
 export default function DraftChat({ leagueId, draftId, authedCode, teams, authedRole, authedTeamId, authedLabel, open: openProp, onOpenChange }: Props) {
   const [msgs, setMsgs] = useState<ChatMsg[]>([])
@@ -39,13 +41,37 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
     if (!isControlled) setOpenInternal(next)
     onOpenChange?.(next)
   }, [isControlled, onOpenChange])
-  const [unread, setUnread] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const lastTsRef = useRef<string | null>(null)
   const openRef = useRef(open)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
   openRef.current = open
+
+  // ── 읽음 상태 ──
+  // userKey: 본인 식별 키. localStorage 충돌 방지 (역할+팀+레이블).
+  const userKey = `${authedRole ?? 'anon'}_${authedTeamId ?? 'na'}_${authedLabel ?? 'anon'}`
+  const lastReadStorageKey = `chat_lastread_${draftId}_${userKey}`
+  const lastReadIdRef = useRef<string | null>(null)
+  const [, forceRerender] = useState(0) // 안읽음 개수 재계산용
+
+  // 초기 lastReadId 복원 (페이지 새로고침 시 유지)
+  useEffect(() => {
+    try {
+      const stored = typeof window !== 'undefined' ? localStorage.getItem(lastReadStorageKey) : null
+      lastReadIdRef.current = stored
+      forceRerender(x => x + 1)
+    } catch { /* ignore */ }
+  }, [lastReadStorageKey])
+
+  // 마지막 ding 시각 — 1.5s 쿨다운
+  const lastDingAtRef = useRef<number>(0)
+
+  // 본인 메시지 판정 (강조 + ding 제외용)
+  const isMine = useCallback((m: ChatMsg) => {
+    if (m.sender_role !== authedRole || m.sender_label !== authedLabel) return false
+    return m.sender_role === 'supervisor' || m.team_id === authedTeamId
+  }, [authedRole, authedLabel, authedTeamId])
 
   const fetchMsgs = useCallback(async () => {
     const url = `/api/leagues/${leagueId}/drafts/${draftId}/chat${lastTsRef.current ? `?after=${encodeURIComponent(lastTsRef.current)}` : ''}`
@@ -65,14 +91,30 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
         setMsgs(prev => {
           const seen = new Set(prev.map(m => m.id))
           const added = data.filter(m => !seen.has(m.id))
-          if (added.length > 0 && !openRef.current) setUnread(u => u + added.length)
+          if (added.length > 0) {
+            // 새 메시지 도착 — 내가 보낸 게 아닌 게 하나라도 있고, 채팅 닫혀 있을 때 ding
+            const hasNonSelf = added.some(m => !isMine(m))
+            if (hasNonSelf && !openRef.current) {
+              const now = Date.now()
+              if (now - lastDingAtRef.current > DING_COOLDOWN_MS) {
+                lastDingAtRef.current = now
+                try { playChatDing() } catch { /* ignore */ }
+              }
+            }
+            // 열려 있으면 즉시 읽음 처리 (가장 최신 메시지 id 를 lastRead 로)
+            if (openRef.current) {
+              const lastId = added[added.length - 1].id
+              lastReadIdRef.current = lastId
+              try { localStorage.setItem(lastReadStorageKey, lastId) } catch { /* ignore */ }
+            }
+          }
           return [...prev, ...added]
         })
       }
     } catch {
       setError('네트워크 오류로 채팅을 불러오지 못했습니다')
     }
-  }, [leagueId, draftId, authedCode])
+  }, [leagueId, draftId, authedCode, isMine, lastReadStorageKey])
 
   useEffect(() => {
     fetchMsgs()
@@ -84,7 +126,30 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
     if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [msgs, open])
 
-  useEffect(() => { if (open) setUnread(0) }, [open])
+  // 열림 시 — 모든 현재 메시지를 읽음 처리. 닫혀 있을 때 모인 unread 가 0 으로.
+  useEffect(() => {
+    if (!open) return
+    if (msgs.length === 0) return
+    const lastId = msgs[msgs.length - 1].id
+    lastReadIdRef.current = lastId
+    try { localStorage.setItem(lastReadStorageKey, lastId) } catch { /* ignore */ }
+    forceRerender(x => x + 1)
+  }, [open, msgs, lastReadStorageKey])
+
+  // 안읽음 개수 — lastReadId 이후의 메시지 중 내가 보낸 게 아닌 것
+  // (chat closed 일 때만 의미. open 이면 자동 read 되어 0)
+  function computeUnread(): number {
+    if (open) return 0
+    const lastReadId = lastReadIdRef.current
+    if (!lastReadId) {
+      // 첫 진입 — 모든 비-자신 메시지가 unread
+      return msgs.filter(m => !isMine(m)).length
+    }
+    const idx = msgs.findIndex(m => m.id === lastReadId)
+    if (idx === -1) return msgs.filter(m => !isMine(m)).length
+    return msgs.slice(idx + 1).filter(m => !isMine(m)).length
+  }
+  const unread = computeUnread()
 
   async function send() {
     const message = input.trim()
@@ -111,11 +176,6 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
     } finally {
       setSending(false)
     }
-  }
-
-  function isMine(m: ChatMsg) {
-    if (m.sender_role !== authedRole || m.sender_label !== authedLabel) return false
-    return m.sender_role === 'supervisor' || m.team_id === authedTeamId
   }
 
   // 접힌 상태 — 우하단 작은 플로팅 버튼 (PC), 우하단 모바일에서도 작게

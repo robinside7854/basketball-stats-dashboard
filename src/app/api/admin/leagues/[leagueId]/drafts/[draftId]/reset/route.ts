@@ -61,6 +61,15 @@ export async function POST(
       .eq('draft_id', draftId)
   }
 
+  // 채팅 메시지 삭제 — 리셋과 함께 이전 세션의 대화는 모두 클리어
+  // (TEST 메시지나 잘못된 발언이 새 세션에 보이지 않도록)
+  // 채팅 테이블이 아직 없는 환경에서는 에러를 흘려보냄 (idempotent)
+  await supabase
+    .from('league_draft_chat')
+    .delete()
+    .eq('draft_id', draftId)
+    .then(() => null, () => null)
+
   // 세션 상태 리셋
   const { data: updated, error } = await supabase
     .from('league_drafts')

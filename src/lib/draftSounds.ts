@@ -67,6 +67,13 @@ export function playMyTurnBeep() {
   tone(880, 0.36, 0.08, 'square', 0.18)
 }
 
+/** 채팅 ding — 새 메시지 도착 (약 200ms 의 짧은 두 음 슬라이드) */
+export function playChatDing() {
+  // "ding-ding" — 1320Hz sine 80ms + 1760Hz sine 80ms
+  tone(1320, 0, 0.08, 'sine', 0.12)
+  tone(1760, 0.09, 0.08, 'sine', 0.12)
+}
+
 /** 추첨 호른 — 1픽 공이 떨어지는 순간 (약 0.7초의 승리감 있는 팡파레) */
 export function playLotteryHorn() {
   // "타-다!" 패턴: 880Hz square 300ms → 660Hz square 200ms → 1320Hz square 200ms 슬라이드
