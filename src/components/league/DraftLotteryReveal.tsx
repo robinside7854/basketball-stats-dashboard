@@ -85,9 +85,9 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
         @keyframes lottoOut { 0%{transform:scale(0.2) translateY(40px);opacity:0} 60%{transform:scale(1.15) translateY(0);opacity:1} 100%{transform:scale(1) translateY(0);opacity:1} }
       `}</style>
 
-      <div className="text-center max-w-lg w-full">
+      <div className="text-center max-w-lg sm:max-w-xl md:max-w-2xl w-full">
         <p className="font-jersey text-sm uppercase tracking-[0.3em] text-amber-400 mb-1">DRAFT LOTTERY</p>
-        <h2 className="text-2xl font-black text-white mb-5">
+        <h2 className="text-2xl sm:text-3xl font-black text-white mb-5">
           {phase === 'revealed' ? '1픽 당첨!' : phase === 'drawing' ? '두근두근...' : '추첨 기계에 팀 공 투입'}
         </h2>
 
@@ -123,7 +123,7 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
                 <p className="text-amber-300 font-black text-lg tracking-widest animate-pulse">● ● ●</p>
               )}
               {phase === 'intro' && (
-                <p className="text-gray-500 text-sm">팀 공이 기계로 들어가는 중...</p>
+                <p className="text-gray-300 text-sm">팀 공이 기계로 들어가는 중...</p>
               )}
             </div>
           </>
@@ -142,18 +142,18 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
                 const t = teamMap[tid]
                 const odd = odds?.[tid]
                 return (
-                  <div key={`${tid}-${idx}`} className="flex items-center gap-3 rounded-xl px-4 py-2.5 border bg-gray-900/80"
+                  <div key={`${tid}-${idx}`} className="flex items-center gap-3 rounded-xl px-3 sm:px-4 py-2.5 border bg-gray-900/80"
                     style={{ borderColor: idx === 0 ? firstColor : '#374151', animation: `lottoOut 0.5s ease-out ${idx * 0.15}s both` }}>
-                    <span className={`font-display text-2xl w-8 ${idx === 0 ? 'text-amber-300' : 'text-gray-400'}`}>{idx + 1}</span>
-                    <div className="w-3.5 h-3.5 rounded-full" style={{ backgroundColor: t?.color }} />
-                    <span className="text-white font-black flex-1 text-left">{t?.name}</span>
-                    {idx === 0 && <span className="text-[10px] font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full">1픽</span>}
-                    {odd != null && <span className="text-xs text-gray-400">{(odd * 100).toFixed(0)}%</span>}
+                    <span className={`font-display text-2xl sm:text-3xl w-8 shrink-0 ${idx === 0 ? 'text-amber-300' : 'text-gray-300'}`}>{idx + 1}</span>
+                    <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: t?.color }} />
+                    <span className="text-white font-black flex-1 text-left text-base sm:text-lg truncate min-w-0">{t?.name}</span>
+                    {idx === 0 && <span className="text-[10px] font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full shrink-0">1픽</span>}
+                    {odd != null && <span className="text-xs text-gray-300 shrink-0">{(odd * 100).toFixed(0)}%</span>}
                   </div>
                 )
               })}
             </div>
-            <p className="text-xs text-gray-500 mt-4">탭하여 닫기 · 8초 후 자동 닫힘</p>
+            <p className="text-xs text-gray-300 mt-4">탭하여 닫기 · 8초 후 자동 닫힘</p>
           </>
         )}
       </div>

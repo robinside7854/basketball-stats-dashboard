@@ -628,8 +628,8 @@ export default function DraftPortalClient({
         <div className="flex items-center gap-3">
           <Trophy className="text-amber-400 w-7 h-7" />
           <div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight">{leagueName} 드래프트</h1>
-            <p className="text-xs text-gray-500">{year ? `${year}.${quarter}Q` : ''} {orgSlug && <span className="ml-1">· {orgSlug}</span>}</p>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-tight">{leagueName} 드래프트</h1>
+            <p className="text-xs text-gray-400">{year ? `${year}.${quarter}Q` : ''} {orgSlug && <span className="ml-1">· {orgSlug}</span>}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -654,8 +654,8 @@ export default function DraftPortalClient({
 
       {/* 상태 배지 */}
       {!draft ? (
-        <div className="text-center py-20 text-gray-500">
-          <p className="text-lg">아직 드래프트 세션이 생성되지 않았습니다</p>
+        <div className="text-center py-16 sm:py-20 text-gray-300">
+          <p className="text-base sm:text-lg">아직 드래프트 세션이 생성되지 않았습니다</p>
         </div>
       ) : (
         <>
@@ -699,15 +699,15 @@ export default function DraftPortalClient({
               {/* 픽 순서 — 추첨 후에만 표시 */}
               {draft.lottery_done && draft.draft_order.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-blue-800/30">
-                  <p className="text-[10px] uppercase tracking-widest text-blue-300 mb-1.5">픽 순서 (추첨 완료)</p>
+                  <p className="text-[10px] uppercase tracking-widest text-blue-300 font-bold mb-1.5">픽 순서 (추첨 완료)</p>
                   <div className="flex flex-wrap gap-1.5">
                     {draft.draft_order.map((tid, idx) => {
                       const t = teamsById[tid]
                       return (
                         <div key={`${tid}-${idx}`} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-900/60 border border-gray-700">
-                          <span className="text-[10px] font-black text-gray-500">{idx + 1}.</span>
+                          <span className="text-[11px] font-black text-gray-400">{idx + 1}.</span>
                           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color }} />
-                          <span className="text-xs font-bold text-white">{t?.name ?? '?'}</span>
+                          <span className="text-sm font-bold text-white">{t?.name ?? '?'}</span>
                         </div>
                       )
                     })}
@@ -759,7 +759,7 @@ export default function DraftPortalClient({
             <section className="bg-gray-900/60 border border-gray-800 rounded-2xl p-3 sm:p-4 lg:p-5 space-y-4">
               <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest">픽 보드</h2>
               {draft.status === 'setup' || draft.status === 'ready_check' ? (
-                <div className="text-center py-12 text-gray-500">감독관이 시작을 누르면 픽이 진행됩니다</div>
+                <div className="text-center py-12 text-gray-300 text-sm">감독관이 시작을 누르면 픽이 진행됩니다</div>
               ) : (
                 <div className="space-y-4">
                   {Array.from({ length: Math.max(totalRounds, 1) }).map((_, idx) => {
@@ -768,7 +768,7 @@ export default function DraftPortalClient({
                     const orderForRound = draft.method === 'snake' && round % 2 === 0 ? [...order].reverse() : order
                     return (
                       <div key={round}>
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Round {round}</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Round {round}</p>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-2.5">
                           {orderForRound.map((teamId, i) => {
                             const pickNumber = (round - 1) * order.length + i + 1
@@ -784,14 +784,14 @@ export default function DraftPortalClient({
                                 }`}
                                 style={team ? { borderLeftColor: team.color, borderLeftWidth: 3 } : undefined}
                               >
-                                <p className="text-[9px] text-gray-500 font-bold">#{pickNumber} · {team?.name ?? '?'}</p>
+                                <p className="text-[10px] text-gray-400 font-bold truncate">#{pickNumber} · {team?.name ?? '?'}</p>
                                 {pick ? (
-                                  <p className="text-sm font-bold text-white mt-1 truncate">
+                                  <p className="text-sm font-bold text-white mt-1 truncate leading-tight">
                                     {pick.player_number != null && <span className="text-amber-300 mr-1">#{pick.player_number}</span>}
                                     {pick.player_name}
                                   </p>
                                 ) : isCurrent ? (
-                                  <p className="text-xs text-amber-300 mt-1">선택 중...</p>
+                                  <p className="text-xs text-amber-300 mt-1 font-bold">선택 중...</p>
                                 ) : (
                                   <p className="text-xs text-gray-600 mt-1">—</p>
                                 )}
@@ -851,9 +851,9 @@ export default function DraftPortalClient({
                   </div>
                 ) : (
                   <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 text-center">
-                    <Lock className="w-6 h-6 text-gray-600 mx-auto mb-2" />
-                    <p className="text-sm text-gray-400">본인 차례가 아닙니다</p>
-                    {currentTeam && <p className="text-xs text-gray-500 mt-1"><span className="font-bold text-white">{currentTeam.name}</span> 단장 차례</p>}
+                    <Lock className="w-6 h-6 text-gray-500 mx-auto mb-2" />
+                    <p className="text-sm text-gray-300 font-bold">본인 차례가 아닙니다</p>
+                    {currentTeam && <p className="text-xs text-gray-400 mt-1"><span className="font-bold text-white">{currentTeam.name}</span> 단장 차례</p>}
                   </div>
                 )
               )}
@@ -872,7 +872,7 @@ export default function DraftPortalClient({
               )}
 
               {!auth && (draft.status === 'setup' || draft.status === 'in_progress') && (
-                <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 text-center text-xs text-gray-500">
+                <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 text-center text-sm text-gray-300">
                   단장/감독관이라면 우측 상단에서 코드를 입력하세요.
                 </div>
               )}
@@ -889,7 +889,7 @@ export default function DraftPortalClient({
                   <p className="text-amber-300 text-sm font-bold flex items-center gap-1.5">
                     <ShieldCheck size={14} /> 감독관 모드
                   </p>
-                  <p className="text-xs text-gray-400">아래 세션 관리 패널에서 풀·팀장·추첨·시작/완료 등 모든 진행을 제어할 수 있습니다.</p>
+                  <p className="text-xs text-gray-300 leading-relaxed">아래 세션 관리 패널에서 풀·팀장·추첨·시작/완료 등 모든 진행을 제어할 수 있습니다.</p>
                 </div>
               )}
             </aside>
@@ -960,7 +960,7 @@ export default function DraftPortalClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={closeCodeModal}>
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
             <h3 className="font-black text-lg mb-1">단장/감독관 입장</h3>
-            <p className="text-xs text-gray-500 mb-4">어드민에게 발급받은 코드를 입력하세요. (대소문자 구분)</p>
+            <p className="text-xs text-gray-300 mb-4 leading-relaxed">어드민에게 발급받은 코드를 입력하세요. (대소문자 구분)</p>
             <Input
               value={codeInput}
               onChange={e => setCodeInput(e.target.value)}
@@ -1033,7 +1033,7 @@ function BigTimer({ seconds, extensionsUsed, canExtend, onExtend, extending, gra
 function SettingPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-gray-900/60 border border-gray-700 px-2.5 py-1.5">
-      <p className="text-[9px] uppercase tracking-widest text-gray-500 font-bold">{label}</p>
+      <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">{label}</p>
       <p className="text-sm font-bold text-white mt-0.5">{value}</p>
     </div>
   )
@@ -1218,8 +1218,8 @@ function LotteryDoneScreen({ teams, draftOrder, odds, isSupervisor, onStartDraft
                   {idx + 1}
                 </span>
                 <div className="text-left">
-                  <p className="text-xs font-bold text-white">{t?.name ?? '?'}</p>
-                  {odd != null && <p className="text-[9px] text-gray-400">{(odd * 100).toFixed(0)}% 확률</p>}
+                  <p className="text-sm font-bold text-white leading-tight">{t?.name ?? '?'}</p>
+                  {odd != null && <p className="text-[10px] text-gray-300">{(odd * 100).toFixed(0)}% 확률</p>}
                 </div>
               </div>
             )
@@ -1280,10 +1280,10 @@ function TeamPickRoster({ teams, picks, draftOrder }: {
               className="bg-gray-900/60 border border-gray-800 rounded-xl p-3"
               style={{ borderTopColor: t.color, borderTopWidth: 3 }}
             >
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.color }} />
-                <p className="text-sm font-bold text-white">{t.name}</p>
-                <span className="text-[10px] text-gray-500 ml-auto font-mono">{list.length}명</span>
+              <div className="flex items-center gap-2 mb-2 min-w-0">
+                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                <p className="text-sm font-bold text-white truncate">{t.name}</p>
+                <span className="text-[11px] text-gray-400 ml-auto font-mono shrink-0">{list.length}명</span>
               </div>
               {Object.keys(posCount).length > 0 && (
                 <div className="flex flex-wrap gap-1 mb-2 pb-2 border-b border-gray-800">
@@ -1299,14 +1299,14 @@ function TeamPickRoster({ teams, picks, draftOrder }: {
               ) : (
                 <div className="space-y-1">
                   {list.map(p => (
-                    <div key={p.pick_number} className="flex items-center gap-1.5 text-xs">
-                      <span className="text-[10px] text-gray-500 font-mono w-7">#{p.pick_number}</span>
+                    <div key={p.pick_number} className="flex items-center gap-1.5 text-xs min-w-0">
+                      <span className="text-[10px] text-gray-400 font-mono w-7 shrink-0">#{p.pick_number}</span>
                       {p.player_number != null && (
-                        <span className="text-amber-300 font-mono font-bold w-7">#{p.player_number}</span>
+                        <span className="text-amber-300 font-mono font-bold w-7 shrink-0">#{p.player_number}</span>
                       )}
-                      <span className="text-white font-bold flex-1 truncate">{p.player_name}</span>
+                      <span className="text-white font-bold flex-1 truncate text-sm min-w-0">{p.player_name}</span>
                       {p.player_position && (
-                        <span className="text-[10px] text-gray-500 font-mono">{p.player_position.split(',').map(s => s.trim()).join('·')}</span>
+                        <span className="text-[10px] text-gray-400 font-mono shrink-0">{p.player_position.split(',').map(s => s.trim()).join('·')}</span>
                       )}
                     </div>
                   ))}
@@ -1337,7 +1337,7 @@ function PickSecondsCard({ currentSeconds, onChange }: { currentSeconds: number;
       <p className="text-blue-300 text-sm font-bold flex items-center gap-1.5">
         <Timer size={14} /> 픽 시간 (초)
       </p>
-      <p className="text-[10px] text-gray-500">단장들과 채팅 합의 후 변경 — 다음 픽부터 적용됩니다.</p>
+      <p className="text-[11px] text-gray-300 leading-relaxed">단장들과 채팅 합의 후 변경 — 다음 픽부터 적용됩니다.</p>
       <div className="flex gap-1.5">
         <Input
           type="number"
@@ -1352,7 +1352,7 @@ function PickSecondsCard({ currentSeconds, onChange }: { currentSeconds: number;
           {saving ? '저장 중...' : '적용'}
         </Button>
       </div>
-      <p className="text-[10px] text-gray-600">현재: {currentSeconds}초</p>
+      <p className="text-[11px] text-gray-400">현재: {currentSeconds}초</p>
     </div>
   )
 }

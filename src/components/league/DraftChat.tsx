@@ -138,20 +138,20 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
       <div className="px-4 py-2.5 border-b border-gray-800 flex items-center gap-2">
         <MessageCircle size={15} className="text-blue-400" />
         <p className="text-xs font-bold text-gray-200 uppercase tracking-widest">드래프트 채팅</p>
-        <span className="text-[10px] text-gray-600">단장·감독관</span>
+        <span className="text-[11px] text-gray-400">단장·감독관</span>
         <button onClick={() => setOpen(false)} className="ml-auto text-gray-500 hover:text-white cursor-pointer"><X size={16} /></button>
       </div>
 
       {error && (
         <div className="px-3 py-2 bg-amber-950/40 border-b border-amber-800/40 flex items-start gap-1.5">
           <AlertTriangle size={13} className="text-amber-400 mt-0.5 shrink-0" />
-          <p className="text-[11px] text-amber-300">{error}</p>
+          <p className="text-xs text-amber-200 leading-relaxed">{error}</p>
         </div>
       )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2.5">
         {msgs.length === 0 && !error ? (
-          <p className="text-center text-xs text-gray-600 py-8">아직 메시지가 없습니다. 첫 메시지를 남겨보세요!</p>
+          <p className="text-center text-sm text-gray-300 py-8">아직 메시지가 없습니다. 첫 메시지를 남겨보세요!</p>
         ) : msgs.map(m => {
           const team = m.team_id ? teamMap[m.team_id] : null
           const isSup = m.sender_role === 'supervisor'
@@ -159,12 +159,12 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
           const mine = isMine(m)
           return (
             <div key={m.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
-              <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
                 {isSup ? <ShieldCheck size={11} style={{ color }} /> : <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />}
                 <span className="text-[11px] font-bold" style={{ color }}>
                   {isSup ? '감독관' : team?.name ?? ''} · {m.sender_label}
                 </span>
-                <span className="text-[9px] text-gray-600">{new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="text-[10px] text-gray-400">{new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
               <div className={`max-w-[85%] px-3 py-1.5 rounded-2xl text-sm break-words ${mine ? 'rounded-tr-sm text-white' : 'rounded-tl-sm bg-gray-800 text-gray-100'}`}
                 style={mine ? { backgroundColor: color + '33', border: `1px solid ${color}66` } : undefined}>

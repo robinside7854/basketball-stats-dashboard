@@ -165,7 +165,7 @@ export default function DraftPickReveal({
 
         {/* 라운드 + 픽 번호 */}
         <div className="mb-3 flex items-center justify-center gap-3 flex-wrap">
-          <div className="text-[10px] sm:text-xs font-bold tracking-[0.3em] uppercase text-gray-400">
+          <div className="text-[11px] sm:text-xs font-bold tracking-[0.3em] uppercase text-gray-300">
             Round {data.roundNumber}
           </div>
           <div className="h-3 w-px bg-gray-700" />
@@ -178,7 +178,7 @@ export default function DraftPickReveal({
         </div>
 
         {/* WITH THE PICK 문구 */}
-        <p className="text-[10px] sm:text-xs font-bold tracking-[0.4em] uppercase text-amber-300/80 mb-2">
+        <p className="text-[11px] sm:text-xs font-bold tracking-[0.4em] uppercase text-amber-300/80 mb-2">
           ─── With The {ordinal(data.pickNumber)} Pick ───
         </p>
 
@@ -186,10 +186,10 @@ export default function DraftPickReveal({
         <div className="mb-3 sm:mb-5">
           <div className="flex items-center justify-center gap-3">
             <div className="w-3 h-3 rounded-full shadow-lg" style={{ background: data.teamColor, boxShadow: `0 0 12px ${data.teamColor}` }} />
-            <p className="text-base sm:text-2xl font-bold text-white">{data.teamName}</p>
+            <p className="text-lg sm:text-2xl font-bold text-white">{data.teamName}</p>
             <div className="w-3 h-3 rounded-full shadow-lg" style={{ background: data.teamColor, boxShadow: `0 0 12px ${data.teamColor}` }} />
           </div>
-          <p className="text-[10px] sm:text-sm font-black tracking-[0.5em] uppercase text-gray-500 mt-1">SELECTS</p>
+          <p className="text-[11px] sm:text-sm font-black tracking-[0.5em] uppercase text-gray-400 mt-1">SELECTS</p>
         </div>
 
         {/* 메인 — 선수 번호 + 이름 + 포지션 */}
@@ -238,7 +238,7 @@ export default function DraftPickReveal({
           )}
         </div>
 
-        <p className="mt-8 text-[10px] uppercase tracking-[0.3em] text-gray-600">탭하여 닫기</p>
+        <p className="mt-8 text-[11px] uppercase tracking-[0.3em] text-gray-400">탭하여 닫기</p>
       </div>
 
       <style jsx>{`

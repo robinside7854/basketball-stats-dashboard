@@ -313,7 +313,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-5">
         <div>
           <h3 className="font-bold text-white text-base mb-1">드래프트 세션 생성</h3>
-          <p className="text-xs text-gray-500">팀장(단장)을 지정하고 드래프트 참여 선수를 선별하세요. 픽 순서는 지난 분기 승률 기반 추첨으로 결정됩니다 (스네이크).</p>
+          <p className="text-xs text-gray-300 leading-relaxed">팀장(단장)을 지정하고 드래프트 참여 선수를 선별하세요. 픽 순서는 지난 분기 승률 기반 추첨으로 결정됩니다 (스네이크).</p>
         </div>
         {editorBlock}
         <Button onClick={createSession} disabled={acting} className="w-full bg-amber-600 hover:bg-amber-500 text-white">드래프트 세션 생성</Button>
@@ -339,7 +339,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
             <Button onClick={deleteSession} disabled={acting} variant="destructive" className="text-xs h-8"><Trash2 size={12} className="mr-1" /> 세션 삭제</Button>
           </div>
         </div>
-        <p className="text-xs text-gray-500">현재 풀 {pool.length}명 · 팀장 {Object.values(leaderDraft).filter(Boolean).length}명. 변경 후 <b className="text-gray-300">설정 저장</b>을 누른 뒤 <b className="text-amber-300">준비 체크 시작</b>으로 진행하세요.</p>
+        <p className="text-xs text-gray-300 leading-relaxed">현재 풀 {pool.length}명 · 팀장 {Object.values(leaderDraft).filter(Boolean).length}명. 변경 후 <b className="text-white">설정 저장</b>을 누른 뒤 <b className="text-amber-300">준비 체크 시작</b>으로 진행하세요.</p>
         {editorBlock}
       </div>
     )
@@ -378,7 +378,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
               {draft.status === 'in_progress' ? '진행 중' : draft.status === 'completed' ? '완료' : draft.status === 'ready_check' ? '준비 체크' : draft.status === 'lottery_waiting' ? '추첨 대기' : '추첨 완료'}
             </span>
           </div>
-          <p className="text-xs text-gray-500 mt-0.5">풀 {pool.length}명 · 팀장 {leaders.filter(l => l.leader_player_id).length}명 · {draft.total_picks}픽 완료</p>
+          <p className="text-xs text-gray-300 mt-0.5">풀 {pool.length}명 · 팀장 {leaders.filter(l => l.leader_player_id).length}명 · {draft.total_picks}픽 완료</p>
         </div>
         {draft.status === 'in_progress' && (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-950/60 border border-emerald-700/50 text-emerald-300 text-[11px] font-bold uppercase tracking-wider">
@@ -466,7 +466,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
               {ready['supervisor'] ? <CheckCircle2 size={12} /> : <Circle size={12} />}감독관
             </span>
           </div>
-          <p className="text-[10px] text-gray-600 mt-1.5">단장·감독관이 준비를 누른 뒤 새로고침으로 확인하세요. 모두 준비되면 추첨 시작이 활성화됩니다.</p>
+          <p className="text-[11px] text-gray-300 mt-1.5 leading-relaxed">단장·감독관이 준비를 누른 뒤 새로고침으로 확인하세요. 모두 준비되면 추첨 시작이 활성화됩니다.</p>
         </div>
       )}
 
@@ -493,10 +493,10 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       {/* 공유 링크 — 단장·감독관용 별도 진입 페이지 */}
       {draft.status !== 'completed' && (
         <div className="rounded-lg border border-blue-900/50 bg-blue-950/20 p-3 space-y-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Link2 size={14} className="text-blue-400" />
             <p className="text-xs font-bold text-blue-300 uppercase tracking-widest">공유 링크</p>
-            <span className="text-[10px] text-gray-500">단장·감독관 전용 진입 페이지 — 어드민 사이트 외부</span>
+            <span className="text-[11px] text-gray-300">단장·감독관 전용 진입 페이지</span>
           </div>
           {draft.share_token ? (
             <div className="space-y-2">
