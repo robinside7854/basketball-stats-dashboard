@@ -242,9 +242,13 @@ export default function DraftPortalClient({
   //   → 페이지 새로고침/중간 입장 시 과거 픽이 폭발하는 것을 방지
   // - 이후 폴링에서 새 픽이 들어오면 lastPickNumberRef 와 비교해 발화.
   //   드래프트의 "최초 1픽"도 이 경로를 타고 정상 발화한다 (이전 0 기반 가드의 함정 제거).
+  //
+  // 추첨 reveal 진행 중에는 픽 reveal 모달을 즉시 띄우지 않고 pendingRevealRef 에 큐잉.
+  // 추첨 reveal 이 닫힌 직후 200ms 지연으로 큐된 픽 reveal 을 보여준다 (모달 stomp 방지).
   const [pickReveal, setPickReveal] = useState<PickRevealData | null>(null)
   const initialPicksSnapshotRef = useRef<number | null>(null)
   const lastPickNumberRef = useRef<number>(0)
+  const pendingRevealRef = useRef<PickRevealData | null>(null)
   useEffect(() => {
     if (!state?.picks) return
     const picks = state.picks
@@ -261,7 +265,7 @@ export default function DraftPortalClient({
     const latest = sorted[sorted.length - 1]
     if (latest.pick_number <= lastPickNumberRef.current) return
     const team = state.teams.find(t => t.id === latest.team_id)
-    setPickReveal({
+    const data: PickRevealData = {
       pickNumber: latest.pick_number,
       roundNumber: latest.round_number,
       teamName: team?.name ?? '?',
@@ -269,9 +273,27 @@ export default function DraftPortalClient({
       playerName: latest.player_name,
       playerNumber: latest.player_number,
       playerPosition: latest.player_position,
-    })
+    }
     lastPickNumberRef.current = latest.pick_number
-  }, [state?.picks, state?.teams, state?.available_players])
+    if (showLottery) {
+      // 추첨 reveal 진행 중 — 픽 reveal 큐잉만, 마운트는 추첨 종료 후
+      // 동시에 여러 픽이 들어와도 항상 가장 최신 픽만 보여준다 (overwrite OK)
+      pendingRevealRef.current = data
+      return
+    }
+    setPickReveal(data)
+  }, [state?.picks, state?.teams, state?.available_players, showLottery])
+
+  // 추첨 reveal 이 닫힌 직후 — 큐된 픽 reveal 발화
+  useEffect(() => {
+    if (!showLottery && pendingRevealRef.current) {
+      const queued = pendingRevealRef.current
+      pendingRevealRef.current = null
+      // 추첨 모달 unmount 트랜지션 여유
+      const t = setTimeout(() => setPickReveal(queued), 200)
+      return () => clearTimeout(t)
+    }
+  }, [showLottery])
 
   // ────────────────── 타이머 ──────────────────
   // getNow() 를 사용해 서버 시간 기준으로 보정된 시각을 쓴다.
