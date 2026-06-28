@@ -622,9 +622,9 @@ export default function DraftPortalClient({
   }
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 max-w-7xl mx-auto">
+    <div className="min-h-screen p-3 sm:p-5 lg:p-6 max-w-screen-2xl mx-auto">
       {/* 상단 헤더 */}
-      <div className="flex items-center justify-between gap-3 mb-6">
+      <div className="flex items-center justify-between gap-3 mb-3 sm:mb-5">
         <div className="flex items-center gap-3">
           <Trophy className="text-amber-400 w-7 h-7" />
           <div>
@@ -659,7 +659,7 @@ export default function DraftPortalClient({
         </div>
       ) : (
         <>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="mb-3 sm:mb-4 flex flex-wrap items-center gap-2">
             <StatusBadge status={draft.status} />
             {draft.method === 'snake' && <Tag color="purple">스네이크</Tag>}
             {draft.method === 'linear' && <Tag color="blue">리니어</Tag>}
@@ -754,9 +754,9 @@ export default function DraftPortalClient({
             />
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3 sm:gap-4 lg:gap-5">
             {/* 픽 보드 */}
-            <section className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 space-y-4">
+            <section className="bg-gray-900/60 border border-gray-800 rounded-2xl p-3 sm:p-4 lg:p-5 space-y-4">
               <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest">픽 보드</h2>
               {draft.status === 'setup' || draft.status === 'ready_check' ? (
                 <div className="text-center py-12 text-gray-500">감독관이 시작을 누르면 픽이 진행됩니다</div>
@@ -769,7 +769,7 @@ export default function DraftPortalClient({
                     return (
                       <div key={round}>
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Round {round}</p>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-2.5">
                           {orderForRound.map((teamId, i) => {
                             const pickNumber = (round - 1) * order.length + i + 1
                             const team = teamsById[teamId]
@@ -906,7 +906,7 @@ export default function DraftPortalClient({
 
           {/* 감독관 전용 — 세션 관리 패널 (방 안에서 모든 진행 제어) */}
           {auth?.role === 'supervisor' && (
-            <div className="mt-6 space-y-3">
+            <div className="mt-4 sm:mt-6 space-y-3">
               <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
                 <ShieldCheck size={14} className="text-amber-400" /> 세션 관리
               </h2>
@@ -1138,7 +1138,7 @@ function LotteryWaitScreen({ teams, draftOrder, isSupervisor, onStartLottery, ac
   acting: boolean
 }) {
   return (
-    <div className="mb-4 rounded-2xl border-2 border-purple-700/50 bg-gradient-to-br from-purple-950/50 via-indigo-950/40 to-gray-950 p-6 sm:p-10 text-center overflow-hidden relative">
+    <div className="mb-3 sm:mb-4 rounded-2xl border-2 border-purple-700/50 bg-gradient-to-br from-purple-950/50 via-indigo-950/40 to-gray-950 p-5 sm:p-8 lg:p-10 text-center overflow-hidden relative">
       {/* 배경 글로우 */}
       <div className="absolute inset-0 opacity-20 pointer-events-none"
         style={{ background: 'radial-gradient(circle at center, rgba(168,85,247,0.3), transparent 60%)' }} />
@@ -1191,7 +1191,7 @@ function LotteryDoneScreen({ teams, draftOrder, odds, isSupervisor, onStartDraft
 }) {
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
   return (
-    <div className="mb-4 rounded-2xl border-2 border-amber-700/60 bg-gradient-to-br from-amber-950/40 via-orange-950/30 to-gray-950 p-6 sm:p-8 overflow-hidden relative">
+    <div className="mb-3 sm:mb-4 rounded-2xl border-2 border-amber-700/60 bg-gradient-to-br from-amber-950/40 via-orange-950/30 to-gray-950 p-5 sm:p-7 lg:p-8 overflow-hidden relative">
       <div className="absolute inset-0 opacity-20 pointer-events-none"
         style={{ background: 'radial-gradient(circle at center, rgba(245,158,11,0.3), transparent 60%)' }} />
 
@@ -1259,13 +1259,13 @@ function TeamPickRoster({ teams, picks, draftOrder }: {
   for (const tid of Object.keys(picksByTeam)) picksByTeam[tid].sort((a, b) => a.pick_number - b.pick_number)
 
   return (
-    <div className="mt-6 space-y-3">
+    <div className="mt-4 sm:mt-6 space-y-3">
       <div className="flex items-center gap-2">
         <Users size={14} className="text-blue-300" />
-        <h2 className="text-sm font-bold text-gray-400 uppercase tracking-widest">팀별 누적 픽</h2>
-        <span className="text-[10px] text-gray-600">포지션 밸런스 확인용</span>
+        <h2 className="text-sm font-bold text-gray-300 uppercase tracking-widest">팀별 누적 픽</h2>
+        <span className="text-[11px] text-gray-500">포지션 밸런스 확인용</span>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
         {orderedTeams.map(t => {
           const list = picksByTeam[t.id] ?? []
           // 포지션 카운트
