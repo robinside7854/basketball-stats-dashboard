@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Send, MessageCircle, ShieldCheck, X, AlertTriangle } from 'lucide-react'
 import { playChatDing } from '@/lib/draftSounds'
+import { createClient } from '@/lib/supabase/client'
 
 interface Team { id: string; name: string; color: string }
 interface ChatMsg {
@@ -121,6 +122,24 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
     const t = setInterval(fetchMsgs, POLL_MS)
     return () => clearInterval(t)
   }, [fetchMsgs])
+
+  // Supabase Realtime — 새 메시지 INSERT 즉시 fetchMsgs() 재호출 (체감 지연 <200ms)
+  // 폴링은 안전망으로 유지. RLS 정책 부재로 이벤트가 발화하지 않으면 폴링이 정상 동작.
+  useEffect(() => {
+    if (!draftId) return
+    const supabase = createClient()
+    const channel = supabase.channel(`draft_chat_realtime_${draftId}`)
+    let cancelled = false
+    channel
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'league_draft_chat', filter: `draft_id=eq.${draftId}` }, () => {
+        if (!cancelled) fetchMsgs()
+      })
+      .subscribe()
+    return () => {
+      cancelled = true
+      try { supabase.removeChannel(channel) } catch { /* ignore */ }
+    }
+  }, [draftId, fetchMsgs])
 
   useEffect(() => {
     if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight

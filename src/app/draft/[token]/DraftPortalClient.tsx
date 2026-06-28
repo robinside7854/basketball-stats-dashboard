@@ -22,6 +22,7 @@ import DraftPickReveal, { type PickRevealData } from '@/components/league/DraftP
 import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { primeAudio, playMyTurnBeep } from '@/lib/draftSounds'
 import { getReadableTextColor } from '@/lib/colorContrast'
+import { createClient } from '@/lib/supabase/client'
 
 interface Team { id: string; name: string; color: string }
 interface Player { id: string; name: string; number: number | null; position: string | null; plus_one: boolean }
@@ -139,6 +140,27 @@ export default function DraftPortalClient({
     pollRef.current = setInterval(fetchState, POLL_INTERVAL_MS)
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [fetchState])
+
+  // ────────────────── Supabase Realtime 구독 ──────────────────
+  // 1.5s 폴링은 안전망. websocket 으로 league_drafts / league_draft_picks / league_draft_chat
+  // INSERT·UPDATE 를 받자마자 fetchState() 호출 → 클라이언트 간 체감 지연 <200ms.
+  // RLS 가 막아도 폴링 fallback 으로 정상 동작.
+  useEffect(() => {
+    if (!draftId) return
+    const supabase = createClient()
+    const channel = supabase.channel(`draft_realtime_${draftId}`)
+    let cancelled = false
+    const refetch = () => { if (!cancelled) fetchState() }
+    channel
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'league_drafts', filter: `id=eq.${draftId}` }, refetch)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'league_draft_picks', filter: `draft_id=eq.${draftId}` }, refetch)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'league_draft_chat', filter: `draft_id=eq.${draftId}` }, refetch)
+      .subscribe()
+    return () => {
+      cancelled = true
+      try { supabase.removeChannel(channel) } catch { /* ignore */ }
+    }
+  }, [draftId, fetchState])
 
   // 탭이 숨겨지면 폴링 중단, 다시 보이면 즉시 1회 가져온 뒤 폴링 재개 — 모바일 배터리/네트워크 절약
   useEffect(() => {
