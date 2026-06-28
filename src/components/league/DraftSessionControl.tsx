@@ -276,8 +276,8 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
             <Users size={12} className="text-emerald-400" /> 드래프트 참여 선수 ({poolSel.size}명 선택 / 전체 {players.length}명)
           </label>
           <div className="flex gap-1.5">
-            <button onClick={() => setPoolSel(new Set(players.filter(p => !leaderIds.has(p.id)).map(p => p.id)))} className="text-[10px] px-2 py-1 rounded bg-gray-800 text-gray-300 hover:text-white cursor-pointer">전체 선택</button>
-            <button onClick={() => setPoolSel(new Set())} className="text-[10px] px-2 py-1 rounded bg-gray-800 text-gray-300 hover:text-white cursor-pointer">해제</button>
+            <button onClick={() => setPoolSel(new Set(players.filter(p => !leaderIds.has(p.id)).map(p => p.id)))} className="text-[11px] px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200">전체 선택</button>
+            <button onClick={() => setPoolSel(new Set())} className="text-[11px] px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200">해제</button>
           </div>
         </div>
         <div className="max-h-72 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-1.5 pr-1">
@@ -287,15 +287,15 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
             return (
               <button key={p.id} disabled={isLeader}
                 onClick={() => setPoolSel(prev => { const n = new Set(prev); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n })}
-                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left text-xs transition-colors ${
+                className={`flex items-center gap-2 px-2.5 py-2 min-h-[36px] rounded-lg border text-left text-xs transition-colors min-w-0 ${
                   isLeader ? 'bg-amber-950/30 border-amber-800/40 opacity-60 cursor-not-allowed'
                   : checked ? 'bg-emerald-900/40 border-emerald-600 cursor-pointer'
                   : 'bg-gray-800 border-gray-700 hover:border-gray-600 cursor-pointer'
                 }`}>
-                {isLeader ? <Crown size={12} className="text-amber-400 shrink-0" /> : checked ? <CheckCircle2 size={12} className="text-emerald-400 shrink-0" /> : <Circle size={12} className="text-gray-600 shrink-0" />}
-                <span className="text-white font-bold truncate">{p.name}</span>
-                {p.number != null && <span className="text-gray-500 text-[10px]">#{p.number}</span>}
-                {isLeader && <span className="text-[9px] text-amber-400 ml-auto">팀장</span>}
+                {isLeader ? <Crown size={12} className="text-amber-400 shrink-0" /> : checked ? <CheckCircle2 size={12} className="text-emerald-400 shrink-0" /> : <Circle size={12} className="text-gray-500 shrink-0" />}
+                <span className="text-white font-bold truncate min-w-0">{p.name}</span>
+                {p.number != null && <span className="text-gray-400 text-[10px] shrink-0">#{p.number}</span>}
+                {isLeader && <span className="text-[10px] text-amber-400 ml-auto shrink-0">팀장</span>}
               </button>
             )
           })}
@@ -452,7 +452,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">참가자 준비 현황</p>
-            <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded bg-gray-800 text-gray-300 hover:text-white cursor-pointer">
+            <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200">
               <RefreshCw size={11} /> 새로고침
             </button>
           </div>
@@ -531,7 +531,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
           <div className="flex items-center justify-between mb-2">
             <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">최근 픽 (최신 5)</p>
             {draft.status === 'in_progress' && (
-              <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded bg-gray-800 text-gray-300 hover:text-white cursor-pointer"><RefreshCw size={11} /> 새로고침</button>
+              <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200"><RefreshCw size={11} /> 새로고침</button>
             )}
           </div>
           <div className="space-y-1">

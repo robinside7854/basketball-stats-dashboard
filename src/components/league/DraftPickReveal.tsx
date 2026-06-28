@@ -116,7 +116,11 @@ export default function DraftPickReveal({
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md cursor-pointer overflow-hidden"
       onClick={onClose}
-      style={{ animation: 'pickFadeIn 0.25s ease-out' }}
+      style={{
+        animation: 'pickFadeIn 0.25s ease-out',
+        paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+      }}
     >
       {/* 스포트라이트 회전 빔 */}
       <div className="absolute inset-0 pointer-events-none opacity-40">

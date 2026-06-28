@@ -634,17 +634,17 @@ export default function DraftPortalClient({
         </div>
         <div className="flex items-center gap-2">
           {!auth ? (
-            <Button onClick={openCodeModal} className="bg-amber-600 hover:bg-amber-500 text-white text-xs sm:text-sm">
+            <Button onClick={openCodeModal} className="bg-amber-600 hover:bg-amber-500 text-white text-xs sm:text-sm min-h-[40px] px-3 sm:px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition-colors">
               <KeyRound size={14} className="mr-1.5" /> 단장/감독관 입장
             </Button>
           ) : (
             <div className="flex items-center gap-2">
-              <div className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border ${auth.role === 'supervisor' ? 'bg-amber-950/40 border-amber-700/50 text-amber-300' : 'bg-blue-950/40 border-blue-700/50 text-blue-300'}`}>
-                {auth.role === 'supervisor' ? <ShieldCheck size={12} /> : <Crown size={12} />}
-                <span>{auth.label}</span>
-                {myTeam && <span className="opacity-70">· {myTeam.name}</span>}
+              <div className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border min-w-0 max-w-[60vw] sm:max-w-none ${auth.role === 'supervisor' ? 'bg-amber-950/40 border-amber-700/50 text-amber-200' : 'bg-blue-950/40 border-blue-700/50 text-blue-200'}`}>
+                {auth.role === 'supervisor' ? <ShieldCheck size={12} className="shrink-0" /> : <Crown size={12} className="shrink-0" />}
+                <span className="truncate">{auth.label}</span>
+                {myTeam && <span className="opacity-70 truncate hidden sm:inline">· {myTeam.name}</span>}
               </div>
-              <button onClick={logout} className="p-1.5 rounded-md text-gray-500 hover:text-white hover:bg-gray-800 cursor-pointer" title="인증 해제">
+              <button onClick={logout} className="p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-md text-gray-400 hover:text-white hover:bg-gray-800 cursor-pointer transition-colors duration-200 shrink-0" title="인증 해제" aria-label="인증 해제">
                 <LogOut size={14} />
               </button>
             </div>
@@ -777,7 +777,7 @@ export default function DraftPortalClient({
                             const isCurrent = pickNumber === draft.current_pick_index + 1 && draft.status === 'in_progress'
                             return (
                               <div key={pickNumber}
-                                className={`rounded-lg p-2.5 border transition-all ${
+                                className={`rounded-lg p-2.5 sm:p-3 border min-w-0 transition-colors duration-200 ${
                                   pick ? 'bg-gray-800/60 border-gray-700' :
                                   isCurrent ? 'bg-amber-950/60 border-amber-500 ring-2 ring-amber-500/40 animate-pulse' :
                                   'bg-gray-900/40 border-gray-800 opacity-60'
@@ -811,10 +811,10 @@ export default function DraftPortalClient({
               {draft.status === 'in_progress' && auth?.role === 'manager' && (
                 isMyTurn ? (
                   <div className="bg-amber-950/40 border border-amber-700/50 rounded-2xl p-4 space-y-3">
-                    <p className="text-amber-300 text-sm font-bold flex items-center gap-1.5">
-                      <CheckCircle2 size={14} /> 본인 차례입니다
+                    <p className="text-amber-300 text-base font-bold flex items-center gap-1.5">
+                      <CheckCircle2 size={16} /> 본인 차례입니다
                     </p>
-                    <p className="text-xs text-gray-400">선수를 선택하고 픽 확정을 누르세요.</p>
+                    <p className="text-sm text-gray-200 leading-relaxed">선수를 선택하고 픽 확정을 누르세요.</p>
                     <PlayerPicker
                       players={state?.available_players ?? []}
                       selectedId={selectedPlayerId}
@@ -824,7 +824,7 @@ export default function DraftPortalClient({
                       <Button
                         onClick={makePick}
                         disabled={!selectedPlayerId || picking}
-                        className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold disabled:opacity-40 min-h-[40px]"
+                        className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold disabled:opacity-40 min-h-[48px] text-sm sm:text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition-colors"
                       >
                         {picking
                           ? '픽 등록 중...'
@@ -840,7 +840,7 @@ export default function DraftPortalClient({
                             onClick={extendPick}
                             disabled={left === 0 || extending}
                             variant="outline"
-                            className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 disabled:opacity-40 text-xs"
+                            className="bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700 disabled:opacity-40 text-xs min-h-[48px] px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
                             title={`연장 ${left}회 남음`}
                           >
                             ⏱ +{EXTENSION_SECONDS}s ({left}/{MAX_EXTENSIONS})
@@ -957,7 +957,14 @@ export default function DraftPortalClient({
 
       {/* 코드 입력 모달 */}
       {showCodeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={closeCodeModal}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          style={{
+            paddingTop: 'max(1rem, env(safe-area-inset-top))',
+            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+          }}
+          onClick={closeCodeModal}
+        >
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
             <h3 className="font-black text-lg mb-1">단장/감독관 입장</h3>
             <p className="text-xs text-gray-300 mb-4 leading-relaxed">어드민에게 발급받은 코드를 입력하세요. (대소문자 구분)</p>
@@ -970,8 +977,8 @@ export default function DraftPortalClient({
               autoFocus
             />
             <div className="flex gap-2 mt-4">
-              <Button onClick={closeCodeModal} variant="outline" className="flex-1 bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700">취소</Button>
-              <Button onClick={submitCode} disabled={authing} className="flex-1 bg-amber-600 hover:bg-amber-500 text-white">
+              <Button onClick={closeCodeModal} variant="outline" className="flex-1 bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700 min-h-[44px]">취소</Button>
+              <Button onClick={submitCode} disabled={authing} className="flex-1 bg-amber-600 hover:bg-amber-500 text-white min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
                 {authing ? '확인 중...' : '입장'}
               </Button>
             </div>
@@ -1079,7 +1086,7 @@ function ReadyPanel({
           <Button
             onClick={onToggle}
             disabled={toggling}
-            className={`text-xs h-8 font-bold ${
+            className={`text-sm min-h-[44px] px-4 font-bold ${
               iAmReady ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
             }`}
           >
@@ -1385,25 +1392,25 @@ function PlayerPicker({ players, selectedId, onSelect }: { players: Player[]; se
   const filtered = players.filter(p => !query.trim() || p.name.includes(query) || (p.number != null && String(p.number).includes(query)))
   return (
     <div className="space-y-2">
-      <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="이름·번호 검색" className="bg-gray-900 border-gray-700 text-white h-8 text-xs" />
+      <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="이름·번호 검색" className="bg-gray-900 border-gray-700 text-white h-10 text-sm" />
       <div className="max-h-72 overflow-y-auto space-y-1 -mr-2 pr-2">
         {filtered.length === 0 && <p className="text-center text-xs text-gray-500 py-6">선수가 없습니다</p>}
         {filtered.map(p => (
           <button
             key={p.id}
             onClick={() => onSelect(p.id)}
-            className={`w-full text-left px-3 py-2 rounded-md border transition-colors cursor-pointer ${
+            className={`w-full text-left px-3 py-2.5 min-h-[44px] rounded-md border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
               selectedId === p.id
                 ? 'bg-amber-950/60 border-amber-500 text-white'
-                : 'bg-gray-900/40 border-gray-800 text-gray-300 hover:border-gray-600'
+                : 'bg-gray-900/40 border-gray-800 text-gray-200 hover:border-gray-600'
             }`}
           >
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-bold text-sm">
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <span className="font-bold text-sm truncate">
                 {p.number != null && <span className="text-amber-300 mr-1.5">#{p.number}</span>}
                 {p.name}
               </span>
-              {p.position && <span className="text-[10px] text-gray-500 font-mono">{p.position}</span>}
+              {p.position && <span className="text-[11px] text-gray-400 font-mono shrink-0">{p.position}</span>}
             </div>
           </button>
         ))}

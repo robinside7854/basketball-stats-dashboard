@@ -113,9 +113,12 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
   if (!open) {
     return (
       <button onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 px-3 py-2.5 rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl cursor-pointer">
+        aria-label={unread > 0 ? `채팅 (읽지 않은 메시지 ${unread}건)` : '채팅 열기'}
+        className="fixed bottom-4 right-4 lg:bottom-4 z-40 flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] min-w-[44px] rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+        style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+      >
         <MessageCircle size={16} />
-        <span className="text-xs font-bold hidden sm:inline">채팅</span>
+        <span className="text-sm font-bold hidden sm:inline">채팅</span>
         {unread > 0 && (
           <span className="min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>
         )}
@@ -139,7 +142,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
         <MessageCircle size={15} className="text-blue-400" />
         <p className="text-xs font-bold text-gray-200 uppercase tracking-widest">드래프트 채팅</p>
         <span className="text-[11px] text-gray-400">단장·감독관</span>
-        <button onClick={() => setOpen(false)} className="ml-auto text-gray-500 hover:text-white cursor-pointer"><X size={16} /></button>
+        <button onClick={() => setOpen(false)} aria-label="채팅 닫기" className="ml-auto p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded text-gray-300 hover:text-white hover:bg-gray-800 cursor-pointer transition-colors duration-200"><X size={16} /></button>
       </div>
 
       {error && (
@@ -175,18 +178,18 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
         })}
       </div>
 
-      <div className="p-2.5 border-t border-gray-800 flex gap-2">
+      <div className="p-2.5 border-t border-gray-800 flex gap-2" style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
           placeholder="메시지 입력..."
           maxLength={500}
-          className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-blue-600"
+          className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500"
         />
-        <button onClick={send} disabled={sending || !input.trim()}
-          className="px-3 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white cursor-pointer flex items-center">
-          <Send size={15} />
+        <button onClick={send} disabled={sending || !input.trim()} aria-label="메시지 전송"
+          className="px-4 min-w-[44px] min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white cursor-pointer flex items-center justify-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">
+          <Send size={16} />
         </button>
       </div>
     </div>
