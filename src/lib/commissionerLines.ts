@@ -27,6 +27,7 @@ export type LineEvent =
   | 'readyToggledOn'
   | 'readyToggledOff'
   | 'myTurn'
+  | 'lastPickAuto'
 
 const LINES: Record<LineEvent, string[]> = {
   intro: [
@@ -160,6 +161,12 @@ const LINES: Record<LineEvent, string[]> = {
     '{teamName}, 시간이 흐르고 있습니다 — 선택해 주세요!',
     '{teamName} 차례입니다. 신중하게, 그러나 빠르게!',
     '주목, {teamName} — 누구를 호명하시겠습니까?',
+  ],
+  lastPickAuto: [
+    '운명의 마지막 픽! {teamName}의 손에 {playerName}이(가) 자연스럽게 안깁니다.',
+    '드래프트 풀에 남은 마지막 선수, {playerName} — {teamName}이(가) 자동 영입합니다.',
+    '선택의 여지가 없습니다. 마지막 한 명, {playerName}이(가) {teamName}으로 합류합니다.',
+    '운명이 정한 마무리 — {teamName}, {playerName} 자동 등록!',
   ],
 }
 

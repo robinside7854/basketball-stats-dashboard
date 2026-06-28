@@ -845,6 +845,9 @@ export default function DraftPortalClient({
     })
   }
 
+  // 마지막 픽 자동 등록 — useEffect 는 isMyTurn 정의 이후로 배치 (아래)
+  const lastPickFiredRef = useRef<string | null>(null)
+
   const draft = state?.draft
   const teamsById = Object.fromEntries((state?.teams ?? []).map(t => [t.id, t]))
   const myTeam = auth?.teamId ? teamsById[auth.teamId] : null
@@ -882,6 +885,33 @@ export default function DraftPortalClient({
       }
     }
   }, [isMyTurn])
+
+  // ────────────────── 마지막 픽 자동 등록 ──────────────────
+  // 본인 차례 + 풀에 1명 남음 + 픽 진행 가능 상태 → 사용자에게 선택지가 없으므로 자동 등록.
+  // 토스트 + 총무 멘트 1.5초 빌드업 후 자동 makePick.
+  // deadlineKey(pick_deadline) 단위로 1회만 발화. 동시 클라가 있어도 서버 멱등성으로 안전.
+  useEffect(() => {
+    if (!auth || auth.role !== 'manager' || !auth.teamId) return
+    if (!isMyTurn) return
+    if (!draft || draft.status !== 'in_progress') return
+    if (picking || confirmPick) return
+    const available = state?.available_players ?? []
+    if (available.length !== 1) return
+    const deadlineKey = draft.pick_deadline ?? `nodl:${draft.total_picks}`
+    if (lastPickFiredRef.current === deadlineKey) return
+    lastPickFiredRef.current = deadlineKey
+    const onlyPlayer = available[0]
+    const teamName = myTeam?.name ?? '내 팀'
+    toast.message(`🎯 마지막 선수입니다 — ${onlyPlayer.name} 자동 등록됩니다`, { duration: 4000 })
+    pushCommAndChat({
+      key: `${draftId}:lastPickAuto:${deadlineKey}`,
+      text: pickLine('lastPickAuto', `${draftId}:lpa:${deadlineKey}`, { teamName, playerName: onlyPlayer.name }),
+      durationMs: 5000,
+    })
+    const t = setTimeout(() => { makePick(onlyPlayer.id).catch(() => {}) }, 1500)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMyTurn, draft?.status, draft?.pick_deadline, state?.available_players, auth, picking, confirmPick])
 
   // 내 차례 배경 틴팅 — 외곽 래퍼에만 적용 (안쪽 카드는 영향 X).
   // 강한 블렌드(80%~A6)로 팀 컬러가 확실히 지배해 절대 놓치지 않도록.
