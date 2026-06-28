@@ -58,3 +58,11 @@ export function playDrumroll() {
   tone(523, 2.3, 0.25, 'square', 0.16)
   tone(784, 2.45, 0.4, 'square', 0.18)
 }
+
+/** 내 차례 알림 — 880Hz 삼연타(80ms 톤 × 3, 100ms 간격). 총 ~520ms */
+export function playMyTurnBeep() {
+  // 0s, 0.18s, 0.36s 에 시작 — 80ms tone + 100ms gap
+  tone(880, 0, 0.08, 'square', 0.18)
+  tone(880, 0.18, 0.08, 'square', 0.18)
+  tone(880, 0.36, 0.08, 'square', 0.18)
+}

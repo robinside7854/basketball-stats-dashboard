@@ -20,6 +20,7 @@ import DraftChat from '@/components/league/DraftChat'
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
 import DraftPickReveal, { type PickRevealData } from '@/components/league/DraftPickReveal'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
+import { primeAudio, playMyTurnBeep } from '@/lib/draftSounds'
 
 interface Team { id: string; name: string; color: string }
 interface Player { id: string; name: string; number: number | null; position: string | null; plus_one: boolean }
@@ -94,6 +95,7 @@ export default function DraftPortalClient({
   const [authing, setAuthing] = useState(false)
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
+  const [extending, setExtending] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ────────────────── 서버 시간 캘리브레이션 ──────────────────
@@ -160,6 +162,9 @@ export default function DraftPortalClient({
       }
       setAuth(sa)
       sessionStorage.setItem(authKey, JSON.stringify(sa))
+      // 사용자 제스처(코드 제출 클릭) 직후 오디오 컨텍스트 활성화 —
+      // 추후 추첨 드럼롤·픽 부저·내차례 알림 모두 정상 재생되도록
+      try { primeAudio() } catch { /* ignore */ }
       setShowCodeModal(false)
       setCodeInput('')
       setSelectedPlayerId(null)
@@ -406,6 +411,7 @@ export default function DraftPortalClient({
 
   async function openLotteryScreen() {
     if (!auth || auth.role !== 'supervisor') return
+    try { primeAudio() } catch { /* ignore */ }
     setActingLottery(true)
     try {
       const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/lottery/open`, {
@@ -424,6 +430,7 @@ export default function DraftPortalClient({
 
   async function runLottery() {
     if (!auth || auth.role !== 'supervisor') return
+    try { primeAudio() } catch { /* ignore */ }
     setActingLottery(true)
     try {
       const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/lottery`, {
@@ -441,6 +448,7 @@ export default function DraftPortalClient({
 
   async function startDraft() {
     if (!auth || auth.role !== 'supervisor') return
+    try { primeAudio() } catch { /* ignore */ }
     setActingLottery(true)
     try {
       const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/start-draft`, {
@@ -484,17 +492,24 @@ export default function DraftPortalClient({
   }
 
   // ────────────────── 픽 연장 ──────────────────
+  // extending 락으로 스팸 클릭이 여러 번의 연장을 소비하는 것을 방지.
   async function extendPick() {
     if (!auth || auth.role !== 'manager' || !auth.teamId) return
-    const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/extend`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Draft-Code': auth.plain },
-      body: JSON.stringify({ team_id: auth.teamId }),
-    })
-    const data = await r.json()
-    if (!r.ok) { toast.error(data.error ?? '연장 실패'); return }
-    toast.success(`⏱ +${EXTENSION_SECONDS}초 연장`)
-    fetchState()
+    if (extending) return
+    setExtending(true)
+    try {
+      const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/extend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Draft-Code': auth.plain },
+        body: JSON.stringify({ team_id: auth.teamId }),
+      })
+      const data = await r.json()
+      if (!r.ok) { toast.error(data.error ?? '연장 실패'); return }
+      toast.success(`⏱ +${EXTENSION_SECONDS}초 연장`)
+      fetchState()
+    } finally {
+      setExtending(false)
+    }
   }
 
   // 픽 시간 변경 (감독관 권한)
@@ -516,6 +531,7 @@ export default function DraftPortalClient({
 
   async function makePick() {
     if (!auth || auth.role !== 'manager' || !auth.teamId || !selectedPlayerId) return
+    try { primeAudio() } catch { /* ignore */ }
     setPicking(true)
     try {
       const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/pick`, {
@@ -548,6 +564,38 @@ export default function DraftPortalClient({
   const myTeam = auth?.teamId ? teamsById[auth.teamId] : null
   const currentTeam = state?.current_team_id ? teamsById[state.current_team_id] : null
   const isMyTurn = !!(auth?.role === 'manager' && state?.current_team_id && state.current_team_id === auth.teamId && draft?.status === 'in_progress')
+
+  // ────────────────── 내 차례 알림 (오디오 + 타이틀 깜빡임) ──────────────────
+  // 백그라운드 탭에 있는 단장도 자기 차례 진입을 알아챌 수 있도록.
+  // false→true 전환에서만 발화하고, true→false 전환에서 타이틀을 복구한다.
+  const wasMyTurnRef = useRef(false)
+  const originalTitleRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (isMyTurn && !wasMyTurnRef.current) {
+      wasMyTurnRef.current = true
+      try { playMyTurnBeep() } catch { /* ignore */ }
+      if (typeof document !== 'undefined') {
+        if (originalTitleRef.current == null) originalTitleRef.current = document.title
+        document.title = '🔔 내 차례! · 드래프트'
+        const interval = setInterval(() => {
+          if (typeof document === 'undefined') return
+          document.title = document.title.startsWith('🔔') ? '⏰ 픽하세요 · 드래프트' : '🔔 내 차례! · 드래프트'
+        }, 1500)
+        return () => {
+          clearInterval(interval)
+          if (typeof document !== 'undefined' && originalTitleRef.current != null) {
+            document.title = originalTitleRef.current
+          }
+        }
+      }
+    }
+    if (!isMyTurn && wasMyTurnRef.current) {
+      wasMyTurnRef.current = false
+      if (typeof document !== 'undefined' && originalTitleRef.current != null) {
+        document.title = originalTitleRef.current
+      }
+    }
+  }, [isMyTurn])
 
   // 라운드 그룹핑
   const totalRounds = draft ? Math.max(1, Math.ceil(draft.total_picks / Math.max(draft.draft_order.length, 1))) : 0
@@ -611,6 +659,7 @@ export default function DraftPortalClient({
                 extensionsUsed={(auth?.role === 'manager' && auth.teamId) ? (draft.extensions_used?.[auth.teamId] ?? 0) : 0}
                 canExtend={!!isMyTurn && !graceInfo.inGrace}
                 onExtend={extendPick}
+                extending={extending}
                 gracePhase={graceInfo.inGrace}
                 graceSeconds={graceInfo.remaining}
               />
@@ -768,7 +817,7 @@ export default function DraftPortalClient({
                         return (
                           <Button
                             onClick={extendPick}
-                            disabled={left === 0}
+                            disabled={left === 0 || extending}
                             variant="outline"
                             className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 disabled:opacity-40 text-xs"
                             title={`연장 ${left}회 남음`}
@@ -912,11 +961,12 @@ export default function DraftPortalClient({
   )
 }
 
-function BigTimer({ seconds, extensionsUsed, canExtend, onExtend, gracePhase, graceSeconds }: {
+function BigTimer({ seconds, extensionsUsed, canExtend, onExtend, extending, gracePhase, graceSeconds }: {
   seconds: number
   extensionsUsed: number
   canExtend: boolean
   onExtend: () => Promise<void>
+  extending?: boolean
   gracePhase?: boolean
   graceSeconds?: number
 }) {
@@ -948,7 +998,8 @@ function BigTimer({ seconds, extensionsUsed, canExtend, onExtend, gracePhase, gr
       {canExtend && leftExt > 0 && (
         <button
           onClick={onExtend}
-          className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-700/40 hover:bg-emerald-600/60 text-emerald-200 cursor-pointer"
+          disabled={extending}
+          className="ml-1 px-3 py-1.5 rounded text-xs font-bold bg-emerald-700/40 hover:bg-emerald-600/60 text-emerald-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 transition-colors"
           title={`연장 ${leftExt}회 남음`}
         >
           +{EXTENSION_SECONDS}s
