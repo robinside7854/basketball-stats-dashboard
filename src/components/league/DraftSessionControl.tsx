@@ -351,12 +351,10 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   //  - 보조 액션 row (강제 옵션 등 부수 컨트롤)
   //  - 위험 액션은 <details> 안에 격리 (리셋 / 삭제 / 강제 종료)
   //  → 모바일 라이브 진행 중 오클릭 위험 차단.
-  // ── 명령 센터(Command Center) 구성 ──
-  // 1) 단계 stepper: setup → ready → lottery → pick → done
-  // 2) 큰 헤드라인: phase 한 줄 + 1-line 도움 문구 (next action 예측)
-  // 3) Primary CTA: phase 에서 가장 자연스러운 다음 단계
+  //
+  // NOTE: phase 헤드라인/단계 stepper 는 DraftPortalClient 상단 hero 가 이미 표시한다.
+  // 감독관 패널에서 중복 노출하지 않고, Primary CTA 자체가 phase 를 함축하도록 한다.
   let primary: { label: string; onClick: () => void | Promise<void>; disabled?: boolean; helper?: string } | null = null
-  let phaseHeadline = ''
   if (draft.status === 'ready_check') {
     primary = {
       label: allTeamsReady ? '🎬 추첨 대기 화면 열기' : '✋ 전원 준비 대기 중',
@@ -366,7 +364,6 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         ? '버튼을 누르면 모든 화면이 추첨 대기 모드로 전환됩니다.'
         : '모든 팀이 READY가 되면 버튼이 활성화됩니다.',
     }
-    phaseHeadline = '준비 단계 — 모두의 READY를 기다리는 중'
   } else if (draft.status === 'lottery_waiting') {
     primary = {
       label: '🎲 추첨 시작',
@@ -374,7 +371,6 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       disabled: acting,
       helper: '준비가 끝났다면 즉시 NBA 스타일 추첨 연출이 모두에게 재생됩니다.',
     }
-    phaseHeadline = '추첨 대기 — 시작 명령 대기 중'
   } else if (draft.status === 'lottery_done') {
     primary = {
       label: '🏀 드래프트 시작',
@@ -382,55 +378,17 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       disabled: acting,
       helper: '버튼을 누르면 픽 타이머가 시작되고 1번 팀부터 픽이 진행됩니다.',
     }
-    phaseHeadline = '추첨 완료 — 드래프트 시작 대기'
-  } else if (draft.status === 'in_progress') {
-    phaseHeadline = `1라운드 ${draft.current_pick_index + 1}픽 진행 중 (${draft.total_picks}/${draft.draft_order.length * Math.max(1, Math.ceil((draft.total_picks + 1) / Math.max(draft.draft_order.length, 1)))}픽)`
-  } else if (draft.status === 'completed') {
-    phaseHeadline = '드래프트 완료 — 멤버십 자동 반영됨'
   }
-
-  // 단계 stepper 표시용 — setup 은 이미 별도 분기, 여기선 ready 부터.
-  const stepperSteps = [
-    { key: 'ready', label: '준비', match: ['ready_check'] },
-    { key: 'lottery', label: '추첨', match: ['lottery_waiting', 'lottery_done'] },
-    { key: 'pick', label: '픽', match: ['in_progress'] },
-    { key: 'done', label: '완료', match: ['completed'] },
-  ] as const
-  const activeStepIdx = stepperSteps.findIndex(s => (s.match as readonly string[]).includes(draft.status))
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-5">
-      {/* ── 명령 센터 헤드 ── 단계·헤드라인·Primary CTA·도움 문구 묶음 */}
+      {/* ── 명령 센터 헤드 ── 메타 정보 + Primary CTA + 도움 문구 (phase 헤드라인은 상단 hero 가 담당) */}
       <div className="space-y-3">
-        {/* 단계 stepper */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-          {stepperSteps.map((s, i) => {
-            const isActive = i === activeStepIdx
-            const isDone = activeStepIdx > i
-            return (
-              <div key={s.key} className="flex items-center gap-1.5 sm:gap-2">
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors ${
-                  isActive ? 'bg-amber-900/60 border-amber-500 text-amber-200' :
-                  isDone ? 'bg-emerald-950/40 border-emerald-700/50 text-emerald-300' :
-                  'bg-gray-800 border-gray-700 text-gray-400'
-                }`}>
-                  <span className="w-4 h-4 rounded-full inline-flex items-center justify-center tabular-nums text-[10px] font-black bg-gray-900/80 border border-current">{i + 1}</span>
-                  {s.label}
-                </span>
-                {i < stepperSteps.length - 1 && (
-                  <span className={`text-xs ${isDone ? 'text-emerald-500' : 'text-gray-600'}`}>›</span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* 헤드라인 + 메타 */}
+        {/* 메타 — 풀/팀장/픽 진행 수치만. phase 텍스트 중복 제거. */}
         <div className="flex items-start justify-between flex-wrap gap-3">
-          <div className="min-w-0 flex-1">
-            <h3 className="font-black text-white text-xl sm:text-2xl leading-tight">{phaseHeadline}</h3>
-            <p className="text-sm text-gray-300 mt-1.5 leading-relaxed">풀 <b className="text-white tabular-nums">{pool.length}</b>명 · 팀장 <b className="text-white tabular-nums">{leaders.filter(l => l.leader_player_id).length}</b>명 · <b className="text-white tabular-nums">{draft.total_picks}</b>픽 완료</p>
-          </div>
+          <p className="text-sm text-gray-300 leading-relaxed min-w-0 flex-1">
+            풀 <b className="text-white tabular-nums">{pool.length}</b>명 · 팀장 <b className="text-white tabular-nums">{leaders.filter(l => l.leader_player_id).length}</b>명 · <b className="text-white tabular-nums">{draft.total_picks}</b>픽 완료
+          </p>
           {draft.status === 'in_progress' && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-950/60 border border-emerald-700/50 text-emerald-200 text-sm font-bold uppercase tracking-wider">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> 진행 중
