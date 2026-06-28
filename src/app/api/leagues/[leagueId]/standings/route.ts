@@ -13,10 +13,25 @@ export async function GET(
 
   const supabase = createClient()
 
-  const { data: teams, error: teamsError } = await supabase
+  const { data: teamsBase, error: teamsError } = await supabase
     .from('league_teams').select('*').eq('league_id', leagueId)
   if (teamsError) return NextResponse.json({ error: teamsError.message }, { status: 500 })
-  if (!teams || teams.length === 0) return NextResponse.json([])
+  if (!teamsBase || teamsBase.length === 0) return NextResponse.json([])
+
+  // 분기별 팀명/색상 override 자동 적용
+  let teams = teamsBase
+  if (quarterId) {
+    const { data: overrides } = await supabase
+      .from('league_team_quarter_overrides')
+      .select('team_id, name, color')
+      .eq('league_id', leagueId)
+      .eq('quarter_id', quarterId)
+    const ovMap = Object.fromEntries((overrides ?? []).map(o => [o.team_id, o]))
+    teams = teamsBase.map(t => {
+      const ov = ovMap[t.id]
+      return ov ? { ...t, name: ov.name ?? t.name, color: ov.color ?? t.color } : t
+    })
+  }
 
   let gQuery = supabase
     .from('league_games')

@@ -29,7 +29,38 @@ export async function GET(
 
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data ?? [])
+  const games = data ?? []
+
+  // 분기별 팀명/색상 override 자동 적용 — home_team / away_team 의 name/color 를 그 게임의 quarter_id 기반 override 로 치환
+  type TeamLite = { id: string; name: string | null; color: string | null } | null
+  type GameRow = { quarter_id: string | null; home_team: TeamLite; away_team: TeamLite }
+  const rows = games as unknown as GameRow[]
+  const qids = Array.from(new Set(rows.map(g => g.quarter_id).filter(Boolean) as string[]))
+  const tids = Array.from(new Set(rows.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[]))
+  if (qids.length > 0 && tids.length > 0) {
+    const { data: overrides } = await supabase
+      .from('league_team_quarter_overrides')
+      .select('quarter_id, team_id, name, color')
+      .in('quarter_id', qids)
+      .in('team_id', tids)
+    const ovMap: Record<string, Record<string, { name: string | null; color: string | null }>> = {}
+    for (const o of (overrides ?? []) as { quarter_id: string; team_id: string; name: string | null; color: string | null }[]) {
+      (ovMap[o.quarter_id] ||= {})[o.team_id] = { name: o.name, color: o.color }
+    }
+    for (const g of rows) {
+      const ov = g.quarter_id ? ovMap[g.quarter_id] : null
+      if (g.home_team && ov?.[g.home_team.id]) {
+        if (ov[g.home_team.id].name) g.home_team.name = ov[g.home_team.id].name
+        if (ov[g.home_team.id].color) g.home_team.color = ov[g.home_team.id].color
+      }
+      if (g.away_team && ov?.[g.away_team.id]) {
+        if (ov[g.away_team.id].name) g.away_team.name = ov[g.away_team.id].name
+        if (ov[g.away_team.id].color) g.away_team.color = ov[g.away_team.id].color
+      }
+    }
+  }
+
+  return NextResponse.json(games)
 }
 
 // 날짜에 대한 게임 슬랏 초기화 (games_per_round 개수만큼 생성)

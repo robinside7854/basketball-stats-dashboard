@@ -846,6 +846,15 @@ export default function LeagueTeamsPage() {
     return () => { cancelled = true }
   }, [leagueId, selectedQId, teams])
 
+  // 분기별 팀명/색상 override 자동 반영 — selectedQId 변경 시 teams 재fetch
+  useEffect(() => {
+    if (!selectedQId || selectedQId === 'all') return
+    fetch(`/api/leagues/${leagueId}/teams?quarterId=${selectedQId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(ts => { if (Array.isArray(ts)) setTeams(ts) })
+      .catch(() => null)
+  }, [leagueId, selectedQId])
+
   // ── 데이터 가공 ───────────────────────────────────────────
   const teamMap = useMemo(() => Object.fromEntries(teams.map(t => [t.id, t])), [teams])
   const leaderMap = useMemo(() => Object.fromEntries(leaders.map(l => [l.team_id, l.leader_player_id])), [leaders])
