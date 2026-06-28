@@ -25,6 +25,7 @@ interface DraftRow {
   method: 'snake' | 'linear'
   started_at: string | null
   completed_at: string | null
+  pick_seconds: number
   ready_state: Record<string, boolean>
   lottery_odds: Record<string, number> | null
   lottery_done: boolean
@@ -59,7 +60,7 @@ export async function GET(
   const [{ data: draft }, { data: teams }, { data: players }, { data: leaders }, { data: supCode }] = await Promise.all([
     supabase
       .from('league_drafts')
-      .select('id, status, draft_order, current_pick_index, current_round, total_picks, method, started_at, completed_at, ready_state, lottery_odds, lottery_done, pick_deadline, extensions_used')
+      .select('id, status, draft_order, current_pick_index, current_round, total_picks, method, started_at, completed_at, pick_seconds, ready_state, lottery_odds, lottery_done, pick_deadline, extensions_used')
       .eq('league_id', leagueId)
       .eq('quarter_id', quarterId)
       .maybeSingle(),

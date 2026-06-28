@@ -534,21 +534,39 @@ export default function DraftPortalClient({
   }
 
   // 픽 시간 변경 (감독관 권한)
-  async function changePickSeconds(newSeconds: number) {
+  // applyNow=true 면 현재 픽에도 즉시 적용 (서버가 pick_deadline 재계산)
+  async function changePickSeconds(newSeconds: number, applyNow: boolean) {
     if (!auth || auth.role !== 'supervisor' || !state?.draft) return
     const r = await fetch(`/api/admin/leagues/${leagueId}/drafts/${draftId}/pick-seconds`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'X-Draft-Code': auth.plain },
-      body: JSON.stringify({ pick_seconds: newSeconds }),
+      body: JSON.stringify({ pick_seconds: newSeconds, apply_now: applyNow }),
     })
     const data = await r.json()
     if (!r.ok) {
       toast.error(data.error ?? '픽 시간 변경 실패')
     } else {
-      toast.success(`픽 시간이 ${newSeconds}초로 변경되었습니다`)
+      toast.success(
+        applyNow && data?.applied_now
+          ? `픽 시간 ${newSeconds}초 적용 — 현재 픽에도 반영됨`
+          : `픽 시간이 ${newSeconds}초로 변경 (다음 픽부터)`,
+      )
       fetchState()
     }
   }
+
+  // 픽 시간 변경 감지 → 모든 클라이언트에게 토스트.
+  // 이전 값과 다르고 마운트 직후 첫 폴링이 아닐 때만 발화 (초기 로드 시 false-positive 방지).
+  const prevPickSecondsRef = useRef<number | null>(null)
+  useEffect(() => {
+    const next = state?.draft?.pick_seconds
+    if (typeof next !== 'number') return
+    const prev = prevPickSecondsRef.current
+    if (prev != null && prev !== next) {
+      toast.info(`⏱ 감독관이 픽 시간을 ${next}초로 변경했습니다`, { duration: 4000 })
+    }
+    prevPickSecondsRef.current = next
+  }, [state?.draft?.pick_seconds])
 
   async function makePick() {
     if (!auth || auth.role !== 'manager' || !auth.teamId || !selectedPlayerId) return
@@ -1372,8 +1390,9 @@ function TeamPickRoster({ teams, picks, draftOrder }: {
   )
 }
 
-function PickSecondsCard({ currentSeconds, onChange }: { currentSeconds: number; onChange: (n: number) => Promise<void> }) {
+function PickSecondsCard({ currentSeconds, onChange }: { currentSeconds: number; onChange: (n: number, applyNow: boolean) => Promise<void> }) {
   const [val, setVal] = useState(String(currentSeconds))
+  const [applyNow, setApplyNow] = useState(false)
   const [saving, setSaving] = useState(false)
   useEffect(() => { setVal(String(currentSeconds)) }, [currentSeconds])
   async function submit() {
@@ -1381,7 +1400,7 @@ function PickSecondsCard({ currentSeconds, onChange }: { currentSeconds: number;
     if (!Number.isFinite(n) || n < 30 || n > 600) { toast.error('30~600초 사이의 숫자'); return }
     if (n === currentSeconds) return
     setSaving(true)
-    await onChange(n)
+    await onChange(n, applyNow)
     setSaving(false)
   }
   return (
@@ -1389,7 +1408,7 @@ function PickSecondsCard({ currentSeconds, onChange }: { currentSeconds: number;
       <p className="text-blue-300 text-sm font-bold flex items-center gap-1.5">
         <Timer size={14} /> 픽 시간 (초)
       </p>
-      <p className="text-[11px] text-gray-300 leading-relaxed">단장들과 채팅 합의 후 변경 — 다음 픽부터 적용됩니다.</p>
+      <p className="text-[11px] text-gray-300 leading-relaxed">단장들과 채팅 합의 후 변경. 기본은 다음 픽부터 적용.</p>
       <div className="flex gap-1.5">
         <Input
           type="number"
@@ -1404,6 +1423,15 @@ function PickSecondsCard({ currentSeconds, onChange }: { currentSeconds: number;
           {saving ? '저장 중...' : '적용'}
         </Button>
       </div>
+      <label className="flex items-center gap-2 text-[11px] text-gray-200 cursor-pointer select-none pt-1 min-h-[28px]">
+        <input
+          type="checkbox"
+          checked={applyNow}
+          onChange={e => setApplyNow(e.target.checked)}
+          className="w-4 h-4 rounded border-gray-600 bg-gray-900 cursor-pointer accent-blue-500"
+        />
+        <span>현재 픽에도 즉시 적용 (마감 시각 재계산)</span>
+      </label>
       <p className="text-[11px] text-gray-400">현재: {currentSeconds}초</p>
     </div>
   )
