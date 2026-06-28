@@ -92,10 +92,12 @@ export default function DraftCommissioner({ event }: Props) {
 
   return (
     <div
-      className="fixed bottom-4 left-4 z-30 flex items-end gap-2 pointer-events-none"
+      className="fixed bottom-4 left-3 sm:left-4 z-30 flex items-end gap-2 pointer-events-none"
       style={{
+        // 모바일에서 채팅 FAB(우측 56px) + safe area 고려하여 commissioner 가 차지할 수 있는 폭 제한
         bottom: 'max(1rem, env(safe-area-inset-bottom))',
-        maxWidth: 'calc(100vw - 5rem)',
+        left: 'max(0.75rem, env(safe-area-inset-left))',
+        maxWidth: 'min(calc(100vw - 6rem), 380px)',
       }}
       aria-live="polite"
       aria-atomic="true"
@@ -103,7 +105,7 @@ export default function DraftCommissioner({ event }: Props) {
     >
       <PixelCommissioner speaking={speaking} />
       <div
-        className="relative rounded-lg bg-white text-gray-900 px-3 py-2 shadow-2xl border-2 border-gray-900 max-w-[240px] sm:max-w-[340px] min-w-0"
+        className="relative rounded-lg bg-white text-gray-900 px-2.5 py-1.5 sm:px-3 sm:py-2 shadow-2xl border-2 border-gray-900 max-w-[220px] sm:max-w-[320px] min-w-0"
         style={{
           boxShadow: '4px 4px 0 0 rgba(0,0,0,0.6)',
         }}
