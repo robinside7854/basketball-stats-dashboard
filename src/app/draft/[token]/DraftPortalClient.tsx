@@ -203,19 +203,24 @@ export default function DraftPortalClient({
   }, [state?.draft, draftId, leagueId, auth, fetchState])
 
   // ────────────────── 추첨 결과 1회 표시 ──────────────────
+  // 모든 클라이언트에게 동시 자동 연출 — 감독관의 "추첨 시작" 직후 폴링 → lottery_done=true 감지.
+  // sessionStorage 가드로 새로고침/재방문 시 중복 노출 차단.
+  // 상태 가드: setup/ready_check/lottery_waiting 단계에서는 절대 발화 금지.
   const [showLottery, setShowLottery] = useState(false)
-  const lotteryDoneRef = useRef<boolean>(false)
+  const lotteryShownRef = useRef<boolean>(false)
   useEffect(() => {
     if (!state?.draft) return
-    const done = state.draft.lottery_done
-    // 처음 lottery_done=true 가 들어오면 sessionStorage 체크 후 1회 표시
-    if (done && !lotteryDoneRef.current) {
-      lotteryDoneRef.current = true
-      try {
-        const seen = sessionStorage.getItem(`draft_lottery_seen_${draftId}`)
-        if (!seen) setShowLottery(true)
-      } catch { /* ignore */ }
-    }
+    const { lottery_done, status, draft_order } = state.draft
+    // 발화 자격: lottery_done=true 이고 status 가 lottery_done 이거나 in_progress 이며 draft_order 가 비어있지 않음
+    if (!lottery_done) return
+    if (status !== 'lottery_done' && status !== 'in_progress') return
+    if (!draft_order || draft_order.length === 0) return
+    if (lotteryShownRef.current) return
+    lotteryShownRef.current = true
+    try {
+      const seen = sessionStorage.getItem(`draft_lottery_seen_${draftId}`)
+      if (!seen) setShowLottery(true)
+    } catch { /* ignore */ }
   }, [state?.draft, draftId])
 
   // ────────────────── 픽 이팩트 감지 ──────────────────
@@ -803,8 +808,12 @@ export default function DraftPortalClient({
       {/* 픽 이팩트 — 새 픽 들어올 때 3초간 전체화면 */}
       <DraftPickReveal data={pickReveal} onClose={() => setPickReveal(null)} />
 
-      {/* 추첨 결과 애니메이션 — lottery_done 직후 한 번만 (모두에게) */}
-      {state?.draft?.lottery_done && state.draft.draft_order.length > 0 && showLottery && (
+      {/* 추첨 결과 애니메이션 — lottery_done 직후 한 번만 (모두에게 동시).
+          waiting/ready_check 단계에서는 절대 노출되지 않도록 status 가드 포함. */}
+      {state?.draft?.lottery_done
+        && (state.draft.status === 'lottery_done' || state.draft.status === 'in_progress')
+        && state.draft.draft_order.length > 0
+        && showLottery && (
         <DraftLotteryReveal
           order={state.draft.draft_order}
           odds={state.draft.lottery_odds}

@@ -1,5 +1,14 @@
 'use client'
-import { useState, useEffect } from 'react'
+// 추첨 결과 풀스크린 연출
+//
+// 흐름 (자동 진행 — 사용자 클릭 불필요):
+//   'intro'     : 1.5s 동안 "팀 공이 기계로 들어가는 중..."
+//   'drawing'   : 3.0s 동안 흔들리는 추첨 기계 + 드럼롤 사운드
+//   'revealed'  : 결과 노출. 8s 후 자동 닫힘. 사용자가 미리 탭하면 즉시 닫힘.
+//
+// `prefers-reduced-motion` 사용자는 흔들림(lottoShake) 없이도 동일 타이밍으로 페이즈 전환.
+
+import { useState, useEffect, useRef } from 'react'
 import { playDrumroll, primeAudio } from '@/lib/draftSounds'
 
 interface Team { id: string; name: string; color: string }
@@ -11,33 +20,65 @@ interface Props {
   onClose: () => void
 }
 
-type Phase = 'intro' | 'ready' | 'drawing' | 'revealed'
+type Phase = 'intro' | 'drawing' | 'revealed'
+
+const INTRO_MS = 1500
+const DRAWING_MS = 3000
+const REVEALED_AUTO_CLOSE_MS = 8000
 
 export default function DraftLotteryReveal({ order, odds, teams, onClose }: Props) {
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
   const [phase, setPhase] = useState<Phase>('intro')
+  const reducedMotionRef = useRef<boolean>(false)
 
-  // 인트로(공 투입) → 버튼 노출
+  // prefers-reduced-motion 감지 (한 번)
   useEffect(() => {
-    const t = setTimeout(() => setPhase('ready'), 2200)
-    return () => clearTimeout(t)
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    reducedMotionRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   }, [])
 
-  function draw() {
-    if (phase !== 'ready') return
-    primeAudio()
-    playDrumroll()
-    setPhase('drawing')
-    setTimeout(() => setPhase('revealed'), 3000)
-  }
+  // 전체 자동 진행: intro → drawing → revealed → autoClose
+  useEffect(() => {
+    let t1: ReturnType<typeof setTimeout> | null = null
+    let t2: ReturnType<typeof setTimeout> | null = null
+    let t3: ReturnType<typeof setTimeout> | null = null
+    // 1) intro → drawing
+    t1 = setTimeout(() => {
+      setPhase('drawing')
+      // 드럼롤 사운드 (사용자 제스처 없으면 무음 — 사양상 안전)
+      try { primeAudio(); playDrumroll() } catch { /* ignore */ }
+      // 2) drawing → revealed
+      t2 = setTimeout(() => {
+        setPhase('revealed')
+        // 3) revealed → 자동 닫힘
+        t3 = setTimeout(() => onClose(), REVEALED_AUTO_CLOSE_MS)
+      }, DRAWING_MS)
+    }, INTRO_MS)
+    return () => {
+      if (t1) clearTimeout(t1)
+      if (t2) clearTimeout(t2)
+      if (t3) clearTimeout(t3)
+    }
+    // onClose 는 부모가 매 렌더 재생성하지 않는다고 가정. 마운트 시 1회만.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const firstId = order[0]
   const firstTeam = teamMap[firstId]
   const firstColor = firstTeam?.color ?? '#f59e0b'
+  const showShake = phase === 'drawing' && !reducedMotionRef.current
 
   return (
-    <div className="fixed inset-0 z-[58] flex items-center justify-center bg-black/90 backdrop-blur-md p-4"
-      onClick={() => phase === 'revealed' && onClose()}>
+    <div
+      className="fixed inset-0 z-[58] flex items-center justify-center bg-black/90 backdrop-blur-md p-4"
+      style={{
+        paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+        paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+        paddingRight: 'max(1rem, env(safe-area-inset-right))',
+      }}
+      onClick={() => phase === 'revealed' && onClose()}
+    >
       <style>{`
         @keyframes lottoFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
         @keyframes lottoShake { 0%,100%{transform:translate(0,0) rotate(0)} 20%{transform:translate(-6px,4px) rotate(-6deg)} 40%{transform:translate(6px,-4px) rotate(6deg)} 60%{transform:translate(-5px,-3px) rotate(-4deg)} 80%{transform:translate(5px,3px) rotate(4deg)} }
@@ -54,7 +95,7 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
           <>
             {/* 추첨 기계 */}
             <div className="relative mx-auto w-60 h-60 rounded-full border-4 border-gray-600 bg-gradient-to-b from-gray-800/60 to-gray-900/80 overflow-hidden flex items-center justify-center"
-              style={{ animation: phase === 'drawing' ? 'lottoShake 0.5s infinite' : undefined }}>
+              style={{ animation: showShake ? 'lottoShake 0.5s infinite' : undefined }}>
               {/* 유리 반사 */}
               <div className="absolute top-3 left-6 w-16 h-10 rounded-full bg-white/10 blur-md" />
               {/* 공들 */}
@@ -65,7 +106,7 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
                     <div key={tid} className="w-14 h-14 rounded-full flex items-center justify-center text-[11px] font-black text-white shadow-lg"
                       style={{
                         backgroundColor: t?.color ?? '#888',
-                        animation: `lottoFloat ${1 + i * 0.2}s ease-in-out ${i * 0.15}s infinite`,
+                        animation: reducedMotionRef.current ? undefined : `lottoFloat ${1 + i * 0.2}s ease-in-out ${i * 0.15}s infinite`,
                         boxShadow: `0 0 14px ${t?.color ?? '#888'}aa`,
                       }}>
                       <span className="drop-shadow">{t?.name?.slice(0, 4) ?? '?'}</span>
@@ -78,12 +119,6 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
             </div>
 
             <div className="mt-6 h-12 flex items-center justify-center">
-              {phase === 'ready' && (
-                <button onClick={draw}
-                  className="px-8 py-3 rounded-full bg-amber-500 hover:bg-amber-400 text-black font-black text-lg shadow-[0_0_24px_rgba(245,158,11,0.6)] animate-pulse cursor-pointer">
-                  🎱 공 뽑기 (1픽 추첨)
-                </button>
-              )}
               {phase === 'drawing' && (
                 <p className="text-amber-300 font-black text-lg tracking-widest animate-pulse">● ● ●</p>
               )}
@@ -118,7 +153,7 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
                 )
               })}
             </div>
-            <p className="text-xs text-gray-500 mt-4">탭하여 닫기 · 지난 분기 승률 기반 가중 추첨</p>
+            <p className="text-xs text-gray-500 mt-4">탭하여 닫기 · 8초 후 자동 닫힘</p>
           </>
         )}
       </div>

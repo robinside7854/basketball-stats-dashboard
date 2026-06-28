@@ -43,7 +43,7 @@ interface Leader { team_id: string; leader_player_id: string | null }
 interface DraftState {
   draft: {
     id: string
-    status: 'setup' | 'ready_check' | 'in_progress' | 'completed'
+    status: 'setup' | 'ready_check' | 'lottery_waiting' | 'lottery_done' | 'in_progress' | 'completed'
     draft_order: string[]
     current_pick_index: number
     current_round: number
@@ -267,12 +267,14 @@ export default function LeagueDraftPage() {
   }, [state])
 
   // 추첨 완료 감지 → 로또 머신 공개 (한 번만)
+  // status 가드: lottery_waiting/ready_check/setup 단계에서는 절대 노출되지 않게.
   useEffect(() => {
-    if (state?.draft?.lottery_done && state.draft.draft_order.length > 0 && !lotteryShownRef.current) {
-      lotteryShownRef.current = true
-      setShowLottery(true)
-    }
-  }, [state?.draft?.lottery_done, state?.draft?.draft_order.length])
+    const d = state?.draft
+    if (!d?.lottery_done || d.draft_order.length === 0 || lotteryShownRef.current) return
+    if (d.status !== 'lottery_done' && d.status !== 'in_progress') return
+    lotteryShownRef.current = true
+    setShowLottery(true)
+  }, [state?.draft?.lottery_done, state?.draft?.draft_order.length, state?.draft?.status, state?.draft])
 
   async function submitCode() {
     if (!selectedQid || !codeInput.trim()) return
