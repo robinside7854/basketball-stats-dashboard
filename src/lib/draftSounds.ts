@@ -66,3 +66,13 @@ export function playMyTurnBeep() {
   tone(880, 0.18, 0.08, 'square', 0.18)
   tone(880, 0.36, 0.08, 'square', 0.18)
 }
+
+/** 추첨 호른 — 1픽 공이 떨어지는 순간 (약 0.7초의 승리감 있는 팡파레) */
+export function playLotteryHorn() {
+  // "타-다!" 패턴: 880Hz square 300ms → 660Hz square 200ms → 1320Hz square 200ms 슬라이드
+  tone(880, 0, 0.3, 'square', 0.18)
+  tone(660, 0.25, 0.2, 'square', 0.16)
+  tone(1320, 0.45, 0.25, 'square', 0.18)
+  // 잔향 — 살짝 늦게 sine 으로 빛나게
+  tone(1760, 0.5, 0.4, 'sine', 0.1)
+}
