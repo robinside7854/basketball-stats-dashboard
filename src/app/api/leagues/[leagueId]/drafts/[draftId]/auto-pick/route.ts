@@ -42,10 +42,18 @@ export async function POST(
 
   // 요청 모드 파싱 (body 가 없거나 깨져도 'best' 로 fallback — 하위 호환)
   let mode: 'best' | 'random' = 'best'
+  let expectedPickNumber: number | null = null
+  let expectedDeadline: string | null = null
   try {
     const body = await req.json().catch(() => ({}))
     if (body && body.mode === 'random') mode = 'random'
     else if (body && body.mode === 'best') mode = 'best'
+    if (body && typeof body.expected_pick_number === 'number') {
+      expectedPickNumber = body.expected_pick_number
+    }
+    if (body && typeof body.expected_deadline === 'string') {
+      expectedDeadline = body.expected_deadline
+    }
   } catch { /* ignore */ }
 
   const { data: draft } = await supabase
@@ -57,6 +65,16 @@ export async function POST(
   if (!draft) return NextResponse.json({ error: '세션을 찾을 수 없습니다' }, { status: 404 })
   const d = draft as DraftRow
   if (d.status !== 'in_progress') return NextResponse.json({ error: '진행 중이 아닙니다' }, { status: 409 })
+
+  // ── Compare-and-swap: 클라이언트가 본 슬롯/마감과 서버 상태가 일치하는지 검증 ──
+  // 다른 클라이언트가 이미 픽했거나 마감이 갱신된 상태라면 stale 로 거절.
+  // DB UNIQUE(draft_id, pick_number) 제약이 무결성을 막아주지만, 그 전에 거절해 잘못된 slot 에 쓰지 않도록.
+  if (expectedPickNumber != null && expectedPickNumber !== (d.total_picks ?? 0) + 1) {
+    return NextResponse.json({ error: 'stale_pick_number', current: (d.total_picks ?? 0) + 1 }, { status: 409 })
+  }
+  if (expectedDeadline && d.pick_deadline && expectedDeadline !== d.pick_deadline) {
+    return NextResponse.json({ error: 'stale_deadline', current: d.pick_deadline }, { status: 409 })
+  }
 
   // 권한: 이 분기의 유효 코드(단장/감독관) 또는 리그 PIN
   const plain = req.headers.get('X-Draft-Code')?.trim()

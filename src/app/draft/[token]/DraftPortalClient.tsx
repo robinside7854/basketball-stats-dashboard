@@ -340,10 +340,18 @@ export default function DraftPortalClient({
     fetch(`/api/leagues/${leagueId}/drafts/${draftId}/auto-pick`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Draft-Code': auth.plain },
-      body: JSON.stringify({ mode: 'random' }),
+      body: JSON.stringify({
+        mode: 'random',
+        expected_pick_number: (draftRow.total_picks ?? 0) + 1,
+        expected_deadline: draftRow.pick_deadline,
+      }),
     }).then(async r => {
       if (!r.ok) {
-        // 409 (이미 처리/유예 남음) — 무시
+        // 409 (이미 처리/유예 남음/stale) — 다른 클라가 처리했을 가능성이 큼.
+        // 빨간 토스트로 사용자를 놀라게 하지 않고 조용히 무시. 폴링이 정상 결과를 곧 가져온다.
+        console.warn('[auto-pick] non-OK response', r.status)
+        // 다음 데드라인 윈도우에서 다시 시도할 수 있게 ref 리셋
+        if (autoPickFiredRef.current === deadlineKey) autoPickFiredRef.current = null
         return
       }
       const data = await r.json().catch(() => ({}))
@@ -352,7 +360,10 @@ export default function DraftPortalClient({
         toast.message(`🎲 무작위 자동 픽: ${playerName}`, { duration: 4000 })
       }
       fetchState()
-    }).catch(() => null)
+    }).catch(err => {
+      console.warn('[auto-pick] network error', err)
+      if (autoPickFiredRef.current === deadlineKey) autoPickFiredRef.current = null
+    })
   }, [now, auth, draftRow, leagueId, draftId, state?.current_team_id, state?.available_players, fetchState])
 
   // ────────────────── lottery 흐름 (감독관 전용) ──────────────────
