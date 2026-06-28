@@ -593,29 +593,8 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         </div>
       )}
 
-      {picks.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] text-gray-300 font-bold uppercase tracking-widest">최근 픽 (최신 5)</p>
-            {draft.status === 'in_progress' && (
-              <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-100 hover:text-white cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950" aria-label="픽 목록 새로고침"><RefreshCw size={12} /> 새로고침</button>
-            )}
-          </div>
-          <div className="space-y-1">
-            {picks.slice(-5).reverse().map(p => {
-              const t = teamMap[p.team_id]
-              return (
-                <div key={p.id} className="flex items-center gap-2 bg-gray-800/40 rounded px-2 py-1.5 text-sm">
-                  <span className="text-gray-300 font-bold w-12">#{p.pick_number}</span>
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color }} />
-                  <span className="text-gray-200 font-bold">{t?.name}</span>
-                  <span className="text-white">{playerMap[p.league_player_id]?.name ?? '?'}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      {/* 최근 픽 목록 제거 — 상단 스코어보드(DraftScoreboard)가 모든 픽을
+          단일 소스로 보여주므로 여기서 중복 노출하지 않음. */}
     </div>
   )
 }

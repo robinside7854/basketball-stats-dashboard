@@ -859,13 +859,6 @@ export default function DraftPortalClient({
     }
   }, [isMyTurn])
 
-  // 라운드 그룹핑
-  const totalRounds = draft ? Math.max(1, Math.ceil(draft.total_picks / Math.max(draft.draft_order.length, 1))) : 0
-  const picksByRound: Record<number, Pick[]> = {}
-  for (const p of state?.picks ?? []) {
-    (picksByRound[p.round_number] ||= []).push(p)
-  }
-
   // 내 차례 배경 틴팅 — 외곽 래퍼에만 적용 (안쪽 카드는 영향 X).
   // 강한 블렌드(80%~A6)로 팀 컬러가 확실히 지배해 절대 놓치지 않도록.
   // 텍스트는 흰색 + text-shadow 로 안전 (안쪽 카드는 자체 bg 유지하므로 본문 가독성 OK).
@@ -1116,62 +1109,10 @@ export default function DraftPortalClient({
             />
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3 sm:gap-4 lg:gap-5">
-            {/* 픽 보드 (상세 — 라운드별 카드) */}
-            <section className="bg-gray-900/60 border border-gray-800 rounded-2xl p-3 sm:p-4 lg:p-5 space-y-4">
-              <h2 className="text-base font-bold text-gray-200 uppercase tracking-widest">픽 보드 (상세)</h2>
-              {draft.status === 'setup' || draft.status === 'ready_check' ? (
-                <div className="text-center py-12 text-gray-200 text-base sm:text-lg leading-relaxed">감독관이 시작을 누르면<br className="sm:hidden"/> 픽이 진행됩니다</div>
-              ) : (
-                <div className="space-y-4">
-                  {Array.from({ length: Math.max(totalRounds, 1) }).map((_, idx) => {
-                    const round = idx + 1
-                    const order = draft.draft_order
-                    const orderForRound = draft.method === 'snake' && round % 2 === 0 ? [...order].reverse() : order
-                    return (
-                      <div key={round}>
-                        <p className="text-[11px] font-bold text-gray-300 uppercase tracking-widest mb-2">Round {round}</p>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-2.5">
-                          {orderForRound.map((teamId, i) => {
-                            const pickNumber = (round - 1) * order.length + i + 1
-                            const team = teamsById[teamId]
-                            const pick = (picksByRound[round] ?? []).find(p => p.pick_number === pickNumber)
-                            const isCurrent = pickNumber === draft.current_pick_index + 1 && draft.status === 'in_progress'
-                            return (
-                              <div key={pickNumber}
-                                className={`rounded-lg p-2.5 sm:p-3 border min-w-0 transition-colors duration-200 ${
-                                  pick ? 'bg-gray-800/60 border-gray-700' :
-                                  isCurrent ? 'bg-amber-950/60 border-amber-500 ring-2 ring-amber-500/40 animate-pulse' :
-                                  'bg-gray-900/40 border-gray-800 opacity-60'
-                                }`}
-                                style={team ? { borderLeftColor: team.color, borderLeftWidth: 3 } : undefined}
-                              >
-                                <p className="text-[11px] sm:text-xs text-gray-300 font-bold truncate min-w-0">
-                                  <span className="tabular-nums">#{pickNumber}</span> · <span className="break-keep">{team?.name ?? '?'}</span>
-                                </p>
-                                {pick ? (
-                                  <p className="text-sm sm:text-base font-bold text-white mt-1 truncate leading-tight min-w-0">
-                                    {pick.player_number != null && <span className="text-amber-300 mr-1 tabular-nums">#{pick.player_number}</span>}
-                                    <span className="break-keep">{pick.player_name}</span>
-                                  </p>
-                                ) : isCurrent ? (
-                                  <p className="text-sm text-amber-300 mt-1 font-bold">선택 중...</p>
-                                ) : (
-                                  <p className="text-sm text-gray-600 mt-1">—</p>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </section>
-
-            {/* 액션 패널 */}
-            <aside className="space-y-4">
+          {/* 액션 패널 — 상단 스코어보드가 모든 픽을 단일 소스로 보여주므로
+              상세 픽 보드는 중복이라 제거. 단장/감독관 액션 카드만 노출.
+              카드 폭은 본문 가독성을 위해 제한 (모바일은 풀폭). */}
+          <aside className="space-y-3 sm:space-y-4 lg:max-w-md">
               {draft.status === 'in_progress' && auth?.role === 'manager' && (
                 isMyTurn ? (
                   <div
@@ -1273,7 +1214,6 @@ export default function DraftPortalClient({
                 </div>
               )}
             </aside>
-          </div>
 
           {/* 팀별 누적 픽 — 포지션 밸런스 확인용 (in_progress / completed) */}
           {(draft.status === 'in_progress' || draft.status === 'completed') && (
