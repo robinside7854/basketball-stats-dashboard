@@ -19,6 +19,7 @@ import DraftSessionControl from '@/components/league/DraftSessionControl'
 import DraftChat from '@/components/league/DraftChat'
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
 import DraftPickReveal, { type PickRevealData } from '@/components/league/DraftPickReveal'
+import DraftScoreboard from '@/components/league/DraftScoreboard'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { primeAudio, playMyTurnBeep } from '@/lib/draftSounds'
 import { getReadableTextColor } from '@/lib/colorContrast'
@@ -901,10 +902,24 @@ export default function DraftPortalClient({
             />
           )}
 
+          {/* NBA 스타일 메인 스코어보드 — 픽이 시작되면 상단에 큰 LED 보드로 표시 */}
+          {(draft.status === 'in_progress' || draft.status === 'completed') && draft.draft_order.length > 0 && (
+            <DraftScoreboard
+              title={`${leagueName.toUpperCase()} DRAFT ${year ?? new Date().getFullYear()}.${quarter ?? Math.floor(new Date().getMonth() / 3) + 1}Q`}
+              teams={state?.teams ?? []}
+              picks={state?.picks ?? []}
+              draftOrder={draft.draft_order}
+              method={draft.method}
+              totalPicks={draft.total_picks}
+              currentPickIndex={draft.current_pick_index}
+              status={draft.status}
+            />
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-3 sm:gap-4 lg:gap-5">
-            {/* 픽 보드 */}
+            {/* 픽 보드 (상세 — 라운드별 카드) */}
             <section className="bg-gray-900/60 border border-gray-800 rounded-2xl p-3 sm:p-4 lg:p-5 space-y-4">
-              <h2 className="text-base font-bold text-gray-200 uppercase tracking-widest">픽 보드</h2>
+              <h2 className="text-base font-bold text-gray-200 uppercase tracking-widest">픽 보드 (상세)</h2>
               {draft.status === 'setup' || draft.status === 'ready_check' ? (
                 <div className="text-center py-12 text-gray-200 text-base sm:text-lg leading-relaxed">감독관이 시작을 누르면<br className="sm:hidden"/> 픽이 진행됩니다</div>
               ) : (
