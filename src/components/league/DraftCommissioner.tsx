@@ -92,9 +92,12 @@ export default function DraftCommissioner({ event }: Props) {
 
   return (
     <div
-      className="fixed bottom-4 left-3 sm:left-4 z-30 flex items-end gap-2 pointer-events-none"
+      className="fixed bottom-4 left-3 sm:left-4 z-[110] flex items-end gap-2 pointer-events-none"
       style={{
-        // 모바일에서 채팅 FAB(우측 56px) + safe area 고려하여 commissioner 가 차지할 수 있는 폭 제한
+        // 모바일에서 채팅 FAB(우측 56px) + safe area 고려하여 commissioner 가 차지할 수 있는 폭 제한.
+        // z-[110]: DraftPickReveal(z-[100]) · DraftLotteryReveal(z-58) 위에 떠
+        // 픽 발표·추첨 진행 중에도 NBA 중계처럼 캐릭터 멘트가 항상 보이도록 한다.
+        // 채팅 패널(z-40)·sonner(z-99999) 와는 충돌하지 않음(좌하단 코너 + pointer-events-none).
         bottom: 'max(1rem, env(safe-area-inset-bottom))',
         left: 'max(0.75rem, env(safe-area-inset-left))',
         maxWidth: 'min(calc(100vw - 6rem), 380px)',
