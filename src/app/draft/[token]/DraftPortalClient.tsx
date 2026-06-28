@@ -644,16 +644,17 @@ export default function DraftPortalClient({
   }
 
   // 내 차례 배경 틴팅 — 외곽 래퍼에만 적용 (안쪽 카드는 영향 X).
-  // luminance 로 텍스트 모드 결정 → 본문 톤이 밝은 팀 컬러에서도 가독성 유지.
+  // 강한 블렌드(80%~A6)로 팀 컬러가 확실히 지배해 절대 놓치지 않도록.
+  // 텍스트는 흰색 + text-shadow 로 안전 (안쪽 카드는 자체 bg 유지하므로 본문 가독성 OK).
   const myTurnColor = isMyTurn && myTeam?.color ? myTeam.color : null
   const myTurnTextMode = myTurnColor ? getReadableTextColor(myTurnColor) : 'light'
+  void myTurnTextMode // 향후 활용 — 현재는 흰 텍스트 + shadow 로 안전.
   const outerStyle = myTurnColor
     ? {
-        background: `linear-gradient(180deg, ${myTurnColor}26 0%, ${myTurnColor}4D 100%), #000`,
-        transition: 'background 300ms ease',
-        color: myTurnTextMode === 'dark' ? '#0F172A' : undefined,
+        background: `radial-gradient(ellipse at top, ${myTurnColor}66 0%, transparent 60%), linear-gradient(180deg, ${myTurnColor}99 0%, ${myTurnColor}B3 50%, ${myTurnColor}99 100%), #0a0a0a`,
+        transition: 'background 600ms ease',
       }
-    : { transition: 'background 300ms ease' as const }
+    : { transition: 'background 600ms ease' as const }
 
   return (
     <div
@@ -662,14 +663,25 @@ export default function DraftPortalClient({
       } ${myTurnColor ? 'is-my-turn' : ''}`}
       style={outerStyle}
     >
-      {/* 내 차례 펄스 keyframes — 콜아웃 카드에서 사용 */}
+      {/* 내 차례 펄스 keyframes — 콜아웃 카드 + 외곽 래퍼에서 사용 */}
       {myTurnColor && (
         <style>{`
           @keyframes myTurnPulse {
             0%, 100% { box-shadow: 0 0 0 1px ${myTurnColor}66, 0 0 24px ${myTurnColor}44; }
             50%      { box-shadow: 0 0 0 2px ${myTurnColor}aa, 0 0 48px ${myTurnColor}88; }
           }
+          @keyframes myTurnBrightPulse {
+            0%, 100% { filter: brightness(1); }
+            50%      { filter: brightness(1.08); }
+          }
+          .is-my-turn {
+            animation: myTurnBrightPulse 2.4s ease-in-out infinite;
+          }
+          .is-my-turn h1, .is-my-turn h2, .is-my-turn h3 {
+            text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+          }
           @media (prefers-reduced-motion: reduce) {
+            .is-my-turn { animation: none !important; }
             .is-my-turn [style*="myTurnPulse"] { animation: none !important; }
           }
         `}</style>
