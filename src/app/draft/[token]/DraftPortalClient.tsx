@@ -136,6 +136,23 @@ export default function DraftPortalClient({
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [fetchState])
 
+  // 탭이 숨겨지면 폴링 중단, 다시 보이면 즉시 1회 가져온 뒤 폴링 재개 — 모바일 배터리/네트워크 절약
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    function onVisibility() {
+      if (document.visibilityState === 'hidden') {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+      } else if (document.visibilityState === 'visible') {
+        fetchState()
+        if (!pollRef.current) {
+          pollRef.current = setInterval(fetchState, POLL_INTERVAL_MS)
+        }
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [fetchState])
+
   // 코드 입력 → lookup-code 로 본인 식별
   async function submitCode() {
     if (!codeInput.trim()) { toast.error('코드를 입력하세요'); return }
