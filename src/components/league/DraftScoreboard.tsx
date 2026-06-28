@@ -45,35 +45,38 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
         background: 'linear-gradient(180deg, #0a0a0f 0%, #0f0a05 100%)',
       }}>
       {/* 헤더 — 경기장 LED 띠 스타일 */}
-      <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-amber-700/40 flex items-center justify-between gap-3 flex-wrap"
+      <div className="px-4 py-4 sm:px-6 sm:py-5 border-b border-amber-700/40 flex items-center justify-between gap-3 flex-wrap"
         style={{
           background: 'linear-gradient(90deg, rgba(180,83,9,0.6) 0%, rgba(245,158,11,0.4) 50%, rgba(180,83,9,0.6) 100%)',
         }}>
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span aria-hidden className="text-2xl sm:text-3xl">🏀</span>
-          <h2 className="text-xl sm:text-3xl lg:text-4xl font-black tracking-tight text-white leading-none truncate break-keep"
+          <span aria-hidden className="text-3xl sm:text-4xl lg:text-5xl">🏀</span>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white leading-none truncate break-keep"
             style={{ textShadow: '0 2px 4px rgba(0,0,0,0.6), 0 0 12px rgba(245,158,11,0.5)' }}>
             {title}
           </h2>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-[10px] sm:text-xs uppercase tracking-widest font-black text-amber-100 bg-black/40 px-2 py-1 rounded">LIVE</span>
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+          <span className="text-sm sm:text-base uppercase tracking-widest font-black text-amber-100 bg-black/50 px-3 py-1.5 rounded">LIVE</span>
+          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
         </div>
       </div>
 
-      {/* 본문 — 라운드별 그리드 */}
-      <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+      {/* 본문 — 라운드별 그리드. auto-fit + minmax 로 가용 폭을 모두 채워 픽 셀이 좌측에만 몰리는 현상 방지. */}
+      <div className="p-3 sm:p-4 lg:p-5 space-y-6 sm:space-y-8">
         {Array.from({ length: rounds }).map((_, idx) => {
           const round = idx + 1
           const orderForRound = method === 'snake' && round % 2 === 0 ? [...draftOrder].reverse() : draftOrder
           return (
             <div key={round}>
-              <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-300/90 mb-1.5"
+              <p className="text-base sm:text-lg lg:text-xl font-black uppercase tracking-widest text-amber-300/90 mb-2 sm:mb-3"
                 style={{ fontFamily: 'var(--font-bebas, system-ui, sans-serif)' }}>
                 Round {round}
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-1.5 sm:gap-2">
+              <div
+                className="grid gap-3 sm:gap-4"
+                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}
+              >
                 {orderForRound.map((teamId, i) => {
                   const pickNumber = (round - 1) * draftOrder.length + i + 1
                   if (pickNumber > totalPicks) return null
@@ -94,32 +97,32 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                   return (
                     <div
                       key={pickNumber}
-                      className={`relative rounded-md border-2 p-1.5 sm:p-2 min-h-[60px] sm:min-h-[68px] flex flex-col gap-0.5 min-w-0 transition-all duration-200 ${
+                      className={`relative rounded-lg border-2 p-4 sm:p-5 lg:p-6 min-h-[80px] sm:min-h-[100px] lg:min-h-[120px] flex flex-col gap-1.5 sm:gap-2 min-w-0 transition-all duration-200 ${
                         isCurrent ? 'animate-pulse' : ''
                       } ${isCompleted ? '' : 'opacity-80'}`}
                       style={cellStyle}
                     >
-                      <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-[10px] sm:text-xs font-black tabular-nums shrink-0"
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-base sm:text-lg font-black tabular-nums shrink-0"
                           style={{ color, fontFamily: 'var(--font-bebas, system-ui, sans-serif)' }}>
                           #{pickNumber}
                         </span>
-                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: color }} />
-                        <span className="text-[10px] sm:text-[11px] font-bold text-gray-200 truncate min-w-0 break-keep">
+                        <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full shrink-0 border border-black/30" style={{ background: color }} />
+                        <span className="text-sm sm:text-base font-bold text-gray-100 truncate min-w-0 break-keep">
                           {team?.name ?? '?'}
                         </span>
                       </div>
                       {pick ? (
-                        <p className="text-xs sm:text-sm font-black text-white truncate leading-tight break-keep">
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-black text-white truncate leading-tight break-keep">
                           {pick.player_number != null && (
-                            <span className="text-amber-300 mr-0.5 tabular-nums">#{pick.player_number}</span>
+                            <span className="text-amber-300 mr-1 tabular-nums">#{pick.player_number}</span>
                           )}
                           {pick.player_name}
                         </p>
                       ) : isCurrent ? (
-                        <p className="text-xs sm:text-sm font-black text-amber-200 tracking-wide">선택 중...</p>
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-black text-amber-200 tracking-wide">선택 중...</p>
                       ) : (
-                        <p className="text-xs text-gray-600 font-mono">—</p>
+                        <p className="text-base sm:text-lg text-gray-500 font-mono">—</p>
                       )}
                     </div>
                   )

@@ -898,7 +898,7 @@ export default function DraftPortalClient({
 
   return (
     <div
-      className={`min-h-screen p-3 sm:p-5 lg:p-6 max-w-screen-2xl mx-auto transition-[padding] duration-200 lg:pr-[360px] ${
+      className={`min-h-screen p-2 sm:p-3 lg:p-4 max-w-screen-2xl mx-auto transition-[padding] duration-200 lg:pr-[360px] ${
         myTurnColor ? 'is-my-turn' : ''
       }`}
       style={outerStyle}
