@@ -155,6 +155,32 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
     if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [msgs, open])
 
+  // 모바일 디바이스 뒤로가기 시 채팅만 닫히게 — 페이지 이동/세션 종료 차단.
+  // 패널 열림 → history entry 추가 → popstate 시 setOpen(false) 만 실행.
+  // 사용자가 X/backdrop 으로 닫은 경우엔 cleanup 에서 우리 entry 만 정리(history.back).
+  useEffect(() => {
+    if (!open) return
+    if (typeof window === 'undefined') return
+    try { window.history.pushState({ draftChatOpen: true }, '') } catch { /* ignore */ }
+    const onPopState = () => setOpen(false)
+    window.addEventListener('popstate', onPopState)
+    return () => {
+      window.removeEventListener('popstate', onPopState)
+      try {
+        const s = window.history.state as { draftChatOpen?: boolean } | null
+        if (s?.draftChatOpen) window.history.back()
+      } catch { /* ignore */ }
+    }
+  }, [open, setOpen])
+
+  // 모바일 backdrop 또는 Escape 키로도 닫기.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, setOpen])
+
   // 열림 시 — 모든 현재 메시지를 읽음 처리. 닫혀 있을 때 모인 unread 가 0 으로.
   useEffect(() => {
     if (!open) return
@@ -225,22 +251,38 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
   }
 
   // 열린 상태 —
-  //   PC: 우측 sticky 사이드 패널 (340px), 본문 가리지 않음
-  //   모바일: 우측에서 슬라이드 인 (88vw, 닫으면 본문 보임)
+  //   PC: 우측 sticky 사이드 패널 (340px), 본문 가리지 않음 (부모 wrapper 가 lg:pr-[360px] 적용)
+  //   모바일: backdrop + 우측 슬라이드 인 (88vw). backdrop 탭 / X 버튼 / 디바이스 뒤로가기 / Escape 키로 닫힘
   return (
+    <>
+      {/* 모바일 전용 backdrop — 탭 시 채팅 닫기 + 시각적으로 "밖을 누르면 닫힘" 인지 가능 */}
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        aria-label="채팅 닫기 — 채팅창 밖을 탭하세요"
+        className="lg:hidden fixed inset-0 z-30 bg-black/60 backdrop-blur-sm cursor-pointer animate-fadeIn"
+      />
     <div className="fixed top-0 right-0 z-40 h-screen w-[88vw] sm:w-[340px] flex flex-col bg-gray-900 border-l border-gray-700 shadow-2xl animate-slideInRight">
       <style jsx>{`
         @keyframes slideInRight {
           from { transform: translateX(100%); }
           to { transform: translateX(0); }
         }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
         .animate-slideInRight { animation: slideInRight 0.22s ease-out; }
+        .animate-fadeIn { animation: fadeIn 0.18s ease-out; }
       `}</style>
       <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-2">
         <MessageCircle size={16} className="text-blue-400" />
         <p className="text-sm font-bold text-gray-100 uppercase tracking-widest">드래프트 채팅</p>
-        <span className="text-xs text-gray-300">단장·감독관</span>
-        <button onClick={() => setOpen(false)} aria-label="채팅 닫기" className="ml-auto p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded text-gray-300 hover:text-white hover:bg-gray-800 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"><X size={16} /></button>
+        <span className="hidden sm:inline text-xs text-gray-300">단장·감독관</span>
+        <span className="lg:hidden text-[11px] text-gray-400 italic">← 밖을 탭해 닫기</span>
+        <button onClick={() => setOpen(false)} aria-label="채팅 닫기" className="ml-auto px-2.5 py-1.5 min-w-[44px] min-h-[44px] flex items-center gap-1 rounded-lg bg-gray-800 text-gray-200 hover:text-white hover:bg-gray-700 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
+          <X size={16} /><span className="text-xs font-bold">닫기</span>
+        </button>
       </div>
 
       {error && (
@@ -315,5 +357,6 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
         </button>
       </div>
     </div>
+    </>
   )
 }
