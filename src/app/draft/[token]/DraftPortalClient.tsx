@@ -20,6 +20,7 @@ import DraftChat from '@/components/league/DraftChat'
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
 import DraftPickReveal, { type PickRevealData } from '@/components/league/DraftPickReveal'
 import DraftScoreboard from '@/components/league/DraftScoreboard'
+import DraftFinalResult from '@/components/league/DraftFinalResult'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { primeAudio, playMyTurnBeep } from '@/lib/draftSounds'
 import { getReadableTextColor } from '@/lib/colorContrast'
@@ -295,6 +296,8 @@ export default function DraftPortalClient({
   // 추첨 reveal 진행 중에는 픽 reveal 모달을 즉시 띄우지 않고 pendingRevealRef 에 큐잉.
   // 추첨 reveal 이 닫힌 직후 200ms 지연으로 큐된 픽 reveal 을 보여준다 (모달 stomp 방지).
   const [pickReveal, setPickReveal] = useState<PickRevealData | null>(null)
+  const [showFinal, setShowFinal] = useState(false)
+  const finalSeenRef = useRef<boolean>(false)
   const initialPicksSnapshotRef = useRef<number | null>(null)
   const lastPickNumberRef = useRef<number>(0)
   const pendingRevealRef = useRef<PickRevealData | null>(null)
@@ -332,6 +335,17 @@ export default function DraftPortalClient({
     }
     setPickReveal(data)
   }, [state?.picks, state?.teams, state?.available_players, showLottery])
+
+  // 드래프트 완료 감지 — sessionStorage 가드로 새로고침 시 중복 노출 차단
+  useEffect(() => {
+    if (state?.draft?.status !== 'completed') return
+    if (finalSeenRef.current) return
+    finalSeenRef.current = true
+    try {
+      const seen = sessionStorage.getItem(`draft_final_seen_${draftId}`)
+      if (!seen) setShowFinal(true)
+    } catch { /* ignore */ }
+  }, [state?.draft?.status, draftId])
 
   // 추첨 reveal 이 닫힌 직후 — 큐된 픽 reveal 발화
   useEffect(() => {
@@ -1035,11 +1049,19 @@ export default function DraftPortalClient({
                   <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
                   <p className="text-base sm:text-lg text-emerald-300 font-bold">드래프트 완료</p>
                   <p className="text-sm text-gray-300 mt-1.5 leading-relaxed">멤버십이 즉시 반영되었습니다</p>
-                  {orgSlug && (
-                    <Link href={`/league/${orgSlug}/${leagueId}/teams`} className="inline-block mt-3 text-sm px-4 py-2 rounded-md bg-blue-900/40 hover:bg-blue-800 text-blue-200 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
-                      팀 구성 보기 →
-                    </Link>
-                  )}
+                  <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+                    <button
+                      onClick={() => setShowFinal(true)}
+                      className="text-sm px-4 py-2 rounded-md bg-amber-700/60 hover:bg-amber-600/80 text-amber-50 font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                    >
+                      결과 화면 다시 보기
+                    </button>
+                    {orgSlug && (
+                      <Link href={`/league/${orgSlug}/${leagueId}/teams`} className="text-sm px-4 py-2 rounded-md bg-blue-900/40 hover:bg-blue-800 text-blue-200 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
+                        팀 구성 보기 →
+                      </Link>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1129,6 +1151,23 @@ export default function DraftPortalClient({
             setShowLottery(false)
             try { sessionStorage.setItem(`draft_lottery_seen_${draftId}`, '1') } catch { /* ignore */ }
           }}
+        />
+      )}
+
+      {/* 최종 결과 화면 — completed 시 자동 표시. PNG 다운로드 가능. */}
+      {state?.draft?.status === 'completed' && (
+        <DraftFinalResult
+          open={showFinal}
+          onClose={() => {
+            setShowFinal(false)
+            try { sessionStorage.setItem(`draft_final_seen_${draftId}`, '1') } catch { /* ignore */ }
+          }}
+          title={`${leagueName.toUpperCase()} DRAFT ${year ?? new Date().getFullYear()}.${quarter ?? Math.floor(new Date().getMonth() / 3) + 1}Q 완료!`}
+          teams={state.teams ?? []}
+          picks={state.picks ?? []}
+          draftOrder={state.draft.draft_order ?? []}
+          startedAt={state.draft.started_at}
+          completedAt={state.draft.completed_at}
         />
       )}
 
