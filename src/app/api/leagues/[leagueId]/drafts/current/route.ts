@@ -87,7 +87,14 @@ export async function GET(
       .maybeSingle(),
   ])
 
-  const leaderList = (leaders ?? []) as { team_id: string; leader_player_id: string | null }[]
+  const playerMapFull = Object.fromEntries((players ?? []).map(p => [p.id, p]))
+  // 팀장 응답에 이름/번호 enrichment — 최종 결과 화면에서 별도 조회 없이 표시 가능.
+  const leaderList = ((leaders ?? []) as { team_id: string; leader_player_id: string | null }[]).map(l => ({
+    team_id: l.team_id,
+    leader_player_id: l.leader_player_id,
+    leader_player_name: l.leader_player_id ? (playerMapFull[l.leader_player_id]?.name ?? null) : null,
+    leader_player_number: l.leader_player_id ? (playerMapFull[l.leader_player_id]?.number ?? null) : null,
+  }))
   const supervisorExists = !!supCode
 
   if (!draft) {
@@ -116,15 +123,14 @@ export async function GET(
       .select('league_player_id')
       .eq('draft_id', d.id),
   ])
-  const playerMap = Object.fromEntries((players ?? []).map(p => [p.id, p]))
   const picks = (picksRaw ?? []).map(p => ({
     pick_number: p.pick_number,
     round_number: p.round_number,
     team_id: p.team_id,
     player_id: p.league_player_id,
-    player_name: playerMap[p.league_player_id]?.name ?? '?',
-    player_number: playerMap[p.league_player_id]?.number ?? null,
-    player_position: playerMap[p.league_player_id]?.position ?? null,
+    player_name: playerMapFull[p.league_player_id]?.name ?? '?',
+    player_number: playerMapFull[p.league_player_id]?.number ?? null,
+    player_position: playerMapFull[p.league_player_id]?.position ?? null,
     picked_at: p.picked_at,
   }))
 

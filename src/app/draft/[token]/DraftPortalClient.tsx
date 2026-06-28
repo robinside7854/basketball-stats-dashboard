@@ -84,7 +84,13 @@ export interface SystemMessage {
   kind: 'commissioner' | 'system'
 }
 
-interface LeaderRow { team_id: string; leader_player_id: string | null }
+interface LeaderRow {
+  team_id: string
+  leader_player_id: string | null
+  /** /current 응답에 enrich 되어 옴 — 팀장 이름이 표시될 화면용 */
+  leader_player_name?: string | null
+  leader_player_number?: number | null
+}
 
 const POLL_INTERVAL_MS = 1500
 
@@ -1291,21 +1297,31 @@ export default function DraftPortalClient({
       )}
 
       {/* 최종 결과 화면 — completed 시 자동 표시. PNG 다운로드 가능. */}
-      {state?.draft?.status === 'completed' && (
-        <DraftFinalResult
-          open={showFinal}
-          onClose={() => {
-            setShowFinal(false)
-            try { sessionStorage.setItem(`draft_final_seen_${draftId}`, '1') } catch { /* ignore */ }
-          }}
-          title={`${leagueName.toUpperCase()} DRAFT ${year ?? new Date().getFullYear()}.${quarter ?? Math.floor(new Date().getMonth() / 3) + 1}Q 완료!`}
-          teams={state.teams ?? []}
-          picks={state.picks ?? []}
-          draftOrder={state.draft.draft_order ?? []}
-          startedAt={state.draft.started_at}
-          completedAt={state.draft.completed_at}
-        />
-      )}
+      {state?.draft?.status === 'completed' && (() => {
+        // 팀장 이름 매핑 — /current 의 leaders enrich 응답 + picks 의 player_name 합본
+        const playerNames: Record<string, string> = {}
+        for (const p of state.picks ?? []) playerNames[p.player_id] = p.player_name
+        for (const l of state.leaders ?? []) {
+          if (l.leader_player_id && l.leader_player_name) playerNames[l.leader_player_id] = l.leader_player_name
+        }
+        return (
+          <DraftFinalResult
+            open={showFinal}
+            onClose={() => {
+              setShowFinal(false)
+              try { sessionStorage.setItem(`draft_final_seen_${draftId}`, '1') } catch { /* ignore */ }
+            }}
+            title={`${leagueName.toUpperCase()} DRAFT ${year ?? new Date().getFullYear()}.${quarter ?? Math.floor(new Date().getMonth() / 3) + 1}Q 완료!`}
+            teams={state.teams ?? []}
+            picks={state.picks ?? []}
+            draftOrder={state.draft.draft_order ?? []}
+            startedAt={state.draft.started_at}
+            completedAt={state.draft.completed_at}
+            leaders={state.leaders ?? []}
+            playerNames={playerNames}
+          />
+        )
+      })()}
 
       {/* 코드 입력 모달 */}
       {showCodeModal && (

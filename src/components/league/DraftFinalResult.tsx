@@ -8,7 +8,7 @@
 // - "닫기" 로 일반 사용자 dismiss; 감독관 노출은 부모가 제어
 
 import { useEffect, useRef, useState } from 'react'
-import { Trophy, Download, X, Users, Clock } from 'lucide-react'
+import { Trophy, Download, X, Users, Clock, Crown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Confetti from './Confetti'
 
@@ -23,6 +23,10 @@ interface Pick {
   player_position: string | null
   picked_at: string
 }
+interface Leader {
+  team_id: string
+  leader_player_id: string | null
+}
 
 interface Props {
   open: boolean
@@ -33,6 +37,10 @@ interface Props {
   draftOrder: string[]
   startedAt: string | null
   completedAt: string | null
+  /** 분기별 팀장 — `league_team_quarter_leaders` rows. team 카드 상단 👑 영역에 표시 */
+  leaders?: Leader[]
+  /** player id → 이름 매핑 (팀장 이름 표시용). 누락된 ID 는 "팀장" 라벨로 fallback */
+  playerNames?: Record<string, string>
 }
 
 function formatDuration(startedAt: string | null, completedAt: string | null): string {
@@ -48,15 +56,17 @@ function formatDuration(startedAt: string | null, completedAt: string | null): s
   return `${s}초`
 }
 
-export default function DraftFinalResult({ open, onClose, title, teams, picks, draftOrder, startedAt, completedAt }: Props) {
+export default function DraftFinalResult({ open, onClose, title, teams, picks, draftOrder, startedAt, completedAt, leaders, playerNames }: Props) {
   const captureRef = useRef<HTMLDivElement | null>(null)
   const [downloading, setDownloading] = useState(false)
   const [trigger, setTrigger] = useState<number | null>(null)
 
-  // 마운트 시 폭죽
+  // 마운트 시 폭죽 — 1회 burst (Confetti 가 자체적으로 stop. trigger 가 같은 값이면 재발화 X)
   useEffect(() => {
     if (open) {
       setTrigger(Date.now())
+    } else {
+      setTrigger(null) // 닫힐 때 canvas 정리
     }
   }, [open])
 
@@ -71,6 +81,12 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
   for (const p of picks) (picksByTeam[p.team_id] ||= []).push(p)
   for (const tid of Object.keys(picksByTeam)) picksByTeam[tid].sort((a, b) => a.pick_number - b.pick_number)
   const duration = formatDuration(startedAt, completedAt)
+  // 팀장 매핑 — team_id → leader_player_id (있는 경우만)
+  const leaderByTeam: Record<string, string | null> = {}
+  for (const l of leaders ?? []) {
+    if (l.leader_player_id) leaderByTeam[l.team_id] = l.leader_player_id
+  }
+  const nameMap = playerNames ?? {}
 
   async function downloadPng() {
     if (!captureRef.current) return
@@ -103,7 +119,8 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
         paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
         paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
       }}>
-      <Confetti trigger={trigger} durationMs={3000} />
+      {/* 1회 burst — 3.5s (3차 스태거 200+ particle). trigger 가 같은 값이면 재발화 X */}
+      <Confetti trigger={trigger} durationMs={3500} />
       <div className="relative max-w-4xl mx-auto">
         {/* 닫기 버튼 */}
         <button
@@ -150,6 +167,11 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {orderedTeams.map((t, idx) => {
               const list = picksByTeam[t.id] ?? []
+              const leaderId = leaderByTeam[t.id]
+              const leaderName = leaderId ? (nameMap[leaderId] ?? '팀장') : null
+              // 팀 인원수 — 팀장이 있으면 +1 (팀장이 픽으로도 들어갈 수 있어 중복 방지)
+              const leaderIsPicked = leaderId && list.some(p => p.player_id === leaderId)
+              const totalMembers = list.length + (leaderName && !leaderIsPicked ? 1 : 0)
               return (
                 <div
                   key={t.id}
@@ -167,10 +189,31 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                     </span>
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
                     <h3 className="text-base sm:text-lg lg:text-xl font-black text-white truncate break-keep min-w-0">{t.name}</h3>
-                    <span className="ml-auto text-xs sm:text-sm font-mono tabular-nums text-gray-300 shrink-0">{list.length}명</span>
+                    <span className="ml-auto text-xs sm:text-sm font-mono tabular-nums text-gray-300 shrink-0">{totalMembers}명</span>
                   </div>
+                  {/* 팀장 라인 — 카드 최상단에 강조 표시 */}
+                  {leaderName && (
+                    <div
+                      className="flex items-center gap-2 px-2.5 py-2 mb-2 rounded-lg border min-w-0"
+                      style={{
+                        background: `linear-gradient(90deg, ${t.color}26 0%, rgba(245,158,11,0.10) 100%)`,
+                        borderColor: `${t.color}66`,
+                      }}
+                    >
+                      <Crown size={14} className="text-amber-300 shrink-0" />
+                      <span
+                        className="text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0"
+                        style={{ background: t.color, color: '#0a0a0a' }}
+                      >
+                        팀장
+                      </span>
+                      <span className="text-white font-bold text-sm sm:text-base truncate break-keep min-w-0">
+                        {leaderName}
+                      </span>
+                    </div>
+                  )}
                   {list.length === 0 ? (
-                    <p className="text-sm text-gray-500 text-center py-4">픽 없음</p>
+                    <p className="text-sm text-gray-500 text-center py-4">{leaderName ? '추가 픽 없음' : '픽 없음'}</p>
                   ) : (
                     <div className="space-y-1">
                       {list.map(p => (
