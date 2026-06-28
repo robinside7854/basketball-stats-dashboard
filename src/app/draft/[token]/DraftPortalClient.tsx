@@ -224,18 +224,30 @@ export default function DraftPortalClient({
   }, [state?.draft, draftId])
 
   // ────────────────── 픽 이팩트 감지 ──────────────────
+  // 첫 픽도 반드시 발화시키기 위해 "초기 스냅샷 ref"를 별도로 관리한다.
+  // - initialPicksSnapshotRef === null : 아직 picks 가 한 번도 들어오지 않음
+  //   → 첫 picks 수신 시 현재 길이를 스냅샷하고, 마지막 픽 번호를 lastPickNumberRef 에 기록 (이팩트 발화 X)
+  //   → 페이지 새로고침/중간 입장 시 과거 픽이 폭발하는 것을 방지
+  // - 이후 폴링에서 새 픽이 들어오면 lastPickNumberRef 와 비교해 발화.
+  //   드래프트의 "최초 1픽"도 이 경로를 타고 정상 발화한다 (이전 0 기반 가드의 함정 제거).
   const [pickReveal, setPickReveal] = useState<PickRevealData | null>(null)
+  const initialPicksSnapshotRef = useRef<number | null>(null)
   const lastPickNumberRef = useRef<number>(0)
   useEffect(() => {
-    if (!state?.picks || state.picks.length === 0) return
-    const sorted = [...state.picks].sort((a, b) => a.pick_number - b.pick_number)
-    const latest = sorted[sorted.length - 1]
-    if (latest.pick_number <= lastPickNumberRef.current) return
-    // 첫 마운트 시점에는 이팩트 발화 안 함 — 누적 픽만 기록
-    if (lastPickNumberRef.current === 0) {
-      lastPickNumberRef.current = latest.pick_number
+    if (!state?.picks) return
+    const picks = state.picks
+    // 첫 진입 시 — 스냅샷만 기록 (발화 X)
+    if (initialPicksSnapshotRef.current === null) {
+      initialPicksSnapshotRef.current = picks.length
+      lastPickNumberRef.current = picks.length > 0
+        ? Math.max(...picks.map(p => p.pick_number))
+        : 0
       return
     }
+    if (picks.length === 0) return
+    const sorted = [...picks].sort((a, b) => a.pick_number - b.pick_number)
+    const latest = sorted[sorted.length - 1]
+    if (latest.pick_number <= lastPickNumberRef.current) return
     const team = state.teams.find(t => t.id === latest.team_id)
     setPickReveal({
       pickNumber: latest.pick_number,
@@ -472,7 +484,9 @@ export default function DraftPortalClient({
       if (!r.ok) {
         toast.error(data.error ?? '픽 실패')
       } else {
-        toast.success('픽 완료')
+        // 본 화면에서 폭죽 이팩트(DraftPickReveal)가 메인 피드백.
+        // 단장 본인은 클릭 직후 빠른 확인용으로 작은 토스트만.
+        toast.success('픽 전송됨', { duration: 1800 })
         setSelectedPlayerId(null)
         fetchState()
       }
