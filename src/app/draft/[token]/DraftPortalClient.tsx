@@ -21,6 +21,8 @@ import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
 import DraftPickReveal, { type PickRevealData } from '@/components/league/DraftPickReveal'
 import DraftScoreboard from '@/components/league/DraftScoreboard'
 import DraftFinalResult from '@/components/league/DraftFinalResult'
+import DraftCommissioner, { type CommissionerEvent } from '@/components/league/DraftCommissioner'
+import { pickLine } from '@/lib/commissionerLines'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { primeAudio, playMyTurnBeep } from '@/lib/draftSounds'
 import { getReadableTextColor } from '@/lib/colorContrast'
@@ -298,6 +300,8 @@ export default function DraftPortalClient({
   const [pickReveal, setPickReveal] = useState<PickRevealData | null>(null)
   const [showFinal, setShowFinal] = useState(false)
   const finalSeenRef = useRef<boolean>(false)
+  const [commEvent, setCommEvent] = useState<CommissionerEvent | null>(null)
+  const lastCommKeyRef = useRef<string | null>(null)
   const initialPicksSnapshotRef = useRef<number | null>(null)
   const lastPickNumberRef = useRef<number>(0)
   const pendingRevealRef = useRef<PickRevealData | null>(null)
@@ -346,6 +350,80 @@ export default function DraftPortalClient({
       if (!seen) setShowFinal(true)
     } catch { /* ignore */ }
   }, [state?.draft?.status, draftId])
+
+  // ────────────────── 코미셔너 중계 트리거 ──────────────────
+  // status 전환, 추첨 결과, 새 픽 도착에 맞춰 멘트를 띄운다.
+  // lastCommKeyRef 로 같은 이벤트 중복 발화 차단.
+  function fireComm(next: CommissionerEvent) {
+    if (lastCommKeyRef.current === next.key) return
+    lastCommKeyRef.current = next.key
+    setCommEvent(next)
+  }
+
+  // 1) 드래프트 시작 / 종료
+  useEffect(() => {
+    if (!state?.draft) return
+    const s = state.draft.status
+    if (s === 'in_progress' && state.draft.total_picks === 0) {
+      fireComm({ key: `${draftId}:draftStart`, text: pickLine('draftStart', draftId), durationMs: 5000 })
+    }
+    if (s === 'completed') {
+      fireComm({ key: `${draftId}:draftEnd`, text: pickLine('draftEnd', draftId), durationMs: 6000 })
+    }
+  }, [state?.draft, draftId])
+
+  // 2) 추첨 시작 / 결과
+  useEffect(() => {
+    if (!state?.draft) return
+    if (state.draft.status === 'lottery_waiting') {
+      fireComm({ key: `${draftId}:lotteryStart`, text: pickLine('lotteryStart', draftId), durationMs: 4500 })
+    }
+    if (state.draft.lottery_done && state.draft.draft_order.length > 0) {
+      const firstTeamId = state.draft.draft_order[0]
+      const firstTeam = state.teams.find(t => t.id === firstTeamId)
+      if (firstTeam) {
+        const t = setTimeout(() => {
+          fireComm({
+            key: `${draftId}:lotteryResult`,
+            text: pickLine('lotteryResult', draftId, { teamName: firstTeam.name }),
+            durationMs: 6000,
+          })
+        }, 4500)
+        return () => clearTimeout(t)
+      }
+    }
+  }, [state?.draft, state?.teams, draftId])
+
+  // 3) 새 픽 도착 → announce + 3초 뒤 reaction
+  const lastAnnouncedPickRef = useRef<number>(0)
+  useEffect(() => {
+    if (!state?.picks || state.picks.length === 0) return
+    const sorted = [...state.picks].sort((a, b) => a.pick_number - b.pick_number)
+    const latest = sorted[sorted.length - 1]
+    if (latest.pick_number <= lastAnnouncedPickRef.current) return
+    lastAnnouncedPickRef.current = latest.pick_number
+    const team = state.teams.find(t => t.id === latest.team_id)
+    if (!team) return
+    const ctx = {
+      teamName: team.name,
+      playerName: latest.player_name,
+      round: latest.round_number,
+      pick: latest.pick_number,
+    }
+    fireComm({
+      key: `${draftId}:pick:${latest.pick_number}:announce`,
+      text: pickLine('pickAnnounce', `${draftId}:${latest.pick_number}`, ctx),
+      durationMs: 4500,
+    })
+    const t = setTimeout(() => {
+      fireComm({
+        key: `${draftId}:pick:${latest.pick_number}:reaction`,
+        text: pickLine('pickReaction', `${draftId}:${latest.pick_number}:r`),
+        durationMs: 4000,
+      })
+    }, 4800)
+    return () => clearTimeout(t)
+  }, [state?.picks, state?.teams, draftId])
 
   // 추첨 reveal 이 닫힌 직후 — 큐된 픽 reveal 발화
   useEffect(() => {
@@ -1136,6 +1214,9 @@ export default function DraftPortalClient({
 
       {/* 픽 이팩트 — 새 픽 들어올 때 3초간 전체화면 */}
       <DraftPickReveal data={pickReveal} onClose={() => setPickReveal(null)} />
+
+      {/* AI 코미셔너 — 픽셀 캐릭터가 말풍선으로 중계 */}
+      <DraftCommissioner event={commEvent} />
 
       {/* 추첨 결과 애니메이션 — lottery_done 직후 한 번만 (모두에게 동시).
           waiting/ready_check 단계에서는 절대 노출되지 않도록 status 가드 포함. */}
