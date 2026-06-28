@@ -334,7 +334,8 @@ export default function DraftPortalClient({
   // 추첨 reveal 이 닫힌 직후 200ms 지연으로 큐된 픽 reveal 을 보여준다 (모달 stomp 방지).
   const [pickReveal, setPickReveal] = useState<PickRevealData | null>(null)
   const [showFinal, setShowFinal] = useState(false)
-  const finalSeenRef = useRef<boolean>(false)
+  // 사용자가 명시적으로 닫기를 눌렀는지 — true 면 자동 재오픈 안 함 (페이지 다시 진입하면 false 복원)
+  const [finalDismissedThisSession, setFinalDismissedThisSession] = useState(false)
   const [commEvent, setCommEvent] = useState<CommissionerEvent | null>(null)
   const lastCommKeyRef = useRef<string | null>(null)
   // 채팅 시스템 메시지 (총무 발화 + 시스템 알림) — 클라이언트 ephemeral, DB 미저장.
@@ -377,16 +378,21 @@ export default function DraftPortalClient({
     setPickReveal(data)
   }, [state?.picks, state?.teams, state?.available_players, showLottery])
 
-  // 드래프트 완료 감지 — sessionStorage 가드로 새로고침 시 중복 노출 차단
+  // 드래프트 완료 감지 — completed 진입 시 자동 풀스크린 결과 모달.
+  // 사용자가 명시적으로 '닫기' 누르기 전까지는 새로고침/재방문 시에도 자동 재오픈.
+  // (이전: sessionStorage 가드로 1회만 노출 → 사용자가 우연히 닫으면 결과를 못 보는 문제)
   useEffect(() => {
     if (state?.draft?.status !== 'completed') return
-    if (finalSeenRef.current) return
-    finalSeenRef.current = true
-    try {
-      const seen = sessionStorage.getItem(`draft_final_seen_${draftId}`)
-      if (!seen) setShowFinal(true)
-    } catch { /* ignore */ }
-  }, [state?.draft?.status, draftId])
+    if (finalDismissedThisSession) return
+    setShowFinal(true)
+  }, [state?.draft?.status, finalDismissedThisSession])
+
+  // 상태가 completed 가 아니게 되면(리셋 등) dismiss 플래그 리셋해 다음 완료 시 다시 자동 표시
+  useEffect(() => {
+    if (state?.draft?.status !== 'completed' && finalDismissedThisSession) {
+      setFinalDismissedThisSession(false)
+    }
+  }, [state?.draft?.status, finalDismissedThisSession])
 
   // ────────────────── 미라클 총무 중계 트리거 ──────────────────
   // status 전환, 추첨 결과, 새 픽 도착에 맞춰 멘트를 띄운다.
@@ -1358,7 +1364,9 @@ export default function DraftPortalClient({
             open={showFinal}
             onClose={() => {
               setShowFinal(false)
-              try { sessionStorage.setItem(`draft_final_seen_${draftId}`, '1') } catch { /* ignore */ }
+              // 사용자가 명시적으로 닫음 — 이번 세션에서는 자동 재오픈 안 함.
+              // 아래 '결과 다시 보기' 플로팅 버튼으로 언제든 재오픈 가능.
+              setFinalDismissedThisSession(true)
             }}
             title={`${leagueName.toUpperCase()} DRAFT ${year ?? new Date().getFullYear()}.${quarter ?? Math.floor(new Date().getMonth() / 3) + 1}Q 완료!`}
             teams={state.teams ?? []}
@@ -1371,6 +1379,20 @@ export default function DraftPortalClient({
           />
         )
       })()}
+
+      {/* 결과 다시 보기 — 사용자가 닫기 누른 뒤 노출되는 작은 플로팅 재오픈 버튼.
+          completed 상태이고 showFinal=false 이며 사용자가 명시적으로 닫은 경우만 표시. */}
+      {state?.draft?.status === 'completed' && !showFinal && finalDismissedThisSession && (
+        <button
+          type="button"
+          onClick={() => setShowFinal(true)}
+          aria-label="드래프트 결과 다시 보기"
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[55] inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-full bg-amber-600 hover:bg-amber-500 text-white text-sm sm:text-base font-bold shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+          style={{ bottom: 'max(5rem, calc(env(safe-area-inset-bottom) + 5rem))' }}
+        >
+          <Trophy size={16} /> 결과 다시 보기
+        </button>
+      )}
 
       {/* 픽 확정 확인 모달 — 실수로 잘못된 선수를 픽하는 사고 방지.
           배경/Escape 로 취소, '확정' 버튼만 실제 픽 제출. */}
