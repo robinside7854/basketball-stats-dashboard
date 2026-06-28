@@ -690,9 +690,9 @@ export default function DraftPortalClient({
       <div className="flex items-center justify-between gap-3 mb-3 sm:mb-5">
         <div className="flex items-center gap-3">
           <Trophy className="text-amber-400 w-8 h-8 sm:w-9 sm:h-9 shrink-0" />
-          <div className="min-w-0">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight leading-tight truncate">{leagueName} 드래프트</h1>
-            <p className="text-sm text-gray-300">{year ? `${year}.${quarter}Q` : ''} {orgSlug && <span className="ml-1">· {orgSlug}</span>}</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight leading-tight break-keep">{leagueName} 드래프트</h1>
+            <p className="text-xs sm:text-sm text-gray-300 truncate">{year ? `${year}.${quarter}Q` : ''} {orgSlug && <span className="ml-1">· {orgSlug}</span>}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -702,9 +702,9 @@ export default function DraftPortalClient({
             </Button>
           ) : (
             <div className="flex items-center gap-2">
-              <div className={`px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 border min-w-0 max-w-[60vw] sm:max-w-none ${auth.role === 'supervisor' ? 'bg-amber-950/40 border-amber-700/50 text-amber-200' : 'bg-blue-950/40 border-blue-700/50 text-blue-200'}`}>
+              <div className={`px-2.5 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-1.5 border min-w-0 max-w-[50vw] sm:max-w-[40vw] lg:max-w-none ${auth.role === 'supervisor' ? 'bg-amber-950/40 border-amber-700/50 text-amber-200' : 'bg-blue-950/40 border-blue-700/50 text-blue-200'}`}>
                 {auth.role === 'supervisor' ? <ShieldCheck size={14} className="shrink-0" /> : <Crown size={14} className="shrink-0" />}
-                <span className="truncate">{auth.label}</span>
+                <span className="truncate min-w-0">{auth.label}</span>
                 {myTeam && <span className="opacity-70 truncate hidden sm:inline">· {myTeam.name}</span>}
               </div>
               <button onClick={logout} className="p-2 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-md text-gray-300 hover:text-white hover:bg-gray-800 cursor-pointer transition-colors duration-200 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950" title="인증 해제" aria-label="인증 해제">
@@ -776,8 +776,8 @@ export default function DraftPortalClient({
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold uppercase tracking-widest text-gray-300 mb-1">현재 단계</p>
-                    <h2 className="text-xl sm:text-3xl font-black text-white leading-tight">{title}</h2>
-                    {helper && <p className="text-sm sm:text-base text-gray-200 mt-2 leading-relaxed">{helper}</p>}
+                    <h2 className="text-xl sm:text-3xl font-black text-white leading-tight break-keep text-balance">{title}</h2>
+                    {helper && <p className="text-sm sm:text-base text-gray-200 mt-2 leading-relaxed break-keep">{helper}</p>}
                   </div>
                   {/* 타이머 — in_progress 단계에서만 같은 hero 안에 표시 (스크롤 없이 항상 보임) */}
                   {status === 'in_progress' && remainingSeconds != null && (
@@ -829,9 +829,9 @@ export default function DraftPortalClient({
                     {draft.draft_order.map((tid, idx) => {
                       const t = teamsById[tid]
                       return (
-                        <div key={`${tid}-${idx}`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-gray-900/60 border border-gray-700">
-                          <span className="text-xs font-black text-gray-300 tabular-nums">{idx + 1}.</span>
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color }} />
+                        <div key={`${tid}-${idx}`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-gray-900/60 border border-gray-700 break-keep">
+                          <span className="text-xs font-black text-gray-300 tabular-nums shrink-0">{idx + 1}.</span>
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t?.color }} />
                           <span className="text-sm sm:text-base font-bold text-white">{t?.name ?? '?'}</span>
                         </div>
                       )
@@ -909,11 +909,13 @@ export default function DraftPortalClient({
                                 }`}
                                 style={team ? { borderLeftColor: team.color, borderLeftWidth: 3 } : undefined}
                               >
-                                <p className="text-xs text-gray-300 font-bold truncate">#{pickNumber} · {team?.name ?? '?'}</p>
+                                <p className="text-[11px] sm:text-xs text-gray-300 font-bold truncate min-w-0">
+                                  <span className="tabular-nums">#{pickNumber}</span> · <span className="break-keep">{team?.name ?? '?'}</span>
+                                </p>
                                 {pick ? (
-                                  <p className="text-sm sm:text-base font-bold text-white mt-1 truncate leading-tight">
-                                    {pick.player_number != null && <span className="text-amber-300 mr-1">#{pick.player_number}</span>}
-                                    {pick.player_name}
+                                  <p className="text-sm sm:text-base font-bold text-white mt-1 truncate leading-tight min-w-0">
+                                    {pick.player_number != null && <span className="text-amber-300 mr-1 tabular-nums">#{pick.player_number}</span>}
+                                    <span className="break-keep">{pick.player_name}</span>
                                   </p>
                                 ) : isCurrent ? (
                                   <p className="text-sm text-amber-300 mt-1 font-bold">선택 중...</p>
@@ -1240,12 +1242,12 @@ function ReadyPanel({
         {teams.map(t => {
           const ready = !!readyState[t.id]
           return (
-            <span key={t.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${
+            <span key={t.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs sm:text-sm break-keep ${
               ready ? 'bg-emerald-900/40 border-emerald-700/60 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-200'
             }`}>
-              {ready ? <CheckCircle2 size={13} /> : <Circle size={13} />}
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />
-              {t.name} 단장
+              {ready ? <CheckCircle2 size={13} className="shrink-0" /> : <Circle size={13} className="shrink-0" />}
+              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+              <span>{t.name} 단장</span>
             </span>
           )
         })}
@@ -1306,7 +1308,7 @@ function LotteryWaitScreen({ teams, draftOrder, isSupervisor, onStartLottery, ac
         {/* 참가 팀들 표시 */}
         <div className="flex flex-wrap justify-center gap-2 mb-6">
           {teams.map(t => (
-            <div key={t.id} className="px-3 py-2 rounded-lg bg-gray-900/80 border-2 text-base font-bold animate-pulse" style={{ borderColor: t.color, color: '#fff' }}>
+            <div key={t.id} className="px-2.5 sm:px-3 py-2 rounded-lg bg-gray-900/80 border-2 text-sm sm:text-base font-bold animate-pulse break-keep" style={{ borderColor: t.color, color: '#fff' }}>
               <div className="w-2 h-2 inline-block rounded-full mr-2" style={{ background: t.color }} />
               {t.name}
             </div>
@@ -1360,15 +1362,15 @@ function LotteryDoneScreen({ teams, draftOrder, odds, isSupervisor, onStartDraft
             return (
               <div
                 key={`${tid}-${idx}`}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 bg-gray-900/80 shadow-lg"
+                className="flex items-center gap-2 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-xl border-2 bg-gray-900/80 shadow-lg min-w-0 max-w-full"
                 style={{ borderColor: t?.color }}
               >
-                <span className="text-3xl font-black tabular-nums" style={{ color: t?.color, fontFamily: 'var(--font-bebas, sans-serif)' }}>
+                <span className="text-2xl sm:text-3xl font-black tabular-nums shrink-0" style={{ color: t?.color, fontFamily: 'var(--font-bebas, sans-serif)' }}>
                   {idx + 1}
                 </span>
-                <div className="text-left">
-                  <p className="text-base sm:text-lg font-bold text-white leading-tight">{t?.name ?? '?'}</p>
-                  {odd != null && <p className="text-xs text-gray-200 tabular-nums">{(odd * 100).toFixed(0)}% 확률</p>}
+                <div className="text-left min-w-0">
+                  <p className="text-sm sm:text-base lg:text-lg font-bold text-white leading-tight break-keep">{t?.name ?? '?'}</p>
+                  {odd != null && <p className="text-[11px] sm:text-xs text-gray-200 tabular-nums">{(odd * 100).toFixed(0)}% 확률</p>}
                 </div>
               </div>
             )
@@ -1449,13 +1451,13 @@ function TeamPickRoster({ teams, picks, draftOrder }: {
                 <div className="space-y-1">
                   {list.map(p => (
                     <div key={p.pick_number} className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs text-gray-300 font-mono w-7 shrink-0 tabular-nums">#{p.pick_number}</span>
+                      <span className="text-xs text-gray-300 font-mono w-8 shrink-0 tabular-nums">#{p.pick_number}</span>
                       {p.player_number != null && (
-                        <span className="text-amber-300 font-mono font-bold w-7 shrink-0 text-sm tabular-nums">#{p.player_number}</span>
+                        <span className="text-amber-300 font-mono font-bold w-8 shrink-0 text-sm tabular-nums">#{p.player_number}</span>
                       )}
-                      <span className="text-white font-bold flex-1 truncate text-sm sm:text-base min-w-0">{p.player_name}</span>
+                      <span className="text-white font-bold flex-1 truncate text-sm sm:text-base min-w-0 break-keep">{p.player_name}</span>
                       {p.player_position && (
-                        <span className="text-xs text-gray-300 font-mono shrink-0">{p.player_position.split(',').map(s => s.trim()).join('·')}</span>
+                        <span className="text-[11px] text-gray-300 font-mono shrink-0">{p.player_position.split(',').map(s => s.trim()).join('·')}</span>
                       )}
                     </div>
                   ))}
