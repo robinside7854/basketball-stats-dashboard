@@ -21,6 +21,7 @@ import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
 import DraftPickReveal, { type PickRevealData } from '@/components/league/DraftPickReveal'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { primeAudio, playMyTurnBeep } from '@/lib/draftSounds'
+import { getReadableTextColor } from '@/lib/colorContrast'
 
 interface Team { id: string; name: string; color: string }
 interface Player { id: string; name: string; number: number | null; position: string | null; plus_one: boolean }
@@ -624,12 +625,37 @@ export default function DraftPortalClient({
     (picksByRound[p.round_number] ||= []).push(p)
   }
 
+  // 내 차례 배경 틴팅 — 외곽 래퍼에만 적용 (안쪽 카드는 영향 X).
+  // luminance 로 텍스트 모드 결정 → 본문 톤이 밝은 팀 컬러에서도 가독성 유지.
+  const myTurnColor = isMyTurn && myTeam?.color ? myTeam.color : null
+  const myTurnTextMode = myTurnColor ? getReadableTextColor(myTurnColor) : 'light'
+  const outerStyle = myTurnColor
+    ? {
+        background: `linear-gradient(180deg, ${myTurnColor}26 0%, ${myTurnColor}4D 100%), #000`,
+        transition: 'background 300ms ease',
+        color: myTurnTextMode === 'dark' ? '#0F172A' : undefined,
+      }
+    : { transition: 'background 300ms ease' as const }
+
   return (
     <div
       className={`min-h-screen p-3 sm:p-5 lg:p-6 max-w-screen-2xl mx-auto transition-[padding] duration-200 ${
         chatOpen ? 'lg:pr-[360px]' : ''
-      }`}
+      } ${myTurnColor ? 'is-my-turn' : ''}`}
+      style={outerStyle}
     >
+      {/* 내 차례 펄스 keyframes — 콜아웃 카드에서 사용 */}
+      {myTurnColor && (
+        <style>{`
+          @keyframes myTurnPulse {
+            0%, 100% { box-shadow: 0 0 0 1px ${myTurnColor}66, 0 0 24px ${myTurnColor}44; }
+            50%      { box-shadow: 0 0 0 2px ${myTurnColor}aa, 0 0 48px ${myTurnColor}88; }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .is-my-turn [style*="myTurnPulse"] { animation: none !important; }
+          }
+        `}</style>
+      )}
       {/* 상단 헤더 */}
       <div className="flex items-center justify-between gap-3 mb-3 sm:mb-5">
         <div className="flex items-center gap-3">
@@ -817,7 +843,14 @@ export default function DraftPortalClient({
             <aside className="space-y-4">
               {draft.status === 'in_progress' && auth?.role === 'manager' && (
                 isMyTurn ? (
-                  <div className="bg-amber-950/40 border border-amber-700/50 rounded-2xl p-4 space-y-3">
+                  <div
+                    className="bg-amber-950/40 border-2 rounded-2xl p-4 space-y-3 transition-[box-shadow,border-color] duration-300"
+                    style={myTeam?.color ? {
+                      borderColor: myTeam.color,
+                      boxShadow: `0 0 0 1px ${myTeam.color}66, 0 0 32px ${myTeam.color}55`,
+                      animation: 'myTurnPulse 2s ease-in-out infinite',
+                    } : { borderColor: '#b45309' }}
+                  >
                     <p className="text-amber-300 text-base font-bold flex items-center gap-1.5">
                       <CheckCircle2 size={16} /> 본인 차례입니다
                     </p>
