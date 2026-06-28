@@ -96,6 +96,9 @@ export default function DraftPortalClient({
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
   const [extending, setExtending] = useState(false)
+  // 채팅 열림 상태 — 부모에서 보유해야 lg+ 에서 본문 우측에 패널 공간을 확보할 수 있다.
+  // 닫힘 상태에서는 FAB(56px) 만 있어 본문을 가리지 않으므로 패딩 불필요.
+  const [chatOpen, setChatOpen] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // ────────────────── 서버 시간 캘리브레이션 ──────────────────
@@ -622,7 +625,11 @@ export default function DraftPortalClient({
   }
 
   return (
-    <div className="min-h-screen p-3 sm:p-5 lg:p-6 max-w-screen-2xl mx-auto">
+    <div
+      className={`min-h-screen p-3 sm:p-5 lg:p-6 max-w-screen-2xl mx-auto transition-[padding] duration-200 ${
+        chatOpen ? 'lg:pr-[360px]' : ''
+      }`}
+    >
       {/* 상단 헤더 */}
       <div className="flex items-center justify-between gap-3 mb-3 sm:mb-5">
         <div className="flex items-center gap-3">
@@ -922,7 +929,10 @@ export default function DraftPortalClient({
         </>
       )}
 
-      {/* 채팅 — 인증된 사용자에게만 floating */}
+      {/* 채팅 — 인증된 사용자에게만 floating.
+          open/setOpen 을 부모에서 보유 → 열림 시 본문 컨테이너에 lg:pr-[360px] 가 붙어
+          데스크탑(≥lg)에서 채팅 패널이 본문을 덮지 않고 오른쪽 공간으로 자리잡는다.
+          모바일(<lg)은 기존처럼 오버레이로 슬라이드인 — 사용자가 직접 열고 닫는 UX. */}
       {auth && state?.draft && (
         <DraftChat
           leagueId={leagueId}
@@ -932,6 +942,8 @@ export default function DraftPortalClient({
           authedRole={auth.role}
           authedTeamId={auth.teamId}
           authedLabel={auth.label}
+          open={chatOpen}
+          onOpenChange={setChatOpen}
         />
       )}
 

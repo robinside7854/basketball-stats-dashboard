@@ -21,15 +21,24 @@ interface Props {
   authedRole: 'manager' | 'supervisor' | null
   authedTeamId: string | null
   authedLabel: string | null
+  /** open/close 를 부모에서 제어 — 패널 열림 시 본문 폭을 줄여 가리지 않도록 */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 const POLL_MS = 2500
 
-export default function DraftChat({ leagueId, draftId, authedCode, teams, authedRole, authedTeamId, authedLabel }: Props) {
+export default function DraftChat({ leagueId, draftId, authedCode, teams, authedRole, authedTeamId, authedLabel, open: openProp, onOpenChange }: Props) {
   const [msgs, setMsgs] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
-  const [open, setOpen] = useState(false)
+  const [openInternal, setOpenInternal] = useState(false)
+  const isControlled = openProp !== undefined
+  const open = isControlled ? !!openProp : openInternal
+  const setOpen = useCallback((next: boolean) => {
+    if (!isControlled) setOpenInternal(next)
+    onOpenChange?.(next)
+  }, [isControlled, onOpenChange])
   const [unread, setUnread] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const lastTsRef = useRef<string | null>(null)
