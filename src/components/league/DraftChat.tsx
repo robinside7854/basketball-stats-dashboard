@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Send, MessageCircle, ShieldCheck, X, AlertTriangle } from 'lucide-react'
+import { Send, MessageCircle, ShieldCheck, X, AlertTriangle, Megaphone } from 'lucide-react'
 import { playChatDing } from '@/lib/draftSounds'
 import { createClient } from '@/lib/supabase/client'
 
@@ -12,6 +12,14 @@ interface ChatMsg {
   sender_label: string
   message: string
   created_at: string
+}
+
+/** 클라이언트 ephemeral 시스템 메시지 — DB 미저장, 폴링/realtime 으로 받은 state diff 에서 합성 */
+export interface ChatSystemMessage {
+  id: string
+  text: string
+  timestamp: number
+  kind: 'commissioner' | 'system'
 }
 
 interface Props {
@@ -26,12 +34,14 @@ interface Props {
   /** open/close 를 부모에서 제어 — 패널 열림 시 본문 폭을 줄여 가리지 않도록 */
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  /** 미라클 총무 발화 + 시스템 알림 (READY/픽 시간 변경 등) — 메시지 흐름에 inline 으로 표시 */
+  systemMessages?: ChatSystemMessage[]
 }
 
 const POLL_MS = 2500
 const DING_COOLDOWN_MS = 1500
 
-export default function DraftChat({ leagueId, draftId, authedCode, teams, authedRole, authedTeamId, authedLabel, open: openProp, onOpenChange }: Props) {
+export default function DraftChat({ leagueId, draftId, authedCode, teams, authedRole, authedTeamId, authedLabel, open: openProp, onOpenChange, systemMessages }: Props) {
   const [msgs, setMsgs] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -241,29 +251,53 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
       )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
-        {msgs.length === 0 && !error ? (
-          <p className="text-center text-base text-gray-300 py-8 leading-relaxed">아직 메시지가 없습니다.<br/>첫 메시지를 남겨보세요!</p>
-        ) : msgs.map(m => {
-          const team = m.team_id ? teamMap[m.team_id] : null
-          const isSup = m.sender_role === 'supervisor'
-          const color = isSup ? '#f59e0b' : (team?.color ?? '#9ca3af')
-          const mine = isMine(m)
-          return (
-            <div key={m.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
-              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                {isSup ? <ShieldCheck size={12} style={{ color }} /> : <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />}
-                <span className="text-xs font-bold" style={{ color }}>
-                  {isSup ? '감독관' : team?.name ?? ''} · {m.sender_label}
-                </span>
-                <span className="text-xs text-gray-400">{new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+        {(() => {
+          // 채팅 메시지 + 시스템 메시지(미라클 총무 발화 등) 를 timestamp 순으로 병합 표시.
+          const sysItems = (systemMessages ?? []).map(s => ({ kind: 'sys' as const, item: s, ts: s.timestamp }))
+          const chatItems = msgs.map(m => ({ kind: 'chat' as const, item: m, ts: new Date(m.created_at).getTime() }))
+          const merged = [...chatItems, ...sysItems].sort((a, b) => a.ts - b.ts)
+          if (merged.length === 0 && !error) {
+            return <p className="text-center text-base text-gray-300 py-8 leading-relaxed">아직 메시지가 없습니다.<br/>첫 메시지를 남겨보세요!</p>
+          }
+          return merged.map(entry => {
+            if (entry.kind === 'sys') {
+              const s = entry.item
+              return (
+                <div key={`sys-${s.id}`} className="flex justify-center">
+                  <div className="max-w-[92%] flex items-start gap-2 px-3 py-2 rounded-lg border-l-2 border-amber-500 bg-amber-950/50 text-amber-100">
+                    <Megaphone size={13} className="text-amber-300 mt-0.5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-amber-300 mb-0.5">
+                        {s.kind === 'commissioner' ? '미라클 총무' : '시스템'}
+                      </p>
+                      <p className="text-sm sm:text-base italic leading-snug break-keep">{s.text}</p>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+            const m = entry.item
+            const team = m.team_id ? teamMap[m.team_id] : null
+            const isSup = m.sender_role === 'supervisor'
+            const color = isSup ? '#f59e0b' : (team?.color ?? '#9ca3af')
+            const mine = isMine(m)
+            return (
+              <div key={`chat-${m.id}`} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+                <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                  {isSup ? <ShieldCheck size={12} style={{ color }} /> : <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />}
+                  <span className="text-xs font-bold" style={{ color }}>
+                    {isSup ? '감독관' : team?.name ?? ''} · {m.sender_label}
+                  </span>
+                  <span className="text-xs text-gray-400">{new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+                <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm sm:text-base break-words leading-relaxed ${mine ? 'rounded-tr-sm text-white' : 'rounded-tl-sm bg-gray-800 text-gray-100'}`}
+                  style={mine ? { backgroundColor: color + '33', border: `1px solid ${color}66` } : undefined}>
+                  {m.message}
+                </div>
               </div>
-              <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm sm:text-base break-words leading-relaxed ${mine ? 'rounded-tr-sm text-white' : 'rounded-tl-sm bg-gray-800 text-gray-100'}`}
-                style={mine ? { backgroundColor: color + '33', border: `1px solid ${color}66` } : undefined}>
-                {m.message}
-              </div>
-            </div>
-          )
-        })}
+            )
+          })
+        })()}
       </div>
 
       <div className="p-2.5 border-t border-gray-800 flex gap-2" style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}>

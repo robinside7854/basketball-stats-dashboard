@@ -448,7 +448,7 @@ export default function DraftPortalClient({
     }
   }, [state?.draft, state?.teams, draftId])
 
-  // 3) 새 픽 도착 → announce + 3초 뒤 reaction
+  // 3) 새 픽 도착 → announce + 3초 뒤 reaction (commissioner + chat 모두에 발화)
   const lastAnnouncedPickRef = useRef<number>(0)
   useEffect(() => {
     if (!state?.picks || state.picks.length === 0) return
@@ -464,20 +464,42 @@ export default function DraftPortalClient({
       round: latest.round_number,
       pick: latest.pick_number,
     }
-    fireComm({
+    pushCommAndChat({
       key: `${draftId}:pick:${latest.pick_number}:announce`,
       text: pickLine('pickAnnounce', `${draftId}:${latest.pick_number}`, ctx),
       durationMs: 4500,
     })
     const t = setTimeout(() => {
-      fireComm({
+      pushCommAndChat({
         key: `${draftId}:pick:${latest.pick_number}:reaction`,
-        text: pickLine('pickReaction', `${draftId}:${latest.pick_number}:r`),
+        text: pickLine('pickReaction', `${draftId}:${latest.pick_number}:r`, { teamName: team.name }),
         durationMs: 4000,
       })
     }, 4800)
     return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.picks, state?.teams, draftId])
+
+  // 4) 라운드 전환 감지 — current_round 가 증가하면 commissioner 안내
+  const prevRoundRef = useRef<number | null>(null)
+  useEffect(() => {
+    const round = state?.draft?.current_round
+    if (typeof round !== 'number') return
+    if (state?.draft?.status !== 'in_progress') {
+      prevRoundRef.current = round
+      return
+    }
+    const prev = prevRoundRef.current
+    if (prev != null && round > prev) {
+      pushCommAndChat({
+        key: `${draftId}:roundTransition:${round}`,
+        text: pickLine('roundTransition', `${draftId}:r${round}`, { round }),
+        durationMs: 5000,
+      })
+    }
+    prevRoundRef.current = round
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.draft?.current_round, state?.draft?.status, draftId])
 
   // 추첨 reveal 이 닫힌 직후 — 큐된 픽 reveal 발화
   useEffect(() => {
@@ -724,18 +746,50 @@ export default function DraftPortalClient({
     }
   }
 
-  // 픽 시간 변경 감지 → 모든 클라이언트에게 토스트.
+  // READY 토글 변경 감지 — 단장/감독관 READY on/off 시 commissioner + chat 안내.
+  // 본인의 토글은 본인의 onToggle 함수에서 직접 toast 로 안내하므로 중복 발화는 자연스럽게 OK.
+  const prevReadyStateRef = useRef<Record<string, boolean> | null>(null)
+  useEffect(() => {
+    const next = state?.draft?.ready_state
+    if (!next || typeof next !== 'object') return
+    const prev = prevReadyStateRef.current
+    if (prev) {
+      const keys = new Set([...Object.keys(prev), ...Object.keys(next)])
+      for (const k of keys) {
+        const before = !!prev[k]
+        const after = !!next[k]
+        if (before === after) continue
+        const teamName = k === 'supervisor' ? '감독관' : (state?.teams.find(t => t.id === k)?.name ?? '?')
+        const lineEvt = after ? 'readyToggledOn' : 'readyToggledOff'
+        pushCommAndChat({
+          key: `${draftId}:ready:${k}:${after ? 'on' : 'off'}:${Date.now()}`,
+          text: pickLine(lineEvt, `${draftId}:${k}:${after}`, { teamName }),
+          durationMs: 4000,
+        })
+      }
+    }
+    prevReadyStateRef.current = { ...next }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.draft?.ready_state, draftId])
+
+  // 픽 시간 변경 감지 → 모든 클라이언트에게 미라클 총무 안내 + 채팅 시스템 메시지.
   // 이전 값과 다르고 마운트 직후 첫 폴링이 아닐 때만 발화 (초기 로드 시 false-positive 방지).
+  // 토스트는 더 이상 발화하지 않음 — broadcast 정보는 commissioner + chat 로만.
   const prevPickSecondsRef = useRef<number | null>(null)
   useEffect(() => {
     const next = state?.draft?.pick_seconds
     if (typeof next !== 'number') return
     const prev = prevPickSecondsRef.current
     if (prev != null && prev !== next) {
-      toast.info(`⏱ 감독관이 픽 시간을 ${next}초로 변경했습니다`, { duration: 4000 })
+      pushCommAndChat({
+        key: `${draftId}:pickSeconds:${next}:${Date.now()}`,
+        text: pickLine('pickSecondsChanged', `${draftId}:${next}`, { seconds: next }),
+        durationMs: 5000,
+      })
     }
     prevPickSecondsRef.current = next
-  }, [state?.draft?.pick_seconds])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.draft?.pick_seconds, draftId])
 
   async function makePick() {
     if (!auth || auth.role !== 'manager' || !auth.teamId || !selectedPlayerId) return
@@ -1263,6 +1317,7 @@ export default function DraftPortalClient({
           authedLabel={auth.label}
           open={chatOpen}
           onOpenChange={setChatOpen}
+          systemMessages={chatSystemMessages}
         />
       )}
 
