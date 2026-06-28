@@ -898,9 +898,9 @@ export default function DraftPortalClient({
 
   return (
     <div
-      className={`min-h-screen p-3 sm:p-5 lg:p-6 max-w-screen-2xl mx-auto transition-[padding] duration-200 ${
-        chatOpen ? 'lg:pr-[360px]' : ''
-      } ${myTurnColor ? 'is-my-turn' : ''}`}
+      className={`min-h-screen p-3 sm:p-5 lg:p-6 max-w-screen-2xl mx-auto transition-[padding] duration-200 lg:pr-[360px] ${
+        myTurnColor ? 'is-my-turn' : ''
+      }`}
       style={outerStyle}
     >
       {/* 내 차례 펄스 keyframes — 콜아웃 카드 + 외곽 래퍼에서 사용 */}

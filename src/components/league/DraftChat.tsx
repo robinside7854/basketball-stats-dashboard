@@ -47,11 +47,25 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
   const [sending, setSending] = useState(false)
   const [openInternal, setOpenInternal] = useState(false)
   const isControlled = openProp !== undefined
-  const open = isControlled ? !!openProp : openInternal
+  const openRaw = isControlled ? !!openProp : openInternal
   const setOpen = useCallback((next: boolean) => {
     if (!isControlled) setOpenInternal(next)
     onOpenChange?.(next)
   }, [isControlled, onOpenChange])
+
+  // lg+ (≥1024px) 에서는 패널이 항상 떠 있는 사이드바.
+  // 모바일에서만 open 토글로 슬라이드 인/아웃. PC 에서는 effectiveOpen=true 로 ding/unread/read 로직 정상 동작.
+  const [isLg, setIsLg] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const update = () => setIsLg(mq.matches)
+    update()
+    mq.addEventListener?.('change', update)
+    return () => mq.removeEventListener?.('change', update)
+  }, [])
+  const open = openRaw || isLg
+
   const [error, setError] = useState<string | null>(null)
   const lastTsRef = useRef<string | null>(null)
   const openRef = useRef(open)
@@ -158,9 +172,12 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
   // 모바일 디바이스 뒤로가기 시 채팅만 닫히게 — 페이지 이동/세션 종료 차단.
   // 패널 열림 → history entry 추가 → popstate 시 setOpen(false) 만 실행.
   // 사용자가 X/backdrop 으로 닫은 경우엔 cleanup 에서 우리 entry 만 정리(history.back).
+  // lg+ (1024px+) 에서는 패널이 항상 열린 고정 사이드바라 trap 불필요 → 모바일에서만 활성화.
   useEffect(() => {
     if (!open) return
     if (typeof window === 'undefined') return
+    const isLg = window.matchMedia('(min-width: 1024px)').matches
+    if (isLg) return
     try { window.history.pushState({ draftChatOpen: true }, '') } catch { /* ignore */ }
     const onPopState = () => setOpen(false)
     window.addEventListener('popstate', onPopState)
@@ -233,36 +250,49 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
     }
   }
 
-  // 접힌 상태 — 우하단 작은 플로팅 버튼 (PC), 우하단 모바일에서도 작게
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)}
-        aria-label={unread > 0 ? `채팅 (읽지 않은 메시지 ${unread}건)` : '채팅 열기'}
-        className="fixed bottom-4 right-4 lg:bottom-4 z-40 flex items-center gap-2 px-4 py-2.5 min-h-[48px] min-w-[48px] rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
-        style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
-      >
-        <MessageCircle size={18} />
-        <span className="text-sm font-bold hidden sm:inline">채팅</span>
-        {unread > 0 && (
-          <span className="min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>
-        )}
-      </button>
-    )
-  }
+  // ─────────────────────────────────────────────────────────────────
+  // 렌더링 전략:
+  //   • 모바일 (< lg):
+  //       - open=false → 우하단 FAB 표시
+  //       - open=true  → backdrop + 우측 슬라이드 패널 (88vw)
+  //   • PC (lg+):
+  //       - 패널이 우측에 항상 고정 (340px). FAB / backdrop / 닫기 버튼 모두 lg:hidden 처리.
+  //       - 부모 wrapper 는 lg:pr-[360px] 항상 적용 (본문이 채팅 폭만큼 좌측 차지)
+  // ─────────────────────────────────────────────────────────────────
 
-  // 열린 상태 —
-  //   PC: 우측 sticky 사이드 패널 (340px), 본문 가리지 않음 (부모 wrapper 가 lg:pr-[360px] 적용)
-  //   모바일: backdrop + 우측 슬라이드 인 (88vw). backdrop 탭 / X 버튼 / 디바이스 뒤로가기 / Escape 키로 닫힘
+  // FAB (모바일 전용, 닫힌 상태에서만 표시)
+  const showMobileFab = !open
+  const showMobileBackdrop = open
+
   return (
     <>
-      {/* 모바일 전용 backdrop — 탭 시 채팅 닫기 + 시각적으로 "밖을 누르면 닫힘" 인지 가능 */}
-      <button
-        type="button"
-        onClick={() => setOpen(false)}
-        aria-label="채팅 닫기 — 채팅창 밖을 탭하세요"
-        className="lg:hidden fixed inset-0 z-30 bg-black/60 backdrop-blur-sm cursor-pointer animate-fadeIn"
-      />
-    <div className="fixed top-0 right-0 z-40 h-screen w-[88vw] sm:w-[340px] flex flex-col bg-gray-900 border-l border-gray-700 shadow-2xl animate-slideInRight">
+      {/* 모바일 닫힌 상태 — FAB. lg+ 에서는 패널이 항상 떠 있으므로 표시 안 함. */}
+      {showMobileFab && (
+        <button onClick={() => setOpen(true)}
+          aria-label={unread > 0 ? `채팅 (읽지 않은 메시지 ${unread}건)` : '채팅 열기'}
+          className="lg:hidden fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-2.5 min-h-[48px] min-w-[48px] rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+          style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        >
+          <MessageCircle size={18} />
+          <span className="text-sm font-bold hidden sm:inline">채팅</span>
+          {unread > 0 && (
+            <span className="min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>
+          )}
+        </button>
+      )}
+
+      {/* 모바일 열린 상태 backdrop — 탭 시 채팅 닫기. PC 에서는 미렌더 */}
+      {showMobileBackdrop && (
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          aria-label="채팅 닫기 — 채팅창 밖을 탭하세요"
+          className="lg:hidden fixed inset-0 z-30 bg-black/60 backdrop-blur-sm cursor-pointer animate-fadeIn"
+        />
+      )}
+
+      {/* 본 패널 — 모바일: open=true 일 때만 표시(슬라이드 인). lg+: 항상 표시(고정 사이드바) */}
+      <div className={`${open ? 'flex' : 'hidden'} lg:flex fixed top-0 right-0 z-40 h-screen w-[88vw] sm:w-[340px] flex-col bg-gray-900 border-l border-gray-700 shadow-2xl ${open ? 'animate-slideInRight' : ''}`}>
       <style jsx>{`
         @keyframes slideInRight {
           from { transform: translateX(100%); }
@@ -280,7 +310,8 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
         <p className="text-sm font-bold text-gray-100 uppercase tracking-widest">드래프트 채팅</p>
         <span className="hidden sm:inline text-xs text-gray-300">단장·감독관</span>
         <span className="lg:hidden text-[11px] text-gray-400 italic">← 밖을 탭해 닫기</span>
-        <button onClick={() => setOpen(false)} aria-label="채팅 닫기" className="ml-auto px-2.5 py-1.5 min-w-[44px] min-h-[44px] flex items-center gap-1 rounded-lg bg-gray-800 text-gray-200 hover:text-white hover:bg-gray-700 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
+        {/* 닫기 버튼: PC 에서는 항상 고정이라 닫을 수 없게 숨김 */}
+        <button onClick={() => setOpen(false)} aria-label="채팅 닫기" className="lg:hidden ml-auto px-2.5 py-1.5 min-w-[44px] min-h-[44px] flex items-center gap-1 rounded-lg bg-gray-800 text-gray-200 hover:text-white hover:bg-gray-700 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
           <X size={16} /><span className="text-xs font-bold">닫기</span>
         </button>
       </div>
