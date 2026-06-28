@@ -272,19 +272,29 @@ export default function DraftPortalClient({
   // 상태 가드: setup/ready_check/lottery_waiting 단계에서는 절대 발화 금지.
   const [showLottery, setShowLottery] = useState(false)
   const lotteryShownRef = useRef<boolean>(false)
+  const lastLotteryDoneRef = useRef<boolean | null>(null)
   useEffect(() => {
     if (!state?.draft) return
     const { lottery_done, status, draft_order } = state.draft
+    // 재추첨 허용: lottery_done 이 true → false → true 로 다시 들어오면 latch ref 리셋.
+    // (감독관이 reset 후 다시 추첨 시작하는 시나리오)
+    if (lastLotteryDoneRef.current === true && !lottery_done) {
+      lotteryShownRef.current = false
+    }
+    lastLotteryDoneRef.current = lottery_done
     // 발화 자격: lottery_done=true 이고 status 가 lottery_done 이거나 in_progress 이며 draft_order 가 비어있지 않음
     if (!lottery_done) return
     if (status !== 'lottery_done' && status !== 'in_progress') return
     if (!draft_order || draft_order.length === 0) return
     if (lotteryShownRef.current) return
     lotteryShownRef.current = true
+    // sessionStorage 키 비교: 현재 draft_order 시그니처와 일치하면 skip(중복 차단).
+    // 새 추첨이면 시그니처가 달라 sessionStorage 가드를 자연스럽게 통과.
     try {
+      const currentSig = draft_order.join(',')
       const seen = sessionStorage.getItem(`draft_lottery_seen_${draftId}`)
-      if (!seen) setShowLottery(true)
-    } catch { /* ignore */ }
+      if (seen !== currentSig) setShowLottery(true)
+    } catch { setShowLottery(true) }
   }, [state?.draft, draftId])
 
   // ────────────────── 픽 이팩트 감지 ──────────────────
@@ -1230,7 +1240,12 @@ export default function DraftPortalClient({
           teams={state.teams ?? []}
           onClose={() => {
             setShowLottery(false)
-            try { sessionStorage.setItem(`draft_lottery_seen_${draftId}`, '1') } catch { /* ignore */ }
+            // 같은 추첨 결과(draft_order)는 새로고침 시 재노출 차단.
+            // 새 추첨이면 시그니처가 달라져 자동으로 다시 표시됨.
+            try {
+              const sig = state.draft?.draft_order?.join(',') ?? '1'
+              sessionStorage.setItem(`draft_lottery_seen_${draftId}`, sig)
+            } catch { /* ignore */ }
           }}
         />
       )}
