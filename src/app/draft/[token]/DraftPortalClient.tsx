@@ -711,6 +711,79 @@ export default function DraftPortalClient({
         </div>
       ) : (
         <>
+          {/* ── Phase Hero — 모든 사용자에게 현재 단계와 다음 행동을 1줄로 명시 ── */}
+          {(() => {
+            const status = draft.status
+            let title = ''
+            let helper = ''
+            let tint = 'border-gray-800 bg-gray-900/50'
+            if (status === 'setup') {
+              title = '드래프트 준비 중'
+              helper = '감독관이 참여 설정을 마치면 READY 단계로 넘어갑니다.'
+              tint = 'border-blue-800/40 bg-blue-950/30'
+            } else if (status === 'ready_check') {
+              title = auth?.role === 'manager' ? '준비 단계 — READY를 눌러주세요' : auth?.role === 'supervisor' ? '준비 단계 — 모두의 READY 대기 중' : '준비 단계 — 모두의 READY 대기 중'
+              helper = auth?.role === 'manager'
+                ? '아래 READY 카드에서 ✋ 준비 완료를 누르면 감독관에게 신호가 전송됩니다.'
+                : auth?.role === 'supervisor'
+                  ? '모든 팀이 준비되면 추첨 대기 화면 열기 버튼이 활성화됩니다.'
+                  : '단장·감독관 모두가 준비되면 추첨이 시작됩니다.'
+              tint = 'border-blue-800/50 bg-blue-950/30'
+            } else if (status === 'lottery_waiting') {
+              title = '추첨 임박 — 시작 신호 대기'
+              helper = auth?.role === 'supervisor'
+                ? '준비 끝났다면 아래 🎲 추첨 시작을 누르세요.'
+                : '감독관이 추첨을 시작할 때까지 기다려주세요.'
+              tint = 'border-purple-700/50 bg-purple-950/30'
+            } else if (status === 'lottery_done') {
+              title = '추첨 완료 — 드래프트 시작 대기'
+              helper = auth?.role === 'supervisor'
+                ? '아래 🏀 드래프트 시작을 누르면 픽 타이머가 작동합니다.'
+                : '감독관이 드래프트를 시작할 때까지 기다려주세요.'
+              tint = 'border-amber-700/50 bg-amber-950/30'
+            } else if (status === 'in_progress') {
+              const pickNo = draft.total_picks + 1
+              if (isMyTurn) {
+                title = `${draft.current_round}라운드 ${pickNo}픽 — 본인 차례입니다!`
+                helper = '아래 액션 카드에서 선수를 선택하고 픽 확정을 누르세요.'
+              } else if (currentTeam) {
+                title = `${draft.current_round}라운드 ${pickNo}픽 — ${currentTeam.name} 차례`
+                helper = '내 차례가 되면 화면 상단·소리·바탕색으로 알려드립니다.'
+              } else {
+                title = `${draft.current_round}라운드 ${pickNo}픽 진행 중`
+                helper = ''
+              }
+              tint = isMyTurn ? 'border-emerald-500 bg-emerald-950/40' : 'border-amber-700/40 bg-amber-950/20'
+            } else if (status === 'completed') {
+              title = '드래프트 완료'
+              helper = '멤버십이 자동 반영되었습니다.'
+              tint = 'border-emerald-700/50 bg-emerald-950/30'
+            }
+            return (
+              <div className={`mb-3 sm:mb-4 rounded-2xl border-2 px-4 py-3 sm:px-5 sm:py-4 ${tint}`}>
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold uppercase tracking-widest text-gray-300 mb-1">현재 단계</p>
+                    <h2 className="text-xl sm:text-3xl font-black text-white leading-tight">{title}</h2>
+                    {helper && <p className="text-sm sm:text-base text-gray-200 mt-2 leading-relaxed">{helper}</p>}
+                  </div>
+                  {/* 타이머 — in_progress 단계에서만 같은 hero 안에 표시 (스크롤 없이 항상 보임) */}
+                  {status === 'in_progress' && remainingSeconds != null && (
+                    <BigTimer
+                      seconds={remainingSeconds}
+                      extensionsUsed={(auth?.role === 'manager' && auth.teamId) ? (draft.extensions_used?.[auth.teamId] ?? 0) : 0}
+                      canExtend={!!isMyTurn && !graceInfo.inGrace}
+                      onExtend={extendPick}
+                      extending={extending}
+                      gracePhase={graceInfo.inGrace}
+                      graceSeconds={graceInfo.remaining}
+                    />
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
           <div className="mb-3 sm:mb-4 flex flex-wrap items-center gap-2">
             <StatusBadge status={draft.status} />
             {draft.method === 'snake' && <Tag color="purple">스네이크</Tag>}
@@ -720,18 +793,6 @@ export default function DraftPortalClient({
                 <Crown size={13} className="inline mr-1" />
                 현재: <span className="font-bold ml-1">{currentTeam.name}</span>
               </Tag>
-            )}
-            {/* 타이머 — 모두에게 동일하게 보임 (서버 절대 시각 기준) */}
-            {draft.status === 'in_progress' && remainingSeconds != null && (
-              <BigTimer
-                seconds={remainingSeconds}
-                extensionsUsed={(auth?.role === 'manager' && auth.teamId) ? (draft.extensions_used?.[auth.teamId] ?? 0) : 0}
-                canExtend={!!isMyTurn && !graceInfo.inGrace}
-                onExtend={extendPick}
-                extending={extending}
-                gracePhase={graceInfo.inGrace}
-                graceSeconds={graceInfo.remaining}
-              />
             )}
           </div>
 
@@ -870,10 +931,10 @@ export default function DraftPortalClient({
                       animation: 'myTurnPulse 2s ease-in-out infinite',
                     } : { borderColor: '#b45309' }}
                   >
-                    <p className="text-amber-300 text-lg sm:text-xl font-bold flex items-center gap-2">
-                      <CheckCircle2 size={20} /> 본인 차례입니다
+                    <p className="text-amber-300 text-base font-bold flex items-center gap-2">
+                      <CheckCircle2 size={18} /> 픽 액션
                     </p>
-                    <p className="text-base text-gray-200 leading-relaxed">선수를 선택하고 픽 확정을 누르세요.</p>
+                    <p className="text-base text-gray-200 leading-relaxed">아래에서 선수를 선택하고 픽 확정을 누르세요.</p>
                     <PlayerPicker
                       players={state?.available_players ?? []}
                       selectedId={selectedPlayerId}
