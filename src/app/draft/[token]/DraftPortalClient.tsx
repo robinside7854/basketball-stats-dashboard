@@ -322,6 +322,51 @@ export default function DraftPortalClient({
     } catch { setShowLottery(true) }
   }, [state?.draft, draftId])
 
+  // ────────────────── 리셋 감지 → 채팅 클리어 ──────────────────
+  // 감독관이 reset 호출 시 DB 의 chat / picks 가 삭제되어도, 클라이언트 msgs 상태는 그대로 남는다.
+  // 다음 조건 중 하나라도 만족하면 reset 으로 판단:
+  //   1) status 가 후방 단계(setup/ready_check)로 되돌아옴
+  //   2) total_picks 가 N → 0 으로 떨어짐 (in_progress 도중 reset)
+  //   3) lottery_done 이 true → false 로 바뀜 (추첨 도중 reset)
+  // 감지 시 chatRemountKey 를 증가 → <DraftChat key={chatRemountKey}> 로 강제 unmount/remount.
+  // chatSystemMessages(총무 발화) 도 모두 클리어해 깨끗한 상태로 다시 시작.
+  const [chatRemountKey, setChatRemountKey] = useState(0)
+  const prevStatusRef = useRef<string | null>(null)
+  const prevTotalPicksRef = useRef<number | null>(null)
+  const prevLotteryDoneRef = useRef<boolean | null>(null)
+  useEffect(() => {
+    const status = state?.draft?.status ?? null
+    const totalPicks = state?.draft?.total_picks ?? null
+    const lotteryDone = state?.draft?.lottery_done ?? null
+    const prevStatus = prevStatusRef.current
+    const prevTotal = prevTotalPicksRef.current
+    const prevLottery = prevLotteryDoneRef.current
+    // 초기 로드는 비교 대상 없음 — 스냅샷만 기록
+    if (prevStatus !== null && status !== null) {
+      const rank = (s: string) => ({ setup: 0, ready_check: 1, lottery_waiting: 2, lottery_done: 3, in_progress: 4, completed: 5 }[s] ?? -1)
+      const regressed = rank(status) < rank(prevStatus)
+      const picksDropped = prevTotal != null && totalPicks != null && prevTotal > 0 && totalPicks === 0
+      const lotteryUndone = prevLottery === true && lotteryDone === false
+      if (regressed || picksDropped || lotteryUndone) {
+        setChatRemountKey(k => k + 1)
+        setChatSystemMessages([])
+        // 발화 latch ref 도 리셋 — 새 사이클에서 다시 발화하도록
+        lastCommKeyRef.current = null
+        lastAnnouncedPickRef.current = 0
+        initialPicksSnapshotRef.current = null
+        lastPickNumberRef.current = 0
+        introFiredRef.current = false
+        lotteryShownRef.current = false
+        lastLotteryDoneRef.current = null
+        finalDismissedThisSession && setFinalDismissedThisSession(false)
+      }
+    }
+    prevStatusRef.current = status
+    prevTotalPicksRef.current = totalPicks
+    prevLotteryDoneRef.current = lotteryDone
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.draft?.status, state?.draft?.total_picks, state?.draft?.lottery_done])
+
   // ────────────────── 픽 이팩트 감지 ──────────────────
   // 첫 픽도 반드시 발화시키기 위해 "초기 스냅샷 ref"를 별도로 관리한다.
   // - initialPicksSnapshotRef === null : 아직 picks 가 한 번도 들어오지 않음
@@ -1308,6 +1353,9 @@ export default function DraftPortalClient({
           모바일(<lg)은 기존처럼 오버레이로 슬라이드인 — 사용자가 직접 열고 닫는 UX. */}
       {auth && state?.draft && (
         <DraftChat
+          // key 변경 시 DraftChat 강제 unmount/remount → msgs/lastTs/localStorage cache 모두 초기화.
+          // 감독관 reset 감지 시 chatRemountKey 가 증가하므로 페이지 새로고침 없이 깨끗한 채팅으로 재시작.
+          key={`draft-chat-${state.draft.id}-${chatRemountKey}`}
           leagueId={leagueId}
           draftId={state.draft.id}
           authedCode={auth.plain}
