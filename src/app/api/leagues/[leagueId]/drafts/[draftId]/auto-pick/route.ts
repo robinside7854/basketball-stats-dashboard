@@ -1,7 +1,13 @@
-// 자동 픽 — 픽 타이머 만료 시 남은 선수 중 종합 스탯 우수자를 자동 선택
+// 자동 픽 — 픽 타이머 만료 시 자동 픽 처리.
+//
+// 모드 (`mode` body):
+//   - 'best'   : (기존) 이전 분기 종합 스탯이 가장 우수한 선수를 선택. 데이터 없으면 랜덤.
+//                만료 직후(grace 진입 전후 무관)에 호출 가능.
+//   - 'random' : 풀에 남아 있는 선수 중 완전 무작위로 1명을 픽한다.
+//                반드시 pick_deadline + AUTOPICK_GRACE_SECONDS 가 지난 뒤(=유예 종료 후)에만 허용한다.
+//                유예가 끝나기 전 호출하면 409 로 거절.
 //
 // 시스템 폴백이므로 팀 단장 코드가 아니어도(감독관/다른 단장/리그 PIN) 트리거 가능.
-// 단, pick_deadline 이 지난(만료) 경우 + in_progress 일 때만 동작한다.
 // 동시 호출 시 UNIQUE/턴 검증으로 한 번만 반영된다.
 
 import { NextResponse } from 'next/server'
@@ -9,7 +15,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { lookupDraftCode } from '@/lib/leagueDraftAuth'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 import { aggregateQuarterStats, aggToScore, getPreviousQuarterId } from '@/lib/leagueStats'
-import { newPickDeadline } from '@/lib/draftTimer'
+import { newPickDeadline, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 
 interface DraftRow {
   id: string; quarter_id: string; status: string
@@ -34,6 +40,14 @@ export async function POST(
   const { leagueId, draftId } = await params
   const supabase = createClient()
 
+  // 요청 모드 파싱 (body 가 없거나 깨져도 'best' 로 fallback — 하위 호환)
+  let mode: 'best' | 'random' = 'best'
+  try {
+    const body = await req.json().catch(() => ({}))
+    if (body && body.mode === 'random') mode = 'random'
+    else if (body && body.mode === 'best') mode = 'best'
+  } catch { /* ignore */ }
+
   const { data: draft } = await supabase
     .from('league_drafts')
     .select('id, quarter_id, status, draft_order, current_pick_index, current_round, total_picks, method, pick_deadline, pick_seconds')
@@ -52,8 +66,17 @@ export async function POST(
   }
 
   // 만료 확인 — 마감 시각이 지난 경우에만
-  if (!d.pick_deadline || new Date(d.pick_deadline).getTime() > Date.now()) {
+  const nowMs = Date.now()
+  if (!d.pick_deadline || new Date(d.pick_deadline).getTime() > nowMs) {
     return NextResponse.json({ error: '아직 시간이 남아 있습니다' }, { status: 409 })
+  }
+
+  // random 모드는 유예(grace)까지 끝났을 때만 허용
+  if (mode === 'random') {
+    const graceEndMs = new Date(d.pick_deadline).getTime() + AUTOPICK_GRACE_SECONDS * 1000
+    if (nowMs < graceEndMs) {
+      return NextResponse.json({ error: '아직 유예 시간이 남아 있습니다', remaining_ms: graceEndMs - nowMs }, { status: 409 })
+    }
   }
 
   const teamId = teamOnTurn(d)
@@ -68,15 +91,21 @@ export async function POST(
   const available = (poolRows ?? []).map(p => p.league_player_id).filter(id => !picked.has(id))
   if (available.length === 0) return NextResponse.json({ error: '남은 선수가 없습니다' }, { status: 409 })
 
-  // 종합 스탯 우수자 선택 (이전 분기 기준). 데이터 없으면 랜덤.
-  const prevQid = await getPreviousQuarterId(supabase, leagueId, d.quarter_id)
-  let chosen = available[Math.floor(Math.random() * available.length)]
-  if (prevQid) {
-    const agg = await aggregateQuarterStats(supabase, leagueId, prevQid)
-    let best = -1
-    for (const pid of available) {
-      const score = agg[pid] ? aggToScore(agg[pid]) : 0
-      if (score > best) { best = score; chosen = pid }
+  let chosen: string
+  if (mode === 'random') {
+    // 완전 무작위
+    chosen = available[Math.floor(Math.random() * available.length)]
+  } else {
+    // 종합 스탯 우수자 선택 (이전 분기 기준). 데이터 없으면 랜덤.
+    chosen = available[Math.floor(Math.random() * available.length)]
+    const prevQid = await getPreviousQuarterId(supabase, leagueId, d.quarter_id)
+    if (prevQid) {
+      const agg = await aggregateQuarterStats(supabase, leagueId, prevQid)
+      let best = -1
+      for (const pid of available) {
+        const score = agg[pid] ? aggToScore(agg[pid]) : 0
+        if (score > best) { best = score; chosen = pid }
+      }
     }
   }
 
@@ -116,5 +145,5 @@ export async function POST(
     .single()
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
 
-  return NextResponse.json({ ok: true, auto: true, picked_player_id: chosen, team_id: teamId, draft: updated })
+  return NextResponse.json({ ok: true, auto: true, mode, picked_player_id: chosen, team_id: teamId, draft: updated })
 }

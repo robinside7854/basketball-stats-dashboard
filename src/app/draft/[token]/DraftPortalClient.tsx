@@ -19,7 +19,7 @@ import DraftSessionControl from '@/components/league/DraftSessionControl'
 import DraftChat from '@/components/league/DraftChat'
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
 import DraftPickReveal, { type PickRevealData } from '@/components/league/DraftPickReveal'
-import { MAX_EXTENSIONS, EXTENSION_SECONDS } from '@/lib/draftTimer'
+import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 
 interface Team { id: string; name: string; color: string }
 interface Player { id: string; name: string; number: number | null; position: string | null; plus_one: boolean }
@@ -247,37 +247,96 @@ export default function DraftPortalClient({
   // ────────────────── 타이머 ──────────────────
   const [now, setNow] = useState<number>(() => Date.now())
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000)
+    // 유예(grace) 단계에서는 1초 단위 카운트다운이 더 또렷하게 보이도록 250ms 폴링 — CPU 부담 없음
+    const t = setInterval(() => setNow(Date.now()), 250)
     return () => clearInterval(t)
   }, [])
 
   const draftRow = state?.draft
+  // 마감 전 남은 초 (0 까지). 마감을 지나도 0 으로 고정 (grace 단계)
   const remainingSeconds = useMemo(() => {
     if (!draftRow?.pick_deadline) return null
     const diff = Math.max(0, Math.floor((new Date(draftRow.pick_deadline).getTime() - now) / 1000))
     return diff
   }, [draftRow?.pick_deadline, now])
 
-  // 시간 임박 알림 (15초, 5초)
-  const warnedAtRef = useRef<{ deadline: string | null; warned15: boolean; warned5: boolean }>({
-    deadline: null, warned15: false, warned5: false,
+  // 유예(grace) 단계 — 마감 후 ~ 마감+GRACE 사이
+  const graceInfo = useMemo(() => {
+    if (!draftRow?.pick_deadline) return { inGrace: false, remaining: 0 }
+    const deadlineMs = new Date(draftRow.pick_deadline).getTime()
+    if (Number.isNaN(deadlineMs)) return { inGrace: false, remaining: 0 }
+    const elapsedAfterDeadline = now - deadlineMs
+    if (elapsedAfterDeadline < 0) return { inGrace: false, remaining: 0 }
+    if (elapsedAfterDeadline >= AUTOPICK_GRACE_SECONDS * 1000) return { inGrace: false, remaining: -1 }
+    return { inGrace: true, remaining: Math.max(0, Math.ceil((AUTOPICK_GRACE_SECONDS * 1000 - elapsedAfterDeadline) / 1000)) }
+  }, [draftRow?.pick_deadline, now])
+
+  // 시간 임박 알림 (15초, 5초) + 유예 진입 토스트
+  const warnedAtRef = useRef<{ deadline: string | null; warned15: boolean; warned5: boolean; warnedGrace: boolean }>({
+    deadline: null, warned15: false, warned5: false, warnedGrace: false,
   })
   useEffect(() => {
-    if (remainingSeconds == null || !draftRow?.pick_deadline || draftRow.status !== 'in_progress') return
+    if (!draftRow?.pick_deadline || draftRow.status !== 'in_progress') return
     const w = warnedAtRef.current
     if (w.deadline !== draftRow.pick_deadline) {
       // 새 픽 데드라인 — reset
-      warnedAtRef.current = { deadline: draftRow.pick_deadline, warned15: false, warned5: false }
+      warnedAtRef.current = { deadline: draftRow.pick_deadline, warned15: false, warned5: false, warnedGrace: false }
     }
-    if (!warnedAtRef.current.warned15 && remainingSeconds <= 15 && remainingSeconds > 5) {
-      warnedAtRef.current.warned15 = true
-      toast.warning(`⏰ 15초 남음 — 픽을 서둘러주세요`, { duration: 3000 })
+    if (remainingSeconds != null && !graceInfo.inGrace) {
+      if (!warnedAtRef.current.warned15 && remainingSeconds <= 15 && remainingSeconds > 5) {
+        warnedAtRef.current.warned15 = true
+        toast.warning(`⏰ 15초 남음 — 픽을 서둘러주세요`, { duration: 3000 })
+      }
+      if (!warnedAtRef.current.warned5 && remainingSeconds <= 5 && remainingSeconds > 0) {
+        warnedAtRef.current.warned5 = true
+        toast.error(`🚨 5초 — 픽 임박!`, { duration: 3000 })
+      }
     }
-    if (!warnedAtRef.current.warned5 && remainingSeconds <= 5 && remainingSeconds > 0) {
-      warnedAtRef.current.warned5 = true
-      toast.error(`🚨 5초 — 픽 임박!`, { duration: 3000 })
+    // 유예 진입 — 처음 한 번만
+    if (graceInfo.inGrace && !warnedAtRef.current.warnedGrace) {
+      warnedAtRef.current.warnedGrace = true
+      toast.error(`⏰ 시간 초과 — ${AUTOPICK_GRACE_SECONDS}초 안에 픽하지 않으면 무작위 자동 픽됩니다`, { duration: 5000 })
     }
-  }, [remainingSeconds, draftRow?.pick_deadline, draftRow?.status])
+  }, [remainingSeconds, draftRow?.pick_deadline, draftRow?.status, graceInfo.inGrace])
+
+  // ────────────────── 유예 종료 → 무작위 자동 픽 ──────────────────
+  // 같은 마감건에 대해 1번만 호출. 인증 사용자만 트리거.
+  // 현재 차례 팀의 단장이 우선, 감독관은 +2s 지연(현재 팀 단장이 끊겼을 때 백업).
+  const autoPickFiredRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!auth || !draftRow || draftRow.status !== 'in_progress' || !draftRow.pick_deadline) return
+    const deadlineKey = draftRow.pick_deadline
+    if (autoPickFiredRef.current === deadlineKey) return
+    const deadlineMs = new Date(deadlineKey).getTime()
+    if (Number.isNaN(deadlineMs)) return
+    const graceEndMs = deadlineMs + AUTOPICK_GRACE_SECONDS * 1000
+    if (now < graceEndMs) return
+    // 트리거 우선순위: 현재 팀 단장(즉시) → 그 외 단장(+1.5s) → 감독관(+2s)
+    const isCurrentManager = auth.role === 'manager' && state?.current_team_id && auth.teamId === state.current_team_id
+    const isOtherManager = auth.role === 'manager' && !isCurrentManager
+    const isSupervisor = auth.role === 'supervisor'
+    const delayMs = isCurrentManager ? 0 : isOtherManager ? 1500 : isSupervisor ? 2000 : -1
+    if (delayMs < 0) return
+    // 지터 윈도우 확인 — 현재 시각이 graceEnd + delay 이상 지났을 때만
+    if (now < graceEndMs + delayMs) return
+    autoPickFiredRef.current = deadlineKey
+    fetch(`/api/leagues/${leagueId}/drafts/${draftId}/auto-pick`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Draft-Code': auth.plain },
+      body: JSON.stringify({ mode: 'random' }),
+    }).then(async r => {
+      if (!r.ok) {
+        // 409 (이미 처리/유예 남음) — 무시
+        return
+      }
+      const data = await r.json().catch(() => ({}))
+      if (data?.ok && data?.picked_player_id) {
+        const playerName = state?.available_players.find(p => p.id === data.picked_player_id)?.name ?? '선수'
+        toast.message(`🎲 무작위 자동 픽: ${playerName}`, { duration: 4000 })
+      }
+      fetchState()
+    }).catch(() => null)
+  }, [now, auth, draftRow, leagueId, draftId, state?.current_team_id, state?.available_players, fetchState])
 
   // ────────────────── lottery 흐름 (감독관 전용) ──────────────────
   const [actingLottery, setActingLottery] = useState(false)
@@ -485,8 +544,10 @@ export default function DraftPortalClient({
               <BigTimer
                 seconds={remainingSeconds}
                 extensionsUsed={(auth?.role === 'manager' && auth.teamId) ? (draft.extensions_used?.[auth.teamId] ?? 0) : 0}
-                canExtend={!!isMyTurn}
+                canExtend={!!isMyTurn && !graceInfo.inGrace}
                 onExtend={extendPick}
+                gracePhase={graceInfo.inGrace}
+                graceSeconds={graceInfo.remaining}
               />
             )}
           </div>
@@ -782,15 +843,31 @@ export default function DraftPortalClient({
   )
 }
 
-function BigTimer({ seconds, extensionsUsed, canExtend, onExtend }: {
+function BigTimer({ seconds, extensionsUsed, canExtend, onExtend, gracePhase, graceSeconds }: {
   seconds: number
   extensionsUsed: number
   canExtend: boolean
   onExtend: () => Promise<void>
+  gracePhase?: boolean
+  graceSeconds?: number
 }) {
   const urgent = seconds <= 10
   const warn = seconds <= 30
   const leftExt = Math.max(0, MAX_EXTENSIONS - extensionsUsed)
+
+  // 유예(grace) 단계: 빨간 펄스 배지로 별도 표시
+  if (gracePhase) {
+    const g = Math.max(0, graceSeconds ?? 0)
+    return (
+      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 border-red-500 bg-red-950/80 text-red-200 font-mono animate-pulse shadow-[0_0_18px_rgba(239,68,68,0.6)]">
+        <AlertTriangle size={14} className="text-red-300" />
+        <span className="text-[10px] font-black uppercase tracking-widest text-red-300">추가 시간</span>
+        <span className="font-black text-lg leading-none tabular-nums text-white">{g}s</span>
+        <span className="text-[10px] text-red-300/80">(이후 무작위 자동픽)</span>
+      </div>
+    )
+  }
+
   return (
     <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border font-mono ${
       urgent ? 'bg-red-950/70 border-red-500/60 text-red-300 animate-pulse' :
