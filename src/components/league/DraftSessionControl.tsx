@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Play, Square, RotateCcw, Dice5, CheckCircle2, Circle, Crown, Users, RefreshCw, Trash2, Save, Link2, Copy, Check, X } from 'lucide-react'
+import { Play, Square, RotateCcw, CheckCircle2, Circle, Crown, Users, RefreshCw, Trash2, Save, Link2, Copy, Check, X } from 'lucide-react'
 
 interface Team { id: string; name: string; color: string }
 interface Player { id: string; name: string; number: number | null; position: string | null; plus_one?: boolean }
@@ -346,9 +346,27 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   }
 
   // ── ready_check / in_progress / completed ──
+  // 액션 위계 정리:
+  //  - 상단 큰 Primary CTA (현재 phase 에서 가장 자연스러운 다음 단계)
+  //  - 보조 액션 row (강제 옵션 등 부수 컨트롤)
+  //  - 위험 액션은 <details> 안에 격리 (리셋 / 삭제 / 강제 종료)
+  //  → 모바일 라이브 진행 중 오클릭 위험 차단.
+  let primary: { label: string; onClick: () => void | Promise<void>; disabled?: boolean } | null = null
+  if (draft.status === 'ready_check') {
+    primary = {
+      label: allTeamsReady ? '🎬 추첨 대기 화면 열기' : '✋ 전원 준비 대기 중',
+      onClick: () => openLotteryWait(false),
+      disabled: acting || !allTeamsReady,
+    }
+  } else if (draft.status === 'lottery_waiting') {
+    primary = { label: '🎲 추첨 시작', onClick: runLottery, disabled: acting }
+  } else if (draft.status === 'lottery_done') {
+    primary = { label: '🏀 드래프트 시작', onClick: startDraft, disabled: acting }
+  }
+
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2">
             <h3 className="font-bold text-white text-base">드래프트 세션</h3>
@@ -357,31 +375,65 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
               draft.status === 'completed' ? 'bg-gray-800 border border-gray-700 text-gray-400' :
               'bg-amber-900/60 border border-amber-700/50 text-amber-300'
             }`}>
-              {draft.status === 'in_progress' ? '진행 중' : draft.status === 'completed' ? '완료' : '준비 체크'}
+              {draft.status === 'in_progress' ? '진행 중' : draft.status === 'completed' ? '완료' : draft.status === 'ready_check' ? '준비 체크' : draft.status === 'lottery_waiting' ? '추첨 대기' : '추첨 완료'}
             </span>
           </div>
           <p className="text-xs text-gray-500 mt-0.5">풀 {pool.length}명 · 팀장 {leaders.filter(l => l.leader_player_id).length}명 · {draft.total_picks}픽 완료</p>
         </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {draft.status === 'ready_check' && (
-            <>
-              <Button onClick={() => openLotteryWait(false)} disabled={acting || !allTeamsReady} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8"><Dice5 size={12} className="mr-1" /> 추첨 대기 화면 열기</Button>
-              <Button onClick={() => openLotteryWait(true)} disabled={acting} variant="outline" className="text-xs h-8">강제 열기</Button>
-            </>
-          )}
-          {draft.status === 'lottery_waiting' && (
-            <Button onClick={runLottery} disabled={acting} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs h-8"><Dice5 size={12} className="mr-1" /> 추첨 시작</Button>
-          )}
-          {draft.status === 'lottery_done' && (
-            <Button onClick={startDraft} disabled={acting} className="bg-orange-600 hover:bg-orange-500 text-white text-xs h-8"><Play size={12} className="mr-1" /> 🏀 드래프트 시작</Button>
-          )}
-          {draft.status === 'in_progress' && (
-            <Button onClick={completeSession} disabled={acting} className="bg-orange-600 hover:bg-orange-500 text-white text-xs h-8"><Square size={12} className="mr-1" /> 강제 종료</Button>
-          )}
-          <Button onClick={resetSession} disabled={acting} variant="destructive" className="text-xs h-8"><RotateCcw size={12} className="mr-1" /> 리셋</Button>
-          <Button onClick={deleteSession} disabled={acting} variant="destructive" className="text-xs h-8"><Trash2 size={12} className="mr-1" /> 삭제</Button>
-        </div>
+        {draft.status === 'in_progress' && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-950/60 border border-emerald-700/50 text-emerald-300 text-[11px] font-bold uppercase tracking-wider">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 진행 중
+          </span>
+        )}
+        {draft.status === 'completed' && (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-800 border border-gray-700 text-gray-300 text-[11px] font-bold uppercase tracking-wider">
+            종료
+          </span>
+        )}
       </div>
+
+      {/* Primary CTA — phase 에서 가장 자연스러운 다음 단계, full-width 모바일 친화 */}
+      {primary && (
+        <Button
+          onClick={primary.onClick}
+          disabled={primary.disabled}
+          className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black text-base py-3 min-h-[48px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {primary.label}
+        </Button>
+      )}
+
+      {/* 보조 액션 — 강제 옵션 등 */}
+      {(draft.status === 'ready_check') && (
+        <div className="flex flex-wrap gap-1.5">
+          <Button onClick={() => openLotteryWait(true)} disabled={acting} variant="outline" className="text-xs h-9 min-h-[36px] focus-visible:ring-2 focus-visible:ring-amber-400">
+            ⚡ 강제 열기 (READY 무시)
+          </Button>
+        </div>
+      )}
+
+      {/* 위험 액션 격리 — details 로 접어둠 */}
+      <details className="rounded-lg border border-red-900/40 bg-red-950/20 group">
+        <summary className="cursor-pointer select-none px-3 py-2 text-xs font-bold text-red-300 hover:text-red-200 flex items-center gap-2 list-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded-lg">
+          <span className="inline-flex items-center justify-center w-4 h-4 text-red-400">⚠</span>
+          <span className="uppercase tracking-wider">위험 액션</span>
+          <span className="ml-auto text-[10px] text-red-400/70 group-open:hidden">펼치기</span>
+          <span className="ml-auto text-[10px] text-red-400/70 hidden group-open:inline">접기</span>
+        </summary>
+        <div className="border-t border-red-900/40 p-3 flex flex-wrap gap-1.5">
+          {draft.status === 'in_progress' && (
+            <Button onClick={completeSession} disabled={acting} variant="outline" className="text-xs h-9 min-h-[36px] border-orange-700/50 text-orange-300 bg-orange-950/40 hover:bg-orange-900/40 focus-visible:ring-2 focus-visible:ring-orange-400">
+              <Square size={12} className="mr-1" /> 강제 종료
+            </Button>
+          )}
+          <Button onClick={resetSession} disabled={acting} variant="outline" className="text-xs h-9 min-h-[36px] border-red-700/50 text-red-300 bg-red-950/40 hover:bg-red-900/40 focus-visible:ring-2 focus-visible:ring-red-400">
+            <RotateCcw size={12} className="mr-1" /> 리셋
+          </Button>
+          <Button onClick={deleteSession} disabled={acting} variant="outline" className="text-xs h-9 min-h-[36px] border-red-700/50 text-red-300 bg-red-950/40 hover:bg-red-900/40 focus-visible:ring-2 focus-visible:ring-red-400">
+            <Trash2 size={12} className="mr-1" /> 세션 삭제
+          </Button>
+        </div>
+      </details>
 
       <div className="flex flex-wrap gap-1.5">
         {teams.map(t => {
