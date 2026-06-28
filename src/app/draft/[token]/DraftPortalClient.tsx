@@ -807,9 +807,13 @@ export default function DraftPortalClient({
                       <Button
                         onClick={makePick}
                         disabled={!selectedPlayerId || picking}
-                        className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold disabled:opacity-40"
+                        className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold disabled:opacity-40 min-h-[40px]"
                       >
-                        {picking ? '픽 등록 중...' : '픽 확정'}
+                        {picking
+                          ? '픽 등록 중...'
+                          : selectedPlayerId
+                            ? `✓ ${state?.available_players.find(p => p.id === selectedPlayerId)?.name ?? '선수'} 픽 확정`
+                            : '선수를 선택하세요'}
                       </Button>
                       {(() => {
                         const used = auth?.teamId ? (draft.extensions_used?.[auth.teamId] ?? 0) : 0
