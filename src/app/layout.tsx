@@ -45,7 +45,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           enableSystem={false}
         >
           {children}
-          <Toaster position="top-right" richColors closeButton theme="dark" />
+          {/* 토스트 위치 — top-center: 모바일/데스크탑 모두에서 하단 sticky CTA / 채팅 FAB / 픽 액션 패널을
+              덮지 않음. expand=false 로 스택이 위로 펼쳐지지 않게 하고 offset 으로 상단 헤더 영역 회피. */}
+          <Toaster position="top-center" richColors closeButton expand={false} offset="72px" theme="dark" />
         </ThemeProvider>
       </body>
     </html>
