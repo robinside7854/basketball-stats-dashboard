@@ -351,66 +351,123 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   //  - 보조 액션 row (강제 옵션 등 부수 컨트롤)
   //  - 위험 액션은 <details> 안에 격리 (리셋 / 삭제 / 강제 종료)
   //  → 모바일 라이브 진행 중 오클릭 위험 차단.
-  let primary: { label: string; onClick: () => void | Promise<void>; disabled?: boolean } | null = null
+  // ── 명령 센터(Command Center) 구성 ──
+  // 1) 단계 stepper: setup → ready → lottery → pick → done
+  // 2) 큰 헤드라인: phase 한 줄 + 1-line 도움 문구 (next action 예측)
+  // 3) Primary CTA: phase 에서 가장 자연스러운 다음 단계
+  let primary: { label: string; onClick: () => void | Promise<void>; disabled?: boolean; helper?: string } | null = null
+  let phaseHeadline = ''
   if (draft.status === 'ready_check') {
     primary = {
       label: allTeamsReady ? '🎬 추첨 대기 화면 열기' : '✋ 전원 준비 대기 중',
       onClick: () => openLotteryWait(false),
       disabled: acting || !allTeamsReady,
+      helper: allTeamsReady
+        ? '버튼을 누르면 모든 화면이 추첨 대기 모드로 전환됩니다.'
+        : '모든 팀이 READY가 되면 버튼이 활성화됩니다.',
     }
+    phaseHeadline = '준비 단계 — 모두의 READY를 기다리는 중'
   } else if (draft.status === 'lottery_waiting') {
-    primary = { label: '🎲 추첨 시작', onClick: runLottery, disabled: acting }
+    primary = {
+      label: '🎲 추첨 시작',
+      onClick: runLottery,
+      disabled: acting,
+      helper: '준비가 끝났다면 즉시 NBA 스타일 추첨 연출이 모두에게 재생됩니다.',
+    }
+    phaseHeadline = '추첨 대기 — 시작 명령 대기 중'
   } else if (draft.status === 'lottery_done') {
-    primary = { label: '🏀 드래프트 시작', onClick: startDraft, disabled: acting }
+    primary = {
+      label: '🏀 드래프트 시작',
+      onClick: startDraft,
+      disabled: acting,
+      helper: '버튼을 누르면 픽 타이머가 시작되고 1번 팀부터 픽이 진행됩니다.',
+    }
+    phaseHeadline = '추첨 완료 — 드래프트 시작 대기'
+  } else if (draft.status === 'in_progress') {
+    phaseHeadline = `1라운드 ${draft.current_pick_index + 1}픽 진행 중 (${draft.total_picks}/${draft.draft_order.length * Math.max(1, Math.ceil((draft.total_picks + 1) / Math.max(draft.draft_order.length, 1)))}픽)`
+  } else if (draft.status === 'completed') {
+    phaseHeadline = '드래프트 완료 — 멤버십 자동 반영됨'
   }
 
+  // 단계 stepper 표시용 — setup 은 이미 별도 분기, 여기선 ready 부터.
+  const stepperSteps = [
+    { key: 'ready', label: '준비', match: ['ready_check'] },
+    { key: 'lottery', label: '추첨', match: ['lottery_waiting', 'lottery_done'] },
+    { key: 'pick', label: '픽', match: ['in_progress'] },
+    { key: 'done', label: '완료', match: ['completed'] },
+  ] as const
+  const activeStepIdx = stepperSteps.findIndex(s => (s.match as readonly string[]).includes(draft.status))
+
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold text-white text-lg sm:text-xl">드래프트 세션</h3>
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-              draft.status === 'in_progress' ? 'bg-emerald-900/60 border border-emerald-700/50 text-emerald-300' :
-              draft.status === 'completed' ? 'bg-gray-800 border border-gray-700 text-gray-400' :
-              'bg-amber-900/60 border border-amber-700/50 text-amber-300'
-            }`}>
-              {draft.status === 'in_progress' ? '진행 중' : draft.status === 'completed' ? '완료' : draft.status === 'ready_check' ? '준비 체크' : draft.status === 'lottery_waiting' ? '추첨 대기' : '추첨 완료'}
-            </span>
-          </div>
-          <p className="text-sm text-gray-300 mt-1">풀 {pool.length}명 · 팀장 {leaders.filter(l => l.leader_player_id).length}명 · {draft.total_picks}픽 완료</p>
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-5">
+      {/* ── 명령 센터 헤드 ── 단계·헤드라인·Primary CTA·도움 문구 묶음 */}
+      <div className="space-y-3">
+        {/* 단계 stepper */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          {stepperSteps.map((s, i) => {
+            const isActive = i === activeStepIdx
+            const isDone = activeStepIdx > i
+            return (
+              <div key={s.key} className="flex items-center gap-1.5 sm:gap-2">
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs sm:text-sm font-bold uppercase tracking-wider transition-colors ${
+                  isActive ? 'bg-amber-900/60 border-amber-500 text-amber-200' :
+                  isDone ? 'bg-emerald-950/40 border-emerald-700/50 text-emerald-300' :
+                  'bg-gray-800 border-gray-700 text-gray-400'
+                }`}>
+                  <span className="w-4 h-4 rounded-full inline-flex items-center justify-center tabular-nums text-[10px] font-black bg-gray-900/80 border border-current">{i + 1}</span>
+                  {s.label}
+                </span>
+                {i < stepperSteps.length - 1 && (
+                  <span className={`text-xs ${isDone ? 'text-emerald-500' : 'text-gray-600'}`}>›</span>
+                )}
+              </div>
+            )
+          })}
         </div>
-        {draft.status === 'in_progress' && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-950/60 border border-emerald-700/50 text-emerald-300 text-xs font-bold uppercase tracking-wider">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 진행 중
-          </span>
+
+        {/* 헤드라인 + 메타 */}
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-black text-white text-xl sm:text-2xl leading-tight">{phaseHeadline}</h3>
+            <p className="text-sm text-gray-300 mt-1.5 leading-relaxed">풀 <b className="text-white tabular-nums">{pool.length}</b>명 · 팀장 <b className="text-white tabular-nums">{leaders.filter(l => l.leader_player_id).length}</b>명 · <b className="text-white tabular-nums">{draft.total_picks}</b>픽 완료</p>
+          </div>
+          {draft.status === 'in_progress' && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-950/60 border border-emerald-700/50 text-emerald-200 text-sm font-bold uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> 진행 중
+            </span>
+          )}
+          {draft.status === 'completed' && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gray-800 border border-gray-700 text-gray-200 text-sm font-bold uppercase tracking-wider">
+              종료
+            </span>
+          )}
+        </div>
+
+        {/* Primary CTA — phase 에서 가장 자연스러운 다음 단계, full-width 모바일 친화 */}
+        {primary && (
+          <div className="space-y-2">
+            <Button
+              onClick={primary.onClick}
+              disabled={primary.disabled}
+              className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black text-lg sm:text-xl py-3 min-h-[56px] sm:min-h-[64px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {primary.label}
+            </Button>
+            {primary.helper && (
+              <p className="text-sm text-gray-200 leading-relaxed text-center">{primary.helper}</p>
+            )}
+          </div>
         )}
-        {draft.status === 'completed' && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-800 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider">
-            종료
-          </span>
+
+        {/* 보조 액션 — 강제 옵션 등 */}
+        {(draft.status === 'ready_check') && (
+          <div className="flex flex-wrap gap-1.5 justify-center">
+            <Button onClick={() => openLotteryWait(true)} disabled={acting} variant="outline" className="text-sm h-10 min-h-[40px] focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
+              ⚡ 강제 열기 (READY 무시)
+            </Button>
+          </div>
         )}
       </div>
-
-      {/* Primary CTA — phase 에서 가장 자연스러운 다음 단계, full-width 모바일 친화 */}
-      {primary && (
-        <Button
-          onClick={primary.onClick}
-          disabled={primary.disabled}
-          className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black text-lg sm:text-xl py-3 min-h-[56px] sm:min-h-[64px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {primary.label}
-        </Button>
-      )}
-
-      {/* 보조 액션 — 강제 옵션 등 */}
-      {(draft.status === 'ready_check') && (
-        <div className="flex flex-wrap gap-1.5">
-          <Button onClick={() => openLotteryWait(true)} disabled={acting} variant="outline" className="text-sm h-10 min-h-[40px] focus-visible:ring-2 focus-visible:ring-amber-400">
-            ⚡ 강제 열기 (READY 무시)
-          </Button>
-        </div>
-      )}
 
       {/* 위험 액션 격리 — details 로 접어둠 */}
       <details className="rounded-lg border border-red-900/40 bg-red-950/20 group">
@@ -435,60 +492,70 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         </div>
       </details>
 
-      <div className="flex flex-wrap gap-1.5">
-        {teams.map(t => {
-          const lid = leaders.find(l => l.team_id === t.id)?.leader_player_id
-          return (
-            <span key={t.id} className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-gray-800 border border-gray-700 text-sm">
-              <Crown size={13} className="text-amber-400" />
-              <span className="text-gray-200 font-bold">{t.name}</span>
-              <span className="text-gray-400">{lid ? (playerMap[lid]?.name ?? '?') : '미지정'}</span>
-            </span>
-          )
-        })}
-      </div>
-
-      {draft.status === 'ready_check' && (
+      {/* ── 페이즈 세부 — 팀장 / 준비 / 추첨 결과 단일 카드 ── */}
+      <div className="rounded-lg border border-gray-800 bg-gray-950/40 p-3 sm:p-4 space-y-3">
+        {/* 팀장 라인업 — 항상 표시 */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] text-gray-300 font-bold uppercase tracking-widest">참가자 준비 현황</p>
-            <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200">
-              <RefreshCw size={12} /> 새로고침
-            </button>
-          </div>
+          <p className="text-xs text-gray-300 font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+            <Crown size={14} className="text-amber-400" /> 팀장 라인업
+          </p>
           <div className="flex flex-wrap gap-1.5">
-            {teams.map(t => (
-              <span key={t.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${ready[t.id] ? 'bg-emerald-900/40 border-emerald-700 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-300'}`}>
-                {ready[t.id] ? <CheckCircle2 size={13} /> : <Circle size={13} />}{t.name} 단장
-              </span>
-            ))}
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${ready['supervisor'] ? 'bg-emerald-900/40 border-emerald-700 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-300'}`}>
-              {ready['supervisor'] ? <CheckCircle2 size={13} /> : <Circle size={13} />}감독관
-            </span>
-          </div>
-          <p className="text-sm text-gray-300 mt-2 leading-relaxed">단장·감독관이 준비를 누른 뒤 새로고침으로 확인하세요. 모두 준비되면 추첨 시작이 활성화됩니다.</p>
-        </div>
-      )}
-
-      {draft.lottery_done && draft.draft_order.length > 0 && (
-        <div>
-          <p className="text-[11px] text-gray-300 font-bold uppercase tracking-widest mb-2">추첨 결과 — 픽 순서</p>
-          <div className="flex flex-wrap gap-1.5">
-            {draft.draft_order.map((tid, idx) => {
-              const t = teamMap[tid]
-              const odd = draft.lottery_odds?.[tid]
+            {teams.map(t => {
+              const lid = leaders.find(l => l.team_id === t.id)?.leader_player_id
               return (
-                <div key={`${tid}-${idx}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-gray-800 border border-gray-700 text-sm">
-                  <span className="text-gray-300 font-bold">{idx + 1}.</span>
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color }} />
-                  <span className="text-gray-200 font-bold">{t?.name ?? '?'}</span>
-                  {odd != null && <span className="text-xs text-amber-400">{(odd * 100).toFixed(0)}%</span>}
-                </div>
+                <span key={t.id} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-gray-800 border border-gray-700 text-sm">
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                  <span className="text-gray-200 font-bold">{t.name}</span>
+                  <span className="text-gray-300">{lid ? (playerMap[lid]?.name ?? '?') : '미지정'}</span>
+                </span>
               )
             })}
           </div>
         </div>
-      )}
+
+        {/* 준비 현황 — ready_check 단계에서만 */}
+        {draft.status === 'ready_check' && (
+          <div className="pt-3 border-t border-gray-800">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-gray-300 font-bold uppercase tracking-widest">참가자 준비 현황</p>
+              <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-100 hover:text-white cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400" aria-label="준비 현황 새로고침">
+                <RefreshCw size={12} /> 새로고침
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {teams.map(t => (
+                <span key={t.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${ready[t.id] ? 'bg-emerald-900/40 border-emerald-700 text-emerald-200' : 'bg-gray-800 border-gray-700 text-gray-200'}`}>
+                  {ready[t.id] ? <CheckCircle2 size={13} /> : <Circle size={13} />}{t.name} 단장
+                </span>
+              ))}
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${ready['supervisor'] ? 'bg-emerald-900/40 border-emerald-700 text-emerald-200' : 'bg-gray-800 border-gray-700 text-gray-200'}`}>
+                {ready['supervisor'] ? <CheckCircle2 size={13} /> : <Circle size={13} />}감독관
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* 추첨 결과 — lottery_done 이후 */}
+        {draft.lottery_done && draft.draft_order.length > 0 && (
+          <div className="pt-3 border-t border-gray-800">
+            <p className="text-xs text-gray-300 font-bold uppercase tracking-widest mb-2">추첨 결과 — 픽 순서</p>
+            <div className="flex flex-wrap gap-1.5">
+              {draft.draft_order.map((tid, idx) => {
+                const t = teamMap[tid]
+                const odd = draft.lottery_odds?.[tid]
+                return (
+                  <div key={`${tid}-${idx}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-gray-800 border border-gray-700 text-sm">
+                    <span className="text-gray-200 font-bold tabular-nums">{idx + 1}.</span>
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color }} />
+                    <span className="text-white font-bold">{t?.name ?? '?'}</span>
+                    {odd != null && <span className="text-xs text-amber-300 tabular-nums">{(odd * 100).toFixed(0)}%</span>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* 공유 링크 — 단장·감독관용 별도 진입 페이지 */}
       {draft.status !== 'completed' && (
