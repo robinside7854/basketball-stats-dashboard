@@ -52,12 +52,16 @@ const LINES: Record<LineEvent, string[]> = {
     '운명의 공이 굴러갑니다 — 누가 1순위를 차지할까요?',
     '집중하세요, 곧 픽 순서가 결정됩니다.',
     'NBA 스타일 추첨 — 결과는 곧 화면에 나타납니다.',
+    '자, 모두 화면을 봐 주세요. 운명의 로또볼이 굴러갑니다.',
+    '한 해의 시즌이 이 순간 결정됩니다 — 추첨 시작!',
   ],
   lotteryResult: [
     '{teamName}이(가) 1픽 권리를 획득했습니다!',
     '축하합니다, {teamName} — 첫 번째 픽은 여러분의 것입니다!',
     '오늘의 행운팀은 {teamName}! 1순위 픽 확정.',
     '{teamName}이(가) 추첨 1위! 시즌의 주도권을 잡았습니다.',
+    '운명이 {teamName}을(를) 선택했습니다 — 1픽 확보!',
+    '{teamName}, 압도적인 행운입니다. 1순위 픽 손에 들어갔습니다.',
   ],
   // 방송 중계 스타일 — 다양한 톤으로 20+ 변형
   pickAnnounce: [
@@ -95,6 +99,12 @@ const LINES: Record<LineEvent, string[]> = {
     // Broadcast classic
     '{round}라운드 {pick}번째 픽으로 {teamName}이(가) {playerName} 선수를 선택했습니다!',
     '주목, {teamName}의 {round}라운드 {pick}픽 — {playerName} 선수입니다.',
+    // Insightful / Veteran
+    '{teamName}의 노련함이 보입니다 — {playerName} 영입.',
+    '베테랑 다운 선택입니다. {teamName}, {playerName}을(를) 호명!',
+    // Hype
+    '함성이 터질 만한 픽 — {teamName}, {playerName}!',
+    '코트가 들썩일 한 수 — {teamName}이 {playerName} 영입!',
   ],
   pickReaction: [
     '좋은 선택입니다.',
@@ -115,6 +125,10 @@ const LINES: Record<LineEvent, string[]> = {
     '단단한 한 수네요.',
     '이건 분명 의도된 픽입니다.',
     '경기력에 변화를 줄 만한 선택입니다.',
+    '예열이 끝났습니다. 다음 픽이 더 기대됩니다.',
+    '균형 잡힌 한 픽입니다.',
+    '이 선수, 다음 경기에서 화제가 될 수 있겠어요.',
+    '깔끔한 결정입니다.',
   ],
   roundTransition: [
     '{round}라운드가 시작됩니다! 다시 집중해 주세요.',
