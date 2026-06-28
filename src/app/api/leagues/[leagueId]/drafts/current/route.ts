@@ -98,6 +98,7 @@ export async function GET(
       teams: teams ?? [],
       leaders: leaderList,
       supervisor_exists: supervisorExists,
+      server_time_ms: Date.now(),
     })
   }
   const d = draft as DraftRow
@@ -141,5 +142,7 @@ export async function GET(
     teams: teams ?? [],
     leaders: leaderList,
     supervisor_exists: supervisorExists,
+    // 클라이언트가 서버 시간과 자기 시간 간 오프셋을 계산해 타이머 캘리브레이션에 사용
+    server_time_ms: Date.now(),
   })
 }

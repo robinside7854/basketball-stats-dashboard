@@ -96,6 +96,13 @@ export default function DraftPortalClient({
   const [picking, setPicking] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // ────────────────── 서버 시간 캘리브레이션 ──────────────────
+  // 사용자 기기 시계가 어긋난 경우(±수십초) 타이머가 빗나가 잘못된 타이밍에 auto-pick 이
+  // 트리거되고 서버에 의해 거절될 수 있다. /current 응답의 server_time_ms 와 로컬 시각의
+  // 차이를 오프셋으로 보관하여 모든 타이머 연산에 보정값을 적용한다.
+  const serverOffsetMsRef = useRef<number>(0)
+  const getNow = useCallback(() => Date.now() + serverOffsetMsRef.current, [])
+
   // sessionStorage 키 — 분기·드래프트 단위
   const authKey = `draft_portal_auth_${draftId}`
 
@@ -112,6 +119,11 @@ export default function DraftPortalClient({
       const r = await fetch(`/api/leagues/${leagueId}/drafts/current?quarterId=${quarterId}`, { cache: 'no-store' })
       if (!r.ok) return
       const d = await r.json()
+      // 서버 시각과 로컬 시각 오프셋 보정 — RTT 만큼의 작은 노이즈가 있지만
+      // ±수십초 단위 시계 오차에 비해 무시할 수 있어 충분히 안전.
+      if (typeof d?.server_time_ms === 'number') {
+        serverOffsetMsRef.current = d.server_time_ms - Date.now()
+      }
       setState(d)
     } catch { /* ignore */ }
   }, [leagueId, quarterId])
@@ -262,12 +274,13 @@ export default function DraftPortalClient({
   }, [state?.picks, state?.teams, state?.available_players])
 
   // ────────────────── 타이머 ──────────────────
+  // getNow() 를 사용해 서버 시간 기준으로 보정된 시각을 쓴다.
   const [now, setNow] = useState<number>(() => Date.now())
   useEffect(() => {
     // 유예(grace) 단계에서는 1초 단위 카운트다운이 더 또렷하게 보이도록 250ms 폴링 — CPU 부담 없음
-    const t = setInterval(() => setNow(Date.now()), 250)
+    const t = setInterval(() => setNow(getNow()), 250)
     return () => clearInterval(t)
-  }, [])
+  }, [getNow])
 
   const draftRow = state?.draft
   // 마감 전 남은 초 (0 까지). 마감을 지나도 0 으로 고정 (grace 단계)
