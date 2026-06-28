@@ -265,6 +265,18 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     init()
   }, [leagueId])
 
+  // 선택한 날짜의 분기로 teams 자동 갱신 — 분기별 팀명/색상 override 적용
+  // (날짜→분기 매핑은 dateQuarterMap. 매핑 미준비 또는 미발견 시 base teams 유지)
+  useEffect(() => {
+    if (!selectedDate) return
+    const qid = dateQuarterMap[selectedDate]
+    if (!qid) return
+    fetch(`/api/leagues/${leagueId}/teams?quarterId=${qid}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(ts => { if (Array.isArray(ts)) setTeams(ts) })
+      .catch(() => null)
+  }, [leagueId, selectedDate, dateQuarterMap])
+
   async function loadRoster(slot: GameSlot) {
     if (!slot.home_team_id || !slot.away_team_id) return
     setRosterLoading(true)
