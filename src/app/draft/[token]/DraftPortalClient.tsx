@@ -192,9 +192,9 @@ export default function DraftPortalClient({
       const teamName = state?.teams.find(t => t.id === sa.teamId)?.name
       toast.success(
         sa.role === 'supervisor'
-          ? `✅ 감독관 인증: ${sa.label}`
-          : `✅ ${teamName ?? ''} 단장 인증: ${sa.label}`,
-        { duration: 4000 },
+          ? `감독관으로 입장했습니다 — 단계별 안내가 표시됩니다 (${sa.label})`
+          : `${teamName ?? ''} 팀장으로 입장했습니다 — READY를 눌러주세요 (${sa.label})`,
+        { duration: 5000 },
       )
     } catch {
       toast.error('인증 실패')

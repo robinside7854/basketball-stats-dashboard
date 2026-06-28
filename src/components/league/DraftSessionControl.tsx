@@ -276,8 +276,8 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
             <Users size={14} className="text-emerald-400" /> 드래프트 참여 선수 ({poolSel.size}명 선택 / 전체 {players.length}명)
           </label>
           <div className="flex gap-1.5">
-            <button onClick={() => setPoolSel(new Set(players.filter(p => !leaderIds.has(p.id)).map(p => p.id)))} className="text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200">전체 선택</button>
-            <button onClick={() => setPoolSel(new Set())} className="text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200">해제</button>
+            <button onClick={() => setPoolSel(new Set(players.filter(p => !leaderIds.has(p.id)).map(p => p.id)))} className="text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-100 hover:text-white cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">전체 선택</button>
+            <button onClick={() => setPoolSel(new Set())} className="text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-100 hover:text-white cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">해제</button>
           </div>
         </div>
         <div className="max-h-72 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-1.5 pr-1">
@@ -571,7 +571,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
                 <code className="font-mono text-xs sm:text-sm text-blue-300 flex-1 truncate select-all">
                   {typeof window !== 'undefined' ? `${window.location.origin}/draft/${draft.share_token}` : `/draft/${draft.share_token}`}
                 </code>
-                <button onClick={copyShareUrl} className={`px-2.5 py-1.5 rounded text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors min-h-[32px] ${tokenCopied ? 'bg-emerald-700 text-white' : 'bg-blue-700 hover:bg-blue-600 text-white'}`}>
+                <button onClick={copyShareUrl} aria-label="공유 링크 복사" className={`px-2.5 py-1.5 rounded text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors min-h-[32px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 ${tokenCopied ? 'bg-emerald-700 text-white' : 'bg-blue-700 hover:bg-blue-600 text-white'}`}>
                   {tokenCopied ? <Check size={12} /> : <Copy size={12} />}
                   {tokenCopied ? '복사됨' : '복사'}
                 </button>
@@ -598,7 +598,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
           <div className="flex items-center justify-between mb-2">
             <p className="text-[11px] text-gray-300 font-bold uppercase tracking-widest">최근 픽 (최신 5)</p>
             {draft.status === 'in_progress' && (
-              <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200"><RefreshCw size={12} /> 새로고침</button>
+              <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-100 hover:text-white cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950" aria-label="픽 목록 새로고침"><RefreshCw size={12} /> 새로고침</button>
             )}
           </div>
           <div className="space-y-1">
