@@ -183,13 +183,13 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
     return (
       <button onClick={() => setOpen(true)}
         aria-label={unread > 0 ? `채팅 (읽지 않은 메시지 ${unread}건)` : '채팅 열기'}
-        className="fixed bottom-4 right-4 lg:bottom-4 z-40 flex items-center gap-1.5 px-3 py-2.5 min-h-[44px] min-w-[44px] rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+        className="fixed bottom-4 right-4 lg:bottom-4 z-40 flex items-center gap-2 px-4 py-2.5 min-h-[48px] min-w-[48px] rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
         style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       >
-        <MessageCircle size={16} />
+        <MessageCircle size={18} />
         <span className="text-sm font-bold hidden sm:inline">채팅</span>
         {unread > 0 && (
-          <span className="min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>
+          <span className="min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>
         )}
       </button>
     )
@@ -207,23 +207,23 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
         }
         .animate-slideInRight { animation: slideInRight 0.22s ease-out; }
       `}</style>
-      <div className="px-4 py-2.5 border-b border-gray-800 flex items-center gap-2">
-        <MessageCircle size={15} className="text-blue-400" />
-        <p className="text-xs font-bold text-gray-200 uppercase tracking-widest">드래프트 채팅</p>
-        <span className="text-[11px] text-gray-400">단장·감독관</span>
-        <button onClick={() => setOpen(false)} aria-label="채팅 닫기" className="ml-auto p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded text-gray-300 hover:text-white hover:bg-gray-800 cursor-pointer transition-colors duration-200"><X size={16} /></button>
+      <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-2">
+        <MessageCircle size={16} className="text-blue-400" />
+        <p className="text-sm font-bold text-gray-100 uppercase tracking-widest">드래프트 채팅</p>
+        <span className="text-xs text-gray-300">단장·감독관</span>
+        <button onClick={() => setOpen(false)} aria-label="채팅 닫기" className="ml-auto p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded text-gray-300 hover:text-white hover:bg-gray-800 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"><X size={16} /></button>
       </div>
 
       {error && (
-        <div className="px-3 py-2 bg-amber-950/40 border-b border-amber-800/40 flex items-start gap-1.5">
-          <AlertTriangle size={13} className="text-amber-400 mt-0.5 shrink-0" />
-          <p className="text-xs text-amber-200 leading-relaxed">{error}</p>
+        <div className="px-3 py-2.5 bg-amber-950/40 border-b border-amber-800/40 flex items-start gap-1.5">
+          <AlertTriangle size={14} className="text-amber-400 mt-0.5 shrink-0" />
+          <p className="text-sm text-amber-200 leading-relaxed">{error}</p>
         </div>
       )}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2.5">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
         {msgs.length === 0 && !error ? (
-          <p className="text-center text-sm text-gray-300 py-8">아직 메시지가 없습니다. 첫 메시지를 남겨보세요!</p>
+          <p className="text-center text-base text-gray-300 py-8 leading-relaxed">아직 메시지가 없습니다.<br/>첫 메시지를 남겨보세요!</p>
         ) : msgs.map(m => {
           const team = m.team_id ? teamMap[m.team_id] : null
           const isSup = m.sender_role === 'supervisor'
@@ -231,14 +231,14 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
           const mine = isMine(m)
           return (
             <div key={m.id} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
-              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-                {isSup ? <ShieldCheck size={11} style={{ color }} /> : <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />}
-                <span className="text-[11px] font-bold" style={{ color }}>
+              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                {isSup ? <ShieldCheck size={12} style={{ color }} /> : <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />}
+                <span className="text-xs font-bold" style={{ color }}>
                   {isSup ? '감독관' : team?.name ?? ''} · {m.sender_label}
                 </span>
-                <span className="text-[10px] text-gray-400">{new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="text-xs text-gray-400">{new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
-              <div className={`max-w-[85%] px-3 py-1.5 rounded-2xl text-sm break-words ${mine ? 'rounded-tr-sm text-white' : 'rounded-tl-sm bg-gray-800 text-gray-100'}`}
+              <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm sm:text-base break-words leading-relaxed ${mine ? 'rounded-tr-sm text-white' : 'rounded-tl-sm bg-gray-800 text-gray-100'}`}
                 style={mine ? { backgroundColor: color + '33', border: `1px solid ${color}66` } : undefined}>
                 {m.message}
               </div>
@@ -254,10 +254,10 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
           placeholder="메시지 입력..."
           maxLength={500}
-          className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] text-base sm:text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500"
+          className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] text-base text-white placeholder:text-gray-400 focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-400"
         />
         <button onClick={send} disabled={sending || !input.trim()} aria-label="메시지 전송"
-          className="px-4 min-w-[44px] min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white cursor-pointer flex items-center justify-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300">
+          className="px-4 min-w-[44px] min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white cursor-pointer flex items-center justify-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
           <Send size={16} />
         </button>
       </div>

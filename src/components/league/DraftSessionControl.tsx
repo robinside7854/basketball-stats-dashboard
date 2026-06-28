@@ -250,18 +250,18 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   const editorBlock = (
     <div className="space-y-5">
       <div>
-        <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1 mb-2">
-          <Crown size={12} className="text-amber-400" /> 팀장(단장) 지정 — 드래프트 풀에서 자동 제외
+        <label className="text-[11px] text-gray-300 font-bold uppercase tracking-wider flex items-center gap-1.5 mb-2">
+          <Crown size={14} className="text-amber-400" /> 팀장(단장) 지정 — 드래프트 풀에서 자동 제외
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {teams.map(t => (
             <div key={t.id} className="bg-gray-800/60 border border-gray-700/50 rounded-lg p-2.5 space-y-1.5" style={{ borderTopColor: t.color, borderTopWidth: 2 }}>
               <div className="flex items-center gap-1.5">
                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.color }} />
-                <span className="text-white font-bold text-xs">{t.name}</span>
+                <span className="text-white font-bold text-sm">{t.name}</span>
               </div>
               <select value={leaderDraft[t.id] ?? ''} onChange={e => setLeaderDraft(prev => ({ ...prev, [t.id]: e.target.value }))}
-                className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-xs text-white">
+                className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm text-white">
                 <option value="">— 팀장 선택 —</option>
                 {players.map(p => <option key={p.id} value={p.id}>{p.name}{p.number != null ? ` #${p.number}` : ''}</option>)}
               </select>
@@ -272,12 +272,12 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1">
-            <Users size={12} className="text-emerald-400" /> 드래프트 참여 선수 ({poolSel.size}명 선택 / 전체 {players.length}명)
+          <label className="text-[11px] text-gray-300 font-bold uppercase tracking-wider flex items-center gap-1.5">
+            <Users size={14} className="text-emerald-400" /> 드래프트 참여 선수 ({poolSel.size}명 선택 / 전체 {players.length}명)
           </label>
           <div className="flex gap-1.5">
-            <button onClick={() => setPoolSel(new Set(players.filter(p => !leaderIds.has(p.id)).map(p => p.id)))} className="text-[11px] px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200">전체 선택</button>
-            <button onClick={() => setPoolSel(new Set())} className="text-[11px] px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200">해제</button>
+            <button onClick={() => setPoolSel(new Set(players.filter(p => !leaderIds.has(p.id)).map(p => p.id)))} className="text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200">전체 선택</button>
+            <button onClick={() => setPoolSel(new Set())} className="text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200">해제</button>
           </div>
         </div>
         <div className="max-h-72 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-1.5 pr-1">
@@ -287,21 +287,21 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
             return (
               <button key={p.id} disabled={isLeader}
                 onClick={() => setPoolSel(prev => { const n = new Set(prev); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n })}
-                className={`flex items-center gap-2 px-2.5 py-2 min-h-[36px] rounded-lg border text-left text-xs transition-colors min-w-0 ${
+                className={`flex items-center gap-2 px-2.5 py-2 min-h-[36px] rounded-lg border text-left text-sm transition-colors min-w-0 ${
                   isLeader ? 'bg-amber-950/30 border-amber-800/40 opacity-60 cursor-not-allowed'
                   : checked ? 'bg-emerald-900/40 border-emerald-600 cursor-pointer'
                   : 'bg-gray-800 border-gray-700 hover:border-gray-600 cursor-pointer'
                 }`}>
-                {isLeader ? <Crown size={12} className="text-amber-400 shrink-0" /> : checked ? <CheckCircle2 size={12} className="text-emerald-400 shrink-0" /> : <Circle size={12} className="text-gray-500 shrink-0" />}
+                {isLeader ? <Crown size={14} className="text-amber-400 shrink-0" /> : checked ? <CheckCircle2 size={14} className="text-emerald-400 shrink-0" /> : <Circle size={14} className="text-gray-500 shrink-0" />}
                 <span className="text-white font-bold truncate min-w-0">{p.name}</span>
-                {p.number != null && <span className="text-gray-400 text-[10px] shrink-0">#{p.number}</span>}
-                {isLeader && <span className="text-[10px] text-amber-400 ml-auto shrink-0">팀장</span>}
+                {p.number != null && <span className="text-xs text-gray-400 shrink-0">#{p.number}</span>}
+                {isLeader && <span className="text-[11px] text-amber-400 ml-auto shrink-0 font-bold">팀장</span>}
               </button>
             )
           })}
         </div>
         {players.length === 0 && (
-          <p className="text-xs text-amber-400 mt-2">등록된 리그 선수가 없습니다. 선수단(로스터) 페이지에서 선수를 먼저 등록하세요.</p>
+          <p className="text-sm text-amber-400 mt-2 leading-relaxed">등록된 리그 선수가 없습니다. 선수단(로스터) 페이지에서 선수를 먼저 등록하세요.</p>
         )}
       </div>
     </div>
@@ -312,11 +312,11 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     return (
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-5">
         <div>
-          <h3 className="font-bold text-white text-base mb-1">드래프트 세션 생성</h3>
-          <p className="text-xs text-gray-300 leading-relaxed">팀장(단장)을 지정하고 드래프트 참여 선수를 선별하세요. 픽 순서는 지난 분기 승률 기반 추첨으로 결정됩니다 (스네이크).</p>
+          <h3 className="font-bold text-white text-lg sm:text-xl mb-1.5">드래프트 세션 생성</h3>
+          <p className="text-sm text-gray-300 leading-relaxed">팀장(단장)을 지정하고 드래프트 참여 선수를 선별하세요. 픽 순서는 지난 분기 승률 기반 추첨으로 결정됩니다 (스네이크).</p>
         </div>
         {editorBlock}
-        <Button onClick={createSession} disabled={acting} className="w-full bg-amber-600 hover:bg-amber-500 text-white">드래프트 세션 생성</Button>
+        <Button onClick={createSession} disabled={acting} className="w-full bg-amber-600 hover:bg-amber-500 text-white text-base sm:text-lg font-bold h-12">드래프트 세션 생성</Button>
       </div>
     )
   }
@@ -330,16 +330,16 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-white text-base">참여 설정 (준비 단계)</h3>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-900/60 border border-blue-700/50 text-blue-300">준비</span>
+            <h3 className="font-bold text-white text-lg sm:text-xl">참여 설정 (준비 단계)</h3>
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-900/60 border border-blue-700/50 text-blue-300 uppercase tracking-wider">준비</span>
           </div>
           <div className="flex gap-1.5 flex-wrap">
-            <Button onClick={savePoolLeaders} disabled={acting} variant="outline" className="text-xs h-8"><Save size={12} className="mr-1" /> 설정 저장</Button>
-            <Button onClick={openReady} disabled={acting} className="bg-amber-600 hover:bg-amber-500 text-white text-xs h-8"><Play size={12} className="mr-1" /> 준비 체크 시작</Button>
-            <Button onClick={deleteSession} disabled={acting} variant="destructive" className="text-xs h-8"><Trash2 size={12} className="mr-1" /> 세션 삭제</Button>
+            <Button onClick={savePoolLeaders} disabled={acting} variant="outline" className="text-sm h-10"><Save size={14} className="mr-1" /> 설정 저장</Button>
+            <Button onClick={openReady} disabled={acting} className="bg-amber-600 hover:bg-amber-500 text-white text-sm h-10 font-bold"><Play size={14} className="mr-1" /> 준비 체크 시작</Button>
+            <Button onClick={deleteSession} disabled={acting} variant="destructive" className="text-sm h-10"><Trash2 size={14} className="mr-1" /> 세션 삭제</Button>
           </div>
         </div>
-        <p className="text-xs text-gray-300 leading-relaxed">현재 풀 {pool.length}명 · 팀장 {Object.values(leaderDraft).filter(Boolean).length}명. 변경 후 <b className="text-white">설정 저장</b>을 누른 뒤 <b className="text-amber-300">준비 체크 시작</b>으로 진행하세요.</p>
+        <p className="text-sm text-gray-300 leading-relaxed">현재 풀 {pool.length}명 · 팀장 {Object.values(leaderDraft).filter(Boolean).length}명. 변경 후 <b className="text-white">설정 저장</b>을 누른 뒤 <b className="text-amber-300">준비 체크 시작</b>으로 진행하세요.</p>
         {editorBlock}
       </div>
     )
@@ -369,8 +369,8 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="font-bold text-white text-base">드래프트 세션</h3>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+            <h3 className="font-bold text-white text-lg sm:text-xl">드래프트 세션</h3>
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
               draft.status === 'in_progress' ? 'bg-emerald-900/60 border border-emerald-700/50 text-emerald-300' :
               draft.status === 'completed' ? 'bg-gray-800 border border-gray-700 text-gray-400' :
               'bg-amber-900/60 border border-amber-700/50 text-amber-300'
@@ -378,15 +378,15 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
               {draft.status === 'in_progress' ? '진행 중' : draft.status === 'completed' ? '완료' : draft.status === 'ready_check' ? '준비 체크' : draft.status === 'lottery_waiting' ? '추첨 대기' : '추첨 완료'}
             </span>
           </div>
-          <p className="text-xs text-gray-300 mt-0.5">풀 {pool.length}명 · 팀장 {leaders.filter(l => l.leader_player_id).length}명 · {draft.total_picks}픽 완료</p>
+          <p className="text-sm text-gray-300 mt-1">풀 {pool.length}명 · 팀장 {leaders.filter(l => l.leader_player_id).length}명 · {draft.total_picks}픽 완료</p>
         </div>
         {draft.status === 'in_progress' && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-950/60 border border-emerald-700/50 text-emerald-300 text-[11px] font-bold uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-950/60 border border-emerald-700/50 text-emerald-300 text-xs font-bold uppercase tracking-wider">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> 진행 중
           </span>
         )}
         {draft.status === 'completed' && (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-800 border border-gray-700 text-gray-300 text-[11px] font-bold uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-800 border border-gray-700 text-gray-300 text-xs font-bold uppercase tracking-wider">
             종료
           </span>
         )}
@@ -397,7 +397,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         <Button
           onClick={primary.onClick}
           disabled={primary.disabled}
-          className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black text-base py-3 min-h-[48px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full bg-amber-600 hover:bg-amber-500 text-white font-black text-lg sm:text-xl py-3 min-h-[56px] sm:min-h-[64px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {primary.label}
         </Button>
@@ -406,7 +406,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       {/* 보조 액션 — 강제 옵션 등 */}
       {(draft.status === 'ready_check') && (
         <div className="flex flex-wrap gap-1.5">
-          <Button onClick={() => openLotteryWait(true)} disabled={acting} variant="outline" className="text-xs h-9 min-h-[36px] focus-visible:ring-2 focus-visible:ring-amber-400">
+          <Button onClick={() => openLotteryWait(true)} disabled={acting} variant="outline" className="text-sm h-10 min-h-[40px] focus-visible:ring-2 focus-visible:ring-amber-400">
             ⚡ 강제 열기 (READY 무시)
           </Button>
         </div>
@@ -414,23 +414,23 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
 
       {/* 위험 액션 격리 — details 로 접어둠 */}
       <details className="rounded-lg border border-red-900/40 bg-red-950/20 group">
-        <summary className="cursor-pointer select-none px-3 py-2 text-xs font-bold text-red-300 hover:text-red-200 flex items-center gap-2 list-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded-lg">
+        <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-bold text-red-300 hover:text-red-200 flex items-center gap-2 list-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded-lg">
           <span className="inline-flex items-center justify-center w-4 h-4 text-red-400">⚠</span>
           <span className="uppercase tracking-wider">위험 액션</span>
-          <span className="ml-auto text-[10px] text-red-400/70 group-open:hidden">펼치기</span>
-          <span className="ml-auto text-[10px] text-red-400/70 hidden group-open:inline">접기</span>
+          <span className="ml-auto text-xs text-red-400/70 group-open:hidden">펼치기</span>
+          <span className="ml-auto text-xs text-red-400/70 hidden group-open:inline">접기</span>
         </summary>
         <div className="border-t border-red-900/40 p-3 flex flex-wrap gap-1.5">
           {draft.status === 'in_progress' && (
-            <Button onClick={completeSession} disabled={acting} variant="outline" className="text-xs h-9 min-h-[36px] border-orange-700/50 text-orange-300 bg-orange-950/40 hover:bg-orange-900/40 focus-visible:ring-2 focus-visible:ring-orange-400">
-              <Square size={12} className="mr-1" /> 강제 종료
+            <Button onClick={completeSession} disabled={acting} variant="outline" className="text-sm h-10 min-h-[40px] border-orange-700/50 text-orange-300 bg-orange-950/40 hover:bg-orange-900/40 focus-visible:ring-2 focus-visible:ring-orange-400">
+              <Square size={14} className="mr-1" /> 강제 종료
             </Button>
           )}
-          <Button onClick={resetSession} disabled={acting} variant="outline" className="text-xs h-9 min-h-[36px] border-red-700/50 text-red-300 bg-red-950/40 hover:bg-red-900/40 focus-visible:ring-2 focus-visible:ring-red-400">
-            <RotateCcw size={12} className="mr-1" /> 리셋
+          <Button onClick={resetSession} disabled={acting} variant="outline" className="text-sm h-10 min-h-[40px] border-red-700/50 text-red-300 bg-red-950/40 hover:bg-red-900/40 focus-visible:ring-2 focus-visible:ring-red-400">
+            <RotateCcw size={14} className="mr-1" /> 리셋
           </Button>
-          <Button onClick={deleteSession} disabled={acting} variant="outline" className="text-xs h-9 min-h-[36px] border-red-700/50 text-red-300 bg-red-950/40 hover:bg-red-900/40 focus-visible:ring-2 focus-visible:ring-red-400">
-            <Trash2 size={12} className="mr-1" /> 세션 삭제
+          <Button onClick={deleteSession} disabled={acting} variant="outline" className="text-sm h-10 min-h-[40px] border-red-700/50 text-red-300 bg-red-950/40 hover:bg-red-900/40 focus-visible:ring-2 focus-visible:ring-red-400">
+            <Trash2 size={14} className="mr-1" /> 세션 삭제
           </Button>
         </div>
       </details>
@@ -439,10 +439,10 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         {teams.map(t => {
           const lid = leaders.find(l => l.team_id === t.id)?.leader_player_id
           return (
-            <span key={t.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-800 border border-gray-700 text-xs">
-              <Crown size={11} className="text-amber-400" />
-              <span className="text-gray-300 font-bold">{t.name}</span>
-              <span className="text-gray-500">{lid ? (playerMap[lid]?.name ?? '?') : '미지정'}</span>
+            <span key={t.id} className="inline-flex items-center gap-1.5 px-2 py-1.5 rounded-md bg-gray-800 border border-gray-700 text-sm">
+              <Crown size={13} className="text-amber-400" />
+              <span className="text-gray-200 font-bold">{t.name}</span>
+              <span className="text-gray-400">{lid ? (playerMap[lid]?.name ?? '?') : '미지정'}</span>
             </span>
           )
         })}
@@ -451,38 +451,38 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       {draft.status === 'ready_check' && (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">참가자 준비 현황</p>
-            <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200">
-              <RefreshCw size={11} /> 새로고침
+            <p className="text-[11px] text-gray-300 font-bold uppercase tracking-widest">참가자 준비 현황</p>
+            <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200">
+              <RefreshCw size={12} /> 새로고침
             </button>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {teams.map(t => (
-              <span key={t.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs ${ready[t.id] ? 'bg-emerald-900/40 border-emerald-700 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-400'}`}>
-                {ready[t.id] ? <CheckCircle2 size={12} /> : <Circle size={12} />}{t.name} 단장
+              <span key={t.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${ready[t.id] ? 'bg-emerald-900/40 border-emerald-700 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-300'}`}>
+                {ready[t.id] ? <CheckCircle2 size={13} /> : <Circle size={13} />}{t.name} 단장
               </span>
             ))}
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs ${ready['supervisor'] ? 'bg-emerald-900/40 border-emerald-700 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-400'}`}>
-              {ready['supervisor'] ? <CheckCircle2 size={12} /> : <Circle size={12} />}감독관
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${ready['supervisor'] ? 'bg-emerald-900/40 border-emerald-700 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-300'}`}>
+              {ready['supervisor'] ? <CheckCircle2 size={13} /> : <Circle size={13} />}감독관
             </span>
           </div>
-          <p className="text-[11px] text-gray-300 mt-1.5 leading-relaxed">단장·감독관이 준비를 누른 뒤 새로고침으로 확인하세요. 모두 준비되면 추첨 시작이 활성화됩니다.</p>
+          <p className="text-sm text-gray-300 mt-2 leading-relaxed">단장·감독관이 준비를 누른 뒤 새로고침으로 확인하세요. 모두 준비되면 추첨 시작이 활성화됩니다.</p>
         </div>
       )}
 
       {draft.lottery_done && draft.draft_order.length > 0 && (
         <div>
-          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">추첨 결과 — 픽 순서</p>
+          <p className="text-[11px] text-gray-300 font-bold uppercase tracking-widest mb-2">추첨 결과 — 픽 순서</p>
           <div className="flex flex-wrap gap-1.5">
             {draft.draft_order.map((tid, idx) => {
               const t = teamMap[tid]
               const odd = draft.lottery_odds?.[tid]
               return (
-                <div key={`${tid}-${idx}`} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-800 border border-gray-700 text-xs">
-                  <span className="text-gray-500 font-bold">{idx + 1}.</span>
+                <div key={`${tid}-${idx}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-gray-800 border border-gray-700 text-sm">
+                  <span className="text-gray-300 font-bold">{idx + 1}.</span>
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color }} />
-                  <span className="text-gray-300 font-bold">{t?.name ?? '?'}</span>
-                  {odd != null && <span className="text-[10px] text-amber-400">{(odd * 100).toFixed(0)}%</span>}
+                  <span className="text-gray-200 font-bold">{t?.name ?? '?'}</span>
+                  {odd != null && <span className="text-xs text-amber-400">{(odd * 100).toFixed(0)}%</span>}
                 </div>
               )
             })}
@@ -494,33 +494,33 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       {draft.status !== 'completed' && (
         <div className="rounded-lg border border-blue-900/50 bg-blue-950/20 p-3 space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <Link2 size={14} className="text-blue-400" />
-            <p className="text-xs font-bold text-blue-300 uppercase tracking-widest">공유 링크</p>
-            <span className="text-[11px] text-gray-300">단장·감독관 전용 진입 페이지</span>
+            <Link2 size={15} className="text-blue-400" />
+            <p className="text-sm font-bold text-blue-300 uppercase tracking-widest">공유 링크</p>
+            <span className="text-xs text-gray-300">단장·감독관 전용 진입 페이지</span>
           </div>
           {draft.share_token ? (
             <div className="space-y-2">
               <div className="flex items-center gap-1.5 bg-gray-900 border border-gray-700 rounded-md p-2">
-                <code className="font-mono text-xs text-blue-300 flex-1 truncate select-all">
+                <code className="font-mono text-xs sm:text-sm text-blue-300 flex-1 truncate select-all">
                   {typeof window !== 'undefined' ? `${window.location.origin}/draft/${draft.share_token}` : `/draft/${draft.share_token}`}
                 </code>
-                <button onClick={copyShareUrl} className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-colors ${tokenCopied ? 'bg-emerald-700 text-white' : 'bg-blue-700 hover:bg-blue-600 text-white'}`}>
-                  {tokenCopied ? <Check size={11} /> : <Copy size={11} />}
+                <button onClick={copyShareUrl} className={`px-2.5 py-1.5 rounded text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors min-h-[32px] ${tokenCopied ? 'bg-emerald-700 text-white' : 'bg-blue-700 hover:bg-blue-600 text-white'}`}>
+                  {tokenCopied ? <Check size={12} /> : <Copy size={12} />}
                   {tokenCopied ? '복사됨' : '복사'}
                 </button>
               </div>
               <div className="flex gap-1.5">
-                <Button onClick={generateShareToken} disabled={acting} variant="outline" className="text-xs h-7 bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700">
-                  <RotateCcw size={11} className="mr-1" /> 재발급
+                <Button onClick={generateShareToken} disabled={acting} variant="outline" className="text-sm h-9 bg-gray-800 border-gray-700 text-gray-200 hover:bg-gray-700">
+                  <RotateCcw size={12} className="mr-1" /> 재발급
                 </Button>
-                <Button onClick={revokeShareToken} disabled={acting} variant="outline" className="text-xs h-7 bg-red-950/40 border-red-800/50 text-red-300 hover:bg-red-900/40">
-                  <X size={11} className="mr-1" /> 폐기
+                <Button onClick={revokeShareToken} disabled={acting} variant="outline" className="text-sm h-9 bg-red-950/40 border-red-800/50 text-red-300 hover:bg-red-900/40">
+                  <X size={12} className="mr-1" /> 폐기
                 </Button>
               </div>
             </div>
           ) : (
-            <Button onClick={generateShareToken} disabled={acting} className="bg-blue-600 hover:bg-blue-500 text-white text-xs h-8 w-full sm:w-auto">
-              <Link2 size={12} className="mr-1" /> 공유 링크 생성
+            <Button onClick={generateShareToken} disabled={acting} className="bg-blue-600 hover:bg-blue-500 text-white text-sm h-10 w-full sm:w-auto font-bold">
+              <Link2 size={14} className="mr-1" /> 공유 링크 생성
             </Button>
           )}
         </div>
@@ -529,19 +529,19 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       {picks.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">최근 픽 (최신 5)</p>
+            <p className="text-[11px] text-gray-300 font-bold uppercase tracking-widest">최근 픽 (최신 5)</p>
             {draft.status === 'in_progress' && (
-              <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200"><RefreshCw size={11} /> 새로고침</button>
+              <button onClick={() => fetchData(true)} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-200 hover:text-white cursor-pointer transition-colors duration-200"><RefreshCw size={12} /> 새로고침</button>
             )}
           </div>
           <div className="space-y-1">
             {picks.slice(-5).reverse().map(p => {
               const t = teamMap[p.team_id]
               return (
-                <div key={p.id} className="flex items-center gap-2 bg-gray-800/40 rounded px-2 py-1.5 text-xs">
-                  <span className="text-gray-500 font-bold w-12">#{p.pick_number}</span>
+                <div key={p.id} className="flex items-center gap-2 bg-gray-800/40 rounded px-2 py-1.5 text-sm">
+                  <span className="text-gray-300 font-bold w-12">#{p.pick_number}</span>
                   <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color }} />
-                  <span className="text-gray-300 font-bold">{t?.name}</span>
+                  <span className="text-gray-200 font-bold">{t?.name}</span>
                   <span className="text-white">{playerMap[p.league_player_id]?.name ?? '?'}</span>
                 </div>
               )

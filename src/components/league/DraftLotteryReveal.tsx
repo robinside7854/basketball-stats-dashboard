@@ -204,8 +204,8 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
       )}
 
       <div className="relative text-center max-w-lg sm:max-w-xl md:max-w-2xl w-full" style={{ zIndex: 2 }}>
-        <p className="font-jersey text-sm uppercase tracking-[0.3em] text-amber-400 mb-1">DRAFT LOTTERY</p>
-        <h2 className="text-2xl sm:text-3xl font-black text-white mb-5 min-h-[2.5rem]">
+        <p className="font-jersey text-base uppercase tracking-[0.3em] text-amber-400 mb-1.5">DRAFT LOTTERY</p>
+        <h2 className="text-3xl sm:text-4xl font-black text-white mb-5 min-h-[2.5rem]">
           {phase === 'intro' && '추첨 기계에 팀 공 투입'}
           {phase === 'drawing' && '🎲 추첨 진행 중...'}
           {phase === 'revealing' && (
@@ -245,7 +245,7 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
                   return (
                     <div
                       key={tid}
-                      className="rounded-full flex items-center justify-center text-[10px] sm:text-[11px] font-black text-white shadow-lg transition-opacity duration-300"
+                      className="rounded-full flex items-center justify-center text-xs font-black text-white shadow-lg transition-opacity duration-300"
                       style={{
                         width: 'clamp(40px, 11vw, 56px)',
                         height: 'clamp(40px, 11vw, 56px)',
@@ -277,21 +277,21 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
                     transform: 'translate(-50%, 50%)',
                   }}
                 >
-                  <span className="text-[9px] font-black tracking-widest opacity-80">1픽</span>
-                  <span className="font-black text-[11px] truncate px-1">{firstTeam?.name?.slice(0, 5)}</span>
+                  <span className="text-[10px] font-black tracking-widest opacity-80">1픽</span>
+                  <span className="font-black text-xs truncate px-1">{firstTeam?.name?.slice(0, 5)}</span>
                 </div>
               )}
             </div>
 
             <div className="mt-10 sm:mt-12 h-12 flex items-center justify-center">
               {phase === 'drawing' && (
-                <p className="text-amber-300 font-black text-lg tracking-widest animate-pulse">● ● ●</p>
+                <p className="text-amber-300 font-black text-2xl tracking-widest animate-pulse">● ● ●</p>
               )}
               {phase === 'intro' && (
-                <p className="text-gray-300 text-sm">팀 공이 기계로 들어가는 중...</p>
+                <p className="text-gray-200 text-base sm:text-lg leading-relaxed">팀 공이 기계로 들어가는 중...</p>
               )}
               {phase === 'revealing' && (
-                <p className="text-amber-200 text-sm font-bold tracking-wider">탭하여 결과 보기 →</p>
+                <p className="text-amber-200 text-base font-bold tracking-wider">탭하여 결과 보기 →</p>
               )}
             </div>
           </>
@@ -302,8 +302,8 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
               className="mx-auto w-40 h-40 rounded-full flex flex-col items-center justify-center text-white shadow-2xl"
               style={{ backgroundColor: firstColor, boxShadow: `0 0 50px ${firstColor}`, animation: 'lottoOut 0.8s ease-out' }}
             >
-              <span className="text-[10px] font-black tracking-widest opacity-80">1픽</span>
-              <span className="font-black text-2xl px-2 text-center leading-tight">{firstTeam?.name}</span>
+              <span className="text-xs font-black tracking-widest opacity-80">1픽</span>
+              <span className="font-black text-2xl sm:text-3xl px-2 text-center leading-tight">{firstTeam?.name}</span>
             </div>
 
             {/* 전체 순서 — 스크롤 가능 (8팀 이상 대응) */}
@@ -314,19 +314,19 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
                 return (
                   <div
                     key={`${tid}-${idx}`}
-                    className="flex items-center gap-3 rounded-xl px-3 sm:px-4 py-2.5 border bg-gray-900/80"
+                    className="flex items-center gap-3 rounded-xl px-3 sm:px-4 py-3 border bg-gray-900/80"
                     style={{ borderColor: idx === 0 ? firstColor : '#374151', animation: `lottoOut 0.5s ease-out ${idx * 0.12}s both` }}
                   >
-                    <span className={`font-display text-2xl sm:text-3xl w-8 shrink-0 ${idx === 0 ? 'text-amber-300' : 'text-gray-300'}`}>{idx + 1}</span>
+                    <span className={`font-display text-2xl sm:text-3xl w-8 shrink-0 ${idx === 0 ? 'text-amber-300' : 'text-gray-200'}`}>{idx + 1}</span>
                     <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: t?.color }} />
-                    <span className="text-white font-black flex-1 text-left text-base sm:text-lg truncate min-w-0">{t?.name}</span>
-                    {idx === 0 && <span className="text-[10px] font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full shrink-0">1픽</span>}
-                    {odd != null && <span className="text-xs text-gray-300 shrink-0">{(odd * 100).toFixed(0)}%</span>}
+                    <span className="text-white font-black flex-1 text-left text-lg sm:text-xl truncate min-w-0">{t?.name}</span>
+                    {idx === 0 && <span className="text-xs font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wider">1픽</span>}
+                    {odd != null && <span className="text-sm text-gray-200 shrink-0 tabular-nums">{(odd * 100).toFixed(0)}%</span>}
                   </div>
                 )
               })}
             </div>
-            <p className="text-xs text-gray-300 mt-4">탭하여 닫기 · 10초 후 자동 닫힘</p>
+            <p className="text-sm text-gray-300 mt-4 leading-relaxed">탭하여 닫기 · 10초 후 자동 닫힘</p>
           </>
         )}
       </div>

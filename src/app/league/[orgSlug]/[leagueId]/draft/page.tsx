@@ -432,21 +432,21 @@ export default function LeagueDraftPage() {
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-300"
             style={{ background: `radial-gradient(circle at center, ${rc}33 0%, rgba(0,0,0,0.92) 70%)` }}>
             <div className="text-center">
-              <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-5 animate-in slide-in-from-top-4 duration-500"
+              <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full mb-5 animate-in slide-in-from-top-4 duration-500"
                 style={{ backgroundColor: `${rc}33`, border: `2px solid ${rc}` }}>
                 <div className="w-3.5 h-3.5 rounded-full animate-pulse" style={{ backgroundColor: rc }} />
-                <span className="text-white font-black tracking-wide text-lg">{teamMap[reveal.team_id]?.name}</span>
-                <span className="text-gray-300 text-sm">{reveal.round_number}R · 전체 {reveal.pick_number}순위</span>
+                <span className="text-white font-black tracking-wide text-xl">{teamMap[reveal.team_id]?.name}</span>
+                <span className="text-gray-200 text-base">{reveal.round_number}R · 전체 {reveal.pick_number}순위</span>
               </div>
-              <p className="font-jersey text-base uppercase tracking-[0.4em] mb-2 animate-pulse" style={{ color: rc }}>THE PICK IS IN</p>
+              <p className="font-jersey text-lg uppercase tracking-[0.4em] mb-2 animate-pulse" style={{ color: rc }}>THE PICK IS IN</p>
               <h2 className="font-display text-6xl sm:text-8xl font-black text-white animate-in zoom-in-90 duration-500"
                 style={{ textShadow: `0 0 40px ${rc}, 0 0 80px ${rc}88` }}>
                 {reveal.player_name}
               </h2>
               {reveal.player_number != null && (
-                <p className="jersey-num text-4xl mt-3" style={{ color: rc }}>#{reveal.player_number}</p>
+                <p className="jersey-num text-5xl mt-3 tabular-nums" style={{ color: rc }}>#{reveal.player_number}</p>
               )}
-              <p className="text-gray-400 text-sm mt-4 font-bold">{teamMap[reveal.team_id]?.name} 지명 완료</p>
+              <p className="text-gray-200 text-base mt-4 font-bold leading-relaxed">{teamMap[reveal.team_id]?.name} 지명 완료</p>
             </div>
           </div>
         )
@@ -469,34 +469,35 @@ export default function LeagueDraftPage() {
       {/* 헤더 + 분기 */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white flex items-center gap-2">
-            <Sparkles size={22} className="text-amber-400" /> 드래프트
-            {isFocus && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 border border-emerald-700/50 text-emerald-300">집중 모드 · LIVE</span>}
+          <h1 className="text-3xl sm:text-4xl font-black text-white flex items-center gap-2">
+            <Sparkles size={26} className="text-amber-400" /> 드래프트
+            {isFocus && <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-900/60 border border-emerald-700/50 text-emerald-300 uppercase tracking-wider">집중 모드 · LIVE</span>}
           </h1>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <button onClick={() => { primeAudio(); setMuted(v => !v) }} title={muted ? '소리 켜기' : '소리 끄기'}
-              className="text-xs px-2 py-1 rounded-lg border border-gray-700 text-gray-400 hover:text-white cursor-pointer">
-              {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+              aria-label={muted ? '소리 켜기' : '소리 끄기'}
+              className="text-sm px-2.5 py-2 min-h-[40px] rounded-lg border border-gray-700 text-gray-200 hover:text-white hover:bg-gray-800 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition-colors">
+              {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
             </button>
             {draft?.status === 'in_progress' && (
               <button onClick={() => setFocusMode(v => !v)}
-                className="text-xs px-2.5 py-1 rounded-lg border border-gray-700 text-gray-400 hover:text-white cursor-pointer inline-flex items-center gap-1">
-                {focusMode ? <><Minimize2 size={12} /> 집중 해제</> : <><Maximize2 size={12} /> 집중 모드</>}
+                className="text-sm px-3 py-2 min-h-[40px] rounded-lg border border-gray-700 text-gray-200 hover:text-white hover:bg-gray-800 cursor-pointer inline-flex items-center gap-1.5 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 transition-colors">
+                {focusMode ? <><Minimize2 size={14} /> 집중 해제</> : <><Maximize2 size={14} /> 집중 모드</>}
               </button>
             )}
             {isAuthed ? (
               <>
-                <span className={`px-2.5 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 ${
-                  authedRole === 'supervisor' ? 'bg-amber-900/50 border border-amber-700/50 text-amber-300' : 'bg-emerald-900/50 border border-emerald-700/50 text-emerald-300'
+                <span className={`px-3 py-1.5 rounded-lg text-sm font-bold inline-flex items-center gap-1.5 ${
+                  authedRole === 'supervisor' ? 'bg-amber-900/50 border border-amber-700/50 text-amber-200' : 'bg-emerald-900/50 border border-emerald-700/50 text-emerald-200'
                 }`}>
-                  {authedRole === 'supervisor' ? <ShieldCheck size={12} /> : <div className="w-2 h-2 rounded-full" style={{ backgroundColor: authedTeam?.color }} />}
+                  {authedRole === 'supervisor' ? <ShieldCheck size={14} /> : <div className="w-2 h-2 rounded-full" style={{ backgroundColor: authedTeam?.color }} />}
                   {authedRole === 'supervisor' ? '감독관' : authedTeam?.name} · {authedLabel}
                 </span>
-                <button onClick={exitAuth} className="text-xs text-gray-500 hover:text-red-400 cursor-pointer">해제</button>
+                <button onClick={exitAuth} className="text-sm text-gray-300 hover:text-red-400 cursor-pointer font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 rounded">해제</button>
               </>
             ) : (
-              <Button onClick={() => setShowCodeModal(true)} className="bg-amber-600 hover:bg-amber-500 text-white text-sm">
-                <KeyRound size={14} className="mr-1.5" /> 코드 입력
+              <Button onClick={() => setShowCodeModal(true)} className="bg-amber-600 hover:bg-amber-500 text-white text-sm sm:text-base font-bold min-h-[44px] px-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
+                <KeyRound size={16} className="mr-1.5" /> 코드 입력
               </Button>
             )}
           </div>
@@ -506,8 +507,8 @@ export default function LeagueDraftPage() {
           <div className="flex gap-2 flex-wrap">
             {quarters.map(q => (
               <button key={q.id} onClick={() => setSelectedQid(q.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition-colors cursor-pointer ${
-                  selectedQid === q.id ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                className={`px-3.5 py-2 min-h-[40px] rounded-lg text-sm sm:text-base font-bold border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                  selectedQid === q.id ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-200 hover:text-white'
                 }`}>
                 {String(q.year).slice(2)}.{q.quarter}Q
                 {q.is_current && <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />}
@@ -529,15 +530,15 @@ export default function LeagueDraftPage() {
           </button>
           {showManage && (
             <div className="p-4 space-y-6 bg-gray-950/40">
-              <p className="text-xs text-gray-500">
+              <p className="text-sm text-gray-200 leading-relaxed">
                 리그 PIN으로 드래프트를 직접 관리합니다. 어드민 콘솔 없이 코드 발급·팀장 지정·풀 선별·추첨까지 여기서 진행할 수 있습니다.
               </p>
               <section className="space-y-2">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">코드 발급</h3>
+                <h3 className="text-sm font-bold text-gray-200 uppercase tracking-widest">코드 발급</h3>
                 <DraftCodeManager leagueId={leagueId} quarterId={selectedQid} teams={state?.teams ?? []} authHeaders={leagueHeaders} />
               </section>
               <section className="space-y-2">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">드래프트 세션</h3>
+                <h3 className="text-sm font-bold text-gray-200 uppercase tracking-widest">드래프트 세션</h3>
                 <DraftSessionControl leagueId={leagueId} quarterId={selectedQid} teams={state?.teams ?? []} authHeaders={leagueHeaders} onChanged={fetchState} />
               </section>
             </div>
@@ -549,18 +550,18 @@ export default function LeagueDraftPage() {
       {showCodeModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowCodeModal(false)}>
           <div className="bg-gray-900 border border-amber-700/60 rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-2 mb-1">
-              <Lock size={18} className="text-amber-400" />
-              <h3 className="text-white font-black text-lg">코드 입력</h3>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Lock size={20} className="text-amber-400" />
+              <h3 className="text-white font-black text-xl sm:text-2xl">코드 입력</h3>
             </div>
-            <p className="text-xs text-gray-500 mb-4">단장 코드는 팀 픽 권한, 감독관 코드는 준비·추첨 진행 권한이 부여됩니다.</p>
+            <p className="text-sm text-gray-200 mb-4 leading-relaxed">단장 코드는 팀 픽 권한, 감독관 코드는 준비·추첨 진행 권한이 부여됩니다.</p>
             <Input autoFocus value={codeInput} onChange={e => { setCodeInput(e.target.value); setAuthError(null) }}
-              placeholder="단장/감독관 코드" className="bg-gray-800 border-gray-700 text-white font-mono"
+              placeholder="단장/감독관 코드" className="bg-gray-800 border-gray-700 text-white font-mono text-lg h-12"
               onKeyDown={e => e.key === 'Enter' && submitCode()} />
-            {authError && <p className="text-red-400 text-xs mt-2">{authError}</p>}
+            {authError && <p className="text-red-400 text-sm mt-2 font-bold">{authError}</p>}
             <div className="flex gap-2 mt-4">
-              <Button onClick={() => { setShowCodeModal(false); setCodeInput('') }} variant="outline" className="flex-1">취소</Button>
-              <Button onClick={submitCode} disabled={authing || !codeInput.trim()} className="flex-1 bg-amber-600 hover:bg-amber-500 text-white">
+              <Button onClick={() => { setShowCodeModal(false); setCodeInput('') }} variant="outline" className="flex-1 text-base h-12 font-bold">취소</Button>
+              <Button onClick={submitCode} disabled={authing || !codeInput.trim()} className="flex-1 bg-amber-600 hover:bg-amber-500 text-white text-base h-12 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
                 {authing ? '확인 중...' : '인증'}
               </Button>
             </div>
@@ -571,17 +572,17 @@ export default function LeagueDraftPage() {
       {/* 메인 — 상태별 */}
       {!draft ? (
         <div className="bg-gray-900 border border-gray-800 border-dashed rounded-2xl p-12 text-center">
-          <Trophy size={36} className="mx-auto text-gray-600 mb-3" />
-          <p className="text-gray-200 text-base sm:text-lg font-semibold">이 분기는 아직 드래프트 세션이 만들어지지 않았습니다</p>
-          <p className="text-sm text-gray-400 mt-1.5">어드민이 세션을 생성하면 여기에 표시됩니다</p>
+          <Trophy size={40} className="mx-auto text-gray-500 mb-3" />
+          <p className="text-gray-100 text-lg sm:text-xl font-bold">이 분기는 아직 드래프트 세션이 만들어지지 않았습니다</p>
+          <p className="text-base text-gray-300 mt-2 leading-relaxed">어드민이 세션을 생성하면 여기에 표시됩니다</p>
         </div>
       ) : draft.status === 'setup' ? (
         <div className="bg-gray-900 border border-blue-700/40 rounded-2xl p-8 text-center space-y-3">
-          <p className="text-blue-200 font-bold text-xl">드래프트 준비 중</p>
-          <p className="text-sm text-gray-400">감독관 또는 어드민이 준비 체크를 시작하면 진행됩니다</p>
+          <p className="text-blue-100 font-black text-2xl sm:text-3xl">드래프트 준비 중</p>
+          <p className="text-base text-gray-200 leading-relaxed">감독관 또는 어드민이 준비 체크를 시작하면 진행됩니다</p>
           {authedRole === 'supervisor' && (
-            <Button onClick={openReady} disabled={acting} className="bg-amber-600 hover:bg-amber-500 text-white">
-              <Dice5 size={14} className="mr-1.5" /> 준비 체크 시작
+            <Button onClick={openReady} disabled={acting} className="bg-amber-600 hover:bg-amber-500 text-white text-base sm:text-lg font-bold h-12 px-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
+              <Dice5 size={16} className="mr-1.5" /> 준비 체크 시작
             </Button>
           )}
         </div>
@@ -589,25 +590,25 @@ export default function LeagueDraftPage() {
         <div className="bg-gray-900 border border-amber-700/40 rounded-2xl p-6 space-y-5">
           <div className="text-center">
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-400">READY CHECK</p>
-            <p className="text-white font-bold text-2xl mt-1.5">모든 참가자 준비 대기</p>
-            <p className="text-sm text-gray-400 mt-1.5">단장 3명 + 감독관이 모두 준비하면 추첨을 진행할 수 있습니다</p>
+            <p className="text-white font-black text-3xl sm:text-4xl mt-2">모든 참가자 준비 대기</p>
+            <p className="text-base text-gray-200 mt-2 leading-relaxed">단장 3명 + 감독관이 모두 준비하면<br className="sm:hidden"/> 추첨을 진행할 수 있습니다</p>
           </div>
 
           {/* 참가자 준비 현황 */}
           <div className="flex flex-wrap justify-center gap-2">
             {teams.map(t => (
-              <span key={t.id} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-bold ${
-                ready[t.id] ? 'bg-emerald-900/40 border-emerald-600 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-400'
+              <span key={t.id} className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-base font-bold ${
+                ready[t.id] ? 'bg-emerald-900/40 border-emerald-600 text-emerald-200' : 'bg-gray-800 border-gray-700 text-gray-200'
               }`}>
-                {ready[t.id] ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+                {ready[t.id] ? <CheckCircle2 size={16} /> : <Circle size={16} />}
                 {t.name} 단장
               </span>
             ))}
             {state?.supervisor_exists && (
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-bold ${
-                ready['supervisor'] ? 'bg-emerald-900/40 border-emerald-600 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-400'
+              <span className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-base font-bold ${
+                ready['supervisor'] ? 'bg-emerald-900/40 border-emerald-600 text-emerald-200' : 'bg-gray-800 border-gray-700 text-gray-200'
               }`}>
-                {ready['supervisor'] ? <CheckCircle2 size={14} /> : <Circle size={14} />} 감독관
+                {ready['supervisor'] ? <CheckCircle2 size={16} /> : <Circle size={16} />} 감독관
               </span>
             )}
           </div>
@@ -616,20 +617,23 @@ export default function LeagueDraftPage() {
           {isAuthed ? (
             <div className="flex flex-col items-center gap-3">
               <Button onClick={() => toggleReady(!myReady)} disabled={acting}
-                className={`px-8 ${myReady ? 'bg-gray-700 hover:bg-gray-600' : 'bg-emerald-600 hover:bg-emerald-500'} text-white`}>
-                {myReady ? '준비 해제' : '준비 완료'}
+                className={`px-10 text-lg sm:text-xl font-black h-14 sm:h-16 ${myReady ? 'bg-gray-700 hover:bg-gray-600' : 'bg-emerald-600 hover:bg-emerald-500'} text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950`}>
+                {myReady ? '준비 해제' : '✋ 준비 완료'}
               </Button>
               {authedRole === 'supervisor' && (
-                <div className="flex gap-2">
-                  <Button onClick={() => runLottery(false)} disabled={acting || !allReady} className="bg-amber-600 hover:bg-amber-500 text-white">
-                    <Dice5 size={14} className="mr-1.5" /> 추첨 시작
+                <div className="flex gap-2 flex-wrap justify-center">
+                  <Button onClick={() => runLottery(false)} disabled={acting || !allReady} className="bg-amber-600 hover:bg-amber-500 text-white text-base sm:text-lg font-bold h-12 px-6">
+                    <Dice5 size={16} className="mr-1.5" /> 추첨 시작
                   </Button>
-                  <Button onClick={() => runLottery(true)} disabled={acting} variant="outline">강제 추첨</Button>
+                  <Button onClick={() => runLottery(true)} disabled={acting} variant="outline" className="text-base h-12 font-bold">강제 추첨</Button>
                 </div>
+              )}
+              {!myReady && authedRole === 'manager' && (
+                <p className="text-sm text-amber-200 text-center leading-relaxed">버튼을 누르면 감독관에게 준비 신호가 전송됩니다.</p>
               )}
             </div>
           ) : (
-            <p className="text-center text-sm text-gray-400">코드를 입력하면 준비 버튼이 표시됩니다</p>
+            <p className="text-center text-base text-gray-200 leading-relaxed">코드를 입력하면 준비 버튼이 표시됩니다</p>
           )}
         </div>
       ) : (
@@ -648,14 +652,14 @@ export default function LeagueDraftPage() {
               const myUsed = authedTeamId ? (draft.extensions_used?.[authedTeamId] ?? 0) : 0
               const timerColor = expired ? 'text-red-400' : remain !== null && remain <= 10 ? 'text-red-400' : remain !== null && remain <= 30 ? 'text-amber-300' : 'text-emerald-300'
               return (
-                <div className={`rounded-xl p-4 border-2 transition-colors ${isMyTurn ? 'bg-emerald-900/30 border-emerald-500' : 'bg-gray-900 border-gray-800'} ${expired ? 'animate-pulse border-red-500' : ''}`}>
+                <div className={`rounded-xl p-4 sm:p-5 border-2 transition-colors ${isMyTurn ? 'bg-emerald-900/30 border-emerald-500' : 'bg-gray-900 border-gray-800'} ${expired ? 'animate-pulse border-red-500' : ''}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full ${isMyTurn ? 'animate-pulse' : ''}`} style={{ backgroundColor: currentTeam.color }} />
+                    <div className={`w-4 h-4 rounded-full shrink-0 ${isMyTurn ? 'animate-pulse' : ''}`} style={{ backgroundColor: currentTeam.color }} />
                     <div className="flex-1 min-w-0">
-                      <p className="font-jersey text-[10px] uppercase tracking-widest text-gray-500">현재 차례 · {draft.total_picks + 1}순위</p>
-                      <p className="font-black text-xl text-white truncate">
+                      <p className="font-jersey text-xs uppercase tracking-widest text-gray-300">현재 차례 · {draft.total_picks + 1}순위</p>
+                      <p className="font-black text-2xl sm:text-3xl text-white truncate leading-tight">
                         {currentTeam.name}
-                        {isMyTurn && <span className="ml-2 text-emerald-400 text-sm">← 내 차례!</span>}
+                        {isMyTurn && <span className="ml-2 text-emerald-400 text-base sm:text-lg">← 내 차례!</span>}
                       </p>
                     </div>
                     {remain !== null && (() => {
@@ -670,8 +674,8 @@ export default function LeagueDraftPage() {
                               strokeDasharray={C} strokeDashoffset={C * (1 - frac)} className="transition-all duration-500" />
                           </svg>
                           <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`font-display text-lg leading-none tabular-nums ${timerColor}`}>{expired ? '0' : remain}</span>
-                            <span className="text-[8px] text-gray-500">초</span>
+                            <span className={`font-display text-2xl leading-none tabular-nums ${timerColor}`}>{expired ? '0' : remain}</span>
+                            <span className="text-xs text-gray-300">초</span>
                           </div>
                         </div>
                       )
@@ -679,45 +683,45 @@ export default function LeagueDraftPage() {
                   </div>
                   {/* 시간 종료 — 자동 선택 최종 카운트다운 */}
                   {expired && graceLeft !== null && (
-                    <div className="mt-3 rounded-lg bg-red-950/60 border border-red-600 px-3 py-2 flex items-center justify-center gap-2 animate-pulse">
-                      <span className="text-red-300 text-sm font-bold">⏰ 시간 종료 — {graceLeft}초 뒤 자동으로 선수가 선택됩니다</span>
-                      <span className="font-display text-2xl text-red-400 tabular-nums">{graceLeft}</span>
+                    <div className="mt-3 rounded-lg bg-red-950/60 border border-red-600 px-3 py-2.5 flex items-center justify-center gap-2 animate-pulse flex-wrap">
+                      <span className="text-red-200 text-sm sm:text-base font-bold leading-relaxed">⏰ 시간 종료 — {graceLeft}초 뒤 자동으로 선수가 선택됩니다</span>
+                      <span className="font-display text-3xl text-red-400 tabular-nums">{graceLeft}</span>
                     </div>
                   )}
                   {/* 추가 시간 — 현재 차례 단장에게만 */}
                   {isMyTurn && (
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <span className="text-[11px] text-gray-400">추가 시간 {myUsed}/{MAX_EXTENSIONS} 사용</span>
+                    <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-sm text-gray-200 tabular-nums">추가 시간 {myUsed}/{MAX_EXTENSIONS} 사용</span>
                       <Button onClick={extendTime} disabled={extending || myUsed >= MAX_EXTENSIONS}
-                        className="bg-amber-600 hover:bg-amber-500 text-white text-xs h-8">
+                        className="bg-amber-600 hover:bg-amber-500 text-white text-sm h-10 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
                         +{EXTENSION_SECONDS}초 추가 {myUsed >= MAX_EXTENSIONS ? '(소진)' : `(${MAX_EXTENSIONS - myUsed}회 남음)`}
                       </Button>
                     </div>
                   )}
                   {!isMyTurn && curUsed > 0 && (
-                    <p className="mt-2 text-[10px] text-gray-500">{currentTeam.name} 추가 시간 {curUsed}/{MAX_EXTENSIONS} 사용</p>
+                    <p className="mt-2 text-xs text-gray-300">{currentTeam.name} 추가 시간 {curUsed}/{MAX_EXTENSIONS} 사용</p>
                   )}
                 </div>
               )
             })()}
 
             <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-gray-800 flex items-center justify-between">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">픽 기록</p>
-                <p className="text-[10px] text-gray-500">{draft.method === 'snake' ? 'Snake' : 'Linear'} · {draft.total_picks}픽</p>
+              <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+                <p className="text-sm font-bold text-gray-100 uppercase tracking-widest">픽 기록</p>
+                <p className="text-xs text-gray-300 tabular-nums">{draft.method === 'snake' ? 'Snake' : 'Linear'} · {draft.total_picks}픽</p>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-xs">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-800/50">
-                      <th className="text-left p-2 text-gray-600 font-bold w-10">R</th>
+                      <th className="text-left p-2 text-gray-300 font-bold w-10">R</th>
                       {draft.draft_order.map((tid, idx) => {
                         const t = teamMap[tid]
                         return (
                           <th key={`${tid}-${idx}`} className="text-center p-2 min-w-[100px]">
                             <div className="flex items-center justify-center gap-1.5">
                               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color }} />
-                              <span className="text-gray-400 font-bold">{t?.name}</span>
+                              <span className="text-gray-200 font-bold text-sm">{t?.name}</span>
                             </div>
                           </th>
                         )
@@ -732,10 +736,10 @@ export default function LeagueDraftPage() {
                         const reversed = draft.method === 'snake' && r % 2 === 0
                         rows.push(
                           <tr key={r} className="border-b border-gray-800/30">
-                            <td className="p-2 text-gray-500 font-bold whitespace-nowrap">
+                            <td className="p-2 text-gray-300 font-bold whitespace-nowrap tabular-nums">
                               {r}
                               {draft.method === 'snake' && (
-                                <span className="ml-1 text-[9px] text-amber-500/70" title={reversed ? '역순' : '정순'}>{reversed ? '←' : '→'}</span>
+                                <span className="ml-1 text-[10px] text-amber-500/80" title={reversed ? '역순' : '정순'}>{reversed ? '←' : '→'}</span>
                               )}
                             </td>
                             {draft.draft_order.map((tid, ci) => {
@@ -745,14 +749,14 @@ export default function LeagueDraftPage() {
                               return (
                                 <td key={ci} className={`p-1.5 text-center ${isCurrentCell ? 'bg-emerald-900/40 ring-1 ring-emerald-500/60' : ''}`}>
                                   {pick ? (
-                                    <div className="rounded-md py-1" style={{ backgroundColor: tColor ? `${tColor}1f` : undefined, borderLeft: tColor ? `3px solid ${tColor}` : undefined }}>
-                                      <div className="text-white font-bold text-xs leading-tight px-1">{pick.player_name}</div>
-                                      <div className="text-[9px] text-gray-500">#{pick.pick_number}</div>
+                                    <div className="rounded-md py-1.5" style={{ backgroundColor: tColor ? `${tColor}1f` : undefined, borderLeft: tColor ? `3px solid ${tColor}` : undefined }}>
+                                      <div className="text-white font-bold text-sm leading-tight px-1">{pick.player_name}</div>
+                                      <div className="text-xs text-gray-300 tabular-nums">#{pick.pick_number}</div>
                                     </div>
                                   ) : isCurrentCell ? (
-                                    <div className="text-emerald-300 text-xs font-bold animate-pulse">선택 중...</div>
+                                    <div className="text-emerald-300 text-sm font-bold animate-pulse">선택 중...</div>
                                   ) : (
-                                    <div className="text-gray-700">—</div>
+                                    <div className="text-gray-600">—</div>
                                   )}
                                 </td>
                               )
@@ -768,11 +772,11 @@ export default function LeagueDraftPage() {
             </div>
 
             {draft.status === 'completed' && (
-              <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-4 text-center">
-                <p className="text-emerald-300 font-bold text-base">드래프트 완료</p>
-                <p className="text-xs text-gray-500 mt-1">분기 멤버십이 자동 반영되었습니다</p>
-                <Link href={`/league/${orgSlug}/${leagueId}/teams`} className="inline-flex items-center gap-1 mt-2 text-sm text-emerald-400 hover:text-emerald-300">
-                  팀 구성 페이지로 <ChevronRight size={14} />
+              <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-5 text-center">
+                <p className="text-emerald-300 font-black text-lg sm:text-xl">드래프트 완료</p>
+                <p className="text-sm text-gray-200 mt-1.5 leading-relaxed">분기 멤버십이 자동 반영되었습니다</p>
+                <Link href={`/league/${orgSlug}/${leagueId}/teams`} className="inline-flex items-center gap-1 mt-3 text-base text-emerald-300 hover:text-emerald-200 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded">
+                  팀 구성 페이지로 <ChevronRight size={16} />
                 </Link>
               </div>
             )}
@@ -785,23 +789,23 @@ export default function LeagueDraftPage() {
                 {authedRole !== 'manager' ? (
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 text-center">
                     {authedRole === 'supervisor'
-                      ? <p className="text-amber-300 text-sm font-bold">감독관 — 진행 관전 중</p>
+                      ? <p className="text-amber-300 text-base font-bold">감독관 — 진행 관전 중</p>
                       : <>
-                          <KeyRound size={24} className="mx-auto text-amber-400 mb-2" />
-                          <p className="text-white font-bold mb-1">단장 코드를 입력하세요</p>
-                          <Button onClick={() => setShowCodeModal(true)} className="w-full bg-amber-600 hover:bg-amber-500 text-white mt-2">코드 입력</Button>
+                          <KeyRound size={28} className="mx-auto text-amber-400 mb-2" />
+                          <p className="text-white font-bold text-lg mb-2">단장 코드를 입력하세요</p>
+                          <Button onClick={() => setShowCodeModal(true)} className="w-full bg-amber-600 hover:bg-amber-500 text-white mt-2 text-base h-12 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">코드 입력</Button>
                         </>}
                   </div>
                 ) : isMyTurn ? (
-                  <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-4 text-center">
-                    <p className="text-emerald-300 font-black text-lg">🏀 내 차례입니다!</p>
-                    <p className="text-sm text-gray-300 mt-1">아래 <b className="text-white">남은 선수 성적표</b>에서 선수를 선택해 픽하세요.</p>
-                    <p className="text-xs text-gray-500 mt-1">{state?.available_players.length}명 선택 가능 · 랜덤픽(추천) 버튼도 성적표에 있습니다.</p>
+                  <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-5 text-center">
+                    <p className="text-emerald-300 font-black text-2xl sm:text-3xl">🏀 내 차례입니다!</p>
+                    <p className="text-base text-gray-100 mt-2 leading-relaxed">아래 <b className="text-white">남은 선수 성적표</b>에서 선수를 선택해 픽하세요.</p>
+                    <p className="text-sm text-gray-300 mt-1.5">{state?.available_players.length}명 선택 가능 · 랜덤픽(추천) 버튼도 성적표에 있습니다.</p>
                   </div>
                 ) : (
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 text-center">
-                    <p className="text-gray-300 text-base mb-1">본인 차례가 아닙니다</p>
-                    <p className="text-sm text-gray-500">현재: <span className="text-white font-bold">{currentTeam?.name}</span></p>
+                    <p className="text-gray-100 text-lg font-bold mb-2">본인 차례가 아닙니다</p>
+                    <p className="text-base text-gray-300">현재: <span className="text-white font-bold">{currentTeam?.name}</span></p>
                   </div>
                 )}
               </>
@@ -810,15 +814,15 @@ export default function LeagueDraftPage() {
             {/* 팀장 명단 */}
             {(state?.leaders ?? []).some(l => l.leader_player_id) && (
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                <p className="font-jersey text-xs text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1"><Crown size={12} className="text-amber-400" /> 팀장</p>
+                <p className="font-jersey text-xs text-gray-300 uppercase tracking-widest mb-2 flex items-center gap-1.5"><Crown size={14} className="text-amber-400" /> 팀장</p>
                 <div className="space-y-1.5">
                   {teams.map(t => {
                     const lid = state?.leaders.find(l => l.team_id === t.id)?.leader_player_id
                     if (!lid) return null
                     return (
-                      <div key={t.id} className="flex items-center gap-2 text-xs">
+                      <div key={t.id} className="flex items-center gap-2 text-sm">
                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />
-                        <span className="text-gray-400 font-bold">{t.name}</span>
+                        <span className="text-gray-200 font-bold">{t.name}</span>
                       </div>
                     )
                   })}
@@ -826,12 +830,12 @@ export default function LeagueDraftPage() {
               </div>
             )}
 
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-2">
-              <p className="font-jersey text-xs text-gray-500 uppercase tracking-widest">진행 현황</p>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-2.5">
+              <p className="font-jersey text-xs text-gray-300 uppercase tracking-widest">진행 현황</p>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div><p className="font-display text-2xl text-white">{draft.total_picks}</p><p className="text-[10px] text-gray-500">총 픽</p></div>
-                <div><p className="font-display text-2xl text-amber-300">{draft.current_round}</p><p className="text-[10px] text-gray-500">라운드</p></div>
-                <div><p className="font-display text-2xl text-emerald-300">{state?.available_players.length}</p><p className="text-[10px] text-gray-500">남은 선수</p></div>
+                <div><p className="font-display text-3xl text-white tabular-nums">{draft.total_picks}</p><p className="text-xs text-gray-300 font-bold">총 픽</p></div>
+                <div><p className="font-display text-3xl text-amber-300 tabular-nums">{draft.current_round}</p><p className="text-xs text-gray-300 font-bold">라운드</p></div>
+                <div><p className="font-display text-3xl text-emerald-300 tabular-nums">{state?.available_players.length}</p><p className="text-xs text-gray-300 font-bold">남은 선수</p></div>
               </div>
             </div>
           </div>
@@ -861,20 +865,21 @@ export default function LeagueDraftPage() {
 
         {/* 모바일 '내 차례' 스티키 액션 바 */}
         {isMyTurn && (
-          <div className="lg:hidden fixed bottom-0 inset-x-0 z-[46] bg-gray-900/95 backdrop-blur border-t border-emerald-700/50 p-2.5 flex items-center gap-2">
+          <div className="lg:hidden fixed bottom-0 inset-x-0 z-[46] bg-gray-900/95 backdrop-blur border-t border-emerald-700/50 p-3 flex items-center gap-2"
+            style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
             {selectedPickId ? (
               <button onClick={() => pickById(selectedPickId)} disabled={picking !== null}
-                className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold flex items-center justify-center gap-1.5">
-                <Check size={16} /> {state?.available_players.find(p => p.id === selectedPickId)?.name} 픽 확정
+                className="flex-1 py-3 min-h-[52px] rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-base flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900">
+                <Check size={18} /> {state?.available_players.find(p => p.id === selectedPickId)?.name} 픽 확정
               </button>
             ) : (
               <>
-                <button onClick={recommendBest} className="flex-1 py-2.5 rounded-lg bg-purple-700 hover:bg-purple-600 text-white font-bold flex items-center justify-center gap-1.5">
-                  <Shuffle size={15} /> 랜덤픽(추천)
+                <button onClick={recommendBest} className="flex-1 py-3 min-h-[52px] rounded-lg bg-purple-700 hover:bg-purple-600 text-white font-bold text-sm sm:text-base flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900">
+                  <Shuffle size={17} /> 랜덤픽(추천)
                 </button>
                 <button onClick={() => document.getElementById('draft-stat-table')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="flex-1 py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold flex items-center justify-center gap-1.5">
-                  <ChevronDown size={15} /> 성적표에서 선택
+                  className="flex-1 py-3 min-h-[52px] rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm sm:text-base flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900">
+                  <ChevronDown size={17} /> 성적표에서 선택
                 </button>
               </>
             )}

@@ -169,12 +169,12 @@ export default function DraftPickReveal({
 
         {/* 라운드 + 픽 번호 */}
         <div className="mb-3 flex items-center justify-center gap-3 flex-wrap">
-          <div className="text-[11px] sm:text-xs font-bold tracking-[0.3em] uppercase text-gray-300">
+          <div className="text-xs sm:text-sm font-bold tracking-[0.3em] uppercase text-gray-200">
             Round {data.roundNumber}
           </div>
           <div className="h-3 w-px bg-gray-700" />
           <div
-            className="text-xs sm:text-sm font-black tracking-[0.25em] uppercase px-4 py-1.5 rounded-full shadow-lg"
+            className="text-sm sm:text-base font-black tracking-[0.25em] uppercase px-4 py-1.5 rounded-full shadow-lg"
             style={{ background: data.teamColor, color: '#000', boxShadow: `0 0 20px ${data.teamColor}` }}
           >
             🏀 Pick #{data.pickNumber}
@@ -182,7 +182,7 @@ export default function DraftPickReveal({
         </div>
 
         {/* WITH THE PICK 문구 */}
-        <p className="text-[11px] sm:text-xs font-bold tracking-[0.4em] uppercase text-amber-300/80 mb-2">
+        <p className="text-xs sm:text-sm font-bold tracking-[0.4em] uppercase text-amber-300/90 mb-2">
           ─── With The {ordinal(data.pickNumber)} Pick ───
         </p>
 
@@ -190,10 +190,10 @@ export default function DraftPickReveal({
         <div className="mb-3 sm:mb-5">
           <div className="flex items-center justify-center gap-3">
             <div className="w-3 h-3 rounded-full shadow-lg" style={{ background: data.teamColor, boxShadow: `0 0 12px ${data.teamColor}` }} />
-            <p className="text-lg sm:text-2xl font-bold text-white">{data.teamName}</p>
+            <p className="text-xl sm:text-3xl font-bold text-white">{data.teamName}</p>
             <div className="w-3 h-3 rounded-full shadow-lg" style={{ background: data.teamColor, boxShadow: `0 0 12px ${data.teamColor}` }} />
           </div>
-          <p className="text-[11px] sm:text-sm font-black tracking-[0.5em] uppercase text-gray-400 mt-1">SELECTS</p>
+          <p className="text-xs sm:text-base font-black tracking-[0.5em] uppercase text-gray-300 mt-1.5">SELECTS</p>
         </div>
 
         {/* 메인 — 선수 번호 + 이름 + 포지션 */}
@@ -227,7 +227,7 @@ export default function DraftPickReveal({
               {data.playerPosition.split(',').map(s => s.trim()).filter(Boolean).map((pos, i) => (
                 <span
                   key={i}
-                  className="text-xs sm:text-base font-black tracking-[0.2em] uppercase px-3 py-1 rounded-md"
+                  className="text-sm sm:text-lg font-black tracking-[0.2em] uppercase px-3 py-1 rounded-md"
                   style={{
                     background: `${data.teamColor}33`,
                     color: data.teamColor,
@@ -242,7 +242,7 @@ export default function DraftPickReveal({
           )}
         </div>
 
-        <p className="mt-8 text-[11px] uppercase tracking-[0.3em] text-gray-400">탭하여 닫기</p>
+        <p className="mt-8 text-xs sm:text-sm uppercase tracking-[0.3em] text-gray-300">탭하여 닫기</p>
       </div>
 
       <style jsx>{`
