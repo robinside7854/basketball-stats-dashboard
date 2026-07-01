@@ -234,6 +234,7 @@ interface PlayerModalProps {
   displayQuarters: Quarter[]
   teams: LeagueTeam[]
   leaderMap: LeaderMap
+  teamOverrides: Record<string, Record<string, { name: string | null; color: string | null }>>
   onClose: () => void
   onSaved: () => void
   onDeleted: () => void
@@ -241,7 +242,7 @@ interface PlayerModalProps {
 
 function PlayerModal({
   player, isEditMode, leagueHeaders, leagueId,
-  membershipMap, displayQuarters, teams, leaderMap,
+  membershipMap, displayQuarters, teams, leaderMap, teamOverrides,
   onClose, onSaved, onDeleted,
 }: PlayerModalProps) {
   const [isP1, setIsP1] = useState(player.plus_one)
@@ -286,16 +287,21 @@ function PlayerModal({
       .finally(() => setStatsLoading(false))
   }, [leagueId, player.id])
 
-  // 분기별 팀 정보 helpers
+  // 분기별 팀 정보 helpers — 팀명/색상은 분기별 override 우선 적용
   function getQLabel(qId: string, pid: string): string {
     const m = membershipMap[qId]?.[pid]
     if (!m || m.is_regular === null) return '—'
     if (!m.is_regular) return '비정규'
+    if (!m.team_id) return '—'
+    const ov = teamOverrides[qId]?.[m.team_id]
+    if (ov?.name) return ov.name
     return teams.find(t => t.id === m.team_id)?.name ?? '—'
   }
   function getQTeamColor(qId: string, pid: string): string | null {
     const m = membershipMap[qId]?.[pid]
     if (!m || !m.is_regular || !m.team_id) return null
+    const ov = teamOverrides[qId]?.[m.team_id]
+    if (ov?.color) return ov.color
     return teams.find(t => t.id === m.team_id)?.color ?? null
   }
   function getQTeamId(qId: string, pid: string): string | null {
@@ -872,6 +878,8 @@ export default function LeagueRosterPage() {
   const [membershipMap, setMembershipMap] = useState<PlayerQuarterMap>({})
   const [leaderMap, setLeaderMap] = useState<LeaderMap>({})
   const [leaderBadges, setLeaderBadges] = useState<Record<string, import('@/components/league/LeaderBadgePanel').LeaderBadgeCounts>>({})
+  // (quarter_id → team_id → {name, color}) 분기별 팀명/색상 override 룩업
+  const [teamOverrides, setTeamOverrides] = useState<Record<string, Record<string, { name: string | null; color: string | null }>>>({})
   const [loading, setLoading] = useState(true)
 
   // Add form
@@ -990,6 +998,18 @@ export default function LeagueRosterPage() {
     fetch(`/api/leagues/${leagueId}/leader-badges`)
       .then(r => r.ok ? r.json() : {})
       .then(data => setLeaderBadges(data ?? {}))
+      .catch(() => null)
+
+    // 분기별 팀명/색상 override 룩업 — 각 셀 표시에 사용
+    fetch(`/api/leagues/${leagueId}/team-overrides`)
+      .then(r => r.ok ? r.json() : [])
+      .then((rows: { quarter_id: string; team_id: string; name: string | null; color: string | null }[]) => {
+        const map: Record<string, Record<string, { name: string | null; color: string | null }>> = {}
+        for (const r of rows) {
+          (map[r.quarter_id] ||= {})[r.team_id] = { name: r.name, color: r.color }
+        }
+        setTeamOverrides(map)
+      })
       .catch(() => null)
 
     setLoading(false)
@@ -1177,6 +1197,10 @@ export default function LeagueRosterPage() {
     const m = membershipMap[quarterId]?.[playerId]
     if (!m || m.is_regular === null) return '—'
     if (!m.is_regular) return '비정규'
+    if (!m.team_id) return '—'
+    // 분기별 override 우선, 없으면 base team 이름
+    const ov = teamOverrides[quarterId]?.[m.team_id]
+    if (ov?.name) return ov.name
     const team = teams.find(t => t.id === m.team_id)
     return team?.name ?? '—'
   }
@@ -1184,6 +1208,8 @@ export default function LeagueRosterPage() {
   function getCellTeamColor(quarterId: string, playerId: string): string | null {
     const m = membershipMap[quarterId]?.[playerId]
     if (!m || !m.is_regular || !m.team_id) return null
+    const ov = teamOverrides[quarterId]?.[m.team_id]
+    if (ov?.color) return ov.color
     const team = teams.find(t => t.id === m.team_id)
     return team?.color ?? null
   }

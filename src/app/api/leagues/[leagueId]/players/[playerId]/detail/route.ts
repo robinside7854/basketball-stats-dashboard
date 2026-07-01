@@ -49,9 +49,25 @@ export async function GET(
     ? (allGames ?? []).filter(g => g.quarter_id === quarterId)
     : (allGames ?? [])
 
+  // 분기별 팀명/색상 override 적용 — quarterId 필터가 있으면 해당 분기 override 로 이름·색상 치환.
+  // 없으면 base league_teams 그대로 사용 (전체 시즌 뷰 — 기본값).
+  let teamsForDisplay = (teams ?? []) as { id: string; name: string; color?: string }[]
+  if (quarterId) {
+    const { data: overrides } = await supabase
+      .from('league_team_quarter_overrides')
+      .select('team_id, name, color')
+      .eq('league_id', leagueId)
+      .eq('quarter_id', quarterId)
+    const ovMap = Object.fromEntries((overrides ?? []).map(o => [o.team_id, o]))
+    teamsForDisplay = teamsForDisplay.map(t => {
+      const ov = ovMap[t.id]
+      return ov ? { ...t, name: ov.name ?? t.name, color: ov.color ?? t.color } : t
+    })
+  }
+
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
-  const teamMap = Object.fromEntries((teams ?? []).map(t => [t.id, t.name]))
-  const teamFullMap = Object.fromEntries((teams ?? []).map(t => [t.id, { id: t.id, name: t.name, color: (t as { color?: string }).color ?? '#9ca3af' }]))
+  const teamMap = Object.fromEntries(teamsForDisplay.map(t => [t.id, t.name]))
+  const teamFullMap = Object.fromEntries(teamsForDisplay.map(t => [t.id, { id: t.id, name: t.name, color: t.color ?? '#9ca3af' }]))
   const gameIds = (games ?? []).map(g => g.id)
   const gameMap = Object.fromEntries((games ?? []).map(g => [g.id, g]))
   const gamePlusOneMap: Record<string, string | null> = {}
