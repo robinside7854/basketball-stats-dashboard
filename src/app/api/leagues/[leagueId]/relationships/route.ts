@@ -39,17 +39,26 @@ export async function GET(
     .eq('league_id', leagueId)
   const playerMap = new Map((players ?? []).map((p: { id: string; name: string; number: string | null }) => [p.id, p]))
 
-  // ── 어시스트 쿼리 (별도): made + related_player_id 있는 슛만 ──
-  // PostgREST 기본 1000-row 상한 회피 위해 명시적 limit — 실제로 전체 시즌 어시스트
-  // 이벤트 수가 1000 을 넘으면 카운트가 잘려서 듀오 집계 오차 발생 (2026: 1Q 970 + 2Q 822 = 1792).
-  const { data: assistEvents } = await supabase
-    .from('league_game_events')
-    .select('league_player_id, related_player_id, type')
-    .in('league_game_id', gameIds)
-    .in('type', [...FIELD_SHOT_TYPES])
-    .eq('result', 'made')
-    .not('related_player_id', 'is', null)
-    .limit(200000)
+  // ── 어시스트 쿼리 (페이지네이션): made + related_player_id 있는 슛만 ──
+  // PostgREST 는 서버측 db-max-rows(=1000) 가 클라이언트 .limit() 보다 우선하기 때문에
+  // .limit(200000) 만으로는 전체를 가져올 수 없음 → .range() 로 청크 반복.
+  const PAGE = 1000
+  const assistEvents: { league_player_id: string | null; related_player_id: string | null; type: string }[] = []
+  for (let p = 0; ; p++) {
+    const { data: chunk, error: eErr } = await supabase
+      .from('league_game_events')
+      .select('league_player_id, related_player_id, type')
+      .in('league_game_id', gameIds)
+      .in('type', [...FIELD_SHOT_TYPES])
+      .eq('result', 'made')
+      .not('related_player_id', 'is', null)
+      .order('id', { ascending: true })   // 페이지 간 중복/누락 방지
+      .range(p * PAGE, (p + 1) * PAGE - 1)
+    if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 })
+    if (!chunk || chunk.length === 0) break
+    assistEvents.push(...chunk)
+    if (chunk.length < PAGE) break
+  }
 
   const assistMap: Record<string, Record<string, number>> = {}
   for (const e of (assistEvents ?? [])) {
@@ -68,14 +77,22 @@ export async function GET(
   }
   assistPairs.sort((a, b) => b.count - a.count)
 
-  // ── 스틸-TOV 쿼리 (별도): steal + turnover 이벤트만 ──────────
-  // 어시스트 쿼리와 동일 이유로 명시적 limit — 1000-row 상한 회피.
-  const { data: stlTovEvents } = await supabase
-    .from('league_game_events')
-    .select('type, league_player_id, related_player_id, team_id, league_game_id, video_timestamp')
-    .in('league_game_id', gameIds)
-    .in('type', ['steal', 'turnover'])
-    .limit(200000)
+  // ── 스틸-TOV 쿼리 (페이지네이션): steal + turnover 이벤트만 ──────────
+  // 어시스트 쿼리와 동일 이유 — 서버측 상한 우회를 위해 청크 반복.
+  const stlTovEvents: { type: string; league_player_id: string | null; related_player_id: string | null; team_id: string | null; league_game_id: string | null; video_timestamp: number | null }[] = []
+  for (let p = 0; ; p++) {
+    const { data: chunk, error: eErr } = await supabase
+      .from('league_game_events')
+      .select('type, league_player_id, related_player_id, team_id, league_game_id, video_timestamp')
+      .in('league_game_id', gameIds)
+      .in('type', ['steal', 'turnover'])
+      .order('id', { ascending: true })
+      .range(p * PAGE, (p + 1) * PAGE - 1)
+    if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 })
+    if (!chunk || chunk.length === 0) break
+    stlTovEvents.push(...chunk)
+    if (chunk.length < PAGE) break
+  }
 
   const stlEvents  = (stlTovEvents ?? []).filter(e => e.type === 'steal')
   const tovEvents  = (stlTovEvents ?? []).filter(e => e.type === 'turnover')

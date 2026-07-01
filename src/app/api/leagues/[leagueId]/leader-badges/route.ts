@@ -51,20 +51,27 @@ export async function GET(
   for (const g of gameRows) gameDateMap.set(g.id, g.date)
   const gameIds = gameRows.map(g => g.id)
 
-  // 2) 이 게임들의 모든 이벤트 (필요한 필드만)
-  const { data: events } = await supabase
-    .from('league_game_events')
-    .select('league_game_id, league_player_id, related_player_id, type, result, points')
-    .in('league_game_id', gameIds)
-    .limit(200000)
-  const evs = (events ?? []) as {
+  // 2) 이 게임들의 모든 이벤트 (필요한 필드만) — 페이지네이션으로 서버측 상한 우회
+  const PAGE = 1000
+  const evs: {
     league_game_id: string
     league_player_id: string | null
     related_player_id: string | null
     type: string
     result: string | null
     points: number | null
-  }[]
+  }[] = []
+  for (let p = 0; ; p++) {
+    const { data: chunk } = await supabase
+      .from('league_game_events')
+      .select('league_game_id, league_player_id, related_player_id, type, result, points')
+      .in('league_game_id', gameIds)
+      .order('id', { ascending: true })
+      .range(p * PAGE, (p + 1) * PAGE - 1)
+    if (!chunk || chunk.length === 0) break
+    evs.push(...(chunk as typeof evs))
+    if (chunk.length < PAGE) break
+  }
 
   // 3) date × playerId → 스탯 누적
   type DayStats = Map<string, { pts: number; reb: number; ast: number; blk: number; stl: number; tp: number }>

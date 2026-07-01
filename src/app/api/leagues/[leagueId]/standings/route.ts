@@ -47,19 +47,29 @@ export async function GET(
   const eventScoreMap: Record<string, { home: number; away: number }> = {}
 
   if (gameIds.length > 0) {
-    const { data: events } = await supabase
-      .from('league_game_events')
-      .select('league_game_id, team_id, points')
-      .in('league_game_id', gameIds)
-      .not('team_id', 'is', null)
-      .gt('points', 0)
-      .limit(200000)  // PostgREST 1000-row 상한 회피 — 전체 시즌 득점 이벤트 카운트 정확도 확보
+    // 서버측 db-max-rows(=1000) 우회 위해 페이지네이션으로 청크 반복 조회.
+    const PAGE = 1000
+    const events: { league_game_id: string | null; team_id: string | null; points: number | null }[] = []
+    for (let p = 0; ; p++) {
+      const { data: chunk } = await supabase
+        .from('league_game_events')
+        .select('league_game_id, team_id, points')
+        .in('league_game_id', gameIds)
+        .not('team_id', 'is', null)
+        .gt('points', 0)
+        .order('id', { ascending: true })
+        .range(p * PAGE, (p + 1) * PAGE - 1)
+      if (!chunk || chunk.length === 0) break
+      events.push(...chunk)
+      if (chunk.length < PAGE) break
+    }
 
-    if (events && events.length > 0) {
+    if (events.length > 0) {
       const gameTeamMap = Object.fromEntries(
         (completedGames ?? []).map(g => [g.id, { home: g.home_team_id, away: g.away_team_id }])
       )
       for (const e of events) {
+        if (!e.league_game_id || e.points == null) continue
         if (!eventScoreMap[e.league_game_id]) eventScoreMap[e.league_game_id] = { home: 0, away: 0 }
         const gTeams = gameTeamMap[e.league_game_id]
         if (!gTeams) continue
