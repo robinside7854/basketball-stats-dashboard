@@ -40,6 +40,8 @@ export async function GET(
   const playerMap = new Map((players ?? []).map((p: { id: string; name: string; number: string | null }) => [p.id, p]))
 
   // ── 어시스트 쿼리 (별도): made + related_player_id 있는 슛만 ──
+  // PostgREST 기본 1000-row 상한 회피 위해 명시적 limit — 실제로 전체 시즌 어시스트
+  // 이벤트 수가 1000 을 넘으면 카운트가 잘려서 듀오 집계 오차 발생 (2026: 1Q 970 + 2Q 822 = 1792).
   const { data: assistEvents } = await supabase
     .from('league_game_events')
     .select('league_player_id, related_player_id, type')
@@ -47,6 +49,7 @@ export async function GET(
     .in('type', [...FIELD_SHOT_TYPES])
     .eq('result', 'made')
     .not('related_player_id', 'is', null)
+    .limit(200000)
 
   const assistMap: Record<string, Record<string, number>> = {}
   for (const e of (assistEvents ?? [])) {
@@ -66,11 +69,13 @@ export async function GET(
   assistPairs.sort((a, b) => b.count - a.count)
 
   // ── 스틸-TOV 쿼리 (별도): steal + turnover 이벤트만 ──────────
+  // 어시스트 쿼리와 동일 이유로 명시적 limit — 1000-row 상한 회피.
   const { data: stlTovEvents } = await supabase
     .from('league_game_events')
     .select('type, league_player_id, related_player_id, team_id, league_game_id, video_timestamp')
     .in('league_game_id', gameIds)
     .in('type', ['steal', 'turnover'])
+    .limit(200000)
 
   const stlEvents  = (stlTovEvents ?? []).filter(e => e.type === 'steal')
   const tovEvents  = (stlTovEvents ?? []).filter(e => e.type === 'turnover')

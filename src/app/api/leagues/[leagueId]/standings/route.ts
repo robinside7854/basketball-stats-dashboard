@@ -53,6 +53,7 @@ export async function GET(
       .in('league_game_id', gameIds)
       .not('team_id', 'is', null)
       .gt('points', 0)
+      .limit(200000)  // PostgREST 1000-row 상한 회피 — 전체 시즌 득점 이벤트 카운트 정확도 확보
 
     if (events && events.length > 0) {
       const gameTeamMap = Object.fromEntries(
