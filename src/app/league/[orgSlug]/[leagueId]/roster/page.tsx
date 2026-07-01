@@ -6,11 +6,11 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Pencil, Check, X, BookOpen } from 'lucide-react'
+import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Pencil, Check, X } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
-import BadgeBookModal from '@/components/league/BadgeBookModal'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
-import { type EvaluatedBadge, type BadgeCategory } from '@/lib/stats/badges'
+import { type EvaluatedBadge } from '@/lib/stats/badges'
+import { LeaderBadgeInline } from '@/components/league/LeaderBadgePanel'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
 // 업로드 전 이미지를 600×800(3:4) 이하로 리사이즈 + JPEG 압축
@@ -259,7 +259,6 @@ function PlayerModal({
   const [stats, setStats] = useState<PlayerSeasonStats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
   const [detail, setDetail] = useState<PlayerDetail | null>(null)
-  const [showBadgeBook, setShowBadgeBook] = useState(false)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -698,90 +697,6 @@ function PlayerModal({
             </div>
           )}
 
-          {/* ── 배지 도감 ─────────────────────────────────────── */}
-          {detail && (
-            <div className="px-6 py-4 border-t border-gray-800/60">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs text-gray-600 uppercase tracking-widest font-bold">보유 배지</p>
-                <button
-                  onClick={() => setShowBadgeBook(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/40 text-indigo-400 text-[11px] font-bold cursor-pointer transition-colors"
-                >
-                  <BookOpen size={11} />
-                  전체 도감
-                </button>
-              </div>
-              {(() => {
-                const earnedAll = (detail.badges ?? []).filter(b => b.tier !== null)
-                if (earnedAll.length === 0) return (
-                  <p className="text-xs text-gray-500">아직 획득한 배지가 없습니다</p>
-                )
-                const TIER_BG = {
-                  gold:   'bg-yellow-400/15 border-yellow-500/40 dark:bg-yellow-400/20 dark:border-yellow-400/50',
-                  silver: 'bg-slate-200/60 border-slate-300/60 dark:bg-gray-300/15 dark:border-gray-300/40',
-                  bronze: 'bg-orange-100/60 border-orange-300/50 dark:bg-orange-500/15 dark:border-orange-500/40',
-                } as const
-                const TIER_COLOR = {
-                  gold:   'text-amber-700 dark:text-yellow-300',
-                  silver: 'text-slate-600 dark:text-gray-300',
-                  bronze: 'text-orange-700 dark:text-orange-400',
-                } as const
-                const TIER_CHIP = {
-                  gold:   'bg-yellow-100 border-yellow-400/50 text-amber-700 dark:bg-yellow-400/20 dark:border-yellow-400/50 dark:text-yellow-300',
-                  silver: 'bg-slate-100 border-slate-300 text-slate-600 dark:bg-gray-300/15 dark:border-gray-300/40 dark:text-gray-300',
-                  bronze: 'bg-orange-50 border-orange-300/60 text-orange-700 dark:bg-orange-500/15 dark:border-orange-500/40 dark:text-orange-400',
-                } as const
-                const TIER_CRIT = {
-                  gold:   'text-amber-600 dark:text-yellow-500/80',
-                  silver: 'text-slate-500 dark:text-gray-400',
-                  bronze: 'text-orange-600 dark:text-orange-500/80',
-                } as const
-                // 티어 → 카테고리 순 정렬
-                const TIER_ORD = { gold: 0, silver: 1, bronze: 2 } as const
-                const CAT_ORD: Record<BadgeCategory, number> = { attack: 0, shooting: 1, defense: 2, playmaking: 3 }
-                const sorted = [...earnedAll].sort((a, b) =>
-                  TIER_ORD[a.tier as keyof typeof TIER_ORD] - TIER_ORD[b.tier as keyof typeof TIER_ORD] ||
-                  CAT_ORD[a.category] - CAT_ORD[b.category]
-                )
-                const goldCount   = earnedAll.filter(b => b.tier === 'gold').length
-                const silverCount = earnedAll.filter(b => b.tier === 'silver').length
-                const bronzeCount = earnedAll.filter(b => b.tier === 'bronze').length
-                return (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="text-xs text-gray-500">{earnedAll.length}개 보유</span>
-                      {goldCount   > 0 && <span className="text-xs font-bold text-amber-600 dark:text-yellow-300">🥇 {goldCount}</span>}
-                      {silverCount > 0 && <span className="text-xs font-bold text-slate-500 dark:text-gray-300">🥈 {silverCount}</span>}
-                      {bronzeCount > 0 && <span className="text-xs font-bold text-orange-600 dark:text-orange-400">🥉 {bronzeCount}</span>}
-                    </div>
-                    {sorted.map(b => {
-                      const tier = b.tier as 'gold' | 'silver' | 'bronze'
-                      const criteria = b.tierCriteria[tier]
-                      return (
-                        <div key={b.code} className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 ${TIER_BG[tier]}`}>
-                          <span className="text-2xl shrink-0 mt-0.5">{b.icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                              <span className={`text-sm font-black ${TIER_COLOR[tier]}`}>{b.name}</span>
-                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${TIER_CHIP[tier]}`}>
-                                {tier === 'gold' ? '🥇 GOLD' : tier === 'silver' ? '🥈 SILVER' : '🥉 BRONZE'}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-gray-400 dark:text-gray-400 leading-snug">{b.description}</p>
-                            {criteria && (
-                              <p className={`text-[10px] mt-1 font-medium ${TIER_CRIT[tier]}`}>
-                                {tier === 'gold' ? '🥇' : tier === 'silver' ? '🥈' : '🥉'} {criteria}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })()}
-            </div>
-          )}
 
           {/* ── 커리어 하이 ───────────────────────────────────── */}
           {detail && Object.keys(detail.career_high).length > 0 && (
@@ -941,15 +856,6 @@ function PlayerModal({
       </div>
     </div>
 
-    {/* 배지 도감 팝업 (PlayerModal 내부에서 열림) */}
-    {showBadgeBook && (
-      <BadgeBookModal
-        playerId={player.id}
-        playerName={player.name}
-        leagueId={leagueId}
-        onClose={() => setShowBadgeBook(false)}
-      />
-    )}
     </>
   )
 }
@@ -965,6 +871,7 @@ export default function LeagueRosterPage() {
   const [plusOneAge, setPlusOneAge] = useState<number | null>(null)
   const [membershipMap, setMembershipMap] = useState<PlayerQuarterMap>({})
   const [leaderMap, setLeaderMap] = useState<LeaderMap>({})
+  const [leaderBadges, setLeaderBadges] = useState<Record<string, import('@/components/league/LeaderBadgePanel').LeaderBadgeCounts>>({})
   const [loading, setLoading] = useState(true)
 
   // Add form
@@ -981,7 +888,6 @@ export default function LeagueRosterPage() {
 
   // 수정 3: 선수 상세 모달
   const [selectedPlayer, setSelectedPlayer] = useState<LeaguePlayer | null>(null)
-  const [badgeBookPlayer, setBadgeBookPlayer] = useState<LeaguePlayer | null>(null)
 
   // Quarter cell edit
   const [editingCell, setEditingCell] = useState<{ playerId: string; quarterId: string } | null>(null)
@@ -1079,6 +985,12 @@ export default function LeagueRosterPage() {
       setMembershipMap(newMembership)
       setLeaderMap(newLeader)
     }
+
+    // 리더 뱃지 (경기일 부문별 1등 카운트) — 실패해도 UI 나머지는 그대로
+    fetch(`/api/leagues/${leagueId}/leader-badges`)
+      .then(r => r.ok ? r.json() : {})
+      .then(data => setLeaderBadges(data ?? {}))
+      .catch(() => null)
 
     setLoading(false)
   }
@@ -1556,15 +1468,10 @@ export default function LeagueRosterPage() {
                     <p className="text-xs text-gray-500 mb-2">생년월일 미입력</p>
                   )}
 
-                  {/* 도감 버튼 */}
-                  <button
-                    onClick={e => { e.stopPropagation(); setBadgeBookPlayer(p) }}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-800/60 hover:bg-indigo-900/30 border border-gray-700/60 hover:border-indigo-500/50 text-gray-600 hover:text-indigo-400 text-[11px] font-medium transition-colors cursor-pointer mb-2.5"
-                    title="배지 도감 보기"
-                  >
-                    <BookOpen size={11} />
-                    도감
-                  </button>
+                  {/* 리더 뱃지 요약 (경기일 부문별 1등 카운트) */}
+                  {leaderBadges[p.id] && (
+                    <LeaderBadgeInline badges={leaderBadges[p.id]} className="mb-2.5" />
+                  )}
 
                   {/* 분기별 팀 배정 */}
                   {displayQuarters.length > 0 && (
@@ -1730,14 +1637,6 @@ export default function LeagueRosterPage() {
         />
       )}
 
-      {badgeBookPlayer && (
-        <BadgeBookModal
-          playerId={badgeBookPlayer.id}
-          playerName={badgeBookPlayer.name}
-          leagueId={leagueId}
-          onClose={() => setBadgeBookPlayer(null)}
-        />
-      )}
     </div>
   )
 }

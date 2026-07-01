@@ -1,11 +1,11 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, X, BookOpen, Crown } from 'lucide-react'
-import BadgeBookModal from '@/components/league/BadgeBookModal'
+import { Loader2, X, Crown } from 'lucide-react'
+import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
 import { CountUp, FormDots } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
-import { type EvaluatedBadge, type BadgeCategory } from '@/lib/stats/badges'
+import { type EvaluatedBadge } from '@/lib/stats/badges'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, PieChart, Pie, Cell as PieCell } from 'recharts'
 
 type PlayerInfo = {
@@ -150,7 +150,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [stats, setStats] = useState<SeasonStats | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
   const [loading, setLoading] = useState(true)
-  const [showBadgeBook, setShowBadgeBook] = useState(false)
+  const [leaderBadges, setLeaderBadges] = useState<LeaderBadgeCounts | null>(null)
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [selectedQuarterId, setSelectedQuarterId] = useState<string | null>(null)
   const [quarterDetail, setQuarterDetail] = useState<Detail | null>(null)
@@ -167,11 +167,12 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [playersRes, statsRes, detailRes, quartersRes] = await Promise.all([
+      const [playersRes, statsRes, detailRes, quartersRes, leaderRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/players`),
         fetch(`/api/leagues/${leagueId}/stats?playerId=${playerId}`),
         fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?unit=${statUnit}`),
         fetch(`/api/leagues/${leagueId}/quarters`),
+        fetch(`/api/leagues/${leagueId}/leader-badges?playerId=${playerId}`),
       ])
       if (playersRes.ok) {
         const all: PlayerInfo[] = await playersRes.json()
@@ -185,6 +186,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       if (quartersRes.ok) {
         const qs: Quarter[] = await quartersRes.json()
         setQuarters(qs)
+      }
+      if (leaderRes.ok) {
+        const lb = await leaderRes.json()
+        setLeaderBadges(lb[playerId] ?? null)
       }
     } finally { setLoading(false) }
   }, [leagueId, playerId, statUnit])
@@ -217,35 +222,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const positions = (player?.position ?? '').split(',').map(p => p.trim()).filter(Boolean)
   const age = calcAge(player?.birth_date ?? null)
 
-  const TIER_COLOR = {
-    gold:   'text-amber-700 dark:text-yellow-300',
-    silver: 'text-slate-600 dark:text-gray-300',
-    bronze: 'text-orange-700 dark:text-orange-400',
-  } as const
-  const TIER_BG = {
-    gold:   'bg-yellow-400/15 border-yellow-500/40 dark:bg-yellow-400/20 dark:border-yellow-400/50',
-    silver: 'bg-slate-200/60 border-slate-300/60 dark:bg-gray-300/15 dark:border-gray-300/40',
-    bronze: 'bg-orange-100/60 border-orange-300/50 dark:bg-orange-500/15 dark:border-orange-500/40',
-  } as const
-  const TIER_CHIP = {
-    gold:   'bg-yellow-100 border-yellow-400/50 text-amber-700 dark:bg-yellow-400/20 dark:border-yellow-400/50 dark:text-yellow-300',
-    silver: 'bg-slate-100 border-slate-300 text-slate-600 dark:bg-gray-300/15 dark:border-gray-300/40 dark:text-gray-300',
-    bronze: 'bg-orange-50 border-orange-300/60 text-orange-700 dark:bg-orange-500/15 dark:border-orange-500/40 dark:text-orange-400',
-  } as const
-  const TIER_CRIT = {
-    gold:   'text-amber-600 dark:text-yellow-500/80',
-    silver: 'text-slate-500 dark:text-gray-400',
-    bronze: 'text-orange-600 dark:text-orange-500/80',
-  } as const
-  const TIER_ORD = { gold: 0, silver: 1, bronze: 2 } as const
-  const CAT_ORD: Record<BadgeCategory, number> = { attack: 0, shooting: 1, defense: 2, playmaking: 3 }
-  const earnedBadgesSorted = [...(detail?.badges ?? [])]
-    .filter(b => b.tier !== null)
-    .sort((a, b) =>
-      TIER_ORD[a.tier as keyof typeof TIER_ORD] - TIER_ORD[b.tier as keyof typeof TIER_ORD] ||
-      CAT_ORD[a.category] - CAT_ORD[b.category]
-    )
-
   // 분기 탭 레이블
   const quarterLabel = (q: Quarter) => `${String(q.year).slice(2)}.${q.quarter}Q`
 
@@ -276,10 +252,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowBadgeBook(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-900/30 hover:bg-indigo-900/50 border border-indigo-500/40 text-indigo-400 text-xs font-bold cursor-pointer transition-colors">
-              <BookOpen size={12} /> 도감
-            </button>
             {isEditMode && (
               <button
                 onClick={() => setShowEditPanel(v => !v)}
@@ -585,42 +557,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               <div className="px-5 py-6 text-center text-sm text-gray-600 border-b border-gray-800/60">아직 기록된 스탯이 없습니다</div>
             )}
 
-            {/* 배지 — 2-3열 그리드 (항상 전체 시즌 기준) */}
-            {earnedBadgesSorted.length > 0 && (
-              <div className="px-5 py-4 border-b border-gray-800/60">
-                <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs text-gray-600 uppercase tracking-widest font-bold">보유 배지 {earnedBadgesSorted.length}개</p>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-900/40 border border-indigo-700/50 text-indigo-300">전체 시즌 기준</span>
-                  </div>
-                  <button onClick={() => setShowBadgeBook(true)} className="text-[10px] text-indigo-400 hover:text-indigo-300 cursor-pointer">전체 도감 →</button>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {earnedBadgesSorted.map(b => {
-                    const tier = b.tier as 'gold' | 'silver' | 'bronze'
-                    const criteria = b.tierCriteria[tier]
-                    return (
-                      <div key={b.code} className={`flex flex-col gap-1.5 rounded-xl border px-2.5 py-2 ${TIER_BG[tier]}`}>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xl shrink-0">{b.icon}</span>
-                          <div className="min-w-0">
-                            <p className={`text-sm font-black leading-tight truncate ${TIER_COLOR[tier]}`}>{b.name}</p>
-                            <span className={`text-[9px] font-bold px-1 py-0.5 rounded-full border inline-block ${TIER_CHIP[tier]}`}>
-                              {tier === 'gold' ? 'GOLD' : tier === 'silver' ? 'SILVER' : 'BRONZE'}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-[10px] text-gray-400 leading-snug line-clamp-2">{b.description}</p>
-                        {criteria && (
-                          <p className={`text-[9px] font-medium ${TIER_CRIT[tier]}`}>
-                            {tier === 'gold' ? '🥇' : tier === 'silver' ? '🥈' : '🥉'} {criteria}
-                          </p>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+            {/* 리더 뱃지 — 부문별 1등 카운트 (POTM) */}
+            {leaderBadges && (
+              <LeaderBadgePanel badges={leaderBadges} />
             )}
 
             {/* 출전 임팩트 */}
@@ -988,14 +927,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       </div>
     </div>
 
-    {showBadgeBook && (
-      <BadgeBookModal
-        playerId={playerId}
-        playerName={player?.name ?? playerName}
-        leagueId={leagueId}
-        onClose={() => setShowBadgeBook(false)}
-      />
-    )}
     </>
   )
 }
