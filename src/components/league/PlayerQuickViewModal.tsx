@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Loader2, X, Crown } from 'lucide-react'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
+import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 import { CountUp, FormDots } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
@@ -167,6 +168,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
   const [rating, setRating] = useState<PlayerRating | null>(null)
   const [quarterRating, setQuarterRating] = useState<PlayerRating | null>(null)
+  const [careerHighBoxscoreDate, setCareerHighBoxscoreDate] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -608,9 +610,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               <div className="px-5 py-6 text-center text-sm text-gray-600 border-b border-gray-800/60">아직 기록된 스탯이 없습니다</div>
             )}
 
-            {/* 리더 뱃지 — 부문별 1등 카운트 (POTM) */}
+            {/* 게임 스탯 리더 — 부문별 1등 카운트 (POTM) · 클릭 시 등극 날짜 목록 */}
             {leaderBadges && (
-              <LeaderBadgePanel badges={leaderBadges} />
+              <LeaderBadgePanel badges={leaderBadges} leagueId={leagueId} playerId={playerId} />
             )}
 
             {/* 출전 임팩트 */}
@@ -864,24 +866,52 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 <div className="px-5 py-4 border-b border-gray-800/60">
                   <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">
                     Career High <span className="text-amber-400">Day</span>
+                    <span className="ml-2 text-[10px] text-gray-600 font-normal normal-case">날짜 클릭 → 박스스코어</span>
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {entries.map(([key, ch]) => (
-                      <div key={key} className="bg-gray-900/60 border border-gray-800/50 rounded-xl px-3 py-2.5">
-                        <div className="flex items-baseline gap-1.5">
-                          <p className="text-3xl font-black text-yellow-300 leading-none">{ch.value}</p>
-                          <p className="text-[10px] text-gray-500 font-bold">{CH_LABEL[key] ?? key.toUpperCase()}</p>
+                    {entries.map(([key, ch]) => {
+                      const clickable = Boolean(ch.date)
+                      const inner = (
+                        <>
+                          <div className="flex items-baseline gap-1.5">
+                            <p className="text-3xl font-black text-yellow-300 leading-none">{ch.value}</p>
+                            <p className="text-[10px] text-gray-500 font-bold">{CH_LABEL[key] ?? key.toUpperCase()}</p>
+                          </div>
+                          {ch.date && (
+                            <p className={`text-[10px] mt-1.5 font-medium ${clickable ? 'text-amber-300 group-hover:text-amber-200' : 'text-gray-400'}`}>
+                              {ch.date}{clickable && <span className="ml-1 text-[9px] text-gray-500 group-hover:text-amber-300">→</span>}
+                            </p>
+                          )}
+                          {ch.extra && <p className="text-[10px] text-gray-500 mt-0.5">{ch.extra}</p>}
+                        </>
+                      )
+                      return clickable ? (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setCareerHighBoxscoreDate(ch.date as string)}
+                          className="text-left bg-gray-900/60 border border-gray-800/50 rounded-xl px-3 py-2.5 group hover:border-amber-500/40 hover:bg-amber-900/10 hover:-translate-y-0.5 transition-all cursor-pointer"
+                          title={`${ch.date} 박스스코어 보기`}
+                        >
+                          {inner}
+                        </button>
+                      ) : (
+                        <div key={key} className="bg-gray-900/60 border border-gray-800/50 rounded-xl px-3 py-2.5">
+                          {inner}
                         </div>
-                        {ch.date && (
-                          <p className="text-[10px] text-gray-400 mt-1.5 font-medium">{ch.date}</p>
-                        )}
-                        {ch.extra && <p className="text-[10px] text-gray-500 mt-0.5">{ch.extra}</p>}
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )
             })()}
+            {careerHighBoxscoreDate && (
+              <DailyBoxscoreModal
+                leagueId={leagueId}
+                date={careerHighBoxscoreDate}
+                onClose={() => setCareerHighBoxscoreDate(null)}
+              />
+            )}
 
             {/* 상대팀별 스탯 (vs Opponents) */}
             {detail?.vs_opponents && detail.vs_opponents.length > 0 && (
