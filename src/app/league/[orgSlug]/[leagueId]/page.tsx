@@ -4,6 +4,7 @@ import Link from 'next/link'
 import LeagueStandingsTabs from '@/components/league/LeagueStandingsTabs'
 import LeagueSchedule from '@/components/league/LeagueSchedule'
 import HighlightBanner, { type HighlightPlayer } from '@/components/league/HighlightBanner'
+import LeagueLeadersGrid from '@/components/league/LeagueLeadersGrid'
 import type { League, LeagueStanding, LeagueGame, LeagueTeam, Quarter } from '@/types/league'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
@@ -266,6 +267,9 @@ export default async function LeagueDetailPage({
         hotHand={highlights.hotHand}
         dateRangeLabel={highlights.rangeLabel}
       />
+
+      {/* 리그 리더 카드 그리드 (8개 카테고리 Top-5) */}
+      <LeagueLeadersGrid leagueId={leagueId} />
 
       {/* PC: 2컬럼 (순위표 우측 고정 + 좌측 일정), 모바일: 스택 */}
       <div className="lg:grid lg:grid-cols-[1fr_1fr] lg:gap-4 xl:gap-5 lg:items-start space-y-5 lg:space-y-0">

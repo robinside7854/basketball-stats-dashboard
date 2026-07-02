@@ -115,6 +115,10 @@ export type PlayerStat = {
   md_a: number; md_m: number   // 미드레인지 (shot_2p_mid)
   // TRB% 계산용
   team_reb_in_games: number    // 본인 출전 경기의 본인 팀 총 리바운드
+  // USG% 계산용
+  team_poss_in_games: number   // 본인 출전 경기의 본인 팀 총 소유권 (FGA + 0.44×FTA + TOV)
+  // Per-40 계산용
+  minutes_played: number       // 본인 총 출전 시간 (분)
 }
 
 export type QuarterPlayer = {

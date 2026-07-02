@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Fira_Code, Fira_Sans, Bebas_Neue, Barlow_Condensed } from 'next/font/google'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from '@/components/ThemeProvider'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import './globals.css'
 
 const firaCode = Fira_Code({
@@ -44,10 +45,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           defaultTheme="dark"
           enableSystem={false}
         >
-          {children}
-          {/* 토스트 위치 — top-center: 모바일/데스크탑 모두에서 하단 sticky CTA / 채팅 FAB / 픽 액션 패널을
-              덮지 않음. expand=false 로 스택이 위로 펼쳐지지 않게 하고 offset 으로 상단 헤더 영역 회피. */}
-          <Toaster position="top-center" richColors closeButton expand={false} offset="72px" theme="dark" />
+          <TooltipProvider>
+            {children}
+            {/* 토스트 위치 — top-center: 모바일/데스크탑 모두에서 하단 sticky CTA / 채팅 FAB / 픽 액션 패널을
+                덮지 않음. expand=false 로 스택이 위로 펼쳐지지 않게 하고 offset 으로 상단 헤더 영역 회피. */}
+            <Toaster position="top-center" richColors closeButton expand={false} offset="72px" theme="dark" />
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>

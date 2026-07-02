@@ -7,6 +7,7 @@ import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import PlayerCompareModal from '@/components/league/PlayerCompareModal'
 import LeagueDuoPanel from '@/components/league/LeagueDuoPanel'
 import RatingTopCard from '@/components/league/RatingTopCard'
+import StatHeader from '@/components/league/StatHeader'
 import { PercentBar } from '@/components/league/StatCell'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
 import type { Quarter, PlayerStat } from '@/types/league'
@@ -68,8 +69,9 @@ function TopScorersChart({ players, statKey, statLabel, statUnit, color }: {
 }
 
 type ViewMode = 'avg' | 'total'
+type StatUnit = 'round' | 'game' | 'per40'
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
-type AdvKey = 'at_ratio'|'ast_pct'|'tov_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
+type AdvKey = 'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'ds_pct'|'lu_pct'|'md_pct'|'three_share'
 type StatMode = 'basic'|'shooting'|'advanced'
 
@@ -109,7 +111,7 @@ export default function LeagueStatsPage() {
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
   const [compareModalOpen, setCompareModalOpen] = useState(false)
   const [selectedChartStat, setSelectedChartStat] = useState<ChartStatKey>('ppg')
-  const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
+  const [statUnit, setStatUnit] = useState<StatUnit>('round')
 
   const toggleCompare = (player: PlayerStat) => {
     setCompareIds(prev => {
@@ -135,9 +137,11 @@ export default function LeagueStatsPage() {
 
   useEffect(() => {
     setLoading(true)
+    // Per-40 모드는 서버 집계 단위는 'game' 을 사용 (분수 계산은 클라이언트에서 minutes_played 로 수행)
+    const serverUnit = statUnit === 'per40' ? 'game' : statUnit
     const url = selectedQuarterId === 'all'
-      ? `/api/leagues/${leagueId}/stats?unit=${statUnit}`
-      : `/api/leagues/${leagueId}/stats?quarterId=${selectedQuarterId}&unit=${statUnit}`
+      ? `/api/leagues/${leagueId}/stats?unit=${serverUnit}`
+      : `/api/leagues/${leagueId}/stats?quarterId=${selectedQuarterId}&unit=${serverUnit}`
 
     fetch(url)
       .then(r => r.json())
@@ -145,9 +149,9 @@ export default function LeagueStatsPage() {
       .catch(() => setLoading(false))
   }, [leagueId, selectedQuarterId, statUnit])
 
-  // round 모드일 때 ×5 환산 비활성 → 자동 해제
+  // round 또는 per40 모드일 때 ×5 환산 비활성 → 자동 해제
   useEffect(() => {
-    if (statUnit === 'round' && projection) setProjection(false)
+    if ((statUnit === 'round' || statUnit === 'per40') && projection) setProjection(false)
   }, [statUnit, projection])
 
   function handleSort(key: SortKey) {
@@ -172,11 +176,57 @@ export default function LeagueStatsPage() {
   const top3 = (key: SortKey) =>
     [...players].filter(p => p.gp >= effectiveMinGP).sort((a, b) => (b[key] as number) - (a[key] as number)).slice(0, 3)
 
-  // 평균 컬럼 (×5 환산 포함)
+  // 평균 컬럼 (×5 환산 포함) — Per-40 모드는 별도 계산
   const MULT = (projection && viewMode === 'avg') ? 5 : 1
+  const PER40_TARGET = 40
   function avg(p: PlayerStat, key: keyof PlayerStat) {
+    if (statUnit === 'per40') {
+      // Per-40 min: 카운팅 스탯을 총 분수로 나눈 뒤 40 곱
+      const mins = p.minutes_played ?? 0
+      if (mins <= 0) return 0
+      // 누적 스탯만 per-40 대상 (percentage/rate 제외)
+      const COUNTING = new Set<keyof PlayerStat>(['pts','reb','oreb','dreb','ast','stl','blk','tov','fgm','fga','fg3m','fg3a','ftm','fta'])
+      const AVG_TO_TOTAL: Partial<Record<keyof PlayerStat, keyof PlayerStat>> = {
+        ppg: 'pts', rpg: 'reb', orp: 'oreb', drp: 'dreb',
+        apg: 'ast', spg: 'stl', bpg: 'blk', topg: 'tov',
+      }
+      const totalKey = (AVG_TO_TOTAL[key] ?? key) as keyof PlayerStat
+      if (!COUNTING.has(totalKey)) return +(p[key] as number).toFixed(1)
+      const total = p[totalKey] as number
+      return +((total / mins) * PER40_TARGET).toFixed(1)
+    }
     return +((p[key] as number) * MULT).toFixed(1)
   }
+
+  // 시즌 리더 (bold 강조용) — 각 스탯의 최대값 보유 선수 id set
+  // 자격자(effectiveMinGP) 만 리더 후보
+  const seasonLeaders = useMemo(() => {
+    const leaders: Record<string, Set<string>> = {}
+    const pool = players.filter(p => p.gp >= effectiveMinGP)
+    const STAT_KEYS: (keyof PlayerStat)[] = [
+      'ppg','rpg','orp','drp','apg','spg','bpg','topg','pts','reb','oreb','dreb','ast','stl','blk','tov',
+      'fgm','fga','fg3m','fg3a','ftm','fta','fg_pct','fg2_pct','fg3_pct','ft_pct','efg_pct','gp','minutes_played',
+    ]
+    for (const key of STAT_KEYS) {
+      let best = -Infinity
+      let ids = new Set<string>()
+      const isPct = String(key).includes('_pct')
+      for (const p of pool) {
+        // 성공률 리더는 시도 수 최소 5회 이상만 인정 (fluke 방지)
+        if (isPct) {
+          const attempts = key === 'fg3_pct' ? p.fg3a : key === 'ft_pct' ? p.fta : p.fga
+          if ((attempts ?? 0) < 5) continue
+        }
+        const v = p[key] as number ?? 0
+        if (v > best) { best = v; ids = new Set([p.player_id]) }
+        else if (v === best) ids.add(p.player_id)
+      }
+      leaders[String(key)] = ids
+    }
+    return leaders
+  }, [players, effectiveMinGP])
+
+  const isLeader = (p: PlayerStat, key: string) => seasonLeaders[key]?.has(p.player_id) ?? false
 
   // 테이블 컬럼 정의
   const AVG_COLS: { key: SortKey; label: string }[] = [
@@ -212,6 +262,7 @@ export default function LeagueStatsPage() {
 
   // Advanced stats 컬럼 (Shooting 제외 — 효율/볼소유/리바운드 비중)
   const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
+    { key: 'usg_pct',   label: 'USG%',  desc: '사용률 · 팀 소유권 대비 본인 마무리 비중' },
     { key: 'at_ratio',  label: 'A/T',   desc: '어시스트/턴오버 비율' },
     { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
     { key: 'tov_pct',   label: 'TOV%',  desc: '볼소유 중 턴오버 비중' },
@@ -226,10 +277,12 @@ export default function LeagueStatsPage() {
     const poss = p.fga + 0.44 * p.fta + p.tov
     const a1 = p.and_one ?? 0
     const teamReb = p.team_reb_in_games ?? 0
+    const teamPoss = p.team_poss_in_games ?? 0
     return {
       at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : (p.ast > 0 ? 99 : 0),
       ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
       tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,
+      usg_pct:   teamPoss > 0 ? +(poss / teamPoss * 100).toFixed(1) : 0,
       a1_total:  a1,
       a1_rate:   p.fgm > 0 ? +(a1 / p.fgm * 100).toFixed(1) : 0,
       orb_pct:   p.reb > 0 ? +(p.oreb / p.reb * 100).toFixed(1) : 0,
@@ -508,22 +561,23 @@ export default function LeagueStatsPage() {
                     </button>
                   ))}
                 </div>
-                {/* 단위 토글 (라운드/GP) */}
+                {/* 단위 토글 (라운드 / GP / Per-40) */}
                 <div className="flex items-center gap-1 bg-gray-800/60 rounded-lg p-0.5 shrink-0">
-                  {(['round','game'] as const).map(u => (
+                  {(['round','game','per40'] as const).map(u => (
                     <button key={u} onClick={() => setStatUnit(u)}
+                      title={u === 'round' ? '라운드(경기일)당' : u === 'game' ? '경기 슬롯당' : '40분당 환산 (실제 출전 시간 기반)'}
                       className={`px-3 py-1.5 text-xs font-bold rounded-md cursor-pointer transition-colors ${
                         statUnit === u ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
                       }`}>
-                      {u === 'round' ? 'R' : 'G'}
+                      {u === 'round' ? 'R' : u === 'game' ? 'G' : 'Per-40'}
                     </button>
                   ))}
                 </div>
-                {/* x5 환산 */}
+                {/* x5 환산 (per40 및 round 에서는 의미 없음 → 비활성) */}
                 {viewMode === 'avg' && (
-                  <button onClick={() => setProjection(v => !v)} disabled={statUnit === 'round'}
+                  <button onClick={() => setProjection(v => !v)} disabled={statUnit === 'round' || statUnit === 'per40'}
                     className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg border transition-all btn-press min-h-[40px] ${
-                      statUnit === 'round'
+                      (statUnit === 'round' || statUnit === 'per40')
                         ? 'bg-gray-800 border-gray-700 text-gray-400 opacity-30 cursor-not-allowed'
                         : projection
                           ? 'bg-amber-600/30 border-amber-500/60 text-amber-300 cursor-pointer'
@@ -614,15 +668,18 @@ export default function LeagueStatsPage() {
                     <th className="py-2 pl-2 pr-1 text-xs text-gray-600 font-bold text-right w-8">#</th>
                     <th className="px-2 py-3 text-center text-xs text-gray-600 w-8">비교</th>
                     <th className="text-left px-4 py-3 sticky left-0 bg-gray-900 text-sm text-gray-500 font-bold min-w-[130px]">선수</th>
-                    {COLS.map(({ key, label }) => (
-                      <th key={key} onClick={() => handleSort(key)}
-                        className={`px-3 py-3 text-center text-sm font-bold cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${sortKey === key ? 'text-blue-400' : 'text-gray-500'}`}>
-                        {key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label}
-                        {sortKey === key
-                          ? (sortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
-                          : <ChevronsUpDown size={10} className="inline ml-0.5 opacity-30" />}
-                      </th>
-                    ))}
+                    {COLS.map(({ key, label }) => {
+                      const term = key === 'gp' ? (statUnit === 'round' ? 'R' : statUnit === 'game' ? 'G' : 'GP') : label
+                      return (
+                        <th key={key} onClick={() => handleSort(key)}
+                          className={`px-3 py-3 text-center text-sm font-bold cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${sortKey === key ? 'text-blue-400' : 'text-gray-500'}`}>
+                          <StatHeader term={term} />
+                          {sortKey === key
+                            ? (sortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
+                            : <ChevronsUpDown size={10} className="inline ml-0.5 opacity-30" />}
+                        </th>
+                      )
+                    })}
                   </tr>
                 </thead>
                 <tbody>
@@ -648,11 +705,20 @@ export default function LeagueStatsPage() {
                         </button>
                         <div className="text-gray-600 text-xs">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
-                      {COLS.map(({ key }) => (
-                        <td key={key} className={`px-3 py-3 text-center text-sm tabular-nums font-medium ${sortKey === key ? 'text-yellow-400 font-bold' : 'text-gray-300'}`}>
-                          {cellVal(p, key)}
-                        </td>
-                      ))}
+                      {COLS.map(({ key }) => {
+                        // Per-40 모드에서는 실제 사용된 stat key 로 리더 체크 (예: ppg 대신 pts)
+                        const AVG_TO_TOTAL: Partial<Record<string, string>> = {
+                          ppg: 'pts', rpg: 'reb', orp: 'oreb', drp: 'dreb', apg: 'ast', spg: 'stl', bpg: 'blk', topg: 'tov',
+                        }
+                        const leaderKey = statUnit === 'per40' ? (AVG_TO_TOTAL[key as string] ?? (key as string)) : (key as string)
+                        const leader = isLeader(p, leaderKey)
+                        return (
+                          <td key={key} className={`px-3 py-3 text-center text-sm tabular-nums ${sortKey === key ? 'text-yellow-400 font-bold' : leader ? 'text-white font-black' : 'text-gray-300 font-medium'}`}
+                              title={leader ? '리그 리더' : undefined}>
+                            {cellVal(p, key)}
+                          </td>
+                        )
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -715,7 +781,7 @@ export default function LeagueStatsPage() {
                       return (
                         <th key={key} onClick={() => handleShootSort(key)} title={desc}
                           className={`px-3 py-3 text-center text-xs font-bold whitespace-nowrap cursor-pointer select-none transition-colors ${divider} ${shootSortKey === key ? 'text-yellow-400' : 'text-blue-400 hover:text-blue-200'}`}>
-                          {label}
+                          <StatHeader term={label} />
                           {shootSortKey === key
                             ? (shootSortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
                             : <ChevronsUpDown size={10} className="inline ml-0.5 opacity-30" />}
@@ -823,7 +889,7 @@ export default function LeagueStatsPage() {
                     {ADV_COLS.map(({ key, label, desc }) => (
                       <th key={key} onClick={() => handleAdvSort(key)} title={desc}
                         className={`px-3 py-3 text-center text-xs font-bold whitespace-nowrap cursor-pointer select-none transition-colors ${advSortKey === key ? 'text-yellow-400' : 'text-violet-400 hover:text-violet-200'}`}>
-                        {label}
+                        <StatHeader term={label} />
                         {advSortKey === key
                           ? (advSortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
                           : <ChevronsUpDown size={10} className="inline ml-0.5 opacity-30" />}

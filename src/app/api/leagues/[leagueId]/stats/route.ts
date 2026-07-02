@@ -93,12 +93,18 @@ export async function GET(
     md_a: number; md_m: number
     // TRB% 계산용: 본인이 뛴 경기에서 본인 팀의 총 리바운드
     team_reb_in_games: number
+    // USG% 계산용: 본인이 뛴 경기에서 본인 팀의 총 소유권 (FGA + 0.44*FTA + TOV)
+    team_poss_in_games: number
+    // Per-40 계산용: 본인 총 출전 시간 (분)
+    minutes_played: number
   }
 
   const statsMap: Record<string, PlayerStats> = {}
   const gpMap: Record<string, Set<string>> = {}  // player_id → game_ids set
   // (team_id, game_id) → 그 팀의 그 경기 리바운드 수
   const teamRebByGame: Record<string, Record<string, number>> = {}
+  // (team_id, game_id) → 그 팀의 그 경기 소유권 (FGA + 0.44*FTA + TOV) — USG% 계산용
+  const teamPossByGame: Record<string, Record<string, { fga: number; fta: number; tov: number }>> = {}
   // player_id → game_id → team_id → count (선수가 그 경기에서 어느 팀으로 뛰었는지 다수결)
   const playerTeamGameCount: Record<string, Record<string, Record<string, number>>> = {}
 
@@ -111,9 +117,16 @@ export async function GET(
         and_one: 0,
         ds_a: 0, ds_m: 0, lu_a: 0, lu_m: 0, md_a: 0, md_m: 0,
         team_reb_in_games: 0,
+        team_poss_in_games: 0,
+        minutes_played: 0,
       }
     }
     return statsMap[pid]
+  }
+  const ensureTeamPoss = (tid: string, gid: string) => {
+    if (!teamPossByGame[tid]) teamPossByGame[tid] = {}
+    if (!teamPossByGame[tid][gid]) teamPossByGame[tid][gid] = { fga: 0, fta: 0, tov: 0 }
+    return teamPossByGame[tid][gid]
   }
 
   for (const e of events ?? []) {
@@ -185,6 +198,14 @@ export async function GET(
       teamRebByGame[e.team_id][gId] = (teamRebByGame[e.team_id][gId] ?? 0) + 1
     }
 
+    // 팀-게임 possession 카운트 (USG% 계산용) — 팀의 FGA, FTA, TOV 를 게임별로 집계
+    if (e.team_id) {
+      const tp = ensureTeamPoss(e.team_id, gId)
+      if (['shot_3p', 'shot_post', 'shot_layup', 'shot_2p_drive', 'shot_2p_mid'].includes(e.type)) tp.fga++
+      else if (['ft_2pt', 'ft_3pt_1', 'free_throw', 'ft_3pt_2'].includes(e.type)) tp.fta++
+      else if (e.type === 'turnover') tp.tov++
+    }
+
     // 어시스트: 슛 성공 + related_player_id → 어시스터에게 ast 추가
     if (made &&
         ['shot_3p','shot_2p_mid','shot_layup','shot_post','shot_2p_drive'].includes(e.type) &&
@@ -202,12 +223,13 @@ export async function GET(
     }
   }
 
-  // gp 채우기 + team_reb_in_games 계산
+  // gp 채우기 + team_reb_in_games / team_poss_in_games 계산
   for (const pid of Object.keys(statsMap)) {
     statsMap[pid].gp = gpMap[pid]?.size ?? 0
 
-    // TRB% 계산: 본인이 뛴 각 경기에서 본인 팀(다수결)의 리바운드 합산
+    // 본인이 뛴 각 경기에서 본인 팀(다수결)의 리바운드/소유권 합산
     let teamRebSum = 0
+    let teamPossSum = 0
     const gameTeams = playerTeamGameCount[pid] ?? {}
     for (const gid of Object.keys(gameTeams)) {
       const teams = gameTeams[gid]
@@ -215,9 +237,32 @@ export async function GET(
       if (top) {
         const teamId = top[0]
         teamRebSum += teamRebByGame[teamId]?.[gid] ?? 0
+        const tp = teamPossByGame[teamId]?.[gid]
+        if (tp) teamPossSum += tp.fga + 0.44 * tp.fta + tp.tov
       }
     }
     statsMap[pid].team_reb_in_games = teamRebSum
+    statsMap[pid].team_poss_in_games = Math.round(teamPossSum)
+  }
+
+  // ── Minutes 조회 (Per-40 / 실효 사용률 계산용) ──────────────────────
+  // league_player_minutes 에서 gameIds 에 해당하는 (in_time, out_time) 인터벌을 모아
+  // 선수별 총 출전 시간(분)을 채운다. out_time == null 인 인터벌은 무시 (게임 진행 중이거나 미완결).
+  {
+    const { data: minutesRows } = await supabase
+      .from('league_player_minutes')
+      .select('league_player_id, in_time, out_time')
+      .in('league_game_id', gameIds)
+    for (const m of (minutesRows ?? []) as { league_player_id: string | null; in_time: number | null; out_time: number | null }[]) {
+      if (!m.league_player_id) continue
+      if (m.in_time == null || m.out_time == null) continue
+      const secs = Math.max(0, m.out_time - m.in_time)
+      const s = statsMap[m.league_player_id]
+      if (s) s.minutes_played += secs / 60
+    }
+    for (const pid of Object.keys(statsMap)) {
+      statsMap[pid].minutes_played = Math.round(statsMap[pid].minutes_played * 10) / 10
+    }
   }
 
   // 5. 평균/퍼센트 계산 후 반환
