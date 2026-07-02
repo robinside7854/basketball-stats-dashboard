@@ -11,8 +11,6 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import { type EvaluatedBadge } from '@/lib/stats/badges'
 import { LeaderBadgeInline } from '@/components/league/LeaderBadgePanel'
-import RatingBadge from '@/components/league/RatingBadge'
-import { type PlayerRating } from '@/lib/rating/computeRating'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
 // 업로드 전 이미지를 600×800(3:4) 이하로 리사이즈 + JPEG 압축
@@ -882,8 +880,6 @@ export default function LeagueRosterPage() {
   const [leaderBadges, setLeaderBadges] = useState<Record<string, import('@/components/league/LeaderBadgePanel').LeaderBadgeCounts>>({})
   // (quarter_id → team_id → {name, color}) 분기별 팀명/색상 override 룩업
   const [teamOverrides, setTeamOverrides] = useState<Record<string, Record<string, { name: string | null; color: string | null }>>>({})
-  // player_id → 누적 rating (전 분기 통합)
-  const [ratingsMap, setRatingsMap] = useState<Record<string, PlayerRating>>({})
   const [loading, setLoading] = useState(true)
 
   // Add form
@@ -1013,16 +1009,6 @@ export default function LeagueRosterPage() {
           (map[r.quarter_id] ||= {})[r.team_id] = { name: r.name, color: r.color }
         }
         setTeamOverrides(map)
-      })
-      .catch(() => null)
-
-    // 누적 레이팅 — 선수 카드에 OVR 뱃지 표시
-    fetch(`/api/leagues/${leagueId}/ratings`)
-      .then(r => r.ok ? r.json() : { ratings: [] })
-      .then((d: { ratings?: PlayerRating[] }) => {
-        const map: Record<string, PlayerRating> = {}
-        for (const r of d.ratings ?? []) map[r.player_id] = r
-        setRatingsMap(map)
       })
       .catch(() => null)
 
@@ -1426,8 +1412,6 @@ export default function LeagueRosterPage() {
             // 현재 분기 팀 컬러 → 카드 왼쪽 스트립
             const curQ = displayQuarters.find(q => q.is_current)
             const cardAccent = curQ ? getCellTeamColor(curQ.id, p.id) : null
-            const rating = ratingsMap[p.id]
-
             return (
               <div
                 key={p.id}
@@ -1452,7 +1436,7 @@ export default function LeagueRosterPage() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                  {/* 헤더: 이름 + OVR + +1 + 삭제 */}
+                  {/* 헤더: 이름 + +1 + 삭제 */}
                   <div className="flex items-start gap-2 mb-1.5 lg:mb-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -1463,14 +1447,6 @@ export default function LeagueRosterPage() {
                         <span className="text-xs lg:text-xs font-mono text-gray-600">#{p.number}</span>
                       )}
                     </div>
-                    {/* OVR 뱃지 — 자격 있으면 표시, 없으면 텍스트 fallback */}
-                    {rating?.qualified ? (
-                      <RatingBadge ovr={rating.ovr} qualified size="md" title={`OVR ${rating.ovr} · 리그 #${rating.rank} · ${rating.gp}경기`} />
-                    ) : (
-                      <div className="w-11 h-11 rounded-full border-2 border-gray-800 bg-gray-900/60 flex items-center justify-center shrink-0" title="경기 데이터 없음">
-                        <span className="text-xs text-gray-600 font-bold">N/A</span>
-                      </div>
-                    )}
                     {/* +1 배지/토글 */}
                     {isEditMode ? (
                       <button

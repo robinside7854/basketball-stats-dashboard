@@ -7,8 +7,6 @@ import { CountUp, FormDots } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 import { type EvaluatedBadge } from '@/lib/stats/badges'
-import RatingBadge from '@/components/league/RatingBadge'
-import { CATEGORY_LABELS, ovrStyle, type PlayerRating, type CategoryCode } from '@/lib/rating/computeRating'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, PieChart, Pie, Cell as PieCell } from 'recharts'
 
 type PlayerInfo = {
@@ -166,20 +164,17 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [savingEdit, setSavingEdit] = useState(false)
   const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
-  const [rating, setRating] = useState<PlayerRating | null>(null)
-  const [quarterRating, setQuarterRating] = useState<PlayerRating | null>(null)
   const [careerHighBoxscoreDate, setCareerHighBoxscoreDate] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [playersRes, statsRes, detailRes, quartersRes, leaderRes, ratingRes] = await Promise.all([
+      const [playersRes, statsRes, detailRes, quartersRes, leaderRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/players`),
         fetch(`/api/leagues/${leagueId}/stats?playerId=${playerId}`),
         fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?unit=${statUnit}`),
         fetch(`/api/leagues/${leagueId}/quarters`),
         fetch(`/api/leagues/${leagueId}/leader-badges?playerId=${playerId}`),
-        fetch(`/api/leagues/${leagueId}/ratings?playerId=${playerId}`),
       ])
       if (playersRes.ok) {
         const all: PlayerInfo[] = await playersRes.json()
@@ -197,10 +192,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       if (leaderRes.ok) {
         const lb = await leaderRes.json()
         setLeaderBadges(lb[playerId] ?? null)
-      }
-      if (ratingRes.ok) {
-        const rd = await ratingRes.json()
-        setRating(rd.rating ?? null)
       }
     } finally { setLoading(false) }
   }, [leagueId, playerId, statUnit])
@@ -228,18 +219,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     return () => { cancelled = true }
   }, [leagueId, playerId, selectedQuarterId, statUnit])
 
-  // 분기 선택 시 해당 분기 rating 패치
-  useEffect(() => {
-    if (!selectedQuarterId) { setQuarterRating(null); return }
-    let cancelled = false
-    fetch(`/api/leagues/${leagueId}/ratings?quarterId=${selectedQuarterId}&playerId=${playerId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled) setQuarterRating(d?.rating ?? null) })
-    return () => { cancelled = true }
-  }, [leagueId, playerId, selectedQuarterId])
 
   const activeDetail = selectedQuarterId ? (quarterDetail ?? detail) : detail
-  const activeRating = selectedQuarterId ? quarterRating : rating
 
   const positions = (player?.position ?? '').split(',').map(p => p.trim()).filter(Boolean)
   const age = calcAge(player?.birth_date ?? null)
@@ -257,24 +238,12 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         {/* Header */}
         <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 px-5 pt-safe-or-3 pb-3.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            {activeRating && (
-              <RatingBadge
-                ovr={activeRating.ovr}
-                qualified={activeRating.qualified}
-                size="lg"
-              />
-            )}
             <div className="min-w-0">
               <h2 className="text-white font-black text-lg leading-none flex items-center gap-2 flex-wrap">
                 {player?.number != null && <span className="jersey-num text-sm">{player.number}</span>}
                 <span className="truncate">{player?.name ?? playerName}</span>
               </h2>
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                {activeRating?.qualified && activeRating.rank > 0 && (
-                  <span className="text-xs font-jersey font-black px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-700/60 uppercase tracking-widest">
-                    Rank #{activeRating.rank}
-                  </span>
-                )}
                 {positions.map(pos => (
                   <span key={pos} className={`text-xs font-bold px-1.5 py-0.5 rounded border ${POSITION_COLORS[pos] ?? 'bg-blue-900/40 text-blue-300 border-blue-700/40'}`}>{pos}</span>
                 ))}
@@ -460,25 +429,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   <div className="flex justify-center py-8"><BasketballLoader size={22} /></div>
                 ) : (
                   <>
-                    {/* 카테고리 레이팅 (누적 스탯 기반) */}
-                    {activeRating?.qualified && (
-                      <div className="mb-4 pb-3 border-b border-gray-800/60">
-                        <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-2">카테고리 레이팅</p>
-                        <div className="grid grid-cols-6 gap-1 lg:gap-1.5">
-                          {(['ATT', 'PTS', 'REB', 'AST', 'STB', 'EFF'] as CategoryCode[]).map(cat => {
-                            const val = Math.round(activeRating.categories[cat])
-                            const s = ovrStyle(val, true)
-                            return (
-                              <div key={cat} className={`text-center rounded-md py-1.5 border ${s.bg} ${s.border}`} title={CATEGORY_LABELS[cat].description}>
-                                <div className={`text-xs font-black tracking-widest ${s.text}`}>{cat}</div>
-                                <div className={`text-lg font-black tabular-nums ${s.text}`}>{val}</div>
-                                <div className="text-xs text-gray-500 truncate px-1">{CATEGORY_LABELS[cat].long}</div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
                     <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3">
                       {[

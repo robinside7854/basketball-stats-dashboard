@@ -6,7 +6,6 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import PlayerCompareModal from '@/components/league/PlayerCompareModal'
 import LeagueDuoPanel from '@/components/league/LeagueDuoPanel'
-import RatingTopCard from '@/components/league/RatingTopCard'
 import StatHeader from '@/components/league/StatHeader'
 import { PercentBar } from '@/components/league/StatCell'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
@@ -390,13 +389,6 @@ export default function LeagueStatsPage() {
         </div>
       ) : (
         <>
-          {/* NBA 2K 스타일 레이팅 카드 */}
-          <RatingTopCard
-            leagueId={leagueId}
-            quarterId={selectedQuarterId}
-            onSelectPlayer={(id, name) => setQuickViewPlayer({ id, name })}
-          />
-
           {/* 차트 필터 칩 */}
           <div className="flex gap-1.5 flex-wrap">
             {CHART_STATS.map(s => (
