@@ -74,7 +74,6 @@ function efficiencyLabel(pct: number, attempts: number): string {
 export default function HalfCourtShotChart({ zones, size = 400 }: Props) {
   const [hover, setHover] = useState<'post' | 'layup' | 'mid' | 'three' | null>(null)
 
-  const aspectRatio = VBH / VBW
   const totalAttempts = zones.post.a + zones.layup.a + zones.mid.a + zones.three.a
   const volumePct = (z: Zone): number => totalAttempts === 0 ? 0 : Math.round(z.a / totalAttempts * 100)
 
@@ -84,11 +83,14 @@ export default function HalfCourtShotChart({ zones, size = 400 }: Props) {
   const thC = efficiencyColor(zones.three.fg_pct, zones.three.a)
 
   return (
-    <div className="relative" style={{ width: size, maxWidth: '100%' }}>
+    <div className="relative w-full" style={{ maxWidth: size }}>
+      {/* aspect-ratio 로 뷰박스 비례 유지 — 어떤 폭에서도 코트가 세로로 늘어지지 않음 */}
+      <div style={{ width: '100%', aspectRatio: `${VBW} / ${VBH}` }}>
       <svg
         viewBox={`0 0 ${VBW} ${VBH}`}
         width="100%"
-        height={size * aspectRatio}
+        height="100%"
+        preserveAspectRatio="xMidYMid meet"
         className="block rounded-lg"
         role="img"
         aria-label="하프코트 슛 차트"
@@ -305,6 +307,7 @@ export default function HalfCourtShotChart({ zones, size = 400 }: Props) {
           })
         })()}
       </svg>
+      </div>
 
       {/* 범례 + 호버 상세 */}
       <div className="mt-2.5 space-y-1.5">

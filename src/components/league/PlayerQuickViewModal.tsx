@@ -772,11 +772,11 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
                   return (
                     <div className="space-y-3">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                      <div className={`grid gap-3 items-center ${shotView === 'court' ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
                         {/* 좌측: 코트 또는 도넛 (토글) */}
                         {shotView === 'court' ? (
                           <div className="flex justify-center">
-                            <HalfCourtShotChart zones={courtZones} size={320} />
+                            <HalfCourtShotChart zones={courtZones} size={420} />
                           </div>
                         ) : (
                           <div className="relative" style={{ height: 180 }}>
