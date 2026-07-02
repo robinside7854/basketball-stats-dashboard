@@ -40,7 +40,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
                   <Link
                     key={tab.href}
                     href={tab.href}
-                    className={`shrink-0 px-3 py-3.5 text-sm border-b-2 transition-all duration-200 ${
+                    className={`shrink-0 px-3 lg:px-4 py-3.5 lg:py-4 text-sm lg:text-base border-b-2 transition-all duration-200 ${
                       isActive
                         ? 'border-blue-500 text-white font-semibold'
                         : 'border-transparent text-gray-400 font-medium hover:text-white'

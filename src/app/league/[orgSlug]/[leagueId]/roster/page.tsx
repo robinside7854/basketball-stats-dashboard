@@ -6,11 +6,13 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, ChevronDown, Pencil, Check, X } from 'lucide-react'
+import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, Pencil, Check, X } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import { type EvaluatedBadge } from '@/lib/stats/badges'
 import { LeaderBadgeInline } from '@/components/league/LeaderBadgePanel'
+import RatingBadge from '@/components/league/RatingBadge'
+import { TIER_COLORS, type PlayerRating } from '@/lib/rating/computeRating'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
 // 업로드 전 이미지를 600×800(3:4) 이하로 리사이즈 + JPEG 압축
@@ -880,6 +882,8 @@ export default function LeagueRosterPage() {
   const [leaderBadges, setLeaderBadges] = useState<Record<string, import('@/components/league/LeaderBadgePanel').LeaderBadgeCounts>>({})
   // (quarter_id → team_id → {name, color}) 분기별 팀명/색상 override 룩업
   const [teamOverrides, setTeamOverrides] = useState<Record<string, Record<string, { name: string | null; color: string | null }>>>({})
+  // player_id → 누적 rating (전 분기 통합)
+  const [ratingsMap, setRatingsMap] = useState<Record<string, PlayerRating>>({})
   const [loading, setLoading] = useState(true)
 
   // Add form
@@ -1009,6 +1013,16 @@ export default function LeagueRosterPage() {
           (map[r.quarter_id] ||= {})[r.team_id] = { name: r.name, color: r.color }
         }
         setTeamOverrides(map)
+      })
+      .catch(() => null)
+
+    // 누적 레이팅 — 선수 카드에 OVR 뱃지 표시
+    fetch(`/api/leagues/${leagueId}/ratings`)
+      .then(r => r.ok ? r.json() : { ratings: [] })
+      .then((d: { ratings?: PlayerRating[] }) => {
+        const map: Record<string, PlayerRating> = {}
+        for (const r of d.ratings ?? []) map[r.player_id] = r
+        setRatingsMap(map)
       })
       .catch(() => null)
 
@@ -1241,13 +1255,13 @@ export default function LeagueRosterPage() {
     })
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 lg:space-y-5">
       <LeagueSubTabs group="squad" />
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-xl font-bold text-white">선수 명단</h2>
-          <p className="text-gray-500 text-sm">{players.length}명 등록</p>
+          <h2 className="text-xl lg:text-3xl font-bold text-white">선수 명단</h2>
+          <p className="text-gray-500 text-sm lg:text-base">{players.length}명 등록</p>
         </div>
         {isEditMode ? (
           <div className="flex items-center gap-2 flex-wrap">
@@ -1334,10 +1348,10 @@ export default function LeagueRosterPage() {
 
       {/* 수정 2: 정렬/필터 컨트롤 */}
       {!loading && players.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 lg:gap-4">
           {/* 정렬 */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-gray-600">정렬</span>
+          <div className="flex items-center gap-1.5 lg:gap-2">
+            <span className="text-xs lg:text-sm text-gray-600">정렬</span>
             <div className="flex gap-1">
               {([
                 { key: 'name', label: '이름' },
@@ -1347,7 +1361,7 @@ export default function LeagueRosterPage() {
                 <button
                   key={key}
                   onClick={() => setSortKey(key)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all cursor-pointer ${
                     sortKey === key
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
@@ -1360,14 +1374,14 @@ export default function LeagueRosterPage() {
           </div>
 
           {/* 포지션 필터 */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs text-gray-600">포지션</span>
+          <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
+            <span className="text-xs lg:text-sm text-gray-600">포지션</span>
             <div className="flex flex-wrap gap-1">
               {POSITION_FILTER_OPTIONS.map(pos => (
                 <button
                   key={pos}
                   onClick={() => setFilterPosition(pos)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all cursor-pointer ${
                     filterPosition === pos
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
@@ -1402,7 +1416,7 @@ export default function LeagueRosterPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 lg:gap-3">
           {filteredAndSortedPlayers.map(p => {
             const positions = parsePositions(p.position)
             const isAnyLeader = displayQuarters.some(q => {
@@ -1412,6 +1426,7 @@ export default function LeagueRosterPage() {
             // 현재 분기 팀 컬러 → 카드 왼쪽 스트립
             const curQ = displayQuarters.find(q => q.is_current)
             const cardAccent = curQ ? getCellTeamColor(curQ.id, p.id) : null
+            const rating = ratingsMap[p.id]
 
             return (
               <div
@@ -1424,28 +1439,38 @@ export default function LeagueRosterPage() {
                   <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: cardAccent }} />
                 )}
 
-                <div className="p-4 pl-5 flex gap-3">
+                <div className="p-3 pl-4 lg:p-4 lg:pl-5 flex gap-3">
                   {/* 3:4 썸네일 */}
-                  <div className="shrink-0 w-16 h-[85px] rounded-lg overflow-hidden border border-gray-700 flex items-center justify-center bg-gray-800">
+                  <div className="shrink-0 w-16 h-[85px] lg:w-20 lg:h-[106px] rounded-lg overflow-hidden border border-gray-700 flex items-center justify-center bg-gray-800">
                     {p.photo_url ? (
                       <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover object-top" />
                     ) : (
-                      <span className="text-xs font-black text-gray-400 leading-none text-center px-0.5">
+                      <span className="text-xs lg:text-sm font-black text-gray-400 leading-none text-center px-0.5">
                         {p.name.length > 1 ? p.name.slice(1) : p.name}
                       </span>
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                  {/* 헤더: 등번호 + 이름 + +1 + 삭제 */}
-                  <div className="flex items-center gap-2 mb-2">
-                    {p.number !== null && (
-                      <span className="text-xs font-mono font-bold text-gray-600 w-8 shrink-0">#{p.number}</span>
-                    )}
-                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                      {isAnyLeader && <Crown size={12} className="text-yellow-400 shrink-0" />}
-                      <span className="text-lg font-bold text-white truncate">{p.name}</span>
+                  {/* 헤더: 이름 + OVR + +1 + 삭제 */}
+                  <div className="flex items-start gap-2 mb-1.5 lg:mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {isAnyLeader && <Crown size={12} className="lg:w-3.5 lg:h-3.5 text-yellow-400 shrink-0" />}
+                        <span className="text-lg lg:text-xl font-bold text-white truncate">{p.name}</span>
+                      </div>
+                      {p.number !== null && (
+                        <span className="text-[11px] lg:text-xs font-mono text-gray-600">#{p.number}</span>
+                      )}
                     </div>
+                    {/* OVR 뱃지 — 자격 있으면 표시, 없으면 텍스트 fallback */}
+                    {rating?.qualified ? (
+                      <RatingBadge ovr={rating.ovr} tier={rating.tier} qualified size="md" title={`OVR ${rating.ovr} · ${rating.tier} · 리그 #${rating.rank}`} />
+                    ) : (
+                      <div className="w-11 h-11 rounded-full border-2 border-gray-800 bg-gray-900/60 flex items-center justify-center shrink-0" title="경기 데이터 부족">
+                        <span className="text-[10px] text-gray-600 font-bold">N/A</span>
+                      </div>
+                    )}
                     {/* +1 배지/토글 */}
                     {isEditMode ? (
                       <button
@@ -1476,8 +1501,13 @@ export default function LeagueRosterPage() {
                     )}
                   </div>
 
-                  {/* 포지션 배지 */}
-                  <div className="flex flex-wrap gap-1 mb-2 min-h-[22px]">
+                  {/* 티어 + 포지션 배지 (한 줄) */}
+                  <div className="flex flex-wrap items-center gap-1 lg:gap-1.5 mb-1.5 lg:mb-2 min-h-[22px]">
+                    {rating?.qualified && (
+                      <span className={`text-[10px] lg:text-xs font-jersey font-black px-1.5 py-0.5 rounded ${TIER_COLORS[rating.tier].bg} ${TIER_COLORS[rating.tier].text} border ${TIER_COLORS[rating.tier].border} uppercase tracking-widest`}>
+                        {rating.tier}
+                      </span>
+                    )}
                     {positions.length > 0
                       ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
                       : <span className="text-xs text-gray-500">포지션 미지정</span>
@@ -1486,22 +1516,22 @@ export default function LeagueRosterPage() {
 
                   {/* 생년월일 */}
                   {p.birth_date ? (
-                    <p className="text-xs text-gray-500 mb-3">
+                    <p className="text-xs lg:text-sm text-gray-500 mb-1.5 lg:mb-2">
                       {formatBirthDate(p.birth_date)}
                       <span className="ml-1.5 text-gray-600">({calcAge(p.birth_date)})</span>
                     </p>
                   ) : (
-                    <p className="text-xs text-gray-500 mb-2">생년월일 미입력</p>
+                    <p className="text-xs lg:text-sm text-gray-500 mb-1.5">생년월일 미입력</p>
                   )}
 
                   {/* 리더 뱃지 요약 (경기일 부문별 1등 카운트) */}
                   {leaderBadges[p.id] && (
-                    <LeaderBadgeInline badges={leaderBadges[p.id]} className="mb-2.5" />
+                    <LeaderBadgeInline badges={leaderBadges[p.id]} className="mb-2" />
                   )}
 
-                  {/* 분기별 팀 배정 */}
+                  {/* 분기별 팀 배정 — 팀명을 버튼(chip) 형태로 */}
                   {displayQuarters.length > 0 && (
-                    <div className="border-t border-gray-800 pt-2.5 mt-1 space-y-1.5">
+                    <div className="border-t border-gray-800 pt-2 mt-1 space-y-1.5">
                       {displayQuarters.map(q => {
                         const cellKey = `${q.id}:${p.id}`
                         const isSaving = savingCell === cellKey
@@ -1512,31 +1542,57 @@ export default function LeagueRosterPage() {
                         const isRegular = getCellIsRegular(q.id, p.id)
                         const isPlayerLeader = isLeader(q.id, teamId, p.id)
                         return (
-                          <div key={q.id} className="flex items-center justify-between gap-2">
-                            <span className={`text-xs font-mono shrink-0 ${q.is_current ? 'text-blue-400' : 'text-gray-600'}`}>
+                          <div key={q.id} className="flex items-center gap-2">
+                            <span className={`text-xs lg:text-sm font-mono shrink-0 ${q.is_current ? 'text-blue-400' : 'text-gray-600'}`}>
                               {String(q.year).slice(2)}.{q.quarter}Q
                             </span>
                             {isSaving ? (
-                              <Loader2 size={11} className="animate-spin text-gray-500 ml-auto" />
+                              <Loader2 size={12} className="animate-spin text-gray-500 ml-auto" />
                             ) : isEditingCell && isEditMode ? (
-                              <select
-                                autoFocus defaultValue={isRegular === false ? '__irregular' : (teamId ?? '__irregular')}
+                              /* 인라인 chip 팝오버 — 팀 선택 */
+                              <div
+                                className="flex flex-wrap items-center gap-1 ml-auto"
                                 onClick={e => e.stopPropagation()}
-                                onBlur={e => {
-                                  const val = e.target.value
-                                  if (val === '__irregular') updateMembership(q.id, p.id, null, false)
-                                  else updateMembership(q.id, p.id, val, true)
-                                }}
-                                onChange={e => {
-                                  const val = e.target.value
-                                  if (val === '__irregular') updateMembership(q.id, p.id, null, false)
-                                  else updateMembership(q.id, p.id, val, true)
-                                }}
-                                className="flex-1 bg-gray-800 border border-blue-500 text-white rounded px-2 py-0.5 text-xs cursor-pointer"
                               >
-                                <option value="__irregular">비정규</option>
-                                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                              </select>
+                                <button
+                                  onClick={() => updateMembership(q.id, p.id, null, false)}
+                                  className={`text-[11px] lg:text-xs font-bold px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                                    isRegular === false
+                                      ? 'bg-gray-700 border-gray-500 text-gray-200'
+                                      : 'bg-gray-800/60 border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300'
+                                  }`}
+                                >
+                                  비정규
+                                </button>
+                                {teams.map(t => {
+                                  const ov = teamOverrides[q.id]?.[t.id]
+                                  const displayName = ov?.name ?? t.name
+                                  const displayColor = ov?.color ?? t.color
+                                  const active = isRegular && teamId === t.id
+                                  return (
+                                    <button
+                                      key={t.id}
+                                      onClick={() => updateMembership(q.id, p.id, t.id, true)}
+                                      className={`flex items-center gap-1 text-[11px] lg:text-xs font-bold px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                                        active
+                                          ? 'border-white text-white'
+                                          : 'border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                                      }`}
+                                      style={active ? { backgroundColor: `${displayColor}30`, borderColor: displayColor } : undefined}
+                                    >
+                                      <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: displayColor }} />
+                                      {displayName}
+                                    </button>
+                                  )
+                                })}
+                                <button
+                                  onClick={() => setEditingCell(null)}
+                                  className="text-gray-500 hover:text-white p-0.5 cursor-pointer"
+                                  title="닫기"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
                             ) : (
                               <div className="flex items-center gap-1.5 ml-auto">
                                 {isRegular && teamId && (
@@ -1545,23 +1601,25 @@ export default function LeagueRosterPage() {
                                       <button
                                         onClick={e => { e.stopPropagation(); toggleLeader(q.id, teamId, p.id) }}
                                         className={`transition-colors cursor-pointer ${isPlayerLeader ? 'text-yellow-400' : 'text-gray-500 hover:text-yellow-600'}`}
-                                      ><Crown size={10} /></button>
+                                      ><Crown size={12} /></button>
                                     ) : isPlayerLeader ? (
-                                      <Crown size={10} className="text-yellow-400" />
+                                      <Crown size={12} className="text-yellow-400" />
                                     ) : null}
                                   </>
                                 )}
                                 <button
                                   onClick={e => { e.stopPropagation(); if (isEditMode) setEditingCell({ playerId: p.id, quarterId: q.id }) }}
-                                  className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-colors ${isEditMode ? 'cursor-pointer hover:bg-gray-800' : 'cursor-default'}`}
+                                  className={`inline-flex items-center gap-1.5 text-xs lg:text-sm font-medium px-2.5 py-1 rounded-full border transition-all ${
+                                    label === '—' ? 'border-gray-800 text-gray-600' :
+                                    label === '비정규' ? 'border-gray-700 text-gray-500' :
+                                    'border-gray-700 text-white'
+                                  } ${isEditMode ? 'cursor-pointer hover:border-blue-500 hover:bg-blue-500/10' : 'cursor-default'}`}
+                                  style={label !== '—' && label !== '비정규' && teamColor && !isEditMode ? { borderColor: `${teamColor}70` } : undefined}
                                 >
                                   {label !== '—' && label !== '비정규' && teamColor
                                     ? <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: teamColor }} />
                                     : null}
-                                  <span className={label === '비정규' ? 'text-gray-600' : label === '—' ? 'text-gray-500' : 'text-white font-medium'}>
-                                    {label}
-                                  </span>
-                                  {isEditMode && <ChevronDown size={9} className="text-gray-600" />}
+                                  <span>{label}</span>
                                 </button>
                               </div>
                             )}
@@ -1572,7 +1630,7 @@ export default function LeagueRosterPage() {
                   )}
 
                   {/* 카드 클릭 힌트 */}
-                  <p className="mt-2 pt-2 border-t border-gray-800/40 text-[11px] text-gray-500 group-hover:text-gray-600 transition-colors">
+                  <p className="mt-2 pt-2 border-t border-gray-800/40 text-[11px] lg:text-xs text-gray-500 group-hover:text-gray-600 transition-colors">
                     클릭하여 프로필 보기
                   </p>
                   </div>{/* flex-1 end */}
