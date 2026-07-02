@@ -17,23 +17,23 @@ export default function LeagueStandings({ standings }: Props) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-sm lg:text-base">
         <thead>
           <tr className="border-b border-gray-800">
-            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500 w-8">#</th>
-            <th className="text-left py-2.5 px-3 text-xs font-semibold text-gray-500">팀</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10">G</th>
+            <th className="text-center py-2.5 lg:py-3 px-2 lg:px-3 text-xs lg:text-sm font-semibold text-gray-500 w-8 lg:w-10">#</th>
+            <th className="text-left py-2.5 lg:py-3 px-2 lg:px-3 text-xs lg:text-sm font-semibold text-gray-500">팀</th>
+            <th className="text-center py-2.5 lg:py-3 px-2 text-xs lg:text-sm font-semibold text-gray-500 w-10 lg:w-12">G</th>
             {/* 모바일 전용 통합 W-D-L */}
             <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-16 md:hidden">전적</th>
             {/* 데스크탑 W/D/L 분리 */}
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10 hidden md:table-cell">W</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10 hidden md:table-cell">D</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10 hidden md:table-cell">L</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10 hidden md:table-cell">GF</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-10 hidden md:table-cell">GA</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-gray-500 w-12">GD</th>
-            <th className="text-center py-2.5 px-3 text-xs font-semibold text-blue-400 w-12">PTS</th>
-            <th className="text-center py-2.5 px-2 text-xs font-semibold text-amber-400 w-14">STREAK</th>
+            <th className="text-center py-2.5 lg:py-3 px-2 text-xs lg:text-sm font-semibold text-gray-500 w-10 lg:w-12 hidden md:table-cell">W</th>
+            <th className="text-center py-2.5 lg:py-3 px-2 text-xs lg:text-sm font-semibold text-gray-500 w-10 lg:w-12 hidden md:table-cell">D</th>
+            <th className="text-center py-2.5 lg:py-3 px-2 text-xs lg:text-sm font-semibold text-gray-500 w-10 lg:w-12 hidden md:table-cell">L</th>
+            <th className="text-center py-2.5 lg:py-3 px-2 text-xs lg:text-sm font-semibold text-gray-500 w-12 lg:w-14 hidden md:table-cell">GF</th>
+            <th className="text-center py-2.5 lg:py-3 px-2 text-xs lg:text-sm font-semibold text-gray-500 w-12 lg:w-14 hidden md:table-cell">GA</th>
+            <th className="text-center py-2.5 lg:py-3 px-2 text-xs lg:text-sm font-semibold text-gray-500 w-12 lg:w-14">GD</th>
+            <th className="text-center py-2.5 lg:py-3 px-2 lg:px-3 text-xs lg:text-sm font-semibold text-blue-400 w-12 lg:w-14">PTS</th>
+            <th className="text-center py-2.5 lg:py-3 px-2 text-xs lg:text-sm font-semibold text-amber-400 w-14 lg:w-16">STREAK</th>
           </tr>
         </thead>
         <tbody>
@@ -45,16 +45,16 @@ export default function LeagueStandings({ standings }: Props) {
                 key={s.team.id}
                 className={`border-b border-gray-800/50 ${isFirst ? 'bg-blue-950/20' : 'hover:bg-gray-900/50'} transition-colors`}
               >
-                <td className="py-3 px-3 text-center">
-                  <span className={`text-xs font-black inline-flex items-center justify-center gap-0.5 ${rankColor}`}>
-                    {idx === 0 && <Crown size={10} />}
+                <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
+                  <span className={`text-xs lg:text-sm font-black inline-flex items-center justify-center gap-0.5 ${rankColor}`}>
+                    {idx === 0 && <Crown size={10} className="lg:w-3.5 lg:h-3.5" />}
                     {idx + 1}
                   </span>
                 </td>
-                <td className="py-3 px-3 min-w-[4.5rem]">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.team.color }} />
-                    <span className={`font-medium whitespace-nowrap ${isFirst ? 'text-white' : 'text-gray-300'}`}>{s.team.name}</span>
+                <td className="py-3 lg:py-4 px-2 lg:px-3 min-w-[4.5rem] lg:min-w-[7rem]">
+                  <div className="flex items-center gap-2 lg:gap-2.5">
+                    <div className="w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full shrink-0" style={{ backgroundColor: s.team.color }} />
+                    <span className={`font-medium lg:font-bold lg:text-lg whitespace-nowrap ${isFirst ? 'text-white' : 'text-gray-300'}`}>{s.team.name}</span>
                   </div>
                   <div className="w-full bg-gray-800 rounded-full h-1 mt-1">
                     <div
@@ -66,7 +66,7 @@ export default function LeagueStandings({ standings }: Props) {
                     />
                   </div>
                 </td>
-                <td className="py-3 px-2 text-center text-gray-400">{s.played}</td>
+                <td className="py-3 lg:py-4 px-2 text-center text-gray-400 tabular-nums">{s.played}</td>
                 {/* 모바일: 통합 W-D-L (D=0이면 W-L만) */}
                 <td className="py-3 px-2 text-center text-xs font-mono md:hidden whitespace-nowrap">
                   <span className="text-green-400 font-semibold">{s.wins}</span>
@@ -75,18 +75,18 @@ export default function LeagueStandings({ standings }: Props) {
                   <span className="text-red-400">{s.losses}</span>
                 </td>
                 {/* 데스크탑 W/D/L 분리 */}
-                <td className="py-3 px-2 text-center text-green-400 font-medium hidden md:table-cell">{s.wins}</td>
-                <td className="py-3 px-2 text-center text-gray-400 hidden md:table-cell">{s.draws}</td>
-                <td className="py-3 px-2 text-center text-red-400 hidden md:table-cell">{s.losses}</td>
-                <td className="py-3 px-2 text-center text-gray-400 hidden md:table-cell">{s.goals_for}</td>
-                <td className="py-3 px-2 text-center text-gray-400 hidden md:table-cell">{s.goals_against}</td>
-                <td className="py-3 px-2 text-center text-gray-400">
+                <td className="py-3 lg:py-4 px-2 text-center text-green-400 font-medium tabular-nums hidden md:table-cell">{s.wins}</td>
+                <td className="py-3 lg:py-4 px-2 text-center text-gray-400 tabular-nums hidden md:table-cell">{s.draws}</td>
+                <td className="py-3 lg:py-4 px-2 text-center text-red-400 tabular-nums hidden md:table-cell">{s.losses}</td>
+                <td className="py-3 lg:py-4 px-2 text-center text-gray-400 tabular-nums hidden md:table-cell">{s.goals_for}</td>
+                <td className="py-3 lg:py-4 px-2 text-center text-gray-400 tabular-nums hidden md:table-cell">{s.goals_against}</td>
+                <td className="py-3 lg:py-4 px-2 text-center text-gray-400 tabular-nums">
                   {s.goal_diff > 0 ? `+${s.goal_diff}` : s.goal_diff}
                 </td>
-                <td className="py-3 px-3 text-center">
-                  <span className={`font-bold ${isFirst ? 'text-blue-400' : 'text-white'}`}>{s.points}</span>
+                <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
+                  <span className={`font-bold lg:text-lg tabular-nums ${isFirst ? 'text-blue-400' : 'text-white'}`}>{s.points}</span>
                 </td>
-                <td className="py-3 px-2 text-center">
+                <td className="py-3 lg:py-4 px-2 text-center">
                   {s.streak ? (() => {
                     const { type, count } = s.streak
                     const hot = type === 'W' && count >= 3
@@ -96,8 +96,8 @@ export default function LeagueStandings({ standings }: Props) {
                         ? 'text-red-400 font-bold'
                         : 'text-gray-400 font-medium'
                     return (
-                      <span className={`inline-flex items-center gap-0.5 text-xs ${cls}`}>
-                        {type}{count}{hot && <span className="text-[10px]">🔥</span>}
+                      <span className={`inline-flex items-center gap-0.5 text-xs lg:text-sm ${cls}`}>
+                        {type}{count}{hot && <span className="text-[10px] lg:text-xs">🔥</span>}
                       </span>
                     )
                   })() : <span className="text-gray-700 text-xs">—</span>}

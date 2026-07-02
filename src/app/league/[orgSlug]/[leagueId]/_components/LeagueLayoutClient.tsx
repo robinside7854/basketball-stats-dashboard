@@ -175,7 +175,7 @@ function RecordAwareContainer({
   if (isRecord) {
     return <div className="px-3 py-3">{children}</div>
   }
-  return <div className="max-w-7xl mx-auto px-4 lg:px-8 py-6">{children}</div>
+  return <div className="max-w-[1600px] mx-auto px-4 lg:px-4 py-6">{children}</div>
 }
 
 function LeagueLayout({

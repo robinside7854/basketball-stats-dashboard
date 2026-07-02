@@ -75,35 +75,35 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
             <button
               key={date}
               onClick={() => setBoxscoreDate(date)}
-              className={`w-full text-left border rounded-xl px-4 py-3.5 transition-all duration-200 cursor-pointer group ${
+              className={`w-full text-left border rounded-xl px-4 py-3.5 lg:px-5 lg:py-4 transition-all duration-200 cursor-pointer group ${
                 allUpcoming
                   ? 'bg-gray-800/30 border-gray-800 hover:border-blue-500/40 hover:bg-gray-800/50 hover:-translate-y-0.5 hover:shadow-md'
                   : 'bg-gray-900/60 border-gray-800 hover:border-blue-500/40 hover:bg-gray-900 hover:-translate-y-0.5 hover:shadow-md opacity-90'
               }`}
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3 lg:gap-4">
                 {/* 날짜 + 경기 수 */}
-                <div className="flex items-center gap-2.5">
-                  <BarChart2 size={14} className="text-gray-600 group-hover:text-blue-400 transition-colors shrink-0" />
+                <div className="flex items-center gap-2.5 lg:gap-3 shrink-0">
+                  <BarChart2 size={14} className="lg:w-4 lg:h-4 text-gray-600 group-hover:text-blue-400 transition-colors shrink-0" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className={`text-base font-bold ${hasCompleted ? 'text-gray-400' : 'text-white'}`}>{formatDate(date)}</p>
+                      <p className={`text-base lg:text-lg font-bold whitespace-nowrap ${hasCompleted ? 'text-gray-400' : 'text-white'}`}>{formatDate(date)}</p>
                       {allUpcoming && (
                         isToday ? (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-green-400">
+                          <span className="flex items-center gap-1 text-[10px] lg:text-xs font-bold text-green-400">
                             <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />오늘
                           </span>
                         ) : (
-                          <span className="text-[10px] font-bold text-gray-500 px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700">예정</span>
+                          <span className="text-[10px] lg:text-xs font-bold text-gray-500 px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700">예정</span>
                         )
                       )}
                       {allDone && (
-                        <span className="text-[10px] font-bold text-green-400 px-1.5 py-0.5 rounded bg-green-900/30 border border-green-700/40">✓ 완료</span>
+                        <span className="text-[10px] lg:text-xs font-bold text-green-400 px-1.5 py-0.5 rounded bg-green-900/30 border border-green-700/40">✓ 완료</span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs lg:text-sm text-gray-500 mt-0.5 whitespace-nowrap">
                       {hasCompleted
-                        ? `${completed.length}/${recorded.length}경기 완료${recorded.length < dayGames.length ? ` · 미사용 슬롯 ${dayGames.length - recorded.length}` : ''}`
+                        ? `${completed.length}/${recorded.length}경기 완료${recorded.length < dayGames.length ? ` · 미사용 ${dayGames.length - recorded.length}` : ''}`
                         : `${dayGames.length}경기 예정`}
                     </p>
                   </div>
@@ -111,18 +111,18 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
 
                 {/* 팀 W/L 요약 */}
                 {teamRows.length > 0 && (
-                  <div className="flex items-center gap-3 flex-wrap justify-end">
+                  <div className="flex items-center gap-2.5 lg:gap-4 justify-end min-w-0 overflow-hidden">
                     {teamRows.map(t => {
                       const total = t.w + t.d + t.l
                       const winPct = total > 0 ? Math.round(t.w / total * 100) : 0
                       return (
-                        <div key={t.name} className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-                          <span className="text-xs text-gray-400">{t.name}</span>
-                          <span className="text-xs font-bold text-white tabular-nums">
+                        <div key={t.name} className="flex items-center gap-1.5 lg:gap-2 whitespace-nowrap">
+                          <div className="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                          <span className="text-xs lg:text-base text-gray-400 font-medium">{t.name}</span>
+                          <span className="text-xs lg:text-base font-bold text-white tabular-nums">
                             {t.w}W {t.d > 0 ? <span className="text-yellow-500">{t.d}D </span> : ''}{t.l}L
                           </span>
-                          <span className={`text-xs font-bold tabular-nums ${winPct >= 50 ? 'text-green-400' : 'text-red-400'}`}>
+                          <span className={`text-xs lg:text-base font-bold tabular-nums ${winPct >= 50 ? 'text-green-400' : 'text-red-400'}`}>
                             {winPct}%
                           </span>
                         </div>
@@ -131,7 +131,7 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
                   </div>
                 )}
 
-                <ChevronRight size={14} className="text-gray-500 group-hover:text-blue-400 transition-colors shrink-0" />
+                <ChevronRight size={14} className="lg:w-4 lg:h-4 text-gray-500 group-hover:text-blue-400 transition-colors shrink-0" />
               </div>
             </button>
           )

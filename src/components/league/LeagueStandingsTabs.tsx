@@ -43,7 +43,7 @@ export default function LeagueStandingsTabs({ cumulative, quarters }: Props) {
               <button
                 key={t.id}
                 onClick={() => setActiveId(t.id)}
-                className={`shrink-0 px-3 py-2 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+                className={`shrink-0 px-3 lg:px-4 py-2 lg:py-2.5 text-xs lg:text-sm font-bold border-b-2 transition-colors cursor-pointer ${
                   isActive
                     ? 'border-blue-500 text-white'
                     : 'border-transparent text-gray-500 hover:text-gray-300'

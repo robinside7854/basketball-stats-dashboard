@@ -232,16 +232,16 @@ export default async function LeagueDetailPage({
     .sort((a, b) => a.date.localeCompare(b.date))[0]
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-4">
       {/* 헤더 — 코트 미세 텍스처 배경 + 저지 폰트 */}
-      <div className="relative court-bg rounded-2xl px-5 py-4 -mx-2 sm:mx-0 border border-gray-800/40">
+      <div className="relative court-bg rounded-2xl px-5 py-4 lg:px-6 lg:py-5 -mx-2 sm:mx-0 border border-gray-800/40">
         <div className="flex items-center justify-between">
-          <h1 className="font-jersey text-3xl font-bold text-white tracking-wide uppercase">{l.name}</h1>
-          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusColor[l.status] ?? 'bg-gray-800 text-gray-400'}`}>
+          <h1 className="font-jersey text-3xl lg:text-5xl font-bold text-white tracking-wide uppercase whitespace-nowrap">{l.name}</h1>
+          <span className={`text-xs lg:text-sm px-2.5 py-1 rounded-full font-medium ${statusColor[l.status] ?? 'bg-gray-800 text-gray-400'}`}>
             {statusLabel[l.status] ?? l.status}
           </span>
         </div>
-        <p className="text-gray-500 text-sm mt-1">{l.season_year}시즌 · {l.season_type === 'quarterly' ? '분기별(3개월)' : '연간(1년)'} · 시작일 {l.start_date}</p>
+        <p className="text-gray-500 text-sm lg:text-base mt-1">{l.season_year}시즌 · {l.season_type === 'quarterly' ? '분기별(3개월)' : '연간(1년)'} · 시작일 {l.start_date}</p>
       </div>
 
       {/* 시즌 전환 */}
@@ -268,36 +268,36 @@ export default async function LeagueDetailPage({
       />
 
       {/* PC: 2컬럼 (순위표 우측 고정 + 좌측 일정), 모바일: 스택 */}
-      <div className="lg:grid lg:grid-cols-[3fr_2fr] lg:gap-8 lg:items-start space-y-5 lg:space-y-0">
+      <div className="lg:grid lg:grid-cols-[1fr_1fr] lg:gap-4 xl:gap-5 lg:items-start space-y-5 lg:space-y-0">
 
         {/* 좌측: 다음 경기 + 일정 */}
-        <div className="space-y-5">
+        <div className="space-y-5 lg:space-y-4">
           {/* 다음 경기 하이라이트 */}
           {nextGame && (() => {
             const home = resolveTeam(nextGame.home_team_id, nextGame.quarter_id)
             const away = resolveTeam(nextGame.away_team_id, nextGame.quarter_id)
             const isToday = nextGame.date === today
             return (
-              <div className="bg-gradient-to-r from-blue-950/40 via-gray-900 to-gray-900 border border-blue-900/40 rounded-2xl px-5 py-4">
-                <div className="flex items-center gap-2 mb-3">
+              <div className="bg-gradient-to-r from-blue-950/40 via-gray-900 to-gray-900 border border-blue-900/40 rounded-2xl px-5 py-4 lg:px-6 lg:py-5">
+                <div className="flex items-center gap-2 mb-3 lg:mb-4">
                   {isToday ? (
-                    <span className="flex items-center gap-1.5 text-xs font-bold text-green-400">
+                    <span className="flex items-center gap-1.5 text-xs lg:text-sm font-bold text-green-400">
                       <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />오늘 경기
                     </span>
                   ) : (
-                    <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">다음 경기</span>
+                    <span className="text-xs lg:text-sm font-bold text-blue-400 uppercase tracking-widest">다음 경기</span>
                   )}
-                  <span className="text-xs text-gray-500">· {nextGame.date}</span>
+                  <span className="text-xs lg:text-sm text-gray-500">· {nextGame.date}</span>
                 </div>
-                <div className="flex items-center justify-center gap-4">
-                  <div className="flex items-center gap-2">
-                    {home && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: home.color }} />}
-                    <span className="text-base font-black text-white">{home?.name ?? '—'}</span>
+                <div className="flex items-center justify-center gap-4 lg:gap-6">
+                  <div className="flex items-center gap-2 lg:gap-3">
+                    {home && <div className="w-3 h-3 lg:w-4 lg:h-4 rounded-full" style={{ backgroundColor: home.color }} />}
+                    <span className="text-base lg:text-2xl font-black text-white whitespace-nowrap">{home?.name ?? '—'}</span>
                   </div>
-                  <span className="text-sm font-bold text-gray-600">VS</span>
-                  <div className="flex items-center gap-2">
-                    {away && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: away.color }} />}
-                    <span className="text-base font-black text-white">{away?.name ?? '—'}</span>
+                  <span className="text-sm lg:text-lg font-bold text-gray-600">VS</span>
+                  <div className="flex items-center gap-2 lg:gap-3">
+                    {away && <div className="w-3 h-3 lg:w-4 lg:h-4 rounded-full" style={{ backgroundColor: away.color }} />}
+                    <span className="text-base lg:text-2xl font-black text-white whitespace-nowrap">{away?.name ?? '—'}</span>
                   </div>
                 </div>
               </div>
@@ -306,14 +306,14 @@ export default async function LeagueDetailPage({
 
           {/* 최근 일정 / 결과 */}
           <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
-              <h2 className="font-semibold text-white">일정 · 결과</h2>
+            <div className="px-5 py-4 lg:px-5 lg:py-4 border-b border-gray-800 flex items-center justify-between">
+              <h2 className="font-semibold text-white lg:text-lg">일정 · 결과</h2>
               <Link href={`/league/${orgSlug}/${leagueId}/schedule`}
-                className="text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                className="text-xs lg:text-sm text-blue-400 hover:text-blue-300 transition-colors">
                 전체 보기 →
               </Link>
             </div>
-            <div className="p-4">
+            <div className="p-4 lg:p-3">
               <LeagueSchedule games={gameList} leagueId={leagueId} limit={6} />
             </div>
           </div>
@@ -322,9 +322,9 @@ export default async function LeagueDetailPage({
         {/* 우측: 순위표 (PC에서 sticky) */}
         <div className="lg:sticky lg:top-20">
           <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
-              <h2 className="font-jersey text-lg font-bold text-white uppercase tracking-wide">순위표</h2>
-              <span className="font-jersey text-[10px] text-orange-400 tracking-widest">{TARGET_SEASON_YEAR} 시즌</span>
+            <div className="px-5 py-4 lg:px-5 lg:py-4 border-b border-gray-800 flex items-center justify-between">
+              <h2 className="font-jersey text-lg lg:text-2xl font-bold text-white uppercase tracking-wide">순위표</h2>
+              <span className="font-jersey text-[10px] lg:text-xs text-orange-400 tracking-widest">{TARGET_SEASON_YEAR} 시즌</span>
             </div>
             <LeagueStandingsTabs cumulative={cumulativeStandings} quarters={quarterStandings} />
           </div>
