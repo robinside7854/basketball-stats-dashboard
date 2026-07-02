@@ -5,6 +5,8 @@ import LeagueStandingsTabs from '@/components/league/LeagueStandingsTabs'
 import LeagueSchedule from '@/components/league/LeagueSchedule'
 import HighlightBanner, { type HighlightPlayer } from '@/components/league/HighlightBanner'
 import LeagueLeadersGrid from '@/components/league/LeagueLeadersGrid'
+import StreakSpotlight from '@/components/league/StreakSpotlight'
+import MilestoneFeed from '@/components/league/MilestoneFeed'
 import type { League, LeagueStanding, LeagueGame, LeagueTeam, Quarter } from '@/types/league'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
@@ -270,6 +272,12 @@ export default async function LeagueDetailPage({
 
       {/* 리그 리더 카드 그리드 (8개 카테고리 Top-5) */}
       <LeagueLeadersGrid leagueId={leagueId} />
+
+      {/* 스토리텔링 — 진행 중 연속 기록 + 커리어 마일스톤 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
+        <StreakSpotlight leagueId={leagueId} maxEntries={8} />
+        <MilestoneFeed leagueId={leagueId} />
+      </div>
 
       {/* PC: 2컬럼 (순위표 우측 고정 + 좌측 일정), 모바일: 스택 */}
       <div className="lg:grid lg:grid-cols-[1fr_1fr] lg:gap-4 xl:gap-5 lg:items-start space-y-5 lg:space-y-0">
