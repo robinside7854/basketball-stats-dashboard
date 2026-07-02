@@ -1,15 +1,21 @@
 /**
- * NBA 2K 스타일 선수 레이팅 시스템
+ * 선수 레이팅 시스템 — 누적 스탯 기반 (v2)
  *
- * 구조: 16개 어트리뷰트 → 5개 카테고리 → OVR
+ * 6개 카테고리 → OVR (40-99):
+ *   ATT (참석)   15%  · 누적 GP
+ *   PTS (득점)   20%  · 누적 PTS
+ *   REB (리바)   15%  · 누적 REB
+ *   AST (도움)   15%  · 누적 AST
+ *   STB (스틸+블락) 15% · 누적 STL + BLK
+ *   EFF (효율)   20%  · eFG% · TS% · TOV rate(역) · A/T ratio 복합
  *
  * 계산 흐름:
- *   1. 자격 필터 (GP ≥ 5 && GP ≥ maxGP/3)
- *   2. 각 어트리뷰트 값 → 리그 퍼센타일 → 40-99 스케일 (`^0.75` 완만화)
- *   3. 카테고리 = 어트리뷰트 가중평균
- *   4. OVR = 카테고리 가중평균 (SCR 25% / PLY 20% / REB 20% / DEF 20% / EFF 15%)
- *   5. Small-sample regression: OVR = (GP·OVR + K·60) / (GP + K), K=8
- *   6. 등급 티어 할당
+ *   1. 자격: GP >= 1 (전원 대상, 참석 자체가 가중치에 반영됨)
+ *   2. 각 카테고리 값 → 리그 퍼센타일 → 40 + 59 · pct^0.75  (범위 40-99)
+ *   3. OVR = 카테고리 가중평균
+ *   4. Small-sample regression 없음 — 누적 스탯이 이미 GP 를 반영
+ *
+ * 티어 개념 제거 — 색상은 OVR 구간별 gradient (레이블 없음)
  */
 
 import type { PlayerStat } from '@/types/league'
@@ -18,16 +24,7 @@ import type { PlayerStat } from '@/types/league'
 // 타입
 // ─────────────────────────────────────────────────────────────
 
-export type AttributeCode =
-  | 'THR' | 'MID' | 'LAY' | 'FT' | 'VOL' | 'TSA'  // Scoring (6)
-  | 'PSV' | 'BHD' | 'ASR'                          // Playmaking (3)
-  | 'ORB' | 'DRB' | 'RBR'                          // Rebounding (3)
-  | 'PMD' | 'INT'                                  // Defense (2)
-  | 'EFG' | 'DIS'                                  // Efficiency (2)
-
-export type CategoryCode = 'SCR' | 'PLY' | 'REB' | 'DEF' | 'EFF'
-
-export type Tier = 'Elite' | 'All-Star' | 'Starter' | 'Rotation' | 'Bench' | 'Rookie' | 'Unrated'
+export type CategoryCode = 'ATT' | 'PTS' | 'REB' | 'AST' | 'STB' | 'EFF'
 
 export interface PlayerRating {
   player_id: string
@@ -37,41 +34,21 @@ export interface PlayerRating {
   gp: number
   ovr: number
   categories: Record<CategoryCode, number>
-  attributes: Record<AttributeCode, number>
-  tier: Tier
-  rank: number             // OVR 랭킹 (1위 = 1, unqualified = 0)
-  qualified: boolean
+  rank: number       // OVR 랭킹 (1위=1, unrated=0)
+  qualified: boolean // gp >= 1
 }
 
 // ─────────────────────────────────────────────────────────────
 // 라벨
 // ─────────────────────────────────────────────────────────────
 
-export const CATEGORY_LABELS: Record<CategoryCode, { short: string; long: string }> = {
-  SCR: { short: 'SCR', long: '득점' },
-  PLY: { short: 'PLY', long: '플레이메이킹' },
-  REB: { short: 'REB', long: '리바운드' },
-  DEF: { short: 'DEF', long: '수비' },
-  EFF: { short: 'EFF', long: '효율' },
-}
-
-export const ATTRIBUTE_LABELS: Record<AttributeCode, { short: string; long: string; cat: CategoryCode }> = {
-  THR: { short: '3PT', long: '외곽슛',     cat: 'SCR' },
-  MID: { short: 'MID', long: '미들레인지', cat: 'SCR' },
-  LAY: { short: 'LAY', long: '골밑 마무리', cat: 'SCR' },
-  FT:  { short: 'FT',  long: '자유투',     cat: 'SCR' },
-  VOL: { short: 'VOL', long: '득점량',     cat: 'SCR' },
-  TSA: { short: 'TS',  long: '진실야투',   cat: 'SCR' },
-  PSV: { short: 'PSV', long: '패스 시야',  cat: 'PLY' },
-  BHD: { short: 'BHD', long: '볼 핸들',    cat: 'PLY' },
-  ASR: { short: 'ASR', long: '어시스트율', cat: 'PLY' },
-  ORB: { short: 'ORB', long: '공격 리바',  cat: 'REB' },
-  DRB: { short: 'DRB', long: '수비 리바',  cat: 'REB' },
-  RBR: { short: 'RBR', long: '리바운드율', cat: 'REB' },
-  PMD: { short: 'PMD', long: '외곽 수비',  cat: 'DEF' },
-  INT: { short: 'INT', long: '내곽 수비',  cat: 'DEF' },
-  EFG: { short: 'EFG', long: '유효 야투',  cat: 'EFF' },
-  DIS: { short: 'DIS', long: '턴오버 관리', cat: 'EFF' },
+export const CATEGORY_LABELS: Record<CategoryCode, { short: string; long: string; description: string }> = {
+  ATT: { short: 'ATT', long: '참석',   description: '누적 참석 경기 (GP)' },
+  PTS: { short: 'PTS', long: '득점',   description: '누적 득점' },
+  REB: { short: 'REB', long: '리바',   description: '누적 리바운드' },
+  AST: { short: 'AST', long: '도움',   description: '누적 어시스트' },
+  STB: { short: 'STB', long: '스틸+블락', description: '누적 스틸 + 블락' },
+  EFF: { short: 'EFF', long: '효율',   description: 'eFG% · TS% · TOV 관리 · A/T 복합' },
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -79,51 +56,37 @@ export const ATTRIBUTE_LABELS: Record<AttributeCode, { short: string; long: stri
 // ─────────────────────────────────────────────────────────────
 
 const CATEGORY_WEIGHTS: Record<CategoryCode, number> = {
-  SCR: 0.25, PLY: 0.20, REB: 0.20, DEF: 0.20, EFF: 0.15,
-}
-
-const ATTRIBUTE_WEIGHTS: Record<AttributeCode, number> = {
-  // SCR (합 1.0)
-  VOL: 0.25, TSA: 0.20, THR: 0.20, LAY: 0.15, MID: 0.10, FT: 0.10,
-  // PLY (합 1.0)
-  PSV: 0.50, ASR: 0.30, BHD: 0.20,
-  // REB (합 1.0)
-  RBR: 0.40, DRB: 0.30, ORB: 0.30,
-  // DEF (합 1.0)
-  PMD: 0.55, INT: 0.45,
-  // EFF (합 1.0)
-  EFG: 0.60, DIS: 0.40,
+  ATT: 0.15,
+  PTS: 0.20,
+  REB: 0.15,
+  AST: 0.15,
+  STB: 0.15,
+  EFF: 0.20,
 }
 
 // ─────────────────────────────────────────────────────────────
-// 티어
+// OVR 색상 (티어 대신, 값 gradient 만)
 // ─────────────────────────────────────────────────────────────
 
-export function tierOf(ovr: number, qualified: boolean): Tier {
-  if (!qualified) return 'Unrated'
-  if (ovr >= 90) return 'Elite'
-  if (ovr >= 85) return 'All-Star'
-  if (ovr >= 75) return 'Starter'
-  if (ovr >= 65) return 'Rotation'
-  if (ovr >= 55) return 'Bench'
-  return 'Rookie'
+export interface OvrStyle {
+  bg: string; text: string; border: string; hex: string
 }
 
-export const TIER_COLORS: Record<Tier, { bg: string; text: string; border: string; hex: string }> = {
-  Elite:    { bg: 'bg-purple-950/40', text: 'text-purple-300', border: 'border-purple-500/60', hex: '#a78bfa' },
-  'All-Star': { bg: 'bg-amber-950/40', text: 'text-amber-300', border: 'border-amber-500/60',  hex: '#fbbf24' },
-  Starter:  { bg: 'bg-green-950/40',  text: 'text-green-300',  border: 'border-green-500/60',  hex: '#4ade80' },
-  Rotation: { bg: 'bg-blue-950/40',   text: 'text-blue-300',   border: 'border-blue-500/60',   hex: '#60a5fa' },
-  Bench:    { bg: 'bg-gray-800/60',   text: 'text-gray-300',   border: 'border-gray-600/60',   hex: '#9ca3af' },
-  Rookie:   { bg: 'bg-gray-900/60',   text: 'text-gray-400',   border: 'border-gray-700/60',   hex: '#6b7280' },
-  Unrated:  { bg: 'bg-gray-900/40',   text: 'text-gray-600',   border: 'border-gray-800/60',   hex: '#4b5563' },
+export function ovrStyle(ovr: number, qualified: boolean = true): OvrStyle {
+  if (!qualified || ovr <= 0) return { bg: 'bg-gray-900/40', text: 'text-gray-600', border: 'border-gray-800/60', hex: '#4b5563' }
+  if (ovr >= 85) return { bg: 'bg-purple-950/40', text: 'text-purple-300', border: 'border-purple-500/60', hex: '#a78bfa' }
+  if (ovr >= 78) return { bg: 'bg-amber-950/40',  text: 'text-amber-300',  border: 'border-amber-500/60',  hex: '#fbbf24' }
+  if (ovr >= 70) return { bg: 'bg-green-950/40',  text: 'text-green-300',  border: 'border-green-500/60',  hex: '#4ade80' }
+  if (ovr >= 60) return { bg: 'bg-blue-950/40',   text: 'text-blue-300',   border: 'border-blue-500/60',   hex: '#60a5fa' }
+  if (ovr >= 50) return { bg: 'bg-gray-800/60',   text: 'text-gray-300',   border: 'border-gray-600/60',   hex: '#9ca3af' }
+  return           { bg: 'bg-gray-900/60',   text: 'text-gray-400',   border: 'border-gray-700/60',   hex: '#6b7280' }
 }
 
 // ─────────────────────────────────────────────────────────────
 // 헬퍼
 // ─────────────────────────────────────────────────────────────
 
-/** target 이 정렬된 배열에서 차지하는 퍼센타일 (0=최하위, 1=최상위, tie = 평균 순위). */
+/** 정렬된 배열에서 target 의 퍼센타일 (0=최하위, 1=최상위, tie 는 평균 rank). */
 function percentile(sortedAsc: number[], target: number): number {
   const n = sortedAsc.length
   if (n === 0) return 0.5
@@ -133,238 +96,87 @@ function percentile(sortedAsc: number[], target: number): number {
     if (v < target) below++
     else if (v === target) equal++
   }
-  // 평균 순위: below 뒤부터 below+equal 사이의 중간 지점
   const rank = below + (equal - 1) / 2
   return Math.max(0, Math.min(1, rank / (n - 1)))
 }
 
-/** 퍼센타일 → 40-99 rating. `^0.75` 로 상위 압축. */
+/** 퍼센타일 → 40-99 rating. */
 function pctToRating(pct: number): number {
   const clamped = Math.max(0, Math.min(1, pct))
-  return 40 + 55 * Math.pow(clamped, 0.75)
-}
-
-/** 두 퍼센타일을 가중결합 (기본: 정확도 70% + 볼륨 30%). */
-function accVol(accPct: number, volPct: number, wAcc = 0.7): number {
-  return wAcc * accPct + (1 - wAcc) * volPct
+  return 40 + 59 * Math.pow(clamped, 0.75)
 }
 
 // ─────────────────────────────────────────────────────────────
-// 어트리뷰트 파생 스탯
+// 파생 스탯
 // ─────────────────────────────────────────────────────────────
 
-/** 파생 지표 사전 계산 — 스탯 API 가 직접 주지 않는 값들. */
-interface DerivedStats {
-  ts_pct: number       // 진실야투율 (0-100)
-  at_ratio: number     // A/T ratio
-  ast_pct: number      // 어시스트 사용률 (0-100)
-  tov_pct: number      // 턴오버 사용률 (0-100)
-  three_g: number      // 3PA / gp
-  mid_g: number        // md_a / gp
-  lay_g: number        // (ds_a + lu_a) / gp
-  ftr: number          // FTA / FGA (0-100)
-  a1_rate: number      // A1 / FGM (0-100)
+function tsPct(p: PlayerStat): number {
+  const denom = 2 * (p.fga + 0.44 * p.fta)
+  return denom > 0 ? p.pts / denom * 100 : 0
 }
 
-function derive(p: PlayerStat): DerivedStats {
-  const gp = Math.max(1, p.gp)
+function tovRate(p: PlayerStat): number {
+  // TOV per possession — 낮을수록 좋음. 볼륨(fga/fta/tov) 이 있는 선수만 유의미
   const poss = p.fga + 0.44 * p.fta + p.tov
-  return {
-    ts_pct:  (p.fga + 0.44 * p.fta) > 0 ? p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100 : 0,
-    at_ratio: p.tov > 0 ? p.ast / p.tov : (p.ast > 0 ? 99 : 0),
-    ast_pct:  (poss + p.ast) > 0 ? p.ast / (poss + p.ast) * 100 : 0,
-    tov_pct:  poss > 0 ? p.tov / poss * 100 : 0,
-    three_g:  p.fg3a / gp,
-    mid_g:    p.md_a / gp,
-    lay_g:    (p.ds_a + p.lu_a) / gp,
-    ftr:      p.fga > 0 ? p.fta / p.fga * 100 : 0,
-    a1_rate:  p.fgm > 0 ? (p.and_one ?? 0) / p.fgm * 100 : 0,
-  }
+  return poss > 0 ? p.tov / poss * 100 : 0
 }
 
-/**
- * 리그 컨텍스트 — 각 스탯 축에 대해 자격 선수들의 값 정렬 배열.
- * 어트리뷰트 계산 시 percentile() 을 부르는 데 사용.
- */
-interface LeagueContext {
-  sorted: Record<string, number[]>
-}
-
-function buildContext(qualified: PlayerStat[], derived: DerivedStats[]): LeagueContext {
-  const collect = (fn: (p: PlayerStat, d: DerivedStats) => number): number[] =>
-    qualified.map((p, i) => fn(p, derived[i])).sort((a, b) => a - b)
-
-  return {
-    sorted: {
-      ppg:       collect((p) => p.ppg),
-      ts_pct:    collect((_, d) => d.ts_pct),
-      efg_pct:   collect((p) => p.efg_pct),
-      // 3PT
-      fg3_pct:   collect((p) => p.fg3_pct),
-      three_g:   collect((_, d) => d.three_g),
-      // MID
-      fg2_pct:   collect((p) => p.fg2_pct),
-      mid_g:     collect((_, d) => d.mid_g),
-      // LAY
-      lay_g:     collect((_, d) => d.lay_g),
-      a1_rate:   collect((_, d) => d.a1_rate),
-      // FT
-      ft_pct:    collect((p) => p.ft_pct),
-      ftr:       collect((_, d) => d.ftr),
-      // Playmaking
-      apg:       collect((p) => p.apg),
-      at_ratio:  collect((_, d) => d.at_ratio),
-      ast_pct:   collect((_, d) => d.ast_pct),
-      // Rebounding
-      orp:       collect((p) => p.orp),
-      drp:       collect((p) => p.drp),
-      orb_share: collect((p) => p.reb > 0 ? p.oreb / p.reb * 100 : 0),
-      drb_share: collect((p) => p.reb > 0 ? p.dreb / p.reb * 100 : 0),
-      trb_pct:   collect((p) => p.team_reb_in_games > 0 ? p.reb / p.team_reb_in_games * 100 : 0),
-      // Defense
-      spg:       collect((p) => p.spg),
-      bpg:       collect((p) => p.bpg),
-      // Discipline (역방향 지표는 별도)
-      inv_tov_pct: collect((_, d) => -d.tov_pct),  // 낮을수록 좋으므로 부호 반전
-    },
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// 어트리뷰트 계산 (각 어트리뷰트 → 40-99)
-// ─────────────────────────────────────────────────────────────
-
-/** 볼륨이 부족한 어트리뷰트는 중립 60 반환. */
-const NEUTRAL = 60
-
-function computeAttributes(p: PlayerStat, d: DerivedStats, ctx: LeagueContext): Record<AttributeCode, number> {
-  const pct = (key: string, v: number): number => percentile(ctx.sorted[key] ?? [], v)
-
-  const attrs: Record<AttributeCode, number> = {} as Record<AttributeCode, number>
-
-  // ── SCR ──────────────────────────────────────────────────
-  attrs.VOL = pctToRating(pct('ppg', p.ppg))
-  attrs.TSA = pctToRating(pct('ts_pct', d.ts_pct))
-
-  // 3PT: 3PA total >= 3 필요 (충분한 volume)
-  attrs.THR = p.fg3a >= 3
-    ? pctToRating(accVol(pct('fg3_pct', p.fg3_pct), pct('three_g', d.three_g)))
-    : NEUTRAL
-
-  // MID: 미들 attempts >= 3
-  attrs.MID = p.md_a >= 3
-    ? pctToRating(accVol(pct('fg2_pct', p.fg2_pct), pct('mid_g', d.mid_g)))
-    : NEUTRAL
-
-  // LAY: 골밑+드라이브 attempts >= 3
-  const layA = p.ds_a + p.lu_a
-  attrs.LAY = layA >= 3
-    ? pctToRating(
-        0.5 * pct('fg2_pct', p.fg2_pct) +
-        0.35 * pct('lay_g', d.lay_g) +
-        0.15 * pct('a1_rate', d.a1_rate)
-      )
-    : NEUTRAL
-
-  // FT: FTA >= 3
-  attrs.FT = p.fta >= 3
-    ? pctToRating(accVol(pct('ft_pct', p.ft_pct), pct('ftr', d.ftr)))
-    : NEUTRAL
-
-  // ── PLY ──────────────────────────────────────────────────
-  attrs.PSV = pctToRating(pct('apg', p.apg))
-  attrs.ASR = pctToRating(pct('ast_pct', d.ast_pct))
-  // BHD: A/T + TOV 억제
-  attrs.BHD = pctToRating(0.6 * pct('at_ratio', d.at_ratio) + 0.4 * pct('inv_tov_pct', -d.tov_pct))
-
-  // ── REB ──────────────────────────────────────────────────
-  attrs.ORB = pctToRating(0.5 * pct('orp', p.orp) + 0.5 * pct('orb_share', p.reb > 0 ? p.oreb / p.reb * 100 : 0))
-  attrs.DRB = pctToRating(0.5 * pct('drp', p.drp) + 0.5 * pct('drb_share', p.reb > 0 ? p.dreb / p.reb * 100 : 0))
-  attrs.RBR = pctToRating(pct('trb_pct', p.team_reb_in_games > 0 ? p.reb / p.team_reb_in_games * 100 : 0))
-
-  // ── DEF ──────────────────────────────────────────────────
-  attrs.PMD = pctToRating(pct('spg', p.spg))
-  attrs.INT = pctToRating(pct('bpg', p.bpg))
-
-  // ── EFF ──────────────────────────────────────────────────
-  attrs.EFG = pctToRating(pct('efg_pct', p.efg_pct))
-  attrs.DIS = pctToRating(pct('inv_tov_pct', -d.tov_pct))
-
-  return attrs
-}
-
-// ─────────────────────────────────────────────────────────────
-// 카테고리 · OVR 계산
-// ─────────────────────────────────────────────────────────────
-
-function computeCategories(attrs: Record<AttributeCode, number>): Record<CategoryCode, number> {
-  const cats: Record<CategoryCode, number> = { SCR: 0, PLY: 0, REB: 0, DEF: 0, EFF: 0 }
-  const catWeightSum: Record<CategoryCode, number> = { SCR: 0, PLY: 0, REB: 0, DEF: 0, EFF: 0 }
-
-  for (const code of Object.keys(ATTRIBUTE_LABELS) as AttributeCode[]) {
-    const cat = ATTRIBUTE_LABELS[code].cat
-    const w = ATTRIBUTE_WEIGHTS[code]
-    cats[cat] += w * attrs[code]
-    catWeightSum[cat] += w
-  }
-  // 정규화 (모든 어트리뷰트 가중치의 합이 1이지만 방어적으로)
-  for (const cat of Object.keys(cats) as CategoryCode[]) {
-    if (catWeightSum[cat] > 0) cats[cat] = cats[cat] / catWeightSum[cat]
-    cats[cat] = Math.round(cats[cat] * 10) / 10
-  }
-  return cats
-}
-
-function computeOVR(cats: Record<CategoryCode, number>, gp: number): number {
-  const rawOvr =
-    CATEGORY_WEIGHTS.SCR * cats.SCR +
-    CATEGORY_WEIGHTS.PLY * cats.PLY +
-    CATEGORY_WEIGHTS.REB * cats.REB +
-    CATEGORY_WEIGHTS.DEF * cats.DEF +
-    CATEGORY_WEIGHTS.EFF * cats.EFF
-  // Small-sample regression toward league median (60)
-  const K = 8
-  const adjusted = (gp * rawOvr + K * 60) / (gp + K)
-  return Math.round(adjusted)
+function atRatio(p: PlayerStat): number {
+  return p.tov > 0 ? p.ast / p.tov : (p.ast > 0 ? 99 : 0)
 }
 
 // ─────────────────────────────────────────────────────────────
 // 메인
 // ─────────────────────────────────────────────────────────────
 
-export interface ComputeRatingOptions {
-  /** 최소 경기 수 (기본 5) */
-  minGP?: number
-  /** 리그 최다 출전 대비 최소 비율 (기본 1/3) */
-  minGPRatio?: number
-}
+export function computeRatings(players: PlayerStat[]): PlayerRating[] {
+  // 자격: 최소 1경기. Q3 처럼 이제 시작하는 시점에도 표시.
+  const eligible = players.filter(p => p.gp >= 1)
 
-export function computeRatings(
-  players: PlayerStat[],
-  options: ComputeRatingOptions = {}
-): PlayerRating[] {
-  const { minGP = 5, minGPRatio = 1 / 3 } = options
-
-  // 자격 필터: 리그 최다 출전자의 minGPRatio 이상 & 최소 minGP
-  const maxGP = players.reduce((m, p) => Math.max(m, p.gp), 0)
-  const gpThreshold = Math.max(minGP, Math.ceil(maxGP * minGPRatio))
-
-  const qualifiedList = players.filter(p => p.gp >= gpThreshold)
-  const qualifiedDerived = qualifiedList.map(derive)
-
-  // 자격자가 3명 미만이면 percentile 이 무의미 → 모두 unrated
-  if (qualifiedList.length < 3) {
-    return players.map(p => makeUnrated(p))
+  if (eligible.length < 3) {
+    return players.map(makeUnrated)
   }
 
-  const ctx = buildContext(qualifiedList, qualifiedDerived)
+  // ── 각 카테고리별 정렬 배열 ──────────────────────────────────
+  const gpArr  = eligible.map(p => p.gp).sort((a, b) => a - b)
+  const ptsArr = eligible.map(p => p.pts).sort((a, b) => a - b)
+  const rebArr = eligible.map(p => p.reb).sort((a, b) => a - b)
+  const astArr = eligible.map(p => p.ast).sort((a, b) => a - b)
+  const stbArr = eligible.map(p => p.stl + p.blk).sort((a, b) => a - b)
+
+  // 효율 sub-metrics — 볼륨 있는 선수만 percentile 대상 (야투 시도 없으면 볼륨 없음 = 중립)
+  const efgArr    = eligible.filter(p => p.fga > 0).map(p => p.efg_pct).sort((a, b) => a - b)
+  const tsArr     = eligible.filter(p => (p.fga + p.fta) > 0).map(tsPct).sort((a, b) => a - b)
+  const invTovArr = eligible.filter(p => (p.fga + p.fta + p.tov) > 0).map(p => -tovRate(p)).sort((a, b) => a - b)
+  const atArr     = eligible.map(atRatio).sort((a, b) => a - b)
 
   const ratings: PlayerRating[] = players.map(p => {
-    if (p.gp < gpThreshold) return makeUnrated(p)
-    const d = derive(p)
-    const attrs = computeAttributes(p, d, ctx)
-    const cats = computeCategories(attrs)
-    const ovr = computeOVR(cats, p.gp)
+    if (p.gp < 1) return makeUnrated(p)
+
+    // 카테고리 값
+    const attR = pctToRating(percentile(gpArr, p.gp))
+    const ptsR = pctToRating(percentile(ptsArr, p.pts))
+    const rebR = pctToRating(percentile(rebArr, p.reb))
+    const astR = pctToRating(percentile(astArr, p.ast))
+    const stbR = pctToRating(percentile(stbArr, p.stl + p.blk))
+
+    // 효율 복합 — 볼륨 없는 경우 중립(0.5) 처리
+    const efgP    = p.fga > 0 ? percentile(efgArr, p.efg_pct) : 0.5
+    const tsP     = (p.fga + p.fta) > 0 ? percentile(tsArr, tsPct(p)) : 0.5
+    const invTovP = (p.fga + p.fta + p.tov) > 0 ? percentile(invTovArr, -tovRate(p)) : 0.5
+    const atP     = percentile(atArr, atRatio(p))
+
+    const effR = pctToRating(0.30 * efgP + 0.30 * tsP + 0.25 * invTovP + 0.15 * atP)
+
+    const ovr = Math.round(
+      CATEGORY_WEIGHTS.ATT * attR +
+      CATEGORY_WEIGHTS.PTS * ptsR +
+      CATEGORY_WEIGHTS.REB * rebR +
+      CATEGORY_WEIGHTS.AST * astR +
+      CATEGORY_WEIGHTS.STB * stbR +
+      CATEGORY_WEIGHTS.EFF * effR
+    )
+
     return {
       player_id: p.player_id,
       name: p.name,
@@ -372,27 +184,27 @@ export function computeRatings(
       position: p.position,
       gp: p.gp,
       ovr,
-      categories: cats,
-      attributes: Object.fromEntries(
-        Object.entries(attrs).map(([k, v]) => [k, Math.round(v)])
-      ) as Record<AttributeCode, number>,
-      tier: tierOf(ovr, true),
+      categories: {
+        ATT: Math.round(attR * 10) / 10,
+        PTS: Math.round(ptsR * 10) / 10,
+        REB: Math.round(rebR * 10) / 10,
+        AST: Math.round(astR * 10) / 10,
+        STB: Math.round(stbR * 10) / 10,
+        EFF: Math.round(effR * 10) / 10,
+      },
       rank: 0,
       qualified: true,
     }
   })
 
-  // 랭킹 부여 (자격자만)
-  const qualifiedRatings = ratings.filter(r => r.qualified).sort((a, b) => b.ovr - a.ovr)
-  qualifiedRatings.forEach((r, i) => { r.rank = i + 1 })
+  // OVR 랭킹 부여
+  const sorted = ratings.filter(r => r.qualified).sort((a, b) => b.ovr - a.ovr)
+  sorted.forEach((r, i) => { r.rank = i + 1 })
 
   return ratings
 }
 
 function makeUnrated(p: PlayerStat): PlayerRating {
-  const emptyAttrs: Record<AttributeCode, number> = Object.fromEntries(
-    (Object.keys(ATTRIBUTE_LABELS) as AttributeCode[]).map(k => [k, 0])
-  ) as Record<AttributeCode, number>
   return {
     player_id: p.player_id,
     name: p.name,
@@ -400,9 +212,7 @@ function makeUnrated(p: PlayerStat): PlayerRating {
     position: p.position,
     gp: p.gp,
     ovr: 0,
-    categories: { SCR: 0, PLY: 0, REB: 0, DEF: 0, EFF: 0 },
-    attributes: emptyAttrs,
-    tier: 'Unrated',
+    categories: { ATT: 0, PTS: 0, REB: 0, AST: 0, STB: 0, EFF: 0 },
     rank: 0,
     qualified: false,
   }

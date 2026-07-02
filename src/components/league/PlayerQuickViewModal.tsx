@@ -7,7 +7,7 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 import { type EvaluatedBadge } from '@/lib/stats/badges'
 import RatingBadge from '@/components/league/RatingBadge'
-import { CATEGORY_LABELS, TIER_COLORS, type PlayerRating, type CategoryCode } from '@/lib/rating/computeRating'
+import { CATEGORY_LABELS, ovrStyle, type PlayerRating, type CategoryCode } from '@/lib/rating/computeRating'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, PieChart, Pie, Cell as PieCell } from 'recharts'
 
 type PlayerInfo = {
@@ -258,7 +258,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {activeRating && (
               <RatingBadge
                 ovr={activeRating.ovr}
-                tier={activeRating.tier}
                 qualified={activeRating.qualified}
                 size="lg"
               />
@@ -269,10 +268,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 <span className="truncate">{player?.name ?? playerName}</span>
               </h2>
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                {activeRating?.qualified && (
-                  <span className={`text-[10px] font-jersey font-black px-1.5 py-0.5 rounded ${TIER_COLORS[activeRating.tier].bg} ${TIER_COLORS[activeRating.tier].text} border ${TIER_COLORS[activeRating.tier].border} uppercase tracking-widest`}>
-                    {activeRating.tier}
-                    {activeRating.rank > 0 && <span className="ml-1 opacity-70">#{activeRating.rank}</span>}
+                {activeRating?.qualified && activeRating.rank > 0 && (
+                  <span className="text-[10px] font-jersey font-black px-1.5 py-0.5 rounded bg-gray-800/60 text-gray-300 border border-gray-700/60 uppercase tracking-widest">
+                    Rank #{activeRating.rank}
                   </span>
                 )}
                 {positions.map(pos => (
@@ -460,19 +458,18 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   <div className="flex justify-center py-8"><BasketballLoader size={22} /></div>
                 ) : (
                   <>
-                    {/* 카테고리 레이팅 (2K 스타일) */}
+                    {/* 카테고리 레이팅 (누적 스탯 기반) */}
                     {activeRating?.qualified && (
                       <div className="mb-4 pb-3 border-b border-gray-800/60">
                         <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-2">카테고리 레이팅</p>
-                        <div className="grid grid-cols-5 gap-1.5">
-                          {(['SCR', 'PLY', 'REB', 'DEF', 'EFF'] as CategoryCode[]).map(cat => {
+                        <div className="grid grid-cols-6 gap-1 lg:gap-1.5">
+                          {(['ATT', 'PTS', 'REB', 'AST', 'STB', 'EFF'] as CategoryCode[]).map(cat => {
                             const val = Math.round(activeRating.categories[cat])
-                            const tier = val >= 90 ? 'Elite' : val >= 85 ? 'All-Star' : val >= 75 ? 'Starter' : val >= 65 ? 'Rotation' : val >= 55 ? 'Bench' : 'Rookie'
-                            const c = TIER_COLORS[tier]
+                            const s = ovrStyle(val, true)
                             return (
-                              <div key={cat} className={`text-center rounded-md py-1.5 border ${c.bg} ${c.border}`}>
-                                <div className={`text-[9px] font-black tracking-widest ${c.text}`}>{cat}</div>
-                                <div className={`text-lg font-black tabular-nums ${c.text}`}>{val}</div>
+                              <div key={cat} className={`text-center rounded-md py-1.5 border ${s.bg} ${s.border}`} title={CATEGORY_LABELS[cat].description}>
+                                <div className={`text-[9px] font-black tracking-widest ${s.text}`}>{cat}</div>
+                                <div className={`text-lg font-black tabular-nums ${s.text}`}>{val}</div>
                                 <div className="text-[9px] text-gray-500 truncate px-1">{CATEGORY_LABELS[cat].long}</div>
                               </div>
                             )

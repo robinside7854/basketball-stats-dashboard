@@ -12,7 +12,7 @@ import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import { type EvaluatedBadge } from '@/lib/stats/badges'
 import { LeaderBadgeInline } from '@/components/league/LeaderBadgePanel'
 import RatingBadge from '@/components/league/RatingBadge'
-import { TIER_COLORS, type PlayerRating } from '@/lib/rating/computeRating'
+import { type PlayerRating } from '@/lib/rating/computeRating'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
 // 업로드 전 이미지를 600×800(3:4) 이하로 리사이즈 + JPEG 압축
@@ -1465,9 +1465,9 @@ export default function LeagueRosterPage() {
                     </div>
                     {/* OVR 뱃지 — 자격 있으면 표시, 없으면 텍스트 fallback */}
                     {rating?.qualified ? (
-                      <RatingBadge ovr={rating.ovr} tier={rating.tier} qualified size="md" title={`OVR ${rating.ovr} · ${rating.tier} · 리그 #${rating.rank}`} />
+                      <RatingBadge ovr={rating.ovr} qualified size="md" title={`OVR ${rating.ovr} · 리그 #${rating.rank} · ${rating.gp}경기`} />
                     ) : (
-                      <div className="w-11 h-11 rounded-full border-2 border-gray-800 bg-gray-900/60 flex items-center justify-center shrink-0" title="경기 데이터 부족">
+                      <div className="w-11 h-11 rounded-full border-2 border-gray-800 bg-gray-900/60 flex items-center justify-center shrink-0" title="경기 데이터 없음">
                         <span className="text-[10px] text-gray-600 font-bold">N/A</span>
                       </div>
                     )}
@@ -1501,13 +1501,8 @@ export default function LeagueRosterPage() {
                     )}
                   </div>
 
-                  {/* 티어 + 포지션 배지 (한 줄) */}
+                  {/* 포지션 배지 (한 줄) */}
                   <div className="flex flex-wrap items-center gap-1 lg:gap-1.5 mb-1.5 lg:mb-2 min-h-[22px]">
-                    {rating?.qualified && (
-                      <span className={`text-[10px] lg:text-xs font-jersey font-black px-1.5 py-0.5 rounded ${TIER_COLORS[rating.tier].bg} ${TIER_COLORS[rating.tier].text} border ${TIER_COLORS[rating.tier].border} uppercase tracking-widest`}>
-                        {rating.tier}
-                      </span>
-                    )}
                     {positions.length > 0
                       ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
                       : <span className="text-xs text-gray-500">포지션 미지정</span>
