@@ -127,12 +127,12 @@ export default function LeagueStatsPanel({
   function renderThead() {
     return (
       <tr>
-        <th className="text-left pb-1.5 pr-2 text-gray-500 text-[10px]">선수</th>
+        <th className="text-left pb-1.5 pr-2 text-gray-500 text-xs">선수</th>
         {HEADERS.map(({ col, label, small, mdOnly }) => (
           <th
             key={col}
             onClick={() => handleSort(col)}
-            className={`pb-1.5 px-1 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${small ? 'text-[9px]' : 'text-[10px]'} ${sortCol === col ? 'text-blue-400' : 'text-gray-500'} ${mdOnly ? 'hidden md:table-cell' : ''}`}
+            className={`pb-1.5 px-1 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${small ? 'text-xs' : 'text-xs'} ${sortCol === col ? 'text-blue-400' : 'text-gray-500'} ${mdOnly ? 'hidden md:table-cell' : ''}`}
           >
             {label}{sortIcon(col)}
           </th>
@@ -153,11 +153,11 @@ export default function LeagueStatsPanel({
       { col: 'blk',     content: s.blk },
       { col: 'tov',     content: s.tov,               extraClass: 'text-red-400' },
       { col: 'fgm',     content: `${s.fgm}/${s.fga}` },
-      { col: 'fg_pct',  content: pct(s.fgm, s.fga),  extraClass: 'text-gray-500 text-[10px]' },
+      { col: 'fg_pct',  content: pct(s.fgm, s.fga),  extraClass: 'text-gray-500 text-xs' },
       { col: 'fg3m',    content: `${s.fg3m}/${s.fg3a}` },
-      { col: 'fg3_pct', content: pct(s.fg3m, s.fg3a), extraClass: 'text-gray-500 text-[10px]' },
+      { col: 'fg3_pct', content: pct(s.fg3m, s.fg3a), extraClass: 'text-gray-500 text-xs' },
       { col: 'ftm',     content: `${s.ftm}/${s.fta}` },
-      { col: 'ft_pct',  content: pct(s.ftm, s.fta),  extraClass: 'text-gray-500 text-[10px]' },
+      { col: 'ft_pct',  content: pct(s.ftm, s.fta),  extraClass: 'text-gray-500 text-xs' },
     ]
     return (
       <tr key={s.player_id} className="text-gray-300">
@@ -183,7 +183,7 @@ export default function LeagueStatsPanel({
     const fg3m = t.fg3m ?? 0; const fg3a = t.fg3a ?? 0
     const ftm = t.ftm ?? 0; const fta = t.fta ?? 0
     return (
-      <tr className="bg-gray-800/40 border-t border-gray-700 text-[10px] font-bold">
+      <tr className="bg-gray-800/40 border-t border-gray-700 text-xs font-bold">
         <td className="py-1 pr-2 font-bold" style={{ color: color ?? '#9ca3af' }}>{label} 소계</td>
         <td className="py-1 px-1 text-center text-white">{t.pts ?? 0}</td>
         <td className="py-1 px-1 text-center">{t.reb ?? 0}</td>
@@ -206,7 +206,7 @@ export default function LeagueStatsPanel({
       <tr>
         <td colSpan={COL_COUNT} className="pt-2 pb-1">
           <div
-            className="inline-block px-2 py-0.5 rounded text-[11px] font-bold"
+            className="inline-block px-2 py-0.5 rounded text-xs font-bold"
             style={{ color: color ?? '#9ca3af', backgroundColor: `${color ?? '#9ca3af'}22` }}
           >
             {label}
@@ -229,12 +229,12 @@ export default function LeagueStatsPanel({
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <div className="text-right"><div className="text-lg font-black text-white leading-none">{s.pts}</div><div className="text-[10px] text-gray-500 font-bold">PTS</div></div>
-            <div className="text-right"><div className="text-base font-bold text-gray-300 leading-none">{s.reb}</div><div className="text-[10px] text-gray-500 font-bold">REB</div></div>
-            <div className="text-right"><div className="text-base font-bold text-blue-400 leading-none">{s.ast}</div><div className="text-[10px] text-gray-500 font-bold">AST</div></div>
+            <div className="text-right"><div className="text-lg font-black text-white leading-none">{s.pts}</div><div className="text-xs text-gray-500 font-bold">PTS</div></div>
+            <div className="text-right"><div className="text-base font-bold text-gray-300 leading-none">{s.reb}</div><div className="text-xs text-gray-500 font-bold">REB</div></div>
+            <div className="text-right"><div className="text-base font-bold text-blue-400 leading-none">{s.ast}</div><div className="text-xs text-gray-500 font-bold">AST</div></div>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-1 pt-1 border-t border-gray-800/60 text-[10px] text-gray-400">
+        <div className="grid grid-cols-3 gap-1 pt-1 border-t border-gray-800/60 text-xs text-gray-400">
           <div className="text-center">FG <span className="font-bold text-gray-200">{s.fgm}/{s.fga}</span> <span className="text-gray-600">({pct(s.fgm, s.fga)})</span></div>
           <div className="text-center">3P <span className="font-bold text-gray-200">{s.fg3m}/{s.fg3a}</span></div>
           <div className="text-center">FT <span className="font-bold text-gray-200">{s.ftm}/{s.fta}</span></div>
@@ -269,7 +269,7 @@ export default function LeagueStatsPanel({
           </tbody>
           {active.length > 1 && (
             <tfoot>
-              <tr className="text-gray-500 border-t border-gray-700 text-[10px]">
+              <tr className="text-gray-500 border-t border-gray-700 text-xs">
                 <td className="pt-1.5 pr-2 font-medium">합계</td>
                 <td className="pt-1.5 px-1 text-center font-bold">{totals.pts ?? 0}</td>
                 <td className="pt-1.5 px-1 text-center">{totals.reb ?? 0}</td>
@@ -324,14 +324,14 @@ export default function LeagueStatsPanel({
     <div className="md:hidden space-y-2">
       {homePlayers.length > 0 && (
         <>
-          <div className="inline-block px-2 py-0.5 rounded text-[11px] font-bold mb-1"
+          <div className="inline-block px-2 py-0.5 rounded text-xs font-bold mb-1"
             style={{ color: homeTeam?.color ?? '#9ca3af', backgroundColor: `${homeTeam?.color ?? '#9ca3af'}22` }}>
             {homeTeam?.name ?? '홈팀'}
           </div>
           <div className="space-y-1.5">
             {homeStats.map(s => <MobileCard key={s.player_id} s={s} p={homePlayerMap[s.player_id]} />)}
           </div>
-          <div className="bg-gray-800/40 rounded-lg px-2.5 py-1.5 text-[11px] flex items-center justify-between">
+          <div className="bg-gray-800/40 rounded-lg px-2.5 py-1.5 text-xs flex items-center justify-between">
             <span style={{ color: homeTeam?.color ?? '#9ca3af' }} className="font-bold">{homeTeam?.name ?? '홈팀'} 합계</span>
             <span className="text-gray-300">PTS <b className="text-white">{homeTotals.pts ?? 0}</b> · REB {homeTotals.reb ?? 0} · AST {homeTotals.ast ?? 0}</span>
           </div>
@@ -339,14 +339,14 @@ export default function LeagueStatsPanel({
       )}
       {awayPlayers.length > 0 && (
         <>
-          <div className="inline-block px-2 py-0.5 rounded text-[11px] font-bold mt-3 mb-1"
+          <div className="inline-block px-2 py-0.5 rounded text-xs font-bold mt-3 mb-1"
             style={{ color: awayTeam?.color ?? '#9ca3af', backgroundColor: `${awayTeam?.color ?? '#9ca3af'}22` }}>
             {awayTeam?.name ?? '어웨이팀'}
           </div>
           <div className="space-y-1.5">
             {awayStats.map(s => <MobileCard key={s.player_id} s={s} p={awayPlayerMap[s.player_id]} />)}
           </div>
-          <div className="bg-gray-800/40 rounded-lg px-2.5 py-1.5 text-[11px] flex items-center justify-between">
+          <div className="bg-gray-800/40 rounded-lg px-2.5 py-1.5 text-xs flex items-center justify-between">
             <span style={{ color: awayTeam?.color ?? '#9ca3af' }} className="font-bold">{awayTeam?.name ?? '어웨이팀'} 합계</span>
             <span className="text-gray-300">PTS <b className="text-white">{awayTotals.pts ?? 0}</b> · REB {awayTotals.reb ?? 0} · AST {awayTotals.ast ?? 0}</span>
           </div>
@@ -367,7 +367,7 @@ export default function LeagueStatsPanel({
           {awayPlayers.length > 0 && renderSubtotal(awayTeam?.name ?? '어웨이팀', awayTeam?.color, awayTotals)}
         </tbody>
         <tfoot>
-          <tr className="text-gray-400 border-t-2 border-gray-600 text-[10px]">
+          <tr className="text-gray-400 border-t-2 border-gray-600 text-xs">
             <td className="pt-1.5 pr-2 font-bold">전체 합계</td>
             <td className="pt-1.5 px-1 text-center font-bold text-white">{allTotals.pts ?? 0}</td>
             <td className="pt-1.5 px-1 text-center">{allTotals.reb ?? 0}</td>

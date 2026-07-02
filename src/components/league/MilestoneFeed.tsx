@@ -89,7 +89,7 @@ export default function MilestoneFeed({ leagueId }: Props) {
             <Target size={16} className="text-blue-400 lg:w-5 lg:h-5" />
             <h3 className="font-jersey text-sm lg:text-base font-bold text-blue-300 uppercase tracking-widest">커리어 마일스톤</h3>
           </div>
-          <span className="text-[10px] lg:text-xs text-gray-500 font-mono">임박 {upcoming.length} · 최근 {recent.length}</span>
+          <span className="text-xs lg:text-xs text-gray-500 font-mono">임박 {upcoming.length} · 최근 {recent.length}</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-800/50">
@@ -97,7 +97,7 @@ export default function MilestoneFeed({ leagueId }: Props) {
           <div className="p-3 lg:p-4">
             <div className="flex items-center gap-1.5 mb-2 lg:mb-3">
               <Target size={12} className="text-blue-400" />
-              <p className="text-[10px] lg:text-xs font-jersey font-bold text-blue-300 uppercase tracking-widest">임박 (진행률 순)</p>
+              <p className="text-xs lg:text-xs font-jersey font-bold text-blue-300 uppercase tracking-widest">임박 (진행률 순)</p>
             </div>
             {upcoming.length === 0 ? (
               <p className="text-xs text-gray-600 py-4 text-center">임박한 마일스톤 없음</p>
@@ -113,12 +113,12 @@ export default function MilestoneFeed({ leagueId }: Props) {
                     >
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${c.bg} ${c.text} border ${c.border} shrink-0`}>
+                          <span className={`text-xs font-bold font-mono px-1.5 py-0.5 rounded ${c.bg} ${c.text} border ${c.border} shrink-0`}>
                             {u.category}
                           </span>
                           <span className="text-sm lg:text-base font-bold text-white group-hover:text-blue-200 transition-colors truncate">
                             {u.name}
-                            {u.number != null && <span className="ml-1 text-[10px] lg:text-xs text-gray-500 font-mono">#{u.number}</span>}
+                            {u.number != null && <span className="ml-1 text-xs lg:text-xs text-gray-500 font-mono">#{u.number}</span>}
                           </span>
                         </div>
                         <span className={`text-xs lg:text-sm font-black ${c.text} tabular-nums shrink-0`}>
@@ -143,7 +143,7 @@ export default function MilestoneFeed({ leagueId }: Props) {
                             }}
                           />
                         </div>
-                        <span className="text-[10px] font-mono text-gray-500 tabular-nums shrink-0 w-10 text-right">
+                        <span className="text-xs font-mono text-gray-500 tabular-nums shrink-0 w-10 text-right">
                           {u.percent.toFixed(0)}%
                         </span>
                       </div>
@@ -158,7 +158,7 @@ export default function MilestoneFeed({ leagueId }: Props) {
           <div className="p-3 lg:p-4">
             <div className="flex items-center gap-1.5 mb-2 lg:mb-3">
               <Sparkles size={12} className="text-amber-400" />
-              <p className="text-[10px] lg:text-xs font-jersey font-bold text-amber-300 uppercase tracking-widest">최근 달성 (30일)</p>
+              <p className="text-xs lg:text-xs font-jersey font-bold text-amber-300 uppercase tracking-widest">최근 달성 (30일)</p>
             </div>
             {recent.length === 0 ? (
               <p className="text-xs text-gray-600 py-4 text-center">최근 달성 없음</p>
@@ -172,15 +172,15 @@ export default function MilestoneFeed({ leagueId }: Props) {
                       onClick={() => setQuickPlayer({ id: r.player_id, name: r.name })}
                       className="w-full flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-amber-950/20 transition-colors cursor-pointer group"
                     >
-                      <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded ${c.bg} ${c.text} border ${c.border} shrink-0`}>
+                      <span className={`text-xs font-bold font-mono px-1.5 py-0.5 rounded ${c.bg} ${c.text} border ${c.border} shrink-0`}>
                         {r.category}
                       </span>
                       <div className="flex-1 min-w-0 text-left">
                         <p className="text-sm lg:text-base font-bold text-white group-hover:text-amber-200 transition-colors truncate">
                           {r.name}
-                          {r.number != null && <span className="ml-1 text-[10px] lg:text-xs text-gray-500 font-mono">#{r.number}</span>}
+                          {r.number != null && <span className="ml-1 text-xs lg:text-xs text-gray-500 font-mono">#{r.number}</span>}
                         </p>
-                        <p className="text-[10px] lg:text-xs text-gray-500">{formatKoreanDate(r.achieved_at)} · {CATEGORY_LABEL[r.category]}</p>
+                        <p className="text-xs lg:text-xs text-gray-500">{formatKoreanDate(r.achieved_at)} · {CATEGORY_LABEL[r.category]}</p>
                       </div>
                       <span className="text-base lg:text-lg font-black text-amber-300 tabular-nums shrink-0">
                         {r.target}

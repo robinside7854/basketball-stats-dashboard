@@ -363,12 +363,12 @@ export default function LeagueSettingsPage() {
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] text-gray-500">시작일</label>
+                        <label className="text-xs text-gray-500">시작일</label>
                         <Input type="date" value={qStartDate} onChange={e => setQStartDate(e.target.value)}
                           className="bg-gray-700 border-gray-600 text-white text-xs mt-0.5" />
                       </div>
                       <div>
-                        <label className="text-[10px] text-gray-500">종료일</label>
+                        <label className="text-xs text-gray-500">종료일</label>
                         <Input type="date" value={qEndDate} onChange={e => setQEndDate(e.target.value)}
                           className="bg-gray-700 border-gray-600 text-white text-xs mt-0.5" />
                       </div>

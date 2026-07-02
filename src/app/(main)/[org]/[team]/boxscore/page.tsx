@@ -530,30 +530,30 @@ export default function BoxScorePage() {
                               <div className="flex-1 min-w-0">
                                 <div className="font-bold text-white text-sm truncate">
                                   {s.player_name}
-                                  {s.double_double && !s.triple_double && <span className="ml-1 text-[10px] bg-yellow-600 px-1 rounded">DD</span>}
-                                  {s.triple_double && <span className="ml-1 text-[10px] bg-blue-600 px-1 rounded">TD</span>}
+                                  {s.double_double && !s.triple_double && <span className="ml-1 text-xs bg-yellow-600 px-1 rounded">DD</span>}
+                                  {s.triple_double && <span className="ml-1 text-xs bg-blue-600 px-1 rounded">TD</span>}
                                 </div>
                               </div>
                               <div className="text-right shrink-0">
                                 <div className="text-2xl font-black text-yellow-400 leading-none">{s.pts}</div>
-                                <div className="text-[11px] text-gray-500 font-bold mt-0.5">PTS</div>
+                                <div className="text-xs text-gray-500 font-bold mt-0.5">PTS</div>
                               </div>
                             </div>
                             <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-gray-800/60">
                               <div className="text-center">
-                                <div className="text-[11px] text-gray-500">REB</div>
+                                <div className="text-xs text-gray-500">REB</div>
                                 <div className="text-xs font-bold text-gray-200">{s.reb}</div>
                               </div>
                               <div className="text-center">
-                                <div className="text-[11px] text-gray-500">AST</div>
+                                <div className="text-xs text-gray-500">AST</div>
                                 <div className="text-xs font-bold text-blue-400">{s.ast}</div>
                               </div>
                               <div className="text-center">
-                                <div className="text-[11px] text-gray-500">FG%</div>
+                                <div className="text-xs text-gray-500">FG%</div>
                                 <div className="text-xs font-bold text-gray-200">{s.fg_pct > 0 ? `${s.fg_pct.toFixed(0)}%` : '-'}</div>
                               </div>
                               <div className="text-center">
-                                <div className="text-[11px] text-gray-500">3P%</div>
+                                <div className="text-xs text-gray-500">3P%</div>
                                 <div className="text-xs font-bold text-gray-200">{s.fg3_pct > 0 ? `${s.fg3_pct.toFixed(0)}%` : '-'}</div>
                               </div>
                             </div>
@@ -882,14 +882,14 @@ export default function BoxScorePage() {
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-2xl font-black text-yellow-400 leading-none">{s.pts_avg}</div>
-                        <div className="text-[11px] text-gray-500 font-bold mt-0.5">PPG</div>
+                        <div className="text-xs text-gray-500 font-bold mt-0.5">PPG</div>
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-gray-800/60">
-                      <div className="text-center"><div className="text-[11px] text-gray-500">RPG</div><div className="text-xs font-bold text-gray-200">{s.reb_avg}</div></div>
-                      <div className="text-center"><div className="text-[11px] text-gray-500">APG</div><div className="text-xs font-bold text-blue-400">{s.ast_avg}</div></div>
-                      <div className="text-center"><div className="text-[11px] text-gray-500">FG%</div><div className="text-xs font-bold text-gray-200">{s.fg_pct > 0 ? `${s.fg_pct.toFixed(0)}%` : '-'}</div></div>
-                      <div className="text-center"><div className="text-[11px] text-gray-500">3P%</div><div className="text-xs font-bold text-gray-200">{s.fg3_pct > 0 ? `${s.fg3_pct.toFixed(0)}%` : '-'}</div></div>
+                      <div className="text-center"><div className="text-xs text-gray-500">RPG</div><div className="text-xs font-bold text-gray-200">{s.reb_avg}</div></div>
+                      <div className="text-center"><div className="text-xs text-gray-500">APG</div><div className="text-xs font-bold text-blue-400">{s.ast_avg}</div></div>
+                      <div className="text-center"><div className="text-xs text-gray-500">FG%</div><div className="text-xs font-bold text-gray-200">{s.fg_pct > 0 ? `${s.fg_pct.toFixed(0)}%` : '-'}</div></div>
+                      <div className="text-center"><div className="text-xs text-gray-500">3P%</div><div className="text-xs font-bold text-gray-200">{s.fg3_pct > 0 ? `${s.fg3_pct.toFixed(0)}%` : '-'}</div></div>
                     </div>
                   </button>
                 ))}

@@ -419,7 +419,7 @@ export default function LeagueEventInputPad({
           </span>
         )}
         {isPlusOne && (
-          <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-black">+1</span>
+          <span className="shrink-0 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-black">+1</span>
         )}
 
         {/* 마지막 이벤트 — 클릭하면 빠른 수정 메뉴 */}
@@ -469,8 +469,8 @@ export default function LeagueEventInputPad({
         <div>
           <div className="flex items-center justify-between mb-1.5 px-2 py-1 rounded-lg"
             style={{ backgroundColor: `${homeTeam?.color ?? '#3b82f6'}18` }}>
-            <span className="text-[11px] font-bold" style={{ color: homeTeam?.color ?? '#3b82f6' }}>{homeTeam?.name ?? '홈팀'}</span>
-            <span className="text-[10px] font-bold opacity-60" style={{ color: homeTeam?.color ?? '#3b82f6' }}>코트 {homePlayers.length}명</span>
+            <span className="text-xs font-bold" style={{ color: homeTeam?.color ?? '#3b82f6' }}>{homeTeam?.name ?? '홈팀'}</span>
+            <span className="text-xs font-bold opacity-60" style={{ color: homeTeam?.color ?? '#3b82f6' }}>코트 {homePlayers.length}명</span>
           </div>
           <div className="grid grid-cols-2 gap-1.5">
             {homePlayers.map(p => renderPlayerBtn(p, homeTeam?.color ?? '#3b82f6'))}
@@ -479,8 +479,8 @@ export default function LeagueEventInputPad({
         <div>
           <div className="flex items-center justify-between mb-1.5 px-2 py-1 rounded-lg"
             style={{ backgroundColor: `${awayTeam?.color ?? '#ef4444'}18` }}>
-            <span className="text-[11px] font-bold" style={{ color: awayTeam?.color ?? '#ef4444' }}>{awayTeam?.name ?? '어웨이팀'}</span>
-            <span className="text-[10px] font-bold opacity-60" style={{ color: awayTeam?.color ?? '#ef4444' }}>코트 {awayPlayers.length}명</span>
+            <span className="text-xs font-bold" style={{ color: awayTeam?.color ?? '#ef4444' }}>{awayTeam?.name ?? '어웨이팀'}</span>
+            <span className="text-xs font-bold opacity-60" style={{ color: awayTeam?.color ?? '#ef4444' }}>코트 {awayPlayers.length}명</span>
           </div>
           <div className="grid grid-cols-2 gap-1.5">
             {awayPlayers.map(p => renderPlayerBtn(p, awayTeam?.color ?? '#ef4444'))}
@@ -504,7 +504,7 @@ export default function LeagueEventInputPad({
             { players: awayPlayers, team: awayTeam, isShooterTeam: reboundShooterTeamId === awayTeam?.id },
           ].map(({ players: tPlayers, team, isShooterTeam }) => tPlayers.length === 0 ? null : (
             <div key={team?.id ?? 'team'}>
-              <p className="text-[10px] font-bold mb-1.5 px-1" style={{ color: team?.color ?? '#9ca3af' }}>
+              <p className="text-xs font-bold mb-1.5 px-1" style={{ color: team?.color ?? '#9ca3af' }}>
                 {team?.name ?? '팀'} — {isShooterTeam ? '공격리바' : '수비리바'}
               </p>
               <div className="grid grid-cols-3 gap-1.5">
@@ -519,7 +519,7 @@ export default function LeagueEventInputPad({
             </div>
           ))}
           <button onClick={() => doRebound(null)}
-            className="text-[11px] text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center py-1">
+            className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center py-1">
             리바운드 건너뛰기
           </button>
         </div>
@@ -532,8 +532,8 @@ export default function LeagueEventInputPad({
           {pendingShot?.type === 'ft_3pt_2' ? (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[10px] text-gray-500">3P파울 2구</p>
-                <button onClick={() => setPendingShot(null)} className="text-[10px] text-gray-600 hover:text-gray-400 cursor-pointer">취소</button>
+                <p className="text-xs text-gray-500">3P파울 2구</p>
+                <button onClick={() => setPendingShot(null)} className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer">취소</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => handleResult('made')}
@@ -553,10 +553,10 @@ export default function LeagueEventInputPad({
             return (
               <div key={group.label}>
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-[10px] text-gray-500">{group.label}</p>
+                  <p className="text-xs text-gray-500">{group.label}</p>
                   {groupHasPending && (
                     <button onClick={() => { setPendingShot(null); setAwaitingAssist(false) }}
-                      className="text-[10px] text-gray-600 hover:text-gray-400 cursor-pointer">취소</button>
+                      className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer">취소</button>
                   )}
                 </div>
                 {groupHasPending ? (
@@ -647,7 +647,7 @@ export default function LeagueEventInputPad({
             const oppTeam = opposing[0]?.team_id === homeTeam?.id ? homeTeam : awayTeam
             return opposing.length > 0 ? (
               <div>
-                <p className="text-[10px] font-bold mb-1.5 px-1" style={{ color: oppTeam?.color ?? '#9ca3af' }}>
+                <p className="text-xs font-bold mb-1.5 px-1" style={{ color: oppTeam?.color ?? '#9ca3af' }}>
                   {oppTeam?.name ?? '상대팀'}
                 </p>
                 <div className="grid grid-cols-3 gap-1.5">
@@ -663,7 +663,7 @@ export default function LeagueEventInputPad({
             ) : null
           })()}
           <button onClick={() => handleTovPair(null)}
-            className="text-[11px] text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center py-1">
+            className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center py-1">
             건너뛰기
           </button>
         </div>

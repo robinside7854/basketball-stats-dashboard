@@ -1145,7 +1145,7 @@ export default function DraftPortalClient({
               {/* 픽 순서 — 추첨 후에만 표시 */}
               {draft.lottery_done && draft.draft_order.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-blue-800/30">
-                  <p className="text-[11px] uppercase tracking-widest text-blue-300 font-bold mb-2">픽 순서 (추첨 완료)</p>
+                  <p className="text-xs uppercase tracking-widest text-blue-300 font-bold mb-2">픽 순서 (추첨 완료)</p>
                   <div className="flex flex-wrap gap-1.5">
                     {draft.draft_order.map((tid, idx) => {
                       const t = teamsById[tid]
@@ -1539,7 +1539,7 @@ function BigTimer({ seconds, extensionsUsed, canExtend, onExtend, extending, gra
 function SettingPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-gray-900/60 border border-gray-700 px-3 py-2">
-      <p className="text-[11px] uppercase tracking-widest text-gray-300 font-bold">{label}</p>
+      <p className="text-xs uppercase tracking-widest text-gray-300 font-bold">{label}</p>
       <p className="text-base sm:text-lg font-bold text-white mt-1 tabular-nums">{value}</p>
     </div>
   )
@@ -1728,7 +1728,7 @@ function LotteryDoneScreen({ teams, draftOrder, odds, isSupervisor, onStartDraft
                 </span>
                 <div className="text-left min-w-0">
                   <p className="text-sm sm:text-base lg:text-lg font-bold text-white leading-tight break-keep">{t?.name ?? '?'}</p>
-                  {odd != null && <p className="text-[11px] sm:text-xs text-gray-200 tabular-nums">{(odd * 100).toFixed(0)}% 확률</p>}
+                  {odd != null && <p className="text-xs sm:text-xs text-gray-200 tabular-nums">{(odd * 100).toFixed(0)}% 확률</p>}
                 </div>
               </div>
             )
@@ -1815,7 +1815,7 @@ function TeamPickRoster({ teams, picks, draftOrder }: {
                       )}
                       <span className="text-white font-bold flex-1 truncate text-sm sm:text-base min-w-0 break-keep">{p.player_name}</span>
                       {p.player_position && (
-                        <span className="text-[11px] text-gray-300 font-mono shrink-0">{p.player_position.split(',').map(s => s.trim()).join('·')}</span>
+                        <span className="text-xs text-gray-300 font-mono shrink-0">{p.player_position.split(',').map(s => s.trim()).join('·')}</span>
                       )}
                     </div>
                   ))}

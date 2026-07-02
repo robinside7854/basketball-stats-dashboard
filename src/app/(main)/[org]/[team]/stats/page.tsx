@@ -344,7 +344,7 @@ export default function StatsPage() {
                         <div className="text-xl font-black text-yellow-400 leading-none">
                           {typeof sortVal === 'number' ? sortVal : String(sortVal ?? '-')}
                         </div>
-                        <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                        <div className="text-xs text-gray-500 font-bold mt-0.5">{sortLabel}</div>
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-gray-800/60">
@@ -353,7 +353,7 @@ export default function StatsPage() {
                         const v = (s as unknown as Record<string, unknown>)[k as string]
                         return (
                           <div key={k as string} className="text-center">
-                            <div className="text-[11px] text-gray-500">{lbl}</div>
+                            <div className="text-xs text-gray-500">{lbl}</div>
                             <div className="text-xs font-bold text-gray-200">{typeof v === 'number' ? v : String(v ?? '-')}</div>
                           </div>
                         )
@@ -412,7 +412,7 @@ export default function StatsPage() {
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-5 space-y-3">
           <div className="flex items-baseline justify-between">
             <h2 className="text-lg font-semibold text-gray-300">팀 슛 차트</h2>
-            <span className="text-[11px] text-gray-600">코트 위치별 팀 야투율 · 핫존 🔥 / 콜드존 ❄️</span>
+            <span className="text-xs text-gray-600">코트 위치별 팀 야투율 · 핫존 🔥 / 콜드존 ❄️</span>
           </div>
           <HalfCourtChart
             zones={teamShotZones}
@@ -459,7 +459,7 @@ export default function StatsPage() {
                           <th key={p.id} className="py-1.5 px-1 text-gray-400 font-medium min-w-[36px]">
                             <div className="text-center">
                               <div className="text-blue-400 font-bold">{p.number}</div>
-                              <div className="text-gray-500 text-[10px] truncate max-w-[36px]">{p.name.slice(0, 3)}</div>
+                              <div className="text-gray-500 text-xs truncate max-w-[36px]">{p.name.slice(0, 3)}</div>
                             </div>
                           </th>
                         ))}
@@ -578,7 +578,7 @@ export default function StatsPage() {
                               >
                                 {s.assistedPts}
                               </button>
-                              <span className="text-gray-600 ml-1 text-[10px]">({s.assistedFgm}개)</span>
+                              <span className="text-gray-600 ml-1 text-xs">({s.assistedFgm}개)</span>
                             </td>
                             <td className="py-2 px-2 text-center">
                               <button
@@ -595,7 +595,7 @@ export default function StatsPage() {
                               >
                                 {s.unassistedPts}
                               </button>
-                              <span className="text-gray-600 ml-1 text-[10px]">({s.totalFgm - s.assistedFgm}개)</span>
+                              <span className="text-gray-600 ml-1 text-xs">({s.totalFgm - s.assistedFgm}개)</span>
                             </td>
                             <td className="py-2 px-2">
                               <div className="flex items-center gap-2">
@@ -616,7 +616,7 @@ export default function StatsPage() {
                     </tbody>
                   </table>
                 </div>
-                <p className="text-[10px] text-gray-700 mt-2">* 어시스트 비중 = 어시스트 득점 / (어시스트+단독) 총득점. 자유투 제외.</p>
+                <p className="text-xs text-gray-700 mt-2">* 어시스트 비중 = 어시스트 득점 / (어시스트+단독) 총득점. 자유투 제외.</p>
               </div>
 
               {(() => {
@@ -645,12 +645,12 @@ export default function StatsPage() {
                     <div className="flex items-start justify-between mb-1">
                       <div>
                         <p className="text-xs font-semibold text-white">{title}</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5">{subtitle}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
                       </div>
                       {selectedAssistPlayer && (
                         <button
                           onClick={() => setSelectedAssistPlayer(null)}
-                          className="text-[10px] text-gray-500 hover:text-gray-300 px-1.5 py-0.5 rounded hover:bg-gray-800 transition-colors shrink-0"
+                          className="text-xs text-gray-500 hover:text-gray-300 px-1.5 py-0.5 rounded hover:bg-gray-800 transition-colors shrink-0"
                         >
                           전체 보기
                         </button>
@@ -694,7 +694,7 @@ export default function StatsPage() {
                               )
                             })}
                         </div>
-                        <p className="text-[10px] text-gray-700">총 {totalCount}회</p>
+                        <p className="text-xs text-gray-700">총 {totalCount}회</p>
                       </div>
                     ) : (
                       <p className="text-gray-600 text-xs mt-3">데이터 없음</p>

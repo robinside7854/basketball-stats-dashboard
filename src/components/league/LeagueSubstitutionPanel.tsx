@@ -232,7 +232,7 @@ export default function LeagueSubstitutionPanel({
           userSelect: 'none',
         }}
       >
-        {p.number != null && <span className="font-mono mr-1 text-[10px] opacity-70" style={{ pointerEvents: 'none' }}>#{p.number}</span>}
+        {p.number != null && <span className="font-mono mr-1 text-xs opacity-70" style={{ pointerEvents: 'none' }}>#{p.number}</span>}
         <span style={{ pointerEvents: 'none' }}>{p.name}</span>
       </div>
     )
@@ -259,8 +259,8 @@ export default function LeagueSubstitutionPanel({
         }`}
       >
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color }}>{label}</span>
-          {overCapacity && <span className="text-[10px] font-bold text-red-400">⚠ 정원 초과</span>}
+          <span className="text-xs font-bold uppercase tracking-wider" style={{ color }}>{label}</span>
+          {overCapacity && <span className="text-xs font-bold text-red-400">⚠ 정원 초과</span>}
         </div>
         <div className="flex flex-wrap gap-1.5 min-h-[28px]">
           {children}
@@ -298,7 +298,7 @@ export default function LeagueSubstitutionPanel({
         </AreaDropZone>
         <AreaDropZone teamId={team.id} goCourt={false} label={`벤치 (${benchPlayers.length})`} color={team.color}>
           {benchPlayers.map(p => <PlayerChip key={p.id} p={p} accent={accent} />)}
-          {benchPlayers.length === 0 && <p className="text-[11px] text-gray-600 italic">선수를 드래그해 배정하세요</p>}
+          {benchPlayers.length === 0 && <p className="text-xs text-gray-600 italic">선수를 드래그해 배정하세요</p>}
         </AreaDropZone>
       </div>
     )
@@ -306,7 +306,7 @@ export default function LeagueSubstitutionPanel({
 
   return (
     <div className="space-y-3">
-      <p className="text-[11px] text-gray-500">
+      <p className="text-xs text-gray-500">
         드래그로 자유롭게 이동 — 코트로 보내면 그 팀 소속으로 출전 처리됩니다.
         선수끼리 드래그하면 자리를 교환하고, 빈 영역에 드롭하면 그쪽으로 이동합니다.
       </p>
@@ -319,7 +319,7 @@ export default function LeagueSubstitutionPanel({
       {/* 미배정 코트 (유령 상태) */}
       {unassignedOnCourt.length > 0 && (
         <div className="rounded-lg px-2 py-1.5 bg-amber-900/15 border border-amber-700/40">
-          <p className="text-[10px] font-bold text-amber-400 mb-1">⚠ 미배정 코트 ({unassignedOnCourt.length}) — 드래그로 팀에 배정하세요</p>
+          <p className="text-xs font-bold text-amber-400 mb-1">⚠ 미배정 코트 ({unassignedOnCourt.length}) — 드래그로 팀에 배정하세요</p>
           <div className="flex flex-wrap gap-1.5">
             {unassignedOnCourt.map(p => <PlayerChip key={p.id} p={p} accent="ghost" />)}
           </div>
@@ -329,7 +329,7 @@ export default function LeagueSubstitutionPanel({
       {/* 기타 선수 풀 (어느 팀에도 없음, 벤치) */}
       {unassignedBench.length > 0 && (
         <details className="rounded-lg bg-gray-800/40 border border-gray-700/60">
-          <summary className="cursor-pointer px-2.5 py-1.5 text-[11px] text-gray-400 font-medium hover:text-white">
+          <summary className="cursor-pointer px-2.5 py-1.5 text-xs text-gray-400 font-medium hover:text-white">
             기타 선수 ({unassignedBench.length}) — 드래그로 팀에 배정
           </summary>
           <div className="px-2.5 pb-2 pt-1">
@@ -341,7 +341,7 @@ export default function LeagueSubstitutionPanel({
       )}
 
       {busy && (
-        <p className="text-[11px] text-blue-400 text-center">⏳ 처리 중...</p>
+        <p className="text-xs text-blue-400 text-center">⏳ 처리 중...</p>
       )}
     </div>
   )

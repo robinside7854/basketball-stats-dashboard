@@ -97,7 +97,7 @@ export default function LeagueStandings({ standings }: Props) {
                         : 'text-gray-400 font-medium'
                     return (
                       <span className={`inline-flex items-center gap-0.5 text-xs lg:text-sm ${cls}`}>
-                        {type}{count}{hot && <span className="text-[10px] lg:text-xs">🔥</span>}
+                        {type}{count}{hot && <span className="text-xs lg:text-xs">🔥</span>}
                       </span>
                     )
                   })() : <span className="text-gray-700 text-xs">—</span>}

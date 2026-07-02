@@ -77,7 +77,7 @@ export default function PlayerCompareModal({ leagueId, player1Id, player2Id, pla
       <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl">
         <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 px-5 py-4 flex items-center justify-between">
           <div>
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">선수 비교</p>
+            <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">선수 비교</p>
             <h2 className="text-white font-black text-base mt-0.5">
               <span style={{ color: COLOR1 }}>{player1Name}</span>
               <span className="text-gray-600 mx-2">VS</span>
@@ -117,7 +117,7 @@ export default function PlayerCompareModal({ leagueId, player1Id, player2Id, pla
                 return (
                   <div key={key} className="grid grid-cols-3 items-center px-4 py-2.5 border-b border-gray-700/40 last:border-0">
                     <p className={`text-base font-black text-right ${v1Better ? '' : 'text-gray-500'}`} style={v1Better ? { color: COLOR1 } : undefined}>{fmt(v1)}</p>
-                    <p className="text-[11px] text-gray-500 font-bold uppercase text-center tracking-widest">{label}</p>
+                    <p className="text-xs text-gray-500 font-bold uppercase text-center tracking-widest">{label}</p>
                     <p className={`text-base font-black text-left ${v2Better ? '' : 'text-gray-500'}`} style={v2Better ? { color: COLOR2 } : undefined}>{fmt(v2)}</p>
                   </div>
                 )

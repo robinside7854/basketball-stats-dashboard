@@ -593,7 +593,7 @@ export default function LeagueStatsPage() {
                     className="w-14 bg-gray-800 border border-gray-700 text-white rounded px-1.5 py-2 text-center text-xs min-h-[40px]" />
                   <span>경기</span>
                   {!showAll && effectiveMinGP > minGP && (
-                    <span className="text-[10px] text-amber-400 font-bold ml-1">→ {effectiveMinGP} 적용 (G·2/3)</span>
+                    <span className="text-xs text-amber-400 font-bold ml-1">→ {effectiveMinGP} 적용 (G·2/3)</span>
                   )}
                 </div>
                 <button onClick={() => setShowAll(v => !v)}
@@ -644,7 +644,7 @@ export default function LeagueStatsPage() {
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-3xl font-black text-yellow-400 leading-none">{sortVal}</div>
-                        <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                        <div className="text-xs text-gray-500 font-bold mt-0.5">{sortLabel}</div>
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-800/60">
@@ -756,7 +756,7 @@ export default function LeagueStatsPage() {
                         const active = shootSortKey === key
                         return (
                           <div key={key} className="text-center">
-                            <div className={`text-[10px] font-bold ${active ? 'text-blue-400' : 'text-gray-500'}`}>{label}</div>
+                            <div className={`text-xs font-bold ${active ? 'text-blue-400' : 'text-gray-500'}`}>{label}</div>
                             <div className={`text-sm font-bold ${active ? 'text-yellow-400' : 'text-blue-300'}`}>{sh[key]}%</div>
                           </div>
                         )
@@ -827,7 +827,7 @@ export default function LeagueStatsPage() {
               {/* 지표 설명 범례 */}
               <div className="px-4 py-3 border-t border-gray-800 flex flex-wrap gap-x-4 gap-y-1">
                 {SHOOTING_COLS.map(({ key, label, desc }) => (
-                  <span key={key} className="text-[10px] text-gray-600">
+                  <span key={key} className="text-xs text-gray-600">
                     <span className="font-bold text-gray-500">{label}</span> {desc}
                   </span>
                 ))}
@@ -867,7 +867,7 @@ export default function LeagueStatsPage() {
                         const active = advSortKey === key
                         return (
                           <div key={key} className="text-center">
-                            <div className={`text-[10px] font-bold ${active ? 'text-violet-400' : 'text-gray-500'}`}>{label}</div>
+                            <div className={`text-xs font-bold ${active ? 'text-violet-400' : 'text-gray-500'}`}>{label}</div>
                             <div className={`text-sm font-bold ${active ? 'text-yellow-400' : 'text-violet-300'}`}>{isRatio || isCount ? adv[key] : `${adv[key]}%`}</div>
                           </div>
                         )
@@ -932,7 +932,7 @@ export default function LeagueStatsPage() {
               {/* 지표 설명 범례 */}
               <div className="px-4 py-3 border-t border-gray-800 flex flex-wrap gap-x-4 gap-y-1">
                 {ADV_COLS.map(({ key, label, desc }) => (
-                  <span key={key} className="text-[10px] text-gray-600">
+                  <span key={key} className="text-xs text-gray-600">
                     <span className="font-bold text-gray-500">{label}</span> {desc}
                   </span>
                 ))}

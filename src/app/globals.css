@@ -225,6 +225,15 @@
   }
   html {
     @apply font-sans;
+    /* 전체 rem 기반 텍스트를 한 번에 키움 (Tailwind text-xs/sm/base 모두 자동 확대) */
+    /* 모바일: 17px, 태블릿+: 17.5px, PC lg+: 18px */
+    font-size: 17px;
+  }
+  @media (min-width: 768px) {
+    html { font-size: 17.5px; }
+  }
+  @media (min-width: 1024px) {
+    html { font-size: 18px; }
   }
   /* 테이블 숫자 셀: Fira Code 적용 */
   td {

@@ -230,7 +230,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
   const needsResult = isShotType || isFtType
 
   // Chip style helpers
-  const chipBase = 'px-2.5 py-1 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors'
+  const chipBase = 'px-2.5 py-1 rounded-lg text-xs font-bold border cursor-pointer transition-colors'
   const chipInactive = `${chipBase} border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500`
   const chipActive = `${chipBase} bg-blue-600 border-blue-500 text-white`
 
@@ -244,7 +244,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
           <div className="flex items-center gap-3">
             <h2 className="text-white font-bold text-sm">게임 이벤트 로그</h2>
             {!loading && (
-              <span className="text-[11px] text-gray-600">
+              <span className="text-xs text-gray-600">
                 {isFiltered ? `${filteredEvents.length}/${events.length}개` : `${events.length}개`}
               </span>
             )}
@@ -314,7 +314,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
             <select
               value={filterPlayer}
               onChange={e => setFilterPlayer(e.target.value)}
-              className="bg-gray-900 border border-gray-700 text-gray-400 text-[11px] rounded-lg px-2 py-1 cursor-pointer"
+              className="bg-gray-900 border border-gray-700 text-gray-400 text-xs rounded-lg px-2 py-1 cursor-pointer"
             >
               <option value="all">전체 선수</option>
               {eventPlayerIds.map(id => {
@@ -348,7 +348,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                 <div key={e.id} className="bg-gray-900 border border-blue-500/40 rounded-xl p-3.5 space-y-3">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="text-[10px] text-gray-600 block mb-1">선수</label>
+                      <label className="text-xs text-gray-600 block mb-1">선수</label>
                       <select value={editForm.playerId} onChange={ev => setEditForm(f => ({ ...f, playerId: ev.target.value }))}
                         className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
                         <option value="">없음</option>
@@ -356,7 +356,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] text-gray-600 block mb-1">이벤트</label>
+                      <label className="text-xs text-gray-600 block mb-1">이벤트</label>
                       <select value={editForm.type} onChange={ev => setEditForm(f => ({ ...f, type: ev.target.value, result: '', relatedId: '' }))}
                         className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
                         {EVENT_OPTS.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
@@ -367,7 +367,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                   {needsResult && (
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] text-gray-600 block mb-1">결과</label>
+                        <label className="text-xs text-gray-600 block mb-1">결과</label>
                         <select value={editForm.result} onChange={ev => setEditForm(f => ({ ...f, result: ev.target.value }))}
                           className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
                           <option value="">없음</option>
@@ -377,7 +377,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                       </div>
                       {isFtType && (
                         <div>
-                          <label className="text-[10px] text-gray-600 block mb-1">점수</label>
+                          <label className="text-xs text-gray-600 block mb-1">점수</label>
                           <input type="number" min={0} max={4} value={editForm.points}
                             onChange={ev => setEditForm(f => ({ ...f, points: ev.target.value }))}
                             className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5" />
@@ -388,7 +388,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
 
                   {isShotType && (
                     <div>
-                      <label className="text-[10px] text-gray-600 block mb-1">어시스트 선수</label>
+                      <label className="text-xs text-gray-600 block mb-1">어시스트 선수</label>
                       <select value={editForm.relatedId} onChange={ev => setEditForm(f => ({ ...f, relatedId: ev.target.value }))}
                         className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5">
                         <option value="">없음</option>
@@ -421,13 +421,13 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                   {e.video_timestamp != null && ytPlayer ? (
                     <button
                       onClick={() => seekToTimestamp(e.video_timestamp)}
-                      className="text-[11px] font-mono font-bold text-blue-500 hover:text-blue-300 tabular-nums cursor-pointer transition-colors hover:underline underline-offset-2"
+                      className="text-xs font-mono font-bold text-blue-500 hover:text-blue-300 tabular-nums cursor-pointer transition-colors hover:underline underline-offset-2"
                       title="클릭하여 해당 시간으로 이동"
                     >
                       {fmtTs(e.video_timestamp)}
                     </button>
                   ) : (
-                    <span className="text-[11px] font-mono font-bold text-gray-600 tabular-nums">
+                    <span className="text-xs font-mono font-bold text-gray-600 tabular-nums">
                       {fmtTs(e.video_timestamp)}
                     </span>
                   )}
@@ -442,16 +442,16 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                     </button>
                     <span className={`text-xs font-bold ${eventColor(e.type, e.result)}`}>{getLabel(e.type)}</span>
                     {e.result && (
-                      <span className={`text-[11px] px-1.5 py-0.5 rounded font-bold ${e.result === 'made' ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-bold ${e.result === 'made' ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
                         {e.result === 'made' ? '성공' : '실패'}
                       </span>
                     )}
                     {e.points > 0 && e.result === 'made' && (
-                      <span className="text-[11px] text-yellow-400 font-bold">+{e.points}점</span>
+                      <span className="text-xs text-yellow-400 font-bold">+{e.points}점</span>
                     )}
                   </div>
                   {relPlayer && (
-                    <p className="text-[11px] text-gray-600">
+                    <p className="text-xs text-gray-600">
                       어시스트 → {relPlayer.number != null ? `#${relPlayer.number} ` : ''}{relPlayer.name}
                     </p>
                   )}
@@ -476,7 +476,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
 
         {!isEditMode && (
           <div className="px-5 py-2.5 border-t border-gray-800 shrink-0">
-            <p className="text-[11px] text-gray-700 text-center">수정/삭제하려면 편집 모드를 활성화하세요</p>
+            <p className="text-xs text-gray-700 text-center">수정/삭제하려면 편집 모드를 활성화하세요</p>
           </div>
         )}
       </div>

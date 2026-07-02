@@ -649,7 +649,7 @@ export default function OpponentPage() {
                                 : 'bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500 hover:text-white'
                             )}>
                             <span className="text-base font-black">#{p.number}</span>
-                            {p.name && <span className="text-[10px] opacity-70 mt-0.5 truncate w-full text-center">{p.name}</span>}
+                            {p.name && <span className="text-xs opacity-70 mt-0.5 truncate w-full text-center">{p.name}</span>}
                           </button>
                         ))}
                       </div>
@@ -720,7 +720,7 @@ export default function OpponentPage() {
                           {[...events].reverse().map(ev => (
                             <div key={ev.id} className="flex items-center gap-2 text-xs text-gray-400 px-1 py-0.5 hover:bg-gray-800/50 rounded group">
                               {ev.video_timestamp > 0 && (
-                                <span className="text-gray-600 text-[10px] w-10 shrink-0">{formatTimestamp(ev.video_timestamp)}</span>
+                                <span className="text-gray-600 text-xs w-10 shrink-0">{formatTimestamp(ev.video_timestamp)}</span>
                               )}
                               <span className="font-bold text-white shrink-0">
                                 {ev.player?.name ?? `#${ev.player?.number ?? '?'}`}
@@ -825,7 +825,7 @@ export default function OpponentPage() {
                             <div key={p.player_id} className="bg-gray-800/40 rounded-xl p-2 sm:p-3 flex flex-col items-center gap-1.5 border border-gray-700/30">
                               {/* rank + name */}
                               <div className="flex items-center gap-1 w-full">
-                                <span className="text-gray-500 text-[10px] shrink-0">{i + 1}</span>
+                                <span className="text-gray-500 text-xs shrink-0">{i + 1}</span>
                                 <span className="font-bold text-white text-xs truncate">
                                   #{p.player_number}{p.player_name ? ` ${p.player_name}` : ''}
                                 </span>
@@ -945,8 +945,8 @@ export default function OpponentPage() {
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   {SHOT_TYPES.map(t => (
                                     <div key={t.type} className="flex items-center gap-0.5">
-                                      <span className="inline-flex items-center justify-center w-4 h-4 rounded text-white font-black text-[9px]" style={{ backgroundColor: t.color }}>{t.abbr}</span>
-                                      <span className="text-gray-500 text-[10px]">{t.label}</span>
+                                      <span className="inline-flex items-center justify-center w-4 h-4 rounded text-white font-black text-[11px]" style={{ backgroundColor: t.color }}>{t.abbr}</span>
+                                      <span className="text-gray-500 text-xs">{t.label}</span>
                                     </div>
                                   ))}
                                 </div>

@@ -75,7 +75,7 @@ export default function GlobalSearchModal({ leagueId, onClose, onSelectPlayer }:
               <X size={14} />
             </button>
           )}
-          <kbd className="hidden sm:inline text-[10px] text-gray-600 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5">ESC</kbd>
+          <kbd className="hidden sm:inline text-xs text-gray-600 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5">ESC</kbd>
         </div>
 
         <div className="max-h-80 overflow-y-auto py-1">
@@ -98,7 +98,7 @@ export default function GlobalSearchModal({ leagueId, onClose, onSelectPlayer }:
                     <span className="font-bold text-sm text-white truncate">{p.name}</span>
                     {p.number != null && <span className="text-xs text-gray-600 font-mono">#{p.number}</span>}
                   </div>
-                  {p.position && <p className="text-[11px] text-gray-500">{p.position}</p>}
+                  {p.position && <p className="text-xs text-gray-500">{p.position}</p>}
                 </div>
                 <ChevronRight size={13} className="text-gray-600 shrink-0" />
               </button>
@@ -106,7 +106,7 @@ export default function GlobalSearchModal({ leagueId, onClose, onSelectPlayer }:
           )}
         </div>
 
-        <div className="px-4 py-2 border-t border-gray-800/60 flex items-center gap-3 text-[10px] text-gray-600">
+        <div className="px-4 py-2 border-t border-gray-800/60 flex items-center gap-3 text-xs text-gray-600">
           <span><kbd className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5">↑↓</kbd> 이동</span>
           <span><kbd className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5">Enter</kbd> 선택</span>
           <span><kbd className="bg-gray-800 border border-gray-700 rounded px-1 py-0.5">ESC</kbd> 닫기</span>

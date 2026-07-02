@@ -90,15 +90,15 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
                       <p className={`text-base lg:text-lg font-bold whitespace-nowrap ${hasCompleted ? 'text-gray-400' : 'text-white'}`}>{formatDate(date)}</p>
                       {allUpcoming && (
                         isToday ? (
-                          <span className="flex items-center gap-1 text-[10px] lg:text-xs font-bold text-green-400">
+                          <span className="flex items-center gap-1 text-xs lg:text-xs font-bold text-green-400">
                             <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />오늘
                           </span>
                         ) : (
-                          <span className="text-[10px] lg:text-xs font-bold text-gray-500 px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700">예정</span>
+                          <span className="text-xs lg:text-xs font-bold text-gray-500 px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700">예정</span>
                         )
                       )}
                       {allDone && (
-                        <span className="text-[10px] lg:text-xs font-bold text-green-400 px-1.5 py-0.5 rounded bg-green-900/30 border border-green-700/40">✓ 완료</span>
+                        <span className="text-xs lg:text-xs font-bold text-green-400 px-1.5 py-0.5 rounded bg-green-900/30 border border-green-700/40">✓ 완료</span>
                       )}
                     </div>
                     <p className="text-xs lg:text-sm text-gray-500 mt-0.5 whitespace-nowrap">

@@ -336,7 +336,7 @@ export default async function LeagueDetailPage({
           <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
             <div className="px-5 py-4 lg:px-5 lg:py-4 border-b border-gray-800 flex items-center justify-between">
               <h2 className="font-jersey text-lg lg:text-2xl font-bold text-white uppercase tracking-wide">순위표</h2>
-              <span className="font-jersey text-[10px] lg:text-xs text-orange-400 tracking-widest">{TARGET_SEASON_YEAR} 시즌</span>
+              <span className="font-jersey text-xs lg:text-xs text-orange-400 tracking-widest">{TARGET_SEASON_YEAR} 시즌</span>
             </div>
             <LeagueStandingsTabs cumulative={cumulativeStandings} quarters={quarterStandings} />
           </div>

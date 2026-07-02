@@ -44,7 +44,7 @@ export default function LeagueDuoPanel({ leagueId, quarterId, refreshKey }: Prop
 
   function Badge({ n, color }: { n: number; color: string }) {
     return (
-      <span className={`shrink-0 min-w-[22px] px-1.5 py-0.5 rounded-full text-[11px] font-black text-center ${color}`}>
+      <span className={`shrink-0 min-w-[22px] px-1.5 py-0.5 rounded-full text-xs font-black text-center ${color}`}>
         {n}
       </span>
     )
@@ -55,7 +55,7 @@ export default function LeagueDuoPanel({ leagueId, quarterId, refreshKey }: Prop
     return (
       <div className={`flex-1 ${align}`}>
         {p.number && (
-          <span className="text-gray-600 font-mono text-[10px] mr-0.5">#{p.number}</span>
+          <span className="text-gray-600 font-mono text-xs mr-0.5">#{p.number}</span>
         )}
         <span className="font-bold text-white text-xs">{p.name}</span>
       </div>
@@ -70,7 +70,7 @@ export default function LeagueDuoPanel({ leagueId, quarterId, refreshKey }: Prop
         <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-2">
             <span className="text-sm font-bold text-white">최고 어시스트 듀오</span>
-            <span className="text-[10px] text-gray-500 font-medium">어시스터 → 득점자</span>
+            <span className="text-xs text-gray-500 font-medium">어시스터 → 득점자</span>
           </div>
           <div className="divide-y divide-gray-800/60">
             {assistPairs.slice(0, 7).map((pair, i) => (
@@ -79,7 +79,7 @@ export default function LeagueDuoPanel({ leagueId, quarterId, refreshKey }: Prop
                   {i + 1}
                 </span>
                 <PlayerChip p={pair.assister} side="left" />
-                <span className="text-gray-600 text-[11px] font-bold shrink-0">→</span>
+                <span className="text-gray-600 text-xs font-bold shrink-0">→</span>
                 <PlayerChip p={pair.scorer} side="right" />
                 <Badge n={pair.count} color={i === 0 ? 'bg-yellow-500/20 text-yellow-300' : 'bg-blue-500/20 text-blue-300'} />
               </div>
@@ -93,7 +93,7 @@ export default function LeagueDuoPanel({ leagueId, quarterId, refreshKey }: Prop
         <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-2">
             <span className="text-sm font-bold text-white">스틸 관계</span>
-            <span className="text-[10px] text-gray-500 font-medium">탈취자 → 뺏긴 선수</span>
+            <span className="text-xs text-gray-500 font-medium">탈취자 → 뺏긴 선수</span>
           </div>
           <div className="divide-y divide-gray-800/60">
             {stlTovPairs.slice(0, 7).map((pair, i) => (
@@ -102,7 +102,7 @@ export default function LeagueDuoPanel({ leagueId, quarterId, refreshKey }: Prop
                   {i + 1}
                 </span>
                 <PlayerChip p={pair.stealer} side="left" />
-                <span className="text-gray-600 text-[11px] font-bold shrink-0">⚡</span>
+                <span className="text-gray-600 text-xs font-bold shrink-0">⚡</span>
                 <PlayerChip p={pair.tovPlayer} side="right" />
                 <Badge n={pair.count} color={i === 0 ? 'bg-yellow-500/20 text-yellow-300' : 'bg-purple-500/20 text-purple-300'} />
               </div>

@@ -78,11 +78,11 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <p className="text-xs text-gray-600 uppercase tracking-widest font-bold">게임 스탯 리더</p>
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-900/40 border border-amber-700/50 text-amber-300">
+          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-amber-900/40 border border-amber-700/50 text-amber-300">
             🏆 총 {total}회
           </span>
         </div>
-        <p className="text-[10px] text-gray-500">경기 있는 날 부문별 1등 횟수{clickable && ' · 클릭하여 날짜 보기'}</p>
+        <p className="text-xs text-gray-500">경기 있는 날 부문별 1등 횟수{clickable && ' · 클릭하여 날짜 보기'}</p>
       </div>
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
         {CATEGORIES.map(c => {
@@ -95,7 +95,7 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
           const content = (
             <>
               <c.Icon size={16} className={active ? c.color : 'text-gray-600'} />
-              <p className={`text-[9px] font-bold uppercase tracking-widest ${active ? c.color : 'text-gray-600'}`}>{c.label}</p>
+              <p className={`text-[11px] font-bold uppercase tracking-widest ${active ? c.color : 'text-gray-600'}`}>{c.label}</p>
               <p className={`text-lg font-black leading-none tabular-nums ${active ? 'text-white' : 'text-gray-700'}`}>
                 {count}
               </p>
@@ -154,7 +154,7 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all cursor-pointer hover:brightness-125 hover:translate-x-0.5 ${activeCategory.bg} ${activeCategory.border}`}
                     >
                       <span className={`text-sm font-bold ${activeCategory.color}`}>{formatKoreanDate(date)}</span>
-                      <span className="text-[10px] text-gray-400 uppercase tracking-widest">박스스코어 →</span>
+                      <span className="text-xs text-gray-400 uppercase tracking-widest">박스스코어 →</span>
                     </button>
                   ))}
                 </div>
@@ -198,7 +198,7 @@ export function LeaderBadgeInline({ badges, className = '' }: { badges: LeaderBa
       {items.map(c => (
         <span
           key={c.key}
-          className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${c.bg} ${c.border} ${c.color}`}
+          className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-bold ${c.bg} ${c.border} ${c.color}`}
           title={`${c.label} 리더 ${badges[c.key]}회`}
         >
           <c.Icon size={9} />

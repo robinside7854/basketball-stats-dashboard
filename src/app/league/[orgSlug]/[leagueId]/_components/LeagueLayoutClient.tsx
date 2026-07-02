@@ -67,7 +67,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-800/60 hover:bg-gray-800 border border-gray-700 text-gray-400 hover:text-white text-xs font-medium cursor-pointer transition-colors min-h-[44px]">
               <Search size={13} />
               <span className="hidden sm:inline">검색</span>
-              <kbd className="hidden md:inline text-[10px] text-gray-600 bg-gray-900 border border-gray-700 rounded px-1">⌘K</kbd>
+              <kbd className="hidden md:inline text-xs text-gray-600 bg-gray-900 border border-gray-700 rounded px-1">⌘K</kbd>
             </button>
             <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
@@ -131,7 +131,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
                     isActive(href) ? 'bg-blue-600/20 text-blue-400' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                   }`}>
                   <Icon size={22} />
-                  <span className="text-[11px] font-semibold">{label}</span>
+                  <span className="text-xs font-semibold">{label}</span>
                 </Link>
               ))}
             </div>
@@ -149,7 +149,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
                 isActive(href) ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'
               }`}>
               <Icon size={21} />
-              <span className="text-[10px] font-semibold">{label}</span>
+              <span className="text-xs font-semibold">{label}</span>
             </Link>
           ))}
           <button onClick={() => setMoreOpen(v => !v)}
@@ -157,7 +157,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
               moreOpen ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'
             }`}>
             <MoreHorizontal size={21} />
-            <span className="text-[10px] font-semibold">더보기</span>
+            <span className="text-xs font-semibold">더보기</span>
           </button>
         </div>
         <div style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />

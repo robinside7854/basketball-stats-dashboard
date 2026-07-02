@@ -739,7 +739,7 @@ export default function LeagueDraftPage() {
                             <td className="p-2 text-gray-300 font-bold whitespace-nowrap tabular-nums">
                               {r}
                               {draft.method === 'snake' && (
-                                <span className="ml-1 text-[10px] text-amber-500/80" title={reversed ? '역순' : '정순'}>{reversed ? '←' : '→'}</span>
+                                <span className="ml-1 text-xs text-amber-500/80" title={reversed ? '역순' : '정순'}>{reversed ? '←' : '→'}</span>
                               )}
                             </td>
                             {draft.draft_order.map((tid, ci) => {

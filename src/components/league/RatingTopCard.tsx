@@ -60,7 +60,7 @@ export default function RatingTopCard({ leagueId, quarterId, onSelectPlayer }: P
           <Crown size={16} className="text-purple-400 lg:w-5 lg:h-5" />
           <h3 className="font-jersey text-sm lg:text-base font-bold text-purple-300 uppercase tracking-widest">Player Ratings</h3>
         </div>
-        <span className="text-[10px] lg:text-xs text-gray-500 font-mono">누적 · {qualified.length}명 평가</span>
+        <span className="text-xs lg:text-xs text-gray-500 font-mono">누적 · {qualified.length}명 평가</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] divide-y md:divide-y-0 md:divide-x divide-gray-800/60">
@@ -74,7 +74,7 @@ export default function RatingTopCard({ leagueId, quarterId, onSelectPlayer }: P
             >
               <RatingBadge ovr={leader.ovr} qualified size="xl" />
               <div className="flex-1 min-w-0 text-left">
-                <p className={`text-[10px] lg:text-xs font-jersey font-bold uppercase tracking-widest ${leaderStyle.text}`}>
+                <p className={`text-xs lg:text-xs font-jersey font-bold uppercase tracking-widest ${leaderStyle.text}`}>
                   Rank #{leader.rank} · {leader.gp}경기
                 </p>
                 <p className="text-xl lg:text-2xl font-black text-white group-hover:text-purple-200 transition-colors truncate">
@@ -84,7 +84,7 @@ export default function RatingTopCard({ leagueId, quarterId, onSelectPlayer }: P
                 <div className="mt-1.5 flex items-center gap-2 lg:gap-3 flex-wrap">
                   {CATS.map(cat => (
                     <div key={cat} className="flex items-center gap-1">
-                      <span className="text-[10px] lg:text-xs text-gray-500 font-bold font-mono">{cat}</span>
+                      <span className="text-xs lg:text-xs text-gray-500 font-bold font-mono">{cat}</span>
                       <span className="text-xs lg:text-sm text-gray-300 font-bold tabular-nums">{Math.round(leader.categories[cat])}</span>
                     </div>
                   ))}
@@ -110,10 +110,10 @@ export default function RatingTopCard({ leagueId, quarterId, onSelectPlayer }: P
                   <div className="flex-1 min-w-0 text-left">
                     <p className="text-sm lg:text-base font-bold text-gray-200 group-hover:text-white transition-colors truncate">
                       {r.name}
-                      {r.number != null && <span className="ml-1.5 text-[11px] lg:text-xs text-gray-600 font-mono">#{r.number}</span>}
+                      {r.number != null && <span className="ml-1.5 text-xs lg:text-xs text-gray-600 font-mono">#{r.number}</span>}
                     </p>
                   </div>
-                  <span className={`text-[10px] lg:text-xs font-bold tabular-nums ${s.text} shrink-0`}>
+                  <span className={`text-xs lg:text-xs font-bold tabular-nums ${s.text} shrink-0`}>
                     {r.gp}G
                   </span>
                   <ChevronRight size={12} className="text-gray-600 group-hover:text-purple-400 shrink-0" />
@@ -125,7 +125,7 @@ export default function RatingTopCard({ leagueId, quarterId, onSelectPlayer }: P
 
         {/* 우측: 카테고리 리더 */}
         <div className="p-4 lg:p-5 space-y-2 lg:space-y-2.5">
-          <p className="text-[10px] lg:text-xs font-jersey font-bold text-gray-500 uppercase tracking-widest mb-2">카테고리 1위</p>
+          <p className="text-xs lg:text-xs font-jersey font-bold text-gray-500 uppercase tracking-widest mb-2">카테고리 1위</p>
           {CATS.map(cat => {
             const catLeader = catLeaders[cat]
             const value = catLeader ? Math.round(catLeader.categories[cat]) : 0
@@ -137,7 +137,7 @@ export default function RatingTopCard({ leagueId, quarterId, onSelectPlayer }: P
                 disabled={!catLeader}
                 className="w-full flex items-center gap-2 lg:gap-3 px-2 py-1.5 lg:py-2 rounded-lg hover:bg-gray-800/50 transition-colors cursor-pointer disabled:cursor-default disabled:opacity-40"
               >
-                <span className="w-9 lg:w-10 text-[11px] lg:text-xs font-black font-mono text-purple-400 shrink-0 text-left">{cat}</span>
+                <span className="w-9 lg:w-10 text-xs lg:text-xs font-black font-mono text-purple-400 shrink-0 text-left">{cat}</span>
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-xs lg:text-sm text-gray-500">{CATEGORY_LABELS[cat].long}</p>
                   <p className="text-sm lg:text-base font-bold text-white truncate">{catLeader?.name ?? '—'}</p>

@@ -70,7 +70,7 @@ export default function StreakSpotlight({ leagueId, maxEntries = 8 }: Props) {
             <Flame size={16} className="text-orange-400 lg:w-5 lg:h-5" />
             <h3 className="font-jersey text-sm lg:text-base font-bold text-orange-300 uppercase tracking-widest">진행 중 연속</h3>
           </div>
-          <span className="text-[10px] lg:text-xs text-gray-500 font-mono">{streaks.length}개 · Top {displayed.length}</span>
+          <span className="text-xs lg:text-xs text-gray-500 font-mono">{streaks.length}개 · Top {displayed.length}</span>
         </div>
 
         {/* 스트릭 리스트 */}
@@ -98,9 +98,9 @@ export default function StreakSpotlight({ leagueId, maxEntries = 8 }: Props) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm lg:text-base font-bold text-white group-hover:text-orange-200 transition-colors truncate">
                     {s.name}
-                    {s.number != null && <span className="ml-1.5 text-[10px] lg:text-xs text-gray-500 font-mono">#{s.number}</span>}
+                    {s.number != null && <span className="ml-1.5 text-xs lg:text-xs text-gray-500 font-mono">#{s.number}</span>}
                   </p>
-                  <p className={`text-[11px] lg:text-xs ${def.color} truncate`}>
+                  <p className={`text-xs lg:text-xs ${def.color} truncate`}>
                     {def.label}
                   </p>
                 </div>
@@ -110,7 +110,7 @@ export default function StreakSpotlight({ leagueId, maxEntries = 8 }: Props) {
                   <p className={`text-lg lg:text-2xl font-black tabular-nums ${def.color} leading-none`}>
                     {s.count}{def.suffix}
                   </p>
-                  {h.emoji && <p className="text-[10px] lg:text-xs mt-0.5">{h.emoji}</p>}
+                  {h.emoji && <p className="text-xs lg:text-xs mt-0.5">{h.emoji}</p>}
                 </div>
               </button>
             )

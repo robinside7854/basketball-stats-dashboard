@@ -125,7 +125,7 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
                     {rr.team_color && <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
                     <div>
                       <span className="font-bold text-white text-sm whitespace-nowrap">{rr.name}</span>
-                      {rr.team_name && <p className="text-[10px] text-gray-500 leading-none mt-0.5">{rr.team_name}</p>}
+                      {rr.team_name && <p className="text-xs text-gray-500 leading-none mt-0.5">{rr.team_name}</p>}
                     </div>
                   </div>
                 </td>
@@ -211,7 +211,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
             <div className="flex items-center gap-2">
               <h2 className="text-white font-black text-xl">{dateLabel} 박스스코어</h2>
               {allRecordedComplete && (
-                <span className="text-[10px] font-bold text-green-400 px-1.5 py-0.5 rounded bg-green-900/30 border border-green-700/40">✓ 완료</span>
+                <span className="text-xs font-bold text-green-400 px-1.5 py-0.5 rounded bg-green-900/30 border border-green-700/40">✓ 완료</span>
               )}
             </div>
             <p className="text-gray-400 text-sm mt-0.5">
@@ -329,7 +329,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                             {/* 카테고리 레이블 */}
                             <div className="flex items-center gap-1 mb-1">
                               <span className="text-sm">{icon}</span>
-                              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">{label}</span>
+                              <span className="text-xs text-gray-500 font-bold uppercase tracking-wide">{label}</span>
                             </div>
                             {/* 선수 이름 — 주인공 */}
                             <p className="text-base font-black text-white leading-tight truncate">
@@ -339,7 +339,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                             <p className="text-xs font-bold tabular-nums" style={{ color: '#60a5fa' }}>
                               {val ?? ''}
                             </p>
-                            {sub && <p className="text-[10px] text-gray-500">{sub}</p>}
+                            {sub && <p className="text-xs text-gray-500">{sub}</p>}
                           </div>
                         ))}
                       </div>
@@ -581,7 +581,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
   return (
     <div className="space-y-4">
       {!allComplete && (
-        <div className="text-[11px] text-amber-400/80 bg-amber-900/20 border border-amber-700/30 rounded-lg px-3 py-2">
+        <div className="text-xs text-amber-400/80 bg-amber-900/20 border border-amber-700/30 rounded-lg px-3 py-2">
           ⚠ 이 날의 일부 경기가 아직 마감되지 않았습니다 — 최종 수치는 마감 후 확정됩니다.
         </div>
       )}
@@ -592,15 +592,15 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
       <div className="flex items-center justify-center gap-6 py-2 border-b border-gray-800">
         <div className="text-right">
           <div className="text-lg font-black" style={{ color: colorA }}>{A.name}</div>
-          <div className="text-[10px] text-gray-600 font-bold tracking-wider">HOME</div>
+          <div className="text-xs text-gray-600 font-bold tracking-wider">HOME</div>
         </div>
         <div className="flex flex-col items-center">
           <span className="text-gray-600 font-bold text-sm">VS</span>
-          <span className="text-[10px] text-gray-500 mt-0.5">맞대결 {h2h.gameCount}경기</span>
+          <span className="text-xs text-gray-500 mt-0.5">맞대결 {h2h.gameCount}경기</span>
         </div>
         <div className="text-left">
           <div className="text-lg font-black" style={{ color: colorB }}>{B.name}</div>
-          <div className="text-[10px] text-gray-600 font-bold tracking-wider">AWAY</div>
+          <div className="text-xs text-gray-600 font-bold tracking-wider">AWAY</div>
         </div>
       </div>
 
@@ -633,7 +633,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
 
               {/* 중앙 라벨 */}
               <div className="text-center px-2">
-                <span className="text-[11px] text-gray-400 font-bold whitespace-pre-line leading-tight block">
+                <span className="text-xs text-gray-400 font-bold whitespace-pre-line leading-tight block">
                   {item.label}
                 </span>
               </div>
@@ -693,10 +693,10 @@ function DailyScoreboard({ games }: { games: GameData[] }) {
             <div key={g.id}
               className={`rounded-xl px-3 py-2.5 border ${g.is_complete ? 'bg-gray-800/60 border-gray-700' : g.is_started ? 'bg-amber-900/15 border-amber-700/40' : 'bg-gray-900/40 border-gray-800'}`}>
               <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-[10px] text-gray-500 font-mono">#{g.slot_num}</span>
-                {g.is_complete && <span className="text-[10px] text-green-400 font-bold">완료</span>}
-                {!g.is_complete && g.is_started && <span className="text-[10px] text-amber-400 font-bold">진행 중</span>}
-                {!g.is_started && <span className="text-[10px] text-gray-600 font-bold">예정</span>}
+                <span className="text-xs text-gray-500 font-mono">#{g.slot_num}</span>
+                {g.is_complete && <span className="text-xs text-green-400 font-bold">완료</span>}
+                {!g.is_complete && g.is_started && <span className="text-xs text-amber-400 font-bold">진행 중</span>}
+                {!g.is_started && <span className="text-xs text-gray-600 font-bold">예정</span>}
               </div>
               <div className="flex items-center gap-2">
                 {/* HOME */}
@@ -725,17 +725,17 @@ function DailyScoreboard({ games }: { games: GameData[] }) {
       {/* 팀별 일일 전적 (완료 경기 기반) */}
       {records.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="text-[10px] text-gray-500 font-bold mr-1">일일 전적</span>
+          <span className="text-xs text-gray-500 font-bold mr-1">일일 전적</span>
           {records.map(r => (
             <div key={r.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-800/60 border border-gray-700">
               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: r.color ?? '#9ca3af' }} />
               <span className="text-xs font-bold text-white">{r.name}</span>
-              <span className="text-[11px] tabular-nums">
+              <span className="text-xs tabular-nums">
                 <span className="text-green-400 font-bold">{r.W}승</span>
                 {r.D > 0 && <span className="text-gray-400 ml-1">{r.D}무</span>}
                 <span className="text-red-400 font-bold ml-1">{r.L}패</span>
               </span>
-              <span className="text-[10px] text-gray-500 tabular-nums">({r.PF}-{r.PA})</span>
+              <span className="text-xs text-gray-500 tabular-nums">({r.PF}-{r.PA})</span>
             </div>
           ))}
         </div>
@@ -756,7 +756,7 @@ function TeamSelectorBars({
   return (
     <div className="grid grid-cols-2 gap-3">
       <div>
-        <p className="text-[10px] text-gray-500 font-bold mb-1.5">HOME</p>
+        <p className="text-xs text-gray-500 font-bold mb-1.5">HOME</p>
         <div className="flex flex-wrap gap-1.5">
           {teams.map(t => (
             <button key={t.id} onClick={() => onChangeA(t.id)}
@@ -768,7 +768,7 @@ function TeamSelectorBars({
         </div>
       </div>
       <div>
-        <p className="text-[10px] text-gray-500 font-bold mb-1.5">AWAY</p>
+        <p className="text-xs text-gray-500 font-bold mb-1.5">AWAY</p>
         <div className="flex flex-wrap gap-1.5">
           {teams.map(t => (
             <button key={t.id} onClick={() => onChangeB(t.id)}

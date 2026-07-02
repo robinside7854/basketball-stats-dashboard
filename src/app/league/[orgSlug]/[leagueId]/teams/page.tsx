@@ -313,7 +313,7 @@ function StatsTable({
                   </div>
                   <div className="text-right shrink-0">
                     <div className="text-xl font-black leading-none" style={{ color: color ?? '#facc15' }}>{basicVal(p, basicSortKey)}</div>
-                    <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                    <div className="text-xs text-gray-500 font-bold mt-0.5">{sortLabel}</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gray-800/60">
@@ -321,7 +321,7 @@ function StatsTable({
                     const lbl = basicCols.find(c => c.key === k)?.label ?? k
                     return (
                       <div key={k} className="text-center">
-                        <div className="text-[11px] text-gray-500">{lbl}</div>
+                        <div className="text-xs text-gray-500">{lbl}</div>
                         <div className="text-xs font-bold text-gray-200">{basicVal(p, k)}</div>
                       </div>
                     )
@@ -349,7 +349,7 @@ function StatsTable({
                   </div>
                   <div className="text-right shrink-0">
                     <div className="text-xl font-black leading-none" style={{ color: color ?? '#60a5fa' }}>{shootVal(sh, shootSortKey)}</div>
-                    <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                    <div className="text-xs text-gray-500 font-bold mt-0.5">{sortLabel}</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gray-800/60">
@@ -357,7 +357,7 @@ function StatsTable({
                     const lbl = SHOOTING_COLS.find(c => c.key === k)?.label ?? k
                     return (
                       <div key={k} className="text-center">
-                        <div className="text-[11px] text-gray-500">{lbl}</div>
+                        <div className="text-xs text-gray-500">{lbl}</div>
                         <div className="text-xs font-bold text-gray-200">{shootVal(sh, k)}</div>
                       </div>
                     )
@@ -385,7 +385,7 @@ function StatsTable({
                   </div>
                   <div className="text-right shrink-0">
                     <div className="text-xl font-black leading-none" style={{ color: color ?? '#a78bfa' }}>{advVal(adv, advSortKey)}</div>
-                    <div className="text-[11px] text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                    <div className="text-xs text-gray-500 font-bold mt-0.5">{sortLabel}</div>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5 pt-1.5 border-t border-gray-800/60">
@@ -393,7 +393,7 @@ function StatsTable({
                     const lbl = ADV_COLS.find(c => c.key === k)?.label ?? k
                     return (
                       <div key={k} className="text-center">
-                        <div className="text-[11px] text-gray-500">{lbl}</div>
+                        <div className="text-xs text-gray-500">{lbl}</div>
                         <div className="text-xs font-bold text-gray-200">{advVal(adv, k)}</div>
                       </div>
                     )
@@ -643,8 +643,8 @@ function TeamDetailPanel({
                   ].map(card => (
                     <div key={card.label} className="bg-gray-800/60 rounded-xl p-3 text-center border border-gray-700/40">
                       <div className="text-2xl font-black leading-none" style={{ color: card.color }}>{card.value}</div>
-                      <div className="text-[11px] font-bold text-white mt-1">{card.label}</div>
-                      <div className="text-[10px] text-gray-500 mt-0.5">{card.sub}</div>
+                      <div className="text-xs font-bold text-white mt-1">{card.label}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{card.sub}</div>
                     </div>
                   ))}
                 </div>
@@ -668,9 +668,9 @@ function TeamDetailPanel({
                       onClick={() => item.player && setQuickView({ id: item.player.player_id, name: item.player.name })}
                       className="shrink-0 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl px-3.5 py-2.5 text-left transition-colors cursor-pointer"
                     >
-                      <div className="text-[10px] text-gray-500 font-bold mb-0.5">{item.label}</div>
+                      <div className="text-xs text-gray-500 font-bold mb-0.5">{item.label}</div>
                       <div className="text-sm font-bold text-white whitespace-nowrap">{item.player?.name}</div>
-                      <div className="text-[11px] font-semibold whitespace-nowrap" style={{ color: team.color }}>{item.val}</div>
+                      <div className="text-xs font-semibold whitespace-nowrap" style={{ color: team.color }}>{item.val}</div>
                     </button>
                   ))}
                 </div>
@@ -710,8 +710,8 @@ function TeamDetailPanel({
                   ].map(tile => (
                     <div key={tile.title} className="bg-gray-800/40 rounded-xl p-3 border border-gray-700/30">
                       <div className={`text-xl font-black leading-none ${tile.colorClass}`}>{tile.value}</div>
-                      <div className="text-[11px] font-bold text-white mt-1">{tile.title}</div>
-                      <div className="text-[10px] text-gray-500 mt-0.5">{tile.desc}</div>
+                      <div className="text-xs font-bold text-white mt-1">{tile.title}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{tile.desc}</div>
                     </div>
                   ))}
                 </div>
@@ -1077,7 +1077,7 @@ export default function LeagueTeamsPage() {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
               <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">팀별 선수 스탯</h3>
-              <p className="text-[11px] text-gray-600 mt-0.5">이 팀에서 뛴 경기 기준 (정규/비정규 무관) · 한 선수가 여러 팀에서 뛰었다면 각 팀에 분리 표시</p>
+              <p className="text-xs text-gray-600 mt-0.5">이 팀에서 뛴 경기 기준 (정규/비정규 무관) · 한 선수가 여러 팀에서 뛰었다면 각 팀에 분리 표시</p>
             </div>
             <div className="flex items-center gap-2">
               {/* Basic / Shooting / Advanced */}
@@ -1140,7 +1140,7 @@ export default function LeagueTeamsPage() {
         {irregularStats.length > 0 && (
           <div className="space-y-2">
             <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">비정규 선수</h3>
-            <p className="text-[11px] text-gray-600">팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)</p>
+            <p className="text-xs text-gray-600">팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)</p>
             <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-800/60 flex items-center justify-between">
                 <span className="text-sm font-semibold text-gray-400">비정규 참가자</span>

@@ -74,7 +74,7 @@ export default function LeagueLeadersGrid({ leagueId, minGP }: Props) {
             <Trophy size={16} className="text-amber-400 lg:w-5 lg:h-5" />
             <h3 className="font-jersey text-sm lg:text-base font-bold text-amber-300 uppercase tracking-widest">리그 리더</h3>
           </div>
-          <span className="text-[10px] lg:text-xs text-gray-500 font-mono">최소 {effectiveMinGP} R</span>
+          <span className="text-xs lg:text-xs text-gray-500 font-mono">최소 {effectiveMinGP} R</span>
         </div>
 
         {/* 카드 그리드 */}
@@ -99,16 +99,16 @@ export default function LeagueLeadersGrid({ leagueId, minGP }: Props) {
                     <div className="space-y-1">
                       <div className="font-bold text-white">{statDef(cat.term)?.long ?? cat.label}</div>
                       {statDef(cat.term)?.formula && (
-                        <div className="font-mono text-[10px] text-amber-300">{statDef(cat.term)!.formula}</div>
+                        <div className="font-mono text-xs text-amber-300">{statDef(cat.term)!.formula}</div>
                       )}
                       <div className="text-gray-300 leading-relaxed">{statDef(cat.term)?.description}</div>
                     </div>
                   }>
-                    <span className={`text-[10px] lg:text-xs font-jersey font-black tracking-widest uppercase cursor-help underline decoration-dotted decoration-gray-700 underline-offset-2 ${cat.accentClass}`}>
+                    <span className={`text-xs lg:text-xs font-jersey font-black tracking-widest uppercase cursor-help underline decoration-dotted decoration-gray-700 underline-offset-2 ${cat.accentClass}`}>
                       {cat.label}
                     </span>
                   </Tooltip>
-                  <span className="text-[10px] font-mono text-gray-600 uppercase tracking-widest">{cat.term}</span>
+                  <span className="text-xs font-mono text-gray-600 uppercase tracking-widest">{cat.term}</span>
                 </div>
 
                 {/* Top 1 스포트라이트 */}
@@ -118,12 +118,12 @@ export default function LeagueLeadersGrid({ leagueId, minGP }: Props) {
                 >
                   <p className="text-base lg:text-lg font-black text-white group-hover:text-amber-200 transition-colors truncate">
                     {top1.name}
-                    {top1.number != null && <span className="ml-1 text-[10px] lg:text-xs text-gray-500 font-mono">#{top1.number}</span>}
+                    {top1.number != null && <span className="ml-1 text-xs lg:text-xs text-gray-500 font-mono">#{top1.number}</span>}
                   </p>
                   <p className={`text-2xl lg:text-3xl font-black tabular-nums ${cat.accentClass} leading-none mt-1`}>
                     {cat.format(top1Val)}
                   </p>
-                  <p className="text-[10px] text-gray-500 mt-1">{top1.gp}R · #1</p>
+                  <p className="text-xs text-gray-500 mt-1">{top1.gp}R · #1</p>
                 </button>
 
                 {/* Rest (2-5위) */}
@@ -132,7 +132,7 @@ export default function LeagueLeadersGrid({ leagueId, minGP }: Props) {
                     {rest.map((p, idx) => (
                       <button key={p.player_id}
                         onClick={() => setQuickPlayer({ id: p.player_id, name: p.name })}
-                        className="w-full flex items-center justify-between gap-1.5 text-[11px] hover:bg-gray-800/50 rounded px-1.5 py-0.5 transition-colors group"
+                        className="w-full flex items-center justify-between gap-1.5 text-xs hover:bg-gray-800/50 rounded px-1.5 py-0.5 transition-colors group"
                       >
                         <span className="flex items-center gap-1 min-w-0">
                           <span className="text-gray-600 font-mono w-3 shrink-0 text-right">{idx + 2}</span>

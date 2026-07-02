@@ -448,7 +448,7 @@ function PlayerModal({
                   <label className="absolute inset-0 rounded-xl bg-black/60 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 cursor-pointer transition-opacity">
                     {uploadingPhoto
                       ? <Loader2 size={18} className="animate-spin text-white" />
-                      : <span className="text-white text-[10px] font-bold text-center px-2">📷 사진</span>}
+                      : <span className="text-white text-xs font-bold text-center px-2">📷 사진</span>}
                     <input type="file" accept="image/*" className="hidden"
                       onChange={async e => {
                         const file = e.target.files?.[0]
@@ -588,10 +588,10 @@ function PlayerModal({
                     { label: 'BLK', value: stats.bpg.toFixed(1),       rank: detail?.rankings.bpg ?? 0,  accent: false },
                   ].map(({ label, value, rank, accent }) => (
                     <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-blue-900/20 border-blue-800/30' : 'bg-gray-900/50 border-gray-800/40'}`}>
-                      <p className="text-[10px] text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
+                      <p className="text-xs text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
                       <p className={`text-2xl font-black leading-none ${accent ? 'text-blue-300' : 'text-white'}`}>{value}</p>
                       {rank > 0 && (
-                        <p className={`text-[10px] font-bold mt-1 leading-none ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>
+                        <p className={`text-xs font-bold mt-1 leading-none ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>
                           {rank}위
                         </p>
                       )}
@@ -607,9 +607,9 @@ function PlayerModal({
                     { label: 'FT%', pct: stats.ft_pct, made: stats.ftm, att: stats.fta },
                   ].map(({ label, pct, made, att }) => (
                     <div key={label} className="bg-gray-900/50 border border-gray-800/40 rounded-xl p-3 text-center">
-                      <p className="text-[10px] text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
+                      <p className="text-xs text-gray-600 mb-1 uppercase tracking-wider">{label}</p>
                       <p className="text-xl font-black text-white leading-none">{att > 0 ? `${pct.toFixed(1)}%` : '—'}</p>
-                      <p className="text-[10px] text-gray-500 mt-1">{made}/{att}</p>
+                      <p className="text-xs text-gray-500 mt-1">{made}/{att}</p>
                     </div>
                   ))}
                 </div>
@@ -625,7 +625,7 @@ function PlayerModal({
                     { label: 'TOV', value: stats.tov },
                   ].map(({ label, value, hi }) => (
                     <div key={label} className={`rounded-xl p-2 text-center border ${hi ? 'bg-blue-900/15 border-blue-800/25' : 'bg-gray-900/40 border-gray-800/30'}`}>
-                      <p className="text-[10px] text-gray-600 mb-0.5 uppercase tracking-wider">{label}</p>
+                      <p className="text-xs text-gray-600 mb-0.5 uppercase tracking-wider">{label}</p>
                       <p className={`text-base font-black leading-none ${hi ? 'text-blue-300' : 'text-white'}`}>{value}</p>
                     </div>
                   ))}
@@ -638,7 +638,7 @@ function PlayerModal({
                     { label: 'eFG%', value: stats.fga > 0 ? `${stats.efg_pct.toFixed(1)}%` : '—' },
                   ].map(({ label, value }) => (
                     <div key={label} className="flex-1 text-center py-2 bg-gray-900/30 rounded-lg border border-gray-800/30">
-                      <p className="text-[9px] text-gray-500 uppercase">{label}</p>
+                      <p className="text-[11px] text-gray-500 uppercase">{label}</p>
                       <p className="text-xs font-bold text-gray-400">{value}</p>
                     </div>
                   ))}
@@ -676,26 +676,26 @@ function PlayerModal({
                         {zones.map(z => (
                           <div key={z.key} className="flex items-center gap-2">
                             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
-                            <span className="text-[11px] text-gray-400 flex-1">{z.label}</span>
-                            <span className="text-[11px] font-bold" style={{ color: z.color }}>{z.data.dist}%</span>
+                            <span className="text-xs text-gray-400 flex-1">{z.label}</span>
+                            <span className="text-xs font-bold" style={{ color: z.color }}>{z.data.dist}%</span>
                           </div>
                         ))}
-                        <p className="text-[10px] text-gray-500 mt-1">총 {sb.total_fga}회 시도</p>
+                        <p className="text-xs text-gray-500 mt-1">총 {sb.total_fga}회 시도</p>
                       </div>
                     </div>
                     {/* 구역별 야투율 테이블 */}
                     <div className="w-44 shrink-0">
-                      <div className="grid grid-cols-3 gap-x-2 text-[9px] text-gray-600 mb-1 px-0.5">
+                      <div className="grid grid-cols-3 gap-x-2 text-[11px] text-gray-600 mb-1 px-0.5">
                         <span>구역</span><span className="text-right">성공/시도</span><span className="text-right">성공률</span>
                       </div>
                       {[...zones, ...(sb.ft.a > 0 ? [{ key: 'ft', label: '자유투', color: '#9ca3af', data: { m: sb.ft.m, a: sb.ft.a, dist: 0, fg_pct: sb.ft.ft_pct } }] : [])].map(z => (
                         <div key={z.key} className="grid grid-cols-3 gap-x-2 py-0.5 border-b border-gray-800/40 px-0.5">
                           <div className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: z.color }} />
-                            <span className="text-[10px] text-gray-400 truncate">{z.label}</span>
+                            <span className="text-xs text-gray-400 truncate">{z.label}</span>
                           </div>
-                          <span className="text-[10px] text-gray-500 text-right">{z.data.m}/{z.data.a}</span>
-                          <span className="text-[10px] font-bold text-white text-right">{z.data.fg_pct}%</span>
+                          <span className="text-xs text-gray-500 text-right">{z.data.m}/{z.data.a}</span>
+                          <span className="text-xs font-bold text-white text-right">{z.data.fg_pct}%</span>
                         </div>
                       ))}
                     </div>
@@ -729,17 +729,17 @@ function PlayerModal({
                         <div key={key} className="bg-gray-900/60 border border-gray-800/50 rounded-xl p-3">
                           <div className="flex items-baseline gap-1.5 mb-1">
                             <span className={`text-2xl font-black leading-none ${color}`}>{key === 'fgPct' ? `${e.value}%` : e.value}</span>
-                            <span className="text-[10px] text-gray-600 font-bold">{label}</span>
+                            <span className="text-xs text-gray-600 font-bold">{label}</span>
                           </div>
-                          {e.extra && <p className="text-[10px] text-gray-500 mb-1.5">{e.extra}</p>}
-                          {e.date && <p className="text-[10px] text-gray-500">{e.date}</p>}
+                          {e.extra && <p className="text-xs text-gray-500 mb-1.5">{e.extra}</p>}
+                          {e.date && <p className="text-xs text-gray-500">{e.date}</p>}
                           {e.opponent && (
-                            <p className="text-[11px] text-gray-400">
+                            <p className="text-xs text-gray-400">
                               vs {e.opponent}{e.round_num != null ? ` [R${e.round_num}]` : ''}
                             </p>
                           )}
                           {e.result && (
-                            <span className={`inline-block mt-1 text-[10px] font-black px-1.5 py-0.5 rounded ${e.result === 'W' ? 'bg-green-900/60 text-green-400' : 'bg-red-900/60 text-red-400'}`}>
+                            <span className={`inline-block mt-1 text-xs font-black px-1.5 py-0.5 rounded ${e.result === 'W' ? 'bg-green-900/60 text-green-400' : 'bg-red-900/60 text-red-400'}`}>
                               {e.result} {e.score}
                             </span>
                           )}
@@ -761,7 +761,7 @@ function PlayerModal({
                   <thead>
                     <tr className="border-b border-gray-800/60">
                       {['날짜','상대','결과','PTS','REB','AST','STL','BLK','FG','FG%','3P%'].map(h => (
-                        <th key={h} className="pb-1.5 text-[10px] text-gray-600 font-bold text-right first:text-left">{h}</th>
+                        <th key={h} className="pb-1.5 text-xs text-gray-600 font-bold text-right first:text-left">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -771,13 +771,13 @@ function PlayerModal({
                       const fg3Pct = (g as {fg3a?:number}).fg3a ?? 0 > 0 ? Math.round(((g as {fg3m?:number}).fg3m ?? 0) / ((g as {fg3a?:number}).fg3a ?? 1) * 100) : null
                       return (
                       <tr key={i} className="border-b border-gray-800/30 last:border-0">
-                        <td className="py-1.5 pr-2 text-gray-600 text-[10px] whitespace-nowrap">{g.date?.slice(5) ?? '—'}</td>
-                        <td className="py-1.5 pr-2 text-gray-300 text-[11px] whitespace-nowrap">
+                        <td className="py-1.5 pr-2 text-gray-600 text-xs whitespace-nowrap">{g.date?.slice(5) ?? '—'}</td>
+                        <td className="py-1.5 pr-2 text-gray-300 text-xs whitespace-nowrap">
                           vs {g.opponent ?? '—'}{g.round_num != null ? ` [R${g.round_num}]` : ''}
                         </td>
                         <td className="py-1.5 pr-1">
                           {g.result ? (
-                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${g.result === 'W' ? 'text-green-400 bg-green-900/40' : 'text-red-400 bg-red-900/40'}`}>
+                            <span className={`text-xs font-black px-1.5 py-0.5 rounded ${g.result === 'W' ? 'text-green-400 bg-green-900/40' : 'text-red-400 bg-red-900/40'}`}>
                               {g.result} {g.score}
                             </span>
                           ) : '—'}
@@ -787,9 +787,9 @@ function PlayerModal({
                         <td className="py-1.5 text-right text-gray-300">{g.ast}</td>
                         <td className="py-1.5 text-right text-purple-400">{(g as {stl?:number}).stl ?? 0}</td>
                         <td className="py-1.5 text-right text-indigo-400">{(g as {blk?:number}).blk ?? 0}</td>
-                        <td className="py-1.5 text-right text-gray-500 text-[10px]">{g.fgm}/{g.fga}</td>
-                        <td className="py-1.5 text-right text-gray-400 text-[10px]">{fgPct != null ? `${fgPct}%` : '—'}</td>
-                        <td className="py-1.5 text-right text-yellow-600 text-[10px]">{fg3Pct != null ? `${fg3Pct}%` : '—'}</td>
+                        <td className="py-1.5 text-right text-gray-500 text-xs">{g.fgm}/{g.fga}</td>
+                        <td className="py-1.5 text-right text-gray-400 text-xs">{fgPct != null ? `${fgPct}%` : '—'}</td>
+                        <td className="py-1.5 text-right text-yellow-600 text-xs">{fg3Pct != null ? `${fg3Pct}%` : '—'}</td>
                       </tr>
                       )
                     })}
@@ -1460,7 +1460,7 @@ export default function LeagueRosterPage() {
                         <span className="text-lg lg:text-xl font-bold text-white truncate">{p.name}</span>
                       </div>
                       {p.number !== null && (
-                        <span className="text-[11px] lg:text-xs font-mono text-gray-600">#{p.number}</span>
+                        <span className="text-xs lg:text-xs font-mono text-gray-600">#{p.number}</span>
                       )}
                     </div>
                     {/* OVR 뱃지 — 자격 있으면 표시, 없으면 텍스트 fallback */}
@@ -1468,7 +1468,7 @@ export default function LeagueRosterPage() {
                       <RatingBadge ovr={rating.ovr} qualified size="md" title={`OVR ${rating.ovr} · 리그 #${rating.rank} · ${rating.gp}경기`} />
                     ) : (
                       <div className="w-11 h-11 rounded-full border-2 border-gray-800 bg-gray-900/60 flex items-center justify-center shrink-0" title="경기 데이터 없음">
-                        <span className="text-[10px] text-gray-600 font-bold">N/A</span>
+                        <span className="text-xs text-gray-600 font-bold">N/A</span>
                       </div>
                     )}
                     {/* +1 배지/토글 */}
@@ -1551,7 +1551,7 @@ export default function LeagueRosterPage() {
                               >
                                 <button
                                   onClick={() => updateMembership(q.id, p.id, null, false)}
-                                  className={`text-[11px] lg:text-xs font-bold px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                                  className={`text-xs lg:text-xs font-bold px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
                                     isRegular === false
                                       ? 'bg-gray-700 border-gray-500 text-gray-200'
                                       : 'bg-gray-800/60 border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300'
@@ -1568,7 +1568,7 @@ export default function LeagueRosterPage() {
                                     <button
                                       key={t.id}
                                       onClick={() => updateMembership(q.id, p.id, t.id, true)}
-                                      className={`flex items-center gap-1 text-[11px] lg:text-xs font-bold px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                                      className={`flex items-center gap-1 text-xs lg:text-xs font-bold px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
                                         active
                                           ? 'border-white text-white'
                                           : 'border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
@@ -1625,7 +1625,7 @@ export default function LeagueRosterPage() {
                   )}
 
                   {/* 카드 클릭 힌트 */}
-                  <p className="mt-2 pt-2 border-t border-gray-800/40 text-[11px] lg:text-xs text-gray-500 group-hover:text-gray-600 transition-colors">
+                  <p className="mt-2 pt-2 border-t border-gray-800/40 text-xs lg:text-xs text-gray-500 group-hover:text-gray-600 transition-colors">
                     클릭하여 프로필 보기
                   </p>
                   </div>{/* flex-1 end */}
@@ -1680,17 +1680,17 @@ export default function LeagueRosterPage() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex flex-col gap-0.5">
-                  <label className="text-[10px] text-gray-500 font-bold">시작일</label>
+                  <label className="text-xs text-gray-500 font-bold">시작일</label>
                   <input type="date" value={qStart} onChange={e => setQStart(e.target.value)}
                     className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer" />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <label className="text-[10px] text-gray-500 font-bold">종료일</label>
+                  <label className="text-xs text-gray-500 font-bold">종료일</label>
                   <input type="date" value={qEnd} onChange={e => setQEnd(e.target.value)}
                     className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer" />
                 </div>
               </div>
-              <p className="text-[10px] text-gray-600">기간은 분기 선택 시 자동 입력됩니다 (Q3 = 7~9월, Q4 = 10~12월). 필요 시 직접 수정하세요.</p>
+              <p className="text-xs text-gray-600">기간은 분기 선택 시 자동 입력됩니다 (Q3 = 7~9월, Q4 = 10~12월). 필요 시 직접 수정하세요.</p>
               <div className="flex items-center gap-2">
                 <Button onClick={createQuarter} disabled={savingQ} size="sm" className="bg-blue-600 hover:bg-blue-500 cursor-pointer">
                   {savingQ ? <Loader2 size={13} className="animate-spin" /> : '생성'}
