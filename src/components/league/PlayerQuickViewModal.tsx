@@ -6,6 +6,8 @@ import { CountUp, FormDots } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 import { type EvaluatedBadge } from '@/lib/stats/badges'
+import RatingBadge from '@/components/league/RatingBadge'
+import { CATEGORY_LABELS, TIER_COLORS, type PlayerRating, type CategoryCode } from '@/lib/rating/computeRating'
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, PieChart, Pie, Cell as PieCell } from 'recharts'
 
 type PlayerInfo = {
@@ -163,16 +165,19 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [savingEdit, setSavingEdit] = useState(false)
   const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
+  const [rating, setRating] = useState<PlayerRating | null>(null)
+  const [quarterRating, setQuarterRating] = useState<PlayerRating | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [playersRes, statsRes, detailRes, quartersRes, leaderRes] = await Promise.all([
+      const [playersRes, statsRes, detailRes, quartersRes, leaderRes, ratingRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/players`),
         fetch(`/api/leagues/${leagueId}/stats?playerId=${playerId}`),
         fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?unit=${statUnit}`),
         fetch(`/api/leagues/${leagueId}/quarters`),
         fetch(`/api/leagues/${leagueId}/leader-badges?playerId=${playerId}`),
+        fetch(`/api/leagues/${leagueId}/ratings?playerId=${playerId}`),
       ])
       if (playersRes.ok) {
         const all: PlayerInfo[] = await playersRes.json()
@@ -190,6 +195,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       if (leaderRes.ok) {
         const lb = await leaderRes.json()
         setLeaderBadges(lb[playerId] ?? null)
+      }
+      if (ratingRes.ok) {
+        const rd = await ratingRes.json()
+        setRating(rd.rating ?? null)
       }
     } finally { setLoading(false) }
   }, [leagueId, playerId, statUnit])
@@ -217,7 +226,18 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     return () => { cancelled = true }
   }, [leagueId, playerId, selectedQuarterId, statUnit])
 
+  // 분기 선택 시 해당 분기 rating 패치
+  useEffect(() => {
+    if (!selectedQuarterId) { setQuarterRating(null); return }
+    let cancelled = false
+    fetch(`/api/leagues/${leagueId}/ratings?quarterId=${selectedQuarterId}&playerId=${playerId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled) setQuarterRating(d?.rating ?? null) })
+    return () => { cancelled = true }
+  }, [leagueId, playerId, selectedQuarterId])
+
   const activeDetail = selectedQuarterId ? (quarterDetail ?? detail) : detail
+  const activeRating = selectedQuarterId ? quarterRating : rating
 
   const positions = (player?.position ?? '').split(',').map(p => p.trim()).filter(Boolean)
   const age = calcAge(player?.birth_date ?? null)
@@ -233,14 +253,28 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
       <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-lg sm:max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 px-5 pt-safe-or-3 pb-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div>
+        <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 px-5 pt-safe-or-3 pb-3.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            {activeRating && (
+              <RatingBadge
+                ovr={activeRating.ovr}
+                tier={activeRating.tier}
+                qualified={activeRating.qualified}
+                size="lg"
+              />
+            )}
+            <div className="min-w-0">
               <h2 className="text-white font-black text-lg leading-none flex items-center gap-2 flex-wrap">
                 {player?.number != null && <span className="jersey-num text-sm">{player.number}</span>}
-                <span>{player?.name ?? playerName}</span>
+                <span className="truncate">{player?.name ?? playerName}</span>
               </h2>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                {activeRating?.qualified && (
+                  <span className={`text-[10px] font-jersey font-black px-1.5 py-0.5 rounded ${TIER_COLORS[activeRating.tier].bg} ${TIER_COLORS[activeRating.tier].text} border ${TIER_COLORS[activeRating.tier].border} uppercase tracking-widest`}>
+                    {activeRating.tier}
+                    {activeRating.rank > 0 && <span className="ml-1 opacity-70">#{activeRating.rank}</span>}
+                  </span>
+                )}
                 {positions.map(pos => (
                   <span key={pos} className={`text-xs font-bold px-1.5 py-0.5 rounded border ${POSITION_COLORS[pos] ?? 'bg-blue-900/40 text-blue-300 border-blue-700/40'}`}>{pos}</span>
                 ))}
@@ -426,6 +460,26 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   <div className="flex justify-center py-8"><BasketballLoader size={22} /></div>
                 ) : (
                   <>
+                    {/* 카테고리 레이팅 (2K 스타일) */}
+                    {activeRating?.qualified && (
+                      <div className="mb-4 pb-3 border-b border-gray-800/60">
+                        <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-2">카테고리 레이팅</p>
+                        <div className="grid grid-cols-5 gap-1.5">
+                          {(['SCR', 'PLY', 'REB', 'DEF', 'EFF'] as CategoryCode[]).map(cat => {
+                            const val = Math.round(activeRating.categories[cat])
+                            const tier = val >= 90 ? 'Elite' : val >= 85 ? 'All-Star' : val >= 75 ? 'Starter' : val >= 65 ? 'Rotation' : val >= 55 ? 'Bench' : 'Rookie'
+                            const c = TIER_COLORS[tier]
+                            return (
+                              <div key={cat} className={`text-center rounded-md py-1.5 border ${c.bg} ${c.border}`}>
+                                <div className={`text-[9px] font-black tracking-widest ${c.text}`}>{cat}</div>
+                                <div className={`text-lg font-black tabular-nums ${c.text}`}>{val}</div>
+                                <div className="text-[9px] text-gray-500 truncate px-1">{CATEGORY_LABELS[cat].long}</div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
                     <p className="text-xs text-gray-600 uppercase tracking-widest font-bold mb-3">시즌 스탯</p>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3">
                       {[
