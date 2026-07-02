@@ -1,13 +1,11 @@
 import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import LeagueStandingsTabs from '@/components/league/LeagueStandingsTabs'
-import LeagueSchedule from '@/components/league/LeagueSchedule'
 import HighlightBanner, { type HighlightPlayer } from '@/components/league/HighlightBanner'
 import LeagueLeadersGrid from '@/components/league/LeagueLeadersGrid'
 import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
-import type { League, LeagueStanding, LeagueGame, LeagueTeam, Quarter } from '@/types/league'
+import type { League } from '@/types/league'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
 
@@ -112,8 +110,6 @@ async function computeHighlights(
   return { mvp, hotHand, rangeLabel }
 }
 
-const TARGET_SEASON_YEAR = 2026  // 분기 탭은 2026 시즌 기준
-
 export default async function LeagueDetailPage({
   params,
 }: {
@@ -122,103 +118,15 @@ export default async function LeagueDetailPage({
   const { orgSlug, leagueId } = await params
   const supabase = createClient()
 
-  const [{ data: league }, { data: teams }, { data: games }, { data: allLeagues }, { data: quartersRaw }, { data: overridesRaw }, highlights] = await Promise.all([
+  const [{ data: league }, { data: allLeagues }, highlights] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single(),
-    supabase.from('league_teams').select('*').eq('league_id', leagueId),
-    supabase.from('league_games').select('*').eq('league_id', leagueId).order('round_num', { ascending: true }),
     supabase.from('leagues').select('id, name, status, season_year').eq('org_slug', orgSlug).order('created_at', { ascending: false }),
-    supabase.from('league_quarters').select('*').eq('league_id', leagueId).eq('year', TARGET_SEASON_YEAR).order('quarter', { ascending: true }),
-    supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
     computeHighlights(supabase, leagueId, 7),
   ])
 
   if (!league) notFound()
 
   const l = league as League
-  const teamList = (teams as LeagueTeam[]) ?? []
-  const teamMap = Object.fromEntries(teamList.map(t => [t.id, t]))
-  const quarters = (quartersRaw as Quarter[]) ?? []
-
-  // 분기별 팀명/색상 override 맵 — league_teams 는 quarter 개념이 없어
-  // 시즌마다 팀명이 바뀌면 과거 분기의 순위표·일정에서 잘못된 이름이 보임.
-  // (quarter_id, team_id) 에 override 가 있으면 그 분기 표시에서만 대체.
-  type OverrideRow = { quarter_id: string; team_id: string; name: string | null; color: string | null }
-  const overrideMap: Record<string, Record<string, { name?: string; color?: string }>> = {}
-  for (const ov of (overridesRaw as OverrideRow[] | null) ?? []) {
-    if (!overrideMap[ov.quarter_id]) overrideMap[ov.quarter_id] = {}
-    overrideMap[ov.quarter_id][ov.team_id] = {
-      name: ov.name ?? undefined,
-      color: ov.color ?? undefined,
-    }
-  }
-  const resolveTeam = (teamId: string | null | undefined, quarterId: string | null | undefined): LeagueTeam | null => {
-    if (!teamId) return null
-    const base = teamMap[teamId]
-    if (!base) return null
-    const ov = quarterId ? overrideMap[quarterId]?.[teamId] : undefined
-    if (!ov) return base
-    return { ...base, name: ov.name ?? base.name, color: ov.color ?? base.color }
-  }
-
-  const gameList = ((games as LeagueGame[]) ?? []).map(g => ({
-    ...g,
-    home_team: resolveTeam(g.home_team_id, g.quarter_id),
-    away_team: resolveTeam(g.away_team_id, g.quarter_id),
-  }))
-
-  // 주어진 게임 목록으로 순위 계산 (+ 팀 streak)
-  // quarterId 를 넘기면 그 분기의 override 이름/색상으로 팀 정보 대체
-  function computeStandings(filteredGames: typeof gameList, quarterId?: string): LeagueStanding[] {
-    const standing: Record<string, LeagueStanding> = {}
-    for (const t of teamList) {
-      const displayTeam = quarterId ? (resolveTeam(t.id, quarterId) ?? t) : t
-      standing[t.id] = { team: displayTeam, played: 0, wins: 0, draws: 0, losses: 0, points: 0, goals_for: 0, goals_against: 0, goal_diff: 0, streak: null }
-    }
-    for (const g of filteredGames.filter(g => g.is_complete && g.home_team_id && g.away_team_id && !g.is_exhibition)) {
-      const h = standing[g.home_team_id!]
-      const a = standing[g.away_team_id!]
-      if (!h || !a) continue
-      h.played++; a.played++
-      h.goals_for += g.home_score; h.goals_against += g.away_score
-      a.goals_for += g.away_score; a.goals_against += g.home_score
-      if (g.home_score > g.away_score) { h.wins++; h.points += 3; a.losses++ }
-      else if (g.home_score < g.away_score) { a.wins++; a.points += 3; h.losses++ }
-      else { h.draws++; h.points++; a.draws++; a.points++ }
-    }
-    for (const s of Object.values(standing)) s.goal_diff = s.goals_for - s.goals_against
-
-    // 팀별 streak — 본인 팀이 참가한 완료 경기를 날짜 desc 순으로 walk
-    // 같은 결과 연속 길이를 count. 첫 다른 결과에서 중단.
-    const completedGames = filteredGames
-      .filter(g => g.is_complete && g.home_team_id && g.away_team_id && !g.is_exhibition)
-      .sort((a, b) => {
-        if (a.date !== b.date) return b.date.localeCompare(a.date)
-        return (b.slot_num ?? 0) - (a.slot_num ?? 0)
-      })
-    for (const teamId of Object.keys(standing)) {
-      let type: 'W'|'L'|'D'|null = null
-      let count = 0
-      for (const g of completedGames) {
-        if (g.home_team_id !== teamId && g.away_team_id !== teamId) continue
-        const isHome = g.home_team_id === teamId
-        const myPts = isHome ? g.home_score : g.away_score
-        const oppPts = isHome ? g.away_score : g.home_score
-        const result: 'W'|'L'|'D' = myPts > oppPts ? 'W' : myPts < oppPts ? 'L' : 'D'
-        if (type === null) { type = result; count = 1; continue }
-        if (result === type) { count++ } else break
-      }
-      if (type !== null && count > 0) standing[teamId].streak = { type, count }
-    }
-    return Object.values(standing).sort((a, b) => b.points - a.points || b.goal_diff - a.goal_diff || b.goals_for - a.goals_for)
-  }
-
-  // 누적: 이 리그의 전체 완료 경기 (base 팀명 사용 — 팀 정체성이 team_id 로 유지되므로)
-  const cumulativeStandings = computeStandings(gameList)
-  // 분기별: 2026 시즌 분기들 (해당 분기의 override 이름/색상 적용)
-  const quarterStandings = quarters.map(q => ({
-    quarter: q,
-    standings: computeStandings(gameList.filter(g => g.quarter_id === q.id), q.id),
-  }))
 
   const statusColor: Record<string, string> = {
     upcoming: 'bg-yellow-900/40 text-yellow-400',
@@ -228,11 +136,6 @@ export default async function LeagueDetailPage({
   const statusLabel: Record<string, string> = { upcoming: '예정', active: '진행 중', completed: '완료' }
 
   const otherLeagues = (allLeagues ?? []).filter(ol => ol.id !== leagueId)
-
-  const today = new Date().toISOString().slice(0, 10)
-  const nextGame = gameList
-    .filter(g => !g.is_complete && g.date >= today && g.home_team_id && g.away_team_id)
-    .sort((a, b) => a.date.localeCompare(b.date))[0]
 
   return (
     <div className="space-y-5 lg:space-y-4">
@@ -277,71 +180,6 @@ export default async function LeagueDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
         <StreakSpotlight leagueId={leagueId} maxEntries={8} />
         <MilestoneFeed leagueId={leagueId} />
-      </div>
-
-      {/* PC: 2컬럼 (순위표 우측 고정 + 좌측 일정), 모바일: 스택 */}
-      <div className="lg:grid lg:grid-cols-[1fr_1fr] lg:gap-4 xl:gap-5 lg:items-start space-y-5 lg:space-y-0">
-
-        {/* 좌측: 다음 경기 + 일정 */}
-        <div className="space-y-5 lg:space-y-4">
-          {/* 다음 경기 하이라이트 */}
-          {nextGame && (() => {
-            const home = resolveTeam(nextGame.home_team_id, nextGame.quarter_id)
-            const away = resolveTeam(nextGame.away_team_id, nextGame.quarter_id)
-            const isToday = nextGame.date === today
-            return (
-              <div className="bg-gradient-to-r from-blue-950/40 via-gray-900 to-gray-900 border border-blue-900/40 rounded-2xl px-5 py-4 lg:px-6 lg:py-5">
-                <div className="flex items-center gap-2 mb-3 lg:mb-4">
-                  {isToday ? (
-                    <span className="flex items-center gap-1.5 text-xs lg:text-sm font-bold text-green-400">
-                      <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block" />오늘 경기
-                    </span>
-                  ) : (
-                    <span className="text-xs lg:text-sm font-bold text-blue-400 uppercase tracking-widest">다음 경기</span>
-                  )}
-                  <span className="text-xs lg:text-sm text-gray-500">· {nextGame.date}</span>
-                </div>
-                <div className="flex items-center justify-center gap-4 lg:gap-6">
-                  <div className="flex items-center gap-2 lg:gap-3">
-                    {home && <div className="w-3 h-3 lg:w-4 lg:h-4 rounded-full" style={{ backgroundColor: home.color }} />}
-                    <span className="text-base lg:text-2xl font-black text-white whitespace-nowrap">{home?.name ?? '—'}</span>
-                  </div>
-                  <span className="text-sm lg:text-lg font-bold text-gray-600">VS</span>
-                  <div className="flex items-center gap-2 lg:gap-3">
-                    {away && <div className="w-3 h-3 lg:w-4 lg:h-4 rounded-full" style={{ backgroundColor: away.color }} />}
-                    <span className="text-base lg:text-2xl font-black text-white whitespace-nowrap">{away?.name ?? '—'}</span>
-                  </div>
-                </div>
-              </div>
-            )
-          })()}
-
-          {/* 최근 일정 / 결과 */}
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 lg:px-5 lg:py-4 border-b border-gray-800 flex items-center justify-between">
-              <h2 className="font-semibold text-white lg:text-lg">일정 · 결과</h2>
-              <Link href={`/league/${orgSlug}/${leagueId}/schedule`}
-                className="text-xs lg:text-sm text-blue-400 hover:text-blue-300 transition-colors">
-                전체 보기 →
-              </Link>
-            </div>
-            <div className="p-4 lg:p-3">
-              <LeagueSchedule games={gameList} leagueId={leagueId} limit={6} />
-            </div>
-          </div>
-        </div>
-
-        {/* 우측: 순위표 (PC에서 sticky) */}
-        <div className="lg:sticky lg:top-20">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 lg:px-5 lg:py-4 border-b border-gray-800 flex items-center justify-between">
-              <h2 className="font-jersey text-lg lg:text-2xl font-bold text-white uppercase tracking-wide">순위표</h2>
-              <span className="font-jersey text-xs lg:text-xs text-orange-400 tracking-widest">{TARGET_SEASON_YEAR} 시즌</span>
-            </div>
-            <LeagueStandingsTabs cumulative={cumulativeStandings} quarters={quarterStandings} />
-          </div>
-        </div>
-
       </div>
     </div>
   )
