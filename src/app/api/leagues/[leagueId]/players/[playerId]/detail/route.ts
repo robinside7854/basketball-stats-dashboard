@@ -49,20 +49,38 @@ export async function GET(
     ? (allGames ?? []).filter(g => g.quarter_id === quarterId)
     : (allGames ?? [])
 
-  // 분기별 팀명/색상 override 적용 — quarterId 필터가 있으면 해당 분기 override 로 이름·색상 치환.
-  // 없으면 base league_teams 그대로 사용 (전체 시즌 뷰 — 기본값).
+  // 분기별 팀명/색상 override — 항상 전체를 조회해서 게임별로 그 게임의 quarter override 를 적용.
+  // (누적 뷰에서도 Q1-Q2 게임의 상대가 락다운으로 정확히 표시되도록.)
+  const { data: allOverridesData } = await supabase
+    .from('league_team_quarter_overrides')
+    .select('quarter_id, team_id, name, color')
+    .eq('league_id', leagueId)
+  type OverrideRow = { quarter_id: string; team_id: string; name: string | null; color: string | null }
+  const overrideMap: Record<string, Record<string, { name?: string; color?: string }>> = {}
+  for (const ov of (allOverridesData as OverrideRow[] | null) ?? []) {
+    if (!overrideMap[ov.quarter_id]) overrideMap[ov.quarter_id] = {}
+    overrideMap[ov.quarter_id][ov.team_id] = { name: ov.name ?? undefined, color: ov.color ?? undefined }
+  }
+
+  // quarterId 필터가 있으면 그 분기 기준으로 teamsForDisplay 를 미리 치환 (기존 동작 유지).
   let teamsForDisplay = (teams ?? []) as { id: string; name: string; color?: string }[]
   if (quarterId) {
-    const { data: overrides } = await supabase
-      .from('league_team_quarter_overrides')
-      .select('team_id, name, color')
-      .eq('league_id', leagueId)
-      .eq('quarter_id', quarterId)
-    const ovMap = Object.fromEntries((overrides ?? []).map(o => [o.team_id, o]))
+    const ovMap = overrideMap[quarterId] ?? {}
     teamsForDisplay = teamsForDisplay.map(t => {
       const ov = ovMap[t.id]
       return ov ? { ...t, name: ov.name ?? t.name, color: ov.color ?? t.color } : t
     })
+  }
+
+  // 게임의 quarter_id 기반 팀 이름/색상 조회 (누적 뷰에서 게임별로 정확히 적용됨)
+  const baseTeamMap = Object.fromEntries((teams ?? []).map(t => [t.id, { name: t.name, color: t.color ?? '#9ca3af' }]))
+  function resolveTeamName(teamId: string, qId: string | null | undefined): string {
+    const ov = qId ? overrideMap[qId]?.[teamId] : undefined
+    return ov?.name ?? baseTeamMap[teamId]?.name ?? '—'
+  }
+  function resolveTeamColor(teamId: string, qId: string | null | undefined): string {
+    const ov = qId ? overrideMap[qId]?.[teamId] : undefined
+    return ov?.color ?? baseTeamMap[teamId]?.color ?? '#9ca3af'
   }
 
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
@@ -293,9 +311,12 @@ export async function GET(
     const oppId = isHome ? g.away_team_id : g.home_team_id
     const myPts = isHome ? g.home_score : g.away_score
     const oppPts = isHome ? g.away_score : g.home_score
+    // 게임의 quarter override 를 우선 적용, 없으면 base team 이름 사용
+    const gameQuarterId = (g as { quarter_id?: string | null }).quarter_id ?? null
+    const opponent = oppId ? resolveTeamName(oppId, gameQuarterId) : '상대'
     return {
       date: g.date as string,
-      opponent: oppId ? (teamMap[oppId] ?? '상대') : '상대',
+      opponent,
       round_num: g.round_num as number,
       result: myPts > oppPts ? 'W' : 'L',
       score: `${myPts}-${oppPts}`,
@@ -769,7 +790,7 @@ export async function GET(
   const oppMap: Record<string, OppAgg> = {}
 
   for (const gId of Object.keys(perGame)) {
-    const g = gameMap[gId] as { home_team_id?: string; away_team_id?: string; home_score?: number; away_score?: number; is_exhibition?: boolean } | undefined
+    const g = gameMap[gId] as { home_team_id?: string; away_team_id?: string; home_score?: number; away_score?: number; is_exhibition?: boolean; quarter_id?: string | null } | undefined
     if (!g) continue
     if (g.is_exhibition) continue  // 친선전 제외
 
@@ -778,19 +799,22 @@ export async function GET(
     const oppTeamId = g.home_team_id === myTeamId ? g.away_team_id : g.home_team_id
     if (!oppTeamId) continue
 
-    const meta = teamFullMap[oppTeamId]
-    if (!meta) continue
+    // 각 게임의 quarter override 로 팀 이름/색상 해석 — 락다운(Q1-2)과 굿모닝(Q3)이 같은 team_id 라도
+    // 서로 다른 entry 로 집계되도록 (team_id + 표시명) 조합을 key 로 사용
+    const oppName = resolveTeamName(oppTeamId, g.quarter_id)
+    const oppColor = resolveTeamColor(oppTeamId, g.quarter_id)
+    const oppKey = `${oppTeamId}::${oppName}`
 
-    if (!oppMap[oppTeamId]) {
-      oppMap[oppTeamId] = {
-        team_id: oppTeamId, team_name: meta.name, team_color: meta.color,
+    if (!oppMap[oppKey]) {
+      oppMap[oppKey] = {
+        team_id: oppTeamId, team_name: oppName, team_color: oppColor,
         gp: 0, pts: 0, reb: 0, oreb: 0, dreb: 0,
         ast: 0, stl: 0, blk: 0, tov: 0,
         fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
         wins: 0, losses: 0,
       }
     }
-    const o = oppMap[oppTeamId]
+    const o = oppMap[oppKey]
     const s = perGame[gId]
     o.gp++
     o.pts += s.pts; o.reb += s.reb; o.oreb += s.oreb; o.dreb += s.dreb
