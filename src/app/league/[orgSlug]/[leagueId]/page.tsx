@@ -119,12 +119,13 @@ export default async function LeagueDetailPage({
   const { orgSlug, leagueId } = await params
   const supabase = createClient()
 
-  const [{ data: league }, { data: teams }, { data: games }, { data: allLeagues }, { data: quartersRaw }, highlights] = await Promise.all([
+  const [{ data: league }, { data: teams }, { data: games }, { data: allLeagues }, { data: quartersRaw }, { data: overridesRaw }, highlights] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single(),
     supabase.from('league_teams').select('*').eq('league_id', leagueId),
     supabase.from('league_games').select('*').eq('league_id', leagueId).order('round_num', { ascending: true }),
     supabase.from('leagues').select('id, name, status, season_year').eq('org_slug', orgSlug).order('created_at', { ascending: false }),
     supabase.from('league_quarters').select('*').eq('league_id', leagueId).eq('year', TARGET_SEASON_YEAR).order('quarter', { ascending: true }),
+    supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
     computeHighlights(supabase, leagueId, 7),
   ])
 
@@ -135,17 +136,40 @@ export default async function LeagueDetailPage({
   const teamMap = Object.fromEntries(teamList.map(t => [t.id, t]))
   const quarters = (quartersRaw as Quarter[]) ?? []
 
+  // 분기별 팀명/색상 override 맵 — league_teams 는 quarter 개념이 없어
+  // 시즌마다 팀명이 바뀌면 과거 분기의 순위표·일정에서 잘못된 이름이 보임.
+  // (quarter_id, team_id) 에 override 가 있으면 그 분기 표시에서만 대체.
+  type OverrideRow = { quarter_id: string; team_id: string; name: string | null; color: string | null }
+  const overrideMap: Record<string, Record<string, { name?: string; color?: string }>> = {}
+  for (const ov of (overridesRaw as OverrideRow[] | null) ?? []) {
+    if (!overrideMap[ov.quarter_id]) overrideMap[ov.quarter_id] = {}
+    overrideMap[ov.quarter_id][ov.team_id] = {
+      name: ov.name ?? undefined,
+      color: ov.color ?? undefined,
+    }
+  }
+  const resolveTeam = (teamId: string | null | undefined, quarterId: string | null | undefined): LeagueTeam | null => {
+    if (!teamId) return null
+    const base = teamMap[teamId]
+    if (!base) return null
+    const ov = quarterId ? overrideMap[quarterId]?.[teamId] : undefined
+    if (!ov) return base
+    return { ...base, name: ov.name ?? base.name, color: ov.color ?? base.color }
+  }
+
   const gameList = ((games as LeagueGame[]) ?? []).map(g => ({
     ...g,
-    home_team: g.home_team_id ? teamMap[g.home_team_id] : null,
-    away_team: g.away_team_id ? teamMap[g.away_team_id] : null,
+    home_team: resolveTeam(g.home_team_id, g.quarter_id),
+    away_team: resolveTeam(g.away_team_id, g.quarter_id),
   }))
 
   // 주어진 게임 목록으로 순위 계산 (+ 팀 streak)
-  function computeStandings(filteredGames: typeof gameList): LeagueStanding[] {
+  // quarterId 를 넘기면 그 분기의 override 이름/색상으로 팀 정보 대체
+  function computeStandings(filteredGames: typeof gameList, quarterId?: string): LeagueStanding[] {
     const standing: Record<string, LeagueStanding> = {}
     for (const t of teamList) {
-      standing[t.id] = { team: t, played: 0, wins: 0, draws: 0, losses: 0, points: 0, goals_for: 0, goals_against: 0, goal_diff: 0, streak: null }
+      const displayTeam = quarterId ? (resolveTeam(t.id, quarterId) ?? t) : t
+      standing[t.id] = { team: displayTeam, played: 0, wins: 0, draws: 0, losses: 0, points: 0, goals_for: 0, goals_against: 0, goal_diff: 0, streak: null }
     }
     for (const g of filteredGames.filter(g => g.is_complete && g.home_team_id && g.away_team_id && !g.is_exhibition)) {
       const h = standing[g.home_team_id!]
@@ -185,12 +209,12 @@ export default async function LeagueDetailPage({
     return Object.values(standing).sort((a, b) => b.points - a.points || b.goal_diff - a.goal_diff || b.goals_for - a.goals_for)
   }
 
-  // 누적: 이 리그의 전체 완료 경기
+  // 누적: 이 리그의 전체 완료 경기 (base 팀명 사용 — 팀 정체성이 team_id 로 유지되므로)
   const cumulativeStandings = computeStandings(gameList)
-  // 분기별: 2026 시즌 분기들
+  // 분기별: 2026 시즌 분기들 (해당 분기의 override 이름/색상 적용)
   const quarterStandings = quarters.map(q => ({
     quarter: q,
-    standings: computeStandings(gameList.filter(g => g.quarter_id === q.id)),
+    standings: computeStandings(gameList.filter(g => g.quarter_id === q.id), q.id),
   }))
 
   const statusColor: Record<string, string> = {
@@ -250,8 +274,8 @@ export default async function LeagueDetailPage({
         <div className="space-y-5">
           {/* 다음 경기 하이라이트 */}
           {nextGame && (() => {
-            const home = nextGame.home_team_id ? teamMap[nextGame.home_team_id] : null
-            const away = nextGame.away_team_id ? teamMap[nextGame.away_team_id] : null
+            const home = resolveTeam(nextGame.home_team_id, nextGame.quarter_id)
+            const away = resolveTeam(nextGame.away_team_id, nextGame.quarter_id)
             const isToday = nextGame.date === today
             return (
               <div className="bg-gradient-to-r from-blue-950/40 via-gray-900 to-gray-900 border border-blue-900/40 rounded-2xl px-5 py-4">
