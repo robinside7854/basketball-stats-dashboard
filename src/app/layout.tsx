@@ -34,6 +34,18 @@ const barlowCondensed = Barlow_Condensed({
 export const metadata: Metadata = {
   title: '파란날개 게임로그',
   description: '파란날개 농구팀 경기 기록 및 통계 대시보드',
+  // 홈 화면에 추가 시 상태바 컬러 (구형 iOS Safari 호환용)
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: '미라클모닝',
+  },
+}
+
+export const viewport: import('next').Viewport = {
+  themeColor: '#0a0a0a',
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
