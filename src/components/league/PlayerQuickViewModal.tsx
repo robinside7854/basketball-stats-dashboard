@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Loader2, X, Crown, Flame, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
+import { compressImage } from '@/lib/util/imageCompress'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
 import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 import { CountUp, FormDots } from '@/components/league/StatCell'
@@ -370,8 +371,11 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       if (!file || !leagueHeaders) return
                       setUploadingPhoto(true)
                       try {
+                        // Vercel 서버리스 413 방지 — 800x600 리사이즈 + JPEG 재인코딩
+                        // AI 생성용 원본 품질도 이 정도로 충분 (Gemini 는 저해상도로도 잘 인식)
+                        const compressed = await compressImage(file, 600, 800, 0.82)
                         const fd = new FormData()
-                        fd.append('file', file)
+                        fd.append('file', compressed)
                         const photoHeaders: Record<string, string> = {}
                         if (leagueHeaders['X-League-Pin']) photoHeaders['X-League-Pin'] = leagueHeaders['X-League-Pin']
                         const res = await fetch(`/api/leagues/${leagueId}/players/${playerId}/photo`, {
@@ -386,7 +390,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                           const err = await res.json().catch(() => ({}))
                           toast.error(`업로드 실패: ${err.error ?? res.status}`)
                         }
-                      } catch { toast.error('네트워크 오류') } finally { setUploadingPhoto(false) }
+                      } catch (ex) {
+                        const msg = ex instanceof Error ? ex.message : String(ex)
+                        toast.error(`업로드 실패: ${msg}`)
+                      } finally { setUploadingPhoto(false) }
                     }}
                   />
                 </label>
