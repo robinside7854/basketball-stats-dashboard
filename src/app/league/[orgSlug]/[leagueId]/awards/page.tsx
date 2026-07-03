@@ -107,7 +107,7 @@ export default function AwardsPage() {
       {loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={32} /></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 md:gap-4 lg:gap-5">
           {awards.map(a => {
             const style = CATEGORY_STYLE[a.category]
             return (
@@ -119,21 +119,21 @@ export default function AwardsPage() {
                 {/* 카드 헤더 — 클릭하면 전체 순위 모달 */}
                 <button
                   onClick={() => setOpenAward(a)}
-                  className="w-full px-4 py-3.5 lg:px-5 lg:py-4 border-b border-gray-800/50 flex items-center justify-between gap-2 hover:bg-gray-900/40 cursor-pointer transition-colors text-left group"
+                  className="w-full px-3.5 py-3 md:px-4 md:py-3.5 lg:px-5 lg:py-4 border-b border-gray-800/50 flex items-center justify-between gap-2 hover:bg-gray-900/40 cursor-pointer transition-colors text-left group"
                   title={`${a.label} 전체 순위 보기`}
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex items-center gap-2 md:gap-2.5 min-w-0">
                     <div className={`w-9 h-9 lg:w-10 lg:h-10 rounded-full ${style.chipBg} border ${style.border} flex items-center justify-center shrink-0`}>
                       <style.Icon size={16} className={style.text} />
                     </div>
                     <div className="min-w-0">
-                      <h3 className={`font-jersey text-base lg:text-lg font-black uppercase tracking-widest ${style.text}`}>{a.label}</h3>
-                      <p className="text-xs text-gray-500 mt-0.5 truncate">{a.description}</p>
+                      <h3 className={`font-jersey text-[15px] md:text-base lg:text-lg font-black uppercase tracking-widest ${style.text}`}>{a.label}</h3>
+                      <p className="text-[11px] md:text-xs text-gray-500 mt-0.5 truncate">{a.description}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 text-xs text-gray-500 group-hover:text-gray-300">
-                    <span className="tabular-nums">{a.allCandidates.length}명</span>
-                    <span>전체</span>
+                  <div className="flex items-center gap-0.5 md:gap-1 shrink-0 text-[11px] md:text-xs text-gray-500 group-hover:text-gray-300">
+                    <span className="tabular-nums font-bold">{a.allCandidates.length}</span>
+                    <span className="hidden md:inline">전체</span>
                     <span className="text-base leading-none">→</span>
                   </div>
                 </button>
@@ -142,26 +142,26 @@ export default function AwardsPage() {
                 {a.winner ? (
                   <button
                     onClick={() => setQuickPlayer({ id: a.winner!.player_id, name: a.winner!.name })}
-                    className="w-full px-4 py-4 lg:px-5 lg:py-5 border-b border-gray-800/40 hover:bg-gray-900/40 cursor-pointer text-left group transition-colors"
+                    className="w-full px-3.5 py-3.5 md:px-4 md:py-4 lg:px-5 lg:py-5 border-b border-gray-800/40 hover:bg-gray-900/40 cursor-pointer text-left group transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-14 h-14 lg:w-16 lg:h-16 rounded-full ${style.chipBg} border-2 ${style.border} flex items-center justify-center shrink-0`}>
-                        <Crown size={22} className={`${style.text} lg:w-7 lg:h-7`} />
+                    <div className="flex items-center gap-2.5 md:gap-3">
+                      <div className={`w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full ${style.chipBg} border-2 ${style.border} flex items-center justify-center shrink-0`}>
+                        <Crown size={20} className={`${style.text} md:w-[22px] md:h-[22px] lg:w-7 lg:h-7`} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-jersey font-bold uppercase tracking-widest ${style.text}`}>Winner</p>
-                        <p className="text-xl lg:text-2xl font-black text-white group-hover:underline underline-offset-4 truncate">
+                        <p className={`text-[10px] md:text-xs font-jersey font-bold uppercase tracking-widest ${style.text}`}>Winner</p>
+                        <p className="text-lg md:text-xl lg:text-2xl font-black text-white group-hover:underline underline-offset-4 truncate">
                           {a.winner.name}
-                          {a.winner.number != null && <span className="ml-2 text-sm text-gray-500 font-mono">#{a.winner.number}</span>}
+                          {a.winner.number != null && <span className="ml-1.5 md:ml-2 text-xs md:text-sm text-gray-500 font-mono">#{a.winner.number}</span>}
                         </p>
-                        <p className={`text-lg lg:text-xl font-black tabular-nums ${style.text}`}>{a.winner.displayValue}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{a.winner.gp}게임 · {a.metric}</p>
+                        <p className={`text-base md:text-lg lg:text-xl font-black tabular-nums ${style.text}`}>{a.winner.displayValue}</p>
+                        <p className="text-[11px] md:text-xs text-gray-500 mt-0.5 truncate">{a.winner.gp}게임 · {a.metric}</p>
                       </div>
                     </div>
                     {a.winner.supportingStats && (
-                      <div className="mt-3 pt-3 border-t border-gray-800/40 flex flex-wrap gap-x-3 gap-y-1.5">
+                      <div className="mt-2.5 md:mt-3 pt-2.5 md:pt-3 border-t border-gray-800/40 grid grid-cols-3 gap-x-2 gap-y-1.5">
                         {Object.entries(a.winner.supportingStats).map(([key, val]) => (
-                          <div key={key} className="text-xs">
+                          <div key={key} className="text-[11px] md:text-xs min-w-0">
                             <span className="text-gray-500">{key}: </span>
                             <span className={`font-bold ${style.text} tabular-nums`}>{val}</span>
                           </div>
@@ -178,24 +178,24 @@ export default function AwardsPage() {
 
                 {/* Runners (2-3위 후보) */}
                 {a.runners.length > 0 && (
-                  <div className="px-4 py-3 lg:px-5 lg:py-3.5">
-                    <p className="text-xs font-jersey font-bold text-gray-500 uppercase tracking-widest mb-2">후보</p>
-                    <div className="space-y-1.5">
+                  <div className="px-3 py-2.5 md:px-4 md:py-3 lg:px-5 lg:py-3.5">
+                    <p className="text-[11px] md:text-xs font-jersey font-bold text-gray-500 uppercase tracking-widest mb-1.5 md:mb-2">후보</p>
+                    <div className="space-y-1 md:space-y-1.5">
                       {a.runners.map((r, idx) => (
                         <button key={r.player_id}
                           onClick={() => setQuickPlayer({ id: r.player_id, name: r.name })}
-                          className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-900/50 transition-colors cursor-pointer group"
+                          className="w-full flex items-center justify-between gap-2 px-1.5 py-1 md:px-2 md:py-1.5 rounded-lg hover:bg-gray-900/50 transition-colors cursor-pointer group"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-sm font-black font-mono text-gray-500 w-4 shrink-0">
+                          <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
+                            <span className="text-xs md:text-sm font-black font-mono text-gray-500 w-3.5 md:w-4 shrink-0">
                               {idx + 2}
                             </span>
-                            <span className="text-sm lg:text-base font-bold text-gray-200 group-hover:text-white truncate">
+                            <span className="text-[13px] md:text-sm lg:text-base font-bold text-gray-200 group-hover:text-white truncate">
                               {r.name}
-                              {r.number != null && <span className="ml-1 text-xs text-gray-600 font-mono">#{r.number}</span>}
+                              {r.number != null && <span className="ml-1 text-[10px] md:text-xs text-gray-600 font-mono">#{r.number}</span>}
                             </span>
                           </div>
-                          <span className={`text-sm font-black tabular-nums ${style.text} shrink-0`}>
+                          <span className={`text-[13px] md:text-sm font-black tabular-nums ${style.text} shrink-0`}>
                             {r.displayValue}
                           </span>
                         </button>
@@ -205,8 +205,8 @@ export default function AwardsPage() {
                 )}
 
                 {a.minRequirement && a.winner && (
-                  <div className="px-4 py-2 bg-gray-900/40 border-t border-gray-800/40">
-                    <p className="text-xs text-gray-600">📋 {a.minRequirement}</p>
+                  <div className="px-3.5 md:px-4 py-1.5 md:py-2 bg-gray-900/40 border-t border-gray-800/40">
+                    <p className="text-[11px] md:text-xs text-gray-600">📋 {a.minRequirement}</p>
                   </div>
                 )}
               </div>

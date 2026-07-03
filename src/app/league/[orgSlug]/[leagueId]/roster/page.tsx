@@ -912,6 +912,19 @@ export default function LeagueRosterPage() {
   // 수정 2: 정렬/필터 state
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [filterPosition, setFilterPosition] = useState<string>('ALL')
+  // 게스트 숨김 토글 — localStorage 로 세션 간 유지
+  const [hideGuests, setHideGuests] = useState<boolean>(false)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`roster:hideGuests:${leagueId}`)
+      if (saved === '1') setHideGuests(true)
+    } catch { /* SSR 등 접근 실패 무시 */ }
+  }, [leagueId])
+  useEffect(() => {
+    try {
+      localStorage.setItem(`roster:hideGuests:${leagueId}`, hideGuests ? '1' : '0')
+    } catch { /* ignore */ }
+  }, [leagueId, hideGuests])
 
   const currentYear = new Date().getFullYear()
 
@@ -1228,21 +1241,27 @@ export default function LeagueRosterPage() {
   }
 
   // 수정 2: 정렬 + 필터 적용
-  // 이름에 '게스트' 가 포함된 선수는 정렬 종류와 관계없이 항상 명단 최하단으로 이동
+  // - 포지션 필터
+  // - 게스트 숨김 필터 (is_guest=true 인 선수 완전 제외)
+  // - 정렬: is_guest 인 선수는 정렬 종류 무관하게 항상 최하단
+  //   (게스트 flag 없는 이전 버전 호환 위해 name.includes('게스트') 도 폴백)
+  const isPlayerGuest = (p: LeaguePlayer) => Boolean(p.is_guest) || p.name.includes('게스트')
   const filteredAndSortedPlayers = players
     .filter(p => {
+      if (hideGuests && isPlayerGuest(p)) return false
       if (filterPosition === 'ALL') return true
       return parsePositions(p.position).includes(filterPosition)
     })
     .sort((a, b) => {
-      const aIsGuest = a.name.includes('게스트')
-      const bIsGuest = b.name.includes('게스트')
+      const aIsGuest = isPlayerGuest(a)
+      const bIsGuest = isPlayerGuest(b)
       if (aIsGuest !== bIsGuest) return aIsGuest ? 1 : -1
       if (sortKey === 'name') return a.name.localeCompare(b.name, 'ko')
       if (sortKey === 'age_asc') return calcAgeNum(a.birth_date) - calcAgeNum(b.birth_date)
       if (sortKey === 'age_desc') return calcAgeNum(b.birth_date) - calcAgeNum(a.birth_date)
       return 0
     })
+  const guestCount = players.filter(isPlayerGuest).length
 
   return (
     <div className="space-y-4 lg:space-y-5">
@@ -1382,6 +1401,27 @@ export default function LeagueRosterPage() {
               ))}
             </div>
           </div>
+
+          {/* 게스트 숨김 토글 — 이름에 '게스트' 포함되거나 is_guest=true 인 선수를 완전 제외 */}
+          {guestCount > 0 && (
+            <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
+              <span className="text-xs lg:text-sm text-gray-600">게스트</span>
+              <button
+                onClick={() => setHideGuests(v => !v)}
+                aria-pressed={hideGuests}
+                className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                  hideGuests
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                }`}
+                title="이름에 '게스트' 가 포함된 단발성 선수 숨기기"
+              >
+                <span className={`inline-block w-3 h-3 rounded-full border ${hideGuests ? 'bg-white border-white' : 'border-gray-500'}`} />
+                <span>{hideGuests ? '숨김' : '표시'}</span>
+                <span className={`text-[10px] lg:text-xs ${hideGuests ? 'text-blue-100' : 'text-gray-500'}`}>({guestCount})</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1481,12 +1521,20 @@ export default function LeagueRosterPage() {
                     )}
                   </div>
 
-                  {/* 포지션 배지 (한 줄) */}
+                  {/* 포지션 배지 (한 줄) + 게스트 뱃지 */}
                   <div className="flex flex-wrap items-center gap-1 lg:gap-1.5 mb-1.5 lg:mb-2 min-h-[22px]">
                     {positions.length > 0
                       ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
                       : <span className="text-xs text-gray-500">포지션 미지정</span>
                     }
+                    {isPlayerGuest(p) && (
+                      <span
+                        className="px-1.5 py-0.5 rounded-md text-[10px] font-bold border bg-slate-800/60 text-slate-400 border-slate-700"
+                        title="단발성 게스트 선수 — 로스터 하단으로 정렬됩니다"
+                      >
+                        게스트
+                      </span>
+                    )}
                   </div>
 
                   {/* 생년월일 */}

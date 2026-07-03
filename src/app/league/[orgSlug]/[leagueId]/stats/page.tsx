@@ -107,6 +107,11 @@ export default function LeagueStatsPage() {
   const [quickViewPlayer, setQuickViewPlayer] = useState<{ id: string; name: string } | null>(null)
   const [minGP, setMinGP] = useState(1)
   const [showAll, setShowAll] = useState(false)  // 자동 임계값(2/3) 무시하고 전체 표시
+  // Personal highs: 각 선수의 stat 별 최고 분기 — italic 표시용
+  // 리그 전체 로드 후 캐시. 특정 분기 뷰에서 그 분기가 선수의 최고 분기면 italic.
+  type PersonalHighKey = 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg' | 'fg_pct' | 'fg3_pct'
+  type PersonalHigh = { value: number; quarterId: string; gp: number }
+  const [personalHighs, setPersonalHighs] = useState<Record<string, Partial<Record<PersonalHighKey, PersonalHigh>>>>({})
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
   const [compareModalOpen, setCompareModalOpen] = useState(false)
   const [selectedChartStat, setSelectedChartStat] = useState<ChartStatKey>('ppg')
@@ -152,6 +157,29 @@ export default function LeagueStatsPage() {
   useEffect(() => {
     if ((statUnit === 'round' || statUnit === 'per40') && projection) setProjection(false)
   }, [statUnit, projection])
+
+  // Personal highs 페치 — 리그 진입 시 1회 로드 (분기 선택 변경과 무관)
+  useEffect(() => {
+    fetch(`/api/leagues/${leagueId}/personal-highs`)
+      .then(r => r.json())
+      .then(d => { setPersonalHighs(d.highs ?? {}) })
+      .catch(() => setPersonalHighs({}))
+  }, [leagueId])
+
+  // 특정 분기 뷰에서 해당 셀이 그 선수의 최고 분기인지 판정
+  // — 분기가 'all' 이면 italic 없음 (누적이라 personal-high 개념 무의미)
+  // — statUnit === 'per40' 는 italic 미적용 (계산 방식 다름)
+  const isPersonalHighCell = (playerId: string, statKey: string): boolean => {
+    if (selectedQuarterId === 'all' || statUnit === 'per40') return false
+    const mapping: Partial<Record<string, PersonalHighKey>> = {
+      ppg: 'ppg', rpg: 'rpg', apg: 'apg', spg: 'spg', bpg: 'bpg',
+      fg_pct: 'fg_pct', fg3_pct: 'fg3_pct',
+    }
+    const hk = mapping[statKey]
+    if (!hk) return false
+    const high = personalHighs[playerId]?.[hk]
+    return Boolean(high && high.quarterId === selectedQuarterId)
+  }
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -704,9 +732,15 @@ export default function LeagueStatsPage() {
                         }
                         const leaderKey = statUnit === 'per40' ? (AVG_TO_TOTAL[key as string] ?? (key as string)) : (key as string)
                         const leader = isLeader(p, leaderKey)
+                        // 개인 최고 분기 = italic (선수의 여러 분기 중 이 분기가 최고 값)
+                        const personalHigh = isPersonalHighCell(p.player_id, key as string)
+                        const italicCls = personalHigh ? 'italic' : ''
+                        const titleText = leader
+                          ? (personalHigh ? '리그 리더 · 개인 최고 분기' : '리그 리더')
+                          : (personalHigh ? '개인 최고 분기' : undefined)
                         return (
-                          <td key={key} className={`px-3 py-3 text-center text-sm tabular-nums ${sortKey === key ? 'text-yellow-400 font-bold' : leader ? 'text-white font-black' : 'text-gray-300 font-medium'}`}
-                              title={leader ? '리그 리더' : undefined}>
+                          <td key={key} className={`px-3 py-3 text-center text-sm tabular-nums ${italicCls} ${sortKey === key ? 'text-yellow-400 font-bold' : leader ? 'text-white font-black' : 'text-gray-300 font-medium'}`}
+                              title={titleText}>
                             {cellVal(p, key)}
                           </td>
                         )
@@ -777,6 +811,13 @@ export default function LeagueStatsPage() {
                   )
                 })()}
               </table>
+              {/* Bold / Italic 범례 — 특정 분기 뷰에서만 노출 */}
+              {selectedQuarterId !== 'all' && (
+                <div className="px-4 py-2 border-t border-gray-800 text-[11px] text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
+                  <span><span className="text-white font-black">굵게</span> = 리그 리더</span>
+                  <span><span className="italic text-gray-300 font-medium">기울임</span> = 이 선수의 최고 분기 (전 분기 대비 개인 최고)</span>
+                </div>
+              )}
             </div>
             </>) : statMode === 'shooting' ? (<>
             {/* Shooting — 모바일 정렬 칩 */}
@@ -867,8 +908,12 @@ export default function LeagueStatsPage() {
                         const divider = idx === 7 ? 'border-l border-gray-800' : ''
                         // FTr 은 100% 넘을 수 있어 max=80(시각 척도용)으로 자름
                         const barMax = key === 'ft_rate' ? 80 : 100
+                        const personalHigh = isPersonalHighCell(p.player_id, key as string)
+                        const italicCls = personalHigh ? 'italic' : ''
                         return (
-                          <td key={key} className={`relative px-3 py-3 text-center text-sm tabular-nums font-medium ${divider} ${active ? 'text-yellow-400 font-bold' : 'text-blue-300'}`}>
+                          <td key={key}
+                              className={`relative px-3 py-3 text-center text-sm tabular-nums font-medium ${divider} ${italicCls} ${active ? 'text-yellow-400 font-bold' : 'text-blue-300'}`}
+                              title={personalHigh ? '개인 최고 분기' : undefined}>
                             {val}%
                             <PercentBar value={val} max={barMax} color={barColor} />
                           </td>
