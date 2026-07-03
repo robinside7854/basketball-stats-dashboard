@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, X, Crown, Flame, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { Loader2, X, Crown, Flame, TrendingUp, TrendingDown, Minus, Camera, Sparkles } from 'lucide-react'
+import { toast } from 'sonner'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
 import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 import { CountUp, FormDots } from '@/components/league/StatCell'
@@ -12,6 +13,7 @@ import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Responsi
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
   birth_date: string | null; plus_one: boolean
+  photo_url?: string | null
 }
 
 type SeasonStats = {
@@ -229,6 +231,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', position: '', birth_date: '' })
   const [savingEdit, setSavingEdit] = useState(false)
+  // 사진 업로드 · AI 캐릭터 생성 state
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [generatingAI, setGeneratingAI] = useState(false)
   const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
   const [careerHighBoxscoreDate, setCareerHighBoxscoreDate] = useState<string | null>(null)
@@ -275,7 +281,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   }, [onClose])
 
   useEffect(() => {
-    if (player) setEditForm({ name: player.name, position: player.position ?? '', birth_date: player.birth_date ?? '' })
+    if (player) {
+      setEditForm({ name: player.name, position: player.position ?? '', birth_date: player.birth_date ?? '' })
+      setPhotoUrl(player.photo_url ?? null)
+    }
   }, [player])
 
   // 분기 선택 시 해당 분기 detail 패치
@@ -363,18 +372,100 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
           return (
           <div className="px-5 py-4 border-b border-gray-800 bg-gray-800/30 space-y-3">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">선수 정보 수정</p>
-            <div className="grid grid-cols-2 gap-2">
+
+            {/* 프로필 사진 + AI 캐릭터화 */}
+            <div className="flex items-start gap-3 pb-3 border-b border-gray-800/60">
+              <div className="w-20 h-[107px] shrink-0 rounded-lg border border-gray-700 overflow-hidden bg-gray-800 flex items-center justify-center">
+                {photoUrl ? (
+                  <img src={photoUrl} alt={player?.name ?? ''} className="w-full h-full object-cover object-top" />
+                ) : (
+                  <Camera size={22} className="text-gray-600" />
+                )}
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <p className="text-xs text-gray-500">프로필 사진</p>
+                <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border cursor-pointer transition-colors bg-gray-800 border-gray-700 text-gray-300 hover:text-white hover:border-gray-500">
+                  {uploadingPhoto
+                    ? <><Loader2 size={11} className="animate-spin" /> 업로드중…</>
+                    : <><Camera size={11} /> {photoUrl ? '사진 교체' : '사진 업로드'}</>}
+                  <input type="file" accept="image/*" className="hidden"
+                    disabled={uploadingPhoto || generatingAI}
+                    onChange={async e => {
+                      const file = e.target.files?.[0]
+                      if (!file || !leagueHeaders) return
+                      setUploadingPhoto(true)
+                      try {
+                        const fd = new FormData()
+                        fd.append('file', file)
+                        const photoHeaders: Record<string, string> = {}
+                        if (leagueHeaders['X-League-Pin']) photoHeaders['X-League-Pin'] = leagueHeaders['X-League-Pin']
+                        const res = await fetch(`/api/leagues/${leagueId}/players/${playerId}/photo`, {
+                          method: 'POST', headers: photoHeaders, body: fd,
+                        })
+                        if (res.ok) {
+                          const d = await res.json()
+                          setPhotoUrl(d.url)
+                          toast.success('사진 저장됨')
+                          onSaved?.()
+                        } else {
+                          const err = await res.json().catch(() => ({}))
+                          toast.error(`업로드 실패: ${err.error ?? res.status}`)
+                        }
+                      } catch {
+                        toast.error('네트워크 오류')
+                      } finally {
+                        setUploadingPhoto(false)
+                      }
+                    }}
+                  />
+                </label>
+                {photoUrl && (
+                  <button
+                    type="button"
+                    disabled={generatingAI || uploadingPhoto}
+                    onClick={async () => {
+                      if (!leagueHeaders) return
+                      if (!window.confirm('AI 로 캐릭터화하시겠어요?\n\n원본 사진이 만화 캐릭터로 대체됩니다.\n다시 사진 업로드하면 복원 가능.\n\n예상 시간 10-20초 · 비용 ~$0.04')) return
+                      setGeneratingAI(true)
+                      try {
+                        const headers: Record<string, string> = {}
+                        if (leagueHeaders['X-League-Pin']) headers['X-League-Pin'] = leagueHeaders['X-League-Pin']
+                        const res = await fetch(`/api/leagues/${leagueId}/players/${playerId}/photo/generate`, {
+                          method: 'POST', headers,
+                        })
+                        if (res.ok) {
+                          const d = await res.json()
+                          setPhotoUrl(d.url)
+                          toast.success('🎨 AI 캐릭터 생성 완료')
+                          onSaved?.()
+                        } else {
+                          const err = await res.json().catch(() => ({}))
+                          toast.error(`캐릭터 생성 실패: ${err.error ?? res.status}`)
+                        }
+                      } catch {
+                        toast.error('네트워크 오류')
+                      } finally {
+                        setGeneratingAI(false)
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-transform hover:scale-105 border border-purple-500/40 bg-gradient-to-r from-purple-600/30 to-pink-600/30 text-purple-200 disabled:opacity-50 disabled:cursor-wait disabled:hover:scale-100"
+                    title="Gemini 2.5 로 만화 캐릭터 생성"
+                  >
+                    {generatingAI
+                      ? <><Loader2 size={11} className="animate-spin" /> AI 생성중…</>
+                      : <><Sparkles size={11} /> AI 캐릭터화</>}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
               <div>
                 <label className="text-xs text-gray-500 block mb-1">이름</label>
                 <input value={editForm.name} onChange={e => setEditForm(f => ({...f, name: e.target.value}))}
                   className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-2.5 py-1.5 text-xs" />
               </div>
               <div>
-                <label className="text-xs text-gray-500 block mb-1">생년월일</label>
-                <input type="date" value={editForm.birth_date} onChange={e => setEditForm(f => ({...f, birth_date: e.target.value}))}
-                  className="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-2.5 py-1.5 text-xs" />
-              </div>
-              <div className="col-span-2">
                 <label className="text-xs text-gray-500 block mb-1">포지션 (다중 선택)</label>
                 <div className="flex flex-wrap gap-1.5">
                   {POSITIONS.map(p => {
@@ -396,13 +487,13 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   })}
                 </div>
               </div>
-              <div className="col-span-2">
+              <div>
                 <button onClick={async () => {
                   if (!leagueHeaders) return
                   setSavingEdit(true)
                   const res = await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, {
                     method: 'PATCH', headers: {...leagueHeaders, 'Content-Type': 'application/json'},
-                    body: JSON.stringify({ name: editForm.name, position: editForm.position || null, birth_date: editForm.birth_date || null }),
+                    body: JSON.stringify({ name: editForm.name, position: editForm.position || null }),
                   })
                   setSavingEdit(false)
                   if (!res.ok) {
