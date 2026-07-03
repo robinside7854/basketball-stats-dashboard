@@ -222,15 +222,22 @@ export async function GET(
     })
   }
 
-  // ── REBOUND ────────
+  // ── REBOUND (누적 리바운드) ────────
+  // 순위 기준: 총 리바운드 (REB)
+  // 부가: RPG (평균) + 공격/수비 분해 (OR/DR) + 게임 수
   {
-    const cands = eligible.map(p => toCandidate(p, p.rpg, `${p.rpg.toFixed(1)} RPG`, { OR: String(p.oreb), DR: String(p.dreb) }))
+    const cands = eligible.map(p => toCandidate(p, p.reb, `${p.reb} REB`, {
+      RPG: p.rpg.toFixed(1),
+      R: String(p.gp),
+      OREB: String(p.oreb),
+      DREB: String(p.dreb),
+    }))
     const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'REBOUND',
       label: '리바운드왕',
-      description: '경기일당 리바운드 최고',
-      metric: 'RPG',
+      description: '시즌 누적 리바운드 최고 · 공격/수비 분해 포함',
+      metric: '누적 REB',
       minRequirement: attendanceReq,
       winner, runners, allCandidates,
     })
