@@ -47,22 +47,32 @@ const CATEGORY_STYLE: Record<AwardCategory, {
   MIP:        { Icon: TrendingUp,bg: 'from-purple-950/40 to-fuchsia-900/20',                  border: 'border-purple-500/50', text: 'text-purple-200',   chipBg: 'bg-purple-500/20', ribbon: 'from-purple-400 to-fuchsia-500' },
 }
 
+interface AttendanceInfo {
+  totalRounds: number
+  requiredRounds: number
+  threshold: number
+}
+
 export default function AwardsPage() {
   const params = useParams<{ leagueId: string }>()
   const { leagueId } = params
 
   const [awards, setAwards] = useState<AwardEntry[]>([])
+  const [attendance, setAttendance] = useState<AttendanceInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
-  const [minGP, setMinGP] = useState(5)
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/leagues/${leagueId}/awards?minGP=${minGP}`)
+    fetch(`/api/leagues/${leagueId}/awards`)
       .then(r => r.json())
-      .then(d => { setAwards(d.awards ?? []); setLoading(false) })
+      .then(d => {
+        setAwards(d.awards ?? [])
+        setAttendance(d.attendance ?? null)
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
-  }, [leagueId, minGP])
+  }, [leagueId])
 
   return (
     <div className="space-y-5 lg:space-y-6">
@@ -70,7 +80,7 @@ export default function AwardsPage() {
       <div className="relative court-bg rounded-2xl px-5 py-5 lg:px-6 lg:py-6 -mx-2 sm:mx-0 border border-gray-800/40 overflow-hidden">
         <div className="absolute inset-0 pointer-events-none opacity-20"
              style={{ background: 'radial-gradient(circle at 30% 20%, rgba(251,191,36,0.5), transparent 60%)' }} />
-        <div className="relative flex items-center justify-between gap-3 flex-wrap">
+        <div className="relative flex items-start justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <Trophy size={28} className="text-amber-400 lg:w-9 lg:h-9" />
             <div>
@@ -78,12 +88,16 @@ export default function AwardsPage() {
               <p className="text-sm text-gray-500 mt-0.5">Season Awards · 9개 부문</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 font-mono">최소 GP</span>
-            <input type="number" min={1} max={200} value={minGP}
-              onChange={e => setMinGP(Math.max(1, Number(e.target.value)))}
-              className="w-16 bg-gray-800 border border-gray-700 text-white rounded px-2 py-1.5 text-center text-sm min-h-[36px]" />
-          </div>
+          {attendance && attendance.totalRounds > 0 && (
+            <div className="rounded-lg bg-gray-900/60 border border-amber-500/30 px-3 py-2 lg:px-4 lg:py-2.5">
+              <p className="text-xs text-amber-300 font-jersey uppercase tracking-widest font-bold">자격 요건</p>
+              <p className="text-sm lg:text-base text-white font-bold mt-0.5">
+                시즌 <span className="text-amber-300 tabular-nums">{attendance.totalRounds}</span>일 중
+                <span className="text-amber-300 tabular-nums"> {attendance.requiredRounds}</span>일 이상 참석
+                <span className="text-xs text-gray-500 ml-1.5">({Math.round(attendance.threshold * 100)}%)</span>
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
