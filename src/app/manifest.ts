@@ -18,15 +18,17 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: '#0a0a0a',
     orientation: 'portrait',
     icons: [
+      // 'any' + 'maskable' 둘 다 제공 — 안드로이드가 어댑티브 아이콘으로 사용
+      // 사이즈는 512x512 하나만 있어도 브라우저가 다운스케일함
       {
         src: '/icon.png',
-        sizes: '512x512',
+        sizes: '192x192 512x512',
         type: 'image/png',
         purpose: 'any',
       },
       {
         src: '/icon.png',
-        sizes: '512x512',
+        sizes: '192x192 512x512',
         type: 'image/png',
         purpose: 'maskable',
       },
