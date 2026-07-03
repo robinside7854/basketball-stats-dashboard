@@ -51,17 +51,31 @@ UNIFORM (IDENTICAL FOR ALL PLAYERS — MIRACLE MORNING BASKETBALL TEAM):
 - Black V-neck trim (thick black band forming a V-neck around the collar opening)
 - Black armhole/shoulder trim (thick black side panels visible where jersey meets shoulder)
 - Real fabric texture with subtle mesh weave (NOT flat colored, actual basketball jersey material)
-- Jersey should look like authentic NBA-caliber team apparel
 - Framing shows only the V-neck yellow collar area and top of shoulders (from collarbone down to just below)
-- No jersey number visible (framing is too high to show numbers on chest)
-- No text visible (framing above chest text placement)
+- ABSOLUTELY FORBIDDEN on the jersey:
+  * NO NBA team logos of any kind (Lakers, Bulls, Warriors, Nike swoosh, etc.)
+  * NO real brand logos (Nike, Adidas, Jordan, Puma)
+  * NO real team names or acronyms
+  * NO jersey number visible (framing is too high to show numbers on chest)
+  * NO text of any kind
+  * NO patches, badges, or emblems
+- The jersey should be a plain yellow/black basketball tank top with NOTHING on it
 - Every generated player should look like they wore the SAME uniform on the SAME day
 
-BACKGROUND (IDENTICAL FOR ALL PLAYERS):
-- Solid deep purple studio backdrop (#5B21B6 range)
-- Subtle basketball team logo watermark faintly visible in background (blurred/soft)
+BACKGROUND (IDENTICAL FOR ALL PLAYERS — ABSOLUTELY CLEAN):
+- Solid deep purple studio backdrop (#5B21B6 range) — SOLID COLOR ONLY
+- 100% clean plain background — NO logos of any kind
+- ABSOLUTELY FORBIDDEN in background:
+  * NO NBA team logos (Lakers, Bulls, Warriors, etc.) — DO NOT default to these
+  * NO NBA league logos
+  * NO basketball team logos of any kind (real or generated)
+  * NO watermarks
+  * NO text
+  * NO patterns, textures, or graphics
+  * NO scenery, no basketball court, no arena, no stadium
+  * NO gradient variations — must be uniform solid purple
 - Soft even studio lighting from upper front, gentle rim light
-- No gradient variations, no scenery, no basketball court
+- The background must be as clean as a driver's license photo background
 
 FACE PRESERVATION (ABSOLUTE HIGHEST PRIORITY — 95%+ IDENTITY LOCK):
 - This is the SINGLE MOST IMPORTANT requirement — everything else is secondary
