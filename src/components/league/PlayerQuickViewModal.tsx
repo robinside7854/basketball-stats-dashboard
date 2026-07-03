@@ -1,13 +1,13 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, X, Crown, Flame, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { Loader2, X, Crown, Flame, TrendingUp, TrendingDown, Minus, Users } from 'lucide-react'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
 import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 import { CountUp, FormDots } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 import { type EvaluatedBadge } from '@/lib/stats/badges'
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, PieChart, Pie, Cell as PieCell } from 'recharts'
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, XAxis, YAxis, Tooltip, BarChart, Bar, PieChart, Pie, Cell as PieCell, LineChart, Line, ReferenceLine, CartesianGrid } from 'recharts'
 
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
@@ -30,6 +30,7 @@ type Detail = {
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; drive: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; pts: number; reb: number; ast: number; stl?: number; blk?: number; fgm: number; fga: number; fg3m?: number; fg3a?: number }>
+  game_log?: Array<{ date: string; pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; fg3m: number; fg3a: number }>
   win_loss?: {
     wins: number; losses: number; win_rate: number
     win_stats: WLStats; loss_stats: WLStats
@@ -103,6 +104,83 @@ function MonthlyStatsChart({ data }: { data: NonNullable<Detail['monthly_stats']
           />
           <Bar dataKey={monthStat} fill="#3b82f6" radius={[3,3,0,0]} />
         </BarChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// 게임별 트렌드 차트 — 컨디션 시각화 (per-game + rolling 3-game avg)
+const TREND_STATS = [
+  { key: 'pts' as const, label: '득점', color: '#f59e0b' },
+  { key: 'reb' as const, label: '리바', color: '#8b5cf6' },
+  { key: 'ast' as const, label: '어시', color: '#3b82f6' },
+  { key: 'stl' as const, label: '스틸', color: '#ec4899' },
+]
+type TrendStatKey = typeof TREND_STATS[number]['key']
+
+function GameTrendChart({ log }: { log: NonNullable<Detail['game_log']> }) {
+  const [trendStat, setTrendStat] = useState<TrendStatKey>('pts')
+
+  // 3경기 rolling avg 계산 (오래된 → 최신)
+  const chartData = log.map((g, i) => {
+    const from = Math.max(0, i - 2)
+    const slice = log.slice(from, i + 1)
+    const rollingSum = slice.reduce((s, r) => s + r[trendStat], 0)
+    const rolling = +(rollingSum / slice.length).toFixed(1)
+    return {
+      idx: i + 1,
+      date: g.date?.slice(5).replace('-', '/') ?? String(i + 1),
+      value: g[trendStat],
+      rolling,
+    }
+  })
+  const seasonAvg = log.length > 0
+    ? +(log.reduce((s, r) => s + r[trendStat], 0) / log.length).toFixed(1)
+    : 0
+  const activeMeta = TREND_STATS.find(s => s.key === trendStat)!
+
+  return (
+    <div className="px-5 py-4 border-b border-gray-800/60">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <p className="font-jersey text-xs text-blue-400 uppercase tracking-[0.18em] font-bold">게임별 트렌드</p>
+          <span className="text-xs text-gray-500">{log.length}경기 · 3경기 평균</span>
+        </div>
+        <div className="flex gap-1">
+          {TREND_STATS.map(s => (
+            <button key={s.key} onClick={() => setTrendStat(s.key)}
+              className={`px-2 py-0.5 text-xs font-bold rounded border cursor-pointer transition-colors ${
+                trendStat === s.key ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-500 hover:text-gray-300'
+              }`}>{s.label}</button>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={140}>
+        <LineChart data={chartData} margin={{ top: 8, right: 4, bottom: 0, left: -22 }}>
+          <CartesianGrid strokeDasharray="2 4" stroke="#374151" vertical={false} />
+          <XAxis
+            dataKey="idx"
+            tick={{ fill: '#6b7280', fontSize: 9 }}
+            axisLine={false}
+            tickLine={false}
+            interval={Math.max(0, Math.floor(chartData.length / 6) - 1)}
+          />
+          <YAxis tick={{ fill: '#6b7280', fontSize: 9 }} axisLine={false} tickLine={false} />
+          <Tooltip
+            contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 6, fontSize: 11 }}
+            labelFormatter={(v, payload) => {
+              const p = payload?.[0]?.payload as { date?: string } | undefined
+              return `#${v}${p?.date ? ` (${p.date})` : ''}`
+            }}
+            formatter={(val, name) => {
+              const displayName = name === 'value' ? activeMeta.label : name === 'rolling' ? `3G 평균` : String(name ?? '')
+              return [val as (string | number), displayName]
+            }}
+          />
+          <ReferenceLine y={seasonAvg} stroke="#6b7280" strokeDasharray="3 3" label={{ value: `평균 ${seasonAvg}`, position: 'insideTopRight', fill: '#9ca3af', fontSize: 9 }} />
+          <Line type="monotone" dataKey="value" stroke={activeMeta.color} strokeWidth={1.5} strokeOpacity={0.5} dot={{ r: 2, fill: activeMeta.color }} activeDot={{ r: 4 }} />
+          <Line type="monotone" dataKey="rolling" stroke={activeMeta.color} strokeWidth={2.5} dot={false} />
+        </LineChart>
       </ResponsiveContainer>
     </div>
   )
@@ -229,6 +307,26 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     fetch(`/api/leagues/${leagueId}/clutch?playerId=${playerId}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (!cancelled) setClutchSplit(d?.split ?? null) })
+      .catch(() => null)
+    return () => { cancelled = true }
+  }, [leagueId, playerId])
+
+  // Similarity Finder: 이 선수와 플레이 스타일 유사한 선수 Top 3
+  type SimilarPlayer = {
+    playerId: string; name: string; gp: number; similarity: number
+    ppg: number; rpg: number; apg: number; stl_blk: number; three_ar: number; efg_pct: number
+  }
+  type SimilarityResp = {
+    source: { playerId: string; name: string; gp: number; ppg: number; rpg: number; apg: number; stl_blk: number; three_ar: number; efg_pct: number } | null
+    similar: SimilarPlayer[]
+    error?: string
+  }
+  const [similarity, setSimilarity] = useState<SimilarityResp | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/leagues/${leagueId}/similarity?playerId=${playerId}&topN=3`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled) setSimilarity(d ?? null) })
       .catch(() => null)
     return () => { cancelled = true }
   }, [leagueId, playerId])
@@ -642,6 +740,51 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               )
             })()}
 
+            {/* 스타일 유사 선수 — cosine similarity (6-vector) */}
+            {similarity?.source && similarity.similar.length > 0 && (
+              <div className="px-5 py-4 border-b border-gray-800/60">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Users size={14} className="text-purple-400" />
+                    <p className="font-jersey text-xs text-purple-400 uppercase tracking-[0.18em] font-bold">스타일 유사 선수</p>
+                  </div>
+                  <span className="text-xs text-gray-500">
+                    PPG · RPG · APG · S+B · 3PAr · eFG% 기반
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {similarity.similar.map((s, idx) => {
+                    // similarity 는 0-1, 대개 0.85~0.99 근처 → % 로 표시
+                    const pct = Math.round(s.similarity * 100)
+                    const barColor = pct >= 90 ? 'bg-purple-500' : pct >= 75 ? 'bg-purple-600/70' : 'bg-purple-700/50'
+                    return (
+                      <div key={s.playerId} className="bg-gray-800/40 border border-gray-700/50 rounded-lg px-3 py-2.5">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-xs font-mono text-gray-500 w-4 shrink-0">{idx + 1}</span>
+                            <span className="text-sm font-bold text-white truncate">{s.name}</span>
+                            <span className="text-xs text-gray-500 shrink-0">{s.gp}게임</span>
+                          </div>
+                          <span className="text-sm font-black text-purple-300 tabular-nums shrink-0">{pct}%</span>
+                        </div>
+                        {/* 유사도 바 */}
+                        <div className="w-full h-1 bg-gray-700/40 rounded-full overflow-hidden mb-2">
+                          <div className={`h-full ${barColor} rounded-full`} style={{ width: `${pct}%` }} />
+                        </div>
+                        {/* 스탯 미니 요약 */}
+                        <div className="grid grid-cols-4 gap-x-2 gap-y-0.5 text-[11px]">
+                          <div><span className="text-gray-500">PPG </span><span className="text-gray-200 font-bold tabular-nums">{s.ppg}</span></div>
+                          <div><span className="text-gray-500">RPG </span><span className="text-gray-200 font-bold tabular-nums">{s.rpg}</span></div>
+                          <div><span className="text-gray-500">APG </span><span className="text-gray-200 font-bold tabular-nums">{s.apg}</span></div>
+                          <div><span className="text-gray-500">eFG </span><span className="text-gray-200 font-bold tabular-nums">{s.efg_pct}%</span></div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* 출전 임팩트 */}
             {detail?.win_loss && (detail.win_loss.wins + detail.win_loss.losses) > 0 && (() => {
               const wl = detail.win_loss
@@ -991,6 +1134,11 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {/* 월별 성장지표 */}
             {activeDetail?.monthly_stats && activeDetail.monthly_stats.length >= 2 && (
               <MonthlyStatsChart data={activeDetail.monthly_stats} />
+            )}
+
+            {/* 게임별 트렌드 라인 — 최소 3경기 이상일 때만 표시 */}
+            {activeDetail?.game_log && activeDetail.game_log.length >= 3 && (
+              <GameTrendChart log={activeDetail.game_log} />
             )}
 
             {/* 최근 5R (R = 라운드 단위, 같은 날 여러 경기는 합산. 단일 상대 개념 없음) */}

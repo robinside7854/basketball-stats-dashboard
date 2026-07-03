@@ -343,6 +343,19 @@ export async function GET(
       return { ...gameInfo(firstGId ?? '', tid), pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk, fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a }
     })
 
+  // ── Full Game Log (trend chart 용) ────────────────────────
+  // 오래된 → 최근 순으로 전체 unit 스탯 제공. 클라이언트가 rolling avg 를 계산.
+  const gameLog = playedUnits.map(unitKey => {
+    const s = aggregateMap[unitKey]
+    const firstGId = unitToFirstGame[unitKey]
+    const g = firstGId ? (gameMap[firstGId] as { date?: string } | undefined) : undefined
+    return {
+      date: g?.date ?? unitKey,
+      pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk,
+      fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a,
+    }
+  })
+
   // ── Rankings + Badge metrics ──────────────────────────────────
   type AS = {
     pts: number; reb: number; oreb: number; dreb: number
@@ -895,6 +908,7 @@ export async function GET(
   return NextResponse.json({
     rankings, career_high: careerHigh, shot_breakdown: shotBreakdown,
     recent_games: recentGames,
+    game_log: gameLog,
     badges, badges_scope: 'season' as const,
     win_loss: winLoss, player_stats, monthly_stats, vs_opponents, unit,
     active_streaks,

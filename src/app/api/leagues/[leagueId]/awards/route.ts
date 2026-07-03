@@ -86,8 +86,17 @@ export async function GET(
   const statsJson = await statsRes.json() as { players?: PlayerStat[] }
   const players = statsJson.players ?? []
 
-  // 자격자: gp (=참여 경기일) >= requiredRounds
-  const eligible = players.filter(p => p.gp >= requiredRounds)
+  // 2-1) 게스트 선수 ID 조회 — 어워즈 후보에서 제외
+  //      (60% 출석 필터를 통과해도 게스트는 MVP·수상 대상이 아님)
+  const { data: guestRows } = await supabase
+    .from('league_players')
+    .select('id')
+    .eq('league_id', leagueId)
+    .eq('is_guest', true)
+  const guestIds = new Set((guestRows ?? []).map(r => r.id as string))
+
+  // 자격자: gp (=참여 경기일) >= requiredRounds && 게스트 아님
+  const eligible = players.filter(p => p.gp >= requiredRounds && !guestIds.has(p.player_id))
 
   // 3) 클러치 스탯 조회
   const clutchSplits = await computeClutchStats(supabase, leagueId)
