@@ -193,15 +193,30 @@ export async function GET(
     })
   }
 
-  // ── SCORING ────────
+  // ── SCORING (누적 득점) ────────
+  // 순위 기준: 총 득점 (PTS)
+  // 부가: PPG (평균) + 유형별 슛 기록 (3점/미드/레이업/골밑/FT)
   {
-    const cands = eligible.map(p => toCandidate(p, p.ppg, `${p.ppg.toFixed(1)} PPG`, { R: String(p.gp), PTS: String(p.pts) }))
+    const cands = eligible.map(p => {
+      // 유형별 표시 형식: 성공/시도 (성공률)
+      const shotLine = (m: number, a: number) => a > 0 ? `${m}/${a} (${(m / a * 100).toFixed(0)}%)` : `${m}/0`
+      const supporting: Record<string, string> = {
+        PPG: p.ppg.toFixed(1),
+        R: String(p.gp),
+        '3점': shotLine(p.fg3m, p.fg3a),
+        '미드': shotLine(p.md_m, p.md_a),
+        '레이업': shotLine(p.lu_m, p.lu_a),
+        '골밑': shotLine(p.ds_m, p.ds_a),
+        'FT': shotLine(p.ftm, p.fta),
+      }
+      return toCandidate(p, p.pts, `${p.pts} PTS`, supporting)
+    })
     const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'SCORING',
       label: '득점왕',
-      description: '경기일당 평균 득점 최고',
-      metric: 'PPG',
+      description: '시즌 누적 득점 최고 · 유형별 슛 기록 포함',
+      metric: '누적 PTS',
       minRequirement: attendanceReq,
       winner, runners, allCandidates,
     })
@@ -221,31 +236,58 @@ export async function GET(
     })
   }
 
-  // ── ASSIST ────────
+  // ── ASSIST (누적 어시스트) ────────
+  // 순위 기준: 총 어시스트 (AST)
+  // 부가: APG (평균) + TOV + A/T ratio
   {
-    const cands = eligible.map(p => toCandidate(p, p.apg, `${p.apg.toFixed(1)} APG`, { AST: String(p.ast), TOV: String(p.tov) }))
+    const cands = eligible.map(p => {
+      const atRatio = p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : p.ast
+      return toCandidate(p, p.ast, `${p.ast} AST`, {
+        APG: p.apg.toFixed(1),
+        R: String(p.gp),
+        TOV: String(p.tov),
+        'A/T': p.tov > 0 ? atRatio.toFixed(2) : '—',
+      })
+    })
     const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'ASSIST',
       label: '어시스트왕',
-      description: '경기일당 어시스트 최고',
-      metric: 'APG',
+      description: '시즌 누적 어시스트 최고',
+      metric: '누적 AST',
       minRequirement: attendanceReq,
       winner, runners, allCandidates,
     })
   }
 
   // ── DPOY ────────
+  // 가중 공식: STL 35% + BLK 35% + DREB 30%
+  // 각 스탯을 리그 max 로 정규화 후 가중합 → 0-100 점수
+  // (raw 합산은 stat 별 스케일 차이 때문에 리바운드가 지배함)
   {
-    const cands = eligible.map(p => toCandidate(p, +(p.spg + p.bpg).toFixed(2), `${(p.spg + p.bpg).toFixed(1)} STL+BLK`, {
-      SPG: p.spg.toFixed(1), BPG: p.bpg.toFixed(1),
-    }))
+    const maxSpg  = Math.max(0.001, ...eligible.map(p => p.spg))
+    const maxBpg  = Math.max(0.001, ...eligible.map(p => p.bpg))
+    const maxDrp  = Math.max(0.001, ...eligible.map(p => p.drp))
+    const cands = eligible.map(p => {
+      const stlScore = (p.spg / maxSpg) * 35
+      const blkScore = (p.bpg / maxBpg) * 35
+      const drbScore = (p.drp / maxDrp) * 30
+      const total = +(stlScore + blkScore + drbScore).toFixed(2)
+      return toCandidate(p, total, `${total.toFixed(1)} DEF`, {
+        SPG: p.spg.toFixed(1),
+        BPG: p.bpg.toFixed(1),
+        'DR/G': p.drp.toFixed(1),
+        STL: String(p.stl),
+        BLK: String(p.blk),
+        DREB: String(p.dreb),
+      })
+    })
     const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'DPOY',
       label: 'DPOY',
-      description: '최고의 수비수 · 스틸 + 블락',
-      metric: 'STL + BLK per game',
+      description: '최고의 수비수 · STL 35% + BLK 35% + DREB 30% 가중',
+      metric: '가중 수비 점수 (0-100)',
       minRequirement: attendanceReq,
       winner, runners, allCandidates,
     })
