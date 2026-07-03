@@ -238,6 +238,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [originalPhotoUrl, setOriginalPhotoUrl] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [generatingAI, setGeneratingAI] = useState(false)
+  // 뷰 모드에서 아바타 클릭 시 라이트박스 확대
+  const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false)
   // 현재 photo 가 AI 생성물인지 판단 — 재생성 버튼 노출 조건
   const isAIGenerated = Boolean(originalPhotoUrl && photoUrl && originalPhotoUrl !== photoUrl)
   const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
@@ -280,10 +282,18 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const h = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // 라이트박스가 열려있으면 먼저 라이트박스만 닫고 모달은 유지
+      if (photoLightboxOpen) {
+        setPhotoLightboxOpen(false)
+        return
+      }
+      onClose()
+    }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [onClose])
+  }, [onClose, photoLightboxOpen])
 
   useEffect(() => {
     if (player) {
@@ -349,10 +359,25 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         {/* Hero header — 큰 아바타 + 이름 (프로필 사진 노출) */}
         <div className="relative px-5 pt-4 pb-5 border-b border-gray-800 bg-gradient-to-b from-gray-800/50 to-transparent">
           <div className="flex items-start gap-4">
-            {/* 아바타 (편집모드 = 호버 오버레이 · 뷰모드 = 크게 표시만) */}
+            {/* 아바타 (편집모드 = 호버 오버레이 업로드/AI · 뷰모드 = 클릭 시 라이트박스 확대) */}
             <div className="relative shrink-0 group/avatar">
-              <div className="w-24 h-30 sm:w-28 sm:h-36 rounded-xl overflow-hidden border-2 border-blue-500/40 shadow-lg bg-gray-800 flex items-center justify-center"
-                   style={{ aspectRatio: '4/5' }}>
+              <div
+                className={`w-24 h-30 sm:w-28 sm:h-36 rounded-xl overflow-hidden border-2 border-blue-500/40 shadow-lg bg-gray-800 flex items-center justify-center ${!isEditMode && photoUrl ? 'cursor-zoom-in hover:border-blue-400 transition-colors' : ''}`}
+                style={{ aspectRatio: '4/5' }}
+                onClick={() => {
+                  // 뷰 모드에서 사진 있을 때만 라이트박스 오픈
+                  if (!isEditMode && photoUrl) setPhotoLightboxOpen(true)
+                }}
+                role={!isEditMode && photoUrl ? 'button' : undefined}
+                tabIndex={!isEditMode && photoUrl ? 0 : undefined}
+                onKeyDown={e => {
+                  if (!isEditMode && photoUrl && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault()
+                    setPhotoLightboxOpen(true)
+                  }
+                }}
+                title={!isEditMode && photoUrl ? '클릭해서 크게 보기' : undefined}
+              >
                 {photoUrl ? (
                   <img src={photoUrl} alt={player?.name ?? ''} className="w-full h-full object-cover object-top" />
                 ) : (
@@ -1225,6 +1250,37 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         )}
       </div>
     </div>
+
+    {/* 프로필 사진 라이트박스 — 뷰 모드에서 아바타 클릭 시 크게 표시 */}
+    {photoLightboxOpen && photoUrl && (
+      <div
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 backdrop-blur-sm cursor-zoom-out p-4 sm:p-8 animate-in fade-in duration-150"
+        onClick={() => setPhotoLightboxOpen(false)}
+        role="dialog"
+        aria-label="프로필 사진 크게 보기"
+      >
+        <button
+          onClick={() => setPhotoLightboxOpen(false)}
+          className="absolute top-4 right-4 rounded-full bg-black/60 hover:bg-black/80 text-white p-2 cursor-pointer transition-colors"
+          aria-label="닫기"
+        >
+          <X size={20} />
+        </button>
+        <img
+          src={photoUrl}
+          alt={player?.name ?? ''}
+          className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+          style={{ maxWidth: 'min(90vw, 720px)', maxHeight: '90vh' }}
+          onClick={e => e.stopPropagation()}
+        />
+        {player?.name && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-bold">
+            {player.name}
+            {player.number != null && <span className="ml-2 text-gray-400 font-mono">#{player.number}</span>}
+          </div>
+        )}
+      </div>
+    )}
 
     </>
   )

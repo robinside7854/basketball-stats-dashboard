@@ -46,20 +46,34 @@ BACKGROUND (IDENTICAL FOR ALL PLAYERS):
 - Soft even studio lighting from upper front, gentle rim light
 - No gradient variations, no scenery, no basketball court
 
-FACE PRESERVATION (CRITICAL - MUST MATCH ORIGINAL 90%+):
-- Preserve the person's actual face from the uploaded reference photo with 90%+ fidelity:
-  - Eye shape, color, spacing, and eyelids
-  - Nose shape, width, and length
-  - Mouth shape, lip fullness, and natural expression
-  - Jawline, chin, and cheekbone structure
-  - Overall face shape (oval / round / square / heart)
-  - Skin tone and complexion
-  - Hairstyle, hair color, hairline, and part
-  - Facial hair (beard, mustache) if present in reference
-  - Age and general facial character
-- Only apply: natural studio lighting, even skin retouching, minor blemish smoothing
-- Do NOT change identity, do NOT idealize, do NOT beautify to unrecognizable
-- The person must be immediately recognizable as the same individual
+FACE PRESERVATION (ABSOLUTE HIGHEST PRIORITY — MATCH ORIGINAL 95%+):
+- This is the SINGLE MOST IMPORTANT requirement — everything else is secondary
+- Treat the uploaded photo as ground truth for the person's face
+- Preserve the person's actual face from the uploaded reference photo with 95%+ pixel-level fidelity:
+  - Eye shape, color, spacing, eyelids, and eye size — EXACT MATCH
+  - Nose shape, width, length, nostrils, and bridge — EXACT MATCH
+  - Mouth shape, lip fullness, philtrum, and natural resting expression — EXACT MATCH
+  - Jawline, chin, and cheekbone structure — EXACT MATCH
+  - Overall face shape (oval / round / square / heart / diamond) — EXACT MATCH
+  - Skin tone, complexion, and any distinctive markings (moles, freckles, scars) — PRESERVE
+  - Hairstyle, hair color, hair density, hairline, and part direction — EXACT MATCH
+  - Facial hair (beard, mustache, sideburns) shape and density if present in reference — EXACT MATCH
+  - Age and general facial character (youthful / mature / weathered) — PRESERVE
+  - Ear shape and position — PRESERVE
+  - Eyebrow shape, thickness, and arch — EXACT MATCH
+- ONLY these adjustments are allowed:
+  - Even studio lighting on the face
+  - Minor skin evenness (no heavy retouching that changes texture)
+  - Slight expression normalization to neutral confident (but same person's expression signature)
+- FORBIDDEN:
+  - Do NOT change identity in any way
+  - Do NOT idealize or "improve" facial features
+  - Do NOT apply beauty filters
+  - Do NOT smooth skin so much it looks plastic
+  - Do NOT make the person look younger or older than they are
+  - Do NOT alter ethnic features
+- The person must be immediately recognizable as the SAME individual by their close friends and family
+- If in doubt between adding a stylistic touch and preserving the original, ALWAYS choose preservation
 
 POSE & EXPRESSION:
 - Head centered in frame, slight tilt no more than 5 degrees
