@@ -188,17 +188,6 @@ function GameTrendChart({ log }: { log: NonNullable<Detail['game_log']> }) {
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
 
-function calcAge(birthDate: string | null): number | null {
-  if (!birthDate) return null
-  const b = new Date(birthDate)
-  if (isNaN(b.getTime())) return null
-  const now = new Date()
-  let age = now.getFullYear() - b.getFullYear()
-  const md = now.getMonth() - b.getMonth()
-  if (md < 0 || (md === 0 && now.getDate() < b.getDate())) age--
-  return age
-}
-
 const POSITION_COLORS: Record<string, string> = {
   PG: 'bg-purple-900/40 text-purple-300 border-purple-700/40',
   SG: 'bg-blue-900/40 text-blue-300 border-blue-700/40',
@@ -316,7 +305,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const activeDetail = selectedQuarterId ? (quarterDetail ?? detail) : detail
 
   const positions = (player?.position ?? '').split(',').map(p => p.trim()).filter(Boolean)
-  const age = calcAge(player?.birth_date ?? null)
 
   // 분기 탭 레이블
   const quarterLabel = (q: Quarter) => `${String(q.year).slice(2)}.${q.quarter}Q`
@@ -343,7 +331,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 {player?.plus_one && (
                   <span className="text-xs font-black px-1.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300">+1</span>
                 )}
-                {age && <span className="text-xs text-gray-600">만 {age}세</span>}
               </div>
             </div>
           </div>

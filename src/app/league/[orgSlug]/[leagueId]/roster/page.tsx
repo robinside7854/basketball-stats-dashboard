@@ -288,14 +288,14 @@ function PlayerModal({
   }, [leagueId, player.id])
 
   // 분기별 팀 정보 helpers — 팀명/색상은 분기별 override 우선 적용
+  // 팀 소속이 없는 분기는 모두 '비정규'
   function getQLabel(qId: string, pid: string): string {
     const m = membershipMap[qId]?.[pid]
-    if (!m || m.is_regular === null) return '—'
+    if (!m || !m.team_id) return '비정규'
     if (!m.is_regular) return '비정규'
-    if (!m.team_id) return '—'
     const ov = teamOverrides[qId]?.[m.team_id]
     if (ov?.name) return ov.name
-    return teams.find(t => t.id === m.team_id)?.name ?? '—'
+    return teams.find(t => t.id === m.team_id)?.name ?? '비정규'
   }
   function getQTeamColor(qId: string, pid: string): string | null {
     const m = membershipMap[qId]?.[pid]
@@ -1208,14 +1208,14 @@ export default function LeagueRosterPage() {
 
   function getCellLabel(quarterId: string, playerId: string): string {
     const m = membershipMap[quarterId]?.[playerId]
-    if (!m || m.is_regular === null) return '—'
+    // 팀 소속이 없는 분기는 모두 비정규로 분류 (미가입/멤버십없음/team_id null 통합)
+    if (!m || !m.team_id) return '비정규'
     if (!m.is_regular) return '비정규'
-    if (!m.team_id) return '—'
     // 분기별 override 우선, 없으면 base team 이름
     const ov = teamOverrides[quarterId]?.[m.team_id]
     if (ov?.name) return ov.name
     const team = teams.find(t => t.id === m.team_id)
-    return team?.name ?? '—'
+    return team?.name ?? '비정규'
   }
 
   function getCellTeamColor(quarterId: string, playerId: string): string | null {
