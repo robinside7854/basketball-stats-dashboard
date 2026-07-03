@@ -2,6 +2,66 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { auth } from '@/lib/auth'
 
+// UUID v4 정규식 (URL 세그먼트가 UUID 인지 판정용)
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// 리그 slug ↔ UUID 매핑 in-memory 캐시 (10분 TTL)
+// 미들웨어 인스턴스마다 별도 (콜드스타트 시 리셋) — 리그는 거의 안 바뀌므로 충분
+type CacheEntry = { value: string; expiresAt: number }
+const CACHE_TTL_MS = 10 * 60 * 1000
+const uuidToSlugCache = new Map<string, CacheEntry>()  // key: `${orgSlug}:${uuid}` → slug
+const slugToUuidCache = new Map<string, CacheEntry>()  // key: `${orgSlug}:${slug}` → uuid
+
+function getCached(cache: Map<string, CacheEntry>, key: string): string | null {
+  const entry = cache.get(key)
+  if (!entry) return null
+  if (Date.now() > entry.expiresAt) { cache.delete(key); return null }
+  return entry.value
+}
+
+function setCached(cache: Map<string, CacheEntry>, key: string, value: string): void {
+  cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS })
+}
+
+async function fetchLeagueBy(field: 'id' | 'slug', orgSlug: string, value: string): Promise<{ id: string; slug: string } | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!url || !key) return null
+  try {
+    const q = field === 'id'
+      ? `id=eq.${encodeURIComponent(value)}`
+      : `org_slug=eq.${encodeURIComponent(orgSlug)}&slug=eq.${encodeURIComponent(value)}`
+    const resp = await fetch(`${url}/rest/v1/leagues?${q}&select=id,slug`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      // Next.js 데이터 캐시 (URL 조회는 리그 데이터 바뀌지 않는 한 재사용)
+      next: { revalidate: 600 },
+    })
+    if (!resp.ok) return null
+    const rows = await resp.json() as Array<{ id: string; slug: string }>
+    return rows[0] ?? null
+  } catch { return null }
+}
+
+// UUID → slug 조회 (redirect 대상 결정용)
+async function lookupSlugForUuid(orgSlug: string, uuid: string): Promise<string | null> {
+  const cacheKey = `${orgSlug}:${uuid}`
+  const cached = getCached(uuidToSlugCache, cacheKey)
+  if (cached) return cached
+  const row = await fetchLeagueBy('id', orgSlug, uuid)
+  if (row?.slug) { setCached(uuidToSlugCache, cacheKey, row.slug); return row.slug }
+  return null
+}
+
+// slug → UUID 조회 (rewrite 대상 결정용)
+async function lookupUuidForSlug(orgSlug: string, slug: string): Promise<string | null> {
+  const cacheKey = `${orgSlug}:${slug}`
+  const cached = getCached(slugToUuidCache, cacheKey)
+  if (cached) return cached
+  const row = await fetchLeagueBy('slug', orgSlug, slug)
+  if (row?.id) { setCached(slugToUuidCache, cacheKey, row.id); return row.id }
+  return null
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -30,6 +90,34 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
     }
   }
+
+  // /league/:orgSlug/:leagueIdOrSlug/* URL 처리
+  // - UUID 세그먼트 → 301 redirect to slug URL (bookmarks 자동 clean-up)
+  // - slug 세그먼트 → internal rewrite to UUID URL (downstream 코드 변경 없이)
+  const leagueMatch = pathname.match(/^\/league\/([^/]+)\/([^/]+)(\/.*)?$/)
+  if (leagueMatch) {
+    const [, orgSlug, leagueIdOrSlug, rest = ''] = leagueMatch
+    if (UUID_RE.test(leagueIdOrSlug)) {
+      // UUID → 예쁜 slug URL 로 redirect
+      const slug = await lookupSlugForUuid(orgSlug, leagueIdOrSlug)
+      if (slug) {
+        return NextResponse.redirect(
+          new URL(`/league/${orgSlug}/${slug}${rest}${request.nextUrl.search}`, request.url),
+          { status: 301 },
+        )
+      }
+      // slug 없으면 그대로 진행 (기존 동작)
+    } else {
+      // slug → UUID 로 internal rewrite (URL 은 slug 유지)
+      const uuid = await lookupUuidForSlug(orgSlug, leagueIdOrSlug)
+      if (uuid) {
+        const url = request.nextUrl.clone()
+        url.pathname = `/league/${orgSlug}/${uuid}${rest}`
+        return NextResponse.rewrite(url)
+      }
+      // 매칭 실패 시 404 페이지 자연스럽게 노출 (rewrite 안 함)
+    }
+  }
 }
 
 export const config = {
@@ -39,5 +127,6 @@ export const config = {
     '/senior',
     '/senior/:path*',
     '/admin/:path*',
+    '/league/:path*',
   ],
 }
