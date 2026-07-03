@@ -22,10 +22,27 @@ import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 // 팀 컬러: 메인 옐로우/골드 + 블랙 트림 (참조 이미지 기준)
 const CHARACTER_PROMPT = `Generate a photorealistic official basketball team profile headshot of the person in the uploaded photo.
 
-STYLE (NON-NEGOTIABLE):
-- Ultra-photorealistic, professional studio portrait photography
-- NOT cartoon, NOT anime, NOT illustration, NOT stylized art
-- Studio-quality lighting like an official NBA team profile photo
+CRITICAL META-DIRECTIVE — READ BEFORE ANYTHING ELSE:
+This is a REPLACEMENT of the person's background and clothing ONLY. The face is a
+FIXED INPUT and must be treated as read-only. You are not creating a "portrait of
+someone who looks like the reference" — you are physically taking the SAME
+person's face from the reference and placing it against a new background with
+new clothing. Think of this as photoshopping the reference person's head onto a
+new body/background, not painting a new person.
+
+PHOTOGRAPHY STYLE (Option A — Documentary/Authentic, NOT Glamour):
+- This is a DOCUMENTARY-STYLE identification photo, NOT a beauty portrait
+- Think: driver's license photo · corporate ID badge · yearbook · sports federation
+  registration photo — accurate and unflattering-truthful, not "makeover"
+- Shot as an UNRETOUCHED photograph — like a raw JPEG straight out of the camera
+- Journalistic realism, NOT commercial editorial photography
+- Camera: full-frame DSLR with 85mm lens · natural depth of field · f/4
+- Lighting: single soft box front-left, no beauty ring light, no glamour lighting
+- Preserve natural skin texture at MAX detail: visible pores, minor blemishes,
+  slight redness, natural oil, uneven tone, freckles, moles, scars, stubble
+- Preserve NATURAL asymmetry — real human faces are NEVER perfectly symmetric,
+  do not correct any asymmetry in eyes, mouth, ears, or nose
+- NOT cartoon, NOT anime, NOT illustration, NOT stylized art, NOT airbrushed
 - 4:5 vertical portrait aspect ratio
 - Framing: from top of the head down to just below the collarbone (head-and-shoulders headshot only, no arms, no chest below collarbone)
 
@@ -46,45 +63,76 @@ BACKGROUND (IDENTICAL FOR ALL PLAYERS):
 - Soft even studio lighting from upper front, gentle rim light
 - No gradient variations, no scenery, no basketball court
 
-FACE PRESERVATION (ABSOLUTE HIGHEST PRIORITY — MATCH ORIGINAL 95%+):
+FACE PRESERVATION (ABSOLUTE HIGHEST PRIORITY — 95%+ IDENTITY LOCK):
 - This is the SINGLE MOST IMPORTANT requirement — everything else is secondary
-- Treat the uploaded photo as ground truth for the person's face
-- Preserve the person's actual face from the uploaded reference photo with 95%+ pixel-level fidelity:
-  - Eye shape, color, spacing, eyelids, and eye size — EXACT MATCH
-  - Nose shape, width, length, nostrils, and bridge — EXACT MATCH
+- Treat the uploaded photo as UNCHANGEABLE ground truth for the person's face
+- Preserve every facial feature with 95%+ pixel-level fidelity:
+  - Eye shape, color, spacing, eyelids, and eye size — EXACT MATCH (do NOT enlarge)
+  - Nose shape, width, length, nostrils, and bridge — EXACT MATCH (do NOT slim)
   - Mouth shape, lip fullness, philtrum, and natural resting expression — EXACT MATCH
-  - Jawline, chin, and cheekbone structure — EXACT MATCH
+  - Jawline, chin, and cheekbone structure — EXACT MATCH (do NOT sharpen jaw)
   - Overall face shape (oval / round / square / heart / diamond) — EXACT MATCH
-  - Skin tone, complexion, and any distinctive markings (moles, freckles, scars) — PRESERVE
+  - Skin tone, complexion, and any distinctive markings (moles, freckles, scars, blemishes) — PRESERVE ALL
   - Hairstyle, hair color, hair density, hairline, and part direction — EXACT MATCH
   - Facial hair (beard, mustache, sideburns) shape and density if present in reference — EXACT MATCH
-  - Age and general facial character (youthful / mature / weathered) — PRESERVE
+  - Age markers — wrinkles, forehead lines, crow's feet, eye bags, laugh lines — PRESERVE
   - Ear shape and position — PRESERVE
   - Eyebrow shape, thickness, and arch — EXACT MATCH
+  - Weight/roundness of face — PRESERVE (do NOT slim the face)
+  - Neck and jawline volume — PRESERVE (do NOT reduce a double chin if present)
+
+Option B — ANTI-BEAUTIFICATION RULES (CRITICAL — DO NOT VIOLATE):
+- The output must NOT be more attractive than the reference in ANY way
+- If the reference person has average or below-average conventional attractiveness,
+  KEEP that level — do NOT elevate it
+- Do NOT apply any "attractive default" biases from your training data
+- FORBIDDEN operations (all of these are common AI beautification and MUST be
+  suppressed):
+  1. Slimming the face or jaw
+  2. Sharpening the jawline or cheekbones
+  3. Enlarging the eyes or brightening the whites
+  4. Straightening or slimming the nose
+  5. Making lips fuller or more defined
+  6. Smoothing skin to remove pores/texture (this makes it plastic)
+  7. Correcting facial asymmetry
+  8. Adding a "photogenic" bone structure that wasn't there
+  9. Whitening or perfecting teeth
+  10. Removing eye bags, wrinkles, blemishes, moles
+  11. Making the person look younger than they are
+  12. Applying any beauty filter aesthetic
+  13. Idealizing ethnic features toward Western/Korean beauty standards
+- The result must look like the SAME level of attractiveness as the reference —
+  a friend of the person should say "yes, that's them, that's how they look"
+  NOT "wow, they look better than usual"
 - ONLY these adjustments are allowed:
   - Even studio lighting on the face
-  - Minor skin evenness (no heavy retouching that changes texture)
   - Slight expression normalization to neutral confident (but same person's expression signature)
-- FORBIDDEN:
-  - Do NOT change identity in any way
-  - Do NOT idealize or "improve" facial features
-  - Do NOT apply beauty filters
-  - Do NOT smooth skin so much it looks plastic
-  - Do NOT make the person look younger or older than they are
-  - Do NOT alter ethnic features
+  - NOT skin smoothing
+  - NOT retouching
 - The person must be immediately recognizable as the SAME individual by their close friends and family
 - If in doubt between adding a stylistic touch and preserving the original, ALWAYS choose preservation
+- If in doubt between making them look better vs. making them look accurate, ALWAYS choose accurate
 
 POSE & EXPRESSION:
 - Head centered in frame, slight tilt no more than 5 degrees
 - Direct eye contact with camera
-- Neutral confident expression, slight closed-mouth smile
+- Neutral confident expression, slight closed-mouth smile (but keep the person's actual expression signature)
 - Shoulders squared to camera
 
 CONSISTENCY DIRECTIVE:
 - Imagine this is one of 40+ team members photographed in the same 30-minute studio session
 - Lighting, backdrop, framing, and yellow-and-black uniform must be pixel-identical to other team member portraits
 - No creative variations. This is a team roster deliverable, not an art piece.
+
+FINAL SANITY CHECK (mentally verify before outputting):
+- [ ] Does the face look 95%+ identical to the reference photo? (If unsure → yes/no,
+      choose NO and try again mentally)
+- [ ] Did you smooth the skin? (If yes → undo it)
+- [ ] Did you slim any part of the face or jaw? (If yes → undo it)
+- [ ] Did you enlarge or brighten the eyes? (If yes → undo it)
+- [ ] Is the person more attractive than in the reference? (If yes → undo it, this
+      is a critical failure)
+- [ ] Would the person's mother recognize them immediately? (If unsure → refine)
 `
 
 export async function POST(
