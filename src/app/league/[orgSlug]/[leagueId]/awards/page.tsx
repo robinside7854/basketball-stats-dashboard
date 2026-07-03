@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import { Trophy, Crown, Flame, Shield, Zap, Target, TrendingUp, Sparkles, Award } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+import AwardDetailModal from '@/components/league/AwardDetailModal'
 
 type AwardCategory = 'MVP' | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY' | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'MIP'
 
@@ -26,6 +27,7 @@ interface AwardEntry {
   minRequirement?: string
   winner: AwardCandidate | null
   runners: AwardCandidate[]
+  allCandidates: AwardCandidate[]
 }
 
 const CATEGORY_STYLE: Record<AwardCategory, {
@@ -61,6 +63,7 @@ export default function AwardsPage() {
   const [attendance, setAttendance] = useState<AttendanceInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
+  const [openAward, setOpenAward] = useState<AwardEntry | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -113,18 +116,27 @@ export default function AwardsPage() {
                 {/* 상단 리본 */}
                 <div className={`h-1 bg-gradient-to-r ${style.ribbon}`} />
 
-                {/* 카드 헤더 */}
-                <div className="px-4 py-3.5 lg:px-5 lg:py-4 border-b border-gray-800/50 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
+                {/* 카드 헤더 — 클릭하면 전체 순위 모달 */}
+                <button
+                  onClick={() => setOpenAward(a)}
+                  className="w-full px-4 py-3.5 lg:px-5 lg:py-4 border-b border-gray-800/50 flex items-center justify-between gap-2 hover:bg-gray-900/40 cursor-pointer transition-colors text-left group"
+                  title={`${a.label} 전체 순위 보기`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <div className={`w-9 h-9 lg:w-10 lg:h-10 rounded-full ${style.chipBg} border ${style.border} flex items-center justify-center shrink-0`}>
                       <style.Icon size={16} className={style.text} />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <h3 className={`font-jersey text-base lg:text-lg font-black uppercase tracking-widest ${style.text}`}>{a.label}</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">{a.description}</p>
+                      <p className="text-xs text-gray-500 mt-0.5 truncate">{a.description}</p>
                     </div>
                   </div>
-                </div>
+                  <div className="flex items-center gap-1 shrink-0 text-xs text-gray-500 group-hover:text-gray-300">
+                    <span className="tabular-nums">{a.allCandidates.length}명</span>
+                    <span>전체</span>
+                    <span className="text-base leading-none">→</span>
+                  </div>
+                </button>
 
                 {/* Winner 스포트라이트 */}
                 {a.winner ? (
@@ -209,6 +221,23 @@ export default function AwardsPage() {
           playerId={quickPlayer.id}
           playerName={quickPlayer.name}
           onClose={() => setQuickPlayer(null)}
+        />
+      )}
+
+      {/* 부문 상세 모달 — 전체 후보 랭킹 */}
+      {openAward && (
+        <AwardDetailModal
+          leagueId={leagueId}
+          award={{
+            category: openAward.category,
+            label: openAward.label,
+            description: openAward.description,
+            metric: openAward.metric,
+            minRequirement: openAward.minRequirement,
+            allCandidates: openAward.allCandidates,
+          }}
+          style={CATEGORY_STYLE[openAward.category]}
+          onClose={() => setOpenAward(null)}
         />
       )}
     </div>

@@ -43,7 +43,8 @@ export interface AwardEntry {
   metric: string
   minRequirement?: string
   winner: AwardCandidate | null
-  runners: AwardCandidate[]
+  runners: AwardCandidate[]        // 2-3위 (카드 요약용)
+  allCandidates: AwardCandidate[]  // 자격자 전체 (value 내림차순 · 모달 상세 뷰용)
 }
 
 export interface AttendanceInfo {
@@ -103,10 +104,10 @@ export async function GET(
     supportingStats: extra,
   })
 
-  const rankByValue = (pool: (AwardCandidate | null)[]): { winner: AwardCandidate | null; runners: AwardCandidate[] } => {
+  const rankByValue = (pool: (AwardCandidate | null)[]): { winner: AwardCandidate | null; runners: AwardCandidate[]; allCandidates: AwardCandidate[] } => {
     const filtered = pool.filter((c): c is AwardCandidate => c !== null && Number.isFinite(c.value))
     filtered.sort((a, b) => b.value - a.value)
-    return { winner: filtered[0] ?? null, runners: filtered.slice(1, 3) }
+    return { winner: filtered[0] ?? null, runners: filtered.slice(1, 3), allCandidates: filtered }
   }
 
   const attendanceReq = `시즌 ${totalRounds}일 중 ${requiredRounds}일(60%) 이상 참석`
@@ -121,56 +122,56 @@ export async function GET(
         PPG: p.ppg.toFixed(1), RPG: p.rpg.toFixed(1), APG: p.apg.toFixed(1), SPG: p.spg.toFixed(1), BPG: p.bpg.toFixed(1),
       })
     })
-    const { winner, runners } = rankByValue(cands)
+    const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'MVP',
       label: 'MVP',
       description: '리그 최우수 선수 · 종합 임팩트',
       metric: '가중 종합 점수',
       minRequirement: attendanceReq,
-      winner, runners,
+      winner, runners, allCandidates,
     })
   }
 
   // ── SCORING ────────
   {
     const cands = eligible.map(p => toCandidate(p, p.ppg, `${p.ppg.toFixed(1)} PPG`, { R: String(p.gp), PTS: String(p.pts) }))
-    const { winner, runners } = rankByValue(cands)
+    const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'SCORING',
       label: '득점왕',
       description: '경기일당 평균 득점 최고',
       metric: 'PPG',
       minRequirement: attendanceReq,
-      winner, runners,
+      winner, runners, allCandidates,
     })
   }
 
   // ── REBOUND ────────
   {
     const cands = eligible.map(p => toCandidate(p, p.rpg, `${p.rpg.toFixed(1)} RPG`, { OR: String(p.oreb), DR: String(p.dreb) }))
-    const { winner, runners } = rankByValue(cands)
+    const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'REBOUND',
       label: '리바운드왕',
       description: '경기일당 리바운드 최고',
       metric: 'RPG',
       minRequirement: attendanceReq,
-      winner, runners,
+      winner, runners, allCandidates,
     })
   }
 
   // ── ASSIST ────────
   {
     const cands = eligible.map(p => toCandidate(p, p.apg, `${p.apg.toFixed(1)} APG`, { AST: String(p.ast), TOV: String(p.tov) }))
-    const { winner, runners } = rankByValue(cands)
+    const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'ASSIST',
       label: '어시스트왕',
       description: '경기일당 어시스트 최고',
       metric: 'APG',
       minRequirement: attendanceReq,
-      winner, runners,
+      winner, runners, allCandidates,
     })
   }
 
@@ -179,14 +180,14 @@ export async function GET(
     const cands = eligible.map(p => toCandidate(p, +(p.spg + p.bpg).toFixed(2), `${(p.spg + p.bpg).toFixed(1)} STL+BLK`, {
       SPG: p.spg.toFixed(1), BPG: p.bpg.toFixed(1),
     }))
-    const { winner, runners } = rankByValue(cands)
+    const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'DPOY',
       label: 'DPOY',
       description: '최고의 수비수 · 스틸 + 블락',
       metric: 'STL + BLK per game',
       minRequirement: attendanceReq,
-      winner, runners,
+      winner, runners, allCandidates,
     })
   }
 
@@ -197,14 +198,14 @@ export async function GET(
         '3PM/3PA': `${p.fg3m}/${p.fg3a}`,
       })
     )
-    const { winner, runners } = rankByValue(cands)
+    const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'THREE',
       label: '3점왕',
       description: '3점 야투 성공률 최고',
       metric: '3P%',
       minRequirement: attendanceReq,
-      winner, runners,
+      winner, runners, allCandidates,
     })
   }
 
@@ -216,14 +217,14 @@ export async function GET(
         '3PM': String(p.fg3m),
       })
     )
-    const { winner, runners } = rankByValue(cands)
+    const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'EFFICIENCY',
       label: '효율왕',
       description: '유효 야투율 최고 (3점 가중)',
       metric: 'eFG%',
       minRequirement: attendanceReq,
-      winner, runners,
+      winner, runners, allCandidates,
     })
   }
 
@@ -251,14 +252,14 @@ export async function GET(
       if (c.ftm > 0 || c.fta > 0) supporting['자유투'] = `${c.ftm}/${c.fta}`
       cands.push(toCandidate(p, c.pts, `${c.pts} PTS`, supporting))
     }
-    const { winner, runners } = rankByValue(cands)
+    const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'CLUTCH',
       label: 'Clutch POY',
       description: '결정적 순간 · 마지막 2분 3점차 이내 · 누적 득점 최고',
       metric: '클러치 누적 득점',
       minRequirement: `${attendanceReq} · 클러치 3게임 이상`,
-      winner, runners,
+      winner, runners, allCandidates,
     })
   }
 
@@ -304,14 +305,14 @@ export async function GET(
           '최근 분기': `${last.ppg.toFixed(1)} PPG (${last.gp}R)`,
         }))
       }
-      const { winner, runners } = rankByValue(cands)
+      const { winner, runners, allCandidates } = rankByValue(cands)
       awards.push({
         category: 'MIP',
         label: '기량 발전상',
         description: '분기별 성장률 · 첫 분기 vs 최근 분기 PPG 상승',
         metric: 'PPG 증가폭',
         minRequirement: `${attendanceReq} · 최소 2개 분기 참여 (분기당 ≥3R)`,
-        winner, runners,
+        winner, runners, allCandidates,
       })
     } else {
       awards.push({
@@ -320,7 +321,7 @@ export async function GET(
         description: '분기별 성장률 (분기 2개 이상 필요)',
         metric: 'PPG 증가폭',
         minRequirement: attendanceReq,
-        winner: null, runners: [],
+        winner: null, runners: [], allCandidates: [],
       })
     }
   }
