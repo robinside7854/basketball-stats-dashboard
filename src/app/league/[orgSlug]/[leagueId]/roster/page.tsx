@@ -1228,12 +1228,16 @@ export default function LeagueRosterPage() {
   }
 
   // 수정 2: 정렬 + 필터 적용
+  // 이름에 '게스트' 가 포함된 선수는 정렬 종류와 관계없이 항상 명단 최하단으로 이동
   const filteredAndSortedPlayers = players
     .filter(p => {
       if (filterPosition === 'ALL') return true
       return parsePositions(p.position).includes(filterPosition)
     })
     .sort((a, b) => {
+      const aIsGuest = a.name.includes('게스트')
+      const bIsGuest = b.name.includes('게스트')
+      if (aIsGuest !== bIsGuest) return aIsGuest ? 1 : -1
       if (sortKey === 'name') return a.name.localeCompare(b.name, 'ko')
       if (sortKey === 'age_asc') return calcAgeNum(a.birth_date) - calcAgeNum(b.birth_date)
       if (sortKey === 'age_desc') return calcAgeNum(b.birth_date) - calcAgeNum(a.birth_date)
