@@ -17,16 +17,56 @@ import { GoogleGenAI } from '@google/genai'
 import { createClient } from '@/lib/supabase/admin'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 
-const CHARACTER_PROMPT = `이 사진의 인물을 스포츠 만화 스타일 캐릭터로 변환해주세요.
-요구사항:
-- 얼굴 특징(눈매·얼굴형·헤어스타일)을 최대한 보존
-- 농구 유니폼을 입은 상반신 포트레이트
-- 밝고 역동적인 컬러 팔레트, 반짝이는 하이라이트
-- NBA 2K 캐릭터 아트 또는 슬램덩크 애니메이션 스타일
-- 배경은 스타디움 조명이 있는 그러데이션
-- 3:4 세로 비율 증명사진 구도
-- 만화 셀 셰이딩 (cel-shading), 굵은 아웃라인
-- 사실적 사진이 아닌 일러스트/카툰
+// 미라클모닝 농구단 공식 프로필 실사 프롬프트
+// 목표: NBA 공식 팀 프로필 촬영 세션 스타일의 일관된 실사 초상화
+// 참조: NBA 공식 팀 프로필 사진 (예: LeBron James 프로필)
+const CHARACTER_PROMPT = `Generate a photorealistic official basketball team profile headshot of the person in the uploaded photo.
+
+STYLE (NON-NEGOTIABLE):
+- Ultra-photorealistic, professional studio portrait photography
+- NOT cartoon, NOT anime, NOT illustration, NOT stylized art
+- Studio-quality lighting like an official NBA team profile photo
+- 4:5 vertical portrait aspect ratio
+- Framing: from top of the head down to just below the collarbone (head-and-shoulders headshot only, no arms, no chest below collarbone)
+
+UNIFORM (IDENTICAL FOR ALL PLAYERS):
+- Wearing a "MIRACLE MORNING" basketball team jersey (sleeveless basketball tank top)
+- Jersey color: navy blue with white accents
+- Jersey neckline and shoulders barely visible at bottom edge of frame (small portion only)
+- No individual jersey number visible
+- Every generated player should look like they wore the SAME uniform on the SAME day
+
+BACKGROUND (IDENTICAL FOR ALL PLAYERS):
+- Solid deep purple studio backdrop (#5B21B6 range)
+- Subtle basketball team logo watermark faintly visible in background (blurred/soft)
+- Soft even studio lighting from upper front, gentle rim light
+- No gradient variations, no scenery, no basketball court
+
+FACE PRESERVATION (CRITICAL - MUST MATCH ORIGINAL 90%+):
+- Preserve the person's actual face from the uploaded reference photo with 90%+ fidelity:
+  - Eye shape, color, spacing, and eyelids
+  - Nose shape, width, and length
+  - Mouth shape, lip fullness, and natural expression
+  - Jawline, chin, and cheekbone structure
+  - Overall face shape (oval / round / square / heart)
+  - Skin tone and complexion
+  - Hairstyle, hair color, hairline, and part
+  - Facial hair (beard, mustache) if present in reference
+  - Age and general facial character
+- Only apply: natural studio lighting, even skin retouching, minor blemish smoothing
+- Do NOT change identity, do NOT idealize, do NOT beautify to unrecognizable
+- The person must be immediately recognizable as the same individual
+
+POSE & EXPRESSION:
+- Head centered in frame, slight tilt no more than 5 degrees
+- Direct eye contact with camera
+- Neutral confident expression, slight closed-mouth smile
+- Shoulders squared to camera
+
+CONSISTENCY DIRECTIVE:
+- Imagine this is one of 40+ team members photographed in the same 30-minute studio session
+- Lighting, backdrop, framing, and uniform must be pixel-identical to other team member portraits
+- No creative variations. This is a team roster deliverable, not an art piece.
 `
 
 export async function POST(
@@ -95,6 +135,10 @@ export async function POST(
           { inlineData: { mimeType: sourceMime, data: sourceBase64 } },
         ],
       }],
+      // 4:5 세로 비율 (NBA 프로필 스타일)
+      config: {
+        imageConfig: { aspectRatio: '4:5' },
+      },
     })
 
     // 응답에서 이미지 파트 추출

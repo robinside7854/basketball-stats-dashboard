@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, X, Crown, Flame, TrendingUp, TrendingDown, Minus, Camera, Sparkles } from 'lucide-react'
+import { Loader2, X, Crown, Flame, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
 import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
@@ -325,69 +325,44 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-lg sm:max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl">
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 px-5 pt-safe-or-3 pb-3.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="min-w-0">
-              <h2 className="text-white font-black text-lg leading-none flex items-center gap-2 flex-wrap">
-                {player?.number != null && <span className="jersey-num text-sm">{player.number}</span>}
-                <span className="truncate">{player?.name ?? playerName}</span>
-              </h2>
-              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                {positions.map(pos => (
-                  <span key={pos} className={`text-xs font-bold px-1.5 py-0.5 rounded border ${POSITION_COLORS[pos] ?? 'bg-blue-900/40 text-blue-300 border-blue-700/40'}`}>{pos}</span>
-                ))}
-                {player?.plus_one && (
-                  <span className="text-xs font-black px-1.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300">+1</span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {isEditMode && (
-              <button
-                onClick={() => setShowEditPanel(v => !v)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors border ${showEditPanel ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:text-white'}`}
-              >
-                <span>✏️</span> 편집
-              </button>
-            )}
-            <button onClick={onClose} className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
-              <X size={18} />
+        {/* Sticky top action bar — 편집/닫기 버튼 (컴팩트) */}
+        <div className="sticky top-0 z-20 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-3 pt-safe-or-2 pb-2 flex items-center justify-end gap-2">
+          {isEditMode && (
+            <button
+              onClick={() => setShowEditPanel(v => !v)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-colors border ${showEditPanel ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:text-white'}`}
+            >
+              <span>✏️</span> 편집
             </button>
-          </div>
+          )}
+          <button onClick={onClose} className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
+            <X size={18} />
+          </button>
         </div>
 
-        {showEditPanel && isEditMode && (() => {
-          const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'] as const
-          const positionList = editForm.position
-            ? editForm.position.split(',').map(s => s.trim()).filter(Boolean)
-            : []
-          const togglePosition = (p: string) => {
-            const next = positionList.includes(p)
-              ? positionList.filter(x => x !== p)
-              : [...positionList, p]
-            setEditForm(f => ({ ...f, position: next.join(',') }))
-          }
-          return (
-          <div className="px-5 py-4 border-b border-gray-800 bg-gray-800/30 space-y-3">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">선수 정보 수정</p>
-
-            {/* 프로필 사진 + AI 캐릭터화 */}
-            <div className="flex items-start gap-3 pb-3 border-b border-gray-800/60">
-              <div className="w-20 h-[107px] shrink-0 rounded-lg border border-gray-700 overflow-hidden bg-gray-800 flex items-center justify-center">
+        {/* Hero header — 큰 아바타 + 이름 (프로필 사진 노출) */}
+        <div className="relative px-5 pt-4 pb-5 border-b border-gray-800 bg-gradient-to-b from-gray-800/50 to-transparent">
+          <div className="flex items-start gap-4">
+            {/* 아바타 (편집모드 = 호버 오버레이 · 뷰모드 = 크게 표시만) */}
+            <div className="relative shrink-0 group/avatar">
+              <div className="w-24 h-30 sm:w-28 sm:h-36 rounded-xl overflow-hidden border-2 border-blue-500/40 shadow-lg bg-gray-800 flex items-center justify-center"
+                   style={{ aspectRatio: '4/5' }}>
                 {photoUrl ? (
                   <img src={photoUrl} alt={player?.name ?? ''} className="w-full h-full object-cover object-top" />
                 ) : (
-                  <Camera size={22} className="text-gray-600" />
+                  <span className="text-3xl font-black text-blue-300 leading-none text-center">
+                    {(player?.name ?? playerName).length > 1
+                      ? (player?.name ?? playerName).slice(1)
+                      : (player?.name ?? playerName)}
+                  </span>
                 )}
               </div>
-              <div className="flex-1 space-y-1.5">
-                <p className="text-xs text-gray-500">프로필 사진</p>
-                <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border cursor-pointer transition-colors bg-gray-800 border-gray-700 text-gray-300 hover:text-white hover:border-gray-500">
+              {/* 편집 모드 — 아바타 호버 시 사진 업로드 오버레이 */}
+              {isEditMode && (
+                <label className="absolute inset-0 rounded-xl bg-black/60 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 cursor-pointer transition-opacity">
                   {uploadingPhoto
-                    ? <><Loader2 size={11} className="animate-spin" /> 업로드중…</>
-                    : <><Camera size={11} /> {photoUrl ? '사진 교체' : '사진 업로드'}</>}
+                    ? <Loader2 size={18} className="animate-spin text-white" />
+                    : <span className="text-white text-xs font-bold text-center px-2">📷 사진</span>}
                   <input type="file" accept="image/*" className="hidden"
                     disabled={uploadingPhoto || generatingAI}
                     onChange={async e => {
@@ -411,53 +386,82 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                           const err = await res.json().catch(() => ({}))
                           toast.error(`업로드 실패: ${err.error ?? res.status}`)
                         }
-                      } catch {
-                        toast.error('네트워크 오류')
-                      } finally {
-                        setUploadingPhoto(false)
-                      }
+                      } catch { toast.error('네트워크 오류') } finally { setUploadingPhoto(false) }
                     }}
                   />
                 </label>
-                {photoUrl && (
-                  <button
-                    type="button"
-                    disabled={generatingAI || uploadingPhoto}
-                    onClick={async () => {
-                      if (!leagueHeaders) return
-                      if (!window.confirm('AI 로 캐릭터화하시겠어요?\n\n원본 사진이 만화 캐릭터로 대체됩니다.\n다시 사진 업로드하면 복원 가능.\n\n예상 시간 10-20초 · 비용 ~$0.04')) return
-                      setGeneratingAI(true)
-                      try {
-                        const headers: Record<string, string> = {}
-                        if (leagueHeaders['X-League-Pin']) headers['X-League-Pin'] = leagueHeaders['X-League-Pin']
-                        const res = await fetch(`/api/leagues/${leagueId}/players/${playerId}/photo/generate`, {
-                          method: 'POST', headers,
-                        })
-                        if (res.ok) {
-                          const d = await res.json()
-                          setPhotoUrl(d.url)
-                          toast.success('🎨 AI 캐릭터 생성 완료')
-                          onSaved?.()
-                        } else {
-                          const err = await res.json().catch(() => ({}))
-                          toast.error(`캐릭터 생성 실패: ${err.error ?? res.status}`)
-                        }
-                      } catch {
-                        toast.error('네트워크 오류')
-                      } finally {
-                        setGeneratingAI(false)
+              )}
+              {/* 편집 모드 + 사진 있음 — 우하단 AI 캐릭터화 버튼 */}
+              {isEditMode && photoUrl && (
+                <button
+                  type="button"
+                  disabled={generatingAI || uploadingPhoto}
+                  onClick={async () => {
+                    if (!leagueHeaders) return
+                    if (!window.confirm('AI 로 프로필 이미지를 생성하시겠어요?\n\n미라클모닝 유니폼을 입은 실사 프로필로 변환됩니다.\n원본 사진 다시 업로드하면 복원 가능.\n\n예상 시간 10-20초 · 비용 ~$0.04')) return
+                    setGeneratingAI(true)
+                    try {
+                      const headers: Record<string, string> = {}
+                      if (leagueHeaders['X-League-Pin']) headers['X-League-Pin'] = leagueHeaders['X-League-Pin']
+                      const res = await fetch(`/api/leagues/${leagueId}/players/${playerId}/photo/generate`, {
+                        method: 'POST', headers,
+                      })
+                      if (res.ok) {
+                        const d = await res.json()
+                        setPhotoUrl(d.url)
+                        toast.success('🎨 프로필 생성 완료')
+                        onSaved?.()
+                      } else {
+                        const err = await res.json().catch(() => ({}))
+                        toast.error(`생성 실패: ${err.error ?? res.status}`)
                       }
-                    }}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-transform hover:scale-105 border border-purple-500/40 bg-gradient-to-r from-purple-600/30 to-pink-600/30 text-purple-200 disabled:opacity-50 disabled:cursor-wait disabled:hover:scale-100"
-                    title="Gemini 2.5 로 만화 캐릭터 생성"
-                  >
-                    {generatingAI
-                      ? <><Loader2 size={11} className="animate-spin" /> AI 생성중…</>
-                      : <><Sparkles size={11} /> AI 캐릭터화</>}
-                  </button>
+                    } catch { toast.error('네트워크 오류') } finally { setGeneratingAI(false) }
+                  }}
+                  className="absolute -bottom-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg border border-white/20 hover:scale-105 transition-transform cursor-pointer disabled:opacity-50 disabled:cursor-wait z-10"
+                  title="Gemini 2.5 로 실사 프로필 생성"
+                >
+                  {generatingAI ? <><Loader2 size={10} className="animate-spin" /> 생성중</> : <><Sparkles size={10} /> AI 프로필</>}
+                </button>
+              )}
+            </div>
+
+            {/* 이름 + 정보 */}
+            <div className="flex-1 min-w-0 pt-2">
+              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                {player?.number != null && (
+                  <span className="text-sm font-mono text-gray-500">#{player.number}</span>
+                )}
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight mb-2 truncate">
+                {player?.name ?? playerName}
+              </h1>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {positions.map(pos => (
+                  <span key={pos} className={`text-xs font-bold px-2 py-0.5 rounded border ${POSITION_COLORS[pos] ?? 'bg-blue-900/40 text-blue-300 border-blue-700/40'}`}>{pos}</span>
+                ))}
+                {player?.plus_one && (
+                  <span className="text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300">+1</span>
                 )}
               </div>
             </div>
+          </div>
+        </div>
+
+        {showEditPanel && isEditMode && (() => {
+          const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C'] as const
+          const positionList = editForm.position
+            ? editForm.position.split(',').map(s => s.trim()).filter(Boolean)
+            : []
+          const togglePosition = (p: string) => {
+            const next = positionList.includes(p)
+              ? positionList.filter(x => x !== p)
+              : [...positionList, p]
+            setEditForm(f => ({ ...f, position: next.join(',') }))
+          }
+          return (
+          <div className="px-5 py-4 border-b border-gray-800 bg-gray-800/30 space-y-3">
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">선수 정보 수정</p>
+            <p className="text-[11px] text-gray-500 -mt-1">프로필 사진은 위 아바타에 마우스를 올려 업로드/AI 생성하세요.</p>
 
             <div className="grid grid-cols-1 gap-2">
               <div>
