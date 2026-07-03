@@ -29,9 +29,11 @@ export async function POST(
   const { data: { publicUrl } } = supabase.storage.from('player-photos').getPublicUrl(path)
   const urlWithBust = `${publicUrl}?t=${Date.now()}`
 
+  // 업로드된 원본은 photo_url + original_photo_url 양쪽에 동일 저장.
+  // 이후 AI 생성 시 original_photo_url 만 입력으로 사용해 재생성 반복 시 품질 저하 방지.
   const { error: updateErr } = await supabase
     .from('league_players')
-    .update({ photo_url: urlWithBust })
+    .update({ photo_url: urlWithBust, original_photo_url: urlWithBust })
     .eq('id', playerId)
     .eq('league_id', leagueId)
 

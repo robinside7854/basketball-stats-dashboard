@@ -32,6 +32,7 @@ export interface LeaguePlayer {
   plus_one: boolean
   is_guest?: boolean
   photo_url?: string | null
+  original_photo_url?: string | null
   created_at: string
 }
 

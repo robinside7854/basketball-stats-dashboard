@@ -19,7 +19,7 @@ import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 
 // 미라클모닝 농구단 공식 프로필 실사 프롬프트
 // 목표: NBA 공식 팀 프로필 촬영 세션 스타일의 일관된 실사 초상화
-// 참조: NBA 공식 팀 프로필 사진 (예: LeBron James 프로필)
+// 팀 컬러: 메인 옐로우/골드 + 블랙 트림 (참조 이미지 기준)
 const CHARACTER_PROMPT = `Generate a photorealistic official basketball team profile headshot of the person in the uploaded photo.
 
 STYLE (NON-NEGOTIABLE):
@@ -29,11 +29,15 @@ STYLE (NON-NEGOTIABLE):
 - 4:5 vertical portrait aspect ratio
 - Framing: from top of the head down to just below the collarbone (head-and-shoulders headshot only, no arms, no chest below collarbone)
 
-UNIFORM (IDENTICAL FOR ALL PLAYERS):
-- Wearing a "MIRACLE MORNING" basketball team jersey (sleeveless basketball tank top)
-- Jersey color: navy blue with white accents
-- Jersey neckline and shoulders barely visible at bottom edge of frame (small portion only)
-- No individual jersey number visible
+UNIFORM (IDENTICAL FOR ALL PLAYERS — MIRACLE MORNING BASKETBALL TEAM):
+- Sleeveless basketball tank top jersey in VIBRANT MUSTARD YELLOW / GOLD as main color
+- Black V-neck trim (thick black band forming a V-neck around the collar opening)
+- Black armhole/shoulder trim (thick black side panels visible where jersey meets shoulder)
+- Real fabric texture with subtle mesh weave (NOT flat colored, actual basketball jersey material)
+- Jersey should look like authentic NBA-caliber team apparel
+- Framing shows only the V-neck yellow collar area and top of shoulders (from collarbone down to just below)
+- No jersey number visible (framing is too high to show numbers on chest)
+- No text visible (framing above chest text placement)
 - Every generated player should look like they wore the SAME uniform on the SAME day
 
 BACKGROUND (IDENTICAL FOR ALL PLAYERS):
@@ -65,7 +69,7 @@ POSE & EXPRESSION:
 
 CONSISTENCY DIRECTIVE:
 - Imagine this is one of 40+ team members photographed in the same 30-minute studio session
-- Lighting, backdrop, framing, and uniform must be pixel-identical to other team member portraits
+- Lighting, backdrop, framing, and yellow-and-black uniform must be pixel-identical to other team member portraits
 - No creative variations. This is a team roster deliverable, not an art piece.
 `
 
@@ -87,10 +91,12 @@ export async function POST(
 
   const supabase = createClient()
 
-  // 1) 현재 photo_url 조회 — 원본 이미지 다운로드용
+  // 1) 원본/현재 사진 URL 조회
+  //    original_photo_url 우선 (사용자가 업로드한 실제 원본)
+  //    없으면 photo_url 폴백 (기존 데이터 호환)
   const { data: player, error: pErr } = await supabase
     .from('league_players')
-    .select('photo_url, name')
+    .select('photo_url, original_photo_url, name')
     .eq('id', playerId)
     .eq('league_id', leagueId)
     .single()
@@ -99,18 +105,20 @@ export async function POST(
     return NextResponse.json({ error: '선수를 찾을 수 없습니다' }, { status: 404 })
   }
 
-  if (!player.photo_url) {
+  const sourceForAI = player.original_photo_url ?? player.photo_url
+  if (!sourceForAI) {
     return NextResponse.json({
       error: '원본 사진이 없습니다. 먼저 사진을 업로드해주세요.',
     }, { status: 400 })
   }
 
   // 2) 원본 이미지 다운로드 → base64
+  //    재생성 시에도 항상 이 original 을 입력으로 사용해 이전 생성 결과의
+  //    누적 왜곡 방지.
   let sourceBase64: string
   let sourceMime: string
   try {
-    // 캐시버스터 쿼리 제거 · signed URL 형태 그대로 유지
-    const sourceUrl = player.photo_url
+    const sourceUrl = sourceForAI
     const imgRes = await fetch(sourceUrl)
     if (!imgRes.ok) throw new Error(`이미지 다운로드 실패 (${imgRes.status})`)
     sourceMime = imgRes.headers.get('content-type') ?? 'image/jpeg'

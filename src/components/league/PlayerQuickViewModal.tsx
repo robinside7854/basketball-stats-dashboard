@@ -15,6 +15,7 @@ type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
   birth_date: string | null; plus_one: boolean
   photo_url?: string | null
+  original_photo_url?: string | null
 }
 
 type SeasonStats = {
@@ -232,10 +233,13 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [editForm, setEditForm] = useState({ name: '', position: '', birth_date: '' })
   const [savingEdit, setSavingEdit] = useState(false)
-  // 사진 업로드 · AI 캐릭터 생성 state
+  // 사진 업로드 · AI 프로필 생성 state
   const [photoUrl, setPhotoUrl] = useState<string | null>(null)
+  const [originalPhotoUrl, setOriginalPhotoUrl] = useState<string | null>(null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [generatingAI, setGeneratingAI] = useState(false)
+  // 현재 photo 가 AI 생성물인지 판단 — 재생성 버튼 노출 조건
+  const isAIGenerated = Boolean(originalPhotoUrl && photoUrl && originalPhotoUrl !== photoUrl)
   const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
   const [careerHighBoxscoreDate, setCareerHighBoxscoreDate] = useState<string | null>(null)
@@ -285,6 +289,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     if (player) {
       setEditForm({ name: player.name, position: player.position ?? '', birth_date: player.birth_date ?? '' })
       setPhotoUrl(player.photo_url ?? null)
+      setOriginalPhotoUrl(player.original_photo_url ?? null)
     }
   }, [player])
 
@@ -384,6 +389,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         if (res.ok) {
                           const d = await res.json()
                           setPhotoUrl(d.url)
+                          // 새 원본 업로드 = original_photo_url 도 갱신됨 (서버에서)
+                          setOriginalPhotoUrl(d.url)
                           toast.success('사진 저장됨')
                           onSaved?.()
                         } else {
@@ -398,14 +405,17 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   />
                 </label>
               )}
-              {/* 편집 모드 + 사진 있음 — 우하단 AI 캐릭터화 버튼 */}
+              {/* 편집 모드 + 사진 있음 — 우하단 AI 프로필 생성/재생성 버튼 */}
               {isEditMode && photoUrl && (
                 <button
                   type="button"
                   disabled={generatingAI || uploadingPhoto}
                   onClick={async () => {
                     if (!leagueHeaders) return
-                    if (!window.confirm('AI 로 프로필 이미지를 생성하시겠어요?\n\n미라클모닝 유니폼을 입은 실사 프로필로 변환됩니다.\n원본 사진 다시 업로드하면 복원 가능.\n\n예상 시간 10-20초 · 비용 ~$0.04')) return
+                    const promptText = isAIGenerated
+                      ? 'AI 프로필을 재생성하시겠어요?\n\n원본 사진에서 새 결과를 만듭니다 (매번 조금씩 달라짐).\n\n예상 시간 10-20초 · 비용 ~$0.04'
+                      : 'AI 로 실사 프로필을 생성하시겠어요?\n\n미라클모닝 노란 유니폼을 입은 프로필 사진으로 변환됩니다.\n원본은 별도 보관되어 재생성 가능.\n\n예상 시간 10-20초 · 비용 ~$0.04'
+                    if (!window.confirm(promptText)) return
                     setGeneratingAI(true)
                     try {
                       const headers: Record<string, string> = {}
@@ -416,7 +426,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       if (res.ok) {
                         const d = await res.json()
                         setPhotoUrl(d.url)
-                        toast.success('🎨 프로필 생성 완료')
+                        toast.success(isAIGenerated ? '🔄 재생성 완료' : '🎨 프로필 생성 완료')
                         onSaved?.()
                       } else {
                         const err = await res.json().catch(() => ({}))
@@ -424,10 +434,18 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       }
                     } catch { toast.error('네트워크 오류') } finally { setGeneratingAI(false) }
                   }}
-                  className="absolute -bottom-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg border border-white/20 hover:scale-105 transition-transform cursor-pointer disabled:opacity-50 disabled:cursor-wait z-10"
-                  title="Gemini 2.5 로 실사 프로필 생성"
+                  className={`absolute -bottom-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold text-white shadow-lg border border-white/20 hover:scale-105 transition-transform cursor-pointer disabled:opacity-50 disabled:cursor-wait z-10 ${
+                    isAIGenerated
+                      ? 'bg-gradient-to-r from-emerald-600 to-cyan-600'
+                      : 'bg-gradient-to-r from-purple-600 to-pink-600'
+                  }`}
+                  title={isAIGenerated ? '동일 원본에서 AI 프로필 재생성' : 'Gemini 2.5 로 실사 프로필 생성'}
                 >
-                  {generatingAI ? <><Loader2 size={10} className="animate-spin" /> 생성중</> : <><Sparkles size={10} /> AI 프로필</>}
+                  {generatingAI
+                    ? <><Loader2 size={10} className="animate-spin" /> 생성중</>
+                    : isAIGenerated
+                      ? <>🔄 재생성</>
+                      : <><Sparkles size={10} /> AI 프로필</>}
                 </button>
               )}
             </div>
