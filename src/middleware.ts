@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { auth } from '@/lib/auth'
+// NOTE: `@/lib/auth` (next-auth v5) 는 Edge runtime 호환성 이슈로 top-level import 금지.
+// 필요 시 admin 경로 블록 내에서 dynamic import 로 로드.
 
 // UUID v4 정규식 (URL 세그먼트가 UUID 인지 판정용)
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -85,7 +86,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // /admin/* 경로 보호 — 로그인 필요
+  //   auth() 는 next-auth v5 · dynamic import 로 Edge runtime top-level 크래시 회피
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
+    const { auth } = await import('@/lib/auth')
     const session = await auth()
     if (!session) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
