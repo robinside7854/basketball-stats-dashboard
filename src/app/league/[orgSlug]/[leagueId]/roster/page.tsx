@@ -257,6 +257,7 @@ function PlayerModal({
   const [showEdit, setShowEdit] = useState(false)
   const [photoUrl, setPhotoUrl] = useState<string | null>(player.photo_url ?? null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [generatingAI, setGeneratingAI] = useState(false)
   const [stats, setStats] = useState<PlayerSeasonStats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
   const [detail, setDetail] = useState<PlayerDetail | null>(null)
@@ -477,6 +478,43 @@ function PlayerModal({
                       }}
                     />
                   </label>
+                )}
+                {/* AI 캐릭터 변환 버튼 — 편집 모드 + 사진 있을 때 오른쪽 하단 오버레이 */}
+                {isEditMode && photoUrl && (
+                  <button
+                    type="button"
+                    disabled={generatingAI || uploadingPhoto}
+                    onClick={async () => {
+                      if (!window.confirm('AI 로 캐릭터화하시겠어요?\n\n원본 사진이 만화 캐릭터로 대체됩니다. 필요 시 원본을 다시 업로드하면 복원 가능합니다.\n\n예상 시간: 10-20초 · 비용: 약 $0.04')) return
+                      setGeneratingAI(true)
+                      try {
+                        const headers: Record<string, string> = {}
+                        if (leagueHeaders['X-League-Pin']) headers['X-League-Pin'] = leagueHeaders['X-League-Pin']
+                        const res = await fetch(`/api/leagues/${leagueId}/players/${player.id}/photo/generate`, {
+                          method: 'POST',
+                          headers,
+                        })
+                        if (res.ok) {
+                          const d = await res.json()
+                          setPhotoUrl(d.url)
+                          toast.success('🎨 AI 캐릭터 생성 완료')
+                        } else {
+                          const err = await res.json().catch(() => ({}))
+                          toast.error(`캐릭터 생성 실패: ${err.error ?? res.status}`)
+                        }
+                      } catch (ex) {
+                        toast.error('네트워크 오류')
+                      } finally {
+                        setGeneratingAI(false)
+                      }
+                    }}
+                    className="absolute -bottom-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg border border-white/20 hover:scale-105 transition-transform cursor-pointer disabled:opacity-50 disabled:cursor-wait z-10"
+                    title="Gemini 2.5 로 만화 캐릭터 이미지 생성"
+                  >
+                    {generatingAI
+                      ? <><Loader2 size={10} className="animate-spin" /> AI 생성중…</>
+                      : <>✨ AI 캐릭터화</>}
+                  </button>
                 )}
               </div>
 
