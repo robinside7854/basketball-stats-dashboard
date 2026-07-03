@@ -20,6 +20,7 @@
 
 import { NextResponse } from 'next/server'
 import { computeClutchStats } from '@/lib/stats/clutchStats'
+import { computePerDayStats } from '@/lib/stats/perDayStats'
 import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
 
@@ -92,6 +93,18 @@ export async function GET(
   const clutchSplits = await computeClutchStats(supabase, leagueId)
   const clutchMap = new Map(clutchSplits.map(s => [s.player_id, s]))
 
+  // 3-1) 팀 승률 (MVP 팀 승리 기여도 계산용)
+  //      perDayStats.dayWL 는 선수별 (날짜 → {wins, losses}) 맵.
+  //      친선전 제외, 팀 다수결로 판정된 소속팀 기준.
+  const { dayWL } = await computePerDayStats(supabase, leagueId)
+  const teamWinRateByPlayer = new Map<string, { wins: number; losses: number; rate: number }>()
+  for (const [pid, byDate] of dayWL) {
+    let wins = 0, losses = 0
+    for (const [, wl] of byDate) { wins += wl.wins; losses += wl.losses }
+    const rate = (wins + losses) > 0 ? wins / (wins + losses) : 0
+    teamWinRateByPlayer.set(pid, { wins, losses, rate })
+  }
+
   // 4) 후보 헬퍼
   const toCandidate = (p: PlayerStat, value: number, displayValue: string, extra?: Record<string, string>): AwardCandidate => ({
     player_id: p.player_id,
@@ -115,18 +128,56 @@ export async function GET(
   const awards: AwardEntry[] = []
 
   // ── MVP ────────
+  // 종합 공식 = (기본 스탯 + 효율성 + 클러치 + 팀승률 보너스) × 참여도 배수
+  //
+  // 1) 기본 (5스탯):
+  //      PPG × 1.1 + RPG + APG + (SPG + BPG) × 1.5 − TOPG × 0.5
+  // 2) 효율성 보너스: (eFG% − 40) × 0.3
+  //      · 45% eFG → +1.5 · 55% → +4.5 · 35% → −1.5
+  // 3) 클러치 보너스: clutchPts × 0.1
+  //      · 클러치 20점 → +2 · 40점 → +4
+  // 4) 팀 승률 보너스: (winRate − 0.5) × 15
+  //      · 0.500 → 0 · 0.700 → +3 · 0.400 → −1.5
+  // 5) 참여도 배수: 0.75 + 0.25 × (gp / totalRounds)
+  //      · 60% 참석 → ×0.90 · 100% 참석 → ×1.00
   {
     const cands = eligible.map(p => {
-      const mvp = p.ppg * 1.2 + p.rpg + p.apg + (p.spg + p.bpg) * 1.5 - p.topg * 0.5
-      return toCandidate(p, +mvp.toFixed(2), `${mvp.toFixed(1)} MVP`, {
-        PPG: p.ppg.toFixed(1), RPG: p.rpg.toFixed(1), APG: p.apg.toFixed(1), SPG: p.spg.toFixed(1), BPG: p.bpg.toFixed(1),
-      })
+      const base = p.ppg * 1.1
+                 + p.rpg
+                 + p.apg
+                 + (p.spg + p.bpg) * 1.5
+                 - p.topg * 0.5
+      const efficiencyBonus = (p.efg_pct - 40) * 0.3
+      const clutchPts = clutchMap.get(p.player_id)?.clutch.pts ?? 0
+      const clutchBonus = clutchPts * 0.1
+      const teamRec = teamWinRateByPlayer.get(p.player_id)
+      const winRate = teamRec?.rate ?? 0
+      const winBonus = winRate > 0 ? (winRate - 0.5) * 15 : 0
+      const participationRate = totalRounds > 0 ? Math.min(1, p.gp / totalRounds) : 1
+      const attendanceMult = 0.75 + 0.25 * participationRate
+
+      const raw = base + efficiencyBonus + clutchBonus + winBonus
+      const mvp = raw * attendanceMult
+
+      const supporting: Record<string, string> = {
+        PPG: p.ppg.toFixed(1),
+        RPG: p.rpg.toFixed(1),
+        APG: p.apg.toFixed(1),
+        SPG: p.spg.toFixed(1),
+        BPG: p.bpg.toFixed(1),
+        'eFG%': `${p.efg_pct.toFixed(1)}%`,
+      }
+      if (teamRec) supporting['팀 승률'] = `${(winRate * 100).toFixed(1)}% (${teamRec.wins}W-${teamRec.losses}L)`
+      if (clutchPts > 0) supporting['클러치'] = `${clutchPts} PTS`
+      supporting['참석률'] = `${(participationRate * 100).toFixed(0)}% (${p.gp}/${totalRounds}R)`
+
+      return toCandidate(p, +mvp.toFixed(2), `${mvp.toFixed(1)} MVP`, supporting)
     })
     const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'MVP',
       label: 'MVP',
-      description: '리그 최우수 선수 · 종합 임팩트',
+      description: '종합 임팩트 · 5 스탯 + 효율 + 클러치 + 팀 승률 × 참여도',
       metric: '가중 종합 점수',
       minRequirement: attendanceReq,
       winner, runners, allCandidates,
