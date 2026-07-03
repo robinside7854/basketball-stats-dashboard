@@ -1,5 +1,6 @@
 'use client'
 import LeagueSubTabs from '@/components/league/LeagueSubTabs'
+import SubTabSwipeArea from '@/components/league/SubTabSwipeArea'
 import { useState, useEffect, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucide-react'
@@ -1010,6 +1011,7 @@ export default function LeagueTeamsPage() {
   const totalPlayed = standings.reduce((s, t) => s + t.w + t.d + t.l, 0) / 2
 
   return (
+    <SubTabSwipeArea group="squad" current="teams">
     <div className="space-y-6">
       <LeagueSubTabs group="squad" />
       {/* ── 분기 버튼 탭 ── */}
@@ -1255,5 +1257,6 @@ export default function LeagueTeamsPage() {
         </>
       )}
     </div>
+    </SubTabSwipeArea>
   )
 }

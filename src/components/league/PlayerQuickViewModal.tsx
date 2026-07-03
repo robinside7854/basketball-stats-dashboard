@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Loader2, X, Crown, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
+import { useSwipe } from '@/hooks/useSwipe'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
 import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 import { CountUp, FormDots } from '@/components/league/StatCell'
@@ -240,6 +241,20 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [generatingAI, setGeneratingAI] = useState(false)
   // 뷰 모드에서 아바타 클릭 시 라이트박스 확대
   const [photoLightboxOpen, setPhotoLightboxOpen] = useState(false)
+
+  // 스와이프-투-디스미스: 헤더에서 아래로 100px+ 드래그 시 close.
+  // 드래그 중에는 모달을 손가락 따라 이동시켜 자연스러운 피드백.
+  const [dragY, setDragY] = useState(0)
+  const swipeHandlers = useSwipe({
+    threshold: 100,
+    onSwipeDown: () => onClose(),
+    onDrag: (_dx, dy) => {
+      // 아래로만 이동 허용 (위로 드래그는 무시)
+      if (dy > 0) setDragY(Math.min(dy, 300))
+    },
+    onDragEnd: () => setDragY(0),
+    edgeGuardPx: 0,  // 헤더 영역이므로 엣지 가드 불필요
+  })
   // 현재 photo 가 AI 생성물인지 판단 — 재생성 버튼 노출 조건
   const isAIGenerated = Boolean(originalPhotoUrl && photoUrl && originalPhotoUrl !== photoUrl)
   const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
@@ -327,9 +342,19 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-lg sm:max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl">
-        {/* Sticky top action bar — 편집/닫기 버튼 (컴팩트) */}
-        <div className="sticky top-0 z-20 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-3 pt-safe-or-2 pb-2 flex items-center justify-end gap-2">
+      <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-lg sm:max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl"
+        style={{
+          transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
+          transition: dragY === 0 ? 'transform 200ms ease-out' : 'none',
+        }}>
+        {/* Sticky top action bar — 편집/닫기 + 스와이프 다운 드래그 핸들 */}
+        {/* touch 이벤트를 이 영역에만 붙여 하위 스크롤과 충돌 회피 */}
+        <div
+          className="sticky top-0 z-20 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-3 pt-safe-or-2 pb-2 flex items-center justify-end gap-2 touch-pan-y"
+          {...swipeHandlers}
+        >
+          {/* 스와이프 드래그 핸들 인디케이터 (모바일에서만) */}
+          <div className="absolute top-1 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-gray-600 sm:hidden" aria-hidden />
           {isEditMode && (
             <button
               onClick={() => setShowEditPanel(v => !v)}

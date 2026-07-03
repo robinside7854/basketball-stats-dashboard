@@ -1,5 +1,6 @@
 'use client'
 import LeagueSubTabs from '@/components/league/LeagueSubTabs'
+import SubTabSwipeArea from '@/components/league/SubTabSwipeArea'
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
@@ -1302,6 +1303,7 @@ export default function LeagueRosterPage() {
   const guestCount = players.filter(isPlayerGuest).length
 
   return (
+    <SubTabSwipeArea group="squad" current="roster">
     <div className="space-y-4 lg:space-y-5">
       <LeagueSubTabs group="squad" />
       {/* 헤더 */}
@@ -1783,5 +1785,6 @@ export default function LeagueRosterPage() {
       )}
 
     </div>
+    </SubTabSwipeArea>
   )
 }
