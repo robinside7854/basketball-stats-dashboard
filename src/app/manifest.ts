@@ -18,16 +18,17 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: '#0a0a0a',
     orientation: 'portrait',
     icons: [
-      // 'any' + 'maskable' 둘 다 제공 — 안드로이드가 어댑티브 아이콘으로 사용
-      // 사이즈는 512x512 하나만 있어도 브라우저가 다운스케일함
+      // 'any' 용 — 홈 화면·탭에서 잘 보이도록 농구공을 크게 크롭한 버전
       {
         src: '/icon.png',
         sizes: '192x192 512x512',
         type: 'image/png',
         purpose: 'any',
       },
+      // 'maskable' 용 — 안드로이드 어댑티브 아이콘 마스크 크롭 대비
+      //   중앙 원 안에 농구공이 들어가도록 여백 확보된 별도 이미지
       {
-        src: '/icon.png',
+        src: '/icon-maskable.png',
         sizes: '192x192 512x512',
         type: 'image/png',
         purpose: 'maskable',
