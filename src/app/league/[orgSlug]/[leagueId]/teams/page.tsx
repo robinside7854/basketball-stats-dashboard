@@ -761,11 +761,29 @@ export default function LeagueTeamsPage() {
   const [loading, setLoading] = useState(true)
   const [dataLoading, setDataLoading] = useState(false)
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+  // teamStatsApi 는 이제 identity.key 기준 (기존 team_id 대신)
   const [teamStatsApi, setTeamStatsApi] = useState<Record<string, PlayerStat[]>>({})
   // 분기 정규 명단 (team_id + is_regular=true)
   // — 아직 경기 없는 분기(예: Q3)에도 등록된 선수를 표시하기 위함
   type RosterRow = { id: string; name: string; number: number | null; position: string | null; team_id: string | null; is_regular: boolean | null }
   const [quarterRoster, setQuarterRoster] = useState<Record<string, RosterRow[]>>({})
+  // 팀 정체성 그룹 (team_id × override 조합) — 전체 뷰에서 5팀 노출
+  type TeamIdentity = {
+    key: string
+    team_id: string
+    display_name: string
+    color: string
+    quarter_ids: string[]
+    quarter_labels: string[]
+    gp: number
+    wins: number
+    draws: number
+    losses: number
+    goals_for: number
+    goals_against: number
+    h2h: Record<string, { w: number; d: number; l: number }>
+  }
+  const [identities, setIdentities] = useState<TeamIdentity[]>([])
   const [statMode, setStatMode] = useState<StatMode>('basic')
   const [viewMode, setViewMode] = useState<'avg'|'total'>('avg')
 
@@ -831,24 +849,41 @@ export default function LeagueTeamsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId, selectedQId])
 
-  // 팀별 스탯 병렬 페치 — 각 팀에서 실제로 뛴 선수만 (team_id 이벤트 기준)
+  // 팀 정체성 페치 — 팀명 override 반영한 정체성 그룹
   useEffect(() => {
-    if (!selectedQId || teams.length === 0) { setTeamStatsApi({}); return }
+    if (!selectedQId) return
     let cancelled = false
-    const qParam = selectedQId === 'all' ? '' : `&quarterId=${selectedQId}`
-    Promise.all(teams.map(t =>
-      fetch(`/api/leagues/${leagueId}/stats?teamId=${t.id}${qParam}`)
+    const url = selectedQId === 'all'
+      ? `/api/leagues/${leagueId}/team-identities`
+      : `/api/leagues/${leagueId}/team-identities?quarterId=${selectedQId}`
+    fetch(url)
+      .then(r => r.ok ? r.json() : { identities: [] })
+      .then((d: { identities?: TeamIdentity[] }) => {
+        if (cancelled) return
+        setIdentities(d.identities ?? [])
+      })
+      .catch(() => null)
+    return () => { cancelled = true }
+  }, [leagueId, selectedQId])
+
+  // 정체성별 팀 스탯 페치 — 각 정체성의 quarter_ids 기반 (다중 분기 지원)
+  useEffect(() => {
+    if (identities.length === 0) { setTeamStatsApi({}); return }
+    let cancelled = false
+    Promise.all(identities.map(id => {
+      const qParam = id.quarter_ids.length > 0 ? `&quarterIds=${id.quarter_ids.join(',')}` : ''
+      return fetch(`/api/leagues/${leagueId}/stats?teamId=${id.team_id}${qParam}`)
         .then(r => r.json())
-        .then(d => [t.id, (d.players ?? []) as PlayerStat[]] as const)
-        .catch(() => [t.id, [] as PlayerStat[]] as const)
-    )).then(results => {
+        .then(d => [id.key, (d.players ?? []) as PlayerStat[]] as const)
+        .catch(() => [id.key, [] as PlayerStat[]] as const)
+    })).then(results => {
       if (cancelled) return
       const m: Record<string, PlayerStat[]> = {}
-      for (const [tid, players] of results) m[tid] = players
+      for (const [key, players] of results) m[key] = players
       setTeamStatsApi(m)
     })
     return () => { cancelled = true }
-  }, [leagueId, selectedQId, teams])
+  }, [leagueId, identities])
 
   // 분기별 팀명/색상 override 자동 반영 — selectedQId 변경 시 teams 재fetch
   useEffect(() => {
@@ -883,39 +918,29 @@ export default function LeagueTeamsPage() {
   const teamMap = useMemo(() => Object.fromEntries(teams.map(t => [t.id, t])), [teams])
   const leaderMap = useMemo(() => Object.fromEntries(leaders.map(l => [l.team_id, l.leader_player_id])), [leaders])
 
+  // 순위표: 정체성 API 데이터로 대체 (팀명 override 반영, 전체 뷰에서 5팀 노출)
+  // identityKey 를 추가해 상대전적 조회에 사용
   const standings = useMemo(() => {
-    const st: Record<string, { w: number; d: number; l: number; gf: number; ga: number; teamId: string }> = {}
-    for (const t of teams) st[t.id] = { w: 0, d: 0, l: 0, gf: 0, ga: 0, teamId: t.id }
-    for (const g of games) {
-      if (!g.home_team_id || !g.away_team_id) continue
-      const h = st[g.home_team_id]; const a = st[g.away_team_id]
-      if (!h || !a) continue
-      h.gf += g.home_score; h.ga += g.away_score
-      a.gf += g.away_score; a.ga += g.home_score
-      if (g.home_score > g.away_score) { h.w++; a.l++ }
-      else if (g.home_score < g.away_score) { a.w++; h.l++ }
-      else { h.d++; a.d++ }
-    }
-    return Object.values(st)
-      .sort((a, b) => {
-        const aPts = a.w * 3 + a.d; const bPts = b.w * 3 + b.d
-        if (bPts !== aPts) return bPts - aPts
-        return (b.gf - b.ga) - (a.gf - a.ga)
-      })
-  }, [teams, games])
+    return identities.map(id => ({
+      identityKey: id.key,
+      teamId: id.team_id,
+      displayName: id.display_name,
+      color: id.color,
+      quarterLabels: id.quarter_labels,
+      w: id.wins,
+      d: id.draws,
+      l: id.losses,
+      gf: id.goals_for,
+      ga: id.goals_against,
+    }))
+  }, [identities])
 
+  // 상대 전적 — 정체성 API 에서 이미 h2h 를 반환 (identityKey → opponentKey → {w,d,l})
   const h2h = useMemo(() => {
     const m: Record<string, Record<string, { w: number; d: number; l: number }>> = {}
-    for (const t of teams) { m[t.id] = {}; for (const t2 of teams) if (t.id !== t2.id) m[t.id][t2.id] = { w: 0, d: 0, l: 0 } }
-    for (const g of games) {
-      const h = g.home_team_id; const a = g.away_team_id
-      if (!h || !a || !m[h] || !m[a]) continue
-      if (g.home_score > g.away_score) { m[h][a].w++; m[a][h].l++ }
-      else if (g.home_score < g.away_score) { m[a][h].w++; m[h][a].l++ }
-      else { m[h][a].d++; m[a][h].d++ }
-    }
+    for (const id of identities) m[id.key] = id.h2h
     return m
-  }, [teams, games])
+  }, [identities])
 
   // 팀별 선수 스탯: API에서 team_id 이벤트 기준으로 분할된 데이터를 그대로 사용
   // → 같은 선수가 여러 팀에서 뛰었으면 각 팀에 그 팀에서의 스탯만 표시됨
@@ -950,23 +975,25 @@ export default function LeagueTeamsPage() {
       minutes_played: 0,
     })
     const m: Record<string, PlayerStat[]> = {}
-    for (const t of teams) {
-      const statsArr = teamStatsApi[t.id] ?? []
-      const rosterArr = quarterRoster[t.id] ?? []
+    for (const id of identities) {
+      const statsArr = teamStatsApi[id.key] ?? []
+      // 로스터는 team_id 기준. 정체성이 여러 분기를 포함하면 각 분기 로스터 병합.
+      // 현재 quarterRoster 는 특정 분기 선택 시만 페치됨 → 그 분기의 team_id 로스터 사용.
+      const rosterArr = quarterRoster[id.team_id] ?? []
       const statPids = new Set(statsArr.map(p => p.player_id))
       const missing = rosterArr.filter(r => !statPids.has(r.id))
-      m[t.id] = [...statsArr, ...missing.map(emptyStat)]
+      m[id.key] = [...statsArr, ...missing.map(emptyStat)]
     }
     return m
-  }, [teams, teamStatsApi, quarterRoster])
+  }, [identities, teamStatsApi, quarterRoster])
 
-  // 비정규 섹션 — 어떤 팀에도 team_id로 귀속되지 않은 선수 (이벤트의 team_id가 모두 null)
+  // 비정규 섹션 — 어떤 정체성에도 귀속되지 않은 선수 (이벤트의 team_id 가 모두 null)
   const irregularStats = useMemo(() => {
-    const teamPlayerIds = new Set<string>()
-    for (const tid of Object.keys(teamStatsApi)) {
-      for (const p of teamStatsApi[tid]) teamPlayerIds.add(p.player_id)
+    const identityPlayerIds = new Set<string>()
+    for (const key of Object.keys(teamStatsApi)) {
+      for (const p of teamStatsApi[key]) identityPlayerIds.add(p.player_id)
     }
-    return allStats.filter(s => !teamPlayerIds.has(s.player_id))
+    return allStats.filter(s => !identityPlayerIds.has(s.player_id))
   }, [allStats, teamStatsApi])
 
   const rosterHref = `/league/${orgSlug}/${leagueId}/roster`
@@ -1022,70 +1049,72 @@ export default function LeagueTeamsPage() {
         <div className="space-y-3">
           <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest">팀 전적</h3>
 
-          {/* 팀 카드 그리드 */}
+          {/* 팀 카드 그리드 — 정체성(identityKey) 기준. 전체 뷰에서 5팀 노출 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {standings.map((s, idx) => {
-              const t = teamMap[s.teamId]
-              if (!t) return null
               const played = s.w + s.d + s.l
               const winPct = played > 0 ? (s.w / played * 100).toFixed(1) : '—'
-              const isSelected = selectedTeamId === t.id
+              const isSelected = selectedTeamId === s.identityKey
               return (
                 <div
-                  key={t.id}
+                  key={s.identityKey}
                   className={`bg-gray-900 border rounded-2xl overflow-hidden transition-all ${
                     isSelected ? 'border-gray-600 ring-1' : 'border-gray-800'
                   }`}
                   style={{
-                    borderTopColor: t.color,
+                    borderTopColor: s.color,
                     borderTopWidth: 3,
-                    ...(isSelected ? { ringColor: t.color } : {}),
                   }}
                 >
                   {/* 팀 헤더 — 클릭하면 상세 패널 토글 */}
                   <button
                     className="w-full px-4 py-3 flex items-center justify-between border-b border-gray-800/60 hover:bg-gray-800/30 transition-colors cursor-pointer"
-                    onClick={() => setSelectedTeamId(prev => prev === t.id ? null : t.id)}
+                    onClick={() => setSelectedTeamId(prev => prev === s.identityKey ? null : s.identityKey)}
                     aria-expanded={isSelected}
-                    aria-label={`${t.name} 상세 정보 ${isSelected ? '닫기' : '열기'}`}
+                    aria-label={`${s.displayName} 상세 정보 ${isSelected ? '닫기' : '열기'}`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-black text-gray-500 font-mono w-8">{idx + 1}</span>
-                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-                      <span className="font-black text-white text-base">{t.name}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-2xl font-black text-gray-500 font-mono w-8 shrink-0">{idx + 1}</span>
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                      <div className="min-w-0">
+                        <span className="font-black text-white text-base block truncate">{s.displayName}</span>
+                        {s.quarterLabels.length > 0 && selectedQId === 'all' && (
+                          <span className="text-xs text-gray-600 font-mono">{s.quarterLabels.join(' · ')}</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-black" style={{ color: t.color }}>{winPct}{played > 0 ? '%' : ''}</p>
+                    <div className="text-right shrink-0">
+                      <p className="text-2xl font-black" style={{ color: s.color }}>{winPct}{played > 0 ? '%' : ''}</p>
                       <p className="text-xs text-gray-600">{s.w}승 {s.d > 0 ? `${s.d}무 ` : ''}{s.l}패 · {played}경기</p>
                       {played > 0 && (
                         <div className="flex h-1 rounded-full overflow-hidden w-16 mt-1 ml-auto">
-                          <div className="h-full" style={{ width: `${s.w/played*100}%`, backgroundColor: t.color }} />
+                          <div className="h-full" style={{ width: `${s.w/played*100}%`, backgroundColor: s.color }} />
                           {s.d > 0 && <div className="h-full bg-yellow-500/60" style={{ width: `${s.d/played*100}%` }} />}
                           <div className="h-full bg-gray-700 flex-1" />
                         </div>
                       )}
                     </div>
                   </button>
-                  {/* 상대 전적 */}
+                  {/* 상대 전적 — 정체성 기준 (같은 정체성 그룹 안의 다른 정체성들과 대전) */}
                   <div className="px-4 py-3">
                     <p className="text-xs text-gray-500 uppercase font-bold mb-2">상대 전적</p>
-                    {teams.filter(op => op.id !== t.id).map(op => {
-                      const rec = h2h[t.id]?.[op.id] ?? { w: 0, d: 0, l: 0 }
+                    {standings.filter(op => op.identityKey !== s.identityKey).map(op => {
+                      const rec = h2h[s.identityKey]?.[op.identityKey] ?? { w: 0, d: 0, l: 0 }
                       const total = rec.w + rec.d + rec.l
                       return (
-                        <div key={op.id} className={`flex items-center justify-between px-2 py-1 rounded-lg border mb-1 ${
+                        <div key={op.identityKey} className={`flex items-center justify-between px-2 py-1 rounded-lg border mb-1 ${
                           rec.w > rec.l ? 'bg-green-900/20 border-green-800/30' :
                           rec.w < rec.l ? 'bg-red-900/20 border-red-800/30' :
                           'bg-gray-800/30 border-gray-700/20'
                         }`}>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
                             <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: op.color }} />
-                            <span className="text-xs text-gray-300">vs {op.name}</span>
+                            <span className="text-xs text-gray-300 truncate">vs {op.displayName}</span>
                           </div>
                           {total === 0 ? (
-                            <span className="text-xs text-gray-600">기록 없음</span>
+                            <span className="text-xs text-gray-600 shrink-0">기록 없음</span>
                           ) : (
-                            <div className="flex items-center gap-1 text-xs font-black">
+                            <div className="flex items-center gap-1 text-xs font-black shrink-0">
                               <span className={rec.w > rec.l ? 'text-green-400' : 'text-gray-400'}>{rec.w}W</span>
                               {rec.d > 0 && <><span className="text-gray-600">·</span><span className="text-yellow-500">{rec.d}D</span></>}
                               <span className="text-gray-600">·</span>
@@ -1103,9 +1132,15 @@ export default function LeagueTeamsPage() {
           </div>
 
           {/* 선택된 팀 상세 패널 (그리드 아래에 full-width) */}
-          {selectedTeamId && teamMap[selectedTeamId] && (() => {
-            const selStanding = standings.find(s => s.teamId === selectedTeamId)
+          {selectedTeamId && (() => {
+            // selectedTeamId 는 이제 identityKey. 해당 standing 조회
+            const selStanding = standings.find(s => s.identityKey === selectedTeamId)
             if (!selStanding) return null
+            const teamForPanel = { id: selStanding.teamId, name: selStanding.displayName, color: selStanding.color }
+            const oppositeTeams = standings
+              .filter(s => s.identityKey !== selStanding.identityKey)
+              .map(s => ({ id: s.identityKey, name: s.displayName, color: s.color }))
+            const h2hByIdentity = h2h[selStanding.identityKey] ?? {}
             return (
               <div className="relative">
                 <button
@@ -1116,12 +1151,12 @@ export default function LeagueTeamsPage() {
                   <X size={14} />
                 </button>
                 <TeamDetailPanel
-                  teamId={selectedTeamId}
-                  team={teamMap[selectedTeamId]}
-                  standing={selStanding}
-                  h2h={h2h[selectedTeamId] ?? {}}
+                  teamId={selStanding.teamId}
+                  team={teamForPanel}
+                  standing={{ w: selStanding.w, d: selStanding.d, l: selStanding.l, gf: selStanding.gf, ga: selStanding.ga, teamId: selStanding.teamId }}
+                  h2h={h2hByIdentity}
                   players={teamStats[selectedTeamId] ?? []}
-                  allTeams={teams}
+                  allTeams={oppositeTeams}
                   leagueId={leagueId}
                   games={games}
                   quarterId={selectedQId}
@@ -1168,16 +1203,17 @@ export default function LeagueTeamsPage() {
             </div>
           </div>
           {standings.map(s => {
-            const t = teamMap[s.teamId]
-            if (!t) return null
-            const players = teamStats[t.id] ?? []
-            const leaderId = leaderMap[t.id] ?? null
+            const players = teamStats[s.identityKey] ?? []
+            const leaderId = leaderMap[s.teamId] ?? null
             return (
-              <div key={t.id} className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden"
-                style={{ borderTopColor: t.color, borderTopWidth: 3 }}>
+              <div key={s.identityKey} className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden"
+                style={{ borderTopColor: s.color, borderTopWidth: 3 }}>
                 <div className="px-4 py-3 flex items-center gap-2 border-b border-gray-800/60">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.color }} />
-                  <span className="font-bold text-white">{t.name}</span>
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
+                  <span className="font-bold text-white">{s.displayName}</span>
+                  {s.quarterLabels.length > 0 && selectedQId === 'all' && (
+                    <span className="text-xs text-gray-600 font-mono">· {s.quarterLabels.join(', ')}</span>
+                  )}
                   <span className="text-xs text-gray-600 ml-auto">{players.length}명</span>
                 </div>
                 <div className="px-4 py-3">
@@ -1185,7 +1221,7 @@ export default function LeagueTeamsPage() {
                     players={players}
                     leagueId={leagueId}
                     leaderId={leaderId}
-                    color={t.color}
+                    color={s.color}
                     viewMode={viewMode}
                     statMode={statMode}
                   />

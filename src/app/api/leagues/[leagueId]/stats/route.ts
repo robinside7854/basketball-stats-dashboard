@@ -11,6 +11,8 @@ export async function GET(
   const { leagueId } = await params
   const sp = new URL(req.url).searchParams
   const quarterId = sp.get('quarterId')
+  const quarterIdsRaw = sp.get('quarterIds')  // 다중 분기 필터 (comma-separated) — 정체성 그룹 스탯 집계용
+  const quarterIds = quarterIdsRaw ? quarterIdsRaw.split(',').filter(Boolean) : null
   const teamId    = sp.get('teamId')
   const playerId  = sp.get('playerId')
   const from      = sp.get('from')
@@ -36,6 +38,7 @@ export async function GET(
     .eq('is_started', true)
 
   if (quarterId) gQuery = gQuery.eq('quarter_id', quarterId)
+  else if (quarterIds && quarterIds.length > 0) gQuery = gQuery.in('quarter_id', quarterIds)
   if (from)      gQuery = gQuery.gte('date', from)
   if (to)        gQuery = gQuery.lte('date', to)
 
