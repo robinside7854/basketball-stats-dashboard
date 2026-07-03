@@ -228,24 +228,35 @@ export async function GET(
   }
 
   // ── CLUTCH ────────
+  // 누적 득점 기준 (평균은 표본이 작아서 숫자가 왜곡됨)
+  // 야투 시도·성공 + 공격유형(골밑/레이업/미들/3점) 상세 표시
   {
     const cands: AwardCandidate[] = []
     for (const p of eligible) {
       const cs = clutchMap.get(p.player_id)
       if (!cs || !cs.qualified) continue
-      const cPpg = cs.clutch.gp > 0 ? +(cs.clutch.pts / cs.clutch.gp).toFixed(1) : 0
-      const cFg = cs.clutch.fga > 0 ? +(cs.clutch.fgm / cs.clutch.fga * 100).toFixed(1) : 0
-      cands.push(toCandidate(p, cPpg, `${cPpg} PPG`, {
-        '클러치 게임': String(cs.clutch.gp),
-        '클러치 FG%': `${cFg}%`,
-      }))
+      const c = cs.clutch
+      const fgPct = c.fga > 0 ? +(c.fgm / c.fga * 100).toFixed(1) : 0
+      // 야투 유형별 made/attempted
+      const shotTypeParts: string[] = []
+      if (c.ds_a > 0) shotTypeParts.push(`골밑 ${c.ds_m}/${c.ds_a}`)
+      if (c.lu_a > 0) shotTypeParts.push(`레이업 ${c.lu_m}/${c.lu_a}`)
+      if (c.md_a > 0) shotTypeParts.push(`미들 ${c.md_m}/${c.md_a}`)
+      if (c.fg3a > 0) shotTypeParts.push(`3점 ${c.fg3m}/${c.fg3a}`)
+      const supporting: Record<string, string> = {
+        '클러치 게임': String(c.gp),
+        'FG': `${c.fgm}/${c.fga} (${fgPct}%)`,
+      }
+      if (shotTypeParts.length > 0) supporting['공격 유형'] = shotTypeParts.join(' · ')
+      if (c.ftm > 0 || c.fta > 0) supporting['자유투'] = `${c.ftm}/${c.fta}`
+      cands.push(toCandidate(p, c.pts, `${c.pts} PTS`, supporting))
     }
     const { winner, runners } = rankByValue(cands)
     awards.push({
       category: 'CLUTCH',
       label: 'Clutch POY',
-      description: '결정적 순간 · 마지막 2분 3점차 이내',
-      metric: '클러치 PPG',
+      description: '결정적 순간 · 마지막 2분 3점차 이내 · 누적 득점 최고',
+      metric: '클러치 누적 득점',
       minRequirement: `${attendanceReq} · 클러치 3게임 이상`,
       winner, runners,
     })

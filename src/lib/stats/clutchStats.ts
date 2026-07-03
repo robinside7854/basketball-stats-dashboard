@@ -40,6 +40,10 @@ export interface StatBlock {
   fg3a: number
   ftm: number
   fta: number
+  // 슛 존별 made/attempted (DS=골밑, LU=레이업+드라이브, MD=미들, 3P=fg3m/fg3a)
+  ds_m: number; ds_a: number
+  lu_m: number; lu_a: number
+  md_m: number; md_a: number
   gp: number  // 참여 게임 수 (해당 콘텍스트 내)
 }
 
@@ -55,7 +59,9 @@ export interface PlayerClutchSplit {
 const emptyBlock = (): StatBlock => ({
   pts: 0, reb: 0, oreb: 0, dreb: 0,
   ast: 0, stl: 0, blk: 0, tov: 0,
-  fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0, gp: 0,
+  fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
+  ds_m: 0, ds_a: 0, lu_m: 0, lu_a: 0, md_m: 0, md_a: 0,
+  gp: 0,
 })
 
 const FIELD_SHOTS = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
@@ -180,11 +186,17 @@ export async function computeClutchStats(
             if (made) { b.fg3m++; b.fgm++; b.pts += e.points ?? 3 }
             break
           case 'shot_post':
+            b.fga++; b.ds_a++
+            if (made) { b.fgm++; b.ds_m++; b.pts += e.points ?? 2 }
+            break
           case 'shot_layup':
           case 'shot_2p_drive':
+            b.fga++; b.lu_a++
+            if (made) { b.fgm++; b.lu_m++; b.pts += e.points ?? 2 }
+            break
           case 'shot_2p_mid':
-            b.fga++
-            if (made) { b.fgm++; b.pts += e.points ?? 2 }
+            b.fga++; b.md_a++
+            if (made) { b.fgm++; b.md_m++; b.pts += e.points ?? 2 }
             break
           case 'and_one':
             if (made) b.pts += 1
