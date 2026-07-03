@@ -31,10 +31,11 @@ async function fetchLeagueBy(field: 'id' | 'slug', orgSlug: string, value: strin
     const q = field === 'id'
       ? `id=eq.${encodeURIComponent(value)}`
       : `org_slug=eq.${encodeURIComponent(orgSlug)}&slug=eq.${encodeURIComponent(value)}`
+    // Edge middleware — Next.js 데이터 캐시 옵션 (next.revalidate) 사용 불가.
+    // 대신 in-memory 캐시로만 최적화.
     const resp = await fetch(`${url}/rest/v1/leagues?${q}&select=id,slug`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
-      // Next.js 데이터 캐시 (URL 조회는 리그 데이터 바뀌지 않는 한 재사용)
-      next: { revalidate: 600 },
+      cache: 'no-store',
     })
     if (!resp.ok) return null
     const rows = await resp.json() as Array<{ id: string; slug: string }>
@@ -94,6 +95,10 @@ export async function middleware(request: NextRequest) {
   // /league/:orgSlug/:leagueIdOrSlug/* URL 처리
   // - UUID 세그먼트 → 301 redirect to slug URL (bookmarks 자동 clean-up)
   // - slug 세그먼트 → internal rewrite to UUID URL (downstream 코드 변경 없이)
+  //
+  // Debug 헤더:
+  //   x-mw-league: 'uuid-redirect' | 'slug-rewrite' | 'uuid-no-slug' | 'slug-no-uuid' | 'not-league-url'
+  //   (브라우저 DevTools > Network 탭에서 응답 헤더로 확인 가능)
   const leagueMatch = pathname.match(/^\/league\/([^/]+)\/([^/]+)(\/.*)?$/)
   if (leagueMatch) {
     const [, orgSlug, leagueIdOrSlug, rest = ''] = leagueMatch
@@ -101,21 +106,31 @@ export async function middleware(request: NextRequest) {
       // UUID → 예쁜 slug URL 로 redirect
       const slug = await lookupSlugForUuid(orgSlug, leagueIdOrSlug)
       if (slug) {
-        return NextResponse.redirect(
+        const redirectResp = NextResponse.redirect(
           new URL(`/league/${orgSlug}/${slug}${rest}${request.nextUrl.search}`, request.url),
           { status: 301 },
         )
+        redirectResp.headers.set('x-mw-league', 'uuid-redirect')
+        return redirectResp
       }
-      // slug 없으면 그대로 진행 (기존 동작)
+      // slug 없으면 그대로 진행 (기존 동작) — 왜 실패했는지 헤더로 노출
+      const passResp = NextResponse.next()
+      passResp.headers.set('x-mw-league', 'uuid-no-slug')
+      return passResp
     } else {
       // slug → UUID 로 internal rewrite (URL 은 slug 유지)
       const uuid = await lookupUuidForSlug(orgSlug, leagueIdOrSlug)
       if (uuid) {
         const url = request.nextUrl.clone()
         url.pathname = `/league/${orgSlug}/${uuid}${rest}`
-        return NextResponse.rewrite(url)
+        const rewriteResp = NextResponse.rewrite(url)
+        rewriteResp.headers.set('x-mw-league', 'slug-rewrite')
+        return rewriteResp
       }
       // 매칭 실패 시 404 페이지 자연스럽게 노출 (rewrite 안 함)
+      const passResp = NextResponse.next()
+      passResp.headers.set('x-mw-league', 'slug-no-uuid')
+      return passResp
     }
   }
 }

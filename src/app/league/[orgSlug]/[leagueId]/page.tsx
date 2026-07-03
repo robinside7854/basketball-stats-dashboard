@@ -5,7 +5,6 @@ import HighlightBanner, { type HighlightPlayer } from '@/components/league/Highl
 import LeagueLeadersGrid from '@/components/league/LeagueLeadersGrid'
 import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
-import ClutchLeadersCard from '@/components/league/ClutchLeadersCard'
 import type { League } from '@/types/league'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
@@ -182,9 +181,6 @@ export default async function LeagueDetailPage({
         <StreakSpotlight leagueId={leagueId} maxEntries={8} />
         <MilestoneFeed leagueId={leagueId} />
       </div>
-
-      {/* 클러치 리더 — 마지막 2분·3점 이내 접전 상황 */}
-      <ClutchLeadersCard leagueId={leagueId} maxEntries={6} />
     </div>
   )
 }
