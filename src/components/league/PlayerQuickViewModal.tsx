@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, X, Crown } from 'lucide-react'
+import { Loader2, X, Crown, Flame, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
 import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 import { CountUp, FormDots } from '@/components/league/StatCell'
@@ -165,6 +165,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
   const [careerHighBoxscoreDate, setCareerHighBoxscoreDate] = useState<string | null>(null)
+  // Clutch (마지막 2분 · 3점 이내)
+  type ClutchBlock = { pts: number; reb: number; ast: number; stl: number; blk: number; tov: number; fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number; gp: number }
+  type ClutchSplit = { regular: ClutchBlock; clutch: ClutchBlock; qualified: boolean }
+  const [clutchSplit, setClutchSplit] = useState<ClutchSplit | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -218,6 +222,16 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       .finally(() => { if (!cancelled) setQuarterLoading(false) })
     return () => { cancelled = true }
   }, [leagueId, playerId, selectedQuarterId, statUnit])
+
+  // 클러치 스플릿 페치 (평상시 vs 마지막 2분·3점 이내)
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/leagues/${leagueId}/clutch?playerId=${playerId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled) setClutchSplit(d?.split ?? null) })
+      .catch(() => null)
+    return () => { cancelled = true }
+  }, [leagueId, playerId])
 
 
   const activeDetail = selectedQuarterId ? (quarterDetail ?? detail) : detail
@@ -564,6 +578,69 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {leaderBadges && (
               <LeaderBadgePanel badges={leaderBadges} leagueId={leagueId} playerId={playerId} />
             )}
+
+            {/* Clutch DNA — 마지막 2분·3점 이내 접전 상황 */}
+            {clutchSplit && clutchSplit.qualified && (() => {
+              const cPpg  = clutchSplit.clutch.gp  > 0 ? +(clutchSplit.clutch.pts  / clutchSplit.clutch.gp).toFixed(1)  : 0
+              const rPpg  = clutchSplit.regular.gp > 0 ? +(clutchSplit.regular.pts / clutchSplit.regular.gp).toFixed(1) : 0
+              const cFg   = clutchSplit.clutch.fga  > 0 ? +(clutchSplit.clutch.fgm  / clutchSplit.clutch.fga  * 100).toFixed(1) : 0
+              const rFg   = clutchSplit.regular.fga > 0 ? +(clutchSplit.regular.fgm / clutchSplit.regular.fga * 100).toFixed(1) : 0
+              const c3    = clutchSplit.clutch.fg3a  > 0 ? +(clutchSplit.clutch.fg3m  / clutchSplit.clutch.fg3a  * 100).toFixed(1) : 0
+              const r3    = clutchSplit.regular.fg3a > 0 ? +(clutchSplit.regular.fg3m / clutchSplit.regular.fg3a * 100).toFixed(1) : 0
+              const cTov  = clutchSplit.clutch.gp  > 0 ? +(clutchSplit.clutch.tov  / clutchSplit.clutch.gp).toFixed(1)  : 0
+              const rTov  = clutchSplit.regular.gp > 0 ? +(clutchSplit.regular.tov / clutchSplit.regular.gp).toFixed(1) : 0
+              const rows: { label: string; regular: number; clutch: number; suffix?: string; invertDelta?: boolean }[] = [
+                { label: 'PPG',  regular: rPpg, clutch: cPpg },
+                { label: 'FG%',  regular: rFg,  clutch: cFg,  suffix: '%' },
+                { label: '3P%',  regular: r3,   clutch: c3,   suffix: '%' },
+                { label: 'TOPG', regular: rTov, clutch: cTov, invertDelta: true },
+              ]
+              return (
+                <div className="px-5 py-4 border-b border-gray-800/60">
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Flame size={14} className="text-red-400" />
+                      <p className="font-jersey text-xs text-red-400 uppercase tracking-[0.18em] font-bold">Clutch DNA</p>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      마지막 2분 · 3점 이내 · {clutchSplit.clutch.gp}게임
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5 lg:gap-2">
+                    {rows.map(({ label, regular, clutch, suffix, invertDelta }) => {
+                      const delta = +(clutch - regular).toFixed(1)
+                      const isImproved = invertDelta ? delta < 0 : delta > 0
+                      const isWorse = invertDelta ? delta > 0 : delta < 0
+                      const isFlat = Math.abs(delta) < 0.05
+                      return (
+                        <div key={label} className="bg-gray-800/40 border border-gray-700/50 rounded-lg px-2 py-2 text-center">
+                          <p className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-1">{label}</p>
+                          <div className="grid grid-cols-2 gap-1 items-end">
+                            <div>
+                              <p className="text-xs text-gray-600 mb-0.5">평상시</p>
+                              <p className="text-sm font-bold text-gray-300 tabular-nums">{regular}{suffix ?? ''}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-red-400 mb-0.5 font-bold">클러치</p>
+                              <p className="text-sm font-black text-red-200 tabular-nums">{clutch}{suffix ?? ''}</p>
+                            </div>
+                          </div>
+                          <div className="mt-1.5 flex items-center justify-center gap-1">
+                            {isFlat ? (
+                              <><Minus size={10} className="text-gray-500" /><span className="text-xs text-gray-500">—</span></>
+                            ) : isImproved ? (
+                              <><TrendingUp size={10} className="text-emerald-400" /><span className="text-xs font-bold text-emerald-400 tabular-nums">{delta > 0 ? `+${delta}` : delta}{suffix ?? ''}</span></>
+                            ) : isWorse ? (
+                              <><TrendingDown size={10} className="text-red-500" /><span className="text-xs font-bold text-red-500 tabular-nums">{delta > 0 ? `+${delta}` : delta}{suffix ?? ''}</span></>
+                            ) : null}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* 출전 임팩트 */}
             {detail?.win_loss && (detail.win_loss.wins + detail.win_loss.losses) > 0 && (() => {

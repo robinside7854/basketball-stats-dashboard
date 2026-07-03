@@ -714,6 +714,68 @@ export default function LeagueStatsPage() {
                     </tr>
                   ))}
                 </tbody>
+                {/* Career Totals Footer — 자격자 대상 리그 총합/평균 */}
+                {filtered.length > 0 && (() => {
+                  const totalOf = (k: keyof PlayerStat) => filtered.reduce((s, p) => s + ((p[k] as number) ?? 0), 0)
+                  const avgOf = (k: keyof PlayerStat) => filtered.length > 0 ? totalOf(k) / filtered.length : 0
+                  const totalFgm  = totalOf('fgm')
+                  const totalFga  = totalOf('fga')
+                  const totalFg3m = totalOf('fg3m')
+                  const totalFg3a = totalOf('fg3a')
+                  const totalFtm  = totalOf('ftm')
+                  const totalFta  = totalOf('fta')
+                  const leagueFgPct  = totalFga  > 0 ? +(totalFgm  / totalFga  * 100).toFixed(1) : 0
+                  const leagueFg3Pct = totalFg3a > 0 ? +(totalFg3m / totalFg3a * 100).toFixed(1) : 0
+                  const leagueFtPct  = totalFta  > 0 ? +(totalFtm  / totalFta  * 100).toFixed(1) : 0
+                  const leagueEfgPct = totalFga  > 0 ? +((totalFgm + 0.5 * totalFg3m) / totalFga * 100).toFixed(1) : 0
+                  const fmtCell = (key: SortKey): string => {
+                    if (viewMode === 'avg') {
+                      // 평균 모드: 리그 자격자 평균값
+                      if (key === 'gp') return String(Math.round(avgOf('gp') * 10) / 10)
+                      if (key === 'fg_pct')  return `${leagueFgPct}%`
+                      if (key === 'fg3_pct') return `${leagueFg3Pct}%`
+                      if (key === 'ft_pct')  return `${leagueFtPct}%`
+                      if (key === 'efg_pct') return `${leagueEfgPct}%`
+                      const AVG_MAP: Partial<Record<SortKey, keyof PlayerStat>> = {
+                        ppg: 'ppg', rpg: 'rpg', orp: 'orp', drp: 'drp',
+                        apg: 'apg', spg: 'spg', bpg: 'bpg', topg: 'topg',
+                      }
+                      const src = AVG_MAP[key]
+                      if (src) return (Math.round(avgOf(src) * 10) / 10).toFixed(1)
+                      return '—'
+                    }
+                    // 누적 모드
+                    if (key === 'gp') return String(totalOf('gp'))
+                    if (key === 'fg_pct')  return `${leagueFgPct}%`
+                    if (key === 'fg3_pct') return `${leagueFg3Pct}%`
+                    if (key === 'ft_pct')  return `${leagueFtPct}%`
+                    if (key === 'efg_pct') return `${leagueEfgPct}%`
+                    if (key === 'fgm')  return `${totalFgm}/${totalFga}`
+                    if (key === 'fg3m') return `${totalFg3m}/${totalFg3a}`
+                    if (key === 'ftm')  return `${totalFtm}/${totalFta}`
+                    const totKey = key as keyof PlayerStat
+                    return String(totalOf(totKey))
+                  }
+                  return (
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-700 bg-gray-900/80">
+                        <td className="py-3 pl-2 pr-1"></td>
+                        <td className="px-2 py-3"></td>
+                        <td className="px-4 py-3 sticky left-0 bg-inherit">
+                          <span className="text-xs font-jersey uppercase tracking-widest text-amber-400 font-black">
+                            {viewMode === 'avg' ? '리그 평균' : '리그 총합'}
+                          </span>
+                          <div className="text-xs text-gray-600">자격자 {filtered.length}명</div>
+                        </td>
+                        {COLS.map(({ key }) => (
+                          <td key={key} className="px-3 py-3 text-center text-sm tabular-nums font-black text-amber-200">
+                            {fmtCell(key)}
+                          </td>
+                        ))}
+                      </tr>
+                    </tfoot>
+                  )
+                })()}
               </table>
             </div>
             </>) : statMode === 'shooting' ? (<>
