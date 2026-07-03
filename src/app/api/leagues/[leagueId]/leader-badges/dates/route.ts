@@ -7,7 +7,7 @@
 //
 // 6개 카테고리:
 //   pts    — 득점 (points 합)
-//   reb    — 리바운드 (type='rebound')
+//   reb    — 리바운드 (type='oreb' OR type='dreb')
 //   ast    — 어시스트 (made shot 의 assister)
 //   blk    — 블락 (type='block')
 //   stl    — 스틸 (type='steal')
@@ -98,7 +98,8 @@ export async function GET(
         if (pid && e.type === 'shot_3p' && e.result === 'made') bump(date, pid, 1)
         break
       case 'reb':
-        if (pid && e.type === 'rebound') bump(date, pid, 1)
+        // DB 는 oreb/dreb 로 분리 저장 → 둘 다 카운트
+        if (pid && (e.type === 'oreb' || e.type === 'dreb')) bump(date, pid, 1)
         break
       case 'blk':
         if (pid && e.type === 'block') bump(date, pid, 1)

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, X, Crown, Flame, TrendingUp, TrendingDown, Minus, Users } from 'lucide-react'
+import { Loader2, X, Crown, Flame, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
 import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 import { CountUp, FormDots } from '@/components/league/StatCell'
@@ -311,25 +311,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     return () => { cancelled = true }
   }, [leagueId, playerId])
 
-  // Similarity Finder: 이 선수와 플레이 스타일 유사한 선수 Top 3
-  type SimilarPlayer = {
-    playerId: string; name: string; gp: number; similarity: number
-    ppg: number; rpg: number; apg: number; stl_blk: number; three_ar: number; efg_pct: number
-  }
-  type SimilarityResp = {
-    source: { playerId: string; name: string; gp: number; ppg: number; rpg: number; apg: number; stl_blk: number; three_ar: number; efg_pct: number } | null
-    similar: SimilarPlayer[]
-    error?: string
-  }
-  const [similarity, setSimilarity] = useState<SimilarityResp | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    fetch(`/api/leagues/${leagueId}/similarity?playerId=${playerId}&topN=3`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled) setSimilarity(d ?? null) })
-      .catch(() => null)
-    return () => { cancelled = true }
-  }, [leagueId, playerId])
 
 
   const activeDetail = selectedQuarterId ? (quarterDetail ?? detail) : detail
@@ -739,51 +720,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 </div>
               )
             })()}
-
-            {/* 스타일 유사 선수 — cosine similarity (6-vector) */}
-            {similarity?.source && similarity.similar.length > 0 && (
-              <div className="px-5 py-4 border-b border-gray-800/60">
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <Users size={14} className="text-purple-400" />
-                    <p className="font-jersey text-xs text-purple-400 uppercase tracking-[0.18em] font-bold">스타일 유사 선수</p>
-                  </div>
-                  <span className="text-xs text-gray-500">
-                    PPG · RPG · APG · S+B · 3PAr · eFG% 기반
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {similarity.similar.map((s, idx) => {
-                    // similarity 는 0-1, 대개 0.85~0.99 근처 → % 로 표시
-                    const pct = Math.round(s.similarity * 100)
-                    const barColor = pct >= 90 ? 'bg-purple-500' : pct >= 75 ? 'bg-purple-600/70' : 'bg-purple-700/50'
-                    return (
-                      <div key={s.playerId} className="bg-gray-800/40 border border-gray-700/50 rounded-lg px-3 py-2.5">
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-xs font-mono text-gray-500 w-4 shrink-0">{idx + 1}</span>
-                            <span className="text-sm font-bold text-white truncate">{s.name}</span>
-                            <span className="text-xs text-gray-500 shrink-0">{s.gp}게임</span>
-                          </div>
-                          <span className="text-sm font-black text-purple-300 tabular-nums shrink-0">{pct}%</span>
-                        </div>
-                        {/* 유사도 바 */}
-                        <div className="w-full h-1 bg-gray-700/40 rounded-full overflow-hidden mb-2">
-                          <div className={`h-full ${barColor} rounded-full`} style={{ width: `${pct}%` }} />
-                        </div>
-                        {/* 스탯 미니 요약 */}
-                        <div className="grid grid-cols-4 gap-x-2 gap-y-0.5 text-[11px]">
-                          <div><span className="text-gray-500">PPG </span><span className="text-gray-200 font-bold tabular-nums">{s.ppg}</span></div>
-                          <div><span className="text-gray-500">RPG </span><span className="text-gray-200 font-bold tabular-nums">{s.rpg}</span></div>
-                          <div><span className="text-gray-500">APG </span><span className="text-gray-200 font-bold tabular-nums">{s.apg}</span></div>
-                          <div><span className="text-gray-500">eFG </span><span className="text-gray-200 font-bold tabular-nums">{s.efg_pct}%</span></div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* 출전 임팩트 */}
             {detail?.win_loss && (detail.win_loss.wins + detail.win_loss.losses) > 0 && (() => {

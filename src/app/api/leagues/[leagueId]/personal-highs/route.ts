@@ -29,6 +29,7 @@ import { NextResponse } from 'next/server'
 
 type EventRow = {
   league_player_id: string | null
+  related_player_id: string | null
   team_id: string | null
   type: string
   result: string | null
@@ -81,7 +82,7 @@ export async function GET(
   while (true) {
     const { data: chunk, error } = await supabase
       .from('league_game_events')
-      .select('league_player_id, team_id, type, result, points, league_game_id')
+      .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id')
       .in('league_game_id', gameIds)
       .not('league_player_id', 'is', null)
       .order('id', { ascending: true })
@@ -110,37 +111,62 @@ export async function GET(
     return bucket[pid][qid]
   }
 
+  // DB 실제 event type 매핑 (소문자):
+  //   shot_2p_mid / shot_layup / shot_2p_drive / shot_post / shot_3p — 필드골
+  //   ft_2pt / ft_3pt_1 / ft_3pt_2 / free_throw — 자유투 (points 필드 참조)
+  //   and_one — 앤드원 보너스 1점
+  //   oreb / dreb — 리바운드
+  //   steal / block / turnover — 개별
+  //   어시스트는 별도 type 이 없고 made field shot 의 related_player_id 로 크레딧
+  const FIELD_SHOTS = new Set(['shot_2p_mid', 'shot_layup', 'shot_2p_drive', 'shot_post', 'shot_3p'])
+  const FT_TYPES = new Set(['ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'free_throw'])
+
   for (const e of events) {
-    if (!e.league_player_id) continue
     const qid = gameToQuarter[e.league_game_id]
     if (!qid) continue
-    const s = ensure(e.league_player_id, qid)
-    s.games.add(e.league_game_id)
     const t = e.type
-    const isMade = e.result === 'MADE'
-    if (t === 'SHOT') {
+    const isMade = e.result === 'made'
+    const pid = e.league_player_id
+
+    // 필드골 shooter 스탯
+    if (pid && FIELD_SHOTS.has(t)) {
+      const s = ensure(pid, qid)
+      s.games.add(e.league_game_id)
       s.fga += 1
+      if (t === 'shot_3p') s.fg3a += 1
       if (isMade) {
         s.fgm += 1
-        s.pts += e.points ?? 2
+        if (t === 'shot_3p') s.fg3m += 1
+        s.pts += (e.points ?? (t === 'shot_3p' ? 3 : 2))
       }
-    } else if (t === 'THREE') {
-      s.fga += 1; s.fg3a += 1
-      if (isMade) {
-        s.fgm += 1; s.fg3m += 1
-        s.pts += 3
-      }
-    } else if (t === 'FT') {
-      // FT 는 슛 시도가 아님. 득점만 반영.
+    } else if (pid && FT_TYPES.has(t)) {
+      const s = ensure(pid, qid)
+      s.games.add(e.league_game_id)
+      if (isMade) s.pts += (e.points ?? 1)
+    } else if (pid && t === 'and_one') {
+      const s = ensure(pid, qid)
+      s.games.add(e.league_game_id)
       if (isMade) s.pts += 1
-    } else if (t === 'REB' || t === 'OREB' || t === 'DREB') {
+    } else if (pid && (t === 'oreb' || t === 'dreb')) {
+      const s = ensure(pid, qid)
+      s.games.add(e.league_game_id)
       s.reb += 1
-    } else if (t === 'AST') {
-      s.ast += 1
-    } else if (t === 'STL') {
+    } else if (pid && t === 'steal') {
+      const s = ensure(pid, qid)
+      s.games.add(e.league_game_id)
       s.stl += 1
-    } else if (t === 'BLK') {
+    } else if (pid && t === 'block') {
+      const s = ensure(pid, qid)
+      s.games.add(e.league_game_id)
       s.blk += 1
+    }
+
+    // 어시스트: made field shot 의 related_player_id 에게 크레딧
+    if (FIELD_SHOTS.has(t) && isMade && e.related_player_id) {
+      const aPid = e.related_player_id
+      const s = ensure(aPid, qid)
+      s.games.add(e.league_game_id)
+      s.ast += 1
     }
   }
 

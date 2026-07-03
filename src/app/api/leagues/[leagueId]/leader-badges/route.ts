@@ -5,7 +5,7 @@
 //
 // 6개 부문:
 //   pts    — 득점 (이벤트 points 합)
-//   reb    — 리바운드 (type='rebound')
+//   reb    — 리바운드 (type='oreb' OR type='dreb')
 //   ast    — 어시스트 (made shot 의 related_player_id — assister)
 //   blk    — 블락 (type='block')
 //   stl    — 스틸 (type='steal')
@@ -106,8 +106,8 @@ export async function GET(
       ensurePlayer(day, pid).tp += 1
     }
 
-    // 리바운드
-    if (e.type === 'rebound') {
+    // 리바운드 — DB 는 oreb/dreb 로 분리 저장. 총 리바운드는 둘의 합.
+    if (e.type === 'oreb' || e.type === 'dreb') {
       ensurePlayer(day, pid).reb += 1
     }
 

@@ -24,6 +24,7 @@ import { NextResponse } from 'next/server'
 
 type EventRow = {
   league_player_id: string | null
+  related_player_id: string | null
   team_id: string | null
   type: string
   result: string | null
@@ -111,7 +112,7 @@ export async function GET(
   while (true) {
     const { data: chunk, error } = await supabase
       .from('league_game_events')
-      .select('league_player_id, team_id, type, result, points, league_game_id')
+      .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id')
       .in('league_game_id', gameIds)
       .not('league_player_id', 'is', null)
       .order('id', { ascending: true })
@@ -142,24 +143,45 @@ export async function GET(
     return a
   }
 
+  // DB event type 매핑 (canonical, 소문자):
+  //   shot_2p_mid / shot_layup / shot_2p_drive / shot_post / shot_3p — 필드골
+  //   ft_2pt / ft_3pt_1 / ft_3pt_2 / free_throw — 자유투
+  //   oreb / dreb — 리바운드 · steal · block · turnover
+  //   assist 는 별도 type 없음 → made field shot 의 related_player_id 로 크레딧
+  const FIELD_SHOTS = new Set(['shot_2p_mid', 'shot_layup', 'shot_2p_drive', 'shot_post', 'shot_3p'])
+  const FT_TYPES = new Set(['ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'free_throw'])
+
   for (const e of events) {
     if (!e.league_player_id) continue
     const a = ensure(e.league_player_id)
     gpSet.get(e.league_player_id)!.add(e.league_game_id)
-    const isMade = e.result === 'MADE'
-    if (e.type === 'SHOT') {
+    const t = e.type
+    const isMade = e.result === 'made'
+    if (FIELD_SHOTS.has(t)) {
       a.fga += 1
-      if (isMade) { a.fgm += 1; a.pts += e.points ?? 2 }
-    } else if (e.type === 'THREE') {
-      a.fga += 1; a.fg3a += 1
-      if (isMade) { a.fgm += 1; a.fg3m += 1; a.pts += 3 }
-    } else if (e.type === 'FT') {
+      if (t === 'shot_3p') a.fg3a += 1
+      if (isMade) {
+        a.fgm += 1
+        if (t === 'shot_3p') a.fg3m += 1
+        a.pts += (e.points ?? (t === 'shot_3p' ? 3 : 2))
+      }
+    } else if (FT_TYPES.has(t)) {
+      if (isMade) a.pts += (e.points ?? 1)
+    } else if (t === 'and_one') {
       if (isMade) a.pts += 1
-    } else if (e.type === 'REB' || e.type === 'OREB' || e.type === 'DREB') {
+    } else if (t === 'oreb' || t === 'dreb') {
       a.reb += 1
-    } else if (e.type === 'AST') a.ast += 1
-    else if (e.type === 'STL') a.stl += 1
-    else if (e.type === 'BLK') a.blk += 1
+    } else if (t === 'steal') a.stl += 1
+    else if (t === 'block') a.blk += 1
+
+    // 어시스트: made field shot 의 related_player_id 크레딧
+    if (FIELD_SHOTS.has(t) && isMade && e.related_player_id) {
+      const aPid = e.related_player_id
+      const asr = ensure(aPid)
+      if (!gpSet.has(aPid)) gpSet.set(aPid, new Set())
+      gpSet.get(aPid)!.add(e.league_game_id)
+      asr.ast += 1
+    }
   }
 
   // 4) 자격 필터 + feature vector 계산
