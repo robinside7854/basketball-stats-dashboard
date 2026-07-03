@@ -762,6 +762,10 @@ export default function LeagueTeamsPage() {
   const [dataLoading, setDataLoading] = useState(false)
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
   const [teamStatsApi, setTeamStatsApi] = useState<Record<string, PlayerStat[]>>({})
+  // 분기 정규 명단 (team_id + is_regular=true)
+  // — 아직 경기 없는 분기(예: Q3)에도 등록된 선수를 표시하기 위함
+  type RosterRow = { id: string; name: string; number: number | null; position: string | null; team_id: string | null; is_regular: boolean | null }
+  const [quarterRoster, setQuarterRoster] = useState<Record<string, RosterRow[]>>({})
   const [statMode, setStatMode] = useState<StatMode>('basic')
   const [viewMode, setViewMode] = useState<'avg'|'total'>('avg')
 
@@ -855,6 +859,26 @@ export default function LeagueTeamsPage() {
       .catch(() => null)
   }, [leagueId, selectedQId])
 
+  // 분기 정규 명단 페치 — 특정 분기 선택 시 (스탯 없어도 명단 노출)
+  useEffect(() => {
+    if (!selectedQId || selectedQId === 'all') { setQuarterRoster({}); return }
+    let cancelled = false
+    fetch(`/api/leagues/${leagueId}/quarters/${selectedQId}/players`)
+      .then(r => r.ok ? r.json() : [])
+      .then((rows: RosterRow[]) => {
+        if (cancelled) return
+        const map: Record<string, RosterRow[]> = {}
+        for (const r of rows) {
+          if (!r.team_id || !r.is_regular) continue
+          if (!map[r.team_id]) map[r.team_id] = []
+          map[r.team_id].push(r)
+        }
+        setQuarterRoster(map)
+      })
+      .catch(() => null)
+    return () => { cancelled = true }
+  }, [leagueId, selectedQId])
+
   // ── 데이터 가공 ───────────────────────────────────────────
   const teamMap = useMemo(() => Object.fromEntries(teams.map(t => [t.id, t])), [teams])
   const leaderMap = useMemo(() => Object.fromEntries(leaders.map(l => [l.team_id, l.leader_player_id])), [leaders])
@@ -895,11 +919,46 @@ export default function LeagueTeamsPage() {
 
   // 팀별 선수 스탯: API에서 team_id 이벤트 기준으로 분할된 데이터를 그대로 사용
   // → 같은 선수가 여러 팀에서 뛰었으면 각 팀에 그 팀에서의 스탯만 표시됨
+  // + 등록된 정규 명단(quarterRoster)의 선수가 스탯에 없으면 0-fill로 추가 (미경기 분기 대응)
   const teamStats = useMemo(() => {
+    const emptyStat = (r: RosterRow): PlayerStat => ({
+      player_id: r.id,
+      name: r.name,
+      number: r.number,
+      position: r.position,
+      gp: 0,
+      pts: 0, ppg: 0,
+      reb: 0, rpg: 0,
+      oreb: 0, orp: 0,
+      dreb: 0, drp: 0,
+      ast: 0, apg: 0,
+      stl: 0, spg: 0,
+      blk: 0, bpg: 0,
+      tov: 0, topg: 0,
+      pf: 0,
+      fgm: 0, fga: 0, fg_pct: 0,
+      fg2m: 0, fg2a: 0, fg2_pct: 0,
+      fg3m: 0, fg3a: 0, fg3_pct: 0,
+      ftm: 0, fta: 0, ft_pct: 0,
+      efg_pct: 0,
+      and_one: 0,
+      ds_a: 0, ds_m: 0,
+      lu_a: 0, lu_m: 0,
+      md_a: 0, md_m: 0,
+      team_reb_in_games: 0,
+      team_poss_in_games: 0,
+      minutes_played: 0,
+    })
     const m: Record<string, PlayerStat[]> = {}
-    for (const t of teams) m[t.id] = teamStatsApi[t.id] ?? []
+    for (const t of teams) {
+      const statsArr = teamStatsApi[t.id] ?? []
+      const rosterArr = quarterRoster[t.id] ?? []
+      const statPids = new Set(statsArr.map(p => p.player_id))
+      const missing = rosterArr.filter(r => !statPids.has(r.id))
+      m[t.id] = [...statsArr, ...missing.map(emptyStat)]
+    }
     return m
-  }, [teams, teamStatsApi])
+  }, [teams, teamStatsApi, quarterRoster])
 
   // 비정규 섹션 — 어떤 팀에도 team_id로 귀속되지 않은 선수 (이벤트의 team_id가 모두 null)
   const irregularStats = useMemo(() => {
