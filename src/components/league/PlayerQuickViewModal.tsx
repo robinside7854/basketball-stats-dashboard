@@ -356,13 +356,14 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
           </button>
         </div>
 
-        {/* Hero header — 큰 아바타 + 이름 (프로필 사진 노출) */}
+        {/* Hero header — 큰 아바타 + 이름 (프로 선수 프로필 스타일) */}
         <div className="relative px-5 pt-4 pb-5 border-b border-gray-800 bg-gradient-to-b from-gray-800/50 to-transparent">
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-4 sm:gap-5">
             {/* 아바타 (편집모드 = 호버 오버레이 업로드/AI · 뷰모드 = 클릭 시 라이트박스 확대) */}
+            {/* 크기: 프로 선수 프로필처럼 큼 — 이전 대비 약 1.7x */}
             <div className="relative shrink-0 group/avatar">
               <div
-                className={`w-24 h-30 sm:w-28 sm:h-36 rounded-xl overflow-hidden border-2 border-blue-500/40 shadow-lg bg-gray-800 flex items-center justify-center ${!isEditMode && photoUrl ? 'cursor-zoom-in hover:border-blue-400 transition-colors' : ''}`}
+                className={`w-40 sm:w-48 rounded-xl overflow-hidden border-2 border-blue-500/40 shadow-lg bg-gray-800 flex items-center justify-center ${!isEditMode && photoUrl ? 'cursor-zoom-in hover:border-blue-400 transition-colors' : ''}`}
                 style={{ aspectRatio: '4/5' }}
                 onClick={() => {
                   // 뷰 모드에서 사진 있을 때만 라이트박스 오픈
@@ -381,7 +382,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 {photoUrl ? (
                   <img src={photoUrl} alt={player?.name ?? ''} className="w-full h-full object-cover object-top" />
                 ) : (
-                  <span className="text-3xl font-black text-blue-300 leading-none text-center">
+                  <span className="text-5xl sm:text-6xl font-black text-blue-300 leading-none text-center">
                     {(player?.name ?? playerName).length > 1
                       ? (player?.name ?? playerName).slice(1)
                       : (player?.name ?? playerName)}
@@ -475,22 +476,22 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               )}
             </div>
 
-            {/* 이름 + 정보 */}
-            <div className="flex-1 min-w-0 pt-2">
-              <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                {player?.number != null && (
-                  <span className="text-sm font-mono text-gray-500">#{player.number}</span>
-                )}
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight mb-2 truncate">
+            {/* 이름 + 정보 (아바타 크기와 비례해 확대) */}
+            <div className="flex-1 min-w-0 pt-3 sm:pt-4">
+              {player?.number != null && (
+                <div className="text-base font-mono text-gray-500 mb-1 leading-none">
+                  #{player.number}
+                </div>
+              )}
+              <h1 className="text-3xl sm:text-4xl font-black text-white leading-tight tracking-tight mb-3 break-words">
                 {player?.name ?? playerName}
               </h1>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {positions.map(pos => (
-                  <span key={pos} className={`text-xs font-bold px-2 py-0.5 rounded border ${POSITION_COLORS[pos] ?? 'bg-blue-900/40 text-blue-300 border-blue-700/40'}`}>{pos}</span>
+                  <span key={pos} className={`text-sm font-bold px-2.5 py-1 rounded border ${POSITION_COLORS[pos] ?? 'bg-blue-900/40 text-blue-300 border-blue-700/40'}`}>{pos}</span>
                 ))}
                 {player?.plus_one && (
-                  <span className="text-xs font-black px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300">+1</span>
+                  <span className="text-sm font-black px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300">+1</span>
                 )}
               </div>
             </div>

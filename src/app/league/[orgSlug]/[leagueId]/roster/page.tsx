@@ -1484,7 +1484,7 @@ export default function LeagueRosterPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 lg:gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5 lg:gap-3">
           {filteredAndSortedPlayers.map(p => {
             const positions = parsePositions(p.position)
             const isAnyLeader = displayQuarters.some(q => {
@@ -1505,13 +1505,13 @@ export default function LeagueRosterPage() {
                   <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: cardAccent }} />
                 )}
 
-                <div className="p-3 pl-4 lg:p-4 lg:pl-5 flex gap-3">
-                  {/* 3:4 썸네일 */}
-                  <div className="shrink-0 w-16 h-[85px] lg:w-20 lg:h-[106px] rounded-lg overflow-hidden border border-gray-700 flex items-center justify-center bg-gray-800">
+                <div className="p-2.5 pl-3.5 lg:p-3 lg:pl-4 flex gap-2.5 lg:gap-3">
+                  {/* 3:4 (사실은 4:5 로 변경) 썸네일 — 프로 선수 프로필처럼 크게 */}
+                  <div className="shrink-0 w-32 h-[160px] lg:w-40 lg:h-[200px] rounded-lg overflow-hidden border border-gray-700 flex items-center justify-center bg-gray-800">
                     {p.photo_url ? (
                       <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover object-top" />
                     ) : (
-                      <span className="text-xs lg:text-sm font-black text-gray-400 leading-none text-center px-0.5">
+                      <span className="text-xl lg:text-2xl font-black text-gray-500 leading-none text-center px-0.5">
                         {p.name.length > 1 ? p.name.slice(1) : p.name}
                       </span>
                     )}
