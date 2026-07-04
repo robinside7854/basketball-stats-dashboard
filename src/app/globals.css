@@ -389,19 +389,44 @@
     animation: ball-spin 1.2s linear infinite;
   }
 
-  /* 서브탭 스와이프 전환 — 목적지 페이지가 스와이프 반대편에서 슬라이드 인 (SubTabSwipeArea) */
-  @keyframes subtab-from-right {
+  /* 페이지 전환 — 목적지 페이지 슬라이드/페이드 인 (PageSwipeTransition)
+     fill-mode 없이 종료 후 자연 상태 복귀 — transform 이 남으면 하위 fixed 모달 기준이 틀어짐 */
+  @keyframes page-from-right {
     from { transform: translateX(40px); opacity: 0; }
     to   { transform: translateX(0);    opacity: 1; }
   }
-  @keyframes subtab-from-left {
+  @keyframes page-from-left {
     from { transform: translateX(-40px); opacity: 0; }
     to   { transform: translateX(0);     opacity: 1; }
   }
-  .subtab-enter-from-right {
-    animation: subtab-from-right 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  @keyframes page-fade {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
   }
-  .subtab-enter-from-left {
-    animation: subtab-from-left 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  .page-enter-from-right {
+    animation: page-from-right 260ms cubic-bezier(0.22, 1, 0.36, 1);
   }
+  .page-enter-from-left {
+    animation: page-from-left 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .page-enter-fade {
+    animation: page-fade 220ms ease-out;
+  }
+
+  /* 스와이프 안내 코치마크 — 첫 방문 1회 (PageSwipeTransition) */
+  @keyframes coach-in {
+    from { transform: translateY(10px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  @keyframes coach-nudge-l {
+    0%, 100% { transform: translateX(0); }
+    50%      { transform: translateX(-4px); }
+  }
+  @keyframes coach-nudge-r {
+    0%, 100% { transform: translateX(0); }
+    50%      { transform: translateX(4px); }
+  }
+  .page-coach-in { animation: coach-in 300ms ease-out; }
+  .page-coach-nudge-l { animation: coach-nudge-l 1.2s ease-in-out infinite; }
+  .page-coach-nudge-r { animation: coach-nudge-r 1.2s ease-in-out infinite; }
 }

@@ -1,6 +1,5 @@
 'use client'
 import LeagueSubTabs from '@/components/league/LeagueSubTabs'
-import SubTabSwipeArea from '@/components/league/SubTabSwipeArea'
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
@@ -160,7 +159,6 @@ export default function LeagueSchedulePage() {
   }
 
   return (
-    <SubTabSwipeArea group="games" current="schedule">
     <>
     <div className="space-y-5">
       <LeagueSubTabs group="games" />
@@ -302,6 +300,5 @@ export default function LeagueSchedulePage() {
       />
     )}
     </>
-    </SubTabSwipeArea>
   )
 }
