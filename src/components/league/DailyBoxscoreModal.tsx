@@ -1,6 +1,8 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { Loader2, X, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, CheckCircle2, Circle } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Loader2, X, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, CheckCircle2, Circle, Trophy, Camera, Maximize2, Minimize2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { toPng } from 'html-to-image'
 
 type PlayerRow = {
   player_id: string; name: string; number: number | null
@@ -165,6 +167,45 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
   const [expandedGame, setExpandedGame] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overall' | 'games' | 'team'>('overall')
   const [teamFilter, setTeamFilter] = useState<string>('all')
+  // 상단 스코어보드 접기 (기본 펼침)
+  const [scoreboardCollapsed, setScoreboardCollapsed] = useState(false)
+  // 전체 스크롤 모드 (캡처용) — 모달의 스크롤 제한 해제
+  const [captureMode, setCaptureMode] = useState(false)
+  // 이미지 저장 진행 상태
+  const [savingImage, setSavingImage] = useState(false)
+  // 캡처 대상 ref
+  const captureRef = useRef<HTMLDivElement>(null)
+
+  async function saveAsImage() {
+    if (!captureRef.current) return
+    setSavingImage(true)
+    try {
+      // 캡처 전 전체 확장 모드 자동 활성화 (필요 시)
+      const wasInCaptureMode = captureMode
+      if (!wasInCaptureMode) {
+        setCaptureMode(true)
+        // DOM 업데이트 대기 (React 다음 프레임)
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      }
+      const dataUrl = await toPng(captureRef.current, {
+        backgroundColor: '#0a0a0a',
+        pixelRatio: 2,  // 고해상도
+        cacheBust: true,
+        style: { transform: 'none' },  // 트랜스폼 잔재 제거
+      })
+      // 다운로드 트리거
+      const link = document.createElement('a')
+      link.download = `boxscore-${date}.png`
+      link.href = dataUrl
+      link.click()
+      toast.success('박스스코어 이미지 저장 완료')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      toast.error(`이미지 저장 실패: ${msg}`)
+    } finally {
+      setSavingImage(false)
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -202,8 +243,11 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
       {/* 배경 오버레이 — 더 진하게 */}
       <div className="absolute inset-0 bg-black/85 backdrop-blur-md" onClick={onClose} />
 
-      {/* 모달 본체 — 테두리/그림자 강화 */}
-      <div className="relative bg-gray-900 border border-gray-600/80 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col z-10 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_64px_rgba(0,0,0,0.9)]">
+      {/* 모달 본체 — 캡처 모드에서는 부모가 스크롤 담당 (전체 스탯 캡처 가능) */}
+      <div className={`relative bg-gray-900 border border-gray-600/80 rounded-2xl w-full max-w-5xl flex flex-col z-10 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_64px_rgba(0,0,0,0.9)] ${captureMode ? 'max-h-[95vh] overflow-y-auto' : 'max-h-[90vh]'}`}>
+
+        {/* 캡처 대상 영역 시작 (헤더 · 스코어보드 · 탭 · 컨텐츠) — html-to-image 대상 */}
+        <div ref={captureRef} className="flex flex-col min-h-0 flex-1 bg-gray-900 rounded-2xl">
 
         {/* Header */}
         <div className="shrink-0 bg-gray-900 border-b border-gray-700/60 px-6 py-4 flex items-center justify-between rounded-t-2xl">
@@ -220,15 +264,57 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
               {skippedCount > 0 && <span className="text-gray-600"> · 미사용 슬롯 {skippedCount}</span>}
             </p>
           </div>
-          <button onClick={onClose} className="rounded-xl hover:bg-gray-700/60 text-gray-400 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-10 min-w-10">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {/* 캡처 모드 토글 — 전체 스탯을 한 화면 스크롤로 노출 */}
+            {!loading && games.length > 0 && (
+              <button
+                onClick={() => setCaptureMode(v => !v)}
+                title={captureMode ? '창 모드' : '전체 스탯 펼치기'}
+                className={`rounded-xl inline-flex items-center gap-1 px-3 py-2 text-xs font-bold cursor-pointer transition-colors border ${
+                  captureMode
+                    ? 'bg-blue-600/20 border-blue-500/40 text-blue-300'
+                    : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:text-white'
+                }`}
+              >
+                {captureMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                <span className="hidden sm:inline">{captureMode ? '창 모드' : '전체 펼치기'}</span>
+              </button>
+            )}
+            {/* 이미지 저장 */}
+            {!loading && games.length > 0 && (
+              <button
+                onClick={saveAsImage}
+                disabled={savingImage}
+                title="박스스코어를 PNG 이미지로 저장"
+                className="rounded-xl inline-flex items-center gap-1 px-3 py-2 text-xs font-bold cursor-pointer transition-colors border bg-emerald-600/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30 disabled:opacity-50"
+              >
+                {savingImage ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+                <span className="hidden sm:inline">이미지 저장</span>
+              </button>
+            )}
+            <button onClick={onClose} className="rounded-xl hover:bg-gray-700/60 text-gray-400 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-10 min-w-10">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
-        {/* 그날의 경기 전적 (스코어보드) */}
+        {/* 그날의 경기 전적 (스코어보드) — 접기/펼치기 가능 */}
         {!loading && games.length > 0 && (
-          <div className="shrink-0 bg-gray-900/60 border-b border-gray-700/60 px-6 py-4">
-            <DailyScoreboard games={games} />
+          <div className="shrink-0 bg-gray-900/60 border-b border-gray-700/60">
+            <button
+              onClick={() => setScoreboardCollapsed(v => !v)}
+              className="w-full flex items-center justify-between px-6 py-2 hover:bg-gray-800/40 cursor-pointer transition-colors group"
+            >
+              <span className="text-xs text-gray-500 font-bold uppercase tracking-widest group-hover:text-gray-300 transition-colors">
+                경기별 스코어 {scoreboardCollapsed ? `(${games.length}경기 · 펼치기)` : '(접기)'}
+              </span>
+              {scoreboardCollapsed ? <ChevronDown size={16} className="text-gray-500 group-hover:text-gray-300" /> : <ChevronUp size={16} className="text-gray-500 group-hover:text-gray-300" />}
+            </button>
+            {!scoreboardCollapsed && (
+              <div className="px-6 pb-4 pt-2">
+                <DailyScoreboard games={games} />
+              </div>
+            )}
           </div>
         )}
 
@@ -260,7 +346,8 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
             <p className="text-base">이 날 기록된 경기가 없습니다</p>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto">
+          /* 캡처 모드에서는 overflow 제한 해제 → 컨텐츠가 부모 스크롤에 맡겨짐 */
+          <div className={captureMode ? '' : 'flex-1 overflow-y-auto'}>
 
             {/* 탭 1: 전체 스탯 */}
             {activeTab === 'overall' && (() => {
@@ -440,6 +527,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
 
           </div>
         )}
+        </div>
       </div>
     </div>
   )
@@ -682,39 +770,53 @@ function DailyScoreboard({ games }: { games: GameData[] }) {
 
   return (
     <div className="space-y-3">
-      {/* 경기별 스코어 카드 */}
+      {/* 경기별 스코어 카드 — 승자 확실히 부각 (트로피 · 폰트 굵기 · 승자쪽 배경 컬러 힌트) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
         {[...completed, ...ongoing, ...upcoming].map(g => {
           const homeWin = g.is_complete && g.home_score > g.away_score
           const awayWin = g.is_complete && g.away_score > g.home_score
+          const draw   = g.is_complete && g.home_score === g.away_score
           const homeColor = g.home_team?.color ?? '#9ca3af'
           const awayColor = g.away_team?.color ?? '#9ca3af'
           return (
             <div key={g.id}
-              className={`rounded-xl px-3 py-2.5 border ${g.is_complete ? 'bg-gray-800/60 border-gray-700' : g.is_started ? 'bg-amber-900/15 border-amber-700/40' : 'bg-gray-900/40 border-gray-800'}`}>
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <span className="text-xs text-gray-500 font-mono">#{g.slot_num}</span>
-                {g.is_complete && <span className="text-xs text-green-400 font-bold">완료</span>}
-                {!g.is_complete && g.is_started && <span className="text-xs text-amber-400 font-bold">진행 중</span>}
-                {!g.is_started && <span className="text-xs text-gray-600 font-bold">예정</span>}
-              </div>
-              <div className="flex items-center gap-2">
-                {/* HOME */}
-                <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: homeColor }} />
-                  <span className={`text-sm font-bold truncate ${homeWin ? 'text-white' : g.is_complete ? 'text-gray-500' : 'text-gray-300'}`}>
-                    {g.home_team?.name ?? '미정'}
-                  </span>
+              className={`rounded-xl px-3 py-2.5 border relative overflow-hidden ${g.is_complete ? 'bg-gray-800/60 border-gray-700' : g.is_started ? 'bg-amber-900/15 border-amber-700/40' : 'bg-gray-900/40 border-gray-800'}`}>
+              {/* 승자 쪽에 미묘한 배경 그라디언트 힌트 (좌/우) */}
+              {homeWin && (
+                <div className="absolute inset-y-0 left-0 w-1/2 opacity-[0.08] pointer-events-none"
+                     style={{ background: `linear-gradient(to right, ${homeColor}, transparent)` }} />
+              )}
+              {awayWin && (
+                <div className="absolute inset-y-0 right-0 w-1/2 opacity-[0.08] pointer-events-none"
+                     style={{ background: `linear-gradient(to left, ${awayColor}, transparent)` }} />
+              )}
+              <div className="relative">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-xs text-gray-500 font-mono">#{g.slot_num}</span>
+                  {g.is_complete && <span className="text-xs text-green-400 font-bold">완료</span>}
+                  {!g.is_complete && g.is_started && <span className="text-xs text-amber-400 font-bold">진행 중</span>}
+                  {!g.is_started && <span className="text-xs text-gray-600 font-bold">예정</span>}
                 </div>
-                <span className={`text-xl font-black tabular-nums ${homeWin ? 'text-white' : g.is_complete ? 'text-gray-500' : 'text-gray-400'}`}>{g.home_score}</span>
-                <span className="text-gray-700 text-xs font-bold">:</span>
-                <span className={`text-xl font-black tabular-nums ${awayWin ? 'text-white' : g.is_complete ? 'text-gray-500' : 'text-gray-400'}`}>{g.away_score}</span>
-                {/* AWAY */}
-                <div className="flex-1 min-w-0 flex items-center gap-1.5 justify-end">
-                  <span className={`text-sm font-bold truncate text-right ${awayWin ? 'text-white' : g.is_complete ? 'text-gray-500' : 'text-gray-300'}`}>
-                    {g.away_team?.name ?? '미정'}
-                  </span>
-                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: awayColor }} />
+                <div className="flex items-center gap-2">
+                  {/* HOME */}
+                  <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: homeColor }} />
+                    {homeWin && <Trophy size={11} className="text-amber-400 shrink-0" fill="currentColor" />}
+                    <span className={`text-sm truncate ${homeWin ? 'font-black text-white' : g.is_complete ? draw ? 'font-bold text-gray-300' : 'font-medium text-gray-500 line-through decoration-gray-700' : 'font-bold text-gray-300'}`}>
+                      {g.home_team?.name ?? '미정'}
+                    </span>
+                  </div>
+                  <span className={`text-xl tabular-nums ${homeWin ? 'text-white font-black' : g.is_complete ? draw ? 'text-gray-300 font-black' : 'text-gray-600 font-bold' : 'text-gray-400 font-black'}`}>{g.home_score}</span>
+                  <span className="text-gray-700 text-xs font-bold">:</span>
+                  <span className={`text-xl tabular-nums ${awayWin ? 'text-white font-black' : g.is_complete ? draw ? 'text-gray-300 font-black' : 'text-gray-600 font-bold' : 'text-gray-400 font-black'}`}>{g.away_score}</span>
+                  {/* AWAY */}
+                  <div className="flex-1 min-w-0 flex items-center gap-1.5 justify-end">
+                    <span className={`text-sm truncate text-right ${awayWin ? 'font-black text-white' : g.is_complete ? draw ? 'font-bold text-gray-300' : 'font-medium text-gray-500 line-through decoration-gray-700' : 'font-bold text-gray-300'}`}>
+                      {g.away_team?.name ?? '미정'}
+                    </span>
+                    {awayWin && <Trophy size={11} className="text-amber-400 shrink-0" fill="currentColor" />}
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: awayColor }} />
+                  </div>
                 </div>
               </div>
             </div>
