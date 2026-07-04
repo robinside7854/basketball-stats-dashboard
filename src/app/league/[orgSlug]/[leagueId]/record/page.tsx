@@ -18,6 +18,7 @@ import LeagueSubstitutionPanel from '@/components/league/LeagueSubstitutionPanel
 import LeagueStatsPanel from '@/components/league/LeagueStatsPanel'
 import GameLogModal from '@/components/league/GameLogModal'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
+import { textOnBg } from '@/lib/util/contrastColor'
 
 type ScheduleDate = { id: string; date: string }
 type GameSlot = {
@@ -1632,22 +1633,30 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       {pendingIrregular.name}을(를) 어느 팀에 추가할까요?
                     </h3>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => addIrregularToTeam(pendingIrregular, 'home')}
-                        disabled={addingIrregular}
-                        className="flex-1 py-2 rounded-lg text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-opacity"
-                        style={{ backgroundColor: selectedSlot?.home_team?.color ?? '#3b82f6' }}
-                      >
-                        {selectedSlot?.home_team?.name ?? '홈팀'}
-                      </button>
-                      <button
-                        onClick={() => addIrregularToTeam(pendingIrregular, 'away')}
-                        disabled={addingIrregular}
-                        className="flex-1 py-2 rounded-lg text-white text-xs font-bold cursor-pointer disabled:opacity-50 transition-opacity"
-                        style={{ backgroundColor: selectedSlot?.away_team?.color ?? '#ef4444' }}
-                      >
-                        {selectedSlot?.away_team?.name ?? '어웨이팀'}
-                      </button>
+                      {(() => {
+                        const hBg = selectedSlot?.home_team?.color ?? '#3b82f6'
+                        const aBg = selectedSlot?.away_team?.color ?? '#ef4444'
+                        return (
+                          <>
+                            <button
+                              onClick={() => addIrregularToTeam(pendingIrregular, 'home')}
+                              disabled={addingIrregular}
+                              className="flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50 transition-opacity"
+                              style={{ backgroundColor: hBg, color: textOnBg(hBg) }}
+                            >
+                              {selectedSlot?.home_team?.name ?? '홈팀'}
+                            </button>
+                            <button
+                              onClick={() => addIrregularToTeam(pendingIrregular, 'away')}
+                              disabled={addingIrregular}
+                              className="flex-1 py-2 rounded-lg text-xs font-bold cursor-pointer disabled:opacity-50 transition-opacity"
+                              style={{ backgroundColor: aBg, color: textOnBg(aBg) }}
+                            >
+                              {selectedSlot?.away_team?.name ?? '어웨이팀'}
+                            </button>
+                          </>
+                        )
+                      })()}
                     </div>
                     <button
                       onClick={() => setPendingIrregular(null)}

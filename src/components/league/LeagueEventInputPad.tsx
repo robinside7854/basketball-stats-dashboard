@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import type { LeaguePlayer } from '@/types/league'
+import { textOnBg } from '@/lib/util/contrastColor'
 
 type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
 
@@ -380,16 +381,20 @@ export default function LeagueEventInputPad({
   function renderPlayerBtn(p: RosterPlayer, teamColor: string) {
     const isSelected = selectedPlayer === p.id
     const hasPossession = possessionPlayerId === p.id
+    // 선택 시 배경 = 팀 컬러(또는 소유 표시 초록). 흰/노랑 등 밝은 팀 컬러에서
+    // 텍스트가 안 보이는 것을 방지하기 위해 배경 휘도에 따라 텍스트 컬러 자동 결정.
+    const selectedBg = hasPossession ? '#16a34a' : teamColor
+    const selectedText = textOnBg(selectedBg)
     return (
       <button
         key={p.id}
         onClick={() => selectPlayer(p.id)}
         className={`relative py-2 px-1 rounded-xl text-center transition-all cursor-pointer border active:scale-95 ${
           isSelected
-            ? `text-white shadow-lg ${hasPossession ? 'ring-2 ring-green-300 ring-offset-1 ring-offset-gray-900' : ''}`
+            ? `shadow-lg ${hasPossession ? 'ring-2 ring-green-300 ring-offset-1 ring-offset-gray-900' : ''}`
             : 'bg-gray-800/80 border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-500'
         } ${(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) ? 'ring-1 ring-amber-400/60' : ''}`}
-        style={isSelected ? { backgroundColor: hasPossession ? '#16a34a' : teamColor, borderColor: hasPossession ? '#16a34a' : teamColor } : {}}
+        style={isSelected ? { backgroundColor: selectedBg, borderColor: selectedBg, color: selectedText } : {}}
       >
         {p.number != null && (
           <div className="text-base font-black font-mono leading-none mb-0.5 opacity-70">#{p.number}</div>
@@ -408,12 +413,17 @@ export default function LeagueEventInputPad({
     <div className="space-y-2">
       {/* ── 헤더: 선택된 선수 + 마지막 이벤트 + 취소 ── */}
       <div className="flex items-center gap-2 min-h-[32px] relative">
-        {selectedObj ? (
-          <span className="shrink-0 px-3 py-1 rounded-lg text-sm font-bold text-white"
-            style={{ backgroundColor: selectedTeam?.color ?? '#3b82f6' }}>
-            {selectedObj.name}{selectedTeam ? ` · ${selectedTeam.name}` : ''}
-          </span>
-        ) : (
+        {selectedObj ? (() => {
+          // 팀 컬러가 흰/노랑 등 밝은 색이면 흰 텍스트가 안 보이므로 자동 대비 처리
+          const bg = selectedTeam?.color ?? '#3b82f6'
+          const fg = textOnBg(bg)
+          return (
+            <span className="shrink-0 px-3 py-1 rounded-lg text-sm font-bold"
+              style={{ backgroundColor: bg, color: fg }}>
+              {selectedObj.name}{selectedTeam ? ` · ${selectedTeam.name}` : ''}
+            </span>
+          )
+        })() : (
           <span className="shrink-0 px-3 py-1 rounded-lg bg-gray-800 border border-gray-700 text-gray-400 text-sm font-bold">
             선수를 선택하세요
           </span>
@@ -508,13 +518,17 @@ export default function LeagueEventInputPad({
                 {team?.name ?? '팀'} — {isShooterTeam ? '공격리바' : '수비리바'}
               </p>
               <div className="grid grid-cols-3 gap-1.5">
-                {tPlayers.map(p => (
-                  <button key={p.id} onClick={() => doRebound(p.id)}
-                    className="py-2 rounded-xl text-sm font-bold text-white cursor-pointer active:scale-95 transition-all"
-                    style={{ backgroundColor: `${team?.color ?? '#6b7280'}cc` }}>
-                    {p.name}
-                  </button>
-                ))}
+                {tPlayers.map(p => {
+                  const bg = team?.color ?? '#6b7280'
+                  const fg = textOnBg(bg)
+                  return (
+                    <button key={p.id} onClick={() => doRebound(p.id)}
+                      className="py-2 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition-all"
+                      style={{ backgroundColor: `${bg}cc`, color: fg }}>
+                      {p.name}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           ))}
