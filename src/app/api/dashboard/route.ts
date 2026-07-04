@@ -175,6 +175,14 @@ export async function GET(req: Request) {
   const maxScoreGame = allGames.reduce((best, g) => (g.our_score as number) > (best.our_score as number) ? g : best)
   const maxOppScoreGame = allGames.reduce((best, g) => (g.opponent_score as number) > (best.opponent_score as number) ? g : best)
 
+  // 최저 득점 / 최저 실점 (완료된 경기 중에서만 — 미완료 경기의 0점이 최저로 잡히는 것 방지)
+  const minScoreGame = completeGames.length > 0
+    ? completeGames.reduce((best, g) => (g.our_score as number) < (best.our_score as number) ? g : best)
+    : null
+  const minOppScoreGame = completeGames.length > 0
+    ? completeGames.reduce((best, g) => (g.opponent_score as number) < (best.opponent_score as number) ? g : best)
+    : null
+
   // 최대 점수차 승리 (승리한 경기 중에서만)
   const winGames = allGames.filter(g => (g.our_score as number) > (g.opponent_score as number))
   const maxMarginGame = winGames.length > 0
@@ -197,6 +205,8 @@ export async function GET(req: Request) {
   const teamRecords = {
     maxScore:    { ...gameRecord(maxScoreGame),    value: maxScoreGame.our_score as number },
     maxOppScore: { ...gameRecord(maxOppScoreGame), value: maxOppScoreGame.opponent_score as number },
+    minScore:    minScoreGame    ? { ...gameRecord(minScoreGame),    value: minScoreGame.our_score as number } : null,
+    minOppScore: minOppScoreGame ? { ...gameRecord(minOppScoreGame), value: minOppScoreGame.opponent_score as number } : null,
     max3pm:      { ...gameRecord(max3Game),         value: max3 },
     maxTov:      { ...gameRecord(maxTovGame),       value: maxTov },
     maxMargin:   maxMarginGame

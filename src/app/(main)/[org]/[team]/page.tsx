@@ -54,6 +54,8 @@ interface DashboardData {
   teamRecords: {
     maxScore: GameRecord
     maxOppScore: GameRecord
+    minScore: GameRecord | null
+    minOppScore: GameRecord | null
     max3pm: GameRecord
     maxTov: GameRecord
     maxMargin: GameRecord | null
@@ -301,12 +303,28 @@ export default function TeamHomePage() {
                   record={teamRecords.maxScore}
                   onClick={() => setGameModal(teamRecords.maxScore)}
                 />
+                {teamRecords.minScore && (
+                  <GameRecordCard
+                    icon="🥶" title="최저 득점 경기"
+                    value={teamRecords.minScore.value} unit="점"
+                    record={teamRecords.minScore}
+                    onClick={() => setGameModal(teamRecords.minScore!)}
+                  />
+                )}
                 <GameRecordCard
                   icon="😰" title="최다 실점 경기"
                   value={teamRecords.maxOppScore.value} unit="점"
                   record={teamRecords.maxOppScore}
                   onClick={() => setGameModal(teamRecords.maxOppScore)}
                 />
+                {teamRecords.minOppScore && (
+                  <GameRecordCard
+                    icon="🛡️" title="최저 실점 경기"
+                    value={teamRecords.minOppScore.value} unit="점"
+                    record={teamRecords.minOppScore}
+                    onClick={() => setGameModal(teamRecords.minOppScore!)}
+                  />
+                )}
                 <GameRecordCard
                   icon="🎯" title="3점슛 최다 경기"
                   value={teamRecords.max3pm.value} unit="개"
