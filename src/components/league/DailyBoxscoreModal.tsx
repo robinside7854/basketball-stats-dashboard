@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Loader2, X, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, CheckCircle2, Circle, Trophy, Camera, Maximize2, Minimize2 } from 'lucide-react'
+import { Loader2, X, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, CheckCircle2, Circle, Trophy, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { toPng } from 'html-to-image'
+import ShareableBoxscore from '@/components/league/ShareableBoxscore'
 
 type PlayerRow = {
   player_id: string; name: string; number: number | null
@@ -169,43 +170,59 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
   const [teamFilter, setTeamFilter] = useState<string>('all')
   // 상단 스코어보드 접기 (기본 펼침)
   const [scoreboardCollapsed, setScoreboardCollapsed] = useState(false)
-  // 전체 스크롤 모드 (캡처용) — 모달의 스크롤 제한 해제
-  const [captureMode, setCaptureMode] = useState(false)
   // 이미지 저장 진행 상태
   const [savingImage, setSavingImage] = useState(false)
-  // 캡처 대상 ref
-  const captureRef = useRef<HTMLDivElement>(null)
+  // 공유용 hidden 캡처 대상 ref (실제 캡처는 ShareableBoxscore)
+  const shareCaptureRef = useRef<HTMLDivElement>(null)
+  // 공유 렌더링 표시 flag — true 일 때만 off-screen 렌더
+  const [renderingShare, setRenderingShare] = useState(false)
 
   async function saveAsImage() {
-    if (!captureRef.current) return
+    if (games.length === 0) {
+      toast.error('저장할 경기 데이터가 없습니다')
+      return
+    }
     setSavingImage(true)
+    setRenderingShare(true)
     try {
-      // 캡처 전 전체 확장 모드 자동 활성화 (필요 시)
-      const wasInCaptureMode = captureMode
-      if (!wasInCaptureMode) {
-        setCaptureMode(true)
-        // DOM 업데이트 대기 (React 다음 프레임)
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-      }
-      const dataUrl = await toPng(captureRef.current, {
-        backgroundColor: '#0a0a0a',
-        pixelRatio: 2,  // 고해상도
+      // React 가 hidden ShareableBoxscore 를 커밋할 때까지 대기 (2 rAF)
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      if (!shareCaptureRef.current) throw new Error('render 실패')
+      const dataUrl = await toPng(shareCaptureRef.current, {
+        backgroundColor: '#0a0f1c',
+        pixelRatio: 2,
         cacheBust: true,
-        style: { transform: 'none' },  // 트랜스폼 잔재 제거
       })
-      // 다운로드 트리거
       const link = document.createElement('a')
       link.download = `boxscore-${date}.png`
       link.href = dataUrl
       link.click()
-      toast.success('박스스코어 이미지 저장 완료')
+      toast.success('박스스코어 공유 이미지 저장 완료')
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       toast.error(`이미지 저장 실패: ${msg}`)
     } finally {
       setSavingImage(false)
+      setRenderingShare(false)
     }
   }
+
+  // 팀 전적 계산 (공유 이미지용)
+  const teamRecords = (() => {
+    const map = new Map<string, { id: string; name: string; color: string | null; W: number; L: number; D: number; PF: number; PA: number }>()
+    for (const g of games.filter(gg => gg.is_complete)) {
+      if (!g.home_team || !g.away_team) continue
+      const home = map.get(g.home_team.id) ?? { id: g.home_team.id, name: g.home_team.name, color: g.home_team.color, W: 0, L: 0, D: 0, PF: 0, PA: 0 }
+      const away = map.get(g.away_team.id) ?? { id: g.away_team.id, name: g.away_team.name, color: g.away_team.color, W: 0, L: 0, D: 0, PF: 0, PA: 0 }
+      home.PF += g.home_score; home.PA += g.away_score
+      away.PF += g.away_score; away.PA += g.home_score
+      if (g.home_score > g.away_score) { home.W++; away.L++ }
+      else if (g.home_score < g.away_score) { home.L++; away.W++ }
+      else { home.D++; away.D++ }
+      map.set(g.home_team.id, home); map.set(g.away_team.id, away)
+    }
+    return [...map.values()]
+  })()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -243,11 +260,9 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
       {/* 배경 오버레이 — 더 진하게 */}
       <div className="absolute inset-0 bg-black/85 backdrop-blur-md" onClick={onClose} />
 
-      {/* 모달 본체 — 캡처 모드에서는 부모가 스크롤 담당 (전체 스탯 캡처 가능) */}
-      <div className={`relative bg-gray-900 border border-gray-600/80 rounded-2xl w-full max-w-5xl flex flex-col z-10 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_64px_rgba(0,0,0,0.9)] ${captureMode ? 'max-h-[95vh] overflow-y-auto' : 'max-h-[90vh]'}`}>
-
-        {/* 캡처 대상 영역 시작 (헤더 · 스코어보드 · 탭 · 컨텐츠) — html-to-image 대상 */}
-        <div ref={captureRef} className="flex flex-col min-h-0 flex-1 bg-gray-900 rounded-2xl">
+      {/* 모달 본체 */}
+      <div className="relative bg-gray-900 border border-gray-600/80 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col z-10 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_64px_rgba(0,0,0,0.9)]">
+        <div className="flex flex-col min-h-0 flex-1 bg-gray-900 rounded-2xl">
 
         {/* Header */}
         <div className="shrink-0 bg-gray-900 border-b border-gray-700/60 px-6 py-4 flex items-center justify-between rounded-t-2xl">
@@ -265,31 +280,16 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
             </p>
           </div>
           <div className="flex items-center gap-1.5">
-            {/* 캡처 모드 토글 — 전체 스탯을 한 화면 스크롤로 노출 */}
-            {!loading && games.length > 0 && (
-              <button
-                onClick={() => setCaptureMode(v => !v)}
-                title={captureMode ? '창 모드' : '전체 스탯 펼치기'}
-                className={`rounded-xl inline-flex items-center gap-1 px-3 py-2 text-xs font-bold cursor-pointer transition-colors border ${
-                  captureMode
-                    ? 'bg-blue-600/20 border-blue-500/40 text-blue-300'
-                    : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:text-white'
-                }`}
-              >
-                {captureMode ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                <span className="hidden sm:inline">{captureMode ? '창 모드' : '전체 펼치기'}</span>
-              </button>
-            )}
-            {/* 이미지 저장 */}
+            {/* 이미지 저장 — 팀 카톡방 공유용 클린 레이아웃 PNG */}
             {!loading && games.length > 0 && (
               <button
                 onClick={saveAsImage}
                 disabled={savingImage}
-                title="박스스코어를 PNG 이미지로 저장"
-                className="rounded-xl inline-flex items-center gap-1 px-3 py-2 text-xs font-bold cursor-pointer transition-colors border bg-emerald-600/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30 disabled:opacity-50"
+                title="팀 카톡방 공유용 박스스코어 PNG 저장"
+                className="rounded-xl inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold cursor-pointer transition-colors border bg-emerald-600/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30 disabled:opacity-50"
               >
                 {savingImage ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-                <span className="hidden sm:inline">이미지 저장</span>
+                <span className="hidden sm:inline">공유 이미지 저장</span>
               </button>
             )}
             <button onClick={onClose} className="rounded-xl hover:bg-gray-700/60 text-gray-400 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-10 min-w-10">
@@ -346,8 +346,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
             <p className="text-base">이 날 기록된 경기가 없습니다</p>
           </div>
         ) : (
-          /* 캡처 모드에서는 overflow 제한 해제 → 컨텐츠가 부모 스크롤에 맡겨짐 */
-          <div className={captureMode ? '' : 'flex-1 overflow-y-auto'}>
+          <div className="flex-1 overflow-y-auto">
 
             {/* 탭 1: 전체 스탯 */}
             {activeTab === 'overall' && (() => {
@@ -529,6 +528,29 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
         )}
         </div>
       </div>
+
+      {/* Hidden 공유용 캡처 대상 — 저장 클릭 시에만 렌더 (off-screen) */}
+      {renderingShare && (
+        <div style={{
+          position: 'fixed', left: '-99999px', top: 0,
+          pointerEvents: 'none', opacity: 1,  // opacity 0 이면 html-to-image 가 놓칠 수 있음
+        }} aria-hidden>
+          <div ref={shareCaptureRef}>
+            <ShareableBoxscore
+              dateLabel={dateLabel}
+              games={games.map(g => ({
+                id: g.id, slot_num: g.slot_num,
+                home_team: g.home_team, away_team: g.away_team,
+                home_score: g.home_score, away_score: g.away_score,
+                is_complete: g.is_complete,
+              }))}
+              dailyStats={dailyStats}
+              teamRecords={teamRecords}
+              leagueName="미라클모닝농구단"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
