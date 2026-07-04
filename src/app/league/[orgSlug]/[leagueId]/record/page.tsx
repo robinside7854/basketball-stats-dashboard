@@ -281,6 +281,10 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     if (!slot.home_team_id || !slot.away_team_id) return
     setRosterLoading(true)
     let assignedIrregularIds: string[] = []
+    // roster API 응답의 resolved quarter_id 를 사용 — 게임에 quarter_id 가 null 로 저장되어 있어도
+    // 서버에서 date 매칭으로 자동 유추 후 반환 (그리고 백필). 이 값으로 미배정 풀도 조회해야
+    // 게스트/비정규 선수 추가가 정상 동작.
+    let effectiveQuarterId: string | null = slot.quarter_id ?? null
     const rRes = await fetch(`/api/leagues/${leagueId}/games/${slot.id}/roster`)
     if (rRes.ok) {
       const rd = await rRes.json()
@@ -289,6 +293,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       setHomeRoster(home)
       setAwayRoster(away)
       assignedIrregularIds = rd.assigned_irregular_ids ?? []
+      if (rd.quarter_id) effectiveQuarterId = rd.quarter_id
 
       // 이미 시작된 경기 로드 시: plus_one 충돌 있으면 자동 팝업
       if (slot.is_started) {
@@ -306,8 +311,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       }
     }
     // 미배정 풀: 비정규/미배정 선수 + 이 경기에 출전하지 않는 다른 팀 선수(임대 가능)
-    if (slot.quarter_id) {
-      const qRes = await fetch(`/api/leagues/${leagueId}/quarters/${slot.quarter_id}/players`)
+    if (effectiveQuarterId) {
+      const qRes = await fetch(`/api/leagues/${leagueId}/quarters/${effectiveQuarterId}/players`)
       if (qRes.ok) {
         const qd: IrregularPlayer[] = await qRes.json()
         const assignedSet = new Set(assignedIrregularIds)
