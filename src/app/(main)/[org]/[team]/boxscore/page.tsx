@@ -291,7 +291,8 @@ export default function BoxScorePage() {
       {hintGameId && (() => {
         const players = getHintPlayers(hintGameId)
         return (
-          <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={e => { if (e.target === e.currentTarget) { setHintGameId(null); setHintMvp(''); setHintXf(''); setHintWarrior('') } }}>
             <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm flex flex-col gap-5 shadow-2xl">
               <div className="text-center">
                 <div className="text-xl font-bold mb-1">

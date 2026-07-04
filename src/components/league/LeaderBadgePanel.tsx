@@ -123,7 +123,7 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
       {openCat && activeCategory && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
              onClick={e => { if (e.target === e.currentTarget) setOpenCat(null) }}>
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setOpenCat(null)} />
           <div className="relative z-10 w-full max-w-md max-h-[80vh] bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
             <div className={`flex items-center justify-between px-5 py-3.5 border-b border-gray-800/60 ${activeCategory.bg}`}>
               <div className="flex items-center gap-2">

@@ -19,6 +19,8 @@ export interface UseSwipeOptions {
   threshold?: number
   /** 화면 좌우 엣지 몇 px 는 시작점 무효 (브라우저 back 제스처 충돌 방지). 0 이면 비활성. 기본 20 */
   edgeGuardPx?: number
+  /** 가로 스크롤 가능한 컨테이너(테이블 등) 내부에서 시작한 터치는 무시. 기본 false */
+  guardHorizontalScroll?: boolean
   /** 세로 스와이프 감지 시 콜백 */
   onSwipeUp?: () => void
   onSwipeDown?: (opts: { deltaY: number }) => void
@@ -29,6 +31,19 @@ export interface UseSwipeOptions {
   onDrag?: (dx: number, dy: number) => void
   /** 드래그 종료 시 콜백 (트랜지션 원복 등) */
   onDragEnd?: () => void
+}
+
+/** target 부터 boundary 직전까지 올라가며 가로 스크롤이 실제로 발생하는 요소가 있는지 검사 */
+function isInsideHorizontalScroller(target: EventTarget | null, boundary: Element): boolean {
+  let el = target instanceof Element ? target : null
+  while (el && el !== boundary) {
+    if (el.scrollWidth > el.clientWidth + 1) {
+      const overflowX = getComputedStyle(el).overflowX
+      if (overflowX === 'auto' || overflowX === 'scroll') return true
+    }
+    el = el.parentElement
+  }
+  return false
 }
 
 export interface SwipeHandlers {
@@ -47,6 +62,7 @@ export function useSwipe(opts: UseSwipeOptions): SwipeHandlers {
   const {
     threshold = 50,
     edgeGuardPx = 20,
+    guardHorizontalScroll = false,
     onSwipeUp, onSwipeDown, onSwipeLeft, onSwipeRight,
     onDrag, onDragEnd,
   } = opts
@@ -64,6 +80,11 @@ export function useSwipe(opts: UseSwipeOptions): SwipeHandlers {
         startRef.current = null
         return
       }
+    }
+    // 가로 스크롤 컨테이너 가드 — 테이블 스크롤 중 손을 떼면 탭 전환이 오발동하는 것 방지
+    if (guardHorizontalScroll && isInsideHorizontalScroller(e.target, e.currentTarget)) {
+      startRef.current = null
+      return
     }
     startRef.current = { x: t.clientX, y: t.clientY, time: Date.now() }
   }

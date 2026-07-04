@@ -388,4 +388,20 @@
   .animate-ball-spin {
     animation: ball-spin 1.2s linear infinite;
   }
+
+  /* 서브탭 스와이프 전환 — 목적지 페이지가 스와이프 반대편에서 슬라이드 인 (SubTabSwipeArea) */
+  @keyframes subtab-from-right {
+    from { transform: translateX(40px); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+  @keyframes subtab-from-left {
+    from { transform: translateX(-40px); opacity: 0; }
+    to   { transform: translateX(0);     opacity: 1; }
+  }
+  .subtab-enter-from-right {
+    animation: subtab-from-right 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .subtab-enter-from-left {
+    animation: subtab-from-left 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }

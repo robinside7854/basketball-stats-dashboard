@@ -118,7 +118,8 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
       style={{
         paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
         paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
-      }}>
+      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       {/* 1회 burst — 3.5s (3차 스태거 200+ particle). trigger 가 같은 값이면 재발화 X */}
       <Confetti trigger={trigger} durationMs={3500} />
       <div className="relative max-w-4xl mx-auto">

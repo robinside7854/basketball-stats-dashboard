@@ -403,7 +403,8 @@ function RecordPageInner() {
     <div className="space-y-3">
       {/* Feature 3: opponent score modal */}
       {showCompleteModal && (
-        <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setShowCompleteModal(false) }}>
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 flex flex-col gap-5 shadow-2xl w-full max-w-sm">
             <div className="text-center">
               <div className="text-2xl mb-1">🏁</div>
