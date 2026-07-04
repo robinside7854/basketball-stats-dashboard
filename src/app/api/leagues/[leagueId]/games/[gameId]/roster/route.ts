@@ -23,8 +23,38 @@ export async function GET(
 
   if (gErr || !game) return NextResponse.json({ error: '게임을 찾을 수 없습니다' }, { status: 404 })
 
-  // 분기 배정이 없는 경우: 전체 선수를 unassigned로 반환
-  if (!game.quarter_id || (!game.home_team_id && !game.away_team_id)) {
+  // game.quarter_id 가 null 인 경우, game.date 로부터 quarter 를 유추 (자동 매칭 + 백필)
+  // Q3 팀 정체성 변경 등 후속 분기가 도입된 이후에도 예전에 만든 game 이 quarter_id=null 로 남아
+  // 로스터가 안 보이는 버그를 방지.
+  let resolvedQuarterId: string | null = game.quarter_id
+  if (!resolvedQuarterId && game.date) {
+    const { data: quarters } = await supabase
+      .from('league_quarters')
+      .select('id, start_date, end_date, is_current, year, quarter')
+      .eq('league_id', leagueId)
+    // 1) start_date/end_date 매칭 시도
+    const matched = (quarters ?? []).find(q =>
+      q.start_date && q.end_date && game.date >= q.start_date && game.date <= q.end_date,
+    )
+    if (matched) resolvedQuarterId = matched.id
+    // 2) 폴백: is_current=true 인 분기
+    if (!resolvedQuarterId) {
+      const current = (quarters ?? []).find(q => q.is_current)
+      if (current) resolvedQuarterId = current.id
+    }
+
+    // 3) 성공하면 game 에 자동 백필 (write-through, 이후 요청은 바로 이 값 사용)
+    if (resolvedQuarterId) {
+      await supabase
+        .from('league_games')
+        .update({ quarter_id: resolvedQuarterId })
+        .eq('id', gameId)
+        .eq('league_id', leagueId)
+    }
+  }
+
+  // 분기 여전히 없거나 팀 배정 자체가 없는 경우: 전체 선수를 unassigned로 반환
+  if (!resolvedQuarterId || (!game.home_team_id && !game.away_team_id)) {
     const { data: players } = await supabase
       .from('league_players')
       .select('id, name, number, position')
@@ -38,7 +68,7 @@ export async function GET(
     })
   }
 
-  // 분기별 팀 배정 선수 조회
+  // 분기별 팀 배정 선수 조회 (resolvedQuarterId 사용)
   const teamIds = [game.home_team_id, game.away_team_id].filter(Boolean) as string[]
 
   const { data: memberships, error: mErr } = await supabase
@@ -50,7 +80,7 @@ export async function GET(
       league_players!inner(id, name, number, position, birth_date, plus_one)
     `)
     .eq('league_id', leagueId)
-    .eq('quarter_id', game.quarter_id)
+    .eq('quarter_id', resolvedQuarterId)
     .in('team_id', teamIds)
 
   if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 })
@@ -178,7 +208,7 @@ export async function GET(
     home,
     away,
     unassigned: [],
-    quarter_id: game.quarter_id,
+    quarter_id: resolvedQuarterId,
     assigned_irregular_ids: assignedIrregularIds,
   })
 }
