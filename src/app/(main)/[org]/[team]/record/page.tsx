@@ -545,37 +545,43 @@ function RecordPageInner() {
       </div>
 
       {currentGame ? (
-        <>
-          <div className="lg:hidden flex rounded-xl overflow-hidden border border-gray-700 mb-3">
-            <button
-              onClick={() => setMobileTab('record')}
-              className={`flex-1 py-2.5 text-sm font-bold transition-colors ${mobileTab === 'record' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}
-            >
-              📝 기록
-            </button>
-            <button
-              onClick={() => setMobileTab('view')}
-              className={`flex-1 py-2.5 text-sm font-bold border-l border-gray-700 transition-colors ${mobileTab === 'view' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}
-            >
-              📹 영상·스탯
-            </button>
-          </div>
+        <div className="lg:grid lg:grid-cols-3 lg:gap-4">
+          {/* 모바일: display:contents → 영상 sticky의 기준이 그리드 전체가 되어 기록 중에도 항상 보임 */}
+          <div className="contents lg:block lg:col-span-2 lg:space-y-3">
+            {/* 영상 — 모바일에서 상단 고정 (영상 없으면 모바일에서는 숨김) */}
+            <div className={`mb-3 lg:mb-0 lg:static lg:z-auto lg:block ${currentGame.youtube_url ? 'sticky top-[52px] z-30 bg-gray-950' : 'hidden'}`}>
+              <YouTubePlayer
+                key={currentGame.id}
+                youtubeUrl={currentGame.youtube_url || ''}
+                startOffset={currentGame.youtube_start_offset}
+                resumeAt={ytResumeAt}
+              />
+            </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className={`lg:col-span-2 space-y-3 ${mobileTab !== 'view' ? 'hidden lg:block' : ''}`}>
-            <YouTubePlayer
-              key={currentGame.id}
-              youtubeUrl={currentGame.youtube_url || ''}
-              startOffset={currentGame.youtube_start_offset}
-              resumeAt={ytResumeAt}
-            />
+            {/* 모바일 탭 — 영상은 항상 표시, 아래 영역만 기록/스탯 전환 */}
+            <div className="lg:hidden flex rounded-xl overflow-hidden border border-gray-700 mb-3">
+              <button
+                onClick={() => setMobileTab('record')}
+                className={`flex-1 py-2.5 text-sm font-bold transition-colors ${mobileTab === 'record' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}
+              >
+                📝 기록
+              </button>
+              <button
+                onClick={() => setMobileTab('view')}
+                className={`flex-1 py-2.5 text-sm font-bold border-l border-gray-700 transition-colors ${mobileTab === 'view' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}
+              >
+                📊 스탯
+              </button>
+            </div>
 
             {(gameStarted || gameComplete) && (
-              <LiveStatsPanel gameId={currentGame.id} refreshKey={statsRefresh} />
+              <div className={`mb-3 lg:mb-0 ${mobileTab !== 'view' ? 'hidden lg:block' : ''}`}>
+                <LiveStatsPanel gameId={currentGame.id} refreshKey={statsRefresh} />
+              </div>
             )}
           </div>
 
-          <div className={`lg:sticky lg:top-[60px] lg:self-start bg-gray-900 border border-gray-800 rounded-xl p-3 max-h-[calc(100vh-80px)] overflow-y-auto space-y-3 ${mobileTab !== 'record' ? 'hidden lg:block' : ''}`}>
+          <div className={`lg:sticky lg:top-[60px] lg:self-start bg-gray-900 border border-gray-800 rounded-xl p-3 lg:max-h-[calc(100vh-80px)] lg:overflow-y-auto space-y-3 ${mobileTab !== 'record' ? 'hidden lg:block' : ''}`}>
             {gameComplete ? (
               <div className="flex flex-col items-center justify-center text-center gap-4 py-10">
                 <div className="text-5xl">✅</div>
@@ -670,7 +676,6 @@ function RecordPageInner() {
             )}
           </div>
         </div>
-        </>
       ) : (
         <div className="flex items-center justify-center py-20 text-gray-500">
           <div className="text-center">

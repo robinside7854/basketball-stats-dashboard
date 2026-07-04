@@ -1190,9 +1190,10 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             <div className="lg:grid lg:grid-cols-[5fr_3fr] lg:gap-3 space-y-4 lg:space-y-0">
 
               {/* ── 좌측: 비디오 + 경기 제어 (sticky, 뷰포트 높이 고정) ── */}
-              <div className="lg:sticky lg:top-[52px] space-y-2">
+              {/* 모바일: display:contents → 비디오 sticky 기준이 그리드 전체가 되어 기록 중에도 항상 보임 */}
+              <div className="contents lg:block lg:sticky lg:top-[52px] lg:space-y-2">
                 {selectedSlot.youtube_url ? (
-                  <div className="relative bg-black rounded-xl overflow-hidden">
+                  <div className="sticky top-[60px] z-[5] mb-2 lg:relative lg:top-auto lg:z-auto lg:mb-0 bg-black rounded-xl overflow-hidden">
                     <YouTubePlayer
                       key={selectedSlot.youtube_url ?? selectedSlot.id}
                       youtubeUrl={selectedSlot.youtube_url}
@@ -1260,13 +1261,13 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                     )}
                   </div>
                 ) : (
-                  <div className="bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-center h-40 text-gray-500 text-sm">
+                  <div className="mb-2 lg:mb-0 bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-center h-40 text-gray-500 text-sm">
                     영상 미연동
                   </div>
                 )}
 
                 {/* 경기 시작/마감 */}
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+                <div className="mb-4 lg:mb-0 bg-gray-900 border border-gray-800 rounded-xl p-3">
                   {selectedSlot?.is_complete ? (
                     <div className="flex items-center justify-center gap-2 py-1.5 rounded-lg bg-gray-800/60 border border-gray-700/50 text-gray-500 text-xs font-medium">
                       <CheckCircle2 size={13} className="text-gray-600" />경기 마감 완료
