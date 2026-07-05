@@ -216,6 +216,21 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     pct: ftShots.length > 0 ? Math.round((ftShots.filter(e => e.result === 'made').length / ftShots.length) * 1000) / 10 : 0,
   }
 
+  // ── 코트 4존 (리그 카드 슛차트 HalfCourtShotChart 용) ──────────
+  // post / layup(=layup+drive) / mid / three, 각 { m, a, fg_pct }
+  function courtZoneAgg(types: string[]) {
+    const shots = playerEvents.filter(e => types.includes(e.type))
+    const a = shots.length
+    const m = shots.filter(e => e.result === 'made').length
+    return { m, a, fg_pct: a > 0 ? Math.round((m / a) * 1000) / 10 : 0 }
+  }
+  const courtZones = {
+    post:  courtZoneAgg(['shot_post']),
+    layup: courtZoneAgg(['shot_layup', 'shot_2p_drive']),
+    mid:   courtZoneAgg(['shot_2p_mid']),
+    three: courtZoneAgg(['shot_3p']),
+  }
+
   // ── 대회별 성적 ──────────────────────────────────────────────
   const { data: allTournaments } = await supabase
     .from('tournaments').select('*')
@@ -405,6 +420,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   return NextResponse.json({
     player, recentGames, shotBreakdown, totalShotAttempts, freeThrow,
     tournamentStats, awards, quarterPts, astPaint, splits,
-    shotZones, totalZonedAttempts, untaggedAttempts,
+    shotZones, totalZonedAttempts, untaggedAttempts, courtZones,
   })
 }

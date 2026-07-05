@@ -11,7 +11,7 @@ import BadgeIcon, { TIER_STYLES } from '@/components/badges/BadgeIcon'
 
 const BadgeMasterbook = dynamic(() => import('@/components/roster/BadgeMasterbook'), { ssr: false })
 const GameBoxScoreModal = dynamic(() => import('@/components/GameBoxScoreModal'), { ssr: false })
-const HalfCourtChart = dynamic(() => import('@/components/roster/HalfCourtChart'), { ssr: false })
+const HalfCourtShotChart = dynamic(() => import('@/components/league/HalfCourtShotChart'), { ssr: false })
 
 interface ShotStat { label: string; made: number; attempted: number; pct: number }
 
@@ -123,9 +123,9 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
     losses: { gp: number; pts_avg: number; reb_avg: number; ast_avg: number; fg_pct: number; fg3_pct: number; gmsc_avg: number } | null
     byRound: Array<{ name: string; gp: number; pts_avg: number; reb_avg: number; ast_avg: number; fg_pct: number; fg3_pct: number; gmsc_avg: number }>
   } | null>(null)
-  const [shotZones, setShotZones] = useState<Record<string, { made: number; attempted: number; pct: number }>>({})
-  const [zoneTotalAttempts, setZoneTotalAttempts] = useState(0)
-  const [zoneUntagged, setZoneUntagged] = useState(0)
+  type CourtZone = { m: number; a: number; fg_pct: number }
+  const EMPTY_COURT_ZONES = { post: { m: 0, a: 0, fg_pct: 0 }, layup: { m: 0, a: 0, fg_pct: 0 }, mid: { m: 0, a: 0, fg_pct: 0 }, three: { m: 0, a: 0, fg_pct: 0 } }
+  const [courtZones, setCourtZones] = useState<{ post: CourtZone; layup: CourtZone; mid: CourtZone; three: CourtZone }>(EMPTY_COURT_ZONES)
 
   useEffect(() => {
     fetch(`/api/players/${playerId}/stats`)
@@ -140,9 +140,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
         setAwards(d.awards ?? null)
         setQuarterPts(d.quarterPts ?? null)
         setSplits(d.splits ?? null)
-        setShotZones(d.shotZones ?? {})
-        setZoneTotalAttempts(d.totalZonedAttempts ?? 0)
-        setZoneUntagged(d.untaggedAttempts ?? 0)
+        setCourtZones(d.courtZones ?? EMPTY_COURT_ZONES)
         setLoading(false)
       })
   }, [playerId])
@@ -726,17 +724,15 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
 
               {/* 슛 차트 (코트 위치별 야투율) */}
               <div className={`${mobileTab === 'career' ? 'block' : 'hidden'} md:block`}>
-              {(zoneTotalAttempts > 0 || zoneUntagged > 0) && (
+              {(courtZones.post.a + courtZones.layup.a + courtZones.mid.a + courtZones.three.a) > 0 && (
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
                   <div className="flex items-baseline justify-between mb-3">
                     <h2 className="text-base font-semibold text-gray-300">슛 차트</h2>
-                    <span className="text-[11px] text-gray-600">코트 위치별 야투율 (Heatmap)</span>
+                    <span className="text-[11px] text-gray-600">코트 위치별 야투율</span>
                   </div>
-                  <HalfCourtChart
-                    zones={shotZones}
-                    totalAttempts={zoneTotalAttempts}
-                    untaggedAttempts={zoneUntagged}
-                  />
+                  <div className="flex justify-center">
+                    <HalfCourtShotChart zones={courtZones} size={420} />
+                  </div>
                 </div>
               )}
               </div>
