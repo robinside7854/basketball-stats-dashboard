@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import HighlightBanner, { type HighlightPlayer } from '@/components/league/HighlightBanner'
+import HighlightBanner, { type HighlightPlayer, type HighlightTeam } from '@/components/league/HighlightBanner'
+import { makeIdentityResolver, type QuarterOverride, type TeamBase } from '@/lib/stats/teamIdentity'
 import LeagueLeadersGrid from '@/components/league/LeagueLeadersGrid'
 import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
@@ -9,12 +10,15 @@ import type { League } from '@/types/league'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
 
-// 최근 N일 MVP / Hot Hand 계산 (서버 컴포넌트 안에서 직접)
+// 최근 N일 하이라이트 3종 계산:
+//   1) topTeam: 이 주 최고 승률 프랜차이즈 (팀명 + 승/패/승률)
+//   2) scoringKing: 이 주 누적 득점 최다 선수 (평득 아닌 누적 PTS)
+//   3) hotHand: 이 주 3P% 최고 (최소 5회 시도)
 async function computeHighlights(
   supabase: ReturnType<typeof createClient>,
   leagueId: string,
   daysAgo: number = 7,
-): Promise<{ mvp: HighlightPlayer | null; hotHand: HighlightPlayer | null; rangeLabel: string }> {
+): Promise<{ topTeam: HighlightTeam | null; scoringKing: HighlightPlayer | null; hotHand: HighlightPlayer | null; rangeLabel: string }> {
   const today = new Date()
   const from = new Date(today.getTime() - daysAgo * 24 * 60 * 60 * 1000)
   const fromIso = from.toISOString().slice(0, 10)
@@ -22,19 +26,62 @@ async function computeHighlights(
   const fmt = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`
   const rangeLabel = `${fmt(from)} ~ ${fmt(today)}`
 
-  // 최근 N일 is_started 게임만 (마감 안 된 경기 포함)
+  // 최근 N일 is_started 게임만 (마감 안 된 경기 포함) — 팀 W/L 계산 위해 quarter_id/score/is_exhibition 도 가져옴
   const { data: games } = await supabase
     .from('league_games')
-    .select('id, plus_one_player_id')
+    .select('id, plus_one_player_id, home_team_id, away_team_id, home_score, away_score, is_exhibition, is_complete, quarter_id')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     .gte('date', fromIso)
     .lte('date', toIso)
   const gameIds = (games ?? []).map(g => g.id)
-  if (gameIds.length === 0) return { mvp: null, hotHand: null, rangeLabel }
+  if (gameIds.length === 0) return { topTeam: null, scoringKing: null, hotHand: null, rangeLabel }
   const gamePlusOneMap: Record<string, string | null> = Object.fromEntries(
     (games ?? []).map(g => [g.id as string, (g.plus_one_player_id as string | null) ?? null])
   )
+
+  // 팀 정체성 resolver 로드 (프랜차이즈 분리)
+  const [{ data: teamsRaw }, { data: overridesRaw }] = await Promise.all([
+    supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
+    supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
+  ])
+  const identityResolver = makeIdentityResolver(
+    (teamsRaw ?? []) as TeamBase[],
+    (overridesRaw ?? []) as QuarterOverride[],
+  )
+
+  // 프랜차이즈 W/L 집계 (완료 경기, 친선 제외)
+  type TeamAgg = { key: string; name: string; color: string; W: number; L: number; D: number }
+  const teamAgg = new Map<string, TeamAgg>()
+  const ensureTeam = (team_id: string | null, quarter_id: string | null): TeamAgg | null => {
+    const id = identityResolver(team_id, quarter_id)
+    if (!id) return null
+    let a = teamAgg.get(id.key)
+    if (!a) {
+      a = { key: id.key, name: id.display_name, color: id.color, W: 0, L: 0, D: 0 }
+      teamAgg.set(id.key, a)
+    }
+    return a
+  }
+  for (const g of (games ?? [])) {
+    if (!g.is_complete || g.is_exhibition) continue
+    const h = ensureTeam(g.home_team_id as string | null, g.quarter_id as string | null)
+    const a = ensureTeam(g.away_team_id as string | null, g.quarter_id as string | null)
+    if (!h || !a) continue
+    const hs = (g.home_score as number) ?? 0
+    const as_ = (g.away_score as number) ?? 0
+    if (hs > as_) { h.W++; a.L++ }
+    else if (hs < as_) { a.W++; h.L++ }
+    else { h.D++; a.D++ }
+  }
+  // 이 주 최고 승률팀 — 승률 desc → W desc → 최소 1경기 이상
+  const teamsList = [...teamAgg.values()]
+    .filter(t => (t.W + t.L + t.D) > 0)
+    .map(t => ({ ...t, rate: (t.W + t.L + t.D) > 0 ? t.W / (t.W + t.L + t.D) : 0 }))
+    .sort((a, b) => b.rate - a.rate || b.W - a.W)
+  const topTeam: HighlightTeam | null = teamsList[0]
+    ? { name: teamsList[0].name, color: teamsList[0].color, wins: teamsList[0].W, losses: teamsList[0].L, draws: teamsList[0].D, rate: +(teamsList[0].rate * 100).toFixed(1) }
+    : null
 
   // 선수 플러스원 + 메타
   const { data: players } = await supabase
@@ -102,12 +149,12 @@ async function computeHighlights(
     .filter(p => p.gp > 0)
   void SHOT_TYPES  // unused-vars 회피
 
-  // MVP: 누적 PTS 최다
-  const mvp = list.slice().sort((a, b) => b.pts - a.pts)[0] ?? null
+  // 이 주 득점왕: 누적 PTS 최다 (평득 아님)
+  const scoringKing = list.slice().sort((a, b) => b.pts - a.pts)[0] ?? null
   // Hot Hand: 3P% 최고 (최소 5회 시도)
   const hotHand = list.filter(p => p.fg3a >= 5).sort((a, b) => b.fg3_pct - a.fg3_pct)[0] ?? null
 
-  return { mvp, hotHand, rangeLabel }
+  return { topTeam, scoringKing, hotHand, rangeLabel }
 }
 
 export default async function LeagueDetailPage({
@@ -165,10 +212,11 @@ export default async function LeagueDetailPage({
         </div>
       )}
 
-      {/* 이 주의 하이라이트 (최근 7일 MVP + Hot Hand) */}
+      {/* 이 주의 하이라이트 — 3종: 최고 승률 팀 + 이 주 득점왕 + 3점왕 */}
       <HighlightBanner
         leagueId={leagueId}
-        mvp={highlights.mvp}
+        topTeam={highlights.topTeam}
+        scoringKing={highlights.scoringKing}
         hotHand={highlights.hotHand}
         dateRangeLabel={highlights.rangeLabel}
       />
