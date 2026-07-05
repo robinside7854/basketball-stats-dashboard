@@ -1,8 +1,14 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import type { LeagueStanding, LeagueTeam } from '@/types/league'
+import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 
 // GET /api/leagues/[leagueId]/standings?quarterId=...
+//
+// 프랜차이즈 분리:
+//   quarterId 없음(전체) 이어도 락다운/굿모닝 등 정체성이 다른 팀은 별도 행으로 분리.
+//   같은 team_id 여도 quarter override 로 이름이 다르면 프랜차이즈 별개로 취급.
+//   → identityKey = `${team_id}::${display_name}` 로 그룹핑
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
@@ -18,20 +24,8 @@ export async function GET(
   if (teamsError) return NextResponse.json({ error: teamsError.message }, { status: 500 })
   if (!teamsBase || teamsBase.length === 0) return NextResponse.json([])
 
-  // 분기별 팀명/색상 override 자동 적용
-  let teams = teamsBase
-  if (quarterId) {
-    const { data: overrides } = await supabase
-      .from('league_team_quarter_overrides')
-      .select('team_id, name, color')
-      .eq('league_id', leagueId)
-      .eq('quarter_id', quarterId)
-    const ovMap = Object.fromEntries((overrides ?? []).map(o => [o.team_id, o]))
-    teams = teamsBase.map(t => {
-      const ov = ovMap[t.id]
-      return ov ? { ...t, name: ov.name ?? t.name, color: ov.color ?? t.color } : t
-    })
-  }
+  // identity resolver 로드 (전체 override 포함)
+  const identityResolver = await loadIdentityResolver(supabase, leagueId)
 
   let gQuery = supabase
     .from('league_games')
@@ -79,15 +73,40 @@ export async function GET(
     }
   }
 
+  // identityKey 로 standing 그룹핑 (프랜차이즈 분리)
+  //   예: team_A + Q1-Q2 → 락다운 identityKey, team_A + Q3+ → 굿모닝 identityKey
+  //   → 완전히 별개 프랜차이즈로 카운트
   const standing: Record<string, LeagueStanding> = {}
-  for (const t of teams as LeagueTeam[]) {
-    standing[t.id] = { team: t, played: 0, wins: 0, draws: 0, losses: 0, points: 0, goals_for: 0, goals_against: 0, goal_diff: 0 }
+  const ensureRow = (
+    team_id: string,
+    quarter_id: string | null,
+  ): LeagueStanding | null => {
+    const id = identityResolver(team_id, quarter_id)
+    if (!id) return null
+    if (!standing[id.key]) {
+      // team 데이터를 identity 정보로 override 하여 반환
+      const baseTeam = teamsBase.find(t => t.id === team_id) as LeagueTeam | undefined
+      if (!baseTeam) return null
+      const teamWithIdentity: LeagueTeam = {
+        ...baseTeam,
+        name: id.display_name,
+        color: id.color,
+        // identityKey 를 id 로 반환 (클라이언트가 unique key 로 사용)
+        id: id.key,
+      }
+      standing[id.key] = {
+        team: teamWithIdentity,
+        played: 0, wins: 0, draws: 0, losses: 0, points: 0,
+        goals_for: 0, goals_against: 0, goal_diff: 0,
+      }
+    }
+    return standing[id.key]
   }
 
   for (const g of completedGames ?? []) {
     if (!g.home_team_id || !g.away_team_id) continue
-    const h = standing[g.home_team_id]
-    const a = standing[g.away_team_id]
+    const h = ensureRow(g.home_team_id, g.quarter_id)
+    const a = ensureRow(g.away_team_id, g.quarter_id)
     if (!h || !a) continue
 
     const es = eventScoreMap[g.id]

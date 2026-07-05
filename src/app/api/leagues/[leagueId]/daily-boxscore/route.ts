@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { makeIdentityResolver, type QuarterOverride, type TeamBase } from '@/lib/stats/teamIdentity'
 
 // GET /api/leagues/[leagueId]/daily-boxscore?date=YYYY-MM-DD
 export async function GET(
@@ -18,6 +19,7 @@ export async function GET(
     { data: players },
     { data: teams },
     { data: memberships },
+    { data: overrides },
   ] = await Promise.all([
     supabase
       .from('league_games')
@@ -29,7 +31,14 @@ export async function GET(
     supabase.from('league_players').select('id, name, number, plus_one').eq('league_id', leagueId),
     supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
     supabase.from('league_player_quarters').select('league_player_id, quarter_id, team_id').eq('league_id', leagueId),
+    supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
   ])
+
+  // 프랜차이즈 정체성 resolver — game 의 quarter_id 기준으로 팀명/색상 override 적용
+  const identityResolver = makeIdentityResolver(
+    (teams ?? []) as TeamBase[],
+    (overrides ?? []) as QuarterOverride[],
+  )
 
   if (!games || games.length === 0) return NextResponse.json({ games: [], daily_stats: [] })
 
@@ -40,7 +49,7 @@ export async function GET(
     .in('league_game_id', gameIds)
     .not('league_player_id', 'is', null)
 
-  const teamMap = Object.fromEntries((teams ?? []).map(t => [t.id, t]))
+  // teamMap 제거 — identityResolver 로 대체 (Q3 override 반영)
   const playerMap = Object.fromEntries((players ?? []).map(p => [p.id, p]))
   const plusOneSet = new Set((players ?? []).filter(p => p.plus_one).map(p => p.id))
   const gamePlusOneMap: Record<string, string | null> = {}
@@ -120,25 +129,25 @@ export async function GET(
 
   // Build game list with boxscores
   const gameList = games.map(g => {
-    const homeTeam = g.home_team_id ? teamMap[g.home_team_id] : null
-    const awayTeam = g.away_team_id ? teamMap[g.away_team_id] : null
     const qId = g.quarter_id as string | null
+    // game.quarter_id 를 기준으로 identity 해결 (Q3 게임이면 굿모닝/챗지피지기 등으로)
+    const homeIdentity = g.home_team_id ? identityResolver(g.home_team_id, qId) : null
+    const awayIdentity = g.away_team_id ? identityResolver(g.away_team_id, qId) : null
     const gps = gamePlayerStats[g.id] ?? {}
 
     const rows = Object.entries(gps).map(([pid, s]) => {
       const p = playerMap[pid]
       // 1차: league_game_players (이 경기 한정 배정 — 비정규/타팀 임시 출전) → 2차: league_player_quarters (정규 분기 소속)
-      // 이 우선순위가 반대로 되어 있으면 정규 팀으로 뛰지 않은 비정규 출전 선수가 본인의 정규 팀으로 잡혀
-      // '팀 비교' 등의 team_id 매칭에서 누락된다.
       const teamId = gpTeamMap[g.id]?.[pid] || (qId && qTeamMap[qId]?.[pid]) || null
-      const team = teamId ? teamMap[teamId] : null
+      // 선수 팀 표시도 identity 기반 (락다운 vs 굿모닝 분리)
+      const playerIdentity = teamId ? identityResolver(teamId, qId) : null
       return {
         player_id: pid,
         name: p?.name ?? '?',
         number: p?.number ?? null,
         team_id: teamId ?? null,
-        team_name: team?.name ?? null,
-        team_color: team?.color ?? null,
+        team_name: playerIdentity?.display_name ?? null,
+        team_color: playerIdentity?.color ?? null,
         pts: s.pts, reb: s.reb, oreb: s.oreb, dreb: s.dreb,
         ast: s.ast, stl: s.stl, blk: s.blk, tov: s.tov, pf: s.pf,
         fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a, ftm: s.ftm, fta: s.fta,
@@ -151,8 +160,8 @@ export async function GET(
       id: g.id, slot_num: g.slot_num, round_num: g.round_num,
       is_complete: g.is_complete, is_started: g.is_started,
       home_score: g.home_score, away_score: g.away_score,
-      home_team: homeTeam ? { id: homeTeam.id, name: homeTeam.name, color: homeTeam.color } : null,
-      away_team: awayTeam ? { id: awayTeam.id, name: awayTeam.name, color: awayTeam.color } : null,
+      home_team: homeIdentity ? { id: homeIdentity.team_id, name: homeIdentity.display_name, color: homeIdentity.color } : null,
+      away_team: awayIdentity ? { id: awayIdentity.team_id, name: awayIdentity.display_name, color: awayIdentity.color } : null,
       youtube_url: g.youtube_url ?? null,
       youtube_start_offset: g.youtube_start_offset ?? 0,
       players: rows,
