@@ -13,6 +13,7 @@ const ORDER: SwipeMenuItem[] = [
   { seg: 'record', label: '경기 기록' },
   { seg: 'stats', label: '스탯' },
   { seg: 'awards', label: '어워즈' },
+  { seg: 'columns', label: '매거진' },
   { seg: 'stathead', label: 'Stathead' },
   { seg: 'settings', label: '설정' },
 ]

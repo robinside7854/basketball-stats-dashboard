@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
-import { Lock, Unlock, Sun, Moon, Search, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Trophy, Sparkles } from 'lucide-react'
+import { Lock, Unlock, Sun, Moon, Search, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Trophy, Sparkles, Newspaper } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import GlobalSearchModal from '@/components/league/GlobalSearchModal'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
@@ -23,6 +23,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/record`] },
     { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`] },
     { href: `${base}/awards`, label: '어워즈', match: [`${base}/awards`] },
+    { href: `${base}/columns`, label: '매거진', match: [`${base}/columns`] },
     { href: `${base}/stathead`, label: 'Stathead', match: [`${base}/stathead`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
     { href: `${base}/settings`, label: '설정', match: [`${base}/settings`] },
@@ -108,6 +109,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
   ]
   const moreTabs = [
     { href: `${base}/awards`, label: '어워즈', Icon: Trophy },
+    { href: `${base}/columns`, label: '매거진', Icon: Newspaper },
     { href: `${base}/stathead`, label: 'Stathead', Icon: Sparkles },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', Icon: ClipboardList }] : []),
     { href: `${base}/settings`, label: '설정',   Icon: Settings },
