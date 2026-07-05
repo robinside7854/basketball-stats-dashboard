@@ -10,8 +10,10 @@ import { toast } from 'sonner'
 import {
   Lock, Loader2, Play, Square, ChevronLeft,
   CheckCircle2, Circle, Youtube, RefreshCw, UserPlus, ClipboardList,
+  CalendarDays,
 } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
+import EmptyState from '@/components/league/EmptyState'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
 import LeagueEventInputPad from '@/components/league/LeagueEventInputPad'
 import LeagueSubstitutionPanel from '@/components/league/LeagueSubstitutionPanel'
@@ -871,10 +873,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   // ── 날짜 없음 ─────────────────────────────────────────────
   if (scheduleDates.length === 0) {
     return (
-      <div className="text-center py-16 text-gray-500">
-        <p>등록된 경기 일정이 없습니다</p>
-        <p className="text-xs mt-1 text-gray-600">일정 탭에서 날짜를 먼저 추가하세요</p>
-      </div>
+      <EmptyState
+        Icon={CalendarDays}
+        title="등록된 경기 일정이 없습니다"
+        description="경기 기록을 하려면 먼저 '일정' 탭에서 경기 날짜를 추가해 주세요."
+      />
     )
   }
 

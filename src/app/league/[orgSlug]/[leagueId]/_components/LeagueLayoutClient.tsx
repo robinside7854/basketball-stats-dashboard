@@ -99,6 +99,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
 function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId: string; showDraft: boolean }) {
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
+  const { isEditMode } = useLeagueEditMode()
   const base = `/league/${orgSlug}/${leagueId}`
 
   const mainTabs = [
@@ -117,6 +118,8 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
 
   const isActive = (href: string) =>
     href === base ? pathname === base : pathname.startsWith(href)
+  // 더보기 그룹 중 하나가 현재 페이지면 더보기 버튼도 활성화 표시
+  const moreGroupActive = moreTabs.some(t => isActive(t.href))
 
   return (
     <>
@@ -127,17 +130,17 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
           <div className="lg:hidden fixed bottom-14 inset-x-0 z-50 bg-gray-900 border-t border-gray-800 shadow-2xl rounded-t-2xl">
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800">
               <span className="text-sm font-bold text-white">더보기</span>
-              <button onClick={() => setMoreOpen(false)} className="text-gray-500 hover:text-white p-1 cursor-pointer">
-                <X size={16} />
+              <button onClick={() => setMoreOpen(false)} aria-label="더보기 닫기" className="text-gray-400 hover:text-white p-1.5 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center">
+                <X size={18} />
               </button>
             </div>
             <div className="grid grid-cols-3 gap-1 p-3">
               {moreTabs.map(({ href, label, Icon }) => (
                 <Link key={href} href={href} onClick={() => setMoreOpen(false)}
-                  className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl transition-colors ${
-                    isActive(href) ? 'bg-blue-600/20 text-blue-400' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl transition-colors min-h-[64px] ${
+                    isActive(href) ? 'bg-blue-600/25 text-blue-300 ring-1 ring-blue-500/40' : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                   }`}>
-                  <Icon size={22} />
+                  <Icon size={22} strokeWidth={isActive(href) ? 2.25 : 1.75} />
                   <span className="text-xs font-semibold">{label}</span>
                 </Link>
               ))}
@@ -147,24 +150,52 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
         </>
       )}
 
-      {/* 하단 탭바 */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-gray-900/95 backdrop-blur-md border-t border-gray-800">
-        <div className="flex items-center justify-around h-14">
-          {mainTabs.map(({ href, label, Icon }) => (
-            <Link key={href} href={href}
-              className={`flex flex-col items-center gap-0.5 px-4 py-1 transition-colors ${
-                isActive(href) ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'
-              }`}>
-              <Icon size={21} />
-              <span className="text-xs font-semibold">{label}</span>
-            </Link>
-          ))}
-          <button onClick={() => setMoreOpen(v => !v)}
-            className={`flex flex-col items-center gap-0.5 px-4 py-1 transition-colors cursor-pointer ${
-              moreOpen ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'
-            }`}>
-            <MoreHorizontal size={21} />
-            <span className="text-xs font-semibold">더보기</span>
+      {/* 하단 탭바 — 편집 모드 시 상단 얇은 blue 라인으로 상태 힌트 */}
+      <nav
+        aria-label="주요 메뉴"
+        className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-gray-900/95 backdrop-blur-md border-t ${isEditMode ? 'border-blue-500/60' : 'border-gray-800'}`}
+      >
+        <div className="flex items-stretch justify-around h-14">
+          {mainTabs.map(({ href, label, Icon }) => {
+            const active = isActive(href)
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? 'page' : undefined}
+                className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 px-2 min-h-[56px] transition-colors ${
+                  active ? 'text-blue-400' : 'text-gray-400 active:text-gray-200'
+                }`}
+              >
+                {/* 액티브 인디케이터 — 상단 짧은 라인 */}
+                {active && (
+                  <span
+                    aria-hidden
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-b-full bg-blue-400"
+                  />
+                )}
+                <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
+                <span className={`text-[11px] ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
+              </Link>
+            )
+          })}
+          <button
+            onClick={() => setMoreOpen(v => !v)}
+            aria-label="더보기 메뉴 열기"
+            aria-expanded={moreOpen}
+            aria-current={moreGroupActive && !moreOpen ? 'page' : undefined}
+            className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 px-2 min-h-[56px] transition-colors cursor-pointer ${
+              moreOpen || moreGroupActive ? 'text-blue-400' : 'text-gray-400 active:text-gray-200'
+            }`}
+          >
+            {(moreOpen || moreGroupActive) && (
+              <span
+                aria-hidden
+                className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-b-full bg-blue-400"
+              />
+            )}
+            <MoreHorizontal size={22} strokeWidth={moreOpen || moreGroupActive ? 2.25 : 1.75} />
+            <span className={`text-[11px] ${moreOpen || moreGroupActive ? 'font-bold' : 'font-medium'}`}>더보기</span>
           </button>
         </div>
         <div style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />

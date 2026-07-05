@@ -6,9 +6,10 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, Pencil, Check, X } from 'lucide-react'
+import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, Pencil, Check, X, Users } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+import EmptyState from '@/components/league/EmptyState'
 import { type EvaluatedBadge } from '@/lib/stats/badges'
 import { LeaderBadgeInline } from '@/components/league/LeaderBadgePanel'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
@@ -1469,20 +1470,27 @@ export default function LeagueRosterPage() {
           <BasketballLoader size={32} />
         </div>
       ) : players.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <p className="text-sm">등록된 선수가 없습니다</p>
-          {isEditMode && <p className="text-xs mt-1">위 버튼으로 선수를 추가하세요</p>}
-        </div>
+        <EmptyState
+          Icon={Users}
+          title="등록된 선수가 없습니다"
+          description="리그에 선수를 등록하면 명단·스탯·리더보드에 자동 반영됩니다."
+          isEditMode={isEditMode}
+          editorHint="위의 '선수 추가' 버튼 또는 CSV 업로드로 시작하세요"
+        />
       ) : filteredAndSortedPlayers.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <p className="text-sm">조건에 맞는 선수가 없습니다</p>
+        <EmptyState
+          Icon={Users}
+          title="조건에 맞는 선수가 없습니다"
+          description="포지션 · 정렬 필터를 조절하거나 초기화해 보세요."
+          size="sm"
+        >
           <button
             onClick={() => { setFilterPosition('ALL'); setSortKey('name') }}
-            className="text-xs text-blue-400 hover:text-blue-300 mt-2 cursor-pointer transition-colors"
+            className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer transition-colors underline underline-offset-2"
           >
             필터 초기화
           </button>
-        </div>
+        </EmptyState>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5 lg:gap-3">
           {filteredAndSortedPlayers.map(p => {

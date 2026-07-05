@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2 } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
+import EmptyState from '@/components/league/EmptyState'
 
 type ScheduleDate = { id: string; date: string }
 type Quarter = { id: string; year: number; quarter: number }
@@ -226,11 +227,13 @@ export default function LeagueSchedulePage() {
           <BasketballLoader size={32} />
         </div>
       ) : dates.length === 0 ? (
-        <div className="text-center py-12 border border-dashed border-gray-800 rounded-xl text-gray-500">
-          <CalendarDays size={28} className="mx-auto mb-2 text-gray-500" />
-          <p className="text-sm">등록된 일정이 없습니다</p>
-          {isEditMode && <p className="text-xs mt-1">위 입력창에서 날짜를 추가하세요</p>}
-        </div>
+        <EmptyState
+          Icon={CalendarDays}
+          title="등록된 일정이 없습니다"
+          description="경기 일정을 추가하면 여기에 목록으로 표시됩니다."
+          isEditMode={isEditMode}
+          editorHint="위 입력창에서 날짜를 추가하거나 '자동 생성' 을 눌러 보세요"
+        />
       ) : (
         <>
         {/* 분기 필터 탭 */}

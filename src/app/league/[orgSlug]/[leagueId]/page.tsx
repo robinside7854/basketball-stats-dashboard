@@ -6,6 +6,7 @@ import { makeIdentityResolver, type QuarterOverride, type TeamBase } from '@/lib
 import LeagueLeadersGrid from '@/components/league/LeagueLeadersGrid'
 import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
+import LeagueSummaryStrip, { type SummaryData } from '@/components/league/LeagueSummaryStrip'
 import type { League } from '@/types/league'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
@@ -157,6 +158,79 @@ async function computeHighlights(
   return { topTeam, scoringKing, hotHand, rangeLabel }
 }
 
+// 홈 랜딩 요약 스트립용 지표 — 다음 경기(예정) 또는 최근 경기 + 시즌 지표(경기·선수·팀 수)
+async function computeSummary(
+  supabase: ReturnType<typeof createClient>,
+  leagueId: string,
+): Promise<SummaryData> {
+  const today = new Date().toISOString().slice(0, 10)
+
+  // 팀 identity resolver — 다음 경기 표시용
+  const [{ data: teamsRaw }, { data: overridesRaw }, { count: playerCount }] = await Promise.all([
+    supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
+    supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
+    supabase.from('league_players').select('id', { count: 'exact', head: true }).eq('league_id', leagueId),
+  ])
+  const identityResolver = makeIdentityResolver(
+    (teamsRaw ?? []) as TeamBase[],
+    (overridesRaw ?? []) as QuarterOverride[],
+  )
+  const teamCount = new Set(
+    ((teamsRaw ?? []) as TeamBase[])
+      .map(t => identityResolver(t.id, null)?.key)
+      .filter(Boolean),
+  ).size
+
+  // 시즌 전체 경기 (일정 등록 = total, 완료 = played)
+  const { data: allGames } = await supabase
+    .from('league_games')
+    .select('id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, is_exhibition, quarter_id')
+    .eq('league_id', leagueId)
+    .order('date', { ascending: true })
+  const gamesTotal = (allGames ?? []).filter(g => !g.is_exhibition).length
+  const gamesPlayed = (allGames ?? []).filter(g => g.is_complete && !g.is_exhibition).length
+
+  // 다음 경기 — 오늘 이후 예정 경기 중 가장 가까운 것.
+  // 없으면 가장 최근 완료된 경기(최근 결과).
+  let target = (allGames ?? [])
+    .filter(g => !g.is_exhibition && g.date >= today && !g.is_complete)
+    .sort((a, b) => (a.date as string).localeCompare(b.date as string))[0]
+  if (!target) {
+    target = (allGames ?? [])
+      .filter(g => !g.is_exhibition && g.is_complete)
+      .sort((a, b) => (b.date as string).localeCompare(a.date as string))[0]
+  }
+
+  let nextGame: SummaryData['nextGame'] = null
+  if (target) {
+    const home = identityResolver(target.home_team_id as string | null, target.quarter_id as string | null)
+    const away = identityResolver(target.away_team_id as string | null, target.quarter_id as string | null)
+    if (home && away) {
+      nextGame = {
+        date: target.date as string,
+        homeName: home.display_name,
+        homeColor: home.color,
+        awayName: away.display_name,
+        awayColor: away.color,
+        homeScore: target.home_score as number | null,
+        awayScore: target.away_score as number | null,
+        isComplete: !!target.is_complete,
+        isStarted: !!target.is_started,
+      }
+    }
+  }
+
+  return {
+    nextGame,
+    seasonStats: {
+      gamesPlayed,
+      gamesTotal,
+      playerCount: playerCount ?? 0,
+      teamCount,
+    },
+  }
+}
+
 export default async function LeagueDetailPage({
   params,
 }: {
@@ -165,10 +239,11 @@ export default async function LeagueDetailPage({
   const { orgSlug, leagueId } = await params
   const supabase = createClient()
 
-  const [{ data: league }, { data: allLeagues }, highlights] = await Promise.all([
+  const [{ data: league }, { data: allLeagues }, highlights, summary] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single(),
     supabase.from('leagues').select('id, name, status, season_year').eq('org_slug', orgSlug).order('created_at', { ascending: false }),
     computeHighlights(supabase, leagueId, 7),
+    computeSummary(supabase, leagueId),
   ])
 
   if (!league) notFound()
@@ -211,6 +286,9 @@ export default async function LeagueDetailPage({
           ))}
         </div>
       )}
+
+      {/* 한눈 요약 스트립 — 첫 방문자를 위한 3카드(다음 경기·시즌 지표·둘러보기) */}
+      <LeagueSummaryStrip data={summary} orgSlug={orgSlug} leagueId={leagueId} />
 
       {/* 이 주의 하이라이트 — 3종: 최고 승률 팀 + 이 주 득점왕 + 3점왕 */}
       <HighlightBanner

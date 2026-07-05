@@ -9,6 +9,7 @@ import { Newspaper, Sparkles, Loader2, Trash2, CheckCircle2, Edit3 } from 'lucid
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import ColumnEditor from '@/components/league/magazine/ColumnEditor'
+import EmptyState from '@/components/league/EmptyState'
 
 type ColumnMeta = {
   id: string
@@ -333,10 +334,13 @@ export default function ColumnsListPage() {
       {loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={32} /></div>
       ) : columns.length === 0 ? (
-        <div className="text-center py-20 text-gray-500 bg-gray-900/40 rounded-2xl border border-gray-800">
-          <p className="text-base">아직 발행된 매거진이 없습니다</p>
-          {isEditMode && <p className="text-xs text-gray-600 mt-1">우측 상단 'AI 생성' 으로 첫 컬럼을 만들어보세요.</p>}
-        </div>
+        <EmptyState
+          Icon={Newspaper}
+          title="아직 발행된 매거진이 없습니다"
+          description="AI 가 주간·월간·분기 리포트를 초안으로 만들어주고, 편집자가 검토 후 발행합니다."
+          isEditMode={isEditMode}
+          editorHint="우측 상단 'AI 생성' 으로 첫 컬럼을 만들어 보세요"
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {columns.map(col => {
