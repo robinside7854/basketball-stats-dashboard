@@ -159,12 +159,25 @@ export async function GET(
   }
 
   // 4) quarterId 필터에 따라 반환 정체성 결정
+  //    ⚠ 버그 fix: quarterId 지정 시 각 정체성의 quarter_ids 도 그 분기만으로 좁혀야 함.
+  //    (예: 빅현욱 identity 는 Q1, Q2, Q3 모두 활성인데 Q1 필터에서도 quarter_ids 가
+  //    [Q1, Q2, Q3] 로 반환되면 클라이언트가 stats?quarterIds=Q1,Q2,Q3 로 페치 → Q3 데이터가 섞임)
   let identities: TeamIdentity[]
   if (quarterId && quarterId !== 'all') {
-    // 그 분기에 활성인 정체성만
-    identities = [...identityGroups.values()].filter(id => id.quarter_ids.includes(quarterId))
+    // 그 분기에 활성인 정체성만 · quarter_ids 도 요청 분기 단일 값으로 좁힘
+    const targetLabel = ((): string => {
+      const q = quarters.find(qq => qq.id === quarterId)
+      return q ? `${String(q.year).slice(2)}.${q.quarter}Q` : ''
+    })()
+    identities = [...identityGroups.values()]
+      .filter(id => id.quarter_ids.includes(quarterId))
+      .map(id => ({
+        ...id,
+        quarter_ids: [quarterId],
+        quarter_labels: targetLabel ? [targetLabel] : id.quarter_labels,
+      }))
   } else {
-    // 전체 — 하나 이상의 분기에서 활성인 모든 정체성
+    // 전체 — 하나 이상의 분기에서 활성인 모든 정체성 (quarter_ids 는 전체 범위)
     identities = [...identityGroups.values()]
   }
 
