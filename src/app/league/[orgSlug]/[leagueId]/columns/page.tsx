@@ -5,9 +5,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Newspaper, Sparkles, Loader2, Trash2, CheckCircle2, Circle } from 'lucide-react'
+import { Newspaper, Sparkles, Loader2, Trash2, CheckCircle2, Edit3 } from 'lucide-react'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
+import ColumnEditor from '@/components/league/magazine/ColumnEditor'
 
 type ColumnMeta = {
   id: string
@@ -40,6 +41,14 @@ export default function ColumnsListPage() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [genPeriod, setGenPeriod] = useState<'weekly' | 'monthly' | 'quarterly'>('weekly')
+  // 편집기 상태 — 열려 있을 때만 상세 데이터 로드
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editorData, setEditorData] = useState<{
+    column: { id: string; title: string; subtitle: string | null; body_md: string; cover_type: 'player' | 'banner' | 'both'; cover_player_id: string | null; status: string } | null
+    allPlayers: PlayerMini[]
+    playerNameMap: Record<string, { id: string; name: string; photo_url?: string | null }>
+    teamNameMap: Record<string, { name: string; color?: string | null }>
+  }>({ column: null, allPlayers: [], playerNameMap: {}, teamNameMap: {} })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -99,6 +108,34 @@ export default function ColumnsListPage() {
     })
     if (res.ok) { toast.success('삭제 완료'); load() }
     else { const e = await res.json(); toast.error(`삭제 실패: ${e.error}`) }
+  }
+
+  async function openEditor(id: string) {
+    setEditingId(id)
+    // 상세 데이터 병렬 로드 (본문 + 선수/팀 매핑)
+    const headers: Record<string, string> = {}
+    if (leagueHeaders['X-League-Pin']) headers['X-League-Pin'] = leagueHeaders['X-League-Pin']
+    const [colRes, playersRes, identRes] = await Promise.all([
+      fetch(`/api/leagues/${leagueId}/columns/${id}`, { headers }),
+      fetch(`/api/leagues/${leagueId}/players`),
+      fetch(`/api/leagues/${leagueId}/team-identities`),
+    ])
+    if (!colRes.ok) { toast.error('컬럼 로드 실패'); setEditingId(null); return }
+    const colD = await colRes.json()
+    const players: PlayerMini[] = playersRes.ok ? await playersRes.json() : []
+    const identD = identRes.ok ? await identRes.json() : { identities: [] }
+    const pmap: Record<string, { id: string; name: string; photo_url?: string | null }> = {}
+    for (const p of players) pmap[p.name] = { id: p.id, name: p.name, photo_url: p.photo_url }
+    const tmap: Record<string, { name: string; color?: string | null }> = {}
+    for (const t of (identD.identities ?? []) as Array<{ display_name: string; color: string }>) {
+      tmap[t.display_name] = { name: t.display_name, color: t.color }
+    }
+    setEditorData({
+      column: colD.column,
+      allPlayers: players,
+      playerNameMap: pmap,
+      teamNameMap: tmap,
+    })
   }
 
   return (
@@ -197,6 +234,13 @@ export default function ColumnsListPage() {
                 </Link>
                 {isEditMode && (
                   <div className="absolute top-2 right-2 flex items-center gap-1">
+                    <button
+                      onClick={e => { e.preventDefault(); openEditor(col.id) }}
+                      className="p-1.5 rounded-md bg-blue-600/80 hover:bg-blue-500 text-white cursor-pointer"
+                      title="편집"
+                    >
+                      <Edit3 size={13} />
+                    </button>
                     {isDraft && (
                       <button
                         onClick={e => { e.preventDefault(); publishColumn(col.id) }}
@@ -219,6 +263,20 @@ export default function ColumnsListPage() {
             )
           })}
         </div>
+      )}
+
+      {/* 편집기 (편집 모드 + 컬럼 로드 완료 시) */}
+      {editingId && editorData.column && (
+        <ColumnEditor
+          leagueId={leagueId}
+          column={editorData.column}
+          leagueHeaders={leagueHeaders}
+          playerNameMap={editorData.playerNameMap}
+          teamNameMap={editorData.teamNameMap}
+          allPlayers={editorData.allPlayers}
+          onClose={() => { setEditingId(null); setEditorData({ column: null, allPlayers: [], playerNameMap: {}, teamNameMap: {} }) }}
+          onSaved={() => { load() }}
+        />
       )}
     </div>
   )
