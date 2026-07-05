@@ -41,6 +41,19 @@ export default function ColumnsListPage() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [genPeriod, setGenPeriod] = useState<'weekly' | 'monthly' | 'quarterly'>('weekly')
+  // 커스텀 기간 지정 (빈 문자열이면 자동 계산)
+  const [genStart, setGenStart] = useState<string>('')
+  const [genEnd, setGenEnd] = useState<string>('')
+  const [genOptionsOpen, setGenOptionsOpen] = useState(false)
+  // 분기 목록 (프리셋 버튼용)
+  type QuarterRow = { id: string; year: number; quarter: number; is_current: boolean; start_date: string | null; end_date: string | null }
+  const [quarters, setQuarters] = useState<QuarterRow[]>([])
+  useEffect(() => {
+    fetch(`/api/leagues/${leagueId}/quarters`)
+      .then(r => r.ok ? r.json() : [])
+      .then((qs: QuarterRow[]) => setQuarters(qs))
+      .catch(() => setQuarters([]))
+  }, [leagueId])
   // 편집기 상태 — 열려 있을 때만 상세 데이터 로드
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editorData, setEditorData] = useState<{
@@ -74,22 +87,68 @@ export default function ColumnsListPage() {
 
   async function generateColumn() {
     if (!leagueHeaders['X-League-Pin']) { toast.error('편집 모드에서만 생성 가능'); return }
+    // 시작 > 종료 검증
+    if (genStart && genEnd && genStart > genEnd) {
+      toast.error('시작일이 종료일보다 늦습니다')
+      return
+    }
     setGenerating(true)
     try {
+      const body: Record<string, string> = { period_type: genPeriod }
+      if (genStart) body.period_start = genStart
+      if (genEnd) body.period_end = genEnd
       const res = await fetch(`/api/leagues/${leagueId}/columns/generate`, {
         method: 'POST',
         headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ period_type: genPeriod }),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (res.ok) {
         toast.success('컬럼 생성 완료 (draft)')
+        setGenOptionsOpen(false)
         load()
       } else {
         toast.error(`생성 실패: ${data.error ?? res.status}`)
       }
     } catch { toast.error('네트워크 오류') }
     finally { setGenerating(false) }
+  }
+
+  // 프리셋 헬퍼 — 오늘 기준 계산
+  function iso(d: Date): string { return d.toISOString().slice(0, 10) }
+  function applyPreset(preset: string) {
+    const today = new Date()
+    if (preset === 'this-week') {
+      const from = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
+      setGenPeriod('weekly'); setGenStart(iso(from)); setGenEnd(iso(today))
+    } else if (preset === 'last-week') {
+      const end = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const start = new Date(end.getTime() - 6 * 24 * 60 * 60 * 1000)
+      setGenPeriod('weekly'); setGenStart(iso(start)); setGenEnd(iso(end))
+    } else if (preset === 'this-month') {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1)
+      setGenPeriod('monthly'); setGenStart(iso(start)); setGenEnd(iso(today))
+    } else if (preset === 'last-month') {
+      const start = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+      const end = new Date(today.getFullYear(), today.getMonth(), 0)
+      setGenPeriod('monthly'); setGenStart(iso(start)); setGenEnd(iso(end))
+    } else if (preset.startsWith('quarter:')) {
+      const qId = preset.slice(8)
+      const q = quarters.find(qq => qq.id === qId)
+      if (!q) return
+      setGenPeriod('quarterly')
+      // start_date/end_date 있으면 그대로, 없으면 year+quarter 로 계산
+      if (q.start_date && q.end_date) {
+        setGenStart(q.start_date); setGenEnd(q.end_date)
+      } else {
+        const qStartMonth = (q.quarter - 1) * 3
+        const s = new Date(q.year, qStartMonth, 1)
+        const e = new Date(q.year, qStartMonth + 3, 0)
+        setGenStart(iso(s)); setGenEnd(iso(e))
+      }
+    } else if (preset === 'clear') {
+      setGenStart(''); setGenEnd('')
+    }
   }
 
   async function publishColumn(id: string) {
@@ -150,27 +209,126 @@ export default function ColumnsListPage() {
           </div>
         </div>
         {isEditMode && (
+          <button
+            onClick={() => setGenOptionsOpen(v => !v)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold cursor-pointer bg-amber-600 hover:bg-amber-500 text-white"
+            aria-label="AI 컬럼 생성 옵션 열기"
+          >
+            <Sparkles size={14} /> AI 생성{genOptionsOpen ? ' ▲' : ' ▼'}
+          </button>
+        )}
+      </div>
+
+      {/* 생성 옵션 패널 (접힘/펼침) */}
+      {isEditMode && genOptionsOpen && (
+        <div className="rounded-2xl border border-amber-700/40 bg-amber-950/20 p-4 lg:p-5 space-y-4">
+          {/* 1. 기간 유형 */}
           <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={genPeriod}
-              onChange={e => setGenPeriod(e.target.value as 'weekly' | 'monthly' | 'quarterly')}
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white"
-            >
-              <option value="weekly">주간</option>
-              <option value="monthly">월간</option>
-              <option value="quarterly">분기</option>
-            </select>
+            <span className="text-xs text-amber-200 uppercase font-bold tracking-widest w-16">유형</span>
+            <div className="flex gap-1.5">
+              {(['weekly', 'monthly', 'quarterly'] as const).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setGenPeriod(p)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    genPeriod === p
+                      ? 'bg-amber-500 text-black'
+                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                  }`}
+                >
+                  {p === 'weekly' ? '주간' : p === 'monthly' ? '월간' : '분기'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 2. 프리셋 */}
+          <div className="flex items-start gap-2 flex-wrap">
+            <span className="text-xs text-amber-200 uppercase font-bold tracking-widest w-16 pt-1.5">프리셋</span>
+            <div className="flex-1 flex gap-1.5 flex-wrap">
+              {genPeriod === 'weekly' && (
+                <>
+                  <button onClick={() => applyPreset('this-week')} className="px-2.5 py-1.5 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 cursor-pointer">이번 주</button>
+                  <button onClick={() => applyPreset('last-week')} className="px-2.5 py-1.5 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 cursor-pointer">지난 주</button>
+                </>
+              )}
+              {genPeriod === 'monthly' && (
+                <>
+                  <button onClick={() => applyPreset('this-month')} className="px-2.5 py-1.5 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 cursor-pointer">이번 달</button>
+                  <button onClick={() => applyPreset('last-month')} className="px-2.5 py-1.5 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 cursor-pointer">지난 달</button>
+                </>
+              )}
+              {genPeriod === 'quarterly' && (
+                quarters.length === 0 ? (
+                  <span className="text-xs text-gray-500 pt-1">분기 정보 없음</span>
+                ) : (
+                  quarters.map(q => (
+                    <button
+                      key={q.id}
+                      onClick={() => applyPreset(`quarter:${q.id}`)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs cursor-pointer ${
+                        q.is_current
+                          ? 'bg-amber-700/40 hover:bg-amber-700/60 text-amber-100 border border-amber-600/40'
+                          : 'bg-gray-800 hover:bg-gray-700 text-gray-200'
+                      }`}
+                    >
+                      {String(q.year).slice(2)}.{q.quarter}Q{q.is_current ? ' (현재)' : ''}
+                    </button>
+                  ))
+                )
+              )}
+              <button
+                onClick={() => applyPreset('clear')}
+                className="px-2.5 py-1.5 rounded-lg text-xs bg-gray-900 hover:bg-gray-800 text-gray-500 border border-gray-800 cursor-pointer"
+              >
+                자동 (기본)
+              </button>
+            </div>
+          </div>
+
+          {/* 3. 직접 입력 */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-amber-200 uppercase font-bold tracking-widest w-16">기간</span>
+            <input
+              type="date"
+              value={genStart}
+              onChange={e => setGenStart(e.target.value)}
+              className="bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+              aria-label="시작일"
+            />
+            <span className="text-gray-500 text-xs">~</span>
+            <input
+              type="date"
+              value={genEnd}
+              onChange={e => setGenEnd(e.target.value)}
+              className="bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+              aria-label="종료일"
+            />
+            {(genStart || genEnd) && (
+              <span className="text-xs text-amber-300">
+                {genStart && genEnd
+                  ? `${genStart} ~ ${genEnd} (${Math.ceil((new Date(genEnd).getTime() - new Date(genStart).getTime()) / 86400000) + 1}일)`
+                  : '시작/종료일을 모두 지정하세요'}
+              </span>
+            )}
+            {!genStart && !genEnd && (
+              <span className="text-xs text-gray-500">기간 미지정 시 자동 계산 (최근 7일/이번 달/현재 분기)</span>
+            )}
+          </div>
+
+          {/* 4. 생성 실행 */}
+          <div className="flex justify-end pt-2 border-t border-amber-800/30">
             <button
               onClick={generateColumn}
               disabled={generating}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold cursor-pointer bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50"
+              className="flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold cursor-pointer bg-amber-500 hover:bg-amber-400 text-black disabled:opacity-50 transition"
             >
               {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              AI 생성
+              {generating ? '생성 중…' : '초안 생성'}
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={32} /></div>
