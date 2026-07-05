@@ -8,6 +8,7 @@ import PlayerCompareModal from '@/components/league/PlayerCompareModal'
 import LeagueDuoPanel from '@/components/league/LeagueDuoPanel'
 import StatHeader from '@/components/league/StatHeader'
 import { PercentBar } from '@/components/league/StatCell'
+import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
 import type { Quarter, PlayerStat } from '@/types/league'
 
@@ -92,7 +93,8 @@ export default function LeagueStatsPage() {
   const { leagueId } = params
 
   const [quarters, setQuarters] = useState<Quarter[]>([])
-  const [selectedQuarterId, setSelectedQuarterId] = useState<string>('all')
+  // 페이지 간 분기 선택 공유 (LeagueQuarterContext)
+  const { selectedQuarterId, setSelectedQuarterId } = useLeagueQuarter()
   const [players, setPlayers] = useState<PlayerStat[]>([])
   const [loading, setLoading] = useState(true)
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
@@ -133,10 +135,15 @@ export default function LeagueStatsPage() {
       .then(r => r.json())
       .then((qs: Quarter[]) => {
         setQuarters(qs)
-        const current = qs.find(q => q.is_current)
-        if (current) setSelectedQuarterId(current.id)
+        // 사용자가 이전에 선택한 분기 (localStorage) 가 없을 때만 현재 분기로 자동 설정
+        // selectedQuarterId 가 이미 'all' 이 아닌 값이면 context 로부터 복원된 것 → 유지
+        if (selectedQuarterId === 'all') {
+          const current = qs.find(q => q.is_current)
+          if (current) setSelectedQuarterId(current.id)
+        }
       })
       .catch(() => null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId])
 
   useEffect(() => {

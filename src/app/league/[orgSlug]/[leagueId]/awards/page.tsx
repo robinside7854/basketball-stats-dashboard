@@ -5,6 +5,7 @@ import { Trophy, Crown, Flame, Shield, Zap, Target, TrendingUp, Sparkles, Award 
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import AwardDetailModal from '@/components/league/AwardDetailModal'
+import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 
 type AwardCategory = 'MVP' | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY' | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'MIP'
 
@@ -66,9 +67,9 @@ export default function AwardsPage() {
   const [loading, setLoading] = useState(true)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
   const [openAward, setOpenAward] = useState<AwardEntry | null>(null)
-  // 분기 선택 — 'all' 시즌 전체 / 특정 분기 id
+  // 분기 선택 — LeagueQuarterContext 로 페이지 간 공유
   const [quarters, setQuarters] = useState<Quarter[]>([])
-  const [selectedQuarterId, setSelectedQuarterId] = useState<string>('all')
+  const { selectedQuarterId, setSelectedQuarterId } = useLeagueQuarter()
 
   // 분기 목록 로드
   useEffect(() => {

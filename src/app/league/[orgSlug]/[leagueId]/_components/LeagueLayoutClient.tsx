@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
+import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
 import { Lock, Unlock, Sun, Moon, Search, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Trophy, Sparkles } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import GlobalSearchModal from '@/components/league/GlobalSearchModal'
@@ -224,6 +225,7 @@ function LeagueLayout({
 
   return (
     <LeagueEditModeProvider leagueId={leagueId}>
+    <LeagueQuarterProvider leagueId={leagueId}>
       <div className="min-h-screen bg-gray-950 text-gray-300">
         <TabNav orgSlug={orgSlug} leagueId={leagueId} onOpenSearch={() => setSearchOpen(true)} showDraft={showDraft} />
         {/* pb-16 lg:pb-0: 모바일 하단 탭바 높이만큼 여백 */}
@@ -253,6 +255,7 @@ function LeagueLayout({
         />
       )}
       <Toaster richColors theme={theme === 'light' ? 'light' : 'dark'} position="top-center" />
+    </LeagueQuarterProvider>
     </LeagueEditModeProvider>
   )
 }
