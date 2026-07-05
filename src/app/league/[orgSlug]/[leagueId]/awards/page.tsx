@@ -55,6 +55,8 @@ interface AttendanceInfo {
   threshold: number
 }
 
+type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
+
 export default function AwardsPage() {
   const params = useParams<{ leagueId: string }>()
   const { leagueId } = params
@@ -64,10 +66,25 @@ export default function AwardsPage() {
   const [loading, setLoading] = useState(true)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
   const [openAward, setOpenAward] = useState<AwardEntry | null>(null)
+  // 분기 선택 — 'all' 시즌 전체 / 특정 분기 id
+  const [quarters, setQuarters] = useState<Quarter[]>([])
+  const [selectedQuarterId, setSelectedQuarterId] = useState<string>('all')
 
+  // 분기 목록 로드
+  useEffect(() => {
+    fetch(`/api/leagues/${leagueId}/quarters`)
+      .then(r => r.ok ? r.json() : [])
+      .then((qs: Quarter[]) => setQuarters(qs))
+      .catch(() => setQuarters([]))
+  }, [leagueId])
+
+  // 어워즈 로드 (분기 변경 시 재조회)
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/leagues/${leagueId}/awards`)
+    const url = selectedQuarterId === 'all'
+      ? `/api/leagues/${leagueId}/awards`
+      : `/api/leagues/${leagueId}/awards?quarterId=${selectedQuarterId}`
+    fetch(url)
       .then(r => r.json())
       .then(d => {
         setAwards(d.awards ?? [])
@@ -75,7 +92,7 @@ export default function AwardsPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [leagueId])
+  }, [leagueId, selectedQuarterId])
 
   return (
     <div className="space-y-5 lg:space-y-6">
@@ -95,13 +112,43 @@ export default function AwardsPage() {
             <div className="rounded-lg bg-gray-900/60 border border-amber-500/30 px-3 py-2 lg:px-4 lg:py-2.5">
               <p className="text-xs text-amber-300 font-jersey uppercase tracking-widest font-bold">자격 요건</p>
               <p className="text-sm lg:text-base text-white font-bold mt-0.5">
-                시즌 <span className="text-amber-300 tabular-nums">{attendance.totalRounds}</span>일 중
+                {selectedQuarterId === 'all' ? '시즌' : (() => {
+                  const q = quarters.find(qq => qq.id === selectedQuarterId)
+                  return q ? `${String(q.year).slice(2)}.${q.quarter}Q` : '분기'
+                })()} <span className="text-amber-300 tabular-nums">{attendance.totalRounds}</span>일 중
                 <span className="text-amber-300 tabular-nums"> {attendance.requiredRounds}</span>일 이상 참석
                 <span className="text-xs text-gray-500 ml-1.5">({Math.round(attendance.threshold * 100)}%)</span>
               </p>
             </div>
           )}
         </div>
+      </div>
+
+      {/* 분기 필터 탭 — 시즌 전체 + 각 분기 */}
+      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+        <button
+          onClick={() => setSelectedQuarterId('all')}
+          className={`shrink-0 px-3 py-2 rounded-xl text-sm font-bold border transition-all cursor-pointer btn-press min-h-[44px] ${
+            selectedQuarterId === 'all'
+              ? 'bg-amber-600 border-amber-500 text-white'
+              : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
+          }`}
+        >
+          시즌 전체
+        </button>
+        {quarters.map(q => (
+          <button
+            key={q.id}
+            onClick={() => setSelectedQuarterId(q.id)}
+            className={`shrink-0 px-3 py-2 rounded-xl text-sm font-bold border transition-all cursor-pointer btn-press min-h-[44px] ${
+              selectedQuarterId === q.id
+                ? 'bg-amber-600 border-amber-500 text-white'
+                : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
+            }`}
+          >
+            {String(q.year).slice(2)}.{q.quarter}Q{q.is_current && <span className="ml-1 text-xs">●</span>}
+          </button>
+        ))}
       </div>
 
       {loading ? (

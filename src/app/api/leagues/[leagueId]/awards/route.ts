@@ -61,25 +61,32 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
+  const sp = new URL(req.url).searchParams
+  // 분기별 어워즈 지원 — quarterId 없으면 시즌 전체
+  const quarterId = sp.get('quarterId')
   const supabase = createClient()
 
-  // 1) 시즌 전체 경기일(round · 날짜 기준) 산출
-  //    is_started=true 게임의 distinct date, 친선전 제외
-  const { data: gameDates } = await supabase
+  // 1) 시즌 전체 경기일(round · 날짜 기준) 산출 — 분기 지정 시 그 분기만
+  let dateQuery = supabase
     .from('league_games')
-    .select('date')
+    .select('date, quarter_id')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     .eq('is_exhibition', false)
+  if (quarterId) dateQuery = dateQuery.eq('quarter_id', quarterId)
+  const { data: gameDates } = await dateQuery
   const uniqueDates = new Set<string>()
-  for (const g of (gameDates ?? []) as { date: string }[]) uniqueDates.add(g.date)
+  for (const g of (gameDates ?? []) as { date: string; quarter_id: string | null }[]) uniqueDates.add(g.date)
   const totalRounds = uniqueDates.size
   const requiredRounds = Math.max(1, Math.ceil(totalRounds * ATTENDANCE_THRESHOLD))
   const attendance: AttendanceInfo = { totalRounds, requiredRounds, threshold: ATTENDANCE_THRESHOLD }
 
-  // 2) 리그 스탯 조회 (unit=round → gp 가 참여 경기일 수)
+  // 2) 리그 스탯 조회 (unit=round → gp 가 참여 경기일 수) — 분기 필터 전파
   const origin = new URL(req.url).origin
-  const statsRes = await fetch(`${origin}/api/leagues/${leagueId}/stats?unit=round`, {
+  const statsUrl = quarterId
+    ? `${origin}/api/leagues/${leagueId}/stats?unit=round&quarterId=${encodeURIComponent(quarterId)}`
+    : `${origin}/api/leagues/${leagueId}/stats?unit=round`
+  const statsRes = await fetch(statsUrl, {
     headers: { cookie: req.headers.get('cookie') ?? '' },
     cache: 'no-store',
   })
@@ -98,14 +105,13 @@ export async function GET(
   // 자격자: gp (=참여 경기일) >= requiredRounds && 게스트 아님
   const eligible = players.filter(p => p.gp >= requiredRounds && !guestIds.has(p.player_id))
 
-  // 3) 클러치 스탯 조회
-  const clutchSplits = await computeClutchStats(supabase, leagueId)
+  // 3) 클러치 스탯 조회 (분기 필터 전파)
+  const clutchSplits = await computeClutchStats(supabase, leagueId, quarterId ? { quarterId } : undefined)
   const clutchMap = new Map(clutchSplits.map(s => [s.player_id, s]))
 
-  // 3-1) 팀 승률 (MVP 팀 승리 기여도 계산용)
-  //      perDayStats.dayWL 는 선수별 (날짜 → {wins, losses}) 맵.
-  //      친선전 제외, 팀 다수결로 판정된 소속팀 기준.
-  const { dayWL } = await computePerDayStats(supabase, leagueId)
+  // 3-1) 팀 승률 (MVP 팀 승리 기여도 계산용) — 분기 필터 전파
+  //      quarterId 지정 시 그 분기 게임의 W/L 만 반영
+  const { dayWL } = await computePerDayStats(supabase, leagueId, quarterId ? { quarterId } : {})
   const teamWinRateByPlayer = new Map<string, { wins: number; losses: number; rate: number }>()
   for (const [pid, byDate] of dayWL) {
     let wins = 0, losses = 0
