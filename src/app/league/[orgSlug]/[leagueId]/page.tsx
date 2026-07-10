@@ -287,6 +287,7 @@ async function toNbaHero(
     .maybeSingle()
   return {
     data: {
+      playerId: scoringKing.player_id,
       name: scoringKing.name,
       number: scoringKing.number ?? null,
       pts: scoringKing.pts,
@@ -359,7 +360,7 @@ export default async function LeagueDetailPage({
 
       {/* 미라클모닝 브랜드 파일럿 — Hero + RoundsSummary + Leaders */}
       <div className="rounded-none overflow-hidden">
-        <NbaHero data={heroProps.data} rangeLabel={heroProps.rangeLabel} />
+        <NbaHero data={heroProps.data} rangeLabel={heroProps.rangeLabel} leagueId={leagueId} />
         <NbaRoundsSummary rounds={recentRounds} leagueId={leagueId} />
         <NbaLeaders leagueId={leagueId} />
       </div>
