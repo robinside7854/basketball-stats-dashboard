@@ -68,13 +68,16 @@ export default function NbaLeaders({ leagueId, minGP }: Props) {
         }}
       >
         <header
-          className="flex items-baseline justify-between px-6 md:px-8 py-4"
+          className="flex items-baseline justify-between px-8 md:px-10 py-5"
           style={{ borderBottom: '1px solid var(--mm-rule)' }}
         >
-          <h3 className="font-jersey text-[22px] font-black uppercase tracking-wide" style={{ color: 'var(--mm-ink)' }}>
+          <h3
+            className="font-jersey font-black uppercase"
+            style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}
+          >
             리그 리더
           </h3>
-          <span className="text-[11px] tracking-[0.16em] uppercase font-bold" style={{ color: 'var(--mm-muted)' }}>
+          <span className="text-[12px] tracking-[0.18em] uppercase font-bold" style={{ color: 'var(--mm-muted)' }}>
             최소 {effectiveMinGP} R
           </span>
         </header>
@@ -84,7 +87,7 @@ export default function NbaLeaders({ leagueId, minGP }: Props) {
         ) : players.length === 0 ? (
           <div className="text-center py-10 text-sm" style={{ color: 'var(--mm-muted)' }}>아직 기록된 스탯이 없습니다</div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6 md:p-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 p-8 md:p-10">
             {CATEGORIES.map(cat => {
               const eligible = players.filter(p => p.gp >= effectiveMinGP)
               const sorted = [...eligible].sort((a, b) => (b[cat.key] as number) - (a[cat.key] as number))
@@ -101,10 +104,13 @@ export default function NbaLeaders({ leagueId, minGP }: Props) {
                 >
                   {/* 카테고리 헤더 */}
                   <div
-                    className="px-4 pt-3 pb-2"
+                    className="px-5 pt-4 pb-3"
                     style={{ borderBottom: '1px solid var(--mm-rule)' }}
                   >
-                    <h4 className="text-[12px] font-black uppercase tracking-[0.18em]" style={{ color: 'var(--mm-yellow-strong)' }}>
+                    <h4
+                      className="font-black uppercase"
+                      style={{ color: 'var(--mm-yellow-strong)', fontSize: '13px', letterSpacing: '0.20em' }}
+                    >
                       {cat.label}
                     </h4>
                   </div>
@@ -114,69 +120,92 @@ export default function NbaLeaders({ leagueId, minGP }: Props) {
                     {top3.map((p, i) => {
                       const isTop = i === 0
                       const photo = photoMap[p.player_id]
+                      const avatarSize = isTop ? 72 : 60
                       return (
                         <button
                           key={p.player_id}
                           onClick={() => setQuickPlayer({ id: p.player_id, name: p.name })}
-                          className="w-full grid gap-3 items-center transition-colors cursor-pointer text-left"
+                          className="w-full grid gap-4 items-center transition-colors cursor-pointer text-left"
                           style={{
-                            gridTemplateColumns: 'auto 52px 1fr auto',
-                            padding: '10px 12px',
+                            gridTemplateColumns: `auto ${avatarSize}px 1fr auto`,
+                            padding: isTop ? '16px 16px' : '12px 16px',
                             background: isTop ? 'var(--mm-yellow)' : 'transparent',
                             color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
                           }}
                         >
                           {/* 순위 큰 숫자 */}
                           <span
-                            className="font-jersey text-[26px] font-black tabular-nums leading-none"
-                            style={{ color: isTop ? 'var(--mm-black)' : 'var(--mm-muted)', width: '22px', textAlign: 'right' }}
+                            className="font-jersey font-black tabular-nums leading-none"
+                            style={{
+                              color: isTop ? 'var(--mm-black)' : 'var(--mm-muted)',
+                              width: isTop ? '28px' : '24px',
+                              textAlign: 'right',
+                              fontSize: isTop ? '32px' : '26px',
+                            }}
                           >
                             {i + 1}
                           </span>
 
-                          {/* 프로필 사진 or 이니셜 (원형) */}
+                          {/* 프로필 사진 or 이니셜 (원형) - 1위 더 큼 */}
                           <span
                             className="rounded-full overflow-hidden flex items-center justify-center shrink-0"
                             style={{
-                              width: '52px',
-                              height: '52px',
+                              width: `${avatarSize}px`,
+                              height: `${avatarSize}px`,
                               background: 'var(--mm-panel)',
-                              border: `2px solid ${isTop ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+                              border: `${isTop ? 3 : 2}px solid ${isTop ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
                             }}
                           >
                             {photo ? (
                               <img src={photo} alt={p.name} className="w-full h-full object-cover object-top" />
                             ) : (
-                              <span className="font-jersey text-[16px] font-black" style={{ color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)' }}>
+                              <span
+                                className="font-jersey font-black"
+                                style={{
+                                  color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                                  fontSize: isTop ? '22px' : '18px',
+                                }}
+                              >
                                 {initials(p.name)}
                               </span>
                             )}
                           </span>
 
-                          {/* 이름 + GP */}
+                          {/* 이름 + GP - 크게 */}
                           <span className="min-w-0">
                             <span
-                              className={`block truncate font-jersey uppercase tracking-wide ${isTop ? 'text-[19px] font-black' : 'text-[17px] font-bold'}`}
-                              style={{ color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)' }}
+                              className="block truncate font-jersey uppercase"
+                              style={{
+                                color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                                fontSize: isTop ? '26px' : '22px',
+                                fontWeight: 900,
+                                letterSpacing: '-0.005em',
+                                lineHeight: '1',
+                              }}
                             >
                               {p.name}
                             </span>
                             <span
-                              className="block text-[10px] tracking-[0.14em] uppercase font-bold mt-0.5"
-                              style={{ color: isTop ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)' }}
+                              className="block font-bold uppercase mt-1.5"
+                              style={{
+                                color: isTop ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)',
+                                fontSize: '11px',
+                                letterSpacing: '0.16em',
+                              }}
                             >
-                              {p.gp}R
+                              {p.gp} 라운드
                             </span>
                           </span>
 
                           {/* 값 큰 숫자 */}
                           <span
-                            className="font-jersey text-[32px] font-black tabular-nums leading-none"
+                            className="font-jersey font-black tabular-nums leading-none"
                             style={{
                               color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
-                              letterSpacing: '-0.01em',
-                              minWidth: '54px',
+                              letterSpacing: '-0.015em',
+                              minWidth: isTop ? '72px' : '60px',
                               textAlign: 'right',
+                              fontSize: isTop ? '44px' : '36px',
                             }}
                           >
                             {cat.format(p[cat.key] as number)}
