@@ -1,11 +1,12 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { Trophy, Crown, Flame, Shield, Zap, Target, TrendingUp, Sparkles, Award } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import AwardDetailModal from '@/components/league/AwardDetailModal'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
+import { gsap } from 'gsap'
 
 type AwardCategory = 'MVP' | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY' | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'MIP'
 
@@ -95,6 +96,59 @@ export default function AwardsPage() {
       .catch(() => setLoading(false))
   }, [leagueId, selectedQuarterId])
 
+  // 어워즈 카드 진입 애니메이션 — 마운트/재로드 시 gsap 로 stagger reveal
+  // reduced-motion 사용자에게는 스킵. gsap.context 로 언마운트 시 정리
+  const gridRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (loading || awards.length === 0) return
+    if (typeof window === 'undefined') return
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReduced) return
+
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
+      // 1) 상단 리본 좌→우 확장
+      tl.from('[data-award-ribbon]', {
+        scaleX: 0,
+        transformOrigin: 'left center',
+        duration: 0.6,
+        stagger: 0.06,
+      })
+      // 2) 카드 본체 y 슬라이드 + 페이드
+      tl.from('[data-award-card]', {
+        y: 28,
+        autoAlpha: 0,
+        duration: 0.65,
+        stagger: { each: 0.07, from: 'start' },
+      }, '-=0.4')
+      // 3) Winner 크라운 아이콘 스케일 back-out (트로피 등장감)
+      tl.from('[data-award-crown]', {
+        scale: 0.35,
+        rotate: -12,
+        autoAlpha: 0,
+        duration: 0.55,
+        ease: 'back.out(1.7)',
+        stagger: 0.07,
+      }, '-=0.55')
+      // 4) Winner 이름 y 슬라이드
+      tl.from('[data-award-winner-name]', {
+        y: 14,
+        autoAlpha: 0,
+        duration: 0.5,
+        stagger: 0.06,
+      }, '-=0.5')
+      // 5) Winner 값 숫자 y + 페이드
+      tl.from('[data-award-winner-value]', {
+        y: 10,
+        autoAlpha: 0,
+        duration: 0.45,
+        stagger: 0.06,
+      }, '-=0.4')
+    }, gridRef)
+
+    return () => ctx.revert()
+  }, [awards, loading])
+
   return (
     <div className="space-y-5 lg:space-y-6">
       {/* 헤더 */}
@@ -155,14 +209,17 @@ export default function AwardsPage() {
       {loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={32} /></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 md:gap-4 lg:gap-5">
+        <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 md:gap-4 lg:gap-5">
           {awards.map(a => {
             const style = CATEGORY_STYLE[a.category]
             return (
-              <div key={a.category}
-                   className={`relative rounded-2xl border overflow-hidden bg-gradient-to-br ${style.bg} ${style.border} shadow-lg`}>
+              <div
+                key={a.category}
+                data-award-card
+                className={`relative rounded-2xl border overflow-hidden bg-gradient-to-br ${style.bg} ${style.border} shadow-lg`}
+              >
                 {/* 상단 리본 */}
-                <div className={`h-1 bg-gradient-to-r ${style.ribbon}`} />
+                <div data-award-ribbon className={`h-1 bg-gradient-to-r ${style.ribbon}`} />
 
                 {/* 카드 헤더 — 클릭하면 전체 순위 모달 */}
                 <button
@@ -193,16 +250,19 @@ export default function AwardsPage() {
                     className="w-full px-3.5 py-3.5 md:px-4 md:py-4 lg:px-5 lg:py-5 border-b border-gray-800/40 hover:bg-gray-900/40 cursor-pointer text-left group transition-colors"
                   >
                     <div className="flex items-center gap-2.5 md:gap-3">
-                      <div className={`w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full ${style.chipBg} border-2 ${style.border} flex items-center justify-center shrink-0`}>
+                      <div
+                        data-award-crown
+                        className={`w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full ${style.chipBg} border-2 ${style.border} flex items-center justify-center shrink-0`}
+                      >
                         <Crown size={20} className={`${style.text} md:w-[22px] md:h-[22px] lg:w-7 lg:h-7`} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={`text-[10px] md:text-xs font-jersey font-bold uppercase tracking-widest ${style.text}`}>Winner</p>
-                        <p className="text-lg md:text-xl lg:text-2xl font-black text-white group-hover:underline underline-offset-4 truncate">
+                        <p data-award-winner-name className="text-lg md:text-xl lg:text-2xl font-black text-white group-hover:underline underline-offset-4 truncate">
                           {a.winner.name}
                           {a.winner.number != null && <span className="ml-1.5 md:ml-2 text-xs md:text-sm text-gray-500 font-mono">#{a.winner.number}</span>}
                         </p>
-                        <p className={`text-base md:text-lg lg:text-xl font-black tabular-nums ${style.text}`}>{a.winner.displayValue}</p>
+                        <p data-award-winner-value className={`text-base md:text-lg lg:text-xl font-black tabular-nums ${style.text}`}>{a.winner.displayValue}</p>
                         <p className="text-[11px] md:text-xs text-gray-500 mt-0.5 truncate">{a.winner.gp}게임 · {a.metric}</p>
                       </div>
                     </div>
