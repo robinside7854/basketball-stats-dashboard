@@ -2,7 +2,11 @@ import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { HighlightPlayer, HighlightTeam } from '@/components/league/HighlightBanner'
-import { makeIdentityResolver, type QuarterOverride, type TeamBase } from '@/lib/stats/teamIdentity'
+import { loadIdentityResolver, makeIdentityResolver } from '@/lib/stats/teamIdentity'
+
+// 홈 페이지 공통 — teams/overrides 를 한 번만 로드해 3개 계산 함수(highlights/rounds/standings)에
+// 재사용하기 위한 Promise 타입. 각 함수는 내부에서 await 로 값 참조.
+type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
 import NbaHero, { type NbaHeroData } from '@/components/league/nba/NbaHero'
@@ -20,6 +24,7 @@ const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2
 async function computeHighlights(
   supabase: ReturnType<typeof createClient>,
   leagueId: string,
+  resolverPromise: IdentityResolverPromise,
   daysAgo: number = 7,
 ): Promise<{ topTeam: HighlightTeam | null; scoringKing: HighlightPlayer | null; hotHand: HighlightPlayer | null; rangeLabel: string }> {
   const today = new Date()
@@ -48,15 +53,8 @@ async function computeHighlights(
     (games ?? []).map(g => [g.id as string, (g.date as string) ?? g.id as string])
   )
 
-  // 팀 정체성 resolver 로드 (프랜차이즈 분리)
-  const [{ data: teamsRaw }, { data: overridesRaw }] = await Promise.all([
-    supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
-    supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
-  ])
-  const identityResolver = makeIdentityResolver(
-    (teamsRaw ?? []) as TeamBase[],
-    (overridesRaw ?? []) as QuarterOverride[],
-  )
+  // 팀 정체성 resolver — 홈 페이지 상단에서 미리 로드된 Promise 를 await (재조회 없음)
+  const identityResolver = await resolverPromise
 
   // 프랜차이즈 W/L 집계 (완료 경기, 친선 제외)
   type TeamAgg = { key: string; name: string; color: string; W: number; L: number; D: number }
@@ -189,12 +187,14 @@ async function computeHighlights(
 async function computeRecentRounds(
   supabase: ReturnType<typeof createClient>,
   leagueId: string,
+  resolverPromise: IdentityResolverPromise,
   weeks: number = 4,
 ): Promise<RoundSummary[]> {
   const from = new Date(Date.now() - weeks * 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const today = new Date().toISOString().slice(0, 10)
 
-  const [{ data: games }, { data: teamsRaw }, { data: overridesRaw }] = await Promise.all([
+  // 게임 조회와 resolver await 를 병렬로
+  const [{ data: games }, resolver] = await Promise.all([
     supabase
       .from('league_games')
       .select('id, date, home_team_id, away_team_id, home_score, away_score, is_complete, is_exhibition, quarter_id')
@@ -204,13 +204,8 @@ async function computeRecentRounds(
       .gte('date', from)
       .lte('date', today)
       .order('date', { ascending: false }),
-    supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
-    supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
+    resolverPromise,
   ])
-  const resolver = makeIdentityResolver(
-    (teamsRaw ?? []) as TeamBase[],
-    (overridesRaw ?? []) as QuarterOverride[],
-  )
 
   // 라운드(=date) 별로 grouping — 최신순 유지
   const byDate = new Map<string, typeof games>()
@@ -276,21 +271,18 @@ async function computeRecentRounds(
 async function computeCurrentQuarterStandings(
   supabase: ReturnType<typeof createClient>,
   leagueId: string,
+  resolverPromise: IdentityResolverPromise,
 ): Promise<{ standings: StandingRow[]; quarterLabel: string; gamesCount: number }> {
-  const [{ data: quarters }, { data: teamsRaw }, { data: overridesRaw }] = await Promise.all([
+  // 분기 조회와 resolver await 병렬
+  const [{ data: quarters }, resolver] = await Promise.all([
     supabase
       .from('league_quarters')
       .select('id, year, quarter, is_current')
       .eq('league_id', leagueId)
       .order('year', { ascending: false })
       .order('quarter', { ascending: false }),
-    supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
-    supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
+    resolverPromise,
   ])
-  const resolver = makeIdentityResolver(
-    (teamsRaw ?? []) as TeamBase[],
-    (overridesRaw ?? []) as QuarterOverride[],
-  )
 
   const currentQ = (quarters ?? []).find(q => q.is_current) ?? (quarters ?? [])[0]
   let quarterLabel = '시즌 전체'
@@ -396,12 +388,16 @@ export default async function LeagueDetailPage({
   const { orgSlug, leagueId } = await params
   const supabase = createClient()
 
+  // MVP-1: teams/overrides 를 한 번만 로드해 3개 계산 함수에 재사용
+  // (기존 3회 중복 조회 → 1회로 축소)
+  const resolverPromise: IdentityResolverPromise = loadIdentityResolver(supabase, leagueId)
+
   const [{ data: league }, { data: allLeagues }, highlights, recentRounds, quarterStandings] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single(),
     supabase.from('leagues').select('id, name, status, season_year').eq('org_slug', orgSlug).order('created_at', { ascending: false }),
-    computeHighlights(supabase, leagueId, 28),  // 최근 4주 (라운드 기반 임팩트)
-    computeRecentRounds(supabase, leagueId, 4),
-    computeCurrentQuarterStandings(supabase, leagueId),
+    computeHighlights(supabase, leagueId, resolverPromise, 28),  // 최근 4주 (라운드 기반 임팩트)
+    computeRecentRounds(supabase, leagueId, resolverPromise, 4),
+    computeCurrentQuarterStandings(supabase, leagueId, resolverPromise),
   ])
   const heroProps = await toNbaHero(supabase, leagueId, highlights.scoringKing, `최근 ${recentRounds.length}라운드`)
 
