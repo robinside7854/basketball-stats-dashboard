@@ -408,6 +408,20 @@
 :root:not(.dark) .text-gray-500 { color: #334155; }  /* slate-700 */
 :root:not(.dark) .text-gray-600 { color: #1e293b; }  /* slate-800 */
 
+/* ===== NBA.com 오마주 — LIVE 배지 pulse-red 애니메이션 =====
+   is_started && !is_complete 인 경기 표시에만 사용. 다른 요소 사용 금지. */
+@keyframes pulse-red {
+  0%   { box-shadow: 0 0 0 0 rgba(200,16,46,0.55); }
+  70%  { box-shadow: 0 0 0 6px rgba(200,16,46,0); }
+  100% { box-shadow: 0 0 0 0 rgba(200,16,46,0); }
+}
+@layer utilities {
+  .animate-pulse-red { animation: pulse-red 3s infinite; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-red { animation: none; }
+}
+
 /* ===== 농구 정체성: 폰트 / 텍스처 / 모티프 유틸 ===== */
 @layer utilities {
   /* 디스플레이 폰트 — Bebas Neue (스코어보드 / MVP 큰 숫자) */

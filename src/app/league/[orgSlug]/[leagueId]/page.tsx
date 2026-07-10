@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import HighlightBanner, { type HighlightPlayer, type HighlightTeam } from '@/components/league/HighlightBanner'
+import type { HighlightPlayer, HighlightTeam } from '@/components/league/HighlightBanner'
 import { makeIdentityResolver, type QuarterOverride, type TeamBase } from '@/lib/stats/teamIdentity'
-import LeagueLeadersGrid from '@/components/league/LeagueLeadersGrid'
 import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
+import NbaHero, { type NbaHeroData } from '@/components/league/nba/NbaHero'
+import NbaScoreStrip, { type NbaGame } from '@/components/league/nba/NbaScoreStrip'
+import NbaLeaders from '@/components/league/nba/NbaLeaders'
 import type { League } from '@/types/league'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
@@ -157,6 +159,93 @@ async function computeHighlights(
   return { topTeam, scoringKing, hotHand, rangeLabel }
 }
 
+// 최근 경기 rail — ScoreStrip 용. 최근 14일에서 6개.
+// LIVE 판정: is_started && !is_complete.
+async function computeRecentGames(
+  supabase: ReturnType<typeof createClient>,
+  leagueId: string,
+  count: number = 6,
+): Promise<NbaGame[]> {
+  const today = new Date().toISOString().slice(0, 10)
+  const from = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+  const [{ data: games }, { data: teamsRaw }, { data: overridesRaw }] = await Promise.all([
+    supabase
+      .from('league_games')
+      .select('id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, is_exhibition, quarter_id')
+      .eq('league_id', leagueId)
+      .eq('is_exhibition', false)
+      .eq('is_started', true)
+      .gte('date', from)
+      .lte('date', today)
+      .order('date', { ascending: false })
+      .limit(count),
+    supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
+    supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
+  ])
+  const resolver = makeIdentityResolver(
+    (teamsRaw ?? []) as TeamBase[],
+    (overridesRaw ?? []) as QuarterOverride[],
+  )
+  const tri = (name: string): string => (name.length > 3 ? name.slice(0, 3) : name)
+  const fmt = (iso: string): string => `${iso.slice(5, 7)}/${iso.slice(8, 10)}`
+
+  const result: NbaGame[] = []
+  for (const g of games ?? []) {
+    const home = resolver(g.home_team_id as string | null, g.quarter_id as string | null)
+    const away = resolver(g.away_team_id as string | null, g.quarter_id as string | null)
+    if (!home || !away) continue
+    const isLive = !!g.is_started && !g.is_complete
+    const isComplete = !!g.is_complete
+    const hs = (g.home_score as number) ?? 0
+    const as_ = (g.away_score as number) ?? 0
+    const homeWon = isComplete && hs > as_
+    const awayWon = isComplete && hs < as_
+    const timeLabel = isLive
+      ? 'LIVE'
+      : isComplete
+        ? `FINAL · ${fmt(g.date as string)}`
+        : `${fmt(g.date as string)}`
+    result.push({
+      id: g.id as string,
+      date: g.date as string,
+      isLive,
+      isComplete,
+      home: {
+        name: home.display_name,
+        tri: tri(home.display_name),
+        color: home.color,
+        score: (g.home_score as number | null) ?? null,
+      },
+      away: {
+        name: away.display_name,
+        tri: tri(away.display_name),
+        color: away.color,
+        score: (g.away_score as number | null) ?? null,
+      },
+      homeWon,
+      awayWon,
+      timeLabel,
+    })
+  }
+  return result
+}
+
+// scoringKing (이 주의 득점왕) → NbaHero 재활용
+function toNbaHero(scoringKing: HighlightPlayer | null, rangeLabel: string): { data: NbaHeroData; rangeLabel: string } {
+  if (!scoringKing) return { data: null, rangeLabel }
+  return {
+    data: {
+      name: scoringKing.name,
+      number: scoringKing.number ?? null,
+      pts: scoringKing.pts,
+      gp: scoringKing.gp,
+      ppg: scoringKing.ppg,
+    },
+    rangeLabel,
+  }
+}
+
 export default async function LeagueDetailPage({
   params,
 }: {
@@ -165,11 +254,13 @@ export default async function LeagueDetailPage({
   const { orgSlug, leagueId } = await params
   const supabase = createClient()
 
-  const [{ data: league }, { data: allLeagues }, highlights] = await Promise.all([
+  const [{ data: league }, { data: allLeagues }, highlights, recentGames] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single(),
     supabase.from('leagues').select('id, name, status, season_year').eq('org_slug', orgSlug).order('created_at', { ascending: false }),
     computeHighlights(supabase, leagueId, 7),
+    computeRecentGames(supabase, leagueId, 6),
   ])
+  const heroProps = toNbaHero(highlights.scoringKing, highlights.rangeLabel)
 
   if (!league) notFound()
 
@@ -212,19 +303,14 @@ export default async function LeagueDetailPage({
         </div>
       )}
 
-      {/* 이 주의 하이라이트 — 3종: 최고 승률 팀 + 이 주 득점왕 + 3점왕 */}
-      <HighlightBanner
-        leagueId={leagueId}
-        topTeam={highlights.topTeam}
-        scoringKing={highlights.scoringKing}
-        hotHand={highlights.hotHand}
-        dateRangeLabel={highlights.rangeLabel}
-      />
+      {/* NBA.com 오마주 파일럿 — Hero + ScoreStrip + Leaders 를 한 컨테이너 안에 */}
+      <div className="rounded-none overflow-hidden">
+        <NbaHero data={heroProps.data} rangeLabel={heroProps.rangeLabel} />
+        <NbaScoreStrip games={recentGames} orgSlug={orgSlug} leagueId={leagueId} />
+        <NbaLeaders leagueId={leagueId} />
+      </div>
 
-      {/* 리그 리더 카드 그리드 (8개 카테고리 Top-5) */}
-      <LeagueLeadersGrid leagueId={leagueId} />
-
-      {/* 스토리텔링 — 진행 중 연속 기록 + 커리어 마일스톤 */}
+      {/* 스토리텔링 — 진행 중 연속 기록 + 커리어 마일스톤 (유지) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
         <StreakSpotlight leagueId={leagueId} maxEntries={8} />
         <MilestoneFeed leagueId={leagueId} />
