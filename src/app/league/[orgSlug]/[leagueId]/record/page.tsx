@@ -45,13 +45,24 @@ export default function LeagueRecordPage() {
 
   if (!isEditMode) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4 text-center">
-        <Lock size={32} className="text-gray-600" />
+      <div className="mm-brand flex flex-col items-center justify-center min-h-[50vh] gap-4 text-center">
+        <Lock size={32} style={{ color: 'var(--mm-muted)' }} />
         <div>
-          <div className="text-lg font-bold text-white">편집 모드 전용</div>
-          <p className="text-gray-400 text-sm mt-1">경기 기록은 편집 모드에서만 가능합니다</p>
+          <h3
+            className="font-jersey font-black uppercase text-2xl"
+            style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+          >
+            편집 모드 전용
+          </h3>
+          <p className="text-sm mt-1" style={{ color: 'var(--mm-muted)' }}>
+            경기 기록은 편집 모드에서만 가능합니다
+          </p>
         </div>
-        <button onClick={openPinModal} className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium cursor-pointer transition-colors">
+        <button
+          onClick={openPinModal}
+          className="px-5 py-2 text-sm font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors"
+          style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
+        >
           PIN 입력
         </button>
       </div>
@@ -899,11 +910,18 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       .sort((a, b) => b.date.localeCompare(a.date))
 
     return (
-      <div className="space-y-4">
+      <div className="mm-brand space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h2 className="text-xl font-bold text-white">경기 기록</h2>
-            <p className="text-gray-400 text-sm">기록할 날짜를 선택하세요</p>
+            <h2
+              className="font-jersey font-black uppercase text-3xl"
+              style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+            >
+              경기 기록
+            </h2>
+            <p className="text-sm mt-1" style={{ color: 'var(--mm-muted)' }}>
+              기록할 날짜를 선택하세요
+            </p>
           </div>
           {leagueYtChannel && (
             <button
@@ -920,7 +938,10 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
         {/* 전체 경기 완료 현황 요약 */}
         {totalGames > 0 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-3 flex items-center gap-6 flex-wrap">
+          <div
+            className="rounded-xl px-5 py-3 flex items-center gap-6 flex-wrap"
+            style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
+          >
             <div className="flex items-center gap-1.5">
               <CheckCircle2 size={13} className="text-green-400" />
               <span className="text-xs text-gray-400">완료</span>
@@ -985,13 +1006,22 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
               <button
                 key={sd.id}
                 onClick={() => selectDate(sd.date)}
-                className={`w-full text-left bg-gray-900 border rounded-xl px-4 py-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 cursor-pointer ${allDone ? 'border-green-800/50 hover:border-green-600/60' : 'border-gray-800 hover:border-blue-500/50'}`}
+                className={`w-full text-left rounded-xl px-4 py-3 hover:-translate-y-0.5 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] transition-all duration-200 cursor-pointer`}
+                style={{
+                  background: 'var(--mm-panel)',
+                  border: allDone
+                    ? '1px solid color-mix(in srgb, #16a34a 55%, var(--mm-rule))'
+                    : '1px solid var(--mm-rule)',
+                }}
               >
                 <div className="flex items-center gap-3 flex-wrap">
                   {/* 날짜 */}
-                  <span className="text-white font-semibold text-base whitespace-nowrap">
+                  <span
+                    className="font-jersey font-black uppercase text-lg whitespace-nowrap"
+                    style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+                  >
                     {d.getFullYear()}년 {d.getMonth() + 1}월 {d.getDate()}일
-                    <span className="text-gray-400 ml-1.5 text-sm">({days[d.getDay()]})</span>
+                    <span className="ml-1.5 text-sm" style={{ color: 'var(--mm-muted)' }}>({days[d.getDay()]})</span>
                   </span>
 
                   {/* 상태 배지들 — 날짜 바로 옆 */}
@@ -1055,17 +1085,23 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
   // ── 슬랏 그리드 + 기록 UI ─────────────────────────────────
   return (
-    <div className="space-y-4">
+    <div className="mm-brand space-y-4">
       <LeagueSubTabs group="games" />
       {/* 날짜 헤더 + YouTube 연동 (1행) */}
       <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={() => { setSelectedDate(''); setSelectedSlotId(''); setSlots([]) }}
-          className="text-gray-400 hover:text-white transition-colors cursor-pointer shrink-0"
+          className="transition-colors cursor-pointer shrink-0"
+          style={{ color: 'var(--mm-muted)' }}
         >
           <ChevronLeft size={20} />
         </button>
-        <h2 className="text-base font-bold text-white">{dateLabel} 경기 기록</h2>
+        <h2
+          className="font-jersey font-black uppercase text-xl"
+          style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+        >
+          {dateLabel} 경기 기록
+        </h2>
         {/* YouTube sync — compact, moved inline */}
         <div className="ml-auto flex items-center gap-2 shrink-0">
           {leagueYtChannel && (
@@ -1125,11 +1161,14 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
       {/* 선택된 슬랏 기록 UI */}
       {selectedSlot && (
-        <div className="border-t border-gray-800 pt-4">
+        <div className="pt-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
           {/* 팀 설정 (항상 상단 compact) */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 mb-4">
+          <div
+            className="rounded-xl p-3 mb-4"
+            style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
+          >
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-gray-500 shrink-0">경기 {selectedSlot.slot_num}</span>
+              <span className="text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>경기 {selectedSlot.slot_num}</span>
               {selectedSlot.is_exhibition && (
                 <span className="text-xs font-bold text-amber-300 px-1.5 py-0.5 rounded bg-amber-900/30 border border-amber-700/40 shrink-0">친선</span>
               )}

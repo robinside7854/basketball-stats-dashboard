@@ -18,9 +18,9 @@ const DOW_OPTIONS = [
   { value: 'sunday', label: '일요일' },
 ]
 const STATUS_OPTIONS = [
-  { value: 'upcoming', label: '예정', color: 'text-yellow-400' },
-  { value: 'active', label: '진행 중', color: 'text-green-400' },
-  { value: 'completed', label: '완료', color: 'text-gray-400' },
+  { value: 'upcoming', label: '예정', color: 'text-[color:var(--mm-yellow-strong)]' },
+  { value: 'active', label: '진행 중', color: 'text-[#059669]' },
+  { value: 'completed', label: '완료', color: 'text-[color:var(--mm-muted)]' },
 ]
 
 export default function LeagueSettingsPage() {
@@ -127,12 +127,15 @@ export default function LeagueSettingsPage() {
   if (!isEditMode) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4 text-center">
-        <Lock size={28} className="text-gray-600" />
+        <Lock size={28} className="text-[color:var(--mm-muted)]" />
         <div>
-          <div className="text-base font-bold text-white">편집 모드에서 설정 가능합니다</div>
-          <p className="text-gray-500 text-sm mt-1">PIN을 입력해 편집 모드를 활성화하세요</p>
+          <div className="font-jersey font-black uppercase text-xl text-[color:var(--mm-ink)]">편집 모드에서 설정 가능합니다</div>
+          <p className="text-[color:var(--mm-muted)] text-sm mt-1">PIN을 입력해 편집 모드를 활성화하세요</p>
         </div>
-        <button onClick={openPinModal} className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium cursor-pointer transition-colors">
+        <button
+          onClick={openPinModal}
+          className="px-6 py-2.5 bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] text-sm font-bold uppercase tracking-[0.16em] cursor-pointer transition-colors hover:brightness-95"
+        >
           PIN 입력
         </button>
       </div>
@@ -141,18 +144,20 @@ export default function LeagueSettingsPage() {
 
   return (
     <div className="space-y-5 max-w-lg">
-      <h2 className="text-xl font-bold text-white">리그 설정</h2>
+      <h2 className="font-jersey font-black uppercase text-3xl tracking-tight text-[color:var(--mm-ink)]">리그 설정</h2>
 
       {/* 리그 상태 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-3">
-        <h3 className="font-semibold text-white text-sm">리그 상태</h3>
+      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+        <h3 className="font-jersey font-black uppercase text-lg text-[color:var(--mm-ink)]">리그 상태</h3>
         <div className="flex gap-2">
           {STATUS_OPTIONS.map(opt => (
             <button
               key={opt.value}
               onClick={() => setStatus(opt.value)}
-              className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-colors cursor-pointer ${
-                status === opt.value ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-500'
+              className={`flex-1 py-2.5 border text-sm font-bold uppercase tracking-[0.12em] transition-colors cursor-pointer ${
+                status === opt.value
+                  ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
+                  : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
               }`}
             >
               <span className={status === opt.value ? opt.color : ''}>{opt.label}</span>
@@ -162,7 +167,7 @@ export default function LeagueSettingsPage() {
         <Button
           onClick={() => save('status', { status })}
           disabled={saving === 'status' || status === league.status}
-          className="w-full bg-blue-600 hover:bg-blue-500 cursor-pointer"
+          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold uppercase tracking-[0.14em] rounded-none"
           size="sm"
         >
           {saving === 'status' ? <Loader2 size={13} className="animate-spin mr-1" /> : null}상태 저장
@@ -170,32 +175,32 @@ export default function LeagueSettingsPage() {
       </div>
 
       {/* 정기 일정 설정 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
-        <h3 className="font-semibold text-white text-sm">정기 일정 설정</h3>
+      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-4">
+        <h3 className="font-jersey font-black uppercase text-lg text-[color:var(--mm-ink)]">정기 일정 설정</h3>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-gray-400">정기 경기 요일</label>
+          <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">정기 경기 요일</label>
           <select
             value={matchDay}
             onChange={e => setMatchDay(e.target.value)}
-            className="w-full bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer"
+            className="w-full bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none px-3 py-2 text-sm cursor-pointer focus:outline-none focus:border-[color:var(--mm-ink)]"
           >
             {DOW_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-gray-400">첫 정기 일정 날짜</label>
+          <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">첫 정기 일정 날짜</label>
           <Input
             type="date"
             value={startDate}
             onChange={e => setStartDate(e.target.value)}
-            className="bg-gray-800 border-gray-700 text-white"
+            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none"
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs text-gray-400">시즌 구분</label>
+          <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">시즌 구분</label>
           <div className="grid grid-cols-2 gap-2">
             {[
               { value: 'annual', label: '연간 (1년)' },
@@ -204,8 +209,10 @@ export default function LeagueSettingsPage() {
               <button
                 key={opt.value}
                 onClick={() => setSeasonType(opt.value as 'annual' | 'quarterly')}
-                className={`py-2.5 px-3 rounded-xl border text-sm font-medium transition-colors cursor-pointer ${
-                  seasonType === opt.value ? 'border-blue-500 bg-blue-500/10 text-white' : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-500'
+                className={`py-2.5 px-3 border text-sm font-bold uppercase tracking-[0.12em] transition-colors cursor-pointer ${
+                  seasonType === opt.value
+                    ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
+                    : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
                 }`}
               >
                 {opt.label}
@@ -215,19 +222,19 @@ export default function LeagueSettingsPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-gray-400">정규일정 당 경기 수</label>
+          <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">정규일정 당 경기 수</label>
           <Input
             type="number" min={1} max={10}
             value={gamesPerRound}
             onChange={e => setGamesPerRound(Number(e.target.value))}
-            className="bg-gray-800 border-gray-700 text-white"
+            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none"
           />
         </div>
 
         <Button
           onClick={() => save('schedule-settings', { match_day: matchDay, start_date: startDate, season_type: seasonType, games_per_round: gamesPerRound })}
           disabled={saving === 'schedule-settings'}
-          className="w-full bg-blue-600 hover:bg-blue-500 cursor-pointer"
+          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold uppercase tracking-[0.14em] rounded-none"
           size="sm"
         >
           {saving === 'schedule-settings' ? <Loader2 size={13} className="animate-spin mr-1" /> : null}설정 저장
@@ -237,43 +244,43 @@ export default function LeagueSettingsPage() {
       {/* 일정 자동 생성은 '경기 > 일정' 페이지로 이동했습니다 */}
 
       {/* YouTube 채널 설정 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-3">
+      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <Youtube size={16} className="text-red-500" />
-          <h3 className="font-semibold text-white text-sm">YouTube 채널 설정</h3>
+          <Youtube size={16} className="text-[color:var(--mm-live)]" />
+          <h3 className="font-jersey font-black uppercase text-lg text-[color:var(--mm-ink)]">YouTube 채널 설정</h3>
         </div>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
           경기 기록 탭에서 날짜별 YouTube 자동 연동에 사용됩니다.<br />
-          영상 제목 형식: <span className="font-mono text-gray-400">260418 경기 9</span>
+          영상 제목 형식: <span className="font-mono text-[color:var(--mm-ink-soft)]">260418 경기 9</span>
         </p>
         <div className="flex gap-2">
           <Input
             placeholder="@채널핸들 (예: @미라클모닝농구단)"
             value={ytChannel}
             onChange={e => setYtChannel(e.target.value)}
-            className="bg-gray-800 border-gray-700 text-white flex-1"
+            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none flex-1"
           />
           <Button
             onClick={() => save('youtube', { youtube_channel: ytChannel.trim() || null })}
             disabled={saving === 'youtube'}
-            className="bg-red-600 hover:bg-red-500 cursor-pointer shrink-0"
+            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold uppercase tracking-[0.14em] rounded-none"
             size="sm"
           >
             {saving === 'youtube' ? <Loader2 size={13} className="animate-spin" /> : '저장'}
           </Button>
         </div>
         {league.youtube_channel && (
-          <p className="text-xs text-gray-600">현재: <span className="text-red-400 font-mono">{league.youtube_channel}</span></p>
+          <p className="text-xs text-[color:var(--mm-muted)]">현재: <span className="text-[color:var(--mm-yellow-strong)] font-mono">{league.youtube_channel}</span></p>
         )}
       </div>
 
       {/* 플러스원(+1) 나이 기준 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-3">
+      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full">+1</span>
-          <h3 className="font-semibold text-white text-sm">플러스원 나이 기준</h3>
+          <span className="text-xs font-black bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] px-2 py-0.5 tracking-tight">+1</span>
+          <h3 className="font-jersey font-black uppercase text-lg text-[color:var(--mm-ink)]">플러스원 나이 기준</h3>
         </div>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
           해당 만 나이 이상 선수에게 자유투 제외 득점 +1이 가산됩니다.<br />
           비워두면 플러스원 제도 미사용.
         </p>
@@ -282,26 +289,26 @@ export default function LeagueSettingsPage() {
             type="number" min={1} max={99} placeholder="예: 40"
             value={plusOneAge}
             onChange={e => setPlusOneAge(e.target.value)}
-            className="bg-gray-800 border-gray-700 text-white w-24"
+            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none w-24"
           />
-          <span className="text-sm text-gray-400">세 이상</span>
+          <span className="text-sm text-[color:var(--mm-muted)]">세 이상</span>
           <Button
             onClick={() => save('plus_one_age', { plus_one_age: plusOneAge ? Number(plusOneAge) : null })}
             disabled={saving === 'plus_one_age'}
-            className="bg-amber-600 hover:bg-amber-500 cursor-pointer shrink-0"
+            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold uppercase tracking-[0.14em] rounded-none"
             size="sm"
           >
             {saving === 'plus_one_age' ? <Loader2 size={13} className="animate-spin" /> : '저장'}
           </Button>
         </div>
         {league.plus_one_age && (
-          <p className="text-xs text-gray-600">현재 기준: <span className="text-amber-400 font-mono">만 {league.plus_one_age}세</span> 이상</p>
+          <p className="text-xs text-[color:var(--mm-muted)]">현재 기준: <span className="text-[color:var(--mm-yellow-strong)] font-mono">만 {league.plus_one_age}세</span> 이상</p>
         )}
       </div>
 
       {/* PIN 변경 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-3">
-        <h3 className="font-semibold text-white text-sm">편집 PIN 변경</h3>
+      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+        <h3 className="font-jersey font-black uppercase text-lg text-[color:var(--mm-ink)]">편집 PIN 변경</h3>
         <div className="flex items-center gap-2">
           <Input
             type={pinVisible ? 'text' : 'password'}
@@ -312,40 +319,48 @@ export default function LeagueSettingsPage() {
             onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             maxLength={4}
             placeholder="4자리 PIN"
-            className="bg-gray-800 border-gray-700 text-white font-mono text-xl tracking-[0.5em] flex-1"
+            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] font-mono text-xl tracking-[0.5em] flex-1 rounded-none"
           />
-          <button onClick={() => setPinVisible(v => !v)} className="p-2.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white cursor-pointer shrink-0">
+          <button
+            onClick={() => setPinVisible(v => !v)}
+            className="p-2.5 border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] cursor-pointer shrink-0 transition-colors"
+          >
             {pinVisible ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
           <button
             onClick={() => { setPin(String(Math.floor(1000 + Math.random() * 9000))); setPinVisible(true) }}
-            className="p-2.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white cursor-pointer shrink-0"
+            className="p-2.5 border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] cursor-pointer shrink-0 transition-colors"
             title="랜덤 재발급"
           >
             <RefreshCw size={14} />
           </button>
-          <Button onClick={savePin} disabled={saving === 'pin'} className="bg-blue-600 hover:bg-blue-500 cursor-pointer shrink-0" size="sm">
+          <Button
+            onClick={savePin}
+            disabled={saving === 'pin'}
+            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold uppercase tracking-[0.14em] rounded-none"
+            size="sm"
+          >
             저장
           </Button>
         </div>
-        <p className="text-xs text-gray-600">PIN 변경 후 현재 세션은 유지되며 다음 접속 시 새 PIN이 적용됩니다</p>
+        <p className="text-xs text-[color:var(--mm-muted)]">PIN 변경 후 현재 세션은 유지되며 다음 접속 시 새 PIN이 적용됩니다</p>
       </div>
 
       {/* 분기 날짜 범위 설정 */}
       {quarters.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-3">
+        <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
           <div className="flex items-center gap-2">
-            <Calendar size={16} className="text-blue-400" />
-            <h3 className="font-semibold text-white text-sm">분기별 날짜 범위</h3>
+            <Calendar size={16} className="text-[color:var(--mm-muted)]" />
+            <h3 className="font-jersey font-black uppercase text-lg text-[color:var(--mm-ink)]">분기별 날짜 범위</h3>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
             각 분기의 시작일/종료일을 지정하면 경기 날짜 → 분기 자동 매핑, 분기별 스탯 집계에 사용됩니다.
           </p>
           <div className="space-y-2">
             {quarters.map(q => (
-              <div key={q.id} className="bg-gray-800 rounded-xl p-3">
+              <div key={q.id} className="bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-sm font-semibold ${q.is_current ? 'text-blue-400' : 'text-white'}`}>
+                  <span className={`font-jersey font-black uppercase text-sm tracking-tight tabular-nums ${q.is_current ? 'text-[color:var(--mm-yellow-strong)]' : 'text-[color:var(--mm-ink)]'}`}>
                     {String(q.year).slice(2)}.{q.quarter}Q {q.is_current ? '● 현재' : ''}
                   </span>
                   {editingQuarter !== q.id && (
@@ -355,7 +370,7 @@ export default function LeagueSettingsPage() {
                         setQStartDate(q.start_date ?? '')
                         setQEndDate(q.end_date ?? '')
                       }}
-                      className="text-xs text-gray-400 hover:text-white cursor-pointer"
+                      className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer"
                     >편집</button>
                   )}
                 </div>
@@ -363,28 +378,28 @@ export default function LeagueSettingsPage() {
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs text-gray-500">시작일</label>
+                        <label className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--mm-muted)]">시작일</label>
                         <Input type="date" value={qStartDate} onChange={e => setQStartDate(e.target.value)}
-                          className="bg-gray-700 border-gray-600 text-white text-xs mt-0.5" />
+                          className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-xs mt-0.5 rounded-none" />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-500">종료일</label>
+                        <label className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--mm-muted)]">종료일</label>
                         <Input type="date" value={qEndDate} onChange={e => setQEndDate(e.target.value)}
-                          className="bg-gray-700 border-gray-600 text-white text-xs mt-0.5" />
+                          className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-xs mt-0.5 rounded-none" />
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => saveQuarterDates(q.id)}
                         disabled={savingQuarter === q.id}
-                        className="bg-blue-600 hover:bg-blue-500 cursor-pointer text-xs">
+                        className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold uppercase tracking-[0.14em] rounded-none">
                         {savingQuarter === q.id ? <Loader2 size={11} className="animate-spin" /> : '저장'}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setEditingQuarter(null)}
-                        className="border-gray-700 text-gray-400 cursor-pointer text-xs">취소</Button>
+                        className="border-[color:var(--mm-rule)] bg-transparent text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel)] hover:text-[color:var(--mm-ink)] cursor-pointer text-xs font-bold uppercase tracking-[0.14em] rounded-none">취소</Button>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-[color:var(--mm-muted)]">
                     {q.start_date ? `${q.start_date} ~ ${q.end_date ?? '미지정'}` : '날짜 미설정 (달력 분기 자동 계산)'}
                   </p>
                 )}

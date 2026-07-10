@@ -203,16 +203,22 @@ export default function ColumnsListPage() {
       {/* 헤더 */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <Newspaper size={28} className="text-amber-400 lg:w-9 lg:h-9" />
+          <Newspaper size={28} className="lg:w-9 lg:h-9" style={{ color: 'var(--mm-yellow-strong)' }} />
           <div>
-            <h1 className="font-jersey text-2xl lg:text-4xl font-bold text-white tracking-wide uppercase">매거진</h1>
-            <p className="text-sm text-gray-500 mt-0.5">주간·월간·분기 리포트</p>
+            <h1
+              className="font-jersey text-2xl lg:text-4xl font-black tracking-wide uppercase"
+              style={{ color: 'var(--mm-ink)' }}
+            >
+              매거진
+            </h1>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--mm-muted)' }}>주간·월간·분기 리포트</p>
           </div>
         </div>
         {isEditMode && (
           <button
             onClick={() => setGenOptionsOpen(v => !v)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold cursor-pointer bg-amber-600 hover:bg-amber-500 text-white"
+            className="flex items-center gap-1.5 px-4 py-2 rounded text-sm font-black uppercase tracking-wider cursor-pointer transition-colors"
+            style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}
             aria-label="AI 컬럼 생성 옵션 열기"
           >
             <Sparkles size={14} /> AI 생성{genOptionsOpen ? ' ▲' : ' ▼'}
@@ -222,20 +228,29 @@ export default function ColumnsListPage() {
 
       {/* 생성 옵션 패널 (접힘/펼침) */}
       {isEditMode && genOptionsOpen && (
-        <div className="rounded-2xl border border-amber-700/40 bg-amber-950/20 p-4 lg:p-5 space-y-4">
+        <div
+          className="rounded p-4 lg:p-5 space-y-4 border"
+          style={{ background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)' }}
+        >
           {/* 1. 기간 유형 */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-amber-200 uppercase font-bold tracking-widest w-16">유형</span>
+            <span
+              className="text-xs uppercase font-black tracking-[0.18em] w-16"
+              style={{ color: 'var(--mm-muted)' }}
+            >
+              유형
+            </span>
             <div className="flex gap-1.5">
               {(['weekly', 'monthly', 'quarterly'] as const).map(p => (
                 <button
                   key={p}
                   onClick={() => setGenPeriod(p)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  className="px-3 py-1.5 rounded text-xs font-black uppercase tracking-wider transition cursor-pointer"
+                  style={
                     genPeriod === p
-                      ? 'bg-amber-500 text-black'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                  }`}
+                      ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
+                      : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
+                  }
                 >
                   {p === 'weekly' ? '주간' : p === 'monthly' ? '월간' : '분기'}
                 </button>
@@ -245,33 +260,63 @@ export default function ColumnsListPage() {
 
           {/* 2. 프리셋 */}
           <div className="flex items-start gap-2 flex-wrap">
-            <span className="text-xs text-amber-200 uppercase font-bold tracking-widest w-16 pt-1.5">프리셋</span>
+            <span
+              className="text-xs uppercase font-black tracking-[0.18em] w-16 pt-1.5"
+              style={{ color: 'var(--mm-muted)' }}
+            >
+              프리셋
+            </span>
             <div className="flex-1 flex gap-1.5 flex-wrap">
               {genPeriod === 'weekly' && (
                 <>
-                  <button onClick={() => applyPreset('this-week')} className="px-2.5 py-1.5 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 cursor-pointer">이번 주</button>
-                  <button onClick={() => applyPreset('last-week')} className="px-2.5 py-1.5 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 cursor-pointer">지난 주</button>
+                  <button
+                    onClick={() => applyPreset('this-week')}
+                    className="px-2.5 py-1.5 rounded text-xs font-bold cursor-pointer transition-colors"
+                    style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                  >
+                    이번 주
+                  </button>
+                  <button
+                    onClick={() => applyPreset('last-week')}
+                    className="px-2.5 py-1.5 rounded text-xs font-bold cursor-pointer transition-colors"
+                    style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                  >
+                    지난 주
+                  </button>
                 </>
               )}
               {genPeriod === 'monthly' && (
                 <>
-                  <button onClick={() => applyPreset('this-month')} className="px-2.5 py-1.5 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 cursor-pointer">이번 달</button>
-                  <button onClick={() => applyPreset('last-month')} className="px-2.5 py-1.5 rounded-lg text-xs bg-gray-800 hover:bg-gray-700 text-gray-200 cursor-pointer">지난 달</button>
+                  <button
+                    onClick={() => applyPreset('this-month')}
+                    className="px-2.5 py-1.5 rounded text-xs font-bold cursor-pointer transition-colors"
+                    style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                  >
+                    이번 달
+                  </button>
+                  <button
+                    onClick={() => applyPreset('last-month')}
+                    className="px-2.5 py-1.5 rounded text-xs font-bold cursor-pointer transition-colors"
+                    style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                  >
+                    지난 달
+                  </button>
                 </>
               )}
               {genPeriod === 'quarterly' && (
                 quarters.length === 0 ? (
-                  <span className="text-xs text-gray-500 pt-1">분기 정보 없음</span>
+                  <span className="text-xs pt-1" style={{ color: 'var(--mm-muted)' }}>분기 정보 없음</span>
                 ) : (
                   quarters.map(q => (
                     <button
                       key={q.id}
                       onClick={() => applyPreset(`quarter:${q.id}`)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs cursor-pointer ${
+                      className="px-2.5 py-1.5 rounded text-xs font-bold cursor-pointer transition-colors"
+                      style={
                         q.is_current
-                          ? 'bg-amber-700/40 hover:bg-amber-700/60 text-amber-100 border border-amber-600/40'
-                          : 'bg-gray-800 hover:bg-gray-700 text-gray-200'
-                      }`}
+                          ? { background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', border: '1px solid var(--mm-yellow)' }
+                          : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
+                      }
                     >
                       {String(q.year).slice(2)}.{q.quarter}Q{q.is_current ? ' (현재)' : ''}
                     </button>
@@ -280,7 +325,8 @@ export default function ColumnsListPage() {
               )}
               <button
                 onClick={() => applyPreset('clear')}
-                className="px-2.5 py-1.5 rounded-lg text-xs bg-gray-900 hover:bg-gray-800 text-gray-500 border border-gray-800 cursor-pointer"
+                className="px-2.5 py-1.5 rounded text-xs font-bold cursor-pointer transition-colors"
+                style={{ background: 'transparent', color: 'var(--mm-muted)', border: '1px dashed var(--mm-rule)' }}
               >
                 자동 (기본)
               </button>
@@ -289,40 +335,50 @@ export default function ColumnsListPage() {
 
           {/* 3. 직접 입력 */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-amber-200 uppercase font-bold tracking-widest w-16">기간</span>
+            <span
+              className="text-xs uppercase font-black tracking-[0.18em] w-16"
+              style={{ color: 'var(--mm-muted)' }}
+            >
+              기간
+            </span>
             <input
               type="date"
               value={genStart}
               onChange={e => setGenStart(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+              className="rounded px-2.5 py-1.5 text-xs"
+              style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}
               aria-label="시작일"
             />
-            <span className="text-gray-500 text-xs">~</span>
+            <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>~</span>
             <input
               type="date"
               value={genEnd}
               onChange={e => setGenEnd(e.target.value)}
-              className="bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white"
+              className="rounded px-2.5 py-1.5 text-xs"
+              style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}
               aria-label="종료일"
             />
             {(genStart || genEnd) && (
-              <span className="text-xs text-amber-300">
+              <span className="text-xs font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>
                 {genStart && genEnd
                   ? `${genStart} ~ ${genEnd} (${Math.ceil((new Date(genEnd).getTime() - new Date(genStart).getTime()) / 86400000) + 1}일)`
                   : '시작/종료일을 모두 지정하세요'}
               </span>
             )}
             {!genStart && !genEnd && (
-              <span className="text-xs text-gray-500">기간 미지정 시 자동 계산 (최근 7일/이번 달/현재 분기)</span>
+              <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                기간 미지정 시 자동 계산 (최근 7일/이번 달/현재 분기)
+              </span>
             )}
           </div>
 
           {/* 4. 생성 실행 */}
-          <div className="flex justify-end pt-2 border-t border-amber-800/30">
+          <div className="flex justify-end pt-2 border-t" style={{ borderColor: 'var(--mm-rule)' }}>
             <button
               onClick={generateColumn}
               disabled={generating}
-              className="flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold cursor-pointer bg-amber-500 hover:bg-amber-400 text-black disabled:opacity-50 transition"
+              className="flex items-center gap-1.5 px-5 py-2 rounded text-sm font-black uppercase tracking-wider cursor-pointer disabled:opacity-50 transition-colors"
+              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}
             >
               {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
               {generating ? '생성 중…' : '초안 생성'}
@@ -347,32 +403,46 @@ export default function ColumnsListPage() {
             const coverPlayer = col.cover_player_id ? playerMap[col.cover_player_id] : null
             const isDraft = col.status === 'draft'
             return (
-              <div key={col.id} className={`group relative rounded-2xl overflow-hidden border transition-all ${
-                isDraft
-                  ? 'bg-amber-950/20 border-amber-700/40'
-                  : 'bg-gray-900 border-gray-800 hover:border-gray-700 hover:shadow-lg'
-              }`}>
+              <div
+                key={col.id}
+                className="group relative rounded overflow-hidden border transition-all hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.22)]"
+                style={{
+                  background: 'var(--mm-panel)',
+                  borderColor: isDraft ? 'var(--mm-yellow)' : 'var(--mm-rule)',
+                  borderWidth: isDraft ? '1px 1px 1px 4px' : '1px',
+                }}
+              >
                 <Link href={`/league/${orgSlug}/${leagueId}/columns/${col.id}`} className="block">
                   {/* 표지 이미지 영역 */}
-                  <div className="relative aspect-[16/9] bg-gradient-to-br from-amber-900/40 via-gray-800 to-orange-900/40 overflow-hidden">
+                  <div
+                    className="relative aspect-[16/9] overflow-hidden"
+                    style={{ background: 'var(--mm-panel-alt)' }}
+                  >
                     {coverPlayer?.photo_url && (
                       <img
                         src={coverPlayer.photo_url}
                         alt={coverPlayer.name}
-                        className="absolute inset-0 w-full h-full object-cover object-top opacity-90 group-hover:scale-105 transition-transform duration-500"
+                        className="absolute inset-0 w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
                       />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                    {/* 하단 텍스트 가독성을 위한 최소 그라디언트 (커버 이미지 위) */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                     <div className="absolute bottom-3 left-3 right-3">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-black text-amber-300 uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">
+                        <span
+                          className="text-[10px] font-black uppercase tracking-[0.18em] px-1.5 py-0.5"
+                          style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}
+                        >
                           {PERIOD_LABEL[col.period_type]}
                         </span>
-                        <span className="text-[10px] text-gray-300">
+                        <span className="text-[10px] font-bold text-white/90">
                           {col.period_start} ~ {col.period_end}
                         </span>
                         {isDraft && (
-                          <span className="text-[10px] font-black text-amber-200 uppercase px-1.5 py-0.5 rounded bg-amber-700/60 ml-auto">
+                          <span
+                            className="text-[10px] font-black uppercase tracking-[0.18em] px-1.5 py-0.5 ml-auto"
+                            style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)' }}
+                          >
                             DRAFT
                           </span>
                         )}
@@ -381,11 +451,24 @@ export default function ColumnsListPage() {
                   </div>
                   {/* 텍스트 영역 */}
                   <div className="p-4">
-                    <h3 className="text-base lg:text-lg font-black text-white leading-tight line-clamp-2">{col.title}</h3>
+                    <h3
+                      className="font-jersey text-lg lg:text-xl font-black uppercase leading-tight line-clamp-2"
+                      style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+                    >
+                      {col.title}
+                    </h3>
                     {col.subtitle && (
-                      <p className="text-xs text-gray-400 mt-1.5 line-clamp-2">{col.subtitle}</p>
+                      <p
+                        className="text-xs mt-1.5 line-clamp-2 leading-relaxed"
+                        style={{ color: 'var(--mm-ink-soft)' }}
+                      >
+                        {col.subtitle}
+                      </p>
                     )}
-                    <p className="text-[11px] text-gray-600 mt-2">
+                    <p
+                      className="text-[11px] font-bold uppercase tracking-[0.14em] mt-2"
+                      style={{ color: 'var(--mm-muted)' }}
+                    >
                       {isDraft
                         ? `생성 ${new Date(col.created_at).toLocaleDateString('ko-KR')}`
                         : col.published_at
@@ -398,7 +481,8 @@ export default function ColumnsListPage() {
                   <div className="absolute top-2 right-2 flex items-center gap-1">
                     <button
                       onClick={e => { e.preventDefault(); openEditor(col.id) }}
-                      className="p-1.5 rounded-md bg-blue-600/80 hover:bg-blue-500 text-white cursor-pointer"
+                      className="p-1.5 rounded cursor-pointer transition-colors"
+                      style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)' }}
                       title="편집"
                     >
                       <Edit3 size={13} />
@@ -406,7 +490,8 @@ export default function ColumnsListPage() {
                     {isDraft && (
                       <button
                         onClick={e => { e.preventDefault(); publishColumn(col.id) }}
-                        className="p-1.5 rounded-md bg-emerald-600/80 hover:bg-emerald-500 text-white cursor-pointer"
+                        className="p-1.5 rounded text-white cursor-pointer transition-colors"
+                        style={{ background: '#059669' }}
                         title="발행"
                       >
                         <CheckCircle2 size={13} />
@@ -414,7 +499,8 @@ export default function ColumnsListPage() {
                     )}
                     <button
                       onClick={e => { e.preventDefault(); deleteColumn(col.id) }}
-                      className="p-1.5 rounded-md bg-red-600/80 hover:bg-red-500 text-white cursor-pointer"
+                      className="p-1.5 rounded text-white cursor-pointer transition-colors"
+                      style={{ background: 'var(--mm-live)' }}
                       title="삭제"
                     >
                       <Trash2 size={13} />

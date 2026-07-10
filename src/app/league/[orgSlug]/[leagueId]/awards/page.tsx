@@ -32,6 +32,7 @@ interface AwardEntry {
   allCandidates: AwardCandidate[]
 }
 
+// AwardDetailModal 이 참조하므로 시그니처/필드 보존. 페이지 자체는 mm-brand 로 렌더.
 const CATEGORY_STYLE: Record<AwardCategory, {
   Icon: typeof Trophy
   bg: string
@@ -49,6 +50,20 @@ const CATEGORY_STYLE: Record<AwardCategory, {
   EFFICIENCY: { Icon: Award,     bg: 'from-teal-950/40 to-cyan-900/20',                       border: 'border-teal-500/50',   text: 'text-teal-200',     chipBg: 'bg-teal-500/20',   ribbon: 'from-teal-400 to-cyan-500' },
   CLUTCH:     { Icon: Flame,     bg: 'from-red-950/40 to-amber-900/20',                       border: 'border-red-500/50',    text: 'text-red-200',      chipBg: 'bg-red-500/20',    ribbon: 'from-red-400 to-amber-500' },
   MIP:        { Icon: TrendingUp,bg: 'from-purple-950/40 to-fuchsia-900/20',                  border: 'border-purple-500/50', text: 'text-purple-200',   chipBg: 'bg-purple-500/20', ribbon: 'from-purple-400 to-fuchsia-500' },
+}
+
+// 부문별 accent — Option B: gradient 걷어내고 순색 accent 만.
+// 카드 상단 스트라이프 · 아이콘 · 러너 값 컬러에 사용. Winner 배경은 항상 mm-yellow.
+const CATEGORY_ACCENT: Record<AwardCategory, string> = {
+  MVP:        '#EAB308', // yellow-500
+  SCORING:    '#F59E0B', // amber-500
+  REBOUND:    '#F97316', // orange-500
+  ASSIST:     '#06B6D4', // cyan-500
+  DPOY:       '#10B981', // emerald-500
+  THREE:      '#EC4899', // pink-500
+  EFFICIENCY: '#14B8A6', // teal-500
+  CLUTCH:     '#EF4444', // red-500
+  MIP:        '#A855F7', // purple-500
 }
 
 interface AttendanceInfo {
@@ -150,160 +165,336 @@ export default function AwardsPage() {
   }, [awards, loading])
 
   return (
-    <div className="space-y-5 lg:space-y-6">
-      {/* 헤더 */}
-      <div className="relative court-bg rounded-2xl px-5 py-5 lg:px-6 lg:py-6 -mx-2 sm:mx-0 border border-gray-800/40 overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none opacity-20"
-             style={{ background: 'radial-gradient(circle at 30% 20%, rgba(251,191,36,0.5), transparent 60%)' }} />
-        <div className="relative flex items-start justify-between gap-3 flex-wrap">
+    <div className="mm-brand space-y-5 lg:space-y-6" style={{ color: 'var(--mm-ink)' }}>
+      {/* 헤더 — E안: 흰 패널 + 검정 잉크 */}
+      <div
+        className="relative px-5 py-5 lg:px-6 lg:py-6 -mx-2 sm:mx-0"
+        style={{
+          background: 'var(--mm-panel)',
+          border: '1px solid var(--mm-rule)',
+        }}
+      >
+        <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <Trophy size={28} className="text-amber-400 lg:w-9 lg:h-9" />
+            <Trophy size={28} className="lg:w-9 lg:h-9" style={{ color: 'var(--mm-yellow-strong)' }} />
             <div>
-              <h1 className="font-jersey text-2xl lg:text-4xl font-bold text-white tracking-wide uppercase">시즌 어워즈</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Season Awards · 9개 부문</p>
+              <h1
+                className="font-jersey font-black uppercase"
+                style={{
+                  color: 'var(--mm-ink)',
+                  fontSize: 'clamp(28px, 4.5vw, 40px)',
+                  letterSpacing: '-0.005em',
+                  lineHeight: 1,
+                }}
+              >
+                시즌 어워즈
+              </h1>
+              <p
+                className="text-[12px] font-bold uppercase tracking-[0.18em] mt-1.5"
+                style={{ color: 'var(--mm-muted)' }}
+              >
+                Season Awards · 9개 부문
+              </p>
             </div>
           </div>
           {attendance && attendance.totalRounds > 0 && (
-            <div className="rounded-lg bg-gray-900/60 border border-amber-500/30 px-3 py-2 lg:px-4 lg:py-2.5">
-              <p className="text-xs text-amber-300 font-jersey uppercase tracking-widest font-bold">자격 요건</p>
-              <p className="text-sm lg:text-base text-white font-bold mt-0.5">
+            <div
+              className="px-3 py-2 lg:px-4 lg:py-2.5"
+              style={{
+                background: 'var(--mm-panel-alt)',
+                border: '1px solid var(--mm-rule)',
+              }}
+            >
+              <p
+                className="text-[11px] font-black uppercase tracking-[0.22em]"
+                style={{ color: 'var(--mm-yellow-strong)' }}
+              >
+                자격 요건
+              </p>
+              <p
+                className="text-sm lg:text-base font-bold mt-1"
+                style={{ color: 'var(--mm-ink)' }}
+              >
                 {selectedQuarterId === 'all' ? '시즌' : (() => {
                   const q = quarters.find(qq => qq.id === selectedQuarterId)
                   return q ? `${String(q.year).slice(2)}.${q.quarter}Q` : '분기'
-                })()} <span className="text-amber-300 tabular-nums">{attendance.totalRounds}</span>일 중
-                <span className="text-amber-300 tabular-nums"> {attendance.requiredRounds}</span>일 이상 참석
-                <span className="text-xs text-gray-500 ml-1.5">({Math.round(attendance.threshold * 100)}%)</span>
+                })()}{' '}
+                <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>
+                  {attendance.totalRounds}
+                </span>
+                일 중{' '}
+                <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>
+                  {attendance.requiredRounds}
+                </span>
+                일 이상 참석
+                <span className="text-xs ml-1.5" style={{ color: 'var(--mm-muted)' }}>
+                  ({Math.round(attendance.threshold * 100)}%)
+                </span>
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* 분기 필터 탭 — 시즌 전체 + 각 분기 */}
+      {/* 분기 필터 탭 — 활성: 검정, 비활성: 흰 + 뮤트 */}
       <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
         <button
           onClick={() => setSelectedQuarterId('all')}
-          className={`shrink-0 px-3 py-2 rounded-xl text-sm font-bold border transition-all cursor-pointer btn-press min-h-[44px] ${
-            selectedQuarterId === 'all'
-              ? 'bg-amber-600 border-amber-500 text-white'
-              : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
-          }`}
+          className="shrink-0 px-4 py-2 text-sm font-black uppercase tracking-[0.16em] transition-colors cursor-pointer btn-press min-h-[44px]"
+          style={{
+            background: selectedQuarterId === 'all' ? 'var(--mm-ink)' : 'var(--mm-panel)',
+            color: selectedQuarterId === 'all' ? 'var(--mm-panel)' : 'var(--mm-muted)',
+            border: `1px solid ${selectedQuarterId === 'all' ? 'var(--mm-ink)' : 'var(--mm-rule)'}`,
+          }}
         >
           시즌 전체
         </button>
-        {quarters.map(q => (
-          <button
-            key={q.id}
-            onClick={() => setSelectedQuarterId(q.id)}
-            className={`shrink-0 px-3 py-2 rounded-xl text-sm font-bold border transition-all cursor-pointer btn-press min-h-[44px] ${
-              selectedQuarterId === q.id
-                ? 'bg-amber-600 border-amber-500 text-white'
-                : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
-            }`}
-          >
-            {String(q.year).slice(2)}.{q.quarter}Q{q.is_current && <span className="ml-1 text-xs">●</span>}
-          </button>
-        ))}
+        {quarters.map(q => {
+          const active = selectedQuarterId === q.id
+          return (
+            <button
+              key={q.id}
+              onClick={() => setSelectedQuarterId(q.id)}
+              className="shrink-0 px-4 py-2 text-sm font-black uppercase tracking-[0.16em] transition-colors cursor-pointer btn-press min-h-[44px] font-jersey tabular-nums"
+              style={{
+                background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
+                color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
+                border: `1px solid ${active ? 'var(--mm-ink)' : 'var(--mm-rule)'}`,
+              }}
+            >
+              {String(q.year).slice(2)}.{q.quarter}Q
+              {q.is_current && (
+                <span
+                  className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full align-middle"
+                  style={{ background: active ? 'var(--mm-yellow)' : 'var(--mm-yellow-strong)' }}
+                  aria-hidden
+                />
+              )}
+            </button>
+          )
+        })}
       </div>
 
       {loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={32} /></div>
       ) : (
-        <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 md:gap-4 lg:gap-5">
+        <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
           {awards.map(a => {
             const style = CATEGORY_STYLE[a.category]
+            const accent = CATEGORY_ACCENT[a.category]
             return (
               <div
                 key={a.category}
                 data-award-card
-                className={`relative rounded-2xl border overflow-hidden bg-gradient-to-br ${style.bg} ${style.border} shadow-lg`}
+                className="relative flex flex-col transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+                style={{
+                  background: 'var(--mm-panel)',
+                  border: '1px solid var(--mm-rule)',
+                }}
               >
-                {/* 상단 리본 */}
-                <div data-award-ribbon className={`h-1 bg-gradient-to-r ${style.ribbon}`} />
+                {/* 상단 카테고리 accent 스트라이프 (Option B: 부문색 유지, 그라디언트 제거) */}
+                <div data-award-ribbon style={{ height: '4px', background: accent }} />
 
                 {/* 카드 헤더 — 클릭하면 전체 순위 모달 */}
                 <button
                   onClick={() => setOpenAward(a)}
-                  className="w-full px-3.5 py-3 md:px-4 md:py-3.5 lg:px-5 lg:py-4 border-b border-gray-800/50 flex items-center justify-between gap-2 hover:bg-gray-900/40 cursor-pointer transition-colors text-left group"
+                  className="w-full px-4 py-3 md:px-5 md:py-3.5 flex items-center justify-between gap-2 cursor-pointer transition-colors text-left group"
+                  style={{ borderBottom: '1px solid var(--mm-rule)' }}
                   title={`${a.label} 전체 순위 보기`}
                 >
-                  <div className="flex items-center gap-2 md:gap-2.5 min-w-0">
-                    <div className={`w-9 h-9 lg:w-10 lg:h-10 rounded-full ${style.chipBg} border ${style.border} flex items-center justify-center shrink-0`}>
-                      <style.Icon size={16} className={style.text} />
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center shrink-0"
+                      style={{
+                        background: 'var(--mm-panel-alt)',
+                        border: `2px solid ${accent}`,
+                      }}
+                    >
+                      <style.Icon size={18} style={{ color: accent }} />
                     </div>
                     <div className="min-w-0">
-                      <h3 className={`font-jersey text-[15px] md:text-base lg:text-lg font-black uppercase tracking-widest ${style.text}`}>{a.label}</h3>
-                      <p className="text-[11px] md:text-xs text-gray-500 mt-0.5 truncate">{a.description}</p>
+                      <h3
+                        className="font-jersey font-black uppercase"
+                        style={{
+                          color: 'var(--mm-ink)',
+                          fontSize: '17px',
+                          letterSpacing: '0.02em',
+                          lineHeight: 1.1,
+                        }}
+                      >
+                        {a.label}
+                      </h3>
+                      <p
+                        className="text-[11px] md:text-xs mt-1 truncate"
+                        style={{ color: 'var(--mm-muted)' }}
+                      >
+                        {a.description}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-0.5 md:gap-1 shrink-0 text-[11px] md:text-xs text-gray-500 group-hover:text-gray-300">
-                    <span className="tabular-nums font-bold">{a.allCandidates.length}</span>
+                  <div
+                    className="flex items-center gap-1 shrink-0 text-[11px] md:text-xs font-bold uppercase tracking-[0.12em] transition-colors"
+                    style={{ color: 'var(--mm-muted)' }}
+                  >
+                    <span className="tabular-nums font-black" style={{ color: 'var(--mm-ink-soft)' }}>
+                      {a.allCandidates.length}
+                    </span>
                     <span className="hidden md:inline">전체</span>
-                    <span className="text-base leading-none">→</span>
+                    <span className="text-base leading-none" style={{ color: 'var(--mm-ink)' }}>→</span>
                   </div>
                 </button>
 
-                {/* Winner 스포트라이트 */}
+                {/* Winner 스포트라이트 — 노랑 배경 + 검정 잉크 (E안 아이덴티티) */}
                 {a.winner ? (
                   <button
                     onClick={() => setQuickPlayer({ id: a.winner!.player_id, name: a.winner!.name })}
-                    className="w-full px-3.5 py-3.5 md:px-4 md:py-4 lg:px-5 lg:py-5 border-b border-gray-800/40 hover:bg-gray-900/40 cursor-pointer text-left group transition-colors"
+                    className="w-full px-4 py-4 md:px-5 md:py-5 cursor-pointer text-left group transition-transform"
+                    style={{
+                      background: 'var(--mm-yellow)',
+                      color: 'var(--mm-black)',
+                    }}
                   >
-                    <div className="flex items-center gap-2.5 md:gap-3">
+                    <div className="flex items-center gap-3">
                       <div
                         data-award-crown
-                        className={`w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-full ${style.chipBg} border-2 ${style.border} flex items-center justify-center shrink-0`}
+                        className="w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center shrink-0"
+                        style={{
+                          background: 'var(--mm-panel)',
+                          border: '3px solid var(--mm-black)',
+                        }}
                       >
-                        <Crown size={20} className={`${style.text} md:w-[22px] md:h-[22px] lg:w-7 lg:h-7`} />
+                        <Crown size={22} className="md:w-7 md:h-7" style={{ color: 'var(--mm-black)' }} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className={`text-[10px] md:text-xs font-jersey font-bold uppercase tracking-widest ${style.text}`}>Winner</p>
-                        <p data-award-winner-name className="text-lg md:text-xl lg:text-2xl font-black text-white group-hover:underline underline-offset-4 truncate">
-                          {a.winner.name}
-                          {a.winner.number != null && <span className="ml-1.5 md:ml-2 text-xs md:text-sm text-gray-500 font-mono">#{a.winner.number}</span>}
+                        <p
+                          className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.22em]"
+                          style={{ color: 'rgba(0,0,0,0.65)' }}
+                        >
+                          Winner
                         </p>
-                        <p data-award-winner-value className={`text-base md:text-lg lg:text-xl font-black tabular-nums ${style.text}`}>{a.winner.displayValue}</p>
-                        <p className="text-[11px] md:text-xs text-gray-500 mt-0.5 truncate">{a.winner.gp}게임 · {a.metric}</p>
+                        <p
+                          data-award-winner-name
+                          className="font-jersey uppercase truncate group-hover:underline underline-offset-4 decoration-[3px]"
+                          style={{
+                            color: 'var(--mm-black)',
+                            fontSize: 'clamp(22px, 3.2vw, 28px)',
+                            fontWeight: 900,
+                            letterSpacing: '-0.005em',
+                            lineHeight: 1,
+                            textDecorationColor: 'var(--mm-black)',
+                            marginTop: '4px',
+                          }}
+                        >
+                          {a.winner.name}
+                          {a.winner.number != null && (
+                            <span
+                              className="font-sans font-black ml-2 align-baseline tabular-nums"
+                              style={{ color: 'rgba(0,0,0,0.55)', fontSize: '0.5em' }}
+                            >
+                              #{a.winner.number}
+                            </span>
+                          )}
+                        </p>
+                        <p
+                          data-award-winner-value
+                          className="font-jersey font-black tabular-nums leading-none mt-2"
+                          style={{
+                            color: 'var(--mm-black)',
+                            fontSize: 'clamp(28px, 4vw, 38px)',
+                            letterSpacing: '-0.015em',
+                          }}
+                        >
+                          {a.winner.displayValue}
+                        </p>
+                        <p
+                          className="text-[11px] md:text-xs font-bold uppercase tracking-[0.14em] mt-1.5 truncate"
+                          style={{ color: 'rgba(0,0,0,0.6)' }}
+                        >
+                          {a.winner.gp}게임 · {a.metric}
+                        </p>
                       </div>
                     </div>
                     {a.winner.supportingStats && (
-                      <div className="mt-2.5 md:mt-3 pt-2.5 md:pt-3 border-t border-gray-800/40 grid grid-cols-3 gap-x-2 gap-y-1.5">
+                      <div
+                        className="mt-3 pt-3 grid grid-cols-3 gap-x-2 gap-y-1.5"
+                        style={{ borderTop: '1.5px solid rgba(0,0,0,0.18)' }}
+                      >
                         {Object.entries(a.winner.supportingStats).map(([key, val]) => (
                           <div key={key} className="text-[11px] md:text-xs min-w-0">
-                            <span className="text-gray-500">{key}: </span>
-                            <span className={`font-bold ${style.text} tabular-nums`}>{val}</span>
+                            <span className="uppercase tracking-[0.1em] font-bold" style={{ color: 'rgba(0,0,0,0.6)' }}>
+                              {key}:{' '}
+                            </span>
+                            <span className="font-black tabular-nums" style={{ color: 'var(--mm-black)' }}>
+                              {val}
+                            </span>
                           </div>
                         ))}
                       </div>
                     )}
                   </button>
                 ) : (
-                  <div className="px-4 py-6 text-center text-sm text-gray-600">
+                  <div
+                    className="px-4 py-6 text-center text-sm"
+                    style={{
+                      background: 'var(--mm-panel-alt)',
+                      color: 'var(--mm-muted)',
+                      borderBottom: '1px solid var(--mm-rule)',
+                    }}
+                  >
                     자격 요건 충족자 없음
-                    {a.minRequirement && <div className="text-xs text-gray-700 mt-1">{a.minRequirement}</div>}
+                    {a.minRequirement && (
+                      <div className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>
+                        {a.minRequirement}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Runners (2-3위 후보) */}
+                {/* Runners (2-3위 후보) — 흰 배경 + 뮤트 */}
                 {a.runners.length > 0 && (
-                  <div className="px-3 py-2.5 md:px-4 md:py-3 lg:px-5 lg:py-3.5">
-                    <p className="text-[11px] md:text-xs font-jersey font-bold text-gray-500 uppercase tracking-widest mb-1.5 md:mb-2">후보</p>
-                    <div className="space-y-1 md:space-y-1.5">
+                  <div className="px-4 py-3 md:px-5 md:py-3.5" style={{ background: 'var(--mm-panel)' }}>
+                    <p
+                      className="text-[11px] font-jersey font-black uppercase tracking-[0.22em] mb-2"
+                      style={{ color: 'var(--mm-muted)' }}
+                    >
+                      후보
+                    </p>
+                    <div className="space-y-1">
                       {a.runners.map((r, idx) => (
-                        <button key={r.player_id}
+                        <button
+                          key={r.player_id}
                           onClick={() => setQuickPlayer({ id: r.player_id, name: r.name })}
-                          className="w-full flex items-center justify-between gap-2 px-1.5 py-1 md:px-2 md:py-1.5 rounded-lg hover:bg-gray-900/50 transition-colors cursor-pointer group"
+                          className="w-full flex items-center justify-between gap-2 px-2 py-1.5 md:px-2.5 md:py-2 transition-colors cursor-pointer group"
+                          style={{ background: 'transparent' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--mm-yellow-soft)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
-                            <span className="text-xs md:text-sm font-black font-mono text-gray-500 w-3.5 md:w-4 shrink-0">
+                          <div className="flex items-center gap-2 md:gap-2.5 min-w-0">
+                            <span
+                              className="font-jersey font-black tabular-nums w-4 md:w-5 shrink-0 text-right"
+                              style={{ color: 'var(--mm-muted)', fontSize: '16px', lineHeight: 1 }}
+                            >
                               {idx + 2}
                             </span>
-                            <span className="text-[13px] md:text-sm lg:text-base font-bold text-gray-200 group-hover:text-white truncate">
+                            <span
+                              className="text-[14px] md:text-[15px] font-bold truncate"
+                              style={{ color: 'var(--mm-ink)' }}
+                            >
                               {r.name}
-                              {r.number != null && <span className="ml-1 text-[10px] md:text-xs text-gray-600 font-mono">#{r.number}</span>}
+                              {r.number != null && (
+                                <span
+                                  className="ml-1.5 text-[11px] font-mono tabular-nums"
+                                  style={{ color: 'var(--mm-muted)' }}
+                                >
+                                  #{r.number}
+                                </span>
+                              )}
                             </span>
                           </div>
-                          <span className={`text-[13px] md:text-sm font-black tabular-nums ${style.text} shrink-0`}>
+                          <span
+                            className="font-jersey font-black tabular-nums shrink-0"
+                            style={{ color: accent, fontSize: '17px', lineHeight: 1 }}
+                          >
                             {r.displayValue}
                           </span>
                         </button>
@@ -313,8 +504,19 @@ export default function AwardsPage() {
                 )}
 
                 {a.minRequirement && a.winner && (
-                  <div className="px-3.5 md:px-4 py-1.5 md:py-2 bg-gray-900/40 border-t border-gray-800/40">
-                    <p className="text-[11px] md:text-xs text-gray-600">📋 {a.minRequirement}</p>
+                  <div
+                    className="mt-auto px-4 md:px-5 py-2"
+                    style={{
+                      background: 'var(--mm-panel-alt)',
+                      borderTop: '1px solid var(--mm-rule)',
+                    }}
+                  >
+                    <p
+                      className="text-[11px] uppercase tracking-[0.12em] font-bold"
+                      style={{ color: 'var(--mm-muted)' }}
+                    >
+                      {a.minRequirement}
+                    </p>
                   </div>
                 )}
               </div>

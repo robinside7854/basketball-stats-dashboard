@@ -34,32 +34,32 @@ function TopScorersChart({ players, statKey, statLabel, statUnit, color }: {
     .filter(p => p.gp >= 1)
     .sort((a, b) => (b[statKey] as number) - (a[statKey] as number))
     .slice(0, 5)
-  const barColor = color ?? '#3b82f6'
+  const barColor = color ?? '#EAB308'
   const isPct = statUnit === '%'
   // 이름 길이에 따라 YAxis 폭 조정 (이름 잘림 방지)
   const maxNameLen = top5.reduce((m, p) => Math.max(m, p.name.length), 0)
   const yAxisWidth = Math.max(56, Math.min(120, maxNameLen * 14 + 8))
   return (
-    <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4">
-      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">{statLabel} TOP 5</p>
+    <div className="p-4" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
+      <p className="text-[12px] font-black uppercase mb-3" style={{ color: 'var(--mm-muted)', letterSpacing: '0.20em' }}>{statLabel} TOP 5</p>
       <ResponsiveContainer width="100%" height={180}>
         <BarChart data={top5} layout="vertical" margin={{ left: 0, right: 48, top: 4, bottom: 0 }}>
-          <XAxis type="number" domain={[0,'auto']} tick={{fill:'#6b7280',fontSize:10}} axisLine={false} tickLine={false} />
-          <YAxis type="category" dataKey="name" tick={{fill:'#d1d5db',fontSize:11,fontWeight:600}} axisLine={false} tickLine={false} width={yAxisWidth} interval={0} />
+          <XAxis type="number" domain={[0,'auto']} tick={{fill:'var(--mm-muted)',fontSize:10}} axisLine={false} tickLine={false} />
+          <YAxis type="category" dataKey="name" tick={{fill:'var(--mm-ink)',fontSize:11,fontWeight:700}} axisLine={false} tickLine={false} width={yAxisWidth} interval={0} />
           <Tooltip
-            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-            contentStyle={{background:'#1f2937',border:'1px solid #374151',borderRadius:8,fontSize:12}}
+            cursor={{ fill: 'rgba(234,179,8,0.10)' }}
+            contentStyle={{background:'var(--mm-panel)',border:'1px solid var(--mm-rule)',borderRadius:0,fontSize:12,color:'var(--mm-ink)'}}
             formatter={(v) => [`${Number(v).toFixed(1)}${isPct ? '%' : ''} ${statUnit}`]}
-            labelStyle={{color:'#f9fafb',fontWeight:600}}
-            itemStyle={{color:'#f9fafb'}}
+            labelStyle={{color:'var(--mm-ink)',fontWeight:700}}
+            itemStyle={{color:'var(--mm-ink)'}}
           />
-          <Bar dataKey={statKey} radius={[0,4,4,0]}>
-            {top5.map((_,i) => <Cell key={i} fill={i===0?'#f59e0b':i===1?'#9ca3af':i===2?'#b45309': barColor} fillOpacity={i<3?1:0.7} />)}
+          <Bar dataKey={statKey} radius={[0,0,0,0]}>
+            {top5.map((_,i) => <Cell key={i} fill={i===0?'#EAB308':i===1?'#6B7280':i===2?'#A16207': barColor} fillOpacity={i<3?1:0.55} />)}
             <LabelList
               dataKey={statKey}
               position="right"
               formatter={(v: unknown) => `${Number(v).toFixed(1)}${isPct ? '%' : ''}`}
-              style={{ fill: '#f9fafb', fontSize: 12, fontWeight: 700 }}
+              style={{ fill: 'var(--mm-ink)', fontSize: 12, fontWeight: 800 }}
             />
           </Bar>
         </BarChart>
@@ -392,23 +392,27 @@ export default function LeagueStatsPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="mm-brand space-y-5">
       {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}
-      <div className="space-y-2">
-        <h2 className="text-xl font-bold text-white">리그 스탯</h2>
+      <div className="space-y-3">
+        <h2 className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}>리그 스탯</h2>
         {/* 1줄: 분기 선택 */}
         <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
           <button onClick={() => setSelectedQuarterId('all')}
-            className={`shrink-0 px-3 py-2 rounded-xl text-sm font-bold border transition-all cursor-pointer btn-press min-h-[44px] ${
-              selectedQuarterId === 'all' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
-            }`}>전체</button>
+            className="shrink-0 px-3 py-2 text-sm font-black uppercase transition-colors cursor-pointer btn-press min-h-[44px]"
+            style={selectedQuarterId === 'all'
+              ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
+              : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
+            }>전체</button>
           {quarters.map(q => (
             <button key={q.id} onClick={() => setSelectedQuarterId(q.id)}
-              className={`shrink-0 px-3 py-2 rounded-xl text-sm font-bold border transition-all cursor-pointer btn-press min-h-[44px] ${
-                selectedQuarterId === q.id ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
-              }`}>
+              className="shrink-0 px-3 py-2 text-sm font-black uppercase transition-colors cursor-pointer btn-press min-h-[44px]"
+              style={selectedQuarterId === q.id
+                ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
+                : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
+              }>
               {String(q.year).slice(2)}.{q.quarter}Q
-              {q.is_current && <span className="ml-1 w-1.5 h-1.5 rounded-full bg-green-400 inline-block" />}
+              {q.is_current && <span className="ml-1 w-1.5 h-1.5 rounded-full inline-block" style={{ background: 'var(--mm-live)' }} />}
             </button>
           ))}
         </div>
@@ -417,10 +421,10 @@ export default function LeagueStatsPage() {
       {loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={32} /></div>
       ) : players.length === 0 ? (
-        <div className="text-center py-16 text-gray-500">
-          <Trophy size={32} className="mx-auto mb-3 text-gray-500" />
+        <div className="text-center py-16" style={{ color: 'var(--mm-muted)' }}>
+          <Trophy size={32} className="mx-auto mb-3" style={{ color: 'var(--mm-muted)' }} />
           <p>아직 완료된 경기 데이터가 없습니다</p>
-          <p className="text-xs mt-1 text-gray-600">경기를 기록하고 완료 처리하면 스탯이 집계됩니다</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>경기를 기록하고 완료 처리하면 스탯이 집계됩니다</p>
         </div>
       ) : (
         <>
@@ -429,11 +433,11 @@ export default function LeagueStatsPage() {
             {CHART_STATS.map(s => (
               <button key={s.key}
                 onClick={() => setSelectedChartStat(s.key)}
-                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors cursor-pointer ${
-                  selectedChartStat === s.key
-                    ? 'bg-blue-600 border-blue-500 text-white'
-                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
-                }`}>{s.label}</button>
+                className="px-2.5 py-1 text-xs font-black uppercase transition-colors cursor-pointer"
+                style={selectedChartStat === s.key
+                  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', letterSpacing: '0.08em' }
+                  : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
+                }>{s.label}</button>
             ))}
           </div>
 
@@ -461,26 +465,26 @@ export default function LeagueStatsPage() {
               const maxNameLen = fgData.reduce((m, d) => Math.max(m, d.name.length), 0)
               const yAxisWidth = Math.max(72, Math.min(140, maxNameLen * 14 + 12))
               return (
-                <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">FG% Top 8</p>
+                <div className="p-4" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
+                  <p className="text-[12px] font-black uppercase mb-3" style={{ color: 'var(--mm-muted)', letterSpacing: '0.20em' }}>FG% Top 8</p>
                   <ResponsiveContainer width="100%" height={Math.max(160, fgData.length * 22)}>
                     <BarChart data={fgData} layout="vertical" margin={{ left: 0, right: 32, top: 0, bottom: 0 }}>
-                      <XAxis type="number" domain={[0,'auto']} tick={{fill:'#6b7280',fontSize:10}} axisLine={false} tickLine={false} />
+                      <XAxis type="number" domain={[0,'auto']} tick={{fill:'var(--mm-muted)',fontSize:10}} axisLine={false} tickLine={false} />
                       <YAxis
                         type="category"
                         dataKey="name"
-                        tick={{fill:'#d1d5db',fontSize:11,fontWeight:600}}
+                        tick={{fill:'var(--mm-ink)',fontSize:11,fontWeight:700}}
                         axisLine={false}
                         tickLine={false}
                         width={yAxisWidth}
                         interval={0}
                       />
                       <Tooltip
-                        contentStyle={{background:'#1f2937',border:'1px solid #374151',borderRadius:8,fontSize:12}}
+                        contentStyle={{background:'var(--mm-panel)',border:'1px solid var(--mm-rule)',borderRadius:0,fontSize:12,color:'var(--mm-ink)'}}
                         formatter={(v) => [`${Number(v).toFixed(1)}%`]}
-                        labelStyle={{color:'#f9fafb',fontWeight:600}}
+                        labelStyle={{color:'var(--mm-ink)',fontWeight:700}}
                       />
-                      <Bar dataKey="fg_pct" fill="#10b981" radius={[0,4,4,0]} />
+                      <Bar dataKey="fg_pct" fill="#EAB308" radius={[0,0,0,0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -490,18 +494,20 @@ export default function LeagueStatsPage() {
 
           {/* 비교하기 버튼 */}
           {compareIds.size > 0 && (
-            <div className="flex items-center gap-2 bg-blue-950/40 border border-blue-800/40 rounded-xl px-3 py-2">
-              <span className="text-xs text-blue-300 font-bold">선택: {compareList.map(id => compareNamesById[id]).filter(Boolean).join(' vs ')}</span>
+            <div className="flex items-center gap-2 px-3 py-2" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)' }}>
+              <span className="text-xs font-black uppercase" style={{ color: 'var(--mm-ink)', letterSpacing: '0.08em' }}>선택: {compareList.map(id => compareNamesById[id]).filter(Boolean).join(' vs ')}</span>
               <button
                 onClick={() => setCompareModalOpen(true)}
                 disabled={compareIds.size !== 2}
-                className="ml-auto px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="ml-auto px-3 py-1 text-xs font-black uppercase cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', letterSpacing: '0.08em' }}
               >
                 비교하기 ({compareIds.size}/2)
               </button>
               <button
                 onClick={() => setCompareIds(new Set())}
-                className="px-2 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs cursor-pointer transition-colors"
+                className="px-2 py-1 text-xs font-black uppercase cursor-pointer transition-colors"
+                style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }}
               >
                 초기화
               </button>
@@ -528,24 +534,27 @@ export default function LeagueStatsPage() {
               if (!top) return null
               const fmt = (p: PlayerStat) => pct ? `${(p[key] as number)}%` : String(p[key] as number)
               return (
-                <div key={key} className="bg-gray-900 border border-gray-800 rounded-2xl p-4 card-lift">
+                <div key={key} className="p-4 transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+                  style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
                   <div className="flex items-center gap-1.5 mb-3">
-                    <Trophy size={13} className="text-yellow-400" />
-                    <p className="text-xs text-gray-400 font-medium">{label}</p>
+                    <Trophy size={13} style={{ color: 'var(--mm-yellow-strong)' }} />
+                    <p className="text-[11px] font-black uppercase" style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.16em' }}>{label}</p>
                   </div>
                   <button onClick={() => setQuickViewPlayer({ id: top.player_id, name: top.name })}
-                    className="text-xl font-black text-white truncate hover:text-blue-300 transition-colors cursor-pointer text-left w-full hover:underline underline-offset-2">
+                    className="font-jersey font-black uppercase truncate cursor-pointer text-left w-full block hover:underline underline-offset-2"
+                    style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em', lineHeight: '1.05' }}>
                     {top.name}
                   </button>
-                  <p className="text-3xl font-black text-yellow-400">{fmt(top)}</p>
-                  <p className="text-xs text-gray-600 mt-0.5">{unit} · {top.gp}R</p>
+                  <p className="font-jersey font-black tabular-nums leading-none mt-1.5" style={{ color: 'var(--mm-ink)', fontSize: '36px', letterSpacing: '-0.015em' }}>{fmt(top)}</p>
+                  <p className="text-[11px] font-bold uppercase mt-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}>{unit} · {top.gp}R</p>
                   {leaders.slice(1).map((p, i) => (
-                    <div key={p.player_id} className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-gray-800">
+                    <div key={p.player_id} className="flex items-center justify-between mt-1.5 pt-1.5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                       <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                        className="text-xs text-gray-500 hover:text-blue-300 cursor-pointer transition-colors hover:underline underline-offset-1">
+                        className="text-xs font-bold cursor-pointer text-left hover:underline underline-offset-2"
+                        style={{ color: 'var(--mm-ink-soft)' }}>
                         {i + 2}위 {p.name}
                       </button>
-                      <span className="text-xs font-bold text-gray-400">{fmt(p)}</span>
+                      <span className="text-xs font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{fmt(p)}</span>
                     </div>
                   ))}
                 </div>
@@ -557,45 +566,55 @@ export default function LeagueStatsPage() {
           <LeagueDuoPanel leagueId={leagueId} quarterId={selectedQuarterId} />
 
           {/* 전체 스탯 테이블 */}
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+          <div className="overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
             {/* 테이블 컨트롤 — 모바일 2줄 / PC 1줄 */}
-            <div className="px-4 py-3 border-b border-gray-800 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-3">
+            <div className="px-4 py-3 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
               <div className="flex items-center gap-2 shrink-0">
-                <TrendingUp size={14} className="text-blue-400" />
-                <span className="text-sm font-semibold text-white">전체 스탯</span>
+                <TrendingUp size={14} style={{ color: 'var(--mm-yellow-strong)' }} />
+                <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '0.02em' }}>전체 스탯</span>
               </div>
               {/* 컨트롤 그룹 — 모바일에서 스크롤 가능한 가로 행 */}
               <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide sm:ml-auto sm:flex-wrap">
                 {/* Basic / Shooting / Advanced 토글 */}
-                <div className="flex rounded-lg overflow-hidden border border-gray-700 shrink-0">
+                <div className="flex overflow-hidden shrink-0" style={{ border: '1px solid var(--mm-rule)' }}>
                   {([
                     { k: 'basic'    as StatMode, label: 'Basic' },
                     { k: 'shooting' as StatMode, label: 'Shooting' },
                     { k: 'advanced' as StatMode, label: 'Advanced' },
                   ]).map(({ k, label }) => (
                     <button key={k} onClick={() => setStatMode(k)}
-                      className={`px-3 py-2 text-xs font-bold cursor-pointer transition-colors btn-press min-h-[40px] ${statMode === k ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                      className="px-3 py-2 text-xs font-black uppercase cursor-pointer transition-colors btn-press min-h-[40px]"
+                      style={statMode === k
+                        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', letterSpacing: '0.08em' }
+                        : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', letterSpacing: '0.08em' }
+                      }>
                       {label}
                     </button>
                   ))}
                 </div>
                 {/* 누적/평균 토글 (Basic 모드에서만 의미 있음) */}
-                <div className={`flex rounded-lg overflow-hidden border border-gray-700 shrink-0 ${statMode !== 'basic' ? 'opacity-40 pointer-events-none' : ''}`}>
+                <div className={`flex overflow-hidden shrink-0 ${statMode !== 'basic' ? 'opacity-40 pointer-events-none' : ''}`} style={{ border: '1px solid var(--mm-rule)' }}>
                   {(['avg','total'] as ViewMode[]).map(m => (
                     <button key={m} onClick={() => { setViewMode(m); if (m === 'total') setProjection(false) }}
-                      className={`px-3 py-2 text-xs font-bold cursor-pointer transition-colors btn-press min-h-[40px] ${viewMode === m ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                      className="px-3 py-2 text-xs font-black uppercase cursor-pointer transition-colors btn-press min-h-[40px]"
+                      style={viewMode === m
+                        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', letterSpacing: '0.08em' }
+                        : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', letterSpacing: '0.08em' }
+                      }>
                       {m === 'avg' ? '평균' : '누적'}
                     </button>
                   ))}
                 </div>
                 {/* 단위 토글 (라운드 / GP / Per-40) */}
-                <div className="flex items-center gap-1 bg-gray-800/60 rounded-lg p-0.5 shrink-0">
+                <div className="flex items-center gap-1 p-0.5 shrink-0" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
                   {(['round','game','per40'] as const).map(u => (
                     <button key={u} onClick={() => setStatUnit(u)}
                       title={u === 'round' ? '라운드(경기일)당' : u === 'game' ? '경기 슬롯당' : '40분당 환산 (실제 출전 시간 기반)'}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-md cursor-pointer transition-colors ${
-                        statUnit === u ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                      }`}>
+                      className="px-3 py-1.5 text-xs font-black uppercase cursor-pointer transition-colors"
+                      style={statUnit === u
+                        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', letterSpacing: '0.08em' }
+                        : { background: 'transparent', color: 'var(--mm-ink-soft)', letterSpacing: '0.08em' }
+                      }>
                       {u === 'round' ? 'R' : u === 'game' ? 'G' : 'Per-40'}
                     </button>
                   ))}
@@ -603,33 +622,34 @@ export default function LeagueStatsPage() {
                 {/* x5 환산 (per40 및 round 에서는 의미 없음 → 비활성) */}
                 {viewMode === 'avg' && (
                   <button onClick={() => setProjection(v => !v)} disabled={statUnit === 'round' || statUnit === 'per40'}
-                    className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg border transition-all btn-press min-h-[40px] ${
-                      (statUnit === 'round' || statUnit === 'per40')
-                        ? 'bg-gray-800 border-gray-700 text-gray-400 opacity-30 cursor-not-allowed'
-                        : projection
-                          ? 'bg-amber-600/30 border-amber-500/60 text-amber-300 cursor-pointer'
-                          : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white cursor-pointer'
-                    }`}>
+                    className="shrink-0 px-3 py-2 text-xs font-black uppercase transition-colors btn-press min-h-[40px]"
+                    style={(statUnit === 'round' || statUnit === 'per40')
+                      ? { background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', opacity: 0.4, cursor: 'not-allowed', letterSpacing: '0.08em' }
+                      : projection
+                        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', cursor: 'pointer', letterSpacing: '0.08em' }
+                        : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', cursor: 'pointer', letterSpacing: '0.08em' }
+                    }>
                     ×5 환산
                   </button>
                 )}
-                <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0" title={`자동 임계값 ${autoMinGP}경기 (리그 최다 출전 ${maxPlayerGP}경기의 2/3)`}>
-                  <span>최소</span>
+                <div className="flex items-center gap-1 text-xs shrink-0" style={{ color: 'var(--mm-muted)' }} title={`자동 임계값 ${autoMinGP}경기 (리그 최다 출전 ${maxPlayerGP}경기의 2/3)`}>
+                  <span className="font-bold uppercase" style={{ letterSpacing: '0.10em' }}>최소</span>
                   <input type="number" min={1} max={200} value={minGP}
                     onChange={e => setMinGP(Number(e.target.value))}
-                    className="w-14 bg-gray-800 border border-gray-700 text-white rounded px-1.5 py-2 text-center text-xs min-h-[40px]" />
-                  <span>경기</span>
+                    className="w-14 px-1.5 py-2 text-center text-xs min-h-[40px] font-jersey tabular-nums"
+                    style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }} />
+                  <span className="font-bold uppercase" style={{ letterSpacing: '0.10em' }}>경기</span>
                   {!showAll && effectiveMinGP > minGP && (
-                    <span className="text-xs text-amber-400 font-bold ml-1">→ {effectiveMinGP} 적용 (G·2/3)</span>
+                    <span className="text-xs font-black uppercase ml-1" style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.08em' }}>→ {effectiveMinGP} 적용 (G·2/3)</span>
                   )}
                 </div>
                 <button onClick={() => setShowAll(v => !v)}
                   title="활동량 임계값(2/3) 무시하고 전체 선수 표시"
-                  className={`shrink-0 px-3 py-2 text-xs font-bold rounded-lg border transition-all btn-press min-h-[40px] cursor-pointer ${
-                    showAll
-                      ? 'bg-emerald-600/30 border-emerald-500/60 text-emerald-300'
-                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
-                  }`}>
+                  className="shrink-0 px-3 py-2 text-xs font-black uppercase transition-colors btn-press min-h-[40px] cursor-pointer"
+                  style={showAll
+                    ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', letterSpacing: '0.08em' }
+                    : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
+                  }>
                   전체 선수
                 </button>
               </div>
@@ -637,13 +657,15 @@ export default function LeagueStatsPage() {
 
             {statMode === 'basic' ? (<>
             {/* Basic — 모바일 정렬 칩 */}
-            <div className="md:hidden border-b border-gray-800 px-3 py-2.5 overflow-x-auto">
+            <div className="md:hidden px-3 py-2.5 overflow-x-auto" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
               <div className="flex gap-1.5 whitespace-nowrap">
                 {COLS.map(({ key, label }) => (
                   <button key={key} onClick={() => handleSort(key)}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
-                      sortKey === key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
-                    }`}>
+                    className="px-2.5 py-1 text-xs font-black uppercase transition-colors shrink-0"
+                    style={sortKey === key
+                      ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', letterSpacing: '0.08em' }
+                      : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
+                    }>
                     {key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label}
                     {sortKey === key && (sortDir === 'desc' ? ' ↓' : ' ↑')}
                   </button>
@@ -652,33 +674,35 @@ export default function LeagueStatsPage() {
             </div>
 
             {/* Basic — 모바일 카드뷰 */}
-            <div className="md:hidden divide-y divide-gray-800/60">
+            <div className="md:hidden">
               {filtered.map((p, i) => {
                 const sortLabel = sortKey === 'gp'
                   ? (statUnit === 'round' ? 'R' : 'G')
                   : (COLS.find(c => c.key === sortKey)?.label ?? '')
                 const sortVal = cellVal(p, sortKey)
                 const subCols = COLS.filter(c => c.key !== sortKey).slice(0, 4)
-                const rankBorder = i === 0 ? 'border-l-2 border-l-yellow-500/60' : i === 1 ? 'border-l-2 border-l-gray-400/40' : i === 2 ? 'border-l-2 border-l-orange-500/40' : ''
+                const rankAccent = i === 0 ? 'var(--mm-yellow)' : i === 1 ? 'var(--mm-muted)' : i === 2 ? 'var(--mm-yellow-strong)' : 'transparent'
                 return (
                   <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60 ${rankBorder}`}>
+                    className="w-full text-left px-4 py-3 transition-colors"
+                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rankAccent}` }}>
                     <div className="flex items-center gap-3 mb-2">
-                      <span className={`text-base font-black font-mono w-6 shrink-0 ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-500':'text-gray-500'}`}>{i + 1}</span>
+                      <span className="font-jersey font-black tabular-nums w-6 shrink-0"
+                        style={{ color: i === 0 ? 'var(--mm-yellow-strong)' : i === 1 ? 'var(--mm-muted)' : i === 2 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', fontSize: '20px' }}>{i + 1}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-white text-sm truncate">{p.name}</div>
-                        <div className="text-gray-600 text-xs">{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}{statUnit === 'round' ? 'R' : 'G'}</div>
+                        <div className="font-jersey font-black uppercase truncate" style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em' }}>{p.name}</div>
+                        <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}{statUnit === 'round' ? 'R' : 'G'}</div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-3xl font-black text-yellow-400 leading-none">{sortVal}</div>
-                        <div className="text-xs text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                        <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '30px', letterSpacing: '-0.015em' }}>{sortVal}</div>
+                        <div className="text-[11px] font-black uppercase mt-1" style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.16em' }}>{sortLabel}</div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-2 pt-2 border-t border-gray-800/60">
+                    <div className="grid grid-cols-4 gap-2 pt-2" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                       {subCols.map(({ key, label }) => (
                         <div key={key} className="text-center">
-                          <div className="text-xs text-gray-500">{key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label}</div>
-                          <div className="text-sm font-bold text-gray-200">{cellVal(p, key)}</div>
+                          <div className="text-[11px] font-bold uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label}</div>
+                          <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '15px' }}>{cellVal(p, key)}</div>
                         </div>
                       ))}
                     </div>
@@ -691,15 +715,16 @@ export default function LeagueStatsPage() {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-800">
-                    <th className="py-2 pl-2 pr-1 text-xs text-gray-600 font-bold text-right w-8">#</th>
-                    <th className="px-2 py-3 text-center text-xs text-gray-600 w-8">비교</th>
-                    <th className="text-left px-4 py-3 sticky left-0 bg-gray-900 text-sm text-gray-500 font-bold min-w-[130px]">선수</th>
+                  <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-black)' }}>
+                    <th className="py-2 pl-2 pr-1 text-xs font-black uppercase text-right w-8" style={{ color: 'var(--mm-ink)', letterSpacing: '0.10em' }}>#</th>
+                    <th className="px-2 py-3 text-center text-xs font-black uppercase w-8" style={{ color: 'var(--mm-ink)', letterSpacing: '0.10em' }}>비교</th>
+                    <th className="text-left px-4 py-3 sticky left-0 font-jersey font-black uppercase min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '0.05em' }}>선수</th>
                     {COLS.map(({ key, label }) => {
                       const term = key === 'gp' ? (statUnit === 'round' ? 'R' : statUnit === 'game' ? 'G' : 'GP') : label
                       return (
                         <th key={key} onClick={() => handleSort(key)}
-                          className={`px-3 py-3 text-center text-sm font-bold cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${sortKey === key ? 'text-blue-400' : 'text-gray-500'}`}>
+                          className="px-3 py-3 text-center font-jersey font-black uppercase cursor-pointer select-none whitespace-nowrap transition-colors"
+                          style={{ color: sortKey === key ? 'var(--mm-black)' : 'var(--mm-ink-soft)', fontSize: '13px', letterSpacing: '0.05em' }}>
                           <StatHeader term={term} />
                           {sortKey === key
                             ? (sortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
@@ -712,25 +737,24 @@ export default function LeagueStatsPage() {
                 <tbody>
                   {filtered.map((p, i) => (
                     <tr key={p.player_id}
-                      className={`border-b border-gray-800/50 ${
-                        i === 0 ? 'bg-yellow-400/3 hover:bg-yellow-400/5' :
-                        i === 1 ? 'hover:bg-gray-800/30' :
-                        i === 2 ? 'bg-orange-400/3 hover:bg-orange-400/5' :
-                        i % 2 === 0 ? 'hover:bg-gray-800/30' : 'bg-gray-900/50 hover:bg-gray-800/30'
-                      } transition-colors`}>
-                      <td className={`py-2 pl-2 pr-1 text-right font-black text-sm ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-600':'text-gray-600'}`}>{i+1}</td>
+                      className="transition-colors"
+                      style={{ borderBottom: '1px solid var(--mm-rule)', background: i === 0 ? 'rgba(234,179,8,0.06)' : i === 2 ? 'rgba(161,98,7,0.05)' : 'transparent' }}>
+                      <td className="py-2 pl-2 pr-1 text-right font-jersey font-black tabular-nums"
+                        style={{ color: i === 0 ? 'var(--mm-yellow-strong)' : i === 2 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', fontSize: '15px' }}>{i+1}</td>
                       <td className="px-2 py-3 text-center">
                         <input type="checkbox" checked={compareIds.has(p.player_id)}
                           disabled={!compareIds.has(p.player_id) && compareIds.size >= 2}
                           onChange={() => toggleCompare(p)} aria-label={`${p.name} 비교 선택`}
-                          className="cursor-pointer accent-blue-500 w-4 h-4 disabled:cursor-not-allowed disabled:opacity-30" />
+                          className="cursor-pointer w-4 h-4 disabled:cursor-not-allowed disabled:opacity-30"
+                          style={{ accentColor: 'var(--mm-yellow)' }} />
                       </td>
-                      <td className="px-4 py-3 sticky left-0 bg-inherit">
+                      <td className="px-4 py-3 sticky left-0" style={{ background: i === 0 ? 'rgba(234,179,8,0.06)' : i === 2 ? 'rgba(161,98,7,0.05)' : 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-bold text-white hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[120px] block text-base">
+                          className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 truncate max-w-[120px] block"
+                          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em' }}>
                           {p.name}
                         </button>
-                        <div className="text-gray-600 text-xs">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
+                        <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
                       {COLS.map(({ key }) => {
                         // Per-40 모드에서는 실제 사용된 stat key 로 리더 체크 (예: ppg 대신 pts)
@@ -745,8 +769,16 @@ export default function LeagueStatsPage() {
                         const titleText = leader
                           ? (personalHigh ? '리그 리더 · 개인 최고 분기' : '리그 리더')
                           : (personalHigh ? '개인 최고 분기' : undefined)
+                        const cellColor = sortKey === key
+                          ? 'var(--mm-yellow-strong)'
+                          : leader
+                            ? 'var(--mm-ink)'
+                            : 'var(--mm-ink-soft)'
+                        const cellWeight = sortKey === key ? 900 : leader ? 900 : 600
                         return (
-                          <td key={key} className={`px-3 py-3 text-center text-sm tabular-nums ${italicCls} ${sortKey === key ? 'text-yellow-400 font-bold' : leader ? 'text-white font-black' : 'text-gray-300 font-medium'}`}
+                          <td key={key}
+                              className={`px-3 py-3 text-center font-jersey tabular-nums ${italicCls}`}
+                              style={{ color: cellColor, fontWeight: cellWeight, fontSize: '15px' }}
                               title={titleText}>
                             {cellVal(p, key)}
                           </td>
@@ -799,17 +831,17 @@ export default function LeagueStatsPage() {
                   }
                   return (
                     <tfoot>
-                      <tr className="border-t-2 border-gray-700 bg-gray-900/80">
+                      <tr style={{ borderTop: '2px solid var(--mm-black)', background: 'var(--mm-panel-alt)' }}>
                         <td className="py-3 pl-2 pr-1"></td>
                         <td className="px-2 py-3"></td>
-                        <td className="px-4 py-3 sticky left-0 bg-inherit">
-                          <span className="text-xs font-jersey uppercase tracking-widest text-amber-400 font-black">
+                        <td className="px-4 py-3 sticky left-0" style={{ background: 'var(--mm-panel-alt)' }}>
+                          <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '0.16em' }}>
                             {viewMode === 'avg' ? '리그 평균' : '리그 총합'}
                           </span>
-                          <div className="text-xs text-gray-600">자격자 {filtered.length}명</div>
+                          <div className="text-[11px] font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>자격자 {filtered.length}명</div>
                         </td>
                         {COLS.map(({ key }) => (
-                          <td key={key} className="px-3 py-3 text-center text-sm tabular-nums font-black text-amber-200">
+                          <td key={key} className="px-3 py-3 text-center font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)', fontSize: '15px' }}>
                             {fmtCell(key)}
                           </td>
                         ))}
@@ -820,21 +852,23 @@ export default function LeagueStatsPage() {
               </table>
               {/* Bold / Italic 범례 — 특정 분기 뷰에서만 노출 */}
               {selectedQuarterId !== 'all' && (
-                <div className="px-4 py-2 border-t border-gray-800 text-[11px] text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
-                  <span><span className="text-white font-black">굵게</span> = 리그 리더</span>
-                  <span><span className="italic text-gray-300 font-medium">기울임</span> = 이 선수의 최고 분기 (전 분기 대비 개인 최고)</span>
+                <div className="px-4 py-2 text-[11px] flex flex-wrap gap-x-4 gap-y-1" style={{ borderTop: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}>
+                  <span><span className="font-jersey font-black" style={{ color: 'var(--mm-ink)' }}>굵게</span> = 리그 리더</span>
+                  <span><span className="italic font-jersey" style={{ color: 'var(--mm-ink-soft)' }}>기울임</span> = 이 선수의 최고 분기 (전 분기 대비 개인 최고)</span>
                 </div>
               )}
             </div>
             </>) : statMode === 'shooting' ? (<>
             {/* Shooting — 모바일 정렬 칩 */}
-            <div className="md:hidden border-b border-gray-800 px-3 py-2.5 overflow-x-auto">
+            <div className="md:hidden px-3 py-2.5 overflow-x-auto" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
               <div className="flex gap-1.5 whitespace-nowrap">
                 {SHOOTING_COLS.map(({ key, label }) => (
                   <button key={key} onClick={() => handleShootSort(key)}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
-                      shootSortKey === key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
-                    }`}>
+                    className="px-2.5 py-1 text-xs font-black uppercase transition-colors shrink-0"
+                    style={shootSortKey === key
+                      ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', letterSpacing: '0.08em' }
+                      : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
+                    }>
                     {label}{shootSortKey === key && (shootSortDir === 'desc' ? ' ↓' : ' ↑')}
                   </button>
                 ))}
@@ -842,24 +876,26 @@ export default function LeagueStatsPage() {
             </div>
 
             {/* Shooting — 모바일 카드뷰 */}
-            <div className="md:hidden divide-y divide-gray-800/60">
+            <div className="md:hidden">
               {filteredShoot.map(({ p, sh }, i) => {
-                const rankBorder = i === 0 ? 'border-l-2 border-l-yellow-500/60' : i === 1 ? 'border-l-2 border-l-gray-400/40' : i === 2 ? 'border-l-2 border-l-orange-500/40' : ''
+                const rankAccent = i === 0 ? 'var(--mm-yellow)' : i === 1 ? 'var(--mm-muted)' : i === 2 ? 'var(--mm-yellow-strong)' : 'transparent'
                 return (
                   <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60 ${rankBorder}`}>
+                    className="w-full text-left px-4 py-3 transition-colors"
+                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rankAccent}` }}>
                     <div className="flex items-center gap-2 mb-2">
-                      <span className={`text-sm font-black font-mono w-5 shrink-0 ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-500':'text-gray-500'}`}>{i+1}</span>
-                      <span className="font-bold text-white text-sm">{p.name}</span>
-                      <span className="text-gray-600 text-xs ml-auto">{p.gp}{statUnit === 'round' ? 'R' : 'G'}</span>
+                      <span className="font-jersey font-black tabular-nums w-5 shrink-0"
+                        style={{ color: i === 0 ? 'var(--mm-yellow-strong)' : i === 1 ? 'var(--mm-muted)' : i === 2 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', fontSize: '18px' }}>{i+1}</span>
+                      <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '-0.005em' }}>{p.name}</span>
+                      <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{statUnit === 'round' ? 'R' : 'G'}</span>
                     </div>
-                    <div className="grid grid-cols-4 gap-2 pt-1 border-t border-gray-800/60">
+                    <div className="grid grid-cols-4 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                       {SHOOTING_COLS.slice(0, 8).map(({ key, label }) => {
                         const active = shootSortKey === key
                         return (
                           <div key={key} className="text-center">
-                            <div className={`text-xs font-bold ${active ? 'text-blue-400' : 'text-gray-500'}`}>{label}</div>
-                            <div className={`text-sm font-bold ${active ? 'text-yellow-400' : 'text-blue-300'}`}>{sh[key]}%</div>
+                            <div className="text-[11px] font-bold uppercase" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
+                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink)', fontSize: '15px' }}>{sh[key]}%</div>
                           </div>
                         )
                       })}
@@ -873,16 +909,17 @@ export default function LeagueStatsPage() {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-800">
-                    <th className="py-2 pl-2 pr-1 text-xs text-gray-600 font-bold text-right w-8">#</th>
-                    <th className="text-left px-4 py-3 sticky left-0 bg-gray-900 text-sm text-gray-500 font-bold min-w-[130px]">선수</th>
-                    <th className="px-3 py-3 text-center text-xs text-gray-500 font-bold">{statUnit === 'round' ? 'R' : 'G'}</th>
+                  <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-black)' }}>
+                    <th className="py-2 pl-2 pr-1 text-xs font-black uppercase text-right w-8" style={{ color: 'var(--mm-ink)', letterSpacing: '0.10em' }}>#</th>
+                    <th className="text-left px-4 py-3 sticky left-0 font-jersey font-black uppercase min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '0.05em' }}>선수</th>
+                    <th className="px-3 py-3 text-center text-xs font-black uppercase" style={{ color: 'var(--mm-ink-soft)', letterSpacing: '0.10em' }}>{statUnit === 'round' ? 'R' : 'G'}</th>
                     {SHOOTING_COLS.map(({ key, label, desc }, idx) => {
                       // 구분선: 슈팅 효율(0-6) | 야투 분포(7-10)
-                      const divider = idx === 7 ? 'border-l border-gray-800' : ''
+                      const dividerStyle = idx === 7 ? { borderLeft: '1px solid var(--mm-black)' } : {}
                       return (
                         <th key={key} onClick={() => handleShootSort(key)} title={desc}
-                          className={`px-3 py-3 text-center text-xs font-bold whitespace-nowrap cursor-pointer select-none transition-colors ${divider} ${shootSortKey === key ? 'text-yellow-400' : 'text-blue-400 hover:text-blue-200'}`}>
+                          className="px-3 py-3 text-center font-jersey font-black uppercase whitespace-nowrap cursor-pointer select-none transition-colors"
+                          style={{ color: shootSortKey === key ? 'var(--mm-black)' : 'var(--mm-ink-soft)', fontSize: '13px', letterSpacing: '0.05em', ...dividerStyle }}>
                           <StatHeader term={label} />
                           {shootSortKey === key
                             ? (shootSortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
@@ -895,31 +932,31 @@ export default function LeagueStatsPage() {
                 <tbody>
                   {filteredShoot.map(({ p, sh }, i) => (
                     <tr key={p.player_id}
-                      className={`border-b border-gray-800/50 ${
-                        i === 0 ? 'bg-yellow-400/3 hover:bg-yellow-400/5' :
-                        i === 2 ? 'bg-orange-400/3 hover:bg-orange-400/5' :
-                        i % 2 === 0 ? 'hover:bg-gray-800/30' : 'bg-gray-900/50 hover:bg-gray-800/30'
-                      } transition-colors`}>
-                      <td className={`py-2 pl-2 pr-1 text-right font-black text-sm ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-600':'text-gray-600'}`}>{i+1}</td>
-                      <td className="px-4 py-3 sticky left-0 bg-inherit">
+                      className="transition-colors"
+                      style={{ borderBottom: '1px solid var(--mm-rule)', background: i === 0 ? 'rgba(234,179,8,0.06)' : i === 2 ? 'rgba(161,98,7,0.05)' : 'transparent' }}>
+                      <td className="py-2 pl-2 pr-1 text-right font-jersey font-black tabular-nums"
+                        style={{ color: i === 0 ? 'var(--mm-yellow-strong)' : i === 2 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', fontSize: '15px' }}>{i+1}</td>
+                      <td className="px-4 py-3 sticky left-0" style={{ background: i === 0 ? 'rgba(234,179,8,0.06)' : i === 2 ? 'rgba(161,98,7,0.05)' : 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-bold text-white hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[120px] block text-base">
+                          className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 truncate max-w-[120px] block"
+                          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em' }}>
                           {p.name}
                         </button>
-                        <div className="text-gray-600 text-xs">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
+                        <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
-                      <td className="px-3 py-3 text-center text-sm text-gray-500">{p.gp}</td>
+                      <td className="px-3 py-3 text-center font-jersey tabular-nums" style={{ color: 'var(--mm-muted)', fontSize: '14px' }}>{p.gp}</td>
                       {SHOOTING_COLS.map(({ key, barColor }, idx) => {
                         const val = sh[key]
                         const active = shootSortKey === key
-                        const divider = idx === 7 ? 'border-l border-gray-800' : ''
+                        const dividerStyle = idx === 7 ? { borderLeft: '1px solid var(--mm-rule)' } : {}
                         // FTr 은 100% 넘을 수 있어 max=80(시각 척도용)으로 자름
                         const barMax = key === 'ft_rate' ? 80 : 100
                         const personalHigh = isPersonalHighCell(p.player_id, key as string)
                         const italicCls = personalHigh ? 'italic' : ''
                         return (
                           <td key={key}
-                              className={`relative px-3 py-3 text-center text-sm tabular-nums font-medium ${divider} ${italicCls} ${active ? 'text-yellow-400 font-bold' : 'text-blue-300'}`}
+                              className={`relative px-3 py-3 text-center font-jersey tabular-nums ${italicCls}`}
+                              style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px', ...dividerStyle }}
                               title={personalHigh ? '개인 최고 분기' : undefined}>
                             {val}%
                             <PercentBar value={val} max={barMax} color={barColor} />
@@ -931,23 +968,25 @@ export default function LeagueStatsPage() {
                 </tbody>
               </table>
               {/* 지표 설명 범례 */}
-              <div className="px-4 py-3 border-t border-gray-800 flex flex-wrap gap-x-4 gap-y-1">
+              <div className="px-4 py-3 flex flex-wrap gap-x-4 gap-y-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                 {SHOOTING_COLS.map(({ key, label, desc }) => (
-                  <span key={key} className="text-xs text-gray-600">
-                    <span className="font-bold text-gray-500">{label}</span> {desc}
+                  <span key={key} className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                    <span className="font-black uppercase" style={{ color: 'var(--mm-ink-soft)', letterSpacing: '0.06em' }}>{label}</span> {desc}
                   </span>
                 ))}
               </div>
             </div>
             </>) : (<>
             {/* Advanced — 모바일 정렬 칩 */}
-            <div className="md:hidden border-b border-gray-800 px-3 py-2.5 overflow-x-auto">
+            <div className="md:hidden px-3 py-2.5 overflow-x-auto" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
               <div className="flex gap-1.5 whitespace-nowrap">
                 {ADV_COLS.map(({ key, label }) => (
                   <button key={key} onClick={() => handleAdvSort(key)}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
-                      advSortKey === key ? 'bg-violet-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
-                    }`}>
+                    className="px-2.5 py-1 text-xs font-black uppercase transition-colors shrink-0"
+                    style={advSortKey === key
+                      ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', letterSpacing: '0.08em' }
+                      : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
+                    }>
                     {label}{advSortKey === key && (advSortDir === 'desc' ? ' ↓' : ' ↑')}
                   </button>
                 ))}
@@ -955,26 +994,28 @@ export default function LeagueStatsPage() {
             </div>
 
             {/* Advanced — 모바일 카드뷰 */}
-            <div className="md:hidden divide-y divide-gray-800/60">
+            <div className="md:hidden">
               {filteredAdv.map(({ p, adv }, i) => {
-                const rankBorder = i === 0 ? 'border-l-2 border-l-yellow-500/60' : i === 1 ? 'border-l-2 border-l-gray-400/40' : i === 2 ? 'border-l-2 border-l-orange-500/40' : ''
+                const rankAccent = i === 0 ? 'var(--mm-yellow)' : i === 1 ? 'var(--mm-muted)' : i === 2 ? 'var(--mm-yellow-strong)' : 'transparent'
                 return (
                   <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-800/40 transition-colors active:bg-gray-800/60 ${rankBorder}`}>
+                    className="w-full text-left px-4 py-3 transition-colors"
+                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rankAccent}` }}>
                     <div className="flex items-center gap-2 mb-2">
-                      <span className={`text-sm font-black font-mono w-5 shrink-0 ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-500':'text-gray-500'}`}>{i+1}</span>
-                      <span className="font-bold text-white text-sm">{p.name}</span>
-                      <span className="text-gray-600 text-xs ml-auto">{p.gp}{statUnit === 'round' ? 'R' : 'G'}</span>
+                      <span className="font-jersey font-black tabular-nums w-5 shrink-0"
+                        style={{ color: i === 0 ? 'var(--mm-yellow-strong)' : i === 1 ? 'var(--mm-muted)' : i === 2 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', fontSize: '18px' }}>{i+1}</span>
+                      <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '-0.005em' }}>{p.name}</span>
+                      <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{statUnit === 'round' ? 'R' : 'G'}</span>
                     </div>
-                    <div className="grid grid-cols-4 gap-2 pt-1 border-t border-gray-800/60">
+                    <div className="grid grid-cols-4 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                       {ADV_COLS.map(({ key, label }) => {
                         const isRatio = key === 'at_ratio'
                         const isCount = key === 'a1_total'
                         const active = advSortKey === key
                         return (
                           <div key={key} className="text-center">
-                            <div className={`text-xs font-bold ${active ? 'text-violet-400' : 'text-gray-500'}`}>{label}</div>
-                            <div className={`text-sm font-bold ${active ? 'text-yellow-400' : 'text-violet-300'}`}>{isRatio || isCount ? adv[key] : `${adv[key]}%`}</div>
+                            <div className="text-[11px] font-bold uppercase" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
+                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink)', fontSize: '15px' }}>{isRatio || isCount ? adv[key] : `${adv[key]}%`}</div>
                           </div>
                         )
                       })}
@@ -988,13 +1029,14 @@ export default function LeagueStatsPage() {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-800">
-                    <th className="py-2 pl-2 pr-1 text-xs text-gray-600 font-bold text-right w-8">#</th>
-                    <th className="text-left px-4 py-3 sticky left-0 bg-gray-900 text-sm text-gray-500 font-bold min-w-[130px]">선수</th>
-                    <th className="px-3 py-3 text-center text-xs text-gray-500 font-bold">{statUnit === 'round' ? 'R' : 'G'}</th>
+                  <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-black)' }}>
+                    <th className="py-2 pl-2 pr-1 text-xs font-black uppercase text-right w-8" style={{ color: 'var(--mm-ink)', letterSpacing: '0.10em' }}>#</th>
+                    <th className="text-left px-4 py-3 sticky left-0 font-jersey font-black uppercase min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '0.05em' }}>선수</th>
+                    <th className="px-3 py-3 text-center text-xs font-black uppercase" style={{ color: 'var(--mm-ink-soft)', letterSpacing: '0.10em' }}>{statUnit === 'round' ? 'R' : 'G'}</th>
                     {ADV_COLS.map(({ key, label, desc }) => (
                       <th key={key} onClick={() => handleAdvSort(key)} title={desc}
-                        className={`px-3 py-3 text-center text-xs font-bold whitespace-nowrap cursor-pointer select-none transition-colors ${advSortKey === key ? 'text-yellow-400' : 'text-violet-400 hover:text-violet-200'}`}>
+                        className="px-3 py-3 text-center font-jersey font-black uppercase whitespace-nowrap cursor-pointer select-none transition-colors"
+                        style={{ color: advSortKey === key ? 'var(--mm-black)' : 'var(--mm-ink-soft)', fontSize: '13px', letterSpacing: '0.05em' }}>
                         <StatHeader term={label} />
                         {advSortKey === key
                           ? (advSortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
@@ -1006,27 +1048,27 @@ export default function LeagueStatsPage() {
                 <tbody>
                   {filteredAdv.map(({ p, adv }, i) => (
                     <tr key={p.player_id}
-                      className={`border-b border-gray-800/50 ${
-                        i === 0 ? 'bg-yellow-400/3 hover:bg-yellow-400/5' :
-                        i === 2 ? 'bg-orange-400/3 hover:bg-orange-400/5' :
-                        i % 2 === 0 ? 'hover:bg-gray-800/30' : 'bg-gray-900/50 hover:bg-gray-800/30'
-                      } transition-colors`}>
-                      <td className={`py-2 pl-2 pr-1 text-right font-black text-sm ${i===0?'text-yellow-400':i===1?'text-gray-400':i===2?'text-orange-600':'text-gray-600'}`}>{i+1}</td>
-                      <td className="px-4 py-3 sticky left-0 bg-inherit">
+                      className="transition-colors"
+                      style={{ borderBottom: '1px solid var(--mm-rule)', background: i === 0 ? 'rgba(234,179,8,0.06)' : i === 2 ? 'rgba(161,98,7,0.05)' : 'transparent' }}>
+                      <td className="py-2 pl-2 pr-1 text-right font-jersey font-black tabular-nums"
+                        style={{ color: i === 0 ? 'var(--mm-yellow-strong)' : i === 2 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', fontSize: '15px' }}>{i+1}</td>
+                      <td className="px-4 py-3 sticky left-0" style={{ background: i === 0 ? 'rgba(234,179,8,0.06)' : i === 2 ? 'rgba(161,98,7,0.05)' : 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-bold text-white hover:text-blue-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[120px] block text-base">
+                          className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 truncate max-w-[120px] block"
+                          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em' }}>
                           {p.name}
                         </button>
-                        <div className="text-gray-600 text-xs">{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
+                        <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
-                      <td className="px-3 py-3 text-center text-sm text-gray-500">{p.gp}</td>
+                      <td className="px-3 py-3 text-center font-jersey tabular-nums" style={{ color: 'var(--mm-muted)', fontSize: '14px' }}>{p.gp}</td>
                       {ADV_COLS.map(({ key }) => {
                         const val = adv[key]
                         const isRatio = key === 'at_ratio'
                         const isCount = key === 'a1_total'
                         const active = advSortKey === key
                         return (
-                          <td key={key} className={`px-3 py-3 text-center text-sm tabular-nums font-medium ${active ? 'text-yellow-400 font-bold' : 'text-violet-300'}`}>
+                          <td key={key} className="px-3 py-3 text-center font-jersey tabular-nums"
+                            style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px' }}>
                             {isRatio || isCount ? val : `${val}%`}
                           </td>
                         )
@@ -1036,10 +1078,10 @@ export default function LeagueStatsPage() {
                 </tbody>
               </table>
               {/* 지표 설명 범례 */}
-              <div className="px-4 py-3 border-t border-gray-800 flex flex-wrap gap-x-4 gap-y-1">
+              <div className="px-4 py-3 flex flex-wrap gap-x-4 gap-y-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                 {ADV_COLS.map(({ key, label, desc }) => (
-                  <span key={key} className="text-xs text-gray-600">
-                    <span className="font-bold text-gray-500">{label}</span> {desc}
+                  <span key={key} className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                    <span className="font-black uppercase" style={{ color: 'var(--mm-ink-soft)', letterSpacing: '0.06em' }}>{label}</span> {desc}
                   </span>
                 ))}
               </div>

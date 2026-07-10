@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2 } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
@@ -161,18 +160,38 @@ export default function LeagueSchedulePage() {
 
   return (
     <>
-    <div className="space-y-5">
+    <div className="mm-brand space-y-6">
       <LeagueSubTabs group="games" />
-      <div className="flex items-center justify-between">
+      <div
+        className="flex items-center justify-between px-6 md:px-8 py-5"
+        style={{
+          background: 'var(--mm-panel)',
+          border: '1px solid var(--mm-rule)',
+        }}
+      >
         <div>
-          <h2 className="text-xl font-bold text-white">경기 일정</h2>
-          <p className="text-gray-500 text-sm">총 {dates.length}개 날짜 등록됨</p>
+          <h2
+            className="font-jersey font-black uppercase"
+            style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}
+          >
+            경기 일정
+          </h2>
+          <p
+            className="text-[12px] tracking-[0.16em] uppercase font-bold mt-1"
+            style={{ color: 'var(--mm-muted)' }}
+          >
+            총 {dates.length}개 날짜 등록됨
+          </p>
         </div>
         {isEditMode ? (
           <button
             onClick={autoGenerate}
             disabled={autoGenerating}
-            className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-3 py-2 transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50"
+            style={{
+              background: 'var(--mm-yellow)',
+              color: 'var(--mm-black)',
+            }}
           >
             {autoGenerating ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
             자동 일정 등록
@@ -180,7 +199,12 @@ export default function LeagueSchedulePage() {
         ) : (
           <button
             onClick={openPinModal}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-3 py-2 transition-colors cursor-pointer"
+            style={{
+              border: '1px solid var(--mm-rule)',
+              color: 'var(--mm-muted)',
+              background: 'var(--mm-panel)',
+            }}
           >
             <Lock size={12} />편집 모드
           </button>
@@ -189,35 +213,57 @@ export default function LeagueSchedulePage() {
 
       {/* 날짜 추가 */}
       {isEditMode && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-end gap-2">
-          <div className="flex-1 space-y-1">
-            <label className="text-xs text-gray-400">경기 날짜 추가</label>
+        <div
+          className="p-5 flex items-end gap-2"
+          style={{
+            background: 'var(--mm-panel-alt)',
+            border: '1px solid var(--mm-rule)',
+          }}
+        >
+          <div className="flex-1 space-y-1.5">
+            <label
+              className="text-[11px] tracking-[0.16em] uppercase font-bold"
+              style={{ color: 'var(--mm-muted)' }}
+            >
+              경기 날짜 추가
+            </label>
             <Input
               type="date"
               value={newDate}
               onChange={e => setNewDate(e.target.value)}
-              className="bg-gray-800 border-gray-700 text-white"
+              style={{
+                background: 'var(--mm-panel)',
+                border: '1px solid var(--mm-rule)',
+                color: 'var(--mm-ink)',
+                borderRadius: 0,
+              }}
             />
           </div>
-          <Button
+          <button
             onClick={addDate}
             disabled={adding}
-            className="bg-blue-600 hover:bg-blue-500 cursor-pointer shrink-0"
-            size="sm"
+            className="flex items-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-3 py-2 transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50 shrink-0"
+            style={{
+              background: 'var(--mm-ink)',
+              color: 'var(--mm-panel)',
+            }}
           >
-            {adding ? <Loader2 size={13} className="animate-spin mr-1" /> : <Plus size={13} className="mr-1" />}
+            {adding ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
             정규전 추가
-          </Button>
-          <Button
+          </button>
+          <button
             onClick={addExhibitionDate}
             disabled={adding}
             title="2팀(미라클 vs 모닝) · 10분 4쿼터 · 2경기 — 리그 순위 제외"
-            className="bg-amber-600 hover:bg-amber-500 cursor-pointer shrink-0"
-            size="sm"
+            className="flex items-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-3 py-2 transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50 shrink-0"
+            style={{
+              background: 'var(--mm-yellow)',
+              color: 'var(--mm-black)',
+            }}
           >
-            {adding ? <Loader2 size={13} className="animate-spin mr-1" /> : <Plus size={13} className="mr-1" />}
+            {adding ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
             친선전 추가
-          </Button>
+          </button>
         </div>
       )}
 
@@ -239,41 +285,71 @@ export default function LeagueSchedulePage() {
         {/* 분기 필터 탭 */}
         {quarters.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap">
-            {[{ id: 'all', label: '전체' }, ...quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q` }))].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setSelectedQFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer border ${
-                  selectedQFilter === tab.id
-                    ? 'bg-blue-600 border-blue-500 text-white'
-                    : 'bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {[{ id: 'all', label: '전체' }, ...quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q` }))].map(tab => {
+              const active = selectedQFilter === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setSelectedQFilter(tab.id)}
+                  className="px-3 py-1.5 text-[11px] font-black tracking-widest uppercase transition-colors cursor-pointer"
+                  style={{
+                    background: active ? 'var(--mm-yellow)' : 'var(--mm-panel)',
+                    color: active ? 'var(--mm-black)' : 'var(--mm-muted)',
+                    border: active ? '1px solid var(--mm-yellow)' : '1px solid var(--mm-rule)',
+                  }}
+                >
+                  {tab.label}
+                </button>
+              )
+            })}
           </div>
         )}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {[...dates]
             .filter(sd => selectedQFilter === 'all' || dateQuarterMap[sd.date] === selectedQFilter)
             .sort((a, b) => b.date.localeCompare(a.date))
             .map(sd => (
-            <div key={sd.id} className="bg-gray-900 border border-gray-800 rounded-xl px-5 py-4 flex items-center justify-between hover:border-gray-700 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-              <div className="flex items-center gap-3">
-                <CalendarDays size={16} className="text-blue-400 shrink-0" />
-                <span className="text-white font-semibold text-base">{formatDate(sd.date)}</span>
+            <div
+              key={sd.id}
+              className="flex items-center justify-between transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              style={{
+                background: 'var(--mm-panel)',
+                border: '1px solid var(--mm-rule)',
+                padding: '16px 20px',
+              }}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <CalendarDays size={18} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />
+                <span
+                  className="font-jersey font-black uppercase truncate"
+                  style={{ color: 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em' }}
+                >
+                  {formatDate(sd.date)}
+                </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 {datesWithStats.has(sd.date) ? (
                   <button
                     onClick={() => setBoxscoreDate(sd.date)}
-                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-indigo-900/40 border border-indigo-600/60 text-indigo-300 hover:bg-indigo-800/60 hover:text-indigo-200 cursor-pointer transition-colors btn-press"
+                    className="flex items-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-3 py-1.5 transition-colors cursor-pointer btn-press"
+                    style={{
+                      background: 'var(--mm-yellow-soft)',
+                      color: 'var(--mm-yellow-strong)',
+                      border: '1px solid var(--mm-yellow)',
+                    }}
                   >
                     <BarChart2 size={12} />박스스코어
                   </button>
                 ) : (
-                  <span className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-gray-800/30 border border-gray-800/50 text-gray-700 cursor-not-allowed select-none">
+                  <span
+                    className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-3 py-1.5 cursor-not-allowed select-none"
+                    style={{
+                      background: 'var(--mm-panel-alt)',
+                      color: 'var(--mm-muted)',
+                      border: '1px solid var(--mm-rule)',
+                      opacity: 0.6,
+                    }}
+                  >
                     <BarChart2 size={12} />박스스코어
                   </span>
                 )}
@@ -281,7 +357,9 @@ export default function LeagueSchedulePage() {
                   <button
                     onClick={() => removeDate(sd.date)}
                     disabled={deletingDate === sd.date}
-                    className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40 p-1"
+                    className="transition-colors cursor-pointer disabled:opacity-40 p-1.5 hover:bg-[color:var(--mm-panel-alt)]"
+                    style={{ color: 'var(--mm-muted)' }}
+                    aria-label="일정 삭제"
                   >
                     {deletingDate === sd.date
                       ? <Loader2 size={14} className="animate-spin" />

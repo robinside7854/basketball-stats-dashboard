@@ -113,7 +113,7 @@ function BirthDateInput({ value, onChange, className }: {
     }
   }
 
-  const base = `bg-gray-800 border border-gray-700 text-white rounded-lg text-center focus:outline-none focus:border-blue-500 ${className ?? ''}`
+  const base = `bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] text-center focus:outline-none focus:border-[var(--mm-yellow)] ${className ?? ''}`
   return (
     <div className="flex items-center gap-1">
       <input
@@ -126,14 +126,14 @@ function BirthDateInput({ value, onChange, className }: {
         onChange={handleYearChange}
         className={`${base} w-16 px-1 py-1.5 text-xs`}
       />
-      <span className="text-gray-600 text-xs">/</span>
+      <span className="text-[var(--mm-muted)] text-xs">/</span>
       <input
         type="number" placeholder="월" min={1} max={12}
         value={Number(m) || ''}
         onChange={handleMonthChange}
         className={`${base} w-12 px-1 py-1.5 text-xs`}
       />
-      <span className="text-gray-600 text-xs">/</span>
+      <span className="text-[var(--mm-muted)] text-xs">/</span>
       <input
         type="number" placeholder="일" min={1} max={31}
         value={Number(d) || ''}
@@ -145,17 +145,10 @@ function BirthDateInput({ value, onChange, className }: {
 }
 
 function PositionBadge({ pos }: { pos: string }) {
-  const colors: Record<string, string> = {
-    PG: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
-    SG: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
-    SF: 'bg-green-500/20 text-green-300 border-green-500/40',
-    PF: 'bg-orange-500/20 text-orange-300 border-orange-500/40',
-    C:  'bg-red-500/20 text-red-300 border-red-500/40',
-    G:  'bg-sky-500/20 text-sky-300 border-sky-500/40',
-    F:  'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-  }
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${colors[pos] ?? 'bg-gray-700 text-gray-300 border-gray-600'}`}>
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded-sm text-[11px] font-black uppercase tracking-[0.12em] border bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] border-[var(--mm-rule)]"
+    >
       {pos}
     </span>
   )
@@ -1308,14 +1301,14 @@ export default function LeagueRosterPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-xl lg:text-3xl font-bold text-white">선수 명단</h2>
-          <p className="text-gray-500 text-sm lg:text-base">{players.length}명 등록</p>
+          <h2 className="font-jersey font-black uppercase text-[28px] lg:text-[40px] leading-none text-[var(--mm-ink)] tracking-tight">선수 명단</h2>
+          <p className="text-[var(--mm-muted)] text-sm lg:text-base mt-1 font-bold tracking-[0.12em] uppercase">{players.length}명 등록</p>
         </div>
         {isEditMode ? (
           <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={downloadTemplate}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-sm border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-yellow)] transition-colors cursor-pointer font-bold uppercase tracking-[0.1em]"
               title="엑셀 템플릿 다운로드"
             >
               <Download size={12} />템플릿
@@ -1323,24 +1316,23 @@ export default function LeagueRosterPage() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={bulkUploading}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer disabled:opacity-40"
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-sm border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-yellow)] transition-colors cursor-pointer disabled:opacity-40 font-bold uppercase tracking-[0.1em]"
               title="엑셀 파일로 대량 등록"
             >
               {bulkUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}대량 등록
             </button>
             <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleBulkUpload} />
-            <Button
+            <button
               onClick={() => setShowForm(v => !v)}
-              className="bg-blue-600 hover:bg-blue-500 cursor-pointer"
-              size="sm"
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm text-xs font-black uppercase tracking-[0.14em] bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:brightness-95 transition-all cursor-pointer"
             >
-              <Plus size={14} className="mr-1" />선수 추가
-            </Button>
+              <Plus size={14} className="mr-0.5" />선수 추가
+            </button>
           </div>
         ) : (
           <button
             onClick={openPinModal}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-sm border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-yellow)] transition-colors cursor-pointer font-bold uppercase tracking-[0.1em]"
           >
             <Lock size={12} />편집 모드
           </button>
@@ -1349,15 +1341,15 @@ export default function LeagueRosterPage() {
 
       {/* 선수 추가 폼 */}
       {showForm && isEditMode && (
-        <div className="bg-gray-900 border border-blue-500/30 rounded-xl p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-white">새 선수 추가</h3>
+        <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-sm p-4 space-y-3" style={{ borderLeftWidth: '3px', borderLeftColor: 'var(--mm-yellow)' }}>
+          <h3 className="font-jersey font-black uppercase text-[20px] text-[var(--mm-ink)] tracking-tight">새 선수 추가</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               placeholder="이름 *"
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               onKeyDown={e => e.key === 'Enter' && addPlayer()}
-              className="bg-gray-800 border-gray-700 text-white"
+              className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]"
             />
             <BirthDateInput
               value={form.birth_date}
@@ -1365,17 +1357,17 @@ export default function LeagueRosterPage() {
             />
           </div>
           <div>
-            <p className="text-xs text-gray-500 mb-2">포지션 (복수 선택 가능)</p>
+            <p className="text-xs text-[var(--mm-muted)] mb-2 font-bold uppercase tracking-[0.14em]">포지션 (복수 선택 가능)</p>
             <div className="flex flex-wrap gap-2">
               {POSITIONS.map(pos => (
                 <button
                   key={pos}
                   type="button"
                   onClick={() => togglePosition(pos, form.position, v => setForm(f => ({ ...f, position: v })))}
-                  className={`px-3 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer ${
+                  className={`px-3 py-1 rounded-sm text-xs font-black uppercase tracking-[0.12em] border transition-all cursor-pointer ${
                     form.position.includes(pos)
-                      ? 'bg-blue-600 border-blue-500 text-white'
-                      : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'
+                      ? 'bg-[var(--mm-yellow)] border-[var(--mm-yellow)] text-[var(--mm-black)]'
+                      : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:border-[var(--mm-yellow)]'
                   }`}
                 >
                   {pos}
@@ -1384,12 +1376,19 @@ export default function LeagueRosterPage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={addPlayer} disabled={saving} className="bg-blue-600 hover:bg-blue-500 cursor-pointer" size="sm">
+            <button
+              onClick={addPlayer}
+              disabled={saving}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm text-xs font-black uppercase tracking-[0.14em] bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:brightness-95 disabled:opacity-50 transition-all cursor-pointer"
+            >
               {saving ? <Loader2 size={13} className="animate-spin mr-1" /> : null}추가
-            </Button>
-            <Button onClick={() => setShowForm(false)} variant="outline" size="sm" className="border-gray-700 text-gray-300 cursor-pointer">
+            </button>
+            <button
+              onClick={() => setShowForm(false)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm text-xs font-bold uppercase tracking-[0.12em] border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer"
+            >
               취소
-            </Button>
+            </button>
           </div>
         </div>
       )}
@@ -1399,7 +1398,7 @@ export default function LeagueRosterPage() {
         <div className="flex flex-wrap items-center gap-3 lg:gap-4">
           {/* 정렬 */}
           <div className="flex items-center gap-1.5 lg:gap-2">
-            <span className="text-xs lg:text-sm text-gray-600">정렬</span>
+            <span className="text-xs lg:text-sm text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">정렬</span>
             <div className="flex gap-1">
               {([
                 { key: 'name', label: '이름' },
@@ -1409,10 +1408,10 @@ export default function LeagueRosterPage() {
                 <button
                   key={key}
                   onClick={() => setSortKey(key)}
-                  className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-sm text-xs lg:text-sm font-black uppercase tracking-[0.1em] transition-all cursor-pointer ${
                     sortKey === key
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                      ? 'bg-[var(--mm-yellow)] text-[var(--mm-black)] border border-[var(--mm-yellow)]'
+                      : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-yellow)] border border-[var(--mm-rule)]'
                   }`}
                 >
                   {label}
@@ -1423,16 +1422,16 @@ export default function LeagueRosterPage() {
 
           {/* 포지션 필터 */}
           <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
-            <span className="text-xs lg:text-sm text-gray-600">포지션</span>
+            <span className="text-xs lg:text-sm text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">포지션</span>
             <div className="flex flex-wrap gap-1">
               {POSITION_FILTER_OPTIONS.map(pos => (
                 <button
                   key={pos}
                   onClick={() => setFilterPosition(pos)}
-                  className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-sm text-xs lg:text-sm font-black uppercase tracking-[0.1em] transition-all cursor-pointer ${
                     filterPosition === pos
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                      ? 'bg-[var(--mm-yellow)] text-[var(--mm-black)] border border-[var(--mm-yellow)]'
+                      : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-yellow)] border border-[var(--mm-rule)]'
                   }`}
                 >
                   {pos}
@@ -1444,20 +1443,29 @@ export default function LeagueRosterPage() {
           {/* 게스트 숨김 토글 — 이름에 '게스트' 포함되거나 is_guest=true 인 선수를 완전 제외 */}
           {guestCount > 0 && (
             <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
-              <span className="text-xs lg:text-sm text-gray-600">게스트</span>
+              <span className="text-xs lg:text-sm text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">게스트</span>
               <button
                 onClick={() => setHideGuests(v => !v)}
                 aria-pressed={hideGuests}
-                className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-lg text-xs lg:text-sm font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-sm text-xs lg:text-sm font-black uppercase tracking-[0.1em] transition-all cursor-pointer flex items-center gap-1.5 ${
                   hideGuests
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                    ? 'bg-[var(--mm-yellow)] text-[var(--mm-black)] border border-[var(--mm-yellow)]'
+                    : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-yellow)] border border-[var(--mm-rule)]'
                 }`}
                 title="이름에 '게스트' 가 포함된 단발성 선수 숨기기"
               >
-                <span className={`inline-block w-3 h-3 rounded-full border ${hideGuests ? 'bg-white border-white' : 'border-gray-500'}`} />
+                <span
+                  className="inline-block w-3 h-3 rounded-full border"
+                  style={{
+                    background: hideGuests ? 'var(--mm-black)' : 'transparent',
+                    borderColor: hideGuests ? 'var(--mm-black)' : 'var(--mm-muted)',
+                  }}
+                />
                 <span>{hideGuests ? '숨김' : '표시'}</span>
-                <span className={`text-[10px] lg:text-xs ${hideGuests ? 'text-blue-100' : 'text-gray-500'}`}>({guestCount})</span>
+                <span
+                  className="text-[10px] lg:text-xs"
+                  style={{ color: hideGuests ? 'rgba(0,0,0,0.65)' : 'var(--mm-muted)' }}
+                >({guestCount})</span>
               </button>
             </div>
           )}
@@ -1486,7 +1494,7 @@ export default function LeagueRosterPage() {
         >
           <button
             onClick={() => { setFilterPosition('ALL'); setSortKey('name') }}
-            className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer transition-colors underline underline-offset-2"
+            className="text-xs font-black uppercase tracking-[0.14em] text-[var(--mm-yellow-strong)] hover:text-[var(--mm-ink)] cursor-pointer transition-colors underline underline-offset-4 decoration-[var(--mm-yellow)]"
           >
             필터 초기화
           </button>
@@ -1505,21 +1513,27 @@ export default function LeagueRosterPage() {
             return (
               <div
                 key={p.id}
-                className="relative bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden hover:border-gray-700 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 cursor-pointer group"
+                className="relative bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-sm overflow-hidden hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group"
                 onClick={() => setSelectedPlayer(p)}
               >
-                {/* 팀 컬러 왼쪽 스트립 */}
-                {cardAccent && (
+                {/* 팀 컬러 왼쪽 스트립 (팀 컬러 유지 — 팀 식별 데이터) · hover 시 노랑 accent 폴백 */}
+                {cardAccent ? (
                   <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: cardAccent }} />
+                ) : (
+                  <span
+                    aria-hidden
+                    className="absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    style={{ background: 'var(--mm-yellow)' }}
+                  />
                 )}
 
                 <div className="p-2.5 pl-3.5 lg:p-3 lg:pl-4 flex gap-2.5 lg:gap-3">
-                  {/* 3:4 (사실은 4:5 로 변경) 썸네일 — 프로 선수 프로필처럼 크게 */}
-                  <div className="shrink-0 w-32 h-[160px] lg:w-40 lg:h-[200px] rounded-lg overflow-hidden border border-gray-700 flex items-center justify-center bg-gray-800">
+                  {/* 4:5 썸네일 — 프로 선수 프로필처럼 크게 */}
+                  <div className="shrink-0 w-32 h-[160px] lg:w-40 lg:h-[200px] rounded-sm overflow-hidden border border-[var(--mm-rule)] flex items-center justify-center bg-[var(--mm-panel-alt)]">
                     {p.photo_url ? (
                       <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover object-top" />
                     ) : (
-                      <span className="text-xl lg:text-2xl font-black text-gray-500 leading-none text-center px-0.5">
+                      <span className="font-jersey text-2xl lg:text-3xl font-black text-[var(--mm-muted)] leading-none text-center px-0.5 uppercase">
                         {p.name.length > 1 ? p.name.slice(1) : p.name}
                       </span>
                     )}
@@ -1530,28 +1544,28 @@ export default function LeagueRosterPage() {
                   <div className="flex items-start gap-2 mb-1.5 lg:mb-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        {isAnyLeader && <Crown size={12} className="lg:w-3.5 lg:h-3.5 text-yellow-400 shrink-0" />}
-                        <span className="text-lg lg:text-xl font-bold text-white truncate">{p.name}</span>
+                        {isAnyLeader && <Crown size={12} className="lg:w-3.5 lg:h-3.5 text-[var(--mm-yellow-strong)] shrink-0" />}
+                        <span className="font-jersey text-[22px] lg:text-[26px] font-black uppercase text-[var(--mm-ink)] truncate leading-none tracking-tight group-hover:underline underline-offset-4 decoration-[3px] decoration-[var(--mm-yellow)]">{p.name}</span>
                       </div>
                       {p.number !== null && (
-                        <span className="text-xs lg:text-xs font-mono text-gray-600">#{p.number}</span>
+                        <span className="font-jersey text-xs tabular-nums text-[var(--mm-muted)] font-black tracking-wider">#{p.number}</span>
                       )}
                     </div>
                     {/* +1 배지/토글 */}
                     {isEditMode ? (
                       <button
                         onClick={e => { e.stopPropagation(); togglePlusOne(p.id, p.plus_one) }}
-                        className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-black border transition-all cursor-pointer ${
+                        className={`shrink-0 px-2 py-0.5 rounded-sm text-xs font-black tracking-wider border transition-all cursor-pointer ${
                           p.plus_one
-                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'
-                            : 'bg-gray-800 text-gray-500 border-gray-700 hover:border-gray-500 hover:text-gray-500'
+                            ? 'bg-[var(--mm-yellow)] text-[var(--mm-black)] border-[var(--mm-yellow)] hover:brightness-95'
+                            : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] border-[var(--mm-rule)] hover:border-[var(--mm-yellow)] hover:text-[var(--mm-ink)]'
                         }`}
                         title={p.plus_one ? '+1 해제' : '+1 활성화'}
                       >
                         +1
                       </button>
                     ) : p.plus_one ? (
-                      <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      <span className="shrink-0 px-2 py-0.5 rounded-sm text-xs font-black tracking-wider bg-[var(--mm-yellow)] text-[var(--mm-black)] border border-[var(--mm-yellow)]">
                         +1
                       </span>
                     ) : null}
@@ -1559,7 +1573,7 @@ export default function LeagueRosterPage() {
                       <button
                         onClick={e => { e.stopPropagation(); deletePlayer(p.id) }}
                         disabled={deletingId === p.id}
-                        className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40 p-1 shrink-0"
+                        className="text-[var(--mm-muted)] hover:text-[var(--mm-live)] transition-colors cursor-pointer disabled:opacity-40 p-1 shrink-0"
                         title="선수 삭제"
                       >
                         {deletingId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
@@ -1571,11 +1585,11 @@ export default function LeagueRosterPage() {
                   <div className="flex flex-wrap items-center gap-1 lg:gap-1.5 mb-1.5 lg:mb-2 min-h-[22px]">
                     {positions.length > 0
                       ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
-                      : <span className="text-xs text-gray-500">포지션 미지정</span>
+                      : <span className="text-xs text-[var(--mm-muted)] uppercase tracking-[0.12em] font-bold">포지션 미지정</span>
                     }
                     {isPlayerGuest(p) && (
                       <span
-                        className="px-1.5 py-0.5 rounded-md text-[10px] font-bold border bg-slate-800/60 text-slate-400 border-slate-700"
+                        className="px-1.5 py-0.5 rounded-sm text-[10px] font-black uppercase tracking-[0.12em] border bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] border-[var(--mm-rule)]"
                         title="단발성 게스트 선수 — 로스터 하단으로 정렬됩니다"
                       >
                         게스트
@@ -1585,12 +1599,12 @@ export default function LeagueRosterPage() {
 
                   {/* 생년월일 */}
                   {p.birth_date ? (
-                    <p className="text-xs lg:text-sm text-gray-500 mb-1.5 lg:mb-2">
+                    <p className="text-xs lg:text-sm text-[var(--mm-ink-soft)] mb-1.5 lg:mb-2 tabular-nums">
                       {formatBirthDate(p.birth_date)}
-                      <span className="ml-1.5 text-gray-600">({calcAge(p.birth_date)})</span>
+                      <span className="ml-1.5 text-[var(--mm-muted)]">({calcAge(p.birth_date)})</span>
                     </p>
                   ) : (
-                    <p className="text-xs lg:text-sm text-gray-500 mb-1.5">생년월일 미입력</p>
+                    <p className="text-xs lg:text-sm text-[var(--mm-muted)] mb-1.5">생년월일 미입력</p>
                   )}
 
                   {/* 리더 뱃지 요약 (경기일 부문별 1등 카운트) */}
@@ -1600,7 +1614,7 @@ export default function LeagueRosterPage() {
 
                   {/* 분기별 팀 배정 — 팀명을 버튼(chip) 형태로 */}
                   {displayQuarters.length > 0 && (
-                    <div className="border-t border-gray-800 pt-2 mt-1 space-y-1.5">
+                    <div className="border-t border-[var(--mm-rule)] pt-2 mt-1 space-y-1.5">
                       {displayQuarters.map(q => {
                         const cellKey = `${q.id}:${p.id}`
                         const isSaving = savingCell === cellKey
@@ -1612,11 +1626,14 @@ export default function LeagueRosterPage() {
                         const isPlayerLeader = isLeader(q.id, teamId, p.id)
                         return (
                           <div key={q.id} className="flex items-center gap-2">
-                            <span className={`text-xs lg:text-sm font-mono shrink-0 ${q.is_current ? 'text-blue-400' : 'text-gray-600'}`}>
+                            <span
+                              className="font-jersey text-xs lg:text-sm tabular-nums font-black shrink-0 tracking-wider"
+                              style={{ color: q.is_current ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
+                            >
                               {String(q.year).slice(2)}.{q.quarter}Q
                             </span>
                             {isSaving ? (
-                              <Loader2 size={12} className="animate-spin text-gray-500 ml-auto" />
+                              <Loader2 size={12} className="animate-spin text-[var(--mm-muted)] ml-auto" />
                             ) : isEditingCell && isEditMode ? (
                               /* 인라인 chip 팝오버 — 팀 선택 */
                               <div
@@ -1625,10 +1642,10 @@ export default function LeagueRosterPage() {
                               >
                                 <button
                                   onClick={() => updateMembership(q.id, p.id, null, false)}
-                                  className={`text-xs lg:text-xs font-bold px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                                  className={`text-xs font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-sm border transition-colors cursor-pointer ${
                                     isRegular === false
-                                      ? 'bg-gray-700 border-gray-500 text-gray-200'
-                                      : 'bg-gray-800/60 border-gray-700 text-gray-500 hover:border-gray-500 hover:text-gray-300'
+                                      ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] text-[var(--mm-panel)]'
+                                      : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-muted)] hover:border-[var(--mm-yellow)] hover:text-[var(--mm-ink)]'
                                   }`}
                                 >
                                   비정규
@@ -1642,12 +1659,12 @@ export default function LeagueRosterPage() {
                                     <button
                                       key={t.id}
                                       onClick={() => updateMembership(q.id, p.id, t.id, true)}
-                                      className={`flex items-center gap-1 text-xs lg:text-xs font-bold px-2 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                                      className={`flex items-center gap-1 text-xs font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-sm border transition-colors cursor-pointer ${
                                         active
-                                          ? 'border-white text-white'
-                                          : 'border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                                          ? 'text-[var(--mm-ink)]'
+                                          : 'border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:border-[var(--mm-yellow)] hover:text-[var(--mm-ink)]'
                                       }`}
-                                      style={active ? { backgroundColor: `${displayColor}30`, borderColor: displayColor } : undefined}
+                                      style={active ? { backgroundColor: `${displayColor}20`, borderColor: displayColor } : undefined}
                                     >
                                       <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: displayColor }} />
                                       {displayName}
@@ -1656,7 +1673,7 @@ export default function LeagueRosterPage() {
                                 })}
                                 <button
                                   onClick={() => setEditingCell(null)}
-                                  className="text-gray-500 hover:text-white p-0.5 cursor-pointer"
+                                  className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] p-0.5 cursor-pointer"
                                   title="닫기"
                                 >
                                   <X size={12} />
@@ -1669,20 +1686,21 @@ export default function LeagueRosterPage() {
                                     {isEditMode ? (
                                       <button
                                         onClick={e => { e.stopPropagation(); toggleLeader(q.id, teamId, p.id) }}
-                                        className={`transition-colors cursor-pointer ${isPlayerLeader ? 'text-yellow-400' : 'text-gray-500 hover:text-yellow-600'}`}
+                                        className="transition-colors cursor-pointer"
+                                        style={{ color: isPlayerLeader ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
                                       ><Crown size={12} /></button>
                                     ) : isPlayerLeader ? (
-                                      <Crown size={12} className="text-yellow-400" />
+                                      <Crown size={12} style={{ color: 'var(--mm-yellow-strong)' }} />
                                     ) : null}
                                   </>
                                 )}
                                 <button
                                   onClick={e => { e.stopPropagation(); if (isEditMode) setEditingCell({ playerId: p.id, quarterId: q.id }) }}
-                                  className={`inline-flex items-center gap-1.5 text-xs lg:text-sm font-medium px-2.5 py-1 rounded-full border transition-all ${
-                                    label === '—' ? 'border-gray-800 text-gray-600' :
-                                    label === '비정규' ? 'border-gray-700 text-gray-500' :
-                                    'border-gray-700 text-white'
-                                  } ${isEditMode ? 'cursor-pointer hover:border-blue-500 hover:bg-blue-500/10' : 'cursor-default'}`}
+                                  className={`inline-flex items-center gap-1.5 text-xs lg:text-sm font-black uppercase tracking-[0.1em] px-2.5 py-1 rounded-sm border transition-all ${
+                                    label === '—' ? 'border-[var(--mm-rule)] text-[var(--mm-muted)]' :
+                                    label === '비정규' ? 'border-[var(--mm-rule)] text-[var(--mm-muted)]' :
+                                    'border-[var(--mm-rule)] text-[var(--mm-ink)]'
+                                  } ${isEditMode ? 'cursor-pointer hover:border-[var(--mm-yellow)]' : 'cursor-default'}`}
                                   style={label !== '—' && label !== '비정규' && teamColor && !isEditMode ? { borderColor: `${teamColor}70` } : undefined}
                                 >
                                   {label !== '—' && label !== '비정규' && teamColor
@@ -1699,8 +1717,8 @@ export default function LeagueRosterPage() {
                   )}
 
                   {/* 카드 클릭 힌트 */}
-                  <p className="mt-2 pt-2 border-t border-gray-800/40 text-xs lg:text-xs text-gray-500 group-hover:text-gray-600 transition-colors">
-                    클릭하여 프로필 보기
+                  <p className="mt-2 pt-2 border-t border-[var(--mm-rule)] text-[11px] uppercase tracking-[0.14em] font-bold text-[var(--mm-muted)] group-hover:text-[var(--mm-yellow-strong)] transition-colors">
+                    카드 열기 →
                   </p>
                   </div>{/* flex-1 end */}
                 </div>
@@ -1712,23 +1730,30 @@ export default function LeagueRosterPage() {
 
       {/* 분기 관리 */}
       {isEditMode && (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-3">
+        <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-sm p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-white">분기 관리</h3>
+            <h3 className="font-jersey font-black uppercase text-[20px] text-[var(--mm-ink)] tracking-tight">분기 관리</h3>
             <button
               onClick={() => setShowQForm(v => !v)}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-sm border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-yellow)] cursor-pointer transition-colors font-bold uppercase tracking-[0.1em]"
             >
               <Plus size={12} />분기 추가
             </button>
           </div>
           {quarters.length === 0 && !showQForm && (
-            <p className="text-xs text-gray-600">아직 등록된 분기가 없습니다. 분기를 추가해 팀 구성을 관리하세요.</p>
+            <p className="text-xs text-[var(--mm-muted)]">아직 등록된 분기가 없습니다. 분기를 추가해 팀 구성을 관리하세요.</p>
           )}
           {quarters.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {quarters.map(q => (
-                <span key={q.id} className={`text-xs px-2.5 py-1 rounded-full border ${q.is_current ? 'border-blue-500 bg-blue-500/10 text-blue-300' : 'border-gray-700 text-gray-400'}`}>
+                <span
+                  key={q.id}
+                  className={`font-jersey text-xs tabular-nums px-2.5 py-1 rounded-sm border font-black tracking-wider ${
+                    q.is_current
+                      ? 'border-[var(--mm-yellow)] bg-[var(--mm-yellow)] text-[var(--mm-black)]'
+                      : 'border-[var(--mm-rule)] text-[var(--mm-ink-soft)]'
+                  }`}
+                >
                   {String(q.year).slice(2)}.{q.quarter}Q{q.is_current ? ' ●' : ''}
                 </span>
               ))}
@@ -1740,36 +1765,45 @@ export default function LeagueRosterPage() {
                 <select
                   value={qYear}
                   onChange={e => setQYear(Number(e.target.value))}
-                  className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer"
+                  className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-sm px-3 py-2 text-sm cursor-pointer"
                 >
                   {[currentYear - 1, currentYear, currentYear + 1].map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
                 <select
                   value={qQuarter}
                   onChange={e => setQQuarter(Number(e.target.value))}
-                  className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer"
+                  className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-sm px-3 py-2 text-sm cursor-pointer"
                 >
                   {[1, 2, 3, 4].map(q => <option key={q} value={q}>{q}Q</option>)}
                 </select>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex flex-col gap-0.5">
-                  <label className="text-xs text-gray-500 font-bold">시작일</label>
+                  <label className="text-xs text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">시작일</label>
                   <input type="date" value={qStart} onChange={e => setQStart(e.target.value)}
-                    className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer" />
+                    className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-sm px-3 py-2 text-sm cursor-pointer" />
                 </div>
                 <div className="flex flex-col gap-0.5">
-                  <label className="text-xs text-gray-500 font-bold">종료일</label>
+                  <label className="text-xs text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">종료일</label>
                   <input type="date" value={qEnd} onChange={e => setQEnd(e.target.value)}
-                    className="bg-gray-800 border border-gray-700 text-white rounded-md px-3 py-2 text-sm cursor-pointer" />
+                    className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-sm px-3 py-2 text-sm cursor-pointer" />
                 </div>
               </div>
-              <p className="text-xs text-gray-600">기간은 분기 선택 시 자동 입력됩니다 (Q3 = 7~9월, Q4 = 10~12월). 필요 시 직접 수정하세요.</p>
+              <p className="text-xs text-[var(--mm-muted)]">기간은 분기 선택 시 자동 입력됩니다 (Q3 = 7~9월, Q4 = 10~12월). 필요 시 직접 수정하세요.</p>
               <div className="flex items-center gap-2">
-                <Button onClick={createQuarter} disabled={savingQ} size="sm" className="bg-blue-600 hover:bg-blue-500 cursor-pointer">
+                <button
+                  onClick={createQuarter}
+                  disabled={savingQ}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm text-xs font-black uppercase tracking-[0.14em] bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:brightness-95 disabled:opacity-50 transition-all cursor-pointer"
+                >
                   {savingQ ? <Loader2 size={13} className="animate-spin" /> : '생성'}
-                </Button>
-                <Button onClick={() => setShowQForm(false)} variant="outline" size="sm" className="border-gray-700 text-gray-400 cursor-pointer">취소</Button>
+                </button>
+                <button
+                  onClick={() => setShowQForm(false)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-sm text-xs font-bold uppercase tracking-[0.12em] border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer"
+                >
+                  취소
+                </button>
               </div>
             </div>
           )}

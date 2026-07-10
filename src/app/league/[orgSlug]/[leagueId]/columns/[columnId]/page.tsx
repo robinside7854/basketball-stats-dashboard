@@ -68,9 +68,13 @@ export default function ColumnDetailPage() {
   }
   if (!column) {
     return (
-      <div className="text-center py-20 text-gray-500">
+      <div className="text-center py-20" style={{ color: 'var(--mm-muted)' }}>
         <p>컬럼을 찾을 수 없습니다</p>
-        <Link href={`/league/${orgSlug}/${leagueId}/columns`} className="text-amber-400 hover:underline mt-2 inline-block">
+        <Link
+          href={`/league/${orgSlug}/${leagueId}/columns`}
+          className="hover:underline mt-2 inline-block font-black uppercase tracking-wider"
+          style={{ color: 'var(--mm-yellow-strong)' }}
+        >
           목록으로 돌아가기
         </Link>
       </div>
@@ -86,43 +90,61 @@ export default function ColumnDetailPage() {
       {/* 상단 뒤로가기 */}
       <Link
         href={`/league/${orgSlug}/${leagueId}/columns`}
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-white transition-colors"
+        className="inline-flex items-center gap-1 text-sm font-bold uppercase tracking-[0.14em] transition-colors hover:underline"
+        style={{ color: 'var(--mm-muted)' }}
       >
         <ChevronLeft size={16} /> 매거진 목록
       </Link>
 
-      {/* 커버 헤더 (히어로) */}
-      <header className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-amber-900/60 via-gray-900 to-orange-900/40 border border-amber-700/40">
-        {/* AI 배너 이미지 (있으면) — 배경 */}
-        {column.cover_banner_url && (
-          <img
-            src={column.cover_banner_url}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover opacity-40"
-            aria-hidden
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+      {/* 커버 헤더 (히어로) — 노랑 배경 + 검정 텍스트 */}
+      <header
+        className="relative overflow-hidden border"
+        style={{ background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)' }}
+      >
         <div className="relative px-6 py-8 lg:px-10 lg:py-12">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-black text-amber-300 uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <span
+              className="text-xs font-black uppercase tracking-[0.22em] px-2 py-1"
+              style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)' }}
+            >
               {PERIOD_LABEL[column.period_type]} 리포트
             </span>
-            <span className="text-xs text-gray-300 flex items-center gap-1">
+            <span
+              className="text-xs font-bold flex items-center gap-1 uppercase tracking-[0.14em]"
+              style={{ color: 'rgba(0,0,0,0.70)' }}
+            >
               <Calendar size={12} />
               {column.period_start} ~ {column.period_end}
             </span>
           </div>
           <div className="flex items-end gap-6 flex-wrap">
             <div className="flex-1 min-w-0">
-              <h1 className="text-3xl lg:text-5xl font-black text-white leading-tight mb-2">{column.title}</h1>
+              <h1
+                className="font-jersey font-black uppercase leading-[0.95] mb-3"
+                style={{
+                  fontSize: 'clamp(32px, 5.5vw, 60px)',
+                  letterSpacing: '-0.015em',
+                  color: 'var(--mm-black)',
+                  textWrap: 'balance',
+                }}
+              >
+                {column.title}
+              </h1>
               {column.subtitle && (
-                <p className="text-base lg:text-xl text-gray-300">{column.subtitle}</p>
+                <p
+                  className="text-base lg:text-xl leading-relaxed font-medium"
+                  style={{ color: 'rgba(0,0,0,0.75)' }}
+                >
+                  {column.subtitle}
+                </p>
               )}
             </div>
-            {/* 표지 선수 프로필 사진 (원본 그대로, 절대 변형 금지) */}
+            {/* 표지 선수 프로필 사진 (원본 그대로, 절대 변형 금지 — 필터/틴트 없음) */}
             {coverPlayer?.photo_url && (
-              <div className="shrink-0 w-32 h-40 lg:w-40 lg:h-52 rounded-2xl overflow-hidden border-4 border-amber-500/50 shadow-2xl">
+              <div
+                className="shrink-0 w-32 h-40 lg:w-40 lg:h-52 overflow-hidden"
+                style={{ border: '4px solid var(--mm-black)' }}
+              >
                 <img
                   src={coverPlayer.photo_url}
                   alt={coverPlayer.name}
@@ -132,15 +154,33 @@ export default function ColumnDetailPage() {
             )}
           </div>
           {column.published_at && (
-            <p className="text-xs text-gray-500 mt-4">
+            <p
+              className="text-xs mt-6 pt-4 font-bold uppercase tracking-[0.14em]"
+              style={{ color: 'rgba(0,0,0,0.65)', borderTop: '2px solid rgba(0,0,0,0.15)' }}
+            >
               발행일 · {new Date(column.published_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           )}
         </div>
       </header>
 
+      {/* AI 배너 이미지 (있으면) — 별도 프레임 (히어로 노랑 대비 방해 방지) */}
+      {column.cover_banner_url && (
+        <div className="overflow-hidden border" style={{ borderColor: 'var(--mm-rule)' }}>
+          <img
+            src={column.cover_banner_url}
+            alt=""
+            className="w-full h-auto object-cover"
+            aria-hidden
+          />
+        </div>
+      )}
+
       {/* 본문 */}
-      <div className="bg-gray-900/60 rounded-2xl border border-gray-800 px-5 py-6 lg:px-10 lg:py-10">
+      <div
+        className="rounded border px-5 py-6 lg:px-10 lg:py-10"
+        style={{ background: 'var(--mm-panel)', borderColor: 'var(--mm-rule)' }}
+      >
         <MagazineRenderer
           body={column.body_md}
           leagueId={leagueId}
@@ -153,7 +193,8 @@ export default function ColumnDetailPage() {
       <div className="flex justify-center pt-2">
         <Link
           href={`/league/${orgSlug}/${leagueId}/columns`}
-          className="text-sm text-gray-500 hover:text-white transition-colors flex items-center gap-1"
+          className="text-sm font-bold uppercase tracking-[0.14em] transition-colors hover:underline flex items-center gap-1"
+          style={{ color: 'var(--mm-muted)' }}
         >
           <ChevronLeft size={14} /> 매거진 목록
         </Link>

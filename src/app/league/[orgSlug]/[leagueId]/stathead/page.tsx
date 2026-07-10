@@ -163,34 +163,66 @@ function StatheadContent() {
   const currentSortLabel = STAT_LABEL[sort.key] ?? sort.key
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 mm-brand">
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2.5">
-          <Sparkles size={22} className="text-purple-400" />
+          <Sparkles size={22} style={{ color: 'var(--mm-yellow-strong)' }} />
           <div>
-            <h1 className="font-jersey text-2xl lg:text-3xl font-black tracking-widest text-white uppercase">Stathead</h1>
-            <p className="text-xs lg:text-sm text-gray-500 mt-0.5">커스텀 스탯 쿼리 · 조건 조합으로 선수 발굴</p>
+            <h1
+              className="font-jersey font-black uppercase text-3xl lg:text-4xl"
+              style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+            >
+              Stathead
+            </h1>
+            <p
+              className="text-xs lg:text-sm mt-1 font-bold uppercase"
+              style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
+            >
+              커스텀 스탯 쿼리 · 조건 조합으로 선수 발굴
+            </p>
           </div>
         </div>
         <button
           onClick={reset}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-gray-800 border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase transition-colors cursor-pointer"
+          style={{
+            background: 'var(--mm-panel)',
+            border: '1px solid var(--mm-rule)',
+            color: 'var(--mm-ink-soft)',
+            letterSpacing: '0.16em',
+          }}
         >
           <RotateCcw size={12} /> 초기화
         </button>
       </div>
 
       {/* 필터 패널 */}
-      <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 lg:p-5 space-y-4">
+      <div
+        className="p-4 lg:p-5 space-y-4"
+        style={{
+          background: 'var(--mm-panel)',
+          border: '1px solid var(--mm-rule)',
+        }}
+      >
         {/* 기본 필터 (분기 + 최소 경기 + 게스트 토글) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1.5 block">분기</label>
+            <label
+              className="text-xs font-bold uppercase mb-1.5 block"
+              style={{ color: 'var(--mm-muted)', letterSpacing: '0.18em' }}
+            >
+              분기
+            </label>
             <select
               value={quarterId}
               onChange={e => setQuarterId(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white cursor-pointer focus:outline-none focus:border-purple-500"
+              className="w-full px-3 py-2 text-sm cursor-pointer focus:outline-none"
+              style={{
+                background: 'var(--mm-panel-alt)',
+                border: '1px solid var(--mm-rule)',
+                color: 'var(--mm-ink)',
+              }}
             >
               <option value="all">시즌 전체</option>
               {quarters.map(q => (
@@ -199,28 +231,48 @@ function StatheadContent() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1.5 block">최소 경기 수</label>
+            <label
+              className="text-xs font-bold uppercase mb-1.5 block"
+              style={{ color: 'var(--mm-muted)', letterSpacing: '0.18em' }}
+            >
+              최소 경기 수
+            </label>
             <input
               type="number"
               inputMode="numeric"
               value={minGp}
               onChange={e => setMinGp(e.target.value)}
               min={0}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white tabular-nums focus:outline-none focus:border-purple-500"
+              className="w-full px-3 py-2 text-sm tabular-nums focus:outline-none"
+              style={{
+                background: 'var(--mm-panel-alt)',
+                border: '1px solid var(--mm-rule)',
+                color: 'var(--mm-ink)',
+              }}
             />
           </div>
           <div>
-            <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1.5 block">게스트 포함</label>
+            <label
+              className="text-xs font-bold uppercase mb-1.5 block"
+              style={{ color: 'var(--mm-muted)', letterSpacing: '0.18em' }}
+            >
+              게스트 포함
+            </label>
             <button
               onClick={() => setIncludeGuests(v => !v)}
               aria-pressed={includeGuests}
-              className={`w-full text-left px-3 py-2 rounded-lg text-sm font-bold border transition-colors cursor-pointer flex items-center gap-2 ${
-                includeGuests
-                  ? 'bg-purple-600/20 border-purple-500/40 text-purple-300'
-                  : 'bg-gray-800 border-gray-700 text-gray-500'
-              }`}
+              className="w-full text-left px-3 py-2 text-sm font-bold uppercase transition-colors cursor-pointer flex items-center gap-2"
+              style={{
+                background: includeGuests ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
+                border: `1px solid ${includeGuests ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+                color: includeGuests ? 'var(--mm-black)' : 'var(--mm-muted)',
+                letterSpacing: '0.14em',
+              }}
             >
-              <span className={`inline-block w-2.5 h-2.5 rounded-full ${includeGuests ? 'bg-purple-400' : 'bg-gray-600'}`} />
+              <span
+                className="inline-block w-2.5 h-2.5 rounded-full"
+                style={{ background: includeGuests ? 'var(--mm-black)' : 'var(--mm-rule)' }}
+              />
               {includeGuests ? '포함' : '제외 (기본)'}
             </button>
           </div>
@@ -229,24 +281,49 @@ function StatheadContent() {
         {/* 조건 필터 목록 */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs text-gray-500 font-bold uppercase tracking-widest">스탯 조건 ({filters.length})</label>
+            <label
+              className="text-xs font-bold uppercase"
+              style={{ color: 'var(--mm-muted)', letterSpacing: '0.18em' }}
+            >
+              스탯 조건 ({filters.length})
+            </label>
             <button
               onClick={addFilter}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-bold bg-purple-600/20 text-purple-300 border border-purple-500/30 hover:bg-purple-600/30 cursor-pointer transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold uppercase cursor-pointer transition-colors"
+              style={{
+                background: 'var(--mm-yellow)',
+                color: 'var(--mm-black)',
+                border: '1px solid var(--mm-black)',
+                letterSpacing: '0.14em',
+              }}
             >
               <Plus size={11} /> 조건 추가
             </button>
           </div>
           {filters.length === 0 ? (
-            <p className="text-xs text-gray-600 py-2">조건이 없습니다 — 위 "조건 추가" 로 시작하세요.</p>
+            <p className="text-xs py-2" style={{ color: 'var(--mm-muted)' }}>
+              조건이 없습니다 — 위 &ldquo;조건 추가&rdquo; 로 시작하세요.
+            </p>
           ) : (
             <div className="space-y-2">
               {filters.map((f, idx) => (
-                <div key={idx} className="flex items-center gap-2 flex-wrap">
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 flex-wrap p-2"
+                  style={{
+                    background: 'var(--mm-panel-alt)',
+                    border: '1px solid var(--mm-rule)',
+                  }}
+                >
                   <select
                     value={f.stat}
                     onChange={e => updateFilter(idx, { stat: e.target.value })}
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white cursor-pointer focus:outline-none focus:border-purple-500 flex-1 min-w-[100px] max-w-[130px]"
+                    className="px-2 py-1.5 text-xs cursor-pointer focus:outline-none flex-1 min-w-[100px] max-w-[130px]"
+                    style={{
+                      background: 'var(--mm-panel)',
+                      border: '1px solid var(--mm-rule)',
+                      color: 'var(--mm-ink)',
+                    }}
                   >
                     <optgroup label="기본">
                       {STATS.filter(s => s.group === 'basic').map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
@@ -261,7 +338,12 @@ function StatheadContent() {
                   <select
                     value={f.op}
                     onChange={e => updateFilter(idx, { op: e.target.value })}
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white cursor-pointer focus:outline-none focus:border-purple-500 min-w-[52px]"
+                    className="px-2 py-1.5 text-xs cursor-pointer focus:outline-none min-w-[52px] font-bold"
+                    style={{
+                      background: 'var(--mm-panel)',
+                      border: '1px solid var(--mm-rule)',
+                      color: 'var(--mm-ink)',
+                    }}
                   >
                     {OPS.map(o => <option key={o.op} value={o.op}>{o.label}</option>)}
                   </select>
@@ -271,12 +353,20 @@ function StatheadContent() {
                     value={f.value}
                     onChange={e => updateFilter(idx, { value: e.target.value })}
                     step="0.1"
-                    className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white w-20 tabular-nums focus:outline-none focus:border-purple-500"
+                    className="px-2 py-1.5 text-xs w-20 tabular-nums focus:outline-none font-bold"
+                    style={{
+                      background: 'var(--mm-panel)',
+                      border: '1px solid var(--mm-rule)',
+                      color: 'var(--mm-ink)',
+                    }}
                     placeholder="값"
                   />
                   <button
                     onClick={() => removeFilter(idx)}
-                    className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer p-1"
+                    className="transition-colors cursor-pointer p-1"
+                    style={{ color: 'var(--mm-muted)' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--mm-live)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--mm-muted)')}
                     aria-label={`조건 ${idx + 1} 삭제`}
                   >
                     <X size={13} />
@@ -288,18 +378,37 @@ function StatheadContent() {
         </div>
 
         {/* 정렬 */}
-        <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-gray-800">
-          <label className="text-xs text-gray-500 font-bold uppercase tracking-widest">정렬</label>
+        <div
+          className="flex items-center gap-2 flex-wrap pt-3"
+          style={{ borderTop: '1px solid var(--mm-rule)' }}
+        >
+          <label
+            className="text-xs font-bold uppercase"
+            style={{ color: 'var(--mm-muted)', letterSpacing: '0.18em' }}
+          >
+            정렬
+          </label>
           <select
             value={sort.key}
             onChange={e => setSort(s => ({ ...s, key: e.target.value }))}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-xs text-white cursor-pointer focus:outline-none focus:border-purple-500"
+            className="px-2 py-1.5 text-xs cursor-pointer focus:outline-none font-bold"
+            style={{
+              background: 'var(--mm-panel-alt)',
+              border: '1px solid var(--mm-rule)',
+              color: 'var(--mm-ink)',
+            }}
           >
             {STATS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
           </select>
           <button
             onClick={() => setSort(s => ({ ...s, dir: s.dir === 'desc' ? 'asc' : 'desc' }))}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-bold bg-gray-800 border border-gray-700 text-gray-300 hover:text-white cursor-pointer transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold uppercase cursor-pointer transition-colors"
+            style={{
+              background: 'var(--mm-black)',
+              color: '#FFFFFF',
+              border: '1px solid var(--mm-black)',
+              letterSpacing: '0.14em',
+            }}
           >
             {sort.dir === 'desc' ? <><ArrowDown size={11} /> 내림</> : <><ArrowUp size={11} /> 오름</>}
           </button>
@@ -309,12 +418,21 @@ function StatheadContent() {
       {/* 결과 */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs lg:text-sm text-gray-500">
+          <p className="text-xs lg:text-sm" style={{ color: 'var(--mm-muted)' }}>
             {loading ? '검색 중…' : (
               <>
-                <span className="font-bold text-white">{total}명</span>
-                <span className="ml-1">일치 · 정렬: <span className="font-bold text-purple-300">{currentSortLabel} {sort.dir === 'desc' ? '↓' : '↑'}</span></span>
-                {players.length < total && <span className="ml-1 text-gray-600">(상위 {players.length}명 표시)</span>}
+                <span className="font-black font-jersey text-lg tabular-nums" style={{ color: 'var(--mm-ink)' }}>{total}명</span>
+                <span className="ml-2 uppercase font-bold" style={{ letterSpacing: '0.14em' }}>
+                  일치 · 정렬:{' '}
+                  <span className="font-black" style={{ color: 'var(--mm-yellow-strong)' }}>
+                    {currentSortLabel} {sort.dir === 'desc' ? '↓' : '↑'}
+                  </span>
+                </span>
+                {players.length < total && (
+                  <span className="ml-2 text-xs" style={{ color: 'var(--mm-muted)' }}>
+                    (상위 {players.length}명 표시)
+                  </span>
+                )}
               </>
             )}
           </p>
@@ -323,64 +441,136 @@ function StatheadContent() {
         {loading ? (
           <div className="flex justify-center py-12"><BasketballLoader size={32} /></div>
         ) : players.length === 0 ? (
-          <div className="text-center py-12 text-gray-500 bg-gray-900/40 rounded-2xl border border-gray-800">
-            <p className="text-sm">조건에 맞는 선수가 없습니다</p>
-            <p className="text-xs text-gray-600 mt-1">필터를 완화해 보세요</p>
+          <div
+            className="text-center py-12"
+            style={{
+              background: 'var(--mm-panel-alt)',
+              border: '1px solid var(--mm-rule)',
+              color: 'var(--mm-muted)',
+            }}
+          >
+            <p className="text-sm font-bold uppercase" style={{ letterSpacing: '0.14em', color: 'var(--mm-ink-soft)' }}>
+              조건에 맞는 선수가 없습니다
+            </p>
+            <p className="text-xs mt-1.5" style={{ color: 'var(--mm-muted)' }}>필터를 완화해 보세요</p>
           </div>
         ) : (
-          <div className="bg-gray-900/40 border border-gray-800 rounded-2xl overflow-hidden">
+          <div
+            className="overflow-hidden transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+            style={{
+              background: 'var(--mm-panel)',
+              border: '1px solid var(--mm-rule)',
+            }}
+          >
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-800 bg-gray-900/60">
-                    <th className="py-3 px-3 text-left text-xs text-gray-500 font-bold w-8">#</th>
-                    <th className="py-3 px-4 text-left text-xs text-gray-500 font-bold min-w-[130px] sticky left-0 bg-gray-900/60">선수</th>
-                    <th className="py-3 px-3 text-center text-xs text-gray-500 font-bold">GP</th>
+                  <tr style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
+                    <th
+                      className="py-3 px-3 text-left text-xs font-bold w-8 uppercase"
+                      style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
+                    >
+                      #
+                    </th>
+                    <th
+                      className="py-3 px-4 text-left text-xs font-bold min-w-[130px] sticky left-0 uppercase"
+                      style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel-alt)', letterSpacing: '0.16em' }}
+                    >
+                      선수
+                    </th>
+                    <th
+                      className="py-3 px-3 text-center text-xs font-bold uppercase"
+                      style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
+                    >
+                      GP
+                    </th>
                     {/* 정렬 기준 컬럼을 강조 표시 */}
-                    <th className="py-3 px-3 text-center text-xs font-bold text-purple-400">{currentSortLabel}</th>
-                    <th className="py-3 px-3 text-center text-xs text-gray-500 font-bold">PPG</th>
-                    <th className="py-3 px-3 text-center text-xs text-gray-500 font-bold">RPG</th>
-                    <th className="py-3 px-3 text-center text-xs text-gray-500 font-bold">APG</th>
-                    <th className="py-3 px-3 text-center text-xs text-gray-500 font-bold">FG%</th>
-                    <th className="py-3 px-3 text-center text-xs text-gray-500 font-bold">3P%</th>
-                    <th className="py-3 px-3 text-center text-xs text-gray-500 font-bold">eFG%</th>
+                    <th
+                      className="py-3 px-3 text-center text-xs font-black uppercase"
+                      style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.18em' }}
+                    >
+                      {currentSortLabel}
+                    </th>
+                    {(['PPG', 'RPG', 'APG', 'FG%', '3P%', 'eFG%']).map(label => (
+                      <th
+                        key={label}
+                        className="py-3 px-3 text-center text-xs font-bold uppercase"
+                        style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
+                      >
+                        {label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {players.map((p, i) => (
-                    <tr key={p.player_id as string} className={`border-b border-gray-800/40 last:border-0 hover:bg-gray-800/30 transition-colors ${i % 2 === 1 ? 'bg-gray-900/30' : ''}`}>
-                      <td className={`py-2.5 px-3 text-sm font-black tabular-nums ${i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-orange-500' : 'text-gray-600'}`}>{i + 1}</td>
-                      <td className="py-2.5 px-4 sticky left-0 bg-inherit">
-                        <button
-                          onClick={() => setQuickPlayer({ id: p.player_id as string, name: p.name as string })}
-                          className="font-bold text-white hover:text-purple-300 transition-colors cursor-pointer text-left hover:underline underline-offset-1 truncate max-w-[130px] block"
+                  {players.map((p, i) => {
+                    const rowBg = i % 2 === 1 ? 'var(--mm-panel-alt)' : 'var(--mm-panel)'
+                    const rankColor = i === 0
+                      ? 'var(--mm-yellow-strong)'
+                      : i === 1 || i === 2
+                        ? 'var(--mm-ink-soft)'
+                        : 'var(--mm-muted)'
+                    return (
+                      <tr
+                        key={p.player_id as string}
+                        className="transition-colors"
+                        style={{
+                          borderBottom: '1px solid var(--mm-rule)',
+                          background: rowBg,
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--mm-yellow-soft)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = rowBg)}
+                      >
+                        <td
+                          className="py-2.5 px-3 text-base font-jersey font-black tabular-nums"
+                          style={{ color: rankColor }}
                         >
-                          {p.name as string}
-                        </button>
-                        <div className="text-gray-600 text-xs">
-                          {(p.position as string ?? '')}{p.number != null ? ` #${p.number}` : ''}
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-3 text-center text-sm text-gray-400 tabular-nums">{p.gp as number}</td>
-                      <td className="py-2.5 px-3 text-center text-sm font-black text-purple-300 tabular-nums">
-                        {formatValue(p[sort.key] as string | number, sort.key)}
-                      </td>
-                      <td className="py-2.5 px-3 text-center text-sm text-gray-300 tabular-nums">{p.ppg as number}</td>
-                      <td className="py-2.5 px-3 text-center text-sm text-gray-300 tabular-nums">{p.rpg as number}</td>
-                      <td className="py-2.5 px-3 text-center text-sm text-gray-300 tabular-nums">{p.apg as number}</td>
-                      <td className="py-2.5 px-3 text-center text-sm text-blue-300 tabular-nums">{p.fg_pct as number}%</td>
-                      <td className="py-2.5 px-3 text-center text-sm text-blue-300 tabular-nums">{p.fg3_pct as number}%</td>
-                      <td className="py-2.5 px-3 text-center text-sm text-blue-300 tabular-nums">{p.efg_pct as number}%</td>
-                    </tr>
-                  ))}
+                          {i + 1}
+                        </td>
+                        <td className="py-2.5 px-4 sticky left-0" style={{ background: 'inherit' }}>
+                          <button
+                            onClick={() => setQuickPlayer({ id: p.player_id as string, name: p.name as string })}
+                            className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 truncate max-w-[130px] block text-base"
+                            style={{ color: 'var(--mm-ink)' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = 'var(--mm-yellow-strong)')}
+                            onMouseLeave={e => (e.currentTarget.style.color = 'var(--mm-ink)')}
+                          >
+                            {p.name as string}
+                          </button>
+                          <div className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>
+                            {(p.position as string ?? '')}{p.number != null ? ` #${p.number}` : ''}
+                          </div>
+                        </td>
+                        <td
+                          className="py-2.5 px-3 text-center text-sm tabular-nums"
+                          style={{ color: 'var(--mm-ink-soft)' }}
+                        >
+                          {p.gp as number}
+                        </td>
+                        <td
+                          className="py-2.5 px-3 text-center font-jersey font-black tabular-nums text-lg"
+                          style={{ color: 'var(--mm-yellow-strong)' }}
+                        >
+                          {formatValue(p[sort.key] as string | number, sort.key)}
+                        </td>
+                        <td className="py-2.5 px-3 text-center text-sm tabular-nums" style={{ color: 'var(--mm-ink)' }}>{p.ppg as number}</td>
+                        <td className="py-2.5 px-3 text-center text-sm tabular-nums" style={{ color: 'var(--mm-ink)' }}>{p.rpg as number}</td>
+                        <td className="py-2.5 px-3 text-center text-sm tabular-nums" style={{ color: 'var(--mm-ink)' }}>{p.apg as number}</td>
+                        <td className="py-2.5 px-3 text-center text-sm tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{p.fg_pct as number}%</td>
+                        <td className="py-2.5 px-3 text-center text-sm tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{p.fg3_pct as number}%</td>
+                        <td className="py-2.5 px-3 text-center text-sm tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{p.efg_pct as number}%</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        <p className="text-xs text-gray-600 mt-3">
-          💡 <span className="text-gray-500">현재 URL 을 공유하면 동일한 쿼리 결과를 재현할 수 있습니다.</span>
+        <p className="text-xs mt-3" style={{ color: 'var(--mm-muted)' }}>
+          <span className="font-black uppercase mr-1.5" style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.16em' }}>TIP</span>
+          현재 URL 을 공유하면 동일한 쿼리 결과를 재현할 수 있습니다.
         </p>
       </div>
 
