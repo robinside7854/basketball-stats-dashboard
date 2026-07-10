@@ -21,17 +21,14 @@ interface Props {
 const CATEGORY_DEFS: Record<StreakCategory, {
   label: string
   Icon: typeof Flame
-  color: string
-  bg: string
-  border: string
   suffix: string
 }> = {
-  pts10:   { label: '두 자릿수 득점',  Icon: Trophy,    color: 'text-amber-300',   bg: 'bg-amber-950/40',    border: 'border-amber-500/40',  suffix: '경기' },
-  pts20:   { label: '20+ 득점',        Icon: Flame,     color: 'text-orange-300',  bg: 'bg-orange-950/40',   border: 'border-orange-500/40', suffix: '경기' },
-  tp1:     { label: '3점 성공',         Icon: Crosshair, color: 'text-pink-300',    bg: 'bg-pink-950/40',     border: 'border-pink-500/40',   suffix: '경기' },
-  dd:      { label: '더블더블',         Icon: Layers,    color: 'text-purple-300',  bg: 'bg-purple-950/40',   border: 'border-purple-500/40', suffix: '경기' },
-  wins:    { label: '승리 연속',        Icon: Shield,    color: 'text-emerald-300', bg: 'bg-emerald-950/40',  border: 'border-emerald-500/40',suffix: '경기' },
-  stlblk3: { label: 'STL+BLK 3+',      Icon: Zap,       color: 'text-cyan-300',    bg: 'bg-cyan-950/40',     border: 'border-cyan-500/40',   suffix: '경기' },
+  pts10:   { label: '두 자릿수 득점',  Icon: Trophy,    suffix: '경기' },
+  pts20:   { label: '20+ 득점',        Icon: Flame,     suffix: '경기' },
+  tp1:     { label: '3점 성공',         Icon: Crosshair, suffix: '경기' },
+  dd:      { label: '더블더블',         Icon: Layers,    suffix: '경기' },
+  wins:    { label: '승리 연속',        Icon: Shield,    suffix: '경기' },
+  stlblk3: { label: 'STL+BLK 3+',      Icon: Zap,       suffix: '경기' },
 }
 
 function heat(count: number): { emoji: string; intensity: string } {
@@ -55,7 +52,18 @@ export default function StreakSpotlight({ leagueId, maxEntries = 8 }: Props) {
   }, [leagueId])
 
   if (loading) {
-    return <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 text-center text-xs text-gray-600">연속 기록 계산 중...</div>
+    return (
+      <div
+        className="mm-brand p-6 text-center text-xs uppercase tracking-[0.18em] font-bold"
+        style={{
+          background: 'var(--mm-panel)',
+          border: '1px solid var(--mm-rule)',
+          color: 'var(--mm-muted)',
+        }}
+      >
+        연속 기록 계산 중...
+      </div>
+    )
   }
 
   const displayed = streaks.slice(0, maxEntries)
@@ -63,60 +71,164 @@ export default function StreakSpotlight({ leagueId, maxEntries = 8 }: Props) {
 
   return (
     <>
-      <div className="bg-gradient-to-br from-orange-950/30 via-gray-900 to-red-950/20 border border-orange-800/40 rounded-2xl overflow-hidden">
+      <section
+        className="mm-brand transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] dark:hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.55)]"
+        style={{
+          background: 'var(--mm-panel)',
+          border: '1px solid var(--mm-rule)',
+        }}
+      >
         {/* 헤더 */}
-        <div className="px-4 py-3 lg:px-5 lg:py-4 border-b border-gray-800/60 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Flame size={16} className="text-orange-400 lg:w-5 lg:h-5" />
-            <h3 className="font-jersey text-sm lg:text-base font-bold text-orange-300 uppercase tracking-widest">진행 중 연속</h3>
+        <header
+          className="flex items-baseline justify-between px-5 lg:px-6 py-4 lg:py-5"
+          style={{ borderBottom: '1px solid var(--mm-rule)' }}
+        >
+          <div className="flex items-center gap-2.5">
+            <Flame size={18} style={{ color: 'var(--mm-yellow-strong)' }} />
+            <h3
+              className="font-jersey font-black uppercase"
+              style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}
+            >
+              핫 연속
+            </h3>
           </div>
-          <span className="text-xs lg:text-xs text-gray-500 font-mono">{streaks.length}개 · Top {displayed.length}</span>
-        </div>
+          <span
+            className="text-[12px] uppercase font-bold tabular-nums"
+            style={{ color: 'var(--mm-muted)', letterSpacing: '0.18em' }}
+          >
+            {streaks.length}건 · TOP {displayed.length}
+          </span>
+        </header>
 
         {/* 스트릭 리스트 */}
-        <div className="divide-y divide-gray-800/40">
+        <div className="p-2">
           {displayed.map((s, i) => {
             const def = CATEGORY_DEFS[s.category]
             const h = heat(s.count)
+            const isTop = i === 0
             return (
               <button
                 key={`${s.player_id}-${s.category}`}
                 onClick={() => setQuickPlayer({ id: s.player_id, name: s.name })}
-                className="w-full flex items-center gap-3 lg:gap-4 px-4 lg:px-5 py-2.5 lg:py-3 hover:bg-orange-950/20 transition-colors cursor-pointer group text-left"
+                className="w-full flex items-center gap-3 lg:gap-4 text-left cursor-pointer group transition-colors"
+                style={{
+                  padding: isTop ? '14px 16px' : '12px 16px',
+                  background: isTop ? 'var(--mm-yellow)' : 'transparent',
+                  color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                  borderLeft: `4px solid ${isTop ? 'var(--mm-black)' : 'transparent'}`,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isTop) {
+                    e.currentTarget.style.background = 'var(--mm-panel-alt)'
+                    e.currentTarget.style.borderLeftColor = 'var(--mm-yellow)'
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isTop) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.borderLeftColor = 'transparent'
+                  }
+                }}
               >
                 {/* Rank */}
-                <span className={`text-xs lg:text-sm font-black font-mono w-5 shrink-0 text-right ${i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-orange-500' : 'text-gray-600'}`}>
+                <span
+                  className="font-jersey font-black tabular-nums leading-none shrink-0"
+                  style={{
+                    color: isTop ? 'var(--mm-black)' : 'var(--mm-muted)',
+                    width: isTop ? '28px' : '24px',
+                    textAlign: 'right',
+                    fontSize: isTop ? '28px' : '22px',
+                  }}
+                >
                   {i + 1}
                 </span>
 
                 {/* Icon */}
-                <div className={`w-9 h-9 lg:w-10 lg:h-10 rounded-full ${def.bg} border ${def.border} flex items-center justify-center shrink-0`}>
-                  <def.Icon size={16} className={def.color} />
-                </div>
+                <span
+                  className="flex items-center justify-center shrink-0"
+                  style={{
+                    width: isTop ? '40px' : '36px',
+                    height: isTop ? '40px' : '36px',
+                    background: isTop ? 'var(--mm-black)' : 'var(--mm-panel)',
+                    border: `1px solid ${isTop ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+                  }}
+                >
+                  <def.Icon
+                    size={isTop ? 18 : 16}
+                    style={{ color: isTop ? 'var(--mm-yellow)' : 'var(--mm-ink)' }}
+                  />
+                </span>
 
                 {/* Player + Category */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm lg:text-base font-bold text-white group-hover:text-orange-200 transition-colors truncate">
+                  <p
+                    className="font-jersey font-black uppercase truncate leading-none"
+                    style={{
+                      color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                      fontSize: isTop ? '20px' : '18px',
+                      letterSpacing: '-0.005em',
+                    }}
+                  >
                     {s.name}
-                    {s.number != null && <span className="ml-1.5 text-xs lg:text-xs text-gray-500 font-mono">#{s.number}</span>}
+                    {s.number != null && (
+                      <span
+                        className="ml-2 font-bold tabular-nums"
+                        style={{
+                          color: isTop ? 'rgba(0,0,0,0.55)' : 'var(--mm-muted)',
+                          fontSize: '12px',
+                        }}
+                      >
+                        #{s.number}
+                      </span>
+                    )}
                   </p>
-                  <p className={`text-xs lg:text-xs ${def.color} truncate`}>
+                  <p
+                    className="font-bold uppercase mt-1.5 truncate"
+                    style={{
+                      color: isTop ? 'rgba(0,0,0,0.65)' : 'var(--mm-muted)',
+                      fontSize: '11px',
+                      letterSpacing: '0.16em',
+                    }}
+                  >
                     {def.label}
                   </p>
                 </div>
 
                 {/* Count */}
-                <div className="text-right shrink-0">
-                  <p className={`text-lg lg:text-2xl font-black tabular-nums ${def.color} leading-none`}>
-                    {s.count}{def.suffix}
-                  </p>
-                  {h.emoji && <p className="text-xs lg:text-xs mt-0.5">{h.emoji}</p>}
+                <div className="text-right shrink-0 flex items-baseline gap-2">
+                  <span
+                    className="font-jersey font-black tabular-nums leading-none"
+                    style={{
+                      color: isTop
+                        ? 'var(--mm-black)'
+                        : 'var(--mm-yellow-strong)',
+                      fontSize: isTop ? '36px' : '30px',
+                      letterSpacing: '-0.015em',
+                    }}
+                  >
+                    {s.count}
+                  </span>
+                  <span
+                    className="font-bold uppercase"
+                    style={{
+                      color: isTop ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)',
+                      fontSize: '11px',
+                      letterSpacing: '0.16em',
+                    }}
+                  >
+                    {def.suffix}
+                  </span>
+                  {h.emoji && (
+                    <span className="text-xs ml-1" aria-hidden>
+                      {h.emoji}
+                    </span>
+                  )}
                 </div>
               </button>
             )
           })}
         </div>
-      </div>
+      </section>
 
       {quickPlayer && (
         <PlayerQuickViewModal

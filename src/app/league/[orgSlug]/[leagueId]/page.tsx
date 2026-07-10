@@ -8,6 +8,7 @@ import MilestoneFeed from '@/components/league/MilestoneFeed'
 import NbaHero, { type NbaHeroData } from '@/components/league/nba/NbaHero'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
 import NbaRoundsSummary, { type RoundSummary, type RoundTeamSummary } from '@/components/league/nba/NbaRoundsSummary'
+import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
 import type { League } from '@/types/league'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
@@ -270,6 +271,92 @@ async function computeRecentRounds(
   return rounds
 }
 
+// 현재 분기 팀 승률 요약 — NbaTeamStandings 용.
+// 기본: is_current=true 분기 대상. 현재 분기 없으면 시즌 전체.
+async function computeCurrentQuarterStandings(
+  supabase: ReturnType<typeof createClient>,
+  leagueId: string,
+): Promise<{ standings: StandingRow[]; quarterLabel: string; gamesCount: number }> {
+  const [{ data: quarters }, { data: teamsRaw }, { data: overridesRaw }] = await Promise.all([
+    supabase
+      .from('league_quarters')
+      .select('id, year, quarter, is_current')
+      .eq('league_id', leagueId)
+      .order('year', { ascending: false })
+      .order('quarter', { ascending: false }),
+    supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
+    supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
+  ])
+  const resolver = makeIdentityResolver(
+    (teamsRaw ?? []) as TeamBase[],
+    (overridesRaw ?? []) as QuarterOverride[],
+  )
+
+  const currentQ = (quarters ?? []).find(q => q.is_current) ?? (quarters ?? [])[0]
+  let quarterLabel = '시즌 전체'
+  let gameQuery = supabase
+    .from('league_games')
+    .select('id, home_team_id, away_team_id, home_score, away_score, quarter_id')
+    .eq('league_id', leagueId)
+    .eq('is_complete', true)
+    .eq('is_exhibition', false)
+
+  if (currentQ) {
+    quarterLabel = `${String(currentQ.year).slice(2)}.${currentQ.quarter}Q`
+    gameQuery = gameQuery.eq('quarter_id', currentQ.id)
+  }
+
+  const { data: games } = await gameQuery
+  if (!games || games.length === 0) {
+    return { standings: [], quarterLabel, gamesCount: 0 }
+  }
+
+  const teamAgg = new Map<string, StandingRow>()
+  const ensureTeam = (team_id: string | null, quarter_id: string | null) => {
+    const id = resolver(team_id, quarter_id)
+    if (!id) return null
+    let t = teamAgg.get(id.key)
+    if (!t) {
+      t = {
+        key: id.key,
+        name: id.display_name,
+        color: id.color,
+        wins: 0, losses: 0, draws: 0,
+        ptsFor: 0, ptsAgainst: 0,
+        winRate: 0,
+      }
+      teamAgg.set(id.key, t)
+    }
+    return t
+  }
+
+  for (const g of games) {
+    const h = ensureTeam(g.home_team_id as string | null, g.quarter_id as string | null)
+    const a = ensureTeam(g.away_team_id as string | null, g.quarter_id as string | null)
+    if (!h || !a) continue
+    const hs = (g.home_score as number) ?? 0
+    const as_ = (g.away_score as number) ?? 0
+    h.ptsFor += hs; h.ptsAgainst += as_
+    a.ptsFor += as_; a.ptsAgainst += hs
+    if (hs > as_) { h.wins++; a.losses++ }
+    else if (hs < as_) { a.wins++; h.losses++ }
+    else { h.draws++; a.draws++ }
+  }
+
+  const standings = [...teamAgg.values()]
+    .filter(t => t.wins + t.losses + t.draws > 0)
+    .map(t => {
+      const total = t.wins + t.losses + t.draws
+      return { ...t, winRate: total > 0 ? +((t.wins / total) * 100).toFixed(1) : 0 }
+    })
+    .sort((a, b) => {
+      if (b.winRate !== a.winRate) return b.winRate - a.winRate
+      return (b.ptsFor - b.ptsAgainst) - (a.ptsFor - a.ptsAgainst)
+    })
+
+  return { standings, quarterLabel, gamesCount: games.length }
+}
+
 // scoringKing (이 주의 득점왕) → NbaHero 데이터 매핑
 // 라운드(=날짜) 기반 지표 rd/ppr/roundSeries 전달. photo_url 은 별도 조회.
 async function toNbaHero(
@@ -309,11 +396,12 @@ export default async function LeagueDetailPage({
   const { orgSlug, leagueId } = await params
   const supabase = createClient()
 
-  const [{ data: league }, { data: allLeagues }, highlights, recentRounds] = await Promise.all([
+  const [{ data: league }, { data: allLeagues }, highlights, recentRounds, quarterStandings] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single(),
     supabase.from('leagues').select('id, name, status, season_year').eq('org_slug', orgSlug).order('created_at', { ascending: false }),
     computeHighlights(supabase, leagueId, 28),  // 최근 4주 (라운드 기반 임팩트)
     computeRecentRounds(supabase, leagueId, 4),
+    computeCurrentQuarterStandings(supabase, leagueId),
   ])
   const heroProps = await toNbaHero(supabase, leagueId, highlights.scoringKing, `최근 ${recentRounds.length}라운드`)
 
@@ -358,9 +446,14 @@ export default async function LeagueDetailPage({
         </div>
       )}
 
-      {/* 미라클모닝 브랜드 파일럿 — Hero + RoundsSummary + Leaders */}
+      {/* 미라클모닝 브랜드 홈 — Hero + 팀 승률 + 최근 라운드 + 리그 리더 */}
       <div className="rounded-none overflow-hidden">
         <NbaHero data={heroProps.data} rangeLabel={heroProps.rangeLabel} leagueId={leagueId} />
+        <NbaTeamStandings
+          standings={quarterStandings.standings}
+          quarterLabel={quarterStandings.quarterLabel}
+          gamesCount={quarterStandings.gamesCount}
+        />
         <NbaRoundsSummary rounds={recentRounds} leagueId={leagueId} />
         <NbaLeaders leagueId={leagueId} />
       </div>
