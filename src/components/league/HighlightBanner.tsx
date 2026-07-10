@@ -13,6 +13,9 @@ export type HighlightPlayer = {
   pts: number
   ppg: number
   gp: number
+  rd?: number                 // 라운드(=날짜) 수 — 라운드 임팩트 계산용
+  ppr?: number                // Points Per Round — 라운드 단위 평균
+  roundSeries?: Array<{ date: string; pts: number }>  // 최근 라운드별 득점 시리즈
   fg3m?: number
   fg3a?: number
   fg3_pct?: number

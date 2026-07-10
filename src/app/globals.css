@@ -1,11 +1,45 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+/* Pretendard Variable — 한글 최적화, 고딕 계열. 프로젝트 전역 sans stack 최상위 */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+
+/* ===== 미라클모닝 브랜드 팔레트 (홈 랜딩 파일럿 스코프) =====
+   노랑 / 검정 / 화이트. NBA 오마주 컴포넌트(.mm-brand) 안에서만 참조.
+   다른 페이지의 기존 gray-* / blue-* 팔레트에 영향 없음. */
+:root {
+  --mm-ground: #FFFEF7;        /* warm ivory */
+  --mm-panel: #FFFFFF;
+  --mm-panel-alt: #FAF9F5;
+  --mm-ink: #0A0A0A;
+  --mm-ink-soft: #3F3F46;
+  --mm-muted: #6B7280;
+  --mm-rule: #E5E7EB;
+  --mm-yellow: #EAB308;        /* yellow-500, 진하게 (라이트 배경 대비) */
+  --mm-yellow-strong: #A16207;
+  --mm-yellow-soft: #FEF3C7;
+  --mm-black: #0A0A0A;
+  --mm-live: #DC2626;
+}
+.dark {
+  --mm-ground: #0A0A0A;        /* near-black */
+  --mm-panel: #171717;
+  --mm-panel-alt: #0F0F0F;
+  --mm-ink: #FAFAFA;
+  --mm-ink-soft: #D4D4D4;
+  --mm-muted: #A1A1AA;
+  --mm-rule: #262626;
+  --mm-yellow: #FDE047;        /* yellow-300, 밝게 (다크 배경 대비) */
+  --mm-yellow-strong: #FACC15;
+  --mm-yellow-soft: rgba(253, 224, 71, 0.10);
+  --mm-black: #000000;
+  --mm-live: #EF4444;
+}
 
 /* ===== 파란날개 팀 컬러 테마 ===== */
 @theme {
-  /* 폰트 */
-  --font-sans: var(--font-fira-sans), 'Fira Sans', system-ui, sans-serif;
+  /* 폰트 — Pretendard 를 최상위. Fira Sans 는 라틴 fallback */
+  --font-sans: 'Pretendard Variable', Pretendard, var(--font-fira-sans), 'Fira Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: var(--font-fira-code), 'Fira Code', monospace;
   /* 농구 정체성 — Bebas Neue (스코어보드 디스플레이), Barlow Condensed (저지·헤더) */
   --font-display: var(--font-bebas), 'Bebas Neue', 'Barlow Condensed', 'Impact', sans-serif;

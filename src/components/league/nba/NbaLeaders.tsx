@@ -1,9 +1,9 @@
 'use client'
-// NBA.com 오마주 — League Leaders (4 카테고리 top3)
-// 각 카드: 카테고리 라벨 + Top3 행 (rk · 이니셜 원형 · 이름 · 값)
-// 1위(top)는 rk · 이니셜 border · 값 모두 amber accent.
-// 카드 hover: box-shadow lift.
-// 클라이언트 컴포넌트 — 클릭 시 PlayerQuickView 열림.
+// 미라클모닝 브랜드 — 리그 리더 (4카테고리 top3)
+// 팔레트: 노랑/검정/화이트 (mm-* 변수)
+// 각 카드: 카테고리 라벨 + Top3 (프로필 사진 + 이름 + 값 모두 크게)
+// 1위(top): 노랑 배경 + 검정 잉크 하이라이트
+// 사진 없으면 이니셜 fallback. 클릭 시 PlayerQuickView.
 
 import { useEffect, useState } from 'react'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
@@ -21,13 +21,14 @@ interface CategoryDef {
   label: string
   format: (v: number) => string
 }
-
 const CATEGORIES: CategoryDef[] = [
-  { key: 'ppg',  term: 'PPG', label: 'Scoring · PPG',    format: v => v.toFixed(1) },
-  { key: 'rpg',  term: 'RPG', label: 'Rebounds · RPG',   format: v => v.toFixed(1) },
-  { key: 'apg',  term: 'APG', label: 'Assists · APG',    format: v => v.toFixed(1) },
-  { key: 'fg3m', term: '3PM', label: '3-Point · 3PM',    format: v => String(Math.round(v)) },
+  { key: 'ppg',  term: 'PPG', label: '득점 · PPG',    format: v => v.toFixed(1) },
+  { key: 'rpg',  term: 'RPG', label: '리바운드 · RPG', format: v => v.toFixed(1) },
+  { key: 'apg',  term: 'APG', label: '어시스트 · APG', format: v => v.toFixed(1) },
+  { key: 'fg3m', term: '3PM', label: '3점 · 3PM',      format: v => String(Math.round(v)) },
 ]
+
+type PlayerMeta = { id: string; name: string; photo_url: string | null }
 
 function initials(name: string): string {
   return name.slice(0, 2)
@@ -35,15 +36,22 @@ function initials(name: string): string {
 
 export default function NbaLeaders({ leagueId, minGP }: Props) {
   const [players, setPlayers] = useState<PlayerStat[]>([])
+  const [photoMap, setPhotoMap] = useState<Record<string, string | null>>({})
   const [loading, setLoading] = useState(true)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/leagues/${leagueId}/stats?unit=round`)
-      .then(r => r.json())
-      .then(d => { setPlayers(d.players ?? []); setLoading(false) })
-      .catch(() => setLoading(false))
+    Promise.all([
+      fetch(`/api/leagues/${leagueId}/stats?unit=round`).then(r => r.json()).catch(() => ({ players: [] })),
+      fetch(`/api/leagues/${leagueId}/players`).then(r => r.json()).catch(() => []),
+    ]).then(([statsD, playersD]) => {
+      setPlayers(statsD.players ?? [])
+      const pm: Record<string, string | null> = {}
+      for (const p of (playersD ?? []) as PlayerMeta[]) pm[p.id] = p.photo_url
+      setPhotoMap(pm)
+      setLoading(false)
+    })
   }, [leagueId])
 
   const maxGP = players.reduce((m, p) => Math.max(m, p.gp), 0)
@@ -51,20 +59,32 @@ export default function NbaLeaders({ leagueId, minGP }: Props) {
 
   return (
     <>
-      <section className="border-x border-b border-gray-800 bg-gray-950">
-        <header className="flex items-baseline justify-between px-6 md:px-8 pt-5 pb-3">
-          <h3 className="font-display text-[22px] uppercase tracking-wide text-white">League Leaders</h3>
-          <span className="text-[11px] tracking-[0.16em] uppercase text-gray-500 font-bold">
-            Min {effectiveMinGP} R
+      <section
+        className="mm-brand"
+        style={{
+          background: 'var(--mm-panel)',
+          border: '1px solid var(--mm-rule)',
+          borderTop: 0,
+        }}
+      >
+        <header
+          className="flex items-baseline justify-between px-6 md:px-8 py-4"
+          style={{ borderBottom: '1px solid var(--mm-rule)' }}
+        >
+          <h3 className="font-jersey text-[22px] font-black uppercase tracking-wide" style={{ color: 'var(--mm-ink)' }}>
+            리그 리더
+          </h3>
+          <span className="text-[11px] tracking-[0.16em] uppercase font-bold" style={{ color: 'var(--mm-muted)' }}>
+            최소 {effectiveMinGP} R
           </span>
         </header>
 
         {loading ? (
-          <div className="flex justify-center py-8"><BasketballLoader size={26} /></div>
+          <div className="flex justify-center py-10"><BasketballLoader size={28} /></div>
         ) : players.length === 0 ? (
-          <div className="text-center py-8 text-gray-600 text-sm">아직 기록된 스탯이 없습니다</div>
+          <div className="text-center py-10 text-sm" style={{ color: 'var(--mm-muted)' }}>아직 기록된 스탯이 없습니다</div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-6 md:px-8 pb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-6 md:p-8">
             {CATEGORIES.map(cat => {
               const eligible = players.filter(p => p.gp >= effectiveMinGP)
               const sorted = [...eligible].sort((a, b) => (b[cat.key] as number) - (a[cat.key] as number))
@@ -73,44 +93,98 @@ export default function NbaLeaders({ leagueId, minGP }: Props) {
               return (
                 <div
                   key={String(cat.key)}
-                  className="bg-gray-900 border border-gray-800 px-3.5 pt-3 pb-2 transition-shadow duration-200 hover:shadow-[0_10px_36px_0_rgba(0,0,0,0.35)]"
+                  className="transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+                  style={{
+                    background: 'var(--mm-panel-alt)',
+                    border: '1px solid var(--mm-rule)',
+                  }}
                 >
-                  <h4 className="text-[11px] tracking-[0.16em] uppercase text-gray-500 font-bold pb-1.5 mb-2.5 border-b border-gray-800">
-                    {cat.label}
-                  </h4>
-                  {top3.map((p, i) => {
-                    const isTop = i === 0
-                    return (
-                      <button
-                        key={p.player_id}
-                        onClick={() => setQuickPlayer({ id: p.player_id, name: p.name })}
-                        className="w-full grid grid-cols-[18px_28px_1fr_auto] gap-2 items-center py-1.5 -mx-2 px-2 rounded hover:bg-gray-800/50 transition-colors text-left cursor-pointer"
-                      >
-                        <span
-                          className={`font-display text-[15px] text-right tabular-nums leading-none ${
-                            isTop ? 'text-amber-400' : 'text-gray-500'
-                          }`}
+                  {/* 카테고리 헤더 */}
+                  <div
+                    className="px-4 pt-3 pb-2"
+                    style={{ borderBottom: '1px solid var(--mm-rule)' }}
+                  >
+                    <h4 className="text-[12px] font-black uppercase tracking-[0.18em]" style={{ color: 'var(--mm-yellow-strong)' }}>
+                      {cat.label}
+                    </h4>
+                  </div>
+
+                  {/* Top3 */}
+                  <div className="p-2">
+                    {top3.map((p, i) => {
+                      const isTop = i === 0
+                      const photo = photoMap[p.player_id]
+                      return (
+                        <button
+                          key={p.player_id}
+                          onClick={() => setQuickPlayer({ id: p.player_id, name: p.name })}
+                          className="w-full grid gap-3 items-center transition-colors cursor-pointer text-left"
+                          style={{
+                            gridTemplateColumns: 'auto 52px 1fr auto',
+                            padding: '10px 12px',
+                            background: isTop ? 'var(--mm-yellow)' : 'transparent',
+                            color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                          }}
                         >
-                          {i + 1}
-                        </span>
-                        <span
-                          className={`w-[26px] h-[26px] rounded-full bg-gray-800 border-[1.5px] flex items-center justify-center font-display text-[11px] text-white shrink-0 ${
-                            isTop ? 'border-amber-400' : 'border-gray-700'
-                          }`}
-                        >
-                          {initials(p.name)}
-                        </span>
-                        <span className="text-[13px] text-white font-medium truncate">{p.name}</span>
-                        <span
-                          className={`font-display text-xl tabular-nums leading-none ${
-                            isTop ? 'text-amber-400' : 'text-white'
-                          }`}
-                        >
-                          {cat.format(p[cat.key] as number)}
-                        </span>
-                      </button>
-                    )
-                  })}
+                          {/* 순위 큰 숫자 */}
+                          <span
+                            className="font-jersey text-[26px] font-black tabular-nums leading-none"
+                            style={{ color: isTop ? 'var(--mm-black)' : 'var(--mm-muted)', width: '22px', textAlign: 'right' }}
+                          >
+                            {i + 1}
+                          </span>
+
+                          {/* 프로필 사진 or 이니셜 (원형) */}
+                          <span
+                            className="rounded-full overflow-hidden flex items-center justify-center shrink-0"
+                            style={{
+                              width: '52px',
+                              height: '52px',
+                              background: 'var(--mm-panel)',
+                              border: `2px solid ${isTop ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+                            }}
+                          >
+                            {photo ? (
+                              <img src={photo} alt={p.name} className="w-full h-full object-cover object-top" />
+                            ) : (
+                              <span className="font-jersey text-[16px] font-black" style={{ color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)' }}>
+                                {initials(p.name)}
+                              </span>
+                            )}
+                          </span>
+
+                          {/* 이름 + GP */}
+                          <span className="min-w-0">
+                            <span
+                              className={`block truncate font-jersey uppercase tracking-wide ${isTop ? 'text-[19px] font-black' : 'text-[17px] font-bold'}`}
+                              style={{ color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)' }}
+                            >
+                              {p.name}
+                            </span>
+                            <span
+                              className="block text-[10px] tracking-[0.14em] uppercase font-bold mt-0.5"
+                              style={{ color: isTop ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)' }}
+                            >
+                              {p.gp}R
+                            </span>
+                          </span>
+
+                          {/* 값 큰 숫자 */}
+                          <span
+                            className="font-jersey text-[32px] font-black tabular-nums leading-none"
+                            style={{
+                              color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                              letterSpacing: '-0.01em',
+                              minWidth: '54px',
+                              textAlign: 'right',
+                            }}
+                          >
+                            {cat.format(p[cat.key] as number)}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               )
             })}
