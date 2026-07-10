@@ -66,8 +66,8 @@ export default function HighlightBanner({ leagueId, topTeam, scoringKing, hotHan
             const teamFg = textOnBg(teamBg)
             return (
               <div
-                className="px-4 py-4 lg:px-5 lg:py-5 flex items-center gap-3 opacity-0 animate-in fade-in slide-in-from-bottom-2 fill-mode-forwards"
-                style={{ animationDelay: '80ms', animationDuration: '520ms' }}
+                className="px-4 py-4 lg:px-5 lg:py-5 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2"
+                style={{ animationDelay: '80ms', animationDuration: '520ms', animationFillMode: 'backwards' }}
               >
                 <div
                   className="shrink-0 w-12 h-12 lg:w-14 lg:h-14 rounded-full flex items-center justify-center border-2"
@@ -105,8 +105,8 @@ export default function HighlightBanner({ leagueId, topTeam, scoringKing, hotHan
           {scoringKing ? (
             <button
               onClick={() => setQuickView({ id: scoringKing.player_id, name: scoringKing.name })}
-              className="px-4 py-4 lg:px-5 lg:py-5 flex items-center gap-3 hover:bg-amber-900/10 cursor-pointer transition-colors text-left group opacity-0 animate-in fade-in slide-in-from-bottom-2 fill-mode-forwards"
-              style={{ animationDelay: '200ms', animationDuration: '520ms' }}
+              className="px-4 py-4 lg:px-5 lg:py-5 flex items-center gap-3 hover:bg-amber-900/10 cursor-pointer transition-colors text-left group animate-in fade-in slide-in-from-bottom-2"
+              style={{ animationDelay: '200ms', animationDuration: '520ms', animationFillMode: 'backwards' }}
             >
               <div className="shrink-0 w-12 h-12 lg:w-14 lg:h-14 rounded-full bg-gradient-to-br from-amber-500/30 to-amber-600/10 border border-amber-500/40 flex items-center justify-center">
                 <Award size={22} className="text-amber-400 lg:w-7 lg:h-7" />
@@ -132,8 +132,8 @@ export default function HighlightBanner({ leagueId, topTeam, scoringKing, hotHan
           {hotHand ? (
             <button
               onClick={() => setQuickView({ id: hotHand.player_id, name: hotHand.name })}
-              className="px-4 py-4 lg:px-5 lg:py-5 flex items-center gap-3 hover:bg-orange-900/10 cursor-pointer transition-colors text-left group opacity-0 animate-in fade-in slide-in-from-bottom-2 fill-mode-forwards"
-              style={{ animationDelay: '320ms', animationDuration: '520ms' }}
+              className="px-4 py-4 lg:px-5 lg:py-5 flex items-center gap-3 hover:bg-orange-900/10 cursor-pointer transition-colors text-left group animate-in fade-in slide-in-from-bottom-2"
+              style={{ animationDelay: '320ms', animationDuration: '520ms', animationFillMode: 'backwards' }}
             >
               <div className="shrink-0 w-12 h-12 lg:w-14 lg:h-14 rounded-full bg-gradient-to-br from-orange-500/30 to-orange-600/10 border border-orange-500/40 flex items-center justify-center">
                 <Flame size={22} className="text-orange-400 lg:w-7 lg:h-7" />

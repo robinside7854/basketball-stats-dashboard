@@ -111,9 +111,9 @@ export default function LeagueLeadersGrid({ leagueId, minGP }: Props) {
                   transition-all duration-300
                   shadow-[0_1px_0_rgba(255,255,255,0.03)_inset,0_2px_8px_-2px_rgba(0,0,0,0.35)]
                   hover:shadow-[0_1px_0_rgba(255,255,255,0.05)_inset,0_10px_28px_-8px_rgba(0,0,0,0.55)]
-                  opacity-0 animate-in fade-in slide-in-from-bottom-2 fill-mode-forwards
+                  animate-in fade-in slide-in-from-bottom-2
                 `}
-                style={{ animationDelay: `${idx * 60}ms`, animationDuration: '480ms' }}
+                style={{ animationDelay: `${idx * 60}ms`, animationDuration: '480ms', animationFillMode: 'backwards' }}
               >
                 {/* 상단 accent gradient bar — 카테고리 색상 힌트 */}
                 <div
