@@ -42,7 +42,12 @@ export default function HighlightBanner({ leagueId, topTeam, scoringKing, hotHan
 
   return (
     <>
-      <div className="relative rounded-2xl bg-gradient-to-r from-amber-950/40 via-gray-900 to-orange-950/40 border border-amber-700/30 overflow-hidden">
+      <div className="relative rounded-2xl bg-gradient-to-r from-amber-950/40 via-gray-900 to-orange-950/40 border border-amber-700/30 overflow-hidden shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]">
+        {/* 상단 amber accent gradient line — 매거진 느낌 */}
+        <div
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/70 to-transparent"
+        />
         {/* 코트 라인 배경 데코 */}
         <div className="absolute inset-0 text-orange-500/30 pointer-events-none" aria-hidden>
           <HalfCourtDecoration className="w-full h-full opacity-50" />
@@ -60,7 +65,10 @@ export default function HighlightBanner({ leagueId, topTeam, scoringKing, hotHan
             const teamBg = topTeam.color ?? '#3b82f6'
             const teamFg = textOnBg(teamBg)
             return (
-              <div className="px-4 py-4 lg:px-5 lg:py-5 flex items-center gap-3">
+              <div
+                className="px-4 py-4 lg:px-5 lg:py-5 flex items-center gap-3 opacity-0 animate-in fade-in slide-in-from-bottom-2 fill-mode-forwards"
+                style={{ animationDelay: '80ms', animationDuration: '520ms' }}
+              >
                 <div
                   className="shrink-0 w-12 h-12 lg:w-14 lg:h-14 rounded-full flex items-center justify-center border-2"
                   style={{ backgroundColor: `${teamBg}22`, borderColor: teamBg }}
@@ -97,7 +105,8 @@ export default function HighlightBanner({ leagueId, topTeam, scoringKing, hotHan
           {scoringKing ? (
             <button
               onClick={() => setQuickView({ id: scoringKing.player_id, name: scoringKing.name })}
-              className="px-4 py-4 lg:px-5 lg:py-5 flex items-center gap-3 hover:bg-amber-900/10 cursor-pointer transition-colors text-left group"
+              className="px-4 py-4 lg:px-5 lg:py-5 flex items-center gap-3 hover:bg-amber-900/10 cursor-pointer transition-colors text-left group opacity-0 animate-in fade-in slide-in-from-bottom-2 fill-mode-forwards"
+              style={{ animationDelay: '200ms', animationDuration: '520ms' }}
             >
               <div className="shrink-0 w-12 h-12 lg:w-14 lg:h-14 rounded-full bg-gradient-to-br from-amber-500/30 to-amber-600/10 border border-amber-500/40 flex items-center justify-center">
                 <Award size={22} className="text-amber-400 lg:w-7 lg:h-7" />
@@ -123,7 +132,8 @@ export default function HighlightBanner({ leagueId, topTeam, scoringKing, hotHan
           {hotHand ? (
             <button
               onClick={() => setQuickView({ id: hotHand.player_id, name: hotHand.name })}
-              className="px-4 py-4 lg:px-5 lg:py-5 flex items-center gap-3 hover:bg-orange-900/10 cursor-pointer transition-colors text-left group"
+              className="px-4 py-4 lg:px-5 lg:py-5 flex items-center gap-3 hover:bg-orange-900/10 cursor-pointer transition-colors text-left group opacity-0 animate-in fade-in slide-in-from-bottom-2 fill-mode-forwards"
+              style={{ animationDelay: '320ms', animationDuration: '520ms' }}
             >
               <div className="shrink-0 w-12 h-12 lg:w-14 lg:h-14 rounded-full bg-gradient-to-br from-orange-500/30 to-orange-600/10 border border-orange-500/40 flex items-center justify-center">
                 <Flame size={22} className="text-orange-400 lg:w-7 lg:h-7" />
