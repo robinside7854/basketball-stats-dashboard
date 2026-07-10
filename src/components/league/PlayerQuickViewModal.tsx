@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Loader2, X, Crown, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
@@ -194,11 +194,42 @@ function GameTrendChart({ log }: { log: NonNullable<Detail['game_log']> }) {
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
 
 const POSITION_COLORS: Record<string, string> = {
-  PG: 'bg-purple-900/40 text-purple-300 border-purple-700/40',
-  SG: 'bg-blue-900/40 text-blue-300 border-blue-700/40',
-  SF: 'bg-green-900/40 text-green-300 border-green-700/40',
-  PF: 'bg-orange-900/40 text-orange-300 border-orange-700/40',
-  C:  'bg-red-900/40 text-red-300 border-red-700/40',
+  PG: 'bg-purple-900/50 text-purple-200 border-purple-500/50',
+  SG: 'bg-blue-900/50 text-blue-200 border-blue-500/50',
+  SF: 'bg-green-900/50 text-green-200 border-green-500/50',
+  PF: 'bg-orange-900/50 text-orange-200 border-orange-500/50',
+  C:  'bg-red-900/50 text-red-200 border-red-500/50',
+}
+
+// 선수 정체성 accent — rankings 중 1위에 가장 가까운 카테고리로 개인화 색상 계산
+// 반환: rgb 문자열(radial glow), stroke/fill (radar 차트), border/bg/text 헬퍼
+type AccentPalette = {
+  rgb: string
+  stroke: string
+  fillA: string; fillB: string  // linearGradient stops
+  borderCls: string
+  textCls: string
+  ringCls: string
+}
+const ACCENT_DEFAULT: AccentPalette = {
+  rgb: '59,130,246',
+  stroke: '#3b82f6',
+  fillA: '#3b82f6', fillB: '#60a5fa',
+  borderCls: 'border-blue-500/50',
+  textCls: 'text-blue-300',
+  ringCls: 'ring-blue-500/30',
+}
+function computeAccent(rankings?: Detail['rankings']): AccentPalette {
+  if (!rankings) return ACCENT_DEFAULT
+  const cats = [
+    { rank: rankings.ppg ?? 0, palette: { rgb: '251,146,60', stroke: '#fb923c', fillA: '#f97316', fillB: '#fbbf24', borderCls: 'border-orange-500/50', textCls: 'text-orange-300', ringCls: 'ring-orange-500/30' } },
+    { rank: rankings.rpg ?? 0, palette: { rgb: '192,132,252', stroke: '#c084fc', fillA: '#a855f7', fillB: '#e879f9', borderCls: 'border-purple-500/50', textCls: 'text-purple-300', ringCls: 'ring-purple-500/30' } },
+    { rank: rankings.apg ?? 0, palette: { rgb: '34,211,238', stroke: '#22d3ee', fillA: '#06b6d4', fillB: '#67e8f9', borderCls: 'border-cyan-500/50', textCls: 'text-cyan-300', ringCls: 'ring-cyan-500/30' } },
+    { rank: rankings.spg ?? 0, palette: { rgb: '52,211,153', stroke: '#34d399', fillA: '#10b981', fillB: '#6ee7b7', borderCls: 'border-emerald-500/50', textCls: 'text-emerald-300', ringCls: 'ring-emerald-500/30' } },
+    { rank: rankings.bpg ?? 0, palette: { rgb: '244,114,182', stroke: '#f472b6', fillA: '#ec4899', fillB: '#f9a8d4', borderCls: 'border-pink-500/50', textCls: 'text-pink-300', ringCls: 'ring-pink-500/30' } },
+  ]
+  const best = cats.filter(c => c.rank > 0).sort((a, b) => a.rank - b.rank)[0]
+  return best ? best.palette : ACCENT_DEFAULT
 }
 
 function pctColor(pct: number): string {
@@ -260,6 +291,20 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
   const [careerHighBoxscoreDate, setCareerHighBoxscoreDate] = useState<string | null>(null)
+
+  // Hero 가 뷰포트 밖으로 나가면 sticky top 에 미니 header (이름+등번호) 표시
+  const heroRef = useRef<HTMLDivElement>(null)
+  const modalScrollRef = useRef<HTMLDivElement>(null)
+  const [heroOutOfView, setHeroOutOfView] = useState(false)
+  useEffect(() => {
+    if (!heroRef.current || !modalScrollRef.current) return
+    const io = new IntersectionObserver(
+      ([entry]) => setHeroOutOfView(!entry.isIntersecting),
+      { root: modalScrollRef.current, threshold: 0.1 },
+    )
+    io.observe(heroRef.current)
+    return () => io.disconnect()
+  }, [loading])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -336,13 +381,21 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   // 분기 탭 레이블
   const quarterLabel = (q: Quarter) => `${String(q.year).slice(2)}.${q.quarter}Q`
 
+  const accent = computeAccent(detail?.rankings)
+
   return (
     <>
-    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 animate-in fade-in duration-200"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="player-modal-name"
+    >
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-lg sm:max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl"
+      <div
+        ref={modalScrollRef}
+        className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-lg sm:max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.03)_inset] animate-in sm:zoom-in-95 slide-in-from-bottom-4 sm:slide-in-from-bottom-0 duration-300"
         style={{
           transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
           transition: dragY === 0 ? 'transform 200ms ease-out' : 'none',
@@ -350,11 +403,29 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         {/* Sticky top action bar — 편집/닫기 + 스와이프 다운 드래그 핸들 */}
         {/* touch 이벤트를 이 영역에만 붙여 하위 스크롤과 충돌 회피 */}
         <div
-          className="sticky top-0 z-20 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-3 pt-safe-or-2 pb-2 flex items-center justify-end gap-2 touch-pan-y"
+          className="sticky top-0 z-20 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-3 pt-safe-or-2 pb-2 flex items-center gap-2 touch-pan-y"
           {...swipeHandlers}
         >
           {/* 스와이프 드래그 핸들 인디케이터 (모바일에서만) */}
           <div className="absolute top-1 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-gray-600 sm:hidden" aria-hidden />
+
+          {/* Sticky mini header — hero 가 뷰포트 밖으로 나가면 선수 identity 표시 */}
+          <div
+            className={`flex items-center gap-2 flex-1 min-w-0 transition-all duration-200 ${
+              heroOutOfView ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2 pointer-events-none'
+            }`}
+            aria-hidden={!heroOutOfView}
+          >
+            {player?.number != null && (
+              <span className="font-mono text-xs text-gray-500 shrink-0">#{player.number}</span>
+            )}
+            <span className={`font-jersey text-sm font-black text-white uppercase tracking-wide truncate ${accent.textCls}`}>
+              {player?.name ?? playerName}
+            </span>
+          </div>
+
+          {/* 우측 액션 (기본 상태에서는 flex-1 로 밀림) */}
+          <div className={`flex items-center gap-2 shrink-0 ${heroOutOfView ? '' : 'ml-auto'}`}>
           {isEditMode && (
             <button
               onClick={() => setShowEditPanel(v => !v)}
@@ -363,20 +434,42 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               <span>✏️</span> 편집
             </button>
           )}
-          <button onClick={onClose} className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
+          <button onClick={onClose} aria-label="닫기" className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
             <X size={18} />
           </button>
+          </div>
         </div>
 
         {/* Hero header — 큰 아바타 + 이름 (프로 선수 프로필 스타일) */}
-        <div className="relative px-5 pt-4 pb-5 border-b border-gray-800 bg-gradient-to-b from-gray-800/50 to-transparent">
-          <div className="flex items-start gap-4 sm:gap-5">
+        <div
+          ref={heroRef}
+          className="relative px-5 pt-4 pb-5 border-b border-gray-800 overflow-hidden"
+        >
+          {/* 배경 grand — 선수 정체성 accent 색상 spotlight */}
+          <div
+            aria-hidden
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: `radial-gradient(circle at 20% 30%, rgba(${accent.rgb},0.14), transparent 55%), linear-gradient(180deg, rgba(31,41,55,0.5) 0%, transparent 100%)`,
+            }}
+          />
+          {/* 저지 워터마크 등번호 — 배경에 크게 */}
+          {player?.number != null && (
+            <div
+              aria-hidden
+              className="absolute -right-2 sm:right-2 top-1 pointer-events-none select-none font-jersey font-black leading-none text-white/[0.06] tracking-tighter"
+              style={{ fontSize: 'clamp(120px, 40vw, 200px)' }}
+            >
+              {player.number}
+            </div>
+          )}
+          <div className="relative flex items-start gap-4 sm:gap-5">
             {/* 아바타 (편집모드 = 호버 오버레이 업로드/AI · 뷰모드 = 클릭 시 라이트박스 확대) */}
             {/* 크기: 프로 선수 프로필처럼 큼 — 이전 대비 약 1.7x */}
             <div className="relative shrink-0 group/avatar">
               <div
-                className={`w-40 sm:w-48 rounded-xl overflow-hidden border-2 border-blue-500/40 shadow-lg bg-gray-800 flex items-center justify-center ${!isEditMode && photoUrl ? 'cursor-zoom-in hover:border-blue-400 transition-colors' : ''}`}
-                style={{ aspectRatio: '4/5' }}
+                className={`relative w-40 sm:w-48 rounded-xl overflow-hidden border-2 ${accent.borderCls} shadow-[0_10px_30px_-8px_rgba(0,0,0,0.55)] bg-gray-800 flex items-center justify-center ${!isEditMode && photoUrl ? `cursor-zoom-in hover:brightness-110 transition-all` : ''}`}
+                style={{ aspectRatio: '4/5', boxShadow: `0 10px 30px -8px rgba(${accent.rgb},0.35), 0 0 0 1px rgba(${accent.rgb},0.15)` }}
                 onClick={() => {
                   // 뷰 모드에서 사진 있을 때만 라이트박스 오픈
                   if (!isEditMode && photoUrl) setPhotoLightboxOpen(true)
@@ -488,22 +581,32 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               )}
             </div>
 
-            {/* 이름 + 정보 (아바타 크기와 비례해 확대) */}
-            <div className="flex-1 min-w-0 pt-3 sm:pt-4">
+            {/* 이름 + 정보 (아바타 크기와 비례해 확대) — hero stagger reveal */}
+            <div className="relative flex-1 min-w-0 pt-3 sm:pt-4">
               {player?.number != null && (
-                <div className="text-base font-mono text-gray-500 mb-1 leading-none">
+                <div
+                  className="text-base font-mono text-gray-500 mb-1 leading-none animate-in fade-in slide-in-from-bottom-2"
+                  style={{ animationDelay: '80ms', animationDuration: '400ms', animationFillMode: 'backwards' }}
+                >
                   #{player.number}
                 </div>
               )}
-              <h1 className="text-3xl sm:text-4xl font-black text-white leading-tight tracking-tight mb-3 break-words">
+              <h1
+                id="player-modal-name"
+                className="font-jersey text-4xl sm:text-5xl font-black text-white leading-[0.95] tracking-tight mb-3 break-words drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)] animate-in fade-in slide-in-from-bottom-2"
+                style={{ animationDelay: '140ms', animationDuration: '500ms', animationFillMode: 'backwards' }}
+              >
                 {player?.name ?? playerName}
               </h1>
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div
+                className="flex items-center gap-1.5 flex-wrap animate-in fade-in slide-in-from-bottom-2"
+                style={{ animationDelay: '220ms', animationDuration: '400ms', animationFillMode: 'backwards' }}
+              >
                 {positions.map(pos => (
-                  <span key={pos} className={`text-sm font-bold px-2.5 py-1 rounded border ${POSITION_COLORS[pos] ?? 'bg-blue-900/40 text-blue-300 border-blue-700/40'}`}>{pos}</span>
+                  <span key={pos} className={`font-jersey text-sm font-black tracking-widest px-2.5 py-1 rounded border ${POSITION_COLORS[pos] ?? 'bg-blue-900/40 text-blue-300 border-blue-700/40'}`}>{pos}</span>
                 ))}
                 {player?.plus_one && (
-                  <span className="text-sm font-black px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300">+1</span>
+                  <span className="text-sm font-black px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 shadow-[0_0_20px_-4px_rgba(251,191,36,0.6)]">+1</span>
                 )}
               </div>
             </div>
@@ -676,20 +779,39 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         { label: 'APG', value: activeDetail?.player_stats?.apg ?? 0, decimals: 1, rank: detail?.rankings.apg ?? 0, accent: false },
                         { label: 'STL', value: activeDetail?.player_stats?.spg ?? 0, decimals: 1, rank: detail?.rankings.spg ?? 0, accent: false },
                         { label: 'BLK', value: activeDetail?.player_stats?.bpg ?? 0, decimals: 1, rank: detail?.rankings.bpg ?? 0, accent: false },
-                      ].map(({ label, value, decimals, rank, accent }) => (
-                        <div key={label} className={`rounded-xl p-2.5 text-center border ${accent ? 'bg-orange-900/20 border-orange-700/50' : 'bg-gray-800/50 border-gray-700/60'}`}>
-                          <p className="font-jersey text-xs font-bold text-gray-600 mb-1 uppercase tracking-widest">{label}</p>
-                          <p className={`font-display text-4xl leading-none ${accent ? 'text-orange-300' : 'text-white'}`}>
-                            <CountUp value={value} decimals={decimals} />
-                          </p>
-                          {rank > 0 && (
-                            <p className={`text-xs font-bold mt-1 flex items-center justify-center gap-0.5 ${rank === 1 ? 'text-yellow-400' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>
-                              {rank === 1 && <Crown size={8} />}
-                              {rank}위
+                      ].map(({ label, value, decimals, rank, accent: isPPG }) => {
+                        const isChamp = rank === 1
+                        return (
+                          <div
+                            key={label}
+                            className={`relative rounded-xl p-2.5 text-center border overflow-hidden ${
+                              isChamp
+                                ? 'bg-gradient-to-br from-yellow-900/40 via-amber-900/25 to-orange-900/15 border-yellow-500/60 shadow-[0_0_18px_-4px_rgba(250,204,21,0.5),0_0_0_1px_rgba(250,204,21,0.25)_inset]'
+                                : isPPG
+                                  ? 'bg-orange-900/20 border-orange-700/50'
+                                  : 'bg-gray-800/50 border-gray-700/60'
+                            }`}
+                          >
+                            {isChamp && (
+                              <span
+                                aria-hidden
+                                className="pointer-events-none absolute inset-0 opacity-40"
+                                style={{ background: 'radial-gradient(circle at 50% 100%, rgba(250,204,21,0.35), transparent 65%)' }}
+                              />
+                            )}
+                            <p className="relative font-jersey text-xs font-bold text-gray-600 mb-1 uppercase tracking-widest">{label}</p>
+                            <p className={`relative font-display text-4xl leading-none ${isChamp ? 'text-yellow-200' : isPPG ? 'text-orange-300' : 'text-white'}`}>
+                              <CountUp value={value} decimals={decimals} />
                             </p>
-                          )}
-                        </div>
-                      ))}
+                            {rank > 0 && (
+                              <p className={`relative text-xs font-bold mt-1 flex items-center justify-center gap-0.5 ${isChamp ? 'text-yellow-300' : rank <= 3 ? 'text-orange-400' : 'text-gray-600'}`}>
+                                {isChamp && <Crown size={10} className="drop-shadow-[0_0_4px_rgba(250,204,21,0.7)]" />}
+                                {rank}위
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       {[
@@ -724,10 +846,16 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         <div className="mt-2">
                           <ResponsiveContainer width="100%" height={160}>
                             <RadarChart data={radarData} margin={{top:8,right:20,bottom:8,left:20}}>
+                              <defs>
+                                <radialGradient id="playerRadarFill" cx="50%" cy="50%" r="50%">
+                                  <stop offset="0%" stopColor={accent.fillB} stopOpacity={0.55} />
+                                  <stop offset="100%" stopColor={accent.fillA} stopOpacity={0.15} />
+                                </radialGradient>
+                              </defs>
                               <PolarGrid stroke="#374151" />
                               <PolarAngleAxis dataKey="stat" tick={{fill:'#9ca3af',fontSize:10,fontWeight:600}} />
                               <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-                              <Radar dataKey="value" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.25} strokeWidth={2} />
+                              <Radar dataKey="value" stroke={accent.stroke} fill="url(#playerRadarFill)" strokeWidth={2.25} />
                             </RadarChart>
                           </ResponsiveContainer>
                           <p className="text-xs text-gray-600 text-center mt-0.5">리그 백분위 (100 = 1위)</p>
@@ -754,7 +882,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                             {form.length > 0 && (
                               <div className="flex items-center gap-1.5 ml-1">
                                 <span className="text-xs text-gray-600 font-bold uppercase tracking-wide">최근</span>
-                                <FormDots results={form} size={7} />
+                                <FormDots results={form} size={12} />
                               </div>
                             )}
                           </div>

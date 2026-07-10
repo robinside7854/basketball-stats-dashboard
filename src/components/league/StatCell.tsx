@@ -102,10 +102,16 @@ export function FormDots({
           r === 'L' ? 'bg-red-400' :
           r === 'D' ? 'bg-yellow-400' :
           'bg-gray-700'
+        // W/L/D 는 은은한 아이덴티티 shadow 로 강조 (없으면 배경 dot)
+        const shadow =
+          r === 'W' ? 'shadow-[0_0_8px_-1px_rgba(52,211,153,0.7)]' :
+          r === 'L' ? 'shadow-[0_0_8px_-1px_rgba(248,113,113,0.7)]' :
+          r === 'D' ? 'shadow-[0_0_8px_-1px_rgba(250,204,21,0.7)]' :
+          ''
         return (
           <span
             key={i}
-            className={`inline-block rounded-full ${color}`}
+            className={`inline-block rounded-full ${color} ${shadow}`}
             style={{ width: size, height: size }}
             title={r ?? '미정'}
           />
