@@ -102,45 +102,69 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-800">
-            <th className="text-left py-2.5 px-3 text-sm text-gray-500 font-bold sticky left-0 bg-gray-900 min-w-[150px]">선수 / 팀</th>
-            {COLS.map(c => (
-              <th key={c.key}
-                onClick={() => c.sortKey && handleSort(c.sortKey)}
-                className={`py-2.5 px-2 text-center text-sm font-bold whitespace-nowrap cursor-pointer select-none transition-colors hover:text-gray-200 ${
-                  sortKey === c.sortKey ? 'text-blue-400' : 'text-gray-500'
-                }`}>
-                {c.label}
-                {c.sortKey && (sortKey === c.sortKey
-                  ? (sortDir === 'desc' ? <ChevronDown size={9} className="inline ml-0.5" /> : <ChevronUp size={9} className="inline ml-0.5" />)
-                  : <ChevronsUpDown size={9} className="inline ml-0.5 opacity-30" />)}
-              </th>
-            ))}
+          <tr style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
+            <th
+              className="text-left py-2.5 px-3 text-[11px] font-black uppercase tracking-widest sticky left-0 min-w-[150px]"
+              style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel-alt)' }}
+            >선수 / 팀</th>
+            {COLS.map(c => {
+              const isActive = sortKey === c.sortKey
+              return (
+                <th key={c.key}
+                  onClick={() => c.sortKey && handleSort(c.sortKey)}
+                  className="py-2.5 px-2 text-center text-[11px] font-jersey font-black whitespace-nowrap cursor-pointer select-none transition-colors uppercase tracking-widest"
+                  style={{ color: isActive ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>
+                  {c.label}
+                  {c.sortKey && (isActive
+                    ? (sortDir === 'desc' ? <ChevronDown size={9} className="inline ml-0.5" /> : <ChevronUp size={9} className="inline ml-0.5" />)
+                    : <ChevronsUpDown size={9} className="inline ml-0.5 opacity-30" />)}
+                </th>
+              )
+            })}
           </tr>
         </thead>
         <tbody>
           {sorted.map((r, i) => {
             const rr = r as PlayerRow & DailyStat
+            const rowBg = i % 2 === 0 ? 'var(--mm-panel)' : 'var(--mm-panel-alt)'
             return (
-              <tr key={rr.player_id} className={`border-b border-gray-800/40 ${i % 2 === 0 ? '' : 'bg-gray-900/30'} hover:bg-gray-800/30`}>
-                <td className="py-2 px-3 sticky left-0 bg-inherit">
+              <tr
+                key={rr.player_id}
+                style={{ borderBottom: '1px solid var(--mm-rule)', background: rowBg }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--mm-yellow-soft)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
+              >
+                <td className="py-2 px-3 sticky left-0" style={{ background: 'inherit' }}>
                   <div className="flex items-center gap-2">
                     {rr.team_color && <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
                     <div>
-                      <span className="font-bold text-white text-sm whitespace-nowrap">{rr.name}</span>
-                      {rr.team_name && <p className="text-xs text-gray-500 leading-none mt-0.5">{rr.team_name}</p>}
+                      <span
+                        className="font-jersey font-black text-sm whitespace-nowrap uppercase"
+                        style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+                      >{rr.name}</span>
+                      {rr.team_name && <p className="text-xs leading-none mt-0.5" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</p>}
                     </div>
                   </div>
                 </td>
-                {COLS.map(c => (
-                  <td key={c.key} className={`py-2 px-2 text-center text-sm whitespace-nowrap tabular-nums ${
-                    c.key === 'pts' ? 'font-black text-white' :
-                    c.key === 'oreb' ? 'text-orange-400/80' :
-                    c.key === 'dreb' ? 'text-blue-400/80' : 'text-gray-300'
-                  } ${sortKey === c.sortKey ? 'text-yellow-400 font-bold' : ''}`}>
-                    {cellVal(rr, c.key)}
-                  </td>
-                ))}
+                {COLS.map(c => {
+                  const isActive = sortKey === c.sortKey
+                  // 셀 색상 우선순위: 정렬 활성 > 특수 컬럼 > 기본
+                  let color = 'var(--mm-ink-soft)'
+                  let fontWeight: number | undefined
+                  if (isActive) { color = 'var(--mm-yellow-strong)'; fontWeight = 900 }
+                  else if (c.key === 'pts') { color = 'var(--mm-ink)'; fontWeight = 900 }
+                  else if (c.key === 'oreb') { color = '#EA580C' }  // orange accent
+                  else if (c.key === 'dreb') { color = '#2563EB' }  // blue accent
+                  return (
+                    <td
+                      key={c.key}
+                      className="py-2 px-2 text-center text-sm whitespace-nowrap tabular-nums font-jersey"
+                      style={{ color, fontWeight }}
+                    >
+                      {cellVal(rr, c.key)}
+                    </td>
+                  )
+                })}
               </tr>
             )
           })}
@@ -255,28 +279,44 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
   const allRecordedComplete = recordedCount > 0 && recordedCount === completedCount
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-6"
+    <div className="mm-brand fixed inset-0 z-50 flex items-center justify-center sm:p-6"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       {/* 배경 오버레이 — 더 진하게 */}
       <div className="absolute inset-0 bg-black/85 backdrop-blur-md" onClick={onClose} />
 
       {/* 모달 본체 */}
-      <div className="relative bg-gray-900 border border-gray-600/80 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col z-10 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_24px_64px_rgba(0,0,0,0.9)]">
-        <div className="flex flex-col min-h-0 flex-1 bg-gray-900 rounded-2xl">
+      <div
+        className="relative w-full max-w-5xl max-h-[90vh] flex flex-col z-10 shadow-[0_24px_64px_rgba(0,0,0,0.55)]"
+        style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
+      >
+        <div className="flex flex-col min-h-0 flex-1" style={{ background: 'var(--mm-panel)' }}>
 
         {/* Header */}
-        <div className="shrink-0 bg-gray-900 border-b border-gray-700/60 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+        <div
+          className="shrink-0 px-6 py-4 flex items-center justify-between"
+          style={{ background: 'var(--mm-panel)', borderBottom: '1px solid var(--mm-rule)' }}
+        >
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-white font-black text-xl">{dateLabel} 박스스코어</h2>
+              <h2
+                className="font-jersey font-black uppercase"
+                style={{ color: 'var(--mm-ink)', fontSize: '24px', letterSpacing: '-0.005em' }}
+              >
+                {dateLabel} 박스스코어
+              </h2>
               {allRecordedComplete && (
-                <span className="text-xs font-bold text-green-400 px-1.5 py-0.5 rounded bg-green-900/30 border border-green-700/40">✓ 완료</span>
+                <span
+                  className="text-[11px] font-black uppercase tracking-widest"
+                  style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', padding: '3px 8px' }}
+                >
+                  완료
+                </span>
               )}
             </div>
-            <p className="text-gray-400 text-sm mt-0.5">
-              진행 {recordedCount}경기 · <span className="text-green-400 font-bold">{completedCount}완료</span>
-              {recordedCount - completedCount > 0 && <span className="text-gray-500"> · {recordedCount - completedCount}미완료</span>}
-              {skippedCount > 0 && <span className="text-gray-600"> · 미사용 슬롯 {skippedCount}</span>}
+            <p className="text-sm mt-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
+              진행 {recordedCount}경기 · <span className="font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>{completedCount}완료</span>
+              {recordedCount - completedCount > 0 && <span style={{ color: 'var(--mm-muted)' }}> · {recordedCount - completedCount}미완료</span>}
+              {skippedCount > 0 && <span style={{ color: 'var(--mm-muted)' }}> · 미사용 슬롯 {skippedCount}</span>}
             </p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -286,13 +326,20 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                 onClick={saveAsImage}
                 disabled={savingImage}
                 title="팀 카톡방 공유용 박스스코어 PNG 저장"
-                className="rounded-xl inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold cursor-pointer transition-colors border bg-emerald-600/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors disabled:opacity-50"
+                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
               >
                 {savingImage ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
                 <span className="hidden sm:inline">공유 이미지 저장</span>
               </button>
             )}
-            <button onClick={onClose} className="rounded-xl hover:bg-gray-700/60 text-gray-400 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-10 min-w-10">
+            <button
+              onClick={onClose}
+              className="cursor-pointer transition-colors inline-flex items-center justify-center min-h-10 min-w-10"
+              style={{ color: 'var(--mm-ink-soft)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--mm-yellow-soft)'; e.currentTarget.style.color = 'var(--mm-ink)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mm-ink-soft)' }}
+            >
               <X size={20} />
             </button>
           </div>
@@ -300,15 +347,25 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
 
         {/* 그날의 경기 전적 (스코어보드) — 접기/펼치기 가능 */}
         {!loading && games.length > 0 && (
-          <div className="shrink-0 bg-gray-900/60 border-b border-gray-700/60">
+          <div
+            className="shrink-0"
+            style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}
+          >
             <button
               onClick={() => setScoreboardCollapsed(v => !v)}
-              className="w-full flex items-center justify-between px-6 py-2 hover:bg-gray-800/40 cursor-pointer transition-colors group"
+              className="w-full flex items-center justify-between px-6 py-2 cursor-pointer transition-colors group"
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--mm-yellow-soft)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
             >
-              <span className="text-xs text-gray-500 font-bold uppercase tracking-widest group-hover:text-gray-300 transition-colors">
+              <span
+                className="text-xs font-bold uppercase tracking-widest transition-colors"
+                style={{ color: 'var(--mm-muted)' }}
+              >
                 경기별 스코어 {scoreboardCollapsed ? `(${games.length}경기 · 펼치기)` : '(접기)'}
               </span>
-              {scoreboardCollapsed ? <ChevronDown size={16} className="text-gray-500 group-hover:text-gray-300" /> : <ChevronUp size={16} className="text-gray-500 group-hover:text-gray-300" />}
+              {scoreboardCollapsed
+                ? <ChevronDown size={16} style={{ color: 'var(--mm-muted)' }} />
+                : <ChevronUp size={16} style={{ color: 'var(--mm-muted)' }} />}
             </button>
             {!scoreboardCollapsed && (
               <div className="px-6 pb-4 pt-2">
@@ -320,29 +377,41 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
 
         {/* 탭 바 */}
         {!loading && games.length > 0 && (
-          <div className="shrink-0 flex border-b border-gray-700/60 bg-gray-900">
+          <div
+            className="shrink-0 flex"
+            style={{ background: 'var(--mm-panel)', borderBottom: '1px solid var(--mm-rule)' }}
+          >
             {([
               { key: 'overall', label: '전체 스탯', count: dailyStats.length },
               { key: 'games',   label: '경기별',    count: games.length },
               { key: 'team',    label: '팀 비교',   count: 0 },
-            ] as const).map(tab => (
-              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                className={`px-6 py-3 text-sm font-bold border-b-2 transition-all duration-200 cursor-pointer ${
-                  activeTab === tab.key
-                    ? 'border-blue-500 text-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-300'
-                }`}>
-                {tab.label}
-                {tab.count > 0 && <span className="ml-2 text-xs text-gray-600">{tab.count}</span>}
-              </button>
-            ))}
+            ] as const).map(tab => {
+              const active = activeTab === tab.key
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className="px-6 py-3 text-xs font-black uppercase tracking-[0.18em] transition-all duration-200 cursor-pointer"
+                  style={{
+                    borderBottom: active ? '3px solid var(--mm-yellow)' : '3px solid transparent',
+                    color: active ? 'var(--mm-ink)' : 'var(--mm-muted)',
+                    background: active ? 'var(--mm-panel-alt)' : 'transparent',
+                  }}
+                >
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <span className="ml-2 text-[11px] tabular-nums" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>{tab.count}</span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         )}
 
         {loading ? (
-          <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin text-gray-600" /></div>
+          <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin" style={{ color: 'var(--mm-muted)' }} /></div>
         ) : games.length === 0 ? (
-          <div className="text-center py-20 text-gray-500">
+          <div className="text-center py-20" style={{ color: 'var(--mm-muted)' }}>
             <p className="text-base">이 날 기록된 경기가 없습니다</p>
           </div>
         ) : (
@@ -369,14 +438,19 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       onClick={() => setTeamFilter('all')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${teamFilter === 'all' ? 'bg-blue-600 border-blue-500 text-white' : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:border-gray-500'}`}
+                      className="px-3 py-1.5 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
+                      style={teamFilter === 'all'
+                        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
+                        : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
                     >전체</button>
                     {teamList.map(t => (
                       <button
                         key={t.id}
                         onClick={() => setTeamFilter(t.id)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${teamFilter === t.id ? 'text-white border-transparent' : 'bg-gray-800/60 border-gray-700 text-gray-400 hover:border-gray-500'}`}
-                        style={teamFilter === t.id ? { backgroundColor: t.color ?? '#3b82f6', borderColor: t.color ?? '#3b82f6' } : {}}
+                        className="px-3 py-1.5 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
+                        style={teamFilter === t.id
+                          ? { backgroundColor: t.color ?? 'var(--mm-yellow)', borderColor: t.color ?? 'var(--mm-yellow)', border: '1px solid', color: '#fff' }
+                          : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
                       >{t.name}</button>
                     ))}
                   </div>
@@ -408,24 +482,40 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
 
                   return (
                     <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-widest font-bold mb-2.5">당일 스탯 리더</p>
+                      <p
+                        className="text-xs uppercase tracking-widest font-black mb-2.5"
+                        style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.20em' }}
+                      >당일 스탯 리더</p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
                         {leaders.map(({ icon, label, name, val, sub }) => (
-                          <div key={label} className="bg-gray-800/60 border border-gray-700/50 rounded-xl p-3 flex flex-col gap-0.5">
+                          <div
+                            key={label}
+                            className="p-3 flex flex-col gap-0.5"
+                            style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+                          >
                             {/* 카테고리 레이블 */}
                             <div className="flex items-center gap-1 mb-1">
                               <span className="text-sm">{icon}</span>
-                              <span className="text-xs text-gray-500 font-bold uppercase tracking-wide">{label}</span>
+                              <span
+                                className="text-[11px] font-black uppercase tracking-widest"
+                                style={{ color: 'var(--mm-muted)' }}
+                              >{label}</span>
                             </div>
                             {/* 선수 이름 — 주인공 */}
-                            <p className="text-base font-black text-white leading-tight truncate">
+                            <p
+                              className="text-base font-jersey font-black leading-tight truncate uppercase"
+                              style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+                            >
                               {name ?? '—'}
                             </p>
                             {/* 기록 — 보조 */}
-                            <p className="text-xs font-bold tabular-nums" style={{ color: '#60a5fa' }}>
+                            <p
+                              className="text-sm font-jersey font-black tabular-nums"
+                              style={{ color: 'var(--mm-yellow-strong)' }}
+                            >
                               {val ?? ''}
                             </p>
-                            {sub && <p className="text-xs text-gray-500">{sub}</p>}
+                            {sub && <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>{sub}</p>}
                           </div>
                         ))}
                       </div>
@@ -434,10 +524,10 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                 })()}
 
                 {filteredStats.length > 0
-                  ? <div className="bg-gray-900/80 border border-gray-700/50 rounded-xl overflow-hidden">
+                  ? <div className="overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
                       <StatTable rows={filteredStats} showGP />
                     </div>
-                  : <p className="text-gray-600 text-sm text-center py-10">집계된 스탯이 없습니다</p>}
+                  : <p className="text-sm text-center py-10" style={{ color: 'var(--mm-muted)' }}>집계된 스탯이 없습니다</p>}
               </div>
               )
             })()}
@@ -451,48 +541,77 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                 const isExpanded = expandedGame === g.id
                 const embedUrl = g.youtube_url ? getYoutubeEmbedUrl(g.youtube_url, g.youtube_start_offset) : ''
                 const homeWin = g.home_score > g.away_score
+                const winnerColor = homeWin ? (g.home_team?.color ?? 'var(--mm-yellow)') : (g.away_team?.color ?? 'var(--mm-yellow)')
 
                 return (
-                  <div key={g.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+                  <div
+                    key={g.id}
+                    className="overflow-hidden relative"
+                    style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+                  >
+                    {/* 승자 팀 좌측 4px 컬러 바 */}
+                    {g.is_complete && (
+                      <div
+                        className="absolute inset-y-0 left-0 pointer-events-none"
+                        style={{ width: '4px', background: winnerColor }}
+                        aria-hidden
+                      />
+                    )}
                     {/* 경기 헤더 */}
                     <button
-                      className="w-full text-left px-5 py-4 flex items-center gap-4 hover:bg-gray-800/60 cursor-pointer transition-colors duration-150"
+                      className="w-full text-left px-5 py-4 flex items-center gap-4 cursor-pointer transition-colors duration-150"
                       onClick={() => setExpandedGame(isExpanded ? null : g.id)}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--mm-yellow-soft)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         {g.is_complete
-                          ? <CheckCircle2 size={15} className="text-green-400 shrink-0" />
-                          : <Circle size={15} className="text-gray-600 shrink-0" />}
-                        <span className="text-gray-500 text-sm font-mono shrink-0">#{g.slot_num}</span>
+                          ? <CheckCircle2 size={15} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />
+                          : <Circle size={15} className="shrink-0" style={{ color: 'var(--mm-muted)' }} />}
+                        <span className="text-sm font-mono shrink-0" style={{ color: 'var(--mm-muted)' }}>#{g.slot_num}</span>
 
                         {/* 스코어보드 */}
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <div className="flex items-center gap-2 min-w-0">
                             {g.home_team && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.home_team.color }} />}
-                            <span className={`font-bold text-sm truncate ${homeWin ? 'text-white' : 'text-gray-500'}`}>{g.home_team?.name ?? '미정'}</span>
-                            <span className={`text-xl font-black tabular-nums ${homeWin ? 'text-white' : 'text-gray-500'}`}>{g.home_score}</span>
+                            <span
+                              className="font-jersey font-black text-sm truncate uppercase"
+                              style={{ color: homeWin ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
+                            >{g.home_team?.name ?? '미정'}</span>
+                            <span
+                              className="text-xl font-jersey font-black tabular-nums"
+                              style={{ color: homeWin ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
+                            >{g.home_score}</span>
                           </div>
-                          <span className="text-gray-600 text-sm font-bold shrink-0">:</span>
+                          <span className="text-sm font-bold shrink-0" style={{ color: 'var(--mm-muted)' }}>:</span>
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className={`text-xl font-black tabular-nums ${!homeWin ? 'text-white' : 'text-gray-500'}`}>{g.away_score}</span>
-                            <span className={`font-bold text-sm truncate ${!homeWin ? 'text-white' : 'text-gray-500'}`}>{g.away_team?.name ?? '미정'}</span>
+                            <span
+                              className="text-xl font-jersey font-black tabular-nums"
+                              style={{ color: !homeWin ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
+                            >{g.away_score}</span>
+                            <span
+                              className="font-jersey font-black text-sm truncate uppercase"
+                              style={{ color: !homeWin ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
+                            >{g.away_team?.name ?? '미정'}</span>
                             {g.away_team && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.away_team.color }} />}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
-                        {g.youtube_url && <Youtube size={14} className="text-red-400" />}
-                        {isExpanded ? <ChevronUp size={16} className="text-gray-500" /> : <ChevronDown size={16} className="text-gray-500" />}
+                        {g.youtube_url && <Youtube size={14} style={{ color: 'var(--mm-live)' }} />}
+                        {isExpanded
+                          ? <ChevronUp size={16} style={{ color: 'var(--mm-muted)' }} />
+                          : <ChevronDown size={16} style={{ color: 'var(--mm-muted)' }} />}
                       </div>
                     </button>
 
                     {/* 펼쳐진 상세 */}
                     {isExpanded && (
-                      <div className="border-t border-gray-800 space-y-4">
+                      <div className="space-y-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                         {/* YouTube 영상 */}
                         {embedUrl && (
                           <div className="px-5 pt-4">
-                            <div className="aspect-video rounded-xl overflow-hidden bg-gray-800">
+                            <div className="aspect-video overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
                               <iframe
                                 src={embedUrl}
                                 className="w-full h-full"
@@ -506,7 +625,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                         <div className="px-5 pb-4">
                           {g.players.length > 0
                             ? <StatTable rows={g.players} />
-                            : <p className="text-gray-600 text-sm text-center py-4">기록된 선수 데이터가 없습니다</p>}
+                            : <p className="text-sm text-center py-4" style={{ color: 'var(--mm-muted)' }}>기록된 선수 데이터가 없습니다</p>}
                         </div>
                       </div>
                     )}
@@ -628,7 +747,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
 
   if (teams.length < 2) {
     return (
-      <div className="text-center py-12 text-gray-500">
+      <div className="text-center py-12" style={{ color: 'var(--mm-muted)' }}>
         <p className="text-sm">팀 비교를 위해 최소 2팀 이상의 기록이 필요합니다.</p>
       </div>
     )
@@ -641,7 +760,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
     return (
       <div className="space-y-4">
         <TeamSelectorBars teams={teams} teamAId={teamAId} teamBId={teamBId} onChangeA={setTeamAId} onChangeB={setTeamBId} />
-        <div className="text-center py-10 text-gray-500 border border-dashed border-gray-700 rounded-xl">
+        <div className="text-center py-10" style={{ color: 'var(--mm-muted)', border: '1px dashed var(--mm-rule)' }}>
           <p className="text-sm">서로 다른 두 팀을 선택해주세요.</p>
         </div>
       </div>
@@ -656,14 +775,14 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
     return (
       <div className="space-y-4">
         <TeamSelectorBars teams={teams} teamAId={teamAId} teamBId={teamBId} onChangeA={setTeamAId} onChangeB={setTeamBId} />
-        <div className="text-center py-10 text-gray-500 border border-dashed border-gray-700 rounded-xl">
+        <div className="text-center py-10" style={{ color: 'var(--mm-muted)', border: '1px dashed var(--mm-rule)' }}>
           <p className="text-sm">
-            <span className="text-white font-bold">{teamMeta.get(teamAId)?.name}</span>
+            <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{teamMeta.get(teamAId)?.name}</span>
             {' vs '}
-            <span className="text-white font-bold">{teamMeta.get(teamBId)?.name}</span>
+            <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>{teamMeta.get(teamBId)?.name}</span>
             {' — 이 날짜에 맞붙은 경기가 없습니다.'}
           </p>
-          <p className="text-xs text-gray-600 mt-1">두 팀이 실제 맞붙은 경기 기록만 집계됩니다.</p>
+          <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>두 팀이 실제 맞붙은 경기 기록만 집계됩니다.</p>
         </div>
       </div>
     )
@@ -691,7 +810,10 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
   return (
     <div className="space-y-4">
       {!allComplete && (
-        <div className="text-xs text-amber-400/80 bg-amber-900/20 border border-amber-700/30 rounded-lg px-3 py-2">
+        <div
+          className="text-xs px-3 py-2 font-bold"
+          style={{ color: 'var(--mm-black)', background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)' }}
+        >
           ⚠ 이 날의 일부 경기가 아직 마감되지 않았습니다 — 최종 수치는 마감 후 확정됩니다.
         </div>
       )}
@@ -699,18 +821,21 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
       <TeamSelectorBars teams={teams} teamAId={teamAId} teamBId={teamBId} onChangeA={setTeamAId} onChangeB={setTeamBId} />
 
       {/* 팀명 헤더 + 맞대결 경기 수 */}
-      <div className="flex items-center justify-center gap-6 py-2 border-b border-gray-800">
+      <div
+        className="flex items-center justify-center gap-6 py-2"
+        style={{ borderBottom: '1px solid var(--mm-rule)' }}
+      >
         <div className="text-right">
-          <div className="text-lg font-black" style={{ color: colorA }}>{A.name}</div>
-          <div className="text-xs text-gray-600 font-bold tracking-wider">HOME</div>
+          <div className="text-lg font-jersey font-black uppercase" style={{ color: colorA, letterSpacing: '-0.005em' }}>{A.name}</div>
+          <div className="text-[11px] font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>HOME</div>
         </div>
         <div className="flex flex-col items-center">
-          <span className="text-gray-600 font-bold text-sm">VS</span>
-          <span className="text-xs text-gray-500 mt-0.5">맞대결 {h2h.gameCount}경기</span>
+          <span className="font-jersey font-black text-sm" style={{ color: 'var(--mm-muted)' }}>VS</span>
+          <span className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>맞대결 {h2h.gameCount}경기</span>
         </div>
         <div className="text-left">
-          <div className="text-lg font-black" style={{ color: colorB }}>{B.name}</div>
-          <div className="text-xs text-gray-600 font-bold tracking-wider">AWAY</div>
+          <div className="text-lg font-jersey font-black uppercase" style={{ color: colorB, letterSpacing: '-0.005em' }}>{B.name}</div>
+          <div className="text-[11px] font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>AWAY</div>
         </div>
       </div>
 
@@ -730,10 +855,13 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
             <div key={item.label} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
               {/* 좌측 (홈) — 막대 오른쪽 정렬, 라벨은 막대 왼쪽 */}
               <div className="flex items-center justify-end gap-2 min-h-[28px]">
-                <span className={`text-sm tabular-nums font-bold whitespace-nowrap ${aWin ? '' : 'opacity-60'}`} style={aWin ? { color: colorA } : { color: '#9ca3af' }}>
+                <span
+                  className={`text-sm tabular-nums font-jersey font-black whitespace-nowrap ${aWin ? '' : 'opacity-60'}`}
+                  style={aWin ? { color: colorA } : { color: 'var(--mm-muted)' }}
+                >
                   {labelA}
                 </span>
-                <div className="h-5 rounded-l-md" style={{
+                <div className="h-5" style={{
                   width: `${(item.a / max) * 100}%`,
                   backgroundColor: colorA,
                   opacity: aWin ? 1 : 0.55,
@@ -743,20 +871,26 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
 
               {/* 중앙 라벨 */}
               <div className="text-center px-2">
-                <span className="text-xs text-gray-400 font-bold whitespace-pre-line leading-tight block">
+                <span
+                  className="text-[11px] font-black uppercase tracking-widest whitespace-pre-line leading-tight block"
+                  style={{ color: 'var(--mm-muted)' }}
+                >
                   {item.label}
                 </span>
               </div>
 
               {/* 우측 (어웨이) */}
               <div className="flex items-center justify-start gap-2 min-h-[28px]">
-                <div className="h-5 rounded-r-md" style={{
+                <div className="h-5" style={{
                   width: `${(item.b / max) * 100}%`,
                   backgroundColor: colorB,
                   opacity: bWin ? 1 : 0.55,
                   minWidth: item.b > 0 ? 2 : 0,
                 }} />
-                <span className={`text-sm tabular-nums font-bold whitespace-nowrap ${bWin ? '' : 'opacity-60'}`} style={bWin ? { color: colorB } : { color: '#9ca3af' }}>
+                <span
+                  className={`text-sm tabular-nums font-jersey font-black whitespace-nowrap ${bWin ? '' : 'opacity-60'}`}
+                  style={bWin ? { color: colorB } : { color: 'var(--mm-muted)' }}
+                >
                   {labelB}
                 </span>
               </div>
@@ -801,42 +935,86 @@ function DailyScoreboard({ games }: { games: GameData[] }) {
           const homeColor = g.home_team?.color ?? '#9ca3af'
           const awayColor = g.away_team?.color ?? '#9ca3af'
           return (
-            <div key={g.id}
-              className={`rounded-xl px-3 py-2.5 border relative overflow-hidden ${g.is_complete ? 'bg-gray-800/60 border-gray-700' : g.is_started ? 'bg-amber-900/15 border-amber-700/40' : 'bg-gray-900/40 border-gray-800'}`}>
+            <div
+              key={g.id}
+              className="px-3 py-2.5 relative overflow-hidden"
+              style={{
+                background: g.is_complete ? 'var(--mm-panel)' : g.is_started ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
+                border: '1px solid var(--mm-rule)',
+              }}
+            >
               {/* 승자 쪽에 미묘한 배경 그라디언트 힌트 (좌/우) */}
               {homeWin && (
-                <div className="absolute inset-y-0 left-0 w-1/2 opacity-[0.08] pointer-events-none"
+                <div className="absolute inset-y-0 left-0 w-1/2 opacity-[0.10] pointer-events-none"
                      style={{ background: `linear-gradient(to right, ${homeColor}, transparent)` }} />
               )}
               {awayWin && (
-                <div className="absolute inset-y-0 right-0 w-1/2 opacity-[0.08] pointer-events-none"
+                <div className="absolute inset-y-0 right-0 w-1/2 opacity-[0.10] pointer-events-none"
                      style={{ background: `linear-gradient(to left, ${awayColor}, transparent)` }} />
               )}
               <div className="relative">
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-xs text-gray-500 font-mono">#{g.slot_num}</span>
-                  {g.is_complete && <span className="text-xs text-green-400 font-bold">완료</span>}
-                  {!g.is_complete && g.is_started && <span className="text-xs text-amber-400 font-bold">진행 중</span>}
-                  {!g.is_started && <span className="text-xs text-gray-600 font-bold">예정</span>}
+                  <span className="text-xs font-mono" style={{ color: 'var(--mm-muted)' }}>#{g.slot_num}</span>
+                  {g.is_complete && (
+                    <span
+                      className="text-[10px] font-black uppercase tracking-widest"
+                      style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', padding: '2px 6px' }}
+                    >완료</span>
+                  )}
+                  {!g.is_complete && g.is_started && (
+                    <span
+                      className="text-[10px] font-black uppercase tracking-widest"
+                      style={{ background: 'var(--mm-live)', color: '#fff', padding: '2px 6px' }}
+                    >진행 중</span>
+                  )}
+                  {!g.is_started && (
+                    <span className="text-xs font-bold uppercase" style={{ color: 'var(--mm-muted)' }}>예정</span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   {/* HOME */}
                   <div className="flex-1 min-w-0 flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: homeColor }} />
-                    {homeWin && <Trophy size={11} className="text-amber-400 shrink-0" fill="currentColor" />}
-                    <span className={`text-sm truncate ${homeWin ? 'font-black text-white' : g.is_complete ? draw ? 'font-bold text-gray-300' : 'font-medium text-gray-500 line-through decoration-gray-700' : 'font-bold text-gray-300'}`}>
+                    {homeWin && <Trophy size={11} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" />}
+                    <span
+                      className="text-sm truncate font-jersey uppercase"
+                      style={{
+                        color: homeWin ? 'var(--mm-ink)' : g.is_complete ? (draw ? 'var(--mm-ink-soft)' : 'var(--mm-muted)') : 'var(--mm-ink-soft)',
+                        fontWeight: homeWin ? 900 : 700,
+                        textDecoration: g.is_complete && !homeWin && !draw ? 'line-through' : 'none',
+                      }}
+                    >
                       {g.home_team?.name ?? '미정'}
                     </span>
                   </div>
-                  <span className={`text-xl tabular-nums ${homeWin ? 'text-white font-black' : g.is_complete ? draw ? 'text-gray-300 font-black' : 'text-gray-600 font-bold' : 'text-gray-400 font-black'}`}>{g.home_score}</span>
-                  <span className="text-gray-700 text-xs font-bold">:</span>
-                  <span className={`text-xl tabular-nums ${awayWin ? 'text-white font-black' : g.is_complete ? draw ? 'text-gray-300 font-black' : 'text-gray-600 font-bold' : 'text-gray-400 font-black'}`}>{g.away_score}</span>
+                  <span
+                    className="text-xl font-jersey tabular-nums"
+                    style={{
+                      color: homeWin ? 'var(--mm-ink)' : g.is_complete ? (draw ? 'var(--mm-ink-soft)' : 'var(--mm-muted)') : 'var(--mm-ink-soft)',
+                      fontWeight: 900,
+                    }}
+                  >{g.home_score}</span>
+                  <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>:</span>
+                  <span
+                    className="text-xl font-jersey tabular-nums"
+                    style={{
+                      color: awayWin ? 'var(--mm-ink)' : g.is_complete ? (draw ? 'var(--mm-ink-soft)' : 'var(--mm-muted)') : 'var(--mm-ink-soft)',
+                      fontWeight: 900,
+                    }}
+                  >{g.away_score}</span>
                   {/* AWAY */}
                   <div className="flex-1 min-w-0 flex items-center gap-1.5 justify-end">
-                    <span className={`text-sm truncate text-right ${awayWin ? 'font-black text-white' : g.is_complete ? draw ? 'font-bold text-gray-300' : 'font-medium text-gray-500 line-through decoration-gray-700' : 'font-bold text-gray-300'}`}>
+                    <span
+                      className="text-sm truncate text-right font-jersey uppercase"
+                      style={{
+                        color: awayWin ? 'var(--mm-ink)' : g.is_complete ? (draw ? 'var(--mm-ink-soft)' : 'var(--mm-muted)') : 'var(--mm-ink-soft)',
+                        fontWeight: awayWin ? 900 : 700,
+                        textDecoration: g.is_complete && !awayWin && !draw ? 'line-through' : 'none',
+                      }}
+                    >
                       {g.away_team?.name ?? '미정'}
                     </span>
-                    {awayWin && <Trophy size={11} className="text-amber-400 shrink-0" fill="currentColor" />}
+                    {awayWin && <Trophy size={11} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" />}
                     <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: awayColor }} />
                   </div>
                 </div>
@@ -849,17 +1027,24 @@ function DailyScoreboard({ games }: { games: GameData[] }) {
       {/* 팀별 일일 전적 (완료 경기 기반) */}
       {records.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="text-xs text-gray-500 font-bold mr-1">일일 전적</span>
+          <span
+            className="text-[11px] font-black uppercase tracking-widest mr-1"
+            style={{ color: 'var(--mm-muted)' }}
+          >일일 전적</span>
           {records.map(r => (
-            <div key={r.id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gray-800/60 border border-gray-700">
-              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: r.color ?? '#9ca3af' }} />
-              <span className="text-xs font-bold text-white">{r.name}</span>
+            <div
+              key={r.id}
+              className="inline-flex items-center gap-1.5 px-2 py-1"
+              style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
+            >
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: r.color ?? 'var(--mm-muted)' }} />
+              <span className="text-xs font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)' }}>{r.name}</span>
               <span className="text-xs tabular-nums">
-                <span className="text-green-400 font-bold">{r.W}승</span>
-                {r.D > 0 && <span className="text-gray-400 ml-1">{r.D}무</span>}
-                <span className="text-red-400 font-bold ml-1">{r.L}패</span>
+                <span className="font-bold" style={{ color: '#059669' }}>{r.W}승</span>
+                {r.D > 0 && <span className="ml-1" style={{ color: 'var(--mm-muted)' }}>{r.D}무</span>}
+                <span className="font-bold ml-1" style={{ color: '#DC2626' }}>{r.L}패</span>
               </span>
-              <span className="text-xs text-gray-500 tabular-nums">({r.PF}-{r.PA})</span>
+              <span className="text-xs tabular-nums" style={{ color: 'var(--mm-muted)' }}>({r.PF}-{r.PA})</span>
             </div>
           ))}
         </div>
@@ -880,24 +1065,34 @@ function TeamSelectorBars({
   return (
     <div className="grid grid-cols-2 gap-3">
       <div>
-        <p className="text-xs text-gray-500 font-bold mb-1.5">HOME</p>
+        <p className="text-[11px] font-black uppercase tracking-widest mb-1.5" style={{ color: 'var(--mm-muted)' }}>HOME</p>
         <div className="flex flex-wrap gap-1.5">
           {teams.map(t => (
-            <button key={t.id} onClick={() => onChangeA(t.id)}
-              className={`px-2.5 py-1 rounded-md text-xs font-bold border transition-colors cursor-pointer ${teamAId === t.id ? 'text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
-              style={teamAId === t.id ? { backgroundColor: t.color ?? '#dc2626', borderColor: t.color ?? '#dc2626' } : {}}>
+            <button
+              key={t.id}
+              onClick={() => onChangeA(t.id)}
+              className="px-2.5 py-1 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
+              style={teamAId === t.id
+                ? { backgroundColor: t.color ?? 'var(--mm-yellow)', borderColor: t.color ?? 'var(--mm-yellow)', border: '1px solid', color: '#fff' }
+                : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
+            >
               {t.name}
             </button>
           ))}
         </div>
       </div>
       <div>
-        <p className="text-xs text-gray-500 font-bold mb-1.5">AWAY</p>
+        <p className="text-[11px] font-black uppercase tracking-widest mb-1.5" style={{ color: 'var(--mm-muted)' }}>AWAY</p>
         <div className="flex flex-wrap gap-1.5">
           {teams.map(t => (
-            <button key={t.id} onClick={() => onChangeB(t.id)}
-              className={`px-2.5 py-1 rounded-md text-xs font-bold border transition-colors cursor-pointer ${teamBId === t.id ? 'text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}
-              style={teamBId === t.id ? { backgroundColor: t.color ?? '#2563eb', borderColor: t.color ?? '#2563eb' } : {}}>
+            <button
+              key={t.id}
+              onClick={() => onChangeB(t.id)}
+              className="px-2.5 py-1 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
+              style={teamBId === t.id
+                ? { backgroundColor: t.color ?? 'var(--mm-yellow)', borderColor: t.color ?? 'var(--mm-yellow)', border: '1px solid', color: '#fff' }
+                : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
+            >
               {t.name}
             </button>
           ))}

@@ -359,11 +359,11 @@ export default function AwardsPage() {
                         data-award-crown
                         className="w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center shrink-0"
                         style={{
-                          background: 'var(--mm-panel)',
-                          border: '3px solid var(--mm-black)',
+                          background: 'var(--mm-black)',
+                          border: '3px solid rgba(0,0,0,0.15)',
                         }}
                       >
-                        <Crown size={22} className="md:w-7 md:h-7" style={{ color: 'var(--mm-black)' }} />
+                        <Crown size={22} className="md:w-7 md:h-7" style={{ color: 'var(--mm-yellow)' }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p
