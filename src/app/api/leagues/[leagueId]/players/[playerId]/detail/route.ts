@@ -437,9 +437,16 @@ export async function GET(
 
   const allMetricsList = Object.entries(allMap)
     .filter(([, s]) => s.gp > 0)
-    .map(([pid, s]) => ({ pid, ...toMetrics(s) }))
+    .map(([pid, s]) => ({ pid, gp: s.gp, ...toMetrics(s) }))
 
-  const ranked = allMetricsList.map(m => ({
+  // 리더보드(LeagueLeadersGrid) 와 동일한 자격 요건: max(3, ceil(maxGP × 1/2)).
+  // 이 필터가 없으면 GP 가 극히 적은데 우연히 평균이 튄 선수가 상위에 끼어
+  // 실제 리더보드 1위가 프로필 카드에선 3위 등으로 밀려 보이는 문제 발생.
+  const maxGpAll = allMetricsList.reduce((m, e) => Math.max(m, e.gp), 0)
+  const effectiveMinGp = Math.max(3, Math.ceil(maxGpAll / 2))
+  const eligibleForRank = allMetricsList.filter(m => m.gp >= effectiveMinGp)
+
+  const ranked = eligibleForRank.map(m => ({
     pid: m.pid, ppg: +m.ppg.toFixed(1), rpg: +m.rpg.toFixed(1),
     apg: +m.apg.toFixed(1), spg: +m.spg.toFixed(1), bpg: +m.bpg.toFixed(1),
   }))
@@ -480,7 +487,7 @@ export async function GET(
   const rankings = {
     ppg: getRank('ppg'), rpg: getRank('rpg'), apg: getRank('apg'),
     spg: getRank('spg'), bpg: getRank('bpg'),
-    total: ranked.length,
+    total: ranked.length,     // 자격 요건(min GP) 통과 인원. rank 표시 계산의 분모로 사용됨
     win_rate_rank,
   }
 
