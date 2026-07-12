@@ -72,7 +72,7 @@ export default function NbaRoundsSummary({ rounds, leagueId }: Props) {
               <button
                 key={r.date}
                 onClick={() => setOpenDate(r.date)}
-                className="text-left cursor-pointer transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.25)]"
+                className="text-left cursor-pointer transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                 style={{
                   background: 'var(--mm-panel)',
                   border: '1px solid var(--mm-rule)',

@@ -81,10 +81,10 @@ export default function GlobalSearchModal({ leagueId, onClose, onSelectPlayer }:
             onChange={e => setQuery(e.target.value)}
             placeholder="선수 이름, 포지션, 번호 검색..."
             aria-label="선수 이름, 포지션, 번호 검색"
-            className="flex-1 bg-transparent text-white placeholder-gray-600 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 rounded"
+            className="flex-1 bg-transparent text-white placeholder-gray-600 text-sm outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 rounded"
           />
           {query && (
-            <button onClick={() => setQuery('')} className="text-gray-600 hover:text-gray-400 cursor-pointer inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 rounded" aria-label="검색어 지우기">
+            <button onClick={() => setQuery('')} className="text-gray-600 hover:text-gray-400 cursor-pointer inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 rounded transition-colors duration-200" aria-label="검색어 지우기">
               <X size={14} aria-hidden="true" />
             </button>
           )}
@@ -99,7 +99,7 @@ export default function GlobalSearchModal({ leagueId, onClose, onSelectPlayer }:
               <button
                 key={p.id}
                 onClick={() => { onSelectPlayer(p.id, p.name); onClose() }}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors cursor-pointer ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset ${
                   i === activeIdx ? 'bg-blue-600/20 text-white' : 'hover:bg-gray-800/60 text-gray-300'
                 }`}
               >

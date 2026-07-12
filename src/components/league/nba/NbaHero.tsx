@@ -116,7 +116,7 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
           type="button"
           onClick={() => setOpenQuickView(true)}
           aria-label={`${data.name} 프로필 카드 열기`}
-          className="text-left group/hero relative transition-colors duration-200 cursor-pointer"
+          className="text-left group/hero relative transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
           style={{
             padding: '32px 40px 28px',
             borderRight: '1px solid var(--mm-rule)',
@@ -241,7 +241,7 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
               >
                 {data.teamName ? `${data.teamName} · ` : ''}{rangeLabel}
                 <span
-                  className="text-[11px] tracking-[0.14em] transition-opacity group-hover/hero:opacity-100 opacity-70"
+                  className="text-[11px] tracking-[0.14em] transition-opacity duration-200 group-hover/hero:opacity-100 opacity-70"
                   style={{ color: 'var(--mm-yellow-strong)' }}
                 >
                   카드 열기 →

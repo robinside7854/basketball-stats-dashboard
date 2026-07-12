@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { auth } from '@/lib/auth'
 
 export async function GET(
@@ -29,6 +30,11 @@ export async function PATCH(
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
+  revalidateTag(`league-${leagueId}`, 'max')
+  revalidateTag(`league-${leagueId}-games`, 'max')
+
   return NextResponse.json(data)
 }
 
@@ -42,5 +48,10 @@ export async function DELETE(
   const supabase = createClient()
   const { error } = await supabase.from('leagues').delete().eq('id', leagueId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
+  revalidateTag(`league-${leagueId}`, 'max')
+  revalidateTag(`league-${leagueId}-games`, 'max')
+
   return NextResponse.json({ success: true })
 }

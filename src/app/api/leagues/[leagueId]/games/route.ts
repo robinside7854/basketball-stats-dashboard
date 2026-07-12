@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 
 export async function GET(
@@ -131,6 +132,11 @@ export async function POST(
     .order('slot_num', { ascending: true })
 
   if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 })
+
+  // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
+  revalidateTag(`league-${leagueId}`, 'max')
+  revalidateTag(`league-${leagueId}-games`, 'max')
+
   return NextResponse.json(slots ?? [])
 }
 
@@ -153,5 +159,10 @@ export async function PATCH(
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
+  revalidateTag(`league-${leagueId}`, 'max')
+  revalidateTag(`league-${leagueId}-games`, 'max')
+
   return NextResponse.json(data)
 }

@@ -481,10 +481,10 @@ export default function LeagueStatsPage() {
                   </div>
                   <button onClick={() => setQuickViewPlayer({ id: top.player_id, name: top.name })}
                     className="font-jersey font-black uppercase truncate cursor-pointer text-left w-full block hover:underline underline-offset-2"
-                    style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em', lineHeight: '1.05' }}>
+                    style={{ color: 'var(--mm-ink)', fontSize: 'clamp(17px, 4.5vw, 22px)', letterSpacing: '-0.005em', lineHeight: '1.05' }}>
                     {top.name}
                   </button>
-                  <p className="font-jersey font-black tabular-nums leading-none mt-1.5" style={{ color: 'var(--mm-ink)', fontSize: '36px', letterSpacing: '-0.015em' }}>{fmt(top)}</p>
+                  <p className="font-jersey font-black tabular-nums leading-none mt-1.5" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(26px, 7vw, 36px)', letterSpacing: '-0.015em' }}>{fmt(top)}</p>
                   <p className="text-[11px] font-bold uppercase mt-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}>{unit} · {top.gp}R</p>
                   {leaders.slice(1).map((p, i) => (
                     <div key={p.player_id} className="flex items-center justify-between mt-1.5 pt-1.5" style={{ borderTop: '1px solid var(--mm-rule)' }}>

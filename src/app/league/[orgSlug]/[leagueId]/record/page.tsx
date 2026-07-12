@@ -1000,7 +1000,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
               <button
                 key={tab.id}
                 onClick={() => setSelectedQFilter(tab.id)}
-                className="px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center px-4 py-2 min-h-[44px] min-w-[44px] text-xs font-bold uppercase tracking-[0.14em] transition-colors cursor-pointer"
                 style={
                   selectedQFilter === tab.id
                     ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
@@ -1122,8 +1122,9 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={() => { setSelectedDate(''); setSelectedSlotId(''); setSlots([]) }}
-          className="transition-colors cursor-pointer shrink-0"
+          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors cursor-pointer shrink-0"
           style={{ color: 'var(--mm-muted)' }}
+          aria-label="날짜 선택으로 돌아가기"
         >
           <ChevronLeft size={20} />
         </button>
@@ -1141,7 +1142,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           <button
             onClick={syncYoutube}
             disabled={ytSyncing}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            aria-label="YouTube 연동"
           >
             {ytSyncing ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
             <span className="hidden sm:inline">YouTube 연동</span>
@@ -1159,7 +1161,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             <button
               key={slot.id}
               onClick={() => selectSlot(slot)}
-              className={`relative flex flex-col items-center justify-center py-2.5 rounded-xl border text-base font-bold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${
+              className={`relative flex flex-col items-center justify-center px-2 py-2.5 min-h-[44px] rounded-xl border text-base font-bold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${
                 isSelected
                   ? 'bg-blue-600 border-blue-500 text-white'
                   : slot.is_complete
@@ -1212,7 +1214,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                 value={pendingHome}
                 onChange={e => setPendingHome(e.target.value)}
                 disabled={gameStarted}
-                className="flex-1 px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50 min-h-[36px]"
+                className="flex-1 px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50 min-h-[44px]"
                 style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
               >
                 <option value="">홈 팀 선택</option>
@@ -1223,7 +1225,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                 value={pendingAway}
                 onChange={e => setPendingAway(e.target.value)}
                 disabled={gameStarted}
-                className="flex-1 px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50 min-h-[36px]"
+                className="flex-1 px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50 min-h-[44px]"
                 style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
               >
                 <option value="">어웨이 팀 선택</option>
@@ -1233,7 +1235,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                 <button
                   onClick={saveTeams}
                   disabled={savingTeam}
-                  className="cursor-pointer shrink-0 text-xs font-bold uppercase tracking-[0.14em] px-3 py-1.5 disabled:opacity-50 transition-colors min-h-[36px]"
+                  className="cursor-pointer shrink-0 text-xs font-bold uppercase tracking-[0.14em] px-3 py-1.5 disabled:opacity-50 transition-colors min-h-[44px]"
                   style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
                 >
                   {savingTeam ? <Loader2 size={11} className="animate-spin" /> : '저장'}
@@ -1242,7 +1244,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
               <button
                 onClick={toggleExhibition}
                 title={selectedSlot.is_exhibition ? '정규전으로 되돌리기' : '친선전으로 표시 (리그 순위 제외)'}
-                className="shrink-0 text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 transition-colors cursor-pointer min-h-[36px]"
+                className="shrink-0 text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 transition-colors cursor-pointer min-h-[44px]"
                 style={
                   selectedSlot.is_exhibition
                     ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
@@ -1255,7 +1257,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                 <button
                   onClick={clearYoutubeUrl}
                   title="잘못 매핑된 YouTube 영상 링크 제거"
-                  className="shrink-0 text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 transition-colors cursor-pointer min-h-[36px]"
+                  className="shrink-0 text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 transition-colors cursor-pointer min-h-[44px]"
                   style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                 >
                   영상 링크 제거

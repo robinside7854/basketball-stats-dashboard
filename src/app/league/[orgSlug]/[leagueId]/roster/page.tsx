@@ -788,8 +788,8 @@ export default function LeagueRosterPage() {
                 )}
 
                 <div className="p-2.5 pl-3.5 lg:p-3 lg:pl-4 flex gap-2.5 lg:gap-3">
-                  {/* 4:5 썸네일 — 프로 선수 프로필처럼 크게 */}
-                  <div className="shrink-0 w-32 h-[160px] lg:w-40 lg:h-[200px] rounded-sm overflow-hidden border border-[var(--mm-rule)] flex items-center justify-center bg-[var(--mm-panel-alt)]">
+                  {/* 4:5 썸네일 — 프로 선수 프로필처럼 크게 (모바일에선 이름 여유 확보를 위해 축소) */}
+                  <div className="shrink-0 w-24 h-[120px] sm:w-32 sm:h-[160px] lg:w-40 lg:h-[200px] rounded-sm overflow-hidden border border-[var(--mm-rule)] flex items-center justify-center bg-[var(--mm-panel-alt)]">
                     {p.photo_url ? (
                       <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover object-top" />
                     ) : (
@@ -815,7 +815,7 @@ export default function LeagueRosterPage() {
                     {isEditMode ? (
                       <button
                         onClick={e => { e.stopPropagation(); togglePlusOne(p.id, p.plus_one) }}
-                        className={`shrink-0 px-2 py-0.5 rounded-sm text-xs font-black tracking-wider border transition-all cursor-pointer ${
+                        className={`shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 rounded-sm text-xs font-black tracking-wider border transition-all cursor-pointer ${
                           p.plus_one
                             ? 'bg-[var(--mm-yellow)] text-[var(--mm-black)] border-[var(--mm-yellow)] hover:brightness-95'
                             : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] border-[var(--mm-rule)] hover:border-[var(--mm-yellow)] hover:text-[var(--mm-ink)]'
@@ -833,8 +833,9 @@ export default function LeagueRosterPage() {
                       <button
                         onClick={e => { e.stopPropagation(); deletePlayer(p.id) }}
                         disabled={deletingId === p.id}
-                        className="text-[var(--mm-muted)] hover:text-[var(--mm-live)] transition-colors cursor-pointer disabled:opacity-40 p-1 shrink-0"
+                        className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-[var(--mm-muted)] hover:text-[var(--mm-live)] transition-colors cursor-pointer disabled:opacity-40 shrink-0"
                         title="선수 삭제"
+                        aria-label="선수 삭제"
                       >
                         {deletingId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
                       </button>

@@ -136,7 +136,7 @@ export default function ColumnEditor({
                 aria-selected={tab === 'edit'}
                 aria-controls="column-editor-panel-edit"
                 onClick={() => setTab('edit')}
-                className={`px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${
+                className={`px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${
                   tab === 'edit' ? 'bg-amber-600 text-white' : 'text-gray-400 hover:text-white'
                 }`}
               >
@@ -148,7 +148,7 @@ export default function ColumnEditor({
                 aria-selected={tab === 'preview'}
                 aria-controls="column-editor-panel-preview"
                 onClick={() => setTab('preview')}
-                className={`px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${
+                className={`px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${
                   tab === 'preview' ? 'bg-amber-600 text-white' : 'text-gray-400 hover:text-white'
                 }`}
               >
@@ -158,14 +158,14 @@ export default function ColumnEditor({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold cursor-pointer disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
             >
               {saving ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <Save size={13} aria-hidden="true" />}
               저장
             </button>
             <button
               onClick={onClose}
-              className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+              className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               aria-label="닫기"
             >
               <X size={18} aria-hidden="true" />
@@ -190,7 +190,7 @@ export default function ColumnEditor({
                     id="column-editor-title-input"
                     value={title}
                     onChange={e => setTitle(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold text-lg focus:border-amber-500 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold text-lg focus:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                     placeholder="매거진 헤드라인"
                   />
                 </div>
@@ -200,7 +200,7 @@ export default function ColumnEditor({
                     id="column-editor-subtitle-input"
                     value={subtitle}
                     onChange={e => setSubtitle(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:border-amber-500 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                     placeholder="부제 (없어도 무방)"
                   />
                 </div>
@@ -210,7 +210,7 @@ export default function ColumnEditor({
                     id="column-editor-cover-player"
                     value={coverPlayerId}
                     onChange={e => setCoverPlayerId(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                   >
                     <option value="">— 선택 안 함 —</option>
                     {allPlayers.map(p => (
@@ -224,7 +224,7 @@ export default function ColumnEditor({
               <div className="border border-gray-700 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setShowHelp(v => !v)}
-                  className="w-full flex items-center justify-between px-3 py-2 bg-gray-800/60 hover:bg-gray-800 cursor-pointer"
+                  className="w-full flex items-center justify-between px-3 py-2 bg-gray-800/60 hover:bg-gray-800 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
                 >
                   <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
                     <Info size={12} /> 참조 마커 (선수/팀/게임 클릭 링크)
@@ -236,17 +236,17 @@ export default function ColumnEditor({
                     <div className="flex items-center gap-2 flex-wrap">
                       <code className="px-1.5 py-0.5 bg-blue-500/20 text-blue-300 rounded font-mono">{'{{p:이름}}'}</code>
                       <span className="text-gray-400">→ 선수 프로필 팝업 · 예: <code className="font-mono">{'{{p:김로빈}}'}</code></span>
-                      <button onClick={() => insertAtCursor('{{p:}}')} className="ml-auto px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 cursor-pointer text-[11px]">삽입</button>
+                      <button onClick={() => insertAtCursor('{{p:}}')} className="ml-auto px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 cursor-pointer text-[11px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1">삽입</button>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <code className="px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded font-mono">{'{{t:팀명}}'}</code>
                       <span className="text-gray-400">→ 팀 페이지 이동 · 예: <code className="font-mono">{'{{t:락다운}}'}</code></span>
-                      <button onClick={() => insertAtCursor('{{t:}}')} className="ml-auto px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 cursor-pointer text-[11px]">삽입</button>
+                      <button onClick={() => insertAtCursor('{{t:}}')} className="ml-auto px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 cursor-pointer text-[11px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1">삽입</button>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <code className="px-1.5 py-0.5 bg-amber-500/20 text-amber-300 rounded font-mono">{'{{g:YYYY-MM-DD}}'}</code>
                       <span className="text-gray-400">→ 박스스코어 팝업 · 예: <code className="font-mono">{'{{g:2026-07-04}}'}</code></span>
-                      <button onClick={() => insertAtCursor('{{g:}}')} className="ml-auto px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 cursor-pointer text-[11px]">삽입</button>
+                      <button onClick={() => insertAtCursor('{{g:}}')} className="ml-auto px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 cursor-pointer text-[11px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1">삽입</button>
                     </div>
                     <div className="text-gray-500 text-[11px] pt-1 border-t border-gray-800">
                       마크다운: <code className="font-mono">## 헤더</code> · <code className="font-mono">**볼드**</code> · <code className="font-mono">*이탤릭*</code> · <code className="font-mono">- 리스트</code> · <code className="font-mono">{'> 인용'}</code>
@@ -262,7 +262,7 @@ export default function ColumnEditor({
                   id="column-editor-body"
                   value={bodyMd}
                   onChange={e => setBodyMd(e.target.value)}
-                  className="flex-1 min-h-[400px] w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-gray-200 font-mono text-sm focus:border-amber-500 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 resize-none"
+                  className="flex-1 min-h-[400px] w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-gray-200 font-mono text-sm focus:border-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 resize-none"
                   placeholder="## 📸 커버 스토리&#10;&#10;이번 주..."
                   spellCheck={false}
                 />

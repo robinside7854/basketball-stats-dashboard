@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 
 // POST /api/leagues/[leagueId]/schedule-dates/auto
@@ -61,6 +62,10 @@ export async function POST(
     .insert(rows)
 
   if (insertErr) return NextResponse.json({ error: insertErr.message }, { status: 500 })
+
+  // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
+  revalidateTag(`league-${leagueId}`, 'max')
+  revalidateTag(`league-${leagueId}-games`, 'max')
 
   return NextResponse.json({
     inserted: newDates.length,

@@ -120,7 +120,7 @@ export default function StreakSpotlight({ leagueId, maxEntries = 8, initialData 
               <button
                 key={`${s.player_id}-${s.category}`}
                 onClick={() => setQuickPlayer({ id: s.player_id, name: s.name })}
-                className="w-full flex items-center gap-3 lg:gap-4 text-left cursor-pointer group transition-colors"
+                className="w-full flex items-center gap-3 lg:gap-4 text-left cursor-pointer group transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                 style={{
                   padding: isTop ? '14px 16px' : '12px 16px',
                   background: isTop ? 'var(--mm-yellow)' : 'transparent',

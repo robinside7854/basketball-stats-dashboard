@@ -26,7 +26,7 @@ export default function LeagueSubTabs({ group }: { group: 'squad' | 'games' }) {
         const active = pathname.startsWith(href)
         return (
           <Link key={t.seg} href={href}
-            className={`px-4 py-2 lg:px-5 lg:py-2.5 text-sm lg:text-base border-b-2 -mb-px transition-colors cursor-pointer ${
+            className={`px-4 py-2 lg:px-5 lg:py-2.5 text-sm lg:text-base border-b-2 -mb-px transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${
               active
                 ? 'border-[color:var(--mm-yellow)] text-[color:var(--mm-ink)] font-bold'
                 : 'border-transparent text-[color:var(--mm-muted)] font-medium hover:text-[color:var(--mm-ink)]'

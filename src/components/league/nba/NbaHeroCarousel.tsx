@@ -42,6 +42,9 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const slideRefs = useRef<Array<HTMLDivElement | null>>([])
   const [current, setCurrent] = useState(0)
+  // ref 로 current 값 참조 — deps 에 current 를 넣지 않고 스와이프마다 observer 재등록 방지
+  const currentRef = useRef(0)
+  useEffect(() => { currentRef.current = current }, [current])
 
   // IntersectionObserver 로 현재 슬라이드 인덱스 감지
   useEffect(() => {
@@ -51,7 +54,7 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
       (observed) => {
         // 가장 큰 intersectionRatio 를 가진 슬라이드가 현재
         let maxRatio = 0
-        let bestIdx = current
+        let bestIdx = currentRef.current
         for (const entry of observed) {
           if (entry.intersectionRatio > maxRatio) {
             maxRatio = entry.intersectionRatio
@@ -64,7 +67,7 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
     )
     for (const el of slideRefs.current) if (el) io.observe(el)
     return () => io.disconnect()
-  }, [entries.length, current])
+  }, [entries.length])
 
   function goTo(idx: number) {
     const el = slideRefs.current[idx]
@@ -150,7 +153,7 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
             onClick={goPrev}
             disabled={current === 0}
             aria-label="이전 라운드"
-            className="hidden md:flex absolute top-1/2 -translate-y-1/2 left-2 lg:left-4 z-10 items-center justify-center transition-opacity duration-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-100 opacity-85"
+            className="hidden md:flex absolute top-1/2 -translate-y-1/2 left-2 lg:left-4 z-10 items-center justify-center transition-opacity duration-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-100 opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
             style={{
               width: '44px',
               height: '44px',
@@ -167,7 +170,7 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
             onClick={goNext}
             disabled={current === entries.length - 1}
             aria-label="다음 라운드"
-            className="hidden md:flex absolute top-1/2 -translate-y-1/2 right-2 lg:right-4 z-10 items-center justify-center transition-opacity duration-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-100 opacity-85"
+            className="hidden md:flex absolute top-1/2 -translate-y-1/2 right-2 lg:right-4 z-10 items-center justify-center transition-opacity duration-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-100 opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
             style={{
               width: '44px',
               height: '44px',
@@ -204,7 +207,7 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
                 type="button"
                 onClick={() => goTo(idx)}
                 aria-label={`${idx + 1}번째 라운드로 이동`}
-                className="cursor-pointer transition-all duration-200"
+                className="cursor-pointer transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                 style={{
                   width: idx === current ? '24px' : '8px',
                   height: '8px',

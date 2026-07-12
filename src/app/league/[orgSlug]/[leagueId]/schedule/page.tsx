@@ -163,7 +163,7 @@ export default function LeagueSchedulePage() {
     <div className="mm-brand space-y-6">
       <LeagueSubTabs group="games" />
       <div
-        className="flex items-center justify-between px-6 md:px-8 py-5"
+        className="flex flex-wrap items-center justify-between gap-3 px-5 sm:px-6 md:px-8 py-5"
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
@@ -187,7 +187,7 @@ export default function LeagueSchedulePage() {
           <button
             onClick={autoGenerate}
             disabled={autoGenerating}
-            className="flex items-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-3 py-2 transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50"
             style={{
               background: 'var(--mm-yellow)',
               color: 'var(--mm-black)',
@@ -199,7 +199,7 @@ export default function LeagueSchedulePage() {
         ) : (
           <button
             onClick={openPinModal}
-            className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-3 py-2 transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-4 py-2 min-h-[44px] transition-colors cursor-pointer"
             style={{
               border: '1px solid var(--mm-rule)',
               color: 'var(--mm-muted)',
@@ -214,13 +214,13 @@ export default function LeagueSchedulePage() {
       {/* 날짜 추가 */}
       {isEditMode && (
         <div
-          className="p-5 flex items-end gap-2"
+          className="p-4 sm:p-5 flex flex-wrap items-end gap-2 sm:gap-3"
           style={{
             background: 'var(--mm-panel-alt)',
             border: '1px solid var(--mm-rule)',
           }}
         >
-          <div className="flex-1 space-y-1.5">
+          <div className="flex-1 min-w-[220px] space-y-1.5">
             <label
               className="text-[11px] tracking-[0.16em] uppercase font-bold"
               style={{ color: 'var(--mm-muted)' }}
@@ -231,6 +231,7 @@ export default function LeagueSchedulePage() {
               type="date"
               value={newDate}
               onChange={e => setNewDate(e.target.value)}
+              className="min-h-[44px]"
               style={{
                 background: 'var(--mm-panel)',
                 border: '1px solid var(--mm-rule)',
@@ -242,7 +243,7 @@ export default function LeagueSchedulePage() {
           <button
             onClick={addDate}
             disabled={adding}
-            className="flex items-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-3 py-2 transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50 shrink-0"
+            className="inline-flex items-center justify-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50 shrink-0"
             style={{
               background: 'var(--mm-ink)',
               color: 'var(--mm-panel)',
@@ -255,7 +256,7 @@ export default function LeagueSchedulePage() {
             onClick={addExhibitionDate}
             disabled={adding}
             title="2팀(미라클 vs 모닝) · 10분 4쿼터 · 2경기 — 리그 순위 제외"
-            className="flex items-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-3 py-2 transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50 shrink-0"
+            className="inline-flex items-center justify-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50 shrink-0"
             style={{
               background: 'var(--mm-yellow)',
               color: 'var(--mm-black)',
@@ -291,7 +292,7 @@ export default function LeagueSchedulePage() {
                 <button
                   key={tab.id}
                   onClick={() => setSelectedQFilter(tab.id)}
-                  className="px-3 py-1.5 text-[11px] font-black tracking-widest uppercase transition-colors cursor-pointer"
+                  className="inline-flex items-center justify-center px-4 py-2 min-h-[44px] min-w-[44px] text-[11px] font-black tracking-widest uppercase transition-colors cursor-pointer"
                   style={{
                     background: active ? 'var(--mm-yellow)' : 'var(--mm-panel)',
                     color: active ? 'var(--mm-black)' : 'var(--mm-muted)',
@@ -331,7 +332,7 @@ export default function LeagueSchedulePage() {
                 {datesWithStats.has(sd.date) ? (
                   <button
                     onClick={() => setBoxscoreDate(sd.date)}
-                    className="flex items-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-3 py-1.5 transition-colors cursor-pointer btn-press"
+                    className="inline-flex items-center justify-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-colors cursor-pointer btn-press"
                     style={{
                       background: 'var(--mm-yellow-soft)',
                       color: 'var(--mm-yellow-strong)',
@@ -342,7 +343,7 @@ export default function LeagueSchedulePage() {
                   </button>
                 ) : (
                   <span
-                    className="flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-3 py-1.5 cursor-not-allowed select-none"
+                    className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-4 py-2 min-h-[44px] cursor-not-allowed select-none"
                     style={{
                       background: 'var(--mm-panel-alt)',
                       color: 'var(--mm-muted)',
@@ -357,7 +358,7 @@ export default function LeagueSchedulePage() {
                   <button
                     onClick={() => removeDate(sd.date)}
                     disabled={deletingDate === sd.date}
-                    className="transition-colors cursor-pointer disabled:opacity-40 p-1.5 hover:bg-[color:var(--mm-panel-alt)]"
+                    className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors cursor-pointer disabled:opacity-40 hover:bg-[color:var(--mm-panel-alt)]"
                     style={{ color: 'var(--mm-muted)' }}
                     aria-label="일정 삭제"
                   >

@@ -91,11 +91,11 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
           const count = badges[c.key]
           const active = count > 0
           const canClick = clickable && active
-          const cls = `relative flex flex-col items-center justify-center gap-1 rounded-sm border py-2.5 px-1 transition-shadow ${
+          const cls = `relative flex flex-col items-center justify-center gap-1 rounded-sm border py-2.5 px-1 transition-shadow duration-200 ${
             active
               ? `${c.bg} ${c.border}`
               : 'bg-[color:var(--mm-panel-alt)] border-[color:var(--mm-rule)]'
-          } ${canClick ? 'cursor-pointer hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]' : 'cursor-default'}`
+          } ${canClick ? 'cursor-pointer hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1' : 'cursor-default'}`
           const content = (
             <>
               <c.Icon size={16} className={active ? c.color : 'text-[color:var(--mm-muted)]'} />
@@ -138,7 +138,8 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
               </div>
               <button
                 onClick={() => setOpenCat(null)}
-                className="text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] p-1 rounded hover:bg-[color:var(--mm-panel-alt)] cursor-pointer transition-colors"
+                aria-label="닫기"
+                className="text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] p-1 rounded hover:bg-[color:var(--mm-panel-alt)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               >
                 <X size={16} />
               </button>
@@ -155,7 +156,7 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
                       key={date}
                       type="button"
                       onClick={() => setSelectedDate(date)}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-sm border transition-shadow cursor-pointer hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] ${activeCategory.bg} ${activeCategory.border}`}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-sm border transition-shadow duration-200 cursor-pointer hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${activeCategory.bg} ${activeCategory.border}`}
                     >
                       <span className={`text-sm font-bold ${activeCategory.color}`}>{formatKoreanDate(date)}</span>
                       <span className="text-xs text-[color:var(--mm-muted)] uppercase tracking-widest">박스스코어 →</span>

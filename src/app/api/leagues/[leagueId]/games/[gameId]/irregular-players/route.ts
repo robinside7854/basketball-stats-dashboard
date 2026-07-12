@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 
 type Ctx = { params: Promise<{ leagueId: string; gameId: string }> }
@@ -66,6 +67,10 @@ export async function POST(req: Request, { params }: Ctx) {
       .from('league_game_players')
       .upsert(autoInserts, { onConflict: 'league_game_id,league_player_id', ignoreDuplicates: true })
   }
+
+  // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
+  revalidateTag(`league-${leagueId}`, 'max')
+  revalidateTag(`league-${leagueId}-games`, 'max')
 
   return NextResponse.json({ ok: true, auto_assigned: autoInserts.length })
 }

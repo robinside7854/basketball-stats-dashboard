@@ -96,7 +96,7 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
             </div>
             <button onClick={onClose}
               aria-label="닫기"
-              className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center w-11 h-11 shrink-0 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1">
+              className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors duration-200 inline-flex items-center justify-center w-11 h-11 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1">
               <X size={18} aria-hidden="true" />
             </button>
           </div>
@@ -129,7 +129,7 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
                     <li key={c.player_id}>
                     <button
                       onClick={() => setQuickPlayer({ id: c.player_id, name: c.name })}
-                      className={`w-full text-left px-4 lg:px-5 py-3 lg:py-3.5 hover:bg-gray-800/40 transition-colors cursor-pointer group focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset ${isWinner ? 'bg-gray-900/60' : ''}`}
+                      className={`w-full text-left px-4 lg:px-5 py-3 lg:py-3.5 hover:bg-gray-800/40 transition-colors duration-200 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset ${isWinner ? 'bg-gray-900/60' : ''}`}
                     >
                       <div className="flex items-center gap-3 lg:gap-4">
                         {/* Rank */}

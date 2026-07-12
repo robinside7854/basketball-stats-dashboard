@@ -75,7 +75,7 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
             <button
               key={date}
               onClick={() => setBoxscoreDate(date)}
-              className={`w-full text-left rounded-sm px-4 py-3.5 lg:px-5 lg:py-4 transition-shadow duration-200 cursor-pointer group bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] ${
+              className={`w-full text-left rounded-sm px-4 py-3.5 lg:px-5 lg:py-4 transition-shadow duration-200 cursor-pointer group bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${
                 allUpcoming ? '' : 'opacity-95'
               }`}
             >

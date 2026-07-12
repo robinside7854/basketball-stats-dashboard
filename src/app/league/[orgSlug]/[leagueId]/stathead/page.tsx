@@ -185,7 +185,7 @@ function StatheadContent() {
         </div>
         <button
           onClick={reset}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase transition-colors cursor-pointer min-h-[44px]"
           style={{
             background: 'var(--mm-panel)',
             border: '1px solid var(--mm-rule)',
@@ -217,7 +217,7 @@ function StatheadContent() {
             <select
               value={quarterId}
               onChange={e => setQuarterId(e.target.value)}
-              className="w-full px-3 py-2 text-sm cursor-pointer focus:outline-none"
+              className="w-full px-3 py-2 text-sm cursor-pointer focus:outline-none min-h-[44px]"
               style={{
                 background: 'var(--mm-panel-alt)',
                 border: '1px solid var(--mm-rule)',
@@ -243,7 +243,7 @@ function StatheadContent() {
               value={minGp}
               onChange={e => setMinGp(e.target.value)}
               min={0}
-              className="w-full px-3 py-2 text-sm tabular-nums focus:outline-none"
+              className="w-full px-3 py-2 text-sm tabular-nums focus:outline-none min-h-[44px]"
               style={{
                 background: 'var(--mm-panel-alt)',
                 border: '1px solid var(--mm-rule)',
@@ -261,7 +261,7 @@ function StatheadContent() {
             <button
               onClick={() => setIncludeGuests(v => !v)}
               aria-pressed={includeGuests}
-              className="w-full text-left px-3 py-2 text-sm font-bold uppercase transition-colors cursor-pointer flex items-center gap-2"
+              className="w-full text-left px-3 py-2 text-sm font-bold uppercase transition-colors cursor-pointer flex items-center gap-2 min-h-[44px]"
               style={{
                 background: includeGuests ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
                 border: `1px solid ${includeGuests ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
@@ -289,7 +289,7 @@ function StatheadContent() {
             </label>
             <button
               onClick={addFilter}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold uppercase cursor-pointer transition-colors"
+              className="flex items-center gap-1 px-3 py-2 text-xs font-bold uppercase cursor-pointer transition-colors min-h-[44px]"
               style={{
                 background: 'var(--mm-yellow)',
                 color: 'var(--mm-black)',
@@ -318,7 +318,7 @@ function StatheadContent() {
                   <select
                     value={f.stat}
                     onChange={e => updateFilter(idx, { stat: e.target.value })}
-                    className="px-2 py-1.5 text-xs cursor-pointer focus:outline-none flex-1 min-w-[100px] max-w-[130px]"
+                    className="px-2 py-2 text-xs cursor-pointer focus:outline-none flex-1 min-w-[110px] max-w-[160px] md:max-w-[130px] min-h-[44px]"
                     style={{
                       background: 'var(--mm-panel)',
                       border: '1px solid var(--mm-rule)',
@@ -338,7 +338,7 @@ function StatheadContent() {
                   <select
                     value={f.op}
                     onChange={e => updateFilter(idx, { op: e.target.value })}
-                    className="px-2 py-1.5 text-xs cursor-pointer focus:outline-none min-w-[52px] font-bold"
+                    className="px-2 py-2 text-xs cursor-pointer focus:outline-none min-w-[60px] font-bold min-h-[44px]"
                     style={{
                       background: 'var(--mm-panel)',
                       border: '1px solid var(--mm-rule)',
@@ -353,7 +353,7 @@ function StatheadContent() {
                     value={f.value}
                     onChange={e => updateFilter(idx, { value: e.target.value })}
                     step="0.1"
-                    className="px-2 py-1.5 text-xs w-20 tabular-nums focus:outline-none font-bold"
+                    className="px-2 py-2 text-xs w-20 tabular-nums focus:outline-none font-bold min-h-[44px]"
                     style={{
                       background: 'var(--mm-panel)',
                       border: '1px solid var(--mm-rule)',
@@ -363,13 +363,13 @@ function StatheadContent() {
                   />
                   <button
                     onClick={() => removeFilter(idx)}
-                    className="transition-colors cursor-pointer p-1"
+                    className="transition-colors cursor-pointer flex items-center justify-center min-w-[44px] min-h-[44px]"
                     style={{ color: 'var(--mm-muted)' }}
                     onMouseEnter={e => (e.currentTarget.style.color = 'var(--mm-live)')}
                     onMouseLeave={e => (e.currentTarget.style.color = 'var(--mm-muted)')}
                     aria-label={`조건 ${idx + 1} 삭제`}
                   >
-                    <X size={13} />
+                    <X size={16} />
                   </button>
                 </div>
               ))}
@@ -391,7 +391,7 @@ function StatheadContent() {
           <select
             value={sort.key}
             onChange={e => setSort(s => ({ ...s, key: e.target.value }))}
-            className="px-2 py-1.5 text-xs cursor-pointer focus:outline-none font-bold"
+            className="px-2 py-2 text-xs cursor-pointer focus:outline-none font-bold min-h-[44px]"
             style={{
               background: 'var(--mm-panel-alt)',
               border: '1px solid var(--mm-rule)',
@@ -402,7 +402,7 @@ function StatheadContent() {
           </select>
           <button
             onClick={() => setSort(s => ({ ...s, dir: s.dir === 'desc' ? 'asc' : 'desc' }))}
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold uppercase cursor-pointer transition-colors"
+            className="flex items-center gap-1 px-3 py-2 text-xs font-bold uppercase cursor-pointer transition-colors min-h-[44px]"
             style={{
               background: 'var(--mm-black)',
               color: '#FFFFFF',
@@ -455,8 +455,113 @@ function StatheadContent() {
             <p className="text-xs mt-1.5" style={{ color: 'var(--mm-muted)' }}>필터를 완화해 보세요</p>
           </div>
         ) : (
+          <>
+          {/* 모바일 카드뷰 (md 미만) */}
+          <div className="md:hidden grid gap-2.5">
+            {players.map((p, i) => {
+              const rankColor = i === 0
+                ? 'var(--mm-yellow-strong)'
+                : i === 1 || i === 2
+                  ? 'var(--mm-ink-soft)'
+                  : 'var(--mm-muted)'
+              const rankAccent = i === 0
+                ? 'var(--mm-yellow)'
+                : i === 1 || i === 2
+                  ? 'var(--mm-yellow-strong)'
+                  : 'transparent'
+              // 서브 지표: PPG/RPG/APG (정렬 기준과 겹치면 대체)
+              const subKeys = (['ppg', 'rpg', 'apg', 'fg_pct'] as const)
+                .filter(k => k !== sort.key)
+                .slice(0, 3)
+              return (
+                <button
+                  key={p.player_id as string}
+                  onClick={() => setQuickPlayer({ id: p.player_id as string, name: p.name as string })}
+                  className="w-full text-left p-3.5 transition-colors cursor-pointer active:opacity-80"
+                  style={{
+                    background: 'var(--mm-panel)',
+                    border: '1px solid var(--mm-rule)',
+                    borderLeft: `3px solid ${rankAccent}`,
+                  }}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <span
+                      className="font-jersey font-black tabular-nums w-6 shrink-0"
+                      style={{ color: rankColor, fontSize: '20px' }}
+                    >
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className="font-jersey font-black uppercase truncate"
+                        style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em' }}
+                      >
+                        {p.name as string}
+                      </div>
+                      <div
+                        className="text-[11px] font-bold uppercase mt-0.5"
+                        style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}
+                      >
+                        {(p.position as string ?? '—')}
+                        {p.number != null ? ` · #${p.number}` : ''}
+                        <span className="mx-1">·</span>
+                        <span className="tabular-nums">{p.gp as number}GP</span>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div
+                        className="font-jersey font-black tabular-nums leading-none"
+                        style={{
+                          color: 'var(--mm-yellow-strong)',
+                          fontSize: 'clamp(24px, 7vw, 32px)',
+                          letterSpacing: '-0.015em',
+                        }}
+                      >
+                        {formatValue(p[sort.key] as string | number, sort.key)}
+                      </div>
+                      <div
+                        className="text-[11px] font-black uppercase mt-1"
+                        style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.16em' }}
+                      >
+                        {currentSortLabel}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className="grid grid-cols-3 gap-2 pt-2"
+                    style={{ borderTop: '1px solid var(--mm-rule)' }}
+                  >
+                    {subKeys.map(k => {
+                      const label = STAT_LABEL[k] ?? k
+                      const value = k === 'fg_pct'
+                        ? ((p.fga as number ?? 0) > 0 ? `${p.fg_pct}%` : '—')
+                        : (p[k] as number | undefined ?? '—')
+                      return (
+                        <div key={k} className="text-center">
+                          <div
+                            className="text-[11px] font-bold uppercase"
+                            style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}
+                          >
+                            {label}
+                          </div>
+                          <div
+                            className="font-jersey font-black tabular-nums mt-0.5"
+                            style={{ color: 'var(--mm-ink)', fontSize: '15px' }}
+                          >
+                            {value}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+
+          {/* 데스크탑 테이블 (md 이상) */}
           <div
-            className="overflow-hidden transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+            className="hidden md:block overflow-hidden transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
             style={{
               background: 'var(--mm-panel)',
               border: '1px solid var(--mm-rule)',
@@ -566,6 +671,7 @@ function StatheadContent() {
               </table>
             </div>
           </div>
+          </>
         )}
 
         <p className="text-xs mt-3" style={{ color: 'var(--mm-muted)' }}>

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 
 // POST /api/leagues/[leagueId]/exhibition/init
@@ -128,6 +129,10 @@ export async function POST(
     .insert(slots)
     .select('id, slot_num, round_num, home_team_id, away_team_id, is_exhibition')
   if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
+
+  // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
+  revalidateTag(`league-${leagueId}`, 'max')
+  revalidateTag(`league-${leagueId}-games`, 'max')
 
   return NextResponse.json({
     teams: { home: miracleTeam, away: morningTeam },

@@ -150,7 +150,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                         <button
                           key={p.player_id}
                           onClick={() => setQuickPlayer({ id: p.player_id, name: p.name })}
-                          className="w-full grid gap-4 items-center transition-colors cursor-pointer text-left"
+                          className="w-full grid gap-4 items-center transition-colors duration-200 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                           style={{
                             gridTemplateColumns: `auto ${avatarSize}px 1fr auto`,
                             padding: isTop ? '16px 16px' : '12px 16px',

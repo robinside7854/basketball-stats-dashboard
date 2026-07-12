@@ -349,7 +349,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
           {isEditMode && (
             <button
               onClick={() => setShowEditPanel(v => !v)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-xs font-bold cursor-pointer transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-xs font-bold cursor-pointer transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               style={showEditPanel
                 ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', color: 'var(--mm-black)' }
                 : { background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', color: 'var(--mm-ink-soft)' }
@@ -361,7 +361,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
           <button
             onClick={onClose}
             aria-label="닫기"
-            className="rounded-sm cursor-pointer transition-colors duration-200 inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] hover:bg-[color:var(--mm-panel-alt)]"
+            className="rounded-sm cursor-pointer transition-colors duration-200 inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 hover:bg-[color:var(--mm-panel-alt)]"
             style={{ color: 'var(--mm-muted)' }}
           >
             <X size={18} />
@@ -498,7 +498,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       }
                     } catch { toast.error('네트워크 오류') } finally { setGeneratingAI(false) }
                   }}
-                  className="absolute -bottom-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-sm text-[10px] font-bold transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-wait z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  className="absolute -bottom-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-sm text-[10px] font-bold transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-wait z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                   style={{
                     background: 'var(--mm-yellow)',
                     color: 'var(--mm-black)',
@@ -582,7 +582,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   id={nameId}
                   value={editForm.name}
                   onChange={e => setEditForm(f => ({...f, name: e.target.value}))}
-                  className="w-full rounded-sm px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  className="w-full rounded-sm px-2.5 py-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                   style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }}
                 />
               </div>
@@ -597,7 +597,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         type="button"
                         aria-pressed={active}
                         onClick={() => togglePosition(p)}
-                        className="px-3 py-1.5 rounded-sm text-xs font-bold border transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                        className="px-3 py-1.5 rounded-sm text-xs font-bold border transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                         style={active
                           ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', color: 'var(--mm-black)' }
                           : { background: 'var(--mm-panel)', borderColor: 'var(--mm-rule)', color: 'var(--mm-ink-soft)' }
@@ -651,7 +651,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 }}
                 disabled={togglingP1}
                 aria-pressed={player?.plus_one ?? false}
-                className="px-3 py-1 rounded-sm text-xs font-bold cursor-pointer transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                className="px-3 py-1 rounded-sm text-xs font-bold cursor-pointer transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                 style={player?.plus_one
                   ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', border: '1px solid var(--mm-black)', color: 'var(--mm-black)' }
                   : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }
@@ -664,7 +664,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {!confirmDelete ? (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="w-full py-2 rounded-sm text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2"
+                className="w-full py-2 rounded-sm text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] focus-visible:ring-offset-1"
                 style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-live)' }}
               >
                 선수 삭제
@@ -677,14 +677,14 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, { method: 'DELETE', headers: leagueHeaders })
                   setDeleting(false); onDeleted?.(); onClose()
                 }} disabled={deleting}
-                  className="flex-1 py-2 rounded-sm text-xs font-black uppercase tracking-[0.14em] text-white cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2"
+                  className="flex-1 py-2 rounded-sm text-xs font-black uppercase tracking-[0.14em] text-white cursor-pointer transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] focus-visible:ring-offset-1"
                   style={{ background: 'var(--mm-live)', border: '1px solid var(--mm-black)' }}
                 >
                   {deleting ? '삭제 중...' : '삭제 확인'}
                 </button>
                 <button
                   onClick={() => setConfirmDelete(false)}
-                  className="flex-1 py-2 rounded-sm text-xs font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  className="flex-1 py-2 rounded-sm text-xs font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                   style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
                 >취소</button>
               </div>
@@ -708,7 +708,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     <>
                       <button
                         onClick={() => setSelectedQuarterId(null)}
-                        className="shrink-0 px-3 py-1 rounded-sm text-xs font-bold cursor-pointer transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                        className="shrink-0 px-3 py-1 rounded-sm text-xs font-bold cursor-pointer transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                         style={selectedQuarterId === null
                           ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', color: 'var(--mm-black)' }
                           : { background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', color: 'var(--mm-ink-soft)' }
@@ -720,7 +720,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         <button
                           key={q.id}
                           onClick={() => setSelectedQuarterId(q.id)}
-                          className="shrink-0 px-3 py-1 rounded-sm text-xs font-bold cursor-pointer transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                          className="shrink-0 px-3 py-1 rounded-sm text-xs font-bold cursor-pointer transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                           style={selectedQuarterId === q.id
                             ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', color: 'var(--mm-black)' }
                             : { background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', color: 'var(--mm-ink-soft)' }
@@ -738,7 +738,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   >
                     {(['round','game'] as const).map(u => (
                       <button key={u} onClick={() => setStatUnit(u)}
-                        className="px-2.5 py-0.5 text-xs font-bold rounded-sm cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                        className="px-2.5 py-0.5 text-xs font-bold rounded-sm cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                         style={statUnit === u
                           ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
                           : { color: 'var(--mm-muted)' }
@@ -1052,7 +1052,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   >
                     {(['court', 'donut'] as const).map(v => (
                       <button key={v} onClick={() => setShotView(v)}
-                        className="px-2.5 py-1 text-xs font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                        className="px-2.5 py-1 text-xs font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                         style={shotView === v
                           ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
                           : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)' }
@@ -1214,7 +1214,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                           key={key}
                           type="button"
                           onClick={() => setCareerHighBoxscoreDate(ch.date as string)}
-                          className="text-left rounded-sm px-3 py-2.5 group transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] hover:bg-[color:var(--mm-yellow-soft)]"
+                          className="text-left rounded-sm px-3 py-2.5 group transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 hover:bg-[color:var(--mm-yellow-soft)]"
                           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
                           title={`${ch.date} 박스스코어 보기`}
                         >
@@ -1363,7 +1363,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       >
         <button
           onClick={() => setPhotoLightboxOpen(false)}
-          className="absolute top-4 right-4 rounded-sm p-2 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+          className="absolute top-4 right-4 rounded-sm p-2 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
           style={{ background: 'rgba(0,0,0,0.60)', color: '#fff' }}
           aria-label="닫기"
         >

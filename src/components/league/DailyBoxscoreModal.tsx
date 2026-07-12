@@ -113,7 +113,7 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
               return (
                 <th key={c.key}
                   onClick={() => c.sortKey && handleSort(c.sortKey)}
-                  className="py-2.5 px-2 text-center text-[11px] font-jersey font-black whitespace-nowrap cursor-pointer select-none transition-colors uppercase tracking-widest"
+                  className="py-2.5 px-2 text-center text-[11px] font-jersey font-black whitespace-nowrap cursor-pointer select-none transition-colors duration-200 uppercase tracking-widest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
                   style={{ color: isActive ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>
                   {c.label}
                   {c.sortKey && (isActive
@@ -334,7 +334,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                 onClick={saveAsImage}
                 disabled={savingImage}
                 title="팀 카톡방 공유용 박스스코어 PNG 저장"
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
                 style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
               >
                 {savingImage ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
@@ -344,7 +344,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
             <button
               onClick={onClose}
               aria-label="닫기"
-              className="cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+              className="cursor-pointer transition-colors duration-200 inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               style={{ color: 'var(--mm-ink-soft)' }}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--mm-yellow-soft)'; e.currentTarget.style.color = 'var(--mm-ink)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mm-ink-soft)' }}
@@ -362,7 +362,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
           >
             <button
               onClick={() => setScoreboardCollapsed(v => !v)}
-              className="w-full flex items-center justify-between px-6 py-2 cursor-pointer transition-colors group"
+              className="w-full flex items-center justify-between px-6 py-2 cursor-pointer transition-colors duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--mm-yellow-soft)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
             >
@@ -406,7 +406,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                   aria-controls={`daily-boxscore-panel-${tab.key}`}
                   id={`daily-boxscore-tab-${tab.key}`}
                   onClick={() => setActiveTab(tab.key)}
-                  className="px-6 py-3 text-xs font-black uppercase tracking-[0.18em] transition-all duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                  className="px-6 py-3 text-xs font-black uppercase tracking-[0.18em] transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                   style={{
                     borderBottom: active ? '3px solid var(--mm-yellow)' : '3px solid transparent',
                     color: active ? 'var(--mm-ink)' : 'var(--mm-muted)',
@@ -458,7 +458,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       onClick={() => setTeamFilter('all')}
-                      className="px-3 py-1.5 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
+                      className="px-3 py-1.5 text-xs font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                       style={teamFilter === 'all'
                         ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
                         : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
@@ -467,7 +467,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                       <button
                         key={t.id}
                         onClick={() => setTeamFilter(t.id)}
-                        className="px-3 py-1.5 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
+                        className="px-3 py-1.5 text-xs font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                         style={teamFilter === t.id
                           ? { backgroundColor: t.color ?? 'var(--mm-yellow)', borderColor: t.color ?? 'var(--mm-yellow)', border: '1px solid', color: '#fff' }
                           : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
@@ -584,7 +584,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                     )}
                     {/* 경기 헤더 */}
                     <button
-                      className="w-full text-left px-5 py-4 flex items-center gap-4 cursor-pointer transition-colors duration-150"
+                      className="w-full text-left px-5 py-4 flex items-center gap-4 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
                       onClick={() => setExpandedGame(isExpanded ? null : g.id)}
                       onMouseEnter={e => { e.currentTarget.style.background = 'var(--mm-yellow-soft)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
@@ -1103,7 +1103,7 @@ function TeamSelectorBars({
             <button
               key={t.id}
               onClick={() => onChangeA(t.id)}
-              className="px-2.5 py-1 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
+              className="px-2.5 py-1 text-xs font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               style={teamAId === t.id
                 ? { backgroundColor: t.color ?? 'var(--mm-yellow)', borderColor: t.color ?? 'var(--mm-yellow)', border: '1px solid', color: '#fff' }
                 : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
@@ -1120,7 +1120,7 @@ function TeamSelectorBars({
             <button
               key={t.id}
               onClick={() => onChangeB(t.id)}
-              className="px-2.5 py-1 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
+              className="px-2.5 py-1 text-xs font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               style={teamBId === t.id
                 ? { backgroundColor: t.color ?? 'var(--mm-yellow)', borderColor: t.color ?? 'var(--mm-yellow)', border: '1px solid', color: '#fff' }
                 : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}

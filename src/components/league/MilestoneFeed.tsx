@@ -156,7 +156,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                   <button
                     key={`${u.player_id}-${u.category}-${u.target}`}
                     onClick={() => setQuickPlayer({ id: u.player_id, name: u.name })}
-                    className="w-full text-left group transition-colors cursor-pointer"
+                    className="w-full text-left group transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                     style={{
                       background: 'var(--mm-panel-alt)',
                       border: '1px solid var(--mm-rule)',
@@ -178,7 +178,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                           {u.category}
                         </span>
                         <span
-                          className="font-jersey uppercase truncate transition-colors"
+                          className="font-jersey uppercase truncate transition-colors duration-200"
                           style={{
                             color: 'var(--mm-ink)',
                             fontSize: '18px',
@@ -230,7 +230,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                         style={{ background: 'var(--mm-rule)' }}
                       >
                         <div
-                          className="h-full transition-all"
+                          className="h-full transition-all duration-200"
                           style={{
                             width: `${Math.min(100, u.percent)}%`,
                             background: 'var(--mm-yellow)',
@@ -283,7 +283,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                   <button
                     key={`${r.player_id}-${r.category}-${r.target}-${r.achieved_at}`}
                     onClick={() => setQuickPlayer({ id: r.player_id, name: r.name })}
-                    className="w-full flex items-center gap-3 transition-colors cursor-pointer group text-left"
+                    className="w-full flex items-center gap-3 transition-colors duration-200 cursor-pointer group text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                     style={{
                       background: 'var(--mm-panel-alt)',
                       border: '1px solid var(--mm-rule)',

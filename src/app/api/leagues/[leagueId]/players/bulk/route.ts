@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 
 export async function POST(
@@ -28,5 +29,9 @@ export async function POST(
   const supabase = createClient()
   const { data, error } = await supabase.from('league_players').insert(rows).select()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
+  revalidateTag(`league-${leagueId}`, 'max')
+
   return NextResponse.json({ inserted: data?.length ?? 0 }, { status: 201 })
 }
