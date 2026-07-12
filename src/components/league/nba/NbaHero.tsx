@@ -116,9 +116,9 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
           type="button"
           onClick={() => setOpenQuickView(true)}
           aria-label={`${data.name} 프로필 카드 열기`}
-          className="text-left group/hero relative transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+          className="text-left group/hero relative transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 p-5 sm:p-8 md:p-10"
           style={{
-            padding: '32px 40px 28px',
+            paddingBlockEnd: undefined,
             borderRight: '1px solid var(--mm-rule)',
             color: 'var(--mm-ink)',
           }}
@@ -196,12 +196,12 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
           </p>
 
           {/* 아바타 + 이름 — 대형화 (여백 최소) */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 sm:gap-6">
             <div
               className="shrink-0 rounded-full overflow-hidden flex items-center justify-center font-jersey font-black transition-transform duration-200 group-hover/hero:scale-[1.03]"
               style={{
-                width: 'clamp(96px, 12vw, 140px)',
-                height: 'clamp(96px, 12vw, 140px)',
+                width: 'clamp(80px, 22vw, 140px)',
+                height: 'clamp(80px, 22vw, 140px)',
                 background: 'var(--mm-panel-alt)',
                 border: '4px solid var(--mm-yellow)',
                 color: 'var(--mm-ink)',
@@ -216,13 +216,15 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
             </div>
             <div className="min-w-0 flex-1">
               <div
-                className="font-jersey font-black uppercase group-hover/hero:underline underline-offset-4 decoration-[3px]"
+                className="font-jersey font-black uppercase break-keep group-hover/hero:underline underline-offset-4 decoration-[3px]"
                 style={{
                   color: 'var(--mm-ink)',
-                  fontSize: 'clamp(44px, 6vw, 72px)',
+                  fontSize: 'clamp(32px, 8.5vw, 72px)',
                   letterSpacing: '-0.015em',
-                  lineHeight: '0.95',
+                  lineHeight: '1',
                   textDecorationColor: 'var(--mm-yellow)',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'anywhere',
                 }}
               >
                 {data.name}
@@ -236,10 +238,12 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
                 )}
               </div>
               <div
-                className="text-[13px] tracking-[0.16em] uppercase font-black mt-3 inline-flex items-center gap-2"
+                className="text-[12px] sm:text-[13px] tracking-[0.14em] sm:tracking-[0.16em] uppercase font-black mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 break-keep"
                 style={{ color: 'var(--mm-muted)' }}
               >
-                {data.teamName ? `${data.teamName} · ` : ''}{rangeLabel}
+                <span className="break-keep">
+                  {data.teamName ? `${data.teamName} · ` : ''}{rangeLabel}
+                </span>
                 <span
                   className="text-[11px] tracking-[0.14em] transition-opacity duration-200 group-hover/hero:opacity-100 opacity-70"
                   style={{ color: 'var(--mm-yellow-strong)' }}
@@ -253,11 +257,11 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
 
         {/* ===== 우: 노랑 패널 - 큰 숫자 + 막대 차트 ===== */}
         <aside
-          className="p-8 md:p-10"
+          className="p-5 sm:p-8 md:p-10"
           style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}
         >
           <div
-            className="text-[12px] font-black tracking-[0.22em] uppercase"
+            className="text-[11px] sm:text-[12px] font-black tracking-[0.18em] sm:tracking-[0.22em] uppercase break-keep"
             style={{ color: 'rgba(0,0,0,0.75)' }}
           >
             이 라운드 총 득점
@@ -266,7 +270,7 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
           <div
             className="font-jersey leading-[0.85] tabular-nums mt-2"
             style={{
-              fontSize: 'clamp(88px, 15vw, 140px)',
+              fontSize: 'clamp(72px, 22vw, 140px)',
               letterSpacing: '-0.025em',
               fontWeight: 900,
               color: 'var(--mm-black)',
@@ -285,16 +289,16 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
           {showTrend ? (
             <div className="mt-6 pt-5" style={{ borderTop: '2px solid rgba(0,0,0,0.15)' }}>
               <div
-                className="flex items-baseline justify-between mb-3"
+                className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 mb-3"
               >
                 <span
-                  className="text-[12px] font-black tracking-[0.22em] uppercase"
+                  className="text-[11px] sm:text-[12px] font-black tracking-[0.18em] sm:tracking-[0.22em] uppercase break-keep"
                   style={{ color: 'rgba(0,0,0,0.75)' }}
                 >
                   최근 {data.roundSeries!.length}주 흐름
                 </span>
                 <span
-                  className="text-[11px] font-black tracking-[0.16em] uppercase"
+                  className="text-[10px] sm:text-[11px] font-black tracking-[0.14em] sm:tracking-[0.16em] uppercase break-keep"
                   style={{ color: 'rgba(0,0,0,0.55)' }}
                 >
                   평균 {data.ppr.toFixed(1)} PTS

@@ -493,8 +493,8 @@ function StatheadContent() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <div
-                        className="font-jersey font-black uppercase truncate"
-                        style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em' }}
+                        className="font-jersey font-black uppercase break-keep"
+                        style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                       >
                         {p.name as string}
                       </div>
@@ -635,8 +635,8 @@ function StatheadContent() {
                         <td className="py-2.5 px-4 sticky left-0" style={{ background: 'inherit' }}>
                           <button
                             onClick={() => setQuickPlayer({ id: p.player_id as string, name: p.name as string })}
-                            className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 truncate max-w-[130px] block text-base"
-                            style={{ color: 'var(--mm-ink)' }}
+                            className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block text-base"
+                            style={{ color: 'var(--mm-ink)', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                             onMouseEnter={e => (e.currentTarget.style.color = 'var(--mm-yellow-strong)')}
                             onMouseLeave={e => (e.currentTarget.style.color = 'var(--mm-ink)')}
                           >

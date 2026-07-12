@@ -322,8 +322,8 @@ export default function LeagueSchedulePage() {
               <div className="flex items-center gap-3 min-w-0">
                 <CalendarDays size={18} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />
                 <span
-                  className="font-jersey font-black uppercase truncate"
-                  style={{ color: 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em' }}
+                  className="font-jersey font-black uppercase break-keep min-w-0"
+                  style={{ color: 'var(--mm-ink)', fontSize: 'clamp(17px, 4.6vw, 20px)', letterSpacing: '-0.005em', lineHeight: 1.15, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                 >
                   {formatDate(sd.date)}
                 </span>

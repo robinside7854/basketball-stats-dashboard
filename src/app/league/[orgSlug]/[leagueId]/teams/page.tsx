@@ -325,7 +325,7 @@ function StatsTable({
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
                   {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />}
                   <div className="flex-1 min-w-0">
-                    <div className="font-jersey font-black uppercase text-base truncate" style={{ color: 'var(--mm-ink)' }}>
+                    <div className="font-jersey font-black uppercase text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
                       {p.number != null && <span className="font-mono ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                     </div>
@@ -362,7 +362,7 @@ function StatsTable({
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
                   {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />}
                   <div className="flex-1 min-w-0">
-                    <div className="font-jersey font-black uppercase text-base truncate" style={{ color: 'var(--mm-ink)' }}>
+                    <div className="font-jersey font-black uppercase text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
                       {p.number != null && <span className="font-mono ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                     </div>
@@ -399,7 +399,7 @@ function StatsTable({
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
                   {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />}
                   <div className="flex-1 min-w-0">
-                    <div className="font-jersey font-black uppercase text-base truncate" style={{ color: 'var(--mm-ink)' }}>
+                    <div className="font-jersey font-black uppercase text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
                       {p.number != null && <span className="font-mono ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                     </div>
@@ -1121,7 +1121,7 @@ export default function LeagueTeamsPage() {
                       <span className="font-jersey font-black tabular-nums w-8 shrink-0" style={{ color: isFirst ? 'var(--mm-black)' : 'var(--mm-muted)', fontSize: '28px' }}>{idx + 1}</span>
                       <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
                       <div className="min-w-0">
-                        <span className="font-jersey font-black uppercase block truncate" style={{ color: isFirst ? 'var(--mm-black)' : 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em' }}>{s.displayName}</span>
+                        <span className="font-jersey font-black uppercase block break-keep" style={{ color: isFirst ? 'var(--mm-black)' : 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em', lineHeight: 1.15, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{s.displayName}</span>
                         {s.quarterLabels.length > 0 && selectedQId === 'all' && (
                           <span className="text-xs font-mono" style={{ color: isFirst ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)' }}>{s.quarterLabels.join(' · ')}</span>
                         )}
@@ -1154,7 +1154,7 @@ export default function LeagueTeamsPage() {
                         }}>
                           <div className="flex items-center gap-1.5 min-w-0">
                             <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: op.color }} />
-                            <span className="text-xs font-bold truncate" style={{ color: isFirst ? 'var(--mm-black)' : 'var(--mm-ink)' }}>vs {op.displayName}</span>
+                            <span className="text-xs font-bold break-keep min-w-0" style={{ color: isFirst ? 'var(--mm-black)' : 'var(--mm-ink)', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>vs {op.displayName}</span>
                           </div>
                           {total === 0 ? (
                             <span className="text-xs shrink-0" style={{ color: isFirst ? 'rgba(0,0,0,0.5)' : 'var(--mm-muted)' }}>기록 없음</span>

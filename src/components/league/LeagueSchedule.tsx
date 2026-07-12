@@ -79,9 +79,9 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
                 allUpcoming ? '' : 'opacity-95'
               }`}
             >
-              <div className="flex items-center justify-between gap-3 lg:gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 lg:gap-4">
                 {/* 날짜 + 경기 수 */}
-                <div className="flex items-center gap-2.5 lg:gap-3 shrink-0">
+                <div className="flex items-center gap-2.5 lg:gap-3 shrink-0 min-w-0">
                   <BarChart2 size={14} className="lg:w-4 lg:h-4 text-[color:var(--mm-muted)] group-hover:text-[color:var(--mm-yellow-strong)] transition-colors shrink-0" />
                   <div>
                     <div className="flex items-center gap-2">
@@ -109,14 +109,14 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
 
                 {/* 팀 W/L 요약 */}
                 {teamRows.length > 0 && (
-                  <div className="flex items-center gap-2.5 lg:gap-4 justify-end min-w-0 overflow-hidden">
+                  <div className="flex flex-wrap items-center gap-x-2.5 lg:gap-x-4 gap-y-1.5 justify-end min-w-0">
                     {teamRows.map(t => {
                       const total = t.w + t.d + t.l
                       const winPct = total > 0 ? Math.round(t.w / total * 100) : 0
                       return (
-                        <div key={t.name} className="flex items-center gap-1.5 lg:gap-2 whitespace-nowrap">
+                        <div key={t.name} className="flex items-center gap-1.5 lg:gap-2">
                           <div className="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-                          <span className="text-xs lg:text-base text-[color:var(--mm-ink-soft)] font-medium">{t.name}</span>
+                          <span className="text-xs lg:text-base text-[color:var(--mm-ink-soft)] font-medium break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>{t.name}</span>
                           <span className="text-xs lg:text-base font-bold text-[color:var(--mm-ink)] tabular-nums">
                             {t.w}W {t.d > 0 ? <span className="text-[color:var(--mm-yellow-strong)]">{t.d}D </span> : ''}{t.l}L
                           </span>

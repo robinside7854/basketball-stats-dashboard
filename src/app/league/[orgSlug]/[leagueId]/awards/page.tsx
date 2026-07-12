@@ -325,8 +325,8 @@ export default function AwardsPage() {
                         {a.label}
                       </h3>
                       <p
-                        className="text-[11px] md:text-xs mt-1 truncate"
-                        style={{ color: 'var(--mm-muted)' }}
+                        className="text-[11px] md:text-xs mt-1 break-keep"
+                        style={{ color: 'var(--mm-muted)', lineHeight: 1.35, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                       >
                         {a.description}
                       </p>
@@ -374,15 +374,17 @@ export default function AwardsPage() {
                         </p>
                         <p
                           data-award-winner-name
-                          className="font-jersey uppercase truncate group-hover:underline underline-offset-4 decoration-[3px]"
+                          className="font-jersey uppercase break-keep group-hover:underline underline-offset-4 decoration-[3px]"
                           style={{
                             color: 'var(--mm-black)',
-                            fontSize: 'clamp(22px, 3.2vw, 28px)',
+                            fontSize: 'clamp(20px, 5.5vw, 28px)',
                             fontWeight: 900,
                             letterSpacing: '-0.005em',
-                            lineHeight: 1,
+                            lineHeight: 1.1,
                             textDecorationColor: 'var(--mm-black)',
                             marginTop: '4px',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
                           }}
                         >
                           {a.winner.name}
@@ -407,8 +409,8 @@ export default function AwardsPage() {
                           {a.winner.displayValue}
                         </p>
                         <p
-                          className="text-[11px] md:text-xs font-bold uppercase tracking-[0.14em] mt-1.5 truncate"
-                          style={{ color: 'rgba(0,0,0,0.6)' }}
+                          className="text-[11px] md:text-xs font-bold uppercase tracking-[0.12em] mt-1.5 break-keep"
+                          style={{ color: 'rgba(0,0,0,0.6)', lineHeight: 1.3, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                         >
                           {a.winner.gp}게임 · {a.metric}
                         </p>
@@ -477,8 +479,8 @@ export default function AwardsPage() {
                               {idx + 2}
                             </span>
                             <span
-                              className="text-[14px] md:text-[15px] font-bold truncate"
-                              style={{ color: 'var(--mm-ink)' }}
+                              className="text-[14px] md:text-[15px] font-bold break-keep min-w-0"
+                              style={{ color: 'var(--mm-ink)', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                             >
                               {r.name}
                               {r.number != null && (

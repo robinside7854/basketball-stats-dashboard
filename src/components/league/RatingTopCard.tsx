@@ -77,7 +77,7 @@ export default function RatingTopCard({ leagueId, quarterId, onSelectPlayer }: P
                 <p className={`text-xs lg:text-xs font-jersey font-bold uppercase tracking-widest ${leaderStyle.text}`}>
                   Rank #{leader.rank} · {leader.gp}경기
                 </p>
-                <p className="text-xl lg:text-2xl font-black text-white group-hover:text-purple-200 transition-colors truncate">
+                <p className="text-xl lg:text-2xl font-black text-white group-hover:text-purple-200 transition-colors break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.15 }}>
                   {leader.name}
                   {leader.number != null && <span className="ml-2 text-sm lg:text-base text-gray-500 font-mono">#{leader.number}</span>}
                 </p>
@@ -108,7 +108,7 @@ export default function RatingTopCard({ leagueId, quarterId, onSelectPlayer }: P
                   </span>
                   <RatingBadge ovr={r.ovr} qualified size="sm" />
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm lg:text-base font-bold text-gray-200 group-hover:text-white transition-colors truncate">
+                    <p className="text-sm lg:text-base font-bold text-gray-200 group-hover:text-white transition-colors break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {r.name}
                       {r.number != null && <span className="ml-1.5 text-xs lg:text-xs text-gray-600 font-mono">#{r.number}</span>}
                     </p>
@@ -140,7 +140,7 @@ export default function RatingTopCard({ leagueId, quarterId, onSelectPlayer }: P
                 <span className="w-9 lg:w-10 text-xs lg:text-xs font-black font-mono text-purple-400 shrink-0 text-left">{cat}</span>
                 <div className="flex-1 min-w-0 text-left">
                   <p className="text-xs lg:text-sm text-gray-500">{CATEGORY_LABELS[cat].long}</p>
-                  <p className="text-sm lg:text-base font-bold text-white truncate">{catLeader?.name ?? '—'}</p>
+                  <p className="text-sm lg:text-base font-bold text-white break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>{catLeader?.name ?? '—'}</p>
                 </div>
                 <div className={`px-2 py-0.5 lg:px-2.5 lg:py-1 rounded-md text-sm lg:text-base font-black tabular-nums ${s.bg} ${s.text} border ${s.border} shrink-0`}>
                   {value}

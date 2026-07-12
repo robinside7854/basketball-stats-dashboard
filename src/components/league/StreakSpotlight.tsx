@@ -172,11 +172,14 @@ export default function StreakSpotlight({ leagueId, maxEntries = 8, initialData 
                 {/* Player + Category */}
                 <div className="flex-1 min-w-0">
                   <p
-                    className="font-jersey font-black uppercase truncate leading-none"
+                    className="font-jersey font-black uppercase break-keep"
                     style={{
                       color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
-                      fontSize: isTop ? '20px' : '18px',
+                      fontSize: isTop ? 'clamp(17px, 4.6vw, 20px)' : 'clamp(15px, 4vw, 18px)',
                       letterSpacing: '-0.005em',
+                      lineHeight: 1.15,
+                      wordBreak: 'break-word',
+                      overflowWrap: 'anywhere',
                     }}
                   >
                     {s.name}
@@ -193,11 +196,12 @@ export default function StreakSpotlight({ leagueId, maxEntries = 8, initialData 
                     )}
                   </p>
                   <p
-                    className="font-bold uppercase mt-1.5 truncate"
+                    className="font-bold uppercase mt-1.5 break-keep"
                     style={{
                       color: isTop ? 'rgba(0,0,0,0.65)' : 'var(--mm-muted)',
                       fontSize: '11px',
-                      letterSpacing: '0.16em',
+                      letterSpacing: '0.14em',
+                      lineHeight: 1.3,
                     }}
                   >
                     {def.label}

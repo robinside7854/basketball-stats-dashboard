@@ -51,21 +51,21 @@ export default function NbaRoundsSummary({ rounds, leagueId }: Props) {
         }}
       >
         <header
-          className="flex items-baseline justify-between px-8 md:px-10 py-5"
+          className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 sm:px-6 md:px-10 py-4 md:py-5"
           style={{ borderBottom: '1px solid var(--mm-rule)' }}
         >
           <h3
-            className="font-jersey font-black uppercase"
-            style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}
+            className="font-jersey font-black uppercase break-keep"
+            style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 28px)', letterSpacing: '-0.005em', lineHeight: 1.1 }}
           >
             최근 라운드
           </h3>
-          <span className="text-[12px] tracking-[0.18em] uppercase font-bold" style={{ color: 'var(--mm-muted)' }}>
+          <span className="text-[11px] sm:text-[12px] tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
             최근 {rounds.length}주 · 하루 = 1라운드
           </span>
         </header>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-8 md:p-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 sm:p-6 md:p-8 lg:p-10">
           {rounds.map(r => {
             const topTeam = r.teams[0]
             return (
@@ -80,9 +80,9 @@ export default function NbaRoundsSummary({ rounds, leagueId }: Props) {
                 }}
               >
                 {/* 헤더 — 날짜 + 경기 수 */}
-                <div className="flex items-baseline justify-between mb-4 pb-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                  <div>
-                    <div className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>
+                <div className="flex items-baseline justify-between gap-2 mb-4 pb-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+                  <div className="min-w-0">
+                    <div className="font-jersey font-black uppercase break-keep" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em', lineHeight: 1.1 }}>
                       {r.weekLabel}
                     </div>
                     <div className="text-[11px] tracking-[0.16em] uppercase font-bold mt-1" style={{ color: 'var(--mm-muted)' }}>
@@ -91,11 +91,13 @@ export default function NbaRoundsSummary({ rounds, leagueId }: Props) {
                   </div>
                   {topTeam && (
                     <span
-                      className="text-[11px] font-black tracking-widest uppercase shrink-0"
+                      className="text-[11px] font-black tracking-[0.14em] uppercase shrink-0 break-keep"
                       style={{
                         background: 'var(--mm-yellow)',
                         color: 'var(--mm-black)',
                         padding: '3px 8px',
+                        maxWidth: '55%',
+                        lineHeight: 1.2,
                       }}
                     >
                       1위 {topTeam.name}
@@ -125,8 +127,14 @@ export default function NbaRoundsSummary({ rounds, leagueId }: Props) {
                           aria-hidden
                         />
                         <span
-                          className={`truncate ${isTop ? 'font-black' : 'font-bold'}`}
-                          style={{ color: 'var(--mm-ink)', fontSize: '15px' }}
+                          className={`min-w-0 break-keep ${isTop ? 'font-black' : 'font-bold'}`}
+                          style={{
+                            color: 'var(--mm-ink)',
+                            fontSize: '15px',
+                            lineHeight: 1.2,
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
+                          }}
                         >
                           {t.name}
                         </span>

@@ -89,16 +89,16 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
         }}
       >
         <header
-          className="flex items-baseline justify-between px-8 md:px-10 py-5"
+          className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 sm:px-6 md:px-10 py-4 md:py-5"
           style={{ borderBottom: '1px solid var(--mm-rule)' }}
         >
           <h3
-            className="font-jersey font-black uppercase"
-            style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}
+            className="font-jersey font-black uppercase break-keep"
+            style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 28px)', letterSpacing: '-0.005em', lineHeight: 1.1 }}
           >
             리그 리더
           </h3>
-          <span className="text-[12px] tracking-[0.18em] uppercase font-bold" style={{ color: 'var(--mm-muted)' }}>
+          <span className="text-[11px] sm:text-[12px] tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
             최소 {effectiveMinGP} R
           </span>
         </header>
@@ -133,8 +133,8 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                     style={{ borderBottom: '1px solid var(--mm-rule)' }}
                   >
                     <h4
-                      className="font-black uppercase"
-                      style={{ color: 'var(--mm-yellow-strong)', fontSize: '13px', letterSpacing: '0.20em' }}
+                      className="font-black uppercase break-keep"
+                      style={{ color: 'var(--mm-yellow-strong)', fontSize: '13px', letterSpacing: '0.18em', lineHeight: 1.3 }}
                     >
                       {cat.label}
                     </h4>
@@ -145,15 +145,18 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                     {top3.map((p, i) => {
                       const isTop = i === 0
                       const photo = photoMap[p.player_id]
-                      const avatarSize = isTop ? 72 : 60
+                      // 모바일에서 이름 공간 확보 → clamp 로 폭에 따라 스케일
+                      const avatarSize = isTop
+                        ? 'clamp(56px, 15vw, 72px)'
+                        : 'clamp(48px, 12vw, 60px)'
                       return (
                         <button
                           key={p.player_id}
                           onClick={() => setQuickPlayer({ id: p.player_id, name: p.name })}
-                          className="w-full grid gap-4 items-center transition-colors duration-200 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                          className="w-full grid gap-3 sm:gap-4 items-center transition-colors duration-200 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                           style={{
-                            gridTemplateColumns: `auto ${avatarSize}px 1fr auto`,
-                            padding: isTop ? '16px 16px' : '12px 16px',
+                            gridTemplateColumns: `auto minmax(0,auto) minmax(0,1fr) auto`,
+                            padding: isTop ? '14px 12px' : '10px 12px',
                             background: isTop ? 'var(--mm-yellow)' : 'transparent',
                             color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
                           }}
@@ -175,8 +178,8 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                           <span
                             className="rounded-full overflow-hidden flex items-center justify-center shrink-0"
                             style={{
-                              width: `${avatarSize}px`,
-                              height: `${avatarSize}px`,
+                              width: avatarSize,
+                              height: avatarSize,
                               background: 'var(--mm-panel)',
                               border: `${isTop ? 3 : 2}px solid ${isTop ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
                             }}
@@ -199,13 +202,15 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                           {/* 이름 + GP - 크게 */}
                           <span className="min-w-0">
                             <span
-                              className="block truncate font-jersey uppercase"
+                              className="block font-jersey uppercase break-keep"
                               style={{
                                 color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
-                                fontSize: isTop ? '26px' : '22px',
+                                fontSize: isTop ? 'clamp(20px, 5.2vw, 26px)' : 'clamp(17px, 4.4vw, 22px)',
                                 fontWeight: 900,
                                 letterSpacing: '-0.005em',
-                                lineHeight: '1',
+                                lineHeight: '1.1',
+                                wordBreak: 'break-word',
+                                overflowWrap: 'anywhere',
                               }}
                             >
                               {p.name}
@@ -224,15 +229,14 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
 
                           {/* 값 큰 숫자 + FT% 같은 subFormat (성공/시도) */}
                           <span
-                            className="flex flex-col items-end leading-none"
-                            style={{ minWidth: isTop ? '84px' : '68px' }}
+                            className="flex flex-col items-end leading-none shrink-0"
                           >
                             <span
                               className="font-jersey font-black tabular-nums leading-none"
                               style={{
                                 color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
                                 letterSpacing: '-0.015em',
-                                fontSize: isTop ? '42px' : '34px',
+                                fontSize: isTop ? 'clamp(32px, 8vw, 42px)' : 'clamp(26px, 6.5vw, 34px)',
                               }}
                             >
                               {cat.format(p[cat.key] as number)}

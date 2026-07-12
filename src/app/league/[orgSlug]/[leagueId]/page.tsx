@@ -700,7 +700,7 @@ export default async function LeagueDetailPage({
       {/* 헤더 — 코트 미세 텍스처 배경 + 저지 폰트 */}
       <div className="relative court-bg rounded-2xl px-5 py-4 lg:px-6 lg:py-5 -mx-2 sm:mx-0 border border-gray-800/40">
         <div className="flex items-center justify-between">
-          <h1 className="font-jersey text-3xl lg:text-5xl font-bold text-white tracking-wide uppercase whitespace-nowrap">{l.name}</h1>
+          <h1 className="font-jersey text-2xl sm:text-3xl lg:text-5xl font-bold text-white tracking-wide uppercase break-keep min-w-0" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.1 }}>{l.name}</h1>
           <span className={`text-xs lg:text-sm px-2.5 py-1 rounded-full font-medium ${statusColor[l.status] ?? 'bg-gray-800 text-gray-400'}`}>
             {statusLabel[l.status] ?? l.status}
           </span>

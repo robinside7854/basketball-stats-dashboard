@@ -608,7 +608,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           className={`w-3.5 h-3.5 cursor-pointer shrink-0 ${accentClass}`}
         />
         {p.number && <span className="font-mono w-6" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
-        <span className="font-medium truncate">{p.name}</span>
+        <span className="font-medium min-w-0 break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>{p.name}</span>
         {isIrregular && (
           <span
             className="ml-auto shrink-0 text-[11px] font-bold px-1 uppercase tracking-[0.10em]"
@@ -1428,8 +1428,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       <div className="bg-gray-950 border border-gray-800 rounded-2xl overflow-hidden">
                         {/* 최종 스코어 */}
                         <div className="grid grid-cols-[1fr_auto_1fr]">
-                          <div className="py-5 px-4 text-center">
-                            <p className="text-xs font-bold mb-2 truncate" style={{ color: selectedSlot.home_team?.color ?? '#3b82f6' }}>
+                          <div className="py-5 px-4 text-center min-w-0">
+                            <p className="text-xs font-bold mb-2 break-keep" style={{ color: selectedSlot.home_team?.color ?? '#3b82f6', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               {selectedSlot.home_team?.name ?? '홈팀'}
                             </p>
                             <p className="text-5xl font-black text-white tabular-nums leading-none">{liveScore?.home ?? selectedSlot.home_score}</p>
@@ -1437,8 +1437,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                           <div className="flex flex-col items-center justify-center px-4 border-x border-gray-800">
                             <span className="text-2xl text-gray-600 font-black leading-none">:</span>
                           </div>
-                          <div className="py-5 px-4 text-center">
-                            <p className="text-xs font-bold mb-2 truncate" style={{ color: selectedSlot.away_team?.color ?? '#ef4444' }}>
+                          <div className="py-5 px-4 text-center min-w-0">
+                            <p className="text-xs font-bold mb-2 break-keep" style={{ color: selectedSlot.away_team?.color ?? '#ef4444', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               {selectedSlot.away_team?.name ?? '어웨이팀'}
                             </p>
                             <p className="text-5xl font-black text-white tabular-nums leading-none">{liveScore?.away ?? selectedSlot.away_score}</p>

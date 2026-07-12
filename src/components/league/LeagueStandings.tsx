@@ -60,7 +60,7 @@ export default function LeagueStandings({ standings }: Props) {
                 <td className="py-3 lg:py-4 px-2 lg:px-3 min-w-[4.5rem] lg:min-w-[7rem]">
                   <div className="flex items-center gap-2 lg:gap-2.5">
                     <div className="w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full shrink-0" style={{ backgroundColor: s.team.color }} />
-                    <span className={`font-medium lg:font-bold lg:text-lg whitespace-nowrap ${isFirst ? 'text-[color:var(--mm-ink)]' : 'text-[color:var(--mm-ink-soft)]'}`}>{s.team.name}</span>
+                    <span className={`font-medium lg:font-bold lg:text-lg break-keep min-w-0 ${isFirst ? 'text-[color:var(--mm-ink)]' : 'text-[color:var(--mm-ink-soft)]'}`} style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>{s.team.name}</span>
                   </div>
                   <div className="w-full bg-[color:var(--mm-rule)] rounded-full h-1 mt-1">
                     <div

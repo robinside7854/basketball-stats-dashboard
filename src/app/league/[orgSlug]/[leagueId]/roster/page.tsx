@@ -805,7 +805,7 @@ export default function LeagueRosterPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
                         {isAnyLeader && <Crown size={12} className="lg:w-3.5 lg:h-3.5 text-[var(--mm-yellow-strong)] shrink-0" />}
-                        <span className="font-jersey text-[22px] lg:text-[26px] font-black uppercase text-[var(--mm-ink)] truncate leading-none tracking-tight group-hover:underline underline-offset-4 decoration-[3px] decoration-[var(--mm-yellow)]">{p.name}</span>
+                        <span className="font-jersey text-[20px] lg:text-[26px] font-black uppercase text-[var(--mm-ink)] break-keep min-w-0 tracking-tight group-hover:underline underline-offset-4 decoration-[3px] decoration-[var(--mm-yellow)]" style={{ lineHeight: 1.15, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{p.name}</span>
                       </div>
                       {p.number !== null && (
                         <span className="font-jersey text-xs tabular-nums text-[var(--mm-muted)] font-black tracking-wider">#{p.number}</span>

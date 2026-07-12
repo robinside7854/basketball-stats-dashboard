@@ -34,16 +34,16 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
       }}
     >
       <header
-        className="flex items-baseline justify-between px-8 md:px-10 py-5"
+        className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 sm:px-6 md:px-10 py-4 md:py-5"
         style={{ borderBottom: '1px solid var(--mm-rule)' }}
       >
         <h3
-          className="font-jersey font-black uppercase"
-          style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}
+          className="font-jersey font-black uppercase break-keep"
+          style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 28px)', letterSpacing: '-0.005em', lineHeight: 1.1 }}
         >
           팀 승률
         </h3>
-        <span className="text-[12px] tracking-[0.18em] uppercase font-bold" style={{ color: 'var(--mm-muted)' }}>
+        <span className="text-[11px] sm:text-[12px] tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
           {quarterLabel} · {gamesCount}경기
         </span>
       </header>
@@ -91,13 +91,15 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
 
                 {/* 팀 이름 */}
                 <span
-                  className="font-jersey uppercase truncate min-w-0"
+                  className="font-jersey uppercase min-w-0 break-keep"
                   style={{
-                    fontSize: isTop ? 'clamp(17px, 4.8vw, 22px)' : 'clamp(15px, 4vw, 18px)',
+                    fontSize: isTop ? 'clamp(16px, 4.6vw, 22px)' : 'clamp(14px, 3.8vw, 18px)',
                     fontWeight: 900,
                     letterSpacing: '-0.005em',
                     color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
-                    lineHeight: 1,
+                    lineHeight: 1.15,
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
                   }}
                 >
                   {t.name}

@@ -163,8 +163,8 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                       padding: '10px 12px',
                     }}
                   >
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 mb-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
                         <span
                           className="font-black uppercase tabular-nums shrink-0"
                           style={{
@@ -178,13 +178,15 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                           {u.category}
                         </span>
                         <span
-                          className="font-jersey uppercase truncate transition-colors duration-200"
+                          className="font-jersey uppercase break-keep min-w-0 transition-colors duration-200"
                           style={{
                             color: 'var(--mm-ink)',
-                            fontSize: '18px',
+                            fontSize: 'clamp(15px, 4vw, 18px)',
                             fontWeight: 900,
                             letterSpacing: '-0.005em',
-                            lineHeight: '1',
+                            lineHeight: '1.15',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
                           }}
                         >
                           {u.name}
@@ -203,7 +205,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                         </span>
                       </div>
                       <span
-                        className="font-jersey font-black tabular-nums shrink-0"
+                        className="font-jersey font-black tabular-nums shrink-0 break-keep"
                         style={{
                           color: 'var(--mm-ink-soft)',
                           fontSize: '13px',
@@ -304,13 +306,15 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                     </span>
                     <div className="flex-1 min-w-0">
                       <p
-                        className="font-jersey uppercase truncate"
+                        className="font-jersey uppercase break-keep"
                         style={{
                           color: 'var(--mm-ink)',
-                          fontSize: '18px',
+                          fontSize: 'clamp(15px, 4vw, 18px)',
                           fontWeight: 900,
                           letterSpacing: '-0.005em',
-                          lineHeight: '1',
+                          lineHeight: '1.15',
+                          wordBreak: 'break-word',
+                          overflowWrap: 'anywhere',
                         }}
                       >
                         {r.name}
@@ -328,11 +332,12 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                         )}
                       </p>
                       <p
-                        className="font-bold uppercase mt-1"
+                        className="font-bold uppercase mt-1 break-keep"
                         style={{
                           color: 'var(--mm-muted)',
                           fontSize: '10px',
-                          letterSpacing: '0.16em',
+                          letterSpacing: '0.14em',
+                          lineHeight: 1.3,
                         }}
                       >
                         {formatKoreanDate(r.achieved_at)} · {CATEGORY_LABEL[r.category]}

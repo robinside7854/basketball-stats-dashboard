@@ -94,7 +94,7 @@ export default function ClutchLeadersCard({ leagueId, maxEntries = 6 }: Props) {
 
                 {/* Player */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm lg:text-base font-bold text-white group-hover:text-red-200 transition-colors truncate">
+                  <p className="text-sm lg:text-base font-bold text-white group-hover:text-red-200 transition-colors break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                     {s.name}
                     {s.number != null && <span className="ml-1.5 text-xs text-gray-500 font-mono">#{s.number}</span>}
                   </p>

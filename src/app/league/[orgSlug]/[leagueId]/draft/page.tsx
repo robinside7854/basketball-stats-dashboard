@@ -657,7 +657,7 @@ export default function LeagueDraftPage() {
                     <div className={`w-4 h-4 rounded-full shrink-0 ${isMyTurn ? 'animate-pulse' : ''}`} style={{ backgroundColor: currentTeam.color }} />
                     <div className="flex-1 min-w-0">
                       <p className="font-jersey text-xs uppercase tracking-widest text-[color:var(--mm-muted)]">현재 차례 · {draft.total_picks + 1}순위</p>
-                      <p className="font-jersey font-black uppercase text-2xl sm:text-3xl text-[color:var(--mm-ink)] truncate leading-tight">
+                      <p className="font-jersey font-black uppercase text-2xl sm:text-3xl text-[color:var(--mm-ink)] break-keep leading-tight" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         {currentTeam.name}
                         {isMyTurn && <span className="ml-2 text-[color:var(--mm-yellow-strong)] text-base sm:text-lg">← 내 차례!</span>}
                       </p>

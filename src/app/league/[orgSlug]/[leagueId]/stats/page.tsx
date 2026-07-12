@@ -480,8 +480,8 @@ export default function LeagueStatsPage() {
                     <p className="text-[11px] font-black uppercase" style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.16em' }}>{label}</p>
                   </div>
                   <button onClick={() => setQuickViewPlayer({ id: top.player_id, name: top.name })}
-                    className="font-jersey font-black uppercase truncate cursor-pointer text-left w-full block hover:underline underline-offset-2"
-                    style={{ color: 'var(--mm-ink)', fontSize: 'clamp(17px, 4.5vw, 22px)', letterSpacing: '-0.005em', lineHeight: '1.05' }}>
+                    className="font-jersey font-black uppercase break-keep cursor-pointer text-left w-full block hover:underline underline-offset-2"
+                    style={{ color: 'var(--mm-ink)', fontSize: 'clamp(17px, 4.5vw, 22px)', letterSpacing: '-0.005em', lineHeight: '1.15', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     {top.name}
                   </button>
                   <p className="font-jersey font-black tabular-nums leading-none mt-1.5" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(26px, 7vw, 36px)', letterSpacing: '-0.015em' }}>{fmt(top)}</p>
@@ -629,7 +629,7 @@ export default function LeagueStatsPage() {
                       <span className="font-jersey font-black tabular-nums w-6 shrink-0"
                         style={{ color: i === 0 ? 'var(--mm-yellow-strong)' : i === 1 ? 'var(--mm-muted)' : i === 2 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', fontSize: '20px' }}>{i + 1}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="font-jersey font-black uppercase truncate" style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em' }}>{p.name}</div>
+                        <div className="font-jersey font-black uppercase break-keep" style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{p.name}</div>
                         <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}{statUnit === 'round' ? 'R' : 'G'}</div>
                       </div>
                       <div className="text-right shrink-0">
@@ -689,8 +689,8 @@ export default function LeagueStatsPage() {
                       </td>
                       <td className="px-4 py-3 sticky left-0" style={{ background: i === 0 ? 'rgba(234,179,8,0.06)' : i === 2 ? 'rgba(161,98,7,0.05)' : 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 truncate max-w-[120px] block"
-                          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em' }}>
+                          className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
+                          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {p.name}
                         </button>
                         <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
@@ -877,8 +877,8 @@ export default function LeagueStatsPage() {
                         style={{ color: i === 0 ? 'var(--mm-yellow-strong)' : i === 2 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', fontSize: '15px' }}>{i+1}</td>
                       <td className="px-4 py-3 sticky left-0" style={{ background: i === 0 ? 'rgba(234,179,8,0.06)' : i === 2 ? 'rgba(161,98,7,0.05)' : 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 truncate max-w-[120px] block"
-                          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em' }}>
+                          className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
+                          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {p.name}
                         </button>
                         <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
@@ -993,8 +993,8 @@ export default function LeagueStatsPage() {
                         style={{ color: i === 0 ? 'var(--mm-yellow-strong)' : i === 2 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', fontSize: '15px' }}>{i+1}</td>
                       <td className="px-4 py-3 sticky left-0" style={{ background: i === 0 ? 'rgba(234,179,8,0.06)' : i === 2 ? 'rgba(161,98,7,0.05)' : 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 truncate max-w-[120px] block"
-                          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em' }}>
+                          className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
+                          style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {p.name}
                         </button>
                         <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
