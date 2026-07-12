@@ -52,6 +52,76 @@ function shortDate(iso: string): string {
   return `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`
 }
 
+// 우세 카테고리별 노출 정보 매핑 — 매 라운드 우세 지표에 따라 UI 가 다르게 노출됨.
+// 이전 구현은 항상 pts 를 메인으로 노출했으나, POTW 는 종합 임팩트 선정이므로
+// 우세 카테고리(volume/efficiency/reb/stl/blk/ast/win)에 맞춰 큰 숫자·헤드라인·라벨 모두 스왑.
+type MainMetric = {
+  value: string          // 큰 숫자 표시 값 (문자열 · 백분율 포함)
+  unit: string           // 큰 숫자 옆 uppercase 라벨 (PTS/REB/STL 등)
+  panelLabel: string     // 노랑 패널 상단 라벨 ("이 라운드 X" 형태)
+  hero: string           // 좌측 h1 강조 부분 ("골든 위크" · "리바운드 지배" 등)
+  badge: string          // 좌측 상단 배지 (SCORING KING 등)
+  copyLead: string       // 좌측 서브 카피 첫 부분 ("이번 라운드 리바운드 15개")
+}
+
+function mainMetricFor(
+  data: NonNullable<NbaHeroData>,
+  b: HeroBreakdown,
+): MainMetric {
+  switch (b.topCategory) {
+    case 'reb':
+      return {
+        value: String(b.reb), unit: 'REB',
+        panelLabel: '이 라운드 리바운드',
+        hero: '리바운드 지배', badge: 'REBOUND KING',
+        copyLead: `이번 라운드 리바운드 ${b.reb}개`,
+      }
+    case 'stl':
+      return {
+        value: String(b.stl), unit: 'STL',
+        panelLabel: '이 라운드 스틸',
+        hero: '수비 잠금', badge: 'DEFENSIVE STOPPER',
+        copyLead: `이번 라운드 스틸 ${b.stl}개`,
+      }
+    case 'blk':
+      return {
+        value: String(b.blk), unit: 'BLK',
+        panelLabel: '이 라운드 블락',
+        hero: '림 프로텍터', badge: 'RIM PROTECTOR',
+        copyLead: `이번 라운드 블락 ${b.blk}개`,
+      }
+    case 'ast':
+      return {
+        value: String(b.ast), unit: 'AST',
+        panelLabel: '이 라운드 어시스트',
+        hero: '코트 지휘', badge: 'PLAYMAKER',
+        copyLead: `이번 라운드 어시스트 ${b.ast}개`,
+      }
+    case 'efficiency':
+      return {
+        value: b.ts_pct > 0 ? b.ts_pct.toFixed(0) : '—',
+        unit: 'TS%',
+        panelLabel: '이 라운드 슈팅 효율',
+        hero: '초효율 정조준', badge: 'EFFICIENCY KING',
+        copyLead: `이번 라운드 TS ${b.ts_pct > 0 ? b.ts_pct.toFixed(0) : '—'}%`,
+      }
+    case 'win':
+      return {
+        value: String(b.wins), unit: b.wins === 1 ? 'WIN' : 'WINS',
+        panelLabel: '이 라운드 승리 견인',
+        hero: '승리의 아이콘', badge: 'CLUTCH LEADER',
+        copyLead: `이번 라운드 ${b.wins}승 견인`,
+      }
+    default:  // volume
+      return {
+        value: String(data.pts), unit: 'PTS',
+        panelLabel: '이 라운드 총 득점',
+        hero: '골든 위크', badge: 'SCORING KING',
+        copyLead: `이번 라운드 ${data.pts}점 폭발`,
+      }
+  }
+}
+
 function RoundBars({ series }: { series: Array<{ date: string; pts: number }> }) {
   if (series.length === 0) return null
   const shown = series.slice(-6)
@@ -100,6 +170,10 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
   const [openQuickView, setOpenQuickView] = useState(false)
   if (!data) return null
   const showTrend = (data.roundSeries?.length ?? 0) >= 2
+  // 우세 카테고리별 메인 지표 매핑 (breakdown 없으면 볼륨 fallback)
+  const metric: MainMetric = breakdown
+    ? mainMetricFor(data, breakdown)
+    : { value: String(data.pts), unit: 'PTS', panelLabel: '이 라운드 총 득점', hero: '골든 위크', badge: 'SCORING KING', copyLead: `이번 라운드 ${data.pts}점` }
 
   return (
     <>
@@ -130,12 +204,24 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
             style={{ background: 'var(--mm-yellow)' }}
           />
 
-          <p
-            className="text-[12px] font-black tracking-[0.22em] uppercase mb-2"
-            style={{ color: 'var(--mm-yellow-strong)' }}
-          >
-            Player of the Week
-          </p>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-2">
+            <p
+              className="text-[12px] font-black tracking-[0.22em] uppercase"
+              style={{ color: 'var(--mm-yellow-strong)' }}
+            >
+              Player of the Week
+            </p>
+            <span
+              className="text-[10px] font-black tracking-[0.20em] uppercase"
+              style={{
+                color: 'var(--mm-black)',
+                background: 'var(--mm-yellow)',
+                padding: '2px 8px',
+              }}
+            >
+              {metric.badge}
+            </span>
+          </div>
 
           <h1
             className="font-jersey font-black leading-[0.95] uppercase mb-3"
@@ -155,7 +241,7 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
                 display: 'inline-block',
               }}
             >
-              골든 위크
+              {metric.hero}
             </span>
           </h1>
 
@@ -178,19 +264,16 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
             </p>
           )}
           <p className="text-[14px] leading-relaxed mb-5" style={{ color: 'var(--mm-ink-soft)' }}>
-            이번 라운드{' '}
-            <strong style={{ color: 'var(--mm-ink)', fontSize: '1.05em' }}>{data.pts}점</strong>
+            <strong style={{ color: 'var(--mm-ink)', fontSize: '1.05em' }}>{metric.copyLead}</strong>
+            {/* 우세 카테고리가 볼륨이 아니면 총 득점도 참고로 병기 */}
+            {breakdown && breakdown.topCategory !== 'volume' && data.pts > 0 && (
+              <>{' '}· {data.pts}점</>
+            )}
             {breakdown && (breakdown.wins + breakdown.losses) > 0 && (
               <>
                 {' '}· {breakdown.wins > 0 && <span style={{ color: '#059669', fontWeight: 700 }}>{breakdown.wins}승</span>}
                 {breakdown.wins > 0 && breakdown.losses > 0 && ' '}
                 {breakdown.losses > 0 && <span style={{ color: '#DC2626', fontWeight: 700 }}>{breakdown.losses}패</span>}
-              </>
-            )}
-            {data.rd > 1 && (
-              <>
-                {' '}· 최근 {data.rd}주 평균{' '}
-                <strong style={{ color: 'var(--mm-ink)', fontSize: '1.05em' }}>{data.ppr.toFixed(1)}점</strong>
               </>
             )}
           </p>
@@ -264,7 +347,7 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
             className="text-[11px] sm:text-[12px] font-black tracking-[0.18em] sm:tracking-[0.22em] uppercase break-keep"
             style={{ color: 'rgba(0,0,0,0.75)' }}
           >
-            이 라운드 총 득점
+            {metric.panelLabel}
           </div>
 
           <div
@@ -276,12 +359,12 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
               color: 'var(--mm-black)',
             }}
           >
-            {data.pts}
+            {metric.value}
             <span
               className="text-[26px] tracking-[0.16em] ml-2 font-sans font-black align-baseline"
               style={{ color: 'rgba(0,0,0,0.75)' }}
             >
-              PTS
+              {metric.unit}
             </span>
           </div>
 
@@ -295,7 +378,7 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
                   className="text-[11px] sm:text-[12px] font-black tracking-[0.18em] sm:tracking-[0.22em] uppercase break-keep"
                   style={{ color: 'rgba(0,0,0,0.75)' }}
                 >
-                  최근 {data.roundSeries!.length}주 흐름
+                  최근 {data.roundSeries!.length}주 득점 흐름
                 </span>
                 <span
                   className="text-[10px] sm:text-[11px] font-black tracking-[0.14em] sm:tracking-[0.16em] uppercase break-keep"
