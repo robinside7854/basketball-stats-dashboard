@@ -952,11 +952,27 @@ export async function GET(
   }
   const active_streaks = { ten: s10, twenty: s20, three: s3p, win: sWin }
 
+  // ── 자동 배지 요약 (player_badges) ─────────────────────────
+  // 시즌 전체 기준 — 4종 카운트만 반환. 개별 목록은 별도 엔드포인트.
+  const badges_summary = { perfect_game: 0, double_double: 0, triple_double: 0, winning_shot: 0 }
+  {
+    const { data: pbRows } = await supabase
+      .from('player_badges')
+      .select('badge_type')
+      .eq('league_id', leagueId)
+      .eq('player_id', playerId)
+    for (const r of pbRows ?? []) {
+      const t = r.badge_type as keyof typeof badges_summary
+      if (t in badges_summary) badges_summary[t]++
+    }
+  }
+
   return NextResponse.json({
     rankings, career_high: careerHigh, shot_breakdown: shotBreakdown,
     recent_games: recentGames,
     game_log: gameLog,
     badges, badges_scope: 'season' as const,
+    badges_summary,
     win_loss: winLoss, player_stats, monthly_stats, vs_opponents, unit,
     active_streaks,
   })

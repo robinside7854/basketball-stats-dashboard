@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
+import PlayerBadgeStrip, { type BadgeSummary } from '@/components/league/PlayerBadgeStrip'
 import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 import { CountUp, FormDots } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
@@ -57,6 +58,7 @@ type Detail = {
   }
   active_streaks?: { ten: number; twenty: number; three: number; win: number }
   badges: EvaluatedBadge[]
+  badges_summary?: BadgeSummary
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; drive: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; pts: number; reb: number; ast: number; stl?: number; blk?: number; fgm: number; fga: number; fg3m?: number; fg3a?: number }>
@@ -953,6 +955,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 className="px-5 py-6 text-center text-sm"
                 style={{ color: 'var(--mm-muted)', borderBottom: '1px solid var(--mm-rule)' }}
               >아직 기록된 스탯이 없습니다</div>
+            )}
+
+            {/* 자동 배지 — 퍼펙트/DD/TD/위닝샷 · 클릭 시 획득 게임 상세 */}
+            {detail?.badges_summary && (
+              <PlayerBadgeStrip
+                leagueId={leagueId}
+                playerId={playerId}
+                summary={detail.badges_summary}
+              />
             )}
 
             {/* 게임 스탯 리더 — 부문별 1등 카운트 (POTM) · 클릭 시 등극 날짜 목록 */}
