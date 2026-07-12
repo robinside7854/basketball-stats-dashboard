@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 // 인앱 스플래시(런치 배너) — 안드로이드/아이폰 공통.
 //   iOS 의 apple-touch-startup-image 는 안드로이드에서 동작하지 않으므로,
@@ -18,8 +18,22 @@ const SRC = '/splash/apple-splash.webp' // 경량 WebP (~80KB) — 즉시 로딩
 const MAX_WAIT = 4500
 
 export default function AppSplash() {
+  const imgRef = useRef<HTMLImageElement>(null)
   const [loaded, setLoaded] = useState(false)
   const [done, setDone] = useState(false)
+
+  // 이미지가 이미 캐시되어 onLoad 가 안 뜨는 경우 대비 + 안전 리빌.
+  //   (webp 가 브라우저 캐시에 있으면 React onLoad 가 발화하지 않아 배너가 계속 투명해짐)
+  useEffect(() => {
+    const el = imgRef.current
+    if (el && el.complete && el.naturalWidth > 0) {
+      setLoaded(true)
+      return
+    }
+    // 어떤 이유로든 로드 이벤트가 누락돼도 배너가 안 보이는 일이 없도록 안전장치
+    const safety = window.setTimeout(() => setLoaded(true), 700)
+    return () => clearTimeout(safety)
+  }, [])
 
   // standalone(설치형) 감지 폴백
   useEffect(() => {
@@ -52,6 +66,7 @@ export default function AppSplash() {
       aria-hidden="true"
     >
       <img
+        ref={imgRef}
         src={SRC}
         alt=""
         onLoad={() => setLoaded(true)}
