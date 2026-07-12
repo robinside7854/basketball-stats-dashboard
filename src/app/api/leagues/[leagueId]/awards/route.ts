@@ -395,55 +395,64 @@ export async function GET(
       .order('quarter', { ascending: true })
     const qList = (quarters ?? []) as Array<{ id: string; year: number; quarter: number }>
 
-    if (qList.length >= 2) {
-      const qStats = await Promise.all(qList.map(q =>
-        fetch(`${origin}/api/leagues/${leagueId}/stats?unit=round&quarterId=${q.id}`, {
+    // 대상 분기 결정:
+    //   quarterId 있으면 그 분기 (예: 3Q 뷰 → 3Q), 없으면 qList 중 최신
+    // 비교: (대상 분기) vs (바로 이전 분기)
+    // 3Q 뷰에서는 반드시 2Q vs 3Q 만 비교 — 3Q gp<3 라도 1Q·2Q 로 fallback 하지 않음
+    const targetIdx = quarterId
+      ? qList.findIndex(q => q.id === quarterId)
+      : qList.length - 1
+    const targetQ = targetIdx >= 0 ? qList[targetIdx] : null
+    const prevQ = targetIdx >= 1 ? qList[targetIdx - 1] : null
+
+    if (targetQ && prevQ) {
+      const [targetStats, prevStats] = await Promise.all([
+        fetch(`${origin}/api/leagues/${leagueId}/stats?unit=round&quarterId=${targetQ.id}`, {
           headers: { cookie: req.headers.get('cookie') ?? '' },
           cache: 'no-store',
-        }).then(r => r.ok ? r.json() : { players: [] })
-      ))
+        }).then(r => r.ok ? r.json() : { players: [] }),
+        fetch(`${origin}/api/leagues/${leagueId}/stats?unit=round&quarterId=${prevQ.id}`, {
+          headers: { cookie: req.headers.get('cookie') ?? '' },
+          cache: 'no-store',
+        }).then(r => r.ok ? r.json() : { players: [] }),
+      ])
 
-      const perPlayerQuarters = new Map<string, Array<{ q: number; ppg: number; gp: number }>>()
-      qList.forEach((q, idx) => {
-        const qPlayers = (qStats[idx].players ?? []) as PlayerStat[]
-        for (const p of qPlayers) {
-          if (p.gp < 3) continue
-          if (!perPlayerQuarters.has(p.player_id)) perPlayerQuarters.set(p.player_id, [])
-          perPlayerQuarters.get(p.player_id)!.push({ q: q.quarter, ppg: p.ppg, gp: p.gp })
-        }
-      })
+      const targetByPid = new Map<string, PlayerStat>()
+      for (const p of (targetStats.players ?? []) as PlayerStat[]) targetByPid.set(p.player_id, p)
+      const prevByPid = new Map<string, PlayerStat>()
+      for (const p of (prevStats.players ?? []) as PlayerStat[]) prevByPid.set(p.player_id, p)
 
-      // 직전 분기 vs 최근 분기 비교 (예: 3Q 어워드는 2Q vs 3Q)
-      // perPlayerQuarters 배열은 qList 순회 순서로 push 되므로 이미 시간순 정렬됨
-      // 최근 분기 = arr[length-1], 직전 분기 = arr[length-2]
+      // 각 분기 최소 참여 요건 — 분기가 짧을 수 있으므로 gp>=2 로 완화 (통계적 유의성 유지)
+      const MIN_ROUNDS_PER_QUARTER = 2
       const cands: AwardCandidate[] = []
-      for (const [pid, arr] of perPlayerQuarters) {
-        if (arr.length < 2) continue
-        const last = arr[arr.length - 1]
-        const prev = arr[arr.length - 2]
-        const growth = +(last.ppg - prev.ppg).toFixed(2)
-        const p = eligible.find(x => x.player_id === pid)
-        if (!p) continue
+      for (const p of eligible) {
+        const target = targetByPid.get(p.player_id)
+        const prev = prevByPid.get(p.player_id)
+        if (!target || !prev) continue
+        if (target.gp < MIN_ROUNDS_PER_QUARTER || prev.gp < MIN_ROUNDS_PER_QUARTER) continue
+        const growth = +(target.ppg - prev.ppg).toFixed(2)
         if (growth <= 0) continue
         cands.push(toCandidate(p, growth, `+${growth.toFixed(1)} PPG`, {
-          [`${prev.q}Q`]: `${prev.ppg.toFixed(1)} PPG (${prev.gp}R)`,
-          [`${last.q}Q`]: `${last.ppg.toFixed(1)} PPG (${last.gp}R)`,
+          [`${prevQ.quarter}Q`]: `${prev.ppg.toFixed(1)} PPG (${prev.gp}R)`,
+          [`${targetQ.quarter}Q`]: `${target.ppg.toFixed(1)} PPG (${target.gp}R)`,
         }))
       }
       const { winner, runners, allCandidates } = rankByValue(cands)
       awards.push({
         category: 'MIP',
         label: '기량 발전상',
-        description: '분기별 성장률 · 직전 분기 vs 최근 분기 PPG 상승',
+        description: `분기별 성장률 · ${prevQ.quarter}Q vs ${targetQ.quarter}Q PPG 상승`,
         metric: 'PPG 증가폭',
-        minRequirement: `${attendanceReq} · 최근 2개 분기 참여 (분기당 ≥3R)`,
+        minRequirement: `${attendanceReq} · ${prevQ.quarter}Q·${targetQ.quarter}Q 각 ${MIN_ROUNDS_PER_QUARTER}R 이상 참여`,
         winner, runners, allCandidates,
       })
     } else {
       awards.push({
         category: 'MIP',
         label: '기량 발전상',
-        description: '분기별 성장률 (분기 2개 이상 필요)',
+        description: targetQ && !prevQ
+          ? `${targetQ.quarter}Q — 이전 분기 데이터가 없어 비교 불가`
+          : '분기별 성장률 (분기 2개 이상 필요)',
         metric: 'PPG 증가폭',
         minRequirement: attendanceReq,
         winner: null, runners: [], allCandidates: [],
