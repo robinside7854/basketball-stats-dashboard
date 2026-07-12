@@ -662,6 +662,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                 home_team: g.home_team, away_team: g.away_team,
                 home_score: g.home_score, away_score: g.away_score,
                 is_complete: g.is_complete,
+                is_started: g.is_started,
               }))}
               dailyStats={dailyStats}
               teamRecords={teamRecords}
