@@ -32,10 +32,11 @@ export default function AppSplash() {
     if (standalone) document.documentElement.classList.add('is-pwa')
   }, [])
 
-  // 이미지 로드 후 잠깐 유지 → 페이드 (+ 최대 대기 상한)
+  // 이미지 로드 후 유지 → 페이드 (+ 최대 대기 상한)
+  //   afterLoad = 배너가 완전히 뜬 뒤 유지 시간(ms). 더 길게/짧게 하려면 이 값만 조정.
   useEffect(() => {
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const afterLoad = reduce ? 300 : 850
+    const afterLoad = reduce ? 500 : 1800
     const max = window.setTimeout(() => setDone(true), MAX_WAIT)
     if (!loaded) return () => clearTimeout(max)
     const t = window.setTimeout(() => setDone(true), afterLoad)
@@ -46,7 +47,10 @@ export default function AppSplash() {
   }, [loaded])
 
   return (
-    <div className={`app-splash${done ? ' app-splash--done' : ''}`} aria-hidden="true">
+    <div
+      className={`app-splash${loaded ? ' is-loaded' : ''}${done ? ' app-splash--done' : ''}`}
+      aria-hidden="true"
+    >
       <img
         src={SRC}
         alt=""

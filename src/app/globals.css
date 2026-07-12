@@ -594,10 +594,18 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0; /* 검정 배경 위로 배너가 스르륵 떠오르도록 (로드 후 is-loaded 에서 1) */
+  transition: opacity 400ms ease;
+}
+.app-splash.is-loaded img {
+  opacity: 1;
 }
 .app-splash--done {
   opacity: 0;
   pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-splash img { transition: none; }
 }
 /* 1차 게이트: CSS 미디어 (하이드레이션 전부터 즉시 적용) */
 @media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
