@@ -13,7 +13,7 @@ type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
 import { type NbaHeroData } from '@/components/league/nba/NbaHero'
-import NbaHeroCarousel, { type WeeklyPOTW, type POTWTopCategory } from '@/components/league/nba/NbaHeroCarousel'
+import NbaHeroCarousel, { type WeeklyPOTW, type POTWTopCategory, type SecondaryCategory } from '@/components/league/nba/NbaHeroCarousel'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
 import NbaRoundsSummary, { type RoundSummary, type RoundTeamSummary } from '@/components/league/nba/NbaRoundsSummary'
 import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
@@ -145,6 +145,8 @@ type PlayerRoundStats = {
   pts: number
   fga: number     // 필드골 시도
   fta: number     // 자유투 시도
+  fg3m: number    // 3점 성공 (NEW · 3점 폭격 서브 지표용)
+  fg3a: number    // 3점 시도 (NEW)
   reb: number
   oreb: number
   dreb: number
@@ -159,7 +161,8 @@ type PlayerRoundStats = {
 
 function emptyRoundStats(): PlayerRoundStats {
   return {
-    pts: 0, fga: 0, fta: 0, reb: 0, oreb: 0, dreb: 0,
+    pts: 0, fga: 0, fta: 0, fg3m: 0, fg3a: 0,
+    reb: 0, oreb: 0, dreb: 0,
     stl: 0, blk: 0, ast: 0, tov: 0,
     gp: new Set(), clutchPts: 0, clutchGp: new Set(),
   }
@@ -195,6 +198,22 @@ function makeHeadline(
       return `${name}, 접전 승부처 클러치 ${s.clutchPts}점 · 마지막 2분에 강했다`
     default:
       return `${name}, 이번 라운드 최고 임팩트`
+  }
+}
+
+// 2번째 우세 지표 서브 라벨 — "이번 라운드 32점 · 3점 8/12" 처럼 함께 노출용.
+// 우세 지표(topCategory) 와 별개로 그 라운드 그 선수의 "게임 지배 방법" 을 한 줄 요약.
+function buildSecondaryLabel(s: PlayerRoundStats, category: SecondaryCategory): string {
+  switch (category) {
+    case 'three':      return `3점 ${s.fg3m}/${s.fg3a}`
+    case 'reb':        return `리바운드 ${s.reb}개`
+    case 'stl':        return `스틸 ${s.stl}개`
+    case 'blk':        return `블락 ${s.blk}개`
+    case 'ast':        return `어시스트 ${s.ast}개`
+    case 'efficiency': return `TS ${tsPct(s.pts, s.fga, s.fta).toFixed(0)}%`
+    case 'clutch':     return `클러치 ${s.clutchPts}점`
+    case 'volume':     return `${s.pts}점`
+    default:           return ''
   }
 }
 
@@ -341,7 +360,8 @@ async function computeWeeklyPOTW(
         switch (e.type) {
           case 'shot_3p':
             s.fga++
-            if (made) { ptsGained = isP1 ? 4 : 3; s.pts += ptsGained }
+            s.fg3a++
+            if (made) { ptsGained = isP1 ? 4 : 3; s.pts += ptsGained; s.fg3m++ }
             break
           case 'shot_2p_mid': case 'shot_layup': case 'shot_post': case 'shot_2p_drive':
             s.fga++
@@ -384,16 +404,67 @@ async function computeWeeklyPOTW(
     }
   }
 
-  // 7) 각 라운드별 종합 점수 계산 → top1 선정
+  // 6.5) seriesByPid — 각 선수의 라운드별 값 시리즈 (오래된 → 최신 정렬)
+  //     · 우세 지표(topCategory) 기반 sparkline 렌더에 사용
+  //     · upset bonus 계산 (그 선수의 과거 라운드 평균 대비 이번 라운드 증분율) 에도 사용
+  //     · 이전엔 step 9 에 있었으나 upset bonus 를 위해 top1 선정 전으로 이동
+  type RoundMetricValues = {
+    date: string
+    pts: number
+    reb: number
+    ast: number
+    stl: number
+    blk: number
+    ts_pct: number
+    clutch: number
+    fg3m: number  // NEW · 3점 성공 (breakdown 노출용)
+    fg3a: number  // NEW · 3점 시도
+  }
+  const seriesByPid = new Map<string, RoundMetricValues[]>()
+  for (const date of uniqueDates) {
+    const map = byRound.get(date)
+    if (!map) continue
+    for (const [pid, s] of map) {
+      if (!seriesByPid.has(pid)) seriesByPid.set(pid, [])
+      seriesByPid.get(pid)!.push({
+        date,
+        pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk,
+        ts_pct: tsPct(s.pts, s.fga, s.fta),
+        clutch: s.clutchPts,
+        fg3m: s.fg3m, fg3a: s.fg3a,
+      })
+    }
+  }
+  for (const [, arr] of seriesByPid) arr.sort((a, b) => a.date.localeCompare(b.date))
+
+  // 7) 각 라운드별 종합 점수 계산 → top1 선정 (다양성 로직 + upset bonus + 서브 지표)
+  //    · 다양성 A: 지난 라운드 POTW pid 는 이번 라운드 후보에서 제외 (연속 방지).
+  //               제외 후 후보 0 명이면 fallback = 전원 후보로 완화.
+  //    · upset bonus: 그 선수의 과거 라운드 평균 pts 대비 이번 라운드 증분율 → +0~+15.
+  //                   매번 볼륨 최상위만 뽑히는 편향 완화, 깜짝 활약 반영.
+  //                   첫 라운드나 그 선수의 첫 등장이면 pastRounds=0 → 보너스 0.
+  //    · secondary: 가중치 2번째 카테고리 + 볼륨우세+3점폭격 특수 케이스.
+  //                 "그 라운드 그 선수가 어떻게 게임을 지배했는지" 를 한 줄로 노출.
   type TopPick = {
     pid: string; stats: PlayerRoundStats
     ts_pct: number
     compositeScore: number
     topCategory: POTWTopCategory
+    secondaryCategory?: SecondaryCategory
+    secondaryLabel?: string
   }
   const topPerRound = new Map<string, TopPick>()
+  const prevPotwPids = new Set<string>()  // 오래된 라운드부터 누적 → 다음 라운드 후보 제외
 
-  for (const [date, map] of byRound) {
+  // uniqueDates 는 최신 → 오래된 순. 다양성 적용은 오래된 → 최신 순으로 iterate.
+  const sortedDatesAsc = [...uniqueDates].reverse()
+
+  for (const date of sortedDatesAsc) {
+    const map = byRound.get(date)
+    if (!map) continue
+
+    // 참가자 (gp>0 필터). max 정규화는 제외 후보 포함 전체 참가자 기준으로 계산 —
+    // 제외된 선수가 여전히 실제 최고치이면 그 값을 기준으로 상대평가해야 의미가 있음.
     const roster: Array<{ pid: string; s: PlayerRoundStats; ts: number }> = []
     for (const [pid, s] of map) {
       if (s.gp.size === 0) continue
@@ -409,14 +480,18 @@ async function computeWeeklyPOTW(
     const maxStl = Math.max(...roster.map(r => r.s.stl), 1)
     const maxBlk = Math.max(...roster.map(r => r.s.blk), 1)
     const maxAst = Math.max(...roster.map(r => r.s.ast), 1)  // v1: 대부분 0
-    // 클러치 gp 최소 조건 완화 (라운드 단위이므로 1게임 이상 OK) — 클러치 경험자 중 최대
     const clutchRoster = roster.filter(r => r.s.clutchGp.size > 0)
     const maxClutchPts = clutchRoster.length > 0
       ? Math.max(...clutchRoster.map(r => r.s.clutchPts), 1)
       : 1
 
-    // 각 선수 종합 점수
-    const scored = roster.map(r => {
+    type Scored = {
+      pid: string; s: PlayerRoundStats; ts: number
+      composite: number
+      topCategory: POTWTopCategory
+      secondaryCategory?: SecondaryCategory
+    }
+    const scored: Scored[] = roster.map(r => {
       const s = r.s
       const norm = {
         volume: s.pts / maxPts,
@@ -429,7 +504,7 @@ async function computeWeeklyPOTW(
       }
 
       // 가중 합 (총 100)
-      const composite =
+      let composite =
         norm.volume     * POTW_WEIGHTS.volume +
         norm.efficiency * POTW_WEIGHTS.efficiency +
         norm.reb        * POTW_WEIGHTS.reb +
@@ -437,6 +512,20 @@ async function computeWeeklyPOTW(
         norm.blk        * POTW_WEIGHTS.blk +
         norm.ast        * POTW_WEIGHTS.ast +
         norm.clutch     * POTW_WEIGHTS.clutch
+
+      // upset bonus — 이 선수의 과거 라운드 평균 pts 대비 이번 pts 증분율.
+      // surpriseFactor 1.0 = 평균 대비 2배 → 보너스 10, 상한 15 (전체 100/15).
+      // 첫 라운드나 이 선수 첫 등장이면 pastRounds=0 → 보너스 0.
+      const playerSeries = seriesByPid.get(r.pid) ?? []
+      const pastRounds = playerSeries.filter(e => e.date < date)
+      if (pastRounds.length > 0) {
+        const avgPts = pastRounds.reduce((sum, e) => sum + e.pts, 0) / pastRounds.length
+        if (avgPts > 0) {
+          const surpriseFactor = Math.max(0, (s.pts - avgPts) / avgPts)
+          const upsetBonus = Math.min(surpriseFactor * 10, 15)
+          composite += upsetBonus
+        }
+      }
 
       // 우세 카테고리 판정 (가중 × 정규화 값 최고)
       const weighted: Array<[POTWTopCategory, number]> = [
@@ -450,11 +539,28 @@ async function computeWeeklyPOTW(
       ]
       weighted.sort((a, b) => b[1] - a[1])
       const topCategory: POTWTopCategory = weighted[0][0]
+      // 2번째 카테고리 (weighted 값 > 0 인 경우만) — 없으면 undefined
+      let secondaryCategory: SecondaryCategory | undefined =
+        (weighted[1] && weighted[1][1] > 0) ? weighted[1][0] : undefined
 
-      return { pid: r.pid, s, ts: r.ts, composite, topCategory }
+      // 특수 케이스 — 볼륨 우세 + 3점 폭격이면 서브 지표를 'three' 로 승격.
+      // 변원식 케이스: 32점 + 3점 8/12 → "그 주 게임 지배 방법" = 3점 폭격.
+      // 조건: 3점 시도 ≥ 3 · (성공률 ≥ 40% OR 성공 ≥ 5)
+      if (topCategory === 'volume' && s.fg3a >= 3) {
+        const fg3Pct = (s.fg3m / s.fg3a) * 100
+        if (fg3Pct >= 40 || s.fg3m >= 5) {
+          secondaryCategory = 'three'
+        }
+      }
+
+      return { pid: r.pid, s, ts: r.ts, composite, topCategory, secondaryCategory }
     })
 
-    const top = scored.sort((a, b) => b.composite - a.composite)[0]
+    // 다양성 A — 지난 POTW pid 제외. 전원 제외되면 완화 (fallback).
+    let candidates = scored.filter(x => !prevPotwPids.has(x.pid))
+    if (candidates.length === 0) candidates = scored
+
+    const top = candidates.sort((a, b) => b.composite - a.composite)[0]
     if (top && top.composite > 0) {
       topPerRound.set(date, {
         pid: top.pid,
@@ -462,7 +568,12 @@ async function computeWeeklyPOTW(
         ts_pct: top.ts,
         compositeScore: +top.composite.toFixed(1),
         topCategory: top.topCategory,
+        secondaryCategory: top.secondaryCategory,
+        secondaryLabel: top.secondaryCategory
+          ? buildSecondaryLabel(top.s, top.secondaryCategory)
+          : undefined,
       })
+      prevPotwPids.add(top.pid)
     }
   }
 
@@ -484,39 +595,7 @@ async function computeWeeklyPOTW(
     })
   }
 
-  // 9) 각 POTW 선수의 "최근 N주 라운드 흐름 시리즈" — 카테고리별 값 확장
-  //    기존: pts 만 담아 sparkline. 우세 지표가 REB/STL 등이면 흐름 왜곡.
-  //    신규: 전 카테고리 값 담아 UI 가 topCategory 에 맞춰 렌더 선택 가능.
-  type RoundMetricValues = {
-    date: string
-    pts: number
-    reb: number
-    ast: number
-    stl: number
-    blk: number
-    ts_pct: number
-    clutch: number
-  }
-  const seriesByPid = new Map<string, RoundMetricValues[]>()
-  for (const date of uniqueDates) {
-    const map = byRound.get(date)
-    if (!map) continue
-    for (const [pid, s] of map) {
-      if (!seriesByPid.has(pid)) seriesByPid.set(pid, [])
-      seriesByPid.get(pid)!.push({
-        date,
-        pts: s.pts,
-        reb: s.reb,
-        ast: s.ast,
-        stl: s.stl,
-        blk: s.blk,
-        ts_pct: tsPct(s.pts, s.fga, s.fta),
-        clutch: s.clutchPts,
-      })
-    }
-  }
-  // 시리즈를 오래된 → 최신 정렬 (sparkline 축)
-  for (const [, arr] of seriesByPid) arr.sort((a, b) => a.date.localeCompare(b.date))
+  // 9) seriesByPid 는 step 6.5 에서 이미 생성됨 — 여기선 결과 배열 구성에만 사용.
 
   // 10) 결과 배열 (최신 라운드 → 오래된 순)
   const fmtWeek = (iso: string): string => {
@@ -540,8 +619,19 @@ async function computeWeeklyPOTW(
       blk: s.blk,
       ts_pct: tsPct(s.pts, s.fga, s.fta),
       clutch: s.clutchPts,
+      fg3m: s.fg3m,
+      fg3a: s.fg3a,
     }
-    const series = seriesByPid.get(top.pid) ?? [fallbackEntry]
+    // 버그 픽스 — 각 POTW date 이하 라운드만 노출 (미래 날짜 제거).
+    // 사용자 지적: "6/27 클러치 플레이어 최근 2주 흐름에 미래 7/4 일정 포함"
+    //          · "6/20 박현욱도 마찬가지". 해당 시점 기준 과거 라운드만 렌더링해야 함.
+    const fullSeries = seriesByPid.get(top.pid) ?? [fallbackEntry]
+    const series = fullSeries.filter(e => e.date <= date)
+    // ppr 도 필터된 series 기반으로 재계산 (미래 라운드 오염 제거)
+    const ppr = series.length > 0
+      ? +(series.reduce((sum, e) => sum + e.pts, 0) / series.length).toFixed(1)
+      : s.pts
+    const fg3Pct = s.fg3a > 0 ? +(s.fg3m / s.fg3a * 100).toFixed(1) : 0
     const headline = makeHeadline(meta.name, s, top.topCategory)
 
     result.push({
@@ -554,7 +644,7 @@ async function computeWeeklyPOTW(
         pts: s.pts,
         gp: s.gp.size,
         rd: series.length,
-        ppr: series.length > 0 ? +(series.reduce((sum, e) => sum + e.pts, 0) / series.length).toFixed(1) : s.pts,
+        ppr,
         photoUrl: meta.photo_url,
         roundSeries: series,
       },
@@ -570,6 +660,11 @@ async function computeWeeklyPOTW(
         compositeScore: top.compositeScore,
         topCategory: top.topCategory,
         headline,
+        fg3m: s.fg3m,
+        fg3a: s.fg3a,
+        fg3_pct: fg3Pct,
+        secondaryCategory: top.secondaryCategory,
+        secondaryLabel: top.secondaryLabel,
       },
     })
   }

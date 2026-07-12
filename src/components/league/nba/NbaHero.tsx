@@ -46,6 +46,13 @@ export type HeroBreakdown = {
   clutchGp: number   // 클러치 상황 경험 게임 수
   compositeScore: number
   topCategory: 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
+  // NEW · 3점 지표 (변원식 케이스 · 볼륨 + 3점 폭격 스토리)
+  fg3m?: number      // 3점 성공
+  fg3a?: number      // 3점 시도
+  fg3_pct?: number   // 3점 성공률
+  // NEW · 2번째 우세 카테고리 (동적 서브 지표 · UI 는 별도 Agent 담당)
+  secondaryCategory?: 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch' | 'three'
+  secondaryLabel?: string  // 예: "3점 8/12" · "리바운드 10개"
 }
 
 type Props = {
@@ -61,6 +68,19 @@ function initials(name: string): string {
 }
 function shortDate(iso: string): string {
   return `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`
+}
+
+// 2번째 우세 카테고리 → 서브 배지 라벨 매핑 (지배 방법 · 예: 3점 폭격 → SNIPER)
+// 메인 배지(SCORING KING 등)와 함께 병기되어 "어떻게 지배했는지" 스토리를 보강.
+const SECONDARY_BADGE_LABEL: Record<string, string> = {
+  three: 'SNIPER',        // 3점 폭격
+  reb: 'GLASS CLEANER',   // 리바운드
+  stl: 'PICKPOCKET',      // 스틸
+  blk: 'RIM PROTECTOR',   // 블락
+  ast: 'PLAYMAKER',       // 어시스트
+  efficiency: 'EFFICIENT',
+  clutch: 'CLUTCH',
+  volume: 'SCORER',
 }
 
 // 우세 카테고리별 노출 정보 매핑 — 매 라운드 우세 지표에 따라 UI 가 다르게 노출됨.
@@ -435,6 +455,42 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
               {metric.unit}
             </span>
           </div>
+
+          {/* 서브 지표 라인 — "어떻게 지배했는지" 두번째 스토리 (예: 32점 볼륨 + 3점 8/12 SNIPER)
+              조건: secondaryLabel 존재 AND topCategory !== secondaryCategory (중복 방지) */}
+          {breakdown?.secondaryCategory &&
+            breakdown?.secondaryLabel &&
+            breakdown.topCategory !== breakdown.secondaryCategory && (
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span
+                  className="tabular-nums"
+                  style={{
+                    fontSize: 'clamp(14px, 3vw, 16px)',
+                    fontWeight: 800,
+                    letterSpacing: '-0.005em',
+                    color: 'rgba(0,0,0,0.78)',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {breakdown.secondaryLabel}
+                </span>
+                <span
+                  className="font-jersey font-black uppercase inline-flex items-center"
+                  style={{
+                    fontSize: 'clamp(11px, 2.4vw, 13px)',
+                    letterSpacing: '0.14em',
+                    color: 'var(--mm-black)',
+                    background: 'transparent',
+                    border: '1.5px solid var(--mm-black)',
+                    padding: '3px 8px',
+                    lineHeight: 1,
+                  }}
+                >
+                  {SECONDARY_BADGE_LABEL[breakdown.secondaryCategory] ??
+                    String(breakdown.secondaryCategory).toUpperCase()}
+                </span>
+              </div>
+            )}
 
           {/* 최근 N주 흐름 sparkline — 우세 카테고리별 값 스왑 (득점/리바운드/스틸/블락/어시스트/TS%/클러치) */}
           {showTrend ? (() => {

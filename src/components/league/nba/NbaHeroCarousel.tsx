@@ -12,6 +12,8 @@ import NbaHero, { type NbaHeroData } from './NbaHero'
 // POTW 우세 카테고리 — 헤드라인 생성 · 아이콘 강조에 사용
 // 'win' 은 팀 승리 기여 (모든 팀원이 동일 승수 견인이라 무의미) → 실제 접전 상황 클러치로 재정의
 export type POTWTopCategory = 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
+// 2번째 우세 지표 — 볼륨 우세 + 3점 폭격 케이스만 'three' 로 특수 서브 지표
+export type SecondaryCategory = POTWTopCategory | 'three'
 
 export type POTWBreakdown = {
   pts: number       // 그 라운드 총 득점
@@ -25,6 +27,13 @@ export type POTWBreakdown = {
   compositeScore: number  // 종합 점수 (0~100)
   topCategory: POTWTopCategory
   headline: string  // 자동 생성 스토리 코멘트
+  // NEW · 3점 지표 (변원식 케이스 · "그 주에 3점 폭격")
+  fg3m: number      // 3점 성공 수
+  fg3a: number      // 3점 시도 수
+  fg3_pct: number   // 3점 성공률
+  // NEW · 2번째 우세 카테고리 + 라벨 (동적 서브 지표)
+  secondaryCategory?: SecondaryCategory
+  secondaryLabel?: string
 }
 
 export type WeeklyPOTW = {
@@ -211,6 +220,11 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
                 clutchGp: e.breakdown.clutchGp,
                 compositeScore: e.breakdown.compositeScore,
                 topCategory: e.breakdown.topCategory,
+                fg3m: e.breakdown.fg3m,
+                fg3a: e.breakdown.fg3a,
+                fg3_pct: e.breakdown.fg3_pct,
+                secondaryCategory: e.breakdown.secondaryCategory,
+                secondaryLabel: e.breakdown.secondaryLabel,
               }}
             />
           </div>
