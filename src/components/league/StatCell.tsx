@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 export function PercentBar({
   value,
   max = 100,
-  color = '#3b82f6',
+  color,
   thickness = 2,
 }: {
   value: number
@@ -20,15 +20,16 @@ export function PercentBar({
 }) {
   const safe = Math.max(0, Math.min(max, value))
   const pct = max > 0 ? (safe / max) * 100 : 0
+  // 기본 accent: mm-yellow (라이트/다크 모두 대응). 명시 color prop 있으면 override.
   return (
     <div
-      className="absolute left-0 right-0 bottom-0 bg-gray-800/40 rounded-full overflow-hidden"
-      style={{ height: thickness }}
+      className="absolute left-0 right-0 bottom-0 overflow-hidden"
+      style={{ height: thickness, background: 'var(--mm-rule)' }}
       aria-hidden
     >
       <div
-        className="h-full transition-all duration-500 ease-out rounded-full"
-        style={{ width: `${pct}%`, backgroundColor: color }}
+        className="h-full transition-all duration-500 ease-out"
+        style={{ width: `${pct}%`, backgroundColor: color ?? 'var(--mm-yellow)' }}
       />
     </div>
   )
@@ -97,22 +98,17 @@ export function FormDots({
   return (
     <div className="inline-flex items-center gap-0.5" aria-label={`최근 ${results.length}경기: ${results.map(r => r ?? '·').join('')}`}>
       {results.map((r, i) => {
-        const color =
-          r === 'W' ? 'bg-emerald-400' :
-          r === 'L' ? 'bg-red-400' :
-          r === 'D' ? 'bg-yellow-400' :
-          'bg-gray-700'
-        // W/L/D 는 은은한 아이덴티티 shadow 로 강조 (없으면 배경 dot)
-        const shadow =
-          r === 'W' ? 'shadow-[0_0_8px_-1px_rgba(52,211,153,0.7)]' :
-          r === 'L' ? 'shadow-[0_0_8px_-1px_rgba(248,113,113,0.7)]' :
-          r === 'D' ? 'shadow-[0_0_8px_-1px_rgba(250,204,21,0.7)]' :
-          ''
+        // W = emerald, L = red, D = mm-yellow, null = 뮤트 (mm-rule)
+        const bg =
+          r === 'W' ? '#059669' :
+          r === 'L' ? '#DC2626' :
+          r === 'D' ? 'var(--mm-yellow)' :
+          'var(--mm-rule)'
         return (
           <span
             key={i}
-            className={`inline-block rounded-full ${color} ${shadow}`}
-            style={{ width: size, height: size }}
+            className="inline-block rounded-full"
+            style={{ width: size, height: size, background: bg }}
             title={r ?? '미정'}
           />
         )

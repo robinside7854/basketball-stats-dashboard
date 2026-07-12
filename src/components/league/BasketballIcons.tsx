@@ -36,13 +36,13 @@ export function Basketball({ size = 24, className = '', spin = false }: IconProp
   )
 }
 
-// 농구공 로더 — Loader2 대체. 오렌지 색상 기본 적용.
+// 농구공 로더 — Loader2 대체. mm-yellow accent 기본 적용 (E안 브랜드).
 export function BasketballLoader({ size = 24, className = '' }: { size?: number; className?: string }) {
   return (
     <Basketball
       size={size}
       spin
-      className={`text-orange-500 ${className}`}
+      className={`text-[color:var(--mm-yellow)] ${className}`}
     />
   )
 }

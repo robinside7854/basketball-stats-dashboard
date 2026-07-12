@@ -35,7 +35,7 @@ export default function LeagueStandingsTabs({ cumulative, quarters }: Props) {
     <div>
       {/* 탭 바 */}
       {tabs.length > 1 && (
-        <div className="flex gap-1 overflow-x-auto scrollbar-hide border-b border-gray-800 px-3">
+        <div className="flex gap-1 overflow-x-auto scrollbar-hide border-b border-[color:var(--mm-rule)] px-3">
           {tabs.map(t => {
             const isActive = t.id === activeId
             const isCurrent = quarters.find(q => q.quarter.id === t.id)?.quarter.is_current
@@ -45,13 +45,13 @@ export default function LeagueStandingsTabs({ cumulative, quarters }: Props) {
                 onClick={() => setActiveId(t.id)}
                 className={`shrink-0 px-3 lg:px-4 py-2 lg:py-2.5 text-xs lg:text-sm font-bold border-b-2 transition-colors cursor-pointer ${
                   isActive
-                    ? 'border-blue-500 text-white'
-                    : 'border-transparent text-gray-500 hover:text-gray-300'
+                    ? 'border-[color:var(--mm-yellow)] text-[color:var(--mm-ink)]'
+                    : 'border-transparent text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)]'
                 }`}
               >
                 {t.label}
                 {isCurrent && (
-                  <span className="ml-1 w-1.5 h-1.5 rounded-full bg-green-400 inline-block align-middle" />
+                  <span className="ml-1 w-1.5 h-1.5 rounded-full bg-[color:var(--mm-yellow)] inline-block align-middle" />
                 )}
               </button>
             )

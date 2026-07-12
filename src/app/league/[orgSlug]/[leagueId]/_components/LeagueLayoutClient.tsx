@@ -127,7 +127,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
       {moreOpen && (
         <>
           <div className="lg:hidden fixed inset-0 z-40 bg-black/40" onClick={() => setMoreOpen(false)} />
-          <div className="lg:hidden fixed bottom-14 inset-x-0 z-50 bg-[color:var(--mm-panel)] border-t border-[color:var(--mm-rule)] shadow-2xl rounded-t-2xl">
+          <div className="lg:hidden fixed bottom-14 inset-x-0 z-50 bg-[color:var(--mm-panel)] border-t border-[color:var(--mm-rule)] shadow-[0_-10px_36px_-8px_rgba(0,0,0,0.20)]">
             <div className="flex items-center justify-between px-5 py-3 border-b border-[color:var(--mm-rule)]">
               <span className="text-sm font-bold text-[color:var(--mm-ink)]">더보기</span>
               <button onClick={() => setMoreOpen(false)} aria-label="더보기 닫기" className="text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] p-1.5 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center">
