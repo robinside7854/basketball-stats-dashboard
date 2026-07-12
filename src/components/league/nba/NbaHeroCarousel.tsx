@@ -9,10 +9,28 @@ import { useRef, useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import NbaHero, { type NbaHeroData } from './NbaHero'
 
+// POTW 우세 카테고리 — 헤드라인 생성 · 아이콘 강조에 사용
+export type POTWTopCategory = 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'win'
+
+export type POTWBreakdown = {
+  pts: number       // 그 라운드 총 득점
+  ts_pct: number    // True Shooting %
+  reb: number       // 총 리바운드
+  stl: number       // 스틸
+  blk: number       // 블락
+  ast: number       // 어시스트
+  wins: number      // 그 라운드 승리 게임 수
+  losses: number    // 패배 게임 수
+  compositeScore: number  // 종합 점수 (0~100)
+  topCategory: POTWTopCategory
+  headline: string  // 자동 생성 스토리 코멘트
+}
+
 export type WeeklyPOTW = {
   date: string        // YYYY-MM-DD (라운드)
   label: string       // "7/4 (토)"
   potw: NonNullable<NbaHeroData>
+  breakdown: POTWBreakdown
 }
 
 type Props = {
@@ -107,6 +125,18 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
               data={e.potw}
               rangeLabel={`${e.label} 라운드`}
               leagueId={leagueId}
+              headline={e.breakdown.headline}
+              breakdown={{
+                ts_pct: e.breakdown.ts_pct,
+                reb: e.breakdown.reb,
+                stl: e.breakdown.stl,
+                blk: e.breakdown.blk,
+                ast: e.breakdown.ast,
+                wins: e.breakdown.wins,
+                losses: e.breakdown.losses,
+                compositeScore: e.breakdown.compositeScore,
+                topCategory: e.breakdown.topCategory,
+              }}
             />
           </div>
         ))}

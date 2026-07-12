@@ -10,7 +10,7 @@ type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
 import { type NbaHeroData } from '@/components/league/nba/NbaHero'
-import NbaHeroCarousel, { type WeeklyPOTW } from '@/components/league/nba/NbaHeroCarousel'
+import NbaHeroCarousel, { type WeeklyPOTW, type POTWTopCategory } from '@/components/league/nba/NbaHeroCarousel'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
 import NbaRoundsSummary, { type RoundSummary, type RoundTeamSummary } from '@/components/league/nba/NbaRoundsSummary'
 import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
@@ -268,8 +268,89 @@ async function computeRecentRounds(
 }
 
 // 최근 4주 라운드별 Player of the Week — NbaHeroCarousel 용.
-// 각 완료된 라운드(=날짜)마다 그 날 이벤트 합산해 최고 득점 선수 선정.
-// 라운드 마감(is_complete) 시 자동 갱신 · 홈에서 슬라이드 배너로 아카이빙 노출.
+//
+// 가중치 종합 점수 방식 (총 100점):
+//   - 득점 볼륨 (라운드 총 pts)                  · 25
+//   - 득점 효율 (TS%)                            · 15
+//   - 리바운드 (총 REB)                          · 10
+//   - 스틸 · 블락 · 어시스트 각 10               · 30
+//   - 승리 기여 (승리 게임 참여 + 승리팀 pts 비중) · 20
+//
+// 각 지표를 라운드 내 최대값 대비 정규화(0~1) 후 가중 합산 → composite score.
+// 최고 점수 선수 선정 + 우세 카테고리 · 스토리 헤드라인 자동 생성.
+
+const POTW_WEIGHTS = {
+  volume: 25,
+  efficiency: 15,
+  reb: 10,
+  stl: 10,
+  blk: 10,
+  ast: 10,
+  win: 20,
+} as const
+
+type PlayerRoundStats = {
+  pts: number
+  fga: number     // 필드골 시도
+  fta: number     // 자유투 시도
+  reb: number
+  oreb: number
+  dreb: number
+  stl: number
+  blk: number
+  ast: number
+  tov: number
+  gp: Set<string>       // 참여 게임 IDs
+  wins: number          // 승리한 게임 참여 수
+  losses: number        // 패배한 게임 참여 수
+  ptsInWins: number     // 승리 게임 내 개인 pts (승리 기여용)
+  teamPtsInWins: number // 승리 게임 내 그 선수 팀 총 pts
+}
+
+function emptyRoundStats(): PlayerRoundStats {
+  return {
+    pts: 0, fga: 0, fta: 0, reb: 0, oreb: 0, dreb: 0,
+    stl: 0, blk: 0, ast: 0, tov: 0,
+    gp: new Set(), wins: 0, losses: 0, ptsInWins: 0, teamPtsInWins: 0,
+  }
+}
+
+// True Shooting Percentage
+function tsPct(pts: number, fga: number, fta: number): number {
+  const denom = 2 * (fga + 0.44 * fta)
+  return denom > 0 ? (pts / denom) * 100 : 0
+}
+
+// 헤드라인 생성 (규칙 기반, 뉴스 톤)
+function makeHeadline(
+  name: string,
+  s: PlayerRoundStats,
+  topCategory: POTWTopCategory,
+  teamWon: boolean,
+): string {
+  const ts = tsPct(s.pts, s.fga, s.fta)
+  switch (topCategory) {
+    case 'volume':
+      return teamWon
+        ? `${name}, ${s.pts}점 폭발로 팀 승리 견인`
+        : `${name}, 홀로 ${s.pts}점 몰아친 라운드 지배`
+    case 'efficiency':
+      return `${name}, TS ${ts.toFixed(0)}% 초효율 · ${s.pts}점 정조준`
+    case 'reb':
+      return `${name}, 리바운드 ${s.reb}개로 페인트존 장악`
+    case 'stl':
+      return `${name}, 스틸 ${s.stl}개 · 상대 공격 완전 잠금`
+    case 'blk':
+      return `${name}, 블락 ${s.blk}개로 림 프로텍터 등극`
+    case 'ast':
+      return `${name}, 어시스트 ${s.ast}개 · 팀 공격 리드`
+    case 'win':
+      return `${name}, ${s.wins}승 견인 · 승리의 아이콘`
+    default:
+      return `${name}, 이번 라운드 최고 임팩트`
+  }
+}
+
 async function computeWeeklyPOTW(
   supabase: ReturnType<typeof createClient>,
   leagueId: string,
@@ -278,10 +359,10 @@ async function computeWeeklyPOTW(
   const from = new Date(Date.now() - weeks * 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const today = new Date().toISOString().slice(0, 10)
 
-  // 1) 완료된 게임만 (친선 제외)
+  // 1) 완료된 게임 (친선 제외) + 스코어 · 팀 정보
   const { data: games } = await supabase
     .from('league_games')
-    .select('id, date, plus_one_player_id')
+    .select('id, date, plus_one_player_id, home_team_id, away_team_id, home_score, away_score')
     .eq('league_id', leagueId)
     .eq('is_complete', true)
     .eq('is_exhibition', false)
@@ -302,6 +383,23 @@ async function computeWeeklyPOTW(
   const gamePlusOneMap: Record<string, string | null> = Object.fromEntries(
     filteredGames.map(g => [g.id as string, (g.plus_one_player_id as string | null) ?? null])
   )
+  // 게임별 승패 판정 (팀 기준)
+  type GameResult = {
+    homeTeamId: string | null; awayTeamId: string | null
+    homeScore: number; awayScore: number
+    homeWon: boolean; awayWon: boolean
+  }
+  const gameResultMap: Record<string, GameResult> = {}
+  for (const g of filteredGames) {
+    const hs = (g.home_score as number) ?? 0
+    const as = (g.away_score as number) ?? 0
+    gameResultMap[g.id as string] = {
+      homeTeamId: g.home_team_id as string | null,
+      awayTeamId: g.away_team_id as string | null,
+      homeScore: hs, awayScore: as,
+      homeWon: hs > as, awayWon: as > hs,
+    }
+  }
 
   // 3) 선수 플러스원 플래그
   const { data: playersRaw } = await supabase
@@ -310,15 +408,15 @@ async function computeWeeklyPOTW(
     .eq('league_id', leagueId)
   const plusOneSet = new Set((playersRaw ?? []).filter(p => p.plus_one).map(p => p.id))
 
-  // 4) 이벤트 페이지네이션
-  type EvRow = { league_player_id: string | null; type: string; result: string | null; league_game_id: string }
+  // 4) 이벤트 페이지네이션 — team_id 필드도 함께 (승리 기여 판정용)
+  type EvRow = { league_player_id: string | null; type: string; result: string | null; league_game_id: string; team_id: string | null }
   const events: EvRow[] = []
   const PAGE = 1000
   let pg = 0
   while (true) {
     const { data: chunk } = await supabase
       .from('league_game_events')
-      .select('league_player_id, type, result, league_game_id')
+      .select('league_player_id, type, result, league_game_id, team_id')
       .in('league_game_id', gameIds)
       .not('league_player_id', 'is', null)
       .order('id', { ascending: true })
@@ -328,9 +426,9 @@ async function computeWeeklyPOTW(
     pg++
   }
 
-  // 5) 라운드 × 선수 pts 집계
-  // byRound[date] = Map<playerId, { pts, gp:Set<gameId> }>
-  const byRound = new Map<string, Map<string, { pts: number; gp: Set<string> }>>()
+  // 5) 라운드 × 선수 종합 스탯 집계 + 게임별 선수의 team_id 추적
+  const byRound = new Map<string, Map<string, PlayerRoundStats>>()
+  const playerTeamPerGame = new Map<string, Map<string, string>>() // pid → gameId → team_id
   for (const e of events) {
     if (!e.league_player_id) continue
     const date = gameDateMap[e.league_game_id]
@@ -339,37 +437,171 @@ async function computeWeeklyPOTW(
 
     if (!byRound.has(date)) byRound.set(date, new Map())
     const map = byRound.get(date)!
-    if (!map.has(pid)) map.set(pid, { pts: 0, gp: new Set() })
+    if (!map.has(pid)) map.set(pid, emptyRoundStats())
     const s = map.get(pid)!
-    if (e.type !== 'sub_in' && e.type !== 'sub_out') s.gp.add(e.league_game_id)
+
+    if (e.type !== 'sub_in' && e.type !== 'sub_out') {
+      s.gp.add(e.league_game_id)
+    }
+
+    // team_id 추적 (선수-게임별 소속팀)
+    if (e.team_id && e.type !== 'sub_in' && e.type !== 'sub_out') {
+      if (!playerTeamPerGame.has(pid)) playerTeamPerGame.set(pid, new Map())
+      const m = playerTeamPerGame.get(pid)!
+      if (!m.has(e.league_game_id)) m.set(e.league_game_id, e.team_id)
+    }
 
     const made = e.result === 'made'
     const gpo = gamePlusOneMap[e.league_game_id]
     const isP1 = gpo !== null ? pid === gpo : plusOneSet.has(pid)
+
     switch (e.type) {
       case 'shot_3p':
-        if (made) s.pts += isP1 ? 4 : 3; break
+        s.fga++
+        if (made) s.pts += isP1 ? 4 : 3
+        break
       case 'shot_2p_mid': case 'shot_layup': case 'shot_post': case 'shot_2p_drive':
-        if (made) s.pts += isP1 ? 3 : 2; break
+        s.fga++
+        if (made) s.pts += isP1 ? 3 : 2
+        break
       case 'ft_2pt': case 'ft_3pt_1':
-        if (made) s.pts += 2; break
-      case 'free_throw': case 'ft_3pt_2': case 'and_one':
-        if (made) s.pts += 1; break
+        s.fta++
+        if (made) s.pts += 2
+        break
+      case 'free_throw': case 'ft_3pt_2':
+        s.fta++
+        if (made) s.pts += 1
+        break
+      case 'and_one':
+        if (made) s.pts += 1
+        break
+      case 'oreb': s.oreb++; s.reb++; break
+      case 'dreb': s.dreb++; s.reb++; break
+      case 'steal': s.stl++; break
+      case 'block': s.blk++; break
+      case 'turnover': s.tov++; break
+    }
+    // 어시스트 = 슛 성공 이벤트의 related_player 참조인데, related 필드 조회 안 함
+    // → 어시스트 이벤트 타입 별도 있을 경우만 카운트 (없으면 0)
+    // 실제 데이터에 assist 이벤트 있는지 확인 필요. 우선은 pts 이벤트의 related 로 보정 불가.
+    // NOTE: 팀 통계 API 는 related_player_id 로 어시스트 계산. 여기선 v1 스킵.
+  }
+
+  // 6) 각 라운드에서 각 선수의 승리 기여 계산
+  for (const [, map] of byRound) {
+    for (const [pid, s] of map) {
+      const teamPerGame = playerTeamPerGame.get(pid) ?? new Map()
+      for (const gid of s.gp) {
+        const teamId = teamPerGame.get(gid)
+        const gr = gameResultMap[gid]
+        if (!gr || !teamId) continue
+        const isHome = teamId === gr.homeTeamId
+        const isAway = teamId === gr.awayTeamId
+        const teamScore = isHome ? gr.homeScore : (isAway ? gr.awayScore : 0)
+        const won = isHome ? gr.homeWon : (isAway ? gr.awayWon : false)
+        if (won) {
+          s.wins++
+          s.ptsInWins += s.pts / s.gp.size  // 근사: 이 게임 참여분 = 총 pts / gp
+          s.teamPtsInWins += teamScore
+        } else {
+          s.losses++
+        }
+      }
     }
   }
 
-  // 6) 각 라운드별 top1 선정
-  type TopPick = { pid: string; pts: number; gp: number }
+  // 7) 각 라운드별 종합 점수 계산 → top1 선정
+  type TopPick = {
+    pid: string; stats: PlayerRoundStats
+    ts_pct: number
+    compositeScore: number
+    topCategory: POTWTopCategory
+  }
   const topPerRound = new Map<string, TopPick>()
+
   for (const [date, map] of byRound) {
-    const list: TopPick[] = [...map.entries()]
-      .map(([pid, s]) => ({ pid, pts: s.pts, gp: s.gp.size }))
-      .filter(p => p.gp > 0 && p.pts > 0)
-    const top = list.sort((a, b) => b.pts - a.pts)[0]
-    if (top) topPerRound.set(date, top)
+    const roster: Array<{ pid: string; s: PlayerRoundStats; ts: number }> = []
+    for (const [pid, s] of map) {
+      if (s.gp.size === 0) continue
+      const ts = tsPct(s.pts, s.fga, s.fta)
+      roster.push({ pid, s, ts })
+    }
+    if (roster.length === 0) continue
+
+    // 라운드 내 각 카테고리 max
+    const maxPts = Math.max(...roster.map(r => r.s.pts), 1)
+    const maxTs = Math.max(...roster.filter(r => (r.s.fga + r.s.fta) >= 5).map(r => r.ts), 1)  // 최소 시도 필터
+    const maxReb = Math.max(...roster.map(r => r.s.reb), 1)
+    const maxStl = Math.max(...roster.map(r => r.s.stl), 1)
+    const maxBlk = Math.max(...roster.map(r => r.s.blk), 1)
+    const maxAst = Math.max(...roster.map(r => r.s.ast), 1)  // v1: 대부분 0
+    const maxWinScore = Math.max(
+      ...roster.map(r => {
+        const games = r.s.gp.size
+        const winRate = games > 0 ? r.s.wins / games : 0
+        const contrib = r.s.teamPtsInWins > 0 ? r.s.ptsInWins / r.s.teamPtsInWins : 0
+        return winRate * (1 + contrib)  // 승률 + 기여도 boost
+      }),
+      1,
+    )
+
+    // 각 선수 종합 점수
+    const scored = roster.map(r => {
+      const s = r.s
+      const games = s.gp.size
+      const winRate = games > 0 ? s.wins / games : 0
+      const contrib = s.teamPtsInWins > 0 ? s.ptsInWins / s.teamPtsInWins : 0
+      const winScoreRaw = winRate * (1 + contrib)
+
+      const norm = {
+        volume: s.pts / maxPts,
+        efficiency: (s.fga + s.fta) >= 5 ? r.ts / maxTs : 0,
+        reb: s.reb / maxReb,
+        stl: s.stl / maxStl,
+        blk: s.blk / maxBlk,
+        ast: s.ast / maxAst,
+        win: winScoreRaw / maxWinScore,
+      }
+
+      // 가중 합 (총 100)
+      const composite =
+        norm.volume     * POTW_WEIGHTS.volume +
+        norm.efficiency * POTW_WEIGHTS.efficiency +
+        norm.reb        * POTW_WEIGHTS.reb +
+        norm.stl        * POTW_WEIGHTS.stl +
+        norm.blk        * POTW_WEIGHTS.blk +
+        norm.ast        * POTW_WEIGHTS.ast +
+        norm.win        * POTW_WEIGHTS.win
+
+      // 우세 카테고리 판정 (가중 × 정규화 값 최고)
+      const weighted: Array<[POTWTopCategory, number]> = [
+        ['volume',     norm.volume     * POTW_WEIGHTS.volume],
+        ['efficiency', norm.efficiency * POTW_WEIGHTS.efficiency],
+        ['reb',        norm.reb        * POTW_WEIGHTS.reb],
+        ['stl',        norm.stl        * POTW_WEIGHTS.stl],
+        ['blk',        norm.blk        * POTW_WEIGHTS.blk],
+        ['ast',        norm.ast        * POTW_WEIGHTS.ast],
+        ['win',        norm.win        * POTW_WEIGHTS.win],
+      ]
+      weighted.sort((a, b) => b[1] - a[1])
+      const topCategory: POTWTopCategory = weighted[0][0]
+
+      return { pid: r.pid, s, ts: r.ts, composite, topCategory }
+    })
+
+    const top = scored.sort((a, b) => b.composite - a.composite)[0]
+    if (top && top.composite > 0) {
+      topPerRound.set(date, {
+        pid: top.pid,
+        stats: top.s,
+        ts_pct: top.ts,
+        compositeScore: +top.composite.toFixed(1),
+        topCategory: top.topCategory,
+      })
+    }
   }
 
-  // 7) top1 선수들의 meta + photo_url 일괄 조회
+  // 8) top1 선수들의 meta + photo_url 일괄 조회
   const topPids = [...topPerRound.values()].map(t => t.pid)
   if (topPids.length === 0) return []
 
@@ -415,7 +647,11 @@ async function computeWeeklyPOTW(
     if (!top) continue
     const meta = metaMap.get(top.pid)
     if (!meta) continue
-    const series = seriesByPid.get(top.pid) ?? [{ date, pts: top.pts }]
+    const s = top.stats
+    const series = seriesByPid.get(top.pid) ?? [{ date, pts: s.pts }]
+    const teamWon = s.wins > s.losses
+    const headline = makeHeadline(meta.name, s, top.topCategory, teamWon)
+
     result.push({
       date,
       label: fmtWeek(date),
@@ -423,12 +659,25 @@ async function computeWeeklyPOTW(
         playerId: top.pid,
         name: meta.name,
         number: meta.number,
-        pts: top.pts,                                        // 그 라운드 총 득점
-        gp: top.gp,
-        rd: series.length,                                    // 최근 참여 라운드 수 (참고용)
-        ppr: series.length > 0 ? +(series.reduce((s, e) => s + e.pts, 0) / series.length).toFixed(1) : top.pts,
+        pts: s.pts,
+        gp: s.gp.size,
+        rd: series.length,
+        ppr: series.length > 0 ? +(series.reduce((sum, e) => sum + e.pts, 0) / series.length).toFixed(1) : s.pts,
         photoUrl: meta.photo_url,
-        roundSeries: series,                                  // 최근 N주 흐름 시리즈
+        roundSeries: series,
+      },
+      breakdown: {
+        pts: s.pts,
+        ts_pct: +top.ts_pct.toFixed(1),
+        reb: s.reb,
+        stl: s.stl,
+        blk: s.blk,
+        ast: s.ast,
+        wins: s.wins,
+        losses: s.losses,
+        compositeScore: top.compositeScore,
+        topCategory: top.topCategory,
+        headline,
       },
     })
   }

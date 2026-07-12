@@ -25,10 +25,24 @@ export type NbaHeroData = {
   teamName?: string | null
 } | null
 
+export type HeroBreakdown = {
+  ts_pct: number
+  reb: number
+  stl: number
+  blk: number
+  ast: number
+  wins: number
+  losses: number
+  compositeScore: number
+  topCategory: 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'win'
+}
+
 type Props = {
   data: NbaHeroData
   rangeLabel: string
   leagueId: string
+  headline?: string           // 자동 생성 스토리 코멘트 (뉴스 헤드라인 톤)
+  breakdown?: HeroBreakdown   // 지표 브레이크다운 · 우세 카테고리 강조
 }
 
 function initials(name: string): string {
@@ -82,7 +96,7 @@ function RoundBars({ series }: { series: Array<{ date: string; pts: number }> })
   )
 }
 
-export default function NbaHero({ data, rangeLabel, leagueId }: Props) {
+export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdown }: Props) {
   const [openQuickView, setOpenQuickView] = useState(false)
   if (!data) return null
   const showTrend = (data.roundSeries?.length ?? 0) >= 2
@@ -145,9 +159,34 @@ export default function NbaHero({ data, rangeLabel, leagueId }: Props) {
             </span>
           </h1>
 
-          <p className="text-[15px] leading-relaxed mb-6" style={{ color: 'var(--mm-ink-soft)' }}>
+          {/* 자동 스토리 헤드라인 (뉴스 톤) — 우세 카테고리 기반 */}
+          {headline && (
+            <p
+              className="font-jersey uppercase mb-4"
+              style={{
+                fontSize: 'clamp(16px, 2.2vw, 22px)',
+                fontWeight: 900,
+                letterSpacing: '-0.005em',
+                lineHeight: 1.25,
+                color: 'var(--mm-ink)',
+                borderLeft: '4px solid var(--mm-yellow)',
+                paddingLeft: '12px',
+                textWrap: 'balance',
+              }}
+            >
+              {headline}
+            </p>
+          )}
+          <p className="text-[14px] leading-relaxed mb-5" style={{ color: 'var(--mm-ink-soft)' }}>
             이번 라운드{' '}
             <strong style={{ color: 'var(--mm-ink)', fontSize: '1.05em' }}>{data.pts}점</strong>
+            {breakdown && (breakdown.wins + breakdown.losses) > 0 && (
+              <>
+                {' '}· {breakdown.wins > 0 && <span style={{ color: '#059669', fontWeight: 700 }}>{breakdown.wins}승</span>}
+                {breakdown.wins > 0 && breakdown.losses > 0 && ' '}
+                {breakdown.losses > 0 && <span style={{ color: '#DC2626', fontWeight: 700 }}>{breakdown.losses}패</span>}
+              </>
+            )}
             {data.rd > 1 && (
               <>
                 {' '}· 최근 {data.rd}주 평균{' '}
@@ -269,6 +308,50 @@ export default function NbaHero({ data, rangeLabel, leagueId }: Props) {
               style={{ borderTop: '2px solid rgba(0,0,0,0.15)', color: 'rgba(0,0,0,0.55)' }}
             >
               첫 라운드 · 다음 라운드부터 흐름 표시
+            </div>
+          )}
+
+          {/* 지표 브레이크다운 · 우세 카테고리 강조 */}
+          {breakdown && (
+            <div
+              className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-5 pt-4"
+              style={{ borderTop: '2px solid rgba(0,0,0,0.15)' }}
+            >
+              {(() => {
+                const items: Array<{ key: HeroBreakdown['topCategory']; label: string; value: string }> = [
+                  { key: 'volume',     label: 'PTS', value: String(data.pts) },
+                  { key: 'efficiency', label: 'TS%', value: breakdown.ts_pct > 0 ? `${breakdown.ts_pct.toFixed(0)}%` : '—' },
+                  { key: 'reb',        label: 'REB', value: String(breakdown.reb) },
+                  { key: 'ast',        label: 'AST', value: String(breakdown.ast) },
+                  { key: 'stl',        label: 'STL', value: String(breakdown.stl) },
+                  { key: 'blk',        label: 'BLK', value: String(breakdown.blk) },
+                ]
+                return items.map(it => {
+                  const isTop = breakdown.topCategory === it.key
+                  return (
+                    <div
+                      key={it.key}
+                      className="text-[10px] tracking-[0.16em] uppercase font-black text-center py-1"
+                      style={{
+                        color: isTop ? 'var(--mm-black)' : 'rgba(0,0,0,0.55)',
+                        background: isTop ? 'rgba(0,0,0,0.10)' : 'transparent',
+                        border: isTop ? '1.5px solid var(--mm-black)' : '1.5px solid transparent',
+                      }}
+                    >
+                      {it.label}
+                      <strong
+                        className="block font-jersey tabular-nums font-black leading-none mt-0.5"
+                        style={{
+                          color: isTop ? 'var(--mm-black)' : 'rgba(0,0,0,0.75)',
+                          fontSize: '18px',
+                        }}
+                      >
+                        {it.value}
+                      </strong>
+                    </div>
+                  )
+                })
+              })()}
             </div>
           )}
         </aside>
