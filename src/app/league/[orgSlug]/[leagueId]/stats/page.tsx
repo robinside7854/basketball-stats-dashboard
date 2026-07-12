@@ -7,6 +7,7 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import PlayerCompareModal from '@/components/league/PlayerCompareModal'
 import LeagueDuoPanel from '@/components/league/LeagueDuoPanel'
+import NbaSeasonHighs from '@/components/league/nba/NbaSeasonHighs'
 import StatHeader from '@/components/league/StatHeader'
 import { PercentBar } from '@/components/league/StatCell'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
@@ -39,7 +40,7 @@ type StatUnit = 'round' | 'game' | 'per40'
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
 type AdvKey = 'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'ds_pct'|'lu_pct'|'md_pct'|'three_share'
-type StatMode = 'basic'|'shooting'|'advanced'
+type StatMode = 'basic'|'shooting'|'advanced'|'seasonHigh'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _SORT_OPTIONS_LEGACY: { key: SortKey; label: string }[] = [
@@ -514,12 +515,13 @@ export default function LeagueStatsPage() {
               </div>
               {/* 컨트롤 그룹 — 모바일에서 스크롤 가능한 가로 행 */}
               <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide sm:ml-auto sm:flex-wrap">
-                {/* Basic / Shooting / Advanced 토글 */}
+                {/* Basic / Shooting / Advanced / 시즌하이 토글 */}
                 <div className="flex overflow-hidden shrink-0" style={{ border: '1px solid var(--mm-rule)' }}>
                   {([
-                    { k: 'basic'    as StatMode, label: 'Basic' },
-                    { k: 'shooting' as StatMode, label: 'Shooting' },
-                    { k: 'advanced' as StatMode, label: 'Advanced' },
+                    { k: 'basic'      as StatMode, label: 'Basic' },
+                    { k: 'shooting'   as StatMode, label: 'Shooting' },
+                    { k: 'advanced'   as StatMode, label: 'Advanced' },
+                    { k: 'seasonHigh' as StatMode, label: '시즌하이' },
                   ]).map(({ k, label }) => (
                     <button key={k} onClick={() => setStatMode(k)}
                       className="px-3 py-2 text-xs font-black uppercase cursor-pointer transition-colors btn-press min-h-[40px]"
@@ -594,7 +596,14 @@ export default function LeagueStatsPage() {
               </div>
             </div>
 
-            {statMode === 'basic' ? (<>
+            {statMode === 'seasonHigh' ? (
+              <div className="p-3 md:p-4">
+                <NbaSeasonHighs
+                  leagueId={leagueId}
+                  quarterId={selectedQuarterId === 'all' ? null : selectedQuarterId}
+                />
+              </div>
+            ) : statMode === 'basic' ? (<>
             {/* Basic — 모바일 정렬 칩 */}
             <div className="md:hidden px-3 py-2.5 overflow-x-auto" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
               <div className="flex gap-1.5 whitespace-nowrap">

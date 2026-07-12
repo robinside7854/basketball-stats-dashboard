@@ -1,14 +1,18 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
-import { Trophy, Crown, Flame, Shield, Zap, Target, TrendingUp, Sparkles, Award } from 'lucide-react'
+import { Trophy, Crown, Flame, Shield, Zap, Target, TrendingUp, Sparkles, Award, Hand, Crosshair, Heart } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import AwardDetailModal from '@/components/league/AwardDetailModal'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { gsap } from 'gsap'
 
-type AwardCategory = 'MVP' | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY' | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'MIP'
+type AwardCategory =
+  | 'MVP' | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY'
+  | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'MIP'
+  // 신규 (#3)
+  | 'OREB_KING' | 'MID_RANGE' | 'IRON_MAN'
 
 interface AwardCandidate {
   player_id: string
@@ -51,6 +55,11 @@ const CATEGORY_STYLE: Record<AwardCategory, {
   EFFICIENCY: { Icon: Award,     bg: 'from-teal-950/40 to-cyan-900/20',                       border: 'border-teal-500/50',   text: 'text-teal-200',     chipBg: 'bg-teal-500/20',   ribbon: 'from-teal-400 to-cyan-500' },
   CLUTCH:     { Icon: Flame,     bg: 'from-red-950/40 to-amber-900/20',                       border: 'border-red-500/50',    text: 'text-red-200',      chipBg: 'bg-red-500/20',    ribbon: 'from-red-400 to-amber-500' },
   MIP:        { Icon: TrendingUp,bg: 'from-purple-950/40 to-fuchsia-900/20',                  border: 'border-purple-500/50', text: 'text-purple-200',   chipBg: 'bg-purple-500/20', ribbon: 'from-purple-400 to-fuchsia-500' },
+  // 신규 (#3) — OREB_KING 은 REBOUND(orange-500)와 겹치지 않게 emerald 로,
+  //   Hand 아이콘(리바운드를 "잡는다" 은유)이 Rocket 보다 자연스럽다.
+  OREB_KING:  { Icon: Hand,      bg: 'from-emerald-950/40 to-green-900/20',                   border: 'border-emerald-500/50',text: 'text-emerald-200',  chipBg: 'bg-emerald-500/20',ribbon: 'from-emerald-400 to-green-500' },
+  MID_RANGE:  { Icon: Crosshair, bg: 'from-sky-950/40 to-indigo-900/20',                      border: 'border-sky-500/50',    text: 'text-sky-200',      chipBg: 'bg-sky-500/20',    ribbon: 'from-sky-400 to-indigo-500' },
+  IRON_MAN:   { Icon: Heart,     bg: 'from-rose-950/40 to-pink-900/20',                       border: 'border-rose-500/50',   text: 'text-rose-200',     chipBg: 'bg-rose-500/20',   ribbon: 'from-rose-400 to-pink-500' },
 }
 
 // 부문별 accent — Option B: gradient 걷어내고 순색 accent 만.
@@ -65,6 +74,10 @@ const CATEGORY_ACCENT: Record<AwardCategory, string> = {
   EFFICIENCY: '#14B8A6', // teal-500
   CLUTCH:     '#EF4444', // red-500
   MIP:        '#A855F7', // purple-500
+  // 신규 (#3) — OREB_KING 은 REBOUND(orange-500)와 색상 겹치지 않게 emerald 로.
+  OREB_KING:  '#059669', // emerald-600
+  MID_RANGE:  '#0EA5E9', // sky-500
+  IRON_MAN:   '#F43F5E', // rose-500
 }
 
 interface AttendanceInfo {
@@ -194,7 +207,7 @@ export default function AwardsPage() {
                 className="text-[12px] font-bold uppercase tracking-[0.18em] mt-1.5"
                 style={{ color: 'var(--mm-muted)' }}
               >
-                Season Awards · 9개 부문
+                Season Awards · 12개 부문
               </p>
             </div>
           </div>

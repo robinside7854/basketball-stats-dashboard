@@ -47,8 +47,14 @@ type SeasonStats = {
 
 type WLStats = { ppg: number; rpg: number; apg: number; spg: number; bpg: number } | null
 
+type RankTotal = { rank: number; total: number }
 type Detail = {
-  rankings: { ppg: number; rpg: number; apg: number; spg: number; bpg: number; total: number; win_rate_rank?: number }
+  rankings: {
+    ppg: number; rpg: number; apg: number; spg: number; bpg: number
+    total: number; win_rate_rank?: number
+    // 신규 (#5a): { rank, total } 형태 — gp>=1 자격
+    gp?: RankTotal; fg_pct?: RankTotal; fg3_pct?: RankTotal; ft_pct?: RankTotal
+  }
   active_streaks?: { ten: number; twenty: number; three: number; win: number }
   badges: EvaluatedBadge[]
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
@@ -72,7 +78,8 @@ type Detail = {
   }>
   vs_opponents?: Array<{
     team_id: string; team_name: string; team_color: string
-    gp: number
+    rp: number    // #5c: 라운드(일자) 단위 카운트
+    gp: number    // 하위호환 (rp 와 동일)
     pts: number; reb: number; oreb: number; dreb: number
     ast: number; stl: number; blk: number; tov: number
     fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
@@ -757,13 +764,14 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     <p className="text-xs uppercase tracking-[0.20em] font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>시즌 스탯</p>
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3">
                       {[
-                        { label: statUnit === 'round' ? 'R' : 'G', value: activeDetail?.player_stats?.gp ?? 0,  decimals: 0, rank: 0                          },
-                        { label: 'PPG', value: activeDetail?.player_stats?.ppg ?? 0, decimals: 1, rank: detail?.rankings.ppg ?? 0 },
-                        { label: 'RPG', value: activeDetail?.player_stats?.rpg ?? 0, decimals: 1, rank: detail?.rankings.rpg ?? 0 },
-                        { label: 'APG', value: activeDetail?.player_stats?.apg ?? 0, decimals: 1, rank: detail?.rankings.apg ?? 0 },
-                        { label: 'STL', value: activeDetail?.player_stats?.spg ?? 0, decimals: 1, rank: detail?.rankings.spg ?? 0 },
-                        { label: 'BLK', value: activeDetail?.player_stats?.bpg ?? 0, decimals: 1, rank: detail?.rankings.bpg ?? 0 },
-                      ].map(({ label, value, decimals, rank }) => {
+                        // #5a: R/G 은 gp 랭킹 (신규 { rank, total } 형태)
+                        { label: statUnit === 'round' ? 'R' : 'G', value: activeDetail?.player_stats?.gp ?? 0,  decimals: 0, rank: detail?.rankings.gp?.rank ?? 0, total: detail?.rankings.gp?.total ?? 0 },
+                        { label: 'PPG', value: activeDetail?.player_stats?.ppg ?? 0, decimals: 1, rank: detail?.rankings.ppg ?? 0, total: detail?.rankings.total ?? 0 },
+                        { label: 'RPG', value: activeDetail?.player_stats?.rpg ?? 0, decimals: 1, rank: detail?.rankings.rpg ?? 0, total: detail?.rankings.total ?? 0 },
+                        { label: 'APG', value: activeDetail?.player_stats?.apg ?? 0, decimals: 1, rank: detail?.rankings.apg ?? 0, total: detail?.rankings.total ?? 0 },
+                        { label: 'STL', value: activeDetail?.player_stats?.spg ?? 0, decimals: 1, rank: detail?.rankings.spg ?? 0, total: detail?.rankings.total ?? 0 },
+                        { label: 'BLK', value: activeDetail?.player_stats?.bpg ?? 0, decimals: 1, rank: detail?.rankings.bpg ?? 0, total: detail?.rankings.total ?? 0 },
+                      ].map(({ label, value, decimals, rank, total }) => {
                         const isChamp = rank === 1
                         return (
                           <div
@@ -790,7 +798,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                                 style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
                               >
                                 {isChamp && <Crown size={10} aria-hidden />}
-                                {rank}위
+                                리그 {rank}위{total > 0 ? `/${total}명` : ''}
                               </p>
                             )}
                           </div>
@@ -799,22 +807,40 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     </div>
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       {[
-                        { label: 'FG%', pct: activeDetail?.player_stats?.fg_pct ?? 0, m: activeDetail?.player_stats?.fgm ?? 0, a: activeDetail?.player_stats?.fga ?? 0 },
-                        { label: '3P%', pct: activeDetail?.player_stats?.fg3_pct ?? 0, m: activeDetail?.player_stats?.fg3m ?? 0, a: activeDetail?.player_stats?.fg3a ?? 0 },
-                        { label: 'FT%', pct: activeDetail?.player_stats?.ft_pct ?? 0, m: activeDetail?.player_stats?.ftm ?? 0, a: activeDetail?.player_stats?.fta ?? 0 },
-                      ].map(({ label, pct, m, a }) => (
-                        <div
-                          key={label}
-                          className="rounded-sm p-2.5 text-center"
-                          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                        >
-                          <p className="text-xs mb-1 uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--mm-muted)' }}>{label}</p>
-                          <p className="font-jersey text-xl font-black leading-none tabular-nums" style={{ color: 'var(--mm-ink)' }}>
-                            {a > 0 ? <><CountUp value={pct} decimals={1} />%</> : '—'}
-                          </p>
-                          <p className="text-xs mt-0.5 font-mono" style={{ color: 'var(--mm-muted)' }}>{m}/{a}</p>
-                        </div>
-                      ))}
+                        // #5a: 슛 정확도 랭킹 (시도>0 필요, gp>=1 자격)
+                        { label: 'FG%', pct: activeDetail?.player_stats?.fg_pct ?? 0, m: activeDetail?.player_stats?.fgm ?? 0, a: activeDetail?.player_stats?.fga ?? 0, rt: detail?.rankings.fg_pct },
+                        { label: '3P%', pct: activeDetail?.player_stats?.fg3_pct ?? 0, m: activeDetail?.player_stats?.fg3m ?? 0, a: activeDetail?.player_stats?.fg3a ?? 0, rt: detail?.rankings.fg3_pct },
+                        { label: 'FT%', pct: activeDetail?.player_stats?.ft_pct ?? 0, m: activeDetail?.player_stats?.ftm ?? 0, a: activeDetail?.player_stats?.fta ?? 0, rt: detail?.rankings.ft_pct },
+                      ].map(({ label, pct, m, a, rt }) => {
+                        const rank = rt?.rank ?? 0
+                        const total = rt?.total ?? 0
+                        const isChamp = rank === 1
+                        return (
+                          <div
+                            key={label}
+                            className="rounded-sm p-2.5 text-center"
+                            style={isChamp
+                              ? { background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', color: 'var(--mm-black)' }
+                              : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }
+                            }
+                          >
+                            <p className="text-xs mb-1 uppercase tracking-[0.16em] font-bold" style={{ color: isChamp ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)' }}>{label}</p>
+                            <p className="font-jersey text-xl font-black leading-none tabular-nums" style={{ color: isChamp ? 'var(--mm-black)' : 'var(--mm-ink)' }}>
+                              {a > 0 ? <><CountUp value={pct} decimals={1} />%</> : '—'}
+                            </p>
+                            <p className="text-xs mt-0.5 font-mono" style={{ color: isChamp ? 'rgba(0,0,0,0.65)' : 'var(--mm-muted)' }}>{m}/{a}</p>
+                            {rank > 0 && a > 0 && (
+                              <p
+                                className="text-xs font-bold mt-1 flex items-center justify-center gap-0.5"
+                                style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
+                              >
+                                {isChamp && <Crown size={10} aria-hidden />}
+                                리그 {rank}위{total > 0 ? `/${total}명` : ''}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
 
                     {/* 능력치 레이더 — 리그 백분위 (rankings 기반) */}
@@ -1079,12 +1105,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       return totalA > 0 ? +(totalM / totalA * 100).toFixed(1) : 0
                     })(),
                   }
+                  // 공격비중이 높은 순으로 정렬 (직관적 공격옵션 확인)
                   const rawZones = [
                     { label: '골밑',         color: '#0A0A0A', data: sb.post  },
                     { label: '레이업/드라이브', color: '#EAB308', data: { m: slashLayup.m, a: slashLayup.a, dist: slashLayup.dist, fg_pct: slashLayup.fg_pct } },
                     { label: '미들슛',        color: '#A16207', data: sb.mid   },
                     { label: '3점슛',         color: '#6B7280', data: sb.three },
-                  ].filter(z => z.data.a > 0)
+                  ]
+                    .filter(z => z.data.a > 0)
+                    .sort((a, b) => b.data.dist - a.data.dist)
 
                   const ftZone = sb.ft.a > 0
                     ? [{ label: '자유투', color: '#D4D4D4', data: { m: sb.ft.m, a: sb.ft.a, dist: 0, fg_pct: sb.ft.ft_pct } }]
@@ -1247,7 +1276,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <p className="text-xs uppercase tracking-[0.20em] font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>
                   상대팀별 스탯
-                  <span className="text-xs ml-2 font-normal tracking-normal normal-case" style={{ color: 'var(--mm-muted)' }}>친선전 제외 · G는 출전 슬롯(쿼터) 수</span>
+                  <span className="text-xs ml-2 font-normal tracking-normal normal-case" style={{ color: 'var(--mm-muted)' }}>친선전 제외 · R은 참여 라운드(일자) 수</span>
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {detail.vs_opponents.map(o => (
@@ -1266,7 +1295,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                           <span className="font-jersey font-black uppercase text-sm whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>vs {o.team_name}</span>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs tabular-nums font-mono" style={{ color: 'var(--mm-muted)' }}>{o.gp} G</span>
+                          <span className="text-xs tabular-nums font-mono" style={{ color: 'var(--mm-muted)' }}>{o.rp ?? o.gp} R</span>
                           <span className="text-xs tabular-nums font-bold">
                             <span style={{ color: '#059669' }}>{o.wins}W</span>
                             <span style={{ color: 'var(--mm-muted)' }}>·</span>

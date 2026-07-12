@@ -24,7 +24,11 @@ import { computePerDayStats } from '@/lib/stats/perDayStats'
 import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
 
-export type AwardCategory = 'MVP' | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY' | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'MIP'
+export type AwardCategory =
+  | 'MVP' | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY'
+  | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'MIP'
+  // 신규 (#3): 공격 리바운드 · 미드레인지 · 개근왕
+  | 'OREB_KING' | 'MID_RANGE' | 'IRON_MAN'
 
 export interface AwardCandidate {
   player_id: string
@@ -381,6 +385,71 @@ export async function GET(
       description: '결정적 순간 · 마지막 2분 3점차 이내 · 누적 득점 최고',
       metric: '클러치 누적 득점',
       minRequirement: `${attendanceReq} · 클러치 3게임 이상`,
+      winner, runners, allCandidates,
+    })
+  }
+
+  // ── OREB_KING (공격 리바운드왕) ────────
+  // 순위 기준: 누적 공격 리바운드 (OREB)
+  {
+    const cands = eligible.map(p => toCandidate(p, p.oreb, `${p.oreb}개`, {
+      '경기당': `${p.orp.toFixed(1)}개`,
+      R: String(p.gp),
+      OREB: String(p.oreb),
+      DREB: String(p.dreb),
+    }))
+    const { winner, runners, allCandidates } = rankByValue(cands)
+    awards.push({
+      category: 'OREB_KING',
+      label: '공격 리바운드왕',
+      description: '공격 리바운드 최다',
+      metric: 'OREB (누적)',
+      minRequirement: attendanceReq,
+      winner, runners, allCandidates,
+    })
+  }
+
+  // ── MID_RANGE (미드레인지 마스터) ────────
+  // 순위 기준: 미드레인지 성공 (md_m) · 최소 5시도 이상
+  {
+    const cands = eligible.filter(p => p.md_a >= 5).map(p => {
+      const pct = p.md_a > 0 ? +(p.md_m / p.md_a * 100).toFixed(1) : 0
+      return toCandidate(p, p.md_m, `${p.md_m}개`, {
+        '시도': `${p.md_a}회`,
+        '야투율': `${pct.toFixed(1)}%`,
+        R: String(p.gp),
+      })
+    })
+    const { winner, runners, allCandidates } = rankByValue(cands)
+    awards.push({
+      category: 'MID_RANGE',
+      label: '미드레인지 마스터',
+      description: '미드레인지 슛 성공 최다 · 정확도 병기',
+      metric: '미드 성공 (야투율)',
+      minRequirement: `${attendanceReq} · 미드 5시도 이상`,
+      winner, runners, allCandidates,
+    })
+  }
+
+  // ── IRON_MAN (개근왕) ────────
+  // 순위 기준: 참여 라운드 수 (gp) · 60% 자격 요건 없이 gp>=1 인 모두 (게스트 제외)
+  // 다중 팀 참여자의 슬롯(game) 카운트는 별도 소스가 필요해 라운드 기준으로 단순화.
+  {
+    const ironCands = players
+      .filter(p => p.gp >= 1 && !guestIds.has(p.player_id))
+      .map(p => {
+        const rate = totalRounds > 0 ? (p.gp / totalRounds) * 100 : 0
+        return toCandidate(p, p.gp, `${p.gp}R`, {
+          '참석률': totalRounds > 0 ? `${rate.toFixed(0)}% (${p.gp}/${totalRounds}R)` : `${p.gp}R`,
+        })
+      })
+    const { winner, runners, allCandidates } = rankByValue(ironCands)
+    awards.push({
+      category: 'IRON_MAN',
+      label: '개근왕',
+      description: '참여 라운드 최다 · 모든 등록 선수 대상',
+      metric: '참여 R',
+      minRequirement: '누구나 · 게스트 제외',
       winner, runners, allCandidates,
     })
   }

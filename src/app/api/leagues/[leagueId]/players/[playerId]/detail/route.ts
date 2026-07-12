@@ -484,11 +484,40 @@ export async function GET(
   const winRateRankIdx = winRateEligible.findIndex(([pid]) => pid === playerId)
   const win_rate_rank = winRateRankIdx >= 0 ? winRateRankIdx + 1 : 0
 
+  // 추가 랭킹 (gp, fg_pct, fg3_pct, ft_pct) — gp>=1 자격, shooting은 시도>0
+  //   { rank, total } 객체 형태로 하위호환 위해 기존 필드는 유지
+  type ExtraStats = { pid: string; gp: number; fg_pct: number; fg3_pct: number; ft_pct: number; fga: number; fg3a: number; fta: number }
+  const gpEligible: ExtraStats[] = Object.entries(allMap)
+    .filter(([, s]) => s.gp >= 1)
+    .map(([pid, s]) => ({
+      pid,
+      gp: s.gp,
+      fg_pct:  s.fga  > 0 ? s.fgm  / s.fga  : 0,
+      fg3_pct: s.fg3a > 0 ? s.fg3m / s.fg3a : 0,
+      ft_pct:  s.fta  > 0 ? s.ftm  / s.fta  : 0,
+      fga: s.fga, fg3a: s.fg3a, fta: s.fta,
+    }))
+
+  const getRankTotal = (
+    stat: 'gp' | 'fg_pct' | 'fg3_pct' | 'ft_pct',
+    requireAttempt?: 'fga' | 'fg3a' | 'fta',
+  ): { rank: number; total: number } => {
+    const pool = requireAttempt ? gpEligible.filter(p => p[requireAttempt] > 0) : gpEligible
+    const sorted = [...pool].sort((a, b) => b[stat] - a[stat])
+    const idx = sorted.findIndex(p => p.pid === playerId)
+    return { rank: idx >= 0 ? idx + 1 : 0, total: pool.length }
+  }
+
   const rankings = {
     ppg: getRank('ppg'), rpg: getRank('rpg'), apg: getRank('apg'),
     spg: getRank('spg'), bpg: getRank('bpg'),
     total: ranked.length,     // 자격 요건(min GP) 통과 인원. rank 표시 계산의 분모로 사용됨
     win_rate_rank,
+    // 신규 (#5a): { rank, total } 형태 — gp>=1 자격
+    gp:      getRankTotal('gp'),
+    fg_pct:  getRankTotal('fg_pct',  'fga'),
+    fg3_pct: getRankTotal('fg3_pct', 'fg3a'),
+    ft_pct:  getRankTotal('ft_pct',  'fta'),
   }
 
   // ── 배지: 분기 필터와 무관하게 항상 시즌 전체 기준 ───────────
@@ -799,18 +828,22 @@ export async function GET(
     }))
 
   // ── 상대팀별 스탯 (vs Opponents) ──────────────────────────────
-  // 본인 팀 제외, 친선전 제외. GP = 출전한 슬롯(쿼터/경기) 수.
+  // 본인 팀 제외, 친선전 제외.
+  // #5c: R (라운드=날짜) 단위 집계 — 상대팀별 unique dates Set 카운트.
+  //      그날의 여러 슬롯 stats 를 합산해 하루당 스탯 → 그 하루들의 평균 = 총합/rp.
+  //      승/패는 기존 슬롯 단위 유지 (하위호환).
   type OppAgg = {
     team_id: string; team_name: string; team_color: string
-    gp: number; pts: number; reb: number; oreb: number; dreb: number
+    dates: Set<string>   // 라운드(날짜) 집계
+    pts: number; reb: number; oreb: number; dreb: number
     ast: number; stl: number; blk: number; tov: number
     fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
-    wins: number; losses: number
+    wins: number; losses: number  // 슬롯 단위 (기존 그대로)
   }
   const oppMap: Record<string, OppAgg> = {}
 
   for (const gId of Object.keys(perGame)) {
-    const g = gameMap[gId] as { home_team_id?: string; away_team_id?: string; home_score?: number; away_score?: number; is_exhibition?: boolean; quarter_id?: string | null } | undefined
+    const g = gameMap[gId] as { home_team_id?: string; away_team_id?: string; home_score?: number; away_score?: number; is_exhibition?: boolean; quarter_id?: string | null; date?: string } | undefined
     if (!g) continue
     if (g.is_exhibition) continue  // 친선전 제외
 
@@ -828,7 +861,8 @@ export async function GET(
     if (!oppMap[oppKey]) {
       oppMap[oppKey] = {
         team_id: oppTeamId, team_name: oppName, team_color: oppColor,
-        gp: 0, pts: 0, reb: 0, oreb: 0, dreb: 0,
+        dates: new Set<string>(),
+        pts: 0, reb: 0, oreb: 0, dreb: 0,
         ast: 0, stl: 0, blk: 0, tov: 0,
         fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
         wins: 0, losses: 0,
@@ -836,13 +870,14 @@ export async function GET(
     }
     const o = oppMap[oppKey]
     const s = perGame[gId]
-    o.gp++
+    // R 단위 카운트: 같은 date 의 여러 슬롯은 하루로 병합
+    if (g.date) o.dates.add(g.date)
     o.pts += s.pts; o.reb += s.reb; o.oreb += s.oreb; o.dreb += s.dreb
     o.ast += s.ast; o.stl += s.stl; o.blk += s.blk; o.tov += s.tov
     o.fgm += s.fgm; o.fga += s.fga; o.fg3m += s.fg3m; o.fg3a += s.fg3a
     o.ftm += s.ftm; o.fta += s.fta
 
-    // 슬롯 단위 승/패 (재미 요소)
+    // 슬롯 단위 승/패 (재미 요소) — 기존 UI 호환
     const isHome = g.home_team_id === myTeamId
     const myScore = isHome ? (g.home_score ?? 0) : (g.away_score ?? 0)
     const oppScore = isHome ? (g.away_score ?? 0) : (g.home_score ?? 0)
@@ -851,23 +886,28 @@ export async function GET(
   }
 
   const vs_opponents = Object.values(oppMap)
-    .map(o => ({
-      team_id: o.team_id, team_name: o.team_name, team_color: o.team_color,
-      gp: o.gp,
-      pts: o.pts, reb: o.reb, oreb: o.oreb, dreb: o.dreb,
-      ast: o.ast, stl: o.stl, blk: o.blk, tov: o.tov,
-      fgm: o.fgm, fga: o.fga, fg3m: o.fg3m, fg3a: o.fg3a, ftm: o.ftm, fta: o.fta,
-      ppg: o.gp > 0 ? +(o.pts / o.gp).toFixed(1) : 0,
-      rpg: o.gp > 0 ? +(o.reb / o.gp).toFixed(1) : 0,
-      apg: o.gp > 0 ? +(o.ast / o.gp).toFixed(1) : 0,
-      spg: o.gp > 0 ? +(o.stl / o.gp).toFixed(1) : 0,
-      bpg: o.gp > 0 ? +(o.blk / o.gp).toFixed(1) : 0,
-      fg_pct:  o.fga  > 0 ? +(o.fgm  / o.fga  * 100).toFixed(1) : null,
-      fg3_pct: o.fg3a > 0 ? +(o.fg3m / o.fg3a * 100).toFixed(1) : null,
-      ft_pct:  o.fta  > 0 ? +(o.ftm  / o.fta  * 100).toFixed(1) : null,
-      wins: o.wins, losses: o.losses,
-    }))
-    .sort((a, b) => b.gp - a.gp)
+    .map(o => {
+      const rp = o.dates.size  // rounds played
+      return {
+        team_id: o.team_id, team_name: o.team_name, team_color: o.team_color,
+        rp,                    // 신규 (#5c): 라운드 수
+        gp: rp,                // 하위호환: 기존 UI 는 gp 를 참조 — rp 와 동일 값
+        pts: o.pts, reb: o.reb, oreb: o.oreb, dreb: o.dreb,
+        ast: o.ast, stl: o.stl, blk: o.blk, tov: o.tov,
+        fgm: o.fgm, fga: o.fga, fg3m: o.fg3m, fg3a: o.fg3a, ftm: o.ftm, fta: o.fta,
+        // 평균 스탯: 총합 / rp (R 단위 평균)
+        ppg: rp > 0 ? +(o.pts / rp).toFixed(1) : 0,
+        rpg: rp > 0 ? +(o.reb / rp).toFixed(1) : 0,
+        apg: rp > 0 ? +(o.ast / rp).toFixed(1) : 0,
+        spg: rp > 0 ? +(o.stl / rp).toFixed(1) : 0,
+        bpg: rp > 0 ? +(o.blk / rp).toFixed(1) : 0,
+        fg_pct:  o.fga  > 0 ? +(o.fgm  / o.fga  * 100).toFixed(1) : null,
+        fg3_pct: o.fg3a > 0 ? +(o.fg3m / o.fg3a * 100).toFixed(1) : null,
+        ft_pct:  o.fta  > 0 ? +(o.ftm  / o.fta  * 100).toFixed(1) : null,
+        wins: o.wins, losses: o.losses,
+      }
+    })
+    .sort((a, b) => b.rp - a.rp)
 
   // ── Active Streaks (현재 진행 중인 연속 기록) ────────────────────
   // unit 기준(round 또는 game)으로 최신부터 역방향 walk, 조건 깨지면 stop
