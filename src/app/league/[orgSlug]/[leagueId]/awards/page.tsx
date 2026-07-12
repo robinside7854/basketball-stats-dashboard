@@ -15,6 +15,7 @@ interface AwardCandidate {
   name: string
   number: number | null
   position: string | null
+  photo_url: string | null
   value: number
   displayValue: string
   gp: number
@@ -415,6 +416,26 @@ export default function AwardsPage() {
                           {a.winner.gp}게임 · {a.metric}
                         </p>
                       </div>
+                      {a.winner.photo_url && (
+                        <div
+                          className="shrink-0 overflow-hidden"
+                          style={{
+                            width: 'clamp(64px, 18vw, 108px)',
+                            aspectRatio: '3 / 4',
+                            border: '2.5px solid var(--mm-black)',
+                            background: 'var(--mm-black)',
+                            borderRadius: '4px',
+                            boxShadow: '2px 2px 0 rgba(0,0,0,0.35)',
+                          }}
+                        >
+                          <img
+                            src={a.winner.photo_url}
+                            alt={a.winner.name}
+                            className="w-full h-full object-cover object-top"
+                            loading="lazy"
+                          />
+                        </div>
+                      )}
                     </div>
                     {a.winner.supportingStats && (
                       <div

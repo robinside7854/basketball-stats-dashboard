@@ -31,6 +31,7 @@ export interface AwardCandidate {
   name: string
   number: number | null
   position: string | null
+  photo_url: string | null
   value: number         // 순위 결정 지표
   displayValue: string  // 화면 표시용
   gp: number
@@ -93,14 +94,19 @@ export async function GET(
   const statsJson = await statsRes.json() as { players?: PlayerStat[] }
   const players = statsJson.players ?? []
 
-  // 2-1) 게스트 선수 ID 조회 — 어워즈 후보에서 제외
-  //      (60% 출석 필터를 통과해도 게스트는 MVP·수상 대상이 아님)
-  const { data: guestRows } = await supabase
+  // 2-1) 게스트 선수 ID + 프로필 사진 조회 (한 번의 조회로 통합)
+  //      게스트: 60% 출석 필터를 통과해도 게스트는 MVP·수상 대상이 아님
+  //      photo_url: WINNER 카드 우측 프로필 노출용
+  const { data: playerRows } = await supabase
     .from('league_players')
-    .select('id')
+    .select('id, is_guest, photo_url')
     .eq('league_id', leagueId)
-    .eq('is_guest', true)
-  const guestIds = new Set((guestRows ?? []).map(r => r.id as string))
+  const guestIds = new Set<string>()
+  const photoMap = new Map<string, string | null>()
+  for (const r of (playerRows ?? []) as { id: string; is_guest: boolean | null; photo_url: string | null }[]) {
+    if (r.is_guest) guestIds.add(r.id)
+    photoMap.set(r.id, r.photo_url ?? null)
+  }
 
   // 자격자: gp (=참여 경기일) >= requiredRounds && 게스트 아님
   const eligible = players.filter(p => p.gp >= requiredRounds && !guestIds.has(p.player_id))
@@ -126,6 +132,7 @@ export async function GET(
     name: p.name,
     number: p.number,
     position: p.position,
+    photo_url: photoMap.get(p.player_id) ?? null,
     value,
     displayValue,
     gp: p.gp,
@@ -406,27 +413,30 @@ export async function GET(
         }
       })
 
+      // 직전 분기 vs 최근 분기 비교 (예: 3Q 어워드는 2Q vs 3Q)
+      // perPlayerQuarters 배열은 qList 순회 순서로 push 되므로 이미 시간순 정렬됨
+      // 최근 분기 = arr[length-1], 직전 분기 = arr[length-2]
       const cands: AwardCandidate[] = []
       for (const [pid, arr] of perPlayerQuarters) {
         if (arr.length < 2) continue
-        const first = arr[0]
         const last = arr[arr.length - 1]
-        const growth = +(last.ppg - first.ppg).toFixed(2)
+        const prev = arr[arr.length - 2]
+        const growth = +(last.ppg - prev.ppg).toFixed(2)
         const p = eligible.find(x => x.player_id === pid)
         if (!p) continue
         if (growth <= 0) continue
         cands.push(toCandidate(p, growth, `+${growth.toFixed(1)} PPG`, {
-          '이전 분기': `${first.ppg.toFixed(1)} PPG (${first.gp}R)`,
-          '최근 분기': `${last.ppg.toFixed(1)} PPG (${last.gp}R)`,
+          [`${prev.q}Q`]: `${prev.ppg.toFixed(1)} PPG (${prev.gp}R)`,
+          [`${last.q}Q`]: `${last.ppg.toFixed(1)} PPG (${last.gp}R)`,
         }))
       }
       const { winner, runners, allCandidates } = rankByValue(cands)
       awards.push({
         category: 'MIP',
         label: '기량 발전상',
-        description: '분기별 성장률 · 첫 분기 vs 최근 분기 PPG 상승',
+        description: '분기별 성장률 · 직전 분기 vs 최근 분기 PPG 상승',
         metric: 'PPG 증가폭',
-        minRequirement: `${attendanceReq} · 최소 2개 분기 참여 (분기당 ≥3R)`,
+        minRequirement: `${attendanceReq} · 최근 2개 분기 참여 (분기당 ≥3R)`,
         winner, runners, allCandidates,
       })
     } else {
