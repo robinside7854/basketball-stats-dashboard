@@ -26,6 +26,23 @@ const barlowCondensed = Barlow_Condensed({
   variable: '--font-barlow-condensed',
 })
 
+// iOS 아이폰 세로 해상도 media query 목록 (device-width/height × DPR).
+//   각 항목은 하나의 아이폰 세대군을 타깃 → 모두 동일 마스터 스플래시로 매핑.
+const SPLASH_DEVICES = [
+  '(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)', // 16 Pro Max
+  '(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)', // 16 Plus / 15 Pro Max / 14 Pro Max
+  '(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)', // 16 Pro
+  '(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)', // 15 Plus / 14 Plus / 13 Pro Max / 12 Pro Max
+  '(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)', // 16 / 15 Pro / 15 / 14 Pro
+  '(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)', // 14 / 13 / 13 Pro / 12 / 12 Pro
+  '(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)', // X / XS / 11 Pro
+  '(device-width: 360px) and (device-height: 780px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)', // 13 mini / 12 mini
+  '(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)', // 11 Pro Max / XS Max
+  '(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)', // 11 / XR
+  '(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)', // SE 2/3 · 8 · 7 · 6s
+  '(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)', // SE 1
+]
+
 export const metadata: Metadata = {
   title: '파란날개 게임로그',
   description: '파란날개 농구팀 경기 기록 및 통계 대시보드',
@@ -34,6 +51,15 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: '미라클모닝',
+    // iOS 전용 런치 스크린(전면 스플래시).
+    //   안드로이드는 매니페스트 background_color + 아이콘으로 자동 구성되므로 여기서 다루지 않음.
+    //   마스터 이미지 1장(/splash/apple-splash.png, 1290×2796)을 모든 아이폰 해상도 media query에 매핑 →
+    //   기기별 화면비 차이는 iOS가 스케일. 핵심 콘텐츠는 중앙 안전영역(1000×1000)에 두어 크롭 대비.
+    //   ※ 픽셀 퍼펙트가 필요하면 url 을 해상도별 파일로 교체 (scripts/gen-splash 로 자동 생성).
+    startupImage: SPLASH_DEVICES.map((media) => ({
+      url: '/splash/apple-splash.png',
+      media,
+    })),
   },
 }
 
