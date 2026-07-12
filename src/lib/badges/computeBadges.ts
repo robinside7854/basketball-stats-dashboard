@@ -1,11 +1,16 @@
-// 자동 배지 계산 — 게임 단위
+// 자동 배지 계산
 //
 // 4종 배지:
-//  1) perfect_game    — FGM/FGA=100% (FGA>=3, 자유투 제외)
-//  2) double_double   — pts/reb/ast/stl/blk 중 정확히 2개 >= 10
-//  3) triple_double   — 정확히 3개 이상 >= 10 (배타적)
-//  4) winning_shot    — 승자 팀이 마지막으로 리드를 뒤집은 그 득점 이벤트의 선수
-//                       (승자가 처음부터 리드했다면 위닝샷 없음)
+//  1) perfect_game    — 게임 단위. FGM/FGA=100% (FGA>=3, 자유투 제외)
+//  2) double_double   — 라운드(=날짜) 단위. 그 날 리그 내 모든 게임 스탯 합산.
+//                       pts/reb/ast/stl/blk 중 정확히 2개 카테고리 >=10
+//  3) triple_double   — 라운드(=날짜) 단위. 3개 이상 카테고리 >=10 (DD와 배타적)
+//  4) winning_shot    — 게임 단위. "본인의 득점을 마지막으로 승리"
+//                       → 게임 마지막 득점(result='made', points>0) 이벤트의 선수 팀 == 최종 승리 팀
+//
+// 저장 규칙:
+//   perfect_game / winning_shot : player_badges.game_id = 해당 게임 UUID
+//   double_double / triple_double : player_badges.game_id = NULL
 //
 // league_game_events 는 페이지네이션(1000 단위) 필수 — leagueStats.ts 패턴 참고.
 
@@ -16,9 +21,9 @@ export type BadgeType = 'perfect_game' | 'double_double' | 'triple_double' | 'wi
 export interface BadgePayload {
   league_id: string
   player_id: string
-  game_id: string
+  game_id: string | null      // 라운드 배지(DD/TD)는 null
   badge_type: BadgeType
-  earned_at_date: string   // YYYY-MM-DD
+  earned_at_date: string      // YYYY-MM-DD
   meta: Record<string, unknown> | null
 }
 
@@ -66,36 +71,19 @@ function eventPointValue(type: string, isPlusOne: boolean): number {
   }
 }
 
-/**
- * 특정 게임의 배지 계산.
- * 반환값은 DB에 그대로 upsert 할 payload 배열.
- * 게임이 마감(is_complete=true)되지 않았거나 존재하지 않으면 [] 반환.
- */
-export async function computeBadgesForGame(
-  supabase: SupabaseClient,
-  gameId: string,
-): Promise<BadgePayload[]> {
-  const { data: game } = await supabase
-    .from('league_games')
-    .select('id, league_id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, plus_one_player_id')
-    .eq('id', gameId)
-    .maybeSingle()
+type PlayerStats = {
+  fgm: number; fga: number
+  pts: number
+  reb: number; oreb: number; dreb: number
+  ast: number; stl: number; blk: number
+}
 
-  if (!game) return []
-  const g = game as GameRow
-  if (!g.is_complete) return []
-  if (!g.date) return []
-  if (!g.home_team_id || !g.away_team_id) return []
+function emptyStats(): PlayerStats {
+  return { fgm: 0, fga: 0, pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0 }
+}
 
-  // 리그 전체 plus_one 선수 (fallback — game.plus_one_player_id 가 없을 때만)
-  const { data: leaguePlayers } = await supabase
-    .from('league_players')
-    .select('id, plus_one')
-    .eq('league_id', g.league_id)
-  const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id as string))
-  const gamePlusOne = g.plus_one_player_id ?? null
-
-  // 이벤트 페이지네이션 (id 오름차순 = 시간순)
+// 이벤트 페이지네이션 조회
+async function fetchEvents(supabase: SupabaseClient, gameId: string): Promise<EventRow[]> {
   const events: EventRow[] = []
   const PAGE = 1000
   for (let pg = 0; ; pg++) {
@@ -108,27 +96,36 @@ export async function computeBadgesForGame(
     if (chunk && chunk.length > 0) events.push(...(chunk as EventRow[]))
     if (!chunk || chunk.length < PAGE) break
   }
+  return events
+}
 
-  // ── 참여 선수별 박스스코어 (perfect/DD/TD 계산용) ──
-  type PS = {
-    fgm: number; fga: number
-    pts: number
-    reb: number; oreb: number; dreb: number
-    ast: number; stl: number; blk: number
-  }
-  const ps: Record<string, PS> = {}
-  const ensure = (pid: string): PS => {
-    if (!ps[pid]) ps[pid] = { fgm: 0, fga: 0, pts: 0, reb: 0, oreb: 0, dreb: 0, ast: 0, stl: 0, blk: 0 }
+// 리그 전체 plus_one 선수 fallback (game.plus_one_player_id 미지정 시)
+async function fetchLeaguePlusOneSet(supabase: SupabaseClient, leagueId: string): Promise<Set<string>> {
+  const { data } = await supabase
+    .from('league_players')
+    .select('id, plus_one')
+    .eq('league_id', leagueId)
+  return new Set((data ?? []).filter(p => p.plus_one).map(p => p.id as string))
+}
+
+// 이벤트 배열 → 선수별 박스스코어 누적 (기존 stats 를 mutate)
+function accumulateStats(
+  events: EventRow[],
+  gamePlusOne: string | null,
+  leaguePlusOneSet: Set<string>,
+  ps: Record<string, PlayerStats>,
+): void {
+  const ensure = (pid: string): PlayerStats => {
+    if (!ps[pid]) ps[pid] = emptyStats()
     return ps[pid]
   }
-
   for (const e of events) {
     const pid = e.league_player_id
     if (!pid) continue
     if (e.type === 'sub_in' || e.type === 'sub_out') continue
     const s = ensure(pid)
     const made = e.result === 'made'
-    const isP1 = gamePlusOne !== null ? pid === gamePlusOne : plusOneSet.has(pid)
+    const isP1 = gamePlusOne !== null ? pid === gamePlusOne : leaguePlusOneSet.has(pid)
 
     // FGA/FGM — 자유투 제외 (perfect_game 조건)
     if ((SHOT_TYPES as readonly string[]).includes(e.type)) {
@@ -150,13 +147,40 @@ export async function computeBadgesForGame(
       ensure(e.related_player_id).ast++
     }
   }
+}
+
+/**
+ * 게임 단위 배지 계산 (perfect_game + winning_shot).
+ * 게임이 마감(is_complete=true)되지 않았거나 존재하지 않으면 [] 반환.
+ */
+export async function computePerGameBadges(
+  supabase: SupabaseClient,
+  gameId: string,
+): Promise<BadgePayload[]> {
+  const { data: game } = await supabase
+    .from('league_games')
+    .select('id, league_id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, plus_one_player_id')
+    .eq('id', gameId)
+    .maybeSingle()
+
+  if (!game) return []
+  const g = game as GameRow
+  if (!g.is_complete) return []
+  if (!g.date) return []
+  if (!g.home_team_id || !g.away_team_id) return []
+
+  const leaguePlusOneSet = await fetchLeaguePlusOneSet(supabase, g.league_id)
+  const gamePlusOne = g.plus_one_player_id ?? null
+  const events = await fetchEvents(supabase, gameId)
+
+  const ps: Record<string, PlayerStats> = {}
+  accumulateStats(events, gamePlusOne, leaguePlusOneSet, ps)
 
   const badges: BadgePayload[] = []
   const dateStr = g.date
 
-  // ── perfect_game / double_double / triple_double ──
+  // ── perfect_game ──
   for (const [pid, s] of Object.entries(ps)) {
-    // perfect_game: FGA >= 3, FGM/FGA = 100%
     if (s.fga >= 3 && s.fgm === s.fga) {
       badges.push({
         league_id: g.league_id,
@@ -167,42 +191,14 @@ export async function computeBadgesForGame(
         meta: { fgm: s.fgm, fga: s.fga, pts: s.pts },
       })
     }
-
-    // DD/TD — 5개 카테고리 중 >=10 개수
-    const cats: Array<['pts'|'reb'|'ast'|'stl'|'blk', number]> = [
-      ['pts', s.pts], ['reb', s.reb], ['ast', s.ast], ['stl', s.stl], ['blk', s.blk],
-    ]
-    const hitCats = cats.filter(([, v]) => v >= 10).map(([k]) => k)
-    if (hitCats.length >= 3) {
-      badges.push({
-        league_id: g.league_id,
-        player_id: pid,
-        game_id: g.id,
-        badge_type: 'triple_double',
-        earned_at_date: dateStr,
-        meta: { pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk, categories: hitCats },
-      })
-      // TD 부여 시 DD 는 배타적으로 미부여 (기획 규칙)
-    } else if (hitCats.length === 2) {
-      badges.push({
-        league_id: g.league_id,
-        player_id: pid,
-        game_id: g.id,
-        badge_type: 'double_double',
-        earned_at_date: dateStr,
-        meta: { pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk, categories: hitCats },
-      })
-    }
   }
 
   // ── winning_shot ──
-  // 알고리즘:
-  //  1) 이벤트 시간순으로 running (homeScore, awayScore) 계산
-  //  2) 최종 승자 결정 — 무승부이거나 결정 못하면 위닝샷 없음
-  //  3) 이벤트 뒤에서 앞으로 순회하며 "그 이벤트 직후 시점에 승자가 리드하지 않았던(뒤지거나 동점)"
-  //     가장 마지막 시점 idx 를 찾음. 그 다음 득점 이벤트(승자 팀 득점)가 위닝샷.
-  //  4) 승자가 게임 내내 리드/동점 시작만 있었다면 (never trailed after any moment)
-  //     위닝샷 없음.
+  // 새 정의: "본인의 득점을 마지막으로 경기에서 승리"
+  //   1) 게임의 최종 승자 결정 (동점이면 위닝샷 없음)
+  //   2) 이벤트를 뒤에서 앞으로 순회 → 첫 번째 득점 이벤트(result='made', points>0) 찾기
+  //   3) 그 이벤트의 선수 팀 == 승자 팀 이면 그 선수가 위닝샷
+  //   4) 마지막 득점이 패자 팀이면 아무도 부여받지 못함
   const homeScore = g.home_score ?? 0
   const awayScore = g.away_score ?? 0
   let winnerTeamId: string | null = null
@@ -210,74 +206,129 @@ export async function computeBadgesForGame(
   else if (awayScore > homeScore) winnerTeamId = g.away_team_id
 
   if (winnerTeamId) {
-    // running score 배열
-    let rh = 0, ra = 0
-    type Snapshot = { evtIdx: number; home: number; away: number; scored: boolean; scorer: string | null; scorerTeam: string | null; points: number; type: string }
-    const snapshots: Snapshot[] = []
-    for (let i = 0; i < events.length; i++) {
+    for (let i = events.length - 1; i >= 0; i--) {
       const e = events[i]
-      let pts = 0
-      let scored = false
-      const made = e.result === 'made'
-      if (made) {
-        const pid = e.league_player_id
-        const isP1 = pid && (gamePlusOne !== null ? pid === gamePlusOne : plusOneSet.has(pid))
-        pts = eventPointValue(e.type, !!isP1)
-        if (pts > 0 && e.team_id) {
-          scored = true
-          if (e.team_id === g.home_team_id) rh += pts
-          else if (e.team_id === g.away_team_id) ra += pts
-        }
+      if (e.result !== 'made') continue
+      const pid = e.league_player_id
+      if (!pid || !e.team_id) continue
+      const isP1 = gamePlusOne !== null ? pid === gamePlusOne : leaguePlusOneSet.has(pid)
+      const pts = eventPointValue(e.type, isP1)
+      if (pts <= 0) continue
+      // 게임의 마지막 득점 이벤트를 찾음
+      if (e.team_id === winnerTeamId) {
+        badges.push({
+          league_id: g.league_id,
+          player_id: pid,
+          game_id: g.id,
+          badge_type: 'winning_shot',
+          earned_at_date: dateStr,
+          meta: {
+            final_score_home: homeScore,
+            final_score_away: awayScore,
+            points_scored: pts,
+            event_type: e.type,
+            event_id: e.id,
+          },
+        })
       }
-      snapshots.push({
-        evtIdx: i, home: rh, away: ra, scored,
-        scorer: e.league_player_id, scorerTeam: e.team_id,
-        points: pts, type: e.type,
+      // 마지막 득점이 패자 팀이면 아무도 부여받지 못함 (loop break)
+      break
+    }
+  }
+
+  return badges
+}
+
+/**
+ * 라운드 단위 배지 계산 (double_double + triple_double).
+ * 해당 리그·해당 날짜의 모든 is_complete 게임 스탯을 선수별로 합산 후 판정.
+ * game_id 는 항상 null.
+ */
+export async function computeRoundBadges(
+  supabase: SupabaseClient,
+  leagueId: string,
+  date: string,
+): Promise<BadgePayload[]> {
+  if (!leagueId || !date) return []
+
+  const { data: games } = await supabase
+    .from('league_games')
+    .select('id, league_id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, plus_one_player_id')
+    .eq('league_id', leagueId)
+    .eq('date', date)
+    .eq('is_complete', true)
+    .not('home_team_id', 'is', null)
+    .not('away_team_id', 'is', null)
+
+  const gameRows = (games ?? []) as GameRow[]
+  if (gameRows.length === 0) return []
+
+  const leaguePlusOneSet = await fetchLeaguePlusOneSet(supabase, leagueId)
+
+  // 라운드 전체를 순회하며 선수별 스탯 누적
+  const ps: Record<string, PlayerStats> = {}
+  const gameIdsByPlayer: Record<string, Set<string>> = {}
+
+  for (const g of gameRows) {
+    const events = await fetchEvents(supabase, g.id)
+    const gamePlusOne = g.plus_one_player_id ?? null
+    const beforePids = new Set(Object.keys(ps))
+    accumulateStats(events, gamePlusOne, leaguePlusOneSet, ps)
+    // 이 게임에 참여한 선수 목록 = 스탯이 새로 잡힌 pid ∪ 이벤트에 등장한 pid
+    for (const e of events) {
+      const pid = e.league_player_id
+      if (!pid) continue
+      if (!gameIdsByPlayer[pid]) gameIdsByPlayer[pid] = new Set()
+      gameIdsByPlayer[pid].add(g.id)
+    }
+    // 어시스트 related 도 참여로 인정 (스탯 누적된 어시스터)
+    for (const pid of Object.keys(ps)) {
+      if (!beforePids.has(pid) && !gameIdsByPlayer[pid]) {
+        gameIdsByPlayer[pid] = new Set([g.id])
+      }
+    }
+  }
+
+  const badges: BadgePayload[] = []
+
+  for (const [pid, s] of Object.entries(ps)) {
+    const cats: Array<['pts'|'reb'|'ast'|'stl'|'blk', number]> = [
+      ['pts', s.pts], ['reb', s.reb], ['ast', s.ast], ['stl', s.stl], ['blk', s.blk],
+    ]
+    const hitCats = cats.filter(([, v]) => v >= 10).map(([k]) => k)
+    const gameIds = Array.from(gameIdsByPlayer[pid] ?? [])
+    const gameCount = gameIds.length
+
+    if (hitCats.length >= 3) {
+      badges.push({
+        league_id: leagueId,
+        player_id: pid,
+        game_id: null,
+        badge_type: 'triple_double',
+        earned_at_date: date,
+        meta: {
+          pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk,
+          categories: hitCats,
+          game_count: gameCount,
+          game_ids: gameIds,
+        },
+      })
+      // TD 부여 시 DD 는 배타적으로 미부여
+    } else if (hitCats.length === 2) {
+      badges.push({
+        league_id: leagueId,
+        player_id: pid,
+        game_id: null,
+        badge_type: 'double_double',
+        earned_at_date: date,
+        meta: {
+          pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk,
+          categories: hitCats,
+          game_count: gameCount,
+          game_ids: gameIds,
+        },
       })
     }
-
-    // 승자가 리드하지 않은 마지막 시점의 다음 득점 이벤트를 위닝샷으로 정의.
-    // 뒤에서 앞으로 순회:
-    // 마지막 "not-leading" moment 찾기 → 그 이후 첫 winner-team scored event.
-    let lastNotLeadingIdx = -1
-    for (let i = snapshots.length - 1; i >= 0; i--) {
-      const s = snapshots[i]
-      const winnerLeadNow = winnerTeamId === g.home_team_id ? s.home > s.away : s.away > s.home
-      if (!winnerLeadNow) {
-        lastNotLeadingIdx = i
-        break
-      }
-    }
-
-    if (lastNotLeadingIdx >= 0) {
-      // 그 다음 승자팀 득점 이벤트 (같은 시점 다음)
-      for (let i = lastNotLeadingIdx + 1; i < snapshots.length; i++) {
-        const s = snapshots[i]
-        if (s.scored && s.scorerTeam === winnerTeamId && s.scorer) {
-          // 리드 확정 여부 확인 — 이 이벤트로 승자 리드로 전환됐는지
-          const winnerLeadAfter = winnerTeamId === g.home_team_id ? s.home > s.away : s.away > s.home
-          if (!winnerLeadAfter) continue  // 이 득점으로도 리드 안 됐다면 계속
-          badges.push({
-            league_id: g.league_id,
-            player_id: s.scorer,
-            game_id: g.id,
-            badge_type: 'winning_shot',
-            earned_at_date: dateStr,
-            meta: {
-              before_score_home: winnerTeamId === g.home_team_id ? s.home - s.points : s.home,
-              before_score_away: winnerTeamId === g.away_team_id ? s.away - s.points : s.away,
-              after_score_home: s.home,
-              after_score_away: s.away,
-              points_scored: s.points,
-              event_type: s.type,
-              event_seq: s.evtIdx,
-            },
-          })
-          break
-        }
-      }
-    }
-    // else: 승자가 처음부터(또는 first scoring moment 부터) 계속 리드 — 위닝샷 없음
   }
 
   return badges
@@ -285,30 +336,70 @@ export async function computeBadgesForGame(
 
 /**
  * 게임 배지 재계산 → DB 반영 (idempotent).
- * 기존 배지 삭제 후 신규 insert.
- * 반환: { created, removed }
+ *   1) 게임 배지(perfect_game, winning_shot): game_id 매치 rows 삭제 후 재삽입.
+ *   2) 라운드 배지(DD, TD): 그 게임 날짜의 라운드 배지 전체(같은 리그·같은 날짜·game_id=null)를
+ *      삭제 후 재삽입 — 다른 게임이 같은 날 열렸을 때도 합산이 바뀌기 때문에 통째로 재계산.
  */
 export async function syncBadgesForGame(
   supabase: SupabaseClient,
   gameId: string,
 ): Promise<{ created: number; removed: number }> {
-  // 기존 삭제
-  const { data: existing } = await supabase
+  const { data: game } = await supabase
+    .from('league_games')
+    .select('id, league_id, date')
+    .eq('id', gameId)
+    .maybeSingle()
+  if (!game) return { created: 0, removed: 0 }
+  const leagueId = game.league_id as string
+  const date = (game as { date: string | null }).date
+
+  let removed = 0
+  let created = 0
+
+  // ── (1) 게임 단위 배지 ──
+  const { data: existingGame } = await supabase
     .from('player_badges')
     .select('id')
     .eq('game_id', gameId)
-  const removed = existing?.length ?? 0
-  if (removed > 0) {
+  const removedGame = existingGame?.length ?? 0
+  if (removedGame > 0) {
     await supabase.from('player_badges').delete().eq('game_id', gameId)
   }
+  removed += removedGame
 
-  const payloads = await computeBadgesForGame(supabase, gameId)
-  if (payloads.length === 0) return { created: 0, removed }
-
-  const { error } = await supabase.from('player_badges').insert(payloads)
-  if (error) {
-    // 삽입 실패 시 삭제만 반영된 상태 — 에러 전파
-    throw new Error(`player_badges insert failed: ${error.message}`)
+  const perGame = await computePerGameBadges(supabase, gameId)
+  if (perGame.length > 0) {
+    const { error } = await supabase.from('player_badges').insert(perGame)
+    if (error) throw new Error(`player_badges (per-game) insert failed: ${error.message}`)
+    created += perGame.length
   }
-  return { created: payloads.length, removed }
+
+  // ── (2) 라운드 배지 — 그 날짜의 라운드 배지 전체 재계산 ──
+  if (date) {
+    const { data: existingRound } = await supabase
+      .from('player_badges')
+      .select('id')
+      .eq('league_id', leagueId)
+      .eq('earned_at_date', date)
+      .is('game_id', null)
+    const removedRound = existingRound?.length ?? 0
+    if (removedRound > 0) {
+      await supabase
+        .from('player_badges')
+        .delete()
+        .eq('league_id', leagueId)
+        .eq('earned_at_date', date)
+        .is('game_id', null)
+    }
+    removed += removedRound
+
+    const round = await computeRoundBadges(supabase, leagueId, date)
+    if (round.length > 0) {
+      const { error } = await supabase.from('player_badges').insert(round)
+      if (error) throw new Error(`player_badges (round) insert failed: ${error.message}`)
+      created += round.length
+    }
+  }
+
+  return { created, removed }
 }

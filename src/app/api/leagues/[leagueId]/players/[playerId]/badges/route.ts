@@ -20,7 +20,8 @@ export async function GET(
     .order('earned_at_date', { ascending: false })
 
   const badges = rows ?? []
-  const gameIds = Array.from(new Set(badges.map(b => b.game_id as string)))
+  // 라운드 배지(DD/TD)는 game_id 가 null — enrichment 대상에서 제외
+  const gameIds = Array.from(new Set(badges.map(b => b.game_id).filter((x): x is string => !!x)))
 
   // 팀명/스코어 조인 — 상대팀 이름 표시용
   let gameMap: Record<string, { home_team_id: string | null; away_team_id: string | null; home_score: number | null; away_score: number | null; date: string; quarter_id: string | null }> = {}
@@ -83,12 +84,12 @@ export async function GET(
   }
 
   const enriched = badges.map(b => {
-    const gid = b.game_id as string
-    const g = gameMap[gid]
+    const gid = b.game_id as string | null
+    const g = gid ? gameMap[gid] : undefined
     let opponent_name: string | undefined
     let score: string | undefined
     let result: 'W' | 'L' | 'D' | undefined
-    if (g) {
+    if (g && gid) {
       const myTeam = playerTeamByGame[gid]
       if (myTeam && (myTeam === g.home_team_id || myTeam === g.away_team_id)) {
         const oppId = myTeam === g.home_team_id ? g.away_team_id : g.home_team_id

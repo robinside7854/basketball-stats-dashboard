@@ -10,7 +10,7 @@ type BadgeType = 'perfect_game' | 'double_double' | 'triple_double' | 'winning_s
 
 interface BadgeRow {
   badge_type: BadgeType
-  game_id: string
+  game_id: string | null       // DD/TD (라운드 배지) 는 null
   earned_at_date: string
   meta: Record<string, unknown> | null
   opponent_name?: string
@@ -54,20 +54,32 @@ function metaLine(row: BadgeRow): string {
     }
     case 'double_double':
     case 'triple_double': {
+      // 라운드 합산: 두자리수 카테고리만 나열 + 게임 수 태그
+      const cats = Array.isArray((m as Record<string, unknown>).categories)
+        ? ((m as Record<string, unknown>).categories as string[])
+        : []
+      const gameCount = num('game_count')
+      const labelMap: Record<string, string> = { pts: '점', reb: '리바', ast: '어시', stl: '스틸', blk: '블락' }
       const parts: string[] = []
-      const pts = num('pts'); const reb = num('reb'); const ast = num('ast')
-      const stl = num('stl'); const blk = num('blk')
-      if (pts !== undefined) parts.push(`${pts}점`)
-      if (reb !== undefined) parts.push(`${reb}리바`)
-      if (ast !== undefined) parts.push(`${ast}어시`)
-      if (stl !== undefined && stl >= 10) parts.push(`${stl}스틸`)
-      if (blk !== undefined && blk >= 10) parts.push(`${blk}블락`)
-      return parts.join(' · ')
+      for (const cat of cats) {
+        const v = num(cat)
+        if (v !== undefined) parts.push(`${v}${labelMap[cat] ?? cat}`)
+      }
+      const detail = parts.join(' · ')
+      if (gameCount !== undefined && gameCount > 1) {
+        return `${gameCount}게임 합산 · ${detail}`
+      }
+      return detail
     }
     case 'winning_shot': {
+      const fh = num('final_score_home'); const fa = num('final_score_away')
+      const ps = num('points_scored')
+      if (fh !== undefined && fa !== undefined) {
+        return `마지막 득점 · 최종 ${fh}:${fa}${ps !== undefined ? ` (+${ps})` : ''}`
+      }
+      // (구) 스키마 호환 — before/after 필드
       const bh = num('before_score_home'); const ba = num('before_score_away')
       const ah = num('after_score_home');  const aa = num('after_score_away')
-      const ps = num('points_scored')
       if (bh !== undefined && ba !== undefined && ah !== undefined && aa !== undefined) {
         return `역전 · ${bh}:${ba} → ${ah}:${aa}${ps !== undefined ? ` (+${ps})` : ''}`
       }
@@ -156,9 +168,11 @@ export default function PlayerBadgeDetailModal({ leagueId, playerId, badgeKey, c
                   >
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-sm font-bold text-[color:var(--mm-ink)]">{formatKoreanDate(row.earned_at_date)}</span>
-                      <span className={`text-xs font-bold uppercase tracking-widest ${resultChip}`}>
-                        {row.result ? `${row.result} ` : ''}{row.opponent_name ? `vs ${row.opponent_name}` : ''}{row.score ? ` (${row.score})` : ''}
-                      </span>
+                      {row.game_id && (row.opponent_name || row.score) ? (
+                        <span className={`text-xs font-bold uppercase tracking-widest ${resultChip}`}>
+                          {row.result ? `${row.result} ` : ''}{row.opponent_name ? `vs ${row.opponent_name}` : ''}{row.score ? ` (${row.score})` : ''}
+                        </span>
+                      ) : null}
                     </div>
                     {detail && (
                       <p className="text-xs text-[color:var(--mm-muted)] mt-1 font-mono">{detail}</p>
