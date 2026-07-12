@@ -9,7 +9,8 @@ import { loadIdentityResolver, makeIdentityResolver } from '@/lib/stats/teamIden
 type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
-import NbaHero, { type NbaHeroData } from '@/components/league/nba/NbaHero'
+import { type NbaHeroData } from '@/components/league/nba/NbaHero'
+import NbaHeroCarousel, { type WeeklyPOTW } from '@/components/league/nba/NbaHeroCarousel'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
 import NbaRoundsSummary, { type RoundSummary, type RoundTeamSummary } from '@/components/league/nba/NbaRoundsSummary'
 import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
@@ -266,6 +267,157 @@ async function computeRecentRounds(
   return rounds
 }
 
+// 최근 4주 라운드별 Player of the Week — NbaHeroCarousel 용.
+// 각 완료된 라운드(=날짜)마다 그 날 이벤트 합산해 최고 득점 선수 선정.
+// 라운드 마감(is_complete) 시 자동 갱신 · 홈에서 슬라이드 배너로 아카이빙 노출.
+async function computeWeeklyPOTW(
+  supabase: ReturnType<typeof createClient>,
+  leagueId: string,
+  weeks: number = 4,
+): Promise<WeeklyPOTW[]> {
+  const from = new Date(Date.now() - weeks * 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const today = new Date().toISOString().slice(0, 10)
+
+  // 1) 완료된 게임만 (친선 제외)
+  const { data: games } = await supabase
+    .from('league_games')
+    .select('id, date, plus_one_player_id')
+    .eq('league_id', leagueId)
+    .eq('is_complete', true)
+    .eq('is_exhibition', false)
+    .gte('date', from)
+    .lte('date', today)
+  if (!games || games.length === 0) return []
+
+  // 2) 라운드(=date) 유니크 · 최신순 · 최근 N개
+  const uniqueDates = [...new Set(games.map(g => g.date as string))]
+    .sort((a, b) => b.localeCompare(a))
+    .slice(0, weeks)
+  const dateSet = new Set(uniqueDates)
+  const filteredGames = games.filter(g => dateSet.has(g.date as string))
+  const gameIds = filteredGames.map(g => g.id as string)
+  const gameDateMap: Record<string, string> = Object.fromEntries(
+    filteredGames.map(g => [g.id as string, g.date as string])
+  )
+  const gamePlusOneMap: Record<string, string | null> = Object.fromEntries(
+    filteredGames.map(g => [g.id as string, (g.plus_one_player_id as string | null) ?? null])
+  )
+
+  // 3) 선수 플러스원 플래그
+  const { data: playersRaw } = await supabase
+    .from('league_players')
+    .select('id, plus_one')
+    .eq('league_id', leagueId)
+  const plusOneSet = new Set((playersRaw ?? []).filter(p => p.plus_one).map(p => p.id))
+
+  // 4) 이벤트 페이지네이션
+  type EvRow = { league_player_id: string | null; type: string; result: string | null; league_game_id: string }
+  const events: EvRow[] = []
+  const PAGE = 1000
+  let pg = 0
+  while (true) {
+    const { data: chunk } = await supabase
+      .from('league_game_events')
+      .select('league_player_id, type, result, league_game_id')
+      .in('league_game_id', gameIds)
+      .not('league_player_id', 'is', null)
+      .order('id', { ascending: true })
+      .range(pg * PAGE, (pg + 1) * PAGE - 1)
+    if (chunk?.length) events.push(...(chunk as EvRow[]))
+    if (!chunk || chunk.length < PAGE) break
+    pg++
+  }
+
+  // 5) 라운드 × 선수 pts 집계
+  // byRound[date] = Map<playerId, { pts, gp:Set<gameId> }>
+  const byRound = new Map<string, Map<string, { pts: number; gp: Set<string> }>>()
+  for (const e of events) {
+    if (!e.league_player_id) continue
+    const date = gameDateMap[e.league_game_id]
+    if (!date) continue
+    const pid = e.league_player_id
+
+    if (!byRound.has(date)) byRound.set(date, new Map())
+    const map = byRound.get(date)!
+    if (!map.has(pid)) map.set(pid, { pts: 0, gp: new Set() })
+    const s = map.get(pid)!
+    if (e.type !== 'sub_in' && e.type !== 'sub_out') s.gp.add(e.league_game_id)
+
+    const made = e.result === 'made'
+    const gpo = gamePlusOneMap[e.league_game_id]
+    const isP1 = gpo !== null ? pid === gpo : plusOneSet.has(pid)
+    switch (e.type) {
+      case 'shot_3p':
+        if (made) s.pts += isP1 ? 4 : 3; break
+      case 'shot_2p_mid': case 'shot_layup': case 'shot_post': case 'shot_2p_drive':
+        if (made) s.pts += isP1 ? 3 : 2; break
+      case 'ft_2pt': case 'ft_3pt_1':
+        if (made) s.pts += 2; break
+      case 'free_throw': case 'ft_3pt_2': case 'and_one':
+        if (made) s.pts += 1; break
+    }
+  }
+
+  // 6) 각 라운드별 top1 선정
+  type TopPick = { pid: string; pts: number; gp: number }
+  const topPerRound = new Map<string, TopPick>()
+  for (const [date, map] of byRound) {
+    const list: TopPick[] = [...map.entries()]
+      .map(([pid, s]) => ({ pid, pts: s.pts, gp: s.gp.size }))
+      .filter(p => p.gp > 0 && p.pts > 0)
+    const top = list.sort((a, b) => b.pts - a.pts)[0]
+    if (top) topPerRound.set(date, top)
+  }
+
+  // 7) top1 선수들의 meta + photo_url 일괄 조회
+  const topPids = [...topPerRound.values()].map(t => t.pid)
+  if (topPids.length === 0) return []
+
+  const { data: playersMeta } = await supabase
+    .from('league_players')
+    .select('id, name, number, photo_url')
+    .in('id', topPids)
+    .eq('league_id', leagueId)
+  const metaMap = new Map<string, { name: string; number: number | null; photo_url: string | null }>()
+  for (const p of playersMeta ?? []) {
+    metaMap.set(p.id as string, {
+      name: p.name as string,
+      number: (p.number as number | null) ?? null,
+      photo_url: (p.photo_url as string | null) ?? null,
+    })
+  }
+
+  // 8) 결과 배열 (최신 라운드 → 오래된 순)
+  const fmtWeek = (iso: string): string => {
+    const d = new Date(iso + 'T00:00:00')
+    const days = ['일', '월', '화', '수', '목', '금', '토']
+    return `${d.getMonth() + 1}/${d.getDate()} (${days[d.getDay()]})`
+  }
+  const result: WeeklyPOTW[] = []
+  for (const date of uniqueDates) {
+    const top = topPerRound.get(date)
+    if (!top) continue
+    const meta = metaMap.get(top.pid)
+    if (!meta) continue
+    result.push({
+      date,
+      label: fmtWeek(date),
+      potw: {
+        playerId: top.pid,
+        name: meta.name,
+        number: meta.number,
+        pts: top.pts,
+        gp: top.gp,
+        rd: 1,               // 라운드 하나
+        ppr: top.pts,        // 라운드 평균 = 그 날 총 득점
+        photoUrl: meta.photo_url,
+        roundSeries: [{ date, pts: top.pts }],  // 단일 라운드
+      },
+    })
+  }
+  return result
+}
+
 // 현재 분기 팀 승률 요약 — NbaTeamStandings 용.
 // 기본: is_current=true 분기 대상. 현재 분기 없으면 시즌 전체.
 async function computeCurrentQuarterStandings(
@@ -392,14 +544,13 @@ export default async function LeagueDetailPage({
   // (기존 3회 중복 조회 → 1회로 축소)
   const resolverPromise: IdentityResolverPromise = loadIdentityResolver(supabase, leagueId)
 
-  const [{ data: league }, { data: allLeagues }, highlights, recentRounds, quarterStandings] = await Promise.all([
+  const [{ data: league }, { data: allLeagues }, weeklyPOTW, recentRounds, quarterStandings] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single(),
     supabase.from('leagues').select('id, name, status, season_year').eq('org_slug', orgSlug).order('created_at', { ascending: false }),
-    computeHighlights(supabase, leagueId, resolverPromise, 28),  // 최근 4주 (라운드 기반 임팩트)
+    computeWeeklyPOTW(supabase, leagueId, 4),                        // 최근 4주 라운드별 POTW (슬라이드)
     computeRecentRounds(supabase, leagueId, resolverPromise, 4),
     computeCurrentQuarterStandings(supabase, leagueId, resolverPromise),
   ])
-  const heroProps = await toNbaHero(supabase, leagueId, highlights.scoringKing, `최근 ${recentRounds.length}라운드`)
 
   if (!league) notFound()
 
@@ -442,9 +593,9 @@ export default async function LeagueDetailPage({
         </div>
       )}
 
-      {/* 미라클모닝 브랜드 홈 — Hero + 팀 승률 + 최근 라운드 + 리그 리더 */}
+      {/* 미라클모닝 브랜드 홈 — POTW Carousel + 팀 승률 + 최근 라운드 + 리그 리더 */}
       <div className="rounded-none overflow-hidden">
-        <NbaHero data={heroProps.data} rangeLabel={heroProps.rangeLabel} leagueId={leagueId} />
+        <NbaHeroCarousel entries={weeklyPOTW} leagueId={leagueId} />
         <NbaTeamStandings
           standings={quarterStandings.standings}
           quarterLabel={quarterStandings.quarterLabel}
