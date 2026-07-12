@@ -146,9 +146,14 @@ export default function NbaHero({ data, rangeLabel, leagueId }: Props) {
           </h1>
 
           <p className="text-[15px] leading-relaxed mb-6" style={{ color: 'var(--mm-ink-soft)' }}>
-            최근 {data.rd}라운드 총{' '}
-            <strong style={{ color: 'var(--mm-ink)', fontSize: '1.05em' }}>{data.pts}점</strong> · 라운드당 평균{' '}
-            <strong style={{ color: 'var(--mm-ink)', fontSize: '1.05em' }}>{data.ppr.toFixed(1)}점</strong>
+            이번 라운드{' '}
+            <strong style={{ color: 'var(--mm-ink)', fontSize: '1.05em' }}>{data.pts}점</strong>
+            {data.rd > 1 && (
+              <>
+                {' '}· 최근 {data.rd}주 평균{' '}
+                <strong style={{ color: 'var(--mm-ink)', fontSize: '1.05em' }}>{data.ppr.toFixed(1)}점</strong>
+              </>
+            )}
           </p>
 
           {/* 아바타 + 이름 — 대형화 (여백 최소) */}
@@ -216,7 +221,7 @@ export default function NbaHero({ data, rangeLabel, leagueId }: Props) {
             className="text-[12px] font-black tracking-[0.22em] uppercase"
             style={{ color: 'rgba(0,0,0,0.75)' }}
           >
-            총 득점 · 최근 {data.rd}라운드
+            이 라운드 총 득점
           </div>
 
           <div
@@ -237,50 +242,35 @@ export default function NbaHero({ data, rangeLabel, leagueId }: Props) {
             </span>
           </div>
 
-          {showTrend && (
+          {/* 최근 N주 흐름 sparkline — 사용자 요청 3번: RD=1 무의미 대신 흐름 강조 */}
+          {showTrend ? (
             <div className="mt-6 pt-5" style={{ borderTop: '2px solid rgba(0,0,0,0.15)' }}>
               <div
-                className="text-[12px] font-black tracking-[0.22em] uppercase mb-3"
-                style={{ color: 'rgba(0,0,0,0.75)' }}
+                className="flex items-baseline justify-between mb-3"
               >
-                라운드별 득점
+                <span
+                  className="text-[12px] font-black tracking-[0.22em] uppercase"
+                  style={{ color: 'rgba(0,0,0,0.75)' }}
+                >
+                  최근 {data.roundSeries!.length}주 흐름
+                </span>
+                <span
+                  className="text-[11px] font-black tracking-[0.16em] uppercase"
+                  style={{ color: 'rgba(0,0,0,0.55)' }}
+                >
+                  평균 {data.ppr.toFixed(1)} PTS
+                </span>
               </div>
               <RoundBars series={data.roundSeries!} />
             </div>
+          ) : (
+            <div
+              className="mt-6 pt-5 text-[12px] font-black tracking-[0.22em] uppercase"
+              style={{ borderTop: '2px solid rgba(0,0,0,0.15)', color: 'rgba(0,0,0,0.55)' }}
+            >
+              첫 라운드 · 다음 라운드부터 흐름 표시
+            </div>
           )}
-
-          <div
-            className="grid grid-cols-3 gap-4 mt-6 pt-5"
-            style={{ borderTop: '2px solid rgba(0,0,0,0.15)' }}
-          >
-            <div className="text-[11px] tracking-[0.16em] uppercase font-black" style={{ color: 'rgba(0,0,0,0.65)' }}>
-              RD
-              <strong
-                className="block font-jersey text-[28px] mt-1 tabular-nums font-black leading-none"
-                style={{ color: 'var(--mm-black)' }}
-              >
-                {data.rd}
-              </strong>
-            </div>
-            <div className="text-[11px] tracking-[0.16em] uppercase font-black" style={{ color: 'rgba(0,0,0,0.65)' }}>
-              라운드 평균
-              <strong
-                className="block font-jersey text-[28px] mt-1 tabular-nums font-black leading-none"
-                style={{ color: 'var(--mm-black)' }}
-              >
-                {data.ppr.toFixed(1)}
-              </strong>
-            </div>
-            <div className="text-[11px] tracking-[0.16em] uppercase font-black" style={{ color: 'rgba(0,0,0,0.65)' }}>
-              GP
-              <strong
-                className="block font-jersey text-[28px] mt-1 tabular-nums font-black leading-none"
-                style={{ color: 'var(--mm-black)' }}
-              >
-                {data.gp}
-              </strong>
-            </div>
-          </div>
         </aside>
       </article>
 

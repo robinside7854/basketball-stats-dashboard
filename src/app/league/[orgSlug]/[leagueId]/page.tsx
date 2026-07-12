@@ -387,7 +387,23 @@ async function computeWeeklyPOTW(
     })
   }
 
-  // 8) 결과 배열 (최신 라운드 → 오래된 순)
+  // 8) 각 POTW 선수의 "최근 N주 라운드 흐름 시리즈" 계산
+  // → 사용자가 요청한 "RD=1 무의미, 흐름을 보여줘" 대응.
+  // byRound 를 활용해 각 선수(pid)별로 그 선수가 참여한 모든 라운드 pts 를 시리즈로.
+  // 오래된 → 최신 순 (sparkline 자연스러움)
+  const seriesByPid = new Map<string, Array<{ date: string; pts: number }>>()
+  for (const date of uniqueDates) {
+    const map = byRound.get(date)
+    if (!map) continue
+    for (const [pid, s] of map) {
+      if (!seriesByPid.has(pid)) seriesByPid.set(pid, [])
+      seriesByPid.get(pid)!.push({ date, pts: s.pts })
+    }
+  }
+  // 시리즈를 오래된 → 최신 정렬 (sparkline 축)
+  for (const [, arr] of seriesByPid) arr.sort((a, b) => a.date.localeCompare(b.date))
+
+  // 9) 결과 배열 (최신 라운드 → 오래된 순)
   const fmtWeek = (iso: string): string => {
     const d = new Date(iso + 'T00:00:00')
     const days = ['일', '월', '화', '수', '목', '금', '토']
@@ -399,6 +415,7 @@ async function computeWeeklyPOTW(
     if (!top) continue
     const meta = metaMap.get(top.pid)
     if (!meta) continue
+    const series = seriesByPid.get(top.pid) ?? [{ date, pts: top.pts }]
     result.push({
       date,
       label: fmtWeek(date),
@@ -406,12 +423,12 @@ async function computeWeeklyPOTW(
         playerId: top.pid,
         name: meta.name,
         number: meta.number,
-        pts: top.pts,
+        pts: top.pts,                                        // 그 라운드 총 득점
         gp: top.gp,
-        rd: 1,               // 라운드 하나
-        ppr: top.pts,        // 라운드 평균 = 그 날 총 득점
+        rd: series.length,                                    // 최근 참여 라운드 수 (참고용)
+        ppr: series.length > 0 ? +(series.reduce((s, e) => s + e.pts, 0) / series.length).toFixed(1) : top.pts,
         photoUrl: meta.photo_url,
-        roundSeries: [{ date, pts: top.pts }],  // 단일 라운드
+        roundSeries: series,                                  // 최근 N주 흐름 시리즈
       },
     })
   }

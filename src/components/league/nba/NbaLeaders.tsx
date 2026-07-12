@@ -20,12 +20,23 @@ interface CategoryDef {
   term: string
   label: string
   format: (v: number) => string
+  subFormat?: (p: PlayerStat) => string       // FT% 처럼 값 아래 하위 표시 (17/20 등)
+  minAttempts?: (p: PlayerStat) => boolean    // 백분율 카테고리 최소 시도 필터
 }
 const CATEGORIES: CategoryDef[] = [
-  { key: 'ppg',  term: 'PPG', label: '득점 · PPG',    format: v => v.toFixed(1) },
-  { key: 'rpg',  term: 'RPG', label: '리바운드 · RPG', format: v => v.toFixed(1) },
-  { key: 'apg',  term: 'APG', label: '어시스트 · APG', format: v => v.toFixed(1) },
-  { key: 'fg3m', term: '3PM', label: '3점 · 3PM',      format: v => String(Math.round(v)) },
+  { key: 'ppg',    term: 'PPG',  label: '득점 · PPG',       format: v => v.toFixed(1) },
+  { key: 'rpg',    term: 'RPG',  label: '리바운드 · RPG',   format: v => v.toFixed(1) },
+  { key: 'apg',    term: 'APG',  label: '어시스트 · APG',   format: v => v.toFixed(1) },
+  { key: 'fg3m',   term: '3PM',  label: '3점 성공 · 3PM',   format: v => String(Math.round(v)) },
+  { key: 'spg',    term: 'SPG',  label: '스틸 · SPG',       format: v => v.toFixed(1) },
+  { key: 'bpg',    term: 'BPG',  label: '블락 · BPG',       format: v => v.toFixed(1) },
+  { key: 'orp',    term: 'ORP',  label: '공격 리바 · ORP',  format: v => v.toFixed(1) },
+  {
+    key: 'ft_pct', term: 'FT%',  label: '자유투 · FT%',
+    format: v => `${v.toFixed(1)}%`,
+    subFormat: p => `${Math.round(p.ftm)}/${Math.round(p.fta)}`,
+    minAttempts: p => p.fta >= 5,   // 최소 시도 5개 이상
+  },
 ]
 
 type PlayerMeta = { id: string; name: string; photo_url: string | null }
@@ -87,9 +98,13 @@ export default function NbaLeaders({ leagueId, minGP }: Props) {
         ) : players.length === 0 ? (
           <div className="text-center py-10 text-sm" style={{ color: 'var(--mm-muted)' }}>아직 기록된 스탯이 없습니다</div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 p-8 md:p-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 sm:gap-5 sm:p-6 md:p-8 lg:p-10">
             {CATEGORIES.map(cat => {
-              const eligible = players.filter(p => p.gp >= effectiveMinGP)
+              const eligible = players.filter(p => {
+                if (p.gp < effectiveMinGP) return false
+                if (cat.minAttempts && !cat.minAttempts(p)) return false
+                return true
+              })
               const sorted = [...eligible].sort((a, b) => (b[cat.key] as number) - (a[cat.key] as number))
               const top3 = sorted.slice(0, 3)
               if (top3.length === 0) return null
@@ -197,18 +212,33 @@ export default function NbaLeaders({ leagueId, minGP }: Props) {
                             </span>
                           </span>
 
-                          {/* 값 큰 숫자 */}
+                          {/* 값 큰 숫자 + FT% 같은 subFormat (성공/시도) */}
                           <span
-                            className="font-jersey font-black tabular-nums leading-none"
-                            style={{
-                              color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
-                              letterSpacing: '-0.015em',
-                              minWidth: isTop ? '72px' : '60px',
-                              textAlign: 'right',
-                              fontSize: isTop ? '44px' : '36px',
-                            }}
+                            className="flex flex-col items-end leading-none"
+                            style={{ minWidth: isTop ? '84px' : '68px' }}
                           >
-                            {cat.format(p[cat.key] as number)}
+                            <span
+                              className="font-jersey font-black tabular-nums leading-none"
+                              style={{
+                                color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                                letterSpacing: '-0.015em',
+                                fontSize: isTop ? '42px' : '34px',
+                              }}
+                            >
+                              {cat.format(p[cat.key] as number)}
+                            </span>
+                            {cat.subFormat && (
+                              <span
+                                className="font-mono tabular-nums mt-1"
+                                style={{
+                                  color: isTop ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)',
+                                  fontSize: '11px',
+                                  letterSpacing: '0.04em',
+                                }}
+                              >
+                                {cat.subFormat(p)}
+                              </span>
+                            )}
                           </span>
                         </button>
                       )
