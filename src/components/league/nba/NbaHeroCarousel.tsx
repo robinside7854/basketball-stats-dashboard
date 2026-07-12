@@ -10,7 +10,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import NbaHero, { type NbaHeroData } from './NbaHero'
 
 // POTW 우세 카테고리 — 헤드라인 생성 · 아이콘 강조에 사용
-export type POTWTopCategory = 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'win'
+// 'win' 은 팀 승리 기여 (모든 팀원이 동일 승수 견인이라 무의미) → 실제 접전 상황 클러치로 재정의
+export type POTWTopCategory = 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
 
 export type POTWBreakdown = {
   pts: number       // 그 라운드 총 득점
@@ -19,8 +20,8 @@ export type POTWBreakdown = {
   stl: number       // 스틸
   blk: number       // 블락
   ast: number       // 어시스트
-  wins: number      // 그 라운드 승리 게임 수
-  losses: number    // 패배 게임 수
+  clutchPts: number // 클러치 상황 득점 (마지막 2분 + 3점차 이내)
+  clutchGp: number  // 클러치 상황 경험 게임 수 (참고용)
   compositeScore: number  // 종합 점수 (0~100)
   topCategory: POTWTopCategory
   headline: string  // 자동 생성 스토리 코멘트
@@ -38,6 +39,9 @@ type Props = {
   leagueId: string
 }
 
+// sessionStorage 캐시 키 — 리그별로 격리
+const HEADLINE_CACHE_KEY = (leagueId: string) => `potw-headline-cache:${leagueId}`
+
 export default function NbaHeroCarousel({ entries, leagueId }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const slideRefs = useRef<Array<HTMLDivElement | null>>([])
@@ -45,6 +49,74 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
   // ref 로 current 값 참조 — deps 에 current 를 넣지 않고 스와이프마다 observer 재등록 방지
   const currentRef = useRef(0)
   useEffect(() => { currentRef.current = current }, [current])
+
+  // AI 헤드라인 상태 — date → headline 매핑 (초기엔 빈 객체, 마운트 후 채워짐)
+  // 각 슬라이드는 aiHeadlines[e.date] 있으면 그것, 없으면 규칙 기반 breakdown.headline 사용
+  const [aiHeadlines, setAiHeadlines] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    if (entries.length === 0) return
+    if (typeof window === 'undefined') return
+
+    const cacheKey = HEADLINE_CACHE_KEY(leagueId)
+    let cached: Record<string, string> = {}
+    try {
+      cached = JSON.parse(sessionStorage.getItem(cacheKey) ?? '{}') as Record<string, string>
+    } catch {
+      cached = {}
+    }
+
+    // 이미 채워진 항목은 즉시 반영
+    if (Object.keys(cached).length > 0) setAiHeadlines(cached)
+
+    const missing = entries.filter(e => !cached[e.date])
+    if (missing.length === 0) return
+
+    let aborted = false
+    Promise.all(
+      missing.map(e =>
+        fetch(`/api/leagues/${leagueId}/potw/headline`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: e.date,
+            playerName: e.potw.name,
+            teamName: e.potw.teamName ?? undefined,
+            breakdown: {
+              pts: e.breakdown.pts,
+              ts_pct: e.breakdown.ts_pct,
+              reb: e.breakdown.reb,
+              stl: e.breakdown.stl,
+              blk: e.breakdown.blk,
+              ast: e.breakdown.ast,
+              clutchPts: e.breakdown.clutchPts,
+              clutchGp: e.breakdown.clutchGp,
+              topCategory: e.breakdown.topCategory,
+              compositeScore: e.breakdown.compositeScore,
+            },
+          }),
+        })
+          .then(r => (r.ok ? r.json() : { headline: e.breakdown.headline }))
+          .then((d: { headline?: string }) => ({
+            date: e.date,
+            headline: (d.headline && d.headline.trim().length > 0) ? d.headline : e.breakdown.headline,
+          }))
+          .catch(() => ({ date: e.date, headline: e.breakdown.headline })),
+      ),
+    ).then(results => {
+      if (aborted) return
+      const next: Record<string, string> = { ...cached }
+      for (const r of results) next[r.date] = r.headline
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(next))
+      } catch {
+        // 스토리지 quota / 프라이버시 모드 무시
+      }
+      setAiHeadlines(next)
+    })
+
+    return () => { aborted = true }
+  }, [entries, leagueId])
 
   // IntersectionObserver 로 현재 슬라이드 인덱스 감지
   useEffect(() => {
@@ -128,15 +200,15 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
               data={e.potw}
               rangeLabel={`${e.label} 라운드`}
               leagueId={leagueId}
-              headline={e.breakdown.headline}
+              headline={aiHeadlines[e.date] ?? e.breakdown.headline}
               breakdown={{
                 ts_pct: e.breakdown.ts_pct,
                 reb: e.breakdown.reb,
                 stl: e.breakdown.stl,
                 blk: e.breakdown.blk,
                 ast: e.breakdown.ast,
-                wins: e.breakdown.wins,
-                losses: e.breakdown.losses,
+                clutchPts: e.breakdown.clutchPts,
+                clutchGp: e.breakdown.clutchGp,
                 compositeScore: e.breakdown.compositeScore,
                 topCategory: e.breakdown.topCategory,
               }}

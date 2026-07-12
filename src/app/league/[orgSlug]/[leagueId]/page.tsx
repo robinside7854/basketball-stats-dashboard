@@ -110,7 +110,15 @@ async function computeRecentRounds(
 //   - 득점 효율 (TS%)                            · 15
 //   - 리바운드 (총 REB)                          · 10
 //   - 스틸 · 블락 · 어시스트 각 10               · 30
-//   - 승리 기여 (승리 게임 참여 + 승리팀 pts 비중) · 20
+//   - 클러치 (마지막 2분 + 3점차 이내 pts)        · 20
+//
+// 사용자 지적:
+//   "clutch leader 선정 기준은? 한 팀에서 뛰었다면 n승 견인은 모두가 마찬가지"
+// → 기존 승리 기여 (winRate + team pts share) 는 팀원 전원 동일 승수가 되므로 무의미.
+//   실제 접전 상황(clutch)의 개인 득점으로 재정의:
+//     · 클러치 window: video_timestamp 기준 game_end - 120s ~ game_end (마지막 2분)
+//     · 접전 조건: |running_home - running_away| ≤ 3 (원 포제션)
+//   이벤트를 게임별로 시간순 walk 하며 running score 유지 → 클러치 시점에 획득한 pts 만 별도 집계.
 //
 // 각 지표를 라운드 내 최대값 대비 정규화(0~1) 후 가중 합산 → composite score.
 // 최고 점수 선수 선정 + 우세 카테고리 · 스토리 헤드라인 자동 생성.
@@ -122,8 +130,16 @@ const POTW_WEIGHTS = {
   stl: 10,
   blk: 10,
   ast: 10,
-  win: 20,
+  clutch: 20,
 } as const
+
+// 클러치 판정 파라미터 — clutchStats.ts 와 동일 (통일된 정의)
+const CLUTCH_TIME_WINDOW_SECONDS = 120  // 마지막 2분
+const CLUTCH_MARGIN_MAX = 3              // 3점 이내
+const SCORING_EVENTS_SET = new Set([
+  'shot_3p', 'shot_post', 'shot_layup', 'shot_2p_drive', 'shot_2p_mid',
+  'and_one', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'free_throw',
+])
 
 type PlayerRoundStats = {
   pts: number
@@ -137,17 +153,15 @@ type PlayerRoundStats = {
   ast: number
   tov: number
   gp: Set<string>       // 참여 게임 IDs
-  wins: number          // 승리한 게임 참여 수
-  losses: number        // 패배한 게임 참여 수
-  ptsInWins: number     // 승리 게임 내 개인 pts (승리 기여용)
-  teamPtsInWins: number // 승리 게임 내 그 선수 팀 총 pts
+  clutchPts: number     // 클러치 상황(마지막 2분 + 3점차 이내)에서 획득한 pts
+  clutchGp: Set<string> // 클러치 상황을 경험한 게임 IDs (표본 트래킹)
 }
 
 function emptyRoundStats(): PlayerRoundStats {
   return {
     pts: 0, fga: 0, fta: 0, reb: 0, oreb: 0, dreb: 0,
     stl: 0, blk: 0, ast: 0, tov: 0,
-    gp: new Set(), wins: 0, losses: 0, ptsInWins: 0, teamPtsInWins: 0,
+    gp: new Set(), clutchPts: 0, clutchGp: new Set(),
   }
 }
 
@@ -162,14 +176,11 @@ function makeHeadline(
   name: string,
   s: PlayerRoundStats,
   topCategory: POTWTopCategory,
-  teamWon: boolean,
 ): string {
   const ts = tsPct(s.pts, s.fga, s.fta)
   switch (topCategory) {
     case 'volume':
-      return teamWon
-        ? `${name}, ${s.pts}점 폭발로 팀 승리 견인`
-        : `${name}, 홀로 ${s.pts}점 몰아친 라운드 지배`
+      return `${name}, ${s.pts}점 폭발로 라운드 지배`
     case 'efficiency':
       return `${name}, TS ${ts.toFixed(0)}% 초효율 · ${s.pts}점 정조준`
     case 'reb':
@@ -180,8 +191,8 @@ function makeHeadline(
       return `${name}, 블락 ${s.blk}개로 림 프로텍터 등극`
     case 'ast':
       return `${name}, 어시스트 ${s.ast}개 · 팀 공격 리드`
-    case 'win':
-      return `${name}, ${s.wins}승 견인 · 승리의 아이콘`
+    case 'clutch':
+      return `${name}, 접전 승부처 클러치 ${s.clutchPts}점 · 마지막 2분에 강했다`
     default:
       return `${name}, 이번 라운드 최고 임팩트`
   }
@@ -195,7 +206,7 @@ async function computeWeeklyPOTW(
   const from = new Date(Date.now() - weeks * 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const today = new Date().toISOString().slice(0, 10)
 
-  // 1) 완료된 게임 (친선 제외) + 스코어 · 팀 정보
+  // 1) 완료된 게임 (친선 제외) + 홈/어웨이 팀 (클러치 스코어 walk 용)
   const { data: games } = await supabase
     .from('league_games')
     .select('id, date, plus_one_player_id, home_team_id, away_team_id, home_score, away_score')
@@ -219,21 +230,13 @@ async function computeWeeklyPOTW(
   const gamePlusOneMap: Record<string, string | null> = Object.fromEntries(
     filteredGames.map(g => [g.id as string, (g.plus_one_player_id as string | null) ?? null])
   )
-  // 게임별 승패 판정 (팀 기준)
-  type GameResult = {
-    homeTeamId: string | null; awayTeamId: string | null
-    homeScore: number; awayScore: number
-    homeWon: boolean; awayWon: boolean
-  }
-  const gameResultMap: Record<string, GameResult> = {}
+  // 게임별 홈/어웨이 팀 (클러치 walk 시 running score 배정용)
+  type GameTeams = { homeTeamId: string | null; awayTeamId: string | null }
+  const gameTeamsMap: Record<string, GameTeams> = {}
   for (const g of filteredGames) {
-    const hs = (g.home_score as number) ?? 0
-    const as = (g.away_score as number) ?? 0
-    gameResultMap[g.id as string] = {
+    gameTeamsMap[g.id as string] = {
       homeTeamId: g.home_team_id as string | null,
       awayTeamId: g.away_team_id as string | null,
-      homeScore: hs, awayScore: as,
-      homeWon: hs > as, awayWon: as > hs,
     }
   }
 
@@ -244,17 +247,27 @@ async function computeWeeklyPOTW(
     .eq('league_id', leagueId)
   const plusOneSet = new Set((playersRaw ?? []).filter(p => p.plus_one).map(p => p.id))
 
-  // 4) 이벤트 페이지네이션 — team_id 필드도 함께 (승리 기여 판정용)
-  type EvRow = { league_player_id: string | null; type: string; result: string | null; league_game_id: string; team_id: string | null }
+  // 4) 이벤트 페이지네이션 — 클러치 판정 위해 video_timestamp/points 포함
+  //    league_player_id 가 null 인 이벤트도 running score walk 를 위해 함께 조회
+  //    (id 순 조회 후 게임별로 video_timestamp 재정렬)
+  type EvRow = {
+    id: number
+    league_player_id: string | null
+    type: string
+    result: string | null
+    league_game_id: string
+    team_id: string | null
+    video_timestamp: number | null
+    points: number | null
+  }
   const events: EvRow[] = []
   const PAGE = 1000
   let pg = 0
   while (true) {
     const { data: chunk } = await supabase
       .from('league_game_events')
-      .select('league_player_id, type, result, league_game_id, team_id')
+      .select('id, league_player_id, type, result, league_game_id, team_id, video_timestamp, points')
       .in('league_game_id', gameIds)
-      .not('league_player_id', 'is', null)
       .order('id', { ascending: true })
       .range(pg * PAGE, (pg + 1) * PAGE - 1)
     if (chunk?.length) events.push(...(chunk as EvRow[]))
@@ -262,86 +275,111 @@ async function computeWeeklyPOTW(
     pg++
   }
 
-  // 5) 라운드 × 선수 종합 스탯 집계 + 게임별 선수의 team_id 추적
-  const byRound = new Map<string, Map<string, PlayerRoundStats>>()
-  const playerTeamPerGame = new Map<string, Map<string, string>>() // pid → gameId → team_id
+  // 5) 게임별 이벤트 그룹핑 + max video_timestamp (클러치 window 계산)
+  const gameEvents = new Map<string, EvRow[]>()
+  const gameMaxTs = new Map<string, number>()
   for (const e of events) {
-    if (!e.league_player_id) continue
-    const date = gameDateMap[e.league_game_id]
+    const gid = e.league_game_id
+    if (!gameEvents.has(gid)) gameEvents.set(gid, [])
+    gameEvents.get(gid)!.push(e)
+    if (e.video_timestamp != null) {
+      const cur = gameMaxTs.get(gid) ?? -1
+      if (e.video_timestamp > cur) gameMaxTs.set(gid, e.video_timestamp)
+    }
+  }
+
+  // 6) 라운드 × 선수 종합 스탯 집계 — 게임별 시간순 walk 로 클러치 판정
+  //    · 이벤트를 video_timestamp 오름차순 재정렬 (null 은 뒤로, id tiebreak)
+  //    · running homeScore / awayScore 유지 → 이벤트 발생 "직전" 스코어 기준 접전 판정
+  //    · video_timestamp 없는 이벤트 (수동 입력 · 레거시) 는 자연스레 클러치 제외
+  const byRound = new Map<string, Map<string, PlayerRoundStats>>()
+
+  for (const [gid, evs] of gameEvents) {
+    const date = gameDateMap[gid]
     if (!date) continue
-    const pid = e.league_player_id
+    const teams = gameTeamsMap[gid]
+    if (!teams) continue
+    const gpo = gamePlusOneMap[gid]
+    const maxTs = gameMaxTs.get(gid)
+    const clutchStart = maxTs != null ? maxTs - CLUTCH_TIME_WINDOW_SECONDS : null
+
+    // video_timestamp 오름차순 정렬 (null 은 뒤로) — id tiebreak
+    evs.sort((a, b) => {
+      const ta = a.video_timestamp ?? Number.MAX_SAFE_INTEGER
+      const tb = b.video_timestamp ?? Number.MAX_SAFE_INTEGER
+      if (ta !== tb) return ta - tb
+      return a.id - b.id
+    })
 
     if (!byRound.has(date)) byRound.set(date, new Map())
     const map = byRound.get(date)!
-    if (!map.has(pid)) map.set(pid, emptyRoundStats())
-    const s = map.get(pid)!
 
-    if (e.type !== 'sub_in' && e.type !== 'sub_out') {
-      s.gp.add(e.league_game_id)
-    }
+    let homeScore = 0
+    let awayScore = 0
 
-    // team_id 추적 (선수-게임별 소속팀)
-    if (e.team_id && e.type !== 'sub_in' && e.type !== 'sub_out') {
-      if (!playerTeamPerGame.has(pid)) playerTeamPerGame.set(pid, new Map())
-      const m = playerTeamPerGame.get(pid)!
-      if (!m.has(e.league_game_id)) m.set(e.league_game_id, e.team_id)
-    }
+    for (const e of evs) {
+      // 이 이벤트의 클러치 여부 (이벤트 반영 "전" 스코어 기준)
+      const inClutchTime = clutchStart != null && e.video_timestamp != null && e.video_timestamp >= clutchStart
+      const inClutchScore = Math.abs(homeScore - awayScore) <= CLUTCH_MARGIN_MAX
+      const isClutch = inClutchTime && inClutchScore
 
-    const made = e.result === 'made'
-    const gpo = gamePlusOneMap[e.league_game_id]
-    const isP1 = gpo !== null ? pid === gpo : plusOneSet.has(pid)
+      // 선수 스탯 집계 (league_player_id 있는 경우만)
+      const pid = e.league_player_id
+      if (pid) {
+        if (!map.has(pid)) map.set(pid, emptyRoundStats())
+        const s = map.get(pid)!
 
-    switch (e.type) {
-      case 'shot_3p':
-        s.fga++
-        if (made) s.pts += isP1 ? 4 : 3
-        break
-      case 'shot_2p_mid': case 'shot_layup': case 'shot_post': case 'shot_2p_drive':
-        s.fga++
-        if (made) s.pts += isP1 ? 3 : 2
-        break
-      case 'ft_2pt': case 'ft_3pt_1':
-        s.fta++
-        if (made) s.pts += 2
-        break
-      case 'free_throw': case 'ft_3pt_2':
-        s.fta++
-        if (made) s.pts += 1
-        break
-      case 'and_one':
-        if (made) s.pts += 1
-        break
-      case 'oreb': s.oreb++; s.reb++; break
-      case 'dreb': s.dreb++; s.reb++; break
-      case 'steal': s.stl++; break
-      case 'block': s.blk++; break
-      case 'turnover': s.tov++; break
-    }
-    // 어시스트 = 슛 성공 이벤트의 related_player 참조인데, related 필드 조회 안 함
-    // → 어시스트 이벤트 타입 별도 있을 경우만 카운트 (없으면 0)
-    // 실제 데이터에 assist 이벤트 있는지 확인 필요. 우선은 pts 이벤트의 related 로 보정 불가.
-    // NOTE: 팀 통계 API 는 related_player_id 로 어시스트 계산. 여기선 v1 스킵.
-  }
-
-  // 6) 각 라운드에서 각 선수의 승리 기여 계산
-  for (const [, map] of byRound) {
-    for (const [pid, s] of map) {
-      const teamPerGame = playerTeamPerGame.get(pid) ?? new Map()
-      for (const gid of s.gp) {
-        const teamId = teamPerGame.get(gid)
-        const gr = gameResultMap[gid]
-        if (!gr || !teamId) continue
-        const isHome = teamId === gr.homeTeamId
-        const isAway = teamId === gr.awayTeamId
-        const teamScore = isHome ? gr.homeScore : (isAway ? gr.awayScore : 0)
-        const won = isHome ? gr.homeWon : (isAway ? gr.awayWon : false)
-        if (won) {
-          s.wins++
-          s.ptsInWins += s.pts / s.gp.size  // 근사: 이 게임 참여분 = 총 pts / gp
-          s.teamPtsInWins += teamScore
-        } else {
-          s.losses++
+        if (e.type !== 'sub_in' && e.type !== 'sub_out') {
+          s.gp.add(gid)
         }
+
+        const made = e.result === 'made'
+        const isP1 = gpo !== null ? pid === gpo : plusOneSet.has(pid)
+
+        // 이 이벤트로 획득한 pts (플러스원 보정 반영) — 클러치 pts 집계용
+        let ptsGained = 0
+        switch (e.type) {
+          case 'shot_3p':
+            s.fga++
+            if (made) { ptsGained = isP1 ? 4 : 3; s.pts += ptsGained }
+            break
+          case 'shot_2p_mid': case 'shot_layup': case 'shot_post': case 'shot_2p_drive':
+            s.fga++
+            if (made) { ptsGained = isP1 ? 3 : 2; s.pts += ptsGained }
+            break
+          case 'ft_2pt': case 'ft_3pt_1':
+            s.fta++
+            if (made) { ptsGained = 2; s.pts += ptsGained }
+            break
+          case 'free_throw': case 'ft_3pt_2':
+            s.fta++
+            if (made) { ptsGained = 1; s.pts += ptsGained }
+            break
+          case 'and_one':
+            if (made) { ptsGained = 1; s.pts += ptsGained }
+            break
+          case 'oreb': s.oreb++; s.reb++; break
+          case 'dreb': s.dreb++; s.reb++; break
+          case 'steal': s.stl++; break
+          case 'block': s.blk++; break
+          case 'turnover': s.tov++; break
+        }
+        // 어시스트: related_player_id 는 v1 스킵 (팀 통계 API 는 별도 처리)
+
+        // 클러치 상황이면 이 이벤트의 pts 를 clutchPts 에 가산
+        if (isClutch) {
+          if (ptsGained > 0) s.clutchPts += ptsGained
+          if (e.type !== 'sub_in' && e.type !== 'sub_out') {
+            s.clutchGp.add(gid)
+          }
+        }
+      }
+
+      // 스코어 업데이트 — 이벤트 처리 후 반영 (다음 이벤트의 클러치 판정용)
+      const madeForScore = e.result === 'made'
+      if (madeForScore && SCORING_EVENTS_SET.has(e.type) && e.team_id && e.points != null) {
+        if (e.team_id === teams.homeTeamId) homeScore += e.points
+        else if (e.team_id === teams.awayTeamId) awayScore += e.points
       }
     }
   }
@@ -371,24 +409,15 @@ async function computeWeeklyPOTW(
     const maxStl = Math.max(...roster.map(r => r.s.stl), 1)
     const maxBlk = Math.max(...roster.map(r => r.s.blk), 1)
     const maxAst = Math.max(...roster.map(r => r.s.ast), 1)  // v1: 대부분 0
-    const maxWinScore = Math.max(
-      ...roster.map(r => {
-        const games = r.s.gp.size
-        const winRate = games > 0 ? r.s.wins / games : 0
-        const contrib = r.s.teamPtsInWins > 0 ? r.s.ptsInWins / r.s.teamPtsInWins : 0
-        return winRate * (1 + contrib)  // 승률 + 기여도 boost
-      }),
-      1,
-    )
+    // 클러치 gp 최소 조건 완화 (라운드 단위이므로 1게임 이상 OK) — 클러치 경험자 중 최대
+    const clutchRoster = roster.filter(r => r.s.clutchGp.size > 0)
+    const maxClutchPts = clutchRoster.length > 0
+      ? Math.max(...clutchRoster.map(r => r.s.clutchPts), 1)
+      : 1
 
     // 각 선수 종합 점수
     const scored = roster.map(r => {
       const s = r.s
-      const games = s.gp.size
-      const winRate = games > 0 ? s.wins / games : 0
-      const contrib = s.teamPtsInWins > 0 ? s.ptsInWins / s.teamPtsInWins : 0
-      const winScoreRaw = winRate * (1 + contrib)
-
       const norm = {
         volume: s.pts / maxPts,
         efficiency: (s.fga + s.fta) >= 5 ? r.ts / maxTs : 0,
@@ -396,7 +425,7 @@ async function computeWeeklyPOTW(
         stl: s.stl / maxStl,
         blk: s.blk / maxBlk,
         ast: s.ast / maxAst,
-        win: winScoreRaw / maxWinScore,
+        clutch: s.clutchGp.size > 0 ? s.clutchPts / maxClutchPts : 0,
       }
 
       // 가중 합 (총 100)
@@ -407,7 +436,7 @@ async function computeWeeklyPOTW(
         norm.stl        * POTW_WEIGHTS.stl +
         norm.blk        * POTW_WEIGHTS.blk +
         norm.ast        * POTW_WEIGHTS.ast +
-        norm.win        * POTW_WEIGHTS.win
+        norm.clutch     * POTW_WEIGHTS.clutch
 
       // 우세 카테고리 판정 (가중 × 정규화 값 최고)
       const weighted: Array<[POTWTopCategory, number]> = [
@@ -417,7 +446,7 @@ async function computeWeeklyPOTW(
         ['stl',        norm.stl        * POTW_WEIGHTS.stl],
         ['blk',        norm.blk        * POTW_WEIGHTS.blk],
         ['ast',        norm.ast        * POTW_WEIGHTS.ast],
-        ['win',        norm.win        * POTW_WEIGHTS.win],
+        ['clutch',     norm.clutch     * POTW_WEIGHTS.clutch],
       ]
       weighted.sort((a, b) => b[1] - a[1])
       const topCategory: POTWTopCategory = weighted[0][0]
@@ -455,23 +484,41 @@ async function computeWeeklyPOTW(
     })
   }
 
-  // 8) 각 POTW 선수의 "최근 N주 라운드 흐름 시리즈" 계산
-  // → 사용자가 요청한 "RD=1 무의미, 흐름을 보여줘" 대응.
-  // byRound 를 활용해 각 선수(pid)별로 그 선수가 참여한 모든 라운드 pts 를 시리즈로.
-  // 오래된 → 최신 순 (sparkline 자연스러움)
-  const seriesByPid = new Map<string, Array<{ date: string; pts: number }>>()
+  // 9) 각 POTW 선수의 "최근 N주 라운드 흐름 시리즈" — 카테고리별 값 확장
+  //    기존: pts 만 담아 sparkline. 우세 지표가 REB/STL 등이면 흐름 왜곡.
+  //    신규: 전 카테고리 값 담아 UI 가 topCategory 에 맞춰 렌더 선택 가능.
+  type RoundMetricValues = {
+    date: string
+    pts: number
+    reb: number
+    ast: number
+    stl: number
+    blk: number
+    ts_pct: number
+    clutch: number
+  }
+  const seriesByPid = new Map<string, RoundMetricValues[]>()
   for (const date of uniqueDates) {
     const map = byRound.get(date)
     if (!map) continue
     for (const [pid, s] of map) {
       if (!seriesByPid.has(pid)) seriesByPid.set(pid, [])
-      seriesByPid.get(pid)!.push({ date, pts: s.pts })
+      seriesByPid.get(pid)!.push({
+        date,
+        pts: s.pts,
+        reb: s.reb,
+        ast: s.ast,
+        stl: s.stl,
+        blk: s.blk,
+        ts_pct: tsPct(s.pts, s.fga, s.fta),
+        clutch: s.clutchPts,
+      })
     }
   }
   // 시리즈를 오래된 → 최신 정렬 (sparkline 축)
   for (const [, arr] of seriesByPid) arr.sort((a, b) => a.date.localeCompare(b.date))
 
-  // 9) 결과 배열 (최신 라운드 → 오래된 순)
+  // 10) 결과 배열 (최신 라운드 → 오래된 순)
   const fmtWeek = (iso: string): string => {
     const d = new Date(iso + 'T00:00:00')
     const days = ['일', '월', '화', '수', '목', '금', '토']
@@ -484,9 +531,18 @@ async function computeWeeklyPOTW(
     const meta = metaMap.get(top.pid)
     if (!meta) continue
     const s = top.stats
-    const series = seriesByPid.get(top.pid) ?? [{ date, pts: s.pts }]
-    const teamWon = s.wins > s.losses
-    const headline = makeHeadline(meta.name, s, top.topCategory, teamWon)
+    const fallbackEntry: RoundMetricValues = {
+      date,
+      pts: s.pts,
+      reb: s.reb,
+      ast: s.ast,
+      stl: s.stl,
+      blk: s.blk,
+      ts_pct: tsPct(s.pts, s.fga, s.fta),
+      clutch: s.clutchPts,
+    }
+    const series = seriesByPid.get(top.pid) ?? [fallbackEntry]
+    const headline = makeHeadline(meta.name, s, top.topCategory)
 
     result.push({
       date,
@@ -509,8 +565,8 @@ async function computeWeeklyPOTW(
         stl: s.stl,
         blk: s.blk,
         ast: s.ast,
-        wins: s.wins,
-        losses: s.losses,
+        clutchPts: s.clutchPts,
+        clutchGp: s.clutchGp.size,
         compositeScore: top.compositeScore,
         topCategory: top.topCategory,
         headline,

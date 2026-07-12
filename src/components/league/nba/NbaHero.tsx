@@ -21,7 +21,18 @@ export type NbaHeroData = {
   rd: number
   ppr: number
   photoUrl?: string | null
-  roundSeries?: Array<{ date: string; pts: number }>
+  // 카테고리별 라운드 값 시리즈 — sparkline 이 우세 지표(예: 리바운드/스틸)일 때
+  // pts 만 그리면 흐름이 왜곡되므로 전 카테고리 값을 함께 담아 UI가 선택 렌더링.
+  roundSeries?: Array<{
+    date: string
+    pts: number
+    reb: number
+    ast: number
+    stl: number
+    blk: number
+    ts_pct: number
+    clutch: number
+  }>
   teamName?: string | null
 } | null
 
@@ -31,10 +42,10 @@ export type HeroBreakdown = {
   stl: number
   blk: number
   ast: number
-  wins: number
-  losses: number
+  clutchPts: number  // 클러치 상황 총 득점
+  clutchGp: number   // 클러치 상황 경험 게임 수
   compositeScore: number
-  topCategory: 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'win'
+  topCategory: 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
 }
 
 type Props = {
@@ -105,12 +116,12 @@ function mainMetricFor(
         hero: '초효율 정조준', badge: 'EFFICIENCY KING',
         copyLead: `이번 라운드 TS ${b.ts_pct > 0 ? b.ts_pct.toFixed(0) : '—'}%`,
       }
-    case 'win':
+    case 'clutch':
       return {
-        value: String(b.wins), unit: b.wins === 1 ? 'WIN' : 'WINS',
-        panelLabel: '이 라운드 승리 견인',
-        hero: '승리의 아이콘', badge: 'CLUTCH LEADER',
-        copyLead: `이번 라운드 ${b.wins}승 견인`,
+        value: String(b.clutchPts), unit: 'CLUTCH',
+        panelLabel: '이 라운드 클러치 득점',
+        hero: '접전의 왕', badge: 'CLUTCH LEADER',
+        copyLead: `이번 라운드 클러치 상황 ${b.clutchPts}점 (${b.clutchGp}경기)`,
       }
     default:  // volume
       return {
@@ -122,25 +133,64 @@ function mainMetricFor(
   }
 }
 
-function RoundBars({ series }: { series: Array<{ date: string; pts: number }> }) {
+// 카테고리별 sparkline 값 선택 — POTW 우세 지표에 따라 라운드 흐름이 다른 지표로 렌더됨
+// (기존은 항상 pts 만 표시해 리바운드/스틸 왕이 선정돼도 득점 흐름이 나와 데이터 불일치)
+type SeriesItem = {
+  date: string
+  pts: number
+  reb: number
+  ast: number
+  stl: number
+  blk: number
+  ts_pct: number
+  clutch: number
+}
+type RoundCategory = HeroBreakdown['topCategory']
+
+function pickSeriesValue(s: SeriesItem, category: RoundCategory): number {
+  switch (category) {
+    case 'reb': return s.reb
+    case 'ast': return s.ast
+    case 'stl': return s.stl
+    case 'blk': return s.blk
+    case 'efficiency': return s.ts_pct
+    case 'clutch': return s.clutch
+    default: return s.pts  // volume
+  }
+}
+
+function formatSeriesValue(v: number, category: RoundCategory): string {
+  if (category === 'efficiency') return v > 0 ? v.toFixed(1) : '—'
+  return String(Math.round(v))
+}
+
+function RoundBars({
+  series,
+  category,
+}: {
+  series: SeriesItem[]
+  category: RoundCategory
+}) {
   if (series.length === 0) return null
   const shown = series.slice(-6)
-  const max = Math.max(...shown.map(s => s.pts), 1)
+  const values = shown.map(s => pickSeriesValue(s, category))
+  const max = Math.max(...values, category === 'efficiency' ? 0.01 : 1)
   return (
     <div
       className="grid gap-2 items-end"
       style={{ gridTemplateColumns: `repeat(${shown.length}, 1fr)`, minHeight: '120px' }}
     >
-      {shown.map(s => {
-        const heightPct = Math.max(6, (s.pts / max) * 100)
-        const isMax = s.pts === max && shown.filter(x => x.pts === max).length === 1
+      {shown.map((s, i) => {
+        const v = values[i]
+        const heightPct = Math.max(6, (v / max) * 100)
+        const isMax = v === max && values.filter(x => x === max).length === 1 && v > 0
         return (
           <div key={s.date} className="flex flex-col items-center gap-1.5">
             <span
-              className="font-jersey text-[22px] font-black tabular-nums leading-none"
+              className="font-jersey text-[18px] sm:text-[22px] font-black tabular-nums leading-none"
               style={{ color: 'var(--mm-black)' }}
             >
-              {s.pts}
+              {formatSeriesValue(v, category)}
             </span>
             <div className="w-full flex items-end" style={{ height: '68px' }}>
               <div
@@ -164,6 +214,31 @@ function RoundBars({ series }: { series: Array<{ date: string; pts: number }> })
       })}
     </div>
   )
+}
+
+// 우세 카테고리별 sparkline 라벨 세트 — 헤더/평균 문구를 스왑
+function metricLabelFor(category: RoundCategory): {
+  headerLabel: string     // "라운드별 득점" 형태 (헤더 우측 label)
+  headerFlow: string      // "득점 흐름" 형태 (헤더 좌측 문구)
+  avgFormat: (v: number) => string
+  avgUnit: string
+} {
+  switch (category) {
+    case 'reb':
+      return { headerLabel: '라운드별 리바운드', headerFlow: '리바운드 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'REB' }
+    case 'ast':
+      return { headerLabel: '라운드별 어시스트', headerFlow: '어시스트 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'AST' }
+    case 'stl':
+      return { headerLabel: '라운드별 스틸', headerFlow: '스틸 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'STL' }
+    case 'blk':
+      return { headerLabel: '라운드별 블락', headerFlow: '블락 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'BLK' }
+    case 'efficiency':
+      return { headerLabel: '라운드별 TS%', headerFlow: 'TS% 흐름', avgFormat: v => v.toFixed(1), avgUnit: '%' }
+    case 'clutch':
+      return { headerLabel: '라운드별 클러치 득점', headerFlow: '클러치 득점 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'CLT' }
+    default:
+      return { headerLabel: '라운드별 득점', headerFlow: '득점 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'PTS' }
+  }
 }
 
 export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdown }: Props) {
@@ -269,13 +344,6 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
             {breakdown && breakdown.topCategory !== 'volume' && data.pts > 0 && (
               <>{' '}· {data.pts}점</>
             )}
-            {breakdown && (breakdown.wins + breakdown.losses) > 0 && (
-              <>
-                {' '}· {breakdown.wins > 0 && <span style={{ color: '#059669', fontWeight: 700 }}>{breakdown.wins}승</span>}
-                {breakdown.wins > 0 && breakdown.losses > 0 && ' '}
-                {breakdown.losses > 0 && <span style={{ color: '#DC2626', fontWeight: 700 }}>{breakdown.losses}패</span>}
-              </>
-            )}
           </p>
 
           {/* 아바타 + 이름 — 대형화 (여백 최소) */}
@@ -368,28 +436,35 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
             </span>
           </div>
 
-          {/* 최근 N주 흐름 sparkline — 사용자 요청 3번: RD=1 무의미 대신 흐름 강조 */}
-          {showTrend ? (
-            <div className="mt-6 pt-5" style={{ borderTop: '2px solid rgba(0,0,0,0.15)' }}>
-              <div
-                className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 mb-3"
-              >
-                <span
-                  className="text-[11px] sm:text-[12px] font-black tracking-[0.18em] sm:tracking-[0.22em] uppercase break-keep"
-                  style={{ color: 'rgba(0,0,0,0.75)' }}
+          {/* 최근 N주 흐름 sparkline — 우세 카테고리별 값 스왑 (득점/리바운드/스틸/블락/어시스트/TS%/클러치) */}
+          {showTrend ? (() => {
+            const cat: RoundCategory = breakdown?.topCategory ?? 'volume'
+            const labels = metricLabelFor(cat)
+            const series = data.roundSeries!
+            const vals = series.map(s => pickSeriesValue(s, cat))
+            const avgRaw = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+            return (
+              <div className="mt-6 pt-5" style={{ borderTop: '2px solid rgba(0,0,0,0.15)' }}>
+                <div
+                  className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1 mb-3"
                 >
-                  최근 {data.roundSeries!.length}주 득점 흐름
-                </span>
-                <span
-                  className="text-[10px] sm:text-[11px] font-black tracking-[0.14em] sm:tracking-[0.16em] uppercase break-keep"
-                  style={{ color: 'rgba(0,0,0,0.55)' }}
-                >
-                  평균 {data.ppr.toFixed(1)} PTS
-                </span>
+                  <span
+                    className="text-[11px] sm:text-[12px] font-black tracking-[0.18em] sm:tracking-[0.22em] uppercase break-keep"
+                    style={{ color: 'rgba(0,0,0,0.75)' }}
+                  >
+                    최근 {series.length}주 {labels.headerFlow}
+                  </span>
+                  <span
+                    className="text-[10px] sm:text-[11px] font-black tracking-[0.14em] sm:tracking-[0.16em] uppercase break-keep"
+                    style={{ color: 'rgba(0,0,0,0.55)' }}
+                  >
+                    평균 {labels.avgFormat(avgRaw)} {labels.avgUnit}
+                  </span>
+                </div>
+                <RoundBars series={series} category={cat} />
               </div>
-              <RoundBars series={data.roundSeries!} />
-            </div>
-          ) : (
+            )
+          })() : (
             <div
               className="mt-6 pt-5 text-[12px] font-black tracking-[0.22em] uppercase"
               style={{ borderTop: '2px solid rgba(0,0,0,0.15)', color: 'rgba(0,0,0,0.55)' }}
@@ -398,10 +473,10 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
             </div>
           )}
 
-          {/* 지표 브레이크다운 · 우세 카테고리 강조 */}
+          {/* 지표 브레이크다운 · 우세 카테고리 강조 (7열: PTS/TS%/REB/AST/STL/BLK/CLT) */}
           {breakdown && (
             <div
-              className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-5 pt-4"
+              className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 mt-5 pt-4"
               style={{ borderTop: '2px solid rgba(0,0,0,0.15)' }}
             >
               {(() => {
@@ -412,6 +487,7 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
                   { key: 'ast',        label: 'AST', value: String(breakdown.ast) },
                   { key: 'stl',        label: 'STL', value: String(breakdown.stl) },
                   { key: 'blk',        label: 'BLK', value: String(breakdown.blk) },
+                  { key: 'clutch',     label: 'CLT', value: String(breakdown.clutchPts) },
                 ]
                 return items.map(it => {
                   const isTop = breakdown.topCategory === it.key
