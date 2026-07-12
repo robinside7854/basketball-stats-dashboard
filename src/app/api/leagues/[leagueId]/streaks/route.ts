@@ -13,24 +13,11 @@
 // GET /api/leagues/[id]/streaks?minStreak=2
 //   → { streaks: [{ player_id, name, number, category, count }, ...] } — count desc
 //
-// 표시 정책:
-//   - 각 카테고리별 count ≥ minStreak (기본 2) 인 선수만 포함
-//   - count 는 최신 → 역순 walk 로 조건 위반 시점에서 중단
-//   - 최신 경기에서 조건 미충족이면 count=0 (=streak 없음, 응답 제외)
-
+// 실제 로직은 `@/lib/stats/streaks` 로 추출 — SSR 프리페치와 공유.
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/admin'
-import { computePerDayStats, isDoubleDouble, fetchPlayerMeta } from '@/lib/stats/perDayStats'
+import { computeStreaks } from '@/lib/stats/streaks'
 
-export type StreakCategory = 'pts10' | 'pts20' | 'tp1' | 'dd' | 'wins' | 'stlblk3'
-
-interface StreakEntry {
-  player_id: string
-  name: string
-  number: number | null
-  category: StreakCategory
-  count: number
-}
+export type { StreakCategory } from '@/lib/stats/streaks'
 
 export async function GET(
   req: Request,
@@ -40,54 +27,6 @@ export async function GET(
   const sp = new URL(req.url).searchParams
   const minStreak = Math.max(2, Number(sp.get('minStreak') ?? 2))
 
-  const supabase = createClient()
-  const [{ dayStats, dayWL }, playerMeta] = await Promise.all([
-    computePerDayStats(supabase, leagueId),
-    fetchPlayerMeta(supabase, leagueId),
-  ])
-
-  const streaks: StreakEntry[] = []
-
-  for (const [pid, byDate] of dayStats) {
-    // 참여 날짜 desc 정렬 (최신 → 과거)
-    const dates = [...byDate.keys()].sort((a, b) => b.localeCompare(a))
-    if (dates.length === 0) continue
-
-    // 각 카테고리 별도 walk
-    const cats: { key: StreakCategory; check: (date: string, stats: ReturnType<typeof byDate.get>) => boolean }[] = [
-      { key: 'pts10',   check: (_, s) => (s?.pts ?? 0) >= 10 },
-      { key: 'pts20',   check: (_, s) => (s?.pts ?? 0) >= 20 },
-      { key: 'tp1',     check: (_, s) => (s?.fg3m ?? 0) >= 1 },
-      { key: 'dd',      check: (_, s) => s ? isDoubleDouble(s) : false },
-      { key: 'wins',    check: (date) => {
-        const wl = dayWL.get(pid)?.get(date)
-        return wl ? wl.wins > wl.losses : false
-      }},
-      { key: 'stlblk3', check: (_, s) => ((s?.stl ?? 0) + (s?.blk ?? 0)) >= 3 },
-    ]
-
-    for (const cat of cats) {
-      let count = 0
-      for (const date of dates) {
-        const stats = byDate.get(date)
-        if (cat.check(date, stats)) count++
-        else break
-      }
-      if (count >= minStreak) {
-        const meta = playerMeta[pid]
-        streaks.push({
-          player_id: pid,
-          name: meta?.name ?? '알 수 없음',
-          number: meta?.number ?? null,
-          category: cat.key,
-          count,
-        })
-      }
-    }
-  }
-
-  // count desc 로 정렬
-  streaks.sort((a, b) => b.count - a.count)
-
-  return NextResponse.json({ streaks })
+  const result = await computeStreaks(null, leagueId, { minStreak })
+  return NextResponse.json(result)
 }

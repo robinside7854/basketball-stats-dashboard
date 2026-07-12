@@ -24,8 +24,15 @@ interface RecentEntry {
   achieved_at: string
 }
 
+interface MilestoneData {
+  upcoming: UpcomingEntry[]
+  recent: RecentEntry[]
+}
+
 interface Props {
   leagueId: string
+  /** SSR 프리페치 결과 — 있으면 초기 fetch skip (홈 waterfall 제거용) */
+  initialData?: MilestoneData
 }
 
 const CATEGORY_LABEL: Record<MilestoneCategory, string> = {
@@ -45,13 +52,16 @@ function formatKoreanDate(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()} (${days[d.getDay()]})`
 }
 
-export default function MilestoneFeed({ leagueId }: Props) {
-  const [upcoming, setUpcoming] = useState<UpcomingEntry[]>([])
-  const [recent, setRecent] = useState<RecentEntry[]>([])
-  const [loading, setLoading] = useState(true)
+export default function MilestoneFeed({ leagueId, initialData }: Props) {
+  const hasInitial = !!initialData
+  const [upcoming, setUpcoming] = useState<UpcomingEntry[]>(initialData?.upcoming ?? [])
+  const [recent, setRecent] = useState<RecentEntry[]>(initialData?.recent ?? [])
+  const [loading, setLoading] = useState(!hasInitial)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
+    // initial 데이터가 있으면 mount 시 fetch skip — 서버 렌더 결과 그대로 사용
+    if (hasInitial) return
     setLoading(true)
     fetch(`/api/leagues/${leagueId}/milestones?maxUpcoming=6&maxRecent=6&horizonDays=30`)
       .then(r => r.json())
@@ -61,6 +71,7 @@ export default function MilestoneFeed({ leagueId }: Props) {
         setLoading(false)
       })
       .catch(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId])
 
   if (loading) {

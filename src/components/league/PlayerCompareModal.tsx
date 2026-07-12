@@ -1,7 +1,13 @@
 'use client'
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Loader2, X } from 'lucide-react'
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer, Legend } from 'recharts'
+
+// Recharts (~90KB gz) 는 모달 열림 시점에만 로드 — 초기 번들 감량
+const PlayerCompareRadarChart = dynamic(() => import('@/components/league/charts/PlayerCompareCharts'), {
+  ssr: false,
+  loading: () => <div style={{ height: 240 }} />,
+})
 
 type Detail = {
   player_stats: {
@@ -95,15 +101,13 @@ export default function PlayerCompareModal({ leagueId, player1Id, player2Id, pla
           <div className="p-5 space-y-5">
             {/* 레이더 차트 */}
             <div className="bg-gray-800/40 rounded-2xl p-3 border border-gray-700/40">
-              <ResponsiveContainer width="100%" height={240}>
-                <RadarChart data={radarData} margin={{top:8,right:24,bottom:8,left:24}}>
-                  <PolarGrid stroke="#374151" />
-                  <PolarAngleAxis dataKey="stat" tick={{fill:'#d1d5db',fontSize:11,fontWeight:600}} />
-                  <Radar name={player1Name} dataKey={player1Name} stroke={COLOR1} fill={COLOR1} fillOpacity={0.25} strokeWidth={2} />
-                  <Radar name={player2Name} dataKey={player2Name} stroke={COLOR2} fill={COLOR2} fillOpacity={0.25} strokeWidth={2} />
-                  <Legend wrapperStyle={{fontSize:11,color:'#9ca3af'}} />
-                </RadarChart>
-              </ResponsiveContainer>
+              <PlayerCompareRadarChart
+                data={radarData}
+                player1Name={player1Name}
+                player2Name={player2Name}
+                color1={COLOR1}
+                color2={COLOR2}
+              />
             </div>
 
             {/* 스탯 비교 테이블 */}

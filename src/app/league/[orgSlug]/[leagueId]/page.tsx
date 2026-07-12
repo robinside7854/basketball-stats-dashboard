@@ -1,8 +1,12 @@
 import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
+import { unstable_cache } from 'next/cache'
 import Link from 'next/link'
 import type { HighlightPlayer, HighlightTeam } from '@/components/league/HighlightBanner'
 import { loadIdentityResolver, makeIdentityResolver } from '@/lib/stats/teamIdentity'
+import { computeLeagueStats } from '@/lib/stats/leagueStats'
+import { computeStreaks } from '@/lib/stats/streaks'
+import { computeMilestones } from '@/lib/stats/milestones'
 
 // 홈 페이지 공통 — teams/overrides 를 한 번만 로드해 3개 계산 함수(highlights/rounds/standings)에
 // 재사용하기 위한 Promise 타입. 각 함수는 내부에서 await 로 값 참조.
@@ -798,6 +802,43 @@ async function toNbaHero(
   }
 }
 
+// B2: 재방문 시 즉시 응답용 unstable_cache 래퍼 3종.
+//   - keyParts 에 leagueId 를 넣어 리그별 캐시 분리
+//   - tags 는 향후 편집 API 완료 시 `revalidateTag('league-${leagueId}')` 로 무효화 (다음 iteration)
+//   - revalidate 60s TTL — 편집 반영 지연 상한
+// supabase / resolverPromise 는 클로저에서 재구성 (unstable_cache 는 serializable 인자만 허용)
+const getCachedWeeklyPOTW = (leagueId: string, weeks: number) =>
+  unstable_cache(
+    async () => {
+      const sb = createClient()
+      return computeWeeklyPOTW(sb, leagueId, weeks)
+    },
+    ['home-weekly-potw', leagueId, String(weeks)],
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+  )
+
+const getCachedRecentRounds = (leagueId: string, weeks: number) =>
+  unstable_cache(
+    async () => {
+      const sb = createClient()
+      const resolverPromise = loadIdentityResolver(sb, leagueId)
+      return computeRecentRounds(sb, leagueId, resolverPromise, weeks)
+    },
+    ['home-recent-rounds', leagueId, String(weeks)],
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+  )
+
+const getCachedQuarterStandings = (leagueId: string) =>
+  unstable_cache(
+    async () => {
+      const sb = createClient()
+      const resolverPromise = loadIdentityResolver(sb, leagueId)
+      return computeCurrentQuarterStandings(sb, leagueId, resolverPromise)
+    },
+    ['home-quarter-standings', leagueId],
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+  )
+
 export default async function LeagueDetailPage({
   params,
 }: {
@@ -806,21 +847,43 @@ export default async function LeagueDetailPage({
   const { orgSlug, leagueId } = await params
   const supabase = createClient()
 
-  // MVP-1: teams/overrides 를 한 번만 로드해 3개 계산 함수에 재사용
-  // (기존 3회 중복 조회 → 1회로 축소)
-  const resolverPromise: IdentityResolverPromise = loadIdentityResolver(supabase, leagueId)
-
-  const [{ data: league }, { data: allLeagues }, weeklyPOTW, recentRounds, quarterStandings] = await Promise.all([
+  // B1: 홈 하이드레이션 후 4개 fetch 폭발 제거를 위한 SSR 프리페치.
+  //   - 기존: 리더/스트릭/마일스톤 3개 컴포넌트가 mount 후 각자 fetch → waterfall
+  //   - 개선: 서버에서 미리 계산 후 initial props 로 전달 → 초기 HTML 에 데이터 포함
+  //   - stats/players fetch 는 NbaLeaders 용 (`unit=round` + photo_url map)
+  const [
+    { data: league },
+    { data: allLeagues },
+    weeklyPOTW,
+    recentRounds,
+    quarterStandings,
+    leaderStats,
+    leaguePlayers,
+    streaksData,
+    milestonesData,
+  ] = await Promise.all([
     supabase.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single(),
     supabase.from('leagues').select('id, name, status, season_year').eq('org_slug', orgSlug).order('created_at', { ascending: false }),
-    computeWeeklyPOTW(supabase, leagueId, 4),                        // 최근 4주 라운드별 POTW (슬라이드)
-    computeRecentRounds(supabase, leagueId, resolverPromise, 4),
-    computeCurrentQuarterStandings(supabase, leagueId, resolverPromise),
+    // B2 캐시 적용 3종
+    getCachedWeeklyPOTW(leagueId, 4)(),                              // 최근 4주 라운드별 POTW (슬라이드)
+    getCachedRecentRounds(leagueId, 4)(),
+    getCachedQuarterStandings(leagueId)(),
+    // B1 신규 SSR 프리페치 (현 세션에선 캐시 미적용 — 후속 iteration)
+    computeLeagueStats(supabase, leagueId, { unit: 'round' }),        // NbaLeaders 초기 데이터
+    supabase.from('league_players').select('id, photo_url').eq('league_id', leagueId),
+    computeStreaks(supabase, leagueId, { minStreak: 2 }),
+    computeMilestones(supabase, leagueId, { horizonDays: 30, maxUpcoming: 6, maxRecent: 6 }),
   ])
 
   if (!league) notFound()
 
   const l = league as League
+
+  // B1: photoMap 구성 — NbaLeaders 가 player_id → photo_url 형식으로 사용
+  const initialPhotoMap: Record<string, string | null> = {}
+  for (const p of (leaguePlayers.data ?? []) as { id: string; photo_url: string | null }[]) {
+    initialPhotoMap[p.id] = p.photo_url
+  }
 
   const statusColor: Record<string, string> = {
     upcoming: 'bg-yellow-900/40 text-yellow-400',
@@ -868,13 +931,17 @@ export default async function LeagueDetailPage({
           gamesCount={quarterStandings.gamesCount}
         />
         <NbaRoundsSummary rounds={recentRounds} leagueId={leagueId} />
-        <NbaLeaders leagueId={leagueId} />
+        <NbaLeaders
+          leagueId={leagueId}
+          initialPlayers={leaderStats.players}
+          initialPhotoMap={initialPhotoMap}
+        />
       </div>
 
       {/* 스토리텔링 — 진행 중 연속 기록 + 커리어 마일스톤 (유지) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
-        <StreakSpotlight leagueId={leagueId} maxEntries={8} />
-        <MilestoneFeed leagueId={leagueId} />
+        <StreakSpotlight leagueId={leagueId} maxEntries={8} initialData={streaksData} />
+        <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
       </div>
     </div>
   )

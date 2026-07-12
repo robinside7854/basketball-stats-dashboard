@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
+import dynamic from 'next/dynamic'
 import { useParams } from 'next/navigation'
 import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
@@ -9,8 +10,18 @@ import LeagueDuoPanel from '@/components/league/LeagueDuoPanel'
 import StatHeader from '@/components/league/StatHeader'
 import { PercentBar } from '@/components/league/StatCell'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList } from 'recharts'
 import type { Quarter, PlayerStat } from '@/types/league'
+
+// Recharts (~90KB gz) 는 페이지 렌더 이후 lazy 로 로드 — 초기 번들 감량
+// ssr:false 로 hydration 오류 방지
+const TopScorersChart = dynamic(
+  () => import('@/components/league/charts/LeagueStatsCharts').then(m => m.TopScorersChart),
+  { ssr: false, loading: () => <div className="p-4" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', height: 232 }} /> },
+)
+const FGPctTop8Chart = dynamic(
+  () => import('@/components/league/charts/LeagueStatsCharts').then(m => m.FGPctTop8Chart),
+  { ssr: false, loading: () => <div className="p-4" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', height: 232 }} /> },
+)
 
 const CHART_STATS = [
   { key: 'ppg',    label: '득점',    unit: 'PPG' },
@@ -22,51 +33,6 @@ const CHART_STATS = [
   { key: 'fg3_pct',label: '3P%',    unit: '%'   },
 ] as const
 type ChartStatKey = typeof CHART_STATS[number]['key']
-
-function TopScorersChart({ players, statKey, statLabel, statUnit, color }: {
-  players: PlayerStat[]
-  statKey: ChartStatKey
-  statLabel: string
-  statUnit: string
-  color?: string
-}) {
-  const top5 = [...players]
-    .filter(p => p.gp >= 1)
-    .sort((a, b) => (b[statKey] as number) - (a[statKey] as number))
-    .slice(0, 5)
-  const barColor = color ?? '#EAB308'
-  const isPct = statUnit === '%'
-  // 이름 길이에 따라 YAxis 폭 조정 (이름 잘림 방지)
-  const maxNameLen = top5.reduce((m, p) => Math.max(m, p.name.length), 0)
-  const yAxisWidth = Math.max(56, Math.min(120, maxNameLen * 14 + 8))
-  return (
-    <div className="p-4" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
-      <p className="text-[12px] font-black uppercase mb-3" style={{ color: 'var(--mm-muted)', letterSpacing: '0.20em' }}>{statLabel} TOP 5</p>
-      <ResponsiveContainer width="100%" height={180}>
-        <BarChart data={top5} layout="vertical" margin={{ left: 0, right: 48, top: 4, bottom: 0 }}>
-          <XAxis type="number" domain={[0,'auto']} tick={{fill:'var(--mm-muted)',fontSize:10}} axisLine={false} tickLine={false} />
-          <YAxis type="category" dataKey="name" tick={{fill:'var(--mm-ink)',fontSize:11,fontWeight:700}} axisLine={false} tickLine={false} width={yAxisWidth} interval={0} />
-          <Tooltip
-            cursor={{ fill: 'rgba(234,179,8,0.10)' }}
-            contentStyle={{background:'var(--mm-panel)',border:'1px solid var(--mm-rule)',borderRadius:0,fontSize:12,color:'var(--mm-ink)'}}
-            formatter={(v) => [`${Number(v).toFixed(1)}${isPct ? '%' : ''} ${statUnit}`]}
-            labelStyle={{color:'var(--mm-ink)',fontWeight:700}}
-            itemStyle={{color:'var(--mm-ink)'}}
-          />
-          <Bar dataKey={statKey} radius={[0,0,0,0]}>
-            {top5.map((_,i) => <Cell key={i} fill={i===0?'#EAB308':i===1?'#6B7280':i===2?'#A16207': barColor} fillOpacity={i<3?1:0.55} />)}
-            <LabelList
-              dataKey={statKey}
-              position="right"
-              formatter={(v: unknown) => `${Number(v).toFixed(1)}${isPct ? '%' : ''}`}
-              style={{ fill: 'var(--mm-ink)', fontSize: 12, fontWeight: 800 }}
-            />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
 
 type ViewMode = 'avg' | 'total'
 type StatUnit = 'round' | 'game' | 'per40'
@@ -461,34 +427,7 @@ export default function LeagueStatsPage() {
                 .sort((a, b) => b.fg_pct - a.fg_pct)
                 .slice(0, 8)
                 .map(p => ({ name: p.name, fg_pct: p.fg_pct }))
-              // 가장 긴 이름 길이에 비례한 YAxis 폭 (한글 1자 ≈ 12-14px @ 11px bold)
-              const maxNameLen = fgData.reduce((m, d) => Math.max(m, d.name.length), 0)
-              const yAxisWidth = Math.max(72, Math.min(140, maxNameLen * 14 + 12))
-              return (
-                <div className="p-4" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
-                  <p className="text-[12px] font-black uppercase mb-3" style={{ color: 'var(--mm-muted)', letterSpacing: '0.20em' }}>FG% Top 8</p>
-                  <ResponsiveContainer width="100%" height={Math.max(160, fgData.length * 22)}>
-                    <BarChart data={fgData} layout="vertical" margin={{ left: 0, right: 32, top: 0, bottom: 0 }}>
-                      <XAxis type="number" domain={[0,'auto']} tick={{fill:'var(--mm-muted)',fontSize:10}} axisLine={false} tickLine={false} />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        tick={{fill:'var(--mm-ink)',fontSize:11,fontWeight:700}}
-                        axisLine={false}
-                        tickLine={false}
-                        width={yAxisWidth}
-                        interval={0}
-                      />
-                      <Tooltip
-                        contentStyle={{background:'var(--mm-panel)',border:'1px solid var(--mm-rule)',borderRadius:0,fontSize:12,color:'var(--mm-ink)'}}
-                        formatter={(v) => [`${Number(v).toFixed(1)}%`]}
-                        labelStyle={{color:'var(--mm-ink)',fontWeight:700}}
-                      />
-                      <Bar dataKey="fg_pct" fill="#EAB308" radius={[0,0,0,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              )
+              return <FGPctTop8Chart data={fgData} />
             })()}
           </div>
 

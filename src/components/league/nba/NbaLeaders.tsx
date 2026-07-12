@@ -13,6 +13,10 @@ import type { PlayerStat } from '@/types/league'
 interface Props {
   leagueId: string
   minGP?: number
+  /** SSR 프리페치 결과 — 있으면 초기 fetch skip (홈 waterfall 제거용) */
+  initialPlayers?: PlayerStat[]
+  /** SSR 프리페치 결과 — 있으면 초기 fetch skip */
+  initialPhotoMap?: Record<string, string | null>
 }
 
 interface CategoryDef {
@@ -45,13 +49,17 @@ function initials(name: string): string {
   return name.slice(0, 2)
 }
 
-export default function NbaLeaders({ leagueId, minGP }: Props) {
-  const [players, setPlayers] = useState<PlayerStat[]>([])
-  const [photoMap, setPhotoMap] = useState<Record<string, string | null>>({})
-  const [loading, setLoading] = useState(true)
+export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPhotoMap }: Props) {
+  const hasInitial = !!initialPlayers && !!initialPhotoMap
+  const [players, setPlayers] = useState<PlayerStat[]>(initialPlayers ?? [])
+  const [photoMap, setPhotoMap] = useState<Record<string, string | null>>(initialPhotoMap ?? {})
+  // initial 있으면 즉시 렌더 (SSR 프리페치로 waterfall 제거)
+  const [loading, setLoading] = useState(!hasInitial)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
+    // initial 데이터가 있으면 mount 시 fetch skip — 서버 렌더 결과 그대로 사용
+    if (hasInitial) return
     setLoading(true)
     Promise.all([
       fetch(`/api/leagues/${leagueId}/stats?unit=round`).then(r => r.json()).catch(() => ({ players: [] })),
@@ -63,6 +71,8 @@ export default function NbaLeaders({ leagueId, minGP }: Props) {
       setPhotoMap(pm)
       setLoading(false)
     })
+    // hasInitial 은 리렌더 방지용 (leagueId 변경 시에만 재조회)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId])
 
   const maxGP = players.reduce((m, p) => Math.max(m, p.gp), 0)

@@ -13,9 +13,15 @@ interface StreakEntry {
   count: number
 }
 
+interface StreakData {
+  streaks: StreakEntry[]
+}
+
 interface Props {
   leagueId: string
   maxEntries?: number
+  /** SSR 프리페치 결과 — 있으면 초기 fetch skip (홈 waterfall 제거용) */
+  initialData?: StreakData
 }
 
 const CATEGORY_DEFS: Record<StreakCategory, {
@@ -38,17 +44,21 @@ function heat(count: number): { flames: number; intensity: string } {
   return { flames: 0, intensity: '시작' }
 }
 
-export default function StreakSpotlight({ leagueId, maxEntries = 8 }: Props) {
-  const [streaks, setStreaks] = useState<StreakEntry[]>([])
-  const [loading, setLoading] = useState(true)
+export default function StreakSpotlight({ leagueId, maxEntries = 8, initialData }: Props) {
+  const hasInitial = !!initialData
+  const [streaks, setStreaks] = useState<StreakEntry[]>(initialData?.streaks ?? [])
+  const [loading, setLoading] = useState(!hasInitial)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
+    // initial 데이터가 있으면 mount 시 fetch skip — 서버 렌더 결과 그대로 사용
+    if (hasInitial) return
     setLoading(true)
     fetch(`/api/leagues/${leagueId}/streaks?minStreak=2`)
       .then(r => r.json())
       .then(d => { setStreaks(d.streaks ?? []); setLoading(false) })
       .catch(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId])
 
   if (loading) {
