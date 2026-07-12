@@ -3,6 +3,7 @@ import { Fira_Sans, Bebas_Neue, Barlow_Condensed } from 'next/font/google'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
+import AppSplash from '@/components/AppSplash'
 import ThemedToaster from '@/components/ThemedToaster'
 import './globals.css'
 
@@ -79,6 +80,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           enableSystem={false}
         >
           <TooltipProvider>
+            {/* 인앱 스플래시 — 설치형 PWA 실행 시 전체화면 배너 (안드로이드/아이폰 공통) */}
+            <AppSplash />
             {children}
             {/* PWA Service Worker 등록 — 안드로이드 PWA 설치 인식용 */}
             <ServiceWorkerRegister />
