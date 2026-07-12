@@ -840,15 +840,21 @@ export default function LeagueTeamsPage() {
   }, [leagueId])
 
   // 분기별 데이터 로드
+  // ⚠ race condition fix: 초기 마운트 시 selectedQId='all' 로 fetch 시작 후
+  //    quarters 로드되면서 selectedQId=현재 분기로 바뀌면 새 fetch 시작.
+  //    'all' 응답이 늦게 도착하면 최신 분기 데이터를 덮어써 시즌누적으로 보임.
+  //    → cancelled 플래그로 stale 응답 무시.
   useEffect(() => {
     if (!selectedQId) return
     setDataLoading(true)
+    let cancelled = false
 
     if (selectedQId === 'all') {
       Promise.all([
         fetch(`/api/leagues/${leagueId}/games?complete=true`).then(r => r.json()),
         fetch(`/api/leagues/${leagueId}/stats`).then(r => r.json()),
       ]).then(async ([gs, st]) => {
+        if (cancelled) return
         setGames(gs ?? [])
         setAllStats(st.players ?? [])
 
@@ -856,6 +862,7 @@ export default function LeagueTeamsPage() {
           const allLeaderResults = await Promise.all(quarters.map(q =>
             fetch(`/api/leagues/${leagueId}/quarters/${q.id}/leaders`).then(r => r.json())
           ))
+          if (cancelled) return
           const leaderTeamMap: Record<string, Leader> = {}
           for (const ldResult of allLeaderResults) {
             for (const l of (ldResult ?? []) as Leader[]) {
@@ -869,20 +876,22 @@ export default function LeagueTeamsPage() {
 
         setLoading(false)
         setDataLoading(false)
-      }).catch(() => { setLoading(false); setDataLoading(false) })
+      }).catch(() => { if (!cancelled) { setLoading(false); setDataLoading(false) } })
     } else {
       Promise.all([
         fetch(`/api/leagues/${leagueId}/games?quarterId=${selectedQId}&complete=true`).then(r => r.json()),
         fetch(`/api/leagues/${leagueId}/stats?quarterId=${selectedQId}`).then(r => r.json()),
         fetch(`/api/leagues/${leagueId}/quarters/${selectedQId}/leaders`).then(r => r.json()),
       ]).then(([gs, st, ld]) => {
+        if (cancelled) return
         setGames(gs ?? [])
         setAllStats(st.players ?? [])
         setLeaders(ld ?? [])
         setLoading(false)
         setDataLoading(false)
-      }).catch(() => { setLoading(false); setDataLoading(false) })
+      }).catch(() => { if (!cancelled) { setLoading(false); setDataLoading(false) } })
     }
+    return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId, selectedQId])
 
