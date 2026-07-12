@@ -78,8 +78,8 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <p className="text-xs text-gray-600 uppercase tracking-widest font-bold">게임 스탯 리더</p>
-          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-amber-900/40 border border-amber-700/50 text-amber-300">
-            🏆 총 {total}회
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-amber-900/40 border border-amber-700/50 text-amber-300">
+            <Trophy size={12} strokeWidth={2} aria-hidden /> 총 {total}회
           </span>
         </div>
         <p className="text-xs text-gray-500">경기 있는 날 부문별 1등 횟수{clickable && ' · 클릭하여 날짜 보기'}</p>

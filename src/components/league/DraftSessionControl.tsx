@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Play, Square, RotateCcw, CheckCircle2, Circle, Crown, Users, RefreshCw, Trash2, Save, Link2, Copy, Check, X } from 'lucide-react'
+import { Play, Square, RotateCcw, CheckCircle2, Circle, Crown, Users, RefreshCw, Trash2, Save, Link2, Copy, Check, X, Trophy, Video, Dice5, Hand, Zap, AlertTriangle } from 'lucide-react'
 
 interface Team { id: string; name: string; color: string }
 interface Player { id: string; name: string; number: number | null; position: string | null; plus_one?: boolean }
@@ -169,7 +169,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     })
     setActing(false)
     const d = await res.json()
-    if (res.ok) { toast.success('🏀 드래프트 시작!'); fetchData(true); onChanged?.() }
+    if (res.ok) { toast.success('드래프트 시작!', { icon: <Trophy size={16} strokeWidth={2} /> }); fetchData(true); onChanged?.() }
     else { toast.error(d.error ?? '시작 실패') }
   }
 
@@ -354,10 +354,12 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   //
   // NOTE: phase 헤드라인/단계 stepper 는 DraftPortalClient 상단 hero 가 이미 표시한다.
   // 감독관 패널에서 중복 노출하지 않고, Primary CTA 자체가 phase 를 함축하도록 한다.
-  let primary: { label: string; onClick: () => void | Promise<void>; disabled?: boolean; helper?: string } | null = null
+  let primary: { label: ReactNode; onClick: () => void | Promise<void>; disabled?: boolean; helper?: string } | null = null
   if (draft.status === 'ready_check') {
     primary = {
-      label: allTeamsReady ? '🎬 추첨 대기 화면 열기' : '✋ 전원 준비 대기 중',
+      label: allTeamsReady
+        ? (<span className="inline-flex items-center gap-2"><Video size={20} strokeWidth={2} aria-hidden /> 추첨 대기 화면 열기</span>)
+        : (<span className="inline-flex items-center gap-2"><Hand size={20} strokeWidth={2} aria-hidden /> 전원 준비 대기 중</span>),
       onClick: () => openLotteryWait(false),
       disabled: acting || !allTeamsReady,
       helper: allTeamsReady
@@ -366,14 +368,14 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     }
   } else if (draft.status === 'lottery_waiting') {
     primary = {
-      label: '🎲 추첨 시작',
+      label: (<span className="inline-flex items-center gap-2"><Dice5 size={20} strokeWidth={2} aria-hidden /> 추첨 시작</span>),
       onClick: runLottery,
       disabled: acting,
       helper: '준비가 끝났다면 즉시 NBA 스타일 추첨 연출이 모두에게 재생됩니다.',
     }
   } else if (draft.status === 'lottery_done') {
     primary = {
-      label: '🏀 드래프트 시작',
+      label: (<span className="inline-flex items-center gap-2"><Trophy size={20} strokeWidth={2} aria-hidden /> 드래프트 시작</span>),
       onClick: startDraft,
       disabled: acting,
       helper: '버튼을 누르면 픽 타이머가 시작되고 1번 팀부터 픽이 진행됩니다.',
@@ -421,7 +423,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         {(draft.status === 'ready_check') && (
           <div className="flex flex-wrap gap-1.5 justify-center">
             <Button onClick={() => openLotteryWait(true)} disabled={acting} variant="outline" className="text-sm h-10 min-h-[40px] focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
-              ⚡ 강제 열기 (READY 무시)
+              <Zap size={14} strokeWidth={2} className="mr-1" aria-hidden /> 강제 열기 (READY 무시)
             </Button>
           </div>
         )}
@@ -430,7 +432,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       {/* 위험 액션 격리 — details 로 접어둠 */}
       <details className="rounded-lg border border-red-900/40 bg-red-950/20 group">
         <summary className="cursor-pointer select-none px-3 py-2.5 text-sm font-bold text-red-300 hover:text-red-200 flex items-center gap-2 list-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 rounded-lg">
-          <span className="inline-flex items-center justify-center w-4 h-4 text-red-400">⚠</span>
+          <span className="inline-flex items-center justify-center text-red-400" aria-hidden><AlertTriangle size={14} strokeWidth={2} /></span>
           <span className="uppercase tracking-wider">위험 액션</span>
           <span className="ml-auto text-xs text-red-400/70 group-open:hidden">펼치기</span>
           <span className="ml-auto text-xs text-red-400/70 hidden group-open:inline">접기</span>

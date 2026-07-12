@@ -31,11 +31,11 @@ const CATEGORY_DEFS: Record<StreakCategory, {
   stlblk3: { label: 'STL+BLK 3+',      Icon: Zap,       suffix: '경기' },
 }
 
-function heat(count: number): { emoji: string; intensity: string } {
-  if (count >= 7) return { emoji: '🔥🔥🔥', intensity: '초열' }
-  if (count >= 5) return { emoji: '🔥🔥',   intensity: '핫' }
-  if (count >= 3) return { emoji: '🔥',     intensity: '진행' }
-  return { emoji: '',       intensity: '시작' }
+function heat(count: number): { flames: number; intensity: string } {
+  if (count >= 7) return { flames: 3, intensity: '초열' }
+  if (count >= 5) return { flames: 2, intensity: '핫' }
+  if (count >= 3) return { flames: 1, intensity: '진행' }
+  return { flames: 0, intensity: '시작' }
 }
 
 export default function StreakSpotlight({ leagueId, maxEntries = 8 }: Props) {
@@ -218,9 +218,17 @@ export default function StreakSpotlight({ leagueId, maxEntries = 8 }: Props) {
                   >
                     {def.suffix}
                   </span>
-                  {h.emoji && (
-                    <span className="text-xs ml-1" aria-hidden>
-                      {h.emoji}
+                  {h.flames > 0 && (
+                    <span
+                      className="inline-flex items-center ml-1"
+                      aria-hidden
+                      style={{
+                        color: isTop ? 'var(--mm-black)' : 'var(--mm-yellow-strong)',
+                      }}
+                    >
+                      {Array.from({ length: h.flames }).map((_, idx) => (
+                        <Flame key={idx} size={12} strokeWidth={2} />
+                      ))}
                     </span>
                   )}
                 </div>

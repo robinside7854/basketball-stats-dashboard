@@ -11,6 +11,7 @@
 // prefers-reduced-motion 사용자는 흔들림/폭죽 없이도 동일 타이밍 — 클라이언트 간 싱크 유지.
 
 import { useState, useEffect, useRef } from 'react'
+import { Dice5 } from 'lucide-react'
 import { playDrumroll, playLotteryHorn, primeAudio } from '@/lib/draftSounds'
 
 interface Team { id: string; name: string; color: string }
@@ -207,7 +208,7 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
         <p className="font-jersey text-base uppercase tracking-[0.3em] text-amber-400 mb-1.5">DRAFT LOTTERY</p>
         <h2 className="text-3xl sm:text-4xl font-black text-white mb-5 min-h-[2.5rem]">
           {phase === 'intro' && '추첨 기계에 팀 공 투입'}
-          {phase === 'drawing' && '🎲 추첨 진행 중...'}
+          {phase === 'drawing' && (<span className="inline-flex items-center gap-2"><Dice5 size={28} strokeWidth={2} aria-hidden /> 추첨 진행 중...</span>)}
           {phase === 'revealing' && (
             <span style={{ display: 'inline-block', animation: 'winnerText 1s cubic-bezier(0.34, 1.56, 0.64, 1)', color: firstColor, textShadow: `0 0 30px ${firstColor}` }}>
               1픽 결정!

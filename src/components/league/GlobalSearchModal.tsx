@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { Search, X, User, ChevronRight } from 'lucide-react'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 interface SearchPlayer {
   id: string
@@ -21,6 +22,7 @@ export default function GlobalSearchModal({ leagueId, onClose, onSelectPlayer }:
   const [filtered, setFiltered] = useState<SearchPlayer[]>([])
   const [activeIdx, setActiveIdx] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const trapRef = useFocusTrap(true)
 
   useEffect(() => {
     fetch(`/api/leagues/${leagueId}/players`)
@@ -60,19 +62,30 @@ export default function GlobalSearchModal({ leagueId, onClose, onSelectPlayer }:
     <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[15vh] px-4"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden z-10">
+      <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="global-search-title"
+        className="relative w-full max-w-lg bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl overflow-hidden z-10"
+      >
+        {/* Screen-reader only 제목 — dialog 라벨링용 */}
+        <h2 id="global-search-title" className="sr-only">선수 검색</h2>
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-800">
-          <Search size={16} className="text-gray-500 shrink-0" />
+          <Search size={16} className="text-gray-500 shrink-0" aria-hidden="true" />
+          <label htmlFor="global-search-input" className="sr-only">선수 이름, 포지션, 번호 검색</label>
           <input
             ref={inputRef}
+            id="global-search-input"
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="선수 이름, 포지션, 번호 검색..."
-            className="flex-1 bg-transparent text-white placeholder-gray-600 text-sm outline-none"
+            aria-label="선수 이름, 포지션, 번호 검색"
+            className="flex-1 bg-transparent text-white placeholder-gray-600 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 rounded"
           />
           {query && (
-            <button onClick={() => setQuery('')} className="text-gray-600 hover:text-gray-400 cursor-pointer" aria-label="검색어 지우기">
-              <X size={14} />
+            <button onClick={() => setQuery('')} className="text-gray-600 hover:text-gray-400 cursor-pointer inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 rounded" aria-label="검색어 지우기">
+              <X size={14} aria-hidden="true" />
             </button>
           )}
           <kbd className="hidden sm:inline text-xs text-gray-600 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5">ESC</kbd>
@@ -90,7 +103,7 @@ export default function GlobalSearchModal({ leagueId, onClose, onSelectPlayer }:
                   i === activeIdx ? 'bg-blue-600/20 text-white' : 'hover:bg-gray-800/60 text-gray-300'
                 }`}
               >
-                <div className="w-7 h-7 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center shrink-0">
+                <div aria-hidden="true" className="w-7 h-7 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center shrink-0">
                   <User size={13} className="text-gray-500" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -100,7 +113,7 @@ export default function GlobalSearchModal({ leagueId, onClose, onSelectPlayer }:
                   </div>
                   {p.position && <p className="text-xs text-gray-500">{p.position}</p>}
                 </div>
-                <ChevronRight size={13} className="text-gray-600 shrink-0" />
+                <ChevronRight size={13} className="text-gray-600 shrink-0" aria-hidden="true" />
               </button>
             ))
           )}

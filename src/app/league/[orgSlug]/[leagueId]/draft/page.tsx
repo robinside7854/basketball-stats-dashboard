@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2, Minimize2, Maximize2, Shuffle, Check, ChevronDown, Volume2, VolumeX } from 'lucide-react'
+import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2, Minimize2, Maximize2, Shuffle, Check, ChevronDown, Volume2, VolumeX, Hand, Clock } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import DraftCodeManager from '@/components/league/DraftCodeManager'
@@ -618,7 +618,7 @@ export default function LeagueDraftPage() {
             <div className="flex flex-col items-center gap-3">
               <Button onClick={() => toggleReady(!myReady)} disabled={acting}
                 className={`px-10 text-lg sm:text-xl font-black h-14 sm:h-16 ${myReady ? 'bg-gray-700 hover:bg-gray-600' : 'bg-emerald-600 hover:bg-emerald-500'} text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950`}>
-                {myReady ? '준비 해제' : '✋ 준비 완료'}
+                {myReady ? '준비 해제' : (<span className="inline-flex items-center gap-2"><Hand size={20} strokeWidth={2} aria-hidden /> 준비 완료</span>)}
               </Button>
               {authedRole === 'supervisor' && (
                 <div className="flex gap-2 flex-wrap justify-center">
@@ -684,7 +684,7 @@ export default function LeagueDraftPage() {
                   {/* 시간 종료 — 자동 선택 최종 카운트다운 */}
                   {expired && graceLeft !== null && (
                     <div className="mt-3 rounded-lg bg-red-950/60 border border-red-600 px-3 py-2.5 flex items-center justify-center gap-2 animate-pulse flex-wrap">
-                      <span className="text-red-200 text-sm sm:text-base font-bold leading-relaxed">⏰ 시간 종료 — {graceLeft}초 뒤 자동으로 선수가 선택됩니다</span>
+                      <span className="inline-flex items-center gap-1.5 text-red-200 text-sm sm:text-base font-bold leading-relaxed"><Clock size={16} strokeWidth={2} aria-hidden /> 시간 종료 — {graceLeft}초 뒤 자동으로 선수가 선택됩니다</span>
                       <span className="font-display text-3xl text-red-400 tabular-nums">{graceLeft}</span>
                     </div>
                   )}
@@ -798,7 +798,7 @@ export default function LeagueDraftPage() {
                   </div>
                 ) : isMyTurn ? (
                   <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl p-5 text-center">
-                    <p className="text-emerald-300 font-black text-2xl sm:text-3xl">🏀 내 차례입니다!</p>
+                    <p className="inline-flex items-center gap-2 justify-center text-emerald-300 font-black text-2xl sm:text-3xl"><Trophy size={28} strokeWidth={2} aria-hidden /> 내 차례입니다!</p>
                     <p className="text-base text-gray-100 mt-2 leading-relaxed">아래 <b className="text-white">남은 선수 성적표</b>에서 선수를 선택해 픽하세요.</p>
                     <p className="text-sm text-gray-300 mt-1.5">{state?.available_players.length}명 선택 가능 · 랜덤픽(추천) 버튼도 성적표에 있습니다.</p>
                   </div>

@@ -3,6 +3,7 @@ import { useEffect, useMemo } from 'react'
 import { X, Crown, ChevronRight } from 'lucide-react'
 import PlayerQuickViewModal from './PlayerQuickViewModal'
 import { useState } from 'react'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 export interface AwardCandidate {
   player_id: string
@@ -42,6 +43,8 @@ interface Props {
 
 export default function AwardDetailModal({ leagueId, award, style, onClose }: Props) {
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
+  // Focus trap — quickPlayer 열리면 그쪽으로 focus 위임, 그 외에는 이 모달 내부 순환
+  const trapRef = useFocusTrap(!quickPlayer)
 
   // supportingStats 의 모든 고유 키 (표시 순서: 첫 후보 기준)
   const columns = useMemo(() => {
@@ -70,24 +73,31 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
       >
         <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
 
-        <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col z-10 shadow-2xl">
+        <div
+          ref={trapRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="award-detail-title"
+          className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col z-10 shadow-2xl"
+        >
           {/* 상단 리본 */}
-          <div className={`h-1 bg-gradient-to-r ${style.ribbon}`} />
+          <div aria-hidden="true" className={`h-1 bg-gradient-to-r ${style.ribbon}`} />
 
           {/* 헤더 */}
           <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 px-5 py-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <div className={`w-11 h-11 rounded-full ${style.chipBg} border ${style.border} flex items-center justify-center shrink-0`}>
+              <div aria-hidden="true" className={`w-11 h-11 rounded-full ${style.chipBg} border ${style.border} flex items-center justify-center shrink-0`}>
                 <style.Icon size={20} className={style.text} />
               </div>
               <div className="min-w-0">
-                <h2 className={`font-jersey text-xl lg:text-2xl font-black uppercase tracking-widest ${style.text}`}>{award.label}</h2>
+                <h2 id="award-detail-title" className={`font-jersey text-xl lg:text-2xl font-black uppercase tracking-widest ${style.text}`}>{award.label}</h2>
                 <p className="text-xs text-gray-500 truncate">{award.description}</p>
               </div>
             </div>
             <button onClick={onClose}
-              className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center w-10 h-10 shrink-0">
-              <X size={18} />
+              aria-label="닫기"
+              className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center w-11 h-11 shrink-0 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1">
+              <X size={18} aria-hidden="true" />
             </button>
           </div>
 
@@ -110,21 +120,21 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
                 {award.minRequirement && <div className="text-xs text-gray-700 mt-1.5">{award.minRequirement}</div>}
               </div>
             ) : (
-              <div className="divide-y divide-gray-800/40">
+              <ul className="divide-y divide-gray-800/40" aria-label={`${award.label} 후보 랭킹`}>
                 {award.allCandidates.map((c, idx) => {
                   const rank = idx + 1
                   const isWinner = rank === 1
                   const rankColor = rank === 1 ? 'text-yellow-400' : rank === 2 ? 'text-gray-400' : rank === 3 ? 'text-orange-500' : 'text-gray-600'
                   return (
+                    <li key={c.player_id}>
                     <button
-                      key={c.player_id}
                       onClick={() => setQuickPlayer({ id: c.player_id, name: c.name })}
-                      className={`w-full text-left px-4 lg:px-5 py-3 lg:py-3.5 hover:bg-gray-800/40 transition-colors cursor-pointer group ${isWinner ? 'bg-gray-900/60' : ''}`}
+                      className={`w-full text-left px-4 lg:px-5 py-3 lg:py-3.5 hover:bg-gray-800/40 transition-colors cursor-pointer group focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset ${isWinner ? 'bg-gray-900/60' : ''}`}
                     >
                       <div className="flex items-center gap-3 lg:gap-4">
                         {/* Rank */}
                         <div className="flex items-center gap-1 w-9 shrink-0">
-                          {isWinner && <Crown size={14} className="text-yellow-400" />}
+                          {isWinner && <Crown size={14} className="text-yellow-400" aria-hidden="true" />}
                           <span className={`text-base lg:text-lg font-black font-mono tabular-nums ${rankColor}`}>{rank}</span>
                         </div>
 
@@ -143,7 +153,7 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
                           <p className={`text-base lg:text-lg font-black tabular-nums ${style.text} leading-none`}>{c.displayValue}</p>
                         </div>
 
-                        <ChevronRight size={14} className="text-gray-600 group-hover:text-gray-400 shrink-0" />
+                        <ChevronRight size={14} className="text-gray-600 group-hover:text-gray-400 shrink-0" aria-hidden="true" />
                       </div>
 
                       {/* Supporting stats — 컬럼별 일관 표시 */}
@@ -162,9 +172,10 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
                         </div>
                       )}
                     </button>
+                    </li>
                   )
                 })}
-              </div>
+              </ul>
             )}
           </div>
 

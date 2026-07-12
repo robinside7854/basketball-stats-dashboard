@@ -40,7 +40,7 @@
 @theme {
   /* 폰트 — Pretendard 를 최상위. Fira Sans 는 라틴 fallback */
   --font-sans: 'Pretendard Variable', Pretendard, var(--font-fira-sans), 'Fira Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: var(--font-fira-code), 'Fira Code', monospace;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
   /* 농구 정체성 — Bebas Neue (스코어보드 디스플레이), Barlow Condensed (저지·헤더) */
   --font-display: var(--font-bebas), 'Bebas Neue', 'Barlow Condensed', 'Impact', sans-serif;
   --font-jersey:  var(--font-barlow-condensed), 'Barlow Condensed', 'Oswald', sans-serif;
@@ -375,9 +375,9 @@
   @media (min-width: 1024px) {
     html { font-size: 18px; }
   }
-  /* 테이블 숫자 셀: Fira Code 적용 */
+  /* 테이블 숫자 셀: 시스템 모노스페이스 + tabular-nums (Fira Code 제거, 시스템 폰트로 대체) */
   td {
-    font-family: var(--font-fira-code), 'Fira Code', monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
     font-variant-numeric: tabular-nums;
   }
   /* 첫 번째 열(선수명)은 제외 */

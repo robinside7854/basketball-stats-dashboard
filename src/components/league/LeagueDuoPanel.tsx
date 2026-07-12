@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { Zap } from 'lucide-react'
 
 type PlayerRef = { id: string; name: string; number: string | null }
 
@@ -102,7 +103,7 @@ export default function LeagueDuoPanel({ leagueId, quarterId, refreshKey }: Prop
                   {i + 1}
                 </span>
                 <PlayerChip p={pair.stealer} side="left" />
-                <span className="text-gray-600 text-xs font-bold shrink-0">⚡</span>
+                <span className="text-gray-600 shrink-0 inline-flex items-center" aria-hidden><Zap size={14} strokeWidth={2} /></span>
                 <PlayerChip p={pair.tovPlayer} side="right" />
                 <Badge n={pair.count} color={i === 0 ? 'bg-yellow-500/20 text-yellow-300' : 'bg-purple-500/20 text-purple-300'} />
               </div>

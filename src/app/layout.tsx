@@ -1,16 +1,10 @@
 import type { Metadata } from 'next'
-import { Fira_Code, Fira_Sans, Bebas_Neue, Barlow_Condensed } from 'next/font/google'
-import { Toaster } from 'sonner'
+import { Fira_Sans, Bebas_Neue, Barlow_Condensed } from 'next/font/google'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
+import ThemedToaster from '@/components/ThemedToaster'
 import './globals.css'
-
-const firaCode = Fira_Code({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-fira-code',
-})
 
 const firaSans = Fira_Sans({
   subsets: ['latin'],
@@ -52,7 +46,7 @@ export const viewport: import('next').Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" suppressHydrationWarning>
-      <body className={`${firaCode.variable} ${firaSans.variable} ${bebasNeue.variable} ${barlowCondensed.variable} font-sans bg-gray-950 text-gray-300 min-h-screen`}>
+      <body className={`${firaSans.variable} ${bebasNeue.variable} ${barlowCondensed.variable} font-sans bg-gray-950 text-gray-300 min-h-screen`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -63,8 +57,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {/* PWA Service Worker 등록 — 안드로이드 PWA 설치 인식용 */}
             <ServiceWorkerRegister />
             {/* 토스트 위치 — top-center: 모바일/데스크탑 모두에서 하단 sticky CTA / 채팅 FAB / 픽 액션 패널을
-                덮지 않음. expand=false 로 스택이 위로 펼쳐지지 않게 하고 offset 으로 상단 헤더 영역 회피. */}
-            <Toaster position="top-center" richColors closeButton expand={false} offset="72px" theme="dark" />
+                덮지 않음. expand=false 로 스택이 위로 펼쳐지지 않게 하고 offset 으로 상단 헤더 영역 회피.
+                theme 은 next-themes 와 동기화 (ThemedToaster). */}
+            <ThemedToaster />
           </TooltipProvider>
         </ThemeProvider>
       </body>

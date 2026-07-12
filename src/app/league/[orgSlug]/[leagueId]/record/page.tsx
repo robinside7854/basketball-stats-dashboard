@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import {
   Lock, Loader2, Play, Square, ChevronLeft,
   CheckCircle2, Circle, Youtube, RefreshCw, UserPlus, ClipboardList,
-  CalendarDays,
+  CalendarDays, PlayCircle, Zap, AlertTriangle,
 } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
@@ -1260,8 +1260,9 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                           </button>
                         ))}
                         <button onClick={togglePlay}
-                          className="px-2.5 py-1 rounded-lg text-sm font-black text-white hover:bg-white/20 cursor-pointer transition-colors mx-0.5">
-                          ⏯
+                          className="px-2.5 py-1 rounded-lg text-white hover:bg-white/20 cursor-pointer transition-colors mx-0.5 inline-flex items-center justify-center"
+                          aria-label="재생/일시정지">
+                          <PlayCircle size={20} strokeWidth={2} />
                         </button>
                         {[
                           { label: '+5',  delta: 5  },
@@ -1454,7 +1455,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                               className="border-l border-gray-800 px-2.5 flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
                               title="플러스원 선수 설정"
                             >
-                              <span className="text-xs">⚡</span>
+                              <Zap size={12} strokeWidth={2} aria-hidden />
                               <span className="hidden sm:inline">+1</span>
                             </button>
                           )}
@@ -1524,7 +1525,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         return (
                           <div className="bg-gray-800/40 border border-orange-700/30 rounded-xl p-3 space-y-2">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-xs">🔄</span>
+                              <RefreshCw size={12} strokeWidth={2} className="text-orange-400" aria-hidden />
                               <p className="text-xs font-bold text-orange-400">타팀 임시 출전</p>
                               <span className="text-xs text-gray-600">이번 경기에만 적용</span>
                             </div>
@@ -1563,11 +1564,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                           <div className="flex items-center justify-between">
                             <h4 className="text-sm font-bold text-white">선발 선수 선택</h4>
                             <div className="flex items-center gap-2 text-xs">
-                              <span className={hc > 5 ? 'font-bold text-red-400' : 'text-gray-500'}>
-                                홈 {hc}/5{hc > 5 && ' ⚠'}
+                              <span className={hc > 5 ? 'inline-flex items-center gap-1 font-bold text-red-400' : 'text-gray-500'}>
+                                홈 {hc}/5{hc > 5 && <AlertTriangle size={12} strokeWidth={2} aria-hidden />}
                               </span>
-                              <span className={ac > 5 ? 'font-bold text-red-400' : 'text-gray-500'}>
-                                어웨이 {ac}/5{ac > 5 && ' ⚠'}
+                              <span className={ac > 5 ? 'inline-flex items-center gap-1 font-bold text-red-400' : 'text-gray-500'}>
+                                어웨이 {ac}/5{ac > 5 && <AlertTriangle size={12} strokeWidth={2} aria-hidden />}
                               </span>
                             </div>
                           </div>
@@ -1777,7 +1778,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                   <div className="relative bg-gray-900 border border-amber-600/50 rounded-2xl p-6 w-full max-w-sm z-10 space-y-4 shadow-2xl"
                     onClick={e => e.stopPropagation()}>
                     <div className="text-center space-y-1.5">
-                      <div className="text-2xl">⚡</div>
+                      <div className="flex justify-center text-amber-300" aria-hidden><Zap size={24} strokeWidth={2} /></div>
                       <h3 className="text-white font-black text-base">플러스원 선수 선택</h3>
                       <p className="text-gray-400 text-sm">
                         <span className="text-amber-300 font-bold">{plusOneConflict.teamName}</span>에 +1 선수가 {plusOneConflict.players.length}명입니다.<br/>

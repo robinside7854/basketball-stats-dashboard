@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react'
 import { X, Save, Eye, Edit3, Loader2, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import MagazineRenderer from './MagazineRenderer'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 interface ColumnData {
   id: string
@@ -50,6 +51,7 @@ export default function ColumnEditor({
   const [tab, setTab] = useState<'edit' | 'preview'>('edit')
   const [saving, setSaving] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
+  const trapRef = useFocusTrap(true)
 
   // ESC 로 닫기
   useEffect(() => {
@@ -107,13 +109,19 @@ export default function ColumnEditor({
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-5xl h-[100dvh] sm:h-[90vh] flex flex-col z-10 shadow-2xl">
+      <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="column-editor-title"
+        className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-5xl h-[100dvh] sm:h-[90vh] flex flex-col z-10 shadow-2xl"
+      >
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-700">
           <div className="flex items-center gap-3 min-w-0">
-            <Edit3 size={20} className="text-amber-400 shrink-0" />
+            <Edit3 size={20} className="text-amber-400 shrink-0" aria-hidden="true" />
             <div className="min-w-0">
-              <h2 className="text-white font-black text-lg truncate">매거진 편집</h2>
+              <h2 id="column-editor-title" className="text-white font-black text-lg truncate">매거진 편집</h2>
               <p className="text-xs text-gray-500">
                 {column.status === 'draft' ? 'DRAFT · 저장 후 발행 가능' : '발행됨 · 저장 즉시 반영'}
               </p>
@@ -121,38 +129,46 @@ export default function ColumnEditor({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {/* 탭 토글 */}
-            <div className="flex items-center bg-gray-800 rounded-lg p-0.5">
+            <div role="tablist" aria-label="편집기 뷰" className="flex items-center bg-gray-800 rounded-lg p-0.5">
               <button
+                role="tab"
+                id="column-editor-tab-edit"
+                aria-selected={tab === 'edit'}
+                aria-controls="column-editor-panel-edit"
                 onClick={() => setTab('edit')}
-                className={`px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-colors ${
+                className={`px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${
                   tab === 'edit' ? 'bg-amber-600 text-white' : 'text-gray-400 hover:text-white'
                 }`}
               >
-                <Edit3 size={12} className="inline mr-1" /> 편집
+                <Edit3 size={12} className="inline mr-1" aria-hidden="true" /> 편집
               </button>
               <button
+                role="tab"
+                id="column-editor-tab-preview"
+                aria-selected={tab === 'preview'}
+                aria-controls="column-editor-panel-preview"
                 onClick={() => setTab('preview')}
-                className={`px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-colors ${
+                className={`px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${
                   tab === 'preview' ? 'bg-amber-600 text-white' : 'text-gray-400 hover:text-white'
                 }`}
               >
-                <Eye size={12} className="inline mr-1" /> 미리보기
+                <Eye size={12} className="inline mr-1" aria-hidden="true" /> 미리보기
               </button>
             </div>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold cursor-pointer disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
             >
-              {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              {saving ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <Save size={13} aria-hidden="true" />}
               저장
             </button>
             <button
               onClick={onClose}
-              className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer p-2"
+              className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               aria-label="닫기"
             >
-              <X size={18} />
+              <X size={18} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -160,33 +176,41 @@ export default function ColumnEditor({
         {/* 본문 */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {tab === 'edit' ? (
-            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto p-5 space-y-3">
+            <div
+              role="tabpanel"
+              id="column-editor-panel-edit"
+              aria-labelledby="column-editor-tab-edit"
+              className="flex-1 flex flex-col min-h-0 overflow-y-auto p-5 space-y-3"
+            >
               {/* 제목/부제 */}
               <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1.5 block">제목</label>
+                  <label htmlFor="column-editor-title-input" className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1.5 block">제목</label>
                   <input
+                    id="column-editor-title-input"
                     value={title}
                     onChange={e => setTitle(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold text-lg focus:outline-none focus:border-amber-500"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white font-bold text-lg focus:border-amber-500 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                     placeholder="매거진 헤드라인"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1.5 block">부제 (선택)</label>
+                  <label htmlFor="column-editor-subtitle-input" className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1.5 block">부제 (선택)</label>
                   <input
+                    id="column-editor-subtitle-input"
                     value={subtitle}
                     onChange={e => setSubtitle(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-amber-500"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-gray-200 focus:border-amber-500 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                     placeholder="부제 (없어도 무방)"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1.5 block">표지 주인공 선수</label>
+                  <label htmlFor="column-editor-cover-player" className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1.5 block">표지 주인공 선수</label>
                   <select
+                    id="column-editor-cover-player"
                     value={coverPlayerId}
                     onChange={e => setCoverPlayerId(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                   >
                     <option value="">— 선택 안 함 —</option>
                     {allPlayers.map(p => (
@@ -233,12 +257,12 @@ export default function ColumnEditor({
 
               {/* 본문 에디터 */}
               <div className="flex-1 min-h-0 flex flex-col">
-                <label className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1.5 block">본문 (마크다운)</label>
+                <label htmlFor="column-editor-body" className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-1.5 block">본문 (마크다운)</label>
                 <textarea
                   id="column-editor-body"
                   value={bodyMd}
                   onChange={e => setBodyMd(e.target.value)}
-                  className="flex-1 min-h-[400px] w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-gray-200 font-mono text-sm focus:outline-none focus:border-amber-500 resize-none"
+                  className="flex-1 min-h-[400px] w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-3 text-gray-200 font-mono text-sm focus:border-amber-500 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 resize-none"
                   placeholder="## 📸 커버 스토리&#10;&#10;이번 주..."
                   spellCheck={false}
                 />
@@ -249,7 +273,12 @@ export default function ColumnEditor({
             </div>
           ) : (
             /* 미리보기 */
-            <div className="flex-1 min-h-0 overflow-y-auto p-5 lg:p-10 bg-gray-900/60">
+            <div
+              role="tabpanel"
+              id="column-editor-panel-preview"
+              aria-labelledby="column-editor-tab-preview"
+              className="flex-1 min-h-0 overflow-y-auto p-5 lg:p-10 bg-gray-900/60"
+            >
               <div className="max-w-3xl mx-auto">
                 <div className="mb-6 border-b border-amber-500/30 pb-4">
                   <h1 className="text-3xl lg:text-4xl font-black text-white leading-tight">{title || '(제목 없음)'}</h1>

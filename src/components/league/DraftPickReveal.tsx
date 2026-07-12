@@ -7,6 +7,7 @@
 //   <DraftPickReveal data={reveal} onClose={() => setReveal(null)} />
 
 import { useEffect, useRef } from 'react'
+import { Trophy } from 'lucide-react'
 
 export interface PickRevealData {
   pickNumber: number
@@ -174,10 +175,10 @@ export default function DraftPickReveal({
           </div>
           <div className="h-3 w-px bg-gray-700" />
           <div
-            className="text-sm sm:text-base font-black tracking-[0.25em] uppercase px-4 py-1.5 rounded-full shadow-lg"
+            className="inline-flex items-center gap-1.5 text-sm sm:text-base font-black tracking-[0.25em] uppercase px-4 py-1.5 rounded-full shadow-lg"
             style={{ background: data.teamColor, color: '#000', boxShadow: `0 0 20px ${data.teamColor}` }}
           >
-            🏀 Pick #{data.pickNumber}
+            <Trophy size={14} strokeWidth={2} aria-hidden /> Pick #{data.pickNumber}
           </div>
         </div>
 

@@ -6,7 +6,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, Pencil, Check, X, Users } from 'lucide-react'
+import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, Pencil, Check, X, Users, Camera, Palette, Sparkles } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import EmptyState from '@/components/league/EmptyState'
@@ -441,7 +441,7 @@ function PlayerModal({
                   <label className="absolute inset-0 rounded-xl bg-black/60 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 cursor-pointer transition-opacity">
                     {uploadingPhoto
                       ? <Loader2 size={18} className="animate-spin text-white" />
-                      : <span className="text-white text-xs font-bold text-center px-2">📷 사진</span>}
+                      : <span className="inline-flex items-center gap-1 text-white text-xs font-bold text-center px-2"><Camera size={14} strokeWidth={2} aria-hidden /> 사진</span>}
                     <input type="file" accept="image/*" className="hidden"
                       onChange={async e => {
                         const file = e.target.files?.[0]
@@ -491,7 +491,7 @@ function PlayerModal({
                         if (res.ok) {
                           const d = await res.json()
                           setPhotoUrl(d.url)
-                          toast.success('🎨 AI 캐릭터 생성 완료')
+                          toast.success('AI 캐릭터 생성 완료', { icon: <Palette size={16} strokeWidth={2} /> })
                         } else {
                           const err = await res.json().catch(() => ({}))
                           toast.error(`캐릭터 생성 실패: ${err.error ?? res.status}`)
@@ -507,7 +507,7 @@ function PlayerModal({
                   >
                     {generatingAI
                       ? <><Loader2 size={10} className="animate-spin" /> AI 생성중…</>
-                      : <>✨ AI 캐릭터화</>}
+                      : <><Sparkles size={10} strokeWidth={2} aria-hidden /> AI 캐릭터화</>}
                   </button>
                 )}
               </div>

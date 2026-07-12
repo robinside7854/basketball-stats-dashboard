@@ -4,6 +4,7 @@ import { Loader2, X, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, CheckCircl
 import { toast } from 'sonner'
 import { toPng } from 'html-to-image'
 import ShareableBoxscore from '@/components/league/ShareableBoxscore'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 type PlayerRow = {
   player_id: string; name: string; number: number | null
@@ -136,7 +137,7 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
               >
                 <td className="py-2 px-3 sticky left-0" style={{ background: 'inherit' }}>
                   <div className="flex items-center gap-2">
-                    {rr.team_color && <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
+                    {rr.team_color && <div aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
                     <div>
                       <span
                         className="font-jersey font-black text-sm whitespace-nowrap uppercase"
@@ -200,6 +201,8 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
   const shareCaptureRef = useRef<HTMLDivElement>(null)
   // 공유 렌더링 표시 flag — true 일 때만 off-screen 렌더
   const [renderingShare, setRenderingShare] = useState(false)
+  // Focus trap — 모달 열려 있는 동안 Tab 순환을 모달 내부로 가둠
+  const trapRef = useFocusTrap(true)
 
   async function saveAsImage() {
     if (games.length === 0) {
@@ -286,7 +289,11 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
 
       {/* 모달 본체 */}
       <div
-        className="relative w-full max-w-5xl max-h-[90vh] flex flex-col z-10 shadow-[0_24px_64px_rgba(0,0,0,0.55)]"
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="daily-boxscore-title"
+        className="relative w-full max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col z-10 shadow-[0_24px_64px_rgba(0,0,0,0.55)]"
         style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
       >
         <div className="flex flex-col min-h-0 flex-1" style={{ background: 'var(--mm-panel)' }}>
@@ -299,6 +306,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
           <div>
             <div className="flex items-center gap-2">
               <h2
+                id="daily-boxscore-title"
                 className="font-jersey font-black uppercase"
                 style={{ color: 'var(--mm-ink)', fontSize: '24px', letterSpacing: '-0.005em' }}
               >
@@ -335,12 +343,13 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
             )}
             <button
               onClick={onClose}
-              className="cursor-pointer transition-colors inline-flex items-center justify-center min-h-10 min-w-10"
+              aria-label="닫기"
+              className="cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               style={{ color: 'var(--mm-ink-soft)' }}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--mm-yellow-soft)'; e.currentTarget.style.color = 'var(--mm-ink)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--mm-ink-soft)' }}
             >
-              <X size={20} />
+              <X size={20} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -378,6 +387,8 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
         {/* 탭 바 */}
         {!loading && games.length > 0 && (
           <div
+            role="tablist"
+            aria-label="박스스코어 뷰"
             className="shrink-0 flex"
             style={{ background: 'var(--mm-panel)', borderBottom: '1px solid var(--mm-rule)' }}
           >
@@ -390,8 +401,12 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
               return (
                 <button
                   key={tab.key}
+                  role="tab"
+                  aria-selected={active}
+                  aria-controls={`daily-boxscore-panel-${tab.key}`}
+                  id={`daily-boxscore-tab-${tab.key}`}
                   onClick={() => setActiveTab(tab.key)}
-                  className="px-6 py-3 text-xs font-black uppercase tracking-[0.18em] transition-all duration-200 cursor-pointer"
+                  className="px-6 py-3 text-xs font-black uppercase tracking-[0.18em] transition-all duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                   style={{
                     borderBottom: active ? '3px solid var(--mm-yellow)' : '3px solid transparent',
                     color: active ? 'var(--mm-ink)' : 'var(--mm-muted)',
@@ -432,7 +447,12 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                 : dailyStats.filter(d => d.team_id === teamFilter)
 
               return (
-              <div className="p-5 space-y-4">
+              <div
+                role="tabpanel"
+                id="daily-boxscore-panel-overall"
+                aria-labelledby="daily-boxscore-tab-overall"
+                className="p-5 space-y-4"
+              >
                 {/* 팀 필터 탭 */}
                 {teamList.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -534,7 +554,12 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
 
             {/* 탭 2: 경기별 박스스코어 */}
             {activeTab === 'games' && (
-            <div className="p-5 space-y-3">
+            <div
+              role="tabpanel"
+              id="daily-boxscore-panel-games"
+              aria-labelledby="daily-boxscore-tab-games"
+              className="p-5 space-y-3"
+            >
             <section className="space-y-3">
 
               {games.map(g => {
@@ -614,6 +639,7 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
                             <div className="aspect-video overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
                               <iframe
                                 src={embedUrl}
+                                title={`${g.home_team?.name ?? '?'} vs ${g.away_team?.name ?? '?'} 하이라이트`}
                                 className="w-full h-full"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowFullScreen
@@ -638,7 +664,12 @@ export default function DailyBoxscoreModal({ leagueId, date, onClose }: Props) {
 
             {/* 탭 3: 팀 비교 */}
             {activeTab === 'team' && (
-              <div className="p-5">
+              <div
+                role="tabpanel"
+                id="daily-boxscore-panel-team"
+                aria-labelledby="daily-boxscore-tab-team"
+                className="p-5"
+              >
                 <TeamComparePanel dailyStats={dailyStats} games={games} />
               </div>
             )}

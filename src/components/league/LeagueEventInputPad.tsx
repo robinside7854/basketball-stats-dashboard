@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import { Handshake, CircleDashed, Crosshair } from 'lucide-react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import type { LeaguePlayer } from '@/types/league'
@@ -458,7 +459,7 @@ export default function LeagueEventInputPad({
             {canAddAssist && (
               <button onClick={startAddAssistForLast}
                 className="w-full text-left px-4 py-2.5 text-sm text-blue-300 hover:bg-gray-800 cursor-pointer transition-colors flex items-center gap-2">
-                <span>🤝</span> 어시스트 추가
+                <Handshake size={14} strokeWidth={2} aria-hidden /> 어시스트 추가
               </button>
             )}
             <button onClick={undoLast}
@@ -507,7 +508,7 @@ export default function LeagueEventInputPad({
             onClick={() => doRebound(null)}
             className="w-full py-2 rounded-xl text-sm font-bold bg-gray-700/60 border border-gray-600/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 cursor-pointer transition-colors"
           >
-            🌀 아웃바운드 / 미기록
+            <span className="inline-flex items-center gap-1.5 justify-center"><CircleDashed size={14} strokeWidth={2} aria-hidden /> 아웃바운드 / 미기록</span>
           </button>
           {[
             { players: homePlayers, team: homeTeam, isShooterTeam: reboundShooterTeamId === homeTeam?.id },
@@ -651,7 +652,7 @@ export default function LeagueEventInputPad({
       {/* ── Phase 2-G: 스틸→TOV 페어 피커 ── */}
       {awaitingTovPair && (
         <div className="pt-1 space-y-2">
-          <p className="text-xs text-gray-400">🎣 스틸 → 턴오버 선수 선택</p>
+          <p className="inline-flex items-center gap-1.5 text-xs text-gray-400"><Crosshair size={12} strokeWidth={2} aria-hidden /> 스틸 → 턴오버 선수 선택</p>
           <button onClick={() => handleTovPair(null)}
             className="w-full py-2 rounded-xl text-sm font-bold bg-gray-700/60 border border-gray-600/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 cursor-pointer transition-colors">
             불명 / 미기록

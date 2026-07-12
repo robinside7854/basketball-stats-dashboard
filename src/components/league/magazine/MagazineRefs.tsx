@@ -11,6 +11,7 @@
 //   GameRef   → DailyBoxscoreModal (팝업)
 
 import { useState } from 'react'
+import { CalendarDays } from 'lucide-react'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 import Link from 'next/link'
@@ -99,7 +100,7 @@ export function GameRef({ date, leagueId }: { date: string; leagueId: string }) 
         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-amber-300 hover:text-amber-200 font-bold hover:bg-amber-500/10 transition-colors cursor-pointer align-baseline"
         title={`${date} 박스스코어 보기`}
       >
-        📅 {label}
+        <CalendarDays size={12} strokeWidth={2} aria-hidden /> {label}
       </button>
       {open && (
         <DailyBoxscoreModal

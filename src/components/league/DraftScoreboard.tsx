@@ -7,6 +7,7 @@
 // 모바일(375px): 2열, sm: 4열, lg: 6열, xl: 8열.
 
 import type { CSSProperties } from 'react'
+import { Trophy } from 'lucide-react'
 
 interface Team { id: string; name: string; color: string }
 interface Pick {
@@ -50,7 +51,9 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
           background: 'linear-gradient(90deg, rgba(180,83,9,0.6) 0%, rgba(245,158,11,0.4) 50%, rgba(180,83,9,0.6) 100%)',
         }}>
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span aria-hidden className="text-3xl sm:text-4xl lg:text-5xl">🏀</span>
+          <span aria-hidden className="inline-flex items-center shrink-0 text-amber-100">
+            <Trophy className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12" strokeWidth={2} />
+          </span>
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white leading-none truncate break-keep"
             style={{ textShadow: '0 2px 4px rgba(0,0,0,0.6), 0 0 12px rgba(245,158,11,0.5)' }}>
             {title}
