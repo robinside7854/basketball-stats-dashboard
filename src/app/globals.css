@@ -578,27 +578,30 @@
   .page-coach-nudge-l { animation: coach-nudge-l 1.2s ease-in-out infinite; }
   .page-coach-nudge-r { animation: coach-nudge-r 1.2s ease-in-out infinite; }
 }
-/* 인앱 스플래시(런치 배너) — 설치형 PWA(standalone)로 실행될 때만 노출.
-   일반 브라우저 탭에서는 display:none 이라 렌더 부담·깜빡임 없음. (AppSplash.tsx) */
-.app-splash { display: none; }
-@media (display-mode: standalone) {
-  .app-splash {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #0a0a0a;
-    transition: opacity 450ms ease;
-  }
-  .app-splash img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-  .app-splash--done {
-    opacity: 0;
-    pointer-events: none;
-  }
+/* 인앱 스플래시(런치 배너) — 설치형 PWA 실행 시에만 노출. (AppSplash.tsx)
+   일반 브라우저 탭에서는 display:none → 렌더 부담·깜빡임 없음. */
+.app-splash {
+  display: none; /* 기본 숨김 — 아래 게이트에서 켜짐 */
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  background: #0a0a0a;
+  transition: opacity 450ms ease;
 }
+.app-splash img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.app-splash--done {
+  opacity: 0;
+  pointer-events: none;
+}
+/* 1차 게이트: CSS 미디어 (하이드레이션 전부터 즉시 적용) */
+@media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+  .app-splash { display: flex; }
+}
+/* 폴백 게이트: 일부 브라우저가 display-mode 를 다르게 볼 때 JS 가 부여 */
+:root.is-pwa .app-splash { display: flex; }
