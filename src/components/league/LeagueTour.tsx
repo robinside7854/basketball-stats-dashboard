@@ -285,9 +285,15 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
     const opposite: Record<TourPlacement, TourPlacement> = {
       top: 'bottom', bottom: 'top', left: 'right', right: 'left', center: 'center',
     }
-    const placed = tryPlace(placement) ?? tryPlace(opposite[placement]) ?? {
-      top: '50%', left: '50%',
-      maxWidth: maxWidthStyle,
+    const placed = tryPlace(placement) ?? tryPlace(opposite[placement])
+    if (!placed) {
+      // 두 방향 모두 실패 → 중앙 배치 (translate 로 진짜 센터링)
+      return {
+        top: '50%', left: '50%',
+        transform: mounted ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.96)',
+        opacity: mounted ? 1 : 0,
+        maxWidth: maxWidthStyle,
+      }
     }
     return {
       ...placed,
