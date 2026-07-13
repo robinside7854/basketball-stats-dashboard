@@ -4,7 +4,9 @@ import { useParams } from 'next/navigation'
 import PageSwipeTransition, { type SwipeMenuItem } from '@/components/PageSwipeTransition'
 
 // 스와이프 이동 순서 — 하단 탭바(홈 → 라커룸 → 경기 → 스탯 → 더보기) 순서의 평탄화.
-// LeagueLayoutClient / LeagueSubTabs 메뉴 정의와 동기 유지 필요
+// LeagueLayoutClient / LeagueSubTabs 메뉴 정의와 동기 유지 필요.
+// 어워즈(스탯 우산), Stathead(아카이브 우산) 는 상위 나비게이션에서 서브탭으로 그룹핑됐지만
+// URL 은 그대로라 스와이프 breadth-first 이동은 유지 (연속 스와이프로도 도달 가능).
 const ORDER: SwipeMenuItem[] = [
   { seg: '', label: '홈' },
   { seg: 'roster', label: '선수 명단' },

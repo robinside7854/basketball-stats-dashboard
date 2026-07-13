@@ -5,9 +5,10 @@ import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Ta
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
 import PlayerBadgeStrip, { type BadgeSummary } from '@/components/league/PlayerBadgeStrip'
-import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 import { CountUp, FormDots } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
@@ -208,7 +209,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const isAIGenerated = Boolean(originalPhotoUrl && photoUrl && originalPhotoUrl !== photoUrl)
   const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
-  const [careerHighBoxscoreDate, setCareerHighBoxscoreDate] = useState<string | null>(null)
+  const routeParams = useParams<{ orgSlug?: string; org?: string }>()
+  const orgSlug = routeParams?.orgSlug ?? routeParams?.org ?? ''
 
   // Hero 가 뷰포트 밖으로 나가면 sticky top 에 미니 header (이름+등번호) 표시
   const heroRef = useRef<HTMLDivElement>(null)
@@ -1252,16 +1254,16 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         </>
                       )
                       return clickable ? (
-                        <button
+                        <Link
                           key={key}
-                          type="button"
-                          onClick={() => setCareerHighBoxscoreDate(ch.date as string)}
-                          className="text-left rounded-sm px-3 py-2.5 group transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 hover:bg-[color:var(--mm-yellow-soft)]"
+                          href={`/league/${orgSlug}/${leagueId}/boxscore/${ch.date}`}
+                          onClick={onClose}
+                          className="block text-left rounded-sm px-3 py-2.5 group transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 hover:bg-[color:var(--mm-yellow-soft)]"
                           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
                           title={`${ch.date} 박스스코어 보기`}
                         >
                           {inner}
-                        </button>
+                        </Link>
                       ) : (
                         <div
                           key={key}
@@ -1276,14 +1278,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 </div>
               )
             })()}
-            {careerHighBoxscoreDate && (
-              <DailyBoxscoreModal
-                leagueId={leagueId}
-                date={careerHighBoxscoreDate}
-                onClose={() => setCareerHighBoxscoreDate(null)}
-              />
-            )}
-
             {/* 상대팀별 스탯 (vs Opponents) */}
             {detail?.vs_opponents && detail.vs_opponents.length > 0 && (
               <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>

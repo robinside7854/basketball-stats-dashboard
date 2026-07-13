@@ -5,6 +5,7 @@ import { Trophy, Crown, Flame, Shield, Zap, Target, TrendingUp, Sparkles, Award,
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import AwardDetailModal from '@/components/league/AwardDetailModal'
+import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { gsap } from 'gsap'
 
@@ -89,8 +90,9 @@ interface AttendanceInfo {
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
 
 export default function AwardsPage() {
-  const params = useParams<{ leagueId: string }>()
-  const { leagueId } = params
+  const params = useParams<{ orgSlug: string; leagueId: string }>()
+  const { orgSlug, leagueId } = params
+  const base = `/league/${orgSlug}/${leagueId}`
 
   const [awards, setAwards] = useState<AwardEntry[]>([])
   const [attendance, setAttendance] = useState<AttendanceInfo | null>(null)
@@ -178,8 +180,17 @@ export default function AwardsPage() {
     return () => ctx.revert()
   }, [awards, loading])
 
+  const groupTabs = [
+    { href: `${base}/stats`, label: '리더보드', active: false },
+    { href: `${base}/stats?tab=seasonHigh`, label: '시즌하이', active: false },
+    { href: `${base}/awards`, label: '어워즈', active: true },
+  ]
+
   return (
     <div className="mm-brand space-y-5 lg:space-y-6" style={{ color: 'var(--mm-ink)' }}>
+      {/* 스탯 우산 서브탭 — 리더보드 · 시즌하이 · 어워즈 */}
+      <LeagueGroupTabs tabs={groupTabs} />
+
       {/* 헤더 — E안: 흰 패널 + 검정 잉크 */}
       <div
         className="relative px-5 py-5 lg:px-6 lg:py-6 -mx-2 sm:mx-0"

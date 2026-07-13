@@ -1,13 +1,15 @@
 'use client'
-import { useState } from 'react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { BarChart2, ChevronRight } from 'lucide-react'
 import type { LeagueGame } from '@/types/league'
-import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 
 interface Props {
   games: LeagueGame[]
   leagueId: string
   limit?: number
+  /** 명시적 orgSlug — 없으면 useParams 에서 orgSlug 또는 org 로 조회 */
+  orgSlug?: string
 }
 
 function formatDate(dateStr: string) {
@@ -16,8 +18,9 @@ function formatDate(dateStr: string) {
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`
 }
 
-export default function LeagueSchedule({ games, leagueId, limit }: Props) {
-  const [boxscoreDate, setBoxscoreDate] = useState<string | null>(null)
+export default function LeagueSchedule({ games, leagueId, limit, orgSlug }: Props) {
+  const params = useParams<{ orgSlug?: string; org?: string }>()
+  const resolvedOrgSlug = orgSlug ?? params?.orgSlug ?? params?.org ?? ''
   const today = new Date().toISOString().slice(0, 10)
 
   // 날짜별 그룹화
@@ -72,10 +75,10 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
           const isToday = date === today
           const allUpcoming = !hasCompleted
           return (
-            <button
+            <Link
               key={date}
-              onClick={() => setBoxscoreDate(date)}
-              className={`w-full text-left rounded-sm px-4 py-3.5 lg:px-5 lg:py-4 transition-shadow duration-200 cursor-pointer group bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${
+              href={`/league/${resolvedOrgSlug}/${leagueId}/boxscore/${date}`}
+              className={`block w-full text-left rounded-sm px-4 py-3.5 lg:px-5 lg:py-4 transition-shadow duration-200 cursor-pointer group bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${
                 allUpcoming ? '' : 'opacity-95'
               }`}
             >
@@ -131,18 +134,10 @@ export default function LeagueSchedule({ games, leagueId, limit }: Props) {
 
                 <ChevronRight size={14} className="lg:w-4 lg:h-4 text-[color:var(--mm-muted)] group-hover:text-[color:var(--mm-yellow-strong)] transition-colors shrink-0" />
               </div>
-            </button>
+            </Link>
           )
         })}
       </div>
-
-      {boxscoreDate && (
-        <DailyBoxscoreModal
-          leagueId={leagueId}
-          date={boxscoreDate}
-          onClose={() => setBoxscoreDate(null)}
-        />
-      )}
     </>
   )
 }

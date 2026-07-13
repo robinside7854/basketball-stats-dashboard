@@ -4,11 +4,12 @@
 // 경기일별 6부문 (득점/리바/어시/블락/스틸/3점) 1등 등극 횟수를 아이콘으로 표시.
 // leader-badges API 응답 오브젝트 그대로 받아서 시각화.
 // 카운트 0인 부문도 회색으로 표시해 전체 형태 유지 (있으면 강조).
-// 활성 카테고리 클릭 시 해당 부문 리더 등극 날짜 목록 팝업 → 날짜 클릭 시 박스스코어 모달.
+// 활성 카테고리 클릭 시 해당 부문 리더 등극 날짜 목록 팝업 → 날짜 클릭 시 박스스코어 페이지로 이동.
 
 import { useState } from 'react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { Trophy, Zap, Hand, Shield, Target, Crosshair, X } from 'lucide-react'
-import DailyBoxscoreModal from './DailyBoxscoreModal'
 
 export interface LeaderBadgeCounts {
   pts: number
@@ -48,11 +49,12 @@ interface Props {
 }
 
 export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) {
+  const params = useParams<{ orgSlug?: string; org?: string }>()
+  const orgSlug = params?.orgSlug ?? params?.org ?? ''
   const total = badges.pts + badges.reb + badges.ast + badges.blk + badges.stl + badges.tp
   const [openCat, setOpenCat] = useState<LeaderCategoryKey | null>(null)
   const [dates, setDates] = useState<string[] | null>(null)
   const [datesLoading, setDatesLoading] = useState(false)
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   async function handleCategoryClick(cat: LeaderCategoryKey) {
     if (!leagueId || !playerId || badges[cat] === 0) return
@@ -152,30 +154,21 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
               ) : (
                 <div className="space-y-1.5">
                   {dates.map(date => (
-                    <button
+                    <Link
                       key={date}
-                      type="button"
-                      onClick={() => setSelectedDate(date)}
+                      href={leagueId ? `/league/${orgSlug}/${leagueId}/boxscore/${date}` : '#'}
+                      onClick={() => setOpenCat(null)}
                       className={`w-full flex items-center justify-between px-4 py-3 rounded-sm border transition-shadow duration-200 cursor-pointer hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${activeCategory.bg} ${activeCategory.border}`}
                     >
                       <span className={`text-sm font-bold ${activeCategory.color}`}>{formatKoreanDate(date)}</span>
                       <span className="text-xs text-[color:var(--mm-muted)] uppercase tracking-widest">박스스코어 →</span>
-                    </button>
+                    </Link>
                   ))}
                 </div>
               )}
             </div>
           </div>
         </div>
-      )}
-
-      {/* 박스스코어 모달 — 날짜 선택 시 표시 */}
-      {selectedDate && leagueId && (
-        <DailyBoxscoreModal
-          leagueId={leagueId}
-          date={selectedDate}
-          onClose={() => setSelectedDate(null)}
-        />
       )}
     </div>
   )

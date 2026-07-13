@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
-import { Lock, Unlock, Sun, Moon, Search, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Trophy, Sparkles, Newspaper } from 'lucide-react'
+import { Lock, Unlock, Sun, Moon, Search, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Newspaper } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import GlobalSearchModal from '@/components/league/GlobalSearchModal'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
@@ -17,14 +17,14 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
 
   const base = `/league/${orgSlug}/${leagueId}`
 
+  // 상위 메뉴 6개(+드래프트 조건부) — 스탯 우산에 어워즈, 아카이브 우산에 Stathead 통합.
+  // URL 은 그대로 유지(SEO/기존 링크 보존) — 상위 나비게이션에서만 그룹핑
   const tabs = [
     { href: base, label: '홈', match: [] as string[] },
     { href: `${base}/roster`, label: '라커룸', match: [`${base}/roster`, `${base}/teams`] },
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/record`] },
-    { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`] },
-    { href: `${base}/awards`, label: '어워즈', match: [`${base}/awards`] },
-    { href: `${base}/columns`, label: '매거진', match: [`${base}/columns`] },
-    { href: `${base}/stathead`, label: 'Stathead', match: [`${base}/stathead`] },
+    { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`] },
+    { href: `${base}/columns`, label: '아카이브', match: [`${base}/columns`, `${base}/stathead`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
     { href: `${base}/settings`, label: '설정', match: [`${base}/settings`] },
   ]
@@ -102,6 +102,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
   const { isEditMode } = useLeagueEditMode()
   const base = `/league/${orgSlug}/${leagueId}`
 
+  // 모바일 4대 주요 탭 — 어워즈는 스탯 우산, Stathead 는 아카이브 우산으로 통합됨
   const mainTabs = [
     { href: base,            label: '홈',    Icon: Home },
     { href: `${base}/roster`, label: '라커룸', Icon: Users },
@@ -109,15 +110,19 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
     { href: `${base}/stats`, label: '스탯',  Icon: BarChart2 },
   ]
   const moreTabs = [
-    { href: `${base}/awards`, label: '어워즈', Icon: Trophy },
-    { href: `${base}/columns`, label: '매거진', Icon: Newspaper },
-    { href: `${base}/stathead`, label: 'Stathead', Icon: Sparkles },
+    { href: `${base}/columns`, label: '아카이브', Icon: Newspaper },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', Icon: ClipboardList }] : []),
     { href: `${base}/settings`, label: '설정',   Icon: Settings },
   ]
 
-  const isActive = (href: string) =>
-    href === base ? pathname === base : pathname.startsWith(href)
+  // 스탯 우산 매칭 — /stats 이면서 /awards 도 스탯 탭 활성.
+  // 아카이브 우산 매칭 — /columns 와 /stathead 를 아카이브 탭 활성.
+  const isActive = (href: string) => {
+    if (href === base) return pathname === base
+    if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/awards`)
+    if (href === `${base}/columns`) return pathname.startsWith(`${base}/columns`) || pathname.startsWith(`${base}/stathead`)
+    return pathname.startsWith(href)
+  }
   // 더보기 그룹 중 하나가 현재 페이지면 더보기 버튼도 활성화 표시
   const moreGroupActive = moreTabs.some(t => isActive(t.href))
 

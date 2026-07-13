@@ -8,12 +8,11 @@
 // 클릭 동작:
 //   PlayerRef → PlayerQuickViewModal (팝업)
 //   TeamRef   → 팀 프랜차이즈 관련 이동 (팀 구성 페이지)
-//   GameRef   → DailyBoxscoreModal (팝업)
+//   GameRef   → /boxscore/{date} 페이지 이동
 
 import { useState } from 'react'
 import { CalendarDays } from 'lucide-react'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
-import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
@@ -83,9 +82,10 @@ export function TeamRef({ name, color }: { name: string; color?: string | null }
   )
 }
 
-/** 게임 날짜 참조 · 클릭 시 DailyBoxscoreModal */
+/** 게임 날짜 참조 · 클릭 시 /boxscore/{date} 페이지로 이동 */
 export function GameRef({ date, leagueId }: { date: string; leagueId: string }) {
-  const [open, setOpen] = useState(false)
+  const params = useParams<{ orgSlug?: string; org?: string }>()
+  const orgSlug = params?.orgSlug ?? params?.org ?? ''
   const label = (() => {
     try {
       const d = new Date(date + 'T00:00:00')
@@ -94,22 +94,13 @@ export function GameRef({ date, leagueId }: { date: string; leagueId: string }) 
     } catch { return date }
   })()
   return (
-    <>
-      <button
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-amber-300 hover:text-amber-200 font-bold hover:bg-amber-500/10 transition-colors cursor-pointer align-baseline"
-        title={`${date} 박스스코어 보기`}
-      >
-        <CalendarDays size={12} strokeWidth={2} aria-hidden /> {label}
-      </button>
-      {open && (
-        <DailyBoxscoreModal
-          leagueId={leagueId}
-          date={date}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </>
+    <Link
+      href={`/league/${orgSlug}/${leagueId}/boxscore/${date}`}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-amber-300 hover:text-amber-200 font-bold hover:bg-amber-500/10 transition-colors cursor-pointer align-baseline"
+      title={`${date} 박스스코어 보기`}
+    >
+      <CalendarDays size={12} strokeWidth={2} aria-hidden /> {label}
+    </Link>
   )
 }
 

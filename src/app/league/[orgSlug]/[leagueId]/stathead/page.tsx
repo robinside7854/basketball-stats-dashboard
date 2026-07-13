@@ -14,6 +14,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { Plus, X, Sparkles, RotateCcw, ArrowDown, ArrowUp } from 'lucide-react'
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
@@ -63,7 +64,8 @@ function StatheadContent() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { leagueId } = params
+  const { orgSlug, leagueId } = params
+  const base = `/league/${orgSlug}/${leagueId}`
 
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [quarterId, setQuarterId] = useState<string>(searchParams.get('quarterId') ?? 'all')
@@ -162,8 +164,16 @@ function StatheadContent() {
 
   const currentSortLabel = STAT_LABEL[sort.key] ?? sort.key
 
+  const groupTabs = [
+    { href: `${base}/columns`, label: '매거진', active: false },
+    { href: `${base}/stathead`, label: 'Stathead', active: true },
+  ]
+
   return (
     <div className="space-y-5 mm-brand">
+      {/* 아카이브 우산 서브탭 — 매거진 · Stathead */}
+      <LeagueGroupTabs tabs={groupTabs} />
+
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2.5">

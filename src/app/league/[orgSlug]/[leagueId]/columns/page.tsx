@@ -10,6 +10,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import ColumnEditor from '@/components/league/magazine/ColumnEditor'
 import EmptyState from '@/components/league/EmptyState'
+import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 
 type ColumnMeta = {
   id: string
@@ -198,8 +199,17 @@ export default function ColumnsListPage() {
     })
   }
 
+  const base = `/league/${orgSlug}/${leagueId}`
+  const groupTabs = [
+    { href: `${base}/columns`, label: '매거진', active: true },
+    { href: `${base}/stathead`, label: 'Stathead', active: false },
+  ]
+
   return (
     <div className="space-y-5 lg:space-y-6">
+      {/* 아카이브 우산 서브탭 — 매거진 · Stathead */}
+      <LeagueGroupTabs tabs={groupTabs} />
+
       {/* 헤더 */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">

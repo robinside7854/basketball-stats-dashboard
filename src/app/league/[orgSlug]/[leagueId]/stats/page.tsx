@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import dynamic from 'next/dynamic'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
@@ -10,6 +10,7 @@ import LeagueDuoPanel from '@/components/league/LeagueDuoPanel'
 import NbaSeasonHighs from '@/components/league/nba/NbaSeasonHighs'
 import StatHeader from '@/components/league/StatHeader'
 import { PercentBar } from '@/components/league/StatCell'
+import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import type { Quarter, PlayerStat } from '@/types/league'
 
@@ -55,9 +56,11 @@ const _SORT_OPTIONS_LEGACY: { key: SortKey; label: string }[] = [
   { key: 'efg_pct', label: 'eFG%' },
 ]
 
-export default function LeagueStatsPage() {
-  const params = useParams<{ leagueId: string }>()
-  const { leagueId } = params
+function LeagueStatsPageInner() {
+  const params = useParams<{ orgSlug: string; leagueId: string }>()
+  const { orgSlug, leagueId } = params
+  const searchParams = useSearchParams()
+  const urlTab = searchParams.get('tab')  // 'seasonHigh' 이면 시즌하이 서브탭 활성
 
   const [quarters, setQuarters] = useState<Quarter[]>([])
   // 페이지 간 분기 선택 공유 (LeagueQuarterContext)
@@ -66,7 +69,9 @@ export default function LeagueStatsPage() {
   const [loading, setLoading] = useState(true)
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
-  const [statMode, setStatMode] = useState<StatMode>('basic')
+  // 초기 statMode — URL 의 ?tab=seasonHigh 이면 시즌하이로 진입, 아니면 basic.
+  // 이후 useEffect 로 URL 변경(뒤로가기/서브탭 재클릭)에 재동기화
+  const [statMode, setStatMode] = useState<StatMode>(urlTab === 'seasonHigh' ? 'seasonHigh' : 'basic')
   const [advSortKey, setAdvSortKey] = useState<AdvKey>('at_ratio')
   const [advSortDir, setAdvSortDir] = useState<'asc'|'desc'>('desc')
   const [shootSortKey, setShootSortKey] = useState<ShootingKey>('efg_pct')
@@ -131,6 +136,17 @@ export default function LeagueStatsPage() {
   useEffect(() => {
     if ((statUnit === 'round' || statUnit === 'per40') && projection) setProjection(false)
   }, [statUnit, projection])
+
+  // URL 의 ?tab 변경(서브탭 클릭·뒤로가기) 시 statMode 동기화.
+  // 서브탭에서 '시즌하이' → statMode='seasonHigh', '리더보드' → basic 복원.
+  useEffect(() => {
+    if (urlTab === 'seasonHigh') {
+      setStatMode(prev => prev === 'seasonHigh' ? prev : 'seasonHigh')
+    } else if (!urlTab) {
+      // '리더보드' 서브탭 진입 — 현재 시즌하이면 basic 으로 복원
+      setStatMode(prev => prev === 'seasonHigh' ? 'basic' : prev)
+    }
+  }, [urlTab])
 
   // Personal highs 페치 — 리그 진입 시 1회 로드 (분기 선택 변경과 무관)
   useEffect(() => {
@@ -358,8 +374,18 @@ export default function LeagueStatsPage() {
     }
   }
 
+  const base = `/league/${orgSlug}/${leagueId}`
+  const groupTabs = [
+    { href: `${base}/stats`, label: '리더보드', active: statMode !== 'seasonHigh' },
+    { href: `${base}/stats?tab=seasonHigh`, label: '시즌하이', active: statMode === 'seasonHigh' },
+    { href: `${base}/awards`, label: '어워즈', active: false },
+  ]
+
   return (
     <div className="mm-brand space-y-5">
+      {/* 스탯 우산 서브탭 — 리더보드 · 시즌하이 · 어워즈 */}
+      <LeagueGroupTabs tabs={groupTabs} />
+
       {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}
       <div className="space-y-3">
         <h2 className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}>리그 스탯</h2>
@@ -1059,5 +1085,14 @@ export default function LeagueStatsPage() {
         />
       )}
     </div>
+  )
+}
+
+// useSearchParams 는 Suspense 경계 내에서 호출해야 하므로 default export 에서 감싼다.
+export default function LeagueStatsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-16"><BasketballLoader size={32} /></div>}>
+      <LeagueStatsPageInner />
+    </Suspense>
   )
 }

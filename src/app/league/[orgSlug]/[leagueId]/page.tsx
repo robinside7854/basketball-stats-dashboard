@@ -882,7 +882,7 @@ export default async function LeagueDetailPage({
           quarterLabel={quarterStandings.quarterLabel}
           gamesCount={quarterStandings.gamesCount}
         />
-        <NbaRoundsSummary rounds={recentRounds} leagueId={leagueId} />
+        <NbaRoundsSummary rounds={recentRounds} leagueId={leagueId} orgSlug={orgSlug} />
         <NbaLeaders
           leagueId={leagueId}
           initialPlayers={leaderStats.players}

@@ -1,21 +1,21 @@
 'use client'
 import LeagueSubTabs from '@/components/league/LeagueSubTabs'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2 } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
-import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
 import EmptyState from '@/components/league/EmptyState'
 
 type ScheduleDate = { id: string; date: string }
 type Quarter = { id: string; year: number; quarter: number }
 
 export default function LeagueSchedulePage() {
-  const params = useParams<{ leagueId: string }>()
-  const { leagueId } = params
+  const params = useParams<{ orgSlug: string; leagueId: string }>()
+  const { orgSlug, leagueId } = params
   const { isEditMode, leagueHeaders, openPinModal } = useLeagueEditMode()
 
   const [dates, setDates] = useState<ScheduleDate[]>([])
@@ -24,7 +24,6 @@ export default function LeagueSchedulePage() {
   const [adding, setAdding] = useState(false)
   const [autoGenerating, setAutoGenerating] = useState(false)
   const [deletingDate, setDeletingDate] = useState<string | null>(null)
-  const [boxscoreDate, setBoxscoreDate] = useState<string | null>(null)
   const [datesWithStats, setDatesWithStats] = useState<Set<string>>(new Set())
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [selectedQFilter, setSelectedQFilter] = useState<'all' | string>('all')
@@ -330,8 +329,8 @@ export default function LeagueSchedulePage() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {datesWithStats.has(sd.date) ? (
-                  <button
-                    onClick={() => setBoxscoreDate(sd.date)}
+                  <Link
+                    href={`/league/${orgSlug}/${leagueId}/boxscore/${sd.date}`}
                     className="inline-flex items-center justify-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-colors cursor-pointer btn-press"
                     style={{
                       background: 'var(--mm-yellow-soft)',
@@ -340,7 +339,7 @@ export default function LeagueSchedulePage() {
                     }}
                   >
                     <BarChart2 size={12} />박스스코어
-                  </button>
+                  </Link>
                 ) : (
                   <span
                     className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-4 py-2 min-h-[44px] cursor-not-allowed select-none"
@@ -374,13 +373,6 @@ export default function LeagueSchedulePage() {
         </>
       )}
     </div>
-    {boxscoreDate && (
-      <DailyBoxscoreModal
-        leagueId={leagueId}
-        date={boxscoreDate}
-        onClose={() => setBoxscoreDate(null)}
-      />
-    )}
     </>
   )
 }

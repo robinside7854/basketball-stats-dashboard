@@ -1,11 +1,11 @@
 'use client'
 // 미라클모닝 브랜드 — 최근 4주 라운드 요약
 // 각 카드 = 1 라운드(=하루). 그 날 참여 팀별 W-L-득실차 요약.
-// 카드 클릭 → DailyBoxscoreModal (해당 date 박스스코어)
+// 카드 클릭 → /boxscore/{date} 페이지 이동 (팀원에게 공유 가능한 URL)
 // 팔레트: 노랑/검정/화이트 (mm-* 변수)
 
-import { useState } from 'react'
-import DailyBoxscoreModal from '@/components/league/DailyBoxscoreModal'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
 
 export type RoundTeamSummary = {
   key: string
@@ -27,6 +27,8 @@ export type RoundSummary = {
 type Props = {
   rounds: RoundSummary[]
   leagueId: string
+  /** 명시적 orgSlug — 없으면 useParams 로 조회 */
+  orgSlug?: string
 }
 
 function diff(t: { ptsFor: number; ptsAgainst: number }): number {
@@ -36,8 +38,9 @@ function record(t: { wins: number; losses: number; draws: number }): string {
   return t.draws > 0 ? `${t.wins}-${t.losses}-${t.draws}` : `${t.wins}-${t.losses}`
 }
 
-export default function NbaRoundsSummary({ rounds, leagueId }: Props) {
-  const [openDate, setOpenDate] = useState<string | null>(null)
+export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
+  const params = useParams<{ orgSlug?: string; org?: string }>()
+  const resolvedOrgSlug = orgSlug ?? params?.orgSlug ?? params?.org ?? ''
   if (rounds.length === 0) return null
 
   return (
@@ -69,10 +72,10 @@ export default function NbaRoundsSummary({ rounds, leagueId }: Props) {
           {rounds.map(r => {
             const topTeam = r.teams[0]
             return (
-              <button
+              <Link
                 key={r.date}
-                onClick={() => setOpenDate(r.date)}
-                className="text-left cursor-pointer transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                href={`/league/${resolvedOrgSlug}/${leagueId}/boxscore/${r.date}`}
+                className="block text-left cursor-pointer transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                 style={{
                   background: 'var(--mm-panel)',
                   border: '1px solid var(--mm-rule)',
@@ -167,19 +170,11 @@ export default function NbaRoundsSummary({ rounds, leagueId }: Props) {
                 >
                   박스스코어 →
                 </div>
-              </button>
+              </Link>
             )
           })}
         </div>
       </section>
-
-      {openDate && (
-        <DailyBoxscoreModal
-          leagueId={leagueId}
-          date={openDate}
-          onClose={() => setOpenDate(null)}
-        />
-      )}
     </>
   )
 }
