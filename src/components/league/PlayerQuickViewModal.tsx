@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
 import PlayerBadgeStrip, { type BadgeSummary } from '@/components/league/PlayerBadgeStrip'
+import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 import { CountUp, FormDots } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
@@ -829,7 +830,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                               : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }
                             }
                           >
-                            <p className="text-xs mb-1 uppercase tracking-[0.16em] font-bold" style={{ color: isChamp ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)' }}>{label}</p>
+                            <p className="text-xs mb-1 uppercase tracking-[0.16em] font-bold flex items-center justify-center" style={{ color: isChamp ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)' }}>
+                              <span>{label}</span>
+                              <StatHelpTooltip statKey={label} size={11} />
+                            </p>
                             <p className="font-jersey text-xl font-black leading-none tabular-nums" style={{ color: isChamp ? 'var(--mm-black)' : 'var(--mm-ink)' }}>
                               {a > 0 ? <><CountUp value={pct} decimals={1} />%</> : '—'}
                             </p>
