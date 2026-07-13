@@ -163,6 +163,7 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
   if (entries.length === 0) {
     return (
       <div
+        data-tour="hero"
         className="mm-brand p-8 md:p-10"
         style={{
           background: 'var(--mm-panel)',
@@ -186,7 +187,7 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
   const isSingle = entries.length === 1
 
   return (
-    <section className="mm-brand relative">
+    <section data-tour="hero" className="mm-brand relative">
       {/* 스크롤 컨테이너 */}
       <div
         ref={scrollRef}

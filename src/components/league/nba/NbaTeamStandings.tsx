@@ -26,6 +26,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
 
   return (
     <section
+      data-tour="standings"
       className="mm-brand"
       style={{
         background: 'var(--mm-panel)',

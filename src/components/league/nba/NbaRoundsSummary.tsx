@@ -46,6 +46,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
   return (
     <>
       <section
+        data-tour="rounds"
         className="mm-brand"
         style={{
           background: 'var(--mm-panel-alt)',

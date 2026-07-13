@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
@@ -12,6 +13,7 @@ import { computeMilestones } from '@/lib/stats/milestones'
 type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
+import LeagueTourTrigger from '@/components/league/LeagueTourTrigger'
 import { type NbaHeroData } from '@/components/league/nba/NbaHero'
 import NbaHeroCarousel, { type WeeklyPOTW, type POTWTopCategory, type SecondaryCategory } from '@/components/league/nba/NbaHeroCarousel'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
@@ -895,6 +897,11 @@ export default async function LeagueDetailPage({
         <StreakSpotlight leagueId={leagueId} maxEntries={8} initialData={streaksData} />
         <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
       </div>
+
+      {/* 인터랙티브 튜토리얼 투어 — 첫 방문 자동 실행 · 헤더 물음표 재실행 */}
+      <Suspense fallback={null}>
+        <LeagueTourTrigger />
+      </Suspense>
     </div>
   )
 }

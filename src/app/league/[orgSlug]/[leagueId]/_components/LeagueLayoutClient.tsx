@@ -1,24 +1,27 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
-import { Lock, Unlock, Sun, Moon, Search, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Newspaper } from 'lucide-react'
+import { Lock, Unlock, Sun, Moon, Search, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Newspaper, HelpCircle } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import GlobalSearchModal from '@/components/league/GlobalSearchModal'
 import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 
 function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: string; leagueId: string; onOpenSearch: () => void; showDraft: boolean }) {
   const pathname = usePathname()
+  const router = useRouter()
   const { isEditMode, openPinModal, exitEditMode } = useLeagueEditMode()
   const { theme, setTheme } = useTheme()
 
   const base = `/league/${orgSlug}/${leagueId}`
 
   // 상위 메뉴 6개(+드래프트 조건부) — 스탯 우산에 어워즈, 아카이브 우산에 Stathead 통합.
-  // URL 은 그대로 유지(SEO/기존 링크 보존) — 상위 나비게이션에서만 그룹핑
+  // URL 은 그대로 유지(SEO/기존 링크 보존) — 상위 나비게이션에서만 그룹핑.
+  // 설정 탭은 편집 모드일 때만 나비게이션에 노출(어드민 은닉) —
+  //   URL 직접 접근은 여전히 가능하므로, 진짜 어드민 전용화가 필요하면 별도 이슈로 서버 가드 필요.
   const tabs = [
     { href: base, label: '홈', match: [] as string[] },
     { href: `${base}/roster`, label: '라커룸', match: [`${base}/roster`, `${base}/teams`] },
@@ -26,13 +29,13 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
     { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`] },
     { href: `${base}/columns`, label: '아카이브', match: [`${base}/columns`, `${base}/stathead`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
-    { href: `${base}/settings`, label: '설정', match: [`${base}/settings`] },
+    ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', match: [`${base}/settings`] }] : []),
   ]
   const tabActive = (tab: { href: string; match: string[] }) =>
     tab.href === base ? pathname === base : (tab.match.length ? tab.match.some(m => pathname.startsWith(m)) : pathname.startsWith(tab.href))
 
   return (
-    <div className="sticky top-0 z-10 bg-[color:var(--mm-panel)] border-b border-[color:var(--mm-rule)]">
+    <div data-tour="top-nav" className="sticky top-0 z-10 bg-[color:var(--mm-panel)] border-b border-[color:var(--mm-rule)]">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="flex items-center">
           {/* 탭 영역 — 모바일에서는 숨김 (하단 탭바 사용), PC에서만 표시 */}
@@ -40,10 +43,13 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
             <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
               {tabs.map(tab => {
                 const isActive = tabActive(tab)
+                // 튜어 target — 스탯 탭에만 data-tour 부여
+                const tourAttr = tab.href === `${base}/stats` ? 'stats-tab' : undefined
                 return (
                   <Link
                     key={tab.href}
                     href={tab.href}
+                    data-tour={tourAttr}
                     className={`shrink-0 px-3 lg:px-4 py-3.5 lg:py-4 text-sm lg:text-base border-b-2 transition-all duration-200 ${
                       isActive
                         ? 'border-[color:var(--mm-yellow)] text-[color:var(--mm-ink)] font-semibold'
@@ -78,6 +84,23 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
               className="p-1.5 rounded border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press">
               {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
             </button>
+            <button
+              data-tour="tour-reopen"
+              onClick={() => {
+                // 홈 페이지에서만 튜어 요소 (POTW/순위/라운드) 가 존재하므로
+                // 다른 페이지에서는 홈으로 이동 후 자동 실행 (?tour=1 쿼리)
+                const base = `/league/${orgSlug}/${leagueId}`
+                if (pathname === base) {
+                  window.dispatchEvent(new CustomEvent('mm-tour-open'))
+                } else {
+                  router.push(`${base}?tour=1`)
+                }
+              }}
+              aria-label="둘러보기 다시 실행"
+              title="둘러보기"
+              className="p-1.5 rounded border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press">
+              <HelpCircle size={14} />
+            </button>
             {isEditMode ? (
               <button onClick={exitEditMode}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] border border-[color:var(--mm-yellow)] hover:brightness-95 font-semibold transition-colors cursor-pointer btn-press">
@@ -109,10 +132,11 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
     { href: `${base}/schedule`, label: '경기', Icon: Calendar },
     { href: `${base}/stats`, label: '스탯',  Icon: BarChart2 },
   ]
+  // 설정은 편집 모드일 때만 더보기에 노출 (어드민 은닉)
   const moreTabs = [
     { href: `${base}/columns`, label: '아카이브', Icon: Newspaper },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', Icon: ClipboardList }] : []),
-    { href: `${base}/settings`, label: '설정',   Icon: Settings },
+    ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', Icon: Settings }] : []),
   ]
 
   // 스탯 우산 매칭 — /stats 이면서 /awards 도 스탯 탭 활성.
