@@ -10,14 +10,18 @@
 //   wins    — 참여 승리 (승수 > 패수)
 //   stlblk3 — STL + BLK ≥ 3
 //
+// 추가: attendance — 참여 스트릭 (연속 참여 라운드 + 최장 개근).
+//   그 선수 팀이 뛴 라운드에서 본인 이벤트 유무로 판정.
+//   { player_id, name, number, current_streak, longest_streak }[]
+//
 // GET /api/leagues/[id]/streaks?minStreak=2
-//   → { streaks: [{ player_id, name, number, category, count }, ...] } — count desc
+//   → { streaks: [...], attendance: [...] }
 //
 // 실제 로직은 `@/lib/stats/streaks` 로 추출 — SSR 프리페치와 공유.
 import { NextResponse } from 'next/server'
 import { computeStreaks } from '@/lib/stats/streaks'
 
-export type { StreakCategory } from '@/lib/stats/streaks'
+export type { StreakCategory, AttendanceStreakEntry } from '@/lib/stats/streaks'
 
 export async function GET(
   req: Request,

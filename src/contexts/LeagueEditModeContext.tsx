@@ -3,6 +3,11 @@ import { createContext, useContext, useEffect, useState } from 'react'
 
 interface LeagueEditModeCtx {
   isEditMode: boolean
+  // sessionStorage 초기 로드 완료 여부.
+  //   /settings 등 서버가드가 필요한 페이지가 "확인 완료 후 미인증"을 판별하기 위해 사용.
+  //   초기 렌더 시 isEditMode=false 이지만 hydrate 후 true 로 바뀔 수 있으므로,
+  //   redirect 결정은 반드시 isInitialized=true 인 이후에만 수행할 것.
+  isInitialized: boolean
   leagueHeaders: Record<string, string>
   openPinModal: () => void
   exitEditMode: () => void
@@ -10,6 +15,7 @@ interface LeagueEditModeCtx {
 
 const LeagueEditModeContext = createContext<LeagueEditModeCtx>({
   isEditMode: false,
+  isInitialized: false,
   leagueHeaders: {},
   openPinModal: () => {},
   exitEditMode: () => {},
@@ -26,6 +32,7 @@ export function LeagueEditModeProvider({
 }) {
   const SESSION_KEY = `league_edit_${leagueId}`
   const [isEditMode, setIsEditMode] = useState(false)
+  const [isInitialized, setIsInitialized] = useState(false)
   const [pin, setPin] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [digits, setDigits] = useState<string[]>([])
@@ -35,6 +42,7 @@ export function LeagueEditModeProvider({
   useEffect(() => {
     const stored = sessionStorage.getItem(SESSION_KEY)
     if (stored) { setIsEditMode(true); setPin(stored) }
+    setIsInitialized(true)
   }, [SESSION_KEY])
 
   useEffect(() => {
@@ -95,7 +103,7 @@ export function LeagueEditModeProvider({
     : { 'Content-Type': 'application/json' }
 
   return (
-    <LeagueEditModeContext.Provider value={{ isEditMode, leagueHeaders, openPinModal, exitEditMode }}>
+    <LeagueEditModeContext.Provider value={{ isEditMode, isInitialized, leagueHeaders, openPinModal, exitEditMode }}>
       {children}
 
       {showModal && (

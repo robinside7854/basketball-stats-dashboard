@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,9 +24,19 @@ const STATUS_OPTIONS = [
 ]
 
 export default function LeagueSettingsPage() {
-  const params = useParams<{ leagueId: string }>()
-  const { leagueId } = params
-  const { isEditMode, leagueHeaders, openPinModal } = useLeagueEditMode()
+  const params = useParams<{ orgSlug: string; leagueId: string }>()
+  const { orgSlug, leagueId } = params
+  const router = useRouter()
+  const { isEditMode, isInitialized, leagueHeaders, openPinModal } = useLeagueEditMode()
+
+  // 서버 가드 대체 — 편집 모드 확인 후 미인증이면 리그 홈으로 리다이렉트.
+  //   PIN 이 sessionStorage 기반이라 middleware 로는 검증 불가 → 클라이언트 마운트 시점 가드.
+  //   isInitialized=true 이후에만 판단 (초기 렌더 flash 방지).
+  useEffect(() => {
+    if (isInitialized && !isEditMode) {
+      router.replace(`/league/${orgSlug}/${leagueId}`)
+    }
+  }, [isInitialized, isEditMode, orgSlug, leagueId, router])
 
   const [league, setLeague] = useState<League | null>(null)
   const [loading, setLoading] = useState(true)

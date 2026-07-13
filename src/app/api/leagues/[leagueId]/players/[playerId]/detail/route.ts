@@ -955,6 +955,48 @@ export async function GET(
   }
   const active_streaks = { ten: s10, twenty: s20, three: s3p, win: sWin }
 
+  // ── Attendance Streak (참여 스트릭) ─────────────────────────────
+  // 소속 팀이 뛴 라운드에서 본인 이벤트 유무로 참여 판정.
+  // - 소속팀 결정 우선순위: league_game_players(게임별 override) > league_player_quarters(분기별 정규)
+  // - "그 선수 팀이 안 뛴 라운드는 스킵" — 불참 판정 안 됨
+  // - current: 최신 라운드부터 역순 walk, 미참여 만나면 중단
+  // - longest: 전 시즌 스캔, 연속 참여 run 의 최대치
+  const attendance_streak = ((): { current: number; longest: number } => {
+    // scheduled dates: 본인 팀이 home/away 였던 게임의 date 유니크 집합
+    const scheduledSet = new Set<string>()
+    for (const g of (games ?? []) as Array<{
+      id: string; date: string; quarter_id?: string | null
+      home_team_id?: string | null; away_team_id?: string | null
+    }>) {
+      const tid = gpTeamMap[g.id] ?? (g.quarter_id ? qTeamMap[g.quarter_id] : undefined)
+      if (!tid) continue
+      if (g.home_team_id === tid || g.away_team_id === tid) {
+        scheduledSet.add(g.date)
+      }
+    }
+    if (scheduledSet.size === 0) return { current: 0, longest: 0 }
+    const scheduled = [...scheduledSet].sort()  // asc
+
+    // attended dates: playedGames 의 date 집합
+    const attendedSet = new Set<string>()
+    for (const gId of playedGames) {
+      const g = gameMap[gId] as { date?: string } | undefined
+      if (g?.date) attendedSet.add(g.date)
+    }
+
+    let current = 0
+    for (let i = scheduled.length - 1; i >= 0; i--) {
+      if (attendedSet.has(scheduled[i])) current++
+      else break
+    }
+    let longest = 0, run = 0
+    for (const d of scheduled) {
+      if (attendedSet.has(d)) { run++; if (run > longest) longest = run }
+      else run = 0
+    }
+    return { current, longest }
+  })()
+
   // ── 자동 배지 요약 (player_badges) ─────────────────────────
   // 시즌 전체 기준 — 4종 카운트만 반환. 개별 목록은 별도 엔드포인트.
   const badges_summary = { perfect_game: 0, double_double: 0, triple_double: 0, winning_shot: 0 }
@@ -978,5 +1020,6 @@ export async function GET(
     badges_summary,
     win_loss: winLoss, player_stats, monthly_stats, vs_opponents, unit,
     active_streaks,
+    attendance_streak,
   })
 }

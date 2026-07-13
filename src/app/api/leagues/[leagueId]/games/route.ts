@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { syncBadgesForGame } from '@/lib/badges/computeBadges'
 
 export async function GET(
   req: Request,
@@ -163,6 +164,19 @@ export async function PATCH(
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
   revalidateTag(`league-${leagueId}`, 'max')
   revalidateTag(`league-${leagueId}-games`, 'max')
+
+  // 자동 배지 재계산 훅 —
+  //   경기 마감(is_complete=true) 순간 즉시 배지 재계산.
+  //   실패해도 경기 마감 자체는 성공하도록 try/catch 로 격리 (fire-and-forget 계열).
+  //   sync 함수는 idempotent 이므로 중복 호출/실패 재시도에 안전.
+  if (body?.is_complete === true) {
+    try {
+      const r = await syncBadgesForGame(supabase, gameId)
+      console.log(`[badges/auto-sync] gameId=${gameId} created=${r.created} removed=${r.removed}`)
+    } catch (err) {
+      console.error(`[badges/auto-sync] gameId=${gameId} failed:`, err)
+    }
+  }
 
   return NextResponse.json(data)
 }

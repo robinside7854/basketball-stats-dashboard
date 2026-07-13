@@ -60,6 +60,7 @@ type Detail = {
     gp?: RankTotal; fg_pct?: RankTotal; fg3_pct?: RankTotal; ft_pct?: RankTotal
   }
   active_streaks?: { ten: number; twenty: number; three: number; win: number }
+  attendance_streak?: { current: number; longest: number }
   badges: EvaluatedBadge[]
   badges_summary?: BadgeSummary
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
@@ -1042,6 +1043,69 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       <p className="font-jersey text-xl font-black leading-none tabular-nums" style={{ color: 'var(--mm-black)' }}>{wl.pts_share}%</p>
                     </div>
                   </div>
+
+                  {/* 참여 인디케이터 — 현재 스트릭 + 역대 최장 개근 (최소 2R+ 노출) */}
+                  {detail?.attendance_streak && (detail.attendance_streak.current >= 2 || detail.attendance_streak.longest >= 2) && (() => {
+                    const att = detail.attendance_streak!
+                    return (
+                      <div
+                        className="flex items-center gap-3 rounded-sm px-3 py-2.5 mb-4"
+                        style={{
+                          background: 'var(--mm-black)',
+                          border: '1px solid var(--mm-black)',
+                          color: '#ffffff',
+                        }}
+                        aria-label={`현재 ${att.current}라운드 연속 참여 · 역대 최장 ${att.longest}라운드`}
+                      >
+                        <span
+                          className="flex items-center justify-center shrink-0"
+                          style={{ width: 32, height: 32, background: 'var(--mm-yellow)' }}
+                        >
+                          <Medal size={16} style={{ color: 'var(--mm-black)' }} aria-hidden />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className="font-bold uppercase"
+                            style={{ color: 'var(--mm-yellow)', fontSize: '9px', letterSpacing: '0.20em' }}
+                          >
+                            참여 스트릭
+                          </p>
+                          <p
+                            className="font-jersey font-black uppercase break-keep mt-0.5"
+                            style={{
+                              color: '#ffffff',
+                              fontSize: 'clamp(13px, 3.6vw, 15px)',
+                              letterSpacing: '-0.005em',
+                              lineHeight: 1.2,
+                            }}
+                          >
+                            현재{' '}
+                            <span
+                              className="font-jersey font-black tabular-nums"
+                              style={{ color: 'var(--mm-yellow)', fontSize: 'clamp(17px, 4.6vw, 20px)' }}
+                            >
+                              {att.current}
+                            </span>
+                            {' '}라운드 연속 참여
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p
+                            className="font-bold uppercase"
+                            style={{ color: 'rgba(255,255,255,0.65)', fontSize: '9px', letterSpacing: '0.16em' }}
+                          >
+                            역대 최장
+                          </p>
+                          <p className="font-jersey font-black tabular-nums mt-0.5" style={{ color: '#ffffff', fontSize: '20px', letterSpacing: '-0.015em', lineHeight: 1 }}>
+                            {att.longest}
+                            <span className="ml-0.5 font-bold uppercase" style={{ color: 'rgba(255,255,255,0.75)', fontSize: '10px', letterSpacing: '0.14em' }}>
+                              R
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })()}
 
                   {/* Active Streaks — 2회 이상만 표시 */}
                   {streakChips.length > 0 && (
