@@ -859,13 +859,11 @@ export default function LeagueRosterPage() {
                   </div>
 
                   {/* 생년월일 */}
-                  {p.birth_date ? (
+                  {p.birth_date && (
                     <p className="text-xs lg:text-sm text-[var(--mm-ink-soft)] mb-1.5 lg:mb-2 tabular-nums">
                       {formatBirthDate(p.birth_date)}
                       <span className="ml-1.5 text-[var(--mm-muted)]">({calcAge(p.birth_date)})</span>
                     </p>
-                  ) : (
-                    <p className="text-xs lg:text-sm text-[var(--mm-muted)] mb-1.5">생년월일 미입력</p>
                   )}
 
                   {/* 리더 뱃지 요약 (경기일 부문별 1등 카운트) */}

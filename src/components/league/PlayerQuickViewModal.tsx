@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
-import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2 } from 'lucide-react'
+import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
@@ -796,11 +796,12 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                             </p>
                             {rank > 0 && (
                               <p
-                                className="relative text-xs font-bold mt-1 flex items-center justify-center gap-0.5"
+                                className="relative text-[11px] font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
                                 style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
                               >
-                                {isChamp && <Crown size={10} aria-hidden />}
-                                리그 {rank}위{total > 0 ? `/${total}명` : ''}
+                                {isChamp && <Crown size={11} aria-hidden strokeWidth={2.5} />}
+                                {(rank === 2 || rank === 3) && <Medal size={11} aria-hidden strokeWidth={2.5} />}
+                                {rank}위{total > 0 && <span className="opacity-60"> · {total}</span>}
                               </p>
                             )}
                           </div>
@@ -833,11 +834,12 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                             <p className="text-xs mt-0.5 font-mono" style={{ color: isChamp ? 'rgba(0,0,0,0.65)' : 'var(--mm-muted)' }}>{m}/{a}</p>
                             {rank > 0 && a > 0 && (
                               <p
-                                className="text-xs font-bold mt-1 flex items-center justify-center gap-0.5"
+                                className="text-[11px] font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
                                 style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
                               >
-                                {isChamp && <Crown size={10} aria-hidden />}
-                                리그 {rank}위{total > 0 ? `/${total}명` : ''}
+                                {isChamp && <Crown size={11} aria-hidden strokeWidth={2.5} />}
+                                {(rank === 2 || rank === 3) && <Medal size={11} aria-hidden strokeWidth={2.5} />}
+                                {rank}위{total > 0 && <span className="opacity-60"> · {total}</span>}
                               </p>
                             )}
                           </div>
