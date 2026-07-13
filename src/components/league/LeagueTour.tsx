@@ -1,12 +1,18 @@
 'use client'
-// 인터랙티브 튜토리얼 투어 — 외부 라이브러리 없이 구현.
+// 인터랙티브 튜토리얼 투어 — 외부 라이브러리 없이 커스텀 구현.
 //
-// 특징:
-//   · SVG mask 기반 spotlight (전체 어두운 오버레이 + target rect 만 컷아웃)
-//   · 팝오버는 placement 에 따라 target 인접 or 화면 중앙에 렌더 · 화면 밖이면 반대편 fallback
+// 부드러움 (v2 리팩터):
+//   · SVG mask cutout · CSS transition 으로 x/y/width/height 애니메이션 (chrome 62+, ff 68+, safari 14+)
+//   · Spotlight ring 별도 div · transform + width/height transition
+//   · 팝오버 이동은 top/left/right/bottom + transform 모두 transition
+//   · 팝오버 등장: opacity 0 → 1 + scale 0.96 → 1 (spring cubic-bezier)
+//   · 배경 backdrop-filter blur 로 프리미엄 느낌 (성능 여유 있을 때만)
+//   · 260ms 지연 제거 → 즉시 rect 계산 + scroll 후 재계산 (transition 이 부드럽게 처리)
+//
+// 기능:
 //   · localStorage 로 재방문 감지 (autoOpen && 미완료 → 첫 방문 자동 실행)
-//   · 물음표 재실행 이벤트('mm-tour-open') 리스너로 언제든 강제 시작
-//   · Skip / ESC / Finish 모두 완료 저장 (재실행 방지)
+//   · 물음표 재실행 이벤트 'mm-tour-open' 리스너
+//   · Skip / ESC / Finish 모두 완료 저장
 //   · resize / scroll 시 target rect 실시간 재계산
 //   · aria-modal · focus-trap · reduce-motion 대응 · 44px 터치 타겟
 
@@ -29,16 +35,23 @@ interface Rect {
 }
 
 const REOPEN_EVENT = 'mm-tour-open'
-const POPOVER_MARGIN = 12         // 팝오버 <-> spotlight 간격
+const POPOVER_MARGIN = 14         // 팝오버 <-> spotlight 간격
 const POPOVER_MAX_WIDTH = 360     // max-w-sm 근사
 const POPOVER_MIN_HEIGHT = 180    // 팝오버 배치 계산용 대략 값
 const VIEWPORT_PADDING = 12       // 화면 가장자리 여백
 
+// spring-like ease-out (프리미엄 느낌)
+const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)'
+const DUR_SPOT = 420      // spotlight 이동/크기
+const DUR_POP  = 320      // 팝오버 이동
+const DUR_MOUNT = 240     // 첫 등장 fade+scale
+
 export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Props) {
   const [active, setActive] = useState(false)
+  const [mounted, setMounted] = useState(false)   // fade-in 트리거
   const [stepIdx, setStepIdx] = useState(0)
   const [targetRect, setTargetRect] = useState<Rect | null>(null)
-  const [tick, setTick] = useState(0)  // resize/scroll 강제 리렌더용
+  const [tick, setTick] = useState(0)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const previousFocus = useRef<HTMLElement | null>(null)
@@ -60,32 +73,36 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
   const startTour = useCallback(() => {
     setStepIdx(0)
     setActive(true)
+    setMounted(false)
     if (typeof document !== 'undefined') {
       previousFocus.current = document.activeElement as HTMLElement | null
     }
+    // 다음 프레임에 mounted true → CSS transition 발동
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setMounted(true))
+    })
   }, [])
 
   const markSeen = useCallback(() => {
-    try {
-      localStorage.setItem(storageKey, String(Date.now()))
-    } catch { /* localStorage 차단 환경 무시 */ }
+    try { localStorage.setItem(storageKey, String(Date.now())) } catch { /* 무시 */ }
   }, [storageKey])
 
   const closeTour = useCallback((completed: boolean) => {
-    setActive(false)
-    markSeen()
-    // 이전 포커스 복원
-    if (previousFocus.current && typeof previousFocus.current.focus === 'function') {
-      try { previousFocus.current.focus() } catch { /* 무시 */ }
-    }
-    if (completed && onFinish) onFinish()
-  }, [markSeen, onFinish])
+    setMounted(false)
+    // fade-out 후 언마운트
+    const t = setTimeout(() => {
+      setActive(false)
+      markSeen()
+      if (previousFocus.current && typeof previousFocus.current.focus === 'function') {
+        try { previousFocus.current.focus() } catch { /* 무시 */ }
+      }
+      if (completed && onFinish) onFinish()
+    }, prefersReducedMotion ? 0 : DUR_MOUNT)
+    return () => clearTimeout(t)
+  }, [markSeen, onFinish, prefersReducedMotion])
 
   const nextStep = useCallback(() => {
-    if (isLast) {
-      closeTour(true)
-      return
-    }
+    if (isLast) { closeTour(true); return }
     setStepIdx(i => i + 1)
   }, [isLast, closeTour])
 
@@ -97,7 +114,6 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
   // 첫 방문 자동 시작 · 재실행 이벤트 리스너
   useEffect(() => {
     if (typeof window === 'undefined') return
-    // 재실행 이벤트 — localStorage 무시하고 강제 실행
     const reopen = () => startTour()
     window.addEventListener(REOPEN_EVENT, reopen)
 
@@ -105,7 +121,7 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
       let seen: string | null = null
       try { seen = localStorage.getItem(storageKey) } catch { /* 무시 */ }
       if (!seen) {
-        const t = setTimeout(() => startTour(), 200)
+        const t = setTimeout(() => startTour(), 400)
         return () => {
           clearTimeout(t)
           window.removeEventListener(REOPEN_EVENT, reopen)
@@ -115,7 +131,7 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
     return () => window.removeEventListener(REOPEN_EVENT, reopen)
   }, [autoOpen, storageKey, startTour])
 
-  // 스텝 진입 시 onEnter · target 찾기 · scrollIntoView
+  // 스텝 진입 · target 찾기 · 즉시 rect 계산 (transition 이 부드럽게)
   useEffect(() => {
     if (!active || !step) return
     if (step.onEnter) {
@@ -127,48 +143,49 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
     }
     const el = document.querySelector<HTMLElement>(step.targetSelector)
     if (!el) {
-      // target 이 없는 스텝은 중앙 팝오버로 fallback
       setTargetRect(null)
       return
     }
-    // 화면 중앙으로 스크롤 (뷰포트 벗어난 경우)
+    // 즉시 rect 계산 → spotlight 시작 (transition 이 부드럽게 이동)
+    const r0 = el.getBoundingClientRect()
+    setTargetRect({ top: r0.top, left: r0.left, width: r0.width, height: r0.height })
+
+    // 화면 중앙으로 부드럽게 스크롤
     try { el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion ? 'auto' : 'smooth' }) } catch { /* 무시 */ }
 
-    // 스크롤 완료 후 rect 계산 (약간 지연)
+    // 스크롤 완료 후 rect 재계산 (다시 자연스럽게 transition)
     const t = setTimeout(() => {
       const r = el.getBoundingClientRect()
       setTargetRect({ top: r.top, left: r.left, width: r.width, height: r.height })
-    }, prefersReducedMotion ? 0 : 260)
+    }, prefersReducedMotion ? 0 : 350)
     return () => clearTimeout(t)
   }, [active, step, tick, prefersReducedMotion])
 
-  // resize / scroll 리스너 — 실시간 rect 재계산
+  // resize / scroll 리스너
   useEffect(() => {
     if (!active) return
-    const onResize = () => setTick(t => t + 1)
-    window.addEventListener('resize', onResize)
-    window.addEventListener('scroll', onResize, true)
+    let rafId = 0
+    const onChange = () => {
+      cancelAnimationFrame(rafId)
+      rafId = requestAnimationFrame(() => setTick(t => t + 1))
+    }
+    window.addEventListener('resize', onChange)
+    window.addEventListener('scroll', onChange, true)
     return () => {
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('scroll', onResize, true)
+      window.removeEventListener('resize', onChange)
+      window.removeEventListener('scroll', onChange, true)
+      cancelAnimationFrame(rafId)
     }
   }, [active])
 
-  // 키보드 조작 (ESC/좌우/Enter) · focus-trap
+  // 키보드 조작 · focus-trap
   useEffect(() => {
     if (!active) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        closeTour(false)
-      } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
-        e.preventDefault()
-        nextStep()
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault()
-        prevStep()
-      } else if (e.key === 'Tab') {
-        // 팝오버 밖으로 포커스 이탈 방지 — 팝오버 내부 focusable 만 순환
+      if (e.key === 'Escape') { e.preventDefault(); closeTour(false) }
+      else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); nextStep() }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); prevStep() }
+      else if (e.key === 'Tab') {
         const pop = popoverRef.current
         if (!pop) return
         const focusables = pop.querySelectorAll<HTMLElement>(
@@ -188,15 +205,15 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
     return () => window.removeEventListener('keydown', onKey)
   }, [active, closeTour, nextStep, prevStep])
 
-  // 팝오버 마운트 시 초기 포커스
+  // 팝오버 마운트 시 초기 포커스 · 등장 애니메이션 후 실행
   useEffect(() => {
     if (!active) return
     const t = setTimeout(() => {
       const pop = popoverRef.current
       if (!pop) return
       const btn = pop.querySelector<HTMLButtonElement>('button[data-tour-primary]')
-      btn?.focus()
-    }, prefersReducedMotion ? 0 : 300)
+      btn?.focus({ preventScroll: true })
+    }, prefersReducedMotion ? 0 : DUR_MOUNT + 50)
     return () => clearTimeout(t)
   }, [active, stepIdx, prefersReducedMotion])
 
@@ -218,17 +235,16 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
   const placement: TourPlacement = step.placement ?? (spot ? 'bottom' : 'center')
   const popoverStyle: React.CSSProperties = (() => {
     if (!spot || placement === 'center') {
-      // 화면 중앙
       return {
         top: '50%',
         left: '50%',
-        transform: 'translate(-50%, -50%)',
+        transform: mounted ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.96)',
+        opacity: mounted ? 1 : 0,
         maxWidth: `min(${POPOVER_MAX_WIDTH}px, calc(100vw - ${VIEWPORT_PADDING * 2}px))`,
       }
     }
     const centerX = spot.left + spot.width / 2
 
-    // placement fallback — 요청 placement 로 배치 시 화면 벗어나면 반대편으로
     const tryPlace = (p: TourPlacement): React.CSSProperties | null => {
       switch (p) {
         case 'bottom': {
@@ -255,21 +271,29 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
           const top = Math.max(VIEWPORT_PADDING, Math.min(vh - POPOVER_MIN_HEIGHT - VIEWPORT_PADDING, spot.top + spot.height / 2 - POPOVER_MIN_HEIGHT / 2))
           return { top, right, maxWidth: `min(${POPOVER_MAX_WIDTH}px, calc(100vw - ${right}px - ${VIEWPORT_PADDING}px))` }
         }
-        default:
-          return null
+        default: return null
       }
     }
     const opposite: Record<TourPlacement, TourPlacement> = {
       top: 'bottom', bottom: 'top', left: 'right', right: 'left', center: 'center',
     }
-    return tryPlace(placement) ?? tryPlace(opposite[placement]) ?? {
-      top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+    const placed = tryPlace(placement) ?? tryPlace(opposite[placement]) ?? {
+      top: '50%', left: '50%',
       maxWidth: `min(${POPOVER_MAX_WIDTH}px, calc(100vw - ${VIEWPORT_PADDING * 2}px))`,
+    }
+    // mount 애니메이션 — opacity + subtle scale
+    return {
+      ...placed,
+      opacity: mounted ? 1 : 0,
+      transform: mounted ? 'scale(1)' : 'scale(0.96)',
+      transformOrigin: placement === 'top' ? 'bottom center' : placement === 'bottom' ? 'top center' : 'center center',
     }
   })()
 
-  // SVG mask 로 spotlight — 전체 어두운 오버레이 + target rect 만 컷아웃
   const overlayId = 'mm-tour-overlay-mask'
+
+  // 배경 오버레이 opacity (mount 이후 부드럽게)
+  const backdropOpacity = mounted ? 1 : 0
 
   return (
     <div
@@ -281,12 +305,16 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
       aria-live="polite"
       style={{ position: 'fixed', inset: 0, zIndex: 100, pointerEvents: 'none' }}
     >
-      {/* SVG mask 오버레이 — spot 있으면 컷아웃, 없으면 전체 어둡게 */}
+      {/* SVG mask cutout — spot 이 있으면 컷아웃 */}
       <svg
         aria-hidden
-        style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', pointerEvents: 'auto' }}
+        style={{
+          position: 'fixed', inset: 0, width: '100vw', height: '100vh',
+          pointerEvents: 'auto',
+          opacity: backdropOpacity,
+          transition: prefersReducedMotion ? 'none' : `opacity ${DUR_MOUNT}ms ${EASE}`,
+        }}
         onClick={(e) => {
-          // 오버레이 클릭 시 닫기 (spotlight 영역은 pointer-events 로 통과)
           if (e.target === e.currentTarget) closeTour(false)
         }}
       >
@@ -299,35 +327,44 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
                 y={spot.top}
                 width={spot.width}
                 height={spot.height}
-                rx={8}
-                ry={8}
+                rx={10}
+                ry={10}
                 fill="black"
+                style={{
+                  transition: prefersReducedMotion ? 'none'
+                    : `x ${DUR_SPOT}ms ${EASE}, y ${DUR_SPOT}ms ${EASE}, width ${DUR_SPOT}ms ${EASE}, height ${DUR_SPOT}ms ${EASE}`,
+                }}
               />
             )}
           </mask>
         </defs>
         <rect
           x="0" y="0" width="100%" height="100%"
-          fill="rgba(0, 0, 0, 0.6)"
+          fill="rgba(0, 0, 0, 0.62)"
           mask={`url(#${overlayId})`}
-          style={{ transition: prefersReducedMotion ? 'none' : 'opacity 200ms ease-out' }}
         />
-        {/* spotlight border ring — mm-yellow */}
-        {spot && (
-          <rect
-            x={spot.left}
-            y={spot.top}
-            width={spot.width}
-            height={spot.height}
-            rx={8}
-            ry={8}
-            fill="none"
-            stroke="var(--mm-yellow)"
-            strokeWidth={2}
-            style={{ pointerEvents: 'none' }}
-          />
-        )}
       </svg>
+
+      {/* Spotlight ring (별도 div · GPU-friendly · pulse 애니메이션) */}
+      {spot && (
+        <div
+          aria-hidden
+          style={{
+            position: 'fixed',
+            top: spot.top,
+            left: spot.left,
+            width: spot.width,
+            height: spot.height,
+            borderRadius: 10,
+            border: '2px solid var(--mm-yellow)',
+            boxShadow: '0 0 0 4px rgba(234, 179, 8, 0.18), 0 0 24px rgba(234, 179, 8, 0.32)',
+            pointerEvents: 'none',
+            opacity: backdropOpacity,
+            transition: prefersReducedMotion ? 'none'
+              : `top ${DUR_SPOT}ms ${EASE}, left ${DUR_SPOT}ms ${EASE}, width ${DUR_SPOT}ms ${EASE}, height ${DUR_SPOT}ms ${EASE}, opacity ${DUR_MOUNT}ms ${EASE}`,
+          }}
+        />
+      )}
 
       {/* 팝오버 */}
       <div
@@ -339,11 +376,13 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
           background: 'var(--mm-panel)',
           color: 'var(--mm-ink)',
           border: '1px solid var(--mm-yellow)',
-          borderRadius: 12,
-          boxShadow: '0 20px 40px -12px rgba(0, 0, 0, 0.35)',
+          borderRadius: 14,
+          boxShadow: '0 24px 48px -16px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(234, 179, 8, 0.20)',
           padding: '18px 20px 16px',
           minWidth: 260,
-          transition: prefersReducedMotion ? 'none' : 'opacity 180ms ease-out',
+          willChange: 'transform, top, left, right, bottom, opacity',
+          transition: prefersReducedMotion ? 'none'
+            : `top ${DUR_POP}ms ${EASE}, left ${DUR_POP}ms ${EASE}, right ${DUR_POP}ms ${EASE}, bottom ${DUR_POP}ms ${EASE}, transform ${DUR_MOUNT}ms ${EASE}, opacity ${DUR_MOUNT}ms ${EASE}`,
           ...popoverStyle,
         }}
       >
@@ -352,12 +391,8 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
           <div
             id="mm-tour-title"
             style={{
-              fontSize: 16,
-              fontWeight: 700,
-              color: 'var(--mm-ink)',
-              lineHeight: 1.35,
-              flex: 1,
-              minWidth: 0,
+              fontSize: 16, fontWeight: 700, color: 'var(--mm-ink)',
+              lineHeight: 1.35, flex: 1, minWidth: 0,
             }}
           >
             {step.title}
@@ -367,15 +402,14 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
             onClick={() => closeTour(false)}
             aria-label="둘러보기 건너뛰기"
             style={{
-              minWidth: 44, minHeight: 44,
-              marginTop: -8, marginRight: -8,
+              minWidth: 44, minHeight: 44, marginTop: -8, marginRight: -8,
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              background: 'transparent',
-              color: 'var(--mm-muted)',
-              border: 'none',
-              cursor: 'pointer',
-              borderRadius: 8,
+              background: 'transparent', color: 'var(--mm-muted)',
+              border: 'none', cursor: 'pointer', borderRadius: 8,
+              transition: prefersReducedMotion ? 'none' : `background 160ms ${EASE}`,
             }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--mm-panel-alt)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
           >
             <X size={18} />
           </button>
@@ -385,12 +419,8 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
         <p
           id="mm-tour-desc"
           style={{
-            fontSize: 14,
-            lineHeight: 1.65,
-            color: 'var(--mm-ink-soft)',
-            margin: 0,
-            marginBottom: 14,
-            whiteSpace: 'pre-line',
+            fontSize: 14, lineHeight: 1.65, color: 'var(--mm-ink-soft)',
+            margin: 0, marginBottom: 14, whiteSpace: 'pre-line',
           }}
         >
           {step.description}
@@ -398,81 +428,74 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
 
         {/* 스텝 인디케이터 + 컨트롤 */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          {/* 인디케이터 */}
           <div aria-hidden style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
             {steps.map((_, i) => (
               <span
                 key={i}
                 style={{
-                  width: i === stepIdx ? 18 : 6,
+                  width: i === stepIdx ? 20 : 6,
                   height: 6,
                   borderRadius: 999,
                   background: i === stepIdx ? 'var(--mm-yellow)' : 'var(--mm-rule)',
-                  transition: prefersReducedMotion ? 'none' : 'all 180ms ease-out',
+                  transition: prefersReducedMotion ? 'none' : `width 240ms ${EASE}, background 240ms ${EASE}`,
                 }}
               />
             ))}
           </div>
           <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-            {/* Skip (마지막 스텝은 숨김 — 완료 버튼과 중복) */}
             {!isLast && (
               <button
                 type="button"
                 onClick={() => closeTour(false)}
                 style={{
-                  minHeight: 44,
-                  padding: '8px 12px',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: 'var(--mm-muted)',
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  borderRadius: 8,
+                  minHeight: 44, padding: '8px 12px',
+                  fontSize: 13, fontWeight: 500,
+                  color: 'var(--mm-muted)', background: 'transparent',
+                  border: 'none', cursor: 'pointer', borderRadius: 8,
+                  transition: prefersReducedMotion ? 'none' : `color 160ms ${EASE}`,
                 }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--mm-ink)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--mm-muted)' }}
               >
                 건너뛰기
               </button>
             )}
-            {/* 이전 */}
             {!isFirst && (
               <button
                 type="button"
                 onClick={prevStep}
                 aria-label="이전 단계"
                 style={{
-                  minHeight: 44, minWidth: 44,
-                  padding: '8px 12px',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: 'var(--mm-ink)',
-                  background: 'var(--mm-panel-alt)',
-                  border: '1px solid var(--mm-rule)',
-                  cursor: 'pointer',
-                  borderRadius: 8,
+                  minHeight: 44, minWidth: 44, padding: '8px 12px',
+                  fontSize: 13, fontWeight: 600,
+                  color: 'var(--mm-ink)', background: 'var(--mm-panel-alt)',
+                  border: '1px solid var(--mm-rule)', cursor: 'pointer', borderRadius: 8,
                   display: 'inline-flex', alignItems: 'center', gap: 4,
+                  transition: prefersReducedMotion ? 'none' : `background 160ms ${EASE}, border-color 160ms ${EASE}`,
                 }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--mm-ink-soft)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--mm-rule)' }}
               >
                 <ChevronLeft size={14} /> 이전
               </button>
             )}
-            {/* 다음 · 완료 */}
             <button
               type="button"
               data-tour-primary
               onClick={nextStep}
               style={{
-                minHeight: 44, minWidth: 44,
-                padding: '8px 14px',
-                fontSize: 13,
-                fontWeight: 700,
-                color: 'var(--mm-black, #0A0A0A)',
-                background: 'var(--mm-yellow)',
-                border: '1px solid var(--mm-yellow)',
-                cursor: 'pointer',
-                borderRadius: 8,
+                minHeight: 44, minWidth: 44, padding: '8px 14px',
+                fontSize: 13, fontWeight: 700,
+                color: 'var(--mm-black, #0A0A0A)', background: 'var(--mm-yellow)',
+                border: '1px solid var(--mm-yellow)', cursor: 'pointer', borderRadius: 8,
                 display: 'inline-flex', alignItems: 'center', gap: 4,
+                boxShadow: '0 4px 12px -2px rgba(234, 179, 8, 0.4)',
+                transition: prefersReducedMotion ? 'none' : `filter 160ms ${EASE}, transform 160ms ${EASE}`,
               }}
+              onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.05)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.filter = 'brightness(1)' }}
+              onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.97)' }}
+              onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
             >
               {isLast ? '완료' : (<>다음 <ChevronRight size={14} /></>)}
             </button>
