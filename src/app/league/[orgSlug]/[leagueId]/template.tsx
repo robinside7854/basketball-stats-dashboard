@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation'
 import PageSwipeTransition, { type SwipeMenuItem } from '@/components/PageSwipeTransition'
 
-// 스와이프 이동 순서 — 하단 탭바(홈 → 선수·팀 → 경기 → 스탯 → 더보기) 순서의 평탄화.
+// 스와이프 이동 순서 — 하단 탭바(홈 → 라커룸 → 경기 → 스탯 → 더보기) 순서의 평탄화.
 // LeagueLayoutClient / LeagueSubTabs 메뉴 정의와 동기 유지 필요
 const ORDER: SwipeMenuItem[] = [
   { seg: '', label: '홈' },

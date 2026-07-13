@@ -19,7 +19,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
 
   const tabs = [
     { href: base, label: '홈', match: [] as string[] },
-    { href: `${base}/roster`, label: '선수·팀', match: [`${base}/roster`, `${base}/teams`] },
+    { href: `${base}/roster`, label: '라커룸', match: [`${base}/roster`, `${base}/teams`] },
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/record`] },
     { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`] },
     { href: `${base}/awards`, label: '어워즈', match: [`${base}/awards`] },
@@ -104,7 +104,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
 
   const mainTabs = [
     { href: base,            label: '홈',    Icon: Home },
-    { href: `${base}/roster`, label: '선수·팀', Icon: Users },
+    { href: `${base}/roster`, label: '라커룸', Icon: Users },
     { href: `${base}/schedule`, label: '경기', Icon: Calendar },
     { href: `${base}/stats`, label: '스탯',  Icon: BarChart2 },
   ]
