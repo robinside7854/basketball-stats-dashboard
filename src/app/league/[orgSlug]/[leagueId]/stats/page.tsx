@@ -419,6 +419,12 @@ function LeagueStatsPageInner() {
           <p>아직 완료된 경기 데이터가 없습니다</p>
           <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>경기를 기록하고 완료 처리하면 스탯이 집계됩니다</p>
         </div>
+      ) : statMode === 'seasonHigh' ? (
+        // 시즌하이 뷰 — 카테고리별 최고 기록에만 집중 (차트/리더보드/DuoPanel/전체스탯 숨김)
+        <NbaSeasonHighs
+          leagueId={leagueId}
+          quarterId={selectedQuarterId === 'all' ? null : selectedQuarterId}
+        />
       ) : (
         <>
           {/* 차트 필터 칩 */}
@@ -547,7 +553,6 @@ function LeagueStatsPageInner() {
                     { k: 'basic'      as StatMode, label: 'Basic' },
                     { k: 'shooting'   as StatMode, label: 'Shooting' },
                     { k: 'advanced'   as StatMode, label: 'Advanced' },
-                    { k: 'seasonHigh' as StatMode, label: '시즌하이' },
                   ]).map(({ k, label }) => (
                     <button key={k} onClick={() => setStatMode(k)}
                       className="px-3 py-2 text-xs font-black uppercase cursor-pointer transition-colors btn-press min-h-[40px]"
@@ -622,14 +627,7 @@ function LeagueStatsPageInner() {
               </div>
             </div>
 
-            {statMode === 'seasonHigh' ? (
-              <div className="p-3 md:p-4">
-                <NbaSeasonHighs
-                  leagueId={leagueId}
-                  quarterId={selectedQuarterId === 'all' ? null : selectedQuarterId}
-                />
-              </div>
-            ) : statMode === 'basic' ? (<>
+            {statMode === 'basic' ? (<>
             {/* Basic — 모바일 정렬 칩 */}
             <div className="md:hidden px-3 py-2.5 overflow-x-auto" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
               <div className="flex gap-1.5 whitespace-nowrap">

@@ -29,10 +29,10 @@ import { createClient } from '@/lib/supabase/admin'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'] as const
 
-type CategoryKey = 'pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg3m'
+type CategoryKey = 'pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg3m' | 'fga' | 'fgm'
 
 interface CategoryHigh {
-  category: 'PTS' | 'REB' | 'AST' | 'STL' | 'BLK' | 'FG3M'
+  category: 'PTS' | 'REB' | 'AST' | 'STL' | 'BLK' | 'FG3M' | 'FGA' | 'FGM'
   label: string
   value: number
   player: {
@@ -139,7 +139,7 @@ export async function GET(
   // 5) per-(pid, date) 스탯 집계 — 라운드(일자) 단위
   //    같은 날 여러 슬롯이 있으면 하루 스탯으로 합산
   type DayStat = Record<CategoryKey, number>
-  const emptyDay = (): DayStat => ({ pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fg3m: 0 })
+  const emptyDay = (): DayStat => ({ pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fg3m: 0, fga: 0, fgm: 0 })
   const dayStats = new Map<string, Map<string, DayStat>>() // pid → date → stats
 
   const ensure = (pid: string, date: string): DayStat => {
@@ -164,13 +164,15 @@ export async function GET(
 
     switch (e.type) {
       case 'shot_3p':
-        if (made) { s.pts += isP1 ? 4 : 3; s.fg3m++ }
+        s.fga++
+        if (made) { s.fgm++; s.fg3m++; s.pts += isP1 ? 4 : 3 }
         break
       case 'shot_2p_mid':
       case 'shot_layup':
       case 'shot_post':
       case 'shot_2p_drive':
-        if (made) s.pts += isP1 ? 3 : 2
+        s.fga++
+        if (made) { s.fgm++; s.pts += isP1 ? 3 : 2 }
         break
       case 'and_one':
         if (made) s.pts += 1
@@ -206,6 +208,8 @@ export async function GET(
     { key: 'stl',  category: 'STL',  label: '스틸' },
     { key: 'blk',  category: 'BLK',  label: '블락' },
     { key: 'fg3m', category: 'FG3M', label: '3점 성공' },
+    { key: 'fga',  category: 'FGA',  label: '야투 시도' },
+    { key: 'fgm',  category: 'FGM',  label: '야투 성공' },
   ]
 
   const categoryHighs: CategoryHigh[] = []
