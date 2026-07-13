@@ -1,15 +1,18 @@
 // 인터랙티브 투어 스텝 정의.
 // LeagueTour 컴포넌트가 이 배열을 받아 순차 spotlight + 팝오버로 안내한다.
-// targetSelector 는 querySelector · 없으면 화면 중앙 팝오버 (welcome/finish 등)
+// 뷰포트가 다르면 (모바일 vs 데스크탑) targetSelectorMobile / descriptionMobile / placementMobile 로 우선 적용.
 
 export type TourPlacement = 'top' | 'bottom' | 'left' | 'right' | 'center'
 
 export interface TourStep {
   id: string
   targetSelector?: string
+  targetSelectorMobile?: string       // 모바일 (< lg 1024px) 우선 · 미지정 시 데스크탑 selector 사용
   title: string
   description: string
+  descriptionMobile?: string           // 모바일용 문구 (미지정 시 데스크탑 문구 사용)
   placement?: TourPlacement
+  placementMobile?: TourPlacement      // 모바일 우선 (예: 하단 탭바는 top placement)
   spotlightPadding?: number
   onEnter?: () => void
 }
@@ -25,10 +28,14 @@ export const HOME_TOUR_STEPS: TourStep[] = [
   {
     id: 'nav',
     targetSelector: '[data-tour="top-nav"]',
+    targetSelectorMobile: '[data-tour="bottom-nav"]',
     placement: 'bottom',
+    placementMobile: 'top',   // 하단 나비게이션 위쪽에 팝오버
     title: '메뉴 구성',
     description:
       '홈 · 라커룸 · 경기 · 스탯 · 아카이브 5개 우산 메뉴로 정리했습니다.\n어워즈는 스탯 안, Stathead 는 아카이브 안에 있어요.',
+    descriptionMobile:
+      '홈 · 라커룸 · 경기 · 스탯 · 더보기 5개 탭.\n아카이브(매거진/Stathead) · 설정은 더보기 안에 있어요.',
   },
   {
     id: 'hero',
@@ -57,7 +64,9 @@ export const HOME_TOUR_STEPS: TourStep[] = [
   {
     id: 'stats-tab',
     targetSelector: '[data-tour="stats-tab"]',
+    targetSelectorMobile: '[data-tour="stats-tab-mobile"]',
     placement: 'bottom',
+    placementMobile: 'top',
     title: '스탯 · 어워즈 · 시즌하이',
     description:
       '스탯 우산 아래 리더보드 · 시즌하이 · 어워즈가 모두 정리되어 있습니다.',

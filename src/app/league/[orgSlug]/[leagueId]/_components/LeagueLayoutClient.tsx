@@ -184,15 +184,18 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
       {/* 하단 탭바 — 편집 모드 시 상단 얇은 노랑 라인으로 상태 힌트 */}
       <nav
         aria-label="주요 메뉴"
+        data-tour="bottom-nav"
         className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--mm-panel)]/95 backdrop-blur-md border-t ${isEditMode ? 'border-[color:var(--mm-yellow)]' : 'border-[color:var(--mm-rule)]'}`}
       >
         <div className="flex items-stretch justify-around h-14">
           {mainTabs.map(({ href, label, Icon }) => {
             const active = isActive(href)
+            const isStatsTab = href === `${base}/stats`
             return (
               <Link
                 key={href}
                 href={href}
+                data-tour={isStatsTab ? 'stats-tab-mobile' : undefined}
                 aria-current={active ? 'page' : undefined}
                 className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 px-2 min-h-[56px] transition-colors ${
                   active ? 'text-[color:var(--mm-ink)]' : 'text-[color:var(--mm-muted)] active:text-[color:var(--mm-ink)]'

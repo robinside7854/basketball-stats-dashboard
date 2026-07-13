@@ -48,6 +48,7 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
   const [targetRect, setTargetRect] = useState<Rect | null>(null)
   const [tick, setTick] = useState(0)
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   const popoverRef = useRef<HTMLDivElement | null>(null)
   const maskRectRef = useRef<SVGRectElement | null>(null)
@@ -62,6 +63,16 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
     setPrefersReducedMotion(mq.matches)
     const h = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [])
+
+  // 뷰포트 감지 — 모바일(<1024px) 여부 (Tailwind lg 기준과 일치)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(max-width: 1023.98px)')
+    setIsMobile(mq.matches)
+    const h = (e: MediaQueryListEvent) => setIsMobile(e.matches)
     mq.addEventListener('change', h)
     return () => mq.removeEventListener('change', h)
   }, [])
@@ -123,11 +134,16 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
     return () => window.removeEventListener(REOPEN_EVENT, reopen)
   }, [autoOpen, storageKey, startTour])
 
+  // 뷰포트별 selector 결정 (모바일 우선 · 없으면 데스크탑 fallback)
+  const activeSelector = step
+    ? (isMobile && step.targetSelectorMobile ? step.targetSelectorMobile : step.targetSelector)
+    : undefined
+
   useEffect(() => {
     if (!active || !step) return
     if (step.onEnter) { try { step.onEnter() } catch { /* 무시 */ } }
-    if (!step.targetSelector) { setTargetRect(null); return }
-    const el = document.querySelector<HTMLElement>(step.targetSelector)
+    if (!activeSelector) { setTargetRect(null); return }
+    const el = document.querySelector<HTMLElement>(activeSelector)
     if (!el) { setTargetRect(null); return }
     const r0 = el.getBoundingClientRect()
     setTargetRect({ top: r0.top, left: r0.left, width: r0.width, height: r0.height })
@@ -137,7 +153,7 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
       setTargetRect({ top: r.top, left: r.left, width: r.width, height: r.height })
     }, prefersReducedMotion ? 0 : 350)
     return () => clearTimeout(t)
-  }, [active, step, tick, prefersReducedMotion])
+  }, [active, step, activeSelector, tick, prefersReducedMotion])
 
   useEffect(() => {
     if (!active) return
@@ -219,43 +235,49 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
 
   if (!active || !step) return null
 
-  // 팝오버 위치 계산
-  const placement: TourPlacement = step.placement ?? (spot ? 'bottom' : 'center')
+  // 팝오버 위치 계산 · 뷰포트별 placement 우선 · 너비 뷰포트-safe
+  // 실제 사용 가능한 팝오버 너비 (좁은 모바일에서 잘림 방지)
+  const availableW = Math.min(POPOVER_MAX_WIDTH, vw - VIEWPORT_PADDING * 2)
+  const maxWidthStyle = `${availableW}px`
+  const placement: TourPlacement = (isMobile && step.placementMobile) ? step.placementMobile
+    : (step.placement ?? (spot ? 'bottom' : 'center'))
+
   const popoverStyle: React.CSSProperties = (() => {
     if (!spot || placement === 'center') {
       return {
         top: '50%', left: '50%',
         transform: mounted ? 'translate(-50%, -50%) scale(1)' : 'translate(-50%, -50%) scale(0.96)',
         opacity: mounted ? 1 : 0,
-        maxWidth: `min(${POPOVER_MAX_WIDTH}px, calc(100vw - ${VIEWPORT_PADDING * 2}px))`,
+        maxWidth: maxWidthStyle,
       }
     }
     const centerX = spot.left + spot.width / 2
+    // clamp: 실제 팝오버 너비 기준으로 left 계산 (뷰포트 초과 방지)
+    const clampedLeft = Math.max(VIEWPORT_PADDING, Math.min(vw - availableW - VIEWPORT_PADDING, centerX - availableW / 2))
+
     const tryPlace = (p: TourPlacement): React.CSSProperties | null => {
       switch (p) {
         case 'bottom': {
           const top = spot.top + spot.height + POPOVER_MARGIN
           if (top + POPOVER_MIN_HEIGHT > vh - VIEWPORT_PADDING) return null
-          const left = Math.max(VIEWPORT_PADDING, Math.min(vw - POPOVER_MAX_WIDTH - VIEWPORT_PADDING, centerX - POPOVER_MAX_WIDTH / 2))
-          return { top, left, maxWidth: `min(${POPOVER_MAX_WIDTH}px, calc(100vw - ${VIEWPORT_PADDING * 2}px))` }
+          return { top, left: clampedLeft, maxWidth: maxWidthStyle }
         }
         case 'top': {
           const bottom = vh - spot.top + POPOVER_MARGIN
           if (bottom + POPOVER_MIN_HEIGHT > vh - VIEWPORT_PADDING) return null
-          const left = Math.max(VIEWPORT_PADDING, Math.min(vw - POPOVER_MAX_WIDTH - VIEWPORT_PADDING, centerX - POPOVER_MAX_WIDTH / 2))
-          return { bottom, left, maxWidth: `min(${POPOVER_MAX_WIDTH}px, calc(100vw - ${VIEWPORT_PADDING * 2}px))` }
+          return { bottom, left: clampedLeft, maxWidth: maxWidthStyle }
         }
         case 'right': {
           const left = spot.left + spot.width + POPOVER_MARGIN
-          if (left + POPOVER_MAX_WIDTH > vw - VIEWPORT_PADDING) return null
+          if (left + availableW > vw - VIEWPORT_PADDING) return null
           const top = Math.max(VIEWPORT_PADDING, Math.min(vh - POPOVER_MIN_HEIGHT - VIEWPORT_PADDING, spot.top + spot.height / 2 - POPOVER_MIN_HEIGHT / 2))
-          return { top, left, maxWidth: `min(${POPOVER_MAX_WIDTH}px, calc(100vw - ${left}px - ${VIEWPORT_PADDING}px))` }
+          return { top, left, maxWidth: `${Math.min(availableW, vw - left - VIEWPORT_PADDING)}px` }
         }
         case 'left': {
           const right = vw - spot.left + POPOVER_MARGIN
-          if (right + POPOVER_MAX_WIDTH > vw - VIEWPORT_PADDING) return null
+          if (right + availableW > vw - VIEWPORT_PADDING) return null
           const top = Math.max(VIEWPORT_PADDING, Math.min(vh - POPOVER_MIN_HEIGHT - VIEWPORT_PADDING, spot.top + spot.height / 2 - POPOVER_MIN_HEIGHT / 2))
-          return { top, right, maxWidth: `min(${POPOVER_MAX_WIDTH}px, calc(100vw - ${right}px - ${VIEWPORT_PADDING}px))` }
+          return { top, right, maxWidth: `${Math.min(availableW, vw - right - VIEWPORT_PADDING)}px` }
         }
         default: return null
       }
@@ -265,7 +287,7 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
     }
     const placed = tryPlace(placement) ?? tryPlace(opposite[placement]) ?? {
       top: '50%', left: '50%',
-      maxWidth: `min(${POPOVER_MAX_WIDTH}px, calc(100vw - ${VIEWPORT_PADDING * 2}px))`,
+      maxWidth: maxWidthStyle,
     }
     return {
       ...placed,
@@ -386,7 +408,7 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
         </div>
 
         <p id="mm-tour-desc" style={{ fontSize: 14, lineHeight: 1.65, color: 'var(--mm-ink-soft)', margin: 0, marginBottom: 14, whiteSpace: 'pre-line' }}>
-          {step.description}
+          {(isMobile && step.descriptionMobile) ? step.descriptionMobile : step.description}
         </p>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
