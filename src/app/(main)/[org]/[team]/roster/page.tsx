@@ -1,17 +1,20 @@
 'use client'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import { sortJerseyNum } from '@/lib/utils'
 import { Plus, Upload, X, Check, Merge, ChevronUp, ChevronDown, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import PlayerCard from '@/components/roster/PlayerCard'
 import PlayerForm from '@/components/roster/PlayerForm'
-import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
-import PlayerMergeModal from '@/components/roster/PlayerMergeModal'
-import PlayerCompareModal from '@/components/roster/PlayerCompareModal'
+
+// 카드 클릭 · 합치기 · 비교 클릭 후에만 필요 — 초기 번들에서 분리
+const PlayerDetailModal = dynamic(() => import('@/components/roster/PlayerDetailModal'), { ssr: false })
+const PlayerMergeModal = dynamic(() => import('@/components/roster/PlayerMergeModal'), { ssr: false })
+const PlayerCompareModal = dynamic(() => import('@/components/roster/PlayerCompareModal'), { ssr: false })
 import { ArrowLeftRight } from 'lucide-react'
 import type { Player } from '@/types/database'
-import * as XLSX from 'xlsx'
+// xlsx 는 업로드/템플릿 다운로드 클릭 시에만 필요 (~412KB) → 초기 번들에서 제거하고 동적 로드
 import { useEditMode } from '@/contexts/EditModeContext'
 import { useTeam } from '@/contexts/TeamContext'
 import { useOrg } from '@/contexts/OrgContext'
@@ -65,7 +68,9 @@ export default function RosterPage() {
     setPlayers(data)
   }
 
-  function downloadTemplate() {
+  async function downloadTemplate() {
+    // xlsx 동적 로드
+    const XLSX = await import('xlsx')
     const headers = ['순번', '생년월일(YYMMDD)', '이름', '등번호', '포지션', '키(cm)', '선출여부(선출/공란)']
     const example = [1, '950315', '홍길동', '23', 'SG', 185, '']
     const ws = XLSX.utils.aoa_to_sheet([headers, example])
@@ -96,8 +101,10 @@ export default function RosterPage() {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       const data = new Uint8Array(ev.target!.result as ArrayBuffer)
+      // xlsx 동적 로드
+      const XLSX = await import('xlsx')
       const wb = XLSX.read(data, { type: 'array' })
       const ws = wb.Sheets[wb.SheetNames[0]]
       const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })

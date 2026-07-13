@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useTheme } from 'next-themes'
@@ -7,8 +8,11 @@ import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEdit
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
 import { Lock, Unlock, Sun, Moon, Search, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Newspaper, HelpCircle } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
-import GlobalSearchModal from '@/components/league/GlobalSearchModal'
-import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+
+// 검색 · 선수 카드는 상호작용 트리거 시점에만 필요 — 초기 번들에서 분리
+// PlayerQuickViewModal(1441줄, recharts 4종 lazy 포함)은 상단 검색 유도 후에만 열림
+const GlobalSearchModal = dynamic(() => import('@/components/league/GlobalSearchModal'), { ssr: false })
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 
 function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: string; leagueId: string; onOpenSearch: () => void; showDraft: boolean }) {
   const pathname = usePathname()

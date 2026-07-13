@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal } from 'lucide-react'
 import { toast } from 'sonner'
@@ -427,7 +428,16 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 title={!isEditMode && photoUrl ? '클릭해서 크게 보기' : undefined}
               >
                 {photoUrl ? (
-                  <img src={photoUrl} alt={player?.name ?? ''} className="w-full h-full object-cover object-top" />
+                  // next/image · 모달은 열림 즉시 표시 → priority (모달 자체가 클릭 후 마운트라 초기 렌더 blocker 아님)
+                  // sizes = 클램프 안된 고정 폭(w-40 sm:w-48) 근사
+                  <Image
+                    src={photoUrl}
+                    alt={player?.name ?? ''}
+                    fill
+                    sizes="(max-width: 640px) 160px, 192px"
+                    priority
+                    className="object-cover object-top"
+                  />
                 ) : (
                   <span className="font-jersey text-5xl sm:text-6xl font-black leading-none text-center" style={{ color: 'var(--mm-ink)' }}>
                     {(player?.name ?? playerName).length > 1
@@ -1409,12 +1419,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         >
           <X size={20} />
         </button>
+        {/* 라이트박스는 확대 원본 표시 → next/image 대신 <img> 유지, decoding 힌트 추가 */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={photoUrl}
           alt={player?.name ?? ''}
           className="max-w-full max-h-full object-contain rounded-none"
           style={{ maxWidth: 'min(90vw, 720px)', maxHeight: '90vh', border: '2px solid var(--mm-black)', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)' }}
           onClick={e => e.stopPropagation()}
+          decoding="async"
         />
         {player?.name && (
           <div

@@ -20,6 +20,7 @@
 
 import { NextResponse } from 'next/server'
 import { computeClutchStats } from '@/lib/stats/clutchStats'
+import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import { computePerDayStats } from '@/lib/stats/perDayStats'
 import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
@@ -71,7 +72,12 @@ export async function GET(
   const quarterId = sp.get('quarterId')
   const supabase = createClient()
 
-  // 1) 시즌 전체 경기일(round · 날짜 기준) 산출 — 분기 지정 시 그 분기만
+  // 1-3) 초기 3종 병렬 실행 — 서로 독립적. 이전엔 순차 실행 + 내부 HTTP 왕복.
+  //      · gameDates: 시즌 라운드 일수 산출 (attendance)
+  //      · players (computeLeagueStats): 이전엔 fetch 로 자기 자신 stats route 호출 → 직접 호출로 왕복 제거
+  //      · playerRows: 게스트 필터 + 사진 맵
+  //      · clutchSplits: 클러치 스탯 (MVP + CLUTCH 카테고리)
+  //      · dayWL: 팀 승률 (MVP 보너스)
   let dateQuery = supabase
     .from('league_games')
     .select('date, quarter_id')
@@ -79,32 +85,29 @@ export async function GET(
     .eq('is_started', true)
     .eq('is_exhibition', false)
   if (quarterId) dateQuery = dateQuery.eq('quarter_id', quarterId)
-  const { data: gameDates } = await dateQuery
+
+  const [
+    { data: gameDates },
+    statsResult,
+    { data: playerRows },
+    clutchSplits,
+    perDayResult,
+  ] = await Promise.all([
+    dateQuery,
+    computeLeagueStats(supabase, leagueId, { quarterId: quarterId ?? null, unit: 'round' }),
+    supabase.from('league_players').select('id, is_guest, photo_url').eq('league_id', leagueId),
+    computeClutchStats(supabase, leagueId, quarterId ? { quarterId } : undefined),
+    computePerDayStats(supabase, leagueId, quarterId ? { quarterId } : {}),
+  ])
+
   const uniqueDates = new Set<string>()
   for (const g of (gameDates ?? []) as { date: string; quarter_id: string | null }[]) uniqueDates.add(g.date)
   const totalRounds = uniqueDates.size
   const requiredRounds = Math.max(1, Math.ceil(totalRounds * ATTENDANCE_THRESHOLD))
   const attendance: AttendanceInfo = { totalRounds, requiredRounds, threshold: ATTENDANCE_THRESHOLD }
 
-  // 2) 리그 스탯 조회 (unit=round → gp 가 참여 경기일 수) — 분기 필터 전파
-  const origin = new URL(req.url).origin
-  const statsUrl = quarterId
-    ? `${origin}/api/leagues/${leagueId}/stats?unit=round&quarterId=${encodeURIComponent(quarterId)}`
-    : `${origin}/api/leagues/${leagueId}/stats?unit=round`
-  const statsRes = await fetch(statsUrl, {
-    headers: { cookie: req.headers.get('cookie') ?? '' },
-    cache: 'no-store',
-  })
-  const statsJson = await statsRes.json() as { players?: PlayerStat[] }
-  const players = statsJson.players ?? []
+  const players = statsResult.players
 
-  // 2-1) 게스트 선수 ID + 프로필 사진 조회 (한 번의 조회로 통합)
-  //      게스트: 60% 출석 필터를 통과해도 게스트는 MVP·수상 대상이 아님
-  //      photo_url: WINNER 카드 우측 프로필 노출용
-  const { data: playerRows } = await supabase
-    .from('league_players')
-    .select('id, is_guest, photo_url')
-    .eq('league_id', leagueId)
   const guestIds = new Set<string>()
   const photoMap = new Map<string, string | null>()
   for (const r of (playerRows ?? []) as { id: string; is_guest: boolean | null; photo_url: string | null }[]) {
@@ -115,13 +118,8 @@ export async function GET(
   // 자격자: gp (=참여 경기일) >= requiredRounds && 게스트 아님
   const eligible = players.filter(p => p.gp >= requiredRounds && !guestIds.has(p.player_id))
 
-  // 3) 클러치 스탯 조회 (분기 필터 전파)
-  const clutchSplits = await computeClutchStats(supabase, leagueId, quarterId ? { quarterId } : undefined)
   const clutchMap = new Map(clutchSplits.map(s => [s.player_id, s]))
-
-  // 3-1) 팀 승률 (MVP 팀 승리 기여도 계산용) — 분기 필터 전파
-  //      quarterId 지정 시 그 분기 게임의 W/L 만 반영
-  const { dayWL } = await computePerDayStats(supabase, leagueId, quarterId ? { quarterId } : {})
+  const { dayWL } = perDayResult
   const teamWinRateByPlayer = new Map<string, { wins: number; losses: number; rate: number }>()
   for (const [pid, byDate] of dayWL) {
     let wins = 0, losses = 0
@@ -475,15 +473,11 @@ export async function GET(
     const prevQ = targetIdx >= 1 ? qList[targetIdx - 1] : null
 
     if (targetQ && prevQ) {
+      // 이전엔 origin 을 통한 self-fetch 2회. 여기선 computeLeagueStats 를 직접 호출 →
+      // HTTP 왕복 · 쿠키 파싱 · JSON round-trip 제거. 병렬은 그대로.
       const [targetStats, prevStats] = await Promise.all([
-        fetch(`${origin}/api/leagues/${leagueId}/stats?unit=round&quarterId=${targetQ.id}`, {
-          headers: { cookie: req.headers.get('cookie') ?? '' },
-          cache: 'no-store',
-        }).then(r => r.ok ? r.json() : { players: [] }),
-        fetch(`${origin}/api/leagues/${leagueId}/stats?unit=round&quarterId=${prevQ.id}`, {
-          headers: { cookie: req.headers.get('cookie') ?? '' },
-          cache: 'no-store',
-        }).then(r => r.ok ? r.json() : { players: [] }),
+        computeLeagueStats(supabase, leagueId, { quarterId: targetQ.id, unit: 'round' }),
+        computeLeagueStats(supabase, leagueId, { quarterId: prevQ.id, unit: 'round' }),
       ])
 
       const targetByPid = new Map<string, PlayerStat>()

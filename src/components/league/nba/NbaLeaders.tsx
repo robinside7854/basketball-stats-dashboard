@@ -6,7 +6,11 @@
 // 사진 없으면 이니셜 fallback. 클릭 시 PlayerQuickView.
 
 import { useEffect, useState } from 'react'
-import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+import dynamic from 'next/dynamic'
+import Image from 'next/image'
+
+// 리더 카드 클릭 시에만 열리는 모달 — 초기 홈 번들에서 분리
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import type { PlayerStat } from '@/types/league'
 
@@ -176,7 +180,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
 
                           {/* 프로필 사진 or 이니셜 (원형) - 1위 더 큼 */}
                           <span
-                            className="rounded-full overflow-hidden flex items-center justify-center shrink-0"
+                            className="rounded-full overflow-hidden flex items-center justify-center shrink-0 relative"
                             style={{
                               width: avatarSize,
                               height: avatarSize,
@@ -185,7 +189,14 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                             }}
                           >
                             {photo ? (
-                              <img src={photo} alt={p.name} className="w-full h-full object-cover object-top" />
+                              // next/image · 리더보드는 below-fold → 기본 lazy · sizes = 최대 72px
+                              <Image
+                                src={photo}
+                                alt={p.name}
+                                fill
+                                sizes="(max-width: 640px) 15vw, 72px"
+                                className="object-cover object-top"
+                              />
                             ) : (
                               <span
                                 className="font-jersey font-black"

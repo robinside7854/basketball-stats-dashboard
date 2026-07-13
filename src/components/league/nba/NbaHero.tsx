@@ -10,7 +10,11 @@
 // 우: 큰 숫자(총 득점) + 라운드별 세로 막대 차트 + 3열 지표
 
 import { useState } from 'react'
-import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+import dynamic from 'next/dynamic'
+import Image from 'next/image'
+
+// 히어로 CTA(플레이어 이름/아바타) 클릭 시에만 열리는 모달 — 초기 홈 번들에서 분리
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 
 export type NbaHeroData = {
   playerId: string
@@ -61,6 +65,9 @@ type Props = {
   leagueId: string
   headline?: string           // 자동 생성 스토리 코멘트 (뉴스 헤드라인 톤)
   breakdown?: HeroBreakdown   // 지표 브레이크다운 · 우세 카테고리 강조
+  // Above-fold 최적화 · 캐러셀 첫 슬라이드에서만 true(LCP 후보)
+  // priority=true 시 next/image priority + preload, false 는 lazy 로드
+  priority?: boolean
 }
 
 function initials(name: string): string {
@@ -261,7 +268,7 @@ function metricLabelFor(category: RoundCategory): {
   }
 }
 
-export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdown }: Props) {
+export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdown, priority = false }: Props) {
   const [openQuickView, setOpenQuickView] = useState(false)
   if (!data) return null
   const showTrend = (data.roundSeries?.length ?? 0) >= 2
@@ -369,7 +376,7 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
           {/* 아바타 + 이름 — 대형화 (여백 최소) */}
           <div className="flex items-center gap-4 sm:gap-6">
             <div
-              className="shrink-0 rounded-full overflow-hidden flex items-center justify-center font-jersey font-black transition-transform duration-200 group-hover/hero:scale-[1.03]"
+              className="shrink-0 rounded-full overflow-hidden flex items-center justify-center font-jersey font-black transition-transform duration-200 group-hover/hero:scale-[1.03] relative"
               style={{
                 width: 'clamp(80px, 22vw, 140px)',
                 height: 'clamp(80px, 22vw, 140px)',
@@ -380,7 +387,16 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
               }}
             >
               {data.photoUrl ? (
-                <img src={data.photoUrl} alt={data.name} className="w-full h-full object-cover object-top" />
+                // next/image · LCP 후보(첫 슬라이드) 만 priority · 나머지는 lazy
+                // sizes = 컨테이너 clamp(80px, 22vw, 140px) 근사 → 옵티마이저가 3배 밀도 대응
+                <Image
+                  src={data.photoUrl}
+                  alt={data.name}
+                  fill
+                  sizes="(max-width: 640px) 22vw, 140px"
+                  priority={priority}
+                  className="object-cover object-top"
+                />
               ) : (
                 <span>{initials(data.name)}</span>
               )}

@@ -105,7 +105,8 @@ export default function PlayerForm({ player, teamType, org = 'paranalgae', onClo
               className="relative w-20 h-20 rounded-full bg-gray-800 overflow-hidden flex items-center justify-center group border-2 border-gray-700 hover:border-blue-500 transition-colors"
             >
               {photoUrl
-                ? <img src={photoUrl} alt="프로필" className="w-full h-full object-cover" />
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={photoUrl} alt="프로필" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                 : <span className="text-2xl font-bold text-blue-400">{form.number || '?'}</span>
               }
               <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">

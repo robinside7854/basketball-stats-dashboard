@@ -28,7 +28,8 @@ export default function PlayerCard({ player, onEdit, onDelete, onDetail }: Props
         {/* 좌측 4:5 이미지 */}
         <div className="w-24 shrink-0 bg-gray-800 overflow-hidden flex items-center justify-center" style={{ aspectRatio: '4/5' }}>
           {player.photo_url
-            ? <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover" />
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
             : <span className="text-6xl font-black text-blue-400">{player.number}</span>
           }
         </div>

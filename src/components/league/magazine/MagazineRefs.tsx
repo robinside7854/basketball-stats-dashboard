@@ -11,8 +11,10 @@
 //   GameRef   → /boxscore/{date} 페이지 이동
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { CalendarDays } from 'lucide-react'
-import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 

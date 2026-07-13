@@ -1,9 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { sortJerseyNum } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import HalfCourtChart from '@/components/roster/HalfCourtChart'
+
+const PlayerDetailModal = dynamic(() => import('@/components/roster/PlayerDetailModal'), { ssr: false })
 import type { Tournament, PlayerBoxScore } from '@/types/database'
 
 interface AssistPlayer { id: string; name: string; number: string }

@@ -1,10 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useTeam, TEAM_LABELS } from '@/contexts/TeamContext'
 import { useOrg } from '@/contexts/OrgContext'
-import GameBoxScoreModal from '@/components/GameBoxScoreModal'
-import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
+
+const GameBoxScoreModal = dynamic(() => import('@/components/GameBoxScoreModal'), { ssr: false })
+const PlayerDetailModal = dynamic(() => import('@/components/roster/PlayerDetailModal'), { ssr: false })
 
 interface RecentGame {
   id: string

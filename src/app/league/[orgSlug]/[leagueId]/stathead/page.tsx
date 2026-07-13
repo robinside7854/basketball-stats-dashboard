@@ -11,10 +11,12 @@
 //   /league/miracle/{id}/stathead?filters=ppg_gte_15,fg3_pct_gte_30&sort=ppg_desc&minGp=5
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
+import dynamic from 'next/dynamic'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
-import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
+
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { Plus, X, Sparkles, RotateCcw, ArrowDown, ArrowUp } from 'lucide-react'
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }

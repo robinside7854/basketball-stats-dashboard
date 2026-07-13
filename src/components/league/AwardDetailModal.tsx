@@ -1,8 +1,11 @@
 'use client'
 import { useEffect, useMemo } from 'react'
 import { X, Crown, ChevronRight } from 'lucide-react'
-import PlayerQuickViewModal from './PlayerQuickViewModal'
+import dynamic from 'next/dynamic'
 import { useState } from 'react'
+
+// 후보 클릭 시에만 열리는 모달 — 초기 번들에서 분리
+const PlayerQuickViewModal = dynamic(() => import('./PlayerQuickViewModal'), { ssr: false })
 import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 export interface AwardCandidate {

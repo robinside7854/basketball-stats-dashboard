@@ -2,7 +2,9 @@
 import { useEffect, useState } from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import type { LeaguePlayer } from '@/types/league'
-import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+import dynamic from 'next/dynamic'
+
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 
 type PlayerStat = {
   player_id: string

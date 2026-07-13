@@ -5,8 +5,11 @@
 // 확대 디자인: 사진 대형·이름 굵게·기록 초대형으로 주목도 극대화.
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { Trophy, Shield, Sparkles, Zap, Target, Crown, Flame, CheckCircle2 } from 'lucide-react'
-import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+import dynamic from 'next/dynamic'
+
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 
 type CategoryKey = 'PTS' | 'REB' | 'AST' | 'STL' | 'BLK' | 'FG3M' | 'FGA' | 'FGM'
@@ -180,7 +183,7 @@ export default function NbaSeasonHighs({ leagueId, quarterId }: Props) {
                   <div className="flex items-center gap-3 mb-3">
                     {h.player.photo_url ? (
                       <div
-                        className="shrink-0 overflow-hidden group-hover:brightness-105 transition-all"
+                        className="shrink-0 overflow-hidden group-hover:brightness-105 transition-all relative"
                         style={{
                           width: 'clamp(72px, 18vw, 96px)',
                           aspectRatio: '3 / 4',
@@ -190,11 +193,13 @@ export default function NbaSeasonHighs({ leagueId, quarterId }: Props) {
                           boxShadow: '3px 3px 0 rgba(0,0,0,0.30)',
                         }}
                       >
-                        <img
+                        {/* next/image · below-fold(스크롤 후) → 기본 lazy · sizes = 컨테이너 실제 폭 */}
+                        <Image
                           src={h.player.photo_url}
                           alt=""
-                          className="w-full h-full object-cover object-top"
-                          loading="lazy"
+                          fill
+                          sizes="(max-width: 640px) 18vw, 96px"
+                          className="object-cover object-top"
                         />
                       </div>
                     ) : (

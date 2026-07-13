@@ -79,18 +79,7 @@ export async function GET(
   const quarterId = sp.get('quarterId')
   const supabase = createClient()
 
-  // 1) 선수 메타
-  const { data: playerRows } = await supabase
-    .from('league_players')
-    .select('id, name, number, position, photo_url, plus_one, is_guest')
-    .eq('league_id', leagueId)
-
-  const players = (playerRows ?? []) as PlayerRow[]
-  const plusOneSet = new Set(players.filter(p => p.plus_one).map(p => p.id))
-  const playerMeta = new Map<string, PlayerRow>()
-  for (const p of players) playerMeta.set(p.id, p)
-
-  // 2) 게임 조회 (친선전 제외 · is_started=true)
+  // 1-3) 선수 메타 · 게임 · 분기 메타 병렬 실행 — 서로 독립적.
   let gQuery = supabase
     .from('league_games')
     .select('id, date, quarter_id, plus_one_player_id')
@@ -98,19 +87,30 @@ export async function GET(
     .eq('is_started', true)
     .eq('is_exhibition', false)
   if (quarterId) gQuery = gQuery.eq('quarter_id', quarterId)
-  const { data: gamesRaw } = await gQuery
-  const games = (gamesRaw ?? []) as GameRow[]
 
-  // 3) 분기 메타
-  let quarterInfo: { id: string; year: number; quarter: number } | null = null
-  if (quarterId) {
-    const { data: q } = await supabase
-      .from('league_quarters')
-      .select('id, year, quarter')
-      .eq('id', quarterId)
-      .single()
-    if (q) quarterInfo = q as { id: string; year: number; quarter: number }
-  }
+  const quarterMetaQuery = quarterId
+    ? supabase.from('league_quarters').select('id, year, quarter').eq('id', quarterId).single()
+    : Promise.resolve({ data: null } as { data: { id: string; year: number; quarter: number } | null })
+
+  const [
+    { data: playerRows },
+    { data: gamesRaw },
+    quarterMetaRes,
+  ] = await Promise.all([
+    supabase
+      .from('league_players')
+      .select('id, name, number, position, photo_url, plus_one, is_guest')
+      .eq('league_id', leagueId),
+    gQuery,
+    quarterMetaQuery,
+  ])
+
+  const players = (playerRows ?? []) as PlayerRow[]
+  const plusOneSet = new Set(players.filter(p => p.plus_one).map(p => p.id))
+  const playerMeta = new Map<string, PlayerRow>()
+  for (const p of players) playerMeta.set(p.id, p)
+  const games = (gamesRaw ?? []) as GameRow[]
+  const quarterInfo = (quarterMetaRes?.data ?? null) as { id: string; year: number; quarter: number } | null
 
   const gameIds = games.map(g => g.id)
   if (gameIds.length === 0) {

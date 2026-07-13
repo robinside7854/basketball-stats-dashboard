@@ -2,7 +2,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import { Loader2, Trash2, Pencil, Check, X, RotateCcw } from 'lucide-react'
-import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
+import dynamic from 'next/dynamic'
+
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { useGameStore } from '@/store/gameStore'
 
 type RosterPlayer = { id: string; name: string; number?: number | null; team_id?: string }

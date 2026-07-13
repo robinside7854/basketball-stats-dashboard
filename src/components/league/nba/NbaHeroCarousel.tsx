@@ -211,6 +211,8 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
               rangeLabel={`${e.label} 라운드`}
               leagueId={leagueId}
               headline={aiHeadlines[e.date] ?? e.breakdown.headline}
+              // 첫 슬라이드는 above-fold LCP 후보 → next/image priority · 나머지는 lazy
+              priority={idx === 0}
               breakdown={{
                 ts_pct: e.breakdown.ts_pct,
                 reb: e.breakdown.reb,

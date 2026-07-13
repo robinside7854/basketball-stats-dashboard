@@ -1,7 +1,9 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { Flame, TrendingUp, TrendingDown, Minus } from 'lucide-react'
-import PlayerQuickViewModal from './PlayerQuickViewModal'
+import dynamic from 'next/dynamic'
+
+const PlayerQuickViewModal = dynamic(() => import('./PlayerQuickViewModal'), { ssr: false })
 
 interface StatBlock {
   pts: number; reb: number; ast: number; stl: number; blk: number; tov: number

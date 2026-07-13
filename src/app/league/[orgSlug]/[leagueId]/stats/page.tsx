@@ -4,10 +4,12 @@ import dynamic from 'next/dynamic'
 import { useParams, useSearchParams } from 'next/navigation'
 import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
-import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
-import PlayerCompareModal from '@/components/league/PlayerCompareModal'
 import LeagueDuoPanel from '@/components/league/LeagueDuoPanel'
 import NbaSeasonHighs from '@/components/league/nba/NbaSeasonHighs'
+
+// 상호작용 트리거 후에만 필요 — 초기 번들에서 분리
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
+const PlayerCompareModal = dynamic(() => import('@/components/league/PlayerCompareModal'), { ssr: false })
 import StatHeader from '@/components/league/StatHeader'
 import { PercentBar } from '@/components/league/StatCell'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'

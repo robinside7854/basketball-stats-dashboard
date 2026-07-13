@@ -793,51 +793,110 @@ const getCachedQuarterStandings = (leagueId: string) =>
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
   )
 
+// B2 확장: 리더/스트릭/마일스톤/포토맵도 캐시.
+//   - 홈 SSR 프리페치 대상. 모든 캐시는 mutation route(events/games/players 등)의
+//     `revalidateTag('league-${leagueId}[-games]')` 로 무효화됨.
+//   - TTL 60s 상한. 편집 즉시 반영은 태그 무효화로 보장.
+const getCachedLeaderStats = (leagueId: string) =>
+  unstable_cache(
+    async () => {
+      const sb = createClient()
+      return computeLeagueStats(sb, leagueId, { unit: 'round' })
+    },
+    ['home-leader-stats', leagueId],
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+  )
+
+const getCachedStreaks = (leagueId: string) =>
+  unstable_cache(
+    async () => {
+      const sb = createClient()
+      return computeStreaks(sb, leagueId, { minStreak: 2 })
+    },
+    ['home-streaks', leagueId],
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+  )
+
+const getCachedMilestones = (leagueId: string) =>
+  unstable_cache(
+    async () => {
+      const sb = createClient()
+      return computeMilestones(sb, leagueId, { horizonDays: 30, maxUpcoming: 6, maxRecent: 6 })
+    },
+    ['home-milestones', leagueId],
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+  )
+
+// 사진 맵: `league` 태그만 무효화하면 됨(경기 편집으로 안 바뀜)
+const getCachedPhotoMap = (leagueId: string) =>
+  unstable_cache(
+    async (): Promise<Record<string, string | null>> => {
+      const sb = createClient()
+      const { data } = await sb
+        .from('league_players')
+        .select('id, photo_url')
+        .eq('league_id', leagueId)
+      const map: Record<string, string | null> = {}
+      for (const p of (data ?? []) as { id: string; photo_url: string | null }[]) {
+        map[p.id] = p.photo_url
+      }
+      return map
+    },
+    ['home-photo-map', leagueId],
+    { tags: [`league-${leagueId}`], revalidate: 60 },
+  )
+
+// 리그 메타 조회: `leagues` 자체 변경(status/name)만 무효화.
+// 경기 편집으로는 안 바뀌지만 안전하게 league 태그에 묶어둔다.
+const getCachedLeagueMeta = (leagueId: string, orgSlug: string) =>
+  unstable_cache(
+    async () => {
+      const sb = createClient()
+      const [{ data: league }, { data: allLeagues }] = await Promise.all([
+        sb.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single(),
+        sb.from('leagues').select('id, name, status, season_year').eq('org_slug', orgSlug).order('created_at', { ascending: false }),
+      ])
+      return { league, allLeagues }
+    },
+    ['home-league-meta', leagueId, orgSlug],
+    { tags: [`league-${leagueId}`], revalidate: 60 },
+  )
+
 export default async function LeagueDetailPage({
   params,
 }: {
   params: Promise<{ orgSlug: string; leagueId: string }>
 }) {
   const { orgSlug, leagueId } = await params
-  const supabase = createClient()
 
-  // B1: 홈 하이드레이션 후 4개 fetch 폭발 제거를 위한 SSR 프리페치.
-  //   - 기존: 리더/스트릭/마일스톤 3개 컴포넌트가 mount 후 각자 fetch → waterfall
-  //   - 개선: 서버에서 미리 계산 후 initial props 로 전달 → 초기 HTML 에 데이터 포함
-  //   - stats/players fetch 는 NbaLeaders 용 (`unit=round` + photo_url map)
+  // B2 확장: 리그 메타 + 홈 프리페치 7종을 모두 `unstable_cache` 로 감싸 병렬 실행.
+  //   - 재방문 시 캐시 히트 → SSR 시간 대부분 제거.
+  //   - 캐시 미스 시에도 Promise.all 로 병렬 → 순차 waterfall 없음.
+  //   - 편집 API(events/games/players/quarters 등)가 `revalidateTag('league-${leagueId}[-games]')`
+  //     로 무효화하므로 편집 반영 최대 지연은 순간(태그 무효화 후 다음 요청).
   const [
-    { data: league },
-    { data: allLeagues },
+    { league, allLeagues },
     weeklyPOTW,
     recentRounds,
     quarterStandings,
     leaderStats,
-    leaguePlayers,
+    initialPhotoMap,
     streaksData,
     milestonesData,
   ] = await Promise.all([
-    supabase.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single(),
-    supabase.from('leagues').select('id, name, status, season_year').eq('org_slug', orgSlug).order('created_at', { ascending: false }),
-    // B2 캐시 적용 3종
-    getCachedWeeklyPOTW(leagueId, 4)(),                              // 최근 4주 라운드별 POTW (슬라이드)
+    getCachedLeagueMeta(leagueId, orgSlug)(),
+    getCachedWeeklyPOTW(leagueId, 4)(),
     getCachedRecentRounds(leagueId, 4)(),
     getCachedQuarterStandings(leagueId)(),
-    // B1 신규 SSR 프리페치 (현 세션에선 캐시 미적용 — 후속 iteration)
-    computeLeagueStats(supabase, leagueId, { unit: 'round' }),        // NbaLeaders 초기 데이터
-    supabase.from('league_players').select('id, photo_url').eq('league_id', leagueId),
-    computeStreaks(supabase, leagueId, { minStreak: 2 }),
-    computeMilestones(supabase, leagueId, { horizonDays: 30, maxUpcoming: 6, maxRecent: 6 }),
+    getCachedLeaderStats(leagueId)(),
+    getCachedPhotoMap(leagueId)(),
+    getCachedStreaks(leagueId)(),
+    getCachedMilestones(leagueId)(),
   ])
 
   if (!league) notFound()
 
   const l = league as League
-
-  // B1: photoMap 구성 — NbaLeaders 가 player_id → photo_url 형식으로 사용
-  const initialPhotoMap: Record<string, string | null> = {}
-  for (const p of (leaguePlayers.data ?? []) as { id: string; photo_url: string | null }[]) {
-    initialPhotoMap[p.id] = p.photo_url
-  }
 
   const statusColor: Record<string, string> = {
     upcoming: 'bg-yellow-900/40 text-yellow-400',

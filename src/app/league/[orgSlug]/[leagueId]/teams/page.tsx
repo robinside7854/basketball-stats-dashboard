@@ -1,12 +1,14 @@
 'use client'
 import LeagueSubTabs from '@/components/league/LeagueSubTabs'
 import { useState, useEffect, useMemo } from 'react'
+import dynamic from 'next/dynamic'
 import { useParams } from 'next/navigation'
 import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import Link from 'next/link'
-import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import TeamInsights from '@/components/league/TeamInsights'
+
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { PercentBar } from '@/components/league/StatCell'
 import type { Quarter, PlayerStat, Leader } from '@/types/league'
 

@@ -153,7 +153,8 @@ export default function PlayerDetailPage() {
             title="클릭하여 사진 변경"
           >
             {player.photo_url
-              ? <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover" />
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
               : <span className="text-3xl font-black text-blue-400">{player.number}</span>
             }
             <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">

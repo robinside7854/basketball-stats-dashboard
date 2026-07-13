@@ -5,9 +5,13 @@
 // ?tour=1 쿼리 감지: 다른 페이지에서 물음표 버튼 클릭 → 홈으로 이동 후 자동 실행
 
 import { useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
-import LeagueTour from './LeagueTour'
 import { HOME_TOUR_STEPS } from './tour/tourSteps'
+
+// LeagueTour(495줄, gsap 3.15 ~70KB) 는 첫방문 자동 실행 · 튜어 열기 트리거 시점에만 필요
+// → 홈 초기 번들에서 완전히 제외
+const LeagueTour = dynamic(() => import('./LeagueTour'), { ssr: false })
 
 export default function LeagueTourTrigger() {
   const sp = useSearchParams()

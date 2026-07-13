@@ -336,7 +336,8 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                             onClick={() => !uploading && fileRef.current?.click()}
                           >
                             {player.photo_url
-                              ? <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover object-top" />
+                              // eslint-disable-next-line @next/next/no-img-element
+                              ? <img src={player.photo_url} alt={player.name} className="w-full h-full object-cover object-top" loading="lazy" decoding="async" />
                               : <div className="w-full h-full flex items-center justify-center"><span className="text-7xl font-black text-blue-300/30">{player.number}</span></div>
                             }
                             <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-1">

@@ -1,6 +1,8 @@
 'use client'
 import LeagueSubTabs from '@/components/league/LeagueSubTabs'
 import { useState, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
+import Image from 'next/image'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
@@ -8,8 +10,9 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, X, Users } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
-import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
 import EmptyState from '@/components/league/EmptyState'
+
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { LeaderBadgeInline } from '@/components/league/LeaderBadgePanel'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
@@ -789,9 +792,16 @@ export default function LeagueRosterPage() {
 
                 <div className="p-2.5 pl-3.5 lg:p-3 lg:pl-4 flex gap-2.5 lg:gap-3">
                   {/* 4:5 썸네일 — 프로 선수 프로필처럼 크게 (모바일에선 이름 여유 확보를 위해 축소) */}
-                  <div className="shrink-0 w-24 h-[120px] sm:w-32 sm:h-[160px] lg:w-40 lg:h-[200px] rounded-sm overflow-hidden border border-[var(--mm-rule)] flex items-center justify-center bg-[var(--mm-panel-alt)]">
+                  <div className="shrink-0 w-24 h-[120px] sm:w-32 sm:h-[160px] lg:w-40 lg:h-[200px] rounded-sm overflow-hidden border border-[var(--mm-rule)] flex items-center justify-center bg-[var(--mm-panel-alt)] relative">
                     {p.photo_url ? (
-                      <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover object-top" />
+                      // next/image · 로스터 그리드는 대량(30+명) → 기본 lazy · sizes 반응형
+                      <Image
+                        src={p.photo_url}
+                        alt={p.name}
+                        fill
+                        sizes="(max-width: 640px) 96px, (max-width: 1024px) 128px, 160px"
+                        className="object-cover object-top"
+                      />
                     ) : (
                       <span className="font-jersey text-2xl lg:text-3xl font-black text-[var(--mm-muted)] leading-none text-center px-0.5 uppercase">
                         {p.name.length > 1 ? p.name.slice(1) : p.name}

@@ -1,13 +1,17 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
+import Image from 'next/image'
 import { useParams } from 'next/navigation'
 import { Trophy, Crown, Flame, Shield, Zap, Target, TrendingUp, Sparkles, Award, Hand, Crosshair, Heart } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
-import PlayerQuickViewModal from '@/components/league/PlayerQuickViewModal'
-import AwardDetailModal from '@/components/league/AwardDetailModal'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
-import { gsap } from 'gsap'
+
+// gsap · PlayerQuickView · AwardDetail 은 카드 클릭 후 실행되는 인터랙션 — 초기 번들에서 분리
+// gsap 3.15 은 ~70KB, PlayerQuickView 는 1441줄 (recharts 4종 내부 lazy)
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
+const AwardDetailModal = dynamic(() => import('@/components/league/AwardDetailModal'), { ssr: false })
 
 type AwardCategory =
   | 'MVP' | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY'
@@ -136,48 +140,58 @@ export default function AwardsPage() {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (prefersReduced) return
 
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
-      // 1) 상단 리본 좌→우 확장
-      tl.from('[data-award-ribbon]', {
-        scaleX: 0,
-        transformOrigin: 'left center',
-        duration: 0.6,
-        stagger: 0.06,
-      })
-      // 2) 카드 본체 y 슬라이드 + 페이드
-      tl.from('[data-award-card]', {
-        y: 28,
-        autoAlpha: 0,
-        duration: 0.65,
-        stagger: { each: 0.07, from: 'start' },
-      }, '-=0.4')
-      // 3) Winner 크라운 아이콘 스케일 back-out (트로피 등장감)
-      tl.from('[data-award-crown]', {
-        scale: 0.35,
-        rotate: -12,
-        autoAlpha: 0,
-        duration: 0.55,
-        ease: 'back.out(1.7)',
-        stagger: 0.07,
-      }, '-=0.55')
-      // 4) Winner 이름 y 슬라이드
-      tl.from('[data-award-winner-name]', {
-        y: 14,
-        autoAlpha: 0,
-        duration: 0.5,
-        stagger: 0.06,
-      }, '-=0.5')
-      // 5) Winner 값 숫자 y + 페이드
-      tl.from('[data-award-winner-value]', {
-        y: 10,
-        autoAlpha: 0,
-        duration: 0.45,
-        stagger: 0.06,
-      }, '-=0.4')
-    }, gridRef)
+    // gsap (~70KB) 을 어워즈 페이지 초기 번들에서 제외 — 카드 진입 애니메이션은 mount 후 lazy 로드
+    let cleanup: (() => void) | undefined
+    let cancelled = false
+    import('gsap').then(({ gsap }) => {
+      if (cancelled) return
+      const ctx = gsap.context(() => {
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
+        // 1) 상단 리본 좌→우 확장
+        tl.from('[data-award-ribbon]', {
+          scaleX: 0,
+          transformOrigin: 'left center',
+          duration: 0.6,
+          stagger: 0.06,
+        })
+        // 2) 카드 본체 y 슬라이드 + 페이드
+        tl.from('[data-award-card]', {
+          y: 28,
+          autoAlpha: 0,
+          duration: 0.65,
+          stagger: { each: 0.07, from: 'start' },
+        }, '-=0.4')
+        // 3) Winner 크라운 아이콘 스케일 back-out (트로피 등장감)
+        tl.from('[data-award-crown]', {
+          scale: 0.35,
+          rotate: -12,
+          autoAlpha: 0,
+          duration: 0.55,
+          ease: 'back.out(1.7)',
+          stagger: 0.07,
+        }, '-=0.55')
+        // 4) Winner 이름 y 슬라이드
+        tl.from('[data-award-winner-name]', {
+          y: 14,
+          autoAlpha: 0,
+          duration: 0.5,
+          stagger: 0.06,
+        }, '-=0.5')
+        // 5) Winner 값 숫자 y + 페이드
+        tl.from('[data-award-winner-value]', {
+          y: 10,
+          autoAlpha: 0,
+          duration: 0.45,
+          stagger: 0.06,
+        }, '-=0.4')
+      }, gridRef)
+      cleanup = () => ctx.revert()
+    })
 
-    return () => ctx.revert()
+    return () => {
+      cancelled = true
+      cleanup?.()
+    }
   }, [awards, loading])
 
   const groupTabs = [
@@ -442,7 +456,7 @@ export default function AwardsPage() {
                       </div>
                       {a.winner.photo_url && (
                         <div
-                          className="shrink-0 overflow-hidden"
+                          className="shrink-0 overflow-hidden relative"
                           style={{
                             width: 'clamp(64px, 18vw, 108px)',
                             aspectRatio: '3 / 4',
@@ -452,11 +466,13 @@ export default function AwardsPage() {
                             boxShadow: '2px 2px 0 rgba(0,0,0,0.35)',
                           }}
                         >
-                          <img
+                          {/* next/image · 어워드 위너 카드는 below-fold 다수 → 기본 lazy */}
+                          <Image
                             src={a.winner.photo_url}
                             alt={a.winner.name}
-                            className="w-full h-full object-cover object-top"
-                            loading="lazy"
+                            fill
+                            sizes="(max-width: 640px) 18vw, 108px"
+                            className="object-cover object-top"
                           />
                         </div>
                       )}

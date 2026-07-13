@@ -1,10 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { sortJerseyNum } from '@/lib/utils'
 import { useTeam } from '@/contexts/TeamContext'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
+
+const PlayerDetailModal = dynamic(() => import('@/components/roster/PlayerDetailModal'), { ssr: false })
 import type { Tournament, Game, PlayerBoxScore } from '@/types/database'
 import SubTabNav from '@/components/layout/SubTabNav'
 

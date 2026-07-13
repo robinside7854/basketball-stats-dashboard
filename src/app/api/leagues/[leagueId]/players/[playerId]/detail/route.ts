@@ -107,35 +107,56 @@ export async function GET(
   }
 
   // 서버측 db-max-rows(=1000) 우회 위해 페이지네이션 청크 조회.
+  // playerEvents · assistEvents · allEvents 3종은 서로 독립적이므로 병렬 실행.
   const CHUNK = 1000
-  const playerEvents: { league_game_id: string; type: string; result: string | null; points: number | null; team_id: string | null }[] = []
-  for (let pg = 0; ; pg++) {
-    const { data: chunk } = await supabase
-      .from('league_game_events')
-      .select('league_game_id, type, result, points, team_id')
-      .in('league_game_id', gameIds)
-      .eq('league_player_id', playerId)
-      .order('id', { ascending: true })
-      .range(pg * CHUNK, (pg + 1) * CHUNK - 1)
-    if (!chunk || chunk.length === 0) break
-    playerEvents.push(...(chunk as typeof playerEvents))
-    if (chunk.length < CHUNK) break
+  type PlayerEventRow = { league_game_id: string; type: string; result: string | null; points: number | null; team_id: string | null }
+  type AssistEventRow = { league_game_id: string; team_id: string | null }
+  type AllEventRow = { league_player_id: string | null; league_game_id: string; related_player_id: string | null; type: string; result: string | null; points: number | null; team_id: string | null }
+
+  const fetchPaged = async <T,>(
+    build: (from: number, to: number) => PromiseLike<{ data: T[] | null }>,
+  ): Promise<T[]> => {
+    const out: T[] = []
+    for (let pg = 0; ; pg++) {
+      const { data: chunk } = await build(pg * CHUNK, (pg + 1) * CHUNK - 1)
+      if (!chunk || chunk.length === 0) break
+      out.push(...chunk)
+      if (chunk.length < CHUNK) break
+    }
+    return out
   }
-  const assistEvents: { league_game_id: string; team_id: string | null }[] = []
-  for (let pg = 0; ; pg++) {
-    const { data: chunk } = await supabase
-      .from('league_game_events')
-      .select('league_game_id, team_id')
-      .in('league_game_id', gameIds)
-      .eq('related_player_id', playerId)
-      .eq('result', 'made')
-      .in('type', SHOT_TYPES)
-      .order('id', { ascending: true })
-      .range(pg * CHUNK, (pg + 1) * CHUNK - 1)
-    if (!chunk || chunk.length === 0) break
-    assistEvents.push(...(chunk as typeof assistEvents))
-    if (chunk.length < CHUNK) break
-  }
+
+  const [playerEvents, assistEvents, allEvents] = await Promise.all([
+    fetchPaged<PlayerEventRow>((from, to) =>
+      supabase
+        .from('league_game_events')
+        .select('league_game_id, type, result, points, team_id')
+        .in('league_game_id', gameIds)
+        .eq('league_player_id', playerId)
+        .order('id', { ascending: true })
+        .range(from, to)
+    ),
+    fetchPaged<AssistEventRow>((from, to) =>
+      supabase
+        .from('league_game_events')
+        .select('league_game_id, team_id')
+        .in('league_game_id', gameIds)
+        .eq('related_player_id', playerId)
+        .eq('result', 'made')
+        .in('type', SHOT_TYPES)
+        .order('id', { ascending: true })
+        .range(from, to)
+    ),
+    fetchPaged<AllEventRow>((from, to) =>
+      supabase
+        .from('league_game_events')
+        .select('league_player_id, league_game_id, related_player_id, type, result, points, team_id')
+        .in('league_game_id', gameIds)
+        .not('league_player_id', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, to)
+    ),
+  ])
 
   // 이벤트의 team_id 기반 게임별 출전 팀 결정 (진실의 원천 — 실제 발생한 사건 기준)
   // 같은 게임 안에서 다수결 (정상 데이터는 모두 동일하지만 데이터 일관성 보호 차원)
@@ -167,25 +188,7 @@ export async function GET(
     return eventTeamMap[g.id] ?? gpTeamMap[g.id] ?? (g.quarter_id ? qTeamMap[g.quarter_id] : undefined)
   }
 
-  // allEvents: 랭킹/배지 계산용 — 1000행 서버 제한을 피해 페이지네이션으로 전체 수집
-  type AllEventRow = { league_player_id: string | null; league_game_id: string; related_player_id: string | null; type: string; result: string | null; points: number | null; team_id: string | null }
-  const allEvents: AllEventRow[] = []
-  {
-    const PAGE = 1000
-    let pg = 0
-    while (true) {
-      const { data: chunk } = await supabase
-        .from('league_game_events')
-        .select('league_player_id, league_game_id, related_player_id, type, result, points, team_id')
-        .in('league_game_id', gameIds)
-        .not('league_player_id', 'is', null)
-        .order('id', { ascending: true })
-        .range(pg * PAGE, (pg + 1) * PAGE - 1)
-      if (chunk && chunk.length > 0) allEvents.push(...(chunk as AllEventRow[]))
-      if (!chunk || chunk.length < PAGE) break
-      pg++
-    }
-  }
+  // allEvents 는 위에서 playerEvents/assistEvents 와 함께 병렬 페이지네이션 완료.
 
   // ── Per-game stats ───────────────────────────────────────────
   type GS = {

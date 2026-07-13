@@ -1,7 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Flame, Zap, Crosshair, Trophy, Shield, Layers } from 'lucide-react'
-import PlayerQuickViewModal from './PlayerQuickViewModal'
+
+// 카드 클릭 시에만 열리는 모달 — 초기 번들에서 분리 (recharts 4종 포함)
+const PlayerQuickViewModal = dynamic(() => import('./PlayerQuickViewModal'), { ssr: false })
 
 type StreakCategory = 'pts10' | 'pts20' | 'tp1' | 'dd' | 'wins' | 'stlblk3'
 

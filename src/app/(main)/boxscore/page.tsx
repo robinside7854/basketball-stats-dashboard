@@ -1,8 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { sortJerseyNum } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
+
+const PlayerDetailModal = dynamic(() => import('@/components/roster/PlayerDetailModal'), { ssr: false })
 import type { Tournament, Game, PlayerBoxScore } from '@/types/database'
 
 type SortKey = 'player_number' | 'pts' | 'fg_pct' | 'fg3_pct' | 'ft_pct' | 'oreb' | 'dreb' | 'reb' | 'ast' | 'stl' | 'blk' | 'tov' | 'pf' | 'efg_pct' | 'ts_pct'

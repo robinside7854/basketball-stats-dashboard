@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera } from 'lucide-react'
 import { toast } from 'sonner'
-import { toPng } from 'html-to-image'
+// html-to-image 는 카메라 버튼 클릭 시에만 필요 → 동적 로드로 초기 번들에서 제거
 import ShareableBoxscore from '@/components/league/ShareableBoxscore'
 
 type PlayerRow = {
@@ -286,6 +286,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '미라�
       // React 가 hidden ShareableBoxscore 를 커밋할 때까지 대기 (2 rAF)
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
       if (!shareCaptureRef.current) throw new Error('render 실패')
+      const { toPng } = await import('html-to-image')
       const dataUrl = await toPng(shareCaptureRef.current, {
         backgroundColor: '#0a0f1c',
         pixelRatio: 2,
