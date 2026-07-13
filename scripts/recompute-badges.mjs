@@ -132,19 +132,26 @@ function computePerGameBadges(game, events, leaguePlusOneSet) {
       const pts = eventPointValue(e.type, isP1)
       if (pts <= 0) continue
       if (e.team_id === winnerTeamId) {
-        badges.push({
-          league_id: game.league_id, player_id: pid, game_id: game.id,
-          badge_type: 'winning_shot', earned_at_date: dateStr,
-          meta: {
-            final_score_home: homeScore,
-            final_score_away: awayScore,
-            points_scored: pts,
-            event_type: e.type,
-            event_id: e.id,
-          },
-        })
+        const winnerFinal = winnerTeamId === game.home_team_id ? homeScore : awayScore
+        const loserFinal  = winnerTeamId === game.home_team_id ? awayScore : homeScore
+        const margin = winnerFinal - loserFinal
+        // 결정타 조건: margin <= pts (그 득점 없이는 승리 못했어야 함)
+        if (margin <= pts) {
+          badges.push({
+            league_id: game.league_id, player_id: pid, game_id: game.id,
+            badge_type: 'winning_shot', earned_at_date: dateStr,
+            meta: {
+              final_score_home: homeScore,
+              final_score_away: awayScore,
+              points_scored: pts,
+              winning_margin: margin,
+              event_type: e.type,
+              event_id: e.id,
+            },
+          })
+        }
       }
-      break // 마지막 득점이 패자 팀이면 아무도 부여 안 됨
+      break // 마지막 득점이 패자 팀이거나 결정타 아니면 아무도 부여 안 됨
     }
   }
 

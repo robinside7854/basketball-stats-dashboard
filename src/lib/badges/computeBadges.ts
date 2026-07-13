@@ -194,11 +194,14 @@ export async function computePerGameBadges(
   }
 
   // ── winning_shot ──
-  // 새 정의: "본인의 득점을 마지막으로 경기에서 승리"
+  // 정의: "본인의 결정적 득점으로 승리를 확정지음"
   //   1) 게임의 최종 승자 결정 (동점이면 위닝샷 없음)
   //   2) 이벤트를 뒤에서 앞으로 순회 → 첫 번째 득점 이벤트(result='made', points>0) 찾기
-  //   3) 그 이벤트의 선수 팀 == 승자 팀 이면 그 선수가 위닝샷
-  //   4) 마지막 득점이 패자 팀이면 아무도 부여받지 못함
+  //   3) 그 이벤트의 선수 팀 == 승자 팀 이어야 함 (마지막 득점이 패자면 no badge)
+  //   4) **결정타 검사** — 그 득점 없었으면 승리 못했어야 함
+  //      승리 마진(winnerScore - loserScore) <= 그 득점(points_scored)
+  //      · 24-10 (마진 14) 에서 마지막 득점 +2 → 마진 > 득점 → 결정타 아님 (no badge)
+  //      · 15-14 (마진 1) 에서 마지막 득점 +3 → 마진 <= 득점 → 결정타 ✓
   const homeScore = g.home_score ?? 0
   const awayScore = g.away_score ?? 0
   let winnerTeamId: string | null = null
@@ -214,24 +217,31 @@ export async function computePerGameBadges(
       const isP1 = gamePlusOne !== null ? pid === gamePlusOne : leaguePlusOneSet.has(pid)
       const pts = eventPointValue(e.type, isP1)
       if (pts <= 0) continue
-      // 게임의 마지막 득점 이벤트를 찾음
+      // 게임의 마지막 득점 이벤트 · 조건 검사
       if (e.team_id === winnerTeamId) {
-        badges.push({
-          league_id: g.league_id,
-          player_id: pid,
-          game_id: g.id,
-          badge_type: 'winning_shot',
-          earned_at_date: dateStr,
-          meta: {
-            final_score_home: homeScore,
-            final_score_away: awayScore,
-            points_scored: pts,
-            event_type: e.type,
-            event_id: e.id,
-          },
-        })
+        const winnerFinal = winnerTeamId === g.home_team_id ? homeScore : awayScore
+        const loserFinal  = winnerTeamId === g.home_team_id ? awayScore : homeScore
+        const margin = winnerFinal - loserFinal
+        // 결정타 조건: 그 득점 없으면 승리 못 함 (margin <= pts)
+        if (margin <= pts) {
+          badges.push({
+            league_id: g.league_id,
+            player_id: pid,
+            game_id: g.id,
+            badge_type: 'winning_shot',
+            earned_at_date: dateStr,
+            meta: {
+              final_score_home: homeScore,
+              final_score_away: awayScore,
+              points_scored: pts,
+              winning_margin: margin,
+              event_type: e.type,
+              event_id: e.id,
+            },
+          })
+        }
       }
-      // 마지막 득점이 패자 팀이면 아무도 부여받지 못함 (loop break)
+      // 마지막 득점 이벤트가 패자 팀이거나 결정타 아니면 아무도 부여받지 못함 (loop break)
       break
     }
   }

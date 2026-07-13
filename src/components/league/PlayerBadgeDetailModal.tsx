@@ -74,14 +74,10 @@ function metaLine(row: BadgeRow): string {
     case 'winning_shot': {
       const fh = num('final_score_home'); const fa = num('final_score_away')
       const ps = num('points_scored')
+      const wm = num('winning_margin')
       if (fh !== undefined && fa !== undefined) {
-        return `마지막 득점 · 최종 ${fh}:${fa}${ps !== undefined ? ` (+${ps})` : ''}`
-      }
-      // (구) 스키마 호환 — before/after 필드
-      const bh = num('before_score_home'); const ba = num('before_score_away')
-      const ah = num('after_score_home');  const aa = num('after_score_away')
-      if (bh !== undefined && ba !== undefined && ah !== undefined && aa !== undefined) {
-        return `역전 · ${bh}:${ba} → ${ah}:${aa}${ps !== undefined ? ` (+${ps})` : ''}`
+        const marginLabel = wm !== undefined ? ` · ${wm}점차 승부 결정` : ''
+        return `결정타 · 최종 ${fh}:${fa}${ps !== undefined ? ` (+${ps})` : ''}${marginLabel}`
       }
       return ''
     }
