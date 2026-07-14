@@ -9,6 +9,7 @@ import { Link2, HeartCrack } from 'lucide-react'
 import { toast } from 'sonner'
 import HighlightsPlayer from './HighlightsPlayer'
 import PlayerHighlightsPlaylist from './PlayerHighlightsPlaylist'
+import PinBestShotToolbar from './PinBestShotToolbar'
 import {
   categoryOfType,
   parseShotCategory,
@@ -31,6 +32,8 @@ interface Props {
   groupLabel?: string             // 그룹 필터 라벨 — 리그: '분기'(기본) · 팀 대시보드: '대회'
   hideCategories?: ShotCategory[] // 숨길 슛 유형 (대회: ['andones'])
   clutchTitle?: string            // 클러치 chip tooltip (리그/대회 정의 다름)
+  // 베스트샷 핀 지원 (리그 전용) — leagueId + initialPinnedEventIds 함께 전달 시 활성화
+  initialPinnedEventIds?: string[]
 }
 
 // URL 쿼리 → 필터 카테고리 · SHOT_CATEGORY_OPTIONS 6종(parseShotCategory) + 컨텍스트 'clutch'
@@ -40,8 +43,11 @@ function parseCategory(v: string | null): HighlightFilterCategory | null {
 }
 
 export default function PlayerHighlightsBrowser({
-  clips, quarters, groupLabel = '분기', hideCategories, clutchTitle,
+  player, clips, quarters, groupLabel = '분기', hideCategories, clutchTitle,
+  leagueId, initialPinnedEventIds,
 }: Props) {
+  const pinsEnabled = Boolean(leagueId) && Array.isArray(initialPinnedEventIds)
+  const [pinnedEventIds, setPinnedEventIds] = useState<string[]>(initialPinnedEventIds ?? [])
   // 정형 슛 카테고리 (레이업/골밑/미들 세분화) · 'clutch' 는 별도 chip 으로 처리
   // 대회 컨텍스트에서는 앤드원(andones) chip 숨김
   const CATEGORIES = hideCategories && hideCategories.length > 0
@@ -246,7 +252,7 @@ export default function PlayerHighlightsBrowser({
 
       {/* 플레이어 + 플레이리스트 */}
       <div className="grid gap-3 lg:grid-cols-12">
-        <div className="lg:col-span-8">
+        <div className="lg:col-span-8 space-y-2">
           <HighlightsPlayer
             clips={filteredClips}
             currentIdx={currentIdx}
@@ -254,6 +260,16 @@ export default function PlayerHighlightsBrowser({
             autoAdvance={autoAdvance}
             onToggleAutoAdvance={onToggleAuto}
           />
+          {pinsEnabled && leagueId && filteredClips[currentIdx] && (
+            <PinBestShotToolbar
+              leagueId={leagueId}
+              playerId={player.id}
+              playerName={player.name}
+              currentClip={filteredClips[currentIdx]}
+              pinnedEventIds={pinnedEventIds}
+              onChange={setPinnedEventIds}
+            />
+          )}
         </div>
         {/* 레이아웃(LeagueLayoutClient)이 이미 pb-[56px+safe-area] 처리 · 플레이리스트 자체 스크롤로 재생기 자연스럽게 상단 유지 */}
         <div className="lg:col-span-4">

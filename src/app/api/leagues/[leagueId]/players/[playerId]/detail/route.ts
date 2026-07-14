@@ -1007,6 +1007,18 @@ export async function GET(
     }
   }
 
+  // 프로필카드에 노출할 "내 베스트샷" 핀 (최대 3개)
+  let pinned_event_ids: string[] = []
+  {
+    const { data: pinRow } = await supabase
+      .from('league_players')
+      .select('pinned_event_ids')
+      .eq('id', playerId)
+      .eq('league_id', leagueId)
+      .maybeSingle()
+    pinned_event_ids = (pinRow as { pinned_event_ids: string[] | null } | null)?.pinned_event_ids ?? []
+  }
+
   return NextResponse.json({
     rankings, career_high: careerHigh, shot_breakdown: shotBreakdown,
     recent_games: recentGames,
@@ -1016,5 +1028,6 @@ export async function GET(
     win_loss: winLoss, player_stats, monthly_stats, vs_opponents, unit,
     active_streaks,
     attendance_streak,
+    pinned_event_ids,
   })
 }

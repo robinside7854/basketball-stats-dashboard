@@ -590,3 +590,137 @@ export async function loadPlayerHighlights(
 
   return { player, clips, quarters, shotTypes }
 }
+
+// 이벤트 UUID 배열 → HighlightClip[] · 위닝샷 배지/베스트샷 핀 재생용
+// 러닝 스코어(is_clutch/score_*)는 개별 이벤트만 조회하므로 계산 불가 → 기본값
+// forceClutch=true 옵션으로 UI 배지 표시가 필요할 때 강제 마크
+// 반환 순서는 입력 eventIds 배열 순서 (핀 재생 순서 보장)
+export async function loadClipsByEventIds(
+  supabase: SupabaseClient,
+  leagueId: string,
+  eventIds: string[],
+  options?: { forceClutch?: boolean },
+): Promise<HighlightClip[]> {
+  if (eventIds.length === 0) return []
+
+  const [{ data: events, error: eErr }, resolver] = await Promise.all([
+    supabase
+      .from('league_game_events')
+      .select('id, league_game_id, league_player_id, team_id, related_player_id, type, points, video_timestamp')
+      .in('id', eventIds),
+    loadIdentityResolver(supabase, leagueId),
+  ])
+  if (eErr || !events || events.length === 0) return []
+  type EvtRow = {
+    id: string
+    league_game_id: string
+    league_player_id: string | null
+    team_id: string | null
+    related_player_id: string | null
+    type: string
+    points: number | null
+    video_timestamp: number | null
+  }
+  const evRows = (events as unknown as EvtRow[]).filter(
+    e => e.video_timestamp !== null && isHighlightShot(e.type),
+  )
+  if (evRows.length === 0) return []
+
+  const gameIds = Array.from(new Set(evRows.map(e => e.league_game_id)))
+  const { data: games } = await supabase
+    .from('league_games')
+    .select(`
+      id, quarter_id, youtube_url, home_team_id, away_team_id,
+      home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
+      away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
+    `)
+    .in('id', gameIds)
+    .eq('league_id', leagueId)
+    .not('youtube_url', 'is', null)
+  const gameRows = (games ?? []) as unknown as Array<{
+    id: string
+    quarter_id: string | null
+    youtube_url: string
+    home_team_id: string | null
+    away_team_id: string | null
+    home_team: { id: string; name: string; color: string } | null
+    away_team: { id: string; name: string; color: string } | null
+  }>
+  const gameMap: Record<string, typeof gameRows[number]> = {}
+  for (const g of gameRows) gameMap[g.id] = g
+
+  const playerIds = Array.from(new Set([
+    ...evRows.map(e => e.league_player_id).filter((x): x is string => !!x),
+    ...evRows.map(e => e.related_player_id).filter((x): x is string => !!x),
+  ]))
+  const playerMap: Record<string, { id: string; name: string; number: number | null; photo_url: string | null }> = {}
+  if (playerIds.length > 0) {
+    const { data: players } = await supabase
+      .from('league_players')
+      .select('id, name, number, photo_url')
+      .in('id', playerIds)
+    for (const p of (players ?? []) as Array<{ id: string; name: string; number: number | null; photo_url: string | null }>) {
+      playerMap[p.id] = p
+    }
+  }
+
+  // event_id → HighlightClip · 입력 배열 순서로 재정렬
+  const byId: Record<string, HighlightClip> = {}
+  for (const ev of evRows) {
+    const game = gameMap[ev.league_game_id]
+    if (!game) continue
+    const videoId = extractYouTubeId(game.youtube_url)
+    if (!videoId || ev.video_timestamp === null) continue
+
+    let team = ev.team_id === game.home_team?.id ? game.home_team
+      : ev.team_id === game.away_team?.id ? game.away_team
+      : null
+    if (!team) team = game.home_team ?? game.away_team
+    if (!team) continue
+
+    const shotIdentity = resolver(team.id, game.quarter_id)
+    const homeIdentity = game.home_team_id ? resolver(game.home_team_id, game.quarter_id) : null
+    const awayIdentity = game.away_team_id ? resolver(game.away_team_id, game.quarter_id) : null
+    const teamName = shotIdentity?.display_name ?? team.name
+    const teamColor = shotIdentity?.color ?? team.color
+    const homeName = homeIdentity?.display_name ?? (game.home_team?.name ?? '')
+    const awayName = awayIdentity?.display_name ?? (game.away_team?.name ?? '')
+
+    const player = ev.league_player_id ? playerMap[ev.league_player_id] : null
+    const { start, end } = getClipBounds(ev.type, ev.video_timestamp)
+    const assistPlayer = (shouldShowAssist(ev.type) && ev.related_player_id)
+      ? playerMap[ev.related_player_id] ?? null
+      : null
+
+    byId[ev.id] = {
+      event_id: ev.id,
+      video_url: game.youtube_url,
+      video_id: videoId,
+      video_timestamp: ev.video_timestamp,
+      clip_start: start,
+      clip_end: end,
+      player_id: ev.league_player_id,
+      player_name: player?.name ?? '알 수 없음',
+      player_number: player?.number ?? null,
+      player_photo: player?.photo_url ?? null,
+      team_id: team.id,
+      team_name: teamName,
+      team_color: teamColor,
+      shot_type: ev.type,
+      points: ev.points ?? 0,
+      game_id: game.id,
+      home_team_name: homeName,
+      away_team_name: awayName,
+      assist_player_id: assistPlayer?.id ?? null,
+      assist_player_name: assistPlayer?.name ?? null,
+      assist_player_number: assistPlayer?.number ?? null,
+      is_clutch: options?.forceClutch ?? false,
+      score_home_before: 0,
+      score_away_before: 0,
+      score_home_after: 0,
+      score_away_after: 0,
+    }
+  }
+
+  return eventIds.map(id => byId[id]).filter((c): c is HighlightClip => !!c)
+}

@@ -38,6 +38,16 @@ export default async function PlayerHighlightsPage({
   const data = await getCached(leagueId, playerId)()
   if (!data) notFound()
 
+  // 핀 상태 · 편집 UI 활성화용 (초기값만 서버에서 · 이후 클라이언트 상태)
+  const sb = createClient()
+  const { data: pinRow } = await sb
+    .from('league_players')
+    .select('pinned_event_ids')
+    .eq('id', playerId)
+    .eq('league_id', leagueId)
+    .maybeSingle()
+  const pinnedEventIds = (pinRow as { pinned_event_ids: string[] | null } | null)?.pinned_event_ids ?? []
+
   const groupTabs = [
     { href: `${base}/columns`,    label: '매거진',    active: false },
     { href: `${base}/stathead`,   label: 'Stathead',  active: false },
@@ -118,6 +128,7 @@ export default async function PlayerHighlightsPage({
           shotTypes={data.shotTypes}
           orgSlug={orgSlug}
           leagueId={leagueId}
+          initialPinnedEventIds={pinnedEventIds}
         />
       )}
     </div>

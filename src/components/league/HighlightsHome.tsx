@@ -9,16 +9,13 @@
 //
 // 데이터 소스는 상위 페이지 unstable_cache 프리페치 후 props 주입.
 
-import { useState, useEffect } from 'react'
-import dynamic from 'next/dynamic'
+import { useState } from 'react'
 import Link from 'next/link'
-import { HeartCrack, PlayCircle, ChevronRight, X } from 'lucide-react'
+import { HeartCrack, PlayCircle, ChevronRight } from 'lucide-react'
 import { formatTimestamp } from '@/lib/youtube/utils'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
-
-// HighlightsPlayer 는 무거우니 lazy load
-const HighlightsPlayer = dynamic(() => import('@/components/highlights/HighlightsPlayer'), { ssr: false })
+import HighlightsClipModal from '@/components/highlights/HighlightsClipModal'
 
 export type HighlightsHomePayload = {
   date: string
@@ -264,103 +261,17 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
         )}
       </section>
 
-      {/* 팝업 재생기 — HighlightsPlayer 재사용 · 클러치샷 플레이리스트 자동 재생 */}
+      {/* 팝업 재생기 — 공용 HighlightsClipModal · 클러치샷 플레이리스트 자동 재생 */}
       {openIdx !== null && hasClutch && (
-        <ClutchClipModal
+        <HighlightsClipModal
           clips={data.clips}
           startIdx={openIdx}
+          title="이번 주 클러치샷"
+          icon={<HeartCrack size={16} style={{ color: '#ef4444' }} aria-hidden />}
           onClose={() => setOpenIdx(null)}
+          ariaLabel="클러치샷 재생"
         />
       )}
     </>
   )
 }
-
-// 팝업 모달 · 클러치샷 플레이리스트 재생 (autoAdvance 유지 · X/ESC/배경 클릭 닫기)
-function ClutchClipModal({
-  clips,
-  startIdx,
-  onClose,
-}: {
-  clips: HighlightClip[]
-  startIdx: number
-  onClose: () => void
-}) {
-  const [currentIdx, setCurrentIdx] = useState(startIdx)
-  const [autoAdvance, setAutoAdvance] = useState(true)
-
-  useEscClose(onClose)
-  useBodyScrollLock()
-
-  const current = clips[currentIdx]
-
-  return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="클러치샷 재생"
-    >
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-      <div
-        className="relative z-10 w-full max-w-5xl bg-[color:var(--mm-panel)] border border-[color:var(--mm-yellow)] shadow-[0_24px_60px_-16px_rgba(0,0,0,0.5)] rounded-sm overflow-hidden"
-        style={{ borderRadius: 6 }}
-      >
-        <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-          <div className="inline-flex items-center gap-2 min-w-0">
-            <HeartCrack size={16} style={{ color: '#ef4444' }} aria-hidden />
-            <span className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-ink)' }}>
-              이번 주 클러치샷
-            </span>
-            <span className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>
-              {currentIdx + 1} / {clips.length}
-            </span>
-            {current && (
-              <span className="text-[11px] truncate ml-2" style={{ color: 'var(--mm-ink-soft)' }}>
-                {current.player_name} · {SHOT_TYPE_LABEL[current.shot_type] ?? current.shot_type}
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded transition-colors hover:bg-[color:var(--mm-panel-alt)] cursor-pointer shrink-0"
-            style={{ color: 'var(--mm-ink-soft)' }}
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div style={{ background: '#000' }}>
-          <HighlightsPlayer
-            clips={clips}
-            currentIdx={currentIdx}
-            onIndexChange={setCurrentIdx}
-            autoAdvance={autoAdvance}
-            onToggleAutoAdvance={() => setAutoAdvance(v => !v)}
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// 헬퍼 훅 · ESC 로 닫기
-function useEscClose(onClose: () => void) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-}
-
-// 헬퍼 훅 · 배경 스크롤 잠금
-function useBodyScrollLock() {
-  useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [])
-}
-

@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
 import PlayerBadgeStrip, { type BadgeSummary } from '@/components/league/PlayerBadgeStrip'
+import PlayerBestShotBanner from '@/components/league/PlayerBestShotBanner'
 import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 import { CountUp, FormDots } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
@@ -63,6 +64,7 @@ type Detail = {
   attendance_streak?: { current: number; longest: number }
   badges: EvaluatedBadge[]
   badges_summary?: BadgeSummary
+  pinned_event_ids?: string[]
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; pts: number; reb: number; ast: number; stl?: number; blk?: number; fgm: number; fga: number; fg3m?: number; fg3a?: number }>
@@ -993,6 +995,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 leagueId={leagueId}
                 playerId={playerId}
                 summary={detail.badges_summary}
+              />
+            )}
+
+            {/* 내 베스트샷 — 본인이 핀한 하이라이트 (선수 하이라이트 페이지에서 편집) */}
+            {detail?.pinned_event_ids && detail.pinned_event_ids.length > 0 && (
+              <PlayerBestShotBanner
+                leagueId={leagueId}
+                playerName={playerName}
+                pinnedEventIds={detail.pinned_event_ids}
               />
             )}
 

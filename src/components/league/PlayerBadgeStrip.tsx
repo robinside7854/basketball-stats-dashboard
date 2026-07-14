@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { Target, Layers, Trophy, Zap } from 'lucide-react'
 import PlayerBadgeDetailModal from './PlayerBadgeDetailModal'
+import WinningShotReelModal from './WinningShotReelModal'
 
 export type BadgeSummary = {
   perfect_game: number
@@ -39,6 +40,7 @@ interface Props {
 
 export default function PlayerBadgeStrip({ leagueId, playerId, summary }: Props) {
   const [openKey, setOpenKey] = useState<BadgeKey | null>(null)
+  const [winningReelOpen, setWinningReelOpen] = useState(false)
   const total = summary.perfect_game + summary.double_double + summary.triple_double + summary.winning_shot
 
   return (
@@ -85,10 +87,14 @@ export default function PlayerBadgeStrip({ leagueId, playerId, summary }: Props)
             <button
               key={c.key}
               type="button"
-              onClick={() => setOpenKey(c.key)}
+              onClick={() => {
+                // 위닝샷은 텍스트 리스트 대신 하이라이트 릴 팝업으로 재생
+                if (c.key === 'winning_shot') setWinningReelOpen(true)
+                else setOpenKey(c.key)
+              }}
               className={cls}
-              aria-label={`${c.label} ${count}회 · 상세 보기`}
-              title={`${c.label} ${count}회`}
+              aria-label={c.key === 'winning_shot' ? `위닝샷 ${count}회 · 릴 재생` : `${c.label} ${count}회 · 상세 보기`}
+              title={c.key === 'winning_shot' ? `위닝샷 ${count}회 · 클릭하여 재생` : `${c.label} ${count}회`}
             >
               {content}
             </button>
@@ -107,6 +113,13 @@ export default function PlayerBadgeStrip({ leagueId, playerId, summary }: Props)
           badgeKey={openKey}
           categoryLabel={CATEGORIES.find(c => c.key === openKey)!.label}
           onClose={() => setOpenKey(null)}
+        />
+      )}
+      {winningReelOpen && (
+        <WinningShotReelModal
+          leagueId={leagueId}
+          playerId={playerId}
+          onClose={() => setWinningReelOpen(false)}
         />
       )}
     </div>
