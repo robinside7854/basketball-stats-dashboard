@@ -2,7 +2,7 @@
 // 아카이브 우산 아래 서브탭 (매거진 · Stathead · 하이라이트)
 import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
-import { Film, PlayCircle, ChevronRight } from 'lucide-react'
+import { Film, PlayCircle, ChevronRight, Clock, VideoOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import EmptyState from '@/components/league/EmptyState'
@@ -58,27 +58,40 @@ export default async function HighlightsLandingPage({
       {rounds.length === 0 ? (
         <EmptyState
           Icon={Film}
-          title="아직 하이라이트가 없습니다"
-          description="경기에 YouTube 영상이 연동되고 득점 이벤트가 기록되면 자동으로 여기에 표시됩니다."
+          title="아직 라운드가 없습니다"
+          description="경기가 시작되면 라운드가 여기에 표시되고, 영상 · 기록이 완료되면 자동으로 재생 가능해집니다."
         />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {rounds.map(r => {
             const d = new Date(r.date + 'T00:00:00')
             const days = ['일', '월', '화', '수', '목', '금', '토']
-            return (
-              <Link
-                key={r.date}
-                href={`${base}/highlights/${r.date}`}
-                className="group block p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
-                style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                aria-label={`${r.date} 하이라이트 재생`}
-              >
+            const isReady = r.status === 'ready'
+            const isPendingRecord = r.status === 'pending_record'
+            const isPendingVideo = r.status === 'pending_video'
+
+            // 상태별 CSS · 재생 안 되는 라운드는 muted + 클릭 비활성
+            const cardStyle: React.CSSProperties = {
+              background: 'var(--mm-panel)',
+              border: '1px solid var(--mm-rule)',
+              borderRadius: '4px',
+              opacity: isReady ? 1 : 0.6,
+              cursor: isReady ? 'pointer' : 'not-allowed',
+            }
+            const iconColor = isReady ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)'
+            const StatusIcon = isReady ? PlayCircle : isPendingRecord ? Clock : VideoOff
+            const statusLabel = isReady ? null : isPendingRecord ? '기록 대기 중' : '영상 없음'
+            const statusHint = isReady ? null : isPendingRecord
+              ? '영상은 있으나 유튜브 시각과 매핑된 성공 슛 없음'
+              : '유튜브 영상 미매핑'
+
+            const cardInner = (
+              <>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div
                       className="font-jersey font-black uppercase text-2xl"
-                      style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+                      style={{ color: isReady ? 'var(--mm-ink)' : 'var(--mm-ink-soft)', letterSpacing: '-0.005em' }}
                     >
                       {d.getMonth() + 1}.{d.getDate()}
                       <span className="text-sm ml-1.5" style={{ color: 'var(--mm-muted)' }}>
@@ -89,22 +102,41 @@ export default async function HighlightsLandingPage({
                       {d.getFullYear()}년
                     </div>
                   </div>
-                  <PlayCircle
+                  <StatusIcon
                     size={32}
-                    style={{ color: 'var(--mm-yellow-strong)' }}
-                    className="transition-transform group-hover:scale-110"
+                    style={{ color: iconColor }}
+                    className={isReady ? 'transition-transform group-hover:scale-110' : ''}
                     aria-hidden
                   />
                 </div>
 
+                {/* 상태 배지 */}
+                {statusLabel && (
+                  <div
+                    className="mt-2 inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded"
+                    style={{
+                      background: 'var(--mm-panel-alt)',
+                      color: 'var(--mm-muted)',
+                      border: '1px solid var(--mm-rule)',
+                      letterSpacing: '0.12em',
+                    }}
+                    title={statusHint ?? undefined}
+                  >
+                    {statusLabel}
+                  </div>
+                )}
+
                 <div className="mt-3 flex items-center gap-3 flex-wrap">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-lg font-black" style={{ color: 'var(--mm-ink)' }}>{r.made_events_count}</span>
-                    <span className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>득점</span>
+                    <span className="text-lg font-black" style={{ color: 'var(--mm-ink)' }}>{r.clips_count}</span>
+                    <span className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>클립</span>
                   </div>
                   <div className="flex items-baseline gap-1">
-                    <span className="text-lg font-black" style={{ color: 'var(--mm-ink)' }}>{r.games_count}</span>
-                    <span className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>경기</span>
+                    <span className="text-lg font-black" style={{ color: 'var(--mm-ink)' }}>
+                      {r.games_with_video}
+                      <span className="text-[11px] font-normal" style={{ color: 'var(--mm-muted)' }}>/{r.games_count}</span>
+                    </span>
+                    <span className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>영상 매핑</span>
                   </div>
                 </div>
 
@@ -115,13 +147,48 @@ export default async function HighlightsLandingPage({
                   </div>
                 )}
 
-                <div className="mt-3 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
-                  재생 <ChevronRight size={12} />
-                </div>
-              </Link>
+                {isReady && (
+                  <div className="mt-3 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
+                    재생 <ChevronRight size={12} />
+                  </div>
+                )}
+              </>
+            )
+
+            if (isReady) {
+              return (
+                <Link
+                  key={r.date}
+                  href={`${base}/highlights/${r.date}`}
+                  className="group block p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  style={cardStyle}
+                  aria-label={`${r.date} 하이라이트 재생 (${r.clips_count}개 클립)`}
+                >
+                  {cardInner}
+                </Link>
+              )
+            }
+            return (
+              <div
+                key={r.date}
+                className="block p-4"
+                style={cardStyle}
+                aria-label={`${r.date} · ${statusLabel} (재생 불가)`}
+                title={statusHint ?? undefined}
+              >
+                {cardInner}
+              </div>
             )
           })}
         </div>
+      )}
+
+      {/* 각주 안내 */}
+      {rounds.some(r => r.status !== 'ready') && (
+        <p className="text-[11px] mt-2" style={{ color: 'var(--mm-muted)', lineHeight: 1.6 }}>
+          <span className="font-bold">클립 수</span>는 유튜브 영상 시각과 매핑된 성공 슛(video_timestamp)만 집계합니다.
+          영상 매핑 없는 게임은 재생 불가.
+        </p>
       )}
     </div>
   )

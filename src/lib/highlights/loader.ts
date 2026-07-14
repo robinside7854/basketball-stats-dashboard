@@ -6,9 +6,10 @@ import { extractYouTubeId } from '@/lib/youtube/utils'
 import { isHighlightShot, getClipBounds } from './clip'
 import type { HighlightRound, HighlightRoundDetail, HighlightClip, HighlightPlayerOption, HighlightTeamOption } from './types'
 
-// 최근 라운드 목록 — 영상+성공 슛 기준으로 상위 24개까지 (UI 에서 잘라 사용)
+// 최근 라운드 목록 — 모든 라운드 노출 (영상/기록 여부는 status 로 구분)
+// 미리 필터링 안 함 · UI 에서 상태별로 시각화
 export async function loadRecentRounds(supabase: SupabaseClient, leagueId: string, limit = 24): Promise<HighlightRound[]> {
-  // 1. 리그 게임 (영상 있는 것만) — 날짜 desc
+  // 1. 리그 게임 전체 (is_started=true · 시작된 경기만 · 친선 제외 안 함 · 라운드 성격상 모두 노출)
   const { data: games, error: gErr } = await supabase
     .from('league_games')
     .select(`
@@ -17,7 +18,8 @@ export async function loadRecentRounds(supabase: SupabaseClient, leagueId: strin
       away_team:league_teams!league_games_away_team_id_fkey(name)
     `)
     .eq('league_id', leagueId)
-    .not('youtube_url', 'is', null)
+    .eq('is_started', true)
+    .not('date', 'is', null)
     .order('date', { ascending: false })
   if (gErr) return []
   const rows = (games ?? []) as unknown as Array<{
@@ -38,7 +40,7 @@ export async function loadRecentRounds(supabase: SupabaseClient, leagueId: strin
   if (dates.length === 0) return []
 
   const gameIds = dates.flatMap(d => dateToGames[d].map(g => g.id))
-  // 2. 각 게임의 성공 슛 카운트 — video_timestamp 필수
+  // 2. 각 게임의 성공 슛 카운트 — video_timestamp 필수 (재생 가능 클립)
   const { data: events, error: eErr } = await supabase
     .from('league_game_events')
     .select('league_game_id, type, result, video_timestamp')
@@ -47,29 +49,37 @@ export async function loadRecentRounds(supabase: SupabaseClient, leagueId: strin
     .not('video_timestamp', 'is', null)
   if (eErr) return []
 
-  const gameToMadeCount: Record<string, number> = {}
+  const gameToClipCount: Record<string, number> = {}
   for (const e of (events ?? []) as Array<{ league_game_id: string; type: string; video_timestamp: number | null }>) {
     if (!isHighlightShot(e.type)) continue
-    gameToMadeCount[e.league_game_id] = (gameToMadeCount[e.league_game_id] ?? 0) + 1
+    gameToClipCount[e.league_game_id] = (gameToClipCount[e.league_game_id] ?? 0) + 1
   }
 
   const result: HighlightRound[] = dates.map(date => {
     const gamesOfDate = dateToGames[date]
     const teamSet = new Set<string>()
-    let madeSum = 0
+    let clipsSum = 0
+    let videoCount = 0
     for (const g of gamesOfDate) {
       if (g.home_team?.name) teamSet.add(g.home_team.name)
       if (g.away_team?.name) teamSet.add(g.away_team.name)
-      madeSum += gameToMadeCount[g.id] ?? 0
+      if (g.youtube_url) videoCount++
+      clipsSum += gameToClipCount[g.id] ?? 0
     }
+    const status: HighlightRound['status'] =
+      clipsSum > 0 ? 'ready'
+      : videoCount > 0 ? 'pending_record'
+      : 'pending_video'
     return {
       date,
       games_count: gamesOfDate.length,
-      made_events_count: madeSum,
+      games_with_video: videoCount,
+      clips_count: clipsSum,
       team_names: Array.from(teamSet),
+      status,
     }
-  }).filter(r => r.made_events_count > 0)  // 하이라이트 없는 라운드 제외
-
+  })
+  // 모든 라운드 노출 (재생 안 되는 라운드도 상태 배지와 함께 표시)
   return result
 }
 
