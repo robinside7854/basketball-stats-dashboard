@@ -115,6 +115,8 @@ export default function LeagueEventInputPad({
   const [awaitingTovPair, setAwaitingTovPair] = useState(false)    // Phase 2-G
   const [stealerTeamId, setStealerTeamId] = useState<string | null>(null)
   const [lastStlEventId, setLastStlEventId] = useState<string | null>(null)
+  // Optimistic UI: 아직 서버 응답 대기 중인 저장 있음 · undo 가드용
+  const [lastEventPending, setLastEventPending] = useState(false)
 
   const allPlayers: RosterPlayer[] = [...homePlayers, ...awayPlayers]
   const selectedObj   = selectedPlayer ? (allPlayers.find(p => p.id === selectedPlayer) ?? null) : null
@@ -150,31 +152,77 @@ export default function LeagueEventInputPad({
     setAwaitingAssist(false)
   }
 
+  // ── 슛 결과 단축키 (A = 성공, S = 실패) ──────────────────
+  // pendingShot 활성 · 다른 모드(리바운드/어시스트/TOV) 대기 중이 아닐 때만 반응.
+  // 입력 필드/modifier 조합은 무시.
+  useEffect(() => {
+    if (!pendingShot) return
+    if (awaitingRebound || awaitingAssist || awaitingTovPair || addingAssistForLast) return
+
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      const tag = t?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (t?.isContentEditable) return
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return
+
+      const k = e.key.toLowerCase()
+      if (k === 'a') {
+        e.preventDefault()
+        handleResult('made')
+      } else if (k === 's') {
+        e.preventDefault()
+        handleResult('missed')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingShot, awaitingRebound, awaitingAssist, awaitingTovPair, addingAssistForLast])
+
   // ── 어시스트 2초 자동 타임아웃 ──────────────────────────────
   useEffect(() => {
     if (!awaitingAssist) { setAssistCountdown(0); return }
     setAssistCountdown(3)
     const tick = setInterval(() => setAssistCountdown(n => Math.max(0, n - 1)), 1000)
-    const timer = setTimeout(async () => {
+    const timer = setTimeout(() => {
       clearInterval(tick)
       const { selectedPlayer: pid, pendingShot: shot, pendingResult: res, isPlusOne: isP1, selectedTeamId: tid } = liveRef.current
       if (!pid || !shot || !res) return
       const pts = calcPoints(shot.type, res, isP1)
-      const r = await fetch(`/api/leagues/${leagueId}/events`, {
-        method: 'POST', headers: leagueHeaders,
-        body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(), type: shot.type, league_player_id: pid, team_id: tid, result: res, related_player_id: null, points: pts }),
-      })
-      if (!r.ok) { toast.error('저장 실패'); return }
-      const saved = await r.json()
+      const tempId = `opt-${crypto.randomUUID()}`
       const pName = allPlayers.find(p => p.id === pid)?.name ?? ''
       const lbl = `${pName} — ${shot.label} ✓ (어시스트 없음)`
-      setLastEvent({ id: saved.id, type: shot.type, result: res, playerId: pid, label: lbl })
+      // 즉시 UI 반영
+      setLastEvent({ id: tempId, type: shot.type, result: res, playerId: pid, label: lbl })
       setLastReboundId(null)
+      setLastEventPending(true)
       toast.success(`기록: ${lbl}`)
       setAwaitingAssist(false)
       setPendingResult(null)
       if (!FT_TYPES.includes(shot.type) || shot.type === 'ft_2pt') setPendingShot(null)
-      onEventSaved()
+      // 백그라운드 저장
+      fetch(`/api/leagues/${leagueId}/events`, {
+        method: 'POST', headers: leagueHeaders,
+        body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(), type: shot.type, league_player_id: pid, team_id: tid, result: res, related_player_id: null, points: pts }),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(saved => {
+          if (saved?.id) {
+            setLastEvent(prev => prev?.id === tempId ? { ...prev, id: saved.id } : prev)
+            setLastEventPending(false)
+            onEventSaved()
+          } else {
+            toast.error('저장 실패 - 되돌립니다')
+            setLastEvent(prev => prev?.id === tempId ? null : prev)
+            setLastEventPending(false)
+          }
+        })
+        .catch(() => {
+          toast.error('저장 실패 - 되돌립니다')
+          setLastEvent(prev => prev?.id === tempId ? null : prev)
+          setLastEventPending(false)
+        })
     }, 3000)
     return () => { clearTimeout(timer); clearInterval(tick) }
   }, [awaitingAssist]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -186,23 +234,25 @@ export default function LeagueEventInputPad({
     return (await r.json()).id
   }
 
-  async function saveShot(result: 'made' | 'missed', assistId?: string) {
+  function saveShot(result: 'made' | 'missed', assistId?: string) {
     if (!selectedPlayer || !pendingShot) return
     const pts = calcPoints(pendingShot.type, result, isPlusOne)
-    const id = await saveEvent({
+    const body = {
       league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
       type: pendingShot.type, league_player_id: selectedPlayer, team_id: selectedTeamId,
       result, related_player_id: assistId ?? null, points: pts,
-    })
-    if (!id) return
+    }
     const pName = allPlayers.find(p => p.id === selectedPlayer)?.name ?? ''
     const aPName = assistId ? allPlayers.find(p => p.id === assistId)?.name : null
     const mark  = result === 'made' ? ' ✓' : ' ✗'
     const lbl   = `${pName} — ${pendingShot.label}${mark}${aPName ? ` (A: ${aPName})` : ''}`
     const shotType = pendingShot.type  // capture before potential clear
     const shooterTeamId = selectedTeamId
-    setLastEvent({ id, type: shotType, result, playerId: selectedPlayer, label: lbl })
-    setLastReboundId(null)  // 새 슛 이벤트 → 이전 리바운드 연계 해제
+    // ── 즉시 UI 반영 (Optimistic) ──
+    const tempId = `opt-${crypto.randomUUID()}`
+    setLastEvent({ id: tempId, type: shotType, result, playerId: selectedPlayer, label: lbl })
+    setLastReboundId(null)
+    setLastEventPending(true)
     toast.success(`기록: ${lbl}`)
     setAwaitingAssist(false)
     setPendingResult(null)
@@ -211,18 +261,33 @@ export default function LeagueEventInputPad({
       setPendingShot({ type: 'ft_3pt_2', label: '3P파울 2구', color: 'bg-teal-800 hover:bg-teal-700', activeColor: 'bg-teal-700', needsResult: true })
       setPendingResult(null)
     } else if (!FT_TYPES.includes(shotType) || shotType === 'ft_2pt' || shotType === 'ft_3pt_2') {
-      // ft_3pt_2(3P파울 2구)는 마지막 자유투 → 일반 입력 상태로 복귀
       setPendingShot(null)
     }
-    onEventSaved()
-
-    // Phase 1-B: 마지막 자유투 실패 시 리바운드 피커 자동 등장
+    // Phase 1-B: 마지막 자유투 실패 시 리바운드 피커 자동 등장 (즉시)
     const LAST_FT = ['ft_2pt', 'ft_3pt_2', 'free_throw', 'and_one']
     if (result === 'missed' && LAST_FT.includes(shotType)) {
       setReboundShooterTeamId(shooterTeamId)
       setAwaitingRebound(true)
     }
-
+    // ── 백그라운드 저장 ──
+    fetch(`/api/leagues/${leagueId}/events`, { method: 'POST', headers: leagueHeaders, body: JSON.stringify(body) })
+      .then(r => r.ok ? r.json() : null)
+      .then(saved => {
+        if (saved?.id) {
+          setLastEvent(prev => prev?.id === tempId ? { ...prev, id: saved.id } : prev)
+          setLastEventPending(false)
+          onEventSaved()
+        } else {
+          toast.error('저장 실패 - 되돌립니다')
+          setLastEvent(prev => prev?.id === tempId ? null : prev)
+          setLastEventPending(false)
+        }
+      })
+      .catch(() => {
+        toast.error('저장 실패 - 되돌립니다')
+        setLastEvent(prev => prev?.id === tempId ? null : prev)
+        setLastEventPending(false)
+      })
   }
 
   // Phase 2-G: 스틸 후 TOV 페어
@@ -252,43 +317,63 @@ export default function LeagueEventInputPad({
     setStealerTeamId(null)
   }
 
-  async function saveInstant(btn: EventBtn) {
+  function saveInstant(btn: EventBtn) {
     if (!selectedPlayer) return
-    // 앤드원: 단순 클릭으로 즉시 성공(+1점) 저장 — 성공/실패 분기 없음
     const isAndOne = btn.type === 'and_one'
-    const id = await saveEvent({
+    const body = {
       league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
       type: btn.type, league_player_id: selectedPlayer, team_id: selectedTeamId,
       result: isAndOne ? 'made' : null, related_player_id: null, points: isAndOne ? 1 : 0,
-    })
-    if (!id) return
+    }
     const pName = allPlayers.find(p => p.id === selectedPlayer)?.name ?? ''
     const lbl = isAndOne ? `${pName} — 앤드원 ✓` : `${pName} — ${btn.label}`
-    setLastEvent({ id, type: btn.type, result: isAndOne ? 'made' : 'missed', playerId: selectedPlayer, label: lbl })
-    setLastReboundId(null)  // 새 즉각 이벤트 → 이전 리바운드 연계 해제
+    // ── 즉시 UI 반영 ──
+    const tempId = `opt-${crypto.randomUUID()}`
+    setLastEvent({ id: tempId, type: btn.type, result: isAndOne ? 'made' : 'missed', playerId: selectedPlayer, label: lbl })
+    setLastReboundId(null)
+    setLastEventPending(true)
     toast.success(`기록: ${lbl}`)
     const POSSESSION_TYPES = new Set(['oreb', 'dreb', 'steal'])
-    if (POSSESSION_TYPES.has(btn.type)) {
-      setPossessionPlayerId(selectedPlayer)
-    } else {
-      setPossessionPlayerId(null)
-    }
-    onEventSaved()
-
-    // Phase 2-G: 스틸 후 상대팀 TOV 페어 피커
+    if (POSSESSION_TYPES.has(btn.type)) setPossessionPlayerId(selectedPlayer)
+    else setPossessionPlayerId(null)
+    // Phase 2-G: 스틸 후 상대팀 TOV 페어 피커 (즉시)
     if (btn.type === 'steal') {
-      setLastStlEventId(id)
+      setLastStlEventId(tempId)
       setStealerTeamId(selectedTeamId)
       setAwaitingTovPair(true)
     }
+    // ── 백그라운드 저장 ──
+    fetch(`/api/leagues/${leagueId}/events`, { method: 'POST', headers: leagueHeaders, body: JSON.stringify(body) })
+      .then(r => r.ok ? r.json() : null)
+      .then(saved => {
+        if (saved?.id) {
+          setLastEvent(prev => prev?.id === tempId ? { ...prev, id: saved.id } : prev)
+          // 스틸이면 lastStlEventId 도 실 id 로 갱신 (TOV 페어 PATCH 참조)
+          setLastStlEventId(prev => prev === tempId ? saved.id : prev)
+          setLastEventPending(false)
+          onEventSaved()
+        } else {
+          toast.error('저장 실패 - 되돌립니다')
+          setLastEvent(prev => prev?.id === tempId ? null : prev)
+          setLastStlEventId(prev => prev === tempId ? null : prev)
+          setLastEventPending(false)
+        }
+      })
+      .catch(() => {
+        toast.error('저장 실패 - 되돌립니다')
+        setLastEvent(prev => prev?.id === tempId ? null : prev)
+        setLastStlEventId(prev => prev === tempId ? null : prev)
+        setLastEventPending(false)
+      })
   }
 
-  async function handleResult(result: 'made' | 'missed') {
+  function handleResult(result: 'made' | 'missed') {
     if (!pendingShot) return
     if (result === 'missed' && SHOT_TYPES.includes(pendingShot.type)) {
-      // 필드골 실패 → 슛 즉시 저장 후 리바운드 피커
+      // 필드골 실패 → saveShot 내부에서 리바운드 피커 자동 활성 (LAST_FT 로직과 별개)
+      // 여기선 명시적으로 리바운드 대기 세팅 (필드골은 saveShot 의 LAST_FT 체크에 걸리지 않음)
       const shooterTeamId = selectedTeamId
-      await saveShot('missed')
+      saveShot('missed')  // Optimistic · 즉시 반환
       setReboundShooterTeamId(shooterTeamId)
       setAwaitingRebound(true)
     } else if (result === 'missed' || !pendingShot.needsRelated) {
@@ -327,6 +412,11 @@ export default function LeagueEventInputPad({
 
   async function undoLast() {
     if (!lastEvent) return
+    // Optimistic 저장이 아직 서버에서 완료 안 된 경우 취소 불가 (id 미확정)
+    if (lastEventPending || lastEvent.id.startsWith('opt-')) {
+      toast('저장 중 - 잠시 후 다시 시도', { icon: '⏳' })
+      return
+    }
     // 슛 취소 시 연계된 리바운드도 함께 삭제
     const rebId = lastReboundId
     if (rebId) {
@@ -552,12 +642,16 @@ export default function LeagueEventInputPad({
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => handleResult('made')}
-                  className="py-4 bg-green-600 hover:bg-green-500 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
+                  aria-label="성공 (단축키 A)"
+                  className="relative py-4 bg-green-600 hover:bg-green-500 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                   ✓ 성공
+                  <kbd className="absolute top-1 right-2 text-[10px] font-mono opacity-70 bg-black/25 rounded px-1">A</kbd>
                 </button>
                 <button onClick={() => handleResult('missed')}
-                  className="py-4 bg-red-700 hover:bg-red-600 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
+                  aria-label="실패 (단축키 S)"
+                  className="relative py-4 bg-red-700 hover:bg-red-600 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                   ✗ 실패
+                  <kbd className="absolute top-1 right-2 text-[10px] font-mono opacity-70 bg-black/25 rounded px-1">S</kbd>
                 </button>
               </div>
             </div>
@@ -575,15 +669,19 @@ export default function LeagueEventInputPad({
                   )}
                 </div>
                 {groupHasPending ? (
-                  /* 해당 그룹을 O/X 버튼으로 덮기 */
+                  /* 해당 그룹을 O/X 버튼으로 덮기 · 단축키 A/S */
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => handleResult('made')}
-                      className="py-4 bg-green-600 hover:bg-green-500 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
+                      aria-label="성공 (단축키 A)"
+                      className="relative py-4 bg-green-600 hover:bg-green-500 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                       ✓ 성공
+                      <kbd className="absolute top-1 right-2 text-[10px] font-mono opacity-70 bg-black/25 rounded px-1">A</kbd>
                     </button>
                     <button onClick={() => handleResult('missed')}
-                      className="py-4 bg-red-700 hover:bg-red-600 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
+                      aria-label="실패 (단축키 S)"
+                      className="relative py-4 bg-red-700 hover:bg-red-600 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                       ✗ 실패
+                      <kbd className="absolute top-1 right-2 text-[10px] font-mono opacity-70 bg-black/25 rounded px-1">S</kbd>
                     </button>
                   </div>
                 ) : (
