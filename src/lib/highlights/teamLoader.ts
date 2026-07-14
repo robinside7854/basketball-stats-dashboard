@@ -193,7 +193,7 @@ export async function loadTournamentHighlightDetail(
       player_name: player?.name ?? '알 수 없음',
       player_number: player?.number ?? null,
       player_photo: player?.photo_url ?? null,
-      team_id: null,
+      team_id: game.opponent,   // 상대 필터 키 — "vs 상대명" 칩 (같은 상대와 복수 경기면 합산)
       team_name: teamLabel,
       team_color: teamColor,
       shot_type: ev.type,
@@ -224,13 +224,27 @@ export async function loadTournamentHighlightDetail(
     return a.video_timestamp - b.video_timestamp
   })
 
+  // 상대별 필터 옵션 — 경기 날짜 순 유지 (color 빈 값 → 필터바에서 색 점 미표시)
+  const opponentCounts: Record<string, number> = {}
+  for (const c of clips) {
+    if (c.team_id) opponentCounts[c.team_id] = (opponentCounts[c.team_id] ?? 0) + 1
+  }
+  const seenOpponents = new Set<string>()
+  const opponents = gameRows
+    .filter(g => {
+      if (seenOpponents.has(g.opponent) || !(opponentCounts[g.opponent] > 0)) return false
+      seenOpponents.add(g.opponent)
+      return true
+    })
+    .map(g => ({ id: g.opponent, name: `vs ${g.opponent}`, color: '', count: opponentCounts[g.opponent] }))
+
   return {
     tournament: { id: t.id, name: t.name, year: t.year },
     detail: {
       date: '',
       clips,
       players: Object.values(playerCounts).sort((a, b) => b.count - a.count),
-      teams: [],  // 팀 대시보드는 단일 팀 — 팀 필터 미노출
+      teams: opponents,   // "vs 상대명" 칩 (상대가 1팀뿐이어도 노출 — 대회 맥락 표시)
     },
   }
 }

@@ -84,7 +84,7 @@ export default async function TournamentHighlightsPage({
           </p>
         </div>
       ) : (
-        <HighlightsBrowser detail={detail} />
+        <HighlightsBrowser detail={detail} teamSectionLabel="상대" />
       )}
     </div>
   )

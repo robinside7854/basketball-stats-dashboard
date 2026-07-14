@@ -17,11 +17,12 @@ interface Props {
   onChange: (next: FilterState) => void
   totalClips: number
   filteredCount: number
+  teamSectionLabel?: string   // 팀 칩 섹션 라벨 — 리그: '팀'(기본) · 대회: '상대'
 }
 
 const CATEGORIES = SHOT_CATEGORY_OPTIONS
 
-export default function HighlightsFilterBar({ players, teams, filter, onChange, totalClips, filteredCount }: Props) {
+export default function HighlightsFilterBar({ players, teams, filter, onChange, totalClips, filteredCount, teamSectionLabel = '팀' }: Props) {
   const setTeam = (teamId: string | null) => onChange({ ...filter, teamId })
   const setPlayer = (playerId: string | null) => onChange({ ...filter, playerId })
   const setCategory = (category: ShotCategory | null) => onChange({ ...filter, category })
@@ -66,10 +67,10 @@ export default function HighlightsFilterBar({ players, teams, filter, onChange, 
         </span>
       </div>
 
-      {/* 팀 필터 */}
+      {/* 팀(또는 상대) 필터 */}
       {teams.length > 0 && (
         <div className="space-y-1.5">
-          <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>팀</div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>{teamSectionLabel}</div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
@@ -85,10 +86,10 @@ export default function HighlightsFilterBar({ players, teams, filter, onChange, 
                 type="button"
                 onClick={() => setTeam(filter.teamId === t.id ? null : t.id)}
                 className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors inline-flex items-center gap-1.5"
-                style={chip(filter.teamId === t.id, t.color)}
+                style={chip(filter.teamId === t.id, t.color || undefined)}
                 aria-pressed={filter.teamId === t.id}
               >
-                <span aria-hidden className="inline-block w-2 h-2 rounded-full" style={{ background: t.color }} />
+                {t.color && <span aria-hidden className="inline-block w-2 h-2 rounded-full" style={{ background: t.color }} />}
                 {t.name}
                 <span className="text-[10px] opacity-80">{t.count}</span>
               </button>
@@ -124,31 +125,32 @@ export default function HighlightsFilterBar({ players, teams, filter, onChange, 
         </div>
       </div>
 
-      {/* 선수 필터 — 드롭다운 (선수 수가 많을 수 있음) */}
+      {/* 선수 필터 — 칩 (클립 수 많은 순 정렬) */}
       {players.length > 0 && (
         <div className="space-y-1.5">
           <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>선수</div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              value={filter.playerId ?? ''}
-              onChange={e => setPlayer(e.target.value === '' ? null : e.target.value)}
-              className="px-3 py-2 min-h-[44px] text-sm cursor-pointer"
-              style={{
-                background: 'var(--mm-panel)',
-                border: '1px solid var(--mm-rule)',
-                color: 'var(--mm-ink)',
-                borderRadius: '4px',
-                minWidth: '200px',
-              }}
-              aria-label="선수 선택"
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setPlayer(null)}
+              className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+              style={chip(filter.playerId === null)}
             >
-              <option value="">전체 선수</option>
-              {players.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.number ? `#${p.number} ` : ''}{p.name} ({p.count})
-                </option>
-              ))}
-            </select>
+              전체
+            </button>
+            {players.map(p => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setPlayer(filter.playerId === p.id ? null : p.id)}
+                className="px-3 py-1.5 min-h-[36px] text-xs font-bold cursor-pointer transition-colors inline-flex items-center gap-1.5"
+                style={chip(filter.playerId === p.id)}
+                aria-pressed={filter.playerId === p.id}
+              >
+                {p.number != null ? `#${p.number} ` : ''}{p.name}
+                <span className="text-[10px] opacity-80">{p.count}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
