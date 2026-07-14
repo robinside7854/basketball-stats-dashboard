@@ -14,9 +14,10 @@ import type { HighlightRoundDetail } from '@/lib/highlights/types'
 
 interface Props {
   detail: HighlightRoundDetail
+  teamSectionLabel?: string   // 팀 칩 섹션 라벨 — 리그: '팀'(기본) · 대회: '상대'
 }
 
-export default function HighlightsBrowser({ detail }: Props) {
+export default function HighlightsBrowser({ detail, teamSectionLabel }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -71,6 +72,7 @@ export default function HighlightsBrowser({ detail }: Props) {
         onChange={setFilter}
         totalClips={detail.clips.length}
         filteredCount={filteredClips.length}
+        teamSectionLabel={teamSectionLabel}
       />
 
       <div className="grid gap-3 lg:grid-cols-12">
