@@ -2,12 +2,12 @@
 // HighlightsFilterBar — 팀 / 선수 / 슛 유형 필터 (mm-* 팔레트 · 44px 터치 타겟)
 // 상태는 부모 (HighlightsBrowser) 에서 관리 → URL 쿼리 동기화
 import type { HighlightPlayerOption, HighlightTeamOption } from '@/lib/highlights/types'
-import type { ShotCategory } from '@/lib/highlights/clip'
+import { SHOT_CATEGORY_OPTIONS, type ShotCategory } from '@/lib/highlights/clip'
 
 export type FilterState = {
   teamId: string | null       // null = 전체
   playerId: string | null     // null = 전체
-  category: ShotCategory | null    // null = 전체 · 'threes'|'twos'|'freethrows'
+  category: ShotCategory | null    // null = 전체 · SHOT_CATEGORY_OPTIONS 참고
 }
 
 interface Props {
@@ -19,12 +19,7 @@ interface Props {
   filteredCount: number
 }
 
-const CATEGORIES: { key: ShotCategory; label: string }[] = [
-  { key: 'threes',     label: '3점' },
-  { key: 'twos',       label: '2점' },
-  { key: 'freethrows', label: '자유투' },
-  { key: 'andones',    label: '앤드원' },
-]
+const CATEGORIES = SHOT_CATEGORY_OPTIONS
 
 export default function HighlightsFilterBar({ players, teams, filter, onChange, totalClips, filteredCount }: Props) {
   const setTeam = (teamId: string | null) => onChange({ ...filter, teamId })
