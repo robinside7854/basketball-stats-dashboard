@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal } from 'lucide-react'
+import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal, Film } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
@@ -571,6 +571,17 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     className="text-sm font-black px-2.5 py-1 rounded-sm"
                     style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
                   >+1</span>
+                )}
+                {orgSlug && (
+                  <Link
+                    href={`/league/${orgSlug}/${leagueId}/highlights/player/${playerId}`}
+                    onClick={onClose}
+                    className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-sm cursor-pointer transition-colors min-h-[36px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                    style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)', border: '1px solid var(--mm-black)' }}
+                    aria-label={`${player?.name ?? playerName} 하이라이트 보기`}
+                  >
+                    <Film size={12} aria-hidden /> 하이라이트
+                  </Link>
                 )}
               </div>
             </div>

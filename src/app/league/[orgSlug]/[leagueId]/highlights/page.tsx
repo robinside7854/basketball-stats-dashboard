@@ -6,6 +6,7 @@ import { Film, PlayCircle, ChevronRight, Clock, VideoOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import EmptyState from '@/components/league/EmptyState'
+import HighlightsPlayerPicker from '@/components/highlights/HighlightsPlayerPicker'
 import { loadRecentRounds } from '@/lib/highlights/loader'
 
 const getCached = (leagueId: string) =>
@@ -54,6 +55,9 @@ export default async function HighlightsLandingPage({
           </p>
         </div>
       </div>
+
+      {/* 선수별 하이라이트 진입 */}
+      <HighlightsPlayerPicker leagueId={leagueId} orgSlug={orgSlug} />
 
       {rounds.length === 0 ? (
         <EmptyState

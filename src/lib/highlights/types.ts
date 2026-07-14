@@ -31,6 +31,10 @@ export type HighlightClip = {
   game_id: string
   home_team_name: string
   away_team_name: string
+  // 선수별 페이지에서 채움 (라운드 상세 로더는 optional 미설정)
+  game_date?: string
+  quarter_id?: string | null
+  opponent_name?: string
 }
 
 export type HighlightPlayerOption = {
@@ -52,4 +56,34 @@ export type HighlightRoundDetail = {
   clips: HighlightClip[]
   players: HighlightPlayerOption[]
   teams: HighlightTeamOption[]
+}
+
+// === 선수별 하이라이트 ============================================
+
+export type PlayerHighlightsInfo = {
+  id: string
+  name: string
+  number: number | null
+  photo_url: string | null
+}
+
+export type HighlightQuarterOption = {
+  id: string
+  year: number
+  quarter: number
+  label: string   // "25.1Q"
+  count: number
+}
+
+export type HighlightShotTypeOption = {
+  type: string
+  label: string
+  count: number
+}
+
+export type PlayerHighlightsData = {
+  player: PlayerHighlightsInfo
+  clips: HighlightClip[]      // game_date desc → 같은 경기 내 video_timestamp asc
+  quarters: HighlightQuarterOption[]
+  shotTypes: HighlightShotTypeOption[]
 }

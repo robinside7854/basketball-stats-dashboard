@@ -3,8 +3,12 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { extractYouTubeId } from '@/lib/youtube/utils'
-import { isHighlightShot, getClipBounds } from './clip'
-import type { HighlightRound, HighlightRoundDetail, HighlightClip, HighlightPlayerOption, HighlightTeamOption } from './types'
+import { isHighlightShot, getClipBounds, SHOT_TYPE_LABEL } from './clip'
+import type {
+  HighlightRound, HighlightRoundDetail, HighlightClip,
+  HighlightPlayerOption, HighlightTeamOption,
+  PlayerHighlightsData, HighlightQuarterOption, HighlightShotTypeOption,
+} from './types'
 
 // 최근 라운드 목록 — 모든 라운드 노출 (영상/기록 여부는 status 로 구분)
 // 미리 필터링 안 함 · UI 에서 상태별로 시각화
@@ -235,4 +239,175 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     players: Object.values(playerCounts).sort((a, b) => b.count - a.count),
     teams: Object.values(teamCounts).sort((a, b) => b.count - a.count),
   }
+}
+
+// ── 선수별 하이라이트 ────────────────────────────────────────────
+// 한 선수의 전체 성공 슛 클립 (라운드 무관) + 분기/유형별 카운트
+export async function loadPlayerHighlights(
+  supabase: SupabaseClient,
+  leagueId: string,
+  playerId: string,
+): Promise<PlayerHighlightsData | null> {
+  // 1. 선수 정보 (league scope 확인)
+  const { data: playerRow, error: pErr } = await supabase
+    .from('league_players')
+    .select('id, name, number, photo_url, league_id')
+    .eq('id', playerId)
+    .eq('league_id', leagueId)
+    .maybeSingle()
+  if (pErr || !playerRow) return null
+  const player = {
+    id: playerRow.id as string,
+    name: playerRow.name as string,
+    number: (playerRow.number ?? null) as number | null,
+    photo_url: (playerRow.photo_url ?? null) as string | null,
+  }
+
+  // 2. 리그의 영상 있는 게임 목록 (id, date, quarter_id, home/away 팀)
+  const { data: gamesRaw, error: gErr } = await supabase
+    .from('league_games')
+    .select(`
+      id, date, quarter_id, youtube_url, youtube_start_offset,
+      home_team_id, away_team_id,
+      home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
+      away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
+    `)
+    .eq('league_id', leagueId)
+    .not('youtube_url', 'is', null)
+    .not('date', 'is', null)
+  if (gErr) return { player, clips: [], quarters: [], shotTypes: [] }
+  const gameRows = (gamesRaw ?? []) as unknown as Array<{
+    id: string
+    date: string
+    quarter_id: string | null
+    youtube_url: string
+    youtube_start_offset: number | null
+    home_team_id: string | null
+    away_team_id: string | null
+    home_team: { id: string; name: string; color: string } | null
+    away_team: { id: string; name: string; color: string } | null
+  }>
+  if (gameRows.length === 0) return { player, clips: [], quarters: [], shotTypes: [] }
+
+  const gameMap: Record<string, typeof gameRows[number]> = {}
+  for (const g of gameRows) gameMap[g.id] = g
+  const gameIds = gameRows.map(g => g.id)
+
+  // 3. 해당 선수의 성공 슛 이벤트 (video_timestamp 필수) — 페이지네이션 필수
+  type EvtRow = {
+    id: string
+    league_game_id: string
+    team_id: string | null
+    type: string
+    points: number | null
+    video_timestamp: number
+  }
+  const events: EvtRow[] = []
+  const PAGE = 1000
+  for (let pg = 0; ; pg++) {
+    const { data: chunk, error: eErr } = await supabase
+      .from('league_game_events')
+      .select('id, league_game_id, team_id, type, result, points, video_timestamp, created_at')
+      .eq('league_player_id', playerId)
+      .in('league_game_id', gameIds)
+      .eq('result', 'made')
+      .not('video_timestamp', 'is', null)
+      .order('created_at', { ascending: true })
+      .range(pg * PAGE, (pg + 1) * PAGE - 1)
+    if (eErr) return { player, clips: [], quarters: [], shotTypes: [] }
+    if (chunk && chunk.length > 0) events.push(...(chunk as EvtRow[]))
+    if (!chunk || chunk.length < PAGE) break
+  }
+
+  // 4. league_quarters (분기 옵션 라벨용)
+  const { data: quartersRaw } = await supabase
+    .from('league_quarters')
+    .select('id, year, quarter')
+    .eq('league_id', leagueId)
+    .order('year', { ascending: false })
+    .order('quarter', { ascending: false })
+  type QRow = { id: string; year: number; quarter: number }
+  const quarterMap: Record<string, QRow> = {}
+  for (const q of (quartersRaw ?? []) as QRow[]) quarterMap[q.id] = q
+
+  // 5. 클립 생성 (게임/팀 컨텍스트 결합)
+  const clips: HighlightClip[] = []
+  const quarterCount: Record<string, number> = {}
+  const shotTypeCount: Record<string, number> = {}
+
+  for (const ev of events) {
+    if (!isHighlightShot(ev.type)) continue
+    const game = gameMap[ev.league_game_id]
+    if (!game) continue
+    const videoId = extractYouTubeId(game.youtube_url)
+    if (!videoId) continue
+
+    // 팀 결정: event.team_id 우선 → 매칭 실패 시 홈/어웨이 중 아무거나 (라벨용)
+    let team = ev.team_id === game.home_team?.id ? game.home_team
+      : ev.team_id === game.away_team?.id ? game.away_team
+      : null
+    if (!team) team = game.home_team ?? game.away_team
+    if (!team) continue
+
+    const { start, end } = getClipBounds(ev.type, ev.video_timestamp)
+
+    // 상대팀 이름 — 선수 소속(team)이 아닌 쪽
+    const homeName = game.home_team?.name ?? ''
+    const awayName = game.away_team?.name ?? ''
+    const opponentName = team.id === game.home_team?.id ? awayName
+      : team.id === game.away_team?.id ? homeName
+      : ''
+
+    clips.push({
+      event_id: ev.id,
+      video_url: game.youtube_url,
+      video_id: videoId,
+      video_timestamp: ev.video_timestamp,
+      clip_start: start,
+      clip_end: end,
+      player_id: player.id,
+      player_name: player.name,
+      player_number: player.number,
+      player_photo: player.photo_url,
+      team_id: team.id,
+      team_name: team.name,
+      team_color: team.color,
+      shot_type: ev.type,
+      points: ev.points ?? 0,
+      game_id: game.id,
+      home_team_name: homeName,
+      away_team_name: awayName,
+      game_date: game.date,
+      quarter_id: game.quarter_id,
+      opponent_name: opponentName,
+    })
+
+    if (game.quarter_id && quarterMap[game.quarter_id]) {
+      quarterCount[game.quarter_id] = (quarterCount[game.quarter_id] ?? 0) + 1
+    }
+    shotTypeCount[ev.type] = (shotTypeCount[ev.type] ?? 0) + 1
+  }
+
+  // 정렬: game_date desc → 같은 경기 내 timestamp asc
+  clips.sort((a, b) => {
+    const da = a.game_date ?? ''
+    const db = b.game_date ?? ''
+    if (da !== db) return db.localeCompare(da)
+    if (a.game_id !== b.game_id) return a.game_id.localeCompare(b.game_id)
+    return a.video_timestamp - b.video_timestamp
+  })
+
+  // 필터 옵션 (카운트 > 0 만)
+  const quarters: HighlightQuarterOption[] = Object.entries(quarterCount)
+    .map(([id, count]) => {
+      const q = quarterMap[id]
+      return { id, year: q.year, quarter: q.quarter, label: `${String(q.year).slice(2)}.${q.quarter}Q`, count }
+    })
+    .sort((a, b) => (b.year - a.year) || (b.quarter - a.quarter))
+
+  const shotTypes: HighlightShotTypeOption[] = Object.entries(shotTypeCount)
+    .map(([type, count]) => ({ type, label: SHOT_TYPE_LABEL[type] ?? type, count }))
+    .sort((a, b) => b.count - a.count)
+
+  return { player, clips, quarters, shotTypes }
 }
