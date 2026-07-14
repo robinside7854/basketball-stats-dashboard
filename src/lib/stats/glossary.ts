@@ -56,7 +56,7 @@ export const GLOSSARY: Record<string, StatDef> = {
 
   // ── 야투 존별 비중 ─────────────────
   DS: { short: 'DS', long: '골밑 비중',    formula: '골밑슛 시도 / FGA', description: '전체 야투 중 골밑슛(포스트/덩크) 시도 비중' },
-  LU: { short: 'LU', long: '레이업 비중',  formula: '(레이업+드라이브) / FGA', description: '전체 야투 중 레이업·드라이브 비중' },
+  LU: { short: 'LU', long: '레이업 비중',  formula: '레이업 / FGA', description: '전체 야투 중 레이업 비중' },
   MD: { short: 'MD', long: '미들 비중',    formula: '미들슛 시도 / FGA', description: '전체 야투 중 미드레인지 비중' },
   '3P share': { short: '3P', long: '3점 비중', formula: '3PA / FGA', description: '전체 야투 중 3점 시도 비중' },
 

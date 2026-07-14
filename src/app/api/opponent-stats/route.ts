@@ -3,8 +3,6 @@ import { NextResponse } from 'next/server'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'free_throw'] as const
 type ShotType = typeof SHOT_TYPES[number]
-// 드라이브는 레이업으로 통합
-const DRIVE_TO_LAYUP = 'shot_2p_drive'
 
 interface ShotBreakdown {
   att: number
@@ -125,8 +123,7 @@ export async function GET(req: Request) {
       }
       const gameStat = gamePlayerMap.get(ev.player_id)!
 
-      // 드라이브 → 레이업으로 통합
-      const evType = ev.type === DRIVE_TO_LAYUP ? 'shot_layup' : ev.type
+      const evType = ev.type
 
       if (SHOT_TYPES.includes(evType as ShotType)) {
         const sType = evType as ShotType

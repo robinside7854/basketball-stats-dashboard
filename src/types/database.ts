@@ -1,7 +1,6 @@
 export type EventType =
   | 'shot_3p'
   | 'shot_2p_mid'
-  | 'shot_2p_drive'
   | 'shot_layup'
   | 'shot_post'
   | 'free_throw'
@@ -131,7 +130,6 @@ export interface PlayerBoxScore {
 export const EVENT_LABELS: Record<EventType, string> = {
   shot_3p: '3점슛',
   shot_2p_mid: '중거리 2점',
-  shot_2p_drive: '드라이브',
   shot_layup: '레이업',
   shot_post: '골밑슛',
   free_throw: '자유투',
@@ -175,7 +173,7 @@ export const SHOT_ZONE_LABELS: Record<ShotZone, string> = {
   '3p_corner_r':   '우 코너 3',
 }
 
-// 미드/3P 슛은 5존 picker 대상; layup/post/drive는 'paint' 자동 추론
+// 미드/3P 슛은 5존 picker 대상; layup/post는 'paint' 자동 추론
 export const MID_ZONES: ShotZone[] = ['mid_baseline_l', 'mid_elbow_l', 'mid_top', 'mid_elbow_r', 'mid_baseline_r']
 export const THREE_ZONES: ShotZone[] = ['3p_corner_l', '3p_wing_l', '3p_top', '3p_wing_r', '3p_corner_r']
 
@@ -184,7 +182,6 @@ export function inferShotZone(eventType: EventType): ShotZone | null {
   switch (eventType) {
     case 'shot_layup':
     case 'shot_post':
-    case 'shot_2p_drive':
       return 'paint'
     default:
       return null

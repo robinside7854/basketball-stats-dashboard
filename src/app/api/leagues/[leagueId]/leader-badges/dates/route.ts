@@ -22,7 +22,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 
-const FIELD_SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
+const FIELD_SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 type Category = 'pts' | 'reb' | 'ast' | 'blk' | 'stl' | 'tp'
 const VALID_CATS: Category[] = ['pts', 'reb', 'ast', 'blk', 'stl', 'tp']
 

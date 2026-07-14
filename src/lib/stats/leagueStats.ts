@@ -201,7 +201,6 @@ export async function computeLeagueStats(
         if (made) { s.fgm++; s.ds_m++; s.pts += isPlusOne ? 3 : 2 }
         break
       case 'shot_layup':
-      case 'shot_2p_drive':
         s.fga++; s.lu_a++
         if (made) { s.fgm++; s.lu_m++; s.pts += isPlusOne ? 3 : 2 }
         break
@@ -233,13 +232,13 @@ export async function computeLeagueStats(
 
     if (e.team_id) {
       const tp = ensureTeamPoss(e.team_id, gId)
-      if (['shot_3p', 'shot_post', 'shot_layup', 'shot_2p_drive', 'shot_2p_mid'].includes(e.type)) tp.fga++
+      if (['shot_3p', 'shot_post', 'shot_layup', 'shot_2p_mid'].includes(e.type)) tp.fga++
       else if (['ft_2pt', 'ft_3pt_1', 'free_throw', 'ft_3pt_2'].includes(e.type)) tp.fta++
       else if (e.type === 'turnover') tp.tov++
     }
 
     if (made &&
-        ['shot_3p','shot_2p_mid','shot_layup','shot_post','shot_2p_drive'].includes(e.type) &&
+        ['shot_3p','shot_2p_mid','shot_layup','shot_post'].includes(e.type) &&
         e.related_player_id) {
       const as = ensure(e.related_player_id)
       as.ast++

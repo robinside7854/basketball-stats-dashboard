@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { evaluateAllBadges, type PlayerCareerInput, type TeamAverages } from '@/lib/stats/badges'
 
-const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'] as const
+const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] as const
 
 export async function GET(
   req: Request,
@@ -207,7 +207,7 @@ export async function GET(
 
   const sb = {
     layup: { m: 0, a: 0 }, mid:   { m: 0, a: 0 }, post:  { m: 0, a: 0 },
-    drive: { m: 0, a: 0 }, three: { m: 0, a: 0 }, ft:    { m: 0, a: 0 },
+    three: { m: 0, a: 0 }, ft:    { m: 0, a: 0 },
   }
 
   for (const e of playerEvents ?? []) {
@@ -225,7 +225,6 @@ export async function GET(
       case 'shot_2p_mid': s.fga++; sb.mid.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.mid.m++ }; break
       case 'shot_layup':  s.fga++; sb.layup.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.layup.m++ }; break
       case 'shot_post':   s.fga++; sb.post.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.post.m++ }; break
-      case 'shot_2p_drive': s.fga++; sb.drive.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.drive.m++ }; break
       case 'and_one':
         if (made) { s.pts += 1 }; break
       case 'ft_2pt':
@@ -398,7 +397,7 @@ export async function GET(
     const s = allMap[pid]
     if (made) {
       if (e.type === 'shot_3p') { s.pts += isP1 ? 4 : 3; s.fg3m++; s.fgm++ }
-      else if (['shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'].includes(e.type as string)) { s.pts += isP1 ? 3 : 2; s.fgm++ }
+      else if (['shot_2p_mid', 'shot_layup', 'shot_post'].includes(e.type as string)) { s.pts += isP1 ? 3 : 2; s.fgm++ }
       else if (e.type === 'ft_2pt') { s.pts += 2; s.ftm++ }
       else if (e.type === 'ft_3pt_1') { s.pts += 2; s.ftm++ }
       else if (['free_throw', 'ft_3pt_2'].includes(e.type as string)) { s.pts += 1; s.ftm++ }
@@ -407,7 +406,6 @@ export async function GET(
     if (e.type === 'shot_3p') { s.fg3a++; s.fga++ }
     else if (e.type === 'shot_2p_mid')   { s.fga++; s.midA++ }
     else if (e.type === 'shot_layup')    { s.fga++; s.slashA++ }
-    else if (e.type === 'shot_2p_drive') { s.fga++; s.slashA++ }
     else if (e.type === 'shot_post')     { s.fga++; s.postA++ }
     else if (['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type as string)) s.fta++
     else if (e.type === 'oreb') { s.oreb++; s.reb++ }
@@ -570,7 +568,7 @@ export async function GET(
         const s = badgeMap[pid]
         if (made) {
           if (e.type === 'shot_3p') { s.pts += isP1 ? 4 : 3; s.fg3m++; s.fgm++ }
-          else if (['shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'].includes(e.type)) { s.pts += isP1 ? 3 : 2; s.fgm++ }
+          else if (['shot_2p_mid', 'shot_layup', 'shot_post'].includes(e.type)) { s.pts += isP1 ? 3 : 2; s.fgm++ }
           else if (e.type === 'ft_2pt') { s.pts += 2; s.ftm++ }
           else if (e.type === 'ft_3pt_1') { s.pts += 2; s.ftm++ }
           else if (['free_throw', 'ft_3pt_2'].includes(e.type)) { s.pts += 1; s.ftm++ }
@@ -579,7 +577,6 @@ export async function GET(
         if (e.type === 'shot_3p') { s.fg3a++; s.fga++ }
         else if (e.type === 'shot_2p_mid')   { s.fga++; s.midA++ }
         else if (e.type === 'shot_layup')    { s.fga++; s.slashA++ }
-        else if (e.type === 'shot_2p_drive') { s.fga++; s.slashA++ }
         else if (e.type === 'shot_post')     { s.fga++; s.postA++ }
         else if (['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2'].includes(e.type)) s.fta++
         else if (e.type === 'oreb') { s.oreb++; s.reb++ }
@@ -605,7 +602,6 @@ export async function GET(
   const tShot: Record<string, { attempted: number; made: number }> = {
     shot_post:     { attempted: 0, made: 0 },
     shot_layup:    { attempted: 0, made: 0 },
-    shot_2p_drive: { attempted: 0, made: 0 },
     shot_2p_mid:   { attempted: 0, made: 0 },
     shot_3p:       { attempted: 0, made: 0 },
   }
@@ -624,7 +620,7 @@ export async function GET(
     }
     if (e.related_player_id === playerId && e.result === 'made') {
       if (e.type === 'shot_3p') ast3pts++
-      else if (e.type === 'shot_layup' || e.type === 'shot_post' || e.type === 'shot_2p_drive') astPaint++
+      else if (e.type === 'shot_layup' || e.type === 'shot_post') astPaint++
     }
   }
   let primaryTeamId: string | undefined
@@ -664,7 +660,7 @@ export async function GET(
     }
     if (made) {
       if (e.type === 'shot_3p') t.pts += isP1 ? 4 : 3
-      else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post' || e.type === 'shot_2p_drive') t.pts += isP1 ? 3 : 2
+      else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post') t.pts += isP1 ? 3 : 2
       else if (e.type === 'ft_2pt' || e.type === 'ft_3pt_1') t.pts += 2
       else if (e.type === 'free_throw' || e.type === 'ft_3pt_2') t.pts += 1
       else if (e.type === 'and_one') t.pts += 1
@@ -769,14 +765,13 @@ export async function GET(
   }
 
   // ── Shot breakdown ───────────────────────────────────────────
-  const totalFGA = sb.layup.a + sb.mid.a + sb.post.a + sb.drive.a + sb.three.a
+  const totalFGA = sb.layup.a + sb.mid.a + sb.post.a + sb.three.a
   const pct = (m: number, a: number) => a > 0 ? +(m / a * 100).toFixed(1) : 0
   const dist = (a: number) => totalFGA > 0 ? +(a / totalFGA * 100).toFixed(1) : 0
   const shotBreakdown = {
     layup: { ...sb.layup, dist: dist(sb.layup.a), fg_pct: pct(sb.layup.m, sb.layup.a) },
     mid:   { ...sb.mid,   dist: dist(sb.mid.a),   fg_pct: pct(sb.mid.m,   sb.mid.a)   },
     post:  { ...sb.post,  dist: dist(sb.post.a),  fg_pct: pct(sb.post.m,  sb.post.a)  },
-    drive: { ...sb.drive, dist: dist(sb.drive.a), fg_pct: pct(sb.drive.m, sb.drive.a) },
     three: { ...sb.three, dist: dist(sb.three.a), fg_pct: pct(sb.three.m, sb.three.a) },
     ft:    { ...sb.ft,    ft_pct: pct(sb.ft.m, sb.ft.a) },
     total_fga: totalFGA,

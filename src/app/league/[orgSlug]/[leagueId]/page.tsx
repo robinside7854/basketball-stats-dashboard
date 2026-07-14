@@ -139,7 +139,7 @@ const POTW_WEIGHTS = {
 const CLUTCH_TIME_WINDOW_SECONDS = 120  // 마지막 2분
 const CLUTCH_MARGIN_MAX = 3              // 3점 이내
 const SCORING_EVENTS_SET = new Set([
-  'shot_3p', 'shot_post', 'shot_layup', 'shot_2p_drive', 'shot_2p_mid',
+  'shot_3p', 'shot_post', 'shot_layup', 'shot_2p_mid',
   'and_one', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'free_throw',
 ])
 
@@ -365,7 +365,7 @@ async function computeWeeklyPOTW(
             s.fg3a++
             if (made) { ptsGained = isP1 ? 4 : 3; s.pts += ptsGained; s.fg3m++ }
             break
-          case 'shot_2p_mid': case 'shot_layup': case 'shot_post': case 'shot_2p_drive':
+          case 'shot_2p_mid': case 'shot_layup': case 'shot_post':
             s.fga++
             if (made) { ptsGained = isP1 ? 3 : 2; s.pts += ptsGained }
             break

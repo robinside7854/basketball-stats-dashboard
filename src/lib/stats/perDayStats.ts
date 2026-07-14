@@ -42,7 +42,7 @@ const emptyStats = (): PerDayStats => ({
   ftm: 0, fta: 0, and_one: 0,
 })
 
-const FIELD_SHOTS = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
+const FIELD_SHOTS = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 
 /**
  * 리그 전체 경기의 선수별 경기일 스탯을 집계.
@@ -140,7 +140,6 @@ export async function computePerDayStats(
           break
         case 'shot_post':
         case 'shot_layup':
-        case 'shot_2p_drive':
         case 'shot_2p_mid':
           s.fga++
           if (made) { s.fgm++; s.pts += pts ?? 2 }

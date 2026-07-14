@@ -66,7 +66,6 @@ function pointsOfEvent(type: string, made: boolean, points: number | null): numb
     case 'shot_3p': return 3
     case 'shot_post':
     case 'shot_layup':
-    case 'shot_2p_drive':
     case 'shot_2p_mid': return 2
     case 'and_one': return 1
     case 'ft_2pt':
