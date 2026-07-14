@@ -41,6 +41,11 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
   const autoAdvanceRef = useRef(autoAdvance)
   const onIndexChangeRef = useRef(onIndexChange)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // 영상 교체(loadVideoById) 중 목표 시작 초 — 로딩 완료(PLAYING) 때 실제 위치 검증·보정
+  // loadVideoById 직후 getCurrentTime() 은 이전 영상 시각을 반환(stale) → 감시 인터벌 오발동 방지용
+  const pendingStartRef = useRef<number | null>(null)
+  // seekTo 직후에도 currentTime 반영이 비동기 → 짧은 grace 동안 clip_end 판정 중지 (ms epoch)
+  const seekGraceUntilRef = useRef(0)
 
   useEffect(() => { clipsRef.current = clips }, [clips])
   useEffect(() => { currentIdxRef.current = currentIdx }, [currentIdx])
@@ -90,6 +95,27 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
           onStateChange: (e) => {
             // ENDED (0) — 자동재생 켜져있으면 다음 클립
             if (e.data === 0 && autoAdvanceRef.current) advanceToNext()
+            // 영상 교체 로딩 완료 처리
+            if (pendingStartRef.current !== null) {
+              const target = pendingStartRef.current
+              if (e.data === 1) {
+                // PLAYING — loadVideoById 의 startSeconds 가 무시되고 0초부터 시작하는 경우 보정
+                pendingStartRef.current = null
+                try {
+                  const t = e.target.getCurrentTime()
+                  if (typeof t === 'number' && Math.abs(t - target) > 2) {
+                    e.target.seekTo(target, true)
+                    seekGraceUntilRef.current = Date.now() + 1500
+                  }
+                } catch { /* ignore */ }
+              } else if (e.data === 5) {
+                // CUED — 자동재생 차단 등으로 재생 시작 실패 → 목표 지점으로 이동 후 재생 시도
+                try {
+                  e.target.seekTo(target, true)
+                  e.target.playVideo()
+                } catch { /* ignore */ }
+              }
+            }
           },
           onError: () => { /* 광고 · 삭제 · 지역제한 등 — 조용히 건너뛰기 */
             if (autoAdvanceRef.current) advanceToNext()
@@ -124,13 +150,20 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
     if (!clip) return
     const player = playerRef.current
     if (!player || !readyRef.current) return
+    const start = Math.floor(clip.clip_start)
     try {
       if (currentVideoIdRef.current !== clip.video_id) {
-        player.loadVideoById({ videoId: clip.video_id, startSeconds: Math.floor(clip.clip_start) })
+        pendingStartRef.current = start
+        player.loadVideoById({ videoId: clip.video_id, startSeconds: start })
         currentVideoIdRef.current = clip.video_id
+      } else if (pendingStartRef.current !== null) {
+        // 같은 영상이지만 아직 loadVideoById 로딩 중 — 이 시점의 seekTo 는 무시되고 0초 재생됨
+        // 목표만 갱신하면 PLAYING 콜백이 보정해준다
+        pendingStartRef.current = start
       } else {
-        player.seekTo(Math.floor(clip.clip_start), true)
+        player.seekTo(start, true)
         player.playVideo()
+        seekGraceUntilRef.current = Date.now() + 1200
       }
     } catch { /* ignore */ }
   }, [clip])
@@ -143,6 +176,9 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
       const player = playerRef.current
       const c = clipsRef.current[currentIdxRef.current]
       if (!player || !readyRef.current || !c) return
+      // 영상 교체 로딩 중이거나 seekTo 직후 — getCurrentTime 이 이전 위치를 반환하는 구간이라 판정 중지
+      if (pendingStartRef.current !== null) return
+      if (Date.now() < seekGraceUntilRef.current) return
       try {
         const t = player.getCurrentTime()
         if (typeof t === 'number' && t >= c.clip_end) advanceToNext()
