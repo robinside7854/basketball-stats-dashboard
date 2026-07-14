@@ -17,14 +17,15 @@ interface Props {
   clips: HighlightClip[]
   quarters: HighlightQuarterOption[]
   shotTypes: HighlightShotTypeOption[]
-  orgSlug: string
-  leagueId: string
+  orgSlug?: string
+  leagueId?: string
+  groupLabel?: string   // 그룹 필터 라벨 — 리그: '분기'(기본) · 팀 대시보드: '대회'
 }
 
 const CATEGORIES = SHOT_CATEGORY_OPTIONS
 
 export default function PlayerHighlightsBrowser({
-  clips, quarters,
+  clips, quarters, groupLabel = '분기',
 }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -140,7 +141,7 @@ export default function PlayerHighlightsBrowser({
         {/* 분기 */}
         {quarters.length > 0 && (
           <div className="space-y-1.5">
-            <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>분기</div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>{groupLabel}</div>
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
                 type="button"
