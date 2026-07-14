@@ -26,7 +26,6 @@ const EVENT_OPTS = [
   { v: 'shot_2p_mid',   l: '미들슛'       },
   { v: 'shot_layup',    l: '레이업'       },
   { v: 'shot_post',     l: '골밑슛'       },
-  { v: 'shot_2p_drive', l: '드라이브'     },
   { v: 'free_throw',    l: '자유투'       },
   { v: 'and_one',       l: '앤드원 +1'    },
   { v: 'ft_2pt',        l: '2P파울 FT'    },
@@ -40,7 +39,7 @@ const EVENT_OPTS = [
   { v: 'foul',          l: '파울'         },
 ]
 
-const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
+const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 const FT_TYPES   = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2']
 const REB_TYPES  = ['oreb', 'dreb']
 const DEF_TYPES  = ['steal', 'block', 'turnover', 'foul']

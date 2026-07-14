@@ -328,7 +328,7 @@ export default function HalfCourtShotChart({ zones, size = 400 }: Props) {
           {hover ? (() => {
             const z = zones[hover]
             const c = { post: dsC, layup: luC, mid: mdC, three: thC }[hover]
-            const label = { post: '골밑 (DS · 노차지 제한구역)', layup: '레이업·드라이브 (LU · 페인트 안)', mid: '미드레인지 (MD · 페인트 밖 · 3점 안)', three: '3점 (3P · 코너 + 아크)' }[hover]
+            const label = { post: '골밑 (DS · 노차지 제한구역)', layup: '레이업 (LU · 페인트 안)', mid: '미드레인지 (MD · 페인트 밖 · 3점 안)', three: '3점 (3P · 코너 + 아크)' }[hover]
             return (
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-gray-900/90 border border-gray-700/60 flex-wrap">
                 <span className="font-bold text-white">{label}</span>

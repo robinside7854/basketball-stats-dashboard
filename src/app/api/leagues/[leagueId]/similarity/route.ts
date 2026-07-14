@@ -144,11 +144,11 @@ export async function GET(
   }
 
   // DB event type 매핑 (canonical, 소문자):
-  //   shot_2p_mid / shot_layup / shot_2p_drive / shot_post / shot_3p — 필드골
+  //   shot_2p_mid / shot_layup / shot_post / shot_3p — 필드골
   //   ft_2pt / ft_3pt_1 / ft_3pt_2 / free_throw — 자유투
   //   oreb / dreb — 리바운드 · steal · block · turnover
   //   assist 는 별도 type 없음 → made field shot 의 related_player_id 로 크레딧
-  const FIELD_SHOTS = new Set(['shot_2p_mid', 'shot_layup', 'shot_2p_drive', 'shot_post', 'shot_3p'])
+  const FIELD_SHOTS = new Set(['shot_2p_mid', 'shot_layup', 'shot_post', 'shot_3p'])
   const FT_TYPES = new Set(['ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'free_throw'])
 
   for (const e of events) {

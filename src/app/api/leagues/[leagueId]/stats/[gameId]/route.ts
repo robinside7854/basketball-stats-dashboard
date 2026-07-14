@@ -59,7 +59,7 @@ export async function GET(
       : plusOneSet.has(e.league_player_id)
 
     if (e.type === 'shot_3p') { s.fg3a++; s.fga++; if (made) { s.fg3m++; s.fgm++; s.pts += isPlusOne ? 4 : 3 } }
-    else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post' || e.type === 'shot_2p_drive') { s.fga++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 } }
+    else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post') { s.fga++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 } }
     // 앤드원: FTA/FTM 제외, 득점 +1만
     else if (e.type === 'and_one') { if (made) s.pts += 1 }
     // ft_2pt: 1회 시도 2점 / 나머지 자유투: 1점
@@ -75,8 +75,8 @@ export async function GET(
     else if (e.type === 'turnover') s.tov++
     else if (e.type === 'foul') s.pf++
 
-    // assist on made shots (shot_2p_drive 포함)
-    if (e.related_player_id && made && ['shot_3p','shot_2p_mid','shot_layup','shot_post','shot_2p_drive'].includes(e.type)) {
+    // assist on made shots
+    if (e.related_player_id && made && ['shot_3p','shot_2p_mid','shot_layup','shot_post'].includes(e.type)) {
       getOrCreate(e.related_player_id).ast++
     }
   }

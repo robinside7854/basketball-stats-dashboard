@@ -32,13 +32,12 @@ type EventBtn = {
 // 순서: 슈팅 → 리바운드 → 기타 → 자유투
 const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
   {
-    label: '슈팅', cols: 5,
+    label: '슈팅', cols: 4,
     buttons: [
       { type: 'shot_3p',       label: '3P',     color: 'bg-yellow-600 hover:bg-yellow-500', activeColor: 'bg-yellow-500', needsResult: true, needsRelated: true },
       { type: 'shot_2p_mid',   label: '미들슛',  color: 'bg-blue-600 hover:bg-blue-500',    activeColor: 'bg-blue-500',   needsResult: true, needsRelated: true },
       { type: 'shot_layup',    label: '레이업',  color: 'bg-blue-700 hover:bg-blue-600',    activeColor: 'bg-blue-600',   needsResult: true, needsRelated: true },
       { type: 'shot_post',     label: '골밑슛',  color: 'bg-violet-700 hover:bg-violet-600', activeColor: 'bg-violet-600', needsResult: true, needsRelated: true },
-      { type: 'shot_2p_drive', label: '드라이브', color: 'bg-cyan-700 hover:bg-cyan-600',   activeColor: 'bg-cyan-600',   needsResult: true, needsRelated: true },
     ],
   },
   {
@@ -67,7 +66,7 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
   },
 ]
 
-const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
+const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 const FT_TYPES   = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'and_one']
 
 function calcPoints(type: string, result: string, isPlusOne = false): number {

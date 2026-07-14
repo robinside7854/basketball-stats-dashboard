@@ -98,7 +98,6 @@ export function calculateBoxScore(
         if (event.result === 'made') { stat.fg3m++; stat.fgm++; stat.pts += 3 }
         break
       case 'shot_2p_mid':
-      case 'shot_2p_drive':
       case 'shot_layup':
       case 'shot_post':
         stat.fga++
@@ -117,7 +116,7 @@ export function calculateBoxScore(
     }
 
     // 어시스트: related_player_id가 어시스트한 선수
-    if (['shot_3p', 'shot_2p_mid', 'shot_2p_drive', 'shot_layup', 'shot_post'].includes(event.type)) {
+    if (['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'].includes(event.type)) {
       if (event.result === 'made' && event.related_player_id) {
         const assistStat = statsMap.get(event.related_player_id)
         if (assistStat) assistStat.ast++
@@ -127,7 +126,7 @@ export function calculateBoxScore(
 
   // +/- 계산
   const scoringEvents = events.filter(e =>
-    ['shot_3p', 'shot_2p_mid', 'shot_2p_drive', 'shot_layup', 'shot_post', 'free_throw', 'opp_score'].includes(e.type)
+    ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'free_throw', 'opp_score'].includes(e.type)
     && (e.result === 'made' || e.type === 'opp_score')
     && e.video_timestamp != null
   )
@@ -190,7 +189,7 @@ function isTripleDouble(s: PlayerBoxScore): boolean {
 // 선수별 쿼터별 득점
 export function calculateQuarterPoints(events: GameEvent[]): Record<string, Record<number, number>> {
   const result: Record<string, Record<number, number>> = {}
-  const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_2p_drive', 'shot_layup', 'shot_post']
+  const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
   for (const event of events) {
     if (!event.player_id || event.result !== 'made') continue
     let pts = 0

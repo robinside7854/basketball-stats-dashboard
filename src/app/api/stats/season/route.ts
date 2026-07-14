@@ -105,8 +105,8 @@ export async function GET(req: Request) {
     })
 
   // ── 팀 슛 zone 집계 ──────────────────────────────────────
-  const PAINT_AUTO = new Set(['shot_layup', 'shot_post', 'shot_2p_drive'])
-  const SHOT_TYPES = new Set(['shot_3p', 'shot_2p_mid', 'shot_2p_drive', 'shot_layup', 'shot_post'])
+  const PAINT_AUTO = new Set(['shot_layup', 'shot_post'])
+  const SHOT_TYPES = new Set(['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'])
   const ALL_ZONES = [
     'paint',
     'mid_baseline_l', 'mid_elbow_l', 'mid_top', 'mid_elbow_r', 'mid_baseline_r',

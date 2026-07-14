@@ -27,7 +27,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 
-const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'] as const
+const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] as const
 
 type CategoryKey = 'pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg3m' | 'fga' | 'fgm'
 
@@ -170,7 +170,6 @@ export async function GET(
       case 'shot_2p_mid':
       case 'shot_layup':
       case 'shot_post':
-      case 'shot_2p_drive':
         s.fga++
         if (made) { s.fgm++; s.pts += isP1 ? 3 : 2 }
         break

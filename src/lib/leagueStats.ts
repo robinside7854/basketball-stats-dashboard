@@ -90,7 +90,7 @@ export async function aggregateQuarterStats(
     switch (e.type) {
       case 'shot_3p': s.fg3a++; s.fga++; if (made) { s.fg3m++; s.fgm++; s.pts += isPlusOne ? 4 : 3 } break
       case 'shot_post': s.fga++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 } break
-      case 'shot_layup': case 'shot_2p_drive': s.fga++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 } break
+      case 'shot_layup': s.fga++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 } break
       case 'shot_2p_mid': s.fga++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 } break
       case 'and_one': if (made) s.pts += 1; break
       case 'ft_2pt': s.fta++; if (made) { s.ftm++; s.pts += 2 } break
@@ -103,7 +103,7 @@ export async function aggregateQuarterStats(
       case 'turnover': s.tov++; break
       case 'foul': s.pf++; break
     }
-    if (made && ['shot_3p','shot_2p_mid','shot_layup','shot_post','shot_2p_drive'].includes(e.type) && e.related_player_id) {
+    if (made && ['shot_3p','shot_2p_mid','shot_layup','shot_post'].includes(e.type) && e.related_player_id) {
       const as = ensure(e.related_player_id)
       as.ast++
       if (!gpMap[e.related_player_id]) gpMap[e.related_player_id] = new Set()

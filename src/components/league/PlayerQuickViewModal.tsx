@@ -64,7 +64,7 @@ type Detail = {
   badges: EvaluatedBadge[]
   badges_summary?: BadgeSummary
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
-  shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; drive: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
+  shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
   recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; pts: number; reb: number; ast: number; stl?: number; blk?: number; fgm: number; fga: number; fg3m?: number; fg3a?: number }>
   game_log?: Array<{ date: string; pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; fg3m: number; fg3a: number }>
   win_loss?: {
@@ -1170,7 +1170,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               )
             })()}
 
-            {/* 공격 스타일 — 골밑 → 레이업/드라이브 → 미들 → 3점 */}
+            {/* 공격 스타일 — 골밑 → 레이업 → 미들 → 3점 */}
             {activeDetail?.shot_breakdown && activeDetail.shot_breakdown.total_fga > 0 && (
               <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center justify-between mb-3">
@@ -1195,26 +1195,13 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 </div>
                 {(() => {
                   const sb = activeDetail.shot_breakdown
-                  // 골밑 + 드라이브/레이업 합산 표기
                   // mm-brand: 존별 색은 데이터 구분 목적이라 정보시각화 관례 유지 (spec 5 data emphasis)
-                  const slashLayup = {
-                    label: '레이업/드라이브',
-                    color: '#EAB308',            // mm-yellow
-                    m: sb.layup.m + (sb.drive?.m ?? 0),
-                    a: sb.layup.a + (sb.drive?.a ?? 0),
-                    dist: sb.layup.dist + (sb.drive?.dist ?? 0),
-                    fg_pct: (() => {
-                      const totalA = sb.layup.a + (sb.drive?.a ?? 0)
-                      const totalM = sb.layup.m + (sb.drive?.m ?? 0)
-                      return totalA > 0 ? +(totalM / totalA * 100).toFixed(1) : 0
-                    })(),
-                  }
                   // 공격비중이 높은 순으로 정렬 (직관적 공격옵션 확인)
                   const rawZones = [
-                    { label: '골밑',         color: '#0A0A0A', data: sb.post  },
-                    { label: '레이업/드라이브', color: '#EAB308', data: { m: slashLayup.m, a: slashLayup.a, dist: slashLayup.dist, fg_pct: slashLayup.fg_pct } },
-                    { label: '미들슛',        color: '#A16207', data: sb.mid   },
-                    { label: '3점슛',         color: '#6B7280', data: sb.three },
+                    { label: '골밑',   color: '#0A0A0A', data: sb.post  },
+                    { label: '레이업', color: '#EAB308', data: sb.layup },
+                    { label: '미들슛', color: '#A16207', data: sb.mid   },
+                    { label: '3점슛',  color: '#6B7280', data: sb.three },
                   ]
                     .filter(z => z.data.a > 0)
                     .sort((a, b) => b.data.dist - a.data.dist)
@@ -1235,13 +1222,13 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       color: z.color,
                     }))
                   const totalFGA = sb.total_fga
-                  const totalFGM = sb.layup.m + (sb.drive?.m ?? 0) + sb.mid.m + sb.post.m + sb.three.m
+                  const totalFGM = sb.layup.m + sb.mid.m + sb.post.m + sb.three.m
                   const overallFGPct = totalFGA > 0 ? +(totalFGM / totalFGA * 100).toFixed(1) : 0
 
                   // 코트 차트용 zones 구조 (m/a/fg_pct)
                   const courtZones = {
                     post:  { m: sb.post.m,                          a: sb.post.a,                          fg_pct: sb.post.fg_pct  },
-                    layup: { m: slashLayup.m,                       a: slashLayup.a,                       fg_pct: slashLayup.fg_pct },
+                    layup: { m: sb.layup.m,                         a: sb.layup.a,                         fg_pct: sb.layup.fg_pct },
                     mid:   { m: sb.mid.m,                           a: sb.mid.a,                           fg_pct: sb.mid.fg_pct   },
                     three: { m: sb.three.m,                         a: sb.three.a,                         fg_pct: sb.three.fg_pct },
                   }

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
 const FIELD_SHOT_TYPES = new Set([
-  'shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive',
+  'shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post',
 ])
 
 // GET /api/leagues/[leagueId]/relationships?quarterId=xxx

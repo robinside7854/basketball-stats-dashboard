@@ -56,7 +56,6 @@ function calcStats(
       case 'shot_post':
       case 'shot_layup':
       case 'shot_2p_mid':
-      case 'shot_2p_drive':
         fga++
         if (e.result === 'made') { fgm++; pts += 2 }
         break
@@ -217,7 +216,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   }
 
   // ── 코트 4존 (리그 카드 슛차트 HalfCourtShotChart 용) ──────────
-  // post / layup(=layup+drive) / mid / three, 각 { m, a, fg_pct }
+  // post / layup / mid / three, 각 { m, a, fg_pct }
   function courtZoneAgg(types: string[]) {
     const shots = playerEvents.filter(e => types.includes(e.type))
     const a = shots.length
@@ -226,7 +225,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   }
   const courtZones = {
     post:  courtZoneAgg(['shot_post']),
-    layup: courtZoneAgg(['shot_layup', 'shot_2p_drive']),
+    layup: courtZoneAgg(['shot_layup']),
     mid:   courtZoneAgg(['shot_2p_mid']),
     three: courtZoneAgg(['shot_3p']),
   }
@@ -318,7 +317,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
   // ── 쿼터별 커리어 득점 합산 ──────────────────────────────────
   const quarterPts = { q1: 0, q2: 0, q3: 0, q4: 0 }
-  const SCORE_TYPES = new Set(['shot_3p', 'shot_post', 'shot_layup', 'shot_2p_mid', 'shot_2p_drive', 'free_throw'])
+  const SCORE_TYPES = new Set(['shot_3p', 'shot_post', 'shot_layup', 'shot_2p_mid', 'free_throw'])
   for (const e of playerEvents) {
     if (e.result !== 'made' || !SCORE_TYPES.has(e.type)) continue
     const pts = e.type === 'shot_3p' ? 3 : e.type === 'free_throw' ? 1 : 2
@@ -386,9 +385,9 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   }
 
   // ── 슛 존(zone) 집계 ──────────────────────────────────────
-  // 11개 zone 집계 + 자동 추론 (legacy 데이터: layup/post/drive → paint)
-  const PAINT_AUTO_TYPES = new Set(['shot_layup', 'shot_post', 'shot_2p_drive'])
-  const SHOT_TYPES_FOR_ZONE = new Set(['shot_3p', 'shot_2p_mid', 'shot_2p_drive', 'shot_layup', 'shot_post'])
+  // 11개 zone 집계 + 자동 추론 (legacy 데이터: layup/post → paint)
+  const PAINT_AUTO_TYPES = new Set(['shot_layup', 'shot_post'])
+  const SHOT_TYPES_FOR_ZONE = new Set(['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'])
   const ALL_ZONES = [
     'paint',
     'mid_baseline_l', 'mid_elbow_l', 'mid_top', 'mid_elbow_r', 'mid_baseline_r',

@@ -6,7 +6,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { makeIdentityResolver, type QuarterOverride, type TeamBase } from '@/lib/stats/teamIdentity'
 
-const FIELD_SHOTS = new Set(['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'])
+const FIELD_SHOTS = new Set(['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'])
 
 export interface PeriodData {
   period_type: 'weekly' | 'monthly' | 'quarterly'

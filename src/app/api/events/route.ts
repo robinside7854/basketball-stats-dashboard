@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   let points = 0
   if (body.result === 'made') {
     if (body.type === 'shot_3p') points = 3
-    else if (['shot_2p_mid', 'shot_2p_drive', 'shot_layup', 'shot_post'].includes(body.type)) points = 2
+    else if (['shot_2p_mid', 'shot_layup', 'shot_post'].includes(body.type)) points = 2
     else if (body.type === 'free_throw') points = 1
   }
   if (body.type === 'opp_score') points = body.points || 2

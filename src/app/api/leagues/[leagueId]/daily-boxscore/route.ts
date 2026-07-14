@@ -81,7 +81,7 @@ export async function GET(
   const gamePlayerStats: Record<string, Record<string, GS>> = {}
   for (const g of games) gamePlayerStats[g.id] = {}
 
-  const SHOT_TYPES = ['shot_3p','shot_2p_mid','shot_layup','shot_post','shot_2p_drive']
+  const SHOT_TYPES = ['shot_3p','shot_2p_mid','shot_layup','shot_post']
 
   for (const e of events ?? []) {
     const gId = e.league_game_id as string
@@ -98,7 +98,7 @@ export async function GET(
         s.fg3a++; s.fga++
         if (made) { s.fg3m++; s.fgm++; s.pts += isP1 ? 4 : 3 }
         break
-      case 'shot_2p_mid': case 'shot_layup': case 'shot_post': case 'shot_2p_drive':
+      case 'shot_2p_mid': case 'shot_layup': case 'shot_post':
         s.fga++
         if (made) { s.fgm++; s.pts += isP1 ? 3 : 2 }
         break

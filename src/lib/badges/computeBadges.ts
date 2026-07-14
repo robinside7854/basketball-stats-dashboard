@@ -52,7 +52,7 @@ interface EventRow {
 }
 
 // 슛 유형 (야투)
-const SHOT_TYPES = ['shot_layup', 'shot_2p_drive', 'shot_2p_mid', 'shot_post', 'shot_3p'] as const
+const SHOT_TYPES = ['shot_layup', 'shot_2p_mid', 'shot_post', 'shot_3p'] as const
 
 // 득점 이벤트 → 득점량 (isPlusOne 반영)
 function eventPointValue(type: string, isPlusOne: boolean): number {
@@ -60,7 +60,6 @@ function eventPointValue(type: string, isPlusOne: boolean): number {
     case 'shot_3p':    return isPlusOne ? 4 : 3
     case 'shot_post':
     case 'shot_layup':
-    case 'shot_2p_drive':
     case 'shot_2p_mid': return isPlusOne ? 3 : 2
     case 'ft_2pt':
     case 'ft_3pt_1':   return 2

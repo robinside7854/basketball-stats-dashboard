@@ -274,7 +274,7 @@ function LeagueStatsPageInner() {
     { key: 'ts_pct',      label: 'TS%',   desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))',                  barColor: '#2dd4bf' },
     { key: 'ft_rate',     label: 'FTr',   desc: '야투 대비 자유투 시도 · FTA/FGA',                       barColor: '#0891b2' },
     { key: 'ds_pct',      label: 'DS',    desc: '골밑슛 비중 · 골밑슛시도/전체야투시도',                  barColor: '#ef4444' },
-    { key: 'lu_pct',      label: 'LU',    desc: '레이업 비중 · (레이업+드라이브) 시도/전체야투시도',     barColor: '#f97316' },
+    { key: 'lu_pct',      label: 'LU',    desc: '레이업 비중 · 레이업 시도/전체야투시도',     barColor: '#f97316' },
     { key: 'md_pct',      label: 'MD',    desc: '미드레인지 비중 · 미들시도/전체야투시도',               barColor: '#eab308' },
     { key: 'three_share', label: '3P',    desc: '3점 비중 · 3PA/FGA',                                   barColor: '#3b82f6' },
   ]

@@ -31,7 +31,7 @@ export async function POST(
     ? new Set([(game as { plus_one_player_id: string }).plus_one_player_id])
     : new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
 
-  const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
+  const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
   function calcPts(type: string, result: string, playerId: string): number {
     if (result !== 'made') return 0
     const isP1 = plusOneSet.has(playerId)

@@ -71,10 +71,9 @@ function formatEvent(e: TimelineEvent): EventStyle | null {
         labelClass: made ? 'text-white' : 'text-gray-500',
       }
     case 'shot_2p_mid':
-    case 'shot_2p_drive':
     case 'shot_layup':
     case 'shot_post': {
-      const names: Record<string, string> = { shot_2p_mid: '중거리', shot_2p_drive: '드라이브', shot_layup: '레이업', shot_post: '골밑슛' }
+      const names: Record<string, string> = { shot_2p_mid: '중거리', shot_layup: '레이업', shot_post: '골밑슛' }
       return {
         badge: made ? '2P+' : '2P-',
         badgeClass: made ? 'bg-green-900/60 text-green-300' : 'bg-gray-800 text-gray-500',

@@ -162,7 +162,7 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
     setAwaitingAssist(false)
     const inferred = inferShotZone(btn.type)
     if (inferred) {
-      // layup/post/drive → paint 자동 (UI 없음)
+      // layup/post → paint 자동 (UI 없음)
       setPendingZone(inferred)
       setShowZonePicker(false)
     } else if (chartMode && needsZonePicker(btn.type)) {

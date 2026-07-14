@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 // 팀의 단일 일자 기록 + Four Factors + Advanced Metrics (자기 팀 + 상대 비교)
 // 친선전(is_exhibition=true)은 제외
 
-const FIELD_SHOT_TYPES = new Set(['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'])
+const FIELD_SHOT_TYPES = new Set(['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'])
 
 type Agg = {
   pts: number
@@ -27,7 +27,7 @@ function addToAgg(agg: Agg, e: { type: string; result: string | null; points: nu
     case 'shot_3p':
       agg.fga++; agg.fg3a++; if (made) { agg.fgm++; agg.fg3m++; agg.pts += pts }
       break
-    case 'shot_2p_mid': case 'shot_layup': case 'shot_post': case 'shot_2p_drive':
+    case 'shot_2p_mid': case 'shot_layup': case 'shot_post':
       agg.fga++; if (made) { agg.fgm++; agg.pts += pts }
       break
     case 'and_one':

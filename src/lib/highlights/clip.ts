@@ -2,7 +2,7 @@
 // video_timestamp 기준 앞뒤 여유 시간 (문맥 · 환호) — 슛 유형별 다르게
 
 const HIGHLIGHT_SHOT_TYPES = new Set([
-  'shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive',
+  'shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post',
   'and_one', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'free_throw',
 ])
 
@@ -13,7 +13,6 @@ const CLIP_BOUNDS: Record<string, { before: number; after: number }> = {
   shot_2p_mid:   { before: 7, after: 4 },
   shot_layup:    { before: 7, after: 4 },
   shot_post:     { before: 7, after: 4 },
-  shot_2p_drive: { before: 7, after: 4 },
   and_one:       { before: 7, after: 5 },
   free_throw:    { before: 7, after: 3 },
   ft_2pt:        { before: 7, after: 3 },
@@ -34,9 +33,9 @@ export function getClipBounds(type: string, timestamp: number): { start: number;
 }
 
 // 슛 유형 카테고리 매핑 (필터바에서 사용)
-// 2점은 기록 단계에서 레이업/골밑/미들/드라이브로 구분 입력하므로 필터도 동일하게 세분화
+// 2점은 기록 단계에서 레이업/골밑/미들로 구분 입력하므로 필터도 동일하게 세분화
 // 앤드원(and_one)은 파울과 함께 성공한 야투 상황(플러스 자유투) — 자유투와 구분되는 하이라이트
-export type ShotCategory = 'threes' | 'layups' | 'posts' | 'mids' | 'drives' | 'freethrows' | 'andones'
+export type ShotCategory = 'threes' | 'layups' | 'posts' | 'mids' | 'freethrows' | 'andones'
 
 // 필터바 칩 목록 (표시 순서 그대로)
 export const SHOT_CATEGORY_OPTIONS: { key: ShotCategory; label: string }[] = [
@@ -44,7 +43,6 @@ export const SHOT_CATEGORY_OPTIONS: { key: ShotCategory; label: string }[] = [
   { key: 'layups',     label: '레이업' },
   { key: 'posts',      label: '골밑슛' },
   { key: 'mids',       label: '미들슛' },
-  { key: 'drives',     label: '드라이브' },
   { key: 'freethrows', label: '자유투' },
   { key: 'andones',    label: '앤드원' },
 ]
@@ -59,7 +57,6 @@ export function categoryOfType(type: string): ShotCategory | null {
   if (type === 'shot_layup') return 'layups'
   if (type === 'shot_post') return 'posts'
   if (type === 'shot_2p_mid') return 'mids'
-  if (type === 'shot_2p_drive') return 'drives'
   if (type === 'and_one') return 'andones'
   if (type === 'ft_2pt' || type === 'ft_3pt_1' || type === 'ft_3pt_2' || type === 'free_throw') return 'freethrows'
   return null
@@ -76,7 +73,6 @@ export const SHOT_TYPE_LABEL: Record<string, string> = {
   shot_2p_mid:   '미들슛',
   shot_layup:    '레이업',
   shot_post:     '골밑슛',
-  shot_2p_drive: '드라이브',
   and_one:       '앤드원',
   ft_2pt:        '2P파울 FT',
   ft_3pt_1:      '3P파울 FT',

@@ -10,7 +10,7 @@ import { EVENT_LABELS } from '@/types/database'
 import type { Tournament, Game, GameEvent } from '@/types/database'
 
 const EVENT_ICONS: Record<string, string> = {
-  shot_3p: '🟡', shot_2p_mid: '🔵', shot_2p_drive: '🟣', free_throw: '⚪',
+  shot_3p: '🟡', shot_2p_mid: '🔵', free_throw: '⚪',
   oreb: '🟢', dreb: '🟢', assist: '🔵', steal: '💚', block: '💜',
   turnover: '🔴', foul: '🟠', opp_score: '❌',
   sub_in: '⬆️', sub_out: '⬇️', quarter_start: '▶️', quarter_end: '⏹️',

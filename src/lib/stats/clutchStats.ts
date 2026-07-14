@@ -40,7 +40,7 @@ export interface StatBlock {
   fg3a: number
   ftm: number
   fta: number
-  // 슛 존별 made/attempted (DS=골밑, LU=레이업+드라이브, MD=미들, 3P=fg3m/fg3a)
+  // 슛 존별 made/attempted (DS=골밑, LU=레이업, MD=미들, 3P=fg3m/fg3a)
   ds_m: number; ds_a: number
   lu_m: number; lu_a: number
   md_m: number; md_a: number
@@ -64,8 +64,8 @@ const emptyBlock = (): StatBlock => ({
   gp: 0,
 })
 
-const FIELD_SHOTS = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive']
-const SCORING_EVENTS = ['shot_3p', 'shot_post', 'shot_layup', 'shot_2p_drive', 'shot_2p_mid', 'and_one', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'free_throw']
+const FIELD_SHOTS = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
+const SCORING_EVENTS = ['shot_3p', 'shot_post', 'shot_layup', 'shot_2p_mid', 'and_one', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'free_throw']
 
 export async function computeClutchStats(
   supabase: SupabaseClient,
@@ -190,7 +190,6 @@ export async function computeClutchStats(
             if (made) { b.fgm++; b.ds_m++; b.pts += e.points ?? 2 }
             break
           case 'shot_layup':
-          case 'shot_2p_drive':
             b.fga++; b.lu_a++
             if (made) { b.fgm++; b.lu_m++; b.pts += e.points ?? 2 }
             break
