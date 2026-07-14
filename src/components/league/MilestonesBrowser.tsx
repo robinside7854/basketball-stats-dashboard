@@ -10,7 +10,7 @@ import { Play, Filter, TrendingUp, Trophy, X } from 'lucide-react'
 const PlayerQuickViewModal = dynamic(() => import('./PlayerQuickViewModal'), { ssr: false })
 const MilestoneClipModal = dynamic(() => import('./MilestoneClipModal'), { ssr: false })
 
-type MilestoneCategory = 'PTS' | 'REB' | 'AST' | 'STL' | 'BLK' | '3PM' | 'GP'
+type MilestoneCategory = 'PTS'
 
 interface UpcomingEntry {
   player_id: string
@@ -49,14 +49,7 @@ interface Props {
 
 const CATEGORY_LABEL: Record<MilestoneCategory, string> = {
   PTS: '득점',
-  REB: '리바',
-  AST: '도움',
-  STL: '스틸',
-  BLK: '블락',
-  '3PM': '3점',
-  GP:  '참석',
 }
-const ALL_CATEGORIES: MilestoneCategory[] = ['PTS', 'REB', 'AST', 'STL', 'BLK', '3PM', 'GP']
 
 type ViewTab = 'recent' | 'upcoming'
 
@@ -80,7 +73,6 @@ const chipStyle = (active: boolean): React.CSSProperties => ({
 
 export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props) {
   const [tab, setTab] = useState<ViewTab>('recent')
-  const [category, setCategory] = useState<MilestoneCategory | null>(null)
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
   const [clip, setClip] = useState<RecentEntry | null>(null)
@@ -94,22 +86,14 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
   }, [recent, upcoming])
 
   const filteredRecent = useMemo(() => {
-    return recent.filter(r => {
-      if (category && r.category !== category) return false
-      if (playerId && r.player_id !== playerId) return false
-      return true
-    })
-  }, [recent, category, playerId])
+    return recent.filter(r => playerId ? r.player_id === playerId : true)
+  }, [recent, playerId])
 
   const filteredUpcoming = useMemo(() => {
-    return upcoming.filter(u => {
-      if (category && u.category !== category) return false
-      if (playerId && u.player_id !== playerId) return false
-      return true
-    })
-  }, [upcoming, category, playerId])
+    return upcoming.filter(u => playerId ? u.player_id === playerId : true)
+  }, [upcoming, playerId])
 
-  const activeCount = (category ? 1 : 0) + (playerId ? 1 : 0)
+  const activeCount = playerId ? 1 : 0
 
   return (
     <>
@@ -131,11 +115,11 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
             {activeCount > 0 && (
               <button
                 type="button"
-                onClick={() => { setCategory(null); setPlayerId(null) }}
+                onClick={() => setPlayerId(null)}
                 className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.10em] px-2 py-1 min-h-[32px] cursor-pointer transition-colors"
                 style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
               >
-                <X size={12} aria-hidden /> 초기화 ({activeCount})
+                <X size={12} aria-hidden /> 초기화
               </button>
             )}
           </div>
@@ -168,33 +152,6 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
             <TrendingUp size={12} aria-hidden />
             임박
           </button>
-        </div>
-
-        {/* 카테고리 */}
-        <div className="space-y-1.5">
-          <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>카테고리</div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setCategory(null)}
-              className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
-              style={chipStyle(category === null)}
-            >
-              전체
-            </button>
-            {ALL_CATEGORIES.map(c => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setCategory(category === c ? null : c)}
-                className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
-                style={chipStyle(category === c)}
-                aria-pressed={category === c}
-              >
-                {c} <span className="ml-1 text-[10px] opacity-80">{CATEGORY_LABEL[c]}</span>
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* 선수 드롭다운 */}

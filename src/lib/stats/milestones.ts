@@ -2,14 +2,9 @@
  * 커리어 마일스톤 (임박 + 최근 달성) 계산 유틸.
  * `/api/leagues/[id]/milestones` route 와 홈 SSR 프리페치가 공유.
  *
- * v2: 이벤트 단위 트래킹.
- *   원본 `league_game_events` 를 (게임일자 asc → 이벤트 created_at asc) 로 순회하며
- *   임계값을 넘긴 "그 이벤트" 를 캡처. 하이라이트 재생을 위해 video_url · timestamp · clip 범위
- *   등 재생 컨텍스트도 함께 반환.
- *
- *   - PTS/3PM/2점/AST 처럼 슛 이벤트로 crossing 이 발생하는 카테고리는 video 정보가 매핑돼 있으면
- *     그대로 담김 (재생 가능).
- *   - REB/STL/BLK/GP 는 원천적으로 video_timestamp 가 없어 video 정보 없음(재생 불가) — 링크만 표시.
+ * v3: PTS (득점) 만 트래킹.
+ *   사용자 판단 · 나머지 카테고리(REB/AST/STL/BLK/3PM/GP)는 마일스톤으로 삼을 가치 낮음.
+ *   슛 이벤트로 crossing 발생 · 하이라이트 재생 가능 (video_url · timestamp 매핑 시).
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
@@ -17,16 +12,12 @@ import { fetchPlayerMeta } from './perDayStats'
 import { getClipBounds, isHighlightShot } from '@/lib/highlights/clip'
 import { extractYouTubeId } from '@/lib/youtube/utils'
 
-export type MilestoneCategory = 'PTS' | 'REB' | 'AST' | 'STL' | 'BLK' | '3PM' | 'GP'
+// 커리어 마일스톤 — 득점 (PTS) 만 유지
+// 사용자 판단: 나머지 카테고리(REB/AST/STL/BLK/3PM/GP)는 마일스톤으로 삼을 정도는 아님
+export type MilestoneCategory = 'PTS'
 
 const THRESHOLDS: Record<MilestoneCategory, number[]> = {
   PTS: [100, 250, 500, 1000, 2000],
-  REB: [50, 100, 250, 500, 1000],
-  AST: [25, 50, 100, 250, 500],
-  STL: [10, 25, 50, 100, 250],
-  BLK: [5, 10, 25, 50, 100],
-  '3PM': [10, 25, 50, 100, 250],
-  GP:  [10, 25, 50, 100, 200],
 }
 
 export interface UpcomingEntry {
@@ -64,8 +55,6 @@ export interface MilestonesResult {
   recent: RecentEntry[]
 }
 
-const FIELD_SHOTS = new Set(['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post', 'shot_2p_drive'])
-
 /**
  * 슛 이벤트 → 득점 계산 (points 컬럼 우선, 없으면 type 기반 fallback).
  * perDayStats 와 동일 규칙.
@@ -85,26 +74,6 @@ function pointsOfEvent(type: string, made: boolean, points: number | null): numb
     case 'free_throw':
     case 'ft_3pt_2': return 1
     default: return 0
-  }
-}
-
-/**
- * 이벤트가 (player, category) 에 기여하는 amount 를 반환.
- * category 별로 여러 player 가 관련될 수 있음 (예: 야투 성공 → shooter 는 PTS/3PM, assister 는 AST).
- * → 이 함수는 primary player (league_player_id) 기여만 반환하고, AST 는 별도 처리.
- */
-function contribFor(
-  cat: MilestoneCategory,
-  ev: { type: string; result: string | null; points: number | null },
-): number {
-  const made = ev.result === 'made'
-  switch (cat) {
-    case 'PTS': return pointsOfEvent(ev.type, made, ev.points)
-    case '3PM': return ev.type === 'shot_3p' && made ? 1 : 0
-    case 'REB': return ev.type === 'oreb' || ev.type === 'dreb' ? 1 : 0
-    case 'STL': return ev.type === 'steal' ? 1 : 0
-    case 'BLK': return ev.type === 'block' ? 1 : 0
-    default: return 0 // AST/GP 는 별도 로직
   }
 }
 
@@ -179,17 +148,15 @@ export async function computeMilestones(
     return a.id.localeCompare(b.id)
   })
 
-  // 5) walk (player × category) 누적, threshold crossing 캡처
-  const cumul = new Map<string, number>()     // key = `${pid}|${cat}` → 누적값
-  const nextIdx = new Map<string, number>()   // key = `${pid}|${cat}` → 다음 임계값 index
-  const gpSeenDate = new Map<string, Set<string>>() // pid → dates seen (GP 카운팅용)
+  // 5) walk (player × PTS) 누적, threshold crossing 캡처
+  const cumul = new Map<string, number>()     // key = `${pid}|PTS` → 누적값
+  const nextIdx = new Map<string, number>()   // key = `${pid}|PTS` → 다음 임계값 index
 
   const today = new Date()
   const horizonStart = new Date(today.getTime() - horizonDays * 24 * 60 * 60 * 1000)
   const horizonStartIso = horizonStart.toISOString().slice(0, 10)
 
   const recent: RecentEntry[] = []
-  const CATEGORIES = Object.keys(THRESHOLDS) as MilestoneCategory[]
 
   const captureRecent = (
     pid: string,
@@ -261,29 +228,10 @@ export async function computeMilestones(
 
   for (const ev of enriched) {
     const pid = ev.league_player_id
-    // 5-a) shooter/원 선수 기여 (PTS/3PM/REB/STL/BLK)
-    if (pid) {
-      for (const cat of CATEGORIES) {
-        if (cat === 'AST' || cat === 'GP') continue
-        const amt = contribFor(cat, ev)
-        if (amt > 0) bump(pid, cat, amt, ev)
-      }
-      // GP: 그 pid 의 새 날짜면 +1 (첫 이벤트 = crossing 이벤트)
-      let dset = gpSeenDate.get(pid)
-      if (!dset) { dset = new Set(); gpSeenDate.set(pid, dset) }
-      if (!dset.has(ev.date)) {
-        dset.add(ev.date)
-        bump(pid, 'GP', 1, ev)
-      }
-    }
-    // 5-b) 야투 성공 어시스트 (related_player_id → AST +1)
-    if (
-      ev.related_player_id
-      && ev.result === 'made'
-      && FIELD_SHOTS.has(ev.type)
-    ) {
-      bump(ev.related_player_id, 'AST', 1, ev)
-    }
+    if (!pid) continue
+    // PTS crossing 만 트래킹
+    const pts = pointsOfEvent(ev.type, ev.result === 'made', ev.points)
+    if (pts > 0) bump(pid, 'PTS', pts, ev)
   }
 
   // 6) 임박 (upcoming) 계산 — 각 (player, category) 의 다음 threshold 기준 percent 정렬
