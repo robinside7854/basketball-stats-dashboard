@@ -13,9 +13,10 @@ const getCached = (leagueId: string) =>
   unstable_cache(
     async () => {
       const sb = createClient()
-      return loadRecentRounds(sb, leagueId, 24)
+      // 시즌 전체 라운드 로드 (한 시즌 최대 ~50 라운드 · 여유롭게 60)
+      return loadRecentRounds(sb, leagueId, 60)
     },
-    ['highlights-landing', leagueId],
+    ['highlights-landing-v2', leagueId],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
   )
 
@@ -26,7 +27,8 @@ export default async function HighlightsLandingPage({
 }) {
   const { orgSlug, leagueId } = await params
   const base = `/league/${orgSlug}/${leagueId}`
-  const rounds = (await getCached(leagueId)()).slice(0, 12)
+  // 시즌 전체 라운드 노출 (기존 .slice(0, 12) 로 1-3월 데이터 잘림 → 전체 표시)
+  const rounds = await getCached(leagueId)()
 
   const groupTabs = [
     { href: `${base}/columns`,    label: '매거진',    active: false },
