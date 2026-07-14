@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, Lock, Unlock, ArrowLeftRight } from 'lucide-react'
+import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, Film, Lock, Unlock, ArrowLeftRight } from 'lucide-react'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { TEAM_LABELS, type TeamType } from '@/contexts/TeamContext'
 
@@ -10,6 +10,7 @@ const TAB_DEFS = [
   { path: '',             label: '홈',       icon: Home,          exact: true,  also: '' },
   { path: '/boxscore',    label: '경기',     icon: ClipboardList, exact: false, also: '/gamelog' },
   { path: '/stats',       label: '통계',     icon: BarChart3,     exact: false, also: '/opponent' },
+  { path: '/highlights',  label: '하이라이트', icon: Film,        exact: false, also: '' },
   { path: '/roster',      label: '선수 명단', icon: Users,        exact: false, also: '' },
   { path: '/tournaments', label: '대회 관리', icon: Trophy,       exact: false, also: '' },
 ]
