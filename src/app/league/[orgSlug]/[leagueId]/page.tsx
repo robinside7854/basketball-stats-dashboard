@@ -823,8 +823,10 @@ const getCachedMilestones = (leagueId: string) =>
       const sb = createClient()
       return computeMilestones(sb, leagueId, { horizonDays: 30, maxUpcoming: 6, maxRecent: 6 })
     },
-    ['home-milestones', leagueId],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
+    // v2: 이벤트 단위 트래킹 — key 변경으로 구 캐시(날짜 단위) 자동 무효화
+    ['home-milestones-v2', leagueId],
+    // events 태그 추가: 이벤트 timestamp/points 변경 시 재계산 필요
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
   )
 
 // 사진 맵: `league` 태그만 무효화하면 됨(경기 편집으로 안 바뀜)

@@ -2,7 +2,7 @@
 // 아카이브 우산 아래 서브탭 (매거진 · Stathead · 하이라이트)
 import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
-import { Film, PlayCircle, ChevronRight, Clock, VideoOff } from 'lucide-react'
+import { Film, PlayCircle, ChevronRight, Clock, VideoOff, Trophy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import EmptyState from '@/components/league/EmptyState'
@@ -58,6 +58,34 @@ export default async function HighlightsLandingPage({
 
       {/* 선수별 하이라이트 진입 */}
       <HighlightsPlayerPicker leagueId={leagueId} orgSlug={orgSlug} />
+
+      {/* 커리어 마일스톤 · 시즌 하이라이트 카드 진입 */}
+      <Link
+        href={`${base}/highlights/milestones`}
+        className="group flex items-center justify-between gap-3 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+        style={{
+          background: 'var(--mm-panel)',
+          border: '1px solid var(--mm-rule)',
+          borderRadius: '4px',
+        }}
+        aria-label="커리어 마일스톤 전체 보기"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <Trophy size={28} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden className="shrink-0" />
+          <div className="min-w-0">
+            <h2
+              className="font-jersey font-black uppercase text-lg lg:text-xl"
+              style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+            >
+              커리어 마일스톤
+            </h2>
+            <p className="text-[11px] mt-0.5 font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+              누적 임계값 달성 순간 · 그 순간 재생
+            </p>
+          </div>
+        </div>
+        <ChevronRight size={20} style={{ color: 'var(--mm-yellow-strong)' }} className="shrink-0 transition-transform group-hover:translate-x-0.5" aria-hidden />
+      </Link>
 
       {rounds.length === 0 ? (
         <EmptyState
