@@ -1,11 +1,14 @@
 'use client'
 // 미라클모닝 브랜드 — 최근 4주 라운드 요약
 // 각 카드 = 1 라운드(=하루). 그 날 참여 팀별 W-L-득실차 요약.
-// 카드 클릭 → /boxscore/{date} 페이지 이동 (팀원에게 공유 가능한 URL)
+// 하단 2개 버튼으로 분리 (v2 · 2026-07-15):
+//   · 박스스코어 → /boxscore/{date}
+//   · 득점 하이라이트 → /highlights/{date}
 // 팔레트: 노랑/검정/화이트 (mm-* 변수)
 
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { ClipboardList, Film } from 'lucide-react'
 
 export type RoundTeamSummary = {
   key: string
@@ -72,11 +75,11 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 sm:p-6 md:p-8 lg:p-10">
           {rounds.map(r => {
             const topTeam = r.teams[0]
+            const base = `/league/${resolvedOrgSlug}/${leagueId}`
             return (
-              <Link
+              <div
                 key={r.date}
-                href={`/league/${resolvedOrgSlug}/${leagueId}/boxscore/${r.date}`}
-                className="block text-left cursor-pointer transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                className="text-left transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.25)]"
                 style={{
                   background: 'var(--mm-panel)',
                   border: '1px solid var(--mm-rule)',
@@ -164,14 +167,41 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                   })}
                 </ul>
 
-                {/* 하단 액션 힌트 */}
+                {/* 하단 액션 버튼 2개 · 박스스코어 · 하이라이트 */}
                 <div
-                  className="mt-4 pt-2.5 text-[11px] tracking-[0.16em] uppercase font-bold text-right"
-                  style={{ borderTop: '1px dashed var(--mm-rule)', color: 'var(--mm-muted)' }}
+                  className="mt-4 pt-3 grid grid-cols-2 gap-2"
+                  style={{ borderTop: '1px dashed var(--mm-rule)' }}
                 >
-                  박스스코어 →
+                  <Link
+                    href={`${base}/boxscore/${r.date}`}
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                    style={{
+                      background: 'var(--mm-panel-alt)',
+                      color: 'var(--mm-ink)',
+                      border: '1px solid var(--mm-rule)',
+                      borderRadius: '4px',
+                    }}
+                    aria-label={`${r.weekLabel} 박스스코어 보기`}
+                  >
+                    <ClipboardList size={13} aria-hidden />
+                    박스스코어
+                  </Link>
+                  <Link
+                    href={`${base}/highlights/${r.date}`}
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                    style={{
+                      background: 'var(--mm-yellow)',
+                      color: 'var(--mm-black)',
+                      border: '1px solid var(--mm-black)',
+                      borderRadius: '4px',
+                    }}
+                    aria-label={`${r.weekLabel} 득점 하이라이트 재생`}
+                  >
+                    <Film size={13} aria-hidden />
+                    하이라이트
+                  </Link>
                 </div>
-              </Link>
+              </div>
             )
           })}
         </div>

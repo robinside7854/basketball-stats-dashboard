@@ -856,41 +856,24 @@ async function computeHomeHighlights(
   supabase: ReturnType<typeof createClient>,
   leagueId: string,
 ): Promise<HighlightsHomePayload | null> {
-  // 1) 최근 라운드 목록 — 재생 가능(clips_count>0) 첫 번째 선택
-  //    라운드 리스트는 최근 24개만 보면 충분 (그 안에 ready 있을 확률 높음)
+  // v2: "이번주 클러치샷" — 가장 최근 재생 가능 라운드의 is_clutch=true 클립만
+  //     클러치 없으면 { date, clips: [] } 반환 (빈 상태 UI 로 안내)
+  //     라운드조차 없으면 null (섹션 자체 미노출)
   const rounds = await loadRecentRounds(supabase, leagueId, 24)
   const target = rounds.find(r => r.status === 'ready')
   if (!target) return null
 
-  // 2) 그 라운드 상세 클립 로드
   const detail = await loadRoundDetail(supabase, leagueId, target.date)
   const all = detail.clips
-  if (all.length === 0) return null
+  // 클러치 필터 · 원본 인덱스 유지
+  const clutchWithIdx = all
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => c.is_clutch === true)
 
-  // 3) 대표 클립 5개 선정 — 다양한 선수/팀 골고루 (선수 dedup 우선 · 부족하면 순서대로 채움)
-  const MAX = 5
-  const seenPlayers = new Set<string>()
-  const picks: number[] = []           // 원본 인덱스
-  // pass 1: 선수 dedup
-  for (let i = 0; i < all.length; i++) {
-    const pid = all[i].player_id ?? `_anon_${i}`
-    if (seenPlayers.has(pid)) continue
-    seenPlayers.add(pid)
-    picks.push(i)
-    if (picks.length >= MAX) break
-  }
-  // pass 2: 부족하면 앞에서부터 채움 (중복 허용 X)
-  if (picks.length < MAX) {
-    for (let i = 0; i < all.length && picks.length < MAX; i++) {
-      if (!picks.includes(i)) picks.push(i)
-    }
-  }
-
-  const pickedClips = picks.map(i => all[i])
   return {
     date: target.date,
-    clips: pickedClips,
-    clipIndexes: picks,
+    clips: clutchWithIdx.map(x => x.c),
+    clipIndexes: clutchWithIdx.map(x => x.i),
     totalClips: all.length,
     displayNames: target.team_names,
   }
@@ -902,7 +885,7 @@ const getCachedHomeHighlights = (leagueId: string) =>
       const sb = createClient()
       return computeHomeHighlights(sb, leagueId)
     },
-    ['home-highlights', leagueId],
+    ['home-clutch-shots-v1', leagueId],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
   )
 
