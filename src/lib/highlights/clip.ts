@@ -7,17 +7,18 @@ const HIGHLIGHT_SHOT_TYPES = new Set([
 ])
 
 // { before, after } — timestamp 기준 앞뒤 초 여유
+// before = 7초: 기록 지연 대비 (기록자가 득점 후 몇 초 뒤에 입력하는 경우 실 상황 놓치지 않게)
 const CLIP_BOUNDS: Record<string, { before: number; after: number }> = {
-  shot_3p:       { before: 3, after: 5 },
-  shot_2p_mid:   { before: 3, after: 4 },
-  shot_layup:    { before: 3, after: 4 },
-  shot_post:     { before: 3, after: 4 },
-  shot_2p_drive: { before: 3, after: 4 },
-  and_one:       { before: 3, after: 5 },
-  free_throw:    { before: 2, after: 3 },
-  ft_2pt:        { before: 2, after: 3 },
-  ft_3pt_1:      { before: 2, after: 3 },
-  ft_3pt_2:      { before: 2, after: 3 },
+  shot_3p:       { before: 7, after: 5 },
+  shot_2p_mid:   { before: 7, after: 4 },
+  shot_layup:    { before: 7, after: 4 },
+  shot_post:     { before: 7, after: 4 },
+  shot_2p_drive: { before: 7, after: 4 },
+  and_one:       { before: 7, after: 5 },
+  free_throw:    { before: 7, after: 3 },
+  ft_2pt:        { before: 7, after: 3 },
+  ft_3pt_1:      { before: 7, after: 3 },
+  ft_3pt_2:      { before: 7, after: 3 },
 }
 
 export function isHighlightShot(type: string): boolean {
@@ -25,7 +26,7 @@ export function isHighlightShot(type: string): boolean {
 }
 
 export function getClipBounds(type: string, timestamp: number): { start: number; end: number } {
-  const bounds = CLIP_BOUNDS[type] ?? { before: 3, after: 4 }
+  const bounds = CLIP_BOUNDS[type] ?? { before: 7, after: 4 }
   return {
     start: Math.max(0, timestamp - bounds.before),
     end: timestamp + bounds.after,
