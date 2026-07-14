@@ -3,7 +3,7 @@
 // 상태는 부모 (HighlightsBrowser) 에서 관리 → URL 쿼리 동기화
 import { HeartCrack } from 'lucide-react'
 import type { HighlightPlayerOption, HighlightTeamOption } from '@/lib/highlights/types'
-import { SHOT_CATEGORY_OPTIONS, type HighlightFilterCategory } from '@/lib/highlights/clip'
+import { SHOT_CATEGORY_OPTIONS, type HighlightFilterCategory, type ShotCategory } from '@/lib/highlights/clip'
 
 export type FilterState = {
   teamId: string | null       // null = 전체
@@ -21,13 +21,19 @@ interface Props {
   filteredCount: number
   teamSectionLabel?: string   // 팀 칩 섹션 라벨 — 리그: '팀'(기본) · 대회: '상대'
   clutchCount?: number        // 클러치 chip 뱃지용 · 전체 클립 중 is_clutch 개수
+  hideCategories?: ShotCategory[]  // 숨길 슛 유형 chip (대회: 'andones' 등)
+  clutchTitle?: string        // 클러치 chip tooltip 텍스트 (리그/대회 다름)
 }
 
 // 정형 슛 카테고리 6종 (레이업/골밑/미들로 세분화된 SHOT_CATEGORY_OPTIONS 재사용)
 // · 'clutch' 는 컨텍스트 기반이라 별도 chip 으로 처리 → 아래 렌더 참고
-const CATEGORIES = SHOT_CATEGORY_OPTIONS
-
-export default function HighlightsFilterBar({ players, teams, filter, onChange, totalClips, filteredCount, teamSectionLabel = '팀', clutchCount = 0 }: Props) {
+export default function HighlightsFilterBar({
+  players, teams, filter, onChange, totalClips, filteredCount,
+  teamSectionLabel = '팀', clutchCount = 0, hideCategories, clutchTitle,
+}: Props) {
+  const CATEGORIES = hideCategories && hideCategories.length > 0
+    ? SHOT_CATEGORY_OPTIONS.filter(o => !hideCategories.includes(o.key))
+    : SHOT_CATEGORY_OPTIONS
   const setTeam = (teamId: string | null) => onChange({ ...filter, teamId })
   const setPlayer = (playerId: string | null) => onChange({ ...filter, playerId })
   const setCategory = (category: HighlightFilterCategory | null) => onChange({ ...filter, category })
@@ -134,8 +140,8 @@ export default function HighlightsFilterBar({ players, teams, filter, onChange, 
             className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors inline-flex items-center gap-1"
             style={chip(filter.category === 'clutch', '#ef4444')}
             aria-pressed={filter.category === 'clutch'}
-            aria-label="클러치 슛만 보기 (경기 마지막 2분·3점차 이내)"
-            title="경기 마지막 2분 · 3점차 이내 접전 상황의 슛"
+            aria-label={clutchTitle ? `클러치 슛만 보기 (${clutchTitle})` : '클러치 슛만 보기 (경기 마지막 2분·3점차 이내)'}
+            title={clutchTitle ?? '경기 마지막 2분 · 3점차 이내 접전 상황의 슛'}
           >
             <HeartCrack size={12} aria-hidden />
             클러치

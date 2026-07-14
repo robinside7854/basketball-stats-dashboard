@@ -109,6 +109,8 @@ export default async function TeamPlayerHighlightsPage({
           quarters={data.quarters}
           shotTypes={data.shotTypes}
           groupLabel="대회"
+          hideCategories={['andones']}
+          clutchTitle="4쿼터 마지막 2분 · 최종 6점차 이내 접전 경기"
         />
       )}
     </div>

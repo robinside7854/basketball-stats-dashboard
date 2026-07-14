@@ -84,7 +84,12 @@ export default async function TournamentHighlightsPage({
           </p>
         </div>
       ) : (
-        <HighlightsBrowser detail={detail} teamSectionLabel="상대" />
+        <HighlightsBrowser
+          detail={detail}
+          teamSectionLabel="상대"
+          hideCategories={['andones']}
+          clutchTitle="4쿼터 마지막 2분 · 최종 6점차 이내 접전 경기"
+        />
       )}
     </div>
   )

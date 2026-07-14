@@ -14,6 +14,7 @@ import {
   parseShotCategory,
   SHOT_CATEGORY_OPTIONS,
   type HighlightFilterCategory,
+  type ShotCategory,
 } from '@/lib/highlights/clip'
 import { shortenUrl } from '@/lib/shortUrl'
 import type {
@@ -27,7 +28,9 @@ interface Props {
   shotTypes: HighlightShotTypeOption[]
   orgSlug?: string
   leagueId?: string
-  groupLabel?: string   // 그룹 필터 라벨 — 리그: '분기'(기본) · 팀 대시보드: '대회'
+  groupLabel?: string             // 그룹 필터 라벨 — 리그: '분기'(기본) · 팀 대시보드: '대회'
+  hideCategories?: ShotCategory[] // 숨길 슛 유형 (대회: ['andones'])
+  clutchTitle?: string            // 클러치 chip tooltip (리그/대회 정의 다름)
 }
 
 // URL 쿼리 → 필터 카테고리 · SHOT_CATEGORY_OPTIONS 6종(parseShotCategory) + 컨텍스트 'clutch'
@@ -36,12 +39,14 @@ function parseCategory(v: string | null): HighlightFilterCategory | null {
   return parseShotCategory(v)
 }
 
-// 정형 슛 카테고리 6종 (레이업/골밑/미들 세분화) · 'clutch' 는 별도 chip 으로 처리
-const CATEGORIES = SHOT_CATEGORY_OPTIONS
-
 export default function PlayerHighlightsBrowser({
-  clips, quarters, groupLabel = '분기',
+  clips, quarters, groupLabel = '분기', hideCategories, clutchTitle,
 }: Props) {
+  // 정형 슛 카테고리 (레이업/골밑/미들 세분화) · 'clutch' 는 별도 chip 으로 처리
+  // 대회 컨텍스트에서는 앤드원(andones) chip 숨김
+  const CATEGORIES = hideCategories && hideCategories.length > 0
+    ? SHOT_CATEGORY_OPTIONS.filter(o => !hideCategories.includes(o.key))
+    : SHOT_CATEGORY_OPTIONS
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -198,8 +203,8 @@ export default function PlayerHighlightsBrowser({
               className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors inline-flex items-center gap-1"
               style={chip(category === 'clutch', '#ef4444')}
               aria-pressed={category === 'clutch'}
-              aria-label="클러치 슛만 보기 (경기 마지막 2분·3점차 이내)"
-              title="경기 마지막 2분 · 3점차 이내 접전 상황의 슛"
+              aria-label={clutchTitle ? `클러치 슛만 보기 (${clutchTitle})` : '클러치 슛만 보기 (경기 마지막 2분·3점차 이내)'}
+              title={clutchTitle ?? '경기 마지막 2분 · 3점차 이내 접전 상황의 슛'}
             >
               <HeartCrack size={12} aria-hidden />
               클러치

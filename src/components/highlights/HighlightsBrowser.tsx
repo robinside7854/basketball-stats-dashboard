@@ -11,13 +11,15 @@ import { toast } from 'sonner'
 import HighlightsPlayer from './HighlightsPlayer'
 import HighlightsPlaylist from './HighlightsPlaylist'
 import HighlightsFilterBar, { type FilterState } from './HighlightsFilterBar'
-import { categoryOfType, parseShotCategory, type HighlightFilterCategory } from '@/lib/highlights/clip'
+import { categoryOfType, parseShotCategory, type HighlightFilterCategory, type ShotCategory } from '@/lib/highlights/clip'
 import { shortenUrl } from '@/lib/shortUrl'
 import type { HighlightRoundDetail } from '@/lib/highlights/types'
 
 interface Props {
   detail: HighlightRoundDetail
-  teamSectionLabel?: string   // 팀 칩 섹션 라벨 — 리그: '팀'(기본) · 대회: '상대'
+  teamSectionLabel?: string       // 팀 칩 섹션 라벨 — 리그: '팀'(기본) · 대회: '상대'
+  hideCategories?: ShotCategory[] // 숨길 슛 유형 (대회: ['andones'])
+  clutchTitle?: string            // 클러치 chip tooltip (리그/대회 정의 다름)
 }
 
 // URL 쿼리 → 필터 카테고리 · SHOT_CATEGORY_OPTIONS 6종(parseShotCategory) + 컨텍스트 'clutch'
@@ -26,7 +28,7 @@ function parseCategory(v: string | null): HighlightFilterCategory | null {
   return parseShotCategory(v)
 }
 
-export default function HighlightsBrowser({ detail, teamSectionLabel }: Props) {
+export default function HighlightsBrowser({ detail, teamSectionLabel, hideCategories, clutchTitle }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -130,6 +132,8 @@ export default function HighlightsBrowser({ detail, teamSectionLabel }: Props) {
         filteredCount={filteredClips.length}
         teamSectionLabel={teamSectionLabel}
         clutchCount={clutchCount}
+        hideCategories={hideCategories}
+        clutchTitle={clutchTitle}
       />
 
       <div className="grid gap-3 lg:grid-cols-12">

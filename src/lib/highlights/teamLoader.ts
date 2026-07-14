@@ -27,17 +27,25 @@ export type TournamentHighlightDetail = {
 
 const PAGE = 1000
 
+// 대회 클러치 정의 — 4쿼터 · 남은시간 2분 이내 · 최종 점수차 2포제션(6점) 이내
+// 상대팀 선수 이벤트는 미기록이라 러닝 마진 산출 불가 → 최종 점수(games.our_score/opponent_score) 프록시로 근사
+const TOURNAMENT_CLUTCH_QUARTER = 4
+const TOURNAMENT_CLUTCH_TIME_WINDOW = 120
+const TOURNAMENT_CLUTCH_MARGIN_MAX = 6
+
 type TeamEvtRow = {
   id: string
   game_id: string
   player_id: string | null
   related_player_id: string | null
   type: string
+  quarter: number | null
   points: number | null
   video_timestamp: number
 }
 
 // 성공 슛 이벤트 페이지네이션 조회 (Supabase 1000행 캡 대비)
+// 대회 event_type enum 에는 'and_one' 자체가 없음 (리그와 스키마 다름) — 별도 필터 불필요
 async function fetchMadeEvents(
   supabase: SupabaseClient,
   gameIds: string[],
@@ -47,7 +55,7 @@ async function fetchMadeEvents(
   for (let pg = 0; ; pg++) {
     let q = supabase
       .from('game_events')
-      .select('id, game_id, player_id, related_player_id, type, result, points, video_timestamp, created_at')
+      .select('id, game_id, player_id, related_player_id, type, quarter, result, points, video_timestamp, created_at')
       .in('game_id', gameIds)
       .eq('result', 'made')
       .not('video_timestamp', 'is', null)
@@ -60,6 +68,30 @@ async function fetchMadeEvents(
     if (!chunk || chunk.length < PAGE) break
   }
   return events
+}
+
+// 게임별 4쿼터 마지막 이벤트 timestamp — "남은시간 2분" 근사용 (실제 게임 클록은 미기록)
+function buildGameQ4EndMap(events: TeamEvtRow[]): Record<string, number> {
+  const map: Record<string, number> = {}
+  for (const e of events) {
+    if (e.quarter !== TOURNAMENT_CLUTCH_QUARTER) continue
+    const prev = map[e.game_id]
+    if (prev === undefined || e.video_timestamp > prev) map[e.game_id] = e.video_timestamp
+  }
+  return map
+}
+
+// 이벤트 → 대회 클러치 판정 (Q4 · 마지막 2분 · 최종 점수차 ≤ 6)
+function isTournamentClutch(
+  ev: TeamEvtRow,
+  q4EndTs: number | undefined,
+  finalMargin: number | null,
+): boolean {
+  if (ev.quarter !== TOURNAMENT_CLUTCH_QUARTER) return false
+  if (q4EndTs === undefined) return false
+  if (q4EndTs - ev.video_timestamp > TOURNAMENT_CLUTCH_TIME_WINDOW) return false
+  if (finalMargin === null) return false
+  return finalMargin <= TOURNAMENT_CLUTCH_MARGIN_MAX
 }
 
 // 대회 목록 — 대회별 클립/영상 상태 요약 (팀 스코프)
@@ -133,15 +165,15 @@ export async function loadTournamentHighlightDetail(
     detail: { date: '', clips: [], players: [], teams: [] },
   }
 
-  // 2. 영상 있는 경기만
+  // 2. 영상 있는 경기만 (our/opponent_score 로 최종 마진 → 클러치 프록시)
   const { data: games, error: gErr } = await supabase
     .from('games')
-    .select('id, date, opponent, youtube_url')
+    .select('id, date, opponent, youtube_url, our_score, opponent_score')
     .eq('tournament_id', tournamentId)
     .not('youtube_url', 'is', null)
     .order('date', { ascending: true })
   if (gErr) return empty
-  const gameRows = (games ?? []) as Array<{ id: string; date: string; opponent: string; youtube_url: string }>
+  const gameRows = (games ?? []) as Array<{ id: string; date: string; opponent: string; youtube_url: string; our_score: number | null; opponent_score: number | null }>
   if (gameRows.length === 0) return empty
   const gameMap: Record<string, typeof gameRows[number]> = {}
   for (const g of gameRows) gameMap[g.id] = g
@@ -149,6 +181,15 @@ export async function loadTournamentHighlightDetail(
   // 3. 성공 슛 이벤트
   const events = await fetchMadeEvents(supabase, gameRows.map(g => g.id))
   if (!events) return empty
+
+  // 3-b. 게임별 Q4 마지막 timestamp + 최종 마진 사전계산 (클러치 판정)
+  const gameQ4EndMap = buildGameQ4EndMap(events)
+  const gameFinalMargin: Record<string, number | null> = {}
+  for (const g of gameRows) {
+    gameFinalMargin[g.id] = (g.our_score !== null && g.opponent_score !== null)
+      ? Math.abs(g.our_score - g.opponent_score)
+      : null
+  }
 
   // 4. 선수 정보 (슛 + 어시스트)
   const playerIds = Array.from(new Set([
@@ -206,6 +247,7 @@ export async function loadTournamentHighlightDetail(
       assist_player_id: assistPlayer?.id ?? null,
       assist_player_name: assistPlayer?.name ?? null,
       assist_player_number: assistPlayer?.number ?? null,
+      is_clutch: isTournamentClutch(ev, gameQ4EndMap[ev.game_id], gameFinalMargin[ev.game_id] ?? null),
     })
 
     if (ev.player_id && player) {
@@ -286,11 +328,11 @@ export async function loadTeamPlayerHighlights(
 
   const { data: games, error: gErr } = await supabase
     .from('games')
-    .select('id, tournament_id, date, opponent, youtube_url')
+    .select('id, tournament_id, date, opponent, youtube_url, our_score, opponent_score')
     .in('tournament_id', tRows.map(t => t.id))
     .not('youtube_url', 'is', null)
   if (gErr) return emptyData
-  const gameRows = (games ?? []) as Array<{ id: string; tournament_id: string; date: string; opponent: string; youtube_url: string }>
+  const gameRows = (games ?? []) as Array<{ id: string; tournament_id: string; date: string; opponent: string; youtube_url: string; our_score: number | null; opponent_score: number | null }>
   if (gameRows.length === 0) return emptyData
   const gameMap: Record<string, typeof gameRows[number]> = {}
   for (const g of gameRows) gameMap[g.id] = g
@@ -298,6 +340,17 @@ export async function loadTeamPlayerHighlights(
   // 3. 해당 선수의 성공 슛 이벤트
   const events = await fetchMadeEvents(supabase, gameRows.map(g => g.id), playerId)
   if (!events) return emptyData
+
+  // 3-a. 클러치 판정용 사전계산 — 선수 필터된 events 만으로는 Q4 마지막 timestamp 근사가 부정확할 수 있으니
+  //      해당 게임들의 "모든" 이벤트로 Q4 종료 timestamp 를 잡아 정확도 확보
+  const allEvents = await fetchMadeEvents(supabase, gameRows.map(g => g.id))
+  const gameQ4EndMap = buildGameQ4EndMap(allEvents ?? events)
+  const gameFinalMargin: Record<string, number | null> = {}
+  for (const g of gameRows) {
+    gameFinalMargin[g.id] = (g.our_score !== null && g.opponent_score !== null)
+      ? Math.abs(g.our_score - g.opponent_score)
+      : null
+  }
 
   // 3-b. 어시스트 선수 정보
   const assistPlayerIds = Array.from(new Set(
@@ -359,6 +412,7 @@ export async function loadTeamPlayerHighlights(
       assist_player_id: assistPlayer?.id ?? null,
       assist_player_name: assistPlayer?.name ?? null,
       assist_player_number: assistPlayer?.number ?? null,
+      is_clutch: isTournamentClutch(ev, gameQ4EndMap[ev.game_id], gameFinalMargin[ev.game_id] ?? null),
     })
 
     tournamentCount[game.tournament_id] = (tournamentCount[game.tournament_id] ?? 0) + 1
