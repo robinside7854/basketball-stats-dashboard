@@ -9,16 +9,11 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import HighlightsPlayer from './HighlightsPlayer'
 import HighlightsPlaylist from './HighlightsPlaylist'
 import HighlightsFilterBar, { type FilterState } from './HighlightsFilterBar'
-import { categoryOfType, type ShotCategory } from '@/lib/highlights/clip'
+import { categoryOfType, parseShotCategory } from '@/lib/highlights/clip'
 import type { HighlightRoundDetail } from '@/lib/highlights/types'
 
 interface Props {
   detail: HighlightRoundDetail
-}
-
-function parseCategory(v: string | null): ShotCategory | null {
-  if (v === 'threes' || v === 'twos' || v === 'freethrows' || v === 'andones') return v
-  return null
 }
 
 export default function HighlightsBrowser({ detail }: Props) {
@@ -30,7 +25,7 @@ export default function HighlightsBrowser({ detail }: Props) {
   const [filter, setFilter] = useState<FilterState>(() => ({
     teamId: searchParams.get('team') || null,
     playerId: searchParams.get('player') || null,
-    category: parseCategory(searchParams.get('type')),
+    category: parseShotCategory(searchParams.get('type')),
   }))
   const [currentIdx, setCurrentIdx] = useState<number>(() => {
     const n = Number(searchParams.get('clip'))

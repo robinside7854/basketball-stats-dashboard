@@ -7,7 +7,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import HighlightsPlayer from './HighlightsPlayer'
 import PlayerHighlightsPlaylist from './PlayerHighlightsPlaylist'
-import { categoryOfType, type ShotCategory } from '@/lib/highlights/clip'
+import { categoryOfType, parseShotCategory, SHOT_CATEGORY_OPTIONS, type ShotCategory } from '@/lib/highlights/clip'
 import type {
   HighlightClip, HighlightQuarterOption, HighlightShotTypeOption, PlayerHighlightsInfo,
 } from '@/lib/highlights/types'
@@ -21,17 +21,7 @@ interface Props {
   leagueId: string
 }
 
-function parseCategory(v: string | null): ShotCategory | null {
-  if (v === 'threes' || v === 'twos' || v === 'freethrows' || v === 'andones') return v
-  return null
-}
-
-const CATEGORIES: { key: ShotCategory; label: string }[] = [
-  { key: 'threes',     label: '3점' },
-  { key: 'twos',       label: '2점' },
-  { key: 'freethrows', label: '자유투' },
-  { key: 'andones',    label: '앤드원' },
-]
+const CATEGORIES = SHOT_CATEGORY_OPTIONS
 
 export default function PlayerHighlightsBrowser({
   clips, quarters,
@@ -41,7 +31,7 @@ export default function PlayerHighlightsBrowser({
   const searchParams = useSearchParams()
 
   const [category, setCategory] = useState<ShotCategory | null>(() =>
-    parseCategory(searchParams.get('type')),
+    parseShotCategory(searchParams.get('type')),
   )
   const [quarterId, setQuarterId] = useState<string | null>(() =>
     searchParams.get('quarter') || null,
