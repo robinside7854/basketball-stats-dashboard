@@ -44,8 +44,22 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
   // 영상 교체(loadVideoById) 중 목표 시작 초 — 로딩 완료(PLAYING) 때 실제 위치 검증·보정
   // loadVideoById 직후 getCurrentTime() 은 이전 영상 시각을 반환(stale) → 감시 인터벌 오발동 방지용
   const pendingStartRef = useRef<number | null>(null)
+  // pendingStartRef 안전 타임아웃 — onStateChange 가 예외적으로 안 오면 perma-block 방지
+  const pendingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // seekTo 직후에도 currentTime 반영이 비동기 → 짧은 grace 동안 clip_end 판정 중지 (ms epoch)
   const seekGraceUntilRef = useRef(0)
+
+  // pendingStartRef setter with auto-clear (프리즈 방지)
+  const setPendingStart = useCallback((v: number | null) => {
+    pendingStartRef.current = v
+    if (pendingTimeoutRef.current) { clearTimeout(pendingTimeoutRef.current); pendingTimeoutRef.current = null }
+    if (v !== null) {
+      pendingTimeoutRef.current = setTimeout(() => {
+        pendingStartRef.current = null
+        pendingTimeoutRef.current = null
+      }, 5000)
+    }
+  }, [])
 
   useEffect(() => { clipsRef.current = clips }, [clips])
   useEffect(() => { currentIdxRef.current = currentIdx }, [currentIdx])
@@ -87,9 +101,23 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
           onReady: (e) => {
             readyRef.current = true
             currentVideoIdRef.current = firstVideoId as string
+            // ⚠ Race fix: onReady 가 뜨기 전에 사용자가 필터/클립 바꿨을 수 있음
+            //    → 현재(최신) clip 을 다시 계산해서 그것을 로드
+            //    이전엔 firstVideoId 로 seekTo/play 만 해서 이후 clip 변경이 반영 안 됨 (검은 화면)
+            const cur = clipsRef.current[currentIdxRef.current]
+            if (!cur) return
+            const targetVid = extractYouTubeId(cur.video_url)
+            const targetStart = Math.floor(cur.clip_start)
             try {
-              e.target.seekTo(Math.floor(clip!.clip_start), true)
-              e.target.playVideo()
+              if (targetVid && targetVid !== firstVideoId) {
+                // 다른 비디오로 교체 필요
+                setPendingStart(targetStart)
+                e.target.loadVideoById({ videoId: targetVid, startSeconds: targetStart })
+                currentVideoIdRef.current = targetVid
+              } else {
+                e.target.seekTo(targetStart, true)
+                e.target.playVideo()
+              }
             } catch { /* ignore */ }
           },
           onStateChange: (e) => {
@@ -100,7 +128,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
               const target = pendingStartRef.current
               if (e.data === 1) {
                 // PLAYING — loadVideoById 의 startSeconds 가 무시되고 0초부터 시작하는 경우 보정
-                pendingStartRef.current = null
+                setPendingStart(null)
                 try {
                   const t = e.target.getCurrentTime()
                   if (typeof t === 'number' && Math.abs(t - target) > 2) {
@@ -118,6 +146,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
             }
           },
           onError: () => { /* 광고 · 삭제 · 지역제한 등 — 조용히 건너뛰기 */
+            setPendingStart(null)  // 프리즈 방지
             if (autoAdvanceRef.current) advanceToNext()
           },
         },
@@ -138,6 +167,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
     return () => {
       readyRef.current = false
       currentVideoIdRef.current = null
+      if (pendingTimeoutRef.current) { clearTimeout(pendingTimeoutRef.current); pendingTimeoutRef.current = null }
+      pendingStartRef.current = null
       try { playerRef.current?.destroy() } catch { /* ignore */ }
       playerRef.current = null
       if (containerRef.current) containerRef.current.innerHTML = ''
@@ -146,27 +177,29 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
   }, [])
 
   // 클립 변경 → loadVideoById 또는 seekTo
+  // ⚠ 플레이어 미준비 상태면 아무 것도 안 함 (검은 화면 원인)
+  //    onReady 콜백이 currentIdxRef 를 다시 읽어서 그때의 최신 clip 을 로드하도록 함 (race fix)
   useEffect(() => {
     if (!clip) return
     const player = playerRef.current
-    if (!player || !readyRef.current) return
+    if (!player || !readyRef.current) return  // 미준비 → onReady 가 대신 처리 (Race fix)
     const start = Math.floor(clip.clip_start)
     try {
       if (currentVideoIdRef.current !== clip.video_id) {
-        pendingStartRef.current = start
+        setPendingStart(start)
         player.loadVideoById({ videoId: clip.video_id, startSeconds: start })
         currentVideoIdRef.current = clip.video_id
       } else if (pendingStartRef.current !== null) {
-        // 같은 영상이지만 아직 loadVideoById 로딩 중 — 이 시점의 seekTo 는 무시되고 0초 재생됨
+        // 같은 영상이지만 아직 loadVideoById 로딩 중 — seekTo 는 무시되고 0초 재생됨
         // 목표만 갱신하면 PLAYING 콜백이 보정해준다
-        pendingStartRef.current = start
+        setPendingStart(start)
       } else {
         player.seekTo(start, true)
         player.playVideo()
         seekGraceUntilRef.current = Date.now() + 1200
       }
     } catch { /* ignore */ }
-  }, [clip])
+  }, [clip, setPendingStart])
 
   // clip_end 감시 (setInterval 500ms)
   useEffect(() => {
