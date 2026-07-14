@@ -299,8 +299,8 @@ function LeagueLayout({
     <LeagueQuarterProvider leagueId={leagueId}>
       <div className="min-h-screen bg-[color:var(--mm-ground)] text-[color:var(--mm-ink-soft)]">
         <TabNav orgSlug={orgSlug} leagueId={leagueId} onOpenSearch={() => setSearchOpen(true)} showDraft={showDraft} />
-        {/* pb-16 lg:pb-0: 모바일 하단 탭바 높이만큼 여백 */}
-        <div className="pb-16 lg:pb-0">
+        {/* 모바일 하단 탭바(56px) + iOS safe-area 만큼 여백 확보 */}
+        <div className="pb-[calc(56px+env(safe-area-inset-bottom,0px))] lg:pb-0">
           <RecordAwareContainer orgSlug={orgSlug} leagueId={leagueId}>
             {children}
           </RecordAwareContainer>

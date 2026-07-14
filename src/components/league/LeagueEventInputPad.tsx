@@ -480,7 +480,7 @@ export default function LeagueEventInputPad({
       <button
         key={p.id}
         onClick={() => selectPlayer(p.id)}
-        className={`relative py-2 px-1 rounded-xl text-center transition-all cursor-pointer border active:scale-95 ${
+        className={`relative py-2 px-1 min-h-[52px] rounded-xl text-center transition-all cursor-pointer border active:scale-95 ${
           isSelected
             ? `shadow-lg ${hasPossession ? 'ring-2 ring-green-300 ring-offset-1 ring-offset-gray-900' : ''}`
             : 'bg-gray-800/80 border-gray-700 text-gray-300 hover:bg-gray-700 hover:border-gray-500'
@@ -490,11 +490,12 @@ export default function LeagueEventInputPad({
         {p.number != null && (
           <div className="text-base font-black font-mono leading-none mb-0.5 opacity-70">#{p.number}</div>
         )}
-        <div className={`font-semibold truncate leading-tight px-0.5 ${p.number != null ? 'text-xs' : 'text-sm'}`}>
+        <div className={`font-semibold leading-tight px-0.5 break-keep ${p.number != null ? 'text-xs' : 'text-sm'}`}
+          style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
           {hasPossession ? `▶ ${p.name}` : p.name}
         </div>
         {(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) && (
-          <span className="absolute top-1 right-1 text-[8px] font-black text-amber-300 leading-none">+1</span>
+          <span className="absolute top-1 right-1 text-[10px] font-black text-amber-300 leading-none">+1</span>
         )}
       </button>
     )
@@ -573,7 +574,7 @@ export default function LeagueEventInputPad({
             <span className="text-xs font-bold" style={{ color: homeTeam?.color ?? '#3b82f6' }}>{homeTeam?.name ?? '홈팀'}</span>
             <span className="text-xs font-bold opacity-60" style={{ color: homeTeam?.color ?? '#3b82f6' }}>코트 {homePlayers.length}명</span>
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             {homePlayers.map(p => renderPlayerBtn(p, homeTeam?.color ?? '#3b82f6'))}
           </div>
         </div>
@@ -583,7 +584,7 @@ export default function LeagueEventInputPad({
             <span className="text-xs font-bold" style={{ color: awayTeam?.color ?? '#ef4444' }}>{awayTeam?.name ?? '어웨이팀'}</span>
             <span className="text-xs font-bold opacity-60" style={{ color: awayTeam?.color ?? '#ef4444' }}>코트 {awayPlayers.length}명</span>
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             {awayPlayers.map(p => renderPlayerBtn(p, awayTeam?.color ?? '#ef4444'))}
           </div>
         </div>
@@ -685,7 +686,12 @@ export default function LeagueEventInputPad({
                     </button>
                   </div>
                 ) : (
-                  <div className={`grid gap-1.5 grid-cols-${group.cols}`}>
+                  <div className={`grid gap-1.5 ${
+                    group.cols === 5 ? 'grid-cols-5'
+                    : group.cols === 4 ? 'grid-cols-4'
+                    : group.cols === 3 ? 'grid-cols-3'
+                    : 'grid-cols-2'
+                  }`}>
                     {group.buttons.map(btn => (
                       <button
                         key={btn.type}
@@ -693,7 +699,7 @@ export default function LeagueEventInputPad({
                           if (btn.needsResult) handleShotClick(btn)
                           else saveInstant(btn)
                         }}
-                        className={`py-3 rounded-xl text-sm font-bold text-white transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent`}
+                        className={`py-3 min-h-[44px] rounded-xl text-sm font-bold text-white transition-all active:scale-95 cursor-pointer border-2 ${btn.color} border-transparent`}
                       >
                         {btn.label}
                       </button>

@@ -574,6 +574,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     const checked = selectedStarters.has(p.id)
     const isIrregular = p.is_regular === false
     const isDragging = draggingPlayerId === p.id
+    const otherSide: 'home' | 'away' = side === 'home' ? 'away' : 'home'
+    const otherTeamName = side === 'home' ? (selectedSlot?.away_team?.name ?? '어웨이') : (selectedSlot?.home_team?.name ?? '홈')
     // 팀 시맨틱 색 유지 (홈=파랑 / 어웨이=빨강)
     const checkedStyle: React.CSSProperties = side === 'home'
       ? { background: 'rgba(59,130,246,0.15)', border: '1px solid #3b82f6', color: 'var(--mm-ink)' }
@@ -595,7 +597,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         }}
         onDragEnd={() => setDraggingPlayerId(null)}
         onClick={() => toggleStarter(p.id)}
-        className={`flex items-center gap-2 px-2 py-1.5 cursor-grab text-xs transition-colors select-none ${
+        className={`flex items-center gap-2 px-2 py-1.5 min-h-[44px] lg:cursor-grab text-xs transition-colors select-none ${
           isDragging ? 'opacity-40' : ''
         }`}
         style={{ ...(checked ? checkedStyle : uncheckedStyle), borderRadius: '4px' }}
@@ -605,18 +607,32 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           checked={checked}
           onChange={() => toggleStarter(p.id)}
           onClick={e => e.stopPropagation()}
-          className={`w-3.5 h-3.5 cursor-pointer shrink-0 ${accentClass}`}
+          className={`w-4 h-4 cursor-pointer shrink-0 ${accentClass}`}
         />
         {p.number && <span className="font-mono w-6" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
         <span className="font-medium min-w-0 break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>{p.name}</span>
         {isIrregular && (
           <span
-            className="ml-auto shrink-0 text-[11px] font-bold px-1 uppercase tracking-[0.10em]"
+            className="shrink-0 text-[11px] font-bold px-1 uppercase tracking-[0.10em]"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
           >
             비정규
           </span>
         )}
+        {/* 모바일 전용: 다른 팀으로 이동 (iOS Safari DnD 불가 대체) */}
+        <button
+          onClick={e => {
+            e.stopPropagation()
+            addIrregularToTeam(p as IrregularPlayer, otherSide)
+          }}
+          disabled={addingIrregular}
+          className="lg:hidden ml-auto shrink-0 inline-flex items-center justify-center min-h-[36px] min-w-[36px] px-2 text-[11px] font-bold cursor-pointer transition-colors disabled:opacity-40"
+          style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: '4px' }}
+          aria-label={`${p.name} → ${otherTeamName} 팀으로 이동`}
+          title={`→ ${otherTeamName}`}
+        >
+          → {otherTeamName}
+        </button>
       </div>
     )
   }
@@ -630,8 +646,9 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       ? { background: 'var(--mm-panel)', border: '1px solid var(--mm-yellow-strong)', color: 'var(--mm-ink)', borderRadius: '4px' }
       : { background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)', color: 'var(--mm-yellow-strong)', borderRadius: '4px' }
     return (
-      <div
+      <button
         key={p.id}
+        type="button"
         draggable
         onDragStart={e => {
           setDraggingPlayerId(p.id)
@@ -639,10 +656,12 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           e.dataTransfer.setData('playerType', 'irregular')
         }}
         onDragEnd={() => setDraggingPlayerId(null)}
-        className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium cursor-grab transition-colors select-none ${
+        onClick={() => setPendingIrregular(p)}
+        className={`flex items-center gap-1 px-2.5 py-1 min-h-[36px] text-xs font-medium cursor-pointer lg:cursor-grab transition-colors select-none ${
           isDragging ? 'opacity-40' : ''
         }`}
         style={chipStyle}
+        aria-label={`${p.name} 팀 배정`}
       >
         {p.number ? `#${p.number} ` : ''}{p.name}
         {teamName && (
@@ -653,7 +672,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
             {teamName}
           </span>
         )}
-      </div>
+      </button>
     )
   }
 
@@ -1286,69 +1305,78 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
 
               {/* ── 좌측: 비디오 + 경기 제어 (sticky, 뷰포트 높이 고정) ── */}
               {/* 모바일: display:contents → 비디오 sticky 기준이 그리드 전체가 되어 기록 중에도 항상 보임 */}
-              <div className="contents lg:block lg:sticky lg:top-[52px] lg:space-y-2">
+              {/* --record-header-offset: 모바일/데스크탑 상단 TabNav 아래 stick 위치 통일 */}
+              <div
+                className="contents lg:block lg:sticky lg:space-y-2"
+                style={{ ['--record-header-offset' as string]: '56px', top: 'var(--record-header-offset)' } as React.CSSProperties}
+              >
                 {selectedSlot.youtube_url ? (
-                  <div className="sticky top-[60px] z-[5] mb-2 lg:relative lg:top-auto lg:z-auto lg:mb-0 bg-black rounded-xl overflow-hidden">
+                  <div
+                    className="sticky z-[5] mb-2 lg:relative lg:top-auto lg:z-auto lg:mb-0 bg-black rounded-xl overflow-hidden"
+                    style={{ top: 'var(--record-header-offset, 56px)' }}
+                  >
                     <YouTubePlayer
                       key={selectedSlot.youtube_url ?? selectedSlot.id}
                       youtubeUrl={selectedSlot.youtube_url}
                       startOffset={selectedSlot.youtube_start_offset ?? 0}
                     />
-                    {/* 트랜스포트 컨트롤 오버레이 — 영상 좌하단 */}
+                    {/* 트랜스포트 컨트롤 오버레이 — 영상 좌하단 (44px 터치 타겟) */}
                     {ytPlayer && (
-                      <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1 bg-black/75 backdrop-blur-sm rounded-xl px-2 py-1.5">
+                      <div className="absolute bottom-2 left-2 z-20 flex items-center gap-1 bg-black/75 backdrop-blur-sm rounded-xl px-1.5 py-1">
                         {[
                           { label: '−10', delta: -10 },
                           { label: '−5',  delta: -5  },
                         ].map(({ label, delta }) => (
                           <button key={label} onClick={() => seekRelative(delta)}
-                            className="px-2 py-1 rounded-lg text-xs font-bold text-gray-300 hover:text-white hover:bg-white/15 cursor-pointer transition-colors">
+                            aria-label={`${label}초`}
+                            className="min-h-[44px] min-w-[44px] px-2 rounded-lg text-sm font-bold text-gray-200 hover:text-white hover:bg-white/15 cursor-pointer transition-colors inline-flex items-center justify-center">
                             {label}
                           </button>
                         ))}
                         <button onClick={togglePlay}
-                          className="px-2.5 py-1 rounded-lg text-white hover:bg-white/20 cursor-pointer transition-colors mx-0.5 inline-flex items-center justify-center"
+                          className="min-h-[44px] min-w-[44px] rounded-lg text-white hover:bg-white/20 cursor-pointer transition-colors mx-0.5 inline-flex items-center justify-center"
                           aria-label="재생/일시정지">
-                          <PlayCircle size={20} strokeWidth={2} />
+                          <PlayCircle size={28} strokeWidth={2} />
                         </button>
                         {[
                           { label: '+5',  delta: 5  },
                           { label: '+10', delta: 10 },
                         ].map(({ label, delta }) => (
                           <button key={label} onClick={() => seekRelative(delta)}
-                            className="px-2 py-1 rounded-lg text-xs font-bold text-gray-300 hover:text-white hover:bg-white/15 cursor-pointer transition-colors">
+                            aria-label={`${label}초`}
+                            className="min-h-[44px] min-w-[44px] px-2 rounded-lg text-sm font-bold text-gray-200 hover:text-white hover:bg-white/15 cursor-pointer transition-colors inline-flex items-center justify-center">
                             {label}
                           </button>
                         ))}
-                        <span className="text-[11px] text-gray-600 ml-1 hidden lg:inline">Space·←·→</span>
+                        <span className="text-[11px] text-gray-500 ml-1 hidden lg:inline">Space·←·→</span>
                       </div>
                     )}
-                    {/* 스코어보드 오버레이 — 영상 우하단 */}
+                    {/* 스코어보드 오버레이 — 영상 상단 좌측 (풀스크린 버튼과 겹치지 않도록 우하단→좌상단 이동) */}
                     {gameStarted && (
-                      <div className="absolute bottom-10 right-3 z-10 pointer-events-none">
+                      <div className="absolute top-2 left-2 z-10 pointer-events-none">
                         <div className="flex items-stretch gap-px rounded-xl overflow-hidden shadow-2xl bg-black/80 backdrop-blur-sm border border-white/10 text-white">
                           {/* 홈팀 */}
-                          <div className="flex flex-col items-center px-3 py-1.5 min-w-[64px]">
-                            <span className="text-xs font-bold truncate max-w-[60px]"
+                          <div className="flex flex-col items-center px-3 py-1.5 min-w-[64px] max-w-[140px]">
+                            <span className="text-xs font-bold truncate w-full text-center"
                               style={{ color: selectedSlot.home_team?.color ?? '#3b82f6' }}>
                               {selectedSlot.home_team?.name ?? 'HOME'}
                             </span>
-                            <span className="text-3xl font-black tabular-nums leading-none mt-0.5">
+                            <span className="text-2xl lg:text-3xl font-black tabular-nums leading-none mt-0.5">
                               {liveScore?.home ?? selectedSlot.home_score ?? 0}
                             </span>
                           </div>
                           {/* 구분선 + LIVE */}
                           <div className="flex flex-col items-center justify-center px-2 border-x border-white/10">
-                            <span className="text-[8px] text-green-400 font-black tracking-widest">LIVE</span>
+                            <span className="text-[11px] text-green-400 font-black tracking-widest">LIVE</span>
                             <span className="text-lg font-black text-gray-500 leading-none">:</span>
                           </div>
                           {/* 어웨이팀 */}
-                          <div className="flex flex-col items-center px-3 py-1.5 min-w-[64px]">
-                            <span className="text-xs font-bold truncate max-w-[60px]"
+                          <div className="flex flex-col items-center px-3 py-1.5 min-w-[64px] max-w-[140px]">
+                            <span className="text-xs font-bold truncate w-full text-center"
                               style={{ color: selectedSlot.away_team?.color ?? '#ef4444' }}>
                               {selectedSlot.away_team?.name ?? 'AWAY'}
                             </span>
-                            <span className="text-3xl font-black tabular-nums leading-none mt-0.5">
+                            <span className="text-2xl lg:text-3xl font-black tabular-nums leading-none mt-0.5">
                               {liveScore?.away ?? selectedSlot.away_score ?? 0}
                             </span>
                           </div>
@@ -1487,7 +1515,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             </span>
                           </div>
                           <div className="flex flex-col items-center justify-center px-2 border-x border-gray-800 shrink-0">
-                            <span className="text-[7px] text-green-400 font-bold tracking-widest">LIVE</span>
+                            <span className="text-[10px] text-green-400 font-bold tracking-widest">LIVE</span>
                             <span className="text-sm text-gray-500 font-black leading-none">:</span>
                           </div>
                           <div className="flex-1 py-2 px-3 flex items-center gap-2">
@@ -1658,7 +1686,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                           </div>
                         )
                       })()}
-                      <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>선수를 끌어다 팀에 배정하세요. 정규선수 이동은 이번 경기만 적용됩니다.</p>
+                      <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                        <span className="hidden lg:inline">선수를 끌어다 팀에 배정하세요. </span>
+                        <span className="lg:hidden">카드를 탭하여 선발 체크 · 오른쪽 버튼으로 다른 팀 이동. </span>
+                        정규선수 이동은 이번 경기만 적용됩니다.
+                      </p>
 
                       {/* 드롭 존 — 홈/어웨이 2컬럼 (홈=파랑 / 어웨이=빨강은 팀 시맨틱 유지) */}
                       <div className="grid grid-cols-2 gap-3">
@@ -1718,7 +1750,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       {/* 미배정 풀 — 비정규 선수 */}
                       {irregularRoster.length > 0 && (
                         <div>
-                          <p className="text-xs mb-2" style={{ color: 'var(--mm-muted)' }}>위로 드래그하여 팀 배정 / 미배정 선수</p>
+                          <p className="text-xs mb-2" style={{ color: 'var(--mm-muted)' }}>
+                            <span className="hidden lg:inline">위로 드래그하여 팀 배정 / </span>
+                            <span className="lg:hidden">칩을 탭하여 팀 배정 / </span>
+                            미배정 선수
+                          </p>
                           <div className="flex flex-wrap gap-1.5">
                             {irregularRoster.map(p => renderDraggableChip(p))}
                           </div>

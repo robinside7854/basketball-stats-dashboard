@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 import { syncBadgesForGame } from '@/lib/badges/computeBadges'
+import { syncYoutubeForLeague } from '@/lib/youtube/syncYoutubeForLeague'
 
 export async function GET(
   req: Request,
@@ -175,6 +176,41 @@ export async function PATCH(
       console.log(`[badges/auto-sync] gameId=${gameId} created=${r.created} removed=${r.removed}`)
     } catch (err) {
       console.error(`[badges/auto-sync] gameId=${gameId} failed:`, err)
+    }
+  }
+
+  // YouTube 자동 연동 훅 (Option A) —
+  //   is_started=true 로 전이할 때 backgroud sync 시도. 실패하면 조용히 스킵.
+  //   대부분의 경우 게임 시작 시점엔 영상이 아직 업로드되지 않음 → 실패 정상.
+  //   진짜 안전망은 매주 토 22:00 KST cron (/api/cron/youtube-sync).
+  //   조건: league 에 youtube_channel 설정 + 게임 날짜 <= 오늘(KST) + youtube_url 아직 없음.
+  if (body?.is_started === true && data) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const game = data as any
+    const apiKey = process.env.YOUTUBE_API_KEY
+    if (apiKey && game.date && !game.youtube_url) {
+      // KST 오늘
+      const kstToday = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0]
+      if (game.date <= kstToday) {
+        supabase
+          .from('leagues')
+          .select('youtube_channel')
+          .eq('id', leagueId)
+          .single()
+          .then(({ data: lg }) => {
+            const handle = (lg as { youtube_channel: string | null } | null)?.youtube_channel
+            if (!handle) return
+            syncYoutubeForLeague(supabase, leagueId, handle, game.date, apiKey)
+              .then((r) => {
+                if (r.ok) console.log(`[youtube/auto-sync] gameId=${gameId} mapped=${r.mapped}`)
+                else console.log(`[youtube/auto-sync] gameId=${gameId} skip: ${r.reason}`)
+              })
+              .catch((err) => {
+                const msg = err instanceof Error ? err.message : String(err)
+                console.error(`[youtube/auto-sync] gameId=${gameId} failed:`, msg)
+              })
+          })
+      }
     }
   }
 
