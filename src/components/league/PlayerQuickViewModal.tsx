@@ -585,6 +585,14 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     <Film size={12} aria-hidden /> 하이라이트
                   </Link>
                 )}
+                {/* 베스트샷 재생 — 포지션 옆 · 핀 있을 때만 노출 */}
+                {detail?.pinned_event_ids && detail.pinned_event_ids.length > 0 && (
+                  <PlayerBestShotBanner
+                    leagueId={leagueId}
+                    playerName={player?.name ?? playerName}
+                    pinnedEventIds={detail.pinned_event_ids}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -995,15 +1003,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 leagueId={leagueId}
                 playerId={playerId}
                 summary={detail.badges_summary}
-              />
-            )}
-
-            {/* 내 베스트샷 — 본인이 핀한 하이라이트 (선수 하이라이트 페이지에서 편집) */}
-            {detail?.pinned_event_ids && detail.pinned_event_ids.length > 0 && (
-              <PlayerBestShotBanner
-                leagueId={leagueId}
-                playerName={playerName}
-                pinnedEventIds={detail.pinned_event_ids}
               />
             )}
 

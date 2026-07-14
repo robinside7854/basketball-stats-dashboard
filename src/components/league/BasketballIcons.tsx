@@ -36,6 +36,46 @@ export function Basketball({ size = 24, className = '', spin = false }: IconProp
   )
 }
 
+// 번호 붙은 농구공 — 베스트샷 핀 슬롯용 (1/2/3)
+// filled=true 면 노란 배경 + 검정 번호 · false 면 아웃라인 + 회색 번호
+export function NumberedBasketball({
+  size = 24,
+  number,
+  filled = true,
+  className = '',
+}: { size?: number; number: 1 | 2 | 3; filled?: boolean; className?: string }) {
+  const fillBg = filled ? 'var(--mm-yellow)' : 'transparent'
+  const strokeColor = filled ? 'var(--mm-black)' : 'currentColor'
+  const numberColor = filled ? 'var(--mm-black)' : 'currentColor'
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden="true"
+    >
+      {/* 공 배경 */}
+      <circle cx="12" cy="12" r="10" fill={fillBg} stroke={strokeColor} strokeWidth="1.6" />
+      {/* 자오선 (필드골 라인 심플하게) */}
+      <path d="M12 2 Q7 12 12 22" fill="none" stroke={strokeColor} strokeWidth="1.2" opacity={filled ? 0.55 : 0.4} />
+      <path d="M12 2 Q17 12 12 22" fill="none" stroke={strokeColor} strokeWidth="1.2" opacity={filled ? 0.55 : 0.4} />
+      {/* 번호 — Jersey 폰트 스타일에 맞게 두꺼운 산세리프 */}
+      <text
+        x="12"
+        y="16.2"
+        textAnchor="middle"
+        fontSize="11"
+        fontWeight="900"
+        fill={numberColor}
+        fontFamily="var(--font-jersey, system-ui)"
+      >
+        {number}
+      </text>
+    </svg>
+  )
+}
+
 // 농구공 로더 — Loader2 대체. mm-yellow accent 기본 적용 (E안 브랜드).
 export function BasketballLoader({ size = 24, className = '' }: { size?: number; className?: string }) {
   return (
