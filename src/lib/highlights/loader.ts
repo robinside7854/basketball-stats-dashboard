@@ -41,16 +41,27 @@ export async function loadRecentRounds(supabase: SupabaseClient, leagueId: strin
 
   const gameIds = dates.flatMap(d => dateToGames[d].map(g => g.id))
   // 2. 각 게임의 성공 슛 카운트 — video_timestamp 필수 (재생 가능 클립)
-  const { data: events, error: eErr } = await supabase
-    .from('league_game_events')
-    .select('league_game_id, type, result, video_timestamp')
-    .in('league_game_id', gameIds)
-    .eq('result', 'made')
-    .not('video_timestamp', 'is', null)
-  if (eErr) return []
+  // ⚠ Supabase JS 기본 1000행 캡 → 페이지네이션 필수
+  //    24 라운드 x ~9게임 x ~13클립 ≈ 3000+ · 반드시 chunk 로 조회
+  type EvtRow = { league_game_id: string; type: string; video_timestamp: number | null }
+  const events: EvtRow[] = []
+  const PAGE = 1000
+  for (let pg = 0; ; pg++) {
+    const { data: chunk, error: eErr } = await supabase
+      .from('league_game_events')
+      .select('league_game_id, type, result, video_timestamp')
+      .in('league_game_id', gameIds)
+      .eq('result', 'made')
+      .not('video_timestamp', 'is', null)
+      .order('id', { ascending: true })
+      .range(pg * PAGE, (pg + 1) * PAGE - 1)
+    if (eErr) return []
+    if (chunk && chunk.length > 0) events.push(...(chunk as EvtRow[]))
+    if (!chunk || chunk.length < PAGE) break
+  }
 
   const gameToClipCount: Record<string, number> = {}
-  for (const e of (events ?? []) as Array<{ league_game_id: string; type: string; video_timestamp: number | null }>) {
+  for (const e of events) {
     if (!isHighlightShot(e.type)) continue
     gameToClipCount[e.league_game_id] = (gameToClipCount[e.league_game_id] ?? 0) + 1
   }
@@ -117,15 +128,8 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
   const gameIds = gameRows.map(g => g.id)
 
   // 2. 이벤트 (성공 + 하이라이트 슛 유형만, timestamp 있음)
-  const { data: events, error: eErr } = await supabase
-    .from('league_game_events')
-    .select('id, league_game_id, league_player_id, team_id, type, result, points, video_timestamp, created_at')
-    .in('league_game_id', gameIds)
-    .eq('result', 'made')
-    .not('video_timestamp', 'is', null)
-    .order('created_at', { ascending: true })
-  if (eErr) return empty
-  const eventRows = (events ?? []) as Array<{
+  // 페이지네이션 (Supabase 기본 1000행 캡 대비 · 한 라운드 클립이 많을 수 있음)
+  type DetailEvtRow = {
     id: string
     league_game_id: string
     league_player_id: string | null
@@ -133,7 +137,22 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     type: string
     points: number | null
     video_timestamp: number
-  }>
+  }
+  const eventRows: DetailEvtRow[] = []
+  const PAGE = 1000
+  for (let pg = 0; ; pg++) {
+    const { data: chunk, error: eErr } = await supabase
+      .from('league_game_events')
+      .select('id, league_game_id, league_player_id, team_id, type, result, points, video_timestamp, created_at')
+      .in('league_game_id', gameIds)
+      .eq('result', 'made')
+      .not('video_timestamp', 'is', null)
+      .order('created_at', { ascending: true })
+      .range(pg * PAGE, (pg + 1) * PAGE - 1)
+    if (eErr) return empty
+    if (chunk && chunk.length > 0) eventRows.push(...(chunk as DetailEvtRow[]))
+    if (!chunk || chunk.length < PAGE) break
+  }
 
   // 3. 선수 정보 (한 방에)
   const playerIds = Array.from(new Set(eventRows.map(e => e.league_player_id).filter((x): x is string => !!x)))
