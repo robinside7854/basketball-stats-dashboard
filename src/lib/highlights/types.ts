@@ -35,6 +35,10 @@ export type HighlightClip = {
   game_date?: string
   quarter_id?: string | null
   opponent_name?: string
+  // 어시스트 (야투 성공 이벤트의 related_player_id 매핑, 자유투/앤드원은 항상 null)
+  assist_player_id?: string | null
+  assist_player_name?: string | null
+  assist_player_number?: number | null
 }
 
 export type HighlightPlayerOption = {

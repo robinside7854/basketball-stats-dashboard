@@ -17,7 +17,7 @@ interface Props {
 }
 
 function parseCategory(v: string | null): ShotCategory | null {
-  if (v === 'threes' || v === 'twos' || v === 'freethrows') return v
+  if (v === 'threes' || v === 'twos' || v === 'freethrows' || v === 'andones') return v
   return null
 }
 
@@ -88,6 +88,7 @@ export default function HighlightsBrowser({ detail }: Props) {
             onToggleAutoAdvance={onToggleAuto}
           />
         </div>
+        {/* 레이아웃(LeagueLayoutClient)이 이미 pb-[56px+safe-area] 처리 · 플레이리스트 자체 스크롤로 재생기 자연스럽게 상단 유지 */}
         <div className="lg:col-span-4">
           <HighlightsPlaylist
             clips={filteredClips}

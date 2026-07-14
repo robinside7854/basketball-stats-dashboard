@@ -23,6 +23,7 @@ const CATEGORIES: { key: ShotCategory; label: string }[] = [
   { key: 'threes',     label: '3점' },
   { key: 'twos',       label: '2점' },
   { key: 'freethrows', label: '자유투' },
+  { key: 'andones',    label: '앤드원' },
 ]
 
 export default function HighlightsFilterBar({ players, teams, filter, onChange, totalClips, filteredCount }: Props) {

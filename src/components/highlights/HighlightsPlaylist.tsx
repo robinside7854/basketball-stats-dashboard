@@ -49,7 +49,7 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect }: Prop
   return (
     <div
       ref={listRef}
-      className="space-y-1.5 lg:max-h-[70vh] lg:overflow-y-auto lg:pr-1"
+      className="space-y-1.5 max-h-[55vh] overflow-y-auto pr-1 lg:max-h-[70vh]"
       role="listbox"
       aria-label="하이라이트 플레이리스트"
     >
@@ -120,6 +120,15 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect }: Prop
                   </span>
                 )}
               </div>
+              {c.assist_player_name && (
+                <div className="text-[11px] leading-tight" style={{ color: 'var(--mm-muted)' }}>
+                  <span className="font-bold" aria-hidden>A.</span>{' '}
+                  <span style={{ color: 'var(--mm-ink-soft)' }}>
+                    {c.assist_player_number ? `#${c.assist_player_number} ` : ''}{c.assist_player_name}
+                  </span>
+                  <span className="sr-only"> 어시스트</span>
+                </div>
+              )}
               <div className="flex items-center justify-between gap-1.5">
                 <span className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>
                   {formatTimestamp(c.video_timestamp)}

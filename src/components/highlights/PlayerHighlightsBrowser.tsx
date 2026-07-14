@@ -22,7 +22,7 @@ interface Props {
 }
 
 function parseCategory(v: string | null): ShotCategory | null {
-  if (v === 'threes' || v === 'twos' || v === 'freethrows') return v
+  if (v === 'threes' || v === 'twos' || v === 'freethrows' || v === 'andones') return v
   return null
 }
 
@@ -30,6 +30,7 @@ const CATEGORIES: { key: ShotCategory; label: string }[] = [
   { key: 'threes',     label: '3점' },
   { key: 'twos',       label: '2점' },
   { key: 'freethrows', label: '자유투' },
+  { key: 'andones',    label: '앤드원' },
 ]
 
 export default function PlayerHighlightsBrowser({
@@ -188,6 +189,7 @@ export default function PlayerHighlightsBrowser({
             onToggleAutoAdvance={onToggleAuto}
           />
         </div>
+        {/* 레이아웃(LeagueLayoutClient)이 이미 pb-[56px+safe-area] 처리 · 플레이리스트 자체 스크롤로 재생기 자연스럽게 상단 유지 */}
         <div className="lg:col-span-4">
           <PlayerHighlightsPlaylist
             clips={filteredClips}

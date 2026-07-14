@@ -3,7 +3,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { extractYouTubeId } from '@/lib/youtube/utils'
-import { isHighlightShot, getClipBounds, SHOT_TYPE_LABEL } from './clip'
+import { isHighlightShot, getClipBounds, SHOT_TYPE_LABEL, shouldShowAssist } from './clip'
 import type {
   HighlightRound, HighlightRoundDetail, HighlightClip,
   HighlightPlayerOption, HighlightTeamOption,
@@ -138,6 +138,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     league_game_id: string
     league_player_id: string | null
     team_id: string | null
+    related_player_id: string | null
     type: string
     points: number | null
     video_timestamp: number
@@ -147,7 +148,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
   for (let pg = 0; ; pg++) {
     const { data: chunk, error: eErr } = await supabase
       .from('league_game_events')
-      .select('id, league_game_id, league_player_id, team_id, type, result, points, video_timestamp, created_at')
+      .select('id, league_game_id, league_player_id, team_id, related_player_id, type, result, points, video_timestamp, created_at')
       .in('league_game_id', gameIds)
       .eq('result', 'made')
       .not('video_timestamp', 'is', null)
@@ -158,8 +159,11 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     if (!chunk || chunk.length < PAGE) break
   }
 
-  // 3. 선수 정보 (한 방에)
-  const playerIds = Array.from(new Set(eventRows.map(e => e.league_player_id).filter((x): x is string => !!x)))
+  // 3. 선수 정보 (한 방에) — 슛 선수 + 어시스트 선수 모두 포함
+  const playerIds = Array.from(new Set([
+    ...eventRows.map(e => e.league_player_id).filter((x): x is string => !!x),
+    ...eventRows.map(e => e.related_player_id).filter((x): x is string => !!x),
+  ]))
   const playerMap: Record<string, { id: string; name: string; number: number | null; photo_url: string | null }> = {}
   if (playerIds.length > 0) {
     const { data: players } = await supabase
@@ -193,6 +197,11 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     const player = ev.league_player_id ? playerMap[ev.league_player_id] : null
     const { start, end } = getClipBounds(ev.type, ev.video_timestamp)
 
+    // 어시스트 매핑 — 야투(3점/2점)에만 유의미. 자유투/앤드원은 파울 상황이라 어시스트 개념 없음
+    const assistPlayer = (shouldShowAssist(ev.type) && ev.related_player_id)
+      ? playerMap[ev.related_player_id] ?? null
+      : null
+
     const clip: HighlightClip = {
       event_id: ev.id,
       video_url: game.youtube_url,
@@ -212,6 +221,9 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       game_id: game.id,
       home_team_name: game.home_team?.name ?? '',
       away_team_name: game.away_team?.name ?? '',
+      assist_player_id: assistPlayer?.id ?? null,
+      assist_player_name: assistPlayer?.name ?? null,
+      assist_player_number: assistPlayer?.number ?? null,
     }
     clips.push(clip)
 
@@ -298,6 +310,7 @@ export async function loadPlayerHighlights(
     id: string
     league_game_id: string
     team_id: string | null
+    related_player_id: string | null
     type: string
     points: number | null
     video_timestamp: number
@@ -307,7 +320,7 @@ export async function loadPlayerHighlights(
   for (let pg = 0; ; pg++) {
     const { data: chunk, error: eErr } = await supabase
       .from('league_game_events')
-      .select('id, league_game_id, team_id, type, result, points, video_timestamp, created_at')
+      .select('id, league_game_id, team_id, related_player_id, type, result, points, video_timestamp, created_at')
       .eq('league_player_id', playerId)
       .in('league_game_id', gameIds)
       .eq('result', 'made')
@@ -317,6 +330,24 @@ export async function loadPlayerHighlights(
     if (eErr) return { player, clips: [], quarters: [], shotTypes: [] }
     if (chunk && chunk.length > 0) events.push(...(chunk as EvtRow[]))
     if (!chunk || chunk.length < PAGE) break
+  }
+
+  // 3-b. 어시스트 선수 정보 (related_player_id 매핑) — 야투에만 유의미
+  const assistPlayerIds = Array.from(new Set(
+    events
+      .filter(e => shouldShowAssist(e.type))
+      .map(e => e.related_player_id)
+      .filter((x): x is string => !!x),
+  ))
+  const assistPlayerMap: Record<string, { id: string; name: string; number: number | null }> = {}
+  if (assistPlayerIds.length > 0) {
+    const { data: assistPlayers } = await supabase
+      .from('league_players')
+      .select('id, name, number')
+      .in('id', assistPlayerIds)
+    for (const p of (assistPlayers ?? []) as Array<{ id: string; name: string; number: number | null }>) {
+      assistPlayerMap[p.id] = p
+    }
   }
 
   // 4. league_quarters (분기 옵션 라벨용)
@@ -358,6 +389,11 @@ export async function loadPlayerHighlights(
       : team.id === game.away_team?.id ? homeName
       : ''
 
+    // 어시스트 매핑 (야투 성공에만 유의미, 자유투/앤드원은 항상 null)
+    const assistPlayer = (shouldShowAssist(ev.type) && ev.related_player_id)
+      ? assistPlayerMap[ev.related_player_id] ?? null
+      : null
+
     clips.push({
       event_id: ev.id,
       video_url: game.youtube_url,
@@ -380,6 +416,9 @@ export async function loadPlayerHighlights(
       game_date: game.date,
       quarter_id: game.quarter_id,
       opponent_name: opponentName,
+      assist_player_id: assistPlayer?.id ?? null,
+      assist_player_name: assistPlayer?.name ?? null,
+      assist_player_number: assistPlayer?.number ?? null,
     })
 
     if (game.quarter_id && quarterMap[game.quarter_id]) {

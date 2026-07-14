@@ -72,7 +72,7 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect }
   return (
     <div
       ref={listRef}
-      className="lg:max-h-[70vh] lg:overflow-y-auto lg:pr-1"
+      className="max-h-[55vh] overflow-y-auto pr-1 lg:max-h-[70vh]"
       role="listbox"
       aria-label="선수 하이라이트 플레이리스트"
     >
@@ -165,6 +165,15 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect }
                         {formatTimestamp(c.video_timestamp)}
                       </span>
                     </div>
+                    {c.assist_player_name && (
+                      <div className="text-[11px] leading-tight" style={{ color: 'var(--mm-muted)' }}>
+                        <span className="font-bold" aria-hidden>A.</span>{' '}
+                        <span style={{ color: 'var(--mm-ink-soft)' }}>
+                          {c.assist_player_number ? `#${c.assist_player_number} ` : ''}{c.assist_player_name}
+                        </span>
+                        <span className="sr-only"> 어시스트</span>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between gap-1.5">
                       <span className="text-[11px] truncate" style={{ color: 'var(--mm-muted)' }}>
                         {opponent ? <>vs <span style={{ color: 'var(--mm-ink-soft)' }}>{opponent}</span></> : ''}

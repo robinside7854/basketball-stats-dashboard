@@ -33,14 +33,22 @@ export function getClipBounds(type: string, timestamp: number): { start: number;
   }
 }
 
-// 3점 / 2점 / 자유투 카테고리 매핑 (필터바에서 사용)
-export type ShotCategory = 'threes' | 'twos' | 'freethrows'
+// 3점 / 2점 / 자유투 / 앤드원 카테고리 매핑 (필터바에서 사용)
+// 앤드원(and_one)은 파울과 함께 성공한 야투 상황(플러스 자유투) — 자유투와 구분되는 하이라이트
+export type ShotCategory = 'threes' | 'twos' | 'freethrows' | 'andones'
 
 export function categoryOfType(type: string): ShotCategory | null {
   if (type === 'shot_3p') return 'threes'
   if (type === 'shot_2p_mid' || type === 'shot_layup' || type === 'shot_post' || type === 'shot_2p_drive') return 'twos'
-  if (type === 'and_one' || type === 'ft_2pt' || type === 'ft_3pt_1' || type === 'ft_3pt_2' || type === 'free_throw') return 'freethrows'
+  if (type === 'and_one') return 'andones'
+  if (type === 'ft_2pt' || type === 'ft_3pt_1' || type === 'ft_3pt_2' || type === 'free_throw') return 'freethrows'
   return null
+}
+
+// 어시스트 표시가 유의미한 슛 유형만 true (자유투/앤드원은 제외 — 파울 상황이라 어시스트 개념 없음)
+export function shouldShowAssist(type: string): boolean {
+  const cat = categoryOfType(type)
+  return cat === 'threes' || cat === 'twos'
 }
 
 export const SHOT_TYPE_LABEL: Record<string, string> = {
