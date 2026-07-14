@@ -28,9 +28,10 @@ export async function PATCH(
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
+  // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그) + 하이라이트 이벤트 태그
   revalidateTag(`league-${leagueId}`, 'max')
   revalidateTag(`league-${leagueId}-games`, 'max')
+  revalidateTag(`league-${leagueId}-events`, 'max')
 
   return NextResponse.json(data)
 }
@@ -48,9 +49,10 @@ export async function DELETE(
     .eq('id', eventId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
+  // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그) + 하이라이트 이벤트 태그
   revalidateTag(`league-${leagueId}`, 'max')
   revalidateTag(`league-${leagueId}-games`, 'max')
+  revalidateTag(`league-${leagueId}-events`, 'max')
 
   return NextResponse.json({ success: true })
 }

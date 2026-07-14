@@ -50,6 +50,8 @@ export async function POST(
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
   revalidateTag(`league-${leagueId}`, 'max')
   revalidateTag(`league-${leagueId}-games`, 'max')
+  // 하이라이트 캐시 무효화 — 새 성공 슛 이벤트가 즉시 하이라이트에 반영되도록
+  revalidateTag(`league-${leagueId}-events`, 'max')
 
   return NextResponse.json(data, { status: 201 })
 }

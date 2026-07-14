@@ -31,7 +31,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
     { href: `${base}/roster`, label: '라커룸', match: [`${base}/roster`, `${base}/teams`] },
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/record`] },
     { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`] },
-    { href: `${base}/columns`, label: '아카이브', match: [`${base}/columns`, `${base}/stathead`] },
+    { href: `${base}/columns`, label: '아카이브', match: [`${base}/columns`, `${base}/stathead`, `${base}/highlights`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
     ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', match: [`${base}/settings`] }] : []),
   ]
@@ -148,7 +148,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
   const isActive = (href: string) => {
     if (href === base) return pathname === base
     if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/awards`)
-    if (href === `${base}/columns`) return pathname.startsWith(`${base}/columns`) || pathname.startsWith(`${base}/stathead`)
+    if (href === `${base}/columns`) return pathname.startsWith(`${base}/columns`) || pathname.startsWith(`${base}/stathead`) || pathname.startsWith(`${base}/highlights`)
     return pathname.startsWith(href)
   }
   // 더보기 그룹 중 하나가 현재 페이지면 더보기 버튼도 활성화 표시

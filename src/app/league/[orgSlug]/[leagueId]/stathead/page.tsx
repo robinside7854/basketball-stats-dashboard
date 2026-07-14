@@ -169,6 +169,7 @@ function StatheadContent() {
   const groupTabs = [
     { href: `${base}/columns`, label: '매거진', active: false },
     { href: `${base}/stathead`, label: 'Stathead', active: true },
+    { href: `${base}/highlights`, label: '하이라이트', active: false },
   ]
 
   return (

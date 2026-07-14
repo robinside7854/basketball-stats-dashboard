@@ -203,6 +203,7 @@ export default function ColumnsListPage() {
   const groupTabs = [
     { href: `${base}/columns`, label: '매거진', active: true },
     { href: `${base}/stathead`, label: 'Stathead', active: false },
+    { href: `${base}/highlights`, label: '하이라이트', active: false },
   ]
 
   return (
