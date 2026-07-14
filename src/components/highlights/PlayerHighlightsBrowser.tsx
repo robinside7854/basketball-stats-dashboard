@@ -5,9 +5,17 @@
 // - 우측 플레이리스트는 날짜별 그룹핑 (PlayerHighlightsPlaylist)
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { Link2, HeartCrack } from 'lucide-react'
+import { toast } from 'sonner'
 import HighlightsPlayer from './HighlightsPlayer'
 import PlayerHighlightsPlaylist from './PlayerHighlightsPlaylist'
-import { categoryOfType, parseShotCategory, SHOT_CATEGORY_OPTIONS, type ShotCategory } from '@/lib/highlights/clip'
+import {
+  categoryOfType,
+  parseShotCategory,
+  SHOT_CATEGORY_OPTIONS,
+  type HighlightFilterCategory,
+} from '@/lib/highlights/clip'
+import { shortenUrl } from '@/lib/shortUrl'
 import type {
   HighlightClip, HighlightQuarterOption, HighlightShotTypeOption, PlayerHighlightsInfo,
 } from '@/lib/highlights/types'
@@ -22,6 +30,13 @@ interface Props {
   groupLabel?: string   // 그룹 필터 라벨 — 리그: '분기'(기본) · 팀 대시보드: '대회'
 }
 
+// URL 쿼리 → 필터 카테고리 · SHOT_CATEGORY_OPTIONS 6종(parseShotCategory) + 컨텍스트 'clutch'
+function parseCategory(v: string | null): HighlightFilterCategory | null {
+  if (v === 'clutch') return 'clutch'
+  return parseShotCategory(v)
+}
+
+// 정형 슛 카테고리 6종 (레이업/골밑/미들 세분화) · 'clutch' 는 별도 chip 으로 처리
 const CATEGORIES = SHOT_CATEGORY_OPTIONS
 
 export default function PlayerHighlightsBrowser({
@@ -31,8 +46,8 @@ export default function PlayerHighlightsBrowser({
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const [category, setCategory] = useState<ShotCategory | null>(() =>
-    parseShotCategory(searchParams.get('type')),
+  const [category, setCategory] = useState<HighlightFilterCategory | null>(() =>
+    parseCategory(searchParams.get('type')),
   )
   const [quarterId, setQuarterId] = useState<string | null>(() =>
     searchParams.get('quarter') || null,
@@ -43,14 +58,18 @@ export default function PlayerHighlightsBrowser({
   })
   const [autoAdvance, setAutoAdvance] = useState(true)
 
-  // 필터 적용
+  // 필터 적용 — clutch 는 shot_type 무관 컨텍스트 필터 (is_clutch 체크)
   const filteredClips = useMemo(() => {
     return clips.filter(c => {
-      if (category && categoryOfType(c.shot_type) !== category) return false
+      if (category === 'clutch') {
+        if (!c.is_clutch) return false
+      } else if (category && categoryOfType(c.shot_type) !== category) return false
       if (quarterId && c.quarter_id !== quarterId) return false
       return true
     })
   }, [clips, category, quarterId])
+
+  const clutchCount = useMemo(() => clips.reduce((a, c) => a + (c.is_clutch ? 1 : 0), 0), [clips])
 
   // 필터 변경 시 인덱스 리셋 (범위 밖으로 튀지 않도록)
   useEffect(() => {
@@ -70,17 +89,54 @@ export default function PlayerHighlightsBrowser({
   const onSelectIdx = useCallback((idx: number) => setCurrentIdx(idx), [])
   const onToggleAuto = useCallback(() => setAutoAdvance(v => !v), [])
 
+  // 공유 링크 — 현재 필터/클립 상태 URL 을 shortener 로 축약해 클립보드에 복사
+  const shareShort = useCallback(async () => {
+    if (typeof window === 'undefined') return
+    const short = await shortenUrl(window.location.href, {
+      source: 'highlights_player',
+    })
+    try {
+      await navigator.clipboard.writeText(short)
+      const label = short.includes('/h/')
+        ? `짧은 링크 복사됨: /h/${short.split('/h/')[1] ?? ''}`
+        : '링크 복사됨'
+      toast.success(label)
+    } catch {
+      toast.error('링크 복사 실패')
+    }
+  }, [])
+
   const activeCount = (category ? 1 : 0) + (quarterId ? 1 : 0)
 
-  const chip = (active: boolean): React.CSSProperties => ({
-    background: active ? 'var(--mm-yellow)' : 'var(--mm-panel)',
-    color: active ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
-    border: `1px solid ${active ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
+  const chip = (active: boolean, hue?: string): React.CSSProperties => ({
+    background: active ? (hue ?? 'var(--mm-yellow)') : 'var(--mm-panel)',
+    color: active ? (hue ? '#fff' : 'var(--mm-black)') : 'var(--mm-ink-soft)',
+    border: `1px solid ${active ? (hue ?? 'var(--mm-yellow)') : 'var(--mm-rule)'}`,
     borderRadius: '4px',
   })
 
   return (
     <div className="space-y-3">
+      {/* 공유 링크 버튼 — 현재 필터/클립 상태 URL 을 짧은 링크로 축약 */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={shareShort}
+          className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+          style={{
+            background: 'var(--mm-panel)',
+            color: 'var(--mm-ink-soft)',
+            border: '1px solid var(--mm-rule)',
+            borderRadius: '4px',
+          }}
+          aria-label="현재 화면 짧은 링크 복사"
+          title="짧은 공유 링크 복사"
+        >
+          <Link2 size={14} />
+          공유 링크
+        </button>
+      </div>
+
       {/* 필터 바 */}
       <div
         className="p-3 lg:p-4 space-y-3"
@@ -135,6 +191,20 @@ export default function PlayerHighlightsBrowser({
                 {c.label}
               </button>
             ))}
+            {/* 클러치 chip — 단독 필터 · 빨간 강조 */}
+            <button
+              type="button"
+              onClick={() => setCategory(category === 'clutch' ? null : 'clutch')}
+              className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors inline-flex items-center gap-1"
+              style={chip(category === 'clutch', '#ef4444')}
+              aria-pressed={category === 'clutch'}
+              aria-label="클러치 슛만 보기 (경기 마지막 2분·3점차 이내)"
+              title="경기 마지막 2분 · 3점차 이내 접전 상황의 슛"
+            >
+              <HeartCrack size={12} aria-hidden />
+              클러치
+              {clutchCount > 0 && <span className="text-[10px] opacity-80">{clutchCount}</span>}
+            </button>
           </div>
         </div>
 

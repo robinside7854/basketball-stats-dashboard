@@ -4,32 +4,45 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { extractYouTubeId } from '@/lib/youtube/utils'
 import { isHighlightShot, getClipBounds, SHOT_TYPE_LABEL, shouldShowAssist } from './clip'
+import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 import type {
   HighlightRound, HighlightRoundDetail, HighlightClip,
   HighlightPlayerOption, HighlightTeamOption,
   PlayerHighlightsData, HighlightQuarterOption, HighlightShotTypeOption,
 } from './types'
 
+// 클러치 정의 — clutchStats.ts 와 동일 (마지막 2분 & 슛 직전 |홈-원정| ≤ 3)
+const CLUTCH_TIME_WINDOW_SECONDS = 120
+const CLUTCH_MARGIN_MAX = 3
+
 // 최근 라운드 목록 — 모든 라운드 노출 (영상/기록 여부는 status 로 구분)
 // 미리 필터링 안 함 · UI 에서 상태별로 시각화
 export async function loadRecentRounds(supabase: SupabaseClient, leagueId: string, limit = 24): Promise<HighlightRound[]> {
   // 1. 리그 게임 전체 (is_started=true · 시작된 경기만 · 친선 제외 안 함 · 라운드 성격상 모두 노출)
-  const { data: games, error: gErr } = await supabase
-    .from('league_games')
-    .select(`
-      id, date, youtube_url,
-      home_team:league_teams!league_games_home_team_id_fkey(name),
-      away_team:league_teams!league_games_away_team_id_fkey(name)
-    `)
-    .eq('league_id', leagueId)
-    .eq('is_started', true)
-    .not('date', 'is', null)
-    .order('date', { ascending: false })
+  //    identity resolver 병렬 로드 — 분기별 팀명 override 반영
+  const [{ data: games, error: gErr }, resolver] = await Promise.all([
+    supabase
+      .from('league_games')
+      .select(`
+        id, date, quarter_id, youtube_url,
+        home_team_id, away_team_id,
+        home_team:league_teams!league_games_home_team_id_fkey(name),
+        away_team:league_teams!league_games_away_team_id_fkey(name)
+      `)
+      .eq('league_id', leagueId)
+      .eq('is_started', true)
+      .not('date', 'is', null)
+      .order('date', { ascending: false }),
+    loadIdentityResolver(supabase, leagueId),
+  ])
   if (gErr) return []
   const rows = (games ?? []) as unknown as Array<{
     id: string
     date: string
+    quarter_id: string | null
     youtube_url: string | null
+    home_team_id: string | null
+    away_team_id: string | null
     home_team: { name: string } | null
     away_team: { name: string } | null
   }>
@@ -76,8 +89,13 @@ export async function loadRecentRounds(supabase: SupabaseClient, leagueId: strin
     let clipsSum = 0
     let videoCount = 0
     for (const g of gamesOfDate) {
-      if (g.home_team?.name) teamSet.add(g.home_team.name)
-      if (g.away_team?.name) teamSet.add(g.away_team.name)
+      // 분기별 팀명 override 반영 — 없으면 base team name fallback
+      const homeId = g.home_team_id ?? null
+      const awayId = g.away_team_id ?? null
+      const homeName = (homeId && resolver(homeId, g.quarter_id)?.display_name) || g.home_team?.name || null
+      const awayName = (awayId && resolver(awayId, g.quarter_id)?.display_name) || g.away_team?.name || null
+      if (homeName) teamSet.add(homeName)
+      if (awayName) teamSet.add(awayName)
       if (g.youtube_url) videoCount++
       clipsSum += gameToClipCount[g.id] ?? 0
     }
@@ -102,22 +120,26 @@ export async function loadRecentRounds(supabase: SupabaseClient, leagueId: strin
 export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string, date: string): Promise<HighlightRoundDetail> {
   const empty: HighlightRoundDetail = { date, clips: [], players: [], teams: [] }
 
-  // 1. 해당 날짜의 게임 (영상 있는 것만)
-  const { data: games, error: gErr } = await supabase
-    .from('league_games')
-    .select(`
-      id, youtube_url, youtube_start_offset,
-      home_team_id, away_team_id,
-      home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
-      away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
-    `)
-    .eq('league_id', leagueId)
-    .eq('date', date)
-    .not('youtube_url', 'is', null)
-    .order('slot_num', { ascending: true })
+  // 1. 해당 날짜의 게임 (영상 있는 것만) + identity resolver 병렬 로드
+  const [{ data: games, error: gErr }, resolver] = await Promise.all([
+    supabase
+      .from('league_games')
+      .select(`
+        id, quarter_id, youtube_url, youtube_start_offset,
+        home_team_id, away_team_id,
+        home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
+        away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
+      `)
+      .eq('league_id', leagueId)
+      .eq('date', date)
+      .not('youtube_url', 'is', null)
+      .order('slot_num', { ascending: true }),
+    loadIdentityResolver(supabase, leagueId),
+  ])
   if (gErr) return empty
   const gameRows = (games ?? []) as unknown as Array<{
     id: string
+    quarter_id: string | null
     youtube_url: string
     youtube_start_offset: number | null
     home_team_id: string | null
@@ -175,7 +197,44 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     }
   }
 
-  // 4. 팀 정보 (team_id null 인 경우 대비 — game 의 홈/어웨이 중 매칭)
+  // 4. 게임별 이벤트 그룹핑 + 시간순 정렬 → 러닝 스코어 & 클러치 판정 준비
+  //    (이 라운드 클립은 이미 result='made'+video_timestamp 만 뽑혀 있어 사실상 모든 득점 이벤트 = 스코어링 이벤트)
+  const gameEvents: Record<string, DetailEvtRow[]> = {}
+  const gameMaxTs: Record<string, number> = {}
+  for (const e of eventRows) {
+    ;(gameEvents[e.league_game_id] ||= []).push(e)
+    const ts = e.video_timestamp
+    if (ts > (gameMaxTs[e.league_game_id] ?? -1)) gameMaxTs[e.league_game_id] = ts
+  }
+  // event_id → { is_clutch, score_home_before/after, score_away_before/after }
+  const evMeta: Record<string, {
+    is_clutch: boolean
+    hb: number; ab: number; ha: number; aa: number
+  }> = {}
+  for (const gid of Object.keys(gameEvents)) {
+    const evs = gameEvents[gid]
+    evs.sort((a, b) => (a.video_timestamp - b.video_timestamp) || a.id.localeCompare(b.id))
+    const game = gameMap[gid]
+    if (!game) continue
+    const maxTs = gameMaxTs[gid] ?? 0
+    const clutchStart = maxTs - CLUTCH_TIME_WINDOW_SECONDS
+    let home = 0, away = 0
+    for (const e of evs) {
+      const inClutchTime = e.video_timestamp >= clutchStart
+      const marginBefore = Math.abs(home - away)
+      const isClutch = inClutchTime && marginBefore <= CLUTCH_MARGIN_MAX
+      const hb = home, ab = away
+      // 스코어 반영 (made 이므로 항상 득점 이벤트) — team_id 매칭으로 홈/원정 판별
+      const pts = e.points ?? 0
+      if (pts > 0 && e.team_id) {
+        if (e.team_id === game.home_team_id) home += pts
+        else if (e.team_id === game.away_team_id) away += pts
+      }
+      evMeta[e.id] = { is_clutch: isClutch, hb, ab, ha: home, aa: away }
+    }
+  }
+
+  // 5. 클립 조립 (게임/팀 컨텍스트 + 분기별 팀명 override + 클러치/스코어 결합)
   const clips: HighlightClip[] = []
   const playerCounts: Record<string, HighlightPlayerOption> = {}
   const teamCounts: Record<string, HighlightTeamOption> = {}
@@ -194,6 +253,15 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     if (!team) team = game.home_team ?? game.away_team
     if (!team) continue
 
+    // 분기별 팀명/색상 override — 이 슛의 소속팀 · 홈 · 원정 각각 리졸브
+    const shotIdentity = resolver(team.id, game.quarter_id)
+    const homeIdentity = game.home_team_id ? resolver(game.home_team_id, game.quarter_id) : null
+    const awayIdentity = game.away_team_id ? resolver(game.away_team_id, game.quarter_id) : null
+    const teamName = shotIdentity?.display_name ?? team.name
+    const teamColor = shotIdentity?.color ?? team.color
+    const homeName = homeIdentity?.display_name ?? (game.home_team?.name ?? '')
+    const awayName = awayIdentity?.display_name ?? (game.away_team?.name ?? '')
+
     const player = ev.league_player_id ? playerMap[ev.league_player_id] : null
     const { start, end } = getClipBounds(ev.type, ev.video_timestamp)
 
@@ -201,6 +269,8 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     const assistPlayer = (shouldShowAssist(ev.type) && ev.related_player_id)
       ? playerMap[ev.related_player_id] ?? null
       : null
+
+    const meta = evMeta[ev.id]
 
     const clip: HighlightClip = {
       event_id: ev.id,
@@ -214,16 +284,21 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       player_number: player?.number ?? null,
       player_photo: player?.photo_url ?? null,
       team_id: team.id,
-      team_name: team.name,
-      team_color: team.color,
+      team_name: teamName,
+      team_color: teamColor,
       shot_type: ev.type,
       points: ev.points ?? 0,
       game_id: game.id,
-      home_team_name: game.home_team?.name ?? '',
-      away_team_name: game.away_team?.name ?? '',
+      home_team_name: homeName,
+      away_team_name: awayName,
       assist_player_id: assistPlayer?.id ?? null,
       assist_player_name: assistPlayer?.name ?? null,
       assist_player_number: assistPlayer?.number ?? null,
+      is_clutch: meta?.is_clutch ?? false,
+      score_home_before: meta?.hb ?? 0,
+      score_away_before: meta?.ab ?? 0,
+      score_home_after: meta?.ha ?? 0,
+      score_away_after: meta?.aa ?? 0,
     }
     clips.push(clip)
 
@@ -234,7 +309,8 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     }
     if (team.id) {
       const tk = team.id
-      if (!teamCounts[tk]) teamCounts[tk] = { id: tk, name: team.name, color: team.color, count: 0 }
+      // 한 라운드(date)는 보통 하나의 분기 내에 있으므로 team_id 로 그룹핑 (필터 상 c.team_id === filter.teamId 매칭)
+      if (!teamCounts[tk]) teamCounts[tk] = { id: tk, name: teamName, color: teamColor, count: 0 }
       teamCounts[tk].count++
     }
   }
@@ -275,18 +351,21 @@ export async function loadPlayerHighlights(
     photo_url: (playerRow.photo_url ?? null) as string | null,
   }
 
-  // 2. 리그의 영상 있는 게임 목록 (id, date, quarter_id, home/away 팀)
-  const { data: gamesRaw, error: gErr } = await supabase
-    .from('league_games')
-    .select(`
-      id, date, quarter_id, youtube_url, youtube_start_offset,
-      home_team_id, away_team_id,
-      home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
-      away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
-    `)
-    .eq('league_id', leagueId)
-    .not('youtube_url', 'is', null)
-    .not('date', 'is', null)
+  // 2. 리그의 영상 있는 게임 목록 (id, date, quarter_id, home/away 팀) + identity resolver 병렬 로드
+  const [{ data: gamesRaw, error: gErr }, resolver] = await Promise.all([
+    supabase
+      .from('league_games')
+      .select(`
+        id, date, quarter_id, youtube_url, youtube_start_offset,
+        home_team_id, away_team_id,
+        home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
+        away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
+      `)
+      .eq('league_id', leagueId)
+      .not('youtube_url', 'is', null)
+      .not('date', 'is', null),
+    loadIdentityResolver(supabase, leagueId),
+  ])
   if (gErr) return { player, clips: [], quarters: [], shotTypes: [] }
   const gameRows = (gamesRaw ?? []) as unknown as Array<{
     id: string
@@ -330,6 +409,53 @@ export async function loadPlayerHighlights(
     if (eErr) return { player, clips: [], quarters: [], shotTypes: [] }
     if (chunk && chunk.length > 0) events.push(...(chunk as EvtRow[]))
     if (!chunk || chunk.length < PAGE) break
+  }
+
+  // 3-a. 클러치/스코어 계산용 — 해당 게임의 모든 made 슛 (양팀 포함) 로드
+  //      선수 이벤트만으로는 상대팀 득점을 알 수 없어 러닝 스코어 계산 불가
+  const gameIdsWithPlayer = Array.from(new Set(events.map(e => e.league_game_id)))
+  type FullEvRow = { id: string; league_game_id: string; team_id: string | null; points: number | null; video_timestamp: number }
+  const fullEvents: FullEvRow[] = []
+  if (gameIdsWithPlayer.length > 0) {
+    for (let pg = 0; ; pg++) {
+      const { data: chunk } = await supabase
+        .from('league_game_events')
+        .select('id, league_game_id, team_id, points, video_timestamp')
+        .in('league_game_id', gameIdsWithPlayer)
+        .eq('result', 'made')
+        .not('video_timestamp', 'is', null)
+        .order('id', { ascending: true })
+        .range(pg * PAGE, (pg + 1) * PAGE - 1)
+      if (chunk && chunk.length > 0) fullEvents.push(...(chunk as FullEvRow[]))
+      if (!chunk || chunk.length < PAGE) break
+    }
+  }
+  // 게임별 group + 시간순 sort → event_id → { is_clutch, scores }
+  const evMeta: Record<string, { is_clutch: boolean; hb: number; ab: number; ha: number; aa: number }> = {}
+  const grouped: Record<string, FullEvRow[]> = {}
+  const gameMaxTs: Record<string, number> = {}
+  for (const e of fullEvents) {
+    ;(grouped[e.league_game_id] ||= []).push(e)
+    if (e.video_timestamp > (gameMaxTs[e.league_game_id] ?? -1)) gameMaxTs[e.league_game_id] = e.video_timestamp
+  }
+  for (const gid of Object.keys(grouped)) {
+    const evs = grouped[gid]
+    evs.sort((a, b) => (a.video_timestamp - b.video_timestamp) || a.id.localeCompare(b.id))
+    const g = gameMap[gid]
+    if (!g) continue
+    const clutchStart = (gameMaxTs[gid] ?? 0) - CLUTCH_TIME_WINDOW_SECONDS
+    let home = 0, away = 0
+    for (const e of evs) {
+      const inClutchTime = e.video_timestamp >= clutchStart
+      const isClutch = inClutchTime && Math.abs(home - away) <= CLUTCH_MARGIN_MAX
+      const hb = home, ab = away
+      const pts = e.points ?? 0
+      if (pts > 0 && e.team_id) {
+        if (e.team_id === g.home_team_id) home += pts
+        else if (e.team_id === g.away_team_id) away += pts
+      }
+      evMeta[e.id] = { is_clutch: isClutch, hb, ab, ha: home, aa: away }
+    }
   }
 
   // 3-b. 어시스트 선수 정보 (related_player_id 매핑) — 야투에만 유의미
@@ -382,9 +508,16 @@ export async function loadPlayerHighlights(
 
     const { start, end } = getClipBounds(ev.type, ev.video_timestamp)
 
+    // 분기별 팀명/색상 override 적용 — 홈 · 원정 · 슛 소속팀 각각 리졸브
+    const shotIdentity = resolver(team.id, game.quarter_id)
+    const homeIdentity = game.home_team_id ? resolver(game.home_team_id, game.quarter_id) : null
+    const awayIdentity = game.away_team_id ? resolver(game.away_team_id, game.quarter_id) : null
+    const teamName = shotIdentity?.display_name ?? team.name
+    const teamColor = shotIdentity?.color ?? team.color
+    const homeName = homeIdentity?.display_name ?? (game.home_team?.name ?? '')
+    const awayName = awayIdentity?.display_name ?? (game.away_team?.name ?? '')
+
     // 상대팀 이름 — 선수 소속(team)이 아닌 쪽
-    const homeName = game.home_team?.name ?? ''
-    const awayName = game.away_team?.name ?? ''
     const opponentName = team.id === game.home_team?.id ? awayName
       : team.id === game.away_team?.id ? homeName
       : ''
@@ -393,6 +526,8 @@ export async function loadPlayerHighlights(
     const assistPlayer = (shouldShowAssist(ev.type) && ev.related_player_id)
       ? assistPlayerMap[ev.related_player_id] ?? null
       : null
+
+    const meta = evMeta[ev.id]
 
     clips.push({
       event_id: ev.id,
@@ -406,8 +541,8 @@ export async function loadPlayerHighlights(
       player_number: player.number,
       player_photo: player.photo_url,
       team_id: team.id,
-      team_name: team.name,
-      team_color: team.color,
+      team_name: teamName,
+      team_color: teamColor,
       shot_type: ev.type,
       points: ev.points ?? 0,
       game_id: game.id,
@@ -419,6 +554,11 @@ export async function loadPlayerHighlights(
       assist_player_id: assistPlayer?.id ?? null,
       assist_player_name: assistPlayer?.name ?? null,
       assist_player_number: assistPlayer?.number ?? null,
+      is_clutch: meta?.is_clutch ?? false,
+      score_home_before: meta?.hb ?? 0,
+      score_away_before: meta?.ab ?? 0,
+      score_home_after: meta?.ha ?? 0,
+      score_away_after: meta?.aa ?? 0,
     })
 
     if (game.quarter_id && quarterMap[game.quarter_id]) {

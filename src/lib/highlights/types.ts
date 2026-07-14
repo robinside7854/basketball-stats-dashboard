@@ -39,6 +39,13 @@ export type HighlightClip = {
   assist_player_id?: string | null
   assist_player_name?: string | null
   assist_player_number?: number | null
+  // 클러치 여부 — 게임 종료(video_timestamp max) 기준 마지막 2분 & 슛 직전 |홈-원정| ≤ 3
+  is_clutch?: boolean
+  // 스코어보드용 (슛 직전/직후 팀 스코어) — 재생기 오버레이에서 표시
+  score_home_before?: number
+  score_away_before?: number
+  score_home_after?: number
+  score_away_after?: number
 }
 
 export type HighlightPlayerOption = {

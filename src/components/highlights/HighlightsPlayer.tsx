@@ -11,7 +11,7 @@
 //   autoAdvance: 자동 연속재생 여부
 //   onToggleAutoAdvance: 자동재생 토글
 import { useEffect, useRef, useCallback } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Zap, ZapOff } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Zap, ZapOff, HeartCrack } from 'lucide-react'
 import { extractYouTubeId, formatTimestamp } from '@/lib/youtube/utils'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
@@ -226,14 +226,117 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
     )
   }
 
+  // 스코어보드 데이터 (option A — 재생기 상단 오버레이)
+  const scoreHome = clip.score_home_after ?? 0
+  const scoreAway = clip.score_away_after ?? 0
+  const hasScore = (clip.score_home_after != null) || (clip.score_away_after != null)
+  const homeScored = clip.team_name === clip.home_team_name
+  const awayScored = clip.team_name === clip.away_team_name
+
   return (
     <div className="space-y-2">
       <div
-        className="rounded-xl overflow-hidden aspect-video bg-black"
+        className="relative rounded-xl overflow-hidden aspect-video bg-black"
         aria-live="polite"
         aria-label={`${clip.player_name} — ${SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}, ${currentIdx + 1}/${clips.length}`}
       >
         <div ref={containerRef} className="w-full h-full" />
+        {/* 스코어보드 오버레이 (option A — 상단 · 항상 표시 · pointer-events-none 로 클릭 통과) */}
+        {hasScore && (clip.home_team_name || clip.away_team_name) && (
+          <div
+            className="absolute top-0 left-0 right-0 pointer-events-none flex items-center justify-center px-2 py-1.5 sm:py-2 z-10"
+            style={{
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0) 100%)',
+            }}
+            aria-label={`스코어보드: ${clip.home_team_name} ${scoreHome} 대 ${scoreAway} ${clip.away_team_name}`}
+          >
+            <div
+              className="inline-flex items-center gap-1.5 sm:gap-2.5 max-w-full"
+              style={{ color: '#fff' }}
+            >
+              {/* 홈 팀 */}
+              <span
+                className="flex items-center gap-1 min-w-0 max-w-[38vw] sm:max-w-none"
+                style={{ opacity: homeScored ? 1 : 0.8 }}
+              >
+                <span
+                  aria-hidden
+                  className="inline-block w-1.5 h-1.5 sm:w-2 sm:h-2 shrink-0"
+                  style={{
+                    background: homeScored ? (clip.team_color || '#fff') : 'rgba(255,255,255,0.4)',
+                    borderRadius: '2px',
+                    boxShadow: homeScored ? '0 0 0 1px rgba(255,255,255,0.4)' : undefined,
+                  }}
+                />
+                <span
+                  className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.08em] truncate"
+                  style={{ maxWidth: '18ch' }}
+                >
+                  {clip.home_team_name || '홈'}
+                </span>
+              </span>
+              {/* 홈 스코어 */}
+              <span
+                className="font-jersey font-black text-lg sm:text-2xl leading-none tabular-nums"
+                style={{
+                  color: homeScored ? 'var(--mm-yellow)' : '#fff',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.9)',
+                }}
+              >
+                {scoreHome}
+              </span>
+              <span
+                aria-hidden
+                className="font-jersey font-black text-base sm:text-xl leading-none"
+                style={{ color: 'rgba(255,255,255,0.55)' }}
+              >
+                :
+              </span>
+              {/* 원정 스코어 */}
+              <span
+                className="font-jersey font-black text-lg sm:text-2xl leading-none tabular-nums"
+                style={{
+                  color: awayScored ? 'var(--mm-yellow)' : '#fff',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.9)',
+                }}
+              >
+                {scoreAway}
+              </span>
+              {/* 원정 팀 */}
+              <span
+                className="flex items-center gap-1 min-w-0 max-w-[38vw] sm:max-w-none"
+                style={{ opacity: awayScored ? 1 : 0.8 }}
+              >
+                <span
+                  className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.08em] truncate"
+                  style={{ maxWidth: '18ch' }}
+                >
+                  {clip.away_team_name || '원정'}
+                </span>
+                <span
+                  aria-hidden
+                  className="inline-block w-1.5 h-1.5 sm:w-2 sm:h-2 shrink-0"
+                  style={{
+                    background: awayScored ? (clip.team_color || '#fff') : 'rgba(255,255,255,0.4)',
+                    borderRadius: '2px',
+                    boxShadow: awayScored ? '0 0 0 1px rgba(255,255,255,0.4)' : undefined,
+                  }}
+                />
+              </span>
+              {/* 클러치 뱃지 (재생기 스코어보드 우측) */}
+              {clip.is_clutch && (
+                <span
+                  className="inline-flex items-center gap-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.12em] px-1.5 py-0.5 ml-0.5 sm:ml-1"
+                  style={{ background: '#ef4444', color: '#fff', borderRadius: '3px' }}
+                  aria-label="클러치 슛"
+                >
+                  <HeartCrack size={10} aria-hidden />
+                  <span className="hidden sm:inline">클러치</span>
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 컨트롤 바 */}

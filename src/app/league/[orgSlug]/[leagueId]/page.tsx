@@ -14,6 +14,8 @@ type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
 import LeagueTourTrigger from '@/components/league/LeagueTourTrigger'
+import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
+import { loadRecentRounds, loadRoundDetail } from '@/lib/highlights/loader'
 import { type NbaHeroData } from '@/components/league/nba/NbaHero'
 import NbaHeroCarousel, { type WeeklyPOTW, type POTWTopCategory, type SecondaryCategory } from '@/components/league/nba/NbaHeroCarousel'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
@@ -848,6 +850,62 @@ const getCachedPhotoMap = (leagueId: string) =>
     { tags: [`league-${leagueId}`], revalidate: 60 },
   )
 
+// 홈 하이라이트 위젯 — 최근 재생 가능 라운드(status='ready') 대표 클립 3-5개.
+// 발견성 강화용. 클립 상위 5개는 균등 분산 샘플링(단순 chunk-first pick) 으로 다양한 시점 노출.
+async function computeHomeHighlights(
+  supabase: ReturnType<typeof createClient>,
+  leagueId: string,
+): Promise<HighlightsHomePayload | null> {
+  // 1) 최근 라운드 목록 — 재생 가능(clips_count>0) 첫 번째 선택
+  //    라운드 리스트는 최근 24개만 보면 충분 (그 안에 ready 있을 확률 높음)
+  const rounds = await loadRecentRounds(supabase, leagueId, 24)
+  const target = rounds.find(r => r.status === 'ready')
+  if (!target) return null
+
+  // 2) 그 라운드 상세 클립 로드
+  const detail = await loadRoundDetail(supabase, leagueId, target.date)
+  const all = detail.clips
+  if (all.length === 0) return null
+
+  // 3) 대표 클립 5개 선정 — 다양한 선수/팀 골고루 (선수 dedup 우선 · 부족하면 순서대로 채움)
+  const MAX = 5
+  const seenPlayers = new Set<string>()
+  const picks: number[] = []           // 원본 인덱스
+  // pass 1: 선수 dedup
+  for (let i = 0; i < all.length; i++) {
+    const pid = all[i].player_id ?? `_anon_${i}`
+    if (seenPlayers.has(pid)) continue
+    seenPlayers.add(pid)
+    picks.push(i)
+    if (picks.length >= MAX) break
+  }
+  // pass 2: 부족하면 앞에서부터 채움 (중복 허용 X)
+  if (picks.length < MAX) {
+    for (let i = 0; i < all.length && picks.length < MAX; i++) {
+      if (!picks.includes(i)) picks.push(i)
+    }
+  }
+
+  const pickedClips = picks.map(i => all[i])
+  return {
+    date: target.date,
+    clips: pickedClips,
+    clipIndexes: picks,
+    totalClips: all.length,
+    displayNames: target.team_names,
+  }
+}
+
+const getCachedHomeHighlights = (leagueId: string) =>
+  unstable_cache(
+    async () => {
+      const sb = createClient()
+      return computeHomeHighlights(sb, leagueId)
+    },
+    ['home-highlights', leagueId],
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
+  )
+
 // 리그 메타 조회: `leagues` 자체 변경(status/name)만 무효화.
 // 경기 편집으로는 안 바뀌지만 안전하게 league 태그에 묶어둔다.
 const getCachedLeagueMeta = (leagueId: string, orgSlug: string) =>
@@ -885,6 +943,7 @@ export default async function LeagueDetailPage({
     initialPhotoMap,
     streaksData,
     milestonesData,
+    homeHighlights,
   ] = await Promise.all([
     getCachedLeagueMeta(leagueId, orgSlug)(),
     getCachedWeeklyPOTW(leagueId, 4)(),
@@ -894,6 +953,7 @@ export default async function LeagueDetailPage({
     getCachedPhotoMap(leagueId)(),
     getCachedStreaks(leagueId)(),
     getCachedMilestones(leagueId)(),
+    getCachedHomeHighlights(leagueId)(),
   ])
 
   if (!league) notFound()
@@ -940,6 +1000,7 @@ export default async function LeagueDetailPage({
       {/* 미라클모닝 브랜드 홈 — POTW Carousel + 팀 승률 + 최근 라운드 + 리그 리더 */}
       <div className="rounded-none overflow-hidden">
         <NbaHeroCarousel entries={weeklyPOTW} leagueId={leagueId} />
+        <HighlightsHome data={homeHighlights} orgSlug={orgSlug} leagueId={leagueId} />
         <NbaTeamStandings
           standings={quarterStandings.standings}
           quarterLabel={quarterStandings.quarterLabel}

@@ -4,11 +4,12 @@
 // - 각 클립: 시각 · 상대팀 · 슛 유형 · 링크 복사
 // - 현재 재생 중 강조 (mm-yellow)
 import { useEffect, useMemo, useRef } from 'react'
-import { Share2, Play } from 'lucide-react'
+import { Share2, Play, Link2, HeartCrack } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatTimestamp } from '@/lib/youtube/utils'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
+import { shortenUrl } from '@/lib/shortUrl'
 
 interface Props {
   clips: HighlightClip[]
@@ -52,7 +53,22 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect }
     const url = `https://youtu.be/${clip.video_id}?t=${Math.floor(clip.clip_start)}`
     try {
       await navigator.clipboard.writeText(url)
-      toast.success('링크 복사됨')
+      toast.success('YouTube 링크 복사됨')
+    } catch {
+      toast.error('링크 복사 실패')
+    }
+  }
+
+  // 짧은 링크 — 이 클립부터 재생되도록 페이지 URL 에 clip=idx 를 세팅해 shortener 로 축약
+  async function shareShort(idx: number) {
+    if (typeof window === 'undefined') return
+    const u = new URL(window.location.href)
+    u.searchParams.set('clip', String(idx))
+    const short = await shortenUrl(u.toString(), { source: 'highlights_player_clip', clip_idx: idx })
+    try {
+      await navigator.clipboard.writeText(short)
+      const label = short.includes('/h/') ? `짧은 링크 복사됨: ${short.split('/h/')[1] ? '/h/' + short.split('/h/')[1] : short}` : '링크 복사됨'
+      toast.success(label)
     } catch {
       toast.error('링크 복사 실패')
     }
@@ -110,10 +126,13 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect }
                   data-clip-idx={idx}
                   role="option"
                   aria-selected={active}
-                  className="flex items-stretch gap-2 p-1.5 cursor-pointer transition-colors"
+                  aria-label={c.is_clutch ? '클러치 슛' : undefined}
+                  className="flex items-stretch gap-2 p-1.5 cursor-pointer transition-colors relative overflow-hidden"
                   style={{
                     background: active ? 'var(--mm-yellow-soft)' : 'var(--mm-panel)',
-                    border: `1px solid ${active ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
+                    border: `1px solid ${active ? 'var(--mm-yellow)' : (c.is_clutch ? '#ef4444' : 'var(--mm-rule)')}`,
+                    borderLeftWidth: c.is_clutch ? '3px' : '1px',
+                    borderLeftColor: c.is_clutch ? '#ef4444' : (active ? 'var(--mm-yellow)' : 'var(--mm-rule)'),
                     borderRadius: '4px',
                   }}
                   onClick={() => onSelect(idx)}
@@ -161,6 +180,17 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect }
                           +{c.points}
                         </span>
                       )}
+                      {c.is_clutch && (
+                        <span
+                          className="inline-flex items-center gap-0.5 text-[10px] font-bold uppercase tracking-[0.10em] px-1.5 py-0.5"
+                          style={{ background: '#ef4444', color: '#fff', borderRadius: '3px' }}
+                          aria-label="클러치 슛"
+                          title="경기 마지막 2분 · 3점차 이내 접전 상황의 슛"
+                        >
+                          <HeartCrack size={10} aria-hidden />
+                          클러치
+                        </span>
+                      )}
                       <span className="text-[11px] font-mono" style={{ color: 'var(--mm-muted)' }}>
                         {formatTimestamp(c.video_timestamp)}
                       </span>
@@ -178,16 +208,28 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect }
                       <span className="text-[11px] truncate" style={{ color: 'var(--mm-muted)' }}>
                         {opponent ? <>vs <span style={{ color: 'var(--mm-ink-soft)' }}>{opponent}</span></> : ''}
                       </span>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); share(c) }}
-                        className="inline-flex items-center justify-center min-h-[36px] min-w-[36px] cursor-pointer transition-colors"
-                        style={{ background: 'transparent', color: 'var(--mm-muted)', border: 'none' }}
-                        aria-label="이 클립 링크 복사"
-                        title="링크 복사"
-                      >
-                        <Share2 size={14} />
-                      </button>
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); shareShort(idx) }}
+                          className="inline-flex items-center justify-center min-h-[36px] min-w-[36px] cursor-pointer transition-colors"
+                          style={{ background: 'transparent', color: 'var(--mm-muted)', border: 'none' }}
+                          aria-label="짧은 링크 복사 (이 클립부터 재생)"
+                          title="짧은 링크 복사"
+                        >
+                          <Link2 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); share(c) }}
+                          className="inline-flex items-center justify-center min-h-[36px] min-w-[36px] cursor-pointer transition-colors"
+                          style={{ background: 'transparent', color: 'var(--mm-muted)', border: 'none' }}
+                          aria-label="YouTube 링크 복사"
+                          title="YouTube 링크 복사"
+                        >
+                          <Share2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

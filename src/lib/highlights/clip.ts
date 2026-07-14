@@ -52,6 +52,10 @@ export function parseShotCategory(v: string | null): ShotCategory | null {
   return SHOT_CATEGORY_OPTIONS.some(o => o.key === v) ? (v as ShotCategory) : null
 }
 
+// 필터 UI 카테고리 — ShotCategory 에 'clutch' (경기 마지막 2분 & |홈-원정|≤3 접전 슛) 추가
+// 클러치는 shot_type 이 아닌 컨텍스트(시간+점수차) 기반이라 categoryOfType 반환에는 포함 안 함
+export type HighlightFilterCategory = ShotCategory | 'clutch'
+
 export function categoryOfType(type: string): ShotCategory | null {
   if (type === 'shot_3p') return 'threes'
   if (type === 'shot_layup') return 'layups'
