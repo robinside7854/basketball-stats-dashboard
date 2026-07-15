@@ -49,15 +49,25 @@ function formatRelative(iso: string): string {
   return `${String(dt.getMonth() + 1).padStart(2, '0')}.${String(dt.getDate()).padStart(2, '0')}`
 }
 
-// 마크다운 앞부분에서 요약 3줄 만들기 (헤딩/이미지/링크 문법 대충 제거)
-function summarize(md: string, maxLen = 140): string {
-  const stripped = md
+// 본문(마크다운 or HTML)에서 텍스트만 뽑아 요약. TipTap HTML + 기존 마크다운 둘 다 대응.
+function summarize(src: string, maxLen = 140): string {
+  const stripped = src
+    // HTML 먼저 (TipTap 저장 본문) — 이미지 태그 alt 는 제거 대신 통째 삭제
+    .replace(/<img\b[^>]*>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    // 마크다운 (기존 데이터)
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/[*_`>]/g, '')
-    .replace(/\n{2,}/g, ' · ')
-    .replace(/\n/g, ' ')
+    // 공백 정리
+    .replace(/\s+/g, ' ')
     .trim()
   return stripped.length > maxLen ? stripped.slice(0, maxLen) + '…' : stripped
 }

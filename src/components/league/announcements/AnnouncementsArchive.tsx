@@ -30,17 +30,23 @@ function formatAbsolute(iso: string): string {
   return `${yy}.${mm}.${dd}`
 }
 
-function summarize(md: string, maxLen = 120): string {
-  return md
+function summarize(src: string, maxLen = 120): string {
+  const stripped = src
+    .replace(/<img\b[^>]*>/gi, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/[*_`>]/g, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\n{2,}/g, ' · ')
-    .replace(/\n/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, maxLen)
+  return stripped.length > maxLen ? stripped.slice(0, maxLen) + '…' : stripped
 }
 
 export default function AnnouncementsArchive({ leagueId, initialAnnouncements }: Props) {
