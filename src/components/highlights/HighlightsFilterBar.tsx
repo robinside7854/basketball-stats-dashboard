@@ -140,8 +140,8 @@ export default function HighlightsFilterBar({
             className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors inline-flex items-center gap-1"
             style={chip(filter.category === 'clutch', '#ef4444')}
             aria-pressed={filter.category === 'clutch'}
-            aria-label={clutchTitle ? `클러치 슛만 보기 (${clutchTitle})` : '클러치 슛만 보기 (경기 마지막 2분·3점차 이내)'}
-            title={clutchTitle ?? '경기 마지막 2분 · 3점차 이내 접전 상황의 슛'}
+            aria-label={clutchTitle ? `클러치 슛만 보기 (${clutchTitle})` : '클러치 슛만 보기 (경기 마지막 2분 · 2포제션 접전에서 1포제션 이내로 좁힌 결정타)'}
+            title={clutchTitle ?? '경기 마지막 2분 · 슛 직전 6점차 이내(2포제션) → 이 슛으로 3점차 이내(1포제션) 로 좁혀진 결정타'}
           >
             <HeartCrack size={12} aria-hidden />
             클러치

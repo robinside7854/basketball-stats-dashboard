@@ -11,9 +11,44 @@ import type {
   PlayerHighlightsData, HighlightQuarterOption, HighlightShotTypeOption,
 } from './types'
 
-// 클러치 정의 — clutchStats.ts 와 동일 (마지막 2분 & 슛 직전 |홈-원정| ≤ 3)
+// 클러치샷 정의 (2026-07-15 개편):
+//   · 시간: 각 게임의 "마지막 이벤트" (무엇이든) 로부터 -120초 이내
+//     · 이전 정의는 "마지막 득점" 기준이었으나 득점 공백 구간의 기준이 모호 → 완화
+//   · 슛 직전 점수차 ≤ 6점 (2포제션 이내)
+//   · 슛 직후 점수차 ≤ 3점 (이 슛으로 1포제션 이내로 좁혀진 결정타)
+//     · 예: 6점차에서 2점 → 4점차는 미인정 (여전히 2포제션)
+//     · 예: 6점차에서 3점(3점슛/앤드원) → 3점차는 인정 (1포제션)
+// 주의: clutchStats.ts (클러치 스탯 분할) 는 별도 concept 로 기존 정의 유지.
 const CLUTCH_TIME_WINDOW_SECONDS = 120
-const CLUTCH_MARGIN_MAX = 3
+const CLUTCH_MARGIN_BEFORE_MAX = 6   // 슛 직전 (2포제션)
+const CLUTCH_MARGIN_AFTER_MAX = 3    // 슛 직후 (1포제션)
+
+// 게임별 "마지막 이벤트" timestamp — 이벤트 종류 무관 (득점/리바/파울/서브 등)
+//   클러치 시간 창의 기준점 · 득점 공백 구간을 정확히 커버하기 위해 별도 조회
+async function fetchGameMaxTs(
+  supabase: SupabaseClient,
+  gameIds: string[],
+): Promise<Record<string, number>> {
+  const map: Record<string, number> = {}
+  if (gameIds.length === 0) return map
+  const PAGE = 1000
+  for (let pg = 0; ; pg++) {
+    const { data: chunk } = await supabase
+      .from('league_game_events')
+      .select('league_game_id, video_timestamp')
+      .in('league_game_id', gameIds)
+      .not('video_timestamp', 'is', null)
+      .range(pg * PAGE, (pg + 1) * PAGE - 1)
+    if (chunk) {
+      for (const r of chunk as Array<{ league_game_id: string; video_timestamp: number }>) {
+        const cur = map[r.league_game_id] ?? -1
+        if (r.video_timestamp > cur) map[r.league_game_id] = r.video_timestamp
+      }
+    }
+    if (!chunk || chunk.length < PAGE) break
+  }
+  return map
+}
 
 // 최근 라운드 목록 — 모든 라운드 노출 (영상/기록 여부는 status 로 구분)
 // 미리 필터링 안 함 · UI 에서 상태별로 시각화
@@ -198,14 +233,12 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
   }
 
   // 4. 게임별 이벤트 그룹핑 + 시간순 정렬 → 러닝 스코어 & 클러치 판정 준비
-  //    (이 라운드 클립은 이미 result='made'+video_timestamp 만 뽑혀 있어 사실상 모든 득점 이벤트 = 스코어링 이벤트)
+  //    시간 창 기준은 "마지막 이벤트"(득점 무관) 로 별도 조회 (득점 공백 구간 정확도 확보)
   const gameEvents: Record<string, DetailEvtRow[]> = {}
-  const gameMaxTs: Record<string, number> = {}
   for (const e of eventRows) {
     ;(gameEvents[e.league_game_id] ||= []).push(e)
-    const ts = e.video_timestamp
-    if (ts > (gameMaxTs[e.league_game_id] ?? -1)) gameMaxTs[e.league_game_id] = ts
   }
+  const gameMaxTs = await fetchGameMaxTs(supabase, Object.keys(gameEvents))
   // event_id → { is_clutch, score_home_before/after, score_away_before/after }
   const evMeta: Record<string, {
     is_clutch: boolean
@@ -222,7 +255,6 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     for (const e of evs) {
       const inClutchTime = e.video_timestamp >= clutchStart
       const marginBefore = Math.abs(home - away)
-      const isClutch = inClutchTime && marginBefore <= CLUTCH_MARGIN_MAX
       const hb = home, ab = away
       // 스코어 반영 (made 이므로 항상 득점 이벤트) — team_id 매칭으로 홈/원정 판별
       const pts = e.points ?? 0
@@ -230,6 +262,11 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
         if (e.team_id === game.home_team_id) home += pts
         else if (e.team_id === game.away_team_id) away += pts
       }
+      const marginAfter = Math.abs(home - away)
+      // 클러치샷 = 시간창 이내 + 슛 직전 2포제션(≤6) + 슛 직후 1포제션(≤3) 로 좁혀짐
+      const isClutch = inClutchTime
+        && marginBefore <= CLUTCH_MARGIN_BEFORE_MAX
+        && marginAfter <= CLUTCH_MARGIN_AFTER_MAX
       evMeta[e.id] = { is_clutch: isClutch, hb, ab, ha: home, aa: away }
     }
   }
@@ -431,13 +468,13 @@ export async function loadPlayerHighlights(
     }
   }
   // 게임별 group + 시간순 sort → event_id → { is_clutch, scores }
+  // 시간 창 기준은 "마지막 이벤트"(득점 무관) 로 별도 조회 (득점 공백 구간 정확도 확보)
   const evMeta: Record<string, { is_clutch: boolean; hb: number; ab: number; ha: number; aa: number }> = {}
   const grouped: Record<string, FullEvRow[]> = {}
-  const gameMaxTs: Record<string, number> = {}
   for (const e of fullEvents) {
     ;(grouped[e.league_game_id] ||= []).push(e)
-    if (e.video_timestamp > (gameMaxTs[e.league_game_id] ?? -1)) gameMaxTs[e.league_game_id] = e.video_timestamp
   }
+  const gameMaxTs = await fetchGameMaxTs(supabase, Object.keys(grouped))
   for (const gid of Object.keys(grouped)) {
     const evs = grouped[gid]
     evs.sort((a, b) => (a.video_timestamp - b.video_timestamp) || a.id.localeCompare(b.id))
@@ -447,13 +484,17 @@ export async function loadPlayerHighlights(
     let home = 0, away = 0
     for (const e of evs) {
       const inClutchTime = e.video_timestamp >= clutchStart
-      const isClutch = inClutchTime && Math.abs(home - away) <= CLUTCH_MARGIN_MAX
+      const marginBefore = Math.abs(home - away)
       const hb = home, ab = away
       const pts = e.points ?? 0
       if (pts > 0 && e.team_id) {
         if (e.team_id === g.home_team_id) home += pts
         else if (e.team_id === g.away_team_id) away += pts
       }
+      const marginAfter = Math.abs(home - away)
+      const isClutch = inClutchTime
+        && marginBefore <= CLUTCH_MARGIN_BEFORE_MAX
+        && marginAfter <= CLUTCH_MARGIN_AFTER_MAX
       evMeta[e.id] = { is_clutch: isClutch, hb, ab, ha: home, aa: away }
     }
   }

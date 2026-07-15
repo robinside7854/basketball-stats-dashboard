@@ -82,7 +82,7 @@ export const HOME_TOUR_STEPS: TourStep[] = [
     placement: 'top',
     title: '이번 주 클러치샷',
     description:
-      '경기 마지막 2분 · 3점차 이내에서 나온 결정타 슛을 자동 모아 재생합니다.\n카드 클릭 → 팝업 플레이어로 자동 연속재생.',
+      '경기 마지막 2분 · 2포제션 접전(6점차 이내)에서 이 슛으로 1포제션(3점차) 이내로 좁혀진 결정타를 모아 재생합니다.\n카드 클릭 → 팝업 플레이어에서 순차 재생.',
     spotlightPadding: 4,
     optional: true,
   },

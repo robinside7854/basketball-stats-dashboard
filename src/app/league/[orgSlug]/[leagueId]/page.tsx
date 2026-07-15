@@ -139,7 +139,9 @@ const POTW_WEIGHTS = {
   clutch: 20,
 } as const
 
-// 클러치 판정 파라미터 — clutchStats.ts 와 동일 (통일된 정의)
+// POTW "clutchPts" 지표 계산 파라미터 — clutchStats.ts / awards 클러치 통계와 동일 (마지막 2분·3점차)
+//   ※ 하이라이트 필터의 "클러치샷" 정의는 별개 (2포제션→1포제션 좁힘 결정타 · loader.ts 참조).
+//     POTW 지표는 안정성을 위해 기존 정의 유지 · 개편 시 과거 POTW 스코어 전면 재계산 필요.
 const CLUTCH_TIME_WINDOW_SECONDS = 120  // 마지막 2분
 const CLUTCH_MARGIN_MAX = 3              // 3점 이내
 const SCORING_EVENTS_SET = new Set([

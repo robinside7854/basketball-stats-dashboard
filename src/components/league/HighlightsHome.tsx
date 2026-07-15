@@ -44,7 +44,7 @@ function initialsOf(name: string): string {
   return name.trim().charAt(0).toUpperCase()
 }
 
-const CLUTCH_DEFINITION = '경기 마지막 2분 · 3점차 이내 접전 상황에서 성공한 슛'
+const CLUTCH_DEFINITION = '경기 마지막 2분 · 2포제션 접전(6점차 이내) 에서 이 슛으로 1포제션(3점차) 이내로 좁혀진 결정타'
 
 export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(null)
@@ -245,7 +245,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
               이번 주는 해당 기준에 맞는 경기가 없어요
             </div>
             <p className="text-[11px] leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-              접전 상황(마지막 2분 · 3점차 이내)에서 성공한 슛이 이번 라운드엔 기록되지 않았습니다.
+              마지막 2분 · 2포제션 접전에서 1포제션으로 좁힌 결정타가 이번 라운드엔 없었습니다.
             </p>
           </div>
         )}
