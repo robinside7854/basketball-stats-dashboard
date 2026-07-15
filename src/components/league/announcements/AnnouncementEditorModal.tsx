@@ -1,34 +1,37 @@
 'use client'
-// 공지 생성/수정 모달 — PIN 필요 · 마크다운 텍스트에어리어 + 붙여넣기/드롭 이미지 자동 업로드
-// 왼쪽 편집기 · 오른쪽 실시간 미리보기 (모바일에서는 세로 스택)
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Megaphone, Image as ImageIcon, Save, Pin, PinOff } from 'lucide-react'
+// 공지 생성/수정 모달 · TipTap WYSIWYG (실제 서식 그대로 보이는 편집기)
+// - UNDO/REDO 내장 (Ctrl+Z / Ctrl+Shift+Z + 툴바)
+// - 색상/밑줄/취소선/형광펜/헤딩/리스트/인용/코드/링크/구분선
+// - 이미지: 붙여넣기/드롭/버튼 → Supabase Storage 자동 업로드
+// - 내부 페이지 링크 픽커 (라커룸/스탯 등 유저 접근 가능한 모든 페이지)
+import { useState, useEffect, useCallback } from 'react'
+import { useParams } from 'next/navigation'
+import { X, Megaphone, Save, Pin, PinOff } from 'lucide-react'
 import { toast } from 'sonner'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeRaw from 'rehype-raw'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
-import FormatToolbar from './FormatToolbar'
+import RichEditor from './RichEditor'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
 
 interface Props {
   leagueId: string
-  pin: string   // 이미 검증된 리그 편집 PIN (상위에서 프롬프트)
-  editing: LeagueAnnouncement | null   // null 이면 새 공지
+  pin: string
+  editing: LeagueAnnouncement | null
   onClose: () => void
   onSaved: (a: LeagueAnnouncement) => void
 }
 
-const MAX_BODY = 20_000
+const MAX_BODY = 30_000   // HTML 은 마크업 오버헤드가 있어 마크다운 20k → HTML 30k 로 상향
 
 export default function AnnouncementEditorModal({ leagueId, pin, editing, onClose, onSaved }: Props) {
+  const params = useParams<{ orgSlug?: string }>()
+  const orgSlug = params?.orgSlug
+  const leagueBase = orgSlug ? `/league/${orgSlug}/${leagueId}` : undefined
+
   const [title, setTitle] = useState(editing?.title ?? '')
   const [body, setBody] = useState(editing?.body_markdown ?? '')
   const [pinned, setPinned] = useState(editing?.pinned ?? false)
   const [createdBy, setCreatedBy] = useState(editing?.created_by ?? '')
   const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const textRef = useRef<HTMLTextAreaElement | null>(null)
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -42,23 +45,8 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
     return () => { document.body.style.overflow = prev }
   }, [])
 
-  // 이미지 업로드 → 마크다운 삽입 (커서 위치)
-  const insertAtCursor = useCallback((text: string) => {
-    const ta = textRef.current
-    if (!ta) { setBody(b => b + text); return }
-    const start = ta.selectionStart
-    const end = ta.selectionEnd
-    setBody(b => b.slice(0, start) + text + b.slice(end))
-    setTimeout(() => {
-      ta.focus()
-      const pos = start + text.length
-      ta.setSelectionRange(pos, pos)
-    }, 0)
-  }, [])
-
-  const uploadImage = useCallback(async (file: File) => {
-    if (uploading) return
-    setUploading(true)
+  // 이미지 업로드 → URL 반환 (RichEditor 가 삽입)
+  const uploadImage = useCallback(async (file: File): Promise<string | null> => {
     try {
       const form = new FormData()
       form.append('file', file)
@@ -69,49 +57,25 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
       })
       const data = await res.json() as { url?: string; error?: string }
       if (!res.ok || !data.url) throw new Error(data.error ?? '업로드 실패')
-      const md = `\n\n![스크린샷](${data.url})\n\n`
-      insertAtCursor(md)
       toast.success('이미지 업로드됨')
+      return data.url
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '업로드 실패')
-    } finally {
-      setUploading(false)
+      return null
     }
-  }, [leagueId, pin, uploading, insertAtCursor])
-
-  // 붙여넣기 · 드롭 · 파일 선택 공통
-  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = Array.from(e.clipboardData.items).filter(it => it.type.startsWith('image/'))
-    if (items.length === 0) return
-    e.preventDefault()
-    for (const it of items) {
-      const file = it.getAsFile()
-      if (file) uploadImage(file)
-    }
-  }, [uploadImage])
-
-  const handleDrop = useCallback((e: React.DragEvent<HTMLTextAreaElement>) => {
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'))
-    if (files.length === 0) return
-    e.preventDefault()
-    for (const f of files) uploadImage(f)
-  }, [uploadImage])
-
-  const handleFilePick = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (f) uploadImage(f)
-    e.target.value = ''
-  }, [uploadImage])
+  }, [leagueId, pin])
 
   const save = useCallback(async () => {
     if (saving) return
     if (!title.trim()) { toast.error('제목을 입력하세요'); return }
+    // 빈 문서 감지: TipTap 은 빈 상태에서도 <p></p> 반환 → 순수 텍스트 유무로 체크
+    const textOnly = body.replace(/<[^>]*>/g, '').trim()
     if (body.length > MAX_BODY) { toast.error(`본문은 ${MAX_BODY.toLocaleString()}자 이하`); return }
     setSaving(true)
     try {
       const payload = {
         title: title.trim(),
-        body_markdown: body,
+        body_markdown: textOnly ? body : '',   // 실질 컨텐츠 없으면 빈 문자열로 저장
         pinned,
         created_by: createdBy.trim() || null,
       }
@@ -147,11 +111,11 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
     >
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
       <div
-        className="relative z-10 w-full max-w-5xl h-[92vh] bg-[color:var(--mm-panel)] shadow-[0_24px_60px_-16px_rgba(0,0,0,0.5)] rounded-sm overflow-hidden flex flex-col"
+        className="relative z-10 w-full max-w-4xl h-[92vh] bg-[color:var(--mm-panel)] shadow-[0_24px_60px_-16px_rgba(0,0,0,0.5)] rounded-sm overflow-hidden flex flex-col"
         style={{ border: '1px solid var(--mm-yellow)', borderRadius: 6 }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-4 py-3" style={{ background: 'var(--mm-yellow)', borderBottom: '1px solid var(--mm-black)' }}>
+        <div className="flex items-center justify-between gap-3 px-4 py-3 shrink-0" style={{ background: 'var(--mm-yellow)', borderBottom: '1px solid var(--mm-black)' }}>
           <div className="inline-flex items-center gap-2 min-w-0">
             <Megaphone size={16} className="text-[color:var(--mm-black)]" aria-hidden />
             <span className="text-xs font-black uppercase tracking-[0.14em] text-[color:var(--mm-black)]">
@@ -169,12 +133,12 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
         </div>
 
         {/* Meta 입력 */}
-        <div className="px-4 py-3 space-y-2 border-b border-[color:var(--mm-rule)]" style={{ background: 'var(--mm-panel-alt)' }}>
+        <div className="px-4 py-3 space-y-2 border-b border-[color:var(--mm-rule)] shrink-0" style={{ background: 'var(--mm-panel-alt)' }}>
           <input
             type="text"
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder="공지 제목 (예: 위닝샷 릴 + 베스트샷 핀 업데이트)"
+            placeholder="공지 제목"
             className="w-full min-h-[44px] px-3 py-2 text-base font-black bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--mm-yellow)]"
             style={{ color: 'var(--mm-ink)' }}
             maxLength={200}
@@ -207,113 +171,40 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
           </div>
         </div>
 
-        {/* Editor + Preview */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden min-h-0">
-          {/* Editor pane */}
-          <div className="flex flex-col overflow-hidden min-h-0" style={{ borderRight: '1px solid var(--mm-rule)' }}>
-            <div className="flex items-center justify-between gap-2 px-3 py-1.5" style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}>
-              <span className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
-                편집 (마크다운) · 이미지는 붙여넣기/드롭
-              </span>
-              <label
-                className="min-h-[32px] px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors inline-flex items-center gap-1.5"
-                style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}
-              >
-                <ImageIcon size={12} aria-hidden />
-                이미지 첨부
-                <input type="file" accept="image/*" onChange={handleFilePick} className="hidden" />
-              </label>
-            </div>
-            <FormatToolbar textareaRef={textRef} value={body} onChange={setBody} />
-            <textarea
-              ref={textRef}
-              value={body}
-              onChange={e => setBody(e.target.value)}
-              onPaste={handlePaste}
-              onDrop={handleDrop}
-              onDragOver={(e) => e.preventDefault()}
-              onKeyDown={(e) => {
-                // Ctrl/Cmd + B / I 단축키 — 선택 영역 감싸기
-                if (!(e.ctrlKey || e.metaKey)) return
-                const ta = e.currentTarget
-                const start = ta.selectionStart
-                const end = ta.selectionEnd
-                const wrap = (pre: string, suf: string) => {
-                  e.preventDefault()
-                  const selected = body.slice(start, end) || '텍스트'
-                  const next = body.slice(0, start) + pre + selected + suf + body.slice(end)
-                  setBody(next)
-                  setTimeout(() => {
-                    ta.focus()
-                    ta.setSelectionRange(start + pre.length, start + pre.length + selected.length)
-                  }, 0)
-                }
-                if (e.key === 'b' || e.key === 'B') wrap('**', '**')
-                else if (e.key === 'i' || e.key === 'I') wrap('*', '*')
-                else if (e.key === 'u' || e.key === 'U') wrap('<u>', '</u>')
-              }}
-              placeholder="## 이번 주 업데이트&#10;&#10;- 위닝샷 카드 클릭 → 하이라이트 릴 자동 재생&#10;- 내 베스트샷 최대 3개 핀 가능 (선수 하이라이트 페이지)&#10;&#10;스크린샷을 그대로 붙여넣기 하면 자동 업로드됩니다."
-              className="flex-1 w-full px-4 py-3 text-sm bg-[color:var(--mm-panel)] resize-none focus:outline-none font-mono"
-              style={{ color: 'var(--mm-ink)', lineHeight: 1.6, minHeight: 0 }}
-              spellCheck={false}
-            />
-            <div className="flex items-center justify-between gap-2 px-3 py-2 text-[10px] font-bold uppercase tracking-widest" style={{ background: 'var(--mm-panel-alt)', borderTop: '1px solid var(--mm-rule)', color: bodyOver ? '#DC2626' : 'var(--mm-muted)' }}>
-              <span>{body.length.toLocaleString()} / {MAX_BODY.toLocaleString()}자</span>
-              {uploading && <span className="inline-flex items-center gap-1.5"><BasketballLoader size={12} /> 이미지 업로드 중…</span>}
-            </div>
-          </div>
-
-          {/* Preview pane */}
-          <div className="overflow-y-auto p-4 sm:p-5" style={{ background: 'var(--mm-panel)' }}>
-            <div className="text-[10px] font-black uppercase tracking-[0.14em] mb-2 sticky top-0 py-1" style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel)' }}>
-              미리보기 (게시글 실제 모습)
-            </div>
-            <article className="announcement-prose">
-              <h1>{title || '(제목)'}</h1>
-              {body.trim() ? (
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeRaw]}
-                  components={{
-                    a: (props) => <a {...props} target="_blank" rel="noopener noreferrer" />,
-                    img: ({ src, alt }) => {
-                      if (typeof src !== 'string') return null
-                      return (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={src} alt={alt ?? ''} loading="lazy" />
-                      )
-                    },
-                  }}
-                >
-                  {body}
-                </ReactMarkdown>
-              ) : (
-                <p style={{ color: 'var(--mm-muted)', fontStyle: 'italic' }}>본문을 입력하면 여기 미리보기가 표시됩니다.</p>
-              )}
-            </article>
-          </div>
-        </div>
+        {/* WYSIWYG 에디터 */}
+        <RichEditor
+          initialHtml={body}
+          onChange={setBody}
+          onPasteImage={uploadImage}
+          leagueBase={leagueBase}
+          placeholder="여기에 공지 내용을 작성하세요. 툴바로 서식 지정, Ctrl+Z 로 실행 취소, 스크린샷은 붙여넣기하면 자동 업로드됩니다."
+        />
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3" style={{ borderTop: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
-          <button
-            type="button"
-            onClick={onClose}
-            className="min-h-[40px] px-4 py-2 text-xs font-bold uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors"
-            style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving || bodyOver || !title.trim()}
-            className="min-h-[40px] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] rounded-sm cursor-pointer transition-colors inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
-          >
-            {saving ? <BasketballLoader size={12} className="text-[color:var(--mm-black)]" /> : <Save size={12} aria-hidden />}
-            {editing ? '수정 저장' : '발행'}
-          </button>
+        <div className="flex items-center justify-between gap-2 px-4 py-3 shrink-0" style={{ borderTop: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
+          <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: bodyOver ? '#DC2626' : 'var(--mm-muted)' }}>
+            {body.length.toLocaleString()} / {MAX_BODY.toLocaleString()}자
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-[40px] px-4 py-2 text-xs font-bold uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors"
+              style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving || bodyOver || !title.trim()}
+              className="min-h-[40px] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] rounded-sm cursor-pointer transition-colors inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
+            >
+              {saving ? <BasketballLoader size={12} className="text-[color:var(--mm-black)]" /> : <Save size={12} aria-hidden />}
+              {editing ? '수정 저장' : '발행'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

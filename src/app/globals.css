@@ -719,3 +719,18 @@
   display: block;
 }
 .announcement-prose input[type="checkbox"] { margin-right: 0.5em; }
+.announcement-prose s,
+.announcement-prose del { text-decoration: line-through; color: var(--mm-muted); }
+
+/* TipTap 편집 컨텍스트 · 첫 요소 상단 마진 제거 (컨테이너 상단에 붙게) */
+.tiptap-editor > *:first-child { margin-top: 0; }
+.tiptap-editor:focus-visible { outline: none; }
+.tiptap-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--mm-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+/* TipTap 이미지 · 선택 상태 */
+.tiptap-editor img.ProseMirror-selectednode { outline: 2px solid var(--mm-yellow); }
