@@ -184,11 +184,13 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                     </div>
                   </div>
                 </div>
-                {/* 우측: 카드 높이만큼 꽉 채운 큰 프로필 · aspect 3:4 · 좌측 검정 divider */}
+                {/* 우측: 카드 절반 폭 큰 프로필 · 카드 높이 flush · 좌측 검정 divider */}
                 <div
                   className="shrink-0 self-stretch"
                   style={{
-                    width: 'clamp(72px, 32%, 110px)',
+                    width: '50%',
+                    maxWidth: 180,
+                    minWidth: 96,
                     borderLeft: '1px solid var(--mm-black)',
                   }}
                 >
