@@ -38,7 +38,6 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange }: P
   const clipsRef = useRef<HighlightClip[]>(clips)
   const currentIdxRef = useRef(currentIdx)
   const onIndexChangeRef = useRef(onIndexChange)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // 영상 교체(loadVideoById) 중 목표 시작 초 — 로딩 완료(PLAYING) 때 실제 위치 검증·보정
   // loadVideoById 직후 getCurrentTime() 은 이전 영상 시각을 반환(stale) → 감시 인터벌 오발동 방지용
   const pendingStartRef = useRef<number | null>(null)
@@ -187,28 +186,11 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange }: P
     } catch { /* ignore */ }
   }, [clip, setPendingStart])
 
-  // clip_end 감시 (setInterval 500ms)
-  //   자동재생 제거 이후 — 다음 클립으로 이동은 하지 않고, 그 자리에서 pause 만 수행.
-  //   유저가 원하면 재생 버튼으로 이어보거나 SkipForward 로 다음 클립 이동.
-  useEffect(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current)
-    intervalRef.current = setInterval(() => {
-      const player = playerRef.current
-      const c = clipsRef.current[currentIdxRef.current]
-      if (!player || !readyRef.current || !c) return
-      if (pendingStartRef.current !== null) return
-      if (Date.now() < seekGraceUntilRef.current) return
-      try {
-        const t = player.getCurrentTime()
-        if (typeof t === 'number' && t >= c.clip_end) {
-          // 이미 pause 상태면 반복 호출 방지
-          const state = player.getPlayerState()
-          if (state === 1) player.pauseVideo()
-        }
-      } catch { /* ignore */ }
-    }, 500)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [])
+  // clip_end 감시 로직 완전 제거 (2026-07-16 버그 수정)
+  //   이전에는 clip_end 도달 시 pauseVideo() 를 매 500ms 호출 → 사용자가 play 눌러도 즉시 다시 pause 되던 버그
+  //   자동재생도 없어졌으니 클립 종료 후 계속 재생되도록 방치.
+  //   다음 클립은 SkipForward 버튼 or 플레이리스트 클릭으로만 이동.
+  //   clip_end 는 여전히 참조용 (히스토리 · 하이라이트 릴 구간 표시) 이지만 재생 제어 로직 없음.
 
   const goPrev = () => { if (currentIdx > 0) onIndexChange(currentIdx - 1) }
   const goNext = () => { if (currentIdx + 1 < clips.length) onIndexChange(currentIdx + 1) }

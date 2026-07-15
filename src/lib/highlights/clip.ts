@@ -6,18 +6,20 @@ const HIGHLIGHT_SHOT_TYPES = new Set([
   'and_one', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'free_throw',
 ])
 
-// { before, after } — timestamp 기준 앞뒤 초 여유
-// before = 7초: 기록 지연 대비 (기록자가 득점 후 몇 초 뒤에 입력하는 경우 실 상황 놓치지 않게)
+// { before, after } — timestamp 기준 앞뒤 초 여유 (2026-07-16 확장)
+// before = 10초: 기록 지연 대비 + 공격 세팅 컨텍스트
+// after  = 8초: 득점 후 환호 · 다음 플레이 시작 여유
+// (자동재생 제거 후 clip_end 에서 pause 하지 않으므로 여유롭게 설정해도 부작용 없음)
 const CLIP_BOUNDS: Record<string, { before: number; after: number }> = {
-  shot_3p:       { before: 7, after: 5 },
-  shot_2p_mid:   { before: 7, after: 4 },
-  shot_layup:    { before: 7, after: 4 },
-  shot_post:     { before: 7, after: 4 },
-  and_one:       { before: 7, after: 5 },
-  free_throw:    { before: 7, after: 3 },
-  ft_2pt:        { before: 7, after: 3 },
-  ft_3pt_1:      { before: 7, after: 3 },
-  ft_3pt_2:      { before: 7, after: 3 },
+  shot_3p:       { before: 10, after: 8 },
+  shot_2p_mid:   { before: 10, after: 8 },
+  shot_layup:    { before: 10, after: 8 },
+  shot_post:     { before: 10, after: 8 },
+  and_one:       { before: 10, after: 8 },
+  free_throw:    { before: 10, after: 6 },
+  ft_2pt:        { before: 10, after: 6 },
+  ft_3pt_1:      { before: 10, after: 6 },
+  ft_3pt_2:      { before: 10, after: 6 },
 }
 
 export function isHighlightShot(type: string): boolean {
@@ -25,7 +27,7 @@ export function isHighlightShot(type: string): boolean {
 }
 
 export function getClipBounds(type: string, timestamp: number): { start: number; end: number } {
-  const bounds = CLIP_BOUNDS[type] ?? { before: 7, after: 4 }
+  const bounds = CLIP_BOUNDS[type] ?? { before: 10, after: 8 }
   return {
     start: Math.max(0, timestamp - bounds.before),
     end: timestamp + bounds.after,
