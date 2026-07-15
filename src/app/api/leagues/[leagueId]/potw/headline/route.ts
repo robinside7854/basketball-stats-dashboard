@@ -39,7 +39,7 @@ function fallbackHeadline(name: string, b: Breakdown): string {
     case 'ast':
       return `${name}, 어시스트 ${b.ast}개 · 팀 공격 리드`
     case 'clutch':
-      return `${name}, 접전 승부처 클러치 ${b.clutchPts}점 · 마지막 2분에 강했다`
+      return `${name}, 결정타 ${b.clutchPts}점 · 마지막 2분 접전을 뒤집었다`
     default:
       return `${name}, 이번 라운드 최고 임팩트`
   }
@@ -54,7 +54,7 @@ function dominantMetricLine(b: Breakdown): string {
     case 'stl':        return `우세 지표: 스틸 (${b.stl}개, 수비 임팩트)`
     case 'blk':        return `우세 지표: 블락 (${b.blk}개, 림 프로텍션)`
     case 'ast':        return `우세 지표: 어시스트 (${b.ast}개, 플레이메이킹)`
-    case 'clutch':     return `우세 지표: 클러치 득점 (${b.clutchGp}경기 중 ${b.clutchPts}점, 마지막 2분·3점차 이내)`
+    case 'clutch':     return `우세 지표: 결정타 슛 득점 (${b.clutchGp}경기 중 ${b.clutchPts}점 · 마지막 2분 · 2포제션 접전에서 1포제션으로 좁힘)`
     default:           return `우세 지표: 종합 임팩트`
   }
 }

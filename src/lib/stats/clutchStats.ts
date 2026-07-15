@@ -1,29 +1,30 @@
 /**
  * 클러치 스탯 (Clutch Splits) 유틸
  *
- * "클러치" 정의:
- *   - 경기 시간: 매 경기 마지막 2분 (video_timestamp 기준 game_end - 120s ~ game_end)
- *   - 점수 조건: 접전 (|home - away| ≤ 3, 원 포제션)
- *   - 최소 표본: 3게임 이상 클러치 경험한 선수만 통계 대상
+ * 클러치 정의 (2026-07-15 개편 · 하이라이트 필터와 통일):
+ *   ─ 시간: 매 경기 "마지막 이벤트"(무엇이든) 로부터 -120초 이내
+ *   ─ 결정타 슛(made scoring): 슛 직전 |margin| ≤ 6점 (2포제션) AND 슛 직후 |margin| ≤ 3점 (1포제션)
+ *       예) 6점차에서 3점(3점슛/앤드원) 성공 → 3점차로 좁혀지면 클러치 ✓
+ *       예) 6점차에서 2점 성공 → 4점차 (여전히 2포제션) → 클러치 X
+ *   ─ 클러치 컨텍스트(그 외 이벤트: miss / reb / ast / stl / blk / tov):
+ *       슛 직전 |margin| ≤ 6점 (2포제션 접전 상황에서의 액션)
+ *   ─ 최소 표본: 3게임 이상 클러치 경험한 선수만 통계 대상
  *
  * 알고리즘:
- *   1. 모든 is_started 게임 조회 + 이벤트 페이지네이션
+ *   1. 모든 is_started 게임 조회 + 이벤트 페이지네이션 (친선전 제외)
  *   2. 게임별 이벤트를 video_timestamp 오름차순 정렬
- *   3. 게임별 max_timestamp 계산 → clutch_window_start = max_ts - 120
+ *   3. 게임별 max_timestamp 계산 (전체 이벤트 기준) → clutch_window_start = max_ts - 120
  *   4. 시간순 walk 하며 running_home_score / running_away_score 유지
- *   5. 각 이벤트에 대해:
- *      - is_in_clutch_time = video_timestamp >= clutch_window_start
- *      - is_in_clutch_score = |running_home - running_away| ≤ 3
- *      - is_clutch = is_in_clutch_time && is_in_clutch_score
- *   6. is_clutch=true 인 이벤트만 별도 clutchStats 로 집계
- *   7. 전체 stats 도 병렬 집계 (비교용)
+ *   5. 각 이벤트에 대해 결정타 슛 또는 클러치 컨텍스트 판정 후 집계
+ *   6. 전체 stats 도 병렬 집계 (비교용)
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-const CLUTCH_TIME_WINDOW_SECONDS = 120  // 마지막 2분
-const CLUTCH_MARGIN_MAX = 3              // 3점 이내
-const MIN_CLUTCH_GAMES = 3               // 최소 3게임 표본
+const CLUTCH_TIME_WINDOW_SECONDS = 120
+const CLUTCH_MARGIN_BEFORE_MAX = 6    // 슛 직전 (2포제션)
+const CLUTCH_MARGIN_AFTER_MAX = 3     // 슛 직후 (1포제션) — made scoring 만 검사
+const MIN_CLUTCH_GAMES = 3
 
 export interface StatBlock {
   pts: number
@@ -172,11 +173,24 @@ export async function computeClutchStats(
       const tid = e.team_id
       const made = e.result === 'made'
 
-      // 이 이벤트가 발생한 시점의 스코어차로 clutch 여부 판정
-      // (이벤트 자체는 아직 반영 전 — "이 슛 던지기 직전"이 접전 상황이었는지 판단)
       const inClutchTime = clutchStart != null && e.video_timestamp != null && e.video_timestamp >= clutchStart
-      const inClutchScore = Math.abs(homeScore - awayScore) <= CLUTCH_MARGIN_MAX
-      const isClutch = inClutchTime && inClutchScore
+      const marginBefore = Math.abs(homeScore - awayScore)
+
+      // 이 이벤트가 made scoring 이면 반영 후 margin 미리 계산 (marginAfter 판정용)
+      const isMadeScoring = made && SCORING_EVENTS.includes(e.type) && tid != null && e.points != null && e.points > 0
+      let projectedHome = homeScore
+      let projectedAway = awayScore
+      if (isMadeScoring) {
+        if (tid === game.home_team_id) projectedHome += e.points!
+        else if (tid === game.away_team_id) projectedAway += e.points!
+      }
+      const marginAfter = isMadeScoring ? Math.abs(projectedHome - projectedAway) : marginBefore
+
+      // 판정: made scoring 은 결정타 슛 (before ≤ 6 AND after ≤ 3)
+      //       나머지(miss/reb/ast/stl/blk/tov) 는 클러치 컨텍스트 (before ≤ 6)
+      const inClutchContext = inClutchTime && marginBefore <= CLUTCH_MARGIN_BEFORE_MAX
+      const isDecisiveShot = isMadeScoring && inClutchContext && marginAfter <= CLUTCH_MARGIN_AFTER_MAX
+      const isClutch = isMadeScoring ? isDecisiveShot : inClutchContext
 
       // stat block 적용 함수 (regular + clutch 병렬)
       const applyToStat = (b: StatBlock) => {
@@ -308,6 +322,7 @@ export function tsPct(b: StatBlock): number {
 
 export const CLUTCH_CONFIG = {
   timeWindowSeconds: CLUTCH_TIME_WINDOW_SECONDS,
-  marginMax: CLUTCH_MARGIN_MAX,
+  marginBeforeMax: CLUTCH_MARGIN_BEFORE_MAX,
+  marginAfterMax: CLUTCH_MARGIN_AFTER_MAX,
   minGames: MIN_CLUTCH_GAMES,
 }

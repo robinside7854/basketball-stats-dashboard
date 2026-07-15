@@ -20,7 +20,8 @@ interface Split {
 }
 interface Config {
   timeWindowSeconds: number
-  marginMax: number
+  marginBeforeMax: number
+  marginAfterMax: number
   minGames: number
 }
 
@@ -69,8 +70,8 @@ export default function ClutchLeadersCard({ leagueId, maxEntries = 6 }: Props) {
             <Flame size={16} className="text-red-400 lg:w-5 lg:h-5" />
             <h3 className="font-jersey text-sm lg:text-base font-bold text-red-300 uppercase tracking-widest">Clutch Time</h3>
           </div>
-          <span className="text-xs text-gray-500 font-mono">
-            마지막 {config ? Math.round(config.timeWindowSeconds / 60) : 2}분 · {config?.marginMax ?? 3}점 이내
+          <span className="text-xs text-gray-500 font-mono" title="마지막 2분 · 2포제션(6점) 접전에서 1포제션(3점)으로 좁힌 결정타">
+            마지막 {config ? Math.round(config.timeWindowSeconds / 60) : 2}분 · 2포제션 → 1포제션
           </span>
         </div>
 

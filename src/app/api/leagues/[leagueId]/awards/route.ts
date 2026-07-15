@@ -15,7 +15,7 @@
 //   DPOY          — 수비왕 (SPG + BPG 최고)
 //   THREE         — 3점왕 (3P%)
 //   EFFICIENCY    — 효율왕 (eFG%)
-//   CLUTCH        — 클러치왕 (마지막 2분 3점 이내 PPG · 클러치 3게임 이상 별도 요건)
+//   CLUTCH        — 클러치왕 (결정타 슛 누적 득점 · 2포제션→1포제션 좁힘 · 3게임 이상)
 //   MIP           — 기량 발전상 (분기별 성장률 · 2 분기 이상 필요)
 
 import { NextResponse } from 'next/server'
@@ -380,8 +380,8 @@ export async function GET(
     awards.push({
       category: 'CLUTCH',
       label: 'Clutch POY',
-      description: '결정적 순간 · 마지막 2분 3점차 이내 · 누적 득점 최고',
-      metric: '클러치 누적 득점',
+      description: '결정타 슛 누적 득점 최고 · 마지막 2분 · 2포제션(6점) 접전에서 이 슛으로 1포제션(3점)으로 좁혀진 결정타',
+      metric: '결정타 슛 누적 득점',
       minRequirement: `${attendanceReq} · 클러치 3게임 이상`,
       winner, runners, allCandidates,
     })

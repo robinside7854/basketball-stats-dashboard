@@ -139,11 +139,12 @@ const POTW_WEIGHTS = {
   clutch: 20,
 } as const
 
-// POTW "clutchPts" 지표 계산 파라미터 — clutchStats.ts / awards 클러치 통계와 동일 (마지막 2분·3점차)
-//   ※ 하이라이트 필터의 "클러치샷" 정의는 별개 (2포제션→1포제션 좁힘 결정타 · loader.ts 참조).
-//     POTW 지표는 안정성을 위해 기존 정의 유지 · 개편 시 과거 POTW 스코어 전면 재계산 필요.
-const CLUTCH_TIME_WINDOW_SECONDS = 120  // 마지막 2분
-const CLUTCH_MARGIN_MAX = 3              // 3점 이내
+// POTW "clutchPts" 지표 계산 파라미터 — clutchStats.ts / 하이라이트 필터와 통일 (2026-07-15 A안 반영)
+//   · 결정타 슛 = 슛 직전 |margin| ≤ 6 (2포제션) AND 슛 직후 |margin| ≤ 3 (1포제션)
+//   · 시간 창은 마지막 이벤트 -120초 이내 (별도 계산)
+const CLUTCH_TIME_WINDOW_SECONDS = 120
+const CLUTCH_MARGIN_BEFORE_MAX = 6
+const CLUTCH_MARGIN_AFTER_MAX = 3
 const SCORING_EVENTS_SET = new Set([
   'shot_3p', 'shot_post', 'shot_layup', 'shot_2p_mid',
   'and_one', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'free_throw',
@@ -203,7 +204,7 @@ function makeHeadline(
     case 'ast':
       return `${name}, 어시스트 ${s.ast}개 · 팀 공격 리드`
     case 'clutch':
-      return `${name}, 접전 승부처 클러치 ${s.clutchPts}점 · 마지막 2분에 강했다`
+      return `${name}, 결정타 ${s.clutchPts}점 · 마지막 2분 접전을 뒤집었다`
     default:
       return `${name}, 이번 라운드 최고 임팩트`
   }
@@ -345,10 +346,12 @@ async function computeWeeklyPOTW(
     let awayScore = 0
 
     for (const e of evs) {
-      // 이 이벤트의 클러치 여부 (이벤트 반영 "전" 스코어 기준)
+      // 이 이벤트의 클러치 컨텍스트 (반영 전 스코어 기준 · 2포제션 이내)
+      //   결정타 슛 판정은 이벤트가 made scoring 인 경우에만 후속으로 처리 (아래 isClutchShot)
       const inClutchTime = clutchStart != null && e.video_timestamp != null && e.video_timestamp >= clutchStart
-      const inClutchScore = Math.abs(homeScore - awayScore) <= CLUTCH_MARGIN_MAX
-      const isClutch = inClutchTime && inClutchScore
+      const marginBefore = Math.abs(homeScore - awayScore)
+      const inClutchContext = inClutchTime && marginBefore <= CLUTCH_MARGIN_BEFORE_MAX
+      const isClutch = inClutchContext   // gp/컨텍스트 추적용
 
       // 선수 스탯 집계 (league_player_id 있는 경우만)
       const pid = e.league_player_id
@@ -394,12 +397,18 @@ async function computeWeeklyPOTW(
         }
         // 어시스트: related_player_id 는 v1 스킵 (팀 통계 API 는 별도 처리)
 
-        // 클러치 상황이면 이 이벤트의 pts 를 clutchPts 에 가산
-        if (isClutch) {
-          if (ptsGained > 0) s.clutchPts += ptsGained
-          if (e.type !== 'sub_in' && e.type !== 'sub_out') {
-            s.clutchGp.add(gid)
-          }
+        // 결정타 슛 판정: 컨텍스트 이내 + made scoring + 슛 후 |margin| ≤ 3
+        //   ptsGained > 0 이면 실 득점 이벤트 · 슛 반영 후 예상 margin 계산
+        if (inClutchContext && ptsGained > 0 && e.team_id != null) {
+          let projHome = homeScore, projAway = awayScore
+          if (e.team_id === teams.homeTeamId) projHome += ptsGained
+          else if (e.team_id === teams.awayTeamId) projAway += ptsGained
+          const marginAfter = Math.abs(projHome - projAway)
+          if (marginAfter <= CLUTCH_MARGIN_AFTER_MAX) s.clutchPts += ptsGained
+        }
+        // 클러치 컨텍스트 게임 트래킹 (표본 계산용) — 결정타 여부 무관
+        if (isClutch && e.type !== 'sub_in' && e.type !== 'sub_out') {
+          s.clutchGp.add(gid)
         }
       }
 

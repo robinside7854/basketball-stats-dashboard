@@ -1,7 +1,7 @@
 // 클러치 스탯 API (Clutch Splits)
 //
 // GET /api/leagues/[id]/clutch
-//   → { splits: PlayerClutchSplit[], config: { timeWindowSeconds, marginMax, minGames } }
+//   → { splits: PlayerClutchSplit[], config: { timeWindowSeconds, marginBeforeMax, marginAfterMax, minGames } }
 //
 // GET /api/leagues/[id]/clutch?playerId=X
 //   → { split: PlayerClutchSplit | null, config: {...} }
