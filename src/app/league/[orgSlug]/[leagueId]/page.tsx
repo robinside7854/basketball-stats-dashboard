@@ -15,6 +15,8 @@ import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
 import LeagueTourTrigger from '@/components/league/LeagueTourTrigger'
 import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
+import AnnouncementsHome from '@/components/league/announcements/AnnouncementsHome'
+import type { LeagueAnnouncement } from '@/lib/announcements/types'
 import { loadRecentRounds, loadRoundDetail } from '@/lib/highlights/loader'
 import { type NbaHeroData } from '@/components/league/nba/NbaHero'
 import NbaHeroCarousel, { type WeeklyPOTW, type POTWTopCategory, type SecondaryCategory } from '@/components/league/nba/NbaHeroCarousel'
@@ -879,6 +881,23 @@ async function computeHomeHighlights(
   }
 }
 
+const getCachedAnnouncements = (leagueId: string) =>
+  unstable_cache(
+    async (): Promise<LeagueAnnouncement[]> => {
+      const sb = createClient()
+      const { data } = await sb
+        .from('league_announcements')
+        .select('id, title, body_markdown, pinned, published_at, created_by, updated_at')
+        .eq('league_id', leagueId)
+        .order('pinned', { ascending: false })
+        .order('published_at', { ascending: false })
+        .limit(20)
+      return (data ?? []) as LeagueAnnouncement[]
+    },
+    ['league-announcements-home', leagueId],
+    { tags: [`league-${leagueId}-announcements`], revalidate: 300 },
+  )
+
 const getCachedHomeHighlights = (leagueId: string) =>
   unstable_cache(
     async () => {
@@ -927,6 +946,7 @@ export default async function LeagueDetailPage({
     streaksData,
     milestonesData,
     homeHighlights,
+    announcements,
   ] = await Promise.all([
     getCachedLeagueMeta(leagueId, orgSlug)(),
     getCachedWeeklyPOTW(leagueId, 4)(),
@@ -937,6 +957,7 @@ export default async function LeagueDetailPage({
     getCachedStreaks(leagueId)(),
     getCachedMilestones(leagueId)(),
     getCachedHomeHighlights(leagueId)(),
+    getCachedAnnouncements(leagueId)(),
   ])
 
   if (!league) notFound()
@@ -980,8 +1001,9 @@ export default async function LeagueDetailPage({
         </div>
       )}
 
-      {/* 미라클모닝 브랜드 홈 — POTW Carousel + 팀 승률 + 최근 라운드 + 리그 리더 */}
+      {/* 미라클모닝 브랜드 홈 — 공지 + POTW Carousel + 팀 승률 + 최근 라운드 + 리그 리더 */}
       <div className="rounded-none overflow-hidden">
+        <AnnouncementsHome leagueId={leagueId} initialAnnouncements={announcements} />
         <NbaHeroCarousel entries={weeklyPOTW} leagueId={leagueId} />
         <HighlightsHome data={homeHighlights} orgSlug={orgSlug} leagueId={leagueId} />
         <NbaTeamStandings
