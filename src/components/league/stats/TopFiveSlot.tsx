@@ -30,37 +30,32 @@ function initials(name: string): string {
   return alnum.slice(0, 2).toUpperCase() || first
 }
 
-function Avatar({ photo, name, size }: { photo?: string | null; name: string; size: number }) {
+// 카드 우측 세로 풀사이즈 아바타 — 카드 높이 = 아바타 높이
+function BigAvatar({ photo, name }: { photo?: string | null; name: string }) {
   if (photo) {
     return (
-      <>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={photo}
-          alt={name}
-          loading="lazy"
-          style={{
-            width: size,
-            height: size,
-            objectFit: 'cover',
-            background: 'var(--mm-panel-alt)',
-            border: '2px solid var(--mm-black)',
-            display: 'block',
-          }}
-        />
-      </>
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={photo}
+        alt={name}
+        loading="lazy"
+        className="w-full h-full"
+        style={{
+          objectFit: 'cover',
+          objectPosition: 'top',
+          background: 'var(--mm-panel-alt)',
+          display: 'block',
+        }}
+      />
     )
   }
   return (
     <div
-      className="flex items-center justify-center font-jersey font-black uppercase"
+      className="w-full h-full flex items-center justify-center font-jersey font-black uppercase"
       style={{
-        width: size,
-        height: size,
         background: 'var(--mm-panel-alt)',
-        border: '2px solid var(--mm-black)',
         color: 'var(--mm-ink-soft)',
-        fontSize: Math.round(size * 0.42),
+        fontSize: 'clamp(36px, 8vw, 56px)',
         letterSpacing: '-0.02em',
       }}
     >
@@ -121,14 +116,14 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
             const rankColor = isFirst
               ? 'var(--mm-yellow-strong)'
               : rank === 2
-              ? 'var(--mm-muted)'
+              ? 'var(--mm-ink-soft)'
               : rank === 3
               ? 'var(--mm-yellow-strong)'
               : 'var(--mm-muted)'
             const accent = isFirst
               ? 'var(--mm-yellow)'
               : rank === 2
-              ? 'var(--mm-muted)'
+              ? 'var(--mm-ink-soft)'
               : rank === 3
               ? 'var(--mm-yellow-strong)'
               : 'transparent'
@@ -136,56 +131,68 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
               <button
                 key={p.id}
                 onClick={onPlayerClick ? () => onPlayerClick(p.id, p.name) : undefined}
-                className="topfive-slot text-left p-2.5 sm:p-3 transition-shadow duration-200 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.20)] cursor-pointer min-h-[44px]"
+                className="topfive-slot text-left flex items-stretch cursor-pointer overflow-hidden transition-shadow duration-200 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.20)]"
                 style={{
                   background: isFirst ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
                   border: '1px solid var(--mm-rule)',
                   borderLeft: `3px solid ${accent}`,
+                  minHeight: 160,
                   // stagger — 각 슬롯이 순차 등장
                   animation: 'topfiveIn 260ms ease-out both',
                   animationDelay: `${i * 50}ms`,
                 }}
               >
-                <div className="flex items-center gap-2 mb-2">
-                  <span
-                    className="font-jersey font-black tabular-nums"
-                    style={{ color: rankColor, fontSize: '20px', letterSpacing: '-0.02em' }}
-                  >
-                    {rank}
-                  </span>
-                  <div className="ml-auto">
-                    <Avatar photo={p.photo_url} name={p.name} size={56} />
+                {/* 좌측: 랭크 · 이름 · 값 · 지표 라벨 */}
+                <div className="flex-1 min-w-0 flex flex-col justify-between py-2.5 pl-2.5 sm:py-3 sm:pl-3 pr-1.5">
+                  <div>
+                    <div
+                      className="font-jersey font-black tabular-nums leading-none"
+                      style={{ color: rankColor, fontSize: '22px', letterSpacing: '-0.02em' }}
+                    >
+                      {rank}
+                    </div>
+                    <div
+                      className="font-jersey font-black uppercase break-keep mt-1.5"
+                      style={{
+                        color: 'var(--mm-ink)',
+                        fontSize: 'clamp(13px, 3.2vw, 15px)',
+                        lineHeight: 1.15,
+                        letterSpacing: '-0.005em',
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere',
+                      }}
+                    >
+                      {p.name}
+                    </div>
+                  </div>
+                  <div>
+                    <div
+                      className="font-jersey font-black tabular-nums leading-none"
+                      style={{
+                        color: 'var(--mm-ink)',
+                        fontSize: 'clamp(24px, 5.5vw, 32px)',
+                        letterSpacing: '-0.015em',
+                      }}
+                    >
+                      {p.value}
+                    </div>
+                    <div
+                      className="text-[10px] font-black uppercase mt-1"
+                      style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
+                    >
+                      {metricLabel}
+                    </div>
                   </div>
                 </div>
+                {/* 우측: 카드 높이만큼 꽉 채운 큰 프로필 · aspect 3:4 · 좌측 검정 divider */}
                 <div
-                  className="font-jersey font-black uppercase break-keep"
+                  className="shrink-0 self-stretch"
                   style={{
-                    color: 'var(--mm-ink)',
-                    fontSize: 'clamp(14px, 3.6vw, 16px)',
-                    lineHeight: 1.15,
-                    letterSpacing: '-0.005em',
-                    wordBreak: 'break-word',
-                    overflowWrap: 'anywhere',
-                    minHeight: '2.3em',
+                    width: 'clamp(72px, 32%, 110px)',
+                    borderLeft: '1px solid var(--mm-black)',
                   }}
                 >
-                  {p.name}
-                </div>
-                <div
-                  className="font-jersey font-black tabular-nums leading-none mt-1.5"
-                  style={{
-                    color: 'var(--mm-ink)',
-                    fontSize: 'clamp(26px, 6.5vw, 34px)',
-                    letterSpacing: '-0.015em',
-                  }}
-                >
-                  {p.value}
-                </div>
-                <div
-                  className="text-[10px] font-black uppercase mt-1"
-                  style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
-                >
-                  {metricLabel}
+                  <BigAvatar photo={p.photo_url} name={p.name} />
                 </div>
               </button>
             )

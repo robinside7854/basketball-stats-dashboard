@@ -639,11 +639,11 @@ function LeagueStatsPageInner() {
                       return (
                         <th key={key} onClick={() => handleSort(key)}
                           className="px-3 py-3 text-center font-jersey font-black uppercase cursor-pointer select-none whitespace-nowrap transition-colors"
-                          style={{ color: sortKey === key ? 'var(--mm-black)' : 'var(--mm-ink-soft)', fontSize: '13px', letterSpacing: '0.05em' }}>
+                          style={{ color: sortKey === key ? 'var(--mm-black)' : 'var(--mm-ink)', fontSize: '15px', letterSpacing: '0.05em' }}>
                           <StatHeader term={term} />
                           {sortKey === key
-                            ? (sortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
-                            : <ChevronsUpDown size={10} className="inline ml-0.5 opacity-30" />}
+                            ? (sortDir === 'desc' ? <ChevronDown size={13} className="inline ml-0.5" /> : <ChevronUp size={13} className="inline ml-0.5" />)
+                            : <ChevronsUpDown size={13} className="inline ml-0.5 opacity-50" />}
                         </th>
                       )
                     })}
@@ -827,11 +827,11 @@ function LeagueStatsPageInner() {
                       return (
                         <th key={key} onClick={() => handleShootSort(key)} title={desc}
                           className="px-3 py-3 text-center font-jersey font-black uppercase whitespace-nowrap cursor-pointer select-none transition-colors"
-                          style={{ color: shootSortKey === key ? 'var(--mm-black)' : 'var(--mm-ink-soft)', fontSize: '13px', letterSpacing: '0.05em', ...dividerStyle }}>
+                          style={{ color: shootSortKey === key ? 'var(--mm-black)' : 'var(--mm-ink)', fontSize: '15px', letterSpacing: '0.05em', ...dividerStyle }}>
                           <StatHeader term={label} />
                           {shootSortKey === key
-                            ? (shootSortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
-                            : <ChevronsUpDown size={10} className="inline ml-0.5 opacity-30" />}
+                            ? (shootSortDir === 'desc' ? <ChevronDown size={13} className="inline ml-0.5" /> : <ChevronUp size={13} className="inline ml-0.5" />)
+                            : <ChevronsUpDown size={13} className="inline ml-0.5 opacity-50" />}
                         </th>
                       )
                     })}
@@ -941,11 +941,11 @@ function LeagueStatsPageInner() {
                     {ADV_COLS.map(({ key, label, desc }) => (
                       <th key={key} onClick={() => handleAdvSort(key)} title={desc}
                         className="px-3 py-3 text-center font-jersey font-black uppercase whitespace-nowrap cursor-pointer select-none transition-colors"
-                        style={{ color: advSortKey === key ? 'var(--mm-black)' : 'var(--mm-ink-soft)', fontSize: '13px', letterSpacing: '0.05em' }}>
+                        style={{ color: advSortKey === key ? 'var(--mm-black)' : 'var(--mm-ink)', fontSize: '15px', letterSpacing: '0.05em' }}>
                         <StatHeader term={label} />
                         {advSortKey === key
-                          ? (advSortDir === 'desc' ? <ChevronDown size={10} className="inline ml-0.5" /> : <ChevronUp size={10} className="inline ml-0.5" />)
-                          : <ChevronsUpDown size={10} className="inline ml-0.5 opacity-30" />}
+                          ? (advSortDir === 'desc' ? <ChevronDown size={13} className="inline ml-0.5" /> : <ChevronUp size={13} className="inline ml-0.5" />)
+                          : <ChevronsUpDown size={13} className="inline ml-0.5 opacity-50" />}
                       </th>
                     ))}
                   </tr>
