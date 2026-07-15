@@ -159,6 +159,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
 
   return (
     <section
+      data-tour="announcements"
       className="mm-brand relative rounded-md overflow-hidden shadow-[0_10px_36px_-14px_rgba(202,138,4,0.35)]"
       style={{ background: 'var(--mm-panel)', border: '2px solid var(--mm-yellow)' }}
       aria-label="리그 공지"

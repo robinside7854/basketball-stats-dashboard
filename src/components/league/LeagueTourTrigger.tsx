@@ -32,7 +32,7 @@ export default function LeagueTourTrigger() {
   return (
     <LeagueTour
       steps={HOME_TOUR_STEPS}
-      storageKey="mm_tour_v1_seen"
+      storageKey="mm_tour_v2_seen"
       autoOpen
     />
   )

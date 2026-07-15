@@ -144,7 +144,17 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
     if (step.onEnter) { try { step.onEnter() } catch { /* 무시 */ } }
     if (!activeSelector) { setTargetRect(null); return }
     const el = document.querySelector<HTMLElement>(activeSelector)
-    if (!el) { setTargetRect(null); return }
+    // optional 스텝 · 대상 DOM 이 없으면 자동으로 다음 스텝으로 건너뜀
+    // (기능이 아직 배포 안 됐거나 조건부 노출인 경우 조용히 스킵)
+    if (!el) {
+      if (step.optional) {
+        if (isLast) { closeTour(true); return }
+        setStepIdx(i => i + 1)
+        return
+      }
+      setTargetRect(null)
+      return
+    }
     const r0 = el.getBoundingClientRect()
     setTargetRect({ top: r0.top, left: r0.left, width: r0.width, height: r0.height })
     try { el.scrollIntoView({ block: 'center', behavior: prefersReducedMotion ? 'auto' : 'smooth' }) } catch { /* 무시 */ }
@@ -153,7 +163,7 @@ export default function LeagueTour({ steps, storageKey, autoOpen, onFinish }: Pr
       setTargetRect({ top: r.top, left: r.left, width: r.width, height: r.height })
     }, prefersReducedMotion ? 0 : 350)
     return () => clearTimeout(t)
-  }, [active, step, activeSelector, tick, prefersReducedMotion])
+  }, [active, step, activeSelector, tick, prefersReducedMotion, isLast, closeTour])
 
   useEffect(() => {
     if (!active) return
