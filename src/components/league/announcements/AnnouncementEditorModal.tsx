@@ -6,7 +6,9 @@ import { X, Megaphone, Image as ImageIcon, Save, Pin, PinOff } from 'lucide-reac
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
+import FormatToolbar from './FormatToolbar'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
 
 interface Props {
@@ -209,7 +211,7 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 overflow-hidden min-h-0">
           {/* Editor pane */}
           <div className="flex flex-col overflow-hidden min-h-0" style={{ borderRight: '1px solid var(--mm-rule)' }}>
-            <div className="flex items-center justify-between gap-2 px-3 py-2" style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}>
+            <div className="flex items-center justify-between gap-2 px-3 py-1.5" style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}>
               <span className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
                 편집 (마크다운) · 이미지는 붙여넣기/드롭
               </span>
@@ -222,6 +224,7 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
                 <input type="file" accept="image/*" onChange={handleFilePick} className="hidden" />
               </label>
             </div>
+            <FormatToolbar textareaRef={textRef} value={body} onChange={setBody} />
             <textarea
               ref={textRef}
               value={body}
@@ -229,6 +232,26 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
               onPaste={handlePaste}
               onDrop={handleDrop}
               onDragOver={(e) => e.preventDefault()}
+              onKeyDown={(e) => {
+                // Ctrl/Cmd + B / I 단축키 — 선택 영역 감싸기
+                if (!(e.ctrlKey || e.metaKey)) return
+                const ta = e.currentTarget
+                const start = ta.selectionStart
+                const end = ta.selectionEnd
+                const wrap = (pre: string, suf: string) => {
+                  e.preventDefault()
+                  const selected = body.slice(start, end) || '텍스트'
+                  const next = body.slice(0, start) + pre + selected + suf + body.slice(end)
+                  setBody(next)
+                  setTimeout(() => {
+                    ta.focus()
+                    ta.setSelectionRange(start + pre.length, start + pre.length + selected.length)
+                  }, 0)
+                }
+                if (e.key === 'b' || e.key === 'B') wrap('**', '**')
+                else if (e.key === 'i' || e.key === 'I') wrap('*', '*')
+                else if (e.key === 'u' || e.key === 'U') wrap('<u>', '</u>')
+              }}
               placeholder="## 이번 주 업데이트&#10;&#10;- 위닝샷 카드 클릭 → 하이라이트 릴 자동 재생&#10;- 내 베스트샷 최대 3개 핀 가능 (선수 하이라이트 페이지)&#10;&#10;스크린샷을 그대로 붙여넣기 하면 자동 업로드됩니다."
               className="flex-1 w-full px-4 py-3 text-sm bg-[color:var(--mm-panel)] resize-none focus:outline-none font-mono"
               style={{ color: 'var(--mm-ink)', lineHeight: 1.6, minHeight: 0 }}
@@ -242,21 +265,22 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
 
           {/* Preview pane */}
           <div className="overflow-y-auto p-4 sm:p-5" style={{ background: 'var(--mm-panel)' }}>
-            <div className="text-[10px] font-black uppercase tracking-[0.14em] mb-2" style={{ color: 'var(--mm-muted)' }}>
-              미리보기
+            <div className="text-[10px] font-black uppercase tracking-[0.14em] mb-2 sticky top-0 py-1" style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel)' }}>
+              미리보기 (게시글 실제 모습)
             </div>
             <article className="announcement-prose">
               <h1>{title || '(제목)'}</h1>
               {body.trim() ? (
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw]}
                   components={{
                     a: (props) => <a {...props} target="_blank" rel="noopener noreferrer" />,
                     img: ({ src, alt }) => {
                       if (typeof src !== 'string') return null
                       return (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={src} alt={alt ?? ''} loading="lazy" className="max-w-full h-auto rounded-sm border border-[color:var(--mm-rule)] my-3" />
+                        <img src={src} alt={alt ?? ''} loading="lazy" />
                       )
                     },
                   }}

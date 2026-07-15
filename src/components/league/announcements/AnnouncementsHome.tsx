@@ -5,7 +5,7 @@
 // - 상단 카드: 가장 최근/고정 공지 1건 + 추가 목록 접기(chevron)
 // - 미확인 뱃지: localStorage 마지막 열람 시간 대비 published_at 최신 개수
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Megaphone, ChevronDown, ChevronUp, Plus, Sparkles } from 'lucide-react'
+import { Megaphone, ChevronDown, ChevronUp, Plus, Sparkles, Pencil, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import AnnouncementReaderModal from './AnnouncementReaderModal'
@@ -178,40 +178,67 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements }: Pr
         <>
           {/* Featured card */}
           {featured && (
-            <button
-              type="button"
-              onClick={() => openReader(featured)}
-              className="w-full text-left px-4 sm:px-6 md:px-10 py-4 sm:py-5 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:bg-[color:var(--mm-panel-alt)]"
-            >
-              <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
-                <div className="inline-flex items-center gap-2 min-w-0">
-                  {featured.pinned && (
-                    <span className="text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5 rounded-sm shrink-0"
-                      style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)' }}>
-                      고정
-                    </span>
-                  )}
-                  <h3 className="text-base sm:text-lg font-black break-keep" style={{ color: 'var(--mm-ink)' }}>
-                    {featured.title}
-                  </h3>
-                </div>
-                <span className="text-[11px] shrink-0" style={{ color: 'var(--mm-muted)' }}>
-                  {formatRelative(featured.published_at)}
-                  {featured.created_by ? ` · ${featured.created_by}` : ''}
-                </span>
-              </div>
-              {featured.body_markdown.trim() && (
-                <p className="text-sm mt-1.5 line-clamp-2" style={{ color: 'var(--mm-ink-soft)', lineHeight: 1.55 }}>
-                  {summarize(featured.body_markdown)}
-                </p>
-              )}
-              <span
-                className="inline-block mt-2 text-[11px] font-bold uppercase tracking-[0.14em]"
-                style={{ color: 'var(--mm-yellow-strong)' }}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => openReader(featured)}
+                className="w-full text-left px-4 sm:px-6 md:px-10 py-4 sm:py-5 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:bg-[color:var(--mm-panel-alt)]"
               >
-                자세히 보기 →
-              </span>
-            </button>
+                <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
+                  <div className="inline-flex items-center gap-2 min-w-0">
+                    {featured.pinned && (
+                      <span className="text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5 rounded-sm shrink-0"
+                        style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)' }}>
+                        고정
+                      </span>
+                    )}
+                    <h3 className="text-base sm:text-lg font-black break-keep" style={{ color: 'var(--mm-ink)' }}>
+                      {featured.title}
+                    </h3>
+                  </div>
+                  <span className="text-[11px] shrink-0" style={{ color: 'var(--mm-muted)' }}>
+                    {formatRelative(featured.published_at)}
+                    {featured.created_by ? ` · ${featured.created_by}` : ''}
+                  </span>
+                </div>
+                {featured.body_markdown.trim() && (
+                  <p className="text-sm mt-1.5 line-clamp-2" style={{ color: 'var(--mm-ink-soft)', lineHeight: 1.55 }}>
+                    {summarize(featured.body_markdown)}
+                  </p>
+                )}
+                <span
+                  className="inline-block mt-2 text-[11px] font-bold uppercase tracking-[0.14em]"
+                  style={{ color: 'var(--mm-yellow-strong)' }}
+                >
+                  자세히 보기 →
+                </span>
+              </button>
+              {/* 편집자 액션 · 카드 위에 오버레이 (버튼 in 버튼 방지 위해 형제 요소로) */}
+              {isEditMode && (
+                <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); startEdit(featured) }}
+                    title="수정"
+                    aria-label={`${featured.title} 수정`}
+                    className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                    style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}
+                  >
+                    <Pencil size={13} aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); onDelete(featured) }}
+                    title="삭제"
+                    aria-label={`${featured.title} 삭제`}
+                    className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                    style={{ background: 'var(--mm-panel)', color: '#DC2626', border: '1px solid var(--mm-rule)' }}
+                  >
+                    <Trash2 size={13} aria-hidden />
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Rest list · expandable */}
@@ -233,11 +260,11 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements }: Pr
               {expanded && (
                 <ul className="divide-y divide-[color:var(--mm-rule)]" style={{ background: 'var(--mm-panel)' }}>
                   {rest.map(a => (
-                    <li key={a.id}>
+                    <li key={a.id} className="flex items-stretch">
                       <button
                         type="button"
                         onClick={() => openReader(a)}
-                        className="w-full text-left px-4 sm:px-6 md:px-10 py-3 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] flex items-baseline gap-3"
+                        className="flex-1 text-left px-4 sm:px-6 md:px-10 py-3 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] flex items-baseline gap-3 min-h-[44px]"
                       >
                         <span className="flex-1 min-w-0">
                           <span className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>
@@ -250,6 +277,30 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements }: Pr
                           {formatRelative(a.published_at)}
                         </span>
                       </button>
+                      {isEditMode && (
+                        <div className="flex items-center gap-1 pr-3">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(a)}
+                            title="수정"
+                            aria-label={`${a.title} 수정`}
+                            className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded-sm cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+                            style={{ color: 'var(--mm-ink-soft)' }}
+                          >
+                            <Pencil size={13} aria-hidden />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDelete(a)}
+                            title="삭제"
+                            aria-label={`${a.title} 삭제`}
+                            className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded-sm cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+                            style={{ color: '#DC2626' }}
+                          >
+                            <Trash2 size={13} aria-hidden />
+                          </button>
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>

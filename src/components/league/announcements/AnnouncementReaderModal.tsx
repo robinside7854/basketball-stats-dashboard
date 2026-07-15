@@ -5,6 +5,7 @@ import { useEffect } from 'react'
 import { X, Megaphone, Pencil, Trash2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
 
 interface Props {
@@ -91,6 +92,7 @@ export default function AnnouncementReaderModal({ announcement, canEdit, onClose
             <article className="announcement-prose">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw]}
                 components={{
                   a: (props) => <a {...props} target="_blank" rel="noopener noreferrer" />,
                   img: ({ src, alt }) => {
@@ -136,41 +138,6 @@ export default function AnnouncementReaderModal({ announcement, canEdit, onClose
         )}
       </div>
 
-      <style jsx global>{`
-        .announcement-prose { color: var(--mm-ink); font-size: 15px; line-height: 1.7; }
-        .announcement-prose h1, .announcement-prose h2, .announcement-prose h3 {
-          font-weight: 900; margin-top: 1.25em; margin-bottom: 0.5em; letter-spacing: -0.01em;
-        }
-        .announcement-prose h1 { font-size: 1.4em; }
-        .announcement-prose h2 { font-size: 1.2em; padding-bottom: 0.25em; border-bottom: 1px solid var(--mm-rule); }
-        .announcement-prose h3 { font-size: 1.05em; }
-        .announcement-prose p { margin: 0.7em 0; }
-        .announcement-prose ul, .announcement-prose ol { padding-left: 1.5em; margin: 0.7em 0; }
-        .announcement-prose li { margin: 0.3em 0; }
-        .announcement-prose strong { color: var(--mm-ink); font-weight: 900; }
-        .announcement-prose a { color: var(--mm-yellow-strong); text-decoration: underline; text-underline-offset: 2px; }
-        .announcement-prose blockquote {
-          border-left: 3px solid var(--mm-yellow); padding: 0.4em 0.9em;
-          background: var(--mm-panel-alt); margin: 0.8em 0; color: var(--mm-ink-soft);
-        }
-        .announcement-prose code {
-          background: var(--mm-panel-alt); padding: 0.15em 0.4em; border-radius: 3px;
-          font-size: 0.9em; border: 1px solid var(--mm-rule);
-        }
-        .announcement-prose pre {
-          background: var(--mm-panel-alt); padding: 0.9em 1em; border-radius: 4px;
-          overflow-x: auto; border: 1px solid var(--mm-rule); margin: 0.8em 0;
-        }
-        .announcement-prose pre code { background: transparent; padding: 0; border: 0; }
-        .announcement-prose hr { border: 0; border-top: 1px dashed var(--mm-rule); margin: 1.4em 0; }
-        .announcement-prose table {
-          border-collapse: collapse; margin: 0.8em 0; width: 100%; font-size: 0.95em;
-        }
-        .announcement-prose th, .announcement-prose td {
-          border: 1px solid var(--mm-rule); padding: 0.5em 0.7em; text-align: left;
-        }
-        .announcement-prose th { background: var(--mm-panel-alt); font-weight: 700; }
-      `}</style>
     </div>
   )
 }
