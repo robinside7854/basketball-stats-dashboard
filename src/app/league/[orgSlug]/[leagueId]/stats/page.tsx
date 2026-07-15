@@ -79,15 +79,9 @@ function LeagueStatsPageInner() {
   const [shootSortKey, setShootSortKey] = useState<ShootingKey>('efg_pct')
   const [shootSortDir, setShootSortDir] = useState<'asc'|'desc'>('desc')
   const [viewMode, setViewMode] = useState<ViewMode>('avg')
-  const [projection, setProjection] = useState(false)  // ×5 환산
   const [quickViewPlayer, setQuickViewPlayer] = useState<{ id: string; name: string } | null>(null)
-  const [minGP, setMinGP] = useState(1)
-  const [showAll, setShowAll] = useState(false)  // 자동 임계값(2/3) 무시하고 전체 표시
-  // Personal highs: 각 선수의 stat 별 최고 분기 — italic 표시용
-  // 리그 전체 로드 후 캐시. 특정 분기 뷰에서 그 분기가 선수의 최고 분기면 italic.
-  type PersonalHighKey = 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg' | 'fg_pct' | 'fg3_pct'
-  type PersonalHigh = { value: number; quarterId: string; gp: number }
-  const [personalHighs, setPersonalHighs] = useState<Record<string, Partial<Record<PersonalHighKey, PersonalHigh>>>>({})
+  // 최소 출전 임계값 — 자동으로 리그 최다 출전의 2/3 로 고정 (사용자 수동 조작 제거 · 2026-07-15)
+  // 이전엔 수동 입력 + '전체 선수' 토글이 있어 "왜 내 값이 안 먹지" 혼란 유발 → 자동 임계값 하나만 유지
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
   const [compareModalOpen, setCompareModalOpen] = useState(false)
   const [selectedChartStat, setSelectedChartStat] = useState<ChartStatKey>('ppg')
@@ -134,11 +128,6 @@ function LeagueStatsPageInner() {
       .catch(() => setLoading(false))
   }, [leagueId, selectedQuarterId, statUnit])
 
-  // round 또는 per40 모드일 때 ×5 환산 비활성 → 자동 해제
-  useEffect(() => {
-    if ((statUnit === 'round' || statUnit === 'per40') && projection) setProjection(false)
-  }, [statUnit, projection])
-
   // URL 의 ?tab 변경(서브탭 클릭·뒤로가기) 시 statMode 동기화.
   // 서브탭에서 '시즌하이' → statMode='seasonHigh', '리더보드' → basic 복원.
   useEffect(() => {
@@ -150,40 +139,16 @@ function LeagueStatsPageInner() {
     }
   }, [urlTab])
 
-  // Personal highs 페치 — 리그 진입 시 1회 로드 (분기 선택 변경과 무관)
-  useEffect(() => {
-    fetch(`/api/leagues/${leagueId}/personal-highs`)
-      .then(r => r.json())
-      .then(d => { setPersonalHighs(d.highs ?? {}) })
-      .catch(() => setPersonalHighs({}))
-  }, [leagueId])
-
-  // 특정 분기 뷰에서 해당 셀이 그 선수의 최고 분기인지 판정
-  // — 분기가 'all' 이면 italic 없음 (누적이라 personal-high 개념 무의미)
-  // — statUnit === 'per40' 는 italic 미적용 (계산 방식 다름)
-  const isPersonalHighCell = (playerId: string, statKey: string): boolean => {
-    if (selectedQuarterId === 'all' || statUnit === 'per40') return false
-    const mapping: Partial<Record<string, PersonalHighKey>> = {
-      ppg: 'ppg', rpg: 'rpg', apg: 'apg', spg: 'spg', bpg: 'bpg',
-      fg_pct: 'fg_pct', fg3_pct: 'fg3_pct',
-    }
-    const hk = mapping[statKey]
-    if (!hk) return false
-    const high = personalHighs[playerId]?.[hk]
-    return Boolean(high && high.quarterId === selectedQuarterId)
-  }
-
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setSortKey(key); setSortDir('desc') }
   }
 
   // 자동 임계값: 가장 많이 뛴 선수의 GP 기준 2/3 (리그 활동량 G의 2/3 근사)
-  // 리더보드/차트의 최소 출전 기준 — 사용자 수동 입력보다 큰 값이 적용됨
-  // showAll=true 면 자동 임계값을 무시하고 사용자 입력만 사용 (전체 선수 보기)
+  // 리더보드/차트의 최소 출전 기준 · 리그 정규 참여자만 랭킹에 반영
   const maxPlayerGP = useMemo(() => players.reduce((m, p) => Math.max(m, p.gp), 0), [players])
   const autoMinGP = Math.max(1, Math.ceil(maxPlayerGP * 2 / 3))
-  const effectiveMinGP = showAll ? minGP : Math.max(minGP, autoMinGP)
+  const effectiveMinGP = autoMinGP
 
   const filtered = players
     .filter(p => p.gp >= effectiveMinGP)
@@ -195,8 +160,8 @@ function LeagueStatsPageInner() {
   const top3 = (key: SortKey) =>
     [...players].filter(p => p.gp >= effectiveMinGP).sort((a, b) => (b[key] as number) - (a[key] as number)).slice(0, 3)
 
-  // 평균 컬럼 (×5 환산 포함) — Per-40 모드는 별도 계산
-  const MULT = (projection && viewMode === 'avg') ? 5 : 1
+  // 평균 컬럼 — Per-40 모드는 별도 계산
+  const MULT = 1
   const PER40_TARGET = 40
   function avg(p: PlayerStat, key: keyof PlayerStat) {
     if (statUnit === 'per40') {
@@ -569,7 +534,7 @@ function LeagueStatsPageInner() {
                 {/* 누적/평균 토글 (Basic 모드에서만 의미 있음) */}
                 <div className={`flex overflow-hidden shrink-0 ${statMode !== 'basic' ? 'opacity-40 pointer-events-none' : ''}`} style={{ border: '1px solid var(--mm-rule)' }}>
                   {(['avg','total'] as ViewMode[]).map(m => (
-                    <button key={m} onClick={() => { setViewMode(m); if (m === 'total') setProjection(false) }}
+                    <button key={m} onClick={() => setViewMode(m)}
                       className="px-3 py-2 text-xs font-black uppercase cursor-pointer transition-colors btn-press min-h-[40px]"
                       style={viewMode === m
                         ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', letterSpacing: '0.08em' }
@@ -593,39 +558,14 @@ function LeagueStatsPageInner() {
                     </button>
                   ))}
                 </div>
-                {/* x5 환산 (per40 및 round 에서는 의미 없음 → 비활성) */}
-                {viewMode === 'avg' && (
-                  <button onClick={() => setProjection(v => !v)} disabled={statUnit === 'round' || statUnit === 'per40'}
-                    className="shrink-0 px-3 py-2 text-xs font-black uppercase transition-colors btn-press min-h-[40px]"
-                    style={(statUnit === 'round' || statUnit === 'per40')
-                      ? { background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', opacity: 0.4, cursor: 'not-allowed', letterSpacing: '0.08em' }
-                      : projection
-                        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', cursor: 'pointer', letterSpacing: '0.08em' }
-                        : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', cursor: 'pointer', letterSpacing: '0.08em' }
-                    }>
-                    ×5 환산
-                  </button>
-                )}
-                <div className="flex items-center gap-1 text-xs shrink-0" style={{ color: 'var(--mm-muted)' }} title={`자동 임계값 ${autoMinGP}경기 (리그 최다 출전 ${maxPlayerGP}경기의 2/3)`}>
-                  <span className="font-bold uppercase" style={{ letterSpacing: '0.10em' }}>최소</span>
-                  <input type="number" min={1} max={200} value={minGP}
-                    onChange={e => setMinGP(Number(e.target.value))}
-                    className="w-14 px-1.5 py-2 text-center text-xs min-h-[40px] font-jersey tabular-nums"
-                    style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }} />
-                  <span className="font-bold uppercase" style={{ letterSpacing: '0.10em' }}>경기</span>
-                  {!showAll && effectiveMinGP > minGP && (
-                    <span className="text-xs font-black uppercase ml-1" style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.08em' }}>→ {effectiveMinGP} 적용 (G·2/3)</span>
-                  )}
-                </div>
-                <button onClick={() => setShowAll(v => !v)}
-                  title="활동량 임계값(2/3) 무시하고 전체 선수 표시"
-                  className="shrink-0 px-3 py-2 text-xs font-black uppercase transition-colors btn-press min-h-[40px] cursor-pointer"
-                  style={showAll
-                    ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', letterSpacing: '0.08em' }
-                    : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
-                  }>
-                  전체 선수
-                </button>
+                {/* 자동 임계값 뱃지 · 정규 참여자 필터 (수동 컨트롤 제거) */}
+                <span
+                  className="shrink-0 text-[11px] font-bold uppercase"
+                  style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}
+                  title={`리그 최다 출전 ${maxPlayerGP}경기의 2/3 · 정규 참여자 자동 필터`}
+                >
+                  최소 {autoMinGP}경기 자격
+                </span>
               </div>
             </div>
 
@@ -737,12 +677,6 @@ function LeagueStatsPageInner() {
                         }
                         const leaderKey = statUnit === 'per40' ? (AVG_TO_TOTAL[key as string] ?? (key as string)) : (key as string)
                         const leader = isLeader(p, leaderKey)
-                        // 개인 최고 분기 = italic (선수의 여러 분기 중 이 분기가 최고 값)
-                        const personalHigh = isPersonalHighCell(p.player_id, key as string)
-                        const italicCls = personalHigh ? 'italic' : ''
-                        const titleText = leader
-                          ? (personalHigh ? '리그 리더 · 개인 최고 분기' : '리그 리더')
-                          : (personalHigh ? '개인 최고 분기' : undefined)
                         const cellColor = sortKey === key
                           ? 'var(--mm-yellow-strong)'
                           : leader
@@ -751,9 +685,9 @@ function LeagueStatsPageInner() {
                         const cellWeight = sortKey === key ? 900 : leader ? 900 : 600
                         return (
                           <td key={key}
-                              className={`px-3 py-3 text-center font-jersey tabular-nums ${italicCls}`}
+                              className="px-3 py-3 text-center font-jersey tabular-nums"
                               style={{ color: cellColor, fontWeight: cellWeight, fontSize: '15px' }}
-                              title={titleText}>
+                              title={leader ? '리그 리더' : undefined}>
                             {cellVal(p, key)}
                           </td>
                         )
@@ -824,11 +758,10 @@ function LeagueStatsPageInner() {
                   )
                 })()}
               </table>
-              {/* Bold / Italic 범례 — 특정 분기 뷰에서만 노출 */}
+              {/* 범례 — 특정 분기 뷰에서만 노출 */}
               {selectedQuarterId !== 'all' && (
                 <div className="px-4 py-2 text-[11px] flex flex-wrap gap-x-4 gap-y-1" style={{ borderTop: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}>
                   <span><span className="font-jersey font-black" style={{ color: 'var(--mm-ink)' }}>굵게</span> = 리그 리더</span>
-                  <span><span className="italic font-jersey" style={{ color: 'var(--mm-ink-soft)' }}>기울임</span> = 이 선수의 최고 분기 (전 분기 대비 개인 최고)</span>
                 </div>
               )}
             </div>
@@ -925,13 +858,10 @@ function LeagueStatsPageInner() {
                         const dividerStyle = idx === 7 ? { borderLeft: '1px solid var(--mm-rule)' } : {}
                         // FTr 은 100% 넘을 수 있어 max=80(시각 척도용)으로 자름
                         const barMax = key === 'ft_rate' ? 80 : 100
-                        const personalHigh = isPersonalHighCell(p.player_id, key as string)
-                        const italicCls = personalHigh ? 'italic' : ''
                         return (
                           <td key={key}
-                              className={`relative px-3 py-3 text-center font-jersey tabular-nums ${italicCls}`}
-                              style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px', ...dividerStyle }}
-                              title={personalHigh ? '개인 최고 분기' : undefined}>
+                              className="relative px-3 py-3 text-center font-jersey tabular-nums"
+                              style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px', ...dividerStyle }}>
                             {val}%
                             <PercentBar value={val} max={barMax} color={barColor} />
                           </td>
