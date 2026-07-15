@@ -31,7 +31,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
     { href: `${base}/roster`, label: '라커룸', match: [`${base}/roster`, `${base}/teams`] },
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/record`] },
     { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`] },
-    { href: `${base}/columns`, label: '아카이브', match: [`${base}/columns`, `${base}/stathead`, `${base}/highlights`, `${base}/archive`] },
+    { href: `${base}/highlights`, label: '아카이브', match: [`${base}/highlights`, `${base}/stathead`, `${base}/archive`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
     ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', match: [`${base}/settings`] }] : []),
   ]
@@ -138,17 +138,17 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
   ]
   // 설정은 편집 모드일 때만 더보기에 노출 (어드민 은닉)
   const moreTabs = [
-    { href: `${base}/columns`, label: '아카이브', Icon: Newspaper },
+    { href: `${base}/highlights`, label: '아카이브', Icon: Newspaper },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', Icon: ClipboardList }] : []),
     ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', Icon: Settings }] : []),
   ]
 
   // 스탯 우산 매칭 — /stats 이면서 /awards 도 스탯 탭 활성.
-  // 아카이브 우산 매칭 — /columns 와 /stathead 를 아카이브 탭 활성.
+  // 아카이브 우산 매칭 — /highlights · /stathead · /archive 를 아카이브 탭 활성.
   const isActive = (href: string) => {
     if (href === base) return pathname === base
     if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/awards`)
-    if (href === `${base}/columns`) return pathname.startsWith(`${base}/columns`) || pathname.startsWith(`${base}/stathead`) || pathname.startsWith(`${base}/highlights`) || pathname.startsWith(`${base}/archive`)
+    if (href === `${base}/highlights`) return pathname.startsWith(`${base}/highlights`) || pathname.startsWith(`${base}/stathead`) || pathname.startsWith(`${base}/archive`)
     return pathname.startsWith(href)
   }
   // 더보기 그룹 중 하나가 현재 페이지면 더보기 버튼도 활성화 표시

@@ -22,7 +22,7 @@ const POSITION_FILTER_OPTIONS = ['ALL', 'PG', 'SG', 'SF', 'PF', 'C']
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
 type PlayerQuarterMap = Record<string, Record<string, { team_id: string | null; is_regular: boolean | null }>>
 type LeaderMap = Record<string, Record<string, string | null>>
-type SortKey = 'name' | 'age_asc' | 'age_desc'
+type SortKey = 'name'
 
 function parsePositions(pos: string | null): string[] {
   if (!pos) return []
@@ -552,8 +552,6 @@ export default function LeagueRosterPage() {
       const bIsGuest = isPlayerGuest(b)
       if (aIsGuest !== bIsGuest) return aIsGuest ? 1 : -1
       if (sortKey === 'name') return a.name.localeCompare(b.name, 'ko')
-      if (sortKey === 'age_asc') return calcAgeNum(a.birth_date) - calcAgeNum(b.birth_date)
-      if (sortKey === 'age_desc') return calcAgeNum(b.birth_date) - calcAgeNum(a.birth_date)
       return 0
     })
   const guestCount = players.filter(isPlayerGuest).length
@@ -665,8 +663,6 @@ export default function LeagueRosterPage() {
             <div className="flex gap-1">
               {([
                 { key: 'name', label: '이름' },
-                { key: 'age_asc', label: '나이↑' },
-                { key: 'age_desc', label: '나이↓' },
               ] as { key: SortKey; label: string }[]).map(({ key, label }) => (
                 <button
                   key={key}
@@ -867,14 +863,6 @@ export default function LeagueRosterPage() {
                       </span>
                     )}
                   </div>
-
-                  {/* 생년월일 */}
-                  {p.birth_date && (
-                    <p className="text-xs lg:text-sm text-[var(--mm-ink-soft)] mb-1.5 lg:mb-2 tabular-nums">
-                      {formatBirthDate(p.birth_date)}
-                      <span className="ml-1.5 text-[var(--mm-muted)]">({calcAge(p.birth_date)})</span>
-                    </p>
-                  )}
 
                   {/* 리더 뱃지 요약 (경기일 부문별 1등 카운트) */}
                   {leaderBadges[p.id] && (

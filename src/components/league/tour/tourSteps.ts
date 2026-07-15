@@ -49,7 +49,7 @@ export const HOME_TOUR_STEPS: TourStep[] = [
     placementMobile: 'top',
     title: '메뉴 구성',
     description:
-      '홈 · 라커룸 · 경기 · 스탯 · 아카이브 5개 우산 메뉴.\n어워즈는 스탯 안, 매거진/Stathead/하이라이트/공지는 아카이브 안에 있어요.',
+      '홈 · 라커룸 · 경기 · 스탯 · 아카이브 5개 우산 메뉴.\n어워즈는 스탯 안, 하이라이트/Stathead/공지는 아카이브 안에 있어요.',
     descriptionMobile:
       '홈 · 라커룸 · 경기 · 스탯 · 더보기 5개 탭.\n아카이브 · 설정은 더보기에서.',
   },
@@ -126,13 +126,13 @@ export const HOME_TOUR_STEPS: TourStep[] = [
     description:
       '· 선수 카드 → 위닝샷 배지 클릭 → 실제 결정타 장면 릴 재생\n· 선수 하이라이트 페이지 재생기 하단 농구공 슬롯(1/2/3) → 내 베스트샷 3개 핀\n· 핀한 베스트샷은 프로필카드 상단에서 바로 재생',
   },
-  // 10. 아카이브 (매거진/Stathead/하이라이트/공지)
+  // 10. 아카이브 (하이라이트/Stathead/공지)
   {
     id: 'archive-tab',
     placement: 'center',
     title: '아카이브 우산',
     description:
-      '· 매거진: AI 가 쓰는 주/월/분기 리그 컬럼\n· Stathead: 원하는 조건으로 스탯 검색\n· 하이라이트: 라운드/선수별 득점 릴\n· 공지: 지난 공지 전체 게시판',
+      '· 하이라이트: 라운드/선수별 득점 릴\n· Stathead: 원하는 조건으로 스탯 검색\n· 공지: 지난 공지 전체 게시판',
   },
   // 11. 다시 보기 안내
   {

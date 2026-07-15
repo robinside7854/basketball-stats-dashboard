@@ -35,7 +35,6 @@ export default async function MilestonesPage({
   const { upcoming, recent } = await getCached(leagueId)()
 
   const groupTabs = [
-    { href: `${base}/columns`,    label: '매거진',    active: false },
     { href: `${base}/stathead`,   label: 'Stathead',  active: false },
     { href: `${base}/highlights`, label: '하이라이트', active: true },
   ]
