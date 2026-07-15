@@ -22,7 +22,7 @@ const POSITION_FILTER_OPTIONS = ['ALL', 'PG', 'SG', 'SF', 'PF', 'C']
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
 type PlayerQuarterMap = Record<string, Record<string, { team_id: string | null; is_regular: boolean | null }>>
 type LeaderMap = Record<string, Record<string, string | null>>
-type SortKey = 'name'
+type SortKey = 'name' | 'attendance_desc'
 
 function parsePositions(pos: string | null): string[] {
   if (!pos) return []
@@ -207,6 +207,14 @@ export default function LeagueRosterPage() {
   // 수정 2: 정렬/필터 state
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [filterPosition, setFilterPosition] = useState<string>('ALL')
+  // 참석율(라운드 참여율) — 참석율 정렬 · 카드 표시용
+  const [attendance, setAttendance] = useState<{ totalRounds: number; perPlayer: Record<string, { rounds: number; rate: number }> }>({ totalRounds: 0, perPlayer: {} })
+  useEffect(() => {
+    fetch(`/api/leagues/${leagueId}/attendance`)
+      .then(r => r.ok ? r.json() : { totalRounds: 0, perPlayer: {} })
+      .then(setAttendance)
+      .catch(() => { /* ignore */ })
+  }, [leagueId])
   // 게스트 숨김 토글 — localStorage 로 세션 간 유지
   const [hideGuests, setHideGuests] = useState<boolean>(false)
   useEffect(() => {
@@ -552,6 +560,12 @@ export default function LeagueRosterPage() {
       const bIsGuest = isPlayerGuest(b)
       if (aIsGuest !== bIsGuest) return aIsGuest ? 1 : -1
       if (sortKey === 'name') return a.name.localeCompare(b.name, 'ko')
+      if (sortKey === 'attendance_desc') {
+        const ra = attendance.perPlayer[a.id]?.rounds ?? 0
+        const rb = attendance.perPlayer[b.id]?.rounds ?? 0
+        if (ra !== rb) return rb - ra
+        return a.name.localeCompare(b.name, 'ko')
+      }
       return 0
     })
   const guestCount = players.filter(isPlayerGuest).length
@@ -663,6 +677,7 @@ export default function LeagueRosterPage() {
             <div className="flex gap-1">
               {([
                 { key: 'name', label: '이름' },
+                { key: 'attendance_desc', label: '참석율↓' },
               ] as { key: SortKey; label: string }[]).map(({ key, label }) => (
                 <button
                   key={key}
@@ -860,6 +875,18 @@ export default function LeagueRosterPage() {
                         title="단발성 게스트 선수 — 로스터 하단으로 정렬됩니다"
                       >
                         게스트
+                      </span>
+                    )}
+                    {/* 참석율 (R 라운드 기준) — 참여 이력 있는 선수만 노출 */}
+                    {attendance.perPlayer[p.id] && attendance.totalRounds > 0 && (
+                      <span
+                        className="px-1.5 py-0.5 rounded-sm text-[10px] font-black uppercase tracking-[0.12em] border bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] border-[var(--mm-rule)] tabular-nums"
+                        title={`참석율 · ${attendance.perPlayer[p.id].rounds}/${attendance.totalRounds} 라운드`}
+                      >
+                        참석 {attendance.perPlayer[p.id].rate}%
+                        <span className="ml-1 text-[var(--mm-muted)]">
+                          ({attendance.perPlayer[p.id].rounds}R)
+                        </span>
                       </span>
                     )}
                   </div>
