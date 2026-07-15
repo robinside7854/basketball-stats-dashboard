@@ -12,8 +12,8 @@
   --mm-panel: #FFFFFF;
   --mm-panel-alt: #FAF9F5;
   --mm-ink: #0A0A0A;
-  --mm-ink-soft: #3F3F46;
-  --mm-muted: #6B7280;
+  --mm-ink-soft: #27272A;       /* zinc-800 · 이전 3F3F46 → 더 진하게 (본문 서브 텍스트 가독성) */
+  --mm-muted: #52525B;          /* zinc-600 · 이전 6B7280 → WCAG AA 통과 (흰 배경 4.5:1) */
   --mm-rule: #E5E7EB;
   --mm-yellow: #EAB308;        /* yellow-500, 진하게 (라이트 배경 대비) */
   --mm-yellow-strong: #A16207;
@@ -26,8 +26,8 @@
   --mm-panel: #171717;
   --mm-panel-alt: #0F0F0F;
   --mm-ink: #FAFAFA;
-  --mm-ink-soft: #D4D4D4;
-  --mm-muted: #A1A1AA;
+  --mm-ink-soft: #E4E4E7;       /* zinc-200 · 이전 D4D4D4 → 더 밝게 (다크 배경 서브 대비) */
+  --mm-muted: #B8B8BE;          /* 이전 A1A1AA → 더 밝게 (다크에서 뮤트 텍스트 가독성) */
   --mm-rule: #262626;
   --mm-yellow: #FDE047;        /* yellow-300, 밝게 (다크 배경 대비) */
   --mm-yellow-strong: #FACC15;
@@ -43,7 +43,8 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
   /* 농구 정체성 — Bebas Neue (스코어보드 디스플레이), Barlow Condensed (저지·헤더) */
   --font-display: var(--font-bebas), 'Bebas Neue', 'Barlow Condensed', 'Impact', sans-serif;
-  --font-jersey:  var(--font-barlow-condensed), 'Barlow Condensed', 'Oswald', sans-serif;
+  /* jersey 폰트: 영문/숫자는 Barlow Condensed (스코어보드 느낌) · 한글은 Pretendard fallback (자동 문자셋별 매칭) */
+  --font-jersey:  var(--font-barlow-condensed), 'Barlow Condensed', 'Oswald', 'Pretendard Variable', Pretendard, system-ui, sans-serif;
 
   /* 농구 정체성 컬러 — 가죽공 오렌지 + 챔피언십 골드 + 하드우드 톤 */
   --color-hoop-orange-500: #EA580C;  /* 가죽공 메인 — primary accent */
@@ -360,6 +361,10 @@
     touch-action: manipulation;
     /* iOS Safari 오버스크롤 바운스 억제 (모달 위에서 배경 스크롤 방지 등) */
     overscroll-behavior-y: contain;
+    /* 본문 라인 높이 · 한글 가독성 (2026-07-16 · 이전 브라우저 기본 1.5 → 1.6 상향) */
+    line-height: 1.6;
+    /* 한글은 letter-spacing 크면 오히려 어색 · 기본 0 유지 */
+    letter-spacing: 0;
   }
   html {
     @apply font-sans;
