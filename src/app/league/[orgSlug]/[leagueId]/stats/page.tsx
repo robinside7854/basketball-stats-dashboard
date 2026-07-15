@@ -4,8 +4,8 @@ import dynamic from 'next/dynamic'
 import { useParams, useSearchParams } from 'next/navigation'
 import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
-import LeagueDuoPanel from '@/components/league/LeagueDuoPanel'
 import NbaSeasonHighs from '@/components/league/nba/NbaSeasonHighs'
+import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFiveSlot'
 
 // 상호작용 트리거 후에만 필요 — 초기 번들에서 분리
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
@@ -16,28 +16,6 @@ import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import type { Quarter, PlayerStat } from '@/types/league'
 
-// Recharts (~90KB gz) 는 페이지 렌더 이후 lazy 로 로드 — 초기 번들 감량
-// ssr:false 로 hydration 오류 방지
-const TopScorersChart = dynamic(
-  () => import('@/components/league/charts/LeagueStatsCharts').then(m => m.TopScorersChart),
-  { ssr: false, loading: () => <div className="p-4" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', height: 232 }} /> },
-)
-const FGPctTop8Chart = dynamic(
-  () => import('@/components/league/charts/LeagueStatsCharts').then(m => m.FGPctTop8Chart),
-  { ssr: false, loading: () => <div className="p-4" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', height: 232 }} /> },
-)
-
-const CHART_STATS = [
-  { key: 'ppg',    label: '득점',    unit: 'PPG' },
-  { key: 'rpg',    label: '리바운드', unit: 'RPG' },
-  { key: 'apg',    label: '어시스트', unit: 'APG' },
-  { key: 'spg',    label: '스틸',    unit: 'SPG' },
-  { key: 'bpg',    label: '블록',    unit: 'BPG' },
-  { key: 'fg_pct', label: 'FG%',    unit: '%'   },
-  { key: 'fg3_pct',label: '3P%',    unit: '%'   },
-] as const
-type ChartStatKey = typeof CHART_STATS[number]['key']
-
 type ViewMode = 'avg' | 'total'
 type StatUnit = 'round' | 'game' | 'per40'
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
@@ -45,18 +23,33 @@ type AdvKey = 'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'ds_pct'|'lu_pct'|'md_pct'|'three_share'
 type StatMode = 'basic'|'shooting'|'advanced'|'seasonHigh'
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _SORT_OPTIONS_LEGACY: { key: SortKey; label: string }[] = [
-  { key: 'ppg',     label: '득점(PPG)' },
-  { key: 'rpg',     label: '리바운드(RPG)' },
-  { key: 'apg',     label: '어시스트(APG)' },
-  { key: 'stl',     label: '스틸(STL)' },
-  { key: 'blk',     label: '블락(BLK)' },
-  { key: 'fg_pct',  label: 'FG%' },
-  { key: 'fg3_pct', label: '3P%' },
-  { key: 'ft_pct',  label: 'FT%' },
-  { key: 'efg_pct', label: 'eFG%' },
-]
+// SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
+const BASIC_FULL_LABELS: Partial<Record<SortKey, string>> = {
+  gp:      '출전 경기',
+  ppg:     '득점',
+  rpg:     '리바운드',
+  orp:     '공격 리바운드',
+  drp:     '수비 리바운드',
+  apg:     '어시스트',
+  spg:     '스틸',
+  bpg:     '블락',
+  topg:    '턴오버',
+  pts:     '득점 (누적)',
+  reb:     '리바운드 (누적)',
+  oreb:    '공격 리바운드 (누적)',
+  dreb:    '수비 리바운드 (누적)',
+  ast:     '어시스트 (누적)',
+  stl:     '스틸 (누적)',
+  blk:     '블락 (누적)',
+  tov:     '턴오버 (누적)',
+  fgm:     '야투 성공',
+  fg3m:    '3점 성공',
+  ftm:     '자유투 성공',
+  fg_pct:  '야투율',
+  fg3_pct: '3점 성공률',
+  ft_pct:  '자유투 성공률',
+  efg_pct: '유효야투율',
+}
 
 function LeagueStatsPageInner() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
@@ -84,7 +77,8 @@ function LeagueStatsPageInner() {
   // 이전엔 수동 입력 + '전체 선수' 토글이 있어 "왜 내 값이 안 먹지" 혼란 유발 → 자동 임계값 하나만 유지
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
   const [compareModalOpen, setCompareModalOpen] = useState(false)
-  const [selectedChartStat, setSelectedChartStat] = useState<ChartStatKey>('ppg')
+  // TopFiveSlot 활성화 플래그 — 컬럼 헤더 첫 클릭 시 true (초기 안내 → TOP 5 뷰 전환)
+  const [topFiveActive, setTopFiveActive] = useState(false)
   const [statUnit, setStatUnit] = useState<StatUnit>('round')
 
   const toggleCompare = (player: PlayerStat) => {
@@ -140,6 +134,7 @@ function LeagueStatsPageInner() {
   }, [urlTab])
 
   function handleSort(key: SortKey) {
+    if (!topFiveActive) setTopFiveActive(true)
     if (key === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setSortKey(key); setSortDir('desc') }
   }
@@ -156,9 +151,6 @@ function LeagueStatsPageInner() {
       const diff = (a[sortKey] as number) - (b[sortKey] as number)
       return sortDir === 'desc' ? -diff : diff
     })
-
-  const top3 = (key: SortKey) =>
-    [...players].filter(p => p.gp >= effectiveMinGP).sort((a, b) => (b[key] as number) - (a[key] as number)).slice(0, 3)
 
   // 평균 컬럼 — Per-40 모드는 별도 계산
   const MULT = 1
@@ -308,17 +300,17 @@ function LeagueStatsPageInner() {
     })
 
   function handleAdvSort(key: AdvKey) {
+    if (!topFiveActive) setTopFiveActive(true)
     if (key === advSortKey) setAdvSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setAdvSortKey(key); setAdvSortDir('desc') }
   }
   function handleShootSort(key: ShootingKey) {
+    if (!topFiveActive) setTopFiveActive(true)
     if (key === shootSortKey) setShootSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setShootSortKey(key); setShootSortDir('desc') }
   }
 
   const COLS = viewMode === 'avg' ? AVG_COLS : TOTAL_COLS
-
-  const PCT_KEYS = new Set<SortKey>(['fg_pct', 'fg3_pct', 'ft_pct', 'efg_pct'])
 
   function cellVal(p: PlayerStat, key: SortKey): string {
     if (viewMode === 'avg') {
@@ -340,6 +332,94 @@ function LeagueStatsPageInner() {
       return String((p as unknown as Record<string, number>)[key] ?? 0)
     }
   }
+
+  // TOP 5 슬롯용 데이터 — 현재 statMode + 해당 모드의 sortKey 로 상위 5명 산출
+  // 리더는 항상 값이 큰 순 (사용자 sortDir 무시)
+  const topFive = useMemo<{ key: string | null; label: string | null; fullLabel: string | null; players: TopFivePlayer[] }>(() => {
+    if (!topFiveActive || players.length === 0) {
+      return { key: null, label: null, fullLabel: null, players: [] }
+    }
+    const eligibleBase = players.filter(p => p.gp >= effectiveMinGP)
+
+    if (statMode === 'basic') {
+      const col = (viewMode === 'avg' ? AVG_COLS : TOTAL_COLS).find(c => c.key === sortKey)
+      const label = col?.label ?? String(sortKey)
+      const fullLabel = BASIC_FULL_LABELS[sortKey] ?? label
+      const isPct = String(sortKey).includes('_pct')
+      let pool = eligibleBase
+      if (isPct) {
+        pool = pool.filter(p => {
+          if (sortKey === 'fg3_pct') return p.fg3a >= 5
+          if (sortKey === 'ft_pct')  return p.fta  >= 5
+          return p.fga >= 5
+        })
+      }
+      // Per-40 모드는 avg() 로 환산된 값 · 그 외 모드는 cellVal 문자열 그대로
+      const sorted = [...pool].sort((a, b) => {
+        const av = statUnit === 'per40' ? avg(a, sortKey as keyof PlayerStat) : (a[sortKey] as number)
+        const bv = statUnit === 'per40' ? avg(b, sortKey as keyof PlayerStat) : (b[sortKey] as number)
+        return bv - av
+      }).slice(0, 5)
+      return {
+        key: `basic:${sortKey}:${viewMode}:${statUnit}`,
+        label,
+        fullLabel,
+        players: sorted.map(p => ({
+          id: p.player_id,
+          name: p.name,
+          photo_url: p.photo_url,
+          value: cellVal(p, sortKey),
+        })),
+      }
+    }
+
+    if (statMode === 'shooting') {
+      const col = SHOOTING_COLS.find(c => c.key === shootSortKey)
+      const label = col?.label ?? shootSortKey
+      const fullLabel = (col?.desc ?? label).split('·')[0].trim() || label
+      // 슛 관련 성공률은 시도 5개 이상 자격
+      const pool = eligibleBase.filter(p => {
+        if (shootSortKey === 'fg3_pct') return p.fg3a >= 5
+        if (shootSortKey === 'ft_pct')  return p.fta  >= 5
+        // 그 외는 fga>0 만 요구
+        return p.fga > 0
+      })
+      const withVals = pool.map(p => ({ p, val: calcShoot(p)[shootSortKey] }))
+      const sorted = withVals.sort((a, b) => b.val - a.val).slice(0, 5)
+      return {
+        key: `shooting:${shootSortKey}`,
+        label,
+        fullLabel,
+        players: sorted.map(({ p, val }) => ({
+          id: p.player_id,
+          name: p.name,
+          photo_url: p.photo_url,
+          value: `${val}%`,
+        })),
+      }
+    }
+
+    // advanced
+    const col = ADV_COLS.find(c => c.key === advSortKey)
+    const label = col?.label ?? advSortKey
+    const fullLabel = (col?.desc ?? label).split('·')[0].trim() || label
+    const withVals = eligibleBase.map(p => ({ p, val: calcAdv(p)[advSortKey] }))
+    const sorted = withVals.sort((a, b) => b.val - a.val).slice(0, 5)
+    const isRatio = advSortKey === 'at_ratio'
+    const isCount = advSortKey === 'a1_total'
+    return {
+      key: `advanced:${advSortKey}`,
+      label,
+      fullLabel,
+      players: sorted.map(({ p, val }) => ({
+        id: p.player_id,
+        name: p.name,
+        photo_url: p.photo_url,
+        value: isRatio || isCount ? String(val) : `${val}%`,
+      })),
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topFiveActive, statMode, sortKey, shootSortKey, advSortKey, players, effectiveMinGP, viewMode, statUnit])
 
   const base = `/league/${orgSlug}/${leagueId}`
   const groupTabs = [
@@ -394,42 +474,14 @@ function LeagueStatsPageInner() {
         />
       ) : (
         <>
-          {/* 차트 필터 칩 */}
-          <div className="flex gap-1.5 flex-wrap">
-            {CHART_STATS.map(s => (
-              <button key={s.key}
-                onClick={() => setSelectedChartStat(s.key)}
-                className="px-2.5 py-1 text-xs font-black uppercase transition-colors cursor-pointer"
-                style={selectedChartStat === s.key
-                  ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)', letterSpacing: '0.08em' }
-                  : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
-                }>{s.label}</button>
-            ))}
-          </div>
-
-          {/* 차트 섹션 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {(() => {
-              const cur = CHART_STATS.find(s => s.key === selectedChartStat)!
-              return (
-                <TopScorersChart
-                  players={players.filter(p => p.gp >= effectiveMinGP)}
-                  statKey={cur.key}
-                  statLabel={cur.label}
-                  statUnit={cur.unit}
-                />
-              )
-            })()}
-            {selectedQuarterId !== 'all' && (() => {
-              // FG% TOP 8 — minGP / 최소 5개 시도
-              const fgData = [...players]
-                .filter(p => p.gp >= effectiveMinGP && p.fga >= 5)
-                .sort((a, b) => b.fg_pct - a.fg_pct)
-                .slice(0, 8)
-                .map(p => ({ name: p.name, fg_pct: p.fg_pct }))
-              return <FGPctTop8Chart data={fgData} />
-            })()}
-          </div>
+          {/* TOP 5 슬롯 — 테이블 컬럼 헤더 클릭 시 해당 지표 TOP 5 표시 */}
+          <TopFiveSlot
+            metricKey={topFive.key}
+            metricLabel={topFive.label}
+            metricFullLabel={topFive.fullLabel}
+            players={topFive.players}
+            onPlayerClick={(id, name) => setQuickViewPlayer({ id, name })}
+          />
 
           {/* 비교하기 버튼 */}
           {compareIds.size > 0 && (
@@ -452,57 +504,6 @@ function LeagueStatsPageInner() {
               </button>
             </div>
           )}
-
-          {/* 리더보드 카드 */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
-            {([
-              { key: 'ppg'     as SortKey, label: '득점왕',      unit: 'PPG',  pct: false },
-              { key: 'rpg'     as SortKey, label: '리바운드왕',  unit: 'RPG',  pct: false },
-              { key: 'apg'     as SortKey, label: '어시스트왕',  unit: 'APG',  pct: false },
-              { key: 'spg'     as SortKey, label: '스틸왕',      unit: 'SPG',  pct: false },
-              { key: 'bpg'     as SortKey, label: '블락왕',      unit: 'BPG',  pct: false },
-              { key: 'fg_pct'  as SortKey, label: '야투율 1위',  unit: 'FG%',  pct: true  },
-              { key: 'fg3_pct' as SortKey, label: '3점% 1위',   unit: '3P%',  pct: true  },
-            ] as { key: SortKey; label: string; unit: string; pct: boolean }[]).map(({ key, label, unit, pct }) => {
-              // % 지표는 fga/fg3a > 0인 선수만 집계
-              const pool = pct
-                ? players.filter(p => p.gp >= effectiveMinGP && (key === 'fg3_pct' ? p.fg3a > 0 : p.fga > 0))
-                : players.filter(p => p.gp >= effectiveMinGP)
-              const leaders = [...pool].sort((a, b) => (b[key] as number) - (a[key] as number)).slice(0, 3)
-              const top = leaders[0]
-              if (!top) return null
-              const fmt = (p: PlayerStat) => pct ? `${(p[key] as number)}%` : String(p[key] as number)
-              return (
-                <div key={key} className="p-4 transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
-                  style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <Trophy size={13} style={{ color: 'var(--mm-yellow-strong)' }} />
-                    <p className="text-[11px] font-black uppercase" style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.16em' }}>{label}</p>
-                  </div>
-                  <button onClick={() => setQuickViewPlayer({ id: top.player_id, name: top.name })}
-                    className="font-jersey font-black uppercase break-keep cursor-pointer text-left w-full block hover:underline underline-offset-2"
-                    style={{ color: 'var(--mm-ink)', fontSize: 'clamp(17px, 4.5vw, 22px)', letterSpacing: '-0.005em', lineHeight: '1.15', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                    {top.name}
-                  </button>
-                  <p className="font-jersey font-black tabular-nums leading-none mt-1.5" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(26px, 7vw, 36px)', letterSpacing: '-0.015em' }}>{fmt(top)}</p>
-                  <p className="text-[11px] font-bold uppercase mt-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}>{unit} · {top.gp}R</p>
-                  {leaders.slice(1).map((p, i) => (
-                    <div key={p.player_id} className="flex items-center justify-between mt-1.5 pt-1.5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-                      <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                        className="text-xs font-bold cursor-pointer text-left hover:underline underline-offset-2"
-                        style={{ color: 'var(--mm-ink-soft)' }}>
-                        {i + 2}위 {p.name}
-                      </button>
-                      <span className="text-xs font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{fmt(p)}</span>
-                    </div>
-                  ))}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* 듀오 분석: 어시스트 관계 + 스틸-턴오버 관계 */}
-          <LeagueDuoPanel leagueId={leagueId} quarterId={selectedQuarterId} />
 
           {/* 전체 스탯 테이블 */}
           <div className="overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>

@@ -4,19 +4,93 @@ import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
 import { Film, PlayCircle, ChevronRight, Clock, VideoOff, Trophy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import EmptyState from '@/components/league/EmptyState'
 import HighlightsPlayerPicker from '@/components/highlights/HighlightsPlayerPicker'
 import { loadRecentRounds } from '@/lib/highlights/loader'
+import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
+
+// 라운드 카드 W-L 뱃지용 팀 레코드
+// · 홈 페이지 computeRecentRounds 와 동일한 승패 산정 방식 (완료된 경기만)
+// · 친선 포함 — 라운드 카드가 이미 친선을 포함해 노출하므로 일관성 유지
+type RoundTeamRecord = {
+  key: string
+  name: string
+  wins: number
+  losses: number
+  draws: number
+}
+
+// dates 배열에 대해 date → 팀별 W-L 맵 계산
+// · is_complete=true 만 대상 (스코어 미기록 라운드는 자연스럽게 빈 배열)
+// · 분기별 팀명 override 반영 (loadIdentityResolver)
+async function computeRoundRecords(
+  supabase: SupabaseClient,
+  leagueId: string,
+  dates: string[],
+): Promise<Record<string, RoundTeamRecord[]>> {
+  if (dates.length === 0) return {}
+  const [{ data: games }, resolver] = await Promise.all([
+    supabase
+      .from('league_games')
+      .select('date, home_team_id, away_team_id, home_score, away_score, quarter_id')
+      .eq('league_id', leagueId)
+      .eq('is_complete', true)
+      .in('date', dates),
+    loadIdentityResolver(supabase, leagueId),
+  ])
+  const byDate: Record<string, Map<string, RoundTeamRecord>> = {}
+  for (const g of (games ?? []) as Array<{
+    date: string
+    home_team_id: string | null
+    away_team_id: string | null
+    home_score: number | null
+    away_score: number | null
+    quarter_id: string | null
+  }>) {
+    if (!byDate[g.date]) byDate[g.date] = new Map()
+    const agg = byDate[g.date]
+    const ensure = (teamId: string | null, quarterId: string | null) => {
+      const id = resolver(teamId, quarterId)
+      if (!id) return null
+      let t = agg.get(id.key)
+      if (!t) {
+        t = { key: id.key, name: id.display_name, wins: 0, losses: 0, draws: 0 }
+        agg.set(id.key, t)
+      }
+      return t
+    }
+    const h = ensure(g.home_team_id, g.quarter_id)
+    const a = ensure(g.away_team_id, g.quarter_id)
+    if (!h || !a) continue
+    const hs = g.home_score ?? 0
+    const as_ = g.away_score ?? 0
+    if (hs > as_) { h.wins++; a.losses++ }
+    else if (hs < as_) { a.wins++; h.losses++ }
+    else { h.draws++; a.draws++ }
+  }
+  const result: Record<string, RoundTeamRecord[]> = {}
+  for (const [date, agg] of Object.entries(byDate)) {
+    result[date] = [...agg.values()]
+      .filter(t => t.wins + t.losses + t.draws > 0)
+      // 승리 많은 팀 → 패배 적은 팀 순
+      .sort((a, b) => (b.wins - a.wins) || (a.losses - b.losses) || a.name.localeCompare(b.name))
+  }
+  return result
+}
 
 const getCached = (leagueId: string) =>
   unstable_cache(
     async () => {
       const sb = createClient()
       // 시즌 전체 라운드 로드 (한 시즌 최대 ~50 라운드 · 여유롭게 60)
-      return loadRecentRounds(sb, leagueId, 60)
+      const rounds = await loadRecentRounds(sb, leagueId, 60)
+      const records = await computeRoundRecords(sb, leagueId, rounds.map(r => r.date))
+      return { rounds, records }
     },
-    ['highlights-landing-v2', leagueId],
+    // v3: W-L 뱃지 데이터 추가 (구 v2 캐시 자동 무효화)
+    ['highlights-landing-v3', leagueId],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
   )
 
@@ -28,7 +102,7 @@ export default async function HighlightsLandingPage({
   const { orgSlug, leagueId } = await params
   const base = `/league/${orgSlug}/${leagueId}`
   // 시즌 전체 라운드 노출 (기존 .slice(0, 12) 로 1-3월 데이터 잘림 → 전체 표시)
-  const rounds = await getCached(leagueId)()
+  const { rounds, records } = await getCached(leagueId)()
 
   const groupTabs = [
     { href: `${base}/stathead`,   label: 'Stathead',  active: false },
@@ -102,6 +176,8 @@ export default async function HighlightsLandingPage({
             const isReady = r.status === 'ready'
             const isPendingRecord = r.status === 'pending_record'
             const isPendingVideo = r.status === 'pending_video'
+            // 이 라운드에서 완료된 리그경기의 팀별 W-L (0이면 뱃지 숨김)
+            const teamRecords = records[r.date] ?? []
 
             // 상태별 CSS · 재생 안 되는 라운드는 muted + 클릭 비활성
             const cardStyle: React.CSSProperties = {
@@ -173,12 +249,45 @@ export default async function HighlightsLandingPage({
                   </div>
                 </div>
 
-                {r.team_names.length > 0 && (
+                {teamRecords.length > 0 ? (
+                  // 팀별 W-L 뱃지 — 승리팀 노란색, 패배팀(losses>wins)/무승부 회색
+                  <div className="mt-2 flex items-center gap-1 flex-wrap">
+                    {teamRecords.slice(0, 6).map(t => {
+                      const isWinner = t.wins > t.losses
+                      const rec = t.draws > 0
+                        ? `${t.wins}-${t.losses}-${t.draws}`
+                        : `${t.wins}-${t.losses}`
+                      return (
+                        <span
+                          key={t.key}
+                          className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-1.5 py-0.5 rounded"
+                          style={{
+                            background: isWinner ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
+                            color: isWinner ? 'var(--mm-black)' : 'var(--mm-muted)',
+                            border: `1px solid ${isWinner ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+                            letterSpacing: '0.06em',
+                            lineHeight: 1.2,
+                          }}
+                          aria-label={`${t.name} ${rec}`}
+                        >
+                          <span className="max-w-[6em] truncate">{t.name}</span>
+                          <span className="font-jersey tabular-nums tracking-normal">{rec}</span>
+                        </span>
+                      )
+                    })}
+                    {teamRecords.length > 6 && (
+                      <span className="text-[10px] font-bold" style={{ color: 'var(--mm-muted)' }}>
+                        +{teamRecords.length - 6}
+                      </span>
+                    )}
+                  </div>
+                ) : r.team_names.length > 0 ? (
+                  // W-L 데이터 없을 때 fallback — 팀명만 텍스트로 나열
                   <div className="mt-2 text-[11px] truncate" style={{ color: 'var(--mm-muted)' }}>
                     {r.team_names.slice(0, 4).join(' · ')}
                     {r.team_names.length > 4 ? ` +${r.team_names.length - 4}` : ''}
                   </div>
-                )}
+                ) : null}
 
                 {isReady && (
                   <div className="mt-3 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>

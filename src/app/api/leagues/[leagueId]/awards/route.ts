@@ -3,33 +3,37 @@
 // GET /api/leagues/[id]/awards
 //   → { awards: AwardEntry[], attendance: { totalRounds, requiredRounds, threshold } }
 //
-// 자격 기준 (모든 부문 공통):
+// 자격 기준 (모든 부문 공통 · IRON_MAN 제외):
 //   시즌 전체 경기일(round · 날짜 기준)의 60% 이상 참석
 //   ex) 시즌 총 10일 경기 → 6일 이상 참석자만 후보
 //
-// 어워즈 카테고리 (9종):
-//   MVP           — 종합 (PPG + RPG + APG + STL + BLK 가중합)
-//   SCORING       — 득점왕 (PPG 최고)
-//   REBOUND       — 리바운드왕 (RPG 최고)
-//   ASSIST        — 어시스트왕 (APG 최고)
-//   DPOY          — 수비왕 (SPG + BPG 최고)
+// 어워즈 카테고리 (11종 · 2026-07-16 개편):
+//   ── 코어 8 ────────
+//   SCORING       — 득점왕 (누적 PTS)
+//   REBOUND       — 리바운드왕 (누적 REB)
+//   ASSIST        — 어시스트왕 (누적 AST)
+//   DPOY          — 수비왕 (STL 35% + BLK 35% + DREB 30%)
 //   THREE         — 3점왕 (3P%)
-//   EFFICIENCY    — 효율왕 (eFG%)
-//   CLUTCH        — 클러치왕 (결정타 슛 누적 득점 · 2포제션→1포제션 좁힘 · 3게임 이상)
-//   MIP           — 기량 발전상 (분기별 성장률 · 2 분기 이상 필요)
+//   EFFICIENCY    — 야투효율왕 (eFG%)
+//   CLUTCH        — 클러치왕 (결정타 슛 누적 · 3게임 이상)
+//   IRON_MAN      — 철강왕 (참여 라운드 최다)
+//   ── 특수 3 ────────
+//   OREB_KING     — 공격 리바운드왕 (누적 OREB)
+//   MID_RANGE     — 미드레인지 마스터 (미드 성공 · 5시도 이상)
+//   BEST_DUO      — 최고의 듀오 (상호 어시스트 합작 득점 최다)
+//
+// 폐지 (2026-07-16): MVP · MIP
 
 import { NextResponse } from 'next/server'
 import { computeClutchStats } from '@/lib/stats/clutchStats'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
-import { computePerDayStats } from '@/lib/stats/perDayStats'
 import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
 
 export type AwardCategory =
-  | 'MVP' | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY'
-  | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'MIP'
-  // 신규 (#3): 공격 리바운드 · 미드레인지 · 개근왕
-  | 'OREB_KING' | 'MID_RANGE' | 'IRON_MAN'
+  | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY'
+  | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'IRON_MAN'
+  | 'OREB_KING' | 'MID_RANGE' | 'BEST_DUO'
 
 export interface AwardCandidate {
   player_id: string
@@ -41,10 +45,18 @@ export interface AwardCandidate {
   displayValue: string  // 화면 표시용
   gp: number
   supportingStats?: Record<string, string>
+  // BEST_DUO 전용 — 파트너 선수 메타 (파트너 없이 단일 선수 후보면 undefined)
+  partner?: {
+    player_id: string
+    name: string
+    number: number | null
+    photo_url: string | null
+  }
 }
 
 export interface AwardEntry {
   category: AwardCategory
+  section: 'core' | 'special'
   label: string
   description: string
   metric: string
@@ -62,6 +74,10 @@ export interface AttendanceInfo {
 
 const ATTENDANCE_THRESHOLD = 0.60
 
+// BEST_DUO 계산에 쓰이는 야투 유형 (어시스트가 붙을 수 있는 이벤트)
+//   · 자유투 · and_one 은 어시스트 대상 아님
+const DUO_SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> },
@@ -72,36 +88,37 @@ export async function GET(
   const quarterId = sp.get('quarterId')
   const supabase = createClient()
 
-  // 1-3) 초기 3종 병렬 실행 — 서로 독립적. 이전엔 순차 실행 + 내부 HTTP 왕복.
-  //      · gameDates: 시즌 라운드 일수 산출 (attendance)
-  //      · players (computeLeagueStats): 이전엔 fetch 로 자기 자신 stats route 호출 → 직접 호출로 왕복 제거
+  // 1-4) 초기 병렬 실행 — 서로 독립적.
+  //      · gameRows: 시즌 라운드 일수 산출 (attendance) + BEST_DUO 이벤트 스코프 game id
+  //      · statsResult (computeLeagueStats): 선수 season stats
   //      · playerRows: 게스트 필터 + 사진 맵
-  //      · clutchSplits: 클러치 스탯 (MVP + CLUTCH 카테고리)
-  //      · dayWL: 팀 승률 (MVP 보너스)
-  let dateQuery = supabase
+  //      · clutchSplits: 클러치 스탯 (CLUTCH 카테고리)
+  let gamesQuery = supabase
     .from('league_games')
-    .select('date, quarter_id')
+    .select('id, date, quarter_id')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     .eq('is_exhibition', false)
-  if (quarterId) dateQuery = dateQuery.eq('quarter_id', quarterId)
+  if (quarterId) gamesQuery = gamesQuery.eq('quarter_id', quarterId)
 
   const [
-    { data: gameDates },
+    { data: gameRows },
     statsResult,
     { data: playerRows },
     clutchSplits,
-    perDayResult,
   ] = await Promise.all([
-    dateQuery,
+    gamesQuery,
     computeLeagueStats(supabase, leagueId, { quarterId: quarterId ?? null, unit: 'round' }),
     supabase.from('league_players').select('id, is_guest, photo_url').eq('league_id', leagueId),
     computeClutchStats(supabase, leagueId, quarterId ? { quarterId } : undefined),
-    computePerDayStats(supabase, leagueId, quarterId ? { quarterId } : {}),
   ])
 
   const uniqueDates = new Set<string>()
-  for (const g of (gameDates ?? []) as { date: string; quarter_id: string | null }[]) uniqueDates.add(g.date)
+  const gameIds: string[] = []
+  for (const g of (gameRows ?? []) as { id: string; date: string; quarter_id: string | null }[]) {
+    uniqueDates.add(g.date)
+    gameIds.push(g.id)
+  }
   const totalRounds = uniqueDates.size
   const requiredRounds = Math.max(1, Math.ceil(totalRounds * ATTENDANCE_THRESHOLD))
   const attendance: AttendanceInfo = { totalRounds, requiredRounds, threshold: ATTENDANCE_THRESHOLD }
@@ -119,16 +136,8 @@ export async function GET(
   const eligible = players.filter(p => p.gp >= requiredRounds && !guestIds.has(p.player_id))
 
   const clutchMap = new Map(clutchSplits.map(s => [s.player_id, s]))
-  const { dayWL } = perDayResult
-  const teamWinRateByPlayer = new Map<string, { wins: number; losses: number; rate: number }>()
-  for (const [pid, byDate] of dayWL) {
-    let wins = 0, losses = 0
-    for (const [, wl] of byDate) { wins += wl.wins; losses += wl.losses }
-    const rate = (wins + losses) > 0 ? wins / (wins + losses) : 0
-    teamWinRateByPlayer.set(pid, { wins, losses, rate })
-  }
 
-  // 4) 후보 헬퍼
+  // 5) 후보 헬퍼
   const toCandidate = (p: PlayerStat, value: number, displayValue: string, extra?: Record<string, string>): AwardCandidate => ({
     player_id: p.player_id,
     name: p.name,
@@ -151,62 +160,9 @@ export async function GET(
 
   const awards: AwardEntry[] = []
 
-  // ── MVP ────────
-  // 종합 공식 = (기본 스탯 + 효율성 + 클러치 + 팀승률 보너스) × 참여도 배수
-  //
-  // 1) 기본 (5스탯):
-  //      PPG × 1.1 + RPG + APG + (SPG + BPG) × 1.5 − TOPG × 0.5
-  // 2) 효율성 보너스: (eFG% − 40) × 0.3
-  //      · 45% eFG → +1.5 · 55% → +4.5 · 35% → −1.5
-  // 3) 클러치 보너스: clutchPts × 0.1
-  //      · 클러치 20점 → +2 · 40점 → +4
-  // 4) 팀 승률 보너스: (winRate − 0.5) × 15
-  //      · 0.500 → 0 · 0.700 → +3 · 0.400 → −1.5
-  // 5) 참여도 배수: 0.75 + 0.25 × (gp / totalRounds)
-  //      · 60% 참석 → ×0.90 · 100% 참석 → ×1.00
-  {
-    const cands = eligible.map(p => {
-      const base = p.ppg * 1.1
-                 + p.rpg
-                 + p.apg
-                 + (p.spg + p.bpg) * 1.5
-                 - p.topg * 0.5
-      const efficiencyBonus = (p.efg_pct - 40) * 0.3
-      const clutchPts = clutchMap.get(p.player_id)?.clutch.pts ?? 0
-      const clutchBonus = clutchPts * 0.1
-      const teamRec = teamWinRateByPlayer.get(p.player_id)
-      const winRate = teamRec?.rate ?? 0
-      const winBonus = winRate > 0 ? (winRate - 0.5) * 15 : 0
-      const participationRate = totalRounds > 0 ? Math.min(1, p.gp / totalRounds) : 1
-      const attendanceMult = 0.75 + 0.25 * participationRate
-
-      const raw = base + efficiencyBonus + clutchBonus + winBonus
-      const mvp = raw * attendanceMult
-
-      const supporting: Record<string, string> = {
-        PPG: p.ppg.toFixed(1),
-        RPG: p.rpg.toFixed(1),
-        APG: p.apg.toFixed(1),
-        SPG: p.spg.toFixed(1),
-        BPG: p.bpg.toFixed(1),
-        'eFG%': `${p.efg_pct.toFixed(1)}%`,
-      }
-      if (teamRec) supporting['팀 승률'] = `${(winRate * 100).toFixed(1)}% (${teamRec.wins}W-${teamRec.losses}L)`
-      if (clutchPts > 0) supporting['클러치'] = `${clutchPts} PTS`
-      supporting['참석률'] = `${(participationRate * 100).toFixed(0)}% (${p.gp}/${totalRounds}R)`
-
-      return toCandidate(p, +mvp.toFixed(2), `${mvp.toFixed(1)} MVP`, supporting)
-    })
-    const { winner, runners, allCandidates } = rankByValue(cands)
-    awards.push({
-      category: 'MVP',
-      label: 'MVP',
-      description: '종합 임팩트 · 5 스탯 + 효율 + 클러치 + 팀 승률 × 참여도',
-      metric: '가중 종합 점수',
-      minRequirement: attendanceReq,
-      winner, runners, allCandidates,
-    })
-  }
+  // ═══════════════════════════════════════════════════════
+  // 코어 8부문
+  // ═══════════════════════════════════════════════════════
 
   // ── SCORING (누적 득점) ────────
   // 순위 기준: 총 득점 (PTS)
@@ -229,6 +185,7 @@ export async function GET(
     const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'SCORING',
+      section: 'core',
       label: '득점왕',
       description: '시즌 누적 득점 최고 · 유형별 슛 기록 포함',
       metric: '누적 PTS',
@@ -238,8 +195,6 @@ export async function GET(
   }
 
   // ── REBOUND (누적 리바운드) ────────
-  // 순위 기준: 총 리바운드 (REB)
-  // 부가: RPG (평균) + 공격/수비 분해 (OR/DR) + 게임 수
   {
     const cands = eligible.map(p => toCandidate(p, p.reb, `${p.reb} REB`, {
       RPG: p.rpg.toFixed(1),
@@ -250,6 +205,7 @@ export async function GET(
     const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'REBOUND',
+      section: 'core',
       label: '리바운드왕',
       description: '시즌 누적 리바운드 최고 · 공격/수비 분해 포함',
       metric: '누적 REB',
@@ -259,8 +215,6 @@ export async function GET(
   }
 
   // ── ASSIST (누적 어시스트) ────────
-  // 순위 기준: 총 어시스트 (AST)
-  // 부가: APG (평균) + TOV + A/T ratio
   {
     const cands = eligible.map(p => {
       const atRatio = p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : p.ast
@@ -274,6 +228,7 @@ export async function GET(
     const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'ASSIST',
+      section: 'core',
       label: '어시스트왕',
       description: '시즌 누적 어시스트 최고',
       metric: '누적 AST',
@@ -283,9 +238,7 @@ export async function GET(
   }
 
   // ── DPOY ────────
-  // 가중 공식: STL 35% + BLK 35% + DREB 30%
-  // 각 스탯을 리그 max 로 정규화 후 가중합 → 0-100 점수
-  // (raw 합산은 stat 별 스케일 차이 때문에 리바운드가 지배함)
+  // STL 35% + BLK 35% + DREB 30% 정규화 가중합 (0-100)
   {
     const maxSpg  = Math.max(0.001, ...eligible.map(p => p.spg))
     const maxBpg  = Math.max(0.001, ...eligible.map(p => p.bpg))
@@ -307,6 +260,7 @@ export async function GET(
     const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'DPOY',
+      section: 'core',
       label: 'DPOY',
       description: '최고의 수비수 · STL 35% + BLK 35% + DREB 30% 가중',
       metric: '가중 수비 점수 (0-100)',
@@ -315,7 +269,7 @@ export async function GET(
     })
   }
 
-  // ── THREE (3P%) — 시도 없는 선수는 값 0 이 됨. 시도가 있는 경우만 후보 ────────
+  // ── THREE (3P%) — 시도 있는 경우만 후보 ────────
   {
     const cands = eligible.filter(p => p.fg3a > 0).map(p =>
       toCandidate(p, p.fg3_pct, `${p.fg3_pct.toFixed(1)}%`, {
@@ -325,6 +279,7 @@ export async function GET(
     const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'THREE',
+      section: 'core',
       label: '3점왕',
       description: '3점 야투 성공률 최고',
       metric: '3P%',
@@ -344,6 +299,7 @@ export async function GET(
     const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'EFFICIENCY',
+      section: 'core',
       label: '효율왕',
       description: '유효 야투율 최고 (3점 가중)',
       metric: 'eFG%',
@@ -353,8 +309,6 @@ export async function GET(
   }
 
   // ── CLUTCH ────────
-  // 누적 득점 기준 (평균은 표본이 작아서 숫자가 왜곡됨)
-  // 야투 시도·성공 + 공격유형(골밑/레이업/미들/3점) 상세 표시
   {
     const cands: AwardCandidate[] = []
     for (const p of eligible) {
@@ -362,7 +316,6 @@ export async function GET(
       if (!cs || !cs.qualified) continue
       const c = cs.clutch
       const fgPct = c.fga > 0 ? +(c.fgm / c.fga * 100).toFixed(1) : 0
-      // 야투 유형별 made/attempted
       const shotTypeParts: string[] = []
       if (c.ds_a > 0) shotTypeParts.push(`골밑 ${c.ds_m}/${c.ds_a}`)
       if (c.lu_a > 0) shotTypeParts.push(`레이업 ${c.lu_m}/${c.lu_a}`)
@@ -379,6 +332,7 @@ export async function GET(
     const { winner, runners, allCandidates } = rankByValue(cands)
     awards.push({
       category: 'CLUTCH',
+      section: 'core',
       label: 'Clutch POY',
       description: '결정타 슛 누적 득점 최고 · 마지막 2분 · 2포제션(6점) 접전에서 이 슛으로 1포제션(3점)으로 좁혀진 결정타',
       metric: '결정타 슛 누적 득점',
@@ -387,51 +341,8 @@ export async function GET(
     })
   }
 
-  // ── OREB_KING (공격 리바운드왕) ────────
-  // 순위 기준: 누적 공격 리바운드 (OREB)
-  {
-    const cands = eligible.map(p => toCandidate(p, p.oreb, `${p.oreb}개`, {
-      '경기당': `${p.orp.toFixed(1)}개`,
-      R: String(p.gp),
-      OREB: String(p.oreb),
-      DREB: String(p.dreb),
-    }))
-    const { winner, runners, allCandidates } = rankByValue(cands)
-    awards.push({
-      category: 'OREB_KING',
-      label: '공격 리바운드왕',
-      description: '공격 리바운드 최다',
-      metric: 'OREB (누적)',
-      minRequirement: attendanceReq,
-      winner, runners, allCandidates,
-    })
-  }
-
-  // ── MID_RANGE (미드레인지 마스터) ────────
-  // 순위 기준: 미드레인지 성공 (md_m) · 최소 5시도 이상
-  {
-    const cands = eligible.filter(p => p.md_a >= 5).map(p => {
-      const pct = p.md_a > 0 ? +(p.md_m / p.md_a * 100).toFixed(1) : 0
-      return toCandidate(p, p.md_m, `${p.md_m}개`, {
-        '시도': `${p.md_a}회`,
-        '야투율': `${pct.toFixed(1)}%`,
-        R: String(p.gp),
-      })
-    })
-    const { winner, runners, allCandidates } = rankByValue(cands)
-    awards.push({
-      category: 'MID_RANGE',
-      label: '미드레인지 마스터',
-      description: '미드레인지 슛 성공 최다 · 정확도 병기',
-      metric: '미드 성공 (야투율)',
-      minRequirement: `${attendanceReq} · 미드 5시도 이상`,
-      winner, runners, allCandidates,
-    })
-  }
-
   // ── IRON_MAN (개근왕) ────────
-  // 순위 기준: 참여 라운드 수 (gp) · 60% 자격 요건 없이 gp>=1 인 모두 (게스트 제외)
-  // 다중 팀 참여자의 슬롯(game) 카운트는 별도 소스가 필요해 라운드 기준으로 단순화.
+  //   자격 요건 완화: gp>=1 인 모두 (게스트 제외) — 특성상 attendanceReq 대신 참여 최다
   {
     const ironCands = players
       .filter(p => p.gp >= 1 && !guestIds.has(p.player_id))
@@ -444,7 +355,8 @@ export async function GET(
     const { winner, runners, allCandidates } = rankByValue(ironCands)
     awards.push({
       category: 'IRON_MAN',
-      label: '개근왕',
+      section: 'core',
+      label: '철강왕',
       description: '참여 라운드 최다 · 모든 등록 선수 대상',
       metric: '참여 R',
       minRequirement: '누구나 · 게스트 제외',
@@ -452,75 +364,152 @@ export async function GET(
     })
   }
 
-  // ── MIP: 분기별 성장률 ────────
+  // ═══════════════════════════════════════════════════════
+  // 특수 3부문
+  // ═══════════════════════════════════════════════════════
+
+  // ── OREB_KING (공격 리바운드왕) ────────
   {
-    const { data: quarters } = await supabase
-      .from('league_quarters')
-      .select('id, year, quarter')
-      .eq('league_id', leagueId)
-      .order('year', { ascending: true })
-      .order('quarter', { ascending: true })
-    const qList = (quarters ?? []) as Array<{ id: string; year: number; quarter: number }>
+    const cands = eligible.map(p => toCandidate(p, p.oreb, `${p.oreb}개`, {
+      '경기당': `${p.orp.toFixed(1)}개`,
+      R: String(p.gp),
+      OREB: String(p.oreb),
+      DREB: String(p.dreb),
+    }))
+    const { winner, runners, allCandidates } = rankByValue(cands)
+    awards.push({
+      category: 'OREB_KING',
+      section: 'special',
+      label: '공격 리바운드왕',
+      description: '공격 리바운드 최다',
+      metric: 'OREB (누적)',
+      minRequirement: attendanceReq,
+      winner, runners, allCandidates,
+    })
+  }
 
-    // 대상 분기 결정:
-    //   quarterId 있으면 그 분기 (예: 3Q 뷰 → 3Q), 없으면 qList 중 최신
-    // 비교: (대상 분기) vs (바로 이전 분기)
-    // 3Q 뷰에서는 반드시 2Q vs 3Q 만 비교 — 3Q gp<3 라도 1Q·2Q 로 fallback 하지 않음
-    const targetIdx = quarterId
-      ? qList.findIndex(q => q.id === quarterId)
-      : qList.length - 1
-    const targetQ = targetIdx >= 0 ? qList[targetIdx] : null
-    const prevQ = targetIdx >= 1 ? qList[targetIdx - 1] : null
-
-    if (targetQ && prevQ) {
-      // 이전엔 origin 을 통한 self-fetch 2회. 여기선 computeLeagueStats 를 직접 호출 →
-      // HTTP 왕복 · 쿠키 파싱 · JSON round-trip 제거. 병렬은 그대로.
-      const [targetStats, prevStats] = await Promise.all([
-        computeLeagueStats(supabase, leagueId, { quarterId: targetQ.id, unit: 'round' }),
-        computeLeagueStats(supabase, leagueId, { quarterId: prevQ.id, unit: 'round' }),
-      ])
-
-      const targetByPid = new Map<string, PlayerStat>()
-      for (const p of (targetStats.players ?? []) as PlayerStat[]) targetByPid.set(p.player_id, p)
-      const prevByPid = new Map<string, PlayerStat>()
-      for (const p of (prevStats.players ?? []) as PlayerStat[]) prevByPid.set(p.player_id, p)
-
-      // 각 분기 최소 참여 요건 — 분기가 짧을 수 있으므로 gp>=2 로 완화 (통계적 유의성 유지)
-      const MIN_ROUNDS_PER_QUARTER = 2
-      const cands: AwardCandidate[] = []
-      for (const p of eligible) {
-        const target = targetByPid.get(p.player_id)
-        const prev = prevByPid.get(p.player_id)
-        if (!target || !prev) continue
-        if (target.gp < MIN_ROUNDS_PER_QUARTER || prev.gp < MIN_ROUNDS_PER_QUARTER) continue
-        const growth = +(target.ppg - prev.ppg).toFixed(2)
-        if (growth <= 0) continue
-        cands.push(toCandidate(p, growth, `+${growth.toFixed(1)} PPG`, {
-          [`${prevQ.quarter}Q`]: `${prev.ppg.toFixed(1)} PPG (${prev.gp}R)`,
-          [`${targetQ.quarter}Q`]: `${target.ppg.toFixed(1)} PPG (${target.gp}R)`,
-        }))
-      }
-      const { winner, runners, allCandidates } = rankByValue(cands)
-      awards.push({
-        category: 'MIP',
-        label: '기량 발전상',
-        description: `분기별 성장률 · ${prevQ.quarter}Q vs ${targetQ.quarter}Q PPG 상승`,
-        metric: 'PPG 증가폭',
-        minRequirement: `${attendanceReq} · ${prevQ.quarter}Q·${targetQ.quarter}Q 각 ${MIN_ROUNDS_PER_QUARTER}R 이상 참여`,
-        winner, runners, allCandidates,
+  // ── MID_RANGE (미드레인지 마스터) ────────
+  {
+    const cands = eligible.filter(p => p.md_a >= 5).map(p => {
+      const pct = p.md_a > 0 ? +(p.md_m / p.md_a * 100).toFixed(1) : 0
+      return toCandidate(p, p.md_m, `${p.md_m}개`, {
+        '시도': `${p.md_a}회`,
+        '야투율': `${pct.toFixed(1)}%`,
+        R: String(p.gp),
       })
-    } else {
-      awards.push({
-        category: 'MIP',
-        label: '기량 발전상',
-        description: targetQ && !prevQ
-          ? `${targetQ.quarter}Q — 이전 분기 데이터가 없어 비교 불가`
-          : '분기별 성장률 (분기 2개 이상 필요)',
-        metric: 'PPG 증가폭',
-        minRequirement: attendanceReq,
-        winner: null, runners: [], allCandidates: [],
+    })
+    const { winner, runners, allCandidates } = rankByValue(cands)
+    awards.push({
+      category: 'MID_RANGE',
+      section: 'special',
+      label: '미드레인지 마스터',
+      description: '미드레인지 슛 성공 최다 · 정확도 병기',
+      metric: '미드 성공 (야투율)',
+      minRequirement: `${attendanceReq} · 미드 5시도 이상`,
+      winner, runners, allCandidates,
+    })
+  }
+
+  // ── BEST_DUO (최고의 듀오) ────────
+  //   정의: 두 선수 (A, B) 의 상호 어시스트로 만든 합작 득점
+  //         duo_pts = SUM(points)  WHERE (scorer, assister) ∈ {(A,B), (B,A)}
+  //         pair 는 순서 무관 — LEAST/GREATEST 로 정규화
+  //   요건: 두 선수 모두 attendance 자격 충족 (게스트 제외)
+  //   범위: 시즌·해당 분기의 real 게임 (친선 제외) · FIELD SHOT 만 (자유투/and_one 제외)
+  {
+    // 페어별 합작 득점 · 이벤트 수 · scorer 별 분배
+    interface PairAcc {
+      pts: number
+      count: number
+      byScorer: Map<string, number>  // scorerPid → 그 선수가 넣은 점수 (파트너 어시스트 받음)
+    }
+    const pairMap = new Map<string, PairAcc>()
+
+    if (gameIds.length > 0) {
+      // 이벤트 페이지네이션 (클러치 스탯 방식과 동일)
+      const PAGE = 1000
+      for (let p = 0; ; p++) {
+        const { data: chunk } = await supabase
+          .from('league_game_events')
+          .select('league_player_id, related_player_id, points')
+          .in('league_game_id', gameIds)
+          .in('type', DUO_SHOT_TYPES)
+          .eq('result', 'made')
+          .not('league_player_id', 'is', null)
+          .not('related_player_id', 'is', null)
+          .gt('points', 0)
+          .order('id', { ascending: true })
+          .range(p * PAGE, (p + 1) * PAGE - 1)
+        if (!chunk || chunk.length === 0) break
+        for (const e of chunk as Array<{ league_player_id: string; related_player_id: string; points: number }>) {
+          const scorer = e.league_player_id
+          const assister = e.related_player_id
+          if (!scorer || !assister || scorer === assister) continue
+          const key = scorer < assister ? `${scorer}|${assister}` : `${assister}|${scorer}`
+          let acc = pairMap.get(key)
+          if (!acc) {
+            acc = { pts: 0, count: 0, byScorer: new Map() }
+            pairMap.set(key, acc)
+          }
+          acc.pts += e.points
+          acc.count += 1
+          acc.byScorer.set(scorer, (acc.byScorer.get(scorer) ?? 0) + e.points)
+        }
+        if (chunk.length < PAGE) break
+      }
+    }
+
+    // 자격자 조합만 필터 (양쪽 모두 eligible)
+    const eligibleMap = new Map<string, PlayerStat>()
+    for (const p of eligible) eligibleMap.set(p.player_id, p)
+
+    const duoCands: AwardCandidate[] = []
+    for (const [key, acc] of pairMap) {
+      const [pidA, pidB] = key.split('|')
+      const a = eligibleMap.get(pidA)
+      const b = eligibleMap.get(pidB)
+      if (!a || !b) continue
+
+      // 이름 알파벳순 대신 duo_pts 기여도 큰 쪽을 primary 로 (winner 카드에 anchor)
+      const ptsA = acc.byScorer.get(pidA) ?? 0
+      const ptsB = acc.byScorer.get(pidB) ?? 0
+      const primary = ptsA >= ptsB ? a : b
+      const partner = ptsA >= ptsB ? b : a
+      const primaryPts = ptsA >= ptsB ? ptsA : ptsB
+      const partnerPts = ptsA >= ptsB ? ptsB : ptsA
+
+      duoCands.push({
+        player_id: primary.player_id,
+        name: primary.name,
+        number: primary.number,
+        position: primary.position,
+        photo_url: photoMap.get(primary.player_id) ?? null,
+        value: acc.pts,
+        displayValue: `${acc.pts}점 합작`,
+        gp: primary.gp,
+        supportingStats: {
+          '이벤트': `${acc.count}회`,
+          '득점 분포': `${primary.name} ${primaryPts}점 · ${partner.name} ${partnerPts}점`,
+        },
+        partner: {
+          player_id: partner.player_id,
+          name: partner.name,
+          number: partner.number,
+          photo_url: photoMap.get(partner.player_id) ?? null,
+        },
       })
     }
+
+    const { winner, runners, allCandidates } = rankByValue(duoCands)
+    awards.push({
+      category: 'BEST_DUO',
+      section: 'special',
+      label: '최고의 듀오',
+      description: '두 선수의 상호 어시스트로 만든 합작 득점 최고',
+      metric: '합작 득점 (양방향 어시스트)',
+      minRequirement: `${attendanceReq} · 두 선수 모두 충족`,
+      winner, runners, allCandidates,
+    })
   }
 
   return NextResponse.json({ awards, attendance })

@@ -1,10 +1,17 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Flame, Zap, Crosshair, Trophy, Shield, Layers, CalendarCheck, Medal } from 'lucide-react'
+import { Flame, Zap, Crosshair, Trophy, Layers, CalendarCheck } from 'lucide-react'
 
 // 카드 클릭 시에만 열리는 모달 — 초기 번들에서 분리 (recharts 4종 포함)
 const PlayerQuickViewModal = dynamic(() => import('./PlayerQuickViewModal'), { ssr: false })
+
+/**
+ * 표시 대상 5개 카테고리.
+ * - API는 `pts10/pts20/tp1/dd/wins/stlblk3` 를 반환하지만 UI는 그중 4개(`pts10/tp1/dd/stlblk3`)만 사용.
+ * - `attendance` 는 별도 배열에서 current_streak >= 2 필터링.
+ */
+type FilterKey = 'pts10' | 'attendance' | 'tp1' | 'dd' | 'stlblk3'
 
 type StreakCategory = 'pts10' | 'pts20' | 'tp1' | 'dd' | 'wins' | 'stlblk3'
 
@@ -26,46 +33,76 @@ interface AttendanceEntry {
 
 interface StreakData {
   streaks: StreakEntry[]
-  /** optional: 하위호환 — 예전 응답엔 없을 수 있음 */
   attendance?: AttendanceEntry[]
 }
 
 interface Props {
   leagueId: string
+  /** 필터별 노출 개수 (기본 5) */
   maxEntries?: number
-  /** SSR 프리페치 결과 — 있으면 초기 fetch skip (홈 waterfall 제거용) */
+  /** SSR 프리페치 결과 — 있으면 초기 fetch skip */
   initialData?: StreakData
 }
 
-const CATEGORY_DEFS: Record<StreakCategory, {
+const FILTER_DEFS: Record<FilterKey, {
   label: string
+  shortLabel: string
   Icon: typeof Flame
   suffix: string
 }> = {
-  pts10:   { label: '두 자릿수 득점',  Icon: Trophy,    suffix: '경기' },
-  pts20:   { label: '20+ 득점',        Icon: Flame,     suffix: '경기' },
-  tp1:     { label: '3점 성공',         Icon: Crosshair, suffix: '경기' },
-  dd:      { label: '더블더블',         Icon: Layers,    suffix: '경기' },
-  wins:    { label: '승리 연속',        Icon: Shield,    suffix: '경기' },
-  stlblk3: { label: 'STL+BLK 3+',      Icon: Zap,       suffix: '경기' },
+  pts10:      { label: '두자릿수 득점',     shortLabel: '두자릿수',    Icon: Trophy,         suffix: '경기 연속' },
+  attendance: { label: '연속 출장 기록',    shortLabel: '연속 출장',   Icon: CalendarCheck,  suffix: '라운드 연속' },
+  tp1:        { label: '3점 성공 경기',     shortLabel: '3점 성공',    Icon: Crosshair,      suffix: '경기 연속' },
+  dd:         { label: '더블더블',           shortLabel: '더블더블',    Icon: Layers,         suffix: '경기 연속' },
+  stlblk3:    { label: '스틸+블락 3개 이상', shortLabel: 'STL+BLK 3+', Icon: Zap,            suffix: '경기 연속' },
 }
 
-function heat(count: number): { flames: number; intensity: string } {
-  if (count >= 7) return { flames: 3, intensity: '초열' }
-  if (count >= 5) return { flames: 2, intensity: '핫' }
-  if (count >= 3) return { flames: 1, intensity: '진행' }
-  return { flames: 0, intensity: '시작' }
+const FILTER_ORDER: FilterKey[] = ['pts10', 'attendance', 'tp1', 'dd', 'stlblk3']
+
+/**
+ * 선택된 필터의 Top N 리스트를 표준 shape 로 변환.
+ * attendance 는 별도 배열에서 current_streak 기준, 나머지는 streaks 배열에서 category 필터.
+ */
+interface DisplayRow {
+  player_id: string
+  name: string
+  number: number | null
+  count: number
 }
 
-export default function StreakSpotlight({ leagueId, maxEntries = 8, initialData }: Props) {
+function pickRows(filter: FilterKey, streaks: StreakEntry[], attendance: AttendanceEntry[], max: number): DisplayRow[] {
+  if (filter === 'attendance') {
+    return attendance
+      .filter(a => a.current_streak >= 2)
+      .slice(0, max)
+      .map(a => ({
+        player_id: a.player_id,
+        name: a.name,
+        number: a.number,
+        count: a.current_streak,
+      }))
+  }
+  return streaks
+    .filter(s => s.category === filter)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, max)
+    .map(s => ({
+      player_id: s.player_id,
+      name: s.name,
+      number: s.number,
+      count: s.count,
+    }))
+}
+
+export default function StreakSpotlight({ leagueId, maxEntries = 5, initialData }: Props) {
   const hasInitial = !!initialData
   const [streaks, setStreaks] = useState<StreakEntry[]>(initialData?.streaks ?? [])
   const [attendance, setAttendance] = useState<AttendanceEntry[]>(initialData?.attendance ?? [])
   const [loading, setLoading] = useState(!hasInitial)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('pts10')
 
   useEffect(() => {
-    // initial 데이터가 있으면 mount 시 fetch skip — 서버 렌더 결과 그대로 사용
     if (hasInitial) return
     setLoading(true)
     fetch(`/api/leagues/${leagueId}/streaks?minStreak=2`)
@@ -78,6 +115,26 @@ export default function StreakSpotlight({ leagueId, maxEntries = 8, initialData 
       .catch(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId])
+
+  // 필터별 총 건수 미리 계산 (chip 옆 개수 배지용)
+  const counts = useMemo<Record<FilterKey, number>>(() => {
+    const streakByCat = new Map<StreakCategory, number>()
+    for (const s of streaks) {
+      streakByCat.set(s.category, (streakByCat.get(s.category) ?? 0) + 1)
+    }
+    return {
+      pts10: streakByCat.get('pts10') ?? 0,
+      tp1: streakByCat.get('tp1') ?? 0,
+      dd: streakByCat.get('dd') ?? 0,
+      stlblk3: streakByCat.get('stlblk3') ?? 0,
+      attendance: attendance.filter(a => a.current_streak >= 2).length,
+    }
+  }, [streaks, attendance])
+
+  const rows = useMemo(
+    () => pickRows(activeFilter, streaks, attendance, maxEntries),
+    [activeFilter, streaks, attendance, maxEntries],
+  )
 
   if (loading) {
     return (
@@ -94,15 +151,8 @@ export default function StreakSpotlight({ leagueId, maxEntries = 8, initialData 
     )
   }
 
-  const displayed = streaks.slice(0, maxEntries)
-  // 참여 스트릭: current_streak >= 2 상위 5명 · 최장 개근 1명 별도 배너
-  const attendanceCurrent = attendance.filter(a => a.current_streak >= 2).slice(0, 5)
-  const attendanceLongest = attendance.length > 0
-    ? [...attendance].sort((a, b) => b.longest_streak - a.longest_streak)[0]
-    : null
-  const showAttendance = attendanceCurrent.length > 0 || (attendanceLongest?.longest_streak ?? 0) >= 2
-
-  if (displayed.length === 0 && !showAttendance) return null
+  const totalAll = FILTER_ORDER.reduce((sum, k) => sum + counts[k], 0)
+  const activeDef = FILTER_DEFS[activeFilter]
 
   return (
     <>
@@ -131,321 +181,207 @@ export default function StreakSpotlight({ leagueId, maxEntries = 8, initialData 
             className="text-[12px] uppercase font-bold tabular-nums"
             style={{ color: 'var(--mm-muted)', letterSpacing: '0.18em' }}
           >
-            {displayed.length > 0
-              ? `${streaks.length}건 · TOP ${displayed.length}`
-              : '진행 중 스트릭 없음'}
+            {totalAll > 0 ? `${totalAll}건` : '기록 없음'}
           </span>
         </header>
 
-        {/* 스트릭 리스트 */}
-        <div className="p-2">
-          {displayed.map((s, i) => {
-            const def = CATEGORY_DEFS[s.category]
-            const h = heat(s.count)
-            const isTop = i === 0
+        {/* 필터 chip 5개 — 가로 스크롤 (모바일) / 자연 wrap (데스크톱) */}
+        <div
+          className="px-3 lg:px-4 py-3 flex gap-2 overflow-x-auto lg:flex-wrap"
+          style={{ borderBottom: '1px solid var(--mm-rule)', scrollbarWidth: 'thin' }}
+          role="tablist"
+          aria-label="스트릭 지표 필터"
+        >
+          {FILTER_ORDER.map(key => {
+            const def = FILTER_DEFS[key]
+            const isActive = activeFilter === key
+            const count = counts[key]
             return (
               <button
-                key={`${s.player_id}-${s.category}`}
-                onClick={() => setQuickPlayer({ id: s.player_id, name: s.name })}
-                className="w-full flex items-center gap-3 lg:gap-4 text-left cursor-pointer group transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                key={key}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveFilter(key)}
+                className="shrink-0 inline-flex items-center gap-1.5 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 font-bold uppercase"
                 style={{
-                  padding: isTop ? '14px 16px' : '12px 16px',
-                  background: isTop ? 'var(--mm-yellow)' : 'transparent',
-                  color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
-                  borderLeft: `4px solid ${isTop ? 'var(--mm-black)' : 'transparent'}`,
+                  minHeight: 44,
+                  padding: '8px 12px',
+                  background: isActive ? 'var(--mm-black)' : 'var(--mm-panel-alt)',
+                  color: isActive ? 'var(--mm-yellow)' : 'var(--mm-ink)',
+                  border: `1px solid ${isActive ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+                  fontSize: '11px',
+                  letterSpacing: '0.14em',
                 }}
                 onMouseEnter={(e) => {
-                  if (!isTop) {
-                    e.currentTarget.style.background = 'var(--mm-panel-alt)'
-                    e.currentTarget.style.borderLeftColor = 'var(--mm-yellow)'
+                  if (!isActive) {
+                    e.currentTarget.style.borderColor = 'var(--mm-yellow)'
                   }
                 }}
                 onMouseLeave={(e) => {
-                  if (!isTop) {
-                    e.currentTarget.style.background = 'transparent'
-                    e.currentTarget.style.borderLeftColor = 'transparent'
+                  if (!isActive) {
+                    e.currentTarget.style.borderColor = 'var(--mm-rule)'
                   }
                 }}
               >
-                {/* Rank */}
+                <def.Icon size={14} aria-hidden />
+                <span>{def.shortLabel}</span>
                 <span
-                  className="font-jersey font-black tabular-nums leading-none shrink-0"
+                  className="tabular-nums"
                   style={{
-                    color: isTop ? 'var(--mm-black)' : 'var(--mm-muted)',
-                    width: isTop ? '28px' : '24px',
-                    textAlign: 'right',
-                    fontSize: isTop ? '28px' : '22px',
+                    marginLeft: 2,
+                    padding: '1px 6px',
+                    fontSize: '10px',
+                    background: isActive ? 'var(--mm-yellow)' : 'var(--mm-panel)',
+                    color: isActive ? 'var(--mm-black)' : 'var(--mm-muted)',
+                    border: `1px solid ${isActive ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
+                    letterSpacing: '0',
                   }}
+                  aria-label={`${def.label} ${count}건`}
                 >
-                  {i + 1}
+                  {count}
                 </span>
-
-                {/* Icon */}
-                <span
-                  className="flex items-center justify-center shrink-0"
-                  style={{
-                    width: isTop ? '40px' : '36px',
-                    height: isTop ? '40px' : '36px',
-                    background: isTop ? 'var(--mm-black)' : 'var(--mm-panel)',
-                    border: `1px solid ${isTop ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
-                  }}
-                >
-                  <def.Icon
-                    size={isTop ? 18 : 16}
-                    style={{ color: isTop ? 'var(--mm-yellow)' : 'var(--mm-ink)' }}
-                  />
-                </span>
-
-                {/* Player + Category */}
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="font-jersey font-black uppercase break-keep"
-                    style={{
-                      color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
-                      fontSize: isTop ? 'clamp(17px, 4.6vw, 20px)' : 'clamp(15px, 4vw, 18px)',
-                      letterSpacing: '-0.005em',
-                      lineHeight: 1.15,
-                      wordBreak: 'break-word',
-                      overflowWrap: 'anywhere',
-                    }}
-                  >
-                    {s.name}
-                    {s.number != null && (
-                      <span
-                        className="ml-2 font-bold tabular-nums"
-                        style={{
-                          color: isTop ? 'rgba(0,0,0,0.55)' : 'var(--mm-muted)',
-                          fontSize: '12px',
-                        }}
-                      >
-                        #{s.number}
-                      </span>
-                    )}
-                  </p>
-                  <p
-                    className="font-bold uppercase mt-1.5 break-keep"
-                    style={{
-                      color: isTop ? 'rgba(0,0,0,0.65)' : 'var(--mm-muted)',
-                      fontSize: '11px',
-                      letterSpacing: '0.14em',
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {def.label}
-                  </p>
-                </div>
-
-                {/* Count */}
-                <div className="text-right shrink-0 flex items-baseline gap-2">
-                  <span
-                    className="font-jersey font-black tabular-nums leading-none"
-                    style={{
-                      color: isTop
-                        ? 'var(--mm-black)'
-                        : 'var(--mm-yellow-strong)',
-                      fontSize: isTop ? '36px' : '30px',
-                      letterSpacing: '-0.015em',
-                    }}
-                  >
-                    {s.count}
-                  </span>
-                  <span
-                    className="font-bold uppercase"
-                    style={{
-                      color: isTop ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)',
-                      fontSize: '11px',
-                      letterSpacing: '0.16em',
-                    }}
-                  >
-                    {def.suffix}
-                  </span>
-                  {h.flames > 0 && (
-                    <span
-                      className="inline-flex items-center ml-1"
-                      aria-hidden
-                      style={{
-                        color: isTop ? 'var(--mm-black)' : 'var(--mm-yellow-strong)',
-                      }}
-                    >
-                      {Array.from({ length: h.flames }).map((_, idx) => (
-                        <Flame key={idx} size={12} strokeWidth={2} />
-                      ))}
-                    </span>
-                  )}
-                </div>
               </button>
             )
           })}
         </div>
 
-        {/* 참여 스트릭 — 연속 참여(진행 중) + 최장 개근(별도 배너) */}
-        {showAttendance && (
-          <div
-            className="px-5 lg:px-6 py-4 lg:py-5"
-            style={{ borderTop: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
-          >
-            <div className="flex items-baseline justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <CalendarCheck size={16} style={{ color: 'var(--mm-ink)' }} aria-hidden />
-                <h4
-                  className="font-jersey font-black uppercase"
-                  style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '0.02em' }}
-                >
-                  참여 스트릭
-                </h4>
-              </div>
-              <span
-                className="text-[10px] uppercase font-bold tabular-nums"
-                style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
+        {/* 선택된 필터의 Top N */}
+        <div className="p-2">
+          {rows.length === 0 ? (
+            <div
+              className="py-10 px-6 text-center"
+              style={{ color: 'var(--mm-muted)' }}
+            >
+              <activeDef.Icon size={28} className="mx-auto mb-3" style={{ color: 'var(--mm-muted)', opacity: 0.6 }} aria-hidden />
+              <p
+                className="font-jersey font-black uppercase"
+                style={{ fontSize: '15px', letterSpacing: '0.02em', color: 'var(--mm-ink)' }}
               >
-                연속 · 최장 개근
-              </span>
+                {activeDef.label}
+              </p>
+              <p
+                className="mt-1.5 font-bold uppercase"
+                style={{ fontSize: '11px', letterSpacing: '0.14em' }}
+              >
+                아직 스트릭이 없어요
+              </p>
             </div>
-
-            {/* 최장 개근 배너 (전 시즌 통틀어 1위) */}
-            {attendanceLongest && attendanceLongest.longest_streak >= 2 && (
-              <button
-                onClick={() => setQuickPlayer({ id: attendanceLongest.player_id, name: attendanceLongest.name })}
-                className="w-full flex items-center gap-3 mb-3 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
-                style={{
-                  padding: '10px 12px',
-                  background: 'var(--mm-black)',
-                  border: '1px solid var(--mm-black)',
-                  minHeight: 44,
-                }}
-                aria-label={`최장 개근 ${attendanceLongest.name} ${attendanceLongest.longest_streak}라운드`}
-              >
-                <span
-                  className="flex items-center justify-center shrink-0"
-                  style={{ width: 32, height: 32, background: 'var(--mm-yellow)' }}
+          ) : (
+            rows.map((r, i) => {
+              const isTop = i === 0
+              return (
+                <button
+                  key={`${activeFilter}-${r.player_id}`}
+                  onClick={() => setQuickPlayer({ id: r.player_id, name: r.name })}
+                  className="w-full flex items-center gap-3 lg:gap-4 text-left cursor-pointer group transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                  style={{
+                    padding: isTop ? '14px 16px' : '12px 16px',
+                    background: isTop ? 'var(--mm-yellow)' : 'transparent',
+                    color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                    borderLeft: `4px solid ${isTop ? 'var(--mm-black)' : 'transparent'}`,
+                    minHeight: 44,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isTop) {
+                      e.currentTarget.style.background = 'var(--mm-panel-alt)'
+                      e.currentTarget.style.borderLeftColor = 'var(--mm-yellow)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isTop) {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.borderLeftColor = 'transparent'
+                    }
+                  }}
+                  aria-label={`${r.name} ${r.count}${activeDef.suffix}`}
                 >
-                  <Medal size={16} style={{ color: 'var(--mm-black)' }} aria-hidden />
-                </span>
-                <div className="flex-1 min-w-0 text-left">
-                  <p
-                    className="font-bold uppercase"
-                    style={{ color: 'var(--mm-yellow)', fontSize: '9px', letterSpacing: '0.20em' }}
-                  >
-                    최장 개근
-                  </p>
-                  <p
-                    className="font-jersey font-black uppercase break-keep"
+                  {/* Rank */}
+                  <span
+                    className="font-jersey font-black tabular-nums leading-none shrink-0"
                     style={{
-                      color: '#ffffff',
-                      fontSize: 'clamp(15px, 4vw, 17px)',
-                      letterSpacing: '-0.005em',
-                      lineHeight: 1.2,
+                      color: isTop ? 'var(--mm-black)' : 'var(--mm-muted)',
+                      width: isTop ? '28px' : '24px',
+                      textAlign: 'right',
+                      fontSize: isTop ? '28px' : '22px',
                     }}
                   >
-                    {attendanceLongest.name}
-                    {attendanceLongest.number != null && (
-                      <span
-                        className="ml-2 font-bold tabular-nums"
-                        style={{ color: 'rgba(255,255,255,0.55)', fontSize: '12px' }}
-                      >
-                        #{attendanceLongest.number}
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div className="text-right shrink-0 flex items-baseline gap-1.5">
-                  <span
-                    className="font-jersey font-black tabular-nums leading-none"
-                    style={{ color: 'var(--mm-yellow)', fontSize: '28px', letterSpacing: '-0.015em' }}
-                  >
-                    {attendanceLongest.longest_streak}
+                    {i + 1}
                   </span>
-                  <span
-                    className="font-bold uppercase"
-                    style={{ color: 'rgba(255,255,255,0.75)', fontSize: '10px', letterSpacing: '0.16em' }}
-                  >
-                    라운드
-                  </span>
-                </div>
-              </button>
-            )}
 
-            {/* 현재 진행 중 스트릭 리스트 */}
-            {attendanceCurrent.length > 0 ? (
-              <ul className="space-y-1">
-                {attendanceCurrent.map((a, i) => (
-                  <li key={a.player_id}>
-                    <button
-                      onClick={() => setQuickPlayer({ id: a.player_id, name: a.name })}
-                      className="w-full flex items-center gap-3 text-left cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                  {/* Icon */}
+                  <span
+                    className="flex items-center justify-center shrink-0"
+                    style={{
+                      width: isTop ? '40px' : '36px',
+                      height: isTop ? '40px' : '36px',
+                      background: isTop ? 'var(--mm-black)' : 'var(--mm-panel)',
+                      border: `1px solid ${isTop ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+                    }}
+                  >
+                    <activeDef.Icon
+                      size={isTop ? 18 : 16}
+                      style={{ color: isTop ? 'var(--mm-yellow)' : 'var(--mm-ink)' }}
+                      aria-hidden
+                    />
+                  </span>
+
+                  {/* Player + Suffix */}
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="font-jersey font-black uppercase break-keep"
                       style={{
-                        padding: '8px 10px',
-                        background: 'var(--mm-panel)',
-                        border: '1px solid var(--mm-rule)',
-                        minHeight: 44,
+                        color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                        fontSize: isTop ? 'clamp(17px, 4.6vw, 20px)' : 'clamp(15px, 4vw, 18px)',
+                        letterSpacing: '-0.005em',
+                        lineHeight: 1.15,
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere',
                       }}
-                      aria-label={`${a.name} 연속 참여 ${a.current_streak}라운드`}
                     >
-                      <span
-                        className="font-jersey font-black tabular-nums leading-none shrink-0"
-                        style={{ color: 'var(--mm-muted)', width: 20, textAlign: 'right', fontSize: '16px' }}
-                      >
-                        {i + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className="font-jersey font-black uppercase break-keep"
+                      {r.name}
+                      {r.number != null && (
+                        <span
+                          className="ml-2 font-bold tabular-nums"
                           style={{
-                            color: 'var(--mm-ink)',
-                            fontSize: 'clamp(13px, 3.6vw, 15px)',
-                            letterSpacing: '-0.005em',
-                            lineHeight: 1.2,
+                            color: isTop ? 'rgba(0,0,0,0.55)' : 'var(--mm-muted)',
+                            fontSize: '12px',
                           }}
                         >
-                          {a.name}
-                          {a.number != null && (
-                            <span
-                              className="ml-2 font-bold tabular-nums"
-                              style={{ color: 'var(--mm-muted)', fontSize: '11px' }}
-                            >
-                              #{a.number}
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0 flex items-baseline gap-1">
-                        <span
-                          className="font-jersey font-black tabular-nums leading-none"
-                          style={{ color: 'var(--mm-yellow-strong)', fontSize: '22px', letterSpacing: '-0.015em' }}
-                        >
-                          {a.current_streak}
+                          #{r.number}
                         </span>
-                        <span
-                          className="font-bold uppercase"
-                          style={{ color: 'var(--mm-muted)', fontSize: '10px', letterSpacing: '0.16em' }}
-                        >
-                          R
-                        </span>
-                        {a.longest_streak > a.current_streak && (
-                          <span
-                            className="ml-1.5 font-bold tabular-nums"
-                            style={{ color: 'var(--mm-muted)', fontSize: '10px', letterSpacing: '0.08em' }}
-                            aria-label={`역대 최장 ${a.longest_streak}라운드`}
-                            title={`역대 최장 ${a.longest_streak}R`}
-                          >
-                            (최장 {a.longest_streak})
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p
-                className="text-xs text-center py-2 font-bold uppercase"
-                style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}
-              >
-                진행 중 2R+ 연속 참여 없음
-              </p>
-            )}
-          </div>
-        )}
+                      )}
+                    </p>
+                    <p
+                      className="font-bold uppercase mt-1.5 break-keep"
+                      style={{
+                        color: isTop ? 'rgba(0,0,0,0.65)' : 'var(--mm-muted)',
+                        fontSize: '11px',
+                        letterSpacing: '0.14em',
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {r.count}{activeDef.suffix}
+                    </p>
+                  </div>
+
+                  {/* Count */}
+                  <div className="text-right shrink-0 flex items-baseline gap-2">
+                    <span
+                      className="font-jersey font-black tabular-nums leading-none"
+                      style={{
+                        color: isTop ? 'var(--mm-black)' : 'var(--mm-yellow-strong)',
+                        fontSize: isTop ? '36px' : '30px',
+                        letterSpacing: '-0.015em',
+                      }}
+                    >
+                      {r.count}
+                    </span>
+                  </div>
+                </button>
+              )
+            })
+          )}
+        </div>
       </section>
 
       {quickPlayer && (

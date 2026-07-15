@@ -6,7 +6,9 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { Trophy, Shield, Sparkles, Zap, Target, Crown, Flame, CheckCircle2 } from 'lucide-react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { Trophy, Shield, Sparkles, Zap, Target, Crown, Flame, CheckCircle2, ClipboardList, Film } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
@@ -32,6 +34,8 @@ interface Props {
   leagueId: string
   /** 특정 분기 필터 — 'all' 또는 null 이면 시즌 전체 */
   quarterId: string | null
+  /** 명시적 orgSlug — 없으면 useParams 로 조회 */
+  orgSlug?: string
 }
 
 // 카테고리별 accent — POTW/어워드 스타일과 겹치지 않는 순색.
@@ -62,7 +66,9 @@ function formatKoreanDate(dateStr: string): string {
   return `${mm}.${dd} (${days[d.getDay()]})`
 }
 
-export default function NbaSeasonHighs({ leagueId, quarterId }: Props) {
+export default function NbaSeasonHighs({ leagueId, quarterId, orgSlug }: Props) {
+  const params = useParams<{ orgSlug?: string; org?: string }>()
+  const resolvedOrgSlug = orgSlug ?? params?.orgSlug ?? params?.org ?? ''
   const [highs, setHighs] = useState<CategoryHigh[]>([])
   const [loading, setLoading] = useState(true)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
@@ -127,22 +133,25 @@ export default function NbaSeasonHighs({ leagueId, quarterId }: Props) {
           {ordered.map(h => {
             const style = CATEGORY_STYLE[h.category]
             const Icon = style.Icon
+            const base = `/league/${resolvedOrgSlug}/${leagueId}`
             return (
-              <button
+              <div
                 key={h.category}
-                type="button"
-                onClick={() => setQuickPlayer({ id: h.player.player_id, name: h.player.name })}
-                className="text-left transition-shadow duration-200 hover:shadow-[0_16px_48px_-8px_rgba(0,0,0,0.28)] cursor-pointer btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-2 group"
+                className="flex flex-col transition-shadow duration-200 hover:shadow-[0_16px_48px_-8px_rgba(0,0,0,0.28)]"
                 style={{
                   background: 'var(--mm-panel)',
                   border: '1px solid var(--mm-rule)',
                 }}
-                aria-label={`${style.unit} 시즌 커리어하이: ${h.player.name} ${h.value}${style.unit}, ${h.date}`}
               >
                 {/* 상단 컬러 스트라이프 (강조) */}
                 <div style={{ height: '5px', background: style.accent }} aria-hidden />
 
-                <div className="p-4 md:p-5">
+                <button
+                  type="button"
+                  onClick={() => setQuickPlayer({ id: h.player.player_id, name: h.player.name })}
+                  className="text-left cursor-pointer btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-2 group p-4 md:p-5 w-full"
+                  aria-label={`${style.unit} 시즌 커리어하이: ${h.player.name} ${h.value}${style.unit}, ${h.date} — 선수 상세 보기`}
+                >
                   {/* 카테고리 라벨 + 아이콘 */}
                   <div className="flex items-center gap-2 mb-3">
                     <div
@@ -259,8 +268,45 @@ export default function NbaSeasonHighs({ leagueId, quarterId }: Props) {
                       {formatKoreanDate(h.date)}
                     </span>
                   </div>
-                </div>
-              </button>
+                </button>
+
+                {/* 하단 액션 버튼 2개 · 박스스코어 · 하이라이트 (해당 경기 데이터가 있을 때만) */}
+                {h.date && resolvedOrgSlug && (
+                  <div
+                    className="mt-auto grid grid-cols-2 gap-2 px-4 md:px-5 pb-4 md:pb-5 pt-3"
+                    style={{ borderTop: '1px dashed var(--mm-rule)' }}
+                  >
+                    <Link
+                      href={`${base}/boxscore/${h.date}`}
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                      style={{
+                        background: 'var(--mm-panel-alt)',
+                        color: 'var(--mm-ink)',
+                        border: '1px solid var(--mm-rule)',
+                        borderRadius: '4px',
+                      }}
+                      aria-label={`${formatKoreanDate(h.date)} 박스스코어 보기`}
+                    >
+                      <ClipboardList size={13} aria-hidden />
+                      박스스코어
+                    </Link>
+                    <Link
+                      href={`${base}/highlights/${h.date}?player=${h.player.player_id}`}
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                      style={{
+                        background: 'var(--mm-yellow)',
+                        color: 'var(--mm-black)',
+                        border: '1px solid var(--mm-black)',
+                        borderRadius: '4px',
+                      }}
+                      aria-label={`${h.player.name} ${formatKoreanDate(h.date)} 하이라이트 재생`}
+                    >
+                      <Film size={13} aria-hidden />
+                      하이라이트
+                    </Link>
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>

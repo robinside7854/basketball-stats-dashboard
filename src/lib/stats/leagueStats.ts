@@ -59,7 +59,7 @@ export async function computeLeagueStats(
   // 1) 선수 메타 + plus_one 플래그
   const { data: allLeaguePlayers } = await sb
     .from('league_players')
-    .select('id, name, number, position, plus_one')
+    .select('id, name, number, position, plus_one, photo_url')
     .eq('league_id', leagueId)
 
   const plusOneSet = new Set((allLeaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
@@ -301,6 +301,7 @@ export async function computeLeagueStats(
         name:     ((meta as Record<string,unknown>).name as string) ?? '알 수 없음',
         number:   ((meta as Record<string,unknown>).number as number | null) ?? null,
         position: ((meta as Record<string,unknown>).position as string | null) ?? null,
+        photo_url: ((meta as Record<string,unknown>).photo_url as string | null) ?? null,
         ppg:  s.gp > 0 ? +(s.pts  / s.gp).toFixed(1) : 0,
         rpg:  s.gp > 0 ? +(s.reb  / s.gp).toFixed(1) : 0,
         orp:  s.gp > 0 ? +(s.oreb / s.gp).toFixed(1) : 0,

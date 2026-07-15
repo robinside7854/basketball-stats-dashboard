@@ -8,7 +8,7 @@
 
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ClipboardList, Film } from 'lucide-react'
+import { ClipboardList, Film, ArrowRight } from 'lucide-react'
 
 export type RoundTeamSummary = {
   key: string
@@ -72,7 +72,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
           </span>
         </header>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 sm:p-6 md:p-8 lg:p-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 px-4 sm:px-6 md:px-8 lg:px-10 pt-4 sm:pt-6 md:pt-8 lg:pt-10 pb-0">
           {rounds.map(r => {
             const topTeam = r.teams[0]
             const base = `/league/${resolvedOrgSlug}/${leagueId}`
@@ -204,6 +204,25 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
               </div>
             )
           })}
+        </div>
+
+        {/* 전체 라운드 하이라이트 CTA — 노랑 배경 · 검정 텍스트 */}
+        <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-5 md:py-6 flex justify-center">
+          <Link
+            href={`/league/${resolvedOrgSlug}/${leagueId}/highlights`}
+            className="mm-brand inline-flex items-center justify-center gap-2 font-jersey font-black uppercase min-h-[44px] px-6 sm:px-8 py-3 tracking-[0.14em] text-[13px] sm:text-[14px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-2 hover:brightness-95"
+            style={{
+              background: 'var(--mm-yellow)',
+              color: 'var(--mm-black)',
+              border: '2px solid var(--mm-black)',
+              borderRadius: '4px',
+              boxShadow: '0 4px 0 var(--mm-black)',
+            }}
+            aria-label="전체 라운드 하이라이트 보기"
+          >
+            전체 라운드 하이라이트 보기
+            <ArrowRight size={16} aria-hidden />
+          </Link>
         </div>
       </section>
     </>

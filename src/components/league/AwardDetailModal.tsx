@@ -17,6 +17,12 @@ export interface AwardCandidate {
   displayValue: string
   gp: number
   supportingStats?: Record<string, string>
+  // BEST_DUO 전용 — 파트너 선수 (있으면 A × B 형식으로 표시)
+  partner?: {
+    player_id: string
+    name: string
+    number: number | null
+  }
 }
 
 export interface AwardDetail {
@@ -129,7 +135,7 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
                   const isWinner = rank === 1
                   const rankColor = rank === 1 ? 'text-yellow-400' : rank === 2 ? 'text-gray-400' : rank === 3 ? 'text-orange-500' : 'text-gray-600'
                   return (
-                    <li key={c.player_id}>
+                    <li key={`${c.player_id}-${c.partner?.player_id ?? ''}-${idx}`}>
                     <button
                       onClick={() => setQuickPlayer({ id: c.player_id, name: c.name })}
                       className={`w-full text-left px-4 lg:px-5 py-3 lg:py-3.5 hover:bg-gray-800/40 transition-colors duration-200 cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset ${isWinner ? 'bg-gray-900/60' : ''}`}
@@ -141,14 +147,24 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
                           <span className={`text-base lg:text-lg font-black font-mono tabular-nums ${rankColor}`}>{rank}</span>
                         </div>
 
-                        {/* Player */}
+                        {/* Player (또는 듀오) */}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm lg:text-base font-bold text-white group-hover:underline underline-offset-2 truncate">
-                            {c.name}
-                            {c.number != null && <span className="ml-1.5 text-xs text-gray-500 font-mono">#{c.number}</span>}
-                            {c.position && <span className="ml-1.5 text-xs text-gray-600">{c.position}</span>}
+                            {c.partner ? (
+                              <>
+                                {c.name}
+                                <span className="mx-1.5 text-gray-500 font-normal">×</span>
+                                {c.partner.name}
+                              </>
+                            ) : (
+                              <>
+                                {c.name}
+                                {c.number != null && <span className="ml-1.5 text-xs text-gray-500 font-mono">#{c.number}</span>}
+                                {c.position && <span className="ml-1.5 text-xs text-gray-600">{c.position}</span>}
+                              </>
+                            )}
                           </p>
-                          <p className="text-xs text-gray-500">{c.gp}R 참여</p>
+                          <p className="text-xs text-gray-500">{c.partner ? '합작 듀오' : `${c.gp}R 참여`}</p>
                         </div>
 
                         {/* Value */}

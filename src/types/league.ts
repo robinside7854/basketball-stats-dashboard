@@ -95,6 +95,7 @@ export type PlayerStat = {
   name: string
   number: number | null
   position: string | null
+  photo_url?: string | null
   gp: number
   pts: number; ppg: number
   reb: number; rpg: number
