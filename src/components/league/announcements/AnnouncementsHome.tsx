@@ -5,7 +5,8 @@
 // - 상단 카드: 가장 최근/고정 공지 1건 + 추가 목록 접기(chevron)
 // - 미확인 뱃지: localStorage 마지막 열람 시간 대비 published_at 최신 개수
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Megaphone, ChevronDown, ChevronUp, Plus, Sparkles, Pencil, Trash2 } from 'lucide-react'
+import Link from 'next/link'
+import { Megaphone, ChevronDown, ChevronUp, Plus, Sparkles, Pencil, Trash2, Calendar, User, MessageCircle, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import AnnouncementReaderModal from './AnnouncementReaderModal'
@@ -15,9 +16,25 @@ import type { LeagueAnnouncement } from '@/lib/announcements/types'
 interface Props {
   leagueId: string
   initialAnnouncements: LeagueAnnouncement[]
+  orgSlug?: string   // 아카이브 링크용
 }
 
 const SEEN_KEY_PREFIX = 'league_announcements_last_seen_'
+const NEW_BADGE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000   // 게시 후 7일 이내 NEW 뱃지
+
+function isNew(iso: string): boolean {
+  const t = new Date(iso).getTime()
+  return !Number.isNaN(t) && (Date.now() - t) < NEW_BADGE_WINDOW_MS
+}
+
+function formatAbsolute(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const yy = String(d.getFullYear()).slice(2)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yy}.${mm}.${dd}`
+}
 
 function formatRelative(iso: string): string {
   const d = new Date(iso).getTime()
@@ -45,7 +62,7 @@ function summarize(md: string, maxLen = 140): string {
   return stripped.length > maxLen ? stripped.slice(0, maxLen) + '…' : stripped
 }
 
-export default function AnnouncementsHome({ leagueId, initialAnnouncements }: Props) {
+export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgSlug }: Props) {
   const { isEditMode, leagueHeaders, openPinModal } = useLeagueEditMode()
   const pin = leagueHeaders['X-League-Pin'] ?? ''
 
@@ -132,23 +149,23 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements }: Pr
 
   return (
     <section
-      className="mm-brand relative"
-      style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderBottom: 0 }}
+      className="mm-brand relative rounded-md overflow-hidden shadow-[0_10px_36px_-14px_rgba(202,138,4,0.35)]"
+      style={{ background: 'var(--mm-panel)', border: '2px solid var(--mm-yellow)' }}
       aria-label="리그 공지"
     >
       <header
         className="flex items-center justify-between gap-2 px-4 sm:px-6 md:px-10 py-3 sm:py-4"
-        style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
+        style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-yellow)' }}
       >
         <div className="inline-flex items-center gap-2 min-w-0">
-          <Megaphone size={16} className="text-[color:var(--mm-yellow-strong)] shrink-0" aria-hidden />
-          <h2 className="font-jersey font-black uppercase text-sm sm:text-base tracking-[0.14em]" style={{ color: 'var(--mm-ink)' }}>
+          <Megaphone size={18} className="text-[color:var(--mm-black)] shrink-0" aria-hidden />
+          <h2 className="font-jersey font-black uppercase text-base sm:text-lg tracking-[0.14em]" style={{ color: 'var(--mm-black)' }}>
             공지
           </h2>
           {unreadCount > 0 && (
             <span
               className="text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5 rounded-sm inline-flex items-center gap-1"
-              style={{ background: '#DC2626', color: 'white' }}
+              style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)' }}
               aria-label={`미확인 ${unreadCount}건`}
             >
               <Sparkles size={10} aria-hidden />
@@ -156,18 +173,31 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements }: Pr
             </span>
           )}
         </div>
-        {isEditMode && (
-          <button
-            type="button"
-            onClick={startCreate}
-            className="min-h-[36px] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors inline-flex items-center gap-1.5"
-            style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
-            aria-label="새 공지 작성"
-          >
-            <Plus size={12} aria-hidden />
-            새 공지
-          </button>
-        )}
+        <div className="inline-flex items-center gap-1.5">
+          {orgSlug && items.length > 0 && (
+            <Link
+              href={`/league/${orgSlug}/${leagueId}/archive/announcements`}
+              className="min-h-[36px] px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors inline-flex items-center gap-1"
+              style={{ background: 'transparent', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
+              aria-label="공지 전체 보기"
+            >
+              전체
+              <ChevronRight size={12} aria-hidden />
+            </Link>
+          )}
+          {isEditMode && (
+            <button
+              type="button"
+              onClick={startCreate}
+              className="min-h-[36px] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors inline-flex items-center gap-1.5"
+              style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)', border: '1px solid var(--mm-black)' }}
+              aria-label="새 공지 작성"
+            >
+              <Plus size={12} aria-hidden />
+              새 공지
+            </button>
+          )}
+        </div>
       </header>
 
       {items.length === 0 ? (
@@ -184,30 +214,48 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements }: Pr
                 onClick={() => openReader(featured)}
                 className="w-full text-left px-4 sm:px-6 md:px-10 py-4 sm:py-5 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:bg-[color:var(--mm-panel-alt)]"
               >
-                <div className="flex items-baseline justify-between gap-3 flex-wrap mb-1">
-                  <div className="inline-flex items-center gap-2 min-w-0">
-                    {featured.pinned && (
-                      <span className="text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5 rounded-sm shrink-0"
-                        style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)' }}>
-                        고정
-                      </span>
-                    )}
-                    <h3 className="text-base sm:text-lg font-black break-keep" style={{ color: 'var(--mm-ink)' }}>
-                      {featured.title}
-                    </h3>
-                  </div>
-                  <span className="text-[11px] shrink-0" style={{ color: 'var(--mm-muted)' }}>
-                    {formatRelative(featured.published_at)}
-                    {featured.created_by ? ` · ${featured.created_by}` : ''}
+                {/* 태그 스트립 · 고정 / NEW */}
+                <div className="inline-flex items-center gap-1.5 mb-2 flex-wrap">
+                  {featured.pinned && (
+                    <span className="text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5 rounded-sm"
+                      style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)' }}>
+                      고정
+                    </span>
+                  )}
+                  {isNew(featured.published_at) && (
+                    <span className="text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5 rounded-sm inline-flex items-center gap-0.5"
+                      style={{ background: '#DC2626', color: 'white' }}>
+                      <Sparkles size={9} aria-hidden />
+                      NEW
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-lg sm:text-xl font-black break-keep leading-tight" style={{ color: 'var(--mm-ink)' }}>
+                  {featured.title}
+                </h3>
+                {/* 작성자 · 작성일 · 강조 */}
+                <div className="flex items-center gap-3 mt-2 flex-wrap text-[13px]">
+                  {featured.created_by && (
+                    <span className="inline-flex items-center gap-1 font-black" style={{ color: 'var(--mm-ink)' }}>
+                      <User size={13} className="text-[color:var(--mm-yellow-strong)]" aria-hidden />
+                      {featured.created_by}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1 font-bold" style={{ color: 'var(--mm-ink-soft)' }}>
+                    <Calendar size={12} aria-hidden />
+                    {formatAbsolute(featured.published_at)}
+                    <span className="text-[11px] font-normal ml-1" style={{ color: 'var(--mm-muted)' }}>
+                      ({formatRelative(featured.published_at)})
+                    </span>
                   </span>
                 </div>
                 {featured.body_markdown.trim() && (
-                  <p className="text-sm mt-1.5 line-clamp-2" style={{ color: 'var(--mm-ink-soft)', lineHeight: 1.55 }}>
+                  <p className="text-sm mt-3 line-clamp-2" style={{ color: 'var(--mm-ink-soft)', lineHeight: 1.55 }}>
                     {summarize(featured.body_markdown)}
                   </p>
                 )}
                 <span
-                  className="inline-block mt-2 text-[11px] font-bold uppercase tracking-[0.14em]"
+                  className="inline-block mt-3 text-[11px] font-bold uppercase tracking-[0.14em]"
                   style={{ color: 'var(--mm-yellow-strong)' }}
                 >
                   자세히 보기 →
@@ -264,17 +312,26 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements }: Pr
                       <button
                         type="button"
                         onClick={() => openReader(a)}
-                        className="flex-1 text-left px-4 sm:px-6 md:px-10 py-3 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] flex items-baseline gap-3 min-h-[44px]"
+                        className="flex-1 text-left px-4 sm:px-6 md:px-10 py-3 cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] flex items-center gap-3 min-h-[52px]"
                       >
                         <span className="flex-1 min-w-0">
-                          <span className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>
+                          <span className="text-sm font-bold block" style={{ color: 'var(--mm-ink)' }}>
                             {a.pinned && <span className="mr-1.5 text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5 rounded-sm"
                               style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)' }}>고정</span>}
+                            {isNew(a.published_at) && <span className="mr-1.5 text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5 rounded-sm"
+                              style={{ background: '#DC2626', color: 'white' }}>NEW</span>}
                             {a.title}
                           </span>
+                          {a.created_by && (
+                            <span className="text-[11px] font-bold mt-0.5 inline-flex items-center gap-1" style={{ color: 'var(--mm-ink-soft)' }}>
+                              <User size={10} className="text-[color:var(--mm-yellow-strong)]" aria-hidden />
+                              {a.created_by}
+                            </span>
+                          )}
                         </span>
-                        <span className="text-[11px] shrink-0" style={{ color: 'var(--mm-muted)' }}>
-                          {formatRelative(a.published_at)}
+                        <span className="text-[11px] shrink-0 text-right" style={{ color: 'var(--mm-muted)' }}>
+                          <span className="block font-bold" style={{ color: 'var(--mm-ink-soft)' }}>{formatAbsolute(a.published_at)}</span>
+                          <span className="block text-[10px]">{formatRelative(a.published_at)}</span>
                         </span>
                       </button>
                       {isEditMode && (
@@ -314,7 +371,9 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements }: Pr
       {reading && (
         <AnnouncementReaderModal
           announcement={reading}
+          leagueId={leagueId}
           canEdit={isEditMode}
+          adminPin={pin || undefined}
           onClose={() => setReading(null)}
           onEdit={isEditMode ? () => startEdit(reading) : undefined}
           onDelete={isEditMode ? () => onDelete(reading) : undefined}

@@ -1001,9 +1001,11 @@ export default async function LeagueDetailPage({
         </div>
       )}
 
-      {/* 미라클모닝 브랜드 홈 — 공지 + POTW Carousel + 팀 승률 + 최근 라운드 + 리그 리더 */}
+      {/* 공지 스트립 — POTW 와 시각적으로 분리해 눈에 잘 띄게 */}
+      <AnnouncementsHome leagueId={leagueId} initialAnnouncements={announcements} orgSlug={orgSlug} />
+
+      {/* 미라클모닝 브랜드 홈 — POTW Carousel + 팀 승률 + 최근 라운드 + 리그 리더 */}
       <div className="rounded-none overflow-hidden">
-        <AnnouncementsHome leagueId={leagueId} initialAnnouncements={announcements} />
         <NbaHeroCarousel entries={weeklyPOTW} leagueId={leagueId} />
         <HighlightsHome data={homeHighlights} orgSlug={orgSlug} leagueId={leagueId} />
         <NbaTeamStandings

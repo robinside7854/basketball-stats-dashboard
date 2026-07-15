@@ -8,3 +8,13 @@ export interface LeagueAnnouncement {
   created_by: string | null
   updated_at: string
 }
+
+export interface AnnouncementComment {
+  id: string
+  nickname: string
+  body: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  deleted_by_admin: boolean
+}

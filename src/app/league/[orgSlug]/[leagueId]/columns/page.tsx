@@ -204,6 +204,7 @@ export default function ColumnsListPage() {
     { href: `${base}/columns`, label: '매거진', active: true },
     { href: `${base}/stathead`, label: 'Stathead', active: false },
     { href: `${base}/highlights`, label: '하이라이트', active: false },
+    { href: `${base}/archive/announcements`, label: '공지', active: false },
   ]
 
   return (

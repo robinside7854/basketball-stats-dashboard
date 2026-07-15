@@ -6,11 +6,14 @@ import { X, Megaphone, Pencil, Trash2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
+import AnnouncementComments from './AnnouncementComments'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
 
 interface Props {
   announcement: LeagueAnnouncement
+  leagueId: string
   canEdit: boolean         // 편집 PIN 통과된 사용자에게만 true
+  adminPin?: string        // 어드민이면 댓글 삭제 시 사용
   onClose: () => void
   onEdit?: () => void
   onDelete?: () => void
@@ -28,7 +31,7 @@ function formatKoreanDate(iso: string): string {
   return `${yyyy}.${mm}.${dd} (${days[d.getDay()]}) ${hh}:${mi}`
 }
 
-export default function AnnouncementReaderModal({ announcement, canEdit, onClose, onEdit, onDelete }: Props) {
+export default function AnnouncementReaderModal({ announcement, leagueId, canEdit, adminPin, onClose, onEdit, onDelete }: Props) {
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', h)
@@ -84,31 +87,38 @@ export default function AnnouncementReaderModal({ announcement, canEdit, onClose
           </button>
         </div>
 
-        {/* Body — markdown */}
-        <div className="overflow-y-auto flex-1 px-5 sm:px-6 py-5">
-          {announcement.body_markdown.trim() === '' ? (
-            <p className="text-sm text-[color:var(--mm-muted)] italic">본문이 비어 있습니다.</p>
-          ) : (
-            <article className="announcement-prose">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw]}
-                components={{
-                  a: (props) => <a {...props} target="_blank" rel="noopener noreferrer" />,
-                  img: ({ src, alt }) => {
-                    if (typeof src !== 'string') return null
-                    // next/image 는 리모트 도메인 화이트리스트 필요 → 안전한 기본 <img> 사용
-                    return (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={src} alt={alt ?? ''} loading="lazy" className="max-w-full h-auto rounded-sm border border-[color:var(--mm-rule)] my-3" />
-                    )
-                  },
-                }}
-              >
-                {announcement.body_markdown}
-              </ReactMarkdown>
-            </article>
-          )}
+        {/* Body — markdown + comments */}
+        <div className="overflow-y-auto flex-1">
+          <div className="px-5 sm:px-6 py-5">
+            {announcement.body_markdown.trim() === '' ? (
+              <p className="text-sm text-[color:var(--mm-muted)] italic">본문이 비어 있습니다.</p>
+            ) : (
+              <article className="announcement-prose">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw]}
+                  components={{
+                    a: (props) => <a {...props} target="_blank" rel="noopener noreferrer" />,
+                    img: ({ src, alt }) => {
+                      if (typeof src !== 'string') return null
+                      return (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={src} alt={alt ?? ''} loading="lazy" />
+                      )
+                    },
+                  }}
+                >
+                  {announcement.body_markdown}
+                </ReactMarkdown>
+              </article>
+            )}
+          </div>
+          <AnnouncementComments
+            leagueId={leagueId}
+            announcementId={announcement.id}
+            isAdmin={canEdit}
+            adminPin={adminPin}
+          />
         </div>
 
         {/* Footer — 편집자용 액션 */}
