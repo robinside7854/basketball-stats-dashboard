@@ -664,6 +664,49 @@ export async function loadClipsByEventIds(
     }
   }
 
+  // 게임별 러닝 스코어 사전계산 — 각 요청 이벤트의 슛 직전/직후 스코어를 정확히 표시
+  //   각 게임의 모든 득점 이벤트(result='made', points>0)를 timestamp 순으로 walk 하며 홈/원정 누적 점수 산출.
+  //   요청 이벤트가 아니어도 러닝 스코어에 반영해야 정확한 스코어보드가 나옴.
+  type ScoreEvtRow = { id: string; league_game_id: string; team_id: string | null; points: number | null; video_timestamp: number | null }
+  const scoreEvents: ScoreEvtRow[] = []
+  {
+    const PAGE = 1000
+    for (let pg = 0; ; pg++) {
+      const { data: chunk } = await supabase
+        .from('league_game_events')
+        .select('id, league_game_id, team_id, points, video_timestamp')
+        .in('league_game_id', gameIds)
+        .eq('result', 'made')
+        .gt('points', 0)
+        .not('video_timestamp', 'is', null)
+        .range(pg * PAGE, (pg + 1) * PAGE - 1)
+      if (chunk && chunk.length > 0) scoreEvents.push(...(chunk as unknown as ScoreEvtRow[]))
+      if (!chunk || chunk.length < PAGE) break
+    }
+  }
+  // event_id → { hb, ab, ha, aa } (before/after home/away 누적점수)
+  const scoreMeta: Record<string, { hb: number; ab: number; ha: number; aa: number }> = {}
+  {
+    const grouped: Record<string, ScoreEvtRow[]> = {}
+    for (const e of scoreEvents) (grouped[e.league_game_id] ||= []).push(e)
+    for (const gid of Object.keys(grouped)) {
+      const g = gameMap[gid]
+      if (!g) continue
+      const evs = grouped[gid].sort(
+        (a, b) => ((a.video_timestamp ?? 0) - (b.video_timestamp ?? 0)) || a.id.localeCompare(b.id),
+      )
+      let home = 0, away = 0
+      for (const e of evs) {
+        const hb = home, ab = away
+        const pts = e.points ?? 0
+        if (e.team_id === g.home_team_id) home += pts
+        else if (e.team_id === g.away_team_id) away += pts
+        // team_id 가 홈/원정 어디도 아니면 스코어 미반영 (안전)
+        scoreMeta[e.id] = { hb, ab, ha: home, aa: away }
+      }
+    }
+  }
+
   // event_id → HighlightClip · 입력 배열 순서로 재정렬
   const byId: Record<string, HighlightClip> = {}
   for (const ev of evRows) {
@@ -715,10 +758,10 @@ export async function loadClipsByEventIds(
       assist_player_name: assistPlayer?.name ?? null,
       assist_player_number: assistPlayer?.number ?? null,
       is_clutch: options?.forceClutch ?? false,
-      score_home_before: 0,
-      score_away_before: 0,
-      score_home_after: 0,
-      score_away_after: 0,
+      score_home_before: scoreMeta[ev.id]?.hb ?? 0,
+      score_away_before: scoreMeta[ev.id]?.ab ?? 0,
+      score_home_after:  scoreMeta[ev.id]?.ha ?? 0,
+      score_away_after:  scoreMeta[ev.id]?.aa ?? 0,
     }
   }
 

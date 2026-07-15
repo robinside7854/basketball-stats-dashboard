@@ -154,8 +154,6 @@ export default function MilestoneClipModal({ clip, onClose }: Props) {
             clips={[highlightClip]}
             currentIdx={0}
             onIndexChange={() => { /* 단일 클립 · 무시 */ }}
-            autoAdvance={false}
-            onToggleAutoAdvance={() => { /* 단일 클립 · 무시 */ }}
           />
           <p
             className="mt-3 text-[11px] font-bold uppercase"

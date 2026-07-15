@@ -8,10 +8,11 @@
 //   clips: 재생할 클립 목록 (부모가 필터 적용 후 전달)
 //   startIdx: 초기 재생 인덱스 (URL clip=)
 //   onIndexChange: 부모에서 현재 인덱스 추적 (플레이리스트 강조 + URL 반영)
-//   autoAdvance: 자동 연속재생 여부
-//   onToggleAutoAdvance: 자동재생 토글
+//   (2026-07-15) 자동재생(autoAdvance) 기능 제거 — 사용자 요구
+//     · 클립 종료 시 다음 클립으로 자동 이동하지 않음
+//     · 다음 이동은 SkipForward 버튼 or 플레이리스트 클릭
 import { useEffect, useRef, useCallback } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Zap, ZapOff, HeartCrack } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, HeartCrack } from 'lucide-react'
 import { extractYouTubeId, formatTimestamp } from '@/lib/youtube/utils'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
@@ -27,18 +28,15 @@ interface Props {
   clips: HighlightClip[]
   currentIdx: number
   onIndexChange: (idx: number) => void
-  autoAdvance: boolean
-  onToggleAutoAdvance: () => void
 }
 
-export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, autoAdvance, onToggleAutoAdvance }: Props) {
+export default function HighlightsPlayer({ clips, currentIdx, onIndexChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<YT.Player | null>(null)
   const readyRef = useRef(false)
   const currentVideoIdRef = useRef<string | null>(null)
   const clipsRef = useRef<HighlightClip[]>(clips)
   const currentIdxRef = useRef(currentIdx)
-  const autoAdvanceRef = useRef(autoAdvance)
   const onIndexChangeRef = useRef(onIndexChange)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // 영상 교체(loadVideoById) 중 목표 시작 초 — 로딩 완료(PLAYING) 때 실제 위치 검증·보정
@@ -63,21 +61,9 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
 
   useEffect(() => { clipsRef.current = clips }, [clips])
   useEffect(() => { currentIdxRef.current = currentIdx }, [currentIdx])
-  useEffect(() => { autoAdvanceRef.current = autoAdvance }, [autoAdvance])
   useEffect(() => { onIndexChangeRef.current = onIndexChange }, [onIndexChange])
 
   const clip = clips[currentIdx] ?? null
-
-  const advanceToNext = useCallback(() => {
-    const idx = currentIdxRef.current
-    const total = clipsRef.current.length
-    if (idx + 1 >= total) {
-      // 마지막 클립 → 일시정지
-      try { playerRef.current?.pauseVideo() } catch { /* ignore */ }
-      return
-    }
-    onIndexChangeRef.current(idx + 1)
-  }, [])
 
   // 플레이어 인스턴스 생성 (1회)
   useEffect(() => {
@@ -121,8 +107,8 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
             } catch { /* ignore */ }
           },
           onStateChange: (e) => {
-            // ENDED (0) — 자동재생 켜져있으면 다음 클립
-            if (e.data === 0 && autoAdvanceRef.current) advanceToNext()
+            // ENDED (0) — 자동 다음 클립 이동 없음 (사용자 요구로 자동재생 제거)
+            //   → 영상은 그 자리에서 정지 · 다음 클립은 SkipForward 또는 플레이리스트 클릭으로만
             // 영상 교체 로딩 완료 처리
             if (pendingStartRef.current !== null) {
               const target = pendingStartRef.current
@@ -147,7 +133,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
           },
           onError: () => { /* 광고 · 삭제 · 지역제한 등 — 조용히 건너뛰기 */
             setPendingStart(null)  // 프리즈 방지
-            if (autoAdvanceRef.current) advanceToNext()
+            // (자동재생 제거 이후) 에러 시에도 자동 다음 이동 없음 · 유저가 SkipForward 로 이동
           },
         },
       })
@@ -202,23 +188,27 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
   }, [clip, setPendingStart])
 
   // clip_end 감시 (setInterval 500ms)
+  //   자동재생 제거 이후 — 다음 클립으로 이동은 하지 않고, 그 자리에서 pause 만 수행.
+  //   유저가 원하면 재생 버튼으로 이어보거나 SkipForward 로 다음 클립 이동.
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current)
     intervalRef.current = setInterval(() => {
-      if (!autoAdvanceRef.current) return
       const player = playerRef.current
       const c = clipsRef.current[currentIdxRef.current]
       if (!player || !readyRef.current || !c) return
-      // 영상 교체 로딩 중이거나 seekTo 직후 — getCurrentTime 이 이전 위치를 반환하는 구간이라 판정 중지
       if (pendingStartRef.current !== null) return
       if (Date.now() < seekGraceUntilRef.current) return
       try {
         const t = player.getCurrentTime()
-        if (typeof t === 'number' && t >= c.clip_end) advanceToNext()
+        if (typeof t === 'number' && t >= c.clip_end) {
+          // 이미 pause 상태면 반복 호출 방지
+          const state = player.getPlayerState()
+          if (state === 1) player.pauseVideo()
+        }
       } catch { /* ignore */ }
     }, 500)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [advanceToNext])
+  }, [])
 
   const goPrev = () => { if (currentIdx > 0) onIndexChange(currentIdx - 1) }
   const goNext = () => { if (currentIdx + 1 < clips.length) onIndexChange(currentIdx + 1) }
@@ -421,22 +411,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, aut
           </span>
         </div>
 
-        {/* 자동재생 토글 */}
-        <button
-          type="button"
-          onClick={onToggleAutoAdvance}
-          className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
-          style={
-            autoAdvance
-              ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
-              : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }
-          }
-          aria-pressed={autoAdvance}
-          aria-label={autoAdvance ? '자동재생 끄기' : '자동재생 켜기'}
-        >
-          {autoAdvance ? <Zap size={14} /> : <ZapOff size={14} />}
-          자동
-        </button>
+        {/* 자동재생 토글 제거 (2026-07-15 사용자 요구) — 다음 클립은 SkipForward 로만 이동 */}
       </div>
     </div>
   )

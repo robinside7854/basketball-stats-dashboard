@@ -29,7 +29,6 @@ export default function HighlightsClipModal({
   onClose, onFooter, ariaLabel,
 }: Props) {
   const [currentIdx, setCurrentIdx] = useState(Math.max(0, Math.min(startIdx, clips.length - 1)))
-  const [autoAdvance, setAutoAdvance] = useState(true)
 
   // ESC 닫기
   useEffect(() => {
@@ -92,8 +91,6 @@ export default function HighlightsClipModal({
             clips={clips}
             currentIdx={currentIdx}
             onIndexChange={setCurrentIdx}
-            autoAdvance={autoAdvance}
-            onToggleAutoAdvance={() => setAutoAdvance(v => !v)}
           />
         </div>
         {onFooter && current && (

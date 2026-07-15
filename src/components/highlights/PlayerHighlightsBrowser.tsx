@@ -67,8 +67,6 @@ export default function PlayerHighlightsBrowser({
     const n = Number(searchParams.get('clip'))
     return Number.isFinite(n) && n >= 0 ? n : 0
   })
-  const [autoAdvance, setAutoAdvance] = useState(true)
-
   // 필터 적용 — clutch 는 shot_type 무관 컨텍스트 필터 (is_clutch 체크)
   const filteredClips = useMemo(() => {
     return clips.filter(c => {
@@ -98,7 +96,6 @@ export default function PlayerHighlightsBrowser({
   }, [category, quarterId, currentIdx, pathname, router])
 
   const onSelectIdx = useCallback((idx: number) => setCurrentIdx(idx), [])
-  const onToggleAuto = useCallback(() => setAutoAdvance(v => !v), [])
 
   // 공유 링크 — 현재 필터/클립 상태 URL 을 shortener 로 축약해 클립보드에 복사
   const shareShort = useCallback(async () => {
@@ -257,8 +254,6 @@ export default function PlayerHighlightsBrowser({
             clips={filteredClips}
             currentIdx={currentIdx}
             onIndexChange={onSelectIdx}
-            autoAdvance={autoAdvance}
-            onToggleAutoAdvance={onToggleAuto}
           />
           {pinsEnabled && leagueId && filteredClips[currentIdx] && (
             <PinBestShotToolbar

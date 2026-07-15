@@ -43,8 +43,6 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
     const n = Number(searchParams.get('clip'))
     return Number.isFinite(n) && n > 0 ? n : 0
   })
-  const [autoAdvance, setAutoAdvance] = useState(true)
-
   // 필터 적용 — clutch 는 shot_type 무관 컨텍스트 필터 (is_clutch 체크)
   const filteredClips = useMemo(() => {
     return detail.clips.filter(c => {
@@ -80,7 +78,6 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
   }, [filter, currentIdx, pathname, router])
 
   const onSelectIdx = useCallback((idx: number) => setCurrentIdx(idx), [])
-  const onToggleAuto = useCallback(() => setAutoAdvance(v => !v), [])
 
   // 공유 링크 — 현재 필터/클립 상태가 반영된 페이지 URL 을 shortener 로 축약해 클립보드에 복사.
   // 카카오톡·SNS 공유 시 URL 이 짧아져 붙여넣기 편의성 향상.
@@ -142,8 +139,6 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
             clips={filteredClips}
             currentIdx={currentIdx}
             onIndexChange={onSelectIdx}
-            autoAdvance={autoAdvance}
-            onToggleAutoAdvance={onToggleAuto}
           />
         </div>
         {/* 레이아웃(LeagueLayoutClient)이 이미 pb-[56px+safe-area] 처리 · 플레이리스트 자체 스크롤로 재생기 자연스럽게 상단 유지 */}
