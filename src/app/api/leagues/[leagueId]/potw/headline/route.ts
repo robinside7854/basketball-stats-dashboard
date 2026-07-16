@@ -7,11 +7,12 @@ import Anthropic from '@anthropic-ai/sdk'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-type TopCategory = 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
+// efficiency 카테고리 삭제 (2026-07-17 · TS%/eFG% 등 Advanced 지표 배제)
+type TopCategory = 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
 
 type Breakdown = {
   pts: number
-  ts_pct: number
+  ts_pct: number       // 프롬프트 참고용으로만 유지 (headline 결정엔 미사용)
   reb: number
   stl: number
   blk: number
@@ -28,8 +29,6 @@ function fallbackHeadline(name: string, b: Breakdown): string {
   switch (b.topCategory) {
     case 'volume':
       return `${name}, ${b.pts}점 폭발로 라운드 지배`
-    case 'efficiency':
-      return `${name}, TS ${b.ts_pct.toFixed(0)}% 초효율 · ${b.pts}점 정조준`
     case 'reb':
       return `${name}, 리바운드 ${b.reb}개로 페인트존 장악`
     case 'stl':
@@ -49,7 +48,6 @@ function fallbackHeadline(name: string, b: Breakdown): string {
 function dominantMetricLine(b: Breakdown): string {
   switch (b.topCategory) {
     case 'volume':     return `우세 지표: 득점 폭발 (${b.pts}점)`
-    case 'efficiency': return `우세 지표: 슈팅 효율 (TS ${b.ts_pct.toFixed(1)}%, ${b.pts}점)`
     case 'reb':        return `우세 지표: 리바운드 (${b.reb}개, ${b.pts}점)`
     case 'stl':        return `우세 지표: 스틸 (${b.stl}개, 수비 임팩트)`
     case 'blk':        return `우세 지표: 블락 (${b.blk}개, 림 프로텍션)`
@@ -87,9 +85,8 @@ export async function POST(req: Request) {
       `POTW 선수: ${playerName}${teamName ? ` (${teamName})` : ''}`,
       dominantMetricLine(breakdown),
       '',
-      '이번 라운드 종합 스탯:',
+      '이번 라운드 종합 스탯 (efficiency 지표는 제외 · 볼륨 위주):',
       `- 득점: ${breakdown.pts}`,
-      `- TS%: ${breakdown.ts_pct > 0 ? breakdown.ts_pct.toFixed(1) : '—'}`,
       `- 리바운드: ${breakdown.reb}`,
       `- 어시스트: ${breakdown.ast}`,
       `- 스틸: ${breakdown.stl}`,

@@ -129,13 +129,16 @@ async function computeRecentRounds(
 // 각 지표를 라운드 내 최대값 대비 정규화(0~1) 후 가중 합산 → composite score.
 // 최고 점수 선수 선정 + 우세 카테고리 · 스토리 헤드라인 자동 생성.
 
+// POTW 가중치 (2026-07-17 A안 개편)
+//   · efficiency (TS%) 삭제 — Advanced 지표는 유저 이해도 낮음
+//   · 15점을 volume(+5) / reb(+2) / ast(+3) 볼륨 지표에 재분배
+//   · 총합 100 유지 · 볼륨 65 → 75 · advanced(clutch) 20 유지
 const POTW_WEIGHTS = {
-  volume: 25,
-  efficiency: 15,
-  reb: 10,
+  volume: 30,
+  reb: 12,
   stl: 10,
   blk: 10,
-  ast: 10,
+  ast: 13,
   clutch: 20,
 } as const
 
@@ -183,18 +186,15 @@ function tsPct(pts: number, fga: number, fta: number): number {
   return denom > 0 ? (pts / denom) * 100 : 0
 }
 
-// 헤드라인 생성 (규칙 기반, 뉴스 톤)
+// 헤드라인 생성 (규칙 기반, 뉴스 톤 · efficiency 케이스 삭제 2026-07-17)
 function makeHeadline(
   name: string,
   s: PlayerRoundStats,
   topCategory: POTWTopCategory,
 ): string {
-  const ts = tsPct(s.pts, s.fga, s.fta)
   switch (topCategory) {
     case 'volume':
       return `${name}, ${s.pts}점 폭발로 라운드 지배`
-    case 'efficiency':
-      return `${name}, TS ${ts.toFixed(0)}% 초효율 · ${s.pts}점 정조준`
     case 'reb':
       return `${name}, 리바운드 ${s.reb}개로 페인트존 장악`
     case 'stl':
@@ -219,7 +219,6 @@ function buildSecondaryLabel(s: PlayerRoundStats, category: SecondaryCategory): 
     case 'stl':        return `스틸 ${s.stl}개`
     case 'blk':        return `블락 ${s.blk}개`
     case 'ast':        return `어시스트 ${s.ast}개`
-    case 'efficiency': return `TS ${tsPct(s.pts, s.fga, s.fta).toFixed(0)}%`
     case 'clutch':     return `클러치 ${s.clutchPts}점`
     case 'volume':     return `${s.pts}점`
     default:           return ''
@@ -490,9 +489,8 @@ async function computeWeeklyPOTW(
     }
     if (roster.length === 0) continue
 
-    // 라운드 내 각 카테고리 max
+    // 라운드 내 각 카테고리 max (efficiency 삭제 · maxTs 미사용)
     const maxPts = Math.max(...roster.map(r => r.s.pts), 1)
-    const maxTs = Math.max(...roster.filter(r => (r.s.fga + r.s.fta) >= 5).map(r => r.ts), 1)  // 최소 시도 필터
     const maxReb = Math.max(...roster.map(r => r.s.reb), 1)
     const maxStl = Math.max(...roster.map(r => r.s.stl), 1)
     const maxBlk = Math.max(...roster.map(r => r.s.blk), 1)
@@ -512,7 +510,6 @@ async function computeWeeklyPOTW(
       const s = r.s
       const norm = {
         volume: s.pts / maxPts,
-        efficiency: (s.fga + s.fta) >= 5 ? r.ts / maxTs : 0,
         reb: s.reb / maxReb,
         stl: s.stl / maxStl,
         blk: s.blk / maxBlk,
@@ -520,18 +517,18 @@ async function computeWeeklyPOTW(
         clutch: s.clutchGp.size > 0 ? s.clutchPts / maxClutchPts : 0,
       }
 
-      // 가중 합 (총 100)
+      // 가중 합 (총 100 · efficiency 삭제 · 2026-07-17)
       let composite =
-        norm.volume     * POTW_WEIGHTS.volume +
-        norm.efficiency * POTW_WEIGHTS.efficiency +
-        norm.reb        * POTW_WEIGHTS.reb +
-        norm.stl        * POTW_WEIGHTS.stl +
-        norm.blk        * POTW_WEIGHTS.blk +
-        norm.ast        * POTW_WEIGHTS.ast +
-        norm.clutch     * POTW_WEIGHTS.clutch
+        norm.volume * POTW_WEIGHTS.volume +
+        norm.reb    * POTW_WEIGHTS.reb +
+        norm.stl    * POTW_WEIGHTS.stl +
+        norm.blk    * POTW_WEIGHTS.blk +
+        norm.ast    * POTW_WEIGHTS.ast +
+        norm.clutch * POTW_WEIGHTS.clutch
 
       // upset bonus — 이 선수의 과거 라운드 평균 pts 대비 이번 pts 증분율.
-      // surpriseFactor 1.0 = 평균 대비 2배 → 보너스 10, 상한 15 (전체 100/15).
+      // surpriseFactor 1.0 = 평균 대비 2배 → 보너스 15, 상한 25 (전체 100+25 최대 · 2026-07-17 강화)
+      // 깜짝 활약 조명 강화: 평소 10점 → 이번 25점 (150% 상승) 같은 케이스 확실히 반영
       // 첫 라운드나 이 선수 첫 등장이면 pastRounds=0 → 보너스 0.
       const playerSeries = seriesByPid.get(r.pid) ?? []
       const pastRounds = playerSeries.filter(e => e.date < date)
@@ -539,20 +536,19 @@ async function computeWeeklyPOTW(
         const avgPts = pastRounds.reduce((sum, e) => sum + e.pts, 0) / pastRounds.length
         if (avgPts > 0) {
           const surpriseFactor = Math.max(0, (s.pts - avgPts) / avgPts)
-          const upsetBonus = Math.min(surpriseFactor * 10, 15)
+          const upsetBonus = Math.min(surpriseFactor * 15, 25)
           composite += upsetBonus
         }
       }
 
-      // 우세 카테고리 판정 (가중 × 정규화 값 최고)
+      // 우세 카테고리 판정 (가중 × 정규화 값 최고 · efficiency 제외)
       const weighted: Array<[POTWTopCategory, number]> = [
-        ['volume',     norm.volume     * POTW_WEIGHTS.volume],
-        ['efficiency', norm.efficiency * POTW_WEIGHTS.efficiency],
-        ['reb',        norm.reb        * POTW_WEIGHTS.reb],
-        ['stl',        norm.stl        * POTW_WEIGHTS.stl],
-        ['blk',        norm.blk        * POTW_WEIGHTS.blk],
-        ['ast',        norm.ast        * POTW_WEIGHTS.ast],
-        ['clutch',     norm.clutch     * POTW_WEIGHTS.clutch],
+        ['volume', norm.volume * POTW_WEIGHTS.volume],
+        ['reb',    norm.reb    * POTW_WEIGHTS.reb],
+        ['stl',    norm.stl    * POTW_WEIGHTS.stl],
+        ['blk',    norm.blk    * POTW_WEIGHTS.blk],
+        ['ast',    norm.ast    * POTW_WEIGHTS.ast],
+        ['clutch', norm.clutch * POTW_WEIGHTS.clutch],
       ]
       weighted.sort((a, b) => b[1] - a[1])
       const topCategory: POTWTopCategory = weighted[0][0]

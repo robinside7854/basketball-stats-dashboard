@@ -49,13 +49,14 @@ export type HeroBreakdown = {
   clutchPts: number  // 클러치 상황 총 득점
   clutchGp: number   // 클러치 상황 경험 게임 수
   compositeScore: number
-  topCategory: 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
+  // efficiency 카테고리 삭제 (2026-07-17 · TS% 등 Advanced 지표 배제)
+  topCategory: 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
   // NEW · 3점 지표 (변원식 케이스 · 볼륨 + 3점 폭격 스토리)
   fg3m?: number      // 3점 성공
   fg3a?: number      // 3점 시도
   fg3_pct?: number   // 3점 성공률
   // NEW · 2번째 우세 카테고리 (동적 서브 지표 · UI 는 별도 Agent 담당)
-  secondaryCategory?: 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch' | 'three'
+  secondaryCategory?: 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch' | 'three'
   secondaryLabel?: string  // 예: "3점 8/12" · "리바운드 10개"
 }
 
@@ -85,14 +86,14 @@ const SECONDARY_BADGE_LABEL: Record<string, string> = {
   stl: 'PICKPOCKET',      // 스틸
   blk: 'RIM PROTECTOR',   // 블락
   ast: 'PLAYMAKER',       // 어시스트
-  efficiency: 'EFFICIENT',
   clutch: 'CLUTCH',
   volume: 'SCORER',
 }
 
 // 우세 카테고리별 노출 정보 매핑 — 매 라운드 우세 지표에 따라 UI 가 다르게 노출됨.
 // 이전 구현은 항상 pts 를 메인으로 노출했으나, POTW 는 종합 임팩트 선정이므로
-// 우세 카테고리(volume/efficiency/reb/stl/blk/ast/win)에 맞춰 큰 숫자·헤드라인·라벨 모두 스왑.
+// 우세 카테고리(volume/reb/stl/blk/ast/clutch)에 맞춰 큰 숫자·헤드라인·라벨 모두 스왑.
+// (efficiency 카테고리 삭제 · 2026-07-17 A안)
 type MainMetric = {
   value: string          // 큰 숫자 표시 값 (문자열 · 백분율 포함)
   unit: string           // 큰 숫자 옆 uppercase 라벨 (PTS/REB/STL 등)
@@ -135,14 +136,6 @@ function mainMetricFor(
         hero: '코트 지휘', badge: 'PLAYMAKER',
         copyLead: `이번 라운드 어시스트 ${b.ast}개`,
       }
-    case 'efficiency':
-      return {
-        value: b.ts_pct > 0 ? b.ts_pct.toFixed(0) : '—',
-        unit: 'TS%',
-        panelLabel: '이 라운드 슈팅 효율',
-        hero: '초효율 정조준', badge: 'EFFICIENCY KING',
-        copyLead: `이번 라운드 TS ${b.ts_pct > 0 ? b.ts_pct.toFixed(0) : '—'}%`,
-      }
     case 'clutch':
       return {
         value: String(b.clutchPts), unit: 'CLUTCH',
@@ -180,14 +173,12 @@ function pickSeriesValue(s: SeriesItem, category: RoundCategory): number {
     case 'ast': return s.ast
     case 'stl': return s.stl
     case 'blk': return s.blk
-    case 'efficiency': return s.ts_pct
     case 'clutch': return s.clutch
     default: return s.pts  // volume
   }
 }
 
-function formatSeriesValue(v: number, category: RoundCategory): string {
-  if (category === 'efficiency') return v > 0 ? v.toFixed(1) : '—'
+function formatSeriesValue(v: number, _category: RoundCategory): string {
   return String(Math.round(v))
 }
 
@@ -201,7 +192,7 @@ function RoundBars({
   if (series.length === 0) return null
   const shown = series.slice(-6)
   const values = shown.map(s => pickSeriesValue(s, category))
-  const max = Math.max(...values, category === 'efficiency' ? 0.01 : 1)
+  const max = Math.max(...values, 1)
   return (
     <div
       className="grid gap-2 items-end"
@@ -259,8 +250,6 @@ function metricLabelFor(category: RoundCategory): {
       return { headerLabel: '라운드별 스틸', headerFlow: '스틸 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'STL' }
     case 'blk':
       return { headerLabel: '라운드별 블락', headerFlow: '블락 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'BLK' }
-    case 'efficiency':
-      return { headerLabel: '라운드별 TS%', headerFlow: 'TS% 흐름', avgFormat: v => v.toFixed(1), avgUnit: '%' }
     case 'clutch':
       return { headerLabel: '라운드별 클러치 득점', headerFlow: '클러치 득점 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'CLT' }
     default:
@@ -545,21 +534,20 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
             </div>
           )}
 
-          {/* 지표 브레이크다운 · 우세 카테고리 강조 (7열: PTS/TS%/REB/AST/STL/BLK/CLT) */}
+          {/* 지표 브레이크다운 · 우세 카테고리 강조 (6열: PTS/REB/AST/STL/BLK/CLT · efficiency 삭제 2026-07-17) */}
           {breakdown && (
             <div
-              className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-2 mt-5 pt-4"
+              className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-5 pt-4"
               style={{ borderTop: '2px solid rgba(0,0,0,0.15)' }}
             >
               {(() => {
                 const items: Array<{ key: HeroBreakdown['topCategory']; label: string; value: string }> = [
-                  { key: 'volume',     label: 'PTS', value: String(data.pts) },
-                  { key: 'efficiency', label: 'TS%', value: breakdown.ts_pct > 0 ? `${breakdown.ts_pct.toFixed(0)}%` : '—' },
-                  { key: 'reb',        label: 'REB', value: String(breakdown.reb) },
-                  { key: 'ast',        label: 'AST', value: String(breakdown.ast) },
-                  { key: 'stl',        label: 'STL', value: String(breakdown.stl) },
-                  { key: 'blk',        label: 'BLK', value: String(breakdown.blk) },
-                  { key: 'clutch',     label: 'CLT', value: String(breakdown.clutchPts) },
+                  { key: 'volume', label: 'PTS', value: String(data.pts) },
+                  { key: 'reb',    label: 'REB', value: String(breakdown.reb) },
+                  { key: 'ast',    label: 'AST', value: String(breakdown.ast) },
+                  { key: 'stl',    label: 'STL', value: String(breakdown.stl) },
+                  { key: 'blk',    label: 'BLK', value: String(breakdown.blk) },
+                  { key: 'clutch', label: 'CLT', value: String(breakdown.clutchPts) },
                 ]
                 return items.map(it => {
                   const isTop = breakdown.topCategory === it.key

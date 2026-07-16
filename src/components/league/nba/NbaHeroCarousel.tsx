@@ -11,7 +11,8 @@ import NbaHero, { type NbaHeroData } from './NbaHero'
 
 // POTW 우세 카테고리 — 헤드라인 생성 · 아이콘 강조에 사용
 // 'win' 은 팀 승리 기여 (모든 팀원이 동일 승수 견인이라 무의미) → 실제 접전 상황 클러치로 재정의
-export type POTWTopCategory = 'volume' | 'efficiency' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
+// efficiency 카테고리 삭제 (2026-07-17 · TS%/eFG% 등 Advanced 지표 배제 · POTW_WEIGHTS 참조)
+export type POTWTopCategory = 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
 // 2번째 우세 지표 — 볼륨 우세 + 3점 폭격 케이스만 'three' 로 특수 서브 지표
 export type SecondaryCategory = POTWTopCategory | 'three'
 
