@@ -8,7 +8,8 @@ import Anthropic from '@anthropic-ai/sdk'
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 // efficiency 카테고리 삭제 (2026-07-17 · TS%/eFG% 등 Advanced 지표 배제)
-type TopCategory = 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
+// 'all-around' 추가 (다재다능 · raw dominance 여러 지표 동시 최고)
+type TopCategory = 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch' | 'all-around'
 
 type Breakdown = {
   pts: number
@@ -21,12 +22,17 @@ type Breakdown = {
   clutchGp: number
   topCategory: TopCategory
   compositeScore: number
+  allAroundLabel?: string  // 다재다능 compound 라벨 (예: "리바 23 + 스틸 8")
 }
 
 // ── Fallback (Claude 실패 시) ─────────────────────────────────────
 // makeHeadline 과 동일 로직 · 라운드 페이지에서 넘어온 초기 헤드라인과 톤 맞춤
 function fallbackHeadline(name: string, b: Breakdown): string {
   switch (b.topCategory) {
+    case 'all-around':
+      return b.allAroundLabel
+        ? `${name}, ${b.allAroundLabel} · 다재다능 지배`
+        : `${name}, 여러 지표 동시 지배 · 다재다능`
     case 'volume':
       return `${name}, ${b.pts}점 폭발로 라운드 지배`
     case 'reb':
@@ -47,6 +53,7 @@ function fallbackHeadline(name: string, b: Breakdown): string {
 // ── 우세 지표 요약 (프롬프트 삽입용) ──────────────────────────────
 function dominantMetricLine(b: Breakdown): string {
   switch (b.topCategory) {
+    case 'all-around': return `우세 지표: 다재다능 (${b.allAroundLabel ?? `PTS ${b.pts} · REB ${b.reb} · STL ${b.stl} · BLK ${b.blk}`})`
     case 'volume':     return `우세 지표: 득점 폭발 (${b.pts}점)`
     case 'reb':        return `우세 지표: 리바운드 (${b.reb}개, ${b.pts}점)`
     case 'stl':        return `우세 지표: 스틸 (${b.stl}개, 수비 임팩트)`

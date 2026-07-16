@@ -41,6 +41,7 @@ export type NbaHeroData = {
 } | null
 
 export type HeroBreakdown = {
+  pts: number        // 다재다능 카피용 (변경 · 2026-07-17)
   ts_pct: number
   reb: number
   stl: number
@@ -50,7 +51,8 @@ export type HeroBreakdown = {
   clutchGp: number   // 클러치 상황 경험 게임 수
   compositeScore: number
   // efficiency 카테고리 삭제 (2026-07-17 · TS% 등 Advanced 지표 배제)
-  topCategory: 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
+  // 'all-around' 추가 (다재다능 지배 케이스 · 여러 지표 raw dominance 동시 최고)
+  topCategory: 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch' | 'all-around'
   // NEW · 3점 지표 (변원식 케이스 · 볼륨 + 3점 폭격 스토리)
   fg3m?: number      // 3점 성공
   fg3a?: number      // 3점 시도
@@ -58,6 +60,7 @@ export type HeroBreakdown = {
   // NEW · 2번째 우세 카테고리 (동적 서브 지표 · UI 는 별도 Agent 담당)
   secondaryCategory?: 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch' | 'three'
   secondaryLabel?: string  // 예: "3점 8/12" · "리바운드 10개"
+  allAroundLabel?: string  // 다재다능 compound 라벨 (예: "리바 23 + 스틸 8")
 }
 
 type Props = {
@@ -88,6 +91,7 @@ const SECONDARY_BADGE_LABEL: Record<string, string> = {
   ast: 'PLAYMAKER',       // 어시스트
   clutch: 'CLUTCH',
   volume: 'SCORER',
+  'all-around': 'ALL-AROUNDER',
 }
 
 // 우세 카테고리별 노출 정보 매핑 — 매 라운드 우세 지표에 따라 UI 가 다르게 노출됨.
@@ -143,6 +147,17 @@ function mainMetricFor(
         hero: '접전의 왕', badge: 'CLUTCH LEADER',
         copyLead: `이번 라운드 클러치 상황 ${b.clutchPts}점 (${b.clutchGp}경기)`,
       }
+    case 'all-around': {
+      // 다재다능 · 종합 점수를 큰 숫자로 (composite 반영) · copyLead 는 compound label
+      const composite = Math.round(b.compositeScore)
+      const compound = b.allAroundLabel ?? `PTS ${b.pts} · REB ${b.reb} · STL ${b.stl} · BLK ${b.blk}`
+      return {
+        value: String(composite), unit: 'SCORE',
+        panelLabel: '이 라운드 종합 임팩트',
+        hero: '다재다능 지배', badge: 'ALL-AROUNDER',
+        copyLead: `이번 라운드 ${compound}`,
+      }
+    }
     default:  // volume
       return {
         value: String(data.pts), unit: 'PTS',
@@ -174,6 +189,7 @@ function pickSeriesValue(s: SeriesItem, category: RoundCategory): number {
     case 'stl': return s.stl
     case 'blk': return s.blk
     case 'clutch': return s.clutch
+    case 'all-around': return s.pts   // 다재다능은 대표 지표로 pts sparkline
     default: return s.pts  // volume
   }
 }
@@ -252,6 +268,9 @@ function metricLabelFor(category: RoundCategory): {
       return { headerLabel: '라운드별 블락', headerFlow: '블락 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'BLK' }
     case 'clutch':
       return { headerLabel: '라운드별 클러치 득점', headerFlow: '클러치 득점 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'CLT' }
+    case 'all-around':
+      // 다재다능: 득점 흐름을 fallback 지표로 (여러 카테고리 동시라 sparkline 은 대표 지표 · pts 로)
+      return { headerLabel: '라운드별 득점', headerFlow: '득점 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'PTS' }
     default:
       return { headerLabel: '라운드별 득점', headerFlow: '득점 흐름', avgFormat: v => v.toFixed(1), avgUnit: 'PTS' }
   }

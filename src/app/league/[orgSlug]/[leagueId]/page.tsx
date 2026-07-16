@@ -186,13 +186,18 @@ function tsPct(pts: number, fga: number, fta: number): number {
   return denom > 0 ? (pts / denom) * 100 : 0
 }
 
-// 헤드라인 생성 (규칙 기반, 뉴스 톤 · efficiency 케이스 삭제 2026-07-17)
+// 헤드라인 생성 (규칙 기반, 뉴스 톤 · efficiency 삭제 · all-around 추가 2026-07-17)
 function makeHeadline(
   name: string,
   s: PlayerRoundStats,
   topCategory: POTWTopCategory,
+  allAroundLabel?: string,
 ): string {
   switch (topCategory) {
+    case 'all-around':
+      return allAroundLabel
+        ? `${name}, ${allAroundLabel} · 다재다능 지배`
+        : `${name}, 여러 지표 동시 지배 · 다재다능`
     case 'volume':
       return `${name}, ${s.pts}점 폭발로 라운드 지배`
     case 'reb':
@@ -468,6 +473,7 @@ async function computeWeeklyPOTW(
     topCategory: POTWTopCategory
     secondaryCategory?: SecondaryCategory
     secondaryLabel?: string
+    allAroundLabel?: string  // 다재다능 compound (헤드라인/UI 재사용)
   }
   const topPerRound = new Map<string, TopPick>()
   const prevPotwPids = new Set<string>()  // 오래된 라운드부터 누적 → 다음 라운드 후보 제외
@@ -505,6 +511,7 @@ async function computeWeeklyPOTW(
       composite: number
       topCategory: POTWTopCategory
       secondaryCategory?: SecondaryCategory
+      allAroundLabel?: string  // 다재다능 케이스에 compound (예: "리바 23 + 스틸 8")
     }
     const scored: Scored[] = roster.map(r => {
       const s = r.s
@@ -541,32 +548,53 @@ async function computeWeeklyPOTW(
         }
       }
 
-      // 우세 카테고리 판정 (가중 × 정규화 값 최고 · efficiency 제외)
-      const weighted: Array<[POTWTopCategory, number]> = [
-        ['volume', norm.volume * POTW_WEIGHTS.volume],
-        ['reb',    norm.reb    * POTW_WEIGHTS.reb],
-        ['stl',    norm.stl    * POTW_WEIGHTS.stl],
-        ['blk',    norm.blk    * POTW_WEIGHTS.blk],
-        ['ast',    norm.ast    * POTW_WEIGHTS.ast],
-        ['clutch', norm.clutch * POTW_WEIGHTS.clutch],
+      // 우세 카테고리 판정 (raw dominance · 2026-07-17 개편)
+      //   · 이전: weighted × norm 최고값 → volume 가중치(30) 지배로 편향
+      //   · 신규: 정규화값(라운드 max 대비 %) 순위로 판정 · 가중치는 composite score 만
+      //   · all-around: 정규화 >= 0.85 지표가 2개 이상 → 다재다능 스토리
+      // 'all-around' · 'three' 는 meta/서브 카테고리이므로 dominance 후보에서 제외 (raw 6종만)
+      type RawCategory = 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
+      const dominance: Array<[RawCategory, number]> = [
+        ['volume', norm.volume],
+        ['reb',    norm.reb],
+        ['stl',    norm.stl],
+        ['blk',    norm.blk],
+        ['ast',    norm.ast],
+        ['clutch', norm.clutch],
       ]
-      weighted.sort((a, b) => b[1] - a[1])
-      const topCategory: POTWTopCategory = weighted[0][0]
-      // 2번째 카테고리 (weighted 값 > 0 인 경우만) — 없으면 undefined
-      let secondaryCategory: SecondaryCategory | undefined =
-        (weighted[1] && weighted[1][1] > 0) ? weighted[1][0] : undefined
+      dominance.sort((a, b) => b[1] - a[1])
 
-      // 특수 케이스 — 볼륨 우세 + 3점 폭격이면 서브 지표를 'three' 로 승격.
-      // 변원식 케이스: 32점 + 3점 8/12 → "그 주 게임 지배 방법" = 3점 폭격.
-      // 조건: 3점 시도 ≥ 3 · (성공률 ≥ 40% OR 성공 ≥ 5)
-      if (topCategory === 'volume' && s.fg3a >= 3) {
-        const fg3Pct = (s.fg3m / s.fg3a) * 100
-        if (fg3Pct >= 40 || s.fg3m >= 5) {
-          secondaryCategory = 'three'
+      const ALL_AROUND_THRESHOLD = 0.85
+      const dominantHigh = dominance.filter(([, v]) => v >= ALL_AROUND_THRESHOLD)
+
+      let topCategory: POTWTopCategory
+      let secondaryCategory: SecondaryCategory | undefined
+      let allAroundLabel: string | undefined  // 다재다능 케이스의 compound 라벨 (예: "리바 23 + 스틸 8")
+
+      if (dominantHigh.length >= 2) {
+        // 다재다능 → topCategory = all-around · pair 로 compound headline 구축
+        topCategory = 'all-around'
+        const [primary, secondary] = dominantHigh
+        const primaryLabel   = buildSecondaryLabel(s, primary[0] as SecondaryCategory)
+        const secondaryLabel = buildSecondaryLabel(s, secondary[0] as SecondaryCategory)
+        allAroundLabel = `${primaryLabel} + ${secondaryLabel}`
+        // 3번째 dominant 가 있으면 secondaryCategory 로 (UI sparkline 등 참고)
+        secondaryCategory = (dominance[2] && dominance[2][1] > 0) ? dominance[2][0] : undefined
+      } else {
+        topCategory = dominance[0][0]
+        secondaryCategory = (dominance[1] && dominance[1][1] > 0) ? dominance[1][0] : undefined
+
+        // 특수 케이스 — 볼륨 우세 + 3점 폭격이면 서브 지표를 'three' 로 승격.
+        // 조건: 3점 시도 ≥ 3 · (성공률 ≥ 40% OR 성공 ≥ 5)
+        if (topCategory === 'volume' && s.fg3a >= 3) {
+          const fg3Pct = (s.fg3m / s.fg3a) * 100
+          if (fg3Pct >= 40 || s.fg3m >= 5) {
+            secondaryCategory = 'three'
+          }
         }
       }
 
-      return { pid: r.pid, s, ts: r.ts, composite, topCategory, secondaryCategory }
+      return { pid: r.pid, s, ts: r.ts, composite, topCategory, secondaryCategory, allAroundLabel }
     })
 
     // 다양성 A — 지난 POTW pid 제외. 전원 제외되면 완화 (fallback).
@@ -585,6 +613,7 @@ async function computeWeeklyPOTW(
         secondaryLabel: top.secondaryCategory
           ? buildSecondaryLabel(top.s, top.secondaryCategory)
           : undefined,
+        allAroundLabel: top.allAroundLabel,
       })
       prevPotwPids.add(top.pid)
     }
@@ -645,7 +674,7 @@ async function computeWeeklyPOTW(
       ? +(series.reduce((sum, e) => sum + e.pts, 0) / series.length).toFixed(1)
       : s.pts
     const fg3Pct = s.fg3a > 0 ? +(s.fg3m / s.fg3a * 100).toFixed(1) : 0
-    const headline = makeHeadline(meta.name, s, top.topCategory)
+    const headline = makeHeadline(meta.name, s, top.topCategory, top.allAroundLabel)
 
     result.push({
       date,
@@ -678,6 +707,7 @@ async function computeWeeklyPOTW(
         fg3_pct: fg3Pct,
         secondaryCategory: top.secondaryCategory,
         secondaryLabel: top.secondaryLabel,
+        allAroundLabel: top.allAroundLabel,
       },
     })
   }

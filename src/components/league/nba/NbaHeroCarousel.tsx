@@ -12,9 +12,11 @@ import NbaHero, { type NbaHeroData } from './NbaHero'
 // POTW 우세 카테고리 — 헤드라인 생성 · 아이콘 강조에 사용
 // 'win' 은 팀 승리 기여 (모든 팀원이 동일 승수 견인이라 무의미) → 실제 접전 상황 클러치로 재정의
 // efficiency 카테고리 삭제 (2026-07-17 · TS%/eFG% 등 Advanced 지표 배제 · POTW_WEIGHTS 참조)
-export type POTWTopCategory = 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
+// 'all-around' 추가 (2026-07-17 · raw dominance top2 >= 0.85 인 경우 · 다재다능 스토리)
+export type POTWTopCategory = 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch' | 'all-around'
 // 2번째 우세 지표 — 볼륨 우세 + 3점 폭격 케이스만 'three' 로 특수 서브 지표
-export type SecondaryCategory = POTWTopCategory | 'three'
+// all-around 은 meta 카테고리라 secondary 로는 부적합 → 명시 리스트 사용
+export type SecondaryCategory = 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch' | 'three'
 
 export type POTWBreakdown = {
   pts: number       // 그 라운드 총 득점
@@ -35,6 +37,8 @@ export type POTWBreakdown = {
   // NEW · 2번째 우세 카테고리 + 라벨 (동적 서브 지표)
   secondaryCategory?: SecondaryCategory
   secondaryLabel?: string
+  // NEW (2026-07-17) · 다재다능 케이스 compound 라벨 (예: "리바 23 + 스틸 8")
+  allAroundLabel?: string
 }
 
 export type WeeklyPOTW = {
@@ -215,6 +219,7 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
               // 첫 슬라이드는 above-fold LCP 후보 → next/image priority · 나머지는 lazy
               priority={idx === 0}
               breakdown={{
+                pts: e.breakdown.pts,
                 ts_pct: e.breakdown.ts_pct,
                 reb: e.breakdown.reb,
                 stl: e.breakdown.stl,
@@ -229,6 +234,7 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
                 fg3_pct: e.breakdown.fg3_pct,
                 secondaryCategory: e.breakdown.secondaryCategory,
                 secondaryLabel: e.breakdown.secondaryLabel,
+                allAroundLabel: e.breakdown.allAroundLabel,
               }}
             />
           </div>
