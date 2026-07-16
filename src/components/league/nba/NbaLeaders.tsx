@@ -60,6 +60,8 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
   // initial 있으면 즉시 렌더 (SSR 프리페치로 waterfall 제거)
   const [loading, setLoading] = useState(!hasInitial)
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
+  // 모바일에서 카테고리 chip 으로 하나만 노출 · 데스크탑은 전체 그리드 (2026-07-16 세로 스크롤 축소)
+  const [selectedCatKey, setSelectedCatKey] = useState<keyof PlayerStat>(CATEGORIES[0].key)
 
   useEffect(() => {
     // initial 데이터가 있으면 mount 시 fetch skip — 서버 렌더 결과 그대로 사용
@@ -112,6 +114,31 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
         ) : players.length === 0 ? (
           <div className="text-center py-10 text-sm" style={{ color: 'var(--mm-muted)' }}>아직 기록된 스탯이 없습니다</div>
         ) : (
+          <>
+            {/* 모바일 전용 카테고리 chip 필터 · sm+ 는 그리드로 전체 노출 */}
+            <div className="sm:hidden flex overflow-x-auto scrollbar-hide gap-1.5 px-4 py-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+              {CATEGORIES.map(cat => {
+                const active = cat.key === selectedCatKey
+                return (
+                  <button
+                    key={String(cat.key)}
+                    type="button"
+                    onClick={() => setSelectedCatKey(cat.key)}
+                    className="shrink-0 min-h-[36px] px-3 py-1.5 text-xs font-black uppercase transition-colors cursor-pointer whitespace-nowrap"
+                    style={{
+                      background: active ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
+                      color: active ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
+                      border: `1px solid ${active ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+                      borderRadius: '4px',
+                      letterSpacing: '0.10em',
+                    }}
+                    aria-pressed={active}
+                  >
+                    {cat.term}
+                  </button>
+                )
+              })}
+            </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 sm:gap-5 sm:p-6 md:p-8 lg:p-10">
             {CATEGORIES.map(cat => {
               const eligible = players.filter(p => {
@@ -122,10 +149,12 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
               const sorted = [...eligible].sort((a, b) => (b[cat.key] as number) - (a[cat.key] as number))
               const top3 = sorted.slice(0, 3)
               if (top3.length === 0) return null
+              // 모바일: 선택된 카테고리만 렌더 · sm+: 전체 그리드
+              const mobileHidden = cat.key !== selectedCatKey ? 'hidden sm:block' : ''
               return (
                 <div
                   key={String(cat.key)}
-                  className="transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+                  className={`${mobileHidden} transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]`}
                   style={{
                     background: 'var(--mm-panel-alt)',
                     border: '1px solid var(--mm-rule)',
@@ -273,6 +302,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
               )
             })}
           </div>
+          </>
         )}
       </section>
 

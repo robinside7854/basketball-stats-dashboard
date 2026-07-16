@@ -72,14 +72,15 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
           </span>
         </header>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 px-4 sm:px-6 md:px-8 lg:px-10 pt-4 sm:pt-6 md:pt-8 lg:pt-10 pb-0">
+        {/* 모바일: 가로 스와이프 (snap) · sm+: 기존 2열/4열 그리드 (2026-07-16 개선 · 세로 스크롤 감소) */}
+        <div className="flex sm:flex-wrap overflow-x-auto sm:overflow-visible snap-x snap-mandatory sm:snap-none scrollbar-hide gap-4 px-4 sm:px-6 md:px-8 lg:px-10 pt-4 sm:pt-6 md:pt-8 lg:pt-10 pb-0">
           {rounds.map(r => {
             const topTeam = r.teams[0]
             const base = `/league/${resolvedOrgSlug}/${leagueId}`
             return (
               <div
                 key={r.date}
-                className="text-left transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.25)]"
+                className="snap-start shrink-0 basis-[85%] sm:basis-[calc(50%-8px)] lg:basis-[calc(25%-12px)] sm:shrink text-left transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.25)]"
                 style={{
                   background: 'var(--mm-panel)',
                   border: '1px solid var(--mm-rule)',
