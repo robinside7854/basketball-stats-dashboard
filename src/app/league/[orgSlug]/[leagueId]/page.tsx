@@ -564,7 +564,9 @@ async function computeWeeklyPOTW(
       ]
       dominance.sort((a, b) => b[1] - a[1])
 
-      const ALL_AROUND_THRESHOLD = 0.85
+      // 임계 0.7 (2026-07-17 완화 · 이전 0.85 는 stl 0.75/blk 0.60 같은 유의미한 dominant 놓침)
+      //   김민수 케이스: reb 0.96 + stl 0.75 → 2개 dominant → all-around 발동
+      const ALL_AROUND_THRESHOLD = 0.7
       const dominantHigh = dominance.filter(([, v]) => v >= ALL_AROUND_THRESHOLD)
 
       let topCategory: POTWTopCategory
@@ -572,14 +574,15 @@ async function computeWeeklyPOTW(
       let allAroundLabel: string | undefined  // 다재다능 케이스의 compound 라벨 (예: "리바 23 + 스틸 8")
 
       if (dominantHigh.length >= 2) {
-        // 다재다능 → topCategory = all-around · pair 로 compound headline 구축
+        // 다재다능 → topCategory = all-around · dominance top 3 로 compound 구축
+        // 3번째 지표는 norm >= 0.5 (라운드 max 대비 절반 이상)인 경우 포함
+        // 김민수 케이스: reb 0.96 + stl 0.75 + blk 0.60 → 3개 다 담김 → "리바 22 + 스틸 6 + 블락 3"
         topCategory = 'all-around'
-        const [primary, secondary] = dominantHigh
-        const primaryLabel   = buildSecondaryLabel(s, primary[0] as SecondaryCategory)
-        const secondaryLabel = buildSecondaryLabel(s, secondary[0] as SecondaryCategory)
-        allAroundLabel = `${primaryLabel} + ${secondaryLabel}`
-        // 3번째 dominant 가 있으면 secondaryCategory 로 (UI sparkline 등 참고)
-        secondaryCategory = (dominance[2] && dominance[2][1] > 0) ? dominance[2][0] : undefined
+        const parts: SecondaryCategory[] = [dominance[0][0], dominance[1][0]]
+        if (dominance[2] && dominance[2][1] >= 0.5) parts.push(dominance[2][0])
+        allAroundLabel = parts.map(cat => buildSecondaryLabel(s, cat)).join(' + ')
+        // secondaryCategory: 3번째 이상 카테고리 (있으면 UI sparkline 등 참고)
+        secondaryCategory = (dominance[3] && dominance[3][1] > 0) ? dominance[3][0] : undefined
       } else {
         topCategory = dominance[0][0]
         secondaryCategory = (dominance[1] && dominance[1][1] > 0) ? dominance[1][0] : undefined

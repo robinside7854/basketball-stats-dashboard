@@ -54,7 +54,8 @@ type Props = {
 }
 
 // sessionStorage 캐시 키 — 리그별로 격리
-const HEADLINE_CACHE_KEY = (leagueId: string) => `potw-headline-cache:${leagueId}`
+// v2 (2026-07-17): topCategory 로직 개편 (raw dominance · all-around) → 옛 캐시 무효화
+const HEADLINE_CACHE_KEY = (leagueId: string) => `potw-headline-cache-v2:${leagueId}`
 
 export default function NbaHeroCarousel({ entries, leagueId }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -107,6 +108,7 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
               clutchGp: e.breakdown.clutchGp,
               topCategory: e.breakdown.topCategory,
               compositeScore: e.breakdown.compositeScore,
+              allAroundLabel: e.breakdown.allAroundLabel,
             },
           }),
         })
