@@ -324,7 +324,8 @@ const getCachedHomeHighlights = (leagueId: string) =>
       const sb = createClient()
       return computeHomeHighlights(sb, leagueId)
     },
-    ['home-clutch-shots-v1', leagueId],
+    // v2 (2026-07-19): payload 스키마에 clutch_kind / opponent_name 필드 추가 → 캐시 강제 갱신
+    ['home-clutch-shots-v2', leagueId],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
   )
 

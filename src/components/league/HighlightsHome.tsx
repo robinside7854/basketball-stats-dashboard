@@ -32,6 +32,15 @@ const KIND_STYLE: Record<NonNullable<HighlightClip['clutch_kind']>, { bg: string
   winning:  { bg: 'var(--mm-yellow)', fg: 'var(--mm-black)' },  // 브랜드 골드 · 최상 등급
   dagger:   { bg: '#ef4444', fg: '#ffffff' },  // red-500 · 결정타
 }
+// 가치 순위 (2026-07-19) · 위닝샷 > 역전 > 동점 > 추격 > 쐐기
+// (쐐기는 이미 앞선 상태에서 격차 벌리기라 상대적으로 극적 강도 낮음)
+const KIND_PRIORITY: Record<NonNullable<HighlightClip['clutch_kind']>, number> = {
+  winning:  0,
+  reversal: 1,
+  tie:      2,
+  chase:    3,
+  dagger:   4,
+}
 
 export type HighlightsHomePayload = {
   date: string
@@ -65,17 +74,18 @@ const CLUTCH_DEFINITION = '경기 마지막 2분 · 2포제션 접전(6점차 �
 export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(null)
 
-  // 랜덤 순서 (매 방문마다 다른 하이라이트가 눈에 띄도록)
-  //   · useMemo 로 data 참조 바뀔 때만 재셔플 → 같은 세션 리렌더에는 안정
+  // 가치 순위 정렬 · 위닝샷 > 역전 > 동점 > 추격 > 쐐기 (사용자 요청 2026-07-19)
   //   · 원본 인덱스(i)는 유지 → 카드 클릭 시 clips[i] 로 모달 오픈
-  const shuffled = useMemo(() => {
+  //   · 같은 종류 내에서는 원본 시간순 유지 (안정 정렬)
+  const orderedClips = useMemo(() => {
     if (!data) return []
-    const arr = data.clips.map((c, i) => ({ c, i }))
-    for (let k = arr.length - 1; k > 0; k--) {
-      const j = Math.floor(Math.random() * (k + 1))
-      ;[arr[k], arr[j]] = [arr[j], arr[k]]
-    }
-    return arr
+    return data.clips
+      .map((c, i) => ({ c, i }))
+      .sort((a, b) => {
+        const oa = a.c.clutch_kind ? KIND_PRIORITY[a.c.clutch_kind] : 99
+        const ob = b.c.clutch_kind ? KIND_PRIORITY[b.c.clutch_kind] : 99
+        return oa - ob
+      })
   }, [data])
 
   if (!data) return null  // 재생 가능 라운드조차 없으면 섹션 미노출
@@ -159,14 +169,14 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
           </Link>
         </header>
 
-        {/* 컨텐츠 · 균등 그리드 카드 (2026-07-18 재설계)
-            · 유튜브 썸네일 제거 (전부 같아서 매력 없음) → 프로필 + 종류 배지 + vs 상대 로 대체
-            · 랜덤 순서 (매 방문마다 다른 하이라이트 눈에 띄게)
-            · 클러치샷 종류: 동점 / 추격 / 역전 / 위닝샷 / 쐐기
+        {/* 컨텐츠 · 균등 그리드 카드 (2026-07-19 재설계 v2)
+            · 종류 배지를 상단 전체 폭 스트립으로 격상 (한눈에 파악)
+            · vs 상대팀은 이름 바로 아래 강조된 라인으로 분리 노출
+            · 정렬: 위닝샷 > 역전 > 동점 > 추격 > 쐐기 (가치순 · 랜덤 아님)
         */}
         {hasClutch ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-4 sm:p-6 md:p-8 lg:p-10">
-            {shuffled.map(({ c, i }) => {
+            {orderedClips.map(({ c, i }) => {
               const shotLabel = SHOT_TYPE_LABEL[c.shot_type] ?? c.shot_type
               const kind = c.clutch_kind
               const kindStyle = kind ? KIND_STYLE[kind] : null
@@ -177,29 +187,37 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   key={c.event_id}
                   type="button"
                   onClick={() => setOpenIdx(i)}
-                  className="group text-left block cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 relative overflow-hidden"
+                  className="group text-left block cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 relative overflow-hidden flex flex-col"
                   style={{
                     background: 'var(--mm-panel)',
-                    border: isWinning ? '1px solid var(--mm-yellow-strong)' : '1px solid var(--mm-rule)',
-                    borderLeft: kindStyle ? `3px solid ${kindStyle.bg}` : '3px solid #ef4444',
+                    border: isWinning ? '2px solid var(--mm-yellow-strong)' : '1px solid var(--mm-rule)',
                     borderRadius: '4px',
-                    minHeight: 200,
+                    minHeight: 220,
                   }}
-                  aria-label={`${c.player_name} ${shotLabel} ${kindLabel ?? '클러치샷'} · ${c.opponent_name ?? ''} 상대 재생`}
+                  aria-label={`${c.player_name} · ${kindLabel ?? '클러치샷'} · ${shotLabel} · vs ${c.opponent_name ?? ''} 재생`}
                 >
-                  {/* 종류 배지 — 우상단 */}
-                  {kindStyle && kindLabel && (
-                    <span
-                      className="absolute top-2 right-2 inline-flex items-center gap-1 text-[11px] font-black tracking-[0.10em] px-2 py-0.5 z-10"
-                      style={{ background: kindStyle.bg, color: kindStyle.fg, borderRadius: '3px' }}
+                  {/* 종류 배지 — 상단 전체 폭 스트립 (한눈에 파악) */}
+                  {kindStyle && kindLabel ? (
+                    <div
+                      className="flex items-center justify-center gap-1 py-1.5 text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase"
+                      style={{ background: kindStyle.bg, color: kindStyle.fg }}
                     >
                       {isWinning && <span aria-hidden>★</span>}
                       {kindLabel}
-                    </span>
+                      {isWinning && <span aria-hidden>★</span>}
+                    </div>
+                  ) : (
+                    <div
+                      className="flex items-center justify-center gap-1 py-1.5 text-[12px] font-black tracking-[0.14em] uppercase"
+                      style={{ background: '#ef4444', color: '#fff' }}
+                    >
+                      <HeartCrack size={12} aria-hidden />
+                      클러치
+                    </div>
                   )}
 
-                  {/* 상단 · 프로필 사진 (원형 · 큼직) */}
-                  <div className="flex justify-center pt-5 pb-3">
+                  {/* 프로필 사진 (원형 · 팀 컬러 테두리 · 큼직) */}
+                  <div className="flex justify-center pt-4 pb-2">
                     <div
                       className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden flex items-center justify-center"
                       style={{
@@ -225,7 +243,6 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                         />
                       )}
-                      {/* 재생 오버레이 (호버 시 표시) */}
                       <span
                         aria-hidden
                         className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
@@ -236,49 +253,54 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                     </div>
                   </div>
 
-                  {/* 정보 · 이름 + 공격방식 + vs 상대 */}
-                  <div className="px-3 pb-4 text-center">
+                  {/* 이름 (중앙 · Bold) */}
+                  <div
+                    className="text-sm sm:text-base font-black text-center px-3 truncate"
+                    style={{ color: 'var(--mm-ink)' }}
+                  >
+                    {c.player_number ? `#${c.player_number} ` : ''}{c.player_name}
+                  </div>
+
+                  {/* vs 상대팀 — 별도 라인 · 명확히 강조 */}
+                  {c.opponent_name && (
                     <div
-                      className="text-sm sm:text-base font-black truncate"
-                      style={{ color: 'var(--mm-ink)' }}
-                    >
-                      {c.player_number ? `#${c.player_number} ` : ''}{c.player_name}
-                    </div>
-                    <div
-                      className="text-[11px] mt-1 flex items-center justify-center gap-1.5 flex-wrap"
+                      className="mx-3 mt-1.5 flex items-center justify-center gap-1 text-[11px] sm:text-[12px] py-0.5"
                       style={{ color: 'var(--mm-muted)' }}
                     >
+                      <span className="font-bold uppercase tracking-[0.10em]" style={{ color: 'var(--mm-muted)' }}>vs</span>
                       <span
-                        className="font-bold uppercase tracking-[0.10em] px-1.5 py-0.5"
+                        className="font-black truncate"
+                        style={{ color: 'var(--mm-ink-soft)' }}
+                      >
+                        {c.opponent_name}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* 공격방식 + 점수 — 하단 */}
+                  <div className="mt-auto p-3 flex items-center justify-center gap-1.5 flex-wrap">
+                    <span
+                      className="text-[11px] font-bold uppercase tracking-[0.10em] px-1.5 py-0.5"
+                      style={{
+                        background: 'var(--mm-panel-alt)',
+                        color: 'var(--mm-ink-soft)',
+                        border: '1px solid var(--mm-rule)',
+                        borderRadius: '3px',
+                      }}
+                    >
+                      {shotLabel}
+                    </span>
+                    {c.points > 0 && (
+                      <span
+                        className="text-[11px] font-black px-1.5 py-0.5"
                         style={{
-                          background: 'var(--mm-panel-alt)',
-                          color: 'var(--mm-ink-soft)',
-                          border: '1px solid var(--mm-rule)',
+                          background: 'var(--mm-yellow)',
+                          color: 'var(--mm-black)',
                           borderRadius: '3px',
                         }}
                       >
-                        {shotLabel}
+                        +{c.points}
                       </span>
-                      {c.points > 0 && (
-                        <span
-                          className="font-bold px-1 py-0.5"
-                          style={{
-                            background: 'var(--mm-yellow)',
-                            color: 'var(--mm-black)',
-                            borderRadius: '3px',
-                          }}
-                        >
-                          +{c.points}
-                        </span>
-                      )}
-                    </div>
-                    {c.opponent_name && (
-                      <div
-                        className="text-[11px] mt-1.5 truncate"
-                        style={{ color: 'var(--mm-muted)' }}
-                      >
-                        vs <span style={{ color: 'var(--mm-ink-soft)', fontWeight: 700 }}>{c.opponent_name}</span>
-                      </div>
                     )}
                   </div>
                 </button>
