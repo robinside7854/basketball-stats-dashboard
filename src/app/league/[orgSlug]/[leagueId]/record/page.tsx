@@ -1311,8 +1311,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
               {/* ── 좌측: 비디오 + 경기 제어 (sticky, 뷰포트 높이 고정) ── */}
               {/* 모바일: display:contents → 비디오 sticky 기준이 그리드 전체가 되어 기록 중에도 항상 보임 */}
               {/* --record-header-offset: 모바일/데스크탑 상단 TabNav 아래 stick 위치 통일 */}
+              {/* 스티키 컨테이너에 뷰포트 높이 캡 · 내부 스크롤로 마감/마감데이터 등 모든 버튼 접근 가능 (2026-07-18)
+                    · 이전: 컨테이너 높이가 뷰포트보다 크면 아래 버튼이 뷰포트 밖으로 밀림
+                    · 신규: max-h + overflow-y-auto 로 컨테이너 내부에서 스크롤 가능 */}
               <div
-                className="contents lg:block lg:sticky lg:space-y-2"
+                className="contents lg:block lg:sticky lg:space-y-2 lg:overflow-y-auto lg:max-h-[calc(100vh-56px)]"
                 style={{ ['--record-header-offset' as string]: '56px', top: 'var(--record-header-offset)' } as React.CSSProperties}
               >
                 {selectedSlot.youtube_url ? (
