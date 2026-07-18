@@ -808,3 +808,53 @@ export async function loadClipsByEventIds(
 
   return eventIds.map(id => byId[id]).filter((c): c is HighlightClip => !!c)
 }
+
+// ── 리그 베스트샷 릴 ─────────────────────────────────────────────
+// 핀(league_players.pinned_event_ids)을 지정한 모든 선수의 클립 모음.
+// 등번호 순 → 각 선수의 핀 슬롯(1→3) 순으로 정렬 · HighlightsBrowser 재사용용 detail shape.
+// 이벤트 삭제 등으로 hydrate 안 되는 핀은 조용히 스킵.
+export async function loadLeagueBestShots(
+  supabase: SupabaseClient,
+  leagueId: string,
+): Promise<HighlightRoundDetail> {
+  const empty: HighlightRoundDetail = { date: '', clips: [], players: [], teams: [] }
+
+  const { data: pinRows, error } = await supabase
+    .from('league_players')
+    .select('id, name, number, pinned_event_ids')
+    .eq('league_id', leagueId)
+    .not('pinned_event_ids', 'is', null)
+  if (error) return empty
+  const pinners = ((pinRows ?? []) as Array<{ id: string; name: string; number: number | null; pinned_event_ids: string[] | null }>)
+    .filter(p => (p.pinned_event_ids?.length ?? 0) > 0)
+  if (pinners.length === 0) return empty
+
+  // 등번호 순 (없으면 뒤로) → 이름 순
+  pinners.sort((a, b) => {
+    const na = a.number ?? 9999
+    const nb = b.number ?? 9999
+    if (na !== nb) return na - nb
+    return a.name.localeCompare(b.name, 'ko')
+  })
+
+  const allEventIds = pinners.flatMap(p => p.pinned_event_ids ?? [])
+  const loaded = await loadClipsByEventIds(supabase, leagueId, allEventIds)
+  const clipMap: Record<string, HighlightClip> = {}
+  for (const c of loaded) clipMap[c.event_id] = c
+
+  // 핀 소유 선수 기준 재조립 (슬롯 순서 유지)
+  const clips: HighlightClip[] = []
+  const players: HighlightPlayerOption[] = []
+  for (const p of pinners) {
+    let count = 0
+    for (const evId of p.pinned_event_ids ?? []) {
+      const c = clipMap[evId]
+      if (!c) continue
+      clips.push(c)
+      count++
+    }
+    if (count > 0) players.push({ id: p.id, name: p.name, number: p.number, count })
+  }
+
+  return { date: '', clips, players, teams: [] }
+}
