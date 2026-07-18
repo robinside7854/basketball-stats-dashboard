@@ -17,7 +17,8 @@ export async function GET(request: Request) {
 
   const supabase = createClient()
 
-  let playersQuery = supabase.from('players').select('id, name, number').eq('is_active', true).order('number')
+  // photo_url — 합작 듀오 TOP 5 카드에서 두 선수 프로필 사진을 겹쳐 표시하는 데 사용
+  let playersQuery = supabase.from('players').select('id, name, number, photo_url').eq('is_active', true).order('number')
   if (team) {
     const { getTeamId } = await import('@/lib/supabase/get-team-id')
     const teamId = await getTeamId(org, team)

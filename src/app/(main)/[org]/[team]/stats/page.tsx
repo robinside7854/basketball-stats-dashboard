@@ -1,10 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { sortJerseyNum } from '@/lib/utils'
 import { useTeam } from '@/contexts/TeamContext'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import HalfCourtChart from '@/components/roster/HalfCourtChart'
 
 const PlayerDetailModal = dynamic(() => import('@/components/roster/PlayerDetailModal'), { ssr: false })
 import type { Tournament, PlayerBoxScore } from '@/types/database'
@@ -15,7 +15,40 @@ const STATS_SUB_TABS = [
   { path: '/opponent', label: '상대 분석' },
 ]
 
-interface AssistPlayer { id: string; name: string; number: string }
+
+const DUO_MEDAL: Record<number, string> = { 0: '🥇', 1: '🥈', 2: '🥉' }
+
+// 합작 듀오 카드용 프로필 사진 — 리그 어워드와 동일한 3:4 비율 · 검정 테두리 · 겹침 배치
+// (모듈 최상단 정의: 페이지 함수 안에 두면 리렌더마다 unmount 된다)
+function DuoPhoto({ url, name, number, overlap = false }: {
+  url?: string | null; name: string; number: string; overlap?: boolean
+}) {
+  return (
+    <div
+      className="overflow-hidden relative shrink-0"
+      style={{
+        width: 'clamp(34px, 9vw, 44px)',
+        aspectRatio: '3 / 4',
+        border: '2px solid #000',
+        background: '#0f172a',
+        borderRadius: '4px',
+        boxShadow: '2px 2px 0 rgba(0,0,0,0.35)',
+        marginLeft: overlap ? 'clamp(-14px, -3.5vw, -10px)' : undefined,
+        zIndex: overlap ? 1 : 0,
+      }}
+    >
+      {url ? (
+        <Image src={url} alt={name} fill sizes="44px" className="object-cover object-top" />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-[11px] font-black text-gray-500" aria-label={name}>
+          {number}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface AssistPlayer { id: string; name: string; number: string; photo_url?: string | null }
 interface ScorerStat {
   playerId: string; playerName: string; playerNumber: string
   totalFgm: number; assistedFgm: number; assistedPts: number; unassistedPts: number
@@ -53,16 +86,11 @@ export default function StatsPage() {
   const [sortKey, setSortKey] = useState<keyof SeasonPlayer>('pts_avg')
   const [playerModal, setPlayerModal] = useState<string | null>(null)
   const [assistData, setAssistData] = useState<AssistData | null>(null)
-  const [selectedAssistPlayer, setSelectedAssistPlayer] = useState<{ playerId: string; name: string; mode: 'assisted' | 'unassisted' } | null>(null)
-  const [teamShotZones, setTeamShotZones] = useState<Record<string, { made: number; attempted: number; pct: number }>>({})
-  const [teamZonedTotal, setTeamZonedTotal] = useState(0)
-  const [teamZoneUntagged, setTeamZoneUntagged] = useState(0)
 
   useEffect(() => { fetch(`/api/tournaments?team=${team}`).then(r => r.json()).then(setTournaments) }, [team])
   useEffect(() => {
     const tParam = selectedTId !== 'all' ? `&tournamentId=${selectedTId}` : ''
     fetch(`/api/stats/assists?team=${team}${tParam}`).then(r => r.json()).then(setAssistData)
-    setSelectedAssistPlayer(null)
   }, [selectedTId, team])
 
   useEffect(() => {
@@ -77,9 +105,6 @@ export default function StatsPage() {
         return { ...p, eff: Math.round((positive - negative) * 10) / 10 }
       })
       setPlayers(withEff)
-      setTeamShotZones(d.teamShotZones ?? {})
-      setTeamZonedTotal(d.teamZonedTotal ?? 0)
-      setTeamZoneUntagged(d.teamZoneUntagged ?? 0)
     })
   }, [selectedTId, team])
 
@@ -409,305 +434,45 @@ export default function StatsPage() {
         </div>
       )}
 
-      {/* 팀 슛 차트 */}
-      {(teamZonedTotal > 0 || teamZoneUntagged > 0) && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-5 space-y-3">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-lg font-semibold text-gray-300">팀 슛 차트</h2>
-            <span className="text-xs text-gray-600">코트 위치별 팀 야투율 · 핫존 🔥 / 콜드존 ❄️</span>
+      {/* 합작 듀오 TOP 5 — 어시스트 최다 연결 (두 선수 프로필 겹쳐 표시) */}
+      {assistData && assistData.topPairs.length > 0 && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-5">
+          <div className="flex items-baseline justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-300">합작 듀오 TOP 5</h2>
+            <span className="text-xs text-gray-600">어시스트 → 득점 최다 연결</span>
           </div>
-          <HalfCourtChart
-            zones={teamShotZones}
-            totalAttempts={teamZonedTotal}
-            untaggedAttempts={teamZoneUntagged}
-            minAttempts={5}
-          />
+          <div className="space-y-2">
+            {assistData.topPairs.slice(0, 5).map((pair, i) => (
+              <div
+                key={`${pair.assister.id}-${pair.scorer.id}`}
+                className="flex items-center gap-2.5 sm:gap-3 bg-gray-800/50 rounded-lg px-2.5 sm:px-3 py-2.5"
+              >
+                <span className="text-lg shrink-0 w-6 text-center" aria-hidden>{DUO_MEDAL[i] ?? '🏅'}</span>
+
+                {/* 프로필 사진 2장 — 리그 어워드와 동일하게 겹쳐 배치 */}
+                <div className="shrink-0 flex items-end">
+                  <DuoPhoto url={pair.assister.photo_url} name={pair.assister.name} number={pair.assister.number} />
+                  <DuoPhoto url={pair.scorer.photo_url} name={pair.scorer.name} number={pair.scorer.number} overlap />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs sm:text-sm font-bold text-white truncate">
+                    <span className="text-blue-400">#{pair.assister.number}</span> {pair.assister.name}
+                    <span className="text-gray-500 mx-1">→</span>
+                    <span className="text-green-400">#{pair.scorer.number}</span> {pair.scorer.name}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">어시스트 → 득점</div>
+                </div>
+
+                <div className="shrink-0 text-right">
+                  <div className="text-lg sm:text-xl font-black font-mono text-amber-400 tabular-nums">{pair.count}</div>
+                  <div className="text-xs text-gray-500">회</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
-
-      {/* 어시스트 네트워크 */}
-      {assistData && assistData.topPairs.length > 0 && (() => {
-        const { players: aPlayers, matrix, topPairs, scorerStats, shotTypeBreakdown, shotLabels } = assistData
-        const maxCount = Math.max(...topPairs.map(p => p.count), 1)
-        const MEDAL: Record<number, string> = { 0: '🥇', 1: '🥈', 2: '🥉' }
-        const SHOT_COLORS: Record<string, string> = {
-          shot_3p: '#3b82f6', shot_layup: '#f97316', shot_2p_mid: '#eab308', shot_post: '#ef4444',
-        }
-
-        function cellBg(count: number) {
-          if (!count) return ''
-          const ratio = count / maxCount
-          if (ratio >= 0.8) return 'bg-blue-500 text-white font-bold'
-          if (ratio >= 0.5) return 'bg-blue-700/70 text-blue-200 font-semibold'
-          if (ratio >= 0.25) return 'bg-blue-900/60 text-blue-300'
-          return 'bg-gray-800/60 text-gray-400'
-        }
-
-        const totalAssisted = Object.values(shotTypeBreakdown).reduce((s, v) => s + v, 0)
-
-        return (
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-300">어시스트 네트워크</h2>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="hidden lg:block bg-gray-900 border border-gray-800 rounded-xl p-4">
-                <p className="text-xs text-gray-500 mb-3">↓ 어시스트 제공 → 득점 선수</p>
-                <div className="overflow-x-auto">
-                  <table className="text-xs border-collapse w-full">
-                    <thead>
-                      <tr>
-                        <th className="w-16 py-1.5 text-gray-600 text-left pr-2">A↓ / S→</th>
-                        {aPlayers.map(p => (
-                          <th key={p.id} className="py-1.5 px-1 text-gray-400 font-medium min-w-[36px]">
-                            <div className="text-center">
-                              <div className="text-blue-400 font-bold">{p.number}</div>
-                              <div className="text-gray-500 text-xs truncate max-w-[36px]">{p.name.slice(0, 3)}</div>
-                            </div>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {aPlayers.map(assister => (
-                        <tr key={assister.id} className="border-t border-gray-800/50">
-                          <td className="py-1.5 pr-2 text-right whitespace-nowrap">
-                            <span className="text-blue-400 font-bold">{assister.number}</span>
-                            <span className="text-gray-400 ml-1">{assister.name.slice(0, 3)}</span>
-                          </td>
-                          {aPlayers.map(scorer => {
-                            const count = matrix[assister.id]?.[scorer.id] ?? 0
-                            return (
-                              <td key={scorer.id} className="py-1.5 px-1 text-center">
-                                {assister.id === scorer.id ? (
-                                  <span className="text-gray-800">—</span>
-                                ) : count > 0 ? (
-                                  <span className={`inline-block min-w-[28px] py-0.5 rounded text-center text-xs ${cellBg(count)}`}>
-                                    {count}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-800">·</span>
-                                )}
-                              </td>
-                            )
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="flex items-center gap-3 mt-3 pt-2 border-t border-gray-800">
-                  <span className="text-xs text-gray-600">연결 강도</span>
-                  {[['낮음', 'bg-gray-800/60'], ['중간', 'bg-blue-900/60'], ['높음', 'bg-blue-700/70'], ['최다', 'bg-blue-500']].map(([label, cls]) => (
-                    <div key={label} className="flex items-center gap-1">
-                      <span className={`w-4 h-4 rounded ${cls} inline-block`} />
-                      <span className="text-xs text-gray-500">{label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                <p className="text-xs text-gray-500 mb-3">최다 어시스트 연결</p>
-                <div className="space-y-2">
-                  {topPairs.map((pair, i) => (
-                    <div key={i} className="flex items-center gap-3 bg-gray-800/50 rounded-lg px-3 py-2.5">
-                      <span className="text-lg shrink-0">{MEDAL[i] ?? '🏅'}</span>
-                      <div className="flex-1 flex items-center gap-2 min-w-0">
-                        <div className="text-center shrink-0">
-                          <div className="text-blue-400 font-black text-sm">#{pair.assister.number}</div>
-                          <div className="text-white text-xs font-medium">{pair.assister.name}</div>
-                        </div>
-                        <div className="flex-1 flex items-center justify-center gap-1 min-w-0">
-                          <div className="h-px flex-1 bg-gradient-to-r from-blue-500 to-transparent" />
-                          <span className="text-xs text-gray-500">→</span>
-                          <div className="h-px flex-1 bg-gradient-to-l from-green-500 to-transparent" />
-                        </div>
-                        <div className="text-center shrink-0">
-                          <div className="text-green-400 font-black text-sm">#{pair.scorer.number}</div>
-                          <div className="text-white text-xs font-medium">{pair.scorer.name}</div>
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <div className="text-xl font-black font-mono text-amber-400">{pair.count}</div>
-                        <div className="text-xs text-gray-500">회</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-xl p-4">
-                <p className="text-xs text-gray-500 mb-3">
-                  선수별 어시스트 득점 현황
-                  <span className="ml-2 text-gray-600">득점 숫자 클릭 → 우측 공격 스타일 확인</span>
-                </p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs border-collapse">
-                    <thead>
-                      <tr className="text-gray-500 border-b border-gray-800">
-                        <th className="py-1.5 text-left font-normal pr-3">선수</th>
-                        <th className="py-1.5 text-center font-normal px-2 whitespace-nowrap">어시스트 득점</th>
-                        <th className="py-1.5 text-center font-normal px-2 whitespace-nowrap">단독 득점</th>
-                        <th className="py-1.5 font-normal px-2 whitespace-nowrap">어시스트 비중</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {scorerStats.filter(s => s.totalFgm > 0).map(s => {
-                        const totalPts = s.assistedPts + s.unassistedPts
-                        const assistedPtsPct = totalPts > 0 ? Math.round((s.assistedPts / totalPts) * 100) : 0
-                        const isSelA = selectedAssistPlayer?.playerId === s.playerId && selectedAssistPlayer.mode === 'assisted'
-                        const isSelU = selectedAssistPlayer?.playerId === s.playerId && selectedAssistPlayer.mode === 'unassisted'
-                        return (
-                          <tr key={s.playerId} className="border-b border-gray-800/50 hover:bg-gray-800/30">
-                            <td className="py-2 pr-3 whitespace-nowrap">
-                              <span className="text-blue-400 font-bold">#{s.playerNumber}</span>
-                              <span className="text-white ml-1.5">{s.playerName}</span>
-                            </td>
-                            <td className="py-2 px-2 text-center">
-                              <button
-                                onClick={() => setSelectedAssistPlayer(
-                                  isSelA ? null : { playerId: s.playerId, name: s.playerName, mode: 'assisted' }
-                                )}
-                                disabled={s.assistedFgm === 0}
-                                className={`font-bold px-1.5 py-0.5 rounded transition-colors disabled:cursor-default
-                                  ${isSelA
-                                    ? 'bg-green-500 text-white ring-2 ring-green-400'
-                                    : s.assistedFgm > 0
-                                      ? 'text-green-400 hover:bg-green-900/40 cursor-pointer'
-                                      : 'text-gray-600'}`}
-                              >
-                                {s.assistedPts}
-                              </button>
-                              <span className="text-gray-600 ml-1 text-xs">({s.assistedFgm}개)</span>
-                            </td>
-                            <td className="py-2 px-2 text-center">
-                              <button
-                                onClick={() => setSelectedAssistPlayer(
-                                  isSelU ? null : { playerId: s.playerId, name: s.playerName, mode: 'unassisted' }
-                                )}
-                                disabled={s.totalFgm - s.assistedFgm === 0}
-                                className={`font-bold px-1.5 py-0.5 rounded transition-colors disabled:cursor-default
-                                  ${isSelU
-                                    ? 'bg-gray-400 text-black ring-2 ring-gray-300'
-                                    : s.totalFgm - s.assistedFgm > 0
-                                      ? 'text-gray-300 hover:bg-gray-700/60 cursor-pointer'
-                                      : 'text-gray-700'}`}
-                              >
-                                {s.unassistedPts}
-                              </button>
-                              <span className="text-gray-600 ml-1 text-xs">({s.totalFgm - s.assistedFgm}개)</span>
-                            </td>
-                            <td className="py-2 px-2">
-                              <div className="flex items-center gap-2">
-                                <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden min-w-[60px]">
-                                  <div
-                                    className="h-2 rounded-full bg-green-500 transition-all"
-                                    style={{ width: `${assistedPtsPct}%` }}
-                                  />
-                                </div>
-                                <span className={`font-bold w-8 text-right ${assistedPtsPct >= 50 ? 'text-green-400' : 'text-gray-400'}`}>
-                                  {assistedPtsPct}%
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="text-xs text-gray-700 mt-2">* 어시스트 비중 = 어시스트 득점 / (어시스트+단독) 총득점. 자유투 제외.</p>
-              </div>
-
-              {(() => {
-                let breakdown: Record<string, number>
-                let totalCount: number
-                let title: string
-                let subtitle: string
-
-                if (selectedAssistPlayer) {
-                  const stat = scorerStats.find(s => s.playerId === selectedAssistPlayer.playerId)
-                  breakdown = selectedAssistPlayer.mode === 'assisted'
-                    ? (stat?.byType ?? {})
-                    : (stat?.unassistedByType ?? {})
-                  totalCount = Object.values(breakdown).reduce((s, v) => s + v, 0)
-                  title = `${selectedAssistPlayer.name} · ${selectedAssistPlayer.mode === 'assisted' ? '어시스트 득점' : '단독 득점'}`
-                  subtitle = selectedAssistPlayer.mode === 'assisted' ? '어시스트 받은 슛 유형' : '단독으로 넣은 슛 유형'
-                } else {
-                  breakdown = shotTypeBreakdown
-                  totalCount = totalAssisted
-                  title = '팀 전체 · 어시스트 슛 유형'
-                  subtitle = '선수 득점 숫자 클릭 시 개인 현황'
-                }
-
-                return (
-                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                    <div className="flex items-start justify-between mb-1">
-                      <div>
-                        <p className="text-xs font-semibold text-white">{title}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>
-                      </div>
-                      {selectedAssistPlayer && (
-                        <button
-                          onClick={() => setSelectedAssistPlayer(null)}
-                          className="text-xs text-gray-500 hover:text-gray-300 px-1.5 py-0.5 rounded hover:bg-gray-800 transition-colors shrink-0"
-                        >
-                          전체 보기
-                        </button>
-                      )}
-                    </div>
-                    {totalCount > 0 ? (
-                      <div className="space-y-3 mt-3">
-                        <div className="flex h-4 rounded-lg overflow-hidden gap-px">
-                          {Object.entries(breakdown)
-                            .sort((a, b) => b[1] - a[1])
-                            .map(([type, count]) => (
-                              <div
-                                key={type}
-                                style={{ width: `${(count / totalCount) * 100}%`, backgroundColor: SHOT_COLORS[type] ?? '#6b7280' }}
-                                title={`${shotLabels[type] ?? type} ${count}회`}
-                              />
-                            ))}
-                        </div>
-                        <div className="space-y-2.5">
-                          {Object.entries(breakdown)
-                            .sort((a, b) => b[1] - a[1])
-                            .map(([type, count]) => {
-                              const pct = Math.round((count / totalCount) * 100)
-                              const color = SHOT_COLORS[type] ?? '#6b7280'
-                              return (
-                                <div key={type}>
-                                  <div className="flex items-center justify-between text-xs mb-1">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ backgroundColor: color }} />
-                                      <span className="text-gray-300">{shotLabels[type] ?? type}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-gray-500">{count}회</span>
-                                      <span className="font-bold w-8 text-right" style={{ color }}>{pct}%</span>
-                                    </div>
-                                  </div>
-                                  <div className="bg-gray-800 rounded-full h-1.5 overflow-hidden">
-                                    <div className="h-1.5 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
-                                  </div>
-                                </div>
-                              )
-                            })}
-                        </div>
-                        <p className="text-xs text-gray-700">총 {totalCount}회</p>
-                      </div>
-                    ) : (
-                      <p className="text-gray-600 text-xs mt-3">데이터 없음</p>
-                    )}
-                  </div>
-                )
-              })()}
-            </div>
-          </div>
-        )
-      })()}
 
       {playerModal && (
         <PlayerDetailModal
