@@ -279,17 +279,22 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     init()
   }, [leagueId])
 
-  // 선택한 날짜의 분기로 teams 자동 갱신 — 분기별 팀명/색상 override 적용
-  // (날짜→분기 매핑은 dateQuarterMap. 매핑 미준비 또는 미발견 시 base teams 유지)
+  // 선택한 날짜/슬랏의 분기로 teams 자동 갱신 — 분기별 팀명/색상 override 적용
+  //   버그 수정 (2026-07-18): dateQuarterMap 이 초기 로딩 타이밍 문제로 미준비 상태이거나
+  //     이전 분기 teams 상태(락다운 등)가 남아있는 경우 잘못된 이름이 dropdown 에 노출됨.
+  //   개선: selectedSlot 이 있으면 slot.quarter_id (더 직접적) · 없으면 dateQuarterMap fallback.
+  //         cache: 'no-store' 로 Next.js fetch dedupe 캐시 방지.
+  //   슬랏 목록(slots)에서 selectedSlotId 로 찾은 slot 의 quarter_id 가 최우선.
   useEffect(() => {
     if (!selectedDate) return
-    const qid = dateQuarterMap[selectedDate]
+    const slotQid = slots.find(s => s.id === selectedSlotId)?.quarter_id
+    const qid = slotQid ?? dateQuarterMap[selectedDate]
     if (!qid) return
-    fetch(`/api/leagues/${leagueId}/teams?quarterId=${qid}`)
+    fetch(`/api/leagues/${leagueId}/teams?quarterId=${qid}`, { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(ts => { if (Array.isArray(ts)) setTeams(ts) })
       .catch(() => null)
-  }, [leagueId, selectedDate, dateQuarterMap])
+  }, [leagueId, selectedDate, selectedSlotId, dateQuarterMap, slots])
 
   async function loadRoster(slot: GameSlot) {
     if (!slot.home_team_id || !slot.away_team_id) return
