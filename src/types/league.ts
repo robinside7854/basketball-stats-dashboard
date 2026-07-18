@@ -127,6 +127,11 @@ export type PlayerStat = {
   //   denominator: 본인 출전 게임의 리그 전체(양팀) 총합
   pie_num: number
   pie_denom: number
+  // On-court +/- (2026-07-19) — 본인 출전 구간 동안 우리팀/상대팀 득점 합
+  //   plus_minus = oncourt_own − oncourt_opp
+  //   기록자가 sub_in/out 을 놓치면 그 세션이 통째 누락 → 데이터 정확도에 의존
+  oncourt_own: number
+  oncourt_opp: number
 }
 
 export type QuarterPlayer = {

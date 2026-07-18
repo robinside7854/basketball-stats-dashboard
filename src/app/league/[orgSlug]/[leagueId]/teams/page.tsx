@@ -1023,6 +1023,8 @@ export default function LeagueTeamsPage() {
       minutes_played: 0,
       pie_num: 0,
       pie_denom: 0,
+      oncourt_own: 0,
+      oncourt_opp: 0,
     })
     const m: Record<string, PlayerStat[]> = {}
     for (const id of identities) {

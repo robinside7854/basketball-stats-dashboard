@@ -19,7 +19,7 @@ import type { Quarter, PlayerStat } from '@/types/league'
 type ViewMode = 'avg' | 'total'
 type StatUnit = 'round' | 'game' | 'per40'
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
-type AdvKey = 'pie'|'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
+type AdvKey = 'pie'|'plus_minus'|'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'ds_pct'|'lu_pct'|'md_pct'|'three_share'
 type StatMode = 'basic'|'shooting'|'advanced'|'seasonHigh'
 
@@ -238,8 +238,9 @@ function LeagueStatsPageInner() {
 
   // Advanced stats 컬럼 (Shooting 제외 — 효율/볼소유/리바운드 비중)
   const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
-    { key: 'pie',       label: 'PIE',   desc: 'Player Impact Estimate · 본인 임팩트 / 게임 총 임팩트(양팀 합)' },
-    { key: 'usg_pct',   label: 'USG%',  desc: '사용률 · 팀 소유권 대비 본인 마무리 비중' },
+    { key: 'pie',        label: 'PIE',   desc: 'Player Impact Estimate · 본인 임팩트 / 게임 총 임팩트(양팀 합)' },
+    { key: 'plus_minus', label: '+/-',   desc: '온-코트 마진 · 본인 출전 중 우리팀 득점 − 상대 득점 (누적)' },
+    { key: 'usg_pct',    label: 'USG%',  desc: '사용률 · 팀 소유권 대비 본인 마무리 비중' },
     { key: 'at_ratio',  label: 'A/T',   desc: '어시스트/턴오버 비율' },
     { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
     { key: 'tov_pct',   label: 'TOV%',  desc: '볼소유 중 턴오버 비중' },
@@ -257,8 +258,11 @@ function LeagueStatsPageInner() {
     const teamPoss = p.team_poss_in_games ?? 0
     const pieDenom = p.pie_denom ?? 0
     const pieNum = p.pie_num ?? 0
+    const own = p.oncourt_own ?? 0
+    const opp = p.oncourt_opp ?? 0
     return {
-      pie:       pieDenom > 0 ? +(pieNum / pieDenom * 100).toFixed(1) : 0,
+      pie:        pieDenom > 0 ? +(pieNum / pieDenom * 100).toFixed(1) : 0,
+      plus_minus: own - opp,
       at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : (p.ast > 0 ? 99 : 0),
       ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
       tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,
@@ -411,6 +415,8 @@ function LeagueStatsPageInner() {
     const sorted = withVals.sort((a, b) => b.val - a.val).slice(0, 5)
     const isRatio = advSortKey === 'at_ratio'
     const isCount = advSortKey === 'a1_total'
+    const isSigned = advSortKey === 'plus_minus'
+    const fmtSigned = (v: number) => v > 0 ? `+${v}` : String(v)
     return {
       key: `advanced:${advSortKey}`,
       label,
@@ -419,7 +425,7 @@ function LeagueStatsPageInner() {
         id: p.player_id,
         name: p.name,
         photo_url: p.photo_url,
-        value: isRatio || isCount ? String(val) : `${val}%`,
+        value: isSigned ? fmtSigned(val) : (isRatio || isCount ? String(val) : `${val}%`),
       })),
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -931,11 +937,23 @@ function LeagueStatsPageInner() {
                       {ADV_COLS.map(({ key, label }) => {
                         const isRatio = key === 'at_ratio'
                         const isCount = key === 'a1_total'
+                        const isSigned = key === 'plus_minus'
+                        const v = adv[key]
                         const active = advSortKey === key
+                        // signed 값: 양수 +접두, 부호별 컬러 (green/red/muted)
+                        const signedColor = isSigned
+                          ? (v > 0 ? '#059669' : v < 0 ? '#DC2626' : 'var(--mm-muted)')
+                          : undefined
+                        const displayVal = isSigned
+                          ? (v > 0 ? `+${v}` : String(v))
+                          : (isRatio || isCount ? String(v) : `${v}%`)
                         return (
                           <div key={key} className="text-center">
                             <div className="text-[11px] font-bold uppercase" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
-                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink)', fontSize: '15px' }}>{isRatio || isCount ? adv[key] : `${adv[key]}%`}</div>
+                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{
+                              color: active ? 'var(--mm-yellow-strong)' : (signedColor ?? 'var(--mm-ink)'),
+                              fontSize: '15px',
+                            }}>{displayVal}</div>
                           </div>
                         )
                       })}
@@ -990,11 +1008,22 @@ function LeagueStatsPageInner() {
                         const val = adv[key]
                         const isRatio = key === 'at_ratio'
                         const isCount = key === 'a1_total'
+                        const isSigned = key === 'plus_minus'
                         const active = advSortKey === key
+                        const signedColor = isSigned
+                          ? (val > 0 ? '#059669' : val < 0 ? '#DC2626' : 'var(--mm-muted)')
+                          : undefined
+                        const displayVal = isSigned
+                          ? (val > 0 ? `+${val}` : String(val))
+                          : (isRatio || isCount ? String(val) : `${val}%`)
                         return (
                           <td key={key} className="px-3 py-3 text-center font-jersey tabular-nums"
-                            style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px' }}>
-                            {isRatio || isCount ? val : `${val}%`}
+                            style={{
+                              color: active ? 'var(--mm-yellow-strong)' : (signedColor ?? 'var(--mm-ink-soft)'),
+                              fontWeight: active ? 900 : 600,
+                              fontSize: '15px',
+                            }}>
+                            {displayVal}
                           </td>
                         )
                       })}

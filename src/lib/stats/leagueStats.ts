@@ -91,6 +91,7 @@ export async function computeLeagueStats(
   }
 
   // 3) 이벤트 페이지네이션
+  //    quarter/video_timestamp 는 on-court +/- 계산용 (2026-07-19)
   type EventRow = {
     league_player_id: string | null
     related_player_id: string | null
@@ -99,6 +100,8 @@ export async function computeLeagueStats(
     result: string | null
     points: number | null
     league_game_id: string
+    quarter: number | null
+    video_timestamp: number | null
   }
   const events: EventRow[] = []
   const PAGE = 1000
@@ -106,7 +109,7 @@ export async function computeLeagueStats(
   while (true) {
     let q = sb
       .from('league_game_events')
-      .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id')
+      .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id, quarter, video_timestamp')
       .in('league_game_id', gameIds)
       .not('league_player_id', 'is', null)
       // ⚠ ORDER BY 없으면 페이지네이션 중복/누락 발생
@@ -143,6 +146,10 @@ export async function computeLeagueStats(
     // 분모는 게임 총합에서 별도 산출 → pie_denom
     pie_num: number
     pie_denom: number
+    // on-court +/- 재료 (2026-07-19)
+    //   본인 출전 구간 동안 우리팀/상대팀 득점 합. plus_minus = own − opp
+    oncourt_own: number
+    oncourt_opp: number
   }
 
   const statsMap: Record<string, PlayerStats> = {}
@@ -177,6 +184,8 @@ export async function computeLeagueStats(
         minutes_played: 0,
         pie_num: 0,
         pie_denom: 0,
+        oncourt_own: 0,
+        oncourt_opp: 0,
       }
     }
     return statsMap[pid]
@@ -348,19 +357,82 @@ export async function computeLeagueStats(
     statsMap[pid].pie_denom = denom
   }
 
-  // Minutes 조회
+  // Minutes 조회 + on-court +/- 계산 (2026-07-19)
+  //   1) minutesRows 를 순회 → 총 출전 시간 합산 + (pid, gid, quarter) 별 인터벌 인덱스
+  //   2) 각 선수의 게임별 소속팀 (playerTeamGameCount top) 을 재조회
+  //   3) 득점 이벤트를 walk 하며 quarter + video_timestamp 가 인터벌 안이면
+  //      · event.team_id === 본인팀 → oncourt_own += points
+  //      · 상대팀        → oncourt_opp += points
   {
     const { data: minutesRows } = await sb
       .from('league_player_minutes')
-      .select('league_player_id, in_time, out_time')
+      .select('league_player_id, league_game_id, quarter, in_time, out_time')
       .in('league_game_id', gameIds)
-    for (const m of (minutesRows ?? []) as { league_player_id: string | null; in_time: number | null; out_time: number | null }[]) {
-      if (!m.league_player_id) continue
+
+    type Interval = { quarter: number; in_time: number; out_time: number }
+    // pid → gid → 인터벌 리스트
+    const intervalsByPidGid = new Map<string, Map<string, Interval[]>>()
+
+    for (const m of (minutesRows ?? []) as { league_player_id: string | null; league_game_id: string | null; quarter: number | null; in_time: number | null; out_time: number | null }[]) {
+      if (!m.league_player_id || !m.league_game_id) continue
       if (m.in_time == null || m.out_time == null) continue
-      const secs = Math.max(0, m.out_time - m.in_time)
+      if (m.out_time <= m.in_time) continue
+      const secs = m.out_time - m.in_time
       const s = statsMap[m.league_player_id]
       if (s) s.minutes_played += secs / 60
+      // 인터벌 인덱스 (on-court walk 용)
+      if (!intervalsByPidGid.has(m.league_player_id)) intervalsByPidGid.set(m.league_player_id, new Map())
+      const gm = intervalsByPidGid.get(m.league_player_id)!
+      if (!gm.has(m.league_game_id)) gm.set(m.league_game_id, [])
+      gm.get(m.league_game_id)!.push({ quarter: m.quarter ?? 1, in_time: m.in_time, out_time: m.out_time })
     }
+
+    // 게임 → 그 게임에 인터벌이 있는 선수들 (walk 최적화)
+    const playersByGame = new Map<string, string[]>()
+    for (const [pid, gm] of intervalsByPidGid) {
+      for (const gid of gm.keys()) {
+        if (!playersByGame.has(gid)) playersByGame.set(gid, [])
+        playersByGame.get(gid)!.push(pid)
+      }
+    }
+
+    // 선수의 게임별 소속팀 (playerTeamGameCount top)
+    const playerTeamByGame = new Map<string, Map<string, string>>()
+    for (const pid of Object.keys(playerTeamGameCount)) {
+      const perGame = playerTeamGameCount[pid]
+      const inner = new Map<string, string>()
+      for (const gid of Object.keys(perGame)) {
+        const top = Object.entries(perGame[gid]).sort((a, b) => b[1] - a[1])[0]
+        if (top) inner.set(gid, top[0])
+      }
+      playerTeamByGame.set(pid, inner)
+    }
+
+    // 득점 이벤트 walk · 인터벌 매칭 → own/opp 누적
+    for (const e of events) {
+      const pts = e.points ?? 0
+      if (pts <= 0 || !e.team_id) continue
+      if (e.video_timestamp == null || e.quarter == null) continue
+      const pids = playersByGame.get(e.league_game_id)
+      if (!pids) continue
+      for (const pid of pids) {
+        const intervals = intervalsByPidGid.get(pid)?.get(e.league_game_id)
+        if (!intervals) continue
+        const onCourt = intervals.some(iv =>
+          iv.quarter === e.quarter
+          && iv.in_time <= (e.video_timestamp as number)
+          && iv.out_time >= (e.video_timestamp as number),
+        )
+        if (!onCourt) continue
+        const myTeam = playerTeamByGame.get(pid)?.get(e.league_game_id)
+        if (!myTeam) continue
+        const s = statsMap[pid]
+        if (!s) continue
+        if (myTeam === e.team_id) s.oncourt_own += pts
+        else s.oncourt_opp += pts
+      }
+    }
+
     for (const pid of Object.keys(statsMap)) {
       statsMap[pid].minutes_played = Math.round(statsMap[pid].minutes_played * 10) / 10
     }
