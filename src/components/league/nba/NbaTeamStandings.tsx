@@ -1,7 +1,9 @@
 // 미라클모닝 브랜드 — 팀 승률 요약 (현재 분기 기준)
 // 홈 랜딩에서 최근 라운드 카드 위에 배치.
-// 팀 컬러 좌측 4px 바 · 이름 · W-L(-D) · 승률 · 득실차. 1위 팀 노랑 배경.
+// v3 (2026-07-19): W-L-D 뱃지 → WIN/LOSE/DRAW 컬러 라벨 · 득실차 → 득점/실점/마진 미니테이블
 // 서버 컴포넌트 — 계산은 홈 페이지에서 넘겨받음.
+
+import { ResultChips, ScoreTable } from './RecordDisplay'
 
 export type StandingRow = {
   key: string
@@ -49,30 +51,22 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
         </span>
       </header>
 
-      <div
-        className="grid gap-0"
-        style={{ padding: 0 }}
-      >
+      <div className="grid gap-0">
         {standings.map((t, idx) => {
           const isTop = idx === 0
-          const diff = t.ptsFor - t.ptsAgainst
-          const record = t.draws > 0 ? `${t.wins}-${t.losses}-${t.draws}` : `${t.wins}-${t.losses}`
           const rateColor = t.winRate >= 60 ? '#059669' : t.winRate >= 40 ? 'var(--mm-yellow-strong)' : '#DC2626'
-          const diffColor = isTop
-            ? (diff > 0 ? 'rgba(0,0,0,0.85)' : diff < 0 ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.55)')
-            : (diff > 0 ? '#059669' : diff < 0 ? '#DC2626' : 'var(--mm-muted)')
           return (
             <div
               key={t.key}
-              className="px-4 sm:px-6 md:px-8 py-[14px]"
+              className="px-4 sm:px-6 md:px-8 py-3 sm:py-3.5"
               style={{
                 background: isTop ? 'var(--mm-yellow)' : 'transparent',
                 borderBottom: idx < standings.length - 1 ? '1px solid var(--mm-rule)' : 'none',
                 color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
               }}
             >
-              <div className="grid items-center gap-2 sm:gap-3 grid-cols-[24px_4px_minmax(0,1fr)_auto] sm:grid-cols-[32px_6px_minmax(0,1fr)_auto_auto_auto]">
-                {/* 순위 */}
+              {/* 상단 행 · 순위 + 팀 컬러 바 + 팀 이름 + 승률 */}
+              <div className="grid items-center gap-2 sm:gap-3 grid-cols-[24px_4px_minmax(0,1fr)_auto] sm:grid-cols-[32px_6px_minmax(0,1fr)_auto]">
                 <span
                   className="font-jersey font-black tabular-nums text-right leading-none"
                   style={{
@@ -82,15 +76,11 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
                 >
                   {idx + 1}
                 </span>
-
-                {/* 팀 컬러 좌측 바 */}
                 <span
                   aria-hidden
                   className="block h-6 rounded-sm"
                   style={{ background: t.color, opacity: isTop ? 0.85 : 1 }}
                 />
-
-                {/* 팀 이름 */}
                 <span
                   className="font-jersey uppercase min-w-0 break-keep"
                   style={{
@@ -105,21 +95,6 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
                 >
                   {t.name}
                 </span>
-
-                {/* 전적 — sm 이상에서만 인라인 노출 */}
-                <span
-                  className="hidden sm:inline-block font-jersey font-black tabular-nums leading-none"
-                  style={{
-                    fontSize: isTop ? '20px' : '17px',
-                    color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
-                    minWidth: '68px',
-                    textAlign: 'right',
-                  }}
-                >
-                  {record}
-                </span>
-
-                {/* 승률 — 항상 노출 (모바일에서 가장 강조되는 값) */}
                 <span
                   className="font-jersey font-black tabular-nums leading-none"
                   style={{
@@ -129,6 +104,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
                     textAlign: 'right',
                     letterSpacing: '-0.01em',
                   }}
+                  aria-label={`승률 ${t.winRate.toFixed(1)} 퍼센트`}
                 >
                   {t.winRate.toFixed(1)}
                   <span
@@ -138,38 +114,19 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
                     %
                   </span>
                 </span>
-
-                {/* 득실차 — sm 이상에서만 인라인 노출 */}
-                <span
-                  className="hidden sm:inline-block font-black tabular-nums text-right"
-                  style={{
-                    fontSize: '13px',
-                    color: diffColor,
-                    minWidth: '52px',
-                  }}
-                >
-                  {diff > 0 ? `+${diff}` : diff}
-                </span>
               </div>
 
-              {/* 모바일 전용 서브라인: 전적 · 득실차 (팀 이름 아래 들여쓰기) */}
+              {/* 하단 · WIN/LOSE/DRAW 컬러 라벨 + 득점/실점/마진 미니테이블
+                  · 모바일: 아래로 접힘 (칩 라인 + 표 라인)
+                  · sm+: 한 줄에 배치 (칩 + 표) */}
               <div
-                className="sm:hidden flex items-center gap-2 mt-1.5"
-                style={{ paddingLeft: '32px', fontSize: '13px' }}
+                className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3"
+                style={{ paddingLeft: '32px' }}
               >
-                <span
-                  className="font-jersey font-black tabular-nums"
-                  style={{ color: isTop ? 'var(--mm-black)' : 'var(--mm-ink-soft)' }}
-                >
-                  {record}
-                </span>
-                <span aria-hidden style={{ opacity: 0.4 }}>·</span>
-                <span
-                  className="font-black tabular-nums"
-                  style={{ color: diffColor }}
-                >
-                  {diff > 0 ? `+${diff}` : diff}
-                </span>
+                <ResultChips wins={t.wins} losses={t.losses} draws={t.draws} isTop={isTop} />
+                <div className="sm:min-w-[220px] sm:max-w-[280px]">
+                  <ScoreTable ptsFor={t.ptsFor} ptsAgainst={t.ptsAgainst} isTop={isTop} />
+                </div>
               </div>
             </div>
           )

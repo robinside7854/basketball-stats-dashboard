@@ -5,13 +5,11 @@ import { unstable_cache } from 'next/cache'
 import Link from 'next/link'
 import { loadIdentityResolver, makeIdentityResolver } from '@/lib/stats/teamIdentity'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
-import { computeStreaks } from '@/lib/stats/streaks'
 import { computeMilestones } from '@/lib/stats/milestones'
 
 // 홈 페이지 공통 — teams/overrides 를 한 번만 로드해 3개 계산 함수(highlights/rounds/standings)에
 // 재사용하기 위한 Promise 타입. 각 함수는 내부에서 await 로 값 참조.
 type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
-import StreakSpotlight from '@/components/league/StreakSpotlight'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
 import LeagueTourTrigger from '@/components/league/LeagueTourTrigger'
 import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
@@ -231,16 +229,6 @@ const getCachedLeaderStats = (leagueId: string) =>
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
   )
 
-const getCachedStreaks = (leagueId: string) =>
-  unstable_cache(
-    async () => {
-      const sb = createClient()
-      return computeStreaks(sb, leagueId, { minStreak: 2 })
-    },
-    ['home-streaks', leagueId],
-    { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
-  )
-
 const getCachedMilestones = (leagueId: string) =>
   unstable_cache(
     async () => {
@@ -363,7 +351,6 @@ export default async function LeagueDetailPage({
     quarterStandings,
     leaderStats,
     initialPhotoMap,
-    streaksData,
     milestonesData,
     homeHighlights,
     announcements,
@@ -373,7 +360,6 @@ export default async function LeagueDetailPage({
     getCachedQuarterStandings(leagueId)(),
     getCachedLeaderStats(leagueId)(),
     getCachedPhotoMap(leagueId)(),
-    getCachedStreaks(leagueId)(),
     getCachedMilestones(leagueId)(),
     getCachedHomeHighlights(leagueId)(),
     getCachedAnnouncements(leagueId)(),
@@ -420,8 +406,11 @@ export default async function LeagueDetailPage({
         </div>
       )}
 
-      {/* 공지 스트립 — POTW 와 시각적으로 분리해 눈에 잘 띄게 */}
-      <AnnouncementsHome leagueId={leagueId} initialAnnouncements={announcements} orgSlug={orgSlug} />
+      {/* 상단 병렬 — 공지사항 · 마일스톤 (PC 2열 · 모바일 세로 순차 : 공지 → 마일스톤 · 2026-07-19) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 items-start">
+        <AnnouncementsHome leagueId={leagueId} initialAnnouncements={announcements} orgSlug={orgSlug} />
+        <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
+      </div>
 
       {/* 미라클모닝 브랜드 홈 — 하이라이트 + 팀 승률 + 최근 라운드 + 리그 리더 (POTW 는 선정 기준 재검토로 임시 제거 · 2026-07-18) */}
       <div className="rounded-none overflow-hidden">
@@ -437,12 +426,6 @@ export default async function LeagueDetailPage({
           initialPlayers={leaderStats.players}
           initialPhotoMap={initialPhotoMap}
         />
-      </div>
-
-      {/* 스토리텔링 — 진행 중 연속 기록 + 커리어 마일스톤 (유지) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
-        <StreakSpotlight leagueId={leagueId} maxEntries={8} initialData={streaksData} />
-        <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
       </div>
 
       {/* 인터랙티브 튜토리얼 투어 — 첫 방문 자동 실행 · 헤더 물음표 재실행 */}

@@ -9,6 +9,7 @@
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { ClipboardList, Film, ArrowRight } from 'lucide-react'
+import { ResultChips, ScoreTable } from './RecordDisplay'
 
 export type RoundTeamSummary = {
   key: string
@@ -32,13 +33,6 @@ type Props = {
   leagueId: string
   /** 명시적 orgSlug — 없으면 useParams 로 조회 */
   orgSlug?: string
-}
-
-function diff(t: { ptsFor: number; ptsAgainst: number }): number {
-  return t.ptsFor - t.ptsAgainst
-}
-function record(t: { wins: number; losses: number; draws: number }): string {
-  return t.draws > 0 ? `${t.wins}-${t.losses}-${t.draws}` : `${t.wins}-${t.losses}`
 }
 
 export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
@@ -113,56 +107,45 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                   )}
                 </div>
 
-                {/* 팀 리스트 */}
-                <ul className="space-y-2">
+                {/* 팀 리스트 · 각 팀당 세로 3단 (팀 헤더 + WIN/LOSE/DRAW 칩 + 득실 미니테이블) */}
+                <ul className="space-y-3">
                   {r.teams.slice(0, 4).map((t, idx) => {
-                    const d = diff(t)
-                    const isTop = idx === 0
                     const shownCount = Math.min(4, r.teams.length)
                     return (
                       <li
                         key={t.key}
-                        className="grid gap-2.5 items-center"
+                        className="flex flex-col gap-1.5"
                         style={{
-                          gridTemplateColumns: '8px 1fr auto auto',
-                          padding: '5px 0',
+                          paddingBottom: idx < shownCount - 1 ? '10px' : '0',
                           borderBottom: idx < shownCount - 1 ? '1px dashed var(--mm-rule)' : 'none',
                         }}
                       >
-                        <span
-                          className="block h-5 rounded-sm"
-                          style={{ background: t.color }}
-                          aria-hidden
-                        />
-                        <span
-                          className={`min-w-0 break-keep ${isTop ? 'font-black' : 'font-bold'}`}
-                          style={{
-                            color: 'var(--mm-ink)',
-                            fontSize: '15px',
-                            lineHeight: 1.2,
-                            wordBreak: 'break-word',
-                            overflowWrap: 'anywhere',
-                          }}
-                        >
-                          {t.name}
-                        </span>
-                        <span
-                          className="font-jersey font-black tabular-nums"
-                          style={{ color: isTop ? 'var(--mm-yellow-strong)' : 'var(--mm-ink)', fontSize: '16px' }}
-                        >
-                          {record(t)}
-                        </span>
-                        <span
-                          className="font-black tabular-nums"
-                          style={{
-                            color: d > 0 ? '#059669' : d < 0 ? '#DC2626' : 'var(--mm-muted)',
-                            fontSize: '13px',
-                            minWidth: '44px',
-                            textAlign: 'right',
-                          }}
-                        >
-                          {d > 0 ? `+${d}` : d}
-                        </span>
+                        {/* 팀 헤더 (컬러 바 + 이름) */}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="shrink-0 block h-5 w-2 rounded-sm"
+                            style={{ background: t.color }}
+                            aria-hidden
+                          />
+                          <span
+                            className="min-w-0 flex-1 font-black break-keep"
+                            style={{
+                              color: 'var(--mm-ink)',
+                              fontSize: '15px',
+                              lineHeight: 1.2,
+                              wordBreak: 'break-word',
+                              overflowWrap: 'anywhere',
+                            }}
+                          >
+                            {t.name}
+                          </span>
+                        </div>
+                        {/* WIN/LOSE/DRAW 칩 (compact) */}
+                        <div className="flex flex-wrap gap-1.5">
+                          <ResultChips wins={t.wins} losses={t.losses} draws={t.draws} compact />
+                        </div>
+                        {/* 득실 미니 테이블 */}
+                        <ScoreTable ptsFor={t.ptsFor} ptsAgainst={t.ptsAgainst} compact />
                       </li>
                     )
                   })}
