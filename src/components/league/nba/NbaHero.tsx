@@ -61,6 +61,9 @@ export type HeroBreakdown = {
   secondaryCategory?: 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch' | 'three'
   secondaryLabel?: string  // 예: "3점 8/12" · "리바운드 10개"
   allAroundLabel?: string  // 다재다능 compound 라벨 (예: "리바 23 + 스틸 8")
+  // NEW (2026-07-18) · 다재다능 top1 dominant 카테고리 — 큰 숫자를 이 지표의 실제 값으로 표시
+  //   (기존 'SCORE' 표기는 득점 개념과 혼동돼 A안에서 제거)
+  dominantPrimary?: 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
 }
 
 type Props = {
@@ -148,12 +151,21 @@ function mainMetricFor(
         copyLead: `이번 라운드 클러치 상황 ${b.clutchPts}점 (${b.clutchGp}경기)`,
       }
     case 'all-around': {
-      // 다재다능 · 종합 점수를 큰 숫자로 (composite 반영) · copyLead 는 compound label
-      const composite = Math.round(b.compositeScore)
-      const compound = b.allAroundLabel ?? `PTS ${b.pts} · REB ${b.reb} · STL ${b.stl} · BLK ${b.blk}`
+      // 다재다능 · SCORE 개념 제거 (사용자 요청 2026-07-18) — 큰 숫자는 dominantPrimary 의 실제 값을 표시.
+      // copyLead 는 top 2~3 compound (예: "리바 22 + 스틸 6 + 블락 3") 로 다재다능 스토리 전달.
+      const compound = b.allAroundLabel ?? `리바 ${b.reb} · 스틸 ${b.stl} · 블락 ${b.blk}`
+      const primary = b.dominantPrimary ?? 'reb'
+      let value: string, unit: string, panelLabel: string
+      switch (primary) {
+        case 'reb': value = String(b.reb); unit = 'REB'; panelLabel = '이 라운드 리바운드'; break
+        case 'stl': value = String(b.stl); unit = 'STL'; panelLabel = '이 라운드 스틸'; break
+        case 'blk': value = String(b.blk); unit = 'BLK'; panelLabel = '이 라운드 블락'; break
+        case 'ast': value = String(b.ast); unit = 'AST'; panelLabel = '이 라운드 어시스트'; break
+        case 'clutch': value = String(b.clutchPts); unit = 'CLUTCH'; panelLabel = '이 라운드 클러치 득점'; break
+        default: value = String(data.pts); unit = 'PTS'; panelLabel = '이 라운드 총 득점'; break  // volume
+      }
       return {
-        value: String(composite), unit: 'SCORE',
-        panelLabel: '이 라운드 종합 임팩트',
+        value, unit, panelLabel,
         hero: '다재다능 지배', badge: 'ALL-AROUNDER',
         copyLead: `이번 라운드 ${compound}`,
       }
@@ -517,8 +529,12 @@ export default function NbaHero({ data, rangeLabel, leagueId, headline, breakdow
             )}
 
           {/* 최근 N주 흐름 sparkline — 우세 카테고리별 값 스왑 (득점/리바운드/스틸/블락/어시스트/TS%/클러치) */}
+          {/* all-around 은 dominantPrimary 로 해석해 스파크라인/큰 숫자 톤을 일관시킴 */}
           {showTrend ? (() => {
-            const cat: RoundCategory = breakdown?.topCategory ?? 'volume'
+            const rawCat: RoundCategory = breakdown?.topCategory ?? 'volume'
+            const cat: RoundCategory = rawCat === 'all-around'
+              ? (breakdown?.dominantPrimary ?? 'reb')
+              : rawCat
             const labels = metricLabelFor(cat)
             const series = data.roundSeries!
             const vals = series.map(s => pickSeriesValue(s, cat))

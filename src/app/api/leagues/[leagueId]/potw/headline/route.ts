@@ -99,7 +99,6 @@ export async function POST(req: Request) {
       `- 스틸: ${breakdown.stl}`,
       `- 블락: ${breakdown.blk}`,
       `- 클러치 득점: ${breakdown.clutchPts} (${breakdown.clutchGp}경기 경험)`,
-      `- 종합 점수: ${breakdown.compositeScore}`,
       '',
       '위 데이터를 바탕으로 이 선수의 라운드 임팩트를 요약하는 헤드라인 하나만 생성하세요. 20자 이내, 짧고 강렬하게. 우세 지표를 자연스럽게 담아주세요.',
     ].join('\n')

@@ -17,6 +17,9 @@ export type POTWTopCategory = 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch
 // 2번째 우세 지표 — 볼륨 우세 + 3점 폭격 케이스만 'three' 로 특수 서브 지표
 // all-around 은 meta 카테고리라 secondary 로는 부적합 → 명시 리스트 사용
 export type SecondaryCategory = 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch' | 'three'
+// dominance top1 카테고리 — raw 6종만 (three 는 secondary 특수케이스라 제외)
+// all-around 큰 숫자 표시에 사용
+export type DominantPrimary = 'volume' | 'reb' | 'stl' | 'blk' | 'ast' | 'clutch'
 
 export type POTWBreakdown = {
   pts: number       // 그 라운드 총 득점
@@ -39,6 +42,8 @@ export type POTWBreakdown = {
   secondaryLabel?: string
   // NEW (2026-07-17) · 다재다능 케이스 compound 라벨 (예: "리바 23 + 스틸 8")
   allAroundLabel?: string
+  // NEW (2026-07-18) · 다재다능 케이스 top1 dominant 카테고리 · Hero 큰 숫자 표시용 (SCORE → 실제 지표 값)
+  dominantPrimary?: DominantPrimary
 }
 
 export type WeeklyPOTW = {
@@ -54,8 +59,13 @@ type Props = {
 }
 
 // sessionStorage 캐시 키 — 리그별로 격리
-// v2 (2026-07-17): topCategory 로직 개편 (raw dominance · all-around) → 옛 캐시 무효화
-const HEADLINE_CACHE_KEY = (leagueId: string) => `potw-headline-cache-v2:${leagueId}`
+// v3 (2026-07-18): 저장 구조에 pid 포함 → 데이터 업데이트로 그 라운드 POTW 선수가 바뀌면 자동 재fetch
+//   이전 v2 는 date → headline 만 저장 → 옛 선수의 헤드라인이 새 선수 슬랏에 잘못 재사용 됨 (7/11 김민수→유승원 케이스)
+const HEADLINE_CACHE_KEY = (leagueId: string) => `potw-headline-cache-v3:${leagueId}`
+
+// 캐시 저장 구조 · date 별 { pid, headline } 페어
+type CachedHeadline = { pid: string; headline: string }
+type HeadlineCache = Record<string, CachedHeadline>
 
 export default function NbaHeroCarousel({ entries, leagueId }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -74,17 +84,22 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
     if (typeof window === 'undefined') return
 
     const cacheKey = HEADLINE_CACHE_KEY(leagueId)
-    let cached: Record<string, string> = {}
+    let cached: HeadlineCache = {}
     try {
-      cached = JSON.parse(sessionStorage.getItem(cacheKey) ?? '{}') as Record<string, string>
+      cached = JSON.parse(sessionStorage.getItem(cacheKey) ?? '{}') as HeadlineCache
     } catch {
       cached = {}
     }
 
-    // 이미 채워진 항목은 즉시 반영
-    if (Object.keys(cached).length > 0) setAiHeadlines(cached)
+    // 캐시 헤드라인 · pid 미스매치면 무효화 (그 라운드 POTW 선수가 바뀐 경우)
+    const validHeadlines: Record<string, string> = {}
+    for (const e of entries) {
+      const c = cached[e.date]
+      if (c && c.pid === e.potw.playerId) validHeadlines[e.date] = c.headline
+    }
+    if (Object.keys(validHeadlines).length > 0) setAiHeadlines(validHeadlines)
 
-    const missing = entries.filter(e => !cached[e.date])
+    const missing = entries.filter(e => !validHeadlines[e.date])
     if (missing.length === 0) return
 
     let aborted = false
@@ -115,20 +130,25 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
           .then(r => (r.ok ? r.json() : { headline: e.breakdown.headline }))
           .then((d: { headline?: string }) => ({
             date: e.date,
+            pid: e.potw.playerId,
             headline: (d.headline && d.headline.trim().length > 0) ? d.headline : e.breakdown.headline,
           }))
-          .catch(() => ({ date: e.date, headline: e.breakdown.headline })),
+          .catch(() => ({ date: e.date, pid: e.potw.playerId, headline: e.breakdown.headline })),
       ),
     ).then(results => {
       if (aborted) return
-      const next: Record<string, string> = { ...cached }
-      for (const r of results) next[r.date] = r.headline
+      const next: HeadlineCache = { ...cached }
+      const nextHeadlines: Record<string, string> = { ...validHeadlines }
+      for (const r of results) {
+        next[r.date] = { pid: r.pid, headline: r.headline }
+        nextHeadlines[r.date] = r.headline
+      }
       try {
         sessionStorage.setItem(cacheKey, JSON.stringify(next))
       } catch {
         // 스토리지 quota / 프라이버시 모드 무시
       }
-      setAiHeadlines(next)
+      setAiHeadlines(nextHeadlines)
     })
 
     return () => { aborted = true }
@@ -237,6 +257,7 @@ export default function NbaHeroCarousel({ entries, leagueId }: Props) {
                 secondaryCategory: e.breakdown.secondaryCategory,
                 secondaryLabel: e.breakdown.secondaryLabel,
                 allAroundLabel: e.breakdown.allAroundLabel,
+                dominantPrimary: e.breakdown.dominantPrimary,
               }}
             />
           </div>

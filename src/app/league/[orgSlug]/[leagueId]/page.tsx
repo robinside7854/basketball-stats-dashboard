@@ -19,7 +19,7 @@ import AnnouncementsHome from '@/components/league/announcements/AnnouncementsHo
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
 import { loadRecentRounds, loadRoundDetail } from '@/lib/highlights/loader'
 import { type NbaHeroData } from '@/components/league/nba/NbaHero'
-import NbaHeroCarousel, { type WeeklyPOTW, type POTWTopCategory, type SecondaryCategory } from '@/components/league/nba/NbaHeroCarousel'
+import NbaHeroCarousel, { type WeeklyPOTW, type POTWTopCategory, type SecondaryCategory, type DominantPrimary } from '@/components/league/nba/NbaHeroCarousel'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
 import NbaRoundsSummary, { type RoundSummary, type RoundTeamSummary } from '@/components/league/nba/NbaRoundsSummary'
 import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
@@ -474,6 +474,7 @@ async function computeWeeklyPOTW(
     secondaryCategory?: SecondaryCategory
     secondaryLabel?: string
     allAroundLabel?: string  // 다재다능 compound (헤드라인/UI 재사용)
+    dominantPrimary?: DominantPrimary  // all-around top1 dominant · Hero 큰 숫자 표시용
   }
   const topPerRound = new Map<string, TopPick>()
   const prevPotwPids = new Set<string>()  // 오래된 라운드부터 누적 → 다음 라운드 후보 제외
@@ -512,6 +513,7 @@ async function computeWeeklyPOTW(
       topCategory: POTWTopCategory
       secondaryCategory?: SecondaryCategory
       allAroundLabel?: string  // 다재다능 케이스에 compound (예: "리바 23 + 스틸 8")
+      dominantPrimary?: DominantPrimary  // all-around 케이스에 top1 dominant (예: 'reb')
     }
     const scored: Scored[] = roster.map(r => {
       const s = r.s
@@ -572,6 +574,7 @@ async function computeWeeklyPOTW(
       let topCategory: POTWTopCategory
       let secondaryCategory: SecondaryCategory | undefined
       let allAroundLabel: string | undefined  // 다재다능 케이스의 compound 라벨 (예: "리바 23 + 스틸 8")
+      let dominantPrimary: DominantPrimary | undefined  // all-around 케이스 top1 dominant (큰 숫자 표시용)
 
       if (dominantHigh.length >= 2) {
         // 다재다능 → topCategory = all-around · dominance top 3 로 compound 구축
@@ -581,6 +584,7 @@ async function computeWeeklyPOTW(
         const parts: SecondaryCategory[] = [dominance[0][0], dominance[1][0]]
         if (dominance[2] && dominance[2][1] >= 0.5) parts.push(dominance[2][0])
         allAroundLabel = parts.map(cat => buildSecondaryLabel(s, cat)).join(' + ')
+        dominantPrimary = dominance[0][0]  // top1 dominant · 큰 숫자 표시용 (SCORE 대신)
         // secondaryCategory: 3번째 이상 카테고리 (있으면 UI sparkline 등 참고)
         secondaryCategory = (dominance[3] && dominance[3][1] > 0) ? dominance[3][0] : undefined
       } else {
@@ -597,7 +601,7 @@ async function computeWeeklyPOTW(
         }
       }
 
-      return { pid: r.pid, s, ts: r.ts, composite, topCategory, secondaryCategory, allAroundLabel }
+      return { pid: r.pid, s, ts: r.ts, composite, topCategory, secondaryCategory, allAroundLabel, dominantPrimary }
     })
 
     // 다양성 A — 지난 POTW pid 제외. 전원 제외되면 완화 (fallback).
@@ -617,6 +621,7 @@ async function computeWeeklyPOTW(
           ? buildSecondaryLabel(top.s, top.secondaryCategory)
           : undefined,
         allAroundLabel: top.allAroundLabel,
+        dominantPrimary: top.dominantPrimary,
       })
       prevPotwPids.add(top.pid)
     }
@@ -711,6 +716,7 @@ async function computeWeeklyPOTW(
         secondaryCategory: top.secondaryCategory,
         secondaryLabel: top.secondaryLabel,
         allAroundLabel: top.allAroundLabel,
+        dominantPrimary: top.dominantPrimary,
       },
     })
   }
