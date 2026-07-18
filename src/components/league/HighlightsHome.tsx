@@ -91,6 +91,19 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
               >
                 이번 주 클러치샷
               </h3>
+              {hasClutch && (
+                <span
+                  className="text-[11px] font-black tracking-[0.14em] uppercase px-1.5 py-0.5 ml-1"
+                  style={{
+                    background: '#ef4444',
+                    color: '#fff',
+                    borderRadius: '3px',
+                  }}
+                  aria-label={`총 ${data.clips.length}개`}
+                >
+                  {data.clips.length}
+                </span>
+              )}
               <span
                 className="text-[11px] sm:text-[12px] tracking-[0.14em] uppercase font-bold ml-1"
                 style={{ color: 'var(--mm-muted)' }}
@@ -117,124 +130,189 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
           </Link>
         </header>
 
-        {/* 컨텐츠 */}
-        {hasClutch ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 p-4 sm:p-6 md:p-8 lg:p-10">
-            {data.clips.map((c, i) => {
-              const thumb = `https://i.ytimg.com/vi/${c.video_id}/mqdefault.jpg`
-              const shotLabel = SHOT_TYPE_LABEL[c.shot_type] ?? c.shot_type
-              return (
-                <button
-                  key={c.event_id}
-                  type="button"
-                  onClick={() => setOpenIdx(i)}
-                  className="group text-left block cursor-pointer transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.25)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
-                  style={{
-                    background: 'var(--mm-panel)',
-                    border: '1px solid #ef4444',
-                    borderLeft: '3px solid #ef4444',
-                    borderRadius: '4px',
-                  }}
-                  aria-label={`${c.player_name} ${shotLabel} 클러치샷 재생 (${formatTimestamp(c.video_timestamp)})`}
-                >
-                  {/* 썸네일 + ▶ */}
-                  <div className="relative aspect-video overflow-hidden" style={{ background: '#000' }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={thumb}
-                      alt=""
-                      loading="lazy"
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+        {/* 컨텐츠 · Hero(가장 최신 클러치) + 나머지 썸네일 리스트
+            · 데스크탑 (md+): 히어로 2fr 왼쪽 + 썸네일 1fr 오른쪽 세로 스크롤
+            · 모바일: 히어로 위 + 아래 가로 스와이프 썸네일 (세로 늘어짐 제거)
+            · 순서: 히어로 = clips[last] (=하루의 마지막 결정타), 썸네일 = 최신-1 → 오래된 순
+        */}
+        {hasClutch ? (() => {
+          const heroIdx = data.clips.length - 1
+          const hero = data.clips[heroIdx]
+          const restIndexed = data.clips
+            .slice(0, heroIdx)
+            .map((c, i) => ({ c, i }))  // 원본 인덱스 유지 (모달 startIdx 로 사용)
+            .reverse()  // 최신-1 → 오래된 순
+          const heroThumb = `https://i.ytimg.com/vi/${hero.video_id}/mqdefault.jpg`
+          const heroShotLabel = SHOT_TYPE_LABEL[hero.shot_type] ?? hero.shot_type
+
+          const hasRest = restIndexed.length > 0
+          return (
+            <div
+              className={
+                hasRest
+                  ? 'p-4 sm:p-6 md:p-8 lg:p-10 grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] md:items-stretch'
+                  : 'p-4 sm:p-6 md:p-8 lg:p-10'
+              }
+            >
+              {/* HERO */}
+              <button
+                type="button"
+                onClick={() => setOpenIdx(heroIdx)}
+                className="group text-left block cursor-pointer transition-shadow duration-200 hover:shadow-[0_16px_48px_-12px_rgba(0,0,0,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                style={{
+                  background: 'var(--mm-panel)',
+                  border: '1px solid #ef4444',
+                  borderLeft: '3px solid #ef4444',
+                  borderRadius: '4px',
+                }}
+                aria-label={`${hero.player_name} ${heroShotLabel} 클러치샷 재생 (${formatTimestamp(hero.video_timestamp)})`}
+              >
+                <div className="relative aspect-video overflow-hidden" style={{ background: '#000' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={heroThumb}
+                    alt=""
+                    loading="eager"
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                  />
+                  <span aria-hidden className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.15)' }}>
+                    <PlayCircle
+                      size={80}
+                      style={{ color: 'var(--mm-yellow)' }}
+                      className="drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)] transition-transform group-hover:scale-110"
+                      fill="rgba(0,0,0,0.5)"
                     />
+                  </span>
+                  <span
+                    className="absolute top-3 left-3 inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.14em] px-2 py-1"
+                    style={{ background: '#ef4444', color: '#fff', borderRadius: '3px' }}
+                  >
+                    <HeartCrack size={12} aria-hidden />
+                    이번 주 클러치샷 · 최신
+                  </span>
+                  {hero.points >= 3 && (
                     <span
-                      aria-hidden
-                      className="absolute inset-0 flex items-center justify-center transition-colors"
-                      style={{ background: 'rgba(0,0,0,0.15)' }}
+                      className="absolute top-3 right-3 text-[11px] font-bold px-2 py-1"
+                      style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}
                     >
-                      <PlayCircle
-                        size={56}
-                        style={{ color: 'var(--mm-yellow)' }}
-                        className="drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)] transition-transform group-hover:scale-110"
-                        fill="rgba(0,0,0,0.5)"
+                      +{hero.points}
+                    </span>
+                  )}
+                  <span
+                    aria-hidden
+                    className="absolute bottom-3 left-3 inline-block w-2.5 h-2.5 rounded-full"
+                    style={{ background: hero.team_color, boxShadow: '0 0 0 1px rgba(0,0,0,0.4)' }}
+                  />
+                </div>
+                <div className="p-3 sm:p-4 flex items-center gap-3">
+                  <div
+                    className="shrink-0 w-12 h-12 rounded-full overflow-hidden flex items-center justify-center relative"
+                    style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+                    aria-hidden
+                  >
+                    <span className="absolute inset-0 flex items-center justify-center font-jersey font-black text-lg" style={{ color: 'var(--mm-ink)' }}>
+                      {initialsOf(hero.player_name)}
+                    </span>
+                    {hero.player_photo && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={hero.player_photo}
+                        alt=""
+                        loading="lazy"
+                        className="relative w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                       />
-                    </span>
-                    {/* 클러치 뱃지 */}
-                    <span
-                      className="absolute top-2 left-2 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5"
-                      style={{ background: '#ef4444', color: '#fff', borderRadius: '3px' }}
-                    >
-                      <HeartCrack size={11} aria-hidden />
-                      클러치
-                    </span>
-                    {c.points >= 3 && (
-                      <span
-                        className="absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5"
-                        style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}
-                      >
-                        +{c.points}
-                      </span>
                     )}
-                    <span
-                      aria-hidden
-                      className="absolute bottom-2 left-2 inline-block w-2 h-2 rounded-full"
-                      style={{ background: c.team_color, boxShadow: '0 0 0 1px rgba(0,0,0,0.4)' }}
-                    />
                   </div>
-
-                  {/* 정보 */}
-                  <div className="p-3 flex items-center gap-3">
-                    <div
-                      className="shrink-0 w-11 h-11 rounded-full overflow-hidden flex items-center justify-center relative"
-                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                      aria-hidden
-                    >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-base font-black truncate" style={{ color: 'var(--mm-ink)' }}>
+                      {hero.player_number ? `#${hero.player_number} ` : ''}{hero.player_name}
+                    </div>
+                    <div className="text-[12px] mt-0.5 flex items-center gap-1.5 flex-wrap" style={{ color: 'var(--mm-muted)' }}>
                       <span
-                        className="absolute inset-0 flex items-center justify-center font-jersey font-black text-lg"
-                        style={{ color: 'var(--mm-ink)' }}
+                        className="font-bold uppercase tracking-[0.10em] px-1.5 py-0.5"
+                        style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '3px' }}
                       >
-                        {initialsOf(c.player_name)}
+                        {heroShotLabel}
                       </span>
-                      {c.player_photo && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={c.player_photo}
-                          alt=""
-                          loading="lazy"
-                          className="relative w-full h-full object-cover"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                        />
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-black truncate" style={{ color: 'var(--mm-ink)' }}>
-                        {c.player_number ? `#${c.player_number} ` : ''}{c.player_name}
-                      </div>
-                      <div
-                        className="text-[11px] mt-0.5 flex items-center gap-1.5 flex-wrap"
-                        style={{ color: 'var(--mm-muted)' }}
-                      >
-                        <span
-                          className="font-bold uppercase tracking-[0.10em] px-1.5 py-0.5"
-                          style={{
-                            background: 'var(--mm-panel-alt)',
-                            color: 'var(--mm-ink-soft)',
-                            border: '1px solid var(--mm-rule)',
-                            borderRadius: '3px',
-                          }}
-                        >
-                          {shotLabel}
-                        </span>
-                        <span className="font-mono">{formatTimestamp(c.video_timestamp)}</span>
-                      </div>
+                      <span className="font-mono">{formatTimestamp(hero.video_timestamp)}</span>
                     </div>
                   </div>
-                </button>
-              )
-            })}
-          </div>
-        ) : (
+                </div>
+              </button>
+
+              {/* THUMBNAILS — 데스크탑 세로 리스트 · 모바일 가로 스와이프 */}
+              {hasRest && (
+                <div
+                  className="flex gap-3 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-hide snap-x snap-mandatory md:flex-col md:overflow-x-visible md:overflow-y-auto md:snap-none md:h-full md:min-h-0"
+                  aria-label={`다른 클러치샷 ${restIndexed.length}개 목록`}
+                >
+                  {restIndexed.map(({ c, i }) => {
+                    const thumb = `https://i.ytimg.com/vi/${c.video_id}/mqdefault.jpg`
+                    const shotLabel = SHOT_TYPE_LABEL[c.shot_type] ?? c.shot_type
+                    return (
+                      <button
+                        key={c.event_id}
+                        type="button"
+                        onClick={() => setOpenIdx(i)}
+                        className="group flex-shrink-0 text-left cursor-pointer transition-colors duration-200 hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 snap-start w-[62vw] max-w-[280px] md:w-auto md:max-w-none md:flex-shrink"
+                        style={{
+                          background: 'var(--mm-panel)',
+                          border: '1px solid var(--mm-rule)',
+                          borderLeft: '3px solid #ef4444',
+                          borderRadius: '4px',
+                          minHeight: 44,
+                        }}
+                        aria-label={`${c.player_name} ${shotLabel} 클러치샷 재생 (${formatTimestamp(c.video_timestamp)})`}
+                      >
+                        <div className="flex gap-3 items-center p-2">
+                          {/* 컴팩트 썸네일 (16:9 · 고정 너비) */}
+                          <div className="relative shrink-0 w-[110px] aspect-video overflow-hidden rounded-[3px]" style={{ background: '#000' }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={thumb}
+                              alt=""
+                              loading="lazy"
+                              className="w-full h-full object-cover"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                            />
+                            <span aria-hidden className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.15)' }}>
+                              <PlayCircle size={28} style={{ color: 'var(--mm-yellow)' }} className="drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]" fill="rgba(0,0,0,0.5)" />
+                            </span>
+                            {c.points >= 3 && (
+                              <span
+                                className="absolute top-1 right-1 text-[9px] font-bold px-1 py-0"
+                                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '2px' }}
+                              >
+                                +{c.points}
+                              </span>
+                            )}
+                          </div>
+                          {/* 정보 (텍스트만 · 컴팩트) */}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[13px] font-black truncate" style={{ color: 'var(--mm-ink)' }}>
+                              {c.player_number ? `#${c.player_number} ` : ''}{c.player_name}
+                            </div>
+                            <div className="text-[10px] mt-0.5 flex items-center gap-1.5 flex-wrap" style={{ color: 'var(--mm-muted)' }}>
+                              <span
+                                className="font-bold uppercase tracking-[0.08em] px-1 py-0.5"
+                                style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '2px' }}
+                              >
+                                {shotLabel}
+                              </span>
+                              <span className="font-mono">{formatTimestamp(c.video_timestamp)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })() : (
           // 클러치샷 없음 · 안내 코멘트
           <div className="px-4 sm:px-6 md:px-10 py-8 md:py-10 text-center">
             <div
