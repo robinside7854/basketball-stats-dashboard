@@ -387,42 +387,51 @@ export async function computeLeagueStats(
       gm.get(m.league_game_id)!.push({ quarter: m.quarter ?? 1, in_time: m.in_time, out_time: m.out_time })
     }
 
-    // 게임 → 그 게임에 인터벌이 있는 선수들 (walk 최적화)
-    const playersByGame = new Map<string, string[]>()
-    for (const [pid, gm] of intervalsByPidGid) {
-      for (const gid of gm.keys()) {
-        if (!playersByGame.has(gid)) playersByGame.set(gid, [])
-        playersByGame.get(gid)!.push(pid)
-      }
-    }
-
     // 선수의 게임별 소속팀 (playerTeamGameCount top)
+    // 여기 등록된 pid+gid = 이 게임에 실제 참여한 선수 (이벤트 발생 기록 있음)
     const playerTeamByGame = new Map<string, Map<string, string>>()
+    // 게임 → 참여 선수 리스트 (walk 최적화용 · 역인덱스)
+    const playersByGame = new Map<string, string[]>()
     for (const pid of Object.keys(playerTeamGameCount)) {
       const perGame = playerTeamGameCount[pid]
       const inner = new Map<string, string>()
       for (const gid of Object.keys(perGame)) {
         const top = Object.entries(perGame[gid]).sort((a, b) => b[1] - a[1])[0]
-        if (top) inner.set(gid, top[0])
+        if (top) {
+          inner.set(gid, top[0])
+          if (!playersByGame.has(gid)) playersByGame.set(gid, [])
+          playersByGame.get(gid)!.push(pid)
+        }
       }
       playerTeamByGame.set(pid, inner)
     }
 
     // 득점 이벤트 walk · 인터벌 매칭 → own/opp 누적
+    //   · 이 리그는 교체가 거의 없어 minutes row 없는 선수가 많음
+    //   · 폴백 정책: intervals 없으면 "전 게임 출전" 가정 (참여 이벤트 있으면 인정)
+    //     → 그 게임의 모든 득점 이벤트에 대해 소속팀 대조 후 credit
+    //   · intervals 있으면 정확한 인터벌 매칭 (교체 반영)
     for (const e of events) {
       const pts = e.points ?? 0
       if (pts <= 0 || !e.team_id) continue
-      if (e.video_timestamp == null || e.quarter == null) continue
       const pids = playersByGame.get(e.league_game_id)
       if (!pids) continue
       for (const pid of pids) {
         const intervals = intervalsByPidGid.get(pid)?.get(e.league_game_id)
-        if (!intervals) continue
-        const onCourt = intervals.some(iv =>
-          iv.quarter === e.quarter
-          && iv.in_time <= (e.video_timestamp as number)
-          && iv.out_time >= (e.video_timestamp as number),
-        )
+        let onCourt: boolean
+        if (!intervals || intervals.length === 0) {
+          // 폴백 · 전 게임 출전 가정 (해당 게임에 이벤트 기록이 있으므로 참여자 확실)
+          onCourt = true
+        } else if (e.video_timestamp == null || e.quarter == null) {
+          // 인터벌은 있는데 이벤트 시각/쿼터 미상 → 안전하게 스킵
+          onCourt = false
+        } else {
+          onCourt = intervals.some(iv =>
+            iv.quarter === e.quarter
+            && iv.in_time <= (e.video_timestamp as number)
+            && iv.out_time >= (e.video_timestamp as number),
+          )
+        }
         if (!onCourt) continue
         const myTeam = playerTeamByGame.get(pid)?.get(e.league_game_id)
         if (!myTeam) continue
