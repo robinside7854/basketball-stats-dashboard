@@ -27,10 +27,17 @@ export type TournamentHighlightDetail = {
 
 const PAGE = 1000
 
-// 대회 클러치 정의 — 4쿼터 · 남은시간 2분 이내 · 최종 점수차 2포제션(6점) 이내
+// 대회 클러치 정의 (2026-07-18 개편) — 4쿼터 이상(연장 포함) · 경기 종료 300초 이내 · 최종 점수차 2포제션(6점) 이내
 // 상대팀 선수 이벤트는 미기록이라 러닝 마진 산출 불가 → 최종 점수(games.our_score/opponent_score) 프록시로 근사
-const TOURNAMENT_CLUTCH_QUARTER = 4
-const TOURNAMENT_CLUTCH_TIME_WINDOW = 120
+//
+// 창(window)이 120 → 300초로 늘어난 이유:
+//   video_timestamp 는 "영상 시간"이라 게임 클록과 다르다. 작전타임·자유투·데드볼로 시계가 멈추는 동안에도
+//   영상 시간은 흐르므로, 실측 결과 Q4 한 쿼터가 영상으로 6~33분(중앙값 ~11분)이었다.
+//   기존 120초는 Q4의 10~20%만 덮어 실질 "마지막 30~60초"에 불과했고, 통과 슛이 15개뿐이었다.
+//   300초로 확장 시 26개 (파란날개 전 대회 기준).
+// 연장(OT)을 포함하는 이유: 기존 quarter===4 조건이 OT 성공슛 7개(2경기)를 전부 탈락시켰다.
+const TOURNAMENT_CLUTCH_MIN_QUARTER = 4
+const TOURNAMENT_CLUTCH_TIME_WINDOW = 300
 const TOURNAMENT_CLUTCH_MARGIN_MAX = 6
 
 type TeamEvtRow = {
@@ -70,26 +77,36 @@ async function fetchMadeEvents(
   return events
 }
 
-// 게임별 4쿼터 마지막 이벤트 timestamp — "남은시간 2분" 근사용 (실제 게임 클록은 미기록)
-function buildGameQ4EndMap(events: TeamEvtRow[]): Record<string, number> {
+// 게임별 "최종 쿼터(4쿼터 또는 연장)"의 마지막 성공슛 timestamp — 경기 종료 근사 기준점
+// (실제 게임 클록은 미기록이라 마지막 득점 시각으로 근사)
+// 연장 경기는 OT 종료가 기준이 된다 — 클러치는 "경기 종료 직전"이 핵심이므로.
+function buildGameEndMap(events: TeamEvtRow[]): Record<string, number> {
+  // 1) 게임별 최종 쿼터 (4쿼터 이상만 대상 — 연장 포함)
+  const lastQuarter: Record<string, number> = {}
+  for (const e of events) {
+    if (e.quarter === null || e.quarter < TOURNAMENT_CLUTCH_MIN_QUARTER) continue
+    const prev = lastQuarter[e.game_id]
+    if (prev === undefined || e.quarter > prev) lastQuarter[e.game_id] = e.quarter
+  }
+  // 2) 그 최종 쿼터 안에서 가장 늦은 timestamp
   const map: Record<string, number> = {}
   for (const e of events) {
-    if (e.quarter !== TOURNAMENT_CLUTCH_QUARTER) continue
+    if (e.quarter === null || e.quarter !== lastQuarter[e.game_id]) continue
     const prev = map[e.game_id]
     if (prev === undefined || e.video_timestamp > prev) map[e.game_id] = e.video_timestamp
   }
   return map
 }
 
-// 이벤트 → 대회 클러치 판정 (Q4 · 마지막 2분 · 최종 점수차 ≤ 6)
+// 이벤트 → 대회 클러치 판정 (Q4 이상 · 경기 종료 300초 이내 · 최종 점수차 ≤ 6)
 function isTournamentClutch(
   ev: TeamEvtRow,
-  q4EndTs: number | undefined,
+  gameEndTs: number | undefined,
   finalMargin: number | null,
 ): boolean {
-  if (ev.quarter !== TOURNAMENT_CLUTCH_QUARTER) return false
-  if (q4EndTs === undefined) return false
-  if (q4EndTs - ev.video_timestamp > TOURNAMENT_CLUTCH_TIME_WINDOW) return false
+  if (ev.quarter === null || ev.quarter < TOURNAMENT_CLUTCH_MIN_QUARTER) return false
+  if (gameEndTs === undefined) return false
+  if (gameEndTs - ev.video_timestamp > TOURNAMENT_CLUTCH_TIME_WINDOW) return false
   if (finalMargin === null) return false
   return finalMargin <= TOURNAMENT_CLUTCH_MARGIN_MAX
 }
@@ -182,8 +199,8 @@ export async function loadTournamentHighlightDetail(
   const events = await fetchMadeEvents(supabase, gameRows.map(g => g.id))
   if (!events) return empty
 
-  // 3-b. 게임별 Q4 마지막 timestamp + 최종 마진 사전계산 (클러치 판정)
-  const gameQ4EndMap = buildGameQ4EndMap(events)
+  // 3-b. 게임별 최종 쿼터(OT 포함) 마지막 timestamp + 최종 마진 사전계산 (클러치 판정)
+  const gameEndMap = buildGameEndMap(events)
   const gameFinalMargin: Record<string, number | null> = {}
   for (const g of gameRows) {
     gameFinalMargin[g.id] = (g.our_score !== null && g.opponent_score !== null)
@@ -247,7 +264,7 @@ export async function loadTournamentHighlightDetail(
       assist_player_id: assistPlayer?.id ?? null,
       assist_player_name: assistPlayer?.name ?? null,
       assist_player_number: assistPlayer?.number ?? null,
-      is_clutch: isTournamentClutch(ev, gameQ4EndMap[ev.game_id], gameFinalMargin[ev.game_id] ?? null),
+      is_clutch: isTournamentClutch(ev, gameEndMap[ev.game_id], gameFinalMargin[ev.game_id] ?? null),
     })
 
     if (ev.player_id && player) {
@@ -341,10 +358,10 @@ export async function loadTeamPlayerHighlights(
   const events = await fetchMadeEvents(supabase, gameRows.map(g => g.id), playerId)
   if (!events) return emptyData
 
-  // 3-a. 클러치 판정용 사전계산 — 선수 필터된 events 만으로는 Q4 마지막 timestamp 근사가 부정확할 수 있으니
-  //      해당 게임들의 "모든" 이벤트로 Q4 종료 timestamp 를 잡아 정확도 확보
+  // 3-a. 클러치 판정용 사전계산 — 선수 필터된 events 만으로는 종료 timestamp 근사가 부정확할 수 있으니
+  //      해당 게임들의 "모든" 이벤트로 최종 쿼터 종료 timestamp 를 잡아 정확도 확보
   const allEvents = await fetchMadeEvents(supabase, gameRows.map(g => g.id))
-  const gameQ4EndMap = buildGameQ4EndMap(allEvents ?? events)
+  const gameEndMap = buildGameEndMap(allEvents ?? events)
   const gameFinalMargin: Record<string, number | null> = {}
   for (const g of gameRows) {
     gameFinalMargin[g.id] = (g.our_score !== null && g.opponent_score !== null)
@@ -412,7 +429,7 @@ export async function loadTeamPlayerHighlights(
       assist_player_id: assistPlayer?.id ?? null,
       assist_player_name: assistPlayer?.name ?? null,
       assist_player_number: assistPlayer?.number ?? null,
-      is_clutch: isTournamentClutch(ev, gameQ4EndMap[ev.game_id], gameFinalMargin[ev.game_id] ?? null),
+      is_clutch: isTournamentClutch(ev, gameEndMap[ev.game_id], gameFinalMargin[ev.game_id] ?? null),
     })
 
     tournamentCount[game.tournament_id] = (tournamentCount[game.tournament_id] ?? 0) + 1
