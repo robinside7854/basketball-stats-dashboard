@@ -116,9 +116,11 @@ export async function GET(
 
   const uniqueDates = new Set<string>()
   const gameIds: string[] = []
+  const gameToDate = new Map<string, string>()  // gid → 'YYYY-MM-DD' · DD 라운드 단위 집계용
   for (const g of (gameRows ?? []) as { id: string; date: string; quarter_id: string | null }[]) {
     uniqueDates.add(g.date)
     gameIds.push(g.id)
+    gameToDate.set(g.id, g.date)
   }
   const totalRounds = uniqueDates.size
   const requiredRounds = Math.max(1, Math.ceil(totalRounds * ATTENDANCE_THRESHOLD))
@@ -366,20 +368,22 @@ export async function GET(
   }
 
   // ── DOUBLE_DOUBLE (더블더블 킹) ────────
-  //   정의: (선수, 게임) 단위로 PTS/REB/AST/STL/BLK 중 10+ 개수를 세어 2개 이상이면 더블더블
+  //   정의: (선수, 라운드=date) 단위로 PTS/REB/AST/STL/BLK 중 10+ 개수를 세어 2개 이상이면 더블더블
   //         트리플더블(3개+)도 자동 포함
   //   범위: attendance 자격 통과 선수 (게스트 제외)
-  //   계산: 이벤트 페이지네이션 스캔 → per (player, game) 5개 카운트 → 게임 단위 판정
-  //         · pts = shot make points (plusOne 반영 없이 raw points 사용 · 이벤트 points 컬럼)
+  //   계산: 이벤트 스캔 → per (player, date) 5개 카운트 → 라운드 판정
+  //         · 이 리그는 하루=라운드=여러 미니게임(8~15분) 이라 게임 단위 10+ 는 사실상 불가능
+  //           → gp/leagueStats 와 동일하게 date(라운드) 단위 집계로 통일
+  //         · pts = shot make points (event.points 컬럼 · missed→made 편집 후 백필됨)
   //         · ast = 슛 이벤트의 related_player_id 참조 (자유투/and_one 제외)
   {
-    interface PgStat { pts: number; reb: number; ast: number; stl: number; blk: number }
-    const perGame = new Map<string, Map<string, PgStat>>()  // pid → gid → stats
-    const ensurePG = (pid: string, gid: string): PgStat => {
-      if (!perGame.has(pid)) perGame.set(pid, new Map())
-      const gm = perGame.get(pid)!
-      let s = gm.get(gid)
-      if (!s) { s = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 }; gm.set(gid, s) }
+    interface RdStat { pts: number; reb: number; ast: number; stl: number; blk: number }
+    const perRound = new Map<string, Map<string, RdStat>>()  // pid → date → stats
+    const ensurePR = (pid: string, date: string): RdStat => {
+      if (!perRound.has(pid)) perRound.set(pid, new Map())
+      const rm = perRound.get(pid)!
+      let s = rm.get(date)
+      if (!s) { s = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 }; rm.set(date, s) }
       return s
     }
 
@@ -405,11 +409,12 @@ export async function GET(
           league_game_id: string; type: string; result: string | null; points: number | null
         }>) {
           const pid = e.league_player_id
-          const gid = e.league_game_id
+          const date = gameToDate.get(e.league_game_id)
+          if (!date) continue  // scope 밖 게임 (실질적으로 안 걸림 · gameIds 로 이미 필터)
           const made = e.result === 'made'
           const pts = e.points ?? 0
           if (pid) {
-            const s = ensurePG(pid, gid)
+            const s = ensurePR(pid, date)
             if (DD_SHOT_TYPES.includes(e.type)) { if (made) s.pts += pts }
             else if (e.type === 'and_one') { if (made) s.pts += 1 }
             else if (e.type === 'ft_2pt' || e.type === 'ft_3pt_1') { if (made) s.pts += 2 }
@@ -420,18 +425,18 @@ export async function GET(
           }
           // 어시스트는 shot made 의 related_player_id 로만
           if (made && DD_SHOT_TYPES.includes(e.type) && e.related_player_id) {
-            ensurePG(e.related_player_id, gid).ast++
+            ensurePR(e.related_player_id, date).ast++
           }
         }
         if (chunk.length < PAGE) break
       }
     }
 
-    interface DDAcc { dd: number; td: number; last?: PgStat }
+    interface DDAcc { dd: number; td: number }
     const ddCount = new Map<string, DDAcc>()
-    for (const [pid, gm] of perGame) {
+    for (const [pid, rm] of perRound) {
       let dd = 0, td = 0
-      for (const s of gm.values()) {
+      for (const s of rm.values()) {
         const hits = [s.pts, s.reb, s.ast, s.stl, s.blk].filter(v => v >= 10).length
         if (hits >= 3) { td++; dd++ }  // TD 는 DD 를 포함해서 카운트
         else if (hits >= 2) dd++
@@ -457,8 +462,8 @@ export async function GET(
       category: 'DOUBLE_DOUBLE',
       section: 'core',
       label: '더블더블 킹',
-      description: 'PTS / REB / AST / STL / BLK 중 2개 이상 10+ 을 기록한 게임 최다 · 트리플더블 포함',
-      metric: '더블더블 게임 수',
+      description: '하루(라운드) 합계 기준 PTS / REB / AST / STL / BLK 중 2개 이상 10+ 을 기록한 라운드 최다 · 트리플더블 포함',
+      metric: '더블더블 라운드 수',
       minRequirement: `${attendanceReq} · DD 1회 이상`,
       winner, runners, allCandidates,
     })
