@@ -1315,9 +1315,48 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                     · 이전: 컨테이너 높이가 뷰포트보다 크면 아래 버튼이 뷰포트 밖으로 밀림
                     · 신규: max-h + overflow-y-auto 로 컨테이너 내부에서 스크롤 가능 */}
               <div
-                className="contents lg:block lg:sticky lg:space-y-2 lg:overflow-y-auto lg:max-h-[calc(100vh-56px)]"
+                className="contents lg:block lg:sticky lg:space-y-2"
                 style={{ ['--record-header-offset' as string]: '56px', top: 'var(--record-header-offset)' } as React.CSSProperties}
               >
+
+                {/* 경기 시작/마감 (2026-07-18 · 비디오 위로 이동 · 항상 노출 · 스크롤 필요 없음) */}
+                <div
+                  className="mb-2 lg:mb-0 p-3"
+                  style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                >
+                  {selectedSlot?.is_complete ? (
+                    <div
+                      className="flex items-center justify-center gap-2 py-1.5 text-xs font-medium min-h-[44px]"
+                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: '4px' }}
+                    >
+                      <CheckCircle2 size={13} style={{ color: 'var(--mm-muted)' }} />경기 마감 완료
+                    </div>
+                  ) : !gameStarted ? (
+                    <div
+                      className="flex items-center justify-center gap-2 py-1.5 text-xs min-h-[44px]"
+                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: '4px' }}
+                    >
+                      <Play size={12} />우측에서 선발 선수 선택 후 시작
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <div
+                        className="flex-1 py-1.5 text-xs text-center font-bold uppercase tracking-[0.14em] min-h-[44px] flex items-center justify-center"
+                        style={{ background: 'rgba(5,150,105,0.12)', border: '1px solid #059669', color: '#059669', borderRadius: '4px' }}
+                      >
+                        경기 진행 중
+                      </div>
+                      <button
+                        onClick={openCompleteModal}
+                        className="flex items-center gap-1 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors btn-press min-h-[44px]"
+                        style={{ background: 'var(--mm-live)', color: '#FFFFFF', borderRadius: '4px' }}
+                      >
+                        <Square size={11} />마감
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {selectedSlot.youtube_url ? (
                   <div
                     className="sticky z-[5] mb-2 lg:relative lg:top-auto lg:z-auto lg:mb-0 bg-black rounded-xl overflow-hidden"
@@ -1401,43 +1440,6 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                   </div>
                 )}
 
-                {/* 경기 시작/마감 */}
-                <div
-                  className="mb-4 lg:mb-0 p-3"
-                  style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                >
-                  {selectedSlot?.is_complete ? (
-                    <div
-                      className="flex items-center justify-center gap-2 py-1.5 text-xs font-medium min-h-[44px]"
-                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: '4px' }}
-                    >
-                      <CheckCircle2 size={13} style={{ color: 'var(--mm-muted)' }} />경기 마감 완료
-                    </div>
-                  ) : !gameStarted ? (
-                    <div
-                      className="flex items-center justify-center gap-2 py-1.5 text-xs min-h-[44px]"
-                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: '4px' }}
-                    >
-                      <Play size={12} />우측에서 선발 선수 선택 후 시작
-                    </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <div
-                        className="flex-1 py-1.5 text-xs text-center font-bold uppercase tracking-[0.14em] min-h-[44px] flex items-center justify-center"
-                        style={{ background: 'rgba(5,150,105,0.12)', border: '1px solid #059669', color: '#059669', borderRadius: '4px' }}
-                      >
-                        경기 진행 중
-                      </div>
-                      <button
-                        onClick={openCompleteModal}
-                        className="flex items-center gap-1 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors btn-press min-h-[44px]"
-                        style={{ background: 'var(--mm-live)', color: '#FFFFFF', borderRadius: '4px' }}
-                      >
-                        <Square size={11} />마감
-                      </button>
-                    </div>
-                  )}
-                </div>
 
               </div>
 
