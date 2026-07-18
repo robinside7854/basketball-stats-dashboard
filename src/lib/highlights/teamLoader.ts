@@ -266,6 +266,7 @@ export async function loadTournamentHighlightDetail(
       assist_player_name: assistPlayer?.name ?? null,
       assist_player_number: assistPlayer?.number ?? null,
       is_clutch: isTournamentClutch(ev, gameQ4EndMap[ev.game_id], gameFinalMargin[ev.game_id] ?? null),
+      game_quarter: ev.quarter,
     })
 
     if (ev.player_id && player) {
@@ -431,6 +432,7 @@ export async function loadTeamPlayerHighlights(
       assist_player_name: assistPlayer?.name ?? null,
       assist_player_number: assistPlayer?.number ?? null,
       is_clutch: isTournamentClutch(ev, gameQ4EndMap[ev.game_id], gameFinalMargin[ev.game_id] ?? null),
+      game_quarter: ev.quarter,
     })
 
     tournamentCount[game.tournament_id] = (tournamentCount[game.tournament_id] ?? 0) + 1

@@ -10,10 +10,11 @@ import { Link2 } from 'lucide-react'
 import { toast } from 'sonner'
 import HighlightsPlayer from './HighlightsPlayer'
 import HighlightsPlaylist from './HighlightsPlaylist'
-import HighlightsFilterBar, { type FilterState } from './HighlightsFilterBar'
-import { categoryOfType, parseShotCategory, type HighlightFilterCategory, type ShotCategory } from '@/lib/highlights/clip'
+import HighlightsFilterBar, { type FilterState, type FilterCounts } from './HighlightsFilterBar'
+import { categoryOfType, parseShotCategory, SHOT_CATEGORY_OPTIONS, type HighlightFilterCategory, type ShotCategory } from '@/lib/highlights/clip'
+import { availabilityCounts, availabilityCountsBy, gameQuarterLabel } from '@/lib/highlights/crossFilter'
 import { shortenUrl } from '@/lib/shortUrl'
-import type { HighlightRoundDetail } from '@/lib/highlights/types'
+import type { HighlightClip, HighlightRoundDetail, HighlightGameQuarterOption } from '@/lib/highlights/types'
 
 interface Props {
   detail: HighlightRoundDetail
@@ -34,32 +35,64 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
   const searchParams = useSearchParams()
 
   // URL 초기값으로 상태 초기화 (라운드 로드 시 1회)
-  const [filter, setFilter] = useState<FilterState>(() => ({
-    teamId: searchParams.get('team') || null,
-    playerId: searchParams.get('player') || null,
-    category: parseCategory(searchParams.get('type')),
-  }))
+  const [filter, setFilter] = useState<FilterState>(() => {
+    const q = Number(searchParams.get('q'))
+    return {
+      teamId: searchParams.get('team') || null,
+      playerId: searchParams.get('player') || null,
+      category: parseCategory(searchParams.get('type')),
+      quarter: Number.isFinite(q) && q > 0 ? q : null,
+    }
+  })
   const [currentIdx, setCurrentIdx] = useState<number>(() => {
     const n = Number(searchParams.get('clip'))
     return Number.isFinite(n) && n > 0 ? n : 0
   })
-  // 필터 적용 — clutch 는 shot_type 무관 컨텍스트 필터 (is_clutch 체크)
-  const filteredClips = useMemo(() => {
-    return detail.clips.filter(c => {
-      if (filter.teamId && c.team_id !== filter.teamId) return false
-      if (filter.playerId && c.player_id !== filter.playerId) return false
-      if (filter.category === 'clutch') {
-        if (!c.is_clutch) return false
-      } else if (filter.category && categoryOfType(c.shot_type) !== filter.category) return false
-      return true
-    })
-  }, [detail.clips, filter])
 
-  // 전체 클립 중 클러치 개수 — 필터바 뱃지용
-  const clutchCount = useMemo(
-    () => detail.clips.reduce((acc, c) => acc + (c.is_clutch ? 1 : 0), 0),
-    [detail.clips],
+  // ── 축별 술어 (교차 필터링의 기본 단위) ────────────────────────
+  // 각 축의 선택지 개수를 셀 때 "자기 축"만 빼고 나머지를 적용한다.
+  const matchTeam     = useCallback((c: HighlightClip) => !filter.teamId   || c.team_id === filter.teamId, [filter.teamId])
+  const matchPlayer   = useCallback((c: HighlightClip) => !filter.playerId || c.player_id === filter.playerId, [filter.playerId])
+  const matchQuarter  = useCallback((c: HighlightClip) => filter.quarter == null || c.game_quarter === filter.quarter, [filter.quarter])
+  const matchCategory = useCallback((c: HighlightClip) => {
+    if (!filter.category) return true
+    if (filter.category === 'clutch') return !!c.is_clutch
+    return categoryOfType(c.shot_type) === filter.category
+  }, [filter.category])
+
+  // 필터 적용 — clutch 는 shot_type 무관 컨텍스트 필터 (is_clutch 체크)
+  const filteredClips = useMemo(
+    () => detail.clips.filter(c => matchTeam(c) && matchPlayer(c) && matchCategory(c) && matchQuarter(c)),
+    [detail.clips, matchTeam, matchPlayer, matchCategory, matchQuarter],
   )
+
+  // 쿼터 옵션 — 클립에 game_quarter 가 있을 때만 생성 (리그는 미설정 → 빈 배열 → 섹션 숨김)
+  const quarterOptions = useMemo<HighlightGameQuarterOption[]>(() => {
+    const seen = new Map<number, number>()
+    for (const c of detail.clips) {
+      if (c.game_quarter == null) continue
+      seen.set(c.game_quarter, (seen.get(c.game_quarter) ?? 0) + 1)
+    }
+    return [...seen.keys()]
+      .sort((a, b) => a - b)
+      .map(q => ({ quarter: q, label: gameQuarterLabel(q), count: seen.get(q) ?? 0 }))
+  }, [detail.clips])
+
+  // ── 교차 필터 개수 — 각 축은 자기 자신을 제외한 나머지 필터만 반영 ──
+  const counts = useMemo<FilterCounts>(() => {
+    const categoryMatchers: Record<string, (c: HighlightClip) => boolean> = {
+      clutch: c => !!c.is_clutch,
+    }
+    for (const o of SHOT_CATEGORY_OPTIONS) {
+      categoryMatchers[o.key] = c => categoryOfType(c.shot_type) === o.key
+    }
+    return {
+      teams:      availabilityCounts(detail.clips, [matchPlayer, matchCategory, matchQuarter], c => c.team_id),
+      players:    availabilityCounts(detail.clips, [matchTeam, matchCategory, matchQuarter], c => c.player_id),
+      quarters:   availabilityCounts(detail.clips, [matchTeam, matchPlayer, matchCategory], c => c.game_quarter),
+      categories: availabilityCountsBy(detail.clips, [matchTeam, matchPlayer, matchQuarter], categoryMatchers),
+    }
+  }, [detail.clips, matchTeam, matchPlayer, matchCategory, matchQuarter])
 
   // 필터 변경 시 인덱스 리셋 (필터 결과 밖으로 튈 위험)
   useEffect(() => {
@@ -72,6 +105,7 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
     if (filter.teamId) params.set('team', filter.teamId)
     if (filter.playerId) params.set('player', filter.playerId)
     if (filter.category) params.set('type', filter.category)
+    if (filter.quarter != null) params.set('q', String(filter.quarter))
     if (currentIdx > 0) params.set('clip', String(currentIdx))
     const qs = params.toString()
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
@@ -123,12 +157,13 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
       <HighlightsFilterBar
         players={detail.players}
         teams={detail.teams}
+        quarters={quarterOptions}
         filter={filter}
         onChange={setFilter}
         totalClips={detail.clips.length}
         filteredCount={filteredClips.length}
+        counts={counts}
         teamSectionLabel={teamSectionLabel}
-        clutchCount={clutchCount}
         hideCategories={hideCategories}
         clutchTitle={clutchTitle}
       />

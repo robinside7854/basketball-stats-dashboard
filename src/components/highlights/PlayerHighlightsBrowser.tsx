@@ -17,9 +17,11 @@ import {
   type HighlightFilterCategory,
   type ShotCategory,
 } from '@/lib/highlights/clip'
+import { availabilityCounts, availabilityCountsBy, gameQuarterLabel } from '@/lib/highlights/crossFilter'
 import { shortenUrl } from '@/lib/shortUrl'
 import type {
   HighlightClip, HighlightQuarterOption, HighlightShotTypeOption, PlayerHighlightsInfo,
+  HighlightGameQuarterOption,
 } from '@/lib/highlights/types'
 
 interface Props {
@@ -63,22 +65,57 @@ export default function PlayerHighlightsBrowser({
   const [quarterId, setQuarterId] = useState<string | null>(() =>
     searchParams.get('quarter') || null,
   )
+  const [gameQuarter, setGameQuarter] = useState<number | null>(() => {
+    const q = Number(searchParams.get('q'))
+    return Number.isFinite(q) && q > 0 ? q : null
+  })
   const [currentIdx, setCurrentIdx] = useState<number>(() => {
     const n = Number(searchParams.get('clip'))
     return Number.isFinite(n) && n >= 0 ? n : 0
   })
-  // 필터 적용 — clutch 는 shot_type 무관 컨텍스트 필터 (is_clutch 체크)
-  const filteredClips = useMemo(() => {
-    return clips.filter(c => {
-      if (category === 'clutch') {
-        if (!c.is_clutch) return false
-      } else if (category && categoryOfType(c.shot_type) !== category) return false
-      if (quarterId && c.quarter_id !== quarterId) return false
-      return true
-    })
-  }, [clips, category, quarterId])
 
-  const clutchCount = useMemo(() => clips.reduce((a, c) => a + (c.is_clutch ? 1 : 0), 0), [clips])
+  // ── 축별 술어 (교차 필터링의 기본 단위) ────────────────────────
+  // 각 축의 선택지 개수는 "자기 축을 뺀 나머지 필터"만 적용해 센다.
+  const matchCategory = useCallback((c: HighlightClip) => {
+    if (!category) return true
+    if (category === 'clutch') return !!c.is_clutch
+    return categoryOfType(c.shot_type) === category
+  }, [category])
+  const matchGroup = useCallback(
+    (c: HighlightClip) => !quarterId || c.quarter_id === quarterId, [quarterId])
+  const matchGameQuarter = useCallback(
+    (c: HighlightClip) => gameQuarter == null || c.game_quarter === gameQuarter, [gameQuarter])
+
+  const filteredClips = useMemo(
+    () => clips.filter(c => matchCategory(c) && matchGroup(c) && matchGameQuarter(c)),
+    [clips, matchCategory, matchGroup, matchGameQuarter],
+  )
+
+  // 게임 쿼터 옵션 — 대회만 game_quarter 를 채우므로 리그에선 빈 배열 → 섹션 숨김
+  const gameQuarterOptions = useMemo<HighlightGameQuarterOption[]>(() => {
+    const seen = new Map<number, number>()
+    for (const c of clips) {
+      if (c.game_quarter == null) continue
+      seen.set(c.game_quarter, (seen.get(c.game_quarter) ?? 0) + 1)
+    }
+    return [...seen.keys()].sort((a, b) => a - b)
+      .map(q => ({ quarter: q, label: gameQuarterLabel(q), count: seen.get(q) ?? 0 }))
+  }, [clips])
+
+  // ── 교차 필터 개수 ──────────────────────────────────────────
+  const counts = useMemo(() => {
+    const categoryMatchers: Record<string, (c: HighlightClip) => boolean> = {
+      clutch: c => !!c.is_clutch,
+    }
+    for (const o of SHOT_CATEGORY_OPTIONS) {
+      categoryMatchers[o.key] = c => categoryOfType(c.shot_type) === o.key
+    }
+    return {
+      categories:    availabilityCountsBy(clips, [matchGroup, matchGameQuarter], categoryMatchers),
+      groups:        availabilityCounts(clips, [matchCategory, matchGameQuarter], c => c.quarter_id),
+      gameQuarters:  availabilityCounts(clips, [matchCategory, matchGroup], c => c.game_quarter),
+    }
+  }, [clips, matchCategory, matchGroup, matchGameQuarter])
 
   // 필터 변경 시 인덱스 리셋 (범위 밖으로 튀지 않도록)
   useEffect(() => {
@@ -90,10 +127,11 @@ export default function PlayerHighlightsBrowser({
     const params = new URLSearchParams()
     if (category) params.set('type', category)
     if (quarterId) params.set('quarter', quarterId)
+    if (gameQuarter != null) params.set('q', String(gameQuarter))
     if (currentIdx > 0) params.set('clip', String(currentIdx))
     const qs = params.toString()
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
-  }, [category, quarterId, currentIdx, pathname, router])
+  }, [category, quarterId, gameQuarter, currentIdx, pathname, router])
 
   const onSelectIdx = useCallback((idx: number) => setCurrentIdx(idx), [])
 
@@ -114,14 +152,30 @@ export default function PlayerHighlightsBrowser({
     }
   }, [])
 
-  const activeCount = (category ? 1 : 0) + (quarterId ? 1 : 0)
+  const activeCount = (category ? 1 : 0) + (quarterId ? 1 : 0) + (gameQuarter != null ? 1 : 0)
 
-  const chip = (active: boolean, hue?: string): React.CSSProperties => ({
-    background: active ? (hue ?? 'var(--mm-yellow)') : 'var(--mm-panel)',
-    color: active ? (hue ? '#fff' : 'var(--mm-black)') : 'var(--mm-ink-soft)',
-    border: `1px solid ${active ? (hue ?? 'var(--mm-yellow)') : 'var(--mm-rule)'}`,
-    borderRadius: '4px',
-  })
+  const chip = (active: boolean, hue?: string, disabled = false): React.CSSProperties => {
+    if (disabled) {
+      return {
+        background: 'var(--mm-panel)',
+        color: 'var(--mm-muted)',
+        border: '1px dashed var(--mm-rule)',
+        borderRadius: '4px',
+        opacity: 0.4,
+        cursor: 'not-allowed',
+      }
+    }
+    return {
+      background: active ? (hue ?? 'var(--mm-yellow)') : 'var(--mm-panel)',
+      color: active ? (hue ? '#fff' : 'var(--mm-black)') : 'var(--mm-ink-soft)',
+      border: `1px solid ${active ? (hue ?? 'var(--mm-yellow)') : 'var(--mm-rule)'}`,
+      borderRadius: '4px',
+    }
+  }
+
+  // 선택된 칩은 개수가 0이어도 비활성화하지 않는다 (해제 가능해야 함)
+  const isOff = (active: boolean, n: number | undefined) => !active && (n ?? 0) === 0
+  const offTitle = '현재 선택한 다른 필터와 겹치는 클립이 없습니다'
 
   return (
     <div className="space-y-3">
@@ -162,7 +216,7 @@ export default function PlayerHighlightsBrowser({
             {activeCount > 0 && (
               <button
                 type="button"
-                onClick={() => { setCategory(null); setQuarterId(null) }}
+                onClick={() => { setCategory(null); setQuarterId(null); setGameQuarter(null) }}
                 className="text-[11px] font-bold uppercase tracking-[0.10em] px-2 py-1 min-h-[32px] cursor-pointer transition-colors"
                 style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
               >
@@ -187,34 +241,90 @@ export default function PlayerHighlightsBrowser({
             >
               전체
             </button>
-            {CATEGORIES.map(c => (
-              <button
-                key={c.key}
-                type="button"
-                onClick={() => setCategory(category === c.key ? null : c.key)}
-                className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
-                style={chip(category === c.key)}
-                aria-pressed={category === c.key}
-              >
-                {c.label}
-              </button>
-            ))}
+            {CATEGORIES.map(c => {
+              const active = category === c.key
+              const n = counts.categories[c.key] ?? 0
+              const off = isOff(active, n)
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  disabled={off}
+                  onClick={() => setCategory(active ? null : c.key)}
+                  className={`px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
+                  style={chip(active, undefined, off)}
+                  aria-pressed={active}
+                  aria-disabled={off}
+                  title={off ? offTitle : undefined}
+                >
+                  {c.label}
+                  <span className="text-[10px] opacity-80">{n}</span>
+                </button>
+              )
+            })}
             {/* 클러치 chip — 단독 필터 · 빨간 강조 */}
-            <button
-              type="button"
-              onClick={() => setCategory(category === 'clutch' ? null : 'clutch')}
-              className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors inline-flex items-center gap-1"
-              style={chip(category === 'clutch', '#ef4444')}
-              aria-pressed={category === 'clutch'}
-              aria-label={clutchTitle ? `클러치 슛만 보기 (${clutchTitle})` : '클러치 슛만 보기 (경기 마지막 2분 · 2포제션 접전에서 1포제션으로 좁힌 결정타)'}
-              title={clutchTitle ?? '경기 마지막 2분 · 슛 직전 6점차 이내(2포제션) → 이 슛으로 3점차 이내(1포제션) 로 좁혀진 결정타'}
-            >
-              <HeartCrack size={12} aria-hidden />
-              클러치
-              {clutchCount > 0 && <span className="text-[10px] opacity-80">{clutchCount}</span>}
-            </button>
+            {(() => {
+              const active = category === 'clutch'
+              const n = counts.categories.clutch ?? 0
+              const off = isOff(active, n)
+              return (
+                <button
+                  type="button"
+                  disabled={off}
+                  onClick={() => setCategory(active ? null : 'clutch')}
+                  className={`px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] transition-colors inline-flex items-center gap-1 ${off ? '' : 'cursor-pointer'}`}
+                  style={chip(active, '#ef4444', off)}
+                  aria-pressed={active}
+                  aria-disabled={off}
+                  aria-label={clutchTitle ? `클러치 슛만 보기 (${clutchTitle})` : '클러치 슛만 보기'}
+                  title={off ? offTitle : (clutchTitle ?? '경기 마지막 2분 · 슛 직전 6점차 이내(2포제션) → 이 슛으로 3점차 이내(1포제션) 로 좁혀진 결정타')}
+                >
+                  <HeartCrack size={12} aria-hidden />
+                  클러치
+                  <span className="text-[10px] opacity-80">{n}</span>
+                </button>
+              )
+            })()}
           </div>
         </div>
+
+        {/* 쿼터 — 대회 전용 (리그는 game_quarter 미설정 → 옵션이 비어 섹션 숨김) */}
+        {gameQuarterOptions.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>쿼터</div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setGameQuarter(null)}
+                className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+                style={chip(gameQuarter === null)}
+              >
+                전체
+              </button>
+              {gameQuarterOptions.map(q => {
+                const active = gameQuarter === q.quarter
+                const n = counts.gameQuarters[String(q.quarter)] ?? 0
+                const off = isOff(active, n)
+                return (
+                  <button
+                    key={q.quarter}
+                    type="button"
+                    disabled={off}
+                    onClick={() => setGameQuarter(active ? null : q.quarter)}
+                    className={`px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
+                    style={chip(active, undefined, off)}
+                    aria-pressed={active}
+                    aria-disabled={off}
+                    title={off ? offTitle : undefined}
+                  >
+                    {q.label}
+                    <span className="text-[10px] opacity-80">{n}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* 분기 */}
         {quarters.length > 0 && (
@@ -229,19 +339,27 @@ export default function PlayerHighlightsBrowser({
               >
                 전체
               </button>
-              {quarters.map(q => (
-                <button
-                  key={q.id}
-                  type="button"
-                  onClick={() => setQuarterId(quarterId === q.id ? null : q.id)}
-                  className="px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors inline-flex items-center gap-1.5"
-                  style={chip(quarterId === q.id)}
-                  aria-pressed={quarterId === q.id}
-                >
-                  {q.label}
-                  <span className="text-[10px] opacity-80">{q.count}</span>
-                </button>
-              ))}
+              {quarters.map(q => {
+                const active = quarterId === q.id
+                const n = counts.groups[q.id] ?? 0
+                const off = isOff(active, n)
+                return (
+                  <button
+                    key={q.id}
+                    type="button"
+                    disabled={off}
+                    onClick={() => setQuarterId(active ? null : q.id)}
+                    className={`px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] transition-colors inline-flex items-center gap-1.5 ${off ? '' : 'cursor-pointer'}`}
+                    style={chip(active, undefined, off)}
+                    aria-pressed={active}
+                    aria-disabled={off}
+                    title={off ? offTitle : undefined}
+                  >
+                    {q.label}
+                    <span className="text-[10px] opacity-80">{n}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}

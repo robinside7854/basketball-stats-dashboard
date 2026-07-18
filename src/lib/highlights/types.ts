@@ -33,7 +33,10 @@ export type HighlightClip = {
   away_team_name: string
   // 선수별 페이지에서 채움 (라운드 상세 로더는 optional 미설정)
   game_date?: string
-  quarter_id?: string | null
+  quarter_id?: string | null        // 리그 "분기"(시즌 단위, 예 25.1Q) — 게임 쿼터 아님
+  // 게임 쿼터 (1~4Q · 5 이상 연장) — 대회 로더만 채움.
+  // 리그는 쿼터 개념을 쓰지 않으므로 미설정 → 쿼터 필터 UI 가 자동으로 숨겨진다.
+  game_quarter?: number | null
   opponent_name?: string
   // 어시스트 (야투 성공 이벤트의 related_player_id 매핑, 자유투/앤드원은 항상 null)
   assist_player_id?: string | null
@@ -89,6 +92,13 @@ export type HighlightQuarterOption = {
 export type HighlightShotTypeOption = {
   type: string
   label: string
+  count: number
+}
+
+// 게임 쿼터 필터 옵션 (대회 전용) — 1~4Q · 5 이상 연장
+export type HighlightGameQuarterOption = {
+  quarter: number
+  label: string   // "1Q" · "OT"
   count: number
 }
 
