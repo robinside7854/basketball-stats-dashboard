@@ -139,6 +139,10 @@ export async function computeLeagueStats(
     team_reb_in_games: number
     team_poss_in_games: number
     minutes_played: number
+    // PIE 재료 · 본인 numerator (PTS+FGM+FTM−FGA−FTA+DREB+ORB/2+AST+STL+BLK/2−PF−TO)
+    // 분모는 게임 총합에서 별도 산출 → pie_denom
+    pie_num: number
+    pie_denom: number
   }
 
   const statsMap: Record<string, PlayerStats> = {}
@@ -146,6 +150,19 @@ export async function computeLeagueStats(
   const teamRebByGame: Record<string, Record<string, number>> = {}
   const teamPossByGame: Record<string, Record<string, { fga: number; fta: number; tov: number }>> = {}
   const playerTeamGameCount: Record<string, Record<string, Record<string, number>>> = {}
+  // 게임별 리그 전체 이벤트 합계 (PIE 분모 재료) · 양팀 통합
+  type GameTot = {
+    pts: number; fgm: number; ftm: number; fga: number; fta: number
+    dreb: number; oreb: number; ast: number; stl: number; blk: number
+    pf: number; tov: number
+  }
+  const gameTotals: Record<string, GameTot> = {}
+  const ensureGameTot = (gid: string): GameTot => {
+    if (!gameTotals[gid]) {
+      gameTotals[gid] = { pts: 0, fgm: 0, ftm: 0, fga: 0, fta: 0, dreb: 0, oreb: 0, ast: 0, stl: 0, blk: 0, pf: 0, tov: 0 }
+    }
+    return gameTotals[gid]
+  }
 
   const ensure = (pid: string): PlayerStats => {
     if (!statsMap[pid]) {
@@ -158,6 +175,8 @@ export async function computeLeagueStats(
         team_reb_in_games: 0,
         team_poss_in_games: 0,
         minutes_played: 0,
+        pie_num: 0,
+        pie_denom: 0,
       }
     }
     return statsMap[pid]
@@ -225,6 +244,39 @@ export async function computeLeagueStats(
       case 'foul': s.pf++; break
     }
 
+    // 게임 총합(양팀 통합) 누적 · PIE 분모 재료
+    // 같은 룰: 슛 attempt/made · pts 는 위 switch 와 정확히 일치하게 반영
+    {
+      const g = ensureGameTot(gId)
+      switch (e.type) {
+        case 'shot_3p':
+          g.fga++
+          if (made) { g.fgm++; g.pts += isPlusOne ? 4 : 3 }
+          break
+        case 'shot_post':
+        case 'shot_layup':
+        case 'shot_2p_mid':
+          g.fga++
+          if (made) { g.fgm++; g.pts += isPlusOne ? 3 : 2 }
+          break
+        case 'and_one':
+          if (made) g.pts += 1
+          break
+        case 'ft_2pt':
+        case 'ft_3pt_1':
+          g.fta++; if (made) { g.ftm++; g.pts += 2 }; break
+        case 'free_throw':
+        case 'ft_3pt_2':
+          g.fta++; if (made) { g.ftm++; g.pts += 1 }; break
+        case 'oreb': g.oreb++; break
+        case 'dreb': g.dreb++; break
+        case 'steal': g.stl++; break
+        case 'block': g.blk++; break
+        case 'turnover': g.tov++; break
+        case 'foul': g.pf++; break
+      }
+    }
+
     if ((e.type === 'oreb' || e.type === 'dreb') && e.team_id) {
       if (!teamRebByGame[e.team_id]) teamRebByGame[e.team_id] = {}
       teamRebByGame[e.team_id][gId] = (teamRebByGame[e.team_id][gId] ?? 0) + 1
@@ -249,6 +301,8 @@ export async function computeLeagueStats(
         if (!playerTeamGameCount[e.related_player_id][gId]) playerTeamGameCount[e.related_player_id][gId] = {}
         playerTeamGameCount[e.related_player_id][gId][e.team_id] = (playerTeamGameCount[e.related_player_id][gId][e.team_id] ?? 0) + 1
       }
+      // 게임 총합 · 어시스트도 증분 (PIE 재료)
+      ensureGameTot(gId).ast++
     }
   }
 
@@ -270,6 +324,28 @@ export async function computeLeagueStats(
     }
     statsMap[pid].team_reb_in_games = teamRebSum
     statsMap[pid].team_poss_in_games = Math.round(teamPossSum)
+
+    // PIE 재료 · 본인 numerator 와 본인 출전 게임의 총합 denom
+    // 공식: PTS + FGM + FTM − FGA − FTA + DREB + ORB/2 + AST + STL + BLK/2 − PF − TO
+    const pieOf = (x: {
+      pts: number; fgm: number; ftm: number; fga: number; fta: number
+      dreb: number; oreb: number; ast: number; stl: number; blk: number
+      pf: number; tov: number
+    }): number =>
+      x.pts + x.fgm + x.ftm - x.fga - x.fta
+      + x.dreb + x.oreb * 0.5
+      + x.ast + x.stl + x.blk * 0.5
+      - x.pf - x.tov
+
+    const own = statsMap[pid]
+    statsMap[pid].pie_num = pieOf(own)
+    let denom = 0
+    // 이 선수가 뛴 게임 집합 · playerTeamGameCount 로 이미 트래킹됨
+    for (const gid of Object.keys(gameTeams)) {
+      const gt = gameTotals[gid]
+      if (gt) denom += pieOf(gt)
+    }
+    statsMap[pid].pie_denom = denom
   }
 
   // Minutes 조회

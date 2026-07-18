@@ -19,7 +19,7 @@ import type { Quarter, PlayerStat } from '@/types/league'
 type ViewMode = 'avg' | 'total'
 type StatUnit = 'round' | 'game' | 'per40'
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
-type AdvKey = 'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
+type AdvKey = 'pie'|'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'ds_pct'|'lu_pct'|'md_pct'|'three_share'
 type StatMode = 'basic'|'shooting'|'advanced'|'seasonHigh'
 
@@ -238,6 +238,7 @@ function LeagueStatsPageInner() {
 
   // Advanced stats 컬럼 (Shooting 제외 — 효율/볼소유/리바운드 비중)
   const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
+    { key: 'pie',       label: 'PIE',   desc: 'Player Impact Estimate · 본인 임팩트 / 게임 총 임팩트(양팀 합)' },
     { key: 'usg_pct',   label: 'USG%',  desc: '사용률 · 팀 소유권 대비 본인 마무리 비중' },
     { key: 'at_ratio',  label: 'A/T',   desc: '어시스트/턴오버 비율' },
     { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
@@ -254,7 +255,10 @@ function LeagueStatsPageInner() {
     const a1 = p.and_one ?? 0
     const teamReb = p.team_reb_in_games ?? 0
     const teamPoss = p.team_poss_in_games ?? 0
+    const pieDenom = p.pie_denom ?? 0
+    const pieNum = p.pie_num ?? 0
     return {
+      pie:       pieDenom > 0 ? +(pieNum / pieDenom * 100).toFixed(1) : 0,
       at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : (p.ast > 0 ? 99 : 0),
       ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
       tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,

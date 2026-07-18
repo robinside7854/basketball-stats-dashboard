@@ -122,6 +122,11 @@ export type PlayerStat = {
   team_poss_in_games: number   // 본인 출전 경기의 본인 팀 총 소유권 (FGA + 0.44×FTA + TOV)
   // Per-40 계산용
   minutes_played: number       // 본인 총 출전 시간 (분)
+  // PIE (Player Impact Estimate · NBA 공식 지표) 재료 · Advanced 탭에서 pie_num/pie_denom×100 로 사용
+  //   numerator: PTS+FGM+FTM−FGA−FTA+DREB+ORB/2+AST+STL+BLK/2−PF−TO
+  //   denominator: 본인 출전 게임의 리그 전체(양팀) 총합
+  pie_num: number
+  pie_denom: number
 }
 
 export type QuarterPlayer = {

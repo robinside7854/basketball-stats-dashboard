@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { useParams } from 'next/navigation'
-import { Trophy, Crown, Flame, Shield, Zap, Target, Sparkles, Award, Hand, Crosshair, Heart, Users } from 'lucide-react'
+import { Trophy, Crown, Flame, Shield, Zap, Target, Sparkles, Award, Hand, Crosshair, Heart, Users, Layers } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
@@ -15,7 +15,7 @@ const AwardDetailModal = dynamic(() => import('@/components/league/AwardDetailMo
 
 type AwardCategory =
   | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY'
-  | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'IRON_MAN'
+  | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'IRON_MAN' | 'DOUBLE_DOUBLE'
   | 'OREB_KING' | 'MID_RANGE' | 'BEST_DUO'
 
 interface AwardCandidate {
@@ -66,6 +66,8 @@ const CATEGORY_STYLE: Record<AwardCategory, {
   EFFICIENCY: { Icon: Award,     bg: 'from-teal-950/40 to-cyan-900/20',                       border: 'border-teal-500/50',   text: 'text-teal-200',     chipBg: 'bg-teal-500/20',   ribbon: 'from-teal-400 to-cyan-500' },
   CLUTCH:     { Icon: Flame,     bg: 'from-red-950/40 to-amber-900/20',                       border: 'border-red-500/50',    text: 'text-red-200',      chipBg: 'bg-red-500/20',    ribbon: 'from-red-400 to-amber-500' },
   IRON_MAN:   { Icon: Heart,     bg: 'from-rose-950/40 to-pink-900/20',                       border: 'border-rose-500/50',   text: 'text-rose-200',     chipBg: 'bg-rose-500/20',   ribbon: 'from-rose-400 to-pink-500' },
+  // 더블더블 킹 — 다층 스탯 스토리라서 Layers 아이콘 + 인디고 톤 (기존 코어 8과 색 겹치지 않게)
+  DOUBLE_DOUBLE: { Icon: Layers, bg: 'from-indigo-950/40 to-violet-900/20',                   border: 'border-indigo-500/50', text: 'text-indigo-200',   chipBg: 'bg-indigo-500/20', ribbon: 'from-indigo-400 to-violet-500' },
   // 특수 3부문
   //   OREB_KING 은 REBOUND(orange)와 겹치지 않게 emerald · Hand 아이콘(리바운드 "잡는다" 은유)
   OREB_KING:  { Icon: Hand,      bg: 'from-emerald-950/40 to-green-900/20',                   border: 'border-emerald-500/50',text: 'text-emerald-200',  chipBg: 'bg-emerald-500/20',ribbon: 'from-emerald-400 to-green-500' },
@@ -84,6 +86,7 @@ const CATEGORY_ACCENT: Record<AwardCategory, string> = {
   EFFICIENCY: '#14B8A6', // teal-500
   CLUTCH:     '#EF4444', // red-500
   IRON_MAN:   '#F43F5E', // rose-500
+  DOUBLE_DOUBLE: '#6366F1', // indigo-500
   // 특수 3부문 — REBOUND(orange)와 색상 겹치지 않게
   OREB_KING:  '#059669', // emerald-600
   MID_RANGE:  '#0EA5E9', // sky-500

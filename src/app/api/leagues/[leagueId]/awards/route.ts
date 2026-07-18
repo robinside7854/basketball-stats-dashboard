@@ -8,7 +8,7 @@
 //   ex) 시즌 총 10일 경기 → 6일 이상 참석자만 후보
 //
 // 어워즈 카테고리 (11종 · 2026-07-16 개편):
-//   ── 코어 8 ────────
+//   ── 코어 9 ────────
 //   SCORING       — 득점왕 (누적 PTS)
 //   REBOUND       — 리바운드왕 (누적 REB)
 //   ASSIST        — 어시스트왕 (누적 AST)
@@ -17,6 +17,7 @@
 //   EFFICIENCY    — 야투효율왕 (eFG%)
 //   CLUTCH        — 클러치왕 (결정타 슛 누적 · 3게임 이상)
 //   IRON_MAN      — 철강왕 (참여 라운드 최다)
+//   DOUBLE_DOUBLE — 더블더블 킹 (PTS/REB/AST/STL/BLK 중 2개 이상 10+ 게임 최다 · 트리플더블 포함)
 //   ── 특수 3 ────────
 //   OREB_KING     — 공격 리바운드왕 (누적 OREB)
 //   MID_RANGE     — 미드레인지 마스터 (미드 성공 · 5시도 이상)
@@ -32,7 +33,7 @@ import type { PlayerStat } from '@/types/league'
 
 export type AwardCategory =
   | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY'
-  | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'IRON_MAN'
+  | 'THREE' | 'EFFICIENCY' | 'CLUTCH' | 'IRON_MAN' | 'DOUBLE_DOUBLE'
   | 'OREB_KING' | 'MID_RANGE' | 'BEST_DUO'
 
 export interface AwardCandidate {
@@ -360,6 +361,105 @@ export async function GET(
       description: '참여 라운드 최다 · 모든 등록 선수 대상',
       metric: '참여 R',
       minRequirement: '누구나 · 게스트 제외',
+      winner, runners, allCandidates,
+    })
+  }
+
+  // ── DOUBLE_DOUBLE (더블더블 킹) ────────
+  //   정의: (선수, 게임) 단위로 PTS/REB/AST/STL/BLK 중 10+ 개수를 세어 2개 이상이면 더블더블
+  //         트리플더블(3개+)도 자동 포함
+  //   범위: attendance 자격 통과 선수 (게스트 제외)
+  //   계산: 이벤트 페이지네이션 스캔 → per (player, game) 5개 카운트 → 게임 단위 판정
+  //         · pts = shot make points (plusOne 반영 없이 raw points 사용 · 이벤트 points 컬럼)
+  //         · ast = 슛 이벤트의 related_player_id 참조 (자유투/and_one 제외)
+  {
+    interface PgStat { pts: number; reb: number; ast: number; stl: number; blk: number }
+    const perGame = new Map<string, Map<string, PgStat>>()  // pid → gid → stats
+    const ensurePG = (pid: string, gid: string): PgStat => {
+      if (!perGame.has(pid)) perGame.set(pid, new Map())
+      const gm = perGame.get(pid)!
+      let s = gm.get(gid)
+      if (!s) { s = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 }; gm.set(gid, s) }
+      return s
+    }
+
+    if (gameIds.length > 0) {
+      const DD_SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
+      const DD_TYPES = [
+        ...DD_SHOT_TYPES,
+        'and_one', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'free_throw',
+        'oreb', 'dreb', 'steal', 'block',
+      ]
+      const PAGE = 1000
+      for (let p = 0; ; p++) {
+        const { data: chunk } = await supabase
+          .from('league_game_events')
+          .select('league_player_id, related_player_id, league_game_id, type, result, points')
+          .in('league_game_id', gameIds)
+          .in('type', DD_TYPES)
+          .order('id', { ascending: true })
+          .range(p * PAGE, (p + 1) * PAGE - 1)
+        if (!chunk || chunk.length === 0) break
+        for (const e of chunk as Array<{
+          league_player_id: string | null; related_player_id: string | null
+          league_game_id: string; type: string; result: string | null; points: number | null
+        }>) {
+          const pid = e.league_player_id
+          const gid = e.league_game_id
+          const made = e.result === 'made'
+          const pts = e.points ?? 0
+          if (pid) {
+            const s = ensurePG(pid, gid)
+            if (DD_SHOT_TYPES.includes(e.type)) { if (made) s.pts += pts }
+            else if (e.type === 'and_one') { if (made) s.pts += 1 }
+            else if (e.type === 'ft_2pt' || e.type === 'ft_3pt_1') { if (made) s.pts += 2 }
+            else if (e.type === 'free_throw' || e.type === 'ft_3pt_2') { if (made) s.pts += 1 }
+            else if (e.type === 'oreb' || e.type === 'dreb') s.reb++
+            else if (e.type === 'steal') s.stl++
+            else if (e.type === 'block') s.blk++
+          }
+          // 어시스트는 shot made 의 related_player_id 로만
+          if (made && DD_SHOT_TYPES.includes(e.type) && e.related_player_id) {
+            ensurePG(e.related_player_id, gid).ast++
+          }
+        }
+        if (chunk.length < PAGE) break
+      }
+    }
+
+    interface DDAcc { dd: number; td: number; last?: PgStat }
+    const ddCount = new Map<string, DDAcc>()
+    for (const [pid, gm] of perGame) {
+      let dd = 0, td = 0
+      for (const s of gm.values()) {
+        const hits = [s.pts, s.reb, s.ast, s.stl, s.blk].filter(v => v >= 10).length
+        if (hits >= 3) { td++; dd++ }  // TD 는 DD 를 포함해서 카운트
+        else if (hits >= 2) dd++
+      }
+      if (dd > 0) ddCount.set(pid, { dd, td })
+    }
+
+    const ddCands = eligible
+      .map(p => {
+        const acc = ddCount.get(p.player_id)
+        if (!acc) return null
+        const supporting: Record<string, string> = {
+          '더블더블': `${acc.dd}회`,
+          R: String(p.gp),
+        }
+        if (acc.td > 0) supporting['트리플더블'] = `${acc.td}회`
+        return toCandidate(p, acc.dd, `${acc.dd}회`, supporting)
+      })
+      .filter((c): c is AwardCandidate => c !== null)
+
+    const { winner, runners, allCandidates } = rankByValue(ddCands)
+    awards.push({
+      category: 'DOUBLE_DOUBLE',
+      section: 'core',
+      label: '더블더블 킹',
+      description: 'PTS / REB / AST / STL / BLK 중 2개 이상 10+ 을 기록한 게임 최다 · 트리플더블 포함',
+      metric: '더블더블 게임 수',
+      minRequirement: `${attendanceReq} · DD 1회 이상`,
       winner, runners, allCandidates,
     })
   }
