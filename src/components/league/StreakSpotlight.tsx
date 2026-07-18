@@ -68,19 +68,35 @@ interface DisplayRow {
   name: string
   number: number | null
   count: number
+  // attendance 전용 · 진행 중이 끊긴 케이스는 'longest' (역대 최장) 로 표시
+  attendanceMode?: 'current' | 'longest'
+  // attendance 전용 · 진행 중 라운드 수 (mode='current' 일 때만) < 역대 최장이면 병기용
+  attendanceHistoricalMax?: number
 }
+
+// 참여 스트릭 노출 임계값 (2026-07-19 완화)
+//   · 이전엔 current >= 2 만 노출 → 한 라운드 결석하면 리스트에서 완전 탈락 문제 (유승원 케이스)
+//   · 완화: current >= 2 OR longest >= 3 → 진행 끊긴 이력도 '역대 최장' 태그로 계속 노출
+const ATTENDANCE_CURRENT_MIN = 2
+const ATTENDANCE_LONGEST_MIN = 3
 
 function pickRows(filter: FilterKey, streaks: StreakEntry[], attendance: AttendanceEntry[], max: number): DisplayRow[] {
   if (filter === 'attendance') {
     return attendance
-      .filter(a => a.current_streak >= 2)
+      .filter(a => a.current_streak >= ATTENDANCE_CURRENT_MIN || a.longest_streak >= ATTENDANCE_LONGEST_MIN)
       .slice(0, max)
-      .map(a => ({
-        player_id: a.player_id,
-        name: a.name,
-        number: a.number,
-        count: a.current_streak,
-      }))
+      .map(a => {
+        const isCurrent = a.current_streak >= ATTENDANCE_CURRENT_MIN
+        return {
+          player_id: a.player_id,
+          name: a.name,
+          number: a.number,
+          count: isCurrent ? a.current_streak : a.longest_streak,
+          attendanceMode: (isCurrent ? 'current' : 'longest') as 'current' | 'longest',
+          // 진행 중이지만 역대 최장이 더 크면 병기
+          attendanceHistoricalMax: isCurrent && a.longest_streak > a.current_streak ? a.longest_streak : undefined,
+        }
+      })
   }
   return streaks
     .filter(s => s.category === filter)
@@ -127,7 +143,9 @@ export default function StreakSpotlight({ leagueId, maxEntries = 5, initialData 
       tp1: streakByCat.get('tp1') ?? 0,
       dd: streakByCat.get('dd') ?? 0,
       stlblk3: streakByCat.get('stlblk3') ?? 0,
-      attendance: attendance.filter(a => a.current_streak >= 2).length,
+      attendance: attendance.filter(
+        a => a.current_streak >= ATTENDANCE_CURRENT_MIN || a.longest_streak >= ATTENDANCE_LONGEST_MIN,
+      ).length,
     }
   }, [streaks, attendance])
 
@@ -293,7 +311,11 @@ export default function StreakSpotlight({ leagueId, maxEntries = 5, initialData 
                       e.currentTarget.style.borderLeftColor = 'transparent'
                     }
                   }}
-                  aria-label={`${r.name} ${r.count}${activeDef.suffix}`}
+                  aria-label={
+                    r.attendanceMode === 'longest'
+                      ? `${r.name} 역대 최장 ${r.count}${activeDef.suffix} (현재 진행 중단)`
+                      : `${r.name} ${r.count}${activeDef.suffix}${r.attendanceHistoricalMax ? ` · 역대 최장 ${r.attendanceHistoricalMax}R` : ''}`
+                  }
                 >
                   {/* Rank */}
                   <span
@@ -352,7 +374,7 @@ export default function StreakSpotlight({ leagueId, maxEntries = 5, initialData 
                       )}
                     </p>
                     <p
-                      className="font-bold uppercase mt-1.5 break-keep"
+                      className="font-bold uppercase mt-1.5 break-keep flex items-baseline flex-wrap gap-x-1.5 gap-y-0.5"
                       style={{
                         color: isTop ? 'rgba(0,0,0,0.65)' : 'var(--mm-muted)',
                         fontSize: '11px',
@@ -360,7 +382,29 @@ export default function StreakSpotlight({ leagueId, maxEntries = 5, initialData 
                         lineHeight: 1.3,
                       }}
                     >
-                      {r.count}{activeDef.suffix}
+                      {/* attendance · 진행 끊긴 케이스는 '역대 최장' 프리픽스 · 진행 중이면 기본 suffix */}
+                      {r.attendanceMode === 'longest' ? (
+                        <span>역대 최장 {r.count}{activeDef.suffix}</span>
+                      ) : (
+                        <span>{r.count}{activeDef.suffix}</span>
+                      )}
+                      {/* 진행 중이지만 역대 최장이 더 크면 소소하게 병기 */}
+                      {r.attendanceHistoricalMax && (
+                        <span
+                          className="normal-case font-bold"
+                          style={{
+                            fontSize: '10px',
+                            letterSpacing: '0.02em',
+                            padding: '1px 5px',
+                            background: isTop ? 'rgba(0,0,0,0.15)' : 'var(--mm-panel-alt)',
+                            color: isTop ? 'rgba(0,0,0,0.7)' : 'var(--mm-ink-soft)',
+                            border: `1px solid ${isTop ? 'rgba(0,0,0,0.15)' : 'var(--mm-rule)'}`,
+                            borderRadius: '3px',
+                          }}
+                        >
+                          역대 {r.attendanceHistoricalMax}R
+                        </span>
+                      )}
                     </p>
                   </div>
 
