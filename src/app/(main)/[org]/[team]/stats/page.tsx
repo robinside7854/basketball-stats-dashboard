@@ -16,9 +16,8 @@ const STATS_SUB_TABS = [
 ]
 
 
-const DUO_MEDAL: Record<number, string> = { 0: '🥇', 1: '🥈', 2: '🥉' }
 
-// 합작 듀오 카드용 프로필 사진 — 리그 어워드와 동일한 3:4 비율 · 검정 테두리 · 겹침 배치
+// 합작 듀오 카드용 프로필 사진 — 3:4 비율 · 검정 테두리 · 음수 마진 겹침(깊이감)
 // (모듈 최상단 정의: 페이지 함수 안에 두면 리렌더마다 unmount 된다)
 function DuoPhoto({ url, name, number, overlap = false }: {
   url?: string | null; name: string; number: string; overlap?: boolean
@@ -27,26 +26,36 @@ function DuoPhoto({ url, name, number, overlap = false }: {
     <div
       className="overflow-hidden relative shrink-0"
       style={{
-        width: 'clamp(34px, 9vw, 44px)',
+        width: 'clamp(58px, 15vw, 96px)',
         aspectRatio: '3 / 4',
         border: '2px solid #000',
         background: '#0f172a',
-        borderRadius: '4px',
-        boxShadow: '2px 2px 0 rgba(0,0,0,0.35)',
-        marginLeft: overlap ? 'clamp(-14px, -3.5vw, -10px)' : undefined,
+        // 컨테이너(rounded-xl)보다 타이트한 radius — 안쪽 요소일수록 좁게
+        borderRadius: '6px',
+        // 순수 검정 대신 배경 색조(slate-950)로 틴트한 그림자
+        boxShadow: '3px 3px 0 rgba(2, 6, 23, 0.65)',
+        marginLeft: overlap ? 'clamp(-20px, -5vw, -13px)' : undefined,
         zIndex: overlap ? 1 : 0,
       }}
     >
       {url ? (
-        <Image src={url} alt={name} fill sizes="44px" className="object-cover object-top" />
+        <Image src={url} alt={name} fill sizes="(max-width: 640px) 15vw, 96px" className="object-cover object-top" />
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-[11px] font-black text-gray-500" aria-label={name}>
+        <div className="w-full h-full flex items-center justify-center text-sm font-black text-gray-500" aria-label={name}>
           {number}
         </div>
       )}
     </div>
   )
 }
+
+// 순위 뱃지 색 — 이모지 메달 대신 숫자 칩 (UI 아이콘에 이모지 사용 금지 규칙)
+const RANK_STYLE: Record<number, React.CSSProperties> = {
+  0: { background: '#f59e0b', color: '#000' },   // 금
+  1: { background: '#cbd5e1', color: '#000' },   // 은
+  2: { background: '#b45309', color: '#fff' },   // 동
+}
+const RANK_DEFAULT: React.CSSProperties = { background: '#1f2937', color: '#9ca3af' }
 
 interface AssistPlayer { id: string; name: string; number: string; photo_url?: string | null }
 interface ScorerStat {
@@ -434,39 +443,51 @@ export default function StatsPage() {
         </div>
       )}
 
-      {/* 합작 듀오 TOP 5 — 어시스트 최다 연결 (두 선수 프로필 겹쳐 표시) */}
+      {/* 합작 듀오 TOP 5 — 어시스트 최다 연결 (두 선수 프로필 크게 겹쳐 표시) */}
       {assistData && assistData.topPairs.length > 0 && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-5">
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-300">합작 듀오 TOP 5</h2>
             <span className="text-xs text-gray-600">어시스트 → 득점 최다 연결</span>
           </div>
-          <div className="space-y-2">
+
+          {/* 모바일 2열 → 태블릿 3열 → 데스크톱 5열 (가로 스크롤 없음) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
             {assistData.topPairs.slice(0, 5).map((pair, i) => (
               <div
                 key={`${pair.assister.id}-${pair.scorer.id}`}
-                className="flex items-center gap-2.5 sm:gap-3 bg-gray-800/50 rounded-lg px-2.5 sm:px-3 py-2.5"
+                className="relative bg-gray-800/40 border border-gray-800 rounded-xl p-3 pt-4 flex flex-col items-center text-center"
               >
-                <span className="text-lg shrink-0 w-6 text-center" aria-hidden>{DUO_MEDAL[i] ?? '🏅'}</span>
+                {/* 순위 칩 */}
+                <div
+                  className="absolute top-2 left-2 w-6 h-6 rounded-md flex items-center justify-center text-xs font-black tabular-nums"
+                  style={RANK_STYLE[i] ?? RANK_DEFAULT}
+                  aria-label={`${i + 1}위`}
+                >
+                  {i + 1}
+                </div>
 
-                {/* 프로필 사진 2장 — 리그 어워드와 동일하게 겹쳐 배치 */}
-                <div className="shrink-0 flex items-end">
+                {/* 듀오 사진 — 겹쳐 배치 */}
+                <div className="flex items-end justify-center mt-1 mb-3">
                   <DuoPhoto url={pair.assister.photo_url} name={pair.assister.name} number={pair.assister.number} />
                   <DuoPhoto url={pair.scorer.photo_url} name={pair.scorer.name} number={pair.scorer.number} overlap />
                 </div>
 
-                <div className="flex-1 min-w-0">
+                {/* 어시스트 → 득점 */}
+                <div className="w-full min-w-0">
                   <div className="text-xs sm:text-sm font-bold text-white truncate">
                     <span className="text-blue-400">#{pair.assister.number}</span> {pair.assister.name}
-                    <span className="text-gray-500 mx-1">→</span>
+                  </div>
+                  <div className="text-gray-600 text-[11px] leading-tight my-0.5" aria-hidden>↓</div>
+                  <div className="text-xs sm:text-sm font-bold text-white truncate">
                     <span className="text-green-400">#{pair.scorer.number}</span> {pair.scorer.name}
                   </div>
-                  <div className="text-xs text-gray-500 mt-0.5">어시스트 → 득점</div>
                 </div>
 
-                <div className="shrink-0 text-right">
-                  <div className="text-lg sm:text-xl font-black font-mono text-amber-400 tabular-nums">{pair.count}</div>
-                  <div className="text-xs text-gray-500">회</div>
+                {/* 합작 횟수 */}
+                <div className="mt-3 pt-2.5 border-t border-gray-700/50 w-full">
+                  <span className="text-2xl font-black font-mono text-amber-400 tabular-nums">{pair.count}</span>
+                  <span className="text-xs text-gray-500 ml-1">회</span>
                 </div>
               </div>
             ))}
