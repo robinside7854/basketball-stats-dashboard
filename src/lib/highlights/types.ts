@@ -49,6 +49,13 @@ export type HighlightClip = {
   score_away_before?: number
   score_home_after?: number
   score_away_after?: number
+  // 클러치샷 종류 (2026-07-18 · is_clutch=true 인 클립에만 채워짐)
+  //   tie      — 이 득점으로 동점
+  //   chase    — 이 득점으로 리드 격차 좁힘 (여전히 지고 있음)
+  //   reversal — 이 득점으로 역전 (지거나 동점에서 앞섬)
+  //   dagger   — 이 득점으로 리드 격차 벌림 (이미 앞서고 있었음)
+  //   winning  — reversal + 이 슛으로 스코어 확정 + 우리 팀 승리 (역전 승부치기)
+  clutch_kind?: 'tie' | 'chase' | 'reversal' | 'dagger' | 'winning'
 }
 
 export type HighlightPlayerOption = {

@@ -23,6 +23,31 @@ const CLUTCH_TIME_WINDOW_SECONDS = 120
 const CLUTCH_MARGIN_BEFORE_MAX = 6   // 슛 직전 (2포제션)
 const CLUTCH_MARGIN_AFTER_MAX = 3    // 슛 직후 (1포제션)
 
+// 클러치샷 종류 판정 (2026-07-18)
+//   · 슛한 팀 관점의 own/opp 스코어 (before/after) 로 판정
+//   · tie      · own_before < opp_before  AND own_after === opp_after
+//   · reversal · own_before <= opp_before AND own_after > opp_after (지고 있거나 동점 → 앞섬)
+//   · dagger   · own_before > opp_before  AND (own_after - opp_after) > (own_before - opp_before)
+//   · chase    · own_before < opp_before  AND own_after < opp_after (여전히 지지만 격차 축소)
+//   · winning  · reversal + 이 슛으로 스코어 확정(=이후 득점 없음) + 우리 팀 승리 — 별도 업그레이드
+type ClutchKind = 'tie' | 'chase' | 'reversal' | 'dagger'
+function classifyClutchKind(
+  hb: number, ab: number,
+  ha: number, aa: number,
+  isHomeShooter: boolean,
+): ClutchKind {
+  const ownB = isHomeShooter ? hb : ab
+  const oppB = isHomeShooter ? ab : hb
+  const ownA = isHomeShooter ? ha : aa
+  const oppA = isHomeShooter ? aa : ha
+  const diffB = ownB - oppB
+  const diffA = ownA - oppA
+  if (diffB < 0 && diffA === 0) return 'tie'
+  if (diffB <= 0 && diffA > 0)  return 'reversal'
+  if (diffB > 0  && diffA > diffB) return 'dagger'
+  return 'chase'  // 사실상 남은 케이스 = 여전히 지고 있으나 좁힘 (혹은 fallback)
+}
+
 // 게임별 "마지막 이벤트" timestamp — 이벤트 종류 무관 (득점/리바/파울/서브 등)
 //   클러치 시간 창의 기준점 · 득점 공백 구간을 정확히 커버하기 위해 별도 조회
 async function fetchGameMaxTs(
@@ -239,11 +264,14 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     ;(gameEvents[e.league_game_id] ||= []).push(e)
   }
   const gameMaxTs = await fetchGameMaxTs(supabase, Object.keys(gameEvents))
-  // event_id → { is_clutch, score_home_before/after, score_away_before/after }
+  // event_id → { is_clutch, score_home_before/after, score_away_before/after, kind }
   const evMeta: Record<string, {
     is_clutch: boolean
     hb: number; ab: number; ha: number; aa: number
+    kind?: ClutchKind
   }> = {}
+  // 게임별 최종 스코어 (walker 종료 시점) — 위닝샷 판정용
+  const gameFinalScores: Record<string, { home: number; away: number }> = {}
   for (const gid of Object.keys(gameEvents)) {
     const evs = gameEvents[gid]
     evs.sort((a, b) => (a.video_timestamp - b.video_timestamp) || a.id.localeCompare(b.id))
@@ -267,8 +295,14 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       const isClutch = inClutchTime
         && marginBefore <= CLUTCH_MARGIN_BEFORE_MAX
         && marginAfter <= CLUTCH_MARGIN_AFTER_MAX
-      evMeta[e.id] = { is_clutch: isClutch, hb, ab, ha: home, aa: away }
+      let kind: ClutchKind | undefined
+      if (isClutch && e.team_id && (e.team_id === game.home_team_id || e.team_id === game.away_team_id)) {
+        const isHomeShooter = e.team_id === game.home_team_id
+        kind = classifyClutchKind(hb, ab, home, away, isHomeShooter)
+      }
+      evMeta[e.id] = { is_clutch: isClutch, hb, ab, ha: home, aa: away, kind }
     }
+    gameFinalScores[gid] = { home, away }
   }
 
   // 5. 클립 조립 (게임/팀 컨텍스트 + 분기별 팀명 override + 클러치/스코어 결합)
@@ -337,6 +371,22 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       score_home_after: meta?.ha ?? 0,
       score_away_after: meta?.aa ?? 0,
     }
+    // 클러치샷 종류 · reversal 이면서 이 슛으로 스코어 확정 + 우리 팀 승리 시 → winning 업그레이드
+    if (meta?.kind) {
+      let kind: HighlightClip['clutch_kind'] = meta.kind
+      if (kind === 'reversal') {
+        const final = gameFinalScores[game.id]
+        if (final && meta.ha === final.home && meta.aa === final.away) {
+          const isHomeShooter = team.id === game.home_team_id
+          const ownFinal = isHomeShooter ? final.home : final.away
+          const oppFinal = isHomeShooter ? final.away : final.home
+          if (ownFinal > oppFinal) kind = 'winning'
+        }
+      }
+      clip.clutch_kind = kind
+    }
+    // opponent_name (홈 위젯 카드에서 vs 상대팀 노출)
+    clip.opponent_name = team.id === game.home_team_id ? awayName : homeName
     clips.push(clip)
 
     if (ev.league_player_id && player) {
