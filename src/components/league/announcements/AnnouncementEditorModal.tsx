@@ -13,22 +13,47 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import RichEditor from './RichEditor'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
 
-// 편집기 초기 HTML 준비 · 마크다운이면 HTML 로 변환 후 주입
-//   · TipTap 은 마크다운을 이해 못하고 리터럴 텍스트로 취급 → <p>## 홈</p> 처럼 저장됨
-//   · 저장 후 리더가 렌더하면 ## / ** 이 그대로 노출되는 문제 발생
-//   · 편집 진입 전 마크다운을 HTML 로 변환해서 문제 원천 차단
+// 편집기 초기 HTML 준비 · 세 케이스 처리
+//   1) 이미 정상 HTML (다양한 태그 · 리치 컨텐츠) → 그대로
+//   2) raw 마크다운 (`##`, `**` 등으로 시작) → marked 로 HTML 변환
+//   3) 손상된 상태 (`<p>literal markdown</p>` · TipTap 이 마크다운을 삼킴)
+//      → <p> 껍질 제거 후 마크다운으로 재파싱 (자기 복구)
+// 문제 배경: TipTap 은 마크다운 문법을 이해 못 함. raw 마크다운을 initialHtml 로 주면
+//          <p>## 홈</p> 처럼 리터럴로 감싸버리고 저장 → 리더에 마크다운 문법이 그대로 노출됨.
 function bodyToEditorHtml(content: string): string {
   if (!content) return ''
   const trimmed = content.trim()
   if (!trimmed) return ''
-  // 이미 HTML 이면 그대로 (신규 편집기 저장분)
-  if (trimmed.startsWith('<')) return content
-  // 마크다운 → HTML (구 저장분 or 스크립트 직접 삽입분)
-  try {
-    return marked.parse(content, { async: false, gfm: true, breaks: true }) as string
-  } catch {
-    return content  // 실패 시 원본 그대로 (안전 폴백)
+
+  const asMd = (source: string): string => {
+    try {
+      return marked.parse(source, { async: false, gfm: true, breaks: true }) as string
+    } catch {
+      return source
+    }
   }
+
+  // 마크다운 시그니처 감지 · 헤딩 · 볼드 · 이탤릭 · 리스트 · 인용
+  const looksLikeMd = /(^|\n|\s)(#{1,6}\s|\*\*|__|- |\* |\d+\.\s|>\s)/.test(trimmed)
+
+  if (trimmed.startsWith('<')) {
+    // HTML 로 시작하지만 마크다운 문법이 안에 남아있으면 손상된 상태
+    //   · 최소 태그(<p>, <br>) 만 있는지 검사 → 그 경우 stripping 후 재파싱
+    const tagMatches = trimmed.match(/<\/?[a-z][a-z0-9]*/gi) ?? []
+    const tagNames = new Set(tagMatches.map(t => t.replace(/[<\/]/g, '').toLowerCase()))
+    const richTags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'table']
+    const hasRichHtml = richTags.some(t => tagNames.has(t))
+
+    if (looksLikeMd && !hasRichHtml) {
+      // 손상된 <p>flattened markdown</p> → HTML 제거 후 마크다운 재파싱
+      const stripped = trimmed.replace(/<[^>]+>/g, '').trim()
+      return asMd(stripped)
+    }
+    return content  // 정상 HTML
+  }
+
+  // raw 마크다운
+  return asMd(content)
 }
 
 interface Props {
