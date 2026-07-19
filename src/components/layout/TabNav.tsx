@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, Film, Lock, Unlock, ArrowLeftRight, MapPin } from 'lucide-react'
+import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, Film, Lock, Unlock, ArrowLeftRight, MapPin, Clapperboard } from 'lucide-react'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { TEAM_LABELS, type TeamType } from '@/contexts/TeamContext'
 
@@ -54,10 +54,11 @@ export default function TabNav() {
     also: '',
   }
 
+  // 아이콘은 '코치 핀'(MapPin) 과 달라야 한다 — 나란히 놓이는 탭이라 같은 모양이면 구분이 안 된다
   const reviewTab = {
     href: `${prefix}${REVIEW_PATH}`,
     label: '영상 리뷰',
-    icon: MapPin,
+    icon: Clapperboard,
     exact: false,
     also: '',
   }
