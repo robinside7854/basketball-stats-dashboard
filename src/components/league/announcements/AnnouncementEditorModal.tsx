@@ -8,9 +8,28 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { X, Megaphone, Save, Pin, PinOff } from 'lucide-react'
 import { toast } from 'sonner'
+import { marked } from 'marked'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import RichEditor from './RichEditor'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
+
+// 편집기 초기 HTML 준비 · 마크다운이면 HTML 로 변환 후 주입
+//   · TipTap 은 마크다운을 이해 못하고 리터럴 텍스트로 취급 → <p>## 홈</p> 처럼 저장됨
+//   · 저장 후 리더가 렌더하면 ## / ** 이 그대로 노출되는 문제 발생
+//   · 편집 진입 전 마크다운을 HTML 로 변환해서 문제 원천 차단
+function bodyToEditorHtml(content: string): string {
+  if (!content) return ''
+  const trimmed = content.trim()
+  if (!trimmed) return ''
+  // 이미 HTML 이면 그대로 (신규 편집기 저장분)
+  if (trimmed.startsWith('<')) return content
+  // 마크다운 → HTML (구 저장분 or 스크립트 직접 삽입분)
+  try {
+    return marked.parse(content, { async: false, gfm: true, breaks: true }) as string
+  } catch {
+    return content  // 실패 시 원본 그대로 (안전 폴백)
+  }
+}
 
 interface Props {
   leagueId: string
@@ -28,7 +47,8 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
   const leagueBase = orgSlug ? `/league/${orgSlug}/${leagueId}` : undefined
 
   const [title, setTitle] = useState(editing?.title ?? '')
-  const [body, setBody] = useState(editing?.body_markdown ?? '')
+  // 마운트 시 1회 · 마크다운 컨텐츠는 HTML 로 변환해서 편집기에 로드
+  const [body, setBody] = useState(() => bodyToEditorHtml(editing?.body_markdown ?? ''))
   const [pinned, setPinned] = useState(editing?.pinned ?? false)
   const [createdBy, setCreatedBy] = useState(editing?.created_by ?? '')
   const [saving, setSaving] = useState(false)
