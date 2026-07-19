@@ -1,12 +1,13 @@
-// 베스트샷 릴 — 핀을 지정한 모든 선수의 베스트샷 모음 (Server 로드 → HighlightsBrowser 재사용)
-// 진입: 하이라이트 랜딩 카드 · 선수 chip 으로 "누가 핀했는지" 한눈에 확인 + 선수별 필터
+// 베스트샷 릴 — 핀 지정 선수 카드 목록 → 클릭 → 모달 재생 (2026-07-19 재설계)
+//   이전: HighlightsBrowser 로 곧바로 재생 UI
+//   신규: 선수 갤러리 (프리뷰 3장 + 프로필) → 카드 클릭 → 그 선수 클립만 순차 재생
 import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
 import { ChevronLeft, Pin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import EmptyState from '@/components/league/EmptyState'
-import HighlightsBrowser from '@/components/highlights/HighlightsBrowser'
+import BestShotsGallery from '@/components/league/highlights/BestShotsGallery'
 import { NumberedBasketball } from '@/components/league/BasketballIcons'
 import { loadLeagueBestShots } from '@/lib/highlights/loader'
 
@@ -14,9 +15,20 @@ const getCached = (leagueId: string) =>
   unstable_cache(
     async () => {
       const sb = createClient()
-      return loadLeagueBestShots(sb, leagueId)
+      const detail = await loadLeagueBestShots(sb, leagueId)
+      // 프로필 사진 맵 병합 (핀 지정 선수만)
+      const pids = detail.players.map(p => p.id)
+      let photoMap: Record<string, string | null> = {}
+      if (pids.length > 0) {
+        const { data } = await sb
+          .from('league_players')
+          .select('id, photo_url')
+          .in('id', pids)
+        photoMap = Object.fromEntries(((data ?? []) as Array<{ id: string; photo_url: string | null }>).map(r => [r.id, r.photo_url]))
+      }
+      return { ...detail, photoMap }
     },
-    ['highlights-best-shots', leagueId],
+    ['highlights-best-shots-v2', leagueId],
     { tags: [`league-${leagueId}`, `league-${leagueId}-events`, `league-${leagueId}-pins`], revalidate: 60 },
   )
 
@@ -64,7 +76,7 @@ export default async function BestShotsReelPage({
               </h1>
             </div>
             <p className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>
-              선수들이 직접 핀한 시그니처 샷 · {detail.players.length}명 · {detail.clips.length}개 클립 · 등번호 순 연속재생
+              선수들이 직접 핀한 시그니처 샷 · {detail.players.length}명 · {detail.clips.length}개 클립
             </p>
           </div>
         </div>
@@ -77,7 +89,11 @@ export default async function BestShotsReelPage({
           description="선수 하이라이트 페이지 재생기 하단의 농구공 슬롯(1/2/3)에서 내 베스트샷을 핀하면 여기에 모입니다."
         />
       ) : (
-        <HighlightsBrowser detail={detail} />
+        <BestShotsGallery
+          players={detail.players}
+          clips={detail.clips}
+          photoMap={detail.photoMap}
+        />
       )}
     </div>
   )

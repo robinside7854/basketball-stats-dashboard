@@ -2,13 +2,12 @@
 // 상위 하이라이트 우산 (아카이브 → 하이라이트 격상 · Stathead 삭제 · 2026-07-19)
 import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
-import { Film, PlayCircle, ChevronRight, Clock, VideoOff, Trophy } from 'lucide-react'
+import { Film, PlayCircle, ChevronRight, Clock, VideoOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import EmptyState from '@/components/league/EmptyState'
 import HighlightsPlayerPicker from '@/components/highlights/HighlightsPlayerPicker'
-import { NumberedBasketball } from '@/components/league/BasketballIcons'
 import { loadRecentRounds } from '@/lib/highlights/loader'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 
@@ -95,28 +94,6 @@ const getCached = (leagueId: string) =>
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
   )
 
-// 베스트샷 릴 카드용 핀 통계 (핀 지정 선수 수 · 총 클립 수)
-// pins API 가 league-${leagueId} 태그를 무효화하므로 핀 변경 시 자동 갱신
-const getPinStats = (leagueId: string) =>
-  unstable_cache(
-    async () => {
-      const sb = createClient()
-      const { data } = await sb
-        .from('league_players')
-        .select('pinned_event_ids')
-        .eq('league_id', leagueId)
-        .not('pinned_event_ids', 'is', null)
-      const rows = (data ?? []) as Array<{ pinned_event_ids: string[] | null }>
-      const withPins = rows.filter(r => (r.pinned_event_ids?.length ?? 0) > 0)
-      return {
-        players: withPins.length,
-        clips: withPins.reduce((acc, r) => acc + (r.pinned_event_ids?.length ?? 0), 0),
-      }
-    },
-    ['highlights-pin-stats', leagueId],
-    { tags: [`league-${leagueId}`], revalidate: 60 },
-  )
-
 export default async function HighlightsLandingPage({
   params,
 }: {
@@ -124,11 +101,8 @@ export default async function HighlightsLandingPage({
 }) {
   const { orgSlug, leagueId } = await params
   const base = `/league/${orgSlug}/${leagueId}`
-  // 시즌 전체 라운드 노출 (기존 .slice(0, 12) 로 1-3월 데이터 잘림 → 전체 표시)
-  const [{ rounds, records }, pinStats] = await Promise.all([
-    getCached(leagueId)(),
-    getPinStats(leagueId)(),
-  ])
+  // 시즌 전체 라운드 노출
+  const { rounds, records } = await getCached(leagueId)()
 
   const groupTabs = [
     { href: `${base}/highlights`,             label: '경기별 하이라이트', active: true },
@@ -158,70 +132,8 @@ export default async function HighlightsLandingPage({
         </div>
       </div>
 
-      {/* 선수별 하이라이트 진입 */}
+      {/* 선수별 하이라이트 진입 (경기별 하이라이트 우산 안에 포함) */}
       <HighlightsPlayerPicker leagueId={leagueId} orgSlug={orgSlug} />
-
-      {/* 커리어 마일스톤 · 시즌 하이라이트 카드 진입 */}
-      <Link
-        href={`${base}/highlights/milestones`}
-        className="group flex items-center justify-between gap-3 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
-        style={{
-          background: 'var(--mm-panel)',
-          border: '1px solid var(--mm-rule)',
-          borderRadius: '4px',
-        }}
-        aria-label="커리어 마일스톤 전체 보기"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <Trophy size={28} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden className="shrink-0" />
-          <div className="min-w-0">
-            <h2
-              className="font-jersey font-black uppercase text-lg lg:text-xl"
-              style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
-            >
-              커리어 마일스톤
-            </h2>
-            <p className="text-[11px] mt-0.5 font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
-              누적 임계값 달성 순간 · 그 순간 재생
-            </p>
-          </div>
-        </div>
-        <ChevronRight size={20} style={{ color: 'var(--mm-yellow-strong)' }} className="shrink-0 transition-transform group-hover:translate-x-0.5" aria-hidden />
-      </Link>
-
-      {/* 베스트샷 릴 카드 진입 — 핀 지정한 선수들의 시그니처 샷 모음 */}
-      <Link
-        href={`${base}/highlights/best-shots`}
-        className="group flex items-center justify-between gap-3 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
-        style={{
-          background: 'var(--mm-panel)',
-          border: '1px solid var(--mm-rule)',
-          borderRadius: '4px',
-        }}
-        aria-label="베스트샷 릴 보기"
-      >
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="inline-flex items-center gap-0.5 shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden>
-            <NumberedBasketball size={22} number={1} filled />
-            <NumberedBasketball size={22} number={2} filled />
-            <NumberedBasketball size={22} number={3} filled />
-          </span>
-          <div className="min-w-0">
-            <h2
-              className="font-jersey font-black uppercase text-lg lg:text-xl"
-              style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
-            >
-              베스트샷 릴
-            </h2>
-            <p className="text-[11px] mt-0.5 font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
-              {pinStats.players > 0
-                ? `선수들이 직접 핀한 시그니처 샷 · ${pinStats.players}명 · ${pinStats.clips}개 클립`
-                : '선수들이 직접 핀한 시그니처 샷 · 아직 핀 없음'}
-            </p>
-          </div>
-        </div>
-        <ChevronRight size={20} style={{ color: 'var(--mm-yellow-strong)' }} className="shrink-0 transition-transform group-hover:translate-x-0.5" aria-hidden />
-      </Link>
 
       {rounds.length === 0 ? (
         <EmptyState
