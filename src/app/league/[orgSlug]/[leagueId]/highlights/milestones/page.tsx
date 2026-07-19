@@ -120,7 +120,7 @@ export default async function MilestonesPage({
           style={{ color: 'var(--mm-muted)', lineHeight: 1.6 }}
         >
           <span className="font-bold">임계값</span>은 각 지표의 기본 사다리 (예: PTS 100·250·500·1000·2000) 에서 시작하며,
-          리그 최다치가 상한을 넘어서면 자동으로 두 배씩 확장됩니다.
+          <span className="font-bold">리그 1위 값에 근사한 상한</span>으로 자동 스냅됩니다. 선수 분포가 촘촘히 몰리지 않도록 시인성 우선.
         </p>
       )}
     </div>

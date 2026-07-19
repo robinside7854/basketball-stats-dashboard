@@ -23,23 +23,32 @@ export type PlayerMilestoneData = {
   blk: number
 }
 
+// 각 지표: 기본 임계값 사다리 + 확장 스텝
+//   · 리그 1위 값에 따라 TOP 을 근사치로 스냅 → 선수 분포가 촘촘히 몰리지 않음
 const METRICS = [
-  { key: 'pts', label: 'PTS', color: '#F59E0B', base: [100, 250, 500, 1000, 2000] },
-  { key: 'reb', label: 'REB', color: '#F97316', base: [50,  100, 250, 500,  1000] },
-  { key: 'ast', label: 'AST', color: '#06B6D4', base: [25,  50,  100, 250,  500 ] },
-  { key: 'stl', label: 'STL', color: '#10B981', base: [25,  50,  100, 250,  500 ] },
-  { key: 'blk', label: 'BLK', color: '#EF4444', base: [10,  25,  50,  100,  250 ] },
+  { key: 'pts', label: 'PTS', color: '#F59E0B', base: [100, 250, 500, 1000, 2000], step: 500 },
+  { key: 'reb', label: 'REB', color: '#F97316', base: [50,  100, 250, 500,  1000], step: 100 },
+  { key: 'ast', label: 'AST', color: '#06B6D4', base: [25,  50,  100, 250,  500 ], step: 100 },
+  { key: 'stl', label: 'STL', color: '#10B981', base: [25,  50,  100, 250,  500 ], step: 100 },
+  { key: 'blk', label: 'BLK', color: '#EF4444', base: [10,  25,  50,  100,  250 ], step: 50  },
 ] as const
 
 type MetricKey = typeof METRICS[number]['key']
 
-// 리그 최다치까지 임계값 확장
-function extendThresholds(base: readonly number[], leagueMax: number): number[] {
-  const result = [...base]
-  while (result[result.length - 1] < leagueMax) {
-    result.push(result[result.length - 1] * 2)
+// TOP 을 1위 값에 근사치로 스냅
+//   · 1위 ≤ 기본 사다리의 어떤 값 → 그 값을 TOP 으로 · 그 이하 눈금만 표시
+//   · 1위 > 기본 사다리 최대 → step 단위로 올림한 값을 TOP 으로 추가
+// 예: PTS 기본=[100,250,500,1000,2000], 1위=2400 → TOP=2500, 눈금=[100,250,500,1000,2000,2500]
+function buildThresholds(base: readonly number[], step: number, leaderValue: number): number[] {
+  for (const t of base) {
+    if (t >= leaderValue) {
+      // 1위 값이 base 안 · 그 이하 값들만
+      return base.filter(v => v <= t)
+    }
   }
-  return result
+  // 1위 값이 base 초과 · step 단위 올림
+  const snapped = Math.max(step, Math.ceil(leaderValue / step) * step)
+  return [...base, snapped]
 }
 
 interface Props {
@@ -55,12 +64,14 @@ export default function PlayerMilestoneChart({ players, orgSlug, leagueId }: Pro
     [players],
   )
 
-  // 지표별 임계값 (리그 최다치까지 확장)
+  // 지표별 임계값 사다리 · TOP = 리그 1위 값 근사치로 스냅 (분포 시인성 개선)
   const thresholdsByMetric = useMemo(() => {
     const out: Record<MetricKey, number[]> = { pts: [], reb: [], ast: [], stl: [], blk: [] }
     for (const m of METRICS) {
-      const leagueMax = Math.max(0, ...activePlayers.map(p => p[m.key]))
-      out[m.key] = extendThresholds(m.base, leagueMax)
+      const leaderValue = Math.max(0, ...activePlayers.map(p => p[m.key]))
+      out[m.key] = leaderValue > 0
+        ? buildThresholds(m.base, m.step, leaderValue)
+        : [m.base[0]]  // 활동 전무 시 최소 눈금 하나만
     }
     return out
   }, [activePlayers])
@@ -93,7 +104,8 @@ export default function PlayerMilestoneChart({ players, orgSlug, leagueId }: Pro
         style={{ borderTop: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
       >
         <span>
-          <span className="font-bold">임계값</span>은 지표별 기본 사다리에서 시작 · 리그 최다치가 상한 넘으면 자동 두 배 확장
+          <span className="font-bold">임계값</span>은 지표별 기본 사다리 (PTS 100·250·500·1000·2000 등) 에서 시작 ·
+          리그 1위 값에 근사한 상한으로 자동 스냅 (선수 분포 시인성 우선)
         </span>
         <span>
           <span className="font-bold">아바타 클릭</span> · 그 선수의 하이라이트로 이동
