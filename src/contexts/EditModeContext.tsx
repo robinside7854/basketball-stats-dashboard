@@ -2,23 +2,27 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
 const SESSION_KEY = 'edit_mode'
+const PIN_KEY = 'edit_pin'
 
 interface EditModeCtx {
   isEditMode: boolean
   openPinModal: () => void
   exitEditMode: () => void
+  teamHeaders: Record<string, string>   // 쓰기 API 에 붙일 X-Team-Pin 헤더
 }
 
 const EditModeContext = createContext<EditModeCtx>({
   isEditMode: false,
   openPinModal: () => {},
   exitEditMode: () => {},
+  teamHeaders: {},
 })
 
 export function useEditMode() { return useContext(EditModeContext) }
 
 export function EditModeProvider({ children }: { children: React.ReactNode }) {
   const [isEditMode, setIsEditMode] = useState(false)
+  const [pin, setPin] = useState<string>('')
   const [showModal, setShowModal] = useState(false)
   const [digits, setDigits] = useState<string[]>([])
   const [error, setError] = useState(false)
@@ -26,6 +30,7 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setIsEditMode(sessionStorage.getItem(SESSION_KEY) === '1')
+    setPin(sessionStorage.getItem(PIN_KEY) ?? '')
   }, [])
 
   // 키보드 입력 지원
@@ -41,7 +46,12 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
   }, [showModal, digits, loading])
 
   function openPinModal() { setShowModal(true); setDigits([]); setError(false) }
-  function exitEditMode() { sessionStorage.removeItem(SESSION_KEY); setIsEditMode(false) }
+  function exitEditMode() {
+    sessionStorage.removeItem(SESSION_KEY)
+    sessionStorage.removeItem(PIN_KEY)
+    setIsEditMode(false)
+    setPin('')
+  }
 
   async function handleDigit(d: string) {
     if (loading || digits.length >= 4) return
@@ -62,7 +72,10 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ pin: next.join(''), org, team }),
       })
       if (res.ok) {
+        const entered = next.join('')
         sessionStorage.setItem(SESSION_KEY, '1')
+        sessionStorage.setItem(PIN_KEY, entered)
+        setPin(entered)
         setIsEditMode(true)
         setShowModal(false)
       } else {
@@ -79,7 +92,9 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
   const PAD = ['1','2','3','4','5','6','7','8','9','','0','⌫']
 
   return (
-    <EditModeContext.Provider value={{ isEditMode, openPinModal, exitEditMode }}>
+    <EditModeContext.Provider
+      value={{ isEditMode, openPinModal, exitEditMode, teamHeaders: pin ? { 'X-Team-Pin': pin } : {} }}
+    >
       {children}
 
       {showModal && (
