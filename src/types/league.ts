@@ -127,21 +127,6 @@ export type PlayerStat = {
   //   denominator: 본인 출전 게임의 리그 전체(양팀) 총합
   pie_num: number
   pie_denom: number
-  // On-court +/- (2026-07-19) — 본인 출전 구간 동안 우리팀/상대팀 득점 합
-  //   plus_minus = oncourt_own − oncourt_opp
-  //   폴백(교체 정보 없음) 케이스는 게임 공식 스코어 사용 → 편차 없음
-  //   교체 있는 게임만 이벤트 walker (구간 매칭)
-  oncourt_own: number
-  oncourt_opp: number
-  // On/Off 임팩트 (2026-07-19) — 팀 배정 기반 참여/불참 게임 비교
-  //   on_off = (on_own − on_opp)/on_n − (off_own − off_opp)/off_n  · 팀 마진 On/Off 차이
-  //   def_impact = off_opp/off_n − on_opp/on_n                     · 수비 임팩트 (양수 = 상대 실점 감소)
-  on_own: number
-  on_opp: number
-  on_n_games: number
-  off_own: number
-  off_opp: number
-  off_n_games: number
 }
 
 export type QuarterPlayer = {

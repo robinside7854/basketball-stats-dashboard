@@ -19,8 +19,8 @@ import type { Quarter, PlayerStat } from '@/types/league'
 type ViewMode = 'avg' | 'total'
 type StatUnit = 'round' | 'game' | 'per40'
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
-type AdvKey = 'pie'|'plus_minus'|'on_off'|'def_impact'|'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
-type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'ds_pct'|'lu_pct'|'md_pct'|'three_share'
+type AdvKey = 'pie'|'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
+type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'shot_mix'
 type StatMode = 'basic'|'shooting'|'advanced'|'seasonHigh'
 
 // SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
@@ -49,6 +49,56 @@ const BASIC_FULL_LABELS: Partial<Record<SortKey, string>> = {
   fg3_pct: '3점 성공률',
   ft_pct:  '자유투 성공률',
   efg_pct: '유효야투율',
+}
+
+// 슛 존별 컬러 (SHOT MIX 스택 막대 · 통일 팔레트)
+const SHOT_MIX_COLORS = {
+  ds:    '#ef4444',  // red · 골밑 (덩크/포스트)
+  lu:    '#f97316',  // orange · 레이업
+  md:    '#eab308',  // yellow · 미드레인지
+  three: '#3b82f6',  // blue · 3점
+} as const
+
+function ShotMixBar({ p, width, height = 12 }: { p: PlayerStat; width?: number; height?: number }) {
+  const fga = p.fga
+  if (fga <= 0) {
+    return <span className="text-[11px] font-bold" style={{ color: 'var(--mm-muted)' }}>—</span>
+  }
+  const ds    = ((p.ds_a ?? 0) / fga) * 100
+  const lu    = ((p.lu_a ?? 0) / fga) * 100
+  const md    = ((p.md_a ?? 0) / fga) * 100
+  const three = ((p.fg3a  ?? 0) / fga) * 100
+  const segments = [
+    { key: 'ds',    label: 'DS',  pct: ds,    color: SHOT_MIX_COLORS.ds },
+    { key: 'lu',    label: 'LU',  pct: lu,    color: SHOT_MIX_COLORS.lu },
+    { key: 'md',    label: 'MD',  pct: md,    color: SHOT_MIX_COLORS.md },
+    { key: 'three', label: '3P',  pct: three, color: SHOT_MIX_COLORS.three },
+  ] as const
+  const title = segments.filter(s => s.pct > 0).map(s => `${s.label} ${s.pct.toFixed(0)}%`).join(' · ')
+  // width 미지정 = 부모 폭에 맞춰 늘어남 (모바일 카드용), 지정 시 고정 (데스크탑 셀용)
+  const barStyle: React.CSSProperties = {
+    height,
+    borderRadius: '2px',
+    border: '1px solid var(--mm-rule)',
+  }
+  if (width != null) barStyle.width = width
+  else barStyle.width = '100%'
+  return (
+    <div className={width != null ? 'inline-flex items-center' : 'flex items-center'} title={title} aria-label={`슛 분포: ${title}`} style={{ width: width != null ? undefined : '100%' }}>
+      <div className="flex overflow-hidden" style={barStyle}>
+        {segments.map(s => s.pct > 0 && (
+          <div
+            key={s.key}
+            style={{
+              width: `${s.pct}%`,
+              background: s.color,
+              minWidth: s.pct > 0 ? 2 : 0,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function LeagueStatsPageInner() {
@@ -222,26 +272,24 @@ function LeagueStatsPageInner() {
   ]
 
   // Shooting stats 컬럼 — 슈팅 정확도 + 야투 분포
-  const SHOOTING_COLS: { key: ShootingKey; label: string; desc: string; barColor: string }[] = [
-    { key: 'fg_pct',      label: 'FG%',   desc: '전체 야투 성공률 · FGM/FGA',                          barColor: '#34d399' },
-    { key: 'fg2_pct',     label: '2P%',   desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)',               barColor: '#fb923c' },
-    { key: 'fg3_pct',     label: '3P%',   desc: '3점 야투 성공률 · 3PM/3PA',                            barColor: '#eab308' },
-    { key: 'efg_pct',     label: 'eFG%',  desc: '유효야투율 · (FGM+0.5×3PM)/FGA',                       barColor: '#14b8a6' },
-    { key: 'ft_pct',      label: 'FT%',   desc: '자유투 성공률 · FTM/FTA',                              barColor: '#06b6d4' },
-    { key: 'ts_pct',      label: 'TS%',   desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))',                  barColor: '#2dd4bf' },
-    { key: 'ft_rate',     label: 'FTr',   desc: '야투 대비 자유투 시도 · FTA/FGA',                       barColor: '#0891b2' },
-    { key: 'ds_pct',      label: 'DS',    desc: '골밑슛 비중 · 골밑슛시도/전체야투시도',                  barColor: '#ef4444' },
-    { key: 'lu_pct',      label: 'LU',    desc: '레이업 비중 · 레이업 시도/전체야투시도',     barColor: '#f97316' },
-    { key: 'md_pct',      label: 'MD',    desc: '미드레인지 비중 · 미들시도/전체야투시도',               barColor: '#eab308' },
-    { key: 'three_share', label: '3P',    desc: '3점 비중 · 3PA/FGA',                                   barColor: '#3b82f6' },
+  // SHOOTING 컬럼 (2026-07-19 재개편)
+  //   · 개별 % 지표는 텍스트만 (바 그래프 삭제 · 100% 만점 척도가 의미 약함)
+  //   · 야투 존별 비중 (DS/LU/MD/3P) 4개 컬럼 → SHOT MIX 스택 막대 단일 컬럼으로 통합
+  //     한 선수의 슛 성향을 한눈에 파악
+  const SHOOTING_COLS: { key: ShootingKey; label: string; desc: string }[] = [
+    { key: 'fg_pct',   label: 'FG%',      desc: '전체 야투 성공률 · FGM/FGA' },
+    { key: 'fg2_pct',  label: '2P%',      desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)' },
+    { key: 'fg3_pct',  label: '3P%',      desc: '3점 야투 성공률 · 3PM/3PA' },
+    { key: 'efg_pct',  label: 'eFG%',     desc: '유효야투율 · (FGM+0.5×3PM)/FGA' },
+    { key: 'ft_pct',   label: 'FT%',      desc: '자유투 성공률 · FTM/FTA' },
+    { key: 'ts_pct',   label: 'TS%',      desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
+    { key: 'ft_rate',  label: 'FTr',      desc: '야투 대비 자유투 시도 · FTA/FGA' },
+    { key: 'shot_mix', label: 'SHOT MIX', desc: '슛 분포 · 골밑(DS) · 레이업(LU) · 미들(MD) · 3점 시도 비중 스택 바' },
   ]
 
   // Advanced stats 컬럼 (Shooting 제외 — 효율/볼소유/리바운드 비중)
   const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
     { key: 'pie',        label: 'PIE',   desc: 'Player Impact Estimate · 본인 임팩트 / 게임 총 임팩트(양팀 합)' },
-    { key: 'plus_minus', label: '+/-',   desc: '온-코트 마진 · 본인 출전 중 우리팀 득점 − 상대 득점 (누적)' },
-    { key: 'on_off',     label: 'On/Off', desc: 'On/Off 임팩트 · 참여 게임당 팀 마진 − 불참 게임당 팀 마진' },
-    { key: 'def_impact', label: 'D-IMP', desc: '수비 임팩트 · 불참 게임 상대 평균 실점 − 참여 게임 상대 평균 실점 (양수 = 이 선수 있을 때 상대 실점 감소)' },
     { key: 'usg_pct',    label: 'USG%',  desc: '사용률 · 팀 소유권 대비 본인 마무리 비중' },
     { key: 'at_ratio',  label: 'A/T',   desc: '어시스트/턴오버 비율' },
     { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
@@ -260,22 +308,8 @@ function LeagueStatsPageInner() {
     const teamPoss = p.team_poss_in_games ?? 0
     const pieDenom = p.pie_denom ?? 0
     const pieNum = p.pie_num ?? 0
-    const own = p.oncourt_own ?? 0
-    const opp = p.oncourt_opp ?? 0
-    // On/Off · def_impact 계산 · 참여/불참 팀 게임 스코어 평균 비교
-    const onN = p.on_n_games ?? 0
-    const offN = p.off_n_games ?? 0
-    const onMargin = onN > 0 ? (p.on_own - p.on_opp) / onN : 0
-    const offMargin = offN > 0 ? (p.off_own - p.off_opp) / offN : 0
-    const onOppAvg = onN > 0 ? p.on_opp / onN : 0
-    const offOppAvg = offN > 0 ? p.off_opp / offN : 0
-    // 참여 또는 불참 게임이 하나라도 없으면 비교 불가 → 0 (정렬 시 하단 처리)
-    const canCompareOnOff = onN > 0 && offN > 0
     return {
-      pie:        pieDenom > 0 ? +(pieNum / pieDenom * 100).toFixed(1) : 0,
-      plus_minus: own - opp,
-      on_off:     canCompareOnOff ? +(onMargin - offMargin).toFixed(1) : 0,
-      def_impact: canCompareOnOff ? +(offOppAvg - onOppAvg).toFixed(1) : 0,
+      pie:       pieDenom > 0 ? +(pieNum / pieDenom * 100).toFixed(1) : 0,
       at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : (p.ast > 0 ? 99 : 0),
       ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
       tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,
@@ -297,10 +331,8 @@ function LeagueStatsPageInner() {
       ft_pct:      p.ft_pct ?? 0,
       ts_pct:      (p.fga + 0.44 * p.fta) > 0 ? +(p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100).toFixed(1) : 0,
       ft_rate:     p.fga > 0 ? +(p.fta / p.fga * 100).toFixed(1) : 0,
-      ds_pct:      p.fga > 0 ? +((p.ds_a ?? 0) / p.fga * 100).toFixed(1) : 0,
-      lu_pct:      p.fga > 0 ? +((p.lu_a ?? 0) / p.fga * 100).toFixed(1) : 0,
-      md_pct:      p.fga > 0 ? +((p.md_a ?? 0) / p.fga * 100).toFixed(1) : 0,
-      three_share: p.fga > 0 ? +(p.fg3a / p.fga * 100).toFixed(1) : 0,
+      // shot_mix 정렬용 프록시 = 3점 비중 (내부적으로 스택 막대는 DS/LU/MD/3P 모두 렌더)
+      shot_mix:    p.fga > 0 ? +(p.fg3a / p.fga * 100).toFixed(1) : 0,
     }
   }
 
@@ -407,6 +439,8 @@ function LeagueStatsPageInner() {
       })
       const withVals = pool.map(p => ({ p, val: calcShoot(p)[shootSortKey] }))
       const sorted = withVals.sort((a, b) => b.val - a.val).slice(0, 5)
+      // shot_mix 는 3P 비중 프록시로 정렬 · 값은 "3P {n}%" 표기 (혼동 방지)
+      const isMix = shootSortKey === 'shot_mix'
       return {
         key: `shooting:${shootSortKey}`,
         label,
@@ -415,7 +449,7 @@ function LeagueStatsPageInner() {
           id: p.player_id,
           name: p.name,
           photo_url: p.photo_url,
-          value: `${val}%`,
+          value: isMix ? `3P ${val}%` : `${val}%`,
         })),
       }
     }
@@ -428,8 +462,6 @@ function LeagueStatsPageInner() {
     const sorted = withVals.sort((a, b) => b.val - a.val).slice(0, 5)
     const isRatio = advSortKey === 'at_ratio'
     const isCount = advSortKey === 'a1_total'
-    const isSigned = advSortKey === 'plus_minus' || advSortKey === 'on_off' || advSortKey === 'def_impact'
-    const fmtSigned = (v: number) => v > 0 ? `+${v}` : String(v)
     return {
       key: `advanced:${advSortKey}`,
       label,
@@ -438,7 +470,7 @@ function LeagueStatsPageInner() {
         id: p.player_id,
         name: p.name,
         photo_url: p.photo_url,
-        value: isSigned ? fmtSigned(val) : (isRatio || isCount ? String(val) : `${val}%`),
+        value: isRatio || isCount ? String(val) : `${val}%`,
       })),
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -826,7 +858,7 @@ function LeagueStatsPageInner() {
                       <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{statUnit === 'round' ? 'R' : 'G'}</span>
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-                      {SHOOTING_COLS.slice(0, 8).map(({ key, label }) => {
+                      {SHOOTING_COLS.slice(0, 7).map(({ key, label }) => {
                         const active = shootSortKey === key
                         return (
                           <div key={key} className="text-center">
@@ -835,6 +867,11 @@ function LeagueStatsPageInner() {
                           </div>
                         )
                       })}
+                    </div>
+                    {/* 슛 분포 스택 막대 (모바일 · 전체 폭) */}
+                    <div className="flex items-center gap-2 mt-3">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.10em] shrink-0" style={{ color: shootSortKey === 'shot_mix' ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>SHOT MIX</span>
+                      <div className="flex-1"><ShotMixBar p={p} height={10} /></div>
                     </div>
                   </button>
                 )
@@ -887,18 +924,16 @@ function LeagueStatsPageInner() {
                         <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
                       <td className="px-3 py-3 text-center font-jersey tabular-nums" style={{ color: 'var(--mm-muted)', fontSize: '14px' }}>{p.gp}</td>
-                      {SHOOTING_COLS.map(({ key, barColor }, idx) => {
+                      {SHOOTING_COLS.map(({ key }, idx) => {
                         const val = sh[key]
                         const active = shootSortKey === key
+                        // 구분선: 슈팅 효율(0-6) | 슛 분포(7 · SHOT MIX)
                         const dividerStyle = idx === 7 ? { borderLeft: '1px solid var(--mm-rule)' } : {}
-                        // FTr 은 100% 넘을 수 있어 max=80(시각 척도용)으로 자름
-                        const barMax = key === 'ft_rate' ? 80 : 100
                         return (
                           <td key={key}
-                              className="relative px-3 py-3 text-center font-jersey tabular-nums"
+                              className="px-3 py-3 text-center font-jersey tabular-nums"
                               style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px', ...dividerStyle }}>
-                            {val}%
-                            <PercentBar value={val} max={barMax} color={barColor} />
+                            {key === 'shot_mix' ? <ShotMixBar p={p} /> : `${val}%`}
                           </td>
                         )
                       })}
@@ -950,23 +985,11 @@ function LeagueStatsPageInner() {
                       {ADV_COLS.map(({ key, label }) => {
                         const isRatio = key === 'at_ratio'
                         const isCount = key === 'a1_total'
-                        const isSigned = key === 'plus_minus' || key === 'on_off' || key === 'def_impact'
-                        const v = adv[key]
                         const active = advSortKey === key
-                        // signed 값: 양수 +접두, 부호별 컬러 (green/red/muted)
-                        const signedColor = isSigned
-                          ? (v > 0 ? '#059669' : v < 0 ? '#DC2626' : 'var(--mm-muted)')
-                          : undefined
-                        const displayVal = isSigned
-                          ? (v > 0 ? `+${v}` : String(v))
-                          : (isRatio || isCount ? String(v) : `${v}%`)
                         return (
                           <div key={key} className="text-center">
                             <div className="text-[11px] font-bold uppercase" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
-                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{
-                              color: active ? 'var(--mm-yellow-strong)' : (signedColor ?? 'var(--mm-ink)'),
-                              fontSize: '15px',
-                            }}>{displayVal}</div>
+                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink)', fontSize: '15px' }}>{isRatio || isCount ? adv[key] : `${adv[key]}%`}</div>
                           </div>
                         )
                       })}
@@ -1021,22 +1044,11 @@ function LeagueStatsPageInner() {
                         const val = adv[key]
                         const isRatio = key === 'at_ratio'
                         const isCount = key === 'a1_total'
-                        const isSigned = key === 'plus_minus' || key === 'on_off' || key === 'def_impact'
                         const active = advSortKey === key
-                        const signedColor = isSigned
-                          ? (val > 0 ? '#059669' : val < 0 ? '#DC2626' : 'var(--mm-muted)')
-                          : undefined
-                        const displayVal = isSigned
-                          ? (val > 0 ? `+${val}` : String(val))
-                          : (isRatio || isCount ? String(val) : `${val}%`)
                         return (
                           <td key={key} className="px-3 py-3 text-center font-jersey tabular-nums"
-                            style={{
-                              color: active ? 'var(--mm-yellow-strong)' : (signedColor ?? 'var(--mm-ink-soft)'),
-                              fontWeight: active ? 900 : 600,
-                              fontSize: '15px',
-                            }}>
-                            {displayVal}
+                            style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px' }}>
+                            {isRatio || isCount ? val : `${val}%`}
                           </td>
                         )
                       })}

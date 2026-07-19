@@ -61,6 +61,9 @@ export const GLOSSARY: Record<string, StatDef> = {
   '3P share': { short: '3P', long: '3점 비중', formula: '3PA / FGA', description: '전체 야투 중 3점 시도 비중' },
 
   // ── Advanced ─────────────────────────
+  PIE:    { short: 'PIE', long: 'Player Impact Estimate',
+            formula: '(PTS + FGM + FTM − FGA − FTA + DREB + ORB/2 + AST + STL + BLK/2 − PF − TO) ÷ 게임 총 임팩트(양팀 합)',
+            description: 'NBA 공식 임팩트 지표 · 본인 임팩트를 그 경기 전체 임팩트(양팀 합)로 나눈 값. 높을수록 그 경기에서 결정적 · 참여 게임 수 많고 기여 높을수록 커짐' },
   'A/T':  { short: 'A/T', long: '어시-턴오버 비율', formula: 'AST / TOV',
             description: '볼 소유 안정성 지표. 높을수록 좋음' },
   'AST%': { short: 'AST%', long: '어시스트 사용률', formula: 'AST / (POSS + AST) × 100',
