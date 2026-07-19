@@ -34,7 +34,6 @@ export default async function HighlightsRoundPage({
   const days = ['일', '월', '화', '수', '목', '금', '토']
 
   const groupTabs = [
-    { href: `${base}/stathead`,   label: 'Stathead',  active: false },
     { href: `${base}/highlights`, label: '하이라이트', active: true },
   ]
 

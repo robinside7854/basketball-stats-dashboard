@@ -22,16 +22,17 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
 
   const base = `/league/${orgSlug}/${leagueId}`
 
-  // 상위 메뉴 6개(+드래프트 조건부) — 스탯 우산에 어워즈, 아카이브 우산에 Stathead 통합.
+  // 상위 메뉴 6개(+드래프트 조건부) — 스탯 우산에 어워즈, 하이라이트 우산에 공지 아카이브 통합.
   // URL 은 그대로 유지(SEO/기존 링크 보존) — 상위 나비게이션에서만 그룹핑.
   // 설정 탭은 편집 모드일 때만 나비게이션에 노출(어드민 은닉) —
   //   URL 직접 접근은 여전히 가능하므로, 진짜 어드민 전용화가 필요하면 별도 이슈로 서버 가드 필요.
+  // Stathead 는 2026-07-19 삭제 (사용 미미).
   const tabs = [
     { href: base, label: '홈', match: [] as string[] },
     { href: `${base}/roster`, label: '라커룸', match: [`${base}/roster`, `${base}/teams`] },
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/record`] },
     { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`] },
-    { href: `${base}/highlights`, label: '아카이브', match: [`${base}/highlights`, `${base}/stathead`, `${base}/archive`] },
+    { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`, `${base}/archive`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
     ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', match: [`${base}/settings`] }] : []),
   ]
@@ -129,7 +130,8 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
   const { isEditMode } = useLeagueEditMode()
   const base = `/league/${orgSlug}/${leagueId}`
 
-  // 모바일 4대 주요 탭 — 어워즈는 스탯 우산, Stathead 는 아카이브 우산으로 통합됨
+  // 모바일 4대 주요 탭 — 어워즈는 스탯 우산, 공지 아카이브는 하이라이트 우산으로 통합됨
+  // Stathead 는 2026-07-19 삭제 (사용 미미).
   const mainTabs = [
     { href: base,            label: '홈',    Icon: Home },
     { href: `${base}/roster`, label: '라커룸', Icon: Users },
@@ -138,17 +140,17 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
   ]
   // 설정은 편집 모드일 때만 더보기에 노출 (어드민 은닉)
   const moreTabs = [
-    { href: `${base}/highlights`, label: '아카이브', Icon: Newspaper },
+    { href: `${base}/highlights`, label: '하이라이트', Icon: Newspaper },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', Icon: ClipboardList }] : []),
     ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', Icon: Settings }] : []),
   ]
 
   // 스탯 우산 매칭 — /stats 이면서 /awards 도 스탯 탭 활성.
-  // 아카이브 우산 매칭 — /highlights · /stathead · /archive 를 아카이브 탭 활성.
+  // 하이라이트 우산 매칭 — /highlights · /archive 를 하이라이트 탭 활성.
   const isActive = (href: string) => {
     if (href === base) return pathname === base
     if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/awards`)
-    if (href === `${base}/highlights`) return pathname.startsWith(`${base}/highlights`) || pathname.startsWith(`${base}/stathead`) || pathname.startsWith(`${base}/archive`)
+    if (href === `${base}/highlights`) return pathname.startsWith(`${base}/highlights`) || pathname.startsWith(`${base}/archive`)
     return pathname.startsWith(href)
   }
   // 더보기 그룹 중 하나가 현재 페이지면 더보기 버튼도 활성화 표시

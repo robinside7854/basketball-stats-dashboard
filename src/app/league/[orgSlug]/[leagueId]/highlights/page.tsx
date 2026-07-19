@@ -1,5 +1,5 @@
 // 하이라이트 랜딩 — 최근 라운드 카드 그리드 (Server Component + unstable_cache)
-// 아카이브 우산 아래 서브탭 (매거진 · Stathead · 하이라이트)
+// 상위 하이라이트 우산 (아카이브 → 하이라이트 격상 · Stathead 삭제 · 2026-07-19)
 import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
 import { Film, PlayCircle, ChevronRight, Clock, VideoOff, Trophy } from 'lucide-react'
@@ -131,7 +131,6 @@ export default async function HighlightsLandingPage({
   ])
 
   const groupTabs = [
-    { href: `${base}/stathead`,   label: 'Stathead',  active: false },
     { href: `${base}/highlights`, label: '하이라이트', active: true },
   ]
 

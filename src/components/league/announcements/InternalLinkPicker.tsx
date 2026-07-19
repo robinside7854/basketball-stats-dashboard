@@ -23,10 +23,9 @@ function buildLinks(base: string) {
       ],
     },
     {
-      group: '어워즈 & 아카이브',
+      group: '어워즈 & 하이라이트',
       items: [
         { label: '어워즈', href: `${base}/awards`, Icon: Trophy, desc: '주간/월간/시즌 수상' },
-        { label: 'Stathead', href: `${base}/stathead`, Icon: BarChart2, desc: '스탯 리더보드/필터' },
         { label: '하이라이트', href: `${base}/highlights`, Icon: Film, desc: '라운드별 득점 릴' },
         { label: '공지 아카이브', href: `${base}/archive/announcements`, Icon: Megaphone, desc: '지난 공지 전체' },
       ],

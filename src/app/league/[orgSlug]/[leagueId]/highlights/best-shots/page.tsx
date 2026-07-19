@@ -30,7 +30,6 @@ export default async function BestShotsReelPage({
   const detail = await getCached(leagueId)()
 
   const groupTabs = [
-    { href: `${base}/stathead`,   label: 'Stathead',  active: false },
     { href: `${base}/highlights`, label: '하이라이트', active: true },
   ]
 
