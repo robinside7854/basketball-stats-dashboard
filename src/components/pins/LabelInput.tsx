@@ -33,8 +33,8 @@ export default function LabelInput({ value, onChange, onSubmit, options, autoFoc
     return () => document.removeEventListener('mousedown', onDown)
   }, [])
 
-  // 후보가 줄어들면 선택 인덱스를 범위 안으로
-  useEffect(() => { setActive(0) }, [value])
+  // 후보 수가 줄어도 항상 범위 안. 이펙트로 state 를 되돌리는 대신 렌더 시점에 보정한다.
+  const activeIdx = suggestions.length === 0 ? 0 : Math.min(active, suggestions.length - 1)
 
   function choose(label: string) {
     onChange(label)
@@ -46,9 +46,9 @@ export default function LabelInput({ value, onChange, onSubmit, options, autoFoc
     if (open && suggestions.length > 0) {
       if (e.key === 'ArrowDown') { e.preventDefault(); setActive(i => (i + 1) % suggestions.length); return }
       if (e.key === 'ArrowUp')   { e.preventDefault(); setActive(i => (i - 1 + suggestions.length) % suggestions.length); return }
-      if (e.key === 'Enter' && active >= 0) {
+      if (e.key === 'Enter' && activeIdx >= 0) {
         e.preventDefault()
-        choose(suggestions[active].label)
+        choose(suggestions[activeIdx].label)
         return
       }
     }
@@ -63,12 +63,14 @@ export default function LabelInput({ value, onChange, onSubmit, options, autoFoc
         value={value}
         autoFocus={autoFocus}
         maxLength={LABEL_MAX_LEN}
-        onChange={e => { onChange(e.target.value); setOpen(true) }}
+        onChange={e => { onChange(e.target.value); setActive(0); setOpen(true) }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
         placeholder="라벨 (예: 필스위치)"
+        role="combobox"
         aria-label="핀 라벨"
         aria-autocomplete="list"
+        aria-controls="label-suggestions"
         aria-expanded={open && suggestions.length > 0}
         className="w-full min-h-[44px] bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white
                    focus:outline-none focus:border-blue-500"
@@ -76,16 +78,17 @@ export default function LabelInput({ value, onChange, onSubmit, options, autoFoc
       {open && suggestions.length > 0 && (
         <ul
           role="listbox"
+          id="label-suggestions"
           className="absolute z-50 left-0 right-0 mt-1 bg-gray-800 border border-gray-600 rounded-lg overflow-hidden shadow-xl"
         >
           {suggestions.map((s, i) => (
-            <li key={s.label} role="option" aria-selected={i === active}>
+            <li key={s.label} role="option" aria-selected={i === activeIdx}>
               <button
                 type="button"
                 onMouseEnter={() => setActive(i)}
                 onClick={() => choose(s.label)}
                 className={`w-full text-left px-3 py-2 min-h-[44px] text-sm cursor-pointer transition-colors flex items-center justify-between gap-2
-                  ${i === active ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+                  ${i === activeIdx ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
               >
                 <span className="truncate">{s.label}</span>
                 <span className="text-xs opacity-70 tabular-nums shrink-0">{s.count}</span>
