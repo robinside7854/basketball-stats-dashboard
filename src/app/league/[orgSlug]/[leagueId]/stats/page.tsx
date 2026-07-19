@@ -19,7 +19,7 @@ import type { Quarter, PlayerStat } from '@/types/league'
 type ViewMode = 'avg' | 'total'
 type StatUnit = 'round' | 'game' | 'per40'
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
-type AdvKey = 'pie'|'plus_minus'|'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
+type AdvKey = 'pie'|'plus_minus'|'on_off'|'def_impact'|'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'ds_pct'|'lu_pct'|'md_pct'|'three_share'
 type StatMode = 'basic'|'shooting'|'advanced'|'seasonHigh'
 
@@ -240,6 +240,8 @@ function LeagueStatsPageInner() {
   const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
     { key: 'pie',        label: 'PIE',   desc: 'Player Impact Estimate · 본인 임팩트 / 게임 총 임팩트(양팀 합)' },
     { key: 'plus_minus', label: '+/-',   desc: '온-코트 마진 · 본인 출전 중 우리팀 득점 − 상대 득점 (누적)' },
+    { key: 'on_off',     label: 'On/Off', desc: 'On/Off 임팩트 · 참여 게임당 팀 마진 − 불참 게임당 팀 마진' },
+    { key: 'def_impact', label: 'D-IMP', desc: '수비 임팩트 · 불참 게임 상대 평균 실점 − 참여 게임 상대 평균 실점 (양수 = 이 선수 있을 때 상대 실점 감소)' },
     { key: 'usg_pct',    label: 'USG%',  desc: '사용률 · 팀 소유권 대비 본인 마무리 비중' },
     { key: 'at_ratio',  label: 'A/T',   desc: '어시스트/턴오버 비율' },
     { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
@@ -260,9 +262,20 @@ function LeagueStatsPageInner() {
     const pieNum = p.pie_num ?? 0
     const own = p.oncourt_own ?? 0
     const opp = p.oncourt_opp ?? 0
+    // On/Off · def_impact 계산 · 참여/불참 팀 게임 스코어 평균 비교
+    const onN = p.on_n_games ?? 0
+    const offN = p.off_n_games ?? 0
+    const onMargin = onN > 0 ? (p.on_own - p.on_opp) / onN : 0
+    const offMargin = offN > 0 ? (p.off_own - p.off_opp) / offN : 0
+    const onOppAvg = onN > 0 ? p.on_opp / onN : 0
+    const offOppAvg = offN > 0 ? p.off_opp / offN : 0
+    // 참여 또는 불참 게임이 하나라도 없으면 비교 불가 → 0 (정렬 시 하단 처리)
+    const canCompareOnOff = onN > 0 && offN > 0
     return {
       pie:        pieDenom > 0 ? +(pieNum / pieDenom * 100).toFixed(1) : 0,
       plus_minus: own - opp,
+      on_off:     canCompareOnOff ? +(onMargin - offMargin).toFixed(1) : 0,
+      def_impact: canCompareOnOff ? +(offOppAvg - onOppAvg).toFixed(1) : 0,
       at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : (p.ast > 0 ? 99 : 0),
       ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
       tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,
@@ -415,7 +428,7 @@ function LeagueStatsPageInner() {
     const sorted = withVals.sort((a, b) => b.val - a.val).slice(0, 5)
     const isRatio = advSortKey === 'at_ratio'
     const isCount = advSortKey === 'a1_total'
-    const isSigned = advSortKey === 'plus_minus'
+    const isSigned = advSortKey === 'plus_minus' || advSortKey === 'on_off' || advSortKey === 'def_impact'
     const fmtSigned = (v: number) => v > 0 ? `+${v}` : String(v)
     return {
       key: `advanced:${advSortKey}`,
@@ -937,7 +950,7 @@ function LeagueStatsPageInner() {
                       {ADV_COLS.map(({ key, label }) => {
                         const isRatio = key === 'at_ratio'
                         const isCount = key === 'a1_total'
-                        const isSigned = key === 'plus_minus'
+                        const isSigned = key === 'plus_minus' || key === 'on_off' || key === 'def_impact'
                         const v = adv[key]
                         const active = advSortKey === key
                         // signed 값: 양수 +접두, 부호별 컬러 (green/red/muted)
@@ -1008,7 +1021,7 @@ function LeagueStatsPageInner() {
                         const val = adv[key]
                         const isRatio = key === 'at_ratio'
                         const isCount = key === 'a1_total'
-                        const isSigned = key === 'plus_minus'
+                        const isSigned = key === 'plus_minus' || key === 'on_off' || key === 'def_impact'
                         const active = advSortKey === key
                         const signedColor = isSigned
                           ? (val > 0 ? '#059669' : val < 0 ? '#DC2626' : 'var(--mm-muted)')

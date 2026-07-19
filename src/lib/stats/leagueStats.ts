@@ -65,10 +65,12 @@ export async function computeLeagueStats(
   const plusOneSet = new Set((allLeaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
   const metaMap = Object.fromEntries((allLeaguePlayers ?? []).map(p => [p.id, p]))
 
-  // 2) 대상 게임 ID 추출
+  // 2) 대상 게임 ID 추출 · home/away_team_id + 최종 스코어 + quarter_id 함께 조회
+  //    home/away_score 는 폴백 케이스 (교체 정보 없음) 에서 walker 편차 없는 공식 값
+  //    home/away_team_id + quarter_id 는 On/Off 임팩트 계산용 (팀 배정 매칭)
   let gQuery = sb
     .from('league_games')
-    .select('id, plus_one_player_id, date, round_num')
+    .select('id, plus_one_player_id, date, round_num, home_team_id, away_team_id, home_score, away_score, quarter_id')
     .eq('league_id', leagueId)
     .eq('is_started', true)
 
@@ -83,11 +85,30 @@ export async function computeLeagueStats(
   const gameIds = (games ?? []).map(g => g.id)
   if (gameIds.length === 0) return { players: [] }
 
+  type GameMeta = {
+    home_team_id: string | null
+    away_team_id: string | null
+    home_score: number
+    away_score: number
+    quarter_id: string | null
+  }
   const gamePlusOneMap: Record<string, string | null> = {}
   const gameToDate: Record<string, string> = {}
-  for (const g of (games ?? [])) {
-    gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
-    gameToDate[g.id] = (g as Record<string, unknown>).date as string ?? g.id
+  const gameMeta: Record<string, GameMeta> = {}
+  for (const g of (games ?? []) as Array<{
+    id: string; plus_one_player_id: string | null; date: string; round_num: number | null
+    home_team_id: string | null; away_team_id: string | null
+    home_score: number | null; away_score: number | null; quarter_id: string | null
+  }>) {
+    gamePlusOneMap[g.id] = g.plus_one_player_id ?? null
+    gameToDate[g.id] = g.date ?? g.id
+    gameMeta[g.id] = {
+      home_team_id: g.home_team_id,
+      away_team_id: g.away_team_id,
+      home_score: g.home_score ?? 0,
+      away_score: g.away_score ?? 0,
+      quarter_id: g.quarter_id,
+    }
   }
 
   // 3) 이벤트 페이지네이션
@@ -150,6 +171,13 @@ export async function computeLeagueStats(
     //   본인 출전 구간 동안 우리팀/상대팀 득점 합. plus_minus = own − opp
     oncourt_own: number
     oncourt_opp: number
+    // On/Off 임팩트 재료 (2026-07-19) · 참여/불참 팀 게임 스코어 누적
+    on_own: number
+    on_opp: number
+    on_n_games: number
+    off_own: number
+    off_opp: number
+    off_n_games: number
   }
 
   const statsMap: Record<string, PlayerStats> = {}
@@ -186,6 +214,12 @@ export async function computeLeagueStats(
         pie_denom: 0,
         oncourt_own: 0,
         oncourt_opp: 0,
+        on_own: 0,
+        on_opp: 0,
+        on_n_games: 0,
+        off_own: 0,
+        off_opp: 0,
+        off_n_games: 0,
       }
     }
     return statsMap[pid]
@@ -406,44 +440,116 @@ export async function computeLeagueStats(
       playerTeamByGame.set(pid, inner)
     }
 
-    // 득점 이벤트 walk · 인터벌 매칭 → own/opp 누적
-    //   · 이 리그는 교체가 거의 없어 minutes row 없는 선수가 많음
-    //   · 폴백 정책: intervals 없으면 "전 게임 출전" 가정 (참여 이벤트 있으면 인정)
-    //     → 그 게임의 모든 득점 이벤트에 대해 소속팀 대조 후 credit
-    //   · intervals 있으면 정확한 인터벌 매칭 (교체 반영)
+    // 게임별 이벤트 인덱스 (인터벌 매칭 walk 용)
+    const eventsByGame = new Map<string, EventRow[]>()
     for (const e of events) {
-      const pts = e.points ?? 0
-      if (pts <= 0 || !e.team_id) continue
-      const pids = playersByGame.get(e.league_game_id)
-      if (!pids) continue
-      for (const pid of pids) {
-        const intervals = intervalsByPidGid.get(pid)?.get(e.league_game_id)
-        let onCourt: boolean
+      if (!eventsByGame.has(e.league_game_id)) eventsByGame.set(e.league_game_id, [])
+      eventsByGame.get(e.league_game_id)!.push(e)
+    }
+
+    // 온-코트 own/opp 산출 (게임 × 선수 단위)
+    //   · 이 리그는 교체가 거의 없어 minutes row 없는 선수가 많음
+    //   · 폴백 (intervals 없음): 게임 공식 스코어 (game.home_score/away_score) 사용
+    //     → walker (이벤트 e.points 합) 는 game 확정 스코어와 소수 편차 있음 (미미)
+    //     · 폴백에서는 편차 없는 공식 스코어를 그대로 credit → plus_minus 정확도 향상
+    //   · intervals 있음: 인터벌 매칭 walker (구간 내 e.points 합) → 교체 정확 반영
+    for (const [pid, gameMap] of playerTeamByGame) {
+      const s = statsMap[pid]
+      if (!s) continue
+      for (const [gid, myTeam] of gameMap) {
+        const meta = gameMeta[gid]
+        if (!meta) continue
+        const intervals = intervalsByPidGid.get(pid)?.get(gid)
         if (!intervals || intervals.length === 0) {
-          // 폴백 · 전 게임 출전 가정 (해당 게임에 이벤트 기록이 있으므로 참여자 확실)
-          onCourt = true
-        } else if (e.video_timestamp == null || e.quarter == null) {
-          // 인터벌은 있는데 이벤트 시각/쿼터 미상 → 안전하게 스킵
-          onCourt = false
+          // 폴백 · 편차 없는 공식 스코어 사용
+          const isHome = myTeam === meta.home_team_id
+          const isAway = myTeam === meta.away_team_id
+          if (!isHome && !isAway) continue
+          s.oncourt_own += isHome ? meta.home_score : meta.away_score
+          s.oncourt_opp += isHome ? meta.away_score : meta.home_score
         } else {
-          onCourt = intervals.some(iv =>
-            iv.quarter === e.quarter
-            && iv.in_time <= (e.video_timestamp as number)
-            && iv.out_time >= (e.video_timestamp as number),
-          )
+          // 정확한 인터벌 매칭 (교체 반영)
+          for (const e of eventsByGame.get(gid) ?? []) {
+            const pts = e.points ?? 0
+            if (pts <= 0 || !e.team_id) continue
+            if (e.video_timestamp == null || e.quarter == null) continue
+            const onCourt = intervals.some(iv =>
+              iv.quarter === e.quarter
+              && iv.in_time <= (e.video_timestamp as number)
+              && iv.out_time >= (e.video_timestamp as number),
+            )
+            if (!onCourt) continue
+            if (myTeam === e.team_id) s.oncourt_own += pts
+            else s.oncourt_opp += pts
+          }
         }
-        if (!onCourt) continue
-        const myTeam = playerTeamByGame.get(pid)?.get(e.league_game_id)
-        if (!myTeam) continue
-        const s = statsMap[pid]
-        if (!s) continue
-        if (myTeam === e.team_id) s.oncourt_own += pts
-        else s.oncourt_opp += pts
       }
     }
 
     for (const pid of Object.keys(statsMap)) {
       statsMap[pid].minutes_played = Math.round(statsMap[pid].minutes_played * 10) / 10
+    }
+  }
+
+  // 4.5) On/Off 임팩트 계산 (2026-07-19)
+  //   · 각 선수의 팀 배정 (league_player_quarters 정규 + league_game_players 오버라이드)
+  //   · 그 팀이 뛴 모든 게임 → 참여(on) vs 불참(off) 로 나눠 own/opp 누적
+  //   · 노출: on_off = 참여 게임당 팀 마진 − 불참 게임당 팀 마진
+  //          def_impact = 불참 상대 실점 − 참여 상대 실점 (양수 = 이 선수 있을 때 상대 실점 감소)
+  {
+    const [memRes, gpRes] = await Promise.all([
+      sb.from('league_player_quarters')
+        .select('league_player_id, quarter_id, team_id')
+        .eq('league_id', leagueId),
+      sb.from('league_game_players')
+        .select('league_player_id, league_game_id, team_id')
+        .eq('league_id', leagueId),
+    ])
+
+    // pid → quarter_id → team_id (정규 배정)
+    const qTeamByPid = new Map<string, Map<string, string>>()
+    for (const m of (memRes.data ?? []) as Array<{ league_player_id: string; quarter_id: string; team_id: string }>) {
+      if (!qTeamByPid.has(m.league_player_id)) qTeamByPid.set(m.league_player_id, new Map())
+      qTeamByPid.get(m.league_player_id)!.set(m.quarter_id, m.team_id)
+    }
+
+    // pid → gid → team_id (게임별 오버라이드)
+    const gpTeamByPid = new Map<string, Map<string, string>>()
+    for (const r of (gpRes.data ?? []) as Array<{ league_player_id: string; league_game_id: string; team_id: string }>) {
+      if (!gpTeamByPid.has(r.league_player_id)) gpTeamByPid.set(r.league_player_id, new Map())
+      gpTeamByPid.get(r.league_player_id)!.set(r.league_game_id, r.team_id)
+    }
+
+    for (const pid of Object.keys(statsMap)) {
+      const s = statsMap[pid]
+      const qTeam = qTeamByPid.get(pid)
+      const gpTeam = gpTeamByPid.get(pid)
+      if (!qTeam && !gpTeam) continue  // 배정 이력 전무
+
+      const participatedGids = new Set(Object.keys(playerTeamGameCount[pid] ?? {}))
+
+      for (const gid of Object.keys(gameMeta)) {
+        const meta = gameMeta[gid]
+        // 배정 팀 결정 · game override 우선, 없으면 quarter 정규
+        const assignedTeam = gpTeam?.get(gid) ?? (meta.quarter_id ? qTeam?.get(meta.quarter_id) : undefined)
+        if (!assignedTeam) continue
+        const isHome = assignedTeam === meta.home_team_id
+        const isAway = assignedTeam === meta.away_team_id
+        if (!isHome && !isAway) continue  // 이 팀이 안 뛴 게임
+
+        const own = isHome ? meta.home_score : meta.away_score
+        const opp = isHome ? meta.away_score : meta.home_score
+
+        if (participatedGids.has(gid)) {
+          s.on_own += own
+          s.on_opp += opp
+          s.on_n_games++
+        } else {
+          s.off_own += own
+          s.off_opp += opp
+          s.off_n_games++
+        }
+      }
     }
   }
 
