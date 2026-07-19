@@ -28,9 +28,13 @@ interface Props {
   clips: HighlightClip[]
   currentIdx: number
   onIndexChange: (idx: number) => void
+  // 코치 핀처럼 선수/슛유형이 없는 클립용 — 하단 캡션을 통째로 대체
+  captionOverride?: { primary: string; secondary?: string }
+  // 스코어보드 숨김 (핀은 점수 맥락이 없음)
+  hideScoreboard?: boolean
 }
 
-export default function HighlightsPlayer({ clips, currentIdx, onIndexChange }: Props) {
+export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, captionOverride, hideScoreboard }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<YT.Player | null>(null)
   const readyRef = useRef(false)
@@ -243,11 +247,13 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange }: P
       <div
         className="relative rounded-xl overflow-hidden aspect-video bg-black"
         aria-live="polite"
-        aria-label={`${clip.player_name} — ${SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}, ${currentIdx + 1}/${clips.length}`}
+        aria-label={captionOverride
+          ? `${captionOverride.primary}, ${currentIdx + 1}/${clips.length}`
+          : `${clip.player_name} — ${SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}, ${currentIdx + 1}/${clips.length}`}
       >
         <div ref={containerRef} className="w-full h-full" />
         {/* 스코어보드 오버레이 (option A — 상단 · 항상 표시 · pointer-events-none 로 클릭 통과) */}
-        {hasScore && (clip.home_team_name || clip.away_team_name) && (
+        {!hideScoreboard && hasScore && (clip.home_team_name || clip.away_team_name) && (
           <div
             className="absolute top-0 left-0 right-0 pointer-events-none flex items-center justify-center px-2 py-1.5 sm:py-2 z-10"
             style={{
@@ -385,9 +391,23 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange }: P
             {currentIdx + 1} / {clips.length}
           </span>
           <span className="text-xs truncate" style={{ color: 'var(--mm-muted)' }}>
-            {clip.player_number ? `#${clip.player_number} ` : ''}{clip.player_name}
-            <span className="mx-1.5" aria-hidden>·</span>
-            {SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}
+            {captionOverride ? (
+              <>
+                <span style={{ color: 'var(--mm-ink)', fontWeight: 700 }}>{captionOverride.primary}</span>
+                {captionOverride.secondary && (
+                  <>
+                    <span className="mx-1.5" aria-hidden>·</span>
+                    {captionOverride.secondary}
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                {clip.player_number ? `#${clip.player_number} ` : ''}{clip.player_name}
+                <span className="mx-1.5" aria-hidden>·</span>
+                {SHOT_TYPE_LABEL[clip.shot_type] ?? clip.shot_type}
+              </>
+            )}
             <span className="mx-1.5" aria-hidden>·</span>
             {formatTimestamp(clip.video_timestamp)}
           </span>
