@@ -26,6 +26,7 @@
 | 파일 | 책임 |
 |---|---|
 | `supabase/migrations/068_coach_pins.sql` | 테이블 + 인덱스 |
+| `supabase/migrations/069_coach_pins_rls.sql` | RLS — 공개 읽기, 쓰기는 service role 만 |
 | `src/lib/hangul.ts` | 초성 추출·매칭 순수 함수 |
 | `src/lib/hangul.test.ts` | 위 함수 테스트 (`node --test`) |
 | `src/lib/teamPinAuth.ts` | `verifyTeamPin` 서버 가드 |
@@ -106,11 +107,32 @@ ORDER BY ordinal_position;
 
 Expected: 6행 (id, team_id, game_id, video_timestamp, label, created_at)
 
-- [ ] **Step 4: 커밋**
+- [ ] **Step 4: RLS 적용 (실행 중 추가됨)**
+
+068 에는 RLS 가 빠져 있었다. anon key 는 브라우저에 노출되므로 테이블이 열려 있으면
+Task 3·4 에서 만들 `X-Team-Pin` 가드를 우회해 누구나 핀을 만들고 지울 수 있다.
+`supabase/migrations/069_coach_pins_rls.sql` 로 보완한다:
+
+```sql
+ALTER TABLE public.coach_pins ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "coach_pins public read"
+  ON public.coach_pins FOR SELECT USING (true);
+```
+
+INSERT/UPDATE/DELETE 정책은 두지 않는다 — 정책이 없으면 anon 은 거부되고
+service role 만 통과한다. API 라우트는 `src/lib/supabase/admin.ts` 의 service role
+클라이언트를 쓰므로(RLS 우회) 앱 동작에는 영향이 없다.
+
+> 이 프로젝트의 기존 테이블(`games`/`game_events`/`tournaments`)은 RLS 는 켜져 있으나
+> 정책이 `ALL / USING true / WITH CHECK true` 라 사실상 전부 허용이다. `coach_pins` 는
+> 그 관례를 의도적으로 따르지 않는다.
+
+- [ ] **Step 5: 커밋**
 
 ```bash
-git add supabase/migrations/068_coach_pins.sql
-git commit -m "feat(pins): coach_pins 테이블 마이그레이션"
+git add supabase/migrations/068_coach_pins.sql supabase/migrations/069_coach_pins_rls.sql
+git commit -m "feat(pins): coach_pins 테이블 마이그레이션 + RLS"
 ```
 
 ---
