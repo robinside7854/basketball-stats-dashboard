@@ -1,7 +1,39 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { verifyTeamPin } from '@/lib/teamPinAuth'
 import { LABEL_MAX_LEN } from '@/types/coachPin'
+
+type TeamPinRow = {
+  id: string
+  game_id: string
+  video_timestamp: number
+  label: string
+  created_at: string
+  game: { id: string; date: string; opponent: string; youtube_url: string | null } | null
+}
+
+const PAGE = 1000
+
+// 팀 전체 핀 페이지네이션 조회 (Supabase 1000행 캡 대비) — created_at desc 순서 유지.
+async function fetchAllTeamPins(
+  supabase: SupabaseClient,
+  teamId: string,
+): Promise<TeamPinRow[] | null> {
+  const rows: TeamPinRow[] = []
+  for (let pg = 0; ; pg++) {
+    const { data: chunk, error } = await supabase
+      .from('coach_pins')
+      .select('id, game_id, video_timestamp, label, created_at, game:games(id, date, opponent, youtube_url)')
+      .eq('team_id', teamId)
+      .order('created_at', { ascending: false })
+      .range(pg * PAGE, (pg + 1) * PAGE - 1)
+    if (error) return null
+    if (chunk && chunk.length > 0) rows.push(...(chunk as unknown as TeamPinRow[]))
+    if (!chunk || chunk.length < PAGE) break
+  }
+  return rows
+}
 
 // GET /api/pins?gameId=xxx            → 해당 경기 핀 (시간순)
 // GET /api/pins?org=xxx&team=youth    → 팀 전체 핀 + 경기 정보 (모아보기)
@@ -26,13 +58,9 @@ export async function GET(req: Request) {
     const { data: teamRow } = await supabase
       .from('teams').select('id').eq('org_slug', org).eq('sub_slug', team).maybeSingle()
     if (!teamRow) return NextResponse.json([])
-    const { data, error } = await supabase
-      .from('coach_pins')
-      .select('id, game_id, video_timestamp, label, created_at, game:games(id, date, opponent, youtube_url)')
-      .eq('team_id', teamRow.id)
-      .order('created_at', { ascending: false })
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json(data ?? [])
+    const data = await fetchAllTeamPins(supabase, teamRow.id)
+    if (data === null) return NextResponse.json({ error: '핀 조회에 실패했습니다' }, { status: 500 })
+    return NextResponse.json(data)
   }
 
   return NextResponse.json({ error: 'gameId 또는 org+team 이 필요합니다' }, { status: 400 })
