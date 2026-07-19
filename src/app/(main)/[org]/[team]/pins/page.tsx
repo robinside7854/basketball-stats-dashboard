@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { MapPin } from 'lucide-react'
 import HighlightsPlayer from '@/components/highlights/HighlightsPlayer'
+import VideoSubTabNav from '@/components/layout/VideoSubTabNav'
 import { useTeam } from '@/contexts/TeamContext'
 import { extractYouTubeId } from '@/lib/youtube/utils'
 import { pinClipBounds, type CoachPinWithGame } from '@/types/coachPin'
@@ -106,20 +107,30 @@ export default function PinsPage() {
     cursor: off ? 'not-allowed' : 'pointer',
   })
 
-  if (loading) return <div className="text-center py-20 text-gray-500">불러오는 중…</div>
+  if (loading) return (
+    <div className="space-y-3">
+      <VideoSubTabNav />
+      <div className="text-center py-20 text-gray-500">불러오는 중…</div>
+    </div>
+  )
 
   if (playable.length === 0) {
     return (
-      <div className="text-center py-20 text-gray-500">
-        <MapPin size={32} className="mx-auto mb-3 text-gray-600" aria-hidden />
-        <p className="text-lg">아직 모인 핀이 없습니다</p>
-        <p className="text-sm mt-2">영상 리뷰 탭에서 장면에 핀을 꽂으면 여기 모입니다</p>
+      <div className="space-y-3">
+        <VideoSubTabNav />
+        <div className="text-center py-20 text-gray-500">
+          <MapPin size={32} className="mx-auto mb-3 text-gray-600" aria-hidden />
+          <p className="text-lg">아직 모인 핀이 없습니다</p>
+          <p className="text-sm mt-2">영상 리뷰 탭에서 장면에 핀을 꽂으면 여기 모입니다</p>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-3">
+      <VideoSubTabNav />
+
       <div className="flex items-center gap-2">
         <MapPin size={20} className="text-amber-400" aria-hidden />
         <h1 className="text-xl font-bold text-white">코치 핀</h1>

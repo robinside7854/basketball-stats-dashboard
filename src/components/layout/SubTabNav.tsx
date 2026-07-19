@@ -3,18 +3,20 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useTeam } from '@/contexts/TeamContext'
+import { useOrg } from '@/contexts/OrgContext'
+import type { SubTab } from './subTabs'
 
-interface SubTab { path: string; label: string }
 interface Props { tabs: SubTab[] }
 
 export default function SubTabNav({ tabs }: Props) {
   const pathname = usePathname()
   const team = useTeam()
+  const org = useOrg()
 
   return (
     <div className="flex gap-1 border-b border-gray-800 mb-6">
       {tabs.map(({ path, label }) => {
-        const href = `/${team}${path}`
+        const href = `/${org}/${team}${path}`
         const isActive = pathname === href || pathname.startsWith(href + '/')
         return (
           <Link

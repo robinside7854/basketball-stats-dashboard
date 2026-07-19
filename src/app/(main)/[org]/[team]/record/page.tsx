@@ -13,6 +13,8 @@ import { useLineupStore } from '@/store/lineupStore'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { useTeam } from '@/contexts/TeamContext'
 import type { Tournament, Game, Player, PlayerMinutes } from '@/types/database'
+import SubTabNav from '@/components/layout/SubTabNav'
+import { gameSubTabs } from '@/components/layout/subTabs'
 
 const SESS_TID = 'bball_record_tid'
 const SESS_GID = 'bball_record_gid'
@@ -401,6 +403,9 @@ function RecordPageInner() {
 
   return (
     <div className="space-y-3">
+      {/* RecordPageInner 는 부모(RecordPage)에서 isEditMode 일 때만 렌더되므로 항상 true */}
+      <SubTabNav tabs={gameSubTabs(true)} />
+
       {/* Feature 3: opponent score modal */}
       {showCompleteModal && (
         <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"

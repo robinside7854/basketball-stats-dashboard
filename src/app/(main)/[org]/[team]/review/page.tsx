@@ -13,6 +13,8 @@ import { useEditMode } from '@/contexts/EditModeContext'
 import { useTeam } from '@/contexts/TeamContext'
 import type { CoachPin, LabelOption } from '@/types/coachPin'
 import type { Tournament, Game } from '@/types/database'
+import SubTabNav from '@/components/layout/SubTabNav'
+import { videoSubTabs } from '@/components/layout/subTabs'
 
 export default function ReviewPage() {
   const { isEditMode, openPinModal } = useEditMode()
@@ -174,6 +176,9 @@ function ReviewInner() {
 
   return (
     <div className="space-y-3">
+      {/* ReviewInner 는 부모(ReviewPage)에서 isEditMode 일 때만 렌더되므로 항상 true */}
+      <SubTabNav tabs={videoSubTabs(true)} />
+
       {/* 대회 / 경기 선택 */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl px-3 py-2 flex flex-wrap items-center gap-2">
         <Select value={selectedTId} onValueChange={v => { setSelectedTId(v ?? ''); setSelectedGId('') }}>

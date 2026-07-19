@@ -9,11 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 const PlayerDetailModal = dynamic(() => import('@/components/roster/PlayerDetailModal'), { ssr: false })
 import type { Tournament, Game, PlayerBoxScore } from '@/types/database'
 import SubTabNav from '@/components/layout/SubTabNav'
-
-const GAME_SUB_TABS = [
-  { path: '/boxscore', label: '박스스코어' },
-  { path: '/gamelog',  label: '게임 로그' },
-]
+import { gameSubTabs } from '@/components/layout/subTabs'
 
 type SortKey = 'player_number' | 'pts' | 'fg_pct' | 'fg3_pct' | 'ft_pct' | 'oreb' | 'dreb' | 'reb' | 'ast' | 'stl' | 'blk' | 'tov' | 'pf' | 'efg_pct' | 'ts_pct'
 
@@ -384,7 +380,7 @@ export default function BoxScorePage() {
         )
       })()}
 
-      <SubTabNav tabs={GAME_SUB_TABS} />
+      <SubTabNav tabs={gameSubTabs(isEditMode)} />
 
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="flex rounded-lg overflow-hidden border border-gray-700">

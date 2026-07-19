@@ -7,11 +7,7 @@ import OpponentYouTubePlayer from '@/components/record/OpponentYouTubePlayer'
 import { formatTimestamp } from '@/lib/youtube/utils'
 import { useTeam } from '@/contexts/TeamContext'
 import SubTabNav from '@/components/layout/SubTabNav'
-
-const STATS_SUB_TABS = [
-  { path: '/stats',    label: '시즌 통계' },
-  { path: '/opponent', label: '상대 분석' },
-]
+import { STATS_SUB_TABS } from '@/components/layout/subTabs'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface OppTeam   { id: string; name: string }

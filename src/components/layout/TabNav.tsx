@@ -2,22 +2,21 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, Film, Lock, Unlock, ArrowLeftRight, MapPin, Clapperboard } from 'lucide-react'
+import { Home, ClipboardList, BarChart3, Users, Trophy, Film, Lock, Unlock, ArrowLeftRight } from 'lucide-react'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { TEAM_LABELS, type TeamType } from '@/contexts/TeamContext'
 
+// 공개 5탭 — 경기/영상은 서브탭에 편입된 페이지(record/pins/review)까지 also 로 활성 표시한다.
 const TAB_DEFS = [
-  { path: '',             label: '홈',       icon: Home,          exact: true,  also: '' },
-  { path: '/boxscore',    label: '경기',     icon: ClipboardList, exact: false, also: '/gamelog' },
-  { path: '/stats',       label: '통계',     icon: BarChart3,     exact: false, also: '/opponent' },
-  { path: '/highlights',  label: '하이라이트', icon: Film,        exact: false, also: '' },
-  { path: '/pins',        label: '코치 핀',   icon: MapPin,        exact: false, also: '' },
-  { path: '/roster',      label: '선수 명단', icon: Users,        exact: false, also: '' },
-  { path: '/tournaments', label: '대회 관리', icon: Trophy,       exact: false, also: '' },
+  { path: '',             label: '홈',   icon: Home,          exact: true,  also: [] as string[] },
+  { path: '/boxscore',    label: '경기', icon: ClipboardList, exact: false, also: ['/gamelog', '/record'] },
+  { path: '/stats',       label: '통계', icon: BarChart3,     exact: false, also: ['/opponent'] },
+  { path: '/highlights',  label: '영상', icon: Film,          exact: false, also: ['/pins', '/review'] },
+  { path: '/roster',      label: '선수', icon: Users,         exact: false, also: [] as string[] },
 ]
 
-const EDIT_ONLY_PATH = '/record'
-const REVIEW_PATH = '/review'
+// 편집 모드 전용 6번째 탭
+const TOURNAMENTS_TAB = { path: '/tournaments', label: '대회', icon: Trophy, exact: false, also: [] as string[] }
 
 const TEAM_STYLES: Record<TeamType, { badge: string; dot: string }> = {
   youth:  { badge: 'bg-blue-500/20 border-blue-500/50 text-blue-300',   dot: 'bg-blue-400' },
@@ -43,27 +42,18 @@ export default function TabNav() {
     label: t.label,
     icon: t.icon,
     exact: t.exact,
-    also: t.also ? `${prefix}${t.also}` : '',
+    also: t.also.map(a => `${prefix}${a}`),
   }))
 
-  const editTab = {
-    href: `${prefix}${EDIT_ONLY_PATH}`,
-    label: '경기 기록',
-    icon: PenLine,
-    exact: false,
-    also: '',
+  const tournamentsTab = {
+    href: `${prefix}${TOURNAMENTS_TAB.path}`,
+    label: TOURNAMENTS_TAB.label,
+    icon: TOURNAMENTS_TAB.icon,
+    exact: TOURNAMENTS_TAB.exact,
+    also: [] as string[],
   }
 
-  // 아이콘은 '코치 핀'(MapPin) 과 달라야 한다 — 나란히 놓이는 탭이라 같은 모양이면 구분이 안 된다
-  const reviewTab = {
-    href: `${prefix}${REVIEW_PATH}`,
-    label: '영상 리뷰',
-    icon: Clapperboard,
-    exact: false,
-    also: '',
-  }
-
-  const allTabs = isEditMode ? [...tabs, editTab, reviewTab] : tabs
+  const allTabs = isEditMode ? [...tabs, tournamentsTab] : tabs
 
   return (
     <nav className="bg-gray-950 border-b border-blue-600/40 sticky top-0 z-50 shadow-lg" style={{ boxShadow: '0 4px 24px rgba(59,130,246,0.12)' }}>
@@ -104,7 +94,7 @@ export default function TabNav() {
               {allTabs.map(({ href, label, icon: Icon, exact, also }) => {
                 const isActive = exact
                   ? pathname === href
-                  : pathname.startsWith(href) || (also ? pathname.startsWith(also) : false)
+                  : pathname.startsWith(href) || also.some(a => pathname.startsWith(a))
                 return (
                   <Link
                     key={href}

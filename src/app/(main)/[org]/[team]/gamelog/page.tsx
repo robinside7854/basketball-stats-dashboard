@@ -10,11 +10,7 @@ import { formatTimestamp } from '@/lib/youtube/utils'
 import { EVENT_LABELS } from '@/types/database'
 import type { Tournament, Game, GameEvent } from '@/types/database'
 import SubTabNav from '@/components/layout/SubTabNav'
-
-const GAME_SUB_TABS = [
-  { path: '/boxscore', label: '박스스코어' },
-  { path: '/gamelog',  label: '게임 로그' },
-]
+import { gameSubTabs } from '@/components/layout/subTabs'
 
 const EVENT_ICONS: Record<string, string> = {
   shot_3p: '🟡', shot_2p_mid: '🔵', free_throw: '⚪',
@@ -111,7 +107,7 @@ export default function GameLogPage() {
 
   return (
     <div>
-      <SubTabNav tabs={GAME_SUB_TABS} />
+      <SubTabNav tabs={gameSubTabs(isEditMode)} />
 
       <div className="flex flex-wrap gap-3 mb-6">
         <Select value={selectedTId} onValueChange={v => { setSelectedTId(v ?? ''); setSelectedGId('') }}>
