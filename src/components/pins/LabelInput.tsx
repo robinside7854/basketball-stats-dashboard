@@ -16,7 +16,7 @@ const MAX_SUGGESTIONS = 6
 
 export default function LabelInput({ value, onChange, onSubmit, options, autoFocus }: Props) {
   const [open, setOpen] = useState(false)
-  const [active, setActive] = useState(0)
+  const [active, setActive] = useState(-1)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   const suggestions = useMemo(
@@ -33,8 +33,8 @@ export default function LabelInput({ value, onChange, onSubmit, options, autoFoc
     return () => document.removeEventListener('mousedown', onDown)
   }, [])
 
-  // 후보 수가 줄어도 항상 범위 안. 이펙트로 state 를 되돌리는 대신 렌더 시점에 보정한다.
-  const activeIdx = suggestions.length === 0 ? 0 : Math.min(active, suggestions.length - 1)
+  // -1 = 아무것도 선택 안 됨. 사용자가 방향키로 고른 경우에만 0 이상이 된다.
+  const activeIdx = active < 0 ? -1 : Math.min(active, suggestions.length - 1)
 
   function choose(label: string) {
     onChange(label)
@@ -44,8 +44,8 @@ export default function LabelInput({ value, onChange, onSubmit, options, autoFoc
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     // 자동완성 목록이 열려 있을 때만 방향키를 가로챈다
     if (open && suggestions.length > 0) {
-      if (e.key === 'ArrowDown') { e.preventDefault(); setActive(i => (i + 1) % suggestions.length); return }
-      if (e.key === 'ArrowUp')   { e.preventDefault(); setActive(i => (i - 1 + suggestions.length) % suggestions.length); return }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIdx < 0 ? 0 : (activeIdx + 1) % suggestions.length); return }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); setActive(activeIdx < 0 ? suggestions.length - 1 : (activeIdx - 1 + suggestions.length) % suggestions.length); return }
       if (e.key === 'Enter' && activeIdx >= 0) {
         e.preventDefault()
         choose(suggestions[activeIdx].label)
@@ -63,7 +63,7 @@ export default function LabelInput({ value, onChange, onSubmit, options, autoFoc
         value={value}
         autoFocus={autoFocus}
         maxLength={LABEL_MAX_LEN}
-        onChange={e => { onChange(e.target.value); setActive(0); setOpen(true) }}
+        onChange={e => { onChange(e.target.value); setActive(-1); setOpen(true) }}
         onFocus={() => setOpen(true)}
         onKeyDown={onKeyDown}
         placeholder="라벨 (예: 필스위치)"
@@ -72,6 +72,7 @@ export default function LabelInput({ value, onChange, onSubmit, options, autoFoc
         aria-autocomplete="list"
         aria-controls="label-suggestions"
         aria-expanded={open && suggestions.length > 0}
+        aria-activedescendant={activeIdx >= 0 ? `label-suggestion-${activeIdx}` : undefined}
         className="w-full min-h-[44px] bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white
                    focus:outline-none focus:border-blue-500"
       />
@@ -82,7 +83,7 @@ export default function LabelInput({ value, onChange, onSubmit, options, autoFoc
           className="absolute z-50 left-0 right-0 mt-1 bg-gray-800 border border-gray-600 rounded-lg overflow-hidden shadow-xl"
         >
           {suggestions.map((s, i) => (
-            <li key={s.label} role="option" aria-selected={i === activeIdx}>
+            <li key={s.label} id={`label-suggestion-${i}`} role="option" aria-selected={i === activeIdx}>
               <button
                 type="button"
                 onMouseEnter={() => setActive(i)}
