@@ -14,7 +14,7 @@ export interface CoachPinWithGame extends CoachPin {
     date: string
     opponent: string
     youtube_url: string | null
-  }
+  } | null
 }
 
 export interface LabelOption {

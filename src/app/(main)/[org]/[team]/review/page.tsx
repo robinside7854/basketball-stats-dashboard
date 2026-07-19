@@ -59,18 +59,18 @@ function ReviewInner() {
   const selectedGame = games.find(g => g.id === selectedGId)
 
   useEffect(() => {
-    fetch(`/api/tournaments?team=${team}`).then(r => r.json()).then(setTournaments)
-    fetch(`/api/pins/labels?org=${org}&team=${team}`).then(r => r.json()).then(setLabelOptions)
+    fetch(`/api/tournaments?team=${team}`).then(r => r.json()).then((d: unknown) => setTournaments(Array.isArray(d) ? d : []))
+    fetch(`/api/pins/labels?org=${org}&team=${team}`).then(r => r.json()).then((d: unknown) => setLabelOptions(Array.isArray(d) ? d : []))
   }, [team, org])
 
   useEffect(() => {
     if (!selectedTId) { setGames([]); return }
-    fetch(`/api/games?tournamentId=${selectedTId}`).then(r => r.json()).then(setGames)
+    fetch(`/api/games?tournamentId=${selectedTId}`).then(r => r.json()).then((d: unknown) => setGames(Array.isArray(d) ? d : []))
   }, [selectedTId])
 
   const loadPins = useCallback(() => {
     if (!selectedGId) { setPins([]); return }
-    fetch(`/api/pins?gameId=${selectedGId}`).then(r => r.json()).then(setPins)
+    fetch(`/api/pins?gameId=${selectedGId}`).then(r => r.json()).then((d: unknown) => setPins(Array.isArray(d) ? d : []))
   }, [selectedGId])
 
   useEffect(() => { loadPins() }, [loadPins])
@@ -124,6 +124,7 @@ function ReviewInner() {
   }, [ytPlayer, drafting, togglePlay, seekRelative, startPin])
 
   async function savePin() {
+    if (saving) return
     const label = draftLabel.trim()
     if (!label) { toast.error('라벨을 입력하세요'); return }
     if (!selectedGId) return
@@ -143,7 +144,7 @@ function ReviewInner() {
       setDrafting(false)
       setDraftLabel('')
       loadPins()
-      fetch(`/api/pins/labels?org=${org}&team=${team}`).then(r => r.json()).then(setLabelOptions)
+      fetch(`/api/pins/labels?org=${org}&team=${team}`).then(r => r.json()).then((d: unknown) => setLabelOptions(Array.isArray(d) ? d : []))
       try { ytPlayer?.playVideo() } catch {}
     } finally {
       setSaving(false)
@@ -151,6 +152,8 @@ function ReviewInner() {
   }
 
   async function deletePin(id: string) {
+    const target = pins.find(p => p.id === id)
+    if (!confirm(`'${target?.label ?? '이 핀'}' 핀을 삭제할까요? 되돌릴 수 없습니다.`)) return
     const res = await fetch(`/api/pins/${id}?org=${org}&team=${team}`, {
       method: 'DELETE',
       headers: { ...teamHeaders },

@@ -9,6 +9,9 @@ import { extractYouTubeId } from '@/lib/youtube/utils'
 import { pinClipBounds, type CoachPinWithGame } from '@/types/coachPin'
 import type { HighlightClip } from '@/lib/highlights/types'
 
+// game 이 확실히 존재함을 컴파일러가 증명할 수 있도록 narrow 된 타입 (playable 필터 통과 후에만 사용)
+type PlayableCoachPin = CoachPinWithGame & { game: NonNullable<CoachPinWithGame['game']> }
+
 export default function PinsPage() {
   const team = useTeam()
   const params = useParams<{ org: string }>()
@@ -27,9 +30,9 @@ export default function PinsPage() {
       .finally(() => setLoading(false))
   }, [org, team])
 
-  // 영상 연결된 핀만 재생 가능
+  // 영상 연결된 핀만 재생 가능 — game 이 있고 youtube_url 이 유효한 핀만 통과시켜 이후 코드가 game 을 non-null 로 다룰 수 있게 한다
   const playable = useMemo(
-    () => pins.filter(p => !!p.game?.youtube_url && !!extractYouTubeId(p.game.youtube_url!)),
+    () => pins.filter((p): p is PlayableCoachPin => !!p.game?.youtube_url && !!extractYouTubeId(p.game.youtube_url)),
     [pins],
   )
 
