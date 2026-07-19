@@ -235,8 +235,10 @@ const getCachedMilestones = (leagueId: string) =>
       const sb = createClient()
       return computeMilestones(sb, leagueId, { horizonDays: 30, maxUpcoming: 6, maxRecent: 6 })
     },
-    // v2: 이벤트 단위 트래킹 — key 변경으로 구 캐시(날짜 단위) 자동 무효화
-    ['home-milestones-v2', leagueId],
+    // v3 (2026-07-19): 7/18 이벤트 points 백필이 API 우회로 실행돼 revalidateTag 미호출 →
+    //                  캐시가 백필 이전 상태(변원식/천세원 100점을 6/27 로 잘못 표기) 로 pin 됨.
+    //                  키 상향으로 강제 재계산 · 최근 30일 실제 crossings 6건 노출.
+    ['home-milestones-v3', leagueId],
     // events 태그 추가: 이벤트 timestamp/points 변경 시 재계산 필요
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
   )
