@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, Film, Lock, Unlock, ArrowLeftRight } from 'lucide-react'
+import { Home, PenLine, ClipboardList, BarChart3, Users, Trophy, Film, Lock, Unlock, ArrowLeftRight, MapPin } from 'lucide-react'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { TEAM_LABELS, type TeamType } from '@/contexts/TeamContext'
 
@@ -11,11 +11,13 @@ const TAB_DEFS = [
   { path: '/boxscore',    label: '경기',     icon: ClipboardList, exact: false, also: '/gamelog' },
   { path: '/stats',       label: '통계',     icon: BarChart3,     exact: false, also: '/opponent' },
   { path: '/highlights',  label: '하이라이트', icon: Film,        exact: false, also: '' },
+  { path: '/pins',        label: '코치 핀',   icon: MapPin,        exact: false, also: '' },
   { path: '/roster',      label: '선수 명단', icon: Users,        exact: false, also: '' },
   { path: '/tournaments', label: '대회 관리', icon: Trophy,       exact: false, also: '' },
 ]
 
 const EDIT_ONLY_PATH = '/record'
+const REVIEW_PATH = '/review'
 
 const TEAM_STYLES: Record<TeamType, { badge: string; dot: string }> = {
   youth:  { badge: 'bg-blue-500/20 border-blue-500/50 text-blue-300',   dot: 'bg-blue-400' },
@@ -52,7 +54,15 @@ export default function TabNav() {
     also: '',
   }
 
-  const allTabs = isEditMode ? [...tabs, editTab] : tabs
+  const reviewTab = {
+    href: `${prefix}${REVIEW_PATH}`,
+    label: '영상 리뷰',
+    icon: MapPin,
+    exact: false,
+    also: '',
+  }
+
+  const allTabs = isEditMode ? [...tabs, editTab, reviewTab] : tabs
 
   return (
     <nav className="bg-gray-950 border-b border-blue-600/40 sticky top-0 z-50 shadow-lg" style={{ boxShadow: '0 4px 24px rgba(59,130,246,0.12)' }}>
