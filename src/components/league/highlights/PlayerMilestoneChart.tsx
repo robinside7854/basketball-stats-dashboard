@@ -81,9 +81,17 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
     return () => mq.removeEventListener('change', handler)
   }, [])
 
-  // 상태 · 모바일 팝오버 (하나만 노출) · 선수카드 모달
+  // 상태 · 모바일 팝오버 (하나만 노출) · 선수카드 모달 · 선수 지정(찾기)
   const [popoverPid, setPopoverPid] = useState<string | null>(null)
   const [modalPid, setModalPid] = useState<string | null>(null)
+  const [pinnedPid, setPinnedPid] = useState<string | null>(null)  // 상시 강조할 선수 (내 이름 찾기)
+
+  // 셀렉트 목록 · 이름순 정렬
+  const sortedForSelect = useMemo(
+    () => [...activePlayers].sort((a, b) => a.name.localeCompare(b.name, 'ko')),
+    [activePlayers],
+  )
+  const pinnedPlayer = pinnedPid ? activePlayers.find(p => p.player_id === pinnedPid) ?? null : null
 
   const popoverPlayer = popoverPid ? activePlayers.find(p => p.player_id === popoverPid) ?? null : null
   const modalPlayer = modalPid ? activePlayers.find(p => p.player_id === modalPid) ?? null : null
@@ -122,6 +130,68 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* 선수 찾기 · 지정한 선수는 5개 나무 모두 상시 강조 + 그 위치에 가이드 라인 */}
+      <div
+        className="flex flex-wrap items-center gap-2 sm:gap-3 pb-3"
+        style={{ borderBottom: '1px solid var(--mm-rule)' }}
+      >
+        <label
+          className="text-[11px] font-black uppercase"
+          style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}
+          htmlFor="milestone-player-select"
+        >
+          내 선수 찾기
+        </label>
+        <div className="relative flex-1 min-w-[160px] max-w-[280px]">
+          <select
+            id="milestone-player-select"
+            value={pinnedPid ?? ''}
+            onChange={e => setPinnedPid(e.target.value || null)}
+            className="w-full appearance-none cursor-pointer text-[13px] font-bold min-h-[36px] px-3 pr-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+            style={{
+              background: pinnedPid ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
+              color: pinnedPid ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
+              border: `1px solid ${pinnedPid ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+              borderRadius: '4px',
+            }}
+            aria-label="찾을 선수 선택 · 5개 나무에서 위치가 상시 강조됩니다"
+          >
+            <option value="">— 이름 선택 —</option>
+            {sortedForSelect.map(p => (
+              <option key={p.player_id} value={p.player_id}>
+                {p.number != null ? `#${p.number} ` : ''}{p.name}
+              </option>
+            ))}
+          </select>
+          {/* select 우측 드롭 화살표 */}
+          <span
+            aria-hidden
+            className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[10px]"
+            style={{ color: pinnedPid ? 'var(--mm-black)' : 'var(--mm-muted)' }}
+          >
+            ▼
+          </span>
+        </div>
+        {pinnedPid && pinnedPlayer && (
+          <button
+            type="button"
+            onClick={() => setPinnedPid(null)}
+            className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase px-2.5 py-1.5 min-h-[36px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+            style={{
+              background: 'var(--mm-panel-alt)',
+              color: 'var(--mm-ink-soft)',
+              border: '1px solid var(--mm-rule)',
+              borderRadius: '3px',
+              letterSpacing: '0.10em',
+            }}
+            aria-label="선수 지정 해제"
+          >
+            <X size={12} />
+            해제
+          </button>
+        )}
+      </div>
+
       {/* 5개 나무 · 데스크탑 grid-5 · 태블릿 grid-3 · 모바일 grid-2 */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {METRICS.map(m => (
@@ -135,6 +205,7 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
             hoverPid={hoverPid}
             setHoverPid={setHoverPid}
             onPinClick={handlePinClick}
+            pinnedPid={pinnedPid}
           />
         ))}
       </div>
@@ -236,6 +307,7 @@ function MetricTree({
   hoverPid,
   setHoverPid,
   onPinClick,
+  pinnedPid,
 }: {
   metricKey: MetricKey
   label: string
@@ -245,6 +317,7 @@ function MetricTree({
   hoverPid: string | null
   setHoverPid: (pid: string | null) => void
   onPinClick: (pid: string) => void
+  pinnedPid: string | null
 }) {
   const top = thresholds[thresholds.length - 1]
   const { placements, overflowByRow } = useMemo(
@@ -254,6 +327,14 @@ function MetricTree({
 
   // 리그 리더 (상위 1명)
   const leader = players.filter(p => p[metricKey] > 0).sort((a, b) => b[metricKey] - a[metricKey])[0]
+
+  // 지정 선수 · 이 지표에서의 위치 (가이드 라인용 · 값 0 이면 표시 X)
+  const pinnedPlayerHere = pinnedPid
+    ? players.find(p => p.player_id === pinnedPid && p[metricKey] > 0)
+    : null
+  const pinnedY = pinnedPlayerHere
+    ? (pinnedPlayerHere[metricKey] / top) * 100
+    : null
 
   return (
     <div
@@ -299,6 +380,22 @@ function MetricTree({
           aria-hidden
         />
 
+        {/* 지정 선수 가이드 라인 · 그 값 높이에 노랑 강조선 (있을 때만) */}
+        {pinnedY != null && (
+          <div
+            className="absolute left-0 right-0 pointer-events-none"
+            style={{
+              bottom: `${pinnedY}%`,
+              height: 2,
+              background: 'var(--mm-yellow)',
+              boxShadow: '0 0 8px 0 var(--mm-yellow), 0 0 2px 0 var(--mm-yellow-strong)',
+              transform: 'translateY(50%)',
+              zIndex: 3,
+            }}
+            aria-hidden
+          />
+        )}
+
         {/* 임계값 눈금 */}
         {thresholds.map((t, idx) => {
           const yPct = (t / top) * 100
@@ -333,7 +430,7 @@ function MetricTree({
           )
         })}
 
-        {/* 선수 핀 · 아바타 */}
+        {/* 선수 핀 · 아바타 · pinned = 상시 강조 */}
         {placements.filter(p => !p.hidden).map(p => (
           <PlayerPin
             key={p.player.player_id}
@@ -343,6 +440,8 @@ function MetricTree({
             metricKey={metricKey}
             color={color}
             hover={hoverPid === p.player.player_id}
+            pinned={pinnedPid === p.player.player_id}
+            dimmed={pinnedPid != null && pinnedPid !== p.player.player_id}
             onEnter={() => setHoverPid(p.player.player_id)}
             onLeave={() => setHoverPid(null)}
             onClick={() => onPinClick(p.player.player_id)}
@@ -385,6 +484,8 @@ function PlayerPin({
   metricKey,
   color,
   hover,
+  pinned,
+  dimmed,
   onEnter,
   onLeave,
   onClick,
@@ -395,30 +496,39 @@ function PlayerPin({
   metricKey: MetricKey
   color: string
   hover: boolean
+  pinned: boolean
+  dimmed: boolean
   onEnter: () => void
   onLeave: () => void
   onClick: () => void
 }) {
   const value = player[metricKey]
-  // hover 시 아바타/프로필 사진 크게 확대 (기본 22px → 확대 시 56px · 2.5배 이상)
-  const scale = hover ? 2.55 : 1
+  // pinned = 상시 확대 (호버와 동일 스케일) · hover = 임시 확대
+  const emphasized = hover || pinned
+  const scale = emphasized ? 2.55 : 1
+  // pinned 전용 링: mm-yellow · dimmed = 지정 선수 있는데 본인 아님 → 흐리게
+  const borderColor = pinned ? 'var(--mm-yellow)' : color
   return (
     <button
       type="button"
-      className="absolute rounded-full overflow-hidden flex items-center justify-center cursor-pointer transition-transform duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+      className="absolute rounded-full overflow-hidden flex items-center justify-center cursor-pointer transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
       style={{
         bottom: y,
-        left: 30 + AVATAR / 2 + xOffset,  // 축 우측 xOffset 만큼
+        left: 30 + AVATAR / 2 + xOffset,
         width: AVATAR,
         height: AVATAR,
         transform: `translate(-50%, 50%) scale(${scale})`,
         transformOrigin: 'center center',
         background: 'var(--mm-panel-alt)',
-        border: hover ? `2px solid ${color}` : `1.5px solid ${color}`,
-        boxShadow: hover
-          ? `0 0 0 3px var(--mm-panel), 0 12px 32px -6px ${color}88, 0 4px 12px -2px rgba(0,0,0,0.3)`
-          : `0 1px 3px rgba(0,0,0,0.3)`,
-        zIndex: hover ? 40 : 5,
+        border: emphasized ? `2px solid ${borderColor}` : `1.5px solid ${borderColor}`,
+        boxShadow: pinned
+          ? `0 0 0 3px var(--mm-yellow), 0 0 0 5px var(--mm-panel), 0 12px 32px -6px var(--mm-yellow), 0 4px 12px -2px rgba(0,0,0,0.35)`
+          : hover
+            ? `0 0 0 3px var(--mm-panel), 0 12px 32px -6px ${color}88, 0 4px 12px -2px rgba(0,0,0,0.3)`
+            : `0 1px 3px rgba(0,0,0,0.3)`,
+        opacity: dimmed && !hover ? 0.28 : 1,
+        filter: dimmed && !hover ? 'saturate(0.5)' : 'none',
+        zIndex: pinned ? 45 : hover ? 40 : 5,
       }}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
@@ -445,19 +555,18 @@ function PlayerPin({
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
         />
       )}
-      {/* 호버 툴팁 · 이름 + 값 (확대된 아바타 옆에 · scale 역보정으로 크기 유지) */}
-      {hover && (
+      {/* 툴팁 · pinned 이거나 hover 일 때 · 이름 + 값 · scale 역보정으로 원 크기 유지 */}
+      {emphasized && (
         <span
           className="absolute pointer-events-none whitespace-nowrap text-[10px] font-black"
           style={{
-            background: 'var(--mm-black)',
-            color: 'var(--mm-yellow)',
-            border: `1px solid ${color}`,
+            background: pinned ? 'var(--mm-yellow)' : 'var(--mm-black)',
+            color: pinned ? 'var(--mm-black)' : 'var(--mm-yellow)',
+            border: `1px solid ${pinned ? 'var(--mm-black)' : color}`,
             borderRadius: '3px',
             padding: '3px 6px',
             left: '105%',
             top: '50%',
-            // parent scale(2.55) 을 상쇄해 툴팁 원래 크기 유지
             transform: `translateY(-50%) scale(${1 / 2.55})`,
             transformOrigin: 'left center',
             letterSpacing: '0.06em',
