@@ -49,7 +49,9 @@ export default async function PlayerHighlightsPage({
   const pinnedEventIds = (pinRow as { pinned_event_ids: string[] | null } | null)?.pinned_event_ids ?? []
 
   const groupTabs = [
-    { href: `${base}/highlights`, label: '하이라이트', active: true },
+    { href: `${base}/highlights`,             label: '경기별 하이라이트', active: true },
+    { href: `${base}/highlights/milestones`,  label: '커리어 마일스톤',  active: false },
+    { href: `${base}/highlights/best-shots`,  label: '베스트샷',         active: false },
   ]
 
   return (

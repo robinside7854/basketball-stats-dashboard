@@ -34,7 +34,9 @@ export default async function HighlightsRoundPage({
   const days = ['일', '월', '화', '수', '목', '금', '토']
 
   const groupTabs = [
-    { href: `${base}/highlights`, label: '하이라이트', active: true },
+    { href: `${base}/highlights`,             label: '경기별 하이라이트', active: true },
+    { href: `${base}/highlights/milestones`,  label: '커리어 마일스톤',  active: false },
+    { href: `${base}/highlights/best-shots`,  label: '베스트샷',         active: false },
   ]
 
   return (

@@ -1,27 +1,45 @@
-// 커리어 마일스톤 · 시즌 하이라이트 — 하이라이트 우산 하위 페이지
-// - 홈 위젯(MilestoneFeed) 은 상위 6/6 미니뷰, 이 페이지는 전체 리스트 (기본 40/40)
-// - 최근 달성 카드에 ▶ 로 그 순간 클립 재생 (모달)
+// 커리어 마일스톤 — 선수별 5대 지표 진행도 뷰 (2026-07-19 재설계)
+//   · 이전: upcoming/recent 리스트 (MilestonesBrowser)
+//   · 신규: 선수별 카드 · PTS/REB/AST/STL/BLK 세로 막대 · 임계값 자동 확장
+// 상위: 하이라이트 우산 · 서브탭 3 (경기별 하이라이트 · 커리어 마일스톤 · 베스트샷)
 import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
 import { ChevronLeft, Trophy } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import EmptyState from '@/components/league/EmptyState'
-import MilestonesBrowser from '@/components/league/MilestonesBrowser'
-import { computeMilestones } from '@/lib/stats/milestones'
+import PlayerMilestoneChart, { type PlayerMilestoneData } from '@/components/league/highlights/PlayerMilestoneChart'
+import { computeLeagueStats } from '@/lib/stats/leagueStats'
 
-const getCached = (leagueId: string) =>
+const getCachedPlayerStats = (leagueId: string) =>
   unstable_cache(
-    async () => {
+    async (): Promise<PlayerMilestoneData[]> => {
       const sb = createClient()
-      // 전체 페이지 — 큰 리미트로 로드 (홈 위젯의 6/6 보다 넉넉히)
-      return computeMilestones(sb, leagueId, { horizonDays: 365, maxUpcoming: 60, maxRecent: 60 })
+      // 시즌 전체 누적 (필터 없음) · 게스트 제외는 아래에서
+      const { players } = await computeLeagueStats(sb, leagueId)
+      // is_guest 정보 필요 → league_players 에서 조회
+      const { data: pMeta } = await sb
+        .from('league_players')
+        .select('id, is_guest')
+        .eq('league_id', leagueId)
+      const guestIds = new Set(((pMeta ?? []) as Array<{ id: string; is_guest: boolean | null }>).filter(p => p.is_guest).map(p => p.id))
+      return players
+        .filter(p => !guestIds.has(p.player_id))
+        .map(p => ({
+          player_id: p.player_id,
+          name: p.name,
+          number: p.number,
+          position: p.position,
+          photo_url: p.photo_url ?? null,
+          pts: p.pts,
+          reb: p.reb,
+          ast: p.ast,
+          stl: p.stl,
+          blk: p.blk,
+        }))
     },
-    ['highlights-milestones-page-v2', leagueId],
-    {
-      tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`],
-      revalidate: 60,
-    },
+    ['highlights-milestones-players-v1', leagueId],
+    { tags: [`league-${leagueId}`, `league-${leagueId}-games`, `league-${leagueId}-events`], revalidate: 60 },
   )
 
 export default async function MilestonesPage({
@@ -32,13 +50,15 @@ export default async function MilestonesPage({
   const { orgSlug, leagueId } = await params
   const base = `/league/${orgSlug}/${leagueId}`
 
-  const { upcoming, recent } = await getCached(leagueId)()
+  const players = await getCachedPlayerStats(leagueId)()
 
   const groupTabs = [
-    { href: `${base}/highlights`, label: '하이라이트', active: true },
+    { href: `${base}/highlights`,             label: '경기별 하이라이트', active: false },
+    { href: `${base}/highlights/milestones`,  label: '커리어 마일스톤',  active: true },
+    { href: `${base}/highlights/best-shots`,  label: '베스트샷',         active: false },
   ]
 
-  const isEmpty = upcoming.length === 0 && recent.length === 0
+  const isEmpty = players.length === 0
 
   return (
     <div className="space-y-4 mm-brand">
@@ -73,7 +93,7 @@ export default async function MilestonesPage({
               className="text-[11px] lg:text-xs mt-1 font-bold uppercase"
               style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
             >
-              누적 임계값 달성 순간 · 그 순간 영상 재생
+              선수별 5대 지표 진행도 · 임계값 자동 확장
             </p>
           </div>
         </div>
@@ -82,11 +102,15 @@ export default async function MilestonesPage({
       {isEmpty ? (
         <EmptyState
           Icon={Trophy}
-          title="아직 달성된 마일스톤이 없습니다"
-          description="경기가 진행되면 임계값(100득점 · 25도움 등)에 도달한 순간을 자동으로 여기서 추적합니다."
+          title="아직 활동 기록이 없습니다"
+          description="경기가 진행되면 각 선수의 누적 PTS · REB · AST · STL · BLK 진행도가 여기 표시됩니다."
         />
       ) : (
-        <MilestonesBrowser leagueId={leagueId} upcoming={upcoming} recent={recent} />
+        <PlayerMilestoneChart
+          players={players}
+          orgSlug={orgSlug}
+          leagueId={leagueId}
+        />
       )}
 
       {/* 각주 */}
@@ -95,8 +119,8 @@ export default async function MilestonesPage({
           className="text-[11px] pt-2"
           style={{ color: 'var(--mm-muted)', lineHeight: 1.6 }}
         >
-          <span className="font-bold">영상 없음</span> 배지는 유튜브 매핑 또는 타임스탬프 기록이 없어 재생 불가한 순간입니다.
-          기록이 채워지면 자동으로 ▶ 활성화됩니다.
+          <span className="font-bold">임계값</span>은 각 지표의 기본 사다리 (예: PTS 100·250·500·1000·2000) 에서 시작하며,
+          리그 최다치가 상한을 넘어서면 자동으로 두 배씩 확장됩니다.
         </p>
       )}
     </div>
