@@ -7,8 +7,12 @@
 //   · 임계값 자동 확장: 리그 최다치가 상한 넘어서면 두 배씩 push
 // 아바타 클릭 → 선수별 하이라이트로 이동
 
-import { useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useMemo, useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
+import { X, ChevronRight } from 'lucide-react'
+
+// 선수카드 모달 · 상호작용 트리거 후에만 필요 (recharts 등 포함)
+const PlayerQuickViewModal = dynamic(() => import('../PlayerQuickViewModal'), { ssr: false })
 
 export type PlayerMilestoneData = {
   player_id: string
@@ -57,12 +61,50 @@ interface Props {
   leagueId: string
 }
 
-export default function PlayerMilestoneChart({ players, orgSlug, leagueId }: Props) {
+export default function PlayerMilestoneChart({ players, leagueId }: Props) {
   // 활동 있는 선수만
   const activePlayers = useMemo(
     () => players.filter(p => p.pts + p.reb + p.ast + p.stl + p.blk > 0),
     [players],
   )
+
+  // hover 가능 디바이스 여부 (PC vs 터치)
+  //   · PC: 클릭 → 선수카드 모달 직행
+  //   · 모바일: 클릭 → 프로필 확대 팝오버 (요약 + CTA)
+  const [hoverCapable, setHoverCapable] = useState(true)  // 서버 렌더 시 PC 가정
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(hover: hover) and (pointer: fine)')
+    setHoverCapable(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setHoverCapable(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  // 상태 · 모바일 팝오버 (하나만 노출) · 선수카드 모달
+  const [popoverPid, setPopoverPid] = useState<string | null>(null)
+  const [modalPid, setModalPid] = useState<string | null>(null)
+
+  const popoverPlayer = popoverPid ? activePlayers.find(p => p.player_id === popoverPid) ?? null : null
+  const modalPlayer = modalPid ? activePlayers.find(p => p.player_id === modalPid) ?? null : null
+
+  // 아바타 클릭 · 디바이스별 분기
+  function handlePinClick(pid: string) {
+    if (hoverCapable) {
+      // PC 는 바로 선수카드 랜딩
+      setModalPid(pid)
+    } else {
+      // 모바일: 팝오버 토글 (같은 아바타 재탭 = 닫기)
+      setPopoverPid(prev => prev === pid ? null : pid)
+    }
+  }
+
+  function openCardFromPopover() {
+    if (popoverPid) {
+      setModalPid(popoverPid)
+      setPopoverPid(null)
+    }
+  }
 
   // 지표별 임계값 사다리 · TOP = 리그 1위 값 근사치로 스냅 (분포 시인성 개선)
   const thresholdsByMetric = useMemo(() => {
@@ -90,10 +132,9 @@ export default function PlayerMilestoneChart({ players, orgSlug, leagueId }: Pro
             color={m.color}
             players={activePlayers}
             thresholds={thresholdsByMetric[m.key]}
-            orgSlug={orgSlug}
-            leagueId={leagueId}
             hoverPid={hoverPid}
             setHoverPid={setHoverPid}
+            onPinClick={handlePinClick}
           />
         ))}
       </div>
@@ -108,9 +149,28 @@ export default function PlayerMilestoneChart({ players, orgSlug, leagueId }: Pro
           리그 1위 값에 근사한 상한으로 자동 스냅 (선수 분포 시인성 우선)
         </span>
         <span>
-          <span className="font-bold">아바타 클릭</span> · 그 선수의 하이라이트로 이동
+          <span className="font-bold">아바타 클릭</span> · 선수카드 열림 (모바일은 요약 팝오버 후 CTA)
         </span>
       </div>
+
+      {/* 모바일 팝오버 · 프로필 확대 + 5대 지표 요약 + 선수카드 CTA */}
+      {popoverPlayer && !hoverCapable && (
+        <PlayerMilestonePopover
+          player={popoverPlayer}
+          onClose={() => setPopoverPid(null)}
+          onOpenCard={openCardFromPopover}
+        />
+      )}
+
+      {/* 선수카드 모달 (PC 직행 · 모바일 CTA) */}
+      {modalPlayer && (
+        <PlayerQuickViewModal
+          leagueId={leagueId}
+          playerId={modalPlayer.player_id}
+          playerName={modalPlayer.name}
+          onClose={() => setModalPid(null)}
+        />
+      )}
     </div>
   )
 }
@@ -173,20 +233,18 @@ function MetricTree({
   color,
   players,
   thresholds,
-  orgSlug,
-  leagueId,
   hoverPid,
   setHoverPid,
+  onPinClick,
 }: {
   metricKey: MetricKey
   label: string
   color: string
   players: PlayerMilestoneData[]
   thresholds: number[]
-  orgSlug: string
-  leagueId: string
   hoverPid: string | null
   setHoverPid: (pid: string | null) => void
+  onPinClick: (pid: string) => void
 }) {
   const top = thresholds[thresholds.length - 1]
   const { placements, overflowByRow } = useMemo(
@@ -284,11 +342,10 @@ function MetricTree({
             xOffset={p.xOffset}
             metricKey={metricKey}
             color={color}
-            orgSlug={orgSlug}
-            leagueId={leagueId}
             hover={hoverPid === p.player.player_id}
             onEnter={() => setHoverPid(p.player.player_id)}
             onLeave={() => setHoverPid(null)}
+            onClick={() => onPinClick(p.player.player_id)}
           />
         ))}
 
@@ -327,44 +384,48 @@ function PlayerPin({
   xOffset,
   metricKey,
   color,
-  orgSlug,
-  leagueId,
   hover,
   onEnter,
   onLeave,
+  onClick,
 }: {
   player: PlayerMilestoneData
   y: number
   xOffset: number
   metricKey: MetricKey
   color: string
-  orgSlug: string
-  leagueId: string
   hover: boolean
   onEnter: () => void
   onLeave: () => void
+  onClick: () => void
 }) {
   const value = player[metricKey]
+  // hover 시 아바타/프로필 사진 크게 확대 (기본 22px → 확대 시 56px · 2.5배 이상)
+  const scale = hover ? 2.55 : 1
   return (
-    <Link
-      href={`/league/${orgSlug}/${leagueId}/highlights/player/${player.player_id}`}
-      className="absolute rounded-full overflow-hidden flex items-center justify-center cursor-pointer transition-transform duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+    <button
+      type="button"
+      className="absolute rounded-full overflow-hidden flex items-center justify-center cursor-pointer transition-transform duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
       style={{
         bottom: y,
         left: 30 + AVATAR / 2 + xOffset,  // 축 우측 xOffset 만큼
         width: AVATAR,
         height: AVATAR,
-        transform: `translate(-50%, 50%) scale(${hover ? 1.35 : 1})`,
+        transform: `translate(-50%, 50%) scale(${scale})`,
+        transformOrigin: 'center center',
         background: 'var(--mm-panel-alt)',
-        border: `2px solid ${color}`,
-        boxShadow: hover ? `0 0 0 2px var(--mm-panel), 0 4px 12px -3px ${color}66` : `0 1px 3px rgba(0,0,0,0.3)`,
-        zIndex: hover ? 20 : 5,
+        border: hover ? `2px solid ${color}` : `1.5px solid ${color}`,
+        boxShadow: hover
+          ? `0 0 0 3px var(--mm-panel), 0 12px 32px -6px ${color}88, 0 4px 12px -2px rgba(0,0,0,0.3)`
+          : `0 1px 3px rgba(0,0,0,0.3)`,
+        zIndex: hover ? 40 : 5,
       }}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
       onFocus={onEnter}
       onBlur={onLeave}
-      aria-label={`${player.name} · ${value}`}
+      onClick={onClick}
+      aria-label={`${player.name} · ${value} · 선수카드 열기`}
       title={`${player.name} · ${value}`}
     >
       <span
@@ -384,26 +445,166 @@ function PlayerPin({
           onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
         />
       )}
-      {/* 호버 툴팁 · 이름 + 값 */}
+      {/* 호버 툴팁 · 이름 + 값 (확대된 아바타 옆에 · scale 역보정으로 크기 유지) */}
       {hover && (
         <span
-          className="absolute pointer-events-none whitespace-nowrap text-[10px] font-black px-1.5 py-0.5"
+          className="absolute pointer-events-none whitespace-nowrap text-[10px] font-black"
           style={{
             background: 'var(--mm-black)',
             color: 'var(--mm-yellow)',
             border: `1px solid ${color}`,
             borderRadius: '3px',
-            left: '110%',
+            padding: '3px 6px',
+            left: '105%',
             top: '50%',
-            transform: 'translateY(-50%) scale(0.75)',
+            // parent scale(2.55) 을 상쇄해 툴팁 원래 크기 유지
+            transform: `translateY(-50%) scale(${1 / 2.55})`,
             transformOrigin: 'left center',
             letterSpacing: '0.06em',
-            zIndex: 30,
+            zIndex: 50,
           }}
         >
           {player.name} · {value}
         </span>
       )}
-    </Link>
+    </button>
+  )
+}
+
+// ─────── 모바일 팝오버 · 프로필 확대 + 5대 지표 요약 + 선수카드 CTA ───────
+function PlayerMilestonePopover({
+  player,
+  onClose,
+  onOpenCard,
+}: {
+  player: PlayerMilestoneData
+  onClose: () => void
+  onOpenCard: () => void
+}) {
+  // ESC 로 닫기
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center px-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${player.name} 마일스톤 요약`}
+      onClick={onClose}
+    >
+      {/* 배경 딤 */}
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.55)' }} aria-hidden />
+      {/* 팝오버 카드 */}
+      <div
+        className="relative mm-brand w-full max-w-sm"
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--mm-panel)',
+          border: '1px solid var(--mm-rule)',
+          borderRadius: '6px',
+          boxShadow: '0 24px 60px -12px rgba(0,0,0,0.55)',
+          overflow: 'hidden',
+        }}
+      >
+        {/* 닫기 버튼 */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-2 right-2 p-1.5 cursor-pointer transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center rounded"
+          style={{ color: 'var(--mm-muted)' }}
+          aria-label="닫기"
+        >
+          <X size={18} />
+        </button>
+
+        {/* 프로필 확대 */}
+        <div className="flex flex-col items-center pt-6 pb-3 px-4">
+          <div
+            className="relative w-24 h-24 rounded-full overflow-hidden flex items-center justify-center mb-3"
+            style={{
+              background: 'var(--mm-panel-alt)',
+              border: `3px solid var(--mm-yellow)`,
+              boxShadow: '0 8px 24px -4px rgba(0,0,0,0.4)',
+            }}
+            aria-hidden
+          >
+            <span
+              className="absolute inset-0 flex items-center justify-center font-jersey font-black text-4xl"
+              style={{ color: 'var(--mm-ink)' }}
+            >
+              {initialsOf(player.name)}
+            </span>
+            {player.photo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={player.photo_url}
+                alt=""
+                className="relative w-full h-full object-cover"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+              />
+            )}
+          </div>
+          <div
+            className="font-jersey font-black text-lg text-center"
+            style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+          >
+            {player.number != null ? `#${player.number} ` : ''}{player.name}
+          </div>
+          {player.position && (
+            <div className="text-[11px] font-bold uppercase mt-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+              {player.position}
+            </div>
+          )}
+        </div>
+
+        {/* 5대 지표 요약 */}
+        <div
+          className="grid grid-cols-5 gap-0"
+          style={{ borderTop: '1px solid var(--mm-rule)', borderBottom: '1px solid var(--mm-rule)' }}
+        >
+          {METRICS.map((m, i) => (
+            <div
+              key={m.key}
+              className="text-center py-3"
+              style={{
+                borderRight: i < METRICS.length - 1 ? '1px solid var(--mm-rule)' : undefined,
+              }}
+            >
+              <div
+                className="text-[10px] font-black uppercase"
+                style={{ color: m.color, letterSpacing: '0.12em' }}
+              >
+                {m.label}
+              </div>
+              <div
+                className="font-jersey font-black tabular-nums text-lg mt-1"
+                style={{ color: 'var(--mm-ink)', letterSpacing: '-0.01em' }}
+              >
+                {player[m.key]}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA · 선수카드 열기 */}
+        <button
+          type="button"
+          onClick={onOpenCard}
+          className="w-full flex items-center justify-center gap-2 px-4 min-h-[52px] font-jersey font-black uppercase tracking-[0.14em] text-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
+          style={{
+            background: 'var(--mm-yellow)',
+            color: 'var(--mm-black)',
+            border: 'none',
+          }}
+        >
+          선수카드 열기
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    </div>
   )
 }
