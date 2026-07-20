@@ -6,19 +6,22 @@ import Link from 'next/link'
 import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
-import { Lock, Unlock, Sun, Moon, Search, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Newspaper, HelpCircle } from 'lucide-react'
+import { LeagueAuthProvider, useCurrentUser } from '@/contexts/LeagueAuthContext'
+import { Lock, Unlock, Sun, Moon, Search, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Newspaper, HelpCircle, LogIn, LogOut, User as UserIcon } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 
 // 검색 · 선수 카드는 상호작용 트리거 시점에만 필요 — 초기 번들에서 분리
 // PlayerQuickViewModal(1441줄, recharts 4종 lazy 포함)은 상단 검색 유도 후에만 열림
 const GlobalSearchModal = dynamic(() => import('@/components/league/GlobalSearchModal'), { ssr: false })
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
+const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
 
-function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: string; leagueId: string; onOpenSearch: () => void; showDraft: boolean }) {
+function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { orgSlug: string; leagueId: string; onOpenSearch: () => void; onOpenLogin: () => void; showDraft: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const { isEditMode, openPinModal, exitEditMode } = useLeagueEditMode()
   const { theme, setTheme } = useTheme()
+  const { user, loading: authLoading, logout } = useCurrentUser()
 
   const base = `/league/${orgSlug}/${leagueId}`
 
@@ -76,8 +79,37 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, showDraft }: { orgSlug: strin
             })()}
           </div>
 
-          {/* 우측: 검색 + 테마 토글 + 편집 모드 버튼 */}
+          {/* 우측: 로그인 + 검색 + 테마 토글 + 편집 모드 버튼 */}
           <div className="flex items-center gap-1.5 pl-2 sm:pl-3 py-2 shrink-0">
+            {/* 로그인 상태: 유저 칩 + 로그아웃 · 미로그인: 로그인 버튼 */}
+            {!authLoading && (user ? (
+              <div className="hidden sm:flex items-center gap-1">
+                <span
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-yellow)] text-[color:var(--mm-ink)] text-xs font-bold min-h-[44px]"
+                  title={`로그인: ${user.login_id}`}
+                >
+                  <UserIcon size={13} />
+                  <span className="max-w-[80px] truncate">{user.name ?? user.login_id}</span>
+                </span>
+                <button
+                  onClick={logout}
+                  aria-label="로그아웃"
+                  title="로그아웃"
+                  className="p-1.5 rounded border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press"
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onOpenLogin}
+                aria-label="로그인"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] text-xs font-medium cursor-pointer transition-colors min-h-[44px]"
+              >
+                <LogIn size={13} />
+                <span className="hidden sm:inline">로그인</span>
+              </button>
+            ))}
             <button onClick={onOpenSearch} aria-label="선수 검색"
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] text-xs font-medium cursor-pointer transition-colors min-h-[44px]">
               <Search size={13} />
@@ -267,6 +299,7 @@ function LeagueLayout({
 }) {
   const { theme } = useTheme()
   const [searchOpen, setSearchOpen] = useState(false)
+  const [loginOpen, setLoginOpen] = useState(false)
   const [selectedPlayer, setSelectedPlayer] = useState<{ id: string; name: string } | null>(null)
   // 드래프트 메뉴 조건부 표시 — 현재 분기에 진행 중(미완료) 세션이 있을 때만
   const [showDraft, setShowDraft] = useState(false)
@@ -299,8 +332,15 @@ function LeagueLayout({
   return (
     <LeagueEditModeProvider leagueId={leagueId}>
     <LeagueQuarterProvider leagueId={leagueId}>
+    <LeagueAuthProvider leagueId={leagueId}>
       <div className="min-h-screen bg-[color:var(--mm-ground)] text-[color:var(--mm-ink-soft)]">
-        <TabNav orgSlug={orgSlug} leagueId={leagueId} onOpenSearch={() => setSearchOpen(true)} showDraft={showDraft} />
+        <TabNav
+          orgSlug={orgSlug}
+          leagueId={leagueId}
+          onOpenSearch={() => setSearchOpen(true)}
+          onOpenLogin={() => setLoginOpen(true)}
+          showDraft={showDraft}
+        />
         {/* 모바일 하단 탭바(56px) + iOS safe-area 만큼 여백 확보 */}
         <div className="pb-[calc(56px+env(safe-area-inset-bottom,0px))] lg:pb-0">
           <RecordAwareContainer orgSlug={orgSlug} leagueId={leagueId}>
@@ -327,7 +367,11 @@ function LeagueLayout({
           onClose={() => setSelectedPlayer(null)}
         />
       )}
+      {loginOpen && (
+        <LoginModal leagueId={leagueId} onClose={() => setLoginOpen(false)} />
+      )}
       <Toaster richColors theme={theme === 'light' ? 'light' : 'dark'} position="top-center" />
+    </LeagueAuthProvider>
     </LeagueQuarterProvider>
     </LeagueEditModeProvider>
   )

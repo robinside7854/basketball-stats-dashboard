@@ -11,6 +11,7 @@ import { computeMilestones } from '@/lib/stats/milestones'
 // 재사용하기 위한 Promise 타입. 각 함수는 내부에서 await 로 값 참조.
 type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import MilestoneFeed from '@/components/league/MilestoneFeed'
+import PersonalDashboard from '@/components/league/auth/PersonalDashboard'
 import LeagueTourTrigger from '@/components/league/LeagueTourTrigger'
 import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
 import AnnouncementsHome from '@/components/league/announcements/AnnouncementsHome'
@@ -407,6 +408,9 @@ export default async function LeagueDetailPage({
           ))}
         </div>
       )}
+
+      {/* 개인화 대시보드 · 로그인 상태에서만 노출 (client 컴포넌트가 자체 조건 렌더) */}
+      <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} />
 
       {/* 상단 병렬 — 공지사항 · 마일스톤 (PC 2열 · 모바일 세로 순차 : 공지 → 마일스톤 · 2026-07-19) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 items-start">
