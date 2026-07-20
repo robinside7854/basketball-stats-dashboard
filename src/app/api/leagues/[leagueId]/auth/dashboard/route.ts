@@ -39,7 +39,6 @@ export async function GET(
     return NextResponse.json({
       season: { attended_rounds: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, ranks: {} },
       weekly: { available: false },
-      recentGames: [],
       milestoneChasers: [],
     })
   }
@@ -75,106 +74,30 @@ export async function GET(
     },
   }
 
-  // 2) 이번 주 하이라이트 활성 여부 · 직전 라운드에 참여 여부
-  //    최근 라운드 (league_games date desc 첫날) 에 이 선수 이벤트가 있으면 true
-  const { data: recentDateRows } = await sb
-    .from('league_games')
-    .select('date')
-    .eq('league_id', leagueId)
-    .eq('is_started', true)
-    .order('date', { ascending: false })
-    .limit(50)
-  const uniqueDatesDesc = Array.from(new Set(((recentDateRows ?? []) as Array<{ date: string }>).map(r => r.date)))
-  const latestDate = uniqueDatesDesc[0] ?? null
+  // 2) "이번 주 하이라이트" · 이 선수가 최근 참여한 라운드로 바로 연결
+  //    최신 이벤트 검색 → 그 이벤트의 game 의 date 사용 (참여한 가장 최근 날짜)
+  //    (이전엔 직전 라운드 참여 여부만 체크했으나 · 참여 못한 주는 비활성이라 아쉬움 · 2026-07-21)
+  const { data: recentEvent } = await sb
+    .from('league_game_events')
+    .select('league_game_id')
+    .eq('league_player_id', pid)
+    .not('video_timestamp', 'is', null)  // 하이라이트 재생 가능한 이벤트로 좁힘
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle()
   let weekly: { available: boolean; date?: string } = { available: false }
-  if (latestDate) {
-    // 이 선수의 latestDate 참여 여부: league_games 로 게임 id 확보 → events 로 참여 확인
-    const { data: latestGames } = await sb
+  if (recentEvent?.league_game_id) {
+    const { data: gameRow } = await sb
       .from('league_games')
-      .select('id')
-      .eq('league_id', leagueId)
-      .eq('is_started', true)
-      .eq('date', latestDate)
-    const latestGameIds = ((latestGames ?? []) as Array<{ id: string }>).map(g => g.id)
-    if (latestGameIds.length > 0) {
-      const { count } = await sb
-        .from('league_game_events')
-        .select('id', { count: 'exact', head: true })
-        .in('league_game_id', latestGameIds)
-        .eq('league_player_id', pid)
-      if ((count ?? 0) > 0) weekly = { available: true, date: latestDate }
-      else weekly = { available: false, date: latestDate }
+      .select('date, league_id')
+      .eq('id', recentEvent.league_game_id)
+      .maybeSingle()
+    if (gameRow && gameRow.league_id === leagueId) {
+      weekly = { available: true, date: gameRow.date }
     }
   }
 
-  // 3) 최근 5경기(=최근 5개 참여 라운드) 트렌드
-  //    참여한 date desc 5개 · 각 date 의 PTS/REB/AST/STL/BLK 합
-  const recentGames: Array<{
-    date: string
-    pts: number; reb: number; ast: number; stl: number; blk: number
-  }> = []
-
-  // 이 선수가 참여한 date 집합을 얻기 위해 event 스캔 (최근순)
-  //   최적화: 최근 30일 게임만
-  const scopeDates = uniqueDatesDesc.slice(0, 30)  // 최근 30개 라운드 후보
-  if (scopeDates.length > 0) {
-    const { data: scopedGames } = await sb
-      .from('league_games')
-      .select('id, date')
-      .eq('league_id', leagueId)
-      .eq('is_started', true)
-      .in('date', scopeDates)
-    const gidToDate = new Map(((scopedGames ?? []) as Array<{ id: string; date: string }>).map(g => [g.id, g.date]))
-    const gameIds = [...gidToDate.keys()]
-    // 이 선수 관련 이벤트만
-    const { data: myEvents } = await sb
-      .from('league_game_events')
-      .select('league_game_id, related_player_id, type, result, points')
-      .in('league_game_id', gameIds)
-      .or(`league_player_id.eq.${pid},and(related_player_id.eq.${pid},result.eq.made,type.in.(shot_3p,shot_2p_mid,shot_layup,shot_post))`)
-      // ↑ 본인이 액션 or 어시스트받은 슛의 어시스터
-
-    // date 별 집계 · 본인 액션 이벤트 or 어시스트만 반영
-    type PerDate = { pts: number; reb: number; ast: number; stl: number; blk: number }
-    const byDate = new Map<string, PerDate>()
-    const ensure = (d: string): PerDate => {
-      let v = byDate.get(d)
-      if (!v) { v = { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0 }; byDate.set(d, v) }
-      return v
-    }
-    // 최근 이벤트만 별도 재쿼리 (본인 액션)
-    const { data: myOwn } = await sb
-      .from('league_game_events')
-      .select('league_game_id, type, result, points')
-      .in('league_game_id', gameIds)
-      .eq('league_player_id', pid)
-    const myOwnEvs = (myOwn ?? []) as Array<{ league_game_id: string; type: string; result: string | null; points: number | null }>
-    const isShot = (t: string) => t === 'shot_3p' || t === 'shot_2p_mid' || t === 'shot_layup' || t === 'shot_post'
-    const isFt = (t: string) => t === 'ft_2pt' || t === 'ft_3pt_1' || t === 'ft_3pt_2' || t === 'free_throw'
-    for (const e of myOwnEvs) {
-      const d = gidToDate.get(e.league_game_id)
-      if (!d) continue
-      const v = ensure(d)
-      const pts = e.points ?? 0
-      const made = e.result === 'made'
-      if (made && (isShot(e.type) || e.type === 'and_one' || isFt(e.type))) v.pts += pts
-      else if (e.type === 'oreb' || e.type === 'dreb') v.reb++
-      else if (e.type === 'steal') v.stl++
-      else if (e.type === 'block') v.blk++
-    }
-    // 어시스트: 다른 선수의 슛 made 중 related_player_id = pid 인 것
-    for (const e of ((myEvents ?? []) as Array<{ league_game_id: string; related_player_id: string | null; type: string; result: string | null }>)) {
-      if (e.related_player_id !== pid) continue
-      if (e.result !== 'made') continue
-      if (!isShot(e.type)) continue
-      const d = gidToDate.get(e.league_game_id)
-      if (!d) continue
-      ensure(d).ast++
-    }
-    // 5개 (date desc)
-    const sorted = [...byDate.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 5)
-    for (const [date, v] of sorted) recentGames.push({ date, ...v })
-  }
+  // 3) (삭제) 최근 5경기 트렌드 · 유저 피드백으로 제거 · 2026-07-21
 
   // 4) 마일스톤 체이서 · 각 지표별 다음 임계값까지 남은 수치 · 가장 가까운 것부터
   const chasers: Array<{
@@ -210,7 +133,6 @@ export async function GET(
   return NextResponse.json({
     season,
     weekly,
-    recentGames,
     milestoneChasers: chasers,
   })
 }

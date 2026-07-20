@@ -371,27 +371,18 @@ export default async function LeagueDetailPage({
   if (!league) notFound()
 
   const l = league as League
-
-  const statusColor: Record<string, string> = {
-    upcoming: 'bg-yellow-900/40 text-yellow-400',
-    active: 'bg-green-900/40 text-green-400',
-    completed: 'bg-gray-800 text-gray-500',
-  }
-  const statusLabel: Record<string, string> = { upcoming: '예정', active: '진행 중', completed: '완료' }
-
   const otherLeagues = (allLeagues ?? []).filter(ol => ol.id !== leagueId)
 
   return (
     <div className="space-y-5 lg:space-y-4">
-      {/* 헤더 — 코트 미세 텍스처 배경 + 저지 폰트 */}
+      {/* 헤더 — 리그명만 좌측 상단 (2026-07-21 클린업 · 진행중 배지 / 서브 라벨 삭제) */}
       <div className="relative court-bg rounded-2xl px-5 py-4 lg:px-6 lg:py-5 -mx-2 sm:mx-0 border border-gray-800/40">
-        <div className="flex items-center justify-between">
-          <h1 className="font-jersey text-2xl sm:text-3xl lg:text-5xl font-bold text-white tracking-wide uppercase break-keep min-w-0" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.1 }}>{l.name}</h1>
-          <span className={`text-xs lg:text-sm px-2.5 py-1 rounded-full font-medium ${statusColor[l.status] ?? 'bg-gray-800 text-gray-400'}`}>
-            {statusLabel[l.status] ?? l.status}
-          </span>
-        </div>
-        <p className="text-gray-500 text-sm lg:text-base mt-1">{l.season_year}시즌 · {l.season_type === 'quarterly' ? '분기별(3개월)' : '연간(1년)'} · 시작일 {l.start_date}</p>
+        <h1
+          className="font-jersey text-2xl sm:text-3xl lg:text-5xl font-bold text-white tracking-wide uppercase break-keep"
+          style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.1 }}
+        >
+          {l.name}
+        </h1>
       </div>
 
       {/* 시즌 전환 */}
