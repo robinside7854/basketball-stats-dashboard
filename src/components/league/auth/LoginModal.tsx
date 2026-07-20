@@ -249,7 +249,7 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
         style={inputStyle}
         placeholder="선수 등록된 이름과 동일하게"
       />
-      <FieldLabel>생년월일 6자리 (YYMMDD)</FieldLabel>
+      <FieldLabel>생년월일 6자리 (초기 비밀번호로 사용)</FieldLabel>
       <input
         type="text"
         inputMode="numeric"
@@ -259,10 +259,11 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
         onChange={e => setBirthdate(e.target.value.replace(/[^\d]/g, '').slice(0, 6))}
         className="input"
         style={inputStyle}
-        placeholder="예: 900101"
+        placeholder="예: 900101 (YYMMDD)"
       />
       <p className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>
-        · 등록된 선수 정보와 정확히 일치해야 접수됩니다<br />
+        · 이름은 선수 명단에 등록된 이름과 동일해야 해요<br />
+        · 생년월일 6자리는 <b>초기 로그인 비밀번호</b>로 사용됩니다 (로그인 후 변경 가능)<br />
         · 접수 후 관리자가 승인하면 로그인 가능
       </p>
       <button

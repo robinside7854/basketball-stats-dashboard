@@ -1,9 +1,10 @@
 // POST /api/leagues/[leagueId]/auth/signup
-//   body: { name: string, birthdate: string (YYMMDD 또는 YYYY-MM-DD) }
-//   유저가 이름 + 생년월일로 가입 요청
-//   · 매칭되는 league_player 있어야 함 (name + birth_date 정확 일치 · 게스트 제외)
-//   · 이미 계정 있으면 status 반환 (pending/approved/rejected/disabled)
-//   · 신규 요청은 status='pending' + 비번=YYMMDD 로 저장 (승인 후 로그인 가능)
+//   body: { name: string, birthdate: string (YYMMDD · 초기 비번용) }
+//   가입 요청 · 이름만 매칭 (기존 선수 정보에 생년월일 대부분 비어있어 이름 기준 · 2026-07-21 완화)
+//   · 매칭되는 league_player 있어야 함 (name · 게스트 제외)
+//   · 동명이인 다수 케이스: 첫 매치 (non-guest 우선 · 이후 id 순)
+//   · 이미 그 선수 계정이 있으면 상태별 알림 반환
+//   · 생년월일은 초기 비밀번호로만 사용 (매칭 검증에는 사용 안 함)
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { hashPassword } from '@/lib/auth/password'
@@ -19,45 +20,35 @@ export async function POST(
   const name = typeof body.name === 'string' ? body.name.trim() : ''
   const bdRaw = typeof body.birthdate === 'string' ? body.birthdate.trim() : ''
   if (!name) return NextResponse.json({ error: '이름을 입력하세요' }, { status: 400 })
-  if (!/^(\d{6}|\d{4}-\d{2}-\d{2})$/.test(bdRaw)) {
-    return NextResponse.json({ error: '생년월일 6자리 (YYMMDD) 또는 YYYY-MM-DD 로 입력하세요' }, { status: 400 })
+  if (!/^\d{6}$/.test(bdRaw)) {
+    return NextResponse.json({ error: '초기 비밀번호로 사용할 생년월일 6자리 (YYMMDD) 를 입력하세요' }, { status: 400 })
   }
-
-  // YYMMDD → YYYY-MM-DD (19xx or 20xx 추정: 25 이하는 20xx, 그 이상은 19xx)
-  let bd: string
-  if (bdRaw.length === 6) {
-    const yy = parseInt(bdRaw.slice(0, 2), 10)
-    const mm = bdRaw.slice(2, 4)
-    const dd = bdRaw.slice(4, 6)
-    const yyyy = yy <= 25 ? 2000 + yy : 1900 + yy
-    bd = `${yyyy}-${mm}-${dd}`
-  } else {
-    bd = bdRaw
-  }
-  const pw6 = bdRaw.length === 6 ? bdRaw : `${bd.slice(2, 4)}${bd.slice(5, 7)}${bd.slice(8, 10)}`
+  const pw6 = bdRaw
 
   const sb = createClient()
 
-  // 매칭 선수 조회
-  const { data: matched } = await sb
+  // 이름 매칭 · 게스트는 계정 대상 아님 · 다수 매치 시 첫 non-guest
+  const { data: candidates } = await sb
     .from('league_players')
-    .select('id, name, birth_date, is_guest')
+    .select('id, name, is_guest, created_at')
     .eq('league_id', leagueId)
     .eq('name', name)
-    .eq('birth_date', bd)
-    .limit(1)
-    .maybeSingle()
+    .order('created_at', { ascending: true })
+
+  const nonGuestList = (candidates ?? []).filter(p => !p.is_guest)
+  const matched = nonGuestList[0] ?? null
 
   if (!matched) {
+    // 이름 자체가 등록 안 됨 or 게스트만 있음
+    const anyGuest = (candidates ?? []).some(p => p.is_guest)
     return NextResponse.json({
-      error: '입력한 이름과 생년월일로 등록된 선수를 찾지 못했어요. 관리자에게 등록 확인을 요청해주세요.',
+      error: anyGuest
+        ? '해당 이름은 게스트로 등록되어 있어 계정 생성 대상이 아닙니다.'
+        : '입력한 이름으로 등록된 선수를 찾지 못했어요. 관리자에게 등록 확인을 요청해주세요.',
     }, { status: 404 })
   }
-  if (matched.is_guest) {
-    return NextResponse.json({ error: '게스트 선수는 계정 생성 대상이 아닙니다.' }, { status: 400 })
-  }
 
-  // 기존 계정 확인
+  // 기존 계정 확인 (동명이인 방지 · 그 선수에 이미 계정 있으면 재신청 불가)
   const { data: existing } = await sb
     .from('league_user_accounts')
     .select('id, status')
@@ -69,21 +60,21 @@ export async function POST(
     return NextResponse.json({
       status: existing.status,
       message: existing.status === 'pending'
-        ? '이미 가입 요청이 접수되어 승인 대기 중입니다.'
+        ? '이미 신청된 회원입니다. 관리자 승인 대기 중이에요.'
         : existing.status === 'approved'
           ? '이미 승인된 계정이 있어요. 로그인 화면에서 이름 · 비번으로 로그인하세요.'
           : existing.status === 'rejected'
-            ? '가입 요청이 반려되었습니다. 관리자에게 문의하세요.'
+            ? '이전 가입 요청이 반려되었습니다. 관리자에게 문의하세요.'
             : '비활성화된 계정입니다. 관리자에게 문의하세요.',
     }, { status: 409 })
   }
 
-  // 신규 pending 계정 생성 · 비번 = YYMMDD
+  // 신규 pending 계정 생성 · 비번 = 사용자가 입력한 YYMMDD
   const password_hash = hashPassword(pw6)
   const { error } = await sb.from('league_user_accounts').insert({
     league_id: leagueId,
     league_player_id: matched.id,
-    login_id: matched.name,   // 초기값 · 로그인 후 변경 가능
+    login_id: matched.name,
     password_hash,
     status: 'pending',
   })
