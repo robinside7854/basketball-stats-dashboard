@@ -75,25 +75,33 @@ export async function GET(
   }
 
   // 2) "이번 주 하이라이트" · 이 선수가 최근 참여한 라운드로 바로 연결
-  //    최신 이벤트 검색 → 그 이벤트의 game 의 date 사용 (참여한 가장 최근 날짜)
-  //    (이전엔 직전 라운드 참여 여부만 체크했으나 · 참여 못한 주는 비활성이라 아쉬움 · 2026-07-21)
-  const { data: recentEvent } = await sb
-    .from('league_game_events')
-    .select('league_game_id')
-    .eq('league_player_id', pid)
-    .not('video_timestamp', 'is', null)  // 하이라이트 재생 가능한 이벤트로 좁힘
-    .order('id', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  //    · 이 선수 이벤트의 game_id 를 모두 모아 → games 에서 date desc 로 정렬 → 최댓값
+  //    · 이전엔 events order-by-id (UUID 정렬) 이라 임의 이벤트가 반환됨 · 2026-07-21 버그 픽스
   let weekly: { available: boolean; date?: string } = { available: false }
-  if (recentEvent?.league_game_id) {
-    const { data: gameRow } = await sb
-      .from('league_games')
-      .select('date, league_id')
-      .eq('id', recentEvent.league_game_id)
-      .maybeSingle()
-    if (gameRow && gameRow.league_id === leagueId) {
-      weekly = { available: true, date: gameRow.date }
+  {
+    const gids = new Set<string>()
+    const PAGE = 1000
+    for (let p = 0; ; p++) {
+      const { data: chunk } = await sb
+        .from('league_game_events')
+        .select('league_game_id')
+        .eq('league_player_id', pid)
+        .range(p * PAGE, (p + 1) * PAGE - 1)
+      if (!chunk || chunk.length === 0) break
+      for (const r of chunk as Array<{ league_game_id: string }>) gids.add(r.league_game_id)
+      if (chunk.length < PAGE) break
+    }
+    if (gids.size > 0) {
+      const { data: latest } = await sb
+        .from('league_games')
+        .select('date')
+        .in('id', [...gids])
+        .eq('league_id', leagueId)
+        .eq('is_started', true)
+        .order('date', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (latest?.date) weekly = { available: true, date: latest.date }
     }
   }
 

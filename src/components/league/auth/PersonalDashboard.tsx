@@ -92,10 +92,10 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
           overflow: 'hidden',
         }}
       >
-        {/* 헤더 · 유저 프로필 + 프로필카드 열기 CTA */}
-        <header className="flex items-center gap-3 px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+        {/* 헤더 · 유저 프로필 + 프로필카드 CTA · PC 확대 */}
+        <header className="flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 md:py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
           <div
-            className="relative w-11 h-11 shrink-0 rounded-full overflow-hidden flex items-center justify-center"
+            className="relative w-12 h-12 md:w-14 md:h-14 shrink-0 rounded-full overflow-hidden flex items-center justify-center"
             style={{ background: 'var(--mm-panel-alt)', border: '2px solid var(--mm-yellow)' }}
             aria-hidden
           >
@@ -103,28 +103,28 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={user.photo_url} alt="" className="w-full h-full object-cover" />
             ) : (
-              <UserIcon size={20} style={{ color: 'var(--mm-muted)' }} />
+              <UserIcon size={22} style={{ color: 'var(--mm-muted)' }} />
             )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-1.5">
-              <span className="font-jersey font-black text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+              <span className="font-jersey font-black text-xl md:text-2xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.01em' }}>
                 {user.name ?? user.login_id}
               </span>
-              <Sparkles size={14} style={{ color: 'var(--mm-yellow-strong)' }} />
+              <Sparkles size={16} style={{ color: 'var(--mm-yellow-strong)' }} />
             </div>
-            <div className="text-[11px] font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+            <div className="text-[12px] md:text-[13px] font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
               나의 이번 시즌 대시보드
             </div>
           </div>
           <button
             type="button"
             onClick={() => setProfileOpen(true)}
-            className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-black uppercase min-h-[36px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
-            style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', borderRadius: '3px', letterSpacing: '0.12em' }}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 md:px-4 py-2 text-xs md:text-sm font-black uppercase min-h-[40px] md:min-h-[44px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
+            style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', borderRadius: '4px', letterSpacing: '0.12em' }}
             aria-label="선수카드 열기"
           >
-            <IdCard size={13} />
+            <IdCard size={14} />
             선수카드
           </button>
         </header>
@@ -168,50 +168,88 @@ function SeasonSummary({ season }: { season: Season }) {
     { key: 'blk', value: season.blk },
   ]
   return (
-    <div className="px-5 py-4">
+    <div className="px-4 sm:px-5 py-3 sm:py-4">
       <div className="flex items-baseline gap-2 mb-3">
-        <span className="font-jersey font-black uppercase text-sm" style={{ color: 'var(--mm-ink)' }}>이번 시즌</span>
+        <span className="font-jersey font-black uppercase text-base md:text-lg" style={{ color: 'var(--mm-ink)' }}>이번 시즌</span>
         <span
-          className="inline-flex items-center text-[11px] font-black px-1.5 py-0.5"
+          className="inline-flex items-center text-[12px] md:text-[13px] font-black px-2 py-0.5"
           style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}
         >
           {season.attended_rounds}R 참석
         </span>
       </div>
-      <div className="grid grid-cols-5 gap-2">
-        {cells.map(({ key, value }) => {
-          const rank = season.ranks[key]
-          const rs = rank ? rankStyle(rank.rank, rank.total) : null
-          return (
-            <div key={key} className="text-center">
-              <div
-                className="text-[10px] font-black uppercase tracking-[0.14em]"
-                style={{ color: METRIC_COLOR[key] }}
-              >
-                {METRIC_LABEL[key]}
-              </div>
-              <div
-                className="font-jersey font-black tabular-nums leading-none mt-1"
-                style={{ color: 'var(--mm-ink)', fontSize: 'clamp(20px, 5vw, 26px)', letterSpacing: '-0.01em' }}
-              >
-                {value}
-              </div>
-              {rank && rank.total > 0 && rs ? (
-                <div
-                  className="inline-flex items-center gap-0.5 text-[11px] font-black mt-1"
-                  style={{ color: rs.color, letterSpacing: '-0.005em' }}
-                  title={`${rank.rank}위 / ${rank.total}명`}
-                >
-                  {rs.badge && <span aria-hidden>{rs.badge}</span>}
-                  <span className="tabular-nums">{rank.rank}위</span>
-                </div>
-              ) : (
-                <div className="text-[10px] font-bold mt-1" style={{ color: 'var(--mm-muted)' }}>—</div>
-              )}
-            </div>
-          )
-        })}
+      {/* 5개 지표 카드 · 각 지표 컬러 tint · 여백 최소화 */}
+      <div className="grid grid-cols-5 gap-1.5 md:gap-2">
+        {cells.map(({ key, value }) => (
+          <StatCard
+            key={key}
+            metricKey={key}
+            value={value}
+            rank={season.ranks[key]}
+          />
+        ))}
       </div>
+    </div>
+  )
+}
+
+function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; value: number; rank?: RankInfo }) {
+  const color = METRIC_COLOR[metricKey]
+  const rs = rank ? rankStyle(rank.rank, rank.total) : null
+  const isTop3 = rank && rank.rank <= 3 && rank.total > 0
+  return (
+    <div
+      className="relative flex flex-col items-center justify-between overflow-hidden"
+      style={{
+        background: `${color}12`,          // 12 = ~7% opacity
+        border: `1.5px solid ${color}55`,  // 55 = ~33% opacity
+        borderRadius: '6px',
+        padding: '10px 4px 8px',
+        minHeight: 96,
+      }}
+    >
+      {/* 상단 색 라인 (metric 컬러 강조) */}
+      <div
+        aria-hidden
+        className="absolute top-0 left-0 right-0"
+        style={{ height: 3, background: color }}
+      />
+      {/* 지표 라벨 */}
+      <div
+        className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.14em] mt-0.5"
+        style={{ color }}
+      >
+        {METRIC_LABEL[metricKey]}
+      </div>
+      {/* 큰 숫자 */}
+      <div
+        className="font-jersey font-black tabular-nums leading-none my-1"
+        style={{
+          color: 'var(--mm-ink)',
+          fontSize: 'clamp(24px, 5.5vw, 40px)',
+          letterSpacing: '-0.015em',
+        }}
+      >
+        {value}
+      </div>
+      {/* 랭킹 뱃지 · 메달 or 초록 or 회색 */}
+      {rank && rank.total > 0 && rs ? (
+        <div
+          className="inline-flex items-center gap-0.5 text-[11px] md:text-[12px] font-black tabular-nums px-1.5 py-0.5"
+          style={{
+            color: isTop3 ? '#fff' : rs.color,
+            background: isTop3 ? rs.color : 'transparent',
+            borderRadius: '3px',
+            letterSpacing: '-0.005em',
+          }}
+          title={`${rank.rank}위 / ${rank.total}명`}
+        >
+          {rs.badge && <span aria-hidden style={{ fontSize: '13px' }}>{rs.badge}</span>}
+          <span>{rank.rank}위</span>
+        </div>
+      ) : (
+        <div className="text-[10px] font-bold" style={{ color: 'var(--mm-muted)' }}>—</div>
+      )}
     </div>
   )
 }
@@ -219,7 +257,7 @@ function SeasonSummary({ season }: { season: Season }) {
 function HighlightCTA({ available, href, date }: { available: boolean; href: string | null; date?: string }) {
   const content = (
     <div
-      className="flex items-center justify-between gap-3 px-5 py-3.5"
+      className="flex items-center justify-between gap-3 px-4 md:px-5 py-3.5 md:py-4"
       style={{
         borderTop: '1px solid var(--mm-rule)',
         background: available ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
@@ -227,18 +265,18 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
         opacity: available ? 1 : 0.65,
       }}
     >
-      <div className="flex items-center gap-2.5 min-w-0">
-        <Film size={18} className="shrink-0" />
+      <div className="flex items-center gap-2.5 md:gap-3 min-w-0">
+        <Film size={20} className="shrink-0" />
         <div className="min-w-0">
-          <div className="font-jersey font-black uppercase text-sm" style={{ letterSpacing: '-0.005em' }}>
-            나의 이번 주 하이라이트
+          <div className="font-jersey font-black uppercase text-base md:text-lg" style={{ letterSpacing: '-0.005em' }}>
+            나의 최근 하이라이트
           </div>
-          <div className="text-[11px] font-bold uppercase mt-0.5" style={{ letterSpacing: '0.10em' }}>
+          <div className="text-[12px] md:text-[13px] font-bold uppercase mt-0.5" style={{ letterSpacing: '0.10em' }}>
             {available ? `${formatDate(date)} 참여 · 클립 자동재생` : '아직 참여 기록이 없어요'}
           </div>
         </div>
       </div>
-      {available && <ChevronRight size={18} />}
+      {available && <ChevronRight size={20} />}
     </div>
   )
   if (!available || !href) return content
@@ -248,37 +286,37 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
 function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
   const shown = chasers.slice(0, 5)
   return (
-    <div className="p-5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+    <div className="p-4 md:p-5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
       <div className="flex items-center gap-1.5 mb-3">
-        <Trophy size={14} style={{ color: 'var(--mm-yellow-strong)' }} />
-        <span className="font-jersey font-black uppercase text-sm" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+        <Trophy size={16} style={{ color: 'var(--mm-yellow-strong)' }} />
+        <span className="font-jersey font-black uppercase text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
           마일스톤 체이서
         </span>
-        <span className="text-[10px] font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+        <span className="text-[11px] md:text-[12px] font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
           가까운 것부터
         </span>
       </div>
       {shown.length === 0 ? (
-        <p className="text-[12px]" style={{ color: 'var(--mm-muted)' }}>아직 통계 데이터가 부족해요</p>
+        <p className="text-[13px]" style={{ color: 'var(--mm-muted)' }}>아직 통계 데이터가 부족해요</p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5 md:space-y-3">
           {shown.map(c => (
             <div key={c.metric}>
-              <div className="flex items-center justify-between text-[11px] mb-1">
+              <div className="flex items-center justify-between text-[12px] md:text-[13px] mb-1">
                 <span className="font-bold" style={{ color: METRIC_COLOR[c.metric] }}>
                   <b style={{ letterSpacing: '0.10em' }}>{c.metricLabel}</b>
                   <span className="ml-1.5" style={{ color: 'var(--mm-ink-soft)' }}>{METRIC_KOREAN[c.metric]}</span>
                 </span>
                 <span className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>
                   <b>{c.current}</b> / {c.nextThreshold}
-                  <span className="ml-1.5 text-[10px] font-black px-1 py-0.5" style={{ background: METRIC_COLOR[c.metric], color: '#fff', borderRadius: '2px' }}>
+                  <span className="ml-1.5 text-[11px] font-black px-1.5 py-0.5" style={{ background: METRIC_COLOR[c.metric], color: '#fff', borderRadius: '2px' }}>
                     -{c.remaining}
                   </span>
                 </span>
               </div>
               <div
                 className="relative overflow-hidden"
-                style={{ height: 6, background: 'var(--mm-panel-alt)', borderRadius: '3px', border: '1px solid var(--mm-rule)' }}
+                style={{ height: 8, background: 'var(--mm-panel-alt)', borderRadius: '4px', border: '1px solid var(--mm-rule)' }}
               >
                 <div
                   style={{ width: `${Math.min(100, c.progressPct)}%`, height: '100%', background: METRIC_COLOR[c.metric] }}
