@@ -94,6 +94,12 @@
   --pad-h-y:    clamp(16px, 3vw, 20px);  /* 섹션 헤더 상하 (py-4 md:py-5 대체) */
   --pad-body-x: clamp(16px, 4vw, 40px);  /* 섹션 본문 좌우 */
   --pad-body-y: clamp(16px, 4vw, 40px);  /* 섹션 본문 상하 */
+
+  /* ===== 마일스톤 근접도 3티어 (2026-07-22) =====
+     PersonalDashboard.MilestoneChaser 바·remaining 뱃지 색이 지표별 색이 아닌 목표 근접도 표현 */
+  --milestone-near: #059669;   /* progressPct >= 80% (곧 달성 · emerald-600) */
+  --milestone-mid:  #F59E0B;   /* 60~80% (가까움 · amber-500) */
+  --milestone-far:  #64748B;   /* < 60% (아직 · slate-500 뉴트럴) */
 }
 
 @custom-variant dark (&:is(.dark *));

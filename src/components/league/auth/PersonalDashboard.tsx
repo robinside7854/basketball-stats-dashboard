@@ -48,6 +48,13 @@ const METRIC_COLOR: Record<Chaser['metric'], string> = {
 const METRIC_LABEL: Record<Chaser['metric'], string> = { pts: 'PTS', reb: 'REB', ast: 'AST', stl: 'STL', blk: 'BLK' }
 const METRIC_KOREAN: Record<Chaser['metric'], string> = { pts: '득점', reb: '리바운드', ast: '어시스트', stl: '스틸', blk: '블락' }
 
+// 근접도 3티어 · 프로그레스 바·remaining 뱃지 색 결정 (2026-07-22)
+function proximityColor(progressPct: number): string {
+  if (progressPct >= 80) return 'var(--milestone-near)'
+  if (progressPct >= 60) return 'var(--milestone-mid)'
+  return 'var(--milestone-far)'
+}
+
 // 랭킹 스타일 · 1위=🥇 · 2위=🥈 · 3위=🥉 · 3-10위 초록 강조 (3위는 메달 + 초록)
 function rankStyle(rank: number, total: number): { badge?: string; color: string } {
   if (total <= 0) return { color: 'var(--mm-muted)' }
@@ -292,30 +299,33 @@ function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
         <p className="text-[13px]" style={{ color: 'var(--mm-muted)' }}>아직 통계 데이터가 부족해요</p>
       ) : (
         <div className="space-y-2.5 md:space-y-3">
-          {shown.map(c => (
-            <div key={c.metric}>
-              <div className="flex items-center justify-between text-[12px] md:text-[13px] mb-1">
-                <span className="font-bold" style={{ color: METRIC_COLOR[c.metric] }}>
-                  <b style={{ letterSpacing: '0.10em' }}>{c.metricLabel}</b>
-                  <span className="ml-1.5" style={{ color: 'var(--mm-ink-soft)' }}>{METRIC_KOREAN[c.metric]}</span>
-                </span>
-                <span className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>
-                  <b>{c.current}</b> / {c.nextThreshold}
-                  <span className="ml-1.5 text-[11px] font-black px-1.5 py-0.5" style={{ background: METRIC_COLOR[c.metric], color: '#fff', borderRadius: '2px' }}>
-                    -{c.remaining}
+          {shown.map(c => {
+            const proxColor = proximityColor(c.progressPct)
+            return (
+              <div key={c.metric}>
+                <div className="flex items-center justify-between text-[12px] md:text-[13px] mb-1">
+                  <span className="font-bold" style={{ color: METRIC_COLOR[c.metric] }}>
+                    <b style={{ letterSpacing: '0.10em' }}>{c.metricLabel}</b>
+                    <span className="ml-1.5" style={{ color: 'var(--mm-ink-soft)' }}>{METRIC_KOREAN[c.metric]}</span>
                   </span>
-                </span>
-              </div>
-              <div
-                className="relative overflow-hidden"
-                style={{ height: 8, background: 'var(--mm-panel-alt)', borderRadius: '4px', border: '1px solid var(--mm-rule)' }}
-              >
+                  <span className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>
+                    <b>{c.current}</b> / {c.nextThreshold}
+                    <span className="ml-1.5 text-[11px] font-black px-1.5 py-0.5" style={{ background: proxColor, color: '#fff', borderRadius: '2px' }}>
+                      -{c.remaining}
+                    </span>
+                  </span>
+                </div>
                 <div
-                  style={{ width: `${Math.min(100, c.progressPct)}%`, height: '100%', background: METRIC_COLOR[c.metric] }}
-                />
+                  className="relative overflow-hidden"
+                  style={{ height: 8, background: 'var(--mm-panel-alt)', borderRadius: '4px', border: '1px solid var(--mm-rule)' }}
+                >
+                  <div
+                    style={{ width: `${Math.min(100, c.progressPct)}%`, height: '100%', background: proxColor }}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
