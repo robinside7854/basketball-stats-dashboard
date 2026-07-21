@@ -85,7 +85,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { o
             {!authLoading && (user ? (
               <div className="hidden sm:flex items-center gap-1">
                 <span
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-yellow)] text-[color:var(--mm-ink)] text-xs font-bold min-h-[44px]"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-xs font-bold min-h-[44px]"
                   title={`로그인: ${user.login_id}`}
                 >
                   <UserIcon size={13} />
@@ -243,7 +243,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
                 {active && (
                   <span
                     aria-hidden
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-b-full bg-[color:var(--mm-yellow)]"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-b-full bg-[color:var(--color-hoop-orange-500)]"
                   />
                 )}
                 <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
@@ -263,7 +263,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
             {(moreOpen || moreGroupActive) && (
               <span
                 aria-hidden
-                className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-b-full bg-[color:var(--mm-yellow)]"
+                className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-b-full bg-[color:var(--color-hoop-orange-500)]"
               />
             )}
             <MoreHorizontal size={22} strokeWidth={moreOpen || moreGroupActive ? 2.25 : 1.75} />
