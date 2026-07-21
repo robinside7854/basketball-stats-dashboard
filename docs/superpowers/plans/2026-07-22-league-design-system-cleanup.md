@@ -51,7 +51,7 @@
 
 Phase B/C 가 참조할 토큰과 공용 컴포넌트를 먼저 정의한다. Phase A 완료 시 눈에 보이는 변화는 최소(카드가 공용 컴포넌트로 옮겨졌으나 스타일은 동일).
 
-### Task A1: SectionCard 공용 컴포넌트 신설
+### Task 1 (A1): SectionCard 공용 컴포넌트 신설
 
 **Files:**
 - Create: `src/components/league/ui/SectionCard.tsx`
@@ -128,7 +128,7 @@ git push origin master
 
 ---
 
-### Task A2: 폰트 스케일 & tracking & 라벨 대비 토큰 추가
+### Task 2 (A2): 폰트 스케일 & tracking & 라벨 대비 토큰 추가
 
 **Files:**
 - Modify: `src/app/globals.css` (`@theme` 블록 확장)
@@ -182,7 +182,7 @@ git push origin master
 
 ---
 
-### Task A3: 여백 리듬 토큰 추가
+### Task 3 (A3): 여백 리듬 토큰 추가
 
 **Files:**
 - Modify: `src/app/globals.css` (`@theme` 블록 확장 · A2 뒤에 이어붙임)
@@ -234,7 +234,7 @@ git push origin master
 
 ---
 
-### Task A4: SectionCard 도입 리팩터 (5개 파일)
+### Task 4 (A4): SectionCard 도입 리팩터 (5개 파일)
 
 7개 컴포넌트 중 인라인 카드 스타일을 `<SectionCard>` 로 대체. 이 태스크는 시각적 변화 최소(스타일은 SectionCard 안에 그대로) — Phase B/C 진행 시 카드 스타일 변경이 한 곳에서 이뤄지도록 준비.
 
@@ -470,7 +470,7 @@ AnnouncementsHome (옐로우 헤더가 지금 시각적 정체성) 과 PersonalD
 
 ## Phase B — Color System
 
-### Task B1: AnnouncementsHome 옐로우 다운그레이드 + SectionCard 편입
+### Task 5 (B1): AnnouncementsHome 옐로우 다운그레이드 + SectionCard 편입
 
 **Files:**
 - Modify: `src/components/league/announcements/AnnouncementsHome.tsx`
@@ -641,7 +641,7 @@ git push origin master
 
 ---
 
-### Task B2: NbaTeamStandings 1위 옐로우 → subtle tint
+### Task 6 (B2): NbaTeamStandings 1위 옐로우 → subtle tint
 
 **Files:**
 - Modify: `src/components/league/nba/NbaTeamStandings.tsx`
@@ -770,7 +770,7 @@ git push origin master
 
 ---
 
-### Task B3: NbaLeaders 옐로우 다운그레이드
+### Task 7 (B3): NbaLeaders 옐로우 다운그레이드
 
 **Files:**
 - Modify: `src/components/league/nba/NbaLeaders.tsx`
@@ -936,7 +936,7 @@ git push origin master
 
 ---
 
-### Task B4: MilestoneFeed 옐로우 다운그레이드
+### Task 8 (B4): MilestoneFeed 옐로우 다운그레이드
 
 **Files:**
 - Modify: `src/components/league/MilestoneFeed.tsx`
@@ -1052,7 +1052,7 @@ git push origin master
 
 ---
 
-### Task B5: HighlightsHome 옐로우 다운그레이드 (부분)
+### Task 9 (B5): HighlightsHome 옐로우 다운그레이드 (부분)
 
 `winning` 스타일과 위닝샷 카드 보더는 Task B10 (클러치 5단계 재정렬)에서 처리. 이 Task 는 나머지 옐로우 지점만.
 
@@ -1119,7 +1119,7 @@ git push origin master
 
 ---
 
-### Task B6: NbaRoundsSummary 옐로우 다운그레이드
+### Task 10 (B6): NbaRoundsSummary 옐로우 다운그레이드
 
 **Files:**
 - Modify: `src/components/league/nba/NbaRoundsSummary.tsx`
@@ -1241,7 +1241,7 @@ git push origin master
 
 ---
 
-### Task B7: LeagueLayoutClient 유저 칩 뉴트럴화
+### Task 11 (B7): LeagueLayoutClient 유저 칩 뉴트럴화
 
 **Files:**
 - Modify: `src/app/league/[orgSlug]/[leagueId]/_components/LeagueLayoutClient.tsx`
@@ -1297,7 +1297,7 @@ git push origin master
 
 ---
 
-### Task B8: PersonalDashboard 옐로우 다운그레이드 + SectionCard 편입
+### Task 12 (B8): PersonalDashboard 옐로우 다운그레이드 + SectionCard 편입
 
 **Files:**
 - Modify: `src/components/league/auth/PersonalDashboard.tsx`
@@ -1422,7 +1422,7 @@ git push origin master
 
 ---
 
-### Task B9: MilestoneChaser 프로그레스 바 근접도 로직 통일
+### Task 13 (B9): MilestoneChaser 프로그레스 바 근접도 로직 통일
 
 **Files:**
 - Modify: `src/app/globals.css` (근접도 3티어 CSS 변수 추가)
@@ -1536,7 +1536,7 @@ git push origin master
 
 ---
 
-### Task B10: 클러치샷 5단계 재정렬 + CSS 변수 승격 + 위닝샷 오렌지
+### Task 14 (B10): 클러치샷 5단계 재정렬 + CSS 변수 승격 + 위닝샷 오렌지
 
 **Files:**
 - Modify: `src/app/globals.css` (클러치 5단계 CSS 변수)
@@ -1672,7 +1672,7 @@ git push origin master
 
 ## Phase C — Individual Components
 
-### Task C1: 스탯 카드 (SeasonSummary) 통일
+### Task 15 (C1): 스탯 카드 (SeasonSummary) 통일
 
 **Files:**
 - Modify: `src/components/league/auth/PersonalDashboard.tsx` (`SeasonSummary`, `StatCard`)
@@ -1847,7 +1847,7 @@ git push origin master
 
 ---
 
-### Task C2: 네비 아이콘 5개 크기·툴팁 통일
+### Task 16 (C2): 네비 아이콘 5개 크기·툴팁 통일
 
 **Files:**
 - Modify: `src/app/league/[orgSlug]/[leagueId]/_components/LeagueLayoutClient.tsx`
