@@ -59,8 +59,8 @@ function proximityColor(progressPct: number): string {
 // (2026-07-22 · rank 티어링 · '—' 제거)
 function rankStyle(rank: number, total: number): { badge?: string; color: string; bg?: string } {
   if (total <= 0) return { color: 'var(--mm-muted)' }
-  if (rank === 1) return { badge: '🥇', color: '#ffffff', bg: '#D4A017' }  // gold
-  if (rank === 2) return { badge: '🥈', color: '#ffffff', bg: '#94A3B8' }  // silver
+  if (rank === 1) return { badge: '🥇', color: '#0a0a0a', bg: '#D4A017' }  // gold · dark text WCAG AA
+  if (rank === 2) return { badge: '🥈', color: '#0a0a0a', bg: '#94A3B8' }  // silver · dark text WCAG AA
   if (rank === 3) return { badge: '🥉', color: '#ffffff', bg: '#B45309' }  // bronze
   if (rank <= 10) return { color: '#ffffff', bg: 'var(--milestone-near)' }
   return { color: 'var(--mm-muted)', bg: 'transparent' }
