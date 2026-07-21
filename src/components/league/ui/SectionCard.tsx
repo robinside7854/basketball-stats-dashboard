@@ -11,6 +11,7 @@ interface Props {
   dataTour?: string
   ariaLabel?: string
   className?: string
+  background?: string  // CSS color; default var(--mm-panel)
   children: ReactNode
 }
 
@@ -20,6 +21,7 @@ export default function SectionCard({
   dataTour,
   ariaLabel,
   className = '',
+  background = 'var(--mm-panel)',
   children,
 }: Props) {
   const isStandalone = variant === 'standalone'
@@ -29,7 +31,7 @@ export default function SectionCard({
       aria-label={ariaLabel}
       className={`mm-brand ${className}`}
       style={{
-        background: 'var(--mm-panel)',
+        background,
         border: '1px solid var(--mm-rule)',
         borderTop: isStandalone ? '1px solid var(--mm-rule)' : (emphasized ? '3px solid var(--mm-yellow-soft)' : 0),
         borderRadius: isStandalone ? '6px' : 0,

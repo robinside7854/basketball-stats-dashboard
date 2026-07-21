@@ -15,6 +15,7 @@ import { HeartCrack, ChevronRight, PlayCircle } from 'lucide-react'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
 import HighlightsClipModal from '@/components/highlights/HighlightsClipModal'
+import SectionCard from '@/components/league/ui/SectionCard'
 
 // 클러치샷 종류 라벨/색상 매핑 (2026-07-18)
 //   위닝샷은 브랜드 골드로 최상 등급 · 나머지는 의미별 상용 컬러
@@ -97,15 +98,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
 
   return (
     <>
-      <section
-        data-tour="highlights-home"
-        className="mm-brand"
-        style={{
-          background: 'var(--mm-panel-alt)',
-          border: '1px solid var(--mm-rule)',
-          borderTop: 0,
-        }}
-      >
+      <SectionCard variant="stack" dataTour="highlights-home" background="var(--mm-panel-alt)">
         {/* 헤더 */}
         <header
           className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 sm:px-6 md:px-10 py-4 md:py-5"
@@ -332,7 +325,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
             {data.displayNames.length > 0 ? ` · ${data.displayNames.slice(0, 4).join(' · ')}` : ''}
           </div>
         )}
-      </section>
+      </SectionCard>
 
       {/* 팝업 재생기 — 공용 HighlightsClipModal · 클러치샷 플레이리스트 자동 재생 */}
       {openIdx !== null && hasClutch && (

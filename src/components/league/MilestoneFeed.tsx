@@ -9,6 +9,7 @@ import { Play, ChevronRight, Trophy } from 'lucide-react'
 const PlayerQuickViewModal = dynamic(() => import('./PlayerQuickViewModal'), { ssr: false })
 // ▶ 클릭 시에만 열리는 클립 모달 — YT iframe API 지연 로드
 const MilestoneClipModal = dynamic(() => import('./MilestoneClipModal'), { ssr: false })
+import SectionCard from '@/components/league/ui/SectionCard'
 
 type MilestoneCategory = 'PTS' | 'REB' | 'AST' | 'STL' | 'BLK' | '3PM' | 'GP'
 
@@ -115,13 +116,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
 
   return (
     <>
-      <section
-        className="mm-brand"
-        style={{
-          background: 'var(--mm-panel)',
-          border: '1px solid var(--mm-rule)',
-        }}
-      >
+      <SectionCard variant="stack">
         {/* 헤더 */}
         <header
           className="flex items-center justify-between gap-3 px-5 md:px-8 py-4 md:py-5"
@@ -291,7 +286,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
             </Link>
           </div>
         )}
-      </section>
+      </SectionCard>
 
       {quickPlayer && (
         <PlayerQuickViewModal

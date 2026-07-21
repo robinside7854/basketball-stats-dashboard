@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { ClipboardList, Film, ArrowRight } from 'lucide-react'
 import { ResultChips, ScoreTable } from './RecordDisplay'
+import SectionCard from '@/components/league/ui/SectionCard'
 
 export type RoundTeamSummary = {
   key: string
@@ -42,15 +43,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
 
   return (
     <>
-      <section
-        data-tour="rounds"
-        className="mm-brand"
-        style={{
-          background: 'var(--mm-panel-alt)',
-          border: '1px solid var(--mm-rule)',
-          borderTop: 0,
-        }}
-      >
+      <SectionCard variant="stack" dataTour="rounds" background="var(--mm-panel-alt)">
         <header
           className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 sm:px-6 md:px-10 py-4 md:py-5"
           style={{ borderBottom: '1px solid var(--mm-rule)' }}
@@ -208,7 +201,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
             <ArrowRight size={16} aria-hidden />
           </Link>
         </div>
-      </section>
+      </SectionCard>
     </>
   )
 }
