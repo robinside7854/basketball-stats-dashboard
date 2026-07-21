@@ -88,8 +88,10 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                     <span
                       className="text-[11px] font-black tracking-[0.14em] uppercase shrink-0 break-keep"
                       style={{
-                        background: 'var(--mm-yellow)',
-                        color: 'var(--mm-black)',
+                        background: 'var(--mm-yellow-soft)',
+                        color: 'var(--mm-ink)',
+                        border: '1px solid var(--mm-yellow-strong)',
+                        borderRadius: '3px',
                         padding: '3px 8px',
                         maxWidth: '55%',
                         lineHeight: 1.2,
@@ -151,7 +153,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                 >
                   <Link
                     href={`${base}/boxscore/${r.date}`}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                     style={{
                       background: 'var(--mm-panel-alt)',
                       color: 'var(--mm-ink)',
@@ -165,11 +167,11 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                   </Link>
                   <Link
                     href={`${base}/highlights/${r.date}`}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                     style={{
-                      background: 'var(--mm-yellow)',
-                      color: 'var(--mm-black)',
-                      border: '1px solid var(--mm-black)',
+                      background: 'var(--mm-ink)',
+                      color: 'var(--mm-panel)',
+                      border: '1px solid var(--mm-ink)',
                       borderRadius: '4px',
                     }}
                     aria-label={`${r.weekLabel} 득점 하이라이트 재생`}
@@ -189,11 +191,11 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
             href={`/league/${resolvedOrgSlug}/${leagueId}/highlights`}
             className="mm-brand inline-flex items-center justify-center gap-2 font-jersey font-black uppercase min-h-[44px] px-6 sm:px-8 py-3 tracking-[0.14em] text-[13px] sm:text-[14px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-2 hover:brightness-95"
             style={{
-              background: 'var(--mm-yellow)',
-              color: 'var(--mm-black)',
-              border: '2px solid var(--mm-black)',
+              background: 'var(--mm-ink)',
+              color: 'var(--mm-panel)',
+              border: '2px solid var(--mm-ink)',
               borderRadius: '4px',
-              boxShadow: '0 4px 0 var(--mm-black)',
+              boxShadow: '0 4px 0 var(--mm-yellow-strong)',
             }}
             aria-label="전체 라운드 하이라이트 보기"
           >
