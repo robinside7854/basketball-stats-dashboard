@@ -180,7 +180,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                         <button
                           key={p.player_id}
                           onClick={() => setQuickPlayer({ id: p.player_id, name: p.name })}
-                          className="w-full grid gap-3 sm:gap-4 items-center transition-colors duration-200 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                          className="w-full grid gap-3 sm:gap-4 items-center transition-colors duration-200 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                           style={{
                             gridTemplateColumns: `auto minmax(0,auto) minmax(0,1fr) auto`,
                             padding: isTop ? '14px 12px' : '10px 12px',
