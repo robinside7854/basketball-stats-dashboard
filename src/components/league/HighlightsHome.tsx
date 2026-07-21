@@ -154,7 +154,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
           <Link
             href={roundHref}
             className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] font-black tracking-[0.14em] uppercase min-h-[36px] px-2 -mx-2 cursor-pointer transition-colors"
-            style={{ color: 'var(--mm-yellow-strong)' }}
+            style={{ color: 'var(--mm-ink-soft)' }}
             aria-label="이번 라운드 하이라이트 전체 보기"
           >
             전체 보기
@@ -180,7 +180,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   key={c.event_id}
                   type="button"
                   onClick={() => setOpenIdx(i)}
-                  className="group text-left block cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 relative overflow-hidden flex flex-col"
+                  className="group text-left block cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 relative overflow-hidden flex flex-col"
                   style={{
                     background: 'var(--mm-panel)',
                     border: isWinning ? '2px solid var(--mm-yellow-strong)' : '1px solid var(--mm-rule)',
@@ -287,8 +287,8 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                       <span
                         className="text-[11px] font-black px-1.5 py-0.5"
                         style={{
-                          background: 'var(--mm-yellow)',
-                          color: 'var(--mm-black)',
+                          background: 'var(--color-hoop-orange-500)',
+                          color: '#ffffff',
                           borderRadius: '3px',
                         }}
                       >
