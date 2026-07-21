@@ -100,6 +100,15 @@
   --milestone-near: #059669;   /* progressPct >= 80% (곧 달성 · emerald-600) */
   --milestone-mid:  #F59E0B;   /* 60~80% (가까움 · amber-500) */
   --milestone-far:  #64748B;   /* < 60% (아직 · slate-500 뉴트럴) */
+
+  /* ===== 클러치샷 5단계 위기 강도 스케일 (2026-07-22)
+     dagger < chase < tie < reversal < winning · 위기 강도 낮음 → 높음 순
+     winning 은 옐로우 대신 브랜드 오렌지(hoop-orange-500)로 · 옐로우 실색상 자리 침범 방지 */
+  --clutch-1: #64748B;  /* dagger (쐐기 · 이미 앞선 상태 · 슬레이트) */
+  --clutch-2: #06B6D4;  /* chase (추격 · 시안) */
+  --clutch-3: #0EA5E9;  /* tie (동점 · 스카이) */
+  --clutch-4: #10B981;  /* reversal (역전 · 에메랄드) */
+  --clutch-5: #EA580C;  /* winning (위닝샷 · 오렌지 최상 · 옐로우 대체) */
 }
 
 @custom-variant dark (&:is(.dark *));

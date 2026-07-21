@@ -26,12 +26,14 @@ const KIND_LABEL: Record<NonNullable<HighlightClip['clutch_kind']>, string> = {
   winning:  '위닝샷',
   dagger:   '쐐기',
 }
-const KIND_STYLE: Record<NonNullable<HighlightClip['clutch_kind']>, { bg: string; fg: string }> = {
-  tie:      { bg: '#0891b2', fg: '#ffffff' },  // cyan-600 · 균형
-  chase:    { bg: '#f97316', fg: '#ffffff' },  // orange-500 · 몰아붙임
-  reversal: { bg: '#10b981', fg: '#ffffff' },  // emerald-500 · 반전
-  winning:  { bg: 'var(--mm-yellow)', fg: 'var(--mm-black)' },  // 브랜드 골드 · 최상 등급
-  dagger:   { bg: '#ef4444', fg: '#ffffff' },  // red-500 · 결정타
+// 클러치 5단계 · CSS 변수 승격 (2026-07-22 · 위기 강도 순 dagger→chase→tie→reversal→winning)
+// winning 은 옐로우 대신 hoop-orange-500 (옐로우 실색상은 이번 주 하이라이트 CTA 전용)
+const KIND_STYLE: Record<NonNullable<HighlightClip['clutch_kind']>, { bg: string; fg: string; level: number }> = {
+  dagger:   { bg: 'var(--clutch-1)', fg: '#ffffff', level: 1 },
+  chase:    { bg: 'var(--clutch-2)', fg: '#ffffff', level: 2 },
+  tie:      { bg: 'var(--clutch-3)', fg: '#ffffff', level: 3 },
+  reversal: { bg: 'var(--clutch-4)', fg: '#ffffff', level: 4 },
+  winning:  { bg: 'var(--clutch-5)', fg: '#ffffff', level: 5 },
 }
 // 가치 순위 (2026-07-19) · 위닝샷 > 역전 > 동점 > 추격 > 쐐기
 // (쐐기는 이미 앞선 상태에서 격차 벌리기라 상대적으로 극적 강도 낮음)
@@ -183,7 +185,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   className="group text-left block cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 relative overflow-hidden flex flex-col"
                   style={{
                     background: 'var(--mm-panel)',
-                    border: isWinning ? '2px solid var(--mm-yellow-strong)' : '1px solid var(--mm-rule)',
+                    border: isWinning ? '2px solid var(--clutch-5)' : '1px solid var(--mm-rule)',
                     borderRadius: '4px',
                     minHeight: 220,
                   }}
@@ -196,13 +198,15 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                       style={{ background: kindStyle.bg, color: kindStyle.fg }}
                     >
                       {isWinning && <span aria-hidden>★</span>}
+                      <span aria-hidden style={{ opacity: 0.75, fontSize: '0.85em' }}>Lv{kindStyle.level}</span>
+                      <span>·</span>
                       {kindLabel}
                       {isWinning && <span aria-hidden>★</span>}
                     </div>
                   ) : (
                     <div
                       className="flex items-center justify-center gap-1 py-1.5 text-[12px] font-black tracking-[0.14em] uppercase"
-                      style={{ background: '#ef4444', color: '#fff' }}
+                      style={{ background: 'var(--clutch-1)', color: '#ffffff' }}
                     >
                       <HeartCrack size={12} aria-hidden />
                       클러치
