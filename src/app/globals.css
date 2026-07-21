@@ -27,7 +27,7 @@
   --mm-panel-alt: #0F0F0F;
   --mm-ink: #FAFAFA;
   --mm-ink-soft: #E4E4E7;       /* zinc-200 · 이전 D4D4D4 → 더 밝게 (다크 배경 서브 대비) */
-  --mm-muted: #B8B8BE;          /* 이전 A1A1AA → 더 밝게 (다크에서 뮤트 텍스트 가독성) */
+  --mm-muted: #C4C4CB;          /* 2026-07-22 상향 (WCAG AA 4.5:1 · 라벨 대비 개선) */
   --mm-rule: #262626;
   --mm-yellow: #FDE047;        /* yellow-300, 밝게 (다크 배경 대비) */
   --mm-yellow-strong: #FACC15;
@@ -79,6 +79,14 @@
   --color-amber-400: #FBBF24;
   --color-amber-500: #F59E0B;
   --color-amber-300: #FCD34D;
+
+  /* ===== 폰트 스케일 위계 (2026-07-22 · 리그 디자인 시스템 정돈) =====
+     각 컴포넌트가 인라인 clamp 대신 이 토큰 참조 */
+  --fs-hero:  clamp(32px, 8vw, 42px);   /* 큰 숫자 (스탯 값 · 리더 값) */
+  --fs-num:   clamp(20px, 5vw, 26px);   /* 중간 숫자 (승률 · 순위) */
+  --fs-body:  clamp(14px, 3.6vw, 16px); /* 본문 텍스트 (신규 · 중간 단계) */
+  --fs-label: 12px;                     /* 상단 라벨 (uppercase 카테고리) */
+  --track-label: 0.14em;                /* 라벨 tracking 통일 (0.14 · 0.16 · 0.18 혼재 해소) */
 }
 
 @custom-variant dark (&:is(.dark *));
