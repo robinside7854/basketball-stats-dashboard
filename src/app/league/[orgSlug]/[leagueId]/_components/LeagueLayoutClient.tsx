@@ -95,31 +95,32 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { o
                   onClick={logout}
                   aria-label="로그아웃"
                   title="로그아웃"
-                  className="p-1.5 rounded border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press"
+                  className="p-2 rounded-md border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press"
                 >
-                  <LogOut size={14} />
+                  <LogOut size={16} />
                 </button>
               </div>
             ) : (
               <button
                 onClick={onOpenLogin}
                 aria-label="로그인"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] text-xs font-medium cursor-pointer transition-colors min-h-[44px]"
+                className="flex items-center gap-1.5 px-2.5 py-2 rounded-md bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] text-xs font-medium cursor-pointer transition-colors min-h-[44px]"
               >
-                <LogIn size={13} />
+                <LogIn size={16} />
                 <span className="hidden sm:inline">로그인</span>
               </button>
             ))}
-            <button onClick={onOpenSearch} aria-label="선수 검색"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] text-xs font-medium cursor-pointer transition-colors min-h-[44px]">
-              <Search size={13} />
+            <button onClick={onOpenSearch} aria-label="선수 검색" title="선수/게임 검색"
+              className="flex items-center gap-1.5 px-2.5 py-2 rounded-md bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] text-xs font-medium cursor-pointer transition-colors min-h-[44px]">
+              <Search size={16} />
               <span className="hidden sm:inline">검색</span>
               <kbd className="hidden md:inline text-xs text-[color:var(--mm-muted)] bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded px-1">⌘K</kbd>
             </button>
             <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
-              className="p-1.5 rounded border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press">
-              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+              title="라이트/다크 전환"
+              className="p-2 rounded-md border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press">
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
             <button
               data-tour="tour-reopen"
@@ -135,18 +136,18 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { o
               }}
               aria-label="둘러보기 다시 실행"
               title="둘러보기"
-              className="p-1.5 rounded border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press">
-              <HelpCircle size={14} />
+              className="p-2 rounded-md border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press">
+              <HelpCircle size={16} />
             </button>
             {isEditMode ? (
               <button onClick={exitEditMode}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] border border-[color:var(--mm-yellow)] hover:brightness-95 font-semibold transition-colors cursor-pointer btn-press">
-                <Unlock size={12} /><span className="hidden sm:inline">편집 중</span>
+                className="flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-md min-h-[44px] bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] border border-[color:var(--mm-yellow)] hover:brightness-95 font-semibold transition-colors cursor-pointer btn-press">
+                <Unlock size={16} /><span className="hidden sm:inline">편집 중</span>
               </button>
             ) : (
               <button onClick={openPinModal}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer btn-press">
-                <Lock size={12} /><span className="hidden sm:inline">편집</span>
+                className="flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-md min-h-[44px] border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer btn-press">
+                <Lock size={16} /><span className="hidden sm:inline">편집</span>
               </button>
             )}
           </div>
