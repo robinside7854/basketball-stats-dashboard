@@ -55,14 +55,15 @@ function proximityColor(progressPct: number): string {
   return 'var(--milestone-far)'
 }
 
-// 랭킹 스타일 · 1위=🥇 · 2위=🥈 · 3위=🥉 · 3-10위 초록 강조 (3위는 메달 + 초록)
-function rankStyle(rank: number, total: number): { badge?: string; color: string } {
+// 순위 뱃지 스타일 · 1-3위 메달 + 골드/실버/브론즈 배경 · 4-10위 milestone-near · 11위+ 뉴트럴
+// (2026-07-22 · rank 티어링 · '—' 제거)
+function rankStyle(rank: number, total: number): { badge?: string; color: string; bg?: string } {
   if (total <= 0) return { color: 'var(--mm-muted)' }
-  if (rank === 1) return { badge: '🥇', color: '#059669' }
-  if (rank === 2) return { badge: '🥈', color: '#059669' }
-  if (rank === 3) return { badge: '🥉', color: '#059669' }
-  if (rank <= 10) return { color: '#059669' }
-  return { color: 'var(--mm-muted)' }
+  if (rank === 1) return { badge: '🥇', color: '#ffffff', bg: '#D4A017' }  // gold
+  if (rank === 2) return { badge: '🥈', color: '#ffffff', bg: '#94A3B8' }  // silver
+  if (rank === 3) return { badge: '🥉', color: '#ffffff', bg: '#B45309' }  // bronze
+  if (rank <= 10) return { color: '#ffffff', bg: 'var(--milestone-near)' }
+  return { color: 'var(--mm-muted)', bg: 'transparent' }
 }
 
 export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
@@ -193,30 +194,22 @@ function SeasonSummary({ season }: { season: Season }) {
 }
 
 function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; value: number; rank?: RankInfo }) {
-  const color = METRIC_COLOR[metricKey]
   const rs = rank ? rankStyle(rank.rank, rank.total) : null
-  const isTop3 = rank && rank.rank <= 3 && rank.total > 0
   return (
     <div
       className="relative flex flex-col items-center justify-between overflow-hidden"
       style={{
-        background: `${color}12`,          // 12 = ~7% opacity
-        border: `1.5px solid ${color}55`,  // 55 = ~33% opacity
+        background: 'var(--mm-panel-alt)',
+        border: '1px solid var(--mm-rule)',
         borderRadius: '6px',
         padding: '10px 4px 8px',
         minHeight: 96,
       }}
     >
-      {/* 상단 색 라인 (metric 컬러 강조) */}
-      <div
-        aria-hidden
-        className="absolute top-0 left-0 right-0"
-        style={{ height: 3, background: color }}
-      />
       {/* 지표 라벨 */}
       <div
         className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.14em] mt-0.5"
-        style={{ color }}
+        style={{ color: 'var(--mm-muted)' }}
       >
         {METRIC_LABEL[metricKey]}
       </div>
@@ -231,13 +224,17 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
       >
         {value}
       </div>
-      {/* 랭킹 뱃지 · 메달 or 초록 or 회색 */}
-      {rank && rank.total > 0 && rs ? (
+      {/* 랭킹 뱃지 · 통일 규칙 (2026-07-22)
+          1-3위: 메달 + N위 · 골드/실버/브론즈 배경 · 흰 텍스트
+          4-10위: N위 · milestone-near 배경 · 흰 텍스트
+          11위+: N위 · 뉴트럴 텍스트 · 배경 없음
+          랭킹 정보 없음: 렌더 안 함 (— 제거) */}
+      {rank && rank.total > 0 && rs && (
         <div
           className="inline-flex items-center gap-0.5 text-[11px] md:text-[12px] font-black tabular-nums px-1.5 py-0.5"
           style={{
-            color: isTop3 ? '#fff' : rs.color,
-            background: isTop3 ? rs.color : 'transparent',
+            color: rs.color,
+            background: rs.bg ?? 'transparent',
             borderRadius: '3px',
             letterSpacing: '-0.005em',
           }}
@@ -246,8 +243,6 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
           {rs.badge && <span aria-hidden style={{ fontSize: '13px' }}>{rs.badge}</span>}
           <span>{rank.rank}위</span>
         </div>
-      ) : (
-        <div className="text-[10px] font-bold" style={{ color: 'var(--mm-muted)' }}>—</div>
       )}
     </div>
   )
