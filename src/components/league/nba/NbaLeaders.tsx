@@ -120,9 +120,9 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                     onClick={() => setSelectedCatKey(cat.key)}
                     className="shrink-0 min-h-[36px] px-3 py-1.5 text-xs font-black uppercase transition-colors cursor-pointer whitespace-nowrap"
                     style={{
-                      background: active ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
-                      color: active ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
-                      border: `1px solid ${active ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+                      background: active ? 'var(--mm-ink)' : 'var(--mm-panel-alt)',
+                      color: active ? 'var(--mm-panel)' : 'var(--mm-ink-soft)',
+                      border: `1px solid ${active ? 'var(--mm-ink)' : 'var(--mm-rule)'}`,
                       borderRadius: '4px',
                       letterSpacing: '0.10em',
                     }}
@@ -161,7 +161,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                   >
                     <h4
                       className="font-black uppercase break-keep"
-                      style={{ color: 'var(--mm-yellow-strong)', fontSize: '13px', letterSpacing: '0.18em', lineHeight: 1.3 }}
+                      style={{ color: 'var(--mm-ink-soft)', fontSize: '13px', letterSpacing: 'var(--track-label)', lineHeight: 1.3 }}
                     >
                       {cat.label}
                     </h4>
@@ -184,15 +184,16 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                           style={{
                             gridTemplateColumns: `auto minmax(0,auto) minmax(0,1fr) auto`,
                             padding: isTop ? '14px 12px' : '10px 12px',
-                            background: isTop ? 'var(--mm-yellow)' : 'transparent',
-                            color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                            background: isTop ? 'var(--mm-yellow-soft)' : 'transparent',
+                            borderLeft: isTop ? '3px solid var(--mm-yellow-strong)' : '3px solid transparent',
+                            color: 'var(--mm-ink)',
                           }}
                         >
                           {/* 순위 큰 숫자 */}
                           <span
                             className="font-jersey font-black tabular-nums leading-none"
                             style={{
-                              color: isTop ? 'var(--mm-black)' : 'var(--mm-muted)',
+                              color: isTop ? 'var(--mm-ink)' : 'var(--mm-muted)',
                               width: isTop ? '28px' : '24px',
                               textAlign: 'right',
                               fontSize: isTop ? '32px' : '26px',
@@ -208,7 +209,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                               width: avatarSize,
                               height: avatarSize,
                               background: 'var(--mm-panel)',
-                              border: `${isTop ? 3 : 2}px solid ${isTop ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+                              border: `${isTop ? 3 : 2}px solid ${isTop ? 'var(--mm-yellow-strong)' : 'var(--mm-rule)'}`,
                             }}
                           >
                             {photo ? (
@@ -224,7 +225,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                               <span
                                 className="font-jersey font-black"
                                 style={{
-                                  color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                                  color: 'var(--mm-ink)',
                                   fontSize: isTop ? '22px' : '18px',
                                 }}
                               >
@@ -238,7 +239,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                             <span
                               className="block font-jersey uppercase break-keep"
                               style={{
-                                color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                                color: 'var(--mm-ink)',
                                 fontSize: isTop ? 'clamp(20px, 5.2vw, 26px)' : 'clamp(17px, 4.4vw, 22px)',
                                 fontWeight: 900,
                                 letterSpacing: '-0.005em',
@@ -252,7 +253,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                             <span
                               className="block font-bold uppercase mt-1.5"
                               style={{
-                                color: isTop ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)',
+                                color: 'var(--mm-muted)',
                                 fontSize: '11px',
                                 letterSpacing: '0.16em',
                               }}
@@ -268,7 +269,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                             <span
                               className="font-jersey font-black tabular-nums leading-none"
                               style={{
-                                color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                                color: 'var(--mm-ink)',
                                 letterSpacing: '-0.015em',
                                 fontSize: isTop ? 'clamp(32px, 8vw, 42px)' : 'clamp(26px, 6.5vw, 34px)',
                               }}
@@ -279,7 +280,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                               <span
                                 className="font-mono tabular-nums mt-1"
                                 style={{
-                                  color: isTop ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)',
+                                  color: 'var(--mm-muted)',
                                   fontSize: '11px',
                                   letterSpacing: '0.04em',
                                 }}
