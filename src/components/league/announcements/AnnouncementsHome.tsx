@@ -276,7 +276,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
                     onClick={(e) => { e.stopPropagation(); startEdit(featured) }}
                     title="수정"
                     aria-label={`${featured.title} 수정`}
-                    className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                    className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)]"
                     style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}
                   >
                     <Pencil size={13} aria-hidden />
@@ -286,7 +286,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
                     onClick={(e) => { e.stopPropagation(); onDelete(featured) }}
                     title="삭제"
                     aria-label={`${featured.title} 삭제`}
-                    className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                    className="min-w-[36px] min-h-[36px] inline-flex items-center justify-center rounded-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)]"
                     style={{ background: 'var(--mm-panel)', color: '#DC2626', border: '1px solid var(--mm-rule)' }}
                   >
                     <Trash2 size={13} aria-hidden />
