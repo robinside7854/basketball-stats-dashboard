@@ -47,15 +47,16 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
       <div className="grid gap-0">
         {standings.map((t, idx) => {
           const isTop = idx === 0
-          const rateColor = t.winRate >= 60 ? '#059669' : t.winRate >= 40 ? 'var(--mm-yellow-strong)' : '#DC2626'
+          const rateColor = t.winRate >= 60 ? '#059669' : t.winRate >= 40 ? 'var(--mm-ink-soft)' : '#DC2626'
           return (
             <div
               key={t.key}
               className="px-4 sm:px-6 md:px-8 py-3 sm:py-3.5"
               style={{
-                background: isTop ? 'var(--mm-yellow)' : 'transparent',
+                background: isTop ? 'var(--mm-yellow-soft)' : 'transparent',
+                borderLeft: isTop ? '3px solid var(--mm-yellow-strong)' : '3px solid transparent',
                 borderBottom: idx < standings.length - 1 ? '1px solid var(--mm-rule)' : 'none',
-                color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                color: 'var(--mm-ink)',
               }}
             >
               {/* 상단 행 · 순위 + 팀 컬러 바 + 팀 이름 + 승률 */}
@@ -64,7 +65,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
                   className="font-jersey font-black tabular-nums text-right leading-none"
                   style={{
                     fontSize: isTop ? 'clamp(20px, 5.5vw, 26px)' : 'clamp(18px, 5vw, 22px)',
-                    color: isTop ? 'var(--mm-black)' : 'var(--mm-muted)',
+                    color: isTop ? 'var(--mm-ink)' : 'var(--mm-muted)',
                   }}
                 >
                   {idx + 1}
@@ -80,7 +81,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
                     fontSize: isTop ? 'clamp(16px, 4.6vw, 22px)' : 'clamp(14px, 3.8vw, 18px)',
                     fontWeight: 900,
                     letterSpacing: '-0.005em',
-                    color: isTop ? 'var(--mm-black)' : 'var(--mm-ink)',
+                    color: 'var(--mm-ink)',
                     lineHeight: 1.15,
                     wordBreak: 'break-word',
                     overflowWrap: 'anywhere',
@@ -92,7 +93,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
                   className="font-jersey font-black tabular-nums leading-none"
                   style={{
                     fontSize: isTop ? 'clamp(18px, 5.2vw, 24px)' : 'clamp(16px, 4.6vw, 20px)',
-                    color: isTop ? 'var(--mm-black)' : rateColor,
+                    color: rateColor,
                     minWidth: '64px',
                     textAlign: 'right',
                     letterSpacing: '-0.01em',
@@ -102,7 +103,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
                   {t.winRate.toFixed(1)}
                   <span
                     className="text-[13px] font-bold ml-0.5 align-baseline"
-                    style={{ color: isTop ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)' }}
+                    style={{ color: 'var(--mm-muted)' }}
                   >
                     %
                   </span>
