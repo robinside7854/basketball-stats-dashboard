@@ -12,6 +12,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import AnnouncementReaderModal from './AnnouncementReaderModal'
 import AnnouncementEditorModal from './AnnouncementEditorModal'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
+import SectionCard from '@/components/league/ui/SectionCard'
 
 interface Props {
   leagueId: string
@@ -158,25 +159,20 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
   if (items.length === 0 && !isEditMode) return null
 
   return (
-    <section
-      data-tour="announcements"
-      className="mm-brand relative rounded-md overflow-hidden shadow-[0_10px_36px_-14px_rgba(202,138,4,0.35)]"
-      style={{ background: 'var(--mm-panel)', border: '2px solid var(--mm-yellow)' }}
-      aria-label="리그 공지"
-    >
+    <SectionCard variant="standalone" dataTour="announcements" ariaLabel="리그 공지" emphasized>
       <header
         className="flex items-center justify-between gap-2 px-4 sm:px-6 md:px-10 py-3 sm:py-4"
-        style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-yellow)' }}
+        style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
       >
         <div className="inline-flex items-center gap-2 min-w-0">
-          <Megaphone size={18} className="text-[color:var(--mm-black)] shrink-0" aria-hidden />
-          <h2 className="font-jersey font-black uppercase text-base sm:text-lg tracking-[0.14em]" style={{ color: 'var(--mm-black)' }}>
+          <Megaphone size={18} className="text-[color:var(--mm-ink)] shrink-0" aria-hidden />
+          <h2 className="font-jersey font-black uppercase text-base sm:text-lg tracking-[0.14em]" style={{ color: 'var(--mm-ink)' }}>
             공지
           </h2>
           {unreadCount > 0 && (
             <span
               className="text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5 rounded-sm inline-flex items-center gap-1"
-              style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)' }}
+              style={{ background: '#DC2626', color: '#ffffff' }}
               aria-label={`미확인 ${unreadCount}건`}
             >
               <Sparkles size={10} aria-hidden />
@@ -189,7 +185,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
             <Link
               href={`/league/${orgSlug}/${leagueId}/archive/announcements`}
               className="min-h-[36px] px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors inline-flex items-center gap-1"
-              style={{ background: 'transparent', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
+              style={{ background: 'transparent', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}
               aria-label="공지 전체 보기"
             >
               전체
@@ -248,7 +244,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
                 <div className="flex items-center gap-3 mt-2 flex-wrap text-[13px]">
                   {featured.created_by && (
                     <span className="inline-flex items-center gap-1 font-black" style={{ color: 'var(--mm-ink)' }}>
-                      <User size={13} className="text-[color:var(--mm-yellow-strong)]" aria-hidden />
+                      <User size={13} className="text-[color:var(--mm-ink-soft)]" aria-hidden />
                       {featured.created_by}
                     </span>
                   )}
@@ -267,7 +263,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
                 )}
                 <span
                   className="inline-block mt-3 text-[11px] font-bold uppercase tracking-[0.14em]"
-                  style={{ color: 'var(--mm-yellow-strong)' }}
+                  style={{ color: 'var(--mm-ink-soft)' }}
                 >
                   자세히 보기 →
                 </span>
@@ -335,7 +331,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
                           </span>
                           {a.created_by && (
                             <span className="text-[11px] font-bold mt-0.5 inline-flex items-center gap-1" style={{ color: 'var(--mm-ink-soft)' }}>
-                              <User size={10} className="text-[color:var(--mm-yellow-strong)]" aria-hidden />
+                              <User size={10} className="text-[color:var(--mm-ink-soft)]" aria-hidden />
                               {a.created_by}
                             </span>
                           )}
@@ -401,6 +397,6 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
           onSaved={onSaved}
         />
       )}
-    </section>
+    </SectionCard>
   )
 }
