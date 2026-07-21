@@ -9,6 +9,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Trophy, Film, User as UserIcon, ChevronRight, Sparkles, IdCard } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
+import SectionCard from '@/components/league/ui/SectionCard'
 
 // 선수카드 모달 · 클릭 후에만 로드 (recharts 포함)
 const PlayerQuickViewModal = dynamic(() => import('../PlayerQuickViewModal'), { ssr: false })
@@ -82,21 +83,12 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
 
   return (
     <>
-      <section
-        className="mm-brand"
-        style={{
-          background: 'linear-gradient(135deg, var(--mm-panel) 0%, var(--mm-yellow-soft) 130%)',
-          border: '1px solid var(--mm-yellow)',
-          borderRadius: '6px',
-          boxShadow: '0 12px 32px -12px rgba(202,138,4,0.25)',
-          overflow: 'hidden',
-        }}
-      >
+      <SectionCard variant="standalone" emphasized>
         {/* 헤더 · 유저 프로필 + 프로필카드 CTA · PC 확대 */}
         <header className="flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 md:py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
           <div
             className="relative w-12 h-12 md:w-14 md:h-14 shrink-0 rounded-full overflow-hidden flex items-center justify-center"
-            style={{ background: 'var(--mm-panel-alt)', border: '2px solid var(--mm-yellow)' }}
+            style={{ background: 'var(--mm-panel-alt)', border: '2px solid var(--mm-rule)' }}
             aria-hidden
           >
             {user.photo_url ? (
@@ -111,7 +103,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
               <span className="font-jersey font-black text-xl md:text-2xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.01em' }}>
                 {user.name ?? user.login_id}
               </span>
-              <Sparkles size={16} style={{ color: 'var(--mm-yellow-strong)' }} />
+              <Sparkles size={16} style={{ color: 'var(--mm-ink-soft)' }} />
             </div>
             <div className="text-[12px] md:text-[13px] font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
               나의 이번 시즌 대시보드
@@ -121,7 +113,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
             type="button"
             onClick={() => setProfileOpen(true)}
             className="shrink-0 inline-flex items-center gap-1.5 px-3 md:px-4 py-2 text-xs md:text-sm font-black uppercase min-h-[40px] md:min-h-[44px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
-            style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', borderRadius: '4px', letterSpacing: '0.12em' }}
+            style={{ background: 'var(--mm-black)', color: 'var(--mm-panel)', border: '1px solid var(--mm-black)', borderRadius: '4px', letterSpacing: '0.12em' }}
             aria-label="선수카드 열기"
           >
             <IdCard size={14} />
@@ -145,7 +137,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
             <MilestoneChaser chasers={data.milestoneChasers} />
           </>
         )}
-      </section>
+      </SectionCard>
 
       {profileOpen && user && (
         <PlayerQuickViewModal
@@ -173,7 +165,7 @@ function SeasonSummary({ season }: { season: Season }) {
         <span className="font-jersey font-black uppercase text-base md:text-lg" style={{ color: 'var(--mm-ink)' }}>이번 시즌</span>
         <span
           className="inline-flex items-center text-[12px] md:text-[13px] font-black px-2 py-0.5"
-          style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}
+          style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '3px' }}
         >
           {season.attended_rounds}R 참석
         </span>
@@ -288,7 +280,7 @@ function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
   return (
     <div className="p-4 md:p-5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
       <div className="flex items-center gap-1.5 mb-3">
-        <Trophy size={16} style={{ color: 'var(--mm-yellow-strong)' }} />
+        <Trophy size={16} style={{ color: 'var(--mm-ink-soft)' }} />
         <span className="font-jersey font-black uppercase text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
           마일스톤 체이서
         </span>
