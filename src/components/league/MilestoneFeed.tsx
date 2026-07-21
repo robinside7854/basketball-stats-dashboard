@@ -123,7 +123,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
           style={{ borderBottom: '1px solid var(--mm-rule)' }}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <Trophy size={18} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
+            <Trophy size={18} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />
             <h3
               className="font-jersey font-black uppercase break-keep"
               style={{
@@ -132,7 +132,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                 letterSpacing: '-0.005em',
               }}
             >
-              최근 <span style={{ color: 'var(--mm-yellow-strong)' }}>마일스톤</span>
+              최근 <span style={{ color: 'var(--mm-ink-soft)' }}>마일스톤</span>
             </h3>
           </div>
           <span
@@ -162,7 +162,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                   <button
                     type="button"
                     onClick={() => setQuickPlayer({ id: r.player_id, name: r.name })}
-                    className="flex-1 flex items-center gap-3 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 min-w-0 min-h-[44px]"
+                    className="flex-1 flex items-center gap-3 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 min-w-0 min-h-[44px]"
                     aria-label={`${r.name} 선수 상세 보기`}
                   >
                     <span
@@ -206,7 +206,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                         <span
                           className="ml-1.5 tabular-nums"
                           style={{
-                            color: 'var(--mm-yellow-strong)',
+                            color: 'var(--mm-ink)',
                             fontSize: 'clamp(15px, 4vw, 18px)',
                             fontWeight: 900,
                           }}
@@ -246,11 +246,11 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                       if (playable) setClip(r)
                     }}
                     disabled={!playable}
-                    className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] shrink-0 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 disabled:cursor-not-allowed"
+                    className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] shrink-0 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 disabled:cursor-not-allowed"
                     style={{
-                      background: playable ? 'var(--mm-yellow)' : 'var(--mm-panel)',
-                      color: playable ? 'var(--mm-black)' : 'var(--mm-muted)',
-                      border: `1px solid ${playable ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
+                      background: playable ? 'var(--mm-ink)' : 'var(--mm-panel)',
+                      color: playable ? 'var(--mm-panel)' : 'var(--mm-muted)',
+                      border: `1px solid ${playable ? 'var(--mm-ink)' : 'var(--mm-rule)'}`,
                       borderRadius: '4px',
                       opacity: playable ? 1 : 0.5,
                     }}
@@ -273,9 +273,9 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
           >
             <Link
               href={milestonesHref}
-              className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] min-h-[36px] px-3 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+              className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] min-h-[36px] px-3 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)]"
               style={{
-                color: 'var(--mm-yellow-strong)',
+                color: 'var(--mm-ink-soft)',
                 background: 'var(--mm-panel-alt)',
                 border: '1px solid var(--mm-rule)',
                 borderRadius: '4px',
