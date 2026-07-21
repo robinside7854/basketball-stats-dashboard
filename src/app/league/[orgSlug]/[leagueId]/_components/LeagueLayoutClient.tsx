@@ -60,7 +60,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { o
                     data-tour={tourAttr}
                     className={`shrink-0 px-3 lg:px-4 py-3.5 lg:py-4 text-sm lg:text-base border-b-2 transition-all duration-200 ${
                       isActive
-                        ? 'border-[color:var(--mm-yellow)] text-[color:var(--mm-ink)] font-semibold'
+                        ? 'border-[color:var(--color-hoop-orange-500)] text-[color:var(--mm-ink)] font-semibold'
                         : 'border-transparent text-[color:var(--mm-muted)] font-medium hover:text-[color:var(--mm-ink)]'
                     }`}
                   >
@@ -206,7 +206,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
                 <Link key={href} href={href} onClick={() => setMoreOpen(false)}
                   className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded transition-colors min-h-[64px] ${
                     isActive(href)
-                      ? 'bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)] ring-1 ring-[color:var(--mm-yellow)]'
+                      ? 'bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)] ring-1 ring-[color:var(--color-hoop-orange-500)]'
                       : 'text-[color:var(--mm-ink-soft)] hover:bg-[color:var(--mm-panel-alt)] hover:text-[color:var(--mm-ink)]'
                   }`}>
                   <Icon size={22} strokeWidth={isActive(href) ? 2.25 : 1.75} />
@@ -223,7 +223,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
       <nav
         aria-label="주요 메뉴"
         data-tour="bottom-nav"
-        className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--mm-panel)]/95 backdrop-blur-md border-t ${isEditMode ? 'border-[color:var(--mm-yellow)]' : 'border-[color:var(--mm-rule)]'}`}
+        className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--mm-panel)]/95 backdrop-blur-md border-t ${isEditMode ? 'border-[color:var(--color-hoop-orange-500)]' : 'border-[color:var(--mm-rule)]'}`}
       >
         <div className="flex items-stretch justify-around h-14">
           {mainTabs.map(({ href, label, Icon }) => {
