@@ -70,7 +70,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
 
   const { records, four_factors: ff, advanced: adv } = data
 
-  // 단일 일자 기록 카드 — 부문색 없이 mm-yellow-strong accent 하나로 통일
+  // 단일 일자 기록 카드 — 부문색 없이 중립 accent 하나로 통일
   const recordCards: { key: string; label: string; record: DayRecord; icon: React.ReactNode; suffix?: string }[] = [
     { key: 'pts',     label: '최다 득점 일자',  record: records.most_points_day,  icon: <Flame size={14} />,       suffix: '점' },
     { key: 'allowed', label: '최소 실점 일자',  record: records.fewest_allowed,   icon: <ShieldCheck size={14} />, suffix: '점 허용' },
@@ -108,14 +108,14 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
           {recordCards.filter(c => c.record).map(c => (
             <div
               key={c.key}
-              className="p-4 sm:p-5 rounded-sm transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              className="p-4 sm:p-5 rounded-md transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
               style={{
                 background: 'var(--mm-panel-alt)',
                 border: '1px solid var(--mm-rule)',
               }}
             >
               <div className="flex items-center gap-1.5 mb-1.5">
-                <span style={{ color: 'var(--mm-yellow-strong)' }}>{c.icon}</span>
+                <span style={{ color: 'var(--mm-ink-soft)' }}>{c.icon}</span>
                 <span
                   className="font-bold uppercase tracking-[0.16em]"
                   style={{ color: 'var(--mm-ink)', fontSize: '10px' }}
@@ -229,7 +229,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
       {adv && (
         <div>
           <p className={sectionHeadCls} style={{ color: 'var(--mm-ink)' }}>
-            <TrendingUp size={12} className="inline mr-1 mb-0.5" style={{ color: 'var(--mm-yellow-strong)' }} />
+            <TrendingUp size={12} className="inline mr-1 mb-0.5" style={{ color: 'var(--mm-ink-soft)' }} />
             Advanced 팀 평가
             <span className={sectionSubCls} style={{ color: 'var(--mm-muted)' }}>
               100 포제션당 득실 · Pace = 경기당 평균 포제션
@@ -238,12 +238,12 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {/* ORtg */}
             <div
-              className="p-4 sm:p-5 rounded-sm transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              className="p-4 sm:p-5 rounded-md transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div
                 className="font-bold uppercase tracking-[0.20em]"
-                style={{ color: 'var(--mm-yellow-strong)', fontSize: '11px' }}
+                style={{ color: 'var(--mm-ink-soft)', fontSize: '11px' }}
               >
                 ORtg
               </div>
@@ -262,12 +262,12 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             </div>
             {/* DRtg */}
             <div
-              className="p-4 sm:p-5 rounded-sm transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              className="p-4 sm:p-5 rounded-md transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div
                 className="font-bold uppercase tracking-[0.20em]"
-                style={{ color: 'var(--mm-yellow-strong)', fontSize: '11px' }}
+                style={{ color: 'var(--mm-ink-soft)', fontSize: '11px' }}
               >
                 DRtg
               </div>
@@ -286,19 +286,19 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             </div>
             {/* Net Rtg — 부호에 따라 emerald/red 데이터 강조 예외 허용 */}
             <div
-              className="p-4 sm:p-5 rounded-sm transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              className="p-4 sm:p-5 rounded-md transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div
                 className="font-bold uppercase tracking-[0.20em]"
-                style={{ color: 'var(--mm-yellow-strong)', fontSize: '11px' }}
+                style={{ color: 'var(--mm-ink-soft)', fontSize: '11px' }}
               >
                 Net Rtg
               </div>
               <div
                 className="font-jersey font-black tabular-nums leading-none mt-1"
                 style={{
-                  color: adv.net_rtg > 0 ? '#059669' : adv.net_rtg < 0 ? '#DC2626' : 'var(--mm-ink)',
+                  color: adv.net_rtg > 0 ? 'var(--mm-positive)' : adv.net_rtg < 0 ? 'var(--mm-negative)' : 'var(--mm-ink)',
                   fontSize: 'clamp(28px, 5vw, 36px)',
                 }}
               >
@@ -313,12 +313,12 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             </div>
             {/* Pace */}
             <div
-              className="p-4 sm:p-5 rounded-sm transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              className="p-4 sm:p-5 rounded-md transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div
                 className="font-bold uppercase tracking-[0.20em]"
-                style={{ color: 'var(--mm-yellow-strong)', fontSize: '11px' }}
+                style={{ color: 'var(--mm-ink-soft)', fontSize: '11px' }}
               >
                 Pace
               </div>
