@@ -7,6 +7,7 @@ import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import Link from 'next/link'
 import TeamInsights from '@/components/league/TeamInsights'
+import SectionCard from '@/components/league/ui/SectionCard'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { PercentBar } from '@/components/league/StatCell'
@@ -103,7 +104,7 @@ const BASIC_COLOR: Partial<Record<BasicKey, string>> = {
   spg: 'text-purple-600', stl: 'text-purple-600',
   bpg: 'text-indigo-600', blk: 'text-indigo-600',
   topg: 'text-red-600', tov: 'text-red-600',
-  fg_pct: 'text-[color:var(--mm-muted)]', fg3_pct: 'text-[color:var(--mm-yellow-strong)]',
+  fg_pct: 'text-[color:var(--mm-muted)]', fg3_pct: 'text-[#eab308]',
   ft_pct: 'text-cyan-700', efg_pct: 'text-teal-700',
   fgm: 'text-[color:var(--mm-muted)]', fg3m: 'text-[color:var(--mm-muted)]', ftm: 'text-[color:var(--mm-muted)]',
 }
@@ -114,17 +115,17 @@ const ADV_COLOR: Partial<Record<AdvKey, string>> = {
   orb_pct: 'text-amber-700', drb_pct: 'text-emerald-600', trb_pct: 'text-violet-600',
 }
 const SHOOT_COLOR: Partial<Record<ShootingKey, string>> = {
-  fg_pct: 'text-[color:var(--mm-ink-soft)]', fg2_pct: 'text-orange-600', fg3_pct: 'text-[color:var(--mm-yellow-strong)]',
+  fg_pct: 'text-[color:var(--mm-ink-soft)]', fg2_pct: 'text-orange-600', fg3_pct: 'text-[#eab308]',
   efg_pct: 'text-teal-700', ft_pct: 'text-cyan-700', ts_pct: 'text-teal-600',
   ft_rate: 'text-cyan-700',
-  ds_pct: 'text-red-600', lu_pct: 'text-orange-600', md_pct: 'text-[color:var(--mm-yellow-strong)]', three_share: 'text-blue-600',
+  ds_pct: 'text-red-600', lu_pct: 'text-orange-600', md_pct: 'text-[#eab308]', three_share: 'text-blue-600',
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc'|'desc' }) {
   if (!active) return <ChevronsUpDown size={9} className="inline ml-0.5 opacity-30" />
   return dir === 'desc'
-    ? <ChevronDown size={9} className="inline ml-0.5" style={{ color: 'var(--mm-yellow-strong)' }} />
-    : <ChevronUp   size={9} className="inline ml-0.5" style={{ color: 'var(--mm-yellow-strong)' }} />
+    ? <ChevronDown size={9} className="inline ml-0.5" style={{ color: 'var(--mm-ink)' }} />
+    : <ChevronUp   size={9} className="inline ml-0.5" style={{ color: 'var(--mm-ink)' }} />
 }
 
 function calcAdv(p: PlayerStat): Record<AdvKey, number> {
@@ -272,8 +273,8 @@ function StatsTable({
                 <button key={key} onClick={() => handleBasicSort(key)}
                   className="px-2.5 py-1 text-xs font-black uppercase tracking-wider transition-colors shrink-0 cursor-pointer"
                   style={{
-                    background: active ? 'var(--mm-yellow)' : 'var(--mm-panel)',
-                    color: active ? 'var(--mm-black)' : 'var(--mm-muted)',
+                    background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
+                    color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
                     border: '1px solid var(--mm-rule)',
                   }}>
                   {label}{active && (basicSortDir === 'desc' ? ' ↓' : ' ↑')}
@@ -287,8 +288,8 @@ function StatsTable({
                 <button key={key} onClick={() => handleShootSort(key)}
                   className="px-2.5 py-1 text-xs font-black uppercase tracking-wider transition-colors shrink-0 cursor-pointer"
                   style={{
-                    background: active ? 'var(--mm-yellow)' : 'var(--mm-panel)',
-                    color: active ? 'var(--mm-black)' : 'var(--mm-muted)',
+                    background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
+                    color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
                     border: '1px solid var(--mm-rule)',
                   }}>
                   {label}{active && (shootSortDir === 'desc' ? ' ↓' : ' ↑')}
@@ -302,8 +303,8 @@ function StatsTable({
                 <button key={key} onClick={() => handleAdvSort(key)}
                   className="px-2.5 py-1 text-xs font-black uppercase tracking-wider transition-colors shrink-0 cursor-pointer"
                   style={{
-                    background: active ? 'var(--mm-yellow)' : 'var(--mm-panel)',
-                    color: active ? 'var(--mm-black)' : 'var(--mm-muted)',
+                    background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
+                    color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
                     border: '1px solid var(--mm-rule)',
                   }}>
                   {label}{active && (advSortDir === 'desc' ? ' ↓' : ' ↑')}
@@ -325,7 +326,7 @@ function StatsTable({
                 style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
-                  {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />}
+                  {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                   <div className="flex-1 min-w-0">
                     <div className="font-jersey font-black uppercase text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
@@ -333,7 +334,7 @@ function StatsTable({
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="font-jersey font-black tabular-nums leading-none" style={{ color: color ?? 'var(--mm-yellow-strong)', fontSize: '26px' }}>{basicVal(p, basicSortKey)}</div>
+                    <div className="font-jersey font-black tabular-nums leading-none" style={{ color: color ?? 'var(--mm-ink)', fontSize: '26px' }}>{basicVal(p, basicSortKey)}</div>
                     <div className="text-xs font-bold uppercase tracking-wider mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sortLabel}</div>
                   </div>
                 </div>
@@ -362,7 +363,7 @@ function StatsTable({
                 style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
-                  {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />}
+                  {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                   <div className="flex-1 min-w-0">
                     <div className="font-jersey font-black uppercase text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
@@ -370,7 +371,7 @@ function StatsTable({
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="font-jersey font-black tabular-nums leading-none" style={{ color: color ?? 'var(--mm-yellow-strong)', fontSize: '26px' }}>{shootVal(sh, shootSortKey)}</div>
+                    <div className="font-jersey font-black tabular-nums leading-none" style={{ color: color ?? 'var(--mm-ink)', fontSize: '26px' }}>{shootVal(sh, shootSortKey)}</div>
                     <div className="text-xs font-bold uppercase tracking-wider mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sortLabel}</div>
                   </div>
                 </div>
@@ -399,7 +400,7 @@ function StatsTable({
                 style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
-                  {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />}
+                  {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                   <div className="flex-1 min-w-0">
                     <div className="font-jersey font-black uppercase text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
@@ -407,7 +408,7 @@ function StatsTable({
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="font-jersey font-black tabular-nums leading-none" style={{ color: color ?? 'var(--mm-yellow-strong)', fontSize: '26px' }}>{advVal(adv, advSortKey)}</div>
+                    <div className="font-jersey font-black tabular-nums leading-none" style={{ color: color ?? 'var(--mm-ink)', fontSize: '26px' }}>{advVal(adv, advSortKey)}</div>
                     <div className="text-xs font-bold uppercase tracking-wider mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sortLabel}</div>
                   </div>
                 </div>
@@ -441,7 +442,7 @@ function StatsTable({
                 return (
                   <th key={key} onClick={() => handleBasicSort(key)}
                     className="py-2 px-1.5 text-xs font-black uppercase cursor-pointer select-none text-right transition-colors"
-                    style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>
+                    style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>
                     {label}<SortIcon active={active} dir={basicSortDir} />
                   </th>
                 )
@@ -453,7 +454,7 @@ function StatsTable({
                 return (
                   <th key={key} onClick={() => handleShootSort(key)} title={desc}
                     className="py-2 px-1.5 text-xs font-black uppercase cursor-pointer select-none text-right transition-colors"
-                    style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', ...divider }}>
+                    style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', ...divider }}>
                     {label}<SortIcon active={active} dir={shootSortDir} />
                   </th>
                 )
@@ -464,7 +465,7 @@ function StatsTable({
                 return (
                   <th key={key} onClick={() => handleAdvSort(key)} title={desc}
                     className="py-2 px-1.5 text-xs font-black uppercase cursor-pointer select-none text-right transition-colors"
-                    style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>
+                    style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>
                     {label}<SortIcon active={active} dir={advSortDir} />
                   </th>
                 )
@@ -480,8 +481,8 @@ function StatsTable({
                 <tr key={p.player_id} className="transition-colors hover:bg-[color:var(--mm-yellow-soft)]" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                   <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--mm-yellow)] underline-offset-4">
-                      {isLeader && <Crown size={10} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />}
+                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
+                      {isLeader && <Crown size={10} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                       <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                         {p.name}
@@ -508,8 +509,8 @@ function StatsTable({
                 <tr key={p.player_id} className="transition-colors hover:bg-[color:var(--mm-yellow-soft)]" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                   <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--mm-yellow)] underline-offset-4">
-                      {isLeader && <Crown size={10} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />}
+                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
+                      {isLeader && <Crown size={10} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                       <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                         {p.name}
@@ -539,8 +540,8 @@ function StatsTable({
                 <tr key={p.player_id} className="transition-colors hover:bg-[color:var(--mm-yellow-soft)]" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                   <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--mm-yellow)] underline-offset-4">
-                      {isLeader && <Crown size={10} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />}
+                      className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
+                      {isLeader && <Crown size={10} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                       <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                         {p.name}
@@ -645,13 +646,7 @@ function TeamDetailPanel({
   const ptsDiff = standing.gf - standing.ga
 
   return (
-    <div
-      className="mm-brand overflow-hidden mt-3 relative"
-      style={{
-        background: 'var(--mm-panel)',
-        border: '1px solid var(--mm-rule)',
-      }}
-    >
+    <SectionCard variant="standalone" className="mt-3 relative">
       {/* 팀 컬러 좌측 accent bar */}
       <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: team.color }} aria-hidden />
       {/* Header */}
@@ -669,13 +664,13 @@ function TeamDetailPanel({
             {/* B. 팀 스탯 Grid */}
             {computed && (
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.20em] mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>팀 스탯</p>
+                <p className="text-xs font-black uppercase tracking-[0.20em] mb-3" style={{ color: 'var(--mm-ink-soft)' }}>팀 스탯</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                   {[
                     { label: '팀 평균득점', value: avgPf.toFixed(1), sub: '경기당 득점', color: team.color },
-                    { label: '팀 평균실점', value: avgPa.toFixed(1), sub: '경기당 허용', color: '#DC2626' },
-                    { label: '득실차', value: (ptsDiff >= 0 ? '+' : '') + ptsDiff.toFixed(0), sub: `총 ${ptsDiff >= 0 ? '양수' : '음수'}`, color: ptsDiff >= 0 ? '#059669' : '#DC2626' },
-                    { label: '팀 FG%', value: `${computed.fgPct.toFixed(1)}%`, sub: '야투율', color: '#059669' },
+                    { label: '팀 평균실점', value: avgPa.toFixed(1), sub: '경기당 허용', color: 'var(--mm-negative)' },
+                    { label: '득실차', value: (ptsDiff >= 0 ? '+' : '') + ptsDiff.toFixed(0), sub: `총 ${ptsDiff >= 0 ? '양수' : '음수'}`, color: ptsDiff >= 0 ? 'var(--mm-positive)' : 'var(--mm-negative)' },
+                    { label: '팀 FG%', value: `${computed.fgPct.toFixed(1)}%`, sub: '야투율', color: 'var(--mm-positive)' },
                     { label: '팀 eFG%', value: `${computed.efgPct.toFixed(1)}%`, sub: '유효 야투율', color: '#0F766E' },
                     { label: 'STL+BLK/G', value: computed.defPg.toFixed(1), sub: '수비 이벤트', color: '#7C3AED' },
                   ].map(card => (
@@ -692,7 +687,7 @@ function TeamDetailPanel({
             {/* C. Top Performers */}
             {computed && (
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.20em] mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>팀 내 1위</p>
+                <p className="text-xs font-black uppercase tracking-[0.20em] mb-3" style={{ color: 'var(--mm-ink-soft)' }}>팀 내 1위</p>
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                   {[
                     { label: '득점왕', player: computed.byPpg, val: computed.byPpg ? `${computed.byPpg.ppg.toFixed(1)} PPG` : null },
@@ -719,32 +714,32 @@ function TeamDetailPanel({
             {/* D. 재미있는 팀 통계 */}
             {computed && (
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.20em] mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>팀 특성</p>
+                <p className="text-xs font-black uppercase tracking-[0.20em] mb-3" style={{ color: 'var(--mm-ink-soft)' }}>팀 특성</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {[
                     {
                       title: '에이스 의존도',
                       value: `${computed.acePct.toFixed(0)}%`,
                       desc: `에이스 비중 ${computed.acePct.toFixed(0)}%`,
-                      color: computed.acePct > 40 ? '#DC2626' : computed.acePct > 30 ? 'var(--mm-yellow-strong)' : '#059669',
+                      color: computed.acePct > 40 ? 'var(--mm-negative)' : computed.acePct > 30 ? 'var(--mm-neutral-strong)' : 'var(--mm-positive)',
                     },
                     {
                       title: '외곽 스타일',
                       value: `${computed.threePct.toFixed(0)}%`,
                       desc: `3점 시도 비율`,
-                      color: computed.threePct > 35 ? 'var(--mm-yellow-strong)' : '#2563EB',
+                      color: computed.threePct > 35 ? 'var(--mm-neutral-strong)' : '#2563EB',
                     },
                     {
                       title: '수비 강도',
                       value: computed.defPg.toFixed(1),
                       desc: `게임당 수비 이벤트`,
-                      color: computed.defPg > 5 ? '#059669' : computed.defPg > 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)',
+                      color: computed.defPg > 5 ? 'var(--mm-positive)' : computed.defPg > 3 ? 'var(--mm-neutral-strong)' : 'var(--mm-muted)',
                     },
                     {
                       title: '자유투 성공률',
                       value: `${computed.ftPct.toFixed(1)}%`,
                       desc: `팀 클러치 지표`,
-                      color: computed.ftPct > 75 ? '#059669' : computed.ftPct > 60 ? 'var(--mm-yellow-strong)' : '#DC2626',
+                      color: computed.ftPct > 75 ? 'var(--mm-positive)' : computed.ftPct > 60 ? 'var(--mm-neutral-strong)' : 'var(--mm-negative)',
                     },
                   ].map(tile => (
                     <div key={tile.title} className="p-3" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
@@ -767,7 +762,7 @@ function TeamDetailPanel({
 
             {/* E. Player Stats Table */}
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.20em] mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>선수 스탯</p>
+              <p className="text-xs font-black uppercase tracking-[0.20em] mb-3" style={{ color: 'var(--mm-ink-soft)' }}>선수 스탯</p>
               <StatsTable players={players} leagueId={leagueId} color={team.color} viewMode="avg" statMode="basic" />
             </div>
           </>
@@ -782,7 +777,7 @@ function TeamDetailPanel({
           onClose={() => setQuickView(null)}
         />
       )}
-    </div>
+    </SectionCard>
   )
 }
 
@@ -1053,7 +1048,7 @@ export default function LeagueTeamsPage() {
   if (quarters.length === 0) return (
     <div className="mm-brand text-center py-16" style={{ color: 'var(--mm-muted)' }}>
       <p className="text-sm">등록된 분기가 없습니다</p>
-      <Link href={rosterHref} className="inline-block mt-3 text-xs font-bold uppercase tracking-wider hover:underline" style={{ color: 'var(--mm-yellow-strong)' }}>→ 선수단 탭으로 이동</Link>
+      <Link href={rosterHref} className="inline-block mt-3 text-xs font-bold uppercase tracking-wider hover:underline" style={{ color: 'var(--mm-ink-soft)' }}>→ 선수단 탭으로 이동</Link>
     </div>
   )
 
@@ -1071,8 +1066,8 @@ export default function LeagueTeamsPage() {
             onClick={() => setSelectedQId('all')}
             className="px-4 py-1.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
             style={{
-              background: selectedQId === 'all' ? 'var(--mm-yellow)' : 'var(--mm-panel)',
-              color: selectedQId === 'all' ? 'var(--mm-black)' : 'var(--mm-muted)',
+              background: selectedQId === 'all' ? 'var(--mm-ink)' : 'var(--mm-panel)',
+              color: selectedQId === 'all' ? 'var(--mm-panel)' : 'var(--mm-muted)',
               border: '1px solid var(--mm-rule)',
             }}
           >
@@ -1084,12 +1079,12 @@ export default function LeagueTeamsPage() {
               <button key={q.id} onClick={() => setSelectedQId(q.id)}
                 className="px-4 py-1.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
                 style={{
-                  background: active ? 'var(--mm-yellow)' : 'var(--mm-panel)',
-                  color: active ? 'var(--mm-black)' : 'var(--mm-muted)',
+                  background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
+                  color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
                   border: '1px solid var(--mm-rule)',
                 }}>
                 {String(q.year).slice(2)}.{q.quarter}Q
-                {q.is_current && <span className="ml-1.5 w-1.5 h-1.5 rounded-full inline-block" style={{ background: active ? 'var(--mm-black)' : '#059669' }} />}
+                {q.is_current && <span className="ml-1.5 w-1.5 h-1.5 rounded-full inline-block" style={{ background: active ? 'var(--mm-panel)' : 'var(--mm-positive)' }} />}
               </button>
             )
           })}
@@ -1116,7 +1111,7 @@ export default function LeagueTeamsPage() {
                   key={s.identityKey}
                   className="overflow-hidden transition-shadow duration-200 relative hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
                   style={{
-                    background: isFirst ? 'var(--mm-yellow)' : 'var(--mm-panel)',
+                    background: isFirst ? 'var(--mm-ink)' : 'var(--mm-panel)',
                     border: isSelected ? '2px solid var(--mm-ink)' : '1px solid var(--mm-rule)',
                   }}
                 >
@@ -1131,30 +1126,30 @@ export default function LeagueTeamsPage() {
                     aria-label={`${s.displayName} 상세 정보 ${isSelected ? '닫기' : '열기'}`}
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-jersey font-black tabular-nums w-8 shrink-0" style={{ color: isFirst ? 'var(--mm-black)' : 'var(--mm-muted)', fontSize: '28px' }}>{idx + 1}</span>
+                      <span className="font-jersey font-black tabular-nums w-8 shrink-0" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-muted)', fontSize: '28px' }}>{idx + 1}</span>
                       <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
                       <div className="min-w-0">
-                        <span className="font-jersey font-black uppercase block break-keep" style={{ color: isFirst ? 'var(--mm-black)' : 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em', lineHeight: 1.15, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{s.displayName}</span>
+                        <span className="font-jersey font-black uppercase block break-keep" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em', lineHeight: 1.15, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{s.displayName}</span>
                         {s.quarterLabels.length > 0 && selectedQId === 'all' && (
-                          <span className="text-xs font-mono" style={{ color: isFirst ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)' }}>{s.quarterLabels.join(' · ')}</span>
+                          <span className="text-xs font-mono" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>{s.quarterLabels.join(' · ')}</span>
                         )}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-jersey font-black tabular-nums" style={{ color: isFirst ? 'var(--mm-black)' : s.color, fontSize: '28px' }}>{winPct}{played > 0 ? '%' : ''}</p>
-                      <p className="text-xs font-bold" style={{ color: isFirst ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)' }}>{s.w}승 {s.d > 0 ? `${s.d}무 ` : ''}{s.l}패 · {played}경기</p>
+                      <p className="font-jersey font-black tabular-nums" style={{ color: isFirst ? 'var(--mm-panel)' : s.color, fontSize: '28px' }}>{winPct}{played > 0 ? '%' : ''}</p>
+                      <p className="text-xs font-bold" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>{s.w}승 {s.d > 0 ? `${s.d}무 ` : ''}{s.l}패 · {played}경기</p>
                       {played > 0 && (
                         <div className="flex h-1 overflow-hidden w-16 mt-1 ml-auto">
                           <div className="h-full" style={{ width: `${s.w/played*100}%`, backgroundColor: s.color }} />
-                          {s.d > 0 && <div className="h-full" style={{ width: `${s.d/played*100}%`, background: isFirst ? 'rgba(0,0,0,0.4)' : 'var(--mm-yellow)' }} />}
-                          <div className="h-full flex-1" style={{ background: isFirst ? 'rgba(0,0,0,0.15)' : 'var(--mm-rule)' }} />
+                          {s.d > 0 && <div className="h-full" style={{ width: `${s.d/played*100}%`, background: isFirst ? 'color-mix(in srgb, var(--mm-panel) 40%, transparent)' : 'var(--mm-muted)' }} />}
+                          <div className="h-full flex-1" style={{ background: isFirst ? 'color-mix(in srgb, var(--mm-panel) 15%, transparent)' : 'var(--mm-rule)' }} />
                         </div>
                       )}
                     </div>
                   </button>
                   {/* 상대 전적 — 정체성 기준 (같은 정체성 그룹 안의 다른 정체성들과 대전) */}
                   <div className="px-4 py-3 pl-5">
-                    <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: isFirst ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)' }}>상대 전적</p>
+                    <p className="text-xs font-black uppercase tracking-wider mb-2" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>상대 전적</p>
                     {standings.filter(op => op.identityKey !== s.identityKey).map(op => {
                       const rec = h2h[s.identityKey]?.[op.identityKey] ?? { w: 0, d: 0, l: 0 }
                       const total = rec.w + rec.d + rec.l
@@ -1162,27 +1157,27 @@ export default function LeagueTeamsPage() {
                       const isLoss = rec.w < rec.l
                       return (
                         <div key={op.identityKey} className="flex items-center justify-between px-2 py-1 mb-1" style={{
-                          background: isFirst ? 'rgba(0,0,0,0.06)' : isWin ? 'rgba(5,150,105,0.10)' : isLoss ? 'rgba(220,38,38,0.10)' : 'var(--mm-panel-alt)',
-                          border: `1px solid ${isFirst ? 'rgba(0,0,0,0.15)' : isWin ? 'rgba(5,150,105,0.25)' : isLoss ? 'rgba(220,38,38,0.25)' : 'var(--mm-rule)'}`,
+                          background: isFirst ? 'color-mix(in srgb, var(--mm-panel) 6%, transparent)' : isWin ? 'rgba(5,150,105,0.10)' : isLoss ? 'rgba(220,38,38,0.10)' : 'var(--mm-panel-alt)',
+                          border: `1px solid ${isFirst ? 'color-mix(in srgb, var(--mm-panel) 15%, transparent)' : isWin ? 'rgba(5,150,105,0.25)' : isLoss ? 'rgba(220,38,38,0.25)' : 'var(--mm-rule)'}`,
                         }}>
                           <div className="flex items-center gap-1.5 min-w-0">
                             <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: op.color }} />
-                            <span className="text-xs font-bold break-keep min-w-0" style={{ color: isFirst ? 'var(--mm-black)' : 'var(--mm-ink)', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>vs {op.displayName}</span>
+                            <span className="text-xs font-bold break-keep min-w-0" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink)', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>vs {op.displayName}</span>
                           </div>
                           {total === 0 ? (
-                            <span className="text-xs shrink-0" style={{ color: isFirst ? 'rgba(0,0,0,0.5)' : 'var(--mm-muted)' }}>기록 없음</span>
+                            <span className="text-xs shrink-0" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 50%, transparent)' : 'var(--mm-muted)' }}>기록 없음</span>
                           ) : (
                             <div className="flex items-center gap-1 text-xs font-black tabular-nums shrink-0">
-                              <span style={{ color: isWin ? '#059669' : isFirst ? 'var(--mm-black)' : 'var(--mm-muted)' }}>{rec.w}W</span>
-                              {rec.d > 0 && <><span style={{ color: isFirst ? 'rgba(0,0,0,0.4)' : 'var(--mm-muted)' }}>·</span><span style={{ color: 'var(--mm-yellow-strong)' }}>{rec.d}D</span></>}
-                              <span style={{ color: isFirst ? 'rgba(0,0,0,0.4)' : 'var(--mm-muted)' }}>·</span>
-                              <span style={{ color: isLoss ? '#DC2626' : isFirst ? 'var(--mm-black)' : 'var(--mm-muted)' }}>{rec.l}L</span>
+                              <span style={{ color: isWin ? 'var(--mm-positive)' : isFirst ? 'var(--mm-panel)' : 'var(--mm-muted)' }}>{rec.w}W</span>
+                              {rec.d > 0 && <><span style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 40%, transparent)' : 'var(--mm-muted)' }}>·</span><span style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-neutral-strong)' }}>{rec.d}D</span></>}
+                              <span style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 40%, transparent)' : 'var(--mm-muted)' }}>·</span>
+                              <span style={{ color: isLoss ? 'var(--mm-negative)' : isFirst ? 'var(--mm-panel)' : 'var(--mm-muted)' }}>{rec.l}L</span>
                             </div>
                           )}
                         </div>
                       )
                     })}
-                    {totalPlayed === 0 && <p className="text-xs py-1" style={{ color: isFirst ? 'rgba(0,0,0,0.5)' : 'var(--mm-muted)' }}>완료된 경기 없음</p>}
+                    {totalPlayed === 0 && <p className="text-xs py-1" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 50%, transparent)' : 'var(--mm-muted)' }}>완료된 경기 없음</p>}
                   </div>
                 </div>
               )
@@ -1245,8 +1240,8 @@ export default function LeagueTeamsPage() {
                     <button key={k} onClick={() => setStatMode(k)}
                       className="px-3 py-1.5 text-xs font-black uppercase tracking-wider cursor-pointer transition-colors min-h-[36px]"
                       style={{
-                        background: active ? 'var(--mm-yellow)' : 'var(--mm-panel)',
-                        color: active ? 'var(--mm-black)' : 'var(--mm-muted)',
+                        background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
+                        color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
                       }}>
                       {label}
                     </button>
@@ -1261,8 +1256,8 @@ export default function LeagueTeamsPage() {
                     <button key={m} onClick={() => setViewMode(m)}
                       className="px-3 py-1.5 text-xs font-black uppercase tracking-wider cursor-pointer transition-colors min-h-[36px]"
                       style={{
-                        background: active ? 'var(--mm-yellow)' : 'var(--mm-panel)',
-                        color: active ? 'var(--mm-black)' : 'var(--mm-muted)',
+                        background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
+                        color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
                       }}>
                       {m === 'avg' ? '평균' : '누적'}
                     </button>
@@ -1275,8 +1270,7 @@ export default function LeagueTeamsPage() {
             const players = teamStats[s.identityKey] ?? []
             const leaderId = leaderMap[s.teamId] ?? null
             return (
-              <div key={s.identityKey} className="overflow-hidden relative"
-                style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
+              <SectionCard key={s.identityKey} variant="standalone" className="relative">
                 {/* 팀 컬러 좌측 accent bar */}
                 <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: s.color }} aria-hidden />
                 <div className="px-4 py-3 pl-5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
@@ -1297,7 +1291,7 @@ export default function LeagueTeamsPage() {
                     statMode={statMode}
                   />
                 </div>
-              </div>
+              </SectionCard>
             )
           })}
         </div>
@@ -1307,7 +1301,7 @@ export default function LeagueTeamsPage() {
           <div className="space-y-2">
             <h3 className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>비정규 선수</h3>
             <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)</p>
-            <div className="overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
+            <SectionCard variant="standalone">
               <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>비정규 참가자</span>
                 <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--mm-muted)' }}>{irregularStats.length}명</span>
@@ -1320,7 +1314,7 @@ export default function LeagueTeamsPage() {
                   statMode={statMode}
                 />
               </div>
-            </div>
+            </SectionCard>
           </div>
         )}
         </>
