@@ -32,14 +32,15 @@ interface Category {
 }
 
 // E안 브랜드 — 카테고리별 색 구분 제거, 활성/비활성만 대비.
-// 활성: mm-yellow accent (텍스트/보더). 비활성: mm-muted.
+// 활성: mm-yellow-soft 배경(subtle tint) + mm-ink 텍스트(auto-invert) + hoop-orange-500 보더(옐로우 실색상 금지, 도미노 확장 규칙).
+// 비활성: mm-muted.
 const CATEGORIES: Category[] = [
-  { key: 'pts', label: '득점',   Icon: Trophy,    color: 'text-[color:var(--mm-yellow-strong)]', bg: 'bg-[color:var(--mm-yellow-soft)]', border: 'border-[color:var(--mm-yellow)]' },
-  { key: 'reb', label: '리바',   Icon: Shield,    color: 'text-[color:var(--mm-yellow-strong)]', bg: 'bg-[color:var(--mm-yellow-soft)]', border: 'border-[color:var(--mm-yellow)]' },
-  { key: 'ast', label: '어시',   Icon: Hand,      color: 'text-[color:var(--mm-yellow-strong)]', bg: 'bg-[color:var(--mm-yellow-soft)]', border: 'border-[color:var(--mm-yellow)]' },
-  { key: 'blk', label: '블락',   Icon: Target,    color: 'text-[color:var(--mm-yellow-strong)]', bg: 'bg-[color:var(--mm-yellow-soft)]', border: 'border-[color:var(--mm-yellow)]' },
-  { key: 'stl', label: '스틸',   Icon: Zap,       color: 'text-[color:var(--mm-yellow-strong)]', bg: 'bg-[color:var(--mm-yellow-soft)]', border: 'border-[color:var(--mm-yellow)]' },
-  { key: 'tp',  label: '3점',    Icon: Crosshair, color: 'text-[color:var(--mm-yellow-strong)]', bg: 'bg-[color:var(--mm-yellow-soft)]', border: 'border-[color:var(--mm-yellow)]' },
+  { key: 'pts', label: '득점',   Icon: Trophy,    color: 'text-[color:var(--mm-ink)]', bg: 'bg-[color:var(--mm-yellow-soft)]', border: 'border-[color:var(--color-hoop-orange-500)]' },
+  { key: 'reb', label: '리바',   Icon: Shield,    color: 'text-[color:var(--mm-ink)]', bg: 'bg-[color:var(--mm-yellow-soft)]', border: 'border-[color:var(--color-hoop-orange-500)]' },
+  { key: 'ast', label: '어시',   Icon: Hand,      color: 'text-[color:var(--mm-ink)]', bg: 'bg-[color:var(--mm-yellow-soft)]', border: 'border-[color:var(--color-hoop-orange-500)]' },
+  { key: 'blk', label: '블락',   Icon: Target,    color: 'text-[color:var(--mm-ink)]', bg: 'bg-[color:var(--mm-yellow-soft)]', border: 'border-[color:var(--color-hoop-orange-500)]' },
+  { key: 'stl', label: '스틸',   Icon: Zap,       color: 'text-[color:var(--mm-ink)]', bg: 'bg-[color:var(--mm-yellow-soft)]', border: 'border-[color:var(--color-hoop-orange-500)]' },
+  { key: 'tp',  label: '3점',    Icon: Crosshair, color: 'text-[color:var(--mm-ink)]', bg: 'bg-[color:var(--mm-yellow-soft)]', border: 'border-[color:var(--color-hoop-orange-500)]' },
 ]
 
 interface Props {
@@ -82,7 +83,7 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <p className="text-xs text-[color:var(--mm-muted)] uppercase tracking-widest font-bold">게임 스탯 리더</p>
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)]">
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-[color:var(--mm-ink)] text-[color:var(--mm-panel)]">
             <Trophy size={12} strokeWidth={2} aria-hidden /> 총 {total}회
           </span>
         </div>
@@ -93,11 +94,11 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
           const count = badges[c.key]
           const active = count > 0
           const canClick = clickable && active
-          const cls = `relative flex flex-col items-center justify-center gap-1 rounded-sm border py-2.5 px-1 transition-shadow duration-200 ${
+          const cls = `relative flex flex-col items-center justify-center gap-1 rounded-md border py-2.5 px-1 transition-shadow duration-200 ${
             active
               ? `${c.bg} ${c.border}`
               : 'bg-[color:var(--mm-panel-alt)] border-[color:var(--mm-rule)]'
-          } ${canClick ? 'cursor-pointer hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1' : 'cursor-default'}`
+          } ${canClick ? 'cursor-pointer hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1' : 'cursor-default'}`
           const content = (
             <>
               <c.Icon size={16} className={active ? c.color : 'text-[color:var(--mm-muted)]'} />
@@ -130,7 +131,7 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
              onClick={e => { if (e.target === e.currentTarget) setOpenCat(null) }}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setOpenCat(null)} />
-          <div className="relative z-10 w-full max-w-md max-h-[80vh] bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm shadow-[0_20px_60px_-12px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col">
+          <div className="relative z-10 w-full max-w-md max-h-[80vh] bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-md shadow-[0_20px_60px_-12px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col">
             <div className={`flex items-center justify-between px-5 py-3.5 border-b border-[color:var(--mm-rule)] ${activeCategory.bg}`}>
               <div className="flex items-center gap-2">
                 <activeCategory.Icon size={18} className={activeCategory.color} />
@@ -141,7 +142,7 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
               <button
                 onClick={() => setOpenCat(null)}
                 aria-label="닫기"
-                className="text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] p-1 rounded hover:bg-[color:var(--mm-panel-alt)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                className="text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] p-1 rounded-md hover:bg-[color:var(--mm-panel-alt)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
               >
                 <X size={16} />
               </button>
@@ -158,7 +159,7 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
                       key={date}
                       href={leagueId ? `/league/${orgSlug}/${leagueId}/boxscore/${date}` : '#'}
                       onClick={() => setOpenCat(null)}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-sm border transition-shadow duration-200 cursor-pointer hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${activeCategory.bg} ${activeCategory.border}`}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-md border transition-shadow duration-200 cursor-pointer hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 ${activeCategory.bg} ${activeCategory.border}`}
                     >
                       <span className={`text-sm font-bold ${activeCategory.color}`}>{formatKoreanDate(date)}</span>
                       <span className="text-xs text-[color:var(--mm-muted)] uppercase tracking-widest">박스스코어 →</span>
@@ -196,7 +197,7 @@ export function LeaderBadgeInline({ badges, className = '' }: { badges: LeaderBa
       {items.map(c => (
         <span
           key={c.key}
-          className={`inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-xs font-bold ${c.bg} ${c.border} ${c.color}`}
+          className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-bold ${c.bg} ${c.border} ${c.color}`}
           title={`${c.label} 리더 ${badges[c.key]}회`}
         >
           <c.Icon size={9} />

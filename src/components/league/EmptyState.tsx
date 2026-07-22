@@ -50,8 +50,8 @@ export default function EmptyState({
       <p className="text-base font-semibold text-gray-300">{title}</p>
       {description && <p className="text-sm text-gray-500 mt-1.5 max-w-md mx-auto leading-relaxed">{description}</p>}
       {isEditMode && editorHint && (
-        <p className="text-xs text-amber-400 mt-3 inline-flex items-center gap-1.5">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+        <p className="text-xs text-gray-400 mt-3 inline-flex items-center gap-1.5">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" />
           {editorHint}
         </p>
       )}
