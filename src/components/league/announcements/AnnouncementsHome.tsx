@@ -197,7 +197,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
               type="button"
               onClick={startCreate}
               className="min-h-[36px] px-2.5 py-1.5 text-[11px] font-black uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors inline-flex items-center gap-1.5"
-              style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)', border: '1px solid var(--mm-black)' }}
+              style={{ background: 'var(--mm-black)', color: 'var(--mm-panel)', border: '1px solid var(--mm-black)' }}
               aria-label="새 공지 작성"
             >
               <Plus size={12} aria-hidden />
@@ -225,7 +225,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
                 <div className="inline-flex items-center gap-1.5 mb-2 flex-wrap">
                   {featured.pinned && (
                     <span className="text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5 rounded-sm"
-                      style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)' }}>
+                      style={{ background: 'var(--mm-black)', color: 'var(--mm-panel)' }}>
                       고정
                     </span>
                   )}
@@ -324,7 +324,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
                         <span className="flex-1 min-w-0">
                           <span className="text-sm font-bold block" style={{ color: 'var(--mm-ink)' }}>
                             {a.pinned && <span className="mr-1.5 text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5 rounded-sm"
-                              style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)' }}>고정</span>}
+                              style={{ background: 'var(--mm-black)', color: 'var(--mm-panel)' }}>고정</span>}
                             {isNew(a.published_at) && <span className="mr-1.5 text-[10px] font-black uppercase tracking-[0.14em] px-1.5 py-0.5 rounded-sm"
                               style={{ background: '#DC2626', color: 'white' }}>NEW</span>}
                             {a.title}

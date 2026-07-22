@@ -28,12 +28,12 @@ const KIND_LABEL: Record<NonNullable<HighlightClip['clutch_kind']>, string> = {
 }
 // 클러치 5단계 · CSS 변수 승격 (2026-07-22 · 위기 강도 순 dagger→chase→tie→reversal→winning)
 // winning 은 옐로우 대신 hoop-orange-500 (옐로우 실색상은 이번 주 하이라이트 CTA 전용)
-const KIND_STYLE: Record<NonNullable<HighlightClip['clutch_kind']>, { bg: string; fg: string; level: number }> = {
-  dagger:   { bg: 'var(--clutch-1)', fg: '#ffffff', level: 1 },
-  chase:    { bg: 'var(--clutch-2)', fg: '#ffffff', level: 2 },
-  tie:      { bg: 'var(--clutch-3)', fg: '#ffffff', level: 3 },
-  reversal: { bg: 'var(--clutch-4)', fg: '#ffffff', level: 4 },
-  winning:  { bg: 'var(--clutch-5)', fg: '#ffffff', level: 5 },
+const KIND_STYLE: Record<NonNullable<HighlightClip['clutch_kind']>, { bg: string; fg: string }> = {
+  dagger:   { bg: 'var(--clutch-1)', fg: '#ffffff' },
+  chase:    { bg: 'var(--clutch-2)', fg: '#ffffff' },
+  tie:      { bg: 'var(--clutch-3)', fg: '#ffffff' },
+  reversal: { bg: 'var(--clutch-4)', fg: '#ffffff' },
+  winning:  { bg: 'var(--clutch-5)', fg: '#ffffff' },
 }
 // 가치 순위 (2026-07-19) · 위닝샷 > 역전 > 동점 > 추격 > 쐐기
 // (쐐기는 이미 앞선 상태에서 격차 벌리기라 상대적으로 극적 강도 낮음)
@@ -198,8 +198,6 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                       style={{ background: kindStyle.bg, color: kindStyle.fg }}
                     >
                       {isWinning && <span aria-hidden>★</span>}
-                      <span aria-hidden style={{ opacity: 0.75, fontSize: '0.85em' }}>Lv{kindStyle.level}</span>
-                      <span>·</span>
                       {kindLabel}
                       {isWinning && <span aria-hidden>★</span>}
                     </div>
@@ -245,7 +243,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                         className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                         style={{ background: 'rgba(0,0,0,0.5)' }}
                       >
-                        <PlayCircle size={32} style={{ color: 'var(--mm-yellow)' }} fill="rgba(0,0,0,0.4)" />
+                        <PlayCircle size={32} style={{ color: 'var(--color-hoop-orange-500)' }} fill="rgba(0,0,0,0.4)" />
                       </span>
                     </div>
                   </div>

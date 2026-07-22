@@ -80,35 +80,24 @@
   --color-amber-500: #F59E0B;
   --color-amber-300: #FCD34D;
 
-  /* ===== 폰트 스케일 위계 (2026-07-22 · 리그 디자인 시스템 정돈) =====
-     각 컴포넌트가 인라인 clamp 대신 이 토큰 참조 */
-  --fs-hero:  clamp(32px, 8vw, 42px);   /* 큰 숫자 (스탯 값 · 리더 값) */
-  --fs-num:   clamp(20px, 5vw, 26px);   /* 중간 숫자 (승률 · 순위) */
-  --fs-body:  clamp(14px, 3.6vw, 16px); /* 본문 텍스트 (신규 · 중간 단계) */
-  --fs-label: 12px;                     /* 상단 라벨 (uppercase 카테고리) */
-  --track-label: 0.14em;                /* 라벨 tracking 통일 (0.14 · 0.16 · 0.18 혼재 해소) */
-
-  /* ===== 여백 리듬 토큰 (2026-07-22) =====
-     헤더/본문 padding 을 4-step → 3-step 으로 축소 · clamp 로 반응형 */
-  --pad-h-x:    clamp(16px, 4vw, 40px);  /* 섹션 헤더 좌우 (px-4 sm:px-6 md:px-10 대체) */
-  --pad-h-y:    clamp(16px, 3vw, 20px);  /* 섹션 헤더 상하 (py-4 md:py-5 대체) */
-  --pad-body-x: clamp(16px, 4vw, 40px);  /* 섹션 본문 좌우 */
-  --pad-body-y: clamp(16px, 4vw, 40px);  /* 섹션 본문 상하 */
+  /* 라벨 tracking 통일 (0.14 · 0.16 · 0.18 혼재 해소) · NbaLeaders.tsx 등에서 소비 중 */
+  --track-label: 0.14em;
 
   /* ===== 마일스톤 근접도 3티어 (2026-07-22) =====
      PersonalDashboard.MilestoneChaser 바·remaining 뱃지 색이 지표별 색이 아닌 목표 근접도 표현 */
-  --milestone-near: #059669;   /* progressPct >= 80% (곧 달성 · emerald-600) */
+  --milestone-near: #047857;   /* progressPct >= 80% (곧 달성 · emerald-700 · WCAG AA 5.1:1) */
   --milestone-mid:  #F59E0B;   /* 60~80% (가까움 · amber-500) */
   --milestone-far:  #64748B;   /* < 60% (아직 · slate-500 뉴트럴) */
 
   /* ===== 클러치샷 5단계 위기 강도 스케일 (2026-07-22)
      dagger < chase < tie < reversal < winning · 위기 강도 낮음 → 높음 순
-     winning 은 옐로우 대신 브랜드 오렌지(hoop-orange-500)로 · 옐로우 실색상 자리 침범 방지 */
-  --clutch-1: #64748B;  /* dagger (쐐기 · 이미 앞선 상태 · 슬레이트) */
-  --clutch-2: #06B6D4;  /* chase (추격 · 시안) */
-  --clutch-3: #0EA5E9;  /* tie (동점 · 스카이) */
-  --clutch-4: #10B981;  /* reversal (역전 · 에메랄드) */
-  --clutch-5: #EA580C;  /* winning (위닝샷 · 오렌지 최상 · 옐로우 대체) */
+     winning 은 옐로우 대신 브랜드 오렌지(hoop-orange-500)로 · 옐로우 실색상 자리 침범 방지
+     텍스트는 모두 흰색(#ffffff, 11-13px bold) 고정 → WCAG AA 4.5:1 이상 확보 위해 700 톤으로 조정 (final review) */
+  --clutch-1: #64748B;  /* dagger (쐐기 · 이미 앞선 상태 · 슬레이트 · WCAG AA 4.5:1 borderline) */
+  --clutch-2: #0E7490;  /* chase (추격 · cyan-700 · WCAG AA 5.9:1) */
+  --clutch-3: #0369A1;  /* tie (동점 · sky-700 · WCAG AA 5.6:1) */
+  --clutch-4: #047857;  /* reversal (역전 · emerald-700 · WCAG AA 5.1:1) */
+  --clutch-5: #C2410C;  /* winning (위닝샷 · hoop-orange-600 · WCAG AA 5.4:1) */
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -769,16 +758,3 @@
 }
 /* TipTap 이미지 · 선택 상태 */
 .tiptap-editor img.ProseMirror-selectednode { outline: 2px solid var(--mm-yellow); }
-
-/* ===== 여백 리듬 유틸리티 (2026-07-22) ===== */
-@layer utilities {
-  .section-header-pad {
-    padding-left: var(--pad-h-x);
-    padding-right: var(--pad-h-x);
-    padding-top: var(--pad-h-y);
-    padding-bottom: var(--pad-h-y);
-  }
-  .section-body-pad {
-    padding: var(--pad-body-y) var(--pad-body-x);
-  }
-}
