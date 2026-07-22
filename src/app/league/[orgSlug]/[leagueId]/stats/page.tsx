@@ -576,7 +576,7 @@ function LeagueStatsPageInner() {
             {/* 테이블 컨트롤 — 모바일 2줄 / PC 1줄 */}
             <div className="px-4 py-3 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
               <div className="flex items-center gap-2 shrink-0">
-                <TrendingUp size={14} style={{ color: 'var(--mm-yellow-strong)' }} />
+                <TrendingUp size={14} style={{ color: 'var(--mm-ink-soft)' }} />
                 <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '0.02em' }}>전체 스탯</span>
               </div>
               {/* 컨트롤 그룹 — 모바일에서 스크롤 가능한 가로 행 */}
@@ -676,7 +676,7 @@ function LeagueStatsPageInner() {
                       </div>
                       <div className="text-right shrink-0">
                         <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '30px', letterSpacing: '-0.015em' }}>{sortVal}</div>
-                        <div className="text-[11px] font-black uppercase mt-1" style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.16em' }}>{sortLabel}</div>
+                        <div className="text-[11px] font-black uppercase mt-1" style={{ color: 'var(--mm-ink)', letterSpacing: '0.16em' }}>{sortLabel}</div>
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-2" style={{ borderTop: '1px solid var(--mm-rule)' }}>
@@ -752,7 +752,7 @@ function LeagueStatsPageInner() {
                         const leaderKey = statUnit === 'per40' ? (AVG_TO_TOTAL[key as string] ?? (key as string)) : (key as string)
                         const leader = isLeader(p, leaderKey)
                         const cellColor = sortKey === key
-                          ? 'var(--mm-yellow-strong)'
+                          ? 'var(--mm-ink)'
                           : leader
                             ? 'var(--mm-ink)'
                             : 'var(--mm-ink-soft)'
@@ -823,7 +823,7 @@ function LeagueStatsPageInner() {
                           <div className="text-[11px] font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>자격자 {filtered.length}명</div>
                         </td>
                         {COLS.map(({ key }) => (
-                          <td key={key} className="px-3 py-3 text-center font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)', fontSize: '15px' }}>
+                          <td key={key} className="px-3 py-3 text-center font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)', fontSize: '15px' }}>
                             {fmtCell(key)}
                           </td>
                         ))}
@@ -875,15 +875,15 @@ function LeagueStatsPageInner() {
                         const active = shootSortKey === key
                         return (
                           <div key={key} className="text-center">
-                            <div className="text-[11px] font-bold uppercase" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
-                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink)', fontSize: '15px' }}>{sh[key]}%</div>
+                            <div className="text-[11px] font-bold uppercase" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
+                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink)', fontSize: '15px' }}>{sh[key]}%</div>
                           </div>
                         )
                       })}
                     </div>
                     {/* 슛 분포 스택 막대 (모바일 · 전체 폭) */}
                     <div className="flex items-center gap-2 mt-3">
-                      <span className="text-[10px] font-bold uppercase tracking-[0.10em] shrink-0" style={{ color: shootSortKey === 'shot_mix' ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>SHOT MIX</span>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.10em] shrink-0" style={{ color: shootSortKey === 'shot_mix' ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>SHOT MIX</span>
                       <div className="flex-1"><ShotMixBar p={p} height={10} /></div>
                     </div>
                   </button>
@@ -947,7 +947,7 @@ function LeagueStatsPageInner() {
                         return (
                           <td key={key}
                               className="px-3 py-3 text-center font-jersey tabular-nums"
-                              style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px', ...dividerStyle }}>
+                              style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px', ...dividerStyle }}>
                             {key === 'shot_mix' ? <ShotMixBar p={p} /> : `${val}%`}
                           </td>
                         )
@@ -1003,8 +1003,8 @@ function LeagueStatsPageInner() {
                         const active = advSortKey === key
                         return (
                           <div key={key} className="text-center">
-                            <div className="text-[11px] font-bold uppercase" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
-                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink)', fontSize: '15px' }}>{isRatio || isCount ? adv[key] : `${adv[key]}%`}</div>
+                            <div className="text-[11px] font-bold uppercase" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
+                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink)', fontSize: '15px' }}>{isRatio || isCount ? adv[key] : `${adv[key]}%`}</div>
                           </div>
                         )
                       })}
@@ -1064,7 +1064,7 @@ function LeagueStatsPageInner() {
                         const active = advSortKey === key
                         return (
                           <td key={key} className="px-3 py-3 text-center font-jersey tabular-nums"
-                            style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px' }}>
+                            style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px' }}>
                             {isRatio || isCount ? val : `${val}%`}
                           </td>
                         )
