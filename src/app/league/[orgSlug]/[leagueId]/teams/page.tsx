@@ -104,7 +104,7 @@ const BASIC_COLOR: Partial<Record<BasicKey, string>> = {
   spg: 'text-purple-600', stl: 'text-purple-600',
   bpg: 'text-indigo-600', blk: 'text-indigo-600',
   topg: 'text-red-600', tov: 'text-red-600',
-  fg_pct: 'text-[color:var(--mm-muted)]', fg3_pct: 'text-[#eab308]',
+  fg_pct: 'text-[color:var(--mm-muted)]', fg3_pct: 'text-[color:var(--mm-yellow-strong)]',
   ft_pct: 'text-cyan-700', efg_pct: 'text-teal-700',
   fgm: 'text-[color:var(--mm-muted)]', fg3m: 'text-[color:var(--mm-muted)]', ftm: 'text-[color:var(--mm-muted)]',
 }
@@ -115,10 +115,10 @@ const ADV_COLOR: Partial<Record<AdvKey, string>> = {
   orb_pct: 'text-amber-700', drb_pct: 'text-emerald-600', trb_pct: 'text-violet-600',
 }
 const SHOOT_COLOR: Partial<Record<ShootingKey, string>> = {
-  fg_pct: 'text-[color:var(--mm-ink-soft)]', fg2_pct: 'text-orange-600', fg3_pct: 'text-[#eab308]',
+  fg_pct: 'text-[color:var(--mm-ink-soft)]', fg2_pct: 'text-orange-600', fg3_pct: 'text-[color:var(--mm-yellow-strong)]',
   efg_pct: 'text-teal-700', ft_pct: 'text-cyan-700', ts_pct: 'text-teal-600',
   ft_rate: 'text-cyan-700',
-  ds_pct: 'text-red-600', lu_pct: 'text-orange-600', md_pct: 'text-[#eab308]', three_share: 'text-blue-600',
+  ds_pct: 'text-red-600', lu_pct: 'text-orange-600', md_pct: 'text-[color:var(--mm-yellow-strong)]', three_share: 'text-blue-600',
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc'|'desc' }) {
@@ -1141,7 +1141,7 @@ export default function LeagueTeamsPage() {
                       {played > 0 && (
                         <div className="flex h-1 overflow-hidden w-16 mt-1 ml-auto">
                           <div className="h-full" style={{ width: `${s.w/played*100}%`, backgroundColor: s.color }} />
-                          {s.d > 0 && <div className="h-full" style={{ width: `${s.d/played*100}%`, background: isFirst ? 'color-mix(in srgb, var(--mm-panel) 40%, transparent)' : 'var(--mm-muted)' }} />}
+                          {s.d > 0 && <div className="h-full" style={{ width: `${s.d/played*100}%`, background: isFirst ? 'color-mix(in srgb, var(--mm-panel) 70%, transparent)' : 'var(--mm-muted)' }} />}
                           <div className="h-full flex-1" style={{ background: isFirst ? 'color-mix(in srgb, var(--mm-panel) 15%, transparent)' : 'var(--mm-rule)' }} />
                         </div>
                       )}
@@ -1165,19 +1165,19 @@ export default function LeagueTeamsPage() {
                             <span className="text-xs font-bold break-keep min-w-0" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink)', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>vs {op.displayName}</span>
                           </div>
                           {total === 0 ? (
-                            <span className="text-xs shrink-0" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 50%, transparent)' : 'var(--mm-muted)' }}>기록 없음</span>
+                            <span className="text-xs shrink-0" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 65%, transparent)' : 'var(--mm-muted)' }}>기록 없음</span>
                           ) : (
                             <div className="flex items-center gap-1 text-xs font-black tabular-nums shrink-0">
                               <span style={{ color: isWin ? 'var(--mm-positive)' : isFirst ? 'var(--mm-panel)' : 'var(--mm-muted)' }}>{rec.w}W</span>
-                              {rec.d > 0 && <><span style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 40%, transparent)' : 'var(--mm-muted)' }}>·</span><span style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-neutral-strong)' }}>{rec.d}D</span></>}
-                              <span style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 40%, transparent)' : 'var(--mm-muted)' }}>·</span>
+                              {rec.d > 0 && <><span style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 70%, transparent)' : 'var(--mm-muted)' }}>·</span><span style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-neutral-strong)' }}>{rec.d}D</span></>}
+                              <span style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 70%, transparent)' : 'var(--mm-muted)' }}>·</span>
                               <span style={{ color: isLoss ? 'var(--mm-negative)' : isFirst ? 'var(--mm-panel)' : 'var(--mm-muted)' }}>{rec.l}L</span>
                             </div>
                           )}
                         </div>
                       )
                     })}
-                    {totalPlayed === 0 && <p className="text-xs py-1" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 50%, transparent)' : 'var(--mm-muted)' }}>완료된 경기 없음</p>}
+                    {totalPlayed === 0 && <p className="text-xs py-1" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 65%, transparent)' : 'var(--mm-muted)' }}>완료된 경기 없음</p>}
                   </div>
                 </div>
               )
