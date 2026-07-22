@@ -47,7 +47,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
       <div className="grid gap-0">
         {standings.map((t, idx) => {
           const isTop = idx === 0
-          const rateColor = t.winRate >= 60 ? '#059669' : t.winRate >= 40 ? 'var(--mm-ink-soft)' : '#DC2626'
+          const rateColor = t.winRate >= 60 ? 'var(--mm-positive)' : t.winRate >= 40 ? 'var(--mm-ink-soft)' : 'var(--mm-negative)'
           return (
             <div
               key={t.key}

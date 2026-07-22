@@ -20,6 +20,12 @@
   --mm-yellow-soft: #FEF3C7;
   --mm-black: #0A0A0A;
   --mm-live: #DC2626;
+  /* ===== 승/패/무 결과색 (2026-07-22 다크 모드 대비 수정) =====
+     RecordDisplay.tsx ResultChip · ScoreTable diff · NbaTeamStandings 승률 텍스트가 공유.
+     라이트: 기존 emerald-600/red-600/slate-600 유지 (흰 배경 4.5:1 이상). */
+  --mm-positive: #059669;       /* emerald-600 */
+  --mm-negative: #DC2626;       /* red-600 */
+  --mm-neutral-strong: #475569; /* slate-600 */
 }
 .dark {
   --mm-ground: #0A0A0A;        /* near-black */
@@ -34,6 +40,11 @@
   --mm-yellow-soft: rgba(253, 224, 71, 0.10);
   --mm-black: #000000;
   --mm-live: #EF4444;
+  /* 다크: emerald-600/red-600/slate-600 원본은 근-흑 패널 위에서 3.4~1.9:1 로 대비 실패
+     (특히 RecordDisplay DRAW 칩) → 400/300 톤으로 상향, WCAG AA 4.5:1 이상 재확보 */
+  --mm-positive: #34D399;       /* emerald-400 · 다크 패널 대비 ~7.9:1 */
+  --mm-negative: #F87171;       /* red-400 · 다크 패널 대비 ~6.0:1 */
+  --mm-neutral-strong: #CBD5E1; /* slate-300 · 다크 패널 대비 ~9.4:1 */
 }
 
 /* ===== 파란날개 팀 컬러 테마 ===== */

@@ -3,11 +3,14 @@
 //   · ScoreTable:  득점 / 실점 / 마진 3열 미니 테이블
 // 홈 팀 승률 + 라운드 요약 카드에서 공통 사용.
 
-// WIN/LOSE/DRAW 컬러 정의 (라이트/다크 공통)
+// WIN/LOSE/DRAW 컬러 정의
+// bg/border는 반투명 rgba라 다크 모드 근-흑 패널 위에서 옅게 블렌드됨.
+// fg는 --mm-positive/--mm-negative/--mm-neutral-strong 토큰(globals.css)으로 다크 모드 별도 상향 —
+// 고정 hex를 쓰면 다크 패널 위에서 대비가 1.9~3.7:1 로 무너짐 (2026-07-22 수정).
 const RESULT_COLORS = {
-  win:  { bg: 'rgba(16,185,129,0.12)',  border: '#10B981', fg: '#059669' },  // emerald
-  lose: { bg: 'rgba(220,38,38,0.12)',   border: '#EF4444', fg: '#DC2626' },  // red
-  draw: { bg: 'rgba(148,163,184,0.15)', border: '#94A3B8', fg: '#475569' },  // slate
+  win:  { bg: 'rgba(16,185,129,0.12)',  border: '#10B981', fg: 'var(--mm-positive)' },       // emerald
+  lose: { bg: 'rgba(220,38,38,0.12)',   border: '#EF4444', fg: 'var(--mm-negative)' },       // red
+  draw: { bg: 'rgba(148,163,184,0.15)', border: '#94A3B8', fg: 'var(--mm-neutral-strong)' }, // slate
 } as const
 
 // 1위 팀 배경(노랑) 위에서 사용할 오버라이드 (contrast 확보)
@@ -80,7 +83,7 @@ export function ScoreTable({ ptsFor, ptsAgainst, isTop = false, compact = false 
   const diff = ptsFor - ptsAgainst
   const diffColor = isTop
     ? (diff > 0 ? 'rgba(0,0,0,0.85)' : diff < 0 ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.55)')
-    : (diff > 0 ? '#059669' : diff < 0 ? '#DC2626' : 'var(--mm-muted)')
+    : (diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-muted)')
   const labelColor = isTop ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)'
   const valueColor = isTop ? 'var(--mm-black)' : 'var(--mm-ink)'
   const cells: Array<{ label: string; value: string; color: string }> = [

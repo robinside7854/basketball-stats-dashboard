@@ -121,7 +121,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
             type="button"
             onClick={() => setProfileOpen(true)}
             className="shrink-0 inline-flex items-center gap-1.5 px-3 md:px-4 py-2 text-xs md:text-sm font-black uppercase min-h-[40px] md:min-h-[44px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
-            style={{ background: 'var(--mm-black)', color: 'var(--mm-panel)', border: '1px solid var(--mm-black)', borderRadius: '4px', letterSpacing: '0.12em' }}
+            style={{ background: 'var(--mm-black)', color: '#ffffff', border: '1px solid var(--mm-black)', borderRadius: '4px', letterSpacing: '0.12em' }}
             aria-label="선수카드 열기"
           >
             <IdCard size={14} />
