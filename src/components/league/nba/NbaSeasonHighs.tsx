@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { BasketballLoader } from '@/components/league/BasketballIcons'
+import SectionCard from '@/components/league/ui/SectionCard'
 
 type CategoryKey = 'PTS' | 'REB' | 'AST' | 'STL' | 'BLK' | 'FG3M' | 'FGA' | 'FGM'
 
@@ -91,34 +92,31 @@ export default function NbaSeasonHighs({ leagueId, quarterId, orgSlug }: Props) 
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
+      <SectionCard variant="standalone" className="flex justify-center py-12">
         <BasketballLoader size={28} />
-      </div>
+      </SectionCard>
     )
   }
 
   if (ordered.length === 0) {
     return (
-      <div
-        className="text-center py-16 px-4"
-        style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
-      >
+      <SectionCard variant="standalone" className="text-center py-16 px-4" background="var(--mm-panel)">
         <Crown size={32} className="mx-auto mb-3" style={{ color: 'var(--mm-muted)' }} aria-hidden />
         <p className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '0.05em' }}>
           기록이 없습니다
         </p>
-        <p className="text-xs mt-1">경기 데이터가 쌓이면 카테고리별 최고 기록이 표시됩니다</p>
-      </div>
+        <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>경기 데이터가 쌓이면 카테고리별 최고 기록이 표시됩니다</p>
+      </SectionCard>
     )
   }
 
   return (
     <>
-      <div style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
+      <SectionCard variant="standalone">
         {/* 헤더 */}
         <div className="px-4 md:px-5 py-4" style={{ borderBottom: '2px solid var(--mm-rule)' }}>
           <div className="flex items-center gap-2 flex-wrap">
-            <Crown size={20} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+            <Crown size={20} style={{ color: 'var(--mm-ink-soft)' }} aria-hidden />
             <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(18px, 4vw, 22px)', letterSpacing: '0.02em' }}>
               시즌 커리어하이
             </span>
@@ -149,7 +147,7 @@ export default function NbaSeasonHighs({ leagueId, quarterId, orgSlug }: Props) 
                 <button
                   type="button"
                   onClick={() => setQuickPlayer({ id: h.player.player_id, name: h.player.name })}
-                  className="text-left cursor-pointer btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-2 group p-4 md:p-5 w-full"
+                  className="text-left cursor-pointer btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-2 group p-4 md:p-5 w-full"
                   aria-label={`${style.unit} 시즌 커리어하이: ${h.player.name} ${h.value}${style.unit}, ${h.date} — 선수 상세 보기`}
                 >
                   {/* 카테고리 라벨 + 아이콘 */}
@@ -261,7 +259,7 @@ export default function NbaSeasonHighs({ leagueId, quarterId, orgSlug }: Props) 
                       style={{
                         background: 'var(--mm-yellow-soft)',
                         color: 'var(--mm-ink)',
-                        border: '1px solid var(--mm-yellow)',
+                        border: '1px solid var(--mm-rule)',
                         letterSpacing: '0.08em',
                       }}
                     >
@@ -278,7 +276,7 @@ export default function NbaSeasonHighs({ leagueId, quarterId, orgSlug }: Props) 
                   >
                     <Link
                       href={`${base}/boxscore/${h.date}`}
-                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                       style={{
                         background: 'var(--mm-panel-alt)',
                         color: 'var(--mm-ink)',
@@ -292,11 +290,11 @@ export default function NbaSeasonHighs({ leagueId, quarterId, orgSlug }: Props) 
                     </Link>
                     <Link
                       href={`${base}/highlights/${h.date}?player=${h.player.player_id}`}
-                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                      className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                       style={{
-                        background: 'var(--mm-yellow)',
-                        color: 'var(--mm-black)',
-                        border: '1px solid var(--mm-black)',
+                        background: 'var(--mm-ink)',
+                        color: 'var(--mm-panel)',
+                        border: '1px solid var(--mm-ink)',
                         borderRadius: '4px',
                       }}
                       aria-label={`${h.player.name} ${formatKoreanDate(h.date)} 하이라이트 재생`}
@@ -310,7 +308,7 @@ export default function NbaSeasonHighs({ leagueId, quarterId, orgSlug }: Props) 
             )
           })}
         </div>
-      </div>
+      </SectionCard>
 
       {quickPlayer && (
         <PlayerQuickViewModal

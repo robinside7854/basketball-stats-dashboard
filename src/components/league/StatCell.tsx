@@ -20,7 +20,7 @@ export function PercentBar({
 }) {
   const safe = Math.max(0, Math.min(max, value))
   const pct = max > 0 ? (safe / max) * 100 : 0
-  // 기본 accent: mm-yellow (라이트/다크 모두 대응). 명시 color prop 있으면 override.
+  // 기본 accent: mm-ink-soft (뉴트럴 · 라이트/다크 모두 대응). 명시 color prop 있으면 override.
   return (
     <div
       className="absolute left-0 right-0 bottom-0 overflow-hidden"
@@ -29,7 +29,7 @@ export function PercentBar({
     >
       <div
         className="h-full transition-all duration-500 ease-out"
-        style={{ width: `${pct}%`, backgroundColor: color ?? 'var(--mm-yellow)' }}
+        style={{ width: `${pct}%`, backgroundColor: color ?? 'var(--mm-ink-soft)' }}
       />
     </div>
   )
@@ -98,11 +98,11 @@ export function FormDots({
   return (
     <div className="inline-flex items-center gap-0.5" aria-label={`최근 ${results.length}경기: ${results.map(r => r ?? '·').join('')}`}>
       {results.map((r, i) => {
-        // W = emerald, L = red, D = mm-yellow, null = 뮤트 (mm-rule)
+        // W/L/D 색상 — RecordDisplay.tsx RESULT_COLORS 와 동일 토큰 (다크 모드 별도 상향 대응)
         const bg =
-          r === 'W' ? '#059669' :
-          r === 'L' ? '#DC2626' :
-          r === 'D' ? 'var(--mm-yellow)' :
+          r === 'W' ? 'var(--mm-positive)' :
+          r === 'L' ? 'var(--mm-negative)' :
+          r === 'D' ? 'var(--mm-neutral-strong)' :
           'var(--mm-rule)'
         return (
           <span

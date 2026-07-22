@@ -24,9 +24,9 @@ export default function LeagueGroupTabs({ tabs }: { tabs: LeagueGroupTab[] }) {
               role="tab"
               aria-selected={active}
               aria-current={active ? 'page' : undefined}
-              className={`shrink-0 px-3.5 py-2.5 lg:px-5 lg:py-3 -mb-px border-b-2 font-jersey font-black uppercase tracking-[0.10em] text-sm lg:text-[15px] min-h-[44px] flex items-center transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${
+              className={`shrink-0 px-3.5 py-2.5 lg:px-5 lg:py-3 -mb-px border-b-2 font-jersey font-black uppercase tracking-[0.10em] text-sm lg:text-[15px] min-h-[44px] flex items-center transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 ${
                 active
-                  ? 'border-[color:var(--mm-yellow)] text-[color:var(--mm-ink)]'
+                  ? 'border-[color:var(--color-hoop-orange-500)] text-[color:var(--mm-ink)]'
                   : 'border-transparent text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)]'
               }`}
             >

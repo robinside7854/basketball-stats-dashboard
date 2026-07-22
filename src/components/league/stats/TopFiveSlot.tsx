@@ -1,5 +1,6 @@
 'use client'
 import { Trophy } from 'lucide-react'
+import SectionCard from '@/components/league/ui/SectionCard'
 
 // 5칸 TOP 5 슬롯 — 컬럼 헤더 클릭 시 해당 지표 TOP 5 표시
 // 애니메이션: 순수 CSS · 지표 변경 시 fade + slide-in (stagger 50ms)
@@ -68,17 +69,13 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
   const active = metricKey !== null && players.length > 0
 
   return (
-    <section
-      aria-label="TOP 5 리더 슬롯"
-      className="p-3 sm:p-4"
-      style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
-    >
+    <SectionCard variant="standalone" ariaLabel="TOP 5 리더 슬롯" className="p-3 sm:p-4">
       {/* 헤더 */}
       <div className="flex items-center gap-2 mb-3">
-        <Trophy size={14} style={{ color: 'var(--mm-yellow-strong)' }} />
+        <Trophy size={14} style={{ color: 'var(--mm-ink-soft)' }} />
         <span
           className="text-[11px] font-black uppercase"
-          style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.16em' }}
+          style={{ color: 'var(--mm-ink)', letterSpacing: '0.16em' }}
         >
           TOP 5 리더
         </span>
@@ -114,19 +111,14 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
             const rank = i + 1
             const isFirst = rank === 1
             const rankColor = isFirst
-              ? 'var(--mm-yellow-strong)'
+              ? 'var(--mm-ink)'
               : rank === 2
               ? 'var(--mm-ink-soft)'
               : rank === 3
-              ? 'var(--mm-yellow-strong)'
+              ? 'var(--mm-ink-soft)'
               : 'var(--mm-muted)'
-            const accent = isFirst
-              ? 'var(--mm-yellow)'
-              : rank === 2
-              ? 'var(--mm-ink-soft)'
-              : rank === 3
-              ? 'var(--mm-yellow-strong)'
-              : 'transparent'
+            // 1위만 3px 좌측 보더에 옐로우-strong 실색상 허용 (도미노 규칙 유일 예외)
+            const accent = isFirst ? 'var(--mm-yellow-strong)' : 'transparent'
             return (
               <button
                 key={p.id}
@@ -221,6 +213,6 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
           }
         }
       `}</style>
-    </section>
+    </SectionCard>
   )
 }
