@@ -16,6 +16,16 @@ const GlobalSearchModal = dynamic(() => import('@/components/league/GlobalSearch
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
 
+// 미들웨어가 slug URL(/league/miracle/2026)을 UUID 경로로 internal rewrite 하므로
+// useParams()/props 의 leagueId 는 UUID 지만, usePathname() 은 브라우저의 slug URL 을 반환한다.
+// 둘을 그대로 비교하면(base=UUID vs pathname=slug) 활성 탭 판정이 '항상 false' → 인디케이터가 전혀 안 뜬다.
+// → base 를 브라우저 경로에서 직접 추출해 href·활성판정을 같은 기준(slug)으로 맞춘다.
+function deriveLeagueBase(pathname: string, orgSlug: string, leagueId: string): string {
+  const seg = pathname.split('/')  // ['', 'league', orgSlug, idOrSlug, ...]
+  if (seg[1] === 'league' && seg[2] && seg[3]) return `/${seg[1]}/${seg[2]}/${seg[3]}`
+  return `/league/${orgSlug}/${leagueId}`
+}
+
 function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { orgSlug: string; leagueId: string; onOpenSearch: () => void; onOpenLogin: () => void; showDraft: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -23,7 +33,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { o
   const { theme, setTheme } = useTheme()
   const { user, loading: authLoading, logout } = useCurrentUser()
 
-  const base = `/league/${orgSlug}/${leagueId}`
+  const base = deriveLeagueBase(pathname, orgSlug, leagueId)
 
   // 상위 메뉴 6개(+드래프트 조건부) — 스탯 우산에 어워즈, 하이라이트 우산에 공지 아카이브 통합.
   // URL 은 그대로 유지(SEO/기존 링크 보존) — 상위 나비게이션에서만 그룹핑.
@@ -138,7 +148,7 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { o
               onClick={() => {
                 // 홈 페이지에서만 튜어 요소 (POTW/순위/라운드) 가 존재하므로
                 // 다른 페이지에서는 홈으로 이동 후 자동 실행 (?tour=1 쿼리)
-                const base = `/league/${orgSlug}/${leagueId}`
+                const base = deriveLeagueBase(pathname, orgSlug, leagueId)
                 if (pathname === base) {
                   window.dispatchEvent(new CustomEvent('mm-tour-open'))
                 } else {
@@ -172,7 +182,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
   const { isEditMode } = useLeagueEditMode()
-  const base = `/league/${orgSlug}/${leagueId}`
+  const base = deriveLeagueBase(pathname, orgSlug, leagueId)
 
   // 모바일 4대 주요 탭 — 어워즈는 스탯 우산, 공지 아카이브는 하이라이트 우산으로 통합됨
   // Stathead 는 2026-07-19 삭제 (사용 미미).
@@ -292,7 +302,7 @@ function RecordAwareContainer({
   orgSlug, leagueId, children,
 }: { orgSlug: string; leagueId: string; children: React.ReactNode }) {
   const pathname = usePathname()
-  const isRecord = pathname.startsWith(`/league/${orgSlug}/${leagueId}/record`)
+  const isRecord = pathname.startsWith(`${deriveLeagueBase(pathname, orgSlug, leagueId)}/record`)
   // 경기기록은 더 촘촘하게, 나머지는 전체 너비
   if (isRecord) {
     return <div className="px-3 py-3">{children}</div>

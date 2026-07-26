@@ -16,7 +16,12 @@ const GROUPS: Record<string, { seg: string; label: string }[]> = {
 export default function LeagueSubTabs({ group }: { group: 'squad' | 'games' }) {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const pathname = usePathname()
-  const base = `/league/${params.orgSlug}/${params.leagueId}`
+  // 미들웨어가 slug→UUID 로 rewrite 하므로 params.leagueId 는 UUID 지만 pathname 은 slug URL.
+  // base 를 pathname 에서 뽑아 href·활성판정을 slug 기준으로 일치시킨다 (안 그러면 startsWith 가 항상 false).
+  const seg = pathname.split('/')
+  const base = (seg[1] === 'league' && seg[2] && seg[3])
+    ? `/${seg[1]}/${seg[2]}/${seg[3]}`
+    : `/league/${params.orgSlug}/${params.leagueId}`
   const items = GROUPS[group]
 
   return (

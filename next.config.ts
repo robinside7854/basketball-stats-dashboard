@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // 상위 폴더(ai_rob)에도 lockfile 이 있어 Turbopack 이 워크스페이스 루트를 잘못 추론하던 문제 해결.
+  // 이 프로젝트 폴더를 명시적 루트로 고정 (dev/build CSS 파싱 오류 방지).
+  turbopack: {
+    root: __dirname,
+  },
   // 자주 쓰는 대형 패키지 트리쉐이킹 최적화 — 초기 번들 크기·빌드 속도 개선
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
