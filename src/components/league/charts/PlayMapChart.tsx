@@ -42,13 +42,19 @@ const median = (nums: number[]): number => {
 const quadrantOf = (x: number, y: number, mx: number, my: number): Quadrant =>
   x >= mx ? (y >= my ? 'tr' : 'br') : (y >= my ? 'tl' : 'bl')
 
+type Star = 'att' | 'succ' | 'both' | null
 type Pt = {
   id: string; name: string; number: number | null
   x: number; y: number; att: number; made: number; gp: number
-  eligible: boolean; quadrant: Quadrant; z: number
+  eligible: boolean; quadrant: Quadrant; z: number; star: Star
 }
 
 const MIN_ATT = 3  // 해당 스타일 시도 최소치 — 미만은 '참고'(반투명, 중앙값 제외)
+
+// 하이라이트 색 — 시도 상위 2명(주황) / 성공률 상위 2명(에메랄드), 각각 다른 색
+const STAR_FILL_ATT = 'var(--color-hoop-orange-500)'
+const STAR_FILL_SUCC = 'var(--mm-positive)'
+const fillOfStar = (star: Star) => star === 'succ' ? STAR_FILL_SUCC : star ? STAR_FILL_ATT : 'var(--mm-ink)'
 
 export default function PlayMapChart({
   players, minGP, quarterLabel, onSelectPlayer,
@@ -74,26 +80,37 @@ export default function PlayMapChart({
     const elig = rows.filter(r => r.att >= MIN_ATT)
     const mx = median(elig.map(r => r.att))
     const my = median(elig.map(r => r.pct))
-    const toPt = (r: { p: PlayerStat; att: number; made: number; pct: number }): Pt => ({
-      id: r.p.player_id, name: r.p.name, number: r.p.number,
-      x: r.att, y: r.pct, att: r.att, made: r.made, gp: r.p.gp,
-      eligible: r.att >= MIN_ATT, quadrant: quadrantOf(r.att, r.pct, mx, my), z: 1,
-    })
-    // 라벨 우선순위: 시도 많은 순 (겹칠 때 많이 쏘는 선수 이름을 우선 표기)
-    const eligiblePts = elig.map(toPt).sort((a, b) => b.x - a.x)
+    // 시도·성공률 상위 2명 (하이라이트 대상)
+    const topAtt = new Set([...elig].sort((a, b) => b.att - a.att).slice(0, 2).map(r => r.p.player_id))
+    const topSucc = new Set([...elig].sort((a, b) => b.pct - a.pct).slice(0, 2).map(r => r.p.player_id))
+    const starOf = (id: string): Star => {
+      const a = topAtt.has(id), s = topSucc.has(id)
+      return a && s ? 'both' : a ? 'att' : s ? 'succ' : null
+    }
+    const toPt = (r: { p: PlayerStat; att: number; made: number; pct: number }): Pt => {
+      const star = r.att >= MIN_ATT ? starOf(r.p.player_id) : null
+      return {
+        id: r.p.player_id, name: r.p.name, number: r.p.number,
+        x: r.att, y: r.pct, att: r.att, made: r.made, gp: r.p.gp,
+        eligible: r.att >= MIN_ATT, quadrant: quadrantOf(r.att, r.pct, mx, my),
+        z: star ? 2.6 : 1, star,
+      }
+    }
+    const allElig = elig.map(toPt)
+    // 라벨·z-order 우선순위: 하이라이트 선수 먼저 → 그 다음 시도 많은 순
+    const eligiblePts = [
+      ...allElig.filter(p => p.star).sort((a, b) => b.x - a.x),
+      ...allElig.filter(p => !p.star).sort((a, b) => b.x - a.x),
+    ]
     const refPts = rows.filter(r => r.att < MIN_ATT).map(toPt)
     return { eligiblePts, refPts, mx, my, eligibleCount: elig.length }
   }, [players, catDef])
 
   const allShown = [...eligiblePts, ...(showRef ? refPts : [])]
-  const xs = allShown.map(p => p.x)
-  const pad = (arr: number[], r: number): [number, number] => {
-    if (arr.length === 0) return [0, 10]
-    const lo = Math.min(...arr), hi = Math.max(...arr)
-    const gap = Math.max((hi - lo) * r, 1)
-    return [Math.max(0, Math.floor(lo - gap)), Math.ceil(hi + gap)]
-  }
-  const xDomain = pad(xs, 0.15)
+  const maxAtt = allShown.length ? Math.max(...allShown.map(p => p.x)) : 10
+  // X축 sqrt 스케일 — 시도수 분포가 우편향(소수 다작 선수)이라, 저시도 구간이 왼쪽에 뭉치는
+  // 과밀을 완화한다(저값은 넓게, 고값은 압축). 도메인은 0부터.
+  const xDomain: [number, number] = [0, Math.ceil(maxAtt * 1.05)]
   const yDomain: [number, number] = [0, 100]
 
   // 라벨 겹침 방지용 배치 박스 — 렌더마다 새 배열(ref 아님, 렌더 중 mutation 안전).
@@ -117,32 +134,41 @@ export default function PlayMapChart({
     </div>
   )
 
-  // recharts LabelList custom content — 4방향 후보 중 안 겹치는 곳에 배치, 다 겹치면 렌더 스킵
+  // recharts LabelList custom content — 4방향 후보 중 안 겹치는 곳에 배치.
+  //   · 하이라이트 선수(star)는 항상 표기(색상 강조) · 일반 선수는 겹치면 스킵(절대 안 겹침)
   const renderName = (props: { x?: number | string; y?: number | string; value?: unknown; index?: number }) => {
     const x = Number(props.x), y = Number(props.y)
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+    if (!Number.isFinite(x) || !Number.isFinite(y) || props.index == null) return null
+    const p = eligiblePts[props.index]
     const text = String(props.value ?? '')
-    const w = text.length * 8 + 4, h = 13
+    const star = p?.star ?? null
+    const color = star ? fillOfStar(star) : 'var(--mm-ink)'
+    const weight = star ? 900 : 800
+    const size = star ? 12 : 11
+    const w = text.length * (star ? 9 : 8) + 4, h = star ? 15 : 13
     const candidates = [
-      { lx: x + 9, ly: y, anchor: 'start' as const },
-      { lx: x, ly: y - 12, anchor: 'middle' as const },
-      { lx: x, ly: y + 16, anchor: 'middle' as const },
-      { lx: x - 9, ly: y, anchor: 'end' as const },
+      { lx: x + (star ? 11 : 9), ly: y, anchor: 'start' as const },
+      { lx: x, ly: y - (star ? 14 : 12), anchor: 'middle' as const },
+      { lx: x, ly: y + (star ? 18 : 16), anchor: 'middle' as const },
+      { lx: x - (star ? 11 : 9), ly: y, anchor: 'end' as const },
     ]
+    const draw = (c: typeof candidates[number]) => (
+      <text x={c.lx} y={c.ly} dy={4} textAnchor={c.anchor}
+        style={{ fontSize: size, fontWeight: weight, fill: color, paintOrder: 'stroke', stroke: 'var(--mm-panel)', strokeWidth: star ? 3.5 : 3 }}>
+        {text}
+      </text>
+    )
     for (const c of candidates) {
       const bx1 = c.anchor === 'start' ? c.lx : c.anchor === 'end' ? c.lx - w : c.lx - w / 2
       const box = { x1: bx1, y1: c.ly - h / 2, x2: bx1 + w, y2: c.ly + h / 2 }
       const hit = placedBoxes.some(b => !(box.x2 < b.x1 || box.x1 > b.x2 || box.y2 < b.y1 || box.y1 > b.y2))
       if (!hit) {
         placedBoxes.push(box)
-        return (
-          <text x={c.lx} y={c.ly} dy={4} textAnchor={c.anchor}
-            style={{ fontSize: 11, fontWeight: 800, fill: 'var(--mm-ink)', paintOrder: 'stroke', stroke: 'var(--mm-panel)', strokeWidth: 3 }}>
-            {text}
-          </text>
-        )
+        return draw(c)
       }
     }
+    // 하이라이트 선수는 4방향 다 겹쳐도 강제 표기(첫 후보 위치)
+    if (star) return draw(candidates[0])
     return null
   }
 
@@ -177,8 +203,21 @@ export default function PlayMapChart({
         </span>
       </div>
 
-      {/* 산점도 (크게) */}
-      <div className="relative w-full h-[440px] sm:h-[580px]">
+      {/* 하이라이트 범례 */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-bold">
+        <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--mm-ink-soft)' }}>
+          <span aria-hidden className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: STAR_FILL_ATT }} /> 시도 상위 2
+        </span>
+        <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--mm-ink-soft)' }}>
+          <span aria-hidden className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: STAR_FILL_SUCC }} /> 성공률 상위 2
+        </span>
+        <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--mm-muted)' }}>
+          <span aria-hidden className="inline-block w-2 h-2 rounded-full" style={{ background: 'var(--mm-ink)', opacity: 0.55 }} /> 그 외 선수
+        </span>
+      </div>
+
+      {/* 산점도 (크게 — 직관적으로 한눈에) */}
+      <div className="relative w-full h-[540px] sm:h-[700px]">
         {cornerLabel('tl', 'top-1 left-12', 'text-left')}
         {cornerLabel('tr', 'top-1 right-2', 'text-right')}
         {cornerLabel('bl', 'bottom-10 left-12', 'text-left')}
@@ -188,9 +227,9 @@ export default function PlayMapChart({
             {/* 우상단(주무기) 사분면만 브랜드 노랑 틴트 */}
             <ReferenceArea x1={mx} x2={xDomain[1]} y1={my} y2={yDomain[1]} fill="var(--mm-yellow-soft)" fillOpacity={1} stroke="none" />
             <XAxis
-              type="number" dataKey="x" domain={xDomain} allowDecimals={false}
+              type="number" dataKey="x" domain={xDomain} allowDecimals={false} scale="sqrt"
               tick={{ fill: 'var(--mm-muted)', fontSize: 11 }} stroke="var(--mm-rule)"
-              label={{ value: `${catDef.label} 시도수 →`, position: 'insideBottom', offset: -14, fill: 'var(--mm-ink-soft)', fontSize: 12, fontWeight: 700 }}
+              label={{ value: `${catDef.label} 시도수 → (저시도 구간 확대)`, position: 'insideBottom', offset: -14, fill: 'var(--mm-ink-soft)', fontSize: 12, fontWeight: 700 }}
             />
             <YAxis
               type="number" dataKey="y" domain={yDomain} width={46}
@@ -198,7 +237,7 @@ export default function PlayMapChart({
               tickFormatter={(v) => `${v}%`}
               label={{ value: `${catDef.label} 성공률`, angle: -90, position: 'insideLeft', offset: 16, fill: 'var(--mm-ink-soft)', fontSize: 12, fontWeight: 700, style: { textAnchor: 'middle' } }}
             />
-            <ZAxis type="number" dataKey="z" range={[170, 170]} />
+            <ZAxis type="number" dataKey="z" range={[70, 360]} />
             <ReferenceLine x={mx} stroke="var(--mm-muted)" strokeDasharray="4 4" />
             <ReferenceLine y={my} stroke="var(--mm-muted)" strokeDasharray="4 4" />
             <Tooltip
@@ -228,12 +267,17 @@ export default function PlayMapChart({
                 ))}
               </Scatter>
             )}
-            {/* 자격 선수(솔리드 + 이름 라벨) */}
+            {/* 자격 선수 — 하이라이트(시도/성공률 상위 2명)는 색상·크게, 그 외는 뉴트럴 반투명 */}
             <Scatter data={eligiblePts} isAnimationActive={false}
               onClick={(node) => { const d = (node as unknown as { payload?: Pt }).payload; if (d) onSelectPlayer(d.id, d.name) }}
               style={{ cursor: 'pointer' }}>
               {eligiblePts.map(p => (
-                <Cell key={p.id} fill="var(--mm-ink)" fillOpacity={0.82} stroke="var(--mm-panel)" strokeWidth={1.5} />
+                <Cell key={p.id}
+                  fill={fillOfStar(p.star)}
+                  fillOpacity={p.star ? 1 : 0.6}
+                  stroke={p.star === 'both' ? STAR_FILL_SUCC : 'var(--mm-panel)'}
+                  strokeWidth={p.star === 'both' ? 2.5 : p.star ? 1.5 : 1}
+                />
               ))}
               <LabelList dataKey="name" content={renderName} />
             </Scatter>
@@ -241,43 +285,8 @@ export default function PlayMapChart({
         </ResponsiveContainer>
       </div>
 
-      {/* 사분면별 그룹 리스트 — 산점도가 안 읽혀도 정보 손실 0 (모바일 대안 겸용) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        {(['tr', 'tl', 'br', 'bl'] as Quadrant[]).map(q => {
-          const members = eligiblePts.filter(p => p.quadrant === q).sort((a, b) => b.x - a.x)
-          const isGoal = q === 'tr'
-          return (
-            <div key={q} className="rounded-md border overflow-hidden" style={{ borderColor: isGoal ? 'var(--color-hoop-orange-500)' : 'var(--mm-rule)', background: isGoal ? 'var(--mm-yellow-soft)' : 'var(--mm-panel)' }}>
-              <div className="px-3 py-2 flex items-baseline justify-between gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: 15, letterSpacing: '0.04em' }}>{QUAD_NAME[q]}</span>
-                <span className="text-[10px] font-bold" style={{ color: 'var(--mm-muted)' }}>{QUAD_HINT[q]}</span>
-              </div>
-              {members.length === 0 ? (
-                <div className="px-3 py-3 text-xs" style={{ color: 'var(--mm-muted)' }}>해당 선수 없음</div>
-              ) : (
-                <ul>
-                  {members.map((p, i) => (
-                    <li key={p.id}>
-                      <button onClick={() => onSelectPlayer(p.id, p.name)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-left cursor-pointer transition-colors min-h-[44px] hover:bg-[color:var(--mm-panel-alt)]">
-                        <span className="w-4 shrink-0 text-center font-jersey font-black tabular-nums text-xs" style={{ color: 'var(--mm-muted)' }}>{i + 1}</span>
-                        <span className="flex-1 min-w-0 truncate font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>
-                          {p.name}{p.number != null && <span className="tabular-nums" style={{ color: 'var(--mm-muted)', marginLeft: 4, fontSize: 11 }}>#{p.number}</span>}
-                        </span>
-                        <span className="shrink-0 tabular-nums text-xs font-black" style={{ color: 'var(--mm-ink-soft)' }}>{p.att}회</span>
-                        <span className="shrink-0 text-[10px]" style={{ color: 'var(--mm-muted)' }}>·</span>
-                        <span className="shrink-0 tabular-nums text-xs font-black" style={{ color: 'var(--mm-ink-soft)' }}>{p.y}%</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )
-        })}
-      </div>
       <p className="text-[11px] leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-        · <b style={{ color: 'var(--mm-ink-soft)' }}>{catDef.label}</b> 기준 · 가로축 = <b style={{ color: 'var(--mm-ink-soft)' }}>시도수</b>(우측일수록 많이 시도) · 세로축 = <b style={{ color: 'var(--mm-ink-soft)' }}>성공률</b>. 리그 중앙값으로 4분할, 우상단(노랑)=많이 쏘고 잘 넣는 <b style={{ color: 'var(--mm-ink-soft)' }}>주무기</b>. 원 크기는 균일(정보 없음). 표본 적은 선수는 별도(참고 선수)로 구분됩니다.
+        · <b style={{ color: 'var(--mm-ink-soft)' }}>{catDef.label}</b> 기준 · 가로축 = <b style={{ color: 'var(--mm-ink-soft)' }}>시도수</b>(우측일수록 많이 시도, 저시도 구간은 넓게 펼쳐 표시) · 세로축 = <b style={{ color: 'var(--mm-ink-soft)' }}>성공률</b>. 리그 중앙값으로 4분할, 우상단(노랑)=많이 쏘고 잘 넣는 <b style={{ color: 'var(--mm-ink-soft)' }}>주무기</b>. 버블 클릭 시 선수 상세. 표본 적은 선수는 별도(참고 선수)로 구분됩니다.
       </p>
     </div>
   )
