@@ -37,11 +37,15 @@ const STATUS_LABEL: Record<Status, string> = {
   disabled: '비활성',
 }
 
-const STATUS_COLOR: Record<Status, string> = {
-  pending: 'var(--mm-yellow-strong)',
-  approved: '#059669',
-  rejected: '#DC2626',
-  disabled: 'var(--mm-muted)',
+// 상태 뱃지 색 — bg/fg 쌍으로 정의해 라이트/다크 양쪽에서 대비 확보 (2026-07-26 수정).
+//  · pending: 밝은 옐로(양 테마 밝음) + 검정 텍스트 → 항상 가독. (기존 yellow-strong 은 라이트에서 어두워져 검정과 4:1 marginal)
+//  · disabled: 고정 그레이 + 흰 텍스트. (기존 --mm-muted 배경은 다크에서 밝아져 흰 텍스트가 소실됐음)
+//  · approved/rejected: 고정 채도색 + 흰 텍스트 → 양 테마 안전.
+const STATUS_COLOR: Record<Status, { bg: string; fg: string }> = {
+  pending:  { bg: 'var(--mm-yellow)', fg: 'var(--mm-black)' },
+  approved: { bg: '#059669', fg: '#fff' },
+  rejected: { bg: '#DC2626', fg: '#fff' },
+  disabled: { bg: '#6B7280', fg: '#fff' },
 }
 
 export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props) {
@@ -182,8 +186,8 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                   <span
                     className="inline-flex items-center text-[10px] font-black uppercase tracking-[0.12em] px-1.5 py-0.5"
                     style={{
-                      background: STATUS_COLOR[r.status],
-                      color: r.status === 'pending' ? 'var(--mm-black)' : '#fff',
+                      background: STATUS_COLOR[r.status].bg,
+                      color: STATUS_COLOR[r.status].fg,
                       borderRadius: '2px',
                     }}
                   >

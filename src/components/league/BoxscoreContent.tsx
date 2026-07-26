@@ -934,7 +934,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
       {!allComplete && (
         <div
           className="text-xs px-3 py-2 font-bold"
-          style={{ color: 'var(--mm-black)', background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)' }}
+          style={{ color: 'var(--mm-ink)', background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)' }}
         >
           ⚠ 이 날의 일부 경기가 아직 마감되지 않았습니다 — 최종 수치는 마감 후 확정됩니다.
         </div>

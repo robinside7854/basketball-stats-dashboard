@@ -230,6 +230,20 @@ export default function LeagueRosterPage() {
     } catch { /* ignore */ }
   }, [leagueId, hideGuests])
 
+  // 인증회원(로그인 계정 등록·승인)만 보기 토글 — localStorage 로 세션 간 유지
+  const [onlyVerified, setOnlyVerified] = useState<boolean>(false)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`roster:onlyVerified:${leagueId}`)
+      if (saved === '1') setOnlyVerified(true)
+    } catch { /* SSR 등 접근 실패 무시 */ }
+  }, [leagueId])
+  useEffect(() => {
+    try {
+      localStorage.setItem(`roster:onlyVerified:${leagueId}`, onlyVerified ? '1' : '0')
+    } catch { /* ignore */ }
+  }, [leagueId, onlyVerified])
+
   const currentYear = new Date().getFullYear()
 
   // 분기별 기본 기간 (Q1: 1~3월, Q2: 4~6월, Q3: 7~9월, Q4: 10~12월)
@@ -553,6 +567,7 @@ export default function LeagueRosterPage() {
   const filteredAndSortedPlayers = players
     .filter(p => {
       if (hideGuests && isPlayerGuest(p)) return false
+      if (onlyVerified && !p.has_account) return false
       if (filterPosition === 'ALL') return true
       return parsePositions(p.position).includes(filterPosition)
     })
@@ -570,6 +585,7 @@ export default function LeagueRosterPage() {
       return 0
     })
   const guestCount = players.filter(isPlayerGuest).length
+  const verifiedCount = players.filter(p => p.has_account).length
 
   return (
     <div className="space-y-4 lg:space-y-5">
@@ -744,6 +760,35 @@ export default function LeagueRosterPage() {
               </button>
             </div>
           )}
+
+          {/* 인증회원만 보기 토글 — has_account(로그인 계정 등록·승인) 인 회원만 노출 */}
+          {verifiedCount > 0 && (
+            <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
+              <span className="text-xs lg:text-sm text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">인증</span>
+              <button
+                onClick={() => setOnlyVerified(v => !v)}
+                aria-pressed={onlyVerified}
+                className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-md text-xs lg:text-sm font-black uppercase tracking-[0.1em] transition-all cursor-pointer flex items-center gap-1.5 ${
+                  onlyVerified
+                    ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--color-hoop-orange-500)]'
+                    : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
+                }`}
+                title="로그인 계정을 등록·인증한 회원만 표시"
+              >
+                <ShieldCheck
+                  size={13}
+                  aria-hidden
+                  className="shrink-0"
+                  style={{ color: onlyVerified ? 'var(--color-hoop-orange-500)' : 'var(--mm-muted)' }}
+                />
+                <span>{onlyVerified ? '인증회원만' : '전체'}</span>
+                <span
+                  className="text-[10px] lg:text-xs"
+                  style={{ color: onlyVerified ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
+                >({verifiedCount})</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -768,7 +813,7 @@ export default function LeagueRosterPage() {
           size="sm"
         >
           <button
-            onClick={() => { setFilterPosition('ALL'); setSortKey('name') }}
+            onClick={() => { setFilterPosition('ALL'); setSortKey('name'); setOnlyVerified(false); setHideGuests(false) }}
             className="text-xs font-black uppercase tracking-[0.14em] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer transition-colors underline underline-offset-4 decoration-[var(--mm-ink-soft)]"
           >
             필터 초기화

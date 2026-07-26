@@ -13,12 +13,11 @@ const RESULT_COLORS = {
   draw: { bg: 'rgba(148,163,184,0.15)', border: '#94A3B8', fg: 'var(--mm-neutral-strong)' }, // slate
 } as const
 
-// 1위 팀 배경(노랑) 위에서 사용할 오버라이드 (contrast 확보)
-const RESULT_COLORS_TOP = {
-  win:  { bg: 'rgba(0,0,0,0.08)',  border: 'rgba(0,0,0,0.35)', fg: '#065F46' },
-  lose: { bg: 'rgba(0,0,0,0.08)',  border: 'rgba(0,0,0,0.35)', fg: '#991B1B' },
-  draw: { bg: 'rgba(0,0,0,0.08)',  border: 'rgba(0,0,0,0.35)', fg: 'rgba(0,0,0,0.7)' },
-} as const
+// 1위 행 배경(--mm-yellow-soft)은 라이트=크림 / 다크=반투명노랑(거의 흑)으로 테마마다 뒤집힌다.
+// 과거엔 여기서 검정 계열(rgba(0,0,0)/#065F46 등)을 하드코딩 → 다크모드에서 칩·숫자 소실 (2026-07-26 수정).
+// 이제 일반 행과 동일한 테마 토큰을 사용해 양 테마 모두 대비 확보. 1위 강조는 상위 컴포넌트의
+// 배경 틴트 + 좌측 노랑 바 + 큰 글자가 담당한다.
+const RESULT_COLORS_TOP = RESULT_COLORS
 
 type ChipVariant = 'win' | 'lose' | 'draw'
 
@@ -81,11 +80,12 @@ interface ScoreTableProps {
 
 export function ScoreTable({ ptsFor, ptsAgainst, isTop = false, compact = false }: ScoreTableProps) {
   const diff = ptsFor - ptsAgainst
-  const diffColor = isTop
-    ? (diff > 0 ? 'rgba(0,0,0,0.85)' : diff < 0 ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.55)')
-    : (diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-muted)')
-  const labelColor = isTop ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)'
-  const valueColor = isTop ? 'var(--mm-black)' : 'var(--mm-ink)'
+  // 텍스트는 항상 테마 토큰 사용 (1위 행 배경이 다크모드에서 어두워져도 대비 유지 · 2026-07-26 수정).
+  const diffColor = diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-muted)'
+  const labelColor = 'var(--mm-muted)'
+  const valueColor = 'var(--mm-ink)'
+  // 1위 강조는 테마 인식 토큰으로만 (프레임을 살짝 진하게) — 하드코딩 rgba(0,0,0) 제거
+  const tableBorder = isTop ? 'var(--mm-ink-soft)' : 'var(--mm-rule)'
   const cells: Array<{ label: string; value: string; color: string }> = [
     { label: '득점', value: String(ptsFor), color: valueColor },
     { label: '실점', value: String(ptsAgainst), color: valueColor },
@@ -98,7 +98,7 @@ export function ScoreTable({ ptsFor, ptsAgainst, isTop = false, compact = false 
     <div
       className="grid grid-cols-3 overflow-hidden"
       style={{
-        border: `1px solid ${isTop ? 'rgba(0,0,0,0.25)' : 'var(--mm-rule)'}`,
+        border: `1px solid ${tableBorder}`,
         borderRadius: '4px',
       }}
       role="table"
@@ -110,7 +110,7 @@ export function ScoreTable({ ptsFor, ptsAgainst, isTop = false, compact = false 
           className="text-center"
           style={{
             padding: cellPad,
-            borderRight: i < cells.length - 1 ? `1px solid ${isTop ? 'rgba(0,0,0,0.15)' : 'var(--mm-rule)'}` : undefined,
+            borderRight: i < cells.length - 1 ? `1px solid var(--mm-rule)` : undefined,
           }}
           role="cell"
         >

@@ -176,14 +176,14 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                     </div>
                   </div>
                 </div>
-                {/* 우측: 카드 절반 폭 큰 프로필 · 카드 높이 flush · 좌측 검정 divider */}
+                {/* 우측: 카드 절반 폭 큰 프로필 · 카드 높이 flush · 좌측 divider(테마 인식 — 다크에서 소실 방지) */}
                 <div
                   className="shrink-0 self-stretch"
                   style={{
                     width: '50%',
                     maxWidth: 180,
                     minWidth: 96,
-                    borderLeft: '1px solid var(--mm-black)',
+                    borderLeft: '1px solid var(--mm-ink)',
                   }}
                 >
                   <BigAvatar photo={p.photo_url} name={p.name} />
