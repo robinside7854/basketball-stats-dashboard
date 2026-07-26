@@ -12,23 +12,25 @@ import {
 } from 'recharts'
 import type { PlayerStat } from '@/types/league'
 
-type Combo = 'volEff' | 'zoneEff'
+type Combo = 'styleEff' | 'threeDep'
 type Quadrant = 'tr' | 'br' | 'tl' | 'bl'
 
-// ── 축 산식 (stats 페이지와 동일) ────────────────────────────────
-const possOf = (p: PlayerStat) => p.fga + 0.44 * p.fta + p.tov
-const usgPct = (p: PlayerStat) => (p.team_poss_in_games ?? 0) > 0 ? possOf(p) / (p.team_poss_in_games ?? 1) * 100 : 0
-const tsPct = (p: PlayerStat) => (p.fga + 0.44 * p.fta) > 0 ? p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100 : 0
-// 외곽 성향(0~100): 3점=1.0 / 미드=0.5 / 레이업=0.15 / 골밑=0 가중, 총 시도 대비
+// ── 축 산식 ────────────────────────────────
+// 공격 스타일(0~100): 순수 골밑=0 → 순수 외곽=100. 존별 시도를 거리 가중(3점 1.0 / 미드 0.5 / 레이업 0.15 / 골밑 0).
 const outsideTendency = (p: PlayerStat) => {
   const denom = (p.ds_a ?? 0) + (p.lu_a ?? 0) + (p.md_a ?? 0) + (p.fg3a ?? 0)
   if (denom <= 0) return 0
   return ((p.fg3a ?? 0) * 1.0 + (p.md_a ?? 0) * 0.5 + (p.lu_a ?? 0) * 0.15) / denom * 100
 }
+// 3점 의존도(0~100): 전체 야투 중 3점 시도 비중
+const threeShare = (p: PlayerStat) => (p.fga ?? 0) > 0 ? (p.fg3a ?? 0) / p.fga * 100 : 0
+// eFG% (성공률) — 3점 가중 유효 야투율
+const efgPct = (p: PlayerStat) => p.efg_pct ?? 0
 
 type ComboDef = {
   label: string
   xLabel: string; yLabel: string
+  xShort: string; yShort: string
   xUnit: string; yUnit: string
   xOf: (p: PlayerStat) => number
   yOf: (p: PlayerStat) => number
@@ -36,31 +38,34 @@ type ComboDef = {
   hint: Record<Quadrant, string>
 }
 
+// 두 조합 모두 Y=성공률(eFG%) · X=공격 스타일(우측일수록 외곽 지향). 볼륨은 축에서 배제.
 const COMBOS: Record<Combo, ComboDef> = {
-  volEff: {
-    label: '볼륨 × 효율',
-    xLabel: 'USG% · 공격 점유율', yLabel: 'TS% · 효율',
-    xUnit: '%', yUnit: '%',
-    xOf: usgPct, yOf: tsPct,
-    names: { tr: '에이스', br: '볼륨 슈터', tl: '알짜 해결사', bl: '롤플레이어' },
+  styleEff: {
+    label: '거리 성향',
+    xLabel: '공격 스타일 · 골밑 ← → 외곽', yLabel: '성공률 · eFG%',
+    xShort: '외곽성향', yShort: 'eFG',
+    xUnit: '', yUnit: '%',
+    xOf: outsideTendency, yOf: efgPct,
+    names: { tr: '외곽 스나이퍼', br: '외곽 도전자', tl: '골밑 지배자', bl: '골밑 파이터' },
     hint: {
-      tr: '많이 짊어지고도 효율적',
-      br: '공격을 짊어지지만 효율은 아래',
-      tl: '적게 관여해도 넣을 땐 넣는다',
-      bl: '적은 관여 · 궂은일 담당',
+      tr: '외곽 위주 · 성공률 높음',
+      br: '외곽 위주 · 성공률 낮음',
+      tl: '골밑 위주 · 성공률 높음',
+      bl: '골밑 위주 · 성공률 낮음',
     },
   },
-  zoneEff: {
-    label: '슛존 × 효율',
-    xLabel: '외곽 성향', yLabel: 'eFG% · 효율',
-    xUnit: '', yUnit: '%',
-    xOf: outsideTendency, yOf: (p) => p.efg_pct ?? 0,
-    names: { tr: '스나이퍼', br: '도전하는 슈터', tl: '페인트 지배자', bl: '림 파이터' },
+  threeDep: {
+    label: '3점 의존',
+    xLabel: '3점 의존도 · 낮음 ← → 높음', yLabel: '성공률 · eFG%',
+    xShort: '3점의존', yShort: 'eFG',
+    xUnit: '%', yUnit: '%',
+    xOf: threeShare, yOf: efgPct,
+    names: { tr: '3점 슈터', br: '3점 도전자', tl: '골밑 해결사', bl: '골밑 위주' },
     hint: {
-      tr: '외곽에서 높은 확률',
-      br: '외곽을 즐기지만 확률은 아래',
-      tl: '골밑에서 확실하게',
-      bl: '골밑 위주 · 확률은 아래',
+      tr: '3점 많이 · 성공률 높음',
+      br: '3점 많이 · 성공률 낮음',
+      tl: '3점 적게 · 성공률 높음',
+      bl: '3점 적게 · 성공률 낮음',
     },
   },
 }
@@ -81,7 +86,7 @@ type Pt = {
   eligible: boolean; quadrant: Quadrant
 }
 
-const MIN_FGA = 10  // 성공률 fluke 방지 — 산점도는 위치 자체가 낙인이라 리더보드(5)보다 엄격
+const MIN_FGA = 5  // 성공률 중앙값 계산·정배치 최소 표본 (선수단 전체를 분류하되 소표본은 '참고'로 구분)
 
 export default function PlayMapChart({
   players, minGP, quarterLabel, onSelectPlayer,
@@ -91,15 +96,17 @@ export default function PlayMapChart({
   quarterLabel?: string
   onSelectPlayer: (id: string, name: string) => void
 }) {
-  const [combo, setCombo] = useState<Combo>('volEff')
-  const [showRef, setShowRef] = useState(false)
+  const [combo, setCombo] = useState<Combo>('styleEff')
+  const [showRef, setShowRef] = useState(true)  // 선수단 전체 분류가 목표 → 기본 표시(소표본은 반투명)
   const def = COMBOS[combo]
 
   const { pts, mx, my, eligibleCount } = useMemo(() => {
-    const eligible = players.filter(p => p.gp >= minGP && p.fga >= MIN_FGA)
+    // 야투를 한 번도 시도 안 한 선수는 공격 스타일 정의 불가 → 제외
+    const shooters = players.filter(p => (p.fga ?? 0) > 0)
+    const eligible = shooters.filter(p => p.gp >= minGP && p.fga >= MIN_FGA)
     const mx = median(eligible.map(def.xOf))
     const my = median(eligible.map(def.yOf))
-    const pts: Pt[] = players.map(p => {
+    const pts: Pt[] = shooters.map(p => {
       const x = +def.xOf(p).toFixed(1)
       const y = +def.yOf(p).toFixed(1)
       const eligible = p.gp >= minGP && p.fga >= MIN_FGA
@@ -166,7 +173,7 @@ export default function PlayMapChart({
           </button>
         )}
         <span className="text-[11px] font-bold uppercase tracking-[0.1em] ml-auto" style={{ color: 'var(--mm-muted)' }}>
-          {quarterLabel ? `${quarterLabel} · ` : ''}중앙값 {def.xLabel.split(' ')[0]} {mx.toFixed(1)}{def.xUnit} · {def.yLabel.split(' ')[0]} {my.toFixed(1)}{def.yUnit}
+          {quarterLabel ? `${quarterLabel} · ` : ''}중앙값 {def.xShort} {mx.toFixed(1)}{def.xUnit} · {def.yShort} {my.toFixed(1)}{def.yUnit}
         </span>
       </div>
 
@@ -206,7 +213,7 @@ export default function PlayMapChart({
                       {d.name}{d.number != null && <span style={{ color: 'var(--mm-muted)', marginLeft: 4 }}>#{d.number}</span>}
                     </div>
                     <div className="text-[11px] font-black uppercase tracking-wider" style={{ color: 'var(--color-hoop-orange-500)', marginTop: 2 }}>{def.names[d.quadrant]}{!d.eligible && ' · 참고'}</div>
-                    <div className="text-xs mt-1.5 tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{def.xLabel.split(' ')[0]} {d.x}{def.xUnit} · {def.yLabel.split(' ')[0]} {d.y}{def.yUnit}</div>
+                    <div className="text-xs mt-1.5 tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{def.xShort} {d.x}{def.xUnit} · {def.yShort} {d.y}{def.yUnit}</div>
                     <div className="text-[11px] tabular-nums" style={{ color: 'var(--mm-muted)' }}>PTS {d.pts} · {d.gp}경기</div>
                   </div>
                 )
@@ -268,7 +275,7 @@ export default function PlayMapChart({
         })}
       </div>
       <p className="text-[11px] leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-        · 리그 중앙값 기준 4분할 · 우상단(노랑)이 목표 구역입니다. 출전 상황·역할에 따른 <b style={{ color: 'var(--mm-ink-soft)' }}>공격 성향 지도</b>이며 순위가 아닙니다. 수비 스탯은 반영되지 않습니다.
+        · 가로축 = <b style={{ color: 'var(--mm-ink-soft)' }}>공격 스타일</b>(우측일수록 외곽 지향) · 세로축 = <b style={{ color: 'var(--mm-ink-soft)' }}>성공률(eFG%)</b>. 리그 중앙값으로 4분할, 우상단(노랑)=외곽 위주+성공률 높음. 공격 <b style={{ color: 'var(--mm-ink-soft)' }}>성향 지도</b>이며 순위가 아니고 수비는 반영되지 않습니다.
       </p>
     </div>
   )
