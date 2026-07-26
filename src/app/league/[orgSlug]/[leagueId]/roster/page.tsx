@@ -8,7 +8,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, X, Users } from 'lucide-react'
+import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, X, Users, ShieldCheck } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import SectionCard from '@/components/league/ui/SectionCard'
@@ -876,6 +876,16 @@ export default function LeagueRosterPage() {
                         title="단발성 게스트 선수 — 로스터 하단으로 정렬됩니다"
                       >
                         게스트
+                      </span>
+                    )}
+                    {/* 인증 뱃지 — 로그인 계정을 등록·승인받은 회원 (브랜드 옐로 채움으로 중립 뱃지와 구분) */}
+                    {p.has_account && (
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-[0.12em] bg-[var(--mm-yellow)] text-[var(--mm-black)]"
+                        title="로그인 계정을 등록·인증한 회원"
+                      >
+                        <ShieldCheck size={11} aria-hidden className="shrink-0" />
+                        인증
                       </span>
                     )}
                     {/* 참석율 (R 라운드 기준) — 참여 이력 있는 선수만 노출 */}

@@ -15,7 +15,17 @@ export async function GET(
     .eq('league_id', leagueId)
     .order('name', { ascending: true })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data ?? [])
+
+  // 로그인 계정을 만들어 관리자 승인(status='approved')까지 완료한 회원 → 라커룸 인증 뱃지용 플래그.
+  // 계정 테이블(league_user_accounts)이 없거나 조회 실패해도 뱃지만 빠지고 명단은 정상 반환 (best-effort).
+  const { data: accounts } = await supabase
+    .from('league_user_accounts')
+    .select('league_player_id')
+    .eq('league_id', leagueId)
+    .eq('status', 'approved')
+  const verifiedIds = new Set((accounts ?? []).map(a => a.league_player_id))
+  const enriched = (data ?? []).map(p => ({ ...p, has_account: verifiedIds.has(p.id) }))
+  return NextResponse.json(enriched)
 }
 
 export async function POST(

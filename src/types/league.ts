@@ -33,6 +33,8 @@ export interface LeaguePlayer {
   is_guest?: boolean
   photo_url?: string | null
   original_photo_url?: string | null
+  // 로그인 계정을 등록·승인(인증)받은 회원 여부 — 라커룸 인증 뱃지용 (players API에서 조인해 주입)
+  has_account?: boolean
   created_at: string
 }
 

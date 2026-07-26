@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal, Film } from 'lucide-react'
+import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal, Film, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
@@ -41,6 +41,7 @@ type PlayerInfo = {
   birth_date: string | null; plus_one: boolean
   photo_url?: string | null
   original_photo_url?: string | null
+  has_account?: boolean  // 로그인 계정 등록·승인(인증) 회원 여부
 }
 
 type SeasonStats = {
@@ -573,6 +574,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     className="text-sm font-black px-2.5 py-1 rounded-sm"
                     style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
                   >+1</span>
+                )}
+                {player?.has_account && (
+                  <span
+                    className="inline-flex items-center gap-1 text-sm font-black px-2.5 py-1 rounded-sm"
+                    style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
+                    title="로그인 계정을 등록·인증한 회원"
+                  >
+                    <ShieldCheck size={13} aria-hidden /> 인증
+                  </span>
                 )}
                 {orgSlug && (
                   <Link
