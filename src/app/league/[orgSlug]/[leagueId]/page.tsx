@@ -20,6 +20,7 @@ import { loadRecentRounds, loadRoundDetail } from '@/lib/highlights/loader'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
 import NbaRoundsSummary, { type RoundSummary, type RoundTeamSummary } from '@/components/league/nba/NbaRoundsSummary'
 import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
+import HomeSectionTabs from '@/components/league/HomeSectionTabs'
 import type { League } from '@/types/league'
 
 // 최근 4주 라운드 요약 — NbaRoundsSummary 용.
@@ -409,21 +410,26 @@ export default async function LeagueDetailPage({
         <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
       </div>
 
-      {/* 미라클모닝 브랜드 홈 — 하이라이트 + 팀 승률 + 최근 라운드 + 리그 리더 (POTW 는 선정 기준 재검토로 임시 제거 · 2026-07-18) */}
-      <div className="rounded-none overflow-hidden">
-        <HighlightsHome data={homeHighlights} orgSlug={orgSlug} leagueId={leagueId} />
-        <NbaTeamStandings
-          standings={quarterStandings.standings}
-          quarterLabel={quarterStandings.quarterLabel}
-          gamesCount={quarterStandings.gamesCount}
-        />
-        <NbaRoundsSummary rounds={recentRounds} leagueId={leagueId} orgSlug={orgSlug} />
-        <NbaLeaders
-          leagueId={leagueId}
-          initialPlayers={leaderStats.players}
-          initialPhotoMap={initialPhotoMap}
-        />
-      </div>
+      {/* 미라클모닝 브랜드 홈 — 팀 승률 · 최근 라운드 · 리그 리더 · 하이라이트를 탭으로 묶어
+          스크롤 길이 단축 (2026-07-27). 활성 탭만 노출 · 기본=팀 승률(첫 방문 투어 타깃 보존). */}
+      <HomeSectionTabs
+        standings={
+          <NbaTeamStandings
+            standings={quarterStandings.standings}
+            quarterLabel={quarterStandings.quarterLabel}
+            gamesCount={quarterStandings.gamesCount}
+          />
+        }
+        rounds={<NbaRoundsSummary rounds={recentRounds} leagueId={leagueId} orgSlug={orgSlug} />}
+        leaders={
+          <NbaLeaders
+            leagueId={leagueId}
+            initialPlayers={leaderStats.players}
+            initialPhotoMap={initialPhotoMap}
+          />
+        }
+        highlights={<HighlightsHome data={homeHighlights} orgSlug={orgSlug} leagueId={leagueId} />}
+      />
 
       {/* 인터랙티브 튜토리얼 투어 — 첫 방문 자동 실행 · 헤더 물음표 재실행 */}
       <Suspense fallback={null}>
