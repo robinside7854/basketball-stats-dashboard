@@ -61,18 +61,19 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { o
                     href={tab.href}
                     data-tour={tourAttr}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`relative shrink-0 flex items-center px-3 lg:px-4 py-3.5 lg:py-4 text-sm lg:text-base transition-colors duration-200 ${
+                    className={`relative shrink-0 flex items-center px-3 lg:px-4 py-3.5 lg:py-4 text-sm lg:text-base rounded-t-md transition-colors duration-200 ${
                       isActive
-                        ? 'text-[color:var(--mm-ink)] font-bold'
-                        : 'text-[color:var(--mm-muted)] font-medium hover:text-[color:var(--mm-ink)]'
+                        ? 'text-[color:var(--mm-ink)] font-bold bg-[color:var(--mm-panel-alt)]'
+                        : 'text-[color:var(--mm-muted)] font-medium hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]'
                     }`}
                   >
                     {tab.label}
-                    {/* 활성 인디케이터 — 하단 3px 주황 바 (구분선에 flush, 절대배치로 클리핑·정렬 문제 제거) */}
+                    {/* 활성 인디케이터 — 다중 신호: 굵은 글자 + 배경 + 하단 전체폭 3px 주황 바.
+                        절대배치 바로 클리핑·정렬 문제 제거, 배경/굵기까지 겹쳐 밑줄 하나에 의존하지 않음. */}
                     {isActive && (
                       <span
                         aria-hidden
-                        className="absolute inset-x-2 bottom-0 h-[3px] rounded-t-sm bg-[color:var(--color-hoop-orange-500)]"
+                        className="absolute inset-x-0 bottom-0 h-[3px] bg-[color:var(--color-hoop-orange-500)]"
                       />
                     )}
                   </Link>
