@@ -46,9 +46,11 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { o
     <div data-tour="top-nav" className="sticky top-0 z-10 bg-[color:var(--mm-panel)] border-b border-[color:var(--mm-rule)]">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="flex items-center">
-          {/* 탭 영역 — 모바일에서는 숨김 (하단 탭바 사용), PC에서만 표시 */}
-          <div className="relative flex-1 min-w-0 hidden lg:block">
-            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+          {/* 탭 영역 — 모바일에서는 숨김 (하단 탭바 사용), PC에서만 표시.
+              self-stretch + items-stretch 로 탭을 행 전체 높이로 늘려, 활성 밑줄(하단 3px 바)이
+              우측 액션 버튼 높이에 밀려 붕 뜨지 않고 네비 하단 구분선에 정확히 붙게 한다. */}
+          <div className="relative flex-1 min-w-0 hidden lg:flex lg:items-stretch self-stretch">
+            <div className="flex items-stretch gap-1 overflow-x-auto scrollbar-hide w-full">
               {tabs.map(tab => {
                 const isActive = tabActive(tab)
                 // 튜어 target — 스탯 탭에만 data-tour 부여
@@ -58,13 +60,21 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { o
                     key={tab.href}
                     href={tab.href}
                     data-tour={tourAttr}
-                    className={`shrink-0 px-3 lg:px-4 py-3.5 lg:py-4 text-sm lg:text-base border-b-2 transition-all duration-200 ${
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`relative shrink-0 flex items-center px-3 lg:px-4 py-3.5 lg:py-4 text-sm lg:text-base transition-colors duration-200 ${
                       isActive
-                        ? 'border-[color:var(--color-hoop-orange-500)] text-[color:var(--mm-ink)] font-semibold'
-                        : 'border-transparent text-[color:var(--mm-muted)] font-medium hover:text-[color:var(--mm-ink)]'
+                        ? 'text-[color:var(--mm-ink)] font-bold'
+                        : 'text-[color:var(--mm-muted)] font-medium hover:text-[color:var(--mm-ink)]'
                     }`}
                   >
                     {tab.label}
+                    {/* 활성 인디케이터 — 하단 3px 주황 바 (구분선에 flush, 절대배치로 클리핑·정렬 문제 제거) */}
+                    {isActive && (
+                      <span
+                        aria-hidden
+                        className="absolute inset-x-2 bottom-0 h-[3px] rounded-t-sm bg-[color:var(--color-hoop-orange-500)]"
+                      />
+                    )}
                   </Link>
                 )
               })}
