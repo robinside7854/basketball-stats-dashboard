@@ -123,70 +123,60 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
               <button
                 key={p.id}
                 onClick={onPlayerClick ? () => onPlayerClick(p.id, p.name) : undefined}
-                className="topfive-slot text-left flex items-stretch cursor-pointer overflow-hidden transition-shadow duration-200 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.20)]"
+                className="topfive-slot text-left flex flex-col cursor-pointer overflow-hidden rounded-md transition-shadow duration-200 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.20)]"
                 style={{
                   background: isFirst ? 'var(--mm-yellow-soft)' : 'var(--mm-panel-alt)',
                   border: '1px solid var(--mm-rule)',
-                  borderLeft: `3px solid ${accent}`,
-                  minHeight: 160,
+                  borderTop: `3px solid ${accent}`,
                   // stagger — 각 슬롯이 순차 등장
                   animation: 'topfiveIn 260ms ease-out both',
                   animationDelay: `${i * 50}ms`,
                 }}
               >
-                {/* 좌측: 랭크 · 이름 · 값 · 지표 라벨 */}
-                <div className="flex-1 min-w-0 flex flex-col justify-between py-2.5 pl-2.5 sm:py-3 sm:pl-3 pr-1.5">
-                  <div>
-                    <div
-                      className="font-jersey font-black tabular-nums leading-none"
-                      style={{ color: rankColor, fontSize: '22px', letterSpacing: '-0.02em' }}
-                    >
-                      {rank}
-                    </div>
-                    <div
-                      className="font-jersey font-black uppercase break-keep mt-1.5"
-                      style={{
-                        color: 'var(--mm-ink)',
-                        fontSize: 'clamp(13px, 3.2vw, 15px)',
-                        lineHeight: 1.15,
-                        letterSpacing: '-0.005em',
-                        wordBreak: 'break-word',
-                        overflowWrap: 'anywhere',
-                      }}
-                    >
-                      {p.name}
-                    </div>
+                {/* 상단: 카드 폭 전체 정사각 사진 + 좌상단 랭크 뱃지 오버레이 (세로 박스형 — 정보/사진 병렬 밀림 제거) */}
+                <div className="relative w-full" style={{ aspectRatio: '1 / 1' }}>
+                  <div className="absolute inset-0">
+                    <BigAvatar photo={p.photo_url} name={p.name} />
                   </div>
-                  <div>
-                    <div
+                  <span
+                    className="absolute top-1.5 left-1.5 inline-flex items-center justify-center font-jersey font-black tabular-nums rounded-md"
+                    style={{
+                      minWidth: 22, height: 22, padding: '0 6px', fontSize: 13, lineHeight: 1,
+                      background: isFirst ? 'var(--mm-yellow-strong)' : 'var(--mm-panel)',
+                      color: isFirst ? 'var(--mm-black)' : rankColor,
+                      border: '1px solid var(--mm-rule)',
+                    }}
+                  >
+                    {rank}
+                  </span>
+                </div>
+                {/* 하단: 이름 + 값 + 지표 라벨 */}
+                <div className="flex flex-col gap-1 px-2.5 py-2">
+                  <div
+                    className="font-jersey font-black uppercase break-keep truncate"
+                    style={{
+                      color: 'var(--mm-ink)',
+                      fontSize: 'clamp(13px, 3.2vw, 15px)',
+                      lineHeight: 1.15,
+                      letterSpacing: '-0.005em',
+                    }}
+                  >
+                    {p.name}
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span
                       className="font-jersey font-black tabular-nums leading-none"
-                      style={{
-                        color: 'var(--mm-ink)',
-                        fontSize: 'clamp(24px, 5.5vw, 32px)',
-                        letterSpacing: '-0.015em',
-                      }}
+                      style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 5vw, 30px)', letterSpacing: '-0.015em' }}
                     >
                       {p.value}
-                    </div>
-                    <div
-                      className="text-[10px] font-black uppercase mt-1"
-                      style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
+                    </span>
+                    <span
+                      className="text-[10px] font-black uppercase"
+                      style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}
                     >
                       {metricLabel}
-                    </div>
+                    </span>
                   </div>
-                </div>
-                {/* 우측: 카드 절반 폭 큰 프로필 · 카드 높이 flush · 좌측 divider(테마 인식 — 다크에서 소실 방지) */}
-                <div
-                  className="shrink-0 self-stretch"
-                  style={{
-                    width: '50%',
-                    maxWidth: 180,
-                    minWidth: 96,
-                    borderLeft: '1px solid var(--mm-ink)',
-                  }}
-                >
-                  <BigAvatar photo={p.photo_url} name={p.name} />
                 </div>
               </button>
             )

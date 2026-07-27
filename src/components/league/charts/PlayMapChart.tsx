@@ -80,9 +80,11 @@ export default function PlayMapChart({
     const elig = rows.filter(r => r.att >= MIN_ATT)
     const mx = median(elig.map(r => r.att))
     const my = median(elig.map(r => r.pct))
-    // 시도·성공률 상위 2명 (하이라이트 대상)
+    // 시도 상위 2명 (하이라이트 대상)
     const topAtt = new Set([...elig].sort((a, b) => b.att - a.att).slice(0, 2).map(r => r.p.player_id))
-    const topSucc = new Set([...elig].sort((a, b) => b.pct - a.pct).slice(0, 2).map(r => r.p.player_id))
+    // 성공률 상위 2명은 '빈도 높은(시도 중앙값 이상)' 선수 중에서만 선정 — 저빈도 고효율 fluke 배제
+    const highFreq = elig.filter(r => r.att >= mx)
+    const topSucc = new Set([...highFreq].sort((a, b) => b.pct - a.pct).slice(0, 2).map(r => r.p.player_id))
     const starOf = (id: string): Star => {
       const a = topAtt.has(id), s = topSucc.has(id)
       return a && s ? 'both' : a ? 'att' : s ? 'succ' : null
