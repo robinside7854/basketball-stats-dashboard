@@ -85,7 +85,11 @@ export async function POST(
         ? `/league/${lg.org_slug}/${lg.season_year}`
         : '/'
       const summary = summarizeForPush(body_markdown) || '새 공지가 등록되었습니다.'
-      const r = await sendLeaguePush(leagueId, { title: `📢 ${title}`, body: summary, url, tag: 'mm-announcement' })
+      // 본문 첫 이미지를 히어로 배너로 자동 첨부 (HTML <img> 또는 마크다운 ![]())
+      const imgMatch = body_markdown.match(/<img\b[^>]*\bsrc=["']([^"']+)["']/i)
+        ?? body_markdown.match(/!\[[^\]]*\]\(([^)\s]+)/)
+      const image = imgMatch?.[1] && /^https?:\/\//.test(imgMatch[1]) ? imgMatch[1] : undefined
+      const r = await sendLeaguePush(leagueId, { title: `📢 ${title}`, body: summary, url, tag: 'mm-announcement', image })
       push = { sent: r.sent, total: r.total }
     } catch {
       // 푸시 실패는 무시

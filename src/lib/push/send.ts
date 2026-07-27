@@ -8,6 +8,7 @@ export interface PushPayload {
   body: string
   url?: string          // 클릭 시 열 경로 (기본 '/')
   tag?: string          // 같은 tag 는 알림 대체(중복 방지)
+  image?: string        // 큰 히어로 배너 이미지 URL (선택)
 }
 
 export interface PushSendResult {
@@ -42,6 +43,7 @@ export async function sendLeaguePush(leagueId: string, payload: PushPayload): Pr
     body: payload.body.slice(0, 300),
     url: payload.url || '/',
     tag: payload.tag || 'mm-league',
+    ...(payload.image ? { image: payload.image } : {}),
   })
 
   const deadEndpoints: string[] = []

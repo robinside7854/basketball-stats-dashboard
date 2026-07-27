@@ -37,12 +37,20 @@ self.addEventListener('push', (event) => {
   const title = data.title || '미라클모닝농구단'
   const options = {
     body: data.body || '',
-    icon: '/icon.png',
-    badge: '/icon.png',
+    icon: '/icon.png',            // 큰 브랜드 아이콘(컬러)
+    badge: '/notif-badge.png',    // 상태바 모노크롬 배지(흰색 농구공)
     tag: data.tag || 'mm-league',
     renotify: true,
+    lang: 'ko',
+    dir: 'auto',
+    timestamp: Date.now(),
+    vibrate: [80, 40, 80],        // 짧은 더블 진동
+    requireInteraction: false,
+    actions: [{ action: 'open', title: '열기' }],
     data: { url: data.url || '/' },
   }
+  // 큰 히어로 배너(선택) — payload.image 가 있을 때만
+  if (data.image) options.image = data.image
   event.waitUntil(self.registration.showNotification(title, options))
 })
 
