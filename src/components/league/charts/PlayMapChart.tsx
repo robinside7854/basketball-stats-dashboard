@@ -49,7 +49,7 @@ type Pt = {
   quadrant: Quadrant; z: number; star: Star
 }
 
-const MIN_ATT = 3  // 해당 스타일 시도 최소치 — 미만은 '참고'(반투명, 중앙값 제외)
+const MIN_ATT = 10  // 해당 스타일 시도 최소치 — 미만은 표본 부족으로 맵에서 완전 제외
 
 // 하이라이트 색 — 시도 상위 2명(주황) / 성공률 상위 2명(에메랄드), 각각 다른 색
 const STAR_FILL_ATT = 'var(--color-hoop-orange-500)'
