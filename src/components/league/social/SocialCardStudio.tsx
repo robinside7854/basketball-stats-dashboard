@@ -5,7 +5,9 @@ import { useState, useRef } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import type { RoundMagazineData } from '@/lib/social/weeklyData'
+import type { CutSheetGame } from '@/lib/social/cutSheet'
 import { CoverCard, ScoreboardCard, LeaderCard, BestCard, QuarterStandingsCard, MilestoneCard, IG_W, IG_H } from './SocialCards'
+import SocialCutSheet from './SocialCutSheet'
 
 const PREVIEW_W = 320
 const SCALE = PREVIEW_W / IG_W
@@ -16,7 +18,7 @@ function fmtDate(iso: string): string {
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} (${DOW[d.getDay()]})`
 }
 
-export default function SocialCardStudio({ data, roundDates }: { data: RoundMagazineData; roundDates: string[] }) {
+export default function SocialCardStudio({ data, roundDates, cutSheet }: { data: RoundMagazineData; roundDates: string[]; cutSheet: CutSheetGame[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const sp = useSearchParams()
@@ -122,6 +124,9 @@ export default function SocialCardStudio({ data, roundDates }: { data: RoundMaga
         · 규격 4:5(1080×1350) · 다크+옐로 고정 테마 · 선수 사진은 Supabase 공개 URL(CORS 허용 시 export 반영).
         7번(이 날의 BEST)은 종합 지표 자동 선정입니다. 템플릿 디테일은 수정요청으로 반복 조정.
       </p>
+
+      {/* 릴스 컷 시트 */}
+      <SocialCutSheet games={cutSheet} dateLabel={data.dateLabel} />
     </div>
   )
 }

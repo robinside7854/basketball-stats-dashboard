@@ -2,6 +2,7 @@
 //   /league/[org]/[id]/social?date=YYYY-MM-DD
 //   라운드(경기 날짜) 단위. 기본 = 최근 완료 라운드.
 import { getRoundMagazineData, getRoundDates } from '@/lib/social/weeklyData'
+import { getRoundCutSheet } from '@/lib/social/cutSheet'
 import SocialCardStudio from '@/components/league/social/SocialCardStudio'
 
 export default async function LeagueSocialPage({
@@ -15,11 +16,14 @@ export default async function LeagueSocialPage({
 
   const roundDates = await getRoundDates(leagueId)
   const date = qDate ?? roundDates[0] ?? new Date().toISOString().slice(0, 10)
-  const data = await getRoundMagazineData(leagueId, date)
+  const [data, cutSheet] = await Promise.all([
+    getRoundMagazineData(leagueId, date),
+    getRoundCutSheet(leagueId, date),
+  ])
 
   return (
     <div className="max-w-6xl mx-auto">
-      <SocialCardStudio data={data} roundDates={roundDates} />
+      <SocialCardStudio data={data} roundDates={roundDates} cutSheet={cutSheet} />
     </div>
   )
 }
