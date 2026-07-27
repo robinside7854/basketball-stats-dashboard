@@ -73,6 +73,16 @@ export const viewport: import('next').Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" suppressHydrationWarning>
+      <head>
+        {/* Pretendard(한글 본문 폰트) — CSS @import(직렬 왕복) 대신 head 에서 병렬 로드.
+            preconnect 로 DNS+TLS 를 미리 데워 크리티컬 패스 지연을 줄인다. 서브셋 CSS 는 작고,
+            실제 woff2 글리프는 display:swap 로 논블로킹 로드된다. */}
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+        />
+      </head>
       <body className={`${firaSans.variable} ${bebasNeue.variable} ${barlowCondensed.variable} font-sans bg-gray-950 text-gray-300 min-h-screen`}>
         <ThemeProvider
           attribute="class"

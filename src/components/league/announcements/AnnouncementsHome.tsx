@@ -9,10 +9,14 @@ import Link from 'next/link'
 import { Megaphone, ChevronDown, ChevronUp, Plus, Sparkles, Pencil, Trash2, Calendar, User, MessageCircle, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
-import AnnouncementReaderModal from './AnnouncementReaderModal'
-import AnnouncementEditorModal from './AnnouncementEditorModal'
+import dynamic from 'next/dynamic'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
 import SectionCard from '@/components/league/ui/SectionCard'
+
+// 리더(react-markdown 체인)·에디터(tiptap+확장)는 무겁고 클릭 시에만 필요 →
+// 홈 초기 클라이언트 번들에서 분리(모달 열림 시 지연 로드).
+const AnnouncementReaderModal = dynamic(() => import('./AnnouncementReaderModal'), { ssr: false })
+const AnnouncementEditorModal = dynamic(() => import('./AnnouncementEditorModal'), { ssr: false })
 
 interface Props {
   leagueId: string

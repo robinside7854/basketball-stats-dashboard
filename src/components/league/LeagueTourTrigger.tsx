@@ -4,35 +4,67 @@
 //
 // ?tour=1 쿼리 감지: 다른 페이지에서 물음표 버튼 클릭 → 홈으로 이동 후 자동 실행
 
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { HOME_TOUR_STEPS } from './tour/tourSteps'
 
-// LeagueTour(495줄, gsap 3.15 ~70KB) 는 첫방문 자동 실행 · 튜어 열기 트리거 시점에만 필요
+// LeagueTour(495줄, gsap 3.15 ~70KB) 는 첫방문 자동 실행 · 투어 열기 트리거 시점에만 필요
 // → 홈 초기 번들에서 완전히 제외
 const LeagueTour = dynamic(() => import('./LeagueTour'), { ssr: false })
+
+const SEEN_KEY = 'mm_tour_v2_seen'
 
 export default function LeagueTourTrigger() {
   const sp = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
 
+  // 성능(2026-07-27): 이미 투어를 본 사용자에게는 gsap 청크를 아예 안 받도록,
+  //   실제로 투어가 필요할 때만 <LeagueTour> 를 마운트한다.
+  //     · 미열람(첫 방문) → autoOpen 위해 즉시 마운트
+  //     · ?tour=1 또는 도움말 버튼(mm-tour-open) → 마운트
+  //     · 이미 열람 + 트리거 없음 → 마운트 안 함 (gsap 로드 스킵)
+  const [armed, setArmed] = useState(false)
+  const armedRef = useRef(false)
+  useEffect(() => { armedRef.current = armed }, [armed])
+
+  // 첫 방문(미열람) 또는 ?tour=1 이면 무장
+  useEffect(() => {
+    let seen = false
+    try { seen = !!localStorage.getItem(SEEN_KEY) } catch { /* 무시 */ }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR-safe: localStorage 는 클라이언트에서만 읽어 마운트 후 1회 동기화
+    if (!seen || sp.get('tour') === '1') setArmed(true)
+  }, [sp])
+
+  // 도움말 버튼 등에서 mm-tour-open 이 오면 무장. 아직 마운트 전이었다면 이번 이벤트를
+  // 놓치므로(리스너 미등록) 한 틱 뒤 재전파해 새로 뜬 LeagueTour 가 받도록 한다.
+  useEffect(() => {
+    const onOpen = () => {
+      if (armedRef.current) return  // 이미 마운트됨 → LeagueTour 가 직접 수신
+      setArmed(true)
+      setTimeout(() => window.dispatchEvent(new CustomEvent('mm-tour-open')), 60)
+    }
+    window.addEventListener('mm-tour-open', onOpen)
+    return () => window.removeEventListener('mm-tour-open', onOpen)
+  }, [])
+
+  // ?tour=1 → mm-tour-open 발사 (기존 동작 유지). 위에서 이미 무장돼 LeagueTour 가 처리.
   useEffect(() => {
     if (sp.get('tour') !== '1') return
-    // 짧은 지연 · DOM 마운트 완료 대기
     const t = setTimeout(() => {
       window.dispatchEvent(new CustomEvent('mm-tour-open'))
-      // URL 정리 · ?tour=1 제거 (뒤로가기 시 재실행 방지)
-      router.replace(pathname)
+      router.replace(pathname)  // ?tour=1 제거 (뒤로가기 재실행 방지)
     }, 400)
     return () => clearTimeout(t)
   }, [sp, router, pathname])
 
+  if (!armed) return null
+
   return (
     <LeagueTour
       steps={HOME_TOUR_STEPS}
-      storageKey="mm_tour_v2_seen"
+      storageKey={SEEN_KEY}
       autoOpen
     />
   )

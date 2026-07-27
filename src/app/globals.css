@@ -1,8 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-/* Pretendard Variable — 한글 최적화, 고딕 계열. 프로젝트 전역 sans stack 최상위 */
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+/* Pretendard Variable — 한글 최적화, 고딕 계열. 프로젝트 전역 sans stack 최상위.
+   렌더 블로킹 완화(2026-07-27): CSS @import(직렬 왕복) 대신 layout.tsx <head> 에서
+   preconnect + <link rel="stylesheet"> 로 병렬 로드. (woff2 는 dynamic-subset + display:swap) */
 
 /* ===== 미라클모닝 브랜드 팔레트 (홈 랜딩 파일럿 스코프) =====
    노랑 / 검정 / 화이트. NBA 오마주 컴포넌트(.mm-brand) 안에서만 참조.

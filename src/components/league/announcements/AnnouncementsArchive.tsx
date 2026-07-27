@@ -5,9 +5,12 @@ import { useState, useCallback } from 'react'
 import { Megaphone, Plus, Sparkles, Calendar, User, Pin, Pencil, Trash2, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
-import AnnouncementReaderModal from './AnnouncementReaderModal'
-import AnnouncementEditorModal from './AnnouncementEditorModal'
+import dynamic from 'next/dynamic'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
+
+// tiptap 에디터·react-markdown 리더는 클릭 시에만 필요 → 지연 로드 (아카이브 초기 번들 감량)
+const AnnouncementReaderModal = dynamic(() => import('./AnnouncementReaderModal'), { ssr: false })
+const AnnouncementEditorModal = dynamic(() => import('./AnnouncementEditorModal'), { ssr: false })
 
 interface Props {
   leagueId: string
