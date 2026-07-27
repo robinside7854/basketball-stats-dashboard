@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { Trophy, Film, User as UserIcon, ChevronRight, Sparkles, IdCard } from 'lucide-react'
+import { Trophy, Film, User as UserIcon, ChevronRight, Sparkles, IdCard, Flame } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import SectionCard from '@/components/league/ui/SectionCard'
 
@@ -31,10 +31,12 @@ interface Chaser {
   remaining: number
   progressPct: number
 }
+interface StreakItem { key: string; label: string; count: number; unit: string }
 interface DashboardData {
   season: Season
   weekly: Weekly
   milestoneChasers: Chaser[]
+  streaks: StreakItem[]
 }
 
 interface Props {
@@ -137,6 +139,9 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
           <>
             {/* a. 시즌 통계 + 랭킹 (메달 · 초록 강조) */}
             <SeasonSummary season={data.season} />
+
+            {/* a-2. 진행 중 스트릭 (연속 기록) — 있을 때만 */}
+            <StreakBoard streaks={data.streaks ?? []} />
 
             {/* b. 이번 주 하이라이트 CTA · 최근 참여 라운드 */}
             <HighlightCTA available={data.weekly.available} href={highlightsHref} date={data.weekly.date} />
@@ -244,6 +249,34 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
           <span>{rank.rank}위</span>
         </div>
       )}
+    </div>
+  )
+}
+
+function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
+  if (!streaks || streaks.length === 0) return null  // 진행 중 스트릭 없으면 섹션 숨김
+  return (
+    <div className="px-4 sm:px-5 py-3 sm:py-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+      <div className="flex items-center gap-1.5 mb-2.5">
+        <Flame size={16} style={{ color: 'var(--color-hoop-orange-500)' }} />
+        <span className="font-jersey font-black uppercase text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>진행 중 스트릭</span>
+        <span className="text-[11px] md:text-[12px] font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>다음 경기에 이어가요</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {streaks.map(s => (
+          <span
+            key={s.key}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md"
+            style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+          >
+            <Flame size={13} style={{ color: 'var(--color-hoop-orange-500)' }} />
+            <span className="font-jersey font-black tabular-nums text-lg md:text-xl leading-none" style={{ color: 'var(--mm-ink)' }}>
+              {s.count}{s.unit}
+            </span>
+            <span className="text-[12px] md:text-[13px] font-bold" style={{ color: 'var(--mm-muted)' }}>{s.label}</span>
+          </span>
+        ))}
+      </div>
     </div>
   )
 }

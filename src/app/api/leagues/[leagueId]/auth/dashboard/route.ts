@@ -8,6 +8,13 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
 import { AUTH_COOKIE, verifySession } from '@/lib/auth/session'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
+import { computeStreaks, type StreakCategory } from '@/lib/stats/streaks'
+
+// 진행 중 스트릭 라벨 (개인 대시보드 표기용)
+const STREAK_LABEL: Record<StreakCategory, string> = {
+  pts10: '두 자릿수 득점', pts20: '20+ 득점', tp1: '3점 성공',
+  dd: '더블더블', wins: '연승', stlblk3: '스틸+블록 3+',
+}
 
 // 마일스톤 사다리 (playerMilestoneChart 와 동일 규칙)
 const MILESTONE_LADDER: Record<'pts' | 'reb' | 'ast' | 'stl' | 'blk', number[]> = {
@@ -32,14 +39,32 @@ export async function GET(
   const sb = createClient()
   const pid = session.pid
 
-  // 1) 시즌 통계 (전체 리그)
-  const { players } = await computeLeagueStats(sb, leagueId)
+  // 1) 시즌 통계 + 스트릭 (독립 → 병렬)
+  const [{ players }, streaksResult] = await Promise.all([
+    computeLeagueStats(sb, leagueId),
+    computeStreaks(sb, leagueId, { minStreak: 2 }),
+  ])
   const me = players.find(p => p.player_id === pid)
+
+  // 진행 중 스트릭 (이 선수) — 연속 참석 먼저, 이후 지표 스트릭 count 내림차순
+  const myAtt = streaksResult.attendance.find(a => a.player_id === pid)
+  const streaks: Array<{ key: string; label: string; count: number; unit: string }> = []
+  if (myAtt && myAtt.current_streak >= 2) {
+    streaks.push({ key: 'attend', label: '연속 참석', count: myAtt.current_streak, unit: '라운드' })
+  }
+  streaks.push(
+    ...streaksResult.streaks
+      .filter(s => s.player_id === pid)
+      .sort((a, b) => b.count - a.count)
+      .map(s => ({ key: s.category, label: STREAK_LABEL[s.category] ?? s.category, count: s.count, unit: '경기' })),
+  )
+
   if (!me) {
     return NextResponse.json({
       season: { attended_rounds: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, ranks: {} },
       weekly: { available: false },
       milestoneChasers: [],
+      streaks,
     })
   }
 
@@ -142,5 +167,6 @@ export async function GET(
     season,
     weekly,
     milestoneChasers: chasers,
+    streaks,
   })
 }
