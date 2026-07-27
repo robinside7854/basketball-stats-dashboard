@@ -38,12 +38,14 @@ export async function sendLeaguePush(leagueId: string, payload: PushPayload): Pr
     return { ok: true, configured: true, total: 0, sent: 0, failed: 0, pruned: 0 }
   }
 
+  // 히어로 배너: 지정 이미지 없으면 브랜드 기본 배너(1024×512). SW 오리진 기준 상대경로.
+  const image = payload.image || '/push-banner.png'
   const body = JSON.stringify({
     title: payload.title.slice(0, 120),
     body: payload.body.slice(0, 300),
     url: payload.url || '/',
     tag: payload.tag || 'mm-league',
-    ...(payload.image ? { image: payload.image } : {}),
+    image,
   })
 
   const deadEndpoints: string[] = []
