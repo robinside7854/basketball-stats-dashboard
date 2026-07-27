@@ -6,7 +6,7 @@
 // - 내부 페이지 링크 픽커 (라커룸/스탯 등 유저 접근 가능한 모든 페이지)
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { X, Megaphone, Save, Pin, PinOff } from 'lucide-react'
+import { X, Megaphone, Save, Pin, PinOff, Bell, BellOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { marked } from 'marked'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
@@ -77,6 +77,19 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
   const [pinned, setPinned] = useState(editing?.pinned ?? false)
   const [createdBy, setCreatedBy] = useState(editing?.created_by ?? '')
   const [saving, setSaving] = useState(false)
+  // 신규 발행 시에만 푸시 알림 옵션 (기본 켜짐) · 수정에는 재발송 안 함
+  const [notify, setNotify] = useState(!editing)
+  const [pushConfigured, setPushConfigured] = useState(false)
+
+  // 서버에 푸시가 설정돼 있을 때만 알림 체크박스 노출
+  useEffect(() => {
+    let alive = true
+    fetch(`/api/leagues/${leagueId}/push`)
+      .then(r => r.json())
+      .then((d: { configured?: boolean }) => { if (alive) setPushConfigured(!!d.configured) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [leagueId])
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -118,13 +131,15 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
     if (body.length > MAX_BODY) { toast.error(`본문은 ${MAX_BODY.toLocaleString()}자 이하`); return }
     setSaving(true)
     try {
+      const isNew = !editing
       const payload = {
         title: title.trim(),
         body_markdown: textOnly ? body : '',   // 실질 컨텐츠 없으면 빈 문자열로 저장
         pinned,
         created_by: createdBy.trim() || null,
+        // 신규 발행 + 옵션 켜짐일 때만 서버가 전체 푸시 발송
+        ...(isNew ? { notify: notify && pushConfigured } : {}),
       }
-      const isNew = !editing
       const url = isNew
         ? `/api/leagues/${leagueId}/announcements`
         : `/api/leagues/${leagueId}/announcements/${editing.id}`
@@ -133,16 +148,20 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
         headers: { 'Content-Type': 'application/json', 'X-League-Pin': pin },
         body: JSON.stringify(payload),
       })
-      const data = await res.json() as { announcement?: LeagueAnnouncement; error?: string }
+      const data = await res.json() as { announcement?: LeagueAnnouncement; error?: string; push?: { sent: number; total: number } | null }
       if (!res.ok || !data.announcement) throw new Error(data.error ?? '저장 실패')
-      toast.success(isNew ? '공지 발행됨' : '공지 수정됨')
+      if (isNew && data.push) {
+        toast.success(`공지 발행됨 · 알림 ${data.push.sent}/${data.push.total}명 전송`)
+      } else {
+        toast.success(isNew ? '공지 발행됨' : '공지 수정됨')
+      }
       onSaved(data.announcement)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '저장 실패')
     } finally {
       setSaving(false)
     }
-  }, [saving, title, body, pinned, createdBy, editing, leagueId, pin, onSaved])
+  }, [saving, title, body, pinned, createdBy, notify, pushConfigured, editing, leagueId, pin, onSaved])
 
   const bodyOver = body.length > MAX_BODY
 
@@ -213,6 +232,24 @@ export default function AnnouncementEditorModal({ leagueId, pin, editing, onClos
               {pinned ? <Pin size={12} aria-hidden /> : <PinOff size={12} aria-hidden />}
               {pinned ? '고정됨' : '고정 안 함'}
             </button>
+            {/* 신규 발행 + 서버 푸시 설정된 경우에만 알림 발송 토글 노출 */}
+            {!editing && pushConfigured && (
+              <button
+                type="button"
+                onClick={() => setNotify(v => !v)}
+                className="min-h-[36px] px-3 py-1.5 text-xs font-black uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors inline-flex items-center gap-1.5"
+                style={{
+                  background: notify ? 'var(--mm-yellow)' : 'var(--mm-panel)',
+                  color: notify ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
+                  border: `1px solid ${notify ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+                }}
+                aria-pressed={notify}
+                title={notify ? '발행 시 전체에게 푸시 알림 발송' : '알림 없이 발행'}
+              >
+                {notify ? <Bell size={12} aria-hidden /> : <BellOff size={12} aria-hidden />}
+                {notify ? '알림 보내기' : '알림 끄기'}
+              </button>
+            )}
           </div>
         </div>
 

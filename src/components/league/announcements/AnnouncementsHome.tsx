@@ -12,6 +12,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import dynamic from 'next/dynamic'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
 import SectionCard from '@/components/league/ui/SectionCard'
+import PushOptIn from '@/components/league/push/PushOptIn'
 
 // 리더(react-markdown 체인)·에디터(tiptap+확장)는 무겁고 클릭 시에만 필요 →
 // 홈 초기 클라이언트 번들에서 분리(모달 열림 시 지연 로드).
@@ -185,6 +186,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
           )}
         </div>
         <div className="inline-flex items-center gap-1.5">
+          <PushOptIn leagueId={leagueId} compact />
           {orgSlug && items.length > 0 && (
             <Link
               href={`/league/${orgSlug}/${leagueId}/archive/announcements`}

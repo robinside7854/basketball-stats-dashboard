@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube, Calendar, Instagram, ChevronRight } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import AccountApprovalPanel from '@/components/league/auth/AccountApprovalPanel'
+import PushAdminPanel from '@/components/league/push/PushAdminPanel'
 import type { League } from '@/types/league'
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean; start_date: string | null; end_date: string | null }
@@ -178,6 +179,9 @@ export default function LeagueSettingsPage() {
 
       {/* 회원 가입 · 계정 관리 (2026-07-20 신규) */}
       <AccountApprovalPanel leagueId={leagueId} leagueHeaders={leagueHeaders} />
+
+      {/* 푸시 알림 (공지·알럿 발송) (2026-07-27 신규) */}
+      <PushAdminPanel leagueId={leagueId} leagueHeaders={leagueHeaders} />
 
       {/* 리그 상태 */}
       <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
