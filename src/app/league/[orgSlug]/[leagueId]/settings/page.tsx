@@ -1,11 +1,12 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, usePathname } from 'next/navigation'
+import Link from 'next/link'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube, Calendar } from 'lucide-react'
+import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube, Calendar, Instagram, ChevronRight } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import AccountApprovalPanel from '@/components/league/auth/AccountApprovalPanel'
 import type { League } from '@/types/league'
@@ -28,6 +29,9 @@ export default function LeagueSettingsPage() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
   const router = useRouter()
+  const pathname = usePathname()
+  // 미들웨어 slug→UUID rewrite 때문에 params.leagueId 는 UUID → 링크는 브라우저 경로(slug) 기준으로.
+  const socialHref = `${pathname.replace(/\/settings.*$/, '')}/social`
   const { isEditMode, isInitialized, leagueHeaders, openPinModal } = useLeagueEditMode()
 
   // 서버 가드 대체 — 편집 모드 확인 후 미인증이면 리그 홈으로 리다이렉트.
@@ -156,6 +160,21 @@ export default function LeagueSettingsPage() {
   return (
     <div className="space-y-5 max-w-lg">
       <h2 className="font-jersey font-black uppercase text-3xl tracking-tight text-[color:var(--mm-ink)]">리그 설정</h2>
+
+      {/* 인스타 카드 생성기 진입 (2026-07-27) */}
+      <Link
+        href={socialHref}
+        className="flex items-center gap-3 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-4 hover:border-[color:var(--color-hoop-orange-500)] transition-colors cursor-pointer group"
+      >
+        <span className="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-md bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)]">
+          <Instagram size={22} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-jersey font-black uppercase text-lg text-[color:var(--mm-ink)] leading-tight">인스타 카드 생성기</h3>
+          <p className="text-xs text-[color:var(--mm-muted)] mt-0.5">주간 데이터를 매거진 카드(4:5)로 만들어 PNG 저장 · 표지/스코어보드/TOP3/마일스톤 8종</p>
+        </div>
+        <ChevronRight size={20} className="shrink-0 text-[color:var(--mm-muted)] group-hover:text-[color:var(--mm-ink)] transition-colors" />
+      </Link>
 
       {/* 회원 가입 · 계정 관리 (2026-07-20 신규) */}
       <AccountApprovalPanel leagueId={leagueId} leagueHeaders={leagueHeaders} />
