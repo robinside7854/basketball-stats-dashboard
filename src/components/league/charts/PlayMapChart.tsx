@@ -46,7 +46,7 @@ type Star = 'att' | 'succ' | 'both' | null
 type Pt = {
   id: string; name: string; number: number | null
   x: number; y: number; att: number; made: number; gp: number
-  eligible: boolean; quadrant: Quadrant; z: number; star: Star
+  quadrant: Quadrant; z: number; star: Star
 }
 
 const MIN_ATT = 3  // 해당 스타일 시도 최소치 — 미만은 '참고'(반투명, 중앙값 제외)
@@ -66,10 +66,9 @@ export default function PlayMapChart({
 }) {
   void minGP  // 자격 기준은 스타일별 시도수(MIN_ATT)로 판정 — minGP 는 미사용
   const [cat, setCat] = useState<Category>('three')
-  const [showRef, setShowRef] = useState(true)
   const catDef = CATEGORIES.find(c => c.key === cat)!
 
-  const { eligiblePts, refPts, mx, my, eligibleCount } = useMemo(() => {
+  const { eligiblePts, mx, my, eligibleCount, excludedCount } = useMemo(() => {
     const rows = players
       .map(p => {
         const att = catDef.att(p)
@@ -88,11 +87,11 @@ export default function PlayMapChart({
       return a && s ? 'both' : a ? 'att' : s ? 'succ' : null
     }
     const toPt = (r: { p: PlayerStat; att: number; made: number; pct: number }): Pt => {
-      const star = r.att >= MIN_ATT ? starOf(r.p.player_id) : null
+      const star = starOf(r.p.player_id)
       return {
         id: r.p.player_id, name: r.p.name, number: r.p.number,
         x: r.att, y: r.pct, att: r.att, made: r.made, gp: r.p.gp,
-        eligible: r.att >= MIN_ATT, quadrant: quadrantOf(r.att, r.pct, mx, my),
+        quadrant: quadrantOf(r.att, r.pct, mx, my),
         z: star ? 2.6 : 1, star,
       }
     }
@@ -102,12 +101,12 @@ export default function PlayMapChart({
       ...allElig.filter(p => p.star).sort((a, b) => b.x - a.x),
       ...allElig.filter(p => !p.star).sort((a, b) => b.x - a.x),
     ]
-    const refPts = rows.filter(r => r.att < MIN_ATT).map(toPt)
-    return { eligiblePts, refPts, mx, my, eligibleCount: elig.length }
+    // 표본 부족(해당 스타일 시도 < MIN_ATT)은 맵에서 완전 제외 — 제외 인원만 카운트.
+    const excludedCount = rows.length - elig.length
+    return { eligiblePts, mx, my, eligibleCount: elig.length, excludedCount }
   }, [players, catDef])
 
-  const allShown = [...eligiblePts, ...(showRef ? refPts : [])]
-  const maxAtt = allShown.length ? Math.max(...allShown.map(p => p.x)) : 10
+  const maxAtt = eligiblePts.length ? Math.max(...eligiblePts.map(p => p.x)) : 10
   // X축 sqrt 스케일 — 시도수 분포가 우편향(소수 다작 선수)이라, 저시도 구간이 왼쪽에 뭉치는
   // 과밀을 완화한다(저값은 넓게, 고값은 압축). 도메인은 0부터.
   const xDomain: [number, number] = [0, Math.ceil(maxAtt * 1.05)]
@@ -188,15 +187,13 @@ export default function PlayMapChart({
             </button>
           ))}
         </div>
-        {refPts.length > 0 && (
-          <button onClick={() => setShowRef(v => !v)}
-            aria-pressed={showRef}
-            className="px-2.5 py-1 text-xs font-black uppercase cursor-pointer transition-all flex items-center gap-1.5 min-h-[40px] rounded-md"
-            style={{ background: 'var(--mm-panel)', color: showRef ? 'var(--mm-ink)' : 'var(--mm-muted)', border: `1px solid ${showRef ? 'var(--color-hoop-orange-500)' : 'var(--mm-rule)'}` }}
-            title={`${catDef.label} 시도 ${MIN_ATT}회 미만 선수 (반투명 · 중앙값 제외)`}>
-            <span className="inline-block w-3 h-3 rounded-full border" style={{ background: showRef ? 'var(--color-hoop-orange-500)' : 'transparent', borderColor: showRef ? 'var(--color-hoop-orange-500)' : 'var(--mm-muted)' }} />
-            참고 선수 ({refPts.length})
-          </button>
+        {excludedCount > 0 && (
+          <span
+            className="text-[11px] font-bold uppercase tracking-[0.08em]"
+            style={{ color: 'var(--mm-muted)' }}
+            title={`${catDef.label} 시도 ${MIN_ATT}회 미만 — 표본 부족으로 맵에서 제외`}>
+            표본 부족 {excludedCount}명 제외
+          </span>
         )}
         <span className="text-[11px] font-bold uppercase tracking-[0.1em] ml-auto" style={{ color: 'var(--mm-muted)' }}>
           {quarterLabel ? `${quarterLabel} · ` : ''}중앙값 시도 {mx.toFixed(1)} · 성공률 {my.toFixed(1)}%
@@ -250,23 +247,13 @@ export default function PlayMapChart({
                     <div className="font-jersey font-black" style={{ color: 'var(--mm-ink)', fontSize: 14 }}>
                       {d.name}{d.number != null && <span style={{ color: 'var(--mm-muted)', marginLeft: 4 }}>#{d.number}</span>}
                     </div>
-                    <div className="text-[11px] font-black uppercase tracking-wider" style={{ color: 'var(--color-hoop-orange-500)', marginTop: 2 }}>{catDef.label} · {QUAD_NAME[d.quadrant]}{!d.eligible && ' · 참고'}</div>
+                    <div className="text-[11px] font-black uppercase tracking-wider" style={{ color: 'var(--color-hoop-orange-500)', marginTop: 2 }}>{catDef.label} · {QUAD_NAME[d.quadrant]}</div>
                     <div className="text-xs mt-1.5 tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>시도 {d.att} · 성공 {d.made} · 성공률 {d.y}%</div>
                     <div className="text-[11px] tabular-nums" style={{ color: 'var(--mm-muted)' }}>{d.gp}경기</div>
                   </div>
                 )
               }}
             />
-            {/* 참고 선수(반투명, 라벨 없음) */}
-            {showRef && refPts.length > 0 && (
-              <Scatter data={refPts} isAnimationActive={false}
-                onClick={(node) => { const d = (node as unknown as { payload?: Pt }).payload; if (d) onSelectPlayer(d.id, d.name) }}
-                style={{ cursor: 'pointer' }}>
-                {refPts.map(p => (
-                  <Cell key={p.id} fill="transparent" stroke="var(--mm-muted)" strokeOpacity={0.5} strokeWidth={1} />
-                ))}
-              </Scatter>
-            )}
             {/* 자격 선수 — 하이라이트(시도/성공률 상위 2명)는 색상·크게, 그 외는 뉴트럴 반투명 */}
             <Scatter data={eligiblePts} isAnimationActive={false}
               onClick={(node) => { const d = (node as unknown as { payload?: Pt }).payload; if (d) onSelectPlayer(d.id, d.name) }}
@@ -286,7 +273,7 @@ export default function PlayMapChart({
       </div>
 
       <p className="text-[11px] leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-        · <b style={{ color: 'var(--mm-ink-soft)' }}>{catDef.label}</b> 기준 · 가로축 = <b style={{ color: 'var(--mm-ink-soft)' }}>시도수</b>(우측일수록 많이 시도, 저시도 구간은 넓게 펼쳐 표시) · 세로축 = <b style={{ color: 'var(--mm-ink-soft)' }}>성공률</b>. 리그 중앙값으로 4분할, 우상단(노랑)=많이 쏘고 잘 넣는 <b style={{ color: 'var(--mm-ink-soft)' }}>주무기</b>. 버블 클릭 시 선수 상세. 표본 적은 선수는 별도(참고 선수)로 구분됩니다.
+        · <b style={{ color: 'var(--mm-ink-soft)' }}>{catDef.label}</b> 기준 · 가로축 = <b style={{ color: 'var(--mm-ink-soft)' }}>시도수</b>(우측일수록 많이 시도, 저시도 구간은 넓게 펼쳐 표시) · 세로축 = <b style={{ color: 'var(--mm-ink-soft)' }}>성공률</b>. 리그 중앙값으로 4분할, 우상단(노랑)=많이 쏘고 잘 넣는 <b style={{ color: 'var(--mm-ink-soft)' }}>주무기</b>. 버블 클릭 시 선수 상세. 해당 스타일 시도 {MIN_ATT}회 미만은 <b style={{ color: 'var(--mm-ink-soft)' }}>표본 부족으로 맵에서 제외</b>됩니다.
       </p>
     </div>
   )
