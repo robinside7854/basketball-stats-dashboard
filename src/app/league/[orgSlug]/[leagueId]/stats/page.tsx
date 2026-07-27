@@ -140,8 +140,9 @@ function LeagueStatsPageInner() {
   // 이전엔 수동 입력 + '전체 선수' 토글이 있어 "왜 내 값이 안 먹지" 혼란 유발 → 자동 임계값 하나만 유지
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set())
   const [compareModalOpen, setCompareModalOpen] = useState(false)
-  // TopFiveSlot 활성화 플래그 — 컬럼 헤더 첫 클릭 시 true (초기 안내 → TOP 5 뷰 전환)
-  const [topFiveActive, setTopFiveActive] = useState(false)
+  // TopFiveSlot 활성화 플래그 — 기본 true 로 두어 진입 즉시 기본 정렬(득점 PPG) TOP 5 를 노출.
+  // 이후 컬럼 헤더 클릭으로 지표 전환 (2026-07-27: 기본 안내 화면 → 득점 TOP5 기본 표시로 변경)
+  const [topFiveActive, setTopFiveActive] = useState(true)
   const [statUnit, setStatUnit] = useState<StatUnit>('round')
 
   const toggleCompare = (player: PlayerStat) => {
