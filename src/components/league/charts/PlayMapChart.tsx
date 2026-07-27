@@ -70,6 +70,7 @@ export default function PlayMapChart({
 
   const { eligiblePts, mx, my, eligibleCount, excludedCount } = useMemo(() => {
     const rows = players
+      .filter(p => !p.name.includes('게스트'))  // 게스트는 플레이 맵에서 제외 (PlayerStat 에 is_guest 없어 이름 기반)
       .map(p => {
         const att = catDef.att(p)
         const made = catDef.made(p)
@@ -92,7 +93,7 @@ export default function PlayMapChart({
         id: r.p.player_id, name: r.p.name, number: r.p.number,
         x: r.att, y: r.pct, att: r.att, made: r.made, gp: r.p.gp,
         quadrant: quadrantOf(r.att, r.pct, mx, my),
-        z: star ? 2.6 : 1, star,
+        z: star === 'both' ? 3.2 : star ? 2.6 : 1, star,
       }
     }
     const allElig = elig.map(toPt)
@@ -208,6 +209,11 @@ export default function PlayMapChart({
         <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--mm-ink-soft)' }}>
           <span aria-hidden className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: STAR_FILL_SUCC }} /> 성공률 상위 2
         </span>
+        {eligiblePts.some(p => p.star === 'both') && (
+          <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--mm-ink-soft)' }}>
+            <span aria-hidden className="inline-block w-3 h-3 rounded-full" style={{ background: STAR_FILL_ATT, border: `2px solid ${STAR_FILL_SUCC}` }} /> 둘 다 상위
+          </span>
+        )}
         <span className="inline-flex items-center gap-1.5" style={{ color: 'var(--mm-muted)' }}>
           <span aria-hidden className="inline-block w-2 h-2 rounded-full" style={{ background: 'var(--mm-ink)', opacity: 0.55 }} /> 그 외 선수
         </span>
