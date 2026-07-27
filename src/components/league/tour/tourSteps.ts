@@ -85,6 +85,7 @@ export const HOME_TOUR_STEPS: TourStep[] = [
       '경기 마지막 2분 · 2포제션 접전(6점차 이내)에서 이 슛으로 1포제션(3점차) 이내로 좁혀진 결정타를 모아 재생합니다.\n카드 클릭 → 팝업 플레이어에서 순차 재생.',
     spotlightPadding: 4,
     optional: true,
+    onEnter: () => { try { window.dispatchEvent(new CustomEvent('mm-home-tab', { detail: 'highlights' })) } catch { /* 무시 */ } },
   },
   // 6. 팀 순위
   {
@@ -94,6 +95,7 @@ export const HOME_TOUR_STEPS: TourStep[] = [
     title: '팀 순위',
     description: '분기 기준 팀 순위와 최근 경기 결과가 표시됩니다.',
     optional: true,
+    onEnter: () => { try { window.dispatchEvent(new CustomEvent('mm-home-tab', { detail: 'standings' })) } catch { /* 무시 */ } },
   },
   // 7. 최근 라운드 (2개 버튼 안내)
   {
@@ -104,6 +106,7 @@ export const HOME_TOUR_STEPS: TourStep[] = [
     description:
       '경기일 카드에 두 개의 버튼 —\n· 박스스코어: 스탯 상세 페이지\n· 하이라이트: 그 날 득점 릴 자동재생',
     optional: true,
+    onEnter: () => { try { window.dispatchEvent(new CustomEvent('mm-home-tab', { detail: 'rounds' })) } catch { /* 무시 */ } },
   },
   // 8. 스탯 · 어워즈 · 시즌하이 · POTM
   {

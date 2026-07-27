@@ -40,37 +40,29 @@ export default function EmptyState({
   children,
   size = 'md',
 }: EmptyStateProps) {
+  // 브랜드 토큰 사용 (2026-07-27) — 하드코딩 gray 제거: 라이트 모드에서 이 카드만 어두워지던 이질 해소.
+  const ctaClass = 'inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 transition-all cursor-pointer'
   return (
-    <div className={`text-center ${SIZE_CLASS[size]} px-6 rounded-2xl border border-gray-800 bg-gray-900/40`}>
+    <div className={`text-center ${SIZE_CLASS[size]} px-6 rounded-2xl border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)]`}>
       {Icon && (
         <div className="flex justify-center mb-3">
-          <Icon size={40} className="text-gray-600" strokeWidth={1.5} />
+          <Icon size={40} className="text-[color:var(--mm-muted)]" strokeWidth={1.5} />
         </div>
       )}
-      <p className="text-base font-semibold text-gray-300">{title}</p>
-      {description && <p className="text-sm text-gray-500 mt-1.5 max-w-md mx-auto leading-relaxed">{description}</p>}
+      <p className="text-base font-semibold text-[color:var(--mm-ink)]">{title}</p>
+      {description && <p className="text-sm text-[color:var(--mm-muted)] mt-1.5 max-w-md mx-auto leading-relaxed">{description}</p>}
       {isEditMode && editorHint && (
-        <p className="text-xs text-gray-400 mt-3 inline-flex items-center gap-1.5">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" />
+        <p className="text-xs text-[color:var(--mm-muted)] mt-3 inline-flex items-center gap-1.5">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[color:var(--mm-muted)] animate-pulse" />
           {editorHint}
         </p>
       )}
       {isEditMode && cta && (
         <div className="mt-5">
           {cta.href ? (
-            <a
-              href={cta.href}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer"
-            >
-              {cta.label}
-            </a>
+            <a href={cta.href} className={ctaClass}>{cta.label}</a>
           ) : (
-            <button
-              onClick={cta.onClick}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer"
-            >
-              {cta.label}
-            </button>
+            <button onClick={cta.onClick} className={ctaClass}>{cta.label}</button>
           )}
         </div>
       )}

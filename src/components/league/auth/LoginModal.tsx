@@ -186,6 +186,20 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
   const [birthdate, setBirthdate] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(false)
+  const [rosterNames, setRosterNames] = useState<string[]>([])
+
+  // #4 로스터 이름 자동완성 — 등록명과 불일치로 인한 가입 실패 방지
+  useEffect(() => {
+    fetch(`/api/leagues/${leagueId}/players`)
+      .then(r => r.ok ? r.json() : [])
+      .then((rows: Array<{ name?: string }>) => setRosterNames([...new Set(rows.map(p => p.name).filter((n): n is string => !!n))]))
+      .catch(() => { /* 무시 */ })
+  }, [leagueId])
+
+  // #5 접수 완료 시 '승인 대기' 플래그 저장 → 재방문 시 로그인 버튼에 배지 노출
+  useEffect(() => {
+    if (done) { try { localStorage.setItem(`mm_signup_pending:${leagueId}`, '1') } catch { /* 무시 */ } }
+  }, [done, leagueId])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -248,7 +262,12 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
         className="input"
         style={inputStyle}
         placeholder="선수 등록된 이름과 동일하게"
+        list="mm-roster-names"
+        autoComplete="off"
       />
+      <datalist id="mm-roster-names">
+        {rosterNames.map(n => <option key={n} value={n} />)}
+      </datalist>
       <FieldLabel>생년월일 6자리 (초기 비밀번호로 사용)</FieldLabel>
       <input
         type="text"

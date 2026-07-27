@@ -33,6 +33,15 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { o
   const { theme, setTheme } = useTheme()
   const { user, loading: authLoading, logout } = useCurrentUser()
 
+  // #5 가입 승인 대기 배지 — 가입 접수 시 저장한 플래그(로그인되면 해제)
+  const [signupPending, setSignupPending] = useState(false)
+  useEffect(() => {
+    try {
+      if (user) { localStorage.removeItem(`mm_signup_pending:${leagueId}`); setSignupPending(false) }
+      else setSignupPending(!!localStorage.getItem(`mm_signup_pending:${leagueId}`))
+    } catch { /* 무시 */ }
+  }, [user, leagueId])
+
   const base = deriveLeagueBase(pathname, orgSlug, leagueId)
 
   // 상위 메뉴 6개(+드래프트 조건부) — 스탯 우산에 어워즈, 하이라이트 우산에 공지 아카이브 통합.
@@ -104,31 +113,54 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { o
           <div className="flex items-center gap-1.5 pl-2 sm:pl-3 py-2 shrink-0">
             {/* 로그인 상태: 유저 칩 + 로그아웃 · 미로그인: 로그인 버튼 */}
             {!authLoading && (user ? (
-              <div className="hidden sm:flex items-center gap-1">
-                <span
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-xs font-bold min-h-[44px]"
-                  title={`로그인: ${user.login_id}`}
-                >
-                  <UserIcon size={13} />
-                  <span className="max-w-[80px] truncate">{user.name ?? user.login_id}</span>
-                </span>
-                <button
-                  onClick={logout}
-                  aria-label="로그아웃"
-                  title="로그아웃"
-                  className="p-2 rounded-md border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press"
-                >
-                  <LogOut size={16} />
-                </button>
-              </div>
+              <>
+                {/* 데스크톱: 유저 칩 + 로그아웃 */}
+                <div className="hidden sm:flex items-center gap-1">
+                  <span
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-xs font-bold min-h-[44px]"
+                    title={`로그인: ${user.login_id}`}
+                  >
+                    <UserIcon size={13} />
+                    <span className="max-w-[80px] truncate">{user.name ?? user.login_id}</span>
+                  </span>
+                  <button
+                    onClick={logout}
+                    aria-label="로그아웃"
+                    title="로그아웃"
+                    className="p-2 rounded-md border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press"
+                  >
+                    <LogOut size={16} />
+                  </button>
+                </div>
+                {/* 모바일: 아바타 표시(로그인 상태 인지) + 로그아웃 (2026-07-27 · hidden sm:flex 로 사라지던 문제 해결) */}
+                <div className="flex sm:hidden items-center gap-1">
+                  <span
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-full overflow-hidden bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)]"
+                    title={`로그인: ${user.login_id}`}
+                  >
+                    {user.photo_url
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={user.photo_url} alt="" className="w-full h-full object-cover" />
+                      : <UserIcon size={15} className="text-[color:var(--mm-muted)]" />}
+                  </span>
+                  <button
+                    onClick={logout}
+                    aria-label="로그아웃"
+                    className="p-2 rounded-md border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] min-h-[44px] min-w-[44px] flex items-center justify-center btn-press"
+                  >
+                    <LogOut size={16} />
+                  </button>
+                </div>
+              </>
             ) : (
               <button
                 onClick={onOpenLogin}
-                aria-label="로그인"
-                className="flex items-center gap-1.5 px-2.5 py-2 rounded-md bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] text-xs font-medium cursor-pointer transition-colors min-h-[44px]"
+                aria-label={signupPending ? '가입 승인 대기중 — 로그인' : '로그인'}
+                className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-md bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] text-xs font-medium cursor-pointer transition-colors min-h-[44px]"
               >
                 <LogIn size={16} />
-                <span className="hidden sm:inline">로그인</span>
+                <span className="hidden sm:inline">{signupPending ? '승인 대기중' : '로그인'}</span>
+                {signupPending && <span aria-hidden className="sm:hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[color:var(--color-hoop-orange-500)]" />}
               </button>
             ))}
             <button onClick={onOpenSearch} aria-label="선수 검색" title="선수/게임 검색"
@@ -349,6 +381,13 @@ function LeagueLayout({
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
+  }, [])
+
+  // #1 비로그인 티저 등에서 로그인 모달 열기 요청 (mm-open-login 이벤트)
+  useEffect(() => {
+    const open = () => setLoginOpen(true)
+    window.addEventListener('mm-open-login', open)
+    return () => window.removeEventListener('mm-open-login', open)
   }, [])
 
   return (

@@ -373,6 +373,9 @@ export default async function LeagueDetailPage({
 
   const l = league as League
   const otherLeagues = (allLeagues ?? []).filter(ol => ol.id !== leagueId)
+  // 첫 사용자용 헤더 메타(추가 쿼리 없이 기존 데이터 재사용) · 하이라이트 유무(팬 기본 탭용)
+  const memberCount = Object.keys(initialPhotoMap ?? {}).length
+  const highlightsAvailable = (homeHighlights?.clips?.length ?? 0) > 0
 
   return (
     <div className="space-y-5 lg:space-y-4">
@@ -384,6 +387,19 @@ export default async function LeagueDetailPage({
         >
           {l.name}
         </h1>
+        {/* 첫 방문자용 한 줄 아이덴티티 + 인라인 메타 (KPI 카드 아님 · 헤더 내부 캡션 수준) */}
+        <p className="mt-1.5 text-sm sm:text-base font-medium text-white/70 break-keep">
+          매주 아침을 여는 농구 · 우리끼리 진짜 리그처럼 기록합니다
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] sm:text-xs font-bold uppercase tracking-[0.12em] text-white/45">
+          <span>멤버 {memberCount}명</span>
+          {quarterStandings.gamesCount > 0 && (
+            <>
+              <span aria-hidden>·</span>
+              <span>{quarterStandings.quarterLabel} {quarterStandings.gamesCount}경기</span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 시즌 전환 */}
@@ -429,6 +445,7 @@ export default async function LeagueDetailPage({
           />
         }
         highlights={<HighlightsHome data={homeHighlights} orgSlug={orgSlug} leagueId={leagueId} />}
+        highlightsAvailable={highlightsAvailable}
       />
 
       {/* 인터랙티브 튜토리얼 투어 — 첫 방문 자동 실행 · 헤더 물음표 재실행 */}

@@ -16,6 +16,7 @@ import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
 import HighlightsClipModal from '@/components/highlights/HighlightsClipModal'
 import SectionCard from '@/components/league/ui/SectionCard'
+import InfoTip from '@/components/league/ui/InfoTip'
 
 // 클러치샷 종류 라벨/색상 매핑 (2026-07-18)
 //   위닝샷은 브랜드 골드로 최상 등급 · 나머지는 의미별 상용 컬러
@@ -125,6 +126,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
               >
                 이번 주 클러치샷
               </h3>
+              <InfoTip text="경기 마지막 2분, 6점차 이내 접전에서 3점차 이내로 좁힌 '결정타' 슛만 모아 보여줘요. 카드를 누르면 순차 재생됩니다." label="클러치샷 설명" />
               {hasClutch && (
                 <span
                   className="text-[11px] font-black tracking-[0.14em] uppercase px-1.5 py-0.5 ml-1"

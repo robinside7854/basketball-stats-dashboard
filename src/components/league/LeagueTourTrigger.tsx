@@ -7,18 +7,30 @@
 import { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
-import { HOME_TOUR_STEPS } from './tour/tourSteps'
+import { HOME_TOUR_STEPS, type TourStep } from './tour/tourSteps'
+import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 
 // LeagueTour(495줄, gsap 3.15 ~70KB) 는 첫방문 자동 실행 · 투어 열기 트리거 시점에만 필요
 // → 홈 초기 번들에서 완전히 제외
 const LeagueTour = dynamic(() => import('./LeagueTour'), { ssr: false })
 
-const SEEN_KEY = 'mm_tour_v2_seen'
+// v3: 투어-탭 동기화 + 로그인 가치 스텝 반영 → 기존 사용자에게 1회 재노출
+const SEEN_KEY = 'mm_tour_v3_seen'
+
+// #6 비로그인 사용자에게만 삽입: 로그인 가치 안내 스텝
+const LOGIN_STEP: TourStep = {
+  id: 'login-value',
+  placement: 'center',
+  title: '로그인하면 내 대시보드가 열려요',
+  description:
+    '우리 팀 선수라면 로그인 후 홈 상단에서 내 시즌 스탯·랭킹·진행 중 스트릭·마일스톤을 볼 수 있어요.\n우측 상단 로그인 버튼에서 가입 요청도 가능합니다.',
+}
 
 export default function LeagueTourTrigger() {
   const sp = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
+  const { user } = useCurrentUser()
 
   // 성능(2026-07-27): 이미 투어를 본 사용자에게는 gsap 청크를 아예 안 받도록,
   //   실제로 투어가 필요할 때만 <LeagueTour> 를 마운트한다.
@@ -61,9 +73,14 @@ export default function LeagueTourTrigger() {
 
   if (!armed) return null
 
+  // 비로그인 시 마지막(다시 보기) 스텝 앞에 로그인 가치 스텝 삽입
+  const steps = user
+    ? HOME_TOUR_STEPS
+    : [...HOME_TOUR_STEPS.slice(0, -1), LOGIN_STEP, HOME_TOUR_STEPS[HOME_TOUR_STEPS.length - 1]]
+
   return (
     <LeagueTour
-      steps={HOME_TOUR_STEPS}
+      steps={steps}
       storageKey={SEEN_KEY}
       autoOpen
     />

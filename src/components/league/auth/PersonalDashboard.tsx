@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { Trophy, Film, User as UserIcon, ChevronRight, Sparkles, IdCard, Flame } from 'lucide-react'
+import { Trophy, Film, User as UserIcon, ChevronRight, Sparkles, IdCard, Flame, X } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import SectionCard from '@/components/league/ui/SectionCard'
 
@@ -73,6 +73,15 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  // #1 비로그인 로그인 티저 — 30일 억제. 초기 true(플래시 방지) → 마운트 후 판정.
+  const [teaserDismissed, setTeaserDismissed] = useState(true)
+  useEffect(() => {
+    try {
+      const ts = localStorage.getItem('mm_login_teaser_dismissed')
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage 판정은 클라이언트 전용, 마운트 1회
+      setTeaserDismissed(ts ? Date.now() - Number(ts) < 30 * 24 * 3600 * 1000 : false)
+    } catch { /* 무시 */ }
+  }, [])
 
   const load = useCallback(async () => {
     if (!user) return
@@ -85,7 +94,18 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
 
   useEffect(() => { load() }, [load])
 
-  if (authLoading || !user) return null
+  if (authLoading) return null
+  if (!user) {
+    if (teaserDismissed) return null
+    return (
+      <LoginTeaser
+        onDismiss={() => {
+          try { localStorage.setItem('mm_login_teaser_dismissed', String(Date.now())) } catch { /* 무시 */ }
+          setTeaserDismissed(true)
+        }}
+      />
+    )
+  }
 
   const highlightsHref = data?.weekly.available && data.weekly.date
     ? `/league/${orgSlug}/${leagueId}/highlights/player/${user.player_id}?date=${data.weekly.date}`
@@ -250,6 +270,37 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
         </div>
       )}
     </div>
+  )
+}
+
+function LoginTeaser({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <SectionCard variant="standalone" emphasized>
+      <div className="relative flex items-center gap-4 px-4 md:px-5 py-4 md:py-5">
+        {/* 블러 처리된 가짜 스탯 실루엣 (장식) */}
+        <div aria-hidden className="hidden sm:grid grid-cols-5 gap-1.5 w-[220px] shrink-0" style={{ filter: 'blur(3px)', opacity: 0.5 }}>
+          {[0, 1, 2, 3, 4].map(i => (
+            <div key={i} className="rounded-md border" style={{ background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', height: 72 }} />
+          ))}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-jersey font-black uppercase text-lg md:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>내 기록, 여기 다 있어요</div>
+          <p className="text-[13px] mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+            우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>시즌 득점·리바운드 랭킹</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>진행 중 스트릭·마일스톤</b>을 확인하세요.
+          </p>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
+            className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-md font-jersey font-black uppercase text-sm tracking-[0.12em] cursor-pointer transition-all hover:brightness-95 min-h-[44px]"
+            style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}
+          >
+            내 랭킹 확인하기 <ChevronRight size={16} />
+          </button>
+        </div>
+        <button onClick={onDismiss} aria-label="닫기" className="absolute top-2 right-2 p-1.5 rounded cursor-pointer transition-colors" style={{ color: 'var(--mm-muted)' }}>
+          <X size={16} />
+        </button>
+      </div>
+    </SectionCard>
   )
 }
 
