@@ -4,8 +4,15 @@
 import { createClient } from '@/lib/supabase/admin'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import { computeMilestones, type UpcomingEntry } from '@/lib/stats/milestones'
-import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
+import { loadIdentityResolver, makeIdentityResolver } from '@/lib/stats/teamIdentity'
 import type { PlayerStat } from '@/types/league'
+
+type Resolver = ReturnType<typeof makeIdentityResolver>
+type GameRow = {
+  home_team_id: string | null; away_team_id: string | null
+  home_score: number | null; away_score: number | null
+  quarter_id: string | null
+}
 
 export type RoundStanding = {
   rank: number; key: string; name: string; color: string
@@ -32,13 +39,15 @@ export type RoundMagazineData = {
   date: string
   dateLabel: string
   leagueName: string
-  standings: RoundStanding[]
+  standings: RoundStanding[]         // 그 날(라운드) 결과 순위
   games: SocialGame[]
   ptsTop: SocialLeader[]
   rebTop: SocialLeader[]
   astTop: SocialLeader[]
   defTop: SocialLeader[]
   best: BestPlayer | null
+  quarterLabel: string               // 예: '26.3Q' (라운드 소속 분기)
+  quarterStandings: RoundStanding[]  // 해당 분기 · 그 날까지 누적 순위
   milestones: UpcomingEntry[]
 }
 
@@ -48,6 +57,30 @@ function labelDate(iso: string): string {
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} (${DOW[d.getDay()]})`
 }
 const pctOf = (m: number, a: number) => (a > 0 ? Math.round((m / a) * 100) : 0)
+
+// 경기행 집합 → 팀 순위(승률·마진·랭크) 집계
+function buildStandings(rows: GameRow[], resolver: Resolver): RoundStanding[] {
+  type Agg = { key: string; name: string; color: string; wins: number; losses: number; draws: number; ptsFor: number; ptsAgainst: number }
+  const agg = new Map<string, Agg>()
+  const ensure = (tid: string | null, qid: string | null): Agg | null => {
+    const id = resolver(tid, qid); if (!id) return null
+    let a = agg.get(id.key)
+    if (!a) { a = { key: id.key, name: id.display_name, color: id.color, wins: 0, losses: 0, draws: 0, ptsFor: 0, ptsAgainst: 0 }; agg.set(id.key, a) }
+    return a
+  }
+  for (const g of rows) {
+    const h = ensure(g.home_team_id, g.quarter_id)
+    const a = ensure(g.away_team_id, g.quarter_id)
+    if (!h || !a) continue
+    const hs = g.home_score ?? 0, as_ = g.away_score ?? 0
+    h.ptsFor += hs; h.ptsAgainst += as_; a.ptsFor += as_; a.ptsAgainst += hs
+    if (hs > as_) { h.wins++; a.losses++ } else if (hs < as_) { a.wins++; h.losses++ } else { h.draws++; a.draws++ }
+  }
+  return [...agg.values()]
+    .map(a => { const tot = a.wins + a.losses + a.draws; return { ...a, winRate: tot > 0 ? +((a.wins / tot) * 100).toFixed(1) : 0, margin: a.ptsFor - a.ptsAgainst } })
+    .sort((x, y) => (y.winRate !== x.winRate ? y.winRate - x.winRate : y.margin - x.margin))
+    .map((a, i) => ({ rank: i + 1, ...a }))
+}
 
 export async function getRoundMagazineData(leagueId: string, date: string): Promise<RoundMagazineData> {
   const sb = createClient()
@@ -63,36 +96,38 @@ export async function getRoundMagazineData(leagueId: string, date: string): Prom
   ])
 
   const players = stats.players ?? []
-  const gameRows = games ?? []
-  const quarterId = (gameRows[0]?.quarter_id as string | null) ?? null
+  const gameRows = (games ?? []) as (GameRow & { id: string })[]
+  const quarterId = gameRows[0]?.quarter_id ?? null
 
-  // 팀 순위(라운드) + 스코어보드 집계
-  type Agg = { key: string; name: string; color: string; wins: number; losses: number; draws: number; ptsFor: number; ptsAgainst: number }
-  const agg = new Map<string, Agg>()
-  const ensure = (tid: string | null, qid: string | null): Agg | null => {
-    const id = resolver(tid, qid); if (!id) return null
-    let a = agg.get(id.key)
-    if (!a) { a = { key: id.key, name: id.display_name, color: id.color, wins: 0, losses: 0, draws: 0, ptsFor: 0, ptsAgainst: 0 }; agg.set(id.key, a) }
-    return a
-  }
+  // 라운드 순위 + 스코어보드
+  const standings = buildStandings(gameRows, resolver)
+  const teamPtsByKey = new Map(standings.map(s => [s.key, s.ptsFor]))
   const socialGames: SocialGame[] = []
   for (const g of gameRows) {
-    const h = ensure(g.home_team_id as string | null, g.quarter_id as string | null)
-    const a = ensure(g.away_team_id as string | null, g.quarter_id as string | null)
+    const h = resolver(g.home_team_id, g.quarter_id), a = resolver(g.away_team_id, g.quarter_id)
     if (!h || !a) continue
-    const hs = (g.home_score as number) ?? 0, as_ = (g.away_score as number) ?? 0
-    h.ptsFor += hs; h.ptsAgainst += as_; a.ptsFor += as_; a.ptsAgainst += hs
-    if (hs > as_) { h.wins++; a.losses++ } else if (hs < as_) { a.wins++; h.losses++ } else { h.draws++; a.draws++ }
-    socialGames.push({ homeName: h.name, homeColor: h.color, homeScore: hs, awayName: a.name, awayColor: a.color, awayScore: as_ })
+    socialGames.push({ homeName: h.display_name, homeColor: h.color, homeScore: g.home_score ?? 0, awayName: a.display_name, awayColor: a.color, awayScore: g.away_score ?? 0 })
   }
-  const standings: RoundStanding[] = [...agg.values()]
-    .map(a => { const tot = a.wins + a.losses + a.draws; return { ...a, winRate: tot > 0 ? +((a.wins / tot) * 100).toFixed(1) : 0, margin: a.ptsFor - a.ptsAgainst } })
-    .sort((x, y) => (y.winRate !== x.winRate ? y.winRate - x.winRate : y.margin - x.margin))
-    .map((a, i) => ({ rank: i + 1, ...a }))
-  const teamPtsByKey = new Map(standings.map(s => [s.key, s.ptsFor]))
+
+  // 분기 누적 순위 (라운드 소속 분기 · 그 날까지) + 분기 라벨
+  let quarterLabel = '시즌 누적'
+  let quarterStandings: RoundStanding[] = []
+  {
+    let qGamesQuery = sb.from('league_games')
+      .select('home_team_id, away_team_id, home_score, away_score, quarter_id')
+      .eq('league_id', leagueId).lte('date', date)
+      .eq('is_complete', true).eq('is_exhibition', false)
+    if (quarterId) qGamesQuery = qGamesQuery.eq('quarter_id', quarterId)
+    const [{ data: qMeta }, { data: qGames }] = await Promise.all([
+      quarterId ? sb.from('league_quarters').select('year, quarter').eq('id', quarterId).single() : Promise.resolve({ data: null }),
+      qGamesQuery,
+    ])
+    if (qMeta) quarterLabel = `${String((qMeta as { year: number }).year).slice(2)}.${(qMeta as { quarter: number }).quarter}Q`
+    quarterStandings = buildStandings((qGames ?? []) as GameRow[], resolver)
+  }
 
   // 선수 → 소속 팀 (라운드 이벤트의 team_id 최빈값)
-  const gameIds = gameRows.map(g => g.id as string)
+  const gameIds = gameRows.map(g => g.id)
   const playerTeamKey = new Map<string, string>()
   const playerTeamName = new Map<string, { name: string; color: string }>()
   if (gameIds.length) {
@@ -141,7 +176,6 @@ export async function getRoundMagazineData(leagueId: string, date: string): Prom
     { label: '블록', value: String(p.blk) },
   ])
 
-  // 이번 라운드 BEST — 종합 지표 자동 선정 (득점 가중 + 올어라운드)
   const mvpScore = (p: PlayerStat) => p.pts * 1.5 + p.reb + p.ast * 1.5 + p.stl * 2 + p.blk * 2 + (p.and_one ?? 0) - p.tov
   const bestP = [...players].filter(p => p.pts + p.reb + p.ast + p.stl + p.blk > 0).sort((a, b) => mvpScore(b) - mvpScore(a))[0]
   const bt = bestP ? teamOf(bestP.player_id) : null
@@ -152,11 +186,12 @@ export async function getRoundMagazineData(leagueId: string, date: string): Prom
 
   return {
     date, dateLabel: labelDate(date), leagueName: league?.name ?? '미라클모닝농구단',
-    standings, games: socialGames, ptsTop, rebTop, astTop, defTop, best, milestones: milestones.upcoming ?? [],
+    standings, games: socialGames, ptsTop, rebTop, astTop, defTop, best,
+    quarterLabel, quarterStandings, milestones: milestones.upcoming ?? [],
   }
 }
 
-// 발행 가능한 라운드 날짜 목록 (최신순) — 드롭다운/필터칩용
+// 발행 가능한 라운드 날짜 목록 (최신순) — 드롭다운용
 export async function getRoundDates(leagueId: string, limit = 24): Promise<string[]> {
   const sb = createClient()
   const { data } = await sb.from('league_games').select('date')

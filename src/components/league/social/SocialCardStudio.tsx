@@ -1,11 +1,11 @@
 'use client'
-// 인스타 카드 생성 스튜디오 — 라운드(경기 날짜) 선택 + 8장 미리보기 + PNG 저장(html-to-image).
+// 인스타 카드 생성 스튜디오 — 라운드(경기 날짜) 선택 + 9장 미리보기 + PNG 저장(html-to-image).
 // 라운드는 URL(?date=)로 서버 재조회, 표지 Vol/헤드라인은 로컬 상태.
 import { useState, useRef } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import type { RoundMagazineData } from '@/lib/social/weeklyData'
-import { CoverCard, ScoreboardCard, LeaderCard, BestCard, MilestoneCard, IG_W, IG_H } from './SocialCards'
+import { CoverCard, ScoreboardCard, LeaderCard, BestCard, QuarterStandingsCard, MilestoneCard, IG_W, IG_H } from './SocialCards'
 
 const PREVIEW_W = 320
 const SCALE = PREVIEW_W / IG_W
@@ -41,7 +41,8 @@ export default function SocialCardStudio({ data, roundDates }: { data: RoundMaga
     { id: 'ast', label: '5. 어시스트 TOP3', node: <LeaderCard data={data} title="어시스트" metric="ASSISTS" unit="개" leaders={data.astTop} /> },
     { id: 'def', label: '6. 수비 TOP3', node: <LeaderCard data={data} title="수비" metric="STEALS + BLOCKS" unit="" leaders={data.defTop} /> },
     { id: 'best', label: '7. 이 날의 BEST', node: <BestCard data={data} /> },
-    { id: 'ms', label: '8. 마일스톤', node: <MilestoneCard data={data} /> },
+    { id: 'quarter', label: '8. 분기 누적 순위', node: <QuarterStandingsCard data={data} /> },
+    { id: 'ms', label: '9. 마일스톤', node: <MilestoneCard data={data} /> },
   ]
 
   async function savePng(id: string, idx: number) {
@@ -62,7 +63,7 @@ export default function SocialCardStudio({ data, roundDates }: { data: RoundMaga
         await savePng(cards[i].id, i)
         await new Promise(r => setTimeout(r, 400))
       }
-      toast.success('8장 PNG 저장 완료')
+      toast.success('9장 PNG 저장 완료')
     } catch (e) {
       toast.error(`저장 실패: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
@@ -94,7 +95,7 @@ export default function SocialCardStudio({ data, roundDates }: { data: RoundMaga
           <input value={headline} onChange={e => setHeadline(e.target.value)} placeholder="예: 3연승, 1위 교체" className={inp} />
         </label>
         <button onClick={saveAll} disabled={busy} className="px-4 py-2 rounded-md text-sm font-black uppercase tracking-wider bg-[color:var(--color-hoop-orange-500)] text-white cursor-pointer disabled:opacity-50 min-h-[40px]">
-          {busy ? '저장 중…' : '전체 저장 (8장)'}
+          {busy ? '저장 중…' : '전체 저장 (9장)'}
         </button>
       </div>
 
