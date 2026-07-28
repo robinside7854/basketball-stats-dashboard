@@ -32,6 +32,7 @@ function relTime(iso: string | null): string {
 export default function PresenceIndicator({ leagueId }: { leagueId: string }) {
   const [data, setData] = useState<PresenceData | null>(null)
   const [open, setOpen] = useState(false)
+  const [tab, setTab] = useState<'online' | 'offline'>('online')
   const btnRef = useRef<HTMLButtonElement>(null)
 
   const load = useCallback(async () => {
@@ -49,8 +50,8 @@ export default function PresenceIndicator({ leagueId }: { leagueId: string }) {
     return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', beat) }
   }, [load])
 
-  // 팝오버 열릴 때 최신화
-  useEffect(() => { if (open) load() }, [open, load])
+  // 팝오버 열릴 때 최신화 + 온라인 탭으로 리셋
+  useEffect(() => { if (open) { load(); setTab('online') } }, [open, load])
 
   // Esc 로 닫기
   useEffect(() => {
@@ -115,12 +116,6 @@ export default function PresenceIndicator({ leagueId }: { leagueId: string }) {
               <span className="font-jersey font-black uppercase text-sm tracking-[0.10em]" style={{ color: 'var(--mm-ink)' }}>
                 접속 현황
               </span>
-              <span
-                className="ml-1 inline-flex items-center text-[10px] font-black uppercase tracking-[0.10em] px-1.5 py-0.5 rounded-sm"
-                style={{ background: online > 0 ? '#10B981' : 'var(--mm-panel)', color: online > 0 ? '#fff' : 'var(--mm-muted)', border: online > 0 ? 'none' : '1px solid var(--mm-rule)' }}
-              >
-                {online}명 접속 중
-              </span>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -132,42 +127,90 @@ export default function PresenceIndicator({ leagueId }: { leagueId: string }) {
               </button>
             </header>
 
-            <ul className="overflow-y-auto divide-y divide-[color:var(--mm-rule)]">
-              {data.members.map(m => (
-                <li key={m.player_id} className="flex items-center gap-2.5 px-3.5 py-2">
-                  <div className="relative shrink-0">
-                    <div
-                      className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center"
-                      style={{ background: 'var(--mm-panel-alt)', border: `2px solid ${m.online ? '#10B981' : 'var(--mm-rule)'}` }}
-                      aria-hidden
-                    >
-                      {m.photo_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={m.photo_url} alt="" className="w-full h-full object-cover" style={{ opacity: m.online ? 1 : 0.65 }} />
-                      ) : (
-                        <UserIcon size={15} style={{ color: 'var(--mm-muted)' }} />
-                      )}
-                    </div>
-                    {m.online && (
-                      <span
-                        aria-hidden
-                        className="absolute -bottom-0.5 -right-0.5 rounded-full"
-                        style={{ width: 10, height: 10, background: '#10B981', border: '2px solid var(--mm-panel)' }}
-                      />
-                    )}
-                  </div>
-                  <span className="flex-1 min-w-0 text-[13px] font-bold truncate" style={{ color: 'var(--mm-ink)' }}>
-                    {m.number != null ? `#${m.number} ` : ''}{m.name ?? '(이름 없음)'}
-                  </span>
-                  <span
-                    className="shrink-0 text-[11px] font-bold uppercase tracking-[0.06em]"
-                    style={{ color: m.online ? '#10B981' : 'var(--mm-muted)' }}
+            {/* 온라인 / 오프라인 탭 */}
+            <div className="flex shrink-0" style={{ borderBottom: '1px solid var(--mm-rule)' }} role="tablist">
+              {([
+                { key: 'online' as const, label: '온라인', count: online, accent: '#10B981' },
+                { key: 'offline' as const, label: '오프라인', count: data.total - online, accent: 'var(--mm-ink)' },
+              ]).map(t => {
+                const active = tab === t.key
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setTab(t.key)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 text-xs font-black uppercase tracking-[0.10em] cursor-pointer transition-colors"
+                    style={{
+                      color: active ? 'var(--mm-ink)' : 'var(--mm-muted)',
+                      background: active ? 'var(--mm-panel)' : 'var(--mm-panel-alt)',
+                      borderBottom: `2px solid ${active ? t.accent : 'transparent'}`,
+                    }}
                   >
-                    {m.online ? '온라인' : relTime(m.last_seen_at)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                    {t.key === 'online' && (
+                      <span aria-hidden style={{ width: 7, height: 7, borderRadius: '50%', background: t.count > 0 ? '#10B981' : 'var(--mm-muted)', display: 'inline-block' }} />
+                    )}
+                    {t.label}
+                    <span
+                      className="tabular-nums text-[11px] px-1.5 py-0.5 rounded-sm"
+                      style={{ background: active ? t.accent : 'var(--mm-rule)', color: active ? '#fff' : 'var(--mm-muted)' }}
+                    >
+                      {t.count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {(() => {
+              const list = data.members.filter(m => tab === 'online' ? m.online : !m.online)
+              if (list.length === 0) {
+                return (
+                  <div className="py-8 px-4 text-center text-[12px]" style={{ color: 'var(--mm-muted)' }}>
+                    {tab === 'online' ? '지금 접속 중인 회원이 없어요' : '오프라인 회원이 없어요'}
+                  </div>
+                )
+              }
+              return (
+                <ul className="overflow-y-auto divide-y divide-[color:var(--mm-rule)]">
+                  {list.map(m => (
+                    <li key={m.player_id} className="flex items-center gap-2.5 px-3.5 py-2">
+                      <div className="relative shrink-0">
+                        <div
+                          className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center"
+                          style={{ background: 'var(--mm-panel-alt)', border: `2px solid ${m.online ? '#10B981' : 'var(--mm-rule)'}` }}
+                          aria-hidden
+                        >
+                          {m.photo_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={m.photo_url} alt="" className="w-full h-full object-cover" style={{ opacity: m.online ? 1 : 0.65 }} />
+                          ) : (
+                            <UserIcon size={15} style={{ color: 'var(--mm-muted)' }} />
+                          )}
+                        </div>
+                        {m.online && (
+                          <span
+                            aria-hidden
+                            className="absolute -bottom-0.5 -right-0.5 rounded-full"
+                            style={{ width: 10, height: 10, background: '#10B981', border: '2px solid var(--mm-panel)' }}
+                          />
+                        )}
+                      </div>
+                      <span className="flex-1 min-w-0 text-[13px] font-bold truncate" style={{ color: 'var(--mm-ink)' }}>
+                        {m.number != null ? `#${m.number} ` : ''}{m.name ?? '(이름 없음)'}
+                      </span>
+                      <span
+                        className="shrink-0 text-[11px] font-bold uppercase tracking-[0.06em]"
+                        style={{ color: m.online ? '#10B981' : 'var(--mm-muted)' }}
+                      >
+                        {m.online ? '온라인' : relTime(m.last_seen_at)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )
+            })()}
           </div>
         </>
       )}
