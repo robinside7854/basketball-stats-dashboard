@@ -8,7 +8,7 @@
 
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { ClipboardList, Film, ArrowRight } from 'lucide-react'
+import { ClipboardList, PlayCircle, ArrowRight } from 'lucide-react'
 import { ResultChips, ScoreTable } from './RecordDisplay'
 import SectionCard from '@/components/league/ui/SectionCard'
 
@@ -60,14 +60,14 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
         </header>
 
         {/* 모바일: 가로 스와이프 (flex+snap) · sm+: CSS grid (2열/4열 · sub-pixel 안정) */}
-        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 overflow-x-auto sm:overflow-visible snap-x snap-mandatory sm:snap-none scrollbar-hide gap-4 px-4 sm:px-6 md:px-8 lg:px-10 pt-4 sm:pt-6 md:pt-8 lg:pt-10 pb-0">
+        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-4 items-stretch overflow-x-auto sm:overflow-visible snap-x snap-mandatory sm:snap-none scrollbar-hide gap-4 px-4 sm:px-6 md:px-8 lg:px-10 pt-4 sm:pt-6 md:pt-8 lg:pt-10 pb-0">
           {rounds.map(r => {
             const topTeam = r.teams[0]
             const base = `/league/${resolvedOrgSlug}/${leagueId}`
             return (
               <div
                 key={r.date}
-                className="snap-start shrink-0 basis-[85%] sm:basis-auto sm:shrink text-left transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.25)]"
+                className="snap-start shrink-0 basis-[85%] sm:basis-auto sm:shrink text-left flex flex-col h-full transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.25)]"
                 style={{
                   background: 'var(--mm-panel)',
                   border: '1px solid var(--mm-rule)',
@@ -102,8 +102,9 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                   )}
                 </div>
 
-                {/* 팀 리스트 · 각 팀당 세로 3단 (팀 헤더 + WIN/LOSE/DRAW 칩 + 득실 미니테이블) */}
-                <ul className="space-y-3">
+                {/* 팀 리스트 · 각 팀당 세로 3단 (팀 헤더 + WIN/LOSE/DRAW 칩 + 득실 미니테이블)
+                    flex-1 로 남는 세로 공간을 흡수 → 아래 액션 버튼이 카드 하단에 정렬(등높이 카드 간 일직선) */}
+                <ul className="space-y-3 flex-1">
                   {r.teams.slice(0, 4).map((t, idx) => {
                     const shownCount = Math.min(4, r.teams.length)
                     return (
@@ -153,7 +154,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                 >
                   <Link
                     href={`${base}/boxscore/${r.date}`}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                     style={{
                       background: 'var(--mm-panel-alt)',
                       color: 'var(--mm-ink)',
@@ -165,18 +166,21 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                     <ClipboardList size={13} aria-hidden />
                     박스스코어
                   </Link>
+                  {/* 영상 재생 CTA — 브랜드 주황(hoop-orange)으로 강조 · 검정 텍스트(WCAG AA 5.9:1)
+                      hover 밝기 · active 눌림 · focus 링 · 200ms */}
                   <Link
                     href={`${base}/highlights/${r.date}`}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-hoop-orange-500)] focus-visible:ring-offset-1"
                     style={{
-                      background: 'var(--mm-ink)',
-                      color: 'var(--mm-panel)',
-                      border: '1px solid var(--mm-ink)',
+                      background: 'var(--color-hoop-orange-500)',
+                      color: 'var(--mm-black)',
+                      border: '1px solid var(--color-hoop-orange-500)',
                       borderRadius: '4px',
+                      boxShadow: '0 2px 8px -3px rgba(234,88,12,0.55)',
                     }}
                     aria-label={`${r.weekLabel} 득점 하이라이트 재생`}
                   >
-                    <Film size={13} aria-hidden />
+                    <PlayCircle size={14} aria-hidden />
                     하이라이트
                   </Link>
                 </div>

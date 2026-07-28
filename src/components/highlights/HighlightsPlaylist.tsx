@@ -79,7 +79,7 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect }: Prop
             role="option"
             aria-selected={active}
             aria-label={c.is_clutch ? '클러치 슛' : undefined}
-            className="flex items-stretch gap-2 p-1.5 cursor-pointer transition-colors relative overflow-hidden"
+            className="group flex items-stretch gap-2 p-1.5 cursor-pointer transition-colors relative overflow-hidden"
             style={{
               background: active ? 'var(--mm-yellow-soft)' : 'var(--mm-panel)',
               border: `1px solid ${active ? 'var(--mm-yellow)' : (c.is_clutch ? '#ef4444' : 'var(--mm-rule)')}`,
@@ -101,13 +101,22 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect }: Prop
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                 />
               </div>
-              {active && (
+              {active ? (
                 <span
                   aria-hidden
                   className="absolute inset-0 flex items-center justify-center"
                   style={{ background: 'rgba(0,0,0,0.35)', borderRadius: '4px' }}
                 >
                   <Play size={20} style={{ color: 'var(--mm-yellow)' }} fill="currentColor" />
+                </span>
+              ) : (
+                // 비활성 클립: 호버 시 주황 재생 아이콘 노출 (재생 가능 신호)
+                <span
+                  aria-hidden
+                  className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  style={{ background: 'rgba(0,0,0,0.35)', borderRadius: '4px' }}
+                >
+                  <Play size={18} style={{ color: 'var(--color-hoop-orange-500)' }} fill="currentColor" />
                 </span>
               )}
               {/* 팀 색상 표식 */}

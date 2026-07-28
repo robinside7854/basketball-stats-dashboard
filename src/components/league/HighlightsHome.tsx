@@ -11,7 +11,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { HeartCrack, ChevronRight, PlayCircle } from 'lucide-react'
+import { HeartCrack, ChevronRight, PlayCircle, Play } from 'lucide-react'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
 import HighlightsClipModal from '@/components/highlights/HighlightsClipModal'
@@ -215,37 +215,51 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
 
                   {/* 프로필 사진 (원형 · 팀 컬러 테두리 · 큼직) */}
                   <div className="flex justify-center pt-4 pb-2">
-                    <div
-                      className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden flex items-center justify-center"
-                      style={{
-                        background: 'var(--mm-panel-alt)',
-                        border: `2px solid ${c.team_color}`,
-                        boxShadow: '0 4px 12px -4px rgba(0,0,0,0.25)',
-                      }}
-                      aria-hidden
-                    >
-                      <span
-                        className="absolute inset-0 flex items-center justify-center font-jersey font-black text-2xl sm:text-3xl"
-                        style={{ color: 'var(--mm-ink)' }}
+                    <div className="relative">
+                      <div
+                        className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden flex items-center justify-center"
+                        style={{
+                          background: 'var(--mm-panel-alt)',
+                          border: `2px solid ${c.team_color}`,
+                          boxShadow: '0 4px 12px -4px rgba(0,0,0,0.25)',
+                        }}
+                        aria-hidden
                       >
-                        {initialsOf(c.player_name)}
-                      </span>
-                      {c.player_photo && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={c.player_photo}
-                          alt=""
-                          loading="lazy"
-                          className="relative w-full h-full object-cover"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                        />
-                      )}
+                        <span
+                          className="absolute inset-0 flex items-center justify-center font-jersey font-black text-2xl sm:text-3xl"
+                          style={{ color: 'var(--mm-ink)' }}
+                        >
+                          {initialsOf(c.player_name)}
+                        </span>
+                        {c.player_photo && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={c.player_photo}
+                            alt=""
+                            loading="lazy"
+                            className="relative w-full h-full object-cover"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                          />
+                        )}
+                        <span
+                          aria-hidden
+                          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                          style={{ background: 'rgba(0,0,0,0.5)' }}
+                        >
+                          <PlayCircle size={32} style={{ color: 'var(--color-hoop-orange-500)' }} fill="rgba(0,0,0,0.4)" />
+                        </span>
+                      </div>
+                      {/* 상시 노출 재생 뱃지 — 모바일(호버 없음)에서도 '재생됨' 신호 · 브랜드 주황 · hover 확대 */}
                       <span
                         aria-hidden
-                        className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                        style={{ background: 'rgba(0,0,0,0.5)' }}
+                        className="absolute -bottom-0.5 -right-0.5 inline-flex items-center justify-center w-7 h-7 rounded-full transition-transform duration-200 group-hover:scale-110"
+                        style={{
+                          background: 'var(--color-hoop-orange-500)',
+                          border: '2px solid var(--mm-panel)',
+                          boxShadow: '0 2px 6px -2px rgba(0,0,0,0.4)',
+                        }}
                       >
-                        <PlayCircle size={32} style={{ color: 'var(--color-hoop-orange-500)' }} fill="rgba(0,0,0,0.4)" />
+                        <Play size={12} style={{ color: '#ffffff' }} fill="#ffffff" />
                       </span>
                     </div>
                   </div>

@@ -359,26 +359,27 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           type="button"
           onClick={goPrev}
           disabled={currentIdx === 0}
-          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 cursor-pointer disabled:opacity-40 transition-colors"
+          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 cursor-pointer disabled:opacity-40 transition-all duration-200 hover:brightness-95 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
           aria-label="이전 클립"
         >
           <SkipBack size={18} />
         </button>
+        {/* 주 재생/정지 CTA — 브랜드 노랑 · 채워진 삼각형 · hover 밝기 · active 눌림 · focus 링 */}
         <button
           type="button"
           onClick={togglePlay}
-          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 cursor-pointer transition-colors"
-          style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }}
+          className="inline-flex items-center justify-center min-h-[44px] min-w-[52px] px-3 cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-1"
+          style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px', boxShadow: '0 2px 8px -3px rgba(0,0,0,0.35)' }}
           aria-label="재생/정지"
         >
-          <Play size={18} />
+          <Play size={18} fill="currentColor" />
         </button>
         <button
           type="button"
           onClick={goNext}
           disabled={currentIdx + 1 >= clips.length}
-          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 cursor-pointer disabled:opacity-40 transition-colors"
+          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 cursor-pointer disabled:opacity-40 transition-all duration-200 hover:brightness-95 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
           aria-label="다음 클립"
         >
