@@ -26,6 +26,9 @@ export async function GET(
     .maybeSingle()
   if (!acc || acc.status !== 'approved') return NextResponse.json({ authenticated: false })
 
+  // 접속 현황(presence) 하트비트 — /me 는 마운트·주기 폴링 시 호출됨. (서버리스 조기종료 방지 위해 await)
+  await sb.from('league_user_accounts').update({ last_seen_at: new Date().toISOString() }).eq('id', acc.id)
+
   const { data: player } = await sb
     .from('league_players')
     .select('id, name, number, position, photo_url')

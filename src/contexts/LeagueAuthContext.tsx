@@ -48,6 +48,15 @@ export function LeagueAuthProvider({ leagueId, children }: { leagueId: string; c
 
   useEffect(() => { refresh() }, [refresh])
 
+  // 접속 현황(presence) 하트비트 — 로그인 상태에서 탭이 보일 때만 90초마다 /me 재호출(last_seen_at 갱신).
+  useEffect(() => {
+    if (!user) return
+    const beat = () => { if (document.visibilityState === 'visible') refresh() }
+    const id = window.setInterval(beat, 90_000)
+    document.addEventListener('visibilitychange', beat)
+    return () => { window.clearInterval(id); document.removeEventListener('visibilitychange', beat) }
+  }, [user, refresh])
+
   const value = useMemo<AuthState>(() => ({ user, loading, refresh, logout }), [user, loading, refresh, logout])
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

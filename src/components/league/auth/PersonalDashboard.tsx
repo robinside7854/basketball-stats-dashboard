@@ -7,12 +7,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { Trophy, Film, User as UserIcon, ChevronRight, Sparkles, IdCard, Flame, X } from 'lucide-react'
+import { Trophy, Film, User as UserIcon, ChevronRight, Sparkles, IdCard, Flame, X, KeyRound, LogOut } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import SectionCard from '@/components/league/ui/SectionCard'
 
 // 선수카드 모달 · 클릭 후에만 로드 (recharts 포함)
 const PlayerQuickViewModal = dynamic(() => import('../PlayerQuickViewModal'), { ssr: false })
+// 비밀번호 변경 모달 · 클릭 시에만 로드
+const PasswordChangeModal = dynamic(() => import('./PasswordChangeModal'), { ssr: false })
 
 interface RankInfo { rank: number; total: number }
 interface Season {
@@ -69,10 +71,11 @@ function rankStyle(rank: number, total: number): { badge?: string; color: string
 }
 
 export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
-  const { user, loading: authLoading } = useCurrentUser()
+  const { user, loading: authLoading, refresh, logout } = useCurrentUser()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [pwOpen, setPwOpen] = useState(false)
   // #1 비로그인 로그인 티저 — 30일 억제. 초기 true(플래시 방지) → 마운트 후 판정.
   const [teaserDismissed, setTeaserDismissed] = useState(true)
   useEffect(() => {
@@ -170,6 +173,48 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
             <MilestoneChaser chasers={data.milestoneChasers} />
           </>
         )}
+
+        {/* d. 계정 · 비밀번호 변경 / 로그아웃 */}
+        <div
+          className="flex items-center justify-between gap-2 flex-wrap px-4 md:px-5 py-3"
+          style={{ borderTop: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
+        >
+          <div className="flex items-center gap-2 min-w-0 text-[12px]" style={{ color: 'var(--mm-muted)' }}>
+            <UserIcon size={13} aria-hidden />
+            <span className="truncate">아이디 <b style={{ color: 'var(--mm-ink-soft)' }}>{user.login_id}</b></span>
+            {user.is_default_password && (
+              <span className="inline-flex items-center text-[10px] font-black uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-sm"
+                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}>
+                초기 비번
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPwOpen(true)}
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors"
+              style={{
+                background: user.is_default_password ? 'var(--mm-yellow)' : 'var(--mm-panel)',
+                color: user.is_default_password ? 'var(--mm-black)' : 'var(--mm-ink)',
+                border: `1px solid ${user.is_default_password ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
+              }}
+            >
+              <KeyRound size={12} aria-hidden />
+              비밀번호 변경
+            </button>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors"
+              style={{ background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)' }}
+              aria-label="로그아웃"
+            >
+              <LogOut size={12} aria-hidden />
+              로그아웃
+            </button>
+          </div>
+        </div>
       </SectionCard>
 
       {profileOpen && user && (
@@ -178,6 +223,15 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
           playerId={user.player_id}
           playerName={user.name ?? user.login_id}
           onClose={() => setProfileOpen(false)}
+        />
+      )}
+
+      {pwOpen && (
+        <PasswordChangeModal
+          leagueId={leagueId}
+          isDefaultPassword={user.is_default_password}
+          onClose={() => setPwOpen(false)}
+          onDone={() => { refresh() }}
         />
       )}
     </>

@@ -12,6 +12,7 @@ import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, X, Users, ShieldC
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import SectionCard from '@/components/league/ui/SectionCard'
+import PresencePanel from '@/components/league/auth/PresencePanel'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { LeaderBadgeInline } from '@/components/league/LeaderBadgePanel'
@@ -590,6 +591,8 @@ export default function LeagueRosterPage() {
   return (
     <div className="space-y-4 lg:space-y-5">
       <LeagueSubTabs group="squad" />
+      {/* 접속 현황 (전체 공개 · 로그인 회원 온라인 여부) */}
+      <PresencePanel leagueId={leagueId} />
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>

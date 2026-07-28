@@ -7,13 +7,9 @@ import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
 import { LeagueAuthProvider, useCurrentUser } from '@/contexts/LeagueAuthContext'
-import { Lock, Unlock, Sun, Moon, Search, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Newspaper, HelpCircle, LogIn, LogOut, User as UserIcon } from 'lucide-react'
+import { Lock, Unlock, Sun, Moon, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Newspaper, HelpCircle, LogIn, LogOut, User as UserIcon } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 
-// 검색 · 선수 카드는 상호작용 트리거 시점에만 필요 — 초기 번들에서 분리
-// PlayerQuickViewModal(1441줄, recharts 4종 lazy 포함)은 상단 검색 유도 후에만 열림
-const GlobalSearchModal = dynamic(() => import('@/components/league/GlobalSearchModal'), { ssr: false })
-const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
 
 // 미들웨어가 slug URL(/league/miracle/2026)을 UUID 경로로 internal rewrite 하므로
@@ -26,7 +22,7 @@ function deriveLeagueBase(pathname: string, orgSlug: string, leagueId: string): 
   return `/league/${orgSlug}/${leagueId}`
 }
 
-function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { orgSlug: string; leagueId: string; onOpenSearch: () => void; onOpenLogin: () => void; showDraft: boolean }) {
+function TabNav({ orgSlug, leagueId, onOpenLogin, showDraft }: { orgSlug: string; leagueId: string; onOpenLogin: () => void; showDraft: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
   const { isEditMode, openPinModal, exitEditMode } = useLeagueEditMode()
@@ -163,12 +159,6 @@ function TabNav({ orgSlug, leagueId, onOpenSearch, onOpenLogin, showDraft }: { o
                 {signupPending && <span aria-hidden className="sm:hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[color:var(--color-hoop-orange-500)]" />}
               </button>
             ))}
-            <button onClick={onOpenSearch} aria-label="선수 검색" title="선수/게임 검색"
-              className="flex items-center gap-1.5 px-2.5 py-2 rounded-md bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] text-xs font-medium cursor-pointer transition-colors min-h-[44px]">
-              <Search size={16} />
-              <span className="hidden sm:inline">검색</span>
-              <kbd className="hidden md:inline text-xs text-[color:var(--mm-muted)] bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded px-1">⌘K</kbd>
-            </button>
             <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
               title="라이트/다크 전환"
@@ -352,9 +342,7 @@ function LeagueLayout({
   children: React.ReactNode
 }) {
   const { theme } = useTheme()
-  const [searchOpen, setSearchOpen] = useState(false)
   const [loginOpen, setLoginOpen] = useState(false)
-  const [selectedPlayer, setSelectedPlayer] = useState<{ id: string; name: string } | null>(null)
   // 드래프트 메뉴 조건부 표시 — 현재 분기에 진행 중(미완료) 세션이 있을 때만
   const [showDraft, setShowDraft] = useState(false)
 
@@ -372,17 +360,6 @@ function LeagueLayout({
     return () => { cancelled = true }
   }, [leagueId])
 
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setSearchOpen(v => !v)
-      }
-    }
-    window.addEventListener('keydown', h)
-    return () => window.removeEventListener('keydown', h)
-  }, [])
-
   // #1 비로그인 티저 등에서 로그인 모달 열기 요청 (mm-open-login 이벤트)
   useEffect(() => {
     const open = () => setLoginOpen(true)
@@ -398,7 +375,6 @@ function LeagueLayout({
         <TabNav
           orgSlug={orgSlug}
           leagueId={leagueId}
-          onOpenSearch={() => setSearchOpen(true)}
           onOpenLogin={() => setLoginOpen(true)}
           showDraft={showDraft}
         />
@@ -410,24 +386,6 @@ function LeagueLayout({
         </div>
         <BottomNav orgSlug={orgSlug} leagueId={leagueId} showDraft={showDraft} />
       </div>
-      {searchOpen && (
-        <GlobalSearchModal
-          leagueId={leagueId}
-          onClose={() => setSearchOpen(false)}
-          onSelectPlayer={(id, name) => {
-            setSelectedPlayer({ id, name })
-            setSearchOpen(false)
-          }}
-        />
-      )}
-      {selectedPlayer && (
-        <PlayerQuickViewModal
-          leagueId={leagueId}
-          playerId={selectedPlayer.id}
-          playerName={selectedPlayer.name}
-          onClose={() => setSelectedPlayer(null)}
-        />
-      )}
       {loginOpen && (
         <LoginModal leagueId={leagueId} onClose={() => setLoginOpen(false)} />
       )}
