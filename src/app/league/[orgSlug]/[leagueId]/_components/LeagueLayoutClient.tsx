@@ -11,6 +11,7 @@ import { Lock, Unlock, Sun, Moon, Home, Users, BarChart2, Calendar, MoreHorizont
 import { Toaster } from '@/components/ui/sonner'
 
 const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
+import PresenceIndicator from '@/components/league/auth/PresenceIndicator'
 
 // 미들웨어가 slug URL(/league/miracle/2026)을 UUID 경로로 internal rewrite 하므로
 // useParams()/props 의 leagueId 는 UUID 지만, usePathname() 은 브라우저의 slug URL 을 반환한다.
@@ -159,6 +160,8 @@ function TabNav({ orgSlug, leagueId, onOpenLogin, showDraft }: { orgSlug: string
                 {signupPending && <span aria-hidden className="sm:hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[color:var(--color-hoop-orange-500)]" />}
               </button>
             ))}
+            {/* 접속 현황 인디케이터 — 모든 페이지 상시 노출 (전체 공개) */}
+            <PresenceIndicator leagueId={leagueId} />
             <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-label={theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환'}
               title="라이트/다크 전환"
