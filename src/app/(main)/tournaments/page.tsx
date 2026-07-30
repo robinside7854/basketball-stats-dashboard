@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Plus, ChevronDown, ChevronUp, Pencil, Trash2 } from 'lucide-react'
+import { Plus, ChevronDown, ChevronUp, Pencil, Trash2, CheckCircle2, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import TournamentForm from '@/components/tournaments/TournamentForm'
 import GameForm from '@/components/tournaments/GameForm'
@@ -41,7 +41,7 @@ function getTournamentSummary(games: Game[]): { record: string; placement: strin
 
   let placement = ''
   if (topGame.round === '결승') {
-    placement = won ? '🏆 우승' : '준우승'
+    placement = won ? '우승' : '준우승'
   } else if (!won) {
     placement = `${topGame.round} 탈락`
   }
@@ -95,14 +95,14 @@ export default function TournamentsPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">대회 관리</h1>
         {isEditMode && (
-          <Button onClick={() => { setEditT(null); setShowTForm(true) }} className="bg-blue-500 hover:bg-blue-600">
-            <Plus size={16} className="mr-2" /> 대회 추가
+          <Button onClick={() => { setEditT(null); setShowTForm(true) }} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer">
+            <Plus size={16} className="mr-2" aria-hidden="true" /> 대회 추가
           </Button>
         )}
       </div>
 
       {tournaments.length === 0 ? (
-        <div className="text-center py-20 text-gray-500">
+        <div className="text-center py-20 text-[var(--mm-muted)]">
           <p>등록된 대회가 없습니다. 대회를 먼저 추가하세요.</p>
         </div>
       ) : (
@@ -113,18 +113,26 @@ export default function TournamentsPage() {
             const sorted = sortGamesByRound(tGames)
 
             return (
-              <div key={t.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => toggleExpand(t.id)}>
+              <div key={t.id} className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl overflow-hidden">
+                <div
+                  className="flex items-center justify-between p-4 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-1"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleExpand(t.id)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleExpand(t.id) }
+                  }}
+                >
                   <div className="flex items-center gap-3">
-                    {expanded === t.id ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+                    {expanded === t.id ? <ChevronUp size={18} className="text-[var(--mm-muted)]" aria-hidden="true" /> : <ChevronDown size={18} className="text-[var(--mm-muted)]" aria-hidden="true" />}
                     <div>
                       <span className="font-semibold">{t.name}</span>
-                      <span className="ml-3 text-sm text-gray-400">{t.year}년 · {TYPE_LABELS[t.type]}</span>
+                      <span className="ml-3 text-sm text-[var(--mm-muted)]">{t.year}년 · {TYPE_LABELS[t.type]}</span>
                       {summary && (
-                        <span className="ml-3 text-sm text-gray-300">
+                        <span className="ml-3 text-sm text-[var(--mm-ink-soft)]">
                           {summary.record}
                           {summary.placement && (
-                            <span className={`ml-2 font-semibold ${summary.placement.includes('우승') ? 'text-yellow-400' : 'text-blue-400'}`}>
+                            <span className={`ml-2 font-semibold ${summary.placement.includes('우승') ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>
                               · {summary.placement}
                             </span>
                           )}
@@ -134,59 +142,63 @@ export default function TournamentsPage() {
                   </div>
                   {isEditMode && (
                     <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                      <Button size="sm" variant="outline" onClick={() => { setEditT(t); setShowTForm(true) }} className="h-8 border-gray-700 text-gray-300">
-                        <Pencil size={12} />
+                      <Button size="sm" variant="outline" onClick={() => { setEditT(t); setShowTForm(true) }} className="h-8 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] cursor-pointer">
+                        <Pencil size={12} aria-hidden="true" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => deleteT(t.id)} className="h-8 border-gray-700 text-red-400">
-                        <Trash2 size={12} />
+                      <Button size="sm" variant="outline" onClick={() => deleteT(t.id)} className="h-8 border-[var(--mm-rule)] text-[var(--mm-negative)] cursor-pointer">
+                        <Trash2 size={12} aria-hidden="true" />
                       </Button>
-                      <Button size="sm" onClick={() => { setEditG(null); setShowGForm(t.id) }} className="h-8 bg-blue-500 hover:bg-blue-600 text-white">
-                        <Plus size={12} className="mr-1" /> 경기
+                      <Button size="sm" onClick={() => { setEditG(null); setShowGForm(t.id) }} className="h-8 bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer">
+                        <Plus size={12} className="mr-1" aria-hidden="true" /> 경기
                       </Button>
                     </div>
                   )}
                 </div>
 
                 {expanded === t.id && (
-                  <div className="border-t border-gray-800">
+                  <div className="border-t border-[var(--mm-rule)]">
                     {sorted.length === 0 ? (
-                      <p className="text-center py-6 text-gray-500 text-sm">등록된 경기가 없습니다</p>
+                      <p className="text-center py-6 text-[var(--mm-muted)] text-sm">등록된 경기가 없습니다</p>
                     ) : (
-                      <div className="divide-y divide-gray-800">
+                      <div className="divide-y divide-[var(--mm-rule)]">
                         {sorted.map(g => (
                           <div key={g.id} className="flex items-center justify-between px-6 py-3">
                             <div className="flex items-center gap-2 flex-wrap">
                               {g.round && (
-                                <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded font-medium">{g.round}</span>
+                                <span className="text-xs bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] px-2 py-0.5 rounded font-medium">{g.round}</span>
                               )}
-                              <span className="text-sm text-gray-400">{g.date}</span>
+                              <span className="text-sm text-[var(--mm-muted)]">{g.date}</span>
                               <span className="font-medium">vs {g.opponent}</span>
-                              {g.venue && <span className="text-xs text-gray-500">@ {g.venue}</span>}
+                              {g.venue && <span className="text-xs text-[var(--mm-muted)]">@ {g.venue}</span>}
                               {(g.our_score > 0 || g.opponent_score > 0) && (
-                                <span className={`text-sm font-bold ${g.our_score > g.opponent_score ? 'text-green-400' : 'text-red-400'}`}>
+                                <span className={`text-sm font-bold ${g.our_score > g.opponent_score ? 'text-[var(--mm-positive)]' : 'text-[var(--mm-negative)]'}`}>
                                   {g.our_score} - {g.opponent_score} ({g.our_score > g.opponent_score ? 'W' : 'L'})
                                 </span>
                               )}
-                              {g.is_complete && <span className="text-xs text-green-400 font-semibold">✓ 완료</span>}
+                              {g.is_complete && (
+                                <span className="flex items-center gap-1 text-xs text-[var(--mm-positive)] font-semibold">
+                                  <CheckCircle2 size={12} aria-hidden="true" /> 완료
+                                </span>
+                              )}
                               {g.youtube_url && (
                                 <a
                                   href={g.youtube_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   onClick={e => e.stopPropagation()}
-                                  className="text-xs text-blue-400 hover:text-blue-300 underline"
+                                  className="flex items-center gap-1 text-xs text-[var(--mm-ink)] hover:text-[var(--mm-yellow-strong)] underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] rounded"
                                 >
-                                  ▶ 영상
+                                  <Play size={11} aria-hidden="true" /> 영상
                                 </a>
                               )}
                             </div>
                             {isEditMode && (
                               <div className="flex gap-2 flex-shrink-0">
-                                <Button size="sm" variant="outline" onClick={() => { setEditG(g); setShowGForm(t.id) }} className="h-7 border-gray-700 text-gray-300">
-                                  <Pencil size={11} />
+                                <Button size="sm" variant="outline" onClick={() => { setEditG(g); setShowGForm(t.id) }} className="h-7 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] cursor-pointer">
+                                  <Pencil size={11} aria-hidden="true" />
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => deleteG(g.id, t.id)} className="h-7 border-gray-700 text-red-400">
-                                  <Trash2 size={11} />
+                                <Button size="sm" variant="outline" onClick={() => deleteG(g.id, t.id)} className="h-7 border-[var(--mm-rule)] text-[var(--mm-negative)] cursor-pointer">
+                                  <Trash2 size={11} aria-hidden="true" />
                                 </Button>
                               </div>
                             )}

@@ -66,11 +66,11 @@ export default function TournamentForm({ tournament, teamType, org, onClose, onS
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="bg-gray-900 border-gray-800 text-white max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)] max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{tournament ? '대회 수정' : '대회 추가'}</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm text-gray-400 mb-1 block">대회명 *</label>
+            <label className="text-sm text-[var(--mm-muted)] mb-1 block">대회명 *</label>
             <Input
               value={form.name}
               onChange={e => {
@@ -83,21 +83,21 @@ export default function TournamentForm({ tournament, teamType, org, onClose, onS
                 }))
               }}
               required
-              className="bg-gray-800 border-gray-700 text-white"
+              className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]"
               placeholder="제 9회 광명평화동굴배 전국농구대회 2026"
             />
-            <p className="text-xs text-gray-600 mt-1">이름에 연도(예: 2026) 포함 시 연도 자동 입력</p>
+            <p className="text-xs text-[var(--mm-muted)] mt-1">이름에 연도(예: 2026) 포함 시 연도 자동 입력</p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">연도 *</label>
-              <Input type="number" value={form.year} onChange={e => setForm(p => ({ ...p, year: Number(e.target.value) }))} required className="bg-gray-800 border-gray-700 text-white" />
+              <label className="text-sm text-[var(--mm-muted)] mb-1 block">연도 *</label>
+              <Input type="number" value={form.year} onChange={e => setForm(p => ({ ...p, year: Number(e.target.value) }))} required className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]" />
             </div>
             <div>
-              <label className="text-sm text-gray-400 mb-1 block">대회 유형</label>
+              <label className="text-sm text-[var(--mm-muted)] mb-1 block">대회 유형</label>
               <Select value={form.type} onValueChange={v => setForm(p => ({ ...p, type: v as typeof form.type }))}>
-                <SelectTrigger className="bg-gray-800 border-gray-700 text-white"><SelectValue /></SelectTrigger>
-                <SelectContent className="bg-gray-800 border-gray-700 text-white">
+                <SelectTrigger className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]">
                   <SelectItem value="pro">선출부</SelectItem>
                   <SelectItem value="amateur">비선출부</SelectItem>
                 </SelectContent>
@@ -105,15 +105,15 @@ export default function TournamentForm({ tournament, teamType, org, onClose, onS
             </div>
           </div>
           <div>
-            <label className="text-sm text-gray-400 mb-1 block">설명</label>
-            <Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} className="bg-gray-800 border-gray-700 text-white" />
+            <label className="text-sm text-[var(--mm-muted)] mb-1 block">설명</label>
+            <Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]" />
           </div>
 
           {/* 참석 선수 선택 */}
           {allPlayers.length > 0 && (
             <div>
-              <label className="text-sm text-gray-400 mb-2 block">
-                참석 선수 <span className="text-blue-400">({selectedPlayerIds.length}명 선택)</span>
+              <label className="text-sm text-[var(--mm-muted)] mb-2 block">
+                참석 선수 <span className="text-[var(--mm-yellow-strong)]">({selectedPlayerIds.length}명 선택)</span>
               </label>
               <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto pr-1">
                 {allPlayers.map(p => (
@@ -121,23 +121,23 @@ export default function TournamentForm({ tournament, teamType, org, onClose, onS
                     key={p.id}
                     type="button"
                     onClick={() => togglePlayer(p.id)}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-colors text-left ${
+                    className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-colors text-left cursor-pointer ${
                       selectedPlayerIds.includes(p.id)
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                        ? 'bg-[var(--mm-yellow)] text-[var(--mm-black)]'
+                        : 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] hover:bg-[var(--mm-rule)]'
                     }`}
                   >
                     <span className="font-bold">{p.number}</span> {p.name}
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-gray-500 mt-1">선택하지 않으면 전체 선수가 경기 기록에 표시됩니다</p>
+              <p className="text-xs text-[var(--mm-muted)] mt-1">선택하지 않으면 전체 선수가 경기 기록에 표시됩니다</p>
             </div>
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} className="border-gray-700 text-gray-300">취소</Button>
-            <Button type="submit" className="bg-blue-500 hover:bg-blue-600">저장</Button>
+            <Button type="button" variant="outline" onClick={onClose} className="border-[var(--mm-rule)] text-[var(--mm-ink-soft)] cursor-pointer">취소</Button>
+            <Button type="submit" className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer">저장</Button>
           </div>
         </form>
       </DialogContent>
