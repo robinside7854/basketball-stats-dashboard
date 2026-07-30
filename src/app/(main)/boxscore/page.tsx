@@ -25,7 +25,7 @@ type GameSummary = {
 }
 
 function Pct({ val }: { val: number }) {
-  return <span className={val >= 50 ? 'text-green-400' : val > 0 ? 'text-yellow-400' : 'text-gray-500'}>{val > 0 ? val.toFixed(1) : '-'}</span>
+  return <span className={val >= 50 ? 'text-green-400' : val > 0 ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-muted)]'}>{val > 0 ? val.toFixed(1) : '-'}</span>
 }
 
 export default function BoxScorePage() {
@@ -102,11 +102,11 @@ export default function BoxScorePage() {
   })
 
   function SortTh({ label, k, className }: { label: string; k?: SortKey; className?: string }) {
-    if (!k) return <th className={`px-2 py-2 border-b border-gray-700 font-medium whitespace-nowrap ${className ?? ''}`}>{label}</th>
+    if (!k) return <th className={`px-2 py-2 border-b border-[var(--mm-rule)] font-medium whitespace-nowrap ${className ?? ''}`}>{label}</th>
     const active = sortKey === k
     return (
       <th
-        className={`px-2 py-2 border-b border-gray-700 font-medium whitespace-nowrap cursor-pointer select-none hover:text-white transition-colors ${active ? 'text-blue-400' : ''} ${className ?? ''}`}
+        className={`px-2 py-2 border-b border-[var(--mm-rule)] font-medium whitespace-nowrap cursor-pointer select-none hover:text-[var(--mm-ink)] transition-colors ${active ? 'text-[var(--mm-yellow-strong)]' : ''} ${className ?? ''}`}
         onClick={() => handleSort(k)}
       >
         {label}{active ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
@@ -115,11 +115,11 @@ export default function BoxScorePage() {
   }
 
   function SeasonSortTh({ label, k, className }: { label: string; k?: SeasonSortKey; className?: string }) {
-    if (!k) return <th className={`px-2 py-2 border-b border-gray-700 font-medium whitespace-nowrap ${className ?? ''}`}>{label}</th>
+    if (!k) return <th className={`px-2 py-2 border-b border-[var(--mm-rule)] font-medium whitespace-nowrap ${className ?? ''}`}>{label}</th>
     const active = seasonSortKey === k
     return (
       <th
-        className={`px-2 py-2 border-b border-gray-700 font-medium whitespace-nowrap cursor-pointer select-none hover:text-white transition-colors ${active ? 'text-blue-400' : ''} ${className ?? ''}`}
+        className={`px-2 py-2 border-b border-[var(--mm-rule)] font-medium whitespace-nowrap cursor-pointer select-none hover:text-[var(--mm-ink)] transition-colors ${active ? 'text-[var(--mm-yellow-strong)]' : ''} ${className ?? ''}`}
         onClick={() => handleSeasonSort(k)}
       >
         {label}{active ? (seasonSortDir === 'desc' ? ' ↓' : ' ↑') : ''}
@@ -134,16 +134,16 @@ export default function BoxScorePage() {
       {/* 뷰 모드 토글 + 셀렉터 */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
         {/* 뷰 모드 버튼 */}
-        <div className="flex rounded-lg overflow-hidden border border-gray-700">
+        <div className="flex rounded-lg overflow-hidden border border-[var(--mm-rule)]">
           <button
             onClick={() => setViewMode('game')}
-            className={`px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === 'game' ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer ${viewMode === 'game' ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)]' : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'}`}
           >
             경기별
           </button>
           <button
             onClick={() => setViewMode('season')}
-            className={`px-3 py-1.5 text-sm font-medium transition-colors ${viewMode === 'season' ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            className={`px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer ${viewMode === 'season' ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)]' : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'}`}
           >
             대회 전체
           </button>
@@ -154,10 +154,10 @@ export default function BoxScorePage() {
           value={selectedTId}
           onValueChange={v => { setSelectedTId(v ?? ''); setSelectedGId('') }}
         >
-          <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-full sm:w-52">
+          <SelectTrigger className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] w-full sm:w-52">
             <SelectValue placeholder="대회 선택">{selT ? `${selT.name} (${selT.year})` : undefined}</SelectValue>
           </SelectTrigger>
-          <SelectContent className="bg-gray-800 border-gray-700 text-white">
+          <SelectContent className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]">
             {tournaments.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.year})</SelectItem>)}
           </SelectContent>
         </Select>
@@ -179,65 +179,65 @@ export default function BoxScorePage() {
             <div>
               <button
                 onClick={() => setSelectedGId(isSelected ? '' : g.id)}
-                className={`flex items-center gap-4 px-5 py-3 rounded-xl border text-left w-full transition-all
+                className={`flex items-center gap-4 px-5 py-3 rounded-xl border text-left w-full transition-all cursor-pointer
                   ${isSelected
-                    ? 'bg-blue-600/20 border-blue-500 shadow-lg shadow-blue-900/20 rounded-b-none border-b-0'
-                    : 'bg-gray-900 border-gray-800 hover:border-gray-600'
+                    ? 'bg-[var(--mm-yellow-soft)] border-[color:var(--mm-yellow)] shadow-lg rounded-b-none border-b-0'
+                    : 'bg-[var(--mm-panel)] border-[var(--mm-rule)] hover:border-[color:var(--mm-yellow)]/60'
                   }`}
               >
                 <span className={`text-sm font-bold px-2 py-1 rounded-lg shrink-0 min-w-[2.5rem] text-center
-                  ${isWin ? 'bg-green-900/60 text-green-400' : isDraw ? 'bg-gray-700 text-gray-400' : 'bg-red-900/60 text-red-400'}`}>
+                  ${isWin ? 'bg-[rgba(16,185,129,0.12)] text-[var(--mm-positive)]' : isDraw ? 'bg-[rgba(148,163,184,0.15)] text-[var(--mm-neutral-strong)]' : 'bg-[rgba(220,38,38,0.12)] text-[var(--mm-negative)]'}`}>
                   {isWin ? '승' : isDraw ? '무' : '패'}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-gray-500 mb-0.5">{g.date}</div>
-                  <div className="text-base font-semibold text-white truncate">
-                    vs <span className="text-gray-200">{g.opponent}</span>
+                  <div className="text-xs text-[var(--mm-muted)] mb-0.5">{g.date}</div>
+                  <div className="text-base font-semibold text-[var(--mm-ink)] truncate">
+                    vs <span className="text-[var(--mm-ink)]">{g.opponent}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right shrink-0">
                     <div className="text-xl font-black">
-                      <span className={isWin ? 'text-green-400' : isDraw ? 'text-gray-300' : 'text-red-400'}>{g.our_score}</span>
-                      <span className="text-gray-700 mx-1.5 font-normal text-base">-</span>
-                      <span className="text-gray-400">{g.opponent_score}</span>
+                      <span className={isWin ? 'text-[var(--mm-positive)]' : isDraw ? 'text-[var(--mm-neutral-strong)]' : 'text-[var(--mm-negative)]'}>{g.our_score}</span>
+                      <span className="text-[var(--mm-muted)] mx-1.5 font-normal text-base">-</span>
+                      <span className="text-[var(--mm-muted)]">{g.opponent_score}</span>
                     </div>
                   </div>
-                  <span className={`text-gray-500 text-xs transition-transform ${isSelected ? 'rotate-180' : ''}`}>▼</span>
+                  <span className={`text-[var(--mm-muted)] text-xs transition-transform ${isSelected ? 'rotate-180' : ''}`}>▼</span>
                 </div>
               </button>
 
               {/* 인라인 박스스코어 */}
               {isSelected && (
-                <div className="border border-blue-500 border-t-0 rounded-b-xl bg-gray-950 p-3">
+                <div className="border border-[color:var(--mm-yellow)] border-t-0 rounded-b-xl bg-[var(--mm-ground)] p-3">
                   {boxScores.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 text-sm">기록된 데이터가 없습니다</div>
+                    <div className="text-center py-8 text-[var(--mm-muted)] text-sm">기록된 데이터가 없습니다</div>
                   ) : (
                     <>
                       {/* 모바일 카드뷰 */}
                       <div className="md:hidden space-y-2">
                         {sorted.map(s => (
                           <button key={s.player_id} onClick={() => setPlayerModal(s.player_id)}
-                            className="w-full text-left bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 hover:bg-gray-800/60 transition-colors active:bg-gray-800/80">
+                            className="w-full text-left bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl px-3 py-2.5 hover:bg-[var(--mm-panel-alt)] transition-colors active:bg-[var(--mm-panel-alt)]/80 cursor-pointer">
                             <div className="flex items-center gap-2 mb-1.5">
-                              <span className="text-blue-400 font-bold font-mono text-xs w-6 shrink-0">{s.player_number}</span>
+                              <span className="text-[var(--mm-ink)] font-bold font-mono text-xs w-6 shrink-0">{s.player_number}</span>
                               <div className="flex-1 min-w-0">
-                                <div className="font-bold text-white text-sm truncate">
+                                <div className="font-bold text-[var(--mm-ink)] text-sm truncate">
                                   {s.player_name}
-                                  {s.double_double && !s.triple_double && <span className="ml-1 text-xs bg-yellow-600 px-1 rounded">DD</span>}
-                                  {s.triple_double && <span className="ml-1 text-xs bg-blue-600 px-1 rounded">TD</span>}
+                                  {s.double_double && !s.triple_double && <span className="ml-1 text-xs bg-[var(--mm-yellow)] text-[var(--mm-black)] px-1 rounded">DD</span>}
+                                  {s.triple_double && <span className="ml-1 text-xs bg-[var(--mm-ink)] text-[var(--mm-panel)] px-1 rounded">TD</span>}
                                 </div>
                               </div>
                               <div className="text-right shrink-0">
-                                <div className="text-2xl font-black text-yellow-400 leading-none">{s.pts}</div>
-                                <div className="text-xs text-gray-500 font-bold mt-0.5">PTS</div>
+                                <div className="text-2xl font-black text-[var(--mm-yellow-strong)] leading-none">{s.pts}</div>
+                                <div className="text-xs text-[var(--mm-muted)] font-bold mt-0.5">PTS</div>
                               </div>
                             </div>
-                            <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-gray-800/60">
-                              <div className="text-center"><div className="text-xs text-gray-500">REB</div><div className="text-xs font-bold text-gray-200">{s.reb}</div></div>
-                              <div className="text-center"><div className="text-xs text-gray-500">AST</div><div className="text-xs font-bold text-blue-400">{s.ast}</div></div>
-                              <div className="text-center"><div className="text-xs text-gray-500">FG%</div><div className="text-xs font-bold text-gray-200">{s.fg_pct > 0 ? `${s.fg_pct.toFixed(0)}%` : '-'}</div></div>
-                              <div className="text-center"><div className="text-xs text-gray-500">3P%</div><div className="text-xs font-bold text-gray-200">{s.fg3_pct > 0 ? `${s.fg3_pct.toFixed(0)}%` : '-'}</div></div>
+                            <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-[var(--mm-rule)]/60">
+                              <div className="text-center"><div className="text-xs text-[var(--mm-muted)]">REB</div><div className="text-xs font-bold text-[var(--mm-ink)]">{s.reb}</div></div>
+                              <div className="text-center"><div className="text-xs text-[var(--mm-muted)]">AST</div><div className="text-xs font-bold text-[var(--mm-ink)]">{s.ast}</div></div>
+                              <div className="text-center"><div className="text-xs text-[var(--mm-muted)]">FG%</div><div className="text-xs font-bold text-[var(--mm-ink)]">{s.fg_pct > 0 ? `${s.fg_pct.toFixed(0)}%` : '-'}</div></div>
+                              <div className="text-center"><div className="text-xs text-[var(--mm-muted)]">3P%</div><div className="text-xs font-bold text-[var(--mm-ink)]">{s.fg3_pct > 0 ? `${s.fg3_pct.toFixed(0)}%` : '-'}</div></div>
                             </div>
                           </button>
                         ))}
@@ -247,7 +247,7 @@ export default function BoxScorePage() {
                       <div className="hidden md:block overflow-x-auto">
                       <table className="w-full text-sm text-center border-collapse">
                         <thead>
-                          <tr className="bg-gray-800 text-gray-400">
+                          <tr className="bg-[var(--mm-panel-alt)] text-[var(--mm-muted)]">
                             <SortTh label="#"    k="player_number" className="text-left" />
                             <SortTh label="이름"                   className="text-left" />
                             <SortTh label="PTS"  k="pts" />
@@ -276,45 +276,45 @@ export default function BoxScorePage() {
                         </thead>
                         <tbody>
                           {sorted.map(s => (
-                            <tr key={s.player_id} className="border-b border-gray-800 hover:bg-gray-900 transition-colors">
-                              <td className="px-2 py-2 font-bold text-blue-400 text-left">{s.player_number}</td>
+                            <tr key={s.player_id} className="border-b border-[var(--mm-rule)] hover:bg-[var(--mm-panel-alt)] transition-colors">
+                              <td className="px-2 py-2 font-bold text-[var(--mm-ink)] text-left">{s.player_number}</td>
                               <td className="px-2 py-2 text-left font-medium whitespace-nowrap">
-                                <button onClick={() => setPlayerModal(s.player_id)} className="hover:text-blue-400 hover:underline underline-offset-2 transition-colors cursor-pointer">
+                                <button onClick={() => setPlayerModal(s.player_id)} className="hover:text-[var(--mm-yellow-strong)] hover:underline underline-offset-2 transition-colors cursor-pointer">
                                   {s.player_name}
                                 </button>
-                                {s.double_double && <span className="ml-1 text-xs bg-yellow-600 px-1 rounded">DD</span>}
-                                {s.triple_double && <span className="ml-1 text-xs bg-blue-600 px-1 rounded">TD</span>}
+                                {s.double_double && <span className="ml-1 text-xs bg-[var(--mm-yellow)] text-[var(--mm-black)] px-1 rounded">DD</span>}
+                                {s.triple_double && <span className="ml-1 text-xs bg-[var(--mm-ink)] text-[var(--mm-panel)] px-1 rounded">TD</span>}
                               </td>
-                              <td className={`px-2 py-2 font-bold ${sortKey === 'pts' ? 'text-blue-300' : 'text-white'}`}>{s.pts}</td>
-                              <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[1] || '-'}</td>
-                              <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[2] || '-'}</td>
-                              <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[3] || '-'}</td>
-                              <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[4] || '-'}</td>
-                              <td className="px-2 py-2 text-gray-400 text-xs">{quarterPts[s.player_id]?.[5] || '-'}</td>
-                              <td className="px-2 py-2 text-gray-300">{s.fgm}-{s.fga}</td>
+                              <td className={`px-2 py-2 font-bold ${sortKey === 'pts' ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>{s.pts}</td>
+                              <td className="px-2 py-2 text-[var(--mm-muted)] text-xs">{quarterPts[s.player_id]?.[1] || '-'}</td>
+                              <td className="px-2 py-2 text-[var(--mm-muted)] text-xs">{quarterPts[s.player_id]?.[2] || '-'}</td>
+                              <td className="px-2 py-2 text-[var(--mm-muted)] text-xs">{quarterPts[s.player_id]?.[3] || '-'}</td>
+                              <td className="px-2 py-2 text-[var(--mm-muted)] text-xs">{quarterPts[s.player_id]?.[4] || '-'}</td>
+                              <td className="px-2 py-2 text-[var(--mm-muted)] text-xs">{quarterPts[s.player_id]?.[5] || '-'}</td>
+                              <td className="px-2 py-2 text-[var(--mm-ink)]">{s.fgm}-{s.fga}</td>
                               <td className="px-2 py-2"><Pct val={s.fg_pct} /></td>
-                              <td className="px-2 py-2 text-gray-300">{s.fg3m}-{s.fg3a}</td>
+                              <td className="px-2 py-2 text-[var(--mm-ink)]">{s.fg3m}-{s.fg3a}</td>
                               <td className="px-2 py-2"><Pct val={s.fg3_pct} /></td>
-                              <td className="px-2 py-2 text-gray-300">{s.ftm}-{s.fta}</td>
+                              <td className="px-2 py-2 text-[var(--mm-ink)]">{s.ftm}-{s.fta}</td>
                               <td className="px-2 py-2"><Pct val={s.ft_pct} /></td>
                               <td className="px-2 py-2">{s.oreb}</td>
                               <td className="px-2 py-2">{s.dreb}</td>
-                              <td className={`px-2 py-2 font-medium ${sortKey === 'reb' ? 'text-blue-300' : ''}`}>{s.reb}</td>
-                              <td className={`px-2 py-2 font-medium ${sortKey === 'ast' ? 'text-blue-300' : 'text-blue-400'}`}>{s.ast}</td>
-                              <td className={`px-2 py-2 ${sortKey === 'stl' ? 'text-blue-300' : 'text-green-400'}`}>{s.stl}</td>
-                              <td className={`px-2 py-2 ${sortKey === 'blk' ? 'text-blue-300' : 'text-indigo-400'}`}>{s.blk}</td>
-                              <td className={`px-2 py-2 ${sortKey === 'tov' ? 'text-blue-300' : 'text-red-400'}`}>{s.tov}</td>
-                              <td className="px-2 py-2 text-yellow-600">{s.pf}</td>
+                              <td className={`px-2 py-2 font-medium ${sortKey === 'reb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{s.reb}</td>
+                              <td className={`px-2 py-2 font-medium ${sortKey === 'ast' ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>{s.ast}</td>
+                              <td className={`px-2 py-2 ${sortKey === 'stl' ? 'text-[var(--mm-yellow-strong)]' : 'text-green-400'}`}>{s.stl}</td>
+                              <td className={`px-2 py-2 ${sortKey === 'blk' ? 'text-[var(--mm-yellow-strong)]' : 'text-indigo-400'}`}>{s.blk}</td>
+                              <td className={`px-2 py-2 ${sortKey === 'tov' ? 'text-[var(--mm-yellow-strong)]' : 'text-red-400'}`}>{s.tov}</td>
+                              <td className="px-2 py-2 text-[var(--mm-yellow-strong)]">{s.pf}</td>
                               <td className="px-2 py-2"><Pct val={s.efg_pct} /></td>
                               <td className="px-2 py-2"><Pct val={s.ts_pct} /></td>
                             </tr>
                           ))}
-                          <tr className="bg-gray-800 font-bold border-t-2 border-blue-500">
-                            <td colSpan={2} className="px-2 py-2 text-left text-blue-400">팀 합계</td>
-                            <td className="px-2 py-2 text-white">{teamTotals.pts ?? 0}</td>
+                          <tr className="bg-[var(--mm-panel-alt)] font-bold border-t-2 border-[var(--mm-ink)]">
+                            <td colSpan={2} className="px-2 py-2 text-left text-[var(--mm-ink)]">팀 합계</td>
+                            <td className="px-2 py-2 text-[var(--mm-ink)]">{teamTotals.pts ?? 0}</td>
                             {[1,2,3,4,5].map(q => {
                               const qTotal = Object.values(quarterPts).reduce((sum, pMap) => sum + (pMap[q] || 0), 0)
-                              return <td key={q} className="px-2 py-2 text-gray-300 text-xs">{qTotal || '-'}</td>
+                              return <td key={q} className="px-2 py-2 text-[var(--mm-ink)] text-xs">{qTotal || '-'}</td>
                             })}
                             <td className="px-2 py-2">{teamTotals.fgm ?? 0}-{teamTotals.fga ?? 0}</td>
                             <td className="px-2 py-2"><Pct val={teamTotals.fga ? Math.round((teamTotals.fgm! / teamTotals.fga!) * 1000) / 10 : 0} /></td>
@@ -325,17 +325,17 @@ export default function BoxScorePage() {
                             <td className="px-2 py-2">{teamTotals.oreb ?? 0}</td>
                             <td className="px-2 py-2">{teamTotals.dreb ?? 0}</td>
                             <td className="px-2 py-2">{teamTotals.reb ?? 0}</td>
-                            <td className="px-2 py-2 text-blue-400">{teamTotals.ast ?? 0}</td>
+                            <td className="px-2 py-2 text-[var(--mm-ink)]">{teamTotals.ast ?? 0}</td>
                             <td className="px-2 py-2 text-green-400">{teamTotals.stl ?? 0}</td>
                             <td className="px-2 py-2 text-indigo-400">{teamTotals.blk ?? 0}</td>
                             <td className="px-2 py-2 text-red-400">{teamTotals.tov ?? 0}</td>
-                            <td className="px-2 py-2 text-yellow-600">{teamTotals.pf ?? 0}</td>
+                            <td className="px-2 py-2 text-[var(--mm-yellow-strong)]">{teamTotals.pf ?? 0}</td>
                             <td colSpan={2} />
                           </tr>
                         </tbody>
                       </table>
                       </div>
-                      <p className="hidden md:block text-xs text-gray-600 mt-2">헤더 클릭 시 해당 스탯 기준 정렬 (↓ 내림차순 / ↑ 오름차순)</p>
+                      <p className="hidden md:block text-xs text-[var(--mm-muted)] mt-2">헤더 클릭 시 해당 스탯 기준 정렬 (↓ 내림차순 / ↑ 오름차순)</p>
                     </>
                   )}
                 </div>
@@ -353,12 +353,12 @@ export default function BoxScorePage() {
                 <div key={round}>
                   <div className="flex items-center gap-3 mb-3">
                     <span className={`text-xs font-bold px-3 py-1 rounded-full border
-                      ${round === '결승' ? 'text-yellow-400 border-yellow-600 bg-yellow-900/20' :
-                        isKnockout ? 'text-blue-400 border-blue-700 bg-blue-900/20' :
-                        'text-gray-400 border-gray-700 bg-gray-900'}`}>
+                      ${round === '결승' ? 'text-[var(--mm-yellow-strong)] border-[color:var(--mm-yellow)] bg-[var(--mm-yellow-soft)]' :
+                        isKnockout ? 'text-[var(--mm-ink)] border-[var(--mm-rule)] bg-[var(--mm-panel-alt)]' :
+                        'text-[var(--mm-muted)] border-[var(--mm-rule)] bg-[var(--mm-panel)]'}`}>
                       {round}
                     </span>
-                    <div className="h-px flex-1 bg-gray-800" />
+                    <div className="h-px flex-1 bg-[var(--mm-rule)]" />
                   </div>
                   <div className="space-y-2">
                     {roundGames.map(g => <GameCardWithScore key={g.id} g={g} />)}
@@ -371,49 +371,49 @@ export default function BoxScorePage() {
       })()}
 
       {viewMode === 'game' && !selectedTId && (
-        <div className="text-center py-16 text-gray-500">대회를 선택하면 경기 목록이 표시됩니다</div>
+        <div className="text-center py-16 text-[var(--mm-muted)]">대회를 선택하면 경기 목록이 표시됩니다</div>
       )}
 
       {/* ─── 대회 전체 뷰 ─── */}
       {viewMode === 'season' && (
         <>
           {!selectedTId && (
-            <div className="text-center py-16 text-gray-500">대회를 선택하면 전체 누적 스탯이 표시됩니다</div>
+            <div className="text-center py-16 text-[var(--mm-muted)]">대회를 선택하면 전체 누적 스탯이 표시됩니다</div>
           )}
 
           {selectedTId && seasonScores.length === 0 && (
-            <div className="text-center py-16 text-gray-500">기록된 데이터가 없습니다</div>
+            <div className="text-center py-16 text-[var(--mm-muted)]">기록된 데이터가 없습니다</div>
           )}
 
           {gameSummaries.length > 0 && (
             <div className="mb-6">
-              <p className="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">상대별 팀 스탯</p>
+              <p className="text-xs text-[var(--mm-muted)] mb-2 font-semibold uppercase tracking-wide">상대별 팀 스탯</p>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-center border-collapse">
                   <thead>
-                    <tr className="bg-gray-800 text-gray-500">
-                      <th className="px-2 py-1.5 text-left border-b border-gray-700">날짜</th>
-                      <th className="px-2 py-1.5 text-left border-b border-gray-700">상대</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">결과</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700 text-yellow-400">PTS</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">Q1</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">Q2</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">Q3</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">Q4</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">OT</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">FG</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">FG%</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">3P</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">3P%</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">FT</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">FT%</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">OR</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">DR</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700">REB</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700 text-blue-400">AST</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700 text-green-400">STL</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700 text-indigo-400">BLK</th>
-                      <th className="px-2 py-1.5 border-b border-gray-700 text-red-400">TOV</th>
+                    <tr className="bg-[var(--mm-panel-alt)] text-[var(--mm-muted)]">
+                      <th className="px-2 py-1.5 text-left border-b border-[var(--mm-rule)]">날짜</th>
+                      <th className="px-2 py-1.5 text-left border-b border-[var(--mm-rule)]">상대</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">결과</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)] text-[var(--mm-yellow-strong)]">PTS</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">Q1</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">Q2</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">Q3</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">Q4</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">OT</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">FG</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">FG%</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">3P</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">3P%</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">FT</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">FT%</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">OR</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">DR</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)]">REB</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)] text-[var(--mm-ink)]">AST</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)] text-green-400">STL</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)] text-indigo-400">BLK</th>
+                      <th className="px-2 py-1.5 border-b border-[var(--mm-rule)] text-red-400">TOV</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -422,30 +422,30 @@ export default function BoxScorePage() {
                       const fgPct = (g.totals.fga ?? 0) > 0 ? Math.round(((g.totals.fgm ?? 0) / g.totals.fga!) * 1000) / 10 : 0
                       const fg3Pct = (g.totals.fg3a ?? 0) > 0 ? Math.round(((g.totals.fg3m ?? 0) / g.totals.fg3a!) * 1000) / 10 : 0
                       return (
-                        <tr key={g.game_id} className="border-b border-gray-800 hover:bg-gray-900">
-                          <td className="px-2 py-1.5 text-left text-gray-400">{g.date}</td>
+                        <tr key={g.game_id} className="border-b border-[var(--mm-rule)] hover:bg-[var(--mm-panel-alt)]">
+                          <td className="px-2 py-1.5 text-left text-[var(--mm-muted)]">{g.date}</td>
                           <td className="px-2 py-1.5 text-left font-medium whitespace-nowrap">
-                            {g.round && <span className="text-gray-500 mr-1">[{g.round}]</span>}
+                            {g.round && <span className="text-[var(--mm-muted)] mr-1">[{g.round}]</span>}
                             {g.opponent}
                           </td>
                           <td className="px-2 py-1.5 font-bold">
-                            <span className={won ? 'text-green-400' : 'text-red-400'}>{won ? 'W' : 'L'}</span>
-                            <span className="text-gray-400 ml-1">{g.our_score}-{g.opponent_score}</span>
+                            <span className={won ? 'text-[var(--mm-positive)]' : 'text-[var(--mm-negative)]'}>{won ? 'W' : 'L'}</span>
+                            <span className="text-[var(--mm-muted)] ml-1">{g.our_score}-{g.opponent_score}</span>
                           </td>
-                          <td className="px-2 py-1.5 font-bold text-yellow-400">{g.totals.pts ?? 0}</td>
+                          <td className="px-2 py-1.5 font-bold text-[var(--mm-yellow-strong)]">{g.totals.pts ?? 0}</td>
                           {[1,2,3,4,5].map(q => (
-                            <td key={q} className="px-2 py-1.5 text-gray-400">{g.team_quarter_pts[q] || '-'}</td>
+                            <td key={q} className="px-2 py-1.5 text-[var(--mm-muted)]">{g.team_quarter_pts[q] || '-'}</td>
                           ))}
-                          <td className="px-2 py-1.5 text-gray-300">{g.totals.fgm ?? 0}-{g.totals.fga ?? 0}</td>
+                          <td className="px-2 py-1.5 text-[var(--mm-ink)]">{g.totals.fgm ?? 0}-{g.totals.fga ?? 0}</td>
                           <td className="px-2 py-1.5"><Pct val={fgPct} /></td>
-                          <td className="px-2 py-1.5 text-gray-300">{g.totals.fg3m ?? 0}-{g.totals.fg3a ?? 0}</td>
+                          <td className="px-2 py-1.5 text-[var(--mm-ink)]">{g.totals.fg3m ?? 0}-{g.totals.fg3a ?? 0}</td>
                           <td className="px-2 py-1.5"><Pct val={fg3Pct} /></td>
-                          <td className="px-2 py-1.5 text-gray-300">{g.totals.ftm ?? 0}-{g.totals.fta ?? 0}</td>
+                          <td className="px-2 py-1.5 text-[var(--mm-ink)]">{g.totals.ftm ?? 0}-{g.totals.fta ?? 0}</td>
                           <td className="px-2 py-1.5"><Pct val={(g.totals.fta ?? 0) > 0 ? Math.round(((g.totals.ftm ?? 0) / g.totals.fta!) * 1000) / 10 : 0} /></td>
                           <td className="px-2 py-1.5">{g.totals.oreb ?? 0}</td>
                           <td className="px-2 py-1.5">{g.totals.dreb ?? 0}</td>
                           <td className="px-2 py-1.5">{g.totals.reb ?? 0}</td>
-                          <td className="px-2 py-1.5 text-blue-400">{g.totals.ast ?? 0}</td>
+                          <td className="px-2 py-1.5 text-[var(--mm-ink)]">{g.totals.ast ?? 0}</td>
                           <td className="px-2 py-1.5 text-green-400">{g.totals.stl ?? 0}</td>
                           <td className="px-2 py-1.5 text-indigo-400">{g.totals.blk ?? 0}</td>
                           <td className="px-2 py-1.5 text-red-400">{g.totals.tov ?? 0}</td>
@@ -461,29 +461,29 @@ export default function BoxScorePage() {
           {seasonSorted.length > 0 && (
             <div>
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-sm text-gray-400">총 <span className="text-blue-400 font-bold">{totalGames}</span>경기 · 평균은 실제 출전 경기 기준</span>
+                <span className="text-sm text-[var(--mm-muted)]">총 <span className="text-[var(--mm-ink)] font-bold">{totalGames}</span>경기 · 평균은 실제 출전 경기 기준</span>
               </div>
               {/* 모바일 카드뷰 */}
               <div className="md:hidden space-y-2">
                 {seasonSorted.map(s => (
                   <button key={s.player_id} onClick={() => setPlayerModal(s.player_id)}
-                    className="w-full text-left bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 hover:bg-gray-800/60 transition-colors active:bg-gray-800/80">
+                    className="w-full text-left bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl px-3 py-2.5 hover:bg-[var(--mm-panel-alt)] transition-colors active:bg-[var(--mm-panel-alt)]/80 cursor-pointer">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-blue-400 font-bold font-mono text-xs w-6 shrink-0">{s.player_number}</span>
+                      <span className="text-[var(--mm-ink)] font-bold font-mono text-xs w-6 shrink-0">{s.player_number}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-white text-sm truncate">{s.player_name}</div>
-                        <div className="text-gray-600 text-xs">GP {s.games_played}</div>
+                        <div className="font-bold text-[var(--mm-ink)] text-sm truncate">{s.player_name}</div>
+                        <div className="text-[var(--mm-muted)] text-xs">GP {s.games_played}</div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-2xl font-black text-yellow-400 leading-none">{s.pts_avg}</div>
-                        <div className="text-xs text-gray-500 font-bold mt-0.5">PPG</div>
+                        <div className="text-2xl font-black text-[var(--mm-yellow-strong)] leading-none">{s.pts_avg}</div>
+                        <div className="text-xs text-[var(--mm-muted)] font-bold mt-0.5">PPG</div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-gray-800/60">
-                      <div className="text-center"><div className="text-xs text-gray-500">RPG</div><div className="text-xs font-bold text-gray-200">{s.reb_avg}</div></div>
-                      <div className="text-center"><div className="text-xs text-gray-500">APG</div><div className="text-xs font-bold text-blue-400">{s.ast_avg}</div></div>
-                      <div className="text-center"><div className="text-xs text-gray-500">FG%</div><div className="text-xs font-bold text-gray-200">{s.fg_pct > 0 ? `${s.fg_pct.toFixed(0)}%` : '-'}</div></div>
-                      <div className="text-center"><div className="text-xs text-gray-500">3P%</div><div className="text-xs font-bold text-gray-200">{s.fg3_pct > 0 ? `${s.fg3_pct.toFixed(0)}%` : '-'}</div></div>
+                    <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-[var(--mm-rule)]/60">
+                      <div className="text-center"><div className="text-xs text-[var(--mm-muted)]">RPG</div><div className="text-xs font-bold text-[var(--mm-ink)]">{s.reb_avg}</div></div>
+                      <div className="text-center"><div className="text-xs text-[var(--mm-muted)]">APG</div><div className="text-xs font-bold text-[var(--mm-ink)]">{s.ast_avg}</div></div>
+                      <div className="text-center"><div className="text-xs text-[var(--mm-muted)]">FG%</div><div className="text-xs font-bold text-[var(--mm-ink)]">{s.fg_pct > 0 ? `${s.fg_pct.toFixed(0)}%` : '-'}</div></div>
+                      <div className="text-center"><div className="text-xs text-[var(--mm-muted)]">3P%</div><div className="text-xs font-bold text-[var(--mm-ink)]">{s.fg3_pct > 0 ? `${s.fg3_pct.toFixed(0)}%` : '-'}</div></div>
                     </div>
                   </button>
                 ))}
@@ -492,10 +492,10 @@ export default function BoxScorePage() {
               <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm text-center border-collapse">
                 <thead>
-                  <tr className="bg-gray-800 text-gray-400">
+                  <tr className="bg-[var(--mm-panel-alt)] text-[var(--mm-muted)]">
                     <SeasonSortTh label="#"    k="player_number" className="text-left" />
                     <SeasonSortTh label="이름"                   className="text-left" />
-                    <th className="px-2 py-2 border-b border-gray-700 font-medium whitespace-nowrap text-gray-500">GP</th>
+                    <th className="px-2 py-2 border-b border-[var(--mm-rule)] font-medium whitespace-nowrap text-[var(--mm-muted)]">GP</th>
                     <SeasonSortTh label="PTS"  k="pts" />
                     <SeasonSortTh label="평균P" k="pts_avg" />
                     <SeasonSortTh label="FG" />
@@ -520,41 +520,41 @@ export default function BoxScorePage() {
                 </thead>
                 <tbody>
                   {seasonSorted.map(s => (
-                    <tr key={s.player_id} className="border-b border-gray-800 hover:bg-gray-900 transition-colors">
-                      <td className="px-2 py-2 font-bold text-blue-400 text-left">{s.player_number}</td>
+                    <tr key={s.player_id} className="border-b border-[var(--mm-rule)] hover:bg-[var(--mm-panel-alt)] transition-colors">
+                      <td className="px-2 py-2 font-bold text-[var(--mm-ink)] text-left">{s.player_number}</td>
                       <td className="px-2 py-2 text-left font-medium whitespace-nowrap">
-                        <button onClick={() => setPlayerModal(s.player_id)} className="hover:text-blue-400 hover:underline underline-offset-2 transition-colors cursor-pointer">
+                        <button onClick={() => setPlayerModal(s.player_id)} className="hover:text-[var(--mm-yellow-strong)] hover:underline underline-offset-2 transition-colors cursor-pointer">
                           {s.player_name}
                         </button>
                       </td>
-                      <td className="px-2 py-2 text-gray-500 text-xs">{s.games_played}</td>
-                      <td className={`px-2 py-2 font-bold ${seasonSortKey === 'pts' ? 'text-blue-300' : 'text-white'}`}>{s.pts}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'pts_avg' ? 'text-blue-300 font-bold' : 'text-gray-300'}`}>{s.pts_avg}</td>
-                      <td className="px-2 py-2 text-gray-300">{s.fgm}-{s.fga}</td>
+                      <td className="px-2 py-2 text-[var(--mm-muted)] text-xs">{s.games_played}</td>
+                      <td className={`px-2 py-2 font-bold ${seasonSortKey === 'pts' ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>{s.pts}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'pts_avg' ? 'text-[var(--mm-yellow-strong)] font-bold' : 'text-[var(--mm-ink)]'}`}>{s.pts_avg}</td>
+                      <td className="px-2 py-2 text-[var(--mm-ink)]">{s.fgm}-{s.fga}</td>
                       <td className="px-2 py-2"><Pct val={s.fg_pct} /></td>
-                      <td className="px-2 py-2 text-gray-300">{s.fg3m}-{s.fg3a}</td>
+                      <td className="px-2 py-2 text-[var(--mm-ink)]">{s.fg3m}-{s.fg3a}</td>
                       <td className="px-2 py-2"><Pct val={s.fg3_pct} /></td>
-                      <td className="px-2 py-2 text-gray-300">{s.ftm}-{s.fta}</td>
+                      <td className="px-2 py-2 text-[var(--mm-ink)]">{s.ftm}-{s.fta}</td>
                       <td className="px-2 py-2"><Pct val={s.ft_pct} /></td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'oreb' ? 'text-blue-300' : ''}`}>{s.oreb}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'dreb' ? 'text-blue-300' : ''}`}>{s.dreb}</td>
-                      <td className={`px-2 py-2 font-medium ${seasonSortKey === 'reb' ? 'text-blue-300' : ''}`}>{s.reb}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'reb_avg' ? 'text-blue-300 font-bold' : 'text-gray-300'}`}>{s.reb_avg}</td>
-                      <td className={`px-2 py-2 font-medium ${seasonSortKey === 'ast' ? 'text-blue-300' : 'text-blue-400'}`}>{s.ast}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'ast_avg' ? 'text-blue-300 font-bold' : 'text-blue-300'}`}>{s.ast_avg}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'stl' ? 'text-blue-300' : 'text-green-400'}`}>{s.stl}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'blk' ? 'text-blue-300' : 'text-indigo-400'}`}>{s.blk}</td>
-                      <td className={`px-2 py-2 ${seasonSortKey === 'tov' ? 'text-blue-300' : 'text-red-400'}`}>{s.tov}</td>
-                      <td className="px-2 py-2 text-yellow-600">{s.pf}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'oreb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{s.oreb}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'dreb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{s.dreb}</td>
+                      <td className={`px-2 py-2 font-medium ${seasonSortKey === 'reb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{s.reb}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'reb_avg' ? 'text-[var(--mm-yellow-strong)] font-bold' : 'text-[var(--mm-ink)]'}`}>{s.reb_avg}</td>
+                      <td className={`px-2 py-2 font-medium ${seasonSortKey === 'ast' ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>{s.ast}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'ast_avg' ? 'text-[var(--mm-yellow-strong)] font-bold' : 'text-[var(--mm-ink)]'}`}>{s.ast_avg}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'stl' ? 'text-[var(--mm-yellow-strong)]' : 'text-green-400'}`}>{s.stl}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'blk' ? 'text-[var(--mm-yellow-strong)]' : 'text-indigo-400'}`}>{s.blk}</td>
+                      <td className={`px-2 py-2 ${seasonSortKey === 'tov' ? 'text-[var(--mm-yellow-strong)]' : 'text-red-400'}`}>{s.tov}</td>
+                      <td className="px-2 py-2 text-[var(--mm-yellow-strong)]">{s.pf}</td>
                       <td className="px-2 py-2"><Pct val={s.efg_pct} /></td>
                       <td className="px-2 py-2"><Pct val={s.ts_pct} /></td>
                     </tr>
                   ))}
-                  <tr className="bg-gray-800 font-bold border-t-2 border-blue-500">
-                    <td colSpan={2} className="px-2 py-2 text-left text-blue-400">팀 합계</td>
-                    <td className="px-2 py-2 text-gray-500 text-xs">{totalGames}</td>
-                    <td className="px-2 py-2 text-white">{seasonTotals.pts ?? 0}</td>
-                    <td className="px-2 py-2 text-gray-400">{totalGames > 0 ? Math.round(((seasonTotals.pts ?? 0) / totalGames) * 10) / 10 : '-'}</td>
+                  <tr className="bg-[var(--mm-panel-alt)] font-bold border-t-2 border-[var(--mm-ink)]">
+                    <td colSpan={2} className="px-2 py-2 text-left text-[var(--mm-ink)]">팀 합계</td>
+                    <td className="px-2 py-2 text-[var(--mm-muted)] text-xs">{totalGames}</td>
+                    <td className="px-2 py-2 text-[var(--mm-ink)]">{seasonTotals.pts ?? 0}</td>
+                    <td className="px-2 py-2 text-[var(--mm-muted)]">{totalGames > 0 ? Math.round(((seasonTotals.pts ?? 0) / totalGames) * 10) / 10 : '-'}</td>
                     <td className="px-2 py-2">{seasonTotals.fgm ?? 0}-{seasonTotals.fga ?? 0}</td>
                     <td className="px-2 py-2"><Pct val={seasonTotals.fga ? Math.round((seasonTotals.fgm! / seasonTotals.fga!) * 1000) / 10 : 0} /></td>
                     <td className="px-2 py-2">{seasonTotals.fg3m ?? 0}-{seasonTotals.fg3a ?? 0}</td>
@@ -564,19 +564,19 @@ export default function BoxScorePage() {
                     <td className="px-2 py-2">{seasonTotals.oreb ?? 0}</td>
                     <td className="px-2 py-2">{seasonTotals.dreb ?? 0}</td>
                     <td className="px-2 py-2">{seasonTotals.reb ?? 0}</td>
-                    <td className="px-2 py-2 text-gray-400">{totalGames > 0 ? Math.round(((seasonTotals.reb ?? 0) / totalGames) * 10) / 10 : '-'}</td>
-                    <td className="px-2 py-2 text-blue-400">{seasonTotals.ast ?? 0}</td>
-                    <td className="px-2 py-2 text-blue-300">{totalGames > 0 ? Math.round(((seasonTotals.ast ?? 0) / totalGames) * 10) / 10 : '-'}</td>
+                    <td className="px-2 py-2 text-[var(--mm-muted)]">{totalGames > 0 ? Math.round(((seasonTotals.reb ?? 0) / totalGames) * 10) / 10 : '-'}</td>
+                    <td className="px-2 py-2 text-[var(--mm-ink)]">{seasonTotals.ast ?? 0}</td>
+                    <td className="px-2 py-2 text-[var(--mm-ink)]">{totalGames > 0 ? Math.round(((seasonTotals.ast ?? 0) / totalGames) * 10) / 10 : '-'}</td>
                     <td className="px-2 py-2 text-green-400">{seasonTotals.stl ?? 0}</td>
                     <td className="px-2 py-2 text-indigo-400">{seasonTotals.blk ?? 0}</td>
                     <td className="px-2 py-2 text-red-400">{seasonTotals.tov ?? 0}</td>
-                    <td className="px-2 py-2 text-yellow-600">{seasonTotals.pf ?? 0}</td>
+                    <td className="px-2 py-2 text-[var(--mm-yellow-strong)]">{seasonTotals.pf ?? 0}</td>
                     <td colSpan={2} />
                   </tr>
                 </tbody>
               </table>
               </div>
-              <p className="hidden md:block text-xs text-gray-600 mt-2">헤더 클릭 시 해당 스탯 기준 정렬 · 평균P/R/A = 경기당 평균</p>
+              <p className="hidden md:block text-xs text-[var(--mm-muted)] mt-2">헤더 클릭 시 해당 스탯 기준 정렬 · 평균P/R/A = 경기당 평균</p>
             </div>
           )}
         </>
