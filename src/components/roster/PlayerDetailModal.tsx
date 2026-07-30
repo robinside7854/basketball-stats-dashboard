@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { X, Camera } from 'lucide-react'
+import { X, Camera, Award, Zap, Flame, BookOpen, Medal, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
@@ -23,7 +23,7 @@ const SHOT_COLORS: Record<string, string> = {
 }
 
 function ShotStyleChart({ breakdown, total }: { breakdown: Record<string, ShotStat>; total: number }) {
-  if (total === 0) return <div className="text-gray-600 text-xs py-4">기록 없음</div>
+  if (total === 0) return <div className="text-[var(--mm-muted)] text-xs py-4">기록 없음</div>
   const types = Object.entries(breakdown)
     .filter(([, s]) => s.attempted > 0)
     .sort((a, b) => b[1].attempted - a[1].attempted)
@@ -39,17 +39,17 @@ function ShotStyleChart({ breakdown, total }: { breakdown: Record<string, ShotSt
           />
         ))}
       </div>
-      {/* 개별 비율바 */}
+      {/* 개별 비율바 — 트랙(부모) 고정폭 + 막대(자식) scaleX */}
       <div className="space-y-2.5">
         {types.map(([type, s]) => {
           const pct = Math.round((s.attempted / total) * 1000) / 10
           return (
             <div key={type} className="flex items-center gap-2">
-              <div className="w-14 text-xs text-gray-400 text-right shrink-0">{s.label}</div>
-              <div className="flex-1 bg-gray-800 rounded-full h-2 overflow-hidden">
+              <div className="w-14 text-xs text-[var(--mm-muted)] text-right shrink-0">{s.label}</div>
+              <div className="flex-1 bg-[var(--mm-panel-alt)] rounded-full h-2 overflow-hidden">
                 <div
-                  className="h-2 rounded-full transition-all"
-                  style={{ width: `${pct}%`, backgroundColor: SHOT_COLORS[type] ?? '#6b7280' }}
+                  className="h-2 w-full rounded-full origin-left transition-transform"
+                  style={{ transform: `scaleX(${pct / 100})`, backgroundColor: SHOT_COLORS[type] ?? '#6b7280' }}
                 />
               </div>
               <div className="w-10 text-xs font-bold text-right shrink-0" style={{ color: SHOT_COLORS[type] ?? '#9ca3af' }}>{pct}%</div>
@@ -57,7 +57,7 @@ function ShotStyleChart({ breakdown, total }: { breakdown: Record<string, ShotSt
           )
         })}
       </div>
-      <div className="text-xs text-gray-600 mt-3">총 {total}회 시도</div>
+      <div className="text-xs text-[var(--mm-muted)] mt-3">총 {total}회 시도</div>
     </div>
   )
 }
@@ -78,9 +78,8 @@ interface TournamentStat {
   games: GameDetail[]
 }
 
-const POSITION_COLORS: Record<string, string> = {
-  PG: 'bg-blue-600', SG: 'bg-green-600', SF: 'bg-yellow-600', PF: 'bg-purple-600', C: 'bg-red-600',
-}
+// mm-brand: 포지션 뱃지도 통일 톤 (뮤트 배경 + 잉크 라벨) — league/PlayerQuickViewModal.tsx 관례 재사용
+const POSITION_BADGE_CLASS = 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] border border-[var(--mm-rule)]'
 const FIELD_SHOT_TYPES = ['shot_post', 'shot_layup', 'shot_2p_mid', 'shot_3p']
 
 function calcAge(birthdate?: string) {
@@ -283,31 +282,31 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       {/* 배경 딤 */}
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-[var(--mm-ink)]/70 backdrop-blur-sm" onClick={onClose} />
 
       {/* 모달 */}
-      <div className="relative z-10 w-full max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[90vh] bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+      <div className="relative z-10 w-full max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[90vh] bg-[var(--mm-panel)] border-0 sm:border border-[var(--mm-rule)] rounded-none sm:rounded-2xl flex flex-col overflow-hidden shadow-2xl">
         {/* 헤더 닫기 버튼 */}
-        <div className="flex items-center justify-between px-5 pt-safe-or-3 pb-3 border-b border-gray-800 shrink-0">
-          <span className="text-sm text-gray-400 font-medium">
-            {player ? <><span className="text-blue-400 font-bold">#{player.number}</span> <span className="text-white">{player.name}</span></> : '선수 상세 정보'}
+        <div className="flex items-center justify-between px-5 pt-safe-or-3 pb-3 border-b border-[var(--mm-rule)] shrink-0">
+          <span className="text-sm text-[var(--mm-muted)] font-medium">
+            {player ? <><span className="text-[var(--mm-yellow-strong)] font-bold">#{player.number}</span> <span className="text-[var(--mm-ink)]">{player.name}</span></> : '선수 상세 정보'}
           </span>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-gray-800 inline-flex items-center justify-center min-h-11 min-w-11">
-            <X size={18} />
+          <button onClick={onClose} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors rounded-lg hover:bg-[var(--mm-panel-alt)] inline-flex items-center justify-center min-h-11 min-w-11 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)]" aria-label="닫기">
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
         {/* 스크롤 영역 */}
         <div className="overflow-y-auto flex-1 p-5 space-y-6">
           {loading ? (
-            <div className="flex items-center justify-center py-24 text-gray-500">
-              <div className="text-center"><div className="text-4xl mb-4">🏀</div><p>로딩 중...</p></div>
+            <div className="flex items-center justify-center py-24 text-[var(--mm-muted)]">
+              <div className="text-center"><Loader2 className="h-10 w-10 mx-auto mb-4 animate-spin" aria-hidden="true" /><p>로딩 중...</p></div>
             </div>
           ) : !player ? (
-            <div className="text-center py-24 text-gray-500">선수를 찾을 수 없습니다</div>
+            <div className="text-center py-24 text-[var(--mm-muted)]">선수를 찾을 수 없습니다</div>
           ) : (
             <>
-              {/* === NBA 스타일 배너 === */}
+              {/* === NBA 스타일 배너 (고정 다크 배경 — 사이트 테마와 무관하게 항상 어둡게 디자인된 카드, 내부 흰/유색 텍스트는 그대로 유지) === */}
               {(() => {
                 const totalGP = tournamentStats.reduce((s, t) => s + t.games_played, 0)
                 const totalPts = tournamentStats.reduce((s, t) => s + (t.stats?.pts ?? 0), 0)
@@ -319,7 +318,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                 const age = calcAge(player.birthdate)
                 const positions = player.position?.split(',').map(p => p.trim()).filter(Boolean) ?? []
                 return (
-                  <div className="space-y-0 rounded-xl overflow-hidden border border-gray-800">
+                  <div className="space-y-0 rounded-xl overflow-hidden border border-[var(--mm-rule)]">
                     {/* 배너 */}
                     <div className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #070E1A 0%, #0D1A2E 100%)', minHeight: '200px' }}>
                       {/* 배경 번호 워터마크 */}
@@ -357,7 +356,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                           </h1>
                           <div className="flex flex-wrap gap-1.5 mb-4">
                             {positions.map(pos => (
-                              <span key={pos} className={`text-xs px-2 py-0.5 rounded text-white font-bold ${POSITION_COLORS[pos] || 'bg-gray-600'}`}>{pos}</span>
+                              <span key={pos} className={`text-xs px-2 py-0.5 rounded font-bold ${POSITION_BADGE_CLASS}`}>{pos}</span>
                             ))}
                             {player.is_pro && <span className="text-xs bg-yellow-500 text-black px-2 py-0.5 rounded font-bold">선출</span>}
                           </div>
@@ -377,7 +376,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                         <span className="text-xs text-gray-600 uppercase tracking-wider mr-1">Awards</span>
                         {awards.mvp_count > 0 && (
                           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-900/30 border border-yellow-700/50">
-                            <span className="text-sm">🏅</span>
+                            <Award className="h-3.5 w-3.5 text-yellow-400" aria-hidden="true" />
                             <span className="text-xs font-bold text-yellow-400">MVP</span>
                             <span className="text-xs font-black text-yellow-300 ml-0.5">{awards.mvp_count}</span>
                             <span className="text-xs text-yellow-600">회</span>
@@ -385,7 +384,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                         )}
                         {awards.xfactor_count > 0 && (
                           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-900/30 border border-purple-700/50">
-                            <span className="text-sm">⚡</span>
+                            <Zap className="h-3.5 w-3.5 text-purple-400" aria-hidden="true" />
                             <span className="text-xs font-bold text-purple-400">X-FACTOR</span>
                             <span className="text-xs font-black text-purple-300 ml-0.5">{awards.xfactor_count}</span>
                             <span className="text-xs text-purple-600">회</span>
@@ -393,7 +392,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                         )}
                         {awards.warrior_count > 0 && (
                           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-900/30 border border-orange-700/50">
-                            <span className="text-sm">🔥</span>
+                            <Flame className="h-3.5 w-3.5 text-orange-400" aria-hidden="true" />
                             <span className="text-xs font-bold text-orange-400">투혼상</span>
                             <span className="text-xs font-black text-orange-300 ml-0.5">{awards.warrior_count}</span>
                             <span className="text-xs text-orange-600">회</span>
@@ -420,14 +419,14 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                             {/* 티어 요약 */}
                             <div className="flex items-center gap-2 text-xs">
                               <span className="text-gray-600 uppercase tracking-wider text-[10px] mr-1">Badges</span>
-                              {goldC   > 0 && <span className="text-amber-400 font-bold">🥇 {goldC}</span>}
-                              {silverC > 0 && <span className="text-slate-400 font-bold">🥈 {silverC}</span>}
-                              {bronzeC > 0 && <span className="text-orange-400 font-bold">🥉 {bronzeC}</span>}
+                              {goldC   > 0 && <span className="inline-flex items-center gap-0.5 text-amber-400 font-bold"><Medal className="h-3.5 w-3.5" aria-hidden="true" /> {goldC}</span>}
+                              {silverC > 0 && <span className="inline-flex items-center gap-0.5 text-slate-400 font-bold"><Medal className="h-3.5 w-3.5" aria-hidden="true" /> {silverC}</span>}
+                              {bronzeC > 0 && <span className="inline-flex items-center gap-0.5 text-orange-400 font-bold"><Medal className="h-3.5 w-3.5" aria-hidden="true" /> {bronzeC}</span>}
                               <button
                                 onClick={() => setMasterbookOpen(true)}
                                 className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-700/50 bg-gray-800/40 text-xs text-gray-500 hover:text-gray-300 hover:border-gray-600 transition-colors cursor-pointer"
                               >
-                                <span>📖</span>
+                                <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
                                 <span>도감</span>
                               </button>
                             </div>
@@ -489,13 +488,13 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                       const totalBlk = tournamentStats.reduce((s, t) => s + (t.stats?.blk ?? 0), 0)
                       const slg = totalGP > 0 ? (totalStl / totalGP).toFixed(1) : '-'
                       const bpg = totalGP > 0 ? (totalBlk / totalGP).toFixed(1) : '-'
-                      const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
+                      const MEDAL_COLOR: Record<number, string> = { 1: '#facc15', 2: '#d4d4d8', 3: '#c2410c' }
                       function RankBadge({ statKey }: { statKey: string }) {
                         const r = teamRankings[statKey]
                         if (!r || r.rank === 0) return null
                         return (
                           <div className="flex items-center justify-center gap-1 mt-1">
-                            {MEDAL[r.rank] && <span>{MEDAL[r.rank]}</span>}
+                            {MEDAL_COLOR[r.rank] && <Medal className="h-3.5 w-3.5" style={{ color: MEDAL_COLOR[r.rank] }} aria-hidden="true" />}
                             <span className={`text-xs font-bold ${r.rank === 1 ? 'text-yellow-400' : r.rank === 2 ? 'text-gray-300' : r.rank === 3 ? 'text-amber-600' : 'text-gray-500'}`}>
                               {r.isTie ? `(T)${r.rank}위` : `${r.rank}위`}
                             </span>
@@ -526,7 +525,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
               })()}
 
               {/* 모바일 탭 (md 미만) */}
-              <div className="md:hidden -mx-5 sticky top-0 z-20 bg-gray-950/95 backdrop-blur-sm border-b border-gray-800 flex">
+              <div className="md:hidden -mx-5 sticky top-0 z-20 bg-[var(--mm-panel)]/95 backdrop-blur-sm border-b border-[var(--mm-rule)] flex">
                 {([
                   { id: 'overview',    label: '개요' },
                   { id: 'career',      label: '커리어' },
@@ -534,8 +533,8 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                 ] as const).map(t => (
                   <button key={t.id}
                     onClick={() => setMobileTab(t.id)}
-                    className={`flex-1 py-2.5 text-xs font-bold border-b-2 transition-colors ${
-                      mobileTab === t.id ? 'border-blue-500 text-white' : 'border-transparent text-gray-500'
+                    className={`flex-1 py-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+                      mobileTab === t.id ? 'border-[var(--mm-yellow)] text-[var(--mm-ink)]' : 'border-transparent text-[var(--mm-muted)]'
                     }`}>
                     {t.label}
                   </button>
@@ -607,9 +606,9 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                 if (Object.values(highs).every(v => v === null)) return null
 
                 const ITEMS: { key: keyof typeof highs; label: string; color: string; fmt?: (v: number) => string }[] = [
-                  { key: 'pts',    label: 'PTS',  color: 'text-yellow-400' },
+                  { key: 'pts',    label: 'PTS',  color: 'text-[var(--mm-yellow-strong)]' },
                   { key: 'reb',    label: 'REB',  color: 'text-orange-400' },
-                  { key: 'ast',    label: 'AST',  color: 'text-blue-400' },
+                  { key: 'ast',    label: 'AST',  color: 'text-[var(--mm-yellow-strong)]' },
                   { key: 'stl',    label: 'STL',  color: 'text-green-400' },
                   { key: 'blk',    label: 'BLK',  color: 'text-indigo-400' },
                   { key: 'fg_pct', label: 'FG%',  color: 'text-teal-400', fmt: v => `${v.toFixed(1)}%` },
@@ -618,8 +617,8 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                 ]
 
                 return (
-                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                    <h2 className="text-base font-semibold mb-4 text-gray-300">커리어 하이</h2>
+                  <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5">
+                    <h2 className="text-base font-semibold mb-4 text-[var(--mm-ink)]">커리어 하이</h2>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {ITEMS.map(({ key, label, color, fmt }) => {
                         const h = highs[key]
@@ -639,25 +638,25 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                               opponent_score: h.opponent_score,
                               tournament_name: h.tournament_name,
                             })}
-                            className="text-left bg-gray-800/60 rounded-xl p-3.5 border border-gray-700/40 hover:border-gray-600 hover:bg-gray-800 transition-colors cursor-pointer"
+                            className="text-left bg-[var(--mm-panel-alt)]/60 rounded-xl p-3.5 border border-[var(--mm-rule)] hover:border-[color:var(--mm-yellow)] hover:bg-[var(--mm-panel-alt)] transition-colors cursor-pointer"
                           >
                             <div className="flex items-end gap-1.5 mb-1">
                               <span className={`text-3xl font-black font-mono leading-none ${color}`}>{displayVal}</span>
-                              <span className="text-xs text-gray-500 mb-0.5 uppercase tracking-wider">{label}</span>
+                              <span className="text-xs text-[var(--mm-muted)] mb-0.5 uppercase tracking-wider">{label}</span>
                             </div>
-                            {h.sub && <p className="text-[11px] text-gray-400 mb-2 font-mono">{h.sub}</p>}
+                            {h.sub && <p className="text-[11px] text-[var(--mm-muted)] mb-2 font-mono">{h.sub}</p>}
                             {!h.sub && <div className="h-2" />}
-                            <div className="border-t border-gray-700/40 pt-2.5 space-y-1">
-                              <p className="text-xs text-gray-500">{h.date}</p>
-                              <p className="text-xs text-white font-medium">
+                            <div className="border-t border-[var(--mm-rule)] pt-2.5 space-y-1">
+                              <p className="text-xs text-[var(--mm-muted)]">{h.date}</p>
+                              <p className="text-xs text-[var(--mm-ink)] font-medium">
                                 vs {h.opponent}
-                                {h.round && <span className="text-gray-500 ml-1">[{h.round}]</span>}
+                                {h.round && <span className="text-[var(--mm-muted)] ml-1">[{h.round}]</span>}
                               </p>
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${isWin ? 'bg-green-900/60 text-green-400' : 'bg-red-900/60 text-red-400'}`}>
                                   {isWin ? 'W' : 'L'} {h.our_score}-{h.opponent_score}
                                 </span>
-                                <span className="text-xs text-gray-600 truncate">{h.tournament_name}</span>
+                                <span className="text-xs text-[var(--mm-muted)] truncate">{h.tournament_name}</span>
                               </div>
                             </div>
                           </button>
@@ -672,18 +671,18 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
               {/* 공격 스타일 */}
               <div className={`${mobileTab === 'career' ? 'block' : 'hidden'} md:block`}>
               {totalShots > 0 && (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                  <h2 className="text-base font-semibold mb-4 text-gray-300">공격 스타일</h2>
+                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5">
+                  <h2 className="text-base font-semibold mb-4 text-[var(--mm-ink)]">공격 스타일</h2>
                   <div className="flex flex-col sm:flex-row items-start gap-6">
                     <div className="w-full sm:w-56 shrink-0">
                       <ShotStyleChart breakdown={shotBreakdown} total={totalShots} />
                     </div>
-                    <div className="hidden sm:block w-px self-stretch bg-gray-800" />
+                    <div className="hidden sm:block w-px self-stretch bg-[var(--mm-rule)]" />
                     <div className="flex-1 w-full">
-                      <p className="text-xs text-gray-500 mb-3">구역별 야투율</p>
+                      <p className="text-xs text-[var(--mm-muted)] mb-3">구역별 야투율</p>
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="text-gray-500 text-xs border-b border-gray-800">
+                          <tr className="text-[var(--mm-muted)] text-xs border-b border-[var(--mm-rule)]">
                             <th className="text-left pb-2 font-normal">구역</th>
                             <th className="text-right pb-2 font-normal">성공/시도</th>
                             <th className="text-right pb-2 font-normal w-16">성공률</th>
@@ -695,24 +694,24 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                             .map(type => {
                             const s = shotBreakdown[type]
                             return (
-                              <tr key={type} className="border-b border-gray-800/60">
-                                <td className="py-2 flex items-center gap-2">
+                              <tr key={type} className="border-b border-[var(--mm-rule)]">
+                                <td className="py-2 flex items-center gap-2 text-[var(--mm-ink)]">
                                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SHOT_COLORS[type] }} />
                                   {s?.label ?? type}
                                 </td>
-                                <td className="py-2 text-right text-gray-400">{s?.made ?? 0}/{s?.attempted ?? 0}</td>
-                                <td className="py-2 text-right font-bold text-white">{s?.attempted ? `${s.pct}%` : '-'}</td>
+                                <td className="py-2 text-right text-[var(--mm-muted)]">{s?.made ?? 0}/{s?.attempted ?? 0}</td>
+                                <td className="py-2 text-right font-bold text-[var(--mm-ink)]">{s?.attempted ? `${s.pct}%` : '-'}</td>
                               </tr>
                             )
                           })}
                           {freeThrow && (
-                            <tr className="border-b border-gray-800/60">
-                              <td className="py-2 flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-gray-500 shrink-0" />
+                            <tr className="border-b border-[var(--mm-rule)]">
+                              <td className="py-2 flex items-center gap-2 text-[var(--mm-ink)]">
+                                <span className="w-2 h-2 rounded-full bg-[var(--mm-muted)] shrink-0" />
                                 자유투
                               </td>
-                              <td className="py-2 text-right text-gray-400">{freeThrow.made}/{freeThrow.attempted}</td>
-                              <td className="py-2 text-right font-bold text-white">{freeThrow.attempted ? `${freeThrow.pct}%` : '-'}</td>
+                              <td className="py-2 text-right text-[var(--mm-muted)]">{freeThrow.made}/{freeThrow.attempted}</td>
+                              <td className="py-2 text-right font-bold text-[var(--mm-ink)]">{freeThrow.attempted ? `${freeThrow.pct}%` : '-'}</td>
                             </tr>
                           )}
                         </tbody>
@@ -726,10 +725,10 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
               {/* 슛 차트 (코트 위치별 야투율) */}
               <div className={`${mobileTab === 'career' ? 'block' : 'hidden'} md:block`}>
               {(courtZones.post.a + courtZones.layup.a + courtZones.mid.a + courtZones.three.a) > 0 && (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5">
                   <div className="flex items-baseline justify-between mb-3">
-                    <h2 className="text-base font-semibold text-gray-300">슛 차트</h2>
-                    <span className="text-[11px] text-gray-600">코트 위치별 야투율</span>
+                    <h2 className="text-base font-semibold text-[var(--mm-ink)]">슛 차트</h2>
+                    <span className="text-[11px] text-[var(--mm-muted)]">코트 위치별 야투율</span>
                   </div>
                   <div className="flex justify-center">
                     <HalfCourtShotChart zones={courtZones} size={420} />
@@ -757,15 +756,15 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                 }
                 const METRIC_TABS = ['PPG', 'RPG', 'APG', 'FG%', '3P%'] as const
                 return (
-                  <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                  <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5">
                     <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-base font-semibold text-gray-300">대회별 추이</h2>
+                      <h2 className="text-base font-semibold text-[var(--mm-ink)]">대회별 추이</h2>
                       <div className="flex gap-1">
                         {METRIC_TABS.map(m => (
                           <button
                             key={m}
                             onClick={() => setChartMetric(m)}
-                            className={`px-2.5 py-1 text-xs font-bold rounded transition-colors ${chartMetric === m ? 'text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+                            className={`px-2.5 py-1 text-xs font-bold rounded transition-colors cursor-pointer ${chartMetric === m ? 'text-white' : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'}`}
                             style={chartMetric === m ? { backgroundColor: METRIC_COLOR[m] } : undefined}
                           >
                             {m}
@@ -775,10 +774,10 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                     </div>
                     <ResponsiveContainer width="100%" height={210}>
                       <LineChart data={chartData} margin={{ top: 4, right: 16, left: -20, bottom: 30 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--mm-rule)" />
                         <XAxis
                           dataKey="name"
-                          tick={{ fill: '#6b7280', fontSize: 11 }}
+                          tick={{ fill: 'var(--mm-muted)', fontSize: 11 }}
                           tickLine={false}
                           axisLine={false}
                           angle={-30}
@@ -786,10 +785,10 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                           height={50}
                           interval={0}
                         />
-                        <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
+                        <YAxis tick={{ fill: 'var(--mm-muted)', fontSize: 11 }} tickLine={false} axisLine={false} />
                         <Tooltip
-                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '8px', fontSize: '12px' }}
-                          labelStyle={{ color: '#d1d5db' }}
+                          contentStyle={{ backgroundColor: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '8px', fontSize: '12px' }}
+                          labelStyle={{ color: 'var(--mm-ink)' }}
                           itemStyle={{ color: METRIC_COLOR[chartMetric] }}
                         />
                         <Line
@@ -808,17 +807,17 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
 
               {/* 스플릿 (W/L + 라운드별) */}
               {splits && ((splits.wins?.gp ?? 0) > 0 || (splits.losses?.gp ?? 0) > 0 || splits.byRound.length > 0) && (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-5">
-                  <h2 className="text-base font-semibold text-gray-300">스플릿</h2>
+                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-5">
+                  <h2 className="text-base font-semibold text-[var(--mm-ink)]">스플릿</h2>
 
                   {/* W/L 비교 */}
                   {(splits.wins || splits.losses) && (
                     <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-2 font-bold">승 vs 패</p>
+                      <p className="text-xs text-[var(--mm-muted)] uppercase tracking-wider mb-2 font-bold">승 vs 패</p>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm text-center border-collapse">
                           <thead>
-                            <tr className="bg-gray-800/60 text-xs text-gray-500">
+                            <tr className="bg-[var(--mm-panel-alt)]/60 text-xs text-[var(--mm-muted)]">
                               <th className="px-3 py-2 text-left">결과</th>
                               <th className="px-3 py-2">GP</th>
                               <th className="px-3 py-2">PPG</th>
@@ -834,20 +833,20 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                               { label: 'W', tone: 'text-green-400', stat: splits.wins },
                               { label: 'L', tone: 'text-red-400', stat: splits.losses },
                             ].map(({ label, tone, stat }) => (
-                              <tr key={label} className="border-b border-gray-800/40">
+                              <tr key={label} className="border-b border-[var(--mm-rule)]/40">
                                 <td className={`px-3 py-2 text-left font-bold ${tone}`}>{label}</td>
                                 {stat ? (
                                   <>
-                                    <td className="px-3 py-2 text-gray-400 text-xs">{stat.gp}</td>
-                                    <td className="px-3 py-2 font-bold text-white">{stat.pts_avg.toFixed(1)}</td>
-                                    <td className="px-3 py-2">{stat.reb_avg.toFixed(1)}</td>
-                                    <td className="px-3 py-2 text-blue-400">{stat.ast_avg.toFixed(1)}</td>
-                                    <td className="px-3 py-2 text-xs">{stat.fg_pct > 0 ? `${stat.fg_pct.toFixed(1)}%` : '-'}</td>
-                                    <td className="px-3 py-2 text-xs">{stat.fg3_pct > 0 ? `${stat.fg3_pct.toFixed(1)}%` : '-'}</td>
+                                    <td className="px-3 py-2 text-[var(--mm-muted)] text-xs">{stat.gp}</td>
+                                    <td className="px-3 py-2 font-bold text-[var(--mm-ink)]">{stat.pts_avg.toFixed(1)}</td>
+                                    <td className="px-3 py-2 text-[var(--mm-ink)]">{stat.reb_avg.toFixed(1)}</td>
+                                    <td className="px-3 py-2 text-[var(--mm-yellow-strong)]">{stat.ast_avg.toFixed(1)}</td>
+                                    <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{stat.fg_pct > 0 ? `${stat.fg_pct.toFixed(1)}%` : '-'}</td>
+                                    <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{stat.fg3_pct > 0 ? `${stat.fg3_pct.toFixed(1)}%` : '-'}</td>
                                     <td className="px-3 py-2 font-bold text-amber-300">{stat.gmsc_avg.toFixed(1)}</td>
                                   </>
                                 ) : (
-                                  <td colSpan={7} className="px-3 py-2 text-gray-700 italic text-xs">기록 없음</td>
+                                  <td colSpan={7} className="px-3 py-2 text-[var(--mm-muted)] italic text-xs">기록 없음</td>
                                 )}
                               </tr>
                             ))}
@@ -860,11 +859,11 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                   {/* 라운드별 */}
                   {splits.byRound.length > 0 && (
                     <div>
-                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-2 font-bold">라운드별</p>
+                      <p className="text-xs text-[var(--mm-muted)] uppercase tracking-wider mb-2 font-bold">라운드별</p>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm text-center border-collapse">
                           <thead>
-                            <tr className="bg-gray-800/60 text-xs text-gray-500">
+                            <tr className="bg-[var(--mm-panel-alt)]/60 text-xs text-[var(--mm-muted)]">
                               <th className="px-3 py-2 text-left whitespace-nowrap">라운드</th>
                               <th className="px-3 py-2">GP</th>
                               <th className="px-3 py-2">PPG</th>
@@ -877,21 +876,21 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                           </thead>
                           <tbody>
                             {splits.byRound.map(r => (
-                              <tr key={r.name} className="border-b border-gray-800/40">
-                                <td className="px-3 py-2 text-left font-medium text-gray-300 whitespace-nowrap">{r.name}</td>
-                                <td className="px-3 py-2 text-gray-400 text-xs">{r.gp}</td>
-                                <td className="px-3 py-2 font-bold text-white">{r.pts_avg.toFixed(1)}</td>
-                                <td className="px-3 py-2">{r.reb_avg.toFixed(1)}</td>
-                                <td className="px-3 py-2 text-blue-400">{r.ast_avg.toFixed(1)}</td>
-                                <td className="px-3 py-2 text-xs">{r.fg_pct > 0 ? `${r.fg_pct.toFixed(1)}%` : '-'}</td>
-                                <td className="px-3 py-2 text-xs">{r.fg3_pct > 0 ? `${r.fg3_pct.toFixed(1)}%` : '-'}</td>
+                              <tr key={r.name} className="border-b border-[var(--mm-rule)]/40">
+                                <td className="px-3 py-2 text-left font-medium text-[var(--mm-ink)] whitespace-nowrap">{r.name}</td>
+                                <td className="px-3 py-2 text-[var(--mm-muted)] text-xs">{r.gp}</td>
+                                <td className="px-3 py-2 font-bold text-[var(--mm-ink)]">{r.pts_avg.toFixed(1)}</td>
+                                <td className="px-3 py-2 text-[var(--mm-ink)]">{r.reb_avg.toFixed(1)}</td>
+                                <td className="px-3 py-2 text-[var(--mm-yellow-strong)]">{r.ast_avg.toFixed(1)}</td>
+                                <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{r.fg_pct > 0 ? `${r.fg_pct.toFixed(1)}%` : '-'}</td>
+                                <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{r.fg3_pct > 0 ? `${r.fg3_pct.toFixed(1)}%` : '-'}</td>
                                 <td className="px-3 py-2 font-bold text-amber-300">{r.gmsc_avg.toFixed(1)}</td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                       </div>
-                      <p className="text-[11px] text-gray-700 mt-2">결승에 가까울수록 압박 큰 환경 — 빅게임 퍼포먼스 가늠</p>
+                      <p className="text-[11px] text-[var(--mm-muted)] mt-2">결승에 가까울수록 압박 큰 환경 — 빅게임 퍼포먼스 가늠</p>
                     </div>
                   )}
                 </div>
@@ -899,12 +898,12 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
 
               {/* 대회별 성적 */}
               {tournamentStats.length > 0 && (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                  <h2 className="text-base font-semibold mb-4 text-gray-300">대회별 성적</h2>
+                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5">
+                  <h2 className="text-base font-semibold mb-4 text-[var(--mm-ink)]">대회별 성적</h2>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm text-center border-collapse">
                       <thead>
-                        <tr className="bg-gray-800 text-gray-400 text-xs">
+                        <tr className="bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] text-xs">
                           <th className="px-3 py-2 text-left whitespace-nowrap">대회</th>
                           <th className="px-3 py-2 whitespace-nowrap">연도</th>
                           <th className="px-3 py-2 whitespace-nowrap">GP</th>
@@ -924,44 +923,44 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                           return (
                             <React.Fragment key={tournament.id}>
                               <tr
-                                className="border-b border-gray-800 hover:bg-gray-800/50 cursor-pointer"
+                                className="border-b border-[var(--mm-rule)] hover:bg-[var(--mm-panel-alt)]/50 cursor-pointer"
                                 onClick={() => games_played > 0 ? setExpandedTournament(isExpanded ? null : tournament.id) : undefined}
                               >
                                 <td className="px-3 py-2 text-left whitespace-nowrap">
-                                  <span className={`font-medium text-xs ${games_played > 0 ? 'text-blue-400' : 'text-white'}`}>
+                                  <span className={`font-medium text-xs ${games_played > 0 ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>
                                     {tournament.name}
-                                    {games_played > 0 && <span className="ml-1 text-gray-600">{isExpanded ? '▲' : '▼'}</span>}
+                                    {games_played > 0 && <span className="ml-1 text-[var(--mm-muted)]">{isExpanded ? '▲' : '▼'}</span>}
                                   </span>
                                 </td>
-                                <td className="px-3 py-2 text-gray-400 text-xs">{tournament.year}</td>
+                                <td className="px-3 py-2 text-[var(--mm-muted)] text-xs">{tournament.year}</td>
                                 {games_played === 0 ? (
-                                  <td colSpan={9} className="px-3 py-2 text-gray-600 italic text-xs">DNP</td>
+                                  <td colSpan={9} className="px-3 py-2 text-[var(--mm-muted)] italic text-xs">DNP</td>
                                 ) : stats ? (
                                   <>
-                                    <td className="px-3 py-2 text-gray-400 text-xs">{games_played}</td>
-                                    <td className="px-3 py-2 font-bold text-white text-xs">{stats.pts_avg.toFixed(1)}</td>
-                                    <td className="px-3 py-2 text-xs">{stats.reb_avg.toFixed(1)}</td>
-                                    <td className="px-3 py-2 text-blue-400 text-xs">{stats.ast_avg.toFixed(1)}</td>
+                                    <td className="px-3 py-2 text-[var(--mm-muted)] text-xs">{games_played}</td>
+                                    <td className="px-3 py-2 font-bold text-[var(--mm-ink)] text-xs">{stats.pts_avg.toFixed(1)}</td>
+                                    <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{stats.reb_avg.toFixed(1)}</td>
+                                    <td className="px-3 py-2 text-[var(--mm-yellow-strong)] text-xs">{stats.ast_avg.toFixed(1)}</td>
                                     <td className="px-3 py-2 text-green-400 text-xs">{stats.stl_avg.toFixed(1)}</td>
                                     <td className="px-3 py-2 text-purple-400 text-xs">{stats.blk_avg.toFixed(1)}</td>
                                     <td className="px-3 py-2 text-red-400 text-xs">{stats.tov_avg.toFixed(1)}</td>
-                                    <td className="px-3 py-2 text-xs">{stats.fg_pct > 0 ? `${stats.fg_pct.toFixed(1)}%` : '-'}</td>
-                                    <td className="px-3 py-2 text-xs">{stats.fg3_pct > 0 ? `${stats.fg3_pct.toFixed(1)}%` : '-'}</td>
+                                    <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{stats.fg_pct > 0 ? `${stats.fg_pct.toFixed(1)}%` : '-'}</td>
+                                    <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{stats.fg3_pct > 0 ? `${stats.fg3_pct.toFixed(1)}%` : '-'}</td>
                                   </>
                                 ) : (
-                                  <td colSpan={9} className="px-3 py-2 text-gray-600 italic text-xs">기록 없음</td>
+                                  <td colSpan={9} className="px-3 py-2 text-[var(--mm-muted)] italic text-xs">기록 없음</td>
                                 )}
                               </tr>
                               {isExpanded && games.map((g) => {
                                 const isWin = g.our_score > g.opponent_score
                                 const s = g.stats
                                 return (
-                                  <tr key={g.game_id} className="border-b border-gray-800/40 bg-gray-800/20 text-xs">
-                                    <td className="px-3 py-1.5 text-left text-gray-500 pl-6 whitespace-nowrap">
+                                  <tr key={g.game_id} className="border-b border-[var(--mm-rule)]/40 bg-[var(--mm-panel-alt)]/20 text-xs">
+                                    <td className="px-3 py-1.5 text-left text-[var(--mm-muted)] pl-6 whitespace-nowrap">
                                       {g.date}
-                                      {g.round && <span className="ml-1 text-gray-600">({g.round})</span>}
+                                      {g.round && <span className="ml-1 text-[var(--mm-muted)]">({g.round})</span>}
                                     </td>
-                                    <td className="px-3 py-1.5 text-left text-gray-400 whitespace-nowrap" colSpan={2}>vs {g.opponent}</td>
+                                    <td className="px-3 py-1.5 text-left text-[var(--mm-muted)] whitespace-nowrap" colSpan={2}>vs {g.opponent}</td>
                                     <td className="px-3 py-1.5">
                                       <span className={`px-1.5 py-0.5 rounded font-bold ${isWin ? 'bg-green-900/60 text-green-400' : 'bg-red-900/60 text-red-400'}`}>
                                         {isWin ? 'W' : 'L'} {g.our_score}-{g.opponent_score}
@@ -969,18 +968,18 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                                     </td>
                                     {s ? (
                                       <>
-                                        <td className="px-3 py-1.5 font-bold text-white">{s.pts}</td>
-                                        <td className="px-3 py-1.5">{s.reb}</td>
-                                        <td className="px-3 py-1.5 text-blue-400">{s.ast}</td>
+                                        <td className="px-3 py-1.5 font-bold text-[var(--mm-ink)]">{s.pts}</td>
+                                        <td className="px-3 py-1.5 text-[var(--mm-ink)]">{s.reb}</td>
+                                        <td className="px-3 py-1.5 text-[var(--mm-yellow-strong)]">{s.ast}</td>
                                         <td className="px-3 py-1.5 text-green-400">{s.stl}</td>
                                         <td className="px-3 py-1.5 text-purple-400">{s.blk}</td>
                                         <td className="px-3 py-1.5 text-red-400">{s.tov}</td>
-                                        <td className="px-3 py-1.5">{s.fgm}/{s.fga}</td>
-                                        <td className="px-3 py-1.5">{s.fg3m}/{s.fg3a}</td>
+                                        <td className="px-3 py-1.5 text-[var(--mm-ink)]">{s.fgm}/{s.fga}</td>
+                                        <td className="px-3 py-1.5 text-[var(--mm-ink)]">{s.fg3m}/{s.fg3a}</td>
                                         <td className="px-3 py-1.5 font-bold text-amber-300">{s.game_score?.toFixed(1) ?? '-'}</td>
                                       </>
                                     ) : (
-                                      <td colSpan={9} className="px-3 py-1.5 text-gray-600 italic">기록 없음</td>
+                                      <td colSpan={9} className="px-3 py-1.5 text-[var(--mm-muted)] italic">기록 없음</td>
                                     )}
                                   </tr>
                                 )
@@ -998,12 +997,12 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
               {/* 최근 5경기 */}
               <div className={`${mobileTab === 'overview' ? 'block' : 'hidden'} md:block`}>
               {recentGames.length > 0 && (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                  <h2 className="text-base font-semibold mb-4 text-gray-300">최근 {recentGames.length}경기</h2>
+                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5">
+                  <h2 className="text-base font-semibold mb-4 text-[var(--mm-ink)]">최근 {recentGames.length}경기</h2>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm text-center border-collapse">
                       <thead>
-                        <tr className="bg-gray-800 text-gray-400 text-xs">
+                        <tr className="bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] text-xs">
                           <th className="px-3 py-2 text-left">날짜</th>
                           <th className="px-3 py-2 text-left">상대</th>
                           <th className="px-3 py-2">결과</th>
@@ -1020,12 +1019,12 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                           const isWin = g.our_score > g.opponent_score
                           const s = g.stats
                           return (
-                            <tr key={g.game_id} className="border-b border-gray-800 hover:bg-gray-800/50">
-                              <td className="px-3 py-2 text-left text-gray-400 whitespace-nowrap text-xs">{g.date}</td>
-                              <td className="px-3 py-2 text-left whitespace-nowrap text-xs">
+                            <tr key={g.game_id} className="border-b border-[var(--mm-rule)] hover:bg-[var(--mm-panel-alt)]/50">
+                              <td className="px-3 py-2 text-left text-[var(--mm-muted)] whitespace-nowrap text-xs">{g.date}</td>
+                              <td className="px-3 py-2 text-left whitespace-nowrap text-xs text-[var(--mm-ink)]">
                                 vs {g.opponent}
-                                {g.round && <span className="ml-1 text-gray-500">[{g.round}]</span>}
-                                {g.tournament_name && <span className="ml-1 text-gray-600">({g.tournament_name})</span>}
+                                {g.round && <span className="ml-1 text-[var(--mm-muted)]">[{g.round}]</span>}
+                                {g.tournament_name && <span className="ml-1 text-[var(--mm-muted)]">({g.tournament_name})</span>}
                               </td>
                               <td className="px-3 py-2">
                                 <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${isWin ? 'bg-green-900/60 text-green-400' : 'bg-red-900/60 text-red-400'}`}>
@@ -1034,15 +1033,15 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                               </td>
                               {s ? (
                                 <>
-                                  <td className="px-3 py-2 font-bold text-white text-xs">{s.pts}</td>
-                                  <td className="px-3 py-2 text-xs">{s.reb}</td>
-                                  <td className="px-3 py-2 text-blue-400 text-xs">{s.ast}</td>
-                                  <td className="px-3 py-2 text-xs">{s.fgm}/{s.fga}</td>
-                                  <td className="px-3 py-2 text-xs">{s.fg3m}/{s.fg3a}</td>
+                                  <td className="px-3 py-2 font-bold text-[var(--mm-ink)] text-xs">{s.pts}</td>
+                                  <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{s.reb}</td>
+                                  <td className="px-3 py-2 text-[var(--mm-yellow-strong)] text-xs">{s.ast}</td>
+                                  <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{s.fgm}/{s.fga}</td>
+                                  <td className="px-3 py-2 text-xs text-[var(--mm-ink)]">{s.fg3m}/{s.fg3a}</td>
                                   <td className="px-3 py-2 font-bold text-amber-300 text-xs">{s.game_score?.toFixed(1) ?? '-'}</td>
                                 </>
                               ) : (
-                                <td colSpan={7} className="px-3 py-2 text-gray-600 italic text-xs">기록 없음</td>
+                                <td colSpan={7} className="px-3 py-2 text-[var(--mm-muted)] italic text-xs">기록 없음</td>
                               )}
                             </tr>
                           )
@@ -1055,7 +1054,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
               </div>
 
               {recentGames.length === 0 && totalShots === 0 && tournamentStats.every(t => t.games_played === 0) && (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-[var(--mm-muted)]">
                   <p>이 선수의 경기 기록이 없습니다</p>
                   <p className="text-sm mt-1">경기 기록 탭에서 이벤트를 기록하세요</p>
                 </div>

@@ -27,21 +27,21 @@ export default function LiveStatsPanel({ gameId, refreshKey }: Props) {
     : 0
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 flex-shrink-0">
+    <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-3 flex-shrink-0">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">실시간 스탯</p>
+        <p className="text-xs text-[var(--mm-muted)] font-semibold uppercase tracking-wide">실시간 스탯</p>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">파란날개 총 득점</span>
-          <span className="text-lg font-black text-yellow-400">{teamTotals.pts ?? 0}</span>
+          <span className="text-xs text-[var(--mm-muted)]">파란날개 총 득점</span>
+          <span className="text-lg font-black text-[var(--mm-yellow-strong)]">{teamTotals.pts ?? 0}</span>
         </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-gray-500 border-b border-gray-800">
+            <tr className="text-[var(--mm-muted)] border-b border-[var(--mm-rule)]">
               <th className="text-left py-1 pr-2 w-6">#</th>
               <th className="text-left py-1 pr-3">이름</th>
-              <th className="py-1 px-1 text-center text-yellow-400">PTS</th>
+              <th className="py-1 px-1 text-center text-[var(--mm-yellow-strong)]">PTS</th>
               <th className="py-1 px-1 text-center">REB</th>
               <th className="py-1 px-1 text-center">AST</th>
               <th className="py-1 px-1 text-center">STL</th>
@@ -52,32 +52,32 @@ export default function LiveStatsPanel({ gameId, refreshKey }: Props) {
           </thead>
           <tbody>
             {active.map(b => (
-              <tr key={b.player_id} className="border-b border-gray-800/40 hover:bg-gray-800/30">
-                <td className="py-1 pr-2 text-gray-400">{b.player_number}</td>
-                <td className="py-1 pr-3 font-medium">{b.player_name}</td>
-                <td className="py-1 px-1 text-center font-bold text-yellow-400">{b.pts}</td>
-                <td className="py-1 px-1 text-center">{b.reb}</td>
-                <td className="py-1 px-1 text-center">{b.ast}</td>
-                <td className="py-1 px-1 text-center">{b.stl}</td>
-                <td className="py-1 px-1 text-center">{b.blk}</td>
+              <tr key={b.player_id} className="border-b border-[var(--mm-rule)]/40 hover:bg-[var(--mm-panel-alt)]/30">
+                <td className="py-1 pr-2 text-[var(--mm-muted)]">{b.player_number}</td>
+                <td className="py-1 pr-3 font-medium text-[var(--mm-ink)]">{b.player_name}</td>
+                <td className="py-1 px-1 text-center font-bold text-[var(--mm-yellow-strong)]">{b.pts}</td>
+                <td className="py-1 px-1 text-center text-[var(--mm-ink)]">{b.reb}</td>
+                <td className="py-1 px-1 text-center text-[var(--mm-ink)]">{b.ast}</td>
+                <td className="py-1 px-1 text-center text-[var(--mm-ink)]">{b.stl}</td>
+                <td className="py-1 px-1 text-center text-[var(--mm-ink)]">{b.blk}</td>
                 <td className="py-1 px-1 text-center text-red-400">{b.tov}</td>
-                <td className="py-1 px-1 text-center text-gray-300">
+                <td className="py-1 px-1 text-center text-[var(--mm-muted)]">
                   {b.fga > 0 ? `${b.fg_pct.toFixed(1)}%` : '-'}
                 </td>
               </tr>
             ))}
             {/* 팀 합계 */}
-            <tr className="border-t-2 border-blue-500/60 bg-gray-800/50 font-bold">
-              <td colSpan={2} className="py-1.5 pr-3 text-blue-400">합계</td>
-              <td className="py-1.5 px-1 text-center text-yellow-400">{teamTotals.pts ?? 0}</td>
-              <td className="py-1.5 px-1 text-center">{teamTotals.reb ?? 0}</td>
-              <td className="py-1.5 px-1 text-center">{teamTotals.ast ?? 0}</td>
-              <td className="py-1.5 px-1 text-center">{teamTotals.stl ?? 0}</td>
-              <td className="py-1.5 px-1 text-center">{teamTotals.blk ?? 0}</td>
+            <tr className="border-t-2 border-[color:var(--mm-yellow)]/60 bg-[var(--mm-panel-alt)]/50 font-bold">
+              <td colSpan={2} className="py-1.5 pr-3 text-[var(--mm-yellow-strong)]">합계</td>
+              <td className="py-1.5 px-1 text-center text-[var(--mm-yellow-strong)]">{teamTotals.pts ?? 0}</td>
+              <td className="py-1.5 px-1 text-center text-[var(--mm-ink)]">{teamTotals.reb ?? 0}</td>
+              <td className="py-1.5 px-1 text-center text-[var(--mm-ink)]">{teamTotals.ast ?? 0}</td>
+              <td className="py-1.5 px-1 text-center text-[var(--mm-ink)]">{teamTotals.stl ?? 0}</td>
+              <td className="py-1.5 px-1 text-center text-[var(--mm-ink)]">{teamTotals.blk ?? 0}</td>
               <td className="py-1.5 px-1 text-center text-red-400">{teamTotals.tov ?? 0}</td>
-              <td className="py-1.5 px-1 text-center text-gray-300">
+              <td className="py-1.5 px-1 text-center text-[var(--mm-muted)]">
                 {totalFgPct > 0 ? `${totalFgPct.toFixed(1)}%` : '-'}
-                <span className="text-gray-500 font-normal ml-1">({teamTotals.fgm ?? 0}/{teamTotals.fga ?? 0})</span>
+                <span className="text-[var(--mm-muted)] font-normal ml-1">({teamTotals.fgm ?? 0}/{teamTotals.fga ?? 0})</span>
               </td>
             </tr>
           </tbody>
