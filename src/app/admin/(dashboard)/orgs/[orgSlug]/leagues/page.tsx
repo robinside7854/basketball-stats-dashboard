@@ -13,9 +13,9 @@ const statusLabel: Record<string, string> = {
 }
 
 const statusClass: Record<string, string> = {
-  upcoming: 'bg-gray-800 text-gray-400',
-  active: 'bg-green-900/40 text-green-400',
-  completed: 'bg-blue-900/40 text-blue-400',
+  upcoming: 'bg-[var(--mm-yellow-soft)] text-[var(--mm-yellow-strong)]',
+  active: 'bg-[var(--mm-positive)]/10 text-[var(--mm-positive)]',
+  completed: 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)]',
 }
 
 export default function LeaguesPage() {
@@ -51,16 +51,16 @@ export default function LeaguesPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-3">
-        <Link href={`/admin/orgs/${orgSlug}`} className="text-gray-400 hover:text-white transition-colors">
+        <Link href={`/admin/orgs/${orgSlug}`} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer">
           <ArrowLeft size={20} />
         </Link>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white">리그 관리</h1>
-          <span className="text-gray-500 text-sm">/{orgSlug}</span>
+          <h1 className="text-2xl font-bold text-[var(--mm-ink)]">리그 관리</h1>
+          <span className="text-[var(--mm-muted)] text-sm">/{orgSlug}</span>
         </div>
         <Link
           href={`/admin/orgs/${orgSlug}/leagues/new`}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-sm font-medium transition-colors cursor-pointer"
         >
           <Plus size={15} />
           새 리그
@@ -69,14 +69,14 @@ export default function LeaguesPage() {
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-gray-500" />
+          <Loader2 size={24} className="animate-spin text-[var(--mm-muted)]" />
         </div>
       ) : (!leagues || leagues.length === 0) ? (
-        <div className="text-center py-16 border border-dashed border-gray-800 rounded-xl text-gray-500 space-y-3">
+        <div className="text-center py-16 border border-dashed border-[var(--mm-rule)] rounded-xl text-[var(--mm-muted)] space-y-3">
           <p>등록된 리그가 없습니다</p>
           <Link
             href={`/admin/orgs/${orgSlug}/leagues/new`}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-sm font-medium transition-colors cursor-pointer"
           >
             <Plus size={14} />
             첫 번째 리그 만들기
@@ -87,23 +87,23 @@ export default function LeaguesPage() {
           {leagues.map(league => (
             <div
               key={league.id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-700 transition-colors"
+              className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 hover:border-[var(--mm-muted)] transition-colors"
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold text-white truncate">{league.name}</p>
+                    <p className="font-semibold text-[var(--mm-ink)] truncate">{league.name}</p>
                     <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium shrink-0 ${statusClass[league.status] ?? statusClass.upcoming}`}>
                       {statusLabel[league.status] ?? league.status}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-0.5">{league.season_year}시즌 · 시작일 {league.start_date}</p>
+                  <p className="text-sm text-[var(--mm-muted)] mt-0.5">{league.season_year}시즌 · 시작일 {league.start_date}</p>
                 </div>
                 <div className="flex items-center gap-2 ml-4 shrink-0">
                   <Link
                     href={`/league/${orgSlug}/${league.id}`}
                     target="_blank"
-                    className="p-2 rounded-lg text-gray-500 hover:text-blue-400 hover:bg-gray-800 transition-colors"
+                    className="p-2 rounded-lg text-[var(--mm-muted)] hover:text-[var(--mm-yellow-strong)] hover:bg-[var(--mm-panel-alt)] transition-colors cursor-pointer"
                     title="리그 대시보드 열기"
                   >
                     <ExternalLink size={15} />
@@ -111,7 +111,7 @@ export default function LeaguesPage() {
                   <button
                     onClick={() => deleteLeague(league)}
                     disabled={deletingId === league.id}
-                    className="p-2 rounded-lg text-gray-600 hover:text-red-400 hover:bg-gray-800 transition-colors disabled:opacity-40 cursor-pointer"
+                    className="p-2 rounded-lg text-[var(--mm-muted)] hover:text-[var(--mm-negative)] hover:bg-[var(--mm-panel-alt)] transition-colors disabled:opacity-40 cursor-pointer"
                     title="리그 삭제"
                   >
                     {deletingId === league.id
