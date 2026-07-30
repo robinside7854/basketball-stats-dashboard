@@ -1349,7 +1349,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       <button
                         onClick={openCompleteModal}
                         className="flex items-center gap-1 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors btn-press min-h-[44px]"
-                        style={{ background: 'var(--mm-live)', color: '#FFFFFF', borderRadius: '4px' }}
+                        style={{ background: 'var(--mm-live-bg)', color: '#FFFFFF', borderRadius: '4px' }}
                       >
                         <Square size={11} />마감
                       </button>

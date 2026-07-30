@@ -21,10 +21,15 @@
   --mm-yellow-soft: #FEF3C7;
   --mm-black: #0A0A0A;
   --mm-live: #DC2626;
+  /* --mm-live 를 '배경'으로 쓰고 그 위에 흰 텍스트를 올릴 때 전용 (LIVE 배지 등).
+     다크에서 --mm-live 는 텍스트 가독성을 위해 밝은 #EF4444 로 반전되는데,
+     그 색을 배경으로 쓰면 흰 글씨가 3.76:1 로 무너진다 (designmd lint 검출, 2026-07-31). */
+  --mm-live-bg: #DC2626;
   /* ===== 승/패/무 결과색 (2026-07-22 다크 모드 대비 수정) =====
      RecordDisplay.tsx ResultChip · ScoreTable diff · NbaTeamStandings 승률 텍스트가 공유.
-     라이트: 기존 emerald-600/red-600/slate-600 유지 (흰 배경 4.5:1 이상). */
-  --mm-positive: #059669;       /* emerald-600 */
+     라이트: red-600(4.83:1) / slate-600(7.4:1) 는 흰 배경 통과.
+     emerald-600(#059669) 은 3.77:1 로 미달이었어 emerald-700 으로 내림 (2026-07-31). */
+  --mm-positive: #047857;       /* emerald-700 · 흰 배경 5.1:1 */
   --mm-negative: #DC2626;       /* red-600 */
   --mm-neutral-strong: #475569; /* slate-600 */
 }
@@ -41,6 +46,8 @@
   --mm-yellow-soft: rgba(253, 224, 71, 0.10);
   --mm-black: #000000;
   --mm-live: #EF4444;
+  /* 배경 전용은 라이트와 동일한 red-600 유지 — 흰 텍스트 4.83:1 확보 (2026-07-31) */
+  --mm-live-bg: #DC2626;
   /* 다크: emerald-600/red-600/slate-600 원본은 근-흑 패널 위에서 3.4~1.9:1 로 대비 실패
      (특히 RecordDisplay DRAW 칩) → 400/300 톤으로 상향, WCAG AA 4.5:1 이상 재확보 */
   --mm-positive: #34D399;       /* emerald-400 · 다크 패널 대비 ~7.9:1 */
@@ -98,7 +105,8 @@
   /* ===== 마일스톤 근접도 3티어 (2026-07-22) =====
      PersonalDashboard.MilestoneChaser 바·remaining 뱃지 색이 지표별 색이 아닌 목표 근접도 표현 */
   --milestone-near: #047857;   /* progressPct >= 80% (곧 달성 · emerald-700 · WCAG AA 5.1:1) */
-  --milestone-mid:  #F59E0B;   /* 60~80% (가까움 · amber-500) */
+  --milestone-mid:  #B45309;   /* 60~80% (가까움 · amber-700) · 흰 텍스트 뱃지 배경으로 쓰여
+                                  amber-500(#F59E0B) 은 2.15:1 로 크게 미달이었음 (2026-07-31) */
   --milestone-far:  #64748B;   /* < 60% (아직 · slate-500 뉴트럴) */
 
   /* ===== 클러치샷 5단계 위기 강도 스케일 (2026-07-22)

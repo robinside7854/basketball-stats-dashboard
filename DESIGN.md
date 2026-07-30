@@ -24,7 +24,8 @@ colors:
   black: "#0A0A0A"
   # ── 경기 결과 ──
   live: "#DC2626"
-  positive: "#059669"
+  live-bg: "#DC2626"
+  positive: "#047857"
   negative: "#DC2626"
   neutral-strong: "#475569"
   # ── 농구 정체성 ──
@@ -32,7 +33,7 @@ colors:
   hoop-orange-deep: "#C2410C"
   # ── 마일스톤 근접도 3티어 ──
   milestone-near: "#047857"
-  milestone-mid: "#F59E0B"
+  milestone-mid: "#B45309"
   milestone-far: "#64748B"
   # ── 클러치샷 5단계 위기 강도 ──
   clutch-1-dagger: "#64748B"
@@ -139,9 +140,12 @@ components:
     textColor: "{colors.neutral-strong}"
     rounded: "{rounded.sm}"
   live-badge:
-    backgroundColor: "{colors.live}"
+    backgroundColor: "{colors.live-bg}"
     textColor: "{colors.white}"
     rounded: "{rounded.full}"
+  live-text:
+    backgroundColor: "{colors.panel}"
+    textColor: "{colors.live}"
   clutch-1-dagger:
     backgroundColor: "{colors.clutch-1-dagger}"
     textColor: "{colors.white}"

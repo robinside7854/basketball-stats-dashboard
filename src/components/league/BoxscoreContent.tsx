@@ -550,7 +550,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '미라�
                           {!g.is_complete && g.is_started && (
                             <span
                               className="text-[10px] font-black uppercase tracking-widest shrink-0"
-                              style={{ background: 'var(--mm-live)', color: '#fff', padding: '2px 6px' }}
+                              style={{ background: 'var(--mm-live-bg)', color: '#fff', padding: '2px 6px' }}
                             >진행 중</span>
                           )}
                           {!g.is_started && (

@@ -471,7 +471,7 @@ export default function LeagueDraftPage() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <h1 className="font-jersey text-3xl sm:text-4xl font-black uppercase text-[color:var(--mm-ink)] flex items-center gap-2">
             <Sparkles size={26} className="text-[color:var(--mm-yellow-strong)]" /> 드래프트
-            {isFocus && <span className="text-xs font-bold px-2.5 py-1 rounded-sm bg-[color:var(--mm-live)] text-white uppercase tracking-wider animate-pulse-red">집중 모드 · LIVE</span>}
+            {isFocus && <span className="text-xs font-bold px-2.5 py-1 rounded-sm bg-[color:var(--mm-live-bg)] text-white uppercase tracking-wider animate-pulse-red">집중 모드 · LIVE</span>}
           </h1>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <button onClick={() => { primeAudio(); setMuted(v => !v) }} title={muted ? '소리 켜기' : '소리 끄기'}
@@ -683,7 +683,7 @@ export default function LeagueDraftPage() {
                   </div>
                   {/* 시간 종료 — 자동 선택 최종 카운트다운 */}
                   {expired && graceLeft !== null && (
-                    <div className="mt-3 rounded-sm bg-[color:var(--mm-live)] px-3 py-2.5 flex items-center justify-center gap-2 animate-pulse flex-wrap">
+                    <div className="mt-3 rounded-sm bg-[color:var(--mm-live-bg)] px-3 py-2.5 flex items-center justify-center gap-2 animate-pulse flex-wrap">
                       <span className="inline-flex items-center gap-1.5 text-white text-sm sm:text-base font-bold leading-relaxed"><Clock size={16} strokeWidth={2} aria-hidden /> 시간 종료 — {graceLeft}초 뒤 자동으로 선수가 선택됩니다</span>
                       <span className="font-jersey font-black text-3xl text-white tabular-nums">{graceLeft}</span>
                     </div>

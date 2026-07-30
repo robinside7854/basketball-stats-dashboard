@@ -732,7 +732,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   setDeleting(false); onDeleted?.(); onClose()
                 }} disabled={deleting}
                   className="flex-1 py-2 rounded-sm text-xs font-black uppercase tracking-[0.14em] text-white cursor-pointer transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] focus-visible:ring-offset-1"
-                  style={{ background: 'var(--mm-live)', border: '1px solid var(--mm-black)' }}
+                  style={{ background: 'var(--mm-live-bg)', border: '1px solid var(--mm-black)' }}
                 >
                   {deleting ? '삭제 중...' : '삭제 확인'}
                 </button>

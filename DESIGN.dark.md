@@ -24,6 +24,7 @@ colors:
   black: "#000000"
   # ── 경기 결과 ──
   live: "#EF4444"
+  live-bg: "#DC2626"
   positive: "#34D399"
   negative: "#F87171"
   neutral-strong: "#CBD5E1"
@@ -32,7 +33,7 @@ colors:
   hoop-orange-deep: "#F97316"
   # ── 마일스톤 근접도 3티어 ──
   milestone-near: "#047857"
-  milestone-mid: "#F59E0B"
+  milestone-mid: "#B45309"
   milestone-far: "#64748B"
   # ── 클러치샷 5단계 위기 강도 ──
   clutch-1-dagger: "#64748B"
@@ -139,9 +140,12 @@ components:
     textColor: "{colors.neutral-strong}"
     rounded: "{rounded.sm}"
   live-badge:
-    backgroundColor: "{colors.live}"
+    backgroundColor: "{colors.live-bg}"
     textColor: "{colors.white}"
     rounded: "{rounded.full}"
+  live-text:
+    backgroundColor: "{colors.panel}"
+    textColor: "{colors.live}"
   clutch-1-dagger:
     backgroundColor: "{colors.clutch-1-dagger}"
     textColor: "{colors.white}"
@@ -171,7 +175,7 @@ components:
     textColor: "{colors.yellow-strong}"
   jersey-num:
     backgroundColor: "{colors.yellow-soft}"
-    textColor: "{colors.hoop-orange-deep}"
+    textColor: "{colors.hoop-orange}"
     typography: "{typography.jersey-num}"
     rounded: "{rounded.sm}"
   announcement-mark:
