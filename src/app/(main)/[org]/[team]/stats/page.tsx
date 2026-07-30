@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
+import { Dumbbell, Target, BarChart3, Ruler } from 'lucide-react'
+import { Basketball } from '@/components/league/BasketballIcons'
 import { sortJerseyNum } from '@/lib/utils'
 import { useTeam } from '@/contexts/TeamContext'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -41,6 +43,17 @@ function DuoPhoto({ url, name, number, overlap = false }: {
       )}
     </div>
   )
+}
+
+// 부문별 리더 카드 아이콘 — 이모지 대신 lucide/자체 SVG (UI 아이콘에 이모지 사용 금지 규칙)
+// 🤝(어시스트)와 3️⃣(3점)는 매핑에 적합한 lucide 아이콘이 없어 콘텐츠성 심볼로 유지
+function LeaderIcon({ icon }: { icon: string }) {
+  const cls = 'h-5 w-5 mx-auto mb-1'
+  if (icon === 'ball') return <Basketball size={20} className={cls} />
+  if (icon === 'dumbbell') return <Dumbbell className={cls} aria-hidden />
+  if (icon === 'target') return <Target className={cls} aria-hidden />
+  if (icon === 'chart') return <BarChart3 className={cls} aria-hidden />
+  return <div className="text-2xl mb-1" aria-hidden>{icon}</div>
 }
 
 // 순위 뱃지 색 — 이모지 메달 대신 숫자 칩 (UI 아이콘에 이모지 사용 금지 규칙)
@@ -122,12 +135,12 @@ export default function StatsPage() {
   })
 
   const leaders = [
-    { label: '득점왕', key: 'pts_avg', unit: 'PPG', icon: '🏀' },
-    { label: '리바운드왕', key: 'reb_avg', unit: 'RPG', icon: '💪' },
+    { label: '득점왕', key: 'pts_avg', unit: 'PPG', icon: 'ball' },
+    { label: '리바운드왕', key: 'reb_avg', unit: 'RPG', icon: 'dumbbell' },
     { label: '어시스트왕', key: 'ast_avg', unit: 'APG', icon: '🤝' },
-    { label: 'FG%', key: 'fg_pct', unit: '%', icon: '🎯' },
+    { label: 'FG%', key: 'fg_pct', unit: '%', icon: 'target' },
     { label: '3P%', key: 'fg3_pct', unit: '%', icon: '3️⃣' },
-    { label: 'TS%', key: 'ts_pct', unit: '%', icon: '📊' },
+    { label: 'TS%', key: 'ts_pct', unit: '%', icon: 'chart' },
   ] as const
 
   const avgCols: { key: keyof SeasonPlayer; label: string }[] = [
@@ -191,7 +204,7 @@ export default function StatsPage() {
       <td className="px-2 py-2 text-left whitespace-nowrap">
         <button
           onClick={() => setPlayerModal(s.player_id)}
-          className="font-medium hover:text-blue-400 hover:underline underline-offset-2 transition-colors cursor-pointer"
+          className="font-medium hover:text-[var(--mm-yellow-strong)] hover:underline underline-offset-2 transition-colors cursor-pointer"
         >
           {s.player_name}
         </button>
@@ -201,44 +214,44 @@ export default function StatsPage() {
 
   function renderCell(s: SeasonPlayer, key: keyof SeasonPlayer) {
     const v = s[key]
-    if (key === 'player_number') return <td key={key} className="px-2 py-2 font-bold text-blue-400">{v as string}</td>
+    if (key === 'player_number') return <td key={key} className="px-2 py-2 font-bold text-[var(--mm-ink)]">{v as string}</td>
     if (key === 'player_name') return <NameCell key={key} s={s} />
-    if (key === 'games_played') return <td key={key} className="px-2 py-2 text-gray-400">{v as number}</td>
+    if (key === 'games_played') return <td key={key} className="px-2 py-2 text-[var(--mm-muted)]">{v as number}</td>
 
     const n = Number(v) || 0
     const gp = s.games_played || 1
 
     if (viewMode === 'per36') {
       if (['fg_pct', 'fg3_pct', 'ft_pct', 'ts_pct'].includes(key as string)) {
-        return <td key={key} className={`px-2 py-2 font-medium ${n >= 40 && key === 'fg_pct' ? 'text-green-400' : n >= 33 && key === 'fg3_pct' ? 'text-green-400' : n >= 70 && key === 'ft_pct' ? 'text-green-400' : n > 0 ? 'text-yellow-400' : 'text-gray-600'}`}>
+        return <td key={key} className={`px-2 py-2 font-medium ${n >= 40 && key === 'fg_pct' ? 'text-green-400' : n >= 33 && key === 'fg3_pct' ? 'text-green-400' : n >= 70 && key === 'ft_pct' ? 'text-green-400' : n > 0 ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-muted)]'}`}>
           {n > 0 ? n.toFixed(1) : '-'}
         </td>
       }
-      if (key === 'pts_avg') return <td key={key} className="px-2 py-2 font-bold text-white">{toPer36(n)}</td>
+      if (key === 'pts_avg') return <td key={key} className="px-2 py-2 font-bold text-[var(--mm-ink)]">{toPer36(n)}</td>
       if (key === 'reb_avg') return <td key={key} className="px-2 py-2">{toPer36(n)}</td>
-      if (key === 'ast_avg') return <td key={key} className="px-2 py-2 text-blue-400">{toPer36(n)}</td>
+      if (key === 'ast_avg') return <td key={key} className="px-2 py-2 text-[var(--mm-ink)]">{toPer36(n)}</td>
       if (key === 'stl') return <td key={key} className="px-2 py-2 text-green-400">{toPer36(n / gp)}</td>
       if (key === 'blk') return <td key={key} className="px-2 py-2 text-indigo-400">{toPer36(n / gp)}</td>
       return <td key={key} className="px-2 py-2">{n > 0 ? n.toFixed(1) : '-'}</td>
     }
 
     if (viewMode === 'avg') {
-      if (key === 'pts_avg') return <td key={key} className="px-2 py-2 font-bold text-white">{n.toFixed(1)}</td>
+      if (key === 'pts_avg') return <td key={key} className="px-2 py-2 font-bold text-[var(--mm-ink)]">{n.toFixed(1)}</td>
       if (key === 'reb_avg') return <td key={key} className="px-2 py-2">{n.toFixed(1)}</td>
-      if (key === 'ast_avg') return <td key={key} className="px-2 py-2 text-blue-400">{n.toFixed(1)}</td>
+      if (key === 'ast_avg') return <td key={key} className="px-2 py-2 text-[var(--mm-ink)]">{n.toFixed(1)}</td>
       if (key === 'usg_pct') return <td key={key} className="px-2 py-2 text-purple-400">{n > 0 ? n.toFixed(1) : '-'}</td>
       if (key === 'stl') return <td key={key} className="px-2 py-2 text-green-400">{n}</td>
       if (key === 'blk') return <td key={key} className="px-2 py-2 text-indigo-400">{n}</td>
-      if (key === 'fg_pct')  return <td key={key} className={`px-2 py-2 font-medium ${n >= 40 ? 'text-green-400' : n > 0 ? 'text-yellow-400' : 'text-gray-600'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
-      if (key === 'fg3_pct') return <td key={key} className={`px-2 py-2 font-medium ${n >= 33 ? 'text-green-400' : n > 0 ? 'text-yellow-400' : 'text-gray-600'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
-      if (key === 'ft_pct')  return <td key={key} className={`px-2 py-2 font-medium ${n >= 70 ? 'text-green-400' : n > 0 ? 'text-yellow-400' : 'text-gray-600'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
-      if (key === 'eff') return <td key={key} className={`px-2 py-2 font-bold ${n >= 10 ? 'text-blue-400' : n >= 0 ? 'text-gray-300' : 'text-red-400'}`}>{n.toFixed(1)}</td>
+      if (key === 'fg_pct')  return <td key={key} className={`px-2 py-2 font-medium ${n >= 40 ? 'text-green-400' : n > 0 ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-muted)]'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
+      if (key === 'fg3_pct') return <td key={key} className={`px-2 py-2 font-medium ${n >= 33 ? 'text-green-400' : n > 0 ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-muted)]'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
+      if (key === 'ft_pct')  return <td key={key} className={`px-2 py-2 font-medium ${n >= 70 ? 'text-green-400' : n > 0 ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-muted)]'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
+      if (key === 'eff') return <td key={key} className={`px-2 py-2 font-bold ${n >= 10 ? 'text-[var(--mm-yellow-strong)]' : n >= 0 ? 'text-[var(--mm-ink)]' : 'text-red-400'}`}>{n.toFixed(1)}</td>
       if (['efg_pct','ts_pct','ast_tov'].includes(key as string))
         return <td key={key} className="px-2 py-2">{n > 0 ? n.toFixed(1) : '-'}</td>
     } else {
-      if (key === 'pts') return <td key={key} className="px-2 py-2 font-bold text-white">{n}</td>
+      if (key === 'pts') return <td key={key} className="px-2 py-2 font-bold text-[var(--mm-ink)]">{n}</td>
       if (key === 'reb') return <td key={key} className="px-2 py-2">{n}</td>
-      if (key === 'ast') return <td key={key} className="px-2 py-2 text-blue-400">{n}</td>
+      if (key === 'ast') return <td key={key} className="px-2 py-2 text-[var(--mm-ink)]">{n}</td>
       if (key === 'stl') return <td key={key} className="px-2 py-2 text-green-400">{n}</td>
       if (key === 'blk') return <td key={key} className="px-2 py-2 text-indigo-400">{n}</td>
       if (key === 'tov') return <td key={key} className="px-2 py-2 text-red-400">{n}</td>
@@ -254,31 +267,31 @@ export default function StatsPage() {
         <h1 className="text-2xl font-bold shrink-0">시즌 통계</h1>
         <div className="flex items-center gap-3 flex-wrap">
           <Select value={selectedTId} onValueChange={v => setSelectedTId(v ?? '')}>
-            <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-full sm:w-52">
+            <SelectTrigger className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] w-full sm:w-52">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-gray-800 border-gray-700 text-white">
+            <SelectContent className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]">
               <SelectItem value="all">전체 경기</SelectItem>
               {tournaments.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.year})</SelectItem>)}
             </SelectContent>
           </Select>
 
-          <div className="flex rounded-lg overflow-hidden border border-gray-700">
+          <div className="flex rounded-lg overflow-hidden border border-[var(--mm-rule)]">
             <button
               onClick={() => switchMode('avg')}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors ${viewMode === 'avg' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+              className={`px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer ${viewMode === 'avg' ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)]' : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'}`}
             >
               경기당 평균
             </button>
             <button
               onClick={() => switchMode('per36')}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors border-l border-gray-700 ${viewMode === 'per36' ? 'bg-amber-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+              className={`px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer border-l border-[var(--mm-rule)] ${viewMode === 'per36' ? 'bg-amber-500 text-white' : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'}`}
             >
               36분 환산
             </button>
             <button
               onClick={() => switchMode('vol')}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors border-l border-gray-700 ${viewMode === 'vol' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+              className={`px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer border-l border-[var(--mm-rule)] ${viewMode === 'vol' ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)]' : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'}`}
             >
               누적 볼륨
             </button>
@@ -288,17 +301,17 @@ export default function StatsPage() {
 
       {viewMode === 'per36' && (
         <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3">
-          <span className="text-amber-400 text-lg shrink-0">📐</span>
+          <Ruler className="text-amber-400 h-5 w-5 shrink-0" aria-hidden />
           <div>
             <p className="text-sm text-amber-300 font-medium">NBA 스타일 36분 환산</p>
-            <p className="text-xs text-gray-400 mt-0.5">파란날개 기준 28분(7분×4쿼터)을 NBA 기준 36분으로 환산한 예상 수치입니다. FG%·3P%·FT%·TS%는 비율 지표로 환산하지 않습니다.</p>
+            <p className="text-xs text-[var(--mm-muted)] mt-0.5">파란날개 기준 28분(7분×4쿼터)을 NBA 기준 36분으로 환산한 예상 수치입니다. FG%·3P%·FT%·TS%는 비율 지표로 환산하지 않습니다.</p>
           </div>
         </div>
       )}
 
       {players.length > 0 && viewMode !== 'vol' && (
         <div>
-          <h2 className="text-lg font-semibold mb-3 text-gray-300">부문별 리더</h2>
+          <h2 className="text-lg font-semibold mb-3 text-[var(--mm-ink)]">부문별 리더</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {leaders.map(({ label, key, unit, icon }) => {
               const leader = [...players].sort((a, b) => (Number(b[key]) || 0) - (Number(a[key]) || 0))[0]
@@ -310,16 +323,16 @@ export default function StatsPage() {
                 ? unit.replace('PG', '/36')
                 : unit
               return (
-                <div key={key} className="bg-gray-900 border border-gray-700/70 rounded-xl p-4 text-center hover:border-blue-500/60 transition-colors cursor-pointer">
-                  <div className="text-2xl mb-1">{icon}</div>
-                  <div className="text-xs text-gray-400 mb-1">{label}</div>
+                <div key={key} className="bg-[var(--mm-panel)] border border-[var(--mm-rule)]/70 rounded-xl p-4 text-center hover:border-[color:var(--mm-yellow)]/60 transition-colors cursor-pointer">
+                  <LeaderIcon icon={icon} />
+                  <div className="text-xs text-[var(--mm-muted)] mb-1">{label}</div>
                   <button
                     onClick={() => setPlayerModal(leader.player_id)}
-                    className="font-bold text-blue-400 hover:text-blue-300 hover:underline underline-offset-2 transition-colors cursor-pointer block w-full"
+                    className="font-bold text-[var(--mm-ink)] hover:text-[var(--mm-yellow-strong)] hover:underline underline-offset-2 transition-colors cursor-pointer block w-full"
                   >
                     {leader.player_name}
                   </button>
-                  <div className="text-xl font-black font-mono text-white mt-1">{displayVal}<span className="text-xs font-sans font-normal text-gray-400 ml-1">{displayUnit}</span></div>
+                  <div className="text-xl font-black font-mono text-[var(--mm-ink)] mt-1">{displayVal}<span className="text-xs font-sans font-normal text-[var(--mm-muted)] ml-1">{displayUnit}</span></div>
                 </div>
               )
             })}
@@ -329,9 +342,9 @@ export default function StatsPage() {
 
       {players.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold mb-3 text-gray-300">
+          <h2 className="text-lg font-semibold mb-3 text-[var(--mm-ink)]">
             선수별 통계
-            <span className="ml-2 text-sm font-normal text-gray-500">
+            <span className="ml-2 text-sm font-normal text-[var(--mm-muted)]">
               {viewMode === 'avg' ? '경기당 평균' : viewMode === 'per36' ? '36분 환산' : '시즌 누적'}
             </span>
           </h2>
@@ -341,8 +354,8 @@ export default function StatsPage() {
               <div className="flex gap-1.5 whitespace-nowrap">
                 {cols.filter(c => c.key !== 'player_name' && c.key !== 'player_number').map(col => (
                   <button key={col.key as string} onClick={() => setSortKey(col.key)}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 ${
-                      sortKey === col.key ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
+                    className={`px-2.5 py-1 text-xs font-bold rounded-md transition-colors shrink-0 cursor-pointer ${
+                      sortKey === col.key ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)]' : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'
                     }`}>
                     {col.label}{sortKey === col.key ? ' ↓' : ''}
                   </button>
@@ -361,30 +374,30 @@ export default function StatsPage() {
                 const filteredSubKeys = subKeys.filter(k => k !== sortKey).slice(0, 4)
                 return (
                   <button key={s.player_id} onClick={() => setPlayerModal(s.player_id)}
-                    className="w-full text-left bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 hover:bg-gray-800/60 transition-colors active:bg-gray-800/80">
+                    className="w-full text-left bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl px-3 py-2.5 hover:bg-[var(--mm-panel-alt)] transition-colors active:bg-[var(--mm-panel-alt)]/80 cursor-pointer">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-sm font-black text-gray-500 font-mono w-5 shrink-0">{i + 1}</span>
+                      <span className="text-sm font-black text-[var(--mm-muted)] font-mono w-5 shrink-0">{i + 1}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-white text-sm truncate">
+                        <div className="font-bold text-[var(--mm-ink)] text-sm truncate">
                           {s.player_name}
-                          <span className="text-gray-600 font-mono ml-1 text-xs">#{s.player_number}</span>
+                          <span className="text-[var(--mm-muted)] font-mono ml-1 text-xs">#{s.player_number}</span>
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-xl font-black text-yellow-400 leading-none">
+                        <div className="text-xl font-black text-[var(--mm-yellow-strong)] leading-none">
                           {typeof sortVal === 'number' ? sortVal : String(sortVal ?? '-')}
                         </div>
-                        <div className="text-xs text-gray-500 font-bold mt-0.5">{sortLabel}</div>
+                        <div className="text-xs text-[var(--mm-muted)] font-bold mt-0.5">{sortLabel}</div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-gray-800/60">
+                    <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-[var(--mm-rule)]/60">
                       {filteredSubKeys.map(k => {
                         const lbl = cols.find(c => c.key === k)?.label ?? String(k)
                         const v = (s as unknown as Record<string, unknown>)[k as string]
                         return (
                           <div key={k as string} className="text-center">
-                            <div className="text-xs text-gray-500">{lbl}</div>
-                            <div className="text-xs font-bold text-gray-200">{typeof v === 'number' ? v : String(v ?? '-')}</div>
+                            <div className="text-xs text-[var(--mm-muted)]">{lbl}</div>
+                            <div className="text-xs font-bold text-[var(--mm-ink)]">{typeof v === 'number' ? v : String(v ?? '-')}</div>
                           </div>
                         )
                       })}
@@ -399,14 +412,14 @@ export default function StatsPage() {
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm text-center border-collapse">
               <thead>
-                <tr className="bg-gray-800 text-gray-400">
+                <tr className="bg-[var(--mm-panel-alt)] text-[var(--mm-muted)]">
                   {cols.map(col => (
                     <th
                       key={col.key as string}
                       onClick={() => setSortKey(col.key)}
-                      className={`px-2 py-2 border-b border-gray-700 font-medium cursor-pointer hover:text-white whitespace-nowrap transition-colors
+                      className={`px-2 py-2 border-b border-[var(--mm-rule)] font-medium cursor-pointer hover:text-[var(--mm-ink)] whitespace-nowrap transition-colors
                         ${col.key === 'player_name' ? 'text-left' : ''}
-                        ${sortKey === col.key ? 'text-blue-400' : ''}`}
+                        ${sortKey === col.key ? 'text-[var(--mm-yellow-strong)]' : ''}`}
                     >
                       {col.label}{sortKey === col.key ? ' ↓' : ''}
                     </th>
@@ -415,7 +428,7 @@ export default function StatsPage() {
               </thead>
               <tbody>
                 {sorted.map(s => (
-                  <tr key={s.player_id} className="border-b border-gray-800 hover:bg-gray-900">
+                  <tr key={s.player_id} className="border-b border-[var(--mm-rule)] hover:bg-[var(--mm-panel-alt)]">
                     {cols.map(col => renderCell(s, col.key))}
                   </tr>
                 ))}
@@ -423,15 +436,15 @@ export default function StatsPage() {
             </table>
           </div>
           <div className="flex flex-wrap gap-4 mt-3">
-            <p className="text-xs text-gray-500">* 컬럼 클릭 시 정렬 변경 / 이름 클릭 시 선수 상세</p>
-            {viewMode === 'avg' && <p className="text-xs text-gray-500">* USG%: 팀 전체 공격 점유 중 해당 선수 비율 / EFF: (PTS+REB+AST+STL+BLK)-(빗나간FG+빗나간FT+TOV) 경기당</p>}
-            {viewMode === 'per36' && <p className="text-xs text-gray-500">* 28분 기준 → 36분 환산 (× 1.286)</p>}
+            <p className="text-xs text-[var(--mm-muted)]">* 컬럼 클릭 시 정렬 변경 / 이름 클릭 시 선수 상세</p>
+            {viewMode === 'avg' && <p className="text-xs text-[var(--mm-muted)]">* USG%: 팀 전체 공격 점유 중 해당 선수 비율 / EFF: (PTS+REB+AST+STL+BLK)-(빗나간FG+빗나간FT+TOV) 경기당</p>}
+            {viewMode === 'per36' && <p className="text-xs text-[var(--mm-muted)]">* 28분 기준 → 36분 환산 (× 1.286)</p>}
           </div>
         </div>
       )}
 
       {players.length === 0 && (
-        <div className="text-center py-20 text-gray-500">
+        <div className="text-center py-20 text-[var(--mm-muted)]">
           <p>경기 기록 데이터가 없습니다</p>
           <p className="text-sm mt-2">경기 기록 탭에서 스탯을 입력하면 자동으로 집계됩니다</p>
         </div>
@@ -439,10 +452,10 @@ export default function StatsPage() {
 
       {/* 합작 듀오 TOP 5 — 어시스트 최다 연결 (두 선수 프로필 크게 겹쳐 표시) */}
       {assistData && assistData.topPairs.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 sm:p-5">
+        <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 sm:p-5">
           <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-300">합작 듀오 TOP 5</h2>
-            <span className="text-xs text-gray-600">어시스트 → 득점 최다 연결</span>
+            <h2 className="text-lg font-semibold text-[var(--mm-ink)]">합작 듀오 TOP 5</h2>
+            <span className="text-xs text-[var(--mm-muted)]">어시스트 → 득점 최다 연결</span>
           </div>
 
           {/* 모바일 2열 → 태블릿 3열 → 데스크톱 5열 (가로 스크롤 없음) */}
@@ -450,7 +463,7 @@ export default function StatsPage() {
             {assistData.topPairs.slice(0, 5).map((pair, i) => (
               <div
                 key={`${pair.assister.id}-${pair.scorer.id}`}
-                className="relative bg-gray-800/40 border border-gray-800 rounded-xl p-3 pt-4 flex flex-col items-center text-center"
+                className="relative bg-[var(--mm-panel-alt)]/40 border border-[var(--mm-rule)] rounded-xl p-3 pt-4 flex flex-col items-center text-center"
               >
                 {/* 순위 칩 */}
                 <div
@@ -469,19 +482,19 @@ export default function StatsPage() {
 
                 {/* 어시스트 → 득점 */}
                 <div className="w-full min-w-0">
-                  <div className="text-xs sm:text-sm font-bold text-white truncate">
-                    <span className="text-blue-400">#{pair.assister.number}</span> {pair.assister.name}
+                  <div className="text-xs sm:text-sm font-bold text-[var(--mm-ink)] truncate">
+                    <span className="text-[var(--mm-ink)]">#{pair.assister.number}</span> {pair.assister.name}
                   </div>
-                  <div className="text-gray-600 text-[11px] leading-tight my-0.5" aria-hidden>↓</div>
-                  <div className="text-xs sm:text-sm font-bold text-white truncate">
+                  <div className="text-[var(--mm-muted)] text-[11px] leading-tight my-0.5" aria-hidden>↓</div>
+                  <div className="text-xs sm:text-sm font-bold text-[var(--mm-ink)] truncate">
                     <span className="text-green-400">#{pair.scorer.number}</span> {pair.scorer.name}
                   </div>
                 </div>
 
                 {/* 합작 횟수 */}
-                <div className="mt-3 pt-2.5 border-t border-gray-700/50 w-full">
+                <div className="mt-3 pt-2.5 border-t border-[var(--mm-rule)]/50 w-full">
                   <span className="text-2xl font-black font-mono text-amber-400 tabular-nums">{pair.count}</span>
-                  <span className="text-xs text-gray-500 ml-1">회</span>
+                  <span className="text-xs text-[var(--mm-muted)] ml-1">회</span>
                 </div>
               </div>
             ))}
