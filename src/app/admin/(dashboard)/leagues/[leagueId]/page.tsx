@@ -13,9 +13,9 @@ const DOW_LABELS: Record<string, string> = {
   friday: '금요일', saturday: '토요일', sunday: '일요일',
 }
 const STATUS_OPTIONS = [
-  { value: 'upcoming', label: '예정', color: 'text-yellow-400' },
-  { value: 'active',   label: '진행 중', color: 'text-green-400' },
-  { value: 'completed', label: '완료', color: 'text-gray-400' },
+  { value: 'upcoming', label: '예정', color: 'text-[var(--mm-yellow-strong)]' },
+  { value: 'active',   label: '진행 중', color: 'text-[var(--mm-positive)]' },
+  { value: 'completed', label: '완료', color: 'text-[var(--mm-muted)]' },
 ]
 
 export default function LeagueAdminSettingsPage() {
@@ -78,24 +78,24 @@ export default function LeagueAdminSettingsPage() {
     setPinVisible(true)
   }
 
-  if (loading) return <div className="flex justify-center items-center h-40"><Loader2 size={24} className="animate-spin text-gray-500" /></div>
+  if (loading) return <div className="flex justify-center items-center h-40"><Loader2 size={24} className="animate-spin text-[var(--mm-muted)]" /></div>
   if (!league) return null
 
   return (
     <div className="space-y-6 max-w-lg">
       <div className="flex items-center gap-3">
-        <Link href="/admin/leagues" className="text-gray-400 hover:text-white transition-colors">
+        <Link href="/admin/leagues" className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer">
           <ArrowLeft size={20} />
         </Link>
         <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-white">{league.name}</h1>
-          <p className="text-gray-500 text-sm">{league.season_year}시즌 · {league.season_type === 'quarterly' ? '분기별' : '연간'}</p>
+          <h1 className="text-xl font-bold text-[var(--mm-ink)]">{league.name}</h1>
+          <p className="text-[var(--mm-muted)] text-sm">{league.season_year}시즌 · {league.season_type === 'quarterly' ? '분기별' : '연간'}</p>
         </div>
         <a
           href={`https://basketball-stats-dashboard.vercel.app/league/${league.org_slug}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-gray-400 hover:text-white px-2.5 py-1.5 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors shrink-0"
+          className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] px-2.5 py-1.5 rounded-lg border border-[var(--mm-rule)] hover:border-[var(--mm-muted)] transition-colors shrink-0 cursor-pointer"
         >
           <ExternalLink size={12} />
           대시보드
@@ -103,31 +103,31 @@ export default function LeagueAdminSettingsPage() {
       </div>
 
       {/* 리그 정보 (읽기 전용) */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
-        <h2 className="font-semibold text-white text-sm">리그 정보</h2>
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
+        <h2 className="font-semibold text-[var(--mm-ink)] text-sm">리그 정보</h2>
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <div><p className="text-xs text-gray-500">공개 슬러그</p><p className="text-white font-mono">/league/{league.org_slug}</p></div>
-          <div><p className="text-xs text-gray-500">정기 경기 요일</p><p className="text-white">{DOW_LABELS[league.match_day] ?? league.match_day}</p></div>
-          <div><p className="text-xs text-gray-500">첫 정기 일정</p><p className="text-white">{league.start_date}</p></div>
-          <div><p className="text-xs text-gray-500">시즌 구분</p><p className="text-white">{league.season_type === 'quarterly' ? '분기별 (3개월)' : '연간 (1년)'}</p></div>
+          <div><p className="text-xs text-[var(--mm-muted)]">공개 슬러그</p><p className="text-[var(--mm-ink)] font-mono">/league/{league.org_slug}</p></div>
+          <div><p className="text-xs text-[var(--mm-muted)]">정기 경기 요일</p><p className="text-[var(--mm-ink)]">{DOW_LABELS[league.match_day] ?? league.match_day}</p></div>
+          <div><p className="text-xs text-[var(--mm-muted)]">첫 정기 일정</p><p className="text-[var(--mm-ink)]">{league.start_date}</p></div>
+          <div><p className="text-xs text-[var(--mm-muted)]">시즌 구분</p><p className="text-[var(--mm-ink)]">{league.season_type === 'quarterly' ? '분기별 (3개월)' : '연간 (1년)'}</p></div>
         </div>
       </div>
 
       {/* 드래프트 관리 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
-        <h2 className="font-semibold text-white text-sm">드래프트</h2>
-        <p className="text-xs text-gray-500">단장·감독관 코드 발급, 팀장 지정, 풀 선별, 추첨·세션 진행을 관리합니다.</p>
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
+        <h2 className="font-semibold text-[var(--mm-ink)] text-sm">드래프트</h2>
+        <p className="text-xs text-[var(--mm-muted)]">단장·감독관 코드 발급, 팀장 지정, 풀 선별, 추첨·세션 진행을 관리합니다.</p>
         <Link
           href={`/admin/orgs/${league.org_slug}/leagues/${leagueId}/draft`}
-          className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium transition-colors"
+          className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-sm font-medium transition-colors cursor-pointer"
         >
           <KeyRound size={14} /> 드래프트 관리 열기
         </Link>
       </div>
 
       {/* 리그 상태 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
-        <h2 className="font-semibold text-white text-sm">리그 상태</h2>
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
+        <h2 className="font-semibold text-[var(--mm-ink)] text-sm">리그 상태</h2>
         <div className="flex gap-2">
           {STATUS_OPTIONS.map(opt => (
             <button
@@ -135,24 +135,24 @@ export default function LeagueAdminSettingsPage() {
               onClick={() => setStatus(opt.value)}
               className={`flex-1 py-2.5 rounded-xl border text-sm font-medium transition-colors cursor-pointer ${
                 status === opt.value
-                  ? 'border-blue-500 bg-blue-500/10 text-white'
-                  : 'border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-500'
+                  ? 'border-[var(--mm-yellow-strong)] bg-[var(--mm-yellow-soft)] text-[var(--mm-ink)]'
+                  : 'border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:border-[var(--mm-muted)]'
               }`}
             >
               <span className={status === opt.value ? opt.color : ''}>{opt.label}</span>
             </button>
           ))}
         </div>
-        <Button onClick={saveStatus} disabled={saving || status === league.status} className="w-full bg-blue-600 hover:bg-blue-500 cursor-pointer">
+        <Button onClick={saveStatus} disabled={saving || status === league.status} className="w-full bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer">
           {saving ? <Loader2 size={14} className="animate-spin mr-2" /> : null}
           상태 저장
         </Button>
       </div>
 
       {/* PIN 관리 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
-        <h2 className="font-semibold text-white text-sm">편집 PIN 관리</h2>
-        <p className="text-xs text-gray-500">리그 대시보드에서 편집 모드 진입 시 사용하는 4자리 PIN입니다</p>
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
+        <h2 className="font-semibold text-[var(--mm-ink)] text-sm">편집 PIN 관리</h2>
+        <p className="text-xs text-[var(--mm-muted)]">리그 대시보드에서 편집 모드 진입 시 사용하는 4자리 PIN입니다</p>
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Input
@@ -161,32 +161,32 @@ export default function LeagueAdminSettingsPage() {
               onChange={e => setPin(e.target.value.slice(0, 4))}
               maxLength={4}
               placeholder="4자리 PIN"
-              className="bg-gray-800 border-gray-700 text-white font-mono text-xl tracking-[0.5em]"
+              className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] font-mono text-xl tracking-[0.5em]"
             />
           </div>
           <button
             onClick={() => setPinVisible(v => !v)}
-            className="p-2.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer shrink-0"
+            className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer shrink-0"
           >
             {pinVisible ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
           <button
             onClick={reissuePin}
             title="랜덤 재발급"
-            className="p-2.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer shrink-0"
+            className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer shrink-0"
           >
             <RefreshCw size={14} />
           </button>
-          <Button onClick={savePin} disabled={saving} className="bg-blue-600 hover:bg-blue-500 cursor-pointer shrink-0">
+          <Button onClick={savePin} disabled={saving} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer shrink-0">
             저장
           </Button>
         </div>
       </div>
 
       {/* 일정 생성 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
-        <h2 className="font-semibold text-white text-sm">일정 관리</h2>
-        <p className="text-xs text-gray-500">리그 팀 구성 완료 후 일정을 자동 생성합니다. 기존 일정은 삭제됩니다.</p>
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
+        <h2 className="font-semibold text-[var(--mm-ink)] text-sm">일정 관리</h2>
+        <p className="text-xs text-[var(--mm-muted)]">리그 팀 구성 완료 후 일정을 자동 생성합니다. 기존 일정은 삭제됩니다.</p>
         <Button
           onClick={async () => {
             if (!confirm('기존 일정이 모두 삭제되고 새로 생성됩니다. 계속하시겠습니까?')) return
@@ -200,7 +200,7 @@ export default function LeagueAdminSettingsPage() {
             }
           }}
           variant="outline"
-          className="w-full border-gray-700 text-gray-300 hover:text-white cursor-pointer"
+          className="w-full border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer"
         >
           일정 자동 생성
         </Button>

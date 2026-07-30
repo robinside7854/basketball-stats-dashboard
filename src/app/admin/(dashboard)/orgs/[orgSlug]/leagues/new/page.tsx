@@ -53,29 +53,29 @@ export default function NewLeaguePage() {
   return (
     <div className="space-y-6 max-w-md">
       <div className="flex items-center gap-3">
-        <Link href={`/admin/orgs/${orgSlug}/leagues`} className="text-gray-400 hover:text-white transition-colors">
+        <Link href={`/admin/orgs/${orgSlug}/leagues`} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer">
           <ArrowLeft size={20} />
         </Link>
         <div>
-          <h1 className="text-xl font-bold text-white">새 리그 생성</h1>
-          <p className="text-gray-500 text-sm">생성 후 리그 대시보드에서 상세 설정을 진행합니다</p>
+          <h1 className="text-xl font-bold text-[var(--mm-ink)]">새 리그 생성</h1>
+          <p className="text-[var(--mm-muted)] text-sm">생성 후 리그 대시보드에서 상세 설정을 진행합니다</p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-6 space-y-5">
         <div className="space-y-1.5">
-          <label className="text-xs text-gray-400 font-medium">리그 이름 *</label>
+          <label className="text-xs text-[var(--mm-muted)] font-medium">리그 이름 *</label>
           <Input
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder="예) 미라클모닝 2026 봄리그"
-            className="bg-gray-800 border-gray-700 text-white"
+            className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]"
             autoFocus
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs text-gray-400 font-medium">편집 PIN *</label>
+          <label className="text-xs text-[var(--mm-muted)] font-medium">편집 PIN *</label>
           <div className="flex items-center gap-2">
             <Input
               type={pinVisible ? 'text' : 'password'}
@@ -83,28 +83,28 @@ export default function NewLeaguePage() {
               onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
               placeholder="4자리 숫자"
               maxLength={4}
-              className="bg-gray-800 border-gray-700 text-white font-mono text-xl tracking-[0.5em] flex-1"
+              className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] font-mono text-xl tracking-[0.5em] flex-1"
             />
             <button
               type="button"
               onClick={() => setPinVisible(v => !v)}
-              className="p-2.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer shrink-0"
+              className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer shrink-0"
             >
               {pinVisible ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
             <button
               type="button"
               onClick={randomPin}
-              className="p-2.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white transition-colors cursor-pointer shrink-0"
+              className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer shrink-0"
               title="랜덤 생성"
             >
               <RefreshCw size={14} />
             </button>
           </div>
-          <p className="text-xs text-gray-600">리그 대시보드의 편집 모드 진입 시 사용합니다. 잘 보관하세요.</p>
+          <p className="text-xs text-[var(--mm-muted)]">리그 대시보드의 편집 모드 진입 시 사용합니다. 잘 보관하세요.</p>
         </div>
 
-        <Button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-500 cursor-pointer">
+        <Button type="submit" disabled={loading} className="w-full bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer">
           {loading ? <Loader2 size={14} className="animate-spin mr-2" /> : null}
           리그 생성 및 대시보드 열기
         </Button>

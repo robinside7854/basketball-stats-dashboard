@@ -66,11 +66,11 @@ function PinCard({ team, orgSlug }: { team: Team; orgSlug: string }) {
   const accentColor = team.accent_color ?? '#3b82f6'
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-4">
+    <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: accentColor }} />
-          <span className="font-bold text-white">{team.name}</span>
+          <span className="font-bold text-[var(--mm-ink)]">{team.name}</span>
           <span
             className="text-xs px-2 py-0.5 rounded-full font-mono"
             style={{ color: accentColor, backgroundColor: `${accentColor}20`, border: `1px solid ${accentColor}40` }}
@@ -82,7 +82,7 @@ function PinCard({ team, orgSlug }: { team: Team; orgSlug: string }) {
           href={`https://basketball-stats-dashboard.vercel.app/${orgSlug}/${team.sub_slug}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-gray-500 hover:text-white transition-colors"
+          className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer"
         >
           <ExternalLink size={12} />
           사이트
@@ -97,12 +97,12 @@ function PinCard({ team, orgSlug }: { team: Team; orgSlug: string }) {
             onChange={e => setPin(e.target.value.slice(0, 4))}
             maxLength={4}
             placeholder="4자리 PIN"
-            className="bg-gray-800 border-gray-700 text-white font-mono text-xl tracking-[0.5em] pr-10"
+            className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] font-mono text-xl tracking-[0.5em] pr-10"
           />
         </div>
         <button
           onClick={() => setVisible(v => !v)}
-          className="p-2.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors cursor-pointer shrink-0"
+          className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-muted)] transition-colors cursor-pointer shrink-0"
         >
           {visible ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
@@ -110,15 +110,15 @@ function PinCard({ team, orgSlug }: { team: Team; orgSlug: string }) {
           onClick={reissue}
           disabled={loading}
           title="랜덤 PIN 재발급"
-          className="p-2.5 rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors cursor-pointer shrink-0"
+          className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-muted)] transition-colors cursor-pointer shrink-0"
         >
           {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
         </button>
-        <Button size="sm" onClick={savePin} disabled={loading} className="bg-blue-600 hover:bg-blue-500 shrink-0 cursor-pointer">
+        <Button size="sm" onClick={savePin} disabled={loading} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 shrink-0 cursor-pointer">
           저장
         </Button>
       </div>
-      <p className="text-xs text-gray-600">이 팀의 경기 기록 편집 모드 진입 시 사용하는 PIN입니다</p>
+      <p className="text-xs text-[var(--mm-muted)]">이 팀의 경기 기록 편집 모드 진입 시 사용하는 PIN입니다</p>
     </div>
   )
 }
@@ -151,33 +151,33 @@ export default function OrgDetailClient({ orgSlug, teams, statsPerTeam }: Props)
     <div className="space-y-6 max-w-2xl">
       {/* 헤더 */}
       <div className="flex items-center gap-3">
-        <Link href="/admin/orgs" className="text-gray-400 hover:text-white transition-colors">
+        <Link href="/admin/orgs" className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer">
           <ArrowLeft size={20} />
         </Link>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white">{orgName}</h1>
-          <span className="text-gray-500 text-sm">/{orgSlug}</span>
+          <h1 className="text-2xl font-bold text-[var(--mm-ink)]">{orgName}</h1>
+          <span className="text-[var(--mm-muted)] text-sm">/{orgSlug}</span>
         </div>
       </div>
 
       {/* 통계 */}
       <div className="grid grid-cols-3 gap-3">
         {[['선수', totalPlayers], ['대회', totalTournaments], ['팀', teams.length]].map(([label, val]) => (
-          <div key={label} className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
-            <p className="text-2xl font-black text-white">{val}</p>
-            <p className="text-xs text-gray-500 mt-1">{label}</p>
+          <div key={label} className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center">
+            <p className="text-2xl font-black text-[var(--mm-ink)]">{val}</p>
+            <p className="text-xs text-[var(--mm-muted)] mt-1">{label}</p>
           </div>
         ))}
       </div>
 
       {/* 기본 정보 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4">
-        <h2 className="font-semibold text-white">기본 정보</h2>
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-6 space-y-4">
+        <h2 className="font-semibold text-[var(--mm-ink)]">기본 정보</h2>
         <div>
-          <label className="text-xs text-gray-400 mb-1.5 block">클럽 이름</label>
+          <label className="text-xs text-[var(--mm-muted)] mb-1.5 block">클럽 이름</label>
           <div className="flex gap-2">
-            <Input value={orgName} onChange={e => setOrgName(e.target.value)} className="bg-gray-800 border-gray-700 text-white" />
-            <Button onClick={handleSaveName} disabled={saving} className="bg-blue-600 hover:bg-blue-500 cursor-pointer shrink-0">
+            <Input value={orgName} onChange={e => setOrgName(e.target.value)} className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]" />
+            <Button onClick={handleSaveName} disabled={saving} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer shrink-0">
               {saving ? <Loader2 size={14} className="animate-spin" /> : '저장'}
             </Button>
           </div>
@@ -186,8 +186,8 @@ export default function OrgDetailClient({ orgSlug, teams, statsPerTeam }: Props)
 
       {/* 팀별 PIN 관리 */}
       <div className="space-y-3">
-        <h2 className="font-semibold text-white px-1">편집 PIN 관리</h2>
-        <p className="text-xs text-gray-500 px-1">각 팀은 독립적인 PIN을 사용합니다. 숫자 4자리를 직접 입력하거나 🔄로 무작위 발급합니다.</p>
+        <h2 className="font-semibold text-[var(--mm-ink)] px-1">편집 PIN 관리</h2>
+        <p className="text-xs text-[var(--mm-muted)] px-1">각 팀은 독립적인 PIN을 사용합니다. 숫자 4자리를 직접 입력하거나 🔄로 무작위 발급합니다.</p>
         {teams.map(team => (
           <PinCard key={team.id} team={team} orgSlug={orgSlug} />
         ))}
@@ -196,13 +196,13 @@ export default function OrgDetailClient({ orgSlug, teams, statsPerTeam }: Props)
       {/* 리그 관리 */}
       <Link
         href={`/admin/orgs/${orgSlug}/leagues`}
-        className="block bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-gray-600 transition-colors"
+        className="block bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 hover:border-[var(--mm-muted)] transition-colors cursor-pointer"
       >
         <div className="flex items-center justify-between">
-          <span className="font-semibold text-white">리그 관리</span>
-          <span className="text-gray-500 text-sm">→</span>
+          <span className="font-semibold text-[var(--mm-ink)]">리그 관리</span>
+          <span className="text-[var(--mm-muted)] text-sm">→</span>
         </div>
-        <p className="text-xs text-gray-500 mt-1">자체 리그 시즌 생성 및 일정·순위 관리</p>
+        <p className="text-xs text-[var(--mm-muted)] mt-1">자체 리그 시즌 생성 및 일정·순위 관리</p>
       </Link>
     </div>
   )

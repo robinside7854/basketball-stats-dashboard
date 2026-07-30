@@ -90,20 +90,20 @@ export default function SubstitutionPanel({ players, minutes, onSubstitution }: 
   const inName = pendingSwap ? players.find(p => p.id === pendingSwap.inId)?.name : null
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 select-none">
+    <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-3 select-none">
       {/* 헤더: 제목 + 모드 토글 */}
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-gray-400 font-medium">선수 교체</p>
-        <div className="flex rounded-lg overflow-hidden border border-gray-700">
+        <p className="text-xs text-[var(--mm-muted)] font-medium">선수 교체</p>
+        <div className="flex rounded-lg overflow-hidden border border-[var(--mm-rule)]">
           <button
             onClick={() => { setTapMode(false); resetTap() }}
-            className={`px-2.5 py-1 text-xs font-medium transition-colors ${!tapMode ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            className={`px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer ${!tapMode ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)]' : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'}`}
           >
             드래그
           </button>
           <button
             onClick={() => { setTapMode(true); resetTap() }}
-            className={`px-2.5 py-1 text-xs font-medium transition-colors border-l border-gray-700 ${tapMode ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            className={`px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer border-l border-[var(--mm-rule)] ${tapMode ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)]' : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'}`}
           >
             탭 선택
           </button>
@@ -112,7 +112,7 @@ export default function SubstitutionPanel({ players, minutes, onSubstitution }: 
 
       {/* 탭 모드 안내 */}
       {tapMode && (
-        <div className="mb-2 text-xs text-gray-500 text-center">
+        <div className="mb-2 text-xs text-[var(--mm-muted)] text-center">
           {!tapOut && !tapIn && 'OUT 선수(코트) 또는 IN 선수(벤치)를 먼저 선택하세요'}
           {tapOut && !tapIn && <span className="text-red-400">OUT: {players.find(p => p.id === tapOut)?.name} → 이제 벤치에서 IN 선수 선택</span>}
           {!tapOut && tapIn && <span className="text-green-400">IN: {players.find(p => p.id === tapIn)?.name} → 이제 코트에서 OUT 선수 선택</span>}
@@ -140,7 +140,7 @@ export default function SubstitutionPanel({ players, minutes, onSubstitution }: 
                     ${tapMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}
                     ${tapMode && isTapSelected ? 'bg-red-600 border-red-400 scale-105 ring-1 ring-red-300' : ''}
                     ${!tapMode && draggingId === p.id ? 'opacity-40' : ''}
-                    ${!tapMode && dragOverId === p.id && draggingId !== p.id ? 'bg-blue-600 border-blue-400 scale-105' : ''}
+                    ${!tapMode && dragOverId === p.id && draggingId !== p.id ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] scale-105' : ''}
                     ${(!tapMode && draggingId !== p.id && dragOverId !== p.id) || (tapMode && !isTapSelected) ? 'bg-red-900/40 border-red-800 hover:bg-red-900/60' : ''}
                   `}
                 >
@@ -149,11 +149,11 @@ export default function SubstitutionPanel({ players, minutes, onSubstitution }: 
                 </div>
               )
             })}
-            {onCourtPlayers.length === 0 && <p className="text-xs text-gray-600 italic">없음</p>}
+            {onCourtPlayers.length === 0 && <p className="text-xs text-[var(--mm-muted)] italic">없음</p>}
           </div>
         </div>
 
-        <div className="flex items-center text-gray-600 text-lg">⇄</div>
+        <div className="flex items-center text-[var(--mm-muted)] text-lg">⇄</div>
 
         {/* 벤치 */}
         <div className="flex-1">
@@ -175,7 +175,7 @@ export default function SubstitutionPanel({ players, minutes, onSubstitution }: 
                     ${tapMode ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'}
                     ${tapMode && isTapSelected ? 'bg-green-600 border-green-400 scale-105 ring-1 ring-green-300' : ''}
                     ${!tapMode && draggingId === p.id ? 'opacity-40' : ''}
-                    ${!tapMode && dragOverId === p.id && draggingId !== p.id ? 'bg-blue-600 border-blue-400 scale-105' : ''}
+                    ${!tapMode && dragOverId === p.id && draggingId !== p.id ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] scale-105' : ''}
                     ${(!tapMode && draggingId !== p.id && dragOverId !== p.id) || (tapMode && !isTapSelected) ? 'bg-green-900/40 border-green-800 hover:bg-green-900/60' : ''}
                   `}
                 >
@@ -184,24 +184,24 @@ export default function SubstitutionPanel({ players, minutes, onSubstitution }: 
                 </div>
               )
             })}
-            {benchPlayers.length === 0 && <p className="text-xs text-gray-600 italic">없음</p>}
+            {benchPlayers.length === 0 && <p className="text-xs text-[var(--mm-muted)] italic">없음</p>}
           </div>
         </div>
       </div>
 
       {/* 교체 확인 모달 */}
       {pendingSwap && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setPendingSwap(null)}>
-          <div className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-xs w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-            <p className="text-white font-semibold text-center mb-4">교체하시겠습니까?</p>
+        <div className="fixed inset-0 bg-[var(--mm-ink)]/60 flex items-center justify-center z-50" onClick={() => setPendingSwap(null)}>
+          <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-6 max-w-xs w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <p className="text-[var(--mm-ink)] font-semibold text-center mb-4">교체하시겠습니까?</p>
             <div className="flex items-center justify-center gap-3 mb-5">
               <span className="bg-red-900/60 border border-red-700 px-3 py-1.5 rounded-lg text-sm text-red-300 font-medium">{outName} OUT</span>
-              <span className="text-gray-400">↔</span>
+              <span className="text-[var(--mm-muted)]">↔</span>
               <span className="bg-green-900/60 border border-green-700 px-3 py-1.5 rounded-lg text-sm text-green-300 font-medium">{inName} IN</span>
             </div>
             <div className="flex gap-3">
-              <button onClick={() => setPendingSwap(null)} className="flex-1 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium transition-colors">취소</button>
-              <button onClick={confirmSwap} className="flex-1 py-2 rounded-lg bg-blue-500 hover:bg-blue-400 text-white text-sm font-bold transition-colors">교체</button>
+              <button onClick={() => setPendingSwap(null)} className="flex-1 py-2 rounded-lg bg-[var(--mm-panel-alt)] hover:brightness-95 text-[var(--mm-ink)] text-sm font-medium transition-colors cursor-pointer">취소</button>
+              <button onClick={confirmSwap} className="flex-1 py-2 rounded-lg bg-[var(--mm-ink)] hover:brightness-110 text-[var(--mm-panel)] text-sm font-bold transition-colors cursor-pointer">교체</button>
             </div>
           </div>
         </div>

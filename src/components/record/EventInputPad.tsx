@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { Target, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
@@ -198,7 +199,7 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
   }
 
   if (!currentGame) {
-    return <div className="flex items-center justify-center h-40 text-gray-500 text-sm">경기를 선택하세요</div>
+    return <div className="flex items-center justify-center h-40 text-[var(--mm-muted)] text-sm">경기를 선택하세요</div>
   }
 
   return (
@@ -206,36 +207,36 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
 
       {/* ── 헤더: 쿼터 + 차트 모드 + 마지막 기록 + Undo ── */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="shrink-0 px-2.5 py-1 rounded-lg bg-blue-600/30 border border-blue-500/40 text-blue-300 text-xs font-bold">
+        <span className="shrink-0 px-2.5 py-1 rounded-lg bg-[var(--mm-yellow-soft)] border border-[color:var(--mm-yellow)]/40 text-[var(--mm-yellow-strong)] text-xs font-bold">
           Q{currentQuarter} 기록 중
         </span>
         <button
           onClick={() => setChartMode(v => !v)}
           title="ON 시 미들/3점 슛에 위치(존) 선택 단계 추가"
-          className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors hidden lg:inline-flex items-center gap-1 ${
+          className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors hidden lg:inline-flex items-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] ${
             chartMode
-              ? 'bg-amber-600/30 border-amber-500/50 text-amber-300'
-              : 'bg-gray-800 border-gray-700 text-gray-500 hover:text-white'
+              ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] text-[var(--mm-panel)]'
+              : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'
           }`}
         >
-          🎯 차트 {chartMode ? 'ON' : 'OFF'}
+          <Target className="h-3.5 w-3.5" aria-hidden="true" /> 차트 {chartMode ? 'ON' : 'OFF'}
         </button>
         {lastEventLabel && (
-          <span className="flex-1 min-w-0 text-xs text-gray-400 truncate">{lastEventLabel}</span>
+          <span className="flex-1 min-w-0 text-xs text-[var(--mm-muted)] truncate">{lastEventLabel}</span>
         )}
         <button
           onClick={undoLastEvent}
           disabled={!lastEventId}
           title="마지막 기록 취소"
-          className="shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:text-orange-400 hover:border-orange-600 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+          className="shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-orange-400 hover:border-orange-600 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer inline-flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)]"
         >
-          ↩ 취소
+          <Undo2 className="h-3.5 w-3.5" aria-hidden="true" /> 취소
         </button>
       </div>
 
       {/* ── 1. 선수 선택 ── */}
       <div>
-        <p className="text-xs text-gray-400 mb-1.5">1. 선수 선택</p>
+        <p className="text-xs text-[var(--mm-muted)] mb-1.5">1. 선수 선택</p>
         <div className="grid grid-cols-5 gap-1">
           {onCourtPlayers.map(p => (
             <button
@@ -248,12 +249,12 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
                 setShowZonePicker(false)
                 setAwaitingAssist(false)
               }}
-              className={`py-2 rounded-lg text-sm font-bold transition-colors ${
+              className={`py-2 rounded-lg text-sm font-bold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] ${
                 possessionPlayerId === p.id
                   ? 'bg-green-600 text-white ring-2 ring-green-300'
                   : selectedPlayer === p.id
-                    ? 'bg-blue-500 text-white ring-2 ring-blue-300'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)] ring-2 ring-[var(--mm-yellow)]'
+                    : 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] hover:bg-[var(--mm-panel)]'
               }`}
             >
               <div>{p.number}</div>
@@ -267,11 +268,11 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
 
       {/* ── 2. 이벤트 ── */}
       <div>
-        <p className="text-xs text-gray-400 mb-1.5">2. 이벤트</p>
+        <p className="text-xs text-[var(--mm-muted)] mb-1.5">2. 이벤트</p>
         <div className="space-y-2">
           {EVENT_GROUPS.map(group => (
             <div key={group.label}>
-              <p className="text-xs text-gray-600 mb-1">{group.label}</p>
+              <p className="text-xs text-[var(--mm-muted)] mb-1">{group.label}</p>
 
               <div className={`grid gap-1 ${
                 group.label === '슈팅'    ? 'grid-cols-5' :
@@ -334,14 +335,14 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
 
               {/* ── 위치(존) 피커 (슛팅 그룹 바로 아래) ── */}
               {group.label === '슈팅' && showZonePicker && pendingShot && (
-                <div className="mt-2 px-3 py-2.5 rounded-xl bg-gray-800/80 border border-amber-600/40">
+                <div className="mt-2 px-3 py-2.5 rounded-xl bg-[var(--mm-panel-alt)]/80 border border-amber-600/40">
                   <div className="flex items-baseline justify-between mb-2">
                     <p className="text-xs text-amber-400 font-medium">
-                      위치 선택 <span className="text-gray-500 font-normal">· {pendingShot.label}</span>
+                      위치 선택 <span className="text-[var(--mm-muted)] font-normal">· {pendingShot.label}</span>
                     </p>
                     <button
                       onClick={() => pickZone(null)}
-                      className="text-[11px] text-gray-500 hover:text-gray-300 underline-offset-2 hover:underline"
+                      className="text-[11px] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] underline-offset-2 hover:underline cursor-pointer"
                     >
                       건너뛰기
                     </button>
@@ -351,7 +352,7 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
                       <button
                         key={z}
                         onClick={() => pickZone(z)}
-                        className="py-2 rounded-lg text-[11px] font-bold bg-gray-700 text-white hover:bg-amber-600 active:bg-amber-500 transition-colors"
+                        className="py-2 rounded-lg text-[11px] font-bold bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] hover:bg-amber-600 hover:text-white active:bg-amber-500 transition-colors cursor-pointer"
                       >
                         {SHOT_ZONE_LABELS[z]}
                       </button>
@@ -362,14 +363,14 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
 
               {/* ── 어시스트 피커 (슛팅 그룹 바로 아래) ── */}
               {group.label === '슈팅' && awaitingAssist && (
-                <div className="mt-2 px-3 py-2.5 rounded-xl bg-gray-800/80 border border-green-700/40">
+                <div className="mt-2 px-3 py-2.5 rounded-xl bg-[var(--mm-panel-alt)]/80 border border-green-700/40">
                   <p className="text-xs text-green-400 font-medium mb-2">
-                    어시스트 <span className="text-gray-500 font-normal">· 없으면 스킵</span>
+                    어시스트 <span className="text-[var(--mm-muted)] font-normal">· 없으면 스킵</span>
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       onClick={() => handleAssist(null)}
-                      className="py-1.5 px-3 rounded-lg text-xs font-medium bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-white transition-colors"
+                      className="py-1.5 px-3 rounded-lg text-xs font-medium bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer"
                     >
                       없음
                     </button>
@@ -377,9 +378,9 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
                       <button
                         key={p.id}
                         onClick={() => handleAssist(p.id)}
-                        className="py-1.5 px-2.5 rounded-lg text-xs font-bold bg-gray-700 text-white hover:bg-blue-600 active:bg-blue-500 transition-colors"
+                        className="py-1.5 px-2.5 rounded-lg text-xs font-bold bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] hover:bg-[var(--mm-ink)] hover:text-[var(--mm-panel)] transition-colors cursor-pointer"
                       >
-                        <span className="text-blue-300">#{p.number}</span> {p.name}
+                        <span className="text-[var(--mm-yellow-strong)]">#{p.number}</span> {p.name}
                       </button>
                     ))}
                   </div>

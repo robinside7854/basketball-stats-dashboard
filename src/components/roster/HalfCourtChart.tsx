@@ -1,4 +1,5 @@
 'use client'
+import { Flame, Snowflake } from 'lucide-react'
 import type { ShotZone } from '@/types/database'
 import { SHOT_ZONE_LABELS } from '@/types/database'
 
@@ -111,17 +112,16 @@ export default function HalfCourtChart({ zones, totalAttempts = 0, untaggedAttem
                   <title>
                     {SHOT_ZONE_LABELS[z.id]}
                     {stat && stat.attempted > 0 ? `\n${stat.made}/${stat.attempted} (${stat.pct.toFixed(1)}%)` : '\n시도 없음'}
-                    {isHot ? ' · HOT 🔥' : isCold ? ' · COLD ❄️' : ''}
+                    {isHot ? ' · HOT' : isCold ? ' · COLD' : ''}
                   </title>
                 </rect>
-                {/* 핫/콜드 배지 (zone 좌상단 코너) */}
+                {/* 핫/콜드 배지 (zone 좌상단 코너) — 색 + 아이콘으로 의미 중복 전달 */}
                 {(isHot || isCold) && (
-                  <text
-                    x={z.x + 6} y={z.y + 16}
-                    style={{ fontSize: '14px', fontFamily: 'sans-serif' }}
-                  >
-                    {isHot ? '🔥' : '❄️'}
-                  </text>
+                  <foreignObject x={z.x + 4} y={z.y + 4} width={18} height={18}>
+                    {isHot
+                      ? <Flame className="h-[18px] w-[18px] text-white drop-shadow" aria-hidden="true" />
+                      : <Snowflake className="h-[18px] w-[18px] text-white drop-shadow" aria-hidden="true" />}
+                  </foreignObject>
                 )}
                 {/* 라벨: 시도 있을 때만 */}
                 {stat && stat.attempted > 0 && (
@@ -171,12 +171,12 @@ export default function HalfCourtChart({ zones, totalAttempts = 0, untaggedAttem
           <div className="flex items-center gap-3 flex-wrap text-[11px]">
             {hot.size > 0 && (
               <div className="flex items-center gap-1.5 text-green-400 font-semibold">
-                🔥 핫존: {[...hot].map(z => SHOT_ZONE_LABELS[z as ShotZone]).join(' · ')}
+                <Flame className="h-3.5 w-3.5" aria-hidden="true" /> 핫존: {[...hot].map(z => SHOT_ZONE_LABELS[z as ShotZone]).join(' · ')}
               </div>
             )}
             {cold.size > 0 && (
               <div className="flex items-center gap-1.5 text-blue-400 font-semibold">
-                ❄️ 콜드존: {[...cold].map(z => SHOT_ZONE_LABELS[z as ShotZone]).join(' · ')}
+                <Snowflake className="h-3.5 w-3.5" aria-hidden="true" /> 콜드존: {[...cold].map(z => SHOT_ZONE_LABELS[z as ShotZone]).join(' · ')}
               </div>
             )}
           </div>
@@ -184,28 +184,28 @@ export default function HalfCourtChart({ zones, totalAttempts = 0, untaggedAttem
         {/* 색상 범례 + 메타 */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--mm-muted)]">
               <span className="w-3 h-3 rounded" style={{ backgroundColor: '#7f1d1d' }} />&lt;30%
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--mm-muted)]">
               <span className="w-3 h-3 rounded" style={{ backgroundColor: '#9a3412' }} />30-45%
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--mm-muted)]">
               <span className="w-3 h-3 rounded" style={{ backgroundColor: '#854d0e' }} />45-55%
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--mm-muted)]">
               <span className="w-3 h-3 rounded" style={{ backgroundColor: '#166534' }} />≥55%
             </div>
-            <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+            <div className="flex items-center gap-1.5 text-[11px] text-[var(--mm-muted)]">
               <span className="w-3 h-3 rounded" style={{ backgroundColor: '#1f2937', border: '1px solid #374151' }} />시도 없음
             </div>
           </div>
-          <div className="text-[11px] text-gray-600">
+          <div className="text-[11px] text-[var(--mm-muted)]">
             {totalAttempts > 0 ? `${totalAttempts}회 위치 기록` : '기록된 위치 없음'}
-            {untaggedAttempts > 0 && <span className="ml-2 text-gray-700">· {untaggedAttempts}회 미지정</span>}
+            {untaggedAttempts > 0 && <span className="ml-2 text-[var(--mm-muted)]">· {untaggedAttempts}회 미지정</span>}
           </div>
         </div>
-        <p className="text-[10px] text-gray-700">핫/콜드는 최소 {minAttempts}회 시도 기준</p>
+        <p className="text-[10px] text-[var(--mm-muted)]">핫/콜드는 최소 {minAttempts}회 시도 기준</p>
       </div>
     </div>
   )

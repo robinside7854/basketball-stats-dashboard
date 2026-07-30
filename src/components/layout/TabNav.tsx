@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Home, ClipboardList, BarChart3, Users, Trophy, Film, Lock, Unlock, ArrowLeftRight } from 'lucide-react'
+import { Basketball } from '@/components/league/BasketballIcons'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { TEAM_LABELS, type TeamType } from '@/contexts/TeamContext'
 
@@ -56,15 +57,15 @@ export default function TabNav() {
   const allTabs = isEditMode ? [...tabs, tournamentsTab] : tabs
 
   return (
-    <nav className="bg-gray-950 border-b border-blue-600/40 sticky top-0 z-50 shadow-lg" style={{ boxShadow: '0 4px 24px rgba(59,130,246,0.12)' }}>
+    <nav className="bg-[var(--mm-ground)] border-b border-[var(--mm-rule)] sticky top-0 z-50 shadow-sm">
       <div className="container mx-auto px-4 max-w-[1600px]">
         <div className="flex items-center">
 
           {/* 로고 + 팀 배지 (항상 좌측 고정) */}
           <div className="flex items-center gap-1 shrink-0">
             <div className="flex items-center gap-2 mr-2 sm:mr-4 py-3">
-              <span className="text-xl">🏀</span>
-              <span className="text-white font-bold text-sm sm:text-base tracking-tight whitespace-nowrap hidden sm:inline">
+              <Basketball size={20} className="text-[var(--mm-yellow-strong)]" />
+              <span className="text-[var(--mm-ink)] font-bold text-sm sm:text-base tracking-tight whitespace-nowrap hidden sm:inline">
                 파란날개
               </span>
             </div>
@@ -85,7 +86,7 @@ export default function TabNav() {
               </Link>
             )}
 
-            <div className="w-px h-5 bg-gray-700 mx-1" />
+            <div className="w-px h-5 bg-[var(--mm-rule)] mx-1" />
           </div>
 
           {/* 가운데: 스크롤되는 탭 영역 + 우측 fade */}
@@ -102,8 +103,8 @@ export default function TabNav() {
                     className={cn(
                       'flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-3 text-xs sm:text-sm font-medium whitespace-nowrap border-b-2 transition-colors',
                       isActive
-                        ? 'border-blue-500 text-blue-400'
-                        : 'border-transparent text-gray-400 hover:text-white hover:border-gray-600'
+                        ? 'border-[var(--mm-yellow-strong)] text-[var(--mm-yellow-strong)]'
+                        : 'border-transparent text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-rule)]'
                     )}
                   >
                     <Icon size={14} />
@@ -113,7 +114,7 @@ export default function TabNav() {
               })}
             </div>
             {/* 우측 fade — 모바일 전용 (스크롤 가능 시각화) */}
-            <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-gray-950 to-transparent pointer-events-none sm:hidden" />
+            <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-[var(--mm-ground)] to-transparent pointer-events-none sm:hidden" />
           </div>
 
           {/* 우측: 편집 모드 버튼 (항상 고정) */}
@@ -121,7 +122,7 @@ export default function TabNav() {
             {isEditMode ? (
               <button
                 onClick={exitEditMode}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600/20 border border-blue-500/50 text-blue-400 hover:bg-red-900/30 hover:border-red-500/50 hover:text-red-400 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--mm-yellow)]/20 border border-[var(--mm-yellow)]/50 text-[var(--mm-yellow-strong)] hover:bg-red-900/30 hover:border-red-500/50 hover:text-red-400 transition-colors cursor-pointer"
               >
                 <Unlock size={13} />
                 <span className="hidden sm:inline">편집 모드</span>
@@ -129,7 +130,7 @@ export default function TabNav() {
             ) : (
               <button
                 onClick={openPinModal}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-muted)] transition-colors cursor-pointer"
               >
                 <Lock size={13} />
                 <span className="hidden sm:inline">편집 모드</span>

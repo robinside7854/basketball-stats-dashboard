@@ -31,30 +31,31 @@ function PlayerPicker({
 
   return (
     <div className="flex-1 min-w-0">
-      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{label}</p>
+      <p className="text-xs font-bold text-[var(--mm-muted)] uppercase tracking-wider mb-2">{label}</p>
 
       {selected ? (
-        <div className="rounded-xl border border-blue-500/50 bg-blue-950/30 p-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-300 font-bold text-sm shrink-0">
+        <div className="rounded-xl border border-[color:var(--mm-yellow)]/50 bg-[var(--mm-yellow-soft)] p-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-[var(--mm-yellow)]/20 flex items-center justify-center text-[var(--mm-yellow-strong)] font-bold text-sm shrink-0">
             {selected.number}
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-white truncate">{selected.name}</p>
-            <p className="text-xs text-gray-400">#{selected.number} · {selected.position ?? '포지션 없음'}</p>
+            <p className="font-bold text-[var(--mm-ink)] truncate">{selected.name}</p>
+            <p className="text-xs text-[var(--mm-muted)]">#{selected.number} · {selected.position ?? '포지션 없음'}</p>
           </div>
           <button
             onClick={() => onSelect(null as unknown as Player)}
-            className="ml-auto text-gray-500 hover:text-white shrink-0 cursor-pointer"
+            className="ml-auto text-[var(--mm-muted)] hover:text-[var(--mm-ink)] shrink-0 cursor-pointer"
+            aria-label="선택 해제"
           >
-            <X size={14} />
+            <X size={14} aria-hidden="true" />
           </button>
         </div>
       ) : (
-        <div className="rounded-xl border border-gray-700 bg-gray-900 overflow-hidden">
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-800">
-            <Search size={13} className="text-gray-500 shrink-0" />
+        <div className="rounded-xl border border-[var(--mm-rule)] bg-[var(--mm-panel)] overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--mm-rule)]">
+            <Search size={13} className="text-[var(--mm-muted)] shrink-0" aria-hidden="true" />
             <input
-              className="flex-1 bg-transparent text-sm text-white placeholder-gray-600 outline-none"
+              className="flex-1 bg-transparent text-sm text-[var(--mm-ink)] placeholder-[var(--mm-muted)] outline-none"
               placeholder="이름 또는 번호 검색"
               value={query}
               onChange={e => setQuery(e.target.value)}
@@ -62,18 +63,18 @@ function PlayerPicker({
           </div>
           <ul className="max-h-44 overflow-y-auto">
             {filtered.length === 0 ? (
-              <li className="px-4 py-3 text-xs text-gray-500">검색 결과 없음</li>
+              <li className="px-4 py-3 text-xs text-[var(--mm-muted)]">검색 결과 없음</li>
             ) : filtered.map(p => (
               <li key={p.id}>
                 <button
                   onClick={() => onSelect(p)}
-                  className="w-full text-left px-4 py-2.5 hover:bg-gray-800 flex items-center gap-3 transition-colors cursor-pointer"
+                  className="w-full text-left px-4 py-2.5 hover:bg-[var(--mm-panel-alt)] flex items-center gap-3 transition-colors cursor-pointer"
                 >
-                  <span className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-200 shrink-0">
+                  <span className="w-7 h-7 rounded-full bg-[var(--mm-panel-alt)] flex items-center justify-center text-xs font-bold text-[var(--mm-ink)] shrink-0">
                     {p.number}
                   </span>
-                  <span className="text-sm text-white">{p.name}</span>
-                  {p.position && <span className="ml-auto text-xs text-gray-500">{p.position}</span>}
+                  <span className="text-sm text-[var(--mm-ink)]">{p.name}</span>
+                  {p.position && <span className="ml-auto text-xs text-[var(--mm-muted)]">{p.position}</span>}
                 </button>
               </li>
             ))}
@@ -118,17 +119,17 @@ export default function PlayerMergeModal({ players, onClose, onMerged }: Props) 
       className="fixed inset-0 z-50 flex items-center justify-center sm:p-4"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto bg-gray-950 border-0 sm:border border-gray-800 rounded-none sm:rounded-2xl shadow-2xl">
+      <div className="absolute inset-0 bg-[var(--mm-ink)]/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-lg h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto bg-[var(--mm-panel)] border-0 sm:border border-[var(--mm-rule)] rounded-none sm:rounded-2xl shadow-2xl">
 
         {/* 헤더 */}
-        <div className="flex items-center justify-between px-5 pt-safe-or-4 pb-4 border-b border-gray-800">
+        <div className="flex items-center justify-between px-5 pt-safe-or-4 pb-4 border-b border-[var(--mm-rule)]">
           <div>
-            <h2 className="text-base font-bold text-white">선수 데이터 통합</h2>
-            <p className="text-xs text-gray-500 mt-0.5">중복 등록된 선수의 기록을 하나로 합칩니다</p>
+            <h2 className="text-base font-bold text-[var(--mm-ink)]">선수 데이터 통합</h2>
+            <p className="text-xs text-[var(--mm-muted)] mt-0.5">중복 등록된 선수의 기록을 하나로 합칩니다</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white rounded-lg hover:bg-gray-800 transition-colors cursor-pointer inline-flex items-center justify-center min-h-11 min-w-11">
-            <X size={18} />
+          <button onClick={onClose} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] rounded-lg hover:bg-[var(--mm-panel-alt)] transition-colors cursor-pointer inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)]" aria-label="닫기">
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
@@ -144,7 +145,7 @@ export default function PlayerMergeModal({ players, onClose, onMerged }: Props) 
             />
 
             <div className="flex flex-col items-center justify-center pt-7 shrink-0">
-              <ArrowRight size={20} className="text-gray-600" />
+              <ArrowRight size={20} className="text-[var(--mm-muted)]" aria-hidden="true" />
             </div>
 
             <PlayerPicker
@@ -158,7 +159,7 @@ export default function PlayerMergeModal({ players, onClose, onMerged }: Props) 
 
           {/* 경고 */}
           <div className="mt-4 flex items-start gap-2.5 bg-yellow-950/40 border border-yellow-700/40 rounded-xl px-4 py-3">
-            <AlertTriangle size={15} className="text-yellow-500 shrink-0 mt-0.5" />
+            <AlertTriangle size={15} className="text-yellow-500 shrink-0 mt-0.5" aria-hidden="true" />
             <p className="text-xs text-yellow-300/80 leading-relaxed">
               <strong>통합될 선수</strong>의 모든 경기 이벤트·출전 기록이 <strong>유지할 선수</strong>에게 이전됩니다.
               통합된 선수는 비활성화되며 목록에서 사라집니다.

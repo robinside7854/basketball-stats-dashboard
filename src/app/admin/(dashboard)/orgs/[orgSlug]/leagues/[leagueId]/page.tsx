@@ -23,7 +23,7 @@ function Tab({ active, onClick, children }: { active: boolean; onClick: () => vo
     <button
       onClick={onClick}
       className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-        active ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'
+        active ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)]' : 'text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)]'
       }`}
     >
       {children}
@@ -59,18 +59,18 @@ function TeamsTab({ leagueId, teams, onRefresh }: { leagueId: string; teams: Lea
 
   return (
     <div className="space-y-4">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
-        <h3 className="font-semibold text-white text-sm">팀 추가</h3>
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
+        <h3 className="font-semibold text-[var(--mm-ink)] text-sm">팀 추가</h3>
         <div className="flex gap-2">
           <Input
             value={newName}
             onChange={e => setNewName(e.target.value)}
             placeholder="팀 이름"
-            className="bg-gray-800 border-gray-700 text-white flex-1"
+            className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] flex-1"
             onKeyDown={e => e.key === 'Enter' && addTeam()}
           />
           <div className="flex items-center gap-1.5">
-            <label className="text-xs text-gray-400">색상</label>
+            <label className="text-xs text-[var(--mm-muted)]">색상</label>
             <input
               type="color"
               value={newColor}
@@ -78,28 +78,28 @@ function TeamsTab({ leagueId, teams, onRefresh }: { leagueId: string; teams: Lea
               className="w-9 h-9 rounded cursor-pointer border-0 bg-transparent"
             />
           </div>
-          <Button onClick={addTeam} disabled={loading} className="bg-blue-600 hover:bg-blue-500 cursor-pointer shrink-0">
+          <Button onClick={addTeam} disabled={loading} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer shrink-0">
             {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
           </Button>
         </div>
       </div>
 
       {teams.length === 0 ? (
-        <div className="text-center py-10 text-gray-500 text-sm">팀을 추가해주세요</div>
+        <div className="text-center py-10 text-[var(--mm-muted)] text-sm">팀을 추가해주세요</div>
       ) : (
         <div className="space-y-2">
           {teams.map(team => (
-            <div key={team.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center justify-between">
+            <div key={team.id} className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
                 <div>
-                  <p className="font-medium text-white">{team.name}</p>
-                  <p className="text-xs text-gray-500">{team.players.length}명 배정</p>
+                  <p className="font-medium text-[var(--mm-ink)]">{team.name}</p>
+                  <p className="text-xs text-[var(--mm-muted)]">{team.players.length}명 배정</p>
                 </div>
               </div>
               <button
                 onClick={() => deleteTeam(team.id, team.name)}
-                className="p-2 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
+                className="p-2 rounded-lg text-[var(--mm-muted)] hover:text-[var(--mm-negative)] hover:bg-[var(--mm-negative)]/10 transition-colors cursor-pointer"
               >
                 <Trash2 size={14} />
               </button>
@@ -165,32 +165,32 @@ function PlayersTab({
   }
 
   if (teams.length === 0) {
-    return <div className="text-center py-10 text-gray-500 text-sm">먼저 팀을 생성해주세요</div>
+    return <div className="text-center py-10 text-[var(--mm-muted)] text-sm">먼저 팀을 생성해주세요</div>
   }
 
   return (
     <div className="space-y-6">
       {/* 미배정 선수 */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
-        <h3 className="font-semibold text-white text-sm">미배정 선수 ({unassigned.length}명)</h3>
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
+        <h3 className="font-semibold text-[var(--mm-ink)] text-sm">미배정 선수 ({unassigned.length}명)</h3>
         {loadingPlayers ? (
-          <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-gray-500" /></div>
+          <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-[var(--mm-muted)]" /></div>
         ) : unassigned.length === 0 ? (
-          <p className="text-xs text-gray-500 py-4 text-center">모든 선수가 배정되었습니다</p>
+          <p className="text-xs text-[var(--mm-muted)] py-4 text-center">모든 선수가 배정되었습니다</p>
         ) : (
           <div className="space-y-1.5 max-h-64 overflow-y-auto">
             {unassigned.map(player => (
-              <div key={player.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-gray-800">
+              <div key={player.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-[var(--mm-panel-alt)]">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-gray-500 w-7 text-right">{player.number}</span>
-                  <span className="text-sm text-white">{player.name}</span>
-                  {player.position && <span className="text-xs text-gray-500">{player.position}</span>}
+                  <span className="text-xs font-mono text-[var(--mm-muted)] w-7 text-right">{player.number}</span>
+                  <span className="text-sm text-[var(--mm-ink)]">{player.name}</span>
+                  {player.position && <span className="text-xs text-[var(--mm-muted)]">{player.position}</span>}
                 </div>
                 <select
                   disabled={assigning === player.id}
                   onChange={e => { if (e.target.value) assignPlayer(player.id, e.target.value) }}
                   value=""
-                  className="text-xs bg-gray-700 border border-gray-600 text-gray-300 rounded px-2 py-1 cursor-pointer"
+                  className="text-xs bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded px-2 py-1 cursor-pointer"
                 >
                   <option value="" disabled>팀 배정</option>
                   {teams.map(t => (
@@ -206,24 +206,24 @@ function PlayersTab({
       {/* 팀별 배정 현황 */}
       <div className="space-y-3">
         {teams.map(team => (
-          <div key={team.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
+          <div key={team.id} className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: team.color }} />
-              <h3 className="font-semibold text-white text-sm">{team.name} ({team.players.length}명)</h3>
+              <h3 className="font-semibold text-[var(--mm-ink)] text-sm">{team.name} ({team.players.length}명)</h3>
             </div>
             {team.players.length === 0 ? (
-              <p className="text-xs text-gray-500">배정된 선수 없음</p>
+              <p className="text-xs text-[var(--mm-muted)]">배정된 선수 없음</p>
             ) : (
               <div className="space-y-1">
                 {team.players.map(p => (
-                  <div key={p.league_player_id} className="flex items-center justify-between py-1 px-2 rounded hover:bg-gray-800">
+                  <div key={p.league_player_id} className="flex items-center justify-between py-1 px-2 rounded hover:bg-[var(--mm-panel-alt)]">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-gray-500 w-7 text-right">{p.player_number}</span>
-                      <span className="text-sm text-white">{p.player_name}</span>
+                      <span className="text-xs font-mono text-[var(--mm-muted)] w-7 text-right">{p.player_number}</span>
+                      <span className="text-sm text-[var(--mm-ink)]">{p.player_name}</span>
                     </div>
                     <button
                       onClick={() => unassignPlayer(p.league_player_id, team.id)}
-                      className="text-xs text-gray-500 hover:text-red-400 transition-colors cursor-pointer px-2 py-0.5"
+                      className="text-xs text-[var(--mm-muted)] hover:text-[var(--mm-negative)] transition-colors cursor-pointer px-2 py-0.5"
                     >
                       해제
                     </button>
@@ -272,7 +272,7 @@ function ScheduleTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamW
         <Button
           onClick={generateSchedule}
           disabled={generating || teams.length < 2}
-          className="bg-blue-600 hover:bg-blue-500 cursor-pointer"
+          className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer"
         >
           {generating ? <Loader2 size={14} className="animate-spin mr-2" /> : <Calendar size={14} className="mr-2" />}
           일정 자동 생성
@@ -280,9 +280,9 @@ function ScheduleTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamW
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-gray-500" /></div>
+        <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-[var(--mm-muted)]" /></div>
       ) : games.length === 0 ? (
-        <div className="text-center py-10 text-gray-500 text-sm">일정이 없습니다. 자동 생성 버튼을 눌러주세요</div>
+        <div className="text-center py-10 text-[var(--mm-muted)] text-sm">일정이 없습니다. 자동 생성 버튼을 눌러주세요</div>
       ) : (
         <div className="space-y-4">
           {rounds.map(r => {
@@ -290,20 +290,20 @@ function ScheduleTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamW
             const date = roundGames[0]?.date ?? ''
             return (
               <div key={r}>
-                <p className="text-xs font-semibold text-gray-400 mb-2">R{r} · {date}</p>
+                <p className="text-xs font-semibold text-[var(--mm-muted)] mb-2">R{r} · {date}</p>
                 <div className="space-y-1.5">
                   {roundGames.map(g => {
                     const home = (g.home_team ?? (g.home_team_id ? teamMap[g.home_team_id] : null))
                     const away = (g.away_team ?? (g.away_team_id ? teamMap[g.away_team_id] : null))
                     return (
-                      <div key={g.id} className="bg-gray-900 border border-gray-800 rounded-lg px-4 py-2.5 flex items-center justify-between text-sm">
+                      <div key={g.id} className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-lg px-4 py-2.5 flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
                           {home && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: home.color }} />}
-                          <span className="text-white">{home?.name ?? g.home_team_id}</span>
+                          <span className="text-[var(--mm-ink)]">{home?.name ?? g.home_team_id}</span>
                         </div>
-                        <span className="text-gray-500 text-xs">VS</span>
+                        <span className="text-[var(--mm-muted)] text-xs">VS</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-white">{away?.name ?? g.away_team_id}</span>
+                          <span className="text-[var(--mm-ink)]">{away?.name ?? g.away_team_id}</span>
                           {away && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: away.color }} />}
                         </div>
                       </div>
@@ -372,15 +372,15 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
     const s = scores[game.id] ?? { home: '0', away: '0' }
     const isSaving = saving === game.id
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
-        <div className="flex items-center justify-between text-xs text-gray-500">
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 space-y-3">
+        <div className="flex items-center justify-between text-xs text-[var(--mm-muted)]">
           <span>R{game.round_num} · {game.date}</span>
-          {game.is_complete && <span className="text-green-400">완료</span>}
+          {game.is_complete && <span className="text-[var(--mm-positive)]">완료</span>}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 flex-1 justify-end">
             {home && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: home.color }} />}
-            <span className="text-sm text-white">{home?.name ?? '?'}</span>
+            <span className="text-sm text-[var(--mm-ink)]">{home?.name ?? '?'}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Input
@@ -388,19 +388,19 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
               min={0}
               value={s.home}
               onChange={e => setScores(prev => ({ ...prev, [game.id]: { ...prev[game.id], home: e.target.value } }))}
-              className="w-14 bg-gray-800 border-gray-700 text-white text-center font-mono"
+              className="w-14 bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] text-center font-mono"
             />
-            <span className="text-gray-500">-</span>
+            <span className="text-[var(--mm-muted)]">-</span>
             <Input
               type="number"
               min={0}
               value={s.away}
               onChange={e => setScores(prev => ({ ...prev, [game.id]: { ...prev[game.id], away: e.target.value } }))}
-              className="w-14 bg-gray-800 border-gray-700 text-white text-center font-mono"
+              className="w-14 bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] text-center font-mono"
             />
           </div>
           <div className="flex items-center gap-2 flex-1">
-            <span className="text-sm text-white">{away?.name ?? '?'}</span>
+            <span className="text-sm text-[var(--mm-ink)]">{away?.name ?? '?'}</span>
             {away && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: away.color }} />}
           </div>
         </div>
@@ -410,7 +410,7 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
             variant="outline"
             disabled={isSaving}
             onClick={() => saveResult(game.id, false)}
-            className="text-xs border-gray-700 text-gray-400 hover:text-white cursor-pointer"
+            className="text-xs border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] cursor-pointer"
           >
             저장
           </Button>
@@ -419,7 +419,7 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
               size="sm"
               disabled={isSaving}
               onClick={() => saveResult(game.id, true)}
-              className="text-xs bg-green-700 hover:bg-green-600 cursor-pointer"
+              className="text-xs bg-[var(--mm-positive)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer"
             >
               {isSaving ? <Loader2 size={12} className="animate-spin" /> : '완료 처리'}
             </Button>
@@ -429,20 +429,20 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
     )
   }
 
-  if (loading) return <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-gray-500" /></div>
-  if (games.length === 0) return <div className="text-center py-10 text-gray-500 text-sm">먼저 일정을 생성해주세요</div>
+  if (loading) return <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-[var(--mm-muted)]" /></div>
+  if (games.length === 0) return <div className="text-center py-10 text-[var(--mm-muted)] text-sm">먼저 일정을 생성해주세요</div>
 
   return (
     <div className="space-y-6">
       {incomplete.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-gray-400">미완료 경기 ({incomplete.length})</h3>
+          <h3 className="text-sm font-semibold text-[var(--mm-muted)]">미완료 경기 ({incomplete.length})</h3>
           {incomplete.map(g => <GameRow key={g.id} game={g} />)}
         </div>
       )}
       {complete.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-gray-400">완료된 경기 ({complete.length})</h3>
+          <h3 className="text-sm font-semibold text-[var(--mm-muted)]">완료된 경기 ({complete.length})</h3>
           {complete.map(g => <GameRow key={g.id} game={g} />)}
         </div>
       )}
@@ -480,7 +480,7 @@ export default function LeagueDetailPage() {
 
   if (loadingLeague) return (
     <div className="flex justify-center items-center h-40">
-      <Loader2 size={24} className="animate-spin text-gray-500" />
+      <Loader2 size={24} className="animate-spin text-[var(--mm-muted)]" />
     </div>
   )
 
@@ -490,17 +490,17 @@ export default function LeagueDetailPage() {
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <Link href={`/admin/orgs/${orgSlug}/leagues`} className="text-gray-400 hover:text-white transition-colors">
+          <Link href={`/admin/orgs/${orgSlug}/leagues`} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer">
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <h1 className="text-xl font-bold text-white">{league.name}</h1>
-            <p className="text-gray-500 text-sm">{league.season_year}시즌 · {league.season_type === 'quarterly' ? '분기별' : '연간'}</p>
+            <h1 className="text-xl font-bold text-[var(--mm-ink)]">{league.name}</h1>
+            <p className="text-[var(--mm-muted)] text-sm">{league.season_year}시즌 · {league.season_type === 'quarterly' ? '분기별' : '연간'}</p>
           </div>
         </div>
         <Link
           href={`/admin/orgs/${orgSlug}/leagues/${leagueId}/draft`}
-          className="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold flex items-center gap-1.5 transition-colors"
+          className="px-3 py-2 rounded-lg bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:opacity-90 text-sm font-bold flex items-center gap-1.5 transition-opacity cursor-pointer"
         >
           <KeyRound size={14} /> 드래프트 관리
         </Link>
