@@ -61,14 +61,14 @@ export default function OpponentYouTubePlayer({ youtubeUrl, startOffset, onPlaye
 
   if (!videoId) {
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-xl flex items-center justify-center aspect-video">
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl flex items-center justify-center aspect-video">
         {youtubeUrl ? (
           <div className="text-center px-6">
-            <p className="text-yellow-400 text-sm mb-2">영상 URL 형식을 인식하지 못했습니다</p>
-            <p className="text-gray-600 text-xs">지원 형식: youtu.be/… · watch?v=… · /live/… · /shorts/…</p>
+            <p className="text-[var(--mm-yellow-strong)] text-sm mb-2">영상 URL 형식을 인식하지 못했습니다</p>
+            <p className="text-[var(--mm-muted)] text-xs">지원 형식: youtu.be/… · watch?v=… · /live/… · /shorts/…</p>
           </div>
         ) : (
-          <p className="text-gray-500 text-sm">YouTube URL을 경기에 등록하면 여기서 재생됩니다</p>
+          <p className="text-[var(--mm-muted)] text-sm">YouTube URL을 경기에 등록하면 여기서 재생됩니다</p>
         )}
       </div>
     )
