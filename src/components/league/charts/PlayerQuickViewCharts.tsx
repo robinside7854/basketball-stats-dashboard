@@ -61,11 +61,13 @@ export function MonthlyStatsChart({ data }: { data: MonthPoint[] }) {
 // Game Trend Line Chart (per-game + 3-game rolling avg)
 // ---------------------------------------------------------------------------
 // mm brand: 노랑 accent 하나 + 뮤트 톤. 원색 남발 금지.
+// 색은 CSS 변수로 — 하드코딩 hex 는 다크 모드에서 반전되지 않아 리바/어시 선이 안 보였음.
+// mm brand: 노랑 accent 하나 + 뮤트 톤. 한 번에 한 지표만 그려지므로 색 중복은 무관.
 const TREND_STATS = [
-  { key: 'pts' as const, label: '득점', color: '#EAB308' }, // mm-yellow
-  { key: 'reb' as const, label: '리바', color: '#6B7280' }, // mm-muted
-  { key: 'ast' as const, label: '어시', color: '#3F3F46' }, // mm-ink-soft
-  { key: 'stl' as const, label: '스틸', color: '#A16207' }, // mm-yellow-strong
+  { key: 'pts' as const, label: '득점', color: 'var(--mm-yellow-strong)' },
+  { key: 'reb' as const, label: '리바', color: 'var(--mm-ink-soft)' },
+  { key: 'ast' as const, label: '어시', color: 'var(--mm-neutral-strong)' },
+  { key: 'stl' as const, label: '스틸', color: 'var(--mm-muted)' },
 ]
 type TrendStatKey = typeof TREND_STATS[number]['key']
 
@@ -78,19 +80,11 @@ export type GameLogPoint = {
 export function GameTrendChart({ log }: { log: GameLogPoint[] }) {
   const [trendStat, setTrendStat] = useState<TrendStatKey>('pts')
 
-  // 3경기 rolling avg 계산 (오래된 → 최신)
-  const chartData = log.map((g, i) => {
-    const from = Math.max(0, i - 2)
-    const slice = log.slice(from, i + 1)
-    const rollingSum = slice.reduce((s, r) => s + r[trendStat], 0)
-    const rolling = +(rollingSum / slice.length).toFixed(1)
-    return {
-      idx: i + 1,
-      date: g.date?.slice(5).replace('-', '/') ?? String(i + 1),
-      value: g[trendStat],
-      rolling,
-    }
-  })
+  const chartData = log.map((g, i) => ({
+    idx: i + 1,
+    date: g.date?.slice(5).replace('-', '/') ?? String(i + 1),
+    value: g[trendStat],
+  }))
   const seasonAvg = log.length > 0
     ? +(log.reduce((s, r) => s + r[trendStat], 0) / log.length).toFixed(1)
     : 0
@@ -101,7 +95,7 @@ export function GameTrendChart({ log }: { log: GameLogPoint[] }) {
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <p className="font-jersey text-xs uppercase tracking-[0.20em] font-black" style={{ color: 'var(--mm-yellow-strong)' }}>게임별 트렌드</p>
-          <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{log.length}경기 · 3경기 평균</span>
+          <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{log.length}경기</span>
         </div>
         <div className="flex gap-1">
           {TREND_STATS.map(s => (
@@ -132,14 +126,10 @@ export function GameTrendChart({ log }: { log: GameLogPoint[] }) {
               const p = payload?.[0]?.payload as { date?: string } | undefined
               return `#${v}${p?.date ? ` (${p.date})` : ''}`
             }}
-            formatter={(val, name) => {
-              const displayName = name === 'value' ? activeMeta.label : name === 'rolling' ? `3G 평균` : String(name ?? '')
-              return [val as (string | number), displayName]
-            }}
+            formatter={(val) => [val as (string | number), activeMeta.label]}
           />
           <ReferenceLine y={seasonAvg} stroke="var(--mm-muted)" strokeDasharray="3 3" label={{ value: `평균 ${seasonAvg}`, position: 'insideTopRight', fill: 'var(--mm-muted)', fontSize: 9 }} />
-          <Line type="monotone" dataKey="value" stroke={activeMeta.color} strokeWidth={1.5} strokeOpacity={0.5} dot={{ r: 2, fill: activeMeta.color }} activeDot={{ r: 4 }} />
-          <Line type="monotone" dataKey="rolling" stroke={activeMeta.color} strokeWidth={2.5} dot={false} />
+          <Line type="monotone" dataKey="value" stroke={activeMeta.color} strokeWidth={2.5} dot={{ r: 2, fill: activeMeta.color }} activeDot={{ r: 4 }} />
         </LineChart>
       </ResponsiveContainer>
     </div>
