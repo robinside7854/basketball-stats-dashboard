@@ -20,6 +20,7 @@
 // 실제 로직은 `@/lib/stats/streaks` 로 추출 — SSR 프리페치와 공유.
 import { NextResponse } from 'next/server'
 import { computeStreaks } from '@/lib/stats/streaks'
+import { canViewStats } from '@/lib/auth/guard'
 
 export type { StreakCategory, AttendanceStreakEntry } from '@/lib/stats/streaks'
 
@@ -28,6 +29,10 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
+  // 스탯 게이팅 — 승인 회원 또는 편집 PIN 전용 (2026-07-28)
+  if (!(await canViewStats(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const sp = new URL(req.url).searchParams
   const minStreak = Math.max(2, Number(sp.get('minStreak') ?? 2))
 

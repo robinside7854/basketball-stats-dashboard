@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { unstable_cache } from 'next/cache'
 import { createClient } from '@/lib/supabase/admin'
 import { loadRoundDetail } from '@/lib/highlights/loader'
+import { canViewStats } from '@/lib/auth/guard'
 
 const getCached = (leagueId: string, date: string) =>
   unstable_cache(
@@ -21,6 +22,10 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string; date: string }> }
 ) {
   const { leagueId, date } = await params
+  // 스탯 게이팅 — 승인 회원 또는 편집 PIN 전용 (2026-07-28)
+  if (!(await canViewStats(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return NextResponse.json({ error: 'invalid date' }, { status: 400 })
   }

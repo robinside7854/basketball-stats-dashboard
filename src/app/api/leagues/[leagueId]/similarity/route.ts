@@ -21,6 +21,7 @@
 
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { canViewStats } from '@/lib/auth/guard'
 
 type EventRow = {
   league_player_id: string | null
@@ -83,6 +84,10 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
+  // 스탯 게이팅 — 승인 회원 또는 편집 PIN 전용 (2026-07-28)
+  if (!(await canViewStats(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const sp = new URL(req.url).searchParams
   const playerId = sp.get('playerId')
   const topN = Math.min(Math.max(1, Number(sp.get('topN') ?? 3)), 10)

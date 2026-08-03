@@ -14,12 +14,17 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { computeClutchStats, CLUTCH_CONFIG } from '@/lib/stats/clutchStats'
+import { canViewStats } from '@/lib/auth/guard'
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
+  // 스탯 게이팅 — 승인 회원 또는 편집 PIN 전용 (2026-07-28)
+  if (!(await canViewStats(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const sp = new URL(req.url).searchParams
   const playerId = sp.get('playerId')
   const quarterId = sp.get('quarterId')

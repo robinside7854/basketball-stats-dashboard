@@ -21,6 +21,8 @@ import NbaLeaders from '@/components/league/nba/NbaLeaders'
 import NbaRoundsSummary, { type RoundSummary, type RoundTeamSummary } from '@/components/league/nba/NbaRoundsSummary'
 import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
 import HomeSectionTabs from '@/components/league/HomeSectionTabs'
+import StatGate from '@/components/league/auth/StatGate'
+import { getApprovedSession } from '@/lib/auth/guard'
 import type { League } from '@/types/league'
 
 // 최근 4주 라운드 요약 — NbaRoundsSummary 용.
@@ -358,6 +360,7 @@ export default async function LeagueDetailPage({
     milestonesData,
     homeHighlights,
     announcements,
+    approvedSession,
   ] = await Promise.all([
     getCachedLeagueMeta(leagueId, orgSlug)(),
     getCachedRecentRounds(leagueId, 4)(),
@@ -367,6 +370,8 @@ export default async function LeagueDetailPage({
     getCachedMilestones(leagueId)(),
     getCachedHomeHighlights(leagueId)(),
     getCachedAnnouncements(leagueId)(),
+    // 스탯 게이팅 — 쿠키 접근이라 unstable_cache 밖에서 호출 (2026-07-28)
+    getApprovedSession(leagueId),
   ])
 
   if (!league) notFound()
@@ -376,6 +381,8 @@ export default async function LeagueDetailPage({
   // 첫 사용자용 헤더 메타(추가 쿼리 없이 기존 데이터 재사용) · 하이라이트 유무(팬 기본 탭용)
   const memberCount = Object.keys(initialPhotoMap ?? {}).length
   const highlightsAvailable = (homeHighlights?.clips?.length ?? 0) > 0
+  // 스탯 게이팅 — 승인 회원만 리더보드·마일스톤·하이라이트 열람 (순위표·라운드·공지는 공개)
+  const isMember = !!approvedSession
 
   return (
     <div className="space-y-5 lg:space-y-4">
@@ -423,7 +430,11 @@ export default async function LeagueDetailPage({
       {/* 상단 병렬 — 공지사항 · 마일스톤 (PC 2열 · 모바일 세로 순차 : 공지 → 마일스톤 · 2026-07-19) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 items-start">
         <AnnouncementsHome leagueId={leagueId} initialAnnouncements={announcements} orgSlug={orgSlug} />
-        <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
+        {isMember ? (
+          <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
+        ) : (
+          <StatGate title="마일스톤은 회원 전용" description="선수들의 누적 기록 달성 소식은 가입 승인된 회원만 볼 수 있어요." />
+        )}
       </div>
 
       {/* 미라클모닝 브랜드 홈 — 팀 승률 · 최근 라운드 · 리그 리더 · 하이라이트를 탭으로 묶어
@@ -438,13 +449,23 @@ export default async function LeagueDetailPage({
         }
         rounds={<NbaRoundsSummary rounds={recentRounds} leagueId={leagueId} orgSlug={orgSlug} />}
         leaders={
-          <NbaLeaders
-            leagueId={leagueId}
-            initialPlayers={leaderStats.players}
-            initialPhotoMap={initialPhotoMap}
-          />
+          isMember ? (
+            <NbaLeaders
+              leagueId={leagueId}
+              initialPlayers={leaderStats.players}
+              initialPhotoMap={initialPhotoMap}
+            />
+          ) : (
+            <StatGate title="리그 리더는 회원 전용" description="득점·리바운드 등 시즌 리더보드는 가입 승인된 회원만 볼 수 있어요." />
+          )
         }
-        highlights={<HighlightsHome data={homeHighlights} orgSlug={orgSlug} leagueId={leagueId} />}
+        highlights={
+          isMember ? (
+            <HighlightsHome data={homeHighlights} orgSlug={orgSlug} leagueId={leagueId} />
+          ) : (
+            <StatGate title="하이라이트는 회원 전용" description="클러치샷·경기 클립 영상은 가입 승인된 회원만 볼 수 있어요." />
+          )
+        }
         highlightsAvailable={highlightsAvailable}
       />
 

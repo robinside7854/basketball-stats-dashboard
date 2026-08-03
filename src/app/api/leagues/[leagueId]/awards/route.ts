@@ -30,6 +30,7 @@ import { computeClutchStats } from '@/lib/stats/clutchStats'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
+import { canViewStats } from '@/lib/auth/guard'
 
 export type AwardCategory =
   | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY'
@@ -84,6 +85,10 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
+  // 스탯 게이팅 — 승인 회원 또는 편집 PIN 전용 (2026-07-28)
+  if (!(await canViewStats(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const sp = new URL(req.url).searchParams
   // 분기별 어워즈 지원 — quarterId 없으면 시즌 전체
   const quarterId = sp.get('quarterId')

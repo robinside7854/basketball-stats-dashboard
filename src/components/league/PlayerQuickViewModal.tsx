@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal, Film, ShieldCheck } from 'lucide-react'
+import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal, Film, ShieldCheck, Lock, LogIn } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
@@ -179,6 +179,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [stats, setStats] = useState<SeasonStats | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [gated, setGated] = useState(false)  // 401 — 상세 스탯은 승인 회원 전용 (2026-07-28)
   const [leaderBadges, setLeaderBadges] = useState<LeaderBadgeCounts | null>(null)
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [selectedQuarterId, setSelectedQuarterId] = useState<string | null>(null)
@@ -250,6 +251,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         const d = await statsRes.json()
         setStats(d.players?.[0] ?? null)
       }
+      if (detailRes.status === 401) setGated(true)
       if (detailRes.ok) setDetail(await detailRes.json())
       if (quartersRes.ok) {
         const qs: Quarter[] = await quartersRes.json()
@@ -751,6 +753,32 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
         {loading ? (
           <div className="flex justify-center py-16"><BasketballLoader size={28} /></div>
+        ) : gated ? (
+          /* 스탯 게이팅 — 프로필(이름·사진)은 공개, 상세 스탯은 승인 회원 전용 */
+          <div className="flex flex-col items-center text-center px-6 py-12">
+            <span
+              className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-3"
+              style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-rule)' }}
+              aria-hidden
+            >
+              <Lock size={20} style={{ color: 'var(--mm-ink)' }} />
+            </span>
+            <p className="font-jersey font-black uppercase text-lg" style={{ color: 'var(--mm-ink)' }}>
+              상세 스탯은 회원 전용
+            </p>
+            <p className="text-[13px] mt-1.5 leading-relaxed max-w-xs break-keep" style={{ color: 'var(--mm-muted)' }}>
+              선수별 시즌 기록·배지·차트는 가입 승인된 회원만 볼 수 있어요.
+            </p>
+            <button
+              type="button"
+              onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('mm-open-login')) }}
+              className="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md font-jersey font-black uppercase text-sm tracking-[0.12em] cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] min-h-[44px]"
+              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
+            >
+              <LogIn size={15} aria-hidden />
+              로그인 · 가입 요청
+            </button>
+          </div>
         ) : (
           <div className="space-y-0">
             {/* 시즌 스탯 */}

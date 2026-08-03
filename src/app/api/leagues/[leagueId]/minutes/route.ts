@@ -1,12 +1,17 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canViewStats } from '@/lib/auth/guard'
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
+  // 스탯 게이팅 — 승인 회원 또는 편집 PIN 전용 (2026-07-28)
+  if (!(await canViewStats(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const { searchParams } = new URL(req.url)
   const gameId = searchParams.get('gameId')
   if (!gameId) return NextResponse.json({ error: 'gameId required' }, { status: 400 })

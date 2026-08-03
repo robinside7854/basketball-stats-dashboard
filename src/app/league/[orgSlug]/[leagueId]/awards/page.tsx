@@ -7,6 +7,7 @@ import { Trophy, Crown, Flame, Shield, Zap, Target, Sparkles, Award, Hand, Cross
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
+import StatGate from '@/components/league/auth/StatGate'
 
 // gsap · PlayerQuickView · AwardDetail 은 카드 클릭 후 실행되는 인터랙션 — 초기 번들에서 분리
 // gsap 3.15 은 ~70KB, PlayerQuickView 는 1441줄 (recharts 4종 내부 lazy)
@@ -109,6 +110,7 @@ export default function AwardsPage() {
   const [awards, setAwards] = useState<AwardEntry[]>([])
   const [attendance, setAttendance] = useState<AttendanceInfo | null>(null)
   const [loading, setLoading] = useState(true)
+  const [gated, setGated] = useState(false)  // 401 — 회원 전용
   const [quickPlayer, setQuickPlayer] = useState<{ id: string; name: string } | null>(null)
   const [openAward, setOpenAward] = useState<AwardEntry | null>(null)
   // 분기 선택 — LeagueQuarterContext 로 페이지 간 공유
@@ -130,8 +132,12 @@ export default function AwardsPage() {
       ? `/api/leagues/${leagueId}/awards`
       : `/api/leagues/${leagueId}/awards?quarterId=${selectedQuarterId}`
     fetch(url)
-      .then(r => r.json())
+      .then(r => {
+        if (r.status === 401) { setGated(true); setLoading(false); return null }
+        return r.json()
+      })
       .then(d => {
+        if (!d) return
         setAwards(d.awards ?? [])
         setAttendance(d.attendance ?? null)
         setLoading(false)
@@ -207,6 +213,10 @@ export default function AwardsPage() {
     { href: `${base}/stats?tab=seasonHigh`, label: '시즌하이', active: false },
     { href: `${base}/awards`, label: '어워즈', active: true },
   ]
+
+  if (gated) {
+    return <StatGate fullPage title="어워즈는 회원 전용" description="분기별 어워즈·수상 기록은 가입 승인된 회원만 볼 수 있어요." />
+  }
 
   return (
     <div className="mm-brand space-y-5 lg:space-y-6" style={{ color: 'var(--mm-ink)' }}>

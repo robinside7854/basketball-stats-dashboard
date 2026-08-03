@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { unstable_cache } from 'next/cache'
 import { computeLeagueStats, type LeagueStatsUnit } from '@/lib/stats/leagueStats'
+import { canViewStats } from '@/lib/auth/guard'
 
 // GET /api/leagues/[leagueId]/stats
 // 쿼리 파라미터: quarterId, quarterIds(comma), teamId, playerId, from, to, unit
@@ -35,6 +36,10 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
+  // 스탯 게이팅 — 승인 회원 또는 편집 PIN 전용 (2026-07-28)
+  if (!(await canViewStats(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const sp = new URL(req.url).searchParams
   const quarterIdsRaw = sp.get('quarterIds')
   const quarterIds = quarterIdsRaw ? quarterIdsRaw.split(',').filter(Boolean) : null

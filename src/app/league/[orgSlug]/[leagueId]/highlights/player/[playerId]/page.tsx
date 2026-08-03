@@ -9,6 +9,8 @@ import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import EmptyState from '@/components/league/EmptyState'
 import PlayerHighlightsBrowser from '@/components/highlights/PlayerHighlightsBrowser'
 import { loadPlayerHighlights } from '@/lib/highlights/loader'
+import StatGate from '@/components/league/auth/StatGate'
+import { getApprovedSession } from '@/lib/auth/guard'
 
 const getCached = (leagueId: string, playerId: string) =>
   unstable_cache(
@@ -33,6 +35,11 @@ export default async function PlayerHighlightsPage({
   params: Promise<{ orgSlug: string; leagueId: string; playerId: string }>
 }) {
   const { orgSlug, leagueId, playerId } = await params
+
+  // 스탯 게이팅 — 승인 회원 전용 (2026-07-28)
+  if (!(await getApprovedSession(leagueId))) {
+    return <StatGate fullPage title="하이라이트는 회원 전용" description="선수별 하이라이트 영상은 가입 승인된 회원만 볼 수 있어요." />
+  }
   const base = `/league/${orgSlug}/${leagueId}`
 
   const data = await getCached(leagueId, playerId)()

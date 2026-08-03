@@ -25,6 +25,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
+import { canViewStats } from '@/lib/auth/guard'
 
 const FIELD_SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 
@@ -35,6 +36,10 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
+  // 스탯 게이팅 — 승인 회원 또는 편집 PIN 전용 (2026-07-28)
+  if (!(await canViewStats(_req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const supabase = createClient()
 
   // 1) 시작된 게임 (id, date)

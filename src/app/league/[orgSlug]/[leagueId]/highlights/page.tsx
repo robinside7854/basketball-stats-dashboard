@@ -10,6 +10,8 @@ import EmptyState from '@/components/league/EmptyState'
 import HighlightsPlayerPicker from '@/components/highlights/HighlightsPlayerPicker'
 import { loadRecentRounds } from '@/lib/highlights/loader'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
+import StatGate from '@/components/league/auth/StatGate'
+import { getApprovedSession } from '@/lib/auth/guard'
 
 // 라운드 카드 W-L 뱃지용 팀 레코드
 // · 홈 페이지 computeRecentRounds 와 동일한 승패 산정 방식 (완료된 경기만)
@@ -100,6 +102,11 @@ export default async function HighlightsLandingPage({
   params: Promise<{ orgSlug: string; leagueId: string }>
 }) {
   const { orgSlug, leagueId } = await params
+
+  // 스탯 게이팅 — 승인 회원 전용 (2026-07-28)
+  if (!(await getApprovedSession(leagueId))) {
+    return <StatGate fullPage title="하이라이트는 회원 전용" description="클러치샷·경기 클립 영상은 가입 승인된 회원만 볼 수 있어요." />
+  }
   const base = `/league/${orgSlug}/${leagueId}`
   // 시즌 전체 라운드 노출
   const { rounds, records } = await getCached(leagueId)()

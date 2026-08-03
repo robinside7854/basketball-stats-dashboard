@@ -10,6 +10,8 @@ import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import EmptyState from '@/components/league/EmptyState'
 import PlayerMilestoneChart, { type PlayerMilestoneData } from '@/components/league/highlights/PlayerMilestoneChart'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
+import StatGate from '@/components/league/auth/StatGate'
+import { getApprovedSession } from '@/lib/auth/guard'
 
 const getCachedPlayerStats = (leagueId: string) =>
   unstable_cache(
@@ -48,6 +50,11 @@ export default async function MilestonesPage({
   params: Promise<{ orgSlug: string; leagueId: string }>
 }) {
   const { orgSlug, leagueId } = await params
+
+  // 스탯 게이팅 — 승인 회원 전용 (2026-07-28)
+  if (!(await getApprovedSession(leagueId))) {
+    return <StatGate fullPage title="마일스톤은 회원 전용" description="선수들의 누적 기록 추적은 가입 승인된 회원만 볼 수 있어요." />
+  }
   const base = `/league/${orgSlug}/${leagueId}`
 
   const players = await getCachedPlayerStats(leagueId)()

@@ -8,6 +8,8 @@ import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import EmptyState from '@/components/league/EmptyState'
 import HighlightsBrowser from '@/components/highlights/HighlightsBrowser'
 import { loadRoundDetail } from '@/lib/highlights/loader'
+import StatGate from '@/components/league/auth/StatGate'
+import { getApprovedSession } from '@/lib/auth/guard'
 
 const getCached = (leagueId: string, date: string) =>
   unstable_cache(
@@ -25,6 +27,11 @@ export default async function HighlightsRoundPage({
   params: Promise<{ orgSlug: string; leagueId: string; date: string }>
 }) {
   const { orgSlug, leagueId, date } = await params
+
+  // 스탯 게이팅 — 승인 회원 전용 (2026-07-28)
+  if (!(await getApprovedSession(leagueId))) {
+    return <StatGate fullPage title="하이라이트는 회원 전용" description="클러치샷·경기 클립 영상은 가입 승인된 회원만 볼 수 있어요." />
+  }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) notFound()
 
   const base = `/league/${orgSlug}/${leagueId}`

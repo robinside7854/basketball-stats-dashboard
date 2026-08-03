@@ -18,6 +18,7 @@ import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import type { Quarter, PlayerStat } from '@/types/league'
+import StatGate from '@/components/league/auth/StatGate'
 
 type ViewMode = 'avg' | 'total'
 type StatUnit = 'round' | 'game' | 'per40'
@@ -125,6 +126,7 @@ function LeagueStatsPageInner() {
   const { selectedQuarterId, setSelectedQuarterId } = useLeagueQuarter()
   const [players, setPlayers] = useState<PlayerStat[]>([])
   const [loading, setLoading] = useState(true)
+  const [gated, setGated] = useState(false)  // 401 — 회원 전용
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
   // 초기 statMode — URL 의 ?tab=seasonHigh 이면 시즌하이로 진입, 아니면 basic.
@@ -181,8 +183,11 @@ function LeagueStatsPageInner() {
       : `/api/leagues/${leagueId}/stats?quarterId=${selectedQuarterId}&unit=${serverUnit}`
 
     fetch(url)
-      .then(r => r.json())
-      .then(d => { setPlayers(d.players ?? []); setLoading(false) })
+      .then(r => {
+        if (r.status === 401) { setGated(true); setLoading(false); return null }
+        return r.json()
+      })
+      .then(d => { if (d) { setPlayers(d.players ?? []); setLoading(false) } })
       .catch(() => setLoading(false))
   }, [leagueId, selectedQuarterId, statUnit])
 
@@ -499,6 +504,10 @@ function LeagueStatsPageInner() {
     { href: `${base}/stats?tab=playmap`, label: '플레이 맵', active: statMode === 'playmap' },
     { href: `${base}/awards`, label: '어워즈', active: false },
   ]
+
+  if (gated) {
+    return <StatGate fullPage title="스탯은 회원 전용" description="시즌 스탯·리더보드·시즌하이·플레이맵은 가입 승인된 회원만 볼 수 있어요." />
+  }
 
   return (
     <div className="mm-brand space-y-5">

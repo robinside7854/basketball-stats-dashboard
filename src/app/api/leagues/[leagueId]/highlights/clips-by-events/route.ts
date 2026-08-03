@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { loadClipsByEventIds } from '@/lib/highlights/loader'
+import { canViewStats } from '@/lib/auth/guard'
 
 const MAX_IDS = 50   // 남용 방지 (배지·핀 실제 사용은 3~10건)
 
@@ -12,6 +13,10 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
+  // 스탯 게이팅 — 승인 회원 또는 편집 PIN 전용 (2026-07-28)
+  if (!(await canViewStats(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   let body: { eventIds?: unknown; forceClutch?: unknown }
   try { body = await req.json() } catch { return NextResponse.json({ error: 'invalid json' }, { status: 400 }) }
 
