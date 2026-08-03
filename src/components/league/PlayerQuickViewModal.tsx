@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal, Film, ShieldCheck, Lock, LogIn } from 'lucide-react'
@@ -15,6 +15,8 @@ import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 import { CountUp, FormDots } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
+import PlayerMiniTabs, { type PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
+import DynamicDuoPanel, { type DuoEntry } from '@/components/league/player/DynamicDuoPanel'
 import { type EvaluatedBadge } from '@/lib/stats/badges'
 
 // Recharts (~90KB gz) 는 모달 열림 시점에만 로드 — 초기 번들 감량
@@ -51,8 +53,6 @@ type SeasonStats = {
   fg_pct: number; fg3_pct: number; ft_pct: number; efg_pct: number
 }
 
-type WLStats = { ppg: number; rpg: number; apg: number; spg: number; bpg: number } | null
-
 type RankTotal = { rank: number; total: number }
 type Detail = {
   rankings: {
@@ -62,7 +62,7 @@ type Detail = {
     gp?: RankTotal; fg_pct?: RankTotal; fg3_pct?: RankTotal; ft_pct?: RankTotal
   }
   active_streaks?: { ten: number; twenty: number; three: number; win: number }
-  attendance_streak?: { current: number; longest: number }
+  dynamic_duo?: DuoEntry[]
   badges: EvaluatedBadge[]
   badges_summary?: BadgeSummary
   pinned_event_ids?: string[]
@@ -72,7 +72,6 @@ type Detail = {
   game_log?: Array<{ date: string; pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; fg3m: number; fg3a: number }>
   win_loss?: {
     wins: number; losses: number; win_rate: number
-    win_stats: WLStats; loss_stats: WLStats
     pts_share: number
   }
   player_stats: {
@@ -85,37 +84,6 @@ type Detail = {
     month: string; label: string; gp: number
     ppg: number; rpg: number; apg: number; spg: number; bpg: number; fg_pct: number
   }>
-  vs_opponents?: Array<{
-    team_id: string; team_name: string; team_color: string
-    rp: number    // #5c: 라운드(일자) 단위 카운트
-    gp: number    // 하위호환 (rp 와 동일)
-    pts: number; reb: number; oreb: number; dreb: number
-    ast: number; stl: number; blk: number; tov: number
-    fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
-    ppg: number; rpg: number; apg: number; spg: number; bpg: number
-    fg_pct: number | null; fg3_pct: number | null; ft_pct: number | null
-    wins: number; losses: number
-  }>
-}
-
-function Cell({ label, value, highlight = false, mono = false }: {
-  label: string; value: string | number
-  highlight?: boolean; mono?: boolean
-}) {
-  return (
-    <div
-      className="rounded-sm px-1.5 py-1 text-center"
-      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-    >
-      <div className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--mm-muted)' }}>{label}</div>
-      <div
-        className={`text-sm tabular-nums leading-tight ${highlight ? 'font-jersey font-black' : 'font-bold'}`}
-        style={{ color: highlight ? 'var(--mm-ink)' : mono ? 'var(--mm-ink-soft)' : 'var(--mm-ink)' }}
-      >
-        {value}
-      </div>
-    </div>
-  )
 }
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
@@ -216,13 +184,26 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const isAIGenerated = Boolean(originalPhotoUrl && photoUrl && originalPhotoUrl !== photoUrl)
   const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
+  // 미니 탭 — 세로 스크롤 과다 해소 (2026-08-03). 탭 전환 시 본문 최상단으로 스크롤 복귀.
+  const [activeTab, setActiveTab] = useState<PlayerTabKey>('season')
   const routeParams = useParams<{ orgSlug?: string; org?: string }>()
   const orgSlug = routeParams?.orgSlug ?? routeParams?.org ?? ''
 
   // Hero 가 뷰포트 밖으로 나가면 sticky top 에 미니 header (이름+등번호) 표시
   const heroRef = useRef<HTMLDivElement>(null)
   const modalScrollRef = useRef<HTMLDivElement>(null)
+  const actionBarRef = useRef<HTMLDivElement>(null)
   const [heroOutOfView, setHeroOutOfView] = useState(false)
+  // 미니 탭이 sticky 액션바 밑에 정확히 붙도록 액션바 실제 높이를 측정 (safe-area 편차 대응)
+  const [actionBarH, setActionBarH] = useState(52)
+  useEffect(() => {
+    const el = actionBarRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setActionBarH(el.offsetHeight))
+    ro.observe(el)
+    setActionBarH(el.offsetHeight)
+    return () => ro.disconnect()
+  }, [])
   useEffect(() => {
     if (!heroRef.current || !modalScrollRef.current) return
     const io = new IntersectionObserver(
@@ -304,6 +285,35 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
   const activeDetail = selectedQuarterId ? (quarterDetail ?? detail) : detail
 
+  // 데이터가 있는 탭만 노출 — 빈 탭 클릭 후 아무것도 안 나오는 상황 방지
+  const availableTabs = useMemo(() => {
+    const s = new Set<PlayerTabKey>(['season'])
+    if (detail?.badges_summary || leaderBadges) s.add('badges')
+    if ((detail?.dynamic_duo?.length ?? 0) > 0) s.add('duo')
+    if ((activeDetail?.shot_breakdown?.total_fga ?? 0) > 0) s.add('shot')
+    if (detail?.career_high && Object.keys(detail.career_high).length > 0) s.add('career')
+    if ((activeDetail?.monthly_stats?.length ?? 0) >= 2
+      || (activeDetail?.game_log?.length ?? 0) >= 3
+      || (detail?.recent_games?.length ?? 0) > 0) s.add('trend')
+    return s
+  }, [detail, activeDetail, leaderBadges])
+
+  // 선택된 탭이 사라지면(분기 전환 등) 시즌 스탯으로 복귀
+  useEffect(() => {
+    if (!availableTabs.has(activeTab)) setActiveTab('season')
+  }, [availableTabs, activeTab])
+
+  const changeTab = (key: PlayerTabKey) => {
+    setActiveTab(key)
+    // 긴 탭 → 짧은 탭 전환 시 화면이 비어 보이지 않도록 탭 바가 상단에 오도록 스크롤 정렬.
+    // (0 으로 올리면 히어로가 다시 나와 탭이 화면 밖으로 밀림)
+    const scroller = modalScrollRef.current
+    const tabsEl = scroller?.querySelector('[role="tablist"]') as HTMLElement | null
+    if (!scroller || !tabsEl) return
+    const target = Math.max(0, tabsEl.offsetTop - actionBarH)
+    if (scroller.scrollTop > target) scroller.scrollTo({ top: target, behavior: 'smooth' })
+  }
+
   const positions = (player?.position ?? '').split(',').map(p => p.trim()).filter(Boolean)
 
   // 분기 탭 레이블
@@ -334,6 +344,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         {/* Sticky top action bar — 편집/닫기 + 스와이프 다운 드래그 핸들 */}
         {/* touch 이벤트를 이 영역에만 붙여 하위 스크롤과 충돌 회피 */}
         <div
+          ref={actionBarRef}
           className="sticky top-0 z-20 px-3 pt-safe-or-2 pb-2 flex items-center gap-2 touch-pan-y backdrop-blur-sm"
           style={{
             background: 'color-mix(in srgb, var(--mm-panel) 95%, transparent)',
@@ -781,11 +792,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
           </div>
         ) : (
           <div className="space-y-0">
-            {/* 시즌 스탯 */}
-            {activeDetail?.player_stats ? (
-              <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                {/* 분기 필터 탭 */}
-                <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-0.5">
+            {/* 분기 · 단위 필터 — 모든 탭에 공통 적용되므로 탭 바깥으로 분리 */}
+            <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
                   {quarters.length > 0 && (
                     <>
                       <button
@@ -831,7 +840,14 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     ))}
                   </div>
                 </div>
+            </div>
 
+            {/* 미니 탭 — 시즌 스탯 / 성과 뱃지 / 다이나믹 듀오 / 공격 스타일 / 커리어 하이 / 최근 트렌드 */}
+            <PlayerMiniTabs active={activeTab} onChange={changeTab} available={availableTabs} topOffset={actionBarH} />
+
+            {/* ── 시즌 스탯 ─────────────────────────────── */}
+            {activeTab === 'season' && (activeDetail?.player_stats ? (
+              <div className="px-5 py-4">
                 {quarterLoading ? (
                   <div className="flex justify-center py-8"><BasketballLoader size={22} /></div>
                 ) : (
@@ -1025,202 +1041,89 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         </div>
                       ))}
                     </div>
+
+                    {/* 팀 득점 기여 + 진행 중인 연속 기록 */}
+                    {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (
+                      <div
+                        className="rounded-sm px-3 py-2.5 mt-2 flex items-center justify-between gap-2"
+                        style={{ background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)' }}
+                      >
+                        <span className="text-xs uppercase tracking-[0.16em] font-bold" style={{ color: 'rgba(0,0,0,0.65)' }}>팀 득점 기여</span>
+                        <span className="font-jersey font-black text-xl leading-none tabular-nums" style={{ color: 'var(--mm-black)' }}>
+                          {activeDetail.win_loss.pts_share.toFixed(1)}%
+                        </span>
+                      </div>
+                    )}
+                    {(() => {
+                      const streaks = detail?.active_streaks
+                      const chips = streaks ? ([
+                        { count: streaks.ten,    label: '두자릿수 득점', Icon: Flame },
+                        { count: streaks.twenty, label: '20+ 득점',      Icon: Star },
+                        { count: streaks.three,  label: '3P 메이드',     Icon: Target },
+                        { count: streaks.win,    label: '출전 연승',     Icon: CheckCircle2 },
+                      ]).filter(c => c.count >= 2) : []
+                      if (chips.length === 0) return null
+                      return (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {chips.map(c => {
+                            const Icon = c.Icon
+                            return (
+                              <span
+                                key={c.label}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-sm text-xs font-bold"
+                                style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }}
+                              >
+                                <Icon size={12} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
+                                <span>{c.label}</span>
+                                <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{c.count}{statUnit === 'round' ? 'R' : 'G'}</span>
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
                   </>
                 )}
               </div>
             ) : (
               <div
                 className="px-5 py-6 text-center text-sm"
-                style={{ color: 'var(--mm-muted)', borderBottom: '1px solid var(--mm-rule)' }}
+                style={{ color: 'var(--mm-muted)' }}
               >아직 기록된 스탯이 없습니다</div>
+            ))}
+
+            {/* ── 성과 뱃지 (스탯 리더 + 자동 배지) ────────── */}
+            {activeTab === 'badges' && (
+              <>
+                {/* 자동 배지 — 퍼펙트/DD/TD/위닝샷 · 클릭 시 획득 게임 상세 */}
+                {detail?.badges_summary && (
+                  <PlayerBadgeStrip
+                    leagueId={leagueId}
+                    playerId={playerId}
+                    summary={detail.badges_summary}
+                  />
+                )}
+
+                {/* 게임 스탯 리더 — 부문별 1등 카운트 (POTM) · 클릭 시 등극 날짜 목록 */}
+                {leaderBadges && (
+                  <LeaderBadgePanel badges={leaderBadges} leagueId={leagueId} playerId={playerId} />
+                )}
+              </>
             )}
 
-            {/* 자동 배지 — 퍼펙트/DD/TD/위닝샷 · 클릭 시 획득 게임 상세 */}
-            {detail?.badges_summary && (
-              <PlayerBadgeStrip
-                leagueId={leagueId}
-                playerId={playerId}
-                summary={detail.badges_summary}
+            {/* ── 다이나믹 듀오 ─────────────────────────── */}
+            {activeTab === 'duo' && (
+              <DynamicDuoPanel
+                duos={detail?.dynamic_duo ?? []}
+                playerName={player?.name ?? playerName}
               />
             )}
 
-            {/* 게임 스탯 리더 — 부문별 1등 카운트 (POTM) · 클릭 시 등극 날짜 목록 */}
-            {leaderBadges && (
-              <LeaderBadgePanel badges={leaderBadges} leagueId={leagueId} playerId={playerId} />
-            )}
-
-            {/* 출전 임팩트 */}
-            {detail?.win_loss && (detail.win_loss.wins + detail.win_loss.losses) > 0 && (() => {
-              const wl = detail.win_loss
-              const WL_STATS: { key: keyof NonNullable<WLStats>; label: string }[] = [
-                { key: 'ppg', label: 'PPG' }, { key: 'rpg', label: 'RPG' },
-                { key: 'apg', label: 'APG' }, { key: 'spg', label: 'SPG' },
-                { key: 'bpg', label: 'BPG' },
-              ]
-              const streaks = detail?.active_streaks
-              type StreakChip = { count: number; label: string; Icon: typeof Flame; minShow: number }
-              const streakChips: StreakChip[] = streaks ? ([
-                { count: streaks.ten,    label: '두자릿수 득점', Icon: Flame,        minShow: 2 },
-                { count: streaks.twenty, label: '20+ 득점',      Icon: Star,         minShow: 2 },
-                { count: streaks.three,  label: '3P 메이드',     Icon: Target,       minShow: 2 },
-                { count: streaks.win,    label: '출전 연승',     Icon: CheckCircle2, minShow: 2 },
-              ] as StreakChip[]).filter(c => c.count >= c.minShow) : []
-              return (
-                <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                  <p className="text-xs uppercase tracking-[0.20em] font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>출전 임팩트</p>
-
-                  {/* W-L + 승률 + 팀 기여도 */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <div
-                      className="flex-1 rounded-sm p-3 text-center"
-                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                    >
-                      <p className="text-xs mb-1 uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--mm-muted)' }}>전적</p>
-                      <p className="font-jersey text-base font-black leading-none tabular-nums">
-                        <span style={{ color: '#059669' }}>{wl.wins}W</span>
-                        <span style={{ color: 'var(--mm-muted)' }} className="mx-1">·</span>
-                        <span style={{ color: 'var(--mm-live)' }}>{wl.losses}L</span>
-                      </p>
-                    </div>
-                    <div
-                      className="flex-1 rounded-sm p-3 text-center"
-                      style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                    >
-                      <p className="text-xs mb-1 uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--mm-muted)' }}>출전 승률</p>
-                      <p
-                        className="font-jersey text-xl font-black leading-none tabular-nums"
-                        style={{ color: wl.win_rate >= 60 ? '#059669' : wl.win_rate >= 40 ? 'var(--mm-yellow-strong)' : 'var(--mm-live)' }}
-                      >
-                        {wl.win_rate}%
-                      </p>
-                    </div>
-                    <div
-                      className="flex-1 rounded-sm p-3 text-center"
-                      style={{ background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)', color: 'var(--mm-black)' }}
-                    >
-                      <p className="text-xs mb-1 uppercase tracking-[0.16em] font-bold" style={{ color: 'rgba(0,0,0,0.6)' }}>팀 득점 기여</p>
-                      <p className="font-jersey text-xl font-black leading-none tabular-nums" style={{ color: 'var(--mm-black)' }}>{wl.pts_share}%</p>
-                    </div>
-                  </div>
-
-                  {/* 참여 인디케이터 — 현재 스트릭 + 역대 최장 개근 (최소 2R+ 노출) */}
-                  {detail?.attendance_streak && (detail.attendance_streak.current >= 2 || detail.attendance_streak.longest >= 2) && (() => {
-                    const att = detail.attendance_streak!
-                    return (
-                      <div
-                        className="flex items-center gap-3 rounded-sm px-3 py-2.5 mb-4"
-                        style={{
-                          background: 'var(--mm-black)',
-                          border: '1px solid var(--mm-black)',
-                          color: '#ffffff',
-                        }}
-                        aria-label={`현재 ${att.current}라운드 연속 참여 · 역대 최장 ${att.longest}라운드`}
-                      >
-                        <span
-                          className="flex items-center justify-center shrink-0"
-                          style={{ width: 32, height: 32, background: 'var(--mm-yellow)' }}
-                        >
-                          <Medal size={16} style={{ color: 'var(--mm-black)' }} aria-hidden />
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className="font-bold uppercase"
-                            style={{ color: 'var(--mm-yellow)', fontSize: '9px', letterSpacing: '0.20em' }}
-                          >
-                            참여 스트릭
-                          </p>
-                          <p
-                            className="font-jersey font-black uppercase break-keep mt-0.5"
-                            style={{
-                              color: '#ffffff',
-                              fontSize: 'clamp(13px, 3.6vw, 15px)',
-                              letterSpacing: '-0.005em',
-                              lineHeight: 1.2,
-                            }}
-                          >
-                            현재{' '}
-                            <span
-                              className="font-jersey font-black tabular-nums"
-                              style={{ color: 'var(--mm-yellow)', fontSize: 'clamp(17px, 4.6vw, 20px)' }}
-                            >
-                              {att.current}
-                            </span>
-                            {' '}라운드 연속 참여
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p
-                            className="font-bold uppercase"
-                            style={{ color: 'rgba(255,255,255,0.65)', fontSize: '9px', letterSpacing: '0.16em' }}
-                          >
-                            역대 최장
-                          </p>
-                          <p className="font-jersey font-black tabular-nums mt-0.5" style={{ color: '#ffffff', fontSize: '20px', letterSpacing: '-0.015em', lineHeight: 1 }}>
-                            {att.longest}
-                            <span className="ml-0.5 font-bold uppercase" style={{ color: 'rgba(255,255,255,0.75)', fontSize: '10px', letterSpacing: '0.14em' }}>
-                              R
-                            </span>
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  })()}
-
-                  {/* Active Streaks — 2회 이상만 표시 */}
-                  {streakChips.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      {streakChips.map(c => {
-                        const Icon = c.Icon
-                        return (
-                          <span
-                            key={c.label}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-sm text-xs font-bold"
-                            style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }}
-                          >
-                            <Icon size={12} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
-                            <span>{c.label}</span>
-                            <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{c.count}{statUnit === 'round' ? 'R' : 'G'}</span>
-                          </span>
-                        )
-                      })}
-                    </div>
-                  )}
-
-                  {/* 승/패 스탯 비교 */}
-                  {(wl.win_stats || wl.loss_stats) && (
-                    <div>
-                      <div className="grid grid-cols-7 gap-1 text-center mb-1">
-                        <div />
-                        {WL_STATS.map(({ label }) => (
-                          <div key={label} className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>{label}</div>
-                        ))}
-                      </div>
-                      {([
-                        { label: '이길 때', stats: wl.win_stats,  color: '#059669' },
-                        { label: '질 때',   stats: wl.loss_stats, color: 'var(--mm-live)' },
-                      ] as const).map(({ label, stats: wls, color }) => (
-                        <div
-                          key={label}
-                          className="grid grid-cols-7 gap-1 items-center rounded-sm px-2 py-2 mb-1.5"
-                          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                        >
-                          <p className="text-xs font-bold whitespace-nowrap" style={{ color }}>{label}</p>
-                          {WL_STATS.map(({ key }) => (
-                            <p key={key} className="font-jersey text-sm font-black text-center tabular-nums" style={{ color: 'var(--mm-ink)' }}>
-                              {wls ? wls[key] : '—'}
-                            </p>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-
-            {/* 공격 스타일 — 골밑 → 레이업 → 미들 → 3점 */}
-            {activeDetail?.shot_breakdown && activeDetail.shot_breakdown.total_fga > 0 && (
-              <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+            {/* ── 공격 스타일 ─────────────────────────── */}
+            {/* 시도 비중(얼마나 자주 쏘는가) 과 성공률(그중 얼마나 넣는가) 을 별도 컬럼으로 분리.
+                이전엔 두 수치가 한 줄에 섞여 있어 혼동을 유발했다 (2026-08-03 개편). */}
+            {activeTab === 'shot' && activeDetail?.shot_breakdown && activeDetail.shot_breakdown.total_fga > 0 && (
+              <div className="px-5 py-4">
                 <div className="flex items-center justify-between mb-3">
                   <p className="font-jersey text-xs uppercase tracking-[0.20em] font-black" style={{ color: 'var(--mm-yellow-strong)' }}>공격 스타일</p>
                   {/* 코트 / 도넛 토글 */}
@@ -1244,7 +1147,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 {(() => {
                   const sb = activeDetail.shot_breakdown
                   // mm-brand: 존별 색은 데이터 구분 목적이라 정보시각화 관례 유지 (spec 5 data emphasis)
-                  // 공격비중이 높은 순으로 정렬 (직관적 공격옵션 확인)
+                  // 시도 비중이 높은 순 = 이 선수가 실제로 자주 쓰는 공격 옵션 순서
                   const rawZones = [
                     { label: '골밑',   color: '#0A0A0A', data: sb.post  },
                     { label: '레이업', color: '#EAB308', data: sb.layup },
@@ -1253,10 +1156,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   ]
                     .filter(z => z.data.a > 0)
                     .sort((a, b) => b.data.dist - a.data.dist)
-
-                  const ftZone = sb.ft.a > 0
-                    ? [{ label: '자유투', color: '#D4D4D4', data: { m: sb.ft.m, a: sb.ft.a, dist: 0, fg_pct: sb.ft.ft_pct } }]
-                    : []
 
                   // 도넛 데이터 — 비중 0 제외, 야투 시도 4종만 (자유투는 별도)
                   const donutData = rawZones
@@ -1275,64 +1174,124 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
                   // 코트 차트용 zones 구조 (m/a/fg_pct)
                   const courtZones = {
-                    post:  { m: sb.post.m,                          a: sb.post.a,                          fg_pct: sb.post.fg_pct  },
-                    layup: { m: sb.layup.m,                         a: sb.layup.a,                         fg_pct: sb.layup.fg_pct },
-                    mid:   { m: sb.mid.m,                           a: sb.mid.a,                           fg_pct: sb.mid.fg_pct   },
-                    three: { m: sb.three.m,                         a: sb.three.a,                         fg_pct: sb.three.fg_pct },
+                    post:  { m: sb.post.m,  a: sb.post.a,  fg_pct: sb.post.fg_pct  },
+                    layup: { m: sb.layup.m, a: sb.layup.a, fg_pct: sb.layup.fg_pct },
+                    mid:   { m: sb.mid.m,   a: sb.mid.a,   fg_pct: sb.mid.fg_pct   },
+                    three: { m: sb.three.m, a: sb.three.a, fg_pct: sb.three.fg_pct },
                   }
+
+                  const primary = rawZones[0]
+                  // 성공률 1위는 "시도 3회 이상" 존 중에서만 (1/1 100% 같은 표본 노이즈 제외)
+                  const bestPct = [...rawZones].filter(z => z.data.a >= 3).sort((a, b) => b.data.fg_pct - a.data.fg_pct)[0]
+
+                  // 그리드 컬럼: 존 | 시도 비중 | 성공률
+                  const ROW_COLS = 'minmax(64px, 0.9fr) 1.5fr auto'
 
                   return (
                     <div className="space-y-3">
-                      <div className={`grid gap-3 items-center ${shotView === 'court' ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
-                        {/* 좌측: 코트 또는 도넛 (토글) */}
-                        {shotView === 'court' ? (
-                          <div className="flex justify-center">
-                            <HalfCourtShotChart zones={courtZones} size={420} />
+                      {/* 주 공격 옵션 요약 — "무엇을 자주 쓰는가" 와 "무엇이 잘 들어가는가" 를 분리해 제시 */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {primary && (
+                          <div className="px-3 py-2.5" style={{ background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)' }}>
+                            <p className="text-[11px] font-black uppercase" style={{ color: 'rgba(0,0,0,0.65)', letterSpacing: '0.16em' }}>주 공격 옵션</p>
+                            <p className="font-jersey font-black uppercase mt-0.5" style={{ color: 'var(--mm-black)', fontSize: '20px', letterSpacing: '-0.005em' }}>
+                              {primary.label}
+                            </p>
+                            <p className="text-xs font-bold mt-0.5" style={{ color: 'rgba(0,0,0,0.72)' }}>
+                              전체 야투 시도의 {primary.data.dist.toFixed(1)}%
+                            </p>
                           </div>
-                        ) : (
-                          <div className="relative" style={{ height: 180 }}>
-                            <PlayerShotDonut data={donutData} />
-                            {/* 중앙 라벨 */}
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <div className="text-center">
-                                <p className="font-jersey font-black text-3xl leading-none tabular-nums" style={{ color: 'var(--mm-ink)' }}>
-                                  <CountUp value={totalFGA} />
-                                </p>
-                                <p className="font-jersey text-xs uppercase tracking-[0.20em] font-black mt-1" style={{ color: 'var(--mm-muted)' }}>시도</p>
-                                <p className={`text-xs font-bold mt-0.5 ${pctColor(overallFGPct)}`}>{overallFGPct}%</p>
+                        )}
+                        {bestPct && (
+                          <div className="px-3 py-2.5" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
+                            <p className="text-[11px] font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}>가장 정확한 존</p>
+                            <p className="font-jersey font-black uppercase mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em' }}>
+                              {bestPct.label}
+                            </p>
+                            <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
+                              성공률 {bestPct.data.fg_pct.toFixed(1)}% ({bestPct.data.m}/{bestPct.data.a})
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 코트 또는 도넛 (토글) */}
+                      {shotView === 'court' ? (
+                        <div className="flex justify-center">
+                          <HalfCourtShotChart zones={courtZones} size={420} />
+                        </div>
+                      ) : (
+                        <div className="relative" style={{ height: 180 }}>
+                          <PlayerShotDonut data={donutData} />
+                          {/* 중앙 라벨 */}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="text-center">
+                              <p className="font-jersey font-black text-3xl leading-none tabular-nums" style={{ color: 'var(--mm-ink)' }}>
+                                <CountUp value={totalFGA} />
+                              </p>
+                              <p className="font-jersey text-xs uppercase tracking-[0.20em] font-black mt-1" style={{ color: 'var(--mm-muted)' }}>야투 시도</p>
+                              <p className={`text-xs font-bold mt-0.5 ${pctColor(overallFGPct)}`}>성공률 {overallFGPct.toFixed(1)}%</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 존별 표 — 시도 비중(얼마나 자주) vs 성공률(얼마나 정확) 컬럼 분리 */}
+                      <div>
+                        <div
+                          className="grid items-center gap-2 px-2.5 py-1.5"
+                          style={{ gridTemplateColumns: ROW_COLS, borderBottom: '1px solid var(--mm-rule)' }}
+                        >
+                          <span className="text-[11px] font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.12em' }}>존</span>
+                          <span className="text-[11px] font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.12em' }}>시도 비중</span>
+                          <span className="text-[11px] font-black uppercase text-right" style={{ color: 'var(--mm-muted)', letterSpacing: '0.12em' }}>성공률</span>
+                        </div>
+                        {rawZones.map(z => (
+                          <div
+                            key={z.label}
+                            className="grid items-center gap-2 px-2.5 py-2.5"
+                            style={{ gridTemplateColumns: ROW_COLS, borderBottom: '1px solid var(--mm-rule)' }}
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="w-1.5 h-5 shrink-0" style={{ backgroundColor: z.color }} aria-hidden />
+                              <span className="text-xs font-bold uppercase truncate" style={{ color: 'var(--mm-ink)', letterSpacing: '0.06em' }}>{z.label}</span>
+                            </div>
+                            {/* 시도 비중 — 막대는 전체 야투 시도 대비 점유율 */}
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="flex-1 h-2.5 overflow-hidden" style={{ background: 'var(--mm-rule)' }} aria-hidden>
+                                <div className="h-full transition-all duration-300" style={{ width: `${Math.min(z.data.dist, 100)}%`, backgroundColor: z.color }} />
                               </div>
+                              <span className="font-jersey font-black tabular-nums shrink-0" style={{ color: 'var(--mm-ink)', fontSize: '14px', minWidth: 44, textAlign: 'right' }}>
+                                {z.data.dist.toFixed(1)}%
+                              </span>
+                            </div>
+                            {/* 성공률 */}
+                            <div className="text-right">
+                              <p className={`font-jersey text-lg font-black leading-none tabular-nums ${pctColor(z.data.fg_pct)}`}>{z.data.fg_pct.toFixed(1)}%</p>
+                              <p className="text-xs font-mono mt-0.5" style={{ color: 'var(--mm-muted)' }}>{z.data.m}/{z.data.a}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {/* 자유투 — 야투 시도 비중 집계 대상이 아님을 명시 */}
+                        {sb.ft.a > 0 && (
+                          <div
+                            className="grid items-center gap-2 px-2.5 py-2.5"
+                            style={{ gridTemplateColumns: ROW_COLS, borderBottom: '1px solid var(--mm-rule)' }}
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="w-1.5 h-5 shrink-0" style={{ backgroundColor: '#D4D4D4' }} aria-hidden />
+                              <span className="text-xs font-bold uppercase truncate" style={{ color: 'var(--mm-ink)', letterSpacing: '0.06em' }}>자유투</span>
+                            </div>
+                            <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>야투 비중 제외</span>
+                            <div className="text-right">
+                              <p className={`font-jersey text-lg font-black leading-none tabular-nums ${pctColor(sb.ft.ft_pct)}`}>{sb.ft.ft_pct.toFixed(1)}%</p>
+                              <p className="text-xs font-mono mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sb.ft.m}/{sb.ft.a}</p>
                             </div>
                           </div>
                         )}
-                        {/* 존별 카드 리스트 (도넛 우측) */}
-                        <div className="space-y-1.5">
-                          {[...rawZones, ...ftZone].map(z => {
-                            const pct = z.data.fg_pct
-                            const colorClass = pctColor(pct)
-                            return (
-                              <div
-                                key={z.label}
-                                className="rounded-sm px-2.5 py-2 flex items-center gap-2"
-                                style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                              >
-                                <div className="w-1.5 h-8 shrink-0" style={{ backgroundColor: z.color }} />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-bold uppercase tracking-[0.14em] truncate leading-tight" style={{ color: 'var(--mm-ink-soft)' }}>{z.label}</p>
-                                  <p className="text-xs leading-tight font-mono" style={{ color: 'var(--mm-muted)' }}>{z.data.m}/{z.data.a}{z.data.dist > 0 ? ` · ${(+z.data.dist).toFixed(1)}%` : ''}</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className={`font-jersey text-lg font-black leading-none tabular-nums ${colorClass}`}>{pct}%</p>
-                                  <div
-                                    className="w-10 h-1 overflow-hidden mt-1 ml-auto"
-                                    style={{ background: 'var(--mm-rule)' }}
-                                  >
-                                    <div className="h-full transition-all duration-200" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: z.color }} />
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
+                        <p className="text-xs mt-2 break-keep" style={{ color: 'var(--mm-muted)' }}>
+                          시도 비중 = 전체 야투 {totalFGA}회 중 해당 존이 차지하는 비율 · 성공률 = 그 존에서 넣은 비율
+                        </p>
                       </div>
                     </div>
                   )
@@ -1340,8 +1299,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               </div>
             )}
 
+            {/* ── 커리어 하이 ───────────────────────────── */}
             {/* Career High Day — 하루(같은 날의 여러 경기 합산) 기준 최고점 */}
-            {detail?.career_high && Object.keys(detail.career_high).length > 0 && (() => {
+            {activeTab === 'career' && detail?.career_high && Object.keys(detail.career_high).length > 0 && (() => {
               const CH_LABEL: Record<string, string> = {
                 pts: 'PTS', reb: 'REB', ast: 'AST', stl: 'STL', blk: 'BLK',
                 fgPct: 'FG%', fg3m: '3PM',
@@ -1352,7 +1312,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 .map(k => [k, detail.career_high[k]] as const)
               if (entries.length === 0) return null
               return (
-                <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+                <div className="px-5 py-4">
                   <p className="text-xs uppercase tracking-[0.20em] font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>
                     Career High <span style={{ color: 'var(--mm-ink)' }}>Day</span>
                     <span className="ml-2 text-xs font-normal normal-case tracking-normal" style={{ color: 'var(--mm-muted)' }}>날짜 클릭 → 박스스코어</span>
@@ -1402,76 +1362,19 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 </div>
               )
             })()}
-            {/* 상대팀별 스탯 (vs Opponents) */}
-            {detail?.vs_opponents && detail.vs_opponents.length > 0 && (
-              <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                <p className="text-xs uppercase tracking-[0.20em] font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>
-                  상대팀별 스탯
-                  <span className="text-xs ml-2 font-normal tracking-normal normal-case" style={{ color: 'var(--mm-muted)' }}>친선전 제외 · R은 참여 라운드(일자) 수</span>
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {detail.vs_opponents.map(o => (
-                    <div
-                      key={o.team_id}
-                      className="rounded-sm px-4 py-3"
-                      style={{
-                        background: 'var(--mm-panel-alt)',
-                        border: '1px solid var(--mm-rule)',
-                        borderLeft: `3px solid ${o.team_color}`,
-                      }}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: o.team_color }} />
-                          <span className="font-jersey font-black uppercase text-sm whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>vs {o.team_name}</span>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs tabular-nums font-mono" style={{ color: 'var(--mm-muted)' }}>{o.rp ?? o.gp} R</span>
-                          <span className="text-xs tabular-nums font-bold">
-                            <span style={{ color: '#059669' }}>{o.wins}W</span>
-                            <span style={{ color: 'var(--mm-muted)' }}>·</span>
-                            <span style={{ color: 'var(--mm-live)' }}>{o.losses}L</span>
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 주요 지표 6개 */}
-                      <div className="grid grid-cols-3 gap-1.5 mb-2">
-                        <Cell label="PPG" value={o.ppg} highlight />
-                        <Cell label="RPG" value={o.rpg} />
-                        <Cell label="APG" value={o.apg} />
-                        <Cell label="STL" value={o.spg} mono />
-                        <Cell label="BLK" value={o.bpg} mono />
-                        <Cell label="FG%" value={o.fg_pct != null ? `${o.fg_pct}%` : '—'} mono />
-                      </div>
-
-                      {/* 누적 보조 */}
-                      <div
-                        className="grid grid-cols-3 gap-1.5 pt-2 text-xs font-mono"
-                        style={{ borderTop: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
-                      >
-                        <div className="text-center">총 {o.pts} pts</div>
-                        <div className="text-center">FG <span style={{ color: 'var(--mm-ink-soft)' }}>{o.fgm}/{o.fga}</span></div>
-                        <div className="text-center">3P <span style={{ color: 'var(--mm-ink-soft)' }}>{o.fg3m}/{o.fg3a}</span></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
+            {/* ── 최근 트렌드 (월별 성장지표 + 게임 트렌드 + 최근 5R) ── */}
             {/* 월별 성장지표 */}
-            {activeDetail?.monthly_stats && activeDetail.monthly_stats.length >= 2 && (
+            {activeTab === 'trend' && activeDetail?.monthly_stats && activeDetail.monthly_stats.length >= 2 && (
               <MonthlyStatsChart data={activeDetail.monthly_stats} />
             )}
 
             {/* 게임별 트렌드 라인 — 최소 3경기 이상일 때만 표시 */}
-            {activeDetail?.game_log && activeDetail.game_log.length >= 3 && (
+            {activeTab === 'trend' && activeDetail?.game_log && activeDetail.game_log.length >= 3 && (
               <GameTrendChart log={activeDetail.game_log} />
             )}
 
             {/* 최근 5R (R = 라운드 단위, 같은 날 여러 경기는 합산. 단일 상대 개념 없음) */}
-            {detail && detail.recent_games.length > 0 && (
+            {activeTab === 'trend' && detail && detail.recent_games.length > 0 && (
               <div className="px-5 py-4">
                 <p className="text-xs uppercase tracking-[0.20em] font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>최근 5R</p>
                 <div className="overflow-x-auto">

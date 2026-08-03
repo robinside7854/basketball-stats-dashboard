@@ -27,7 +27,7 @@ export async function GET(
     { data: memberships },
     { data: gpRows },
   ] = await Promise.all([
-    supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
+    supabase.from('league_players').select('id, name, number, photo_url, plus_one').eq('league_id', leagueId),
     supabase
       .from('league_games')
       .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num, plus_one_player_id, is_exhibition')
@@ -83,12 +83,13 @@ export async function GET(
     const ov = qId ? overrideMap[qId]?.[teamId] : undefined
     return ov?.name ?? baseTeamMap[teamId]?.name ?? '—'
   }
-  function resolveTeamColor(teamId: string, qId: string | null | undefined): string {
-    const ov = qId ? overrideMap[qId]?.[teamId] : undefined
-    return ov?.color ?? baseTeamMap[teamId]?.color ?? '#9ca3af'
-  }
 
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
+  // 듀오 파트너 표시용 메타 (이름/등번호/사진)
+  type LPMeta = { id: string; name: string | null; number: number | null; photo_url: string | null }
+  const playerMetaMap: Record<string, LPMeta> = Object.fromEntries(
+    ((leaguePlayers ?? []) as unknown as LPMeta[]).map(p => [p.id, p])
+  )
   const teamMap = Object.fromEntries(teamsForDisplay.map(t => [t.id, t.name]))
   const teamFullMap = Object.fromEntries(teamsForDisplay.map(t => [t.id, { id: t.id, name: t.name, color: t.color ?? '#9ca3af' }]))
   const gameIds = (games ?? []).map(g => g.id)
@@ -445,11 +446,14 @@ export async function GET(
     .filter(([, s]) => s.gp > 0)
     .map(([pid, s]) => ({ pid, gp: s.gp, ...toMetrics(s) }))
 
-  // 리더보드(LeagueLeadersGrid) 와 동일한 자격 요건: max(3, ceil(maxGP × 1/2)).
-  // 이 필터가 없으면 GP 가 극히 적은데 우연히 평균이 튄 선수가 상위에 끼어
-  // 실제 리더보드 1위가 프로필 카드에선 3위 등으로 밀려 보이는 문제 발생.
+  // 자격 요건 (2026-08-03 완화): 해당 기간에 열린 라운드(경기일)의 30% 이상 참여.
+  // 스탯 탭 리더보드(MIN_ROUND_RATIO=0.3)와 동일 기준 — 두 화면의 순위가 어긋나지 않도록 통일.
+  const roundsHeld = new Set(
+    (games ?? []).map(g => (g as { date?: string }).date).filter(Boolean) as string[]
+  ).size
   const maxGpAll = allMetricsList.reduce((m, e) => Math.max(m, e.gp), 0)
-  const effectiveMinGp = Math.max(3, Math.ceil(maxGpAll / 2))
+  const rankBase = roundsHeld > 0 ? roundsHeld : maxGpAll
+  const effectiveMinGp = Math.max(1, Math.ceil(rankBase * 0.3))
   const eligibleForRank = allMetricsList.filter(m => m.gp >= effectiveMinGp)
 
   const ranked = eligibleForRank.map(m => ({
@@ -756,16 +760,10 @@ export async function GET(
     bucket.pts += s.pts; bucket.reb += s.reb; bucket.ast += s.ast
     bucket.stl += s.stl; bucket.blk += s.blk; bucket.gp++
   }
-  const avgWLS = (b: WLS) => b.gp === 0 ? null : ({
-    ppg: +(b.pts / b.gp).toFixed(1), rpg: +(b.reb / b.gp).toFixed(1),
-    apg: +(b.ast / b.gp).toFixed(1), spg: +(b.stl / b.gp).toFixed(1),
-    bpg: +(b.blk / b.gp).toFixed(1),
-  })
+  // 승/패 split 스탯(이길 때·질 때)은 2026-08-03 선수카드 개편에서 제거 — 전적/승률/기여도만 유지
   const winLoss = {
     wins: winS.gp, losses: lossS.gp,
     win_rate: (winS.gp + lossS.gp) > 0 ? +(winS.gp / (winS.gp + lossS.gp) * 100).toFixed(1) : 0,
-    win_stats:  avgWLS(winS),
-    loss_stats: avgWLS(lossS),
     pts_share:  teamPtsTotal > 0 ? +(playerPtsTotal / teamPtsTotal * 100).toFixed(1) : 0,
   }
 
@@ -830,88 +828,6 @@ export async function GET(
       fg_pct:  s.fga > 0 ? +(s.fgm / s.fga * 100).toFixed(1) : 0,
     }))
 
-  // ── 상대팀별 스탯 (vs Opponents) ──────────────────────────────
-  // 본인 팀 제외, 친선전 제외.
-  // #5c: R (라운드=날짜) 단위 집계 — 상대팀별 unique dates Set 카운트.
-  //      그날의 여러 슬롯 stats 를 합산해 하루당 스탯 → 그 하루들의 평균 = 총합/rp.
-  //      승/패는 기존 슬롯 단위 유지 (하위호환).
-  type OppAgg = {
-    team_id: string; team_name: string; team_color: string
-    dates: Set<string>   // 라운드(날짜) 집계
-    pts: number; reb: number; oreb: number; dreb: number
-    ast: number; stl: number; blk: number; tov: number
-    fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
-    wins: number; losses: number  // 슬롯 단위 (기존 그대로)
-  }
-  const oppMap: Record<string, OppAgg> = {}
-
-  for (const gId of Object.keys(perGame)) {
-    const g = gameMap[gId] as { home_team_id?: string; away_team_id?: string; home_score?: number; away_score?: number; is_exhibition?: boolean; quarter_id?: string | null; date?: string } | undefined
-    if (!g) continue
-    if (g.is_exhibition) continue  // 친선전 제외
-
-    const myTeamId = teamForGame(gameMap[gId])
-    if (!myTeamId) continue
-    const oppTeamId = g.home_team_id === myTeamId ? g.away_team_id : g.home_team_id
-    if (!oppTeamId) continue
-
-    // 각 게임의 quarter override 로 팀 이름/색상 해석 — 락다운(Q1-2)과 굿모닝(Q3)이 같은 team_id 라도
-    // 서로 다른 entry 로 집계되도록 (team_id + 표시명) 조합을 key 로 사용
-    const oppName = resolveTeamName(oppTeamId, g.quarter_id)
-    const oppColor = resolveTeamColor(oppTeamId, g.quarter_id)
-    const oppKey = `${oppTeamId}::${oppName}`
-
-    if (!oppMap[oppKey]) {
-      oppMap[oppKey] = {
-        team_id: oppTeamId, team_name: oppName, team_color: oppColor,
-        dates: new Set<string>(),
-        pts: 0, reb: 0, oreb: 0, dreb: 0,
-        ast: 0, stl: 0, blk: 0, tov: 0,
-        fgm: 0, fga: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0,
-        wins: 0, losses: 0,
-      }
-    }
-    const o = oppMap[oppKey]
-    const s = perGame[gId]
-    // R 단위 카운트: 같은 date 의 여러 슬롯은 하루로 병합
-    if (g.date) o.dates.add(g.date)
-    o.pts += s.pts; o.reb += s.reb; o.oreb += s.oreb; o.dreb += s.dreb
-    o.ast += s.ast; o.stl += s.stl; o.blk += s.blk; o.tov += s.tov
-    o.fgm += s.fgm; o.fga += s.fga; o.fg3m += s.fg3m; o.fg3a += s.fg3a
-    o.ftm += s.ftm; o.fta += s.fta
-
-    // 슬롯 단위 승/패 (재미 요소) — 기존 UI 호환
-    const isHome = g.home_team_id === myTeamId
-    const myScore = isHome ? (g.home_score ?? 0) : (g.away_score ?? 0)
-    const oppScore = isHome ? (g.away_score ?? 0) : (g.home_score ?? 0)
-    if (myScore > oppScore) o.wins++
-    else if (myScore < oppScore) o.losses++
-  }
-
-  const vs_opponents = Object.values(oppMap)
-    .map(o => {
-      const rp = o.dates.size  // rounds played
-      return {
-        team_id: o.team_id, team_name: o.team_name, team_color: o.team_color,
-        rp,                    // 신규 (#5c): 라운드 수
-        gp: rp,                // 하위호환: 기존 UI 는 gp 를 참조 — rp 와 동일 값
-        pts: o.pts, reb: o.reb, oreb: o.oreb, dreb: o.dreb,
-        ast: o.ast, stl: o.stl, blk: o.blk, tov: o.tov,
-        fgm: o.fgm, fga: o.fga, fg3m: o.fg3m, fg3a: o.fg3a, ftm: o.ftm, fta: o.fta,
-        // 평균 스탯: 총합 / rp (R 단위 평균)
-        ppg: rp > 0 ? +(o.pts / rp).toFixed(1) : 0,
-        rpg: rp > 0 ? +(o.reb / rp).toFixed(1) : 0,
-        apg: rp > 0 ? +(o.ast / rp).toFixed(1) : 0,
-        spg: rp > 0 ? +(o.stl / rp).toFixed(1) : 0,
-        bpg: rp > 0 ? +(o.blk / rp).toFixed(1) : 0,
-        fg_pct:  o.fga  > 0 ? +(o.fgm  / o.fga  * 100).toFixed(1) : null,
-        fg3_pct: o.fg3a > 0 ? +(o.fg3m / o.fg3a * 100).toFixed(1) : null,
-        ft_pct:  o.fta  > 0 ? +(o.ftm  / o.fta  * 100).toFixed(1) : null,
-        wins: o.wins, losses: o.losses,
-      }
-    })
-    .sort((a, b) => b.rp - a.rp)
-
   // ── Active Streaks (현재 진행 중인 연속 기록) ────────────────────
   // unit 기준(round 또는 game)으로 최신부터 역방향 walk, 조건 깨지면 stop
   const sortedUnitsDesc = [...playedUnits].reverse()
@@ -955,48 +871,6 @@ export async function GET(
   }
   const active_streaks = { ten: s10, twenty: s20, three: s3p, win: sWin }
 
-  // ── Attendance Streak (참여 스트릭) ─────────────────────────────
-  // 소속 팀이 뛴 라운드에서 본인 이벤트 유무로 참여 판정.
-  // - 소속팀 결정 우선순위: league_game_players(게임별 override) > league_player_quarters(분기별 정규)
-  // - "그 선수 팀이 안 뛴 라운드는 스킵" — 불참 판정 안 됨
-  // - current: 최신 라운드부터 역순 walk, 미참여 만나면 중단
-  // - longest: 전 시즌 스캔, 연속 참여 run 의 최대치
-  const attendance_streak = ((): { current: number; longest: number } => {
-    // scheduled dates: 본인 팀이 home/away 였던 게임의 date 유니크 집합
-    const scheduledSet = new Set<string>()
-    for (const g of (games ?? []) as Array<{
-      id: string; date: string; quarter_id?: string | null
-      home_team_id?: string | null; away_team_id?: string | null
-    }>) {
-      const tid = gpTeamMap[g.id] ?? (g.quarter_id ? qTeamMap[g.quarter_id] : undefined)
-      if (!tid) continue
-      if (g.home_team_id === tid || g.away_team_id === tid) {
-        scheduledSet.add(g.date)
-      }
-    }
-    if (scheduledSet.size === 0) return { current: 0, longest: 0 }
-    const scheduled = [...scheduledSet].sort()  // asc
-
-    // attended dates: playedGames 의 date 집합
-    const attendedSet = new Set<string>()
-    for (const gId of playedGames) {
-      const g = gameMap[gId] as { date?: string } | undefined
-      if (g?.date) attendedSet.add(g.date)
-    }
-
-    let current = 0
-    for (let i = scheduled.length - 1; i >= 0; i--) {
-      if (attendedSet.has(scheduled[i])) current++
-      else break
-    }
-    let longest = 0, run = 0
-    for (const d of scheduled) {
-      if (attendedSet.has(d)) { run++; if (run > longest) longest = run }
-      else run = 0
-    }
-    return { current, longest }
-  })()
-
   // ── 자동 배지 요약 (player_badges) ─────────────────────────
   // 시즌 전체 기준 — 4종 카운트만 반환. 개별 목록은 별도 엔드포인트.
   const badges_summary = { perfect_game: 0, double_double: 0, triple_double: 0, winning_shot: 0 }
@@ -1011,6 +885,62 @@ export async function GET(
       if (t in badges_summary) badges_summary[t]++
     }
   }
+
+  // ── 다이나믹 듀오 (Dynamic Duo) ───────────────────────────────
+  //   정의: 나와 상대 선수 사이의 "어시스트 → 득점" 합작 점수 합계 (양방향 모두 합산).
+  //         pair_pts = Σ points  WHERE (scorer, assister) ∈ {(me, X), (X, me)}
+  //   범위: 어워즈 BEST_DUO 와 동일하게 필드 야투(자유투/앤드원 제외) · made 만.
+  //   출력: 합작 점수 상위 3조합 + 각 방향별 기여 분해.
+  const dynamic_duo = (() => {
+    type DuoAcc = { total: number; iScored: number; partnerScored: number; iAssists: number; partnerAssists: number }
+    const acc: Record<string, DuoAcc> = {}
+    const shotTypeSet = new Set<string>(SHOT_TYPES)
+
+    for (const e of allEvents ?? []) {
+      if (e.result !== 'made') continue
+      if (!shotTypeSet.has(e.type)) continue
+      const scorer = e.league_player_id
+      const assister = e.related_player_id
+      if (!scorer || !assister || scorer === assister) continue
+      if (scorer !== playerId && assister !== playerId) continue
+
+      // points 가 비어 있는 과거 데이터는 타입으로 폴백 (3점만 3, 나머지 2)
+      const pts = e.points != null && e.points > 0 ? e.points : (e.type === 'shot_3p' ? 3 : 2)
+      const partnerId = scorer === playerId ? assister : scorer
+      if (!acc[partnerId]) acc[partnerId] = { total: 0, iScored: 0, partnerScored: 0, iAssists: 0, partnerAssists: 0 }
+      const a = acc[partnerId]
+      a.total += pts
+      if (scorer === playerId) {
+        // 파트너 어시 → 내 득점
+        a.iScored += pts
+        a.partnerAssists += 1
+      } else {
+        // 내 어시 → 파트너 득점
+        a.partnerScored += pts
+        a.iAssists += 1
+      }
+    }
+
+    return Object.entries(acc)
+      .map(([partner_id, a]) => {
+        const meta = playerMetaMap[partner_id]
+        return {
+          partner_id,
+          partner_name: meta?.name ?? '알 수 없음',
+          partner_number: meta?.number ?? null,
+          partner_photo_url: meta?.photo_url ?? null,
+          total_pts: a.total,
+          // 파트너의 어시스트로 내가 넣은 점수
+          pts_from_partner: a.iScored,
+          assists_from_partner: a.partnerAssists,
+          // 내 어시스트로 파트너가 넣은 점수
+          pts_to_partner: a.partnerScored,
+          assists_to_partner: a.iAssists,
+        }
+      })
+      .sort((x, y) => y.total_pts - x.total_pts)
+      .slice(0, 3)
+  })()
 
   // 프로필카드에 노출할 "내 베스트샷" 핀 (최대 3개)
   let pinned_event_ids: string[] = []
@@ -1030,9 +960,9 @@ export async function GET(
     game_log: gameLog,
     badges, badges_scope: 'season' as const,
     badges_summary,
-    win_loss: winLoss, player_stats, monthly_stats, vs_opponents, unit,
+    win_loss: winLoss, player_stats, monthly_stats, unit,
     active_streaks,
-    attendance_streak,
+    dynamic_duo,
     pinned_event_ids,
   })
 }

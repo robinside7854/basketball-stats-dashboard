@@ -21,7 +21,12 @@ import type { Quarter, PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
 
 type ViewMode = 'avg' | 'total'
-type StatUnit = 'round' | 'game' | 'per40'
+type StatUnit = 'round' | 'game'
+
+// 최소 출전 자격 — 해당 기간 내 열린 라운드의 30% 이상 참여 (2026-08-03 완화)
+// 이전엔 "리그 최다 출전자의 2/3" 였는데, 개근자 1명 때문에 커트라인이 과하게 올라가
+// 정상 참여자까지 리더보드에서 빠지는 문제가 있었다.
+const MIN_ROUND_RATIO = 0.3
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
 type AdvKey = 'pie'|'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'shot_mix'
@@ -125,6 +130,7 @@ function LeagueStatsPageInner() {
   // 페이지 간 분기 선택 공유 (LeagueQuarterContext)
   const { selectedQuarterId, setSelectedQuarterId } = useLeagueQuarter()
   const [players, setPlayers] = useState<PlayerStat[]>([])
+  const [totalRounds, setTotalRounds] = useState(0)  // 기간 내 열린 라운드 수 (자격 커트라인 분모)
   const [loading, setLoading] = useState(true)
   const [gated, setGated] = useState(false)  // 401 — 회원 전용
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
@@ -176,18 +182,16 @@ function LeagueStatsPageInner() {
 
   useEffect(() => {
     setLoading(true)
-    // Per-40 모드는 서버 집계 단위는 'game' 을 사용 (분수 계산은 클라이언트에서 minutes_played 로 수행)
-    const serverUnit = statUnit === 'per40' ? 'game' : statUnit
     const url = selectedQuarterId === 'all'
-      ? `/api/leagues/${leagueId}/stats?unit=${serverUnit}`
-      : `/api/leagues/${leagueId}/stats?quarterId=${selectedQuarterId}&unit=${serverUnit}`
+      ? `/api/leagues/${leagueId}/stats?unit=${statUnit}`
+      : `/api/leagues/${leagueId}/stats?quarterId=${selectedQuarterId}&unit=${statUnit}`
 
     fetch(url)
       .then(r => {
         if (r.status === 401) { setGated(true); setLoading(false); return null }
         return r.json()
       })
-      .then(d => { if (d) { setPlayers(d.players ?? []); setLoading(false) } })
+      .then(d => { if (d) { setPlayers(d.players ?? []); setTotalRounds(d.total_rounds ?? 0); setLoading(false) } })
       .catch(() => setLoading(false))
   }, [leagueId, selectedQuarterId, statUnit])
 
@@ -210,10 +214,11 @@ function LeagueStatsPageInner() {
     else { setSortKey(key); setSortDir('desc') }
   }
 
-  // 자동 임계값: 가장 많이 뛴 선수의 GP 기준 2/3 (리그 활동량 G의 2/3 근사)
-  // 리더보드/차트의 최소 출전 기준 · 리그 정규 참여자만 랭킹에 반영
+  // 자동 임계값: 해당 기간 내 열린 라운드(경기일)의 30% 이상 참여.
+  // total_rounds 를 못 받은 경우(구 캐시 응답 등)만 최다 출전자 기준으로 폴백.
   const maxPlayerGP = useMemo(() => players.reduce((m, p) => Math.max(m, p.gp), 0), [players])
-  const autoMinGP = Math.max(1, Math.ceil(maxPlayerGP * 2 / 3))
+  const roundBase = totalRounds > 0 ? totalRounds : maxPlayerGP
+  const autoMinGP = Math.max(1, Math.ceil(roundBase * MIN_ROUND_RATIO))
   const effectiveMinGP = autoMinGP
 
   const filtered = players
@@ -223,27 +228,12 @@ function LeagueStatsPageInner() {
       return sortDir === 'desc' ? -diff : diff
     })
 
-  // 평균 컬럼 — Per-40 모드는 별도 계산
-  const MULT = 1
-  const PER40_TARGET = 40
+  // 평균 컬럼 — 정렬용 숫자값
   function avg(p: PlayerStat, key: keyof PlayerStat) {
-    if (statUnit === 'per40') {
-      // Per-40 min: 카운팅 스탯을 총 분수로 나눈 뒤 40 곱
-      const mins = p.minutes_played ?? 0
-      if (mins <= 0) return 0
-      // 누적 스탯만 per-40 대상 (percentage/rate 제외)
-      const COUNTING = new Set<keyof PlayerStat>(['pts','reb','oreb','dreb','ast','stl','blk','tov','fgm','fga','fg3m','fg3a','ftm','fta'])
-      const AVG_TO_TOTAL: Partial<Record<keyof PlayerStat, keyof PlayerStat>> = {
-        ppg: 'pts', rpg: 'reb', orp: 'oreb', drp: 'dreb',
-        apg: 'ast', spg: 'stl', bpg: 'blk', topg: 'tov',
-      }
-      const totalKey = (AVG_TO_TOTAL[key] ?? key) as keyof PlayerStat
-      if (!COUNTING.has(totalKey)) return +(p[key] as number).toFixed(1)
-      const total = p[totalKey] as number
-      return +((total / mins) * PER40_TARGET).toFixed(1)
-    }
-    return +((p[key] as number) * MULT).toFixed(1)
+    return +((p[key] as number) ?? 0).toFixed(1)
   }
+  // 표기 통일: 소수점 첫째 자리를 항상 노출 (23 → 23.0)
+  const fmt1 = (v: number) => (Number.isFinite(v) ? v : 0).toFixed(1)
 
   // 시즌 리더 (bold 강조용) — 각 스탯의 최대값 보유 선수 id set
   // 자격자(effectiveMinGP) 만 리더 후보
@@ -389,16 +379,16 @@ function LeagueStatsPageInner() {
   function cellVal(p: PlayerStat, key: SortKey): string {
     if (viewMode === 'avg') {
       if (key === 'gp') return String(p.gp)
-      if (key === 'fg_pct')  return p.fga  > 0 ? `${p.fg_pct}%`  : '—'
-      if (key === 'fg3_pct') return p.fg3a > 0 ? `${p.fg3_pct}%` : '—'
-      if (key === 'ft_pct')  return p.fta  > 0 ? `${p.ft_pct}%`  : '—'
-      if (key === 'efg_pct') return p.fga  > 0 ? `${p.efg_pct}%` : '—'
-      return String(avg(p, key as keyof PlayerStat))
+      if (key === 'fg_pct')  return p.fga  > 0 ? `${fmt1(p.fg_pct)}%`  : '—'
+      if (key === 'fg3_pct') return p.fg3a > 0 ? `${fmt1(p.fg3_pct)}%` : '—'
+      if (key === 'ft_pct')  return p.fta  > 0 ? `${fmt1(p.ft_pct)}%`  : '—'
+      if (key === 'efg_pct') return p.fga  > 0 ? `${fmt1(p.efg_pct)}%` : '—'
+      return fmt1(avg(p, key as keyof PlayerStat))
     } else {
-      if (key === 'fg_pct')  return p.fga  > 0 ? `${p.fg_pct}%`  : '—'
-      if (key === 'fg3_pct') return p.fg3a > 0 ? `${p.fg3_pct}%` : '—'
-      if (key === 'ft_pct')  return p.fta  > 0 ? `${p.ft_pct}%`  : '—'
-      if (key === 'efg_pct') return p.fga  > 0 ? `${p.efg_pct}%` : '—'
+      if (key === 'fg_pct')  return p.fga  > 0 ? `${fmt1(p.fg_pct)}%`  : '—'
+      if (key === 'fg3_pct') return p.fg3a > 0 ? `${fmt1(p.fg3_pct)}%` : '—'
+      if (key === 'ft_pct')  return p.fta  > 0 ? `${fmt1(p.ft_pct)}%`  : '—'
+      if (key === 'efg_pct') return p.fga  > 0 ? `${fmt1(p.efg_pct)}%` : '—'
       // 누적 뷰: 야투는 메이드/시도 형식
       if (key === 'fgm')  return `${p.fgm}/${p.fga}`
       if (key === 'fg3m') return `${p.fg3m}/${p.fg3a}`
@@ -428,12 +418,7 @@ function LeagueStatsPageInner() {
           return p.fga >= 5
         })
       }
-      // Per-40 모드는 avg() 로 환산된 값 · 그 외 모드는 cellVal 문자열 그대로
-      const sorted = [...pool].sort((a, b) => {
-        const av = statUnit === 'per40' ? avg(a, sortKey as keyof PlayerStat) : (a[sortKey] as number)
-        const bv = statUnit === 'per40' ? avg(b, sortKey as keyof PlayerStat) : (b[sortKey] as number)
-        return bv - av
-      }).slice(0, 5)
+      const sorted = [...pool].sort((a, b) => (b[sortKey] as number) - (a[sortKey] as number)).slice(0, 5)
       return {
         key: `basic:${sortKey}:${viewMode}:${statUnit}`,
         label,
@@ -470,7 +455,7 @@ function LeagueStatsPageInner() {
           id: p.player_id,
           name: p.name,
           photo_url: p.photo_url,
-          value: isMix ? `3P ${val}%` : `${val}%`,
+          value: isMix ? `3P ${fmt1(val)}%` : `${fmt1(val)}%`,
         })),
       }
     }
@@ -491,7 +476,7 @@ function LeagueStatsPageInner() {
         id: p.player_id,
         name: p.name,
         photo_url: p.photo_url,
-        value: isRatio || isCount ? String(val) : `${val}%`,
+        value: isCount ? String(val) : isRatio ? val.toFixed(2) : `${fmt1(val)}%`,
       })),
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -640,17 +625,17 @@ function LeagueStatsPageInner() {
                     </button>
                   ))}
                 </div>
-                {/* 단위 토글 (라운드 / GP / Per-40) */}
+                {/* 단위 토글 (라운드 / 경기 슬롯) */}
                 <div className="flex items-center gap-1 p-0.5 shrink-0" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
-                  {(['round','game','per40'] as const).map(u => (
+                  {(['round','game'] as const).map(u => (
                     <button key={u} onClick={() => setStatUnit(u)}
-                      title={u === 'round' ? '라운드(경기일)당' : u === 'game' ? '경기 슬롯당' : '40분당 환산 (실제 출전 시간 기반)'}
+                      title={u === 'round' ? '라운드(경기일)당' : '경기 슬롯당'}
                       className="px-3 py-1.5 text-xs font-black uppercase cursor-pointer transition-colors"
                       style={statUnit === u
                         ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', letterSpacing: '0.08em' }
                         : { background: 'transparent', color: 'var(--mm-ink-soft)', letterSpacing: '0.08em' }
                       }>
-                      {u === 'round' ? 'R' : u === 'game' ? 'G' : 'Per-40'}
+                      {u === 'round' ? 'R' : 'G'}
                     </button>
                   ))}
                 </div>
@@ -658,9 +643,9 @@ function LeagueStatsPageInner() {
                 <span
                   className="shrink-0 text-[11px] font-bold uppercase"
                   style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}
-                  title={`리그 최다 출전 ${maxPlayerGP}경기의 2/3 · 정규 참여자 자동 필터`}
+                  title={`이 기간에 열린 ${roundBase}라운드의 30% 이상 참여 · 정규 참여자 자동 필터`}
                 >
-                  최소 {autoMinGP}경기 자격
+                  최소 {autoMinGP}R 자격 · 전체 {roundBase}R
                 </span>
               </div>
             </div>
@@ -730,7 +715,7 @@ function LeagueStatsPageInner() {
                     <th className="px-2 py-3 text-center text-xs font-black uppercase w-8" style={{ color: 'var(--mm-ink)', letterSpacing: '0.10em' }}>비교</th>
                     <th className="text-left px-4 py-3 sticky left-0 font-jersey font-black uppercase min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '0.05em' }}>선수</th>
                     {COLS.map(({ key, label }) => {
-                      const term = key === 'gp' ? (statUnit === 'round' ? 'R' : statUnit === 'game' ? 'G' : 'GP') : label
+                      const term = key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label
                       return (
                         <th key={key} onClick={() => handleSort(key)}
                           className="px-3 py-3 text-center font-jersey font-black uppercase cursor-pointer select-none whitespace-nowrap transition-colors"
@@ -774,12 +759,7 @@ function LeagueStatsPageInner() {
                         <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
                       {COLS.map(({ key }) => {
-                        // Per-40 모드에서는 실제 사용된 stat key 로 리더 체크 (예: ppg 대신 pts)
-                        const AVG_TO_TOTAL: Partial<Record<string, string>> = {
-                          ppg: 'pts', rpg: 'reb', orp: 'oreb', drp: 'dreb', apg: 'ast', spg: 'stl', bpg: 'blk', topg: 'tov',
-                        }
-                        const leaderKey = statUnit === 'per40' ? (AVG_TO_TOTAL[key as string] ?? (key as string)) : (key as string)
-                        const leader = isLeader(p, leaderKey)
+                        const leader = isLeader(p, key as string)
                         const cellColor = sortKey === key
                           ? 'var(--mm-ink)'
                           : leader
@@ -815,25 +795,25 @@ function LeagueStatsPageInner() {
                   const fmtCell = (key: SortKey): string => {
                     if (viewMode === 'avg') {
                       // 평균 모드: 리그 자격자 평균값
-                      if (key === 'gp') return String(Math.round(avgOf('gp') * 10) / 10)
-                      if (key === 'fg_pct')  return `${leagueFgPct}%`
-                      if (key === 'fg3_pct') return `${leagueFg3Pct}%`
-                      if (key === 'ft_pct')  return `${leagueFtPct}%`
-                      if (key === 'efg_pct') return `${leagueEfgPct}%`
+                      if (key === 'gp') return fmt1(avgOf('gp'))
+                      if (key === 'fg_pct')  return `${fmt1(leagueFgPct)}%`
+                      if (key === 'fg3_pct') return `${fmt1(leagueFg3Pct)}%`
+                      if (key === 'ft_pct')  return `${fmt1(leagueFtPct)}%`
+                      if (key === 'efg_pct') return `${fmt1(leagueEfgPct)}%`
                       const AVG_MAP: Partial<Record<SortKey, keyof PlayerStat>> = {
                         ppg: 'ppg', rpg: 'rpg', orp: 'orp', drp: 'drp',
                         apg: 'apg', spg: 'spg', bpg: 'bpg', topg: 'topg',
                       }
                       const src = AVG_MAP[key]
-                      if (src) return (Math.round(avgOf(src) * 10) / 10).toFixed(1)
+                      if (src) return fmt1(avgOf(src))
                       return '—'
                     }
                     // 누적 모드
                     if (key === 'gp') return String(totalOf('gp'))
-                    if (key === 'fg_pct')  return `${leagueFgPct}%`
-                    if (key === 'fg3_pct') return `${leagueFg3Pct}%`
-                    if (key === 'ft_pct')  return `${leagueFtPct}%`
-                    if (key === 'efg_pct') return `${leagueEfgPct}%`
+                    if (key === 'fg_pct')  return `${fmt1(leagueFgPct)}%`
+                    if (key === 'fg3_pct') return `${fmt1(leagueFg3Pct)}%`
+                    if (key === 'ft_pct')  return `${fmt1(leagueFtPct)}%`
+                    if (key === 'efg_pct') return `${fmt1(leagueEfgPct)}%`
                     if (key === 'fgm')  return `${totalFgm}/${totalFga}`
                     if (key === 'fg3m') return `${totalFg3m}/${totalFg3a}`
                     if (key === 'ftm')  return `${totalFtm}/${totalFta}`
@@ -905,7 +885,7 @@ function LeagueStatsPageInner() {
                         return (
                           <div key={key} className="text-center">
                             <div className="text-[11px] font-bold uppercase" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
-                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink)', fontSize: '15px' }}>{sh[key]}%</div>
+                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink)', fontSize: '15px' }}>{fmt1(sh[key])}%</div>
                           </div>
                         )
                       })}
@@ -977,7 +957,7 @@ function LeagueStatsPageInner() {
                           <td key={key}
                               className="px-3 py-3 text-center font-jersey tabular-nums"
                               style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px', ...dividerStyle }}>
-                            {key === 'shot_mix' ? <ShotMixBar p={p} /> : `${val}%`}
+                            {key === 'shot_mix' ? <ShotMixBar p={p} /> : `${fmt1(val)}%`}
                           </td>
                         )
                       })}
@@ -1033,7 +1013,7 @@ function LeagueStatsPageInner() {
                         return (
                           <div key={key} className="text-center">
                             <div className="text-[11px] font-bold uppercase" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
-                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink)', fontSize: '15px' }}>{isRatio || isCount ? adv[key] : `${adv[key]}%`}</div>
+                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink)', fontSize: '15px' }}>{isCount ? adv[key] : isRatio ? adv[key].toFixed(2) : `${fmt1(adv[key])}%`}</div>
                           </div>
                         )
                       })}
@@ -1094,7 +1074,7 @@ function LeagueStatsPageInner() {
                         return (
                           <td key={key} className="px-3 py-3 text-center font-jersey tabular-nums"
                             style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)', fontWeight: active ? 900 : 600, fontSize: '15px' }}>
-                            {isRatio || isCount ? val : `${val}%`}
+                            {isCount ? val : isRatio ? val.toFixed(2) : `${fmt1(val)}%`}
                           </td>
                         )
                       })}

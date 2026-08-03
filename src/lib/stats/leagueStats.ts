@@ -30,6 +30,8 @@ export interface LeagueStatsOpts {
 export interface LeagueStatsResult {
   players: PlayerStat[]
   games_count?: number
+  /** 해당 기간(필터 적용 후)에 실제로 열린 라운드(경기일) 수 — 최소 출전 자격 계산의 분모 */
+  total_rounds?: number
   unit?: LeagueStatsUnit
 }
 
@@ -81,7 +83,7 @@ export async function computeLeagueStats(
   if (gErr) throw new Error(gErr.message)
 
   const gameIds = (games ?? []).map(g => g.id)
-  if (gameIds.length === 0) return { players: [] }
+  if (gameIds.length === 0) return { players: [], total_rounds: 0 }
 
   const gamePlusOneMap: Record<string, string | null> = {}
   const gameToDate: Record<string, string> = {}
@@ -89,6 +91,9 @@ export async function computeLeagueStats(
     gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
     gameToDate[g.id] = (g as Record<string, unknown>).date as string ?? g.id
   }
+  // 기간 내 열린 라운드 수 = 경기일(date) 유니크 카운트.
+  // 최소 출전 자격을 "리그 최다 출전자 대비"가 아니라 "실제 열린 라운드 대비"로 계산하기 위함.
+  const totalRounds = new Set(Object.values(gameToDate)).size
 
   // 3) 이벤트 페이지네이션
   type EventRow = {
@@ -367,7 +372,7 @@ export async function computeLeagueStats(
   }
 
   // 5) 평균/퍼센트
-  if (Object.keys(statsMap).length === 0) return { players: [] }
+  if (Object.keys(statsMap).length === 0) return { players: [], total_rounds: totalRounds }
   const result: PlayerStat[] = Object.values(statsMap)
     .filter(s => s.gp > 0)
     .map(s => {
@@ -397,5 +402,5 @@ export async function computeLeagueStats(
     })
     .sort((a, b) => b.pts - a.pts)
 
-  return { players: result, games_count: gameIds.length, unit }
+  return { players: result, games_count: gameIds.length, total_rounds: totalRounds, unit }
 }
