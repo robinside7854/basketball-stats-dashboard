@@ -13,7 +13,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { lookupDraftCode } from '@/lib/leagueDraftAuth'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { aggregateQuarterStats, aggToScore, getPreviousQuarterId } from '@/lib/leagueStats'
 import { newPickDeadline, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 
@@ -76,10 +76,10 @@ export async function POST(
     return NextResponse.json({ error: 'stale_deadline', current: d.pick_deadline }, { status: 409 })
   }
 
-  // 권한: 이 분기의 유효 코드(단장/감독관) 또는 리그 PIN
+  // 권한: 이 분기의 유효 코드(단장/감독관) 또는 리그 편집 권한(어드민 회원 · 전환기 PIN)
   const plain = req.headers.get('X-Draft-Code')?.trim()
   const codeOk = plain ? !!(await lookupDraftCode(leagueId, d.quarter_id, plain)) : false
-  if (!codeOk && !(await verifyLeaguePin(req, leagueId))) {
+  if (!codeOk && !(await canEditLeague(req, leagueId))) {
     return NextResponse.json({ error: '권한 없음' }, { status: 401 })
   }
 

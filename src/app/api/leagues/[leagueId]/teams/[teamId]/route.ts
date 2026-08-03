@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { isDraftManager } from '@/lib/draftManagerAuth'
 
 export async function PATCH(
@@ -33,7 +33,7 @@ export async function DELETE(
   { params }: { params: Promise<{ leagueId: string; teamId: string }> }
 ) {
   const { leagueId, teamId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = createClient()
   const { error } = await supabase.from('league_teams').delete().eq('id', teamId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

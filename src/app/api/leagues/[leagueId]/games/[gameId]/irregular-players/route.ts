@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 type Ctx = { params: Promise<{ leagueId: string; gameId: string }> }
 
@@ -9,7 +9,7 @@ type Ctx = { params: Promise<{ leagueId: string; gameId: string }> }
 // 비정규 선수를 이 경기(및 같은 날짜·같은 팀 경기)에 배정
 export async function POST(req: Request, { params }: Ctx) {
   const { leagueId, gameId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) {
+  if (!await canEditLeague(req, leagueId)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -1,13 +1,21 @@
 'use client'
+// 리그 편집 모드 — 두 경로로 켜진다 (2026-08-04 전환):
+//   1) 로그인 회원의 role='admin'  ← 주 경로. 쿠키(mm_auth) 기반이라 별도 입력이 없다.
+//   2) 리그 편집 PIN               ← 전환기 폴백. 어드민 지정이 자리잡으면 제거 예정.
+// 어느 쪽이든 isEditMode 는 UI 노출 판단일 뿐이고, 실제 인가는 서버의 canEditLeague 가
+// 매 요청 DB 에서 재확인한다 (src/lib/auth/leagueAdmin.ts).
 import { createContext, useContext, useEffect, useState } from 'react'
+import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 
 interface LeagueEditModeCtx {
   isEditMode: boolean
-  // sessionStorage 초기 로드 완료 여부.
+  // 권한 확인 완료 여부 (로그인 상태 조회 + sessionStorage 로드 둘 다 끝난 시점).
   //   /settings 등 서버가드가 필요한 페이지가 "확인 완료 후 미인증"을 판별하기 위해 사용.
-  //   초기 렌더 시 isEditMode=false 이지만 hydrate 후 true 로 바뀔 수 있으므로,
+  //   초기 렌더 시 isEditMode=false 이지만 확인 후 true 로 바뀔 수 있으므로,
   //   redirect 결정은 반드시 isInitialized=true 인 이후에만 수행할 것.
   isInitialized: boolean
+  // 어드민 role 로 켜진 편집 모드인지 (PIN 폴백과 구분 — 설정 화면 안내 문구용).
+  isAdminSession: boolean
   leagueHeaders: Record<string, string>
   openPinModal: () => void
   exitEditMode: () => void
@@ -16,6 +24,7 @@ interface LeagueEditModeCtx {
 const LeagueEditModeContext = createContext<LeagueEditModeCtx>({
   isEditMode: false,
   isInitialized: false,
+  isAdminSession: false,
   leagueHeaders: {},
   openPinModal: () => {},
   exitEditMode: () => {},
@@ -31,18 +40,28 @@ export function LeagueEditModeProvider({
   leagueId: string
 }) {
   const SESSION_KEY = `league_edit_${leagueId}`
-  const [isEditMode, setIsEditMode] = useState(false)
-  const [isInitialized, setIsInitialized] = useState(false)
+  // PIN 폴백 경로의 상태. 어드민 role 경로는 아래 useCurrentUser() 에서 온다.
+  const [pinVerified, setPinVerified] = useState(false)
+  const [storageLoaded, setStorageLoaded] = useState(false)
   const [pin, setPin] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [digits, setDigits] = useState<string[]>([])
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(false)
 
+  const { user, loading: authLoading } = useCurrentUser()
+  const isAdminSession = user?.role === 'admin'
+
+  // 편집 모드 = 어드민 회원 세션 ∥ PIN 확인.
+  // isInitialized 는 두 경로의 확인이 모두 끝난 뒤에만 true — /settings 가 로그인 조회
+  // 완료 전에 미인증으로 오판해 리다이렉트하는 것을 막는다.
+  const isEditMode = isAdminSession || pinVerified
+  const isInitialized = !authLoading && storageLoaded
+
   useEffect(() => {
     const stored = sessionStorage.getItem(SESSION_KEY)
-    if (stored) { setIsEditMode(true); setPin(stored) }
-    setIsInitialized(true)
+    if (stored) { setPinVerified(true); setPin(stored) }
+    setStorageLoaded(true)
   }, [SESSION_KEY])
 
   useEffect(() => {
@@ -59,9 +78,11 @@ export function LeagueEditModeProvider({
 
   function openPinModal() { setShowModal(true); setDigits([]); setError(false) }
 
+  // PIN 폴백만 해제한다. 어드민 role 로 켜진 편집 모드는 계정 권한이므로
+  // 클라이언트에서 끌 수 없다 (해제하려면 어드민 권한을 회수해야 함).
   function exitEditMode() {
     sessionStorage.removeItem(SESSION_KEY)
-    setIsEditMode(false)
+    setPinVerified(false)
     setPin('')
   }
 
@@ -83,7 +104,7 @@ export function LeagueEditModeProvider({
         const verifiedPin = next.join('')
         sessionStorage.setItem(SESSION_KEY, verifiedPin)
         setPin(verifiedPin)
-        setIsEditMode(true)
+        setPinVerified(true)
         setShowModal(false)
       } else {
         setError(true)
@@ -98,12 +119,14 @@ export function LeagueEditModeProvider({
 
   const PAD = ['1','2','3','4','5','6','7','8','9','','0','⌫']
 
-  const leagueHeaders: Record<string, string> = isEditMode
+  // 어드민 role 경로는 쿠키(mm_auth)가 same-origin fetch 에 자동 동봉되므로 헤더가 필요 없다.
+  // PIN 폴백일 때만 X-League-Pin 을 싣는다 — 소비처 시그니처는 그대로 유지.
+  const leagueHeaders: Record<string, string> = pinVerified
     ? { 'Content-Type': 'application/json', 'X-League-Pin': pin }
     : { 'Content-Type': 'application/json' }
 
   return (
-    <LeagueEditModeContext.Provider value={{ isEditMode, isInitialized, leagueHeaders, openPinModal, exitEditMode }}>
+    <LeagueEditModeContext.Provider value={{ isEditMode, isInitialized, isAdminSession, leagueHeaders, openPinModal, exitEditMode }}>
       {children}
 
       {showModal && (
@@ -118,6 +141,8 @@ export function LeagueEditModeProvider({
             <div className="text-center">
               <div className="text-xl font-bold text-white mb-1">편집 모드 전환</div>
               <div className="text-gray-400 text-sm">리그 PIN 번호를 입력하세요</div>
+              {/* 전환기 안내 — 어드민 권한을 받은 회원은 로그인만으로 편집 모드가 켜진다 */}
+              <div className="text-gray-500 text-xs mt-2">어드민 권한을 받은 회원은 로그인하면<br />PIN 없이 편집 모드가 켜집니다</div>
             </div>
 
             <div className="flex gap-4">

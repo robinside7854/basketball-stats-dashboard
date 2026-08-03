@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 export async function GET(
   _req: Request,
@@ -23,7 +23,7 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { date } = await req.json()
   if (!date) return NextResponse.json({ error: '날짜를 입력하세요' }, { status: 400 })
   const supabase = createClient()
@@ -46,7 +46,7 @@ export async function DELETE(
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const date = searchParams.get('date')
   if (!date) return NextResponse.json({ error: 'date is required' }, { status: 400 })

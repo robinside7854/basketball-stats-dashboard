@@ -4,7 +4,7 @@
 //   · 리그 PIN 필요 (leagueHeaders 로 전달)
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { UserPlus, Check, X, RotateCcw, Ban, User as UserIcon, RefreshCw } from 'lucide-react'
+import { UserPlus, Check, X, RotateCcw, Ban, User as UserIcon, RefreshCw, ShieldCheck, ShieldOff } from 'lucide-react'
 
 type Status = 'pending' | 'approved' | 'rejected' | 'disabled'
 
@@ -13,6 +13,8 @@ interface AccountRow {
   league_player_id: string
   login_id: string
   status: Status
+  // 편집 권한 — admin 이면 로그인만으로 편집 모드가 켜진다 (PIN 과 동일 권한)
+  role: 'member' | 'admin'
   requested_at: string
   approved_at: string | null
   last_login_at: string | null
@@ -69,20 +71,25 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
 
   useEffect(() => { load() }, [load])
 
-  async function act(id: string, action: 'approve' | 'reject' | 'disable' | 'reset_password') {
+  async function act(
+    id: string,
+    action: 'approve' | 'reject' | 'disable' | 'reset_password' | 'set_role',
+    role?: 'member' | 'admin',
+  ) {
     if (busyId) return
     setBusyId(id)
     try {
       const r = await fetch(`/api/leagues/${leagueId}/auth/admin/accounts/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', ...leagueHeaders },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(action === 'set_role' ? { action, role } : { action }),
       })
       const d = await r.json()
       if (!r.ok) { toast.error(d.error ?? '실패'); return }
       if (action === 'reset_password') toast.success(d.reset_password_note ?? '비번 초기화 완료')
       else if (action === 'approve') toast.success('승인 완료')
       else if (action === 'reject') toast.info('반려 처리')
+      else if (action === 'set_role') toast.success(role === 'admin' ? '어드민 지정 완료' : '어드민 해제')
       else toast.info('비활성화 처리')
       await load()
     } finally { setBusyId(null) }
@@ -193,6 +200,15 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                   >
                     {STATUS_LABEL[r.status]}
                   </span>
+                  {r.role === 'admin' && (
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] px-1.5 py-0.5"
+                      style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '2px' }}
+                      title="편집 권한 보유 — 로그인만으로 편집 모드가 켜집니다"
+                    >
+                      <ShieldCheck size={10} aria-hidden />어드민
+                    </span>
+                  )}
                 </div>
                 <div className="text-[11px] mt-1" style={{ color: 'var(--mm-muted)' }}>
                   아이디: <b style={{ color: 'var(--mm-ink-soft)' }}>{r.login_id}</b>
@@ -227,6 +243,22 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                 )}
                 {r.status === 'approved' && (
                   <>
+                    <button
+                      onClick={() => act(r.id, 'set_role', r.role === 'admin' ? 'member' : 'admin')}
+                      disabled={busyId === r.id}
+                      title={r.role === 'admin' ? '편집 권한 회수' : '편집 권한 부여 (PIN 과 동일)'}
+                      className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1.5 min-h-[36px] cursor-pointer"
+                      style={{
+                        background: r.role === 'admin' ? 'var(--mm-panel-alt)' : 'var(--mm-yellow)',
+                        color: r.role === 'admin' ? 'var(--mm-muted)' : 'var(--mm-black)',
+                        border: `1px solid ${r.role === 'admin' ? 'var(--mm-rule)' : 'var(--mm-yellow)'}`,
+                        borderRadius: '3px',
+                        opacity: busyId === r.id ? 0.5 : 1,
+                      }}
+                    >
+                      {r.role === 'admin' ? <ShieldOff size={12} /> : <ShieldCheck size={12} />}
+                      {r.role === 'admin' ? '어드민 해제' : '어드민 지정'}
+                    </button>
                     <button
                       onClick={() => act(r.id, 'reset_password')}
                       disabled={busyId === r.id}

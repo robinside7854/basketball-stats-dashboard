@@ -61,7 +61,17 @@ npx tsc --noEmit         # 타입 체크 (테스트 없으므로 필수 안전�
 - `teams` 테이블: 복합키 `org_slug + sub_slug` (예: paranalgae/youth, paranalgae/senior)
 - `players.team_type` (youth / senior) — **절대 삭제 금지** (youth 35명, senior 32명)
 - `teams.edit_pin TEXT NOT NULL` — 게임 기록 PIN을 DB 기반으로 저장 (env 아님)
-- PIN 검증: `src/lib/leaguePinAuth.ts` (`verifyLeaguePin`) — 모든 mutation API의 필수 가드
+
+### 리그 편집 권한 (2026-08-04 전환)
+- **`canEditLeague(req, leagueId)`** (`src/lib/auth/leagueAdmin.ts`) — 모든 리그 mutation API의 필수 가드
+  - `league_user_accounts.role='admin'` 회원 세션(쿠키 `mm_auth`) **또는** 리그 PIN
+  - PIN은 **전환기 폴백** — 어드민 지정이 자리잡으면 제거 예정 (`verifyLeaguePin`은 내부 전용으로 격하)
+- ⚠ **role은 세션 토큰에 넣지 않는다** — 쿠키가 30일 만료라 권한 회수가 지연됨.
+  매 요청 DB 재조회 (`guard.ts`가 status를 재확인하는 것과 동일 철학) → 강등 즉시 반영
+- 어드민 지정: 어드민 대시보드 `/admin/leagues/[leagueId]` → "어드민 권한 관리",
+  또는 리그 `/settings` → 회원 승인 패널
+- 프론트: `useLeagueEditMode()`의 `isEditMode`(= 어드민 role ∥ PIN) / `isAdminSession`(어드민 role만)
+  - `LeagueAuthProvider`가 `LeagueEditModeProvider`보다 **바깥**이어야 함 (role을 읽어야 하므로)
 
 ### 리그 시스템 핵심 테이블
 - `league_games`: `is_started`, `is_complete`, `is_exhibition`, `quarter_id`, `home/away_team_id`, `slot_num`, `round_num`

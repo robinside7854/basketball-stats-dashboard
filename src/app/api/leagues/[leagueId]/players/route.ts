@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 export async function GET(
   _req: Request,
@@ -33,7 +33,7 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
   const { name, number, position, birth_date, is_guest } = body
   if (!name?.trim()) return NextResponse.json({ error: '이름은 필수입니다' }, { status: 400 })
@@ -72,7 +72,7 @@ export async function PATCH(
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const playerId = searchParams.get('playerId')
   if (!playerId) return NextResponse.json({ error: 'playerId is required' }, { status: 400 })
@@ -111,7 +111,7 @@ export async function DELETE(
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { searchParams } = new URL(req.url)
   const playerId = searchParams.get('playerId')
   if (!playerId) return NextResponse.json({ error: 'playerId is required' }, { status: 400 })

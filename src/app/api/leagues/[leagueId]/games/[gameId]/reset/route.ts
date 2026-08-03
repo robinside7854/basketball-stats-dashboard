@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 // DELETE /api/leagues/[leagueId]/games/[gameId]/reset
 // 경기의 모든 이벤트 삭제 + 스코어 0으로 초기화 + is_complete 해제
@@ -10,7 +10,7 @@ export async function DELETE(
   { params }: { params: Promise<{ leagueId: string; gameId: string }> }
 ) {
   const { leagueId, gameId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = createClient()
 

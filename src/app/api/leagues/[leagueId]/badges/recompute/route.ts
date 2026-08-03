@@ -6,7 +6,7 @@
 
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { syncBadgesForGame, computePerGameBadges, computeRoundBadges } from '@/lib/badges/computeBadges'
 
 export async function POST(
@@ -15,7 +15,7 @@ export async function POST(
 ) {
   const { leagueId } = await params
 
-  if (!(await verifyLeaguePin(req, leagueId))) {
+  if (!(await canEditLeague(req, leagueId))) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
   }
 

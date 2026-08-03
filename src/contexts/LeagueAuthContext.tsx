@@ -13,6 +13,9 @@ export interface CurrentUser {
   position: string | null
   photo_url: string | null
   is_default_password: boolean
+  // 리그 편집 권한. admin = 기존 편집 PIN 과 동일 권한.
+  // 표시(UI 게이팅)용일 뿐 — 실제 인가는 서버가 매 요청 DB 에서 재확인한다.
+  role: 'member' | 'admin'
 }
 
 interface AuthState {

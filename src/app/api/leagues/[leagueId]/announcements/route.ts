@@ -3,7 +3,7 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/admin'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { isPushConfigured } from '@/lib/push/config'
 import { sendLeaguePush } from '@/lib/push/send'
 
@@ -47,7 +47,7 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
-  if (!(await verifyLeaguePin(req, leagueId))) {
+  if (!(await canEditLeague(req, leagueId))) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

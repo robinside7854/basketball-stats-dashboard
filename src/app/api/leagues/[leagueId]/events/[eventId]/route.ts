@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 // PATCH · 이벤트 부분 수정
 //
@@ -31,7 +31,7 @@ export async function PATCH(
   { params }: { params: Promise<{ leagueId: string; eventId: string }> }
 ) {
   const { leagueId, eventId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
   const { type, result, points, league_player_id, related_player_id, team_id } = body
   const payload: Record<string, unknown> = {}
@@ -94,7 +94,7 @@ export async function DELETE(
   { params }: { params: Promise<{ leagueId: string; eventId: string }> }
 ) {
   const { leagueId, eventId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = createClient()
   const { error } = await supabase
     .from('league_game_events')

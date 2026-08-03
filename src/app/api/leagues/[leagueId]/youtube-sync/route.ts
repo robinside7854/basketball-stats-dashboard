@@ -4,7 +4,7 @@
 
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { syncYoutubeForLeague } from '@/lib/youtube/syncYoutubeForLeague'
 
 // Health check — confirms route is registered
@@ -18,7 +18,7 @@ export async function POST(
 ) {
   try {
     const { leagueId } = await params
-    if (!await verifyLeaguePin(req, leagueId)) {
+    if (!await canEditLeague(req, leagueId)) {
       return NextResponse.json({ error: 'Unauthorized — X-League-Pin 헤더 확인' }, { status: 401 })
     }
 

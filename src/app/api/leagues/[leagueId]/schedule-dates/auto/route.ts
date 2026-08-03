@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 // POST /api/leagues/[leagueId]/schedule-dates/auto
 // start_date 기준으로 오늘까지 매주 날짜 자동 생성
@@ -10,7 +10,7 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = createClient()
 

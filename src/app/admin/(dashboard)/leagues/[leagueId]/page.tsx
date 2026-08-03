@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2, ExternalLink, Eye, EyeOff, RefreshCw, KeyRound } from 'lucide-react'
 import Link from 'next/link'
+import LeagueAdminRolePanel from '@/components/admin/LeagueAdminRolePanel'
 import type { League } from '@/types/league'
 
 const DOW_LABELS: Record<string, string> = {
@@ -149,10 +150,16 @@ export default function LeagueAdminSettingsPage() {
         </Button>
       </div>
 
+      {/* 어드민 권한 관리 — 편집 권한을 PIN 에서 로그인 회원으로 이관 */}
+      <LeagueAdminRolePanel leagueId={leagueId} />
+
       {/* PIN 관리 */}
       <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
         <h2 className="font-semibold text-[var(--mm-ink)] text-sm">편집 PIN 관리</h2>
-        <p className="text-xs text-[var(--mm-muted)]">리그 대시보드에서 편집 모드 진입 시 사용하는 4자리 PIN입니다</p>
+        <p className="text-xs text-[var(--mm-muted)]">
+          리그 대시보드에서 편집 모드 진입 시 사용하는 4자리 PIN입니다.
+          위 어드민 권한으로 대체 중이며, 어드민 지정이 자리잡으면 제거될 예정입니다.
+        </p>
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Input

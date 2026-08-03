@@ -1,7 +1,7 @@
 // POST /api/leagues/[leagueId]/push/send — 수동 알럿 발송 (편집 PIN 필요)
 // body: { title, body, url? } → 리그 전체 구독자에게 발송.
 import { NextResponse } from 'next/server'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { isPushConfigured } from '@/lib/push/config'
 import { sendLeaguePush } from '@/lib/push/send'
 
@@ -16,7 +16,7 @@ export async function POST(
   if (!isPushConfigured()) {
     return NextResponse.json({ error: 'push not configured' }, { status: 501 })
   }
-  if (!(await verifyLeaguePin(req, leagueId))) {
+  if (!(await canEditLeague(req, leagueId))) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

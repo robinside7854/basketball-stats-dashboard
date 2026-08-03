@@ -3,7 +3,7 @@
 // PIN 인증 필수 · multipart/form-data (file 필드)
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 const BUCKET = 'announcement-images'
 const ALLOWED = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
@@ -24,7 +24,7 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
-  if (!(await verifyLeaguePin(req, leagueId))) {
+  if (!(await canEditLeague(req, leagueId))) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

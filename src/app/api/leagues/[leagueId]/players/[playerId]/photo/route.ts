@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 // POST /api/leagues/[leagueId]/players/[playerId]/photo
 // 리그 선수 프로필 사진 업로드 (Supabase Storage player-photos 버킷 사용)
@@ -9,7 +9,7 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string; playerId: string }> }
 ) {
   const { leagueId, playerId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const formData = await req.formData()
   const file = formData.get('file') as File | null

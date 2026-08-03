@@ -3,7 +3,7 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { createClient } from '@/lib/supabase/admin'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 const MAX_TITLE = 200
 const MAX_BODY = 20_000
@@ -14,7 +14,7 @@ export async function PATCH(
   { params }: { params: Promise<{ leagueId: string; announcementId: string }> },
 ) {
   const { leagueId, announcementId } = await params
-  if (!(await verifyLeaguePin(req, leagueId))) {
+  if (!(await canEditLeague(req, leagueId))) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
@@ -55,7 +55,7 @@ export async function DELETE(
   { params }: { params: Promise<{ leagueId: string; announcementId: string }> },
 ) {
   const { leagueId, announcementId } = await params
-  if (!(await verifyLeaguePin(req, leagueId))) {
+  if (!(await canEditLeague(req, leagueId))) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

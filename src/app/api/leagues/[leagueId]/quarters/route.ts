@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 // GET /api/leagues/[leagueId]/quarters
 // Returns quarters with player memberships and team leaders
@@ -28,7 +28,7 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { year, quarter, is_current, start_date, end_date } = await req.json()
   if (!year || !quarter) return NextResponse.json({ error: 'year, quarter 필수' }, { status: 400 })
@@ -69,7 +69,7 @@ export async function PATCH(
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { quarterId, is_current, start_date, end_date } = await req.json()
   if (!quarterId) return NextResponse.json({ error: 'quarterId 필수' }, { status: 400 })

@@ -5,7 +5,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { lookupDraftCode } from '@/lib/leagueDraftAuth'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { newPickDeadline } from '@/lib/draftTimer'
 
 export async function POST(
@@ -24,10 +24,10 @@ export async function POST(
   if (!draft) return NextResponse.json({ error: '세션을 찾을 수 없습니다' }, { status: 404 })
   const d = draft as { id: string; quarter_id: string; status: string; pick_deadline: string | null; total_picks: number; pick_seconds: number }
 
-  // 권한: 이 분기 코드 또는 리그 PIN
+  // 권한: 이 분기 코드 또는 리그 편집 권한(어드민 회원 · 전환기 PIN)
   const plain = req.headers.get('X-Draft-Code')?.trim()
   const codeOk = plain ? !!(await lookupDraftCode(leagueId, d.quarter_id, plain)) : false
-  if (!codeOk && !(await verifyLeaguePin(req, leagueId))) {
+  if (!codeOk && !(await canEditLeague(req, leagueId))) {
     return NextResponse.json({ error: '권한 없음' }, { status: 401 })
   }
 

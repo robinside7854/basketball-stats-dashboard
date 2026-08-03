@@ -26,7 +26,7 @@ function deriveLeagueBase(pathname: string, orgSlug: string, leagueId: string): 
 function TabNav({ orgSlug, leagueId, onOpenLogin, showDraft }: { orgSlug: string; leagueId: string; onOpenLogin: () => void; showDraft: boolean }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { isEditMode, openPinModal, exitEditMode } = useLeagueEditMode()
+  const { isEditMode, isAdminSession, openPinModal, exitEditMode } = useLeagueEditMode()
   const { theme, setTheme } = useTheme()
   const { user, loading: authLoading, logout } = useCurrentUser()
 
@@ -185,7 +185,15 @@ function TabNav({ orgSlug, leagueId, onOpenLogin, showDraft }: { orgSlug: string
               className="p-2 rounded-md border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center btn-press">
               <HelpCircle size={16} />
             </button>
-            {isEditMode ? (
+            {isAdminSession ? (
+              /* 어드민 role 로 켜진 편집 모드는 계정 권한이라 클라이언트에서 끌 수 없다 →
+                 해제 버튼 대신 상태 표시. (PIN 폴백일 때만 아래 '편집 중' 버튼으로 해제) */
+              <span
+                title="어드민 권한으로 편집 모드가 켜져 있습니다"
+                className="flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-md min-h-[44px] bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] border border-[color:var(--mm-yellow)] font-semibold">
+                <Unlock size={16} /><span className="hidden sm:inline">어드민</span>
+              </span>
+            ) : isEditMode ? (
               <button onClick={exitEditMode}
                 className="flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-md min-h-[44px] bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] border border-[color:var(--mm-yellow)] hover:brightness-95 font-semibold transition-colors cursor-pointer btn-press">
                 <Unlock size={16} /><span className="hidden sm:inline">편집 중</span>
@@ -370,10 +378,12 @@ function LeagueLayout({
     return () => window.removeEventListener('mm-open-login', open)
   }, [])
 
+  // LeagueAuthProvider 가 최외곽 — LeagueEditModeProvider 가 로그인 유저의 role 로
+  // 편집 모드를 켜므로 auth 컨텍스트가 상위에 있어야 한다 (2026-08-04 순서 교체).
   return (
+    <LeagueAuthProvider leagueId={leagueId}>
     <LeagueEditModeProvider leagueId={leagueId}>
     <LeagueQuarterProvider leagueId={leagueId}>
-    <LeagueAuthProvider leagueId={leagueId}>
       <div className="min-h-screen bg-[color:var(--mm-ground)] text-[color:var(--mm-ink-soft)]">
         <TabNav
           orgSlug={orgSlug}
@@ -393,9 +403,9 @@ function LeagueLayout({
         <LoginModal leagueId={leagueId} onClose={() => setLoginOpen(false)} />
       )}
       <Toaster richColors theme={theme === 'light' ? 'light' : 'dark'} position="top-center" />
-    </LeagueAuthProvider>
     </LeagueQuarterProvider>
     </LeagueEditModeProvider>
+    </LeagueAuthProvider>
   )
 }
 

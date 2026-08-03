@@ -15,7 +15,7 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import { createClient } from '@/lib/supabase/admin'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 // 미라클모닝 농구단 공식 프로필 실사 프롬프트
 // 목표: NBA 공식 팀 프로필 촬영 세션 스타일의 일관된 실사 초상화
@@ -154,7 +154,7 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string; playerId: string }> }
 ) {
   const { leagueId, playerId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) {
+  if (!await canEditLeague(req, leagueId)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

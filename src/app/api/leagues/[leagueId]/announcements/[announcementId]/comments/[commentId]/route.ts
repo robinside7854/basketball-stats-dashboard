@@ -3,7 +3,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { verifyPassword, isValidPassword } from '@/lib/announcements/commentAuth'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 async function fetchComment(commentId: string, announcementId: string) {
   const sb = createClient()
@@ -54,8 +54,8 @@ export async function DELETE(
 ) {
   const { leagueId, announcementId, commentId } = await params
 
-  // 어드민(리그 PIN) 삭제인지 우선 확인 (헤더로 PIN 옴)
-  const isAdmin = await verifyLeaguePin(req, leagueId)
+  // 어드민 삭제인지 우선 확인 (어드민 role 회원 세션 · 전환기엔 X-League-Pin 헤더)
+  const isAdmin = await canEditLeague(req, leagueId)
   let usedPassword: string | null = null
   if (!isAdmin) {
     // 본인 삭제: body 에 password

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 type Ctx = { params: Promise<{ leagueId: string; quarterId: string }> }
 
@@ -29,7 +29,7 @@ export async function PUT(
   { params }: Ctx
 ) {
   const { leagueId, quarterId } = await params
-  if (!await verifyLeaguePin(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { team_id, leader_player_id } = await req.json()
   if (!team_id) return NextResponse.json({ error: 'team_id 필수' }, { status: 400 })

@@ -4,10 +4,11 @@
 //   · approved = 관리자 승인까지 끝난 인증회원 (= 라커룸 '인증' 뱃지 기준)
 //   · pending  = 신청은 했으나 승인 대기
 //   · none     = 계정 자체가 없음 (rejected/disabled 는 별도 집계 · 미가입으로 보지 않음)
-//   · 집계 수치는 공개, 개별 명단(미가입·대기)은 리그 PIN 확인 시에만 반환
+//   · 집계 수치는 공개, 개별 명단(미가입·대기)은 리그 편집 권한자에게만 반환
+//     (어드민 role 회원 세션 · 전환기엔 리그 PIN)
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 type AccountStatus = 'pending' | 'approved' | 'rejected' | 'disabled'
 
@@ -56,7 +57,7 @@ export async function GET(
   const pending = buckets.pending.length
   const pct = (n: number) => (eligible > 0 ? +((n / eligible) * 100).toFixed(1) : 0)
 
-  const canSeeNames = await verifyLeaguePin(req, leagueId)
+  const canSeeNames = await canEditLeague(req, leagueId)
 
   return NextResponse.json({
     eligible,                       // 모수 · 게스트 제외 등록 회원 수

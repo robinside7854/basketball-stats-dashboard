@@ -12,7 +12,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { auth } from '@/lib/auth'
 import { verifySupervisorCode } from '@/lib/leagueDraftAuth'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
 function shuffleInPlace<T>(arr: T[]): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -43,7 +43,7 @@ export async function POST(
   const session = await auth()
   if (!session) {
     const sup = await verifySupervisorCode(req, leagueId, d.quarter_id)
-    if (!sup.valid && !await verifyLeaguePin(req, leagueId)) {
+    if (!sup.valid && !await canEditLeague(req, leagueId)) {
       return NextResponse.json({ error: '권한 없음 (어드민/감독관/PIN 전용)' }, { status: 401 })
     }
   }

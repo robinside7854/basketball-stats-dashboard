@@ -35,6 +35,17 @@ export async function GET(
     .eq('id', acc.league_player_id)
     .maybeSingle()
 
+  // 편집 권한(role) 은 별도 쿼리로 조회한다.
+  //   마이그레이션 072 는 Supabase 에서 수동 실행하는데 Vercel 배포는 push 즉시 일어난다.
+  //   위 메인 select 에 role 을 넣으면 컬럼이 아직 없는 동안 쿼리 전체가 실패해
+  //   로그인 회원 전원이 로그아웃된다 → 실패해도 member 로 떨어지도록 분리.
+  const { data: roleRow } = await sb
+    .from('league_user_accounts')
+    .select('role')
+    .eq('id', acc.id)
+    .maybeSingle()
+  const role = (roleRow as { role?: string } | null)?.role === 'admin' ? 'admin' : 'member'
+
   return NextResponse.json({
     authenticated: true,
     user: {
@@ -46,6 +57,8 @@ export async function GET(
       position: player?.position ?? null,
       photo_url: player?.photo_url ?? null,
       is_default_password: !acc.password_changed_at,
+      // 편집 권한 — 클라이언트는 이 값으로 편집 모드를 켠다 (실제 인가는 서버가 매번 재검증).
+      role,
     },
   })
 }

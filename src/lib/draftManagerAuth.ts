@@ -1,20 +1,20 @@
-// 드래프트 관리 권한 — 어드민(NextAuth) 또는 리그 편집 PIN 둘 중 하나면 허용
+// 드래프트 관리 권한 — 어드민(NextAuth) 또는 리그 편집 권한 둘 중 하나면 허용
 //
 // 어드민 콘솔(/admin)에서는 NextAuth 세션으로, 리그 페이지(/league) 편집 모드에서는
-// X-League-Pin 헤더로 드래프트를 관리할 수 있게 한다.
+// 어드민 role 회원 세션(전환기엔 X-League-Pin 도)으로 드래프트를 관리할 수 있게 한다.
 //
 // 방 모델(/draft/[token]) 도입 후엔 감독관(supervisor)도 같은 권한을 가짐 —
 // 단, 감독관 코드는 분기(quarter) 단위로 발급되므로 별도 helper 사용.
 
 import { auth } from '@/lib/auth'
-import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { verifySupervisorCode } from '@/lib/leagueDraftAuth'
 import { createClient } from '@/lib/supabase/admin'
 
 export async function isDraftManager(req: Request, leagueId: string): Promise<boolean> {
   const session = await auth()
   if (session) return true
-  return verifyLeaguePin(req, leagueId)
+  return canEditLeague(req, leagueId)
 }
 
 /**
