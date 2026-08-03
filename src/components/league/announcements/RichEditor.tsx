@@ -18,6 +18,7 @@ import {
   Palette, Undo2, Redo2, Strikethrough, Image as ImageIcon, MapPin,
 } from 'lucide-react'
 import InternalLinkPicker from './InternalLinkPicker'
+import { looksLikeBlockMarkdown, markdownToHtml } from '@/lib/announcements/markdown'
 
 interface Props {
   initialHtml: string
@@ -61,19 +62,34 @@ export default function RichEditor({ initialHtml, onChange, onPasteImage, league
         class: 'announcement-prose tiptap-editor focus:outline-none min-h-[300px] px-4 py-3',
       },
       handlePaste: (view, event) => {
-        // 이미지 붙여넣기 → 업로드 콜백 호출 (에디터 외부에서 처리)
+        // 1) 이미지 붙여넣기 → 업로드 콜백 호출 (에디터 외부에서 처리)
         const items = Array.from(event.clipboardData?.items ?? []).filter(it => it.type.startsWith('image/'))
-        if (items.length === 0 || !onPasteImage) return false
-        event.preventDefault()
-        ;(async () => {
-          for (const it of items) {
-            const file = it.getAsFile()
-            if (!file) continue
-            const url = await onPasteImage(file)
-            if (url && editorRef.current) editorRef.current.chain().focus().setImage({ src: url, alt: '스크린샷' }).run()
-          }
-        })()
-        return true
+        if (items.length > 0 && onPasteImage) {
+          event.preventDefault()
+          ;(async () => {
+            for (const it of items) {
+              const file = it.getAsFile()
+              if (!file) continue
+              const url = await onPasteImage(file)
+              if (url && editorRef.current) editorRef.current.chain().focus().setImage({ src: url, alt: '스크린샷' }).run()
+            }
+          })()
+          return true
+        }
+
+        // 2) 마크다운 텍스트 붙여넣기 → HTML 로 변환해 삽입
+        //    TipTap 은 `**굵게**` 같은 인라인 규칙만 처리하고 `##`·`- `·`---` 등
+        //    블록 문법은 리터럴로 삼켜 <p>## 제목</p> 로 저장돼 리더에 기호가 노출된다.
+        //    HTML 클립보드가 함께 있으면(워드·웹 복사) TipTap 기본 처리에 맡긴다.
+        const html = event.clipboardData?.getData('text/html') ?? ''
+        const text = event.clipboardData?.getData('text/plain') ?? ''
+        if (!html && text && looksLikeBlockMarkdown(text)) {
+          event.preventDefault()
+          editorRef.current?.chain().focus().insertContent(markdownToHtml(text)).run()
+          return true
+        }
+
+        return false
       },
       handleDrop: (view, event) => {
         const files = Array.from(event.dataTransfer?.files ?? []).filter(f => f.type.startsWith('image/'))

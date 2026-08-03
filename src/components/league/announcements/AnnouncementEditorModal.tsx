@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { X, Megaphone, Save, Pin, PinOff, Bell, BellOff } from 'lucide-react'
 import { toast } from 'sonner'
-import { marked } from 'marked'
+import { looksLikeBlockMarkdown, markdownToHtml, repairFlattenedMarkdown } from '@/lib/announcements/markdown'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import RichEditor from './RichEditor'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
@@ -25,35 +25,25 @@ function bodyToEditorHtml(content: string): string {
   const trimmed = content.trim()
   if (!trimmed) return ''
 
-  const asMd = (source: string): string => {
-    try {
-      return marked.parse(source, { async: false, gfm: true, breaks: true }) as string
-    } catch {
-      return source
-    }
-  }
-
-  // 마크다운 시그니처 감지 · 헤딩 · 볼드 · 이탤릭 · 리스트 · 인용
-  const looksLikeMd = /(^|\n|\s)(#{1,6}\s|\*\*|__|- |\* |\d+\.\s|>\s)/.test(trimmed)
-
   if (trimmed.startsWith('<')) {
-    // HTML 로 시작하지만 마크다운 문법이 안에 남아있으면 손상된 상태
-    //   · 최소 태그(<p>, <br>) 만 있는지 검사 → 그 경우 stripping 후 재파싱
-    const tagMatches = trimmed.match(/<\/?[a-z][a-z0-9]*/gi) ?? []
-    const tagNames = new Set(tagMatches.map(t => t.replace(/[<\/]/g, '').toLowerCase()))
-    const richTags = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'img', 'table']
-    const hasRichHtml = richTags.some(t => tagNames.has(t))
+    // 문단 태그를 걷어낸 본문에 블록 마크다운(`##`·`- `·`---`)이 남아 있으면 손상된 상태.
+    //   · 예전엔 <strong> 같은 인라인 태그가 하나라도 있으면 "정상 HTML" 로 오판했다.
+    //     TipTap 은 붙여넣기 때 인라인 규칙만 처리하므로, <strong> 이 섞여 있어도
+    //     헤딩·리스트는 리터럴로 남는다 → 인라인 태그 유무로 판정하면 안 된다.
+    //   · 실제 블록 태그(h1~h6/ul/ol/li/blockquote/hr/pre/table)가 있으면 정상 HTML.
+    const asText = trimmed
+      .replace(/<\/?p[^>]*>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+    const hasBlockTag = /<(h[1-6]|ul|ol|li|blockquote|hr|pre|table)\b/i.test(trimmed)
 
-    if (looksLikeMd && !hasRichHtml) {
-      // 손상된 <p>flattened markdown</p> → HTML 제거 후 마크다운 재파싱
-      const stripped = trimmed.replace(/<[^>]+>/g, '').trim()
-      return asMd(stripped)
+    if (!hasBlockTag && looksLikeBlockMarkdown(asText)) {
+      return repairFlattenedMarkdown(trimmed)
     }
     return content  // 정상 HTML
   }
 
   // raw 마크다운
-  return asMd(content)
+  return markdownToHtml(content)
 }
 
 interface Props {
