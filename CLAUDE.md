@@ -27,6 +27,10 @@ npx tsc --noEmit         # 타입 체크 (테스트 없으므로 필수 안전�
 
 - **모든 코드 변경 후 `npx tsc --noEmit` 통과 확인** (CI 없음 — 로컬이 마지막 게이트)
 - **수정 후 자동 `git commit + push`** (master 브랜치) → Vercel 자동 배포
+- ⚠ **프론트엔드 작업은 "배포 완료"까지가 1건의 작업이다**
+  - 작업 브랜치에서 개발했더라도 **반드시 master 에 병합 + push 해서 Vercel 배포까지 끝낼 것**
+  - 브랜치에 커밋만 하고 끝내면 미완료 — 사용자가 따로 배포를 요청하게 만들지 말 것
+  - 순서: `tsc --noEmit` 통과 → 커밋 → master rebase/병합 → `git push origin master`
 - **Supabase 마이그레이션**: `supabase/migrations/NNN_*.sql` 파일로 작성
   - Supabase MCP가 설치되어 있으면 클로드가 직접 실행 가능 (단, 아래 가드레일 준수)
   - MCP가 없거나 실패 시 사용자가 SQL Editor에서 수동 실행 (채팅에 SQL 붙여넣기 금지 — 파일 경로만 안내)
