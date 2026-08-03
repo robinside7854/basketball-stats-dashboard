@@ -14,6 +14,7 @@ import EmptyState from '@/components/league/EmptyState'
 import SectionCard from '@/components/league/ui/SectionCard'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
+import SignupRateCard from '@/components/league/auth/SignupRateCard'
 import { LeaderBadgeInline } from '@/components/league/LeaderBadgePanel'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 
@@ -630,6 +631,9 @@ export default function LeagueRosterPage() {
           </button>
         )}
       </div>
+
+      {/* 회원 가입율 — 게스트 제외 등록 회원 중 로그인 계정 승인 비율 */}
+      <SignupRateCard leagueId={leagueId} leagueHeaders={leagueHeaders} isEditMode={isEditMode} />
 
       {/* 선수 추가 폼 */}
       {showForm && isEditMode && (
