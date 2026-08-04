@@ -19,8 +19,14 @@
 --   · 네비게이션: STATS_SUB_TABS '상대 분석' · TabNav also:['/opponent']
 -- =============================================
 
--- FK 의존 순서대로 삭제 (events → games/players → teams)
-DROP TABLE IF EXISTS opponent_game_events CASCADE;
-DROP TABLE IF EXISTS opponent_games       CASCADE;
-DROP TABLE IF EXISTS opponent_players     CASCADE;
-DROP TABLE IF EXISTS opponent_teams       CASCADE;
+-- 사전 감사 (2026-08-04):
+--   · opponent_* 를 참조하는 외부 FK 없음
+--   · opponent 관련 뷰/함수 없음
+--   → CASCADE 가 다른 테이블에 파급되지 않음을 확인 후 실행
+--
+-- FK 의존 순서대로 삭제 (events/minutes → games/players → teams)
+DROP TABLE IF EXISTS opponent_game_events    CASCADE;
+DROP TABLE IF EXISTS opponent_player_minutes CASCADE;
+DROP TABLE IF EXISTS opponent_games          CASCADE;
+DROP TABLE IF EXISTS opponent_players        CASCADE;
+DROP TABLE IF EXISTS opponent_teams          CASCADE;
