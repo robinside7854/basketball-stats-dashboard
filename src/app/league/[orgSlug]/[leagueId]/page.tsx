@@ -22,7 +22,7 @@ import NbaRoundsSummary, { type RoundSummary, type RoundTeamSummary } from '@/co
 import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaTeamStandings'
 import HomeSectionTabs from '@/components/league/HomeSectionTabs'
 import StatGate from '@/components/league/auth/StatGate'
-import { getApprovedSession } from '@/lib/auth/guard'
+import { getApprovedSession, isLeaguePrivateGated } from '@/lib/auth/guard'
 import type { League } from '@/types/league'
 
 // 최근 4주 라운드 요약 — NbaRoundsSummary 용.
@@ -345,6 +345,11 @@ export default async function LeagueDetailPage({
   params: Promise<{ orgSlug: string; leagueId: string }>
 }) {
   const { orgSlug, leagueId } = await params
+
+  // 비공개 리그 raw HTML 누출 방지 — layout.tsx 의 주석 참조.
+  // layout 이 화면(children)은 이미 막지만, Next 가 layout·page 를 병렬 렌더하기 때문에
+  // 이 아래 데이터 fetch 를 실제로 실행하기 전에 여기서도 먼저 끊어야 한다.
+  if (await isLeaguePrivateGated(leagueId)) return null
 
   // B2 확장: 리그 메타 + 홈 프리페치 7종을 모두 `unstable_cache` 로 감싸 병렬 실행.
   //   - 재방문 시 캐시 히트 → SSR 시간 대부분 제거.

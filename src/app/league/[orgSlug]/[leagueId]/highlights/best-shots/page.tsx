@@ -10,6 +10,7 @@ import EmptyState from '@/components/league/EmptyState'
 import BestShotsGallery from '@/components/league/highlights/BestShotsGallery'
 import { NumberedBasketball } from '@/components/league/BasketballIcons'
 import { loadLeagueBestShots } from '@/lib/highlights/loader'
+import { isLeaguePrivateGated } from '@/lib/auth/guard'
 
 const getCached = (leagueId: string) =>
   unstable_cache(
@@ -38,6 +39,10 @@ export default async function BestShotsReelPage({
   params: Promise<{ orgSlug: string; leagueId: string }>
 }) {
   const { orgSlug, leagueId } = await params
+
+  // 비공개 리그 raw HTML 누출 방지 — layout.tsx 주석 참조 (Next 가 layout·page 병렬 렌더).
+  if (await isLeaguePrivateGated(leagueId)) return null
+
   const base = `/league/${orgSlug}/${leagueId}`
   const detail = await getCached(leagueId)()
 

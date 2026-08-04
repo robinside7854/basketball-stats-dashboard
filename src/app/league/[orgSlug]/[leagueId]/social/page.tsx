@@ -3,6 +3,7 @@
 //   라운드(경기 날짜) 단위. 기본 = 최근 완료 라운드.
 import { getRoundMagazineData, getRoundDates } from '@/lib/social/weeklyData'
 import SocialCardStudio from '@/components/league/social/SocialCardStudio'
+import { isLeaguePrivateGated } from '@/lib/auth/guard'
 
 export default async function LeagueSocialPage({
   params, searchParams,
@@ -11,6 +12,10 @@ export default async function LeagueSocialPage({
   searchParams: Promise<{ date?: string }>
 }) {
   const { leagueId } = await params
+
+  // 비공개 리그 raw HTML 누출 방지 — layout.tsx 주석 참조 (Next 가 layout·page 병렬 렌더).
+  if (await isLeaguePrivateGated(leagueId)) return null
+
   const { date: qDate } = await searchParams
 
   const roundDates = await getRoundDates(leagueId)

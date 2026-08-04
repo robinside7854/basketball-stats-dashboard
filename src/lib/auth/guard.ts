@@ -52,3 +52,18 @@ export async function canViewLeague(req: Request, leagueId: string): Promise<boo
   if (await getApprovedSession(leagueId)) return true
   return canEditLeague(req, leagueId)
 }
+
+// 리그 페이지(page.tsx)용 — 비공개 + 미승인이면 true (페이지가 이 값이면 즉시 return null 해야 함).
+//   ⚠ 왜 layout.tsx 하나로 못 막나: Next.js App Router 는 layout 과 그 아래 page 를 병렬로 렌더한다.
+//   layout 이 {children} 을 반환에서 빼도(= PrivateLeagueGate 로 대체) 이미 시작된 page 의 렌더는
+//   취소되지 않고, 그 결과(데이터 fetch 로 만들어진 리그/팀 이름 등)가 "쓰이지 않는" flight 청크로
+//   HTML 응답에 그대로 섞여 나간다 — 화면에는 안 보이지만 raw HTML(view-source, curl, 크롤러)에는
+//   노출된다. 실측 확인(2026-08-04): layout 만 막았을 때 curl 응답에 리그명이 실제로 포함됨.
+//   그래서 각 page.tsx 가 자기 함수 맨 위에서 이 값을 먼저 확인하고, 데이터를 하나도 fetch 하기
+//   전에 return null 해야 한다 — layout 의 PrivateLeagueGate 가 화면은 이미 대체하므로 여기서는
+//   그냥 아무것도 렌더하지 않으면 충분하다(중복 UI 불필요, 데이터 계산 자체를 안 하는 게 목적).
+export async function isLeaguePrivateGated(leagueId: string): Promise<boolean> {
+  if (await isLeaguePublic(leagueId)) return false
+  if (await getApprovedSession(leagueId)) return false
+  return true
+}

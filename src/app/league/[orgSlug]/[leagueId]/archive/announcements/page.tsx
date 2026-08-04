@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/admin'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import AnnouncementsArchive from '@/components/league/announcements/AnnouncementsArchive'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
+import { isLeaguePrivateGated } from '@/lib/auth/guard'
 
 const getCached = (leagueId: string) =>
   unstable_cache(
@@ -31,6 +32,10 @@ export default async function AnnouncementsArchivePage({
   params: Promise<{ orgSlug: string; leagueId: string }>
 }) {
   const { orgSlug, leagueId } = await params
+
+  // 비공개 리그 raw HTML 누출 방지 — layout.tsx 주석 참조 (Next 가 layout·page 병렬 렌더).
+  if (await isLeaguePrivateGated(leagueId)) return null
+
   const announcements = await getCached(leagueId)()
   const base = `/league/${orgSlug}/${leagueId}`
   const groupTabs = [

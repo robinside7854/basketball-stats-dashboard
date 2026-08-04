@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
 import BoxscoreContent from '@/components/league/BoxscoreContent'
 import ShareLinkButton from '@/components/league/ShareLinkButton'
+import { isLeaguePrivateGated } from '@/lib/auth/guard'
 
 type Params = { orgSlug: string; leagueId: string; date: string }
 
@@ -24,6 +25,12 @@ function formatKorean(dateStr: string): string {
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { orgSlug, leagueId, date } = await params
   if (!isValidDate(date)) return { title: '박스스코어' }
+
+  // 비공개 리그는 탭 제목에도 클럽명을 노출하지 않는다 — layout.tsx generateMetadata 와 동일 원칙.
+  if (await isLeaguePrivateGated(leagueId)) {
+    return { title: '로그인이 필요합니다', description: '비공개로 운영되는 페이지입니다.' }
+  }
+
   const supabase = createClient()
   const { data } = await supabase
     .from('leagues')
@@ -39,6 +46,10 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 export default async function BoxscorePage({ params }: { params: Promise<Params> }) {
   const { orgSlug, leagueId, date } = await params
   if (!isValidDate(date)) notFound()
+
+  // 비공개 리그 raw HTML 누출 방지 — layout.tsx 주석 참조 (Next 가 layout·page 병렬 렌더이므로
+  // 상위 layout 의 게이트만으론 이 페이지 자체의 DB 조회·렌더를 막지 못한다).
+  if (await isLeaguePrivateGated(leagueId)) return null
 
   // 리그 유효성 확인 + 이름 조회 (공유 이미지 헤더에 사용)
   const supabase = createClient()
