@@ -68,9 +68,15 @@ await check(
     ORDER BY l.org_slug`,
   rows => {
     const got = rows.map(r => `${r.org_slug}→${r.org}/${r.sub_slug}:${r.mode}`)
+    // 통일 단계 B(migrate-legacy.mjs) 가 paranalgae 청년부·장년부를 대회형 리그로
+    // 이관하면서 정당하게 늘어난 2건을 추가했다. 이 체크의 목적이 바로 "리그가 올바른
+    // 팀에 붙었는가"이므로, 새로 생긴 두 리그도 games.team_type 함정(청년부/장년부가
+    // 뒤섞이는 사고)에 안 걸렸는지 여기서 같이 지켜야 의미가 있다 — 빼지 않는다.
     const want = [
       'miracle→miracle/main:league',
       'pana-basket-senior→paranalgae/senior:league',
+      'paranalgae→paranalgae/senior:tournament',
+      'paranalgae→paranalgae/youth:tournament',
     ]
     return JSON.stringify(got) === JSON.stringify(want) || `기대 ${JSON.stringify(want)}, 실제 ${JSON.stringify(got)}`
   }
@@ -118,8 +124,11 @@ await check(
 
 // ── Task 3: 세그먼트 · 외부 팀 ────────────────────────
 await check(
-  '세그먼트 3건 모두 kind=quarter 이고 이름이 붙음',
-  `SELECT kind, name, ord FROM league_quarters ORDER BY ord`,
+  '미라클 세그먼트(kind=quarter) 3건 모두 이름이 붙음',
+  // 통일 단계 B 가 paranalgae 대회를 kind='tournament' 세그먼트로 이관하면서 이 테이블에
+  // 미라클(kind='quarter') 외의 행이 생겼다 — 이 체크의 관심사는 미라클 3건이 그대로인가
+  // 뿐이므로 kind='quarter' 로 좁힌다(대회형 12건은 verify-migration.mjs 가 별도로 본다).
+  `SELECT kind, name, ord FROM league_quarters WHERE kind = 'quarter' ORDER BY ord`,
   rows => {
     const got = rows.map(r => `${r.kind}:${r.name}:${r.ord}`)
     const want = ['quarter:26.1Q:1', 'quarter:26.2Q:2', 'quarter:26.3Q:3']
@@ -128,15 +137,23 @@ await check(
 )
 
 await check(
-  'league_teams 전 행 is_external=false (기존 팀은 전부 내부 팀)',
-  `SELECT count(*)::int AS n FROM league_teams WHERE is_external IS DISTINCT FROM false`,
-  rows => rows[0].n === 0 || `is_external 이 false 가 아닌 행이 ${rows[0].n}건`
+  '리그형(mode≠tournament) league_teams 는 전부 내부 팀',
+  // 원래 "전 행 is_external=false" 였으나, 통일 단계 B 가 paranalgae 를 대회형으로
+  // 이관하며 외부 상대팀 43건을 정당하게 만들었다(설계상 대회형 전용 — 위 설계서
+  // "상대팀: 내부 팀(리그형) / 외부 팀(대회형)" 참고). 체크를 지우지 않고 대회형을
+  // 빼는 쪽으로 좁힌다 — 리그형(미라클 등)에 외부 팀이 새는 건 여전히 잡아야 한다.
+  `SELECT count(*)::int AS n FROM league_teams lt
+     JOIN leagues l ON l.id = lt.league_id
+    WHERE l.mode <> 'tournament' AND lt.is_external IS DISTINCT FROM false`,
+  rows => rows[0].n === 0 || `리그형인데 is_external 이 false 가 아닌 행이 ${rows[0].n}건`
 )
 
 await check(
-  '외부 팀은 아직 0건 (단계 4 에서 생김)',
-  `SELECT count(*)::int AS n FROM league_teams WHERE is_external = true`,
-  rows => rows[0].n === 0 || `외부 팀이 벌써 ${rows[0].n}건 있음`
+  '리그형(mode≠tournament) 외부 팀은 아직 0건',
+  `SELECT count(*)::int AS n FROM league_teams lt
+     JOIN leagues l ON l.id = lt.league_id
+    WHERE l.mode <> 'tournament' AND lt.is_external = true`,
+  rows => rows[0].n === 0 || `리그형인데 외부 팀이 벌써 ${rows[0].n}건 있음`
 )
 
 // ── Task 4: 회귀 방지 — 단계 1 은 데이터를 바꾸지 않았다 ──
@@ -165,14 +182,18 @@ await check(
      (SELECT count(*)::int FROM league_players WHERE league_id IN (${BASELINE_LEAGUES}))                                AS players,
      (SELECT count(*)::int FROM league_game_events WHERE league_game_id IN
         (SELECT id FROM league_games WHERE league_id IN (${BASELINE_LEAGUES})))                                         AS events,
-     (SELECT count(*)::int FROM league_teams  WHERE league_id IN (${BASELINE_LEAGUES}))                                 AS teams`,
+     (SELECT count(*)::int FROM league_teams  WHERE league_id IN (${BASELINE_LEAGUES}) AND league_id NOT IN
+        (SELECT id FROM leagues WHERE org_slug = 'paranalgae' AND mode = 'tournament'))                                 AS teams`,
   rows => {
     const r = rows[0]
     // 2026-08-04 단계 1 착수 시점 실측값 — games 는 그 날짜까지, 전부 기존 두 조직으로 스코프됨
     // 081: 친선전 기능 제거로 빈 슬롯 8건 삭제 (279 → 271). 이벤트는 0건이라 events 는 불변.
+    // teams: 통일 단계 B(migrate-legacy.mjs) 가 paranalgae 를 대회형으로 이관하며 league_teams 가
+    //   정당하게 45건(우리팀 2 + 외부 43)으로 늘었다 — 이 체크는 "기존 데이터가 안 바뀌었는가"가
+    //   목적이므로 새로 생긴 대회형 리그(paranalgae/mode=tournament)의 league_teams 는 빼고 센다.
     if (r.games !== 271) return `games(~${BASELINE_DATE}) 기대 271, 실제 ${r.games}`
     if (r.players !== 45) return `players 기대 45, 실제 ${r.players}`
-    if (r.teams !== 3) return `league_teams 기대 3, 실제 ${r.teams}`
+    if (r.teams !== 3) return `league_teams(대회형 제외) 기대 3, 실제 ${r.teams}`
     if (r.events <= 0) return `events 가 0건`
     return true
   }
