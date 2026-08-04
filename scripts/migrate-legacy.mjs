@@ -265,12 +265,98 @@ async function migratePlayers() {
   }
 }
 
+// 경기. 레거시는 항상 "우리 vs 상대" 이므로 우리 팀을 홈, 상대를 원정으로 고정한다.
+//   실제 홈/원정 구분 정보가 원본에 없어서 임의로 정하는 것이고, 이 규칙을 어기면
+//   our_score/opponent_score 가 뒤집혀 승패가 반대로 나온다.
+//
+// ⚠ 팀은 g.team_type 이 아니라 tournament_id → tournaments.team_id 로 유도한다.
+//   50경기 전부 team_type='youth' 로 적혀 있으나 실제 장년부 경기가 14건이다.
+//
+// ⚠ 경기장(venue) 함정: 원본 50건 중 9건은 venue 가 NULL 이 아니라 빈 문자열('') 이다
+//   (사전 실측: count(venue)=42 지만 실제 값이 있는 건 33건 — SELECT count(*) FILTER
+//   (WHERE venue IS NOT NULL AND btrim(venue)='') 로 9건 확인). 빈 문자열을 그대로
+//   복사하면 "채워졌다"고 셀 수 없는 값이 채워진 것처럼 카운트된다. round/ai_mvp 는
+//   같은 방식으로 확인한 결과 빈 문자열이 0건이라 그대로 복사해도 안전하다.
+function normalizeVenue(v) {
+  if (v === null || v === undefined) return null
+  const trimmed = v.trim()
+  return trimmed === '' ? null : v
+}
+
+// round_num 은 대회 순번(league_quarters.ord)을 쓴다. NOT NULL 이라 비워둘 수 없고,
+//   리그 규칙에 round_unit='tournament' 를 넣었으므로 "한 대회 = 한 라운드" 가 일관된 해석이다.
+//   total_rounds 도 대회 수(청년 8 · 장년 4)로 맞춰 뒀다 — 출전 자격(min_round_ratio 0.3)이
+//   "참가한 대회 비율" 로 계산되게 하려는 것이다. 경기일 단위로 매기면 대회 안의 경기 수가
+//   들쭉날쭉해 같은 대회에 다 나온 선수끼리도 자격이 갈린다.
+async function migrateGames() {
+  console.log('\n[5] 경기')
+  const rows = await sql(`
+    SELECT g.id, g.tournament_id, g.date, g.opponent, g.venue, g.round, g.ai_mvp,
+           g.our_score, g.opponent_score, g.youtube_url, g.youtube_start_offset,
+           g.is_complete, tr.team_id AS legacy_team_id
+      FROM games g JOIN tournaments tr ON tr.id = g.tournament_id
+     ORDER BY g.date, g.id
+  `)
+  let made = 0
+  for (const g of rows) {
+    const [existing] = await sql(`SELECT id FROM league_games WHERE legacy_id = ${q(g.id)}`)
+    if (existing) continue
+
+    const leagueId = await leagueIdFor(g.legacy_team_id)
+    const [ourTeam] = await sql(
+      `SELECT id FROM league_teams WHERE league_id = ${q(leagueId)} AND legacy_id = ${q(g.legacy_team_id)}`
+    )
+    const [quarter] = await sql(`SELECT id, ord FROM league_quarters WHERE legacy_id = ${q(g.tournament_id)}`)
+    if (!ourTeam || !quarter) throw new Error(`선행 행이 없다 (경기 ${g.id}) — 앞 단계를 --commit 으로 실행했는가`)
+
+    // 상대팀. 이름이 비어 있는 경기가 있으면 원정 팀을 NULL 로 두고 넘어간다 —
+    //   억지로 '미상' 같은 팀을 만들면 순위표에 유령 팀이 생긴다.
+    let awayId = null
+    const oppName = (g.opponent ?? '').trim()
+    if (oppName) {
+      const [opp] = await sql(
+        `SELECT id FROM league_teams WHERE league_id = ${q(leagueId)} AND name = ${q(oppName)} AND is_external`
+      )
+      if (!opp) throw new Error(`외부 상대팀이 없다: "${oppName}" — migrateTeams 를 먼저 실행했는가`)
+      awayId = opp.id
+    }
+
+    // slot_num — (league_id, date, slot_num) 유니크 제약이 있다. 대회는 하루에 여러 경기를
+    //   치르므로 슬롯을 나눠야 한다. 메모리 카운터 대신 매번 DB 의 현재 최대값을 읽는 이유:
+    //   이관이 중간에 끊겨 일부만 들어간 상태에서 재실행해도 이어서 번호가 매겨진다.
+    const [slotRow] = await sql(`
+      SELECT coalesce(max(slot_num), 0) + 1 AS slot FROM league_games
+       WHERE league_id = ${q(leagueId)} AND date = ${q(g.date)}
+    `)
+
+    await exec(`
+      INSERT INTO league_games (league_id, quarter_id, home_team_id, away_team_id, date,
+                                round_num, slot_num,
+                                home_score, away_score, is_complete, is_started, is_exhibition,
+                                youtube_url, youtube_start_offset,
+                                venue, round_label, ai_mvp, legacy_id)
+      VALUES (${q(leagueId)}, ${q(quarter.id)}, ${q(ourTeam.id)}, ${awayId ? q(awayId) : 'NULL'}, ${q(g.date)},
+              ${Number(quarter.ord)}, ${Number(slotRow.slot)},
+              ${g.our_score === null ? 'NULL' : Number(g.our_score)},
+              ${g.opponent_score === null ? 'NULL' : Number(g.opponent_score)},
+              ${q(g.is_complete)}, ${q(g.is_complete)}, false,
+              ${q(g.youtube_url)}, ${g.youtube_start_offset === null ? 'NULL' : Number(g.youtube_start_offset)},
+              ${q(normalizeVenue(g.venue))}, ${q(g.round)},
+              ${g.ai_mvp === null ? 'NULL' : `${q(JSON.stringify(g.ai_mvp))}::jsonb`},
+              ${q(g.id)})
+    `)
+    made += 1
+  }
+  console.log(`  원본 ${rows.length}경기 중 ${made}경기 신규`)
+}
+
 async function main() {
   console.log(COMMIT ? '=== 실제 적용 (--commit) ===' : '=== 드라이런 — 쓰기 없음 ===')
   await migrateLeagues()
   await migrateQuarters()
   await migrateTeams()
   await migratePlayers()
+  await migrateGames()
   console.log(COMMIT ? '완료' : '드라이런 끝. 적용하려면 --commit')
 }
 

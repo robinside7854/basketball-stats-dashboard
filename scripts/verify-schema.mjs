@@ -178,7 +178,8 @@ const BASELINE_LEAGUES = `
 await check(
   `기존 조직의 경기(2026-08-04 이전) · 선수 · 이벤트 건수 불변`,
   `SELECT
-     (SELECT count(*)::int FROM league_games  WHERE date <= '${BASELINE_DATE}' AND league_id IN (${BASELINE_LEAGUES})) AS games,
+     (SELECT count(*)::int FROM league_games  WHERE date <= '${BASELINE_DATE}' AND league_id IN (${BASELINE_LEAGUES})
+        AND league_id NOT IN (SELECT id FROM leagues WHERE org_slug = 'paranalgae' AND mode = 'tournament')) AS games,
      (SELECT count(*)::int FROM league_players WHERE league_id IN (${BASELINE_LEAGUES}) AND league_id NOT IN
         (SELECT id FROM leagues WHERE org_slug = 'paranalgae' AND mode = 'tournament'))                                 AS players,
      (SELECT count(*)::int FROM league_game_events WHERE league_game_id IN
@@ -335,12 +336,12 @@ await check(
 //   games/events 는 아직 어느 단계도 옮기지 않았으니 0 그대로다 — 여기서 0 이 아니면
 //   후속 단계(경기·이벤트 이관)를 이 태스크보다 먼저 건너뛴 것이다.
 await check(
-  '단계 B-2 까지 선수만 이관됐다 (경기·이벤트는 아직)',
+  '단계 B-3 까지 선수·경기가 이관됐다 (이벤트는 아직)',
   `SELECT
      (SELECT count(*)::int FROM league_games       WHERE legacy_id IS NOT NULL) AS g,
      (SELECT count(*)::int FROM league_players     WHERE legacy_id IS NOT NULL) AS p,
      (SELECT count(*)::int FROM league_game_events WHERE legacy_id IS NOT NULL) AS e`,
-  (rows) => rows[0].g === 0 && rows[0].p === 68 && rows[0].e === 0,
+  (rows) => rows[0].g === 50 && rows[0].p === 68 && rows[0].e === 0,
 )
 
 // 기존 리그 선수 45명은 새 기본값을 받아야 한다 — NOT NULL 기본값이 제대로 먹었는지 확인.

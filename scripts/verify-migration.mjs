@@ -176,5 +176,77 @@ await check(
   (r) => r[0].pro === 7 && r[0].inactive === 3,
 )
 
+// ── 경기 ─────────────────────────────────────
+await check(
+  '경기 50건이 전부 옮겨졌다',
+  `SELECT count(*)::int n FROM league_games WHERE legacy_id IS NOT NULL`,
+  (r) => r[0].n === 50,
+)
+
+await check(
+  '원본 경기 중 사본이 없는 것이 0건',
+  `SELECT count(*)::int n FROM games g
+    WHERE NOT EXISTS (SELECT 1 FROM league_games lg WHERE lg.legacy_id = g.id)`,
+  (r) => r[0].n === 0,
+)
+
+// ⚠ 이 이관 최대의 함정. games.team_type 은 50건 전부 'youth' 지만 실제 장년부가 14건이다.
+//   대회를 통해 유도한 팀 귀속이 맞는지 반드시 확인한다.
+await check(
+  '경기가 대회 원본의 팀 리그에 붙어 있다 (team_type 함정)',
+  `SELECT count(*)::int n
+     FROM games g
+     JOIN tournaments tr ON tr.id = g.tournament_id
+     JOIN league_games lg ON lg.legacy_id = g.id
+     JOIN leagues l ON l.id = lg.league_id
+    WHERE l.team_id IS DISTINCT FROM tr.team_id`,
+  (r) => r[0].n === 0,
+)
+
+await check(
+  '청년부 36경기 · 장년부 14경기로 갈렸다',
+  `SELECT l.slug, count(*)::int n
+     FROM league_games lg JOIN leagues l ON l.id = lg.league_id
+    WHERE lg.legacy_id IS NOT NULL GROUP BY l.slug ORDER BY l.slug`,
+  (r) => {
+    const m = Object.fromEntries(r.map((x) => [x.slug, x.n]))
+    return m['youth-2026'] === 36 && m['senior-2026'] === 14
+  },
+)
+
+// 점수가 뒤집히면 승패가 반대로 나온다 — 우리 점수는 홈, 상대 점수는 원정이어야 한다.
+// venue 는 NULLIF(btrim(...), '') 로 비교한다 — 원본 9건이 NULL 이 아니라 빈 문자열이고,
+//   이관 스크립트가 그 9건을 NULL 로 정규화했기 때문이다(normalizeVenue 주석 참고).
+await check(
+  '경기 속성이 원본과 일치 (날짜·점수·경기장·라운드·완료)',
+  `SELECT count(*)::int n
+     FROM games g JOIN league_games lg ON lg.legacy_id = g.id
+    WHERE lg.date        IS DISTINCT FROM g.date
+       OR lg.home_score  IS DISTINCT FROM g.our_score
+       OR lg.away_score  IS DISTINCT FROM g.opponent_score
+       OR lg.venue       IS DISTINCT FROM NULLIF(btrim(g.venue), '')
+       OR lg.round_label IS DISTINCT FROM g.round
+       OR lg.is_complete IS DISTINCT FROM g.is_complete
+       OR lg.youtube_url IS DISTINCT FROM g.youtube_url`,
+  (r) => r[0].n === 0,
+)
+
+await check(
+  '상대팀 이름이 원본 문자열과 일치',
+  `SELECT count(*)::int n
+     FROM games g
+     JOIN league_games lg ON lg.legacy_id = g.id
+     LEFT JOIN league_teams away ON away.id = lg.away_team_id
+    WHERE btrim(coalesce(g.opponent, '')) <> coalesce(away.name, '')`,
+  (r) => r[0].n === 0,
+)
+
+await check(
+  '보존 필드가 실제로 채워졌다 (경기장 33 · 라운드 43 · AI MVP 44)',
+  `SELECT count(venue)::int v, count(round_label)::int rl, count(ai_mvp)::int am
+     FROM league_games WHERE legacy_id IS NOT NULL`,
+  (r) => r[0].v === 33 && r[0].rl === 43 && r[0].am === 44,
+)
+
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exit(failed === 0 ? 0 : 1)
