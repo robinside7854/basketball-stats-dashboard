@@ -23,24 +23,20 @@ function formatKorean(dateStr: string): string {
 }
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
-  const { orgSlug, leagueId, date } = await params
-  if (!isValidDate(date)) return { title: '박스스코어' }
+  const { leagueId, date } = await params
+  if (!isValidDate(date)) return { title: '온볼 — 박스스코어' }
 
   // 비공개 리그는 탭 제목에도 클럽명을 노출하지 않는다 — layout.tsx generateMetadata 와 동일 원칙.
+  // openGraph/twitter 를 지정하지 않고 그대로 반환하면 루트의 온볼 브랜드 값을 상속해
+  // 공유 카드에서도 "로그인이 필요합니다" 조차 드러나지 않는다.
   if (await isLeaguePrivateGated(leagueId)) {
     return { title: '로그인이 필요합니다', description: '비공개로 운영되는 페이지입니다.' }
   }
 
-  const supabase = createClient()
-  const { data } = await supabase
-    .from('leagues')
-    .select('name')
-    .eq('id', leagueId)
-    .eq('org_slug', orgSlug)
-    .single()
-  const leagueName = (data?.name as string | undefined) ?? '리그'
-  const title = `${formatKorean(date)} 박스스코어 — ${leagueName}`
-  return { title, description: `${leagueName} · ${formatKorean(date)} 경기 박스스코어 (팀별 · 개인 스탯 · 팀 비교)` }
+  // 탭 제목엔 클럽명 대신 날짜로 다른 박스스코어 탭과 구분한다 — 리그명 조회가 필요 없어졌다.
+  const title = `온볼 — ${formatKorean(date)} 박스스코어`
+  const description = `${formatKorean(date)} 경기 박스스코어 · 팀별 · 개인 스탯 · 팀 비교`
+  return { title, description, openGraph: { title, description }, twitter: { title, description } }
 }
 
 export default async function BoxscorePage({ params }: { params: Promise<Params> }) {

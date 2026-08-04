@@ -45,11 +45,29 @@ const SPLASH_DEVICES = [
 ]
 
 // 루트 기본 메타데이터 — 자체 metadata 가 없는 모든 경로(/admin, /stats, /roster …)가 이 값을 상속.
-// 멀티테넌트로 전환된 뒤에도 특정 팀명(파란날개)이 박혀 있어 어드민 탭까지 팀명이 노출됐다 → 중립 명칭으로 교체.
-// 리그 화면은 src/app/league/[orgSlug]/[leagueId]/layout.tsx 의 generateMetadata 가 리그명으로 덮어쓴다.
+// 온볼은 서비스 정체성, 동호회(클럽) 이름은 화면 안에서만 보여준다는 원칙(2026-08) →
+// 브라우저 탭·링크 공유 카드 등 "바깥으로 보이는" 자리에는 항상 온볼만 노출하고 클럽명은 절대 섞지 않는다.
+// 리그 화면(league/[orgSlug]/[leagueId]/layout.tsx, boxscore/[date]/page.tsx)의 generateMetadata 도
+// 같은 원칙으로 "온볼 — <페이지 종류>" 형태만 쓴다 (여러 탭을 구분하되 클럽명은 여전히 안 드러남).
 export const metadata: Metadata = {
-  title: '농구 스탯 대시보드',
-  description: '농구팀 경기 기록 및 통계 대시보드',
+  // OG 이미지 등 상대 경로를 절대 URL로 계산하는 기준. 카톡/메신저 미리보기는 절대 URL이 아니면
+  // 안정적으로 못 가져온다. 프로덕션 도메인은 owner가 onball 커스텀 도메인으로 옮길 수도 있어
+  // 하드코딩 대신 env(NEXT_PUBLIC_SITE_URL)로 뺐다 — 값이 없으면 현재 Vercel 기본 도메인로 폴백.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://basketball-stats-dashboard.vercel.app'),
+  title: '온볼',
+  description: '구기 동호회의 경기 영상에 기록을 붙여, 선수 개인의 하이라이트와 시즌 기록을 각자에게 돌려주는 서비스',
+  openGraph: {
+    title: '온볼',
+    description: '공이 온 순간은, 사라지지 않는다',
+    siteName: '온볼',
+    type: 'website',
+    locale: 'ko_KR',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: '온볼',
+    description: '공이 온 순간은, 사라지지 않는다',
+  },
   // 홈 화면에 추가 시 상태바 컬러 (구형 iOS Safari 호환용)
   appleWebApp: {
     capable: true,

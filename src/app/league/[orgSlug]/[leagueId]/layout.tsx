@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/admin'
 import { isLeaguePublic, getApprovedSession } from '@/lib/auth/guard'
 import LeagueLayoutClient from './_components/LeagueLayoutClient'
 import PrivateLeagueGate from '@/components/league/auth/PrivateLeagueGate'
@@ -9,24 +8,22 @@ export async function generateMetadata({
 }: {
   params: Promise<{ orgSlug: string; leagueId: string }>
 }): Promise<Metadata> {
-  const { orgSlug, leagueId } = await params
+  const { leagueId } = await params
 
   // 비공개 리그는 탭 제목에도 클럽/리그 이름을 노출하지 않는다 — 링크만 가진 사람이
   // 브라우저 탭을 봐도 "어느 동호회인지" 알 수 없어야 한다 (화면 본문 게이트와 동일한 원칙).
+  // openGraph/twitter 를 여기서 지정하지 않으면 루트 layout 의 온볼 브랜드 값을 그대로 상속한다 —
+  // 링크 공유 카드도 "로그인이 필요합니다" 조차 노출하지 않고 완전히 중립화되는 효과.
   const publicLeague = await isLeaguePublic(leagueId)
   if (!publicLeague && !(await getApprovedSession(leagueId))) {
     return { title: '로그인이 필요합니다', description: '비공개로 운영되는 페이지입니다.' }
   }
 
-  const supabase = createClient()
-  const { data } = await supabase
-    .from('leagues')
-    .select('name')
-    .eq('id', leagueId)
-    .eq('org_slug', orgSlug)
-    .single()
-  const title = data?.name ? `${data.name} — 게임로그` : '리그 게임로그'
-  return { title, description: `${data?.name ?? ''} 농구 리그 경기 기록 및 통계` }
+  // 온볼은 서비스 정체성, 클럽/리그 이름은 화면 안에서만 보여준다 — 탭 제목엔 클럽명 대신
+  // 페이지 종류(게임로그)로 탭을 구분한다. 그래서 리그명 조회 자체가 더 이상 필요 없다.
+  const title = '온볼 — 게임로그'
+  const description = '동호회 경기 기록 · 게임로그'
+  return { title, description, openGraph: { title, description }, twitter: { title, description } }
 }
 
 export default async function LeagueLayout({
