@@ -44,9 +44,12 @@ const SPLASH_DEVICES = [
   '(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)', // SE 1
 ]
 
+// 루트 기본 메타데이터 — 자체 metadata 가 없는 모든 경로(/admin, /stats, /roster …)가 이 값을 상속.
+// 멀티테넌트로 전환된 뒤에도 특정 팀명(파란날개)이 박혀 있어 어드민 탭까지 팀명이 노출됐다 → 중립 명칭으로 교체.
+// 리그 화면은 src/app/league/[orgSlug]/[leagueId]/layout.tsx 의 generateMetadata 가 리그명으로 덮어쓴다.
 export const metadata: Metadata = {
-  title: '파란날개 게임로그',
-  description: '파란날개 농구팀 경기 기록 및 통계 대시보드',
+  title: '농구 스탯 대시보드',
+  description: '농구팀 경기 기록 및 통계 대시보드',
   // 홈 화면에 추가 시 상태바 컬러 (구형 iOS Safari 호환용)
   appleWebApp: {
     capable: true,
