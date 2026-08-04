@@ -7,10 +7,12 @@ import { canEditLeague } from '@/lib/auth/leagueAdmin'
 // body: { date: 'YYYY-MM-DD' }
 //
 // 친선 4쿼터·2경기 모드 초기화:
-//   1) 미라클(#ef4444) / 모닝(#3b82f6) 팀이 league_teams 에 없으면 생성
+//   1) 홍팀(#ef4444) / 청팀(#3b82f6) 팀이 league_teams 에 없으면 생성
+//      ⚠️ 팀 이름은 동호회 중립이어야 한다 — 예전엔 '미라클'/'모닝' 을 만들어서,
+//         이 기능을 쓰는 모든 동호회 DB 에 남의 동호회 이름이 실제 행으로 남았다.
 //   2) league_schedule_dates 에 해당 날짜 등록 (없으면)
 //   3) 8개 game 슬롯 생성 (Game 1: slot 1-4 / Game 2: slot 5-8, 각 1쿼터~4쿼터)
-//      home_team_id = 미라클, away_team_id = 모닝, is_exhibition = true
+//      home_team_id = 홍팀, away_team_id = 청팀, is_exhibition = true
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
@@ -24,17 +26,17 @@ export async function POST(
 
   const supabase = createClient()
 
-  // 1) 미라클 / 모닝 팀 확보
+  // 1) 홍팀 / 청팀 확보
   const { data: existingTeams } = await supabase
     .from('league_teams')
     .select('id, name, color')
     .eq('league_id', leagueId)
-    .in('name', ['미라클', '모닝'])
+    .in('name', ['홍팀', '청팀'])
 
   const teamMap = new Map((existingTeams ?? []).map(t => [t.name, t]))
   const toCreate: { league_id: string; name: string; color: string }[] = []
-  if (!teamMap.has('미라클')) toCreate.push({ league_id: leagueId, name: '미라클', color: '#ef4444' })
-  if (!teamMap.has('모닝'))   toCreate.push({ league_id: leagueId, name: '모닝',   color: '#3b82f6' })
+  if (!teamMap.has('홍팀')) toCreate.push({ league_id: leagueId, name: '홍팀', color: '#ef4444' })
+  if (!teamMap.has('청팀'))   toCreate.push({ league_id: leagueId, name: '청팀',   color: '#3b82f6' })
 
   if (toCreate.length > 0) {
     const { data: created, error: tErr } = await supabase
@@ -45,9 +47,9 @@ export async function POST(
     for (const t of created ?? []) teamMap.set(t.name, t)
   }
 
-  const miracleTeam = teamMap.get('미라클')
-  const morningTeam = teamMap.get('모닝')
-  if (!miracleTeam || !morningTeam) {
+  const redTeam = teamMap.get('홍팀')
+  const blueTeam = teamMap.get('청팀')
+  if (!redTeam || !blueTeam) {
     return NextResponse.json({ error: '팀 생성 실패' }, { status: 500 })
   }
 
@@ -114,8 +116,8 @@ export async function POST(
       date,
       slot_num: i,
       round_num: gameIdx,
-      home_team_id: miracleTeam.id,
-      away_team_id: morningTeam.id,
+      home_team_id: redTeam.id,
+      away_team_id: blueTeam.id,
       home_score: 0,
       away_score: 0,
       is_complete: false,
@@ -135,7 +137,7 @@ export async function POST(
   revalidateTag(`league-${leagueId}-games`, 'max')
 
   return NextResponse.json({
-    teams: { home: miracleTeam, away: morningTeam },
+    teams: { home: redTeam, away: blueTeam },
     slots: inserted ?? [],
   })
 }

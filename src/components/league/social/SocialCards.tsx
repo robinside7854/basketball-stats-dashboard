@@ -17,13 +17,15 @@ const ellip = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowra
 
 // 멀티테넌트 전환(온볼): 하단 클럽명 span 은 RoundMagazineData.leagueName(DB league.name) 사용 —
 // 카드가 인스타 등 공개 채널에 게시되므로 다른 클럽명이 찍히면 안 됨.
-// "Miracle Weekly" 타이틀 · "@MIRACLE_MORNING" 핸들은 이번 작업 범위(line 31 클럽명)에 해당하지 않아 그대로 둠 → 보고서에 별도 기재
+// 상단 타이틀과 하단 핸들도 클럽 중립으로 바꿨다. 예전엔 "Miracle Weekly" / "@MIRACLE_MORNING"
+// 이 박혀 있어, 다른 동호회가 카드를 뽑아 인스타에 올리면 남의 클럽 핸들이 공개 노출됐다.
+// 핸들은 동호회마다 다르므로 DB 에 넣기 전까지는 표시하지 않는다(빈 자리로 둔다).
 function Shell({ kicker, leagueName, children, footer = true }: { kicker: string; leagueName?: string; children: React.ReactNode; footer?: boolean }) {
   return (
     <div style={{ width: IG_W, height: IG_H, background: C.bg, color: C.ink, position: 'relative', overflow: 'hidden', fontFamily: 'Pretendard, system-ui, sans-serif' }}>
       <div aria-hidden style={{ position: 'absolute', inset: 0, opacity: 0.05, background: `repeating-linear-gradient(90deg, transparent 0 108px, ${C.yellow} 108px 110px)` }} />
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '46px 60px 0' }}>
-        <span style={{ fontFamily: JERSEY, fontWeight: 900, fontSize: 30, letterSpacing: '0.14em', color: C.yellow, textTransform: 'uppercase' }}>Miracle Weekly</span>
+        <span style={{ fontFamily: JERSEY, fontWeight: 900, fontSize: 30, letterSpacing: '0.14em', color: C.yellow, textTransform: 'uppercase' }}>Weekly</span>
         <span style={{ fontFamily: JERSEY, fontWeight: 800, fontSize: 26, letterSpacing: '0.06em', color: C.muted }}>{kicker}</span>
       </div>
       <div style={{ position: 'relative', padding: '22px 60px 0', height: footer ? IG_H - 178 : IG_H - 100, boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
@@ -32,7 +34,7 @@ function Shell({ kicker, leagueName, children, footer = true }: { kicker: string
       {footer && (
         <div style={{ position: 'absolute', left: 60, right: 60, bottom: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: `1px solid ${C.rule}`, paddingTop: 16 }}>
           <span style={{ color: C.muted, fontSize: 22, fontWeight: 700 }}>{leagueName ?? ''}</span>
-          <span style={{ fontFamily: JERSEY, fontWeight: 900, fontSize: 24, color: C.yellow, letterSpacing: '0.1em' }}>@MIRACLE_MORNING</span>
+          <span style={{ fontFamily: JERSEY, fontWeight: 900, fontSize: 24, color: C.yellow, letterSpacing: '0.1em' }}>ONBALL</span>
         </div>
       )}
     </div>
