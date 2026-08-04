@@ -25,8 +25,8 @@ export async function GET(
     .from('league_games')
     .select(`
       *,
-      home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
-      away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
+      home_team:league_teams!league_games_home_team_id_fkey(id, name, color, is_external),
+      away_team:league_teams!league_games_away_team_id_fkey(id, name, color, is_external)
     `)
     .eq('league_id', leagueId)
 
@@ -131,8 +131,8 @@ export async function POST(
     .from('league_games')
     .select(`
       *,
-      home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
-      away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
+      home_team:league_teams!league_games_home_team_id_fkey(id, name, color, is_external),
+      away_team:league_teams!league_games_away_team_id_fkey(id, name, color, is_external)
     `)
     .eq('league_id', leagueId)
     .eq('date', date)

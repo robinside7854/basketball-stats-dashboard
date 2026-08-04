@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { Handshake, CircleDashed, Crosshair } from 'lucide-react'
+import { Handshake, CircleDashed, Crosshair, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import type { LeaguePlayer } from '@/types/league'
@@ -13,11 +13,15 @@ interface Props {
   gameId: string
   homePlayers?: RosterPlayer[]
   awayPlayers?: RosterPlayer[]
-  homeTeam?: { id: string; name: string; color: string }
-  awayTeam?: { id: string; name: string; color: string }
+  homeTeam?: { id: string; name: string; color: string; is_external?: boolean }
+  awayTeam?: { id: string; name: string; color: string; is_external?: boolean }
   leagueHeaders: Record<string, string>
   onEventSaved: () => void
   activePlusOneIds?: string[]  // per-game override; if set, only these player IDs get +1
+  // 대회형 즉석 등록으로 상대 선수가 새로 생겼을 때 알림 — 부모가 전체 로스터를 다시
+  // 불러와(loadRoster) 교체 화면 등 다른 화면에도 이 선수가 반영되게 한다.
+  // 패드 자체 렌더링은 로컬 상태(addedOpponents)로 즉시 반영되므로 이 콜백이 없어도 동작한다.
+  onOpponentRegistered?: () => void
 }
 
 type EventBtn = {
@@ -83,6 +87,7 @@ export default function LeagueEventInputPad({
   homeTeam, awayTeam,
   leagueHeaders, onEventSaved,
   activePlusOneIds,
+  onOpponentRegistered,
 }: Props) {
   const { getCurrentTimestamp } = useGameStore()
 
@@ -104,7 +109,20 @@ export default function LeagueEventInputPad({
   // Optimistic UI: 아직 서버 응답 대기 중인 저장 있음 · undo 가드용
   const [lastEventPending, setLastEventPending] = useState(false)
 
-  const allPlayers: RosterPlayer[] = [...homePlayers, ...awayPlayers]
+  // ── 대회형: 상대(외부) 선수 즉석 등록 ──────────────────────────
+  // 등록 직후 부모의 roster 리로드를 기다리지 않고 바로 화면·선택 상태에 반영해야
+  // "기록 중 이탈 금지" 요구를 만족한다 — 그래서 props 로 받은 명단과 별도로 로컬에 쌓는다.
+  const [addedOpponents, setAddedOpponents] = useState<RosterPlayer[]>([])
+  const [oppDraft, setOppDraft] = useState<Record<'home' | 'away', { number: string; name: string; showName: boolean; busy: boolean }>>({
+    home: { number: '', name: '', showName: false, busy: false },
+    away: { number: '', name: '', showName: false, busy: false },
+  })
+
+  // 코트 표시용 명단 = props 명단 + 이번 세션에 새로 등록한 선수(중복 방지)
+  const homeDisplay: RosterPlayer[] = [...homePlayers, ...addedOpponents.filter(p => p.team_id === homeTeam?.id && !homePlayers.some(h => h.id === p.id))]
+  const awayDisplay: RosterPlayer[] = [...awayPlayers, ...addedOpponents.filter(p => p.team_id === awayTeam?.id && !awayPlayers.some(h => h.id === p.id))]
+
+  const allPlayers: RosterPlayer[] = [...homeDisplay, ...awayDisplay]
   const selectedObj   = selectedPlayer ? (allPlayers.find(p => p.id === selectedPlayer) ?? null) : null
   const selectedTeamId = selectedObj?.team_id ?? null
   const selectedTeam   = selectedObj
@@ -131,6 +149,52 @@ export default function LeagueEventInputPad({
     setPossessionPlayerId(null)
     setPendingShot(null)
     setAwaitingAssist(false)
+  }
+
+  function patchOppDraft(side: 'home' | 'away', patch: Partial<{ number: string; name: string; showName: boolean; busy: boolean }>) {
+    setOppDraft(prev => ({ ...prev, [side]: { ...prev[side], ...patch } }))
+  }
+
+  // 등번호만으로 상대 선수를 즉석 등록 — 같은 번호를 다시 등록해도(더블탭 등)
+  // 서버가 기존 선수를 그대로 돌려주므로(idempotent) 여기서 중복 걱정은 안 해도 된다.
+  async function registerOpponent(side: 'home' | 'away') {
+    const team = side === 'home' ? homeTeam : awayTeam
+    if (!team) return
+    const draft = oppDraft[side]
+    const num = Number(draft.number)
+    if (draft.number.trim() === '' || !Number.isInteger(num) || num < 0 || num > 99) {
+      toast.error('등번호는 0~99 사이 숫자로 입력하세요')
+      return
+    }
+    patchOppDraft(side, { busy: true })
+    try {
+      const r = await fetch(`/api/leagues/${leagueId}/games/${gameId}/opponent-players`, {
+        method: 'POST',
+        headers: leagueHeaders,
+        body: JSON.stringify({ team_id: team.id, number: num, name: draft.name.trim() || undefined }),
+      })
+      if (!r.ok) {
+        const err = await r.json().catch(() => null) as { error?: string } | null
+        toast.error(err?.error ?? '상대 선수 등록 실패')
+        patchOppDraft(side, { busy: false })
+        return
+      }
+      const saved = await r.json() as { id: string; name: string; number: number | null }
+      const newPlayer: RosterPlayer = {
+        id: saved.id, league_id: leagueId, name: saved.name, number: saved.number,
+        position: null, birth_date: null, plus_one: false, is_guest: false,
+        created_at: new Date().toISOString(), team_id: team.id,
+      }
+      setAddedOpponents(prev => [...prev.filter(p => p.id !== newPlayer.id), newPlayer])
+      selectPlayer(newPlayer.id)  // 등록 즉시 선택 상태로 — 바로 이어서 기록
+      toast.success(`#${saved.number ?? ''} ${saved.name} 등록 — 바로 기록하세요`)
+      patchOppDraft(side, { number: '', name: '', showName: false, busy: false })
+      onOpponentRegistered?.()
+    } catch {
+      // 실패 시 입력값은 그대로 둔다 — 다시 타이핑하지 않게
+      toast.error('상대 선수 등록 실패 - 네트워크를 확인하세요')
+      patchOppDraft(side, { busy: false })
+    }
   }
 
   function handleShotClick(btn: EventBtn) {
@@ -484,6 +548,57 @@ export default function LeagueEventInputPad({
     )
   }
 
+  // 대회형 상대(외부) 팀에만 뜨는 즉석 등록 UI. 화면 전환·모달 없이 그 자리에서 처리.
+  function renderOpponentRegister(side: 'home' | 'away') {
+    const team = side === 'home' ? homeTeam : awayTeam
+    if (!team?.is_external) return null
+    const draft = oppDraft[side]
+    return (
+      <div className="mt-1.5 p-1.5 rounded-lg space-y-1 bg-gray-800/60 border border-gray-700">
+        <div className="flex items-center gap-1">
+          <input
+            type="text" inputMode="numeric" pattern="[0-9]*" maxLength={2}
+            value={draft.number}
+            onChange={e => patchOppDraft(side, { number: e.target.value.replace(/[^0-9]/g, '') })}
+            onKeyDown={e => { if (e.key === 'Enter') registerOpponent(side) }}
+            placeholder="번호"
+            aria-label={`${team.name} 상대 선수 등번호`}
+            disabled={draft.busy}
+            className="w-12 min-h-11 text-center text-sm font-bold rounded-lg bg-gray-900 border border-gray-700 text-gray-200 placeholder-gray-600 cursor-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50"
+          />
+          <button
+            onClick={() => registerOpponent(side)}
+            disabled={draft.busy || draft.number.trim() === ''}
+            aria-label={`${team.name} 상대 선수 등록`}
+            className="flex-1 min-h-11 rounded-lg text-xs font-bold text-blue-100 bg-blue-700 hover:bg-blue-600 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 inline-flex items-center justify-center gap-1"
+          >
+            <UserPlus size={13} strokeWidth={2} aria-hidden />
+            {draft.busy ? '등록 중' : '상대 등록'}
+          </button>
+        </div>
+        {draft.showName ? (
+          <input
+            type="text"
+            value={draft.name}
+            onChange={e => patchOppDraft(side, { name: e.target.value })}
+            onKeyDown={e => { if (e.key === 'Enter') registerOpponent(side) }}
+            placeholder="이름 (선택, 모르면 비워두세요)"
+            aria-label={`${team.name} 상대 선수 이름`}
+            disabled={draft.busy}
+            className="w-full min-h-11 text-xs px-2 rounded-lg bg-gray-900 border border-gray-700 text-gray-200 placeholder-gray-600 cursor-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50"
+          />
+        ) : (
+          <button
+            onClick={() => patchOppDraft(side, { showName: true })}
+            className="w-full min-h-11 flex items-center text-[11px] text-gray-500 hover:text-gray-300 cursor-pointer underline-offset-2 hover:underline"
+          >
+            이름도 입력 (선택)
+          </button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
       {/* ── 헤더: 선택된 선수 + 마지막 이벤트 + 취소 ── */}
@@ -555,21 +670,23 @@ export default function LeagueEventInputPad({
           <div className="flex items-center justify-between mb-1.5 px-2 py-1 rounded-lg"
             style={{ backgroundColor: `${homeTeam?.color ?? '#3b82f6'}18` }}>
             <span className="text-xs font-bold" style={{ color: homeTeam?.color ?? '#3b82f6' }}>{homeTeam?.name ?? '홈팀'}</span>
-            <span className="text-xs font-bold opacity-60" style={{ color: homeTeam?.color ?? '#3b82f6' }}>코트 {homePlayers.length}명</span>
+            <span className="text-xs font-bold opacity-60" style={{ color: homeTeam?.color ?? '#3b82f6' }}>코트 {homeDisplay.length}명</span>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
-            {homePlayers.map(p => renderPlayerBtn(p, homeTeam?.color ?? '#3b82f6'))}
+            {homeDisplay.map(p => renderPlayerBtn(p, homeTeam?.color ?? '#3b82f6'))}
           </div>
+          {renderOpponentRegister('home')}
         </div>
         <div>
           <div className="flex items-center justify-between mb-1.5 px-2 py-1 rounded-lg"
             style={{ backgroundColor: `${awayTeam?.color ?? '#ef4444'}18` }}>
             <span className="text-xs font-bold" style={{ color: awayTeam?.color ?? '#ef4444' }}>{awayTeam?.name ?? '어웨이팀'}</span>
-            <span className="text-xs font-bold opacity-60" style={{ color: awayTeam?.color ?? '#ef4444' }}>코트 {awayPlayers.length}명</span>
+            <span className="text-xs font-bold opacity-60" style={{ color: awayTeam?.color ?? '#ef4444' }}>코트 {awayDisplay.length}명</span>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
-            {awayPlayers.map(p => renderPlayerBtn(p, awayTeam?.color ?? '#ef4444'))}
+            {awayDisplay.map(p => renderPlayerBtn(p, awayTeam?.color ?? '#ef4444'))}
           </div>
+          {renderOpponentRegister('away')}
         </div>
       </div>
       )}
@@ -585,8 +702,8 @@ export default function LeagueEventInputPad({
             <span className="inline-flex items-center gap-1.5 justify-center"><CircleDashed size={14} strokeWidth={2} aria-hidden /> 아웃바운드 / 미기록</span>
           </button>
           {[
-            { players: homePlayers, team: homeTeam, isShooterTeam: reboundShooterTeamId === homeTeam?.id },
-            { players: awayPlayers, team: awayTeam, isShooterTeam: reboundShooterTeamId === awayTeam?.id },
+            { players: homeDisplay, team: homeTeam, isShooterTeam: reboundShooterTeamId === homeTeam?.id },
+            { players: awayDisplay, team: awayTeam, isShooterTeam: reboundShooterTeamId === awayTeam?.id },
           ].map(({ players: tPlayers, team, isShooterTeam }) => tPlayers.length === 0 ? null : (
             <div key={team?.id ?? 'team'}>
               <p className="text-xs font-bold mb-1.5 px-1" style={{ color: team?.color ?? '#9ca3af' }}>

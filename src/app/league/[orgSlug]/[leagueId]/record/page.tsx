@@ -30,8 +30,8 @@ type GameSlot = {
   youtube_url?: string | null; youtube_start_offset?: number
   home_team_id?: string | null; away_team_id?: string | null
   quarter_id?: string | null
-  home_team?: { id: string; name: string; color: string } | null
-  away_team?: { id: string; name: string; color: string } | null
+  home_team?: { id: string; name: string; color: string; is_external?: boolean } | null
+  away_team?: { id: string; name: string; color: string; is_external?: boolean } | null
 }
 type MinRow = { id: string; league_player_id: string; league_game_id: string; out_time: number | null }
 type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
@@ -1591,6 +1591,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         awayTeam={selectedSlot?.away_team ?? undefined}
                         onEventSaved={() => { handleEventSaved(); fetchLiveScore() }}
                         activePlusOneIds={activePlusOneIds.length > 0 ? activePlusOneIds : undefined}
+                        onOpponentRegistered={() => { if (selectedSlot) loadRoster(selectedSlot) }}
                       />
 
                       {/* 비정규 선수 추가 */}
