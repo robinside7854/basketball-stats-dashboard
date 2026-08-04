@@ -1,16 +1,22 @@
-// GET /api/leagues/[leagueId]/auth/presence — 접속 현황 (전체 공개, 인증 불필요)
+// GET /api/leagues/[leagueId]/auth/presence — 접속 현황 (공개 리그는 전체 공개, 인증 불필요)
 //   승인된 계정 회원의 온라인 여부(최근 활동) + 마지막 접속 시각.
 //   '온라인' = last_seen_at 이 ONLINE_WINDOW_MS 이내.
+//   이름/사진을 반환하므로 /auth/ 아래 있어도 명단(공개 데이터)에 준한다 — 로그인 자체엔 불필요.
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
+import { canViewLeague } from '@/lib/auth/guard'
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000  // 5분 이내 활동 = 온라인
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
+  // 팀 비공개 전환 시 화면만 막으면 API 로 뚫린다 — 데이터 계층에서 재확인
+  if (!(await canViewLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const sb = createClient()
 
   const { data: accounts } = await sb

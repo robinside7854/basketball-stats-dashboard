@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { canViewLeague } from '@/lib/auth/guard'
 
 type Ctx = { params: Promise<{ leagueId: string; quarterId: string }> }
 
@@ -10,10 +11,14 @@ type Ctx = { params: Promise<{ leagueId: string; quarterId: string }> }
 //   1) league_player_quarters (정규/분기 멤버십) — 있으면 우선
 //   2) league_game_players (게임별 비정규/타팀 임시 출전) — 폴백, 가장 자주 뛴 팀 사용
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: Ctx
 ) {
   const { leagueId, quarterId } = await params
+  // 팀 비공개 전환 시 화면만 막으면 API 로 뚫린다 — 데이터 계층에서 재확인
+  if (!(await canViewLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const supabase = createClient()
 
   const [{ data: players, error: pErr }, { data: memberships }, { data: quarterGames }] = await Promise.all([

@@ -14,6 +14,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
+import { canViewLeague } from '@/lib/auth/guard'
 
 interface DraftRow {
   id: string
@@ -50,6 +51,10 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
+  // 팀 비공개 전환 시 화면만 막으면 API 로 뚫린다 — 데이터 계층에서 재확인
+  if (!(await canViewLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const { searchParams } = new URL(req.url)
   const quarterId = searchParams.get('quarterId')
   if (!quarterId) return NextResponse.json({ error: 'quarterId 필요' }, { status: 400 })

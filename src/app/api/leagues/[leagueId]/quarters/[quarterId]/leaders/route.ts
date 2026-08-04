@@ -1,16 +1,21 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { canViewLeague } from '@/lib/auth/guard'
 
 type Ctx = { params: Promise<{ leagueId: string; quarterId: string }> }
 
 // GET /api/leagues/[leagueId]/quarters/[quarterId]/leaders
 // Returns team leaders for a quarter: [{ team_id, leader_player_id }]
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: Ctx
 ) {
-  const { quarterId } = await params
+  const { leagueId, quarterId } = await params
+  // 팀 비공개 전환 시 화면만 막으면 API 로 뚫린다 — 데이터 계층에서 재확인
+  if (!(await canViewLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const supabase = createClient()
 
   const { data, error } = await supabase

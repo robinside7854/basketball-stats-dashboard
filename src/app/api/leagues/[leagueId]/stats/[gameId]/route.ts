@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { canViewLeague } from '@/lib/auth/guard'
 
 type EventRow = {
   league_player_id: string | null
@@ -28,10 +29,14 @@ type PlayerStat = {
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ leagueId: string; gameId: string }> }
 ) {
   const { leagueId, gameId } = await params
+  // 팀 비공개 전환 시 화면만 막으면 API 로 뚫린다 — 데이터 계층에서 재확인
+  if (!(await canViewLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const supabase = createClient()
 
   // 이 파일에도 득점 계산이 있었다 — 공용 룰 하나로 통일

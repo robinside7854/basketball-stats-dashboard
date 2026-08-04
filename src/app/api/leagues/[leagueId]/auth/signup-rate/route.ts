@@ -9,6 +9,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { canViewLeague } from '@/lib/auth/guard'
 
 type AccountStatus = 'pending' | 'approved' | 'rejected' | 'disabled'
 
@@ -22,6 +23,11 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
+  // 가입율 카드는 라커룸(명단) 페이지 콘텐츠 — 비공개 팀은 로그인 전 노출 금지
+  // (이 라우트는 /auth/ 아래 있지만 로그인 자체와 무관 — 로그인/가입 API는 별도)
+  if (!(await canViewLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const sb = createClient()
 
   const [{ data: playerRows, error: pErr }, { data: accountRows }] = await Promise.all([

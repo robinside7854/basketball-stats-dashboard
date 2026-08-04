@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { canViewLeague } from '@/lib/auth/guard'
 import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
 
 export async function GET(
@@ -9,6 +10,10 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
+  // 팀 비공개 전환 시 화면만 막으면 API 로 뚫린다 — 데이터 계층에서 재확인
+  if (!(await canViewLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const { searchParams } = new URL(req.url)
   const gameId = searchParams.get('gameId')
   if (!gameId) return NextResponse.json({ error: 'gameId required' }, { status: 400 })

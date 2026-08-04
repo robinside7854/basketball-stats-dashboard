@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { canViewLeague } from '@/lib/auth/guard'
 
 type Ctx = { params: Promise<{ leagueId: string; gameId: string }> }
 
@@ -7,10 +8,14 @@ type Ctx = { params: Promise<{ leagueId: string; gameId: string }> }
 // 해당 게임의 분기 기준 홈/어웨이 팀별 선수 명단 반환
 // 분기 배정이 없으면 리그 전체 선수를 unassigned로 반환 (하위 호환)
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: Ctx
 ) {
   const { leagueId, gameId } = await params
+  // 팀 비공개 전환 시 화면만 막으면 API 로 뚫린다 — 데이터 계층에서 재확인
+  if (!(await canViewLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const supabase = createClient()
 
   // 게임 정보 조회 (date 포함 — 같은 날짜 비정규 상속용)

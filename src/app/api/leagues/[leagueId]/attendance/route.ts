@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { unstable_cache } from 'next/cache'
 import { createClient } from '@/lib/supabase/admin'
+import { canViewLeague } from '@/lib/auth/guard'
 
 interface AttendanceResponse {
   totalRounds: number
@@ -70,10 +71,14 @@ const getCached = (leagueId: string) =>
   )
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
+  // 팀 비공개 전환 시 화면만 막으면 API 로 뚫린다 — 데이터 계층에서 재확인
+  if (!(await canViewLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   try {
     const data = await getCached(leagueId)()
     return NextResponse.json(data)

@@ -3,12 +3,17 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { hashPassword, isValidPassword } from '@/lib/announcements/commentAuth'
+import { canViewLeague } from '@/lib/auth/guard'
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ leagueId: string; announcementId: string }> },
 ) {
   const { leagueId, announcementId } = await params
+  // 팀 비공개 전환 시 화면만 막으면 API 로 뚫린다 — 데이터 계층에서 재확인
+  if (!(await canViewLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const sb = createClient()
 
   // 공지가 이 리그 소속인지 검증

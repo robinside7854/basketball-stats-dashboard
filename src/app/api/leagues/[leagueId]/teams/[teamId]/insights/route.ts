@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { canViewLeague } from '@/lib/auth/guard'
 
 // GET /api/leagues/[leagueId]/teams/[teamId]/insights?quarterId=xxx
 // 팀의 단일 일자 기록 + Four Factors + Advanced Metrics (자기 팀 + 상대 비교)
@@ -56,6 +57,10 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string; teamId: string }> }
 ) {
   const { leagueId, teamId } = await params
+  // 팀 비공개 전환 시 화면만 막으면 API 로 뚫린다 — 데이터 계층에서 재확인
+  if (!(await canViewLeague(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const { searchParams } = new URL(req.url)
   const quarterId = searchParams.get('quarterId')
 
