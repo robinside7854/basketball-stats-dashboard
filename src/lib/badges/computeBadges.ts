@@ -15,6 +15,7 @@
 // league_game_events 는 페이지네이션(1000 단위) 필수 — leagueStats.ts 패턴 참고.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { scorePoints, fetchScoringRules, type ScoringRules } from '../stats/scoring'
 
 export type BadgeType = 'perfect_game' | 'double_double' | 'triple_double' | 'winning_shot'
 
@@ -54,22 +55,6 @@ interface EventRow {
 
 // 슛 유형 (야투)
 const SHOT_TYPES = ['shot_layup', 'shot_2p_mid', 'shot_post', 'shot_3p'] as const
-
-// 득점 이벤트 → 득점량 (isPlusOne 반영)
-function eventPointValue(type: string, isPlusOne: boolean): number {
-  switch (type) {
-    case 'shot_3p':    return isPlusOne ? 4 : 3
-    case 'shot_post':
-    case 'shot_layup':
-    case 'shot_2p_mid': return isPlusOne ? 3 : 2
-    case 'ft_2pt':
-    case 'ft_3pt_1':   return 2
-    case 'free_throw':
-    case 'ft_3pt_2':   return 1
-    case 'and_one':    return 1
-    default:           return 0
-  }
-}
 
 type PlayerStats = {
   fgm: number; fga: number
@@ -115,6 +100,7 @@ function accumulateStats(
   gamePlusOne: string | null,
   leaguePlusOneSet: Set<string>,
   ps: Record<string, PlayerStats>,
+  rules: ScoringRules,
 ): void {
   const ensure = (pid: string): PlayerStats => {
     if (!ps[pid]) ps[pid] = emptyStats()
@@ -134,7 +120,7 @@ function accumulateStats(
       if (made) s.fgm++
     }
     // 득점
-    if (made) s.pts += eventPointValue(e.type, isP1)
+    if (made) s.pts += scorePoints(e.type, e.result, isP1, rules)
 
     switch (e.type) {
       case 'oreb': s.oreb++; s.reb++; break
@@ -171,11 +157,12 @@ export async function computePerGameBadges(
   if (!g.home_team_id || !g.away_team_id) return []
 
   const leaguePlusOneSet = await fetchLeaguePlusOneSet(supabase, g.league_id)
+  const rules: ScoringRules = await fetchScoringRules(supabase, g.league_id)
   const gamePlusOne = g.plus_one_player_id ?? null
   const events = await fetchEvents(supabase, gameId)
 
   const ps: Record<string, PlayerStats> = {}
-  accumulateStats(events, gamePlusOne, leaguePlusOneSet, ps)
+  accumulateStats(events, gamePlusOne, leaguePlusOneSet, ps, rules)
 
   const badges: BadgePayload[] = []
   const dateStr = g.date
@@ -216,7 +203,7 @@ export async function computePerGameBadges(
       .filter(e => e.result === 'made' && e.league_player_id && e.team_id && e.video_timestamp !== null)
       .filter(e => {
         const isP1 = gamePlusOne !== null ? e.league_player_id === gamePlusOne : leaguePlusOneSet.has(e.league_player_id!)
-        return eventPointValue(e.type, isP1) > 0
+        return scorePoints(e.type, e.result, isP1, rules) > 0
       })
       .sort((a, b) => (b.video_timestamp ?? 0) - (a.video_timestamp ?? 0))
 
@@ -224,7 +211,7 @@ export async function computePerGameBadges(
     if (lastShot && lastShot.team_id === winnerTeamId) {
       const pid = lastShot.league_player_id!
       const isP1 = gamePlusOne !== null ? pid === gamePlusOne : leaguePlusOneSet.has(pid)
-      const pts = eventPointValue(lastShot.type, isP1)
+      const pts = scorePoints(lastShot.type, lastShot.result, isP1, rules)
       const winnerFinal = winnerTeamId === g.home_team_id ? homeScore : awayScore
       const loserFinal  = winnerTeamId === g.home_team_id ? awayScore : homeScore
       const margin = winnerFinal - loserFinal
@@ -277,6 +264,7 @@ export async function computeRoundBadges(
   if (gameRows.length === 0) return []
 
   const leaguePlusOneSet = await fetchLeaguePlusOneSet(supabase, leagueId)
+  const rules: ScoringRules = await fetchScoringRules(supabase, leagueId)
 
   // 라운드 전체를 순회하며 선수별 스탯 누적
   const ps: Record<string, PlayerStats> = {}
@@ -286,7 +274,7 @@ export async function computeRoundBadges(
     const events = await fetchEvents(supabase, g.id)
     const gamePlusOne = g.plus_one_player_id ?? null
     const beforePids = new Set(Object.keys(ps))
-    accumulateStats(events, gamePlusOne, leaguePlusOneSet, ps)
+    accumulateStats(events, gamePlusOne, leaguePlusOneSet, ps, rules)
     // 이 게임에 참여한 선수 목록 = 스탯이 새로 잡힌 pid ∪ 이벤트에 등장한 pid
     for (const e of events) {
       const pid = e.league_player_id

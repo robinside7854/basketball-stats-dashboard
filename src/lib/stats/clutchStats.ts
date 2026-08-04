@@ -20,6 +20,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
 
 const CLUTCH_TIME_WINDOW_SECONDS = 120
 const CLUTCH_MARGIN_BEFORE_MAX = 6    // 슛 직전 (2포제션)
@@ -94,6 +95,20 @@ export async function computeClutchStats(
 
   const gameById = new Map(gameRows.map(g => [g.id, g]))
   const gameIds = gameRows.map(g => g.id)
+
+  // 채점 룰 + plus_one 선수 집합 — 이벤트 walk 안에서 매 이벤트마다 판정해야 하므로 미리 읽어둔다.
+  // 선수 메타(name/number)도 여기서 같이 읽어 뒤(6번)의 중복 조회를 없앤다.
+  const rules: ScoringRules = await fetchScoringRules(supabase, leagueId)
+  const { data: playerRows } = await supabase
+    .from('league_players')
+    .select('id, name, number, plus_one')
+    .eq('league_id', leagueId)
+  const playerMeta = new Map<string, { name: string; number: number | null }>()
+  const plusOneSet = new Set<string>()
+  for (const p of (playerRows ?? []) as Array<{ id: string; name: string; number: number | null; plus_one: boolean | null }>) {
+    playerMeta.set(p.id, { name: p.name, number: p.number })
+    if (p.plus_one) plusOneSet.add(p.id)
+  }
 
   // 2) 이벤트 페이지네이션 (video_timestamp 포함)
   type EvRow = {
@@ -172,17 +187,21 @@ export async function computeClutchStats(
       const pid = e.league_player_id
       const tid = e.team_id
       const made = e.result === 'made'
+      // 플러스원 판정 — 게임에 지정된 플러스원 선수가 있으면 그 선수, 없으면 리그 전체 플러스원 플래그.
+      // leagueStats.ts 와 동일 규칙.
+      const isP1 = pid != null && (game.plus_one_player_id !== null ? pid === game.plus_one_player_id : plusOneSet.has(pid))
+      const pts = scorePoints(e.type, e.result, isP1, rules)
 
       const inClutchTime = clutchStart != null && e.video_timestamp != null && e.video_timestamp >= clutchStart
       const marginBefore = Math.abs(homeScore - awayScore)
 
       // 이 이벤트가 made scoring 이면 반영 후 margin 미리 계산 (marginAfter 판정용)
-      const isMadeScoring = made && SCORING_EVENTS.includes(e.type) && tid != null && e.points != null && e.points > 0
+      const isMadeScoring = made && SCORING_EVENTS.includes(e.type) && tid != null && pts > 0
       let projectedHome = homeScore
       let projectedAway = awayScore
       if (isMadeScoring) {
-        if (tid === game.home_team_id) projectedHome += e.points!
-        else if (tid === game.away_team_id) projectedAway += e.points!
+        if (tid === game.home_team_id) projectedHome += pts
+        else if (tid === game.away_team_id) projectedAway += pts
       }
       const marginAfter = isMadeScoring ? Math.abs(projectedHome - projectedAway) : marginBefore
 
@@ -197,32 +216,32 @@ export async function computeClutchStats(
         switch (e.type) {
           case 'shot_3p':
             b.fg3a++; b.fga++
-            if (made) { b.fg3m++; b.fgm++; b.pts += e.points ?? 3 }
+            if (made) { b.fg3m++; b.fgm++; b.pts += pts }
             break
           case 'shot_post':
             b.fga++; b.ds_a++
-            if (made) { b.fgm++; b.ds_m++; b.pts += e.points ?? 2 }
+            if (made) { b.fgm++; b.ds_m++; b.pts += pts }
             break
           case 'shot_layup':
             b.fga++; b.lu_a++
-            if (made) { b.fgm++; b.lu_m++; b.pts += e.points ?? 2 }
+            if (made) { b.fgm++; b.lu_m++; b.pts += pts }
             break
           case 'shot_2p_mid':
             b.fga++; b.md_a++
-            if (made) { b.fgm++; b.md_m++; b.pts += e.points ?? 2 }
+            if (made) { b.fgm++; b.md_m++; b.pts += pts }
             break
           case 'and_one':
-            if (made) b.pts += 1
+            if (made) b.pts += pts
             break
           case 'ft_2pt':
-            b.fta++; if (made) { b.ftm++; b.pts += 2 }
+            b.fta++; if (made) { b.ftm++; b.pts += pts }
             break
           case 'ft_3pt_1':
-            b.fta++; if (made) { b.ftm++; b.pts += 2 }
+            b.fta++; if (made) { b.ftm++; b.pts += pts }
             break
           case 'free_throw':
           case 'ft_3pt_2':
-            b.fta++; if (made) { b.ftm++; b.pts += 1 }
+            b.fta++; if (made) { b.ftm++; b.pts += pts }
             break
           case 'oreb': b.oreb++; b.reb++; break
           case 'dreb': b.dreb++; b.reb++; break
@@ -254,9 +273,9 @@ export async function computeClutchStats(
 
       // 스코어 업데이트 — 이벤트 처리 후 반영
       // (이 슛의 결과가 다음 이벤트의 clutch 판정에 영향을 줌)
-      if (made && SCORING_EVENTS.includes(e.type) && tid && e.points != null) {
-        if (tid === game.home_team_id) homeScore += e.points
-        else if (tid === game.away_team_id) awayScore += e.points
+      if (made && SCORING_EVENTS.includes(e.type) && tid) {
+        if (tid === game.home_team_id) homeScore += pts
+        else if (tid === game.away_team_id) awayScore += pts
       }
     }
   }
@@ -269,16 +288,7 @@ export async function computeClutchStats(
     block.gp = playerClutchGames.get(pid)?.size ?? 0
   }
 
-  // 6) 선수 메타 조인 + 결과 조립
-  const { data: playerRows } = await supabase
-    .from('league_players')
-    .select('id, name, number')
-    .eq('league_id', leagueId)
-  const playerMeta = new Map<string, { name: string; number: number | null }>()
-  for (const p of (playerRows ?? []) as Array<{ id: string; name: string; number: number | null }>) {
-    playerMeta.set(p.id, { name: p.name, number: p.number })
-  }
-
+  // 6) 선수 메타 조인 + 결과 조립 (playerMeta 는 위에서 이미 조회함)
   const results: PlayerClutchSplit[] = []
   const allPids = new Set([...playerRegular.keys(), ...playerClutch.keys()])
   for (const pid of allPids) {

@@ -10,6 +10,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
 
 export interface PerDayStats {
   pts: number
@@ -76,6 +77,15 @@ export async function computePerDayStats(
   const gameById = new Map(gameRows.map(g => [g.id, g]))
   const gameIds = gameRows.map(g => g.id)
 
+  // 채점 룰 + 리그 전체 플러스원 플래그 — 게임별 plus_one_player_id 는 이미 gameRows 에 있다.
+  // leagueStats.ts 와 동일 판정: 게임 지정이 있으면 그 선수, 없으면 선수의 plus_one 플래그.
+  const rules: ScoringRules = await fetchScoringRules(supabase, leagueId)
+  const { data: leaguePlayers } = await supabase
+    .from('league_players')
+    .select('id, plus_one')
+    .eq('league_id', leagueId)
+  const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id as string))
+
   // 2) 이벤트 페이지네이션 조회
   const PAGE = 1000
   type EvRow = {
@@ -129,31 +139,31 @@ export async function computePerDayStats(
     if (pid) {
       const s = ensurePlayerDay(pid, date)
       const made = e.result === 'made'
-      // plus_one 감안한 득점 계산은 세부 룰이 있어 이 유틸은 points 컬럼 그대로 사용
-      // (points 필드가 없으면 아래 switch 로 fallback)
-      const pts = e.points ?? null
+      // 플러스원 판정 후 scorePoints 로 재계산 — 저장된 points 컬럼은 더 이상 신뢰하지 않는다(Task 5).
+      const isP1 = g.plus_one_player_id !== null ? pid === g.plus_one_player_id : plusOneSet.has(pid)
+      const pts = scorePoints(e.type, e.result, isP1, rules)
 
       switch (e.type) {
         case 'shot_3p':
           s.fg3a++; s.fga++
-          if (made) { s.fg3m++; s.fgm++; s.pts += pts ?? 3 }
+          if (made) { s.fg3m++; s.fgm++; s.pts += pts }
           break
         case 'shot_post':
         case 'shot_layup':
         case 'shot_2p_mid':
           s.fga++
-          if (made) { s.fgm++; s.pts += pts ?? 2 }
+          if (made) { s.fgm++; s.pts += pts }
           break
         case 'and_one':
-          if (made) { s.pts += 1; s.and_one++ }
+          if (made) { s.pts += pts; s.and_one++ }
           break
         case 'ft_2pt':
-          s.fta++; if (made) { s.ftm++; s.pts += 2 }; break
+          s.fta++; if (made) { s.ftm++; s.pts += pts }; break
         case 'ft_3pt_1':
-          s.fta++; if (made) { s.ftm++; s.pts += 2 }; break
+          s.fta++; if (made) { s.ftm++; s.pts += pts }; break
         case 'free_throw':
         case 'ft_3pt_2':
-          s.fta++; if (made) { s.ftm++; s.pts += 1 }; break
+          s.fta++; if (made) { s.ftm++; s.pts += pts }; break
         case 'oreb': s.oreb++; s.reb++; break
         case 'dreb': s.dreb++; s.reb++; break
         case 'steal': s.stl++; break

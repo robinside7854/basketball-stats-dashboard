@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { fetchPlayerMeta } from './perDayStats'
 import { getClipBounds, isHighlightShot } from '@/lib/highlights/clip'
 import { extractYouTubeId } from '@/lib/youtube/utils'
+import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
 
 // 커리어 마일스톤 — 득점 (PTS) 만 유지
 // 사용자 판단: 나머지 카테고리(REB/AST/STL/BLK/3PM/GP)는 마일스톤으로 삼을 정도는 아님
@@ -55,27 +56,6 @@ export interface MilestonesResult {
   recent: RecentEntry[]
 }
 
-/**
- * 슛 이벤트 → 득점 계산 (points 컬럼 우선, 없으면 type 기반 fallback).
- * perDayStats 와 동일 규칙.
- */
-function pointsOfEvent(type: string, made: boolean, points: number | null): number {
-  if (!made) return 0
-  if (points != null) return points
-  switch (type) {
-    case 'shot_3p': return 3
-    case 'shot_post':
-    case 'shot_layup':
-    case 'shot_2p_mid': return 2
-    case 'and_one': return 1
-    case 'ft_2pt':
-    case 'ft_3pt_1': return 2  // 주의: perDayStats 와 동일 (실측 규칙)
-    case 'free_throw':
-    case 'ft_3pt_2': return 1
-    default: return 0
-  }
-}
-
 export async function computeMilestones(
   supabase: SupabaseClient | null,
   leagueId: string,
@@ -86,21 +66,25 @@ export async function computeMilestones(
   const maxUpcoming = Math.max(1, opts.maxUpcoming ?? 8)
   const maxRecent = Math.max(1, opts.maxRecent ?? 8)
 
-  // 1) 게임 목록 (is_started=true) — 날짜/youtube 매핑 확보
+  // 1) 게임 목록 (is_started=true) — 날짜/youtube 매핑 + 게임별 플러스원 지정 확보
   const { data: games } = await sb
     .from('league_games')
-    .select('id, date, youtube_url')
+    .select('id, date, youtube_url, plus_one_player_id')
     .eq('league_id', leagueId)
     .eq('is_started', true)
-  const gameRows = (games ?? []) as Array<{ id: string; date: string; youtube_url: string | null }>
+  const gameRows = (games ?? []) as Array<{ id: string; date: string; youtube_url: string | null; plus_one_player_id: string | null }>
   if (gameRows.length === 0) {
     return { upcoming: [], recent: [] }
   }
   const gameById = new Map(gameRows.map(g => [g.id, g]))
   const gameIds = gameRows.map(g => g.id)
 
-  // 2) 선수 메타 (병렬)
+  // 2) 선수 메타 (병렬) + 채점 룰 + 리그 전체 플러스원 플래그
+  //    저장된 points 컬럼이 틀린 경우가 있어(구범준 플러스원 2건 · 변원식 ft_3pt_1 4건) 더 이상 신뢰하지 않는다 —
+  //    scorePoints 로 매번 재계산하려면 플러스원 판정이 필요하다. leagueStats.ts 와 동일 규칙(게임 지정 우선, 없으면 선수 플래그).
   const playerMetaPromise = fetchPlayerMeta(sb, leagueId)
+  const rulesPromise = fetchScoringRules(sb, leagueId)
+  const plusOnePromise = sb.from('league_players').select('id, plus_one').eq('league_id', leagueId)
 
   // 3) 이벤트 페이지네이션 조회 (Supabase 1000행 캡 대비 · 수천 이벤트 필수)
   type EvRow = {
@@ -129,15 +113,18 @@ export async function computeMilestones(
   }
 
   const playerMeta = await playerMetaPromise
+  const rules: ScoringRules = await rulesPromise
+  const { data: plusOneRows } = await plusOnePromise
+  const plusOneSet = new Set((plusOneRows ?? []).filter(p => p.plus_one).map(p => p.id as string))
 
   // 4) 이벤트 정렬: (경기일 asc → created_at asc → id asc)
-  //    각 이벤트에 game.date 를 attach 하고 정렬. crossing 감지에 시간 순서가 결정적.
-  type EnrichedEv = EvRow & { date: string; youtube_url: string | null }
+  //    각 이벤트에 game.date/plus_one_player_id 를 attach 하고 정렬. crossing 감지에 시간 순서가 결정적.
+  type EnrichedEv = EvRow & { date: string; youtube_url: string | null; plus_one_player_id: string | null }
   const enriched: EnrichedEv[] = []
   for (const e of events) {
     const g = gameById.get(e.league_game_id)
     if (!g) continue
-    enriched.push({ ...e, date: g.date, youtube_url: g.youtube_url })
+    enriched.push({ ...e, date: g.date, youtube_url: g.youtube_url, plus_one_player_id: g.plus_one_player_id })
   }
   enriched.sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date)
@@ -228,8 +215,9 @@ export async function computeMilestones(
   for (const ev of enriched) {
     const pid = ev.league_player_id
     if (!pid) continue
-    // PTS crossing 만 트래킹
-    const pts = pointsOfEvent(ev.type, ev.result === 'made', ev.points)
+    // PTS crossing 만 트래킹 — 플러스원 판정은 게임 지정 우선, 없으면 선수 플래그 (leagueStats.ts 와 동일 규칙)
+    const isP1 = ev.plus_one_player_id !== null ? pid === ev.plus_one_player_id : plusOneSet.has(pid)
+    const pts = scorePoints(ev.type, ev.result, isP1, rules)
     if (pts > 0) bump(pid, 'PTS', pts, ev)
   }
 
