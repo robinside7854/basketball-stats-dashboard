@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { evaluateAllBadges, type PlayerCareerInput, type TeamAverages } from '@/lib/stats/badges'
 import { canViewStats } from '@/lib/auth/guard'
+import { scorePoints, fetchScoringRules, type ScoringRules } from '@/lib/stats/scoring'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] as const
 
@@ -18,6 +19,9 @@ export async function GET(
   const quarterId = searchParams.get('quarterId') ?? undefined
   const unit = searchParams.get('unit') ?? 'round'
   const supabase = createClient()
+
+  // 이 파일에는 득점 계산이 5곳 있었다. 전부 이 룰 하나를 공유한다.
+  const scoringRules: ScoringRules = await fetchScoringRules(supabase, leagueId)
 
   const [
     { data: leaguePlayers },
@@ -223,22 +227,23 @@ export async function GET(
     const made = e.result === 'made'
     const gamePlusOne = gamePlusOneMap[e.league_game_id]
     const isPlusOne = gamePlusOne !== null ? playerId === gamePlusOne : plusOneSet.has(playerId)
+    const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
     switch (e.type) {
       case 'shot_3p':
         s.fg3a++; s.fga++; sb.three.a++
-        if (made) { s.fg3m++; s.fgm++; s.pts += isPlusOne ? 4 : 3; sb.three.m++ }
+        if (made) { s.fg3m++; s.fgm++; s.pts += pts; sb.three.m++ }
         break
-      case 'shot_2p_mid': s.fga++; sb.mid.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.mid.m++ }; break
-      case 'shot_layup':  s.fga++; sb.layup.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.layup.m++ }; break
-      case 'shot_post':   s.fga++; sb.post.a++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2; sb.post.m++ }; break
+      case 'shot_2p_mid': s.fga++; sb.mid.a++; if (made) { s.fgm++; s.pts += pts; sb.mid.m++ }; break
+      case 'shot_layup':  s.fga++; sb.layup.a++; if (made) { s.fgm++; s.pts += pts; sb.layup.m++ }; break
+      case 'shot_post':   s.fga++; sb.post.a++; if (made) { s.fgm++; s.pts += pts; sb.post.m++ }; break
       case 'and_one':
-        if (made) { s.pts += 1 }; break
+        if (made) { s.pts += pts }; break
       case 'ft_2pt':
-        s.fta++; sb.ft.a++; if (made) { s.ftm++; s.pts += 2; sb.ft.m++ }; break
+        s.fta++; sb.ft.a++; if (made) { s.ftm++; s.pts += pts; sb.ft.m++ }; break
       case 'ft_3pt_1':
-        s.fta++; sb.ft.a++; if (made) { s.ftm++; s.pts += 2; sb.ft.m++ }; break
+        s.fta++; sb.ft.a++; if (made) { s.ftm++; s.pts += pts; sb.ft.m++ }; break
       case 'free_throw': case 'ft_3pt_2':
-        s.fta++; sb.ft.a++; if (made) { s.ftm++; s.pts += 1; sb.ft.m++ }; break
+        s.fta++; sb.ft.a++; if (made) { s.ftm++; s.pts += pts; sb.ft.m++ }; break
       case 'oreb': s.oreb++; s.reb++; break
       case 'dreb': s.dreb++; s.reb++; break
       case 'steal': s.stl++; break
@@ -388,6 +393,7 @@ export async function GET(
     const gId = e.league_game_id as string
     const gamePlusOne = gamePlusOneMap[gId]
     const isP1 = gamePlusOne !== null ? pid === gamePlusOne : plusOneSet.has(pid)
+    const pts = scorePoints(e.type, e.result, isP1, scoringRules)
     if (!allMap[pid]) allMap[pid] = emptyAS()
     // 일수 기준 GP 카운트 (날짜로 중복 제거)
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
@@ -402,12 +408,12 @@ export async function GET(
     }
     const s = allMap[pid]
     if (made) {
-      if (e.type === 'shot_3p') { s.pts += isP1 ? 4 : 3; s.fg3m++; s.fgm++ }
-      else if (['shot_2p_mid', 'shot_layup', 'shot_post'].includes(e.type as string)) { s.pts += isP1 ? 3 : 2; s.fgm++ }
-      else if (e.type === 'ft_2pt') { s.pts += 2; s.ftm++ }
-      else if (e.type === 'ft_3pt_1') { s.pts += 2; s.ftm++ }
-      else if (['free_throw', 'ft_3pt_2'].includes(e.type as string)) { s.pts += 1; s.ftm++ }
-      else if (e.type === 'and_one') { s.pts += 1; s.andOneM++ }
+      if (e.type === 'shot_3p') { s.pts += pts; s.fg3m++; s.fgm++ }
+      else if (['shot_2p_mid', 'shot_layup', 'shot_post'].includes(e.type as string)) { s.pts += pts; s.fgm++ }
+      else if (e.type === 'ft_2pt') { s.pts += pts; s.ftm++ }
+      else if (e.type === 'ft_3pt_1') { s.pts += pts; s.ftm++ }
+      else if (['free_throw', 'ft_3pt_2'].includes(e.type as string)) { s.pts += pts; s.ftm++ }
+      else if (e.type === 'and_one') { s.pts += pts; s.andOneM++ }
     }
     if (e.type === 'shot_3p') { s.fg3a++; s.fga++ }
     else if (e.type === 'shot_2p_mid')   { s.fga++; s.midA++ }
@@ -569,6 +575,7 @@ export async function GET(
         const gId = e.league_game_id as string
         const gamePlusOne = gamePlusOneMap[gId]
         const isP1 = gamePlusOne !== null ? pid === gamePlusOne : plusOneSet.has(pid)
+        const pts = scorePoints(e.type, e.result, isP1, scoringRules)
         if (!badgeMap[pid]) badgeMap[pid] = emptyAS()
         if (e.type !== 'sub_in' && e.type !== 'sub_out') {
           if (!badgeGp[pid]) badgeGp[pid] = new Set()
@@ -576,12 +583,12 @@ export async function GET(
         }
         const s = badgeMap[pid]
         if (made) {
-          if (e.type === 'shot_3p') { s.pts += isP1 ? 4 : 3; s.fg3m++; s.fgm++ }
-          else if (['shot_2p_mid', 'shot_layup', 'shot_post'].includes(e.type)) { s.pts += isP1 ? 3 : 2; s.fgm++ }
-          else if (e.type === 'ft_2pt') { s.pts += 2; s.ftm++ }
-          else if (e.type === 'ft_3pt_1') { s.pts += 2; s.ftm++ }
-          else if (['free_throw', 'ft_3pt_2'].includes(e.type)) { s.pts += 1; s.ftm++ }
-          else if (e.type === 'and_one') { s.pts += 1; s.andOneM++ }
+          if (e.type === 'shot_3p') { s.pts += pts; s.fg3m++; s.fgm++ }
+          else if (['shot_2p_mid', 'shot_layup', 'shot_post'].includes(e.type)) { s.pts += pts; s.fgm++ }
+          else if (e.type === 'ft_2pt') { s.pts += pts; s.ftm++ }
+          else if (e.type === 'ft_3pt_1') { s.pts += pts; s.ftm++ }
+          else if (['free_throw', 'ft_3pt_2'].includes(e.type)) { s.pts += pts; s.ftm++ }
+          else if (e.type === 'and_one') { s.pts += pts; s.andOneM++ }
         }
         if (e.type === 'shot_3p') { s.fg3a++; s.fga++ }
         else if (e.type === 'shot_2p_mid')   { s.fga++; s.midA++ }
@@ -664,15 +671,16 @@ export async function GET(
     const made = e.result === 'made'
     const gpo = gamePlusOneMap[gId]
     const isP1 = pid != null && (gpo != null ? pid === gpo : plusOneSet.has(pid))
+    const pts = scorePoints(e.type, e.result, isP1, scoringRules)
     if (pid && e.type !== 'sub_in' && e.type !== 'sub_out') {
       t.playerUnits.add(`${pid}:${unitKey}`)
     }
     if (made) {
-      if (e.type === 'shot_3p') t.pts += isP1 ? 4 : 3
-      else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post') t.pts += isP1 ? 3 : 2
-      else if (e.type === 'ft_2pt' || e.type === 'ft_3pt_1') t.pts += 2
-      else if (e.type === 'free_throw' || e.type === 'ft_3pt_2') t.pts += 1
-      else if (e.type === 'and_one') t.pts += 1
+      if (e.type === 'shot_3p') t.pts += pts
+      else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post') t.pts += pts
+      else if (e.type === 'ft_2pt' || e.type === 'ft_3pt_1') t.pts += pts
+      else if (e.type === 'free_throw' || e.type === 'ft_3pt_2') t.pts += pts
+      else if (e.type === 'and_one') t.pts += pts
     }
     if (e.type === 'shot_3p') t.fg3a++
     else if (e.type === 'free_throw' || e.type === 'ft_2pt' || e.type === 'ft_3pt_1' || e.type === 'ft_3pt_2') t.fta++
@@ -904,8 +912,10 @@ export async function GET(
       if (!scorer || !assister || scorer === assister) continue
       if (scorer !== playerId && assister !== playerId) continue
 
-      // points 가 비어 있는 과거 데이터는 타입으로 폴백 (3점만 3, 나머지 2)
-      const pts = e.points != null && e.points > 0 ? e.points : (e.type === 'shot_3p' ? 3 : 2)
+      // 저장된 points 폴백은 6건이 틀린 것으로 확인되어 룰 계산으로 통일 (득점자 scorer 기준 plus-one 판정).
+      const gamePlusOne = gamePlusOneMap[e.league_game_id]
+      const isPlusOneForEvent = gamePlusOne !== null ? scorer === gamePlusOne : plusOneSet.has(scorer)
+      const pts = scorePoints(e.type, e.result, isPlusOneForEvent, scoringRules)
       const partnerId = scorer === playerId ? assister : scorer
       if (!acc[partnerId]) acc[partnerId] = { total: 0, iScored: 0, partnerScored: 0, iAssists: 0, partnerAssists: 0 }
       const a = acc[partnerId]
