@@ -23,11 +23,17 @@ export interface ScoringRules {
   plus_one_bonus: { amount: number; applies_to: string[] }
 }
 
-/** 표준 아마추어 농구 룰. leagues.rules 컬럼 기본값(마이그레이션 075/077)과 같은 값. */
+/**
+ * 표준 아마추어 농구 룰. leagues.rules 컬럼 기본값(마이그레이션 080)과 같은 값.
+ *
+ * 자유투는 국내 동호회 자체전 관행을 따른다 — 2점슛 파울은 1구에 2점(ft_2pt),
+ * 3점슛 파울은 2점 + 1점(ft_3pt_1 + ft_3pt_2). FIBA 기준(전부 1점)이 아니다.
+ * 다른 방식을 쓰는 동호회는 온보딩 때 rules 로 예외를 준다.
+ */
 export const STANDARD_SCORING: ScoringRules = {
   event_points: {
     shot_3p: 3, shot_2p_mid: 2, shot_layup: 2, shot_post: 2,
-    ft_2pt: 1, ft_3pt_1: 1, ft_3pt_2: 1, free_throw: 1, and_one: 1,
+    ft_2pt: 2, ft_3pt_1: 2, ft_3pt_2: 1, free_throw: 1, and_one: 1,
   },
   plus_one_bonus: { amount: 0, applies_to: ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] },
 }

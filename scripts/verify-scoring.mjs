@@ -50,8 +50,8 @@ check('앤드원에도 보너스가 붙지 않는다', () =>
 check('모르는 타입은 0점 (리바운드·스틸 등)', () =>
   (scorePoints('oreb', 'made', true, MIRACLE) === 0 && scorePoints('steal', null, false, MIRACLE) === 0) || '실패')
 
-check('표준 룰에는 플러스원 보너스가 없고 자유투가 1점', () =>
-  (scorePoints('shot_3p', 'made', true, STANDARD_SCORING) === 3 && scorePoints('ft_2pt', 'made', false, STANDARD_SCORING) === 1)
+check('표준 룰: 플러스원 보너스 없음 · 자유투 ft_2pt=2 (국내 동호회 관행)', () =>
+  (scorePoints('shot_3p', 'made', true, STANDARD_SCORING) === 3 && scorePoints('ft_2pt', 'made', false, STANDARD_SCORING) === 2)
   || `실제 ${scorePoints('shot_3p', 'made', true, STANDARD_SCORING)} / ${scorePoints('ft_2pt', 'made', false, STANDARD_SCORING)}`)
 
 // ── DB 이벤트 전량 대조 ─────────────────────────────
@@ -104,9 +104,12 @@ check('fetchScoringRules: DB 룰로 3점슛 플러스원 = 4점 (표준 룰 아�
   (miracleRules && scorePoints('shot_3p', 'made', true, miracleRules) === 4)
   || `실제 ${miracleRules ? scorePoints('shot_3p', 'made', true, miracleRules) : 'null'} (표준 룰이면 3)`)
 
-check('fetchScoringRules: DB 룰로 자유투(ft_2pt) = 2점 (표준 룰이면 1)', () =>
-  (miracleRules && scorePoints('ft_2pt', 'made', false, miracleRules) === 2)
-  || `실제 ${miracleRules ? scorePoints('ft_2pt', 'made', false, miracleRules) : 'null'}`)
+// ft_2pt 는 080 이후 표준 룰도 2점이라 더 이상 미라클을 변별하지 못한다.
+// 미라클만 갖는 plus_one 보너스로 판별한다 (2점 야투 → 3점, 표준이면 2점).
+check('fetchScoringRules: DB 가 표준 룰이 아닌 미라클 룰을 돌려준다', () =>
+  (miracleRules && scorePoints('shot_layup', 'made', true, miracleRules) === 3
+   && scorePoints('shot_layup', 'made', true, STANDARD_SCORING) === 2)
+  || `실제 미라클=${miracleRules ? scorePoints('shot_layup', 'made', true, miracleRules) : 'null'}, 표준=${scorePoints('shot_layup', 'made', true, STANDARD_SCORING)}`)
 
 // check() 는 동기 함수만 받으므로, 비동기 fetchScoringRules 결과는 미리 await 해두고
 // 그 결과를 검사하는 동기 클로저를 넘긴다.

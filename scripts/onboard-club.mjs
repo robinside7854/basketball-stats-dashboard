@@ -24,7 +24,7 @@ const MODES = ['league', 'tournament']
 const STANDARD_RULES = {
   event_points: {
     shot_3p: 3, shot_2p_mid: 2, shot_layup: 2, shot_post: 2,
-    ft_2pt: 1, ft_3pt_1: 1, ft_3pt_2: 1, free_throw: 1, and_one: 1,
+    ft_2pt: 2, ft_3pt_1: 2, ft_3pt_2: 1, free_throw: 1, and_one: 1,
   },
   plus_one_bonus: { amount: 0, applies_to: ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] },
   round_unit: 'game',

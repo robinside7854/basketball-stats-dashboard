@@ -97,14 +97,15 @@ await check(
 )
 
 await check(
-  '표준 룰 기본값 — 신규 시즌은 plus_one_bonus.amount=0 · 자유투 1점',
+  '표준 룰 기본값 — plus_one_bonus.amount=0 · 자유투 ft_2pt=2 (080)',
   `SELECT rules FROM leagues WHERE org_slug = 'pana-basket-senior'`,
   rows => {
     const r = rows[0].rules
     const b = r.plus_one_bonus
     if (b.amount !== 0) return `plus_one_bonus.amount 기대 0, 실제 ${b.amount}`
     if (JSON.stringify(b.applies_to) !== JSON.stringify(SHOT_TYPES)) return `plus_one_bonus.applies_to 기대 ${JSON.stringify(SHOT_TYPES)}, 실제 ${JSON.stringify(b.applies_to)}`
-    if (r.event_points.ft_2pt !== 1) return `ft_2pt 기대 1, 실제 ${r.event_points.ft_2pt}`
+    // 080: 표준 룰의 자유투를 국내 동호회 관행(2점슛 파울 1구=2점)에 맞춤 — 이전엔 1점이었다
+    if (r.event_points.ft_2pt !== 2) return `ft_2pt 기대 2, 실제 ${r.event_points.ft_2pt}`
     return true
   }
 )
