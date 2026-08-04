@@ -129,6 +129,9 @@ async function main() {
   console.log(`  조직  ${cfg.org.slug.padEnd(20)} ${existing.org ? `기존 재사용 (${existing.org.name})` : '신규 생성'}`)
   console.log(`  팀    ${cfg.team.slug.padEnd(20)} ${existing.team ? `기존 재사용 (${existing.team.name})` : '신규 생성'} · ${cfg.team.name}`)
   console.log(`  시즌  ${String(cfg.season.year + '/' + cfg.season.slug).padEnd(20)} 신규 생성 · ${cfg.season.name} · ${cfg.season.mode === 'league' ? '리그형' : '대회형'}`)
+  // 기본값은 공개다 — 막 만든 동호회가 자기 회원에게조차 안 보이는 쪽이 더 나쁘다.
+  const isPublic = cfg.team.is_public ?? true
+  console.log(`  공개  ${(isPublic ? '공개' : '비공개').padEnd(20)} ${isPublic ? '(기본값)' : '⚠ 로그인 전에는 아무것도 안 보입니다'}`)
   if (matchTeams.length) console.log(`  경기팀 ${matchTeams.length}개 — ${matchTeams.join(', ')}`)
   if (players.length) console.log(`  선수  ${players.length}명`)
   if (cfg.season.rules) console.log(`  룰    표준 룰에 ${Object.keys(cfg.season.rules).join(', ')} 덮어쓰기`)
@@ -152,9 +155,9 @@ async function main() {
   let teamId = existing.team?.id
   if (!teamId) {
     const [row] = await query(
-      `INSERT INTO teams (org_id, org_slug, sub_slug, name, accent_color, edit_pin, is_active)
+      `INSERT INTO teams (org_id, org_slug, sub_slug, name, accent_color, edit_pin, is_active, is_public)
        VALUES (${lit(orgId)}, ${lit(cfg.org.slug)}, ${lit(cfg.team.slug)}, ${lit(cfg.team.name)},
-               ${lit(cfg.team.accent_color ?? '#3b82f6')}, ${lit(String(cfg.team.edit_pin))}, true)
+               ${lit(cfg.team.accent_color ?? '#3b82f6')}, ${lit(String(cfg.team.edit_pin))}, true, ${lit(isPublic)})
        RETURNING id`
     )
     teamId = row.id

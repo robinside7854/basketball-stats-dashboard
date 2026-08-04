@@ -6,7 +6,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube, Calendar, Instagram, ChevronRight } from 'lucide-react'
+import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube, Calendar, Instagram, ChevronRight, Globe } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import AccountApprovalPanel from '@/components/league/auth/AccountApprovalPanel'
 import PushAdminPanel from '@/components/league/push/PushAdminPanel'
@@ -57,6 +57,10 @@ export default function LeagueSettingsPage() {
   const [pinVisible, setPinVisible] = useState(false)
   const [saving, setSaving] = useState<string | null>(null)
 
+  // 공개/비공개 — 값은 팀에 저장되어 있고(teams.is_public), 이 리그의 소속 팀 값을 그대로 쓴다.
+  const [isPublic, setIsPublic] = useState<boolean | null>(null)
+  const [savingVisibility, setSavingVisibility] = useState(false)
+
   // YouTube 채널 핸들 (DB 저장)
   const [ytChannel, setYtChannel] = useState('')
 
@@ -72,9 +76,10 @@ export default function LeagueSettingsPage() {
 
   async function load() {
     setLoading(true)
-    const [res, qRes] = await Promise.all([
+    const [res, qRes, visRes] = await Promise.all([
       fetch(`/api/leagues/${leagueId}`),
       fetch(`/api/leagues/${leagueId}/quarters`),
+      fetch(`/api/leagues/${leagueId}/visibility`),
     ])
     if (res.ok) {
       const data: League = await res.json()
@@ -89,7 +94,33 @@ export default function LeagueSettingsPage() {
       setPlusOneAge(data.plus_one_age != null ? String(data.plus_one_age) : '')
     }
     if (qRes.ok) setQuarters(await qRes.json())
+    if (visRes.ok) setIsPublic((await visRes.json()).is_public)
     setLoading(false)
+  }
+
+  // 비공개로 바꿀 때만 확인창을 띄운다 — 지금 이 순간부터 비회원·미승인 회원이 전부 차단된다.
+  // 공개로 여는 건 언제든 되돌릴 수 있으니 그냥 바로 적용한다.
+  async function setVisibility(next: boolean) {
+    if (next === isPublic || savingVisibility) return
+    if (!next) {
+      const ok = window.confirm(
+        '비공개로 전환하면 지금부터 로그인하지 않은 사람은 물론, 아직 승인되지 않은 회원도 경기 기록·명단·순위표를 볼 수 없습니다.\n\n계속할까요?'
+      )
+      if (!ok) return
+    }
+    setSavingVisibility(true)
+    const res = await fetch(`/api/leagues/${leagueId}/visibility`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...leagueHeaders },
+      body: JSON.stringify({ is_public: next }),
+    })
+    setSavingVisibility(false)
+    if (res.ok) {
+      setIsPublic(next)
+      toast.success(next ? '공개로 전환했습니다' : '비공개로 전환했습니다')
+    } else {
+      toast.error('저장 실패')
+    }
   }
 
   async function saveQuarterDates(quarterId: string) {
@@ -161,6 +192,44 @@ export default function LeagueSettingsPage() {
   return (
     <div className="space-y-5 max-w-lg">
       <h2 className="font-jersey font-black uppercase text-3xl tracking-tight text-[color:var(--mm-ink)]">리그 설정</h2>
+
+      {/* 공개 범위 (2026-08-04 신규) — 링크만으로 열람 가능한지, 승인 회원만 볼 수 있는지 */}
+      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          {isPublic ? <Globe size={16} className="text-[color:var(--mm-muted)]" /> : <Lock size={16} className="text-[color:var(--mm-muted)]" />}
+          <h3 className="font-jersey font-black uppercase text-lg text-[color:var(--mm-ink)]">공개 범위</h3>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setVisibility(true)}
+            disabled={savingVisibility || isPublic === null}
+            className={`min-h-11 py-2.5 px-3 border text-sm font-bold uppercase tracking-[0.12em] transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)] ${
+              isPublic === true
+                ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
+                : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
+            }`}
+          >
+            공개
+          </button>
+          <button
+            onClick={() => setVisibility(false)}
+            disabled={savingVisibility || isPublic === null}
+            className={`min-h-11 py-2.5 px-3 border text-sm font-bold uppercase tracking-[0.12em] transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)] ${
+              isPublic === false
+                ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
+                : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
+            }`}
+          >
+            비공개
+          </button>
+        </div>
+        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
+          {isPublic
+            ? '링크를 아는 사람은 로그인 없이 경기 기록·명단·순위를 볼 수 있습니다.'
+            : '로그인한 승인 회원만 볼 수 있습니다. 링크가 있어도 로그인 전에는 아무것도 보이지 않습니다.'}
+        </p>
+        {savingVisibility && <Loader2 size={13} className="animate-spin text-[color:var(--mm-muted)]" />}
+      </div>
 
       {/* 인스타 카드 생성기 진입 (2026-07-27) */}
       <Link
