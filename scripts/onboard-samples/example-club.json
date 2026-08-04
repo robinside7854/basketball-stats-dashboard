@@ -1,0 +1,44 @@
+{
+  "_설명": "신규 동호회 온보딩 설정 샘플. 복사해서 값만 바꿔 쓰세요.",
+  "_사용법": "node scripts/onboard-club.mjs scripts/onboard-samples/example-club.json --commit",
+
+  "org": {
+    "_주석": "조직 = 로고·회원계정·관리자를 공유하는 단위. slug 는 URL 에 들어갑니다.",
+    "slug": "example-club",
+    "name": "예시 농구회",
+    "brand_color": "#3b82f6"
+  },
+
+  "team": {
+    "_주석": "팀 = 명단·기록이 격리되는 단위. 청년부/장년부처럼 나눌 때 팀을 여러 개 만듭니다. 하나뿐이면 slug 를 main 으로.",
+    "slug": "main",
+    "name": "예시 농구회",
+    "accent_color": "#3b82f6",
+    "edit_pin": "1234"
+  },
+
+  "season": {
+    "_주석": "시즌 = 1년. mode 는 league(내부 리그) 또는 tournament(외부 대회 참가).",
+    "slug": "2026",
+    "name": "예시 농구회 2026",
+    "year": 2026,
+    "mode": "league",
+    "start_date": "2026-09-01",
+
+    "_rules_주석": "생략하면 표준 아마추어 농구 룰이 적용됩니다. 아래는 특이 룰이 있을 때만 쓰세요.",
+    "_rules_예시": {
+      "round_unit": "day",
+      "event_points": { "ft_2pt": 2 },
+      "plus_one_bonus": { "amount": 1 }
+    }
+  },
+
+  "_matchTeams_주석": "리그형에서 시즌 안의 경기 팀들. 대회형에서는 쓰지 않습니다(상대팀은 경기 기록 중 추가).",
+  "matchTeams": ["레드", "블루"],
+
+  "_players_주석": "선수 명단. 나중에 라커룸에서 추가해도 됩니다.",
+  "players": [
+    { "name": "홍길동", "number": 7, "position": "PG" },
+    { "name": "김철수", "number": 23, "position": "SF" }
+  ]
+}

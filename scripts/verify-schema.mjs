@@ -15,10 +15,18 @@ async function check(name, sql, assertFn) {
   else { console.log(`✖ ${name}\n    ${result}\n    실제: ${JSON.stringify(rows)}`); failed++ }
 }
 
+// ── 검증 범위 ────────────────────────────────────────
+// 이 스크립트는 "단계 1 이 기존 데이터를 바꾸지 않았는가" 를 검증한다.
+// 따라서 어서션은 **기존 두 조직에 한정**해야 한다.
+// 전체 건수를 단정하면 신규 동호회를 온보딩하는 순간 깨지는데,
+// 온보딩은 이 시스템의 존재 이유이므로 그건 잘못된 어서션이다.
+// (실제로 example-club 온보딩 검증 중 4건이 오탐으로 깨져 이 범위 제한을 도입했다)
+const BASELINE_ORGS = `('miracle', 'paranalgae')`
+
 // ── Task 1: 조직 계층 ────────────────────────────────
 await check(
-  'orgs 2건 (paranalgae · miracle)',
-  `SELECT slug FROM orgs ORDER BY slug`,
+  '기존 조직 2건이 그대로 존재 (paranalgae · miracle)',
+  `SELECT slug FROM orgs WHERE slug IN ${BASELINE_ORGS} ORDER BY slug`,
   rows => {
     const slugs = rows.map(r => r.slug)
     return JSON.stringify(slugs) === JSON.stringify(['miracle', 'paranalgae'])
@@ -33,8 +41,9 @@ await check(
 )
 
 await check(
-  'teams 3건 — paranalgae 2 + miracle 1',
-  `SELECT o.slug AS org, t.sub_slug FROM teams t JOIN orgs o ON o.id = t.org_id ORDER BY o.slug, t.sub_slug`,
+  '기존 팀 3건 — paranalgae 2 + miracle 1',
+  `SELECT o.slug AS org, t.sub_slug FROM teams t JOIN orgs o ON o.id = t.org_id
+    WHERE o.slug IN ${BASELINE_ORGS} ORDER BY o.slug, t.sub_slug`,
   rows => {
     const got = rows.map(r => `${r.org}/${r.sub_slug}`)
     const want = ['miracle/main', 'paranalgae/senior', 'paranalgae/youth']
@@ -55,6 +64,7 @@ await check(
      FROM leagues l
      JOIN teams t ON t.id = l.team_id
      JOIN orgs  o ON o.id = t.org_id
+    WHERE o.slug IN ${BASELINE_ORGS}
     ORDER BY l.org_slug`,
   rows => {
     const got = rows.map(r => `${r.org_slug}→${r.org}/${r.sub_slug}:${r.mode}`)
@@ -135,24 +145,32 @@ await check(
 // 새 경기가 열릴 때마다 이 assertion 이 깨지고, "깨지면 숫자를 고친다"가 습관이 되면
 // assertion 은 있으나 마나 해진다. league_games.date / league_game_events.created_at 로
 // 기준일(2026-08-04, 이 리뷰 착수일) 이전만 스코프해 숫자가 시간이 지나도 안 변하게 한다.
-// league_players / league_teams 는 날짜 컬럼이 없어 스코프할 수 없다 — 회원이 늘면(팀 창단 등)
-// 그때 가서 숫자를 갱신해야 한다는 걸 감안하고 그대로 둔다.
+// league_players / league_teams 는 날짜 컬럼이 없다 → 대신 **기존 두 조직으로 스코프**한다.
+// (신규 동호회 온보딩으로 늘어난 행이 이 어서션을 깨면 안 된다 — 온보딩은 정상 동작이다)
 const BASELINE_DATE = '2026-08-04'      // league_games.date 기준 (경기일, 자정 단위라 <= 로 포함)
 const BASELINE_NEXT_DAY = '2026-08-05'  // league_game_events.created_at 기준 (타임스탬프라 < 로 배타)
 
+// 기존 두 조직에 속한 시즌만 골라내는 서브쿼리 — 카운트 어서션의 공통 스코프
+const BASELINE_LEAGUES = `
+  SELECT l.id FROM leagues l
+    JOIN teams t ON t.id = l.team_id
+    JOIN orgs  o ON o.id = t.org_id
+   WHERE o.slug IN ${BASELINE_ORGS}`
+
 await check(
-  `경기(2026-08-04 이전) · 선수 · 이벤트 건수 불변`,
+  `기존 조직의 경기(2026-08-04 이전) · 선수 · 이벤트 건수 불변`,
   `SELECT
-     (SELECT count(*)::int FROM league_games WHERE date <= '${BASELINE_DATE}') AS games,
-     (SELECT count(*)::int FROM league_players)                               AS players,
-     (SELECT count(*)::int FROM league_game_events)                          AS events,
-     (SELECT count(*)::int FROM league_teams)                                 AS teams`,
+     (SELECT count(*)::int FROM league_games  WHERE date <= '${BASELINE_DATE}' AND league_id IN (${BASELINE_LEAGUES})) AS games,
+     (SELECT count(*)::int FROM league_players WHERE league_id IN (${BASELINE_LEAGUES}))                                AS players,
+     (SELECT count(*)::int FROM league_game_events WHERE league_game_id IN
+        (SELECT id FROM league_games WHERE league_id IN (${BASELINE_LEAGUES})))                                         AS events,
+     (SELECT count(*)::int FROM league_teams  WHERE league_id IN (${BASELINE_LEAGUES}))                                 AS teams`,
   rows => {
     const r = rows[0]
-    // 2026-08-04 단계 1 착수 시점 실측값 — games 는 그 날짜까지로 스코프된 값
+    // 2026-08-04 단계 1 착수 시점 실측값 — games 는 그 날짜까지, 전부 기존 두 조직으로 스코프됨
     if (r.games !== 279) return `games(~${BASELINE_DATE}) 기대 279, 실제 ${r.games}`
-    if (r.players !== 45) return `players 기대 45, 실제 ${r.players} (클럽에 회원이 늘면 이 숫자를 갱신할 것)`
-    if (r.teams !== 3) return `league_teams 기대 3, 실제 ${r.teams} (팀이 새로 생기면 이 숫자를 갱신할 것)`
+    if (r.players !== 45) return `players 기대 45, 실제 ${r.players}`
+    if (r.teams !== 3) return `league_teams 기대 3, 실제 ${r.teams}`
     if (r.events <= 0) return `events 가 0건`
     return true
   }
