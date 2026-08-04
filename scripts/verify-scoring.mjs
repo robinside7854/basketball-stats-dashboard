@@ -4,8 +4,10 @@
 //
 // Node 24 는 .ts 를 네이티브로 타입 스트리핑해 실행하므로 로직을 복제하지 않는다.
 // scoring.ts 에 값 import 가 생기면 이 스크립트가 깨진다 — 그게 의도된 제약이다.
+import { readFileSync } from 'node:fs'
+import { createClient } from '@supabase/supabase-js'
 import { query } from './lib/supabase-admin.mjs'
-import { scorePoints, STANDARD_SCORING } from '../src/lib/stats/scoring.ts'
+import { scorePoints, STANDARD_SCORING, fetchScoringRules } from '../src/lib/stats/scoring.ts'
 
 let failed = 0
 function check(name, fn) {
@@ -69,6 +71,57 @@ const total = rows.reduce((sum, r) => sum + scorePoints(r.type, r.result, r.is_p
 
 check(`미라클 시즌 총득점 = 7114 (룰 계산 기준)`, () =>
   total === 7114 || `기대 7114, 실제 ${total}. 경기가 추가로 기록됐다면 이 숫자를 갱신할 것`)
+
+// ── fetchScoringRules DB 매핑 검증 ───────────────────
+// scorePoints 는 순수 함수라 위에서 충분히 검증됐지만, fetchScoringRules 는
+// JSON(leagues.rules) → ScoringRules 매핑을 실제 DB 값으로 한 번도 통과한 적이 없었다.
+// 매핑이 깨지면(예: 필드명 오타) 표준 룰로 조용히 폴백해 미라클 커스텀 룰이 무시되는데,
+// 그게 Finding 1 에서 막으려던 것과 같은 부류의 실패라 여기서 직접 찍어본다.
+// repair-announcement-markdown.mjs 와 동일한 방식으로 .env.local 을 직접 읽어 client 구성
+// (Management API query() 는 Supabase 클라이언트가 아니라 fetchScoringRules 에 넘길 수 없다).
+const env = Object.fromEntries(
+  readFileSync(new URL('../.env.local', import.meta.url), 'utf8')
+    .split('\n')
+    .filter(l => l.includes('=') && !l.trim().startsWith('#'))
+    .map(l => {
+      const i = l.indexOf('=')
+      return [l.slice(0, i).trim(), l.slice(i + 1).trim()]
+    })
+)
+const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+
+const [{ id: miracleLeagueId } = {}] = await query(
+  `SELECT id FROM leagues WHERE org_slug = 'miracle'`)
+
+const miracleRules = miracleLeagueId
+  ? await fetchScoringRules(supabase, miracleLeagueId)
+  : null
+
+check('fetchScoringRules: 미라클 리그를 찾았다', () =>
+  !!miracleLeagueId || 'leagues 에 org_slug=miracle 행이 없음')
+
+check('fetchScoringRules: DB 룰로 3점슛 플러스원 = 4점 (표준 룰 아님)', () =>
+  (miracleRules && scorePoints('shot_3p', 'made', true, miracleRules) === 4)
+  || `실제 ${miracleRules ? scorePoints('shot_3p', 'made', true, miracleRules) : 'null'} (표준 룰이면 3)`)
+
+check('fetchScoringRules: DB 룰로 자유투(ft_2pt) = 2점 (표준 룰이면 1)', () =>
+  (miracleRules && scorePoints('ft_2pt', 'made', false, miracleRules) === 2)
+  || `실제 ${miracleRules ? scorePoints('ft_2pt', 'made', false, miracleRules) : 'null'}`)
+
+// check() 는 동기 함수만 받으므로, 비동기 fetchScoringRules 결과는 미리 await 해두고
+// 그 결과를 검사하는 동기 클로저를 넘긴다.
+const missingIdRules = await fetchScoringRules(supabase, '00000000-0000-0000-0000-000000000000')
+check('fetchScoringRules: 존재하지 않는 UUID 는 표준 룰로 폴백한다 (행 없음 = 정상 응답)', () =>
+  (missingIdRules.event_points.ft_2pt === STANDARD_SCORING.event_points.ft_2pt) || `실제 ${JSON.stringify(missingIdRules)}`)
+
+let invalidUuidThrew = false
+try {
+  await fetchScoringRules(supabase, 'not-a-uuid')
+} catch {
+  invalidUuidThrew = true
+}
+check('fetchScoringRules: 쿼리 자체가 실패하면(잘못된 UUID 형식) 조용히 폴백하지 않고 던진다', () =>
+  invalidUuidThrew || '예외가 발생하지 않음 — 실패를 표준 룰로 조용히 삼켰다')
 
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exitCode = failed === 0 ? 0 : 1

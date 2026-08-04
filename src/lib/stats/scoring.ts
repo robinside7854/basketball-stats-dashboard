@@ -52,15 +52,23 @@ export function scorePoints(
 }
 
 /**
- * 시즌의 채점 룰을 읽는다. 행이 없거나 rules 가 비면 표준 룰로 폴백한다
- * (신규 시즌은 DB 기본값이 이미 표준 룰이라 실제로는 거의 발생하지 않는다).
+ * 시즌의 채점 룰을 읽는다.
+ *
+ * 폴백(표준 룰)은 "행은 정상적으로 조회됐지만 rules 가 비었거나 형식이 안 맞는" 경우에만
+ * 쓴다 — 신규 시즌은 DB 기본값이 이미 표준 룰이라 실제로는 거의 발생하지 않는다.
+ * 쿼리 자체가 실패한 경우(권한 오류·네트워크·잘못된 leagueId)는 폴백과 절대 구분 없이
+ * 넘어가면 안 된다 — 커스텀 룰을 못 읽어온 리그가 조용히 표준 룰로 채점되는,
+ * 이 모듈이 없애려는 바로 그 종류의 소리 없는 불일치이기 때문이다. 그래서 에러는 던진다.
  *
  * `import type` 은 Node 의 타입 스트리핑에서 지워지므로 값 import 금지 제약에 걸리지 않는다.
  * 구조적 타입을 직접 쓰면 supabase 빌더의 실제 형태와 어긋나 타입 오류가 나기 쉬워
  * 공식 타입을 그대로 쓴다.
  */
 export async function fetchScoringRules(sb: SupabaseClient, leagueId: string): Promise<ScoringRules> {
-  const { data } = await sb.from('leagues').select('rules').eq('id', leagueId).maybeSingle()
+  const { data, error } = await sb.from('leagues').select('rules').eq('id', leagueId).maybeSingle()
+  if (error) {
+    throw new Error(`fetchScoringRules: leagueId=${leagueId} 조회 실패 — ${error.message}`)
+  }
   const r = data?.rules as Partial<ScoringRules> | undefined
   if (!r?.event_points || !r?.plus_one_bonus) return STANDARD_SCORING
   return { event_points: r.event_points, plus_one_bonus: r.plus_one_bonus }
