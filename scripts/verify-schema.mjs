@@ -185,7 +185,10 @@ await check(
   rows => {
     const r = rows[0]
     // 2026-08-04 단계 1 착수 시점 실측값 (마이그레이션 074-076 적용 직후, created_at 스코프 재측정)
-    if (r.total !== 7108) return `득점 합계 기대 7108, 실제 ${r.total} (차이 ${r.total - 7108})`
+    // → 079(단계 2 백필)로 7108 → 7114 로 갱신됨: 저장값 6건이 룰 계산과 어긋나 있었고
+    //   (구범준 플러스원 미반영 2건 · 변원식 ft_3pt_1 오분류 4건), 사용자 확인 후 저장값을
+    //   룰 계산값으로 교정했다. 이 값은 created_at 스코프라 백필의 UPDATE도 포함된다.
+    if (r.total !== 7114) return `득점 합계 기대 7114, 실제 ${r.total} (차이 ${r.total - 7114})`
     if (r.made_events !== 3253) return `성공 슛 이벤트 수 기대 3253, 실제 ${r.made_events} (차이 ${r.made_events - 3253})`
     return true
   }
