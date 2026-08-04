@@ -86,7 +86,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
   const [events, setEvents] = useState<EventRow[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ type: '', result: '', points: '', playerId: '', relatedId: '' })
+  const [editForm, setEditForm] = useState({ type: '', result: '', playerId: '', relatedId: '' })
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [resetting, setResetting] = useState(false)
@@ -183,7 +183,6 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
     setEditForm({
       type: e.type,
       result: e.result ?? '',
-      points: String(e.points ?? 0),
       playerId: e.league_player_id ?? '',
       relatedId: e.related_player_id ?? '',
     })
@@ -197,7 +196,6 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
     const body: Record<string, unknown> = {
       type: editForm.type,
       result: needsResult ? (editForm.result || null) : null,
-      points: isFtType ? Number(editForm.points) : 0,
       league_player_id: editForm.playerId || null,
       related_player_id: isShotType ? (editForm.relatedId || null) : null,
       team_id: editForm.playerId ? (playerMap[editForm.playerId]?.team_id ?? null) : null,
@@ -376,14 +374,6 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                           <option value="missed">실패</option>
                         </select>
                       </div>
-                      {isFtType && (
-                        <div>
-                          <label className="text-xs text-gray-600 block mb-1">점수</label>
-                          <input type="number" min={0} max={4} value={editForm.points}
-                            onChange={ev => setEditForm(f => ({ ...f, points: ev.target.value }))}
-                            className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1.5" />
-                        </div>
-                      )}
                     </div>
                   )}
 

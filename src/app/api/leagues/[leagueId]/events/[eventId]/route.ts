@@ -6,8 +6,7 @@ import { scorePoints, fetchScoringRules, type ScoringRules } from '@/lib/stats/s
 
 // PATCH · 이벤트 부분 수정
 //
-// 방어: 편집 대상이 type / result / league_player_id 어느 하나이고 points 를 명시적으로 안 보냈다면
-//       서버에서 재계산 (missed→made 편집 시 points 0 잔존 버그 대응 · 2026-07-18)
+// type / result / league_player_id 가 편집되면 서버가 득점을 다시 계산한다.
 //   · 득점 계산은 공용 scorePoints() 에 위임 — 이 파일에 룰을 다시 적지 않는다
 //   · plus_one 판정: game.plus_one_player_id 있으면 그것 우선, 없으면 league_players.plus_one
 function calcPointsFor(type: string, result: string | null, isPlusOne: boolean, rules: ScoringRules): number {
@@ -21,21 +20,24 @@ export async function PATCH(
   const { leagueId, eventId } = await params
   if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
-  const { type, result, points, league_player_id, related_player_id, team_id } = body
+  // ⚠️ body.points 는 받지 않는다.
+  //    득점은 시즌 rules 로 서버가 정한다 — 생성(POST)과 같은 원칙이다.
+  //    예전엔 클라이언트가 보낸 points 를 그대로 저장하고 안 보낸 경우에만 재계산했는데,
+  //    게임 로그 편집기가 항상 points 를 보내고 있어 사실상 룰 엔진을 우회하고 있었다.
+  //    저장값 6건이 룰과 어긋났던 원인이 이 계통이다.
+  const { type, result, league_player_id, related_player_id, team_id } = body
   const payload: Record<string, unknown> = {}
   if (type !== undefined) payload.type = type
   if (result !== undefined) payload.result = result ?? null
-  if (points !== undefined) payload.points = points ?? 0
   if (league_player_id !== undefined) payload.league_player_id = league_player_id ?? null
   if (related_player_id !== undefined) payload.related_player_id = related_player_id ?? null
   if (team_id !== undefined) payload.team_id = team_id ?? null
   if (Object.keys(payload).length === 0) return NextResponse.json({ error: '수정할 값이 없습니다' }, { status: 400 })
   const supabase = createClient()
 
-  // 방어: type/result/player 가 편집됐고 points 는 명시 안 보냈으면 → 서버에서 재계산
+  // 득점에 영향을 주는 필드가 편집됐으면 서버가 다시 계산한다.
   const needsRecompute =
-    points === undefined &&
-    (type !== undefined || result !== undefined || league_player_id !== undefined)
+    type !== undefined || result !== undefined || league_player_id !== undefined
   if (needsRecompute) {
     // 현재 저장돼있는 이벤트를 먼저 읽어 최종 값 조합 (editable 필드만 부분 병합)
     const { data: current } = await supabase
