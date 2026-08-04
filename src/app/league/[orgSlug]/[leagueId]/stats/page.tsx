@@ -28,8 +28,8 @@ type StatUnit = 'round' | 'game'
 // 정상 참여자까지 리더보드에서 빠지는 문제가 있었다.
 const MIN_ROUND_RATIO = 0.3
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
-type AdvKey = 'pie'|'at_ratio'|'ast_pct'|'tov_pct'|'usg_pct'|'a1_total'|'a1_rate'|'orb_pct'|'drb_pct'|'trb_pct'
-type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'efg_pct'|'ft_pct'|'ts_pct'|'ft_rate'|'shot_mix'
+type AdvKey = 'at_ratio'|'a1_total'|'a1_rate'|'trb_pct'
+type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'ts_pct'|'shot_mix'
 type StatMode = 'basic'|'shooting'|'advanced'|'seasonHigh'|'playmap'
 
 // SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
@@ -140,7 +140,7 @@ function LeagueStatsPageInner() {
   const [statMode, setStatMode] = useState<StatMode>(urlTab === 'seasonHigh' ? 'seasonHigh' : urlTab === 'playmap' ? 'playmap' : 'basic')
   const [advSortKey, setAdvSortKey] = useState<AdvKey>('at_ratio')
   const [advSortDir, setAdvSortDir] = useState<'asc'|'desc'>('desc')
-  const [shootSortKey, setShootSortKey] = useState<ShootingKey>('efg_pct')
+  const [shootSortKey, setShootSortKey] = useState<ShootingKey>('ts_pct')
   const [shootSortDir, setShootSortDir] = useState<'asc'|'desc'>('desc')
   const [viewMode, setViewMode] = useState<ViewMode>('avg')
   const [quickViewPlayer, setQuickViewPlayer] = useState<{ id: string; name: string } | null>(null)
@@ -291,44 +291,26 @@ function LeagueStatsPageInner() {
     { key: 'fg_pct',   label: 'FG%',      desc: '전체 야투 성공률 · FGM/FGA' },
     { key: 'fg2_pct',  label: '2P%',      desc: '2점 야투 성공률 · (FGM-3PM)/(FGA-3PA)' },
     { key: 'fg3_pct',  label: '3P%',      desc: '3점 야투 성공률 · 3PM/3PA' },
-    { key: 'efg_pct',  label: 'eFG%',     desc: '유효야투율 · (FGM+0.5×3PM)/FGA' },
     { key: 'ft_pct',   label: 'FT%',      desc: '자유투 성공률 · FTM/FTA' },
     { key: 'ts_pct',   label: 'TS%',      desc: '진실야투율 · PTS/(2×(FGA+0.44×FTA))' },
-    { key: 'ft_rate',  label: 'FTr',      desc: '야투 대비 자유투 시도 · FTA/FGA' },
     { key: 'shot_mix', label: 'SHOT MIX', desc: '슛 분포 · 골밑(DS) · 레이업(LU) · 미들(MD) · 3점 시도 비중 스택 바' },
   ]
 
   // Advanced stats 컬럼 (Shooting 제외 — 효율/볼소유/리바운드 비중)
   const ADV_COLS: { key: AdvKey; label: string; desc: string }[] = [
-    { key: 'pie',        label: 'PIE',   desc: 'Player Impact Estimate · 본인 임팩트 / 게임 총 임팩트(양팀 합)' },
-    { key: 'usg_pct',    label: 'USG%',  desc: '사용률 · 팀 소유권 대비 본인 마무리 비중' },
     { key: 'at_ratio',  label: 'A/T',   desc: '어시스트/턴오버 비율' },
-    { key: 'ast_pct',   label: 'AST%',  desc: '볼소유 중 어시스트 비중' },
-    { key: 'tov_pct',   label: 'TOV%',  desc: '볼소유 중 턴오버 비중' },
     { key: 'a1_total',  label: 'A1',    desc: '성공한 앤드원(And-One) 횟수 (누적)' },
     { key: 'a1_rate',   label: 'A1%',   desc: '야투 성공 중 앤드원 비율 · A1/FGM' },
-    { key: 'orb_pct',   label: 'ORB%',  desc: '본인 리바운드 중 공격 리바운드 비중 · OREB/REB' },
-    { key: 'drb_pct',   label: 'DRB%',  desc: '본인 리바운드 중 수비 리바운드 비중 · DREB/REB' },
     { key: 'trb_pct',   label: 'TRB%',  desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
   ]
 
   function calcAdv(p: PlayerStat): Record<AdvKey, number> {
-    const poss = p.fga + 0.44 * p.fta + p.tov
     const a1 = p.and_one ?? 0
     const teamReb = p.team_reb_in_games ?? 0
-    const teamPoss = p.team_poss_in_games ?? 0
-    const pieDenom = p.pie_denom ?? 0
-    const pieNum = p.pie_num ?? 0
     return {
-      pie:       pieDenom > 0 ? +(pieNum / pieDenom * 100).toFixed(1) : 0,
       at_ratio:  p.tov > 0 ? +(p.ast / p.tov).toFixed(2) : (p.ast > 0 ? 99 : 0),
-      ast_pct:   (poss + p.ast) > 0 ? +(p.ast / (poss + p.ast) * 100).toFixed(1) : 0,
-      tov_pct:   poss > 0 ? +(p.tov / poss * 100).toFixed(1) : 0,
-      usg_pct:   teamPoss > 0 ? +(poss / teamPoss * 100).toFixed(1) : 0,
       a1_total:  a1,
       a1_rate:   p.fgm > 0 ? +(a1 / p.fgm * 100).toFixed(1) : 0,
-      orb_pct:   p.reb > 0 ? +(p.oreb / p.reb * 100).toFixed(1) : 0,
-      drb_pct:   p.reb > 0 ? +(p.dreb / p.reb * 100).toFixed(1) : 0,
       trb_pct:   teamReb > 0 ? +(p.reb / teamReb * 100).toFixed(1) : 0,
     }
   }
@@ -338,10 +320,8 @@ function LeagueStatsPageInner() {
       fg_pct:      p.fg_pct ?? 0,
       fg2_pct:     p.fg2_pct ?? 0,
       fg3_pct:     p.fg3_pct ?? 0,
-      efg_pct:     p.efg_pct ?? 0,
       ft_pct:      p.ft_pct ?? 0,
       ts_pct:      (p.fga + 0.44 * p.fta) > 0 ? +(p.pts / (2 * (p.fga + 0.44 * p.fta)) * 100).toFixed(1) : 0,
-      ft_rate:     p.fga > 0 ? +(p.fta / p.fga * 100).toFixed(1) : 0,
       // shot_mix 정렬용 프록시 = 3점 비중 (내부적으로 스택 막대는 DS/LU/MD/3P 모두 렌더)
       shot_mix:    p.fga > 0 ? +(p.fg3a / p.fga * 100).toFixed(1) : 0,
     }

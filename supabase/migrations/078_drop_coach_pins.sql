@@ -1,0 +1,21 @@
+-- =============================================
+-- 078_drop_coach_pins.sql
+-- 코치 핀(수비 장면 큐레이션) 제거
+-- =============================================
+-- 배경
+--   · 누적 1건. 사실상 미사용 상태로 판단해 사용자 승인 하에 제거 (2026-08-04).
+--   · 기능 축소 방침의 일부 — 동호회가 늘수록 기능 하나하나가 표준화·지원 비용이 된다.
+--
+-- ⚠️ 헷갈리기 쉬운 두 '핀'을 구분할 것
+--   · coach_pins            — 이번에 제거. 코치가 수비 장면을 큐레이션하던 레거시 기능.
+--   · league_players.pinned_event_ids — **유지**. 선수가 자기 베스트샷 3개를 고르는 기능이며
+--                             /api/leagues/[id]/players/[playerId]/pins 가 다룬다. 무관하다.
+--
+-- 함께 제거된 코드
+--   · API 3종  : /api/pins · /api/pins/[id] · /api/pins/labels
+--   · 화면 2종 : (main)/[org]/[team]/pins · .../review
+--   · 컴포넌트 : components/pins/* · types/coachPin.ts
+--   · 네비게이션: videoSubTabs '코치 핀' · TabNav also:['/pins','/review']
+-- =============================================
+
+DROP TABLE IF EXISTS coach_pins CASCADE;

@@ -15,10 +15,6 @@ export const STATS_SUB_TABS: SubTab[] = [
   { path: '/stats', label: '시즌 통계' },
 ]
 
-export function videoSubTabs(isEditMode: boolean): SubTab[] {
-  const base: SubTab[] = [
-    { path: '/highlights', label: '하이라이트' },
-    { path: '/pins',       label: '코치 핀' },
-  ]
-  return isEditMode ? [...base, { path: '/review', label: '리뷰' }] : base
-}
+// 영상 그룹 서브탭(videoSubTabs)은 2026-08-04 제거 — 코치 핀·리뷰를 걷어내니
+// '하이라이트' 하나만 남아 탭 바 자체가 의미를 잃었다.
+// 선수 '베스트샷 핀'(league_players.pinned_event_ids)은 별개 기능이며 그대로 유지된다.

@@ -12,7 +12,7 @@ const TAB_DEFS = [
   { path: '',             label: '홈',   icon: Home,          exact: true,  also: [] as string[] },
   { path: '/boxscore',    label: '경기', icon: ClipboardList, exact: false, also: ['/gamelog', '/record'] },
   { path: '/stats',       label: '통계', icon: BarChart3,     exact: false, also: [] as string[] },
-  { path: '/highlights',  label: '영상', icon: Film,          exact: false, also: ['/pins', '/review'] },
+  { path: '/highlights',  label: '영상', icon: Film,          exact: false, also: [] as string[] },
   { path: '/roster',      label: '선수', icon: Users,         exact: false, also: [] as string[] },
 ]
 

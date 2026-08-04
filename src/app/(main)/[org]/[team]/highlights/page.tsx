@@ -6,7 +6,6 @@ import { notFound } from 'next/navigation'
 import { Film, PlayCircle, ChevronRight, Clock, VideoOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
 import TeamHighlightsPlayerPicker from '@/components/highlights/TeamHighlightsPlayerPicker'
-import VideoSubTabNav from '@/components/layout/VideoSubTabNav'
 import { loadTeamTournamentHighlights } from '@/lib/highlights/teamLoader'
 import { TEAM_HIGHLIGHT_META } from '@/lib/highlights/teamMeta'
 
@@ -43,7 +42,6 @@ export default async function TeamHighlightsLandingPage({
 
   return (
     <div className="space-y-5 mm-brand">
-      <VideoSubTabNav />
 
       <div className="flex items-center gap-3">
         <Film size={28} className="lg:w-9 lg:h-9" style={{ color: 'var(--mm-yellow-strong)' }} />

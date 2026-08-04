@@ -5,9 +5,7 @@ import { useState, useRef } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import type { RoundMagazineData } from '@/lib/social/weeklyData'
-import type { CutSheetGame } from '@/lib/social/cutSheet'
 import { CoverCard, ScoreboardCard, LeaderCard, BestCard, QuarterStandingsCard, MilestoneCard, IG_W, IG_H } from './SocialCards'
-import SocialCutSheet from './SocialCutSheet'
 
 const PREVIEW_W = 320
 const SCALE = PREVIEW_W / IG_W
@@ -18,7 +16,7 @@ function fmtDate(iso: string): string {
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} (${DOW[d.getDay()]})`
 }
 
-export default function SocialCardStudio({ data, roundDates, cutSheet }: { data: RoundMagazineData; roundDates: string[]; cutSheet: CutSheetGame[] }) {
+export default function SocialCardStudio({ data, roundDates }: { data: RoundMagazineData; roundDates: string[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const sp = useSearchParams()
@@ -126,7 +124,6 @@ export default function SocialCardStudio({ data, roundDates, cutSheet }: { data:
       </p>
 
       {/* 릴스 컷 시트 */}
-      <SocialCutSheet games={cutSheet} dateLabel={data.dateLabel} />
     </div>
   )
 }
