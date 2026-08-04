@@ -75,7 +75,7 @@ export default function LeagueSubstitutionPanel({
     }
     await fetch(`/api/leagues/${leagueId}/events`, {
       method: 'POST', headers: leagueHeaders,
-      body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: ts, type: 'sub_out', league_player_id: playerId, points: 0 }),
+      body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: ts, type: 'sub_out', league_player_id: playerId }),
     })
   }
 
@@ -86,7 +86,7 @@ export default function LeagueSubstitutionPanel({
     })
     await fetch(`/api/leagues/${leagueId}/events`, {
       method: 'POST', headers: leagueHeaders,
-      body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: ts, type: 'sub_in', league_player_id: playerId, points: 0 }),
+      body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: ts, type: 'sub_in', league_player_id: playerId }),
     })
   }
 

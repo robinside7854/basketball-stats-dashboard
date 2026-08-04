@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
 
 export async function GET(
   req: Request,
@@ -29,6 +30,21 @@ export async function POST(
   if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
   const supabase = createClient()
+
+  // 득점은 클라이언트가 아니라 서버가 시즌 rules 로 계산한다.
+  // 클라이언트가 보낸 body.points 는 신뢰 경계 밖의 값이라 완전히 무시한다.
+  const scoringRules = await fetchScoringRules(supabase, leagueId)
+  const { data: g } = await supabase
+    .from('league_games').select('plus_one_player_id').eq('id', body.league_game_id).maybeSingle()
+  const { data: pl } = await supabase
+    .from('league_players').select('plus_one').eq('id', body.league_player_id).maybeSingle()
+  // 캐노니컬 플러스원 판정: 게임별 override(plus_one_player_id)가 있으면 그것으로,
+  // 없으면 선수 플래그로 폴백 — computeBadges/highlights loader 와 동일 규칙.
+  const isPlusOne = g?.plus_one_player_id != null
+    ? body.league_player_id === g.plus_one_player_id
+    : Boolean(pl?.plus_one)
+  const points = scorePoints(body.type, body.result, isPlusOne, scoringRules)
+
   const { data, error } = await supabase
     .from('league_game_events')
     .insert({
@@ -40,7 +56,7 @@ export async function POST(
       team_id: body.team_id ?? null,
       result: body.result ?? null,
       related_player_id: body.related_player_id ?? null,
-      points: body.points ?? 0,
+      points,
       shot_zone: body.shot_zone ?? null,
     })
     .select()

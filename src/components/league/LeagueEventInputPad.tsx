@@ -69,19 +69,6 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 const FT_TYPES   = ['free_throw', 'ft_2pt', 'ft_3pt_1', 'ft_3pt_2', 'and_one']
 
-function calcPoints(type: string, result: string, isPlusOne = false): number {
-  if (result !== 'made') return 0
-  if (type === 'and_one')   return 1   // 득점인정반칙: 슛 성공 + 1점 추가
-  if (type === 'ft_2pt')    return 2   // 2점 파울 FT: 1회 시도로 2점
-  if (type === 'ft_3pt_1')  return 2
-  if (type === 'ft_3pt_2')  return 1
-  if (type === 'free_throw') return 1
-  const bonus = isPlusOne ? 1 : 0
-  if (type === 'shot_3p') return 3 + bonus
-  if (SHOT_TYPES.includes(type)) return 2 + bonus
-  return 0
-}
-
 type LastEventDetails = {
   id: string
   type: string
@@ -186,9 +173,8 @@ export default function LeagueEventInputPad({
     const tick = setInterval(() => setAssistCountdown(n => Math.max(0, n - 1)), 1000)
     const timer = setTimeout(() => {
       clearInterval(tick)
-      const { selectedPlayer: pid, pendingShot: shot, pendingResult: res, isPlusOne: isP1, selectedTeamId: tid } = liveRef.current
+      const { selectedPlayer: pid, pendingShot: shot, pendingResult: res, selectedTeamId: tid } = liveRef.current
       if (!pid || !shot || !res) return
-      const pts = calcPoints(shot.type, res, isP1)
       const tempId = `opt-${crypto.randomUUID()}`
       const pName = allPlayers.find(p => p.id === pid)?.name ?? ''
       const lbl = `${pName} — ${shot.label} ✓ (어시스트 없음)`
@@ -203,7 +189,7 @@ export default function LeagueEventInputPad({
       // 백그라운드 저장
       fetch(`/api/leagues/${leagueId}/events`, {
         method: 'POST', headers: leagueHeaders,
-        body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(), type: shot.type, league_player_id: pid, team_id: tid, result: res, related_player_id: null, points: pts }),
+        body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(), type: shot.type, league_player_id: pid, team_id: tid, result: res, related_player_id: null }),
       })
         .then(r => r.ok ? r.json() : null)
         .then(saved => {
@@ -235,11 +221,10 @@ export default function LeagueEventInputPad({
 
   function saveShot(result: 'made' | 'missed', assistId?: string) {
     if (!selectedPlayer || !pendingShot) return
-    const pts = calcPoints(pendingShot.type, result, isPlusOne)
     const body = {
       league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
       type: pendingShot.type, league_player_id: selectedPlayer, team_id: selectedTeamId,
-      result, related_player_id: assistId ?? null, points: pts,
+      result, related_player_id: assistId ?? null,
     }
     const pName = allPlayers.find(p => p.id === selectedPlayer)?.name ?? ''
     const aPName = assistId ? allPlayers.find(p => p.id === assistId)?.name : null
@@ -296,7 +281,7 @@ export default function LeagueEventInputPad({
       const id = await saveEvent({
         league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
         type: 'turnover', league_player_id: tovPlayerId,
-        team_id: p?.team_id ?? null, result: null, related_player_id: null, points: 0,
+        team_id: p?.team_id ?? null, result: null, related_player_id: null,
       })
       if (id) {
         toast.success(`기록: ${p?.name ?? ''} — TOV (페어)`)
@@ -322,7 +307,7 @@ export default function LeagueEventInputPad({
     const body = {
       league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
       type: btn.type, league_player_id: selectedPlayer, team_id: selectedTeamId,
-      result: isAndOne ? 'made' : null, related_player_id: null, points: isAndOne ? 1 : 0,
+      result: isAndOne ? 'made' : null, related_player_id: null,
     }
     const pName = allPlayers.find(p => p.id === selectedPlayer)?.name ?? ''
     const lbl = isAndOne ? `${pName} — 앤드원 ✓` : `${pName} — ${btn.label}`
@@ -392,7 +377,7 @@ export default function LeagueEventInputPad({
         league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
         type: rebType, league_player_id: rebounderId,
         team_id: rebounder?.team_id ?? null,
-        result: null, related_player_id: null, points: 0,
+        result: null, related_player_id: null,
       })
       if (rebId) {
         setLastReboundId(rebId)  // 슛과 연계된 리바운드로 추적
@@ -447,11 +432,10 @@ export default function LeagueEventInputPad({
 
   async function finishAssistForLast(assistId?: string) {
     if (!lastEvent || !pendingShot) return
-    const pts = calcPoints(lastEvent.type, 'made', isPlusOne)
     const id = await saveEvent({
       league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
       type: lastEvent.type, league_player_id: lastEvent.playerId, team_id: allPlayers.find(p => p.id === lastEvent.playerId)?.team_id ?? null,
-      result: 'made', related_player_id: assistId ?? null, points: pts,
+      result: 'made', related_player_id: assistId ?? null,
     })
     if (!id) return
     const pName = allPlayers.find(p => p.id === lastEvent.playerId)?.name ?? ''
