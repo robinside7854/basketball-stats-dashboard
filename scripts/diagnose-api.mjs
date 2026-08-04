@@ -24,7 +24,7 @@ console.log()
 
 // Vercel/로컬 API 둘 다 호출 가능. 일단 localhost:3000 또는 vercel URL — 사용자가 보고 있는 페이지의 API 가 무엇인지 알 수 없으므로 직접 stats API 로직을 인라인으로 시뮬레이션
 // (Vercel 배포 URL: https://basketball-stats-dashboard.vercel.app)
-const BASE = 'https://basketball-stats-dashboard.vercel.app'
+const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://basketball-stats-dashboard.vercel.app'
 
 for (const t of teams) {
   const url = `${BASE}/api/leagues/${leagueId}/stats?teamId=${t.id}&unit=round`

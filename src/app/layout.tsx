@@ -6,6 +6,7 @@ import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 import AppSplash from '@/components/AppSplash'
 import ThemedToaster from '@/components/ThemedToaster'
 import './globals.css'
+import { siteUrl } from '@/lib/siteUrl'
 
 const firaSans = Fira_Sans({
   subsets: ['latin'],
@@ -53,7 +54,7 @@ export const metadata: Metadata = {
   // OG 이미지 등 상대 경로를 절대 URL로 계산하는 기준. 카톡/메신저 미리보기는 절대 URL이 아니면
   // 안정적으로 못 가져온다. 프로덕션 도메인은 owner가 onball 커스텀 도메인으로 옮길 수도 있어
   // 하드코딩 대신 env(NEXT_PUBLIC_SITE_URL)로 뺐다 — 값이 없으면 현재 Vercel 기본 도메인로 폴백.
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://basketball-stats-dashboard.vercel.app'),
+  metadataBase: new URL(siteUrl()),
   title: '온볼',
   description: '구기 동호회의 경기 영상에 기록을 붙여, 선수 개인의 하이라이트와 시즌 기록을 각자에게 돌려주는 서비스',
   openGraph: {

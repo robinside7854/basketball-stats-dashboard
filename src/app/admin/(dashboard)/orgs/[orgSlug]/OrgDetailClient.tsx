@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { ArrowLeft, Eye, EyeOff, RefreshCw, Loader2, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
+import { siteUrl } from '@/lib/siteUrl'
 
 interface Team {
   id: string
@@ -79,7 +80,7 @@ function PinCard({ team, orgSlug }: { team: Team; orgSlug: string }) {
           </span>
         </div>
         <a
-          href={`https://basketball-stats-dashboard.vercel.app/${orgSlug}/${team.sub_slug}`}
+          href={`${siteUrl()}/${orgSlug}/${team.sub_slug}`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer"

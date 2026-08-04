@@ -8,6 +8,7 @@ import { ArrowLeft, Loader2, ExternalLink, Eye, EyeOff, RefreshCw, KeyRound } fr
 import Link from 'next/link'
 import LeagueAdminRolePanel from '@/components/admin/LeagueAdminRolePanel'
 import type { League } from '@/types/league'
+import { siteUrl } from '@/lib/siteUrl'
 
 const DOW_LABELS: Record<string, string> = {
   monday: '월요일', tuesday: '화요일', wednesday: '수요일', thursday: '목요일',
@@ -93,7 +94,7 @@ export default function LeagueAdminSettingsPage() {
           <p className="text-[var(--mm-muted)] text-sm">{league.season_year}시즌 · {league.season_type === 'quarterly' ? '분기별' : '연간'}</p>
         </div>
         <a
-          href={`https://basketball-stats-dashboard.vercel.app/league/${league.org_slug}`}
+          href={`${siteUrl()}/league/${league.org_slug}`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] px-2.5 py-1.5 rounded-lg border border-[var(--mm-rule)] hover:border-[var(--mm-muted)] transition-colors shrink-0 cursor-pointer"

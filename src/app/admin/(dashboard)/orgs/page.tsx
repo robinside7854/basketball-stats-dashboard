@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { Plus, ExternalLink } from 'lucide-react'
+import { siteUrl } from '@/lib/siteUrl'
 
 export default async function AdminOrgsPage() {
   const supabase = createClient()
@@ -72,7 +73,7 @@ export default async function AdminOrgsPage() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <a
-                    href={`https://basketball-stats-dashboard.vercel.app/${orgSlug}/youth`}
+                    href={`${siteUrl()}/${orgSlug}/youth`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] px-2.5 py-1.5 rounded-lg border border-[var(--mm-rule)] hover:border-[var(--mm-muted)] transition-colors cursor-pointer"

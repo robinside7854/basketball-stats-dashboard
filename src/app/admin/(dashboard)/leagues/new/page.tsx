@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2, Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
+import { siteHost } from '@/lib/siteUrl'
 
 export default function NewLeaguePage() {
   const router = useRouter()
@@ -96,7 +97,7 @@ export default function NewLeaguePage() {
           </div>
           {slug && (
             <p className="text-xs text-[var(--mm-muted)] font-mono">
-              basketball-stats-dashboard.vercel.app/league/{slug}
+              {siteHost()}/league/{slug}
             </p>
           )}
         </div>
