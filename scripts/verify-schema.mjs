@@ -119,5 +119,30 @@ await check(
   rows => rows[0].n === 0 || `외부 팀이 벌써 ${rows[0].n}건 있음`
 )
 
+// ── Task 4: 회귀 방지 — 단계 1 은 데이터를 바꾸지 않았다 ──
+await check(
+  '경기·선수·이벤트 건수 불변',
+  `SELECT
+     (SELECT count(*)::int FROM league_games)        AS games,
+     (SELECT count(*)::int FROM league_players)      AS players,
+     (SELECT count(*)::int FROM league_game_events)  AS events,
+     (SELECT count(*)::int FROM league_teams)        AS teams`,
+  rows => {
+    const r = rows[0]
+    // 2026-08-04 단계 1 착수 시점 실측값
+    if (r.games !== 301) return `games 기대 301, 실제 ${r.games}`
+    if (r.players !== 45) return `players 기대 45, 실제 ${r.players}`
+    if (r.teams !== 3) return `league_teams 기대 3, 실제 ${r.teams}`
+    if (r.events <= 0) return `events 가 0건`
+    return true
+  }
+)
+
+await check(
+  '득점 합계 불변 — 룰을 데이터로 옮겼을 뿐 집계는 아직 안 바뀜',
+  `SELECT COALESCE(sum(points), 0)::int AS total FROM league_game_events WHERE result = 'made'`,
+  rows => rows[0].total > 0 || '성공 슛 득점 합계가 0 — 이벤트가 유실되었을 수 있음'
+)
+
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exitCode = failed === 0 ? 0 : 1
