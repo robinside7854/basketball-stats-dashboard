@@ -96,5 +96,28 @@ await check(
   rows => rows.length === 1 || 'leagues_team_season_unique 제약이 없음'
 )
 
+// ── Task 3: 세그먼트 · 외부 팀 ────────────────────────
+await check(
+  '세그먼트 3건 모두 kind=quarter 이고 이름이 붙음',
+  `SELECT kind, name, ord FROM league_quarters ORDER BY ord`,
+  rows => {
+    const got = rows.map(r => `${r.kind}:${r.name}:${r.ord}`)
+    const want = ['quarter:26.1Q:1', 'quarter:26.2Q:2', 'quarter:26.3Q:3']
+    return JSON.stringify(got) === JSON.stringify(want) || `기대 ${JSON.stringify(want)}, 실제 ${JSON.stringify(got)}`
+  }
+)
+
+await check(
+  'league_teams 전 행 is_external=false (기존 팀은 전부 내부 팀)',
+  `SELECT count(*)::int AS n FROM league_teams WHERE is_external IS DISTINCT FROM false`,
+  rows => rows[0].n === 0 || `is_external 이 false 가 아닌 행이 ${rows[0].n}건`
+)
+
+await check(
+  '외부 팀은 아직 0건 (단계 4 에서 생김)',
+  `SELECT count(*)::int AS n FROM league_teams WHERE is_external = true`,
+  rows => rows[0].n === 0 || `외부 팀이 벌써 ${rows[0].n}건 있음`
+)
+
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exitCode = failed === 0 ? 0 : 1
