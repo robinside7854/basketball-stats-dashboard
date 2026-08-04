@@ -251,5 +251,12 @@ await check(
   }
 )
 
+await check(
+  '기존 팀 3건은 공개 상태 (082 기본값 — 기존 동호회 동작 불변)',
+  `SELECT count(*)::int AS n FROM teams t JOIN orgs o ON o.id = t.org_id
+    WHERE o.slug IN ${BASELINE_ORGS} AND t.is_public IS DISTINCT FROM true`,
+  rows => rows[0].n === 0 || `기존 팀 중 비공개가 ${rows[0].n}건 — 운영 중인 동호회가 잠긴다`
+)
+
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exitCode = failed === 0 ? 0 : 1

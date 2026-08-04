@@ -29,3 +29,26 @@ export async function canViewStats(req: Request, leagueId: string): Promise<bool
   if (await getApprovedSession(leagueId)) return true
   return canEditLeague(req, leagueId)
 }
+
+// 리그(시즌)가 속한 팀이 공개인지. 공개면 로그인 없이도 기본 정보를 볼 수 있다.
+// 리그 → 팀 → is_public 으로 유도한다 — 상태는 팀에만 두고 리그에 복제하지 않는다.
+export async function isLeaguePublic(leagueId: string): Promise<boolean> {
+  const sb = createClient()
+  const { data, error } = await sb
+    .from('leagues')
+    .select('teams(is_public)')
+    .eq('id', leagueId)
+    .maybeSingle()
+  if (error) throw new Error(`leagues: leagueId=${leagueId} 공개여부 조회 실패 — ${error.message}`)
+  const team = (data as { teams?: { is_public?: boolean } | null } | null)?.teams
+  // 팀을 못 찾으면 공개로 취급하지 않는다 — 판정 불가일 때는 닫는 쪽이 안전하다.
+  return team?.is_public === true
+}
+
+// API 라우트용 — 공개 리그면 누구나, 비공개면 승인 회원 또는 편집 권한자만.
+// canViewStats 와 같은 규칙을 쓰되, 이쪽은 "리그 자체를 볼 수 있는가"를 본다.
+export async function canViewLeague(req: Request, leagueId: string): Promise<boolean> {
+  if (await isLeaguePublic(leagueId)) return true
+  if (await getApprovedSession(leagueId)) return true
+  return canEditLeague(req, leagueId)
+}
