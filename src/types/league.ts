@@ -20,6 +20,8 @@ export interface LeagueTeam {
   league_id: string
   name: string
   color: string
+  // [임시·단계D에서 제거] 이관 원본 teams.id 또는 외부팀 생성 근거 (083)
+  legacy_id: string | null
 }
 
 export interface LeaguePlayer {
@@ -36,6 +38,13 @@ export interface LeaguePlayer {
   // 로그인 계정을 등록·승인(인증)받은 회원 여부 — 라커룸 인증 뱃지용 (players API에서 조인해 주입)
   has_account?: boolean
   created_at: string
+  height_cm: number | null
+  // 선출(선수 출신) 여부 — 명단 화면 배지 (083)
+  is_pro: boolean
+  // false 면 명단에서 내리되 과거 기록은 유지 (083)
+  is_active: boolean
+  // [임시·단계D에서 제거] 이관 원본 players.id (083)
+  legacy_id: string | null
 }
 
 export interface LeagueTeamWithPlayers extends LeagueTeam {
@@ -60,6 +69,14 @@ export interface LeagueGame {
   quarter_id?: string | null
   youtube_url?: string | null
   youtube_start_offset?: number
+  // 대회형에서 쓰는 필드 — 리그형은 홈코트 고정이라 대개 비어 있다 (083)
+  venue: string | null
+  // 토너먼트 라운드 표기(8강·결승). 일정 슬롯 번호인 round_num 과 다른 개념 (083)
+  round_label: string | null
+  // AI 가 쓴 경기 MVP 코멘트 (083)
+  ai_mvp: unknown | null
+  // [임시·단계D에서 제거] 이관 원본 games.id (083)
+  legacy_id: string | null
 }
 
 export interface LeagueScheduleDate {
@@ -90,6 +107,11 @@ export type Quarter = {
   is_current: boolean
   start_date?: string | null
   end_date?: string | null
+  // kind='tournament' 일 때만 의미가 있다 ('pro'|'amateur') (083)
+  tournament_type: string | null
+  description: string | null
+  // [임시·단계D에서 제거] 이관 원본 tournaments.id (083)
+  legacy_id: string | null
 }
 
 export type PlayerStat = {

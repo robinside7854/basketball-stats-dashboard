@@ -184,6 +184,8 @@ export default function LeagueEventInputPad({
         id: saved.id, league_id: leagueId, name: saved.name, number: saved.number,
         position: null, birth_date: null, plus_one: false, is_guest: false,
         created_at: new Date().toISOString(), team_id: team.id,
+        // 즉석 등록 상대 선수 — 083 신규 필드는 이 API 응답에 없어 알 수 없다. 기본값으로 채운다.
+        height_cm: null, is_pro: false, is_active: true, legacy_id: null,
       }
       setAddedOpponents(prev => [...prev.filter(p => p.id !== newPlayer.id), newPlayer])
       selectPlayer(newPlayer.id)  // 등록 즉시 선택 상태로 — 바로 이어서 기록
