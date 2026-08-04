@@ -17,68 +17,11 @@
 //   3. ~/.claude.json 의 mcpServers.supabase.env.SUPABASE_ACCESS_TOKEN (MCP 설정 재사용)
 //
 // 적용 이력은 public.applied_migrations 에 기록한다. 같은 파일을 두 번 돌리지 않는다.
-import { readFileSync, readdirSync, existsSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { query, projectRef as ref } from './lib/supabase-admin.mjs'
 
 const MIGRATIONS_DIR = 'supabase/migrations'
-
-function readEnvFile(path) {
-  if (!existsSync(path)) return {}
-  return Object.fromEntries(
-    readFileSync(path, 'utf8')
-      .split('\n')
-      .filter(l => l.includes('=') && !l.trim().startsWith('#'))
-      .map(l => {
-        const i = l.indexOf('=')
-        return [l.slice(0, i).trim(), l.slice(i + 1).trim()]
-      })
-  )
-}
-
-function resolveCredentials() {
-  const env = readEnvFile('.env.local')
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL
-  if (!url) throw new Error('.env.local 에 NEXT_PUBLIC_SUPABASE_URL 이 없습니다')
-  const ref = new URL(url).hostname.split('.')[0]
-
-  let token = process.env.SUPABASE_ACCESS_TOKEN ?? env.SUPABASE_ACCESS_TOKEN
-  if (!token) {
-    // MCP 설정에 이미 있는 토큰 재사용 — 별도 발급 없이 동작하게
-    const cfgPath = join(homedir(), '.claude.json')
-    if (existsSync(cfgPath)) {
-      const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'))
-      for (const server of Object.values(cfg.mcpServers ?? {})) {
-        const args = (server.args ?? []).join(' ')
-        if (args.includes(ref) && server.env?.SUPABASE_ACCESS_TOKEN) {
-          token = server.env.SUPABASE_ACCESS_TOKEN
-          break
-        }
-      }
-    }
-  }
-  if (!token) {
-    throw new Error(
-      'SUPABASE_ACCESS_TOKEN 을 찾을 수 없습니다.\n' +
-      '  Supabase 대시보드 → Account → Access Tokens 에서 발급 후\n' +
-      '  .env.local 에 SUPABASE_ACCESS_TOKEN=sbp_... 로 추가하세요.'
-    )
-  }
-  return { ref, token }
-}
-
-const { ref, token } = resolveCredentials()
-
-async function query(sql) {
-  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: sql }),
-  })
-  const text = await res.text()
-  if (!res.ok) throw new Error(`Management API ${res.status}\n${text}`)
-  try { return JSON.parse(text) } catch { return [] }
-}
 
 async function ensureLedger() {
   await query(`
