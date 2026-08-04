@@ -208,11 +208,69 @@ async function migrateTeams() {
   }
 }
 
+// 선수. 레거시 players.number 는 text 이고 league_players.number 는 integer 다.
+//   Step 1 에서 비숫자 등번호가 0건임을 확인했으므로 단순 캐스팅으로 충분하지만,
+//   방어적으로 한 번 더 거른다 — 데이터가 나중에 늘어날 수 있다.
+async function migratePlayers() {
+  console.log('\n[4] 선수')
+  for (const t of TEAMS) {
+    const leagueId = await leagueIdFor(t.legacyTeamId)
+    const [ourTeam] = await sql(
+      `SELECT id FROM league_teams WHERE league_id = ${q(leagueId)} AND legacy_id = ${q(t.legacyTeamId)}`
+    )
+    if (!ourTeam) throw new Error(`우리 팀 행이 없다: ${t.name} — migrateTeams 를 먼저 실행했는가`)
+
+    const rows = await sql(`
+      SELECT id, name, number, position, birthdate, photo_url, height_cm, is_pro, is_active
+        FROM players WHERE team_id = ${q(t.legacyTeamId)} ORDER BY name
+    `)
+    let made = 0
+    for (const p of rows) {
+      if (!/^[0-9]+$/.test(String(p.number ?? ''))) {
+        throw new Error(`등번호가 숫자가 아니다: ${p.name} (${p.number}) — league_players.number 는 integer`)
+      }
+      const [existing] = await sql(`SELECT id FROM league_players WHERE legacy_id = ${q(p.id)}`)
+      let playerId
+      if (existing) {
+        playerId = existing.id
+      } else {
+        // RETURNING 을 쓰지 않는 이유: exec 는 드라이런에서 실행하지 않으므로 id 가 없다.
+        //   드라이런에서도 흐름이 끝까지 돌게 하려면 삽입 후 다시 조회하는 편이 단순하다.
+        await exec(`
+          INSERT INTO league_players (league_id, name, number, position, birth_date, photo_url,
+                                      height_cm, is_pro, is_active, plus_one, is_guest, legacy_id)
+          VALUES (${q(leagueId)}, ${q(p.name)}, ${Number(p.number)}, ${q(p.position)}, ${q(p.birthdate)},
+                  ${q(p.photo_url)}, ${p.height_cm === null ? 'NULL' : Number(p.height_cm)},
+                  ${q(p.is_pro)}, ${q(p.is_active)}, false, false, ${q(p.id)})
+        `)
+        made += 1
+        if (!COMMIT) continue   // 드라이런이면 아래 연결 단계는 건너뛴다 (id 가 없다)
+        const [created] = await sql(`SELECT id FROM league_players WHERE legacy_id = ${q(p.id)}`)
+        playerId = created.id
+      }
+
+      // 명단 연결. league_team_players 는 (league_team_id, league_player_id) 복합키다.
+      const [linked] = await sql(`
+        SELECT 1 FROM league_team_players
+         WHERE league_team_id = ${q(ourTeam.id)} AND league_player_id = ${q(playerId)}
+      `)
+      if (!linked) {
+        await exec(`
+          INSERT INTO league_team_players (league_team_id, league_player_id)
+          VALUES (${q(ourTeam.id)}, ${q(playerId)})
+        `)
+      }
+    }
+    console.log(`  ${t.name}: 원본 ${rows.length}명 중 ${made}명 신규`)
+  }
+}
+
 async function main() {
   console.log(COMMIT ? '=== 실제 적용 (--commit) ===' : '=== 드라이런 — 쓰기 없음 ===')
   await migrateLeagues()
   await migrateQuarters()
   await migrateTeams()
+  await migratePlayers()
   console.log(COMMIT ? '완료' : '드라이런 끝. 적용하려면 --commit')
 }
 

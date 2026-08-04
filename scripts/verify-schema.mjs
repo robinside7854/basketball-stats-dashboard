@@ -179,7 +179,8 @@ await check(
   `기존 조직의 경기(2026-08-04 이전) · 선수 · 이벤트 건수 불변`,
   `SELECT
      (SELECT count(*)::int FROM league_games  WHERE date <= '${BASELINE_DATE}' AND league_id IN (${BASELINE_LEAGUES})) AS games,
-     (SELECT count(*)::int FROM league_players WHERE league_id IN (${BASELINE_LEAGUES}))                                AS players,
+     (SELECT count(*)::int FROM league_players WHERE league_id IN (${BASELINE_LEAGUES}) AND league_id NOT IN
+        (SELECT id FROM leagues WHERE org_slug = 'paranalgae' AND mode = 'tournament'))                                 AS players,
      (SELECT count(*)::int FROM league_game_events WHERE league_game_id IN
         (SELECT id FROM league_games WHERE league_id IN (${BASELINE_LEAGUES})))                                         AS events,
      (SELECT count(*)::int FROM league_teams  WHERE league_id IN (${BASELINE_LEAGUES}) AND league_id NOT IN
@@ -188,11 +189,12 @@ await check(
     const r = rows[0]
     // 2026-08-04 단계 1 착수 시점 실측값 — games 는 그 날짜까지, 전부 기존 두 조직으로 스코프됨
     // 081: 친선전 기능 제거로 빈 슬롯 8건 삭제 (279 → 271). 이벤트는 0건이라 events 는 불변.
-    // teams: 통일 단계 B(migrate-legacy.mjs) 가 paranalgae 를 대회형으로 이관하며 league_teams 가
-    //   정당하게 45건(우리팀 2 + 외부 43)으로 늘었다 — 이 체크는 "기존 데이터가 안 바뀌었는가"가
-    //   목적이므로 새로 생긴 대회형 리그(paranalgae/mode=tournament)의 league_teams 는 빼고 센다.
+    // teams/players: 통일 단계 B(migrate-legacy.mjs) 가 paranalgae 를 대회형으로 이관하며 league_teams 가
+    //   정당하게 45건(우리팀 2 + 외부 43), league_players 가 68건 늘었다 — 이 체크는 "기존 데이터가
+    //   안 바뀌었는가"가 목적이므로 새로 생긴 대회형 리그(paranalgae/mode=tournament)의 행은 빼고 센다.
+    //   (단계 2 에서 players 에도 같은 제외를 추가했다 — teams 는 단계 1 에서 이미 이 형태였다.)
     if (r.games !== 271) return `games(~${BASELINE_DATE}) 기대 271, 실제 ${r.games}`
-    if (r.players !== 45) return `players 기대 45, 실제 ${r.players}`
+    if (r.players !== 45) return `players(대회형 제외) 기대 45, 실제 ${r.players}`
     if (r.teams !== 3) return `league_teams(대회형 제외) 기대 3, 실제 ${r.teams}`
     if (r.events <= 0) return `events 가 0건`
     return true
@@ -327,15 +329,18 @@ await check(
   (rows) => rows[0].n === 13,
 )
 
-// 단계 A 는 스키마만 준비한다 — 데이터는 단계 B 에서 옮긴다.
-//   여기서 legacy_id 가 채워진 행이 보이면 단계를 건너뛰었거나 시험 데이터가 남은 것이다.
+// 단계 A 는 스키마만 준비한다 — 데이터는 단계 B 에서 옮긴다. 단계 B-2(migrate-legacy.mjs 의
+//   migratePlayers)가 파란날개 선수 68명을 옮기면서 league_players.legacy_id 가 채워지는 것은
+//   정상이다 — 이 어서션이 원래 기대한 "0"은 여기서 players 만 68로 갱신한다.
+//   games/events 는 아직 어느 단계도 옮기지 않았으니 0 그대로다 — 여기서 0 이 아니면
+//   후속 단계(경기·이벤트 이관)를 이 태스크보다 먼저 건너뛴 것이다.
 await check(
-  '단계 A 시점에는 이관된 행이 없다',
+  '단계 B-2 까지 선수만 이관됐다 (경기·이벤트는 아직)',
   `SELECT
      (SELECT count(*)::int FROM league_games       WHERE legacy_id IS NOT NULL) AS g,
      (SELECT count(*)::int FROM league_players     WHERE legacy_id IS NOT NULL) AS p,
      (SELECT count(*)::int FROM league_game_events WHERE legacy_id IS NOT NULL) AS e`,
-  (rows) => rows[0].g === 0 && rows[0].p === 0 && rows[0].e === 0,
+  (rows) => rows[0].g === 0 && rows[0].p === 68 && rows[0].e === 0,
 )
 
 // 기존 리그 선수 45명은 새 기본값을 받아야 한다 — NOT NULL 기본값이 제대로 먹었는지 확인.
