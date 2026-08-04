@@ -13,6 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
+import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
 
 export type LeagueStatsUnit = 'round' | 'game'
 
@@ -66,6 +67,10 @@ export async function computeLeagueStats(
 
   const plusOneSet = new Set((allLeaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
   const metaMap = Object.fromEntries((allLeaguePlayers ?? []).map(p => [p.id, p]))
+
+  // 채점 룰 — 동호회마다 다르다(미라클은 plus_one +1, 자유투 ft_2pt 2점).
+  // 이벤트 루프 밖에서 한 번만 읽는다.
+  const scoringRules: ScoringRules = await fetchScoringRules(sb, leagueId)
 
   // 2) 대상 게임 ID 추출
   let gQuery = sb
@@ -215,32 +220,33 @@ export async function computeLeagueStats(
       ? pid === gamePlusOneOverride
       : plusOneSet.has(pid)
 
+    const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
     switch (e.type) {
       case 'shot_3p':
         s.fg3a++; s.fga++
-        if (made) { s.fg3m++; s.fgm++; s.pts += isPlusOne ? 4 : 3 }
+        if (made) { s.fg3m++; s.fgm++; s.pts += pts }
         break
       case 'shot_post':
         s.fga++; s.ds_a++
-        if (made) { s.fgm++; s.ds_m++; s.pts += isPlusOne ? 3 : 2 }
+        if (made) { s.fgm++; s.ds_m++; s.pts += pts }
         break
       case 'shot_layup':
         s.fga++; s.lu_a++
-        if (made) { s.fgm++; s.lu_m++; s.pts += isPlusOne ? 3 : 2 }
+        if (made) { s.fgm++; s.lu_m++; s.pts += pts }
         break
       case 'shot_2p_mid':
         s.fga++; s.md_a++
-        if (made) { s.fgm++; s.md_m++; s.pts += isPlusOne ? 3 : 2 }
+        if (made) { s.fgm++; s.md_m++; s.pts += pts }
         break
       case 'and_one':
-        if (made) { s.pts += 1; s.and_one++ }
+        if (made) { s.pts += pts; s.and_one++ }
         break
       case 'ft_2pt':
-        s.fta++; if (made) { s.ftm++; s.pts += 2 }; break
+        s.fta++; if (made) { s.ftm++; s.pts += pts }; break
       case 'ft_3pt_1':
-        s.fta++; if (made) { s.ftm++; s.pts += 2 }; break
+        s.fta++; if (made) { s.ftm++; s.pts += pts }; break
       case 'free_throw': case 'ft_3pt_2':
-        s.fta++; if (made) { s.ftm++; s.pts += 1 }; break
+        s.fta++; if (made) { s.ftm++; s.pts += pts }; break
       case 'oreb': s.oreb++; s.reb++; break
       case 'dreb': s.dreb++; s.reb++; break
       case 'steal': s.stl++; break
@@ -256,23 +262,23 @@ export async function computeLeagueStats(
       switch (e.type) {
         case 'shot_3p':
           g.fga++
-          if (made) { g.fgm++; g.pts += isPlusOne ? 4 : 3 }
+          if (made) { g.fgm++; g.pts += pts }
           break
         case 'shot_post':
         case 'shot_layup':
         case 'shot_2p_mid':
           g.fga++
-          if (made) { g.fgm++; g.pts += isPlusOne ? 3 : 2 }
+          if (made) { g.fgm++; g.pts += pts }
           break
         case 'and_one':
-          if (made) g.pts += 1
+          if (made) g.pts += pts
           break
         case 'ft_2pt':
         case 'ft_3pt_1':
-          g.fta++; if (made) { g.ftm++; g.pts += 2 }; break
+          g.fta++; if (made) { g.ftm++; g.pts += pts }; break
         case 'free_throw':
         case 'ft_3pt_2':
-          g.fta++; if (made) { g.ftm++; g.pts += 1 }; break
+          g.fta++; if (made) { g.ftm++; g.pts += pts }; break
         case 'oreb': g.oreb++; break
         case 'dreb': g.dreb++; break
         case 'steal': g.stl++; break
