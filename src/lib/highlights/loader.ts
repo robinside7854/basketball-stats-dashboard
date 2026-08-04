@@ -258,10 +258,15 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
   ]))
   const playerMap: Record<string, { id: string; name: string; number: number | null; photo_url: string | null; plus_one: boolean }> = {}
   if (playerIds.length > 0) {
-    const { data: players } = await supabase
+    const { data: players, error: plErr } = await supabase
       .from('league_players')
       .select('id, name, number, photo_url, plus_one')
       .in('id', playerIds)
+    // 쿼리 실패를 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점된다
+    // (fetchScoringRules 와 동일한 이유로 폴백 대신 throw — 소리 없는 오채점 방지).
+    if (plErr) {
+      throw new Error(`loadRoundDetail: leagueId=${leagueId} league_players(plus_one) 조회 실패 — ${plErr.message}`)
+    }
     for (const p of (players ?? []) as Array<{ id: string; name: string; number: number | null; photo_url: string | null; plus_one: boolean | null }>) {
       playerMap[p.id] = { ...p, plus_one: !!p.plus_one }
     }
@@ -458,7 +463,7 @@ export async function loadPlayerHighlights(
 
   // 2. 리그의 영상 있는 게임 목록 (id, date, quarter_id, home/away 팀) + identity resolver 병렬 로드
   //    + 채점 룰 · 리그 전체 plus_one 플래그 (러닝 스코어 재계산용)
-  const [{ data: gamesRaw, error: gErr }, resolver, scoringRules, { data: allLeaguePlayers }] = await Promise.all([
+  const [{ data: gamesRaw, error: gErr }, resolver, scoringRules, { data: allLeaguePlayers, error: plErr }] = await Promise.all([
     supabase
       .from('league_games')
       .select(`
@@ -475,6 +480,11 @@ export async function loadPlayerHighlights(
     supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
   ])
   if (gErr) return { player, clips: [], quarters: [], shotTypes: [] }
+  // 쿼리 실패를 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점되고,
+  // 그 뒤 이어지는 러닝 마진 전체가 틀어진다 (fetchScoringRules 와 동일한 이유로 throw).
+  if (plErr) {
+    throw new Error(`loadPlayerHighlights: leagueId=${leagueId} league_players(plus_one) 조회 실패 — ${plErr.message}`)
+  }
   // 플러스원 판정용 — 게임별 plus_one_player_id override 가 없으면 선수 플래그로 폴백
   const plusOneSet = new Set(
     ((allLeaguePlayers ?? []) as Array<{ id: string; plus_one: boolean | null }>)
@@ -531,14 +541,14 @@ export async function loadPlayerHighlights(
   const gameIdsWithPlayer = Array.from(new Set(events.map(e => e.league_game_id)))
   type FullEvRow = {
     id: string; league_game_id: string; team_id: string | null; league_player_id: string | null
-    type: string; result: string | null; points: number | null; video_timestamp: number
+    type: string; result: string | null; video_timestamp: number
   }
   const fullEvents: FullEvRow[] = []
   if (gameIdsWithPlayer.length > 0) {
     for (let pg = 0; ; pg++) {
       const { data: chunk } = await supabase
         .from('league_game_events')
-        .select('id, league_game_id, team_id, league_player_id, type, result, points, video_timestamp')
+        .select('id, league_game_id, team_id, league_player_id, type, result, video_timestamp')
         .in('league_game_id', gameIdsWithPlayer)
         .eq('result', 'made')
         .not('video_timestamp', 'is', null)
@@ -731,7 +741,7 @@ export async function loadClipsByEventIds(
 ): Promise<HighlightClip[]> {
   if (eventIds.length === 0) return []
 
-  const [{ data: events, error: eErr }, resolver, scoringRules, { data: allLeaguePlayers }] = await Promise.all([
+  const [{ data: events, error: eErr }, resolver, scoringRules, { data: allLeaguePlayers, error: plErr }] = await Promise.all([
     supabase
       .from('league_game_events')
       .select('id, league_game_id, league_player_id, team_id, related_player_id, type, points, video_timestamp')
@@ -742,6 +752,11 @@ export async function loadClipsByEventIds(
     supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
   ])
   if (eErr || !events || events.length === 0) return []
+  // 쿼리 실패를 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점된다
+  // (fetchScoringRules 와 동일한 이유로 폴백 대신 throw — 소리 없는 오채점 방지).
+  if (plErr) {
+    throw new Error(`loadClipsByEventIds: leagueId=${leagueId} league_players(plus_one) 조회 실패 — ${plErr.message}`)
+  }
   const plusOneSet = new Set(
     ((allLeaguePlayers ?? []) as Array<{ id: string; plus_one: boolean | null }>)
       .filter(p => p.plus_one)
@@ -802,11 +817,12 @@ export async function loadClipsByEventIds(
   }
 
   // 게임별 러닝 스코어 사전계산 — 각 요청 이벤트의 슛 직전/직후 스코어를 정확히 표시
-  //   각 게임의 모든 득점 이벤트(result='made', points>0)를 timestamp 순으로 walk 하며 홈/원정 누적 점수 산출.
+  //   각 게임의 모든 성공 이벤트(result='made')를 timestamp 순으로 walk 하며 scorePoints 로
+  //   재계산해 홈/원정 누적 점수를 산출한다 (저장된 points 컬럼은 쓰지 않음 — 아래 주석 참고).
   //   요청 이벤트가 아니어도 러닝 스코어에 반영해야 정확한 스코어보드가 나옴.
   type ScoreEvtRow = {
     id: string; league_game_id: string; team_id: string | null; league_player_id: string | null
-    type: string; result: string | null; points: number | null; video_timestamp: number | null
+    type: string; result: string | null; video_timestamp: number | null
   }
   const scoreEvents: ScoreEvtRow[] = []
   {
@@ -814,7 +830,7 @@ export async function loadClipsByEventIds(
     for (let pg = 0; ; pg++) {
       const { data: chunk } = await supabase
         .from('league_game_events')
-        .select('id, league_game_id, team_id, league_player_id, type, result, points, video_timestamp')
+        .select('id, league_game_id, team_id, league_player_id, type, result, video_timestamp')
         .in('league_game_id', gameIds)
         .eq('result', 'made')
         // ⚠ 예전엔 .gt('points', 0) 로 "결정적 슛"을 DB 단에서 걸렀지만, 저장된 points 는
