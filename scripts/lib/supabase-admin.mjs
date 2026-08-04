@@ -54,9 +54,18 @@ export function resolveCredentials() {
   return { ref, token }
 }
 
-const { ref, token } = resolveCredentials()
+// 자격증명은 import 시점이 아니라 첫 query() 호출 시점에 지연 해석한다.
+// 최상위에서 바로 resolveCredentials() 를 부르면 자격증명이 없는 환경에서
+// import 만 해도 예외가 터지고, resolveCredentials 를 내보내는 의미도 없어진다
+// (아무도 직접 부를 이유가 없어지므로) — 캐시해서 한 번만 계산한다.
+let cached = null
+function credentials() {
+  if (!cached) cached = resolveCredentials()
+  return cached
+}
 
 export async function query(sql) {
+  const { ref, token } = credentials()
   const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -67,4 +76,8 @@ export async function query(sql) {
   try { return JSON.parse(text) } catch { return [] }
 }
 
-export { ref as projectRef }
+// db-migrate.mjs 의 status 출력이 프로젝트 ref 를 보여주는 데 쓴다 — 게터 함수로 노출
+// (top-level const 였던 옛 projectRef 는 import 시점 해석을 강제했으므로 제거)
+export function projectRef() {
+  return credentials().ref
+}

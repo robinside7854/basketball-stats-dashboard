@@ -19,7 +19,7 @@
 // 적용 이력은 public.applied_migrations 에 기록한다. 같은 파일을 두 번 돌리지 않는다.
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { query, projectRef as ref } from './lib/supabase-admin.mjs'
+import { query, projectRef } from './lib/supabase-admin.mjs'
 
 const MIGRATIONS_DIR = 'supabase/migrations'
 
@@ -58,7 +58,7 @@ async function main() {
   const all = listMigrations()
 
   if (cmd === 'status') {
-    console.log(`프로젝트 ${ref} · 마이그레이션 ${all.length}개\n`)
+    console.log(`프로젝트 ${projectRef()} · 마이그레이션 ${all.length}개\n`)
     // 이력 도입 이전 파일은 상태를 알 수 없으므로 '미기록' 으로 구분해 표시
     for (const f of all) console.log(`  ${applied.has(f) ? '✔ 적용됨' : '· 미기록'}  ${f}`)
     console.log('\n※ 이력 테이블 도입(073) 이전 파일은 실제 적용됐어도 "미기록" 으로 나옵니다.')
