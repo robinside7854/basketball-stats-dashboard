@@ -517,7 +517,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     if (!leagueHeaders) return
                     const promptText = isAIGenerated
                       ? 'AI 프로필을 재생성하시겠어요?\n\n원본 사진에서 새 결과를 만듭니다 (매번 조금씩 달라짐).\n\n예상 시간 10-20초 · 비용 ~$0.04'
-                      : 'AI 로 실사 프로필을 생성하시겠어요?\n\n미라클모닝 노란 유니폼을 입은 프로필 사진으로 변환됩니다.\n원본은 별도 보관되어 재생성 가능.\n\n예상 시간 10-20초 · 비용 ~$0.04'
+                      // 멀티테넌트 전환(온볼): 서버 프롬프트가 노란/검정 유니폼으로 고정 생성하므로(club 무관, 별도 이슈로 보고)
+                      // 다이얼로그 문구는 실제 동작과 일치하되 특정 클럽명은 노출하지 않음
+                      : 'AI 로 실사 프로필을 생성하시겠어요?\n\n노란/검정 유니폼을 입은 프로필 사진으로 변환됩니다.\n원본은 별도 보관되어 재생성 가능.\n\n예상 시간 10-20초 · 비용 ~$0.04'
                     if (!window.confirm(promptText)) return
                     setGeneratingAI(true)
                     try {

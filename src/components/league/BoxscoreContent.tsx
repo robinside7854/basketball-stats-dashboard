@@ -255,7 +255,9 @@ function getYoutubeEmbedUrl(url: string, offset: number): string {
   } catch { return '' }
 }
 
-export default function BoxscoreContent({ leagueId, date, leagueName = '미라클모닝농구단' }: Props) {
+// 멀티테넌트 전환(온볼): leagueName 은 항상 호출부(boxscore page)에서 DB league.name 을 넘겨받음 —
+// 기본값은 다른 클럽명이 아닌 빈 문자열로 폴백 (호출부 fallback 미전달 시에도 특정 클럽명 노출 방지)
+export default function BoxscoreContent({ leagueId, date, leagueName = '' }: Props) {
   const [games, setGames] = useState<GameData[]>([])
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([])
   const [loading, setLoading] = useState(true)

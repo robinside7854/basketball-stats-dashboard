@@ -292,7 +292,7 @@ export default function LeagueSettingsPage() {
         </p>
         <div className="flex gap-2">
           <Input
-            placeholder="@채널핸들 (예: @미라클모닝농구단)"
+            placeholder="@채널핸들 (예: @우리팀농구단)"
             value={ytChannel}
             onChange={e => setYtChannel(e.target.value)}
             className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none flex-1"

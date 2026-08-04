@@ -15,7 +15,10 @@ const C = {
 const JERSEY = 'var(--font-barlow-condensed), "Barlow Condensed", "Oswald", sans-serif'
 const ellip = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const
 
-function Shell({ kicker, children, footer = true }: { kicker: string; children: React.ReactNode; footer?: boolean }) {
+// 멀티테넌트 전환(온볼): 하단 클럽명 span 은 RoundMagazineData.leagueName(DB league.name) 사용 —
+// 카드가 인스타 등 공개 채널에 게시되므로 다른 클럽명이 찍히면 안 됨.
+// "Miracle Weekly" 타이틀 · "@MIRACLE_MORNING" 핸들은 이번 작업 범위(line 31 클럽명)에 해당하지 않아 그대로 둠 → 보고서에 별도 기재
+function Shell({ kicker, leagueName, children, footer = true }: { kicker: string; leagueName?: string; children: React.ReactNode; footer?: boolean }) {
   return (
     <div style={{ width: IG_W, height: IG_H, background: C.bg, color: C.ink, position: 'relative', overflow: 'hidden', fontFamily: 'Pretendard, system-ui, sans-serif' }}>
       <div aria-hidden style={{ position: 'absolute', inset: 0, opacity: 0.05, background: `repeating-linear-gradient(90deg, transparent 0 108px, ${C.yellow} 108px 110px)` }} />
@@ -28,7 +31,7 @@ function Shell({ kicker, children, footer = true }: { kicker: string; children: 
       </div>
       {footer && (
         <div style={{ position: 'absolute', left: 60, right: 60, bottom: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: `1px solid ${C.rule}`, paddingTop: 16 }}>
-          <span style={{ color: C.muted, fontSize: 22, fontWeight: 700 }}>미라클모닝농구단</span>
+          <span style={{ color: C.muted, fontSize: 22, fontWeight: 700 }}>{leagueName ?? ''}</span>
           <span style={{ fontFamily: JERSEY, fontWeight: 900, fontSize: 24, color: C.yellow, letterSpacing: '0.1em' }}>@MIRACLE_MORNING</span>
         </div>
       )}
@@ -108,7 +111,7 @@ function StandingsTable({ standings, emptyText }: { standings: RoundStanding[]; 
 // ── 1. 표지 — 날짜 + 라운드 순위 ─────────────
 export function CoverCard({ data, vol, headline }: { data: RoundMagazineData; vol: string; headline: string }) {
   return (
-    <Shell kicker={`VOL.${vol || '1'}`}>
+    <Shell kicker={`VOL.${vol || '1'}`} leagueName={data.leagueName}>
       <div style={{ flexShrink: 0, marginBottom: 20 }}>
         <div style={{ color: C.muted, fontFamily: JERSEY, fontWeight: 800, fontSize: 30, letterSpacing: '0.1em' }}>ROUND RESULT</div>
         <div style={{ fontFamily: JERSEY, fontWeight: 900, fontSize: 104, lineHeight: 0.95, color: C.yellow }}>{data.dateLabel}</div>
@@ -123,7 +126,7 @@ export function CoverCard({ data, vol, headline }: { data: RoundMagazineData; vo
 export function ScoreboardCard({ data }: { data: RoundMagazineData }) {
   const games = data.games
   return (
-    <Shell kicker={data.dateLabel}>
+    <Shell kicker={data.dateLabel} leagueName={data.leagueName}>
       <TitleBlock title="스코어보드" metric={`${games.length}경기`} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, minHeight: 0 }}>
         {games.length === 0 ? (
@@ -157,7 +160,7 @@ export function ScoreboardCard({ data }: { data: RoundMagazineData }) {
 export function LeaderCard({ data, title, metric, unit, leaders }: { data: RoundMagazineData; title: string; metric: string; unit: string; leaders: SocialLeader[] }) {
   const [first, ...rest] = leaders
   return (
-    <Shell kicker={data.dateLabel}>
+    <Shell kicker={data.dateLabel} leagueName={data.leagueName}>
       <TitleBlock title={title} metric={metric} />
       {!first ? (
         <div style={{ color: C.muted, fontSize: 30 }}>집계된 기록이 없습니다.</div>
@@ -217,7 +220,7 @@ export function BestCard({ data }: { data: RoundMagazineData }) {
   const b = data.best
   const stats: [string, number][] = b ? [['득점', b.line.pts], ['리바운드', b.line.reb], ['어시스트', b.line.ast], ['스틸', b.line.stl], ['블록', b.line.blk]] : []
   return (
-    <Shell kicker={data.dateLabel}>
+    <Shell kicker={data.dateLabel} leagueName={data.leagueName}>
       <TitleBlock title="이 날의 BEST" metric="MVP" />
       {!b ? (
         <div style={{ color: C.muted, fontSize: 30 }}>집계된 기록이 없습니다.</div>
@@ -244,7 +247,7 @@ export function BestCard({ data }: { data: RoundMagazineData }) {
 // ── 8. 분기 누적 순위 (BEST 다음, 마일스톤 앞) ─
 export function QuarterStandingsCard({ data }: { data: RoundMagazineData }) {
   return (
-    <Shell kicker={data.dateLabel}>
+    <Shell kicker={data.dateLabel} leagueName={data.leagueName}>
       <TitleBlock title="분기 누적 순위" metric={`${data.quarterLabel} · ${data.dateLabel}까지`} />
       <StandingsTable standings={data.quarterStandings} emptyText="분기 누적 순위 데이터가 없습니다." />
     </Shell>
@@ -255,7 +258,7 @@ export function QuarterStandingsCard({ data }: { data: RoundMagazineData }) {
 export function MilestoneCard({ data }: { data: RoundMagazineData }) {
   const ms: UpcomingEntry[] = data.milestones.slice(0, 4)
   return (
-    <Shell kicker={data.dateLabel}>
+    <Shell kicker={data.dateLabel} leagueName={data.leagueName}>
       <TitleBlock title="마일스톤" metric="다음 경기 주목" />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0 }}>
         {ms.length === 0 ? (

@@ -36,7 +36,8 @@ export const HOME_TOUR_STEPS: TourStep[] = [
   {
     id: 'welcome',
     placement: 'center',
-    title: '미라클모닝 라커룸에 오신 것을 환영합니다',
+    // 멀티테넌트 전환(온볼): 특정 클럽명 하드코딩 금지 — 이 상수는 클럽별 데이터 없이 정적으로 정의되므로 중립 문구 사용
+    title: '라커룸에 오신 것을 환영합니다',
     description:
       '팀 · 선수 · 경기 · 스탯 · 하이라이트 릴을 한눈에.\n\n최근 크게 업데이트된 기능들 위주로 짧게 안내해드릴게요.',
   },

@@ -49,7 +49,8 @@ export default async function BoxscorePage({ params }: { params: Promise<Params>
     .eq('org_slug', orgSlug)
     .single()
   if (!league) notFound()
-  const leagueName = (league.name as string) ?? '미라클모닝농구단'
+  // 멀티테넌트 전환(온볼): DB에 리그명이 없을 때 다른 클럽명으로 폴백하지 않고 중립 라벨 사용
+  const leagueName = (league.name as string) ?? '리그'
 
   const backHref = `/league/${orgSlug}/${leagueId}/schedule`
 

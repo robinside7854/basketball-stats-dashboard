@@ -98,9 +98,11 @@ export default function LeagueSchedulePage() {
 
   async function addExhibitionDate() {
     if (!newDate) { toast.error('날짜를 선택하세요'); return }
+    // 멀티테넌트 전환(온볼): exhibition/init API 가 실제로 '미라클'/'모닝'이라는 고정 팀명을 생성함(별도 이슈로 보고) —
+    // 여기 안내 문구는 특정 팀명 대신 동작을 설명하는 중립 문구로 표기
     if (!confirm(
       `${newDate} 친선 4쿼터·2경기를 등록하시겠습니까?\n\n` +
-      `· 미라클 vs 모닝 2팀 (없으면 자동 생성)\n` +
+      `· 임시 2팀 (없으면 자동 생성)\n` +
       `· 8개 슬롯 (1·2차전 × 4쿼터)\n` +
       `· 리그 순위에서 제외 / 개인 스탯에는 반영\n\n` +
       `※ 이 날짜에 빈 정규 슬롯이 있으면 자동 삭제 후 재구성됩니다.\n` +
@@ -254,7 +256,7 @@ export default function LeagueSchedulePage() {
           <button
             onClick={addExhibitionDate}
             disabled={adding}
-            title="2팀(미라클 vs 모닝) · 10분 4쿼터 · 2경기 — 리그 순위 제외"
+            title="임시 2팀 · 10분 4쿼터 · 2경기 — 리그 순위 제외"
             className="inline-flex items-center justify-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50 shrink-0"
             style={{
               background: 'var(--mm-yellow)',

@@ -84,7 +84,8 @@ function IntroStep({ onProceed }: { onProceed: () => void }) {
       <div className="flex gap-2.5" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)', padding: '12px 14px', borderRadius: '4px' }}>
         <Info size={16} className="shrink-0 mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} />
         <div className="text-[13px] leading-relaxed" style={{ color: 'var(--mm-ink)' }}>
-          <p className="font-bold mb-1">지금도 미라클농구단 스탯 서비스를 이용할 수 있어요.</p>
+          {/* 멀티테넌트 전환(온볼): LoginModal 은 leagueName prop 없이 leagueId 만 받으므로 특정 클럽명 대신 중립 문구 사용 */}
+          <p className="font-bold mb-1">지금도 우리 팀 스탯 서비스를 이용할 수 있어요.</p>
           <p style={{ color: 'var(--mm-ink-soft)' }}>
             가입하면 <b>개인화 대시보드</b> · <b>내 뱃지 컬렉션</b> 등 더 많은 기능이 열립니다.
           </p>
