@@ -288,5 +288,42 @@ await check(
     || `외부·내부 팀에 동시에 배정된 선수가 ${rows[0].n}건 — 어느 쪽 기록인지 판정이 흔들린다`
 )
 
+// 083 — 통일 단계 A 목적지 컬럼. 단계 B 이관 스크립트가 이 이름들에 의존한다.
+//   컬럼이 조용히 사라지거나 이름이 바뀌면 이관이 런타임에서야 깨지므로 여기서 잡는다.
+await check(
+  '083 목적지 컬럼 13개 존재',
+  `SELECT count(*)::int AS n
+     FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name IN ('league_games','league_players','league_quarters','league_teams','league_game_events')
+      AND (
+        (table_name='league_games'       AND column_name IN ('venue','round_label','ai_mvp','legacy_id')) OR
+        (table_name='league_players'     AND column_name IN ('height_cm','is_pro','is_active','legacy_id')) OR
+        (table_name='league_quarters'    AND column_name IN ('tournament_type','description','legacy_id')) OR
+        (table_name='league_teams'       AND column_name='legacy_id') OR
+        (table_name='league_game_events' AND column_name='legacy_id')
+      )`,
+  (rows) => rows[0].n === 13,
+)
+
+// 단계 A 는 스키마만 준비한다 — 데이터는 단계 B 에서 옮긴다.
+//   여기서 legacy_id 가 채워진 행이 보이면 단계를 건너뛰었거나 시험 데이터가 남은 것이다.
+await check(
+  '단계 A 시점에는 이관된 행이 없다',
+  `SELECT
+     (SELECT count(*)::int FROM league_games       WHERE legacy_id IS NOT NULL) AS g,
+     (SELECT count(*)::int FROM league_players     WHERE legacy_id IS NOT NULL) AS p,
+     (SELECT count(*)::int FROM league_game_events WHERE legacy_id IS NOT NULL) AS e`,
+  (rows) => rows[0].g === 0 && rows[0].p === 0 && rows[0].e === 0,
+)
+
+// 기존 리그 선수 45명은 새 기본값을 받아야 한다 — NOT NULL 기본값이 제대로 먹었는지 확인.
+//   (파란날개 이관 후에는 is_pro 7명이 생기므로, 그 시점에 이 단언은 단계 B 에서 갱신한다.)
+await check(
+  '기존 선수는 전원 비선출·활동중 기본값',
+  `SELECT count(*)::int AS n FROM league_players WHERE legacy_id IS NULL AND (is_pro OR NOT is_active)`,
+  (rows) => rows[0].n === 0,
+)
+
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exitCode = failed === 0 ? 0 : 1
