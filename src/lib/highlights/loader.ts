@@ -5,6 +5,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { extractYouTubeId } from '@/lib/youtube/utils'
 import { isHighlightShot, getClipBounds, SHOT_TYPE_LABEL, shouldShowAssist } from './clip'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
+// 러닝 스코어(홈/원정 누적 점수) 계산 — 저장된 points 컬럼이 아니라 리그 채점 룰로 재계산한다.
+// 이유: 클러치 판정은 게임 내 이벤트를 순서대로 훑으며 누적하는 구조라, 값 하나가 룰과
+// 어긋나면 그 뒤 모든 이벤트의 margin 이 함께 틀어진다. leagueStats.ts 등 다른 화면은 이미
+// scorePoints 로 채점하므로, 여기서도 저장값을 그대로 쓰면 관리자가 룰을 고친 직후
+// 하이라이트 화면만 옛 값으로 클러치를 판정하는 불일치가 생긴다.
+import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
 import type {
   HighlightRound, HighlightRoundDetail, HighlightClip,
   HighlightPlayerOption, HighlightTeamOption,
@@ -181,12 +187,12 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
   const empty: HighlightRoundDetail = { date, clips: [], players: [], teams: [] }
 
   // 1. 해당 날짜의 게임 (영상 있는 것만) + identity resolver 병렬 로드
-  const [{ data: games, error: gErr }, resolver] = await Promise.all([
+  const [{ data: games, error: gErr }, resolver, scoringRules] = await Promise.all([
     supabase
       .from('league_games')
       .select(`
         id, quarter_id, youtube_url, youtube_start_offset,
-        home_team_id, away_team_id,
+        home_team_id, away_team_id, plus_one_player_id,
         home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
         away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
       `)
@@ -195,6 +201,8 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       .not('youtube_url', 'is', null)
       .order('slot_num', { ascending: true }),
     loadIdentityResolver(supabase, leagueId),
+    // 채점 룰 — 이벤트 루프 밖에서 한 번만 읽는다 (동호회마다 다른 plus_one/자유투 배점).
+    fetchScoringRules(supabase, leagueId),
   ])
   if (gErr) return empty
   const gameRows = (games ?? []) as unknown as Array<{
@@ -204,6 +212,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     youtube_start_offset: number | null
     home_team_id: string | null
     away_team_id: string | null
+    plus_one_player_id: string | null
     home_team: { id: string; name: string; color: string } | null
     away_team: { id: string; name: string; color: string } | null
   }>
@@ -222,6 +231,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     team_id: string | null
     related_player_id: string | null
     type: string
+    result: string | null
     points: number | null
     video_timestamp: number
   }
@@ -246,16 +256,19 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     ...eventRows.map(e => e.league_player_id).filter((x): x is string => !!x),
     ...eventRows.map(e => e.related_player_id).filter((x): x is string => !!x),
   ]))
-  const playerMap: Record<string, { id: string; name: string; number: number | null; photo_url: string | null }> = {}
+  const playerMap: Record<string, { id: string; name: string; number: number | null; photo_url: string | null; plus_one: boolean }> = {}
   if (playerIds.length > 0) {
     const { data: players } = await supabase
       .from('league_players')
-      .select('id, name, number, photo_url')
+      .select('id, name, number, photo_url, plus_one')
       .in('id', playerIds)
-    for (const p of (players ?? []) as Array<{ id: string; name: string; number: number | null; photo_url: string | null }>) {
-      playerMap[p.id] = p
+    for (const p of (players ?? []) as Array<{ id: string; name: string; number: number | null; photo_url: string | null; plus_one: boolean | null }>) {
+      playerMap[p.id] = { ...p, plus_one: !!p.plus_one }
     }
   }
+  // 플러스원 판정용 — 게임별 plus_one_player_id override 가 없으면 선수 플래그로 폴백
+  // (leagueStats.ts 의 정석 패턴과 동일)
+  const plusOneSet = new Set(Object.values(playerMap).filter(p => p.plus_one).map(p => p.id))
 
   // 4. 게임별 이벤트 그룹핑 + 시간순 정렬 → 러닝 스코어 & 클러치 판정 준비
   //    시간 창 기준은 "마지막 이벤트"(득점 무관) 로 별도 조회 (득점 공백 구간 정확도 확보)
@@ -284,8 +297,13 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       const inClutchTime = e.video_timestamp >= clutchStart
       const marginBefore = Math.abs(home - away)
       const hb = home, ab = away
-      // 스코어 반영 (made 이므로 항상 득점 이벤트) — team_id 매칭으로 홈/원정 판별
-      const pts = e.points ?? 0
+      // 스코어 반영 — 저장된 points 컬럼 대신 scorePoints 로 룰 기반 재계산 (team_id 매칭으로 홈/원정 판별)
+      const isPlusOne = e.league_player_id != null && (
+        game.plus_one_player_id !== null
+          ? e.league_player_id === game.plus_one_player_id
+          : plusOneSet.has(e.league_player_id)
+      )
+      const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
       if (pts > 0 && e.team_id) {
         if (e.team_id === game.home_team_id) home += pts
         else if (e.team_id === game.away_team_id) away += pts
@@ -439,12 +457,13 @@ export async function loadPlayerHighlights(
   }
 
   // 2. 리그의 영상 있는 게임 목록 (id, date, quarter_id, home/away 팀) + identity resolver 병렬 로드
-  const [{ data: gamesRaw, error: gErr }, resolver] = await Promise.all([
+  //    + 채점 룰 · 리그 전체 plus_one 플래그 (러닝 스코어 재계산용)
+  const [{ data: gamesRaw, error: gErr }, resolver, scoringRules, { data: allLeaguePlayers }] = await Promise.all([
     supabase
       .from('league_games')
       .select(`
         id, date, quarter_id, youtube_url, youtube_start_offset,
-        home_team_id, away_team_id,
+        home_team_id, away_team_id, plus_one_player_id,
         home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
         away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
       `)
@@ -452,8 +471,16 @@ export async function loadPlayerHighlights(
       .not('youtube_url', 'is', null)
       .not('date', 'is', null),
     loadIdentityResolver(supabase, leagueId),
+    fetchScoringRules(supabase, leagueId),
+    supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
   ])
   if (gErr) return { player, clips: [], quarters: [], shotTypes: [] }
+  // 플러스원 판정용 — 게임별 plus_one_player_id override 가 없으면 선수 플래그로 폴백
+  const plusOneSet = new Set(
+    ((allLeaguePlayers ?? []) as Array<{ id: string; plus_one: boolean | null }>)
+      .filter(p => p.plus_one)
+      .map(p => p.id),
+  )
   const gameRows = (gamesRaw ?? []) as unknown as Array<{
     id: string
     date: string
@@ -462,6 +489,7 @@ export async function loadPlayerHighlights(
     youtube_start_offset: number | null
     home_team_id: string | null
     away_team_id: string | null
+    plus_one_player_id: string | null
     home_team: { id: string; name: string; color: string } | null
     away_team: { id: string; name: string; color: string } | null
   }>
@@ -501,13 +529,16 @@ export async function loadPlayerHighlights(
   // 3-a. 클러치/스코어 계산용 — 해당 게임의 모든 made 슛 (양팀 포함) 로드
   //      선수 이벤트만으로는 상대팀 득점을 알 수 없어 러닝 스코어 계산 불가
   const gameIdsWithPlayer = Array.from(new Set(events.map(e => e.league_game_id)))
-  type FullEvRow = { id: string; league_game_id: string; team_id: string | null; points: number | null; video_timestamp: number }
+  type FullEvRow = {
+    id: string; league_game_id: string; team_id: string | null; league_player_id: string | null
+    type: string; result: string | null; points: number | null; video_timestamp: number
+  }
   const fullEvents: FullEvRow[] = []
   if (gameIdsWithPlayer.length > 0) {
     for (let pg = 0; ; pg++) {
       const { data: chunk } = await supabase
         .from('league_game_events')
-        .select('id, league_game_id, team_id, points, video_timestamp')
+        .select('id, league_game_id, team_id, league_player_id, type, result, points, video_timestamp')
         .in('league_game_id', gameIdsWithPlayer)
         .eq('result', 'made')
         .not('video_timestamp', 'is', null)
@@ -536,7 +567,13 @@ export async function loadPlayerHighlights(
       const inClutchTime = e.video_timestamp >= clutchStart
       const marginBefore = Math.abs(home - away)
       const hb = home, ab = away
-      const pts = e.points ?? 0
+      // 스코어 반영 — 저장된 points 컬럼 대신 scorePoints 로 룰 기반 재계산 (loadRoundDetail 과 동일 이유)
+      const isPlusOne = e.league_player_id != null && (
+        g.plus_one_player_id !== null
+          ? e.league_player_id === g.plus_one_player_id
+          : plusOneSet.has(e.league_player_id)
+      )
+      const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
       if (pts > 0 && e.team_id) {
         if (e.team_id === g.home_team_id) home += pts
         else if (e.team_id === g.away_team_id) away += pts
@@ -694,14 +731,22 @@ export async function loadClipsByEventIds(
 ): Promise<HighlightClip[]> {
   if (eventIds.length === 0) return []
 
-  const [{ data: events, error: eErr }, resolver] = await Promise.all([
+  const [{ data: events, error: eErr }, resolver, scoringRules, { data: allLeaguePlayers }] = await Promise.all([
     supabase
       .from('league_game_events')
       .select('id, league_game_id, league_player_id, team_id, related_player_id, type, points, video_timestamp')
       .in('id', eventIds),
     loadIdentityResolver(supabase, leagueId),
+    // 러닝 스코어 재계산용 채점 룰 · 리그 전체 plus_one 플래그
+    fetchScoringRules(supabase, leagueId),
+    supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
   ])
   if (eErr || !events || events.length === 0) return []
+  const plusOneSet = new Set(
+    ((allLeaguePlayers ?? []) as Array<{ id: string; plus_one: boolean | null }>)
+      .filter(p => p.plus_one)
+      .map(p => p.id),
+  )
   type EvtRow = {
     id: string
     league_game_id: string
@@ -721,7 +766,7 @@ export async function loadClipsByEventIds(
   const { data: games } = await supabase
     .from('league_games')
     .select(`
-      id, quarter_id, youtube_url, home_team_id, away_team_id,
+      id, quarter_id, youtube_url, home_team_id, away_team_id, plus_one_player_id,
       home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
       away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
     `)
@@ -734,6 +779,7 @@ export async function loadClipsByEventIds(
     youtube_url: string
     home_team_id: string | null
     away_team_id: string | null
+    plus_one_player_id: string | null
     home_team: { id: string; name: string; color: string } | null
     away_team: { id: string; name: string; color: string } | null
   }>
@@ -758,17 +804,23 @@ export async function loadClipsByEventIds(
   // 게임별 러닝 스코어 사전계산 — 각 요청 이벤트의 슛 직전/직후 스코어를 정확히 표시
   //   각 게임의 모든 득점 이벤트(result='made', points>0)를 timestamp 순으로 walk 하며 홈/원정 누적 점수 산출.
   //   요청 이벤트가 아니어도 러닝 스코어에 반영해야 정확한 스코어보드가 나옴.
-  type ScoreEvtRow = { id: string; league_game_id: string; team_id: string | null; points: number | null; video_timestamp: number | null }
+  type ScoreEvtRow = {
+    id: string; league_game_id: string; team_id: string | null; league_player_id: string | null
+    type: string; result: string | null; points: number | null; video_timestamp: number | null
+  }
   const scoreEvents: ScoreEvtRow[] = []
   {
     const PAGE = 1000
     for (let pg = 0; ; pg++) {
       const { data: chunk } = await supabase
         .from('league_game_events')
-        .select('id, league_game_id, team_id, points, video_timestamp')
+        .select('id, league_game_id, team_id, league_player_id, type, result, points, video_timestamp')
         .in('league_game_id', gameIds)
         .eq('result', 'made')
-        .gt('points', 0)
+        // ⚠ 예전엔 .gt('points', 0) 로 "결정적 슛"을 DB 단에서 걸렀지만, 저장된 points 는
+        // 룰 변경 이전 값일 수 있다. 여기서 잘못 잘리면(0/NULL 로 저장된 슛이 실은 득점인 경우)
+        // 그 게임의 러닝 스코어 전체가 어긋난다 — scorePoints 로 재계산한 뒤 코드에서 걸러야
+        // 룰이 바뀌어도 안전하다.
         .not('video_timestamp', 'is', null)
         .range(pg * PAGE, (pg + 1) * PAGE - 1)
       if (chunk && chunk.length > 0) scoreEvents.push(...(chunk as unknown as ScoreEvtRow[]))
@@ -789,7 +841,13 @@ export async function loadClipsByEventIds(
       let home = 0, away = 0
       for (const e of evs) {
         const hb = home, ab = away
-        const pts = e.points ?? 0
+        // 저장된 points 대신 scorePoints 재계산 — 사유는 위 scoreEvents 조회 주석과 동일
+        const isPlusOne = e.league_player_id != null && (
+          g.plus_one_player_id !== null
+            ? e.league_player_id === g.plus_one_player_id
+            : plusOneSet.has(e.league_player_id)
+        )
+        const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
         if (e.team_id === g.home_team_id) home += pts
         else if (e.team_id === g.away_team_id) away += pts
         // team_id 가 홈/원정 어디도 아니면 스코어 미반영 (안전)
