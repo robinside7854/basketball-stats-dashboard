@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
 
 type Ctx = { params: Promise<{ leagueId: string; gameId: string }> }
 
@@ -18,6 +19,9 @@ export async function POST(
 
   const supabase = createClient()
 
+  // 이 파일에도 득점 계산이 있었다 — 공용 룰 하나로 통일
+  const scoringRules = await fetchScoringRules(supabase, leagueId)
+
   const [{ data: game, error: gErr }, { data: leaguePlayers }] = await Promise.all([
     supabase.from('league_games').select('home_team_id, away_team_id, quarter_id, plus_one_player_id').eq('id', gameId).eq('league_id', leagueId).single(),
     supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
@@ -31,18 +35,9 @@ export async function POST(
     ? new Set([(game as { plus_one_player_id: string }).plus_one_player_id])
     : new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
 
-  const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
   function calcPts(type: string, result: string, playerId: string): number {
-    if (result !== 'made') return 0
     const isP1 = plusOneSet.has(playerId)
-    if (type === 'shot_3p') return isP1 ? 4 : 3
-    if (SHOT_TYPES.includes(type)) return isP1 ? 3 : 2
-    if (type === 'and_one')   return 1   // 득점인정반칙 추가 1점
-    if (type === 'ft_2pt')    return 2   // 2점파울 FT: 1회 시도 2점
-    if (type === 'ft_3pt_1')  return 2
-    if (type === 'ft_3pt_2')  return 1
-    if (type === 'free_throw') return 1
-    return 0
+    return scorePoints(type, result, isP1, scoringRules)
   }
 
   // 이벤트 조회 (team_id + 이벤트 타입/결과)

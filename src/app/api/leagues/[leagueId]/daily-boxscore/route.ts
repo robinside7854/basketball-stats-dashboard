@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { makeIdentityResolver, type QuarterOverride, type TeamBase } from '@/lib/stats/teamIdentity'
+import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
 
 // GET /api/leagues/[leagueId]/daily-boxscore?date=YYYY-MM-DD
 export async function GET(
@@ -13,6 +14,9 @@ export async function GET(
   if (!date) return NextResponse.json({ error: 'date required' }, { status: 400 })
 
   const supabase = createClient()
+
+  // 이 파일에도 득점 계산이 있었다 — 공용 룰 하나로 통일
+  const scoringRules = await fetchScoringRules(supabase, leagueId)
 
   const [
     { data: games },
@@ -89,6 +93,7 @@ export async function GET(
     const made = e.result === 'made'
     const gamePlusOne = gamePlusOneMap[gId]
     const isP1 = gamePlusOne !== null ? pid === gamePlusOne : plusOneSet.has(pid)
+    const pts = scorePoints(e.type as string, e.result as string | null, isP1, scoringRules)
     if (!gamePlayerStats[gId]) continue
     if (!gamePlayerStats[gId][pid]) gamePlayerStats[gId][pid] = emptyGS()
     const s = gamePlayerStats[gId][pid]
@@ -96,20 +101,20 @@ export async function GET(
     switch (e.type) {
       case 'shot_3p':
         s.fg3a++; s.fga++
-        if (made) { s.fg3m++; s.fgm++; s.pts += isP1 ? 4 : 3 }
+        if (made) { s.fg3m++; s.fgm++; s.pts += pts }
         break
       case 'shot_2p_mid': case 'shot_layup': case 'shot_post':
         s.fga++
-        if (made) { s.fgm++; s.pts += isP1 ? 3 : 2 }
+        if (made) { s.fgm++; s.pts += pts }
         break
       case 'and_one':
-        if (made) { s.pts += 1 }; break
+        if (made) { s.pts += pts }; break
       case 'ft_2pt':
-        s.fta++; if (made) { s.ftm++; s.pts += 2 }; break
+        s.fta++; if (made) { s.ftm++; s.pts += pts }; break
       case 'ft_3pt_1':
-        s.fta++; if (made) { s.ftm++; s.pts += 2 }; break
+        s.fta++; if (made) { s.ftm++; s.pts += pts }; break
       case 'ft_3pt_2': case 'free_throw':
-        s.fta++; if (made) { s.ftm++; s.pts += 1 }; break
+        s.fta++; if (made) { s.ftm++; s.pts += pts }; break
       case 'oreb': s.oreb++; s.reb++; break
       case 'dreb': s.dreb++; s.reb++; break
       case 'steal': s.stl++; break

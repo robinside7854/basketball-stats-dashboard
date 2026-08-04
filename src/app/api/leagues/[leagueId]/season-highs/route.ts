@@ -27,6 +27,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canViewStats } from '@/lib/auth/guard'
+import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] as const
 
@@ -83,6 +84,9 @@ export async function GET(
   const sp = new URL(req.url).searchParams
   const quarterId = sp.get('quarterId')
   const supabase = createClient()
+
+  // 이 파일에도 득점 계산이 있었다 — 공용 룰 하나로 통일
+  const scoringRules = await fetchScoringRules(supabase, leagueId)
 
   // 1-3) 선수 메타 · 게임 · 분기 메타 병렬 실행 — 서로 독립적.
   let gQuery = supabase
@@ -166,28 +170,29 @@ export async function GET(
     const isP1 = gpo !== null ? pid === gpo : plusOneSet.has(pid)
     const made = e.result === 'made'
     const s = ensure(pid, date)
+    const pts = scorePoints(e.type, e.result, isP1, scoringRules)
 
     switch (e.type) {
       case 'shot_3p':
         s.fga++
-        if (made) { s.fgm++; s.fg3m++; s.pts += isP1 ? 4 : 3 }
+        if (made) { s.fgm++; s.fg3m++; s.pts += pts }
         break
       case 'shot_2p_mid':
       case 'shot_layup':
       case 'shot_post':
         s.fga++
-        if (made) { s.fgm++; s.pts += isP1 ? 3 : 2 }
+        if (made) { s.fgm++; s.pts += pts }
         break
       case 'and_one':
-        if (made) s.pts += 1
+        if (made) s.pts += pts
         break
       case 'ft_2pt':
       case 'ft_3pt_1':
-        if (made) s.pts += 2
+        if (made) s.pts += pts
         break
       case 'free_throw':
       case 'ft_3pt_2':
-        if (made) s.pts += 1
+        if (made) s.pts += pts
         break
       case 'oreb':
       case 'dreb':

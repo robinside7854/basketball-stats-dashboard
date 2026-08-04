@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
 
 type EventRow = {
   league_player_id: string | null
@@ -33,6 +34,9 @@ export async function GET(
   const { leagueId, gameId } = await params
   const supabase = createClient()
 
+  // 이 파일에도 득점 계산이 있었다 — 공용 룰 하나로 통일
+  const scoringRules = await fetchScoringRules(supabase, leagueId)
+
   const [{ data: events }, { data: mins }, { data: leaguePlayers }, { data: gameRow }] = await Promise.all([
     supabase.from('league_game_events').select('league_player_id,type,result,points,related_player_id').eq('league_game_id', gameId),
     supabase.from('league_player_minutes').select('league_player_id,in_time,out_time').eq('league_game_id', gameId),
@@ -57,16 +61,17 @@ export async function GET(
     const isPlusOne = gamePlusOneOverride !== null
       ? e.league_player_id === gamePlusOneOverride
       : plusOneSet.has(e.league_player_id)
+    const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
 
-    if (e.type === 'shot_3p') { s.fg3a++; s.fga++; if (made) { s.fg3m++; s.fgm++; s.pts += isPlusOne ? 4 : 3 } }
-    else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post') { s.fga++; if (made) { s.fgm++; s.pts += isPlusOne ? 3 : 2 } }
+    if (e.type === 'shot_3p') { s.fg3a++; s.fga++; if (made) { s.fg3m++; s.fgm++; s.pts += pts } }
+    else if (e.type === 'shot_2p_mid' || e.type === 'shot_layup' || e.type === 'shot_post') { s.fga++; if (made) { s.fgm++; s.pts += pts } }
     // 앤드원: FTA/FTM 제외, 득점 +1만
-    else if (e.type === 'and_one') { if (made) s.pts += 1 }
+    else if (e.type === 'and_one') { if (made) s.pts += pts }
     // ft_2pt: 1회 시도 2점 / 나머지 자유투: 1점
-    else if (e.type === 'ft_2pt') { s.fta++; if (made) { s.ftm++; s.pts += 2 } }
-    else if (e.type === 'ft_3pt_1') { s.fta++; if (made) { s.ftm++; s.pts += 2 } }
+    else if (e.type === 'ft_2pt') { s.fta++; if (made) { s.ftm++; s.pts += pts } }
+    else if (e.type === 'ft_3pt_1') { s.fta++; if (made) { s.ftm++; s.pts += pts } }
     else if (['free_throw','ft_3pt_2'].includes(e.type as string)) {
-      s.fta++; if (made) { s.ftm++; s.pts += 1 }
+      s.fta++; if (made) { s.ftm++; s.pts += pts }
     }
     else if (e.type === 'oreb') { s.oreb++; s.reb++ }
     else if (e.type === 'dreb') { s.dreb++; s.reb++ }

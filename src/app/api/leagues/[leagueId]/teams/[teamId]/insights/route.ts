@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
 
 // GET /api/leagues/[leagueId]/teams/[teamId]/insights?quarterId=xxx
 // 팀의 단일 일자 기록 + Four Factors + Advanced Metrics (자기 팀 + 상대 비교)
@@ -20,9 +21,10 @@ const emptyAgg = (): Agg => ({
   ast:0, stl:0, blk:0, tov:0, pf:0,
 })
 
-function addToAgg(agg: Agg, e: { type: string; result: string | null; points: number | null; related_player_id: string | null }) {
+// pts 는 호출부에서 scorePoints() 로 미리 계산해 넘긴다 — 저장된 e.points 폴백은
+// 6건이 잘못된 것으로 확인되어(2026-08-04) 더 이상 쓰지 않는다 (Task 4).
+function addToAgg(agg: Agg, e: { type: string; result: string | null; related_player_id: string | null }, pts: number) {
   const made = e.result === 'made'
-  const pts = e.points ?? 0
   switch (e.type) {
     case 'shot_3p':
       agg.fga++; agg.fg3a++; if (made) { agg.fgm++; agg.fg3m++; agg.pts += pts }
@@ -59,10 +61,13 @@ export async function GET(
 
   const supabase = createClient()
 
+  // 이 파일에도 득점 계산이 있었다 — 공용 룰 하나로 통일
+  const scoringRules = await fetchScoringRules(supabase, leagueId)
+
   // 1) 이 팀이 출전한 완료 경기 (친선전 제외)
   let gamesQuery = supabase
     .from('league_games')
-    .select('id, date, home_team_id, away_team_id, home_score, away_score, quarter_id, is_exhibition, is_complete')
+    .select('id, date, home_team_id, away_team_id, home_score, away_score, quarter_id, is_exhibition, is_complete, plus_one_player_id')
     .eq('league_id', leagueId)
     .eq('is_complete', true)
     .eq('is_exhibition', false)
@@ -91,16 +96,25 @@ export async function GET(
     .eq('league_id', leagueId)
   const teamMap = Object.fromEntries((teams ?? []).map(t => [t.id, t]))
 
-  // 2) 해당 경기들의 모든 이벤트 (related_player_id 포함 — 어시스트 카운트용)
+  // plus_one 판정용 — 게임별 오버라이드 우선, 없으면 선수 영구 플래그
+  const { data: leaguePlayers } = await supabase
+    .from('league_players')
+    .select('id, plus_one')
+    .eq('league_id', leagueId)
+  const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
+  const gamePlusOneMap: Record<string, string | null> = {}
+  for (const g of games) gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
+
+  // 2) 해당 경기들의 모든 이벤트 (league_player_id — plus_one 판정용 · related_player_id — 어시스트 카운트용)
   const gameIds = games.map(g => g.id)
-  type EvRow = { league_game_id: string; team_id: string | null; type: string; result: string | null; points: number | null; related_player_id: string | null }
+  type EvRow = { league_game_id: string; team_id: string | null; type: string; result: string | null; league_player_id: string | null; related_player_id: string | null }
   const events: EvRow[] = []
   const PAGE = 1000
   let page = 0
   while (true) {
     const { data: chunk } = await supabase
       .from('league_game_events')
-      .select('league_game_id, team_id, type, result, points, related_player_id')
+      .select('league_game_id, team_id, type, result, league_player_id, related_player_id')
       .in('league_game_id', gameIds)
       .order('id', { ascending: true })
       .range(page * PAGE, (page + 1) * PAGE - 1)
@@ -138,12 +152,16 @@ export async function GET(
     if (!g) continue
     const target = e.team_id === teamId ? g.team : (e.team_id ? g.opp : null)
     if (!target) continue
-    addToAgg(target, e)
+    const pid = e.league_player_id
+    const gpo = gamePlusOneMap[e.league_game_id] ?? null
+    const isP1 = pid != null && (gpo !== null ? pid === gpo : plusOneSet.has(pid))
+    const pts = scorePoints(e.type, e.result, isP1, scoringRules)
+    addToAgg(target, e, pts)
     // 일자 누적도 동시에
     const day = byDate[g.date]
     if (day) {
       const dayTarget = e.team_id === teamId ? day.team : day.opp
-      addToAgg(dayTarget, e)
+      addToAgg(dayTarget, e, pts)
     }
   }
 

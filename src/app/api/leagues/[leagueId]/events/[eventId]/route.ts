@@ -2,28 +2,16 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { scorePoints, fetchScoringRules, type ScoringRules } from '@/lib/stats/scoring'
 
 // PATCH · 이벤트 부분 수정
 //
 // 방어: 편집 대상이 type / result / league_player_id 어느 하나이고 points 를 명시적으로 안 보냈다면
 //       서버에서 재계산 (missed→made 편집 시 points 0 잔존 버그 대응 · 2026-07-18)
-//   · shot_3p → 3(+1 plus_one) · shot_2p_mid/layup/post → 2(+1 plus_one)
-//   · and_one → 1 · ft_2pt/ft_3pt_1 → 2 · ft_3pt_2/free_throw → 1
+//   · 득점 계산은 공용 scorePoints() 에 위임 — 이 파일에 룰을 다시 적지 않는다
 //   · plus_one 판정: game.plus_one_player_id 있으면 그것 우선, 없으면 league_players.plus_one
-function calcPointsFor(type: string, result: string | null, isPlusOne: boolean): number {
-  if (result !== 'made') return 0
-  switch (type) {
-    case 'shot_3p': return isPlusOne ? 4 : 3
-    case 'shot_2p_mid':
-    case 'shot_layup':
-    case 'shot_post': return isPlusOne ? 3 : 2
-    case 'and_one': return 1
-    case 'ft_2pt':
-    case 'ft_3pt_1': return 2
-    case 'ft_3pt_2':
-    case 'free_throw': return 1
-    default: return 0
-  }
+function calcPointsFor(type: string, result: string | null, isPlusOne: boolean, rules: ScoringRules): number {
+  return scorePoints(type, result, isPlusOne, rules)
 }
 
 export async function PATCH(
@@ -69,7 +57,9 @@ export async function PATCH(
         if (g?.plus_one_player_id) isPlusOne = g.plus_one_player_id === finalPid
         else isPlusOne = !!lp?.plus_one
       }
-      payload.points = calcPointsFor(finalType as string, finalResult as string | null, isPlusOne)
+      // leagueId 는 이 라우트의 params 에 이미 있어 게임을 거쳐 조회할 필요가 없다
+      const scoringRules = await fetchScoringRules(supabase, leagueId)
+      payload.points = calcPointsFor(finalType as string, finalResult as string | null, isPlusOne, scoringRules)
     }
   }
 
