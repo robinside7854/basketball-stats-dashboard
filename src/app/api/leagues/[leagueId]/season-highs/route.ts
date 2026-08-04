@@ -28,6 +28,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canViewStats } from '@/lib/auth/guard'
 import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] as const
 
@@ -70,6 +71,7 @@ type EventRow = {
   type: string
   result: string | null
   league_game_id: string
+  team_id: string | null
 }
 
 export async function GET(
@@ -87,6 +89,8 @@ export async function GET(
 
   // 이 파일에도 득점 계산이 있었다 — 공용 룰 하나로 통일
   const scoringRules = await fetchScoringRules(supabase, leagueId)
+  // 외부(상대) 팀 이벤트는 커리어하이 대상이 아니다 — leagueStats.ts 와 동일하게 이벤트 단위로 거른다.
+  const externalTeamIds = await fetchExternalTeamIds(supabase, leagueId)
 
   // 1-3) 선수 메타 · 게임 · 분기 메타 병렬 실행 — 서로 독립적.
   let gQuery = supabase
@@ -135,13 +139,16 @@ export async function GET(
   for (let pg = 0; ; pg++) {
     const { data: chunk } = await supabase
       .from('league_game_events')
-      .select('league_player_id, related_player_id, type, result, league_game_id')
+      .select('league_player_id, related_player_id, type, result, league_game_id, team_id')
       .in('league_game_id', gameIds)
       .not('league_player_id', 'is', null)
       .order('id', { ascending: true })
       .range(pg * PAGE, (pg + 1) * PAGE - 1)
     if (!chunk || chunk.length === 0) break
-    events.push(...(chunk as EventRow[]))
+    for (const e of chunk as EventRow[]) {
+      if (e.team_id && externalTeamIds.has(e.team_id)) continue
+      events.push(e)
+    }
     if (chunk.length < PAGE) break
   }
 

@@ -11,6 +11,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
+import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 
 export interface PerDayStats {
   pts: number
@@ -85,6 +86,8 @@ export async function computePerDayStats(
     .select('id, plus_one')
     .eq('league_id', leagueId)
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id as string))
+  // 외부(상대) 팀 이벤트는 경기일 집계 대상이 아니다 — leagueStats.ts 와 동일하게 이벤트 단위로 거른다.
+  const externalTeamIds = await fetchExternalTeamIds(supabase, leagueId)
 
   // 2) 이벤트 페이지네이션 조회
   const PAGE = 1000
@@ -106,7 +109,10 @@ export async function computePerDayStats(
       .order('id', { ascending: true })
       .range(p * PAGE, (p + 1) * PAGE - 1)
     if (!chunk || chunk.length === 0) break
-    events.push(...(chunk as EvRow[]))
+    for (const e of chunk as EvRow[]) {
+      if (e.team_id && externalTeamIds.has(e.team_id)) continue
+      events.push(e)
+    }
     if (chunk.length < PAGE) break
   }
 

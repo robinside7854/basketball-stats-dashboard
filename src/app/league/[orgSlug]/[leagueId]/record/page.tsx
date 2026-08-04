@@ -250,7 +250,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       const [dRes, tRes, pRes, lRes, gRes, qRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/schedule-dates`),
         fetch(`/api/leagues/${leagueId}/teams`),
-        fetch(`/api/leagues/${leagueId}/players`),
+        // 기록 화면은 상대 선수를 눌러 득점을 남겨야 하므로 옵트인
+        fetch(`/api/leagues/${leagueId}/players?includeExternal=1`),
         fetch(`/api/leagues/${leagueId}`),
         fetch(`/api/leagues/${leagueId}/games`),
         fetch(`/api/leagues/${leagueId}/quarters`),

@@ -26,6 +26,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canViewStats } from '@/lib/auth/guard'
+import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 
 const FIELD_SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 
@@ -56,6 +57,9 @@ export async function GET(
   for (const g of gameRows) gameDateMap.set(g.id, g.date)
   const gameIds = gameRows.map(g => g.id)
 
+  // 외부(상대) 팀 이벤트는 부문 리더(POTM 뱃지) 대상이 아니다 — leagueStats.ts 와 동일하게 이벤트 단위로 거른다.
+  const externalTeamIds = await fetchExternalTeamIds(supabase, leagueId)
+
   // 2) 이 게임들의 모든 이벤트 (필요한 필드만) — 페이지네이션으로 서버측 상한 우회
   const PAGE = 1000
   const evs: {
@@ -65,16 +69,20 @@ export async function GET(
     type: string
     result: string | null
     points: number | null
+    team_id: string | null
   }[] = []
   for (let p = 0; ; p++) {
     const { data: chunk } = await supabase
       .from('league_game_events')
-      .select('league_game_id, league_player_id, related_player_id, type, result, points')
+      .select('league_game_id, league_player_id, related_player_id, type, result, points, team_id')
       .in('league_game_id', gameIds)
       .order('id', { ascending: true })
       .range(p * PAGE, (p + 1) * PAGE - 1)
     if (!chunk || chunk.length === 0) break
-    evs.push(...(chunk as typeof evs))
+    for (const e of chunk as typeof evs) {
+      if (e.team_id && externalTeamIds.has(e.team_id)) continue
+      evs.push(e)
+    }
     if (chunk.length < PAGE) break
   }
 

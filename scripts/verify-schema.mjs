@@ -274,5 +274,19 @@ await check(
   }
 )
 
+await check(
+  '외부 선수는 내부 팀 배정을 갖지 않는다 (섞이면 통계에 새어 들어간다)',
+  `SELECT count(*)::int AS n
+     FROM league_game_players gp_ext
+     JOIN league_teams t_ext ON t_ext.id = gp_ext.team_id AND t_ext.is_external = true
+    WHERE EXISTS (
+      SELECT 1 FROM league_game_players gp_in
+        JOIN league_teams t_in ON t_in.id = gp_in.team_id AND t_in.is_external = false
+       WHERE gp_in.league_player_id = gp_ext.league_player_id
+    )`,
+  rows => rows[0].n === 0
+    || `외부·내부 팀에 동시에 배정된 선수가 ${rows[0].n}건 — 어느 쪽 기록인지 판정이 흔들린다`
+)
+
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exitCode = failed === 0 ? 0 : 1

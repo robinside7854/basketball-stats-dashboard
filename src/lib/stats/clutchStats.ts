@@ -21,6 +21,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
+import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 
 const CLUTCH_TIME_WINDOW_SECONDS = 120
 const CLUTCH_MARGIN_BEFORE_MAX = 6    // 슛 직전 (2포제션)
@@ -99,6 +100,8 @@ export async function computeClutchStats(
   // 채점 룰 + plus_one 선수 집합 — 이벤트 walk 안에서 매 이벤트마다 판정해야 하므로 미리 읽어둔다.
   // 선수 메타(name/number)도 여기서 같이 읽어 뒤(6번)의 중복 조회를 없앤다.
   const rules: ScoringRules = await fetchScoringRules(supabase, leagueId)
+  // 외부(상대) 팀 이벤트는 클러치 스탯 대상이 아니다 — leagueStats.ts 와 동일하게 이벤트 단위로 거른다.
+  const externalTeamIds = await fetchExternalTeamIds(supabase, leagueId)
   const { data: playerRows } = await supabase
     .from('league_players')
     .select('id, name, number, plus_one')
@@ -132,7 +135,10 @@ export async function computeClutchStats(
       .order('id', { ascending: true })
       .range(p * PAGE, (p + 1) * PAGE - 1)
     if (!chunk || chunk.length === 0) break
-    events.push(...(chunk as EvRow[]))
+    for (const e of chunk as EvRow[]) {
+      if (e.team_id && externalTeamIds.has(e.team_id)) continue
+      events.push(e)
+    }
     if (chunk.length < PAGE) break
   }
 

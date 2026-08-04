@@ -12,6 +12,7 @@ import { fetchPlayerMeta } from './perDayStats'
 import { getClipBounds, isHighlightShot } from '@/lib/highlights/clip'
 import { extractYouTubeId } from '@/lib/youtube/utils'
 import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
+import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 
 // 커리어 마일스톤 — 득점 (PTS) 만 유지
 // 사용자 판단: 나머지 카테고리(REB/AST/STL/BLK/3PM/GP)는 마일스톤으로 삼을 정도는 아님
@@ -85,6 +86,8 @@ export async function computeMilestones(
   const playerMetaPromise = fetchPlayerMeta(sb, leagueId)
   const rulesPromise = fetchScoringRules(sb, leagueId)
   const plusOnePromise = sb.from('league_players').select('id, plus_one').eq('league_id', leagueId)
+  // 외부(상대) 팀 이벤트는 마일스톤 대상이 아니다 — leagueStats.ts 와 동일하게 이벤트 단위로 거른다.
+  const externalTeamIdsPromise = fetchExternalTeamIds(sb, leagueId)
 
   // 3) 이벤트 페이지네이션 조회 (Supabase 1000행 캡 대비 · 수천 이벤트 필수)
   type EvRow = {
@@ -92,6 +95,7 @@ export async function computeMilestones(
     league_game_id: string
     league_player_id: string | null
     related_player_id: string | null
+    team_id: string | null
     type: string
     result: string | null
     points: number | null
@@ -103,7 +107,7 @@ export async function computeMilestones(
   for (let p = 0; ; p++) {
     const { data: chunk } = await sb
       .from('league_game_events')
-      .select('id, league_game_id, league_player_id, related_player_id, type, result, points, video_timestamp, created_at')
+      .select('id, league_game_id, league_player_id, related_player_id, team_id, type, result, points, video_timestamp, created_at')
       .in('league_game_id', gameIds)
       .order('id', { ascending: true })
       .range(p * PAGE, (p + 1) * PAGE - 1)
@@ -116,12 +120,14 @@ export async function computeMilestones(
   const rules: ScoringRules = await rulesPromise
   const { data: plusOneRows } = await plusOnePromise
   const plusOneSet = new Set((plusOneRows ?? []).filter(p => p.plus_one).map(p => p.id as string))
+  const externalTeamIds = await externalTeamIdsPromise
+  const internalEvents = events.filter(e => !(e.team_id && externalTeamIds.has(e.team_id)))
 
   // 4) 이벤트 정렬: (경기일 asc → created_at asc → id asc)
   //    각 이벤트에 game.date/plus_one_player_id 를 attach 하고 정렬. crossing 감지에 시간 순서가 결정적.
   type EnrichedEv = EvRow & { date: string; youtube_url: string | null; plus_one_player_id: string | null }
   const enriched: EnrichedEv[] = []
-  for (const e of events) {
+  for (const e of internalEvents) {
     const g = gameById.get(e.league_game_id)
     if (!g) continue
     enriched.push({ ...e, date: g.date, youtube_url: g.youtube_url, plus_one_player_id: g.plus_one_player_id })

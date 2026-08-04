@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { canViewLeague } from '@/lib/auth/guard'
+import { fetchExternalPlayerIds } from '@/lib/league/externalPlayers'
 
 export async function GET(
   req: Request,
@@ -29,7 +30,18 @@ export async function GET(
     .eq('league_id', leagueId)
     .eq('status', 'approved')
   const verifiedIds = new Set((accounts ?? []).map(a => a.league_player_id))
-  const enriched = (data ?? []).map(p => ({ ...p, has_account: verifiedIds.has(p.id) }))
+  let enriched = (data ?? []).map(p => ({ ...p, has_account: verifiedIds.has(p.id) }))
+
+  // 라커룸·선수카드·회원가입 대상에서 상대 선수는 보이면 안 된다.
+  // 기록 화면은 상대 선수를 눌러야 하므로 ?includeExternal=1 로 옵트인한다.
+  const includeExternal = new URL(req.url).searchParams.get('includeExternal') === '1'
+  if (!includeExternal) {
+    const externalIds = await fetchExternalPlayerIds(supabase, leagueId)
+    if (externalIds.size > 0) {
+      enriched = enriched.filter(p => !externalIds.has(p.id))
+    }
+  }
+
   return NextResponse.json(enriched)
 }
 

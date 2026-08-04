@@ -5,6 +5,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
 import { computePerDayStats, isDoubleDouble, fetchPlayerMeta } from './perDayStats'
+import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 
 export type StreakCategory = 'pts10' | 'pts20' | 'tp1' | 'dd' | 'wins' | 'stlblk3'
 
@@ -154,6 +155,10 @@ export async function computeAttendanceStreaks(
   const gameById = new Map<string, GameRow>(gameRows.map(g => [g.id, g]))
   const gameIds = gameRows.map(g => g.id)
 
+  // 외부(상대) 팀 배정은 참여 스트릭 대상이 아니다 — 상대 선수가 자기 팀(외부 팀) 경기에
+  // 이벤트를 남겼다는 이유로 "연속 참여"로 집계되면 안 된다.
+  const externalTeamIds = await fetchExternalTeamIds(sb, leagueId)
+
   // 2) 이벤트 페이지네이션 → 선수 × 참여일 집합
   //    (스탯 값 필요 없으므로 최소 컬럼만)
   const PAGE = 1000
@@ -207,6 +212,7 @@ export async function computeAttendanceStreaks(
       // 우선순위: 게임별 override > 분기별 정규
       const teamId = gpTeam?.get(g.id) ?? (g.quarter_id ? qTeam?.get(g.quarter_id) : undefined)
       if (!teamId) continue
+      if (externalTeamIds.has(teamId)) continue
       if (g.home_team_id === teamId || g.away_team_id === teamId) {
         scheduledSet.add(g.date)
       }

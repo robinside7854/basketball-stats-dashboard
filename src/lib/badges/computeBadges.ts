@@ -16,6 +16,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scorePoints, fetchScoringRules, type ScoringRules } from '../stats/scoring'
+import { fetchExternalTeamIds } from '../league/externalPlayers'
 
 export type BadgeType = 'perfect_game' | 'double_double' | 'triple_double' | 'winning_shot'
 
@@ -69,7 +70,8 @@ function emptyStats(): PlayerStats {
 
 // 이벤트 페이지네이션 조회
 // winning_shot 판정용으로 video_timestamp 도 함께 select (실제 게임 시간 순서 · created_at/id 는 기록 순서라 부적합)
-async function fetchEvents(supabase: SupabaseClient, gameId: string): Promise<EventRow[]> {
+// 외부(상대) 팀 이벤트는 배지 대상이 아니다 — leagueStats.ts 와 동일하게 이벤트 단위로 거른다.
+async function fetchEvents(supabase: SupabaseClient, gameId: string, externalTeamIds: Set<string>): Promise<EventRow[]> {
   const events: EventRow[] = []
   const PAGE = 1000
   for (let pg = 0; ; pg++) {
@@ -79,7 +81,12 @@ async function fetchEvents(supabase: SupabaseClient, gameId: string): Promise<Ev
       .eq('league_game_id', gameId)
       .order('id', { ascending: true })
       .range(pg * PAGE, (pg + 1) * PAGE - 1)
-    if (chunk && chunk.length > 0) events.push(...(chunk as EventRow[]))
+    if (chunk && chunk.length > 0) {
+      for (const e of chunk as EventRow[]) {
+        if (e.team_id && externalTeamIds.has(e.team_id)) continue
+        events.push(e)
+      }
+    }
     if (!chunk || chunk.length < PAGE) break
   }
   return events
@@ -158,8 +165,9 @@ export async function computePerGameBadges(
 
   const leaguePlusOneSet = await fetchLeaguePlusOneSet(supabase, g.league_id)
   const rules: ScoringRules = await fetchScoringRules(supabase, g.league_id)
+  const externalTeamIds = await fetchExternalTeamIds(supabase, g.league_id)
   const gamePlusOne = g.plus_one_player_id ?? null
-  const events = await fetchEvents(supabase, gameId)
+  const events = await fetchEvents(supabase, gameId, externalTeamIds)
 
   const ps: Record<string, PlayerStats> = {}
   accumulateStats(events, gamePlusOne, leaguePlusOneSet, ps, rules)
@@ -265,13 +273,14 @@ export async function computeRoundBadges(
 
   const leaguePlusOneSet = await fetchLeaguePlusOneSet(supabase, leagueId)
   const rules: ScoringRules = await fetchScoringRules(supabase, leagueId)
+  const externalTeamIds = await fetchExternalTeamIds(supabase, leagueId)
 
   // 라운드 전체를 순회하며 선수별 스탯 누적
   const ps: Record<string, PlayerStats> = {}
   const gameIdsByPlayer: Record<string, Set<string>> = {}
 
   for (const g of gameRows) {
-    const events = await fetchEvents(supabase, g.id)
+    const events = await fetchEvents(supabase, g.id, externalTeamIds)
     const gamePlusOne = g.plus_one_player_id ?? null
     const beforePids = new Set(Object.keys(ps))
     accumulateStats(events, gamePlusOne, leaguePlusOneSet, ps, rules)

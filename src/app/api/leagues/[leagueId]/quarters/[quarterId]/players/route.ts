@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { canViewLeague } from '@/lib/auth/guard'
+import { fetchExternalPlayerIds } from '@/lib/league/externalPlayers'
 
 type Ctx = { params: Promise<{ leagueId: string; quarterId: string }> }
 
@@ -70,19 +71,25 @@ export async function GET(
     return best
   }
 
-  const result = (players ?? []).map(p => {
-    const m = membershipMap[p.id]
-    // 1순위: 분기 정규 멤버십
-    if (m?.team_id) {
-      return { ...p, team_id: m.team_id, is_regular: m.is_regular ?? false }
-    }
-    // 2순위: 게임별 비정규 출전 (가장 자주 뛴 팀)
-    const gameTeam = mostCommonTeam(p.id)
-    if (gameTeam) {
-      return { ...p, team_id: gameTeam, is_regular: false }
-    }
-    return { ...p, team_id: null, is_regular: null }
-  })
+  // 이 엔드포인트는 분기/비정규 로스터 배정 풀(대여 후보 포함)이다 — 상대(외부) 선수가
+  // 여기 섞이면 어드민이 실수로 상대 선수를 우리 팀 경기에 "대여"할 수 있다. 기본 제외.
+  const externalIds = await fetchExternalPlayerIds(supabase, leagueId)
+
+  const result = (players ?? [])
+    .filter(p => !externalIds.has(p.id))
+    .map(p => {
+      const m = membershipMap[p.id]
+      // 1순위: 분기 정규 멤버십
+      if (m?.team_id) {
+        return { ...p, team_id: m.team_id, is_regular: m.is_regular ?? false }
+      }
+      // 2순위: 게임별 비정규 출전 (가장 자주 뛴 팀)
+      const gameTeam = mostCommonTeam(p.id)
+      if (gameTeam) {
+        return { ...p, team_id: gameTeam, is_regular: false }
+      }
+      return { ...p, team_id: null, is_regular: null }
+    })
 
   return NextResponse.json(result)
 }
