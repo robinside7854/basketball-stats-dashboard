@@ -59,7 +59,7 @@ check('표준 룰에는 플러스원 보너스가 없고 자유투가 1점', () 
 // 저장값(7,108)이 아니라 룰 계산값(7,114)이 정본이다 — 저장값 6건이 잘못됐고
 // 사용자 확인으로 룰이 맞다고 확정됐다(2026-08-04). Task 7 에서 저장값을 백필한다.
 const rows = await query(`
-  SELECT e.type, e.result,
+  SELECT e.id, e.type, e.result, e.points,
          ((g.plus_one_player_id IS NOT NULL AND e.league_player_id = g.plus_one_player_id)
           OR (g.plus_one_player_id IS NULL AND p.plus_one)) AS is_p1
     FROM league_game_events e
@@ -122,6 +122,26 @@ try {
 }
 check('fetchScoringRules: 쿼리 자체가 실패하면(잘못된 UUID 형식) 조용히 폴백하지 않고 던진다', () =>
   invalidUuidThrew || '예외가 발생하지 않음 — 실패를 표준 룰로 조용히 삼켰다')
+
+// ── 저장값 vs 계산값 전량 대조 (쓰기 경로 회귀 방지) ──────
+// 위의 "총득점 = 7114" 검증은 약하다 — 쓰기 경로가 어떤 행은 더 저장하고 어떤 행은
+// 덜 저장해도 총합이 우연히 맞아떨어지면 통과한다. 이 파일이 지키려는 불변식은
+// "저장값이 룰 계산값과 항상 같다"이므로, 행 단위로 stored(e.points)와
+// scorePoints() 계산값을 직접 대조한다. 위 rows 쿼리에 이미 type/result/is_p1 을
+// 가져오고 있어 points·id 만 추가해 재사용한다 — 두 번째 왕복 없음.
+const madeRows = rows.filter(r => r.result === 'made')
+const mismatches = madeRows
+  .map(r => ({ id: r.id, type: r.type, stored: r.points, computed: scorePoints(r.type, r.result, r.is_p1, MIRACLE) }))
+  .filter(r => r.stored !== r.computed)
+
+check('저장된 points == scorePoints() 계산값 (미라클 성공 이벤트 전량)', () => {
+  if (mismatches.length === 0) return true
+  const examples = mismatches
+    .slice(0, 3)
+    .map(r => `      id=${r.id} type=${r.type} stored=${r.stored} computed=${r.computed}`)
+    .join('\n')
+  return `${mismatches.length}건 불일치 (stored ≠ computed)\n${examples}`
+})
 
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exitCode = failed === 0 ? 0 : 1

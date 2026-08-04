@@ -34,13 +34,34 @@ export async function POST(
   // 득점은 클라이언트가 아니라 서버가 시즌 rules 로 계산한다.
   // 클라이언트가 보낸 body.points 는 신뢰 경계 밖의 값이라 완전히 무시한다.
   const scoringRules = await fetchScoringRules(supabase, leagueId)
-  const { data: g } = await supabase
-    .from('league_games').select('plus_one_player_id').eq('id', body.league_game_id).maybeSingle()
-  const { data: pl } = await supabase
+  // league_id 로 스코프해 다른 클럽의 게임에 이 리그의 룰을 적용하는 사고를 막는다
+  // (canEditLeague 는 leagueId 를 인가했을 뿐, body.league_game_id 가 실제로 이 리그
+  // 소속인지는 여기서 확인해야 한다).
+  const { data: g, error: gErr } = await supabase
+    .from('league_games')
+    .select('plus_one_player_id')
+    .eq('id', body.league_game_id)
+    .eq('league_id', leagueId)
+    .maybeSingle()
+  // 쿼리 자체가 실패했는데도 조용히 "플러스원 아님"으로 넘어가면 마이그레이션 079 가
+  // 고친 것과 같은 종류의 저장값 불일치가 다시 생긴다 — 그래서 삼키지 않고 던진다.
+  if (gErr) {
+    throw new Error(`league_games: league_game_id=${body.league_game_id} 조회 실패 — ${gErr.message}`)
+  }
+  if (!g) {
+    return NextResponse.json(
+      { error: `league_game_id=${body.league_game_id} 를 이 리그(${leagueId})에서 찾을 수 없습니다` },
+      { status: 400 },
+    )
+  }
+  const { data: pl, error: plErr } = await supabase
     .from('league_players').select('plus_one').eq('id', body.league_player_id).maybeSingle()
+  if (plErr) {
+    throw new Error(`league_players: league_player_id=${body.league_player_id} 조회 실패 — ${plErr.message}`)
+  }
   // 캐노니컬 플러스원 판정: 게임별 override(plus_one_player_id)가 있으면 그것으로,
   // 없으면 선수 플래그로 폴백 — computeBadges/highlights loader 와 동일 규칙.
-  const isPlusOne = g?.plus_one_player_id != null
+  const isPlusOne = g.plus_one_player_id != null
     ? body.league_player_id === g.plus_one_player_id
     : Boolean(pl?.plus_one)
   const points = scorePoints(body.type, body.result, isPlusOne, scoringRules)

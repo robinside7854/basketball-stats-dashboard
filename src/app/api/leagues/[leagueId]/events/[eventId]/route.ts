@@ -40,11 +40,17 @@ export async function PATCH(
     type !== undefined || result !== undefined || league_player_id !== undefined
   if (needsRecompute) {
     // 현재 저장돼있는 이벤트를 먼저 읽어 최종 값 조합 (editable 필드만 부분 병합)
-    const { data: current } = await supabase
+    const { data: current, error: currentErr } = await supabase
       .from('league_game_events')
       .select('type, result, league_player_id, league_game_id')
       .eq('id', eventId)
       .single()
+    // 이 읽기가 조용히 실패하면 아래 if(current) 가 그냥 건너뛰어져 payload.points 가
+    // 끝내 안 채워진다 — missed→made 편집인데 points 는 0 그대로 저장되는, 조용한 오점수의
+    // 가장 나쁜 경우다. 그래서 실패는 삼키지 않고 던진다.
+    if (currentErr) {
+      throw new Error(`league_game_events: eventId=${eventId} 조회 실패 — ${currentErr.message}`)
+    }
     if (current) {
       const finalType   = type              !== undefined ? type              : current.type
       const finalResult = result            !== undefined ? (result ?? null)  : current.result
@@ -52,10 +58,18 @@ export async function PATCH(
       // plus_one 조회 (game override 우선 · 없으면 player.plus_one)
       let isPlusOne = false
       if (finalPid && current.league_game_id) {
-        const [{ data: g }, { data: lp }] = await Promise.all([
+        const [{ data: g, error: gErr }, { data: lp, error: lpErr }] = await Promise.all([
           supabase.from('league_games').select('plus_one_player_id').eq('id', current.league_game_id).single(),
           supabase.from('league_players').select('plus_one').eq('id', finalPid).single(),
         ])
+        // 여기서 삼키면 플러스원 선수의 3점슛이 3점(4점이어야 함)으로 영구 저장된다 —
+        // 마이그레이션 079 가 고친 저장값 불일치를 편집 경로에서 다시 만드는 것과 같다.
+        if (gErr) {
+          throw new Error(`league_games: league_game_id=${current.league_game_id} 조회 실패 — ${gErr.message}`)
+        }
+        if (lpErr) {
+          throw new Error(`league_players: league_player_id=${finalPid} 조회 실패 — ${lpErr.message}`)
+        }
         if (g?.plus_one_player_id) isPlusOne = g.plus_one_player_id === finalPid
         else isPlusOne = !!lp?.plus_one
       }
