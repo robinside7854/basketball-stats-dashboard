@@ -140,8 +140,18 @@ await check(
 
 await check(
   '득점 합계 불변 — 룰을 데이터로 옮겼을 뿐 집계는 아직 안 바뀜',
-  `SELECT COALESCE(sum(points), 0)::int AS total FROM league_game_events WHERE result = 'made'`,
-  rows => rows[0].total > 0 || '성공 슛 득점 합계가 0 — 이벤트가 유실되었을 수 있음'
+  `SELECT
+     COALESCE(sum(points), 0)::int AS total,
+     count(*)::int                 AS made_events
+   FROM league_game_events WHERE result = 'made'`,
+  rows => {
+    const r = rows[0]
+    // 2026-08-04 단계 1 착수 시점 실측값 (마이그레이션 074-076 적용 직후)
+    // 정당한 드리프트(신규 경기 기록)라면 아래 두 숫자를 갱신할 것
+    if (r.total !== 7108) return `득점 합계 기대 7108, 실제 ${r.total} (차이 ${r.total - 7108})`
+    if (r.made_events !== 3253) return `성공 슛 이벤트 수 기대 3253, 실제 ${r.made_events} (차이 ${r.made_events - 3253})`
+    return true
+  }
 )
 
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
