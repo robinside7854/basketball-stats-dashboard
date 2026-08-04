@@ -74,10 +74,16 @@ export async function POST(
   const body = await req.json()
   const { name, color } = body
   if (!name) return NextResponse.json({ error: '팀 이름은 필수입니다' }, { status: 400 })
+
+  // 대회형에서 상대팀은 is_external=true 로 만든다.
+  // 이 플래그 하나가 통계·어워즈·라커룸 노출 전체를 가른다 — 실수로 true 가 되면
+  // 우리 팀 기록이 통계에서 사라지므로 명시적으로만 켜지게 한다(기본 false).
+  const isExternal = body.is_external === true || body.is_external === 'true'
+
   const supabase = createClient()
   const { data, error } = await supabase
     .from('league_teams')
-    .insert({ league_id: leagueId, name, color: color ?? '#3b82f6' })
+    .insert({ league_id: leagueId, name, color: color ?? '#3b82f6', is_external: isExternal })
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
