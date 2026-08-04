@@ -169,7 +169,8 @@ await check(
   rows => {
     const r = rows[0]
     // 2026-08-04 단계 1 착수 시점 실측값 — games 는 그 날짜까지, 전부 기존 두 조직으로 스코프됨
-    if (r.games !== 279) return `games(~${BASELINE_DATE}) 기대 279, 실제 ${r.games}`
+    // 081: 친선전 기능 제거로 빈 슬롯 8건 삭제 (279 → 271). 이벤트는 0건이라 events 는 불변.
+    if (r.games !== 271) return `games(~${BASELINE_DATE}) 기대 271, 실제 ${r.games}`
     if (r.players !== 45) return `players 기대 45, 실제 ${r.players}`
     if (r.teams !== 3) return `league_teams 기대 3, 실제 ${r.teams}`
     if (r.events <= 0) return `events 가 0건`

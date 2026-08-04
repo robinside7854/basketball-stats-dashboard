@@ -9,10 +9,12 @@ import type { MetadataRoute } from 'next'
 // - display: 'standalone' → URL 바 없는 네이티브 앱 뷰 (홈 화면에서 실행 시)
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: '미라클모닝 농구단',
-    short_name: '미라클모닝',
-    description: '미라클모닝 농구단 스탯 · 경기 대시보드',
-    start_url: '/league/miracle/2026',
+    // 온볼은 플랫폼이고 동호회는 그 안에 입점한 고객이다.
+    // 앱 정체성은 온볼 하나이며, 사용자는 앱을 열고 자기 동호회로 들어간다.
+    name: '온볼 OnBall',
+    short_name: '온볼',
+    description: '동호회 농구 스탯 · 경기 기록 플랫폼',
+    start_url: '/',
     display: 'standalone',
     background_color: '#0a0a0a',
     theme_color: '#0a0a0a',

@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: '미라클모닝',
+    title: '온볼',
     // iOS 전용 런치 스크린(전면 스플래시).
     //   안드로이드는 매니페스트 background_color + 아이콘으로 자동 구성되므로 여기서 다루지 않음.
     //   마스터 이미지 1장(/splash/apple-splash.png, 1290×2796)을 모든 아이폰 해상도 media query에 매핑 →
