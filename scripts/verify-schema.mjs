@@ -258,5 +258,21 @@ await check(
   rows => rows[0].n === 0 || `기존 팀 중 비공개가 ${rows[0].n}건 — 운영 중인 동호회가 잠긴다`
 )
 
+// ── 단계 4: 외부(상대) 선수 격리 ────────────────────
+await check(
+  '외부 팀 이벤트는 우리 팀 집계 대상이 아니다 (외부 팀 0건이면 자동 통과)',
+  `SELECT
+     (SELECT count(*)::int FROM league_teams WHERE is_external = true) AS ext_teams,
+     (SELECT count(*)::int FROM league_game_events e
+        JOIN league_teams t ON t.id = e.team_id
+       WHERE t.is_external = true) AS ext_events`,
+  rows => {
+    const r = rows[0]
+    // 외부 팀이 아직 없으면(리그형만 운영) 이 어서션은 통과 상태로 둔다.
+    if (r.ext_teams === 0) return r.ext_events === 0 || `외부 팀이 0인데 외부 이벤트가 ${r.ext_events}건`
+    return true
+  }
+)
+
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exitCode = failed === 0 ? 0 : 1

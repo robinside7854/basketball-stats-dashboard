@@ -14,6 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
 import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
+import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 
 export type LeagueStatsUnit = 'round' | 'game'
 
@@ -71,6 +72,11 @@ export async function computeLeagueStats(
   // 채점 룰 — 동호회마다 다르다(미라클은 plus_one +1, 자유투 ft_2pt 2점).
   // 이벤트 루프 밖에서 한 번만 읽는다.
   const scoringRules: ScoringRules = await fetchScoringRules(sb, leagueId)
+
+  // 외부(상대) 팀 이벤트는 우리 팀 통계가 아니다. 이벤트가 team_id 를 직접 들고 있으므로
+  // 선수 단위가 아니라 이벤트 단위로 거른다 — 같은 선수가 다른 경기에서 우리 팀으로
+  // 뛰는 경우까지 정확히 처리된다.
+  const externalTeamIds = await fetchExternalTeamIds(sb, leagueId)
 
   // 2) 대상 게임 ID 추출
   let gQuery = sb
@@ -199,6 +205,7 @@ export async function computeLeagueStats(
 
   for (const e of events ?? []) {
     if (!e.league_player_id) continue
+    if (e.team_id && externalTeamIds.has(e.team_id)) continue
     const pid = e.league_player_id
     const s = ensure(pid)
     const gId = e.league_game_id
