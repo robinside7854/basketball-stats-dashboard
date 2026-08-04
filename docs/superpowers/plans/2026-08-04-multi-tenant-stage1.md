@@ -48,15 +48,114 @@ leagues  miracle/2026              미라클모닝농구단      teams=3 players
 ### Task 1: 조직 계층 — `orgs` 신설 + `teams.org_id`
 
 **Files:**
+- Create: `scripts/lib/supabase-admin.mjs`
+- Modify: `scripts/db-migrate.mjs:12-95` (자격증명 탐색·`query()` 를 공통 모듈 import 로 교체)
 - Create: `supabase/migrations/074_orgs_and_team_fk.sql`
 - Create: `scripts/verify-schema.mjs`
 
 **Interfaces:**
+- Produces: `scripts/lib/supabase-admin.mjs` — `export function resolveCredentials(): { ref, token }` 와 `export async function query(sql: string): Promise<object[]>`. `db-migrate.mjs` 와 `verify-schema.mjs` 가 공유한다.
 - Produces: `orgs(id, slug, name, brand_color, logo_url, status, created_at)` — 이후 태스크가 `orgs.id` 를 FK 로 참조한다.
 - Produces: `teams.org_id UUID NOT NULL REFERENCES orgs(id)` — Task 2 가 `teams.id` 를 `leagues.team_id` 로 참조한다.
 - Produces: `scripts/verify-schema.mjs` 의 `check(name, sql, assertFn)` 헬퍼 — Task 2·3 이 어서션을 추가한다.
 
-- [ ] **Step 1: 검증 스크립트 작성 (아직 실패해야 함)**
+- [ ] **Step 1: 공통 모듈 추출**
+
+`scripts/db-migrate.mjs` 의 자격증명 탐색과 `query()` 를 그대로 옮겨 `scripts/lib/supabase-admin.mjs` 생성:
+
+```js
+// Supabase Management API 공통 접근 모듈
+//
+// PostgREST(service role key)로는 DDL 이 안 되므로, MCP 서버가 내부적으로 쓰는 것과 같은
+// Management API 를 직접 호출한다. db-migrate.mjs 와 verify-schema.mjs 가 공유한다.
+//
+// 자격증명 탐색 순서 (저장소에는 시크릿이 들어가지 않는다)
+//   1. 환경변수 SUPABASE_ACCESS_TOKEN
+//   2. .env.local 의 SUPABASE_ACCESS_TOKEN
+//   3. ~/.claude.json 의 mcpServers.<name>.env.SUPABASE_ACCESS_TOKEN (MCP 설정 재사용)
+import { readFileSync, existsSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+
+function readEnvFile(path) {
+  if (!existsSync(path)) return {}
+  return Object.fromEntries(
+    readFileSync(path, 'utf8')
+      .split('\n')
+      .filter(l => l.includes('=') && !l.trim().startsWith('#'))
+      .map(l => {
+        const i = l.indexOf('=')
+        return [l.slice(0, i).trim(), l.slice(i + 1).trim()]
+      })
+  )
+}
+
+export function resolveCredentials() {
+  const env = readEnvFile('.env.local')
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL
+  if (!url) throw new Error('.env.local 에 NEXT_PUBLIC_SUPABASE_URL 이 없습니다')
+  const ref = new URL(url).hostname.split('.')[0]
+
+  let token = process.env.SUPABASE_ACCESS_TOKEN ?? env.SUPABASE_ACCESS_TOKEN
+  if (!token) {
+    const cfgPath = join(homedir(), '.claude.json')
+    if (existsSync(cfgPath)) {
+      const cfg = JSON.parse(readFileSync(cfgPath, 'utf8'))
+      for (const server of Object.values(cfg.mcpServers ?? {})) {
+        const args = (server.args ?? []).join(' ')
+        if (args.includes(ref) && server.env?.SUPABASE_ACCESS_TOKEN) {
+          token = server.env.SUPABASE_ACCESS_TOKEN
+          break
+        }
+      }
+    }
+  }
+  if (!token) {
+    throw new Error(
+      'SUPABASE_ACCESS_TOKEN 을 찾을 수 없습니다.\n' +
+      '  Supabase 대시보드 → Account → Access Tokens 에서 발급 후\n' +
+      '  .env.local 에 SUPABASE_ACCESS_TOKEN=sbp_... 로 추가하세요.'
+    )
+  }
+  return { ref, token }
+}
+
+const { ref, token } = resolveCredentials()
+
+export async function query(sql) {
+  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: sql }),
+  })
+  const text = await res.text()
+  if (!res.ok) throw new Error(`Management API ${res.status}\n${text}`)
+  try { return JSON.parse(text) } catch { return [] }
+}
+
+export { ref as projectRef }
+```
+
+그런 다음 `scripts/db-migrate.mjs` 에서 중복된 부분을 지우고 import 로 바꾼다.
+`readEnvFile` · `resolveCredentials` · `const { ref, token } = ...` · `async function query(sql)` 블록을 삭제하고,
+파일 상단의 `import { readFileSync, readdirSync, existsSync } from 'node:fs'` 등 남은 import 를 정리한 뒤 아래를 추가:
+
+```js
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { query, projectRef as ref } from './lib/supabase-admin.mjs'
+```
+
+`homedir` import 와 `existsSync` 는 db-migrate.mjs 에서 더 이상 쓰지 않으므로 제거한다.
+
+- [ ] **Step 2: 공통 모듈 추출이 기존 동작을 깨지 않았는지 확인**
+
+Run: `node scripts/db-migrate.mjs status`
+
+Expected: 이전과 동일하게 마이그레이션 목록이 출력되고 `073_drop_opponent_scouting.sql` 이 `✔ 적용됨` 으로 표시된다.
+에러 없이 종료(코드 0)해야 한다.
+
+- [ ] **Step 3: 검증 스크립트 작성 (아직 실패해야 함)**
 
 `scripts/verify-schema.mjs` 생성:
 
@@ -67,39 +166,7 @@ leagues  miracle/2026              미라클모닝농구단      teams=3 players
 //
 // 실패가 하나라도 있으면 non-zero 로 종료한다.
 // 마이그레이션마다 어서션을 여기에 누적한다.
-import { readFileSync, existsSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
-
-function readEnvFile(path) {
-  if (!existsSync(path)) return {}
-  return Object.fromEntries(
-    readFileSync(path, 'utf8').split('\n')
-      .filter(l => l.includes('=') && !l.trim().startsWith('#'))
-      .map(l => { const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).trim()] })
-  )
-}
-
-const env = readEnvFile('.env.local')
-const ref = new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname.split('.')[0]
-let token = process.env.SUPABASE_ACCESS_TOKEN ?? env.SUPABASE_ACCESS_TOKEN
-if (!token) {
-  const cfg = JSON.parse(readFileSync(join(homedir(), '.claude.json'), 'utf8'))
-  for (const s of Object.values(cfg.mcpServers ?? {})) {
-    if ((s.args ?? []).join(' ').includes(ref) && s.env?.SUPABASE_ACCESS_TOKEN) { token = s.env.SUPABASE_ACCESS_TOKEN; break }
-  }
-}
-
-async function q(sql) {
-  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: sql }),
-  })
-  const text = await res.text()
-  if (!res.ok) throw new Error(`Management API ${res.status}\n${text}`)
-  try { return JSON.parse(text) } catch { return [] }
-}
+import { query as q } from './lib/supabase-admin.mjs'
 
 let failed = 0
 async function check(name, sql, assertFn) {
@@ -141,14 +208,14 @@ console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exitCode = failed === 0 ? 0 : 1
 ```
 
-- [ ] **Step 2: 검증 실행해 실패 확인**
+- [ ] **Step 4: 검증 실행해 실패 확인**
 
 Run: `node scripts/verify-schema.mjs`
 
 Expected: 3건 모두 `✖` — `orgs` 테이블이 없고 `teams.org_id` 컬럼이 없으므로 쿼리 자체가 실패한다.
 마지막 줄에 `3건 실패`, 종료 코드 1.
 
-- [ ] **Step 3: 마이그레이션 작성**
+- [ ] **Step 5: 마이그레이션 작성**
 
 `supabase/migrations/074_orgs_and_team_fk.sql` 생성:
 
@@ -215,7 +282,7 @@ ALTER TABLE teams ALTER COLUMN org_id SET NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_teams_org_id ON teams(org_id);
 ```
 
-- [ ] **Step 4: 마이그레이션 실행**
+- [ ] **Step 6: 마이그레이션 실행**
 
 Run: `node scripts/db-migrate.mjs up 074`
 
@@ -226,23 +293,23 @@ Expected:
 1개 적용됨
 ```
 
-- [ ] **Step 5: 검증 실행해 통과 확인**
+- [ ] **Step 7: 검증 실행해 통과 확인**
 
 Run: `node scripts/verify-schema.mjs`
 
 Expected: 3건 모두 `✔`, 마지막 줄 `전부 통과`, 종료 코드 0.
 
-- [ ] **Step 6: 기존 화면 회귀 확인**
+- [ ] **Step 8: 기존 화면 회귀 확인**
 
 Run: `npm run build`
 
 Expected: `✓ Compiled successfully`. 코드를 안 건드렸으므로 반드시 통과해야 한다.
 실패하면 마이그레이션이 아니라 다른 원인이므로 멈추고 조사한다.
 
-- [ ] **Step 7: 커밋**
+- [ ] **Step 9: 커밋**
 
 ```bash
-git add supabase/migrations/074_orgs_and_team_fk.sql scripts/verify-schema.mjs
+git add scripts/lib/supabase-admin.mjs scripts/db-migrate.mjs supabase/migrations/074_orgs_and_team_fk.sql scripts/verify-schema.mjs
 git commit -m "feat(db): orgs 테이블 신설 + teams.org_id FK (단계 1-a)
 
 조직이 테이블이 아니라 org_slug TEXT 관습이었고, teams 와 leagues 의
