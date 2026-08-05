@@ -88,6 +88,18 @@ type Detail = {
 
 type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
 
+// 팀 전체 통산(리그+대회 묶음 합산) — /career 라우트 응답.
+// 묶음이 1개뿐이면(지금의 미라클) competitions 가 항상 1건이라 통산=시즌 스탯과 같아지므로
+// 화면에서는 length>=2 일 때만 렌더한다(중복 표시 방지, task-4-brief 요구사항).
+type CareerCompetition = {
+  leagueId: string; slug: string; name: string; mode: 'league' | 'tournament'; seasonYear: number
+  gp: number; pts: number; reb: number; ast: number
+}
+type CareerSummary = {
+  competitions: CareerCompetition[]
+  career: { gp: number; pts: number; reb: number; ast: number }
+}
+
 // mm-brand: 포지션 뱃지도 통일 톤 (뮤트 배경 + 잉크 라벨)
 const POSITION_COLORS: Record<string, string> = {
   PG: 'mm-position-badge',
@@ -150,6 +162,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [gated, setGated] = useState(false)  // 401 — 상세 스탯은 승인 회원 전용 (2026-07-28)
   const [leaderBadges, setLeaderBadges] = useState<LeaderBadgeCounts | null>(null)
   const [quarters, setQuarters] = useState<Quarter[]>([])
+  const [career, setCareer] = useState<CareerSummary | null>(null)
   const [selectedQuarterId, setSelectedQuarterId] = useState<string | null>(null)
   const [quarterDetail, setQuarterDetail] = useState<Detail | null>(null)
   const [quarterLoading, setQuarterLoading] = useState(false)
@@ -217,12 +230,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [playersRes, statsRes, detailRes, quartersRes, leaderRes] = await Promise.all([
+      const [playersRes, statsRes, detailRes, quartersRes, leaderRes, careerRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/players`),
         fetch(`/api/leagues/${leagueId}/stats?playerId=${playerId}`),
         fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?unit=${statUnit}`),
         fetch(`/api/leagues/${leagueId}/quarters`),
         fetch(`/api/leagues/${leagueId}/leader-badges?playerId=${playerId}`),
+        // 팀 전체 통산 — 묶음이 1개뿐이면 어차피 length<2 라 안 보인다. 401(미승인 회원)은
+        // gated 상태(detailRes 401)로 이미 처리되므로 여기선 실패를 조용히 무시.
+        fetch(`/api/leagues/${leagueId}/players/${playerId}/career`),
       ])
       if (playersRes.ok) {
         const all: PlayerInfo[] = await playersRes.json()
@@ -242,6 +258,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         const lb = await leaderRes.json()
         setLeaderBadges(lb[playerId] ?? null)
       }
+      if (careerRes.ok) setCareer(await careerRes.json())
     } finally { setLoading(false) }
   }, [leagueId, playerId, statUnit])
 
@@ -1084,6 +1101,61 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         </div>
                       )
                     })()}
+
+                    {/* ── 팀 전체 통산 — 리그+대회 묶음 합산 ──────────────────────
+                        위 "시즌 스탯"은 지금 보고 있는 묶음(리그 시즌 또는 대회) 기준 그대로 둔다.
+                        통산은 그 옆에 별도 블록으로 추가한다 — 기존 표시를 바꾸지 않는다.
+                        묶음이 2개 미만이면 통산=시즌이라 안 보여준다(중복 표시 방지). */}
+                    {career && career.competitions.length >= 2 && (
+                      <div
+                        className="rounded-sm p-3 mt-2"
+                        style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
+                      >
+                        <p className="text-xs uppercase tracking-[0.20em] font-black mb-2" style={{ color: 'var(--mm-yellow-strong)' }}>
+                          팀 통산 (리그+대회 합산)
+                        </p>
+                        <div className="grid grid-cols-4 gap-1.5 mb-2.5">
+                          {([
+                            ['G', career.career.gp],
+                            ['PTS', career.career.pts],
+                            ['REB', career.career.reb],
+                            ['AST', career.career.ast],
+                          ] as const).map(([l, v]) => (
+                            <div
+                              key={l}
+                              className="rounded-sm p-2 text-center"
+                              style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
+                            >
+                              <p className="text-xs mb-0.5 uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--mm-muted)' }}>{l}</p>
+                              <p className="font-jersey text-base font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>
+                                <CountUp value={v} decimals={0} />
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="space-y-1">
+                          {career.competitions.map(c => (
+                            <div
+                              key={c.leagueId}
+                              className="flex items-center justify-between gap-2 text-xs px-2 py-1.5 rounded-sm min-h-[36px]"
+                              style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
+                            >
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                <span
+                                  className="shrink-0 px-1.5 py-0.5 rounded-sm text-[10px] font-black uppercase"
+                                  style={c.mode === 'tournament'
+                                    ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
+                                    : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)' }
+                                  }
+                                >{c.mode === 'tournament' ? '대회' : '리그'}</span>
+                                <span className="truncate" style={{ color: 'var(--mm-ink-soft)' }}>{c.name}</span>
+                              </span>
+                              <span className="shrink-0 tabular-nums font-bold" style={{ color: 'var(--mm-ink)' }}>{c.gp}G · {c.pts}점</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
