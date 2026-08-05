@@ -457,6 +457,8 @@ export async function loadPlayerHighlights(
   // 1. 선수 정보 (팀 소속 확인 — 명단은 팀 소유라 이 선수 행의 출생 league_id 가
   //    지금 보고 있는 leagueId 와 다를 수 있다. league_id 로 확인하면 대회에서 리그
   //    선수의 하이라이트 페이지를 열 때 "선수를 찾을 수 없습니다"가 뜬다.)
+  // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 대회 묶음에서 0명이 나와
+  //   plus_one 맵이 비고, 가산점이 에러 없이 조용히 빠진다.
   const teamId = await resolveTeamId(leagueId)
   const { data: playerRow, error: pErr } = await supabase
     .from('league_players')
@@ -491,7 +493,7 @@ export async function loadPlayerHighlights(
       .not('date', 'is', null),
     loadIdentityResolver(supabase, leagueId),
     fetchScoringRules(supabase, leagueId),
-    supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
+    supabase.from('league_players').select('id, plus_one').eq('team_id', await resolveTeamId(leagueId)),
   ])
   // 쿼리 실패를 빈 결과로 넘기면 "영상 있는 경기 없음"과 구분이 안 돼 이 선수의 하이라이트가 조용히 텅 빈다.
   if (gErr) throw new Error(`loadPlayerHighlights: leagueId=${leagueId} playerId=${playerId} league_games 조회 실패 — ${gErr.message}`)
@@ -767,7 +769,7 @@ export async function loadClipsByEventIds(
     loadIdentityResolver(supabase, leagueId),
     // 러닝 스코어 재계산용 채점 룰 · 리그 전체 plus_one 플래그
     fetchScoringRules(supabase, leagueId),
-    supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
+    supabase.from('league_players').select('id, plus_one').eq('team_id', await resolveTeamId(leagueId)),
   ])
   // 쿼리 실패와 "요청한 이벤트가 실제로 없음"을 구분한다 — 실패를 빈 배열로 넘기면
   // 핀한 베스트샷/특정 클립 요청이 조용히 "아무것도 없음"으로 보인다.

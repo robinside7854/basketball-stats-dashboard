@@ -32,6 +32,7 @@ import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
 import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
 import { canViewStats } from '@/lib/auth/guard'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 export type AwardCategory =
   | 'SCORING' | 'REBOUND' | 'ASSIST' | 'DPOY'
@@ -117,7 +118,9 @@ export async function GET(
   ] = await Promise.all([
     gamesQuery,
     computeLeagueStats(supabase, leagueId, { quarterId: quarterId ?? null, unit: 'round' }),
-    supabase.from('league_players').select('id, is_guest, photo_url, plus_one').eq('league_id', leagueId),
+    // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 대회 묶음에서 0명이 나와
+    //   plus_one 맵이 비고, 가산점이 에러 없이 조용히 빠진다.
+    supabase.from('league_players').select('id, is_guest, photo_url, plus_one').eq('team_id', await resolveTeamId(leagueId)),
     computeClutchStats(supabase, leagueId, quarterId ? { quarterId } : undefined),
     fetchScoringRules(supabase, leagueId),
   ])

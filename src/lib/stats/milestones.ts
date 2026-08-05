@@ -13,6 +13,7 @@ import { getClipBounds, isHighlightShot } from '@/lib/highlights/clip'
 import { extractYouTubeId } from '@/lib/youtube/utils'
 import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 // 커리어 마일스톤 — 득점 (PTS) 만 유지
 // 사용자 판단: 나머지 카테고리(REB/AST/STL/BLK/3PM/GP)는 마일스톤으로 삼을 정도는 아님
@@ -87,7 +88,9 @@ export async function computeMilestones(
   //    scorePoints 로 매번 재계산하려면 플러스원 판정이 필요하다. leagueStats.ts 와 동일 규칙(게임 지정 우선, 없으면 선수 플래그).
   const playerMetaPromise = fetchPlayerMeta(sb, leagueId)
   const rulesPromise = fetchScoringRules(sb, leagueId)
-  const plusOnePromise = sb.from('league_players').select('id, plus_one').eq('league_id', leagueId)
+  // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 대회 묶음에서 0명이 나와
+  //   plus_one 맵이 비고, 가산점이 에러 없이 조용히 빠진다.
+  const plusOnePromise = sb.from('league_players').select('id, plus_one').eq('team_id', await resolveTeamId(leagueId))
   // 외부(상대) 팀 이벤트는 마일스톤 대상이 아니다 — leagueStats.ts 와 동일하게 이벤트 단위로 거른다.
   const externalTeamIdsPromise = fetchExternalTeamIds(sb, leagueId)
 

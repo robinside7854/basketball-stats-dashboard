@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 type Ctx = { params: Promise<{ leagueId: string; gameId: string }> }
 
@@ -24,7 +25,9 @@ export async function POST(
 
   const [{ data: game, error: gErr }, { data: leaguePlayers }] = await Promise.all([
     supabase.from('league_games').select('home_team_id, away_team_id, quarter_id, plus_one_player_id').eq('id', gameId).eq('league_id', leagueId).single(),
-    supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
+    // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 대회 묶음에서 0명이 나와
+    //   plus_one 맵이 비고, 가산점이 에러 없이 조용히 빠진다.
+    supabase.from('league_players').select('id, plus_one').eq('team_id', await resolveTeamId(leagueId)),
   ])
 
   if (gErr || !game) return NextResponse.json({ error: '게임을 찾을 수 없습니다' }, { status: 404 })

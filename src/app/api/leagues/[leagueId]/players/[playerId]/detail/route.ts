@@ -32,7 +32,9 @@ export async function GET(
     { data: memberships },
     { data: gpRows },
   ] = await Promise.all([
-    supabase.from('league_players').select('id, name, number, photo_url, plus_one').eq('league_id', leagueId),
+    // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 대회 묶음에서 0명이 나와
+    //   plus_one 맵이 비고, 가산점이 에러 없이 조용히 빠진다.
+    supabase.from('league_players').select('id, name, number, photo_url, plus_one').eq('team_id', await resolveTeamId(leagueId)),
     supabase
       .from('league_games')
       .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num, plus_one_player_id, is_exhibition')
