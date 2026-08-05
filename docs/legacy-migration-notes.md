@@ -1,5 +1,18 @@
 # 레거시 이관 기록 — 단계 B-1 (리그·대회·팀)
 
+> **⚠ 2026-08-05 되돌림.** 이 문서가 기록하는 이관(파란날개 → league_* 테이블 복제)은
+> 단계 C-4 까지 진행한 뒤 되돌렸다 — 대회형과 리그형은 기능이 겹치는 중복 구현이 아니라
+> 구조가 다른 별개 제품이라는 판단이다(경위는
+> `docs/superpowers/specs/2026-08-05-tournament-league-unification-design.md` 상단 메모 참고).
+> 복제됐던 행(leagues 2건 mode='tournament' 및 그 하위 league_teams/league_players/
+> league_games/league_game_events/league_quarters 의 legacy_id IS NOT NULL 행 전부)은 아래
+> "되돌리는 법" SQL 그대로 삭제했다 — 레거시 원본(`teams`/`tournaments`/`games`/`game_events`/
+> `players`)은 이 단계에서도 전혀 건드리지 않았으므로 여전히 그대로 살아 있고 계속 서비스의
+> 진실 소스다. 유지하기로 한 것: **용어(탭 이름 등)와 시각 디자인만 통일**, 트리·테이블은
+> 원래대로 두 벌. 이관에 쓰였던 `scripts/migrate-legacy.mjs` · `verify-migration.mjs` ·
+> `verify-switchover.mjs` 는 대상이 사라져 삭제했다. 이 문서 본문은 당시 판단 기록으로
+> 보존한다 — 재실행 근거로 쓰지 않는다.
+
 대회형(파란날개) → 리그형 통일 계획의 단계 B 중, `scripts/migrate-legacy.mjs --commit` 로
 2026-08-05 실제 적용한 내용의 판단 기록이다. 레거시 원본(`teams`/`tournaments`/`games`/`game_events`/
 `players`)은 이 단계에서 전혀 쓰지 않았다 — 전부 읽기만 했다.
