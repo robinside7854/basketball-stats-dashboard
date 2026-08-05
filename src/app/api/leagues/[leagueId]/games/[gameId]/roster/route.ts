@@ -4,6 +4,17 @@ import { canViewLeague } from '@/lib/auth/guard'
 
 type Ctx = { params: Promise<{ leagueId: string; gameId: string }> }
 
+// 조회 실패를 빈 결과로 넘기지 않기 위한 공통 응답.
+//   이 라우트는 경기 중 기록 화면의 선수 명단을 만든다. 쿼리가 실패했는데 빈 배열로
+//   넘어가면 기록원은 "이 선수가 명단에 없네" 라고 판단하게 된다 — 화면은 멀쩡해 보이고
+//   원인은 드러나지 않는다. 실패는 실패로 보이게 한다.
+function queryFailed(what: string, message: string) {
+  return NextResponse.json(
+    { error: `${what} 조회 실패 — ${message}` },
+    { status: 500 },
+  )
+}
+
 // GET /api/leagues/[leagueId]/games/[gameId]/roster
 // 해당 게임의 분기 기준 홈/어웨이 팀별 선수 명단 반환
 // 분기 배정이 없으면 리그 전체 선수를 unassigned로 반환 (하위 호환)
@@ -24,19 +35,27 @@ export async function GET(
     .select('quarter_id, home_team_id, away_team_id, date')
     .eq('id', gameId)
     .eq('league_id', leagueId)
-    .single()
+    // maybeSingle: single() 은 "행 없음" 도 에러로 돌려줘서, 없는 경기와 DB 장애가
+    //   같은 응답이 된다. 둘을 구분해야 아래 404/500 분기가 의미를 갖는다.
+    .maybeSingle()
 
-  if (gErr || !game) return NextResponse.json({ error: '게임을 찾을 수 없습니다' }, { status: 404 })
+  // 쿼리 실패를 404 로 뭉개지 않는다 — "경기가 없다" 와 "DB 가 응답하지 않았다" 는
+  //   기록원이 취할 행동이 다르다(전자는 일정 확인, 후자는 재시도).
+  if (gErr) return queryFailed('경기', gErr.message)
+  if (!game) return NextResponse.json({ error: '게임을 찾을 수 없습니다' }, { status: 404 })
 
   // game.quarter_id 가 null 인 경우, game.date 로부터 quarter 를 유추 (자동 매칭 + 백필)
   // Q3 팀 정체성 변경 등 후속 분기가 도입된 이후에도 예전에 만든 game 이 quarter_id=null 로 남아
   // 로스터가 안 보이는 버그를 방지.
   let resolvedQuarterId: string | null = game.quarter_id
   if (!resolvedQuarterId && game.date) {
-    const { data: quarters } = await supabase
+    const { data: quarters, error: qErr } = await supabase
       .from('league_quarters')
       .select('id, start_date, end_date, is_current, year, quarter')
       .eq('league_id', leagueId)
+    // 실패를 넘기면 resolvedQuarterId 가 null 로 남아 아래 "전체 선수 unassigned" 분기로
+    //   떨어진다 — 홈/어웨이 구분이 사라진 명단이 나오는데 화면상으로는 정상처럼 보인다.
+    if (qErr) return queryFailed('분기', qErr.message)
     // 1) start_date/end_date 매칭 시도
     const matched = (quarters ?? []).find(q =>
       q.start_date && q.end_date && game.date >= q.start_date && game.date <= q.end_date,
@@ -50,31 +69,39 @@ export async function GET(
 
     // 3) 성공하면 game 에 자동 백필 (write-through, 이후 요청은 바로 이 값 사용)
     if (resolvedQuarterId) {
-      await supabase
+      const { error: bfErr } = await supabase
         .from('league_games')
         .update({ quarter_id: resolvedQuarterId })
         .eq('id', gameId)
         .eq('league_id', leagueId)
+      // 다음 요청을 빠르게 하려는 캐시 성격의 쓰기다. 실패해도 이번 응답 내용은 이미
+      //   메모리에서 정해졌으므로 요청을 실패시키지 않는다. 다만 조용히 넘기면 매 요청
+      //   같은 실패를 반복하게 되므로 로그는 남긴다.
+      if (bfErr) console.error(`[roster] quarter_id 백필 실패 game=${gameId}: ${bfErr.message}`)
     }
   }
 
   // 탈퇴 회원(is_active=false)은 로스터 피커에서 제외한다 — 단, 이 경기에 이미 이벤트가
   // 남아 있으면(과거에 실제로 뛴 경기) 예외로 계속 포함한다. 그래야 옛 경기를 다시 열었을 때
   // 박스스코어·게임로그에서 탈퇴 회원의 실제 기록이 사라지지 않는다.
-  const { data: playedRows } = await supabase
+  const { data: playedRows, error: pErr } = await supabase
     .from('league_game_events')
     .select('league_player_id')
     .eq('league_game_id', gameId)
     .not('league_player_id', 'is', null)
+  // 실패를 빈 집합으로 넘기면 위 주석의 예외 규칙이 통째로 무너진다 — 탈퇴 회원이
+  //   실제로 뛴 옛 경기에서 그 사람이 명단에서 사라진다. 지우면 안 되는 기록이라 막는다.
+  if (pErr) return queryFailed('경기 이벤트', pErr.message)
   const playedIds = new Set((playedRows ?? []).map(r => r.league_player_id as string))
 
   // 분기 여전히 없거나 팀 배정 자체가 없는 경우: 전체 선수를 unassigned로 반환
   if (!resolvedQuarterId || (!game.home_team_id && !game.away_team_id)) {
-    const { data: players } = await supabase
+    const { data: players, error: plErr } = await supabase
       .from('league_players')
       .select('id, name, number, position, is_active')
       .eq('league_id', leagueId)
       .order('name')
+    if (plErr) return queryFailed('선수 명단', plErr.message)
     const filtered = (players ?? []).filter(p => p.is_active !== false || playedIds.has(p.id))
     return NextResponse.json({
       home: [],
@@ -104,10 +131,12 @@ export async function GET(
   // 비정규 선수 / 타팀 임시 출전: league_game_players
   // 먼저 조회해야 quarter 배정 루프에서 override 스킵이 가능함
   // 1) 이 경기에 이미 배정된 선수 조회
-  const { data: gamePlayers } = await supabase
+  const { data: gamePlayers, error: gpErr } = await supabase
     .from('league_game_players')
     .select('league_player_id, team_id, league_players!inner(id, name, number, position, birth_date, plus_one)')
     .eq('league_game_id', gameId)
+  // 실패를 빈 배열로 넘기면 비정규·타팀 임시 출전 선수가 통째로 명단에서 빠진다.
+  if (gpErr) return queryFailed('경기별 배정', gpErr.message)
 
   // league_game_players에 per-game 배정이 있는 선수 ID 셋 (타팀 임시 출전 override 용)
   const gameOverrideIds = new Set((gamePlayers ?? []).map(gp => gp.league_player_id))
@@ -153,12 +182,13 @@ export async function GET(
 
   // 2) 같은 날짜 다른 경기에서 배정된 비정규 선수 상속 (이 경기에 없는 경우만)
   if (game.date) {
-    const { data: sameDateGames } = await supabase
+    const { data: sameDateGames, error: sdErr } = await supabase
       .from('league_games')
       .select('id, home_team_id, away_team_id')
       .eq('league_id', leagueId)
       .eq('date', game.date)
       .neq('id', gameId)
+    if (sdErr) return queryFailed('같은 날짜 경기', sdErr.message)
 
     const sameTeamGameIds = (sameDateGames ?? [])
       .filter(g => g.home_team_id === game.home_team_id || g.away_team_id === game.home_team_id ||
@@ -168,18 +198,19 @@ export async function GET(
     if (sameTeamGameIds.length > 0) {
       const alreadyAssigned = new Set((gamePlayers ?? []).map(gp => `${gp.league_player_id}:${gp.team_id}`))
 
-      const { data: inheritedPlayers } = await supabase
+      const { data: inheritedPlayers, error: ipErr } = await supabase
         .from('league_game_players')
         .select('league_player_id, team_id, league_players!inner(id, name, number, position, birth_date, plus_one)')
         .in('league_game_id', sameTeamGameIds)
         .in('team_id', teamIds) // 이 경기에 참여하는 팀만
+      if (ipErr) return queryFailed('같은 날짜 배정 상속', ipErr.message)
 
       // 아직 이 경기에 없는 선수 → auto-insert
       const toInsert = (inheritedPlayers ?? []).filter(
         gp => !alreadyAssigned.has(`${gp.league_player_id}:${gp.team_id}`)
       )
       if (toInsert.length > 0) {
-        await supabase.from('league_game_players').upsert(
+        const { error: upErr } = await supabase.from('league_game_players').upsert(
           toInsert.map(gp => ({
             league_id: leagueId,
             league_game_id: gameId,
@@ -188,6 +219,9 @@ export async function GET(
           })),
           { onConflict: 'league_game_id,league_player_id', ignoreDuplicates: true }
         )
+        // 실패했는데 아래에서 gamePlayers 에 합산해버리면, 저장되지 않은 배정을 배정된
+        //   것처럼 화면에 보여주게 된다 — 새로고침하면 사라지는 유령 선수가 된다.
+        if (upErr) return queryFailed('배정 상속 저장', upErr.message)
         // 새로 삽입된 선수를 gamePlayers에 합산
         ;(gamePlayers as typeof inheritedPlayers ?? []).push(...toInsert)
       }
