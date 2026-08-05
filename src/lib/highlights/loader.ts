@@ -64,12 +64,15 @@ async function fetchGameMaxTs(
   if (gameIds.length === 0) return map
   const PAGE = 1000
   for (let pg = 0; ; pg++) {
-    const { data: chunk } = await supabase
+    const { data: chunk, error } = await supabase
       .from('league_game_events')
       .select('league_game_id, video_timestamp')
       .in('league_game_id', gameIds)
       .not('video_timestamp', 'is', null)
       .range(pg * PAGE, (pg + 1) * PAGE - 1)
+    // 이 맵은 클러치 시간창(clutch_window_start) 기준점이다 — 페이지 실패를 조용히 넘기면
+    // 게임의 max_timestamp 가 낮게 잡혀 실제 클러치 이벤트가 통째로 빠질 수 있다.
+    if (error) throw new Error(`fetchGameMaxTs: 페이지네이션(pg=${pg}) 실패 — ${error.message}`)
     if (chunk) {
       for (const r of chunk as Array<{ league_game_id: string; video_timestamp: number }>) {
         const cur = map[r.league_game_id] ?? -1
@@ -101,7 +104,8 @@ export async function loadRecentRounds(supabase: SupabaseClient, leagueId: strin
       .order('date', { ascending: false }),
     loadIdentityResolver(supabase, leagueId),
   ])
-  if (gErr) return []
+  // 쿼리 실패를 빈 배열로 넘기면 "라운드 없음"과 구분이 안 돼 하이라이트 목록이 조용히 텅 빈다.
+  if (gErr) throw new Error(`loadRecentRounds: leagueId=${leagueId} league_games 조회 실패 — ${gErr.message}`)
   const rows = (games ?? []) as unknown as Array<{
     id: string
     date: string
@@ -138,7 +142,8 @@ export async function loadRecentRounds(supabase: SupabaseClient, leagueId: strin
       .not('video_timestamp', 'is', null)
       .order('id', { ascending: true })
       .range(pg * PAGE, (pg + 1) * PAGE - 1)
-    if (eErr) return []
+    // 페이지 중간 실패를 빈 배열로 넘기면 이미 계산해 둔 라운드 목록까지 통째로 사라진다.
+    if (eErr) throw new Error(`loadRecentRounds: leagueId=${leagueId} league_game_events 페이지네이션(pg=${pg}) 실패 — ${eErr.message}`)
     if (chunk && chunk.length > 0) events.push(...(chunk as EvtRow[]))
     if (!chunk || chunk.length < PAGE) break
   }
@@ -204,7 +209,8 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     // 채점 룰 — 이벤트 루프 밖에서 한 번만 읽는다 (동호회마다 다른 plus_one/자유투 배점).
     fetchScoringRules(supabase, leagueId),
   ])
-  if (gErr) return empty
+  // 쿼리 실패를 empty 로 넘기면 "그 날 영상 없음"과 구분이 안 돼 라운드 상세가 조용히 텅 빈다.
+  if (gErr) throw new Error(`loadRoundDetail: leagueId=${leagueId} date=${date} league_games 조회 실패 — ${gErr.message}`)
   const gameRows = (games ?? []) as unknown as Array<{
     id: string
     quarter_id: string | null
@@ -246,7 +252,8 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       .not('video_timestamp', 'is', null)
       .order('created_at', { ascending: true })
       .range(pg * PAGE, (pg + 1) * PAGE - 1)
-    if (eErr) return empty
+    // 페이지 중간 실패를 empty 로 넘기면 그 날 클립이 통째로 사라진다.
+    if (eErr) throw new Error(`loadRoundDetail: leagueId=${leagueId} date=${date} league_game_events 페이지네이션(pg=${pg}) 실패 — ${eErr.message}`)
     if (chunk && chunk.length > 0) eventRows.push(...(chunk as DetailEvtRow[]))
     if (!chunk || chunk.length < PAGE) break
   }
@@ -453,7 +460,10 @@ export async function loadPlayerHighlights(
     .eq('id', playerId)
     .eq('league_id', leagueId)
     .maybeSingle()
-  if (pErr || !playerRow) return null
+  // 쿼리 실패와 "그런 선수 없음"을 구분한다 — 실패를 null 로 넘기면 존재하는 선수의
+  // 하이라이트 페이지가 "선수를 찾을 수 없습니다"로 잘못 보인다.
+  if (pErr) throw new Error(`loadPlayerHighlights: leagueId=${leagueId} playerId=${playerId} league_players 조회 실패 — ${pErr.message}`)
+  if (!playerRow) return null
   const player = {
     id: playerRow.id as string,
     name: playerRow.name as string,
@@ -479,7 +489,8 @@ export async function loadPlayerHighlights(
     fetchScoringRules(supabase, leagueId),
     supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
   ])
-  if (gErr) return { player, clips: [], quarters: [], shotTypes: [] }
+  // 쿼리 실패를 빈 결과로 넘기면 "영상 있는 경기 없음"과 구분이 안 돼 이 선수의 하이라이트가 조용히 텅 빈다.
+  if (gErr) throw new Error(`loadPlayerHighlights: leagueId=${leagueId} playerId=${playerId} league_games 조회 실패 — ${gErr.message}`)
   // 쿼리 실패를 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점되고,
   // 그 뒤 이어지는 러닝 마진 전체가 틀어진다 (fetchScoringRules 와 동일한 이유로 throw).
   if (plErr) {
@@ -531,7 +542,8 @@ export async function loadPlayerHighlights(
       .not('video_timestamp', 'is', null)
       .order('created_at', { ascending: true })
       .range(pg * PAGE, (pg + 1) * PAGE - 1)
-    if (eErr) return { player, clips: [], quarters: [], shotTypes: [] }
+    // 페이지 중간 실패를 빈 결과로 넘기면 이 선수의 클립이 통째로 사라진다.
+    if (eErr) throw new Error(`loadPlayerHighlights: leagueId=${leagueId} playerId=${playerId} league_game_events 페이지네이션(pg=${pg}) 실패 — ${eErr.message}`)
     if (chunk && chunk.length > 0) events.push(...(chunk as EvtRow[]))
     if (!chunk || chunk.length < PAGE) break
   }
@@ -546,7 +558,7 @@ export async function loadPlayerHighlights(
   const fullEvents: FullEvRow[] = []
   if (gameIdsWithPlayer.length > 0) {
     for (let pg = 0; ; pg++) {
-      const { data: chunk } = await supabase
+      const { data: chunk, error: feErr } = await supabase
         .from('league_game_events')
         .select('id, league_game_id, team_id, league_player_id, type, result, video_timestamp')
         .in('league_game_id', gameIdsWithPlayer)
@@ -554,6 +566,8 @@ export async function loadPlayerHighlights(
         .not('video_timestamp', 'is', null)
         .order('id', { ascending: true })
         .range(pg * PAGE, (pg + 1) * PAGE - 1)
+      // 양팀 득점 러닝스코어 재료 — 페이지 실패를 조용히 넘기면 클러치 margin 계산이 틀어진다.
+      if (feErr) throw new Error(`loadPlayerHighlights: leagueId=${leagueId} playerId=${playerId} fullEvents 페이지네이션(pg=${pg}) 실패 — ${feErr.message}`)
       if (chunk && chunk.length > 0) fullEvents.push(...(chunk as FullEvRow[]))
       if (!chunk || chunk.length < PAGE) break
     }
@@ -751,7 +765,10 @@ export async function loadClipsByEventIds(
     fetchScoringRules(supabase, leagueId),
     supabase.from('league_players').select('id, plus_one').eq('league_id', leagueId),
   ])
-  if (eErr || !events || events.length === 0) return []
+  // 쿼리 실패와 "요청한 이벤트가 실제로 없음"을 구분한다 — 실패를 빈 배열로 넘기면
+  // 핀한 베스트샷/특정 클립 요청이 조용히 "아무것도 없음"으로 보인다.
+  if (eErr) throw new Error(`loadClipsByEventIds: leagueId=${leagueId} league_game_events 조회 실패 — ${eErr.message}`)
+  if (!events || events.length === 0) return []
   // 쿼리 실패를 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점된다
   // (fetchScoringRules 와 동일한 이유로 폴백 대신 throw — 소리 없는 오채점 방지).
   if (plErr) {
@@ -778,7 +795,7 @@ export async function loadClipsByEventIds(
   if (evRows.length === 0) return []
 
   const gameIds = Array.from(new Set(evRows.map(e => e.league_game_id)))
-  const { data: games } = await supabase
+  const { data: games, error: gErr } = await supabase
     .from('league_games')
     .select(`
       id, quarter_id, youtube_url, home_team_id, away_team_id, plus_one_player_id,
@@ -788,6 +805,9 @@ export async function loadClipsByEventIds(
     .in('id', gameIds)
     .eq('league_id', leagueId)
     .not('youtube_url', 'is', null)
+  // gameMap 이 비면 아래 `if (!game) continue` 에서 모든 클립이 조용히 걸러진다 —
+  // "핀한 클립이 하나도 재생 안 됨"이 "쿼리 실패"와 구분 없이 보이는 걸 막는다.
+  if (gErr) throw new Error(`loadClipsByEventIds: leagueId=${leagueId} league_games 조회 실패 — ${gErr.message}`)
   const gameRows = (games ?? []) as unknown as Array<{
     id: string
     quarter_id: string | null
@@ -807,10 +827,13 @@ export async function loadClipsByEventIds(
   ]))
   const playerMap: Record<string, { id: string; name: string; number: number | null; photo_url: string | null }> = {}
   if (playerIds.length > 0) {
-    const { data: players } = await supabase
+    const { data: players, error: plErr } = await supabase
       .from('league_players')
       .select('id, name, number, photo_url')
       .in('id', playerIds)
+    // 개별 선수 하나가 아니라 이 라운드 전체 선수 조회다 — 실패를 조용히 넘기면
+    // 릴의 모든 클립이 "알 수 없음"으로 보여 진짜 데이터 소실처럼 읽힌다.
+    if (plErr) throw new Error(`loadClipsByEventIds: leagueId=${leagueId} league_players 조회 실패 — ${plErr.message}`)
     for (const p of (players ?? []) as Array<{ id: string; name: string; number: number | null; photo_url: string | null }>) {
       playerMap[p.id] = p
     }
@@ -828,7 +851,7 @@ export async function loadClipsByEventIds(
   {
     const PAGE = 1000
     for (let pg = 0; ; pg++) {
-      const { data: chunk } = await supabase
+      const { data: chunk, error: seErr } = await supabase
         .from('league_game_events')
         .select('id, league_game_id, team_id, league_player_id, type, result, video_timestamp')
         .in('league_game_id', gameIds)
@@ -839,6 +862,8 @@ export async function loadClipsByEventIds(
         // 룰이 바뀌어도 안전하다.
         .not('video_timestamp', 'is', null)
         .range(pg * PAGE, (pg + 1) * PAGE - 1)
+      // 페이지 실패를 조용히 넘기면 이 게임의 러닝 스코어(하이라이트 배지 前/後 점수)가 틀어진다.
+      if (seErr) throw new Error(`loadClipsByEventIds: leagueId=${leagueId} scoreEvents 페이지네이션(pg=${pg}) 실패 — ${seErr.message}`)
       if (chunk && chunk.length > 0) scoreEvents.push(...(chunk as unknown as ScoreEvtRow[]))
       if (!chunk || chunk.length < PAGE) break
     }
@@ -948,7 +973,8 @@ export async function loadLeagueBestShots(
     .select('id, name, number, pinned_event_ids')
     .eq('league_id', leagueId)
     .not('pinned_event_ids', 'is', null)
-  if (error) return empty
+  // 쿼리 실패를 empty 로 넘기면 "아무도 핀 안 함"과 구분이 안 돼 베스트샷 릴이 조용히 텅 빈다.
+  if (error) throw new Error(`loadLeagueBestShots: leagueId=${leagueId} league_players(pinned_event_ids) 조회 실패 — ${error.message}`)
   const pinners = ((pinRows ?? []) as Array<{ id: string; name: string; number: number | null; pinned_event_ids: string[] | null }>)
     .filter(p => (p.pinned_event_ids?.length ?? 0) > 0)
   if (pinners.length === 0) return empty
