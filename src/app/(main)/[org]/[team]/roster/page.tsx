@@ -179,25 +179,25 @@ export default function RosterPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">선수 명단</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowCompare(true)} className="border-blue-700/60 text-blue-400 hover:text-blue-300 hover:border-blue-500">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <h1 className="font-jersey font-black uppercase text-[28px] leading-none text-[var(--mm-ink)] tracking-tight">선수 명단</h1>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => setShowCompare(true)} className="border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] cursor-pointer">
             <ArrowLeftRight size={16} className="mr-2" /> 선수 비교
           </Button>
-          <Button variant="outline" onClick={downloadTemplate} className="border-gray-700 text-gray-400 hover:text-white hover:border-gray-500">
+          <Button variant="outline" onClick={downloadTemplate} className="border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] cursor-pointer">
             <Download size={16} className="mr-2" /> 템플릿 다운로드
           </Button>
           {isEditMode && (
             <>
               <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
-              <Button variant="outline" onClick={() => fileRef.current?.click()} className="border-gray-700 text-gray-300 hover:text-white">
+              <Button variant="outline" onClick={() => fileRef.current?.click()} className="border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] cursor-pointer">
                 <Upload size={16} className="mr-2" /> 엑셀 업로드
               </Button>
-              <Button variant="outline" onClick={() => setShowMerge(true)} className="border-orange-700/60 text-orange-400 hover:text-orange-300 hover:border-orange-500">
+              <Button variant="outline" onClick={() => setShowMerge(true)} className="border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] cursor-pointer">
                 <Merge size={16} className="mr-2" /> 선수 통합
               </Button>
-              <Button onClick={() => { setEditPlayer(null); setShowForm(true) }} className="bg-blue-500 hover:bg-blue-600">
+              <Button onClick={() => { setEditPlayer(null); setShowForm(true) }} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 cursor-pointer">
                 <Plus size={16} className="mr-2" /> 선수 추가
               </Button>
             </>
@@ -206,11 +206,11 @@ export default function RosterPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-5">
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 flex-wrap">
           <button
             onClick={() => setFilterPos('')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-              filterPos === '' ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+            className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+              filterPos === '' ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] text-[var(--mm-panel)]' : 'bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)]'
             }`}
           >
             전체
@@ -219,8 +219,8 @@ export default function RosterPage() {
             <button
               key={pos}
               onClick={() => setFilterPos(p => p === pos ? '' : pos)}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-                filterPos === pos ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+              className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                filterPos === pos ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] text-[var(--mm-panel)]' : 'bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)]'
               }`}
             >
               {pos}
@@ -228,9 +228,9 @@ export default function RosterPage() {
           ))}
         </div>
 
-        <div className="h-4 w-px bg-gray-700 mx-1" />
+        <div className="h-4 w-px bg-[var(--mm-rule)] mx-1" />
 
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 flex-wrap">
           {([
             { key: 'number', label: '등번호' },
             { key: 'age',    label: '나이' },
@@ -242,8 +242,8 @@ export default function RosterPage() {
               <button
                 key={key}
                 onClick={() => handleSortClick(key)}
-                className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
-                  active ? 'bg-blue-500 border-blue-500 text-white' : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'
+                className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                  active ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] text-[var(--mm-panel)]' : 'bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)]'
                 }`}
               >
                 {label}
@@ -253,20 +253,20 @@ export default function RosterPage() {
           })}
         </div>
 
-        <span className="ml-auto text-xs text-gray-500">{displayed.length}명</span>
+        <span className="ml-auto text-xs text-[var(--mm-muted)]">{displayed.length}명</span>
       </div>
 
       {uploadRows && (
-        <div className="mb-6 bg-gray-900 border border-gray-700 rounded-xl p-4">
+        <div className="mb-6 bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="font-semibold text-white">{uploadRows.length}명 미리보기 — 확인 후 업로드</p>
-            <Button size="sm" variant="ghost" onClick={() => setUploadRows(null)} className="text-gray-400 hover:text-white p-1">
+            <p className="font-semibold text-[var(--mm-ink)]">{uploadRows.length}명 미리보기 — 확인 후 업로드</p>
+            <Button size="sm" variant="ghost" onClick={() => setUploadRows(null)} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] p-1 cursor-pointer">
               <X size={16} />
             </Button>
           </div>
           <div className="overflow-x-auto max-h-64 overflow-y-auto">
             <table className="w-full text-sm text-left">
-              <thead className="sticky top-0 bg-gray-800 text-gray-400">
+              <thead className="sticky top-0 bg-[var(--mm-panel-alt)] text-[var(--mm-muted)]">
                 <tr>
                   <th className="px-3 py-2">#</th>
                   <th className="px-3 py-2">이름</th>
@@ -277,19 +277,19 @@ export default function RosterPage() {
               </thead>
               <tbody>
                 {uploadRows.map((r, i) => (
-                  <tr key={i} className="border-t border-gray-800 hover:bg-gray-800/50">
-                    <td className="px-3 py-1.5 text-blue-400 font-bold">{r.number}</td>
-                    <td className="px-3 py-1.5 font-medium">{r.name}</td>
-                    <td className="px-3 py-1.5 text-gray-400">{r.birthdate ?? '-'}</td>
-                    <td className="px-3 py-1.5 text-gray-400">{r.height_cm ? `${r.height_cm}cm` : '-'}</td>
-                    <td className="px-3 py-1.5">{r.is_pro ? <span className="text-xs bg-yellow-500 text-black px-1.5 py-0.5 rounded font-bold">선출</span> : '-'}</td>
+                  <tr key={i} className="border-t border-[var(--mm-rule)] hover:bg-[var(--mm-panel-alt)]">
+                    <td className="px-3 py-1.5 text-[var(--mm-yellow-strong)] font-bold">{r.number}</td>
+                    <td className="px-3 py-1.5 font-medium text-[var(--mm-ink)]">{r.name}</td>
+                    <td className="px-3 py-1.5 text-[var(--mm-ink-soft)]">{r.birthdate ?? '-'}</td>
+                    <td className="px-3 py-1.5 text-[var(--mm-ink-soft)]">{r.height_cm ? `${r.height_cm}cm` : '-'}</td>
+                    <td className="px-3 py-1.5">{r.is_pro ? <span className="text-xs bg-[var(--mm-yellow)] text-[var(--mm-black)] px-1.5 py-0.5 rounded font-bold">선출</span> : '-'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <div className="flex justify-end mt-3">
-            <Button onClick={handleBulkUpload} disabled={uploading} className="bg-blue-500 hover:bg-blue-600">
+            <Button onClick={handleBulkUpload} disabled={uploading} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 cursor-pointer">
               <Check size={16} className="mr-2" /> {uploading ? '업로드 중...' : `${uploadRows.length}명 등록`}
             </Button>
           </div>
@@ -297,7 +297,7 @@ export default function RosterPage() {
       )}
 
       {displayed.length === 0 ? (
-        <div className="text-center py-20 text-gray-500">
+        <div className="text-center py-20 text-[var(--mm-muted)]">
           <p className="text-lg">{players.length === 0 ? '등록된 선수가 없습니다' : '해당 포지션 선수가 없습니다'}</p>
           {players.length === 0 && <p className="text-sm mt-2">선수 추가 버튼을 눌러 시작하세요</p>}
         </div>
