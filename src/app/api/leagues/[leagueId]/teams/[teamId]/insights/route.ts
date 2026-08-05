@@ -80,7 +80,10 @@ export async function GET(
   if (quarterId && quarterId !== 'all') {
     gamesQuery = gamesQuery.eq('quarter_id', quarterId)
   }
-  const { data: games } = await gamesQuery
+  const { data: games, error: gamesErr } = await gamesQuery
+  if (gamesErr) {
+    return NextResponse.json({ error: `league_games 조회 실패 — ${gamesErr.message}` }, { status: 500 })
+  }
 
   if (!games || games.length === 0) {
     return NextResponse.json({
@@ -95,17 +98,24 @@ export async function GET(
   }
 
   // 팀 메타 (상대팀 이름 조회용)
-  const { data: teams } = await supabase
+  const { data: teams, error: teamsErr } = await supabase
     .from('league_teams')
     .select('id, name, color')
     .eq('league_id', leagueId)
+  if (teamsErr) {
+    return NextResponse.json({ error: `league_teams 조회 실패 — ${teamsErr.message}` }, { status: 500 })
+  }
   const teamMap = Object.fromEntries((teams ?? []).map(t => [t.id, t]))
 
   // plus_one 판정용 — 게임별 오버라이드 우선, 없으면 선수 영구 플래그
-  const { data: leaguePlayers } = await supabase
+  const { data: leaguePlayers, error: playersErr } = await supabase
     .from('league_players')
     .select('id, plus_one')
     .eq('league_id', leagueId)
+  // 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점된다 (scoring.ts 와 동일 이유).
+  if (playersErr) {
+    return NextResponse.json({ error: `league_players 조회 실패 — ${playersErr.message}` }, { status: 500 })
+  }
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
   const gamePlusOneMap: Record<string, string | null> = {}
   for (const g of games) gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
@@ -117,12 +127,16 @@ export async function GET(
   const PAGE = 1000
   let page = 0
   while (true) {
-    const { data: chunk } = await supabase
+    const { data: chunk, error: evErr } = await supabase
       .from('league_game_events')
       .select('league_game_id, team_id, type, result, league_player_id, related_player_id')
       .in('league_game_id', gameIds)
       .order('id', { ascending: true })
       .range(page * PAGE, (page + 1) * PAGE - 1)
+    // 페이지 중간 실패를 "더 이상 없음"과 같은 걸로 취급하면 팀 인사이트가 일부 경기만으로 집계된다.
+    if (evErr) {
+      return NextResponse.json({ error: `league_game_events 페이지네이션(page=${page}) 실패 — ${evErr.message}` }, { status: 500 })
+    }
     if (chunk && chunk.length > 0) events.push(...(chunk as EvRow[]))
     if (!chunk || chunk.length < PAGE) break
     page++

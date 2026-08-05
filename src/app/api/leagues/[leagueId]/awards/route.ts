@@ -109,9 +109,9 @@ export async function GET(
   if (quarterId) gamesQuery = gamesQuery.eq('quarter_id', quarterId)
 
   const [
-    { data: gameRows },
+    { data: gameRows, error: gameRowsErr },
     statsResult,
-    { data: playerRows },
+    { data: playerRows, error: playerRowsErr },
     clutchSplits,
     scoringRules,
   ] = await Promise.all([
@@ -121,6 +121,10 @@ export async function GET(
     computeClutchStats(supabase, leagueId, quarterId ? { quarterId } : undefined),
     fetchScoringRules(supabase, leagueId),
   ])
+  // gameRows 는 출석 자격(라운드 수) 산출 기준이고 playerRows 는 게스트 제외/plus_one 판정 기준이다 —
+  // 둘 다 실패를 조용히 넘기면 "자격자 없음"으로 보여 어워즈 전체가 빈 화면이 된다.
+  if (gameRowsErr) return NextResponse.json({ error: `league_games 조회 실패 — ${gameRowsErr.message}` }, { status: 500 })
+  if (playerRowsErr) return NextResponse.json({ error: `league_players 조회 실패 — ${playerRowsErr.message}` }, { status: 500 })
 
   const uniqueDates = new Set<string>()
   const gameIds: string[] = []
@@ -409,13 +413,15 @@ export async function GET(
       ]
       const PAGE = 1000
       for (let p = 0; ; p++) {
-        const { data: chunk } = await supabase
+        const { data: chunk, error: chunkErr } = await supabase
           .from('league_game_events')
           .select('league_player_id, related_player_id, league_game_id, type, result, points')
           .in('league_game_id', gameIds)
           .in('type', DD_TYPES)
           .order('id', { ascending: true })
           .range(p * PAGE, (p + 1) * PAGE - 1)
+        // 페이지 중간 실패를 "더 이상 없음"과 같은 걸로 취급하면 더블더블 킹이 일부 라운드만으로 집계된다.
+        if (chunkErr) throw new Error(`awards(DOUBLE_DOUBLE): leagueId=${leagueId} 페이지네이션(p=${p}) 실패 — ${chunkErr.message}`)
         if (!chunk || chunk.length === 0) break
         for (const e of chunk as Array<{
           league_player_id: string | null; related_player_id: string | null
@@ -548,7 +554,7 @@ export async function GET(
       // 이벤트 페이지네이션 (클러치 스탯 방식과 동일)
       const PAGE = 1000
       for (let p = 0; ; p++) {
-        const { data: chunk } = await supabase
+        const { data: chunk, error: chunkErr } = await supabase
           .from('league_game_events')
           .select('league_player_id, related_player_id, points')
           .in('league_game_id', gameIds)
@@ -559,6 +565,8 @@ export async function GET(
           .gt('points', 0)
           .order('id', { ascending: true })
           .range(p * PAGE, (p + 1) * PAGE - 1)
+        // 페이지 중간 실패를 "더 이상 없음"과 같은 걸로 취급하면 BEST_DUO 후보가 일부만 집계된다.
+        if (chunkErr) throw new Error(`awards(BEST_DUO): leagueId=${leagueId} 페이지네이션(p=${p}) 실패 — ${chunkErr.message}`)
         if (!chunk || chunk.length === 0) break
         for (const e of chunk as Array<{ league_player_id: string; related_player_id: string; points: number }>) {
           const scorer = e.league_player_id

@@ -50,7 +50,7 @@ export async function GET(
     const PAGE = 1000
     const events: { league_game_id: string | null; team_id: string | null; points: number | null }[] = []
     for (let p = 0; ; p++) {
-      const { data: chunk } = await supabase
+      const { data: chunk, error: chunkErr } = await supabase
         .from('league_game_events')
         .select('league_game_id, team_id, points')
         .in('league_game_id', gameIds)
@@ -58,6 +58,9 @@ export async function GET(
         .gt('points', 0)
         .order('id', { ascending: true })
         .range(p * PAGE, (p + 1) * PAGE - 1)
+      // 페이지 중간 실패를 "더 이상 없음"과 같은 걸로 취급하면 이벤트 기반 스코어 보정이 일부만
+      // 적용돼 순위표 승/패·득실차가 저장된 game.home_score 폴백과 뒤섞여 어긋난다.
+      if (chunkErr) return NextResponse.json({ error: `league_game_events 페이지네이션(p=${p}) 실패 — ${chunkErr.message}` }, { status: 500 })
       if (!chunk || chunk.length === 0) break
       events.push(...chunk)
       if (chunk.length < PAGE) break

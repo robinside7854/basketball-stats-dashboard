@@ -106,8 +106,8 @@ export async function GET(
     : Promise.resolve({ data: null } as { data: { id: string; year: number; quarter: number } | null })
 
   const [
-    { data: playerRows },
-    { data: gamesRaw },
+    { data: playerRows, error: playerRowsErr },
+    { data: gamesRaw, error: gamesErr },
     quarterMetaRes,
   ] = await Promise.all([
     supabase
@@ -117,6 +117,9 @@ export async function GET(
     gQuery,
     quarterMetaQuery,
   ])
+  // 카테고리별 리그 리더 산출의 재료 — 실패를 조용히 넘기면 "커리어하이 없음"으로 보인다.
+  if (playerRowsErr) return NextResponse.json({ error: `league_players 조회 실패 — ${playerRowsErr.message}` }, { status: 500 })
+  if (gamesErr) return NextResponse.json({ error: `league_games 조회 실패 — ${gamesErr.message}` }, { status: 500 })
 
   const players = (playerRows ?? []) as PlayerRow[]
   const plusOneSet = new Set(players.filter(p => p.plus_one).map(p => p.id))
@@ -137,13 +140,15 @@ export async function GET(
   const events: EventRow[] = []
   const PAGE = 1000
   for (let pg = 0; ; pg++) {
-    const { data: chunk } = await supabase
+    const { data: chunk, error: chunkErr } = await supabase
       .from('league_game_events')
       .select('league_player_id, related_player_id, type, result, league_game_id, team_id')
       .in('league_game_id', gameIds)
       .not('league_player_id', 'is', null)
       .order('id', { ascending: true })
       .range(pg * PAGE, (pg + 1) * PAGE - 1)
+    // 페이지 중간 실패를 "더 이상 없음"과 같은 걸로 취급하면 뒷부분 라운드의 커리어하이를 놓친다.
+    if (chunkErr) return NextResponse.json({ error: `league_game_events 페이지네이션(pg=${pg}) 실패 — ${chunkErr.message}` }, { status: 500 })
     if (!chunk || chunk.length === 0) break
     for (const e of chunk as EventRow[]) {
       if (e.team_id && externalTeamIds.has(e.team_id)) continue
