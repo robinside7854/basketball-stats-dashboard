@@ -350,6 +350,116 @@ async function migrateGames() {
   console.log(`  원본 ${rows.length}경기 중 ${made}경기 신규`)
 }
 
+// 이벤트. 5993행이라 왕복을 줄이려고 INSERT…SELECT 로 DB 안에서 옮긴다.
+//
+// team_id 배정 규칙 (league_game_events.team_id 는 반드시 채운다):
+//   · 우리 선수의 이벤트        → 우리 팀(홈)
+//   · opp_score (상대 득점)     → 외부 상대팀(원정). 선수는 NULL.
+//   · quarter_start/end 마커     → 우리 팀(홈). 선수 NULL, 점수 0 이라 통계에 영향 없음.
+//
+// ⚠ points 는 저장값을 그대로 복사한다. 재계산하지 않는다 —
+//   레거시 하드코딩 값이 STANDARD_SCORING 과 일치함을 실측으로 확인했고(불일치 0건),
+//   opp_score 는 규칙 엔진이 모르는 타입이라 재계산하면 322점이 통째로 0이 된다.
+async function migrateEvents() {
+  console.log('\n[6] 이벤트')
+  const [before] = await sql(`SELECT count(*)::int n FROM league_game_events WHERE legacy_id IS NOT NULL`)
+  await exec(`
+    INSERT INTO league_game_events
+      (league_game_id, quarter, video_timestamp, type, league_player_id, result,
+       related_player_id, points, team_id, shot_zone, legacy_id)
+    SELECT lg.id,
+           e.quarter,
+           e.video_timestamp,
+           e.type::text,
+           lp.id,
+           e.result::text,
+           rp.id,
+           e.points,
+           CASE WHEN e.type::text = 'opp_score' THEN lg.away_team_id ELSE lg.home_team_id END,
+           e.shot_zone,
+           e.id
+      FROM game_events e
+      JOIN league_games lg   ON lg.legacy_id = e.game_id
+      LEFT JOIN league_players lp ON lp.legacy_id = e.player_id
+      LEFT JOIN league_players rp ON rp.legacy_id = e.related_player_id
+     WHERE NOT EXISTS (SELECT 1 FROM league_game_events x WHERE x.legacy_id = e.id)
+  `)
+  const [after] = await sql(`SELECT count(*)::int n FROM league_game_events WHERE legacy_id IS NOT NULL`)
+  console.log(`  ${before.n} → ${after.n}`)
+  await restoreGameScores()
+}
+
+// ⚠ 실측으로 발견한 함정 (브리프에 없던 내용): league_game_events 에는 INSERT 마다
+//   home_score/away_score 를 이벤트 합으로 재계산해 덮어쓰는 트리거
+//   (trg_events_recompute_score → recompute_league_game_score)가 이미 걸려 있다.
+//   리그형(미라클)에서는 "이벤트 = 유일한 득점 원천"이라 이 자동 재계산이 맞는 설계다.
+//   그런데 레거시 대회형 경기는 opp_score 이벤트가 상대 득점을 전부 담고 있지 않다 —
+//   총 5,993건 중 opp_score 는 177건뿐이라, 상대의 개별 득점 장면을 다 기록하지 않고
+//   games.opponent_score 에 최종 스코어만 따로 적어 둔 경기가 많다. 그 결과 이벤트를
+//   넣는 순간 트리거가 away_score 를 (기록된 opp_score 합) 으로 조용히 깎아내려
+//   43경기의 away_score 가 원본 opponent_score 보다 작아지는 걸 실측으로 확인했다
+//   (home_score 는 우리 선수 득점 이벤트가 전량 기록돼 있어 우연히 일치했다).
+//   그래서 이벤트 이관 직후 league_games 의 점수를 레거시 값으로 되돌린다 —
+//   이 UPDATE 는 league_games(우리가 만든 목적지 테이블)만 건드리고 legacy_id 로
+//   연결된 행(=이번에 이관한 두 리그)만 좁히므로 미라클에는 영향이 없다.
+async function restoreGameScores() {
+  console.log('\n[6b] 경기 스코어 복원 (이벤트 삽입 트리거가 자동 재계산해 덮어쓴 값을 원본으로 되돌림)')
+  await exec(`
+    UPDATE league_games lg
+       SET home_score = g.our_score,
+           away_score = g.opponent_score
+      FROM games g
+     WHERE lg.legacy_id = g.id
+       AND (lg.home_score IS DISTINCT FROM g.our_score OR lg.away_score IS DISTINCT FROM g.opponent_score)
+  `)
+}
+
+// 출전 시간. 구조가 1:1 이라 그대로 옮긴다.
+async function migrateMinutes() {
+  console.log('\n[7] 출전시간')
+  await exec(`
+    INSERT INTO league_player_minutes (league_game_id, league_player_id, quarter, in_time, out_time)
+    SELECT lg.id, lp.id, pm.quarter, pm.in_time, pm.out_time
+      FROM player_minutes pm
+      JOIN league_games lg   ON lg.legacy_id = pm.game_id
+      JOIN league_players lp ON lp.legacy_id = pm.player_id
+     WHERE NOT EXISTS (
+       SELECT 1 FROM league_player_minutes x
+        WHERE x.league_game_id = lg.id AND x.league_player_id = lp.id AND x.quarter = pm.quarter
+     )
+  `)
+  const [n] = await sql(`
+    SELECT count(*)::int n FROM league_player_minutes m
+     JOIN league_games lg ON lg.id = m.league_game_id WHERE lg.legacy_id IS NOT NULL
+  `)
+  console.log(`  ${n.n}행`)
+}
+
+// 대회 참가 명단 → 세그먼트 명단. is_regular=true 로 둔다 —
+//   레거시 tournament_players 는 "이 대회에 등록된 우리 선수" 라는 뜻이고,
+//   리그형의 '정규 명단' 과 의미가 같다.
+async function migrateTournamentPlayers() {
+  console.log('\n[8] 대회 명단')
+  await exec(`
+    INSERT INTO league_player_quarters (league_id, quarter_id, league_player_id, team_id, is_regular)
+    SELECT lq.league_id, lq.id, lp.id, ourteam.id, true
+      FROM tournament_players tp
+      JOIN league_quarters lq ON lq.legacy_id = tp.tournament_id
+      JOIN league_players lp  ON lp.legacy_id = tp.player_id
+      JOIN leagues l          ON l.id = lq.league_id
+      JOIN league_teams ourteam ON ourteam.league_id = l.id AND ourteam.legacy_id = l.team_id
+     WHERE NOT EXISTS (
+       SELECT 1 FROM league_player_quarters x
+        WHERE x.quarter_id = lq.id AND x.league_player_id = lp.id
+     )
+  `)
+  const [n] = await sql(`
+    SELECT count(*)::int n FROM league_player_quarters pq
+     JOIN league_quarters lq ON lq.id = pq.quarter_id WHERE lq.legacy_id IS NOT NULL
+  `)
+  console.log(`  ${n.n}행`)
+}
+
 async function main() {
   console.log(COMMIT ? '=== 실제 적용 (--commit) ===' : '=== 드라이런 — 쓰기 없음 ===')
   await migrateLeagues()
@@ -357,6 +467,9 @@ async function main() {
   await migrateTeams()
   await migratePlayers()
   await migrateGames()
+  await migrateEvents()
+  await migrateMinutes()
+  await migrateTournamentPlayers()
   console.log(COMMIT ? '완료' : '드라이런 끝. 적용하려면 --commit')
 }
 

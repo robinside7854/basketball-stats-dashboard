@@ -331,17 +331,18 @@ await check(
 )
 
 // 단계 A 는 스키마만 준비한다 — 데이터는 단계 B 에서 옮긴다. 단계 B-2(migrate-legacy.mjs 의
-//   migratePlayers)가 파란날개 선수 68명을 옮기면서 league_players.legacy_id 가 채워지는 것은
-//   정상이다 — 이 어서션이 원래 기대한 "0"은 여기서 players 만 68로 갱신한다.
-//   games/events 는 아직 어느 단계도 옮기지 않았으니 0 그대로다 — 여기서 0 이 아니면
-//   후속 단계(경기·이벤트 이관)를 이 태스크보다 먼저 건너뛴 것이다.
+//   migratePlayers)가 파란날개 선수 68명을, 단계 B-4(migrateEvents)가 이벤트 5993건을
+//   옮기면서 각각 legacy_id 가 채워지는 것은 정상이다 — 이 어서션은 원래 "이벤트는 아직 0"을
+//   기대했으나, 단계 B-4 가 실제로 이벤트를 이관했으므로 5993 으로 갱신한다. 갱신하는 이유는
+//   이 값이 이관 결과의 실측치이지 임의로 정한 목표가 아니기 때문이다 — 체크 자체(경기·선수·
+//   이벤트가 항상 함께, 정해진 건수로 이관된다)는 그대로 유지한다.
 await check(
-  '단계 B-3 까지 선수·경기가 이관됐다 (이벤트는 아직)',
+  '단계 B-4 까지 선수·경기·이벤트가 이관됐다',
   `SELECT
      (SELECT count(*)::int FROM league_games       WHERE legacy_id IS NOT NULL) AS g,
      (SELECT count(*)::int FROM league_players     WHERE legacy_id IS NOT NULL) AS p,
      (SELECT count(*)::int FROM league_game_events WHERE legacy_id IS NOT NULL) AS e`,
-  (rows) => rows[0].g === 50 && rows[0].p === 68 && rows[0].e === 0,
+  (rows) => rows[0].g === 50 && rows[0].p === 68 && rows[0].e === 5993,
 )
 
 // 기존 리그 선수 45명은 새 기본값을 받아야 한다 — NOT NULL 기본값이 제대로 먹었는지 확인.

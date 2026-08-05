@@ -248,5 +248,114 @@ await check(
   (r) => r[0].v === 33 && r[0].rl === 43 && r[0].am === 44,
 )
 
+// ── 이벤트 ───────────────────────────────────
+await check(
+  '이벤트 5993건이 전부 옮겨졌다',
+  `SELECT count(*)::int n FROM league_game_events WHERE legacy_id IS NOT NULL`,
+  (r) => r[0].n === 5993,
+)
+
+await check(
+  '원본 이벤트 중 사본이 없는 것이 0건',
+  `SELECT count(*)::int n FROM game_events e
+    WHERE NOT EXISTS (SELECT 1 FROM league_game_events x WHERE x.legacy_id = e.id)`,
+  (r) => r[0].n === 0,
+)
+
+// LEFT JOIN 이라 선수 매핑이 실패해도 조용히 NULL 이 된다 — 여기서 잡는다.
+await check(
+  '선수가 있던 이벤트는 사본에도 선수가 있다',
+  `SELECT count(*)::int n
+     FROM game_events e JOIN league_game_events x ON x.legacy_id = e.id
+    WHERE (e.player_id IS NULL) <> (x.league_player_id IS NULL)
+       OR (e.related_player_id IS NULL) <> (x.related_player_id IS NULL)`,
+  (r) => r[0].n === 0,
+)
+
+await check(
+  '이벤트 타입·결과·점수·쿼터가 원본과 일치',
+  `SELECT count(*)::int n
+     FROM game_events e JOIN league_game_events x ON x.legacy_id = e.id
+    WHERE x.type    IS DISTINCT FROM e.type::text
+       OR x.result  IS DISTINCT FROM e.result::text
+       OR x.points  IS DISTINCT FROM e.points
+       OR x.quarter IS DISTINCT FROM e.quarter
+       OR x.video_timestamp IS DISTINCT FROM e.video_timestamp
+       OR x.shot_zone IS DISTINCT FROM e.shot_zone`,
+  (r) => r[0].n === 0,
+)
+
+// league_game_events.team_id 는 반드시 채워야 한다는 코드베이스 규칙이 있다.
+await check(
+  '모든 이관 이벤트에 team_id 가 있다',
+  `SELECT count(*)::int n FROM league_game_events WHERE legacy_id IS NOT NULL AND team_id IS NULL`,
+  (r) => r[0].n === 0,
+)
+
+await check(
+  '상대 득점만 외부 팀에 달려 있다',
+  `SELECT count(*)::int n
+     FROM league_game_events x JOIN league_teams lt ON lt.id = x.team_id
+    WHERE x.legacy_id IS NOT NULL AND lt.is_external AND x.type <> 'opp_score'`,
+  (r) => r[0].n === 0,
+)
+
+// ★ 최종 관문 — 선수별 총득점을 원본 대비 전수 대조한다.
+//   총합이 맞아도 두 선수의 점수가 서로 바뀌었다면 이 단언만이 잡아낸다.
+await check(
+  '선수별 총득점이 원본과 한 명도 빠짐없이 일치',
+  `WITH src AS (
+     SELECT player_id, sum(points)::int pts FROM game_events
+      WHERE player_id IS NOT NULL GROUP BY player_id
+   ), dst AS (
+     SELECT lp.legacy_id AS player_id, sum(x.points)::int pts
+       FROM league_game_events x JOIN league_players lp ON lp.id = x.league_player_id
+      WHERE x.legacy_id IS NOT NULL AND lp.legacy_id IS NOT NULL
+      GROUP BY lp.legacy_id
+   )
+   SELECT count(*)::int n FROM src FULL OUTER JOIN dst USING (player_id)
+    WHERE src.pts IS DISTINCT FROM dst.pts`,
+  (r) => r[0].n === 0,
+)
+
+await check(
+  '전체 득점 2138 · 상대 득점 322 가 일치',
+  `SELECT sum(points)::int total, sum(points) FILTER (WHERE type='opp_score')::int opp
+     FROM league_game_events WHERE legacy_id IS NOT NULL`,
+  (r) => r[0].total === 2138 && r[0].opp === 322,
+)
+
+// 경기 기록 점수와 경기 스코어가 어긋나면 박스스코어와 순위표가 서로 다른 말을 한다.
+await check(
+  '경기별 우리 득점 합이 경기 스코어와 맞는 경기가 원본과 같은 수',
+  `WITH src AS (
+     SELECT g.id, g.our_score, sum(e.points) FILTER (WHERE e.player_id IS NOT NULL) pts
+       FROM games g LEFT JOIN game_events e ON e.game_id = g.id GROUP BY g.id, g.our_score
+   ), dst AS (
+     SELECT lg.legacy_id AS id, lg.home_score,
+            sum(x.points) FILTER (WHERE x.league_player_id IS NOT NULL) pts
+       FROM league_games lg LEFT JOIN league_game_events x ON x.league_game_id = lg.id
+      WHERE lg.legacy_id IS NOT NULL GROUP BY lg.legacy_id, lg.home_score
+   )
+   SELECT count(*)::int n FROM src JOIN dst USING (id)
+    WHERE src.pts IS DISTINCT FROM dst.pts OR src.our_score IS DISTINCT FROM dst.home_score`,
+  (r) => r[0].n === 0,
+)
+
+// ── 출전시간 · 대회 명단 ─────────────────────
+await check(
+  '출전시간 1525행이 옮겨졌다',
+  `SELECT count(*)::int n FROM league_player_minutes m
+     JOIN league_games lg ON lg.id = m.league_game_id WHERE lg.legacy_id IS NOT NULL`,
+  (r) => r[0].n === 1525,
+)
+
+await check(
+  '대회 명단 112행이 옮겨졌다',
+  `SELECT count(*)::int n FROM league_player_quarters pq
+     JOIN league_quarters lq ON lq.id = pq.quarter_id WHERE lq.legacy_id IS NOT NULL`,
+  (r) => r[0].n === 112,
+)
+
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exit(failed === 0 ? 0 : 1)
