@@ -68,15 +68,14 @@ await check(
     ORDER BY l.org_slug`,
   rows => {
     const got = rows.map(r => `${r.org_slug}→${r.org}/${r.sub_slug}:${r.mode}`)
-    // 통일 단계 B(migrate-legacy.mjs) 가 paranalgae 청년부·장년부를 대회형 리그로
-    // 이관하면서 정당하게 늘어난 2건을 추가했다. 이 체크의 목적이 바로 "리그가 올바른
-    // 팀에 붙었는가"이므로, 새로 생긴 두 리그도 games.team_type 함정(청년부/장년부가
-    // 뒤섞이는 사고)에 안 걸렸는지 여기서 같이 지켜야 의미가 있다 — 빼지 않는다.
+    // 대회형 통일 시도(마이그레이션 074~085)는 되돌려졌다(2026-08-05) — 파란날개를
+    // 리그 테이블로 복제했던 leagues 2건(mode='tournament')은 삭제됐고, legacy_id 는
+    // 전 테이블 0건이다. 두 제품은 구조가 다른 별개 제품으로 유지하기로 확정됐으므로
+    // (docs/superpowers/specs/2026-08-05-tournament-league-unification-design.md 상단 메모
+    // 참고) 여기 기대값도 "리그형 두 건만 존재"로 되돌린다.
     const want = [
       'miracle→miracle/main:league',
       'pana-basket-senior→paranalgae/senior:league',
-      'paranalgae→paranalgae/senior:tournament',
-      'paranalgae→paranalgae/youth:tournament',
     ]
     return JSON.stringify(got) === JSON.stringify(want) || `기대 ${JSON.stringify(want)}, 실제 ${JSON.stringify(got)}`
   }
@@ -125,10 +124,10 @@ await check(
 // ── Task 3: 세그먼트 · 외부 팀 ────────────────────────
 await check(
   '미라클 세그먼트(kind=quarter) 3건 모두 이름이 붙음',
-  // 통일 단계 B 가 paranalgae 대회를 kind='tournament' 세그먼트로 이관하면서 이 테이블에
-  // 미라클(kind='quarter') 외의 행이 생겼다 — 이 체크의 관심사는 미라클 3건이 그대로인가
-  // 뿐이므로 kind='quarter' 로 좁힌다(대회형 12건은 verify-migration.mjs 가 별도로 본다).
-  `SELECT kind, name, ord FROM league_quarters WHERE kind = 'quarter' ORDER BY ord`,
+  // 대회형 통일 시도가 되돌려지며(2026-08-05) kind='tournament' 세그먼트도 함께 삭제됐다
+  // (league_quarters legacy_id 전 테이블 0건으로 실측 확인). kind 필터는 더 이상 아무것도
+  // 걷어내지 않지만 단순 형태로 되돌린다.
+  `SELECT kind, name, ord FROM league_quarters ORDER BY ord`,
   rows => {
     const got = rows.map(r => `${r.kind}:${r.name}:${r.ord}`)
     const want = ['quarter:26.1Q:1', 'quarter:26.2Q:2', 'quarter:26.3Q:3']
@@ -137,23 +136,18 @@ await check(
 )
 
 await check(
-  '리그형(mode≠tournament) league_teams 는 전부 내부 팀',
-  // 원래 "전 행 is_external=false" 였으나, 통일 단계 B 가 paranalgae 를 대회형으로
-  // 이관하며 외부 상대팀 43건을 정당하게 만들었다(설계상 대회형 전용 — 위 설계서
-  // "상대팀: 내부 팀(리그형) / 외부 팀(대회형)" 참고). 체크를 지우지 않고 대회형을
-  // 빼는 쪽으로 좁힌다 — 리그형(미라클 등)에 외부 팀이 새는 건 여전히 잡아야 한다.
-  `SELECT count(*)::int AS n FROM league_teams lt
-     JOIN leagues l ON l.id = lt.league_id
-    WHERE l.mode <> 'tournament' AND lt.is_external IS DISTINCT FROM false`,
-  rows => rows[0].n === 0 || `리그형인데 is_external 이 false 가 아닌 행이 ${rows[0].n}건`
+  'league_teams 는 전부 내부 팀',
+  // 대회형 통일 시도가 되돌려지며 외부 상대팀 43건도 함께 삭제됐다(league_teams
+  // is_external=true 0건으로 실측 확인) — mode<>'tournament' 필터는 더 이상 아무것도
+  // 걷어내지 않으므로 단순 형태로 되돌린다.
+  `SELECT count(*)::int AS n FROM league_teams WHERE is_external IS DISTINCT FROM false`,
+  rows => rows[0].n === 0 || `is_external 이 false 가 아닌 행이 ${rows[0].n}건`
 )
 
 await check(
-  '리그형(mode≠tournament) 외부 팀은 아직 0건',
-  `SELECT count(*)::int AS n FROM league_teams lt
-     JOIN leagues l ON l.id = lt.league_id
-    WHERE l.mode <> 'tournament' AND lt.is_external = true`,
-  rows => rows[0].n === 0 || `리그형인데 외부 팀이 벌써 ${rows[0].n}건 있음`
+  '외부 팀은 아직 0건',
+  `SELECT count(*)::int AS n FROM league_teams WHERE is_external = true`,
+  rows => rows[0].n === 0 || `외부 팀이 벌써 ${rows[0].n}건 있음`
 )
 
 // ── Task 4: 회귀 방지 — 단계 1 은 데이터를 바꾸지 않았다 ──
@@ -178,25 +172,21 @@ const BASELINE_LEAGUES = `
 await check(
   `기존 조직의 경기(2026-08-04 이전) · 선수 · 이벤트 건수 불변`,
   `SELECT
-     (SELECT count(*)::int FROM league_games  WHERE date <= '${BASELINE_DATE}' AND league_id IN (${BASELINE_LEAGUES})
-        AND league_id NOT IN (SELECT id FROM leagues WHERE org_slug = 'paranalgae' AND mode = 'tournament')) AS games,
-     (SELECT count(*)::int FROM league_players WHERE league_id IN (${BASELINE_LEAGUES}) AND league_id NOT IN
-        (SELECT id FROM leagues WHERE org_slug = 'paranalgae' AND mode = 'tournament'))                                 AS players,
+     (SELECT count(*)::int FROM league_games  WHERE date <= '${BASELINE_DATE}' AND league_id IN (${BASELINE_LEAGUES})) AS games,
+     (SELECT count(*)::int FROM league_players WHERE league_id IN (${BASELINE_LEAGUES}))                               AS players,
      (SELECT count(*)::int FROM league_game_events WHERE league_game_id IN
         (SELECT id FROM league_games WHERE league_id IN (${BASELINE_LEAGUES})))                                         AS events,
-     (SELECT count(*)::int FROM league_teams  WHERE league_id IN (${BASELINE_LEAGUES}) AND league_id NOT IN
-        (SELECT id FROM leagues WHERE org_slug = 'paranalgae' AND mode = 'tournament'))                                 AS teams`,
+     (SELECT count(*)::int FROM league_teams  WHERE league_id IN (${BASELINE_LEAGUES}))                                AS teams`,
   rows => {
     const r = rows[0]
-    // 2026-08-04 단계 1 착수 시점 실측값 — games 는 그 날짜까지, 전부 기존 두 조직으로 스코프됨
-    // 081: 친선전 기능 제거로 빈 슬롯 8건 삭제 (279 → 271). 이벤트는 0건이라 events 는 불변.
-    // teams/players: 통일 단계 B(migrate-legacy.mjs) 가 paranalgae 를 대회형으로 이관하며 league_teams 가
-    //   정당하게 45건(우리팀 2 + 외부 43), league_players 가 68건 늘었다 — 이 체크는 "기존 데이터가
-    //   안 바뀌었는가"가 목적이므로 새로 생긴 대회형 리그(paranalgae/mode=tournament)의 행은 빼고 센다.
-    //   (단계 2 에서 players 에도 같은 제외를 추가했다 — teams 는 단계 1 에서 이미 이 형태였다.)
+    // 2026-08-04 단계 1 착수 시점 실측값 — games 는 그 날짜까지, 전부 기존 두 조직으로 스코프됨.
+    // 081: 친선전 기능 제거로 빈 슬롯 8건 삭제 (279 → 271).
+    // 대회형 통일 시도가 되돌려지며(2026-08-05) paranalgae 를 리그 테이블로 복제했던 행이 전부
+    // 삭제됐다 — "대회형 제외" NOT IN 서브쿼리는 이제 아무것도 빼지 않으므로 단순한 형태로
+    // 되돌린다(단순화 전후 숫자가 같음을 실측으로 확인했다).
     if (r.games !== 271) return `games(~${BASELINE_DATE}) 기대 271, 실제 ${r.games}`
-    if (r.players !== 45) return `players(대회형 제외) 기대 45, 실제 ${r.players}`
-    if (r.teams !== 3) return `league_teams(대회형 제외) 기대 3, 실제 ${r.teams}`
+    if (r.players !== 45) return `players 기대 45, 실제 ${r.players}`
+    if (r.teams !== 3) return `league_teams 기대 3, 실제 ${r.teams}`
     if (r.events <= 0) return `events 가 0건`
     return true
   }
@@ -330,23 +320,9 @@ await check(
   (rows) => rows[0].n === 13,
 )
 
-// 단계 A 는 스키마만 준비한다 — 데이터는 단계 B 에서 옮긴다. 단계 B-2(migrate-legacy.mjs 의
-//   migratePlayers)가 파란날개 선수 68명을, 단계 B-4(migrateEvents)가 이벤트 5993건을
-//   옮기면서 각각 legacy_id 가 채워지는 것은 정상이다 — 이 어서션은 원래 "이벤트는 아직 0"을
-//   기대했으나, 단계 B-4 가 실제로 이벤트를 이관했으므로 5993 으로 갱신한다. 갱신하는 이유는
-//   이 값이 이관 결과의 실측치이지 임의로 정한 목표가 아니기 때문이다 — 체크 자체(경기·선수·
-//   이벤트가 항상 함께, 정해진 건수로 이관된다)는 그대로 유지한다.
-await check(
-  '단계 B-4 까지 선수·경기·이벤트가 이관됐다',
-  `SELECT
-     (SELECT count(*)::int FROM league_games       WHERE legacy_id IS NOT NULL) AS g,
-     (SELECT count(*)::int FROM league_players     WHERE legacy_id IS NOT NULL) AS p,
-     (SELECT count(*)::int FROM league_game_events WHERE legacy_id IS NOT NULL) AS e`,
-  (rows) => rows[0].g === 50 && rows[0].p === 68 && rows[0].e === 5993,
-)
-
 // 기존 리그 선수 45명은 새 기본값을 받아야 한다 — NOT NULL 기본값이 제대로 먹었는지 확인.
-//   (파란날개 이관 후에는 is_pro 7명이 생기므로, 그 시점에 이 단언은 단계 B 에서 갱신한다.)
+//   (대회형 통일 시도가 되돌려져 legacy_id 는 전 테이블 0건이다 — legacy_id IS NULL 조건은
+//   지금은 항상 참이지만, 컬럼 자체는 083 마이그레이션 유산으로 남겨둔다.)
 await check(
   '기존 선수는 전원 비선출·활동중 기본값',
   `SELECT count(*)::int AS n FROM league_players WHERE legacy_id IS NULL AND (is_pro OR NOT is_active)`,
