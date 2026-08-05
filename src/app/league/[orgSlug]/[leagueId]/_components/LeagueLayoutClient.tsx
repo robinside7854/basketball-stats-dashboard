@@ -7,6 +7,8 @@ import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
 import { LeagueAuthProvider, useCurrentUser } from '@/contexts/LeagueAuthContext'
+import { useLeagueMode } from '@/contexts/LeagueModeContext'
+import { hasDraft } from '@/lib/league/mode'
 import { Lock, Unlock, Sun, Moon, Home, Users, BarChart2, Calendar, MoreHorizontal, X, ClipboardList, Settings, Newspaper, HelpCircle, LogIn, LogOut, User as UserIcon } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -29,6 +31,9 @@ function TabNav({ orgSlug, leagueId, onOpenLogin, showDraft }: { orgSlug: string
   const { isEditMode, isAdminSession, openPinModal, exitEditMode } = useLeagueEditMode()
   const { theme, setTheme } = useTheme()
   const { user, loading: authLoading, logout } = useCurrentUser()
+  const mode = useLeagueMode()
+  // 대회형(파란날개)엔 드래프트 개념이 없다 — 진행 중 세션이 있어도(showDraft) 탭엔 안 띄운다.
+  const draftVisible = showDraft && hasDraft(mode)
 
   // #5 가입 승인 대기 배지 — 가입 접수 시 저장한 플래그(로그인되면 해제)
   const [signupPending, setSignupPending] = useState(false)
@@ -52,7 +57,7 @@ function TabNav({ orgSlug, leagueId, onOpenLogin, showDraft }: { orgSlug: string
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/record`] },
     { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`] },
     { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`, `${base}/archive`] },
-    ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
+    ...(draftVisible ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
     ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', match: [`${base}/settings`] }] : []),
   ]
   const tabActive = (tab: { href: string; match: string[] }) =>
@@ -215,6 +220,9 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
   const pathname = usePathname()
   const [moreOpen, setMoreOpen] = useState(false)
   const { isEditMode } = useLeagueEditMode()
+  const mode = useLeagueMode()
+  // 대회형(파란날개)엔 드래프트 개념이 없다 — 진행 중 세션이 있어도(showDraft) 탭엔 안 띄운다.
+  const draftVisible = showDraft && hasDraft(mode)
   const base = deriveLeagueBase(pathname, orgSlug, leagueId)
 
   // 모바일 4대 주요 탭 — 어워즈는 스탯 우산, 공지 아카이브는 하이라이트 우산으로 통합됨
@@ -228,7 +236,7 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
   // 설정은 편집 모드일 때만 더보기에 노출 (어드민 은닉)
   const moreTabs = [
     { href: `${base}/highlights`, label: '하이라이트', Icon: Newspaper },
-    ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', Icon: ClipboardList }] : []),
+    ...(draftVisible ? [{ href: `${base}/draft`, label: '드래프트', Icon: ClipboardList }] : []),
     ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', Icon: Settings }] : []),
   ]
 
