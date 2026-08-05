@@ -12,6 +12,7 @@ import { Toaster } from '@/components/ui/sonner'
 
 const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
 import PresenceIndicator from '@/components/league/auth/PresenceIndicator'
+import CompetitionSwitcher from '@/components/league/CompetitionSwitcher'
 
 // 미들웨어가 slug URL(/league/miracle/2026)을 UUID 경로로 internal rewrite 하므로
 // useParams()/props 의 leagueId 는 UUID 지만, usePathname() 은 브라우저의 slug URL 을 반환한다.
@@ -385,6 +386,10 @@ function LeagueLayout({
     <LeagueEditModeProvider leagueId={leagueId}>
     <LeagueQuarterProvider leagueId={leagueId}>
       <div className="min-h-screen bg-[color:var(--mm-ground)] text-[color:var(--mm-ink-soft)]">
+        {/* 경기묶음 전환 — 탭 위 계층이라 탭 바(TabNav/BottomNav)보다 먼저 배치.
+            데스크톱·모바일 어느 쪽에서 보든 이 지점이 공통이라 양쪽에서 닿는다.
+            묶음이 1개뿐이면(현재 미라클 일반 회원) 컴포넌트가 null 을 반환해 화면이 지금과 동일하다. */}
+        <CompetitionSwitcher orgSlug={orgSlug} leagueId={leagueId} />
         <TabNav
           orgSlug={orgSlug}
           leagueId={leagueId}
