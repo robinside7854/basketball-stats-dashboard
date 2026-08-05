@@ -21,6 +21,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
+import { canViewStats } from '@/lib/auth/guard'
 
 const FIELD_SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post']
 type Category = 'pts' | 'reb' | 'ast' | 'blk' | 'stl' | 'tp'
@@ -31,6 +32,11 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
+  // 스탯 게이팅 — 형제 라우트(leader-badges/route.ts)와 동일한 데이터 클래스(부문 리더 상세 날짜)이므로
+  // 같은 가드를 걸어야 한다. 이전에는 이 라우트만 가드가 빠져 있었음 (2026-08-05 발견·수정).
+  if (!(await canViewStats(req, leagueId))) {
+    return NextResponse.json({ error: 'login_required' }, { status: 401 })
+  }
   const sp = new URL(req.url).searchParams
   const playerId = sp.get('playerId')
   const category = sp.get('category') as Category | null
