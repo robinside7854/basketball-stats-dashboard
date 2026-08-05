@@ -400,5 +400,20 @@ await check(
   (r) => r[0].g === 50 && r[0].e === 5993 && r[0].p === 68 && r[0].t === 12,
 )
 
+// 085 — 수기 점수 보호. 이게 풀리면 이벤트 수정 한 번에 상대 점수가 깎인다.
+await check(
+  '이관 경기는 전부 수기 점수로 표시돼 있다',
+  `SELECT count(*)::int n FROM league_games WHERE legacy_id IS NOT NULL AND NOT scores_manual`,
+  (r) => r[0].n === 0,
+)
+
+// 리그형(미라클)은 여전히 이벤트에서 유도해야 한다 — 보호가 과하게 걸리면 그것도 버그다.
+await check(
+  '미라클 경기에는 수기 점수 표시가 없다',
+  `SELECT count(*)::int n FROM league_games
+    WHERE league_id = '8eda8257-8907-4bf3-a7de-e5e7fde54a89' AND scores_manual`,
+  (r) => r[0].n === 0,
+)
+
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exit(failed === 0 ? 0 : 1)
