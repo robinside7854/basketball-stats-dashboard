@@ -65,16 +65,22 @@ await check(
      JOIN teams t ON t.id = l.team_id
      JOIN orgs  o ON o.id = t.org_id
     WHERE o.slug IN ${BASELINE_ORGS}
-    ORDER BY l.org_slug`,
+    ORDER BY l.org_slug, l.mode`,
   rows => {
     const got = rows.map(r => `${r.org_slug}→${r.org}/${r.sub_slug}:${r.mode}`)
     // 대회형 통일 시도(마이그레이션 074~085)는 되돌려졌다(2026-08-05) — 파란날개를
     // 리그 테이블로 복제했던 leagues 2건(mode='tournament')은 삭제됐고, legacy_id 는
-    // 전 테이블 0건이다. 두 제품은 구조가 다른 별개 제품으로 유지하기로 확정됐으므로
-    // (docs/superpowers/specs/2026-08-05-tournament-league-unification-design.md 상단 메모
-    // 참고) 여기 기대값도 "리그형 두 건만 존재"로 되돌린다.
+    // 전 테이블 0건이다. 두 제품은 구조가 다른 별개 제품으로 유지하기로 확정됐다
+    // (docs/superpowers/specs/2026-08-05-tournament-league-unification-design.md 상단 메모).
+    //
+    // 이후 별개 시험(2026-08-05, docs/superpowers/plans/2026-08-05-team-competitions-trial.md)
+    // 에서 미라클 한 팀에 한해 "그릇(팀·명단·선수 정체성)은 공유하고 화면은 분리"하는
+    // 방식으로 leagues(team_id, season_year, slug) UNIQUE 를 이용해 대회 묶음
+    // (mode='tournament', slug='2026-tournament')을 추가했다 — 위에서 되돌려진, 화면을
+    // 합쳤던 시도와는 다르다. 파란날개는 여전히 리그형 한 건뿐이어야 한다.
     const want = [
       'miracle→miracle/main:league',
+      'miracle→miracle/main:tournament',
       'pana-basket-senior→paranalgae/senior:league',
     ]
     return JSON.stringify(got) === JSON.stringify(want) || `기대 ${JSON.stringify(want)}, 실제 ${JSON.stringify(got)}`

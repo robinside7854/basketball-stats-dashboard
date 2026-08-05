@@ -58,6 +58,11 @@ check('표준 룰: 플러스원 보너스 없음 · 자유투 ft_2pt=2 (국내 �
 // 미라클 이벤트를 전부 읽어 모듈 계산 합계를 구한다.
 // 저장값(7,108)이 아니라 룰 계산값(7,114)이 정본이다 — 저장값 6건이 잘못됐고
 // 사용자 확인으로 룰이 맞다고 확정됐다(2026-08-04). Task 7 에서 저장값을 백필한다.
+// 시험(2026-08-05, team-competitions-trial)으로 미라클에 leagues 행이 하나 더
+// 생겼다(mode='tournament', 경기 0건) — org_slug 만으로 걸면 스칼라 서브쿼리가
+// 두 행을 돌려줘 SQL 이 실패한다. 이 기준선은 "리그 시즌" 것이므로 mode='league'
+// 로 명시해 새 대회 묶음이 섞이지 않게 한다(대회는 아직 경기가 없어 섞여도 값이
+// 안 변하지만, 명시하지 않으면 다음에 대회 경기가 쌓였을 때 조용히 새어 든다).
 const rows = await query(`
   SELECT e.id, e.type, e.result, e.points,
          ((g.plus_one_player_id IS NOT NULL AND e.league_player_id = g.plus_one_player_id)
@@ -65,7 +70,7 @@ const rows = await query(`
     FROM league_game_events e
     JOIN league_games   g ON g.id = e.league_game_id
     JOIN league_players p ON p.id = e.league_player_id
-   WHERE g.league_id = (SELECT id FROM leagues WHERE org_slug = 'miracle')`)
+   WHERE g.league_id = (SELECT id FROM leagues WHERE org_slug = 'miracle' AND mode = 'league')`)
 
 const total = rows.reduce((sum, r) => sum + scorePoints(r.type, r.result, r.is_p1, MIRACLE), 0)
 
@@ -90,8 +95,10 @@ const env = Object.fromEntries(
 )
 const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
 
+// 여기도 마찬가지로 mode='league' 로 명시 — 아니면 두 행 중 어느 게 뽑힐지
+// 정렬 순서에 의존하게 된다(우연히 통과하는 테스트가 되는 걸 피한다).
 const [{ id: miracleLeagueId } = {}] = await query(
-  `SELECT id FROM leagues WHERE org_slug = 'miracle'`)
+  `SELECT id FROM leagues WHERE org_slug = 'miracle' AND mode = 'league'`)
 
 const miracleRules = miracleLeagueId
   ? await fetchScoringRules(supabase, miracleLeagueId)
