@@ -11,6 +11,7 @@ import PlayerHighlightsBrowser from '@/components/highlights/PlayerHighlightsBro
 import { loadPlayerHighlights } from '@/lib/highlights/loader'
 import StatGate from '@/components/league/auth/StatGate'
 import { getApprovedSession } from '@/lib/auth/guard'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 const getCached = (leagueId: string, playerId: string) =>
   unstable_cache(
@@ -46,12 +47,15 @@ export default async function PlayerHighlightsPage({
   if (!data) notFound()
 
   // 핀 상태 · 편집 UI 활성화용 (초기값만 서버에서 · 이후 클라이언트 상태)
+  // team_id 로 소속을 확인한다 — 명단은 팀 소유라 이 선수 행의 출생 league_id 가
+  // 지금 보고 있는 leagueId 와 다를 수 있다.
   const sb = createClient()
+  const teamId = await resolveTeamId(leagueId)
   const { data: pinRow } = await sb
     .from('league_players')
     .select('pinned_event_ids')
     .eq('id', playerId)
-    .eq('league_id', leagueId)
+    .eq('team_id', teamId)
     .maybeSingle()
   const pinnedEventIds = (pinRow as { pinned_event_ids: string[] | null } | null)?.pinned_event_ids ?? []
 

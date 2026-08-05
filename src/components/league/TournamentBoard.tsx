@@ -7,10 +7,11 @@
 //   src/app/league/[orgSlug]/[leagueId]/highlights/page.tsx
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Trophy, ChevronRight, CalendarRange } from 'lucide-react'
+import { Trophy, ChevronRight, CalendarRange, UserCheck } from 'lucide-react'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
+import TournamentRosterPanel from '@/components/league/TournamentRosterPanel'
 
 // ── 성적 판정 규칙 — 레거시에서 그대로 옮겨왔다(새로 만들지 않음) ──────────────
 //   출처: src/app/(main)/[org]/[team]/tournaments/page.tsx 의 ROUND_ORDER / getTournamentSummary
@@ -100,6 +101,8 @@ export default function TournamentBoard({
   const { isEditMode, leagueHeaders } = useLeagueEditMode()
   const [quarters, setQuarters] = useState<ApiQuarter[] | null>(null)
   const [games, setGames] = useState<ApiGame[] | null>(null)
+  // 참가 인원 등록 패널 — 편집 권한자가 특정 대회 카드에서 열면 그 quarter 를 담는다.
+  const [rosterQuarter, setRosterQuarter] = useState<ApiQuarter | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -249,11 +252,32 @@ export default function TournamentBoard({
                 )}
               </div>
 
-              {clickable && (
-                <div className="mt-3 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
-                  경기 목록 <ChevronRight size={12} />
-                </div>
-              )}
+              <div className="mt-3 flex items-center justify-between gap-2">
+                {clickable ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
+                    경기 목록 <ChevronRight size={12} />
+                  </span>
+                ) : <span />}
+
+                {isEditMode && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      // cardInner 가 Link 안에 들어갈 수 있어 클릭이 그 위로 새면 경기 목록으로
+                      // 이동해버린다 — 버튼 클릭은 등록 패널만 열어야 하므로 여기서 끊는다.
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setRosterQuarter(q)
+                    }}
+                    className="inline-flex items-center gap-1 min-h-[36px] px-2.5 text-[11px] font-bold uppercase tracking-[0.08em] rounded-sm cursor-pointer transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                    style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                    aria-label={`${q.name ?? '대회'} 참가 인원 등록`}
+                  >
+                    <UserCheck size={12} aria-hidden />
+                    참가 등록
+                  </button>
+                )}
+              </div>
             </>
           )
 
@@ -281,6 +305,15 @@ export default function TournamentBoard({
           )
         })}
       </div>
+
+      {rosterQuarter && (
+        <TournamentRosterPanel
+          leagueId={leagueId}
+          quarterId={rosterQuarter.id}
+          quarterName={rosterQuarter.name ?? '대회'}
+          onClose={() => setRosterQuarter(null)}
+        />
+      )}
     </div>
   )
 }

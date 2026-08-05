@@ -15,6 +15,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canViewLeague } from '@/lib/auth/guard'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 interface DraftRow {
   id: string
@@ -60,6 +61,9 @@ export async function GET(
   if (!quarterId) return NextResponse.json({ error: 'quarterId 필요' }, { status: 400 })
 
   const supabase = createClient()
+  // 드래프트 풀 후보는 팀 명단 전체다 — 대회 화면에서만 추가된 선수도 리그 드래프트에서
+  // 뽑을 수 있어야 "명단 공유"가 실제로 성립한다.
+  const teamId = await resolveTeamId(leagueId)
 
   // 병렬: draft, teams, all players, 팀장, 감독관 코드 존재여부
   const [{ data: draft }, { data: teams }, { data: players }, { data: leaders }, { data: supCode }] = await Promise.all([
@@ -76,7 +80,7 @@ export async function GET(
     supabase
       .from('league_players')
       .select('id, name, number, position, plus_one')
-      .eq('league_id', leagueId)
+      .eq('team_id', teamId)
       .order('name'),
     supabase
       .from('league_team_quarter_leaders')

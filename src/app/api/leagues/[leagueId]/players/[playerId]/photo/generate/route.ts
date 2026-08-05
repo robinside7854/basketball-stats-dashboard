@@ -16,6 +16,7 @@ import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import { createClient } from '@/lib/supabase/admin'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 // 미라클모닝 농구단 공식 프로필 실사 프롬프트
 // 목표: NBA 공식 팀 프로필 촬영 세션 스타일의 일관된 실사 초상화
@@ -170,11 +171,13 @@ export async function POST(
   // 1) 원본/현재 사진 URL 조회
   //    original_photo_url 우선 (사용자가 업로드한 실제 원본)
   //    없으면 photo_url 폴백 (기존 데이터 호환)
+  // 사진은 사람 단위 속성이라 팀 전체에서 공유된다 — team_id 로 소속을 확인한다.
+  const teamId = await resolveTeamId(leagueId)
   const { data: player, error: pErr } = await supabase
     .from('league_players')
     .select('photo_url, original_photo_url, name')
     .eq('id', playerId)
-    .eq('league_id', leagueId)
+    .eq('team_id', teamId)
     .single()
 
   if (pErr || !player) {
@@ -269,7 +272,7 @@ export async function POST(
       .from('league_players')
       .update({ photo_url: urlWithBust })
       .eq('id', playerId)
-      .eq('league_id', leagueId)
+      .eq('team_id', teamId)
     if (updateErr) throw updateErr
 
     return NextResponse.json({ url: urlWithBust, cost_estimate_usd: 0.039 })

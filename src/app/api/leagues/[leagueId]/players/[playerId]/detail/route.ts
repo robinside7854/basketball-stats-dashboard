@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { evaluateAllBadges, type PlayerCareerInput, type TeamAverages } from '@/lib/stats/badges'
 import { canViewStats } from '@/lib/auth/guard'
 import { scorePoints, fetchScoringRules, type ScoringRules } from '@/lib/stats/scoring'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] as const
 
@@ -955,11 +956,14 @@ export async function GET(
   // 프로필카드에 노출할 "내 베스트샷" 핀 (최대 3개)
   let pinned_event_ids: string[] = []
   {
+    // 이 선수 행은 이제 팀 소유다 — 대회 화면에서 보는 선수카드도 league_id 가 아니라
+    // team_id 로 소속을 확인해야 찾아진다(행 자체의 출생 league_id 는 리그일 수 있다).
+    const teamId = await resolveTeamId(leagueId)
     const { data: pinRow } = await supabase
       .from('league_players')
       .select('pinned_event_ids')
       .eq('id', playerId)
-      .eq('league_id', leagueId)
+      .eq('team_id', teamId)
       .maybeSingle()
     pinned_event_ids = (pinRow as { pinned_event_ids: string[] | null } | null)?.pinned_event_ids ?? []
   }

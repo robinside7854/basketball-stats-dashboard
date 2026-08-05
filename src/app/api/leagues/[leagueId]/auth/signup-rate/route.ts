@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { canViewLeague } from '@/lib/auth/guard'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 type AccountStatus = 'pending' | 'approved' | 'rejected' | 'disabled'
 
@@ -29,16 +30,20 @@ export async function GET(
     return NextResponse.json({ error: 'login_required' }, { status: 401 })
   }
   const sb = createClient()
+  // 명단·계정 모두 팀 기준으로 묶는다 — 둘 중 하나만 바꾸면 "대회에선 45명이 다 뜨는데
+  // 전부 미가입으로 보인다"는, 실제보다 더 나쁘게 보이는 화면이 된다(가입율 카드는 이
+  // 두 집합을 함께 보여주는 게 존재 이유라 여기서만은 계정 조회도 함께 바꾼다).
+  const teamId = await resolveTeamId(leagueId)
 
   const [{ data: playerRows, error: pErr }, { data: accountRows }] = await Promise.all([
     sb.from('league_players')
       .select('id, name, is_guest')
-      .eq('league_id', leagueId)
+      .eq('team_id', teamId)
       .order('name', { ascending: true }),
     // 계정 테이블 조회 실패해도 0건으로 처리 (best-effort — 명단 집계는 항상 반환)
     sb.from('league_user_accounts')
       .select('league_player_id, status')
-      .eq('league_id', leagueId),
+      .eq('team_id', teamId),
   ])
   if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 })
 

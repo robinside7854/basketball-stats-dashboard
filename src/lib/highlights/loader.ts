@@ -11,6 +11,7 @@ import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 // scorePoints 로 채점하므로, 여기서도 저장값을 그대로 쓰면 관리자가 룰을 고친 직후
 // 하이라이트 화면만 옛 값으로 클러치를 판정하는 불일치가 생긴다.
 import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { resolveTeamId } from '@/lib/league/teamScope'
 import type {
   HighlightRound, HighlightRoundDetail, HighlightClip,
   HighlightPlayerOption, HighlightTeamOption,
@@ -453,12 +454,15 @@ export async function loadPlayerHighlights(
   leagueId: string,
   playerId: string,
 ): Promise<PlayerHighlightsData | null> {
-  // 1. 선수 정보 (league scope 확인)
+  // 1. 선수 정보 (팀 소속 확인 — 명단은 팀 소유라 이 선수 행의 출생 league_id 가
+  //    지금 보고 있는 leagueId 와 다를 수 있다. league_id 로 확인하면 대회에서 리그
+  //    선수의 하이라이트 페이지를 열 때 "선수를 찾을 수 없습니다"가 뜬다.)
+  const teamId = await resolveTeamId(leagueId)
   const { data: playerRow, error: pErr } = await supabase
     .from('league_players')
     .select('id, name, number, photo_url, league_id')
     .eq('id', playerId)
-    .eq('league_id', leagueId)
+    .eq('team_id', teamId)
     .maybeSingle()
   // 쿼리 실패와 "그런 선수 없음"을 구분한다 — 실패를 null 로 넘기면 존재하는 선수의
   // 하이라이트 페이지가 "선수를 찾을 수 없습니다"로 잘못 보인다.
@@ -968,10 +972,14 @@ export async function loadLeagueBestShots(
 ): Promise<HighlightRoundDetail> {
   const empty: HighlightRoundDetail = { date: '', clips: [], players: [], teams: [] }
 
+  // 핀은 팀 전체 후보에서 찾는다 — 실제로 보여줄 클립은 아래 loadClipsByEventIds 가
+  // league_games.league_id 로 다시 걸러주므로(다른 경기묶음 게임이면 hydrate 안 되고
+  // 스킵된다) 여기서 team_id 로 넓혀도 다른 경기묶음의 핀이 섞여 보이지 않는다.
+  const teamId = await resolveTeamId(leagueId)
   const { data: pinRows, error } = await supabase
     .from('league_players')
     .select('id, name, number, pinned_event_ids')
-    .eq('league_id', leagueId)
+    .eq('team_id', teamId)
     .not('pinned_event_ids', 'is', null)
   // 쿼리 실패를 empty 로 넘기면 "아무도 핀 안 함"과 구분이 안 돼 베스트샷 릴이 조용히 텅 빈다.
   if (error) throw new Error(`loadLeagueBestShots: leagueId=${leagueId} league_players(pinned_event_ids) 조회 실패 — ${error.message}`)

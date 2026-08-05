@@ -27,12 +27,16 @@ export async function POST(
   const pw6 = bdRaw
 
   const sb = createClient()
+  // team_id 를 먼저 구한다 — 명단 매칭도 계정 조회도 이제 팀 기준이다(아래 두 쿼리 모두).
+  const teamId = await resolveTeamId(leagueId)
 
   // 이름 매칭 · 게스트는 계정 대상 아님 · 다수 매치 시 첫 non-guest
+  //   팀 명단 전체에서 찾는다 — league_id 로 좁히면 대회 화면에서 가입을 시도한 회원이
+  //   리그에서 만든 자기 자신을 못 찾아 "등록된 선수를 찾지 못했다"는 오안내를 받는다.
   const { data: candidates } = await sb
     .from('league_players')
     .select('id, name, is_guest, created_at')
-    .eq('league_id', leagueId)
+    .eq('team_id', teamId)
     .eq('name', name)
     .order('created_at', { ascending: true })
 
@@ -50,10 +54,13 @@ export async function POST(
   }
 
   // 기존 계정 확인 (동명이인 방지 · 그 선수에 이미 계정 있으면 재신청 불가)
+  //   계정도 팀 단위 정체성이다(Task 2, league_user_accounts_team_login_uniq) — 이 사람이
+  //   리그에서 이미 가입했다면 대회 화면에서 다시 신청할 때 league_id 로는 못 찾아
+  //   유니크 인덱스 충돌로 500 이 난다. team_id 로 찾아야 "이미 승인된 계정" 안내가 나간다.
   const { data: existing } = await sb
     .from('league_user_accounts')
     .select('id, status')
-    .eq('league_id', leagueId)
+    .eq('team_id', teamId)
     .eq('league_player_id', matched.id)
     .maybeSingle()
 
@@ -71,9 +78,8 @@ export async function POST(
   }
 
   // 신규 pending 계정 생성 · 비번 = 사용자가 입력한 YYMMDD
-  // team_id 를 반드시 채운다 — 로그인 라우트가 이제 team_id 로 계정을 찾는다.
+  // team_id 는 위에서 이미 구했다 — 로그인 라우트가 이제 team_id 로 계정을 찾으므로
   //   여기서 비우면 이 계정으로는 어느 경기묶음에서도 로그인이 안 되는 계정이 생긴다.
-  const teamId = await resolveTeamId(leagueId)
   const password_hash = hashPassword(pw6)
   const { error } = await sb.from('league_user_accounts').insert({
     league_id: leagueId,

@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 export async function POST(
   req: Request,
@@ -15,10 +16,13 @@ export async function POST(
     return NextResponse.json({ error: '선수 목록이 비어 있습니다' }, { status: 400 })
   }
 
+  // team_id 를 채운다 — 대량 등록도 단건 등록(players/route.ts)과 같은 팀 명단으로 들어가야 한다.
+  const teamId = await resolveTeamId(leagueId)
   const rows = players
     .filter((p: { name?: string }) => p.name?.trim())
     .map((p: { name: string; number?: number | null; position?: string | null }) => ({
       league_id: leagueId,
+      team_id: teamId,
       name: p.name.trim(),
       number: p.number ?? null,
       position: p.position?.trim() || null,

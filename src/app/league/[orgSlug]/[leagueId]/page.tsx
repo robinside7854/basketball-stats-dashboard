@@ -25,6 +25,7 @@ import StatGate from '@/components/league/auth/StatGate'
 import { getApprovedSession, isLeaguePrivateGated } from '@/lib/auth/guard'
 import { fetchLeagueMode } from '@/lib/league/competitions'
 import TournamentBoard from '@/components/league/TournamentBoard'
+import { resolveTeamId } from '@/lib/league/teamScope'
 import type { League } from '@/types/league'
 
 // 최근 4주 라운드 요약 — NbaRoundsSummary 용.
@@ -254,10 +255,14 @@ const getCachedPhotoMap = (leagueId: string) =>
   unstable_cache(
     async (): Promise<Record<string, string | null>> => {
       const sb = createClient()
+      // 첫 방문자용 "명단 인원" 표시가 이 맵의 키 수를 쓴다 — 명단은 팀 소유이므로
+      // team_id 로 세야 대회 전용으로 추가된 선수도 빠지지 않는다(이 페이지는 mode='league'
+      // 일 때만 렌더되지만 팀 명단 소스는 어디서 보든 하나여야 한다).
+      const teamId = await resolveTeamId(leagueId)
       const { data } = await sb
         .from('league_players')
         .select('id, photo_url')
-        .eq('league_id', leagueId)
+        .eq('team_id', teamId)
       const map: Record<string, string | null> = {}
       for (const p of (data ?? []) as { id: string; photo_url: string | null }[]) {
         map[p.id] = p.photo_url

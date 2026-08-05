@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { canViewLeague } from '@/lib/auth/guard'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 type Ctx = { params: Promise<{ leagueId: string; gameId: string }> }
 
@@ -96,10 +97,14 @@ export async function GET(
 
   // 분기 여전히 없거나 팀 배정 자체가 없는 경우: 전체 선수를 unassigned로 반환
   if (!resolvedQuarterId || (!game.home_team_id && !game.away_team_id)) {
+    // 팀 명단 전체를 후보로 보여준다 — 대회는 참가 등록(league_player_quarters)이 아직
+    // 없을 수도 있는데, 그렇다고 후보가 0명이면 기록원이 아무도 못 고른다. league_id 로
+    // 좁히면 대회 분기에서 이 폴백이 항상 0명이 된다(핵심 버그와 동일한 원인).
+    const teamId = await resolveTeamId(leagueId)
     const { data: players, error: plErr } = await supabase
       .from('league_players')
       .select('id, name, number, position, is_active')
-      .eq('league_id', leagueId)
+      .eq('team_id', teamId)
       .order('name')
     if (plErr) return queryFailed('선수 명단', plErr.message)
     const filtered = (players ?? []).filter(p => p.is_active !== false || playedIds.has(p.id))

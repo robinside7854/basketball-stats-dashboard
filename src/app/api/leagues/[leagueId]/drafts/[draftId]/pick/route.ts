@@ -16,6 +16,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { verifyDraftCode } from '@/lib/leagueDraftAuth'
 import { newPickDeadline } from '@/lib/draftTimer'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 interface DraftRow {
   id: string
@@ -88,13 +89,16 @@ export async function POST(
     )
   }
 
-  // 선수가 이 리그 소속인지 + 드래프트 풀 대상인지 + 이미 픽되지 않았는지
+  // 선수가 이 팀 소속인지 + 드래프트 풀 대상인지 + 이미 픽되지 않았는지
+  //   league_id 대신 team_id 로 확인한다 — 명단이 공유되므로 대회 화면에서만 추가된
+  //   선수도 이 리그의 드래프트 대상일 수 있다(풀 자체는 league_draft_pool 이 이미 좁힌다).
+  const teamId = await resolveTeamId(leagueId)
   const [{ data: player }, { data: inPool }, { data: existPick }] = await Promise.all([
     supabase
       .from('league_players')
       .select('id')
       .eq('id', body.league_player_id)
-      .eq('league_id', leagueId)
+      .eq('team_id', teamId)
       .maybeSingle(),
     supabase
       .from('league_draft_pool')

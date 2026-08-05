@@ -8,16 +8,21 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { revalidateTag } from 'next/cache'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 const MAX_PINS = 3
 
+// 핀은 league_players.pinned_event_ids 에 저장되는 개인 속성이고, 그 행은 이제 팀 소유다.
+//   league_id 로 소속을 확인하면 대회 화면에서 이 선수 카드를 열었을 때(행의 출생 league_id
+//   는 리그일 수 있다) 찾지 못해 항상 404 가 난다 — team_id 로 바꾼다.
 async function fetchPins(leagueId: string, playerId: string) {
   const sb = createClient()
+  const teamId = await resolveTeamId(leagueId)
   const { data, error } = await sb
     .from('league_players')
     .select('id, pinned_event_ids')
     .eq('id', playerId)
-    .eq('league_id', leagueId)
+    .eq('team_id', teamId)
     .maybeSingle()
   if (error || !data) return null
   return (data as { id: string; pinned_event_ids: string[] | null })
@@ -98,11 +103,12 @@ export async function POST(
     next = order
   }
 
+  const teamId = await resolveTeamId(leagueId)
   const { error: uErr } = await sb
     .from('league_players')
     .update({ pinned_event_ids: next })
     .eq('id', playerId)
-    .eq('league_id', leagueId)
+    .eq('team_id', teamId)
   if (uErr) return NextResponse.json({ error: uErr.message }, { status: 500 })
 
   revalidateTag(`league-${leagueId}-players-${playerId}`, 'max')
