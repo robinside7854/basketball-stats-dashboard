@@ -12,7 +12,7 @@ export function gameSubTabs(isEditMode: boolean): SubTab[] {
 // 상대 분석(정찰) 서브탭은 2026-08-04 제거 — 4개월 미사용 · 멀티테넌트 통합 스키마에서
 // 외부 팀은 is_external 팀으로 표현하므로 별도 스택을 유지할 이유가 없어졌다.
 export const STATS_SUB_TABS: SubTab[] = [
-  { path: '/stats', label: '시즌 통계' },
+  { path: '/stats', label: '시즌 스탯' },
 ]
 
 // 영상 그룹 서브탭(videoSubTabs)은 2026-08-04 제거 — 코치 핀·리뷰를 걷어내니

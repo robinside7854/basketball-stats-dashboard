@@ -264,7 +264,7 @@ export default function StatsPage() {
       <SubTabNav tabs={STATS_SUB_TABS} />
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <h1 className="text-2xl font-bold shrink-0">시즌 통계</h1>
+        <h1 className="text-2xl font-bold shrink-0">시즌 스탯</h1>
         <div className="flex items-center gap-3 flex-wrap">
           <Select value={selectedTId} onValueChange={v => setSelectedTId(v ?? '')}>
             <SelectTrigger className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] w-full sm:w-52">

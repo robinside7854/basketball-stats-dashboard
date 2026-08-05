@@ -11,9 +11,9 @@ import { TEAM_LABELS, type TeamType } from '@/contexts/TeamContext'
 const TAB_DEFS = [
   { path: '',             label: '홈',   icon: Home,          exact: true,  also: [] as string[] },
   { path: '/boxscore',    label: '경기', icon: ClipboardList, exact: false, also: ['/gamelog', '/record'] },
-  { path: '/stats',       label: '통계', icon: BarChart3,     exact: false, also: [] as string[] },
-  { path: '/highlights',  label: '영상', icon: Film,          exact: false, also: [] as string[] },
-  { path: '/roster',      label: '선수', icon: Users,         exact: false, also: [] as string[] },
+  { path: '/stats',       label: '스탯', icon: BarChart3,     exact: false, also: [] as string[] },
+  { path: '/highlights',  label: '하이라이트', icon: Film,    exact: false, also: [] as string[] },
+  { path: '/roster',      label: '라커룸', icon: Users,       exact: false, also: [] as string[] },
 ]
 
 // 편집 모드 전용 6번째 탭
