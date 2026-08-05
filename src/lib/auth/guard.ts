@@ -8,12 +8,15 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
 import { AUTH_COOKIE, verifySession, type SessionPayload } from './session'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { sessionMatchesLeague } from './teamMatch'
 
 // 승인 회원 세션 조회 — 서버 컴포넌트/라우트 공용. 미로그인·미승인 시 null.
+//   판정은 리그(lid) 가 아니라 팀(tid) 기준 — 같은 팀의 다른 경기묶음(리그↔대회)으로
+//   이동해도 로그인이 유지된다. 옛 쿠키 호환은 sessionMatchesLeague 안에서 처리.
 export async function getApprovedSession(leagueId: string): Promise<SessionPayload | null> {
   const jar = await cookies()
   const session = verifySession(jar.get(AUTH_COOKIE)?.value)
-  if (!session || session.lid !== leagueId) return null
+  if (!session || !(await sessionMatchesLeague(session, leagueId))) return null
   const sb = createClient()
   const { data: acc } = await sb
     .from('league_user_accounts')

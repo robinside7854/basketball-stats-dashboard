@@ -8,6 +8,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { hashPassword } from '@/lib/auth/password'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 export async function POST(
   req: Request,
@@ -70,9 +71,13 @@ export async function POST(
   }
 
   // 신규 pending 계정 생성 · 비번 = 사용자가 입력한 YYMMDD
+  // team_id 를 반드시 채운다 — 로그인 라우트가 이제 team_id 로 계정을 찾는다.
+  //   여기서 비우면 이 계정으로는 어느 경기묶음에서도 로그인이 안 되는 계정이 생긴다.
+  const teamId = await resolveTeamId(leagueId)
   const password_hash = hashPassword(pw6)
   const { error } = await sb.from('league_user_accounts').insert({
     league_id: leagueId,
+    team_id: teamId,
     league_player_id: matched.id,
     login_id: matched.name,
     password_hash,

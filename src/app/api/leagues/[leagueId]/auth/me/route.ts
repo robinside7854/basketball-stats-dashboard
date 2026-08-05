@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
 import { AUTH_COOKIE, verifySession } from '@/lib/auth/session'
+import { sessionMatchesLeague } from '@/lib/auth/teamMatch'
 
 export async function GET(
   _req: Request,
@@ -13,7 +14,10 @@ export async function GET(
   const jar = await cookies()
   const token = jar.get(AUTH_COOKIE)?.value
   const session = verifySession(token)
-  if (!session || session.lid !== leagueId) {
+  // 판정은 팀 기준 — 리그에서 로그인한 뒤 대회로 이동해도 같은 사람으로 인식돼야 한다.
+  //   guard.ts/leagueAdmin.ts 와 같은 함수를 쓴다(sessionMatchesLeague) — 네 곳이 갈리면
+  //   화면마다 로그인 유지 여부가 달라진다.
+  if (!session || !(await sessionMatchesLeague(session, leagueId))) {
     return NextResponse.json({ authenticated: false })
   }
 

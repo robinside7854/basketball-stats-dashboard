@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { verifyPassword } from '@/lib/auth/password'
 import { signSession, buildAuthCookieHeader } from '@/lib/auth/session'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 export async function POST(
   req: Request,
@@ -21,10 +22,14 @@ export async function POST(
   }
 
   const sb = createClient()
+  // 계정은 팀 기준으로 찾는다 — league_id 로 찾으면 이 계정이 원래 가입한
+  //   경기묶음에서만 로그인이 되고, 회원이 대회 페이지에서 직접 로그인을 시도하면
+  //   (쿠키 없이 새 브라우저 등) 여기서 못 찾아 로그인 자체가 막힌다.
+  const teamId = await resolveTeamId(leagueId)
   const { data: account } = await sb
     .from('league_user_accounts')
     .select('id, league_player_id, login_id, password_hash, status')
-    .eq('league_id', leagueId)
+    .eq('team_id', teamId)
     .eq('login_id', loginId)
     .maybeSingle()
 
@@ -43,10 +48,12 @@ export async function POST(
   const ok = verifyPassword(password, account.password_hash)
   if (!ok) return NextResponse.json({ error: '아이디 또는 비밀번호가 올바르지 않습니다' }, { status: 401 })
 
-  // 세션 발급
+  // 세션 발급 — tid(팀 id) 를 새로 담는다. lid 는 그대로 둔다(옛 코드가 아직 읽을 수 있고,
+  //   tid 없는 옛 쿠키를 팀으로 유도하는 호환 갈래가 lid 를 필요로 한다 — teamMatch.ts 참고).
   const { token, maxAge } = signSession({
     uid: account.id,
     lid: leagueId,
+    tid: teamId,
     pid: account.league_player_id,
     loginId: account.login_id,
   })

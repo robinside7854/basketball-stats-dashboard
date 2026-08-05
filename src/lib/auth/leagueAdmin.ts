@@ -11,13 +11,21 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
 import { AUTH_COOKIE, verifySession, type SessionPayload } from './session'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
+import { sessionMatchesLeague } from './teamMatch'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
-// 이 리그의 어드민 회원 세션. 미로그인 · 타 리그 세션 · 미승인 · 일반회원이면 null.
+// 이 리그의 어드민 회원 세션. 미로그인 · 타 팀 세션 · 미승인 · 일반회원이면 null.
 export async function getLeagueAdminSession(leagueId: string): Promise<SessionPayload | null> {
   const jar = await cookies()
   const session = verifySession(jar.get(AUTH_COOKIE)?.value)
-  // 세션은 리그 스코프 — 다른 리그에서 받은 쿠키로는 통과 불가
-  if (!session || session.lid !== leagueId) return null
+  // 세션은 팀 스코프 — 같은 팀의 리그↔대회는 통과, 다른 팀 쿠키는 통과 불가.
+  //   (guard.ts 의 getApprovedSession 과 같은 판정 함수 — 네 곳이 갈리면 화면마다
+  //   로그인 유지 여부가 달라진다.)
+  if (!session || !(await sessionMatchesLeague(session, leagueId))) return null
+
+  // 계정 조회도 팀 기준으로 — league_id 로 찾으면 이 리그에서 발급된 계정만 보여서,
+  //   같은 팀의 다른 경기묶음(대회)으로 넘어온 어드민이 여기서 막힌다.
+  const teamId = await resolveTeamId(leagueId)
 
   // 마이그레이션 072 실행 전이면 role 컬럼이 없어 이 쿼리가 실패한다 → acc=null →
   // 어드민 불가로 "닫히고" canEditLeague 는 PIN 폴백으로 넘어간다 (fail-closed, 안전).
@@ -26,7 +34,7 @@ export async function getLeagueAdminSession(leagueId: string): Promise<SessionPa
     .from('league_user_accounts')
     .select('id, status, role')
     .eq('id', session.uid)
-    .eq('league_id', leagueId)
+    .eq('team_id', teamId)
     .maybeSingle()
   if (!acc || acc.status !== 'approved' || acc.role !== 'admin') return null
   return session

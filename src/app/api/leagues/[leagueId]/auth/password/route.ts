@@ -6,6 +6,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
 import { AUTH_COOKIE, verifySession } from '@/lib/auth/session'
 import { hashPassword, verifyPassword } from '@/lib/auth/password'
+import { sessionMatchesLeague } from '@/lib/auth/teamMatch'
 
 export async function PATCH(
   req: Request,
@@ -14,7 +15,8 @@ export async function PATCH(
   const { leagueId } = await params
   const jar = await cookies()
   const session = verifySession(jar.get(AUTH_COOKIE)?.value)
-  if (!session || session.lid !== leagueId) {
+  // 팀 기준 판정 — guard.ts/leagueAdmin.ts/auth-me 와 같은 함수(sessionMatchesLeague).
+  if (!session || !(await sessionMatchesLeague(session, leagueId))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
