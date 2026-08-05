@@ -11,6 +11,7 @@ import PlayerHighlightsBrowser from '@/components/highlights/PlayerHighlightsBro
 import { loadPlayerHighlights } from '@/lib/highlights/loader'
 import StatGate from '@/components/league/auth/StatGate'
 import { getApprovedSession } from '@/lib/auth/guard'
+import { fetchLeagueMode, segmentLabel } from '@/lib/league/mode'
 
 const getCached = (leagueId: string, playerId: string) =>
   unstable_cache(
@@ -42,7 +43,10 @@ export default async function PlayerHighlightsPage({
   }
   const base = `/league/${orgSlug}/${leagueId}`
 
-  const data = await getCached(leagueId, playerId)()
+  const [data, mode] = await Promise.all([
+    getCached(leagueId, playerId)(),
+    fetchLeagueMode(leagueId),
+  ])
   if (!data) notFound()
 
   // 핀 상태 · 편집 UI 활성화용 (초기값만 서버에서 · 이후 클라이언트 상태)
@@ -114,7 +118,7 @@ export default async function PlayerHighlightsPage({
             </div>
             <p className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>
               총 {data.clips.length}개 클립
-              {data.quarters.length > 0 && <> · {data.quarters.length}분기</>}
+              {data.quarters.length > 0 && <> · {data.quarters.length}{segmentLabel(mode)}</>}
               {data.shotTypes.length > 0 && <> · {data.shotTypes.length}유형</>}
             </p>
           </div>

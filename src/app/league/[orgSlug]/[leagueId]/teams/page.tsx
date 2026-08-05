@@ -8,6 +8,8 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import Link from 'next/link'
 import TeamInsights from '@/components/league/TeamInsights'
 import SectionCard from '@/components/league/ui/SectionCard'
+import { useLeagueMode } from '@/contexts/LeagueModeContext'
+import { segmentLabel } from '@/lib/league/mode'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { PercentBar } from '@/components/league/StatCell'
@@ -785,6 +787,7 @@ function TeamDetailPanel({
 export default function LeagueTeamsPage() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
+  const mode = useLeagueMode()
 
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [selectedQId, setSelectedQId] = useState<string | 'all'>('all')
@@ -1047,7 +1050,7 @@ export default function LeagueTeamsPage() {
 
   if (quarters.length === 0) return (
     <div className="mm-brand text-center py-16" style={{ color: 'var(--mm-muted)' }}>
-      <p className="text-sm">등록된 분기가 없습니다</p>
+      <p className="text-sm">등록된 {segmentLabel(mode)}가 없습니다</p>
       <Link href={rosterHref} className="inline-block mt-3 text-xs font-bold uppercase tracking-wider hover:underline" style={{ color: 'var(--mm-ink-soft)' }}>→ 선수단 탭으로 이동</Link>
     </div>
   )
