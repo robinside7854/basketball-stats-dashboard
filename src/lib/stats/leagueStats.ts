@@ -61,10 +61,12 @@ export async function computeLeagueStats(
   } = opts
 
   // 1) 선수 메타 + plus_one 플래그
-  const { data: allLeaguePlayers } = await sb
+  const { data: allLeaguePlayers, error: playersErr } = await sb
     .from('league_players')
     .select('id, name, number, position, plus_one, photo_url')
     .eq('league_id', leagueId)
+  // 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점되고, 이름/사진도 통째로 빠진다.
+  if (playersErr) throw new Error(`computeLeagueStats: leagueId=${leagueId} league_players 조회 실패 — ${playersErr.message}`)
 
   const plusOneSet = new Set((allLeaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
   const metaMap = Object.fromEntries((allLeaguePlayers ?? []).map(p => [p.id, p]))
@@ -333,10 +335,12 @@ export async function computeLeagueStats(
   //   출전시간이 기록된 게임을 gp 집합에 합친다. 이벤트가 전혀 없는 선수를 새로 리더보드에
   //   등장시키는 것은 별개 판단(0줄 스탯으로 노출할지)이라 `if (!s) continue` 로 범위를 지킨다 —
   //   gp 는 아래에서 gpMap 크기로 산출되므로, 이벤트 루프보다 먼저 이 매핑을 채워 둔다.
-  const { data: minutesRows } = await sb
+  const { data: minutesRows, error: minutesErr } = await sb
     .from('league_player_minutes')
     .select('league_player_id, league_game_id, in_time, out_time')
     .in('league_game_id', gameIds)
+  // 조용히 넘기면 이벤트가 없던 스틴트의 gp 보정이 빠져, 위 주석(Task 4)이 고친 문제가 도로 생긴다.
+  if (minutesErr) throw new Error(`computeLeagueStats: leagueId=${leagueId} league_player_minutes 조회 실패 — ${minutesErr.message}`)
   for (const m of (minutesRows ?? []) as { league_player_id: string | null; league_game_id: string; in_time: number | null; out_time: number | null }[]) {
     if (!m.league_player_id) continue
     const s = statsMap[m.league_player_id]

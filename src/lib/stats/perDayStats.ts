@@ -63,7 +63,9 @@ export async function computePerDayStats(
     .eq('is_started', true)
   if (opts.quarterId) gQuery = gQuery.eq('quarter_id', opts.quarterId)
 
-  const { data: games } = await gQuery
+  const { data: games, error: gErr } = await gQuery
+  // 쿼리 실패를 빈 배열로 넘기면 "경기 없음"과 구분이 안 돼 스트릭/마일스톤이 조용히 리셋된다.
+  if (gErr) throw new Error(`computePerDayStats: leagueId=${leagueId} league_games 조회 실패 — ${gErr.message}`)
   const gameRows = (games ?? []) as Array<{
     id: string; date: string
     home_team_id: string | null; away_team_id: string | null
@@ -81,10 +83,12 @@ export async function computePerDayStats(
   // 채점 룰 + 리그 전체 플러스원 플래그 — 게임별 plus_one_player_id 는 이미 gameRows 에 있다.
   // leagueStats.ts 와 동일 판정: 게임 지정이 있으면 그 선수, 없으면 선수의 plus_one 플래그.
   const rules: ScoringRules = await fetchScoringRules(supabase, leagueId)
-  const { data: leaguePlayers } = await supabase
+  const { data: leaguePlayers, error: lpErr } = await supabase
     .from('league_players')
     .select('id, plus_one')
     .eq('league_id', leagueId)
+  // 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점된다 (scoring.ts 와 동일 이유로 throw).
+  if (lpErr) throw new Error(`computePerDayStats: leagueId=${leagueId} league_players(plus_one) 조회 실패 — ${lpErr.message}`)
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id as string))
   // 외부(상대) 팀 이벤트는 경기일 집계 대상이 아니다 — leagueStats.ts 와 동일하게 이벤트 단위로 거른다.
   const externalTeamIds = await fetchExternalTeamIds(supabase, leagueId)
@@ -102,12 +106,14 @@ export async function computePerDayStats(
   }
   const events: EvRow[] = []
   for (let p = 0; ; p++) {
-    const { data: chunk } = await supabase
+    const { data: chunk, error: evErr } = await supabase
       .from('league_game_events')
       .select('league_game_id, league_player_id, related_player_id, team_id, type, result, points')
       .in('league_game_id', gameIds)
       .order('id', { ascending: true })
       .range(p * PAGE, (p + 1) * PAGE - 1)
+    // 페이지 중간 실패를 "더 이상 없음"과 같은 걸로 취급하면 뒷부분 경기일이 통째로 빠진다.
+    if (evErr) throw new Error(`computePerDayStats: leagueId=${leagueId} league_game_events 페이지네이션(p=${p}) 실패 — ${evErr.message}`)
     if (!chunk || chunk.length === 0) break
     for (const e of chunk as EvRow[]) {
       if (e.team_id && externalTeamIds.has(e.team_id)) continue
@@ -237,10 +243,11 @@ export async function fetchPlayerMeta(
   supabase: SupabaseClient,
   leagueId: string,
 ): Promise<Record<string, { name: string; number: number | null }>> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('league_players')
     .select('id, name, number')
     .eq('league_id', leagueId)
+  if (error) throw new Error(`fetchPlayerMeta: leagueId=${leagueId} league_players 조회 실패 — ${error.message}`)
   const map: Record<string, { name: string; number: number | null }> = {}
   for (const p of (data ?? []) as { id: string; name: string; number: number | null }[]) {
     map[p.id] = { name: p.name, number: p.number }

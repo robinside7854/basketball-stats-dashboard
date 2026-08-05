@@ -68,11 +68,13 @@ export async function computeMilestones(
   const maxRecent = Math.max(1, opts.maxRecent ?? 8)
 
   // 1) 게임 목록 (is_started=true) — 날짜/youtube 매핑 + 게임별 플러스원 지정 확보
-  const { data: games } = await sb
+  const { data: games, error: gErr } = await sb
     .from('league_games')
     .select('id, date, youtube_url, plus_one_player_id')
     .eq('league_id', leagueId)
     .eq('is_started', true)
+  // 쿼리 실패를 빈 배열로 넘기면 "경기 없음"과 구분이 안 돼 마일스톤 트래커가 조용히 텅 빈다.
+  if (gErr) throw new Error(`computeMilestones: leagueId=${leagueId} league_games 조회 실패 — ${gErr.message}`)
   const gameRows = (games ?? []) as Array<{ id: string; date: string; youtube_url: string | null; plus_one_player_id: string | null }>
   if (gameRows.length === 0) {
     return { upcoming: [], recent: [] }
@@ -105,12 +107,14 @@ export async function computeMilestones(
   const events: EvRow[] = []
   const PAGE = 1000
   for (let p = 0; ; p++) {
-    const { data: chunk } = await sb
+    const { data: chunk, error: evErr } = await sb
       .from('league_game_events')
       .select('id, league_game_id, league_player_id, related_player_id, team_id, type, result, points, video_timestamp, created_at')
       .in('league_game_id', gameIds)
       .order('id', { ascending: true })
       .range(p * PAGE, (p + 1) * PAGE - 1)
+    // 페이지 중간 실패를 "더 이상 없음"과 같은 걸로 취급하면 뒷부분 이벤트가 빠져 임계값 crossing 을 놓친다.
+    if (evErr) throw new Error(`computeMilestones: leagueId=${leagueId} league_game_events 페이지네이션(p=${p}) 실패 — ${evErr.message}`)
     if (!chunk || chunk.length === 0) break
     events.push(...(chunk as EvRow[]))
     if (chunk.length < PAGE) break
@@ -118,7 +122,9 @@ export async function computeMilestones(
 
   const playerMeta = await playerMetaPromise
   const rules: ScoringRules = await rulesPromise
-  const { data: plusOneRows } = await plusOnePromise
+  const { data: plusOneRows, error: plErr } = await plusOnePromise
+  // 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점된다 (scoring.ts 와 동일 이유로 throw).
+  if (plErr) throw new Error(`computeMilestones: leagueId=${leagueId} league_players(plus_one) 조회 실패 — ${plErr.message}`)
   const plusOneSet = new Set((plusOneRows ?? []).filter(p => p.plus_one).map(p => p.id as string))
   const externalTeamIds = await externalTeamIdsPromise
   const internalEvents = events.filter(e => !(e.team_id && externalTeamIds.has(e.team_id)))

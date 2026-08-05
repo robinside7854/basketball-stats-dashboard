@@ -84,7 +84,9 @@ export async function computeClutchStats(
     .eq('is_exhibition', false)  // 친선전 제외
   if (opts.quarterId) gQuery = gQuery.eq('quarter_id', opts.quarterId)
 
-  const { data: games } = await gQuery
+  const { data: games, error: gErr } = await gQuery
+  // 쿼리 실패를 빈 배열로 넘기면 "경기 없음"과 구분이 안 돼 클러치 스탯이 조용히 0으로 보인다.
+  if (gErr) throw new Error(`computeClutchStats: leagueId=${leagueId} league_games 조회 실패 — ${gErr.message}`)
   const gameRows = (games ?? []) as Array<{
     id: string
     home_team_id: string | null
@@ -102,10 +104,12 @@ export async function computeClutchStats(
   const rules: ScoringRules = await fetchScoringRules(supabase, leagueId)
   // 외부(상대) 팀 이벤트는 클러치 스탯 대상이 아니다 — leagueStats.ts 와 동일하게 이벤트 단위로 거른다.
   const externalTeamIds = await fetchExternalTeamIds(supabase, leagueId)
-  const { data: playerRows } = await supabase
+  const { data: playerRows, error: plErr } = await supabase
     .from('league_players')
     .select('id, name, number, plus_one')
     .eq('league_id', leagueId)
+  // 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점된다 (scoring.ts 와 동일 이유로 throw).
+  if (plErr) throw new Error(`computeClutchStats: leagueId=${leagueId} league_players 조회 실패 — ${plErr.message}`)
   const playerMeta = new Map<string, { name: string; number: number | null }>()
   const plusOneSet = new Set<string>()
   for (const p of (playerRows ?? []) as Array<{ id: string; name: string; number: number | null; plus_one: boolean | null }>) {
@@ -128,12 +132,14 @@ export async function computeClutchStats(
   const events: EvRow[] = []
   const PAGE = 1000
   for (let p = 0; ; p++) {
-    const { data: chunk } = await supabase
+    const { data: chunk, error: evErr } = await supabase
       .from('league_game_events')
       .select('id, league_game_id, league_player_id, related_player_id, team_id, type, result, points, video_timestamp')
       .in('league_game_id', gameIds)
       .order('id', { ascending: true })
       .range(p * PAGE, (p + 1) * PAGE - 1)
+    // 페이지 중간 실패를 "더 이상 없음"과 같은 걸로 취급하면 클러치 판정이 일부 경기만으로 계산된다.
+    if (evErr) throw new Error(`computeClutchStats: leagueId=${leagueId} league_game_events 페이지네이션(p=${p}) 실패 — ${evErr.message}`)
     if (!chunk || chunk.length === 0) break
     for (const e of chunk as EvRow[]) {
       if (e.team_id && externalTeamIds.has(e.team_id)) continue
