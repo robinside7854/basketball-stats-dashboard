@@ -357,5 +357,48 @@ await check(
   (r) => r[0].n === 112,
 )
 
+// ── 리그 엔진 관점의 교차 검증 (단계 B-5) ────
+// 여기까지는 "복사가 정확한가" 를 봤다. 이제 "리그 코드가 읽었을 때 같은 숫자인가" 를 본다.
+//   복사가 완벽해도 집계 로직이 opp_score·foul 같은 낯선 타입에서 다르게 굴 수 있다.
+
+// 규칙 엔진으로 재계산한 값과 저장값이 어긋나는 이벤트 — 0이어야 한다.
+//   opp_score 는 규칙에 없는 타입이라 제외한다(재계산 대상이 아니며, 재계산하면 322점이 통째로 0이 된다).
+await check(
+  '저장 점수와 규칙 재계산이 일치 (opp_score 제외)',
+  `SELECT count(*)::int n
+     FROM league_game_events x
+     JOIN league_games lg ON lg.id = x.league_game_id
+     JOIN leagues l ON l.id = lg.league_id
+    WHERE x.legacy_id IS NOT NULL AND x.type <> 'opp_score'
+      AND x.points IS DISTINCT FROM (
+        CASE WHEN x.result = 'made'
+             THEN coalesce((l.rules->'event_points'->>x.type)::int, 0)
+             ELSE 0 END)`,
+  (r) => r[0].n === 0,
+)
+
+await check(
+  '미라클 득점 총합 불변 (7114)',
+  `SELECT coalesce(sum(x.points),0)::int n
+     FROM league_game_events x JOIN league_games lg ON lg.id = x.league_game_id
+    WHERE lg.league_id = '8eda8257-8907-4bf3-a7de-e5e7fde54a89'`,
+  (r) => r[0].n === 7114,
+)
+
+await check(
+  '이관 행이 미라클 리그에 없다',
+  `SELECT (SELECT count(*)::int FROM league_players WHERE legacy_id IS NOT NULL AND league_id='8eda8257-8907-4bf3-a7de-e5e7fde54a89') p,
+          (SELECT count(*)::int FROM league_games   WHERE legacy_id IS NOT NULL AND league_id='8eda8257-8907-4bf3-a7de-e5e7fde54a89') g`,
+  (r) => r[0].p === 0 && r[0].g === 0,
+)
+
+// 이 단계의 대전제 — 레거시 원본 무손상. 이게 깨지면 다른 무엇이 통과해도 의미가 없다.
+await check(
+  '레거시 원본 행 수가 그대로 (경기 50 · 이벤트 5993 · 선수 68 · 대회 12)',
+  `SELECT (SELECT count(*)::int FROM games) g, (SELECT count(*)::int FROM game_events) e,
+          (SELECT count(*)::int FROM players) p, (SELECT count(*)::int FROM tournaments) t`,
+  (r) => r[0].g === 50 && r[0].e === 5993 && r[0].p === 68 && r[0].t === 12,
+)
+
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exit(failed === 0 ? 0 : 1)

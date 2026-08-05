@@ -80,3 +80,59 @@
 코드가 아직 하나도 없고(단계 C 에서 생길 예정) `quarter` 는 현재 미라클 세그먼트의 정렬·
 "N.MQ" 표시·업서트 식별키로만 쓰이므로, 대회형 리그의 `quarter` 값을 완화해도 기존 화면에
 영향이 없음을 확인했다.
+
+## 이관 완료 수치 (단계 B 최종)
+
+| 항목 | 원본 | 사본 | 비고 |
+|---|---|---|---|
+| 대회 | 12 | 12 | `league_quarters(kind='tournament')` |
+| 경기 | 50 | 50 | 청년 36 / 장년 14 — `team_type` 함정 회피 확인 |
+| 이벤트 | 5,993 | 5,993 | 총득점 2,138 (상대 322 포함) |
+| 선수 | 68 | 68 | 선출 7 · 비활동 3 |
+| 출전시간 | 1,525 | 1,525 | |
+| 대회 명단 | 112 | 112 | `league_player_quarters(is_regular=true)` |
+| 상대팀 | 43 | 43 | `league_teams(is_external=true)` — 청년 31 / 장년 12 |
+
+`verify-migration.mjs` 단언 38개 전부 통과. 선수별 총득점 전수 대조 불일치 0명.
+
+## 단계 C 인계 사항
+
+1. **⚠ 점수 재계산 트리거** — `trg_events_recompute_score` (AFTER INSERT/DELETE/UPDATE OF points, team_id)
+   가 `league_games.home_score`/`away_score` 를 이벤트 합으로 다시 계산한다.
+   **대회형 경기에는 이 계산이 맞지 않는다.** 레거시의 `opp_score` 이벤트 177건은 상대 득점의
+   일부만 기록한 것이고, 진짜 상대 점수는 `games.opponent_score` 에 수기로 들어 있었다.
+   이관 직후 이 트리거가 43경기의 상대 점수를 깎아내렸고, `restoreGameScores()` 로 복구했다.
+   → **이관된 경기의 이벤트를 앞으로 수정하면 상대 점수가 다시 깎인다.**
+   단계 C 에서 `mode='tournament'` 경기를 트리거에서 제외하거나, 상대 점수를 이벤트로만
+   관리하도록 정리해야 한다. 그냥 두면 안 된다.
+
+2. **`/league/paranalgae` 모호성** — org 아래 리그가 셋이다(youth-2026 · senior-2026 ·
+   기존 `pana-basket-senior` 자체전 스텁). leagueId 없는 주소가 어디로 갈지 정해야 한다.
+
+3. **`opp_score` 표시** — 규칙 엔진이 모르는 타입이다. 상대 득점 322점을 화면에서 어떻게
+   보여줄지 정해야 한다. 저장된 `points` 를 쓰거나 `league_games.away_score` 를 쓴다.
+
+4. **`foul` 588건** — 리그 모드에는 파울 기록 화면이 없다. 덤으로 살아남은 데이터이므로
+   버리지 말고, 대회형 박스스코어에 자리를 만들지 판단이 필요하다.
+
+5. **`quarter_start`/`quarter_end` 339건** — 영상 구간 마커. 리그형에 대응 개념이 없다.
+
+6. **`pana-basket-senior` 스텁** — 건드리지 않았다. 자체전용이며 데이터 0건.
+
+7. **레거시 원본 무손상** — 단계 D 전까지 `/paranalgae/*` 화면이 계속 동작한다.
+
+## 되돌리는 법 (단계 B 전체 취소)
+
+레거시를 건드리지 않았으므로 사본만 지우면 원상복구된다. 참조 역순으로 실행한다.
+
+```sql
+DELETE FROM league_player_quarters WHERE quarter_id IN (SELECT id FROM league_quarters WHERE legacy_id IS NOT NULL);
+DELETE FROM league_player_minutes  WHERE league_game_id IN (SELECT id FROM league_games WHERE legacy_id IS NOT NULL);
+DELETE FROM league_game_events     WHERE legacy_id IS NOT NULL;
+DELETE FROM league_games           WHERE legacy_id IS NOT NULL;
+DELETE FROM league_team_players    WHERE league_player_id IN (SELECT id FROM league_players WHERE legacy_id IS NOT NULL);
+DELETE FROM league_players         WHERE legacy_id IS NOT NULL;
+DELETE FROM league_teams           WHERE league_id IN (SELECT id FROM leagues WHERE mode='tournament' AND org_slug='paranalgae');
+DELETE FROM league_quarters        WHERE legacy_id IS NOT NULL;
+DELETE FROM leagues                WHERE mode='tournament' AND org_slug='paranalgae';
+```
