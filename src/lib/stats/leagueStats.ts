@@ -324,8 +324,33 @@ export async function computeLeagueStats(
     }
   }
 
+  // Minutes 조회 — 총 출전 시간 합산 + gp(출전 경기) 보정.
+  //   ⚠ Task 4(옛 화면 대조, 단계 C-4) 실측 발견: 이벤트만으로 gp 를 세면 "코트에는 있었지만
+  //   이벤트가 하나도 안 남은 스틴트"(슛·리바운드·파울 등 전부 0)를 놓친다. 레거시 화면의
+  //   games_played 는 player_minutes 존재 여부로만 셌다(이벤트 유무 무관) — 대회형(파란날개)은
+  //   경기당 이벤트 밀도가 낮아 이 차이가 실제로 여러 명에게서 1~3경기씩 gp 를 깎아, 옛 화면과
+  //   경기당 평균이 어긋났다. 이미 이벤트로 시즌에 등장한 선수(statsMap 에 있는 선수)에 한해,
+  //   출전시간이 기록된 게임을 gp 집합에 합친다. 이벤트가 전혀 없는 선수를 새로 리더보드에
+  //   등장시키는 것은 별개 판단(0줄 스탯으로 노출할지)이라 `if (!s) continue` 로 범위를 지킨다 —
+  //   gp 는 아래에서 gpMap 크기로 산출되므로, 이벤트 루프보다 먼저 이 매핑을 채워 둔다.
+  const { data: minutesRows } = await sb
+    .from('league_player_minutes')
+    .select('league_player_id, league_game_id, in_time, out_time')
+    .in('league_game_id', gameIds)
+  for (const m of (minutesRows ?? []) as { league_player_id: string | null; league_game_id: string; in_time: number | null; out_time: number | null }[]) {
+    if (!m.league_player_id) continue
+    const s = statsMap[m.league_player_id]
+    if (!s) continue
+    if (!gpMap[m.league_player_id]) gpMap[m.league_player_id] = new Set()
+    gpMap[m.league_player_id].add(unit === 'round' ? (gameToDate[m.league_game_id] ?? m.league_game_id) : m.league_game_id)
+    if (m.in_time == null || m.out_time == null) continue
+    const secs = Math.max(0, m.out_time - m.in_time)
+    s.minutes_played += secs / 60
+  }
+
   for (const pid of Object.keys(statsMap)) {
     statsMap[pid].gp = gpMap[pid]?.size ?? 0
+    statsMap[pid].minutes_played = Math.round(statsMap[pid].minutes_played * 10) / 10
 
     let teamRebSum = 0
     let teamPossSum = 0
@@ -364,24 +389,6 @@ export async function computeLeagueStats(
       if (gt) denom += pieOf(gt)
     }
     statsMap[pid].pie_denom = denom
-  }
-
-  // Minutes 조회 · 총 출전 시간만 합산
-  {
-    const { data: minutesRows } = await sb
-      .from('league_player_minutes')
-      .select('league_player_id, in_time, out_time')
-      .in('league_game_id', gameIds)
-    for (const m of (minutesRows ?? []) as { league_player_id: string | null; in_time: number | null; out_time: number | null }[]) {
-      if (!m.league_player_id) continue
-      if (m.in_time == null || m.out_time == null) continue
-      const secs = Math.max(0, m.out_time - m.in_time)
-      const s = statsMap[m.league_player_id]
-      if (s) s.minutes_played += secs / 60
-    }
-    for (const pid of Object.keys(statsMap)) {
-      statsMap[pid].minutes_played = Math.round(statsMap[pid].minutes_played * 10) / 10
-    }
   }
 
   // 5) 평균/퍼센트

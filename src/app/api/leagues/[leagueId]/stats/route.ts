@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { unstable_cache } from 'next/cache'
 import { computeLeagueStats, type LeagueStatsUnit } from '@/lib/stats/leagueStats'
 import { canViewStats } from '@/lib/auth/guard'
+import { fetchLeagueMode } from '@/lib/league/mode'
 
 // GET /api/leagues/[leagueId]/stats
 // 쿼리 파라미터: quarterId, quarterIds(comma), teamId, playerId, from, to, unit
@@ -43,7 +44,15 @@ export async function GET(
   const sp = new URL(req.url).searchParams
   const quarterIdsRaw = sp.get('quarterIds')
   const quarterIds = quarterIdsRaw ? quarterIdsRaw.split(',').filter(Boolean) : null
-  const unit = (sp.get('unit') ?? 'round') as LeagueStatsUnit
+  // unit 기본값 — 리그형(미라클)은 하루=한 라운드=한 경기라 'round' 기본값이 맞지만,
+  // 대회형(파란날개)은 토너먼트 특성상 하루에 여러 경기(8강+4강 등)가 몰릴 수 있어
+  // 'round'(날짜 유니크 카운트)로 세면 실제 경기 수보다 훨씬 적게 잡힌다.
+  // Task 4(옛 화면 대조)에서 실측 발견: 라운드 기본값으로는 선수당 games_played 가
+  // 레거시 대비 최대 절반 수준으로 줄어들어(예: 14경기 → 6라운드) 경기당 평균이 부풀려짐.
+  // 쿼리로 unit 을 명시하면 그 값을 그대로 쓰고, 생략된 경우에만 mode 로 기본값을 정한다.
+  const unit = (sp.get('unit') as LeagueStatsUnit | null) ?? (
+    (await fetchLeagueMode(leagueId)) === 'tournament' ? 'game' : 'round'
+  )
 
   try {
     const result = await getCachedStats(leagueId, {

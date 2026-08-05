@@ -17,6 +17,7 @@ import { PercentBar } from '@/components/league/StatCell'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
+import { useLeagueMode } from '@/contexts/LeagueModeContext'
 import type { Quarter, PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
 
@@ -151,7 +152,13 @@ function LeagueStatsPageInner() {
   // TopFiveSlot 활성화 플래그 — 기본 true 로 두어 진입 즉시 기본 정렬(득점 PPG) TOP 5 를 노출.
   // 이후 컬럼 헤더 클릭으로 지표 전환 (2026-07-27: 기본 안내 화면 → 득점 TOP5 기본 표시로 변경)
   const [topFiveActive, setTopFiveActive] = useState(true)
-  const [statUnit, setStatUnit] = useState<StatUnit>('round')
+  // 대회형(파란날개)은 토너먼트라 하루에 여러 경기가 몰릴 수 있어 'round'(날짜 유니크)
+  // 기본값을 쓰면 실제 경기 수보다 적게 잡힌다 (Task 4 옛 화면 대조에서 실측: 14경기 →
+  // 6라운드로 gp 가 반토막 나 경기당 평균이 부풀려짐). API 라우트 쪽 기본값도 같은 이유로
+  // mode 인식하게 고쳤지만(src/app/api/leagues/[leagueId]/stats/route.ts), 이 페이지는
+  // ?unit= 을 항상 명시해서 보내므로 초기 상태 자체를 mode 로 정해야 한다.
+  const mode = useLeagueMode()
+  const [statUnit, setStatUnit] = useState<StatUnit>(mode === 'tournament' ? 'game' : 'round')
 
   const toggleCompare = (player: PlayerStat) => {
     setCompareIds(prev => {

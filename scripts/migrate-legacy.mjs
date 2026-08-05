@@ -288,12 +288,23 @@ function normalizeVenue(v) {
 //   total_rounds 도 대회 수(청년 8 · 장년 4)로 맞춰 뒀다 — 출전 자격(min_round_ratio 0.3)이
 //   "참가한 대회 비율" 로 계산되게 하려는 것이다. 경기일 단위로 매기면 대회 안의 경기 수가
 //   들쭉날쭉해 같은 대회에 다 나온 선수끼리도 자격이 갈린다.
+//
+// ⚠ Task 4(옛 화면 대조, 단계 C-4) 실측으로 고침 — is_started 를 처음엔 is_complete 그대로
+//   썼는데(레거시엔 대응 필드가 없어 가장 가까운 값을 골랐던 것), computeLeagueStats 가
+//   league_games.is_started=true 인 경기만 집계 대상으로 삼는다. 그런데 레거시엔 "출전시간·
+//   이벤트는 기록됐지만 최종 스코어(our_score/opponent_score)는 0-0 인 채 is_complete=false
+//   로 남은" 경기가 실제로 있었다(청년부 2건 실측 확인) — 스코어 입력을 깜빡했을 뿐 경기
+//   자체는 열렸다는 뜻이다. is_complete 를 그대로 물려주면 이런 경기가 통째로 집계에서
+//   빠져 옛 화면(player_minutes 존재 여부로 games_played 를 셈)보다 새 화면의 출전 경기 수가
+//   적게 나온다. 그래서 "출전시간이나 이벤트가 하나라도 있으면 시작된 경기"로 넓혔다.
 async function migrateGames() {
   console.log('\n[5] 경기')
   const rows = await sql(`
     SELECT g.id, g.tournament_id, g.date, g.opponent, g.venue, g.round, g.ai_mvp,
            g.our_score, g.opponent_score, g.youtube_url, g.youtube_start_offset,
-           g.is_complete, tr.team_id AS legacy_team_id
+           g.is_complete, tr.team_id AS legacy_team_id,
+           (EXISTS (SELECT 1 FROM player_minutes pm WHERE pm.game_id = g.id)
+            OR EXISTS (SELECT 1 FROM game_events ge WHERE ge.game_id = g.id)) AS has_activity
       FROM games g JOIN tournaments tr ON tr.id = g.tournament_id
      ORDER BY g.date, g.id
   `)
@@ -339,7 +350,7 @@ async function migrateGames() {
               ${Number(quarter.ord)}, ${Number(slotRow.slot)},
               ${g.our_score === null ? 'NULL' : Number(g.our_score)},
               ${g.opponent_score === null ? 'NULL' : Number(g.opponent_score)},
-              ${q(g.is_complete)}, ${q(g.is_complete)}, false,
+              ${q(g.is_complete)}, ${q(g.is_complete || g.has_activity)}, false,
               ${q(g.youtube_url)}, ${g.youtube_start_offset === null ? 'NULL' : Number(g.youtube_start_offset)},
               ${q(normalizeVenue(g.venue))}, ${q(g.round)},
               ${g.ai_mvp === null ? 'NULL' : `${q(JSON.stringify(g.ai_mvp))}::jsonb`},
@@ -348,6 +359,32 @@ async function migrateGames() {
     made += 1
   }
   console.log(`  원본 ${rows.length}경기 중 ${made}경기 신규`)
+  await fixGameStarted()
+}
+
+// ⚠ migrateGames() 는 이미 있는 행을 건드리지 않는다(`if (existing) continue`) — is_started
+//   판정을 위에서 고친 뒤에도 이미 옮겨진 경기엔 반영되지 않는다. 원본과 다시 대조해
+//   어긋난 행만 멱등하게 바로잡는다(restoreGameScores() 와 같은 패턴).
+async function fixGameStarted() {
+  const [before] = await sql(`
+    SELECT count(*)::int n
+      FROM league_games lg JOIN games g ON g.id = lg.legacy_id
+     WHERE lg.is_started IS DISTINCT FROM (
+       g.is_complete OR EXISTS (SELECT 1 FROM player_minutes pm WHERE pm.game_id = g.id)
+                      OR EXISTS (SELECT 1 FROM game_events ge WHERE ge.game_id = g.id)
+     )
+  `)
+  if (before.n === 0) return
+  console.log(`\n[5b] is_started 보정 (출전시간·이벤트가 있는데 is_started=false 로 남은 경기 ${before.n}건)`)
+  await exec(`
+    UPDATE league_games lg
+       SET is_started = true
+      FROM games g
+     WHERE lg.legacy_id = g.id
+       AND lg.is_started = false
+       AND (EXISTS (SELECT 1 FROM player_minutes pm WHERE pm.game_id = g.id)
+            OR EXISTS (SELECT 1 FROM game_events ge WHERE ge.game_id = g.id))
+  `)
 }
 
 // 이벤트. 5993행이라 왕복을 줄이려고 INSERT…SELECT 로 DB 안에서 옮긴다.
