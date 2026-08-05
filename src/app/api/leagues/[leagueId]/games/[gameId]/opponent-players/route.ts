@@ -70,12 +70,36 @@ export async function POST(
     .single()
   if (pErr) return NextResponse.json({ error: pErr.message }, { status: 500 })
 
+  // number 를 함께 저장한다 — 086 마이그레이션의 부분 UNIQUE(league_game_id, team_id, number) 가
+  // "같은 경기·같은 팀·같은 등번호" 동시 등록을 DB 레벨에서 막아준다 (더블탭·재시도 대비).
   const { error: apErr } = await supabase
     .from('league_game_players')
-    .insert({ league_id: leagueId, league_game_id: gameId, league_player_id: player.id, team_id: teamId })
+    .insert({ league_id: leagueId, league_game_id: gameId, league_player_id: player.id, team_id: teamId, number })
   if (apErr) {
     // 배정이 실패하면 선수만 붕 뜬다 — 소속을 알 수 없어 외부 판정이 안 되므로 되돌린다.
     await supabase.from('league_players').delete().eq('id', player.id)
+
+    // 동시 등록 경합(23505 unique_violation) — 그 사이 다른 요청이 같은 경기·팀·등번호를
+    // 먼저 배정 완료했다는 뜻. 기록 도중 버튼을 두 번 눌렀을 뿐인데 에러 화면을 보여주면 안 되므로,
+    // 실패로 취급하지 않고 이미 배정된(승자) 행을 찾아 평소 응답과 동일한 형태로 반환한다.
+    if (apErr.code === '23505') {
+      const { data: winner, error: wErr } = await supabase
+        .from('league_game_players')
+        .select('league_players(id, name, number)')
+        .eq('league_game_id', gameId)
+        .eq('team_id', teamId)
+        .eq('number', number)
+        .maybeSingle()
+      if (wErr) {
+        throw new Error(`league_game_players: gameId=${gameId} 경합 후 승자 조회 실패 — ${wErr.message}`)
+      }
+      const w = (winner as unknown as { league_players: { id: string; name: string; number: number | null } | null } | null)?.league_players
+      if (w) {
+        return NextResponse.json({ id: w.id, name: w.name, number: w.number, team_id: teamId }, { status: 200 })
+      }
+      // 승자 행을 못 찾음(그새 삭제 등) — 이례적이라 원래 에러로 폴백
+    }
+
     return NextResponse.json({ error: `배정 실패: ${apErr.message}` }, { status: 500 })
   }
 
