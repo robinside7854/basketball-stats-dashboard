@@ -100,12 +100,12 @@ export default function TournamentsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">대회 관리</h1>
+          <h1 className="font-jersey font-black uppercase text-2xl text-[var(--mm-ink)] tracking-tight">대회 관리</h1>
           <button
             onClick={() => setSortDesc(v => !v)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+            className="flex items-center gap-1.5 px-2.5 py-1 min-h-9 rounded-lg text-xs font-medium bg-[var(--mm-panel)] border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors cursor-pointer"
             title="정렬 순서 변경"
           >
             <ArrowUpDown size={13} />
@@ -117,11 +117,11 @@ export default function TournamentsPage() {
             <Button
               variant="outline"
               onClick={() => setShowYtImport(true)}
-              className="border-gray-700 text-gray-300 hover:text-white"
+              className="border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer"
             >
               <Youtube size={15} className="mr-1.5 text-red-400" /> YouTube 가져오기
             </Button>
-            <Button onClick={() => { setEditT(null); setShowTForm(true) }} className="bg-blue-500 hover:bg-blue-600">
+            <Button onClick={() => { setEditT(null); setShowTForm(true) }} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 cursor-pointer">
               <Plus size={16} className="mr-2" /> 대회 추가
             </Button>
           </div>
@@ -129,7 +129,7 @@ export default function TournamentsPage() {
       </div>
 
       {tournaments.length === 0 ? (
-        <div className="text-center py-20 text-gray-500">
+        <div className="text-center py-20 text-[var(--mm-muted)]">
           <p>등록된 대회가 없습니다. 대회를 먼저 추가하세요.</p>
         </div>
       ) : (
@@ -140,18 +140,18 @@ export default function TournamentsPage() {
             const sorted = sortGamesByRound(tGames)
 
             return (
-              <div key={t.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+              <div key={t.id} className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => toggleExpand(t.id)}>
                   <div className="flex items-center gap-3">
-                    {expanded === t.id ? <ChevronUp size={18} className="text-gray-400" /> : <ChevronDown size={18} className="text-gray-400" />}
+                    {expanded === t.id ? <ChevronUp size={18} className="text-[var(--mm-muted)]" /> : <ChevronDown size={18} className="text-[var(--mm-muted)]" />}
                     <div>
-                      <span className="font-semibold">{t.name}</span>
-                      <span className="ml-3 text-sm text-gray-400">{t.year}년 · {TYPE_LABELS[t.type]}</span>
+                      <span className="font-semibold text-[var(--mm-ink)]">{t.name}</span>
+                      <span className="ml-3 text-sm text-[var(--mm-ink-soft)]">{t.year}년 · {TYPE_LABELS[t.type]}</span>
                       {summary && (
-                        <span className="ml-3 text-sm text-gray-300">
+                        <span className="ml-3 text-sm text-[var(--mm-ink-soft)]">
                           {summary.record}
                           {summary.placement && (
-                            <span className={`ml-2 font-semibold ${summary.placement.includes('우승') ? 'text-yellow-400' : 'text-blue-400'}`}>
+                            <span className={`ml-2 font-semibold ${summary.placement.includes('우승') ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>
                               · {summary.placement}
                             </span>
                           )}
@@ -161,13 +161,13 @@ export default function TournamentsPage() {
                   </div>
                   {isEditMode && (
                     <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                      <Button size="sm" variant="outline" onClick={() => { setEditT(t); setShowTForm(true) }} className="h-8 border-gray-700 text-gray-300">
+                      <Button size="sm" variant="outline" onClick={() => { setEditT(t); setShowTForm(true) }} className="h-8 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] cursor-pointer">
                         <Pencil size={12} />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => deleteT(t.id)} className="h-8 border-gray-700 text-red-400">
+                      <Button size="sm" variant="outline" onClick={() => deleteT(t.id)} className="h-8 border-[var(--mm-rule)] text-red-400 cursor-pointer">
                         <Trash2 size={12} />
                       </Button>
-                      <Button size="sm" onClick={() => { setEditG(null); setShowGForm(t.id) }} className="h-8 bg-blue-500 hover:bg-blue-600 text-white">
+                      <Button size="sm" onClick={() => { setEditG(null); setShowGForm(t.id) }} className="h-8 bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 cursor-pointer">
                         <Plus size={12} className="mr-1" /> 경기
                       </Button>
                     </div>
@@ -175,20 +175,20 @@ export default function TournamentsPage() {
                 </div>
 
                 {expanded === t.id && (
-                  <div className="border-t border-gray-800">
+                  <div className="border-t border-[var(--mm-rule)]">
                     {sorted.length === 0 ? (
-                      <p className="text-center py-6 text-gray-500 text-sm">등록된 경기가 없습니다</p>
+                      <p className="text-center py-6 text-[var(--mm-muted)] text-sm">등록된 경기가 없습니다</p>
                     ) : (
-                      <div className="divide-y divide-gray-800">
+                      <div className="divide-y divide-[var(--mm-rule)]">
                         {sorted.map(g => (
-                          <div key={g.id} className="flex items-center justify-between px-6 py-3">
+                          <div key={g.id} className="flex items-center justify-between px-6 py-3 flex-wrap gap-2">
                             <div className="flex items-center gap-2 flex-wrap">
                               {g.round && (
-                                <span className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded font-medium">{g.round}</span>
+                                <span className="text-xs bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] px-2 py-0.5 rounded font-medium border border-[var(--mm-rule)]">{g.round}</span>
                               )}
-                              <span className="text-sm text-gray-400">{g.date}</span>
-                              <span className="font-medium">vs {g.opponent}</span>
-                              {g.venue && <span className="text-xs text-gray-500">@ {g.venue}</span>}
+                              <span className="text-sm text-[var(--mm-ink-soft)]">{g.date}</span>
+                              <span className="font-medium text-[var(--mm-ink)]">vs {g.opponent}</span>
+                              {g.venue && <span className="text-xs text-[var(--mm-muted)]">@ {g.venue}</span>}
                               {(g.our_score > 0 || g.opponent_score > 0) && (
                                 <span className={`text-sm font-bold ${g.our_score > g.opponent_score ? 'text-green-400' : 'text-red-400'}`}>
                                   {g.our_score} - {g.opponent_score} ({g.our_score > g.opponent_score ? 'W' : 'L'})
@@ -201,7 +201,7 @@ export default function TournamentsPage() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   onClick={e => e.stopPropagation()}
-                                  className="text-xs text-blue-400 hover:text-blue-300 underline"
+                                  className="text-xs text-[var(--mm-yellow-strong)] hover:brightness-90 underline cursor-pointer"
                                 >
                                   ▶ 영상
                                 </a>
@@ -209,10 +209,10 @@ export default function TournamentsPage() {
                             </div>
                             {isEditMode && (
                               <div className="flex gap-2 flex-shrink-0">
-                                <Button size="sm" variant="outline" onClick={() => { setEditG(g); setShowGForm(t.id) }} className="h-7 border-gray-700 text-gray-300">
+                                <Button size="sm" variant="outline" onClick={() => { setEditG(g); setShowGForm(t.id) }} className="h-7 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] cursor-pointer">
                                   <Pencil size={11} />
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => deleteG(g.id, t.id)} className="h-7 border-gray-700 text-red-400">
+                                <Button size="sm" variant="outline" onClick={() => deleteG(g.id, t.id)} className="h-7 border-[var(--mm-rule)] text-red-400 cursor-pointer">
                                   <Trash2 size={11} />
                                 </Button>
                               </div>

@@ -111,33 +111,33 @@ export default function GameLogPage() {
 
       <div className="flex flex-wrap gap-3 mb-6">
         <Select value={selectedTId} onValueChange={v => { setSelectedTId(v ?? ''); setSelectedGId('') }}>
-          <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-full sm:w-52">
+          <SelectTrigger className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] w-full sm:w-52 cursor-pointer">
             <SelectValue placeholder="대회 선택">
               {selectedTId ? (() => { const t = tournaments.find(t => t.id === selectedTId); return t ? `${t.name} (${t.year})` : undefined })() : undefined}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent className="bg-gray-800 border-gray-700 text-white">
+          <SelectContent className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)]">
             {tournaments.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.year})</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={selectedGId} onValueChange={v => setSelectedGId(v ?? '')} disabled={!selectedTId}>
-          <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-full sm:w-52">
+          <SelectTrigger className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] w-full sm:w-52 cursor-pointer">
             <SelectValue placeholder="경기 선택">
               {selectedGId ? (() => { const g = games.find(g => g.id === selectedGId); return g ? `${g.date} vs ${g.opponent}` : undefined })() : undefined}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent className="bg-gray-800 border-gray-700 text-white">
+          <SelectContent className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)]">
             {games.map(g => <SelectItem key={g.id} value={g.id}>{g.date} vs {g.opponent}</SelectItem>)}
           </SelectContent>
         </Select>
         {uniquePlayers.length > 0 && (
           <Select value={filterPlayer} onValueChange={v => setFilterPlayer(v ?? '')}>
-            <SelectTrigger className="bg-gray-800 border-gray-700 text-white w-full sm:w-40">
+            <SelectTrigger className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] w-full sm:w-40 cursor-pointer">
               <SelectValue placeholder="선수 필터">
                 {filterPlayer ? (() => { const p = uniquePlayers.find(p => p.id === filterPlayer); return p ? `${p.number}번 ${p.name}` : undefined })() : undefined}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent className="bg-gray-800 border-gray-700 text-white">
+            <SelectContent className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)]">
               <SelectItem value="">전체</SelectItem>
               {uniquePlayers.map(p => <SelectItem key={p.id} value={p.id}>{p.number}번 {p.name}</SelectItem>)}
             </SelectContent>
@@ -146,14 +146,14 @@ export default function GameLogPage() {
       </div>
 
       {isEditMode && selectedGId && events.length > 0 && (
-        <div className="mb-4 px-4 py-2.5 bg-blue-950/40 border border-blue-800/50 rounded-lg text-xs text-blue-300 flex items-center gap-2">
+        <div className="mb-4 px-4 py-2.5 bg-[var(--mm-yellow-soft)] border border-[var(--mm-yellow)] rounded-lg text-xs text-[var(--mm-yellow-strong)] flex items-center gap-2">
           <Scissors size={12} className="shrink-0" />
           각 이벤트 우측의 <strong>✂️ 버튼</strong>을 클릭하면 해당 이벤트부터 쿼터를 분리할 수 있습니다
         </div>
       )}
 
       {selectedGId && events.length === 0 && (
-        <div className="text-center py-16 text-gray-500">기록된 이벤트가 없습니다</div>
+        <div className="text-center py-16 text-[var(--mm-muted)]">기록된 이벤트가 없습니다</div>
       )}
 
       {quarters.map(q => {
@@ -162,41 +162,41 @@ export default function GameLogPage() {
         return (
           <div key={q} className="mb-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="h-px flex-1 bg-gray-800" />
-              <span className="text-blue-400 font-bold text-sm px-3 py-1 bg-gray-900 rounded-full border border-blue-500">
+              <div className="h-px flex-1 bg-[var(--mm-rule)]" />
+              <span className="text-[var(--mm-ink)] font-bold text-sm px-3 py-1 bg-[var(--mm-panel)] rounded-full border border-[color:var(--color-hoop-orange-500)]">
                 Q{q > 4 ? `OT${q - 4}` : q}
               </span>
-              <div className="h-px flex-1 bg-gray-800" />
+              <div className="h-px flex-1 bg-[var(--mm-rule)]" />
             </div>
             <div className="space-y-1">
               {qEvents.map(e => (
-                <div key={e.id} className="relative flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors group">
+                <div key={e.id} className="relative flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-[var(--mm-panel-alt)] transition-colors group">
                   <button
                     onClick={() => e.video_timestamp != null && seekTo(e.video_timestamp)}
-                    className="text-blue-400 hover:text-blue-300 text-xs font-mono w-14 shrink-0 text-right"
+                    className="text-[var(--mm-yellow-strong)] hover:brightness-90 text-xs font-mono w-14 shrink-0 text-right cursor-pointer"
                     title="클릭 시 영상 해당 구간으로 이동"
                   >
                     {e.video_timestamp != null ? formatTimestamp(e.video_timestamp) : '--:--'}
                   </button>
                   <span className="text-sm">{EVENT_ICONS[e.type] || '•'}</span>
                   <div className="flex-1 text-sm">
-                    {e.player && <span className="font-medium text-white">[{e.player.number}] {e.player.name}</span>}
+                    {e.player && <span className="font-medium text-[var(--mm-ink)]">[{e.player.number}] {e.player.name}</span>}
                     {' '}
-                    <span className="text-gray-300">{EVENT_LABELS[e.type]}</span>
+                    <span className="text-[var(--mm-ink-soft)]">{EVENT_LABELS[e.type]}</span>
                     {e.result && <span className={`ml-2 font-bold ${e.result === 'made' ? 'text-green-400' : 'text-red-400'}`}>{e.result === 'made' ? '✓' : '✗'}</span>}
-                    {e.related_player && <span className="text-gray-500 text-xs ml-2">(어시스트: {e.related_player.name})</span>}
+                    {e.related_player && <span className="text-[var(--mm-muted)] text-xs ml-2">(어시스트: {e.related_player.name})</span>}
                     {e.type === 'opp_score' && <span className="ml-2 text-red-400">+{e.points}점</span>}
                   </div>
                   {isEditMode && (
                     <>
                       <button
                         onClick={() => openSplitPopover(e.id, e.quarter)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-yellow-500 hover:text-yellow-400 p-1"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-[var(--mm-yellow-strong)] hover:brightness-90 p-1 min-h-11 min-w-11 flex items-center justify-center cursor-pointer"
                         title="이 이벤트부터 쿼터 분리"
                       >
                         <Scissors size={13} />
                       </button>
-                      <button onClick={() => deleteEvent(e.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-400 p-1">
+                      <button onClick={() => deleteEvent(e.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-400 p-1 min-h-11 min-w-11 flex items-center justify-center cursor-pointer">
                         <Trash2 size={14} />
                       </button>
                     </>
@@ -205,16 +205,16 @@ export default function GameLogPage() {
                   {splitTarget?.eventId === e.id && (
                     <>
                     {/* 모바일 백드롭 */}
-                    <div className="sm:hidden fixed inset-0 bg-black/60 z-40" onClick={() => setSplitTarget(null)} />
+                    <div className="sm:hidden fixed inset-0 bg-[var(--mm-ink)]/60 z-40" onClick={() => setSplitTarget(null)} />
                     <div
                       ref={popoverRef}
-                      className="fixed bottom-0 inset-x-0 sm:absolute sm:right-16 sm:top-0 sm:bottom-auto sm:inset-x-auto z-50 bg-gray-800 border border-yellow-600/50 rounded-t-2xl sm:rounded-xl shadow-2xl p-4 w-full sm:w-64 pb-safe-or-4 sm:pb-4"
+                      className="fixed bottom-0 inset-x-0 sm:absolute sm:right-16 sm:top-0 sm:bottom-auto sm:inset-x-auto z-50 bg-[var(--mm-panel)] border border-[var(--mm-yellow)] rounded-t-2xl sm:rounded-xl shadow-2xl p-4 w-full sm:w-64 pb-safe-or-4 sm:pb-4"
                     >
-                      <div className="text-xs text-yellow-400 font-bold mb-2 flex items-center gap-1.5">
+                      <div className="text-xs text-[var(--mm-yellow-strong)] font-bold mb-2 flex items-center gap-1.5">
                         <Scissors size={12} />
                         쿼터 분리
                       </div>
-                      <p className="text-xs text-gray-400 mb-3">
+                      <p className="text-xs text-[var(--mm-ink-soft)] mb-3">
                         이 이벤트부터 같은 Q{splitTarget.currentQ} 이후 기록을 아래 쿼터로 변경합니다
                       </p>
                       <div className="flex gap-1.5 mb-3 flex-wrap">
@@ -222,7 +222,7 @@ export default function GameLogPage() {
                           <button
                             key={o.value}
                             onClick={() => setSplitNewQ(o.value)}
-                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${splitNewQ === o.value ? 'bg-yellow-500 text-black' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+                            className={`min-h-9 px-3 py-1 rounded-lg text-xs font-bold transition-colors cursor-pointer ${splitNewQ === o.value ? 'bg-[var(--mm-yellow)] text-[var(--mm-black)]' : 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)]'}`}
                           >
                             {o.label}
                           </button>
@@ -231,13 +231,13 @@ export default function GameLogPage() {
                       <div className="flex gap-2">
                         <button
                           onClick={confirmSplit}
-                          className="flex-1 py-1.5 rounded-lg text-xs font-bold bg-yellow-500 hover:bg-yellow-400 text-black transition-colors"
+                          className="flex-1 min-h-11 py-1.5 rounded-lg text-xs font-bold bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] transition-colors cursor-pointer"
                         >
                           Q{splitTarget.currentQ} → {splitNewQ > 4 ? `OT${splitNewQ - 4}` : `Q${splitNewQ}`} 변경
                         </button>
                         <button
                           onClick={() => setSplitTarget(null)}
-                          className="px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-white bg-gray-700 hover:bg-gray-600 transition-colors"
+                          className="min-h-11 px-3 py-1.5 rounded-lg text-xs text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] bg-[var(--mm-panel-alt)] transition-colors cursor-pointer"
                         >
                           취소
                         </button>
@@ -253,7 +253,7 @@ export default function GameLogPage() {
       })}
 
       {!selectedGId && (
-        <div className="text-center py-16 text-gray-500">대회와 경기를 선택하면 게임 로그가 표시됩니다</div>
+        <div className="text-center py-16 text-[var(--mm-muted)]">대회와 경기를 선택하면 게임 로그가 표시됩니다</div>
       )}
     </div>
   )
