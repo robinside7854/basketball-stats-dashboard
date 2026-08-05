@@ -335,5 +335,13 @@ await check(
   (rows) => rows[0].n === 0,
 )
 
+// 087 — 명단·계정이 팀에 매달려 있는지. 이게 비면 리그↔대회 이동 시 로그인이 풀린다.
+await check(
+  '명단·계정에 team_id 가 전부 채워져 있다',
+  `SELECT (SELECT count(*)::int FROM league_players WHERE team_id IS NULL) p,
+          (SELECT count(*)::int FROM league_user_accounts WHERE team_id IS NULL) a`,
+  (r) => r[0].p === 0 && r[0].a === 0,
+)
+
 console.log(failed === 0 ? '\n전부 통과' : `\n${failed}건 실패`)
 process.exitCode = failed === 0 ? 0 : 1
