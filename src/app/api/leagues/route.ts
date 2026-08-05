@@ -6,7 +6,14 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const org_slug = searchParams.get('org_slug')
   const supabase = createClient()
-  let q = supabase.from('leagues').select('*').order('created_at', { ascending: false })
+  // 어드민 목록은 팀 기준으로 묶어서 보여준다 — 팀이 명단·회원의 주인이 된 이후로는
+  // "리그"가 조직의 대표 이름이 아니라 팀이 굴리는 여러 대회 중 하나일 뿐이다.
+  // teams(...) 는 leagues.team_id → teams.id 의 다대일 관계라 PostgREST 가 배열이 아니라
+  // 단일 객체로 내려준다 (isLeaguePublic 의 teams(is_public) 패턴과 동일).
+  let q = supabase
+    .from('leagues')
+    .select('*, teams(id, name, org_slug, sub_slug, accent_color, is_public)')
+    .order('created_at', { ascending: false })
   if (org_slug) q = q.eq('org_slug', org_slug)
   const { data, error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
