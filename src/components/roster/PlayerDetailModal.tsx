@@ -358,7 +358,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                             {positions.map(pos => (
                               <span key={pos} className={`text-xs px-2 py-0.5 rounded font-bold ${POSITION_BADGE_CLASS}`}>{pos}</span>
                             ))}
-                            {player.is_pro && <span className="text-xs bg-yellow-500 text-black px-2 py-0.5 rounded font-bold">선출</span>}
+                            {player.is_pro && <span className="text-xs bg-[var(--mm-yellow)] text-[var(--mm-black)] px-2 py-0.5 rounded font-bold">선출</span>}
                           </div>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-2 border-t border-white/10 pt-3">
                             {player.height_cm && <div><p className="text-xs text-gray-500 uppercase tracking-wider mb-0.5">HEIGHT</p><p className="text-sm font-bold text-white">{player.height_cm}cm</p></div>}
