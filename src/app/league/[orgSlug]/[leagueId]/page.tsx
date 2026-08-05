@@ -23,8 +23,6 @@ import NbaTeamStandings, { type StandingRow } from '@/components/league/nba/NbaT
 import HomeSectionTabs from '@/components/league/HomeSectionTabs'
 import StatGate from '@/components/league/auth/StatGate'
 import { getApprovedSession, isLeaguePrivateGated } from '@/lib/auth/guard'
-import { fetchLeagueMode } from '@/lib/league/mode'
-import TournamentSummary from '@/components/league/TournamentSummary'
 import type { League } from '@/types/league'
 
 // 최근 4주 라운드 요약 — NbaRoundsSummary 용.
@@ -368,7 +366,6 @@ export default async function LeagueDetailPage({
     homeHighlights,
     announcements,
     approvedSession,
-    mode,
   ] = await Promise.all([
     getCachedLeagueMeta(leagueId, orgSlug)(),
     getCachedRecentRounds(leagueId, 4)(),
@@ -380,9 +377,6 @@ export default async function LeagueDetailPage({
     getCachedAnnouncements(leagueId)(),
     // 스탯 게이팅 — 쿠키 접근이라 unstable_cache 밖에서 호출 (2026-07-28)
     getApprovedSession(leagueId),
-    // 대회형(파란날개) 분기 — 통일 단계 C-3. 리그형(미라클) 홈은 이 값이 항상 'league' 라
-    // 아래 TournamentSummary 조건부 렌더가 타지 않아 기존 출력과 동일하게 유지된다.
-    fetchLeagueMode(leagueId),
   ])
 
   if (!league) notFound()
@@ -437,10 +431,6 @@ export default async function LeagueDetailPage({
 
       {/* 개인화 대시보드 · 로그인 상태에서만 노출 (client 컴포넌트가 자체 조건 렌더) */}
       <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} />
-
-      {/* 대회형(파란날개) 전용 — 대회별 성적(우승·준우승·N강 탈락) 요약. 통일 단계 C-3.
-          mode==='tournament' 일 때만 렌더. 리그형(미라클) 홈은 건드리지 않는다. */}
-      {mode === 'tournament' && <TournamentSummary leagueId={leagueId} />}
 
       {/* 상단 병렬 — 공지사항 · 마일스톤 (PC 2열 · 모바일 세로 순차 : 공지 → 마일스톤 · 2026-07-19) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 items-start">

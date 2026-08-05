@@ -8,8 +8,6 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import StatGate from '@/components/league/auth/StatGate'
-import { useLeagueMode } from '@/contexts/LeagueModeContext'
-import { segmentLabel } from '@/lib/league/mode'
 
 // gsap · PlayerQuickView · AwardDetail 은 카드 클릭 후 실행되는 인터랙션 — 초기 번들에서 분리
 // gsap 3.15 은 ~70KB, PlayerQuickView 는 1441줄 (recharts 4종 내부 lazy)
@@ -108,7 +106,6 @@ export default function AwardsPage() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
   const base = `/league/${orgSlug}/${leagueId}`
-  const mode = useLeagueMode()
 
   const [awards, setAwards] = useState<AwardEntry[]>([])
   const [attendance, setAttendance] = useState<AttendanceInfo | null>(null)
@@ -218,7 +215,7 @@ export default function AwardsPage() {
   ]
 
   if (gated) {
-    return <StatGate fullPage title="어워즈는 회원 전용" description={`${segmentLabel(mode)}별 어워즈·수상 기록은 가입 승인된 회원만 볼 수 있어요.`} />
+    return <StatGate fullPage title="어워즈는 회원 전용" description="분기별 어워즈·수상 기록은 가입 승인된 회원만 볼 수 있어요." />
   }
 
   return (
@@ -277,7 +274,7 @@ export default function AwardsPage() {
               >
                 {selectedQuarterId === 'all' ? '시즌' : (() => {
                   const q = quarters.find(qq => qq.id === selectedQuarterId)
-                  return q ? `${String(q.year).slice(2)}.${q.quarter}Q` : segmentLabel(mode)
+                  return q ? `${String(q.year).slice(2)}.${q.quarter}Q` : '분기'
                 })()}{' '}
                 <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>
                   {attendance.totalRounds}

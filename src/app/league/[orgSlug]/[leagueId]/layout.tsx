@@ -1,7 +1,5 @@
 import type { Metadata } from 'next'
 import { isLeaguePublic, getApprovedSession } from '@/lib/auth/guard'
-import { fetchLeagueMode } from '@/lib/league/mode'
-import { LeagueModeProvider } from '@/contexts/LeagueModeContext'
 import LeagueLayoutClient from './_components/LeagueLayoutClient'
 import PrivateLeagueGate from '@/components/league/auth/PrivateLeagueGate'
 
@@ -50,18 +48,14 @@ export default async function LeagueLayout({
   //   view-source/curl/크롤러엔 노출 — 실측 확인됨). 그래서 각 page.tsx 도 자기 함수 맨 위에서
   //   `isLeaguePrivateGated`를 확인하고 데이터를 fetch 하기 전에 return null 한다 — 여기 게이트는
   //   화면(네비게이션 셸 포함)을 막는 역할, page.tsx 쪽 가드는 raw HTML 누출을 막는 역할로 이원화.
-  // mode 조회는 isLeaguePublic 과 같은 Promise.all 로 묶어 왕복을 늘리지 않는다.
-  // getApprovedSession 은 publicLeague 가 true 면 필요 없어 기존대로 조건부(단락 평가) 유지.
-  const [publicLeague, mode] = await Promise.all([isLeaguePublic(leagueId), fetchLeagueMode(leagueId)])
+  const publicLeague = await isLeaguePublic(leagueId)
   if (!publicLeague && !(await getApprovedSession(leagueId))) {
     return <PrivateLeagueGate leagueId={leagueId} />
   }
 
   return (
-    <LeagueModeProvider mode={mode}>
-      <LeagueLayoutClient orgSlug={orgSlug} leagueId={leagueId}>
-        {children}
-      </LeagueLayoutClient>
-    </LeagueModeProvider>
+    <LeagueLayoutClient orgSlug={orgSlug} leagueId={leagueId}>
+      {children}
+    </LeagueLayoutClient>
   )
 }
