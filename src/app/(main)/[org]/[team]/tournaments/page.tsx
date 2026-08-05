@@ -14,8 +14,12 @@ import { ArrowUpDown } from 'lucide-react'
 
 const TYPE_LABELS: Record<string, string> = { pro: '선출부', amateur: '비선출부' }
 
+// 토너먼트 진행 깊이. 성적 판정(getTournamentSummary)이 "가장 깊이 간 경기" 를 이 값으로 고른다.
+//   ⚠ 여기 없는 라운드명은 ?? 0 으로 떨어져 조별예선(1)보다도 얕게 취급된다 →
+//     실제보다 낮은 성적으로 표시된다. 새 라운드명이 생기면 반드시 여기 추가할 것.
+//   '준결승' 과 '4강' 은 같은 라운드의 두 표기다(대회마다 부르는 이름이 다름) → 같은 값.
 const ROUND_ORDER: Record<string, number> = {
-  '결승': 5, '4강': 4, '8강': 3, '16강': 2, '조별예선': 1,
+  '결승': 5, '준결승': 4, '4강': 4, '8강': 3, '16강': 2, '조별예선': 1,
 }
 
 function sortGamesByRound(games: Game[]): Game[] {
