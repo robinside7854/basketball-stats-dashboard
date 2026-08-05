@@ -64,6 +64,20 @@ export async function fetchTeamCompetitions(leagueId: string): Promise<Competiti
     )
 }
 
+// 이 묶음의 mode 만 필요할 때 쓰는 최소 조회.
+//   fetchTeamCompetitions 는 형제 묶음 전체 + 묶음별 경기 수까지 가져오므로, 대회 보드
+//   분기(page.tsx)처럼 mode 하나만 보면 되는 호출에 쓰면 왕복이 낭비된다(Task 3 브리프 지적).
+export async function fetchLeagueMode(leagueId: string): Promise<'league' | 'tournament'> {
+  const sb = createClient()
+  const { data, error } = await sb
+    .from('leagues')
+    .select('mode')
+    .eq('id', leagueId)
+    .maybeSingle()
+  if (error) throw new Error(`leagues: leagueId=${leagueId} mode 조회 실패 — ${error.message}`)
+  return data?.mode === 'tournament' ? 'tournament' : 'league'
+}
+
 // 회원에게 보일 묶음만 남긴다.
 //   빈 묶음(경기 0건)은 숨긴다 — 운영자가 만들어만 두고 아직 안 쓴 대회가 탭으로 뜨면
 //   회원은 "여기 들어가면 뭐가 있나" 하고 눌렀다가 빈 화면을 본다. 지금 보고 있는
