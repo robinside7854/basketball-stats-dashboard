@@ -84,7 +84,7 @@ function buildStandings(rows: GameRow[], resolver: Resolver): RoundStanding[] {
 
 export async function getRoundMagazineData(leagueId: string, date: string): Promise<RoundMagazineData> {
   const sb = createClient()
-  const [{ data: league }, stats, resolver, milestones, { data: games }] = await Promise.all([
+  const [{ data: league }, stats, resolver, milestones, { data: games, error: gamesErr }] = await Promise.all([
     sb.from('leagues').select('name').eq('id', leagueId).single(),
     computeLeagueStats(sb, leagueId, { from: date, to: date, unit: 'game' }),
     loadIdentityResolver(sb, leagueId),
@@ -94,6 +94,9 @@ export async function getRoundMagazineData(leagueId: string, date: string): Prom
       .eq('league_id', leagueId).eq('date', date)
       .eq('is_complete', true).eq('is_exhibition', false),
   ])
+  // 이 라운드의 경기 목록 — 쿼리 실패를 빈 배열로 넘기면 "그 날 경기 없음"과 구분이 안 돼
+  // 소셜 카드(순위/스코어보드)가 조용히 텅 빈 상태로 발행된다.
+  if (gamesErr) throw new Error(`getRoundMagazineData: leagueId=${leagueId} date=${date} league_games 조회 실패 — ${gamesErr.message}`)
 
   const players = stats.players ?? []
   const gameRows = (games ?? []) as (GameRow & { id: string })[]
@@ -118,10 +121,12 @@ export async function getRoundMagazineData(leagueId: string, date: string): Prom
       .eq('league_id', leagueId).lte('date', date)
       .eq('is_complete', true).eq('is_exhibition', false)
     if (quarterId) qGamesQuery = qGamesQuery.eq('quarter_id', quarterId)
-    const [{ data: qMeta }, { data: qGames }] = await Promise.all([
+    const [{ data: qMeta }, { data: qGames, error: qGamesErr }] = await Promise.all([
       quarterId ? sb.from('league_quarters').select('year, quarter').eq('id', quarterId).single() : Promise.resolve({ data: null }),
       qGamesQuery,
     ])
+    // 분기 누적 순위 산출용 경기 목록 — 실패를 빈 배열로 넘기면 순위가 조용히 리셋된다.
+    if (qGamesErr) throw new Error(`getRoundMagazineData: leagueId=${leagueId} quarterId=${quarterId} league_games(분기 누적) 조회 실패 — ${qGamesErr.message}`)
     if (qMeta) quarterLabel = `${String((qMeta as { year: number }).year).slice(2)}.${(qMeta as { quarter: number }).quarter}Q`
     quarterStandings = buildStandings((qGames ?? []) as GameRow[], resolver)
   }
@@ -131,7 +136,9 @@ export async function getRoundMagazineData(leagueId: string, date: string): Prom
   const playerTeamKey = new Map<string, string>()
   const playerTeamName = new Map<string, { name: string; color: string }>()
   if (gameIds.length) {
-    const { data: evs } = await sb.from('league_game_events').select('league_player_id, team_id').in('league_game_id', gameIds)
+    const { data: evs, error: evsErr } = await sb.from('league_game_events').select('league_player_id, team_id').in('league_game_id', gameIds)
+    // 실패를 조용히 넘기면 선수 소속팀을 못 찾아 리더 카드의 팀명/컬러가 전부 빈 값(회색)으로 나온다.
+    if (evsErr) throw new Error(`getRoundMagazineData: leagueId=${leagueId} date=${date} league_game_events(팀 소속 판정) 조회 실패 — ${evsErr.message}`)
     const counts = new Map<string, Map<string, number>>()
     for (const e of evs ?? []) {
       const pid = e.league_player_id as string | null, tid = e.team_id as string | null
@@ -194,9 +201,11 @@ export async function getRoundMagazineData(leagueId: string, date: string): Prom
 // 발행 가능한 라운드 날짜 목록 (최신순) — 드롭다운용
 export async function getRoundDates(leagueId: string, limit = 24): Promise<string[]> {
   const sb = createClient()
-  const { data } = await sb.from('league_games').select('date')
+  const { data, error } = await sb.from('league_games').select('date')
     .eq('league_id', leagueId).eq('is_complete', true).eq('is_exhibition', false)
     .order('date', { ascending: false })
+  // 쿼리 실패를 빈 배열로 넘기면 "발행할 라운드가 없음"과 구분이 안 돼 드롭다운이 조용히 빈다.
+  if (error) throw new Error(`getRoundDates: leagueId=${leagueId} league_games 조회 실패 — ${error.message}`)
   const seen = new Set<string>(); const out: string[] = []
   for (const r of data ?? []) {
     const d = r.date as string
