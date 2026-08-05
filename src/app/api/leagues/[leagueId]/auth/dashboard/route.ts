@@ -4,9 +4,8 @@
 //     b. "이번 주 하이라이트" 활성 여부 (직전 라운드 참여 시 true + href)
 //     c. 최근 5경기(=최근 5개 참여 라운드) 스탯 트렌드 + 마일스톤 체이서
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
-import { AUTH_COOKIE, verifySession } from '@/lib/auth/session'
+import { getApprovedSession } from '@/lib/auth/guard'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import { computeStreaks, type StreakCategory } from '@/lib/stats/streaks'
 
@@ -30,9 +29,12 @@ export async function GET(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
-  const jar = await cookies()
-  const session = verifySession(jar.get(AUTH_COOKIE)?.value)
-  if (!session || session.lid !== leagueId) {
+  // 쿠키 서명만 믿지 않고 DB 에서 status='approved' 를 매 요청 재확인한다.
+  //   이 프로젝트의 원칙이다 — 인증 쿠키가 30일짜리라, 승인을 취소하거나 회원을 내보내도
+  //   토큰만 검사하면 그 사람이 최대 30일간 계속 들어온다. 다른 스탯 라우트는 전부
+  //   이 규칙을 따르는데 이 라우트만 빠져 있었다(2026-08-05 전수 점검에서 발견).
+  const session = await getApprovedSession(leagueId)
+  if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
