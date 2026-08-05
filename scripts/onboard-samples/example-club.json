@@ -1,7 +1,10 @@
 {
-  "_설명": "신규 동호회 온보딩 설정 샘플. 복사해서 값만 바꿔 쓰세요.",
-  "_문서": "docs/onboarding-checklist.md — 동호회에 물어볼 항목과 실행 절차",
+  "_설명": "리그형(league) 동호회 온보딩 설정 샘플 — 내부에서 팀을 나눠 자체 리그를 운영하는 동호회용. 복사해서 값만 바꿔 쓰세요.",
+  "_문서": "docs/onboarding-checklist.md — 리그형/대회형 분기와 실행 절차. 대회형은 scripts/onboard-samples/example-club-tournament.json 참고.",
   "_사용법": "node scripts/onboard-club.mjs scripts/onboard-samples/example-club.json --commit",
+
+  "clubType": "league",
+  "_clubType_주석": "league(리그형) 또는 tournament(대회형). 리그형은 orgs→teams→leagues(시즌)→league_teams/league_players 를 만든다.",
 
   "org": {
     "_주석": "조직 = 로고·회원계정·관리자를 공유하는 단위. slug 는 URL 에 들어가고 나중에 바꾸기 어렵습니다.",

@@ -1,0 +1,45 @@
+{
+  "_설명": "대회형(tournament) 동호회 온보딩 설정 샘플 — 내부 리그 없이 외부 대회에 나가는 동호회용. 복사해서 값만 바꿔 쓰세요.",
+  "_문서": "docs/onboarding-checklist.md — 리그형/대회형 분기와 실행 절차. 리그형은 scripts/onboard-samples/example-club.json 참고.",
+  "_사용법": "node scripts/onboard-club.mjs scripts/onboard-samples/example-club-tournament.json --commit",
+
+  "clubType": "tournament",
+  "_clubType_주석": "대회형은 leagues/league_* 테이블을 전혀 쓰지 않는다. orgs→teams(복수 가능)→tournaments(대회)/players(선수) 만 만든다. 실제 운영 사례는 파란날개.",
+
+  "org": {
+    "_주석": "조직 = 로고·회원계정·관리자를 공유하는 단위. slug 는 URL 에 들어가고 나중에 바꾸기 어렵습니다.",
+    "slug": "example-tournament-club",
+    "name": "예시 대회 농구회"
+  },
+
+  "_teams_주석": "대회형은 팀이 여러 개일 수 있습니다(파란날개=청년부/장년부처럼). 팀마다 대회 목록·선수 명단이 각각 격리됩니다. 하나뿐이면 배열에 1개만 넣으세요.",
+  "teams": [
+    {
+      "slug": "youth",
+      "name": "예시 대회 농구회",
+      "edit_pin": "1234",
+
+      "_is_public_주석": "생략하면 공개. 링크를 아는 사람이 로그인 없이 볼 수 있습니다. 닫으려면 false.",
+      "is_public": true,
+
+      "_tournaments_주석": "이 팀이 참가한/참가할 대회 목록. year 는 필수. type 은 amateur(비선출) 또는 pro(선출) — 생략하면 amateur. 나중에 경기 기록 중에 추가해도 됩니다.",
+      "tournaments": [
+        { "name": "제9회 예시구 협회장배", "year": 2026, "type": "amateur" }
+      ],
+
+      "_players_주석": "선수 명단. number 는 반드시 문자열입니다(리그형 players.number 는 integer 지만 대회형은 text 컬럼 — 결번 등 자유 표기도 가능). 등번호는 필수입니다.",
+      "players": [
+        { "name": "홍길동", "number": "7", "position": "PG" },
+        { "name": "김철수", "number": "23", "position": "SF" }
+      ]
+    },
+    {
+      "_주석": "두 번째 팀 예시 — 청년부/장년부처럼 나뉘지 않으면 이 블록을 통째로 지우세요.",
+      "slug": "senior",
+      "name": "예시 대회 농구회 장년부",
+      "edit_pin": "1234",
+      "tournaments": [],
+      "players": []
+    }
+  ]
+}

@@ -1,23 +1,35 @@
-// 신규 동호회 온보딩 — 조직 → 팀 → 시즌을 올바른 순서로 생성
+// 신규 동호회 온보딩 — 조직 → 팀 → (리그형: 시즌 / 대회형: 대회·선수) 를 올바른 순서로 생성
 //
 //   node scripts/onboard-club.mjs <설정파일.json>            검증만 (기본 · dry-run)
 //   node scripts/onboard-club.mjs <설정파일.json> --commit    실제 생성
 //
-// 예) node scripts/onboard-club.mjs scripts/onboard-samples/example-club.json
+// 예) node scripts/onboard-club.mjs scripts/onboard-samples/example-club.json               (리그형)
+//     node scripts/onboard-club.mjs scripts/onboard-samples/example-club-tournament.json    (대회형)
 //
 // 왜 스크립트인가
 //   어드민의 "조직 만들기"/"리그 만들기" 버튼은 필수 항목을 빠뜨려 실패한다.
 //   조직과 팀이 별개 계층이 되면서 개념 자체가 어긋났기 때문에, 패치가 아니라
 //   재설계가 필요하다(단계 7 온보딩 마법사). 그때까지 운영자가 쓰는 도구가 이것이다.
 //
-// 계층
-//   orgs(조직: 파란날개)  →  teams(팀: 청년부/장년부)  →  leagues(시즌: 2026)
+// 리그형 vs 대회형 — 설정 최상위 clubType 으로 명시한다(추론 금지).
+//   틀리면 데이터가 엉뚱한 테이블에 들어가고 나중에야 발견된다 — 반드시 확인하고 물을 것.
+//   · league     : orgs → teams → leagues(시즌) → league_teams(경기팀) → league_players
+//                  내부에서 팀을 나눠 자체 리그를 운영 (예: 미라클모닝)
+//   · tournament : orgs → teams(복수 가능) → tournaments(대회) / players(선수)
+//                  leagues/league_* 는 전혀 쓰지 않는다. 외부 대회에 참가 (예: 파란날개)
 //   같은 조직에 팀을 추가하는 경우 org 는 재사용된다(새로 만들지 않음).
+//
+// 대회형 함정
+//   · players.number 는 대회형에서 text (리그형은 integer) — 숫자로 적어도 항상 문자열로 강제한다.
+//   · players/tournaments.team_type 은 teams.sub_slug 와 반드시 같아야 한다. DB 는 이 둘의
+//     일치를 강제하지 않으므로(FK 없음), 어긋나면 회원이 조용히 다른 팀 명단에 끼어 들어간다 —
+//     그래서 이 스크립트는 항상 team_type 을 t.slug 로 직접 채운다(입력값을 안 받는다).
 import { readFileSync } from 'node:fs'
 import { query } from './lib/supabase-admin.mjs'
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/
-const MODES = ['league', 'tournament']
+const MODES = ['league', 'tournament']       // leagues.mode 컬럼 값(리그형 내부 개념) — clubType 과 다른 축이다
+const CLUB_TYPES = ['league', 'tournament']  // 이 스크립트가 만드는 두 제품 중 어느 쪽인지
 
 // leagues.rules 컬럼 기본값과 동일한 표준 룰 (마이그레이션 075/077 과 같은 값).
 // 설정에서 일부만 덮어쓸 때의 베이스.
@@ -67,11 +79,30 @@ function validate(cfg) {
     for (const k of keys) if (obj[k] === undefined || obj[k] === '') errors.push(`${path}.${k} 가 비어 있습니다`)
   }
 
+  if (!CLUB_TYPES.includes(cfg.clubType)) {
+    errors.push(`clubType 은 ${CLUB_TYPES.join(' 또는 ')} 여야 합니다 (받은 값: ${cfg.clubType}) — 리그형/대회형 중 뭘 만드는지 명시하세요`)
+  }
   need(cfg.org, 'org', ['slug', 'name'])
+  if (cfg.org?.slug && !SLUG_RE.test(cfg.org.slug)) errors.push(`org.slug '${cfg.org.slug}' — 영문 소문자·숫자·하이픈만 쓸 수 있습니다`)
+
+  if (cfg.clubType === 'tournament') validateTournament(cfg, errors)
+  else validateLeague(cfg, errors)
+
+  if (errors.length) fail('설정 오류\n  · ' + errors.join('\n  · '))
+}
+
+function validateLeague(cfg, errors) {
+  // clubType=tournament 전용 블록이 섞여 있으면 오타/복붙 실수일 가능성이 높다
+  if (cfg.teams) errors.push('clubType=league 에서는 teams 배열 대신 team(단수)+season 을 씁니다')
+
+  const need = (obj, path, keys) => {
+    if (!obj) { errors.push(`${path} 블록이 없습니다`); return }
+    for (const k of keys) if (obj[k] === undefined || obj[k] === '') errors.push(`${path}.${k} 가 비어 있습니다`)
+  }
   need(cfg.team, 'team', ['slug', 'name', 'edit_pin'])
   need(cfg.season, 'season', ['slug', 'name', 'year', 'mode', 'start_date'])
 
-  for (const [path, slug] of [['org.slug', cfg.org?.slug], ['team.slug', cfg.team?.slug], ['season.slug', cfg.season?.slug]]) {
+  for (const [path, slug] of [['team.slug', cfg.team?.slug], ['season.slug', cfg.season?.slug]]) {
     if (slug && !SLUG_RE.test(slug)) errors.push(`${path} '${slug}' — 영문 소문자·숫자·하이픈만 쓸 수 있습니다`)
   }
   if (cfg.season?.mode && !MODES.includes(cfg.season.mode)) {
@@ -90,10 +121,48 @@ function validate(cfg) {
   if (cfg.season?.mode === 'tournament' && (cfg.matchTeams ?? []).length > 0) {
     errors.push('대회형(tournament)에서는 matchTeams 를 쓰지 않습니다. 상대팀은 경기 기록 중에 추가됩니다')
   }
-  if (errors.length) fail('설정 오류\n  · ' + errors.join('\n  · '))
 }
 
-async function inspectExisting(cfg) {
+// 대회형: leagues 를 쓰지 않으므로 season 개념이 없다. 팀이 여러 개일 수 있다(파란날게=청년/장년부처럼)
+// — teams 배열로 표현하고, 팀마다 대회 목록·선수 명단을 각각 갖는다.
+function validateTournament(cfg, errors) {
+  if (cfg.team || cfg.season || cfg.matchTeams) {
+    errors.push('clubType=tournament 에서는 team(단수)/season/matchTeams 대신 teams 배열을 씁니다')
+  }
+  if (!Array.isArray(cfg.teams) || cfg.teams.length === 0) {
+    errors.push('teams 배열이 비어 있습니다 — 대회형은 팀을 최소 1개 지정해야 합니다')
+    return
+  }
+
+  const seenSlugs = new Set()
+  cfg.teams.forEach((t, i) => {
+    const path = `teams[${i}]`
+    if (!t.slug) errors.push(`${path}.slug 가 비어 있습니다`)
+    else {
+      if (!SLUG_RE.test(t.slug)) errors.push(`${path}.slug '${t.slug}' — 영문 소문자·숫자·하이픈만 쓸 수 있습니다`)
+      if (seenSlugs.has(t.slug)) errors.push(`${path}.slug '${t.slug}' 가 teams 안에서 중복됩니다`)
+      seenSlugs.add(t.slug)
+    }
+    if (!t.name) errors.push(`${path}.name 이 비어 있습니다`)
+    if (!t.edit_pin) errors.push(`${path}.edit_pin 이 비어 있습니다`)
+    else if (!/^\d{4}$/.test(String(t.edit_pin))) errors.push(`${path}.edit_pin 은 숫자 4자리여야 합니다`)
+
+    for (const [j, tour] of (t.tournaments ?? []).entries()) {
+      if (!tour.name) errors.push(`${path}.tournaments[${j}].name 이 비어 있습니다`)
+      if (tour.year === undefined || tour.year === '') errors.push(`${path}.tournaments[${j}].year 가 비어 있습니다`)
+      else if (!/^\d{4}$/.test(String(tour.year))) errors.push(`${path}.tournaments[${j}].year 는 4자리 연도여야 합니다`)
+    }
+    for (const [j, p] of (t.players ?? []).entries()) {
+      if (!p.name) errors.push(`${path}.players[${j}].name 이 비어 있습니다`)
+      // players.number 는 대회형에서 NOT NULL text 컬럼 — 리그형(nullable integer)과 달리 필수다
+      if (p.number === undefined || p.number === null || String(p.number).trim() === '') {
+        errors.push(`${path}.players[${j}].number 가 비어 있습니다 — 대회형은 등번호가 필수입니다(문자열)`)
+      }
+    }
+  })
+}
+
+async function inspectExistingLeague(cfg) {
   const [org] = await query(`SELECT id, name FROM orgs WHERE slug = ${lit(cfg.org.slug)}`)
   const [team] = org
     ? await query(`SELECT id, name FROM teams WHERE org_id = ${lit(org.id)} AND sub_slug = ${lit(cfg.team.slug)}`)
@@ -104,11 +173,27 @@ async function inspectExisting(cfg) {
   return { org, team, season }
 }
 
+// 대회형은 "시즌" 이라는 단위가 없으므로, 리그형의 "이미 존재하는 시즌은 거부" 와 같은 자리에
+// "이미 존재하는 팀은 거부" 를 둔다 — 대회·선수가 직접 매달리는 최소 단위가 팀이기 때문이다.
+// (기존 팀에 선수를 더 추가하는 건 이 스크립트가 아니라 앱 로스터 화면의 몫 — 온보딩은 1회성 초기화다)
+async function inspectExistingTournament(cfg) {
+  const [org] = await query(`SELECT id, name FROM orgs WHERE slug = ${lit(cfg.org.slug)}`)
+  const teams = []
+  for (const t of cfg.teams) {
+    const [existing] = org
+      ? await query(`SELECT id, name FROM teams WHERE org_id = ${lit(org.id)} AND sub_slug = ${lit(t.slug)}`)
+      : []
+    teams.push({ cfg: t, existing })
+  }
+  return { org, teams }
+}
+
 async function main() {
   const [configPath, ...flags] = process.argv.slice(2)
   if (!configPath) {
     console.log('사용법: node scripts/onboard-club.mjs <설정파일.json> [--commit]')
-    console.log('샘플  : scripts/onboard-samples/example-club.json')
+    console.log('샘플  : scripts/onboard-samples/example-club.json            (리그형)')
+    console.log('        scripts/onboard-samples/example-club-tournament.json (대회형)')
     return
   }
   const commit = flags.includes('--commit')
@@ -116,7 +201,12 @@ async function main() {
 
   validate(cfg)
 
-  const existing = await inspectExisting(cfg)
+  if (cfg.clubType === 'tournament') await runTournamentOnboarding(cfg, commit)
+  else await runLeagueOnboarding(cfg, commit)
+}
+
+async function runLeagueOnboarding(cfg, commit) {
+  const existing = await inspectExistingLeague(cfg)
   if (existing.season) {
     fail(`이미 존재하는 시즌입니다: ${cfg.org.slug}/${cfg.team.slug} ${cfg.season.year} ${cfg.season.slug}\n` +
          '  같은 시즌을 두 번 만들 수 없습니다. slug 를 바꾸거나 기존 시즌을 쓰세요.')
@@ -193,6 +283,83 @@ async function main() {
 
   console.log(`\n완료. 접속 주소:\n  /league/${cfg.org.slug}/${cfg.season.slug}\n`)
   console.log(`편집 PIN: ${cfg.season.edit_pin ?? cfg.team.edit_pin}`)
+}
+
+// 대회형 — leagues/league_* 는 전혀 만들지 않는다. orgs → teams(복수) → tournaments/players.
+async function runTournamentOnboarding(cfg, commit) {
+  const existing = await inspectExistingTournament(cfg)
+  const conflicts = existing.teams.filter(t => t.existing)
+  if (conflicts.length) {
+    fail(`이미 존재하는 팀입니다: ${conflicts.map(t => `${cfg.org.slug}/${t.cfg.slug}`).join(', ')}\n` +
+         '  같은 팀을 두 번 만들 수 없습니다. slug 를 바꾸거나, 선수 추가는 앱 로스터 화면에서 하세요.')
+  }
+
+  console.log(`\n${commit ? '실제 생성' : '검증만 (dry-run)'} — ${cfg.org.name} (대회형)\n`)
+  console.log(`  조직  ${cfg.org.slug.padEnd(20)} ${existing.org ? `기존 재사용 (${existing.org.name})` : '신규 생성'}`)
+  console.log('  형태  대회형(tournament)     leagues 테이블은 만들지 않습니다')
+
+  for (const t of cfg.teams) {
+    const isPublic = t.is_public ?? true
+    const tournaments = t.tournaments ?? []
+    const players = t.players ?? []
+    console.log(`\n  팀    ${t.slug.padEnd(20)} 신규 생성 · ${t.name} · PIN ${t.edit_pin}`)
+    console.log(`        ${(isPublic ? '공개' : '⚠ 비공개').padEnd(20)} ${isPublic ? '(기본값)' : '로그인 전에는 아무것도 안 보입니다'}`)
+    console.log(tournaments.length
+      ? `        대회  ${tournaments.length}개 — ${tournaments.map(x => `${x.name}(${x.year})`).join(', ')}`
+      : '        대회  0개 (나중에 경기 기록 중 추가 가능)')
+    if (players.length) console.log(`        선수  ${players.length}명`)
+  }
+
+  if (!commit) {
+    console.log('\n검증 통과. 실제로 만들려면 --commit 을 붙여 다시 실행하세요.')
+    return
+  }
+
+  // ── 생성 (의존 순서: org → team[] → 대회/선수) ──
+  let orgId = existing.org?.id
+  if (!orgId) {
+    const [row] = await query(
+      `INSERT INTO orgs (slug, name, brand_color) VALUES (${lit(cfg.org.slug)}, ${lit(cfg.org.name)}, ${lit(cfg.org.brand_color ?? null)}) RETURNING id`
+    )
+    orgId = row.id
+    console.log(`\n  ✔ 조직 생성 ${orgId}`)
+  }
+
+  const accessUrls = []
+  for (const t of cfg.teams) {
+    const isPublic = t.is_public ?? true
+    const [row] = await query(
+      `INSERT INTO teams (org_id, org_slug, sub_slug, name, accent_color, edit_pin, is_active, is_public)
+       VALUES (${lit(orgId)}, ${lit(cfg.org.slug)}, ${lit(t.slug)}, ${lit(t.name)},
+               ${lit(t.accent_color ?? '#3b82f6')}, ${lit(String(t.edit_pin))}, true, ${lit(isPublic)})
+       RETURNING id`
+    )
+    const teamId = row.id
+    console.log(`  ✔ 팀 생성 ${t.slug} ${teamId}`)
+
+    // team_type 은 t.slug(=sub_slug) 로 직접 고정한다 — 입력값을 따로 안 받는 이유는 헤더 주석 참고.
+    for (const tour of t.tournaments ?? []) {
+      await query(
+        `INSERT INTO tournaments (team_id, name, year, type, description, team_type)
+         VALUES (${lit(teamId)}, ${lit(tour.name)}, ${tour.year}, ${lit(tour.type ?? 'amateur')}, ${lit(tour.description ?? null)}, ${lit(t.slug)})`
+      )
+    }
+    if ((t.tournaments ?? []).length) console.log(`  ✔ 대회 ${t.tournaments.length}개 생성 (${t.slug})`)
+
+    for (const p of t.players ?? []) {
+      await query(
+        // number 는 text 컬럼(리그형은 integer) — JSON 에 숫자로 적었어도 String() 으로 강제해
+        // 타입 불일치로 조용히 깨지거나 엉뚱하게 캐스팅되는 걸 막는다.
+        `INSERT INTO players (team_id, name, number, position, team_type)
+         VALUES (${lit(teamId)}, ${lit(p.name)}, ${lit(String(p.number))}, ${lit(p.position ?? null)}, ${lit(t.slug)})`
+      )
+    }
+    if ((t.players ?? []).length) console.log(`  ✔ 선수 ${t.players.length}명 생성 (${t.slug})`)
+
+    accessUrls.push(`  /${cfg.org.slug}/${t.slug}  (PIN ${t.edit_pin})`)
+  }
+
+  console.log(`\n완료. 접속 주소:\n${accessUrls.join('\n')}\n`)
 }
 
 try {
