@@ -54,8 +54,11 @@ export default function LeagueSubstitutionPanel({
   const homeBench = homeRoster.filter(p => !isOnCourt(p.id))
   const awayOnCourt = awayRoster.filter(p => isOnCourt(p.id))
   const awayBench = awayRoster.filter(p => !isOnCourt(p.id))
-  const unassignedOnCourt = players.filter(p => onCourt.includes(p.id) && !homeIds.has(p.id) && !awayIds.has(p.id))
-  const unassignedBench = players.filter(p => !onCourt.includes(p.id) && !homeIds.has(p.id) && !awayIds.has(p.id))
+  // 탈퇴 회원(is_active=false)은 "새로 데려올 후보" 풀에서 제외한다. 이미 이 경기에서
+  // 뛴 적 있는 탈퇴 회원은 homeRoster/awayRoster(roster API 가 과거 기록으로 보존)에
+  // 들어 있으므로 homeIds/awayIds 에 걸려 애초에 이 미배정 풀까지 오지 않는다.
+  const unassignedOnCourt = players.filter(p => p.is_active !== false && onCourt.includes(p.id) && !homeIds.has(p.id) && !awayIds.has(p.id))
+  const unassignedBench = players.filter(p => p.is_active !== false && !onCourt.includes(p.id) && !homeIds.has(p.id) && !awayIds.has(p.id))
 
   // ── API 헬퍼 ──────────────────────────────────────────────────
   async function assignToTeam(playerId: string, teamId: string) {

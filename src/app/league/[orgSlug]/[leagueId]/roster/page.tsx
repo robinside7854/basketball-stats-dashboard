@@ -273,7 +273,9 @@ export default function LeagueRosterPage() {
   async function load() {
     setLoading(true)
     const [pRes, tRes, qRes, lRes] = await Promise.all([
-      fetch(`/api/leagues/${leagueId}/players`),
+      // 명단 화면 = "지금 팀에 있는 선수" 를 보여주는 화면 → 탈퇴 회원(is_active=false) 제외.
+      // 그 선수의 과거 기록은 스탯·하이라이트 화면에서 그대로 남는다(의도적 분리).
+      fetch(`/api/leagues/${leagueId}/players?activeOnly=1`),
       fetch(`/api/leagues/${leagueId}/teams`),
       fetch(`/api/leagues/${leagueId}/quarters`),
       fetch(`/api/leagues/${leagueId}`),

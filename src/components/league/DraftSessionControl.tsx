@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Play, Square, RotateCcw, CheckCircle2, Circle, Crown, Users, RefreshCw, Trash2, Save, Link2, Copy, Check, X, Trophy, Video, Dice5, Hand, Zap, AlertTriangle } from 'lucide-react'
 
 interface Team { id: string; name: string; color: string }
-interface Player { id: string; name: string; number: number | null; position: string | null; plus_one?: boolean }
+interface Player { id: string; name: string; number: number | null; position: string | null; plus_one?: boolean; is_active?: boolean }
 
 interface Draft {
   id: string
@@ -92,8 +92,13 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   useEffect(() => { fetchData() }, [fetchData])
 
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
+  // playerMap 은 전체 명단(탈퇴 회원 포함) — 과거 완료된 드래프트의 팀장·픽 이름 표시가
+  // 이걸 통해 나가므로 여기서 거르면 탈퇴한 회원이 뽑았던 지난 드래프트 기록이 "?" 로 깨진다.
   const playerMap = Object.fromEntries(players.map(p => [p.id, p]))
   const leaderIds = new Set(Object.values(leaderDraft).filter(Boolean))
+  // 반면 풀·팀장 "선택" UI(editorBlock)는 지금 뽑을 수 있는 후보만 보여줘야 한다 →
+  // 탈퇴 회원(is_active=false) 제외한 별도 리스트.
+  const activePlayers = players.filter(p => p.is_active !== false)
 
   async function createSession() {
     if (poolSel.size === 0) { toast.error('드래프트 대상 선수를 1명 이상 선택하세요'); return }
@@ -263,7 +268,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
               <select value={leaderDraft[t.id] ?? ''} onChange={e => setLeaderDraft(prev => ({ ...prev, [t.id]: e.target.value }))}
                 className="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-sm text-white">
                 <option value="">— 팀장 선택 —</option>
-                {players.map(p => <option key={p.id} value={p.id}>{p.name}{p.number != null ? ` #${p.number}` : ''}</option>)}
+                {activePlayers.map(p => <option key={p.id} value={p.id}>{p.name}{p.number != null ? ` #${p.number}` : ''}</option>)}
               </select>
             </div>
           ))}
@@ -273,15 +278,15 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="text-[11px] text-gray-300 font-bold uppercase tracking-wider flex items-center gap-1.5">
-            <Users size={14} className="text-emerald-400" /> 드래프트 참여 선수 ({poolSel.size}명 선택 / 전체 {players.length}명)
+            <Users size={14} className="text-emerald-400" /> 드래프트 참여 선수 ({poolSel.size}명 선택 / 전체 {activePlayers.length}명)
           </label>
           <div className="flex gap-1.5">
-            <button onClick={() => setPoolSel(new Set(players.filter(p => !leaderIds.has(p.id)).map(p => p.id)))} className="text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-100 hover:text-white cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">전체 선택</button>
+            <button onClick={() => setPoolSel(new Set(activePlayers.filter(p => !leaderIds.has(p.id)).map(p => p.id)))} className="text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-100 hover:text-white cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">전체 선택</button>
             <button onClick={() => setPoolSel(new Set())} className="text-xs px-2.5 py-1.5 min-h-[32px] rounded bg-gray-800 text-gray-100 hover:text-white cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">해제</button>
           </div>
         </div>
         <div className="max-h-72 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-1.5 pr-1">
-          {players.map(p => {
+          {activePlayers.map(p => {
             const isLeader = leaderIds.has(p.id)
             const checked = poolSel.has(p.id)
             return (

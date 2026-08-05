@@ -119,7 +119,7 @@ async function main() {
     // ── 1) 선수별 시즌 총득점 · 경기 수 ──────────────────────────────
     console.log('\n-- 선수별 시즌 총득점 · 경기 수 --')
     const playerCrosswalk = await query(`
-      SELECT p.id AS legacy_id, p.name AS legacy_name, lp.id AS league_id
+      SELECT p.id AS legacy_id, p.name AS legacy_name, lp.id AS league_id, lp.is_active
         FROM players p JOIN league_players lp ON lp.legacy_id = p.id
        WHERE p.team_id = '${team.legacy_team_id}'
     `)
@@ -138,7 +138,52 @@ async function main() {
     const leagueDefaultByPid = new Map(leagueSeasonDefault.players.map(p => [p.player_id, p]))
     const leagueRoundByPid = new Map(leagueSeasonRound.players.map(p => [p.player_id, p]))
 
+    // ── 1-b) 탈퇴 회원(is_active=false) — 의도된 화면 분기 ──────────────
+    // 레거시는 players.is_active=true 를 모든 조회(로스터·기록화면·/api/stats/season 전부)에
+    // 하드코딩해 걸어 놨다 — 탈퇴 회원은 그 사람이 뛴 경기 스탯까지 화면에서 통째로 사라진다
+    // (legacyByPid 에 아예 안 잡힌다). 소유자 결정(브리프): 새 화면은 그렇게 굴지 않는다 —
+    // "역대 기록을 그 선수 본인에게 돌려주는 게 이 플랫폼의 존재 이유" 라서, 탈퇴해도 과거
+    // 스탯은 남기고 "현재 로스터"에서만 뺀다. 그래서 아래 (2)의 legacy-vs-league 비교 루프는
+    // 이 선수들을 건너뛴다 — 레거시가 완전히 숨긴 값과 비교하면 항상 "불일치"로 보이는데,
+    // 그건 버그가 아니라 의도된 화면 분기이기 때문이다. 대신 여기서 그 분기 자체를
+    // ("로스터엔 없다" + "스탯엔 있다") 직접 어서션한다.
+    // ⚠ 이 블록을 지우거나 skip 을 없애 legacy 와 그대로 비교하게 되돌리지 말 것 —
+    //   그건 이 태스크가 의도적으로 고친 동작을 레거시로 되돌리는 것과 같다.
+    const inactiveCrosswalk = playerCrosswalk.filter(cw => cw.is_active === false)
+    if (inactiveCrosswalk.length > 0) {
+      const rosterActive = await fetchJson(`${BASE}/api/leagues/${team.league_id}/players?activeOnly=1`)
+      const rosterActiveIds = new Set(rosterActive.map(p => p.id))
+
+      for (const cw of inactiveCrosswalk) {
+        record(!rosterActiveIds.has(cw.league_id),
+          `${cw.legacy_name} — 탈퇴 회원이 현재 로스터(activeOnly)에서 빠졌는가`,
+          `roster ?activeOnly=1 응답에 여전히 포함됨 (빠져야 정상)`)
+
+        const leagueGame = leagueGameByPid.get(cw.league_id)
+        const legacy = legacyByPid.get(cw.legacy_id)
+        note(`${cw.legacy_name} — 레거시 시즌스탯: ${legacy ? `있음(pts=${legacy.pts})` : '없음(레거시가 is_active=false 를 하드코딩 필터해 항상 없음 — 정상)'}`)
+        if (leagueGame) {
+          record(true,
+            `${cw.legacy_name} — 탈퇴 회원의 과거 기록이 리그 스탯 화면에 남아 있는가`,
+            '')
+        } else {
+          // 이 3명 중 최신훈은 실제로 무기록(0경기)이라 leagueGame 이 없는 게 정상이다.
+          // DB 로 실제 이벤트 존재 여부를 확인해 무기록/버그를 구분한다.
+          const [{ n: eventCount }] = await query(
+            `SELECT count(*)::int n FROM league_game_events WHERE league_player_id = '${cw.league_id}'`
+          )
+          record(eventCount === 0,
+            `${cw.legacy_name} — 탈퇴 회원의 과거 기록이 리그 스탯 화면에 남아 있는가`,
+            `이벤트 ${eventCount}건 있는데 리그 스탯(unit=game)에 없음 — 실제 결함`)
+        }
+      }
+    }
+
+    // ── 1-c) legacy ↔ league 시즌 총득점 · 경기 수 대조 (재직 중인 회원만) ──
     for (const cw of playerCrosswalk) {
+      // 탈퇴 회원은 위 1-b 에서 이미 (의도된 분기로) 따로 검증했다 — 여기서 legacy 와
+      // 그대로 비교하면 레거시가 완전히 숨긴 값(무기록)과 비교돼 항상 실패로 보인다.
+      if (cw.is_active === false) continue
       const legacy = legacyByPid.get(cw.legacy_id)
       const leagueGame = leagueGameByPid.get(cw.league_id)
       const leagueDefault = leagueDefaultByPid.get(cw.league_id)

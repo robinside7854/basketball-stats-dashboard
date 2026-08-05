@@ -190,8 +190,9 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
   const [rosterNames, setRosterNames] = useState<string[]>([])
 
   // #4 로스터 이름 자동완성 — 등록명과 불일치로 인한 가입 실패 방지
+  // 탈퇴 회원은 지금 새로 가입할 대상이 아니므로 자동완성 후보에서 제외 (activeOnly).
   useEffect(() => {
-    fetch(`/api/leagues/${leagueId}/players`)
+    fetch(`/api/leagues/${leagueId}/players?activeOnly=1`)
       .then(r => r.ok ? r.json() : [])
       .then((rows: Array<{ name?: string }>) => setRosterNames([...new Set(rows.map(p => p.name).filter((n): n is string => !!n))]))
       .catch(() => { /* 무시 */ })

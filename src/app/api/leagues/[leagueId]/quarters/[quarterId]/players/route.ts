@@ -25,7 +25,7 @@ export async function GET(
   const [{ data: players, error: pErr }, { data: memberships }, { data: quarterGames }] = await Promise.all([
     supabase
       .from('league_players')
-      .select('id, name, number, position, birth_date')
+      .select('id, name, number, position, birth_date, is_active')
       .eq('league_id', leagueId)
       .order('name'),
     supabase

@@ -34,12 +34,22 @@ export async function GET(
 
   // 라커룸·선수카드·회원가입 대상에서 상대 선수는 보이면 안 된다.
   // 기록 화면은 상대 선수를 눌러야 하므로 ?includeExternal=1 로 옵트인한다.
-  const includeExternal = new URL(req.url).searchParams.get('includeExternal') === '1'
+  const url = new URL(req.url)
+  const includeExternal = url.searchParams.get('includeExternal') === '1'
   if (!includeExternal) {
     const externalIds = await fetchExternalPlayerIds(supabase, leagueId)
     if (externalIds.size > 0) {
       enriched = enriched.filter(p => !externalIds.has(p.id))
     }
+  }
+
+  // 탈퇴 회원(is_active=false)은 "지금 팀에 있는 선수"를 묻는 화면(명단·드래프트 풀·
+  // 가입 자동완성)에서만 뺀다. 스탯·하이라이트·박스스코어처럼 과거 기록을 보여주는 화면은
+  // 이 엔드포인트를 그대로 쓰되 필터를 옵트인하지 않아 탈퇴 회원의 기록이 계속 보인다.
+  // → 이 API 하나를 공유하는 두 종류의 소비자를 opt-in 파라미터로만 가른다(기본값=전체 유지).
+  const activeOnly = url.searchParams.get('activeOnly') === '1'
+  if (activeOnly) {
+    enriched = enriched.filter(p => p.is_active !== false)
   }
 
   return NextResponse.json(enriched)

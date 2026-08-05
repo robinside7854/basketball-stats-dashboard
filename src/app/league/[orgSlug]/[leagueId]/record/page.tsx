@@ -337,6 +337,10 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         const qd: IrregularPlayer[] = await qRes.json()
         const assignedSet = new Set(assignedIrregularIds)
         setIrregularRoster(qd.filter(p => {
+          // 탈퇴 회원(is_active=false)은 새 경기에 "더 데려올" 후보에서 제외 —
+          // 이미 이 경기에 배정돼 있었다면 위 assignedSet 분기에서 걸러지지 않고
+          // homeRoster/awayRoster 쪽(roster API)이 과거 기록 보존 책임을 진다.
+          if (p.is_active === false) return false
           if (assignedSet.has(p.id)) return false
           // 비정규/미배정 → 포함 (기존 동작)
           if (p.is_regular !== true) return true

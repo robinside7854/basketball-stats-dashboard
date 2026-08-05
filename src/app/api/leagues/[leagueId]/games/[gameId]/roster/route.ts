@@ -58,17 +58,28 @@ export async function GET(
     }
   }
 
+  // 탈퇴 회원(is_active=false)은 로스터 피커에서 제외한다 — 단, 이 경기에 이미 이벤트가
+  // 남아 있으면(과거에 실제로 뛴 경기) 예외로 계속 포함한다. 그래야 옛 경기를 다시 열었을 때
+  // 박스스코어·게임로그에서 탈퇴 회원의 실제 기록이 사라지지 않는다.
+  const { data: playedRows } = await supabase
+    .from('league_game_events')
+    .select('league_player_id')
+    .eq('league_game_id', gameId)
+    .not('league_player_id', 'is', null)
+  const playedIds = new Set((playedRows ?? []).map(r => r.league_player_id as string))
+
   // 분기 여전히 없거나 팀 배정 자체가 없는 경우: 전체 선수를 unassigned로 반환
   if (!resolvedQuarterId || (!game.home_team_id && !game.away_team_id)) {
     const { data: players } = await supabase
       .from('league_players')
-      .select('id, name, number, position')
+      .select('id, name, number, position, is_active')
       .eq('league_id', leagueId)
       .order('name')
+    const filtered = (players ?? []).filter(p => p.is_active !== false || playedIds.has(p.id))
     return NextResponse.json({
       home: [],
       away: [],
-      unassigned: players ?? [],
+      unassigned: filtered,
       quarter_id: null,
     })
   }
@@ -82,7 +93,7 @@ export async function GET(
       team_id,
       is_regular,
       league_player_id,
-      league_players!inner(id, name, number, position, birth_date, plus_one)
+      league_players!inner(id, name, number, position, birth_date, plus_one, is_active)
     `)
     .eq('league_id', leagueId)
     .eq('quarter_id', resolvedQuarterId)
@@ -124,6 +135,8 @@ export async function GET(
     if (m.is_regular === false) continue
     // per-game 배정이 있는 선수는 league_game_players 기준으로 처리 (타팀 임시 출전 override)
     if (gameOverrideIds.has(m.league_player_id)) continue
+    // 탈퇴 회원 — 이 경기에 실제 기록이 없으면 새 픽커에서 제외 (있으면 아래에서 유지)
+    if (p.is_active === false && !playedIds.has(p.id)) continue
     const row: PlayerRow = {
       id: p.id,
       name: p.name,
