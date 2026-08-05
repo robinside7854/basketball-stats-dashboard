@@ -67,26 +67,14 @@ async function lookupUuidForSlug(orgSlug: string, slug: string): Promise<string 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // 레거시 URL → 리그 주소 전환 (단계 C-5, 파란날개 실전환)
-  //
-  //   301 이 아니라 307 을 쓴다. 301 은 브라우저가 영구 캐시해서, 문제가 생겨 이
-  //   블록을 지워도 사용자 브라우저가 계속 새 주소로 간다 — 롤백 자체가 무의미해진다.
-  //   전환이 안정된 뒤 단계 D 에서 301 로 승격한다.
-  //
-  //   하위 경로는 그대로 이어붙이지 않는다. 레거시의 /boxscore·/gamelog·/tournaments 는
-  //   리그 트리에 같은 이름이 없거나 뜻이 다르다(예: 리그의 /boxscore 는 날짜별 라우트라
-  //   시즌 전체 박스스코어를 뜻하는 레거시와 모양이 다르다). 그대로 이어붙이면 404 가
-  //   난다 — 하위 경로가 있으면 항상 리그 홈으로 보낸다. 404 보다는 낫다.
-  const LEGACY_LEAGUE_TARGET: Record<string, string> = {
-    '/youth': '/league/paranalgae/youth-2026',
-    '/senior': '/league/paranalgae/senior-2026',
-    '/paranalgae/youth': '/league/paranalgae/youth-2026',
-    '/paranalgae/senior': '/league/paranalgae/senior-2026',
+  // 레거시 URL 리다이렉트 (/youth → /paranalgae/youth)
+  if (pathname === '/youth' || pathname.startsWith('/youth/')) {
+    const rest = pathname.slice('/youth'.length)
+    return NextResponse.redirect(new URL(`/paranalgae/youth${rest}`, request.url), { status: 301 })
   }
-  for (const [legacyPrefix, target] of Object.entries(LEGACY_LEAGUE_TARGET)) {
-    if (pathname === legacyPrefix || pathname.startsWith(`${legacyPrefix}/`)) {
-      return NextResponse.redirect(new URL(target, request.url), { status: 307 })
-    }
+  if (pathname === '/senior' || pathname.startsWith('/senior/')) {
+    const rest = pathname.slice('/senior'.length)
+    return NextResponse.redirect(new URL(`/paranalgae/senior${rest}`, request.url), { status: 301 })
   }
 
   // 서브도메인 라우팅: admin.xxx.com → /admin/ 경로로 rewrite
@@ -156,13 +144,6 @@ export const config = {
     '/youth/:path*',
     '/senior',
     '/senior/:path*',
-    // '/paranalgae/:path*' 처럼 넓게 잡지 않는다 — 미들웨어는 모든 요청에 걸리므로,
-    // 이 org 아래 다른(장래에 생길 수 있는) 팀 경로까지 실수로 삼키지 않도록
-    // youth/senior 두 경로만 정확히 지정한다.
-    '/paranalgae/youth',
-    '/paranalgae/youth/:path*',
-    '/paranalgae/senior',
-    '/paranalgae/senior/:path*',
     '/admin/:path*',
     '/league/:path*',
   ],
