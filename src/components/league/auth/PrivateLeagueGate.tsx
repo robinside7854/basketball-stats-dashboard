@@ -40,7 +40,7 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
           <Basketball size={26} />
           <span
             className="font-bold"
-            style={{ color: 'var(--mm-ink)', fontSize: 26, letterSpacing: '0.14em' }}
+            style={{ color: 'var(--mm-ink)', fontSize: 26 }}
           >
             OnBall
           </span>
