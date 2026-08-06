@@ -38,7 +38,7 @@ export default async function AdminDashboardPage() {
   const { orgs, orgCount, playerCount, tournamentCount, gameCount, leagueCount, leagueTeamCount, leagueGameCount, recentLeagues } = await getStats()
 
   const tournamentKpis = [
-    { label: '등록 Org', value: orgCount, icon: Building2, color: 'text-[var(--mm-ink)]', bg: 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)]' },
+    { label: '등록 팀', value: orgCount, icon: Building2, color: 'text-[var(--mm-ink)]', bg: 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)]' },
     { label: '활성 선수', value: playerCount, icon: Users, color: 'text-[var(--mm-positive)]', bg: 'bg-[var(--mm-positive)]/10 border-[var(--mm-positive)]/20' },
     { label: '대회', value: tournamentCount, icon: Trophy, color: 'text-[var(--mm-yellow-strong)]', bg: 'bg-[var(--mm-yellow-soft)] border-[var(--mm-yellow-strong)]/20' },
     { label: '경기', value: gameCount, icon: Calendar, color: 'text-[var(--mm-ink)]', bg: 'bg-[var(--mm-panel)] border-[var(--mm-rule)]' },
@@ -79,21 +79,21 @@ export default async function AdminDashboardPage() {
 
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-[var(--mm-ink)]">등록된 Org</h3>
-            <Link href="/admin/orgs/new" className="text-xs px-3 py-1.5 rounded-lg bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 font-medium transition-colors cursor-pointer">
-              + 새 Org 추가
+            <h3 className="text-sm font-semibold text-[var(--mm-ink)]">등록된 팀</h3>
+            <Link href="/admin/teams/new" className="text-xs px-3 py-1.5 rounded-lg bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 font-medium transition-colors cursor-pointer min-h-11 flex items-center">
+              + 새 팀 추가
             </Link>
           </div>
           <div className="space-y-2">
             {orgs.length === 0 && (
               <div className="text-center py-10 text-[var(--mm-muted)] border border-dashed border-[var(--mm-rule)] rounded-xl text-sm">
-                등록된 Org가 없습니다
+                등록된 팀이 없습니다
               </div>
             )}
             {orgs.map(org => (
               <Link
                 key={org.id}
-                href={`/admin/orgs/${org.org_slug}`}
+                href={`/admin/teams/${org.id}`}
                 className="flex items-center gap-4 p-4 bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl hover:border-[var(--mm-muted)] transition-colors cursor-pointer"
               >
                 <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: org.accent_color ?? '#3b82f6' }} />

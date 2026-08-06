@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, ExternalLink, Trophy, Layers, Trash2, Loader2, Settings, Shield } from 'lucide-react'
+import { Plus, ExternalLink, Trophy, Layers, Trash2, Loader2, Settings, Shield, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 
 type Team = {
@@ -50,9 +50,16 @@ function countByMode(list: League[], mode: League['mode']): number {
 // 팀 그룹 하나 = { 팀 정보, 그 팀이 굴리는 대회 목록 }
 type TeamGroup = { team: Team | null; teamId: string; leagues: League[] }
 
-function groupByTeam(leagues: League[]): TeamGroup[] {
+// allTeams 를 함께 받아 대회가 하나도 없는 팀(예: 파란날개 청년부·장년부)도 빠짐없이
+// 카드로 보여준다 — leagues 목록만으로 팀을 역추출하면 그런 팀은 화면에서 아예 사라진다.
+// 이게 예전 조직(org) 목록 페이지가 하던 "팀 전체 보기"를 대체하는 지점이다.
+function groupByTeam(leagues: League[], allTeams: Team[]): TeamGroup[] {
   const order: string[] = []
   const map = new Map<string, TeamGroup>()
+  for (const t of allTeams) {
+    map.set(t.id, { team: t, teamId: t.id, leagues: [] })
+    order.push(t.id)
+  }
   for (const l of leagues) {
     const key = l.team_id ?? l.teams?.id ?? l.org_slug
     if (!map.has(key)) {
@@ -66,6 +73,7 @@ function groupByTeam(leagues: League[]): TeamGroup[] {
 
 export default function AdminLeaguesPage() {
   const [leagues, setLeagues] = useState<League[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -73,13 +81,20 @@ export default function AdminLeaguesPage() {
   async function load() {
     setLoading(true)
     setLoadError(null)
-    const res = await fetch('/api/leagues')
-    if (res.ok) {
-      setLeagues(await res.json())
+    // 대회가 하나도 없는 팀(파란날개 청년부·장년부처럼)도 빠짐없이 보여주려면
+    // 대회 목록과 별개로 전체 팀 목록을 받아야 한다 — leagues 만으로는 그런 팀이 안 잡힌다.
+    const [leaguesRes, teamsRes] = await Promise.all([
+      fetch('/api/leagues'),
+      fetch('/api/admin/teams'),
+    ])
+    if (leaguesRes.ok && teamsRes.ok) {
+      setLeagues(await leaguesRes.json())
+      setTeams(await teamsRes.json())
     } else {
       // 조회 실패를 빈 목록처럼 보여주면 "대회가 하나도 없다"로 오인한다 — 반드시 에러로 표시.
-      const d = await res.json().catch(() => ({}))
-      setLoadError(d.error ?? '대회 목록을 불러오지 못했습니다')
+      const failed = !leaguesRes.ok ? leaguesRes : teamsRes
+      const d = await failed.json().catch(() => ({}))
+      setLoadError(d.error ?? '목록을 불러오지 못했습니다')
     }
     setLoading(false)
   }
@@ -102,7 +117,7 @@ export default function AdminLeaguesPage() {
 
   const leagueCount = leagues.filter(l => l.mode === 'league').length
   const tournamentCount = leagues.filter(l => l.mode === 'tournament').length
-  const teamGroups = groupByTeam(leagues)
+  const teamGroups = groupByTeam(leagues, teams)
   const totalTeams = teamGroups.length
 
   return (
@@ -155,8 +170,8 @@ export default function AdminLeaguesPage() {
         ) : totalTeams === 0 ? (
           <div className="text-center py-16 border border-dashed border-[var(--mm-rule)] rounded-xl text-[var(--mm-muted)]">
             <Trophy size={32} className="mx-auto mb-3 text-[var(--mm-muted)]" />
-            <p>아직 생성된 대회가 없습니다</p>
-            <p className="text-sm mt-1">새 대회 생성 버튼을 눌러 시작하세요</p>
+            <p>아직 등록된 팀이 없습니다</p>
+            <p className="text-sm mt-1">온보딩 스크립트로 팀을 먼저 등록하세요</p>
           </div>
         ) : (
           teamGroups.map(group => (
@@ -186,10 +201,24 @@ export default function AdminLeaguesPage() {
                 <span className="text-xs text-[var(--mm-muted)] shrink-0">
                   {countByMode(group.leagues, 'league')}개 리그 · {countByMode(group.leagues, 'tournament')}개 대회
                 </span>
+                {/* 팀 이름·PIN 편집은 예전 org 상세 페이지가 하던 일 — 여기서 팀 하나로 들어간다 */}
+                <Link
+                  href={`/admin/teams/${group.teamId}`}
+                  className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] px-2.5 py-1.5 rounded-lg border border-[var(--mm-rule)] hover:border-[var(--mm-muted)] transition-colors cursor-pointer shrink-0 min-h-11"
+                  title="팀 설정"
+                >
+                  <SlidersHorizontal size={12} />
+                  설정
+                </Link>
               </div>
 
               {/* 대회 목록 — 같은 팀이라도 시즌 / 토너먼트는 뱃지+아이콘으로 구분해서
                   관리 링크를 잘못 눌러 엉뚱한 대회를 수정하는 일을 막는다 */}
+              {group.leagues.length === 0 ? (
+                <div className="px-5 py-6 text-center text-sm text-[var(--mm-muted)]">
+                  아직 이 팀의 리그·대회가 없습니다
+                </div>
+              ) : (
               <div className="divide-y divide-[var(--mm-rule)]">
                 {group.leagues.map(league => {
                   const meta = modeMeta[league.mode] ?? modeMeta.league
@@ -244,6 +273,7 @@ export default function AdminLeaguesPage() {
                   )
                 })}
               </div>
+              )}
             </div>
           ))
         )}

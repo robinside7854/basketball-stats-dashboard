@@ -1,7 +1,7 @@
 import { auth, signOut } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Building2, LogOut, Trophy, Medal } from 'lucide-react'
+import { LayoutDashboard, LogOut, Medal } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import { Basketball } from '@/components/league/BasketballIcons'
 
@@ -31,23 +31,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             대시보드
           </Link>
 
-          {/* 조직 섹션 — 팀(명단·회원의 주인)을 만들고 관리하는 곳.
-              예전엔 "토너먼트" 섹션이었지만 Org 관리는 대회 종류와 무관하게
-              팀 자체를 다루므로 이름이 맞지 않았다. */}
+          {/* 조직(org)과 팀은 더 이상 구분되지 않는다 — 팀이 최상위 단위이고 그 아래
+              리그·대회가 있을 뿐이다 (2026-08-06). 예전엔 "조직" 섹션(Org 관리)과
+              "운영" 섹션(팀 관리)이 나뉘어 있었지만, 이제 실제로 가리키는 대상이
+              하나(팀)라 섹션을 나눌 근거가 없다 — 링크 하나로 합친다. */}
           <div className="mt-4 mb-1 px-3">
-            <p className="text-xs font-semibold text-[var(--mm-muted)] uppercase tracking-wider">조직</p>
+            <p className="text-xs font-semibold text-[var(--mm-muted)] uppercase tracking-wider">관리</p>
           </div>
-          <Link href="/admin/orgs" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)] transition-colors text-sm cursor-pointer">
-            <Building2 size={16} />
-            Org 관리
-          </Link>
-
-          {/* 운영 섹션 — 목록의 단위가 리그가 아니라 팀이 됐다. 한 팀이 리그와 대회를
-              동시에 굴리므로 "리그 관리"라는 이름은 실제로 보여주는 것과 어긋난다. */}
-          <div className="mt-4 mb-1 px-3">
-            <p className="text-xs font-semibold text-[var(--mm-muted)] uppercase tracking-wider">운영</p>
-          </div>
-          <Link href="/admin/leagues" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)] transition-colors text-sm cursor-pointer">
+          <Link href="/admin/leagues" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)] transition-colors text-sm cursor-pointer min-h-11">
             <Medal size={16} />
             팀 관리
           </Link>

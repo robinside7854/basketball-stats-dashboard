@@ -115,13 +115,25 @@ export default function LeagueAdminSettingsPage() {
         </div>
       </div>
 
+      {/* 팀 구성·일정·결과 */}
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
+        <h2 className="font-semibold text-[var(--mm-ink)] text-sm">팀 구성·일정·결과</h2>
+        <p className="text-xs text-[var(--mm-muted)]">참가 팀 구성, 선수 배정, 일정 생성, 경기 결과 입력을 관리합니다.</p>
+        <Link
+          href={`/admin/leagues/${leagueId}/manage`}
+          className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] hover:border-[var(--mm-muted)] text-sm font-medium transition-colors cursor-pointer min-h-11"
+        >
+          관리 화면 열기
+        </Link>
+      </div>
+
       {/* 드래프트 관리 */}
       <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
         <h2 className="font-semibold text-[var(--mm-ink)] text-sm">드래프트</h2>
         <p className="text-xs text-[var(--mm-muted)]">단장·감독관 코드 발급, 팀장 지정, 풀 선별, 추첨·세션 진행을 관리합니다.</p>
         <Link
-          href={`/admin/orgs/${league.org_slug}/leagues/${leagueId}/draft`}
-          className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-sm font-medium transition-colors cursor-pointer"
+          href={`/admin/leagues/${leagueId}/draft`}
+          className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-sm font-medium transition-colors cursor-pointer min-h-11"
         >
           <KeyRound size={14} /> 드래프트 관리 열기
         </Link>

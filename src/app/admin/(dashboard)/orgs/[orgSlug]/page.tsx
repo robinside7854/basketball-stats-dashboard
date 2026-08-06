@@ -1,30 +1,10 @@
-import { createClient } from '@/lib/supabase/admin'
-import { notFound } from 'next/navigation'
-import OrgDetailClient from './OrgDetailClient'
+import { redirect } from 'next/navigation'
+import { resolveOrgSlugRedirect } from '@/lib/admin/resolveOrgRedirect'
 
-export default async function AdminOrgDetailPage({ params }: { params: Promise<{ orgSlug: string }> }) {
+// 조직(org) 개념이 어드민 화면에서 사라졌다 (2026-08-06) — 팀 설정+대회 목록은
+// 이제 /admin/teams/[teamId] 하나로 합쳐졌다. org_slug 하나로 팀을 유일하게 특정할 수
+// 없는 경우(예: 파란날개)는 전체 목록으로 보낸다 — 자세한 이유는 resolveOrgSlugRedirect 참고.
+export default async function AdminOrgDetailRedirect({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = await params
-  const supabase = createClient()
-
-  const { data: teams } = await supabase.from('teams').select('*').eq('org_slug', orgSlug).order('sub_slug')
-  if (!teams || teams.length === 0) notFound()
-
-  // sub-team별 선수/대회 수 집계
-  const statsPerTeam = await Promise.all(
-    teams.map(async t => {
-      const [players, tournaments] = await Promise.all([
-        supabase.from('players').select('id', { count: 'exact' }).eq('team_id', t.id),
-        supabase.from('tournaments').select('id', { count: 'exact' }).eq('team_id', t.id),
-      ])
-      return { teamId: t.id, players: players.count ?? 0, tournaments: tournaments.count ?? 0 }
-    })
-  )
-
-  return (
-    <OrgDetailClient
-      orgSlug={orgSlug}
-      teams={teams}
-      statsPerTeam={statsPerTeam}
-    />
-  )
+  redirect(await resolveOrgSlugRedirect(orgSlug))
 }
