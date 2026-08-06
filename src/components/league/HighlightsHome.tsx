@@ -188,16 +188,19 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   style={{
                     background: 'var(--mm-panel)',
                     border: isWinning ? '2px solid var(--clutch-5-fg)' : '1px solid var(--mm-rule)',
-                    borderRadius: '4px',
+                    borderRadius: 'var(--mm-radius-card)',
                     minHeight: 220,
                   }}
                   aria-label={`${c.player_name} · ${kindLabel ?? '클러치샷'} · ${shotLabel} · vs ${c.opponent_name ?? ''} 재생`}
                 >
-                  {/* 종류 배지 — 상단 전체 폭 스트립 (한눈에 파악) */}
+                  {/* 종류 배지 — 상단 전체 폭 스트립 (한눈에 파악).
+                      칩이 아니라 카드 상단에 맞물리는 풀블리드 스트립이므로 알약(999px) 라디우스를
+                      쓰지 않는다 — 부모가 overflow:hidden + var(--mm-radius-card) 라 라디우스 없이도
+                      상단 모서리는 부모를 따라 자연히 둥글게 클리핑된다 (2026-08-07 리뷰 수정). */}
                   {kindStyle && kindLabel ? (
                     <div
                       className="flex items-center justify-center gap-1 py-1.5 text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase"
-                      style={{ background: kindStyle.bg, color: kindStyle.fg, borderRadius: 'var(--mm-radius-chip)' }}
+                      style={{ background: kindStyle.bg, color: kindStyle.fg }}
                     >
                       {isWinning && <span aria-hidden>★</span>}
                       {kindLabel}
@@ -206,7 +209,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   ) : (
                     <div
                       className="flex items-center justify-center gap-1 py-1.5 text-[12px] font-black tracking-[0.14em] uppercase"
-                      style={{ background: 'var(--clutch-1-bg)', color: 'var(--clutch-1-fg)', borderRadius: 'var(--mm-radius-chip)' }}
+                      style={{ background: 'var(--clutch-1-bg)', color: 'var(--clutch-1-fg)' }}
                     >
                       <HeartCrack size={12} aria-hidden />
                       클러치

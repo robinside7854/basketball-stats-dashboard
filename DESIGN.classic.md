@@ -1,5 +1,3 @@
-클래식(전환 전) 버전. 복원은 `git checkout design-classic -- <경로>` 또는 태그 전체 복원.
-
 ---
 version: alpha
 name: 미라클모닝 (Miracle Morning) — Light
@@ -189,6 +187,8 @@ components:
     backgroundColor: "{colors.panel-alt}"
     textColor: "{colors.ink-soft}"
 ---
+
+클래식(전환 전) 버전. 복원은 `git checkout design-classic -- <경로>` 또는 태그 전체 복원.
 
 # DESIGN.md — 미라클모닝 농구 대시보드 (Light)
 

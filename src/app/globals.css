@@ -79,7 +79,10 @@
   --mm-yellow: #F5C95C;        /* 다크 배경 대비 · 캐주얼 전환 (2026-08-06) */
   --mm-yellow-strong: #F0CE78;
   --mm-yellow-soft: rgba(245, 201, 92, 0.13);
-  --mm-black: #191714;
+  /* mm-ground 와 동일값이면 검정 채움 칩(공지 고정 배지 등)이 배경에 묻혀 형태를 잃는다
+     (ground 대비 1.00) → ground 보다 확실히 어둡게 분리 (2026-08-07 리뷰 수정).
+     노랑 텍스트 대비는 12.28:1 로 4.5:1 기준을 훨씬 상회 (검증: DESIGN.dark.md 갱신 동기화). */
+  --mm-black: #100E0C;
   --mm-live: #F08A7E;
   /* 배경 전용은 라이트와 동일한 값 유지 — 흰 텍스트 대비 확보 (캐주얼 전환, 2026-08-06) */
   --mm-live-bg: #C4362B;
@@ -580,18 +583,6 @@
   :root:not(.dark) .jersey-num {
     background: rgba(234, 88, 12, 0.10);
     color: rgb(194, 65, 12);
-  }
-
-  /* 하드우드 코트 텍스처 — 옅은 가로 우드 라인 (배경용) */
-  .court-bg {
-    background-image:
-      radial-gradient(ellipse at top, rgba(234, 88, 12, 0.04), transparent 60%),
-      repeating-linear-gradient(90deg, rgba(120, 53, 15, 0.025) 0px, rgba(120, 53, 15, 0.025) 2px, transparent 2px, transparent 80px);
-  }
-  :root:not(.dark) .court-bg {
-    background-image:
-      radial-gradient(ellipse at top, rgba(234, 88, 12, 0.05), transparent 60%),
-      repeating-linear-gradient(90deg, rgba(120, 53, 15, 0.03) 0px, rgba(120, 53, 15, 0.03) 2px, transparent 2px, transparent 80px);
   }
 
   /* 3점 라인 호 데코 (배너/헤더 좌하단·우상단 등에 absolute 배치) */

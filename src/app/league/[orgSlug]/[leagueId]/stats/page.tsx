@@ -112,12 +112,14 @@ function ShotMixBar({ p, width, height = 12 }: { p: PlayerStat; width?: number; 
 
 // 순위 티어링 — 1위 골드 · 2위 실버 · 3위 브론즈 · 4-10위 에메랄드 · 11위+ 뉴트럴
 // (auth/PersonalDashboard.tsx rankStyle 동일 팔레트 · 도미노 확장 통일 · 옐로우 실색상 1곳 원칙 준수)
-function rankTier(rank: number): { color: string; bg: string; accent: string } {
-  if (rank === 1) return { color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)', accent: 'var(--rank-1-fg)' }  // gold
-  if (rank === 2) return { color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)', accent: 'var(--rank-2-fg)' }  // silver
-  if (rank === 3) return { color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)', accent: 'var(--rank-3-fg)' }  // bronze
-  if (rank <= 10) return { color: 'var(--rank-top-fg)', bg: 'var(--rank-top-bg)', accent: 'var(--rank-top-fg)' }
-  return { color: 'var(--mm-muted)', bg: 'transparent', accent: 'transparent' }
+// border: 라이트 모드에서 rank-*-bg 가 흰 행 대비 1.13~1.18 로 옅어 배지 형태가 거의 안 보이는 문제
+// (2026-08-07 리뷰) → -fg 색의 얇은 테두리로 형태를 살린다. 텍스트 대비엔 영향 없음(색값 무변경).
+function rankTier(rank: number): { color: string; bg: string; accent: string; border: string } {
+  if (rank === 1) return { color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)', accent: 'var(--rank-1-fg)', border: '1px solid var(--rank-1-fg)' }  // gold
+  if (rank === 2) return { color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)', accent: 'var(--rank-2-fg)', border: '1px solid var(--rank-2-fg)' }  // silver
+  if (rank === 3) return { color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)', accent: 'var(--rank-3-fg)', border: '1px solid var(--rank-3-fg)' }  // bronze
+  if (rank <= 10) return { color: 'var(--rank-top-fg)', bg: 'var(--rank-top-bg)', accent: 'var(--rank-top-fg)', border: '1px solid var(--rank-top-fg)' }
+  return { color: 'var(--mm-muted)', bg: 'transparent', accent: 'transparent', border: 'none' }
 }
 
 function LeagueStatsPageInner() {
@@ -663,7 +665,7 @@ function LeagueStatsPageInner() {
                     style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
                     <div className="flex items-center gap-3 mb-2">
                       <span className="font-jersey font-black tabular-nums w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
-                        style={{ color: rt.color, background: rt.bg, fontSize: '13px' }}>{i + 1}</span>
+                        style={{ color: rt.color, background: rt.bg, border: rt.border, fontSize: '13px' }}>{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <div className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{p.name}</div>
                         <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}{statUnit === 'round' ? 'R' : 'G'}</div>
@@ -720,7 +722,7 @@ function LeagueStatsPageInner() {
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="inline-flex items-center justify-center rounded-full font-jersey font-black tabular-nums w-6 h-6"
-                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, fontSize: '13px' }}>{i+1}</span>
+                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, border: rankTier(i + 1).border, fontSize: '13px' }}>{i+1}</span>
                       </td>
                       <td className="px-2 py-3 text-center">
                         <input type="checkbox" checked={compareIds.has(p.player_id)}
@@ -854,7 +856,7 @@ function LeagueStatsPageInner() {
                     style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-jersey font-black tabular-nums w-5 h-5 shrink-0 inline-flex items-center justify-center rounded-full"
-                        style={{ color: rt.color, background: rt.bg, fontSize: '11px' }}>{i+1}</span>
+                        style={{ color: rt.color, background: rt.bg, border: rt.border, fontSize: '11px' }}>{i+1}</span>
                       <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '-0.005em' }}>{p.name}</span>
                       <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{statUnit === 'round' ? 'R' : 'G'}</span>
                     </div>
@@ -915,7 +917,7 @@ function LeagueStatsPageInner() {
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="inline-flex items-center justify-center rounded-full font-jersey font-black tabular-nums w-6 h-6"
-                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, fontSize: '13px' }}>{i+1}</span>
+                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, border: rankTier(i + 1).border, fontSize: '13px' }}>{i+1}</span>
                       </td>
                       <td className="px-4 py-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
@@ -979,7 +981,7 @@ function LeagueStatsPageInner() {
                     style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-jersey font-black tabular-nums w-5 h-5 shrink-0 inline-flex items-center justify-center rounded-full"
-                        style={{ color: rt.color, background: rt.bg, fontSize: '11px' }}>{i+1}</span>
+                        style={{ color: rt.color, background: rt.bg, border: rt.border, fontSize: '11px' }}>{i+1}</span>
                       <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '-0.005em' }}>{p.name}</span>
                       <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{statUnit === 'round' ? 'R' : 'G'}</span>
                     </div>
@@ -1032,7 +1034,7 @@ function LeagueStatsPageInner() {
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="inline-flex items-center justify-center rounded-full font-jersey font-black tabular-nums w-6 h-6"
-                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, fontSize: '13px' }}>{i+1}</span>
+                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, border: rankTier(i + 1).border, fontSize: '13px' }}>{i+1}</span>
                       </td>
                       <td className="px-4 py-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}

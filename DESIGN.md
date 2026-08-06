@@ -320,9 +320,15 @@ sticky 첫 열), 레이아웃 구조는 이번 전환에서 건드리지 않았�
 ## Shapes
 
 기본 컨트롤 반경 10px(`--mm-radius-ctl` — 버튼·인풋·작은 액션 요소), 카드는 14px(`--mm-radius-card`),
-모달은 18px(`--mm-radius-modal`), 칩·뱃지·LIVE 알약형은 999px(`--mm-radius-chip`)로 **단일 정본**이다
-(2026-08-06 캐주얼 전환). `.jersey-num` 유틸(등번호 칩)만 이 4종 체계 밖의 고정값 6px를 쓴다 — CSS
-변수가 아니라 클래스 안에 직접 적힌 예외다.
+모달은 18px(`--mm-radius-modal`), 칩·뱃지·LIVE 알약형은 999px(`--mm-radius-chip`)로 **`SectionCard` 등
+공용 컴포넌트와 신규 작업의 정본**이다(2026-08-06 캐주얼 전환). `.jersey-num` 유틸(등번호 칩)만 이 4종
+체계 밖의 고정값 6px를 쓴다 — CSS 변수가 아니라 클래스 안에 직접 적힌 예외다.
+
+⚠ **일괄 전환 미완료(2026-08-07 리뷰 확인)**: 기존 Tailwind `rounded-*` 유틸(`rounded-lg` 184건 /
+`rounded-xl` 153건 / `rounded-sm` 137건 / `rounded-2xl` 58건)이 코드베이스 전반에 아직 그대로 남아 있다.
+이 캐주얼 전환 브랜치는 공용 컴포넌트(`SectionCard` 등)와 신규 작업의 반경 토큰화까지만 다뤘고, 기존
+`rounded-*` 사용처의 전수 전환은 다음 단계로 이월한다. `--mm-radius-modal`(18px)도 정의만 되어 있고
+실제 소비처는 아직 0건이다 — 모달 컴포넌트 전환 자체가 이월 항목이다.
 
 ## Components
 

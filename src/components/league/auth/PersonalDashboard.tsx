@@ -62,12 +62,14 @@ function proximityStyle(progressPct: number): { bg: string; fg: string } {
 // 순위 뱃지 스타일 · 1-3위 골드/실버/브론즈 배경 · 4-10위 rank-top · 11위+ 뉴트럴
 // (2026-07-22 · rank 티어링 · '—' 제거 · 2026-08-06 배경/전경 쌍으로 전환
 //  · 2026-08-06 이모지 메달 제거 — 숫자 배지(N위)로 통일, DynamicDuoPanel 과 동일한 rank-*-bg/fg 톤)
-function rankStyle(rank: number, total: number): { color: string; bg?: string } {
+// border: 라이트 모드에서 rank-*-bg 가 흰 배경 대비 1.13~1.18 로 옅어 배지 형태가 거의 안 보이는
+// 문제(2026-08-07 리뷰) → -fg 색의 얇은 테두리로 형태를 살린다. 텍스트 대비엔 영향 없음(색값 무변경).
+function rankStyle(rank: number, total: number): { color: string; bg?: string; border?: string } {
   if (total <= 0) return { color: 'var(--mm-muted)' }
-  if (rank === 1) return { color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)' }  // gold
-  if (rank === 2) return { color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)' }  // silver
-  if (rank === 3) return { color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)' }  // bronze
-  if (rank <= 10) return { color: 'var(--rank-top-fg)', bg: 'var(--rank-top-bg)' }
+  if (rank === 1) return { color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)', border: '1px solid var(--rank-1-fg)' }  // gold
+  if (rank === 2) return { color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)', border: '1px solid var(--rank-2-fg)' }  // silver
+  if (rank === 3) return { color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)', border: '1px solid var(--rank-3-fg)' }  // bronze
+  if (rank <= 10) return { color: 'var(--rank-top-fg)', bg: 'var(--rank-top-bg)', border: '1px solid var(--rank-top-fg)' }
   return { color: 'var(--mm-muted)', bg: 'transparent' }
 }
 
@@ -253,7 +255,7 @@ function SeasonSummary({ season }: { season: Season }) {
         <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)' }}>이번 시즌</span>
         <span
           className="inline-flex items-center text-[12px] md:text-[13px] font-black px-2 py-0.5"
-          style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '3px' }}
+          style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
         >
           {season.attended_rounds}R 참석
         </span>
@@ -315,6 +317,7 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
           style={{
             color: rs.color,
             background: rs.bg ?? 'transparent',
+            border: rs.border,
             borderRadius: '3px',
             letterSpacing: '-0.005em',
           }}
@@ -450,7 +453,7 @@ function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
                 </div>
                 <div
                   className="relative overflow-hidden"
-                  style={{ height: 8, background: 'var(--mm-panel-alt)', borderRadius: '4px', border: '1px solid var(--mm-rule)' }}
+                  style={{ height: 8, background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)', border: '1px solid var(--mm-rule)' }}
                 >
                   <div
                     style={{ width: `${Math.min(100, c.progressPct)}%`, height: '100%', background: prox.fg }}

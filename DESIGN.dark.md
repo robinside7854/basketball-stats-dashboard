@@ -21,7 +21,7 @@ colors:
   yellow: "#F5C95C"
   yellow-strong: "#F0CE78"
   yellow-soft: "rgba(245, 201, 92, 0.13)"
-  black: "#191714"
+  black: "#100E0C"
   # ── 경기 결과 (텍스트 전용) ──
   live: "#F08A7E"
   live-bg: "#C4362B"
