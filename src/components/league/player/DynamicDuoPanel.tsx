@@ -20,9 +20,9 @@ export type DuoEntry = {
 }
 
 const RANK_STYLE = [
-  { color: '#0a0a0a', bg: '#D4A017' },  // 1위 골드
-  { color: '#0a0a0a', bg: '#94A3B8' },  // 2위 실버
-  { color: '#ffffff', bg: '#B45309' },  // 3위 브론즈
+  { color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)' },  // 1위 골드
+  { color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)' },  // 2위 실버
+  { color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)' },  // 3위 브론즈
 ]
 
 // 테마 반전(라이트/다크)에서도 보이도록 하드코딩 색 대신 토큰 사용
@@ -143,7 +143,7 @@ export default function DynamicDuoPanel({
           const cardStyle: React.CSSProperties = {
             background: 'var(--mm-panel)',
             border: '1px solid var(--mm-rule)',
-            borderLeft: `3px solid ${rank.bg}`,
+            borderLeft: `3px solid ${rank.color}`,
           }
 
           return clickable ? (

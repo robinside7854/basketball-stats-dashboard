@@ -113,10 +113,10 @@ function ShotMixBar({ p, width, height = 12 }: { p: PlayerStat; width?: number; 
 // 순위 티어링 — 1위 골드 · 2위 실버 · 3위 브론즈 · 4-10위 에메랄드 · 11위+ 뉴트럴
 // (auth/PersonalDashboard.tsx rankStyle 동일 팔레트 · 도미노 확장 통일 · 옐로우 실색상 1곳 원칙 준수)
 function rankTier(rank: number): { color: string; bg: string; accent: string } {
-  if (rank === 1) return { color: '#0a0a0a', bg: '#D4A017', accent: '#D4A017' }  // gold · dark text WCAG AA
-  if (rank === 2) return { color: '#0a0a0a', bg: '#94A3B8', accent: '#94A3B8' }  // silver · dark text WCAG AA
-  if (rank === 3) return { color: '#ffffff', bg: '#B45309', accent: '#B45309' }  // bronze
-  if (rank <= 10) return { color: '#ffffff', bg: 'var(--milestone-near)', accent: 'var(--milestone-near)' }
+  if (rank === 1) return { color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)', accent: 'var(--rank-1-fg)' }  // gold
+  if (rank === 2) return { color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)', accent: 'var(--rank-2-fg)' }  // silver
+  if (rank === 3) return { color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)', accent: 'var(--rank-3-fg)' }  // bronze
+  if (rank <= 10) return { color: 'var(--rank-top-fg)', bg: 'var(--rank-top-bg)', accent: 'var(--rank-top-fg)' }
   return { color: 'var(--mm-muted)', bg: 'transparent', accent: 'transparent' }
 }
 

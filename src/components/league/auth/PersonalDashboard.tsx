@@ -52,21 +52,21 @@ const METRIC_COLOR: Record<Chaser['metric'], string> = {
 const METRIC_LABEL: Record<Chaser['metric'], string> = { pts: 'PTS', reb: 'REB', ast: 'AST', stl: 'STL', blk: 'BLK' }
 const METRIC_KOREAN: Record<Chaser['metric'], string> = { pts: '득점', reb: '리바운드', ast: '어시스트', stl: '스틸', blk: '블락' }
 
-// 근접도 3티어 · 프로그레스 바·remaining 뱃지 색 결정 (2026-07-22)
-function proximityColor(progressPct: number): string {
-  if (progressPct >= 80) return 'var(--milestone-near)'
-  if (progressPct >= 60) return 'var(--milestone-mid)'
-  return 'var(--milestone-far)'
+// 근접도 3티어 · 프로그레스 바·remaining 뱃지 색 결정 (배경/전경 쌍 · 캐주얼 전환 2026-08-06)
+function proximityStyle(progressPct: number): { bg: string; fg: string } {
+  if (progressPct >= 80) return { bg: 'var(--milestone-near-bg)', fg: 'var(--milestone-near-fg)' }
+  if (progressPct >= 60) return { bg: 'var(--milestone-mid-bg)', fg: 'var(--milestone-mid-fg)' }
+  return { bg: 'var(--milestone-far-bg)', fg: 'var(--milestone-far-fg)' }
 }
 
-// 순위 뱃지 스타일 · 1-3위 메달 + 골드/실버/브론즈 배경 · 4-10위 milestone-near · 11위+ 뉴트럴
-// (2026-07-22 · rank 티어링 · '—' 제거)
+// 순위 뱃지 스타일 · 1-3위 메달 + 골드/실버/브론즈 배경 · 4-10위 rank-top · 11위+ 뉴트럴
+// (2026-07-22 · rank 티어링 · '—' 제거 · 2026-08-06 배경/전경 쌍으로 전환)
 function rankStyle(rank: number, total: number): { badge?: string; color: string; bg?: string } {
   if (total <= 0) return { color: 'var(--mm-muted)' }
-  if (rank === 1) return { badge: '🥇', color: '#0a0a0a', bg: '#D4A017' }  // gold · dark text WCAG AA
-  if (rank === 2) return { badge: '🥈', color: '#0a0a0a', bg: '#94A3B8' }  // silver · dark text WCAG AA
-  if (rank === 3) return { badge: '🥉', color: '#ffffff', bg: '#B45309' }  // bronze
-  if (rank <= 10) return { color: '#ffffff', bg: 'var(--milestone-near)' }
+  if (rank === 1) return { badge: '🥇', color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)' }  // gold
+  if (rank === 2) return { badge: '🥈', color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)' }  // silver
+  if (rank === 3) return { badge: '🥉', color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)' }  // bronze
+  if (rank <= 10) return { color: 'var(--rank-top-fg)', bg: 'var(--rank-top-bg)' }
   return { color: 'var(--mm-muted)', bg: 'transparent' }
 }
 
@@ -433,7 +433,7 @@ function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
       ) : (
         <div className="space-y-2.5 md:space-y-3">
           {shown.map(c => {
-            const proxColor = proximityColor(c.progressPct)
+            const prox = proximityStyle(c.progressPct)
             return (
               <div key={c.metric}>
                 <div className="flex items-center justify-between text-[12px] md:text-[13px] mb-1">
@@ -443,7 +443,7 @@ function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
                   </span>
                   <span className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>
                     <b>{c.current}</b> / {c.nextThreshold}
-                    <span className="ml-1.5 text-[11px] font-black px-1.5 py-0.5" style={{ background: proxColor, color: '#fff', borderRadius: '2px' }}>
+                    <span className="ml-1.5 text-[11px] font-black px-1.5 py-0.5" style={{ background: prox.bg, color: prox.fg, borderRadius: 'var(--mm-radius-chip)' }}>
                       -{c.remaining}
                     </span>
                   </span>
@@ -453,7 +453,7 @@ function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
                   style={{ height: 8, background: 'var(--mm-panel-alt)', borderRadius: '4px', border: '1px solid var(--mm-rule)' }}
                 >
                   <div
-                    style={{ width: `${Math.min(100, c.progressPct)}%`, height: '100%', background: proxColor }}
+                    style={{ width: `${Math.min(100, c.progressPct)}%`, height: '100%', background: prox.fg }}
                   />
                 </div>
               </div>
