@@ -277,9 +277,11 @@ export default function AdminLeaguesPage() {
                   )
                 })}
 
-                {/* 옛 트리 대회 — 파란날개는 대회를 tournaments 테이블에 갖고 있다.
-                    leagues 행이 없어 관리 화면이 없으므로 목록과 대시보드 링크만 준다.
-                    안 보여주면 CEO 콘솔이 "대회 없음"이라 거짓말을 하게 된다. */}
+                {/* 옛 트리(tournaments 테이블)에 있는 대회. 안 보여주면 CEO 콘솔이
+                    "대회 없음"이라 거짓말을 한다.
+                    ⚠ 화면에 "옛 기록" 같은 표시를 붙이지 않는다 — 파란날개에겐 올해 실제로
+                    뛴 대회이고, 저장 위치가 다르다는 건 우리 사정이지 그들의 사실이 아니다.
+                    leagues 행이 없어 관리 화면이 없으므로 관리·삭제 버튼만 빠진다. */}
                 {(group.team?.legacy_tournaments ?? []).map(t => (
                   <div key={t.id} className="flex items-center gap-4 px-5 py-4 hover:bg-[var(--mm-panel-alt)] transition-colors">
                     <Trophy size={16} className="text-[var(--mm-muted)] shrink-0" />
@@ -288,9 +290,6 @@ export default function AdminLeaguesPage() {
                         <p className="font-medium text-[var(--mm-ink)]">{t.name}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${modeMeta.tournament.className}`}>
                           대회
-                        </span>
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] border border-[var(--mm-rule)]">
-                          옛 기록
                         </span>
                       </div>
                       <p className="text-sm text-[var(--mm-muted)] mt-0.5">
