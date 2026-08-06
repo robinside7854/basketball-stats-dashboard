@@ -102,7 +102,7 @@ export default function NbaSeasonHighs({ leagueId, quarterId, orgSlug }: Props) 
     return (
       <SectionCard variant="standalone" className="text-center py-16 px-4" background="var(--mm-panel)">
         <Crown size={32} className="mx-auto mb-3" style={{ color: 'var(--mm-muted)' }} aria-hidden />
-        <p className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '0.05em' }}>
+        <p className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '0.05em' }}>
           기록이 없습니다
         </p>
         <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>경기 데이터가 쌓이면 카테고리별 최고 기록이 표시됩니다</p>
@@ -117,7 +117,7 @@ export default function NbaSeasonHighs({ leagueId, quarterId, orgSlug }: Props) 
         <div className="px-4 md:px-5 py-4" style={{ borderBottom: '2px solid var(--mm-rule)' }}>
           <div className="flex items-center gap-2 flex-wrap">
             <Crown size={20} style={{ color: 'var(--mm-ink-soft)' }} aria-hidden />
-            <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(18px, 4vw, 22px)', letterSpacing: '0.02em' }}>
+            <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(18px, 4vw, 22px)', letterSpacing: '0.02em' }}>
               시즌 커리어하이
             </span>
             <span className="text-xs md:text-sm font-bold uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
@@ -179,7 +179,7 @@ export default function NbaSeasonHighs({ leagueId, quarterId, orgSlug }: Props) 
                       {h.value}
                     </span>
                     <span
-                      className="font-jersey font-black uppercase"
+                      className="font-bold"
                       style={{ color: 'var(--mm-muted)', fontSize: '14px', letterSpacing: '0.18em' }}
                     >
                       {style.unit}
@@ -230,7 +230,7 @@ export default function NbaSeasonHighs({ leagueId, quarterId, orgSlug }: Props) 
                     )}
                     <div className="min-w-0 flex-1">
                       <p
-                        className="font-jersey font-black uppercase break-keep group-hover:underline underline-offset-4 decoration-[3px]"
+                        className="font-bold break-keep group-hover:underline underline-offset-4 decoration-[3px]"
                         style={{
                           color: 'var(--mm-ink)',
                           fontSize: 'clamp(19px, 5vw, 24px)',

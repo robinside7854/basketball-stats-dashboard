@@ -90,7 +90,7 @@ export default function DynamicDuoPanel({
                 </span>
                 <div className="flex-1 min-w-0">
                   <p
-                    className="font-jersey font-black uppercase break-keep"
+                    className="font-bold break-keep"
                     style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2 }}
                   >
                     {d.partner_name}

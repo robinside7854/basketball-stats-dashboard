@@ -328,7 +328,7 @@ function StatsTable({
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
                   {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                   <div className="flex-1 min-w-0">
-                    <div className="font-jersey font-black uppercase text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
+                    <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
                       {p.number != null && <span className="font-mono ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                     </div>
@@ -365,7 +365,7 @@ function StatsTable({
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
                   {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                   <div className="flex-1 min-w-0">
-                    <div className="font-jersey font-black uppercase text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
+                    <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
                       {p.number != null && <span className="font-mono ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                     </div>
@@ -402,7 +402,7 @@ function StatsTable({
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
                   {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                   <div className="flex-1 min-w-0">
-                    <div className="font-jersey font-black uppercase text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
+                    <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
                       {p.number != null && <span className="font-mono ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                     </div>
@@ -483,7 +483,7 @@ function StatsTable({
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
                       className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
                       {isLeader && <Crown size={10} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
-                      <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '-0.005em' }}>
+                      <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                         {p.name}
                       </span>
@@ -511,7 +511,7 @@ function StatsTable({
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
                       className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
                       {isLeader && <Crown size={10} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
-                      <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '-0.005em' }}>
+                      <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                         {p.name}
                       </span>
@@ -542,7 +542,7 @@ function StatsTable({
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
                       className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
                       {isLeader && <Crown size={10} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
-                      <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '-0.005em' }}>
+                      <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                         {p.name}
                       </span>
@@ -652,7 +652,7 @@ function TeamDetailPanel({
       {/* Header */}
       <div className="px-6 py-4 flex items-center gap-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
         <div className="w-3.5 h-3.5 rounded-full shrink-0" style={{ backgroundColor: team.color }} />
-        <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '24px', letterSpacing: '-0.005em' }}>{team.name}</span>
+        <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '24px', letterSpacing: '-0.005em' }}>{team.name}</span>
         <span className="text-sm font-bold" style={{ color: 'var(--mm-muted)' }}>{standing.w}승 {standing.d > 0 ? `${standing.d}무 ` : ''}{standing.l}패</span>
       </div>
 
@@ -703,7 +703,7 @@ function TeamDetailPanel({
                       style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
                     >
                       <div className="text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--mm-muted)' }}>{item.label}</div>
-                      <div className="font-jersey font-black uppercase whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>{item.player?.name}</div>
+                      <div className="font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>{item.player?.name}</div>
                       <div className="text-xs font-black tabular-nums whitespace-nowrap mt-0.5" style={{ color: team.color }}>{item.val}</div>
                     </button>
                   ))}
@@ -1059,7 +1059,7 @@ export default function LeagueTeamsPage() {
       <LeagueSubTabs group="squad" />
       {/* ── 분기 버튼 탭 ── */}
       <div>
-        <h2 className="font-jersey font-black uppercase mb-4" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀 구성</h2>
+        <h2 className="font-bold mb-4" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀 구성</h2>
         <div className="flex flex-wrap gap-2">
           {/* 전체 버튼 */}
           <button
@@ -1097,7 +1097,7 @@ export default function LeagueTeamsPage() {
         <>
         {/* ── 섹션 1: 팀별 전적 + 상대 전적 ── */}
         <div className="space-y-3">
-          <h3 className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀 전적</h3>
+          <h3 className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀 전적</h3>
 
           {/* 팀 카드 그리드 — 정체성(identityKey) 기준. 전체 뷰에서 5팀 노출 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -1129,7 +1129,7 @@ export default function LeagueTeamsPage() {
                       <span className="font-jersey font-black tabular-nums w-8 shrink-0" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-muted)', fontSize: '28px' }}>{idx + 1}</span>
                       <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
                       <div className="min-w-0">
-                        <span className="font-jersey font-black uppercase block break-keep" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em', lineHeight: 1.15, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{s.displayName}</span>
+                        <span className="font-bold block break-keep" style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em', lineHeight: 1.15, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{s.displayName}</span>
                         {s.quarterLabels.length > 0 && selectedQId === 'all' && (
                           <span className="text-xs font-mono" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>{s.quarterLabels.join(' · ')}</span>
                         )}
@@ -1224,7 +1224,7 @@ export default function LeagueTeamsPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <h3 className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀별 선수 스탯</h3>
+              <h3 className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀별 선수 스탯</h3>
               <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>이 팀에서 뛴 경기 기준 (정규/비정규 무관) · 한 선수가 여러 팀에서 뛰었다면 각 팀에 분리 표시</p>
             </div>
             <div className="flex items-center gap-2">
@@ -1275,7 +1275,7 @@ export default function LeagueTeamsPage() {
                 <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: s.color }} aria-hidden />
                 <div className="px-4 py-3 pl-5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color }} />
-                  <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '18px', letterSpacing: '-0.005em' }}>{s.displayName}</span>
+                  <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '18px', letterSpacing: '-0.005em' }}>{s.displayName}</span>
                   {s.quarterLabels.length > 0 && selectedQId === 'all' && (
                     <span className="text-xs font-mono" style={{ color: 'var(--mm-muted)' }}>· {s.quarterLabels.join(', ')}</span>
                   )}
@@ -1299,11 +1299,11 @@ export default function LeagueTeamsPage() {
         {/* ── 섹션 3: 비정규 선수 스탯 ── */}
         {irregularStats.length > 0 && (
           <div className="space-y-2">
-            <h3 className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>비정규 선수</h3>
+            <h3 className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>비정규 선수</h3>
             <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)</p>
             <SectionCard variant="standalone">
               <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>비정규 참가자</span>
+                <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>비정규 참가자</span>
                 <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--mm-muted)' }}>{irregularStats.length}명</span>
               </div>
               <div className="px-4 py-3">

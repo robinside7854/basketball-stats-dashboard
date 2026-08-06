@@ -125,7 +125,7 @@ export default async function HighlightsLandingPage({
         <Film size={28} className="lg:w-9 lg:h-9" style={{ color: 'var(--mm-yellow-strong)' }} />
         <div>
           <h1
-            className="font-jersey font-black uppercase text-2xl lg:text-4xl"
+            className="font-bold text-2xl lg:text-4xl"
             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
           >
             하이라이트
@@ -179,7 +179,7 @@ export default async function HighlightsLandingPage({
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div
-                      className="font-jersey font-black uppercase text-2xl"
+                      className="font-bold text-2xl"
                       style={{ color: isReady ? 'var(--mm-ink)' : 'var(--mm-ink-soft)', letterSpacing: '-0.005em' }}
                     >
                       {d.getMonth() + 1}.{d.getDate()}

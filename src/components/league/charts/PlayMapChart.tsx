@@ -131,7 +131,7 @@ export default function PlayMapChart({
 
   const cornerLabel = (q: Quadrant, pos: string, align: string) => (
     <div className={`absolute ${pos} pointer-events-none select-none z-10 ${align}`}>
-      <div className="font-jersey font-black uppercase leading-none" style={{ color: 'var(--mm-ink-soft)', fontSize: '13px', letterSpacing: '0.06em' }}>{QUAD_NAME[q]}</div>
+      <div className="font-bold leading-none" style={{ color: 'var(--mm-ink-soft)', fontSize: '13px' }}>{QUAD_NAME[q]}</div>
       <div className="text-[9px] font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>{QUAD_HINT[q]}</div>
     </div>
   )

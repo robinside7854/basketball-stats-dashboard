@@ -31,7 +31,7 @@ export default function RootError({
         >
           Error
         </p>
-        <h1 className="font-jersey text-3xl font-black uppercase md:text-4xl">
+        <h1 className="font-jersey text-3xl font-bold md:text-4xl">
           잠시 문제가 발생했어요
         </h1>
         <p
@@ -55,7 +55,7 @@ export default function RootError({
         <button
           type="button"
           onClick={() => reset()}
-          className="cursor-pointer font-jersey text-sm font-black uppercase tracking-[0.16em] px-5 py-3 transition-colors duration-200"
+          className="cursor-pointer font-jersey text-sm font-bold px-5 py-3 transition-colors duration-200"
           style={{
             backgroundColor: 'var(--mm-yellow)',
             color: 'var(--mm-black)',
@@ -68,7 +68,7 @@ export default function RootError({
           onClick={() => {
             if (typeof window !== 'undefined') window.location.reload()
           }}
-          className="cursor-pointer font-jersey text-sm font-black uppercase tracking-[0.16em] px-5 py-3 border transition-colors duration-200"
+          className="cursor-pointer font-jersey text-sm font-bold px-5 py-3 border transition-colors duration-200"
           style={{
             borderColor: 'var(--mm-rule)',
             color: 'var(--mm-ink)',

@@ -39,7 +39,7 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
         <div className="flex items-center justify-center gap-2 mb-8">
           <Basketball size={26} />
           <span
-            className="font-jersey font-black uppercase"
+            className="font-bold"
             style={{ color: 'var(--mm-ink)', fontSize: 26, letterSpacing: '0.14em' }}
           >
             OnBall
@@ -59,7 +59,7 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
           </span>
 
           <h1
-            className="font-jersey font-black uppercase text-xl sm:text-2xl mb-2"
+            className="font-bold text-xl sm:text-2xl mb-2"
             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
           >
             비공개로 운영되는 페이지입니다
@@ -76,7 +76,7 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
           <button
             type="button"
             onClick={() => setLoginOpen(true)}
-            className="mt-6 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md font-jersey font-black uppercase text-sm tracking-[0.12em] cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] min-h-[44px]"
+            className="mt-6 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md font-bold text-sm cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] min-h-[44px]"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
           >
             <LogIn size={15} aria-hidden />

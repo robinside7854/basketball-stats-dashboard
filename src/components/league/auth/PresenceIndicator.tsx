@@ -113,7 +113,7 @@ export default function PresenceIndicator({ leagueId }: { leagueId: string }) {
               style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
             >
               <Radio size={15} style={{ color: online > 0 ? '#10B981' : 'var(--mm-muted)' }} aria-hidden />
-              <span className="font-jersey font-black uppercase text-sm tracking-[0.10em]" style={{ color: 'var(--mm-ink)' }}>
+              <span className="font-bold text-sm" style={{ color: 'var(--mm-ink)' }}>
                 접속 현황
               </span>
               <button

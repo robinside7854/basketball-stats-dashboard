@@ -107,7 +107,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
           <div className="flex items-center gap-2">
             <Filter size={14} style={{ color: 'var(--mm-muted)' }} aria-hidden />
             <span
-              className="font-jersey font-black uppercase text-sm tracking-[0.14em]"
+              className="font-bold text-sm"
               style={{ color: 'var(--mm-ink)' }}
             >
               필터

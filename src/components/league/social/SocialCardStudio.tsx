@@ -76,7 +76,7 @@ export default function SocialCardStudio({ data, roundDates }: { data: RoundMaga
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="font-jersey font-black uppercase text-3xl lg:text-4xl text-[var(--mm-ink)] tracking-tight">인스타 카드 생성기</h1>
+        <h1 className="font-bold text-3xl lg:text-4xl text-[var(--mm-ink)] tracking-tight">인스타 카드 생성기</h1>
         <p className="text-[var(--mm-muted)] text-sm mt-1">라운드(경기 날짜)를 골라 4:5(1080×1350) 매거진 카드로. 각 카드 <b>PNG 저장</b> 또는 <b>전체 저장</b>.</p>
       </div>
 

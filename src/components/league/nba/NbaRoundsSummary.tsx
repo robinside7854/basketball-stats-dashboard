@@ -49,7 +49,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
           style={{ borderBottom: '1px solid var(--mm-rule)' }}
         >
           <h3
-            className="font-jersey font-black uppercase break-keep"
+            className="font-bold break-keep"
             style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 28px)', letterSpacing: '-0.005em', lineHeight: 1.1 }}
           >
             최근 라운드
@@ -77,7 +77,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                 {/* 헤더 — 날짜 + 경기 수 */}
                 <div className="flex items-baseline justify-between gap-2 mb-4 pb-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                   <div className="min-w-0">
-                    <div className="font-jersey font-black uppercase break-keep" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em', lineHeight: 1.1 }}>
+                    <div className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em', lineHeight: 1.1 }}>
                       {r.weekLabel}
                     </div>
                     <div className="text-[11px] tracking-[0.16em] uppercase font-bold mt-1" style={{ color: 'var(--mm-muted)' }}>
@@ -193,7 +193,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
         <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-5 md:py-6 flex justify-center">
           <Link
             href={`/league/${resolvedOrgSlug}/${leagueId}/highlights`}
-            className="mm-brand inline-flex items-center justify-center gap-2 font-jersey font-black uppercase min-h-[44px] px-6 sm:px-8 py-3 tracking-[0.14em] text-[13px] sm:text-[14px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-2 hover:brightness-95"
+            className="mm-brand inline-flex items-center justify-center gap-2 font-bold min-h-[44px] px-6 sm:px-8 py-3 text-[13px] sm:text-[14px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-2 hover:brightness-95"
             style={{
               background: 'var(--mm-ink)',
               color: 'var(--mm-panel)',

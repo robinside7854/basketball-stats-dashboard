@@ -74,7 +74,7 @@ export default async function BestShotsReelPage({
                 <NumberedBasketball size={20} number={3} filled />
               </span>
               <h1
-                className="font-jersey font-black uppercase text-2xl lg:text-3xl truncate"
+                className="font-bold text-2xl lg:text-3xl truncate"
                 style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
               >
                 베스트샷 릴

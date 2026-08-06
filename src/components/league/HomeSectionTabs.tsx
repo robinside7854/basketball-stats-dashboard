@@ -61,7 +61,7 @@ export default function HomeSectionTabs({
               aria-selected={on}
               aria-current={on ? 'page' : undefined}
               onClick={() => setActive(t.key)}
-              className={`relative shrink-0 px-4 py-3.5 text-sm lg:text-base font-jersey font-black uppercase tracking-[0.06em] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 ${
+              className={`relative shrink-0 px-4 py-3.5 text-sm lg:text-base font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 ${
                 on
                   ? 'text-[color:var(--mm-ink)]'
                   : 'text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)]'

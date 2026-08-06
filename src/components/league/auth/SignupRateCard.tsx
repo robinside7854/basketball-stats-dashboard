@@ -89,7 +89,7 @@ export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: 
           <div className="flex items-center gap-2 min-w-0">
             <ShieldCheck size={16} aria-hidden className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />
             <h3
-              className="font-jersey font-black uppercase text-[17px] lg:text-[19px] truncate"
+              className="font-bold text-[17px] lg:text-[19px] truncate"
               style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
             >
               회원 가입율

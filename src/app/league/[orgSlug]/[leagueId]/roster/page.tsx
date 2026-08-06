@@ -596,7 +596,7 @@ export default function LeagueRosterPage() {
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="font-jersey font-black uppercase text-[28px] lg:text-[40px] leading-none text-[var(--mm-ink)] tracking-tight">선수 명단</h2>
+          <h2 className="font-bold text-[28px] lg:text-[40px] leading-none text-[var(--mm-ink)] tracking-tight">선수 명단</h2>
           <p className="text-[var(--mm-muted)] text-sm lg:text-base mt-1 font-bold tracking-[0.12em] uppercase">{players.length}명 등록</p>
         </div>
         {isEditMode ? (
@@ -640,7 +640,7 @@ export default function LeagueRosterPage() {
       {/* 선수 추가 폼 */}
       {showForm && isEditMode && (
         <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-md p-4 space-y-3" style={{ borderLeftWidth: '3px', borderLeftColor: 'var(--mm-yellow-soft)' }}>
-          <h3 className="font-jersey font-black uppercase text-[20px] text-[var(--mm-ink)] tracking-tight">새 선수 추가</h3>
+          <h3 className="font-bold text-[20px] text-[var(--mm-ink)] tracking-tight">새 선수 추가</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               placeholder="이름 *"
@@ -866,7 +866,7 @@ export default function LeagueRosterPage() {
                         className="object-cover object-top"
                       />
                     ) : (
-                      <span className="font-jersey text-2xl lg:text-3xl font-black text-[var(--mm-muted)] leading-none text-center px-0.5 uppercase">
+                      <span className="font-jersey text-2xl lg:text-3xl font-bold text-[var(--mm-muted)] leading-none text-center px-0.5">
                         {p.name.length > 1 ? p.name.slice(1) : p.name}
                       </span>
                     )}
@@ -878,7 +878,7 @@ export default function LeagueRosterPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
                         {isAnyLeader && <Crown size={12} className="lg:w-3.5 lg:h-3.5 text-[var(--mm-ink)] shrink-0" />}
-                        <span className="font-jersey text-[20px] lg:text-[26px] font-black uppercase text-[var(--mm-ink)] break-keep min-w-0 tracking-tight group-hover:underline underline-offset-4 decoration-[3px] decoration-[var(--mm-yellow-soft)]" style={{ lineHeight: 1.15, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{p.name}</span>
+                        <span className="font-jersey text-[20px] lg:text-[26px] font-bold text-[var(--mm-ink)] break-keep min-w-0 tracking-tight group-hover:underline underline-offset-4 decoration-[3px] decoration-[var(--mm-yellow-soft)]" style={{ lineHeight: 1.15, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{p.name}</span>
                       </div>
                       {p.number !== null && (
                         <span className="font-jersey text-xs tabular-nums text-[var(--mm-muted)] font-black tracking-wider">#{p.number}</span>
@@ -1078,7 +1078,7 @@ export default function LeagueRosterPage() {
       {isEditMode && (
         <SectionCard variant="standalone" className="p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-jersey font-black uppercase text-[20px] text-[var(--mm-ink)] tracking-tight">분기 관리</h3>
+            <h3 className="font-bold text-[20px] text-[var(--mm-ink)] tracking-tight">분기 관리</h3>
             <button
               onClick={() => setShowQForm(v => !v)}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] cursor-pointer transition-colors font-bold uppercase tracking-[0.1em]"

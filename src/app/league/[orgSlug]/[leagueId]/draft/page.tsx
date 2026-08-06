@@ -435,11 +435,11 @@ export default function LeagueDraftPage() {
               <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-sm mb-5 animate-in slide-in-from-top-4 duration-500"
                 style={{ backgroundColor: `${rc}33`, border: `2px solid ${rc}` }}>
                 <div className="w-3.5 h-3.5 rounded-full animate-pulse" style={{ backgroundColor: rc }} />
-                <span className="text-white font-jersey font-black uppercase tracking-wide text-xl">{teamMap[reveal.team_id]?.name}</span>
+                <span className="text-white font-bold text-xl">{teamMap[reveal.team_id]?.name}</span>
                 <span className="text-white/80 text-base">{reveal.round_number}R · 전체 {reveal.pick_number}순위</span>
               </div>
               <p className="font-jersey text-lg uppercase tracking-[0.4em] mb-2 animate-pulse" style={{ color: rc }}>THE PICK IS IN</p>
-              <h2 className="font-jersey text-6xl sm:text-8xl font-black uppercase text-white animate-in zoom-in-90 duration-500"
+              <h2 className="font-jersey text-6xl sm:text-8xl font-bold text-white animate-in zoom-in-90 duration-500"
                 style={{ textShadow: `0 0 40px ${rc}, 0 0 80px ${rc}88` }}>
                 {reveal.player_name}
               </h2>
@@ -469,7 +469,7 @@ export default function LeagueDraftPage() {
       {/* 헤더 + 분기 */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="font-jersey text-3xl sm:text-4xl font-black uppercase text-[color:var(--mm-ink)] flex items-center gap-2">
+          <h1 className="font-jersey text-3xl sm:text-4xl font-bold text-[color:var(--mm-ink)] flex items-center gap-2">
             <Sparkles size={26} className="text-[color:var(--mm-yellow-strong)]" /> 드래프트
             {isFocus && <span className="text-xs font-bold px-2.5 py-1 rounded-sm bg-[color:var(--mm-live-bg)] text-white uppercase tracking-wider animate-pulse-red">집중 모드 · LIVE</span>}
           </h1>
@@ -552,7 +552,7 @@ export default function LeagueDraftPage() {
           <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-1.5">
               <Lock size={20} className="text-[color:var(--mm-yellow-strong)]" />
-              <h3 className="font-jersey text-[color:var(--mm-ink)] font-black uppercase text-xl sm:text-2xl">코드 입력</h3>
+              <h3 className="font-jersey text-[color:var(--mm-ink)] font-bold text-xl sm:text-2xl">코드 입력</h3>
             </div>
             <p className="text-sm text-[color:var(--mm-ink-soft)] mb-4 leading-relaxed">단장 코드는 팀 픽 권한, 감독관 코드는 준비·추첨 진행 권한이 부여됩니다.</p>
             <Input autoFocus value={codeInput} onChange={e => { setCodeInput(e.target.value); setAuthError(null) }}
@@ -573,12 +573,12 @@ export default function LeagueDraftPage() {
       {!draft ? (
         <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] border-dashed rounded-sm p-12 text-center">
           <Trophy size={40} className="mx-auto text-[color:var(--mm-muted)] mb-3" />
-          <p className="font-jersey text-[color:var(--mm-ink)] text-lg sm:text-xl font-black uppercase">이 분기는 아직 드래프트 세션이 만들어지지 않았습니다</p>
+          <p className="font-jersey text-[color:var(--mm-ink)] text-lg sm:text-xl font-bold">이 분기는 아직 드래프트 세션이 만들어지지 않았습니다</p>
           <p className="text-base text-[color:var(--mm-ink-soft)] mt-2 leading-relaxed">어드민이 세션을 생성하면 여기에 표시됩니다</p>
         </div>
       ) : draft.status === 'setup' ? (
         <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm p-8 text-center space-y-3">
-          <p className="font-jersey text-[color:var(--mm-ink)] font-black uppercase text-2xl sm:text-3xl">드래프트 준비 중</p>
+          <p className="font-jersey text-[color:var(--mm-ink)] font-bold text-2xl sm:text-3xl">드래프트 준비 중</p>
           <p className="text-base text-[color:var(--mm-ink-soft)] leading-relaxed">감독관 또는 어드민이 준비 체크를 시작하면 진행됩니다</p>
           {authedRole === 'supervisor' && (
             <Button onClick={openReady} disabled={acting} className="bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] text-base sm:text-lg font-bold h-12 px-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]">
@@ -590,7 +590,7 @@ export default function LeagueDraftPage() {
         <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm p-6 space-y-5">
           <div className="text-center">
             <p className="text-sm font-bold uppercase tracking-[0.2em] text-[color:var(--mm-yellow-strong)]">READY CHECK</p>
-            <p className="font-jersey text-[color:var(--mm-ink)] font-black uppercase text-3xl sm:text-4xl mt-2">모든 참가자 준비 대기</p>
+            <p className="font-jersey text-[color:var(--mm-ink)] font-bold text-3xl sm:text-4xl mt-2">모든 참가자 준비 대기</p>
             <p className="text-base text-[color:var(--mm-ink-soft)] mt-2 leading-relaxed">단장 3명 + 감독관이 모두 준비하면<br className="sm:hidden"/> 추첨을 진행할 수 있습니다</p>
           </div>
 
@@ -657,7 +657,7 @@ export default function LeagueDraftPage() {
                     <div className={`w-4 h-4 rounded-full shrink-0 ${isMyTurn ? 'animate-pulse' : ''}`} style={{ backgroundColor: currentTeam.color }} />
                     <div className="flex-1 min-w-0">
                       <p className="font-jersey text-xs uppercase tracking-widest text-[color:var(--mm-muted)]">현재 차례 · {draft.total_picks + 1}순위</p>
-                      <p className="font-jersey font-black uppercase text-2xl sm:text-3xl text-[color:var(--mm-ink)] break-keep leading-tight" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                      <p className="font-bold text-2xl sm:text-3xl text-[color:var(--mm-ink)] break-keep leading-tight" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         {currentTeam.name}
                         {isMyTurn && <span className="ml-2 text-[color:var(--mm-yellow-strong)] text-base sm:text-lg">← 내 차례!</span>}
                       </p>
@@ -773,7 +773,7 @@ export default function LeagueDraftPage() {
 
             {draft.status === 'completed' && (
               <div className="bg-[color:var(--mm-yellow)] rounded-sm p-5 text-center">
-                <p className="font-jersey text-[color:var(--mm-black)] font-black uppercase text-lg sm:text-xl">드래프트 완료</p>
+                <p className="font-jersey text-[color:var(--mm-black)] font-bold text-lg sm:text-xl">드래프트 완료</p>
                 <p className="text-sm text-[color:var(--mm-black)]/75 mt-1.5 leading-relaxed">분기 멤버십이 자동 반영되었습니다</p>
                 <Link href={`/league/${orgSlug}/${leagueId}/teams`} className="inline-flex items-center gap-1 mt-3 text-base text-[color:var(--mm-black)] hover:underline underline-offset-4 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] rounded-sm">
                   팀 구성 페이지로 <ChevronRight size={16} />
@@ -798,7 +798,7 @@ export default function LeagueDraftPage() {
                   </div>
                 ) : isMyTurn ? (
                   <div className="bg-[color:var(--mm-yellow)] rounded-sm p-5 text-center">
-                    <p className="inline-flex items-center gap-2 justify-center text-[color:var(--mm-black)] font-jersey font-black uppercase text-2xl sm:text-3xl"><Trophy size={28} strokeWidth={2} aria-hidden /> 내 차례입니다!</p>
+                    <p className="inline-flex items-center gap-2 justify-center text-[color:var(--mm-black)] font-bold text-2xl sm:text-3xl"><Trophy size={28} strokeWidth={2} aria-hidden /> 내 차례입니다!</p>
                     <p className="text-base text-[color:var(--mm-black)]/85 mt-2 leading-relaxed">아래 <b className="text-[color:var(--mm-black)]">남은 선수 성적표</b>에서 선수를 선택해 픽하세요.</p>
                     <p className="text-sm text-[color:var(--mm-black)]/75 mt-1.5">{state?.available_players.length}명 선택 가능 · 랜덤픽(추천) 버튼도 성적표에 있습니다.</p>
                   </div>

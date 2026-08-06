@@ -53,7 +53,7 @@ export default function HighlightsPlayerPicker({ leagueId, orgSlug }: Props) {
       <div className="flex items-center gap-2 shrink-0">
         <User size={16} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
         <span
-          className="font-jersey font-black uppercase text-sm tracking-[0.14em]"
+          className="font-bold text-sm"
           style={{ color: 'var(--mm-ink)' }}
         >
           선수별 보기

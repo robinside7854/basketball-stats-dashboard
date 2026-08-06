@@ -99,7 +99,7 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
                 <style.Icon size={20} className={style.text} />
               </div>
               <div className="min-w-0">
-                <h2 id="award-detail-title" className={`font-jersey text-xl lg:text-2xl font-black uppercase tracking-widest ${style.text}`}>{award.label}</h2>
+                <h2 id="award-detail-title" className={`font-jersey text-xl lg:text-2xl font-bold ${style.text}`}>{award.label}</h2>
                 <p className="text-xs text-gray-500 truncate">{award.description}</p>
               </div>
             </div>

@@ -29,7 +29,7 @@ export function MonthlyStatsChart({ data }: { data: MonthPoint[] }) {
   return (
     <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
       <div className="flex items-center justify-between mb-2">
-        <p className="font-jersey text-xs uppercase tracking-[0.20em] font-black" style={{ color: 'var(--mm-yellow-strong)' }}>월별 성장지표</p>
+        <p className="font-jersey text-xs font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>월별 성장지표</p>
         <div className="flex gap-1">
           {MONTH_STATS.map(s => (
             <button key={s.key} onClick={() => setMonthStat(s.key)}
@@ -94,7 +94,7 @@ export function GameTrendChart({ log }: { log: GameLogPoint[] }) {
     <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <p className="font-jersey text-xs uppercase tracking-[0.20em] font-black" style={{ color: 'var(--mm-yellow-strong)' }}>게임별 트렌드</p>
+          <p className="font-jersey text-xs font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>게임별 트렌드</p>
           <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{log.length}경기</span>
         </div>
         <div className="flex gap-1">

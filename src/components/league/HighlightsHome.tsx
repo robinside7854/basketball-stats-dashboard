@@ -116,7 +116,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                 className="shrink-0"
               />
               <h3
-                className="font-jersey font-black uppercase break-keep"
+                className="font-bold break-keep"
                 style={{
                   color: 'var(--mm-ink)',
                   fontSize: 'clamp(22px, 6vw, 28px)',

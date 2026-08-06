@@ -26,7 +26,7 @@ export default function StatGate({
       >
         <Lock size={20} style={{ color: 'var(--mm-ink)' }} />
       </span>
-      <h3 className="font-jersey font-black uppercase text-lg sm:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+      <h3 className="font-bold text-lg sm:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
         {title}
       </h3>
       <p className="text-[13px] mt-1.5 leading-relaxed max-w-sm break-keep" style={{ color: 'var(--mm-muted)' }}>
@@ -35,7 +35,7 @@ export default function StatGate({
       <button
         type="button"
         onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
-        className="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md font-jersey font-black uppercase text-sm tracking-[0.12em] cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] min-h-[44px]"
+        className="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md font-bold text-sm cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] min-h-[44px]"
         style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
       >
         <LogIn size={15} aria-hidden />

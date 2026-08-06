@@ -47,7 +47,7 @@ export default function LoginModal({ leagueId, onClose }: Props) {
       >
         {/* 헤더 */}
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-          <h2 className="font-jersey font-black uppercase text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+          <h2 className="font-bold text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
             {step === 'intro' ? '로그인 안내' : step === 'login' ? '로그인' : '가입 요청'}
           </h2>
           <button onClick={onClose} className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center rounded cursor-pointer" style={{ color: 'var(--mm-muted)' }} aria-label="닫기">
@@ -100,7 +100,7 @@ function IntroStep({ onProceed }: { onProceed: () => void }) {
 
       <button
         onClick={onProceed}
-        className="w-full flex items-center justify-center gap-2 min-h-[44px] font-jersey font-black uppercase tracking-[0.14em] text-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
+        className="w-full flex items-center justify-center gap-2 min-h-[44px] font-bold text-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
         style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: 'none', borderRadius: '4px' }}
       >
         로그인하기
@@ -158,7 +158,7 @@ function LoginForm({ leagueId, onSuccess, onSwitchSignup }: { leagueId: string; 
       <button
         type="submit"
         disabled={busy}
-        className="w-full flex items-center justify-center gap-2 min-h-[44px] font-jersey font-black uppercase tracking-[0.14em] text-sm cursor-pointer transition-colors"
+        className="w-full flex items-center justify-center gap-2 min-h-[44px] font-bold text-sm cursor-pointer transition-colors"
         style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: 'none', borderRadius: '4px', opacity: busy ? 0.6 : 1 }}
       >
         <LogIn size={16} />
@@ -245,7 +245,7 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
         </p>
         <button
           onClick={onDone}
-          className="w-full min-h-[44px] font-jersey font-black uppercase tracking-[0.14em] text-sm cursor-pointer"
+          className="w-full min-h-[44px] font-bold text-sm cursor-pointer"
           style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
         >
           로그인 화면으로
@@ -290,7 +290,7 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
       <button
         type="submit"
         disabled={busy}
-        className="w-full flex items-center justify-center gap-2 min-h-[44px] font-jersey font-black uppercase tracking-[0.14em] text-sm cursor-pointer transition-colors"
+        className="w-full flex items-center justify-center gap-2 min-h-[44px] font-bold text-sm cursor-pointer transition-colors"
         style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: 'none', borderRadius: '4px', opacity: busy ? 0.6 : 1 }}
       >
         <UserPlus size={16} />

@@ -62,7 +62,7 @@ export default function PushAdminPanel({ leagueId, leagueHeaders }: Props) {
     <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
       <div className="flex items-center gap-2">
         <BellRing size={16} className="text-[color:var(--mm-ink)]" />
-        <h3 className="font-jersey font-black uppercase text-lg text-[color:var(--mm-ink)]">푸시 알림 (공지 · 알럿)</h3>
+        <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">푸시 알림 (공지 · 알럿)</h3>
       </div>
 
       {!configured ? (

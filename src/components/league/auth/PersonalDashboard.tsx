@@ -249,7 +249,7 @@ function SeasonSummary({ season }: { season: Season }) {
   return (
     <div className="px-4 sm:px-5 py-3 sm:py-4">
       <div className="flex items-baseline gap-2 mb-3">
-        <span className="font-jersey font-black uppercase text-base md:text-lg" style={{ color: 'var(--mm-ink)' }}>이번 시즌</span>
+        <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)' }}>이번 시즌</span>
         <span
           className="inline-flex items-center text-[12px] md:text-[13px] font-black px-2 py-0.5"
           style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '3px' }}
@@ -338,13 +338,13 @@ function LoginTeaser({ onDismiss }: { onDismiss: () => void }) {
           ))}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-jersey font-black uppercase text-lg md:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>내 기록, 여기 다 있어요</div>
+          <div className="font-bold text-lg md:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>내 기록, 여기 다 있어요</div>
           <p className="text-[13px] mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
             우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>시즌 득점·리바운드 랭킹</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>진행 중 스트릭·마일스톤</b>을 확인하세요.
           </p>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
-            className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-md font-jersey font-black uppercase text-sm tracking-[0.12em] cursor-pointer transition-all hover:brightness-95 min-h-[44px]"
+            className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-md font-bold text-sm cursor-pointer transition-all hover:brightness-95 min-h-[44px]"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}
           >
             내 랭킹 확인하기 <ChevronRight size={16} />
@@ -364,7 +364,7 @@ function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
     <div className="px-4 sm:px-5 py-3 sm:py-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
       <div className="flex items-center gap-1.5 mb-2.5">
         <Flame size={16} style={{ color: 'var(--color-hoop-orange-500)' }} />
-        <span className="font-jersey font-black uppercase text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>진행 중 스트릭</span>
+        <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>진행 중 스트릭</span>
         <span className="text-[11px] md:text-[12px] font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>다음 경기에 이어가요</span>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -400,7 +400,7 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
       <div className="flex items-center gap-2.5 md:gap-3 min-w-0">
         <Film size={20} className="shrink-0" />
         <div className="min-w-0">
-          <div className="font-jersey font-black uppercase text-base md:text-lg" style={{ letterSpacing: '-0.005em' }}>
+          <div className="font-bold text-base md:text-lg" style={{ letterSpacing: '-0.005em' }}>
             나의 최근 하이라이트
           </div>
           <div className="text-[12px] md:text-[13px] font-bold uppercase mt-0.5" style={{ letterSpacing: '0.10em' }}>
@@ -421,7 +421,7 @@ function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
     <div className="p-4 md:p-5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
       <div className="flex items-center gap-1.5 mb-3">
         <Trophy size={16} style={{ color: 'var(--mm-ink-soft)' }} />
-        <span className="font-jersey font-black uppercase text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+        <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
           마일스톤 체이서
         </span>
         <span className="text-[11px] md:text-[12px] font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>

@@ -386,7 +386,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {player?.number != null && (
               <span className="font-mono text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>#{player.number}</span>
             )}
-            <span className="font-jersey text-sm font-black uppercase tracking-wide truncate" style={{ color: 'var(--mm-ink)' }}>
+            <span className="font-jersey text-sm font-bold truncate" style={{ color: 'var(--mm-ink)' }}>
               {player?.name ?? playerName}
             </span>
           </div>
@@ -585,7 +585,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               )}
               <h1
                 id="player-modal-name"
-                className="font-jersey text-4xl sm:text-5xl font-black leading-[0.95] tracking-tight mb-3 break-words animate-in fade-in slide-in-from-bottom-2 uppercase"
+                className="font-jersey text-4xl sm:text-5xl font-bold leading-[0.95] tracking-tight mb-3 break-words animate-in fade-in slide-in-from-bottom-2"
                 style={{ color: 'var(--mm-ink)', animationDelay: '140ms', animationDuration: '500ms', animationFillMode: 'backwards' }}
               >
                 {player?.name ?? playerName}
@@ -793,7 +793,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             >
               <Lock size={20} style={{ color: 'var(--mm-ink)' }} />
             </span>
-            <p className="font-jersey font-black uppercase text-lg" style={{ color: 'var(--mm-ink)' }}>
+            <p className="font-bold text-lg" style={{ color: 'var(--mm-ink)' }}>
               상세 스탯은 회원 전용
             </p>
             <p className="text-[13px] mt-1.5 leading-relaxed max-w-xs break-keep" style={{ color: 'var(--mm-muted)' }}>
@@ -802,7 +802,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             <button
               type="button"
               onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('mm-open-login')) }}
-              className="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md font-jersey font-black uppercase text-sm tracking-[0.12em] cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] min-h-[44px]"
+              className="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md font-bold text-sm cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] min-h-[44px]"
               style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
             >
               <LogIn size={15} aria-hidden />
@@ -893,7 +893,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                             }
                           >
                             <p
-                              className="relative font-jersey text-xs font-black mb-1 uppercase tracking-[0.20em]"
+                              className="relative font-jersey text-xs font-bold mb-1"
                               style={{ color: isChamp ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)' }}
                             >{label}</p>
                             <p
@@ -1199,7 +1199,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {activeTab === 'shot' && activeDetail?.shot_breakdown && activeDetail.shot_breakdown.total_fga > 0 && (
               <div className="px-5 py-4">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="font-jersey text-xs uppercase tracking-[0.20em] font-black" style={{ color: 'var(--mm-yellow-strong)' }}>공격 스타일</p>
+                  <p className="font-jersey text-xs font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>공격 스타일</p>
                   {/* 코트 / 도넛 토글 */}
                   <div
                     className="flex rounded-sm overflow-hidden shrink-0"
@@ -1268,7 +1268,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         {primary && (
                           <div className="px-3 py-2.5" style={{ background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)' }}>
                             <p className="text-[11px] font-black uppercase" style={{ color: 'rgba(0,0,0,0.65)', letterSpacing: '0.16em' }}>주 공격 옵션</p>
-                            <p className="font-jersey font-black uppercase mt-0.5" style={{ color: 'var(--mm-black)', fontSize: '20px', letterSpacing: '-0.005em' }}>
+                            <p className="font-bold mt-0.5" style={{ color: 'var(--mm-black)', fontSize: '20px', letterSpacing: '-0.005em' }}>
                               {primary.label}
                             </p>
                             <p className="text-xs font-bold mt-0.5" style={{ color: 'rgba(0,0,0,0.72)' }}>
@@ -1279,7 +1279,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         {bestPct && (
                           <div className="px-3 py-2.5" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
                             <p className="text-[11px] font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}>가장 정확한 존</p>
-                            <p className="font-jersey font-black uppercase mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em' }}>
+                            <p className="font-bold mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em' }}>
                               {bestPct.label}
                             </p>
                             <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
@@ -1303,7 +1303,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                               <p className="font-jersey font-black text-3xl leading-none tabular-nums" style={{ color: 'var(--mm-ink)' }}>
                                 <CountUp value={totalFGA} />
                               </p>
-                              <p className="font-jersey text-xs uppercase tracking-[0.20em] font-black mt-1" style={{ color: 'var(--mm-muted)' }}>야투 시도</p>
+                              <p className="font-jersey text-xs font-bold mt-1" style={{ color: 'var(--mm-muted)' }}>야투 시도</p>
                               <p className={`text-xs font-bold mt-0.5 ${pctColor(overallFGPct)}`}>성공률 {overallFGPct.toFixed(1)}%</p>
                             </div>
                           </div>
@@ -1518,7 +1518,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         />
         {player?.name && (
           <div
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 backdrop-blur-sm px-4 py-2 rounded-sm text-sm font-jersey font-black uppercase tracking-wide"
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 backdrop-blur-sm px-4 py-2 rounded-sm text-sm font-bold"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}
           >
             {player.name}

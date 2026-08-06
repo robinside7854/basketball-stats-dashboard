@@ -52,7 +52,7 @@ function BigAvatar({ photo, name }: { photo?: string | null; name: string }) {
   }
   return (
     <div
-      className="w-full h-full flex items-center justify-center font-jersey font-black uppercase"
+      className="w-full h-full flex items-center justify-center font-bold"
       style={{
         background: 'var(--mm-panel-alt)',
         color: 'var(--mm-ink-soft)',
@@ -81,7 +81,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
         </span>
         {active && (
           <span
-            className="ml-auto font-jersey font-black uppercase truncate"
+            className="ml-auto font-bold truncate"
             style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '0.02em' }}
           >
             {metricFullLabel ?? metricLabel}
@@ -153,7 +153,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                 {/* 하단: 이름 + 값 + 지표 라벨 */}
                 <div className="flex flex-col gap-1 px-2.5 py-2">
                   <div
-                    className="font-jersey font-black uppercase break-keep truncate"
+                    className="font-bold break-keep truncate"
                     style={{
                       color: 'var(--mm-ink)',
                       fontSize: 'clamp(13px, 3.2vw, 15px)',

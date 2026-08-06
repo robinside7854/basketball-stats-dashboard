@@ -236,7 +236,7 @@ export default function AwardsPage() {
             <Trophy size={28} className="lg:w-9 lg:h-9" style={{ color: 'var(--mm-yellow-strong)' }} />
             <div>
               <h1
-                className="font-jersey font-black uppercase"
+                className="font-bold"
                 style={{
                   color: 'var(--mm-ink)',
                   fontSize: 'clamp(28px, 4.5vw, 40px)',
@@ -312,7 +312,7 @@ export default function AwardsPage() {
             <button
               key={q.id}
               onClick={() => setSelectedQuarterId(q.id)}
-              className="shrink-0 px-4 py-2 text-sm font-black uppercase tracking-[0.16em] transition-colors cursor-pointer btn-press min-h-[44px] font-jersey tabular-nums"
+              className="shrink-0 px-4 py-2 text-sm font-bold transition-colors cursor-pointer btn-press min-h-[44px] font-jersey tabular-nums"
               style={{
                 background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                 color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -375,7 +375,7 @@ export default function AwardsPage() {
                   </div>
                   <div className="min-w-0">
                     <h3
-                      className="font-jersey font-black uppercase"
+                      className="font-bold"
                       style={{
                         color: 'var(--mm-ink)',
                         fontSize: '17px',
@@ -614,7 +614,7 @@ export default function AwardsPage() {
               {a.runners.length > 0 && (
                 <div className="px-4 py-3 md:px-5 md:py-3.5" style={{ background: 'var(--mm-panel)' }}>
                   <p
-                    className="text-[11px] font-jersey font-black uppercase tracking-[0.22em] mb-2"
+                    className="text-[11px] font-bold mb-2"
                     style={{ color: 'var(--mm-muted)' }}
                   >
                     후보
@@ -706,7 +706,7 @@ export default function AwardsPage() {
                 <div className="flex items-center gap-3 pt-1">
                   <div aria-hidden style={{ flex: 1, height: '1px', background: 'var(--mm-rule)' }} />
                   <p
-                    className="font-jersey font-black uppercase whitespace-nowrap"
+                    className="font-bold whitespace-nowrap"
                     style={{
                       color: 'var(--mm-ink)',
                       fontSize: '13px',
