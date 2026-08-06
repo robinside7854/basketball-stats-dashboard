@@ -18,9 +18,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <div className="w-8 h-8 bg-[var(--mm-ink)] rounded-lg flex items-center justify-center text-sm">
               <Basketball size={18} className="text-[var(--mm-yellow-strong)]" />
             </div>
+            {/* 이 콘솔은 온볼 자체를 운영하는 자리다(CEO). 각 동호회를 운영하는 사람은
+                '어드민'이라 부르는데, 그들은 여기가 아니라 자기 팀 화면의 편집 모드로 들어간다.
+                둘 다 'Admin' 이라고 쓰면 어느 쪽 권한인지 화면만 보고 알 수 없다. */}
             <div>
-              <p className="text-sm font-bold text-[var(--mm-ink)]">Admin</p>
-              <p className="text-xs text-[var(--mm-muted)]">Stats Manager</p>
+              <p className="text-sm font-bold text-[var(--mm-ink)]">온볼 운영</p>
+              <p className="text-xs text-[var(--mm-muted)]">플랫폼 콘솔 · CEO</p>
             </div>
           </div>
         </div>

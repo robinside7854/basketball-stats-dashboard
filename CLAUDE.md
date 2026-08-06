@@ -62,6 +62,19 @@ npx tsc --noEmit         # 타입 체크 (테스트 없으므로 필수 안전�
 - `players.team_type` (youth / senior) — **절대 삭제 금지** (youth 35명, senior 32명)
 - `teams.edit_pin TEXT NOT NULL` — 게임 기록 PIN을 DB 기반으로 저장 (env 아님)
 
+### 역할 정의 (2026-08-06 확정) ⚠
+
+용어가 두 층에서 겹치므로 반드시 구분한다.
+
+| 역할 | 누구 | 어디서 | 인증 |
+|------|------|--------|------|
+| **CEO** | 이 플랫폼(온볼)의 제작자·운영자 = 사용자 본인 | `/admin/*` (플랫폼 콘솔) | NextAuth (`src/lib/auth.ts`) |
+| **어드민** | **각 팀의 운영진** (동호회 총무 등) | 자기 팀 화면의 편집 모드 · `/league/.../settings` | `league_user_accounts.role='admin'` 또는 팀 PIN |
+
+- `/admin` 은 **CEO 전용**이다. 동호회 운영진이 들어올 자리가 아니다 — 화면 문구도 그렇게 읽히게 둔다.
+- 코드의 `league_user_accounts.role='admin'` 은 **팀 어드민**을 뜻한다. CEO 권한이 아니다.
+- 새 화면·문구를 쓸 때 "관리자"라고만 쓰지 말 것. 어느 쪽인지 드러나게 쓴다.
+
 ### 리그 편집 권한 (2026-08-04 전환)
 - **`canEditLeague(req, leagueId)`** (`src/lib/auth/leagueAdmin.ts`) — 모든 리그 mutation API의 필수 가드
   - `league_user_accounts.role='admin'` 회원 세션(쿠키 `mm_auth`) **또는** 리그 PIN

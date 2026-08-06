@@ -15,8 +15,9 @@ export default function AdminLoginPage() {
           <div className="w-12 h-12 bg-[var(--mm-ink)] rounded-xl flex items-center justify-center mx-auto mb-4">
             <Basketball size={24} className="text-[var(--mm-yellow-strong)]" />
           </div>
-          <h1 className="text-xl font-bold text-[var(--mm-ink)]">Admin</h1>
-          <p className="text-sm text-[var(--mm-muted)] mt-1">Basketball Stats 관리자</p>
+          <h1 className="text-xl font-bold text-[var(--mm-ink)]">온볼 운영</h1>
+          {/* 동호회 어드민이 잘못 찾아왔을 때 여기가 자기 자리가 아님을 알 수 있어야 한다 */}
+          <p className="text-sm text-[var(--mm-muted)] mt-1">플랫폼 콘솔 · 동호회 운영진용이 아닙니다</p>
         </div>
 
         <form action={formAction} className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-2xl p-6 space-y-4">
