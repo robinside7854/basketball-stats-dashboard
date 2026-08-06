@@ -10,6 +10,9 @@
 - 온볼은 **플랫폼**이고 동호회가 고객이다. 각 동호회 회원은 **자기 동호회만** 본다.
 - 통계·어워즈·배지·화면은 **전 동호회 공통**이다. 한 곳을 고치면 모두에게 반영된다.
 - 동호회마다 다른 건 **운영 룰(`rules`)** 과 **데이터**뿐이다.
+- **팀이 최상위 단위다.** 로스터·회원계정을 팀이 직접 갖게 되면서, 동호회 담당자에게
+  "조직"과 "팀"은 더 이상 구별되는 개념이 아니다 — 담당자에게는 **팀 하나**만 물어본다.
+  ("조직"이라는 단어 자체를 통화에서 쓸 필요가 없다.)
 
 ### 온볼은 서로 다른 두 제품을 함께 서비스한다 — 온보딩 첫 질문은 이것이다
 
@@ -17,7 +20,7 @@
 
 |  | 리그형 (league) | 대회형 (tournament) |
 |---|---|---|
-| 화면 경로 | `/league/[orgSlug]/[leagueId]/*` | `/[org]/[team]/*` |
+| 화면 경로 | `/league/[orgSlug]/[leagueId]/*` | `/[orgSlug]/[team]/*` |
 | 전용 테이블 | `leagues`·`league_teams`·`league_players`·`league_games`·`league_game_events` | `tournaments`·`players`·`games`·`game_events` |
 | 조직 방식 | **시즌(1년)** 단위로 자체전을 치른다 | **대회별 참가 기록** — 시즌 개념이 없다 |
 | 실제 사례 | 미라클모닝 | 파란날개 |
@@ -30,12 +33,25 @@
 > 잘못 고르면 데이터가 엉뚱한 테이블에 들어가고, 그 실수는 한참 뒤에야("박스스코어가 안 보여요" 같은
 > 문의로) 발견된다. **반드시 통화 초반에 확정할 것.**
 
-- `orgs`(조직)·`teams`(팀)은 **두 제품이 공유**한다 — `teams.edit_pin`·`teams.is_public`·`org_slug`+`sub_slug`
-  구성이 동일하다. 갈라지는 건 그 **아래 계층**뿐이다.
-- 리그형 계층: `조직(orgs) → 팀(teams) → 시즌(leagues) → 세그먼트(league_quarters)`
-- 대회형 계층: `조직(orgs) → 팀(teams, 복수 가능) → 대회(tournaments) / 선수(players)`
-  - 조직 = 로고·회원계정·관리자를 공유하는 단위 (예: 파란날개)
-  - 팀 = 명단·기록이 격리되는 단위 (예: 청년부 / 장년부). 하나뿐이면 `main`
+- 리그형 계층: `팀(teams) → 시즌(leagues) → 세그먼트(league_quarters)`
+- 대회형 계층: `팀(teams) → 대회(tournaments) / 선수(players)`
+
+### URL 이 왜 두 조각인가 (담당자에게는 설명할 필요 없음)
+
+URL 은 여전히 `/[org_slug]/[team_slug]` 두 세그먼트로 구성된다(예: `/paranalgae/youth`) — DB 의
+`teams` 테이블이 `org_id` 를 여전히 참조하기 때문에(마이그레이션 없이는 못 바꾼다). 하지만 이건
+**설정 파일을 만드는 사람**만 알면 되는 내부 배관이고, 동호회 담당자에게 "조직 슬러그가 뭔가요?"
+라고 물을 필요는 없다:
+
+- 팀이 하나뿐인 클럽(대부분의 경우, 예: 미라클모닝) → `team.club_slug` 를 아예 안 쓴다.
+  URL 앞부분은 `team.slug` 가 그대로 쓰이고, 뒷부분은 자동으로 `main` 이 된다 (`/miracle/main` 처럼).
+- 청년부/장년부처럼 **명단이 다른 형제 팀**이 있는 클럽(예: 파란날개) → 형제 팀끼리
+  `team.club_slug` 를 같은 값으로 준다. 앞부분은 `club_slug`, 뒷부분은 각 팀의 `team.slug` 가 된다
+  (`/paranalgae/youth`, `/paranalgae/senior`). **파일은 팀마다 따로 만든다** — 이름이 같아 보여도
+  완전히 다른 명단·운영을 가진 별개 팀이기 때문에, 배열로 묶지 않고 형제 파일 2개로 표현한다.
+- `orgs` 테이블 자체는 앱 어디서도 읽지 않는다 — `teams.org_id NOT NULL` FK 를 만족시키기 위한
+  용도로만 스크립트가 알아서 만들거나 재사용한다. **이 온보딩 절차에서 "조직"을 별도로 묻거나
+  관리하는 단계는 없다.**
 
 ---
 
@@ -51,13 +67,13 @@
 
 | 항목 | 질문 | 들어갈 곳 |
 |---|---|---|
-| 동호회 이름 | 정식 명칭이 어떻게 되나요? | `org.name` |
-| 영문 약칭 | URL에 쓸 짧은 영문 이름이 필요합니다 (예: `miracle`) | `org.slug` |
-| 팀 구분 | 청년부/장년부처럼 명단이 나뉘나요? | 리그형: `team.slug`(단수, 없으면 `main`) · 대회형: `teams[].slug`(배열, 팀마다 1개씩) |
-| 편집 PIN | 기록 담당자가 쓸 4자리 숫자를 정해주세요 (팀마다 따로 받아도 됨) | `team.edit_pin` / `teams[].edit_pin` |
-| 공개 여부 | 링크를 아는 사람이 로그인 없이 봐도 되나요? | `team.is_public` / `teams[].is_public` |
+| 팀 이름 | 정식 명칭이 어떻게 되나요? | `team.name` |
+| 영문 약칭 | URL에 쓸 짧은 영문 이름이 필요합니다 (예: `miracle`, `youth`) | `team.slug` |
+| 팀 구분 | 청년부/장년부처럼 **명단이 다른 형제 팀**이 따로 있나요? | 있으면 형제 팀끼리 같은 `team.club_slug` 를 주고, 파일을 팀마다 따로 만든다. 없으면 `club_slug` 를 아예 안 쓴다 |
+| 편집 PIN | 기록 담당자가 쓸 4자리 숫자를 정해주세요 (형제 팀이 있으면 팀마다 따로 받아도 됨) | `team.edit_pin` |
+| 공개 여부 | 링크를 아는 사람이 로그인 없이 봐도 되나요? | `team.is_public` |
 
-> **`org.slug` 는 나중에 바꾸기 어렵다.** URL 에 들어가고 회원들이 북마크한다. 짧고 안 헷갈리는 걸로 확정한 뒤 넘어갈 것.
+> **`team.slug` 는 나중에 바꾸기 어렵다.** URL 에 들어가고 회원들이 북마크한다. 짧고 안 헷갈리는 걸로 확정한 뒤 넘어갈 것.
 >
 > **`is_public` 은 생략하면 공개(기본값)다.** 막 만든 동호회가 자기 회원에게조차 안 보이는 것보다는 잠깐 더 열려 있는 편이 낫다는 판단이다.
 
@@ -94,7 +110,7 @@
 
 | 항목 | 질문 | 들어갈 곳 |
 |---|---|---|
-| 참가 대회 | 최근/예정 대회 이름이 뭔가요? 몇 년도인가요? 선출부/비선출부 중 어디인가요? | `teams[].tournaments[]` (`name`·`year`·`type`: `amateur`\|`pro`) |
+| 참가 대회 | 최근/예정 대회 이름이 뭔가요? 몇 년도인가요? 선출부/비선출부 중 어디인가요? | `tournaments[]` (`name`·`year`·`type`: `amateur`\|`pro`) |
 
 > 대회 목록은 **생략 가능**하다 — 온보딩 때 하나도 안 넣고 나중에 경기 기록 화면에서 대회를 만들어도 된다.
 > 단, 등록 시점에 아는 대회가 있으면 미리 넣어주는 편이 첫 경기 기록이 더 매끄럽다.
@@ -104,7 +120,7 @@
 | 항목 | 질문 |
 |---|---|
 | 선수 명단 | 이름 · 등번호 · 포지션. 엑셀이나 카톡 명단으로 받으면 된다 |
-| 내부 팀 | (리그형만) 시즌에 몇 팀으로 나누나요? 팀 이름은? |
+| 형제 팀 | 청년부/장년부처럼 명단이 나뉘나요? (위 1.1 "팀 구분" 참고) |
 | 시즌 구분 | (리그형만) 분기로 나누나요? (미라클은 26.1Q~26.4Q. **기본은 구분 없음**) |
 | 유튜브 채널 | 하이라이트를 올리는 채널이 있나요? |
 
@@ -118,13 +134,12 @@
 
 ### 2.1 리그형
 
-`scripts/onboard-samples/example-club.json` 를 복사해서 값을 채운다.
+`scripts/onboard-samples/example-club.json` 를 복사해서 값을 채운다. `team` 하나 = 클럽 전체다.
 
 ```jsonc
 {
   "clubType": "league",
-  "org":  { "slug": "hoopers", "name": "후퍼스 농구회" },
-  "team": { "slug": "main", "name": "후퍼스", "edit_pin": "1234" },
+  "team": { "slug": "hoopers", "name": "후퍼스", "edit_pin": "1234" },
   "season": {
     "slug": "2026", "name": "후퍼스 2026", "year": 2026,
     "mode": "league", "start_date": "2026-09-01"
@@ -148,31 +163,43 @@
 ### 2.2 대회형
 
 `scripts/onboard-samples/example-club-tournament.json` 를 복사해서 값을 채운다.
-`teams` 는 **배열**이다 — 파란날개처럼 청년부/장년부로 나뉘면 배열에 팀을 여러 개 넣는다.
+**파일 하나 = 팀 하나다.**
 
 ```jsonc
 {
   "clubType": "tournament",
-  "org": { "slug": "hoopers", "name": "후퍼스 농구회" },
-  "teams": [
-    {
-      "slug": "youth",
-      "name": "후퍼스",
-      "edit_pin": "1234",
-      "tournaments": [
-        { "name": "제9회 예시구 협회장배", "year": 2026, "type": "amateur" }
-      ],
-      "players": [
-        { "name": "홍길동", "number": "7", "position": "PG" }
-      ]
-    }
-    // 팀이 하나뿐이면 배열 원소도 1개만
+  "team": {
+    "slug": "youth",
+    "name": "후퍼스",
+    "edit_pin": "1234"
+    // 형제 팀이 없으면(팀 하나가 클럽 전체) club_slug 는 아예 안 쓴다
+  },
+  "tournaments": [
+    { "name": "제9회 예시구 협회장배", "year": 2026, "type": "amateur" }
+  ],
+  "players": [
+    { "name": "홍길동", "number": "7", "position": "PG" }
   ]
 }
 ```
 
-> `leagues`/`season`/`matchTeams` 는 대회형 설정에 **쓰지 않는다** — 스크립트가 아예 다른 경로로 검증을
-> 거부한다. `teams[].players[].number` 는 문자열 필수(위 1.4 참고).
+청년부/장년부처럼 **명단이 다른 형제 팀**이 있으면(파란날개가 실제로 이렇게 온보딩됐다),
+파일을 팀마다 따로 만들고 `team.club_slug` 를 같은 값으로 준다 — 같은 파일의 배열로 묶지 않는다:
+
+```jsonc
+// paranalgae-youth.json
+{ "clubType": "tournament", "team": { "slug": "youth", "club_slug": "paranalgae", "name": "파란날개 청년부", "edit_pin": "1234" }, "tournaments": [...], "players": [...] }
+
+// paranalgae-senior.json — club_slug 를 같게, slug 만 다르게
+{ "clubType": "tournament", "team": { "slug": "senior", "club_slug": "paranalgae", "name": "파란날개 장년부", "edit_pin": "5678" }, "tournaments": [...], "players": [...] }
+```
+
+두 파일을 각각 `--commit` 하면 된다 — 첫 실행에서 클럽이 새로 만들어지고, 두 번째 실행에서는
+같은 클럽을 자동으로 재사용한다(이 재사용은 스크립트가 알아서 하고 결과에 표시만 해준다 — 별도로
+확인할 것 없음).
+
+> `org`/`teams`(복수 배열)/`leagues`/`season`/`matchTeams` 는 대회형 설정에 **쓰지 않는다** —
+> 스크립트가 아예 다른 경로로 검증을 거부한다. `players[].number` 는 문자열 필수(위 1.4 참고).
 
 ---
 
@@ -186,13 +213,13 @@ node scripts/onboard-club.mjs <설정파일.json>
 node scripts/onboard-club.mjs <설정파일.json> --commit
 ```
 
-리그형은 접속 주소가 `/league/<org>/<season>`, 대회형은 팀마다 `/<org>/<team>` 으로 출력된다.
-편집 PIN 도 함께 출력된다.
+리그형은 접속 주소가 `/league/<team.slug>/<season>`, 대회형은 `/<orgSlug>/<team.slug>` 으로 출력된다
+(`orgSlug` 는 `club_slug` 지정 시 그 값, 아니면 `team.slug` 그대로). 편집 PIN 도 함께 출력된다.
 
-> 대회형은 **팀 하나가 이미 존재하면 그 실행 전체가 거부된다**(리그형이 "같은 시즌 두 번 생성 거부"인 것과
+> 대회형은 **같은 팀이 이미 존재하면 그 실행 전체가 거부된다**(리그형이 "같은 시즌 두 번 생성 거부"인 것과
 > 같은 안전장치 — 대회형엔 시즌이 없으니 팀이 그 자리를 대신한다). 기존 팀에 선수를 더 추가하는 건 이
-> 스크립트가 아니라 앱 로스터 화면에서 한다. 같은 조직에 **새 팀**을 추가하는 건 별도 실행으로 가능하다
-> (org 는 재사용된다).
+> 스크립트가 아니라 앱 로스터 화면에서 한다. **형제 팀 추가**는 `club_slug` 를 같게 준 새 파일로 별도
+> 실행하면 된다.
 
 ---
 
@@ -203,16 +230,16 @@ node scripts/onboard-club.mjs <설정파일.json> --commit
 - [ ] 설정 화면(또는 로스터 화면)에서 편집 PIN 으로 진입되는가
 
 ### 리그형
-- [ ] `/league/<org>/<season>` 접속되고 팀·선수가 보이는가
+- [ ] `/league/<team.slug>/<season>` 접속되고 팀·선수가 보이는가
 - [ ] 룰이 맞게 들어갔는가 —
-      `node scripts/db-migrate.mjs sql "select org_slug, rules from leagues where org_slug='<slug>'"`
+      `node scripts/db-migrate.mjs sql "select org_slug, rules from leagues where org_slug='<team.slug>'"`
 - [ ] 테스트 경기 하나를 기록해 **득점이 그 동호회 룰대로 계산되는지** 확인
       (특히 자유투 · 플러스원이 있으면 반드시)
 
 ### 대회형
-- [ ] 팀마다 `/<org>/<team>` 접속되고 선수·대회 목록이 보이는가
+- [ ] `/<orgSlug>/<team.slug>` 접속되고 선수·대회 목록이 보이는가
 - [ ] `players.team_type` 이 그 팀의 `teams.sub_slug` 와 일치하는가 —
-      `node scripts/db-migrate.mjs sql "select p.name, p.team_type, t.sub_slug from players p join teams t on t.id=p.team_id where t.org_slug='<org.slug>'"`
+      `node scripts/db-migrate.mjs sql "select p.name, p.team_type, t.sub_slug from players p join teams t on t.id=p.team_id where t.org_slug='<orgSlug>'"`
       (어긋나면 회원이 다른 팀 명단에 조용히 끼어 들어간다 — 온보딩 스크립트로 만들었다면 항상 일치한다)
 - [ ] 테스트 경기 하나를 기록해 박스스코어가 정상적으로 집계되는지 확인
 
@@ -245,7 +272,7 @@ node scripts/onboard-club.mjs <설정파일.json> --commit
 
 ## 6. 회원 가입 안내 (동호회에 전달할 내용)
 
-1. 리그형은 `/league/<org>/<season>`, 대회형은 `/<org>/<team>` 접속 → 우측 상단 **로그인**
+1. 리그형은 `/league/<team.slug>/<season>`, 대회형은 `/<orgSlug>/<team.slug>` 접속 → 우측 상단 **로그인**
 2. 이름 선택(명단에서 자동완성) + 생년월일 입력 → 가입 요청
 3. **운영자 승인** 후 이용 가능 (설정 화면에서 승인)
 4. 초기 비밀번호 = **생년월일 6자리(YYMMDD)** → 로그인 후 변경 안내
