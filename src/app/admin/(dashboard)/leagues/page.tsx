@@ -4,9 +4,13 @@ import Link from 'next/link'
 import { Plus, ExternalLink, Trophy, Layers, Trash2, Loader2, Settings, Shield, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 
+// 옛 트리(파란날개)에 남아 있는 대회. leagues 행이 없어 관리 화면이 없다 — 목록에만 뜬다.
+type LegacyTournament = { id: string; name: string; year: number; type: string | null }
+
 type Team = {
   id: string; name: string; org_slug: string; sub_slug: string
   accent_color: string | null; is_public: boolean
+  legacy_tournaments?: LegacyTournament[]
 }
 
 type League = {
@@ -199,7 +203,7 @@ export default function AdminLeaguesPage() {
                 </div>
                 {/* 종류별로 나눠 보여준다 — 총 개수만 보면 그 팀이 리그를 하는지 대회를 나가는지 알 수 없다 */}
                 <span className="text-xs text-[var(--mm-muted)] shrink-0">
-                  {countByMode(group.leagues, 'league')}개 리그 · {countByMode(group.leagues, 'tournament')}개 대회
+                  {countByMode(group.leagues, 'league')}개 리그 · {countByMode(group.leagues, 'tournament') + (group.team?.legacy_tournaments?.length ?? 0)}개 대회
                 </span>
                 {/* 팀 이름·PIN 편집은 예전 org 상세 페이지가 하던 일 — 여기서 팀 하나로 들어간다 */}
                 <Link
@@ -214,7 +218,7 @@ export default function AdminLeaguesPage() {
 
               {/* 대회 목록 — 같은 팀이라도 시즌 / 토너먼트는 뱃지+아이콘으로 구분해서
                   관리 링크를 잘못 눌러 엉뚱한 대회를 수정하는 일을 막는다 */}
-              {group.leagues.length === 0 ? (
+              {group.leagues.length === 0 && (group.team?.legacy_tournaments?.length ?? 0) === 0 ? (
                 <div className="px-5 py-6 text-center text-sm text-[var(--mm-muted)]">
                   아직 이 팀의 리그·대회가 없습니다
                 </div>
@@ -272,6 +276,41 @@ export default function AdminLeaguesPage() {
                     </div>
                   )
                 })}
+
+                {/* 옛 트리 대회 — 파란날개는 대회를 tournaments 테이블에 갖고 있다.
+                    leagues 행이 없어 관리 화면이 없으므로 목록과 대시보드 링크만 준다.
+                    안 보여주면 CEO 콘솔이 "대회 없음"이라 거짓말을 하게 된다. */}
+                {(group.team?.legacy_tournaments ?? []).map(t => (
+                  <div key={t.id} className="flex items-center gap-4 px-5 py-4 hover:bg-[var(--mm-panel-alt)] transition-colors">
+                    <Trophy size={16} className="text-[var(--mm-muted)] shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-[var(--mm-ink)]">{t.name}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${modeMeta.tournament.className}`}>
+                          대회
+                        </span>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] border border-[var(--mm-rule)]">
+                          옛 기록
+                        </span>
+                      </div>
+                      <p className="text-sm text-[var(--mm-muted)] mt-0.5">
+                        {t.year}년 · {t.type === 'pro' ? '선출부' : '비선출부'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {group.team && (
+                        <Link
+                          href={`/${group.team.org_slug}/${group.team.sub_slug}/tournaments`}
+                          target="_blank"
+                          className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] px-2.5 py-1.5 rounded-lg border border-[var(--mm-rule)] hover:border-[var(--mm-muted)] transition-colors cursor-pointer min-h-11"
+                        >
+                          <ExternalLink size={12} />
+                          대시보드
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
               )}
             </div>

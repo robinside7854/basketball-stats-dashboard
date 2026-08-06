@@ -12,7 +12,29 @@ export async function GET() {
   const supabase = createClient()
   const { data, error } = await supabase.from('teams').select('*').order('created_at', { ascending: true })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data ?? [])
+  const teams = data ?? []
+
+  // 파란날개는 대회 12개를 옛 트리(tournaments 테이블)에 갖고 있는데, 어드민이 leagues 만
+  // 보고 있어서 "대회 없음"으로 떴다. CEO 콘솔은 플랫폼의 실제 상태를 보여야 하므로
+  // 옛 트리 대회도 함께 내려준다. 읽기 전용이다 — 이 대회들에는 leagues 행이 없어서
+  // /admin/leagues/[leagueId] 관리 화면이 존재하지 않는다.
+  const { data: legacy, error: lErr } = await supabase
+    .from('tournaments')
+    .select('id, name, year, type, team_id')
+    .order('year', { ascending: false })
+  if (lErr) return NextResponse.json({ error: `옛 트리 대회 조회 실패 — ${lErr.message}` }, { status: 500 })
+
+  const byTeam = new Map<string, typeof legacy>()
+  for (const t of legacy ?? []) {
+    if (!t.team_id) continue
+    const arr = byTeam.get(t.team_id) ?? []
+    arr.push(t)
+    byTeam.set(t.team_id, arr)
+  }
+
+  return NextResponse.json(
+    teams.map(t => ({ ...t, legacy_tournaments: byTeam.get(t.id) ?? [] })),
+  )
 }
 
 // ⚠️ 팀 생성은 현재 준비 중 — 501 을 반환한다 (2026-08-04, 경로 이동 2026-08-06)
