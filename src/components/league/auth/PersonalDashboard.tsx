@@ -59,13 +59,14 @@ function proximityStyle(progressPct: number): { bg: string; fg: string } {
   return { bg: 'var(--milestone-far-bg)', fg: 'var(--milestone-far-fg)' }
 }
 
-// 순위 뱃지 스타일 · 1-3위 메달 + 골드/실버/브론즈 배경 · 4-10위 rank-top · 11위+ 뉴트럴
-// (2026-07-22 · rank 티어링 · '—' 제거 · 2026-08-06 배경/전경 쌍으로 전환)
-function rankStyle(rank: number, total: number): { badge?: string; color: string; bg?: string } {
+// 순위 뱃지 스타일 · 1-3위 골드/실버/브론즈 배경 · 4-10위 rank-top · 11위+ 뉴트럴
+// (2026-07-22 · rank 티어링 · '—' 제거 · 2026-08-06 배경/전경 쌍으로 전환
+//  · 2026-08-06 이모지 메달 제거 — 숫자 배지(N위)로 통일, DynamicDuoPanel 과 동일한 rank-*-bg/fg 톤)
+function rankStyle(rank: number, total: number): { color: string; bg?: string } {
   if (total <= 0) return { color: 'var(--mm-muted)' }
-  if (rank === 1) return { badge: '🥇', color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)' }  // gold
-  if (rank === 2) return { badge: '🥈', color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)' }  // silver
-  if (rank === 3) return { badge: '🥉', color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)' }  // bronze
+  if (rank === 1) return { color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)' }  // gold
+  if (rank === 2) return { color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)' }  // silver
+  if (rank === 3) return { color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)' }  // bronze
   if (rank <= 10) return { color: 'var(--rank-top-fg)', bg: 'var(--rank-top-bg)' }
   return { color: 'var(--mm-muted)', bg: 'transparent' }
 }
@@ -303,9 +304,9 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
       >
         {value}
       </div>
-      {/* 랭킹 뱃지 · 통일 규칙 (2026-07-22)
-          1-3위: 메달 + N위 · 골드/실버/브론즈 배경 · 흰 텍스트
-          4-10위: N위 · milestone-near 배경 · 흰 텍스트
+      {/* 랭킹 뱃지 · 통일 규칙 (2026-07-22 · 2026-08-06 이모지 메달 제거)
+          1-3위: N위 · 골드/실버/브론즈 배경
+          4-10위: N위 · rank-top 배경
           11위+: N위 · 뉴트럴 텍스트 · 배경 없음
           랭킹 정보 없음: 렌더 안 함 (— 제거) */}
       {rank && rank.total > 0 && rs && (
@@ -319,7 +320,6 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
           }}
           title={`${rank.rank}위 / ${rank.total}명`}
         >
-          {rs.badge && <span aria-hidden style={{ fontSize: '13px' }}>{rs.badge}</span>}
           <span>{rank.rank}위</span>
         </div>
       )}

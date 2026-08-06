@@ -44,8 +44,12 @@ export default function HomeSectionTabs({
     return () => window.removeEventListener('mm-home-tab', onTab)
   }, [])
 
+  // 캐주얼 전환(2026-08) — 탭 안에 들어가는 SectionCard(variant="stack")가 이제 자체
+  // border+radius 를 갖는 독립 카드라서, 예전처럼 이 래퍼가 둘러싸는 카드 프레임 역할을
+  // 하면 이중 테두리가 생긴다. 탭 바는 카드 프레임 없이 얇은 하단 룰선만 갖고,
+  // 아래 카드와는 간격(space-y-3)으로 분리한다.
   return (
-    <div className="rounded-md border border-[color:var(--mm-rule)] overflow-hidden bg-[color:var(--mm-panel)]">
+    <div className="space-y-3">
       {/* 탭 바 */}
       <div
         role="tablist"
