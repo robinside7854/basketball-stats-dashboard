@@ -81,7 +81,9 @@ await check(
     const want = [
       'miracle→miracle/main:league',
       'miracle→miracle/main:tournament',
-      'pana-basket-senior→paranalgae/senior:league',
+      // 파란날개 장년부 자체전 스텁(pana-basket-senior)은 2026-08-06 삭제 — 5월에 만들어졌으나
+      //   경기·선수·계정 전부 0건이었고, 파란날개 실제 기록은 레거시 트리에 있다. 팀이 최상위
+      //   단위가 되면서 어드민 목록에 빈 항목으로만 남아 혼란을 줬다.
     ]
     return JSON.stringify(got) === JSON.stringify(want) || `기대 ${JSON.stringify(want)}, 실제 ${JSON.stringify(got)}`
   }
@@ -107,19 +109,9 @@ await check(
   }
 )
 
-await check(
-  '표준 룰 기본값 — plus_one_bonus.amount=0 · 자유투 ft_2pt=2 (080)',
-  `SELECT rules FROM leagues WHERE org_slug = 'pana-basket-senior'`,
-  rows => {
-    const r = rows[0].rules
-    const b = r.plus_one_bonus
-    if (b.amount !== 0) return `plus_one_bonus.amount 기대 0, 실제 ${b.amount}`
-    if (JSON.stringify(b.applies_to) !== JSON.stringify(SHOT_TYPES)) return `plus_one_bonus.applies_to 기대 ${JSON.stringify(SHOT_TYPES)}, 실제 ${JSON.stringify(b.applies_to)}`
-    // 080: 표준 룰의 자유투를 국내 동호회 관행(2점슛 파울 1구=2점)에 맞춤 — 이전엔 1점이었다
-    if (r.event_points.ft_2pt !== 2) return `ft_2pt 기대 2, 실제 ${r.event_points.ft_2pt}`
-    return true
-  }
-)
+// 표준 룰(plus_one 0 · ft_2pt 2) DB 단언은 제거했다 — 유일한 대상이던 파란날개 장년부
+// 자체전 스텁 리그를 2026-08-06 에 지웠기 때문이다. 룰 기본값 자체는 코드 레벨에서
+// verify-scoring.mjs 가 STANDARD_SCORING 으로 검증하므로 보장이 사라지지는 않는다.
 
 await check(
   '시즌 신원 유일 제약 (team_id, season_year, slug)',
