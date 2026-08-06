@@ -176,7 +176,7 @@ export default function TournamentBoard({
         <Trophy size={28} className="lg:w-9 lg:h-9" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
         <div>
           <h1
-            className="font-jersey font-black uppercase text-2xl lg:text-4xl"
+            className="font-bold text-2xl lg:text-4xl"
             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
           >
             대회
@@ -205,7 +205,7 @@ export default function TournamentBoard({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div
-                    className="font-jersey font-black uppercase text-lg break-keep"
+                    className="font-bold text-lg break-keep"
                     style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em', lineHeight: 1.2, wordBreak: 'break-word' }}
                   >
                     {q.name ?? '이름 없는 대회'}

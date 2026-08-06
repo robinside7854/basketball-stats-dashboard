@@ -102,7 +102,7 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect }
             }}
           >
             <span
-              className="font-jersey font-black uppercase text-xs tracking-[0.14em]"
+              className="font-bold text-xs"
               style={{ color: 'var(--mm-ink)' }}
             >
               {formatDateHeader(group.date)}

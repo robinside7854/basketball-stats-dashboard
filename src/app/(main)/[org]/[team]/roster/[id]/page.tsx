@@ -176,7 +176,7 @@ export default function PlayerDetailPage() {
         <div className="text-center sm:text-left flex-1">
           <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
             <span className="text-[var(--mm-yellow-strong)] font-black text-2xl">#{player.number}</span>
-            <h1 className="font-jersey font-black uppercase text-2xl text-[var(--mm-ink)] tracking-tight">{player.name}</h1>
+            <h1 className="font-bold text-2xl text-[var(--mm-ink)] tracking-tight">{player.name}</h1>
             {player.is_pro && <span className="text-xs bg-[var(--mm-yellow)] text-[var(--mm-black)] px-2 py-0.5 rounded font-bold">선출</span>}
           </div>
           <div className="flex flex-wrap gap-1.5 justify-center sm:justify-start mb-3">

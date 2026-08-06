@@ -125,7 +125,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
           <div className="flex items-center gap-2 min-w-0">
             <Trophy size={18} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />
             <h3
-              className="font-jersey font-black uppercase break-keep"
+              className="font-bold break-keep"
               style={{
                 color: 'var(--mm-ink)',
                 fontSize: '22px',

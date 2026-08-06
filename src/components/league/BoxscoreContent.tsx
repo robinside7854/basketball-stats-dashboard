@@ -120,7 +120,7 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
               return (
                 <th key={c.key}
                   onClick={() => c.sortKey && handleSort(c.sortKey)}
-                  className="py-2.5 px-2 text-center text-[11px] font-jersey font-black whitespace-nowrap cursor-pointer select-none transition-colors duration-200 uppercase tracking-widest focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
+                  className="py-2.5 px-2 text-center text-[11px] font-jersey font-bold whitespace-nowrap cursor-pointer select-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
                   style={{ color: isActive ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>
                   {c.label}
                   {c.sortKey && (isActive
@@ -147,7 +147,7 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
                     {rr.team_color && <div aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
                     <div>
                       <span
-                        className="font-jersey font-black text-sm whitespace-nowrap uppercase"
+                        className="font-jersey font-bold text-sm whitespace-nowrap"
                         style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
                       >{rr.name}</span>
                       {rr.team_name && <p className="text-xs leading-none mt-0.5" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</p>}
@@ -220,7 +220,7 @@ function MobileStatCards({ rows, showGP = false }: { rows: (PlayerRow | DailySta
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {rr.team_color && <div aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
-                <span className="font-jersey font-black text-sm uppercase truncate min-w-0" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{rr.name}</span>
+                <span className="font-jersey font-bold text-sm truncate min-w-0" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{rr.name}</span>
                 {rr.team_name && <span className="text-[11px] shrink-0" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</span>}
                 {showGP && <span className="text-[10px] font-bold shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>{rr.gp}G</span>}
               </div>
@@ -355,7 +355,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '' }: Pro
           <div className="flex items-center gap-2 flex-wrap">
             <h2
               id="daily-boxscore-title"
-              className="font-jersey font-black uppercase"
+              className="font-bold"
               style={{ color: 'var(--mm-ink)', fontSize: '18px', letterSpacing: '-0.005em' }}
             >
               {dateLabel} 요약
@@ -469,7 +469,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '' }: Pro
                           <div className="flex items-center gap-2 mb-2 min-w-0">
                             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: r.color ?? 'var(--mm-muted)' }} />
                             <span
-                              className="font-jersey font-black text-sm uppercase truncate min-w-0"
+                              className="font-jersey font-bold text-sm truncate min-w-0"
                               style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
                             >{r.name}</span>
                             <span
@@ -572,7 +572,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '' }: Pro
                           <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
                             {homeWin && <Trophy size={12} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" aria-label="승" />}
                             <span
-                              className="font-jersey font-black text-sm truncate uppercase min-w-0"
+                              className="font-jersey font-bold text-sm truncate min-w-0"
                               style={{
                                 color: homeWin ? 'var(--mm-ink)' : g.is_complete ? (draw ? 'var(--mm-ink-soft)' : 'var(--mm-muted)') : 'var(--mm-ink-soft)',
                                 textDecoration: g.is_complete && !homeWin && !draw ? 'line-through' : 'none',
@@ -596,7 +596,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '' }: Pro
                             >{g.away_score}</span>
                             {g.away_team && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: g.away_team.color }} />}
                             <span
-                              className="font-jersey font-black text-sm truncate uppercase min-w-0"
+                              className="font-jersey font-bold text-sm truncate min-w-0"
                               style={{
                                 color: awayWin ? 'var(--mm-ink)' : g.is_complete ? (draw ? 'var(--mm-ink-soft)' : 'var(--mm-muted)') : 'var(--mm-ink-soft)',
                                 textDecoration: g.is_complete && !awayWin && !draw ? 'line-through' : 'none',
@@ -740,7 +740,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '' }: Pro
                           </div>
                           {/* 선수 이름 — 주인공 */}
                           <p
-                            className="text-base font-jersey font-black leading-tight truncate uppercase"
+                            className="text-base font-jersey font-bold leading-tight truncate"
                             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
                           >
                             {name ?? '—'}
@@ -996,7 +996,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
             style={{ borderBottom: '1px solid var(--mm-rule)' }}
           >
             <div className="text-right min-w-0">
-              <div className="text-base sm:text-lg font-jersey font-black uppercase truncate" style={{ color: colorA, letterSpacing: '-0.005em' }}>{A.name}</div>
+              <div className="text-base sm:text-lg font-bold truncate" style={{ color: colorA, letterSpacing: '-0.005em' }}>{A.name}</div>
               <div className="text-[11px] font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>HOME</div>
             </div>
             <div className="flex flex-col items-center shrink-0">
@@ -1004,7 +1004,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
               <span className="text-xs mt-0.5 whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>맞대결 {h2h.gameCount}경기</span>
             </div>
             <div className="text-left min-w-0">
-              <div className="text-base sm:text-lg font-jersey font-black uppercase truncate" style={{ color: colorB, letterSpacing: '-0.005em' }}>{B.name}</div>
+              <div className="text-base sm:text-lg font-bold truncate" style={{ color: colorB, letterSpacing: '-0.005em' }}>{B.name}</div>
               <div className="text-[11px] font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>AWAY</div>
             </div>
           </div>

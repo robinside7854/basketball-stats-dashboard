@@ -180,7 +180,7 @@ export default function RosterPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <h1 className="font-jersey font-black uppercase text-[28px] leading-none text-[var(--mm-ink)] tracking-tight">선수 명단</h1>
+        <h1 className="font-bold text-[28px] leading-none text-[var(--mm-ink)] tracking-tight">선수 명단</h1>
         <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={() => setShowCompare(true)} className="border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] cursor-pointer">
             <ArrowLeftRight size={16} className="mr-2" /> 선수 비교

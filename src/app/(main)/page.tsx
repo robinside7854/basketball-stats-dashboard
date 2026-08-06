@@ -27,8 +27,8 @@ export default function OnBallIntro() {
         <div className="flex items-center gap-2.5 mb-6">
           <Basketball size={30} />
           <span
-            className="font-jersey font-black uppercase"
-            style={{ color: 'var(--mm-ink)', fontSize: 34, letterSpacing: '0.14em' }}
+            className="font-bold"
+            style={{ color: 'var(--mm-ink)', fontSize: 34 }}
           >
             OnBall
           </span>

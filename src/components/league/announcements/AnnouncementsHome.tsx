@@ -171,7 +171,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
       >
         <div className="inline-flex items-center gap-2 min-w-0">
           <Megaphone size={18} className="text-[color:var(--mm-ink)] shrink-0" aria-hidden />
-          <h2 className="font-jersey font-black uppercase text-base sm:text-lg tracking-[0.14em]" style={{ color: 'var(--mm-ink)' }}>
+          <h2 className="font-bold text-base sm:text-lg" style={{ color: 'var(--mm-ink)' }}>
             공지
           </h2>
           {unreadCount > 0 && (

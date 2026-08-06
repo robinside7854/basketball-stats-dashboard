@@ -19,10 +19,12 @@ export type DuoEntry = {
   assists_to_partner: number
 }
 
+// border: 라이트 모드에서 rank-*-bg 가 흰 배경 대비 1.13~1.18 로 옅어 배지 형태가 거의 안 보이는
+// 문제(2026-08-07 리뷰) → -fg 색의 얇은 테두리로 형태를 살린다. 텍스트 대비엔 영향 없음(색값 무변경).
 const RANK_STYLE = [
-  { color: '#0a0a0a', bg: '#D4A017' },  // 1위 골드
-  { color: '#0a0a0a', bg: '#94A3B8' },  // 2위 실버
-  { color: '#ffffff', bg: '#B45309' },  // 3위 브론즈
+  { color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)', border: '1px solid var(--rank-1-fg)' },  // 1위 골드
+  { color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)', border: '1px solid var(--rank-2-fg)' },  // 2위 실버
+  { color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)', border: '1px solid var(--rank-3-fg)' },  // 3위 브론즈
 ]
 
 // 테마 반전(라이트/다크)에서도 보이도록 하드코딩 색 대신 토큰 사용
@@ -58,7 +60,7 @@ export default function DynamicDuoPanel({
 
       <div className="space-y-2.5">
         {duos.map((d, i) => {
-          const rank = RANK_STYLE[i] ?? { color: 'var(--mm-ink)', bg: 'var(--mm-panel-alt)' }
+          const rank = RANK_STYLE[i] ?? { color: 'var(--mm-ink)', bg: 'var(--mm-panel-alt)', border: 'none' }
           const total = Math.max(d.total_pts, 1)
           const receivedPct = (d.pts_from_partner / total) * 100
           const givenPct = (d.pts_to_partner / total) * 100
@@ -69,7 +71,7 @@ export default function DynamicDuoPanel({
               <div className="flex items-center gap-3">
                 <span
                   className="font-jersey font-black tabular-nums w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
-                  style={{ color: rank.color, background: rank.bg, fontSize: '13px' }}
+                  style={{ color: rank.color, background: rank.bg, border: rank.border, fontSize: '13px' }}
                   aria-label={`${i + 1}위`}
                 >
                   {i + 1}
@@ -90,7 +92,7 @@ export default function DynamicDuoPanel({
                 </span>
                 <div className="flex-1 min-w-0">
                   <p
-                    className="font-jersey font-black uppercase break-keep"
+                    className="font-bold break-keep"
                     style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2 }}
                   >
                     {d.partner_name}
@@ -143,7 +145,7 @@ export default function DynamicDuoPanel({
           const cardStyle: React.CSSProperties = {
             background: 'var(--mm-panel)',
             border: '1px solid var(--mm-rule)',
-            borderLeft: `3px solid ${rank.bg}`,
+            borderLeft: `3px solid ${rank.color}`,
           }
 
           return clickable ? (

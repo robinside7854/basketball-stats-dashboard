@@ -112,12 +112,14 @@ function ShotMixBar({ p, width, height = 12 }: { p: PlayerStat; width?: number; 
 
 // 순위 티어링 — 1위 골드 · 2위 실버 · 3위 브론즈 · 4-10위 에메랄드 · 11위+ 뉴트럴
 // (auth/PersonalDashboard.tsx rankStyle 동일 팔레트 · 도미노 확장 통일 · 옐로우 실색상 1곳 원칙 준수)
-function rankTier(rank: number): { color: string; bg: string; accent: string } {
-  if (rank === 1) return { color: '#0a0a0a', bg: '#D4A017', accent: '#D4A017' }  // gold · dark text WCAG AA
-  if (rank === 2) return { color: '#0a0a0a', bg: '#94A3B8', accent: '#94A3B8' }  // silver · dark text WCAG AA
-  if (rank === 3) return { color: '#ffffff', bg: '#B45309', accent: '#B45309' }  // bronze
-  if (rank <= 10) return { color: '#ffffff', bg: 'var(--milestone-near)', accent: 'var(--milestone-near)' }
-  return { color: 'var(--mm-muted)', bg: 'transparent', accent: 'transparent' }
+// border: 라이트 모드에서 rank-*-bg 가 흰 행 대비 1.13~1.18 로 옅어 배지 형태가 거의 안 보이는 문제
+// (2026-08-07 리뷰) → -fg 색의 얇은 테두리로 형태를 살린다. 텍스트 대비엔 영향 없음(색값 무변경).
+function rankTier(rank: number): { color: string; bg: string; accent: string; border: string } {
+  if (rank === 1) return { color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)', accent: 'var(--rank-1-fg)', border: '1px solid var(--rank-1-fg)' }  // gold
+  if (rank === 2) return { color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)', accent: 'var(--rank-2-fg)', border: '1px solid var(--rank-2-fg)' }  // silver
+  if (rank === 3) return { color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)', accent: 'var(--rank-3-fg)', border: '1px solid var(--rank-3-fg)' }  // bronze
+  if (rank <= 10) return { color: 'var(--rank-top-fg)', bg: 'var(--rank-top-bg)', accent: 'var(--rank-top-fg)', border: '1px solid var(--rank-top-fg)' }
+  return { color: 'var(--mm-muted)', bg: 'transparent', accent: 'transparent', border: 'none' }
 }
 
 function LeagueStatsPageInner() {
@@ -481,7 +483,7 @@ function LeagueStatsPageInner() {
 
       {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}
       <div className="space-y-3">
-        <h2 className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}>리그 스탯</h2>
+        <h2 className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}>리그 스탯</h2>
         {/* 1줄: 분기 선택 */}
         <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
           <button onClick={() => setSelectedQuarterId('all')}
@@ -571,7 +573,7 @@ function LeagueStatsPageInner() {
             <div className="px-4 py-3 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
               <div className="flex items-center gap-2 shrink-0">
                 <TrendingUp size={14} style={{ color: 'var(--mm-ink-soft)' }} />
-                <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '0.02em' }}>전체 스탯</span>
+                <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '15px' }}>전체 스탯</span>
               </div>
               {/* 컨트롤 그룹 — 모바일에서 스크롤 가능한 가로 행 */}
               <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide sm:ml-auto sm:flex-wrap">
@@ -663,9 +665,9 @@ function LeagueStatsPageInner() {
                     style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
                     <div className="flex items-center gap-3 mb-2">
                       <span className="font-jersey font-black tabular-nums w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
-                        style={{ color: rt.color, background: rt.bg, fontSize: '13px' }}>{i + 1}</span>
+                        style={{ color: rt.color, background: rt.bg, border: rt.border, fontSize: '13px' }}>{i + 1}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="font-jersey font-black uppercase break-keep" style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{p.name}</div>
+                        <div className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{p.name}</div>
                         <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}{statUnit === 'round' ? 'R' : 'G'}</div>
                       </div>
                       <div className="text-right shrink-0">
@@ -693,17 +695,16 @@ function LeagueStatsPageInner() {
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
                     <th className="py-2 pl-2 pr-1 text-xs font-black uppercase text-right w-8" style={{ color: 'var(--mm-ink)', letterSpacing: '0.10em' }}>#</th>
                     <th className="px-2 py-3 text-center text-xs font-black uppercase w-8" style={{ color: 'var(--mm-ink)', letterSpacing: '0.10em' }}>비교</th>
-                    <th className="text-left px-4 py-3 sticky left-0 font-jersey font-black uppercase min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '0.05em' }}>선수</th>
+                    <th className="text-left px-4 py-3 sticky left-0 font-bold min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px' }}>선수</th>
                     {COLS.map(({ key, label }) => {
                       const term = key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label
                       return (
                         <th key={key} onClick={() => handleSort(key)}
-                          className="px-3 py-3 text-center font-jersey font-black uppercase cursor-pointer select-none whitespace-nowrap transition-colors"
+                          className="px-3 py-3 text-center font-bold cursor-pointer select-none whitespace-nowrap transition-colors"
                           style={{
                             color: sortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                             background: sortKey === key ? 'var(--mm-ink)' : 'transparent',
                             fontSize: '15px',
-                            letterSpacing: '0.05em',
                           }}>
                           <StatHeader term={term} />
                           {sortKey === key
@@ -721,7 +722,7 @@ function LeagueStatsPageInner() {
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="inline-flex items-center justify-center rounded-full font-jersey font-black tabular-nums w-6 h-6"
-                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, fontSize: '13px' }}>{i+1}</span>
+                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, border: rankTier(i + 1).border, fontSize: '13px' }}>{i+1}</span>
                       </td>
                       <td className="px-2 py-3 text-center">
                         <input type="checkbox" checked={compareIds.has(p.player_id)}
@@ -732,7 +733,7 @@ function LeagueStatsPageInner() {
                       </td>
                       <td className="px-4 py-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
+                          className="font-bold transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
                           style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {p.name}
                         </button>
@@ -806,7 +807,7 @@ function LeagueStatsPageInner() {
                         <td className="py-3 pl-2 pr-1"></td>
                         <td className="px-2 py-3"></td>
                         <td className="px-4 py-3 sticky left-0" style={{ background: 'var(--mm-panel-alt)' }}>
-                          <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '0.16em' }}>
+                          <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '14px' }}>
                             {viewMode === 'avg' ? '리그 평균' : '리그 총합'}
                           </span>
                           <div className="text-[11px] font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>자격자 {filtered.length}명</div>
@@ -855,8 +856,8 @@ function LeagueStatsPageInner() {
                     style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-jersey font-black tabular-nums w-5 h-5 shrink-0 inline-flex items-center justify-center rounded-full"
-                        style={{ color: rt.color, background: rt.bg, fontSize: '11px' }}>{i+1}</span>
-                      <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '-0.005em' }}>{p.name}</span>
+                        style={{ color: rt.color, background: rt.bg, border: rt.border, fontSize: '11px' }}>{i+1}</span>
+                      <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '-0.005em' }}>{p.name}</span>
                       <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{statUnit === 'round' ? 'R' : 'G'}</span>
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
@@ -886,19 +887,18 @@ function LeagueStatsPageInner() {
                 <thead>
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
                     <th className="py-2 pl-2 pr-1 text-xs font-black uppercase text-right w-8" style={{ color: 'var(--mm-ink)', letterSpacing: '0.10em' }}>#</th>
-                    <th className="text-left px-4 py-3 sticky left-0 font-jersey font-black uppercase min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '0.05em' }}>선수</th>
+                    <th className="text-left px-4 py-3 sticky left-0 font-bold min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px' }}>선수</th>
                     <th className="px-3 py-3 text-center text-xs font-black uppercase" style={{ color: 'var(--mm-ink-soft)', letterSpacing: '0.10em' }}>{statUnit === 'round' ? 'R' : 'G'}</th>
                     {SHOOTING_COLS.map(({ key, label, desc }, idx) => {
                       // 구분선: 슈팅 효율(0-6) | 야투 분포(7-10)
                       const dividerStyle = idx === 7 ? { borderLeft: '1px solid var(--mm-ink)' } : {}
                       return (
                         <th key={key} onClick={() => handleShootSort(key)} title={desc}
-                          className="px-3 py-3 text-center font-jersey font-black uppercase whitespace-nowrap cursor-pointer select-none transition-colors"
+                          className="px-3 py-3 text-center font-bold whitespace-nowrap cursor-pointer select-none transition-colors"
                           style={{
                             color: shootSortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                             background: shootSortKey === key ? 'var(--mm-ink)' : 'transparent',
                             fontSize: '15px',
-                            letterSpacing: '0.05em',
                             ...dividerStyle,
                           }}>
                           <StatHeader term={label} />
@@ -917,11 +917,11 @@ function LeagueStatsPageInner() {
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="inline-flex items-center justify-center rounded-full font-jersey font-black tabular-nums w-6 h-6"
-                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, fontSize: '13px' }}>{i+1}</span>
+                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, border: rankTier(i + 1).border, fontSize: '13px' }}>{i+1}</span>
                       </td>
                       <td className="px-4 py-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
+                          className="font-bold transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
                           style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {p.name}
                         </button>
@@ -981,8 +981,8 @@ function LeagueStatsPageInner() {
                     style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="font-jersey font-black tabular-nums w-5 h-5 shrink-0 inline-flex items-center justify-center rounded-full"
-                        style={{ color: rt.color, background: rt.bg, fontSize: '11px' }}>{i+1}</span>
-                      <span className="font-jersey font-black uppercase" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '-0.005em' }}>{p.name}</span>
+                        style={{ color: rt.color, background: rt.bg, border: rt.border, fontSize: '11px' }}>{i+1}</span>
+                      <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '-0.005em' }}>{p.name}</span>
                       <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{statUnit === 'round' ? 'R' : 'G'}</span>
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
@@ -1009,16 +1009,15 @@ function LeagueStatsPageInner() {
                 <thead>
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
                     <th className="py-2 pl-2 pr-1 text-xs font-black uppercase text-right w-8" style={{ color: 'var(--mm-ink)', letterSpacing: '0.10em' }}>#</th>
-                    <th className="text-left px-4 py-3 sticky left-0 font-jersey font-black uppercase min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '0.05em' }}>선수</th>
+                    <th className="text-left px-4 py-3 sticky left-0 font-bold min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px' }}>선수</th>
                     <th className="px-3 py-3 text-center text-xs font-black uppercase" style={{ color: 'var(--mm-ink-soft)', letterSpacing: '0.10em' }}>{statUnit === 'round' ? 'R' : 'G'}</th>
                     {ADV_COLS.map(({ key, label, desc }) => (
                       <th key={key} onClick={() => handleAdvSort(key)} title={desc}
-                        className="px-3 py-3 text-center font-jersey font-black uppercase whitespace-nowrap cursor-pointer select-none transition-colors"
+                        className="px-3 py-3 text-center font-bold whitespace-nowrap cursor-pointer select-none transition-colors"
                         style={{
                           color: advSortKey === key ? 'var(--mm-panel)' : 'var(--mm-ink)',
                           background: advSortKey === key ? 'var(--mm-ink)' : 'transparent',
                           fontSize: '15px',
-                          letterSpacing: '0.05em',
                         }}>
                         <StatHeader term={label} />
                         {advSortKey === key
@@ -1035,11 +1034,11 @@ function LeagueStatsPageInner() {
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="inline-flex items-center justify-center rounded-full font-jersey font-black tabular-nums w-6 h-6"
-                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, fontSize: '13px' }}>{i+1}</span>
+                          style={{ color: rankTier(i + 1).color, background: rankTier(i + 1).bg, border: rankTier(i + 1).border, fontSize: '13px' }}>{i+1}</span>
                       </td>
                       <td className="px-4 py-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                         <button onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                          className="font-jersey font-black uppercase transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
+                          className="font-bold transition-colors cursor-pointer text-left hover:underline underline-offset-2 break-keep block"
                           style={{ color: 'var(--mm-ink)', fontSize: '17px', letterSpacing: '-0.005em', maxWidth: '160px', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {p.name}
                         </button>

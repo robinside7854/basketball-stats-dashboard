@@ -208,7 +208,7 @@ export default function PlayerHighlightsBrowser({
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <span
-              className="font-jersey font-black uppercase text-sm tracking-[0.14em]"
+              className="font-bold text-sm"
               style={{ color: 'var(--mm-ink)' }}
             >
               필터

@@ -3,19 +3,17 @@
 //   · ScoreTable:  득점 / 실점 / 마진 3열 미니 테이블
 // 홈 팀 승률 + 라운드 요약 카드에서 공통 사용.
 
-// WIN/LOSE/DRAW 컬러 정의
-// bg/border는 반투명 rgba라 다크 모드 근-흑 패널 위에서 옅게 블렌드됨.
-// fg는 --mm-positive/--mm-negative/--mm-neutral-strong 토큰(globals.css)으로 다크 모드 별도 상향 —
-// 고정 hex를 쓰면 다크 패널 위에서 대비가 1.9~3.7:1 로 무너짐 (2026-07-22 수정).
+// WIN/LOSE/DRAW 컬러 정의 — 배경/전경 쌍 (캐주얼 전환, 2026-08-06)
+// 채움+흰글씨 대신 틴트 배경 + 진한 전경 텍스트로. bg/fg 모두 globals.css 의
+// --mm-positive/negative/neutral-bg·fg 토큰(라이트/다크 각각 7:1+ 대비 검증됨)을 그대로 사용.
 const RESULT_COLORS = {
-  win:  { bg: 'rgba(16,185,129,0.12)',  border: '#10B981', fg: 'var(--mm-positive)' },       // emerald
-  lose: { bg: 'rgba(220,38,38,0.12)',   border: '#EF4444', fg: 'var(--mm-negative)' },       // red
-  draw: { bg: 'rgba(148,163,184,0.15)', border: '#94A3B8', fg: 'var(--mm-neutral-strong)' }, // slate
+  win:  { bg: 'var(--mm-positive-bg)', fg: 'var(--mm-positive-fg)' },
+  lose: { bg: 'var(--mm-negative-bg)', fg: 'var(--mm-negative-fg)' },
+  draw: { bg: 'var(--mm-neutral-bg)',  fg: 'var(--mm-neutral-fg)' },
 } as const
 
 // 1위 행 배경(--mm-yellow-soft)은 라이트=크림 / 다크=반투명노랑(거의 흑)으로 테마마다 뒤집힌다.
-// 과거엔 여기서 검정 계열(rgba(0,0,0)/#065F46 등)을 하드코딩 → 다크모드에서 칩·숫자 소실 (2026-07-26 수정).
-// 이제 일반 행과 동일한 테마 토큰을 사용해 양 테마 모두 대비 확보. 1위 강조는 상위 컴포넌트의
+// 일반 행과 동일한 테마 토큰을 사용해 양 테마 모두 대비 확보. 1위 강조는 상위 컴포넌트의
 // 배경 틴트 + 좌측 노랑 바 + 큰 글자가 담당한다.
 const RESULT_COLORS_TOP = RESULT_COLORS
 
@@ -40,9 +38,8 @@ export function ResultChip({ label, count, variant, isTop = false, compact = fal
       style={{
         background: c.bg,
         color: c.fg,
-        border: `1px solid ${c.border}`,
         padding: pad,
-        borderRadius: '3px',
+        borderRadius: 'var(--mm-radius-chip)',
         lineHeight: 1.15,
         whiteSpace: 'nowrap',
       }}

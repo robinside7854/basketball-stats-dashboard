@@ -1,5 +1,10 @@
 # 미라클모닝 브랜드 스타일 시스템 (E안)
 
+> **정본은 `DESIGN.md`(라이트) / `DESIGN.dark.md`(다크)다.** 이 문서는 이식 작업 순서·체크리스트
+> 성격의 보조 문서이며, 색상 값·라디우스 등 구체적인 토큰 값이 `DESIGN.md`와 다르면 `DESIGN.md`가
+> 맞다. 아래 라디우스 절은 2026-08-06 캐주얼 전환 이전 값이 남아 있던 것을 `DESIGN.md`를 가리키도록
+> 고쳤다.
+
 전 페이지 통일 이식용 규칙집. 홈 랜딩(`page.tsx`, `NbaHero`, `NbaRoundsSummary`, `NbaLeaders`)이 레퍼런스 구현.
 
 ## 1. 팔레트 — CSS 변수 (`mm-*`)
@@ -59,7 +64,8 @@
 - 배경 `--mm-panel`
 - border 1px solid `--mm-rule`
 - padding 넉넉히 (16~20px 이상)
-- rounded 최소 (border-radius 0 또는 4px). 지나친 rounded 금지
+- 라디우스는 `DESIGN.md` Shapes 절이 정본이다: 카드 14px(`--mm-radius-card`), 컨트롤 10px
+  (`--mm-radius-ctl`), 칩 999px(`--mm-radius-chip`), 모달 18px(`--mm-radius-modal`)
 - hover: `box-shadow: 0 10px 36px -8px rgba(0,0,0,0.20~0.25)` (라이트는 얕게, 다크는 진하게)
 
 ### 1위 · 강조 카드
@@ -110,7 +116,8 @@
 - 팔레트 변수 외 hex/rgb 직접 사용 (예외: 데이터 강조 color emerald/red)
 - 노랑 배경 위 노랑 텍스트
 - 데이터 로직 · fetch · state · handler 손대기 (스타일만 손댈 것)
-- `rounded-2xl`, `rounded-3xl` 남발 (0 or 4px)
+- `DESIGN.md` Shapes 절의 라디우스 값(카드 14px·컨트롤 10px·칩 999px·모달 18px)을 벗어난 임의의
+  `rounded-*` 값 남발
 - 그라디언트 · 다층 shadow · glow (앞서 걷어낸 AI 티 요소)
 - 신규 컴포넌트 · 파일 추가 (기존 파일 스타일만 수정)
 

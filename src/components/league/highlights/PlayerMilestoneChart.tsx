@@ -350,7 +350,7 @@ function MetricTree({
       {/* 헤더 · 지표 라벨 + 리그 리더 값 */}
       <div className="text-center mb-2">
         <div
-          className="font-jersey font-black uppercase text-[15px]"
+          className="font-bold text-[15px]"
           style={{ color, letterSpacing: '0.10em' }}
         >
           {label}
@@ -703,7 +703,7 @@ function PlayerMilestonePopover({
         <button
           type="button"
           onClick={onOpenCard}
-          className="w-full flex items-center justify-center gap-2 px-4 min-h-[52px] font-jersey font-black uppercase tracking-[0.14em] text-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
+          className="w-full flex items-center justify-center gap-2 px-4 min-h-[52px] font-bold text-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
           style={{
             background: 'var(--mm-yellow)',
             color: 'var(--mm-black)',

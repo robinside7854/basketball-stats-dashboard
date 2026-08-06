@@ -406,20 +406,28 @@ export default async function LeagueDetailPage({
   const isMember = !!approvedSession
 
   return (
-    <div className="space-y-5 lg:space-y-4">
-      {/* 헤더 — 리그명만 좌측 상단 (2026-07-21 클린업 · 진행중 배지 / 서브 라벨 삭제) */}
-      <div className="relative court-bg rounded-2xl px-5 py-4 lg:px-6 lg:py-5 -mx-2 sm:mx-0 border border-gray-800/40">
+    <div className="space-y-3">
+      {/* 헤더 — 리그명만 좌측 상단 (2026-07-21 클린업 · 진행중 배지 / 서브 라벨 삭제)
+          2026-08 캐주얼 전환: 고정 다크 배너 → 테마 추종 카드 (라이트 모드 대비 확보) */}
+      <div
+        className="relative px-5 py-4 lg:px-6 lg:py-5 -mx-2 sm:mx-0"
+        style={{
+          background: 'var(--mm-panel)',
+          border: '1px solid var(--mm-rule)',
+          borderRadius: 'var(--mm-radius-card)',
+        }}
+      >
         <h1
-          className="font-jersey text-2xl sm:text-3xl lg:text-5xl font-bold text-white tracking-wide uppercase break-keep"
-          style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.1 }}
+          className="text-2xl sm:text-3xl lg:text-5xl font-bold break-keep"
+          style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.1 }}
         >
           {l.name}
         </h1>
         {/* 첫 방문자용 한 줄 아이덴티티 + 인라인 메타 (KPI 카드 아님 · 헤더 내부 캡션 수준) */}
-        <p className="mt-1.5 text-sm sm:text-base font-medium text-white/70 break-keep">
+        <p className="mt-1.5 text-sm sm:text-base font-medium break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
           매주 아침을 여는 농구 · 우리끼리 진짜 리그처럼 기록합니다
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] sm:text-xs font-bold uppercase tracking-[0.12em] text-white/45">
+        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] sm:text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
           <span>멤버 {memberCount}명</span>
           {quarterStandings.gamesCount > 0 && (
             <>
@@ -437,7 +445,8 @@ export default async function LeagueDetailPage({
             <Link
               key={ol.id}
               href={`/league/${orgSlug}/${ol.id}`}
-              className="text-sm px-4 py-2 rounded-full border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors cursor-pointer btn-press"
+              className="text-sm px-4 py-2 border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-muted)] transition-colors cursor-pointer btn-press"
+              style={{ borderRadius: 'var(--mm-radius-chip)' }}
             >
               {ol.name} ({ol.season_year})
             </Link>

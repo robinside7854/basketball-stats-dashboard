@@ -114,7 +114,7 @@ export default function MilestoneClipModal({ clip, onClose }: Props) {
             </span>
             <h3
               id="milestone-clip-modal-title"
-              className="font-jersey font-black uppercase truncate"
+              className="font-bold truncate"
               style={{
                 color: 'var(--mm-ink)',
                 fontSize: 'clamp(16px, 4.5vw, 22px)',

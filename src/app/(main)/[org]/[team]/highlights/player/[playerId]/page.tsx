@@ -74,7 +74,7 @@ export default async function TeamPlayerHighlightsPage({
               <div className="flex items-center gap-2">
                 <Film size={18} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
                 <h1
-                  className="font-jersey font-black uppercase text-2xl lg:text-3xl truncate"
+                  className="font-bold text-2xl lg:text-3xl truncate"
                   style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
                 >
                   {player.name}

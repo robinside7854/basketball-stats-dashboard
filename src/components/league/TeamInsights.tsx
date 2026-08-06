@@ -90,7 +90,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
   ] : []
 
   // 공용 섹션 헤드라인 스타일
-  const sectionHeadCls = 'font-jersey font-black uppercase text-[13px] tracking-[0.20em] mb-3'
+  const sectionHeadCls = 'font-bold text-[13px] mb-3'
   const sectionSubCls = 'text-[11px] ml-2 font-bold uppercase tracking-[0.16em]'
 
   return (

@@ -64,7 +64,7 @@ export default async function HighlightsRoundPage({
             <div className="flex items-center gap-2">
               <Film size={20} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
               <h1
-                className="font-jersey font-black uppercase text-2xl lg:text-3xl truncate"
+                className="font-bold text-2xl lg:text-3xl truncate"
                 style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
               >
                 {d.getFullYear()}.{String(d.getMonth() + 1).padStart(2, '0')}.{String(d.getDate()).padStart(2, '0')}

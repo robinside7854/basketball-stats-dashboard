@@ -30,11 +30,11 @@ const KIND_LABEL: Record<NonNullable<HighlightClip['clutch_kind']>, string> = {
 // 클러치 5단계 · CSS 변수 승격 (2026-07-22 · 위기 강도 순 dagger→chase→tie→reversal→winning)
 // winning 은 옐로우 대신 hoop-orange-500 (옐로우 실색상은 이번 주 하이라이트 CTA 전용)
 const KIND_STYLE: Record<NonNullable<HighlightClip['clutch_kind']>, { bg: string; fg: string }> = {
-  dagger:   { bg: 'var(--clutch-1)', fg: '#ffffff' },
-  chase:    { bg: 'var(--clutch-2)', fg: '#ffffff' },
-  tie:      { bg: 'var(--clutch-3)', fg: '#ffffff' },
-  reversal: { bg: 'var(--clutch-4)', fg: '#ffffff' },
-  winning:  { bg: 'var(--clutch-5)', fg: '#ffffff' },
+  dagger:   { bg: 'var(--clutch-1-bg)', fg: 'var(--clutch-1-fg)' },
+  chase:    { bg: 'var(--clutch-2-bg)', fg: 'var(--clutch-2-fg)' },
+  tie:      { bg: 'var(--clutch-3-bg)', fg: 'var(--clutch-3-fg)' },
+  reversal: { bg: 'var(--clutch-4-bg)', fg: 'var(--clutch-4-fg)' },
+  winning:  { bg: 'var(--clutch-5-bg)', fg: 'var(--clutch-5-fg)' },
 }
 // 가치 순위 (2026-07-19) · 위닝샷 > 역전 > 동점 > 추격 > 쐐기
 // (쐐기는 이미 앞선 상태에서 격차 벌리기라 상대적으로 극적 강도 낮음)
@@ -116,7 +116,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                 className="shrink-0"
               />
               <h3
-                className="font-jersey font-black uppercase break-keep"
+                className="font-bold break-keep"
                 style={{
                   color: 'var(--mm-ink)',
                   fontSize: 'clamp(22px, 6vw, 28px)',
@@ -187,13 +187,16 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   className="group text-left block cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_-8px_rgba(0,0,0,0.28)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 relative overflow-hidden flex flex-col"
                   style={{
                     background: 'var(--mm-panel)',
-                    border: isWinning ? '2px solid var(--clutch-5)' : '1px solid var(--mm-rule)',
-                    borderRadius: '4px',
+                    border: isWinning ? '2px solid var(--clutch-5-fg)' : '1px solid var(--mm-rule)',
+                    borderRadius: 'var(--mm-radius-card)',
                     minHeight: 220,
                   }}
                   aria-label={`${c.player_name} · ${kindLabel ?? '클러치샷'} · ${shotLabel} · vs ${c.opponent_name ?? ''} 재생`}
                 >
-                  {/* 종류 배지 — 상단 전체 폭 스트립 (한눈에 파악) */}
+                  {/* 종류 배지 — 상단 전체 폭 스트립 (한눈에 파악).
+                      칩이 아니라 카드 상단에 맞물리는 풀블리드 스트립이므로 알약(999px) 라디우스를
+                      쓰지 않는다 — 부모가 overflow:hidden + var(--mm-radius-card) 라 라디우스 없이도
+                      상단 모서리는 부모를 따라 자연히 둥글게 클리핑된다 (2026-08-07 리뷰 수정). */}
                   {kindStyle && kindLabel ? (
                     <div
                       className="flex items-center justify-center gap-1 py-1.5 text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase"
@@ -206,7 +209,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   ) : (
                     <div
                       className="flex items-center justify-center gap-1 py-1.5 text-[12px] font-black tracking-[0.14em] uppercase"
-                      style={{ background: 'var(--clutch-1)', color: '#ffffff' }}
+                      style={{ background: 'var(--clutch-1-bg)', color: 'var(--clutch-1-fg)' }}
                     >
                       <HeartCrack size={12} aria-hidden />
                       클러치

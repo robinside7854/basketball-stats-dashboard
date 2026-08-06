@@ -106,7 +106,7 @@ export default function TournamentsPage() {
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="font-jersey font-black uppercase text-2xl text-[var(--mm-ink)] tracking-tight">대회 관리</h1>
+          <h1 className="font-bold text-2xl text-[var(--mm-ink)] tracking-tight">대회 관리</h1>
           <button
             onClick={() => setSortDesc(v => !v)}
             className="flex items-center gap-1.5 px-2.5 py-1 min-h-9 rounded-lg text-xs font-medium bg-[var(--mm-panel)] border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors cursor-pointer"

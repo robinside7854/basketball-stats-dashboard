@@ -107,7 +107,7 @@ export default async function PlayerHighlightsPage({
             <div className="flex items-center gap-2 flex-wrap">
               <Film size={18} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
               <h1
-                className="font-jersey font-black uppercase text-2xl lg:text-3xl truncate"
+                className="font-bold text-2xl lg:text-3xl truncate"
                 style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
               >
                 {data.player.number != null && (

@@ -52,21 +52,24 @@ const METRIC_COLOR: Record<Chaser['metric'], string> = {
 const METRIC_LABEL: Record<Chaser['metric'], string> = { pts: 'PTS', reb: 'REB', ast: 'AST', stl: 'STL', blk: 'BLK' }
 const METRIC_KOREAN: Record<Chaser['metric'], string> = { pts: '득점', reb: '리바운드', ast: '어시스트', stl: '스틸', blk: '블락' }
 
-// 근접도 3티어 · 프로그레스 바·remaining 뱃지 색 결정 (2026-07-22)
-function proximityColor(progressPct: number): string {
-  if (progressPct >= 80) return 'var(--milestone-near)'
-  if (progressPct >= 60) return 'var(--milestone-mid)'
-  return 'var(--milestone-far)'
+// 근접도 3티어 · 프로그레스 바·remaining 뱃지 색 결정 (배경/전경 쌍 · 캐주얼 전환 2026-08-06)
+function proximityStyle(progressPct: number): { bg: string; fg: string } {
+  if (progressPct >= 80) return { bg: 'var(--milestone-near-bg)', fg: 'var(--milestone-near-fg)' }
+  if (progressPct >= 60) return { bg: 'var(--milestone-mid-bg)', fg: 'var(--milestone-mid-fg)' }
+  return { bg: 'var(--milestone-far-bg)', fg: 'var(--milestone-far-fg)' }
 }
 
-// 순위 뱃지 스타일 · 1-3위 메달 + 골드/실버/브론즈 배경 · 4-10위 milestone-near · 11위+ 뉴트럴
-// (2026-07-22 · rank 티어링 · '—' 제거)
-function rankStyle(rank: number, total: number): { badge?: string; color: string; bg?: string } {
+// 순위 뱃지 스타일 · 1-3위 골드/실버/브론즈 배경 · 4-10위 rank-top · 11위+ 뉴트럴
+// (2026-07-22 · rank 티어링 · '—' 제거 · 2026-08-06 배경/전경 쌍으로 전환
+//  · 2026-08-06 이모지 메달 제거 — 숫자 배지(N위)로 통일, DynamicDuoPanel 과 동일한 rank-*-bg/fg 톤)
+// border: 라이트 모드에서 rank-*-bg 가 흰 배경 대비 1.13~1.18 로 옅어 배지 형태가 거의 안 보이는
+// 문제(2026-08-07 리뷰) → -fg 색의 얇은 테두리로 형태를 살린다. 텍스트 대비엔 영향 없음(색값 무변경).
+function rankStyle(rank: number, total: number): { color: string; bg?: string; border?: string } {
   if (total <= 0) return { color: 'var(--mm-muted)' }
-  if (rank === 1) return { badge: '🥇', color: '#0a0a0a', bg: '#D4A017' }  // gold · dark text WCAG AA
-  if (rank === 2) return { badge: '🥈', color: '#0a0a0a', bg: '#94A3B8' }  // silver · dark text WCAG AA
-  if (rank === 3) return { badge: '🥉', color: '#ffffff', bg: '#B45309' }  // bronze
-  if (rank <= 10) return { color: '#ffffff', bg: 'var(--milestone-near)' }
+  if (rank === 1) return { color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)', border: '1px solid var(--rank-1-fg)' }  // gold
+  if (rank === 2) return { color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)', border: '1px solid var(--rank-2-fg)' }  // silver
+  if (rank === 3) return { color: 'var(--rank-3-fg)', bg: 'var(--rank-3-bg)', border: '1px solid var(--rank-3-fg)' }  // bronze
+  if (rank <= 10) return { color: 'var(--rank-top-fg)', bg: 'var(--rank-top-bg)', border: '1px solid var(--rank-top-fg)' }
   return { color: 'var(--mm-muted)', bg: 'transparent' }
 }
 
@@ -249,10 +252,10 @@ function SeasonSummary({ season }: { season: Season }) {
   return (
     <div className="px-4 sm:px-5 py-3 sm:py-4">
       <div className="flex items-baseline gap-2 mb-3">
-        <span className="font-jersey font-black uppercase text-base md:text-lg" style={{ color: 'var(--mm-ink)' }}>이번 시즌</span>
+        <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)' }}>이번 시즌</span>
         <span
           className="inline-flex items-center text-[12px] md:text-[13px] font-black px-2 py-0.5"
-          style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: '3px' }}
+          style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
         >
           {season.attended_rounds}R 참석
         </span>
@@ -303,9 +306,9 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
       >
         {value}
       </div>
-      {/* 랭킹 뱃지 · 통일 규칙 (2026-07-22)
-          1-3위: 메달 + N위 · 골드/실버/브론즈 배경 · 흰 텍스트
-          4-10위: N위 · milestone-near 배경 · 흰 텍스트
+      {/* 랭킹 뱃지 · 통일 규칙 (2026-07-22 · 2026-08-06 이모지 메달 제거)
+          1-3위: N위 · 골드/실버/브론즈 배경
+          4-10위: N위 · rank-top 배경
           11위+: N위 · 뉴트럴 텍스트 · 배경 없음
           랭킹 정보 없음: 렌더 안 함 (— 제거) */}
       {rank && rank.total > 0 && rs && (
@@ -314,12 +317,12 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
           style={{
             color: rs.color,
             background: rs.bg ?? 'transparent',
+            border: rs.border,
             borderRadius: '3px',
             letterSpacing: '-0.005em',
           }}
           title={`${rank.rank}위 / ${rank.total}명`}
         >
-          {rs.badge && <span aria-hidden style={{ fontSize: '13px' }}>{rs.badge}</span>}
           <span>{rank.rank}위</span>
         </div>
       )}
@@ -338,13 +341,13 @@ function LoginTeaser({ onDismiss }: { onDismiss: () => void }) {
           ))}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-jersey font-black uppercase text-lg md:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>내 기록, 여기 다 있어요</div>
+          <div className="font-bold text-lg md:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>내 기록, 여기 다 있어요</div>
           <p className="text-[13px] mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
             우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>시즌 득점·리바운드 랭킹</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>진행 중 스트릭·마일스톤</b>을 확인하세요.
           </p>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
-            className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-md font-jersey font-black uppercase text-sm tracking-[0.12em] cursor-pointer transition-all hover:brightness-95 min-h-[44px]"
+            className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-md font-bold text-sm cursor-pointer transition-all hover:brightness-95 min-h-[44px]"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}
           >
             내 랭킹 확인하기 <ChevronRight size={16} />
@@ -364,7 +367,7 @@ function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
     <div className="px-4 sm:px-5 py-3 sm:py-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
       <div className="flex items-center gap-1.5 mb-2.5">
         <Flame size={16} style={{ color: 'var(--color-hoop-orange-500)' }} />
-        <span className="font-jersey font-black uppercase text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>진행 중 스트릭</span>
+        <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>진행 중 스트릭</span>
         <span className="text-[11px] md:text-[12px] font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>다음 경기에 이어가요</span>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -400,7 +403,7 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
       <div className="flex items-center gap-2.5 md:gap-3 min-w-0">
         <Film size={20} className="shrink-0" />
         <div className="min-w-0">
-          <div className="font-jersey font-black uppercase text-base md:text-lg" style={{ letterSpacing: '-0.005em' }}>
+          <div className="font-bold text-base md:text-lg" style={{ letterSpacing: '-0.005em' }}>
             나의 최근 하이라이트
           </div>
           <div className="text-[12px] md:text-[13px] font-bold uppercase mt-0.5" style={{ letterSpacing: '0.10em' }}>
@@ -421,7 +424,7 @@ function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
     <div className="p-4 md:p-5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
       <div className="flex items-center gap-1.5 mb-3">
         <Trophy size={16} style={{ color: 'var(--mm-ink-soft)' }} />
-        <span className="font-jersey font-black uppercase text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+        <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
           마일스톤 체이서
         </span>
         <span className="text-[11px] md:text-[12px] font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
@@ -433,7 +436,7 @@ function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
       ) : (
         <div className="space-y-2.5 md:space-y-3">
           {shown.map(c => {
-            const proxColor = proximityColor(c.progressPct)
+            const prox = proximityStyle(c.progressPct)
             return (
               <div key={c.metric}>
                 <div className="flex items-center justify-between text-[12px] md:text-[13px] mb-1">
@@ -443,17 +446,17 @@ function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
                   </span>
                   <span className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>
                     <b>{c.current}</b> / {c.nextThreshold}
-                    <span className="ml-1.5 text-[11px] font-black px-1.5 py-0.5" style={{ background: proxColor, color: '#fff', borderRadius: '2px' }}>
+                    <span className="ml-1.5 text-[11px] font-black px-1.5 py-0.5" style={{ background: prox.bg, color: prox.fg, borderRadius: 'var(--mm-radius-chip)' }}>
                       -{c.remaining}
                     </span>
                   </span>
                 </div>
                 <div
                   className="relative overflow-hidden"
-                  style={{ height: 8, background: 'var(--mm-panel-alt)', borderRadius: '4px', border: '1px solid var(--mm-rule)' }}
+                  style={{ height: 8, background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)', border: '1px solid var(--mm-rule)' }}
                 >
                   <div
-                    style={{ width: `${Math.min(100, c.progressPct)}%`, height: '100%', background: proxColor }}
+                    style={{ width: `${Math.min(100, c.progressPct)}%`, height: '100%', background: prox.fg }}
                   />
                 </div>
               </div>

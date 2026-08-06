@@ -113,7 +113,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
       >
         <div className="flex items-center gap-2.5">
           <UserPlus size={18} style={{ color: 'var(--mm-yellow-strong)' }} />
-          <h3 className="font-jersey font-black uppercase text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+          <h3 className="font-bold text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
             회원 가입 · 계정 관리
           </h3>
           {filter === 'pending' && pendingCount > 0 && (

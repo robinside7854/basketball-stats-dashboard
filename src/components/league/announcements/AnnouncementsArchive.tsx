@@ -114,7 +114,7 @@ export default function AnnouncementsArchive({ leagueId, initialAnnouncements }:
         >
           <div className="inline-flex items-center gap-2">
             <Megaphone size={18} className="text-[color:var(--mm-black)]" aria-hidden />
-            <h1 className="font-jersey font-black uppercase text-lg tracking-[0.14em]" style={{ color: 'var(--mm-black)' }}>
+            <h1 className="font-bold text-lg" style={{ color: 'var(--mm-black)' }}>
               공지사항 전체
             </h1>
             <span className="text-xs font-bold" style={{ color: 'var(--mm-black)' }}>

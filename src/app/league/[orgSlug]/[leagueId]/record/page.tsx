@@ -49,7 +49,7 @@ export default function LeagueRecordPage() {
         <Lock size={32} style={{ color: 'var(--mm-muted)' }} />
         <div>
           <h3
-            className="font-jersey font-black uppercase text-2xl"
+            className="font-bold text-2xl"
             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
           >
             편집 모드 전용
@@ -962,7 +962,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h2
-              className="font-jersey font-black uppercase text-3xl"
+              className="font-bold text-3xl"
               style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
             >
               경기 기록
@@ -1066,7 +1066,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                 <div className="flex items-center gap-3 flex-wrap">
                   {/* 날짜 */}
                   <span
-                    className="font-jersey font-black uppercase text-lg whitespace-nowrap"
+                    className="font-bold text-lg whitespace-nowrap"
                     style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
                   >
                     {d.getFullYear()}년 {d.getMonth() + 1}월 {d.getDate()}일
@@ -1158,7 +1158,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           <ChevronLeft size={20} />
         </button>
         <h2
-          className="font-jersey font-black uppercase text-xl"
+          className="font-bold text-xl"
           style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
         >
           {dateLabel} 경기 기록
@@ -1684,7 +1684,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         const ac = awayRoster.filter(p => selectedStarters.has(p.id)).length
                         return (
                           <div className="flex items-center justify-between">
-                            <h4 className="font-jersey font-black uppercase text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>선발 선수 선택</h4>
+                            <h4 className="font-bold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>선발 선수 선택</h4>
                             <div className="flex items-center gap-2 text-xs">
                               <span
                                 className={hc > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
@@ -1815,7 +1815,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                     className="p-5 w-full max-w-xs space-y-3"
                     style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                   >
-                    <h3 className="font-jersey font-black uppercase text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+                    <h3 className="font-bold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
                       {pendingIrregular.name}을(를) 어느 팀에 추가할까요?
                     </h3>
                     <div className="flex gap-2">
