@@ -33,7 +33,7 @@ export default function LeagueSettingsPage() {
   const pathname = usePathname()
   // 미들웨어 slug→UUID rewrite 때문에 params.leagueId 는 UUID → 링크는 브라우저 경로(slug) 기준으로.
   const socialHref = `${pathname.replace(/\/settings.*$/, '')}/social`
-  const { isEditMode, isInitialized, leagueHeaders, openPinModal } = useLeagueEditMode()
+  const { isEditMode, isInitialized, leagueHeaders, openPinModal, updateStoredPin } = useLeagueEditMode()
 
   // 서버 가드 대체 — 편집 모드 확인 후 미인증이면 리그 홈으로 리다이렉트.
   //   PIN 이 sessionStorage 기반이라 middleware 로는 검증 불가 → 클라이언트 마운트 시점 가드.
@@ -186,7 +186,13 @@ export default function LeagueSettingsPage() {
       body: JSON.stringify({ edit_pin: pin }),
     })
     setSaving(null)
-    if (res.ok) { toast.success('PIN 변경 완료 — 재로그인이 필요합니다'); setPinLoadFailed(false) }
+    if (res.ok) {
+      // 세션의 PIN 도 함께 갱신 — 안 하면 leagueHeaders 가 계속 옛 PIN 을 보내
+      // 이후 이 세션의 모든 편집 요청이 403 으로 조용히 실패한다.
+      updateStoredPin(pin)
+      toast.success('PIN 변경 완료 — 이 세션에는 즉시 적용됩니다')
+      setPinLoadFailed(false)
+    }
     else toast.error('저장 실패')
   }
 
@@ -474,7 +480,7 @@ export default function LeagueSettingsPage() {
         {pinLoadFailed && (
           <p className="text-xs text-[color:var(--mm-negative)]">현재 PIN을 불러오지 못했습니다. 확인이 필요하면 다시 시도하거나, 새 PIN을 입력해 재발급하세요.</p>
         )}
-        <p className="text-xs text-[color:var(--mm-muted)]">PIN 변경 후 현재 세션은 유지되며 다음 접속 시 새 PIN이 적용됩니다</p>
+        <p className="text-xs text-[color:var(--mm-muted)]">PIN 변경 시 이 세션에는 즉시 적용됩니다. 어드민 로그인 세션은 PIN을 쓰지 않아 영향 없고, 다른 기기의 PIN 세션은 새 PIN을 다시 입력해야 합니다.</p>
       </div>
 
       {/* 분기 날짜 범위 설정 */}
