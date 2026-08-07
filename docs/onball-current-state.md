@@ -1,7 +1,17 @@
 # 온볼 현재 상태 — 이어서 작업할 때 먼저 읽는 문서
 
-최종 갱신 2026-08-06. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
+최종 갱신 2026-08-07. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
+
+**최근 결정 (2026-08-07, IA 정리 Task 2):**
+- 공지 아카이브(`/archive/announcements`)는 하이라이트 우산에서 홈 우산으로 이동. 하이라이트↔공지
+  편도 연결(하이라이트에는 공지 입구가 없었음)을 양방향으로 정리. 홈 탭 활성 판정을 `pathname === base`
+  완전일치에서 `pathname === base || pathname.startsWith(`${base}/archive`)` 로 변경(`LeagueLayoutClient.tsx`).
+- `/social`(주간 매거진, `src/app/league/[orgSlug]/[leagueId]/social/page.tsx`) — **의도된 은닉.**
+  편집 권한자 전용 도구로 보이며 공개 nav 진입점이 0개다. 삭제하지 않는다(컨트롤러 자율 판단,
+  `docs/superpowers/plans/2026-08-07-ia-cleanup.md` 참조). URL 을 아는 편집자만 접근.
+- `src/app/todo/page.tsx` 삭제 — 농구 도메인과 무관한 범용 로컬스토리지 투두 앱(개발 스캐폴딩 잔재).
+  하드코딩 hex(`#0D9488` 등)·영문 UI·mm 토큰 미사용, 코드베이스 어디서도 링크되지 않음(grep 확인).
 
 ---
 

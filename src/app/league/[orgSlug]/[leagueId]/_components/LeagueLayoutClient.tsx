@@ -52,12 +52,16 @@ function TabNav({ orgSlug, leagueId, onOpenLogin, showDraft }: { orgSlug: string
     { href: `${base}/roster`, label: '라커룸', match: [`${base}/roster`, `${base}/teams`] },
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/record`] },
     { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`] },
-    { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`, `${base}/archive`] },
+    { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
     ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', match: [`${base}/settings`] }] : []),
   ]
+  // 공지 아카이브(/archive)는 홈 우산 소속(영상이 아니라 소식) — 홈 탭은 완전일치가 아니라
+  // /archive 로 시작하는 경로도 활성으로 잡아야 아카이브에서 인디케이터가 꺼지지 않는다.
   const tabActive = (tab: { href: string; match: string[] }) =>
-    tab.href === base ? pathname === base : (tab.match.length ? tab.match.some(m => pathname.startsWith(m)) : pathname.startsWith(tab.href))
+    tab.href === base
+      ? (pathname === base || pathname.startsWith(`${base}/archive`))
+      : (tab.match.length ? tab.match.some(m => pathname.startsWith(m)) : pathname.startsWith(tab.href))
 
   return (
     <div data-tour="top-nav" className="sticky top-0 z-10 bg-[color:var(--mm-panel)] border-b border-[color:var(--mm-rule)]">
@@ -234,11 +238,10 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
   ]
 
   // 스탯 우산 매칭 — /stats 이면서 /awards 도 스탯 탭 활성.
-  // 하이라이트 우산 매칭 — /highlights · /archive 를 하이라이트 탭 활성.
+  // 홈 우산 매칭 — /archive(공지 아카이브)는 하이라이트가 아니라 홈 소속.
   const isActive = (href: string) => {
-    if (href === base) return pathname === base
+    if (href === base) return pathname === base || pathname.startsWith(`${base}/archive`)
     if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/awards`)
-    if (href === `${base}/highlights`) return pathname.startsWith(`${base}/highlights`) || pathname.startsWith(`${base}/archive`)
     return pathname.startsWith(href)
   }
   // 더보기 그룹 중 하나가 현재 페이지면 더보기 버튼도 활성화 표시
