@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { NextResponse } from 'next/server'
+import { resolveTeamIdForTournament, verifyTeamPinForTeam } from '@/lib/teamPinAuth'
 
 export async function GET(req: Request) {
   const supabase = createClient()
@@ -13,8 +14,12 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const supabase = createClient()
   const body = await req.json()
+  const teamId = await resolveTeamIdForTournament(body.tournament_id)
+  if (!(await verifyTeamPinForTeam(req, teamId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  const supabase = createClient()
   const { data, error } = await supabase.from('games').insert(body).select('*, tournament:tournaments(*)').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data, { status: 201 })

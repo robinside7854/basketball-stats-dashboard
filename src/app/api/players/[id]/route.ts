@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { NextResponse } from 'next/server'
+import { resolveTeamIdForPlayer, verifyTeamPinForTeam } from '@/lib/teamPinAuth'
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -11,6 +12,10 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const teamId = await resolveTeamIdForPlayer(id)
+  if (!(await verifyTeamPinForTeam(req, teamId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   const supabase = createClient()
   const body = await req.json()
   const { data, error } = await supabase.from('players').update({ ...body, updated_at: new Date().toISOString() }).eq('id', id).select().single()
@@ -18,8 +23,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   return NextResponse.json(data)
 }
 
-export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
+  const teamId = await resolveTeamIdForPlayer(id)
+  if (!(await verifyTeamPinForTeam(req, teamId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   const supabase = createClient()
   const { error } = await supabase.from('players').update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

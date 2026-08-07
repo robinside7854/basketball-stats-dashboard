@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { NextResponse } from 'next/server'
+import { resolveTeamIdForTournament, verifyTeamPinForTeam } from '@/lib/teamPinAuth'
 
 export async function GET(req: Request) {
   const supabase = createClient()
@@ -16,9 +17,15 @@ export async function GET(req: Request) {
 
 // 대회 선수 일괄 저장 (기존 삭제 후 재등록)
 export async function POST(req: Request) {
-  const supabase = createClient()
   const { tournament_id, player_ids } = await req.json()
   if (!tournament_id) return NextResponse.json({ error: 'tournament_id required' }, { status: 400 })
+
+  const teamId = await resolveTeamIdForTournament(tournament_id)
+  if (!(await verifyTeamPinForTeam(req, teamId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const supabase = createClient()
 
   // 기존 삭제
   await supabase.from('tournament_players').delete().eq('tournament_id', tournament_id)
