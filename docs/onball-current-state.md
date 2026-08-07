@@ -3,6 +3,23 @@
 최종 갱신 2026-08-07. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
 
+**최근 결정 (2026-08-07, Phase M — 편집 PIN 경로 분리 · 보안 수정, `fix/edit-pin-path-split`):**
+- Phase L5 리뷰가 잡은 선재 결함(`GET /api/leagues/[leagueId]` 의 `select('*')` 가 공개 리그에서
+  익명 방문자에게도 `edit_pin` 을 실어 보내던 문제)의 **컬럼 노출은 고쳤다**. 화이트리스트로
+  `edit_pin` 제외 + 신규 `GET/PATCH /api/leagues/[leagueId]/edit-pin` 전용 엔드포인트(가드: 어드민
+  role·리그 PIN·CEO NextAuth 세션 중 하나, 실패 403) + 소비처 2곳(`settings`·
+  `admin/leagues/[leagueId]`) 전환. PIN 조회 실패 시 `'0000'` 가짜 기본값을 넣지 않고 입력란을 비운다.
+- ⚠ **그런데 Task 5 실측 중 이 수정과 무관한, 더 급한 구멍 2개를 새로 발견했다 — 아직 안 막혀
+  있다.** ① NextAuth `auth()` 가 이 환경에서 쿠키 없는 요청에도 세션을 돌려준다(`.env.local` 에
+  `AUTH_SECRET`/`ADMIN_EMAIL`/`ADMIN_PASSWORD` 전무 확인, `/admin` 이 무쿠키로 그대로 렌더됨 —
+  **프로덕션 env 확인 최우선**). 신규 PIN 엔드포인트가 `auth()` 를 OR 조건으로 쓰다 보니 이 결함을
+  그대로 물려받아 실측 결과가 여전히 "익명에게 PIN 노출"이었다(어드민 role·PIN 가드 자체는 정상).
+  ② `GET /api/leagues`(목록) 는 가드가 아예 없어 전체 리그를 `edit_pin` 포함해 익명에게 반환한다 —
+  단건보다 심각. 둘 다 계획서 범위 밖이라 이번엔 손대지 않고 기록만 함. §10, 아래 "다음에 할 일" 참조.
+  상세 재현: `.superpowers/sdd/task-M1-report.md`.
+- 인접 결함(팀 어드민의 리그 설정 저장이 401 로 실패 + mass assignment)도 **고치지 않고 기록만** —
+  권한 설계 결정이라 사용자 확인 필요. 위 "다음에 할 일" 표 참조.
+
 **최근 결정 (2026-08-07, IA 정리 Task 4 — 내 기록 신설 · 라커룸 하차 · 셸 재편):**
 - 라커룸(선수 명단·팀 구성)을 상단/하단 탭에서 내렸다. **라우트(`/roster`·`/teams`)는 그대로 살아있다**
   — 명단은 공개 정보이고 다른 화면 다수가 링크한다. 진입점은 신규 `/me`("내 기록") 페이지의
@@ -120,8 +137,11 @@
 
 | 우선 | 항목 | 메모 |
 |---|---|---|
+| **긴급·사용자** | **Vercel 프로덕션 env 에 `AUTH_SECRET`/`NEXTAUTH_SECRET`·`ADMIN_EMAIL`·`ADMIN_PASSWORD` 실제 설정 확인** | 로컬 `.env.local` 엔 셋 다 없는데, 이 상태로는 NextAuth `auth()` 가 무쿠키 요청에도 세션을 돌려줘 `/admin` CEO 콘솔 전체가 로그인 없이 열린다(2026-08-07 Phase M 실측, dev·prod 빌드 둘 다 재현). 프로덕션에도 없으면 즉시 설정 필요 — 이 환경에선 Vercel 값을 확인할 수 없다 |
+| **긴급** | `GET /api/leagues`(목록, `src/app/api/leagues/route.ts`) 가드 전무 | `select('*')` 로 전체 리그를 익명에게 `edit_pin` 포함 반환. 단건(`/api/leagues/[id]`)보다 심각 — 이번 Phase M 은 단건만 고쳤다. 별도 브랜치로 즉시 처리 권장 |
 | 사용자 | **도메인 구매** (`onball.app` / `onball.kr`) | 사면 `NEXT_PUBLIC_SITE_URL` 만 바꾸고 재배포. 주소는 이미 `src/lib/siteUrl.ts` 한 곳으로 모아 뒀다. **Vercel 프로젝트 이름은 바꾸지 말 것** — 기존 `.vercel.app` 주소가 죽는다 |
 | 중 | 어드민 **계정·접속현황·권한** 화면이 아직 `league_id` 기준 | 형제 대회에서 빈 목록으로 보인다. 회원 기능은 정상 |
+| 중 | **팀 어드민의 리그 설정 저장이 401 로 실패** | `PATCH /api/leagues/[leagueId]` 가 NextAuth 전용이라 팀 어드민(회원 role·PIN)은 상태·일정·YouTube·플러스원 나이 저장이 전부 막힌다. 또 `.update(body)` 라 mass assignment 위험. 어느 필드까지 팀 어드민에게 허용할지 사용자 확인 필요(2026-08-07 Phase M Task 4, 기록만 하고 미수정) |
 | 낮 | 세션 옛 쿠키 호환 갈래 제거 | `src/lib/auth/teamMatch.ts`. 2026-09-05 이후(모든 쿠키 만료 뒤) |
 | 낮 | 실제 동호회 온보딩 | 스크립트 준비됨. `docs/onboarding-checklist.md` |
 
@@ -171,12 +191,27 @@ node scripts/onboard-club.mjs 설정파일.json --commit  # 실제 생성
   `node scripts/db-migrate.mjs status` 로 확인하고 재적용할 것. 실제로 088 이 날아갔다.
 - 사고 시각 특정은 Supabase 로그로 한다 — Management API `analytics/endpoints/logs.all` 에
   `iso_timestamp_start/end` 를 **반드시 넣어야** 결과가 나온다(없으면 빈 배열). 보존 1일
-- **`GET /api/leagues/[leagueId]` 가 `select('*')` 라 `edit_pin` 을 응답에 그대로 실어 보낸다**
-  (2026-08-07, Phase L5 리뷰에서 발견). 이 라우트의 게이트가 `canViewLeague` 인데, 그 함수는
-  공개 리그면 익명 방문자도 통과시킨다 — 즉 **편집 PIN 이 공개 리그에서는 사실상 누구나
-  받아볼 수 있는 상태다.** `settings`·`roster`·`record` 페이지가 이 응답에서 PIN 을 읽고
-  있어서 지금 컬럼을 좁히면 그 편집 플로우들이 깨진다 — **컬럼 축소는 별건으로 잡아야 한다**
-  (PIN 전용 조회 경로를 분리하거나, `select('*')` → 화이트리스트 컬럼으로 좁히면서 PIN 이
-  필요한 화면만 별도 인증된 엔드포인트로 옮기는 두 단계 작업). 리그명 라벨(좌측 상단 브랜드
-  텍스트)은 이 문제 때문에 이번에 클라이언트 fetch → `layout.tsx` 서버 조회(`select('name')`
-  으로 좁힘)로 옮겨 최소한 그 경로의 노출은 없앴다 — 나머지 3개 페이지는 그대로 남아있다.
+- `GET /api/leagues/[leagueId]` 의 `select('*')` 로 `edit_pin` 이 새던 문제는 **컬럼 자체는 고쳤다**
+  (2026-08-07 Phase M) — 화이트리스트 컬럼으로 좁혀 `edit_pin` 제외, 신규
+  `GET/PATCH /api/leagues/[leagueId]/edit-pin` 전용 엔드포인트로 분리(가드: 어드민 role·리그 PIN
+  ·CEO NextAuth 세션 중 하나, 실패 403). 그런데 **실측하다가 이 조치와 무관한 더 큰 구멍 2개를
+  발견했다 — 아직 안 막혀 있다:**
+  1. **NextAuth `auth()` 가 이 환경에서 쿠키 없는 요청에도 세션을 돌려준다.** `.env.local` 에
+     `AUTH_SECRET`/`NEXTAUTH_SECRET`/`ADMIN_EMAIL`/`ADMIN_PASSWORD` 가 전부 없는 상태에서 실측
+     (`curl` 무쿠키로 `/admin` 요청) 했더니 CEO 콘솔이 그대로 렌더됐다 — 로그인 없이 `/admin`
+     전체가 열려 있다는 뜻. `npm run build && npm run start`(프로덕션 빌드)로도 재현돼 dev 모드만의
+     문제가 아니다. 신규 PIN 엔드포인트도 `auth()` 를 OR 조건으로 쓰므로 이 결함을 그대로 물려받아
+     **여전히 익명에게 PIN 이 샌다**(단, 어드민 role·PIN 가드 자체는 정상 — 형제 라우트로 확인).
+     **Vercel 프로덕션 env 에 이 3개 변수가 실제로 설정돼 있는지 최우선으로 확인할 것** — 로컬에
+     없는 것만 확인했고 프로덕션은 이 환경에서 확인 불가하다. 없다면 `/admin` 전체가 지금
+     인터넷에 열려 있다는 뜻이라 이 PR 과 별개로 즉시 조치가 필요하다.
+  2. **`GET /api/leagues`(목록, `src/app/api/leagues/route.ts`) 는 가드가 아예 없다.**
+     `select('*', teams(...))` 로 전체 리그를 익명에게 그대로 반환 — 단건보다 더 심각하다. 계획서
+     범위 밖이라 이번엔 손대지 않았다. **별도 보안 수정 필요.**
+  상세 재현 로그·curl 응답: `.superpowers/sdd/task-M1-report.md`.
+  **이번 범위에서 고치지 않고 기록만 한 인접 결함**: `PATCH /api/leagues/[leagueId]` 가
+  `auth()`(NextAuth) 전용이라 팀 어드민(회원 role·PIN)이 리그 설정(상태·일정·YouTube·
+  플러스원 나이 등)을 저장하면 401 로 전부 실패한다. 게다가 `.update(body)` 로 body 를
+  통째로 써서 mass assignment 위험도 있다(현재는 NextAuth 전용이라 낮지만 가드를 넓히면
+  즉시 위험해진다). "팀 어드민이 설정의 어느 필드까지 바꿀 수 있는가"는 권한 설계 결정이라
+  사용자 확인이 먼저 필요 — 손대지 않았다.

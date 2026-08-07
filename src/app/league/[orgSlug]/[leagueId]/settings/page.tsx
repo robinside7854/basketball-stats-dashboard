@@ -55,6 +55,7 @@ export default function LeagueSettingsPage() {
   const [gamesPerRound, setGamesPerRound] = useState(1)
   const [pin, setPin] = useState('')
   const [pinVisible, setPinVisible] = useState(false)
+  const [pinLoadFailed, setPinLoadFailed] = useState(false)
   const [saving, setSaving] = useState<string | null>(null)
 
   // 공개/비공개 — 값은 팀에 저장되어 있고(teams.is_public), 이 리그의 소속 팀 값을 그대로 쓴다.
@@ -89,7 +90,6 @@ export default function LeagueSettingsPage() {
       setStartDate(data.start_date)
       setSeasonType(data.season_type)
       setGamesPerRound(data.games_per_round)
-      setPin(data.edit_pin ?? '0000')
       setYtChannel(data.youtube_channel ?? '')
       setPlusOneAge(data.plus_one_age != null ? String(data.plus_one_age) : '')
     }
@@ -143,6 +143,28 @@ export default function LeagueSettingsPage() {
 
   useEffect(() => { load() }, [leagueId])
 
+  // 현재 PIN 은 전용 엔드포인트(GET .../edit-pin)로만 조회한다 — 공개 GET /api/leagues/[id] 에는
+  // 더 이상 edit_pin 이 실리지 않는다. leagueHeaders 가 정해지는 시점(어드민 role 또는 PIN 확인 완료)
+  // 이후에 호출해야 하므로 isInitialized && isEditMode 를 조건으로 건다.
+  async function loadPin() {
+    const res = await fetch(`/api/leagues/${leagueId}/edit-pin`, { headers: leagueHeaders })
+    if (res.ok) {
+      const data: { edit_pin: string } = await res.json()
+      setPin(data.edit_pin ?? '')
+      setPinLoadFailed(false)
+    } else {
+      // 실패 시 가짜 기본값('0000')을 넣지 않는다 — 사용자가 그걸 진짜 PIN으로 착각해
+      // 그대로 저장하면 PIN이 실제로 0000으로 바뀐다. 대신 입력란을 비우고 안내를 띄운다.
+      setPin('')
+      setPinLoadFailed(true)
+    }
+  }
+
+  useEffect(() => {
+    if (isInitialized && isEditMode) loadPin()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized, isEditMode, leagueId])
+
   async function save(field: string, body: object) {
     setSaving(field)
     const res = await fetch(`/api/leagues/${leagueId}`, {
@@ -158,13 +180,13 @@ export default function LeagueSettingsPage() {
   async function savePin() {
     if (!/^\d{4}$/.test(pin)) { toast.error('PIN은 숫자 4자리여야 합니다'); return }
     setSaving('pin')
-    const res = await fetch(`/api/leagues/${leagueId}`, {
+    const res = await fetch(`/api/leagues/${leagueId}/edit-pin`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...leagueHeaders },
       body: JSON.stringify({ edit_pin: pin }),
     })
     setSaving(null)
-    if (res.ok) toast.success('PIN 변경 완료 — 재로그인이 필요합니다')
+    if (res.ok) { toast.success('PIN 변경 완료 — 재로그인이 필요합니다'); setPinLoadFailed(false) }
     else toast.error('저장 실패')
   }
 
@@ -424,7 +446,7 @@ export default function LeagueSettingsPage() {
             value={pin}
             onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             maxLength={4}
-            placeholder="4자리 PIN"
+            placeholder={pinLoadFailed ? '조회 실패 — 새 PIN 입력' : '4자리 PIN'}
             className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] font-mono text-xl tracking-[0.5em] flex-1 rounded-none"
           />
           <button
@@ -449,6 +471,9 @@ export default function LeagueSettingsPage() {
             저장
           </Button>
         </div>
+        {pinLoadFailed && (
+          <p className="text-xs text-[color:var(--mm-negative)]">현재 PIN을 불러오지 못했습니다. 확인이 필요하면 다시 시도하거나, 새 PIN을 입력해 재발급하세요.</p>
+        )}
         <p className="text-xs text-[color:var(--mm-muted)]">PIN 변경 후 현재 세션은 유지되며 다음 접속 시 새 PIN이 적용됩니다</p>
       </div>
 
