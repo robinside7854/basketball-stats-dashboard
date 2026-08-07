@@ -130,8 +130,12 @@ node scripts/onboard-club.mjs 설정파일.json --commit  # 실제 생성
 - **기록 화면의 "초기화"는 하드 DELETE 다**(2026-08-07 사고 — 파란날개 아테네전 이벤트 161건
   유실). 마이그레이션 088 이후로는 `AFTER DELETE` 트리거가 `game_events_archive` ·
   `player_minutes_archive`(리그 트리도 동일)에 원본 행을 남긴다. **되살릴 땐 아카이브를 먼저 본다.**
-  아카이브 이전에 지워진 건은 일일 백업(7일치)을 **새 프로젝트로 복원**해서 뽑아야 한다 —
-  현재 프로젝트에 덮어쓰는 Restore 는 그 시점 이후 작업이 전부 날아가므로 쓰지 않는다.
-  절차: `node scripts/restore-game-events.mjs <cloneRef> <gameId>` (dry-run) → `--commit`
+  아카이브 이전에 지워진 건은 일일 백업(7일치)으로 되살린다. **어느 복원을 쓸지는 재보고
+  정한다** — `created_at` 이 있는 모든 표에서 백업 시각 이후 생긴 행을 세어, 0건이면
+  현재 프로젝트 **Restore**(무료·완전·API 키 유지, 수 분 다운타임), 살릴 게 있으면
+  **Restore to a new project** 후 `node scripts/restore-game-events.mjs <cloneRef> <gameId>`
+  (dry-run) → `--commit` 으로 그 경기만 옮긴다(클론은 시간당 과금이라 끝나면 삭제).
+  ⚠ 통째 Restore 는 **백업보다 뒤에 적용한 마이그레이션도 되돌린다** — 복원 후
+  `node scripts/db-migrate.mjs status` 로 확인하고 재적용할 것. 실제로 088 이 날아갔다.
 - 사고 시각 특정은 Supabase 로그로 한다 — Management API `analytics/endpoints/logs.all` 에
   `iso_timestamp_start/end` 를 **반드시 넣어야** 결과가 나온다(없으면 빈 배열). 보존 1일
