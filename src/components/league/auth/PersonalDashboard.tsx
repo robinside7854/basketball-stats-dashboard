@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { Trophy, Film, User as UserIcon, ChevronRight, Sparkles, IdCard, Flame, X, KeyRound, LogOut } from 'lucide-react'
+import { Trophy, Film, User as UserIcon, ChevronRight, Sparkles, IdCard, Flame, X, KeyRound } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import SectionCard from '@/components/league/ui/SectionCard'
 
@@ -74,7 +74,7 @@ function rankStyle(rank: number, total: number): { color: string; bg?: string; b
 }
 
 export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
-  const { user, loading: authLoading, refresh, logout } = useCurrentUser()
+  const { user, loading: authLoading, refresh } = useCurrentUser()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
@@ -177,7 +177,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
           </>
         )}
 
-        {/* d. 계정 · 비밀번호 변경 / 로그아웃 */}
+        {/* d. 계정 · 비밀번호 변경 (로그아웃은 /me MePageClient 의 계정 섹션 하나로 통합 — 중복 제거) */}
         <div
           className="flex items-center justify-between gap-2 flex-wrap px-4 md:px-5 py-3"
           style={{ borderTop: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
@@ -205,16 +205,6 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
             >
               <KeyRound size={12} aria-hidden />
               비밀번호 변경
-            </button>
-            <button
-              type="button"
-              onClick={() => logout()}
-              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors"
-              style={{ background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)' }}
-              aria-label="로그아웃"
-            >
-              <LogOut size={12} aria-hidden />
-              로그아웃
             </button>
           </div>
         </div>

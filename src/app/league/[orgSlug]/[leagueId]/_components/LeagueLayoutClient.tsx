@@ -17,7 +17,7 @@ import CompetitionSwitcher from '@/components/league/CompetitionSwitcher'
 // useParams()/props 의 leagueId 는 UUID 지만, usePathname() 은 브라우저의 slug URL 을 반환한다.
 // 둘을 그대로 비교하면(base=UUID vs pathname=slug) 활성 탭 판정이 '항상 false' → 인디케이터가 전혀 안 뜬다.
 // → base 를 브라우저 경로에서 직접 추출해 href·활성판정을 같은 기준(slug)으로 맞춘다.
-function deriveLeagueBase(pathname: string, orgSlug: string, leagueId: string): string {
+export function deriveLeagueBase(pathname: string, orgSlug: string, leagueId: string): string {
   const seg = pathname.split('/')  // ['', 'league', orgSlug, idOrSlug, ...]
   if (seg[1] === 'league' && seg[2] && seg[3]) return `/${seg[1]}/${seg[2]}/${seg[3]}`
   return `/league/${orgSlug}/${leagueId}`
@@ -257,19 +257,18 @@ function RecordAwareContainer({
 function LeagueLayout({
   orgSlug,
   leagueId,
+  leagueName,
   children,
 }: {
   orgSlug: string
   leagueId: string
+  leagueName: string | null
   children: React.ReactNode
 }) {
   const { theme } = useTheme()
   const [loginOpen, setLoginOpen] = useState(false)
   // 드래프트 메뉴 조건부 표시 — 현재 분기에 진행 중(미완료) 세션이 있을 때만
   const [showDraft, setShowDraft] = useState(false)
-  // 좌측 상단 브랜드 라벨용 리그 이름 — 기존 `/api/leagues/${leagueId}` 엔드포인트 재사용
-  // (settings 페이지 등에서 이미 쓰는 것과 동일한 쿼리, 신규 쿼리 아님). 로드 전엔 '온볼' 폴백.
-  const [leagueName, setLeagueName] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -281,19 +280,6 @@ function LeagueLayout({
         const d = await fetch(`/api/leagues/${leagueId}/drafts/current?quarterId=${cur.id}`).then(r => r.json())
         if (!cancelled) setShowDraft(!!d.draft && d.draft.status !== 'completed')
       } catch { /* ignore */ }
-    })()
-    return () => { cancelled = true }
-  }, [leagueId])
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const r = await fetch(`/api/leagues/${leagueId}`)
-        if (!r.ok) return
-        const d = await r.json()
-        if (!cancelled) setLeagueName(d?.name ?? null)
-      } catch { /* ignore — 폴백 '온볼' 유지 */ }
     })()
     return () => { cancelled = true }
   }, [leagueId])
@@ -344,11 +330,13 @@ function LeagueLayout({
 export default function LeagueLayoutClient({
   orgSlug,
   leagueId,
+  leagueName,
   children,
 }: {
   orgSlug: string
   leagueId: string
+  leagueName: string | null
   children: React.ReactNode
 }) {
-  return <LeagueLayout orgSlug={orgSlug} leagueId={leagueId}>{children}</LeagueLayout>
+  return <LeagueLayout orgSlug={orgSlug} leagueId={leagueId} leagueName={leagueName}>{children}</LeagueLayout>
 }

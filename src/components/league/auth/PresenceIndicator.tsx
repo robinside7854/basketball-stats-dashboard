@@ -67,7 +67,11 @@ export default function PresenceIndicator({ leagueId }: { leagueId: string }) {
   const online = data.online
 
   return (
-    <>
+    // 팝오버를 트리거 기준 상대 배치로 앵커링 — 예전엔 fixed + top-[calc(56px+...)] 로 "상단
+    // 헤더 높이" 를 하드코딩했는데, 이 컴포넌트는 이제 /me 본문에서만 쓰인다(상단 바에서 제거됨,
+    // 유일 사용처 grep 으로 확인). 헤더 기준 좌표를 그대로 두면 팝오버가 트리거보다 위에 뜨고
+    // sticky 헤더를 덮는 문제가 있어 트리거 래퍼(relative) 기준 absolute 로 전환한다 (Minor 6).
+    <div className="relative inline-block">
       <button
         ref={btnRef}
         type="button"
@@ -101,11 +105,11 @@ export default function PresenceIndicator({ leagueId }: { leagueId: string }) {
             onClick={() => setOpen(false)}
             aria-hidden
           />
-          {/* 팝오버 · 고정 위치(헤더 오버플로 클리핑 회피) */}
+          {/* 팝오버 · 트리거 기준 상대 배치(위 관례 참조) */}
           <div
             role="dialog"
             aria-label="접속 현황"
-            className="fixed z-[60] right-2 sm:right-3 top-[calc(56px+env(safe-area-inset-top,0px))] w-[min(320px,calc(100vw-16px))] max-h-[70vh] flex flex-col rounded-lg overflow-hidden shadow-[0_16px_48px_-12px_rgba(0,0,0,0.45)]"
+            className="absolute z-[60] right-0 top-[calc(100%+8px)] w-[min(320px,calc(100vw-32px))] max-h-[70vh] flex flex-col rounded-lg overflow-hidden shadow-[0_16px_48px_-12px_rgba(0,0,0,0.45)]"
             style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
           >
             <header
@@ -154,7 +158,11 @@ export default function PresenceIndicator({ leagueId }: { leagueId: string }) {
                     {t.label}
                     <span
                       className="tabular-nums text-[11px] px-1.5 py-0.5 rounded-sm"
-                      style={{ background: active ? t.accent : 'var(--mm-rule)', color: active ? '#fff' : 'var(--mm-muted)' }}
+                      // 오프라인 탭의 accent 가 var(--mm-ink) — 다크 테마에서 --mm-ink 는 거의 흰색이라
+                      // 하드코딩 '#fff' 글자색을 쓰면 흰 배경 위 흰 글씨가 된다. 이 저장소에서 반복
+                      // 확인된 background:var(--mm-ink) + color:var(--mm-panel) 짝(양쪽 테마 모두
+                      // 대비 확보) 관례를 그대로 따른다 (Minor 6).
+                      style={{ background: active ? t.accent : 'var(--mm-rule)', color: active ? 'var(--mm-panel)' : 'var(--mm-muted)' }}
                     >
                       {t.count}
                     </span>
@@ -214,6 +222,6 @@ export default function PresenceIndicator({ leagueId }: { leagueId: string }) {
           </div>
         </>
       )}
-    </>
+    </div>
   )
 }

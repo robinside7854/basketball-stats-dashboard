@@ -171,3 +171,12 @@ node scripts/onboard-club.mjs 설정파일.json --commit  # 실제 생성
   `node scripts/db-migrate.mjs status` 로 확인하고 재적용할 것. 실제로 088 이 날아갔다.
 - 사고 시각 특정은 Supabase 로그로 한다 — Management API `analytics/endpoints/logs.all` 에
   `iso_timestamp_start/end` 를 **반드시 넣어야** 결과가 나온다(없으면 빈 배열). 보존 1일
+- **`GET /api/leagues/[leagueId]` 가 `select('*')` 라 `edit_pin` 을 응답에 그대로 실어 보낸다**
+  (2026-08-07, Phase L5 리뷰에서 발견). 이 라우트의 게이트가 `canViewLeague` 인데, 그 함수는
+  공개 리그면 익명 방문자도 통과시킨다 — 즉 **편집 PIN 이 공개 리그에서는 사실상 누구나
+  받아볼 수 있는 상태다.** `settings`·`roster`·`record` 페이지가 이 응답에서 PIN 을 읽고
+  있어서 지금 컬럼을 좁히면 그 편집 플로우들이 깨진다 — **컬럼 축소는 별건으로 잡아야 한다**
+  (PIN 전용 조회 경로를 분리하거나, `select('*')` → 화이트리스트 컬럼으로 좁히면서 PIN 이
+  필요한 화면만 별도 인증된 엔드포인트로 옮기는 두 단계 작업). 리그명 라벨(좌측 상단 브랜드
+  텍스트)은 이 문제 때문에 이번에 클라이언트 fetch → `layout.tsx` 서버 조회(`select('name')`
+  으로 좁힘)로 옮겨 최소한 그 경로의 노출은 없앴다 — 나머지 3개 페이지는 그대로 남아있다.

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { isLeaguePublic, getApprovedSession } from '@/lib/auth/guard'
+import { createClient } from '@/lib/supabase/admin'
 import LeagueLayoutClient from './_components/LeagueLayoutClient'
 import PrivateLeagueGate from '@/components/league/auth/PrivateLeagueGate'
 
@@ -53,8 +54,17 @@ export default async function LeagueLayout({
     return <PrivateLeagueGate leagueId={leagueId} />
   }
 
+  // 좌측 상단 브랜드 라벨용 리그 이름 — 예전엔 클라이언트가 GET /api/leagues/{leagueId} 를
+  // 직접 호출했는데, 그 엔드포인트는 select('*') 라 응답에 leagues.edit_pin 까지 실린다.
+  // 게이트가 canViewLeague(공개 리그면 익명도 통과) 라서 탭 라벨 텍스트 하나 때문에 PIN 노출
+  // 면적이 리그 트리 전 페이지로 넓어져 있었다 — name 컬럼만 좁혀 서버에서 직접 조회하고
+  // prop 으로 내려보낸다(추가 라운드트립 없음, '온볼' 폴백 깜빡임도 없음).
+  const sb = createClient()
+  const { data: leagueRow } = await sb.from('leagues').select('name').eq('id', leagueId).maybeSingle()
+  const leagueName = (leagueRow?.name as string | undefined) ?? null
+
   return (
-    <LeagueLayoutClient orgSlug={orgSlug} leagueId={leagueId}>
+    <LeagueLayoutClient orgSlug={orgSlug} leagueId={leagueId} leagueName={leagueName}>
       {children}
     </LeagueLayoutClient>
   )

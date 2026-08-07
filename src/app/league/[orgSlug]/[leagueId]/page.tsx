@@ -10,8 +10,8 @@ import { computeMilestones } from '@/lib/stats/milestones'
 // 홈 페이지 공통 — teams/overrides 를 한 번만 로드해 3개 계산 함수(highlights/rounds/standings)에
 // 재사용하기 위한 Promise 타입. 각 함수는 내부에서 await 로 값 참조.
 type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
+import { ChevronRight } from 'lucide-react'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
-import PersonalDashboard from '@/components/league/auth/PersonalDashboard'
 import LeagueTourTrigger from '@/components/league/LeagueTourTrigger'
 import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
 import AnnouncementsHome from '@/components/league/announcements/AnnouncementsHome'
@@ -454,8 +454,21 @@ export default async function LeagueDetailPage({
         </div>
       )}
 
-      {/* 개인화 대시보드 · 로그인 상태에서만 노출 (client 컴포넌트가 자체 조건 렌더) */}
-      <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} />
+      {/* "내 기록" 진입 CTA — PersonalDashboard 전체는 이제 /me 전용(Important 1, 중복 제거).
+          로그인 상태(서버에서 이미 판정된 approvedSession 재사용, 신규 쿼리 아님)일 때만 한 줄
+          CTA 로 안내한다. 비로그인 유도는 상단 네비 '로그인' 버튼 + 하단/상단 탭의 '내 기록'
+          탭이 이미 상시 노출되어 있어(그 탭을 누르면 /me 에서 로그인 티저를 항상 보여준다),
+          홈에 별도 비로그인 티저를 복제하지 않기로 판단 — 근거는 보고서 참조. */}
+      {isMember && (
+        <Link
+          href={`/league/${orgSlug}/${leagueId}/me`}
+          className="flex items-center justify-between gap-2 px-4 md:px-5 py-3.5 min-h-[44px] rounded-md border text-sm font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+          style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-ink)', background: 'var(--mm-panel)' }}
+        >
+          내 기록 보기
+          <ChevronRight size={18} style={{ color: 'var(--mm-muted)' }} aria-hidden />
+        </Link>
+      )}
 
       {/* 상단 병렬 — 공지사항 · 마일스톤 (PC 2열 · 모바일 세로 순차 : 공지 → 마일스톤 · 2026-07-19) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 items-start">

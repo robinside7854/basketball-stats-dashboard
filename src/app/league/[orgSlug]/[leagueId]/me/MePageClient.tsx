@@ -13,6 +13,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Sun, Moon, HelpCircle, LogOut, ChevronRight, Users, Layers, ClipboardList, Settings, Film } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
+import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
 import PersonalDashboard, { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
 import PresenceIndicator from '@/components/league/auth/PresenceIndicator'
 import SectionCard from '@/components/league/ui/SectionCard'
@@ -27,8 +28,10 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   // 미들웨어 slug→UUID rewrite 때문에 leagueId prop 은 UUID → 링크는 브라우저 경로(slug) 기준으로
-  // 만든다(settings/page.tsx 의 socialHref 와 동일 패턴).
-  const base = pathname.replace(/\/me.*$/, '')
+  // 만든다(settings/page.tsx 의 socialHref 와 동일 패턴). base 유도는 정규식 치환이 아니라
+  // LeagueLayoutClient 와 공유하는 세그먼트 분해 함수로 — orgSlug/리그 slug 가 'me' 로 시작하면
+  // /\/me.*$/ 가 앞쪽에서 먼저 매치돼 base 가 '/league' 로 잘리는 함정이 있었다 (Minor 3).
+  const base = deriveLeagueBase(pathname, orgSlug, leagueId)
   const { user, loading: authLoading, logout } = useCurrentUser()
   const { isEditMode } = useLeagueEditMode()
   const { theme, setTheme } = useTheme()
