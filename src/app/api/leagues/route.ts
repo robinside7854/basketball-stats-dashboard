@@ -3,6 +3,12 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 
 export async function GET(req: Request) {
+  // 목록 조회는 CEO 콘솔(/admin)만 쓴다 — 실측 호출자 3곳 모두 NextAuth 세션 화면.
+  // 공개 소비자가 없으므로 가드를 붙여도 안전하고, 가드가 없으면 익명 방문자가
+  // 전 리그의 edit_pin 을 한 번에 받아간다 (단건 GET 보다 더 심각한 노출).
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { searchParams } = new URL(req.url)
   const org_slug = searchParams.get('org_slug')
   // team_id 는 org_slug 와 달리 팀을 유일하게 특정한다 — 파란날개처럼 org_slug 를
@@ -14,14 +20,18 @@ export async function GET(req: Request) {
   // "리그"가 조직의 대표 이름이 아니라 팀이 굴리는 여러 대회 중 하나일 뿐이다.
   // teams(...) 는 leagues.team_id → teams.id 의 다대일 관계라 PostgREST 가 배열이 아니라
   // 단일 객체로 내려준다 (isLeaguePublic 의 teams(is_public) 패턴과 동일).
+  // select('*') 금지 — edit_pin 은 이 목록 응답에 실으면 안 된다(전용 GET .../edit-pin 으로 분리).
   let q = supabase
     .from('leagues')
-    .select('*, teams(id, name, org_slug, sub_slug, accent_color, is_public)')
+    .select(
+      'id, org_slug, name, season_year, start_date, match_day, total_rounds, status, created_at, season_type, games_per_round, youtube_channel, plus_one_age, slug, team_id, mode, rules, teams(id, name, org_slug, sub_slug, accent_color, is_public)'
+    )
     .order('created_at', { ascending: false })
   if (team_id) q = q.eq('team_id', team_id)
   else if (org_slug) q = q.eq('org_slug', org_slug)
   const { data, error } = await q
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // DB 원문 메시지는 노출하지 않는다.
+  if (error) return NextResponse.json({ error: '리그 목록 조회 실패' }, { status: 500 })
   return NextResponse.json(data ?? [])
 }
 
