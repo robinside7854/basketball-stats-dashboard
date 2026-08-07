@@ -127,3 +127,11 @@ node scripts/onboard-club.mjs 설정파일.json --commit  # 실제 생성
 - 명단을 `league_id` 로 찾으면 대회 묶음에서 0명이 나온다 → `team_id` 로 찾을 것
 - 비공개 리그는 `layout.tsx` 만 막으면 안 된다. page 가 병렬 렌더돼 RSC 청크로 이름이 샌다
   → 각 `page.tsx` 맨 위에서 `isLeaguePrivateGated` 확인 후 fetch
+- **기록 화면의 "초기화"는 하드 DELETE 다**(2026-08-07 사고 — 파란날개 아테네전 이벤트 161건
+  유실). 마이그레이션 088 이후로는 `AFTER DELETE` 트리거가 `game_events_archive` ·
+  `player_minutes_archive`(리그 트리도 동일)에 원본 행을 남긴다. **되살릴 땐 아카이브를 먼저 본다.**
+  아카이브 이전에 지워진 건은 일일 백업(7일치)을 **새 프로젝트로 복원**해서 뽑아야 한다 —
+  현재 프로젝트에 덮어쓰는 Restore 는 그 시점 이후 작업이 전부 날아가므로 쓰지 않는다.
+  절차: `node scripts/restore-game-events.mjs <cloneRef> <gameId>` (dry-run) → `--commit`
+- 사고 시각 특정은 Supabase 로그로 한다 — Management API `analytics/endpoints/logs.all` 에
+  `iso_timestamp_start/end` 를 **반드시 넣어야** 결과가 나온다(없으면 빈 배열). 보존 1일
