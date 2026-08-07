@@ -108,7 +108,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
           {recordCards.filter(c => c.record).map(c => (
             <div
               key={c.key}
-              className="p-4 sm:p-5 rounded-md transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              className="p-4 sm:p-5 rounded-md"
               style={{
                 background: 'var(--mm-panel-alt)',
                 border: '1px solid var(--mm-rule)',
@@ -238,7 +238,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {/* ORtg */}
             <div
-              className="p-4 sm:p-5 rounded-md transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              className="p-4 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div
@@ -262,7 +262,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             </div>
             {/* DRtg */}
             <div
-              className="p-4 sm:p-5 rounded-md transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              className="p-4 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div
@@ -286,7 +286,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             </div>
             {/* Net Rtg — 부호에 따라 emerald/red 데이터 강조 예외 허용 */}
             <div
-              className="p-4 sm:p-5 rounded-md transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              className="p-4 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div
@@ -313,7 +313,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             </div>
             {/* Pace */}
             <div
-              className="p-4 sm:p-5 rounded-md transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              className="p-4 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
               <div

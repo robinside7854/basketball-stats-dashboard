@@ -179,7 +179,7 @@ export default function TodoPage() {
               className={`group flex items-center gap-3 bg-white rounded-xl border px-4 py-3 shadow-sm transition-all duration-150 ${
                 todo.completed
                   ? "border-gray-100 opacity-60"
-                  : "border-teal-100 hover:border-[#0D9488]/30 hover:shadow-md"
+                  : "border-teal-100"
               }`}
             >
               <button

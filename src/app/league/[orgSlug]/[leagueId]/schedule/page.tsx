@@ -271,7 +271,7 @@ export default function LeagueSchedulePage() {
             .map(sd => (
             <div
               key={sd.id}
-              className="flex items-center justify-between transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              className="flex items-center justify-between"
               style={{
                 background: 'var(--mm-panel)',
                 border: '1px solid var(--mm-rule)',

@@ -148,7 +148,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
               return (
                 <div
                   key={String(cat.key)}
-                  className={`${mobileHidden} transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]`}
+                  className={mobileHidden}
                   style={{
                     background: 'var(--mm-panel-alt)',
                     border: '1px solid var(--mm-rule)',

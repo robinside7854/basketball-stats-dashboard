@@ -145,10 +145,16 @@ export default function TournamentsPage() {
 
             return (
               <div key={t.id} className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl overflow-hidden">
-                <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => toggleExpand(t.id)}>
-                  <div className="flex items-center gap-3">
-                    {expanded === t.id ? <ChevronUp size={18} className="text-[var(--mm-muted)]" /> : <ChevronDown size={18} className="text-[var(--mm-muted)]" />}
-                    <div>
+                <div className="flex items-center justify-between p-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(t.id)}
+                    aria-expanded={expanded === t.id}
+                    aria-label={`${t.name} 대회 상세 ${expanded === t.id ? '접기' : '펼치기'}`}
+                    className="flex items-center gap-3 text-left cursor-pointer min-w-0 min-h-[44px] flex-1"
+                  >
+                    {expanded === t.id ? <ChevronUp size={18} className="text-[var(--mm-muted)] shrink-0" /> : <ChevronDown size={18} className="text-[var(--mm-muted)] shrink-0" />}
+                    <div className="min-w-0">
                       <span className="font-semibold text-[var(--mm-ink)]">{t.name}</span>
                       <span className="ml-3 text-sm text-[var(--mm-ink-soft)]">{t.year}년 · {TYPE_LABELS[t.type]}</span>
                       {summary && (
@@ -162,9 +168,9 @@ export default function TournamentsPage() {
                         </span>
                       )}
                     </div>
-                  </div>
+                  </button>
                   {isEditMode && (
-                    <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                    <div className="flex gap-2 shrink-0">
                       <Button size="sm" variant="outline" onClick={() => { setEditT(t); setShowTForm(true) }} className="h-8 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] cursor-pointer">
                         <Pencil size={12} />
                       </Button>

@@ -347,7 +347,7 @@ export default function AwardsPage() {
             <div
               key={a.category}
               data-award-card
-              className="relative flex flex-col transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+              className="relative flex flex-col"
               style={{
                 background: 'var(--mm-panel)',
                 border: '1px solid var(--mm-rule)',

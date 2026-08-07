@@ -67,7 +67,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
             return (
               <div
                 key={r.date}
-                className="snap-start shrink-0 basis-[85%] sm:basis-auto sm:shrink text-left flex flex-col h-full transition-shadow duration-200 hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.25)]"
+                className="snap-start shrink-0 basis-[85%] sm:basis-auto sm:shrink text-left flex flex-col h-full"
                 style={{
                   background: 'var(--mm-panel)',
                   border: '1px solid var(--mm-rule)',
