@@ -330,7 +330,9 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
   )
 }
 
-function LoginTeaser({ onDismiss }: { onDismiss: () => void }) {
+// onDismiss 없이 쓰면(예: /me 전용 진입점, Task 4-A) 닫기 버튼 없이 항상 노출된다 —
+// 홈 위젯의 30일 억제 로직과 분리된, 이 페이지 자체가 목적지인 경우용.
+export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
   return (
     <SectionCard variant="standalone" emphasized>
       <div className="relative flex items-center gap-4 px-4 md:px-5 py-4 md:py-5">
@@ -353,9 +355,16 @@ function LoginTeaser({ onDismiss }: { onDismiss: () => void }) {
             내 랭킹 확인하기 <ChevronRight size={16} />
           </button>
         </div>
-        <button onClick={onDismiss} aria-label="닫기" className="absolute top-2 right-2 p-1.5 rounded cursor-pointer transition-colors" style={{ color: 'var(--mm-muted)' }}>
-          <X size={16} />
-        </button>
+        {onDismiss && (
+          <button
+            onClick={onDismiss}
+            aria-label="닫기"
+            className="absolute top-2 right-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded cursor-pointer transition-colors"
+            style={{ color: 'var(--mm-muted)' }}
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
     </SectionCard>
   )

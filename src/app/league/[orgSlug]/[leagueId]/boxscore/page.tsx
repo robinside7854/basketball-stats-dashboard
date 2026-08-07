@@ -20,7 +20,7 @@ export default async function BoxscoreIndexPage({ params }: { params: Promise<Pa
 
   const supabase = createClient()
 
-  const [{ data: league }, { data: game, error: gameError }] = await Promise.all([
+  const [{ data: league, error: leagueError }, { data: game, error: gameError }] = await Promise.all([
     supabase
       .from('leagues')
       .select('id')
@@ -37,8 +37,12 @@ export default async function BoxscoreIndexPage({ params }: { params: Promise<Pa
       .limit(1)
       .maybeSingle(),
   ])
+  // 조회 실패를 빈 결과로 삼키면 "리그 없음"과 "조회 실패"가 같은 경로(notFound)로 흡수된다
+  // (Task 3 리뷰 지적) — error 는 문맥과 함께 throw, notFound() 는 data 가 null 일 때만.
+  if (leagueError) {
+    throw new Error(`[boxscore index] 리그 조회 실패 (league=${leagueId}, org=${orgSlug}): ${leagueError.message}`)
+  }
   if (!league) notFound()
-  // 조회 실패를 빈 결과로 삼키면 "경기 0건"과 "쿼리 장애"가 구분이 안 된다 — 문맥과 함께 throw.
   if (gameError) {
     throw new Error(`[boxscore index] 최근 완료 경기 조회 실패 (league=${leagueId}): ${gameError.message}`)
   }

@@ -3,6 +3,8 @@
 // v3 (2026-07-19): W-L-D 뱃지 → WIN/LOSE/DRAW 컬러 라벨 · 득실차 → 득점/실점/마진 미니테이블
 // 서버 컴포넌트 — 계산은 홈 페이지에서 넘겨받음.
 
+import Link from 'next/link'
+import { ChevronRight } from 'lucide-react'
 import { ResultChips, ScoreTable } from './RecordDisplay'
 import SectionCard from '@/components/league/ui/SectionCard'
 
@@ -22,15 +24,19 @@ type Props = {
   standings: StandingRow[]
   quarterLabel: string  // "26.1Q" 또는 "시즌 전체"
   gamesCount: number
+  // 라커룸 진입점(Task 4-D) — 라커룸이 탭에서 빠지면서 팀 이야기를 하는 이 카드가 대체 진입점.
+  // 둘 다 있어야 링크가 뜬다(없으면 조용히 생략 — 이 컴포넌트를 다른 곳에서 재사용해도 안전).
+  orgSlug?: string
+  leagueId?: string
 }
 
-export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }: Props) {
+export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, orgSlug, leagueId }: Props) {
   if (standings.length === 0) return null
 
   return (
     <SectionCard variant="stack" dataTour="standings">
       <header
-        className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 sm:px-6 md:px-10 py-4 md:py-5"
+        className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5 px-4 sm:px-6 md:px-10 py-4 md:py-5"
         style={{ borderBottom: '1px solid var(--mm-rule)' }}
       >
         <h3
@@ -39,9 +45,21 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount }
         >
           팀 승률
         </h3>
-        <span className="text-[11px] sm:text-[12px] tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
-          {quarterLabel} · {gamesCount}경기
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] sm:text-[12px] tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
+            {quarterLabel} · {gamesCount}경기
+          </span>
+          {orgSlug && leagueId && (
+            <Link
+              href={`/league/${orgSlug}/${leagueId}/roster`}
+              className="inline-flex items-center gap-0.5 min-h-[36px] py-1.5 text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors hover:brightness-90"
+              style={{ color: 'var(--mm-ink-soft)' }}
+            >
+              팀 명단
+              <ChevronRight size={13} aria-hidden />
+            </Link>
+          )}
+        </div>
       </header>
 
       <div className="grid gap-0">

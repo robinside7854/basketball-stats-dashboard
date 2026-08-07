@@ -475,6 +475,8 @@ export default async function LeagueDetailPage({
             standings={quarterStandings.standings}
             quarterLabel={quarterStandings.quarterLabel}
             gamesCount={quarterStandings.gamesCount}
+            orgSlug={orgSlug}
+            leagueId={leagueId}
           />
         }
         rounds={<NbaRoundsSummary rounds={recentRounds} leagueId={leagueId} orgSlug={orgSlug} />}
