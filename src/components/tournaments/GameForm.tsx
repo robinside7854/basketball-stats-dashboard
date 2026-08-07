@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useEditMode } from '@/contexts/EditModeContext'
 import type { Game } from '@/types/database'
 
 interface YTVideo {
@@ -41,6 +42,7 @@ function mmssToSeconds(value: string): number {
 export default function GameForm({ tournamentId, game, onClose, onSaved }: Props) {
   const [ytSearching, setYtSearching] = useState(false)
   const [ytSuggestions, setYtSuggestions] = useState<YTVideo[]>([])
+  const { teamHeaders } = useEditMode()
 
   async function searchYouTube() {
     if (!form.date || !form.opponent) return
@@ -84,7 +86,7 @@ export default function GameForm({ tournamentId, game, onClose, onSaved }: Props
     }
     const url = game ? `/api/games/${game.id}` : '/api/games'
     const method = game ? 'PUT' : 'POST'
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify(body) })
     if (res.ok) onSaved()
   }
 

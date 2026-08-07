@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
+import { useEditMode } from '@/contexts/EditModeContext'
 import type { Player, PlayerMinutes } from '@/types/database'
 
 interface Props { players: Player[]; minutes: PlayerMinutes[]; onSubstitution: () => void }
@@ -10,6 +11,7 @@ interface Props { players: Player[]; minutes: PlayerMinutes[]; onSubstitution: (
 export default function SubstitutionPanel({ players, minutes, onSubstitution }: Props) {
   const { currentGame, currentQuarter, getCurrentTimestamp } = useGameStore()
   const { onCourt, addPlayer, removePlayer } = useLineupStore()
+  const { teamHeaders } = useEditMode()
 
   // 드래그 상태
   const [draggingId, setDraggingId] = useState<string | null>(null)
@@ -31,12 +33,12 @@ export default function SubstitutionPanel({ players, minutes, onSubstitution }: 
     const ts = getCurrentTimestamp()
     const openInterval = minutes.find(m => m.player_id === outId && m.game_id === currentGame.id && m.out_time == null)
     if (openInterval) {
-      await fetch('/api/minutes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: openInterval.id, out_time: ts }) })
+      await fetch('/api/minutes', { method: 'PATCH', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ id: openInterval.id, out_time: ts }) })
     }
-    await fetch('/api/minutes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id: currentGame.id, player_id: inId, quarter: currentQuarter, in_time: ts }) })
+    await fetch('/api/minutes', { method: 'POST', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ game_id: currentGame.id, player_id: inId, quarter: currentQuarter, in_time: ts }) })
     await Promise.all([
-      fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id: currentGame.id, quarter: currentQuarter, video_timestamp: ts, type: 'sub_out', player_id: outId, points: 0 }) }),
-      fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id: currentGame.id, quarter: currentQuarter, video_timestamp: ts, type: 'sub_in', player_id: inId, points: 0 }) }),
+      fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ game_id: currentGame.id, quarter: currentQuarter, video_timestamp: ts, type: 'sub_out', player_id: outId, points: 0 }) }),
+      fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ game_id: currentGame.id, quarter: currentQuarter, video_timestamp: ts, type: 'sub_in', player_id: inId, points: 0 }) }),
     ])
     removePlayer(outId)
     addPlayer(inId)

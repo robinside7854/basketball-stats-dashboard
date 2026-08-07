@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useEditMode } from '@/contexts/EditModeContext'
 import type { Player } from '@/types/database'
 
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
@@ -32,6 +33,7 @@ export default function PlayerForm({ player, teamType, org = 'paranalgae', onClo
   const [photoUrl, setPhotoUrl] = useState<string>(player?.photo_url ?? '')
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { teamHeaders } = useEditMode()
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -81,7 +83,7 @@ export default function PlayerForm({ player, teamType, org = 'paranalgae', onClo
     const qs = !player && teamType ? `?team=${teamType}&org=${org}` : ''
     const url = player ? `/api/players/${player.id}` : `/api/players${qs}`
     const method = player ? 'PUT' : 'POST'
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify(body) })
     if (res.ok) {
       onSaved()
     } else {

@@ -47,7 +47,7 @@ function parseExcelBirthdate(raw: string | number | undefined): string | null {
 export default function RosterPage() {
   const team = useTeam()
   const org = useOrg()
-  const { isEditMode } = useEditMode()
+  const { isEditMode, teamHeaders } = useEditMode()
   const [players, setPlayers] = useState<Player[]>([])
   const [gamesCount, setGamesCount] = useState<Record<string, number>>({})
   const [showForm, setShowForm] = useState(false)
@@ -92,7 +92,7 @@ export default function RosterPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('선수를 삭제하시겠습니까?')) return
-    await fetch(`/api/players/${id}`, { method: 'DELETE' })
+    await fetch(`/api/players/${id}`, { method: 'DELETE', headers: { ...teamHeaders } })
     toast.success('선수가 삭제되었습니다')
     fetchPlayers()
   }
@@ -135,7 +135,7 @@ export default function RosterPage() {
     for (const row of uploadRows) {
       const res = await fetch('/api/players', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...teamHeaders },
         body: JSON.stringify({ ...row, is_active: true, team_type: team }),
       })
       if (res.ok) success++

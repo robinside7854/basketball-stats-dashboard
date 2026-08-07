@@ -4,6 +4,7 @@ import { Target, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
+import { useEditMode } from '@/contexts/EditModeContext'
 import type { Player, EventType, ShotZone } from '@/types/database'
 import { SHOT_ZONE_LABELS, inferShotZone, needsZonePicker, zonesFor } from '@/types/database'
 
@@ -52,6 +53,7 @@ const EVENT_GROUPS: { label: string; buttons: EventBtn[] }[] = [
 export default function EventInputPad({ players, onEventSaved }: Props) {
   const { currentGame, currentQuarter, getCurrentTimestamp } = useGameStore()
   const { onCourt } = useLineupStore()
+  const { teamHeaders } = useEditMode()
 
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
   const [pendingShot, setPendingShot] = useState<EventBtn | null>(null)
@@ -89,7 +91,7 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
     }
     const res = await fetch('/api/events', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...teamHeaders },
       body: JSON.stringify(body),
     })
     if (!res.ok) { toast.error('저장 실패'); return }
@@ -126,7 +128,7 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
     }
     const res = await fetch('/api/events', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...teamHeaders },
       body: JSON.stringify(body),
     })
     if (!res.ok) { toast.error('저장 실패'); return }
@@ -190,7 +192,7 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
   // ── Undo ────────────────────────────────────────────────────────
   async function undoLastEvent() {
     if (!lastEventId) return
-    const res = await fetch(`/api/events/${lastEventId}`, { method: 'DELETE' })
+    const res = await fetch(`/api/events/${lastEventId}`, { method: 'DELETE', headers: { ...teamHeaders } })
     if (!res.ok) { toast.error('취소 실패'); return }
     toast(`↩ 취소: ${lastEventLabel}`)
     setLastEventId(null)

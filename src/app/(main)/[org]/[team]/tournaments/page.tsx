@@ -60,7 +60,7 @@ function getTournamentSummary(games: Game[]): { record: string; placement: strin
 export default function TournamentsPage() {
   const team = useTeam()
   const org = useOrg()
-  const { isEditMode } = useEditMode()
+  const { isEditMode, teamHeaders } = useEditMode()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [games, setGames] = useState<Record<string, Game[]>>({})
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -92,13 +92,13 @@ export default function TournamentsPage() {
 
   async function deleteT(id: string) {
     if (!confirm('대회를 삭제하시겠습니까? 관련 경기 데이터도 모두 삭제됩니다.')) return
-    await fetch(`/api/tournaments/${id}`, { method: 'DELETE' })
+    await fetch(`/api/tournaments/${id}`, { method: 'DELETE', headers: { ...teamHeaders } })
     toast.success('대회 삭제 완료'); fetchTournaments()
   }
 
   async function deleteG(id: string, tournamentId: string) {
     if (!confirm('경기를 삭제하시겠습니까?')) return
-    await fetch(`/api/games/${id}`, { method: 'DELETE' })
+    await fetch(`/api/games/${id}`, { method: 'DELETE', headers: { ...teamHeaders } })
     toast.success('경기 삭제 완료'); fetchGames(tournamentId)
   }
 

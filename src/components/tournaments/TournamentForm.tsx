@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useEditMode } from '@/contexts/EditModeContext'
 import type { Tournament, Player } from '@/types/database'
 
 interface Props { tournament: Tournament | null; teamType?: string; org?: string; onClose: () => void; onSaved: () => void }
@@ -18,6 +19,7 @@ export default function TournamentForm({ tournament, teamType, org, onClose, onS
   })
   const [allPlayers, setAllPlayers] = useState<Player[]>([])
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([])
+  const { teamHeaders } = useEditMode()
 
   useEffect(() => {
     const teamParam = teamType ? `?team=${teamType}` : ''
@@ -46,14 +48,14 @@ export default function TournamentForm({ tournament, teamType, org, onClose, onS
     }
     const method = tournament ? 'PUT' : 'POST'
     const body = form
-    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify(body) })
     if (!res.ok) { toast.error('대회 저장 실패'); return }
     const saved = await res.json()
     const tId = saved.id ?? tournament?.id
     // 선수 목록 저장
     const r2 = await fetch('/api/tournament-players', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...teamHeaders },
       body: JSON.stringify({ tournament_id: tId, player_ids: selectedPlayerIds }),
     })
     if (!r2.ok) {
