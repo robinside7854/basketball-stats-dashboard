@@ -465,11 +465,14 @@ function LeagueStatsPageInner() {
   }, [topFiveActive, statMode, sortKey, shootSortKey, advSortKey, players, effectiveMinGP, viewMode, statUnit])
 
   const base = `/league/${orgSlug}/${leagueId}`
+  // 리더보드·시즌하이·플레이맵은 ?tab= 쿼리로 이 페이지 안 상태만 바꾸지만,
+  // 어워즈는 실제로 다른 라우트(뒤로가기 동작이 다름) — external 플래그로 구분선+화살표
+  // 표시해 "옆 페이지로 나간다"는 것을 시각적으로 미리 알린다. 완전한 URL 통일은 이월(progress.md).
   const groupTabs = [
     { href: `${base}/stats`, label: '리더보드', active: statMode !== 'seasonHigh' && statMode !== 'playmap' },
     { href: `${base}/stats?tab=seasonHigh`, label: '시즌하이', active: statMode === 'seasonHigh' },
     { href: `${base}/stats?tab=playmap`, label: '플레이 맵', active: statMode === 'playmap' },
-    { href: `${base}/awards`, label: '어워즈', active: false },
+    { href: `${base}/awards`, label: '어워즈', active: false, external: true },
   ]
 
   if (gated) {

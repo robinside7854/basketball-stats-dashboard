@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
 import BoxscoreContent from '@/components/league/BoxscoreContent'
 import ShareLinkButton from '@/components/league/ShareLinkButton'
+import LeagueSubTabs from '@/components/league/LeagueSubTabs'
 import { isLeaguePrivateGated } from '@/lib/auth/guard'
 
 type Params = { orgSlug: string; leagueId: string; date: string }
@@ -63,6 +64,11 @@ export default async function BoxscorePage({ params }: { params: Promise<Params>
 
   return (
     <div className="mm-brand space-y-4">
+      {/* 경기 우산 서브탭 — /boxscore 인덱스 redirect 도착지에서 서브탭 바가 사라지는 문제 수정
+          (Minor 5). ChevronLeft 백링크(일정으로)는 그대로 유지 — record/page.tsx 에도 동일하게
+          서브탭 바 + 개별 백링크가 함께 있는 기존 패턴이라 중복이 아니라 보완 관계(전체 탐색 vs
+          바로 직전 화면 복귀). */}
+      <LeagueSubTabs group="games" />
       {/* 페이지 헤더 — 뒤로가기 · 날짜 · 공유 링크 */}
       <div
         className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 md:px-8 py-4 sm:py-5"

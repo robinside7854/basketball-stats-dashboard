@@ -9,6 +9,7 @@ const GROUPS: Record<string, { seg: string; label: string }[]> = {
   ],
   games: [
     { seg: 'schedule', label: '일정' },
+    { seg: 'boxscore', label: '박스스코어' },
     { seg: 'record', label: '경기 기록' },
   ],
 }

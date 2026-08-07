@@ -10,8 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const PlayerDetailModal = dynamic(() => import('@/components/roster/PlayerDetailModal'), { ssr: false })
 import type { Tournament, PlayerBoxScore } from '@/types/database'
-import SubTabNav from '@/components/layout/SubTabNav'
-import { STATS_SUB_TABS } from '@/components/layout/subTabs'
 
 // 합작 듀오 카드용 프로필 사진 — 3:4 비율 · 검정 테두리 · 음수 마진 겹침(깊이감)
 // (모듈 최상단 정의: 페이지 함수 안에 두면 리렌더마다 unmount 된다)
@@ -261,8 +259,6 @@ export default function StatsPage() {
 
   return (
     <div className="space-y-8">
-      <SubTabNav tabs={STATS_SUB_TABS} />
-
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <h1 className="text-2xl font-bold shrink-0">시즌 스탯</h1>
         <div className="flex items-center gap-3 flex-wrap">

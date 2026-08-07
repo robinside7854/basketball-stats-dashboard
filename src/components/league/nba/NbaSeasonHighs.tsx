@@ -135,7 +135,10 @@ export default function NbaSeasonHighs({ leagueId, quarterId, orgSlug }: Props) 
             return (
               <div
                 key={h.category}
-                className="flex flex-col transition-shadow duration-200 hover:shadow-[0_16px_48px_-8px_rgba(0,0,0,0.28)]"
+                /* 카드 리프트 제거 (2026-08-07) — 안쪽 버튼 바깥에 액션 링크 블록이 따로 있어
+                   패딩·갭이 클릭 데드존이다. "카드가 뜨면 카드 전체가 링크"라는 규칙(DESIGN.md)에
+                   맞춰 NbaRoundsSummary·NbaLeaders 와 동일 처리. 내부 버튼·링크의 자체 호버는 유지. */
+                className="flex flex-col"
                 style={{
                   background: 'var(--mm-panel)',
                   border: '1px solid var(--mm-rule)',

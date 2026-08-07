@@ -1,8 +1,6 @@
 // 공지사항 아카이브 목록 — 아카이브 탭 하위
 // Server 로드 (unstable_cache) → AnnouncementsArchiveClient (list · reader · editor)
-import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
-import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/admin'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import AnnouncementsArchive from '@/components/league/announcements/AnnouncementsArchive'
@@ -38,23 +36,16 @@ export default async function AnnouncementsArchivePage({
 
   const announcements = await getCached(leagueId)()
   const base = `/league/${orgSlug}/${leagueId}`
+  // 공지는 영상이 아니라 소식이므로 홈 우산 소속 — 하이라이트가 아니라 홈으로 돌아가는
+  // 항목을 짝지어 둔다(예전엔 하이라이트→공지 편도였음, 2026-08-07 정리).
   const groupTabs = [
-    { href: `${base}/highlights`, label: '하이라이트', active: false },
+    { href: base, label: '홈', active: false },
     { href: `${base}/archive/announcements`, label: '공지', active: true },
   ]
 
   return (
     <div className="space-y-4 lg:space-y-5">
       <LeagueGroupTabs tabs={groupTabs} />
-      <div className="flex items-center gap-2 flex-wrap">
-        <Link
-          href={base}
-          className="inline-flex items-center gap-1 min-h-[36px] px-2.5 py-1.5 text-xs font-bold uppercase tracking-[0.14em] rounded-sm cursor-pointer transition-colors"
-          style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
-        >
-          <ChevronLeft size={12} aria-hidden /> 홈
-        </Link>
-      </div>
       <AnnouncementsArchive
         leagueId={leagueId}
         initialAnnouncements={announcements}

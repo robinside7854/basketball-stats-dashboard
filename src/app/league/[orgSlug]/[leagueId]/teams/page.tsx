@@ -1109,7 +1109,7 @@ export default function LeagueTeamsPage() {
               return (
                 <div
                   key={s.identityKey}
-                  className="overflow-hidden transition-shadow duration-200 relative hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)]"
+                  className="overflow-hidden relative"
                   style={{
                     background: isFirst ? 'var(--mm-ink)' : 'var(--mm-panel)',
                     border: isSelected ? '2px solid var(--mm-ink)' : '1px solid var(--mm-rule)',

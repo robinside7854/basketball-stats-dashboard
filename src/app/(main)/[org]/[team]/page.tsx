@@ -173,37 +173,37 @@ export default function TeamHomePage() {
         <>
           {/* 시즌 성적 + 팀 평균 */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] transition-shadow duration-200">
+            <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center">
               <div className="text-xs text-[var(--mm-muted)] mb-1">승</div>
               <div className="text-3xl font-black font-mono text-[var(--mm-positive)]">{seasonRecord.wins}</div>
             </div>
-            <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] transition-shadow duration-200">
+            <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center">
               <div className="text-xs text-[var(--mm-muted)] mb-1">패</div>
               <div className="text-3xl font-black font-mono text-[var(--mm-negative)]">{seasonRecord.losses}</div>
             </div>
-            <div className="bg-[var(--mm-panel)] border border-amber-500/30 rounded-xl p-4 text-center hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] transition-shadow duration-200">
+            <div className="bg-[var(--mm-panel)] border border-amber-500/30 rounded-xl p-4 text-center">
               <div className="text-xs text-[var(--mm-muted)] mb-1">승률</div>
               <div className="text-3xl font-black font-mono text-amber-400">{winPct}<span className="text-sm font-normal text-[var(--mm-muted)]">%</span></div>
             </div>
             {teamAvg && (
               <>
-                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] transition-shadow duration-200">
+                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center">
                   <div className="text-xs text-[var(--mm-muted)] mb-1">평균 득점</div>
                   <div className="text-2xl font-black font-mono text-[var(--mm-ink)]">{teamAvg.pts_avg}<span className="text-xs font-sans font-normal text-[var(--mm-muted)] ml-1">PPG</span></div>
                 </div>
-                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] transition-shadow duration-200">
+                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center">
                   <div className="text-xs text-[var(--mm-muted)] mb-1">평균 실점</div>
                   <div className="text-2xl font-black font-mono text-[var(--mm-negative)]">{teamAvg.opp_avg}<span className="text-xs font-sans font-normal text-[var(--mm-muted)] ml-1">PPG</span></div>
                 </div>
-                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] transition-shadow duration-200">
+                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center">
                   <div className="text-xs text-[var(--mm-muted)] mb-1">야투율</div>
                   <div className="text-2xl font-black font-mono text-[var(--mm-ink)]">{teamAvg.fg_pct}<span className="text-xs font-sans font-normal text-[var(--mm-muted)] ml-1">%</span></div>
                 </div>
-                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] transition-shadow duration-200">
+                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center">
                   <div className="text-xs text-[var(--mm-muted)] mb-1">3점율</div>
                   <div className="text-2xl font-black font-mono text-[var(--mm-ink)]">{teamAvg.fg3_pct}<span className="text-xs font-sans font-normal text-[var(--mm-muted)] ml-1">%</span></div>
                 </div>
-                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] transition-shadow duration-200">
+                <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 text-center">
                   <div className="text-xs text-[var(--mm-muted)] mb-1">자유투율</div>
                   <div className="text-2xl font-black font-mono text-[var(--mm-ink)]">{teamAvg.ft_pct}<span className="text-xs font-sans font-normal text-[var(--mm-muted)] ml-1">%</span></div>
                 </div>
