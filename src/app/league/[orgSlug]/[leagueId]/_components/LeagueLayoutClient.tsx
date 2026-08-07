@@ -50,7 +50,7 @@ function TabNav({ orgSlug, leagueId, onOpenLogin, showDraft }: { orgSlug: string
   const tabs = [
     { href: base, label: '홈', match: [] as string[] },
     { href: `${base}/roster`, label: '라커룸', match: [`${base}/roster`, `${base}/teams`] },
-    { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/record`] },
+    { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`] },
     { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`] },
     { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
@@ -239,9 +239,11 @@ function BottomNav({ orgSlug, leagueId, showDraft }: { orgSlug: string; leagueId
 
   // 스탯 우산 매칭 — /stats 이면서 /awards 도 스탯 탭 활성.
   // 홈 우산 매칭 — /archive(공지 아카이브)는 하이라이트가 아니라 홈 소속.
+  // 경기 우산 매칭 — /schedule 이면서 /boxscore·/record 도 경기 탭 활성 (데스크톱 TabNav match 배열과 동일 반영).
   const isActive = (href: string) => {
     if (href === base) return pathname === base || pathname.startsWith(`${base}/archive`)
     if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/awards`)
+    if (href === `${base}/schedule`) return pathname.startsWith(`${base}/schedule`) || pathname.startsWith(`${base}/boxscore`) || pathname.startsWith(`${base}/record`)
     return pathname.startsWith(href)
   }
   // 더보기 그룹 중 하나가 현재 페이지면 더보기 버튼도 활성화 표시
