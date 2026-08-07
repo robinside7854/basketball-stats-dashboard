@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
-import { auth } from '@/lib/auth'
+import { requireCeoSession } from '@/lib/auth/ceo'
 import { canViewLeague } from '@/lib/auth/guard'
 
 export async function GET(
@@ -32,7 +32,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { leagueId } = await params
   const body = await req.json()
@@ -56,7 +56,7 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { leagueId } = await params
   const supabase = createClient()

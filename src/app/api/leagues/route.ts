@@ -1,12 +1,12 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireCeoSession } from '@/lib/auth/ceo'
 
 export async function GET(req: Request) {
   // 목록 조회는 CEO 콘솔(/admin)만 쓴다 — 실측 호출자 3곳 모두 NextAuth 세션 화면.
   // 공개 소비자가 없으므로 가드를 붙여도 안전하고, 가드가 없으면 익명 방문자가
   // 전 리그의 edit_pin 을 한 번에 받아간다 (단건 GET 보다 더 심각한 노출).
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
 //
 // GET 은 그대로 동작한다 (어드민 리그 목록 조회에 쓰임).
 export async function POST() {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   return NextResponse.json({

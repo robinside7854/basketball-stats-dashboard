@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireCeoSession } from '@/lib/auth/ceo'
 
 const DOW_MAP: Record<string, number> = {
   sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
@@ -32,7 +32,7 @@ export async function POST(
   _req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { leagueId } = await params
   const supabase = createClient()

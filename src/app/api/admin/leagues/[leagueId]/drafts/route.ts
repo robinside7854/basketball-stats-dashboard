@@ -15,7 +15,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
-import { auth } from '@/lib/auth'
+import { requireCeoSession } from '@/lib/auth/ceo'
 import { isDraftManager, isDraftSessionController } from '@/lib/draftManagerAuth'
 
 export async function POST(
@@ -23,7 +23,7 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string }> },
 ) {
   const { leagueId } = await params
-  const session = await auth()
+  const session = await requireCeoSession()
   const body = await req.json().catch(() => null) as
     | { quarter_id?: string; method?: 'snake'|'linear'; leaders?: Record<string, string | null>; pool_player_ids?: string[] }
     | null

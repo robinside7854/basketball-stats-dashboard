@@ -3,13 +3,13 @@
 //   여기로 분리해 고쳤다 — PIN 은 이 경로로만 오가고, 가드는 편집 권한자로 한정한다.
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireCeoSession } from '@/lib/auth/ceo'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
-// 팀 어드민 세션·리그 편집 PIN(canEditLeague) 또는 CEO NextAuth 세션(auth()) 중
-// 하나라도 통과하면 허용. auth() 는 JWT 디코드라 가벼우므로 먼저 확인해 DB 조회를 아낀다.
+// 팀 어드민 세션·리그 편집 PIN(canEditLeague) 또는 CEO NextAuth 세션(requireCeoSession()) 중
+// 하나라도 통과하면 허용. requireCeoSession() 은 JWT 디코드라 가벼우므로 먼저 확인해 DB 조회를 아낀다.
 async function isAuthorized(req: Request, leagueId: string): Promise<boolean> {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (session) return true
   return canEditLeague(req, leagueId)
 }

@@ -1,4 +1,5 @@
-import { auth, signOut } from '@/lib/auth'
+import { signOut } from '@/lib/auth'
+import { requireCeoSession } from '@/lib/auth/ceo'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { LayoutDashboard, LogOut, Medal } from 'lucide-react'
@@ -6,7 +7,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { Basketball } from '@/components/league/BasketballIcons'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) redirect('/admin/login')
 
   return (

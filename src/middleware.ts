@@ -86,10 +86,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // /admin/* 경로 보호 — 로그인 필요
-  //   auth() 는 next-auth v5 · dynamic import 로 Edge runtime top-level 크래시 회피
+  //   requireCeoSession() 은 next-auth v5 를 감싼 fail-closed 가드 · dynamic import 로
+  //   Edge runtime top-level 크래시 회피(기존 auth() 때와 동일한 제약).
+  //   이 계층은 UX 용 리다이렉트일 뿐 — 진짜 보안 경계는 layout.tsx(getRequireCeoSession)와
+  //   각 API 라우트다. 여기서 판정이 흔들려도(예: Edge 에서 env 인식이 실패해 항상 거부되는
+  //   방향으로 어긋나는 경우) 그 아래 계층이 fail-closed 이므로 뚫리지 않는다.
   if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
-    const { auth } = await import('@/lib/auth')
-    const session = await auth()
+    const { requireCeoSession } = await import('@/lib/auth/ceo')
+    const session = await requireCeoSession()
     if (!session) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
     }

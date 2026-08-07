@@ -6,13 +6,13 @@
 // 방 모델(/draft/[token]) 도입 후엔 감독관(supervisor)도 같은 권한을 가짐 —
 // 단, 감독관 코드는 분기(quarter) 단위로 발급되므로 별도 helper 사용.
 
-import { auth } from '@/lib/auth'
+import { requireCeoSession } from '@/lib/auth/ceo'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { verifySupervisorCode } from '@/lib/leagueDraftAuth'
 import { createClient } from '@/lib/supabase/admin'
 
 export async function isDraftManager(req: Request, leagueId: string): Promise<boolean> {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (session) return true
   return canEditLeague(req, leagueId)
 }
