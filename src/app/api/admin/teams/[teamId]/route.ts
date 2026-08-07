@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
-import { auth } from '@/lib/auth'
+import { requireCeoSession } from '@/lib/auth/ceo'
 
 // ⚠️ 이전엔 /api/admin/orgs/[orgSlug] 가 .eq('org_slug', orgSlug) 만으로 PATCH/DELETE 를
 // 걸었다. org_slug 는 팀의 유일 키가 아니다 — 파란날개(paranalgae)는 청년부·장년부 두 팀이
@@ -8,7 +8,7 @@ import { auth } from '@/lib/auth'
 // 사고를 낼 수 있었다(명단이 서로 다른데 되돌릴 수 없음). 조직=팀 개념이 사라진 지금은
 // teams.id 하나로만 대상을 특정한다 — 모호할 여지가 없다.
 export async function PATCH(req: Request, { params }: { params: Promise<{ teamId: string }> }) {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { teamId } = await params
@@ -23,7 +23,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ teamId
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ teamId: string }> }) {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { teamId } = await params

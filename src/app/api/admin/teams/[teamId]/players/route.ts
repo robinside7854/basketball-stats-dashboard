@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireCeoSession } from '@/lib/auth/ceo'
 
 // 이전 /api/admin/orgs/[orgSlug]/players 는 org_slug 로 팀을 찾아 명단을 모았다 —
 // 파란날개처럼 org_slug 를 공유하는 팀이 둘이면 서로 다른 두 팀의 선수가 한 목록에
@@ -9,7 +9,7 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ teamId: string }> }
 ) {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { teamId } = await params

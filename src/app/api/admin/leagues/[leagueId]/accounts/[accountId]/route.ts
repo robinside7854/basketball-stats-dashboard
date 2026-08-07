@@ -3,14 +3,14 @@
 //   어드민 대시보드 · 리그 회원에게 편집 권한 부여/회수
 //   인가: NextAuth 어드민 세션 (/api/admin/** 공통 패턴)
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireCeoSession } from '@/lib/auth/ceo'
 import { setAccountRole, type AccountRole } from '@/lib/auth/setAccountRole'
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ leagueId: string; accountId: string }> },
 ) {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { leagueId, accountId } = await params

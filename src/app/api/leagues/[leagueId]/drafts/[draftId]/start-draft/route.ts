@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
-import { auth } from '@/lib/auth'
+import { requireCeoSession } from '@/lib/auth/ceo'
 import { verifySupervisorCode } from '@/lib/leagueDraftAuth'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 
@@ -25,7 +25,7 @@ export async function POST(
   const d = draft as { id: string; quarter_id: string; status: string; draft_order: string[]; lottery_done: boolean }
 
   // 권한
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) {
     const sup = await verifySupervisorCode(req, leagueId, d.quarter_id)
     if (!sup.valid && !await canEditLeague(req, leagueId)) {

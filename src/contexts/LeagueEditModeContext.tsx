@@ -19,6 +19,11 @@ interface LeagueEditModeCtx {
   leagueHeaders: Record<string, string>
   openPinModal: () => void
   exitEditMode: () => void
+  // PIN 변경 성공 직후 세션에 실린 PIN 도 함께 갱신한다 (설정 화면 savePin 이 호출).
+  //   갱신하지 않으면 leagueHeaders 가 계속 옛 PIN 을 실어 보내 이후 모든 편집 요청이
+  //   403 으로 조용히 실패한다 — 화면은 여전히 편집 모드로 보이는데 아무 저장도 안 먹는다.
+  //   어드민 role 경로(PIN 미사용)에서는 아무 효과가 없다 — pinVerified 가 아니면 no-op.
+  updateStoredPin: (newPin: string) => void
 }
 
 const LeagueEditModeContext = createContext<LeagueEditModeCtx>({
@@ -28,6 +33,7 @@ const LeagueEditModeContext = createContext<LeagueEditModeCtx>({
   leagueHeaders: {},
   openPinModal: () => {},
   exitEditMode: () => {},
+  updateStoredPin: () => {},
 })
 
 export function useLeagueEditMode() { return useContext(LeagueEditModeContext) }
@@ -117,6 +123,14 @@ export function LeagueEditModeProvider({
 
   function handleDelete() { setDigits(prev => prev.slice(0, -1)); setError(false) }
 
+  // PIN 변경(PATCH .../edit-pin) 성공 후 호출 — 세션의 PIN 을 새 값으로 교체한다.
+  // PIN 폴백으로 편집 중일 때만 의미가 있다 (어드민 role 은 PIN 을 안 쓰므로 no-op).
+  function updateStoredPin(newPin: string) {
+    if (!pinVerified) return
+    sessionStorage.setItem(SESSION_KEY, newPin)
+    setPin(newPin)
+  }
+
   const PAD = ['1','2','3','4','5','6','7','8','9','','0','⌫']
 
   // 어드민 role 경로는 쿠키(mm_auth)가 same-origin fetch 에 자동 동봉되므로 헤더가 필요 없다.
@@ -126,7 +140,7 @@ export function LeagueEditModeProvider({
     : { 'Content-Type': 'application/json' }
 
   return (
-    <LeagueEditModeContext.Provider value={{ isEditMode, isInitialized, isAdminSession, leagueHeaders, openPinModal, exitEditMode }}>
+    <LeagueEditModeContext.Provider value={{ isEditMode, isInitialized, isAdminSession, leagueHeaders, openPinModal, exitEditMode, updateStoredPin }}>
       {children}
 
       {showModal && (

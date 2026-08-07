@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
-import { auth } from '@/lib/auth'
+import { requireCeoSession } from '@/lib/auth/ceo'
 
 // 전체 팀 목록 — /admin/leagues 가 "대회가 없는 팀"도 빠짐없이 보여주기 위해 쓴다.
 // 예전엔 /api/leagues 응답에서 팀을 역으로 추출했는데, 그 방식은 대회가 하나도 없는
 // 팀(파란날개 청년부·장년부처럼)을 통째로 누락시켰다.
 export async function GET() {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = createClient()
@@ -51,7 +51,7 @@ export async function GET() {
 // 그때까지 조용히 실패하는 대신 대안을 안내한다.
 // 실제 온보딩 경로: docs/superpowers/specs/2026-08-04-multi-tenant-standardization-design.md
 export async function POST() {
-  const session = await auth()
+  const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   return NextResponse.json({

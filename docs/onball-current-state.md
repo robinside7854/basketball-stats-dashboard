@@ -3,6 +3,42 @@
 최종 갱신 2026-08-07. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
 
+**최근 결정 (2026-08-07, Phase M — 편집 PIN 경로 분리 · 보안 수정, `fix/edit-pin-path-split`):**
+- Phase L5 리뷰가 잡은 선재 결함(`GET /api/leagues/[leagueId]` 의 `select('*')` 가 공개 리그에서
+  익명 방문자에게도 `edit_pin` 을 실어 보내던 문제)의 **컬럼 노출은 고쳤다**. 화이트리스트로
+  `edit_pin` 제외 + 신규 `GET/PATCH /api/leagues/[leagueId]/edit-pin` 전용 엔드포인트(가드: 어드민
+  role·리그 PIN·CEO NextAuth 세션 중 하나, 실패 403) + 소비처 2곳(`settings`·
+  `admin/leagues/[leagueId]`) 전환. PIN 조회 실패 시 `'0000'` 가짜 기본값을 넣지 않고 입력란을 비운다.
+- ⚠ **그런데 Task 5 실측 중 이 수정과 무관한, 더 급한 구멍 2개를 새로 발견했다 — 아직 안 막혀
+  있다.** ① NextAuth `auth()` 가 이 환경에서 쿠키 없는 요청에도 세션을 돌려준다(`.env.local` 에
+  `AUTH_SECRET`/`ADMIN_EMAIL`/`ADMIN_PASSWORD` 전무 확인, `/admin` 이 무쿠키로 그대로 렌더됨 —
+  **프로덕션 env 확인 최우선**). 신규 PIN 엔드포인트가 `auth()` 를 OR 조건으로 쓰다 보니 이 결함을
+  그대로 물려받아 실측 결과가 여전히 "익명에게 PIN 노출"이었다(어드민 role·PIN 가드 자체는 정상).
+  ② `GET /api/leagues`(목록) 는 가드가 아예 없어 전체 리그를 `edit_pin` 포함해 익명에게 반환한다 —
+  단건보다 심각. 둘 다 계획서 범위 밖이라 이번엔 손대지 않고 기록만 함. §10, 아래 "다음에 할 일" 참조.
+  상세 재현: `.superpowers/sdd/task-M1-report.md`.
+- 인접 결함(팀 어드민의 리그 설정 저장이 401 로 실패 + mass assignment)도 **고치지 않고 기록만** —
+  권한 설계 결정이라 사용자 확인 필요. 위 "다음에 할 일" 표 참조.
+
+**최근 결정 (2026-08-07, Phase M Task M4 — 브랜치 마무리: 세션 회귀 수정 + 컬럼 REVOKE 마이그레이션):**
+- **회귀 수정**: PIN 변경(`savePin`) 성공 후 `sessionStorage` 의 PIN 을 그대로 안 갱신해 이후 이
+  세션의 모든 `X-League-Pin` 요청이 403 으로 조용히 실패하던 버그. `LeagueEditModeContext` 에
+  `updateStoredPin(newPin)` 을 추가(컨텍스트가 `SESSION_KEY`/`pinVerified` 를 이미 캡슐화하고
+  있어 페이지에서 `sessionStorage` 를 직접 만지는 것보다 안전) — `savePin()` 성공 시 호출.
+  어드민 role 경로는 `pinVerified` 가 애초에 false 라 no-op, 영향 없음. 안내 문구도 실제 동작
+  (즉시 적용)에 맞춰 수정(토스트 + `:477` 설명 문구).
+- **`edit_pin` 컬럼 REVOKE 마이그레이션 작성** (`089_revoke_edit_pin_column_select.sql`, **미실행**):
+  RLS 는 행 단위라 컬럼을 못 가린다는 것을 실측 확인 — anon 키로 PostgREST 에 직결하면 API
+  가드와 무관하게 `edit_pin` 이 새어나간다. 테이블 SELECT 를 회수한 뒤 edit_pin 을 뺀 컬럼만
+  재-GRANT 하는 방식으로 작성(컬럼 단독 REVOKE 는 테이블 레벨 grant 에 가려 무효함을 확인하고
+  택한 방식). 코드 감사로 edit_pin 읽기/쓰기 경로가 전부 service_role 뿐임과, `middleware.ts`
+  의 anon 조회(`leagues?select=id,slug`)가 이 REVOKE 이후에도 안 깨짐을 확인 완료. **사용자
+  확인 후 적용할 것** — Write SQL 은 사용자 승인 없이 실행 금지.
+- **후속 위험 6건 기록만** (이번 범위 밖, 미수정): 레거시 쓰기 API 무가드 6종(RLS 도 `allow_all_*`
+  로 0)·service_role+무인증 라우트 4종·공지 댓글 POST 무가드·PIN 무차별대입 방어 없음·
+  `PATCH /api/leagues/[leagueId]` 로 여전히 edit_pin 변경·노출 가능. §10, §7 표 참조.
+  상세: `.superpowers/sdd/task-M4-report.md`.
+
 **최근 결정 (2026-08-07, IA 정리 Task 4 — 내 기록 신설 · 라커룸 하차 · 셸 재편):**
 - 라커룸(선수 명단·팀 구성)을 상단/하단 탭에서 내렸다. **라우트(`/roster`·`/teams`)는 그대로 살아있다**
   — 명단은 공개 정보이고 다른 화면 다수가 링크한다. 진입점은 신규 `/me`("내 기록") 페이지의
@@ -120,8 +156,17 @@
 
 | 우선 | 항목 | 메모 |
 |---|---|---|
+| **긴급·사용자** | **Vercel 프로덕션 env 에 `AUTH_SECRET`/`NEXTAUTH_SECRET`·`ADMIN_EMAIL`·`ADMIN_PASSWORD` 실제 설정 확인** | 로컬 `.env.local` 엔 셋 다 없는데, 이 상태로는 NextAuth `auth()` 가 무쿠키 요청에도 세션을 돌려줘 `/admin` CEO 콘솔 전체가 로그인 없이 열린다(2026-08-07 Phase M 실측, dev·prod 빌드 둘 다 재현). 프로덕션에도 없으면 즉시 설정 필요 — 이 환경에선 Vercel 값을 확인할 수 없다 |
+| **긴급** | `GET /api/leagues`(목록, `src/app/api/leagues/route.ts`) 가드 전무 | `select('*')` 로 전체 리그를 익명에게 `edit_pin` 포함 반환. 단건(`/api/leagues/[id]`)보다 심각 — 이번 Phase M 은 단건만 고쳤다. 별도 브랜치로 즉시 처리 권장 |
+| **긴급·사용자 확인 후 실행** | `089_revoke_edit_pin_column_select.sql` 적용 | RLS 는 컬럼을 못 가려 anon 키로 PostgREST 직결 시 `edit_pin` 이 여전히 새고 있다(API 가드는 전부 우회됨, 실측 확인). 마이그레이션은 작성만 해뒀다 — 사용자 확인 후 `node scripts/db-migrate.mjs up 089` 로 적용할 것(2026-08-07 Phase M Task M4) |
+| 높음 | 레거시 쓰기 API 무가드 6종 + RLS `allow_all_*` | `DELETE /api/events`(gameId 하나로 경기 이벤트 전량 삭제)·`DELETE /api/games/[id]`·`DELETE /api/players/[id]`·`POST /api/players/merge`·`DELETE /api/tournaments/[id]`·`POST·PATCH·DELETE /api/minutes`. 대상 5테이블(`game_events`/`games`/`players`/`tournaments`/`player_minutes`) RLS 가 `USING(true) WITH CHECK(true)` 라 DB 방어도 0 (Phase M Task M4 기록, 미수정) |
+| 높음 | service_role + 무인증 라우트 4종 | `POST /api/players/upload-photo`(임의 파일 업로드/덮어쓰기)·`POST /api/short-url`(오픈 리다이렉트 가능)·`/api/ai/mvp`(LLM 비용)·`GET /api/debug/player-events`(프로덕션 디버그 노출). service_role 이라 RLS 로 못 막고 라우트 가드가 필요 (Phase M Task M4 기록, 미수정) |
+| 중 | PIN 무차별대입 방어 없음 | `POST /api/auth/league-pin`·`POST /api/auth/pin` 에 rate limit·lockout 없음. PIN 4자리(10⁴)라 자동화 공격에 취약 (Phase M Task M4 기록, 미수정) |
+| 중 | 공지 댓글 `POST` 무가드 | `/api/leagues/[leagueId]/announcements/[announcementId]/comments` GET 은 `canViewLeague` 인데 POST(댓글 작성)는 가드 없음 (Phase M Task M4 기록, 미수정) |
+| 중 | `PATCH /api/leagues/[leagueId]` 로 여전히 `edit_pin` 변경·응답 노출 가능 | 전용 `.../edit-pin` 엔드포인트를 만들었지만 이 범용 PATCH 가 `.update(body)` + `.select().single()` 이라 body 에 `edit_pin` 을 실으면 그대로 바뀌고, 갱신된 행 전체(= edit_pin 포함)가 응답으로 되돌아온다 — PIN 경로 일원화가 반쪽 (Phase M Task M4 기록, 미수정) |
 | 사용자 | **도메인 구매** (`onball.app` / `onball.kr`) | 사면 `NEXT_PUBLIC_SITE_URL` 만 바꾸고 재배포. 주소는 이미 `src/lib/siteUrl.ts` 한 곳으로 모아 뒀다. **Vercel 프로젝트 이름은 바꾸지 말 것** — 기존 `.vercel.app` 주소가 죽는다 |
 | 중 | 어드민 **계정·접속현황·권한** 화면이 아직 `league_id` 기준 | 형제 대회에서 빈 목록으로 보인다. 회원 기능은 정상 |
+| 중 | **팀 어드민의 리그 설정 저장이 401 로 실패** | `PATCH /api/leagues/[leagueId]` 가 NextAuth 전용이라 팀 어드민(회원 role·PIN)은 상태·일정·YouTube·플러스원 나이 저장이 전부 막힌다. 또 `.update(body)` 라 mass assignment 위험. 어느 필드까지 팀 어드민에게 허용할지 사용자 확인 필요(2026-08-07 Phase M Task 4, 기록만 하고 미수정) |
 | 낮 | 세션 옛 쿠키 호환 갈래 제거 | `src/lib/auth/teamMatch.ts`. 2026-09-05 이후(모든 쿠키 만료 뒤) |
 | 낮 | 실제 동호회 온보딩 | 스크립트 준비됨. `docs/onboarding-checklist.md` |
 
@@ -171,12 +216,72 @@ node scripts/onboard-club.mjs 설정파일.json --commit  # 실제 생성
   `node scripts/db-migrate.mjs status` 로 확인하고 재적용할 것. 실제로 088 이 날아갔다.
 - 사고 시각 특정은 Supabase 로그로 한다 — Management API `analytics/endpoints/logs.all` 에
   `iso_timestamp_start/end` 를 **반드시 넣어야** 결과가 나온다(없으면 빈 배열). 보존 1일
-- **`GET /api/leagues/[leagueId]` 가 `select('*')` 라 `edit_pin` 을 응답에 그대로 실어 보낸다**
-  (2026-08-07, Phase L5 리뷰에서 발견). 이 라우트의 게이트가 `canViewLeague` 인데, 그 함수는
-  공개 리그면 익명 방문자도 통과시킨다 — 즉 **편집 PIN 이 공개 리그에서는 사실상 누구나
-  받아볼 수 있는 상태다.** `settings`·`roster`·`record` 페이지가 이 응답에서 PIN 을 읽고
-  있어서 지금 컬럼을 좁히면 그 편집 플로우들이 깨진다 — **컬럼 축소는 별건으로 잡아야 한다**
-  (PIN 전용 조회 경로를 분리하거나, `select('*')` → 화이트리스트 컬럼으로 좁히면서 PIN 이
-  필요한 화면만 별도 인증된 엔드포인트로 옮기는 두 단계 작업). 리그명 라벨(좌측 상단 브랜드
-  텍스트)은 이 문제 때문에 이번에 클라이언트 fetch → `layout.tsx` 서버 조회(`select('name')`
-  으로 좁힘)로 옮겨 최소한 그 경로의 노출은 없앴다 — 나머지 3개 페이지는 그대로 남아있다.
+- `GET /api/leagues/[leagueId]` 의 `select('*')` 로 `edit_pin` 이 새던 문제는 **컬럼 자체는 고쳤다**
+  (2026-08-07 Phase M) — 화이트리스트 컬럼으로 좁혀 `edit_pin` 제외, 신규
+  `GET/PATCH /api/leagues/[leagueId]/edit-pin` 전용 엔드포인트로 분리(가드: 어드민 role·리그 PIN
+  ·CEO NextAuth 세션 중 하나, 실패 403). 그런데 **실측하다가 이 조치와 무관한 더 큰 구멍 2개를
+  발견했다 — 아직 안 막혀 있다:**
+  1. **NextAuth `auth()` 가 이 환경에서 쿠키 없는 요청에도 세션을 돌려준다.** `.env.local` 에
+     `AUTH_SECRET`/`NEXTAUTH_SECRET`/`ADMIN_EMAIL`/`ADMIN_PASSWORD` 가 전부 없는 상태에서 실측
+     (`curl` 무쿠키로 `/admin` 요청) 했더니 CEO 콘솔이 그대로 렌더됐다 — 로그인 없이 `/admin`
+     전체가 열려 있다는 뜻. `npm run build && npm run start`(프로덕션 빌드)로도 재현돼 dev 모드만의
+     문제가 아니다. 신규 PIN 엔드포인트도 `auth()` 를 OR 조건으로 쓰므로 이 결함을 그대로 물려받아
+     **여전히 익명에게 PIN 이 샌다**(단, 어드민 role·PIN 가드 자체는 정상 — 형제 라우트로 확인).
+     **Vercel 프로덕션 env 에 이 3개 변수가 실제로 설정돼 있는지 최우선으로 확인할 것** — 로컬에
+     없는 것만 확인했고 프로덕션은 이 환경에서 확인 불가하다. 없다면 `/admin` 전체가 지금
+     인터넷에 열려 있다는 뜻이라 이 PR 과 별개로 즉시 조치가 필요하다.
+  2. **`GET /api/leagues`(목록, `src/app/api/leagues/route.ts`) 는 가드가 아예 없다.**
+     `select('*', teams(...))` 로 전체 리그를 익명에게 그대로 반환 — 단건보다 더 심각하다. 계획서
+     범위 밖이라 이번엔 손대지 않았다. **별도 보안 수정 필요.**
+  상세 재현 로그·curl 응답: `.superpowers/sdd/task-M1-report.md`.
+  **이번 범위에서 고치지 않고 기록만 한 인접 결함**: `PATCH /api/leagues/[leagueId]` 가
+  `auth()`(NextAuth) 전용이라 팀 어드민(회원 role·PIN)이 리그 설정(상태·일정·YouTube·
+  플러스원 나이 등)을 저장하면 401 로 전부 실패한다. 게다가 `.update(body)` 로 body 를
+  통째로 써서 mass assignment 위험도 있다(현재는 NextAuth 전용이라 낮지만 가드를 넓히면
+  즉시 위험해진다). "팀 어드민이 설정의 어느 필드까지 바꿀 수 있는가"는 권한 설계 결정이라
+  사용자 확인이 먼저 필요 — 손대지 않았다.
+- **`edit_pin` 은 RLS 로도 못 가린다 — 컬럼 단위 REVOKE 마이그레이션 작성함, 미실행**
+  (2026-08-07, Phase M Task M4). `leagues_public_read`/`teams_public_read` 는 `FOR SELECT
+  USING (true)` 다 — Postgres RLS 는 행 단위라 컬럼을 못 가리므로, API 가드를 아무리 촘촘히
+  깔아도 브라우저 번들의 `NEXT_PUBLIC_SUPABASE_ANON_KEY` 로 PostgREST 에 직결하면
+  (`{SUPABASE_URL}/rest/v1/leagues?select=edit_pin`) `edit_pin` 이 그대로 나온다. 이번 브랜치의
+  API 계층 차단(select 화이트리스트·전용 엔드포인트)은 전부 우회 가능하다는 뜻 — 실측 확인됨.
+  `supabase/migrations/089_revoke_edit_pin_column_select.sql` 에 수정 SQL을 **작성만** 해뒀다
+  (테이블 SELECT 회수 후 edit_pin 제외 컬럼만 재-GRANT — 컬럼 단위 REVOKE 단독으로는 테이블
+  레벨 grant 에 가려 무효하다는 것까지 실측 확인하고 그 방식을 택함). **아직 실행 안 함** —
+  Write SQL 은 사용자 명시 확인 후에만 실행하는 규칙이라, 사용자 부재 중엔 파일만 만들고
+  멈췄다. 사용자 확인 후 `scripts/db-migrate.mjs` 또는 SQL Editor 로 적용할 것. edit_pin 을
+  읽고/쓰는 모든 서버 경로가 service_role 클라이언트만 쓴다는 것과, `middleware.ts` 의 anon 키
+  조회(`leagues?select=id,slug`)가 이 REVOKE 이후에도 그대로 동작한다는 것은 코드 감사로
+  확인 완료 — 마이그레이션 파일 상단 주석에 근거를 남겼다.
+- **레거시(파란날개) 쓰기 API 가 통째로 무가드다** (2026-08-07, Phase M Task M4 리뷰 발견,
+  기록만·미수정). `game_events`/`games`/`players`/`tournaments`/`player_minutes` 5개 테이블
+  모두 RLS 정책이 `allow_all_*` `USING (true) WITH CHECK (true)` (전 명령 허용) — DB 계층
+  방어가 0 이다. 그 위에서 다음 라우트들이 인증 가드를 아예 안 부른다(코드 감사로 grep 확인):
+  `DELETE /api/events`(body 의 `gameId` 하나로 그 경기 이벤트 전량 삭제), `DELETE
+  /api/games/[id]`, `DELETE /api/players/[id]`, `POST /api/players/merge`, `DELETE
+  /api/tournaments/[id]`, `POST·PATCH·DELETE /api/minutes`. 리그(미라클) 쪽은 088 아카이브
+  트리거가 있지만 이 레거시 트리(파란날개)는 `game_events_archive`/`player_minutes_archive`
+  로 커버되긴 한다(088 이 두 트리 모두에 건 트리거) — 다만 삭제 자체를 막는 게 아니라 삭제된
+  뒤 복구만 가능하다는 뜻이라 근본 해결은 아니다.
+- **service_role 을 쓰면서 인증이 없는 라우트 4개** (기록만·미수정): `POST
+  /api/players/upload-photo`(임의 파일 업로드·기존 파일 덮어쓰기 가능), `POST
+  /api/short-url`(임의 절대 URL 을 단축 — 오픈 리다이렉트로 악용 가능), `GET·POST·DELETE
+  /api/ai/mvp`(무제한 호출 시 LLM 비용 소모), `GET /api/debug/player-events`(디버그 엔드포인트가
+  프로덕션에 무가드로 노출). service_role 은 RLS 를 우회하므로 이 4개는 RLS 로도 못 막고
+  라우트 자체에 가드가 필요하다.
+- **공지 댓글 작성이 무가드** (기록만·미수정): `GET
+  /api/leagues/[leagueId]/announcements/[announcementId]/comments` 는 `canViewLeague` 로 막혀
+  있는데 같은 파일의 `POST`(댓글 작성)는 아무 가드도 안 부른다 — 비공개 리그에서도 댓글을 달 수
+  있다는 뜻.
+- **PIN 무차별대입 방어 없음** (기록만·미수정): `POST /api/auth/league-pin`, `POST
+  /api/auth/pin` 둘 다 rate limit·lockout 이 없다. PIN 이 숫자 4자리(경우의 수 10⁴)라 자동화된
+  요청으로 충분히 뚫을 수 있는 범위 — IP/leagueId 단위 시도 횟수 제한이 필요하다.
+- **PIN 경로 일원화가 반쪽** (기록만·미수정): 전용 `PATCH /api/leagues/[leagueId]/edit-pin`
+  을 새로 만들었지만(Task 2), 기존 범용 `PATCH /api/leagues/[leagueId]` 가 여전히 살아있고
+  `.update(body)` 로 body 를 통째로 반영한다 — `body.edit_pin` 을 실어 보내면 그 경로로도
+  PIN 이 바뀐다(CEO NextAuth 세션 전용이라 현재 위험도는 낮지만, 의도는 "PIN 은 전용 경로로만"
+  이었는데 실제로는 두 경로가 공존한다). 게다가 이 PATCH 는 `.select().single()` 로 갱신된 행
+  전체를 응답에 그대로 돌려주므로, `edit_pin` 을 바디에 안 보내도 요청이 성공하면 응답 JSON 에
+  현재 `edit_pin` 값이 함께 실려 나온다 — CEO 전용 경로라지만 목적(edit_pin 응답 노출 금지)과
+  다시 어긋난다.
