@@ -3,11 +3,13 @@ import { usePathname, useParams } from 'next/navigation'
 import Link from 'next/link'
 
 // 선수 명단(/roster)·팀 순위(/teams)는 스탯 우산으로 옮겨졌다(2026-08-08, stats-umbrella-move).
-// games 그룹은 원래대로 경기 3개만 — LeagueGroupTabs(스탯 우산)와 역할이 겹치지 않는다.
+// 박스스코어 목록(/boxscore 인덱스)은 2026-08-09 '일정' 으로 통합 흡수됐다 — 완료 경기만 보여주는
+// '일정'의 부분집합이었다(둘 다 날짜 목록 + 분기 필터 → /boxscore/[date]). 라벨도 '일정' → '일정·결과'
+// 로 바꿨다 — 이 탭이 지난 경기 결과 조회까지 겸하는데 '일정'만 보면 지난 경기를 다시 찾을 때
+// 안 눌러볼 수 있어서다. /boxscore 경로 자체는 리다이렉트로 남아 있다(boxscore/page.tsx).
 const GROUPS: Record<string, { seg: string; label: string }[]> = {
   games: [
-    { seg: 'schedule', label: '일정' },
-    { seg: 'boxscore', label: '박스스코어' },
+    { seg: 'schedule', label: '일정·결과' },
     { seg: 'record', label: '경기 기록' },
   ],
 }
@@ -31,7 +33,11 @@ export default function LeagueSubTabs({ group }: { group: 'games' }) {
       <div className="flex items-center gap-1 px-2 sm:px-0 whitespace-nowrap">
         {items.map(t => {
           const href = `${base}/${t.seg}`
-          const active = pathname.startsWith(href)
+          // /boxscore/[date](박스스코어 상세)는 흡수된 목록의 목적지라 '일정·결과' 탭 소속으로
+          // 계속 하이라이트한다 — 안 그러면 상세 화면에서 서브탭 바에 켜진 항목이 하나도 없어진다.
+          const active = t.seg === 'schedule'
+            ? pathname.startsWith(href) || pathname.startsWith(`${base}/boxscore`)
+            : pathname.startsWith(href)
           return (
             <Link key={t.seg} href={href}
               aria-current={active ? 'page' : undefined}

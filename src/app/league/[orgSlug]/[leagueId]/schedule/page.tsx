@@ -1,22 +1,35 @@
 'use client'
 import LeagueSubTabs from '@/components/league/LeagueSubTabs'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2 } from 'lucide-react'
+import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2, ChevronDown } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
+import SubTabLoadingSkeleton from '@/components/league/SubTabLoadingSkeleton'
 
 type ScheduleDate = { id: string; date: string }
 type Quarter = { id: string; year: number; quarter: number }
 
-export default function LeagueSchedulePage() {
+// 한 번에 보여줄 날짜 카드 수 — 나머지는 "더 보기" 로 점진 노출한다.
+// 흡수된 구 박스스코어 목록은 5일씩 서버 페이지네이션이었다. 이 페이지는 편집(추가/삭제)이
+// 같은 배열을 공유해야 해서 서버 페이지네이션 대신, 이미 fetch 해 둔 배열을 클라이언트에서
+// 점진 노출하는 방식을 택했다(삭제 직후 "몇 페이지째였는지" 추적이 필요 없어진다).
+// 실측(2026-08-09): 미라클 리그 32개 날짜, 모바일은 1열 그리드라 한 번에 다 펼치면 스크롤이
+// 과하다 — 10장이면 초기 노출 분량이 구 목록 2페이지(10일)와 비슷해 이 값으로 잡았다.
+const INITIAL_VISIBLE = 10
+const REVEAL_STEP = 10
+
+function ScheduleContent() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
   const { isEditMode, leagueHeaders, openPinModal } = useLeagueEditMode()
+  const searchParams = useSearchParams()
+  // 구 /boxscore 목록에서 리다이렉트로 들어온 ?quarter= 보존 — 공유된 링크의 분기 필터가 이어지게 한다.
+  const quarterFromRedirect = searchParams.get('quarter')
 
   const [dates, setDates] = useState<ScheduleDate[]>([])
   const [loading, setLoading] = useState(true)
@@ -26,8 +39,9 @@ export default function LeagueSchedulePage() {
   const [deletingDate, setDeletingDate] = useState<string | null>(null)
   const [datesWithStats, setDatesWithStats] = useState<Set<string>>(new Set())
   const [quarters, setQuarters] = useState<Quarter[]>([])
-  const [selectedQFilter, setSelectedQFilter] = useState<'all' | string>('all')
+  const [selectedQFilter, setSelectedQFilter] = useState<'all' | string>(quarterFromRedirect || 'all')
   const [dateQuarterMap, setDateQuarterMap] = useState<Record<string, string>>({})
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
 
   async function load() {
     setLoading(true)
@@ -51,6 +65,17 @@ export default function LeagueSchedulePage() {
   }
 
   useEffect(() => { load() }, [leagueId])
+
+  // 리다이렉트로 들어온 quarter 파라미터가 실존하는 분기인지 로드 후 검증 — 없는 값이면
+  // (오래된 링크·오타) 조용히 '전체' 로 폴백한다.
+  useEffect(() => {
+    if (selectedQFilter !== 'all' && quarters.length > 0 && !quarters.some(q => q.id === selectedQFilter)) {
+      setSelectedQFilter('all')
+    }
+  }, [quarters, selectedQFilter])
+
+  // 분기 필터를 바꾸면 이전 필터 기준으로 늘려둔 "더 보기" 상태를 초기값으로 되돌린다.
+  useEffect(() => { setVisibleCount(INITIAL_VISIBLE) }, [selectedQFilter])
 
   async function autoGenerate() {
     setAutoGenerating(true)
@@ -129,6 +154,12 @@ export default function LeagueSchedulePage() {
     const days = ['일', '월', '화', '수', '목', '금', '토']
     return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`
   }
+
+  const filteredSortedDates = [...dates]
+    .filter(sd => selectedQFilter === 'all' || dateQuarterMap[sd.date] === selectedQFilter)
+    .sort((a, b) => b.date.localeCompare(a.date))
+  const visibleDates = filteredSortedDates.slice(0, visibleCount)
+  const hasMoreDates = filteredSortedDates.length > visibleCount
 
   return (
     <>
@@ -265,10 +296,7 @@ export default function LeagueSchedulePage() {
           </div>
         )}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {[...dates]
-            .filter(sd => selectedQFilter === 'all' || dateQuarterMap[sd.date] === selectedQFilter)
-            .sort((a, b) => b.date.localeCompare(a.date))
-            .map(sd => (
+          {visibleDates.map(sd => (
             <div
               key={sd.id}
               className="flex items-center justify-between"
@@ -330,9 +358,36 @@ export default function LeagueSchedulePage() {
             </div>
           ))}
         </div>
+
+        {/* 더 보기 — 이미 fetch 된 배열을 점진 노출(서버 재요청 없음). 남은 개수를 라벨에
+            보여줘 몇 번 눌러야 끝인지 미리 가늠할 수 있게 한다. */}
+        {hasMoreDates && (
+          <div className="flex justify-center pt-1">
+            <button
+              type="button"
+              onClick={() => setVisibleCount(c => c + REVEAL_STEP)}
+              className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-5 py-2.5 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)]"
+              style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
+            >
+              <ChevronDown size={14} aria-hidden />
+              더 보기 ({filteredSortedDates.length - visibleDates.length}개 남음)
+            </button>
+          </div>
+        )}
         </>
       )}
     </div>
     </>
+  )
+}
+
+// searchParams(useSearchParams)를 읽는 컴포넌트는 Suspense 경계 없이 페이지 최상단에 두면
+// 빌드가 실패한다 — 내부 컴포넌트를 분리하고 여기서 감싼다. 폴백은 다른 서브탭과 동일한
+// 스켈레톤(SubTabLoadingSkeleton) 재사용 — 검색 파라미터는 즉시 읽히므로 실제로는 거의 보이지 않는다.
+export default function LeagueSchedulePage() {
+  return (
+    <Suspense fallback={<SubTabLoadingSkeleton />}>
+      <ScheduleContent />
+    </Suspense>
   )
 }
