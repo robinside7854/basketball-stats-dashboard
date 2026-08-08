@@ -336,13 +336,14 @@ export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
           <div className="font-bold text-lg md:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>내 기록, 여기 다 있어요</div>
           <p className="text-[13px] mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
             우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>시즌 득점·리바운드 랭킹</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>진행 중 스트릭·마일스톤</b>을 확인하세요.
+            <br className="hidden sm:block" />아직 회원이 아니면 가입 신청부터 해주세요.
           </p>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
             className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-md font-bold text-sm cursor-pointer transition-all hover:brightness-95 min-h-[44px]"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}
           >
-            내 랭킹 확인하기 <ChevronRight size={16} />
+            로그인 · 가입 신청 <ChevronRight size={16} />
           </button>
         </div>
         {onDismiss && (

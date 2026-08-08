@@ -10,8 +10,6 @@ import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFi
 // 상호작용 트리거 후에만 필요 — 초기 번들에서 분리
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 const PlayerCompareModal = dynamic(() => import('@/components/league/PlayerCompareModal'), { ssr: false })
-// 플레이 맵(recharts ~90KB) — 서브탭 진입 시에만 로드 (초기 번들 보호)
-const PlayMapChart = dynamic(() => import('@/components/league/charts/PlayMapChart'), { ssr: false, loading: () => <div style={{ height: 380 }} /> })
 import StatHeader from '@/components/league/StatHeader'
 import { PercentBar } from '@/components/league/StatCell'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
@@ -30,7 +28,7 @@ const MIN_ROUND_RATIO = 0.3
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
 type AdvKey = 'at_ratio'|'a1_total'|'a1_rate'|'trb_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'ts_pct'|'shot_mix'
-type StatMode = 'basic'|'shooting'|'advanced'|'seasonHigh'|'playmap'
+type StatMode = 'basic'|'shooting'|'advanced'|'seasonHigh'
 
 // SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
 const BASIC_FULL_LABELS: Partial<Record<SortKey, string>> = {
@@ -138,8 +136,9 @@ function LeagueStatsPageInner() {
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
   // 초기 statMode — URL 의 ?tab=seasonHigh 이면 시즌하이로 진입, 아니면 basic.
+  // 인식되지 않는 ?tab 값(삭제된 서브탭을 가리키던 옛 링크 포함)도 basic(리더보드)으로 폴백된다.
   // 이후 useEffect 로 URL 변경(뒤로가기/서브탭 재클릭)에 재동기화
-  const [statMode, setStatMode] = useState<StatMode>(urlTab === 'seasonHigh' ? 'seasonHigh' : urlTab === 'playmap' ? 'playmap' : 'basic')
+  const [statMode, setStatMode] = useState<StatMode>(urlTab === 'seasonHigh' ? 'seasonHigh' : 'basic')
   const [advSortKey, setAdvSortKey] = useState<AdvKey>('at_ratio')
   const [advSortDir, setAdvSortDir] = useState<'asc'|'desc'>('desc')
   const [shootSortKey, setShootSortKey] = useState<ShootingKey>('ts_pct')
@@ -199,14 +198,13 @@ function LeagueStatsPageInner() {
 
   // URL 의 ?tab 변경(서브탭 클릭·뒤로가기) 시 statMode 동기화.
   // 서브탭에서 '시즌하이' → statMode='seasonHigh', '리더보드' → basic 복원.
+  // 삭제된 서브탭을 가리키던 옛 링크 등 인식되지 않는 값은 어느 분기에도 걸리지 않아 자연히 basic 으로 폴백된다.
   useEffect(() => {
     if (urlTab === 'seasonHigh') {
       setStatMode(prev => prev === 'seasonHigh' ? prev : 'seasonHigh')
-    } else if (urlTab === 'playmap') {
-      setStatMode(prev => prev === 'playmap' ? prev : 'playmap')
     } else if (!urlTab) {
-      // '리더보드' 서브탭 진입 — 시즌하이/플레이맵이면 basic 으로 복원
-      setStatMode(prev => (prev === 'seasonHigh' || prev === 'playmap') ? 'basic' : prev)
+      // '리더보드' 서브탭 진입 — 시즌하이면 basic 으로 복원
+      setStatMode(prev => prev === 'seasonHigh' ? 'basic' : prev)
     }
   }, [urlTab])
 
@@ -465,18 +463,16 @@ function LeagueStatsPageInner() {
   }, [topFiveActive, statMode, sortKey, shootSortKey, advSortKey, players, effectiveMinGP, viewMode, statUnit])
 
   const base = `/league/${orgSlug}/${leagueId}`
-  // 리더보드·시즌하이·플레이맵은 ?tab= 쿼리로 이 페이지 안 상태만 바꾸지만,
-  // 어워즈는 실제로 다른 라우트(뒤로가기 동작이 다름) — external 플래그로 구분선+화살표
-  // 표시해 "옆 페이지로 나간다"는 것을 시각적으로 미리 알린다. 완전한 URL 통일은 이월(progress.md).
+  // 리더보드·시즌하이는 ?tab= 쿼리로 이 페이지 안 상태만 바꾸고,
+  // 어워즈는 정식 서브탭(다른 라우트)이다 (2026-08-08 — 플레이 맵 삭제, 어워즈 승격).
   const groupTabs = [
-    { href: `${base}/stats`, label: '리더보드', active: statMode !== 'seasonHigh' && statMode !== 'playmap' },
+    { href: `${base}/stats`, label: '리더보드', active: statMode !== 'seasonHigh' },
     { href: `${base}/stats?tab=seasonHigh`, label: '시즌하이', active: statMode === 'seasonHigh' },
-    { href: `${base}/stats?tab=playmap`, label: '플레이 맵', active: statMode === 'playmap' },
-    { href: `${base}/awards`, label: '어워즈', active: false, external: true },
+    { href: `${base}/awards`, label: '어워즈', active: false },
   ]
 
   if (gated) {
-    return <StatGate fullPage title="스탯은 회원 전용" description="시즌 스탯·리더보드·시즌하이·플레이맵은 가입 승인된 회원만 볼 수 있어요." />
+    return <StatGate fullPage title="스탯은 회원 전용" description="시즌 스탯·리더보드·시즌하이·어워즈는 가입 승인된 회원만 볼 수 있어요." />
   }
 
   return (
@@ -523,20 +519,6 @@ function LeagueStatsPageInner() {
           leagueId={leagueId}
           quarterId={selectedQuarterId === 'all' ? null : selectedQuarterId}
         />
-      ) : statMode === 'playmap' ? (
-        // 플레이 맵 — 공격 스타일 × 효율 4사분면 산점도
-        <SectionCard variant="standalone">
-          <div className="p-4">
-            <PlayMapChart
-              players={players}
-              minGP={effectiveMinGP}
-              quarterLabel={selectedQuarterId === 'all'
-                ? '시즌 전체'
-                : (() => { const q = quarters.find(q => q.id === selectedQuarterId); return q ? `${String(q.year).slice(2)}.${q.quarter}Q` : '' })()}
-              onSelectPlayer={(id, name) => setQuickViewPlayer({ id, name })}
-            />
-          </div>
-        </SectionCard>
       ) : (
         <>
           {/* TOP 5 슬롯 — 테이블 컬럼 헤더 클릭 시 해당 지표 TOP 5 표시 */}

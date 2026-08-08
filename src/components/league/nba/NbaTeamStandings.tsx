@@ -34,7 +34,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
   if (standings.length === 0) return null
 
   return (
-    <SectionCard variant="stack" dataTour="standings">
+    <SectionCard variant="stack">
       <header
         className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5 px-4 sm:px-6 md:px-10 py-4 md:py-5"
         style={{ borderBottom: '1px solid var(--mm-rule)' }}

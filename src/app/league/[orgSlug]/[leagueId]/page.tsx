@@ -1,5 +1,4 @@
-﻿import { Suspense } from 'react'
-import { createClient } from '@/lib/supabase/admin'
+﻿import { createClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import { unstable_cache } from 'next/cache'
 import Link from 'next/link'
@@ -12,7 +11,6 @@ import { computeMilestones } from '@/lib/stats/milestones'
 type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import { ChevronRight } from 'lucide-react'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
-import LeagueTourTrigger from '@/components/league/LeagueTourTrigger'
 import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
 import AnnouncementsHome from '@/components/league/announcements/AnnouncementsHome'
 import type { LeagueAnnouncement } from '@/lib/announcements/types'
@@ -513,11 +511,6 @@ export default async function LeagueDetailPage({
         }
         highlightsAvailable={highlightsAvailable}
       />
-
-      {/* 인터랙티브 튜토리얼 투어 — 첫 방문 자동 실행 · 헤더 물음표 재실행 */}
-      <Suspense fallback={null}>
-        <LeagueTourTrigger />
-      </Suspense>
     </div>
   )
 }

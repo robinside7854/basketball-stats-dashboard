@@ -7,7 +7,7 @@ import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
 import { LeagueAuthProvider, useCurrentUser } from '@/contexts/LeagueAuthContext'
-import { Lock, Unlock, Home, BarChart2, Calendar, Newspaper, LogIn, User as UserIcon } from 'lucide-react'
+import { Lock, Unlock, Home, BarChart2, Calendar, Newspaper, LogIn, User as UserIcon, UserPlus, Settings } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 
 const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
@@ -39,32 +39,40 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
 
   const base = deriveLeagueBase(pathname, orgSlug, leagueId)
 
-  // 상위 메뉴 — 라커룸 제거(네비게이션에서만 하차, 라우트는 유지), 스탯 우산에 어워즈,
+  // "내 기록" 탭 라벨 — 로그인 시 유저 이름(인스타 프로필 탭 패턴), 비로그인 시 가입 유도 문구.
+  // aria-label 은 라벨이 사람 이름/문구로 바뀌어도 스크린리더가 "여기가 내 기록·계정 영역"임을
+  // 읽을 수 있도록 목적지 의미를 고정으로 유지한다(Task 1-A).
+  const meLabel = user ? (user.name?.trim() || user.login_id) : '가입하기'
+  const meAriaLabel = user ? `내 기록 — ${meLabel}` : '내 기록 — 가입하기'
+
+  // 상위 메뉴 — 라커룸(팀 명단·팀 구성)을 '팀/경기' 우산으로 흡수(Task 1-B), 스탯 우산에 어워즈,
   // 하이라이트 우산에 공지 아카이브 통합. URL 은 그대로 유지(SEO/기존 링크 보존).
   // 설정 탭은 편집 모드일 때만 나비게이션에 노출(어드민 은닉) —
   //   URL 직접 접근은 여전히 가능하므로, 진짜 어드민 전용화가 필요하면 별도 이슈로 서버 가드 필요.
   // "내 기록"은 항상 맨 오른쪽 — 드래프트/설정은 기존 위치(하이라이트 다음)를 유지한다(Task 4-B).
   // Stathead 는 2026-07-19 삭제 (사용 미미).
-  const tabs = [
-    { href: base, label: '홈', match: [] as string[] },
-    { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`] },
+  const tabs: { href: string; label: string; match: string[]; ariaLabel?: string }[] = [
+    { href: base, label: '홈', match: [] },
+    { href: `${base}/schedule`, label: '팀/경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`, `${base}/roster`, `${base}/teams`] },
     { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`] },
     { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
     ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', match: [`${base}/settings`] }] : []),
-    { href: `${base}/me`, label: '내 기록', match: [`${base}/me`] },
+    // /social(인스타 매거진 카드 생성기)은 설정에서만 진입하는 운영자 전용 화면이라 자체 탭이 없다 —
+    // '내 기록' 탭 match 에 흡수해 어느 탭도 안 켜지는 상태를 막는다(리뷰 항목 5, 2026-08-08).
+    { href: `${base}/me`, label: meLabel, match: [`${base}/me`, `${base}/social`], ariaLabel: meAriaLabel },
   ]
   // 공지 아카이브(/archive)는 홈 우산 소속(영상이 아니라 소식) — 홈 탭은 완전일치가 아니라
   // /archive 로 시작하는 경로도 활성으로 잡아야 아카이브에서 인디케이터가 꺼지지 않는다.
-  // 라커룸(/roster·/teams) 은 탭에서 빠졌지만 링크는 살아있다 — 어느 탭도 안 켜지면 위치를
-  // 잃으므로 홈 활성으로 흡수한다(BottomNav 와 동일 규칙, Task 4-C 근거 동일하게 데스크톱도 적용).
+  // 라커룸(/roster·/teams) 은 '팀/경기' 탭의 match 배열로 옮겨졌다(위 tabs 참조) — 홈 판정에서는
+  // 반드시 빠져야 두 탭이 동시에 켜지는 걸 막는다(Task 1-B).
   const tabActive = (tab: { href: string; match: string[] }) =>
     tab.href === base
-      ? (pathname === base || pathname.startsWith(`${base}/archive`) || pathname.startsWith(`${base}/roster`) || pathname.startsWith(`${base}/teams`))
+      ? (pathname === base || pathname.startsWith(`${base}/archive`))
       : (tab.match.length ? tab.match.some(m => pathname.startsWith(m)) : pathname.startsWith(tab.href))
 
   return (
-    <div data-tour="top-nav" className="sticky top-0 z-10 bg-[color:var(--mm-panel)] border-b border-[color:var(--mm-rule)]">
+    <div className="sticky top-0 z-10 bg-[color:var(--mm-panel)] border-b border-[color:var(--mm-rule)]">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="flex items-center">
           {/* 좌측: 리그/팀 이름 — 홈 링크. 모바일에서 예전 '현재 페이지 제목' 자리를 대체하고,
@@ -89,21 +97,22 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
             <div className="flex items-stretch gap-1 overflow-x-auto scrollbar-hide w-full">
               {tabs.map(tab => {
                 const isActive = tabActive(tab)
-                // 튜어 target — 스탯 탭에만 data-tour 부여
-                const tourAttr = tab.href === `${base}/stats` ? 'stats-tab' : undefined
+                const isMeTab = tab.href === `${base}/me`
                 return (
                   <Link
                     key={tab.href}
                     href={tab.href}
-                    data-tour={tourAttr}
+                    aria-label={tab.ariaLabel}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`relative shrink-0 flex items-center px-3 lg:px-4 py-3.5 lg:py-4 text-sm lg:text-base rounded-t-md transition-colors duration-200 ${
+                    className={`relative shrink-0 flex items-center min-w-0 px-3 lg:px-4 py-3.5 lg:py-4 text-sm lg:text-base rounded-t-md transition-colors duration-200 ${
                       isActive
                         ? 'text-[color:var(--mm-ink)] font-bold bg-[color:var(--mm-panel-alt)]'
                         : 'text-[color:var(--mm-muted)] font-medium hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]'
                     }`}
                   >
-                    {tab.label}
+                    {/* 내 기록 탭 — 라벨이 사용자 이름으로 바뀌면 길이가 가변이라, 탭 폭이
+                        무한정 늘어나 옆 탭을 밀어내지 않도록 이 탭에서만 truncate 를 건다. */}
+                    {isMeTab ? <span className="truncate max-w-[110px] lg:max-w-[160px]">{tab.label}</span> : tab.label}
                     {/* 활성 인디케이터 — 다중 신호: 굵은 글자 + 배경 + 하단 전체폭 3px 주황 바.
                         절대배치 바로 클리핑·정렬 문제 제거, 배경/굵기까지 겹쳐 밑줄 하나에 의존하지 않음. */}
                     {isActive && (
@@ -122,7 +131,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
           <div className="flex-1 min-w-0 lg:hidden" />
 
           {/* 우측: 로그인 + 편집 모드 버튼 — 6개→2개로 축소(Task 4-B). 유저 칩·로그아웃·접속현황·
-              테마 토글·둘러보기는 전부 /me 로 이동했다(PresenceIndicator 는 /me 상단으로). */}
+              테마 토글은 전부 /me 로 이동했다(PresenceIndicator 는 /me 상단으로). 둘러보기는 삭제됐다(Task 4-A). */}
           <div className="flex items-center gap-1.5 pl-2 sm:pl-3 py-2 shrink-0">
             {!authLoading && !user && (
               <button
@@ -154,6 +163,18 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                 <Lock size={16} /><span className="hidden sm:inline">편집</span>
               </button>
             )}
+            {/* 어드민 설정 진입점(컨트롤러 자율 판단 1) — 설정이 /me 바로가기에서 빠지면서
+                모바일 어드민이 설정에 닿을 길이 없어진다. 편집/어드민 칩 옆에 아이콘 버튼으로
+                복원한다. 데스크톱 상단 탭의 '설정' 항목은 중복이 아니라 데스크톱 편의로 그대로 둔다. */}
+            {isEditMode && (
+              <Link
+                href={`${base}/settings`}
+                aria-label="리그 설정"
+                className="flex items-center justify-center w-11 h-11 rounded-md text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)] transition-colors cursor-pointer btn-press"
+              >
+                <Settings size={18} />
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -167,28 +188,37 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   const { user } = useCurrentUser()
   const base = deriveLeagueBase(pathname, orgSlug, leagueId)
 
+  // "내 기록" 탭 라벨 — 로그인 시 유저 이름(인스타 프로필 탭 패턴), 비로그인 시 가입 유도 문구.
+  // aria-label 은 라벨이 사람 이름/문구로 바뀌어도 스크린리더가 목적지(내 기록·계정 영역)를
+  // 읽을 수 있도록 고정 의미를 유지한다(Task 1-A, TabNav 와 동일 문구).
+  const meLabel = user ? (user.name?.trim() || user.login_id) : '가입하기'
+  const meAriaLabel = user ? `내 기록 — ${meLabel}` : '내 기록 — 가입하기'
+
   // 5탭 고정 — 더보기 삭제(Task 4-C). 인스타그램처럼 계정/개인 화면은 맨 오른쪽.
-  // 라커룸은 탭에서 빠졌지만 라우트는 살아있다 — 홈 탭 활성 판정에 흡수(아래 isActive).
+  // 라커룸(팀 명단·팀 구성)은 '팀/경기' 탭으로 흡수됐다(Task 1-B, 아래 isActive 참조).
   // 드래프트·설정은 하단에서 완전히 빠지고 /me 바로가기로만 닿는다(Task 4-D 참조).
-  const mainTabs = [
+  const mainTabs: { href: string; label: string; Icon: typeof Home; ariaLabel?: string }[] = [
     { href: base,                  label: '홈',      Icon: Home },
-    { href: `${base}/schedule`,    label: '경기',     Icon: Calendar },
+    { href: `${base}/schedule`,    label: '팀/경기',   Icon: Calendar },
     { href: `${base}/stats`,       label: '스탯',     Icon: BarChart2 },
     { href: `${base}/highlights`,  label: '하이라이트', Icon: Newspaper },
-    { href: `${base}/me`,          label: '내 기록',   Icon: UserIcon },
+    { href: `${base}/me`,          label: meLabel,   Icon: user ? UserIcon : UserPlus, ariaLabel: meAriaLabel },
   ]
 
   // 스탯 우산 매칭 — /stats 이면서 /awards 도 스탯 탭 활성.
-  // 홈 우산 매칭 — /archive(공지 아카이브)·/roster·/teams(라커룸, 탭에서 빠졌지만 라우트는 유지)도 홈 소속.
-  //   탭이 하나도 안 켜지면 위치를 잃으므로 반드시 홈으로 흡수한다.
-  // 경기 우산 매칭 — /schedule 이면서 /boxscore·/record 도 경기 탭 활성 (데스크톱 TabNav match 배열과 동일 반영).
-  // 내 기록 우산 매칭 — /me 자체뿐 아니라 /draft·/settings 도 여기로 흡수한다. 이 둘은 하단 탭이
-  //   따로 없고 /me 의 "바로가기"로만 진입하므로, 안 그러면 그 페이지에서 하단 탭이 전부 꺼진다.
+  // 홈 우산 매칭 — /archive(공지 아카이브)도 홈 소속. 탭이 하나도 안 켜지면 위치를 잃으므로
+  //   반드시 홈으로 흡수한다. 라커룸(/roster·/teams)은 이제 홈이 아니라 팀/경기 우산 소속이다.
+  // 팀/경기 우산 매칭 — /schedule 이면서 /boxscore·/record·/roster·/teams 도 팀/경기 탭 활성
+  //   (데스크톱 TabNav match 배열과 동일 반영, Task 1-B). 안 옮기면 /roster·/teams 에서
+  //   홈과 팀/경기 두 탭이 동시에 켜지거나, 반대로 어느 탭도 안 켜지는 문제가 생긴다.
+  // 내 기록 우산 매칭 — /me 자체뿐 아니라 /draft·/settings·/social 도 여기로 흡수한다. 셋 다 하단 탭이
+  //   따로 없고 /me 의 "바로가기"(또는 설정)로만 진입하므로, 안 그러면 그 페이지에서 하단 탭이 전부
+  //   꺼진다. /social(인스타 매거진 카드 생성기)은 설정에서만 진입하는 운영자 전용 화면(리뷰 항목 5).
   const isActive = (href: string) => {
-    if (href === base) return pathname === base || pathname.startsWith(`${base}/archive`) || pathname.startsWith(`${base}/roster`) || pathname.startsWith(`${base}/teams`)
+    if (href === base) return pathname === base || pathname.startsWith(`${base}/archive`)
     if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/awards`)
-    if (href === `${base}/schedule`) return pathname.startsWith(`${base}/schedule`) || pathname.startsWith(`${base}/boxscore`) || pathname.startsWith(`${base}/record`)
-    if (href === `${base}/me`) return pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/draft`) || pathname.startsWith(`${base}/settings`)
+    if (href === `${base}/schedule`) return pathname.startsWith(`${base}/schedule`) || pathname.startsWith(`${base}/boxscore`) || pathname.startsWith(`${base}/record`) || pathname.startsWith(`${base}/roster`) || pathname.startsWith(`${base}/teams`)
+    if (href === `${base}/me`) return pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/draft`) || pathname.startsWith(`${base}/settings`) || pathname.startsWith(`${base}/social`)
     return pathname.startsWith(href)
   }
 
@@ -197,21 +227,19 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
       {/* 하단 탭바 — 편집 모드 시 상단 얇은 노랑 라인으로 상태 힌트 */}
       <nav
         aria-label="주요 메뉴"
-        data-tour="bottom-nav"
         className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--mm-panel)]/95 backdrop-blur-md border-t ${isEditMode ? 'border-[color:var(--color-hoop-orange-500)]' : 'border-[color:var(--mm-rule)]'}`}
       >
         <div className="flex items-stretch justify-around h-14">
-          {mainTabs.map(({ href, label, Icon }) => {
+          {mainTabs.map(({ href, label, Icon, ariaLabel }) => {
             const active = isActive(href)
-            const isStatsTab = href === `${base}/stats`
             const isMeTab = href === `${base}/me`
             return (
               <Link
                 key={href}
                 href={href}
-                data-tour={isStatsTab ? 'stats-tab-mobile' : undefined}
+                aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
-                className={`relative flex-1 flex flex-col items-center justify-center gap-0.5 px-2 min-h-[56px] transition-colors ${
+                className={`relative flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 min-h-[56px] transition-colors ${
                   active ? 'text-[color:var(--mm-ink)]' : 'text-[color:var(--mm-muted)] active:text-[color:var(--mm-ink)]'
                 }`}
               >
@@ -222,7 +250,9 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
                     className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-b-full bg-[color:var(--color-hoop-orange-500)]"
                   />
                 )}
-                {/* 내 기록 탭 — 로그인 상태면 유저 사진(있으면), 없으면 lucide User (인스타 프로필 탭과 동일 패턴) */}
+                {/* 내 기록 탭 — 로그인 상태면 유저 사진(있으면 사진, 없으면 lucide User),
+                    비로그인이면 lucide UserPlus(가입 유도, mainTabs 에서 이미 Icon 을 분기함).
+                    인스타 프로필 탭과 동일 패턴. */}
                 {isMeTab && user?.photo_url ? (
                   <span className="w-[22px] h-[22px] rounded-full overflow-hidden shrink-0" style={{ border: active ? '1.5px solid var(--mm-ink)' : '1.5px solid transparent' }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -231,7 +261,9 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
                 ) : (
                   <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
                 )}
-                <span className={`text-[11px] ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
+                {/* 긴 이름이 5분할 탭(375px÷5=75px)을 깨뜨리지 않도록 내 기록 탭 라벨만 truncate.
+                    나머지 탭은 고정 짧은 한글 라벨이라 그대로 둔다. */}
+                <span className={`text-[11px] leading-tight max-w-full ${isMeTab ? 'truncate px-0.5' : ''} ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
               </Link>
             )
           })}

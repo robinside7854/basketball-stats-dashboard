@@ -9,7 +9,6 @@ import type { ReactNode } from 'react'
 interface Props {
   variant?: 'stack' | 'standalone'
   emphasized?: boolean
-  dataTour?: string
   ariaLabel?: string
   className?: string
   background?: string  // CSS color; default var(--mm-panel)
@@ -19,7 +18,6 @@ interface Props {
 export default function SectionCard({
   variant = 'stack',
   emphasized = false,
-  dataTour,
   ariaLabel,
   className = '',
   background = 'var(--mm-panel)',
@@ -33,7 +31,6 @@ export default function SectionCard({
   // border-radius 클리핑을 그대로 따르게 한다.
   return (
     <section
-      data-tour={dataTour}
       aria-label={ariaLabel}
       className={`mm-brand ${className}`}
       style={{
