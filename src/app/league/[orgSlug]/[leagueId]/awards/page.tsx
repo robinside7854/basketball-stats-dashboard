@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { Trophy, Crown, Flame, Shield, Zap, Target, Sparkles, Award, Hand, Crosshair, Heart, Users, Layers } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
+import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import StatGate from '@/components/league/auth/StatGate'
 
@@ -208,11 +209,8 @@ export default function AwardsPage() {
     }
   }, [awards, loading])
 
-  const groupTabs = [
-    { href: `${base}/stats`, label: '리더보드', active: false },
-    { href: `${base}/stats?tab=seasonHigh`, label: '시즌하이', active: false },
-    { href: `${base}/awards`, label: '어워즈', active: true },
-  ]
+  // 배열은 공유 헬퍼(statsTabs.ts)에서 가져온다 — stats/awards/roster/teams 4곳 복제 방지.
+  const groupTabs = getStatsGroupTabs(base, 'awards')
 
   if (gated) {
     return <StatGate fullPage title="어워즈는 회원 전용" description="분기별 어워즈·수상 기록은 가입 승인된 회원만 볼 수 있어요." />
@@ -220,7 +218,7 @@ export default function AwardsPage() {
 
   return (
     <div className="mm-brand space-y-5 lg:space-y-6" style={{ color: 'var(--mm-ink)' }}>
-      {/* 스탯 우산 서브탭 — 리더보드 · 시즌하이 · 어워즈 */}
+      {/* 스탯 우산 서브탭 — 리더보드 · 시즌하이 · 어워즈 · 선수 명단 · 팀 순위 */}
       <LeagueGroupTabs tabs={groupTabs} />
 
       {/* 헤더 — E안: 흰 패널 + 검정 잉크 */}

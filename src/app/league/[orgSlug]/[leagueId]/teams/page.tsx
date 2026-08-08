@@ -1,5 +1,6 @@
 'use client'
-import LeagueSubTabs from '@/components/league/LeagueSubTabs'
+import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
+import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { useState, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { useParams } from 'next/navigation'
@@ -1042,6 +1043,7 @@ export default function LeagueTeamsPage() {
   }, [allStats, teamStatsApi])
 
   const rosterHref = `/league/${orgSlug}/${leagueId}/roster`
+  const base = `/league/${orgSlug}/${leagueId}`
 
   if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={32} /></div>
 
@@ -1056,10 +1058,11 @@ export default function LeagueTeamsPage() {
 
   return (
     <div className="mm-brand space-y-6">
-      <LeagueSubTabs group="games" />
+      {/* 스탯 우산 서브탭 — 리더보드 · 시즌하이 · 어워즈 · 선수 명단 · 팀 순위 (2026-08-08 이동) */}
+      <LeagueGroupTabs tabs={getStatsGroupTabs(base, 'teams')} />
       {/* ── 분기 버튼 탭 ── */}
       <div>
-        <h2 className="font-bold mb-4" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀 구성</h2>
+        <h2 className="font-bold mb-4" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀 순위</h2>
         <div className="flex flex-wrap gap-2">
           {/* 전체 버튼 */}
           <button

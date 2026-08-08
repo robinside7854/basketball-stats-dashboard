@@ -13,6 +13,7 @@ const PlayerCompareModal = dynamic(() => import('@/components/league/PlayerCompa
 import StatHeader from '@/components/league/StatHeader'
 import { PercentBar } from '@/components/league/StatCell'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
+import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import type { Quarter, PlayerStat } from '@/types/league'
@@ -463,13 +464,11 @@ function LeagueStatsPageInner() {
   }, [topFiveActive, statMode, sortKey, shootSortKey, advSortKey, players, effectiveMinGP, viewMode, statUnit])
 
   const base = `/league/${orgSlug}/${leagueId}`
-  // 리더보드·시즌하이는 ?tab= 쿼리로 이 페이지 안 상태만 바꾸고,
-  // 어워즈는 정식 서브탭(다른 라우트)이다 (2026-08-08 — 플레이 맵 삭제, 어워즈 승격).
-  const groupTabs = [
-    { href: `${base}/stats`, label: '리더보드', active: statMode !== 'seasonHigh' },
-    { href: `${base}/stats?tab=seasonHigh`, label: '시즌하이', active: statMode === 'seasonHigh' },
-    { href: `${base}/awards`, label: '어워즈', active: false },
-  ]
+  // 리더보드·시즌하이는 ?tab= 쿼리로 이 페이지 안 상태만 바꾸고, 나머지 3개는 정식 서브탭(다른 라우트)이다
+  // (2026-08-08 — 플레이 맵 삭제, 어워즈 승격 / 선수 명단·팀 순위를 스탯 우산으로 이동).
+  // 배열은 공유 헬퍼(statsTabs.ts)에서 가져온다 — stats/awards/roster/teams 4곳에 배열이
+  // 복제되면 한 곳이 빠질 때 그 화면만 탭이 달라지는 사고가 난다.
+  const groupTabs = getStatsGroupTabs(base, statMode === 'seasonHigh' ? 'seasonHigh' : 'leaderboard')
 
   if (gated) {
     return <StatGate fullPage title="스탯은 회원 전용" description="시즌 스탯·리더보드·시즌하이·어워즈는 가입 승인된 회원만 볼 수 있어요." />
@@ -477,7 +476,7 @@ function LeagueStatsPageInner() {
 
   return (
     <div className="mm-brand space-y-5">
-      {/* 스탯 우산 서브탭 — 리더보드 · 시즌하이 · 어워즈 */}
+      {/* 스탯 우산 서브탭 — 리더보드 · 시즌하이 · 어워즈 · 선수 명단 · 팀 순위 */}
       <LeagueGroupTabs tabs={groupTabs} />
 
       {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}

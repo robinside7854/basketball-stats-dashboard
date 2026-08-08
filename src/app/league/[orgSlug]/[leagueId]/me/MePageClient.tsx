@@ -4,7 +4,8 @@
 //   비로그인: LoginTeaser(홈 위젯과 달리 닫기 없이 항상 노출 — 여기가 목적지이므로)
 //   로그인: PersonalDashboard 를 그대로 재사용(새로 만들지 않음)
 //   바로가기: 내 하이라이트(로그인 시만, D5→D3 해소 지점) · 드래프트(진행 중)
-//     — 팀 명단·팀 구성은 '팀/경기' 탭으로, 설정은 상단 바 어드민 버튼으로 이동했다(둘 다 여기서 제거).
+//     — 선수 명단·팀 순위는 스탯 탭으로, 설정은 상단 바 어드민 버튼으로 이동했다(둘 다 여기서 제거,
+//       2026-08-08 stats-umbrella-move 기준 갱신).
 //   계정: 라이트/다크 · 로그아웃 — 둘러보기 버튼은 기능 자체가 삭제되어 함께 제거했다(Task 4-A).
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -67,8 +68,8 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
         <LoginTeaser />
       )}
 
-      {/* 바로가기 — 팀 명단·팀 구성은 '팀/경기' 탭으로, 설정은 상단 바 어드민 버튼으로 옮겨졌다
-          (Task 4-B). 남는 항목이 하나도 없으면(비로그인 + 드래프트 없음) 빈 카드를 렌더하지 않는다. */}
+      {/* 바로가기 — 선수 명단·팀 순위는 스탯 탭으로, 설정은 상단 바 어드민 버튼으로 옮겨졌다
+          (Task 4-B, 2026-08-08 갱신). 남는 항목이 하나도 없으면(비로그인 + 드래프트 없음) 빈 카드를 렌더하지 않는다. */}
       {(user || showDraft) && (
         <SectionCard variant="standalone">
           {user && (
