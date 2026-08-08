@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { BarChart2, ChevronRight } from 'lucide-react'
+import { BarChart2, ChevronRight, CalendarOff } from 'lucide-react'
 import type { LeagueGame } from '@/types/league'
 
 interface Props {
@@ -29,15 +29,27 @@ export default function LeagueSchedule({ games, leagueId, limit, orgSlug }: Prop
     if (!dateMap[g.date]) dateMap[g.date] = []
     dateMap[g.date].push(g)
   }
-  // 완료 경기 있는 날짜 → 최신순, 나머지(예정) → 가장 가까운 미래 순
+  // 그 날 실제로 진행된 경기(시작했거나 완료된 슬롯). 빈 슬롯은 여기 안 들어온다.
+  const recordedOf = (d: string) => dateMap[d].filter(g => g.is_started || g.is_complete)
+
+  // 지나갔는데 진행된 경기가 하나도 없는 날 = 미실시.
+  //   대관이 안 잡힌 토요일이거나, 슬롯만 만들어 두고 영상이 없어 기록을 안 한 날이다.
+  //   예전에는 이런 날이 "완료 경기 없음" 이라는 이유로 upcoming 에 섞여 **오름차순 맨 앞**에
+  //   왔다 — 몇 달 지난 날짜가 "예정" 배지를 달고 다음 경기인 것처럼 보였다.
+  //   그래서 별도로 분리해 맨 뒤로 보내고, 진행률(완료/진행) 계산에서도 빼 둔다.
   const allDates = Object.keys(dateMap)
+  const isSkippedDate = (d: string) => d < today && recordedOf(d).length === 0
+
   const completedDates = allDates
     .filter(d => dateMap[d].some(g => g.is_complete))
     .sort((a, b) => b.localeCompare(a))
   const upcomingDates = allDates
-    .filter(d => !dateMap[d].some(g => g.is_complete))
+    .filter(d => !dateMap[d].some(g => g.is_complete) && !isSkippedDate(d))
     .sort((a, b) => a.localeCompare(b))
-  const sorted = [...completedDates, ...upcomingDates]
+  const skippedDates = allDates
+    .filter(d => !dateMap[d].some(g => g.is_complete) && isSkippedDate(d))
+    .sort((a, b) => b.localeCompare(a))
+  const sorted = [...completedDates, ...upcomingDates, ...skippedDates]
   const displayed = limit ? sorted.slice(0, limit) : sorted
 
   if (displayed.length === 0) {
@@ -73,7 +85,38 @@ export default function LeagueSchedule({ games, leagueId, limit, orgSlug }: Prop
           const teamRows = Object.values(teamRecord).sort((a, b) => (b.w*3+b.d) - (a.w*3+a.d) || a.l - b.l)
 
           const isToday = date === today
-          const allUpcoming = !hasCompleted
+          const isSkipped = isSkippedDate(date)
+          // 미실시 날은 "예정" 이 아니다 — 배지·문구·클릭 가능 여부를 따로 잡는다.
+          const allUpcoming = !hasCompleted && !isSkipped
+
+          // 미실시 날은 박스스코어에 보여줄 게 없다. 링크를 걸면 빈 화면으로 보내고,
+          // 호버 리프트까지 있으면 "누를 수 있다"는 잘못된 신호가 된다(DESIGN.md 규칙).
+          if (isSkipped) {
+            return (
+              <div
+                key={date}
+                className="block w-full text-left rounded-sm px-4 py-3.5 lg:px-5 lg:py-4 bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)]"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 lg:gap-4">
+                  <div className="flex items-center gap-2.5 lg:gap-3 shrink-0 min-w-0">
+                    <CalendarOff size={14} className="lg:w-4 lg:h-4 text-[color:var(--mm-muted)] shrink-0" aria-hidden />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-base lg:text-lg font-bold whitespace-nowrap text-[color:var(--mm-muted)]">{formatDate(date)}</p>
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded text-[color:var(--mm-muted)] bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)]">
+                          미실시
+                        </span>
+                      </div>
+                      <p className="text-xs lg:text-sm text-[color:var(--mm-muted)] mt-0.5 whitespace-nowrap">
+                        슬롯 {dayGames.length}개 · 진행한 경기 없음
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
           return (
             <Link
               key={date}
@@ -123,7 +166,10 @@ export default function LeagueSchedule({ games, leagueId, limit, orgSlug }: Prop
                           <span className="text-xs lg:text-base font-bold text-[color:var(--mm-ink)] tabular-nums">
                             {t.w}W {t.d > 0 ? <span className="text-[color:var(--mm-yellow-strong)]">{t.d}D </span> : ''}{t.l}L
                           </span>
-                          <span className="text-xs lg:text-base font-bold tabular-nums" style={{ color: winPct >= 50 ? '#059669' : '#DC2626' }}>
+                          <span
+                            className="text-xs lg:text-base font-bold tabular-nums"
+                            style={{ color: winPct >= 50 ? 'var(--mm-positive)' : 'var(--mm-negative)' }}
+                          >
                             {winPct}%
                           </span>
                         </div>
