@@ -30,12 +30,6 @@ function buildLinks(base: string) {
         { label: '공지 아카이브', href: `${base}/archive/announcements`, Icon: Megaphone, desc: '지난 공지 전체' },
       ],
     },
-    {
-      group: '기타',
-      items: [
-        { label: '둘러보기(Tour)', href: `${base}?tour=1`, Icon: MapPin, desc: '인터랙티브 안내 다시보기' },
-      ],
-    },
   ]
 }
 

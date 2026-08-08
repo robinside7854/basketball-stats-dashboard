@@ -70,7 +70,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
       : (tab.match.length ? tab.match.some(m => pathname.startsWith(m)) : pathname.startsWith(tab.href))
 
   return (
-    <div data-tour="top-nav" className="sticky top-0 z-10 bg-[color:var(--mm-panel)] border-b border-[color:var(--mm-rule)]">
+    <div className="sticky top-0 z-10 bg-[color:var(--mm-panel)] border-b border-[color:var(--mm-rule)]">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
         <div className="flex items-center">
           {/* 좌측: 리그/팀 이름 — 홈 링크. 모바일에서 예전 '현재 페이지 제목' 자리를 대체하고,
@@ -95,14 +95,11 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
             <div className="flex items-stretch gap-1 overflow-x-auto scrollbar-hide w-full">
               {tabs.map(tab => {
                 const isActive = tabActive(tab)
-                // 튜어 target — 스탯 탭에만 data-tour 부여
-                const tourAttr = tab.href === `${base}/stats` ? 'stats-tab' : undefined
                 const isMeTab = tab.href === `${base}/me`
                 return (
                   <Link
                     key={tab.href}
                     href={tab.href}
-                    data-tour={tourAttr}
                     aria-label={tab.ariaLabel}
                     aria-current={isActive ? 'page' : undefined}
                     className={`relative shrink-0 flex items-center min-w-0 px-3 lg:px-4 py-3.5 lg:py-4 text-sm lg:text-base rounded-t-md transition-colors duration-200 ${
@@ -132,7 +129,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
           <div className="flex-1 min-w-0 lg:hidden" />
 
           {/* 우측: 로그인 + 편집 모드 버튼 — 6개→2개로 축소(Task 4-B). 유저 칩·로그아웃·접속현황·
-              테마 토글·둘러보기는 전부 /me 로 이동했다(PresenceIndicator 는 /me 상단으로). */}
+              테마 토글은 전부 /me 로 이동했다(PresenceIndicator 는 /me 상단으로). 둘러보기는 삭제됐다(Task 4-A). */}
           <div className="flex items-center gap-1.5 pl-2 sm:pl-3 py-2 shrink-0">
             {!authLoading && !user && (
               <button
@@ -227,19 +224,16 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
       {/* 하단 탭바 — 편집 모드 시 상단 얇은 노랑 라인으로 상태 힌트 */}
       <nav
         aria-label="주요 메뉴"
-        data-tour="bottom-nav"
         className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--mm-panel)]/95 backdrop-blur-md border-t ${isEditMode ? 'border-[color:var(--color-hoop-orange-500)]' : 'border-[color:var(--mm-rule)]'}`}
       >
         <div className="flex items-stretch justify-around h-14">
           {mainTabs.map(({ href, label, Icon, ariaLabel }) => {
             const active = isActive(href)
-            const isStatsTab = href === `${base}/stats`
             const isMeTab = href === `${base}/me`
             return (
               <Link
                 key={href}
                 href={href}
-                data-tour={isStatsTab ? 'stats-tab-mobile' : undefined}
                 aria-label={ariaLabel}
                 aria-current={active ? 'page' : undefined}
                 className={`relative flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 px-1 min-h-[56px] transition-colors ${

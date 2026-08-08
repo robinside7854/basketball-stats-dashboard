@@ -164,7 +164,7 @@ export default function AnnouncementsHome({ leagueId, initialAnnouncements, orgS
   if (items.length === 0 && !isEditMode) return null
 
   return (
-    <SectionCard variant="standalone" dataTour="announcements" ariaLabel="리그 공지" emphasized>
+    <SectionCard variant="standalone" ariaLabel="리그 공지" emphasized>
       <header
         className="flex items-center justify-between gap-2 px-4 sm:px-6 md:px-10 py-3 sm:py-4"
         style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
