@@ -887,13 +887,15 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
     }
   }, [selectedSlotId, leagueId, leagueHeaders]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 비정규 선수를 홈/어웨이 팀에 추가 (해당 날짜 경기에만 유효)
+  // 비정규 선수를 홈/어웨이 팀에 추가 (이 경기 하나에만 유효 — 다른 경기에 뛰면 그 경기에서 따로 지정)
   async function addIrregularToTeam(player: IrregularPlayer, side: 'home' | 'away') {
     if (!selectedSlotId) { toast.error('경기를 선택하세요'); return }
     const teamId = side === 'home' ? selectedSlot?.home_team_id : selectedSlot?.away_team_id
     if (!teamId) { toast.error('팀이 지정되지 않았습니다'); return }
     setAddingIrregular(true)
-    // 경기별 배정 (league_game_players) — 같은 날짜 같은 팀 경기에도 자동 배정
+    // 경기별 배정 (league_game_players) — 이 경기(selectedSlotId)에만 배정된다.
+    //   (2026-08-08 사고: 예전엔 서버에서 같은 날짜·같은 팀 경기에도 자동 배정했다 —
+    //    정규 선수가 다른 팀 게스트로 한 경기 뛰면 그날 전체 소속이 바뀌는 사고로 이어져 제거함.)
     const res = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/irregular-players`, {
       method: 'POST',
       headers: leagueHeaders,
