@@ -1,5 +1,6 @@
 'use client'
-import LeagueSubTabs from '@/components/league/LeagueSubTabs'
+import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
+import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
@@ -164,8 +165,9 @@ function calcAgeNum(dateStr: string | null): number {
 }
 
 export default function LeagueRosterPage() {
-  const params = useParams<{ leagueId: string }>()
-  const { leagueId } = params
+  const params = useParams<{ orgSlug: string; leagueId: string }>()
+  const { orgSlug, leagueId } = params
+  const base = `/league/${orgSlug}/${leagueId}`
   const { isEditMode, leagueHeaders, openPinModal } = useLeagueEditMode()
 
   const [players, setPlayers] = useState<LeaguePlayer[]>([])
@@ -592,7 +594,8 @@ export default function LeagueRosterPage() {
 
   return (
     <div className="space-y-4 lg:space-y-5">
-      <LeagueSubTabs group="games" />
+      {/* 스탯 우산 서브탭 — 리더보드 · 시즌하이 · 어워즈 · 선수 명단 · 팀 순위 (2026-08-08 이동) */}
+      <LeagueGroupTabs tabs={getStatsGroupTabs(base, 'roster')} />
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>

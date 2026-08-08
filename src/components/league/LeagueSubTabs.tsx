@@ -2,16 +2,13 @@
 import { usePathname, useParams } from 'next/navigation'
 import Link from 'next/link'
 
-// squad(선수 명단·팀 구성) 그룹은 '팀/경기' 우산으로 흡수됐다(Task 1-B, 2026-08-08).
-// games 5개가 좁은 화면에서 넘치므로 가로 스크롤 컨테이너로 감싼다 — 페이지 본문은 그대로 두고
-// 이 탭 바 안에서만 스크롤되게 한다(LeagueGroupTabs 와 동일 패턴).
+// 선수 명단(/roster)·팀 순위(/teams)는 스탯 우산으로 옮겨졌다(2026-08-08, stats-umbrella-move).
+// games 그룹은 원래대로 경기 3개만 — LeagueGroupTabs(스탯 우산)와 역할이 겹치지 않는다.
 const GROUPS: Record<string, { seg: string; label: string }[]> = {
   games: [
     { seg: 'schedule', label: '일정' },
     { seg: 'boxscore', label: '박스스코어' },
     { seg: 'record', label: '경기 기록' },
-    { seg: 'roster', label: '팀 명단' },
-    { seg: 'teams', label: '팀 구성' },
   ],
 }
 
@@ -29,7 +26,7 @@ export default function LeagueSubTabs({ group }: { group: 'games' }) {
   return (
     <nav
       className="mb-4 -mx-2 sm:mx-0 overflow-x-auto scrollbar-hide border-b border-[color:var(--mm-rule)]"
-      aria-label="팀/경기 서브 메뉴"
+      aria-label="경기 서브 메뉴"
     >
       <div className="flex items-center gap-1 px-2 sm:px-0 whitespace-nowrap">
         {items.map(t => {

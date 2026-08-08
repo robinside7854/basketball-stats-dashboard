@@ -45,16 +45,17 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   const meLabel = user ? (user.name?.trim() || user.login_id) : '가입하기'
   const meAriaLabel = user ? `내 기록 — ${meLabel}` : '내 기록 — 가입하기'
 
-  // 상위 메뉴 — 라커룸(팀 명단·팀 구성)을 '팀/경기' 우산으로 흡수(Task 1-B), 스탯 우산에 어워즈,
-  // 하이라이트 우산에 공지 아카이브 통합. URL 은 그대로 유지(SEO/기존 링크 보존).
+  // 상위 메뉴 — 선수 명단·팀 순위는 스탯 우산으로 이동, 경기 탭은 원래대로 경기 3개만 남는다
+  // (2026-08-08, stats-umbrella-move — 직전 커밋의 '팀/경기' 통합을 되돌림). 하이라이트 우산에
+  // 공지 아카이브 통합. URL 은 그대로 유지(SEO/기존 링크 보존).
   // 설정 탭은 편집 모드일 때만 나비게이션에 노출(어드민 은닉) —
   //   URL 직접 접근은 여전히 가능하므로, 진짜 어드민 전용화가 필요하면 별도 이슈로 서버 가드 필요.
   // "내 기록"은 항상 맨 오른쪽 — 드래프트/설정은 기존 위치(하이라이트 다음)를 유지한다(Task 4-B).
   // Stathead 는 2026-07-19 삭제 (사용 미미).
   const tabs: { href: string; label: string; match: string[]; ariaLabel?: string }[] = [
     { href: base, label: '홈', match: [] },
-    { href: `${base}/schedule`, label: '팀/경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`, `${base}/roster`, `${base}/teams`] },
-    { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`] },
+    { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`] },
+    { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`, `${base}/roster`, `${base}/teams`] },
     { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
     ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', match: [`${base}/settings`] }] : []),
@@ -64,8 +65,8 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   ]
   // 공지 아카이브(/archive)는 홈 우산 소속(영상이 아니라 소식) — 홈 탭은 완전일치가 아니라
   // /archive 로 시작하는 경로도 활성으로 잡아야 아카이브에서 인디케이터가 꺼지지 않는다.
-  // 라커룸(/roster·/teams) 은 '팀/경기' 탭의 match 배열로 옮겨졌다(위 tabs 참조) — 홈 판정에서는
-  // 반드시 빠져야 두 탭이 동시에 켜지는 걸 막는다(Task 1-B).
+  // 선수 명단·팀 순위(/roster·/teams)는 스탯 탭의 match 배열로 옮겨졌다(위 tabs 참조, 2026-08-08) —
+  // 경기 탭 match 에서는 반드시 빠져야 두 탭이 동시에 켜지는 걸 막는다.
   const tabActive = (tab: { href: string; match: string[] }) =>
     tab.href === base
       ? (pathname === base || pathname.startsWith(`${base}/archive`))
@@ -195,29 +196,29 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   const meAriaLabel = user ? `내 기록 — ${meLabel}` : '내 기록 — 가입하기'
 
   // 5탭 고정 — 더보기 삭제(Task 4-C). 인스타그램처럼 계정/개인 화면은 맨 오른쪽.
-  // 라커룸(팀 명단·팀 구성)은 '팀/경기' 탭으로 흡수됐다(Task 1-B, 아래 isActive 참조).
+  // 선수 명단·팀 순위는 스탯 탭으로 이동(2026-08-08, 아래 isActive 참조) — 경기 탭은 원래대로 경기만.
   // 드래프트·설정은 하단에서 완전히 빠지고 /me 바로가기로만 닿는다(Task 4-D 참조).
   const mainTabs: { href: string; label: string; Icon: typeof Home; ariaLabel?: string }[] = [
     { href: base,                  label: '홈',      Icon: Home },
-    { href: `${base}/schedule`,    label: '팀/경기',   Icon: Calendar },
+    { href: `${base}/schedule`,    label: '경기',     Icon: Calendar },
     { href: `${base}/stats`,       label: '스탯',     Icon: BarChart2 },
     { href: `${base}/highlights`,  label: '하이라이트', Icon: Newspaper },
     { href: `${base}/me`,          label: meLabel,   Icon: user ? UserIcon : UserPlus, ariaLabel: meAriaLabel },
   ]
 
-  // 스탯 우산 매칭 — /stats 이면서 /awards 도 스탯 탭 활성.
+  // 스탯 우산 매칭 — /stats·/awards 뿐 아니라 /roster·/teams(선수 명단·팀 순위)도 스탯 탭 활성
+  //   (2026-08-08, 데스크톱 TabNav match 배열과 동일 반영). 안 옮기면 /roster·/teams 에서
+  //   홈과 스탯 두 탭이 동시에 켜지거나, 반대로 어느 탭도 안 켜지는 문제가 생긴다.
   // 홈 우산 매칭 — /archive(공지 아카이브)도 홈 소속. 탭이 하나도 안 켜지면 위치를 잃으므로
-  //   반드시 홈으로 흡수한다. 라커룸(/roster·/teams)은 이제 홈이 아니라 팀/경기 우산 소속이다.
-  // 팀/경기 우산 매칭 — /schedule 이면서 /boxscore·/record·/roster·/teams 도 팀/경기 탭 활성
-  //   (데스크톱 TabNav match 배열과 동일 반영, Task 1-B). 안 옮기면 /roster·/teams 에서
-  //   홈과 팀/경기 두 탭이 동시에 켜지거나, 반대로 어느 탭도 안 켜지는 문제가 생긴다.
+  //   반드시 홈으로 흡수한다.
+  // 경기 우산 매칭 — /schedule 이면서 /boxscore·/record 도 경기 탭 활성.
   // 내 기록 우산 매칭 — /me 자체뿐 아니라 /draft·/settings·/social 도 여기로 흡수한다. 셋 다 하단 탭이
   //   따로 없고 /me 의 "바로가기"(또는 설정)로만 진입하므로, 안 그러면 그 페이지에서 하단 탭이 전부
   //   꺼진다. /social(인스타 매거진 카드 생성기)은 설정에서만 진입하는 운영자 전용 화면(리뷰 항목 5).
   const isActive = (href: string) => {
     if (href === base) return pathname === base || pathname.startsWith(`${base}/archive`)
-    if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/awards`)
-    if (href === `${base}/schedule`) return pathname.startsWith(`${base}/schedule`) || pathname.startsWith(`${base}/boxscore`) || pathname.startsWith(`${base}/record`) || pathname.startsWith(`${base}/roster`) || pathname.startsWith(`${base}/teams`)
+    if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/awards`) || pathname.startsWith(`${base}/roster`) || pathname.startsWith(`${base}/teams`)
+    if (href === `${base}/schedule`) return pathname.startsWith(`${base}/schedule`) || pathname.startsWith(`${base}/boxscore`) || pathname.startsWith(`${base}/record`)
     if (href === `${base}/me`) return pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/draft`) || pathname.startsWith(`${base}/settings`) || pathname.startsWith(`${base}/social`)
     return pathname.startsWith(href)
   }
