@@ -218,7 +218,7 @@ export default function AwardsPage() {
 
   return (
     <div className="mm-brand space-y-5 lg:space-y-6" style={{ color: 'var(--mm-ink)' }}>
-      {/* 스탯 우산 서브탭 — 리더보드 · 시즌하이 · 어워즈 · 선수 명단 · 팀 순위 */}
+      {/* 스탯 우산 서브탭 — 리더보드 · 어워즈 · 선수 명단 · 팀 순위 (2026-08-09 시즌하이 흡수) */}
       <LeagueGroupTabs tabs={groupTabs} />
 
       {/* 헤더 — E안: 흰 패널 + 검정 잉크 */}

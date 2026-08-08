@@ -1058,7 +1058,7 @@ export default function LeagueTeamsPage() {
 
   return (
     <div className="mm-brand space-y-6">
-      {/* 스탯 우산 서브탭 — 리더보드 · 시즌하이 · 어워즈 · 선수 명단 · 팀 순위 (2026-08-08 이동) */}
+      {/* 스탯 우산 서브탭 — 리더보드 · 어워즈 · 선수 명단 · 팀 순위 (2026-08-08 이동, 2026-08-09 시즌하이 흡수) */}
       <LeagueGroupTabs tabs={getStatsGroupTabs(base, 'teams')} />
       {/* ── 분기 버튼 탭 ── */}
       <div>

@@ -594,7 +594,7 @@ export default function LeagueRosterPage() {
 
   return (
     <div className="space-y-4 lg:space-y-5">
-      {/* 스탯 우산 서브탭 — 리더보드 · 시즌하이 · 어워즈 · 선수 명단 · 팀 순위 (2026-08-08 이동) */}
+      {/* 스탯 우산 서브탭 — 리더보드 · 어워즈 · 선수 명단 · 팀 순위 (2026-08-08 이동, 2026-08-09 시즌하이 흡수) */}
       <LeagueGroupTabs tabs={getStatsGroupTabs(base, 'roster')} />
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-2">
