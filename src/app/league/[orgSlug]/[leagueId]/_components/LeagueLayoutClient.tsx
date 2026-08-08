@@ -58,7 +58,9 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
     { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
     ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', match: [`${base}/settings`] }] : []),
-    { href: `${base}/me`, label: meLabel, match: [`${base}/me`], ariaLabel: meAriaLabel },
+    // /social(인스타 매거진 카드 생성기)은 설정에서만 진입하는 운영자 전용 화면이라 자체 탭이 없다 —
+    // '내 기록' 탭 match 에 흡수해 어느 탭도 안 켜지는 상태를 막는다(리뷰 항목 5, 2026-08-08).
+    { href: `${base}/me`, label: meLabel, match: [`${base}/me`, `${base}/social`], ariaLabel: meAriaLabel },
   ]
   // 공지 아카이브(/archive)는 홈 우산 소속(영상이 아니라 소식) — 홈 탭은 완전일치가 아니라
   // /archive 로 시작하는 경로도 활성으로 잡아야 아카이브에서 인디케이터가 꺼지지 않는다.
@@ -209,13 +211,14 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   // 팀/경기 우산 매칭 — /schedule 이면서 /boxscore·/record·/roster·/teams 도 팀/경기 탭 활성
   //   (데스크톱 TabNav match 배열과 동일 반영, Task 1-B). 안 옮기면 /roster·/teams 에서
   //   홈과 팀/경기 두 탭이 동시에 켜지거나, 반대로 어느 탭도 안 켜지는 문제가 생긴다.
-  // 내 기록 우산 매칭 — /me 자체뿐 아니라 /draft·/settings 도 여기로 흡수한다. 이 둘은 하단 탭이
-  //   따로 없고 /me 의 "바로가기"로만 진입하므로, 안 그러면 그 페이지에서 하단 탭이 전부 꺼진다.
+  // 내 기록 우산 매칭 — /me 자체뿐 아니라 /draft·/settings·/social 도 여기로 흡수한다. 셋 다 하단 탭이
+  //   따로 없고 /me 의 "바로가기"(또는 설정)로만 진입하므로, 안 그러면 그 페이지에서 하단 탭이 전부
+  //   꺼진다. /social(인스타 매거진 카드 생성기)은 설정에서만 진입하는 운영자 전용 화면(리뷰 항목 5).
   const isActive = (href: string) => {
     if (href === base) return pathname === base || pathname.startsWith(`${base}/archive`)
     if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/awards`)
     if (href === `${base}/schedule`) return pathname.startsWith(`${base}/schedule`) || pathname.startsWith(`${base}/boxscore`) || pathname.startsWith(`${base}/record`) || pathname.startsWith(`${base}/roster`) || pathname.startsWith(`${base}/teams`)
-    if (href === `${base}/me`) return pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/draft`) || pathname.startsWith(`${base}/settings`)
+    if (href === `${base}/me`) return pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/draft`) || pathname.startsWith(`${base}/settings`) || pathname.startsWith(`${base}/social`)
     return pathname.startsWith(href)
   }
 

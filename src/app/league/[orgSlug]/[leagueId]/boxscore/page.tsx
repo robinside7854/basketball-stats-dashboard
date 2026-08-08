@@ -138,12 +138,11 @@ export default async function BoxscoreIndexPage({
       <LeagueSubTabs group="games" />
 
       {quarterList.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-wrap" role="tablist" aria-label="분기 필터">
+        <nav className="flex items-center gap-1.5 flex-wrap" aria-label="분기 필터">
           <Link
             href={buildHref(1, null)}
-            role="tab"
-            aria-selected={selectedQuarterId === null}
-            className="inline-flex items-center justify-center px-4 py-2 min-h-[44px] min-w-[44px] text-[11px] font-black tracking-widest uppercase transition-colors cursor-pointer"
+            aria-current={selectedQuarterId === null ? 'page' : undefined}
+            className="inline-flex items-center justify-center px-4 py-2 min-h-[44px] min-w-[44px] text-[11px] font-black tracking-widest uppercase transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
             style={{
               background: selectedQuarterId === null ? 'var(--mm-yellow)' : 'var(--mm-panel)',
               color: selectedQuarterId === null ? 'var(--mm-black)' : 'var(--mm-muted)',
@@ -159,9 +158,8 @@ export default async function BoxscoreIndexPage({
               <Link
                 key={q.id}
                 href={buildHref(1, q.id)}
-                role="tab"
-                aria-selected={active}
-                className="inline-flex items-center justify-center px-4 py-2 min-h-[44px] min-w-[44px] text-[11px] font-black tracking-widest uppercase transition-colors cursor-pointer"
+                aria-current={active ? 'page' : undefined}
+                className="inline-flex items-center justify-center px-4 py-2 min-h-[44px] min-w-[44px] text-[11px] font-black tracking-widest uppercase transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                 style={{
                   background: active ? 'var(--mm-yellow)' : 'var(--mm-panel)',
                   color: active ? 'var(--mm-black)' : 'var(--mm-muted)',
@@ -173,7 +171,7 @@ export default async function BoxscoreIndexPage({
               </Link>
             )
           })}
-        </div>
+        </nav>
       )}
 
       {rows.length === 0 ? (
@@ -193,7 +191,7 @@ export default async function BoxscoreIndexPage({
               <Link
                 key={row.date}
                 href={`${basePath}/${row.date}`}
-                className="flex items-center justify-between gap-3 px-4 sm:px-5 py-4 transition-colors duration-200 cursor-pointer hover:bg-[color:var(--mm-panel-alt)]"
+                className="flex items-center justify-between gap-3 px-4 sm:px-5 py-4 transition-colors duration-200 cursor-pointer hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                 style={{
                   background: 'var(--mm-panel)',
                   border: '1px solid var(--mm-rule)',
@@ -230,20 +228,22 @@ export default async function BoxscoreIndexPage({
             ))}
           </div>
 
-          {/* 페이지네이션 — 최근 5일씩, ?page= 서버 처리. 경계에서 시각(opacity/cursor)·의미(aria-disabled) 양쪽 비활성. */}
+          {/* 페이지네이션 — 최근 5일씩, ?page= 서버 처리. 경계에서 비대화형 span 대신 실제
+              disabled 버튼으로 비활성 상태를 시각·의미 양쪽 스크린리더에 전달한다. */}
           <div className="flex items-center justify-between gap-3 pt-1">
             {prevDisabled ? (
-              <span
-                aria-disabled="true"
+              <button
+                type="button"
+                disabled
                 className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-4 text-[12px] font-bold uppercase tracking-widest opacity-40 cursor-not-allowed select-none"
-                style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)' }}
+                style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)', background: 'transparent' }}
               >
                 <ChevronLeft size={14} aria-hidden />이전
-              </span>
+              </button>
             ) : (
               <Link
                 href={buildHref(pageNum - 1, selectedQuarterId)}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-4 text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+                className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-4 text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                 style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}
               >
                 <ChevronLeft size={14} aria-hidden />이전
@@ -255,17 +255,18 @@ export default async function BoxscoreIndexPage({
             </span>
 
             {nextDisabled ? (
-              <span
-                aria-disabled="true"
+              <button
+                type="button"
+                disabled
                 className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-4 text-[12px] font-bold uppercase tracking-widest opacity-40 cursor-not-allowed select-none"
-                style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)' }}
+                style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: 'var(--mm-radius-ctl)', background: 'transparent' }}
               >
                 다음<ChevronRight size={14} aria-hidden />
-              </span>
+              </button>
             ) : (
               <Link
                 href={buildHref(pageNum + 1, selectedQuarterId)}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-4 text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+                className="inline-flex items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] px-4 text-[12px] font-bold uppercase tracking-widest cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                 style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: 'var(--mm-radius-ctl)' }}
               >
                 다음<ChevronRight size={14} aria-hidden />

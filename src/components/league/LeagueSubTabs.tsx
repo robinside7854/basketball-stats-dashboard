@@ -27,9 +27,8 @@ export default function LeagueSubTabs({ group }: { group: 'games' }) {
   const items = GROUPS[group]
 
   return (
-    <div
+    <nav
       className="mb-4 -mx-2 sm:mx-0 overflow-x-auto scrollbar-hide border-b border-[color:var(--mm-rule)]"
-      role="tablist"
       aria-label="팀/경기 서브 메뉴"
     >
       <div className="flex items-center gap-1 px-2 sm:px-0 whitespace-nowrap">
@@ -38,8 +37,6 @@ export default function LeagueSubTabs({ group }: { group: 'games' }) {
           const active = pathname.startsWith(href)
           return (
             <Link key={t.seg} href={href}
-              role="tab"
-              aria-selected={active}
               aria-current={active ? 'page' : undefined}
               className={`shrink-0 min-h-[44px] flex items-center px-4 lg:px-5 text-sm lg:text-base border-b-2 -mb-px transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 ${
                 active
@@ -51,6 +48,6 @@ export default function LeagueSubTabs({ group }: { group: 'games' }) {
           )
         })}
       </div>
-    </div>
+    </nav>
   )
 }
