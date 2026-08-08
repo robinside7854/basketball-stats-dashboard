@@ -592,7 +592,7 @@ export default function LeagueRosterPage() {
 
   return (
     <div className="space-y-4 lg:space-y-5">
-      <LeagueSubTabs group="squad" />
+      <LeagueSubTabs group="games" />
       {/* 헤더 */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>

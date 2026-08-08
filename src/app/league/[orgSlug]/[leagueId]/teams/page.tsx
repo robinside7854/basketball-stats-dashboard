@@ -1056,7 +1056,7 @@ export default function LeagueTeamsPage() {
 
   return (
     <div className="mm-brand space-y-6">
-      <LeagueSubTabs group="squad" />
+      <LeagueSubTabs group="games" />
       {/* ── 분기 버튼 탭 ── */}
       <div>
         <h2 className="font-bold mb-4" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀 구성</h2>
