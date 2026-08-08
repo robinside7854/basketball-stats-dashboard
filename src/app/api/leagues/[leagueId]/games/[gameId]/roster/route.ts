@@ -186,6 +186,12 @@ export async function GET(
   }
 
   // 2) 같은 날짜 다른 경기에서 배정된 비정규 선수 상속 (이 경기에 없는 경우만)
+  //   응답 전용 상속이다 — league_game_players 는 "이 경기 한정" 배정이 정의이므로
+  //   여기서 DB 에 쓰면 그 정의가 깨진다. GET 은 조회일 뿐 배정을 확정하지 않는다.
+  //   (2026-08-08 사고: GET 이 열람할 때마다 이 upsert 를 실행해 게스트 1경기 출전이
+  //    같은 날 다른 경기로 계속 번졌다. 실제 배정은 여전히 explicit POST
+  //    (irregular-players / opponent-players) 로만 확정된다 — 이 블록은 화면 편의를
+  //    위해 후보를 보여줄 뿐, league_game_players 행을 만들지 않는다.)
   if (game.date) {
     const { data: sameDateGames, error: sdErr } = await supabase
       .from('league_games')
@@ -210,25 +216,12 @@ export async function GET(
         .in('team_id', teamIds) // 이 경기에 참여하는 팀만
       if (ipErr) return queryFailed('같은 날짜 배정 상속', ipErr.message)
 
-      // 아직 이 경기에 없는 선수 → auto-insert
-      const toInsert = (inheritedPlayers ?? []).filter(
+      // 아직 이 경기에 없는 선수 → 응답에만 합산 (DB 삽입 없음)
+      const toDisplay = (inheritedPlayers ?? []).filter(
         gp => !alreadyAssigned.has(`${gp.league_player_id}:${gp.team_id}`)
       )
-      if (toInsert.length > 0) {
-        const { error: upErr } = await supabase.from('league_game_players').upsert(
-          toInsert.map(gp => ({
-            league_id: leagueId,
-            league_game_id: gameId,
-            league_player_id: gp.league_player_id,
-            team_id: gp.team_id,
-          })),
-          { onConflict: 'league_game_id,league_player_id', ignoreDuplicates: true }
-        )
-        // 실패했는데 아래에서 gamePlayers 에 합산해버리면, 저장되지 않은 배정을 배정된
-        //   것처럼 화면에 보여주게 된다 — 새로고침하면 사라지는 유령 선수가 된다.
-        if (upErr) return queryFailed('배정 상속 저장', upErr.message)
-        // 새로 삽입된 선수를 gamePlayers에 합산
-        ;(gamePlayers as typeof inheritedPlayers ?? []).push(...toInsert)
+      if (toDisplay.length > 0) {
+        ;(gamePlayers as typeof inheritedPlayers ?? []).push(...toDisplay)
       }
     }
   }
