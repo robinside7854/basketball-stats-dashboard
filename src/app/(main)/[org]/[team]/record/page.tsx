@@ -12,6 +12,7 @@ import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { useTeam } from '@/contexts/TeamContext'
+import { useOrg } from '@/contexts/OrgContext'
 import type { Tournament, Game, Player, PlayerMinutes } from '@/types/database'
 import SubTabNav from '@/components/layout/SubTabNav'
 import { gameSubTabs } from '@/components/layout/subTabs'
@@ -45,6 +46,7 @@ export default function RecordPage() {
 
 function RecordPageInner() {
   const team = useTeam()
+  const org = useOrg()
   const { teamHeaders } = useEditMode()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [games, setGames] = useState<Game[]>([])
@@ -335,7 +337,9 @@ function RecordPageInner() {
     if (!newPlayerName.trim() || !newPlayerNum.trim() || !selectedTId) return
     setAddingPlayer(true)
     try {
-      const res = await fetch('/api/players', {
+      // ?team=&org= 로 소속 팀을 넘겨야 한다 — 서버가 PIN 을 "그 팀의 것"인지 대조하는 데 쓴다.
+      // body 의 team_type 은 서버가 신뢰하지 않는다(50경기 전부 'youth' 인 컬럼이라 믿을 수 없음).
+      const res = await fetch(`/api/players?team=${team}&org=${org}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...teamHeaders },
         body: JSON.stringify({ number: parseInt(newPlayerNum, 10), name: newPlayerName.trim(), team_type: team, is_active: true }),

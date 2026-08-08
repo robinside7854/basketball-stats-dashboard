@@ -33,7 +33,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   // 나머지 필드 업데이트 (is_complete 제외)
-  const { is_complete: _ic, ...rest } = body
+  // tournament_id 는 받지 않는다 — 경기의 소유 팀이 대회를 통해 결정되므로, body 로 바꾸게 두면
+  // 자기 PIN 으로 경기를 남의 팀 대회로 옮길 수 있다 (가드는 수정 전 소유 팀만 대조한다).
+  const { is_complete: _ic, tournament_id: _tid, ...rest } = body
   if (Object.keys(rest).length > 0) {
     const { error } = await supabase.from('games').update(rest).eq('id', id)
     if (error) {
