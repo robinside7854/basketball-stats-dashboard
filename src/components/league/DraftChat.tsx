@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Send, MessageCircle, ShieldCheck, X, AlertTriangle, Megaphone } from 'lucide-react'
 import { playChatDing } from '@/lib/draftSounds'
 import { createClient } from '@/lib/supabase/client'
+import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 
 interface Team { id: string; name: string; color: string }
 interface ChatMsg {
@@ -358,13 +359,14 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
               <div key={`chat-${m.id}`} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
                 <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                   {isSup ? <ShieldCheck size={12} style={{ color }} /> : <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />}
-                  <span className="text-xs font-bold" style={{ color }}>
+                  <span className="text-xs font-bold" style={{ color: accentOrInk(color) }}>
                     {isSup ? '감독관' : team?.name ?? ''} · {m.sender_label}
                   </span>
                   <span className="text-xs text-gray-400">{new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
-                <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm sm:text-base break-words leading-relaxed ${mine ? 'rounded-tr-sm text-white' : 'rounded-tl-sm bg-gray-800 text-gray-100'}`}
-                  style={mine ? { backgroundColor: color + '33', border: `1px solid ${color}66` } : undefined}>
+                {/* 팀 컬러가 흰색이면 하드코딩 text-white 가 사라진다 → textOnBg 로 대비색 결정 (2026-08-08 핫픽스) */}
+                <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm sm:text-base break-words leading-relaxed ${mine ? 'rounded-tr-sm' : 'rounded-tl-sm bg-gray-800 text-gray-100'}`}
+                  style={mine ? { backgroundColor: color + '33', border: `1px solid ${color}66`, color: textOnBg(color) } : undefined}>
                   {m.message}
                 </div>
               </div>

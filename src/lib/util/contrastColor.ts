@@ -32,3 +32,16 @@ export function textOnBg(bgHex: string | null | undefined): '#ffffff' | '#0a0a0a
   // 밝기 임계값 0.5 — 그 이상이면 어두운 텍스트
   return relativeLuminance(bgHex) > 0.5 ? '#0a0a0a' : '#ffffff'
 }
+
+/**
+ * 팀 컬러를 "그 색 자체"로 텍스트에 쓰는 자리(팀명 라벨 등, 배경도 같은 색의 옅은 틴트)용 폴백.
+ * 팀 컬러가 흰색에 가까우면(예: #ffffff) 텍스트=배경이 거의 같은 색이 되어 라이트 모드에서
+ * white-on-white 로 사라진다 — textOnBg 처럼 "반대색"을 고를 수 없는 자리(배경 자체가 그 색의
+ * 옅은 틴트라 실질 배경은 페이지 배경에 가깝기 때문)이므로, 대신 테마를 따라가는
+ * --mm-ink 로 폴백해 라이트/다크 모두에서 페이지 배경과 대비를 확보한다.
+ * (2026-08-08 · 라이트모드 흰 팀컬러 이름 미표시 핫픽스)
+ */
+export function accentOrInk(hex: string | null | undefined, threshold = 0.85): string {
+  if (!hex) return 'var(--mm-ink)'
+  return relativeLuminance(hex) > threshold ? 'var(--mm-ink)' : hex
+}

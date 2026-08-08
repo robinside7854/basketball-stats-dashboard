@@ -4,6 +4,7 @@
 // mm-* 팔레트 · font-jersey · rounded 최소 · 그라디언트 제거
 import { useEffect, useState } from 'react'
 import { Trophy, ShieldCheck, Flame, HandCoins, Target, Activity, Zap, TrendingUp } from 'lucide-react'
+import { accentOrInk } from '@/lib/util/contrastColor'
 
 type DayRecord = { date: string; value: number; vs: string; score: string } | null
 
@@ -171,7 +172,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
                   <div className="flex items-center justify-end gap-2 min-h-[28px]">
                     <span
                       className="text-sm tabular-nums font-jersey font-black"
-                      style={{ color: teamWins ? teamColor : 'var(--mm-muted)' }}
+                      style={{ color: teamWins ? accentOrInk(teamColor) : 'var(--mm-muted)' }}
                     >
                       {row.team}{row.suffix}
                     </span>

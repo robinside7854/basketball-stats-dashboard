@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera } from 'lucide-react'
 import { toast } from 'sonner'
+import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 // html-to-image 는 카메라 버튼 클릭 시에만 필요 → 동적 로드로 초기 번들에서 제거
 import ShareableBoxscore from '@/components/league/ShareableBoxscore'
 
@@ -686,7 +687,10 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '' }: Pro
                       onClick={() => setTeamFilter(t.id)}
                       className="px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                       style={teamFilter === t.id
-                        ? { backgroundColor: t.color ?? 'var(--mm-yellow)', borderColor: t.color ?? 'var(--mm-yellow)', border: '1px solid', color: '#fff' }
+                        // 팀 컬러가 흰색 등 밝은 색이면 하드코딩 '#fff' 텍스트가 사라진다 →
+                        // 배경 밝기에 맞춰 textOnBg 로 대비색 자동 결정 (2026-08-08 핫픽스).
+                        // t.color 가 없어 mm-yellow 폴백일 땐 기존처럼 mm-black 유지.
+                        ? { backgroundColor: t.color ?? 'var(--mm-yellow)', borderColor: t.color ?? 'var(--mm-yellow)', border: '1px solid', color: t.color ? textOnBg(t.color) : 'var(--mm-black)' }
                         : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
                     >{t.name}</button>
                   ))}
@@ -996,7 +1000,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
             style={{ borderBottom: '1px solid var(--mm-rule)' }}
           >
             <div className="text-right min-w-0">
-              <div className="text-base sm:text-lg font-bold truncate" style={{ color: colorA, letterSpacing: '-0.005em' }}>{A.name}</div>
+              <div className="text-base sm:text-lg font-bold truncate" style={{ color: accentOrInk(colorA), letterSpacing: '-0.005em' }}>{A.name}</div>
               <div className="text-[11px] font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>HOME</div>
             </div>
             <div className="flex flex-col items-center shrink-0">
@@ -1004,7 +1008,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
               <span className="text-xs mt-0.5 whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>맞대결 {h2h.gameCount}경기</span>
             </div>
             <div className="text-left min-w-0">
-              <div className="text-base sm:text-lg font-bold truncate" style={{ color: colorB, letterSpacing: '-0.005em' }}>{B.name}</div>
+              <div className="text-base sm:text-lg font-bold truncate" style={{ color: accentOrInk(colorB), letterSpacing: '-0.005em' }}>{B.name}</div>
               <div className="text-[11px] font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>AWAY</div>
             </div>
           </div>
@@ -1027,7 +1031,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
                   <div className="flex items-center justify-end gap-2 min-h-[28px]">
                     <span
                       className={`text-sm tabular-nums font-jersey font-black whitespace-nowrap ${aWin ? '' : 'opacity-60'}`}
-                      style={aWin ? { color: colorA } : { color: 'var(--mm-muted)' }}
+                      style={aWin ? { color: accentOrInk(colorA) } : { color: 'var(--mm-muted)' }}
                     >
                       {labelA}
                     </span>
@@ -1059,7 +1063,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
                     }} />
                     <span
                       className={`text-sm tabular-nums font-jersey font-black whitespace-nowrap ${bWin ? '' : 'opacity-60'}`}
-                      style={bWin ? { color: colorB } : { color: 'var(--mm-muted)' }}
+                      style={bWin ? { color: accentOrInk(colorB) } : { color: 'var(--mm-muted)' }}
                     >
                       {labelB}
                     </span>

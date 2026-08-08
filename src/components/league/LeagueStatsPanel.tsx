@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import type { LeaguePlayer } from '@/types/league'
 import dynamic from 'next/dynamic'
+import { accentOrInk } from '@/lib/util/contrastColor'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 
@@ -186,7 +187,7 @@ export default function LeagueStatsPanel({
     const ftm = t.ftm ?? 0; const fta = t.fta ?? 0
     return (
       <tr className="bg-gray-800/40 border-t border-gray-700 text-xs font-bold">
-        <td className="py-1 pr-2 font-bold" style={{ color: color ?? '#9ca3af' }}>{label} 소계</td>
+        <td className="py-1 pr-2 font-bold" style={{ color: accentOrInk(color ?? '#9ca3af') }}>{label} 소계</td>
         <td className="py-1 px-1 text-center text-white">{t.pts ?? 0}</td>
         <td className="py-1 px-1 text-center">{t.reb ?? 0}</td>
         <td className="py-1 px-1 text-center">{t.ast ?? 0}</td>
@@ -209,7 +210,7 @@ export default function LeagueStatsPanel({
         <td colSpan={COL_COUNT} className="pt-2 pb-1">
           <div
             className="inline-block px-2 py-0.5 rounded text-xs font-bold"
-            style={{ color: color ?? '#9ca3af', backgroundColor: `${color ?? '#9ca3af'}22` }}
+            style={{ color: accentOrInk(color ?? '#9ca3af'), backgroundColor: `${color ?? '#9ca3af'}22` }}
           >
             {label}
           </div>
@@ -327,14 +328,14 @@ export default function LeagueStatsPanel({
       {homePlayers.length > 0 && (
         <>
           <div className="inline-block px-2 py-0.5 rounded text-xs font-bold mb-1"
-            style={{ color: homeTeam?.color ?? '#9ca3af', backgroundColor: `${homeTeam?.color ?? '#9ca3af'}22` }}>
+            style={{ color: accentOrInk(homeTeam?.color ?? '#9ca3af'), backgroundColor: `${homeTeam?.color ?? '#9ca3af'}22` }}>
             {homeTeam?.name ?? '홈팀'}
           </div>
           <div className="space-y-1.5">
             {homeStats.map(s => <MobileCard key={s.player_id} s={s} p={homePlayerMap[s.player_id]} />)}
           </div>
           <div className="bg-gray-800/40 rounded-lg px-2.5 py-1.5 text-xs flex items-center justify-between">
-            <span style={{ color: homeTeam?.color ?? '#9ca3af' }} className="font-bold">{homeTeam?.name ?? '홈팀'} 합계</span>
+            <span style={{ color: accentOrInk(homeTeam?.color ?? '#9ca3af') }} className="font-bold">{homeTeam?.name ?? '홈팀'} 합계</span>
             <span className="text-gray-300">PTS <b className="text-white">{homeTotals.pts ?? 0}</b> · REB {homeTotals.reb ?? 0} · AST {homeTotals.ast ?? 0}</span>
           </div>
         </>
@@ -342,14 +343,14 @@ export default function LeagueStatsPanel({
       {awayPlayers.length > 0 && (
         <>
           <div className="inline-block px-2 py-0.5 rounded text-xs font-bold mt-3 mb-1"
-            style={{ color: awayTeam?.color ?? '#9ca3af', backgroundColor: `${awayTeam?.color ?? '#9ca3af'}22` }}>
+            style={{ color: accentOrInk(awayTeam?.color ?? '#9ca3af'), backgroundColor: `${awayTeam?.color ?? '#9ca3af'}22` }}>
             {awayTeam?.name ?? '어웨이팀'}
           </div>
           <div className="space-y-1.5">
             {awayStats.map(s => <MobileCard key={s.player_id} s={s} p={awayPlayerMap[s.player_id]} />)}
           </div>
           <div className="bg-gray-800/40 rounded-lg px-2.5 py-1.5 text-xs flex items-center justify-between">
-            <span style={{ color: awayTeam?.color ?? '#9ca3af' }} className="font-bold">{awayTeam?.name ?? '어웨이팀'} 합계</span>
+            <span style={{ color: accentOrInk(awayTeam?.color ?? '#9ca3af') }} className="font-bold">{awayTeam?.name ?? '어웨이팀'} 합계</span>
             <span className="text-gray-300">PTS <b className="text-white">{awayTotals.pts ?? 0}</b> · REB {awayTotals.reb ?? 0} · AST {awayTotals.ast ?? 0}</span>
           </div>
         </>

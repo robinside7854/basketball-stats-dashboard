@@ -20,7 +20,7 @@ import LeagueSubstitutionPanel from '@/components/league/LeagueSubstitutionPanel
 import LeagueStatsPanel from '@/components/league/LeagueStatsPanel'
 import GameLogModal from '@/components/league/GameLogModal'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
-import { textOnBg } from '@/lib/util/contrastColor'
+import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 
 type ScheduleDate = { id: string; date: string }
 type GameSlot = {
@@ -1474,7 +1474,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         {/* 최종 스코어 */}
                         <div className="grid grid-cols-[1fr_auto_1fr]">
                           <div className="py-5 px-4 text-center min-w-0">
-                            <p className="text-xs font-bold mb-2 break-keep" style={{ color: selectedSlot.home_team?.color ?? '#3b82f6', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                            <p className="text-xs font-bold mb-2 break-keep" style={{ color: accentOrInk(selectedSlot.home_team?.color ?? '#3b82f6'), lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               {selectedSlot.home_team?.name ?? '홈팀'}
                             </p>
                             <p className="text-5xl font-black text-white tabular-nums leading-none">{liveScore?.home ?? selectedSlot.home_score}</p>
@@ -1483,7 +1483,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             <span className="text-2xl text-gray-600 font-black leading-none">:</span>
                           </div>
                           <div className="py-5 px-4 text-center min-w-0">
-                            <p className="text-xs font-bold mb-2 break-keep" style={{ color: selectedSlot.away_team?.color ?? '#ef4444', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                            <p className="text-xs font-bold mb-2 break-keep" style={{ color: accentOrInk(selectedSlot.away_team?.color ?? '#ef4444'), lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                               {selectedSlot.away_team?.name ?? '어웨이팀'}
                             </p>
                             <p className="text-5xl font-black text-white tabular-nums leading-none">{liveScore?.away ?? selectedSlot.away_score}</p>
@@ -1524,7 +1524,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
                         <div className="flex items-stretch">
                           <div className="flex-1 py-2 px-3 flex items-center gap-2">
-                            <span className="text-xs font-bold truncate" style={{ color: selectedSlot?.home_team?.color ?? '#3b82f6' }}>
+                            <span className="text-xs font-bold truncate" style={{ color: accentOrInk(selectedSlot?.home_team?.color ?? '#3b82f6') }}>
                               {selectedSlot?.home_team?.name ?? '홈팀'}
                             </span>
                             <span className="text-2xl font-black text-white tabular-nums leading-none ml-auto">
@@ -1539,7 +1539,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                             <span className="text-2xl font-black text-white tabular-nums leading-none mr-auto">
                               {liveScore?.away ?? selectedSlot?.away_score ?? 0}
                             </span>
-                            <span className="text-xs font-bold truncate" style={{ color: selectedSlot?.away_team?.color ?? '#ef4444' }}>
+                            <span className="text-xs font-bold truncate" style={{ color: accentOrInk(selectedSlot?.away_team?.color ?? '#ef4444') }}>
                               {selectedSlot?.away_team?.name ?? '어웨이팀'}
                             </span>
                           </div>
@@ -1725,7 +1725,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         >
                           <div className="flex items-center justify-between mb-2 px-1">
                             <span className="text-xs font-bold px-2 py-0.5"
-                              style={{ color: selectedSlot?.home_team?.color ?? '#3b82f6', backgroundColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}22`, borderRadius: '4px' }}>
+                              style={{ color: accentOrInk(selectedSlot?.home_team?.color ?? '#3b82f6'), backgroundColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}22`, borderRadius: '4px' }}>
                               {selectedSlot?.home_team?.name ?? '홈팀'}
                             </span>
                             <button onClick={() => selectAllTeam('home')} className="text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors" style={{ color: '#3b82f6' }}>전체</button>
@@ -1751,7 +1751,7 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         >
                           <div className="flex items-center justify-between mb-2 px-1">
                             <span className="text-xs font-bold px-2 py-0.5"
-                              style={{ color: selectedSlot?.away_team?.color ?? '#ef4444', backgroundColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}22`, borderRadius: '4px' }}>
+                              style={{ color: accentOrInk(selectedSlot?.away_team?.color ?? '#ef4444'), backgroundColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}22`, borderRadius: '4px' }}>
                               {selectedSlot?.away_team?.name ?? '어웨이팀'}
                             </span>
                             <button onClick={() => selectAllTeam('away')} className="text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors" style={{ color: '#ef4444' }}>전체</button>
@@ -1958,14 +1958,14 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                       <div className="bg-gray-800 rounded-xl p-4 text-center">
                         <div className="flex items-center justify-center gap-4">
                           <div>
-                            <p className="text-xs text-gray-500 mb-1" style={{ color: selectedSlot?.home_team?.color }}>
+                            <p className="text-xs text-gray-500 mb-1" style={{ color: accentOrInk(selectedSlot?.home_team?.color) }}>
                               {selectedSlot?.home_team?.name ?? '홈'}
                             </p>
                             <p className="text-3xl font-black text-white">{liveScore.home}</p>
                           </div>
                           <span className="text-gray-600 font-bold text-lg">vs</span>
                           <div>
-                            <p className="text-xs text-gray-500 mb-1" style={{ color: selectedSlot?.away_team?.color }}>
+                            <p className="text-xs text-gray-500 mb-1" style={{ color: accentOrInk(selectedSlot?.away_team?.color) }}>
                               {selectedSlot?.away_team?.name ?? '어웨이'}
                             </p>
                             <p className="text-3xl font-black text-white">{liveScore.away}</p>

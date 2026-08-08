@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { useGameStore } from '@/store/gameStore'
+import { textOnBg } from '@/lib/util/contrastColor'
 
 type RosterPlayer = { id: string; name: string; number?: number | null; team_id?: string }
 
@@ -276,15 +277,16 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
               {homeTeam && (
                 <button
                   onClick={() => setFilterTeam(filterTeam === homeTeam.id ? 'all' : homeTeam.id)}
-                  className={chipBase + (filterTeam === homeTeam.id ? ' text-white' : ' border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500')}
-                  style={filterTeam === homeTeam.id ? { backgroundColor: homeTeam.color, borderColor: homeTeam.color } : undefined}
+                  className={chipBase + (filterTeam === homeTeam.id ? '' : ' border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500')}
+                  // 팀 컬러가 흰색이면 하드코딩 text-white 가 사라진다 → textOnBg 로 대비색 결정 (2026-08-08 핫픽스)
+                  style={filterTeam === homeTeam.id ? { backgroundColor: homeTeam.color, borderColor: homeTeam.color, color: textOnBg(homeTeam.color) } : undefined}
                 >{homeTeam.name}</button>
               )}
               {awayTeam && (
                 <button
                   onClick={() => setFilterTeam(filterTeam === awayTeam.id ? 'all' : awayTeam.id)}
-                  className={chipBase + (filterTeam === awayTeam.id ? ' text-white' : ' border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500')}
-                  style={filterTeam === awayTeam.id ? { backgroundColor: awayTeam.color, borderColor: awayTeam.color } : undefined}
+                  className={chipBase + (filterTeam === awayTeam.id ? '' : ' border-gray-700 bg-gray-900 text-gray-400 hover:border-gray-500')}
+                  style={filterTeam === awayTeam.id ? { backgroundColor: awayTeam.color, borderColor: awayTeam.color, color: textOnBg(awayTeam.color) } : undefined}
                 >{awayTeam.name}</button>
               )}
             </div>

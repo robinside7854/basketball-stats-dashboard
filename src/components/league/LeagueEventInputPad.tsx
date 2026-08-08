@@ -4,7 +4,7 @@ import { Handshake, CircleDashed, Crosshair, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import type { LeaguePlayer } from '@/types/league'
-import { textOnBg } from '@/lib/util/contrastColor'
+import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 
 type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
 
@@ -671,8 +671,8 @@ export default function LeagueEventInputPad({
         <div>
           <div className="flex items-center justify-between mb-1.5 px-2 py-1 rounded-lg"
             style={{ backgroundColor: `${homeTeam?.color ?? '#3b82f6'}18` }}>
-            <span className="text-xs font-bold" style={{ color: homeTeam?.color ?? '#3b82f6' }}>{homeTeam?.name ?? '홈팀'}</span>
-            <span className="text-xs font-bold opacity-60" style={{ color: homeTeam?.color ?? '#3b82f6' }}>코트 {homeDisplay.length}명</span>
+            <span className="text-xs font-bold" style={{ color: accentOrInk(homeTeam?.color ?? '#3b82f6') }}>{homeTeam?.name ?? '홈팀'}</span>
+            <span className="text-xs font-bold opacity-60" style={{ color: accentOrInk(homeTeam?.color ?? '#3b82f6') }}>코트 {homeDisplay.length}명</span>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             {homeDisplay.map(p => renderPlayerBtn(p, homeTeam?.color ?? '#3b82f6'))}
@@ -682,8 +682,8 @@ export default function LeagueEventInputPad({
         <div>
           <div className="flex items-center justify-between mb-1.5 px-2 py-1 rounded-lg"
             style={{ backgroundColor: `${awayTeam?.color ?? '#ef4444'}18` }}>
-            <span className="text-xs font-bold" style={{ color: awayTeam?.color ?? '#ef4444' }}>{awayTeam?.name ?? '어웨이팀'}</span>
-            <span className="text-xs font-bold opacity-60" style={{ color: awayTeam?.color ?? '#ef4444' }}>코트 {awayDisplay.length}명</span>
+            <span className="text-xs font-bold" style={{ color: accentOrInk(awayTeam?.color ?? '#ef4444') }}>{awayTeam?.name ?? '어웨이팀'}</span>
+            <span className="text-xs font-bold opacity-60" style={{ color: accentOrInk(awayTeam?.color ?? '#ef4444') }}>코트 {awayDisplay.length}명</span>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             {awayDisplay.map(p => renderPlayerBtn(p, awayTeam?.color ?? '#ef4444'))}
@@ -708,7 +708,7 @@ export default function LeagueEventInputPad({
             { players: awayDisplay, team: awayTeam, isShooterTeam: reboundShooterTeamId === awayTeam?.id },
           ].map(({ players: tPlayers, team, isShooterTeam }) => tPlayers.length === 0 ? null : (
             <div key={team?.id ?? 'team'}>
-              <p className="text-xs font-bold mb-1.5 px-1" style={{ color: team?.color ?? '#9ca3af' }}>
+              <p className="text-xs font-bold mb-1.5 px-1" style={{ color: accentOrInk(team?.color ?? '#9ca3af') }}>
                 {team?.name ?? '팀'} — {isShooterTeam ? '공격리바' : '수비리바'}
               </p>
               <div className="grid grid-cols-3 gap-1.5">
@@ -868,17 +868,20 @@ export default function LeagueEventInputPad({
             const oppTeam = opposing[0]?.team_id === homeTeam?.id ? homeTeam : awayTeam
             return opposing.length > 0 ? (
               <div>
-                <p className="text-xs font-bold mb-1.5 px-1" style={{ color: oppTeam?.color ?? '#9ca3af' }}>
+                <p className="text-xs font-bold mb-1.5 px-1" style={{ color: accentOrInk(oppTeam?.color ?? '#9ca3af') }}>
                   {oppTeam?.name ?? '상대팀'}
                 </p>
                 <div className="grid grid-cols-3 gap-1.5">
-                  {opposing.map(p => (
+                  {opposing.map(p => {
+                    const bg = `${oppTeam?.color ?? '#6b7280'}cc`
+                    return (
                     <button key={p.id} onClick={() => handleTovPair(p.id)}
-                      className="py-2 rounded-xl text-sm font-bold text-white cursor-pointer active:scale-95 transition-all"
-                      style={{ backgroundColor: `${oppTeam?.color ?? '#6b7280'}cc` }}>
+                      className="py-2 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition-all"
+                      style={{ backgroundColor: bg, color: textOnBg(oppTeam?.color ?? '#6b7280') }}>
                       {p.name}
                     </button>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             ) : null

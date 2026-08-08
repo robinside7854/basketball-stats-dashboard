@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
 import type { LeaguePlayer } from '@/types/league'
+import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 
 interface MinRow { id: string; league_player_id: string; league_game_id: string; out_time: number | null }
 type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
@@ -230,7 +231,10 @@ export default function LeagueSubstitutionPanel({
         style={{
           backgroundColor: `${color}33`,
           borderColor: `${color}88`,
-          color: 'white',
+          // 팀 컬러가 흰색에 가까우면(예: #ffffff) 배경도 그 색의 옅은 틴트라 결국 거의
+          // 흰색이 된다 — 하드코딩 'white' 텍스트였을 때 라이트 모드에서 이름이 통째로
+          // 사라지는 실사고 발생(2026-08-08). textOnBg 로 배경 밝기에 맞는 대비색을 계산.
+          color: textOnBg(color),
           touchAction: 'none',
           WebkitUserSelect: 'none',
           userSelect: 'none',
@@ -263,7 +267,9 @@ export default function LeagueSubstitutionPanel({
         }`}
       >
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-bold uppercase tracking-wider" style={{ color }}>{label}</span>
+          {/* 팀 컬러가 흰색에 가까우면 accentOrInk 가 --mm-ink 로 대체 — 그대로 쓰면
+              라이트 모드 흰 패널 위에서 라벨이 사라진다(2026-08-08 핫픽스). */}
+          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accentOrInk(color) }}>{label}</span>
           {overCapacity && <span className="inline-flex items-center gap-1 text-xs font-bold text-red-400"><AlertTriangle size={12} strokeWidth={2} aria-hidden /> 정원 초과</span>}
         </div>
         <div className="flex flex-wrap gap-1.5 min-h-[28px]">
@@ -292,7 +298,7 @@ export default function LeagueSubstitutionPanel({
     return (
       <div className="space-y-1.5">
         <div className="flex items-center justify-between px-1">
-          <span className="text-sm font-black" style={{ color: team.color }}>{team.name}</span>
+          <span className="text-sm font-black" style={{ color: accentOrInk(team.color) }}>{team.name}</span>
           <span className={`text-xs font-bold tabular-nums ${overCap ? 'text-red-400' : 'text-gray-500'}`}>
             {onCourtPlayers.length}/{COURT_SIZE}
           </span>
