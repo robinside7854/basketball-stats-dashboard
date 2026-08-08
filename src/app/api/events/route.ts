@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { NextResponse } from 'next/server'
+import { resolveTeamIdForGame, verifyTeamPinForTeam } from '@/lib/teamPinAuth'
 
 export async function GET(req: Request) {
   const supabase = createClient()
@@ -18,18 +19,26 @@ export async function GET(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  const supabase = createClient()
   const { searchParams } = new URL(req.url)
   const gameId = searchParams.get('gameId')
   if (!gameId) return NextResponse.json({ error: 'gameId required' }, { status: 400 })
+  const teamId = await resolveTeamIdForGame(gameId)
+  if (!(await verifyTeamPinForTeam(req, teamId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  const supabase = createClient()
   const { error } = await supabase.from('game_events').delete().eq('game_id', gameId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }
 
 export async function POST(req: Request) {
-  const supabase = createClient()
   const body = await req.json()
+  const teamId = await resolveTeamIdForGame(body.game_id)
+  if (!(await verifyTeamPinForTeam(req, teamId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  const supabase = createClient()
 
   // 득점 이벤트 points 자동 설정
   let points = 0

@@ -38,7 +38,7 @@ export default function GameLogPage() {
   const [events, setEvents] = useState<GameEvent[]>([])
   const [filterPlayer, setFilterPlayer] = useState('')
   const { seekTo } = useGameStore()
-  const { isEditMode } = useEditMode()
+  const { isEditMode, teamHeaders } = useEditMode()
 
   const [splitTarget, setSplitTarget] = useState<{ eventId: string; currentQ: number } | null>(null)
   const [splitNewQ, setSplitNewQ] = useState<number>(0)
@@ -71,7 +71,7 @@ export default function GameLogPage() {
   }
 
   async function deleteEvent(id: string) {
-    await fetch(`/api/events/${id}`, { method: 'DELETE' })
+    await fetch(`/api/events/${id}`, { method: 'DELETE', headers: { ...teamHeaders } })
     toast.success('이벤트 삭제됨')
     fetchEvents()
   }
@@ -86,7 +86,7 @@ export default function GameLogPage() {
     if (!splitTarget || !splitNewQ || !selectedGId) return
     const res = await fetch('/api/events/split-quarter', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...teamHeaders },
       body: JSON.stringify({ gameId: selectedGId, fromEventId: splitTarget.eventId, newQuarter: splitNewQ }),
     })
     const data = await res.json()

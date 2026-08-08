@@ -12,6 +12,7 @@ import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { useTeam } from '@/contexts/TeamContext'
+import { useOrg } from '@/contexts/OrgContext'
 import type { Tournament, Game, Player, PlayerMinutes } from '@/types/database'
 import SubTabNav from '@/components/layout/SubTabNav'
 import { gameSubTabs } from '@/components/layout/subTabs'
@@ -45,6 +46,8 @@ export default function RecordPage() {
 
 function RecordPageInner() {
   const team = useTeam()
+  const org = useOrg()
+  const { teamHeaders } = useEditMode()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [games, setGames] = useState<Game[]>([])
   const [allPlayers, setAllPlayers] = useState<Player[]>([])
@@ -236,9 +239,9 @@ function RecordPageInner() {
   async function startGame() {
     if (!currentGame || starterIds.length !== 5) { toast.error('선발 5명을 선택하세요'); return }
     await Promise.all(starterIds.map(pid =>
-      fetch('/api/minutes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id: currentGame.id, player_id: pid, quarter: 1, in_time: 0 }) })
+      fetch('/api/minutes', { method: 'POST', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ game_id: currentGame.id, player_id: pid, quarter: 1, in_time: 0 }) })
     ))
-    await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id: currentGame.id, quarter: 1, video_timestamp: 0, type: 'quarter_start', points: 0 }) })
+    await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ game_id: currentGame.id, quarter: 1, video_timestamp: 0, type: 'quarter_start', points: 0 }) })
     setLineup(starterIds)
     setGameStarted(true)
     toast.success('Q1 기록 시작!')
@@ -252,14 +255,14 @@ function RecordPageInner() {
     const ts = getCurrentTimestamp()
     const openIntervals = minutes.filter(m => m.game_id === currentGame.id && m.out_time == null)
     await Promise.all(openIntervals.map(m =>
-      fetch('/api/minutes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: m.id, out_time: ts }) })
+      fetch('/api/minutes', { method: 'PATCH', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ id: m.id, out_time: ts }) })
     ))
-    await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id: currentGame.id, quarter: currentQuarter, video_timestamp: ts, type: 'quarter_end', points: 0 }) })
+    await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ game_id: currentGame.id, quarter: currentQuarter, video_timestamp: ts, type: 'quarter_end', points: 0 }) })
     setCurrentQuarter(newQ)
     await Promise.all(onCourt.map(pid =>
-      fetch('/api/minutes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id: currentGame.id, player_id: pid, quarter: newQ, in_time: 0 }) })
+      fetch('/api/minutes', { method: 'POST', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ game_id: currentGame.id, player_id: pid, quarter: newQ, in_time: 0 }) })
     ))
-    await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id: currentGame.id, quarter: newQ, video_timestamp: 0, type: 'quarter_start', points: 0 }) })
+    await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ game_id: currentGame.id, quarter: newQ, video_timestamp: 0, type: 'quarter_start', points: 0 }) })
     toast.success(`${newQ <= 4 ? `Q${newQ}` : 'OT'} 시작`)
     fetchMinutes()
   }
@@ -279,11 +282,11 @@ function RecordPageInner() {
     const ts = getCurrentTimestamp()
     const open = minutes.filter(m => m.out_time == null)
     await Promise.all(open.map(m =>
-      fetch('/api/minutes', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: m.id, out_time: ts }) })
+      fetch('/api/minutes', { method: 'PATCH', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ id: m.id, out_time: ts }) })
     ))
     const res = await fetch(`/api/games/${currentGame.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...teamHeaders },
       body: JSON.stringify({ is_complete: true, our_score: teamPts, opponent_score: oppScore }),
     })
     if (!res.ok) {
@@ -304,9 +307,9 @@ function RecordPageInner() {
     if (!currentGame) return
     if (!confirm('이 경기의 모든 기록(이벤트, 출전시간)을 삭제하고 처음부터 다시 시작하시겠습니까?')) return
     await Promise.all([
-      fetch(`/api/events?gameId=${currentGame.id}`, { method: 'DELETE' }),
-      fetch(`/api/minutes?gameId=${currentGame.id}`, { method: 'DELETE' }),
-      fetch(`/api/games/${currentGame.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_complete: false }) }),
+      fetch(`/api/events?gameId=${currentGame.id}`, { method: 'DELETE', headers: { ...teamHeaders } }),
+      fetch(`/api/minutes?gameId=${currentGame.id}`, { method: 'DELETE', headers: { ...teamHeaders } }),
+      fetch(`/api/games/${currentGame.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ is_complete: false }) }),
     ])
     sessionStorage.removeItem(SESS_YT_TIME)
     sessionStorage.removeItem(SESS_YT_GID)
@@ -325,7 +328,7 @@ function RecordPageInner() {
     if (!currentGame) return
     const { getCurrentTimestamp } = useGameStore.getState()
     const ts = getCurrentTimestamp()
-    await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ game_id: currentGame.id, quarter: currentQuarter, video_timestamp: ts, type: 'opp_score', points: pts }) })
+    await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ game_id: currentGame.id, quarter: currentQuarter, video_timestamp: ts, type: 'opp_score', points: pts }) })
     toast(`상대팀 +${pts}점`)
   }
 
@@ -334,9 +337,11 @@ function RecordPageInner() {
     if (!newPlayerName.trim() || !newPlayerNum.trim() || !selectedTId) return
     setAddingPlayer(true)
     try {
-      const res = await fetch('/api/players', {
+      // ?team=&org= 로 소속 팀을 넘겨야 한다 — 서버가 PIN 을 "그 팀의 것"인지 대조하는 데 쓴다.
+      // body 의 team_type 은 서버가 신뢰하지 않는다(50경기 전부 'youth' 인 컬럼이라 믿을 수 없음).
+      const res = await fetch(`/api/players?team=${team}&org=${org}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...teamHeaders },
         body: JSON.stringify({ number: parseInt(newPlayerNum, 10), name: newPlayerName.trim(), team_type: team, is_active: true }),
       })
       if (!res.ok) { toast.error('선수 추가 실패'); return }
@@ -344,7 +349,7 @@ function RecordPageInner() {
       const newIds = [...tournamentPlayerIds, player.id]
       await fetch('/api/tournament-players', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...teamHeaders },
         body: JSON.stringify({ tournament_id: selectedTId, player_ids: newIds }),
       })
       setAllPlayers(prev => [...prev, player])

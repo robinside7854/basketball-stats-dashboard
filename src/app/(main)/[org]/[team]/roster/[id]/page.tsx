@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { ChevronLeft, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { useEditMode } from '@/contexts/EditModeContext'
 import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
 
 interface ShotStat { label: string; made: number; attempted: number; pct: number }
@@ -70,6 +71,7 @@ export default function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
+  const { teamHeaders } = useEditMode()
 
   const [player, setPlayer] = useState<Player | null>(null)
   const [recentGames, setRecentGames] = useState<RecentGame[]>([])
@@ -110,7 +112,7 @@ export default function PlayerDetailPage() {
       const { data: { publicUrl } } = supabase.storage.from('player-photos').getPublicUrl(path)
       const res = await fetch(`/api/players/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...teamHeaders },
         body: JSON.stringify({ photo_url: publicUrl }),
       })
       if (!res.ok) throw new Error('저장 실패')

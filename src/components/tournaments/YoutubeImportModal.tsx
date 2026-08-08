@@ -5,6 +5,8 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useEditMode } from '@/contexts/EditModeContext'
+import { useOrg } from '@/contexts/OrgContext'
 import type { TournamentGroup, GameData } from '@/app/api/youtube/import/route'
 
 // ── 타입 ─────────────────────────────────────────────────────────────
@@ -38,6 +40,7 @@ const ROUND_BADGE: Record<string, string> = {
 }
 
 export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
+  const org = useOrg()
   const [after, setAfter] = useState('')
   const [before, setBefore] = useState(new Date().toISOString().split('T')[0])
   const [channelHandle, setChannelHandle] = useState('basket-lab')
@@ -48,6 +51,7 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
   const [groupStates, setGroupStates] = useState<Record<string, GroupState>>({})
   const [gameStates, setGameStates] = useState<Record<string, GameState>>({})
   const [totalFound, setTotalFound] = useState<number | null>(null)
+  const { teamHeaders } = useEditMode()
 
   // ── 영상 불러오기 ────────────────────────────────────────────────
   async function fetchVideos() {
@@ -133,9 +137,11 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
         tournamentId = gs.linked_id
       } else {
         // 새 대회 생성
-        const res = await fetch('/api/tournaments', {
+        // ?team=&org= 로 소속 팀을 넘겨야 한다 — 서버가 PIN 을 "그 팀의 것"인지 대조하는 데 쓴다.
+        // body 의 team_type 은 서버가 신뢰하지 않는다. (TournamentForm 과 같은 패턴)
+        const res = await fetch(`/api/tournaments?team=${team}&org=${org}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...teamHeaders },
           body: JSON.stringify({
             name: group.tournament_name,
             year: group.year,
@@ -157,7 +163,7 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
         const vs = gameStates[game.video_id]
         const res = await fetch('/api/games', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...teamHeaders },
           body: JSON.stringify({
             tournament_id: tournamentId,
             date: game.date,

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { X, ArrowRight, AlertTriangle, Search } from 'lucide-react'
 import { toast } from 'sonner'
+import { useEditMode } from '@/contexts/EditModeContext'
 import type { Player } from '@/types/database'
 
 interface Props {
@@ -89,6 +90,7 @@ export default function PlayerMergeModal({ players, onClose, onMerged }: Props) 
   const [keepPlayer, setKeepPlayer] = useState<Player | null>(null)
   const [mergePlayer, setMergePlayer] = useState<Player | null>(null)
   const [loading, setLoading] = useState(false)
+  const { teamHeaders } = useEditMode()
 
   async function handleMerge() {
     if (!keepPlayer || !mergePlayer) return
@@ -97,7 +99,7 @@ export default function PlayerMergeModal({ players, onClose, onMerged }: Props) 
     setLoading(true)
     const res = await fetch('/api/players/merge', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...teamHeaders },
       body: JSON.stringify({ keepId: keepPlayer.id, mergeId: mergePlayer.id }),
     })
     setLoading(false)

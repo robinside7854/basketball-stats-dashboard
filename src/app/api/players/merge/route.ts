@@ -1,11 +1,24 @@
 import { createClient } from '@/lib/supabase/client'
 import { NextResponse } from 'next/server'
+import { resolveTeamIdForPlayer, verifyTeamPinForTeam } from '@/lib/teamPinAuth'
 
 export async function POST(req: Request) {
   const { keepId, mergeId } = await req.json()
 
   if (!keepId || !mergeId || keepId === mergeId) {
     return NextResponse.json({ error: '잘못된 요청입니다' }, { status: 400 })
+  }
+
+  // 두 선수가 같은 팀 소속인지 먼저 확인 — 다른 팀 선수를 병합하면 안 된다.
+  const [keepTeamId, mergeTeamId] = await Promise.all([
+    resolveTeamIdForPlayer(keepId),
+    resolveTeamIdForPlayer(mergeId),
+  ])
+  if (!keepTeamId || !mergeTeamId || keepTeamId !== mergeTeamId) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  if (!(await verifyTeamPinForTeam(req, keepTeamId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const supabase = createClient()

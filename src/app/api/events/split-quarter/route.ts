@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { NextResponse } from 'next/server'
+import { resolveTeamIdForGame, verifyTeamPinForTeam } from '@/lib/teamPinAuth'
 
 // POST /api/events/split-quarter
 // Body: { gameId, fromEventId, newQuarter }
@@ -8,6 +9,11 @@ export async function POST(req: Request) {
   const { gameId, fromEventId, newQuarter } = await req.json()
   if (!gameId || !fromEventId || !newQuarter) {
     return NextResponse.json({ error: 'gameId, fromEventId, newQuarter 필수' }, { status: 400 })
+  }
+
+  const teamId = await resolveTeamIdForGame(gameId)
+  if (!(await verifyTeamPinForTeam(req, teamId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const supabase = createClient()

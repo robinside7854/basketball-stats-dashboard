@@ -47,7 +47,7 @@ function parseExcelBirthdate(raw: string | number | undefined): string | null {
 export default function RosterPage() {
   const team = useTeam()
   const org = useOrg()
-  const { isEditMode } = useEditMode()
+  const { isEditMode, teamHeaders } = useEditMode()
   const [players, setPlayers] = useState<Player[]>([])
   const [gamesCount, setGamesCount] = useState<Record<string, number>>({})
   const [showForm, setShowForm] = useState(false)
@@ -92,7 +92,7 @@ export default function RosterPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('선수를 삭제하시겠습니까?')) return
-    await fetch(`/api/players/${id}`, { method: 'DELETE' })
+    await fetch(`/api/players/${id}`, { method: 'DELETE', headers: { ...teamHeaders } })
     toast.success('선수가 삭제되었습니다')
     fetchPlayers()
   }
@@ -133,9 +133,11 @@ export default function RosterPage() {
     setUploading(true)
     let success = 0
     for (const row of uploadRows) {
-      const res = await fetch('/api/players', {
+      // ?team=&org= 로 소속 팀을 넘겨야 한다 — 서버가 PIN 을 "그 팀의 것"인지 대조하는 데 쓴다.
+      // body 의 team_type 은 서버가 신뢰하지 않는다(50경기 전부 'youth' 인 컬럼이라 믿을 수 없음).
+      const res = await fetch(`/api/players?team=${team}&org=${org}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...teamHeaders },
         body: JSON.stringify({ ...row, is_active: true, team_type: team }),
       })
       if (res.ok) success++
