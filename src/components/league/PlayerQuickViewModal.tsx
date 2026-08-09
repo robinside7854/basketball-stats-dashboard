@@ -12,7 +12,7 @@ import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/Le
 import PlayerBadgeStrip, { type BadgeSummary } from '@/components/league/PlayerBadgeStrip'
 import PlayerBestShotBanner from '@/components/league/PlayerBestShotBanner'
 import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
-import { CountUp, FormDots } from '@/components/league/StatCell'
+import { CountUp } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
 import PlayerMiniTabs, { type PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
@@ -988,12 +988,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     {activeDetail?.win_loss && (activeDetail.win_loss.wins + activeDetail.win_loss.losses) > 0 && (() => {
                       const wl = activeDetail.win_loss!
                       const total = ranked_total(detail)
-                      // 최근 5R 의 결과를 닷으로 (오래된 → 최신 순)
-                      const recent = (activeDetail?.recent_games ?? []).slice(0, 5)
-                      const form = [...recent].reverse().map(g => {
-                        const r = g.result
-                        return (r === 'W' || r === 'L' || r === 'D') ? r : null
-                      })
+                      // 최근 승패 닷은 제거(2026-08-09, 사용자 판단) — 한 라운드에 여러 경기를
+                      //   하는 리그라 하루를 W/L 하나로 압축하면 "2승 4패" 같은 실제 전적이
+                      //   사라져 오히려 오해를 만든다. 시즌 통산 전적과 승률만 남긴다.
                       return (
                         <div
                           className="mt-2 rounded-sm px-3 py-2.5 flex items-center justify-between flex-wrap gap-2"
@@ -1008,12 +1005,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                                 <span style={{ color: 'var(--mm-muted)' }}>·</span>
                                 <span className="font-jersey font-black text-base tabular-nums" style={{ color: 'var(--mm-muted)' }}>{wl.draws}D</span>
                               </>
-                            )}
-                            {form.length > 0 && (
-                              <div className="flex items-center gap-1.5 ml-1">
-                                <span className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--mm-muted)' }}>최근</span>
-                                <FormDots results={form} size={12} />
-                              </div>
                             )}
                           </div>
                           <div className="flex items-center gap-2">
@@ -1466,7 +1457,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   <table className="w-full text-xs">
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                        {['날짜','전적','PTS','REB','AST','STL','BLK','FG','FG%','3P%'].map(h => (
+                        {['날짜','PTS','REB','AST','STL','BLK','FG','FG%','3P%'].map(h => (
                           <th key={h} className="pb-1.5 text-xs font-bold uppercase tracking-[0.14em] text-right first:text-left" style={{ color: 'var(--mm-muted)' }}>{h}</th>
                         ))}
                       </tr>
@@ -1479,15 +1470,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         return (
                         <tr key={i} style={{ borderBottom: '1px solid var(--mm-rule)' }} className="last:border-0">
                           <td className="py-1.5 text-xs pr-2 whitespace-nowrap font-mono" style={{ color: 'var(--mm-ink-soft)' }}>{g.date?.slice(5) ?? '—'}</td>
-                          {/* 전적 — 그 라운드의 전 경기 합산. 종합 판정(W/L/D)만 두면
-                              "6경기 중 2승" 같은 사실이 사라진다. */}
-                          <td className="py-1.5 text-right whitespace-nowrap text-xs tabular-nums" style={{
-                            color: g.result === 'W' ? 'var(--mm-positive)' : g.result === 'L' ? 'var(--mm-negative)' : 'var(--mm-muted)',
-                          }}>
-                            {g.record
-                              ? `${g.record.wins}승 ${g.record.losses}패${g.record.draws > 0 ? ` ${g.record.draws}무` : ''}`
-                              : (g.result ?? '—')}
-                          </td>
                           <td className="py-1.5 text-right font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{g.pts}</td>
                           <td className="py-1.5 text-right tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{g.reb}</td>
                           <td className="py-1.5 text-right tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{g.ast}</td>
