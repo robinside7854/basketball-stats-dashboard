@@ -1,11 +1,11 @@
 'use client'
 import { useState, useEffect, useMemo, Suspense } from 'react'
 import dynamic from 'next/dynamic'
-import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown, Crown, ChevronRight } from 'lucide-react'
+import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFiveSlot'
+import RecordRoomBoard, { type SeasonHighCategory, type SeasonHigh } from '@/components/league/stats/RecordRoomBoard'
 
 // 상호작용 트리거 후에만 필요 — 초기 번들에서 분리
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
@@ -31,27 +31,15 @@ type AdvKey = 'at_ratio'|'a1_total'|'a1_rate'|'trb_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'ts_pct'|'shot_mix'
 type StatMode = 'basic'|'shooting'|'advanced'
 
-// 시즌 최고(옛 '시즌하이' 탭) 카테고리 — GET /api/leagues/[leagueId]/season-highs 의 categoryHighs 그대로
-type SeasonHighCategory = 'PTS' | 'REB' | 'AST' | 'STL' | 'BLK' | 'FG3M' | 'FGA' | 'FGM'
-interface SeasonHigh {
-  category: SeasonHighCategory
-  label: string
-  value: number
-  player: {
-    player_id: string
-    name: string
-    number: number | null
-    position: string | null
-    photo_url: string | null
-  }
-  date: string
-}
+// 시즌 최고(옛 '시즌하이' 탭 → 2026-08-08 리더보드 흡수 한 줄 표시 → 2026-08-09 기록실 8칸 보드)
+// 카테고리 타입은 RecordRoomBoard 가 소유 — GET /api/leagues/[leagueId]/season-highs 의
+// categoryHighs 그대로.
 
 // 현재 정렬된 지표(SortKey) → 시즌 최고 카테고리. 리더보드는 basic 모드 정렬만 이 8개
-// 카테고리와 개념이 겹친다(득점/리바운드/어시스트/스틸/블락/3점 성공/야투 성공).
+// 카테고리와 개념이 겹친다(득점/리바운드/어시스트/스틸/블락/3점 성공/야투 성공/야투 시도).
 // Shooting·Advanced 모드의 정렬 지표(%, 비율)는 대응하는 카테고리가 없어 매핑에서 뺐다 —
-// 억지로 값을 끌어오면 "야투율 시즌 최고"처럼 의미가 안 맞는 줄이 생긴다. 지시대로 그 경우엔
-// 줄 자체를 숨긴다.
+// 억지로 값을 끌어오면 "야투율 시즌 최고"처럼 의미가 안 맞는 강조가 생긴다. 지시대로 그 경우엔
+// 기록실 보드에서 강조 칸 없이(모든 칸 중립) 렌더된다.
 const SORTKEY_TO_SEASON_HIGH_CATEGORY: Partial<Record<SortKey, SeasonHighCategory>> = {
   ppg: 'PTS', pts: 'PTS',
   rpg: 'REB', reb: 'REB',
@@ -60,12 +48,6 @@ const SORTKEY_TO_SEASON_HIGH_CATEGORY: Partial<Record<SortKey, SeasonHighCategor
   bpg: 'BLK', blk: 'BLK',
   fg3m: 'FG3M',
   fgm: 'FGM',
-}
-
-function formatSeasonHighDate(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00`)
-  if (Number.isNaN(d.getTime())) return dateStr
-  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
 // SortKey → 한글 풀네임 (TopFiveSlot 상단 라벨용)
@@ -158,47 +140,6 @@ function rankTier(rank: number): { color: string; bg: string; accent: string; bo
   return { color: 'var(--mm-muted)', bg: 'transparent', accent: 'transparent', border: 'none' }
 }
 
-// 시즌 최고 한 줄 — TOP 5 슬롯 바로 아래. 현재 정렬 지표가 매핑되는 카테고리를 가질 때만
-// 렌더된다(호출부에서 null 체크). 박스스코어 날짜가 있으면 카드 전체가 클릭 가능한 링크다
-// (DESIGN.md: "카드가 뜨면 카드 전체가 링크"). orgSlug 가 없으면(이론상 발생 안 함) 링크 없이
-// 텍스트만 보여준다.
-function SeasonHighLine({ high, orgSlug, leagueId }: { high: SeasonHigh; orgSlug: string; leagueId: string }) {
-  const dateLabel = formatSeasonHighDate(high.date)
-  const content = (
-    <>
-      <Crown size={16} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden className="shrink-0" />
-      <span className="text-[11px] font-black uppercase shrink-0" style={{ color: 'var(--mm-muted)', letterSpacing: '0.12em' }}>
-        시즌 최고
-      </span>
-      <span className="font-bold truncate" style={{ color: 'var(--mm-ink)', fontSize: '14px' }}>
-        {high.player.name}
-      </span>
-      <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>
-        {high.value}
-      </span>
-      <span className="text-xs font-bold tabular-nums shrink-0" style={{ color: 'var(--mm-muted)' }}>
-        ({dateLabel})
-      </span>
-      <ChevronRight size={16} className="ml-auto shrink-0" style={{ color: 'var(--mm-muted)' }} aria-hidden />
-    </>
-  )
-  const className = "flex items-center gap-2 px-3 min-h-[44px] transition-colors"
-  const style = { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }
-  if (!orgSlug || !high.date) {
-    return <div className={className} style={style}>{content}</div>
-  }
-  return (
-    <Link
-      href={`/league/${orgSlug}/${leagueId}/boxscore/${high.date}`}
-      className={`${className} cursor-pointer hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1`}
-      style={style}
-      aria-label={`시즌 최고 ${high.label} — ${high.player.name} ${high.value}, ${dateLabel} 박스스코어 보기`}
-    >
-      {content}
-    </Link>
-  )
-}
-
 function LeagueStatsPageInner() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
@@ -229,9 +170,10 @@ function LeagueStatsPageInner() {
   // 이후 컬럼 헤더 클릭으로 지표 전환 (2026-07-27: 기본 안내 화면 → 득점 TOP5 기본 표시로 변경)
   const [topFiveActive, setTopFiveActive] = useState(true)
   const [statUnit, setStatUnit] = useState<StatUnit>('round')
-  // 시즌 최고(옛 시즌하이 탭 흡수) — 카테고리별 라운드 최고 기록. 리더보드와 같은 데이터 소스,
-  // 새 API 없음(GET /api/leagues/[leagueId]/season-highs — 삭제된 시즌하이 탭 컴포넌트가 쓰던 것 그대로).
+  // 기록실 8칸 보드(옛 시즌하이 탭 흡수 → 한 줄 표시 → 8칸 보드) — 카테고리별 라운드 최고 기록.
+  // 리더보드와 같은 데이터 소스, 새 API 없음(GET /api/leagues/[leagueId]/season-highs).
   const [categoryHighs, setCategoryHighs] = useState<SeasonHigh[]>([])
+  const [highsLoading, setHighsLoading] = useState(true)
 
   const toggleCompare = (player: PlayerStat) => {
     setCompareIds(prev => {
@@ -275,14 +217,17 @@ function LeagueStatsPageInner() {
       .catch(() => setLoading(false))
   }, [leagueId, selectedQuarterId, statUnit])
 
-  // 시즌 최고 — 분기 변경 시 함께 다시 조회. 8개 카테고리뿐이라 페이로드가 작아
+  // 기록실 8칸 보드용 시즌 최고 — 분기 변경 시 함께 다시 조회. 8개 카테고리뿐이라 페이로드가 작아
   // statMode 와 무관하게 항상 가져온다(Basic 모드로 돌아왔을 때 재요청 없이 바로 보이도록).
+  // highsLoading 은 메인 스탯(loading)과 별개 — 기록실 보드는 표 로딩 게이트 바깥에서 항상
+  // 렌더되므로(8칸 자리를 미리 잡아 레이아웃이 튀지 않게), 자체 로딩 상태로 스켈레톤을 보여준다.
   useEffect(() => {
+    setHighsLoading(true)
     const qs = selectedQuarterId !== 'all' ? `?quarterId=${selectedQuarterId}` : ''
     fetch(`/api/leagues/${leagueId}/season-highs${qs}`)
       .then(r => r.ok ? r.json() : { categoryHighs: [] })
-      .then(d => setCategoryHighs(d.categoryHighs ?? []))
-      .catch(() => setCategoryHighs([]))
+      .then(d => { setCategoryHighs(d.categoryHighs ?? []); setHighsLoading(false) })
+      .catch(() => { setCategoryHighs([]); setHighsLoading(false) })
   }, [leagueId, selectedQuarterId])
 
   function handleSort(key: SortKey) {
@@ -540,13 +485,12 @@ function LeagueStatsPageInner() {
   }, [topFiveActive, statMode, sortKey, shootSortKey, advSortKey, players, effectiveMinGP, viewMode, statUnit])
 
   // 현재 정렬 지표(리더보드 = basic 모드일 때만) → 시즌 최고 카테고리 매핑.
-  // shooting/advanced 모드거나 매핑 없는 지표(각종 %, TOPG 등)면 null → TopFiveSlot 아래 줄이 숨는다.
-  const matchedSeasonHigh = useMemo<SeasonHigh | null>(() => {
+  // shooting/advanced 모드거나 매핑 없는 지표(각종 %, TOPG 등)면 null → 기록실 보드에서
+  // 어떤 칸도 강조하지 않는다(8칸은 그대로 유지, 강조만 꺼짐).
+  const highlightCategory = useMemo<SeasonHighCategory | null>(() => {
     if (statMode !== 'basic') return null
-    const category = SORTKEY_TO_SEASON_HIGH_CATEGORY[sortKey]
-    if (!category) return null
-    return categoryHighs.find(h => h.category === category) ?? null
-  }, [statMode, sortKey, categoryHighs])
+    return SORTKEY_TO_SEASON_HIGH_CATEGORY[sortKey] ?? null
+  }, [statMode, sortKey])
 
   const base = `/league/${orgSlug}/${leagueId}`
   // 리더보드·어워즈·선수 명단·팀 순위 4개 서브탭 (2026-08-08 — 플레이 맵 삭제, 어워즈 승격 /
@@ -589,6 +533,17 @@ function LeagueStatsPageInner() {
         </div>
       </div>
 
+      {/* 기록실 — 시즌 최고 8칸 보드. 메인 스탯(loading)과 독립적으로 항상 렌더하고
+          자체 highsLoading 으로 스켈레톤을 보여준다 — 리더보드가 비어 있어도(경기 데이터 없음)
+          이 보드는 8칸 자리를 그대로 유지한다(사용자 지시: "8칸이 가장 안정적"). */}
+      <RecordRoomBoard
+        categoryHighs={categoryHighs}
+        highlightCategory={highlightCategory}
+        orgSlug={orgSlug}
+        leagueId={leagueId}
+        loading={highsLoading}
+      />
+
       {loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={32} /></div>
       ) : players.length === 0 ? (
@@ -607,11 +562,6 @@ function LeagueStatsPageInner() {
             players={topFive.players}
             onPlayerClick={(id, name) => setQuickViewPlayer({ id, name })}
           />
-
-          {/* 시즌 최고 한 줄 (옛 시즌하이 탭 흡수) — 정렬 지표가 매핑되는 카테고리를 가질 때만 표시 */}
-          {matchedSeasonHigh && (
-            <SeasonHighLine high={matchedSeasonHigh} orgSlug={orgSlug} leagueId={leagueId} />
-          )}
 
           {/* 비교하기 버튼 */}
           {compareIds.size > 0 && (
