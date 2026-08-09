@@ -40,7 +40,7 @@ export async function GET(
       .order('slot_num'),
     // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 대회 묶음에서 0명이 나와
     //   plus_one 맵이 비고, 가산점이 에러 없이 조용히 빠진다.
-    supabase.from('league_players').select('id, name, number, plus_one').eq('team_id', await resolveTeamId(leagueId)),
+    supabase.from('league_players').select('id, name, number, plus_one, photo_url').eq('team_id', await resolveTeamId(leagueId)),
     supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
     supabase.from('league_player_quarters').select('league_player_id, quarter_id, team_id').eq('league_id', leagueId),
     supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
@@ -182,13 +182,16 @@ export async function GET(
   })
 
   // Aggregate daily stats per player (팀 정보 포함)
-  type DailyEntry = GS & { gp: number; name: string; number: number | null; team_id: string | null; team_name: string | null; team_color: string | null }
+  // photo_url: playerMap 에서 직접 조회(게임별 row 에는 안 실어둠 — StatTable 은 안 쓰므로 불필요한
+  // 필드 증식 방지) · "그날의 주인공" 히어로(2026-08-10, BoxscoreContent 최다득점자 얼굴)용
+  type DailyEntry = GS & { gp: number; name: string; number: number | null; team_id: string | null; team_name: string | null; team_color: string | null; photo_url: string | null }
   const dailyMap: Record<string, DailyEntry> = {}
   for (const g of gameList) {
     for (const row of g.players) {
       if (!dailyMap[row.player_id]) dailyMap[row.player_id] = {
         ...emptyGS(), gp: 0, name: row.name, number: row.number,
         team_id: row.team_id ?? null, team_name: row.team_name ?? null, team_color: row.team_color ?? null,
+        photo_url: (playerMap[row.player_id] as { photo_url?: string | null } | undefined)?.photo_url ?? null,
       }
       const d = dailyMap[row.player_id]
       d.gp++; d.pts+=row.pts; d.reb+=row.reb; d.oreb+=row.oreb; d.dreb+=row.dreb
@@ -199,7 +202,7 @@ export async function GET(
   const dailyStats = Object.entries(dailyMap)
     .map(([pid, d]) => ({
       player_id: pid, name: d.name, number: d.number, gp: d.gp,
-      team_id: d.team_id, team_name: d.team_name, team_color: d.team_color,
+      team_id: d.team_id, team_name: d.team_name, team_color: d.team_color, photo_url: d.photo_url,
       pts: d.pts, reb: d.reb, oreb: d.oreb, dreb: d.dreb, ast: d.ast, stl: d.stl, blk: d.blk, tov: d.tov, pf: d.pf,
       fgm: d.fgm, fga: d.fga, fg3m: d.fg3m, fg3a: d.fg3a, ftm: d.ftm, fta: d.fta,
       fg_pct: pct(d.fgm, d.fga), fg3_pct: pct(d.fg3m, d.fg3a),

@@ -3,12 +3,14 @@ import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { useState, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
+import Image from 'next/image'
 import { useParams } from 'next/navigation'
-import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucide-react'
+import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X, Users } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import Link from 'next/link'
 import TeamInsights from '@/components/league/TeamInsights'
 import SectionCard from '@/components/league/ui/SectionCard'
+import { textOnBg } from '@/lib/util/contrastColor'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { PercentBar } from '@/components/league/StatCell'
@@ -1323,6 +1325,56 @@ export default function LeagueTeamsPage() {
                   <span className="text-xs font-bold uppercase tracking-wider ml-auto" style={{ color: 'var(--mm-muted)' }}>{players.length}명</span>
                 </div>
                 <div className="px-4 py-3 pl-5">
+                  {/* 2026-08-10: "팀 순위 화면 사진 0건" 피드백 대응 — 로스터의 4:5 사진 + 팀컬러
+                      스트립 패턴을 그대로 재사용(새 패턴 만들지 않음). 표 위에 얹되 기본 접힘
+                      (<details>, 로 세로 증가 0 — 스탯 읽는 법 안내와 동일한 검증된 패턴 재사용).
+                      photo_url 은 이미 이 페이지가 쓰는 /api/leagues/[id]/stats 응답에 들어있어
+                      (leagueStats.ts:409) 새 fetch·새 게이트가 필요 없다. */}
+                  {players.length > 0 && (
+                    <details className="group mb-3" style={{ border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-card)', background: 'var(--mm-panel-alt)' }}>
+                      <summary
+                        className="flex items-center gap-2 px-3 cursor-pointer select-none min-h-[44px] [&::-webkit-details-marker]:hidden"
+                        style={{ color: 'var(--mm-ink-soft)', listStyle: 'none' }}
+                      >
+                        <Users size={14} aria-hidden style={{ color: 'var(--mm-muted)', flexShrink: 0 }} />
+                        <span className="text-xs font-black uppercase" style={{ letterSpacing: '0.08em' }}>선수단 보기 · {players.length}명</span>
+                        <ChevronDown
+                          size={14}
+                          aria-hidden
+                          className="ml-auto transition-transform duration-200 group-open:rotate-180"
+                          style={{ color: 'var(--mm-muted)', flexShrink: 0 }}
+                        />
+                      </summary>
+                      <div className="flex gap-2 overflow-x-auto scrollbar-hide px-3 pb-3 pt-2" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+                        {players.map(p => (
+                          <div key={p.player_id} className="shrink-0 w-16 sm:w-20 text-center">
+                            <div className="relative w-16 h-20 sm:w-20 sm:h-24 rounded-md overflow-hidden border" style={{ borderColor: 'var(--mm-rule)', background: 'var(--mm-panel)' }}>
+                              {/* 팀 컬러 좌측 스트립 — 로스터 카드와 동일 */}
+                              <div className="absolute left-0 top-0 bottom-0 w-[3px] z-10" style={{ background: s.color }} aria-hidden />
+                              {p.photo_url ? (
+                                <Image
+                                  src={p.photo_url}
+                                  alt={p.name}
+                                  fill
+                                  sizes="80px"
+                                  className="object-cover object-top"
+                                />
+                              ) : (
+                                // 사진 없는 선수 폴백 — 팀 컬러 배경 + textOnBg 로 4.5:1 대비 확보
+                                // (팀 색이 #ffffff 인 팀도 안전 — contrastColor.ts textOnBg 참조)
+                                <div className="w-full h-full flex items-center justify-center" style={{ background: s.color }}>
+                                  <span className="font-jersey font-black" style={{ color: textOnBg(s.color), fontSize: '18px' }}>
+                                    {p.name.length > 1 ? p.name.slice(1) : p.name}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-[10px] font-bold mt-1 truncate" style={{ color: 'var(--mm-ink-soft)' }}>{p.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                   <StatsTable
                     players={players}
                     leagueId={leagueId}

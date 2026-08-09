@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
 import { ResultChips, ScoreTable } from './RecordDisplay'
 import SectionCard from '@/components/league/ui/SectionCard'
+import { accentOrInk } from '@/lib/util/contrastColor'
 
 export type StandingRow = {
   key: string
@@ -88,10 +89,14 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                 >
                   {idx + 1}
                 </span>
+                {/* 2026-08-10: 팀 컬러를 더 분명하게 — 얇은 테두리를 추가해 순백(#ffffff) 팀 컬러도
+                    라이트 모드 패널 위에서 사라지지 않게 하고, 팀명 텍스트에도 accentOrInk 로 팀
+                    컬러를 입힌다(대비 낮은 색은 자동으로 --mm-ink 폴백 — contrastColor.ts 참조).
+                    바 높이·행 높이는 그대로라 세로 길이엔 영향 없음. */}
                 <span
                   aria-hidden
                   className="block h-6 rounded-sm"
-                  style={{ background: t.color, opacity: isTop ? 0.85 : 1 }}
+                  style={{ background: t.color, opacity: isTop ? 0.85 : 1, border: '1px solid var(--mm-rule)' }}
                 />
                 <span
                   className="font-jersey uppercase min-w-0 break-keep"
@@ -99,7 +104,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                     fontSize: isTop ? 'clamp(16px, 4.6vw, 22px)' : 'clamp(14px, 3.8vw, 18px)',
                     fontWeight: 900,
                     letterSpacing: '-0.005em',
-                    color: 'var(--mm-ink)',
+                    color: accentOrInk(t.color),
                     lineHeight: 1.15,
                     wordBreak: 'break-word',
                     overflowWrap: 'anywhere',

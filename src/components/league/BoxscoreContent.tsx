@@ -7,6 +7,7 @@
 //
 // 데이터 · 계산 로직 · 3-탭 구조 (경기결과 · 박스스코어 · 팀별 비교) 무변경.
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Image from 'next/image'
 import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
@@ -35,6 +36,8 @@ type GameData = {
 type DailyStat = {
   player_id: string; name: string; number: number | null; gp: number
   team_id: string | null; team_name: string | null; team_color: string | null
+  /** "그날의 주인공" 히어로용 (2026-08-10) — daily-boxscore route 가 league_players 에서 조회해 실어줌 */
+  photo_url?: string | null
   pts: number; reb: number; oreb: number; dreb: number
   ast: number; stl: number; blk: number; tov: number; pf: number
   fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
@@ -392,6 +395,43 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '' }: Pro
           )}
         </div>
       </div>
+
+      {/* "그날의 주인공" — 박스스코어 상세 첫 화면이 곧장 표였던 것 개선(2026-08-10).
+          그날 최다 득점자 얼굴 + 한 줄. 접이식이 아니라 고정 한 줄 높이(약 44px)로 — 표를
+          밀어내지 않으면서도 항상 보인다(탭과 무관하게 상단 고정). 사진 없으면 팀 컬러 배경 +
+          textOnBg 로 대비 확보한 이니셜 폴백(팀 색이 #ffffff 인 팀도 안전). */}
+      {!loading && dailyStats.length > 0 && dailyStats[0].pts > 0 && (() => {
+        const hero = dailyStats[0]
+        const heroColor = hero.team_color
+        return (
+          <div
+            className="shrink-0 px-4 sm:px-6 py-2 flex items-center gap-2.5 min-h-11"
+            style={{ background: 'var(--mm-panel-alt)', borderBottom: '1px solid var(--mm-rule)' }}
+          >
+            <span
+              className="relative shrink-0 w-8 h-8 rounded-full overflow-hidden flex items-center justify-center"
+              style={{
+                border: `2px solid ${heroColor ?? 'var(--mm-rule)'}`,
+                background: heroColor ?? 'var(--mm-panel)',
+              }}
+            >
+              {hero.photo_url ? (
+                <Image src={hero.photo_url} alt={hero.name} fill sizes="32px" className="object-cover object-top" />
+              ) : (
+                <span className="font-jersey font-black text-[11px] leading-none" style={{ color: heroColor ? textOnBg(heroColor) : 'var(--mm-ink)' }}>
+                  {hero.name.length > 1 ? hero.name.slice(1) : hero.name}
+                </span>
+              )}
+            </span>
+            <p className="text-xs sm:text-sm min-w-0 truncate" style={{ color: 'var(--mm-ink-soft)' }}>
+              <Trophy size={11} className="inline mr-1 -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+              오늘의 주인공 · <span className="font-black" style={{ color: 'var(--mm-ink)' }}>{hero.name}</span>
+              {hero.team_name && <span style={{ color: 'var(--mm-muted)' }}> ({hero.team_name})</span>}
+              {' '}<span className="font-black tabular-nums" style={{ color: accentOrInk(heroColor) }}>{hero.pts}점</span>
+            </p>
+          </div>
+        )
+      })()}
 
       {/* 탭 바 — 스코어보드 접이식 섹션 제거, 콘텐츠는 경기결과 탭으로 이관 */}
       {!loading && games.length > 0 && (

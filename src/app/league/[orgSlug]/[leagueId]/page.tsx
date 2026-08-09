@@ -479,7 +479,13 @@ export default async function LeagueDetailPage({
       </div>
 
       {/* 미라클모닝 브랜드 홈 — 팀 승률 · 최근 라운드 · 리그 리더 · 하이라이트를 탭으로 묶어
-          스크롤 길이 단축 (2026-07-27). 활성 탭만 노출 · 기본=팀 승률(첫 방문 투어 타깃 보존). */}
+          스크롤 길이 단축 (2026-07-27). 활성 탭만 노출 · 기본=팀 승률(첫 방문 투어 타깃 보존).
+          2026-08-10 정책 변경: 이 중 '리그 리더' 탭만 전체 공개로 전환 (스탯 탭·어워즈·하이라이트
+          등 다른 게이트는 불변). leaderStats/initialPhotoMap 은 원래도 isMember 와 무관하게
+          Promise.all 에서 항상 SSR 계산되던 값이라 서버 쪽엔 새 쿼리가 필요 없다. 클라이언트도
+          안전하다 — NbaLeaders 는 initialPlayers/initialPhotoMap 이 있으면(hasInitial=true) 마운트
+          후 canViewStats 게이트가 걸린 `/api/leagues/[id]/stats` 를 재호출하지 않는다(컴포넌트
+          내부 useEffect 가드 참조) — 비로그인 사용자가 401 로 빈 화면을 보는 경로 자체가 없다. */}
       <HomeSectionTabs
         standings={
           <NbaTeamStandings
@@ -492,15 +498,11 @@ export default async function LeagueDetailPage({
         }
         rounds={<NbaRoundsSummary rounds={recentRounds} leagueId={leagueId} orgSlug={orgSlug} />}
         leaders={
-          isMember ? (
-            <NbaLeaders
-              leagueId={leagueId}
-              initialPlayers={leaderStats.players}
-              initialPhotoMap={initialPhotoMap}
-            />
-          ) : (
-            <StatGate title="리그 리더는 회원 전용" description="득점·리바운드 등 시즌 리더보드는 가입 승인된 회원만 볼 수 있어요." />
-          )
+          <NbaLeaders
+            leagueId={leagueId}
+            initialPlayers={leaderStats.players}
+            initialPhotoMap={initialPhotoMap}
+          />
         }
         highlights={
           isMember ? (
