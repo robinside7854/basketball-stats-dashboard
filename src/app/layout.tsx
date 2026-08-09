@@ -87,10 +87,23 @@ export const metadata: Metadata = {
 }
 
 export const viewport: import('next').Viewport = {
-  themeColor: '#0a0a0a',
+  // 앱 다크 지반색(--mm-ground)과 동일. 예전 #0a0a0a 는 차가운 검정이라
+  // 상태바 → 콘텐츠로 넘어갈 때 색이 튀었다. (2026-08-10)
+  themeColor: '#191714',
   width: 'device-width',
   initialScale: 1,
 }
+
+// 스플래시 노출 판정 — 페인트 전에 <html> 에 클래스를 달아야 깜빡임이 없다.
+//   no-splash     = 이번 세션에 이미 봤음 (매번 뜨면 자주 쓰는 회원에게 방해)
+//   splash-static = iOS 설치형. OS 가 정지 런치 이미지를 먼저 그리므로 바운스를 생략한다
+//                   (안 그러면 자리잡은 로고가 다시 좌측으로 튕겨나간다)
+const SPLASH_GATE = `(function(){try{
+var d=document.documentElement;
+if(sessionStorage.getItem('onball_splash_seen')==='1'){d.classList.add('no-splash');return}
+var s=window.navigator.standalone===true||window.matchMedia('(display-mode: standalone)').matches;
+if(s&&/iP(hone|ad|od)/.test(navigator.userAgent))d.classList.add('splash-static');
+}catch(e){}})()`
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -104,6 +117,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
+        <script dangerouslySetInnerHTML={{ __html: SPLASH_GATE }} />
       </head>
       <body className={`${firaSans.variable} ${bebasNeue.variable} ${barlowCondensed.variable} font-sans bg-gray-950 text-gray-300 min-h-screen`}>
         <ThemeProvider
@@ -112,7 +126,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           enableSystem={false}
         >
           <TooltipProvider>
-            {/* 인앱 스플래시 — 설치형 PWA 실행 시 전체화면 배너 (안드로이드/아이폰 공통) */}
+            {/* 인앱 스플래시 — 브랜드 락업 애니메이션. 세션당 1회 (웹·설치형 공통) */}
             <AppSplash />
             {children}
             {/* PWA Service Worker 등록 — 안드로이드 PWA 설치 인식용 */}

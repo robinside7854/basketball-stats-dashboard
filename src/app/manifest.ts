@@ -16,8 +16,10 @@ export default function manifest(): MetadataRoute.Manifest {
     description: '동호회 농구 스탯 · 경기 기록 플랫폼',
     start_url: '/',
     display: 'standalone',
-    background_color: '#0a0a0a',
-    theme_color: '#0a0a0a',
+    // 앱 다크 지반색(--mm-ground)과 동일. 안드로이드 설치형 런치 화면 배경이자
+    // 상태바 색. 예전 #0a0a0a 는 차가운 검정이라 콘텐츠로 넘어갈 때 튀었다. (2026-08-10)
+    background_color: '#191714',
+    theme_color: '#191714',
     orientation: 'portrait',
     icons: [
       // 'any' 용 — 홈 화면·탭에서 잘 보이도록 농구공을 크게 크롭한 버전

@@ -661,41 +661,146 @@
   .page-coach-nudge-l { animation: coach-nudge-l 1.2s ease-in-out infinite; }
   .page-coach-nudge-r { animation: coach-nudge-r 1.2s ease-in-out infinite; }
 }
-/* 인앱 스플래시(런치 배너) — 설치형 PWA 실행 시에만 노출. (AppSplash.tsx)
-   일반 브라우저 탭에서는 display:none → 렌더 부담·깜빡임 없음. */
+/* ─────────────────────────────────────────────
+ * 인앱 스플래시 — 온볼 브랜드 락업 (AppSplash.tsx)
+ *
+ * 공이 좌측 화면 밖에서 튀며 굴러 들어와 로고 자리에 서고,
+ * 노란 밑줄과 워드마크가 좌→우로 쓸려 나온다.
+ *
+ * 배경은 앱 다크 지반색(--mm-ground dark)과 같은 #191714 고정.
+ * 스플래시만 #0a0a0a 였을 때 사라지는 순간 색이 튀었다. (2026-08-10)
+ *
+ * 노출 게이트는 layout.tsx <head> 인라인 스크립트가 페인트 전에 결정한다.
+ *   .no-splash      = 이번 세션에 이미 봤음 → 아예 숨김
+ *   .splash-static  = iOS 설치형(OS 가 정지 런치 이미지를 이미 그림) → 바운스 생략
+ * ───────────────────────────────────────────── */
 .app-splash {
-  display: none; /* 기본 숨김 — 아래 게이트에서 켜짐 */
   position: fixed;
   inset: 0;
   z-index: 9999;
+  overflow: hidden; /* 화면 밖에서 진입하는 공을 잘라준다 */
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #0a0a0a;
-  transition: opacity 450ms ease;
+  background: #191714;
+  transition: opacity 500ms ease;
 }
-.app-splash img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0; /* 검정 배경 위로 배너가 스르륵 떠오르도록 (로드 후 is-loaded 에서 1) */
-  transition: opacity 400ms ease;
-}
-.app-splash.is-loaded img {
-  opacity: 1;
-}
+.no-splash .app-splash { display: none; }
+
 .app-splash--done {
   opacity: 0;
   pointer-events: none;
 }
+
+/* 락업 — 로고 SVG(540×150)의 단위를 --u 로 환산해 쓴다.
+   밑줄 길이는 로고 파일의 고정값(404)이 아니라 실제 워드마크 폭을 따라간다.
+   SVG 의 x 좌표는 손으로 그린 값이라 Barlow Condensed 실측폭과 다르기 때문. */
+.splash-lock {
+  --lw: min(70vw, 380px);
+  --u: calc(var(--lw) / 540); /* 로고 1단위 = 몇 px 인가 */
+  display: flex;
+  align-items: flex-end;
+}
+.splash-ball {
+  width: calc(var(--u) * 152);
+  height: auto;
+  flex: none;
+  margin-bottom: calc(var(--u) * -6); /* 공 바닥이 밑줄 한가운데 오도록 */
+  will-change: transform;
+}
+.splash-col {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.splash-word {
+  /* --font-jersey 를 쓰면 안 된다. 그 변수는 @theme(:root)에 정의되면서 내부적으로
+     var(--font-barlow-condensed) 를 참조하는데, 그 변수는 next/font 가 <body> 클래스에
+     붙이므로 :root 스코프에서 미정의 → 선언 전체가 무효가 되어 Times New Roman 으로 떨어진다.
+     next/font 변수를 직접 참조하되 var() 자체에 폴백을 줘서 무효화될 여지를 없앤다. */
+  font-family: var(--font-barlow-condensed, 'Barlow Condensed'), 'Oswald', 'Arial Narrow', sans-serif;
+  font-weight: 700;
+  font-size: calc(var(--u) * 96);
+  line-height: 1;
+  letter-spacing: 0.012em;
+  color: #fff;
+  white-space: nowrap;
+  margin-bottom: calc(var(--u) * -6);
+  clip-path: inset(0 101% 0 -4%); /* 공이 착지한 뒤 좌→우로 쓸려 나온다 */
+}
+.splash-rule {
+  height: calc(var(--u) * 8);
+  margin-left: calc(var(--u) * -46); /* 공 아래까지 파고드는 로고의 심 */
+  background: #eab308;
+  border-radius: 99px;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.splash-tag {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9%;
+  margin: 0;
+  text-align: center;
+  opacity: 0;
+  font-size: clamp(12px, 3.4vw, 15px);
+  color: #a9a294;
+  letter-spacing: 0.01em;
+}
+
+/* 모든 키프레임이 translate → scale → rotate 순서를 똑같이 유지해야 한다.
+   함수 목록이 다르면 브라우저가 행렬 보간으로 떨어지면서 -720deg 회전이
+   최단경로로 뭉개진다(공이 안 구른다). 스케일을 rotate 앞에 두어야
+   찌그러짐이 공의 회전축이 아니라 화면 세로축으로 먹는다.
+   튀는 높이: 112 → 76 → 40 → 18 → 6px (첫 착지는 화면 안에서 일어난다). */
+@keyframes onball-dribble {
+  0%    { transform: translate(-46vw, -190%) scale(1, 1)      rotate(-720deg); animation-timing-function: cubic-bezier(.55,0,1,.45); }
+  14%   { transform: translate(-26vw, -14%)  scale(1, 1)      rotate(-548deg); animation-timing-function: cubic-bezier(.55,0,1,.45); }
+  16%   { transform: translate(-24vw, 0)     scale(1.12,.88)  rotate(-520deg); animation-timing-function: cubic-bezier(0,.55,.45,1); }
+  18.5% { transform: translate(-21vw, -16%)  scale(1, 1)      rotate(-486deg); animation-timing-function: cubic-bezier(0,.55,.45,1); }
+  33%   { transform: translate(-13vw, -128%) scale(1, 1)      rotate(-360deg); animation-timing-function: cubic-bezier(.55,0,1,.45); }
+  48%   { transform: translate(-7vw, -12%)   scale(1, 1)      rotate(-248deg); animation-timing-function: cubic-bezier(.55,0,1,.45); }
+  50%   { transform: translate(-6vw, 0)      scale(1.09,.91)  rotate(-232deg); animation-timing-function: cubic-bezier(0,.55,.45,1); }
+  52%   { transform: translate(-5.4vw, -11%) scale(1, 1)      rotate(-218deg); animation-timing-function: cubic-bezier(0,.55,.45,1); }
+  63%   { transform: translate(-3vw, -68%)   scale(1, 1)      rotate(-150deg); animation-timing-function: cubic-bezier(.55,0,1,.45); }
+  76%   { transform: translate(-1.2vw, 0)    scale(1.05,.95)  rotate(-88deg);  animation-timing-function: cubic-bezier(0,.55,.45,1); }
+  85%   { transform: translate(-.4vw, -30%)  scale(1, 1)      rotate(-44deg);  animation-timing-function: cubic-bezier(.55,0,1,.45); }
+  93%   { transform: translate(0, 0)         scale(1.03,.97)  rotate(-14deg);  animation-timing-function: cubic-bezier(0,.55,.45,1); }
+  97%   { transform: translate(0, -10%)      scale(1, 1)      rotate(-4deg);   animation-timing-function: cubic-bezier(.55,0,1,.45); }
+  100%  { transform: translate(0, 0)         scale(1, 1)      rotate(0deg); }
+}
+@keyframes onball-rule-draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes onball-word-wipe { from { clip-path: inset(0 101% 0 -4%); } to { clip-path: inset(0 -4% 0 -4%); } }
+@keyframes onball-tag-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+.app-splash .splash-ball { animation: onball-dribble 980ms both; }
+.app-splash .splash-rule { animation: onball-rule-draw 460ms cubic-bezier(.22,1,.36,1) 900ms both; }
+.app-splash .splash-word { animation: onball-word-wipe 500ms cubic-bezier(.22,1,.36,1) 960ms both; }
+.app-splash .splash-tag  { animation: onball-tag-in 460ms ease-out 1240ms both; }
+
+/* 바운스 생략 — 모션 최소화 설정, 그리고 iOS 설치형(정지 런치 이미지가 먼저 그려짐).
+   전부 최종 상태로 즉시 고정한다. */
 @media (prefers-reduced-motion: reduce) {
-  .app-splash img { transition: none; }
+  .app-splash .splash-ball,
+  .app-splash .splash-rule,
+  .app-splash .splash-word,
+  .app-splash .splash-tag { animation: none; }
 }
-/* 1차 게이트: CSS 미디어 (하이드레이션 전부터 즉시 적용) */
-@media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
-  .app-splash { display: flex; }
+.splash-static .app-splash .splash-ball,
+.splash-static .app-splash .splash-rule,
+.splash-static .app-splash .splash-word,
+.splash-static .app-splash .splash-tag { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-splash .splash-rule { transform: scaleX(1); }
+  .app-splash .splash-word { clip-path: none; }
+  .app-splash .splash-tag  { opacity: 1; }
 }
-/* 폴백 게이트: 일부 브라우저가 display-mode 를 다르게 볼 때 JS 가 부여 */
-:root.is-pwa .app-splash { display: flex; }
+.splash-static .app-splash .splash-rule { transform: scaleX(1); }
+.splash-static .app-splash .splash-word { clip-path: none; }
+.splash-static .app-splash .splash-tag  { opacity: 1; }
 
 /* ─────────────────────────────────────────────
  * 공지사항 마크다운 프로즈 스타일 (리더 · 편집기 미리보기 공용)
