@@ -32,9 +32,12 @@ const COLOR = {
   // 2026-08-10: 앱 전역 웜톤 통일에 맞춰 배경만 --mm-ground(dark) 현행값으로 교체.
   // 리그 카드(app/league/.../opengraph-image.tsx)와 같은 배경이어야 두 카드가 한 세트로 보인다.
   ground: '#191714',
-  ink: '#FAFAFA',
-  muted: '#C4C4CB',
-  yellow: '#FDE047',
+  ink: '#F2EEE6',
+  muted: '#A9A294',
+  // 로고 파일(onball-logo.svg)이 다크 배경용으로 지정한 브랜드 옐로.
+  // 앱 UI 토큰(--mm-yellow #F5C95C)과는 일부러 다르다 — UI 안에서 읽히는 색과
+  // 브랜드 마크의 색은 역할이 다르고, 스플래시도 같은 #EAB308 을 쓴다.
+  yellow: '#EAB308',
 }
 
 // 한글 서브셋 폰트 로더는 리그 카드와 공유한다 → src/lib/og/font.ts
@@ -77,16 +80,20 @@ export default async function Image() {
           }}
         />
 
-        {/* 상단 워드마크 — 농구공 아이콘 + ONBALL */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <svg width={64} height={64} viewBox="0 0 24 24" fill="none" stroke={COLOR.yellow} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="2" x2="12" y2="22" />
-            <line x1="2" y1="12" x2="22" y2="12" />
-            <path d="M5 5 Q12 12 5 19" />
-            <path d="M19 5 Q12 12 19 19" />
+        {/* 상단 락업 — 브랜드 가이드의 onball-symbol.svg 패스 + 워드마크 + 밑줄.
+            스플래시(globals.css .splash-*)·로고 파일과 같은 형태를 쓴다. */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+          <svg width={70} height={61} viewBox="0 0 152 132" fill="none" stroke={COLOR.yellow} strokeWidth={8} strokeLinecap="round">
+            <circle cx="76" cy="66" r="52" />
+            <path d="M25 66 H127" />
+            <path d="M76 14 V118" />
+            <path d="M41 25 C 60 45, 60 87, 41 107" />
+            <path d="M111 25 C 92 45, 92 87, 111 107" />
           </svg>
-          <div style={{ fontSize: 44, fontWeight: 700, color: COLOR.ink, letterSpacing: 6 }}>{BRAND}</div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', fontSize: 44, fontWeight: 700, color: COLOR.ink, letterSpacing: 1, lineHeight: 1 }}>{BRAND}</div>
+            <div style={{ display: 'flex', height: 4, marginTop: 5, background: COLOR.yellow, borderRadius: 2 }} />
+          </div>
         </div>
 
         {/* 태그라인 */}

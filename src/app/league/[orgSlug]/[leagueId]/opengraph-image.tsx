@@ -25,9 +25,10 @@ export const contentType = 'image/png'
 export const alt = '온볼 — 공이 온 순간은, 사라지지 않는다'
 
 // 크롤러는 짧은 타임아웃 안에 이미지를 받아가야 한다. 매 요청마다 DB+폰트를 다시 타지 않도록
-// 5분 캐시. 공개→비공개 전환이 카드에 반영되는 지연도 최대 5분으로 묶인다(이미 공개였던 동안
-// 알려진 정보이므로 허용 가능한 수준).
-export const revalidate = 300
+// 캐시하되, 이 캐시 창이 곧 "공개 → 비공개로 바꿨는데 아직 팀 이름이 새는" 시간이다.
+// 위 프라이버시 규칙을 캐시가 무르게 만들면 안 되므로 1분으로 짧게 잡는다.
+// (0 으로 두면 크롤 때마다 DB+폰트를 새로 타서 카드가 늦게 뜰 위험이 있다)
+export const revalidate = 60
 
 // satori 는 앱 스타일시트를 못 읽고 인라인 style 만 본다 → globals.css .dark 의 웜톤 값을 하드코딩.
 const COLOR = {
@@ -176,16 +177,20 @@ export default async function Image({
           }}
         />
 
-        {/* 상단 워드마크 — 농구공 심볼 + ONBALL (루트 카드와 동일 락업) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <svg width={64} height={64} viewBox="0 0 24 24" fill="none" stroke={COLOR.yellow} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="2" x2="12" y2="22" />
-            <line x1="2" y1="12" x2="22" y2="12" />
-            <path d="M5 5 Q12 12 5 19" />
-            <path d="M19 5 Q12 12 19 19" />
+        {/* 상단 락업 — 브랜드 가이드의 onball-symbol.svg 패스 + 워드마크 + 밑줄.
+            스플래시(globals.css .splash-*)·로고 파일과 같은 형태를 쓴다. */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
+          <svg width={70} height={61} viewBox="0 0 152 132" fill="none" stroke={COLOR.yellow} strokeWidth={8} strokeLinecap="round">
+            <circle cx="76" cy="66" r="52" />
+            <path d="M25 66 H127" />
+            <path d="M76 14 V118" />
+            <path d="M41 25 C 60 45, 60 87, 41 107" />
+            <path d="M111 25 C 92 45, 92 87, 111 107" />
           </svg>
-          <div style={{ display: 'flex', fontSize: 44, fontWeight: 700, color: COLOR.ink, letterSpacing: 6 }}>{BRAND}</div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', fontSize: 44, fontWeight: 700, color: COLOR.ink, letterSpacing: 1, lineHeight: 1 }}>{BRAND}</div>
+            <div style={{ display: 'flex', height: 4, marginTop: 5, background: COLOR.yellow, borderRadius: 2 }} />
+          </div>
         </div>
 
         {/* 중앙 — 온볼 × 팀이름 */}
