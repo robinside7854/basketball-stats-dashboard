@@ -86,33 +86,7 @@ export function CountUp({
   return <span className={className}>{text}</span>
 }
 
-// W-L 폼 닷 — 최근 N경기 결과를 작은 동그라미 5개로
-//   results: 'W' | 'L' | 'D' | null  (null = 미정/없음)
-export function FormDots({
-  results,
-  size = 6,
-}: {
-  results: ('W'|'L'|'D'|null)[]
-  size?: number
-}) {
-  return (
-    <div className="inline-flex items-center gap-0.5" aria-label={`최근 ${results.length}경기: ${results.map(r => r ?? '·').join('')}`}>
-      {results.map((r, i) => {
-        // W/L/D 색상 — RecordDisplay.tsx RESULT_COLORS 와 동일 토큰 (다크 모드 별도 상향 대응)
-        const bg =
-          r === 'W' ? 'var(--mm-positive)' :
-          r === 'L' ? 'var(--mm-negative)' :
-          r === 'D' ? 'var(--mm-neutral-strong)' :
-          'var(--mm-rule)'
-        return (
-          <span
-            key={i}
-            className="inline-block rounded-full"
-            style={{ width: size, height: size, background: bg }}
-            title={r ?? '미정'}
-          />
-        )
-      })}
-    </div>
-  )
-}
+
+// FormDots(최근 N경기 W-L 닷) 는 2026-08-10 삭제.
+//   한 라운드에 여러 경기를 하는 리그라 하루를 W/L 하나로 압축하면 실제 전적이 사라져
+//   오해를 만든다는 판단으로 2026-08-09 선수 카드에서 제거됐고, 그 뒤 소비처가 0 이었다.

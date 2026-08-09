@@ -42,7 +42,8 @@
   --mm-radius-card: 14px;
   --mm-radius-ctl:  10px;
   --mm-radius-chip: 999px;
-  --mm-radius-modal: 18px;
+  /* --mm-radius-modal 은 2026-08-10 삭제 — 정의만 있고 소비처가 0 이었다.
+     모달이 실제로 이 값을 쓰게 될 때 다시 만든다(쓰는 곳과 함께). */
 
   /* ===== 클러치샷 5단계 위기 강도 스케일 — 배경/전경 쌍 (캐주얼 전환, 2026-08-06) =====
      dagger < chase < tie < reversal < winning · 위기 강도 낮음 → 높음 순.
@@ -563,53 +564,9 @@
     font-family: var(--font-barlow-condensed), 'Barlow Condensed', 'Oswald', sans-serif;
   }
 
-  /* 저지 등번호 칩 — 본격 농구 유니폼 등번호 느낌 */
-  .jersey-num {
-    font-family: var(--font-barlow-condensed), 'Barlow Condensed', sans-serif;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.02em;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 0.3em;
-    min-width: 1.5em;
-    border-radius: 6px;
-    background: rgba(234, 88, 12, 0.12);
-    border: 1px solid rgba(234, 88, 12, 0.35);
-    color: rgb(251, 146, 60);
-    line-height: 1.2;
-  }
-  :root:not(.dark) .jersey-num {
-    background: rgba(234, 88, 12, 0.10);
-    color: rgb(194, 65, 12);
-  }
-
-  /* 3점 라인 호 데코 (배너/헤더 좌하단·우상단 등에 absolute 배치) */
-  .court-arc-bg {
-    position: relative;
-    overflow: hidden;
-  }
-  .court-arc-bg::before {
-    content: '';
-    position: absolute;
-    inset: -40% -10% auto auto;
-    width: 280px;
-    height: 280px;
-    border: 2px solid rgba(234, 88, 12, 0.18);
-    border-radius: 50%;
-    pointer-events: none;
-  }
-  .court-arc-bg::after {
-    content: '';
-    position: absolute;
-    inset: auto auto -40% -10%;
-    width: 220px;
-    height: 220px;
-    border: 2px solid rgba(234, 88, 12, 0.12);
-    border-radius: 50%;
-    pointer-events: none;
-  }
+  /* 저지 등번호 칩(.jersey-num)과 3점 라인 호(.court-arc-bg) 는 2026-08-10 삭제.
+     정의만 있고 소비처가 0 이었고, 사용자가 "향후에도 쓸 일이 없다" 고 판단했다.
+     농구다움은 배경 장식이 아니라 선수 사진·팀 컬러·경기 영상으로 낸다. */
 
   /* 농구공 스피너 회전 — 농구공 SVG 가 가운데 축으로 회전 */
   @keyframes ball-spin {

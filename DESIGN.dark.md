@@ -124,9 +124,7 @@ spacing:
 rounded:
   ctl: 10px       # var(--mm-radius-ctl) — 버튼 · 인풋 · 작은 컨트롤 (라이트/다크 공통값)
   card: 14px      # var(--mm-radius-card) — 카드 · 섹션
-  modal: 18px     # var(--mm-radius-modal) — 모달 · 시트
   chip: 999px     # var(--mm-radius-chip) — 알약형 칩 · 뱃지 · LIVE
-  jersey-num: 6px # .jersey-num 유틸 고정값 — CSS 변수가 아니라 클래스 안 하드코딩
 components:
   page-body:
     backgroundColor: "{colors.ground}"
@@ -216,11 +214,6 @@ components:
   announcement-link:
     backgroundColor: "{colors.panel}"
     textColor: "{colors.yellow-strong}"
-  jersey-num:
-    backgroundColor: "{colors.yellow-soft}"
-    textColor: "{colors.hoop-orange}"
-    typography: "{typography.jersey-num}"
-    rounded: "{rounded.jersey-num}"
   announcement-mark:
     backgroundColor: "{colors.yellow}"
     textColor: "{colors.black}"
@@ -274,8 +267,8 @@ components:
 
 ## Shapes
 
-라이트와 동일 — `--mm-radius-ctl`(10px) / `--mm-radius-card`(14px) / `--mm-radius-modal`(18px) /
-`--mm-radius-chip`(999px)은 `:root`에만 정의되며 라이트/다크 공통값이다. `.jersey-num`의 6px 고정값도 동일.
+라이트와 동일 — `--mm-radius-ctl`(10px) / `--mm-radius-card`(14px) / `--mm-radius-chip`(999px)은
+`:root`에만 정의되며 라이트/다크 공통값이다.
 
 ## Components
 
