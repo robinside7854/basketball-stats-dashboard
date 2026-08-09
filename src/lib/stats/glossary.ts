@@ -13,6 +13,8 @@ export interface StatDef {
   long: string
   formula?: string
   description: string
+  /** 'low' = 낮을수록 좋은 지표 (라이트 유저가 헷갈리는 것만 명시). 생략 = 높을수록 좋음(기본 가정). */
+  direction?: 'low'
 }
 
 export const GLOSSARY: Record<string, StatDef> = {
@@ -27,7 +29,7 @@ export const GLOSSARY: Record<string, StatDef> = {
   AST:  { short: 'AST',  long: '어시스트',       description: '팀 동료의 성공한 야투를 도운 마지막 패스' },
   STL:  { short: 'STL',  long: '스틸',           description: '상대의 공을 빼앗은 횟수' },
   BLK:  { short: 'BLK',  long: '블락',           description: '상대 슛을 저지한 횟수' },
-  TOV:  { short: 'TOV',  long: '턴오버',         description: '공을 상대에게 넘긴 횟수' },
+  TOV:  { short: 'TOV',  long: '턴오버',         description: '공을 상대에게 넘긴 횟수 · 낮을수록 좋음', direction: 'low' },
   FGM:  { short: 'FG',   long: '야투 성공',      description: '2점 + 3점 야투 성공' },
   '3PM': { short: '3P',  long: '3점 성공',       description: '3점 야투 성공' },
   FTM:  { short: 'FT',   long: '자유투 성공',    description: '자유투 성공' },
@@ -38,7 +40,7 @@ export const GLOSSARY: Record<string, StatDef> = {
   APG:  { short: 'APG',  long: '경기당 도움',    formula: 'AST / GP', description: '경기당 평균 어시스트' },
   SPG:  { short: 'SPG',  long: '경기당 스틸',    formula: 'STL / GP', description: '경기당 평균 스틸' },
   BPG:  { short: 'BPG',  long: '경기당 블락',    formula: 'BLK / GP', description: '경기당 평균 블락' },
-  TOPG: { short: 'TOPG', long: '경기당 턴오버',  formula: 'TOV / GP', description: '경기당 평균 턴오버' },
+  TOPG: { short: 'TOPG', long: '경기당 턴오버',  formula: 'TOV / GP', description: '경기당 평균 턴오버 · 낮을수록 좋음', direction: 'low' },
   ORpg: { short: 'ORpg', long: '경기당 공격리바', formula: 'OREB / GP', description: '경기당 평균 공격 리바운드' },
   DRpg: { short: 'DRpg', long: '경기당 수비리바', formula: 'DREB / GP', description: '경기당 평균 수비 리바운드' },
 
@@ -69,7 +71,7 @@ export const GLOSSARY: Record<string, StatDef> = {
   'AST%': { short: 'AST%', long: '어시스트 사용률', formula: 'AST / (POSS + AST) × 100',
             description: '본인 볼 소유 중 어시스트로 마무리한 비중' },
   'TOV%': { short: 'TOV%', long: '턴오버 사용률', formula: 'TOV / POSS × 100',
-            description: '본인 볼 소유 중 턴오버로 마무리한 비중. 낮을수록 좋음' },
+            description: '본인 볼 소유 중 턴오버로 마무리한 비중. 낮을수록 좋음', direction: 'low' },
   'USG%': { short: 'USG%', long: '사용률', formula: '100 × (FGA + 0.44 × FTA + TOV) / 팀 소유권',
             description: '본인이 팀 공격에서 볼을 마무리한 비중. 팀의 에이스 지표' },
   A1:     { short: 'A1',   long: 'And-One 횟수', description: '야투 성공과 동시에 파울을 얻어낸 앤드원 횟수' },
@@ -86,7 +88,7 @@ export const GLOSSARY: Record<string, StatDef> = {
   ORtg: { short: 'ORtg', long: '공격 효율', formula: 'PTS / POSS × 100',
           description: '100 소유당 득점. 페이스 무관한 공격력' },
   DRtg: { short: 'DRtg', long: '수비 효율', formula: '실점 / 상대 POSS × 100',
-          description: '100 소유당 실점. 낮을수록 좋음' },
+          description: '100 소유당 실점. 낮을수록 좋음', direction: 'low' },
   NetRtg: { short: 'NET', long: '순 효율', formula: 'ORtg - DRtg',
             description: '득실 효율 차이. +5 이상이면 강팀' },
   Pace: { short: 'Pace', long: '페이스', formula: '(팀 POSS + 상대 POSS) / 2 / GP',

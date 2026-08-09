@@ -2,6 +2,7 @@
 // 스탯 컬럼 헤더 · 라벨 + 물음표 아이콘 (호버·클릭 툴팁).
 // StatHelpTooltip 이 실제 UI 담당 (PC 호버 · 모바일 탭 모두 지원).
 
+import { ArrowDown } from 'lucide-react'
 import { statDef } from '@/lib/stats/glossary'
 import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 
@@ -36,6 +37,16 @@ export default function StatHeader({ term, label, className, children, helpSize 
     <span className={className} style={{ display: 'inline-flex', alignItems: 'center', gap: 1, verticalAlign: 'middle' }}>
       <span>{display}</span>
       <StatHelpTooltip statKey={term} size={helpSize} />
+      {/* 낮을수록 좋은 지표만 작은 표식 — 색만으로 전달하지 않도록 아이콘 + title 병기 */}
+      {def.direction === 'low' && (
+        <span
+          title="낮을수록 좋은 지표"
+          aria-label="낮을수록 좋은 지표"
+          style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--mm-negative-fg)', marginLeft: 1 }}
+        >
+          <ArrowDown size={Math.max(9, helpSize - 2)} strokeWidth={2.5} aria-hidden />
+        </span>
+      )}
     </span>
   )
 }

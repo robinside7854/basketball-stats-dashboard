@@ -7,6 +7,9 @@ import { useState } from 'react'
 // 후보 클릭 시에만 열리는 모달 — 초기 번들에서 분리
 const PlayerQuickViewModal = dynamic(() => import('./PlayerQuickViewModal'), { ssr: false })
 import { useFocusTrap } from '@/hooks/useFocusTrap'
+// 순위 지표(award.metric)가 용어집에 등록된 약어(예: 3P%, eFG%)면 설명 툴팁 표시.
+// 매치 안 되는 한국어 설명형 metric(예: "누적 PTS")은 null 반환 → 렌더 안 됨(안전).
+import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 
 export interface AwardCandidate {
   player_id: string
@@ -114,7 +117,10 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
           <div className="px-5 py-3 border-b border-gray-800/60 bg-gray-900/70 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3 text-xs">
               <span className="text-gray-500">순위 지표:</span>
-              <span className={`font-bold ${style.text}`}>{award.metric}</span>
+              <span className={`font-bold inline-flex items-center ${style.text}`}>
+                {award.metric}
+                <StatHelpTooltip statKey={award.metric} size={12} />
+              </span>
             </div>
             <span className="text-xs text-gray-500 tabular-nums">
               총 {award.allCandidates.length}명 후보

@@ -15,6 +15,7 @@ import { PercentBar } from '@/components/league/StatCell'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
+import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import type { Quarter, PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
@@ -585,6 +586,14 @@ function LeagueStatsPageInner() {
             </div>
           )}
 
+          {/* "이 표 읽는 법" — 기본 접힘, 펼치면 주요 지표 쉬운 말 설명 (라이트 유저용) */}
+          <StatsReadingGuide items={[
+            { term: 'PPG', text: '한 경기에 평균 몇 점을 넣는지예요. 높을수록 득점력이 좋아요.' },
+            { term: 'RPG', text: '한 경기에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
+            { term: 'APG', text: '한 경기에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
+            { term: 'TOPG', text: '한 경기에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
+          ]} />
+
           {/* 전체 스탯 테이블 */}
           <SectionCard variant="standalone">
             {/* 테이블 컨트롤 — 모바일 2줄 / PC 1줄 */}
@@ -671,15 +680,19 @@ function LeagueStatsPageInner() {
             {/* Basic — 모바일 카드뷰 */}
             <div className="md:hidden">
               {filtered.map((p, i) => {
-                const sortLabel = sortKey === 'gp'
-                  ? (statUnit === 'round' ? 'R' : 'G')
-                  : (COLS.find(c => c.key === sortKey)?.label ?? '')
+                const sortTerm = sortKey === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : (COLS.find(c => c.key === sortKey)?.label ?? '')
                 const sortVal = cellVal(p, sortKey)
                 const subCols = COLS.filter(c => c.key !== sortKey).slice(0, 4)
                 const rt = rankTier(i + 1)
+                const openPlayer = () => setQuickViewPlayer({ id: p.player_id, name: p.name })
                 return (
-                  <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                    className="w-full text-left px-4 py-3 transition-colors"
+                  // 용어 툴팁(StatHelpTooltip)이 카드 안에 버튼으로 들어가므로 카드 자체는
+                  // <button> 대신 role="button" div — 버튼 안 버튼(invalid HTML) 방지.
+                  // 접근성: 키보드 포커스(tabIndex) + Enter/Space 로 동일 동작 + 포커스 링.
+                  <div key={p.player_id} role="button" tabIndex={0}
+                    onClick={openPlayer}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer() } }}
+                    className="w-full text-left px-4 py-3 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                     style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
                     <div className="flex items-center gap-3 mb-2">
                       <span className="font-jersey font-black tabular-nums w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
@@ -690,18 +703,25 @@ function LeagueStatsPageInner() {
                       </div>
                       <div className="text-right shrink-0">
                         <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '30px', letterSpacing: '-0.015em' }}>{sortVal}</div>
-                        <div className="text-[11px] font-black uppercase mt-1" style={{ color: 'var(--mm-ink)', letterSpacing: '0.16em' }}>{sortLabel}</div>
+                        <div className="text-[11px] font-black uppercase mt-1 flex items-center justify-end" style={{ color: 'var(--mm-ink)', letterSpacing: '0.16em' }}>
+                          <StatHeader term={sortTerm} helpSize={12} />
+                        </div>
                       </div>
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-2" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-                      {subCols.map(({ key, label }) => (
-                        <div key={key} className="text-center">
-                          <div className="text-[11px] font-bold uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label}</div>
-                          <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '15px' }}>{cellVal(p, key)}</div>
-                        </div>
-                      ))}
+                      {subCols.map(({ key, label }) => {
+                        const term = key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label
+                        return (
+                          <div key={key} className="text-center">
+                            <div className="text-[11px] font-bold uppercase flex items-center justify-center" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
+                              <StatHeader term={term} helpSize={10} />
+                            </div>
+                            <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '15px' }}>{cellVal(p, key)}</div>
+                          </div>
+                        )
+                      })}
                     </div>
-                  </button>
+                  </div>
                 )
               })}
             </div>

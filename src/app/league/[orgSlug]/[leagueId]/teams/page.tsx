@@ -12,6 +12,8 @@ import SectionCard from '@/components/league/ui/SectionCard'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { PercentBar } from '@/components/league/StatCell'
+import StatHeader from '@/components/league/StatHeader'
+import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
 import type { Quarter, PlayerStat, Leader } from '@/types/league'
 
 type Team = { id: string; name: string; color: string }
@@ -321,9 +323,14 @@ function StatsTable({
             const isLeader = leaderId && p.player_id === leaderId
             const sortLabel = basicCols.find(c => c.key === basicSortKey)?.label ?? ''
             const subKeys = basicCols.map(c => c.key).filter(k => k !== basicSortKey).slice(0, 4)
+            const openPlayer = () => setQuickView({ id: p.player_id, name: p.name })
             return (
-              <button key={p.player_id} onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                className="w-full text-left px-3 py-2.5 cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)]"
+              // StatHelpTooltip 이 카드 안에 버튼으로 들어가므로 카드 자체는 role="button" div
+              // (버튼 안 버튼은 invalid HTML — 클릭 이벤트가 깨짐). 키보드 동작은 그대로 유지.
+              <div key={p.player_id} role="button" tabIndex={0}
+                onClick={openPlayer}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer() } }}
+                className="w-full text-left px-3 py-2.5 cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
                 style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
@@ -336,7 +343,9 @@ function StatsTable({
                   </div>
                   <div className="text-right shrink-0">
                     <div className="font-jersey font-black tabular-nums leading-none" style={{ color: color ?? 'var(--mm-ink)', fontSize: '26px' }}>{basicVal(p, basicSortKey)}</div>
-                    <div className="text-xs font-bold uppercase tracking-wider mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sortLabel}</div>
+                    <div className="text-xs font-bold uppercase tracking-wider mt-0.5 flex items-center justify-end" style={{ color: 'var(--mm-muted)' }}>
+                      <StatHeader term={basicSortKey === 'gp' ? 'R' : sortLabel} label={sortLabel} helpSize={10} />
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5 pt-1.5" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
@@ -344,13 +353,15 @@ function StatsTable({
                     const lbl = basicCols.find(c => c.key === k)?.label ?? k
                     return (
                       <div key={k} className="text-center">
-                        <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--mm-muted)' }}>{lbl}</div>
+                        <div className="text-xs font-bold uppercase tracking-wider flex items-center justify-center" style={{ color: 'var(--mm-muted)' }}>
+                          <StatHeader term={k === 'gp' ? 'R' : lbl} label={lbl} helpSize={9} />
+                        </div>
                         <div className="text-xs font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{basicVal(p, k)}</div>
                       </div>
                     )
                   })}
                 </div>
-              </button>
+              </div>
             )
           })
         ) : statMode === 'shooting' ? (
@@ -358,9 +369,12 @@ function StatsTable({
             const isLeader = leaderId && p.player_id === leaderId
             const sortLabel = SHOOTING_COLS.find(c => c.key === shootSortKey)?.label ?? ''
             const subKeys = SHOOTING_COLS.map(c => c.key).filter(k => k !== shootSortKey).slice(0, 4)
+            const openPlayer = () => setQuickView({ id: p.player_id, name: p.name })
             return (
-              <button key={p.player_id} onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                className="w-full text-left px-3 py-2.5 cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)]"
+              <div key={p.player_id} role="button" tabIndex={0}
+                onClick={openPlayer}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer() } }}
+                className="w-full text-left px-3 py-2.5 cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
                 style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
@@ -373,7 +387,9 @@ function StatsTable({
                   </div>
                   <div className="text-right shrink-0">
                     <div className="font-jersey font-black tabular-nums leading-none" style={{ color: color ?? 'var(--mm-ink)', fontSize: '26px' }}>{shootVal(sh, shootSortKey)}</div>
-                    <div className="text-xs font-bold uppercase tracking-wider mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sortLabel}</div>
+                    <div className="text-xs font-bold uppercase tracking-wider mt-0.5 flex items-center justify-end" style={{ color: 'var(--mm-muted)' }}>
+                      <StatHeader term={sortLabel} label={sortLabel} helpSize={10} />
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5 pt-1.5" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
@@ -381,13 +397,15 @@ function StatsTable({
                     const lbl = SHOOTING_COLS.find(c => c.key === k)?.label ?? k
                     return (
                       <div key={k} className="text-center">
-                        <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--mm-muted)' }}>{lbl}</div>
+                        <div className="text-xs font-bold uppercase tracking-wider flex items-center justify-center" style={{ color: 'var(--mm-muted)' }}>
+                          <StatHeader term={lbl} label={lbl} helpSize={9} />
+                        </div>
                         <div className="text-xs font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{shootVal(sh, k)}</div>
                       </div>
                     )
                   })}
                 </div>
-              </button>
+              </div>
             )
           })
         ) : (
@@ -395,9 +413,12 @@ function StatsTable({
             const isLeader = leaderId && p.player_id === leaderId
             const sortLabel = ADV_COLS.find(c => c.key === advSortKey)?.label ?? ''
             const subKeys = ADV_COLS.map(c => c.key).filter(k => k !== advSortKey).slice(0, 4)
+            const openPlayer = () => setQuickView({ id: p.player_id, name: p.name })
             return (
-              <button key={p.player_id} onClick={() => setQuickView({ id: p.player_id, name: p.name })}
-                className="w-full text-left px-3 py-2.5 cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)]"
+              <div key={p.player_id} role="button" tabIndex={0}
+                onClick={openPlayer}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer() } }}
+                className="w-full text-left px-3 py-2.5 cursor-pointer transition-colors hover:bg-[color:var(--mm-yellow-soft)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
                 style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
@@ -410,7 +431,9 @@ function StatsTable({
                   </div>
                   <div className="text-right shrink-0">
                     <div className="font-jersey font-black tabular-nums leading-none" style={{ color: color ?? 'var(--mm-ink)', fontSize: '26px' }}>{advVal(adv, advSortKey)}</div>
-                    <div className="text-xs font-bold uppercase tracking-wider mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sortLabel}</div>
+                    <div className="text-xs font-bold uppercase tracking-wider mt-0.5 flex items-center justify-end" style={{ color: 'var(--mm-muted)' }}>
+                      <StatHeader term={sortLabel} label={sortLabel} helpSize={10} />
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5 pt-1.5" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
@@ -418,13 +441,15 @@ function StatsTable({
                     const lbl = ADV_COLS.find(c => c.key === k)?.label ?? k
                     return (
                       <div key={k} className="text-center">
-                        <div className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--mm-muted)' }}>{lbl}</div>
+                        <div className="text-xs font-bold uppercase tracking-wider flex items-center justify-center" style={{ color: 'var(--mm-muted)' }}>
+                          <StatHeader term={lbl} label={lbl} helpSize={9} />
+                        </div>
                         <div className="text-xs font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{advVal(adv, k)}</div>
                       </div>
                     )
                   })}
                 </div>
-              </button>
+              </div>
             )
           })
         )}
@@ -440,11 +465,13 @@ function StatsTable({
             {statMode === 'basic' ? (
               basicCols.map(({ key, label }) => {
                 const active = basicSortKey === key
+                const term = key === 'gp' ? 'R' : label
                 return (
                   <th key={key} onClick={() => handleBasicSort(key)}
                     className="py-2 px-1.5 text-xs font-black uppercase cursor-pointer select-none text-right transition-colors"
                     style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>
-                    {label}<SortIcon active={active} dir={basicSortDir} />
+                    <StatHeader term={term} label={label} helpSize={10} />
+                    <SortIcon active={active} dir={basicSortDir} />
                   </th>
                 )
               })
@@ -456,7 +483,8 @@ function StatsTable({
                   <th key={key} onClick={() => handleShootSort(key)} title={desc}
                     className="py-2 px-1.5 text-xs font-black uppercase cursor-pointer select-none text-right transition-colors"
                     style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', ...divider }}>
-                    {label}<SortIcon active={active} dir={shootSortDir} />
+                    <StatHeader term={label} label={label} helpSize={10} />
+                    <SortIcon active={active} dir={shootSortDir} />
                   </th>
                 )
               })
@@ -467,7 +495,8 @@ function StatsTable({
                   <th key={key} onClick={() => handleAdvSort(key)} title={desc}
                     className="py-2 px-1.5 text-xs font-black uppercase cursor-pointer select-none text-right transition-colors"
                     style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>
-                    {label}<SortIcon active={active} dir={advSortDir} />
+                    <StatHeader term={label} label={label} helpSize={10} />
+                    <SortIcon active={active} dir={advSortDir} />
                   </th>
                 )
               })
@@ -1269,6 +1298,15 @@ export default function LeagueTeamsPage() {
               </div>
             </div>
           </div>
+
+          {/* "이 표 읽는 법" — 기본 접힘, 펼치면 주요 지표 쉬운 말 설명 (라이트 유저용) */}
+          <StatsReadingGuide items={[
+            { term: 'PPG', text: '한 경기에 평균 몇 점을 넣는지예요. 높을수록 득점력이 좋아요.' },
+            { term: 'RPG', text: '한 경기에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
+            { term: 'APG', text: '한 경기에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
+            { term: 'TOPG', text: '한 경기에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
+          ]} />
+
           {standings.map(s => {
             const players = teamStats[s.identityKey] ?? []
             const leaderId = leaderMap[s.teamId] ?? null
