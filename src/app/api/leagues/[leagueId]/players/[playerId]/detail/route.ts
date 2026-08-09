@@ -787,6 +787,11 @@ export async function GET(
   type WLS = { pts: number; reb: number; ast: number; stl: number; blk: number; gp: number }
   const winS:  WLS = { pts:0, reb:0, ast:0, stl:0, blk:0, gp:0 }
   const lossS: WLS = { pts:0, reb:0, ast:0, stl:0, blk:0, gp:0 }
+  // 무승부 버킷 — 예전엔 `won ? winS : lossS` 라 **무승부가 전부 패로 셌다**
+  //   (2026-08-09: 김로빈 실제 78승 37패 7무인데 78W 44L 로 표시, 승률 67.8%→63.9%).
+  //   이 리그는 짧은 쿼터 경기라 동점이 실제로 나온다. 승률 순위(winRateMap)는 이미
+  //   무를 분모에서 빼고 있었으므로, 표시값도 같은 기준으로 맞춘다.
+  const drawS: WLS = { pts:0, reb:0, ast:0, stl:0, blk:0, gp:0 }
   let playerPtsTotal = 0, teamPtsTotal = 0
 
   for (const gId of playedGames) {
@@ -798,16 +803,17 @@ export async function GET(
     const isHome = g.home_team_id === tid
     const myPts  = isHome ? (g.home_score as number) : (g.away_score as number)
     const oppPts = isHome ? (g.away_score as number) : (g.home_score as number)
-    const won = myPts > oppPts
     playerPtsTotal += s.pts
     teamPtsTotal   += myPts
-    const bucket = won ? winS : lossS
+    const bucket = myPts > oppPts ? winS : myPts < oppPts ? lossS : drawS
     bucket.pts += s.pts; bucket.reb += s.reb; bucket.ast += s.ast
     bucket.stl += s.stl; bucket.blk += s.blk; bucket.gp++
   }
   // 승/패 split 스탯(이길 때·질 때)은 2026-08-03 선수카드 개편에서 제거 — 전적/승률/기여도만 유지
   const winLoss = {
-    wins: winS.gp, losses: lossS.gp,
+    wins: winS.gp, losses: lossS.gp, draws: drawS.gp,
+    // 무는 분모에서 제외 — 승률 순위(winRateMap)와 같은 기준이라야 옆에 붙는 순위와 안 어긋난다.
+    // (팀 순위표는 무를 분모에 넣는 다른 관행을 쓴다 — 선수와 팀은 별개 지표로 둔다.)
     win_rate: (winS.gp + lossS.gp) > 0 ? +(winS.gp / (winS.gp + lossS.gp) * 100).toFixed(1) : 0,
     pts_share:  teamPtsTotal > 0 ? +(playerPtsTotal / teamPtsTotal * 100).toFixed(1) : 0,
   }

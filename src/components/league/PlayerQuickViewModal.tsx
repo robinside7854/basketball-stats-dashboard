@@ -74,7 +74,9 @@ type Detail = {
   recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; record?: { wins: number; losses: number; draws: number; games: number }; pts: number; reb: number; ast: number; stl?: number; blk?: number; fgm: number; fga: number; fg3m?: number; fg3a?: number }>
   game_log?: Array<{ date: string; pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; fg3m: number; fg3a: number }>
   win_loss?: {
-    wins: number; losses: number; win_rate: number
+    // draws — 짧은 쿼터 경기라 동점이 실제로 난다. 예전엔 무를 패로 세서
+    //   전적과 승률이 둘 다 틀렸다(2026-08-09). 승률 분모에서는 제외한다.
+    wins: number; losses: number; draws?: number; win_rate: number
     pts_share: number
   }
   player_stats: {
@@ -1001,6 +1003,12 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                             <span className="font-jersey font-black text-base tabular-nums" style={{ color: 'var(--mm-positive)' }}>{wl.wins}W</span>
                             <span style={{ color: 'var(--mm-muted)' }}>·</span>
                             <span className="font-jersey font-black text-base tabular-nums" style={{ color: 'var(--mm-live)' }}>{wl.losses}L</span>
+                            {(wl.draws ?? 0) > 0 && (
+                              <>
+                                <span style={{ color: 'var(--mm-muted)' }}>·</span>
+                                <span className="font-jersey font-black text-base tabular-nums" style={{ color: 'var(--mm-muted)' }}>{wl.draws}D</span>
+                              </>
+                            )}
                             {form.length > 0 && (
                               <div className="flex items-center gap-1.5 ml-1">
                                 <span className="text-xs font-bold uppercase tracking-[0.16em]" style={{ color: 'var(--mm-muted)' }}>최근</span>
@@ -1012,7 +1020,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                             <span className="text-xs uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--mm-muted)' }}>출전 승률</span>
                             <span
                               className="font-jersey font-black text-base tabular-nums"
-                              style={{ color: wl.win_rate >= 60 ? '#059669' : wl.win_rate >= 40 ? 'var(--mm-yellow-strong)' : 'var(--mm-live)' }}
+                              style={{ color: wl.win_rate >= 60 ? 'var(--mm-positive)' : wl.win_rate >= 40 ? 'var(--mm-yellow-strong)' : 'var(--mm-live)' }}
                             >
                               {wl.win_rate}%
                             </span>
