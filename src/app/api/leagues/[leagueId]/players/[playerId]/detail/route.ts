@@ -259,6 +259,31 @@ export async function GET(
 
   const playedGames = Object.keys(perGame)
 
+  // ── unit(라운드/게임) 단위 승패 판정 — recentGames 카드와 연승(sWin) 스트릭이 공유 ──
+  //   과거엔 recentGames 가 "그 unit의 첫 경기" 하나만으로 승패를 판정해, 스탯은 하루
+  //   합산인데 승패만 첫 경기인 사고가 났다(2026-08-09, 김로빈 8/8 2승4패인데 W로 표시됨).
+  //   이제 이 함수 하나로 두 곳 모두 "그 unit에 속한 모든 게임"을 합산해 판정한다.
+  //   unit === 'game' 모드에서는 unitKey 가 gId 자체라 게임 하나 = 판정 하나로 기존과 동일.
+  function computeUnitRecord(unitKey: string): { wins: number; losses: number; draws: number; games: number; result: 'W' | 'L' | 'D' } {
+    let wins = 0, losses = 0, draws = 0
+    for (const gId of playedGames) {
+      const g = gameMap[gId] as { date?: string; home_team_id?: string; away_team_id?: string; home_score?: number; away_score?: number } | undefined
+      if (!g) continue
+      const thisUnitKey = unit === 'round' ? (g.date ?? gId) : gId
+      if (thisUnitKey !== unitKey) continue
+      const tid = teamForGame(gameMap[gId] as { id: string; quarter_id?: string | null })
+      if (!tid) continue
+      const isHome = g.home_team_id === tid
+      const my = isHome ? (g.home_score ?? 0) : (g.away_score ?? 0)
+      const opp = isHome ? (g.away_score ?? 0) : (g.home_score ?? 0)
+      if (my > opp) wins++
+      else if (my < opp) losses++
+      else draws++
+    }
+    const result: 'W' | 'L' | 'D' = wins > losses ? 'W' : wins < losses ? 'L' : 'D'
+    return { wins, losses, draws, games: wins + losses + draws, result }
+  }
+
   // ── 집계 단위 (aggregateMap): round=라운드별, game=경기별 ──────
   const aggregateMap: Record<string, GS> = {}
   const unitToFirstGame: Record<string, string> = {}  // unitKey → first gameId
@@ -356,7 +381,16 @@ export async function GET(
       const firstGId = unitToFirstGame[unitKey]
       const g = firstGId ? gameMap[firstGId] : null
       const tid = teamForGame(g)
-      return { ...gameInfo(firstGId ?? '', tid), pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk, fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a }
+      // 승패는 그 unit(라운드)의 **모든 경기**를 합산해 판정한다. 첫 경기 하나로 정하면
+      //   스탯은 하루 합산인데 승패만 첫 경기가 되어 어긋난다(2026-08-09 사고).
+      //   opponent/score 는 라운드에 여러 상대가 섞이므로 아래 record 로 대체해 쓴다.
+      const rec = computeUnitRecord(unitKey)
+      return {
+        ...gameInfo(firstGId ?? '', tid),
+        result: rec.result,
+        record: { wins: rec.wins, losses: rec.losses, draws: rec.draws, games: rec.games },
+        pts: s.pts, reb: s.reb, ast: s.ast, stl: s.stl, blk: s.blk, fgm: s.fgm, fga: s.fga, fg3m: s.fg3m, fg3a: s.fg3a,
+      }
     })
 
   // ── Full Game Log (trend chart 용) ────────────────────────
@@ -859,23 +893,10 @@ export async function GET(
       if (agg.fg3m >= 1) s3p++; else s3pDone = true
     }
     if (!sWinDone) {
-      // 단위 W/L: 그 단위의 모든 슬랏 게임을 합쳐 본인 팀 W가 더 많으면 W
-      // (round 모드: 그날 본인 출전 슬랏들의 W>L 비교 / game 모드: 1슬랏 W/L 그대로)
-      let unitWins = 0, unitLosses = 0
-      for (const gId of playedGames) {
-        const g = gameMap[gId] as { date?: string; home_team_id?: string; away_team_id?: string; home_score?: number; away_score?: number } | undefined
-        if (!g) continue
-        const thisUnitKey = unit === 'round' ? (g.date ?? gId) : gId
-        if (thisUnitKey !== unitKey) continue
-        const tid = teamForGame(gameMap[gId])
-        if (!tid) continue
-        const isHome = g.home_team_id === tid
-        const my = isHome ? (g.home_score ?? 0) : (g.away_score ?? 0)
-        const opp = isHome ? (g.away_score ?? 0) : (g.home_score ?? 0)
-        if (my > opp) unitWins++
-        else if (my < opp) unitLosses++
-      }
-      if (unitWins > unitLosses) sWin++
+      // recentGames 카드와 **같은 판정 함수**를 쓴다. 예전엔 이 블록만 전 경기를 합산하고
+      //   recentGames 는 첫 경기만 봐서, 같은 화면에 승패 정의가 둘이었다(2026-08-09 사고).
+      //   무승부 라운드(승==패)는 연승을 잇지 않는다 — 이긴 날이 아니기 때문.
+      if (computeUnitRecord(unitKey).result === 'W') sWin++
       else sWinDone = true
     }
     if (s10Done && s20Done && s3pDone && sWinDone) break

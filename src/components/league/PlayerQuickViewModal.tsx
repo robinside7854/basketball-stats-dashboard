@@ -68,7 +68,10 @@ type Detail = {
   pinned_event_ids?: string[]
   career_high: Record<string, { value: number; extra?: string; date?: string; opponent?: string; result?: string; score?: string }>
   shot_breakdown: { layup: { m: number; a: number; dist: number; fg_pct: number }; mid: { m: number; a: number; dist: number; fg_pct: number }; post: { m: number; a: number; dist: number; fg_pct: number }; three: { m: number; a: number; dist: number; fg_pct: number }; ft: { m: number; a: number; ft_pct: number }; total_fga: number }
-  recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; pts: number; reb: number; ast: number; stl?: number; blk?: number; fgm: number; fga: number; fg3m?: number; fg3a?: number }>
+  // record = 그 라운드(하루)의 전 경기 합산 전적. result 는 그 합산의 종합 판정(W/L/D).
+  //   예전엔 result 가 '그날 첫 경기' 결과였다 — 스탯은 하루 합산인데 승패만 한 경기라
+  //   어긋났다(2026-08-09 김로빈 8/8: 실제 2승4패인데 첫 경기 승이라 W 로 표시).
+  recent_games: Array<{ date?: string; opponent?: string; result?: string; score?: string; record?: { wins: number; losses: number; draws: number; games: number }; pts: number; reb: number; ast: number; stl?: number; blk?: number; fgm: number; fga: number; fg3m?: number; fg3a?: number }>
   game_log?: Array<{ date: string; pts: number; reb: number; ast: number; stl: number; blk: number; fgm: number; fga: number; fg3m: number; fg3a: number }>
   win_loss?: {
     wins: number; losses: number; win_rate: number
@@ -995,7 +998,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
                         >
                           <div className="flex items-center gap-3">
-                            <span className="font-jersey font-black text-base tabular-nums" style={{ color: '#059669' }}>{wl.wins}W</span>
+                            <span className="font-jersey font-black text-base tabular-nums" style={{ color: 'var(--mm-positive)' }}>{wl.wins}W</span>
                             <span style={{ color: 'var(--mm-muted)' }}>·</span>
                             <span className="font-jersey font-black text-base tabular-nums" style={{ color: 'var(--mm-live)' }}>{wl.losses}L</span>
                             {form.length > 0 && (
@@ -1455,7 +1458,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   <table className="w-full text-xs">
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                        {['날짜','PTS','REB','AST','STL','BLK','FG','FG%','3P%'].map(h => (
+                        {['날짜','전적','PTS','REB','AST','STL','BLK','FG','FG%','3P%'].map(h => (
                           <th key={h} className="pb-1.5 text-xs font-bold uppercase tracking-[0.14em] text-right first:text-left" style={{ color: 'var(--mm-muted)' }}>{h}</th>
                         ))}
                       </tr>
@@ -1468,6 +1471,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         return (
                         <tr key={i} style={{ borderBottom: '1px solid var(--mm-rule)' }} className="last:border-0">
                           <td className="py-1.5 text-xs pr-2 whitespace-nowrap font-mono" style={{ color: 'var(--mm-ink-soft)' }}>{g.date?.slice(5) ?? '—'}</td>
+                          {/* 전적 — 그 라운드의 전 경기 합산. 종합 판정(W/L/D)만 두면
+                              "6경기 중 2승" 같은 사실이 사라진다. */}
+                          <td className="py-1.5 text-right whitespace-nowrap text-xs tabular-nums" style={{
+                            color: g.result === 'W' ? 'var(--mm-positive)' : g.result === 'L' ? 'var(--mm-negative)' : 'var(--mm-muted)',
+                          }}>
+                            {g.record
+                              ? `${g.record.wins}승 ${g.record.losses}패${g.record.draws > 0 ? ` ${g.record.draws}무` : ''}`
+                              : (g.result ?? '—')}
+                          </td>
                           <td className="py-1.5 text-right font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{g.pts}</td>
                           <td className="py-1.5 text-right tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{g.reb}</td>
                           <td className="py-1.5 text-right tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{g.ast}</td>
