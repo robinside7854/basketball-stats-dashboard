@@ -48,7 +48,8 @@ function Pct({ val }: { val: number }) {
 
 export default function BoxScorePage() {
   const team = useTeam()
-  const { isEditMode } = useEditMode()
+  // teamHeaders = 편집 PIN(X-Team-Pin). AI 선정/삭제는 서버에서 팀 PIN 을 요구하므로 함께 보낸다.
+  const { isEditMode, teamHeaders } = useEditMode()
   const [tournaments, setTournaments] = useState<Tournament[]>([])
   const [games, setGames] = useState<Game[]>([])
   const [selectedTId, setSelectedTId] = useState('')
@@ -140,7 +141,7 @@ export default function BoxScorePage() {
       if (gameMemo) body.gameMemo = gameMemo
       const res = await fetch(`/api/ai/mvp?gameId=${gameId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...teamHeaders },
         body: JSON.stringify(body),
       })
       if (!res.ok) {
@@ -173,7 +174,7 @@ export default function BoxScorePage() {
   }
 
   async function resetMvp(gameId: string) {
-    await fetch(`/api/ai/mvp?gameId=${gameId}`, { method: 'DELETE' })
+    await fetch(`/api/ai/mvp?gameId=${gameId}`, { method: 'DELETE', headers: teamHeaders })
     setMvpResults(prev => { const n = { ...prev }; delete n[gameId]; return n })
   }
 
@@ -186,7 +187,7 @@ export default function BoxScorePage() {
     if (!ok) return
 
     // 기존 결과 전체 삭제 (DB + 상태 초기화)
-    await Promise.all(games.map(g => fetch(`/api/ai/mvp?gameId=${g.id}`, { method: 'DELETE' })))
+    await Promise.all(games.map(g => fetch(`/api/ai/mvp?gameId=${g.id}`, { method: 'DELETE', headers: teamHeaders })))
     setMvpResults({})
 
     setGeneratingAll(true)

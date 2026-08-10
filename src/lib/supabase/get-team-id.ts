@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/admin'
 
 // 메모리 캐시 — "${orgSlug}:${subSlug}" 키로 process 수명 동안 재사용
 const cache = new Map<string, string>()

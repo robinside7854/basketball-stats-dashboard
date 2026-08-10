@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
 const SHOT_LABELS: Record<string, string> = {

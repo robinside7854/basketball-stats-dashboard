@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
+import { resolveTeamIdForGame, verifyTeamPinForTeam } from '@/lib/teamPinAuth'
 import Anthropic from '@anthropic-ai/sdk'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/admin'
 import { createClient as createAdmin } from '@/lib/supabase/admin'
 import { calculateBoxScore } from '@/lib/stats/calculator'
 import type { PlayerBoxScore } from '@/types/database'
@@ -135,6 +136,13 @@ export async function POST(req: Request) {
   const { searchParams } = new URL(req.url)
   const gameId = searchParams.get('gameId')
   if (!gameId) return NextResponse.json({ error: 'gameId required' }, { status: 400 })
+
+  // AI 선정은 팀 운영진 행위다. 무인증이면 외부인이 유료 API 를 반복 호출해 요금을 발생시킨다.
+  // GET(결과 조회)은 박스스코어가 공개라 그대로 열어 둔다 - 막는 것은 '생성/삭제'뿐이다.
+  const teamId = await resolveTeamIdForGame(gameId)
+  if (!(await verifyTeamPinForTeam(req, teamId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const body = await req.json().catch(() => ({}))
   const mvpHintId: string | undefined = body.mvpHintId || undefined
@@ -641,6 +649,13 @@ export async function DELETE(req: Request) {
   const { searchParams } = new URL(req.url)
   const gameId = searchParams.get('gameId')
   if (!gameId) return NextResponse.json({ error: 'gameId required' }, { status: 400 })
+
+  // AI 선정은 팀 운영진 행위다. 무인증이면 외부인이 유료 API 를 반복 호출해 요금을 발생시킨다.
+  // GET(결과 조회)은 박스스코어가 공개라 그대로 열어 둔다 - 막는 것은 '생성/삭제'뿐이다.
+  const teamId = await resolveTeamIdForGame(gameId)
+  if (!(await verifyTeamPinForTeam(req, teamId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const admin = createAdmin()
   await admin.from('games').update({ ai_mvp: null }).eq('id', gameId)

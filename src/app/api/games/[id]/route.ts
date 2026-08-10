@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/admin'
 import { createServerClient } from '@/lib/supabase/server'
 // GET uses anon client (read-only), PUT/DELETE use server client (bypasses RLS)
 import { NextResponse } from 'next/server'

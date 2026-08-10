@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/admin'
 
 const YT_BASE = 'https://www.googleapis.com/youtube/v3'
 

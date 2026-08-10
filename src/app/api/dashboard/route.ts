@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { calculateBoxScore, calculateTeamTotals } from '@/lib/stats/calculator'
 import type { PlayerBoxScore } from '@/types/database'
