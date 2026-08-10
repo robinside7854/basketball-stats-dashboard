@@ -125,6 +125,13 @@ rounded:
   ctl: 10px       # var(--mm-radius-ctl) — 버튼 · 인풋 · 작은 컨트롤
   card: 14px      # var(--mm-radius-card) — 카드 · 섹션
   chip: 999px     # var(--mm-radius-chip) — 알약형 칩 · 뱃지 · LIVE
+motion:
+  fast: 100ms     # var(--mm-motion-fast) — 즉시 반응(호버 색 · 포커스 링)
+  base: 200ms     # var(--mm-motion-base) — 상태 변경 알림(탭 활성 · 화면 진입)
+  slow: 420ms     # var(--mm-motion-slow) — 값 변화 표현(진행바 차오름)
+  tell: 760ms     # var(--mm-motion-tell) — 누적 숫자 카운트업(JS 전용)
+  ease-out: cubic-bezier(0.22, 1, 0.36, 1)   # var(--mm-ease-out) — 기본. 빠르게 나가 부드럽게 안착
+  ease-inout: cubic-bezier(0.4, 0, 0.2, 1)   # var(--mm-ease-inout) — 양방향 전환
 components:
   page-body:
     backgroundColor: "{colors.ground}"
@@ -321,6 +328,28 @@ sticky 첫 열), 레이아웃 구조는 이번 전환에서 건드리지 않았�
 이 캐주얼 전환 브랜치는 공용 컴포넌트(`SectionCard` 등)와 신규 작업의 반경 토큰화까지만 다뤘고, 기존
 `rounded-*` 사용처의 전수 전환은 다음 단계로 이월한다. 모달 반경 토큰(`--mm-radius-modal`)은 소비처가
 0건이라 2026-08-10 에 삭제했다 — 모달을 실제로 전환할 때 쓰는 곳과 함께 다시 만든다.
+
+## Motion
+
+모션은 **네 가지 목적** 중 하나를 수행할 때만 넣는다(2026-08-10 신설). 해당 없으면 넣지 않는다.
+위계 설명 · 동작 확인(피드백) · 주의 유도 · 연속성 유지.
+
+토큰은 **길이가 아니라 목적으로 고른다** — `fast`(즉시 반응) / `base`(상태 변경) / `slow`(값 변화) /
+`tell`(누적 숫자, JS 전용). 하드코딩된 `duration-200` 을 새로 추가하지 않는다.
+easing 은 `--mm-ease-out` 이 기본이며, **되튐(bounce/back) easing 은 쓰지 않는다** — 기록 대시보드에서
+숫자가 출렁이면 장난스러워진다.
+
+- **화면 진입:** `.mm-view-enter` — 8px 상승 + 페이드, `base`. 리그 본문 컨테이너가 경로 변경 시 사용.
+- **진행바:** `GrowBar` — 0에서 목표까지 `slow`. width 는 인라인 transition 으로만 다룬다.
+- **누적 숫자:** `CountUp` — `tell`, ease-out cubic. **누적/시즌 기록에만** 쓴다. 실시간 스코어나
+  표 안의 행별 수치에 붙이면 읽는 것을 방해한다. 여러 개를 나란히 굴릴 때는 40~60ms 씩 밀어 순서를 만든다.
+
+⚠ **하지 않는 것:** 스크롤 리빌(매일 쓰는 도구에서 재방문자에게 방해) · WebGL/3D 배경 ·
+데이터 표 행 stagger(지연이 "느려짐"으로 읽힌다) · 무한 루프 애니메이션 남발.
+
+`prefers-reduced-motion` 은 `globals.css` 의 전역 블록 **한 곳**이 `!important` 로 일괄 차단한다.
+소비처마다 `@media` 를 다시 쓰지 않는다. 단, **JS 로 값을 바꾸는 것(카운트업)은 CSS 가 못 막으므로**
+컴포넌트가 직접 `matchMedia` 로 확인한다.
 
 ## Components
 

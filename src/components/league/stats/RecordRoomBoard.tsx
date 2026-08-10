@@ -11,6 +11,7 @@ import type { CSSProperties } from 'react'
 import Link from 'next/link'
 import { Crown } from 'lucide-react'
 import SectionCard from '@/components/league/ui/SectionCard'
+import CountUp from '@/components/league/ui/CountUp'
 
 export type SeasonHighCategory = 'PTS' | 'REB' | 'AST' | 'STL' | 'BLK' | 'FG3M' | 'FGA' | 'FGM'
 
@@ -115,7 +116,7 @@ export default function RecordRoomBoard({ categoryHighs, highlightCategory, orgS
       <div className="grid grid-cols-4 md:grid-cols-8 gap-2 p-3 sm:p-4">
         {loading
           ? BOARD_ORDER.map(({ category }) => <SkeletonCell key={category} />)
-          : BOARD_ORDER.map(({ category, short }) => {
+          : BOARD_ORDER.map(({ category, short }, idx) => {
               const high = byCategory.get(category)
               if (!high) return <EmptyCell key={category} short={short} />
 
@@ -141,12 +142,14 @@ export default function RecordRoomBoard({ categoryHighs, highlightCategory, orgS
                   >
                     {short}
                   </span>
-                  <span
-                    className="font-jersey font-black tabular-nums leading-none"
+                  {/* 카운트업 — 8칸을 동시에 터뜨리면 산만해서 40ms 씩 밀어 왼쪽부터 차례로 오르게 한다.
+                      aria-label 에 이미 최종값이 들어 있어(위 Link) 스크린리더는 애니메이션의 영향을 받지 않는다. */}
+                  <CountUp
+                    value={high.value}
+                    delay={idx * 40}
+                    className="font-jersey font-black leading-none"
                     style={{ color: isHighlight ? 'var(--mm-yellow-strong)' : 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.01em' }}
-                  >
-                    {high.value}
-                  </span>
+                  />
                   <span className="text-[11px] font-bold truncate w-full" style={{ color: 'var(--mm-ink-soft)' }}>
                     {high.player.name}
                   </span>

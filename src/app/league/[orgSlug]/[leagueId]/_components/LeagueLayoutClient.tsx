@@ -280,11 +280,21 @@ function RecordAwareContainer({
 }: { orgSlug: string; leagueId: string; children: React.ReactNode }) {
   const pathname = usePathname()
   const isRecord = pathname.startsWith(`${deriveLeagueBase(pathname, orgSlug, leagueId)}/record`)
+
+  // 화면 진입 모션 — 하단 5탭은 탭 색만 바뀌고 본문은 즉시 교체돼서, 빠르게 오갈 때
+  //   무엇이 바뀌었는지 인지가 안 됐다. key 를 경로로 두면 라우트가 바뀔 때마다 다시 마운트되고,
+  //   .mm-view-enter 가 8px 올라오며 페이드인한다.
+  //   ⚠ key 는 pathname 만 본다. 쿼리스트링은 경로에 안 들어가므로 같은 화면 안의 필터 변경으로는
+  //     리마운트되지 않는다 — 기록 입력 중 상태가 날아가지 않는다.
+  //   ⚠ 애니메이션 중 200ms 동안은 transform 이 걸려 있어, 그 사이 열리는 fixed 요소는
+  //     화면이 아니라 이 컨테이너를 기준으로 잡힌다. fill-mode 를 주지 않아 종료 즉시 해제된다.
+  const enter = 'mm-view-enter'
+
   // 경기기록은 더 촘촘하게, 나머지는 전체 너비
   if (isRecord) {
-    return <div className="px-3 py-3">{children}</div>
+    return <div key={pathname} className={`px-3 py-3 ${enter}`}>{children}</div>
   }
-  return <div className="max-w-[1600px] mx-auto px-4 lg:px-4 py-6">{children}</div>
+  return <div key={pathname} className={`max-w-[1600px] mx-auto px-4 lg:px-4 py-6 ${enter}`}>{children}</div>
 }
 
 function LeagueLayout({

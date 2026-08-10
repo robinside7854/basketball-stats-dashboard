@@ -10,6 +10,8 @@ import Link from 'next/link'
 import { Trophy, Film, User as UserIcon, ChevronRight, Sparkles, IdCard, Flame, X, KeyRound } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import SectionCard from '@/components/league/ui/SectionCard'
+import CountUp from '@/components/league/ui/CountUp'
+import GrowBar from '@/components/league/ui/GrowBar'
 
 // 선수카드 모달 · 클릭 후에만 로드 (recharts 포함)
 const PlayerQuickViewModal = dynamic(() => import('../PlayerQuickViewModal'), { ssr: false })
@@ -435,7 +437,7 @@ function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
         <p className="text-[13px]" style={{ color: 'var(--mm-muted)' }}>아직 통계 데이터가 부족해요</p>
       ) : (
         <div className="space-y-2.5 md:space-y-3">
-          {shown.map(c => {
+          {shown.map((c, idx) => {
             const prox = proximityStyle(c.progressPct)
             return (
               <div key={c.metric}>
@@ -445,20 +447,15 @@ function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
                     <span className="ml-1.5" style={{ color: 'var(--mm-ink-soft)' }}>{METRIC_KOREAN[c.metric]}</span>
                   </span>
                   <span className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>
-                    <b>{c.current}</b> / {c.nextThreshold}
+                    {/* 누적 기록만 카운트업한다 — 목표치(nextThreshold)와 남은 수(-remaining)는
+                        고정된 기준값이라 같이 움직이면 무엇이 오르는 중인지 흐려진다. */}
+                    <b><CountUp value={c.current} delay={idx * 60} /></b> / {c.nextThreshold}
                     <span className="ml-1.5 text-[11px] font-black px-1.5 py-0.5" style={{ background: prox.bg, color: prox.fg, borderRadius: 'var(--mm-radius-chip)' }}>
                       -{c.remaining}
                     </span>
                   </span>
                 </div>
-                <div
-                  className="relative overflow-hidden"
-                  style={{ height: 8, background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)', border: '1px solid var(--mm-rule)' }}
-                >
-                  <div
-                    style={{ width: `${Math.min(100, c.progressPct)}%`, height: '100%', background: prox.fg }}
-                  />
-                </div>
+                <GrowBar pct={c.progressPct} color={prox.fg} delay={idx * 60} />
               </div>
             )
           })}

@@ -45,6 +45,31 @@
   /* --mm-radius-modal 은 2026-08-10 삭제 — 정의만 있고 소비처가 0 이었다.
      모달이 실제로 이 값을 쓰게 될 때 다시 만든다(쓰는 곳과 함께). */
 
+  /* ===== 모션 토큰 (2026-08-10) — 라이트/다크 공통이므로 .dark 에는 정의하지 않음 =====
+     왜 토큰이 먼저인가: 점검해보니 transition-colors 가 453회, transition-transform 은 14회였다.
+     이 앱의 모션 어휘는 사실상 "만지면 색이 바뀐다" 하나뿐이고, duration-200 이 파일마다
+     흩어져 하드코딩돼 있었다. 개별 애니메이션을 붙이기 전에 기준을 먼저 세우지 않으면
+     새로 추가하는 것마다 제각각의 속도로 움직인다.
+
+     쓰는 법 — 목적으로 고른다. 길이로 고르지 않는다:
+       fast  100ms  누른 즉시 반응해야 하는 것 (호버 색, 포커스 링)
+       base  200ms  상태가 바뀌었음을 알리는 것 (탭 활성, 카드 열림)
+       slow  420ms  값이 변했음을 보여주는 것 (진행바 차오름)
+       tell  760ms  "기록"이라는 감각을 만드는 것 (누적 숫자 카운트업) — JS 전용
+
+     ease-out 은 앱에 이미 흩어져 있던 cubic-bezier(0.22,1,0.36,1) 를 그대로 승격시킨 것이다.
+     새 값을 만들면 기존 스플래시·페이지 모션과 미묘하게 어긋난다.
+     ⚠ 되튐(bounce/back) easing 은 넣지 않는다. 기록 대시보드에서 숫자가 출렁이면 장난스러워진다.
+
+     reduced-motion 대응은 개별 소비처가 아니라 아래 @media 블록(524행 근처)이 일괄 처리한다.
+     JS 로 구동하는 카운트업만 컴포넌트 안에서 따로 확인한다(CSS 가 못 막으므로). */
+  --mm-motion-fast: 100ms;
+  --mm-motion-base: 200ms;
+  --mm-motion-slow: 420ms;
+  --mm-motion-tell: 760ms;
+  --mm-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --mm-ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+
   /* ===== 클러치샷 5단계 위기 강도 스케일 — 배경/전경 쌍 (캐주얼 전환, 2026-08-06) =====
      dagger < chase < tie < reversal < winning · 위기 강도 낮음 → 높음 순.
      이전에는 @theme 안의 단색 + 흰 텍스트 고정이었으나, 틴트 배경 + 진한 전경 텍스트 쌍으로 전환.
@@ -520,12 +545,22 @@
 
 /* ===== UI/UX Polish ===== */
 
-/* Reduce motion for users who prefer it */
+/* Reduce motion for users who prefer it
+   ⚠ 이 블록이 앱 전체 CSS 모션의 단일 차단 지점이다. 새 애니메이션을 추가할 때
+      소비처마다 @media 를 또 쓸 필요 없다 — !important 라 인라인 스타일도 눌러 이긴다.
+      다만 JS 로 값을 바꾸는 것(숫자 카운트업)은 CSS 가 못 막으므로 컴포넌트가 직접 확인한다. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  /* 토큰 자체도 무력화 — 위 규칙이 닿지 않는 경로(JS 가 읽어가는 경우 등)까지 덮는다. */
+  :root {
+    --mm-motion-fast: 0.01ms;
+    --mm-motion-base: 0.01ms;
+    --mm-motion-slow: 0.01ms;
+    --mm-motion-tell: 0.01ms;
   }
 }
 
@@ -577,46 +612,23 @@
     animation: ball-spin 1.2s linear infinite;
   }
 
-  /* 페이지 전환 — 목적지 페이지 슬라이드/페이드 인 (PageSwipeTransition)
-     fill-mode 없이 종료 후 자연 상태 복귀 — transform 이 남으면 하위 fixed 모달 기준이 틀어짐 */
-  @keyframes page-from-right {
-    from { transform: translateX(40px); opacity: 0; }
-    to   { transform: translateX(0);    opacity: 1; }
-  }
-  @keyframes page-from-left {
-    from { transform: translateX(-40px); opacity: 0; }
-    to   { transform: translateX(0);     opacity: 1; }
-  }
-  @keyframes page-fade {
+  /* 화면 진입 — 탭을 옮겼을 때 "새 화면이 왔다"를 알린다.
+     하단 5탭은 색만 바뀌고 본문은 즉시 교체돼서, 빠르게 탭을 오가면 무엇이 바뀌었는지
+     인지가 안 됐다. 8px 만 올라오게 한다 — 더 크면 매일 열 때마다 느려진 것처럼 읽힌다.
+
+     ⚠ fill-mode 를 쓰지 않는다. transform 이 남으면 그 안의 fixed 모달이 화면이 아니라
+       이 요소를 기준으로 잡혀 위치가 틀어진다. (스와이프 전환 시절 겪은 함정)
+
+     ※ 좌/우 방향 슬라이드(page-enter-from-right/left)와 스와이프 코치마크(page-coach-*)는
+       2026-08-10 삭제했다. 스와이프 기능 자체가 커밋 d46d5947 에서 제거됐는데 CSS 만
+       6개 클래스가 소비처 0 인 채 남아 있었다. 되살릴 계획이 없으므로 지운다. */
+  @keyframes mm-view-enter {
     from { transform: translateY(8px); opacity: 0; }
     to   { transform: translateY(0);   opacity: 1; }
   }
-  .page-enter-from-right {
-    animation: page-from-right 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  .mm-view-enter {
+    animation: mm-view-enter var(--mm-motion-base) var(--mm-ease-out);
   }
-  .page-enter-from-left {
-    animation: page-from-left 260ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-  .page-enter-fade {
-    animation: page-fade 220ms ease-out;
-  }
-
-  /* 스와이프 안내 코치마크 — 첫 방문 1회 (PageSwipeTransition) */
-  @keyframes coach-in {
-    from { transform: translateY(10px); opacity: 0; }
-    to   { transform: translateY(0);    opacity: 1; }
-  }
-  @keyframes coach-nudge-l {
-    0%, 100% { transform: translateX(0); }
-    50%      { transform: translateX(-4px); }
-  }
-  @keyframes coach-nudge-r {
-    0%, 100% { transform: translateX(0); }
-    50%      { transform: translateX(4px); }
-  }
-  .page-coach-in { animation: coach-in 300ms ease-out; }
-  .page-coach-nudge-l { animation: coach-nudge-l 1.2s ease-in-out infinite; }
-  .page-coach-nudge-r { animation: coach-nudge-r 1.2s ease-in-out infinite; }
 }
 /* ─────────────────────────────────────────────
  * 인앱 스플래시 — 온볼 브랜드 락업 (AppSplash.tsx)
