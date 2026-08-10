@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
 import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
-import { estimatePlayerGameSeconds } from './estimateMinutes'
+import { estimatePlayerGameSeconds, minutesFromStartToEnd } from './estimateMinutes'
 
 export type LeagueStatsUnit = 'round' | 'game'
 
@@ -217,6 +217,15 @@ export async function computeLeagueStats(
   const evTimes: Record<string, Record<string, number[]>> = {}
   const gameSpan: Record<string, number> = {}
 
+  // 경기 길이(= 마지막 이벤트 시각)는 아래 집계 필터와 무관하게 전체 이벤트에서 구한다.
+  // 외부 팀 이벤트나 선수 미지정 이벤트도 경기가 그 시점까지 진행됐다는 증거이기 때문이다.
+  for (const e of events ?? []) {
+    const vts = e.video_timestamp
+    if (typeof vts === 'number' && vts > (gameSpan[e.league_game_id] ?? 0)) {
+      gameSpan[e.league_game_id] = vts
+    }
+  }
+
   for (const e of events ?? []) {
     if (!e.league_player_id) continue
     if (e.team_id && externalTeamIds.has(e.team_id)) continue
@@ -224,13 +233,12 @@ export async function computeLeagueStats(
     const s = ensure(pid)
     const gId = e.league_game_id
 
-    // 교체(sub_in/out)는 플레이가 아니지만 코트에 있었다는 증거라 출전 구간 재료에는 포함한다
+    // 교체(sub_in/out)도 코트에 있었다는 증거라 출전 구간 재료에는 포함한다
     const vts = e.video_timestamp
     if (typeof vts === 'number' && vts > 0) {
       if (!evTimes[pid]) evTimes[pid] = {}
       if (!evTimes[pid][gId]) evTimes[pid][gId] = []
       evTimes[pid][gId].push(vts)
-      if (vts > (gameSpan[gId] ?? 0)) gameSpan[gId] = vts
     }
 
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
@@ -356,7 +364,7 @@ export async function computeLeagueStats(
   //   출전시간이 기록된 게임을 gp 집합에 합친다. 이벤트가 전혀 없는 선수를 새로 리더보드에
   //   등장시키는 것은 별개 판단(0줄 스탯으로 노출할지)이라 `if (!s) continue` 로 범위를 지킨다 —
   //   gp 는 아래에서 gpMap 크기로 산출되므로, 이벤트 루프보다 먼저 이 매핑을 채워 둔다.
-  const actualMinutePairs: Record<string, Set<string>> = {}
+  const rosteredPairs: Record<string, Set<string>> = {}
   const { data: minutesRows, error: minutesErr } = await sb
     .from('league_player_minutes')
     .select('league_player_id, league_game_id, in_time, out_time')
@@ -369,21 +377,33 @@ export async function computeLeagueStats(
     if (!s) continue
     if (!gpMap[m.league_player_id]) gpMap[m.league_player_id] = new Set()
     gpMap[m.league_player_id].add(unit === 'round' ? (gameToDate[m.league_game_id] ?? m.league_game_id) : m.league_game_id)
-    if (m.in_time == null || m.out_time == null) continue
-    const secs = Math.max(0, m.out_time - m.in_time)
-    s.minutes_played += secs / 60
-    // 이 (선수, 경기) 는 실측이 있으므로 추정으로 덮지 않는다
-    if (!actualMinutePairs[m.league_player_id]) actualMinutePairs[m.league_player_id] = new Set()
-    actualMinutePairs[m.league_player_id].add(m.league_game_id)
-    s.minutes_est += secs / 60
+    // 명단 행이 있는 (선수, 경기) 는 아래 이벤트 추정으로 덮지 않는다 — 어느 쪽이든 여기서 처리했다
+    if (!rosteredPairs[m.league_player_id]) rosteredPairs[m.league_player_id] = new Set()
+    rosteredPairs[m.league_player_id].add(m.league_game_id)
+
+    if (m.out_time != null) {
+      // ① 교체가 실제로 기록됨 — 실측
+      const secs = Math.max(0, m.out_time - (m.in_time ?? 0))
+      s.minutes_played += secs / 60
+      s.minutes_est += secs / 60
+    } else {
+      // ② 선발 등록만 있고 교체 아웃이 없음 → 경기 끝까지 뛴 것으로 본다.
+      //    이 리그는 5대5 고정에 벤치가 없고(261경기 중 224경기가 코트 10명),
+      //    교체가 기록된 경기는 11%뿐이라 이 가정이 실제에 가장 가깝다 — 상세는 estimateMinutes.ts
+      const secs = minutesFromStartToEnd(m.in_time, gameSpan[m.league_game_id] ?? 0)
+      if (secs > 0) {
+        s.minutes_est += secs / 60
+        s.minutes_est_used = true
+      }
+    }
   }
 
-  // 교체 기록이 없는 경기는 이벤트 시각으로 메운다. 실측이 있는 경기는 위에서 이미 더했다.
+  // ③ 명단 행이 아예 없는데 이벤트만 있는 선수(비정규·타팀 임시 출전) — 이벤트 구간으로 메운다
   for (const pid of Object.keys(evTimes)) {
     const s = statsMap[pid]
     if (!s) continue
     for (const gid of Object.keys(evTimes[pid])) {
-      if (actualMinutePairs[pid]?.has(gid)) continue
+      if (rosteredPairs[pid]?.has(gid)) continue
       const secs = estimatePlayerGameSeconds(evTimes[pid][gid], gameSpan[gid] ?? 0)
       if (secs <= 0) continue
       s.minutes_est += secs / 60
