@@ -1,4 +1,5 @@
 import { Basketball } from '@/components/league/BasketballIcons'
+import LastLeagueRedirect from '@/components/LastLeagueRedirect'
 
 // 온볼 소개 화면 (플랫폼 대문).
 //
@@ -62,6 +63,12 @@ export default function OnBallIntro() {
             주소를 모르신다면 팀 총무에게 문의해 주세요.
           </p>
         </div>
+
+        {/* 이 기기에서 이미 본 동호회가 있으면 그리로 되돌려 보낸다.
+            설치형 앱은 start_url 이 오리진당 하나라 항상 이 대문으로 열리는데,
+            대문은 의도적으로 막다른 길이라 설치한 회원에게는 고장으로 읽힌다.
+            방문 기록이 없는 사람에게는 아무것도 렌더하지 않아 위 안내가 그대로 마지막 문장이 된다. */}
+        <LastLeagueRedirect />
       </div>
     </main>
   )

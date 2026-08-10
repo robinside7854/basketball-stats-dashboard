@@ -12,6 +12,7 @@ import { Toaster } from '@/components/ui/sonner'
 
 const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
 import CompetitionSwitcher from '@/components/league/CompetitionSwitcher'
+import { rememberLeague } from '@/lib/lastLeague'
 
 // 미들웨어가 slug URL(/league/miracle/2026)을 UUID 경로로 internal rewrite 하므로
 // useParams()/props 의 leagueId 는 UUID 지만, usePathname() 은 브라우저의 slug URL 을 반환한다.
@@ -325,6 +326,7 @@ function LeagueLayout({
   children: React.ReactNode
 }) {
   const { theme } = useTheme()
+  const pathname = usePathname()
   const [loginOpen, setLoginOpen] = useState(false)
   // 드래프트 메뉴 조건부 표시 — 현재 분기에 진행 중(미완료) 세션이 있을 때만
   const [showDraft, setShowDraft] = useState(false)
@@ -349,6 +351,14 @@ function LeagueLayout({
     window.addEventListener('mm-open-login', open)
     return () => window.removeEventListener('mm-open-login', open)
   }, [])
+
+  // 이 기기에서 마지막으로 본 동호회를 기억한다 — 설치형 앱이 대문(막다른 길)에서 멈추지 않도록.
+  //   매니페스트 start_url 은 오리진당 하나(`/`)라, 미라클 페이지에서 설치해도 앱은 대문으로 열린다.
+  //   pathname 기준으로 base 를 뽑는다(UUID 아님) — 미들웨어 slug→UUID rewrite 때문에
+  //   leagueId prop 은 UUID 이고, 그걸 저장하면 주소가 사람에게 읽히지 않는다.
+  useEffect(() => {
+    rememberLeague(deriveLeagueBase(pathname, orgSlug, leagueId), leagueName)
+  }, [pathname, orgSlug, leagueId, leagueName])
 
   // LeagueAuthProvider 가 최외곽 — LeagueEditModeProvider 가 로그인 유저의 role 로
   // 편집 모드를 켜므로 auth 컨텍스트가 상위에 있어야 한다 (2026-08-04 순서 교체).
