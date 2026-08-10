@@ -18,6 +18,7 @@ import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
 import PersonalDashboard, { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
 import PresenceIndicator from '@/components/league/auth/PresenceIndicator'
 import SectionCard from '@/components/league/ui/SectionCard'
+import InstallAppButton from '@/components/InstallAppButton'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 
 interface Props {
@@ -91,6 +92,9 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
           기능이 삭제되어 함께 제거했다(Task 4-A). */}
       <SectionCard variant="standalone">
         <div className="flex flex-wrap items-center gap-2 p-4">
+          {/* 앱 설치 — 브라우저 메뉴를 뒤지지 않도록 앱 안에 입구를 둔다.
+              설치 불가·이미 설치됨이면 스스로 아무것도 렌더하지 않는다. */}
+          <InstallAppButton />
           <button
             type="button"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

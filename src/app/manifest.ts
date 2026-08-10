@@ -22,18 +22,24 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: '#191714',
     orientation: 'portrait',
     icons: [
-      // 'any' 용 — 홈 화면·탭에서 잘 보이도록 농구공을 크게 크롭한 버전
+      // 'any' 용 — 홈 화면·탭에서 잘 보이도록 농구공을 크게 크롭한 버전.
+      //   src/app/icon.png 은 Next 의 예약 파일명이라 /icon.png 로 서빙된다.
+      //   sizes 는 실제 픽셀(512x512)만 적는다 — 없는 192 를 적으면 사실이 아니고,
+      //   안드로이드는 512 하나로도 축소해서 쓴다.
       {
         src: '/icon.png',
-        sizes: '192x192 512x512',
+        sizes: '512x512',
         type: 'image/png',
         purpose: 'any',
       },
       // 'maskable' 용 — 안드로이드 어댑티브 아이콘 마스크 크롭 대비
-      //   중앙 원 안에 농구공이 들어가도록 여백 확보된 별도 이미지
+      //   중앙 원 안에 농구공이 들어가도록 여백 확보된 별도 이미지.
+      //   ⚠ 이 파일은 반드시 public/ 에 둔다. src/app/ 안에서는 Next 가
+      //   icon·apple-icon 등 **예약된 이름만** 서빙하므로 icon-maskable.png 는
+      //   404 가 된다 — 실제로 그래서 안드로이드 어댑티브 아이콘이 깨져 있었다(2026-08-10).
       {
         src: '/icon-maskable.png',
-        sizes: '192x192 512x512',
+        sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',
       },
