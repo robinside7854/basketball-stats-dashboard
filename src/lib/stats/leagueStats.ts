@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
 import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
+import { estimatePlayerGameSeconds } from './estimateMinutes'
 
 export type LeagueStatsUnit = 'round' | 'game'
 
@@ -117,6 +118,7 @@ export async function computeLeagueStats(
     result: string | null
     points: number | null
     league_game_id: string
+    video_timestamp: number | null
   }
   const events: EventRow[] = []
   const PAGE = 1000
@@ -124,7 +126,7 @@ export async function computeLeagueStats(
   while (true) {
     let q = sb
       .from('league_game_events')
-      .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id')
+      .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id, video_timestamp')
       .in('league_game_id', gameIds)
       .not('league_player_id', 'is', null)
       // ⚠ ORDER BY 없으면 페이지네이션 중복/누락 발생
@@ -157,6 +159,10 @@ export async function computeLeagueStats(
     team_reb_in_games: number
     team_poss_in_games: number
     minutes_played: number
+    /** 교체 기록이 없는 경기까지 이벤트 시각으로 메운 출전 시간(분) */
+    minutes_est: number
+    /** minutes_est 에 추정분이 한 경기라도 섞였는가 — 화면에 "추정" 표기용 */
+    minutes_est_used: boolean
     // PIE 재료 · 본인 numerator (PTS+FGM+FTM−FGA−FTA+DREB+ORB/2+AST+STL+BLK/2−PF−TO)
     // 분모는 게임 총합에서 별도 산출 → pie_denom
     pie_num: number
@@ -193,6 +199,8 @@ export async function computeLeagueStats(
         team_reb_in_games: 0,
         team_poss_in_games: 0,
         minutes_played: 0,
+        minutes_est: 0,
+        minutes_est_used: false,
         pie_num: 0,
         pie_denom: 0,
       }
@@ -205,12 +213,25 @@ export async function computeLeagueStats(
     return teamPossByGame[tid][gid]
   }
 
+  // 출전 시간 추정 재료 — 선수별·경기별 이벤트 시각과, 경기별 마지막 이벤트 시각(영상 길이 대용)
+  const evTimes: Record<string, Record<string, number[]>> = {}
+  const gameSpan: Record<string, number> = {}
+
   for (const e of events ?? []) {
     if (!e.league_player_id) continue
     if (e.team_id && externalTeamIds.has(e.team_id)) continue
     const pid = e.league_player_id
     const s = ensure(pid)
     const gId = e.league_game_id
+
+    // 교체(sub_in/out)는 플레이가 아니지만 코트에 있었다는 증거라 출전 구간 재료에는 포함한다
+    const vts = e.video_timestamp
+    if (typeof vts === 'number' && vts > 0) {
+      if (!evTimes[pid]) evTimes[pid] = {}
+      if (!evTimes[pid][gId]) evTimes[pid][gId] = []
+      evTimes[pid][gId].push(vts)
+      if (vts > (gameSpan[gId] ?? 0)) gameSpan[gId] = vts
+    }
 
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
       if (!gpMap[pid]) gpMap[pid] = new Set()
@@ -335,6 +356,7 @@ export async function computeLeagueStats(
   //   출전시간이 기록된 게임을 gp 집합에 합친다. 이벤트가 전혀 없는 선수를 새로 리더보드에
   //   등장시키는 것은 별개 판단(0줄 스탯으로 노출할지)이라 `if (!s) continue` 로 범위를 지킨다 —
   //   gp 는 아래에서 gpMap 크기로 산출되므로, 이벤트 루프보다 먼저 이 매핑을 채워 둔다.
+  const actualMinutePairs: Record<string, Set<string>> = {}
   const { data: minutesRows, error: minutesErr } = await sb
     .from('league_player_minutes')
     .select('league_player_id, league_game_id, in_time, out_time')
@@ -350,11 +372,29 @@ export async function computeLeagueStats(
     if (m.in_time == null || m.out_time == null) continue
     const secs = Math.max(0, m.out_time - m.in_time)
     s.minutes_played += secs / 60
+    // 이 (선수, 경기) 는 실측이 있으므로 추정으로 덮지 않는다
+    if (!actualMinutePairs[m.league_player_id]) actualMinutePairs[m.league_player_id] = new Set()
+    actualMinutePairs[m.league_player_id].add(m.league_game_id)
+    s.minutes_est += secs / 60
+  }
+
+  // 교체 기록이 없는 경기는 이벤트 시각으로 메운다. 실측이 있는 경기는 위에서 이미 더했다.
+  for (const pid of Object.keys(evTimes)) {
+    const s = statsMap[pid]
+    if (!s) continue
+    for (const gid of Object.keys(evTimes[pid])) {
+      if (actualMinutePairs[pid]?.has(gid)) continue
+      const secs = estimatePlayerGameSeconds(evTimes[pid][gid], gameSpan[gid] ?? 0)
+      if (secs <= 0) continue
+      s.minutes_est += secs / 60
+      s.minutes_est_used = true
+    }
   }
 
   for (const pid of Object.keys(statsMap)) {
     statsMap[pid].gp = gpMap[pid]?.size ?? 0
     statsMap[pid].minutes_played = Math.round(statsMap[pid].minutes_played * 10) / 10
+    statsMap[pid].minutes_est = Math.round(statsMap[pid].minutes_est * 10) / 10
 
     let teamRebSum = 0
     let teamPossSum = 0

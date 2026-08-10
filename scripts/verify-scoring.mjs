@@ -64,7 +64,7 @@ check('표준 룰: 플러스원 보너스 없음 · 자유투 ft_2pt=2 (국내 �
 // 로 명시해 새 대회 묶음이 섞이지 않게 한다(대회는 아직 경기가 없어 섞여도 값이
 // 안 변하지만, 명시하지 않으면 다음에 대회 경기가 쌓였을 때 조용히 새어 든다).
 const rows = await query(`
-  SELECT e.id, e.type, e.result, e.points,
+  SELECT e.id, e.type, e.result, e.points, g.date,
          ((g.plus_one_player_id IS NOT NULL AND e.league_player_id = g.plus_one_player_id)
           OR (g.plus_one_player_id IS NULL AND p.plus_one)) AS is_p1
     FROM league_game_events e
@@ -72,10 +72,17 @@ const rows = await query(`
     JOIN league_players p ON p.id = e.league_player_id
    WHERE g.league_id = (SELECT id FROM leagues WHERE org_slug = 'miracle' AND mode = 'league')`)
 
-const total = rows.reduce((sum, r) => sum + scorePoints(r.type, r.result, r.is_p1, MIRACLE), 0)
+// ⚠ 기준선은 "과거 데이터가 변하지 않았는가"를 지키는 것이지 "경기가 늘지 않았는가"가
+// 아니다. 예전엔 전 기간 합계를 7114 와 비교해서, 새 경기를 기록할 때마다(정상 운영)
+// 이 검사가 깨졌다 — 매번 숫자를 손으로 올리게 되면 진짜 사고도 같이 통과시키게 된다.
+// 그래서 기준선을 측정한 시점(2026-08-04)까지로 범위를 못 박는다. 그 이후 경기는 아래
+// "저장값 == 계산값" 전량 대조가 행 단위로 계속 지킨다.
+const BASELINE_DATE = '2026-08-04'
+const baselineRows = rows.filter(r => r.date <= BASELINE_DATE)
+const total = baselineRows.reduce((sum, r) => sum + scorePoints(r.type, r.result, r.is_p1, MIRACLE), 0)
 
-check(`미라클 시즌 총득점 = 7114 (룰 계산 기준)`, () =>
-  total === 7114 || `기대 7114, 실제 ${total}. 경기가 추가로 기록됐다면 이 숫자를 갱신할 것`)
+check(`미라클 ${BASELINE_DATE} 이전 총득점 = 7114 (룰 계산 기준 · 과거 데이터 불변)`, () =>
+  total === 7114 || `기대 7114, 실제 ${total}. 과거 경기 데이터가 바뀌었다는 뜻이다 — 새 경기 기록으로는 이 값이 변하지 않는다`)
 
 // ── fetchScoringRules DB 매핑 검증 ───────────────────
 // scorePoints 는 순수 함수라 위에서 충분히 검증됐지만, fetchScoringRules 는

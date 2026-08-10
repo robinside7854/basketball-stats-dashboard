@@ -27,7 +27,7 @@ type StatUnit = 'round' | 'game'
 // 이전엔 "리그 최다 출전자의 2/3" 였는데, 개근자 1명 때문에 커트라인이 과하게 올라가
 // 정상 참여자까지 리더보드에서 빠지는 문제가 있었다.
 const MIN_ROUND_RATIO = 0.3
-type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'
+type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'
 type AdvKey = 'at_ratio'|'a1_total'|'a1_rate'|'trb_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'ts_pct'|'shot_mix'
 type StatMode = 'basic'|'shooting'|'advanced'
@@ -265,7 +265,7 @@ function LeagueStatsPageInner() {
     const pool = players.filter(p => p.gp >= effectiveMinGP)
     const STAT_KEYS: (keyof PlayerStat)[] = [
       'ppg','rpg','orp','drp','apg','spg','bpg','topg','pts','reb','oreb','dreb','ast','stl','blk','tov',
-      'fgm','fga','fg3m','fg3a','ftm','fta','fg_pct','fg2_pct','fg3_pct','ft_pct','efg_pct','gp','minutes_played',
+      'fgm','fga','fg3m','fg3a','ftm','fta','fg_pct','fg2_pct','fg3_pct','ft_pct','efg_pct','gp','minutes_est',
     ]
     for (const key of STAT_KEYS) {
       let best = -Infinity
@@ -303,6 +303,9 @@ function LeagueStatsPageInner() {
     { key: 'tov', label: 'TOV' },
     { key: 'fgm', label: 'FG' }, { key: 'fg3m', label: '3P' }, { key: 'ftm', label: 'FT' },
     { key: 'fg_pct', label: 'FG%' }, { key: 'fg3_pct', label: '3P%' }, { key: 'ft_pct', label: 'FT%' },
+    // MIN 은 누적 뷰에만 둔다 — 교체 기록이 거의 없어 이벤트 시각으로 추정한 값이라
+    // 경기당 평균까지 내면 오차가 두 번 곱해진다. 추정이 섞이면 값 옆에 * 를 붙인다.
+    { key: 'minutes_est', label: 'MIN' },
   ]
 
   // Shooting stats 컬럼 — 슈팅 정확도 + 야투 분포
@@ -396,6 +399,10 @@ function LeagueStatsPageInner() {
       if (key === 'fgm')  return `${p.fgm}/${p.fga}`
       if (key === 'fg3m') return `${p.fg3m}/${p.fg3a}`
       if (key === 'ftm')  return `${p.ftm}/${p.fta}`
+      if (key === 'minutes_est') {
+        if (!p.minutes_est) return '—'
+        return `${Math.round(p.minutes_est)}${p.minutes_est_used ? '*' : ''}`
+      }
       return String((p as unknown as Record<string, number>)[key] ?? 0)
     }
   }
@@ -836,6 +843,7 @@ function LeagueStatsPageInner() {
                     if (key === 'fgm')  return `${totalFgm}/${totalFga}`
                     if (key === 'fg3m') return `${totalFg3m}/${totalFg3a}`
                     if (key === 'ftm')  return `${totalFtm}/${totalFta}`
+                    if (key === 'minutes_est') return String(Math.round(totalOf('minutes_est')))
                     const totKey = key as keyof PlayerStat
                     return String(totalOf(totKey))
                   }

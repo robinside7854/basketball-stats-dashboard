@@ -145,7 +145,13 @@ export type PlayerStat = {
   // USG% 계산용
   team_poss_in_games: number   // 본인 출전 경기의 본인 팀 총 소유권 (FGA + 0.44×FTA + TOV)
   // Per-40 계산용
-  minutes_played: number       // 본인 총 출전 시간 (분)
+  minutes_played: number       // 본인 총 출전 시간 (분) — 교체(in/out)가 둘 다 찍힌 경기만
+  // 교체 기록이 없는 경기를 이벤트 시각으로 메운 출전 시간(분).
+  // 실측 in/out 이 있는 경기는 그 값을 그대로 쓰고, 없는 경기만 추정으로 채운다.
+  // ⚠ 운영 DB 실측(2026-08-10) 기준 교체 기록의 98.7%가 out_time NULL 이라
+  //    minutes_played 는 사실상 0 이다 — 화면에 보여줄 값은 이쪽이다.
+  minutes_est: number
+  minutes_est_used: boolean    // 추정분이 섞였는가 (화면에 "추정" 표기)
   // PIE (Player Impact Estimate · NBA 공식 지표) 재료 · Advanced 탭에서 pie_num/pie_denom×100 로 사용
   //   numerator: PTS+FGM+FTM−FGA−FTA+DREB+ORB/2+AST+STL+BLK/2−PF−TO
   //   denominator: 본인 출전 게임의 리그 전체(양팀) 총합

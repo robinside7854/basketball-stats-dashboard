@@ -16,6 +16,7 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
 import LeagueEventInputPad from '@/components/league/LeagueEventInputPad'
+import RecordAuditPanel from '@/components/league/RecordAuditPanel'
 import LeagueSubstitutionPanel from '@/components/league/LeagueSubstitutionPanel'
 import LeagueStatsPanel from '@/components/league/LeagueStatsPanel'
 import GameLogModal from '@/components/league/GameLogModal'
@@ -135,6 +136,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [bulkSyncing, setBulkSyncing] = useState(false)
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 })
   const [minutes, setMinutes] = useState<MinRow[]>([])
+  // 후보 버튼 정렬 힌트 — 실패해도 기록에는 지장이 없어 조용히 비워 둔다(순서만 기본값이 된다)
+  const [tendencies, setTendencies] = useState<{ assist: Record<string, string[]>; rebound: string[] }>()
   const [statsRefresh, setStatsRefresh] = useState(0)
   const [mobileTab, setMobileTab] = useState<'record' | 'stats'>('record')
 
@@ -276,6 +279,11 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
         setDateQuarterMap(dqMap)
       }
       setLoadingDates(false)
+      // 후보 정렬 힌트는 있으면 좋은 것이라 초기 로딩을 붙잡지 않는다(뒤늦게 채워도 무해)
+      fetch(`/api/leagues/${leagueId}/tendencies`)
+        .then(r => r.ok ? r.json() : null)
+        .then(t => { if (t) setTendencies(t) })
+        .catch(() => {})
     }
     init()
   }, [leagueId])
@@ -1598,7 +1606,17 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                         awayTeam={selectedSlot?.away_team ?? undefined}
                         onEventSaved={() => { handleEventSaved(); fetchLiveScore() }}
                         activePlusOneIds={activePlusOneIds.length > 0 ? activePlusOneIds : undefined}
+                        tendencies={tendencies}
                         onOpponentRegistered={() => { if (selectedSlot) loadRoster(selectedSlot) }}
+                      />
+
+                      {/* 기록 누락 자동 점검 — 놓친 지점만 뽑아 영상 그 시각으로 보낸다.
+                          이름 표시용 명단은 즉석 등록된 상대 선수까지 덮도록 셋을 합친다. */}
+                      <RecordAuditPanel
+                        leagueId={leagueId}
+                        gameId={selectedSlotId}
+                        players={[...allPlayers, ...homeRoster, ...awayRoster]}
+                        refreshKey={statsRefresh}
                       />
 
                       {/* 비정규 선수 추가 */}

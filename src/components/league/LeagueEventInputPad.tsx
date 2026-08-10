@@ -18,6 +18,12 @@ interface Props {
   leagueHeaders: Record<string, string>
   onEventSaved: () => void
   activePlusOneIds?: string[]  // per-game override; if set, only these player IDs get +1
+  /**
+   * 후보 버튼 정렬 힌트 — 실제로 자주 일어난 조합을 앞에 둔다.
+   * assist[슈터id] = 어시스트 제공자 id 를 빈도 내림차순으로, rebound = 리바운더 id 빈도순.
+   * 없으면 기존 명단 순서 그대로 — 이 기능이 꺼져도 기록은 그대로 된다.
+   */
+  tendencies?: { assist: Record<string, string[]>; rebound: string[] }
   // 대회형 즉석 등록으로 상대 선수가 새로 생겼을 때 알림 — 부모가 전체 로스터를 다시
   // 불러와(loadRoster) 교체 화면 등 다른 화면에도 이 선수가 반영되게 한다.
   // 패드 자체 렌더링은 로컬 상태(addedOpponents)로 즉시 반영되므로 이 콜백이 없어도 동작한다.
@@ -87,6 +93,7 @@ export default function LeagueEventInputPad({
   homeTeam, awayTeam,
   leagueHeaders, onEventSaved,
   activePlusOneIds,
+  tendencies,
   onOpponentRegistered,
 }: Props) {
   const { getCurrentTimestamp } = useGameStore()
@@ -132,9 +139,20 @@ export default function LeagueEventInputPad({
     ? activePlusOneIds.includes(selectedPlayer ?? '')
     : !!(selectedObj as LeaguePlayer | null)?.plus_one
 
-  const assistCandidates = allPlayers.filter(p =>
-    p.id !== selectedPlayer && selectedTeamId && p.team_id === selectedTeamId
-  )
+  // 순위 목록(id 배열)을 "앞에 올 수록 작은 수"로 바꿔 정렬 키로 쓴다.
+  // 목록에 없는 선수는 Infinity → 뒤로 밀리되 순서는 원래대로 유지된다(안정 정렬).
+  function rankOf(order: string[] | undefined, id: string): number {
+    if (!order) return Number.POSITIVE_INFINITY
+    const i = order.indexOf(id)
+    return i === -1 ? Number.POSITIVE_INFINITY : i
+  }
+
+  const assistCandidates = allPlayers
+    .filter(p => p.id !== selectedPlayer && selectedTeamId && p.team_id === selectedTeamId)
+    .sort((a, b) => {
+      const order = selectedPlayer ? tendencies?.assist[selectedPlayer] : undefined
+      return rankOf(order, a.id) - rankOf(order, b.id)
+    })
   // 어시스트 추가 모드일 때는 마지막 이벤트 선수의 팀 동료
   const assistForLastCandidates = addingAssistForLast && lastEvent
     ? allPlayers.filter(p => p.id !== lastEvent.playerId && allPlayers.find(a => a.id === lastEvent.playerId)?.team_id && p.team_id === allPlayers.find(a => a.id === lastEvent.playerId)?.team_id)
@@ -706,7 +724,12 @@ export default function LeagueEventInputPad({
           {[
             { players: homeDisplay, team: homeTeam, isShooterTeam: reboundShooterTeamId === homeTeam?.id },
             { players: awayDisplay, team: awayTeam, isShooterTeam: reboundShooterTeamId === awayTeam?.id },
-          ].map(({ players: tPlayers, team, isShooterTeam }) => tPlayers.length === 0 ? null : (
+          ].map(({ players: rawPlayers, team, isShooterTeam }) => rawPlayers.length === 0 ? null : (() => {
+            // 리바운드 후보도 실제 리바운드가 잦은 선수를 앞에 둔다
+            const tPlayers = [...rawPlayers].sort(
+              (a, b) => rankOf(tendencies?.rebound, a.id) - rankOf(tendencies?.rebound, b.id)
+            )
+            return (
             <div key={team?.id ?? 'team'}>
               <p className="text-xs font-bold mb-1.5 px-1" style={{ color: accentOrInk(team?.color ?? '#9ca3af') }}>
                 {team?.name ?? '팀'} — {isShooterTeam ? '공격리바' : '수비리바'}
@@ -725,7 +748,8 @@ export default function LeagueEventInputPad({
                 })}
               </div>
             </div>
-          ))}
+            )
+          })())}
           <button onClick={() => doRebound(null)}
             className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center py-1">
             리바운드 건너뛰기
