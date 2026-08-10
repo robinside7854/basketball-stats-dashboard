@@ -23,6 +23,10 @@ export const GLOSSARY: Record<string, StatDef> = {
   R:    { short: 'R',    long: '라운드 수',      description: '경기일 기준 참가 라운드 수 (하루 = 1R)' },
   G:    { short: 'G',    long: '게임 슬롯 수',   description: '개별 경기 슬롯 기준 참가 수 (하루 여러 경기면 별개)' },
   PTS:  { short: 'PTS',  long: '득점 (누적)',    description: '해당 기간 누적 득점' },
+  // 교체 기록(들어감/나감)이 거의 안 남아 있어 실제로는 대부분 추정값이다 —
+  // 값 옆의 * 가 그 표시다. 숫자를 믿을지 판단할 수 있도록 설명에 명시한다.
+  MIN:  { short: 'MIN',  long: '출전 시간 (분)',
+          description: '누적 출전 시간. 교체를 직접 기록한 경기는 그 값을, 아닌 경기는 그 선수의 이벤트가 찍힌 구간으로 추정한다. * 가 붙으면 추정이 섞였다는 뜻 — 이벤트가 뜸한 선수는 실제보다 적게 나올 수 있다' },
   REB:  { short: 'REB',  long: '리바운드',       formula: 'OREB + DREB', description: '누적 리바운드 (공격+수비)' },
   OREB: { short: 'OR',   long: '공격 리바운드',  description: '누적 공격 리바운드' },
   DREB: { short: 'DR',   long: '수비 리바운드',  description: '누적 수비 리바운드' },
