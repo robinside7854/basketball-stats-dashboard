@@ -90,7 +90,7 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
           role="dialog"
           aria-modal="true"
           aria-labelledby="award-detail-title"
-          className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col z-10 shadow-2xl"
+          className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-2xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col z-10 shadow-2xl mm-modal-in"
         >
           {/* 상단 리본 */}
           <div aria-hidden="true" className={`h-1 bg-gradient-to-r ${style.ribbon}`} />

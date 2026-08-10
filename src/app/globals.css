@@ -626,6 +626,40 @@
     from { transform: translateY(8px); opacity: 0; }
     to   { transform: translateY(0);   opacity: 1; }
   }
+  /* 콘텐츠 등장 — 스켈레톤이 실제 내용으로 바뀔 때. 위치 이동 없이 밝기만 든다.
+     8px 상승을 같이 주면 스켈레톤이 잡아둔 자리와 어긋나 보여, 예약해 둔 공간의 의미가 없어진다. */
+  @keyframes mm-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .mm-fade-in { animation: mm-fade-in var(--mm-motion-base) var(--mm-ease-out); }
+
+  /* 모달 등장 — 아주 살짝 커지며 뜬다(0.97 → 1). 어디서 열렸는지 공간 감각을 준다.
+     0.9 처럼 크게 잡으면 텍스트가 한순간 흐려 보여 싸구려가 된다. */
+  @keyframes mm-modal-in {
+    from { transform: scale(0.97); opacity: 0; }
+    to   { transform: scale(1);    opacity: 1; }
+  }
+  .mm-modal-in { animation: mm-modal-in var(--mm-motion-base) var(--mm-ease-out); }
+
+  /* 스트릭 불꽃 — "진행 중"이라는 상태 자체를 나타내므로 무한 반복이 정당하다.
+     LIVE 배지(pulse-red)와 같은 근거다. 그 외 요소에 무한 애니메이션을 쓰지 않는다.
+     2.4s 로 느리게, 투명도만 흔든다 — 크기를 흔들면 옆 숫자가 밀린다. */
+  @keyframes mm-flicker {
+    0%, 100% { opacity: 1; }
+    45%      { opacity: 0.55; }
+  }
+  .mm-flicker { animation: mm-flicker 2.4s ease-in-out infinite; }
+
+  /* 승리 스탬프 — 도장을 찍듯 살짝 큰 상태에서 제자리로. 경기 결과가 확정됐다는 신호.
+     회전을 넣지 않는다. 표 안에서 기울어진 아이콘은 정렬이 깨져 보인다. */
+  @keyframes mm-stamp-in {
+    from { transform: scale(1.6); opacity: 0; }
+    60%  { transform: scale(0.94); opacity: 1; }
+    to   { transform: scale(1);    opacity: 1; }
+  }
+  .mm-stamp-in { animation: mm-stamp-in var(--mm-motion-slow) var(--mm-ease-out) both; }
+
   .mm-view-enter {
     animation: mm-view-enter var(--mm-motion-base) var(--mm-ease-out);
   }

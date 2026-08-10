@@ -112,8 +112,11 @@ export default function RecordRoomBoard({ categoryHighs, highlightCategory, orgS
         </span>
       </div>
 
-      {/* 모바일 4열 × 2행 고정, 데스크톱은 8열 1행. 칸 수는 어떤 화면 폭에서도 8개 그대로 */}
-      <div className="grid grid-cols-4 md:grid-cols-8 gap-2 p-3 sm:p-4">
+      {/* 모바일 4열 × 2행 고정, 데스크톱은 8열 1행. 칸 수는 어떤 화면 폭에서도 8개 그대로.
+          key 를 loading 으로 두면 스켈레톤 → 실제 기록으로 바뀔 때 다시 마운트돼 mm-fade-in 이 돈다.
+          key 없이 클래스만 붙이면 같은 엘리먼트라 애니메이션이 재생되지 않는다.
+          자리는 스켈레톤이 이미 잡아 뒀으므로 위치 이동 없이 밝기만 든다. */}
+      <div key={loading ? 'sk' : 'data'} className="grid grid-cols-4 md:grid-cols-8 gap-2 p-3 sm:p-4 mm-fade-in">
         {loading
           ? BOARD_ORDER.map(({ category }) => <SkeletonCell key={category} />)
           : BOARD_ORDER.map(({ category, short }, idx) => {

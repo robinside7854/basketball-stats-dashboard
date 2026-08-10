@@ -90,7 +90,7 @@ export default function MilestoneClipModal({ clip, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="mm-brand w-full max-w-3xl max-h-[92vh] overflow-y-auto"
+        className="mm-brand w-full max-w-3xl max-h-[92vh] overflow-y-auto mm-modal-in"
         style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
         onClick={(e) => e.stopPropagation()}
       >

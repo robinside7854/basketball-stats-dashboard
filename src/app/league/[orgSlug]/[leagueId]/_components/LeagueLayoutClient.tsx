@@ -223,6 +223,10 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
     return pathname.startsWith(href)
   }
 
+  // 인디케이터를 하나만 그려 옮기려면 '몇 번째 탭인가'가 필요하다. -1 이면 인디케이터를 숨긴다
+  // (우산 매칭에 걸리지 않는 경로 — 예: 하단 탭이 없는 화면).
+  const activeTabIdx = mainTabs.findIndex(({ href }) => isActive(href))
+
   return (
     <>
       {/* 하단 탭바 — 편집 모드 시 상단 얇은 노랑 라인으로 상태 힌트 */}
@@ -230,7 +234,25 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
         aria-label="주요 메뉴"
         className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--mm-panel)]/95 backdrop-blur-md border-t ${isEditMode ? 'border-[color:var(--color-hoop-orange-500)]' : 'border-[color:var(--mm-rule)]'}`}
       >
-        <div className="flex items-stretch justify-around h-14">
+        <div className="relative flex items-stretch justify-around h-14">
+          {/* 활성 인디케이터 — 탭마다 따로 그리지 않고 하나를 옮긴다.
+              따로 그리면 탭을 바꿀 때 한쪽이 사라지고 다른 쪽이 나타나 '점프'로 보인다.
+              하나를 미끄러뜨리면 "어디에서 어디로 왔는지"가 남는다(연속성).
+              5개 탭이 flex-1 로 동일 폭이라 인덱스 × 100% 만으로 정확히 맞는다 —
+              탭 개수가 바뀌면 이 계산도 같이 봐야 한다. */}
+          {activeTabIdx >= 0 && (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute top-0 left-0 flex justify-center"
+              style={{
+                width: `${100 / mainTabs.length}%`,
+                transform: `translateX(${activeTabIdx * 100}%)`,
+                transition: 'transform var(--mm-motion-base) var(--mm-ease-out)',
+              }}
+            >
+              <span className="block w-8 h-0.5 rounded-b-full" style={{ background: 'var(--color-hoop-orange-500)' }} />
+            </span>
+          )}
           {mainTabs.map(({ href, label, Icon, ariaLabel }) => {
             const active = isActive(href)
             const isMeTab = href === `${base}/me`
@@ -244,13 +266,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
                   active ? 'text-[color:var(--mm-ink)]' : 'text-[color:var(--mm-muted)] active:text-[color:var(--mm-ink)]'
                 }`}
               >
-                {/* 액티브 인디케이터 — 상단 짧은 노랑 라인 */}
-                {active && (
-                  <span
-                    aria-hidden
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-b-full bg-[color:var(--color-hoop-orange-500)]"
-                  />
-                )}
+                {/* 인디케이터는 위 컨테이너에서 하나만 그려 옮긴다(탭별 렌더 제거) */}
                 {/* 내 기록 탭 — 로그인 상태면 유저 사진(있으면 사진, 없으면 lucide User),
                     비로그인이면 lucide UserPlus(가입 유도, mainTabs 에서 이미 Icon 을 분기함).
                     인스타 프로필 탭과 동일 패턴. */}

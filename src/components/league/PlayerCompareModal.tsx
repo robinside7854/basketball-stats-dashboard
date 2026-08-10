@@ -80,7 +80,7 @@ export default function PlayerCompareModal({ leagueId, player1Id, player2Id, pla
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl">
+      <div className="relative bg-gray-900 border-0 sm:border border-gray-700 rounded-none sm:rounded-2xl w-full max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 shadow-2xl mm-modal-in">
         <div className="sticky top-0 z-10 bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 px-5 py-4 flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-widest font-bold">선수 비교</p>

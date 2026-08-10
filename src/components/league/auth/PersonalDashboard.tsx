@@ -12,6 +12,8 @@ import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import SectionCard from '@/components/league/ui/SectionCard'
 import CountUp from '@/components/league/ui/CountUp'
 import GrowBar from '@/components/league/ui/GrowBar'
+// 폭죽은 canvas + rAF 라 첫 화면 번들에 들어갈 이유가 없다. 실제로 터질 때만 받아온다.
+const Confetti = dynamic(() => import('@/components/league/Confetti'), { ssr: false })
 
 // 선수카드 모달 · 클릭 후에만 로드 (recharts 포함)
 const PlayerQuickViewModal = dynamic(() => import('../PlayerQuickViewModal'), { ssr: false })
@@ -175,7 +177,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
             <HighlightCTA available={data.weekly.available} href={highlightsHref} date={data.weekly.date} />
 
             {/* c. 마일스톤 체이서 (트렌드 삭제) */}
-            <MilestoneChaser chasers={data.milestoneChasers} />
+            <MilestoneChaser chasers={data.milestoneChasers} playerId={user?.player_id ?? null} />
           </>
         )}
 
@@ -368,7 +370,9 @@ function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
   return (
     <div className="px-4 sm:px-5 py-3 sm:py-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
       <div className="flex items-center gap-1.5 mb-2.5">
-        <Flame size={16} style={{ color: 'var(--color-hoop-orange-500)' }} />
+        {/* 불꽃만 깜빡인다 — "진행 중"이라는 상태 자체를 나타내므로 무한 반복이 정당하다(LIVE 배지와 같은 근거).
+            투명도만 흔들어 크기는 그대로 둔다. 크기를 흔들면 옆 글자가 밀린다. */}
+        <Flame size={16} className="mm-flicker" style={{ color: 'var(--color-hoop-orange-500)' }} />
         <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>진행 중 스트릭</span>
         <span className="text-[11px] md:text-[12px] font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>다음 경기에 이어가요</span>
       </div>
@@ -379,7 +383,7 @@ function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md"
             style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
           >
-            <Flame size={13} style={{ color: 'var(--color-hoop-orange-500)' }} />
+            <Flame size={13} className="mm-flicker" style={{ color: 'var(--color-hoop-orange-500)' }} />
             <span className="font-jersey font-black tabular-nums text-lg md:text-xl leading-none" style={{ color: 'var(--mm-ink)' }}>
               {s.count}{s.unit}
             </span>
@@ -420,10 +424,41 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
   return <Link href={href} className="block cursor-pointer transition-all hover:brightness-95">{content}</Link>
 }
 
-function MilestoneChaser({ chasers }: { chasers: Chaser[] }) {
+function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: number | string | null }) {
   const shown = chasers.slice(0, 5)
+
+  // 마일스톤 달성 축하 — 폭죽 컴포넌트는 드래프트에만 갇혀 있었다. 개인 화면으로 확장한다.
+  //
+  // 달성을 어떻게 아는가: 서버가 '방금 넘었다'를 알려주지 않는다. 대신 지표별 다음 목표치
+  //   (nextThreshold)를 저장해 뒀다가, 이번에 그 값이 **올라가 있으면** 이전 목표를 넘은 것이다.
+  //   ⚠ 첫 방문(저장값 없음)에는 절대 터뜨리지 않는다 — 모두가 첫 로그인에 폭죽을 보게 된다.
+  //     조용히 저장만 하고 넘어간다.
+  //   ⚠ 키에 playerId 를 넣는다. 가족이 한 기기를 쓰면 남의 달성으로 내 폭죽이 터진다.
+  const [celebrate, setCelebrate] = useState<number | null>(null)
+  useEffect(() => {
+    if (!playerId || shown.length === 0) return
+    const key = `mm_milestone_seen_${playerId}`
+    const snapshot: Record<string, number> = {}
+    for (const c of shown) snapshot[c.metric] = c.nextThreshold
+
+    let prev: Record<string, number> | null = null
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw) prev = JSON.parse(raw) as Record<string, number>
+    } catch { /* 저장소가 막혀 있으면(시크릿 모드 등) 축하만 생략한다 */ }
+
+    if (prev && shown.some(c => typeof prev[c.metric] === 'number' && c.nextThreshold > prev[c.metric])) {
+      setCelebrate(Date.now())
+    }
+    try { localStorage.setItem(key, JSON.stringify(snapshot)) } catch { /* 무시 */ }
+    // shown 은 매 렌더 새 배열이라 의존성에 넣으면 매번 재실행된다. 값이 바뀌는 신호는
+    // playerId 와 목표치 조합뿐이므로 그것만 본다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerId, shown.map(c => `${c.metric}:${c.nextThreshold}`).join(',')])
   return (
     <div className="p-4 md:p-5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+      {/* 폭죽은 화면 전체를 덮는 캔버스라 레이아웃에 영향을 주지 않는다. trigger 가 null 이면 비활성 */}
+      <Confetti trigger={celebrate} />
       <div className="flex items-center gap-1.5 mb-3">
         <Trophy size={16} style={{ color: 'var(--mm-ink-soft)' }} />
         <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>

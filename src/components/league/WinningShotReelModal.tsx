@@ -70,7 +70,7 @@ export default function WinningShotReelModal({ leagueId, playerId, onClose }: Pr
         aria-label="위닝샷 릴"
       >
         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-        <div className="relative z-10 w-full max-w-sm bg-[color:var(--mm-panel)] border border-[color:var(--mm-yellow)] rounded-sm p-6 text-center">
+        <div className="relative z-10 w-full max-w-sm bg-[color:var(--mm-panel)] border border-[color:var(--mm-yellow)] rounded-sm p-6 text-center mm-modal-in">
           <Zap size={20} className="mx-auto mb-2 text-[color:var(--mm-yellow-strong)]" aria-hidden />
           <p className="text-sm font-bold text-[color:var(--mm-ink)] mb-3">위닝샷 릴</p>
           {error ? (

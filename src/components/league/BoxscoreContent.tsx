@@ -611,7 +611,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '' }: Pro
                         <div className="flex items-center gap-2 sm:gap-3">
                           {/* HOME */}
                           <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
-                            {homeWin && <Trophy size={12} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" aria-label="승" />}
+                            {homeWin && <Trophy size={12} className="shrink-0 mm-stamp-in" style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" aria-label="승" />}
                             <span
                               className="font-jersey font-bold text-sm truncate min-w-0"
                               style={{
@@ -644,7 +644,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '' }: Pro
                                 letterSpacing: '-0.005em',
                               }}
                             >{g.away_team?.name ?? '미정'}</span>
-                            {awayWin && <Trophy size={12} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" aria-label="승" />}
+                            {awayWin && <Trophy size={12} className="shrink-0 mm-stamp-in" style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" aria-label="승" />}
                           </div>
                         </div>
                       </button>
