@@ -91,6 +91,38 @@ npx tsc --noEmit         # 타입 체크 (테스트 없으므로 필수 안전�
 - 프론트: `useLeagueEditMode()`의 `isEditMode`(= 어드민 role ∥ PIN) / `isAdminSession`(어드민 role만)
   - `LeagueAuthProvider`가 `LeagueEditModeProvider`보다 **바깥**이어야 함 (role을 읽어야 하므로)
 
+### PIN 폐지 방향 (2026-08-10 확정) ⚠
+
+**편집 PIN은 폐지한다. 모든 운영은 어드민 권한으로 한다.** 새 기능에 PIN 가드를 추가하지 말 것 —
+어드민 role 가드를 쓰고, PIN이 필요하면 기존 폴백에 얹지 말고 별도로 상의한다.
+
+이미 끊어낸 것(2026-08-10): PIN으로는 **어드민 지정·비밀번호 초기화·어드민 계정 변경**을 할 수 없다.
+PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 권한**을 만들면 되돌릴 수 없다.
+`isIdentifiedAdmin()`(어드민 세션 ∥ CEO)이 그 경계다. 일반 회원 승인·반려는 아직 PIN으로도 가능 —
+어드민이 없는 동호회의 온보딩 경로를 막지 않기 위해서다.
+
+**폐지 선결 조건**: 모든 팀에 어드민이 최소 1명(권장 2명). 지금 막혀 있는 곳 → 아래.
+
+### ⚠ 대회(팀) 전용 팀에는 계정 체계가 없다
+
+`league_user_accounts`는 `league_id`·`league_player_id`가 **NOT NULL**이고 `league_players`(리그 명단)를
+참조한다. 그런데 대회 전용 팀은 리그가 0개이고 명단이 `players`(팀 명단)에 있다.
+
+⇒ **파란날개 청년부/장년부는 계정을 만들 수 없고, 따라서 어드민도 지정할 수 없다.** 편집 수단이
+편집 PIN 하나뿐이다. 대회 쪽 화면에는 회원 로그인 UI 자체가 없다(PIN 모달만 있음).
+
+여기에 어드민을 도입하려면 네 가지가 같이 필요하다:
+1. 계정이 `players`(팀 명단)도 참조할 수 있게 — `league_player_id` NOT NULL 완화 + 팀 명단 FK
+2. 팀 스코프 가입·로그인 라우트 (`/api/leagues/[leagueId]/auth/*` 는 리그 전용)
+3. 대회 화면의 로그인 UI
+4. `canEditTeam()` — `canEditLeague`의 팀판. `verifyTeamPinForTeam`을 폴백으로 격하
+
+### 사진 업로드는 무인증 개방 (2026-08-10 결정)
+
+`/api/players/upload-photo`는 **의도적으로 누구나** 업로드할 수 있게 둔다. 보안 점검에서 제기했으나
+사용자가 개방을 선택했다. 인증을 추가하지 말 것.
+(별개 축인 파일 형식·용량 검증은 아직 없음 — 필요해지면 그때 상의한다.)
+
 ### 리그 시스템 핵심 테이블
 - `league_games`: `is_started`, `is_complete`, `is_exhibition`, `quarter_id`, `home/away_team_id`, `slot_num`, `round_num`
   - UNIQUE INDEX `league_games_slot_unique` ON (league_id, date, slot_num) WHERE slot_num IS NOT NULL
