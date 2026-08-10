@@ -105,6 +105,24 @@ var s=window.navigator.standalone===true||window.matchMedia('(display-mode: stan
 if(s&&/iP(hone|ad|od)/.test(navigator.userAgent))d.classList.add('splash-static');
 }catch(e){}})()`
 
+// 설치 프롬프트 선점 — ⚠ 이 스크립트가 <head> 에 있어야 하는 이유가 있다.
+//   beforeinstallprompt 는 **문서 로드 직후 딱 한 번** 발생한다. 그런데 우리 설치 버튼은
+//   '내 기록' 페이지 안에 있어서, 홈으로 들어와 탭을 이동하면(클라이언트 라우팅)
+//   컴포넌트가 마운트될 땐 이미 이벤트가 지나간 뒤였다 → 버튼이 영영 안 떴다 (2026-08-10 사용자 신고).
+//   그래서 하이드레이션보다 먼저 문서 레벨에서 이벤트를 붙잡아 window 에 보관하고,
+//   뒤늦게 마운트되는 버튼은 이 보관분을 읽어간다. 이미 마운트돼 있는 경우를 위해
+//   커스텀 이벤트도 함께 쏜다.
+const INSTALL_PROMPT_CAPTURE = `(function(){try{
+window.addEventListener('beforeinstallprompt',function(e){
+e.preventDefault();window.__onballInstallPrompt=e;
+window.dispatchEvent(new Event('onball:installable'));
+});
+window.addEventListener('appinstalled',function(){
+window.__onballInstallPrompt=null;
+window.dispatchEvent(new Event('onball:installed'));
+});
+}catch(e){}})()`
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" suppressHydrationWarning>
@@ -118,6 +136,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
         <script dangerouslySetInnerHTML={{ __html: SPLASH_GATE }} />
+        <script dangerouslySetInnerHTML={{ __html: INSTALL_PROMPT_CAPTURE }} />
       </head>
       <body className={`${firaSans.variable} ${bebasNeue.variable} ${barlowCondensed.variable} font-sans bg-gray-950 text-gray-300 min-h-screen`}>
         <ThemeProvider
