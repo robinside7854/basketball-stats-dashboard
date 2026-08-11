@@ -200,7 +200,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   })
   // 현재 photo 가 AI 생성물인지 판단 — 재생성 버튼 노출 조건
   const isAIGenerated = Boolean(originalPhotoUrl && photoUrl && originalPhotoUrl !== photoUrl)
-  const [statUnit, setStatUnit] = useState<'round'|'game'>('round')
   const [shotView, setShotView] = useState<'court'|'donut'>('court')
   // 미니 탭 — 세로 스크롤 과다 해소 (2026-08-03). 탭 전환 시 본문 최상단으로 스크롤 복귀.
   const [activeTab, setActiveTab] = useState<PlayerTabKey>('season')
@@ -238,7 +237,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       const [playersRes, statsRes, detailRes, quartersRes, leaderRes, careerRes] = await Promise.all([
         fetch(`/api/leagues/${leagueId}/players`),
         fetch(`/api/leagues/${leagueId}/stats?playerId=${playerId}`),
-        fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?unit=${statUnit}`),
+        fetch(`/api/leagues/${leagueId}/players/${playerId}/detail`),
         fetch(`/api/leagues/${leagueId}/quarters`),
         fetch(`/api/leagues/${leagueId}/leader-badges?playerId=${playerId}`),
         // 팀 전체 통산 — 묶음이 1개뿐이면 어차피 length<2 라 안 보인다. 401(미승인 회원)은
@@ -265,7 +264,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
       }
       if (careerRes.ok) setCareer(await careerRes.json())
     } finally { setLoading(false) }
-  }, [leagueId, playerId, statUnit])
+  }, [leagueId, playerId])
 
   useEffect(() => { load() }, [load])
   useEffect(() => {
@@ -295,12 +294,12 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     if (!selectedQuarterId) { setQuarterDetail(null); return }
     let cancelled = false
     setQuarterLoading(true)
-    fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?quarterId=${selectedQuarterId}&unit=${statUnit}`)
+    fetch(`/api/leagues/${leagueId}/players/${playerId}/detail?quarterId=${selectedQuarterId}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (!cancelled) setQuarterDetail(d) })
       .finally(() => { if (!cancelled) setQuarterLoading(false) })
     return () => { cancelled = true }
-  }, [leagueId, playerId, selectedQuarterId, statUnit])
+  }, [leagueId, playerId, selectedQuarterId])
 
 
 
@@ -847,22 +846,6 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       ))}
                     </>
                   )}
-                  <div
-                    className="flex items-center gap-1 rounded-sm p-0.5 ml-auto shrink-0"
-                    style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
-                  >
-                    {(['round','game'] as const).map(u => (
-                      <button key={u} onClick={() => setStatUnit(u)}
-                        className="px-2.5 py-0.5 text-xs font-bold rounded-sm cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
-                        style={statUnit === u
-                          ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
-                          : { color: 'var(--mm-muted)' }
-                        }
-                      >
-                        {u === 'round' ? 'R' : 'G'}
-                      </button>
-                    ))}
-                  </div>
                 </div>
             </div>
 
@@ -880,7 +863,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-3">
                       {[
                         // #5a: R/G 은 gp 랭킹 (신규 { rank, total } 형태)
-                        { label: statUnit === 'round' ? 'R' : 'G', value: activeDetail?.player_stats?.gp ?? 0,  decimals: 0, rank: detail?.rankings.gp?.rank ?? 0, total: detail?.rankings.gp?.total ?? 0 },
+                        { label: 'R', value: activeDetail?.player_stats?.gp ?? 0,  decimals: 0, rank: detail?.rankings.gp?.rank ?? 0, total: detail?.rankings.gp?.total ?? 0 },
                         { label: 'PPG', value: activeDetail?.player_stats?.ppg ?? 0, decimals: 1, rank: detail?.rankings.ppg ?? 0, total: detail?.rankings.total ?? 0 },
                         { label: 'RPG', value: activeDetail?.player_stats?.rpg ?? 0, decimals: 1, rank: detail?.rankings.rpg ?? 0, total: detail?.rankings.total ?? 0 },
                         { label: 'APG', value: activeDetail?.player_stats?.apg ?? 0, decimals: 1, rank: detail?.rankings.apg ?? 0, total: detail?.rankings.total ?? 0 },
@@ -1096,7 +1079,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                               >
                                 <Icon size={12} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
                                 <span>{c.label}</span>
-                                <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{c.count}{statUnit === 'round' ? 'R' : 'G'}</span>
+                                <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{c.count}{'R'}</span>
                               </span>
                             )
                           })}

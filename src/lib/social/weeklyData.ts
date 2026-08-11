@@ -86,7 +86,10 @@ export async function getRoundMagazineData(leagueId: string, date: string): Prom
   const sb = createClient()
   const [{ data: league }, stats, resolver, milestones, { data: games, error: gamesErr }] = await Promise.all([
     sb.from('leagues').select('name').eq('id', leagueId).single(),
-    computeLeagueStats(sb, leagueId, { from: date, to: date, unit: 'game' }),
+    // unit 을 넘기지 않는다 — 라운드(R) 기준 하나로 통일(2026-08-10, 경기 슬롯 단위 삭제).
+    // 이 매거진은 하루치이고 pts/reb/ast 같은 누적값만 쓴다(gp·ppg 미사용). 단위가 바뀌어도
+    // 화면에 나오는 숫자는 그대로다.
+    computeLeagueStats(sb, leagueId, { from: date, to: date }),
     loadIdentityResolver(sb, leagueId),
     computeMilestones(sb, leagueId, { horizonDays: 40, maxUpcoming: 6, maxRecent: 0 }),
     sb.from('league_games')

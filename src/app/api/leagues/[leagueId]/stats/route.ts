@@ -43,7 +43,9 @@ export async function GET(
   const sp = new URL(req.url).searchParams
   const quarterIdsRaw = sp.get('quarterIds')
   const quarterIds = quarterIdsRaw ? quarterIdsRaw.split(',').filter(Boolean) : null
-  const unit = (sp.get('unit') ?? 'round') as LeagueStatsUnit
+  // unit 쿼리파라미터는 더 이상 받지 않는다 — 라운드(R) 기준 하나로 통일(2026-08-10).
+  // 값을 읽어 쓰면 옛 화면이나 북마크된 URL 의 unit=game 이 살아나 다른 숫자를 만든다.
+  const unit: LeagueStatsUnit = 'round'
 
   try {
     const result = await getCachedStats(leagueId, {

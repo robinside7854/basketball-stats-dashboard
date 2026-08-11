@@ -7,7 +7,9 @@
  *
  * 룰:
  *   - `is_started=true` 게임만 대상 (마감 안 된 경기도 포함)
- *   - `unit='round'` 는 하루(YYYY-MM-DD) 단위 gp 카운트, `unit='game'` 은 game id 단위
+ *   - gp 는 항상 하루(YYYY-MM-DD) = 1라운드 단위로 센다.
+ *     경기 슬롯(game id) 단위 집계는 2026-08-10 삭제했다 — 한 라운드에 짧은 경기를 여러 번
+ *     치르는 운영 방식이라 '경기당 평균'이 실제 체감과 어긋났고, 아무도 쓰지 않았다.
  *   - Supabase 서버 max-rows(1000) 제한을 피해 이벤트 페이지네이션
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -17,7 +19,7 @@ import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { estimatePlayerGameSeconds, minutesFromStartToEnd } from './estimateMinutes'
 
-export type LeagueStatsUnit = 'round' | 'game'
+export type LeagueStatsUnit = 'round'
 
 export interface LeagueStatsOpts {
   quarterId?: string | null
@@ -64,10 +66,19 @@ export async function computeLeagueStats(
   // 1) 선수 메타 + plus_one 플래그
   const { data: allLeaguePlayers, error: playersErr } = await sb
     .from('league_players')
-    .select('id, name, number, position, plus_one, photo_url')
+    .select('id, name, number, position, plus_one, photo_url, is_guest')
     .eq('league_id', leagueId)
   // 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점되고, 이름/사진도 통째로 빠진다.
   if (playersErr) throw new Error(`computeLeagueStats: leagueId=${leagueId} league_players 조회 실패 — ${playersErr.message}`)
+
+  // 게스트는 순위·리더보드에 남지 않는다 (2026-08-10 결정).
+  //   동호회 정회원이 아닌 사람이 하루 뛰고 리더보드 상단을 차지하면 시즌 기록의 의미가 흔들린다.
+  //   ⚠ 걸러내는 지점이 여기여야 하는 이유: 이 함수 하나가 스탯 탭·홈 리그 리더·팀별 선수 스탯을
+  //     전부 만든다. 화면마다 따로 거르면 언젠가 한 곳이 빠지고, 그 화면에만 게스트가 남는다.
+  //     awards·season-highs 는 각자 자기 쿼리에서 이미 같은 방식으로 거르고 있다.
+  //   ⚠ 이벤트 집계 자체는 그대로 둔다. 게스트가 낀 경기의 팀 점수·상대 기록(어시스트 대상 등)은
+  //     실제로 일어난 일이라 지우면 안 된다. 빠지는 것은 '개인 순위표에 오르는 것'뿐이다.
+  const guestIds = new Set((allLeaguePlayers ?? []).filter(p => p.is_guest).map(p => p.id))
 
   const plusOneSet = new Set((allLeaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
   const metaMap = Object.fromEntries((allLeaguePlayers ?? []).map(p => [p.id, p]))
@@ -243,7 +254,7 @@ export async function computeLeagueStats(
 
     if (e.type !== 'sub_in' && e.type !== 'sub_out') {
       if (!gpMap[pid]) gpMap[pid] = new Set()
-      gpMap[pid].add(unit === 'round' ? (gameToDate[gId] ?? gId) : gId)
+      gpMap[pid].add(gameToDate[gId] ?? gId)
     }
 
     if (e.team_id && e.type !== 'sub_in' && e.type !== 'sub_out') {
@@ -344,7 +355,7 @@ export async function computeLeagueStats(
       const as = ensure(e.related_player_id)
       as.ast++
       if (!gpMap[e.related_player_id]) gpMap[e.related_player_id] = new Set()
-      gpMap[e.related_player_id].add(unit === 'round' ? (gameToDate[gId] ?? gId) : gId)
+      gpMap[e.related_player_id].add(gameToDate[gId] ?? gId)
       if (e.team_id) {
         if (!playerTeamGameCount[e.related_player_id]) playerTeamGameCount[e.related_player_id] = {}
         if (!playerTeamGameCount[e.related_player_id][gId]) playerTeamGameCount[e.related_player_id][gId] = {}
@@ -376,7 +387,7 @@ export async function computeLeagueStats(
     const s = statsMap[m.league_player_id]
     if (!s) continue
     if (!gpMap[m.league_player_id]) gpMap[m.league_player_id] = new Set()
-    gpMap[m.league_player_id].add(unit === 'round' ? (gameToDate[m.league_game_id] ?? m.league_game_id) : m.league_game_id)
+    gpMap[m.league_player_id].add(gameToDate[m.league_game_id] ?? m.league_game_id)
     // 명단 행이 있는 (선수, 경기) 는 아래 이벤트 추정으로 덮지 않는다 — 어느 쪽이든 여기서 처리했다
     if (!rosteredPairs[m.league_player_id]) rosteredPairs[m.league_player_id] = new Set()
     rosteredPairs[m.league_player_id].add(m.league_game_id)
@@ -458,7 +469,9 @@ export async function computeLeagueStats(
   // 5) 평균/퍼센트
   if (Object.keys(statsMap).length === 0) return { players: [], total_rounds: totalRounds }
   const result: PlayerStat[] = Object.values(statsMap)
-    .filter(s => s.gp > 0)
+    // 게스트는 개인 순위표에서 뺀다 — 위 guestIds 주석 참조. gp>0 필터와 같은 자리에서
+    // 걸러야 games_count(경기 수)는 그대로 유지되면서 '사람 목록'만 줄어든다.
+    .filter(s => s.gp > 0 && !guestIds.has(s.player_id))
     .map(s => {
       const meta = metaMap[s.player_id] ?? {}
       return {

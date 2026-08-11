@@ -21,7 +21,6 @@ import type { Quarter, PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
 
 type ViewMode = 'avg' | 'total'
-type StatUnit = 'round' | 'game'
 
 // 최소 출전 자격 — 해당 기간 내 열린 라운드의 30% 이상 참여 (2026-08-03 완화)
 // 이전엔 "리그 최다 출전자의 2/3" 였는데, 개근자 1명 때문에 커트라인이 과하게 올라가
@@ -170,7 +169,6 @@ function LeagueStatsPageInner() {
   // TopFiveSlot 활성화 플래그 — 기본 true 로 두어 진입 즉시 기본 정렬(득점 PPG) TOP 5 를 노출.
   // 이후 컬럼 헤더 클릭으로 지표 전환 (2026-07-27: 기본 안내 화면 → 득점 TOP5 기본 표시로 변경)
   const [topFiveActive, setTopFiveActive] = useState(true)
-  const [statUnit, setStatUnit] = useState<StatUnit>('round')
   // 기록실 8칸 보드(옛 시즌하이 탭 흡수 → 한 줄 표시 → 8칸 보드) — 카테고리별 라운드 최고 기록.
   // 리더보드와 같은 데이터 소스, 새 API 없음(GET /api/leagues/[leagueId]/season-highs).
   const [categoryHighs, setCategoryHighs] = useState<SeasonHigh[]>([])
@@ -206,8 +204,8 @@ function LeagueStatsPageInner() {
   useEffect(() => {
     setLoading(true)
     const url = selectedQuarterId === 'all'
-      ? `/api/leagues/${leagueId}/stats?unit=${statUnit}`
-      : `/api/leagues/${leagueId}/stats?quarterId=${selectedQuarterId}&unit=${statUnit}`
+      ? `/api/leagues/${leagueId}/stats`
+      : `/api/leagues/${leagueId}/stats?quarterId=${selectedQuarterId}`
 
     fetch(url)
       .then(r => {
@@ -216,7 +214,7 @@ function LeagueStatsPageInner() {
       })
       .then(d => { if (d) { setPlayers(d.players ?? []); setTotalRounds(d.total_rounds ?? 0); setLoading(false) } })
       .catch(() => setLoading(false))
-  }, [leagueId, selectedQuarterId, statUnit])
+  }, [leagueId, selectedQuarterId])
 
   // 기록실 8칸 보드용 시즌 최고 — 분기 변경 시 함께 다시 조회. 8개 카테고리뿐이라 페이로드가 작아
   // statMode 와 무관하게 항상 가져온다(Basic 모드로 돌아왔을 때 재요청 없이 바로 보이도록).
@@ -430,7 +428,7 @@ function LeagueStatsPageInner() {
       }
       const sorted = [...pool].sort((a, b) => (b[sortKey] as number) - (a[sortKey] as number)).slice(0, 5)
       return {
-        key: `basic:${sortKey}:${viewMode}:${statUnit}`,
+        key: `basic:${sortKey}:${viewMode}`,
         label,
         fullLabel,
         players: sorted.map(p => ({
@@ -490,7 +488,7 @@ function LeagueStatsPageInner() {
       })),
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topFiveActive, statMode, sortKey, shootSortKey, advSortKey, players, effectiveMinGP, viewMode, statUnit])
+  }, [topFiveActive, statMode, sortKey, shootSortKey, advSortKey, players, effectiveMinGP, viewMode])
 
   // 현재 정렬 지표(리더보드 = basic 모드일 때만) → 시즌 최고 카테고리 매핑.
   // shooting/advanced 모드거나 매핑 없는 지표(각종 %, TOPG 등)면 null → 기록실 보드에서
@@ -641,20 +639,6 @@ function LeagueStatsPageInner() {
                     </button>
                   ))}
                 </div>
-                {/* 단위 토글 (라운드 / 경기 슬롯) */}
-                <div className="flex items-center gap-1 p-0.5 shrink-0" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
-                  {(['round','game'] as const).map(u => (
-                    <button key={u} onClick={() => setStatUnit(u)}
-                      title={u === 'round' ? '라운드(경기일)당' : '경기 슬롯당'}
-                      className="px-3 py-1.5 text-xs font-black uppercase cursor-pointer transition-colors"
-                      style={statUnit === u
-                        ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', letterSpacing: '0.08em' }
-                        : { background: 'transparent', color: 'var(--mm-ink-soft)', letterSpacing: '0.08em' }
-                      }>
-                      {u === 'round' ? 'R' : 'G'}
-                    </button>
-                  ))}
-                </div>
                 {/* 자동 임계값 뱃지 · 정규 참여자 필터 (수동 컨트롤 제거) */}
                 <span
                   className="shrink-0 text-[11px] font-bold uppercase"
@@ -677,7 +661,7 @@ function LeagueStatsPageInner() {
                       ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }
                       : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
                     }>
-                    {key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label}
+                    {key === 'gp' ? 'R' : label}
                     {sortKey === key && (sortDir === 'desc' ? ' ↓' : ' ↑')}
                   </button>
                 ))}
@@ -687,7 +671,7 @@ function LeagueStatsPageInner() {
             {/* Basic — 모바일 카드뷰 */}
             <div className="md:hidden">
               {filtered.map((p, i) => {
-                const sortTerm = sortKey === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : (COLS.find(c => c.key === sortKey)?.label ?? '')
+                const sortTerm = sortKey === 'gp' ? 'R' : (COLS.find(c => c.key === sortKey)?.label ?? '')
                 const sortVal = cellVal(p, sortKey)
                 const subCols = COLS.filter(c => c.key !== sortKey).slice(0, 4)
                 const rt = rankTier(i + 1)
@@ -706,7 +690,7 @@ function LeagueStatsPageInner() {
                         style={{ color: rt.color, background: rt.bg, border: rt.border, fontSize: '13px' }}>{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <div className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{p.name}</div>
-                        <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}{statUnit === 'round' ? 'R' : 'G'}</div>
+                        <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}{'R'}</div>
                       </div>
                       <div className="text-right shrink-0">
                         <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '30px', letterSpacing: '-0.015em' }}>{sortVal}</div>
@@ -717,7 +701,7 @@ function LeagueStatsPageInner() {
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-2" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                       {subCols.map(({ key, label }) => {
-                        const term = key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label
+                        const term = key === 'gp' ? 'R' : label
                         return (
                           <div key={key} className="text-center">
                             <div className="text-[11px] font-bold uppercase flex items-center justify-center" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
@@ -742,7 +726,7 @@ function LeagueStatsPageInner() {
                     <th className="px-2 py-3 text-center text-xs font-black uppercase w-8" style={{ color: 'var(--mm-ink)', letterSpacing: '0.10em' }}>비교</th>
                     <th className="text-left px-4 py-3 sticky left-0 font-bold min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px' }}>선수</th>
                     {COLS.map(({ key, label }) => {
-                      const term = key === 'gp' ? (statUnit === 'round' ? 'R' : 'G') : label
+                      const term = key === 'gp' ? 'R' : label
                       return (
                         <th key={key} onClick={() => handleSort(key)}
                           className="px-3 py-3 text-center font-bold cursor-pointer select-none whitespace-nowrap transition-colors"
@@ -904,7 +888,7 @@ function LeagueStatsPageInner() {
                       <span className="font-jersey font-black tabular-nums w-5 h-5 shrink-0 inline-flex items-center justify-center rounded-full"
                         style={{ color: rt.color, background: rt.bg, border: rt.border, fontSize: '11px' }}>{i+1}</span>
                       <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '-0.005em' }}>{p.name}</span>
-                      <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{statUnit === 'round' ? 'R' : 'G'}</span>
+                      <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{'R'}</span>
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                       {SHOOTING_COLS.slice(0, 7).map(({ key, label }) => {
@@ -934,7 +918,7 @@ function LeagueStatsPageInner() {
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
                     <th className="py-2 pl-2 pr-1 text-xs font-black uppercase text-right w-8" style={{ color: 'var(--mm-ink)', letterSpacing: '0.10em' }}>#</th>
                     <th className="text-left px-4 py-3 sticky left-0 font-bold min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px' }}>선수</th>
-                    <th className="px-3 py-3 text-center text-xs font-black uppercase" style={{ color: 'var(--mm-ink-soft)', letterSpacing: '0.10em' }}>{statUnit === 'round' ? 'R' : 'G'}</th>
+                    <th className="px-3 py-3 text-center text-xs font-black uppercase" style={{ color: 'var(--mm-ink-soft)', letterSpacing: '0.10em' }}>{'R'}</th>
                     {SHOOTING_COLS.map(({ key, label, desc }, idx) => {
                       // 구분선: 슈팅 효율(0-6) | 야투 분포(7-10)
                       const dividerStyle = idx === 7 ? { borderLeft: '1px solid var(--mm-ink)' } : {}
@@ -1029,7 +1013,7 @@ function LeagueStatsPageInner() {
                       <span className="font-jersey font-black tabular-nums w-5 h-5 shrink-0 inline-flex items-center justify-center rounded-full"
                         style={{ color: rt.color, background: rt.bg, border: rt.border, fontSize: '11px' }}>{i+1}</span>
                       <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '-0.005em' }}>{p.name}</span>
-                      <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{statUnit === 'round' ? 'R' : 'G'}</span>
+                      <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{'R'}</span>
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                       {ADV_COLS.map(({ key, label }) => {
@@ -1056,7 +1040,7 @@ function LeagueStatsPageInner() {
                   <tr style={{ background: 'var(--mm-yellow-soft)', borderBottom: '2px solid var(--mm-ink)' }}>
                     <th className="py-2 pl-2 pr-1 text-xs font-black uppercase text-right w-8" style={{ color: 'var(--mm-ink)', letterSpacing: '0.10em' }}>#</th>
                     <th className="text-left px-4 py-3 sticky left-0 font-bold min-w-[130px]" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', fontSize: '14px' }}>선수</th>
-                    <th className="px-3 py-3 text-center text-xs font-black uppercase" style={{ color: 'var(--mm-ink-soft)', letterSpacing: '0.10em' }}>{statUnit === 'round' ? 'R' : 'G'}</th>
+                    <th className="px-3 py-3 text-center text-xs font-black uppercase" style={{ color: 'var(--mm-ink-soft)', letterSpacing: '0.10em' }}>{'R'}</th>
                     {ADV_COLS.map(({ key, label, desc }) => (
                       <th key={key} onClick={() => handleAdvSort(key)} title={desc}
                         className="px-3 py-3 text-center font-bold whitespace-nowrap cursor-pointer select-none transition-colors"

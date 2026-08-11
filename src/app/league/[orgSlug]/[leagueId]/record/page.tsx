@@ -135,8 +135,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [loadingDates, setLoadingDates] = useState(true)
   const [initializingSlots, setInitializingSlots] = useState(false)
   const [ytSyncing, setYtSyncing] = useState(false)
-  const [bulkSyncing, setBulkSyncing] = useState(false)
-  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 })
   const [minutes, setMinutes] = useState<MinRow[]>([])
   // 후보 버튼 정렬 힌트 — 실패해도 기록에는 지장이 없어 조용히 비워 둔다(순서만 기본값이 된다)
   const [tendencies, setTendencies] = useState<{ assist: Record<string, string[]>; rebound: string[] }>()
@@ -203,32 +201,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     initializedSlotRef.current = selectedSlotId
   }, [homeRoster, awayRoster, gameStarted, selectedSlotId])
 
-  async function bulkSyncYoutube() {
-    if (!leagueYtChannel) { toast.error('설정 탭에서 YouTube 채널을 먼저 지정하세요'); return }
-    const targets = scheduleDates.filter(sd => {
-      const stat = dateStats[sd.date]
-      return !stat || stat.yt < stat.total || stat.total === 0
-    })
-    if (targets.length === 0) { toast.success('모든 날짜가 이미 연동 완료되어 있습니다'); return }
-    setBulkSyncing(true)
-    setBulkProgress({ done: 0, total: targets.length })
-    let successCount = 0
-    for (const sd of targets) {
-      try {
-        const res = await fetch(`/api/leagues/${leagueId}/youtube-sync`, {
-          method: 'POST',
-          headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ channelHandle: leagueYtChannel, date: sd.date }),
-        })
-        const data = await res.json().catch(() => ({}))
-        if (res.ok && data.mapped > 0) successCount++
-      } catch { /* 네트워크 오류 무시 후 계속 */ }
-      setBulkProgress(p => ({ ...p, done: p.done + 1 }))
-    }
-    setBulkSyncing(false)
-    fetch(`/api/leagues/${leagueId}/games`).then(r => r.json()).then(buildDateStats).catch(() => null)
-    toast.success(`일괄 연동 완료: ${successCount}/${targets.length}개 날짜 처리됨`)
-  }
 
   function buildDateStats(games: { date: string; youtube_url?: string | null; is_complete?: boolean; is_started?: boolean }[]) {
     const today = new Date().toISOString().slice(0, 10)
@@ -1098,17 +1070,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               기록할 날짜를 선택하세요
             </p>
           </div>
-          {leagueYtChannel && (
-            <button
-              onClick={bulkSyncYoutube}
-              disabled={bulkSyncing}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-700 hover:bg-red-600 text-white text-xs font-medium transition-colors cursor-pointer disabled:opacity-50 shrink-0"
-            >
-              {bulkSyncing
-                ? <><Loader2 size={12} className="animate-spin" />{bulkProgress.done}/{bulkProgress.total} 연동 중...</>
-                : <><RefreshCw size={12} />전체 날짜 YouTube 연동</>}
-            </button>
-          )}
+          {/* '전체 날짜 YouTube 연동' 버튼은 2026-08-10 제거 — 일정 페이지의
+              '일정 등록 + 영상 연동' 하나로 합쳤다. 날짜 등록과 영상 붙이기는 항상
+              함께 일어나는데 두 화면에 흩어져 있어 두 번 들어가야 했다.
+              아래 날짜별 개별 연동 버튼은 남긴다 — 특정 날짜만 다시 붙일 때 쓴다. */}
         </div>
 
         {/* 전체 경기 완료 현황 요약 */}

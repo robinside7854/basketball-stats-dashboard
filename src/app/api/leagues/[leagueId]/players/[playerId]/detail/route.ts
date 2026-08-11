@@ -18,7 +18,9 @@ export async function GET(
   }
   const { searchParams } = new URL(req.url)
   const quarterId = searchParams.get('quarterId') ?? undefined
-  const unit = searchParams.get('unit') ?? 'round'
+  // 라운드(R) 기준 고정 — 경기 슬롯 단위는 2026-08-10 삭제했다.
+  // 쿼리파라미터를 그대로 읽으면 옛 화면의 unit=game 요청이 여기서만 되살아난다.
+  const unit = 'round'
   const supabase = createClient()
 
   // 이 파일에는 득점 계산이 5곳 있었다. 전부 이 룰 하나를 공유한다.
