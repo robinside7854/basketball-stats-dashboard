@@ -129,6 +129,7 @@ export async function POST(
   //   누적은 정의상 과거 전체를 봐야 해서 경기 하나만 보고 증분 계산할 수 없다.
   //   반드시 STEP 1·2 뒤에 돈다 — 첫 더블더블을 STEP 2 가 만든 double_double 배지에서 읽는다.
   let careerCreated = 0
+  let careerError: string | null = null
   try {
     const { data: oldCareer } = await supabase
       .from('player_badges')
@@ -155,7 +156,11 @@ export async function POST(
       badgesCreated += careerCreated
     }
   } catch (err) {
-    // 커리어 배지 실패가 기존 4종 재계산 결과까지 무효로 만들 이유는 없다 — 기록만 남기고 계속.
+    // 커리어 배지 실패가 기존 4종 재계산 결과까지 무효로 만들 이유는 없다 — 계속 진행한다.
+    // ⚠ 다만 응답에 반드시 드러낸다. 2026-08-11 에 badge_type CHECK 제약이 새 타입을 거부해
+    //   전량 실패했는데, 콘솔에만 찍혀서 career_badges:0 만 보고 원인을 되짚어야 했다.
+    //   "부분 실패를 허용하는 catch" 는 실패를 눈에 보이게 만들 방법과 같이 있어야 한다.
+    careerError = err instanceof Error ? err.message : String(err)
     console.error('[badges/recompute] career badges failed:', err)
   }
 
@@ -165,5 +170,6 @@ export async function POST(
     badges_created: badgesCreated,
     badges_removed: badgesRemoved,
     career_badges: careerCreated,
+    ...(careerError ? { career_error: careerError } : {}),
   })
 }
