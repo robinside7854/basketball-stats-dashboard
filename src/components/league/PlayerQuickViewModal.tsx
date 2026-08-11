@@ -345,7 +345,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
   return (
     <>
-    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 animate-in fade-in duration-200"
+    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 mm-fade-in"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       role="dialog"
       aria-modal="true"
@@ -355,7 +355,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
 
       <div
         ref={modalScrollRef}
-        className="relative border-0 sm:border rounded-none w-full max-w-lg sm:max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 animate-in sm:zoom-in-95 slide-in-from-bottom-4 sm:slide-in-from-bottom-0 duration-200"
+        className="relative border-0 sm:border rounded-none w-full max-w-lg sm:max-w-xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto z-10 mm-sheet-in"
         style={{
           background: 'var(--mm-panel)',
           borderColor: 'var(--mm-rule)',
@@ -582,7 +582,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             <div className="relative flex-1 min-w-0 pt-3 sm:pt-4">
               {player?.number != null && (
                 <div
-                  className="text-base font-mono mb-1 leading-none animate-in fade-in slide-in-from-bottom-2"
+                  className="text-base font-mono mb-1 leading-none mm-rise-in"
                   style={{ color: 'var(--mm-muted)', animationDelay: '80ms', animationDuration: '400ms', animationFillMode: 'backwards' }}
                 >
                   #{player.number}
@@ -590,13 +590,13 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               )}
               <h1
                 id="player-modal-name"
-                className="font-jersey text-4xl sm:text-5xl font-bold leading-[0.95] tracking-tight mb-3 break-words animate-in fade-in slide-in-from-bottom-2"
+                className="font-jersey text-4xl sm:text-5xl font-bold leading-[0.95] tracking-tight mb-3 break-words mm-rise-in"
                 style={{ color: 'var(--mm-ink)', animationDelay: '140ms', animationDuration: '500ms', animationFillMode: 'backwards' }}
               >
                 {player?.name ?? playerName}
               </h1>
               <div
-                className="flex items-center gap-1.5 flex-wrap animate-in fade-in slide-in-from-bottom-2"
+                className="flex items-center gap-1.5 flex-wrap mm-rise-in"
                 style={{ animationDelay: '220ms', animationDuration: '400ms', animationFillMode: 'backwards' }}
               >
                 {positions.map(pos => (
@@ -1487,7 +1487,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
     {/* 프로필 사진 라이트박스 — 뷰 모드에서 아바타 클릭 시 크게 표시 */}
     {photoLightboxOpen && photoUrl && (
       <div
-        className="fixed inset-0 z-[60] flex items-center justify-center backdrop-blur-sm cursor-zoom-out p-4 sm:p-8 animate-in fade-in duration-200"
+        className="fixed inset-0 z-[60] flex items-center justify-center backdrop-blur-sm cursor-zoom-out p-4 sm:p-8 mm-fade-in"
         style={{ background: 'rgba(0,0,0,0.90)' }}
         onClick={() => setPhotoLightboxOpen(false)}
         role="dialog"

@@ -30,8 +30,9 @@ export async function GET(
     .maybeSingle()
   if (!acc || acc.status !== 'approved') return NextResponse.json({ authenticated: false })
 
-  // 접속 현황(presence) 하트비트 — /me 는 마운트·주기 폴링 시 호출됨. (서버리스 조기종료 방지 위해 await)
-  await sb.from('league_user_accounts').update({ last_seen_at: new Date().toISOString() }).eq('id', acc.id)
+  // 접속 현황 기능은 2026-08-11 삭제 — last_seen_at 을 더 이상 쓰지 않는다.
+  //   /me 는 화면 진입마다 불리는 경로다. 여기에 UPDATE 가 붙어 있으면 '내가 누구인지' 읽는
+  //   요청이 매번 쓰기 요청이 된다. 컬럼은 남겨 두되(과거 값 보존) 갱신은 하지 않는다.
 
   const { data: player } = await sb
     .from('league_players')

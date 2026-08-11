@@ -17,7 +17,7 @@ import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
 import PersonalDashboard, { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
 import TraitBadgePanel from '@/components/league/TraitBadgePanel'
-import PresenceIndicator from '@/components/league/auth/PresenceIndicator'
+import CareerBadgeStrip from '@/components/league/CareerBadgeStrip'
 import SectionCard from '@/components/league/ui/SectionCard'
 import InstallAppButton from '@/components/InstallAppButton'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
@@ -58,8 +58,6 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
     <div className="space-y-4 lg:space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="font-bold text-[28px] lg:text-[40px] leading-none text-[color:var(--mm-ink)] tracking-tight">내 기록</h2>
-        {/* 접속 현황 — 상단 바에서 내려와 여기 배치(Task 4-B) · 전체 공개, 로그인 여부와 무관 */}
-        <PresenceIndicator leagueId={leagueId} />
       </div>
 
       {authLoading ? (
@@ -76,6 +74,11 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
                   내 특성
                 </p>
                 <TraitBadgePanel leagueId={leagueId} playerId={user.player_id} />
+                {/* 커리어 배지 — 특성(잘하는 축) 아래에 누적·첫 기록(꾸준한 축)을 둔다.
+                    출전이 적어 특성 배지가 비는 회원도 여기서는 받을 것이 보인다. */}
+                <div className="pt-3" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+                  <CareerBadgeStrip leagueId={leagueId} playerId={user.player_id} />
+                </div>
               </div>
             </SectionCard>
           )}

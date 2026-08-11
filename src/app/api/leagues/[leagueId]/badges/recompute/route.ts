@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { syncBadgesForGame, computePerGameBadges, computeRoundBadges } from '@/lib/badges/computeBadges'
+import { computeCareerBadges } from '@/lib/badges/careerBadges'
 
 export async function POST(
   req: Request,
@@ -98,6 +99,9 @@ export async function POST(
         .eq('league_id', leagueId)
         .eq('earned_at_date', date)
         .is('game_id', null)
+        // ⚠ 커리어 배지도 game_id 가 NULL 이다. 제외하지 않으면 라운드 배지 재계산이
+        //   커리어 배지까지 지운다 — STEP 3 이 실패하면 그대로 사라진 채 끝난다.
+        .not('badge_type', 'like', 'career\_%')
       const removed = existing?.length ?? 0
       if (removed > 0) {
         await supabase
@@ -106,6 +110,7 @@ export async function POST(
           .eq('league_id', leagueId)
           .eq('earned_at_date', date)
           .is('game_id', null)
+          .not('badge_type', 'like', 'career\_%')
       }
       badgesRemoved += removed
 
@@ -120,10 +125,45 @@ export async function POST(
     }
   }
 
+  // ── STEP 3: 커리어 배지 (누적·첫 기록) ──
+  //   누적은 정의상 과거 전체를 봐야 해서 경기 하나만 보고 증분 계산할 수 없다.
+  //   반드시 STEP 1·2 뒤에 돈다 — 첫 더블더블을 STEP 2 가 만든 double_double 배지에서 읽는다.
+  let careerCreated = 0
+  try {
+    const { data: oldCareer } = await supabase
+      .from('player_badges')
+      .select('id')
+      .eq('league_id', leagueId)
+      .is('game_id', null)
+      .like('badge_type', 'career\_%')
+    const removedCareer = oldCareer?.length ?? 0
+    if (removedCareer > 0) {
+      await supabase
+        .from('player_badges')
+        .delete()
+        .eq('league_id', leagueId)
+        .is('game_id', null)
+        .like('badge_type', 'career\_%')
+      badgesRemoved += removedCareer
+    }
+
+    const careerPayloads = await computeCareerBadges(supabase, leagueId)
+    if (careerPayloads.length > 0) {
+      const { error } = await supabase.from('player_badges').insert(careerPayloads)
+      if (error) throw new Error(error.message)
+      careerCreated = careerPayloads.length
+      badgesCreated += careerCreated
+    }
+  } catch (err) {
+    // 커리어 배지 실패가 기존 4종 재계산 결과까지 무효로 만들 이유는 없다 — 기록만 남기고 계속.
+    console.error('[badges/recompute] career badges failed:', err)
+  }
+
   return NextResponse.json({
     ok: true,
     processed_games: processedGames,
     badges_created: badgesCreated,
     badges_removed: badgesRemoved,
+    career_badges: careerCreated,
   })
 }

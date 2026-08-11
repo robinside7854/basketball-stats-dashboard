@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
@@ -73,6 +73,28 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
       ? (pathname === base || pathname.startsWith(`${base}/archive`))
       : (tab.match.length ? tab.match.some(m => pathname.startsWith(m)) : pathname.startsWith(tab.href))
 
+  // 데스크톱 활성 인디케이터 — 탭마다 그리지 않고 하나를 옮긴다(모바일 하단 탭과 같은 원칙).
+  //   ⚠ 모바일과 달리 인덱스 × 100% 로 계산할 수 없다. 여기 탭은 라벨 길이에 따라 폭이 제각각이고,
+  //     '내 기록' 탭은 로그인하면 사용자 이름으로 바뀌어 폭이 런타임에 변한다. 그래서 실측한다.
+  //   재측정 시점: 경로 변경 · 탭 목록 변경(드래프트 노출) · 컨테이너 크기 변화(창 리사이즈·폰트 로드).
+  //     폰트가 늦게 로드되면 처음 잰 폭이 틀어지므로 ResizeObserver 를 반드시 건다.
+  const tabsWrapRef = useRef<HTMLDivElement | null>(null)
+  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const wrap = tabsWrapRef.current
+    if (!wrap) return
+    const measure = () => {
+      const el = wrap.querySelector<HTMLElement>('[data-tab-active="true"]')
+      // 활성 탭이 없으면(우산에 안 걸리는 경로) 인디케이터를 숨긴다 — 엉뚱한 탭에 밑줄이 남는 것보다 낫다.
+      setIndicator(el ? { left: el.offsetLeft, width: el.offsetWidth } : null)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(wrap)
+    return () => ro.disconnect()
+  }, [pathname, showDraft, leagueName])
+
   return (
     <div className="sticky top-0 z-10 bg-[color:var(--mm-panel)] border-b border-[color:var(--mm-rule)]">
       <div className="max-w-7xl mx-auto px-4 lg:px-6">
@@ -96,7 +118,22 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
               self-stretch + items-stretch 로 탭을 행 전체 높이로 늘려, 활성 밑줄(하단 3px 바)이
               우측 액션 버튼 높이에 밀려 붕 뜨지 않고 네비 하단 구분선에 정확히 붙게 한다. */}
           <div className="relative flex-1 min-w-0 hidden lg:flex lg:items-stretch self-stretch">
-            <div className="flex items-stretch gap-1 overflow-x-auto scrollbar-hide w-full">
+            <div ref={tabsWrapRef} className="relative flex items-stretch gap-1 overflow-x-auto scrollbar-hide w-full">
+              {/* 하나짜리 인디케이터 — 탭 사이를 미끄러진다. 절대배치라 옮겨도 다른 탭이 밀리지 않는다.
+                  left 대신 transform 으로 옮긴다(합성 단계에서 처리돼 레이아웃 계산이 안 일어난다).
+                  width 는 탭마다 달라 어쩔 수 없이 함께 전환하지만, 이 요소 하나에만 국한된다. */}
+              {indicator && (
+                <span
+                  aria-hidden
+                  className="absolute bottom-0 left-0 h-[3px] pointer-events-none"
+                  style={{
+                    width: indicator.width,
+                    transform: `translateX(${indicator.left}px)`,
+                    background: 'var(--color-hoop-orange-500)',
+                    transition: 'transform var(--mm-motion-base) var(--mm-ease-out), width var(--mm-motion-base) var(--mm-ease-out)',
+                  }}
+                />
+              )}
               {tabs.map(tab => {
                 const isActive = tabActive(tab)
                 const isMeTab = tab.href === `${base}/me`
@@ -106,6 +143,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                     href={tab.href}
                     aria-label={tab.ariaLabel}
                     aria-current={isActive ? 'page' : undefined}
+                    data-tab-active={isActive ? 'true' : 'false'}
                     className={`relative shrink-0 flex items-center min-w-0 px-3 lg:px-4 py-3.5 lg:py-4 text-sm lg:text-base rounded-t-md transition-colors duration-200 ${
                       isActive
                         ? 'text-[color:var(--mm-ink)] font-bold bg-[color:var(--mm-panel-alt)]'
@@ -115,14 +153,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                     {/* 내 기록 탭 — 라벨이 사용자 이름으로 바뀌면 길이가 가변이라, 탭 폭이
                         무한정 늘어나 옆 탭을 밀어내지 않도록 이 탭에서만 truncate 를 건다. */}
                     {isMeTab ? <span className="truncate max-w-[110px] lg:max-w-[160px]">{tab.label}</span> : tab.label}
-                    {/* 활성 인디케이터 — 다중 신호: 굵은 글자 + 배경 + 하단 전체폭 3px 주황 바.
-                        절대배치 바로 클리핑·정렬 문제 제거, 배경/굵기까지 겹쳐 밑줄 하나에 의존하지 않음. */}
-                    {isActive && (
-                      <span
-                        aria-hidden
-                        className="absolute inset-x-0 bottom-0 h-[3px] bg-[color:var(--color-hoop-orange-500)]"
-                      />
-                    )}
+                    {/* 밑줄은 위 컨테이너의 인디케이터 하나가 옮겨 다니며 그린다(탭별 렌더 제거) */}
                   </Link>
                 )
               })}

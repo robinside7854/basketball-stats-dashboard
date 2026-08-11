@@ -642,6 +642,27 @@
   }
   .mm-modal-in { animation: mm-modal-in var(--mm-motion-base) var(--mm-ease-out); }
 
+  /* 바텀시트 등장 — 모바일에서 화면을 꽉 채우는 모달(선수 카드)용.
+     모바일에서 스케일로 뜨면 전체화면 패널이 "작게 시작해 커지는" 이상한 모양이 된다.
+     아래에서 올라오는 편이 손가락이 온 방향과 맞다. 데스크톱은 창이라 스케일이 맞다.
+     ⚠ 두 키프레임을 미디어쿼리로 갈라 쓴다 — 한 애니메이션에 둘을 섞으면 중간 구간이 뭉갠다. */
+  @keyframes mm-sheet-in {
+    from { transform: translateY(16px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .mm-sheet-in { animation: mm-sheet-in var(--mm-motion-base) var(--mm-ease-out); }
+  @media (min-width: 640px) {
+    .mm-sheet-in { animation: mm-modal-in var(--mm-motion-base) var(--mm-ease-out); }
+  }
+
+  /* 모달 안쪽 내용이 순서대로 올라오는 것 — 이름·번호·칩 같은 짧은 줄에만 쓴다.
+     긴 목록에 걸면 스크롤할 때마다 흔들려 읽기를 방해한다. */
+  @keyframes mm-rise-in {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+  }
+  .mm-rise-in { animation: mm-rise-in var(--mm-motion-base) var(--mm-ease-out) both; }
+
   /* 스트릭 불꽃 — "진행 중"이라는 상태 자체를 나타내므로 무한 반복이 정당하다.
      LIVE 배지(pulse-red)와 같은 근거다. 그 외 요소에 무한 애니메이션을 쓰지 않는다.
      2.4s 로 느리게, 투명도만 흔든다 — 크기를 흔들면 옆 숫자가 밀린다. */

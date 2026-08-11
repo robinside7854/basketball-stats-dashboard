@@ -125,7 +125,7 @@ export default function PlayerBadgeDetailModal({ leagueId, playerId, badgeKey, c
       aria-labelledby="badge-detail-title"
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md max-h-[80vh] bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm shadow-[0_20px_60px_-12px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative z-10 w-full max-w-md max-h-[80vh] bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm shadow-[0_20px_60px_-12px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col mm-modal-in">
         <div className={`flex items-center justify-between px-5 py-3.5 border-b border-[color:var(--mm-rule)] ${headerBg}`}>
           <div className="flex items-center gap-2">
             <Icon size={18} className={headerFg} aria-hidden />

@@ -202,23 +202,24 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   }, [homeRoster, awayRoster, gameStarted, selectedSlotId])
 
 
-  function buildDateStats(games: { date: string; youtube_url?: string | null; is_complete?: boolean; is_started?: boolean }[]) {
+  // 날짜별 집계 — 서버가 이미 세어 준 값을 받는다(`/games/date-summary`).
+  //   예전에는 `/games` 로 전 경기(303행 × 전 컬럼 + 팀 조인)를 받아 브라우저에서 셌다.
+  //   화면에 쓰이는 건 날짜당 숫자 넷뿐이고, 무엇보다 PostgREST 가 1000행에서 조용히 잘려
+  //   시즌이 쌓이면 뒷부분이 통째로 빠진 집계가 나온다.
+  //   unused/pending 만 여기서 가른다 — '오늘' 기준이라 서버 시간대에 맡기지 않는다.
+  function applyDateSummaries(rows: Array<{ date: string; total: number; started: number; complete: number; yt: number }>) {
     const today = new Date().toISOString().slice(0, 10)
     const stats: Record<string, { total: number; yt: number; complete: number; started: number; unused: number; pending: number }> = {}
-    for (const g of games) {
-      if (!stats[g.date]) stats[g.date] = { total: 0, yt: 0, complete: 0, started: 0, unused: 0, pending: 0 }
-      stats[g.date].total++
-      if (g.youtube_url) stats[g.date].yt++
-      if (g.is_complete) {
-        stats[g.date].complete++
-      } else if (g.is_started) {
-        stats[g.date].started++
-      } else {
-        // !started && !complete
-        // 과거 날짜 = 미사용 슬롯 (영상이 9개 안 됐던 날의 남은 슬롯)
-        // 미래·오늘 날짜 = 진짜 미시작
-        if (g.date < today) stats[g.date].unused++
-        else stats[g.date].pending++
+    for (const r of rows) {
+      // 시작도 마감도 안 된 슬롯 = 과거면 미사용(영상이 9개 안 됐던 날의 남은 칸), 오늘·미래면 미시작
+      const idle = r.total - r.complete - Math.max(0, r.started - r.complete)
+      stats[r.date] = {
+        total: r.total,
+        yt: r.yt,
+        complete: r.complete,
+        started: Math.max(0, r.started - r.complete),
+        unused: r.date < today ? idle : 0,
+        pending: r.date < today ? 0 : idle,
       }
     }
     setDateStats(stats)
@@ -234,7 +235,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         // 기록 화면은 상대 선수를 눌러 득점을 남겨야 하므로 옵트인
         fetch(`/api/leagues/${leagueId}/players?includeExternal=1`),
         fetch(`/api/leagues/${leagueId}`),
-        fetch(`/api/leagues/${leagueId}/games`),
+        // 집계 전용 — 전 경기(303행 × 전 컬럼 + 팀 조인)를 받던 것을 날짜당 한 줄로 줄였다.
+        fetch(`/api/leagues/${leagueId}/games/date-summary`),
         fetch(`/api/leagues/${leagueId}/quarters`),
       ])
       if (dRes.ok) setScheduleDates(await dRes.json())
@@ -247,12 +249,12 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       }
       if (qRes.ok) setQuarters(await qRes.json())
       if (gRes.ok) {
-        const games = await gRes.json()
-        buildDateStats(games)
-        // 날짜 → 분기 맵 (게임 기준)
+        const summaries = await gRes.json()
+        applyDateSummaries(summaries)
+        // 날짜 → 분기 맵 — 집계 응답이 날짜당 quarter_id 를 함께 준다(전 경기 순회 불필요)
         const dqMap: Record<string, string> = {}
-        for (const g of games) {
-          if (g.date && g.quarter_id && !dqMap[g.date]) dqMap[g.date] = g.quarter_id
+        for (const r of summaries as Array<{ date: string; quarter_id: string | null }>) {
+          if (r.date && r.quarter_id) dqMap[r.date] = r.quarter_id
         }
         setDateQuarterMap(dqMap)
       }
@@ -579,7 +581,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       if (res.ok) {
         toast.success(`${data.mapped}개 경기 YouTube 연동 완료`)
         await refreshSlots()
-        fetch(`/api/leagues/${leagueId}/games`).then(r => r.json()).then(buildDateStats).catch(() => null)
+        fetch(`/api/leagues/${leagueId}/games/date-summary`).then(r => r.json()).then(applyDateSummaries).catch(() => null)
       } else {
         const msg = (data.error as string) ?? `YouTube 연동 실패 (${res.status})`
         toast.error(msg, { duration: 6000 })
