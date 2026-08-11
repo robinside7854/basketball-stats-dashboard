@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import LeaderBadgePanel, { type LeaderBadgeCounts } from '@/components/league/LeaderBadgePanel'
 import PlayerBadgeStrip, { type BadgeSummary } from '@/components/league/PlayerBadgeStrip'
+import TraitBadgePanel from '@/components/league/TraitBadgePanel'
 import PlayerBestShotBanner from '@/components/league/PlayerBestShotBanner'
 import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 import { CountUp } from '@/components/league/StatCell'
@@ -1154,6 +1155,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {/* ── 성과 뱃지 (스탯 리더 + 자동 배지) ────────── */}
             {activeTab === 'badges' && (
               <>
+                {/* 개인특성 배지 — "이 선수는 어떤 유형인가". 자동 배지가 잘한 순간을 세는 것과
+                    달리 누적 성향을 본다. 득점이 적어도 자기 색깔로 받을 수 있어야 해서 맨 위에 둔다. */}
+                <div className="space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+                    특성
+                  </p>
+                  <TraitBadgePanel leagueId={leagueId} playerId={playerId} />
+                </div>
+
                 {/* 자동 배지 — 퍼펙트/DD/TD/위닝샷 · 클릭 시 획득 게임 상세 */}
                 {detail?.badges_summary && (
                   <PlayerBadgeStrip

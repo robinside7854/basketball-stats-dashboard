@@ -16,6 +16,7 @@ import { Sun, Moon, LogOut, ChevronRight, ClipboardList, Film } from 'lucide-rea
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
 import PersonalDashboard, { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
+import TraitBadgePanel from '@/components/league/TraitBadgePanel'
 import PresenceIndicator from '@/components/league/auth/PresenceIndicator'
 import SectionCard from '@/components/league/ui/SectionCard'
 import InstallAppButton from '@/components/InstallAppButton'
@@ -64,7 +65,21 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
       {authLoading ? (
         <div className="flex justify-center py-12"><BasketballLoader size={32} /></div>
       ) : user ? (
-        <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} />
+        <>
+          <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} />
+          {/* 내 특성 배지 — "내 기록이 게임처럼 남는" 자리. 선수 상세 모달까지 들어가지 않아도
+              자기 유형을 바로 보게 한다. */}
+          {user.player_id && (
+            <SectionCard variant="standalone">
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+                  내 특성
+                </p>
+                <TraitBadgePanel leagueId={leagueId} playerId={user.player_id} />
+              </div>
+            </SectionCard>
+          )}
+        </>
       ) : (
         <LoginTeaser />
       )}
