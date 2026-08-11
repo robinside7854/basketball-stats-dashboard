@@ -10,8 +10,10 @@ import { toast } from 'sonner'
 import {
   Lock, Loader2, Play, Square, ChevronLeft,
   CheckCircle2, Circle, Youtube, RefreshCw, UserPlus, ClipboardList,
-  CalendarDays, PlayCircle, Zap, AlertTriangle,
+  CalendarDays, PlayCircle, Zap, AlertTriangle, Sparkles, X, ArrowLeftRight, Wand2,
 } from 'lucide-react'
+import { volumeForRound } from '@/lib/social/volume'
+import { generateRotation, resolveFirstGame } from '@/lib/league/rotation'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
@@ -40,8 +42,8 @@ type IrregularPlayer = LeaguePlayer & { team_id: string | null; is_regular: bool
 
 // ── 메인 페이지 ──────────────────────────────────────────────
 export default function LeagueRecordPage() {
-  const params = useParams<{ leagueId: string }>()
-  const { leagueId } = params
+  const params = useParams<{ orgSlug: string; leagueId: string }>()
+  const { orgSlug, leagueId } = params
   const { isEditMode, leagueHeaders, openPinModal } = useLeagueEditMode()
 
   if (!isEditMode) {
@@ -70,11 +72,11 @@ export default function LeagueRecordPage() {
     )
   }
 
-  return <RecordInner leagueId={leagueId} leagueHeaders={leagueHeaders} />
+  return <RecordInner orgSlug={orgSlug} leagueId={leagueId} leagueHeaders={leagueHeaders} />
 }
 
 // ── 내부 컴포넌트 ─────────────────────────────────────────────
-function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHeaders: Record<string, string> }) {
+function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; leagueId: string; leagueHeaders: Record<string, string> }) {
   const { setCurrentGame, ytPlayer } = useGameStore()
   const { setLineup, resetLineup, onCourt } = useLineupStore()
 
@@ -139,6 +141,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   // 후보 버튼 정렬 힌트 — 실패해도 기록에는 지장이 없어 조용히 비워 둔다(순서만 기본값이 된다)
   const [tendencies, setTendencies] = useState<{ assist: Record<string, string[]>; rebound: string[] }>()
   const [statsRefresh, setStatsRefresh] = useState(0)
+  // 라운드가 방금 전수 마감됐을 때 뜨는 안내 (인스타 카드 발행 유도). null = 안 뜸
+  const [roundDone, setRoundDone] = useState<{ date: string; vol: number | null } | null>(null)
   const [mobileTab, setMobileTab] = useState<'record' | 'stats'>('record')
 
   // 분기별 홈/어웨이 선수 명단
@@ -153,6 +157,8 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   const [pendingHome, setPendingHome] = useState('')
   const [pendingAway, setPendingAway] = useState('')
   const [savingTeam, setSavingTeam] = useState(false)
+  const [autoFilling, setAutoFilling] = useState(false)
+  const [swappingId, setSwappingId] = useState<string | null>(null)
 
   // 경기 진행
   const [gameStarted, setGameStarted] = useState(false)
@@ -446,6 +452,104 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       const updated = slots.find(s => s.id === selectedSlotId)
       if (updated) await loadRoster({ ...updated, home_team_id: pendingHome, away_team_id: pendingAway })
     } else toast.error('팀 저장 실패')
+  }
+
+  // ── 대진 자동 편성 ───────────────────────────────────────────────
+  // 1경기는 현장 가위바위보라 사람이 넣는다. 그 결과만 있으면 2~9경기는 규칙으로 정해진다
+  // (승자 잔류 · 2연속 뛴 팀은 강제 휴식) — 근거와 증명은 src/lib/league/rotation.ts.
+  async function autoFillMatchups() {
+    const ordered = [...slots].sort((a, b) => (a.slot_num ?? 0) - (b.slot_num ?? 0))
+    const first = ordered[0]
+    if (!first) { toast.error('이 날짜에 슬롯이 없습니다'); return }
+    if (!first.is_complete) {
+      toast.error('1경기를 먼저 기록·마감해야 합니다', {
+        description: '누가 이겼는지 알아야 2경기부터의 대진이 정해집니다',
+        duration: 6000,
+      })
+      return
+    }
+    const resolved = resolveFirstGame(
+      first.home_team_id ?? null, first.away_team_id ?? null,
+      first.home_score ?? null, first.away_score ?? null,
+      teams.map(t => t.id),
+    )
+    if (!resolved) {
+      toast.error('1경기 결과로 승자를 가릴 수 없습니다', {
+        description: '무승부이거나 팀·점수가 비어 있습니다. 좌우 배치와 점수를 확인하세요',
+        duration: 6000,
+      })
+      return
+    }
+    const rest = ordered.slice(1)
+    // 이미 기록이 들어간 경기는 건드리지 않는다 — 대진을 바꾸면 그 경기 이벤트의 팀이 어긋난다
+    const locked = rest.filter(s => s.is_started || s.is_complete)
+    const targets = rest.filter(s => !s.is_started && !s.is_complete)
+    if (targets.length === 0) { toast('채울 슬롯이 없습니다 (전부 기록 시작됨)'); return }
+    if (!confirm(
+      `${targets.length}개 슬롯의 대진을 자동으로 채웁니다.\n\n` +
+      `· 1경기 승자 기준으로 승자 잔류 + 2연속 휴식 규칙 적용\n` +
+      `· 좌우(홈/어웨이)는 임의 배정이니 각 슬롯에서 바꾸세요\n` +
+      (locked.length > 0 ? `· 이미 기록이 시작된 ${locked.length}개는 건드리지 않습니다\n` : '')
+    )) return
+
+    setAutoFilling(true)
+    try {
+      // 회전은 "몇 번째 경기인가"로 정해지므로, 잠긴 슬롯도 순번에는 포함해 계산한다
+      const plan = generateRotation(resolved.winnerId, resolved.loserId, resolved.restingId, rest.length)
+      let saved = 0
+      for (let i = 0; i < rest.length; i++) {
+        const slot = rest[i]
+        if (slot.is_started || slot.is_complete) continue
+        const r = await fetch(`/api/leagues/${leagueId}/games?gameId=${slot.id}`, {
+          method: 'PATCH',
+          headers: leagueHeaders,
+          body: JSON.stringify({ home_team_id: plan[i].homeTeamId, away_team_id: plan[i].awayTeamId }),
+        })
+        if (!r.ok) throw new Error(`${slot.slot_num}경기 저장 실패 (${r.status})`)
+        saved++
+      }
+      await refreshSlots()
+      toast.success(`대진 ${saved}경기 자동 편성 완료`, { description: '좌우 배치는 각 슬롯에서 바꿀 수 있습니다' })
+    } catch (e) {
+      toast.error(`자동 편성 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`, { duration: 6000 })
+    } finally {
+      setAutoFilling(false)
+    }
+  }
+
+  // 좌우(홈↔어웨이) 뒤집기 — 코트 배치가 무작위라 매번 손으로 다시 고르지 않게 한다.
+  // 이미 기록이 들어간 경기는 점수 대응이 어긋나므로 막는다.
+  async function swapSides(slotId: string) {
+    const slot = slots.find(s => s.id === slotId)
+    if (!slot?.home_team_id || !slot?.away_team_id) { toast.error('먼저 두 팀을 지정하세요'); return }
+    if (slot.is_started || slot.is_complete) {
+      toast.error('기록이 시작된 경기는 좌우를 바꿀 수 없습니다', {
+        description: '이미 저장된 점수·이벤트와 홈/어웨이가 어긋납니다',
+        duration: 6000,
+      })
+      return
+    }
+    setSwappingId(slotId)
+    try {
+      const r = await fetch(`/api/leagues/${leagueId}/games?gameId=${slotId}`, {
+        method: 'PATCH',
+        headers: leagueHeaders,
+        body: JSON.stringify({ home_team_id: slot.away_team_id, away_team_id: slot.home_team_id }),
+      })
+      if (!r.ok) throw new Error(`저장 실패 (${r.status})`)
+      await refreshSlots()
+      if (slotId === selectedSlotId) {
+        setPendingHome(slot.away_team_id)
+        setPendingAway(slot.home_team_id)
+        const updated = { ...slot, home_team_id: slot.away_team_id, away_team_id: slot.home_team_id }
+        await loadRoster(updated)
+      }
+      toast.success('좌우 교체됨')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '좌우 교체 실패')
+    } finally {
+      setSwappingId(null)
+    }
   }
 
   // 선택된 슬롯의 YouTube URL 제거 (잘못 매핑된 영상 수동 정리용)
@@ -813,6 +917,19 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
       setShowComplete(false)
       toast.success('경기 완료 처리됨')
       refreshSlots()
+
+      // ── 라운드 전수 마감 감지 → 인스타 카드 준비 안내 ──────────────────
+      // 이 슬롯을 뺀 나머지가 전부 마감이면 방금 이 라운드가 끝난 것이다.
+      // "시작된 슬롯만" 으로 느슨하게 잡으면 5경기째 마감했을 때 아직 시작 안 한 6~9번이
+      // 없는 것으로 처리돼 너무 일찍 뜬다 — 그래서 전 슬롯 마감을 기준으로 한다.
+      const others = slots.filter(s => s.id !== selectedSlotId)
+      if (others.length > 0 && others.every(s => s.is_complete)) {
+        const done = Object.entries(dateStats)
+          .filter(([, st]) => st.total > 0 && st.complete >= st.total)
+          .map(([d]) => d)
+        if (!done.includes(selectedDate)) done.push(selectedDate)
+        setRoundDone({ date: selectedDate, vol: volumeForRound(selectedDate, done) })
+      }
     } catch (e) {
       toast.error(`마감 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`, { duration: 6000 })
     } finally {
@@ -1157,6 +1274,44 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
   return (
     <div className="mm-brand space-y-4">
       <LeagueSubTabs group="games" />
+      {/* 라운드 전수 마감 → 인스타 카드 준비 완료 안내.
+          카드 생성기는 편집 권한자만 쓰는 도구라 여기(기록 화면)에 띄운다 — 마지막 경기를
+          마감한 바로 그 자리가 카드를 만들 마음이 드는 유일한 순간이다. */}
+      {roundDone && (
+        <div
+          className="flex items-center gap-3 flex-wrap p-3"
+          style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-ink)', borderRadius: '4px' }}
+        >
+          <Sparkles size={16} strokeWidth={2} aria-hidden style={{ color: 'var(--mm-ink)' }} />
+          <div className="min-w-0">
+            <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>
+              {roundDone.date} 라운드 마감 완료 — 인스타 카드{' '}
+              {roundDone.vol != null ? <><b>VOL.{roundDone.vol}</b> </>: ''}준비됨
+            </p>
+            <p className="text-xs" style={{ color: 'var(--mm-ink-soft)' }}>
+              카드 9장이 이 라운드 기록으로 채워져 있습니다. 눌러서 확인하고 저장하세요.
+            </p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <a
+              href={`/league/${orgSlug}/${leagueId}/social?date=${roundDone.date}`}
+              className="inline-flex items-center justify-center px-4 min-h-11 text-xs font-black uppercase tracking-wider cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: '4px' }}
+            >
+              카드 만들러 가기
+            </a>
+            <button
+              onClick={() => setRoundDone(null)}
+              aria-label="안내 닫기"
+              className="inline-flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-colors"
+              style={{ color: 'var(--mm-ink-soft)' }}
+            >
+              <X size={16} strokeWidth={2} aria-hidden />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 날짜 헤더 + YouTube 연동 (1행) */}
       <div className="flex items-center gap-3 flex-wrap">
         <button
@@ -1189,6 +1344,26 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
           </button>
         </div>
       </div>
+
+      {/* 대진 자동 편성 — 1경기(현장 가위바위보) 결과만 있으면 나머지가 규칙으로 정해진다 */}
+      {slots.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={autoFillMatchups}
+            disabled={autoFilling}
+            className="inline-flex items-center gap-1.5 px-3 min-h-11 text-xs font-bold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+            style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
+          >
+            {autoFilling
+              ? <Loader2 size={13} className="animate-spin" aria-hidden />
+              : <Wand2 size={13} strokeWidth={2} aria-hidden />}
+            {autoFilling ? '편성 중…' : '대진 자동 채우기'}
+          </button>
+          <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+            1경기 마감 후 누르면 나머지 대진이 채워집니다 (승자 잔류 · 2연속 뛰면 휴식)
+          </span>
+        </div>
+      )}
 
       {/* 슬랏 그리드 — PC에서 크게 */}
       <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-9 gap-2">
@@ -1259,7 +1434,19 @@ function RecordInner({ leagueId, leagueHeaders }: { leagueId: string; leagueHead
                 <option value="">홈 팀 선택</option>
                 {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
-              <span className="font-bold text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>vs</span>
+              {/* 좌우 교체 — 코트 배치가 현장에서 무작위로 정해져 매번 두 셀렉트를 다시 고르던 자리 */}
+              <button
+                onClick={() => swapSides(selectedSlot.id)}
+                disabled={gameStarted || swappingId === selectedSlot.id || !selectedSlot.home_team_id || !selectedSlot.away_team_id}
+                title="홈↔어웨이 좌우 바꾸기"
+                aria-label="홈과 어웨이 좌우 바꾸기"
+                className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
+              >
+                {swappingId === selectedSlot.id
+                  ? <Loader2 size={13} className="animate-spin" aria-hidden />
+                  : <ArrowLeftRight size={13} strokeWidth={2} aria-hidden />}
+              </button>
               <select
                 value={pendingAway}
                 onChange={e => setPendingAway(e.target.value)}

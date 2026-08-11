@@ -16,12 +16,15 @@ function fmtDate(iso: string): string {
   return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} (${DOW[d.getDay()]})`
 }
 
-export default function SocialCardStudio({ data, roundDates }: { data: RoundMagazineData; roundDates: string[] }) {
+export default function SocialCardStudio({ data, roundDates, initialVol }: { data: RoundMagazineData; roundDates: string[]; initialVol: number | null }) {
   const router = useRouter()
   const pathname = usePathname()
   const sp = useSearchParams()
 
-  const [vol, setVol] = useState('1')
+  // 서버가 라운드당 +1 로 계산해 준 값으로 시작한다. 라운드를 바꾸면 페이지가 다시 렌더되며
+  // 새 initialVol 이 내려오므로, key 로 상태를 갈아끼워 옛 번호가 남지 않게 한다.
+  // null = 발행을 시작하기 전 라운드라 번호를 알 수 없다 → 빈칸으로 두고 직접 넣게 한다
+  const [vol, setVol] = useState(initialVol == null ? '' : String(initialVol))
   const [headline, setHeadline] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -88,8 +91,15 @@ export default function SocialCardStudio({ data, roundDates }: { data: RoundMaga
             {roundDates.map(d => <option key={d} value={d}>{fmtDate(d)}</option>)}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs font-bold text-[var(--mm-muted)]">Vol.
-          <input value={vol} onChange={e => setVol(e.target.value)} className={`${inp} w-20`} />
+        <label className="flex flex-col gap-1 text-xs font-bold text-[var(--mm-muted)]">
+          Vol. {initialVol != null && <span className="font-normal">(자동)</span>}
+          <input
+            value={vol}
+            onChange={e => setVol(e.target.value)}
+            placeholder={initialVol == null ? '직접 입력' : ''}
+            aria-label="매거진 Vol 번호"
+            className={`${inp} w-24`}
+          />
         </label>
         <label className="flex flex-col gap-1 text-xs font-bold text-[var(--mm-muted)] flex-1 min-w-[220px]">표지 헤드라인 (선택)
           <input value={headline} onChange={e => setHeadline(e.target.value)} placeholder="예: 3연승, 1위 교체" className={inp} />
