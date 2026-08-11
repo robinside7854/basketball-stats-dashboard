@@ -68,6 +68,68 @@ export function ResultChips({ wins, losses, draws, isTop = false, compact = fals
   )
 }
 
+// ── 상대전적 (2026-08-10) ────────────────────────────────────────────
+// "우리가 저 팀한테 몇 승 몇 패인가" — 전체 승률만으로는 안 보이는 정보다.
+// 승률 58%인 팀이 특정 상대에게만 계속 지고 있을 수 있고, 동호회에서 제일 많이
+// 오가는 이야기가 그것이다.
+//
+// 표현 원칙:
+//   · 상대 '이름'이 주인공이다. WIN/LOSE 라벨을 반복하면 위의 전체 전적 칩과 뒤섞여
+//     무엇이 전체이고 무엇이 상대별인지 구분이 안 된다. 여기서는 이름 + 숫자만 쓴다.
+//   · 무승부는 있을 때만 붙인다(3-1 vs 3-1-2). 없는 0을 늘 보여주면 눈이 피로하다.
+//   · 색은 우세/열세/호각 세 가지로만. 상대 팀 컬러를 쓰면 흰색·연한 팀 컬러가
+//     라이트 모드에서 사라진다(accentOrInk 를 또 태우느니 의미색이 낫다).
+interface HeadToHeadProps {
+  records: Array<{ key: string; name: string; wins: number; losses: number; draws: number }>
+}
+
+export function HeadToHead({ records }: HeadToHeadProps) {
+  if (records.length === 0) return null
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span
+        className="uppercase font-bold shrink-0"
+        style={{ color: 'var(--mm-muted)', fontSize: '10px', letterSpacing: '0.12em' }}
+      >
+        상대전적
+      </span>
+      {records.map(r => {
+        // 우세/열세 판정은 승패만 본다 — 무승부는 어느 쪽으로도 기울지 않는다.
+        const c = r.wins > r.losses ? RESULT_COLORS.win
+          : r.wins < r.losses ? RESULT_COLORS.lose
+          : RESULT_COLORS.draw
+        const score = r.draws > 0 ? `${r.wins}-${r.losses}-${r.draws}` : `${r.wins}-${r.losses}`
+        return (
+          <span
+            key={r.key}
+            className="inline-flex items-center gap-1 font-bold"
+            style={{
+              background: c.bg,
+              color: c.fg,
+              padding: '2px 7px',
+              borderRadius: 'var(--mm-radius-chip)',
+              lineHeight: 1.15,
+              whiteSpace: 'nowrap',
+              maxWidth: '100%',
+            }}
+            aria-label={`${r.name} 상대 ${r.wins}승 ${r.losses}패${r.draws > 0 ? ` ${r.draws}무` : ''}`}
+          >
+            <span
+              className="truncate"
+              style={{ fontSize: '11px', letterSpacing: '-0.005em', maxWidth: '9ch' }}
+            >
+              {r.name}
+            </span>
+            <span className="font-jersey font-black tabular-nums" style={{ fontSize: '13px', letterSpacing: '-0.01em' }}>
+              {score}
+            </span>
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 interface ScoreTableProps {
   ptsFor: number
   ptsAgainst: number

@@ -148,6 +148,20 @@ async function computeCurrentQuarterStandings(
   }
 
   const teamAgg = new Map<string, StandingRow>()
+  // 상대전적 — "우리 vs 저 팀" 을 팀키 쌍으로 쌓는다. 위 teamAgg 와 같은 루프에서
+  // 채우므로 추가 쿼리가 없다(이 화면은 홈 첫 화면이라 왕복을 늘리면 안 된다).
+  // 바깥키 = 나, 안쪽키 = 상대.
+  const h2hAgg = new Map<string, Map<string, { wins: number; losses: number; draws: number }>>()
+  const bumpH2H = (meKey: string, oppKey: string, result: 'w' | 'l' | 'd') => {
+    let row = h2hAgg.get(meKey)
+    if (!row) { row = new Map(); h2hAgg.set(meKey, row) }
+    let rec = row.get(oppKey)
+    if (!rec) { rec = { wins: 0, losses: 0, draws: 0 }; row.set(oppKey, rec) }
+    if (result === 'w') rec.wins++
+    else if (result === 'l') rec.losses++
+    else rec.draws++
+  }
+
   const ensureTeam = (team_id: string | null, quarter_id: string | null) => {
     const id = resolver(team_id, quarter_id)
     if (!id) return null
@@ -160,6 +174,7 @@ async function computeCurrentQuarterStandings(
         wins: 0, losses: 0, draws: 0,
         ptsFor: 0, ptsAgainst: 0,
         winRate: 0,
+        h2h: [],
       }
       teamAgg.set(id.key, t)
     }
@@ -170,20 +185,39 @@ async function computeCurrentQuarterStandings(
     const h = ensureTeam(g.home_team_id as string | null, g.quarter_id as string | null)
     const a = ensureTeam(g.away_team_id as string | null, g.quarter_id as string | null)
     if (!h || !a) continue
+    // 같은 팀끼리 잡힌 경기(데이터 이상 · 팀 통합 후 옛 경기 등)는 상대전적에서 뺀다.
+    // 안 그러면 "자기 자신에게 1승 1패" 같은 항목이 생긴다.
+    const isSelfMatch = h.key === a.key
     const hs = (g.home_score as number) ?? 0
     const as_ = (g.away_score as number) ?? 0
     h.ptsFor += hs; h.ptsAgainst += as_
     a.ptsFor += as_; a.ptsAgainst += hs
-    if (hs > as_) { h.wins++; a.losses++ }
-    else if (hs < as_) { a.wins++; h.losses++ }
-    else { h.draws++; a.draws++ }
+    if (hs > as_) {
+      h.wins++; a.losses++
+      if (!isSelfMatch) { bumpH2H(h.key, a.key, 'w'); bumpH2H(a.key, h.key, 'l') }
+    } else if (hs < as_) {
+      a.wins++; h.losses++
+      if (!isSelfMatch) { bumpH2H(a.key, h.key, 'w'); bumpH2H(h.key, a.key, 'l') }
+    } else {
+      h.draws++; a.draws++
+      if (!isSelfMatch) { bumpH2H(h.key, a.key, 'd'); bumpH2H(a.key, h.key, 'd') }
+    }
   }
 
   const standings = [...teamAgg.values()]
     .filter(t => t.wins + t.losses + t.draws > 0)
     .map(t => {
       const total = t.wins + t.losses + t.draws
-      return { ...t, winRate: total > 0 ? +((t.wins / total) * 100).toFixed(1) : 0 }
+      // 상대 이름은 teamAgg 에서 가져온다 — 분기 안에서 팀명이 바뀌어도 표시명이 한 곳에서만 정해진다.
+      const h2h = [...(h2hAgg.get(t.key) ?? new Map())]
+        .map(([oppKey, rec]) => ({
+          key: oppKey,
+          name: teamAgg.get(oppKey)?.name ?? '상대',
+          ...(rec as { wins: number; losses: number; draws: number }),
+        }))
+        // 많이 이긴 상대부터 — 아무 순서나 두면 카드마다 상대 순서가 달라져 비교가 어렵다.
+        .sort((x, y) => (y.wins - y.losses) - (x.wins - x.losses) || x.name.localeCompare(y.name, 'ko'))
+      return { ...t, h2h, winRate: total > 0 ? +((t.wins / total) * 100).toFixed(1) : 0 }
     })
     .sort((a, b) => {
       if (b.winRate !== a.winRate) return b.winRate - a.winRate

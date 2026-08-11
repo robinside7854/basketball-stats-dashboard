@@ -5,7 +5,7 @@
 
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
-import { ResultChips, ScoreTable } from './RecordDisplay'
+import { ResultChips, ScoreTable, HeadToHead } from './RecordDisplay'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { accentOrInk } from '@/lib/util/contrastColor'
 
@@ -19,6 +19,13 @@ export type StandingRow = {
   ptsFor: number
   ptsAgainst: number
   winRate: number  // 0~100 소수 첫째자리
+  // 상대전적 — 이 분기에 실제로 맞붙은 팀만. 한 번도 안 만난 팀은 항목 자체가 없다
+  // (0-0 을 보여주면 "졌다"로 읽히거나 표만 길어진다). 승수 많은 상대 순.
+  //
+  // ⚠ optional 인 이유: 이 데이터는 unstable_cache(60초)를 거쳐 온다. 배포 직후에는
+  //   h2h 필드가 없던 시절의 캐시가 그대로 돌아올 수 있고, 필수로 두면 그동안 홈 화면이
+  //   TypeError 로 죽는다. 캐시가 만료될 때까지의 몇십 초를 위해 optional 로 둔다.
+  h2h?: Array<{ key: string; name: string; wins: number; losses: number; draws: number }>
 }
 
 type Props = {
@@ -145,6 +152,15 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                   <ScoreTable ptsFor={t.ptsFor} ptsAgainst={t.ptsAgainst} isTop={isTop} />
                 </div>
               </div>
+
+              {/* 상대전적 — 전체 전적 아래 한 줄. 위 칩(전체)과 같은 줄에 두면 어디까지가
+                  전체이고 어디부터가 상대별인지 구분이 안 된다. 줄을 나누고 라벨을 붙인다.
+                  맞붙은 상대가 없으면(첫 경기 전) 컴포넌트가 스스로 아무것도 그리지 않는다. */}
+              {(t.h2h?.length ?? 0) > 0 && (
+                <div className="mt-1.5" style={{ paddingLeft: '32px' }}>
+                  <HeadToHead records={t.h2h!} />
+                </div>
+              )}
             </div>
           )
         })}
