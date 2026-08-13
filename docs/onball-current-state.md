@@ -3,6 +3,27 @@
 최종 갱신 2026-08-07. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
 
+**최근 결정 (2026-08-11, 구조 정리 — 스플래시·공지·미사용 코드 제거, `master b70f8a5d`):**
+- **앱 진입 스플래시 삭제.** 세션당 **2.57초** 동안 화면을 덮고 있었다(애니메이션 1.75s + 대기 0.3s
+  + 페이드 0.52s). 데이터가 준비돼도 그만큼 기다려야 했다 — 체감 속도의 가장 큰 원인이었다.
+  ⚠ `src/lib/pwa/appShell.ts` 의 iOS OS 런치 스크린은 **별개 기능이라 살아 있다**. 혼동 금지.
+- **공지(announcements) 기능 폐지.** 공지 3건·댓글 3건, 마지막 작성 2026-08-03.
+  화면 7 · lib 3 · API 5 · 아카이브 페이지 삭제. **패키지 12개가 함께 빠졌다** —
+  tiptap 8종(편집기 448KB) · react-markdown+remark-gfm+rehype-raw(320KB) · marked.
+  ⚠ 마크다운 처리기가 두 벌(`marked` 서버 · `react-markdown` 화면) 있었는데 **둘 다 공지 전용**이라
+  "통합"이 아니라 제거로 끝났다. 다시 마크다운이 필요하면 하나만 새로 고를 것.
+  ⚠ **푸시는 유지**했다 — 공지 작성 시 자동 발송 경로는 사라졌고 수동 발송만 남았다(구독자 1명).
+- **호출부 0건 정리**: API 6종(standings·highlights/player·schedule-dates/auto·badges/recompute·
+  draft-portal·admin drafts/start) · import 0건 파일 13개. ⚠ `api/cron/*` 2개는 vercel.json 이
+  시간 맞춰 부르므로 **코드에 호출부가 없어도 삭제 금지**.
+- **AI 프로필 사진을 어드민 전용으로.** 무인증이 아니라 `canEditLeague`(= PIN 통과)였다.
+  호출당 과금되는 기능을 공유 4자리 PIN 에 맡길 수 없어 `isIdentifiedAdmin`(어드민 세션 ∥ CEO)으로
+  좁혔다. 이 함수는 계정 라우트의 로컬 함수였던 것을 `src/lib/auth/identifiedAdmin.ts` 로 올렸다.
+  ⚠ **계정 체계가 없는 대회 전용 팀(파란날개)은 이 기능을 못 쓴다** — `canEditTeam()` 도입 때 함께 풀 것.
+- 결과: 패키지 36 → 24개 · 번들 6.7MB → 5.9MB · 코드 약 2,900줄 감소.
+- ⏳ **미실행 마이그레이션 2개** — `094_drop_league_columns.sql`(AI 주간 칼럼 4행, 읽는 화면 없음),
+  `095_drop_announcements.sql`(공지 3·댓글 3). 사용자 승인 후 적용한다.
+
 **최근 결정 (2026-08-11, 개인특성 배지 14종 재정의 + 리그 화면 노출, `master fa9f6210`):**
 - **`src/lib/badges/traitBadges.ts` 가 정본이다.** 옛 `src/lib/stats/badges.ts`(19종)는 **레거시 트리
   전용**으로 남아 있다 — 리그 트리는 새 파일만 쓴다. 두 곳을 같이 고치지 말 것.
