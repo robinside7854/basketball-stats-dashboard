@@ -17,7 +17,6 @@ import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
 import PersonalDashboard, { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
 import TraitBadgePanel from '@/components/league/TraitBadgePanel'
-import CareerBadgeStrip from '@/components/league/CareerBadgeStrip'
 import BadgeDexModal from '@/components/league/BadgeDexModal'
 import SectionCard from '@/components/league/ui/SectionCard'
 import InstallAppButton from '@/components/InstallAppButton'
@@ -41,7 +40,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   // 드래프트 바로가기 노출 조건 — LeagueLayoutClient 의 showDraft 판정과 동일한 기존 API 를
   // 다시 호출한다(신규 쿼리 아님 · 새 페이지가 기존 것을 그대로 쓰는 Global Constraint 1 의 예외).
   const [showDraft, setShowDraft] = useState(false)
-  // 배지 도감 — 세 계열(자동·특성·커리어) 전체 목록과 내 보유 여부를 한 번에 본다.
+  // 배지 도감 — 자동·특성 두 계열 전체 목록과 내 보유 여부를 한 번에 본다.
   const [dexOpen, setDexOpen] = useState(false)
   useEffect(() => {
     let cancelled = false
@@ -91,11 +90,6 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
                   </button>
                 </div>
                 <TraitBadgePanel leagueId={leagueId} playerId={user.player_id} />
-                {/* 커리어 배지 — 특성(잘하는 축) 아래에 누적·첫 기록(꾸준한 축)을 둔다.
-                    출전이 적어 특성 배지가 비는 회원도 여기서는 받을 것이 보인다. */}
-                <div className="pt-3" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-                  <CareerBadgeStrip leagueId={leagueId} playerId={user.player_id} />
-                </div>
               </div>
             </SectionCard>
           )}

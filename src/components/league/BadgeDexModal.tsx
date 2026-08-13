@@ -2,14 +2,15 @@
 // 배지 도감 — 이 리그에 있는 배지 **전부**와 내 보유 여부를 한 화면에서 본다.
 //
 // ## 왜 필요했나
-// 배지는 세 갈래(자동 4 · 특성 14 · 커리어 10)로 나뉘어 각각 다른 컴포넌트가 보여준다.
+// 배지는 두 갈래(자동 4 · 특성 14)로 나뉘어 각각 다른 컴포넌트가 보여준다.
+// (커리어 배지 10종은 2026-08-13 삭제 — 스크롤만 길어지고 지금 단계엔 불필요하다는 판단)
 // 그래서 "내가 못 받은 건 뭐가 있고 그건 어떻게 받나"를 알 방법이 없었다. 특성 배지는 칩을
 // 눌러야 기준이 뜨는데, 애초에 **못 받은 배지는 칩이 없어서 누를 수가 없다.**
 // 도감은 그 반대다 — 미보유도 전부 나열해서 다음 목표가 보이게 한다.
 //
 // ## 설명 문구의 출처 (짐작해서 쓴 것이 하나도 없다)
 //   · 특성 14종 → `TRAIT_DEFINITIONS` (traitBadges.ts) 를 **직접** 읽는다. 복제하지 않았다.
-//   · 자동 4종 · 커리어 10종 → `badgeCatalog.ts`. 정본이 서버 전용 코드를 import 해서
+//   · 자동 4종 → `badgeCatalog.ts`. 정본이 서버 전용 코드를 import 해서
 //     클라이언트에서 못 읽는다 — 그 파일 헤더의 경고를 참고할 것.
 //
 // ## 미보유 표현
@@ -26,7 +27,7 @@ import {
   TRAIT_DEFINITIONS, TRAIT_CATEGORY_LABELS, TIER_CUTS, MIN_ROUNDS, formatTraitValue,
   type EarnedTrait, type TraitTier, type TraitCategory,
 } from '@/lib/badges/traitBadges'
-import { AUTO_BADGES, CAREER_BADGES, CAREER_NOTE, type BadgeCatalogEntry } from '@/lib/badges/badgeCatalog'
+import { AUTO_BADGES, type BadgeCatalogEntry } from '@/lib/badges/badgeCatalog'
 
 interface Props {
   leagueId: string
@@ -193,13 +194,13 @@ function DexSection({
 export default function BadgeDexModal({ leagueId, playerId, onClose }: Props) {
   // 두 API 를 각각 들고 온다. 특성은 `TraitBadgePanel` 이 쓰는 것과 **같은** 엔드포인트다
   // (새로 만들지 않았다 — 리그 전원을 계산해 캐시하는 라우트라 여기서도 그대로 쓴다).
-  const [autoCareer, setAutoCareer] = useState<BadgeRow[] | null>(null)
+  const [autoRows, setAutoRows] = useState<BadgeRow[] | null>(null)
   const [traits, setTraits] = useState<EarnedTrait[] | null>(null)
   const [gated, setGated] = useState(false)
   const [open, setOpen] = useState<Record<string, boolean>>({ auto: true, trait: true, career: true })
   // 로딩은 별도 상태로 두지 않는다 — 이펙트에서 setState 를 동기로 부르면 렌더가 연쇄로 돈다
   // (react-hooks/set-state-in-effect). 두 응답이 다 채워졌는지로 파생시킨다.
-  const loading = autoCareer === null || traits === null
+  const loading = autoRows === null || traits === null
   const closeRef = useRef<HTMLButtonElement | null>(null)
 
   const toggle = useCallback((k: string) => setOpen(s => ({ ...s, [k]: !s[k] })), [])
@@ -227,13 +228,13 @@ export default function BadgeDexModal({ leagueId, playerId, onClose }: Props) {
     ])
       .then(([a, t]) => {
         if (cancelled) return
-        setAutoCareer((a.badges ?? []) as BadgeRow[])
+        setAutoRows((a.badges ?? []) as BadgeRow[])
         setTraits(((t.badges ?? {})[playerId] ?? []) as EarnedTrait[])
         setGated(!!a.__gated || !!t.__gated)
       })
       .catch(() => {
         // 목록 자체는 보여준다 — 조건을 읽는 것이 이 화면의 절반이다
-        if (!cancelled) { setAutoCareer([]); setTraits([]); setGated(true) }
+        if (!cancelled) { setAutoRows([]); setTraits([]); setGated(true) }
       })
     return () => { cancelled = true }
   }, [leagueId, playerId])
@@ -241,22 +242,13 @@ export default function BadgeDexModal({ leagueId, playerId, onClose }: Props) {
   // 자동 배지는 여러 번 받을 수 있다 → 횟수 + 가장 최근 달성일 (API 가 날짜 desc 정렬)
   const autoOwned = useMemo(() => {
     const m = new Map<string, { count: number; latest: string }>()
-    for (const b of autoCareer ?? []) {
+    for (const b of autoRows ?? []) {
       const cur = m.get(b.badge_type)
       if (cur) cur.count += 1
       else m.set(b.badge_type, { count: 1, latest: b.earned_at_date })
     }
     return m
-  }, [autoCareer])
-
-  // 커리어 배지는 평생 1회 → 날짜 하나
-  const careerOwned = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const b of autoCareer ?? []) {
-      if (b.badge_type.startsWith('career_') && !m.has(b.badge_type)) m.set(b.badge_type, b.earned_at_date)
-    }
-    return m
-  }, [autoCareer])
+  }, [autoRows])
 
   const traitOwned = useMemo(() => {
     const m = new Map<string, EarnedTrait>()
@@ -264,11 +256,10 @@ export default function BadgeDexModal({ leagueId, playerId, onClose }: Props) {
     return m
   }, [traits])
 
-  const total = AUTO_BADGES.length + TRAIT_DEFINITIONS.length + CAREER_BADGES.length
+  const total = AUTO_BADGES.length + TRAIT_DEFINITIONS.length
   const ownedCount =
     AUTO_BADGES.filter(b => autoOwned.has(b.key)).length +
-    traitOwned.size +
-    CAREER_BADGES.filter(b => careerOwned.has(b.key)).length
+    traitOwned.size
 
   return (
     <div
@@ -418,31 +409,6 @@ export default function BadgeDexModal({ leagueId, playerId, onClose }: Props) {
                 })}
               </DexSection>
 
-              {/* ── 커리어 배지 ── */}
-              <DexSection
-                id="dex-career"
-                title="커리어 배지"
-                owned={CAREER_BADGES.filter(b => careerOwned.has(b.key)).length}
-                total={CAREER_BADGES.length}
-                note={`평생 1회만 받으며 달성한 날짜가 남습니다. ${CAREER_NOTE}`}
-                open={open.career}
-                onToggle={() => toggle('career')}
-              >
-                {CAREER_BADGES.map((b: BadgeCatalogEntry) => {
-                  const date = careerOwned.get(b.key)
-                  return (
-                    <DexRow
-                      key={b.key}
-                      Icon={b.Icon}
-                      name={b.label}
-                      scope={b.scope}
-                      criteria={b.criteria}
-                      owned={!!date}
-                      meta={date ? `${formatKoreanDate(date)} 달성` : undefined}
-                    />
-                  )
-                })}
-              </DexSection>
             </>
           )}
         </div>
