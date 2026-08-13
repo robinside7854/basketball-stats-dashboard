@@ -3,6 +3,8 @@ import { isLeaguePublic, getApprovedSession } from '@/lib/auth/guard'
 import { createClient } from '@/lib/supabase/admin'
 import LeagueLayoutClient from './_components/LeagueLayoutClient'
 import PrivateLeagueGate from '@/components/league/auth/PrivateLeagueGate'
+import { resolveLeagueAppIdentity } from '@/lib/pwa/leagueApp'
+import { appleWebAppMetadata } from '@/lib/pwa/appShell'
 
 export async function generateMetadata({
   params,
@@ -16,15 +18,36 @@ export async function generateMetadata({
   // openGraph/twitter 를 여기서 지정하지 않으면 루트 layout 의 온볼 브랜드 값을 그대로 상속한다 —
   // 링크 공유 카드도 "로그인이 필요합니다" 조차 노출하지 않고 완전히 중립화되는 효과.
   const publicLeague = await isLeaguePublic(leagueId)
-  if (!publicLeague && !(await getApprovedSession(leagueId))) {
-    return { title: '로그인이 필요합니다', description: '비공개로 운영되는 페이지입니다.' }
+  const visible = publicLeague || !!(await getApprovedSession(leagueId))
+
+  // ⚠ 리그별 PWA 매니페스트 — "아이폰에서 홈 화면에 추가하면 대문이 열린다"의 근본 수정.
+  //   루트 매니페스트는 start_url 이 '/' 하나뿐이라 어디서 설치하든 대문으로 열린다. 그런데 대문은
+  //   의도적으로 막다른 길이라 회원에겐 고장이다. localStorage 로 되돌려보내는 장치(LastLeagueRedirect)는
+  //   iOS 설치형이 사파리와 저장소 파티션이 분리돼 있어 동작하지 않는다(안드로이드만 됨).
+  //   → 이 화면에서 설치하면 이 동호회로 열리도록, 여기서 루트 매니페스트를 덮어쓴다.
+  //   비공개 리그에도 링크는 건다 — 이름은 resolveLeagueAppIdentity 가 중립화하고, start_url 은
+  //   요청자가 이미 아는 경로라 새로 새는 정보가 없다.
+  const identity = await resolveLeagueAppIdentity(leagueId, { visible })
+  const pwa: Metadata = identity
+    ? {
+        manifest: identity.manifestPath,
+        // ⚠ appleWebApp 을 여기서 다시 쓰면 루트 값이 통째로 덮이므로 반드시 헬퍼로 전체를
+        //   재구성한다(스플래시가 조용히 사라지는 것을 막는다). title 은 매니페스트 short_name 과
+        //   같은 값 — iOS 가 둘 중 무엇을 쓰는지 버전마다 달라 갈라두면 기기마다 이름이 달라진다.
+        appleWebApp: appleWebAppMetadata(identity.shortName),
+      }
+    : {}
+
+  // 비공개 리그는 탭 제목에도 클럽/리그 이름을 노출하지 않는다.
+  if (!visible) {
+    return { title: '로그인이 필요합니다', description: '비공개로 운영되는 페이지입니다.', ...pwa }
   }
 
   // 온볼은 서비스 정체성, 클럽/리그 이름은 화면 안에서만 보여준다 — 탭 제목엔 클럽명 대신
   // 페이지 종류(게임로그)로 탭을 구분한다. 그래서 리그명 조회 자체가 더 이상 필요 없다.
   const title = '온볼 — 게임로그'
   const description = '동호회 경기 기록 · 게임로그'
-  return { title, description, openGraph: { title, description }, twitter: { title, description } }
+  return { title, description, openGraph: { title, description }, twitter: { title, description }, ...pwa }
 }
 
 export default async function LeagueLayout({
