@@ -1,7 +1,7 @@
 'use client'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { useParams } from 'next/navigation'
@@ -10,7 +10,7 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import Link from 'next/link'
 import TeamInsights from '@/components/league/TeamInsights'
 import SectionCard from '@/components/league/ui/SectionCard'
-import { textOnBg } from '@/lib/util/contrastColor'
+import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { PercentBar } from '@/components/league/StatCell'
@@ -1066,6 +1066,30 @@ export default function LeagueTeamsPage() {
     return m
   }, [identities, teamStatsApi, quarterRoster])
 
+  // ── 팀별 선수 스탯 · 팀 탭 (2026-08-13) ────────────────────────────
+  // 팀 3개를 세로로 이어 붙이면 팀당 약 12명 → 한 화면에 37행이 쌓여 이 화면이 가장 길었다.
+  // 한 번에 한 팀만 그려 세로 길이를 1/3 로 줄인다. 데이터는 그대로(추가 페치 없음) —
+  // 이미 받아둔 teamStats 를 화면에서 나눠 보여주기만 한다.
+  //
+  // 기본 선택은 순위 1위 팀. standings 는 정체성 API 가 순위순으로 내려주므로 standings[0].
+  // 사용자가 고른 팀은 유지하되, 분기를 바꿔 그 팀이 사라지면 다시 1위로 폴백한다
+  // (별도 effect 없이 파생값으로 처리 — setState 루프가 생기지 않는다).
+  const [statsTeamKey, setStatsTeamKey] = useState<string | null>(null)
+  const activeStatsTeamKey =
+    statsTeamKey && standings.some(s => s.identityKey === statsTeamKey)
+      ? statsTeamKey
+      : (standings[0]?.identityKey ?? null)
+
+  // 탭 전환 시 스크롤 튐 방지 — block:'nearest' 는 탭 바가 이미 보이면 아무것도 하지 않고,
+  // 표 아래로 스크롤한 상태에서만 최소한으로 되돌린다(behavior 기본 auto — 애니메이션 없음).
+  const statsTabBarRef = useRef<HTMLDivElement>(null)
+  const statsTabSwitched = useRef(false)
+  useEffect(() => {
+    if (!statsTabSwitched.current) return
+    statsTabSwitched.current = false
+    statsTabBarRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [statsTeamKey])
+
   // 비정규 섹션 — 어떤 정체성에도 귀속되지 않은 선수 (이벤트의 team_id 가 모두 null)
   const irregularStats = useMemo(() => {
     const identityPlayerIds = new Set<string>()
@@ -1311,11 +1335,65 @@ export default function LeagueTeamsPage() {
             { term: 'TOPG', text: '한 경기에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
           ]} />
 
-          {standings.map(s => {
+          {/* 팀 탭 — 팀을 세로로 잇지 않고 한 번에 하나만 그린다 (2026-08-13, 스크롤 단축).
+              계층 구분: 상위 스탯 우산탭(LeagueGroupTabs)은 밑줄형, 분기·모드 세그먼트는 ink 채움형이라
+              팀 탭은 '팀 컬러 테두리 칩'으로 셋 다 겹치지 않게 했다.
+              ⚠ 팀 컬러를 전경(테두리·텍스트)으로 쓸 때는 반드시 accentOrInk() 를 거친다 —
+              흰색·아주 연한 팀 컬러가 라이트 모드에서 사라진다. */}
+          <div
+            ref={statsTabBarRef}
+            role="tablist"
+            aria-label="팀별 선수 스탯 · 팀 선택"
+            className="-mx-2 sm:mx-0 px-2 sm:px-0 flex gap-2 overflow-x-auto scrollbar-hide"
+            style={{ scrollMarginTop: '12px' }}
+          >
+            {standings.map(s => {
+              const on = s.identityKey === activeStatsTeamKey
+              const accent = accentOrInk(s.color)
+              const count = (teamStats[s.identityKey] ?? []).length
+              return (
+                <button
+                  key={s.identityKey}
+                  role="tab"
+                  id={`stats-team-tab-${s.identityKey}`}
+                  aria-selected={on}
+                  aria-controls={`stats-team-panel-${s.identityKey}`}
+                  onClick={() => { statsTabSwitched.current = true; setStatsTeamKey(s.identityKey) }}
+                  className="shrink-0 min-h-[44px] flex items-center gap-2 px-4 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                  style={{
+                    // 활성/비활성 모두 테두리 2px — 폭이 변하지 않아 전환 시 옆 칩이 밀리지 않는다
+                    border: `2px solid ${on ? accent : 'var(--mm-rule)'}`,
+                    borderRadius: 'var(--mm-radius-chip)',
+                    background: on ? `color-mix(in srgb, ${accent} 12%, var(--mm-panel))` : 'var(--mm-panel)',
+                    color: on ? accent : 'var(--mm-muted)',
+                    transitionDuration: 'var(--mm-motion-fast)',
+                    transitionTimingFunction: 'var(--mm-ease-out)',
+                  }}
+                >
+                  {/* 팀 컬러 점 — 흰 팀 컬러도 보이도록 안쪽 1px 링 */}
+                  <span
+                    aria-hidden
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ background: s.color, boxShadow: 'inset 0 0 0 1px var(--mm-rule)' }}
+                  />
+                  <span className={`text-sm whitespace-nowrap ${on ? 'font-bold' : 'font-medium'}`}>{s.displayName}</span>
+                  <span className="text-xs tabular-nums" style={{ color: on ? accent : 'var(--mm-muted)' }}>{count}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {standings.filter(s => s.identityKey === activeStatsTeamKey).map(s => {
             const players = teamStats[s.identityKey] ?? []
             const leaderId = leaderMap[s.teamId] ?? null
             return (
-              <SectionCard key={s.identityKey} variant="standalone" className="relative">
+              <div
+                key={s.identityKey}
+                role="tabpanel"
+                id={`stats-team-panel-${s.identityKey}`}
+                aria-labelledby={`stats-team-tab-${s.identityKey}`}
+              >
+              <SectionCard variant="standalone" className="relative">
                 {/* 팀 컬러 좌측 accent bar */}
                 <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: s.color }} aria-hidden />
                 <div className="px-4 py-3 pl-5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
@@ -1377,6 +1455,8 @@ export default function LeagueTeamsPage() {
                       </div>
                     </details>
                   )}
+                  {/* 선수가 없는 팀도 탭은 남긴다(개수가 흔들리면 안 되므로).
+                      빈 상태 문구는 StatsTable 이 이미 갖고 있는 "기록된 스탯이 없습니다" 를 그대로 쓴다. */}
                   <StatsTable
                     players={players}
                     leagueId={leagueId}
@@ -1387,6 +1467,7 @@ export default function LeagueTeamsPage() {
                   />
                 </div>
               </SectionCard>
+              </div>
             )
           })}
         </div>
