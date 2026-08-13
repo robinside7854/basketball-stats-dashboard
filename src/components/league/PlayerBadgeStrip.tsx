@@ -4,9 +4,12 @@
 // 스타일: mm-* 팔레트, 44px 터치 타겟.
 
 import { useState } from 'react'
-import { Target, Layers, Trophy, Zap } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 import PlayerBadgeDetailModal from './PlayerBadgeDetailModal'
 import WinningShotReelModal from './WinningShotReelModal'
+// 라벨·아이콘·순서는 `badgeCatalog.ts` 하나에서만 온다 — 배지 도감과 갈라지지 않게.
+// 여기서만 쓰는 표시 옵션(short · goldEmphasis)만 아래에서 얹는다.
+import { AUTO_BADGES } from '@/lib/badges/badgeCatalog'
 
 export type BadgeSummary = {
   perfect_game: number
@@ -25,12 +28,20 @@ interface Category {
   goldEmphasis?: boolean  // triple_double 만 금색 강조
 }
 
-const CATEGORIES: Category[] = [
-  { key: 'perfect_game',  label: '퍼펙트게임',   short: 'PERFECT',  Icon: Target },
-  { key: 'double_double', label: '더블더블',     short: '2X-10',    Icon: Layers },
-  { key: 'triple_double', label: '트리플더블',   short: '3X-10',    Icon: Trophy, goldEmphasis: true },
-  { key: 'winning_shot',  label: '위닝샷',       short: 'CLUTCH',   Icon: Zap },
-]
+const SHORT: Record<BadgeKey, string> = {
+  perfect_game: 'PERFECT',
+  double_double: '2X-10',
+  triple_double: '3X-10',
+  winning_shot: 'CLUTCH',
+}
+
+const CATEGORIES: Category[] = AUTO_BADGES.map(b => ({
+  key: b.key as BadgeKey,
+  label: b.label,
+  short: SHORT[b.key as BadgeKey],
+  Icon: b.Icon,
+  goldEmphasis: b.key === 'triple_double',
+}))
 
 interface Props {
   leagueId: string

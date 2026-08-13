@@ -12,12 +12,13 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import type { LucideIcon } from 'lucide-react'
-import { Sun, Moon, LogOut, ChevronRight, ClipboardList, Film } from 'lucide-react'
+import { Sun, Moon, LogOut, ChevronRight, ClipboardList, Film, HelpCircle } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
 import PersonalDashboard, { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
 import TraitBadgePanel from '@/components/league/TraitBadgePanel'
 import CareerBadgeStrip from '@/components/league/CareerBadgeStrip'
+import BadgeDexModal from '@/components/league/BadgeDexModal'
 import SectionCard from '@/components/league/ui/SectionCard'
 import InstallAppButton from '@/components/InstallAppButton'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
@@ -40,6 +41,8 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   // 드래프트 바로가기 노출 조건 — LeagueLayoutClient 의 showDraft 판정과 동일한 기존 API 를
   // 다시 호출한다(신규 쿼리 아님 · 새 페이지가 기존 것을 그대로 쓰는 Global Constraint 1 의 예외).
   const [showDraft, setShowDraft] = useState(false)
+  // 배지 도감 — 세 계열(자동·특성·커리어) 전체 목록과 내 보유 여부를 한 번에 본다.
+  const [dexOpen, setDexOpen] = useState(false)
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -70,9 +73,23 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
           {user.player_id && (
             <SectionCard variant="standalone">
               <div className="space-y-2">
-                <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
-                  내 특성
-                </p>
+                {/* 도움말 버튼은 라벨 줄에 둔다 — 배지가 없는 회원에게도 "받을 수 있는 게 뭔지"로
+                    가는 입구가 항상 보여야 한다(패널 안에 넣으면 빈 상태에서 같이 사라진다). */}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+                    내 특성
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setDexOpen(true)}
+                    aria-label="배지 도감 열기 — 전체 배지와 달성 조건 보기"
+                    className="inline-flex items-center gap-1.5 min-h-11 px-3 -mr-1 text-xs font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                    style={{ color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
+                  >
+                    <HelpCircle size={15} strokeWidth={2} aria-hidden />
+                    배지 도감
+                  </button>
+                </div>
                 <TraitBadgePanel leagueId={leagueId} playerId={user.player_id} />
                 {/* 커리어 배지 — 특성(잘하는 축) 아래에 누적·첫 기록(꾸준한 축)을 둔다.
                     출전이 적어 특성 배지가 비는 회원도 여기서는 받을 것이 보인다. */}
@@ -81,6 +98,13 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
                 </div>
               </div>
             </SectionCard>
+          )}
+          {dexOpen && user.player_id && (
+            <BadgeDexModal
+              leagueId={leagueId}
+              playerId={user.player_id}
+              onClose={() => setDexOpen(false)}
+            />
           )}
         </>
       ) : (

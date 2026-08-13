@@ -40,6 +40,13 @@ export interface TraitDefinition {
   criteria: string
   /** 값 표기 단위 접미사 ('%' | '/R' | '') */
   unit: string
+  /**
+   * 판정 방식 — 화면이 "절대 기준인가 순위인가"를 구분해 안내하려고 둔다.
+   *   'rank'  = 모집단 안 상위 백분율 (금 10% · 은 20% · 동 30%). 남들보다 잘해야 받는다.
+   *   'fixed' = 고정 임계값 (criteria 에 적힌 세 값이 동·은·금). 혼자서도 판정된다.
+   * ⚠ evaluateTraitBadges() 의 rankBadges 배열 / 고정 기준 블록과 반드시 일치해야 한다.
+   */
+  basis: 'rank' | 'fixed'
 }
 
 /** 상위 백분율로 티어를 나누는 배지의 컷 */
@@ -57,54 +64,54 @@ export const MIN_THREE_ATTEMPTS = 10
 
 export const TRAIT_DEFINITIONS: TraitDefinition[] = [
   // ── 공격 ────────────────────────────────────────────
-  { code: 'PAINT_BUSTER', name: '골밑파괴자', icon: '⚔️', category: 'attack', unit: '%',
+  { code: 'PAINT_BUSTER', name: '골밑파괴자', icon: '⚔️', category: 'attack', unit: '%', basis: 'rank',
     description: '골밑을 지배하는 인사이드 킬러',
     criteria: '골밑슛 비중 상위 50% 중 골밑 성공률 순위' },
-  { code: 'GLASS_EATER', name: '로드맨', icon: '💪', category: 'attack', unit: '/R',
+  { code: 'GLASS_EATER', name: '로드맨', icon: '💪', category: 'attack', unit: '/R', basis: 'rank',
     description: '공격 리바운드를 쓸어 담는 선수',
     criteria: '라운드(하루)당 공격 리바운드 순위' },
-  { code: 'FINISHER', name: '피니셔', icon: '🏃', category: 'attack', unit: '%',
+  { code: 'FINISHER', name: '피니셔', icon: '🏃', category: 'attack', unit: '%', basis: 'rank',
     description: '레이업을 확실히 마무리하는 선수',
     criteria: '레이업 비중 상위 50% 중 레이업 성공률 순위' },
-  { code: 'SCORING_MACHINE', name: '득점기계', icon: '🔥', category: 'attack', unit: '%',
+  { code: 'SCORING_MACHINE', name: '득점기계', icon: '🔥', category: 'attack', unit: '%', basis: 'rank',
     description: '팀 득점을 혼자 책임지는 에이스',
     criteria: '본인이 뛴 경기에서 팀 총득점 대비 본인 득점 비율 순위' },
 
   // ── 슈팅 ────────────────────────────────────────────
-  { code: 'JUNG_DAEMAN', name: '발맞으면쏜다!', icon: '🎯', category: 'shooting', unit: '%',
+  { code: 'JUNG_DAEMAN', name: '발맞으면쏜다!', icon: '🎯', category: 'shooting', unit: '%', basis: 'fixed',
     description: '슛의 절반 가까이를 3점으로 해결',
-    criteria: '3점 시도 / 전체 야투 40% · 50% · 60%' },
-  { code: 'MID_MAESTRO', name: '미드레인지 장인', icon: '📍', category: 'shooting', unit: '%',
+    criteria: '3점 시도 / 전체 야투 40% · 50% · 60% (3점 10회 이상 시도)' },
+  { code: 'MID_MAESTRO', name: '미드레인지 장인', icon: '📍', category: 'shooting', unit: '%', basis: 'rank',
     description: '사라진 중거리를 살려 쓰는 슈터',
     criteria: '미들슛 비중 상위 50% 중 미들 성공률 순위' },
 
   // ── 수비 ────────────────────────────────────────────
-  { code: 'GLASS_CLEANER', name: '수비의 끝은 리바운드', icon: '🪟', category: 'defense', unit: '/R',
+  { code: 'GLASS_CLEANER', name: '수비의 끝은 리바운드', icon: '🪟', category: 'defense', unit: '/R', basis: 'rank',
     description: '상대 2차 공격을 끊는 수비 리바운더',
     criteria: '라운드(하루)당 수비 리바운드 순위' },
-  { code: 'PICKPOCKET', name: '소매치기', icon: '🦅', category: 'defense', unit: '/R',
+  { code: 'PICKPOCKET', name: '소매치기', icon: '🦅', category: 'defense', unit: '/R', basis: 'rank',
     description: '공을 낚아채는 스틸 전문가',
     criteria: '라운드(하루)당 스틸 순위' },
-  { code: 'SHOT_BLOCKER', name: '목동타워', icon: '🛡️', category: 'defense', unit: '/R',
+  { code: 'SHOT_BLOCKER', name: '목동타워', icon: '🛡️', category: 'defense', unit: '/R', basis: 'rank',
     description: '골밑을 지키는 수호자',
     criteria: '라운드(하루)당 블록 순위' },
-  { code: 'HUSTLE_KING', name: '허슬킹', icon: '⚡', category: 'defense', unit: '/R',
+  { code: 'HUSTLE_KING', name: '허슬킹', icon: '⚡', category: 'defense', unit: '/R', basis: 'fixed',
     description: '몸을 아끼지 않는 허슬 플레이어',
-    criteria: '(스틸+블록+수비리바)/라운드 ≥ 팀 평균 ×1.3 · ×1.6 · ×2.0' },
+    criteria: '(스틸+블록+수비리바)/라운드 ≥ 리그 평균 ×1.3 · ×1.6 · ×2.0' },
 
   // ── 플레이메이킹 ────────────────────────────────────
-  { code: 'CLEAN_HANDS', name: '안전운반', icon: '🤝', category: 'playmaking', unit: '',
+  { code: 'CLEAN_HANDS', name: '안전운반', icon: '🤝', category: 'playmaking', unit: '', basis: 'fixed',
     description: '공을 잃지 않는 안정적인 핸들러',
-    criteria: '어시스트 / 턴오버 1.8 · 2.3 · 2.8' },
-  { code: 'KICKOUT', name: '킥아웃 전도사', icon: '🎦', category: 'playmaking', unit: '%',
+    criteria: '어시스트 / 턴오버 1.8 · 2.3 · 2.8 (어시스트 10개 이상)' },
+  { code: 'KICKOUT', name: '킥아웃 전도사', icon: '🎦', category: 'playmaking', unit: '%', basis: 'fixed',
     description: '외곽으로 빼주는 연결 플레이메이커',
-    criteria: '3점으로 이어진 어시스트 비율 22% · 30% · 36%' },
-  { code: 'FLOOR_GENERAL', name: '마에스트로', icon: '👑', category: 'playmaking', unit: '/R',
+    criteria: '3점으로 이어진 어시스트 비율 22% · 30% · 36% (어시스트 10개 이상)' },
+  { code: 'FLOOR_GENERAL', name: '마에스트로', icon: '👑', category: 'playmaking', unit: '/R', basis: 'rank',
     description: '경기를 조율하는 사령탑',
     criteria: '라운드(하루)당 어시스트 순위' },
-  { code: 'POCKET_PASSER', name: '포켓패서', icon: '🎯', category: 'playmaking', unit: '%',
+  { code: 'POCKET_PASSER', name: '포켓패서', icon: '🎯', category: 'playmaking', unit: '%', basis: 'fixed',
     description: '골밑으로 찔러 넣는 침투 플레이메이커',
-    criteria: '골밑·레이업으로 이어진 어시스트 비율 50% · 60% · 70%' },
+    criteria: '골밑·레이업으로 이어진 어시스트 비율 50% · 60% · 70% (어시스트 10개 이상)' },
 ]
 
 export const TRAIT_BY_CODE: Record<string, TraitDefinition> =
