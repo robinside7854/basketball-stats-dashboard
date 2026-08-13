@@ -26,6 +26,14 @@ type ViewMode = 'avg' | 'total'
 // 이전엔 "리그 최다 출전자의 2/3" 였는데, 개근자 1명 때문에 커트라인이 과하게 올라가
 // 정상 참여자까지 리더보드에서 빠지는 문제가 있었다.
 const MIN_ROUND_RATIO = 0.3
+
+// 한 번에 보여줄 선수 행 수 — 나머지는 "더 보기" 로 점진 노출한다(schedule/page.tsx 와 같은 방식).
+// 자격을 통과한 선수 전원(미라클 기준 25~35명)을 세로로 잇던 것을 자른다.
+// 12 인 이유: rankTier() 가 1·2·3 위와 4~10 위(top 티어)까지만 색을 주고 11 위부터는 중립이다.
+// 12 면 색이 붙은 구간(1~10)이 전부 들어오고 중립 행 2개가 뒤따라 "여기서 끝이 아니다" 가
+// 눈으로 드러난다. 10 으로 자르면 티어 경계와 목록 끝이 겹쳐 전체가 10명인 것처럼 읽힌다.
+const INITIAL_VISIBLE = 12
+const REVEAL_STEP = 12
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'
 type AdvKey = 'at_ratio'|'a1_total'|'a1_rate'|'trb_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'ts_pct'|'shot_mix'
@@ -173,6 +181,9 @@ function LeagueStatsPageInner() {
   // 리더보드와 같은 데이터 소스, 새 API 없음(GET /api/leagues/[leagueId]/season-highs).
   const [categoryHighs, setCategoryHighs] = useState<SeasonHigh[]>([])
   const [highsLoading, setHighsLoading] = useState(true)
+  // "더 보기" 노출 상한 — 모바일 카드뷰와 데스크탑 표뷰가 **한 상태를 공유**한다.
+  // 뷰마다 따로 두면 화면 폭이 바뀔 때(회전·창 크기) 보이는 인원이 튄다.
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
 
   const toggleCompare = (player: PlayerStat) => {
     setCompareIds(prev => {
@@ -228,6 +239,13 @@ function LeagueStatsPageInner() {
       .then(d => { setCategoryHighs(d.categoryHighs ?? []); setHighsLoading(false) })
       .catch(() => { setCategoryHighs([]); setHighsLoading(false) })
   }, [leagueId, selectedQuarterId])
+
+  // 정렬 지표·정렬 방향·스탯 모드·평균/누적·분기를 바꾸면 늘려둔 노출 수를 초기값으로 되돌린다.
+  // 안 되돌리면 "PPG 로 30명까지 펼쳐 둔 상태" 가 3P% 정렬에 그대로 남아, 보려던 상위권이 아니라
+  // 엉뚱한 구간이 이어서 보인다.
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE)
+  }, [sortKey, sortDir, statMode, viewMode, advSortKey, advSortDir, shootSortKey, shootSortDir, selectedQuarterId])
 
   function handleSort(key: SortKey) {
     if (!topFiveActive) setTopFiveActive(true)
@@ -366,6 +384,14 @@ function LeagueStatsPageInner() {
       const diff = a.sh[shootSortKey] - b.sh[shootSortKey]
       return shootSortDir === 'desc' ? -diff : diff
     })
+
+  // 노출 상한 적용 — 세 모드가 **같은 visibleCount** 를 쓴다. 모드마다 따로 두면
+  // Basic → Shooting 으로 옮길 때 보이는 인원이 튄다. 셋 다 같은 자격자 목록(filtered)에서
+  // 정렬만 다시 한 것이라 남은 인원 수도 항상 같다.
+  const visibleBasic = filtered.slice(0, visibleCount)
+  const visibleShoot = filteredShoot.slice(0, visibleCount)
+  const visibleAdv = filteredAdv.slice(0, visibleCount)
+  const hiddenCount = Math.max(0, filtered.length - visibleCount)
 
   function handleAdvSort(key: AdvKey) {
     if (!topFiveActive) setTopFiveActive(true)
@@ -670,7 +696,7 @@ function LeagueStatsPageInner() {
 
             {/* Basic — 모바일 카드뷰 */}
             <div className="md:hidden">
-              {filtered.map((p, i) => {
+              {visibleBasic.map((p, i) => {
                 const sortTerm = sortKey === 'gp' ? 'R' : (COLS.find(c => c.key === sortKey)?.label ?? '')
                 const sortVal = cellVal(p, sortKey)
                 const subCols = COLS.filter(c => c.key !== sortKey).slice(0, 4)
@@ -745,7 +771,7 @@ function LeagueStatsPageInner() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((p, i) => (
+                  {visibleBasic.map((p, i) => (
                     <tr key={p.player_id}
                       className="transition-colors"
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
@@ -878,7 +904,7 @@ function LeagueStatsPageInner() {
 
             {/* Shooting — 모바일 카드뷰 */}
             <div className="md:hidden">
-              {filteredShoot.map(({ p, sh }, i) => {
+              {visibleShoot.map(({ p, sh }, i) => {
                 const rt = rankTier(i + 1)
                 return (
                   <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
@@ -941,7 +967,7 @@ function LeagueStatsPageInner() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredShoot.map(({ p, sh }, i) => (
+                  {visibleShoot.map(({ p, sh }, i) => (
                     <tr key={p.player_id}
                       className="transition-colors"
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
@@ -1003,7 +1029,7 @@ function LeagueStatsPageInner() {
 
             {/* Advanced — 모바일 카드뷰 */}
             <div className="md:hidden">
-              {filteredAdv.map(({ p, adv }, i) => {
+              {visibleAdv.map(({ p, adv }, i) => {
                 const rt = rankTier(i + 1)
                 return (
                   <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
@@ -1058,7 +1084,7 @@ function LeagueStatsPageInner() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAdv.map(({ p, adv }, i) => (
+                  {visibleAdv.map(({ p, adv }, i) => (
                     <tr key={p.player_id}
                       className="transition-colors"
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
@@ -1101,6 +1127,24 @@ function LeagueStatsPageInner() {
               </div>
             </div>
             </>)}
+
+            {/* 더 보기 — 이미 받아온 배열을 클라이언트에서 점진 노출한다(서버 재요청 없음).
+                세 모드 · 두 뷰 바깥에 한 번만 둔다: 모드마다 복제하면 언젠가 한 곳만 고쳐지고,
+                뷰마다 복제하면 두 상태가 갈린다. 남은 인원 수를 라벨에 적어 몇 번 눌러야
+                끝인지 미리 가늠할 수 있게 한다(schedule 화면과 같은 관례). */}
+            {hiddenCount > 0 && (
+              <div className="flex justify-center px-4 py-3" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount(c => c + REVEAL_STEP)}
+                  className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-5 py-2.5 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
+                >
+                  <ChevronDown size={14} aria-hidden />
+                  더 보기 ({hiddenCount}명 남음)
+                </button>
+              </div>
+            )}
           </SectionCard>
         </>
       )}
