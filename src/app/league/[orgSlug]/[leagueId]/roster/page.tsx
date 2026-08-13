@@ -9,7 +9,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, X, Users, ShieldCheck } from 'lucide-react'
+import { Plus, Trash2, Loader2, Lock, Download, Upload, Crown, X, Users, ShieldCheck, ChevronDown } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import SectionCard from '@/components/league/ui/SectionCard'
@@ -219,19 +219,21 @@ export default function LeagueRosterPage() {
       .then(setAttendance)
       .catch(() => { /* ignore */ })
   }, [leagueId])
-  // 게스트 숨김 토글 — localStorage 로 세션 간 유지
-  const [hideGuests, setHideGuests] = useState<boolean>(false)
+  // 게스트 섹션 펼침 상태 — 기본 접힘(정회원 명단만 세로로 그린다).
+  // 옛 '게스트 숨김' 필터 칩을 대체한다: 접이식 자체가 표시/숨김 컨트롤이라
+  // 같은 관심사를 두 곳에서 조작하면 어느 쪽이 이겼는지 알 수 없다.
+  const [guestsOpen, setGuestsOpen] = useState<boolean>(false)
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(`roster:hideGuests:${leagueId}`)
-      if (saved === '1') setHideGuests(true)
+      const saved = localStorage.getItem(`roster:guestsOpen:${leagueId}`)
+      if (saved === '1') setGuestsOpen(true)
     } catch { /* SSR 등 접근 실패 무시 */ }
   }, [leagueId])
   useEffect(() => {
     try {
-      localStorage.setItem(`roster:hideGuests:${leagueId}`, hideGuests ? '1' : '0')
+      localStorage.setItem(`roster:guestsOpen:${leagueId}`, guestsOpen ? '1' : '0')
     } catch { /* ignore */ }
-  }, [leagueId, hideGuests])
+  }, [leagueId, guestsOpen])
 
   // 인증회원(로그인 계정 등록·승인)만 보기 토글 — localStorage 로 세션 간 유지
   const [onlyVerified, setOnlyVerified] = useState<boolean>(false)
@@ -571,7 +573,8 @@ export default function LeagueRosterPage() {
   const isPlayerGuest = (p: LeaguePlayer) => Boolean(p.is_guest) || p.name.includes('게스트')
   const filteredAndSortedPlayers = players
     .filter(p => {
-      if (hideGuests && isPlayerGuest(p)) return false
+      // 게스트는 여기서 거르지 않는다 — 아래에서 정회원/게스트 두 묶음으로 갈라
+      // 게스트만 접이식에 넣는다. 필터에서 빼 버리면 운영진이 게스트 기록을 못 본다.
       if (onlyVerified && !p.has_account) return false
       if (filterPosition === 'ALL') return true
       return parsePositions(p.position).includes(filterPosition)
@@ -589,248 +592,19 @@ export default function LeagueRosterPage() {
       }
       return 0
     })
-  const guestCount = players.filter(isPlayerGuest).length
+  // guestCount 는 옛 '게스트 숨김' 칩이 쓰던 전체 카운트다. 접이식 요약은 필터가 반영된
+  // guestPlayers.length 를 쓰므로 소비처가 없어져 삭제했다(2026-08-13).
   const verifiedCount = players.filter(p => p.has_account).length
 
-  return (
-    <div className="space-y-4 lg:space-y-5">
-      {/* 스탯 우산 서브탭 — 리더보드 · 어워즈 · 선수 명단 · 팀 순위 (2026-08-08 이동, 2026-08-09 시즌하이 흡수) */}
-      <LeagueGroupTabs tabs={getStatsGroupTabs(base, 'roster')} />
-      {/* 헤더 */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h2 className="font-bold text-[28px] lg:text-[40px] leading-none text-[var(--mm-ink)] tracking-tight">선수 명단</h2>
-          <p className="text-[var(--mm-muted)] text-sm lg:text-base mt-1 font-bold tracking-[0.12em] uppercase">{players.length}명 등록</p>
-        </div>
-        {isEditMode ? (
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={downloadTemplate}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors cursor-pointer font-bold uppercase tracking-[0.1em]"
-              title="엑셀 템플릿 다운로드"
-            >
-              <Download size={12} />템플릿
-            </button>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={bulkUploading}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors cursor-pointer disabled:opacity-40 font-bold uppercase tracking-[0.1em]"
-              title="엑셀 파일로 대량 등록"
-            >
-              {bulkUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}대량 등록
-            </button>
-            <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleBulkUpload} />
-            <button
-              onClick={() => setShowForm(v => !v)}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-[0.14em] bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 transition-all cursor-pointer"
-            >
-              <Plus size={14} className="mr-0.5" />선수 추가
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={openPinModal}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors cursor-pointer font-bold uppercase tracking-[0.1em]"
-          >
-            <Lock size={12} />편집 모드
-          </button>
-        )}
-      </div>
+  // 정회원 / 게스트 분리 — 세로 길이를 줄이는 핵심. 45행을 한 화면에 세로로 잇지 않는다.
+  //   정렬이 끝난 배열을 그대로 쪼갠다(정렬 규칙을 두 곳에서 반복하지 않는다).
+  //   ⚠ 게스트를 '지우지' 않는다. 운영진이 게스트 기록을 확인해야 하므로 접어 둘 뿐이다.
+  const memberPlayers = filteredAndSortedPlayers.filter(p => !isPlayerGuest(p))
+  const guestPlayers = filteredAndSortedPlayers.filter(p => isPlayerGuest(p))
 
-      {/* 회원 가입율 — 게스트 제외 등록 회원 중 로그인 계정 승인 비율 */}
-      <SignupRateCard leagueId={leagueId} leagueHeaders={leagueHeaders} isEditMode={isEditMode} />
-
-      {/* 선수 추가 폼 */}
-      {showForm && isEditMode && (
-        <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-md p-4 space-y-3" style={{ borderLeftWidth: '3px', borderLeftColor: 'var(--mm-yellow-soft)' }}>
-          <h3 className="font-bold text-[20px] text-[var(--mm-ink)] tracking-tight">새 선수 추가</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Input
-              placeholder="이름 *"
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              onKeyDown={e => e.key === 'Enter' && addPlayer()}
-              className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]"
-            />
-            <BirthDateInput
-              value={form.birth_date}
-              onChange={v => setForm(f => ({ ...f, birth_date: v }))}
-            />
-          </div>
-          <div>
-            <p className="text-xs text-[var(--mm-muted)] mb-2 font-bold uppercase tracking-[0.14em]">포지션 (복수 선택 가능)</p>
-            <div className="flex flex-wrap gap-2">
-              {POSITIONS.map(pos => (
-                <button
-                  key={pos}
-                  type="button"
-                  onClick={() => togglePosition(pos, form.position, v => setForm(f => ({ ...f, position: v })))}
-                  className={`px-3 py-1 rounded-md text-xs font-black uppercase tracking-[0.12em] border transition-all cursor-pointer ${
-                    form.position.includes(pos)
-                      ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] text-[var(--mm-panel)]'
-                      : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:border-[var(--mm-ink-soft)]'
-                  }`}
-                >
-                  {pos}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={addPlayer}
-              disabled={saving}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-[0.14em] bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-all cursor-pointer"
-            >
-              {saving ? <Loader2 size={13} className="animate-spin mr-1" /> : null}추가
-            </button>
-            <button
-              onClick={() => setShowForm(false)}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-[0.12em] border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer"
-            >
-              취소
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 수정 2: 정렬/필터 컨트롤 */}
-      {!loading && players.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 lg:gap-4">
-          {/* 정렬 */}
-          <div className="flex items-center gap-1.5 lg:gap-2">
-            <span className="text-xs lg:text-sm text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">정렬</span>
-            <div className="flex gap-1">
-              {([
-                { key: 'name', label: '이름' },
-                { key: 'attendance_desc', label: '참석율↓' },
-              ] as { key: SortKey; label: string }[]).map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setSortKey(key)}
-                  className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-md text-xs lg:text-sm font-black uppercase tracking-[0.1em] transition-all cursor-pointer ${
-                    sortKey === key
-                      ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)] border border-[var(--mm-ink)]'
-                      : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 포지션 필터 */}
-          <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
-            <span className="text-xs lg:text-sm text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">포지션</span>
-            <div className="flex flex-wrap gap-1">
-              {POSITION_FILTER_OPTIONS.map(pos => (
-                <button
-                  key={pos}
-                  onClick={() => setFilterPosition(pos)}
-                  className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-md text-xs lg:text-sm font-black uppercase tracking-[0.1em] transition-all cursor-pointer ${
-                    filterPosition === pos
-                      ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--color-hoop-orange-500)]'
-                      : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
-                  }`}
-                >
-                  {pos}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 게스트 숨김 토글 — 이름에 '게스트' 포함되거나 is_guest=true 인 선수를 완전 제외 */}
-          {guestCount > 0 && (
-            <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
-              <span className="text-xs lg:text-sm text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">게스트</span>
-              <button
-                onClick={() => setHideGuests(v => !v)}
-                aria-pressed={hideGuests}
-                className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-md text-xs lg:text-sm font-black uppercase tracking-[0.1em] transition-all cursor-pointer flex items-center gap-1.5 ${
-                  hideGuests
-                    ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--color-hoop-orange-500)]'
-                    : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
-                }`}
-                title="이름에 '게스트' 가 포함된 단발성 선수 숨기기"
-              >
-                <span
-                  className="inline-block w-3 h-3 rounded-full border"
-                  style={{
-                    background: hideGuests ? 'var(--color-hoop-orange-500)' : 'transparent',
-                    borderColor: hideGuests ? 'var(--color-hoop-orange-500)' : 'var(--mm-muted)',
-                  }}
-                />
-                <span>{hideGuests ? '숨김' : '표시'}</span>
-                <span
-                  className="text-[10px] lg:text-xs"
-                  style={{ color: hideGuests ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
-                >({guestCount})</span>
-              </button>
-            </div>
-          )}
-
-          {/* 인증회원만 보기 토글 — has_account(로그인 계정 등록·승인) 인 회원만 노출 */}
-          {verifiedCount > 0 && (
-            <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
-              <span className="text-xs lg:text-sm text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">인증</span>
-              <button
-                onClick={() => setOnlyVerified(v => !v)}
-                aria-pressed={onlyVerified}
-                className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-md text-xs lg:text-sm font-black uppercase tracking-[0.1em] transition-all cursor-pointer flex items-center gap-1.5 ${
-                  onlyVerified
-                    ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--color-hoop-orange-500)]'
-                    : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
-                }`}
-                title="로그인 계정을 등록·인증한 회원만 표시"
-              >
-                <ShieldCheck
-                  size={13}
-                  aria-hidden
-                  className="shrink-0"
-                  style={{ color: onlyVerified ? 'var(--color-hoop-orange-500)' : 'var(--mm-muted)' }}
-                />
-                <span>{onlyVerified ? '인증회원만' : '전체'}</span>
-                <span
-                  className="text-[10px] lg:text-xs"
-                  style={{ color: onlyVerified ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
-                >({verifiedCount})</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 선수 카드 그리드 */}
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <BasketballLoader size={32} />
-        </div>
-      ) : players.length === 0 ? (
-        <EmptyState
-          Icon={Users}
-          title="등록된 선수가 없습니다"
-          description="리그에 선수를 등록하면 명단·스탯·리더보드에 자동 반영됩니다."
-          isEditMode={isEditMode}
-          editorHint="위의 '선수 추가' 버튼 또는 CSV 업로드로 시작하세요"
-        />
-      ) : filteredAndSortedPlayers.length === 0 ? (
-        <EmptyState
-          Icon={Users}
-          title="조건에 맞는 선수가 없습니다"
-          description="포지션 · 정렬 필터를 조절하거나 초기화해 보세요."
-          size="sm"
-        >
-          <button
-            onClick={() => { setFilterPosition('ALL'); setSortKey('name'); setOnlyVerified(false); setHideGuests(false) }}
-            className="text-xs font-black uppercase tracking-[0.14em] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer transition-colors underline underline-offset-4 decoration-[var(--mm-ink-soft)]"
-          >
-            필터 초기화
-          </button>
-        </EmptyState>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5 lg:gap-3">
-          {filteredAndSortedPlayers.map(p => {
+  // 선수 카드 렌더러 — 정회원 그리드와 게스트 접이식이 **같은 마크업**을 쓴다.
+  // 복제하면 언젠가 한쪽만 고쳐진다.
+  const renderPlayerCard = (p: LeaguePlayer) => {
             const positions = parsePositions(p.position)
             const isAnyLeader = displayQuarters.some(q => {
               const teamId = getCellTeamId(q.id, p.id)
@@ -1073,8 +847,260 @@ export default function LeagueRosterPage() {
                 </div>
               </div>
             )
-          })}
+  }
+
+  return (
+    <div className="space-y-4 lg:space-y-5">
+      {/* 스탯 우산 서브탭 — 리더보드 · 어워즈 · 선수 명단 · 팀 순위 (2026-08-08 이동, 2026-08-09 시즌하이 흡수) */}
+      <LeagueGroupTabs tabs={getStatsGroupTabs(base, 'roster')} />
+      {/* 헤더 */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="font-bold text-[28px] lg:text-[40px] leading-none text-[var(--mm-ink)] tracking-tight">선수 명단</h2>
+          <p className="text-[var(--mm-muted)] text-sm lg:text-base mt-1 font-bold tracking-[0.12em] uppercase">{players.length}명 등록</p>
         </div>
+        {isEditMode ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={downloadTemplate}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors cursor-pointer font-bold uppercase tracking-[0.1em]"
+              title="엑셀 템플릿 다운로드"
+            >
+              <Download size={12} />템플릿
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={bulkUploading}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors cursor-pointer disabled:opacity-40 font-bold uppercase tracking-[0.1em]"
+              title="엑셀 파일로 대량 등록"
+            >
+              {bulkUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}대량 등록
+            </button>
+            <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleBulkUpload} />
+            <button
+              onClick={() => setShowForm(v => !v)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-[0.14em] bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 transition-all cursor-pointer"
+            >
+              <Plus size={14} className="mr-0.5" />선수 추가
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={openPinModal}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors cursor-pointer font-bold uppercase tracking-[0.1em]"
+          >
+            <Lock size={12} />편집 모드
+          </button>
+        )}
+      </div>
+
+      {/* 회원 가입율 — 게스트 제외 등록 회원 중 로그인 계정 승인 비율 */}
+      <SignupRateCard leagueId={leagueId} leagueHeaders={leagueHeaders} isEditMode={isEditMode} />
+
+      {/* 선수 추가 폼 */}
+      {showForm && isEditMode && (
+        <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-md p-4 space-y-3" style={{ borderLeftWidth: '3px', borderLeftColor: 'var(--mm-yellow-soft)' }}>
+          <h3 className="font-bold text-[20px] text-[var(--mm-ink)] tracking-tight">새 선수 추가</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              placeholder="이름 *"
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && addPlayer()}
+              className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]"
+            />
+            <BirthDateInput
+              value={form.birth_date}
+              onChange={v => setForm(f => ({ ...f, birth_date: v }))}
+            />
+          </div>
+          <div>
+            <p className="text-xs text-[var(--mm-muted)] mb-2 font-bold uppercase tracking-[0.14em]">포지션 (복수 선택 가능)</p>
+            <div className="flex flex-wrap gap-2">
+              {POSITIONS.map(pos => (
+                <button
+                  key={pos}
+                  type="button"
+                  onClick={() => togglePosition(pos, form.position, v => setForm(f => ({ ...f, position: v })))}
+                  className={`px-3 py-1 rounded-md text-xs font-black uppercase tracking-[0.12em] border transition-all cursor-pointer ${
+                    form.position.includes(pos)
+                      ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] text-[var(--mm-panel)]'
+                      : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:border-[var(--mm-ink-soft)]'
+                  }`}
+                >
+                  {pos}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={addPlayer}
+              disabled={saving}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-[0.14em] bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-all cursor-pointer"
+            >
+              {saving ? <Loader2 size={13} className="animate-spin mr-1" /> : null}추가
+            </button>
+            <button
+              onClick={() => setShowForm(false)}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-[0.12em] border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 수정 2: 정렬/필터 컨트롤 */}
+      {!loading && players.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 lg:gap-4">
+          {/* 정렬 */}
+          <div className="flex items-center gap-1.5 lg:gap-2">
+            <span className="text-xs lg:text-sm text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">정렬</span>
+            <div className="flex gap-1">
+              {([
+                { key: 'name', label: '이름' },
+                { key: 'attendance_desc', label: '참석율↓' },
+              ] as { key: SortKey; label: string }[]).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setSortKey(key)}
+                  className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-md text-xs lg:text-sm font-black uppercase tracking-[0.1em] transition-all cursor-pointer ${
+                    sortKey === key
+                      ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)] border border-[var(--mm-ink)]'
+                      : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 포지션 필터 */}
+          <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
+            <span className="text-xs lg:text-sm text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">포지션</span>
+            <div className="flex flex-wrap gap-1">
+              {POSITION_FILTER_OPTIONS.map(pos => (
+                <button
+                  key={pos}
+                  onClick={() => setFilterPosition(pos)}
+                  className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-md text-xs lg:text-sm font-black uppercase tracking-[0.1em] transition-all cursor-pointer ${
+                    filterPosition === pos
+                      ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--color-hoop-orange-500)]'
+                      : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
+                  }`}
+                >
+                  {pos}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 옛 '게스트 숨김' 토글은 제거했다 — 아래 접이식 섹션이 표시/숨김을 겸한다. */}
+
+          {/* 인증회원만 보기 토글 — has_account(로그인 계정 등록·승인) 인 회원만 노출 */}
+          {verifiedCount > 0 && (
+            <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
+              <span className="text-xs lg:text-sm text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">인증</span>
+              <button
+                onClick={() => setOnlyVerified(v => !v)}
+                aria-pressed={onlyVerified}
+                className={`px-2.5 py-1 lg:px-3 lg:py-1.5 rounded-md text-xs lg:text-sm font-black uppercase tracking-[0.1em] transition-all cursor-pointer flex items-center gap-1.5 ${
+                  onlyVerified
+                    ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--color-hoop-orange-500)]'
+                    : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
+                }`}
+                title="로그인 계정을 등록·인증한 회원만 표시"
+              >
+                <ShieldCheck
+                  size={13}
+                  aria-hidden
+                  className="shrink-0"
+                  style={{ color: onlyVerified ? 'var(--color-hoop-orange-500)' : 'var(--mm-muted)' }}
+                />
+                <span>{onlyVerified ? '인증회원만' : '전체'}</span>
+                <span
+                  className="text-[10px] lg:text-xs"
+                  style={{ color: onlyVerified ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
+                >({verifiedCount})</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 선수 카드 그리드 */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <BasketballLoader size={32} />
+        </div>
+      ) : players.length === 0 ? (
+        <EmptyState
+          Icon={Users}
+          title="등록된 선수가 없습니다"
+          description="리그에 선수를 등록하면 명단·스탯·리더보드에 자동 반영됩니다."
+          isEditMode={isEditMode}
+          editorHint="위의 '선수 추가' 버튼 또는 CSV 업로드로 시작하세요"
+        />
+      ) : filteredAndSortedPlayers.length === 0 ? (
+        <EmptyState
+          Icon={Users}
+          title="조건에 맞는 선수가 없습니다"
+          description="포지션 · 정렬 필터를 조절하거나 초기화해 보세요."
+          size="sm"
+        >
+          <button
+            onClick={() => { setFilterPosition('ALL'); setSortKey('name'); setOnlyVerified(false) }}
+            className="text-xs font-black uppercase tracking-[0.14em] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer transition-colors underline underline-offset-4 decoration-[var(--mm-ink-soft)]"
+          >
+            필터 초기화
+          </button>
+        </EmptyState>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5 lg:gap-3">
+            {memberPlayers.map(renderPlayerCard)}
+          </div>
+
+          {/* 게스트 — 기본 접힘. 지우는 게 아니라 접는 것이다(운영진이 기록을 확인해야 한다).
+              펼침 상태는 localStorage 로 유지해 매번 다시 펴지 않게 한다. */}
+          {guestPlayers.length > 0 && (
+            <details
+              className="mt-3"
+              open={guestsOpen}
+              onToggle={e => setGuestsOpen((e.currentTarget as HTMLDetailsElement).open)}
+            >
+              <summary
+                className="flex items-center gap-2 min-h-[44px] px-3 cursor-pointer list-none select-none"
+                style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
+              >
+                <ChevronDown
+                  size={16}
+                  aria-hidden
+                  className="shrink-0"
+                  style={{
+                    color: 'var(--mm-muted)',
+                    transform: guestsOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                    transition: 'transform var(--mm-motion-fast) var(--mm-ease-out)',
+                  }}
+                />
+                <span className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>게스트</span>
+                <span className="text-xs font-black tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+                  {guestPlayers.length}명
+                </span>
+                <span className="ml-auto text-[11px]" style={{ color: 'var(--mm-muted)' }}>
+                  {guestsOpen ? '접기' : '펼치기'}
+                </span>
+              </summary>
+              <div className="mt-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5 lg:gap-3">
+                  {guestPlayers.map(renderPlayerCard)}
+                </div>
+              </div>
+            </details>
+          )}
+        </>
       )}
 
       {/* 분기 관리 */}
