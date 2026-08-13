@@ -52,6 +52,11 @@ export async function resolveLeagueAppIdentity(
   /** 호출부가 이미 공개여부·세션을 판정했으면 넘겨서 중복 조회를 피한다(미지정이면 여기서 판정). */
   opts?: { visible?: boolean },
 ): Promise<LeagueAppIdentity | null> {
+  // 미들웨어가 slug→UUID rewrite 에 성공하면 여기 오는 값은 항상 UUID 다. UUID 가 아니라는 것은
+  // "그런 리그가 없다"(또는 조회 실패로 rewrite 를 못 했다)는 뜻 — 그대로 .eq('id', …) 를 던지면
+  // Postgres 가 `invalid input syntax for type uuid` 로 500 을 만든다. 없는 것은 없다고 답한다.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(leagueId)) return null
+
   const sb = createClient()
   const { data, error } = await sb
     .from('leagues')
