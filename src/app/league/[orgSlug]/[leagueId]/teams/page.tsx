@@ -1351,7 +1351,7 @@ export default function LeagueTeamsPage() {
             className="-mx-2 sm:mx-0 px-2 sm:px-0 flex gap-2 overflow-x-auto scrollbar-hide"
             style={{ scrollMarginTop: '12px' }}
           >
-            {standings.map(s => {
+            {standings.map((s, i) => {
               const on = s.identityKey === activeStatsTeamKey
               const accent = accentOrInk(s.color)
               const count = (teamStats[s.identityKey] ?? []).length
@@ -1359,9 +1359,12 @@ export default function LeagueTeamsPage() {
                 <button
                   key={s.identityKey}
                   role="tab"
-                  id={`stats-team-tab-${s.identityKey}`}
+                  // ⚠ DOM id 에 identityKey 를 쓰지 않는다 — identityKey 는 `${team_id}::${팀명}` 이라
+                  // 팀명의 공백이 그대로 들어간다. aria-controls 는 ID '목록'이라 공백이 있으면
+                  // 두 개의 잘못된 참조로 쪼개져 탭↔패널 연결이 끊긴다. 인덱스로 만든다.
+                  id={`stats-team-tab-${i}`}
                   aria-selected={on}
-                  aria-controls={`stats-team-panel-${s.identityKey}`}
+                  aria-controls={`stats-team-panel-${i}`}
                   onClick={() => { statsTabSwitched.current = true; setStatsTeamKey(s.identityKey) }}
                   className="shrink-0 min-h-[44px] flex items-center gap-2 px-4 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                   style={{
@@ -1399,8 +1402,8 @@ export default function LeagueTeamsPage() {
               <div
                 key={s.identityKey}
                 role="tabpanel"
-                id={`stats-team-panel-${s.identityKey}`}
-                aria-labelledby={`stats-team-tab-${s.identityKey}`}
+                id={`stats-team-panel-${standings.indexOf(s)}`}
+                aria-labelledby={`stats-team-tab-${standings.indexOf(s)}`}
               >
               <SectionCard variant="standalone" className="relative">
                 {/* 팀 컬러 좌측 accent bar */}
