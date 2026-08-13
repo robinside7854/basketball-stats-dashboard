@@ -1,0 +1,17 @@
+{
+ "taken_at": "2026-08-13T02:49:35.401Z",
+ "project_ref": "oqszhjmvcaoerqdcntbj",
+ "league_push_subscriptions": [
+  {
+   "id": "1ae88540-4199-4ec6-8ccc-64492bfa760a",
+   "league_id": "8eda8257-8907-4bf3-a7de-e5e7fde54a89",
+   "endpoint": "https://fcm.googleapis.com/fcm/send/eDH2M2CnCWk:APA91bFsydYmAz1gjKEZ8vIvY4yptEs1IYBOQZzqCFeq_DYHGBw9pcfSQNbgOARw0NbNStJHVyku2JlWSBvSyn4_VXZQjOxzXCEVwzP5ky1JHXQGdz48XEL0N3usfPeMh59r65Usn1Rx",
+   "p256dh": "BNj-PqbB4MY7pQOD-0NhqVAgAuRBkrEMEmANS7-eArLGaYD1zoSGJFHaqLNAZVRhsQMda4gepkoPew-ldHNQ9Dk",
+   "auth": "2u7xAKsQcMSEIfc9hv12lg",
+   "member_label": null,
+   "user_agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36",
+   "created_at": "2026-07-27 14:58:41.367883+00",
+   "last_seen_at": "2026-07-27 14:58:41.314+00"
+  }
+ ]
+}
