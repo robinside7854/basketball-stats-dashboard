@@ -33,15 +33,44 @@ export function textOnBg(bgHex: string | null | undefined): '#ffffff' | '#0a0a0a
   return relativeLuminance(bgHex) > 0.5 ? '#0a0a0a' : '#ffffff'
 }
 
+/** 두 색의 WCAG 대비비 (1~21). 큰 값이 잘 읽힌다. */
+export function contrastRatio(aHex: string, bHex: string): number {
+  const la = relativeLuminance(aHex)
+  const lb = relativeLuminance(bHex)
+  const hi = Math.max(la, lb)
+  const lo = Math.min(la, lb)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+// 이 앱의 패널 배경 실측값(globals.css `--mm-panel`). 인라인 style 로 나가는 색은 테마별로
+// 갈라 쓸 수 없으므로 **두 테마 모두**에서 읽혀야 한다 — 한쪽만 보면 반대 테마에서 사라진다.
+const PANEL_LIGHT = '#FFFFFF'
+const PANEL_DARK = '#221F1B'
+/** WCAG AA 본문 기준 */
+const AA = 4.5
+
 /**
- * 팀 컬러를 "그 색 자체"로 텍스트에 쓰는 자리(팀명 라벨 등, 배경도 같은 색의 옅은 틴트)용 폴백.
- * 팀 컬러가 흰색에 가까우면(예: #ffffff) 텍스트=배경이 거의 같은 색이 되어 라이트 모드에서
- * white-on-white 로 사라진다 — textOnBg 처럼 "반대색"을 고를 수 없는 자리(배경 자체가 그 색의
- * 옅은 틴트라 실질 배경은 페이지 배경에 가깝기 때문)이므로, 대신 테마를 따라가는
- * --mm-ink 로 폴백해 라이트/다크 모두에서 페이지 배경과 대비를 확보한다.
- * (2026-08-08 · 라이트모드 흰 팀컬러 이름 미표시 핫픽스)
+ * 팀 컬러를 "그 색 자체"로 텍스트에 쓰는 자리(팀명 라벨 등)용 폴백.
+ *
+ * 팀 컬러는 동호회가 자유롭게 고른다. 그 색이 배경과 구분되지 않으면 이름이 사라진다.
+ * 테마를 따라가는 --mm-ink 로 폴백해 라이트/다크 모두에서 대비를 확보한다.
+ *
+ * ⚠ 판정을 '휘도 임계값'에서 '실제 대비비'로 바꿨다 (2026-08-13).
+ *   옛 방식(휘도 > 0.85)은 **순백만** 걸렀다. 실제 팀 컬러로 재보니:
+ *     · 굿모닝 #ffea00 → 휘도 0.801 로 통과 → 흰 패널 위 **1.23:1**. 사실상 안 보였다.
+ *     · 챗지피지기 #ff0000 → 4.00:1 로 AA(4.5) 미달.
+ *     · 빅현욱 #ffffff → 1.000 이라 이것만 걸렸다.
+ *   "밝으면 안 보인다"가 아니라 "배경과 대비가 없으면 안 보인다"가 맞는 기준이다.
+ *   노랑처럼 밝은데 흰색은 아닌 색이 정확히 그 사이로 빠져나갔다.
+ *
+ * 색을 잃는 대신 읽히는 쪽을 택한다. 팀 정체성은 텍스트가 아니라 **테두리·바·틴트 배경**
+ * 같은 비텍스트 요소로 전달한다(그쪽은 대비 기준이 3:1 이고 형태가 함께 구분해 준다).
  */
-export function accentOrInk(hex: string | null | undefined, threshold = 0.85): string {
+export function accentOrInk(hex: string | null | undefined): string {
   if (!hex) return 'var(--mm-ink)'
-  return relativeLuminance(hex) > threshold ? 'var(--mm-ink)' : hex
+  const h = hex.trim()
+  if (!h.startsWith('#')) return 'var(--mm-ink)'
+  // 두 테마 모두 통과해야 그 색을 쓴다. 한쪽이라도 미달이면 ink.
+  const ok = contrastRatio(h, PANEL_LIGHT) >= AA && contrastRatio(h, PANEL_DARK) >= AA
+  return ok ? h : 'var(--mm-ink)'
 }
