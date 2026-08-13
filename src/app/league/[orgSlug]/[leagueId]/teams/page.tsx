@@ -1338,8 +1338,12 @@ export default function LeagueTeamsPage() {
           {/* 팀 탭 — 팀을 세로로 잇지 않고 한 번에 하나만 그린다 (2026-08-13, 스크롤 단축).
               계층 구분: 상위 스탯 우산탭(LeagueGroupTabs)은 밑줄형, 분기·모드 세그먼트는 ink 채움형이라
               팀 탭은 '팀 컬러 테두리 칩'으로 셋 다 겹치지 않게 했다.
-              ⚠ 팀 컬러를 전경(테두리·텍스트)으로 쓸 때는 반드시 accentOrInk() 를 거친다 —
-              흰색·아주 연한 팀 컬러가 라이트 모드에서 사라진다. */}
+              ⚠ 팀 컬러 대비: 전경으로 나가는 팀 컬러는 전부 accentOrInk() 를 거친다 — 흰색·아주
+              연한 팀 컬러가 라이트 모드에서 사라지는 걸 막는다. 다만 accentOrInk 의 임계값(0.85)은
+              '거의 흰색'만 걸러내므로, 브랜드 옐로우급 중간 밝기 색(#F2B53C, 휘도 0.52 → 흰 배경
+              대비 1.8:1)은 통과해 버린다. 그래서 **라벨 텍스트에는 팀 컬러를 쓰지 않고**
+              (DESIGN.md "노랑을 흰 배경 위 텍스트로 쓰지 않는다") ink 토큰으로 4.5:1 을 보장하고,
+              팀 컬러는 2px 테두리 · 12% 틴트 배경 · 점 — 즉 비텍스트 요소로만 내보낸다. */}
           <div
             ref={statsTabBarRef}
             role="tablist"
@@ -1365,7 +1369,7 @@ export default function LeagueTeamsPage() {
                     border: `2px solid ${on ? accent : 'var(--mm-rule)'}`,
                     borderRadius: 'var(--mm-radius-chip)',
                     background: on ? `color-mix(in srgb, ${accent} 12%, var(--mm-panel))` : 'var(--mm-panel)',
-                    color: on ? accent : 'var(--mm-muted)',
+                    color: on ? 'var(--mm-ink)' : 'var(--mm-muted)',
                     transitionDuration: 'var(--mm-motion-fast)',
                     transitionTimingFunction: 'var(--mm-ease-out)',
                   }}
@@ -1376,8 +1380,13 @@ export default function LeagueTeamsPage() {
                     className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ background: s.color, boxShadow: 'inset 0 0 0 1px var(--mm-rule)' }}
                   />
-                  <span className={`text-sm whitespace-nowrap ${on ? 'font-bold' : 'font-medium'}`}>{s.displayName}</span>
-                  <span className="text-xs tabular-nums" style={{ color: on ? accent : 'var(--mm-muted)' }}>{count}</span>
+                  {/* 활성 = 굵기(색만으로 전달 금지). 굵어지면 폭이 늘어 옆 칩이 밀리므로
+                      bold 사본을 invisible 로 겹쳐 두어 폭을 미리 예약한다 — 전환 시 이동 0. */}
+                  <span className="grid text-sm whitespace-nowrap">
+                    <span aria-hidden className="col-start-1 row-start-1 font-bold invisible">{s.displayName}</span>
+                    <span className={`col-start-1 row-start-1 ${on ? 'font-bold' : 'font-medium'}`}>{s.displayName}</span>
+                  </span>
+                  <span className="text-xs tabular-nums" style={{ color: on ? 'var(--mm-ink-soft)' : 'var(--mm-muted)' }}>{count}</span>
                 </button>
               )
             })}
