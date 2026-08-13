@@ -10,7 +10,7 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import Link from 'next/link'
 import TeamInsights from '@/components/league/TeamInsights'
 import SectionCard from '@/components/league/ui/SectionCard'
-import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
+import { textOnBg } from '@/lib/util/contrastColor'
 
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import { PercentBar } from '@/components/league/StatCell'
@@ -1338,12 +1338,10 @@ export default function LeagueTeamsPage() {
           {/* 팀 탭 — 팀을 세로로 잇지 않고 한 번에 하나만 그린다 (2026-08-13, 스크롤 단축).
               계층 구분: 상위 스탯 우산탭(LeagueGroupTabs)은 밑줄형, 분기·모드 세그먼트는 ink 채움형이라
               팀 탭은 '팀 컬러 테두리 칩'으로 셋 다 겹치지 않게 했다.
-              ⚠ 팀 컬러 대비: 전경으로 나가는 팀 컬러는 전부 accentOrInk() 를 거친다 — 흰색·아주
-              연한 팀 컬러가 라이트 모드에서 사라지는 걸 막는다. 다만 accentOrInk 의 임계값(0.85)은
-              '거의 흰색'만 걸러내므로, 브랜드 옐로우급 중간 밝기 색(#F2B53C, 휘도 0.52 → 흰 배경
-              대비 1.8:1)은 통과해 버린다. 그래서 **라벨 텍스트에는 팀 컬러를 쓰지 않고**
-              (DESIGN.md "노랑을 흰 배경 위 텍스트로 쓰지 않는다") ink 토큰으로 4.5:1 을 보장하고,
-              팀 컬러는 2px 테두리 · 12% 틴트 배경 · 점 — 즉 비텍스트 요소로만 내보낸다. */}
+              ⚠ 팀 컬러 대비: **라벨 텍스트에는 팀 컬러를 쓰지 않는다.** ink 토큰으로 4.5:1 을
+              보장하고, 팀 컬러는 2px 테두리 · 12% 틴트 배경 · 점 — 비텍스트 요소로만 내보낸다.
+              활성 표시(테두리·배경)에도 팀 컬러를 쓰지 않는다 — 새 동호회가 어떤 색을 골라도
+              흰 패널 위에서 사라지지 않아야 한다. 팀 구분은 원색 점 + 안쪽 1px 링이 맡는다. */}
           <div
             ref={statsTabBarRef}
             role="tablist"
@@ -1353,7 +1351,6 @@ export default function LeagueTeamsPage() {
           >
             {standings.map((s, i) => {
               const on = s.identityKey === activeStatsTeamKey
-              const accent = accentOrInk(s.color)
               const count = (teamStats[s.identityKey] ?? []).length
               return (
                 <button
@@ -1369,9 +1366,13 @@ export default function LeagueTeamsPage() {
                   className="shrink-0 min-h-[44px] flex items-center gap-2 px-4 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                   style={{
                     // 활성/비활성 모두 테두리 2px — 폭이 변하지 않아 전환 시 옆 칩이 밀리지 않는다
-                    border: `2px solid ${on ? accent : 'var(--mm-rule)'}`,
+                    // ⚠ 활성 표시에 팀 컬러를 쓰지 않는다. 팀 컬러는 동호회가 자유롭게 고르는 값이라
+                    //   흰색·노랑이면 흰 패널 위에서 테두리가 사라진다(실제 팀 셋 중 둘이 그렇다).
+                    //   활성은 ink 로 일관되게 표시하고, 팀 정체성은 아래 '점'이 맡는다 —
+                    //   점은 원색 + 안쪽 1px 링이라 어떤 색이든 형태가 남는다.
+                    border: `2px solid ${on ? 'var(--mm-ink)' : 'var(--mm-rule)'}`,
                     borderRadius: 'var(--mm-radius-chip)',
-                    background: on ? `color-mix(in srgb, ${accent} 12%, var(--mm-panel))` : 'var(--mm-panel)',
+                    background: on ? 'var(--mm-panel-alt)' : 'var(--mm-panel)',
                     color: on ? 'var(--mm-ink)' : 'var(--mm-muted)',
                     transitionDuration: 'var(--mm-motion-fast)',
                     transitionTimingFunction: 'var(--mm-ease-out)',

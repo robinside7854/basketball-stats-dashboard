@@ -74,3 +74,9 @@ export function accentOrInk(hex: string | null | undefined): string {
   const ok = contrastRatio(h, PANEL_LIGHT) >= AA && contrastRatio(h, PANEL_DARK) >= AA
   return ok ? h : 'var(--mm-ink)'
 }
+
+// accentOnSurface(비텍스트 3:1) 는 만들었다가 지웠다(2026-08-13).
+// 3:1 로 낮춰도 흰색·노랑 팀 컬러는 흰 패널 위에서 여전히 통과하지 못했다 — 임계값 문제가
+// 아니라 "밝은 색을 밝은 배경 위 얇은 선으로 쓰는 것" 자체가 안 되는 방법이었다.
+// 팀 정체성은 **원색 채움 + 안쪽 1px 링**(--mm-rule)으로 낸다. 채움은 대비를 요구하지 않고
+// 링이 경계를 만들어, 팀이 어떤 색을 골라도 형태가 남는다. NbaTeamStandings·팀 탭이 그 방식이다.
