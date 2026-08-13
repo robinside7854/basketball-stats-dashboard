@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { useParams } from 'next/navigation'
-import { Trophy, Crown, Flame, Shield, Zap, Target, Sparkles, Award, Hand, Crosshair, Heart, Users, Layers } from 'lucide-react'
+import { Trophy, Crown, Flame, Shield, Zap, Target, Sparkles, Award, Hand, Crosshair, Heart, Users, Layers, ChevronDown } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
@@ -117,6 +117,34 @@ export default function AwardsPage() {
   // 분기 선택 — LeagueQuarterContext 로 페이지 간 공유
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const { selectedQuarterId, setSelectedQuarterId } = useLeagueQuarter()
+
+  // 펼쳐 둔 부문 — 11개 카드를 전부 펼쳐 세로로 잇지 않는다.
+  // 기본값은 **첫 부문 하나만 펼침**이다. 전부 접으면 요약 줄 11개만 남아 빈 화면처럼 보이고
+  // "이 안에 뭐가 들어 있는지" 를 한 번은 눌러 봐야 알게 된다 — 첫 장을 펴 둬서 본문 생김새를
+  // 먼저 보여주고 나머지는 접는다. 사용자가 편 상태는 localStorage 로 다음 방문까지 유지한다.
+  const [openCats, setOpenCats] = useState<string[]>([])
+  const seededRef = useRef(false)
+  useEffect(() => { seededRef.current = false }, [leagueId])
+  useEffect(() => {
+    if (seededRef.current || awards.length === 0) return
+    seededRef.current = true
+    try {
+      const raw = localStorage.getItem(`awards:openCats:${leagueId}`)
+      if (raw !== null) { setOpenCats(JSON.parse(raw) as string[]); return }
+    } catch { /* SSR·접근 실패 무시 */ }
+    setOpenCats([awards[0].category])
+  }, [awards, leagueId])
+
+  // 저장은 토글 시점에만 한다 — effect 로 쓰면 시드되기 전 빈 배열이 먼저 덮어써 버린다.
+  function toggleCat(category: string, open: boolean) {
+    setOpenCats(prev => {
+      const next = open
+        ? (prev.includes(category) ? prev : [...prev, category])
+        : prev.filter(c => c !== category)
+      try { localStorage.setItem(`awards:openCats:${leagueId}`, JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
 
   // 분기 목록 로드
   useEffect(() => {
@@ -341,6 +369,12 @@ export default function AwardsPage() {
           const style = CATEGORY_STYLE[a.category]
           const accent = CATEGORY_ACCENT[a.category]
           const isDuo = a.category === 'BEST_DUO' && !!a.winner?.partner
+          const isOpen = openCats.includes(a.category)
+          // 접힌 상태에 남길 정보 — 수상자 이름(듀오는 두 명) + 기록값. 수상자가 없으면 그 사실을
+          // 그대로 적는다. 요약 줄이 라벨만 남으면 접는 순간 화면에서 정보가 사라진다.
+          const winnerLine = a.winner
+            ? `${a.winner.name}${isDuo && a.winner.partner ? ` × ${a.winner.partner.name}` : ''} · ${a.winner.displayValue}`
+            : '수상자 없음'
           return (
             <div
               key={a.category}
@@ -354,14 +388,20 @@ export default function AwardsPage() {
               {/* 상단 카테고리 accent 스트라이프 */}
               <div data-award-ribbon style={{ height: '4px', background: accent }} />
 
-              {/* 카드 헤더 — 클릭하면 전체 순위 모달 */}
-              <button
-                onClick={() => setOpenAward(a)}
-                className="w-full px-4 py-3 md:px-5 md:py-3.5 flex items-center justify-between gap-2 cursor-pointer transition-colors text-left group"
-                style={{ borderBottom: '1px solid var(--mm-rule)' }}
-                title={`${a.label} 전체 순위 보기`}
+              {/* 부문 접이식 — 요약 줄(summary)이 곧 카드 헤더다. 선수 명단(roster)의 게스트
+                  접이식과 같은 관례: min-h-44 · list-none · ChevronDown 회전 · localStorage 유지. */}
+              {/* ⚠ details 에 display:flex/grid 를 주지 않는다 — 닫힘 상태에서 본문을 감추는 건
+                  UA 기본 렌더링이라 display 를 갈아끼우면 브라우저별로 어긋난다. flex-1 은
+                  display 를 바꾸지 않으므로(부모 flex-col 안의 크기 배분만) 안전하다. */}
+              <details
+                className="flex-1"
+                open={isOpen}
+                onToggle={e => toggleCat(a.category, (e.currentTarget as HTMLDetailsElement).open)}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
+                <summary
+                  className="flex items-center gap-2.5 px-3 py-2.5 md:px-4 md:py-3 min-h-[44px] cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  style={{ borderBottom: '1px solid var(--mm-rule)' }}
+                >
                   <div
                     className="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center shrink-0"
                     style={{
@@ -371,37 +411,52 @@ export default function AwardsPage() {
                   >
                     <style.Icon size={18} style={{ color: accent }} />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <h3
-                      className="font-bold"
+                      className="font-bold truncate"
                       style={{
                         color: 'var(--mm-ink)',
-                        fontSize: '17px',
+                        fontSize: '16px',
                         letterSpacing: '0.02em',
-                        lineHeight: 1.1,
+                        lineHeight: 1.2,
                       }}
                     >
                       {a.label}
                     </h3>
+                    {/* 접힌 상태에서 남는 정보 — 수상자 이름 · 기록값 */}
                     <p
-                      className="text-[11px] md:text-xs mt-1 break-keep"
-                      style={{ color: 'var(--mm-muted)', lineHeight: 1.35, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                      className="text-[12px] truncate mt-0.5"
+                      style={{ color: a.winner ? 'var(--mm-ink-soft)' : 'var(--mm-muted)', lineHeight: 1.3 }}
                     >
-                      {a.description}
+                      {winnerLine}
                     </p>
                   </div>
-                </div>
-                <div
-                  className="flex items-center gap-1 shrink-0 text-[11px] md:text-xs font-bold uppercase tracking-[0.12em] transition-colors"
-                  style={{ color: 'var(--mm-muted)' }}
-                >
-                  <span className="tabular-nums font-black" style={{ color: 'var(--mm-ink-soft)' }}>
-                    {a.allCandidates.length}
+                  <span
+                    className="shrink-0 text-[11px] font-bold tabular-nums"
+                    style={{ color: 'var(--mm-muted)' }}
+                    title={`후보 ${a.allCandidates.length}명`}
+                  >
+                    {a.allCandidates.length}명
                   </span>
-                  <span className="hidden md:inline">전체</span>
-                  <span className="text-base leading-none" style={{ color: 'var(--mm-ink)' }}>→</span>
-                </div>
-              </button>
+                  <ChevronDown
+                    size={16}
+                    aria-hidden
+                    className="shrink-0"
+                    style={{
+                      color: 'var(--mm-muted)',
+                      transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                      transition: 'transform var(--mm-motion-fast) var(--mm-ease-out)',
+                    }}
+                  />
+                </summary>
+
+                {/* 부문 설명 — 요약 줄은 수상자 이름에 자리를 내주고, 설명은 본문 맨 위로 내렸다 */}
+                <p
+                  className="px-3 md:px-4 py-2.5 text-[11px] md:text-xs break-keep"
+                  style={{ color: 'var(--mm-muted)', lineHeight: 1.4, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                >
+                  {a.description}
+                </p>
 
               {/* Winner 스포트라이트 — 노랑 배경 + 검정 잉크 (E안 아이덴티티) */}
               {a.winner ? (
@@ -671,6 +726,21 @@ export default function AwardsPage() {
                 </div>
               )}
 
+              {/* 전체 순위 — 원래는 카드 헤더 클릭이 이 모달을 열었다. 헤더가 접이식 토글이 되면서
+                  진입점을 본문 하단으로 옮겼다. 요약 줄 안에 버튼을 겹쳐 두면 탭 한 번에 "접기"와
+                  "모달 열기"가 얽혀 어느 쪽이 실행됐는지 알 수 없게 된다. */}
+              <div className="px-3 md:px-4 pb-3">
+                <button
+                  type="button"
+                  onClick={() => setOpenAward(a)}
+                  className="w-full inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 text-[11px] font-bold uppercase tracking-[0.12em] cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
+                >
+                  전체 순위 {a.allCandidates.length}명 보기
+                  <span aria-hidden className="text-base leading-none" style={{ color: 'var(--mm-ink)' }}>→</span>
+                </button>
+              </div>
+
               {a.minRequirement && a.winner && (
                 <div
                   className="mt-auto px-4 md:px-5 py-2"
@@ -687,6 +757,7 @@ export default function AwardsPage() {
                   </p>
                 </div>
               )}
+              </details>
             </div>
           )
         }
