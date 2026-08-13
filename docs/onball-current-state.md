@@ -49,8 +49,10 @@
   좁혔다. 이 함수는 계정 라우트의 로컬 함수였던 것을 `src/lib/auth/identifiedAdmin.ts` 로 올렸다.
   ⚠ **계정 체계가 없는 대회 전용 팀(파란날개)은 이 기능을 못 쓴다** — `canEditTeam()` 도입 때 함께 풀 것.
 - 결과: 패키지 36 → 24개 · 번들 6.7MB → 5.9MB · 코드 약 2,900줄 감소.
-- ⏳ **미실행 마이그레이션 2개** — `094_drop_league_columns.sql`(AI 주간 칼럼 4행, 읽는 화면 없음),
-  `095_drop_announcements.sql`(공지 3·댓글 3). 사용자 승인 후 적용한다.
+- ✅ **마이그레이션 094·095 적용 완료**(2026-08-13, 사용자 승인) — `league_columns`(4) ·
+  `league_announcements`(3) · `league_announcement_comments`(3) 삭제. 표 35개 남음.
+  ⚠ 실행 전 세 표의 전 행을 `supabase/backups/2026-08-11-dropped-tables.json` 에 떠 뒀다.
+  Supabase 백업은 **새 프로젝트로만** 복원되므로 되살릴 일이 생기면 이 파일이 가장 빠른 경로다.
 
 **최근 결정 (2026-08-11, 개인특성 배지 14종 재정의 + 리그 화면 노출, `master fa9f6210`):**
 - **`src/lib/badges/traitBadges.ts` 가 정본이다.** 옛 `src/lib/stats/badges.ts`(19종)는 **레거시 트리
