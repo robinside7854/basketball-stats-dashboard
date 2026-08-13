@@ -16,6 +16,7 @@ import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 import { CountUp } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
+import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import PlayerMiniTabs, { type PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
 import DynamicDuoPanel, { type DuoEntry } from '@/components/league/player/DynamicDuoPanel'
 import { type EvaluatedBadge } from '@/lib/stats/badges'
@@ -161,6 +162,16 @@ interface Props {
 }
 
 export default function PlayerQuickViewModal({ leagueId, playerId, playerName, onClose, isEditMode, leagueHeaders, onSaved, onDeleted }: Props) {
+  // AI 프로필 생성 버튼 노출 판단용 — isEditMode(= 어드민 role ∥ 편집 PIN)가 아니라
+  // isAdminSession(= 어드민 role 만)을 쓴다. CLAUDE.md "PIN 폐지 방향"에 따라 서버
+  // 가드(/photo/generate)가 PIN 을 더 이상 통과시키지 않으므로, PIN 으로 편집 모드에
+  // 들어온 사용자에게 버튼을 보여주면 눌러도 401 만 받는 죽은 버튼이 된다.
+  // ⚠ 이건 어디까지나 보조다 — 실제 인가는 서버의 isIdentifiedAdmin 이 매 요청 DB 를
+  //   재조회해 판정한다. 여기서 감추는 건 "누를 수 없는 버튼을 안 보이게" 하는 UI 처리일 뿐,
+  //   이 조건을 우회해도 서버에서 막힌다.
+  // Provider 밖에서 렌더되더라도 컨텍스트 기본값이 false 라 fail-closed 로 숨겨진다.
+  const { isAdminSession } = useLeagueEditMode()
+
   const [player, setPlayer] = useState<PlayerInfo | null>(null)
   const [stats, setStats] = useState<SeasonStats | null>(null)
   const [detail, setDetail] = useState<Detail | null>(null)
@@ -530,13 +541,13 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   />
                 </label>
               )}
-              {/* 편집 모드 + 사진 있음 — 우하단 AI 프로필 생성/재생성 버튼 */}
-              {isEditMode && photoUrl && (
+              {/* 어드민 세션 + 사진 있음 — 우하단 AI 프로필 생성/재생성 버튼.
+                  PIN 편집 모드에는 노출하지 않는다 (위 isAdminSession 주석 참조). */}
+              {isAdminSession && photoUrl && (
                 <button
                   type="button"
                   disabled={generatingAI || uploadingPhoto}
                   onClick={async () => {
-                    if (!leagueHeaders) return
                     const promptText = isAIGenerated
                       ? 'AI 프로필을 재생성하시겠어요?\n\n원본 사진에서 새 결과를 만듭니다 (매번 조금씩 달라짐).\n\n예상 시간 10-20초 · 비용 ~$0.04'
                       // 멀티테넌트 전환(온볼): 서버 프롬프트가 노란/검정 유니폼으로 고정 생성하므로(club 무관, 별도 이슈로 보고)
@@ -545,10 +556,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     if (!window.confirm(promptText)) return
                     setGeneratingAI(true)
                     try {
-                      const headers: Record<string, string> = {}
-                      if (leagueHeaders['X-League-Pin']) headers['X-League-Pin'] = leagueHeaders['X-League-Pin']
+                      // 인증은 어드민 세션 쿠키(mm_auth)로만 한다 — X-League-Pin 은 서버가
+                      // 더 이상 받지 않으므로 실어 보내지 않는다.
                       const res = await fetch(`/api/leagues/${leagueId}/players/${playerId}/photo/generate`, {
-                        method: 'POST', headers,
+                        method: 'POST',
                       })
                       if (res.ok) {
                         const d = await res.json()

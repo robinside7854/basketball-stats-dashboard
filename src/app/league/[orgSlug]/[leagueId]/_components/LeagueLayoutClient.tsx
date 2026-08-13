@@ -47,8 +47,8 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   const meAriaLabel = user ? `내 기록 — ${meLabel}` : '내 기록 — 가입하기'
 
   // 상위 메뉴 — 선수 명단·팀 순위는 스탯 우산으로 이동, 경기 탭은 원래대로 경기 3개만 남는다
-  // (2026-08-08, stats-umbrella-move — 직전 커밋의 '팀/경기' 통합을 되돌림). 하이라이트 우산에
-  // 공지 아카이브 통합. URL 은 그대로 유지(SEO/기존 링크 보존).
+  // (2026-08-08, stats-umbrella-move — 직전 커밋의 '팀/경기' 통합을 되돌림).
+  // URL 은 그대로 유지(SEO/기존 링크 보존).
   // 설정 탭은 편집 모드일 때만 나비게이션에 노출(어드민 은닉) —
   //   URL 직접 접근은 여전히 가능하므로, 진짜 어드민 전용화가 필요하면 별도 이슈로 서버 가드 필요.
   // "내 기록"은 항상 맨 오른쪽 — 드래프트/설정은 기존 위치(하이라이트 다음)를 유지한다(Task 4-B).
@@ -64,13 +64,12 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
     // '내 기록' 탭 match 에 흡수해 어느 탭도 안 켜지는 상태를 막는다(리뷰 항목 5, 2026-08-08).
     { href: `${base}/me`, label: meLabel, match: [`${base}/me`, `${base}/social`], ariaLabel: meAriaLabel },
   ]
-  // 공지 아카이브(/archive)는 홈 우산 소속(영상이 아니라 소식) — 홈 탭은 완전일치가 아니라
-  // /archive 로 시작하는 경로도 활성으로 잡아야 아카이브에서 인디케이터가 꺼지지 않는다.
+  // 홈 탭은 완전일치. (공지 아카이브 /archive 우산은 공지 기능 폐지로 2026-08-13 제거)
   // 선수 명단·팀 순위(/roster·/teams)는 스탯 탭의 match 배열로 옮겨졌다(위 tabs 참조, 2026-08-08) —
   // 경기 탭 match 에서는 반드시 빠져야 두 탭이 동시에 켜지는 걸 막는다.
   const tabActive = (tab: { href: string; match: string[] }) =>
     tab.href === base
-      ? (pathname === base || pathname.startsWith(`${base}/archive`))
+      ? pathname === base
       : (tab.match.length ? tab.match.some(m => pathname.startsWith(m)) : pathname.startsWith(tab.href))
 
   // 데스크톱 활성 인디케이터 — 탭마다 그리지 않고 하나를 옮긴다(모바일 하단 탭과 같은 원칙).
@@ -241,14 +240,13 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   // 스탯 우산 매칭 — /stats·/awards 뿐 아니라 /roster·/teams(선수 명단·팀 순위)도 스탯 탭 활성
   //   (2026-08-08, 데스크톱 TabNav match 배열과 동일 반영). 안 옮기면 /roster·/teams 에서
   //   홈과 스탯 두 탭이 동시에 켜지거나, 반대로 어느 탭도 안 켜지는 문제가 생긴다.
-  // 홈 우산 매칭 — /archive(공지 아카이브)도 홈 소속. 탭이 하나도 안 켜지면 위치를 잃으므로
-  //   반드시 홈으로 흡수한다.
+  // 홈 매칭 — 완전일치. (공지 아카이브 /archive 우산은 공지 기능 폐지로 2026-08-13 제거)
   // 경기 우산 매칭 — /schedule 이면서 /boxscore·/record 도 경기 탭 활성.
   // 내 기록 우산 매칭 — /me 자체뿐 아니라 /draft·/settings·/social 도 여기로 흡수한다. 셋 다 하단 탭이
   //   따로 없고 /me 의 "바로가기"(또는 설정)로만 진입하므로, 안 그러면 그 페이지에서 하단 탭이 전부
   //   꺼진다. /social(인스타 매거진 카드 생성기)은 설정에서만 진입하는 운영자 전용 화면(리뷰 항목 5).
   const isActive = (href: string) => {
-    if (href === base) return pathname === base || pathname.startsWith(`${base}/archive`)
+    if (href === base) return pathname === base
     if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/awards`) || pathname.startsWith(`${base}/roster`) || pathname.startsWith(`${base}/teams`)
     if (href === `${base}/schedule`) return pathname.startsWith(`${base}/schedule`) || pathname.startsWith(`${base}/boxscore`) || pathname.startsWith(`${base}/record`)
     if (href === `${base}/me`) return pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/draft`) || pathname.startsWith(`${base}/settings`) || pathname.startsWith(`${base}/social`)

@@ -4,31 +4,26 @@
 //   reset_password 는 비번을 '123456' 으로 고정 초기화
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
-import { canEditLeague, getLeagueAdminSession, isLeagueAdmin } from '@/lib/auth/leagueAdmin'
-import { requireCeoSession } from '@/lib/auth/ceo'
+import { canEditLeague, getLeagueAdminSession } from '@/lib/auth/leagueAdmin'
+import { isIdentifiedAdmin } from '@/lib/auth/identifiedAdmin'
 import { setAccountRole, type AccountRole } from '@/lib/auth/setAccountRole'
 import { hashPassword } from '@/lib/auth/password'
 
 const RESET_PASSWORD = '123456'
 
-/**
- * "신원이 남는 권한자"인가 — 어드민 회원 세션 또는 CEO.
- *
- * ⚠ canEditLeague 와 다르다. canEditLeague 는 편집 PIN 도 통과시킨다.
- *   PIN 은 단톡방을 떠도는 4자리 공유 비밀이고 누가 썼는지 기록이 안 남는다.
- *   그런 열쇠로 **영구 권한**을 만들어내는 경로가 있으면, 잠깐 새어나간 PIN 이
- *   되돌릴 수 없는 어드민으로 굳는다. PIN 을 나중에 바꿔도 그 어드민은 남는다.
- *   그래서 아래 세 가지는 PIN 으로 못 하게 막는다:
- *     · set_role        — 직접적인 권한 상승
- *     · reset_password  — 어드민 비번을 '123456' 으로 만든 뒤 그 계정으로 로그인하면 결과가 같다
- *     · 어드민 계정의 disable/reject — 탈취는 아니지만 운영진을 잠가버릴 수 있다
- *   나머지(일반 회원 승인·반려·비활성)는 PIN 으로도 계속 가능하다. 아직 어드민이 없는
- *   동호회가 첫 회원을 받는 길까지 막으면 온보딩이 멈춘다.
- */
-async function isIdentifiedAdmin(leagueId: string): Promise<boolean> {
-  if (await isLeagueAdmin(leagueId)) return true
-  return (await requireCeoSession()) !== null
-}
+// isIdentifiedAdmin("신원이 남는 권한자" = 어드민 회원 세션 ∥ CEO)은
+// `@/lib/auth/identifiedAdmin` 로 옮겼다 (AI 프로필 생성 라우트도 같은 경계를 쓴다).
+//
+// ⚠ canEditLeague 와 다르다. canEditLeague 는 편집 PIN 도 통과시킨다.
+//   PIN 은 단톡방을 떠도는 4자리 공유 비밀이고 누가 썼는지 기록이 안 남는다.
+//   그런 열쇠로 **영구 권한**을 만들어내는 경로가 있으면, 잠깐 새어나간 PIN 이
+//   되돌릴 수 없는 어드민으로 굳는다. PIN 을 나중에 바꿔도 그 어드민은 남는다.
+//   그래서 아래 세 가지는 PIN 으로 못 하게 막는다:
+//     · set_role        — 직접적인 권한 상승
+//     · reset_password  — 어드민 비번을 '123456' 으로 만든 뒤 그 계정으로 로그인하면 결과가 같다
+//     · 어드민 계정의 disable/reject — 탈취는 아니지만 운영진을 잠가버릴 수 있다
+//   나머지(일반 회원 승인·반려·비활성)는 PIN 으로도 계속 가능하다. 아직 어드민이 없는
+//   동호회가 첫 회원을 받는 길까지 막으면 온보딩이 멈춘다.
 
 export async function PATCH(
   req: Request,

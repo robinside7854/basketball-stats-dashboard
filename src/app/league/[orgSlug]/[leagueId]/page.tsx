@@ -12,8 +12,6 @@ type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import { ChevronRight } from 'lucide-react'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
 import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
-import AnnouncementsHome from '@/components/league/announcements/AnnouncementsHome'
-import type { LeagueAnnouncement } from '@/lib/announcements/types'
 import { loadRecentRounds, loadRoundDetail } from '@/lib/highlights/loader'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
 import NbaRoundsSummary, { type RoundSummary, type RoundTeamSummary } from '@/components/league/nba/NbaRoundsSummary'
@@ -334,23 +332,6 @@ async function computeHomeHighlights(
   }
 }
 
-const getCachedAnnouncements = (leagueId: string) =>
-  unstable_cache(
-    async (): Promise<LeagueAnnouncement[]> => {
-      const sb = createClient()
-      const { data } = await sb
-        .from('league_announcements')
-        .select('id, title, body_markdown, pinned, published_at, created_by, updated_at')
-        .eq('league_id', leagueId)
-        .order('pinned', { ascending: false })
-        .order('published_at', { ascending: false })
-        .limit(20)
-      return (data ?? []) as LeagueAnnouncement[]
-    },
-    ['league-announcements-home', leagueId],
-    { tags: [`league-${leagueId}-announcements`], revalidate: 300 },
-  )
-
 const getCachedHomeHighlights = (leagueId: string) =>
   unstable_cache(
     async () => {
@@ -412,7 +393,6 @@ export default async function LeagueDetailPage({
     initialPhotoMap,
     milestonesData,
     homeHighlights,
-    announcements,
     approvedSession,
   ] = await Promise.all([
     getCachedLeagueMeta(leagueId, orgSlug)(),
@@ -422,7 +402,6 @@ export default async function LeagueDetailPage({
     getCachedPhotoMap(leagueId)(),
     getCachedMilestones(leagueId)(),
     getCachedHomeHighlights(leagueId)(),
-    getCachedAnnouncements(leagueId)(),
     // 스탯 게이팅 — 쿠키 접근이라 unstable_cache 밖에서 호출 (2026-07-28)
     getApprovedSession(leagueId),
   ])
@@ -434,7 +413,7 @@ export default async function LeagueDetailPage({
   // 첫 사용자용 헤더 메타(추가 쿼리 없이 기존 데이터 재사용) · 하이라이트 유무(팬 기본 탭용)
   const memberCount = Object.keys(initialPhotoMap ?? {}).length
   const highlightsAvailable = (homeHighlights?.clips?.length ?? 0) > 0
-  // 스탯 게이팅 — 승인 회원만 리더보드·마일스톤·하이라이트 열람 (순위표·라운드·공지는 공개)
+  // 스탯 게이팅 — 승인 회원만 리더보드·마일스톤·하이라이트 열람 (순위표·라운드는 공개)
   const isMember = !!approvedSession
 
   return (
@@ -502,15 +481,13 @@ export default async function LeagueDetailPage({
         </Link>
       )}
 
-      {/* 상단 병렬 — 공지사항 · 마일스톤 (PC 2열 · 모바일 세로 순차 : 공지 → 마일스톤 · 2026-07-19) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 items-start">
-        <AnnouncementsHome leagueId={leagueId} initialAnnouncements={announcements} orgSlug={orgSlug} />
-        {isMember ? (
-          <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
-        ) : (
-          <StatGate title="마일스톤은 회원 전용" description="선수들의 누적 기록 달성 소식은 가입 승인된 회원만 볼 수 있어요." />
-        )}
-      </div>
+      {/* 마일스톤 — 공지 기능 폐지(2026-08-13)로 짝이던 카드가 사라져 2열 그리드를 접고
+          한 폭으로 되돌렸다. 아래 HomeSectionTabs·상단 헤더와 같은 전폭 리듬이라 빈 열이 남지 않는다. */}
+      {isMember ? (
+        <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
+      ) : (
+        <StatGate title="마일스톤은 회원 전용" description="선수들의 누적 기록 달성 소식은 가입 승인된 회원만 볼 수 있어요." />
+      )}
 
       {/* 미라클모닝 브랜드 홈 — 팀 승률 · 최근 라운드 · 리그 리더 · 하이라이트를 탭으로 묶어
           스크롤 길이 단축 (2026-07-27). 활성 탭만 노출 · 기본=팀 승률(첫 방문 투어 타깃 보존).

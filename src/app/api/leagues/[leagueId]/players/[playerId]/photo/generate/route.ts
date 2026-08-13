@@ -15,7 +15,7 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 import { createClient } from '@/lib/supabase/admin'
-import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { isIdentifiedAdmin } from '@/lib/auth/identifiedAdmin'
 import { resolveTeamId } from '@/lib/league/teamScope'
 
 // 미라클모닝 농구단 공식 프로필 실사 프롬프트
@@ -155,7 +155,21 @@ export async function POST(
   { params }: { params: Promise<{ leagueId: string; playerId: string }> }
 ) {
   const { leagueId, playerId } = await params
-  if (!await canEditLeague(req, leagueId)) {
+
+  // 가드 선택 근거 (CLAUDE.md "역할 정의" · "PIN 폐지 방향" 2026-08-10):
+  //   · CEO 전용 가드(requireCeoSession 단독)는 과하다 — 이건 플랫폼 운영이 아니라
+  //     "각 팀 운영진"이 자기 팀 명단을 손보는 행위다. CLAUDE.md 표에서 **어드민** 영역.
+  //   · canEditLeague 는 편집 PIN 폴백을 통과시켜서 여기엔 못 쓴다. PIN 은 단톡방을
+  //     떠도는 4자리 공유 비밀이라 (1) 외부 AI 호출 비용이 호출 1건당 ~$0.039 로
+  //     실제 과금되고 (2) 남의 프로필 사진을 덮어쓴다 — 누가 했는지 기록도 안 남는다.
+  //     "새 기능에 PIN 가드를 추가하지 말 것" 지침에도 정면으로 어긋난다.
+  //   ⇒ 신원이 남는 권한자(어드민 회원 세션 ∥ CEO)만 통과시킨다.
+  //   ⚠ 부작용: 계정 체계가 없는 대회 전용 팀(파란날개 청년부/장년부)은 어드민을
+  //     지정할 수 없어 이 기능을 못 쓴다. CLAUDE.md 가 적어둔 기존 한계 그대로이며,
+  //     PIN 을 되살리는 대신 canEditTeam() 도입 때 함께 풀어야 한다.
+  //
+  // 실패 응답은 다른 리그 mutation API 와 동일하게 401 + { error: 'Unauthorized' }.
+  if (!await isIdentifiedAdmin(leagueId)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -81,7 +81,7 @@ export default async function Image() {
         />
 
         {/* 상단 락업 — 브랜드 가이드의 onball-symbol.svg 패스 + 워드마크 + 밑줄.
-            스플래시(globals.css .splash-*)·로고 파일과 같은 형태를 쓴다. */}
+            로고 파일과 같은 형태를 쓴다. */}
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16 }}>
           <svg width={70} height={61} viewBox="0 0 152 132" fill="none" stroke={COLOR.yellow} strokeWidth={8} strokeLinecap="round">
             <circle cx="76" cy="66" r="52" />

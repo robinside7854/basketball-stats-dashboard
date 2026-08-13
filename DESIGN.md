@@ -218,17 +218,8 @@ components:
   rank-top-badge:
     backgroundColor: "{colors.rank-top-bg}"
     textColor: "{colors.rank-top-fg}"
-  announcement-link:
-    backgroundColor: "{colors.panel}"
-    textColor: "{colors.yellow-strong}"
-  announcement-mark:
-    backgroundColor: "{colors.yellow}"
-    textColor: "{colors.black}"
   divider:
     backgroundColor: "{colors.rule}"
-  announcement-quote:
-    backgroundColor: "{colors.panel-alt}"
-    textColor: "{colors.ink-soft}"
 ---
 
 # DESIGN.md — 미라클모닝 농구 대시보드 (Light)

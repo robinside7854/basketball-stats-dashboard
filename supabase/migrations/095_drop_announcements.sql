@@ -1,0 +1,44 @@
+-- =============================================
+-- 095_drop_announcements.sql
+-- 리그 공지사항(announcements) 기능 전면 폐지
+-- =============================================
+-- 왜 지우는가
+--   · 기능 폐지 결정 (2026-08-13, 사용자 승인).
+--   · 도입 이후 실제 사용이 사실상 멈췄다 — 마지막 작성이 2026-08-03 이고 그 뒤로 없다.
+--   · 유지 비용이 컸다. 공지 편집기(tiptap + 확장 7종 + 마크다운 렌더 체인)가 앱에서
+--     가장 무거운 부품(약 448KB)이었고, 공지 하나 때문에 그 무게를 전 사용자가 나눠 졌다.
+--   · 기능 축소 방침의 연장선 — 078_drop_coach_pins.sql 과 같은 맥락.
+--
+-- 지워지는 데이터 (복구 불가)
+--   · league_announcements          — 공지 3건
+--   · league_announcement_comments  — 댓글 3건
+--   ※ 그 밖에 공지 본문에 삽입된 이미지가 Storage 에 남아 있을 수 있다. 이 마이그레이션은
+--     Storage 를 건드리지 않는다 — 필요하면 별도로 정리할 것.
+--
+-- ⚠ 실행 전 백업 권장
+--   · 양이 적으므로 실행 전 두 표를 SELECT 해서 CSV 로 내려받아 두는 것으로 충분하다.
+--       SELECT * FROM public.league_announcements;
+--       SELECT * FROM public.league_announcement_comments;
+--   · Supabase 백업은 "새 프로젝트로만" 복원되므로, 지운 뒤 되돌리려면 비용이 크다.
+--
+-- ⚠ 푸시 알림은 유지된다
+--   · 공지 작성 시 자동 발송되던 경로만 사라진다. push_subscriptions 표와
+--     /api/leagues/[leagueId]/push (수동 발송) 은 그대로 둔다 — 이 파일에서 건드리지 않는다.
+--
+-- 함께 제거된 코드 (같은 커밋)
+--   · API      : /api/leagues/[leagueId]/announcements/** (목록·작성·수정·삭제·댓글·이미지 업로드)
+--   · 화면      : /league/[orgSlug]/[leagueId]/archive/announcements
+--   · 컴포넌트  : components/league/announcements/* (RichEditor·에디터/리더 모달·댓글·아카이브·홈 위젯)
+--   · 라이브러리: lib/announcements/* (types · markdown · commentAuth)
+--   · 스크립트  : scripts/repair-announcement-markdown.mjs
+--   · 패키지    : @tiptap/* 8종 · react-markdown · remark-gfm · rehype-raw · marked
+--   · 네비게이션: 홈 탭의 `/archive` 우산 매칭 (LeagueLayoutClient)
+--
+-- 삭제 순서 주의
+--   league_announcement_comments.announcement_id 가 league_announcements(id) 를 참조하므로
+--   반드시 댓글 표를 먼저 지운다. (CASCADE 를 쓰지 않고 순서로 푼다 — 무엇이 지워지는지
+--   SQL 만 읽어도 드러나야 한다.)
+-- =============================================
+
+DROP TABLE IF EXISTS public.league_announcement_comments;
+DROP TABLE IF EXISTS public.league_announcements;
