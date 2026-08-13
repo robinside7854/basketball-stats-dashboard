@@ -3,6 +3,34 @@
 최종 갱신 2026-08-07. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
 
+**최근 결정 (2026-08-13, 리그별 PWA 매니페스트 — 아이폰 설치본이 대문에서 멈추던 문제, `master 05355d17`+`09fbd4eb`):**
+- ⚠ **iOS 의 "홈 화면에 추가" 웹앱은 사파리와 저장소 파티션이 분리된다**(localStorage·쿠키·SW 별도
+  컨테이너). 그래서 `src/lib/lastLeague.ts` + `LastLeagueRedirect`(마지막으로 본 동호회를
+  localStorage 에 기억했다가 대문에서 되돌려보내기)는 **iOS 에서 원리적으로 동작할 수 없다** —
+  설치본의 첫 실행은 항상 빈 저장소다. 안드로이드 Chrome 은 설치본↔브라우저가 저장소를 공유해
+  같은 코드가 동작한다. "안드로이드는 되는데 아이폰만 안 된다"가 정확히 이 차이다.
+  **클라이언트 저장소로 이 문제를 다시 풀려고 하지 말 것.**
+- 근본 해결: **리그별 매니페스트**. `GET /league/[orgSlug]/[leagueId]/manifest.webmanifest`
+  (신규 라우트)를 리그 `layout.tsx` 의 `generateMetadata` 가 `metadata.manifest` 로 링크해 루트
+  매니페스트를 덮어쓴다. 설치 시점에 `start_url` 이 그 동호회로 박히므로 iOS·안드로이드 모두 해결.
+- **`LastLeagueRedirect` 는 남겨 뒀다** — 대문으로 직접 들어온 사용자에겐 여전히 유효하다.
+- 이름 정책: `name='온볼 — <동호회명>'` / `short_name='<동호회명>'` — "앱 정체성은 온볼 하나"는
+  유지하고 홈 화면 라벨만 동호회명. iOS 가 `apple-mobile-web-app-title` 과 `short_name` 중 무엇을
+  쓰는지 버전마다 달라 리그 레이아웃에서 `appleWebApp.title` 도 같은 값으로 맞췄다.
+  ⚠ **Next 는 `appleWebApp` 을 필드 단위로 통째 덮어쓴다** → 반드시 `appleWebAppMetadata()`
+  (`src/lib/pwa/appShell.ts`)로 전체를 재구성할 것. 직접 객체를 쓰면 iOS 런치 스플래시가 조용히 사라진다.
+- ⚠ **`start_url` 에 UUID 를 박지 말 것.** 미들웨어가 slug→UUID 로 internal rewrite 하므로
+  `params.leagueId` 는 UUID 지만 주소창은 slug 다 → DB 의 `leagues.org_slug`/`slug` 로 주소창과
+  같은 경로를 만든다(`resolveLeagueAppIdentity`).
+- `scope: '/'` 명시 — 기본값(start_url 의 디렉터리)이면 리그 밖 링크에서 설치본을 벗어나 브라우저로 튕긴다.
+- 비공개 리그는 이름을 '온볼' 로 중립화(매니페스트는 쿠키 없이 요청될 수 있다). start_url 은 요청자가
+  이미 아는 경로라 새는 정보가 없다.
+- 프로덕션 실측: 리그 매니페스트 **200** (`start_url=/league/miracle/2026`), 리그 페이지의
+  `<link rel="manifest">` **1개**(리그 매니페스트만), 루트 `/` 는 여전히 `/manifest.webmanifest`,
+  없는 리그는 **404**, iOS 런치 이미지 24개 유지.
+- **아이폰 사용자 안내: 기존 바로가기는 지우고 다시 추가해야 한다.** start_url 은 설치 시점에
+  복사되므로 이미 설치된 바로가기는 계속 대문으로 열린다.
+
 **최근 결정 (2026-08-11, 구조 정리 — 스플래시·공지·미사용 코드 제거, `master b70f8a5d`):**
 - **앱 진입 스플래시 삭제.** 세션당 **2.57초** 동안 화면을 덮고 있었다(애니메이션 1.75s + 대기 0.3s
   + 페이드 0.52s). 데이터가 준비돼도 그만큼 기다려야 했다 — 체감 속도의 가장 큰 원인이었다.
