@@ -11,6 +11,7 @@ import { computeMilestones } from '@/lib/stats/milestones'
 type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import { ChevronRight } from 'lucide-react'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
+import NextGameRsvp from '@/components/league/NextGameRsvp'
 import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
 import { loadRecentRounds, loadRoundDetail } from '@/lib/highlights/loader'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
@@ -448,6 +449,12 @@ export default async function LeagueDetailPage({
           )}
         </div>
       </div>
+
+      {/* 다음 경기 참여신청 — 헤더(리그 이름) 바로 아래, 실질적인 첫 카드.
+          '보는 것'이 아니라 '하는 것'이라 맨 위에 둔다. 매주 전원이 한 번씩 눌러야 값이 생기는데
+          아래로 내리면 아무도 안 누르고, 그러면 총무가 단톡방을 병행하게 된다.
+          홈 전체가 unstable_cache 로 캐시되므로 사람마다 다른 '내 응답'은 이 안에서 따로 받아온다. */}
+      <NextGameRsvp leagueId={leagueId} />
 
       {/* 시즌 전환 */}
       {otherLeagues.length > 0 && (

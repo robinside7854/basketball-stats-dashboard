@@ -6,7 +6,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2, ChevronDown, Pencil, Clock, MapPin, Users } from 'lucide-react'
+import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2, ChevronDown, Pencil, Clock, MapPin, Users, CalendarOff } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import SubTabLoadingSkeleton from '@/components/league/SubTabLoadingSkeleton'
@@ -237,6 +237,26 @@ function ScheduleContent() {
     }
   }
 
+  // 대관 없음 지정/해제. 지정하면 참여신청 대상에서 빠진다(서버가 is_skipped 를 보고 거른다).
+  async function toggleSkip(date: string, next: boolean) {
+    setSavingDate(date)
+    const res = await fetch(`/api/leagues/${leagueId}/schedule-dates`, {
+      method: 'PATCH',
+      headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, is_skipped: next }),
+    })
+    setSavingDate(null)
+    if (res.ok) {
+      const updated: ScheduleDate = await res.json()
+      setDates(prev => prev.map(d => (d.date === date ? { ...d, ...updated } : d)))
+      if (next) setEditingDate(null)
+      toast.success(next ? '대관 없음으로 지정 — 이 주는 신청을 받지 않습니다' : '대관 없음 해제')
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error ?? '변경 실패')
+    }
+  }
+
   async function removeDate(date: string) {
     if (!confirm(`${date} 일정을 삭제하시겠습니까?\n해당 날짜의 경기 슬랏도 모두 삭제됩니다.`)) return
     setDeletingDate(date)
@@ -423,9 +443,10 @@ function ScheduleContent() {
         )}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {visibleDates.map(sd => {
-            // 앞으로 있을 경기. 미실시로 접힌 날은 제외한다 — 접혔다는 건 '안 모인다'는 뜻이라
-            // 예정으로 부르면 거짓말이 된다.
-            const upcoming = sd.date >= today && !sd.is_skipped
+            const isFuture = sd.date >= today
+            // 앞으로 있을 경기. 접힌 날은 제외한다 — 접혔다는 건 '안 모인다'는 뜻이라
+            // 예정으로 부르면 거짓말이 되고, 참여신청도 받으면 안 된다.
+            const upcoming = isFuture && !sd.is_skipped
             const hasDetails = !!(sd.start_time || sd.place || sd.capacity)
             return (
             <div
@@ -460,6 +481,8 @@ function ScheduleContent() {
                     예정
                   </span>
                 )}
+                {/* 같은 플래그(is_skipped)를 시제로만 가른다 — 담는 사실은 '이 날은 경기가 없다'로
+                    같다. 앞으로의 주에 '미실시'라고 쓰면 아직 벌어지지도 않은 일을 단정하게 된다. */}
                 {sd.is_skipped && (
                   <span
                     className="shrink-0 text-[10px] font-black uppercase px-2 py-0.5"
@@ -469,9 +492,11 @@ function ScheduleContent() {
                       borderRadius: 'var(--mm-radius-chip)',
                       letterSpacing: '0.12em',
                     }}
-                    title="영상도 기록도 없이 일주일이 지나 미실시로 정리된 날짜입니다. 자동 등록으로 다시 생기지 않습니다."
+                    title={isFuture
+                      ? '대관이 없어 이번 주는 모이지 않습니다. 참여신청도 받지 않습니다.'
+                      : '영상도 기록도 없이 일주일이 지나 미실시로 정리된 날짜입니다. 자동 등록으로 다시 생기지 않습니다.'}
                   >
-                    미실시
+                    {isFuture ? '대관 없음' : '미실시'}
                   </span>
                 )}
               </div>
@@ -503,6 +528,19 @@ function ScheduleContent() {
                     <BarChart2 size={12} />박스스코어
                   </span>
                 ))}
+                {/* 대관 없음 토글 — 지정하면 그 주는 참여신청을 받지 않는다.
+                    되돌릴 수 있어야 한다: 대관이 뒤늦게 잡히는 일이 흔하다. */}
+                {isEditMode && isFuture && (
+                  <button
+                    onClick={() => toggleSkip(sd.date, !sd.is_skipped)}
+                    disabled={savingDate === sd.date}
+                    className="inline-flex items-center gap-1.5 justify-center text-[11px] font-bold tracking-widest uppercase px-3 py-2 min-h-[44px] transition-colors cursor-pointer disabled:opacity-50 hover:bg-[color:var(--mm-panel-alt)]"
+                    style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
+                  >
+                    <CalendarOff size={12} aria-hidden />
+                    {sd.is_skipped ? '되돌리기' : '대관 없음'}
+                  </button>
+                )}
                 {isEditMode && upcoming && (
                   <button
                     onClick={() => setEditingDate(editingDate === sd.date ? null : sd.date)}

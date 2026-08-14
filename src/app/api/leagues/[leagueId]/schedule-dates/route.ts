@@ -65,6 +65,7 @@ export async function PATCH(
     start_time?: string | null
     place?: string | null
     capacity?: number | string | null
+    is_skipped?: boolean
   }
   if (!body.date) return NextResponse.json({ error: '날짜를 지정하세요' }, { status: 400 })
 
@@ -91,6 +92,17 @@ export async function PATCH(
       }
       patch.capacity = n
     }
+  }
+
+  // '대관 없음' 지정 — 어드민이 미리 접는다.
+  //
+  // 새 컬럼을 만들지 않고 is_skipped 를 그대로 쓴다. 담는 사실이 같기 때문이다: **이 날은
+  // 경기가 없다.** 자동 판정(영상 0 + 기록 0 + 7일 경과)은 지난 주를 사후에 접고, 이건
+  // 앞으로의 주를 미리 접을 뿐이라 시제만 다르다. 플래그를 둘로 나누면 "둘 다 true 면?"
+  // 같은 답 없는 조합이 생기고, 신청 차단 조건도 두 곳을 봐야 한다.
+  // 화면 라벨만 시제로 가른다 — 미래는 「대관 없음」, 과거는 「미실시」.
+  if ('is_skipped' in body && typeof body.is_skipped === 'boolean') {
+    patch.is_skipped = body.is_skipped
   }
 
   if (Object.keys(patch).length === 0) {
