@@ -45,16 +45,26 @@ const REVEAL_STEP = 10
 //    리렌더마다 새 컴포넌트 타입이 되어 입력칸이 매번 교체되고, 한글 IME 조합이 글자마다
 //    끊긴다("체육관" → "ㅊ ㅔ ..."). 장소는 한글 입력칸이라 여기에 정통으로 걸린다.
 function ScheduleDetailEditor({
-  sd, saving, onSave, onCancel,
+  sd, saving, defaults, onSave, onCancel,
 }: {
   sd: ScheduleDate
   saving: boolean
+  /** 고정 대관 — 빈칸으로 두면 이 값이 쓰인다. 미리 채워 넣지 않는다(아래 주석 참조). */
+  defaults: { start_time: string | null; place: string | null; capacity: number | null } | null
   onSave: (patch: { start_time: string; place: string; capacity: string }) => void
   onCancel: () => void
 }) {
+  // ⚠ 고정 대관 값을 미리 채워 넣지 않는다. 채우면 저장하는 순간 그 날짜의 '예외'로 굳어,
+  //    나중에 설정에서 장소를 바꿔도 이 날만 옛 장소에 남는다. 빈칸 = 고정 대관을 따른다.
   const [time, setTime] = useState(hhmm(sd.start_time))
   const [place, setPlace] = useState(sd.place ?? '')
   const [capacity, setCapacity] = useState(sd.capacity ? String(sd.capacity) : '')
+
+  const ph = {
+    time: defaults?.start_time ? `기본 ${hhmm(defaults.start_time)}` : '미정',
+    place: defaults?.place ? `기본 ${defaults.place}` : '예: 상암 체육관',
+    capacity: defaults?.capacity ? `기본 ${defaults.capacity}명` : '무제한',
+  }
 
   return (
     <div
@@ -68,19 +78,23 @@ function ScheduleDetailEditor({
         </label>
         <label className="flex flex-col gap-1 min-w-0 col-span-2 sm:col-span-1">
           <span className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: 'var(--mm-muted)' }}>장소</span>
-          <Input value={place} onChange={e => setPlace(e.target.value)} placeholder="예: 상암 체육관" className="min-h-[44px]" />
+          <Input value={place} onChange={e => setPlace(e.target.value)} placeholder={ph.place} className="min-h-[44px]" />
         </label>
         <label className="flex flex-col gap-1 min-w-0">
           <span className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: 'var(--mm-muted)' }}>정원</span>
           <Input
             type="number" min={1} inputMode="numeric"
             value={capacity} onChange={e => setCapacity(e.target.value)}
-            placeholder="무제한" className="min-h-[44px]"
+            placeholder={ph.capacity} className="min-h-[44px]"
           />
         </label>
       </div>
-      {/* 비워 두면 지워진다는 걸 미리 알린다 — 저장하고 나서 사라진 걸 발견하면 되돌릴 방법이 없다. */}
-      <p className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>비워 두면 표시하지 않습니다 · 정원 빈칸 = 무제한</p>
+      {/* 빈칸의 뜻을 밝힌다 — 저장하고 나서 값이 사라진 걸 발견하면 되돌릴 방법이 없다. */}
+      <p className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>
+        {defaults && (defaults.start_time || defaults.place)
+          ? '비워 두면 설정의 고정 대관을 따릅니다 · 이 날만 다를 때 입력하세요'
+          : '비워 두면 표시하지 않습니다 · 정원 빈칸 = 무제한'}
+      </p>
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -124,18 +138,30 @@ function ScheduleContent() {
   const [selectedQFilter, setSelectedQFilter] = useState<'all' | string>(quarterFromRedirect || 'all')
   const [dateQuarterMap, setDateQuarterMap] = useState<Record<string, string>>({})
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
+  const [venueDefaults, setVenueDefaults] = useState<{ start_time: string | null; place: string | null; capacity: number | null } | null>(null)
   const [editingDate, setEditingDate] = useState<string | null>(null)
   const [savingDate, setSavingDate] = useState<string | null>(null)
   const today = todayYmd()
 
   async function load() {
     setLoading(true)
-    const [dRes, gRes, qRes] = await Promise.all([
+    const [dRes, gRes, qRes, lRes] = await Promise.all([
       fetch(`/api/leagues/${leagueId}/schedule-dates`),
       fetch(`/api/leagues/${leagueId}/games?complete=true`),
       fetch(`/api/leagues/${leagueId}/quarters`),
+      fetch(`/api/leagues/${leagueId}`),
     ])
     if (dRes.ok) setDates(await dRes.json())
+    // 고정 대관 — 일정에 값이 없으면 이걸 보여준다. 일정 행에 복사해 두지 않기 때문에
+    // 읽는 쪽에서 합친다(설정에서 장소를 바꾸면 예정 일정 전체가 함께 따라온다).
+    if (lRes.ok) {
+      const lg = await lRes.json() as { default_start_time?: string | null; default_place?: string | null; default_capacity?: number | null }
+      setVenueDefaults({
+        start_time: lg.default_start_time ?? null,
+        place: lg.default_place ?? null,
+        capacity: lg.default_capacity ?? null,
+      })
+    }
     if (gRes.ok) {
       const games: { date: string; quarter_id?: string }[] = await gRes.json()
       setDatesWithStats(new Set(games.map(g => g.date)))
@@ -447,7 +473,34 @@ function ScheduleContent() {
             // 앞으로 있을 경기. 접힌 날은 제외한다 — 접혔다는 건 '안 모인다'는 뜻이라
             // 예정으로 부르면 거짓말이 되고, 참여신청도 받으면 안 된다.
             const upcoming = isFuture && !sd.is_skipped
-            const hasDetails = !!(sd.start_time || sd.place || sd.capacity)
+            // 이 날만의 예외가 있는가 — 편집 버튼 라벨('시간·장소' vs '수정')을 가른다.
+            const hasOwnDetails = !!(sd.start_time || sd.place || sd.capacity)
+            // 화면에 실제로 보일 값. 고정 대관은 예정 일정에만 씌운다 —
+            // 과거 32개 날짜에 오늘 설정한 장소를 소급해 붙이면 없던 사실이 생긴다.
+            const eff = upcoming
+              ? {
+                start_time: sd.start_time ?? venueDefaults?.start_time ?? null,
+                place: sd.place ?? venueDefaults?.place ?? null,
+                capacity: sd.capacity ?? venueDefaults?.capacity ?? null,
+              }
+              : { start_time: sd.start_time ?? null, place: sd.place ?? null, capacity: sd.capacity ?? null }
+            const hasDetails = !!(eff.start_time || eff.place || eff.capacity)
+            const boxscoreEl = datesWithStats.has(sd.date) ? (
+              <Link
+                href={`/league/${orgSlug}/${leagueId}/boxscore/${sd.date}`}
+                className="inline-flex items-center justify-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-colors cursor-pointer btn-press"
+                style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-yellow-strong)', border: '1px solid var(--mm-yellow)' }}
+              >
+                <BarChart2 size={12} />박스스코어
+              </Link>
+            ) : (
+              <span
+                className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-4 py-2 min-h-[44px] cursor-not-allowed select-none"
+                style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', opacity: 0.6 }}
+              >
+                <BarChart2 size={12} />박스스코어
+              </span>
+            )
             return (
             <div
               key={sd.id}
@@ -459,11 +512,15 @@ function ScheduleContent() {
               }}
             >
               <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <CalendarDays size={18} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />
+                {/* ⚠ overflowWrap:'anywhere' 를 걸면 안 된다. 편집 모드에서 오른쪽 버튼들이
+                    자리를 차지하면 남은 폭이 한 글자까지 좁아지고, 그때 날짜가 세로로
+                    한 글자씩 쪼개진다("2 0 2 6 년 8 월..."). 날짜는 절대 단어 중간에서
+                    끊으면 안 되는 문자열이다 — break-keep 만으로 충분하다. */}
                 <span
                   className="font-bold break-keep min-w-0"
-                  style={{ color: 'var(--mm-ink)', fontSize: 'clamp(17px, 4.6vw, 20px)', letterSpacing: '-0.005em', lineHeight: 1.15, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
+                  style={{ color: 'var(--mm-ink)', fontSize: 'clamp(16px, 4.2vw, 20px)', letterSpacing: '-0.005em', lineHeight: 1.2 }}
                 >
                   {formatDate(sd.date)}
                 </span>
@@ -500,63 +557,43 @@ function ScheduleContent() {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {/* 예정 일정에는 박스스코어 자리를 두지 않는다 — 아직 치르지 않은 경기의
-                    비활성 버튼은 자리만 차지하고 누를 일이 영영 없다. */}
-                {!upcoming && (datesWithStats.has(sd.date) ? (
-                  <Link
-                    href={`/league/${orgSlug}/${leagueId}/boxscore/${sd.date}`}
-                    className="inline-flex items-center justify-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-colors cursor-pointer btn-press"
-                    style={{
-                      background: 'var(--mm-yellow-soft)',
-                      color: 'var(--mm-yellow-strong)',
-                      border: '1px solid var(--mm-yellow)',
-                    }}
-                  >
-                    <BarChart2 size={12} />박스스코어
-                  </Link>
-                ) : (
-                  <span
-                    className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-4 py-2 min-h-[44px] cursor-not-allowed select-none"
-                    style={{
-                      background: 'var(--mm-panel-alt)',
-                      color: 'var(--mm-muted)',
-                      border: '1px solid var(--mm-rule)',
-                      opacity: 0.6,
-                    }}
-                  >
-                    <BarChart2 size={12} />박스스코어
-                  </span>
-                ))}
-                {/* 대관 없음 토글 — 지정하면 그 주는 참여신청을 받지 않는다.
-                    되돌릴 수 있어야 한다: 대관이 뒤늦게 잡히는 일이 흔하다. */}
-                {isEditMode && isFuture && (
-                  <button
-                    onClick={() => toggleSkip(sd.date, !sd.is_skipped)}
-                    disabled={savingDate === sd.date}
-                    className="inline-flex items-center gap-1.5 justify-center text-[11px] font-bold tracking-widest uppercase px-3 py-2 min-h-[44px] transition-colors cursor-pointer disabled:opacity-50 hover:bg-[color:var(--mm-panel-alt)]"
-                    style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
-                  >
-                    <CalendarOff size={12} aria-hidden />
-                    {sd.is_skipped ? '되돌리기' : '대관 없음'}
-                  </button>
-                )}
-                {isEditMode && upcoming && (
-                  <button
-                    onClick={() => setEditingDate(editingDate === sd.date ? null : sd.date)}
-                    className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-3 py-2 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)]"
-                    style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
-                    aria-expanded={editingDate === sd.date}
-                  >
-                    <Pencil size={12} aria-hidden />
-                    {hasDetails ? '수정' : '시간·장소'}
-                  </button>
-                )}
-                {isEditMode && (
+              {/* 읽기 모드에서만 날짜와 같은 줄에 붙인다. 편집 모드에서는 버튼이 최대 3개까지
+                  늘어나 같은 줄에 두면 날짜 폭이 한 글자까지 눌린다 — 아래 별도 행으로 내린다. */}
+              {!isEditMode && !upcoming && <div className="shrink-0">{boxscoreEl}</div>}
+              </div>
+
+              {/* 편집 액션 — 폭이 모자라면 줄바꿈된다. 날짜를 밀지 않는다. */}
+              {isEditMode && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {!upcoming && boxscoreEl}
+                  {/* 대관 없음 토글 — 지정하면 그 주는 참여신청을 받지 않는다.
+                      되돌릴 수 있어야 한다: 대관이 뒤늦게 잡히는 일이 흔하다. */}
+                  {isFuture && (
+                    <button
+                      onClick={() => toggleSkip(sd.date, !sd.is_skipped)}
+                      disabled={savingDate === sd.date}
+                      className="inline-flex items-center gap-1.5 justify-center text-[11px] font-bold tracking-widest uppercase px-3 py-2 min-h-[44px] transition-colors cursor-pointer disabled:opacity-50 hover:bg-[color:var(--mm-panel-alt)]"
+                      style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
+                    >
+                      <CalendarOff size={12} aria-hidden />
+                      {sd.is_skipped ? '되돌리기' : '대관 없음'}
+                    </button>
+                  )}
+                  {upcoming && (
+                    <button
+                      onClick={() => setEditingDate(editingDate === sd.date ? null : sd.date)}
+                      className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-3 py-2 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)]"
+                      style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
+                      aria-expanded={editingDate === sd.date}
+                    >
+                      <Pencil size={12} aria-hidden />
+                      {hasOwnDetails ? '수정' : '시간·장소'}
+                    </button>
+                  )}
                   <button
                     onClick={() => removeDate(sd.date)}
                     disabled={deletingDate === sd.date}
-                    className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] transition-colors cursor-pointer disabled:opacity-40 hover:bg-[color:var(--mm-panel-alt)]"
+                    className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] ml-auto transition-colors cursor-pointer disabled:opacity-40 hover:bg-[color:var(--mm-panel-alt)]"
                     style={{ color: 'var(--mm-muted)' }}
                     aria-label="일정 삭제"
                   >
@@ -564,22 +601,26 @@ function ScheduleContent() {
                       ? <Loader2 size={14} className="animate-spin" />
                       : <Trash2 size={14} />}
                   </button>
-                )}
-              </div>
-              </div>
+                </div>
+              )}
 
               {/* 시간·장소·정원 — 입력된 것만 그린다. 비어 있으면 줄 자체가 없다.
                   '미정'을 나열하면 과거 날짜 32개가 전부 '미정 · 미정'으로 도배된다. */}
               {hasDetails && (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-[30px] text-[12.5px]" style={{ color: 'var(--mm-ink-soft)' }}>
-                  {sd.start_time && (
-                    <span className="inline-flex items-center gap-1"><Clock size={13} aria-hidden style={{ color: 'var(--mm-muted)' }} />{hhmm(sd.start_time)}</span>
+                  {eff.start_time && (
+                    <span className="inline-flex items-center gap-1"><Clock size={13} aria-hidden style={{ color: 'var(--mm-muted)' }} />{hhmm(eff.start_time)}</span>
                   )}
-                  {sd.place && (
-                    <span className="inline-flex items-center gap-1 min-w-0"><MapPin size={13} aria-hidden className="shrink-0" style={{ color: 'var(--mm-muted)' }} /><span className="break-keep">{sd.place}</span></span>
+                  {eff.place && (
+                    <span className="inline-flex items-center gap-1 min-w-0"><MapPin size={13} aria-hidden className="shrink-0" style={{ color: 'var(--mm-muted)' }} /><span className="break-keep">{eff.place}</span></span>
                   )}
-                  {sd.capacity && (
-                    <span className="inline-flex items-center gap-1"><Users size={13} aria-hidden style={{ color: 'var(--mm-muted)' }} />정원 {sd.capacity}명</span>
+                  {eff.capacity && (
+                    <span className="inline-flex items-center gap-1"><Users size={13} aria-hidden style={{ color: 'var(--mm-muted)' }} />정원 {eff.capacity}명</span>
+                  )}
+                  {/* 고정 대관을 그대로 따르는 날인지 밝힌다. 안 밝히면 그 날만 따로 입력해 둔
+                      값인 줄 알고, 설정에서 장소를 바꿨을 때 왜 여기까지 바뀌는지 모른다. */}
+                  {upcoming && !hasOwnDetails && (
+                    <span className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>고정 대관</span>
                   )}
                 </div>
               )}
@@ -587,6 +628,7 @@ function ScheduleContent() {
               {isEditMode && upcoming && editingDate === sd.date && (
                 <ScheduleDetailEditor
                   sd={sd}
+                  defaults={venueDefaults}
                   saving={savingDate === sd.date}
                   onCancel={() => setEditingDate(null)}
                   onSave={patch => saveDetails(sd.date, patch)}

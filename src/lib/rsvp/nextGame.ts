@@ -9,9 +9,58 @@ import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 export interface UpcomingDate {
   id: string
   date: string
+  /** 고정 대관을 반영한 최종 값 — 화면은 이것만 쓰면 된다. */
   start_time: string | null
   place: string | null
   capacity: number | null
+  /** 이 날만의 예외인가(false = 리그 고정 대관을 그대로 따름). 편집 화면에서 구분용. */
+  overridden: boolean
+}
+
+export interface VenueDefaults {
+  start_time: string | null
+  place: string | null
+  capacity: number | null
+}
+
+/**
+ * 고정 대관(리그 기본값)을 일정 값 위에 깐다.
+ *
+ * ⚠ 일정 행에 기본값을 복사 저장하지 않기 때문에 읽을 때 합친다. 복사해 뒀다면 체육관이
+ *   바뀌었을 때 이미 만들어진 예정 일정이 옛 장소에 굳는다.
+ */
+export function applyVenueDefaults(
+  row: { start_time?: string | null; place?: string | null; capacity?: number | null },
+  defaults: VenueDefaults | null,
+): { start_time: string | null; place: string | null; capacity: number | null; overridden: boolean } {
+  const own = {
+    start_time: row.start_time ?? null,
+    place: row.place ?? null,
+    capacity: row.capacity ?? null,
+  }
+  return {
+    start_time: own.start_time ?? defaults?.start_time ?? null,
+    place: own.place ?? defaults?.place ?? null,
+    capacity: own.capacity ?? defaults?.capacity ?? null,
+    overridden: !!(own.start_time || own.place || own.capacity),
+  }
+}
+
+export async function loadVenueDefaults(
+  sb: SupabaseClient,
+  leagueId: string,
+): Promise<VenueDefaults | null> {
+  const { data } = await sb
+    .from('leagues')
+    .select('default_start_time, default_place, default_capacity')
+    .eq('id', leagueId)
+    .maybeSingle()
+  if (!data) return null
+  return {
+    start_time: data.default_start_time ?? null,
+    place: data.default_place ?? null,
+    capacity: data.default_capacity ?? null,
+  }
 }
 
 /** 로컬 기준 오늘 YYYY-MM-DD. 문자열 비교로 시간대 함정을 피한다. */
@@ -30,21 +79,19 @@ export async function loadNextDate(
   sb: SupabaseClient,
   leagueId: string,
 ): Promise<UpcomingDate | null> {
-  const { data } = await sb
-    .from('league_schedule_dates')
-    .select('id, date, start_time, place, capacity, is_skipped')
-    .eq('league_id', leagueId)
-    .gte('date', todayYmd())
-    .order('date', { ascending: true })
-    .limit(10)
+  const [{ data }, defaults] = await Promise.all([
+    sb
+      .from('league_schedule_dates')
+      .select('id, date, start_time, place, capacity, is_skipped')
+      .eq('league_id', leagueId)
+      .gte('date', todayYmd())
+      .order('date', { ascending: true })
+      .limit(10),
+    loadVenueDefaults(sb, leagueId),
+  ])
   const row = (data ?? []).find(d => !d.is_skipped)
   if (!row) return null
-  return {
-    id: row.id, date: row.date,
-    start_time: row.start_time ?? null,
-    place: row.place ?? null,
-    capacity: row.capacity ?? null,
-  }
+  return { id: row.id, date: row.date, ...applyVenueDefaults(row, defaults) }
 }
 
 /**

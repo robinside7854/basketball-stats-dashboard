@@ -18,7 +18,7 @@ export async function GET(
   const { data, error } = await supabase
     .from('leagues')
     .select(
-      'id, org_slug, name, season_year, start_date, match_day, total_rounds, status, created_at, season_type, games_per_round, youtube_channel, plus_one_age, slug, team_id, mode, rules'
+      'id, org_slug, name, season_year, start_date, match_day, total_rounds, status, created_at, season_type, games_per_round, youtube_channel, plus_one_age, slug, team_id, mode, rules, default_start_time, default_place, default_capacity'
     )
     .eq('id', leagueId)
     .maybeSingle()
@@ -36,10 +36,26 @@ export async function PATCH(
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { leagueId } = await params
   const body = await req.json()
+
+  // 허용 컬럼만 통과시킨다. 받은 객체를 그대로 update 에 넘기면 요청 하나로 edit_pin·slug·
+  // team_id 같은 걸 바꿀 수 있다(대량 할당). 화면이 그런 요청을 안 보낼 뿐, 막혀 있진 않았다.
+  const ALLOWED = new Set([
+    'name', 'season_year', 'start_date', 'match_day', 'total_rounds', 'status',
+    'season_type', 'games_per_round', 'youtube_channel', 'plus_one_age', 'rules',
+    'default_start_time', 'default_place', 'default_capacity',
+  ])
+  const patch: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(body ?? {})) {
+    if (ALLOWED.has(k)) patch[k] = v
+  }
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: '변경할 수 있는 항목이 없습니다' }, { status: 400 })
+  }
+
   const supabase = createClient()
   const { data, error } = await supabase
     .from('leagues')
-    .update(body)
+    .update(patch)
     .eq('id', leagueId)
     .select()
     .single()

@@ -11,6 +11,10 @@ export interface League {
   edit_pin?: string
   youtube_channel?: string | null
   plus_one_age?: number | null
+  // 고정 대관 — 매주 반복되는 기본값. 일정에 값이 없으면 이걸 따른다.
+  default_start_time?: string | null
+  default_place?: string | null
+  default_capacity?: number | null
   status: 'upcoming' | 'active' | 'completed'
   created_at: string
 }

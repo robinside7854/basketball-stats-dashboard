@@ -6,7 +6,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube, Calendar, Instagram, ChevronRight, Globe } from 'lucide-react'
+import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube, Calendar, Instagram, ChevronRight, Globe, MapPin } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import AccountApprovalPanel from '@/components/league/auth/AccountApprovalPanel'
 import type { League } from '@/types/league'
@@ -67,6 +67,11 @@ export default function LeagueSettingsPage() {
   // 플러스원 나이 기준
   const [plusOneAge, setPlusOneAge] = useState<string>('')
 
+  // 고정 대관 — 매주 반복되는 기본 시간·장소·정원. 일정별로 다른 날만 예외로 덮는다.
+  const [defTime, setDefTime] = useState('')
+  const [defPlace, setDefPlace] = useState('')
+  const [defCapacity, setDefCapacity] = useState('')
+
   // 분기 날짜 범위 관리
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [editingQuarter, setEditingQuarter] = useState<string | null>(null)
@@ -91,6 +96,10 @@ export default function LeagueSettingsPage() {
       setGamesPerRound(data.games_per_round)
       setYtChannel(data.youtube_channel ?? '')
       setPlusOneAge(data.plus_one_age != null ? String(data.plus_one_age) : '')
+      // time 은 DB 에서 초까지 온다('06:00:00') — input[type=time] 은 HH:MM 만 받는다.
+      setDefTime((data.default_start_time ?? '').slice(0, 5))
+      setDefPlace(data.default_place ?? '')
+      setDefCapacity(data.default_capacity != null ? String(data.default_capacity) : '')
     }
     if (qRes.ok) setQuarters(await qRes.json())
     if (visRes.ok) setIsPublic((await visRes.json()).is_public)
@@ -370,6 +379,60 @@ export default function LeagueSettingsPage() {
           size="sm"
         >
           {saving === 'schedule-settings' ? <Loader2 size={13} className="animate-spin mr-1" /> : null}설정 저장
+        </Button>
+      </div>
+
+      {/* 고정 대관 — 매주 같은 시간·장소가 정상이고 예외가 가끔이다.
+          여기 한 번 넣어두면 모든 예정 일정이 이 값을 따르고, 다른 날만 일정 화면에서 덮는다.
+          ⚠ 일정 행에 복사해 넣지 않는다 — 복사하면 체육관이 바뀌었을 때 이미 만들어진
+             예정 일정이 옛 장소에 굳는다. */}
+      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <MapPin size={16} className="text-[color:var(--mm-yellow-strong)]" />
+          <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">고정 대관</h3>
+        </div>
+        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
+          매주 반복되는 기본 시간·장소입니다. 참여신청 화면과 일정에 자동으로 표시됩니다.<br />
+          특정 주만 다르면 <span className="text-[color:var(--mm-ink-soft)]">경기 &gt; 일정</span> 에서 그 날짜만 바꾸고,
+          아예 안 모이는 주는 <span className="text-[color:var(--mm-ink-soft)]">「대관 없음」</span> 으로 지정하세요.
+        </p>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">시작 시간</label>
+            <Input
+              type="time" value={defTime} onChange={e => setDefTime(e.target.value)}
+              className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none"
+            />
+          </div>
+          <div className="space-y-1.5 col-span-2 sm:col-span-1">
+            <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">장소</label>
+            <Input
+              value={defPlace} onChange={e => setDefPlace(e.target.value)} placeholder="예: 상암 체육관"
+              className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">정원</label>
+            <Input
+              type="number" min={1} inputMode="numeric" value={defCapacity}
+              onChange={e => setDefCapacity(e.target.value)} placeholder="무제한"
+              className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none"
+            />
+          </div>
+        </div>
+
+        <Button
+          onClick={() => save('default-venue', {
+            default_start_time: defTime || null,
+            default_place: defPlace.trim() || null,
+            default_capacity: defCapacity ? Number(defCapacity) : null,
+          })}
+          disabled={saving === 'default-venue'}
+          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold uppercase tracking-[0.14em] rounded-none"
+          size="sm"
+        >
+          {saving === 'default-venue' ? <Loader2 size={13} className="animate-spin mr-1" /> : null}고정 대관 저장
         </Button>
       </div>
 

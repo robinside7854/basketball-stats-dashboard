@@ -17,10 +17,15 @@ import { toast } from 'sonner'
 
 type Status = 'going' | 'not_going' | 'maybe'
 
+interface Member { name: string; status: Status }
+interface TeamGroup { teamId: string; teamName: string; members: Member[] }
+
 interface Payload {
   date: { id: string; date: string; start_time: string | null; place: string | null; capacity: number | null } | null
   me: { status: Status | null; teamName: string | null; waiting: boolean } | null
   summary: { going: number; maybe: number; not_going: number } | null
+  /** 회원 전용 — 비로그인에게는 null(숫자만 준다). */
+  teams: { list: TeamGroup[]; waiting: Member[] } | null
 }
 
 const CHOICES: Array<{ value: Status; label: string; Icon: typeof Check }> = [
@@ -87,7 +92,7 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
   // 예정 일정이 아예 없으면(전부 대관 없음이거나 일정 미등록) 카드를 그리지 않는다.
   if (!data?.date) return null
 
-  const { date, me, summary } = data
+  const { date, me, summary, teams } = data
   const rel = relativeLabel(date.date)
   const isMember = me !== null
 
@@ -167,6 +172,49 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
                 ? '배정 대기 — 운영진 회의에서 팀이 정해집니다'
                 : me.teamName ? <>배정 팀 · <b style={{ color: 'var(--mm-ink)' }}>{me.teamName}</b></> : null}
             </p>
+          )}
+
+          {/* 팀별 참가 현황 — 숫자만 보면 "우리 팀은 몇 명 오나"를 알 수 없다.
+              대기(비정규)는 팀 목록에 섞지 않는다. 섞으면 팀 인원이 실제보다 많아 보이고,
+              운영진이 누굴 배치해야 하는지 못 찾는다. */}
+          {teams && (teams.list.length > 0 || teams.waiting.length > 0) && (
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {teams.list.map(t => (
+                  <div key={t.teamId} className="px-3 py-2" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
+                    <p className="flex items-baseline gap-1.5 text-[12px] font-black" style={{ color: 'var(--mm-ink)' }}>
+                      <span className="truncate">{t.teamName}</span>
+                      <span className="tabular-nums shrink-0" style={{ color: 'var(--mm-yellow-strong)' }}>
+                        {t.members.filter(m => m.status === 'going').length}명
+                      </span>
+                    </p>
+                    <p className="mt-0.5 text-[12px] leading-relaxed break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
+                      {t.members.map((m, i) => (
+                        <span key={m.name + i} style={{ opacity: m.status === 'maybe' ? 0.55 : 1 }}>
+                          {i > 0 && ', '}{m.name}{m.status === 'maybe' ? '(미정)' : ''}
+                        </span>
+                      ))}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {teams.waiting.length > 0 && (
+                <div className="mt-2 px-3 py-2" style={{ border: '1px dashed var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>
+                  <p className="flex items-baseline gap-1.5 text-[12px] font-black" style={{ color: 'var(--mm-muted)' }}>
+                    배정 대기
+                    <span className="tabular-nums">{teams.waiting.filter(m => m.status === 'going').length}명</span>
+                  </p>
+                  <p className="mt-0.5 text-[12px] leading-relaxed break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
+                    {teams.waiting.map((m, i) => (
+                      <span key={m.name + i} style={{ opacity: m.status === 'maybe' ? 0.55 : 1 }}>
+                        {i > 0 && ', '}{m.name}{m.status === 'maybe' ? '(미정)' : ''}
+                      </span>
+                    ))}
+                  </p>
+                </div>
+              )}
+            </div>
           )}
         </>
       ) : (
