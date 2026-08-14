@@ -1,14 +1,32 @@
 import { signOut } from '@/lib/auth'
 import { requireCeoSession } from '@/lib/auth/ceo'
+import { createClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, LogOut, Medal } from 'lucide-react'
+import { LayoutDashboard, LogOut, Medal, UserCog } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import { Basketball } from '@/components/league/BasketballIcons'
+
+// 대기 중인 접근 요청 개수 — 사이드바 배지용.
+// 요청을 남긴 사람은 아무 알림도 못 받고 기다리는 처지라, 콘솔을 열 때마다 눈에 띄어야 한다.
+// 조회가 실패해도 콘솔 전체를 막지 않는다 — 배지는 부가 정보다.
+async function pendingRequestCount(): Promise<number> {
+  try {
+    const { count } = await createClient()
+      .from('platform_access_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+    return count ?? 0
+  } catch {
+    return 0
+  }
+}
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await requireCeoSession()
   if (!session) redirect('/admin/login')
+
+  const pending = await pendingRequestCount()
 
   return (
     <div className="min-h-screen bg-[var(--mm-ground)] flex">
@@ -45,6 +63,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/admin/leagues" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)] transition-colors text-sm cursor-pointer min-h-11">
             <Medal size={16} />
             팀 관리
+          </Link>
+          <Link href="/admin/admins" className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)] transition-colors text-sm cursor-pointer min-h-11">
+            <UserCog size={16} />
+            <span className="flex-1">공동관리자</span>
+            {pending > 0 && (
+              <span
+                className="text-xs px-1.5 min-w-5 text-center rounded-full bg-[var(--mm-yellow-soft)] text-[var(--mm-yellow-strong)] font-semibold"
+                aria-label={`대기 중 접근 요청 ${pending}건`}
+              >
+                {pending}
+              </span>
+            )}
           </Link>
         </nav>
 
