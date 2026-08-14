@@ -13,6 +13,7 @@ import { ChevronRight } from 'lucide-react'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
 import NextGameRsvp from '@/components/league/NextGameRsvp'
 import ShareLeagueButton from '@/components/league/ShareLeagueButton'
+import PendingSignupsAlert from '@/components/league/PendingSignupsAlert'
 import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
 import { loadRecentRounds, loadRoundDetail } from '@/lib/highlights/loader'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
@@ -456,6 +457,13 @@ export default async function LeagueDetailPage({
         <ShareLeagueButton leagueName={l.name} />
         </div>
       </div>
+
+      {/* 가입 신청 대기 알림 — 어드민에게만, 대기 건이 있을 때만 보인다.
+          지금까지 신청은 설정 탭 안에서만 보였는데 어드민이 설정에 들어갈 일은 드물어서,
+          신청한 사람은 승인될 때까지 아무것도 못 보고 기다렸다. 가입률이 관문인 지금
+          그 지연은 그대로 이탈이 된다. 참여신청 카드보다 위에 두는 이유는 이게
+          '나만 처리할 수 있는 일'이기 때문이다. */}
+      <PendingSignupsAlert leagueId={leagueId} />
 
       {/* 다음 경기 참여신청 — 헤더(리그 이름) 바로 아래, 실질적인 첫 카드.
           '보는 것'이 아니라 '하는 것'이라 맨 위에 둔다. 매주 전원이 한 번씩 눌러야 값이 생기는데
