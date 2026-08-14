@@ -12,6 +12,7 @@ type IdentityResolverPromise = Promise<ReturnType<typeof makeIdentityResolver>>
 import { ChevronRight } from 'lucide-react'
 import MilestoneFeed from '@/components/league/MilestoneFeed'
 import NextGameRsvp from '@/components/league/NextGameRsvp'
+import ShareLeagueButton from '@/components/league/ShareLeagueButton'
 import HighlightsHome, { type HighlightsHomePayload } from '@/components/league/HighlightsHome'
 import { loadRecentRounds, loadRoundDetail } from '@/lib/highlights/loader'
 import NbaLeaders from '@/components/league/nba/NbaLeaders'
@@ -429,6 +430,9 @@ export default async function LeagueDetailPage({
           borderRadius: 'var(--mm-radius-card)',
         }}
       >
+        {/* 공유 버튼을 제목과 같은 행에 둔다 — absolute 로 겹쳐 놓으면 긴 팀 이름과 부딪힌다. */}
+        <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
         <h1
           className="text-2xl sm:text-3xl lg:text-5xl font-bold break-keep"
           style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.1 }}
@@ -447,6 +451,9 @@ export default async function LeagueDetailPage({
               <span>{quarterStandings.quarterLabel} {quarterStandings.gamesCount}경기</span>
             </>
           )}
+        </div>
+        </div>
+        <ShareLeagueButton leagueName={l.name} />
         </div>
       </div>
 

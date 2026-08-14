@@ -12,7 +12,7 @@
 // 비로그인에게도 경기 정보는 보여준다 — 가입해야 신청할 수 있다는 걸 알리는 게
 //   가입 독려의 실질이다. 빈자리로 두면 이런 게 있는 줄도 모른다.
 import { useEffect, useState } from 'react'
-import { CalendarDays, Clock, MapPin, Check, X, HelpCircle, Loader2, Users, LogIn, CheckCircle2, XCircle, Circle, Share2 } from 'lucide-react'
+import { CalendarDays, Clock, MapPin, Check, X, HelpCircle, Loader2, Users, LogIn, CheckCircle2, XCircle, Circle } from 'lucide-react'
 import { toast } from 'sonner'
 
 type Status = 'going' | 'not_going' | 'maybe'
@@ -166,38 +166,8 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
     return () => { cancelled = true }
   }, [leagueId])
 
-  // 단톡방 공유. 앱(PWA standalone)에서도 그대로 동작한다 — Web Share 를 쓰면
-  // 카카오톡이 시스템 공유 시트에 바로 뜬다. 데스크톱처럼 공유 시트가 없는 환경만 복사로 떨어진다.
-  async function share() {
-    if (!data?.date) return
-    const url = window.location.href.split(/[?#]/)[0]
-    const d = data.date
-    const when = `${formatDate(d.date)}${d.start_time ? ` ${d.start_time.slice(0, 5)}` : ''}`
-    const lines = [
-      `[참여신청] ${when}`,
-      d.place ? `장소 · ${d.place}` : null,
-      data.summary ? `현재 참석 ${data.summary.going}명${d.capacity ? ` / ${d.capacity}명` : ''}` : null,
-      '',
-      '아래 링크에서 참석 여부를 눌러주세요',
-    ].filter(Boolean).join('\n')
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: '다음 경기 참여신청', text: lines, url })
-        return
-      } catch (e) {
-        // 사용자가 공유 시트를 닫은 것은 실패가 아니다 — 에러 토스트를 띄우면 안 된다.
-        if (e instanceof Error && e.name === 'AbortError') return
-        // 그 밖의 실패(권한·미지원)는 아래 복사로 이어간다.
-      }
-    }
-    try {
-      await navigator.clipboard.writeText(`${lines}\n${url}`)
-      toast.success('공유 문구를 복사했습니다 — 단톡방에 붙여넣으세요')
-    } catch {
-      toast.error('복사하지 못했습니다')
-    }
-  }
+  // 공유 버튼은 홈 헤더(ShareLeagueButton)로 옮겼다 — 단톡방에 던지는 링크는
+  // "우리 팀 페이지"이고, 기능 카드 안에 있으면 그 기능이 바뀔 때마다 자리가 흔들린다.
 
   // 명단에서 내 이름을 누르면 참석 → 미정 → 불참 → 참석 순으로 돈다.
   // 아직 응답 전이면 첫 클릭은 '참석' — 목록에서 자기 이름을 누르는 동작의 뜻이 그것이다.
@@ -345,17 +315,6 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
             </div>
           )}
 
-          {/* 단톡방 공유 — 총무가 매주 던지는 동작이다. 명단 아래에 두는 이유는
-              "지금 몇 명 찼는지" 본 직후가 공유를 누르는 순간이기 때문이다. */}
-          <button
-            type="button"
-            onClick={share}
-            className="mt-2.5 w-full flex items-center justify-center gap-1.5 min-h-[44px] text-[12px] font-bold tracking-[0.06em] cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
-            style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
-          >
-            <Share2 size={14} aria-hidden />
-            단톡방에 공유
-          </button>
         </>
       ) : (
         // 로그인은 라우트가 아니라 모달이다 — LeagueLayoutClient 가 이 이벤트를 받아 연다.
