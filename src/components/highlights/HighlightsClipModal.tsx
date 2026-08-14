@@ -61,18 +61,25 @@ export default function HighlightsClipModal({
         className="relative z-10 w-full max-w-5xl bg-[color:var(--mm-panel)] shadow-[0_24px_60px_-16px_rgba(0,0,0,0.5)] rounded-sm overflow-hidden"
         style={{ borderRadius: 6, border: `1px solid ${border}` }}
       >
-        <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-          <div className="inline-flex items-center gap-2 min-w-0">
-            {icon}
-            <span className="text-xs font-black uppercase tracking-[0.14em] shrink-0" style={{ color: 'var(--mm-ink)' }}>
-              {title}
-            </span>
-            <span className="text-[11px] shrink-0" style={{ color: 'var(--mm-muted)' }}>
-              {currentIdx + 1} / {clips.length}
-            </span>
+        {/* 헤더 2줄 — 제목·번호는 윗줄, 지금 재생 중인 클립 정보는 아랫줄.
+            한 줄에 몰아넣고 truncate 하면 뒤에 붙는 어시스트가 먼저 잘린다.
+            (2026-08-14 · "어시스트 선수가 잘려보인다" 피드백) */}
+        <div className="flex items-start justify-between gap-2 px-4 py-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              {icon}
+              <span className="text-xs font-black uppercase tracking-[0.14em] truncate" style={{ color: 'var(--mm-ink)' }}>
+                {title}
+              </span>
+              <span className="text-[11px] shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+                {currentIdx + 1} / {clips.length}
+              </span>
+            </div>
             {current && (
-              <span className="text-[11px] truncate ml-2" style={{ color: 'var(--mm-ink-soft)' }}>
-                {current.player_name} · {SHOT_TYPE_LABEL[current.shot_type] ?? current.shot_type}
+              // 잘라내지 않고 줄바꿈시킨다 — 모바일에서 이름이 길어도 끝까지 읽혀야 한다.
+              <p className="text-[11px] mt-0.5 break-keep leading-snug" style={{ color: 'var(--mm-ink-soft)' }}>
+                <span className="font-bold">{current.player_name}</span>
+                {' · '}{SHOT_TYPE_LABEL[current.shot_type] ?? current.shot_type}
                 {/* 앤드원은 별도 클립이 아니라 이 슛에 흡수돼 있다 — 같은 장면이 두 번 재생되지 않게. */}
                 {current.has_and_one && (
                   <span className="font-black" style={{ color: 'var(--mm-yellow-strong)' }}> +1 앤드원</span>
@@ -82,10 +89,11 @@ export default function HighlightsClipModal({
                     (그 판정은 clip.ts 가 정본이다 — 여기서 다시 쓰지 않는다). */}
                 {shouldShowAssist(current.shot_type) && current.assist_player_name && (
                   <span style={{ color: 'var(--mm-muted)' }}>
-                    {' '}← {current.assist_player_name} 어시스트
+                    {' · 어시스트 '}
+                    <span className="font-bold" style={{ color: 'var(--mm-ink-soft)' }}>{current.assist_player_name}</span>
                   </span>
                 )}
-              </span>
+              </p>
             )}
           </div>
           <button
