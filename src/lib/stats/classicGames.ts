@@ -21,6 +21,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
+import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 
 /** 점수차 이하면 '마지막 공격이 승부를 갈랐다'로 본다 (평균 6.2점차 대비) */
 const CLOSE_MARGIN = 2
@@ -76,23 +77,30 @@ export async function computeClassicGames(
 
   const { data: games, error: gErr } = await sb
     .from('league_games')
-    .select('id, date, home_team_id, away_team_id, home_score, away_score, youtube_url')
+    .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, youtube_url')
     .eq('league_id', leagueId)
     .eq('is_complete', true)
     .eq('is_exhibition', false)
   if (gErr) throw new Error(`classicGames: 경기 조회 실패 — ${gErr.message}`)
   const gameRows = (games ?? []) as Array<{
-    id: string; date: string; home_team_id: string | null; away_team_id: string | null
+    id: string; date: string; quarter_id: string | null
+    home_team_id: string | null; away_team_id: string | null
     home_score: number | null; away_score: number | null; youtube_url: string | null
   }>
   if (gameRows.length === 0) return []
 
   const gameIds = gameRows.map(g => g.id)
 
-  // 팀 이름 — 분기별 override 는 여기서 보지 않는다(명경기 칼럼은 '그때 그 팀'이 아니라
-  // 지금 부르는 이름으로 읽는 게 자연스럽다). 필요해지면 teamIdentity 를 붙인다.
-  const { data: teams } = await sb.from('league_teams').select('id, name').eq('league_id', leagueId)
-  const teamName = new Map((teams ?? []).map((t: { id: string; name: string }) => [t.id, t.name]))
+  // 팀 이름 — **반드시 분기별 정체성으로 푼다.**
+  //
+  // ⚠ 처음엔 "지금 부르는 이름으로 읽는 게 자연스럽다"고 판단해 league_teams 를 그대로 썼는데
+  //   틀렸다. 미라클 리그는 **분기마다 팀을 새로 짠다** — 1·2분기 팀은 '락다운'·'런앤건'이었고
+  //   3분기는 '빅현욱'·'굿모닝'·'챗지피지기'다. 같은 team_id 라도 분기가 다르면 다른 팀이다.
+  //   그대로 두면 1월 경기 칼럼에 3분기 팀 이름이 붙어, 있지도 않았던 대진이 기록으로 남는다.
+  //
+  //   판정은 teamIdentity 의 resolver 가 정본이다(홈 순위·박스스코어·하이라이트가 전부 이걸 쓴다).
+  //   여기서 override 를 직접 조회해 다시 구현하지 않는다 — 갈라지면 화면마다 팀명이 달라진다.
+  const resolveIdentity = await loadIdentityResolver(sb, leagueId)
 
   // 득점 이벤트 — 역전 횟수와 최다 득점자를 같은 스캔에서 뽑는다.
   // ⚠ 1000행 페이지네이션 필수. 조용히 잘리면 역전 횟수가 과소 집계돼 명경기가 바뀐다.
@@ -182,8 +190,8 @@ export async function computeClassicGames(
       gameId: g.id,
       date: g.date,
       month: g.date.slice(0, 7),
-      homeName: teamName.get(g.home_team_id ?? '') ?? '홈',
-      awayName: teamName.get(g.away_team_id ?? '') ?? '어웨이',
+      homeName: resolveIdentity(g.home_team_id, g.quarter_id)?.display_name ?? '홈',
+      awayName: resolveIdentity(g.away_team_id, g.quarter_id)?.display_name ?? '어웨이',
       homeScore: hs, awayScore: as_,
       margin, total, leadChanges,
       winningShotPlayer: wsPlayerId ? (playerName.get(wsPlayerId) ?? null) : null,

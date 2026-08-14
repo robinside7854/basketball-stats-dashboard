@@ -143,6 +143,14 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 
 ## Critical 규칙
 
+- ⚠ **미라클 리그는 분기마다 팀 구성이 바뀐다.** 같은 `team_id` 라도 분기가 다르면 다른 팀이다
+  (1·2분기 `락다운`·`런앤건` / 3분기 `빅현욱`·`굿모닝`·`챗지피지기`).
+  경기·기록에 팀명을 붙일 때는 **반드시 `(team_id, quarter_id)` 로 푼다** —
+  정본은 `src/lib/stats/teamIdentity.ts` 의 `loadIdentityResolver()`.
+  **`league_teams` 에서 이름을 직접 읽지 말 것.** 과거 경기에 현재 팀명이 붙어 있지도 않았던
+  대진이 기록으로 남는다. override 를 직접 조회해 다시 구현하는 것도 금지(화면마다 갈라진다).
+  (2026-08-14 명경기에서 실제로 당함)
+
 - ⚠ **선수 데이터 절대 삭제 금지** (youth 35명 + senior 32명 보존)
 - ⚠ **`league_game_events`는 `team_id` 컬럼 반드시 저장** (이벤트 POST에서 `team_id: body.team_id ?? null`)
 - ⚠ **비정규 출전 팀 매칭 우선순위**: `league_game_players` → `league_player_quarters` (역순 절대 금지)
