@@ -7,20 +7,12 @@
 //
 // 왜 홈인가: 어드민도 앱을 열면 홈부터 본다. "찾아가야 보이는 것"을 "열면 보이는 것"으로 옮긴다.
 //
-// 왜 폴링하지 않는가: 어드민이 홈을 띄워 놓고 기다리는 상황은 없다. 실제로 필요한 건
-//   **앱을 다시 열었을 때 최신인 것**이라, 마운트 + 창 포커스 복귀 시점에만 다시 읽는다.
-//   초 단위 폴링은 배터리만 쓰고 얻는 게 없다.
-import { useCallback, useEffect, useState } from 'react'
+// 조회는 usePendingSignups 가 맡는다 — 상단 톱니바퀴 배지와 **같은 값**을 봐야 하기 때문이다.
+//   따로 부르면 승인 직후 카드는 사라졌는데 점만 남는 식으로 어긋난다.
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { UserPlus, ChevronRight } from 'lucide-react'
-import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
-
-interface PendingAccount {
-  id: string
-  requested_at: string | null
-  player: { name: string } | null
-}
+import { usePendingSignups } from '@/lib/hooks/usePendingSignups'
 
 /** 신청한 지 얼마나 됐는지. 오래 묵은 신청일수록 눈에 띄어야 한다. */
 function waitedLabel(iso: string | null): string | null {
@@ -32,42 +24,12 @@ function waitedLabel(iso: string | null): string | null {
 }
 
 export default function PendingSignupsAlert({ leagueId }: { leagueId: string }) {
-  const { isEditMode, isInitialized, leagueHeaders } = useLeagueEditMode()
+  const pending = usePendingSignups(leagueId)
   const pathname = usePathname()
-  const [pending, setPending] = useState<PendingAccount[] | null>(null)
-
-  const load = useCallback(async () => {
-    if (!isEditMode) return
-    try {
-      const r = await fetch(`/api/leagues/${leagueId}/auth/admin/accounts?status=pending`, {
-        headers: leagueHeaders,
-        cache: 'no-store',
-      })
-      if (!r.ok) return
-      const d = await r.json() as { accounts?: PendingAccount[] }
-      setPending(d.accounts ?? [])
-    } catch {
-      // 조용히 넘긴다 — 이건 부가 알림이라, 실패했다고 홈에 에러를 띄우면 손해가 더 크다.
-    }
-  }, [leagueId, isEditMode, leagueHeaders])
-
-  useEffect(() => { if (isInitialized) load() }, [isInitialized, load])
-
-  // 앱을 다시 열거나 다른 탭에서 돌아왔을 때 갱신 — 승인 처리 후 돌아오면 카드가 사라진다.
-  useEffect(() => {
-    if (!isEditMode) return
-    const onFocus = () => load()
-    window.addEventListener('focus', onFocus)
-    document.addEventListener('visibilitychange', onFocus)
-    return () => {
-      window.removeEventListener('focus', onFocus)
-      document.removeEventListener('visibilitychange', onFocus)
-    }
-  }, [isEditMode, load])
 
   // 어드민이 아니거나 대기 건이 없으면 자리 자체를 만들지 않는다 —
   // "0건입니다" 카드는 매일 보는 사람에게 소음이다.
-  if (!isEditMode || !pending || pending.length === 0) return null
+  if (pending.length === 0) return null
 
   const names = pending.map(p => p.player?.name).filter(Boolean).slice(0, 3) as string[]
   const rest = pending.length - names.length

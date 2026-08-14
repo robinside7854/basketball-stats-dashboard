@@ -13,6 +13,7 @@ import { Toaster } from '@/components/ui/sonner'
 const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
 import CompetitionSwitcher from '@/components/league/CompetitionSwitcher'
 import { rememberLeague } from '@/lib/lastLeague'
+import { usePendingSignups } from '@/lib/hooks/usePendingSignups'
 
 // 미들웨어가 slug URL(/league/miracle/2026)을 UUID 경로로 internal rewrite 하므로
 // useParams()/props 의 leagueId 는 UUID 지만, usePathname() 은 브라우저의 slug URL 을 반환한다.
@@ -27,6 +28,9 @@ export function deriveLeagueBase(pathname: string, orgSlug: string, leagueId: st
 function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { orgSlug: string; leagueId: string; leagueName: string | null; onOpenLogin: () => void; showDraft: boolean }) {
   const pathname = usePathname()
   const { isEditMode, isAdminSession, openPinModal, exitEditMode } = useLeagueEditMode()
+  // 대기 중인 가입 신청 건수 — 톱니바퀴 배지용. 홈 카드와 같은 훅을 보므로 요청은 한 번만 나가고
+  // 승인 직후 둘이 함께 사라진다. 어드민이 아니면 훅이 아예 요청하지 않는다.
+  const pendingCount = usePendingSignups(leagueId).length
   const { user, loading: authLoading } = useCurrentUser()
 
   // #5 가입 승인 대기 배지 — 가입 접수 시 저장한 플래그(로그인되면 해제)
@@ -201,10 +205,29 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
             {isEditMode && (
               <Link
                 href={`${base}/settings`}
-                aria-label="리그 설정"
-                className="flex items-center justify-center w-11 h-11 rounded-md text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)] transition-colors cursor-pointer btn-press"
+                aria-label={pendingCount > 0 ? `리그 설정 · 가입 신청 ${pendingCount}건 대기` : '리그 설정'}
+                className="relative flex items-center justify-center w-11 h-11 rounded-md text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)] transition-colors cursor-pointer btn-press"
               >
                 <Settings size={18} />
+                {/* 대기 중인 가입 신청 배지 — 홈이 아닌 탭에 있어도 알 수 있게 한다.
+                    홈 카드(PendingSignupsAlert)와 같은 훅을 보므로 승인 직후 둘이 함께 사라진다.
+                    ⚠ 숫자를 적는다. 점만 찍으면 "뭔가 있다"까지만 알고 열어봐야 몇 건인지 안다.
+                    색만으로 알리지 않도록 aria-label 에도 건수를 넣었다. */}
+                {pendingCount > 0 && (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center text-[10px] font-black tabular-nums"
+                    style={{
+                      background: 'var(--mm-live-bg)',
+                      color: '#FFFFFF',
+                      borderRadius: 'var(--mm-radius-chip)',
+                      // 헤더 배경과 배지가 붙어 보이지 않게 한 겹 띄운다.
+                      boxShadow: '0 0 0 2px var(--mm-panel)',
+                    }}
+                    aria-hidden
+                  >
+                    {pendingCount > 9 ? '9+' : pendingCount}
+                  </span>
+                )}
               </Link>
             )}
           </div>
