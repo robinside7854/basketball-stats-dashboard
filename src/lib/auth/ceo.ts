@@ -18,6 +18,7 @@
 // 별도 파일(`ceo.ts`)로 둔 이유이기도 하다.
 import { auth } from '@/lib/auth'
 import type { Session } from 'next-auth'
+import { isActiveAdminEmail, isBootstrapEmail } from './platformAdmin'
 
 function missingEnvKeys(): string[] {
   const missing: string[] = []
@@ -28,12 +29,13 @@ function missingEnvKeys(): string[] {
 }
 
 /**
- * CEO 세션을 반환한다. 아래 중 하나라도 해당하면 무조건 null (fail closed):
- *   - 필수 env 미설정
- *   - auth() 가 예외를 던짐
- *   - auth() 반환값이 세션 구조가 아님 (session.user.email 부재)
+ * 세션 구조만 확인한다 (DB 조회 없음).
+ *
+ * ⚠ 이것만으로는 "권한이 지금도 살아있는지" 를 보증하지 못한다. 미들웨어처럼
+ *   요청마다 도는 UX 계층에서 DB 왕복을 피하려는 용도로만 쓴다.
+ *   실제 보안 경계는 requireCeoSession() 이다.
  */
-export async function requireCeoSession(): Promise<Session | null> {
+export async function requireCeoSessionShallow(): Promise<Session | null> {
   const missing = missingEnvKeys()
   if (missing.length > 0) {
     console.error(`[auth/ceo] CEO 인증 설정 누락(${missing.join(', ')}) — 요청을 거부합니다.`)
@@ -52,5 +54,45 @@ export async function requireCeoSession(): Promise<Session | null> {
   if (!result || typeof email !== 'string' || !email) {
     return null
   }
+
+  // '로그인 유지' 를 안 켠 세션은 12시간으로 앞당겨진다 (src/lib/auth.ts session 콜백).
+  // 쿠키 수명은 정적이라 만료 판정을 여기서 한다.
+  const expires = result.expires ? new Date(result.expires).getTime() : 0
+  if (!expires || expires <= Date.now()) return null
+
   return result
+}
+
+/**
+ * CEO/공동관리자 세션을 반환한다. 아래 중 하나라도 해당하면 무조건 null (fail closed):
+ *   - 필수 env 미설정
+ *   - auth() 가 예외를 던짐
+ *   - auth() 반환값이 세션 구조가 아님 (session.user.email 부재)
+ *   - 세션 만료 시각이 지남
+ *   - **그 이메일이 지금 이 순간 유효한 관리자가 아님**
+ *
+ * 마지막 조건이 핵심이다. JWT 는 최대 30일 살아 있으므로 세션 안의 정보만 믿으면
+ * 공동관리자를 내보내도 한 달간 계속 들어온다. 그래서 매 요청 DB 로 확인한다.
+ * (마이그레이션 072 가 리그 회원 role 을 쿠키에 넣지 않기로 한 것과 같은 판단)
+ *
+ * 부트스트랩 계정(ADMIN_EMAIL)은 DB 에 행이 없으므로 예외로 통과시킨다 —
+ * 소유자가 자기 콘솔에서 잠기는 일은 없어야 한다.
+ */
+export async function requireCeoSession(): Promise<Session | null> {
+  const session = await requireCeoSessionShallow()
+  if (!session) return null
+
+  const email = session.user?.email
+  if (typeof email !== 'string' || !email) return null
+
+  if (isBootstrapEmail(email)) return session
+
+  try {
+    if (await isActiveAdminEmail(email)) return session
+  } catch (e) {
+    // 조회 실패를 통과로 처리하면 DB 장애가 곧 인증 우회가 된다.
+    console.error('[auth/ceo] 관리자 상태 확인 실패 — fail closed', e)
+    return null
+  }
+  return null
 }

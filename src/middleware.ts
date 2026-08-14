@@ -91,9 +91,16 @@ export async function middleware(request: NextRequest) {
   //   이 계층은 UX 용 리다이렉트일 뿐 — 진짜 보안 경계는 layout.tsx(getRequireCeoSession)와
   //   각 API 라우트다. 여기서 판정이 흔들려도(예: Edge 에서 env 인식이 실패해 항상 거부되는
   //   방향으로 어긋나는 경우) 그 아래 계층이 fail-closed 이므로 뚫리지 않는다.
-  if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
-    const { requireCeoSession } = await import('@/lib/auth/ceo')
-    const session = await requireCeoSession()
+  //   초대 수락·접근 요청 화면은 아직 계정이 없는 사람이 여는 곳이라 로그인 검사에서 뺀다
+  //   (토큰 자체가 인증이거나, 아예 인증이 필요 없는 창구다).
+  const ADMIN_PUBLIC = ['/admin/login', '/admin/invite', '/admin/request-access']
+  const isAdminPublic = ADMIN_PUBLIC.some((p) => pathname.startsWith(p))
+  if (pathname.startsWith('/admin') && !isAdminPublic) {
+    //   여기서는 DB 왕복이 없는 shallow 판정을 쓴다 — 미들웨어는 모든 /admin 요청마다 돌기
+    //   때문. 계정이 실제로 살아있는지는 layout.tsx 와 각 API 라우트의 requireCeoSession()이
+    //   DB 로 확인한다(그쪽이 진짜 경계다).
+    const { requireCeoSessionShallow } = await import('@/lib/auth/ceo')
+    const session = await requireCeoSessionShallow()
     if (!session) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
     }
@@ -143,6 +150,13 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Node.js 런타임 (Next 16). 기본 Edge 런타임에서는 next-auth 체인이 node:crypto 를
+  // 끌고 들어와 런타임에 죽는다 — 빌드는 warning 으로 통과하기 때문에 더 위험하다.
+  //   실측(2026-08-14): 공동관리자 체계를 붙이며 ceo.ts 가 platformAdmin.ts(pbkdf2·sha256)를
+  //   참조하게 되자 /admin 콘솔 전체가 500. "Failed to load external module node:crypto".
+  // 이 미들웨어는 어차피 slug→UUID 매핑을 위해 Supabase REST 를 호출하므로 Edge 여야 할
+  // 이유가 없다. 런타임을 Node 로 고정해 이 부류의 문제를 통째로 없앤다.
+  runtime: 'nodejs',
   matcher: [
     '/youth',
     '/youth/:path*',
