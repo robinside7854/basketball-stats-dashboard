@@ -11,7 +11,7 @@ import { toast } from 'sonner'
 import HighlightsPlayer from './HighlightsPlayer'
 import HighlightsPlaylist from './HighlightsPlaylist'
 import HighlightsFilterBar, { type FilterState, type FilterCounts } from './HighlightsFilterBar'
-import { categoryOfType, parseShotCategory, SHOT_CATEGORY_OPTIONS, type HighlightFilterCategory, type ShotCategory } from '@/lib/highlights/clip'
+import { categoryOfType, clipMatchesCategory, parseShotCategory, SHOT_CATEGORY_OPTIONS, type HighlightFilterCategory, type ShotCategory } from '@/lib/highlights/clip'
 import { availabilityCounts, availabilityCountsBy, gameQuarterLabel } from '@/lib/highlights/crossFilter'
 import { shortenUrl } from '@/lib/shortUrl'
 import type { HighlightClip, HighlightRoundDetail, HighlightGameQuarterOption } from '@/lib/highlights/types'
@@ -57,7 +57,7 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
   const matchCategory = useCallback((c: HighlightClip) => {
     if (!filter.category) return true
     if (filter.category === 'clutch') return !!c.is_clutch
-    return categoryOfType(c.shot_type) === filter.category
+    return clipMatchesCategory(c, filter.category)
   }, [filter.category])
 
   // 필터 적용 — clutch 는 shot_type 무관 컨텍스트 필터 (is_clutch 체크)
@@ -84,7 +84,7 @@ export default function HighlightsBrowser({ detail, teamSectionLabel, hideCatego
       clutch: c => !!c.is_clutch,
     }
     for (const o of SHOT_CATEGORY_OPTIONS) {
-      categoryMatchers[o.key] = c => categoryOfType(c.shot_type) === o.key
+      categoryMatchers[o.key] = c => clipMatchesCategory(c, o.key)
     }
     return {
       teams:      availabilityCounts(detail.clips, [matchPlayer, matchCategory, matchQuarter], c => c.team_id),

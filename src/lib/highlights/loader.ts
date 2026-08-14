@@ -3,7 +3,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { extractYouTubeId } from '@/lib/youtube/utils'
-import { isHighlightShot, getClipBounds, SHOT_TYPE_LABEL, shouldShowAssist } from './clip'
+import { isHighlightShot, getClipBounds, SHOT_TYPE_LABEL, shouldShowAssist, mergeAndOneClips } from './clip'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 // 러닝 스코어(홈/원정 누적 점수) 계산 — 저장된 points 컬럼이 아니라 리그 채점 룰로 재계산한다.
 // 이유: 클러치 판정은 게임 내 이벤트를 순서대로 훑으며 누적하는 구조라, 값 하나가 룰과
@@ -441,7 +441,9 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
 
   return {
     date,
-    clips,
+    // 앤드원은 그 원인이 된 슛 클립에 흡수한다 — 같은 장면이 두 번 재생되던 문제.
+    // 반환 직전 한 곳에서 처리해 모든 하이라이트 화면이 같은 결과를 본다.
+    clips: mergeAndOneClips(clips),
     players: Object.values(playerCounts).sort((a, b) => b.count - a.count),
     teams: Object.values(teamCounts).sort((a, b) => b.count - a.count),
   }
@@ -746,7 +748,8 @@ export async function loadPlayerHighlights(
     .map(([type, count]) => ({ type, label: SHOT_TYPE_LABEL[type] ?? type, count }))
     .sort((a, b) => b.count - a.count)
 
-  return { player, clips, quarters, shotTypes }
+  // 앤드원 흡수 — clip.ts 의 공용 처리. 화면마다 따로 하면 언젠가 한 곳이 빠진다.
+  return { player, clips: mergeAndOneClips(clips), quarters, shotTypes }
 }
 
 // 이벤트 UUID 배열 → HighlightClip[] · 위닝샷 배지/베스트샷 핀 재생용
@@ -961,7 +964,8 @@ export async function loadClipsByEventIds(
     }
   }
 
-  return eventIds.map(id => byId[id]).filter((c): c is HighlightClip => !!c)
+  // 이 로더는 '특정 이벤트들'을 되살리는 용도라 흡수 대상이 함께 넘어올 수 있다.
+  return mergeAndOneClips(eventIds.map(id => byId[id]).filter((c): c is HighlightClip => !!c))
 }
 
 // ── 리그 베스트샷 릴 ─────────────────────────────────────────────
@@ -1016,5 +1020,5 @@ export async function loadLeagueBestShots(
     if (count > 0) players.push({ id: p.id, name: p.name, number: p.number, count })
   }
 
-  return { date: '', clips, players, teams: [] }
+  return { date: '', clips: mergeAndOneClips(clips), players, teams: [] }
 }

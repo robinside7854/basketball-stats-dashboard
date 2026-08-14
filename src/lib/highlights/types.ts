@@ -28,6 +28,9 @@ export type HighlightClip = {
   team_color: string
   shot_type: string
   points: number
+  /** 이 슛에 앤드원이 붙었는가 — 별도 클립이 아니라 이 클립에 흡수된 것이다.
+   *  points 에는 앤드원 득점이 이미 더해져 있다. (2026-08-14 · mergeAndOneClips) */
+  has_and_one?: boolean
   game_id: string
   home_team_name: string
   away_team_name: string

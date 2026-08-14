@@ -12,6 +12,7 @@ import PlayerHighlightsPlaylist from './PlayerHighlightsPlaylist'
 import PinBestShotToolbar from './PinBestShotToolbar'
 import {
   categoryOfType,
+  clipMatchesCategory,
   parseShotCategory,
   SHOT_CATEGORY_OPTIONS,
   type HighlightFilterCategory,
@@ -79,7 +80,7 @@ export default function PlayerHighlightsBrowser({
   const matchCategory = useCallback((c: HighlightClip) => {
     if (!category) return true
     if (category === 'clutch') return !!c.is_clutch
-    return categoryOfType(c.shot_type) === category
+    return clipMatchesCategory(c, category)
   }, [category])
   const matchGroup = useCallback(
     (c: HighlightClip) => !quarterId || c.quarter_id === quarterId, [quarterId])
@@ -108,7 +109,7 @@ export default function PlayerHighlightsBrowser({
       clutch: c => !!c.is_clutch,
     }
     for (const o of SHOT_CATEGORY_OPTIONS) {
-      categoryMatchers[o.key] = c => categoryOfType(c.shot_type) === o.key
+      categoryMatchers[o.key] = c => clipMatchesCategory(c, o.key)
     }
     return {
       categories:    availabilityCountsBy(clips, [matchGroup, matchGameQuarter], categoryMatchers),

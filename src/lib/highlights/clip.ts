@@ -58,6 +58,19 @@ export function parseShotCategory(v: string | null): ShotCategory | null {
 // 클러치는 shot_type 이 아닌 컨텍스트(시간+점수차) 기반이라 categoryOfType 반환에는 포함 안 함
 export type HighlightFilterCategory = ShotCategory | 'clutch'
 
+/**
+ * 클립의 카테고리. 앤드원이 흡수된 슛은 원래 유형(레이업 등)과 '앤드원' 양쪽에 걸린다 —
+ * 흡수했다고 '앤드원' 필터에서 사라지면 그 필터가 늘 비게 된다.
+ * 필터 쪽은 이 함수를 쓰고, 라벨 표기는 categoryOfType 을 그대로 쓴다.
+ */
+export function clipMatchesCategory(
+  clip: { shot_type: string; has_and_one?: boolean },
+  category: ShotCategory,
+): boolean {
+  if (category === 'andones') return clip.shot_type === 'and_one' || clip.has_and_one === true
+  return categoryOfType(clip.shot_type) === category
+}
+
 export function categoryOfType(type: string): ShotCategory | null {
   if (type === 'shot_3p') return 'threes'
   if (type === 'shot_layup') return 'layups'
@@ -66,6 +79,58 @@ export function categoryOfType(type: string): ShotCategory | null {
   if (type === 'and_one') return 'andones'
   if (type === 'ft_2pt' || type === 'ft_3pt_1' || type === 'ft_3pt_2' || type === 'free_throw') return 'freethrows'
   return null
+}
+
+/**
+ * 앤드원 클립을 그 원인이 된 슛 클립에 합친다.
+ *
+ * ## 왜
+ * 앤드원은 **이미 들어간 슛에 파울이 겹쳐 얻은 추가 1점**이다. 같은 장면인데 기록상 이벤트가
+ * 둘로 남아 클립도 둘로 만들어졌다 — 모아보기에서 같은 플레이가 연달아 두 번 재생됐다.
+ *
+ * ## 어떻게 짝을 찾나 (실측 근거, 2026-08-14)
+ * 처음엔 "바로 직전 이벤트"로 잡으려 했는데 **105건 중 3건만** 맞았다. 기록 순서(id)에는
+ * 상대 팀 이벤트나 리바운드가 사이에 끼기 때문이다. 그래서 **영상 시각**으로 짝을 찾는다:
+ *   같은 경기 · 같은 선수 · 성공한 슛(앤드원 제외) 중 video_timestamp 가 가장 가까운 것.
+ * 실측 분포 — 98/104 는 슛이 앤드원보다 앞서고(평균 2.4초), 2초 이내 71 · 5초 이내 93 ·
+ * 10초 이내 99건. 최대 격차는 16초였다.
+ *
+ * ## 창(window)을 두는 이유
+ * 짝을 못 찾은 앤드원까지 억지로 붙이면 **엉뚱한 앞선 득점**에 합쳐진다. 창 밖이면 합치지 않고
+ * 지금처럼 단독 클립으로 남긴다 — 틀리게 합치는 것보다 낫다.
+ */
+const AND_ONE_MATCH_WINDOW = 15   // 초. 실측 최대 격차 16초를 거의 덮되 무한정 넓히지 않는다
+
+export function mergeAndOneClips<T extends {
+  event_id: string; game_id: string; player_id: string | null
+  shot_type: string; points: number; video_timestamp: number
+  has_and_one?: boolean
+}>(clips: T[]): T[] {
+  const andOnes = clips.filter(c => c.shot_type === 'and_one')
+  if (andOnes.length === 0) return clips
+
+  const absorbed = new Set<string>()   // 흡수된 앤드원 클립의 event_id
+  const bonus = new Map<string, number>()  // 슛 클립 event_id → 더할 점수
+
+  for (const ao of andOnes) {
+    let best: T | null = null
+    let bestGap = Infinity
+    for (const c of clips) {
+      if (c.shot_type === 'and_one') continue
+      if (c.game_id !== ao.game_id || c.player_id !== ao.player_id) continue
+      const gap = Math.abs(c.video_timestamp - ao.video_timestamp)
+      if (gap < bestGap) { bestGap = gap; best = c }
+    }
+    if (!best || bestGap > AND_ONE_MATCH_WINDOW) continue   // 못 찾으면 단독 유지
+    absorbed.add(ao.event_id)
+    bonus.set(best.event_id, (bonus.get(best.event_id) ?? 0) + ao.points)
+  }
+
+  return clips
+    .filter(c => !absorbed.has(c.event_id))
+    .map(c => bonus.has(c.event_id)
+      ? { ...c, points: c.points + (bonus.get(c.event_id) ?? 0), has_and_one: true }
+      : c)
 }
 
 // 어시스트 표시가 유의미한 슛 유형만 true (자유투/앤드원은 제외 — 파울 상황이라 어시스트 개념 없음)

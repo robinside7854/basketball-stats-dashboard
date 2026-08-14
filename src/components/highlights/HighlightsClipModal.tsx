@@ -73,6 +73,10 @@ export default function HighlightsClipModal({
             {current && (
               <span className="text-[11px] truncate ml-2" style={{ color: 'var(--mm-ink-soft)' }}>
                 {current.player_name} · {SHOT_TYPE_LABEL[current.shot_type] ?? current.shot_type}
+                {/* 앤드원은 별도 클립이 아니라 이 슛에 흡수돼 있다 — 같은 장면이 두 번 재생되지 않게. */}
+                {current.has_and_one && (
+                  <span className="font-black" style={{ color: 'var(--mm-yellow-strong)' }}> +1 앤드원</span>
+                )}
                 {/* 어시스트 — 득점만 보면 "누가 만들어 줬는지"가 사라진다. 동호회에서 자주 오가는 이야기다.
                     자유투·앤드원은 어시스트가 성립하지 않으므로 shouldShowAssist 로 거른다
                     (그 판정은 clip.ts 가 정본이다 — 여기서 다시 쓰지 않는다). */}

@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { extractYouTubeId } from '@/lib/youtube/utils'
-import { isHighlightShot, getClipBounds, SHOT_TYPE_LABEL, shouldShowAssist } from './clip'
+import { isHighlightShot, getClipBounds, SHOT_TYPE_LABEL, shouldShowAssist, mergeAndOneClips } from './clip'
 import type {
   HighlightClip, HighlightRoundDetail, HighlightPlayerOption,
   PlayerHighlightsData, HighlightQuarterOption, HighlightShotTypeOption,
@@ -303,7 +303,8 @@ export async function loadTournamentHighlightDetail(
     tournament: { id: t.id, name: t.name, year: t.year },
     detail: {
       date: '',
-      clips,
+      // 앤드원 흡수 — 리그 로더와 같은 공용 처리(clip.ts)를 쓴다.
+      clips: mergeAndOneClips(clips),
       players: Object.values(playerCounts).sort((a, b) => b.count - a.count),
       teams: opponents,   // "vs 상대명" 칩 (상대가 1팀뿐이어도 노출 — 대회 맥락 표시)
     },
@@ -460,5 +461,6 @@ export async function loadTeamPlayerHighlights(
     .map(([type, count]) => ({ type, label: SHOT_TYPE_LABEL[type] ?? type, count }))
     .sort((a, b) => b.count - a.count)
 
-  return { player, clips, quarters, shotTypes }
+  // 앤드원 흡수 — 리그 로더와 같은 공용 처리를 쓴다.
+  return { player, clips: mergeAndOneClips(clips), quarters, shotTypes }
 }
