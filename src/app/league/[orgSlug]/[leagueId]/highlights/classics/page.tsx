@@ -4,9 +4,8 @@
 // 이 화면은 그 결과를 읽어 보여주기만 한다 — 판정을 두 곳에서 하면 언젠가 어긋난다.
 //
 // 서버 컴포넌트. 스탯 게이팅을 거치므로 비회원에게는 StatGate 가 대신 뜬다.
-import Link from 'next/link'
 import { unstable_cache } from 'next/cache'
-import { Trophy, ChevronRight } from 'lucide-react'
+import { Trophy } from 'lucide-react'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
 import EmptyState from '@/components/league/EmptyState'
@@ -101,14 +100,14 @@ export default async function ClassicGamesPage({
         />
       ) : (
         <div className="space-y-3">
-          {games.map(g => <ClassicCard key={g.gameId} g={g} base={base} leagueId={leagueId} />)}
+          {games.map(g => <ClassicCard key={g.gameId} g={g} leagueId={leagueId} />)}
         </div>
       )}
     </div>
   )
 }
 
-function ClassicCard({ g, base, leagueId }: { g: ClassicGame; base: string; leagueId: string }) {
+function ClassicCard({ g, leagueId }: { g: ClassicGame; leagueId: string }) {
   const homeWin = g.homeScore > g.awayScore
   const awayWin = g.awayScore > g.homeScore
 
@@ -214,24 +213,8 @@ function ClassicCard({ g, base, leagueId }: { g: ClassicGame; base: string; leag
       </div>
 
       {/* 모음집 — 경기 영상 + 그 경기 득점 클립 */}
-      <ClassicGameClips
-        leagueId={leagueId}
-        gameId={g.gameId}
-        date={g.date}
-        title={`${g.homeName} ${g.homeScore} : ${g.awayScore} ${g.awayName}`}
-        youtubeUrl={g.youtubeUrl}
-      />
+      <ClassicGameClips leagueId={leagueId} game={g} />
 
-      <Link
-        href={`${base}/boxscore/${g.date}?game=${g.gameId}`}
-        className="flex items-center justify-between gap-2 px-4 py-3 min-h-[44px] cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
-        style={{ borderTop: '1px solid var(--mm-rule)' }}
-      >
-        <span className="text-[12px] font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--mm-ink-soft)' }}>
-          이 경기 박스스코어
-        </span>
-        <ChevronRight size={16} aria-hidden style={{ color: 'var(--mm-muted)' }} />
-      </Link>
     </SectionCard>
   )
 }

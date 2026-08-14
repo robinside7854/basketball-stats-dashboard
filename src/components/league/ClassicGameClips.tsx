@@ -1,5 +1,8 @@
 'use client'
-// 명경기 모음집 — 경기 영상과 그 경기의 득점 클립을 한 자리에서 본다.
+// 명경기 모음집 — 그 경기의 득점 클립을 순서대로 본다.
+//
+// '풀경기 보기'(유튜브 원본 링크)는 2026-08-14 제거했다. 명경기 카드에서 원하는 건
+// "그 경기가 왜 명경기였나"이고, 그건 득점 장면이 답한다. 40분짜리 원본은 여기서 눌릴 일이 없다.
 //
 // 왜 클립을 미리 안 싣는가: 명경기 목록은 서버 컴포넌트가 그린다. 거기에 클립까지 담으면
 //   7~8경기 × 십수 개 클립이 전부 첫 페이로드에 실린다. 대부분의 방문자는 목록만 훑고 나간다.
@@ -9,22 +12,25 @@
 //   game_id 로 걸러낸다 — 명경기 전용 엔드포인트를 새로 만들면 같은 로딩 로직이 둘로 갈린다.
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Film, Play, Loader2 } from 'lucide-react'
+import { Play, Loader2, Table2 } from 'lucide-react'
 import type { HighlightClip } from '@/lib/highlights/types'
+import type { ClassicGame } from '@/lib/stats/classicGames'
 
-// 클립 재생기는 무겁고(YouTube iframe + 상태) 실제로 여는 사람만 필요하다.
+// 둘 다 무겁고(YouTube iframe · 표 + 조회) 실제로 여는 사람만 필요하다.
 const HighlightsClipModal = dynamic(() => import('@/components/highlights/HighlightsClipModal'), { ssr: false })
+const ClassicBoxscoreModal = dynamic(() => import('@/components/league/ClassicBoxscoreModal'), { ssr: false })
 
 interface Props {
   leagueId: string
-  gameId: string
-  date: string
-  title: string
-  /** 경기 영상 링크. 없으면 버튼을 숨긴다(영상이 안 붙은 경기도 명경기일 수 있다) */
-  youtubeUrl: string | null
+  game: ClassicGame
 }
 
-export default function ClassicGameClips({ leagueId, gameId, date, title, youtubeUrl }: Props) {
+// 카드 하단 액션 — 클립 모음집과 박스스코어. 클라이언트 경계를 하나로 유지하려고
+// 두 버튼을 한 컴포넌트에 둔다(카드 자체는 서버 컴포넌트다).
+export default function ClassicGameClips({ leagueId, game }: Props) {
+  const { gameId, date } = game
+  const title = `${game.homeName} ${game.homeScore} : ${game.awayScore} ${game.awayName}`
+  const [boxOpen, setBoxOpen] = useState(false)
   const [clips, setClips] = useState<HighlightClip[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
@@ -71,22 +77,21 @@ export default function ClassicGameClips({ leagueId, gameId, date, title, youtub
           )}
         </button>
 
-        {youtubeUrl && (
-          <a
-            href={youtubeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 text-[12px] font-bold uppercase tracking-[0.1em] cursor-pointer transition-colors"
-            style={{
-              border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)',
-              borderRadius: 'var(--mm-radius-ctl)',
-              transitionDuration: 'var(--mm-motion-fast)', transitionTimingFunction: 'var(--mm-ease-out)',
-            }}
-          >
-            <Film size={14} aria-hidden />
-            경기 영상
-          </a>
-        )}
+        {/* 박스스코어 — 페이지로 나가지 않는다. 명경기는 훑어보는 목록이라
+            나갔다 돌아오면 자리를 잃는다. */}
+        <button
+          type="button"
+          onClick={() => setBoxOpen(true)}
+          className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 text-[12px] font-bold uppercase tracking-[0.1em] cursor-pointer transition-colors"
+          style={{
+            border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)',
+            borderRadius: 'var(--mm-radius-ctl)',
+            transitionDuration: 'var(--mm-motion-fast)', transitionTimingFunction: 'var(--mm-ease-out)',
+          }}
+        >
+          <Table2 size={14} aria-hidden />
+          박스스코어
+        </button>
 
         {error && (
           <span className="text-[12px]" style={{ color: 'var(--mm-muted)' }} role="status">
@@ -94,6 +99,10 @@ export default function ClassicGameClips({ leagueId, gameId, date, title, youtub
           </span>
         )}
       </div>
+
+      {boxOpen && (
+        <ClassicBoxscoreModal leagueId={leagueId} game={game} onClose={() => setBoxOpen(false)} />
+      )}
 
       {open && clips && clips.length > 0 && (
         <HighlightsClipModal

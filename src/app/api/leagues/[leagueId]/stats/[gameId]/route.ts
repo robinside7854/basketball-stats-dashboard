@@ -99,7 +99,16 @@ export async function GET(
     if (elapsed > 0) s.min += Math.round(elapsed / 60)
   }
 
-  const boxScores = Object.values(statsMap)
+  // 선수 이름을 함께 싣는다 — 지금까지 player_id 만 돌려줘서 호출부가 매번 명단을 따로 받아
+  // 이름을 맞추고 있었다. 필드 추가라 기존 소비처에는 영향이 없다. (2026-08-14 · 명경기 박스스코어 팝업)
+  const pids = Object.keys(statsMap)
+  const nameById = new Map<string, string>()
+  if (pids.length > 0) {
+    const { data: ps } = await supabase.from('league_players').select('id, name').in('id', pids)
+    for (const r of ((ps ?? []) as Array<{ id: string; name: string }>)) nameById.set(r.id, r.name)
+  }
+
+  const boxScores = Object.values(statsMap).map(s => ({ ...s, name: nameById.get(s.player_id) ?? '알 수 없음' }))
   const teamTotals = boxScores.reduce<Partial<PlayerStat>>((acc, s) => ({
     pts: (acc.pts ?? 0) + s.pts,
     fgm: (acc.fgm ?? 0) + s.fgm,

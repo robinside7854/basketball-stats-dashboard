@@ -52,6 +52,9 @@ export interface ClassicGame {
   /** 경기 영상. 없을 수도 있다 — 영상이 안 붙은 경기도 명경기일 수 있다 */
   youtubeUrl: string | null
   topScorer: { name: string; pts: number } | null
+  /** 이 경기의 주인공 — 위닝샷 선수가 있으면 그 사람, 없으면 최다 득점자.
+   *  경기를 한 줄로 기억하게 하는 얼굴이다. role 은 왜 주인공인지 설명한다. */
+  hero: { name: string; photoUrl: string | null; role: string; line: string } | null
   hits: number
   score: number
   /** 선정 사유 태그 — 화면에 그대로 칩으로 뿌린다 */
@@ -110,8 +113,9 @@ export async function computeClassicGames(
     if (rows.length < PAGE) break
   }
 
-  const { data: playerRows } = await sb.from('league_players').select('id, name').eq('league_id', leagueId)
+  const { data: playerRows } = await sb.from('league_players').select('id, name, photo_url').eq('league_id', leagueId)
   const playerName = new Map((playerRows ?? []).map((p: { id: string; name: string }) => [p.id, p.name]))
+  const playerPhoto = new Map((playerRows ?? []).map((p: { id: string; photo_url: string | null }) => [p.id, p.photo_url]))
 
   // 위닝샷 배지 — 이미 계산된 판정을 재사용한다. 같은 판정을 두 곳에서 하면 언젠가 어긋난다.
   const { data: wsRows } = await sb
@@ -151,8 +155,12 @@ export async function computeClassicGames(
     }
 
     let topScorer: { name: string; pts: number } | null = null
+    let topScorerId: string | null = null
     for (const [pid, pts] of ptsByPlayer) {
-      if (!topScorer || pts > topScorer.pts) topScorer = { name: playerName.get(pid) ?? '알 수 없음', pts }
+      if (!topScorer || pts > topScorer.pts) {
+        topScorer = { name: playerName.get(pid) ?? '알 수 없음', pts }
+        topScorerId = pid
+      }
     }
 
     const margin = Math.abs(hs - as_)
@@ -181,6 +189,26 @@ export async function computeClassicGames(
       winningShotPlayer: wsPlayerId ? (playerName.get(wsPlayerId) ?? null) : null,
       youtubeUrl: g.youtube_url,
       topScorer,
+      // 주인공 — 위닝샷이 있으면 그 장면이 이 경기를 규정한다. 없으면 가장 많이 넣은 사람.
+      hero: (() => {
+        if (wsPlayerId) {
+          return {
+            name: playerName.get(wsPlayerId) ?? '알 수 없음',
+            photoUrl: playerPhoto.get(wsPlayerId) ?? null,
+            role: '위닝샷',
+            line: '마지막 득점으로 승부를 갈랐다',
+          }
+        }
+        if (topScorerId && topScorer) {
+          return {
+            name: topScorer.name,
+            photoUrl: playerPhoto.get(topScorerId) ?? null,
+            role: '최다 득점',
+            line: `이 경기에서 ${topScorer.pts}점`,
+          }
+        }
+        return null
+      })(),
       hits: (hasWS ? 1 : 0) + (hasLead ? 1 : 0) + (hasClose ? 1 : 0) + (hasHigh ? 1 : 0),
       score: (hasWS ? W_WINNING_SHOT : 0) + (hasLead ? W_LEAD_CHANGES : 0)
            + (hasClose ? W_CLOSE_MARGIN : 0) + (hasHigh ? W_HIGH_TOTAL : 0),

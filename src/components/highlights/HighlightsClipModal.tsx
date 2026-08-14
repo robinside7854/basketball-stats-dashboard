@@ -8,7 +8,7 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import { X } from 'lucide-react'
-import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
+import { SHOT_TYPE_LABEL, shouldShowAssist } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
 
 const HighlightsPlayer = dynamic(() => import('./HighlightsPlayer'), { ssr: false })
@@ -73,6 +73,14 @@ export default function HighlightsClipModal({
             {current && (
               <span className="text-[11px] truncate ml-2" style={{ color: 'var(--mm-ink-soft)' }}>
                 {current.player_name} · {SHOT_TYPE_LABEL[current.shot_type] ?? current.shot_type}
+                {/* 어시스트 — 득점만 보면 "누가 만들어 줬는지"가 사라진다. 동호회에서 자주 오가는 이야기다.
+                    자유투·앤드원은 어시스트가 성립하지 않으므로 shouldShowAssist 로 거른다
+                    (그 판정은 clip.ts 가 정본이다 — 여기서 다시 쓰지 않는다). */}
+                {shouldShowAssist(current.shot_type) && current.assist_player_name && (
+                  <span style={{ color: 'var(--mm-muted)' }}>
+                    {' '}← {current.assist_player_name} 어시스트
+                  </span>
+                )}
               </span>
             )}
           </div>
