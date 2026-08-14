@@ -58,6 +58,9 @@ interface Props {
   date: string
   /** 공유 이미지 헤더에 표기할 리그 이름 (없으면 기본값) */
   leagueName?: string
+  /** 이 경기를 펼친 채로 연다. 명경기 카드처럼 "그날"이 아니라 "그 경기"로 보내는 진입점용.
+   *  하루에 여러 경기가 열리므로, 날짜만 넘기면 어느 경기였는지 다시 찾아야 한다. */
+  initialGameId?: string
 }
 
 function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean }) {
@@ -261,11 +264,12 @@ function getYoutubeEmbedUrl(url: string, offset: number): string {
 
 // 멀티테넌트 전환(온볼): leagueName 은 항상 호출부(boxscore page)에서 DB league.name 을 넘겨받음 —
 // 기본값은 다른 클럽명이 아닌 빈 문자열로 폴백 (호출부 fallback 미전달 시에도 특정 클럽명 노출 방지)
-export default function BoxscoreContent({ leagueId, date, leagueName = '' }: Props) {
+export default function BoxscoreContent({ leagueId, date, leagueName = '', initialGameId }: Props) {
   const [games, setGames] = useState<GameData[]>([])
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([])
   const [loading, setLoading] = useState(true)
-  const [expandedGame, setExpandedGame] = useState<string | null>(null)
+  // 초기값으로 넣는다 — 마운트 후 effect 로 펼치면 화면이 한 번 접힌 채 그려졌다 열린다.
+  const [expandedGame, setExpandedGame] = useState<string | null>(initialGameId ?? null)
   const [activeTab, setActiveTab] = useState<'result' | 'boxscore' | 'compare'>('result')
   const [teamFilter, setTeamFilter] = useState<string>('all')
   // 이미지 저장 진행 상태

@@ -12,6 +12,7 @@ import SectionCard from '@/components/league/ui/SectionCard'
 import EmptyState from '@/components/league/EmptyState'
 import StatGate from '@/components/league/auth/StatGate'
 import { computeClassicGames, type ClassicGame } from '@/lib/stats/classicGames'
+import ClassicGameClips from '@/components/league/ClassicGameClips'
 import { getApprovedSession, isLeaguePrivateGated } from '@/lib/auth/guard'
 
 const getCached = (leagueId: string) =>
@@ -100,14 +101,14 @@ export default async function ClassicGamesPage({
         />
       ) : (
         <div className="space-y-3">
-          {games.map(g => <ClassicCard key={g.gameId} g={g} base={base} />)}
+          {games.map(g => <ClassicCard key={g.gameId} g={g} base={base} leagueId={leagueId} />)}
         </div>
       )}
     </div>
   )
 }
 
-function ClassicCard({ g, base }: { g: ClassicGame; base: string }) {
+function ClassicCard({ g, base, leagueId }: { g: ClassicGame; base: string; leagueId: string }) {
   const homeWin = g.homeScore > g.awayScore
   const awayWin = g.awayScore > g.homeScore
 
@@ -192,21 +193,42 @@ function ClassicCard({ g, base }: { g: ClassicGame; base: string }) {
         ))}
       </div>
 
-      {/* 칼럼 — 무슨 일이 있었는지 */}
+      {/* 칼럼 3줄 — 무슨 경기였나 / 결정적 장면 / 왜 뽑혔나.
+          마지막 줄(선정 근거)만 색을 달리해, 목록을 훑을 때 기준이 눈에 남게 한다. */}
       <div
-        className="px-4 py-3 text-[13px] leading-relaxed break-keep"
-        style={{ borderTop: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
+        className="px-4 py-3 space-y-1"
+        style={{ borderTop: '1px solid var(--mm-rule)' }}
       >
-        {g.column}
+        {g.columnLines.map((line, i) => (
+          <p
+            key={i}
+            className="text-[13px] leading-relaxed break-keep"
+            style={{
+              color: i === 2 ? 'var(--mm-muted)' : 'var(--mm-ink-soft)',
+              fontWeight: i === 0 ? 700 : 400,
+            }}
+          >
+            {line}
+          </p>
+        ))}
       </div>
 
+      {/* 모음집 — 경기 영상 + 그 경기 득점 클립 */}
+      <ClassicGameClips
+        leagueId={leagueId}
+        gameId={g.gameId}
+        date={g.date}
+        title={`${g.homeName} ${g.homeScore} : ${g.awayScore} ${g.awayName}`}
+        youtubeUrl={g.youtubeUrl}
+      />
+
       <Link
-        href={`${base}/boxscore/${g.date}`}
+        href={`${base}/boxscore/${g.date}?game=${g.gameId}`}
         className="flex items-center justify-between gap-2 px-4 py-3 min-h-[44px] cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
         style={{ borderTop: '1px solid var(--mm-rule)' }}
       >
         <span className="text-[12px] font-bold uppercase tracking-[0.1em]" style={{ color: 'var(--mm-ink-soft)' }}>
-          그날 박스스코어 보기
+          이 경기 박스스코어
         </span>
         <ChevronRight size={16} aria-hidden style={{ color: 'var(--mm-muted)' }} />
       </Link>

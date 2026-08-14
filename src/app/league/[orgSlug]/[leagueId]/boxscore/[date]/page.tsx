@@ -40,8 +40,16 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   return { title, description, openGraph: { title, description }, twitter: { title, description } }
 }
 
-export default async function BoxscorePage({ params }: { params: Promise<Params> }) {
+export default async function BoxscorePage({
+  params,
+  // ?game=<id> — 그 경기를 펼친 채로 연다. 명경기 카드가 "그날"이 아니라 "그 경기"로 보낸다.
+  searchParams,
+}: {
+  params: Promise<Params>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   const { orgSlug, leagueId, date } = await params
+  const sp = await searchParams
   if (!isValidDate(date)) notFound()
 
   // 비공개 리그 raw HTML 누출 방지 — layout.tsx 주석 참조 (Next 가 layout·page 병렬 렌더이므로
@@ -107,7 +115,8 @@ export default async function BoxscorePage({ params }: { params: Promise<Params>
       </div>
 
       {/* 콘텐츠 */}
-      <BoxscoreContent leagueId={leagueId} date={date} leagueName={leagueName} />
+      <BoxscoreContent leagueId={leagueId} date={date} leagueName={leagueName} initialGameId={typeof sp?.game === 'string' ? sp.game : undefined}
+      />
     </div>
   )
 }

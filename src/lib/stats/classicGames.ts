@@ -49,13 +49,16 @@ export interface ClassicGame {
   total: number
   leadChanges: number
   winningShotPlayer: string | null
+  /** 경기 영상. 없을 수도 있다 — 영상이 안 붙은 경기도 명경기일 수 있다 */
+  youtubeUrl: string | null
   topScorer: { name: string; pts: number } | null
   hits: number
   score: number
   /** 선정 사유 태그 — 화면에 그대로 칩으로 뿌린다 */
   reasons: string[]
-  /** 짧은 칼럼. 무슨 일이 있었는지 한 문단 */
-  column: string
+  /** 선정 칼럼 3줄 — [무슨 경기였나 / 결정적 장면 / 왜 뽑혔나].
+   *  한 문단으로 이으면 '왜 뽑혔는지'가 문장 속에 묻힌다. 줄을 나눠 근거를 끝에 못 박는다. */
+  columnLines: [string, string, string]
   /** 이 달에 1차 기준을 못 채워 완화했는가 */
   relaxed: boolean
 }
@@ -70,14 +73,14 @@ export async function computeClassicGames(
 
   const { data: games, error: gErr } = await sb
     .from('league_games')
-    .select('id, date, home_team_id, away_team_id, home_score, away_score')
+    .select('id, date, home_team_id, away_team_id, home_score, away_score, youtube_url')
     .eq('league_id', leagueId)
     .eq('is_complete', true)
     .eq('is_exhibition', false)
   if (gErr) throw new Error(`classicGames: 경기 조회 실패 — ${gErr.message}`)
   const gameRows = (games ?? []) as Array<{
     id: string; date: string; home_team_id: string | null; away_team_id: string | null
-    home_score: number | null; away_score: number | null
+    home_score: number | null; away_score: number | null; youtube_url: string | null
   }>
   if (gameRows.length === 0) return []
 
@@ -176,19 +179,27 @@ export async function computeClassicGames(
       homeScore: hs, awayScore: as_,
       margin, total, leadChanges,
       winningShotPlayer: wsPlayerId ? (playerName.get(wsPlayerId) ?? null) : null,
+      youtubeUrl: g.youtube_url,
       topScorer,
       hits: (hasWS ? 1 : 0) + (hasLead ? 1 : 0) + (hasClose ? 1 : 0) + (hasHigh ? 1 : 0),
       score: (hasWS ? W_WINNING_SHOT : 0) + (hasLead ? W_LEAD_CHANGES : 0)
            + (hasClose ? W_CLOSE_MARGIN : 0) + (hasHigh ? W_HIGH_TOTAL : 0),
       reasons,
-      column: '',
+      columnLines: ['', '', ''] as [string, string, string],
       relaxed: false,
     } satisfies ClassicGame
   })
 
+  // 이번 달은 아직 끝나지 않았다 — 마감된 달만 뽑는다.
+  //   달이 진행 중일 때 뽑으면 남은 경기에서 더 좋은 경기가 나와도 이미 '이 달의 명경기'가
+  //   박혀 있다. 그러면 다음 조회 때 조용히 바뀌어, 봤던 경기가 사라진 것처럼 보인다.
+  //   달이 바뀌면 자동으로 편입되므로 별도 아카이빙 작업이 필요 없다.
+  const nowMonth = new Date().toISOString().slice(0, 7)
+
   // 월별로 하나씩 뽑는다.
   const months = new Map<string, ClassicGame[]>()
   for (const g of scored) {
+    if (g.month >= nowMonth) continue
     const arr = months.get(g.month)
     if (arr) arr.push(g); else months.set(g.month, [g])
   }
@@ -212,44 +223,64 @@ export async function computeClassicGames(
       a.date.localeCompare(b.date),        // 완전 동률이면 먼저 열린 경기 (결과 고정용)
     )
     const best = pool[0]
-    picked.push({ ...best, relaxed, column: buildColumn(best, relaxed) })
+    picked.push({ ...best, relaxed, columnLines: buildColumn(best, relaxed) })
   }
 
   return picked.sort((a, b) => b.month.localeCompare(a.month))
 }
 
 /**
- * 선정 칼럼 — 무슨 일이 있었는지 한 문단.
+ * 한글 조사 — 앞 글자 받침에 따라 고른다.
+ * "빅현욱이(가)" 처럼 괄호로 뭉개면 읽는 흐름이 끊긴다. 팀명은 동호회가 정하는 값이라
+ * 하드코딩할 수 없어서 받침을 계산한다. (한글 음절 U+AC00~U+D7A3, 종성 = (코드-0xAC00) % 28)
+ */
+function josa(word: string, withFinal: string, withoutFinal: string): string {
+  const last = word.trim().slice(-1)
+  const code = last.charCodeAt(0)
+  if (Number.isNaN(code) || code < 0xac00 || code > 0xd7a3) return withoutFinal  // 한글이 아니면 무받침 취급
+  return (code - 0xac00) % 28 > 0 ? withFinal : withoutFinal
+}
+
+/**
+ * 선정 칼럼 3줄 — [무슨 경기였나 / 결정적 장면 / 왜 뽑혔나].
  *
  * AI 를 쓰지 않는다. 매번 같은 경기에 같은 문장이 나와야 하고(재계산 때마다 말이 바뀌면
- * 기록이 아니라 인상이 된다), 비용도 들지 않는다. 대신 데이터가 말해 주는 것만 적는다.
+ * 기록이 아니라 인상이 된다), 비용도 들지 않는다. 데이터가 말해 주는 것만 적는다.
+ *
+ * 3줄로 나눈 이유: 한 문단으로 이으면 '왜 뽑혔는지'가 문장 속에 묻힌다.
+ * 마지막 줄에 선정 근거를 따로 못 박아, 목록을 훑을 때 기준이 눈에 남게 한다.
  */
-function buildColumn(g: ClassicGame, relaxed: boolean): string {
-  const parts: string[] = []
+function buildColumn(g: ClassicGame, relaxed: boolean): [string, string, string] {
   const winner = g.homeScore > g.awayScore ? g.homeName : g.awayScore > g.homeScore ? g.awayName : null
+  const loser = g.homeScore > g.awayScore ? g.awayName : g.awayScore > g.homeScore ? g.homeName : null
 
-  parts.push(`${g.homeName} ${g.homeScore} : ${g.awayScore} ${g.awayName}.`)
+  // 1줄 — 무슨 경기였나
+  const line1 = winner && loser
+    ? `${winner}${josa(winner, '이', '가')} ${loser}${josa(loser, '을', '를')} `
+      + `${Math.max(g.homeScore, g.awayScore)}대 ${Math.min(g.homeScore, g.awayScore)}로 눌렀다.`
+    : `${g.homeName}${josa(g.homeName, '과', '와')} ${g.awayName}${josa(g.awayName, '이', '가')} `
+      + `${g.homeScore}대 ${g.awayScore}로 비겼다.`
 
-  if (g.leadChanges >= LEAD_CHANGES) {
-    parts.push(`리드가 ${g.leadChanges}번 뒤집혔다.`)
-  } else if (g.leadChanges > 0) {
-    parts.push(`리드가 ${g.leadChanges}번 바뀌었다.`)
-  }
-
+  // 2줄 — 결정적 장면. 가장 극적인 것 하나를 앞세운다(위닝샷 > 역전 > 접전 > 화력).
+  let line2: string
   if (g.winningShotPlayer) {
-    parts.push(`${g.winningShotPlayer}의 마지막 득점이 그대로 승부가 됐다.`)
+    line2 = `${g.winningShotPlayer}의 마지막 득점이 그대로 승부가 됐다.`
+    if (g.leadChanges >= LEAD_CHANGES) line2 += ` 그전까지 리드는 ${g.leadChanges}번 뒤집혔다.`
+  } else if (g.leadChanges >= LEAD_CHANGES) {
+    line2 = `리드가 ${g.leadChanges}번 뒤집히며 끝까지 주인이 정해지지 않았다.`
   } else if (g.margin === 0) {
-    parts.push('끝내 승부가 갈리지 않았다.')
-  } else if (g.margin <= CLOSE_MARGIN && winner) {
-    parts.push(`${winner}이(가) ${g.margin}점을 지켜냈다.`)
+    line2 = '끝내 승부가 갈리지 않았다.'
+  } else if (g.margin <= CLOSE_MARGIN) {
+    line2 = `마지막까지 ${g.margin}점 차였다.`
+  } else {
+    line2 = `양 팀 합계 ${g.total}점이 오간 화력전이었다.`
   }
+  if (g.topScorer && g.topScorer.pts > 0) line2 += ` 최다 득점은 ${g.topScorer.name} ${g.topScorer.pts}점.`
 
-  if (g.total >= HIGH_TOTAL) parts.push(`양 팀 합계 ${g.total}점의 화력전.`)
-  if (g.topScorer && g.topScorer.pts > 0) parts.push(`최다 득점은 ${g.topScorer.name} ${g.topScorer.pts}점.`)
+  // 3줄 — 왜 뽑혔나. 충족한 기준을 그대로 나열한다.
+  const line3 = relaxed
+    ? `선정 근거: ${g.reasons.join(' · ')} (${g.hits}개). 이 달은 3개를 채운 경기가 없어 2개 기준으로 골랐다.`
+    : `선정 근거: ${g.reasons.join(' · ')} — 4개 기준 중 ${g.hits}개 충족.`
 
-  // 완화된 달은 그 사실을 숨기지 않는다. "이 달은 기준을 낮춰 뽑았다"를 알아야
-  // 목록 전체의 신뢰가 유지된다.
-  if (relaxed) parts.push('※ 이 달은 3개 조건을 채운 경기가 없어 2개 기준으로 골랐다.')
-
-  return parts.join(' ')
+  return [line1, line2, line3]
 }
