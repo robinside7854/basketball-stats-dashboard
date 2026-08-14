@@ -48,6 +48,7 @@ export default async function BestShotsReelPage({
 
   const groupTabs = [
     { href: `${base}/highlights`,             label: '경기별 하이라이트', active: false },
+    { href: `${base}/highlights/classics`,    label: '명경기',           active: false },
     { href: `${base}/highlights/milestones`,  label: '커리어 마일스톤',  active: false },
     { href: `${base}/highlights/best-shots`,  label: '베스트샷',         active: true },
   ]
