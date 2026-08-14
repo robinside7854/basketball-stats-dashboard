@@ -10,7 +10,8 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { canViewLeague, getApprovedSession } from '@/lib/auth/guard'
-import { loadNextDate, loadVenueDefaults, applyVenueDefaults, resolveQuarterForDate, resolveAssignments, todayYmd, type UpcomingDate } from '@/lib/rsvp/nextGame'
+import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
+import { loadNextDate, loadVenueDefaults, applyVenueDefaults, loadQuarterMembership, resolveQuarterForDate, resolveAssignments, todayYmd, type UpcomingDate } from '@/lib/rsvp/nextGame'
 
 const STATUSES = ['going', 'not_going', 'maybe'] as const
 type Status = (typeof STATUSES)[number]
@@ -65,54 +66,88 @@ export async function GET(
 
   const quarter = await resolveQuarterForDate(sb, leagueId, target.date)
 
-  // 참석·미정만 배정 대상이다. 불참은 어느 팀에도 세우지 않는다.
-  const attending = all.filter(r => r.status === 'going' || r.status === 'maybe')
+  // ── 명단을 먼저 세우고, 그 위에 응답을 얹는다 ─────────────────────────────
+  //
+  // 응답한 사람만 보여주면 **아직 안 누른 사람이 화면에서 사라진다.** 그게 총무가 가장
+  // 알고 싶은 정보다("누구를 찔러야 하나"). 그래서 정규회원 전원을 팀별로 깔고,
+  // 응답은 표시(체크/물음표/X)로만 바꾼다. 미응답은 빈 동그라미로 남는다.
+  const [membership, resolve, { data: accounts }, { data: playersRaw }] = await Promise.all([
+    loadQuarterMembership(sb, leagueId, quarter?.id ?? null),
+    loadIdentityResolver(sb, leagueId),
+    sb.from('league_user_accounts').select('id, league_player_id, status').eq('league_id', leagueId),
+    sb.from('league_players').select('id, name, is_guest').eq('league_id', leagueId),
+  ])
 
-  // 이름은 계정이 아니라 선수에 있다. 계정 → 선수 → 이름 순으로 이어 붙인다.
-  const accountIds = attending.map(r => r.account_id as string)
-  const { data: accounts } = accountIds.length
-    ? await sb
-      .from('league_user_accounts')
-      .select('id, league_player_id')
-      .in('id', accountIds)
-    : { data: [] as Array<{ id: string; league_player_id: string | null }> }
+  const nameByPlayer = new Map((playersRaw ?? []).map(p => [p.id as string, p.name as string]))
+  const guestIds = new Set((playersRaw ?? []).filter(p => p.is_guest).map(p => p.id as string))
 
-  const playerIdByAccount = new Map((accounts ?? []).map(a => [a.id as string, (a.league_player_id as string | null) ?? null]))
-  const playerIds = [...playerIdByAccount.values()].filter((v): v is string => !!v)
-  const { data: players } = playerIds.length
-    ? await sb.from('league_players').select('id, name').in('id', playerIds)
-    : { data: [] as Array<{ id: string; name: string }> }
-  const nameByPlayer = new Map((players ?? []).map(p => [p.id as string, p.name as string]))
-
-  const assignments = await resolveAssignments(
-    sb, leagueId, quarter?.id ?? null,
-    attending.map(r => ({
-      playerId: playerIdByAccount.get(r.account_id as string) ?? null,
-      assignedTeamId: (r.assigned_team_id as string | null) ?? null,
-    })),
-  )
-
-  // 팀별로 묶는다. 배정이 없는 사람은 waiting 으로 따로 뺀다 — 명단에 섞어 두면
-  // 팀 인원이 실제보다 많아 보이고, 운영진이 누굴 배치해야 하는지 못 찾는다.
-  const byTeam = new Map<string, { teamId: string; teamName: string; members: Array<{ name: string; status: Status }> }>()
-  const waiting: Array<{ name: string; status: Status }> = []
-
-  attending.forEach((r, i) => {
-    const a = assignments[i]
-    const name = nameByPlayer.get(playerIdByAccount.get(r.account_id as string) ?? '') ?? '이름 미상'
-    const entry = { name, status: r.status as Status }
-    if (a.waiting || !a.teamId) { waiting.push(entry); return }
-    const key = a.teamId
-    if (!byTeam.has(key)) byTeam.set(key, { teamId: key, teamName: a.teamName ?? '팀', members: [] })
-    byTeam.get(key)!.members.push(entry)
-  })
-
-  // 참석이 먼저, 그다음 미정. 이름순은 그 안에서만 — 나오는 사람이 위에 있어야 읽힌다.
-  const order = (s: Status) => (s === 'going' ? 0 : 1)
-  for (const t of byTeam.values()) {
-    t.members.sort((a, b) => order(a.status) - order(b.status) || a.name.localeCompare(b.name, 'ko'))
+  // 선수 → 계정. 승인된 계정만 신청할 수 있으므로 그것만 센다.
+  const accountByPlayer = new Map<string, string>()
+  for (const a of accounts ?? []) {
+    if (a.status !== 'approved') continue
+    if (a.league_player_id) accountByPlayer.set(a.league_player_id as string, a.id as string)
   }
-  waiting.sort((a, b) => order(a.status) - order(b.status) || a.name.localeCompare(b.name, 'ko'))
+
+  const rsvpByAccount = new Map(all.map(r => [r.account_id as string, r]))
+
+  interface Row { playerId: string; name: string; status: Status | null; hasAccount: boolean; isMe: boolean }
+  const rowOf = (playerId: string): Row => {
+    const accId = accountByPlayer.get(playerId)
+    const r = accId ? rsvpByAccount.get(accId) : undefined
+    return {
+      playerId,
+      name: nameByPlayer.get(playerId) ?? '이름 미상',
+      status: (r?.status as Status | undefined) ?? null,
+      hasAccount: !!accId,
+      isMe: playerId === session.pid,
+    }
+  }
+
+  // 팀 배정 — 운영진이 직접 배치한 값(assigned_team_id)이 분기 소속을 덮는다.
+  const manualTeamByPlayer = new Map<string, string>()
+  for (const r of all) {
+    if (!r.assigned_team_id) continue
+    const acc = (accounts ?? []).find(a => a.id === r.account_id)
+    if (acc?.league_player_id) manualTeamByPlayer.set(acc.league_player_id as string, r.assigned_team_id as string)
+  }
+
+  const byTeam = new Map<string, { teamId: string; teamName: string; members: Row[] }>()
+  const waiting: Row[] = []
+  const push = (teamId: string | null, row: Row) => {
+    if (!teamId) { waiting.push(row); return }
+    if (!byTeam.has(teamId)) {
+      byTeam.set(teamId, {
+        teamId,
+        // ⚠ 팀 이름은 (team_id, quarter_id) 로 푼다 — 분기마다 팀이 새로 짜인다.
+        teamName: resolve(teamId, quarter?.id ?? null)?.display_name ?? '팀',
+        members: [],
+      })
+    }
+    byTeam.get(teamId)!.members.push(row)
+  }
+
+  // 1) 정규회원 전원 — 응답 여부와 무관하게 자기 팀에 깔린다.
+  for (const [playerId, teamId] of membership) {
+    if (!teamId || guestIds.has(playerId)) continue
+    push(manualTeamByPlayer.get(playerId) ?? teamId, rowOf(playerId))
+  }
+
+  // 2) 비정규회원 — **응답한 사람만** 올린다. 18명 전원을 깔면 카드가 명단이 아니라
+  //    전화번호부가 된다. 참석 의사를 밝힌 사람만 배정 대상이다.
+  for (const [accountId, r] of rsvpByAccount) {
+    if (r.status === 'not_going') continue
+    const acc = (accounts ?? []).find(a => a.id === accountId)
+    const pid = acc?.league_player_id as string | undefined
+    if (!pid || guestIds.has(pid)) continue
+    if (membership.get(pid)) continue          // 정규회원은 위에서 이미 넣었다
+    push(manualTeamByPlayer.get(pid) ?? null, rowOf(pid))
+  }
+
+  // 참석 → 미정 → 미응답 → 불참 순. 나오는 사람이 위에 있어야 인원 계산이 눈으로 된다.
+  const order = (s: Status | null) => (s === 'going' ? 0 : s === 'maybe' ? 1 : s === null ? 2 : 3)
+  const sortRows = (a: Row, b: Row) => order(a.status) - order(b.status) || a.name.localeCompare(b.name, 'ko')
+  for (const t of byTeam.values()) t.members.sort(sortRows)
+  waiting.sort(sortRows)
 
   const mine = all.find(r => r.account_id === session.uid)
   const [myAssignment] = await resolveAssignments(sb, leagueId, quarter?.id ?? null, [

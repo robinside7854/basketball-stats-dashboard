@@ -141,26 +141,38 @@ export interface Assignment {
  * ⚠ 팀 이름은 반드시 (team_id, quarter_id) 로 푼다. 이 리그는 분기마다 팀을 새로 짜기 때문에
  *    league_teams 에서 바로 읽으면 다른 분기의 이름이 붙는다.
  */
+/**
+ * 그 분기의 소속 — `league_player_id → team_id`.
+ *
+ * team_id 가 있으면 **정규회원**, 없거나 행이 아예 없으면 **비정규회원**이다.
+ * (`is_regular` 컬럼과 1:1로 일치하지만, 배정을 실제로 정하는 건 team_id 라서 이쪽을 본다.)
+ *
+ * 분기 전체를 한 번에 읽는다 — 20~30행이라 걸러 읽을 이유가 없고, 명단 화면은 어차피
+ * 전원을 필요로 한다.
+ */
+export async function loadQuarterMembership(
+  sb: SupabaseClient,
+  leagueId: string,
+  quarterId: string | null,
+): Promise<Map<string, string | null>> {
+  if (!quarterId) return new Map()
+  const { data } = await sb
+    .from('league_player_quarters')
+    .select('league_player_id, team_id')
+    .eq('league_id', leagueId)
+    .eq('quarter_id', quarterId)
+  return new Map((data ?? []).map(r => [r.league_player_id as string, (r.team_id as string | null) ?? null]))
+}
+
 export async function resolveAssignments(
   sb: SupabaseClient,
   leagueId: string,
   quarterId: string | null,
   entries: Array<{ playerId: string | null; assignedTeamId: string | null }>,
 ): Promise<Assignment[]> {
-  const playerIds = entries.map(e => e.playerId).filter((v): v is string => !!v)
-
   const [resolve, membership] = await Promise.all([
     loadIdentityResolver(sb, leagueId),
-    (async () => {
-      if (!quarterId || playerIds.length === 0) return new Map<string, string | null>()
-      const { data } = await sb
-        .from('league_player_quarters')
-        .select('league_player_id, team_id')
-        .eq('league_id', leagueId)
-        .eq('quarter_id', quarterId)
-        .in('league_player_id', playerIds)
-      return new Map((data ?? []).map(r => [r.league_player_id as string, (r.team_id as string | null) ?? null]))
-    })(),
+    loadQuarterMembership(sb, leagueId, quarterId),
   ])
 
   return entries.map(e => {

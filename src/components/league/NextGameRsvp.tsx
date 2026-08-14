@@ -12,13 +12,32 @@
 // 비로그인에게도 경기 정보는 보여준다 — 가입해야 신청할 수 있다는 걸 알리는 게
 //   가입 독려의 실질이다. 빈자리로 두면 이런 게 있는 줄도 모른다.
 import { useEffect, useState } from 'react'
-import { CalendarDays, Clock, MapPin, Check, X, HelpCircle, Loader2, Users, LogIn } from 'lucide-react'
+import { CalendarDays, Clock, MapPin, Check, X, HelpCircle, Loader2, Users, LogIn, CheckCircle2, XCircle, Circle } from 'lucide-react'
 import { toast } from 'sonner'
 
 type Status = 'going' | 'not_going' | 'maybe'
 
-interface Member { name: string; status: Status }
+interface Member {
+  playerId: string
+  name: string
+  /** null = 아직 응답 안 함. 명단에서 빈 동그라미로 남는다. */
+  status: Status | null
+  /** 승인된 계정이 있는가. 없으면 영영 응답할 수 없다 — 회색과 구분해 알린다. */
+  hasAccount: boolean
+  isMe: boolean
+}
 interface TeamGroup { teamId: string; teamName: string; members: Member[] }
+
+/** 참석 → 미정 → 불참 → 참석. 미응답으로는 되돌아가지 않는다(응답을 지우는 건 취소가 아니다). */
+const NEXT_STATUS: Record<string, Status> = { going: 'maybe', maybe: 'not_going', not_going: 'going' }
+
+// 색만으로 뜻을 전하지 않는다 — 모양이 다르고(체크/물음표/X/빈원) aria-label 도 붙는다.
+const MARK: Record<string, { Icon: typeof Check; color: string; label: string }> = {
+  going: { Icon: CheckCircle2, color: 'var(--mm-positive)', label: '참석' },
+  maybe: { Icon: HelpCircle, color: 'var(--mm-yellow-strong)', label: '미정' },
+  not_going: { Icon: XCircle, color: 'var(--mm-negative)', label: '불참' },
+  none: { Icon: Circle, color: 'var(--mm-rule)', label: '미응답' },
+}
 
 interface Payload {
   date: { id: string; date: string; start_time: string | null; place: string | null; capacity: number | null } | null
@@ -51,6 +70,88 @@ function relativeLabel(d: string): string | null {
   return null
 }
 
+/**
+ * 팀 하나(또는 배정 대기)의 명단.
+ *
+ * 정규회원은 **응답 여부와 무관하게 전원** 깔린다 — 응답한 사람만 보이면 아직 안 누른 사람이
+ * 화면에서 사라지고, 그게 총무가 가장 알고 싶은 정보다.
+ *
+ * 내 이름만 누를 수 있다. 남의 응답을 대신 바꾸는 건 넣지 않았다 —
+ * "계정 미보유자는 가입 독려로 해결"이라는 앞선 결정과 어긋난다.
+ */
+function RosterGroup({
+  title, members, dashed, saving, onCycle,
+}: {
+  title: string
+  members: Member[]
+  dashed?: boolean
+  saving: boolean
+  onCycle: (current: Status | null) => void
+}) {
+  const going = members.filter(m => m.status === 'going').length
+  return (
+    <div
+      className="px-3 py-2"
+      style={{
+        background: dashed ? 'transparent' : 'var(--mm-panel-alt)',
+        border: dashed ? '1px dashed var(--mm-rule)' : '1px solid transparent',
+        borderRadius: 'var(--mm-radius-ctl)',
+      }}
+    >
+      <p className="flex items-baseline justify-between gap-1.5 text-[12px] font-black">
+        <span className="truncate" style={{ color: dashed ? 'var(--mm-muted)' : 'var(--mm-ink)' }}>{title}</span>
+        <span className="tabular-nums shrink-0" style={{ color: 'var(--mm-yellow-strong)' }}>
+          {going}<span style={{ color: 'var(--mm-muted)' }}>/{members.length}</span>
+        </span>
+      </p>
+
+      <ul className="mt-1.5 grid grid-cols-2 gap-x-2">
+        {members.map(m => {
+          const mark = MARK[m.status ?? 'none']
+          const label = `${m.name} · ${m.hasAccount ? mark.label : '미가입'}`
+          const inner = (
+            <>
+              <mark.Icon size={15} aria-hidden className="shrink-0" style={{ color: m.hasAccount ? mark.color : 'var(--mm-rule)' }} />
+              <span
+                className="truncate"
+                style={{
+                  color: m.status === 'going' ? 'var(--mm-ink)' : 'var(--mm-ink-soft)',
+                  fontWeight: m.isMe ? 800 : 500,
+                  // 불참은 흐리게 — 참석자와 같은 무게로 보이면 인원이 눈으로 안 세어진다.
+                  opacity: m.status === 'not_going' ? 0.5 : 1,
+                }}
+              >
+                {m.name}
+              </span>
+              {m.isMe && <span className="shrink-0 text-[10px] font-black" style={{ color: 'var(--mm-yellow-strong)' }}>나</span>}
+              {!m.hasAccount && <span className="shrink-0 text-[10px]" style={{ color: 'var(--mm-muted)' }}>미가입</span>}
+            </>
+          )
+          return (
+            <li key={m.playerId} className="min-w-0">
+              {m.isMe ? (
+                <button
+                  type="button"
+                  onClick={() => onCycle(m.status)}
+                  disabled={saving}
+                  aria-label={`내 응답 ${mark.label} — 눌러서 변경`}
+                  className="w-full flex items-center gap-1.5 min-h-[32px] py-1 text-[12.5px] text-left cursor-pointer disabled:opacity-50 transition-colors rounded hover:bg-[color:var(--mm-panel)]"
+                >
+                  {inner}
+                </button>
+              ) : (
+                <span className="w-full flex items-center gap-1.5 min-h-[32px] py-1 text-[12.5px]" aria-label={label}>
+                  {inner}
+                </span>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
 export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
   const [data, setData] = useState<Payload | null>(null)
   const [loaded, setLoaded] = useState(false)
@@ -64,6 +165,12 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
       .catch(() => { if (!cancelled) setLoaded(true) })
     return () => { cancelled = true }
   }, [leagueId])
+
+  // 명단에서 내 이름을 누르면 참석 → 미정 → 불참 → 참석 순으로 돈다.
+  // 아직 응답 전이면 첫 클릭은 '참석' — 목록에서 자기 이름을 누르는 동작의 뜻이 그것이다.
+  function cycleMine(current: Status | null) {
+    choose(current ? NEXT_STATUS[current] : 'going')
+  }
 
   async function choose(status: Status) {
     if (!data?.date) return
@@ -178,41 +285,29 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
               대기(비정규)는 팀 목록에 섞지 않는다. 섞으면 팀 인원이 실제보다 많아 보이고,
               운영진이 누굴 배치해야 하는지 못 찾는다. */}
           {teams && (teams.list.length > 0 || teams.waiting.length > 0) && (
-            <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+            <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid var(--mm-rule)' }}>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {teams.list.map(t => (
-                  <div key={t.teamId} className="px-3 py-2" style={{ background: 'var(--mm-panel-alt)', borderRadius: 'var(--mm-radius-chip)' }}>
-                    <p className="flex items-baseline gap-1.5 text-[12px] font-black" style={{ color: 'var(--mm-ink)' }}>
-                      <span className="truncate">{t.teamName}</span>
-                      <span className="tabular-nums shrink-0" style={{ color: 'var(--mm-yellow-strong)' }}>
-                        {t.members.filter(m => m.status === 'going').length}명
-                      </span>
-                    </p>
-                    <p className="mt-0.5 text-[12px] leading-relaxed break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
-                      {t.members.map((m, i) => (
-                        <span key={m.name + i} style={{ opacity: m.status === 'maybe' ? 0.55 : 1 }}>
-                          {i > 0 && ', '}{m.name}{m.status === 'maybe' ? '(미정)' : ''}
-                        </span>
-                      ))}
-                    </p>
-                  </div>
+                  <RosterGroup
+                    key={t.teamId}
+                    title={t.teamName}
+                    members={t.members}
+                    saving={saving !== null}
+                    onCycle={cycleMine}
+                  />
                 ))}
               </div>
 
+              {/* 비정규회원 — 팀 목록에 섞지 않는다. 섞으면 팀 인원이 실제보다 많아 보이고,
+                  운영진이 누굴 배치해야 하는지 못 찾는다. */}
               {teams.waiting.length > 0 && (
-                <div className="mt-2 px-3 py-2" style={{ border: '1px dashed var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}>
-                  <p className="flex items-baseline gap-1.5 text-[12px] font-black" style={{ color: 'var(--mm-muted)' }}>
-                    배정 대기
-                    <span className="tabular-nums">{teams.waiting.filter(m => m.status === 'going').length}명</span>
-                  </p>
-                  <p className="mt-0.5 text-[12px] leading-relaxed break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
-                    {teams.waiting.map((m, i) => (
-                      <span key={m.name + i} style={{ opacity: m.status === 'maybe' ? 0.55 : 1 }}>
-                        {i > 0 && ', '}{m.name}{m.status === 'maybe' ? '(미정)' : ''}
-                      </span>
-                    ))}
-                  </p>
-                </div>
+                <RosterGroup
+                  title="배정 대기"
+                  members={teams.waiting}
+                  dashed
+                  saving={saving !== null}
+                  onCycle={cycleMine}
+                />
               )}
             </div>
           )}
