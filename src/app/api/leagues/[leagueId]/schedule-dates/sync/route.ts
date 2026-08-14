@@ -23,6 +23,17 @@ import { syncYoutubeForLeague } from '@/lib/youtube/syncYoutubeForLeague'
 /** 미실시로 접기까지 기다리는 기간. "다음 주가 되면" = 7일. */
 const SKIP_AFTER_DAYS = 7
 
+/**
+ * 앞으로 몇 주치 일정을 미리 만들어 둘 것인가.
+ *
+ * 참여신청은 **미래 날짜가 있어야** 붙는다. 2026-08-14 기준 이 리그의 마지막 일정은 8/8 이었다 —
+ * 여태 `start_date ~ 오늘` 만 만들었기 때문이다. 기록용으로는 맞았지만 신청은 못 받는다.
+ *
+ * 8주로 잡은 이유: 두 달치면 "다음 달에 나갈 수 있나"까지 답이 나오고, 그 이상은 어차피
+ * 체육관 대관이 확정되지 않아 나중에 지워야 할 날짜가 는다.
+ */
+const FUTURE_WEEKS = 8
+
 function toYmd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
@@ -48,17 +59,23 @@ export async function POST(
     return NextResponse.json({ error: '설정 탭에서 첫 정기 일정 날짜를 먼저 지정하세요' }, { status: 400 })
   }
 
-  // ── 1) 날짜 생성 — start_date 부터 오늘까지 매주 ──────────────────────
+  // ── 1) 날짜 생성 — start_date 부터 8주 뒤까지 매주 ────────────────────
+  // 과거는 기록을 붙이려고, 미래는 참여신청을 받으려고 만든다.
   const today = new Date()
   today.setHours(23, 59, 59, 999)
+  const todayYmd = toYmd(today)
+
+  const horizon = new Date(today)
+  horizon.setDate(horizon.getDate() + FUTURE_WEEKS * 7)
+
   const wanted: string[] = []
   const cursor = new Date(league.start_date + 'T00:00:00')
-  while (cursor <= today) {
+  while (cursor <= horizon) {
     wanted.push(toYmd(cursor))
     cursor.setDate(cursor.getDate() + 7)
   }
   if (wanted.length === 0) {
-    return NextResponse.json({ error: '첫 정기 일정 날짜가 오늘 이후입니다', inserted: 0 }, { status: 400 })
+    return NextResponse.json({ error: '첫 정기 일정 날짜가 너무 먼 미래입니다', inserted: 0 }, { status: 400 })
   }
 
   const { data: existingRows } = await supabase
@@ -101,7 +118,9 @@ export async function POST(
   const allDates = [...new Set([...existing.keys(), ...newDates])]
   const newlySkipped = allDates.filter(d => {
     if (existing.get(d) === true) return false        // 이미 접힌 날짜
-    if (d > cutoffYmd) return false                    // 아직 기다릴 만한 날짜
+    // ⚠ 미래 날짜를 지켜 주는 줄이기도 하다. 앞으로 만든 8주치는 당연히 영상도 기록도 0인데,
+    //    여기서 걸러지지 않으면 만들자마자 전부 '미실시'로 접혀 신청을 못 받게 된다.
+    if (d > cutoffYmd) return false                    // 아직 기다릴 만한 날짜(미래 포함)
     const s = byDate.get(d)
     return !s || (s.yt === 0 && s.started === 0)
   })
@@ -129,6 +148,9 @@ export async function POST(
     // 영상이 이미 다 붙은 날짜는 다시 찾지 않는다 — 유튜브 API 할당량을 아낀다.
     const targets = allDates
       .filter(d => !skippedSet.has(d))
+      // 아직 오지 않은 날짜는 찾을 영상이 없다. 빼지 않으면 미래 8주치마다 유튜브 검색이
+      // 한 번씩 나가 할당량만 태운다(매번 0건).
+      .filter(d => d <= todayYmd)
       .filter(d => {
         const s = byDate.get(d)
         if (!s) return true                 // 경기가 아직 없는 날 — 영상이 먼저 올라온 경우가 있다
@@ -149,6 +171,9 @@ export async function POST(
 
   return NextResponse.json({
     inserted: newDates.length,
+    // 과거(기록용)와 미래(신청용)를 나눠 알린다 — 한 숫자로 뭉치면 "8개 등록"이 무엇을 뜻하는지
+    // 총무가 알 수 없다.
+    inserted_future: newDates.filter(d => d > todayYmd).length,
     skipped_marked: newlySkipped.length,
     synced_dates: syncedDates,
     synced_videos: syncedVideos,

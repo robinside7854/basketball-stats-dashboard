@@ -6,15 +6,31 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2, ChevronDown } from 'lucide-react'
+import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2, ChevronDown, Pencil, Clock, MapPin, Users } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import SubTabLoadingSkeleton from '@/components/league/SubTabLoadingSkeleton'
 
 // is_skipped = 휴관 등으로 안 모인 주. 지우는 대신 표시로 남긴다 —
 // 지우면 '일정 등록'을 누를 때마다 start_date 기준으로 다시 만들어져 되살아난다.
-type ScheduleDate = { id: string; date: string; is_skipped?: boolean }
-type Quarter = { id: string; year: number; quarter: number }
+// start_time·place·capacity 는 앞으로 있을 경기에만 채운다(참여신청용). 과거 날짜는 전부 null 이다 —
+// 이제 와서 알 수도 없고, 기록을 보는 데 필요하지도 않다.
+type ScheduleDate = {
+  id: string; date: string; is_skipped?: boolean
+  start_time?: string | null; place?: string | null; capacity?: number | null
+}
+type Quarter = { id: string; year: number; quarter: number; start_date?: string | null; end_date?: string | null }
+
+/** 오늘(로컬) YYYY-MM-DD. 미래 일정 판정 기준 — 문자열 비교로 시간대 문제를 피한다. */
+function todayYmd(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** '20:00:00' → '20:00'. DB 는 time 이라 초까지 온다. */
+function hhmm(t?: string | null): string {
+  return t ? t.slice(0, 5) : ''
+}
 
 // 한 번에 보여줄 날짜 카드 수 — 나머지는 "더 보기" 로 점진 노출한다.
 // 흡수된 구 박스스코어 목록은 5일씩 서버 페이지네이션이었다. 이 페이지는 편집(추가/삭제)이
@@ -24,6 +40,70 @@ type Quarter = { id: string; year: number; quarter: number }
 // 과하다 — 10장이면 초기 노출 분량이 구 목록 2페이지(10일)와 비슷해 이 값으로 잡았다.
 const INITIAL_VISIBLE = 10
 const REVEAL_STEP = 10
+
+// ⚠ 이 컴포넌트는 반드시 파일 최상단(모듈 스코프)에 둔다. 렌더 함수 안에서 정의하면
+//    리렌더마다 새 컴포넌트 타입이 되어 입력칸이 매번 교체되고, 한글 IME 조합이 글자마다
+//    끊긴다("체육관" → "ㅊ ㅔ ..."). 장소는 한글 입력칸이라 여기에 정통으로 걸린다.
+function ScheduleDetailEditor({
+  sd, saving, onSave, onCancel,
+}: {
+  sd: ScheduleDate
+  saving: boolean
+  onSave: (patch: { start_time: string; place: string; capacity: string }) => void
+  onCancel: () => void
+}) {
+  const [time, setTime] = useState(hhmm(sd.start_time))
+  const [place, setPlace] = useState(sd.place ?? '')
+  const [capacity, setCapacity] = useState(sd.capacity ? String(sd.capacity) : '')
+
+  return (
+    <div
+      className="flex flex-col gap-2 pt-2"
+      style={{ borderTop: '1px solid var(--mm-rule)' }}
+    >
+      <div className="grid grid-cols-2 sm:grid-cols-[120px_1fr_110px] gap-2">
+        <label className="flex flex-col gap-1 min-w-0">
+          <span className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: 'var(--mm-muted)' }}>시작 시간</span>
+          <Input type="time" value={time} onChange={e => setTime(e.target.value)} className="min-h-[44px]" />
+        </label>
+        <label className="flex flex-col gap-1 min-w-0 col-span-2 sm:col-span-1">
+          <span className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: 'var(--mm-muted)' }}>장소</span>
+          <Input value={place} onChange={e => setPlace(e.target.value)} placeholder="예: 상암 체육관" className="min-h-[44px]" />
+        </label>
+        <label className="flex flex-col gap-1 min-w-0">
+          <span className="text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: 'var(--mm-muted)' }}>정원</span>
+          <Input
+            type="number" min={1} inputMode="numeric"
+            value={capacity} onChange={e => setCapacity(e.target.value)}
+            placeholder="무제한" className="min-h-[44px]"
+          />
+        </label>
+      </div>
+      {/* 비워 두면 지워진다는 걸 미리 알린다 — 저장하고 나서 사라진 걸 발견하면 되돌릴 방법이 없다. */}
+      <p className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>비워 두면 표시하지 않습니다 · 정원 빈칸 = 무제한</p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onSave({ start_time: time, place, capacity })}
+          disabled={saving}
+          className="inline-flex items-center justify-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-4 py-2 min-h-[44px] cursor-pointer disabled:opacity-50 transition-shadow duration-200"
+          style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)' }}
+        >
+          {saving && <Loader2 size={13} className="animate-spin" aria-hidden />}
+          저장
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center justify-center text-[11px] font-bold tracking-widest uppercase px-4 py-2 min-h-[44px] cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+          style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
+        >
+          취소
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function ScheduleContent() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
@@ -44,6 +124,9 @@ function ScheduleContent() {
   const [selectedQFilter, setSelectedQFilter] = useState<'all' | string>(quarterFromRedirect || 'all')
   const [dateQuarterMap, setDateQuarterMap] = useState<Record<string, string>>({})
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
+  const [editingDate, setEditingDate] = useState<string | null>(null)
+  const [savingDate, setSavingDate] = useState<string | null>(null)
+  const today = todayYmd()
 
   async function load() {
     setLoading(true)
@@ -94,7 +177,11 @@ function ScheduleContent() {
       if (res.ok) {
         // 한 줄에 다 담는다 — 세 개의 토스트가 연달아 뜨면 무엇이 됐는지 오히려 안 읽힌다.
         const parts: string[] = []
-        if (data.inserted > 0) parts.push(`일정 ${data.inserted}개 등록`)
+        if (data.inserted > 0) {
+          // 예정 일정은 따로 센다 — 참여신청을 붙일 날짜가 몇 개 생겼는지가 총무의 관심사다.
+          const future = data.inserted_future ?? 0
+          parts.push(future > 0 ? `일정 ${data.inserted}개 등록 (예정 ${future}개)` : `일정 ${data.inserted}개 등록`)
+        }
         if (data.synced_dates > 0) parts.push(`영상 ${data.synced_videos}개 연동 (${data.synced_dates}일)`)
         if (data.skipped_marked > 0) parts.push(`미실시 ${data.skipped_marked}일 정리`)
         toast.success(parts.length > 0 ? parts.join(' · ') : '변경 사항 없음 — 이미 최신입니다')
@@ -125,6 +212,28 @@ function ScheduleContent() {
     } else {
       const d = await res.json()
       toast.error(d.error ?? '추가 실패')
+    }
+  }
+
+  // 시간·장소·정원 저장 — 예정 일정에만 쓴다.
+  async function saveDetails(date: string, patch: { start_time: string; place: string; capacity: string }) {
+    setSavingDate(date)
+    const res = await fetch(`/api/leagues/${leagueId}/schedule-dates`, {
+      method: 'PATCH',
+      headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, ...patch }),
+    })
+    setSavingDate(null)
+    if (res.ok) {
+      const updated: ScheduleDate = await res.json()
+      // 목록 전체를 다시 불러오지 않는다 — 한 칸 고쳤는데 화면이 통째로 깜빡이면
+      // 여러 날짜를 연달아 입력할 때 방금 어디를 고쳤는지 놓친다.
+      setDates(prev => prev.map(d => (d.date === date ? { ...d, ...updated } : d)))
+      setEditingDate(null)
+      toast.success('일정 정보 저장 완료')
+    } else {
+      const d = await res.json().catch(() => ({}))
+      toast.error(d.error ?? '저장 실패')
     }
   }
 
@@ -162,8 +271,18 @@ function ScheduleContent() {
     return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`
   }
 
+  // 분기 판정은 '그 날 치른 경기의 분기'가 정본이다. 하지만 앞으로 있을 날짜에는 경기가 없어
+  // 그 지도에 안 잡힌다 — 분기 탭을 누르면 예정 일정이 통째로 사라져 보인다.
+  // 그래서 경기가 없을 때만 분기의 기간(start_date~end_date)으로 되짚는다. 기간이 비어 있는
+  // 분기는 되짚지 못하는데, 그건 '전체'에서만 보이면 되는 문제라 억지로 맞추지 않는다.
+  function quarterOf(date: string): string | undefined {
+    const fromGames = dateQuarterMap[date]
+    if (fromGames) return fromGames
+    return quarters.find(q => q.start_date && q.end_date && date >= q.start_date && date <= q.end_date)?.id
+  }
+
   const filteredSortedDates = [...dates]
-    .filter(sd => selectedQFilter === 'all' || dateQuarterMap[sd.date] === selectedQFilter)
+    .filter(sd => selectedQFilter === 'all' || quarterOf(sd.date) === selectedQFilter)
     .sort((a, b) => b.date.localeCompare(a.date))
   const visibleDates = filteredSortedDates.slice(0, visibleCount)
   const hasMoreDates = filteredSortedDates.length > visibleCount
@@ -303,16 +422,22 @@ function ScheduleContent() {
           </div>
         )}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {visibleDates.map(sd => (
+          {visibleDates.map(sd => {
+            // 앞으로 있을 경기. 미실시로 접힌 날은 제외한다 — 접혔다는 건 '안 모인다'는 뜻이라
+            // 예정으로 부르면 거짓말이 된다.
+            const upcoming = sd.date >= today && !sd.is_skipped
+            const hasDetails = !!(sd.start_time || sd.place || sd.capacity)
+            return (
             <div
               key={sd.id}
-              className="flex items-center justify-between"
+              className="flex flex-col gap-2"
               style={{
                 background: 'var(--mm-panel)',
                 border: '1px solid var(--mm-rule)',
                 padding: '16px 20px',
               }}
             >
+              <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-3 min-w-0">
                 <CalendarDays size={18} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />
                 <span
@@ -321,6 +446,20 @@ function ScheduleContent() {
                 >
                   {formatDate(sd.date)}
                 </span>
+                {upcoming && (
+                  <span
+                    className="shrink-0 text-[10px] font-black uppercase px-2 py-0.5"
+                    style={{
+                      background: 'var(--mm-yellow-soft)',
+                      color: 'var(--mm-yellow-strong)',
+                      border: '1px solid var(--mm-yellow)',
+                      borderRadius: 'var(--mm-radius-chip)',
+                      letterSpacing: '0.12em',
+                    }}
+                  >
+                    예정
+                  </span>
+                )}
                 {sd.is_skipped && (
                   <span
                     className="shrink-0 text-[10px] font-black uppercase px-2 py-0.5"
@@ -337,7 +476,9 @@ function ScheduleContent() {
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {datesWithStats.has(sd.date) ? (
+                {/* 예정 일정에는 박스스코어 자리를 두지 않는다 — 아직 치르지 않은 경기의
+                    비활성 버튼은 자리만 차지하고 누를 일이 영영 없다. */}
+                {!upcoming && (datesWithStats.has(sd.date) ? (
                   <Link
                     href={`/league/${orgSlug}/${leagueId}/boxscore/${sd.date}`}
                     className="inline-flex items-center justify-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-colors cursor-pointer btn-press"
@@ -361,6 +502,17 @@ function ScheduleContent() {
                   >
                     <BarChart2 size={12} />박스스코어
                   </span>
+                ))}
+                {isEditMode && upcoming && (
+                  <button
+                    onClick={() => setEditingDate(editingDate === sd.date ? null : sd.date)}
+                    className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-3 py-2 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)]"
+                    style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
+                    aria-expanded={editingDate === sd.date}
+                  >
+                    <Pencil size={12} aria-hidden />
+                    {hasDetails ? '수정' : '시간·장소'}
+                  </button>
                 )}
                 {isEditMode && (
                   <button
@@ -376,8 +528,34 @@ function ScheduleContent() {
                   </button>
                 )}
               </div>
+              </div>
+
+              {/* 시간·장소·정원 — 입력된 것만 그린다. 비어 있으면 줄 자체가 없다.
+                  '미정'을 나열하면 과거 날짜 32개가 전부 '미정 · 미정'으로 도배된다. */}
+              {hasDetails && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-[30px] text-[12.5px]" style={{ color: 'var(--mm-ink-soft)' }}>
+                  {sd.start_time && (
+                    <span className="inline-flex items-center gap-1"><Clock size={13} aria-hidden style={{ color: 'var(--mm-muted)' }} />{hhmm(sd.start_time)}</span>
+                  )}
+                  {sd.place && (
+                    <span className="inline-flex items-center gap-1 min-w-0"><MapPin size={13} aria-hidden className="shrink-0" style={{ color: 'var(--mm-muted)' }} /><span className="break-keep">{sd.place}</span></span>
+                  )}
+                  {sd.capacity && (
+                    <span className="inline-flex items-center gap-1"><Users size={13} aria-hidden style={{ color: 'var(--mm-muted)' }} />정원 {sd.capacity}명</span>
+                  )}
+                </div>
+              )}
+
+              {isEditMode && upcoming && editingDate === sd.date && (
+                <ScheduleDetailEditor
+                  sd={sd}
+                  saving={savingDate === sd.date}
+                  onCancel={() => setEditingDate(null)}
+                  onSave={patch => saveDetails(sd.date, patch)}
+                />
+              )}
             </div>
-          ))}
+          )})}
         </div>
 
         {/* 더 보기 — 이미 fetch 된 배열을 점진 노출(서버 재요청 없음). 남은 개수를 라벨에
