@@ -7,7 +7,7 @@ import { useTheme } from 'next-themes'
 import { LeagueEditModeProvider, useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { LeagueQuarterProvider } from '@/contexts/LeagueQuarterContext'
 import { LeagueAuthProvider, useCurrentUser } from '@/contexts/LeagueAuthContext'
-import { Lock, Unlock, Home, BarChart2, Calendar, Newspaper, LogIn, User as UserIcon, UserPlus, Settings } from 'lucide-react'
+import { Lock, Unlock, Home, BarChart2, Calendar, Newspaper, LogIn, User as UserIcon, UserPlus, Settings, Sun, Moon } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 
 const LoginModal = dynamic(() => import('@/components/league/auth/LoginModal'), { ssr: false })
@@ -23,6 +23,33 @@ export function deriveLeagueBase(pathname: string, orgSlug: string, leagueId: st
   const seg = pathname.split('/')  // ['', 'league', orgSlug, idOrSlug, ...]
   if (seg[1] === 'league' && seg[2] && seg[3]) return `/${seg[1]}/${seg[2]}/${seg[3]}`
   return `/league/${orgSlug}/${leagueId}`
+}
+
+// 테마 토글 — 아이콘만. 전에는 '내 기록' 탭 안에 있어서 테마를 바꾸려면 개인 화면까지 들어가야 했다.
+// 헤더 우측에 두면 데스크톱·모바일 어느 화면에서든 한 번에 닿는다 (2026-08-15).
+//
+// ⚠ 현재 테마를 JS 상태로 읽어 아이콘을 고르면 안 된다. next-themes 의 theme 은 첫 렌더에
+//   undefined 라서 서버/클라이언트 마크업이 어긋나고(hydration), mounted 가드를 두면 이번엔
+//   첫 프레임에 아이콘이 없는 빈 버튼이 보인다. 헤더는 모든 화면에 뜨므로 그 깜빡임이 매번 보인다.
+//   → 아이콘·설명 문구 전환을 전부 CSS 로 한다. `globals.css` 의 `@custom-variant dark (&:is(.dark *))`
+//     덕에 `dark:` 가 <html>.dark 를 따라가므로, 두 벌을 다 그려두고 CSS 가 하나만 보여주면
+//     JS 상태가 아예 필요 없다. 클릭 시점에는 이미 마운트 후라 resolvedTheme 을 안전하게 읽는다.
+function ThemeToggleButton() {
+  const { resolvedTheme, setTheme } = useTheme()
+
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+      className="flex items-center justify-center w-11 h-11 rounded-md text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)] transition-colors cursor-pointer btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+    >
+      <Moon size={18} aria-hidden className="block dark:hidden" />
+      <Sun size={18} aria-hidden className="hidden dark:block" />
+      {/* 접근성 이름도 같은 방식으로 갈라 둔다 — 아이콘만으로는 무엇으로 바뀌는지 안 읽힌다 */}
+      <span className="sr-only block dark:hidden">다크 모드로 전환</span>
+      <span className="sr-only hidden dark:block">라이트 모드로 전환</span>
+    </button>
+  )
 }
 
 function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { orgSlug: string; leagueId: string; leagueName: string | null; onOpenLogin: () => void; showDraft: boolean }) {
@@ -53,21 +80,24 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   // 상위 메뉴 — 선수 명단·팀 순위는 스탯 우산으로 이동, 경기 탭은 원래대로 경기 3개만 남는다
   // (2026-08-08, stats-umbrella-move — 직전 커밋의 '팀/경기' 통합을 되돌림).
   // URL 은 그대로 유지(SEO/기존 링크 보존).
-  // 설정 탭은 편집 모드일 때만 나비게이션에 노출(어드민 은닉) —
-  //   URL 직접 접근은 여전히 가능하므로, 진짜 어드민 전용화가 필요하면 별도 이슈로 서버 가드 필요.
-  // "내 기록"은 항상 맨 오른쪽 — 드래프트/설정은 기존 위치(하이라이트 다음)를 유지한다(Task 4-B).
   // Stathead 는 2026-07-19 삭제 (사용 미미).
+  //
+  // 2026-08-15 — 탭에서 두 항목을 뺐다. 둘 다 '탭 줄'에 있으면 안 되는 것들이었다.
+  //   · '설정' : 우측 톱니바퀴와 같은 곳으로 가는 중복 입구였다. 톱니가 더 직관적이라 탭을 지운다.
+  //   · '내 기록(사용자 이름)' : 다른 탭과 생김새가 같아 누르는 자리인지 구분이 안 됐다.
+  //     우측 상단 프로필 칩(사진+이름)으로 옮겼다 — 모바일 하단 탭이 이미 쓰던 패턴과 같다.
+  //   두 경로 모두 우측 액션 영역에서 닿으므로 진입 자체가 사라진 건 아니다.
   const tabs: { href: string; label: string; match: string[]; ariaLabel?: string }[] = [
     { href: base, label: '홈', match: [] },
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`] },
     { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`, `${base}/roster`, `${base}/teams`] },
     { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
-    ...(isEditMode ? [{ href: `${base}/settings`, label: '설정', match: [`${base}/settings`] }] : []),
-    // /social(인스타 매거진 카드 생성기)은 설정에서만 진입하는 운영자 전용 화면이라 자체 탭이 없다 —
-    // '내 기록' 탭 match 에 흡수해 어느 탭도 안 켜지는 상태를 막는다(리뷰 항목 5, 2026-08-08).
-    { href: `${base}/me`, label: meLabel, match: [`${base}/me`, `${base}/social`], ariaLabel: meAriaLabel },
   ]
+
+  // 프로필 칩 활성 판정 — /me 와 /social(설정에서만 가는 운영자 화면)을 함께 흡수한다.
+  // 탭에서 빠졌으므로 이 경로들에서는 상단 밑줄 인디케이터가 꺼지고, 대신 칩이 켜진다.
+  const meActive = pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/social`)
   // 홈 탭은 완전일치. (공지 아카이브 /archive 우산은 공지 기능 폐지로 2026-08-13 제거)
   // 선수 명단·팀 순위(/roster·/teams)는 스탯 탭의 match 배열로 옮겨졌다(위 tabs 참조, 2026-08-08) —
   // 경기 탭 match 에서는 반드시 빠져야 두 탭이 동시에 켜지는 걸 막는다.
@@ -139,7 +169,6 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
               )}
               {tabs.map(tab => {
                 const isActive = tabActive(tab)
-                const isMeTab = tab.href === `${base}/me`
                 return (
                   <Link
                     key={tab.href}
@@ -153,9 +182,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                         : 'text-[color:var(--mm-muted)] font-medium hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)]'
                     }`}
                   >
-                    {/* 내 기록 탭 — 라벨이 사용자 이름으로 바뀌면 길이가 가변이라, 탭 폭이
-                        무한정 늘어나 옆 탭을 밀어내지 않도록 이 탭에서만 truncate 를 건다. */}
-                    {isMeTab ? <span className="truncate max-w-[110px] lg:max-w-[160px]">{tab.label}</span> : tab.label}
+                    {tab.label}
                     {/* 밑줄은 위 컨테이너의 인디케이터 하나가 옮겨 다니며 그린다(탭별 렌더 제거) */}
                   </Link>
                 )
@@ -166,8 +193,11 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
           {/* 모바일: 탭 영역 대신 빈 flex 공간 — 좌측 브랜드 링크가 이미 위에서 렌더됨 */}
           <div className="flex-1 min-w-0 lg:hidden" />
 
-          {/* 우측: 로그인 + 편집 모드 버튼 — 6개→2개로 축소(Task 4-B). 유저 칩·로그아웃·접속현황·
-              테마 토글은 전부 /me 로 이동했다(PresenceIndicator 는 /me 상단으로). 둘러보기는 삭제됐다(Task 4-A). */}
+          {/* 우측 액션 — 로그인 / 편집·어드민 / 설정(톱니) / 화면 모드 / 프로필 칩.
+              2026-08-08 에 6개→2개로 줄이면서 전부 /me 로 내렸는데, 그 결과 테마를 바꾸려면
+              개인 화면까지 들어가야 했고 상단 탭의 사람 이름은 눌러야 할 자리로 안 보였다.
+              2026-08-15 에 '어디서든 필요한 것'만 다시 올렸다 — 화면 모드와 프로필.
+              로그아웃·접속현황은 그대로 /me 에 둔다(자주 쓰지 않는다). */}
           <div className="flex items-center gap-1.5 pl-2 sm:pl-3 py-2 shrink-0">
             {!authLoading && !user && (
               <button
@@ -199,9 +229,9 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                 <Lock size={16} /><span className="hidden sm:inline">편집</span>
               </button>
             )}
-            {/* 어드민 설정 진입점(컨트롤러 자율 판단 1) — 설정이 /me 바로가기에서 빠지면서
-                모바일 어드민이 설정에 닿을 길이 없어진다. 편집/어드민 칩 옆에 아이콘 버튼으로
-                복원한다. 데스크톱 상단 탭의 '설정' 항목은 중복이 아니라 데스크톱 편의로 그대로 둔다. */}
+            {/* 어드민 설정 진입점 — 편집/어드민 칩 옆 아이콘 버튼. 2026-08-15 부터 설정으로 가는
+                입구는 **여기 하나뿐**이다(데스크톱 상단 '설정' 탭 삭제 — 같은 곳으로 가는 중복이었고
+                톱니 쪽이 더 직관적이라는 판단). 데스크톱·모바일 모두 이 버튼으로 닿는다. */}
             {isEditMode && (
               <Link
                 href={`${base}/settings`}
@@ -228,6 +258,44 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                     {pendingCount > 9 ? '9+' : pendingCount}
                   </span>
                 )}
+              </Link>
+            )}
+
+            {/* 화면 모드 — 아이콘 하나. 전에는 '내 기록' 안에 있어서 개인 화면까지 들어가야 바꿀 수
+                있었다. 헤더는 모든 화면에 뜨므로 여기 두면 어디서든 한 번에 바뀐다 (2026-08-15). */}
+            <ThemeToggleButton />
+
+            {/* 프로필 칩 — 데스크톱 전용(lg+). 모바일은 하단 탭의 '내 기록'이 이미 같은 일을 한다.
+                상단 탭 줄에 사람 이름이 텍스트로만 있으니 다른 메뉴와 구분이 안 돼서, 모바일 하단
+                탭이 쓰던 방식(사진 + 이름)을 그대로 가져와 우측 상단으로 옮겼다 (2026-08-15).
+                비로그인일 때는 렌더하지 않는다 — 왼쪽 '로그인' 버튼이 같은 자리를 이미 맡는다. */}
+            {!authLoading && user && (
+              <Link
+                href={`${base}/me`}
+                aria-label={meAriaLabel}
+                aria-current={meActive ? 'page' : undefined}
+                className={`hidden lg:flex items-center gap-2 pl-1.5 pr-3 min-h-[44px] rounded-full border transition-colors cursor-pointer btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] ${
+                  meActive
+                    ? 'bg-[color:var(--mm-panel-alt)] border-[color:var(--mm-ink-soft)] text-[color:var(--mm-ink)]'
+                    : 'border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)] hover:border-[color:var(--mm-ink-soft)]'
+                }`}
+              >
+                <span
+                  className="w-8 h-8 rounded-full overflow-hidden shrink-0 flex items-center justify-center"
+                  style={{
+                    background: 'var(--mm-panel-alt)',
+                    // 활성일 때만 테두리를 준다 — 항상 그리면 비활성 상태와 구분이 안 된다.
+                    boxShadow: meActive ? '0 0 0 2px var(--color-hoop-orange-500)' : 'none',
+                  }}
+                >
+                  {user.photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={user.photo_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <UserIcon size={16} aria-hidden />
+                  )}
+                </span>
+                <span className="truncate max-w-[120px] text-sm font-bold">{meLabel}</span>
               </Link>
             )}
           </div>

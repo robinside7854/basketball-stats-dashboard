@@ -10,9 +10,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useTheme } from 'next-themes'
 import type { LucideIcon } from 'lucide-react'
-import { Sun, Moon, LogOut, ChevronRight, ClipboardList, Film, HelpCircle } from 'lucide-react'
+import { LogOut, ChevronRight, ClipboardList, Film, HelpCircle } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 import { deriveLeagueBase } from '../_components/LeagueLayoutClient'
 import PersonalDashboard, { LoginTeaser } from '@/components/league/auth/PersonalDashboard'
@@ -35,7 +34,6 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   // /\/me.*$/ 가 앞쪽에서 먼저 매치돼 base 가 '/league' 로 잘리는 함정이 있었다 (Minor 3).
   const base = deriveLeagueBase(pathname, orgSlug, leagueId)
   const { user, loading: authLoading, logout } = useCurrentUser()
-  const { theme, setTheme } = useTheme()
 
   // 드래프트 바로가기 노출 조건 — LeagueLayoutClient 의 showDraft 판정과 동일한 기존 API 를
   // 다시 호출한다(신규 쿼리 아님 · 새 페이지가 기존 것을 그대로 쓰는 Global Constraint 1 의 예외).
@@ -124,22 +122,15 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
         </SectionCard>
       )}
 
-      {/* 계정 — 상단 바에서 내려온 항목들(테마 토글 · 로그아웃, Task 4-B). 둘러보기 버튼은
-          기능이 삭제되어 함께 제거했다(Task 4-A). */}
+      {/* 계정 — 앱 설치 · 로그아웃.
+          라이트/다크 토글은 2026-08-15 에 헤더 우측 아이콘으로 옮겼다(`LeagueLayoutClient`).
+          여기 있으면 테마를 바꾸려고 개인 화면까지 들어와야 했다. 같은 설정을 두 곳에 두면
+          '설정 탭 vs 톱니바퀴'와 똑같은 중복이 되므로 이 자리에는 남기지 않는다. */}
       <SectionCard variant="standalone">
         <div className="flex flex-wrap items-center gap-2 p-4">
           {/* 앱 설치 — 브라우저 메뉴를 뒤지지 않도록 앱 안에 입구를 둔다.
               설치 불가·이미 설치됨이면 스스로 아무것도 렌더하지 않는다. */}
           <InstallAppButton />
-          <button
-            type="button"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 rounded-md border text-sm font-bold cursor-pointer transition-colors hover:border-[color:var(--mm-ink-soft)]"
-            style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
-          >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            {theme === 'dark' ? '라이트 모드' : '다크 모드'}
-          </button>
           {user && (
             <button
               type="button"

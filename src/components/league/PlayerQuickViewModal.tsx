@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal, Film, ShieldCheck, Lock, LogIn } from 'lucide-react'
+import { Loader2, X, Crown, Sparkles, Pencil, Camera, RefreshCw, Flame, Star, Target, CheckCircle2, Medal, Film, ShieldCheck, Lock, LogIn, HelpCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { compressImage } from '@/lib/util/imageCompress'
 import { useSwipe } from '@/hooks/useSwipe'
@@ -39,6 +39,8 @@ const PlayerShotDonut = dynamic(
   () => import('@/components/league/charts/PlayerQuickViewCharts').then(m => m.PlayerShotDonut),
   { ssr: false, loading: () => <div style={{ height: 180 }} /> },
 )
+// 배지 도감 — 버튼을 눌렀을 때만 필요하므로 지연 로드(카드 첫 렌더 비용에 얹지 않는다)
+const BadgeDexModal = dynamic(() => import('@/components/league/BadgeDexModal'), { ssr: false })
 
 type PlayerInfo = {
   id: string; name: string; number: number | null; position: string | null
@@ -178,6 +180,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
   const [loading, setLoading] = useState(true)
   const [gated, setGated] = useState(false)  // 401 — 상세 스탯은 승인 회원 전용 (2026-07-28)
   const [leaderBadges, setLeaderBadges] = useState<LeaderBadgeCounts | null>(null)
+  const [dexOpen, setDexOpen] = useState(false)   // 배지 도감 (성과 탭에서 열림)
   const [quarters, setQuarters] = useState<Quarter[]>([])
   const [career, setCareer] = useState<CareerSummary | null>(null)
   const [selectedQuarterId, setSelectedQuarterId] = useState<string | null>(null)
@@ -1169,9 +1172,25 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 {/* 개인특성 배지 — "이 선수는 어떤 유형인가". 자동 배지가 잘한 순간을 세는 것과
                     달리 누적 성향을 본다. 득점이 적어도 자기 색깔로 받을 수 있어야 해서 맨 위에 둔다. */}
                 <div className="space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
-                    특성
-                  </p>
+                  {/* 도감 입구 — 전에는 '내 기록' 화면에만 있어서, 선수 카드에서 배지를 보다가
+                      "이건 뭐고 어떻게 받나"가 궁금해지면 갈 곳이 없었다. 배지를 보고 있는 이 자리가
+                      가장 궁금해지는 지점이라 여기에도 둔다(2026-08-15).
+                      playerId 를 넘기므로 도감의 보유/미보유 표시는 '지금 보고 있는 선수' 기준이다. */}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+                      특성
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setDexOpen(true)}
+                      aria-label="배지 도감 열기 — 전체 배지와 달성 조건 보기"
+                      className="inline-flex items-center gap-1.5 min-h-11 px-3 -mr-1 text-xs font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                      style={{ color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
+                    >
+                      <HelpCircle size={15} strokeWidth={2} aria-hidden />
+                      배지 도감
+                    </button>
+                  </div>
                   <TraitBadgePanel leagueId={leagueId} playerId={playerId} />
                 </div>
 
@@ -1532,6 +1551,16 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
           </div>
         )}
       </div>
+    )}
+
+    {/* 배지 도감 — 선수 카드(z-50)·사진 라이트박스(z-60) 위에 뜬다.
+        도감이 자체적으로 z-[70] 을 갖고 있어 여기서 따로 올릴 필요가 없다. */}
+    {dexOpen && (
+      <BadgeDexModal
+        leagueId={leagueId}
+        playerId={playerId}
+        onClose={() => setDexOpen(false)}
+      />
     )}
 
     </>
