@@ -17,6 +17,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { requireCeoSession } from '@/lib/auth/ceo'
 import { isDraftManager, isDraftSessionController } from '@/lib/draftManagerAuth'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(
   req: Request,
@@ -102,8 +103,21 @@ export async function POST(
   const { error: poolErr } = await supabase.from('league_draft_pool').insert(poolRows)
   if (poolErr) {
     await supabase.from('league_drafts').delete().eq('id', draftId)
+    await logAudit({
+      req, action: 'draft.create', targetTable: 'league_drafts', targetId: draftId,
+      leagueId, quarterId: body.quarter_id, result: 'failure',
+    })
     return NextResponse.json({ error: `풀 저장 실패: ${poolErr.message}` }, { status: 500 })
   }
+
+  // ⚠ 여기가 감사 05 가 "반쪽" 이라고 지적한 자리다. 위 created_by 는 CEO 세션일 때만
+  //   이메일이 찍히고 PIN·감독관 코드로 만들면 NULL 이라, 기록이 있는 것처럼 보이지만
+  //   비어 있었다. 감사 로그는 인증 경로 종류까지 남기므로 PIN 도 NULL 이 되지 않는다.
+  await logAudit({
+    req, action: 'draft.create', targetTable: 'league_drafts', targetId: draftId,
+    leagueId, quarterId: body.quarter_id,
+    detail: { method, poolCount: finalPool.length, createdBy: session?.user?.email ?? null },
+  })
 
   return NextResponse.json({ ...draft, pool_count: finalPool.length }, { status: 201 })
 }

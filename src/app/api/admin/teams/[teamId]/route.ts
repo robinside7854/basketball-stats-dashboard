@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { requireCeoSession } from '@/lib/auth/ceo'
+import { logAudit } from '@/lib/audit'
 
 // ⚠️ 이전엔 /api/admin/orgs/[orgSlug] 가 .eq('org_slug', orgSlug) 만으로 PATCH/DELETE 를
 // 걸었다. org_slug 는 팀의 유일 키가 아니다 — 파란날개(paranalgae)는 청년부·장년부 두 팀이
@@ -19,20 +20,39 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ teamId
   const supabase = createClient()
   const { data, error } = await supabase.from('teams').update(fields).eq('id', teamId).select()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // 이 라우트는 edit_pin·is_public 도 바꿀 수 있다(PIN 재발급·공개 전환의 실제 경로).
+  // ⚠ 값은 남기지 않는다 — 필드 '이름' 만 남겨야 PIN 원문이 로그로 새지 않는다.
+  await logAudit({
+    req, action: 'team.update', targetTable: 'teams', targetId: teamId,
+    teamId, detail: { fields: Object.keys(fields ?? {}) },
+  })
   return NextResponse.json(data)
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ teamId: string }> }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ teamId: string }> }) {
   const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { teamId } = await params
   const supabase = createClient()
 
-  const { data: team } = await supabase.from('teams').select('id').eq('id', teamId).maybeSingle()
+  // 이름·슬러그를 미리 읽어둔다 — 팀이 사라지면 로그의 id 만으로는 어느 팀이었는지 모른다.
+  const { data: team } = await supabase
+    .from('teams').select('id, name, org_slug, sub_slug').eq('id', teamId).maybeSingle()
   if (!team) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { error } = await supabase.from('teams').delete().eq('id', teamId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    await logAudit({
+      req, action: 'team.delete', targetTable: 'teams', targetId: teamId, teamId,
+      result: 'failure', detail: { name: team.name, slug: `${team.org_slug}/${team.sub_slug}` },
+    })
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  await logAudit({
+    req, action: 'team.delete', targetTable: 'teams', targetId: teamId, teamId,
+    detail: { name: team.name, slug: `${team.org_slug}/${team.sub_slug}` },
+  })
   return NextResponse.json({ ok: true })
 }

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Plus, ExternalLink, Trophy, Layers, Trash2, Loader2, Settings, Shield, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
+import { countLeagueScale } from '@/lib/admin/leagueScale'
 
 // 옛 트리(파란날개)에 남아 있는 대회. leagues 행이 없어 관리 화면이 없다 — 목록에만 뜬다.
 type LegacyTournament = { id: string; name: string; year: number; type: string | null }
@@ -106,7 +107,14 @@ export default function AdminLeaguesPage() {
   useEffect(() => { load() }, [])
 
   async function deleteLeague(league: League) {
-    if (!confirm(`"${league.name}" 리그를 삭제하시겠습니까?\n경기, 선수, 팀 데이터가 모두 삭제됩니다.`)) return
+    // "경기, 선수, 팀 데이터가 모두 삭제됩니다" 는 규모를 안 알려준다 — 운영자는 이걸
+    // "설정 몇 줄"로 읽지 "지난 시즌 303경기의 기록"으로 읽지 않는다. 지우기 전에
+    // 실제로 사라질 개수를 세어 문장에 박는다.
+    const scale = await countLeagueScale(league.id)
+    const scope = scale
+      ? `${scale.games}경기와 그 기록, ${scale.teams}개 팀에 배정된 선수 ${scale.players}명의 리그 정보가 삭제됩니다.`
+      : '삭제될 규모(경기·팀·선수 수)를 확인하지 못했습니다. 이 리그의 경기와 그 기록이 모두 사라집니다.'
+    if (!confirm(`"${league.name}" 리그를 삭제하시겠습니까?\n\n${scope}\n이 작업은 되돌릴 수 없습니다.`)) return
     setDeletingId(league.id)
     const res = await fetch(`/api/leagues/${league.id}`, { method: 'DELETE' })
     setDeletingId(null)
@@ -180,14 +188,15 @@ export default function AdminLeaguesPage() {
         ) : (
           teamGroups.map(group => (
             <div key={group.teamId} className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl overflow-hidden">
-              {/* 팀 헤더 — 미라클모닝농구단처럼 대회가 여러 개여도 팀은 한 번만 나온다 */}
-              <div className="flex items-center gap-3 px-5 py-3.5 bg-[var(--mm-panel-alt)] border-b border-[var(--mm-rule)]">
+              {/* 팀 헤더 — 미라클모닝농구단처럼 대회가 여러 개여도 팀은 한 번만 나온다.
+                  375px 에서는 요약·설정이 한 줄에 안 들어가 화면 밖으로 밀렸다 → 접히게 한다. */}
+              <div className="flex items-center gap-3 flex-wrap px-4 sm:px-5 py-3.5 bg-[var(--mm-panel-alt)] border-b border-[var(--mm-rule)]">
                 <span
                   className="w-3 h-3 rounded-full shrink-0"
                   style={{ backgroundColor: group.team?.accent_color ?? 'var(--mm-muted)' }}
                   aria-hidden
                 />
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 basis-40">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-[var(--mm-ink)]">{group.team?.name ?? '(팀 정보 없음)'}</p>
                     {group.team && !group.team.is_public && (
@@ -227,9 +236,11 @@ export default function AdminLeaguesPage() {
                 {group.leagues.map(league => {
                   const meta = modeMeta[league.mode] ?? modeMeta.league
                   const ModeIcon = meta.icon
+                  // 모바일에서는 정보 줄과 액션 줄을 세로로 쌓는다 — 한 줄로 두면
+                  // 관리·대시보드·삭제 버튼(약 200px)이 화면 밖으로 밀려 그냥 숨었다.
                   return (
-                    <div key={league.id} className="flex items-center gap-4 px-5 py-4 hover:bg-[var(--mm-panel-alt)] transition-colors">
-                      <ModeIcon size={16} className="text-[var(--mm-muted)] shrink-0" />
+                    <div key={league.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-[var(--mm-panel-alt)] transition-colors">
+                      <ModeIcon size={16} className="text-[var(--mm-muted)] shrink-0 hidden sm:block" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-[var(--mm-ink)]">{league.name}</p>
@@ -245,7 +256,7 @@ export default function AdminLeaguesPage() {
                         </p>
                         <p className="text-xs text-[var(--mm-muted)] mt-0.5 font-mono">/league/{league.org_slug}/{league.id.slice(0, 8)}…</p>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
                         <Link
                           href={`/admin/leagues/${league.id}`}
                           className="flex items-center gap-1 text-xs text-[var(--mm-yellow-strong)] hover:opacity-80 px-2.5 py-1.5 rounded-lg border border-[var(--mm-yellow-strong)]/30 bg-[var(--mm-yellow-soft)] hover:border-[var(--mm-yellow-strong)]/60 transition-colors cursor-pointer min-h-11"
@@ -264,7 +275,9 @@ export default function AdminLeaguesPage() {
                         <button
                           onClick={() => deleteLeague(league)}
                           disabled={deletingId === league.id}
-                          className="p-2.5 rounded-lg text-[var(--mm-muted)] hover:text-[var(--mm-negative)] hover:bg-[var(--mm-panel-alt)] transition-colors disabled:opacity-40 cursor-pointer min-h-11 min-w-11 flex items-center justify-center"
+                          // 파괴 액션은 옆의 관리·대시보드 버튼과 같은 회색이면 안 된다 —
+                          // 되돌릴 수 없는 유일한 버튼이므로 평상시에도 negative 색을 유지한다.
+                          className="p-2.5 rounded-lg border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 hover:opacity-90 transition-colors disabled:opacity-40 cursor-pointer min-h-11 min-w-11 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]"
                           title="대회 삭제"
                           aria-label={`${league.name} 삭제`}
                         >

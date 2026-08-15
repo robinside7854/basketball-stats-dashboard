@@ -7,9 +7,11 @@ import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
-// /admin/orgs/new 를 이관 — API(/api/admin/teams)는 아직 501 이다(온보딩 마법사 대기,
-// src/app/api/admin/teams/route.ts 주석 참고). 폼 자체는 그대로 유지해 나중에 API가
-// 준비되면 이 화면만 살리면 되게 한다.
+// /admin/orgs/new 를 이관. API(/api/admin/teams POST)는 2026-08-15 에 실제 생성으로
+// 열렸다 — onboard-club.mjs 의 팀 생성 단계를 그대로 옮긴 것이라 이 폼이 보내는
+// {name, org_slug, accent_color, edit_pin} 그대로 맞는다.
+// 단 teams.org_id NOT NULL 해제(마이그레이션 108)가 선행되어야 하며, 미적용이면
+// API 가 503 과 함께 "DB 준비가 필요합니다" 를 돌려준다.
 export default function NewTeamPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)

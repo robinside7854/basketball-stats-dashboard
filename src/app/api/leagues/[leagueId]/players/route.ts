@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { logAudit } from '@/lib/audit'
 import { canViewLeague } from '@/lib/auth/guard'
 import { fetchExternalPlayerIds } from '@/lib/league/externalPlayers'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -166,6 +167,12 @@ export async function DELETE(
     .eq('id', playerId)
     .eq('team_id', teamId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // 팀 전체 명단에서 사람을 지우는 행위다(리그·대회 모두) — 되돌리려면 재입력뿐이다.
+  await logAudit({
+    req, action: 'league_player.delete', targetTable: 'league_players', targetId: playerId,
+    leagueId, teamId,
+  })
 
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
   revalidateTag(`league-${leagueId}`, 'max')

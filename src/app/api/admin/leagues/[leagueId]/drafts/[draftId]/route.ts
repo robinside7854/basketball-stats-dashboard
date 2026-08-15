@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { isDraftManager, isDraftSessionControllerByDraftId } from '@/lib/draftManagerAuth'
+import { logAudit } from '@/lib/audit'
 
 export async function PATCH(
   req: Request,
@@ -101,6 +102,17 @@ export async function DELETE(
 
   // 세션 삭제 (picks/pool/chat cascade)
   const { error } = await supabase.from('league_drafts').delete().eq('id', draftId).eq('league_id', leagueId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    await logAudit({
+      req, action: 'draft.delete', targetTable: 'league_drafts', targetId: draftId,
+      leagueId, quarterId: d.quarter_id, result: 'failure',
+    })
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  // 픽으로 만들어진 분기 멤버십이 함께 되돌아간다 — 몇 명이 영향받았는지 남긴다.
+  await logAudit({
+    req, action: 'draft.delete', targetTable: 'league_drafts', targetId: draftId,
+    leagueId, quarterId: d.quarter_id, detail: { revertedMemberships: (picks ?? []).length },
+  })
   return NextResponse.json({ ok: true })
 }

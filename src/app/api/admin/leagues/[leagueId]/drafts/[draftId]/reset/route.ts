@@ -14,6 +14,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { isDraftSessionControllerByDraftId } from '@/lib/draftManagerAuth'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(
   req: Request,
@@ -37,12 +38,16 @@ export async function POST(
   if (!draft) return NextResponse.json({ error: '세션을 찾을 수 없습니다' }, { status: 404 })
   const d = draft as { id: string; quarter_id: string }
 
+  // 감사 로그에 "몇 명의 분기 멤버십이 되돌아갔는지" 를 남기기 위해 블록 밖에서 센다.
+  let revertedMemberships = 0
+
   if (deletePicks) {
     // 픽 기록 조회 (멤버십 정리용)
     const { data: picks } = await supabase
       .from('league_draft_picks')
       .select('team_id, league_player_id')
       .eq('draft_id', draftId)
+    revertedMemberships = (picks ?? []).length
 
     // 멤버십 되돌림 — 같은 (quarter_id, league_player_id) AND team_id 정확히 일치
     for (const p of (picks ?? []) as { team_id: string; league_player_id: string }[]) {
@@ -90,7 +95,19 @@ export async function POST(
     .eq('id', draftId)
     .select()
     .single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    await logAudit({
+      req, action: 'draft.reset', targetTable: 'league_drafts', targetId: draftId,
+      leagueId, quarterId: d.quarter_id, result: 'failure',
+    })
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // 리셋은 픽·채팅·분기 멤버십을 함께 되돌린다 — 삭제만큼 되돌리기 어려운 행위다.
+  await logAudit({
+    req, action: 'draft.reset', targetTable: 'league_drafts', targetId: draftId,
+    leagueId, quarterId: d.quarter_id, detail: { deletePicks, revertedMemberships },
+  })
 
   return NextResponse.json({ draft: updated, deleted_picks: deletePicks })
 }

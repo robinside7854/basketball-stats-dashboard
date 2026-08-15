@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requireCeoSession } from '@/lib/auth/ceo'
+import { logAudit } from '@/lib/audit'
 
 const DOW_MAP: Record<string, number> = {
   sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
@@ -29,7 +30,7 @@ function addMonths(date: Date, months: number): Date {
 }
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const session = await requireCeoSession()
@@ -87,6 +88,11 @@ export async function POST(
   }
 
   if (recordedCount > 0 || eventCount > 0) {
+    // 막힌 시도도 남긴다 — "기록이 있는데 재생성을 누른 사람" 은 그 자체로 신호다.
+    await logAudit({
+      req, action: 'schedule.regenerate', targetTable: 'league_games', targetId: leagueId,
+      leagueId, result: 'denied', detail: { recordedCount, eventCount },
+    })
     return NextResponse.json(
       {
         error: `이미 기록이 있는 경기 ${recordedCount}건(이벤트 ${eventCount}건)이 있어 일정을 재생성할 수 없습니다. 재생성하면 해당 경기의 기록까지 함께 사라집니다.`,
@@ -180,6 +186,16 @@ export async function POST(
   }
 
   const { data: inserted, error } = await supabase.from('league_games').insert(games).select()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    await logAudit({
+      req, action: 'schedule.regenerate', targetTable: 'league_games', targetId: leagueId,
+      leagueId, result: 'failure', detail: { deletedGames: gameIds.length },
+    })
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  await logAudit({
+    req, action: 'schedule.regenerate', targetTable: 'league_games', targetId: leagueId,
+    leagueId, detail: { deletedGames: gameIds.length, createdGames: inserted?.length ?? 0 },
+  })
   return NextResponse.json({ count: inserted?.length ?? 0, games: inserted })
 }

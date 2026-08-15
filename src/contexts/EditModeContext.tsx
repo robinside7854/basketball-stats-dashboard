@@ -25,7 +25,10 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
   const [pin, setPin] = useState<string>('')
   const [showModal, setShowModal] = useState(false)
   const [digits, setDigits] = useState<string[]>([])
-  const [error, setError] = useState(false)
+  // 에러를 불리언이 아니라 문구로 든다 — 오답(401)과 시도 초과 잠금(429)을 구분해 보여줘야
+  // 사용자가 "왜 맞는 PIN 인데 안 되지" 하며 계속 두드리지 않는다 (2026-08-15).
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const error = errorMsg !== null
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -45,7 +48,7 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [showModal, digits, loading])
 
-  function openPinModal() { setShowModal(true); setDigits([]); setError(false) }
+  function openPinModal() { setShowModal(true); setDigits([]); setErrorMsg(null) }
   function exitEditMode() {
     sessionStorage.removeItem(SESSION_KEY)
     sessionStorage.removeItem(PIN_KEY)
@@ -57,7 +60,7 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
     if (loading || digits.length >= 4) return
     const next = [...digits, d]
     setDigits(next)
-    setError(false)
+    setErrorMsg(null)
     if (next.length < 4) return
 
     setLoading(true)
@@ -79,7 +82,11 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
         setIsEditMode(true)
         setShowModal(false)
       } else {
-        setError(true)
+        // 429 = 시도 횟수 초과. 서버가 남은 잠금 시간을 담은 문구를 준다.
+        const payload = res.status === 429 ? await res.json().catch(() => null) : null
+        setErrorMsg(
+          (payload as { error?: string } | null)?.error ?? 'PIN이 올바르지 않습니다'
+        )
         setDigits([])
       }
     } finally {
@@ -87,7 +94,7 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  function handleDelete() { setDigits(prev => prev.slice(0, -1)); setError(false) }
+  function handleDelete() { setDigits(prev => prev.slice(0, -1)); setErrorMsg(null) }
 
   const PAD = ['1','2','3','4','5','6','7','8','9','','0','⌫']
 
@@ -118,7 +125,7 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
                 />
               ))}
             </div>
-            {error && <p className="text-red-400 text-sm -mt-2">PIN이 올바르지 않습니다</p>}
+            {error && <p role="alert" className="text-red-400 text-sm -mt-2 text-center px-2">{errorMsg}</p>}
 
             <div className="grid grid-cols-3 gap-3">
               {PAD.map((key, i) => (

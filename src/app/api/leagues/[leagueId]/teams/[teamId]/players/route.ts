@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(
   req: Request,
@@ -42,6 +43,11 @@ export async function DELETE(
     .eq('league_team_id', teamId)
     .eq('league_player_id', league_player_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  await logAudit({
+    req, action: 'league_team_player.delete', targetTable: 'league_team_players',
+    targetId: league_player_id, leagueId, detail: { leagueTeamId: teamId },
+  })
 
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
   revalidateTag(`league-${leagueId}`, 'max')

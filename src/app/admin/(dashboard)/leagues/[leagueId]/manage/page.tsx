@@ -1,12 +1,13 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { ArrowLeft, Plus, Trash2, Loader2, Calendar, Users, Trophy, ClipboardList, KeyRound } from 'lucide-react'
 import Link from 'next/link'
 import type { League, LeagueTeamWithPlayers, LeagueGame } from '@/types/league'
+import { countTeamGames } from '@/lib/admin/leagueScale'
 
 // /admin/orgs/[orgSlug]/leagues/[leagueId] 에서 이관 (2026-08-06, 조직 개념 제거).
 // 이 화면의 진짜 키는 리그(leagueId)지 조직(orgSlug)이 아니었다 — orgSlug 는
@@ -59,8 +60,15 @@ function TeamsTab({ leagueId, teams, onRefresh }: { leagueId: string; teams: Lea
     else { const d = await res.json(); toast.error(d.error ?? '추가 실패') }
   }
 
-  async function deleteTeam(teamId: string, teamName: string) {
-    if (!confirm(`"${teamName}" 팀을 삭제하면 배정된 선수와 경기 기록도 모두 삭제됩니다. 계속하시겠습니까?`)) return
+  // 규모를 숫자로 못 박는다 — "배정된 선수와 경기 기록도 모두"는 몇 명·몇 경기인지 안 알려준다.
+  // 확인창을 띄우는 순간에만 경기 수를 세므로 목록 조회 로직(loadGames)과 얽히지 않는다.
+  async function deleteTeam(team: LeagueTeamWithPlayers) {
+    const teamId = team.id
+    const gameCount = await countTeamGames(leagueId, teamId)
+    const gamePart = gameCount == null
+      ? '이 팀이 편성된 경기와 그 기록(경기 수는 확인하지 못했습니다)'
+      : `이 팀이 편성된 ${gameCount}경기와 그 기록`
+    if (!confirm(`"${team.name}" 팀을 삭제하시겠습니까?\n\n배정된 선수 ${team.players.length}명, ${gamePart}이 함께 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`)) return
     const res = await fetch(`/api/leagues/${leagueId}/teams/${teamId}`, { method: 'DELETE' })
     if (res.ok) { toast.success('팀 삭제 완료'); onRefresh() }
     else { toast.error('삭제 실패') }
@@ -70,12 +78,13 @@ function TeamsTab({ leagueId, teams, onRefresh }: { leagueId: string; teams: Lea
     <div className="space-y-4">
       <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
         <h3 className="font-semibold text-[var(--mm-ink)] text-sm">팀 추가</h3>
-        <div className="flex gap-2">
+        {/* 375px 에서 입력·색상·추가가 한 줄에 안 들어가 밀렸다 — 줄바꿈을 허용한다 */}
+        <div className="flex gap-2 flex-wrap">
           <Input
             value={newName}
             onChange={e => setNewName(e.target.value)}
             placeholder="팀 이름"
-            className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] flex-1"
+            className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] flex-1 min-w-0 basis-40"
             onKeyDown={e => e.key === 'Enter' && addTeam()}
           />
           <div className="flex items-center gap-1.5">
@@ -107,8 +116,11 @@ function TeamsTab({ leagueId, teams, onRefresh }: { leagueId: string; teams: Lea
                 </div>
               </div>
               <button
-                onClick={() => deleteTeam(team.id, team.name)}
-                className="p-2.5 rounded-lg text-[var(--mm-muted)] hover:text-[var(--mm-negative)] hover:bg-[var(--mm-negative)]/10 transition-colors cursor-pointer min-h-11 min-w-11 flex items-center justify-center"
+                onClick={() => deleteTeam(team)}
+                aria-label={`${team.name} 팀 삭제`}
+                title="팀 삭제"
+                // 되돌릴 수 없는 액션 — 평상시에도 negative 색을 유지해 일반 버튼과 구분한다
+                className="p-2.5 rounded-lg border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 hover:opacity-90 transition-colors cursor-pointer min-h-11 min-w-11 flex items-center justify-center shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]"
               >
                 <Trash2 size={14} />
               </button>
@@ -134,24 +146,28 @@ function PlayersTab({
 }) {
   const [allPlayers, setAllPlayers] = useState<Player[]>([])
   const [loadingPlayers, setLoadingPlayers] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [assigning, setAssigning] = useState<string | null>(null)
 
   const assignedPlayerIds = new Set(teams.flatMap(t => t.players.map(p => p.league_player_id)))
 
-  useEffect(() => {
-    async function load() {
-      setLoadingPlayers(true)
-      const res = await fetch(`/api/admin/teams/${teamId}/players`)
-      if (res.ok) {
-        const data = await res.json()
-        setAllPlayers(data)
-      } else {
-        toast.error('명단을 불러오지 못했습니다')
-      }
-      setLoadingPlayers(false)
+  const loadPlayers = useCallback(async () => {
+    setLoadingPlayers(true)
+    setLoadError(null)
+    const res = await fetch(`/api/admin/teams/${teamId}/players`).catch(() => null)
+    if (res?.ok) {
+      setAllPlayers(await res.json())
+    } else {
+      // 조회 실패를 빈 목록처럼 보여주면 "모든 선수가 배정되었습니다"로 읽혀 미배정 선수를 놓친다.
+      // 토스트는 몇 초 뒤 사라져 화면만 남으므로, 상태를 화면에 붙박이로 남긴다.
+      const d = res ? await res.json().catch(() => ({})) : {}
+      setLoadError(d.error ?? '팀 명단을 불러오지 못했습니다')
+      setAllPlayers([])
     }
-    load()
+    setLoadingPlayers(false)
   }, [teamId])
+
+  useEffect(() => { loadPlayers() }, [loadPlayers])
 
   const unassigned = allPlayers.filter(p => !assignedPlayerIds.has(p.id))
 
@@ -183,9 +199,22 @@ function PlayersTab({
     <div className="space-y-6">
       {/* 미배정 선수 */}
       <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
-        <h3 className="font-semibold text-[var(--mm-ink)] text-sm">미배정 선수 ({unassigned.length}명)</h3>
+        <h3 className="font-semibold text-[var(--mm-ink)] text-sm">
+          미배정 선수 {loadError ? '' : `(${unassigned.length}명)`}
+        </h3>
         {loadingPlayers ? (
           <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-[var(--mm-muted)]" /></div>
+        ) : loadError ? (
+          <div role="alert" className="text-center py-6 border border-dashed border-[var(--mm-negative)]/40 rounded-xl text-[var(--mm-negative)] text-sm">
+            <p>{loadError}</p>
+            <p className="mt-1 text-xs opacity-80">미배정 선수가 없는 것이 아니라, 명단 자체를 못 읽은 상태입니다.</p>
+            <button
+              onClick={loadPlayers}
+              className="mt-3 text-sm underline underline-offset-2 cursor-pointer"
+            >
+              다시 시도
+            </button>
+          </div>
         ) : unassigned.length === 0 ? (
           <p className="text-xs text-[var(--mm-muted)] py-4 text-center">모든 선수가 배정되었습니다</p>
         ) : (
@@ -358,6 +387,7 @@ function ScheduleTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamW
 function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWithPlayers[] }) {
   const [games, setGames] = useState<LeagueGame[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [scores, setScores] = useState<Record<string, { home: string; away: string }>>({})
   const [saving, setSaving] = useState<string | null>(null)
 
@@ -365,8 +395,9 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
 
   const loadGames = useCallback(async () => {
     setLoading(true)
-    const res = await fetch(`/api/leagues/${leagueId}/games`)
-    if (res.ok) {
+    setLoadError(null)
+    const res = await fetch(`/api/leagues/${leagueId}/games`).catch(() => null)
+    if (res?.ok) {
       const data: LeagueGame[] = await res.json()
       setGames(data)
       const initial: Record<string, { home: string; away: string }> = {}
@@ -374,6 +405,12 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
         initial[g.id] = { home: String(g.home_score), away: String(g.away_score) }
       }
       setScores(initial)
+    } else {
+      // 조회 실패를 빈 목록처럼 보여주면 "먼저 일정을 생성해주세요"로 읽혀,
+      // 이미 있는 일정을 다시 만들려 드는(= 기존 경기·기록을 지우는) 행동으로 이어진다.
+      const d = res ? await res.json().catch(() => ({})) : {}
+      setLoadError(d.error ?? '경기 목록을 불러오지 못했습니다')
+      setGames([])
     }
     setLoading(false)
   }, [leagueId])
@@ -412,15 +449,17 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
           <span>R{game.round_num} · {game.date}</span>
           {game.is_complete && <span className="text-[var(--mm-positive)]">완료</span>}
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 flex-1 justify-end">
-            {home && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: home.color }} />}
-            <span className="text-sm text-[var(--mm-ink)]">{home?.name ?? '?'}</span>
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* min-w-0 이 없으면 팀명이 길 때 카드가 화면 밖으로 늘어난다 */}
+          <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+            {home && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: home.color }} />}
+            <span className="text-sm text-[var(--mm-ink)] truncate">{home?.name ?? '?'}</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Input
               type="number"
               min={0}
+              aria-label={`${home?.name ?? '홈'} 점수`}
               value={s.home}
               onChange={e => setScores(prev => ({ ...prev, [game.id]: { ...prev[game.id], home: e.target.value } }))}
               className="w-14 bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] text-center font-mono"
@@ -429,14 +468,15 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
             <Input
               type="number"
               min={0}
+              aria-label={`${away?.name ?? '원정'} 점수`}
               value={s.away}
               onChange={e => setScores(prev => ({ ...prev, [game.id]: { ...prev[game.id], away: e.target.value } }))}
               className="w-14 bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] text-center font-mono"
             />
           </div>
-          <div className="flex items-center gap-2 flex-1">
-            <span className="text-sm text-[var(--mm-ink)]">{away?.name ?? '?'}</span>
-            {away && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: away.color }} />}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-sm text-[var(--mm-ink)] truncate">{away?.name ?? '?'}</span>
+            {away && <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: away.color }} />}
           </div>
         </div>
         <div className="flex justify-end gap-2">
@@ -465,6 +505,13 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
   }
 
   if (loading) return <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-[var(--mm-muted)]" /></div>
+  if (loadError) return (
+    <div role="alert" className="text-center py-10 border border-dashed border-[var(--mm-negative)]/40 rounded-xl text-[var(--mm-negative)] text-sm">
+      <p>{loadError}</p>
+      <p className="mt-1 text-xs opacity-80">경기가 없는 것이 아니라, 목록을 못 읽은 상태입니다.</p>
+      <button onClick={loadGames} className="mt-3 text-sm underline underline-offset-2 cursor-pointer">다시 시도</button>
+    </div>
+  )
   if (games.length === 0) return <div className="text-center py-10 text-[var(--mm-muted)] text-sm">먼저 일정을 생성해주세요</div>
 
   return (
@@ -489,33 +536,61 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
 export default function LeagueManagePage() {
   const params = useParams<{ leagueId: string }>()
   const { leagueId } = params
-  const router = useRouter()
 
   const [activeTab, setActiveTab] = useState<'teams' | 'players' | 'schedule' | 'results'>('teams')
   const [league, setLeague] = useState<LeagueWithTeam | null>(null)
   const [teams, setTeams] = useState<LeagueTeamWithPlayers[]>([])
   const [loadingLeague, setLoadingLeague] = useState(true)
+  const [leagueError, setLeagueError] = useState<string | null>(null)
+  const [teamsError, setTeamsError] = useState<string | null>(null)
 
   const loadTeams = useCallback(async () => {
-    const res = await fetch(`/api/leagues/${leagueId}/teams`)
-    if (res.ok) setTeams(await res.json())
+    setTeamsError(null)
+    const res = await fetch(`/api/leagues/${leagueId}/teams`).catch(() => null)
+    if (res?.ok) {
+      setTeams(await res.json())
+    } else {
+      // 팀 조회 실패를 빈 목록처럼 두면 "팀을 추가해주세요" · "먼저 팀을 생성해주세요"로 읽혀
+      // 이미 있는 팀을 다시 만들게 된다. 네 탭 모두 teams 에 기대므로 탭 내용 대신 에러를 띄운다.
+      const d = res ? await res.json().catch(() => ({})) : {}
+      setTeamsError(d.error ?? '팀 목록을 불러오지 못했습니다')
+      setTeams([])
+    }
   }, [leagueId])
 
-  useEffect(() => {
-    async function init() {
-      setLoadingLeague(true)
-      const res = await fetch(`/api/leagues/${leagueId}`)
-      if (res.ok) setLeague(await res.json())
-      else router.push('/admin/leagues')
-      setLoadingLeague(false)
+  const loadLeague = useCallback(async () => {
+    setLoadingLeague(true)
+    setLeagueError(null)
+    const res = await fetch(`/api/leagues/${leagueId}`).catch(() => null)
+    if (res?.ok) {
+      setLeague(await res.json())
+    } else {
+      // 예전에는 실패하면 조용히 목록으로 튕겼다 — 운영자는 이유를 모른 채 "리그가 사라졌나"로 오해한다.
+      const d = res ? await res.json().catch(() => ({})) : {}
+      setLeagueError(d.error ?? '리그 정보를 불러오지 못했습니다')
+      setLeague(null)
     }
-    init()
-    loadTeams()
-  }, [leagueId, router, loadTeams])
+    setLoadingLeague(false)
+  }, [leagueId])
+
+  useEffect(() => { loadLeague(); loadTeams() }, [loadLeague, loadTeams])
 
   if (loadingLeague) return (
     <div className="flex justify-center items-center h-40">
       <Loader2 size={24} className="animate-spin text-[var(--mm-muted)]" />
+    </div>
+  )
+
+  if (leagueError) return (
+    <div role="alert" className="max-w-2xl text-center py-12 px-4 border border-dashed border-[var(--mm-negative)]/40 rounded-xl text-[var(--mm-negative)] text-sm">
+      <p>{leagueError}</p>
+      <p className="mt-1 text-xs opacity-80">리그가 삭제된 것이 아니라, 정보를 못 읽은 상태일 수 있습니다.</p>
+      <div className="flex items-center justify-center gap-4 mt-3 flex-wrap">
+        <button onClick={loadLeague} className="text-sm underline underline-offset-2 cursor-pointer">다시 시도</button>
+        <Link href="/admin/leagues" className="text-sm underline underline-offset-2 text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer">
+          대회 목록으로
+        </Link>
+      </div>
     </div>
   )
 
@@ -557,18 +632,28 @@ export default function LeagueManagePage() {
         </Tab>
       </div>
 
-      {/* 탭 내용 */}
-      {activeTab === 'teams' && (
-        <TeamsTab leagueId={leagueId} teams={teams} onRefresh={loadTeams} />
-      )}
-      {activeTab === 'players' && (
-        <PlayersTab leagueId={leagueId} teamId={league.team_id} teams={teams} onRefresh={loadTeams} />
-      )}
-      {activeTab === 'schedule' && (
-        <ScheduleTab leagueId={leagueId} teams={teams} />
-      )}
-      {activeTab === 'results' && (
-        <ResultsTab leagueId={leagueId} teams={teams} />
+      {/* 탭 내용 — 팀 목록을 못 읽었다면 어느 탭도 사실을 보여줄 수 없으므로 에러로 대체한다 */}
+      {teamsError ? (
+        <div role="alert" className="text-center py-12 px-4 border border-dashed border-[var(--mm-negative)]/40 rounded-xl text-[var(--mm-negative)] text-sm">
+          <p>{teamsError}</p>
+          <p className="mt-1 text-xs opacity-80">팀이 없는 것이 아니라, 목록을 못 읽은 상태입니다. 이대로 팀·선수·일정을 손대면 중복이 생깁니다.</p>
+          <button onClick={loadTeams} className="mt-3 text-sm underline underline-offset-2 cursor-pointer">다시 시도</button>
+        </div>
+      ) : (
+        <>
+          {activeTab === 'teams' && (
+            <TeamsTab leagueId={leagueId} teams={teams} onRefresh={loadTeams} />
+          )}
+          {activeTab === 'players' && (
+            <PlayersTab leagueId={leagueId} teamId={league.team_id} teams={teams} onRefresh={loadTeams} />
+          )}
+          {activeTab === 'schedule' && (
+            <ScheduleTab leagueId={leagueId} teams={teams} />
+          )}
+          {activeTab === 'results' && (
+            <ResultsTab leagueId={leagueId} teams={teams} />
+          )}
+        </>
       )}
     </div>
   )

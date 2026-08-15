@@ -13,6 +13,7 @@ import { NextResponse } from 'next/server'
 import { requireCeoSession } from '@/lib/auth/ceo'
 import { createClient } from '@/lib/supabase/admin'
 import { siteUrl } from '@/lib/siteUrl'
+import { logAudit } from '@/lib/audit'
 import {
   createInvite,
   isBootstrapEmail,
@@ -69,6 +70,14 @@ export async function POST(req: Request) {
       // 초대는 이미 만들어졌다 — 여기서 실패해도 초대를 되돌리지 않고 로그만 남긴다.
       console.error('[admin/invite] 접근 요청 상태 갱신 실패', reqError)
     }
+
+    // 초대는 콘솔 전체 권한을 주는 행위다. invite 행에도 invited_by 가 남지만, 초대가
+    // 만료·수락으로 정리된 뒤에도 "누가 누구를 불렀는지" 는 남아 있어야 한다.
+    // ⚠ token/url 은 로그에 넣지 않는다 — 로그가 곧 유효한 초대 링크가 되면 안 된다.
+    await logAudit({
+      req, action: 'platform_admin.invite.create', targetTable: 'platform_admin_invites',
+      targetId: invite.id, detail: { email, invitedBy },
+    })
 
     return NextResponse.json({
       ok: true,

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { canViewLeague } from '@/lib/auth/guard'
+import { logAudit } from '@/lib/audit'
 
 export async function GET(
   req: Request,
@@ -136,7 +137,18 @@ export async function DELETE(
   const date = searchParams.get('date')
   if (!date) return NextResponse.json({ error: 'date is required' }, { status: 400 })
   const supabase = createClient()
-  await supabase.from('league_schedule_dates').delete().eq('league_id', leagueId).eq('date', date)
+  // 이 삭제는 참여신청(RSVP)까지 캐스케이드로 함께 지운다 — 날짜 한 줄이 아니라
+  // 그날 신청 기록이 통째로 사라지는 행위라 반드시 흔적을 남긴다.
+  const { data: removed } = await supabase
+    .from('league_schedule_dates')
+    .delete()
+    .eq('league_id', leagueId)
+    .eq('date', date)
+    .select('date')
+  await logAudit({
+    req, action: 'schedule_date.delete', targetTable: 'league_schedule_dates', targetId: date,
+    leagueId, detail: { deletedRows: removed?.length ?? 0 },
+  })
 
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
   revalidateTag(`league-${leagueId}`, 'max')

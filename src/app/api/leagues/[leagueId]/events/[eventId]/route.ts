@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { scorePoints, fetchScoringRules, type ScoringRules } from '@/lib/stats/scoring'
+import { logAudit } from '@/lib/audit'
 
 // PATCH · 이벤트 부분 수정
 //
@@ -13,12 +14,48 @@ function calcPointsFor(type: string, result: string | null, isPlusOne: boolean, 
   return scorePoints(type, result, isPlusOne, rules)
 }
 
+// canEditLeague 는 leagueId 를 인가했을 뿐이고 eventId 는 URL 로 들어온 값이다.
+// 아래 update/delete 는 id 만 보므로, 대조하지 않으면 A 리그 권한으로 다른 클럽의
+// 경기 기록을 고치거나 지울 수 있다 — 그 리그의 시즌 스탯이 그만큼 어긋난다.
+// league_game_events 에는 league_id 가 없어(021) 걸려 있는 경기를 거쳐 확인한다.
+// 확인된 league_game_id 를 돌려주어 실제 쓰기에도 같은 조건을 한 번 더 건다.
+async function findEventGameInLeague(
+  supabase: ReturnType<typeof createClient>,
+  eventId: string,
+  leagueId: string,
+): Promise<string | null> {
+  const { data: ev, error: evErr } = await supabase
+    .from('league_game_events')
+    .select('league_game_id')
+    .eq('id', eventId)
+    .maybeSingle()
+  // 확인이 안 된 채로 통과시키면 확인을 안 한 것과 같다 — 조회 실패는 삼키지 않는다.
+  if (evErr) {
+    throw new Error(`league_game_events: eventId=${eventId} 소속 확인 실패 — ${evErr.message}`)
+  }
+  if (!ev) return null
+  const { data: g, error: gErr } = await supabase
+    .from('league_games')
+    .select('id')
+    .eq('id', ev.league_game_id)
+    .eq('league_id', leagueId)
+    .maybeSingle()
+  if (gErr) {
+    throw new Error(`league_games: league_game_id=${ev.league_game_id} 소속 확인 실패 — ${gErr.message}`)
+  }
+  return g ? (ev.league_game_id as string) : null
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ leagueId: string; eventId: string }> }
 ) {
   const { leagueId, eventId } = await params
   if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const supabase = createClient()
+  // 소속이 아니면 403 이 아니라 404 — 그 id 의 이벤트가 있는지조차 알려주지 않는다.
+  const gameId = await findEventGameInLeague(supabase, eventId, leagueId)
+  if (!gameId) return NextResponse.json({ error: '이벤트를 찾을 수 없습니다' }, { status: 404 })
   const body = await req.json()
   // ⚠️ body.points 는 받지 않는다.
   //    득점은 시즌 rules 로 서버가 정한다 — 생성(POST)과 같은 원칙이다.
@@ -33,7 +70,6 @@ export async function PATCH(
   if (related_player_id !== undefined) payload.related_player_id = related_player_id ?? null
   if (team_id !== undefined) payload.team_id = team_id ?? null
   if (Object.keys(payload).length === 0) return NextResponse.json({ error: '수정할 값이 없습니다' }, { status: 400 })
-  const supabase = createClient()
 
   // 득점에 영향을 주는 필드가 편집됐으면 서버가 다시 계산한다.
   const needsRecompute =
@@ -83,9 +119,17 @@ export async function PATCH(
     .from('league_game_events')
     .update(payload)
     .eq('id', eventId)
+    // 위에서 확인한 경기로 한 번 더 스코프 — 확인과 쓰기 사이의 틈을 남기지 않는다
+    .eq('league_game_id', gameId)
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // 개별 이벤트 수정은 조용히 시즌 스탯을 바꾼다 — 어느 경기의 무엇을 건드렸는지 남긴다.
+  await logAudit({
+    req, action: 'event.update', targetTable: 'league_game_events', targetId: eventId,
+    leagueId, detail: { gameId, fields: Object.keys(payload) },
+  })
 
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그) + 하이라이트 이벤트 태그
   revalidateTag(`league-${leagueId}`, 'max')
@@ -102,11 +146,27 @@ export async function DELETE(
   const { leagueId, eventId } = await params
   if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = createClient()
+  // 소속이 아니면 403 이 아니라 404 — 그 id 의 이벤트가 있는지조차 알려주지 않는다.
+  const gameId = await findEventGameInLeague(supabase, eventId, leagueId)
+  if (!gameId) return NextResponse.json({ error: '이벤트를 찾을 수 없습니다' }, { status: 404 })
   const { error } = await supabase
     .from('league_game_events')
     .delete()
     .eq('id', eventId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    // 위에서 확인한 경기로 한 번 더 스코프 — 확인과 쓰기 사이의 틈을 남기지 않는다
+    .eq('league_game_id', gameId)
+  if (error) {
+    await logAudit({
+      req, action: 'event.delete', targetTable: 'league_game_events', targetId: eventId,
+      leagueId, result: 'failure', detail: { gameId },
+    })
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  await logAudit({
+    req, action: 'event.delete', targetTable: 'league_game_events', targetId: eventId,
+    leagueId, detail: { gameId },
+  })
 
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그) + 하이라이트 이벤트 태그
   revalidateTag(`league-${leagueId}`, 'max')

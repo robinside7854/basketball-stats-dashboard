@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { ArrowLeft, Eye, EyeOff, RefreshCw, Loader2, ExternalLink, Plus, Trophy, Layers, Trash2, Settings, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { siteUrl } from '@/lib/siteUrl'
+import { countLeagueScale } from '@/lib/admin/leagueScale'
 
 interface Team {
   id: string
@@ -118,7 +119,13 @@ export default function TeamDetailClient({ team, playerCount }: Props) {
   useEffect(() => { loadLeagues() }, [loadLeagues])
 
   async function deleteLeague(league: TeamLeague) {
-    if (!confirm(`"${league.name}" 리그를 삭제하시겠습니까?\n경기, 선수, 팀 데이터가 모두 삭제됩니다.`)) return
+    // 규모를 숫자로 보여준다 — "데이터가 모두 삭제됩니다"는 운영자가 지난 시즌 전체 기록으로
+    // 읽지 못한다. 개수를 못 세면 지어내지 말고 못 셌다고 말한다.
+    const scale = await countLeagueScale(league.id)
+    const scope = scale
+      ? `${scale.games}경기와 그 기록, ${scale.teams}개 팀에 배정된 선수 ${scale.players}명의 리그 정보가 삭제됩니다.`
+      : '삭제될 규모(경기·팀·선수 수)를 확인하지 못했습니다. 이 리그의 경기와 그 기록이 모두 사라집니다.'
+    if (!confirm(`"${league.name}" 리그를 삭제하시겠습니까?\n\n${scope}\n이 작업은 되돌릴 수 없습니다.`)) return
     setDeletingId(league.id)
     const res = await fetch(`/api/leagues/${league.id}`, { method: 'DELETE' })
     setDeletingId(null)
@@ -186,8 +193,9 @@ export default function TeamDetailClient({ team, playerCount }: Props) {
       <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-6 space-y-3">
         <h2 className="font-semibold text-[var(--mm-ink)]">편집 PIN</h2>
         <p className="text-xs text-[var(--mm-muted)]">이 팀의 경기 기록 편집 모드 진입 시 사용하는 PIN입니다</p>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
+        {/* 375px 에서 입력 + 버튼 3개가 한 줄에 안 들어간다 — 줄바꿈 허용 */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-0 basis-40">
             <Input
               type={pinVisible ? 'text' : 'password'}
               value={pin}
@@ -224,7 +232,7 @@ export default function TeamDetailClient({ team, playerCount }: Props) {
         <div className="flex items-center justify-between px-1 flex-wrap gap-2">
           <h2 className="font-semibold text-[var(--mm-ink)]">리그·대회</h2>
           <Link
-            href="/admin/leagues/new"
+            href={`/admin/leagues/new?team_id=${team.id}`}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-sm font-medium transition-colors cursor-pointer min-h-11"
           >
             <Plus size={15} />
@@ -250,9 +258,10 @@ export default function TeamDetailClient({ team, playerCount }: Props) {
             {leagues.map(league => {
               const meta = modeMeta[league.mode] ?? modeMeta.league
               const ModeIcon = meta.icon
+              // 모바일에서는 정보 줄과 액션 줄을 세로로 쌓는다 — 한 줄이면 버튼 3개가 화면 밖으로 밀린다
               return (
-                <div key={league.id} className="flex items-center gap-4 px-5 py-4 hover:bg-[var(--mm-panel-alt)] transition-colors">
-                  <ModeIcon size={16} className="text-[var(--mm-muted)] shrink-0" aria-hidden />
+                <div key={league.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 sm:px-5 py-4 hover:bg-[var(--mm-panel-alt)] transition-colors">
+                  <ModeIcon size={16} className="text-[var(--mm-muted)] shrink-0 hidden sm:block" aria-hidden />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium text-[var(--mm-ink)]">{league.name}</p>
@@ -263,7 +272,7 @@ export default function TeamDetailClient({ team, playerCount }: Props) {
                     </div>
                     <p className="text-sm text-[var(--mm-muted)] mt-0.5">{league.season_year}시즌 · 시작일 {league.start_date}</p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
                     <Link
                       href={`/admin/leagues/${league.id}`}
                       className="flex items-center gap-1 text-xs text-[var(--mm-yellow-strong)] hover:opacity-80 px-2.5 py-1.5 rounded-lg border border-[var(--mm-yellow-strong)]/30 bg-[var(--mm-yellow-soft)] hover:border-[var(--mm-yellow-strong)]/60 transition-colors cursor-pointer min-h-11"
@@ -280,7 +289,8 @@ export default function TeamDetailClient({ team, playerCount }: Props) {
                     <button
                       onClick={() => deleteLeague(league)}
                       disabled={deletingId === league.id}
-                      className="p-2.5 rounded-lg text-[var(--mm-muted)] hover:text-[var(--mm-negative)] hover:bg-[var(--mm-panel-alt)] transition-colors disabled:opacity-40 cursor-pointer min-h-11 min-w-11 flex items-center justify-center"
+                      // 되돌릴 수 없는 유일한 버튼 — 옆의 관리·대시보드와 같은 회색으로 두지 않는다
+                      className="p-2.5 rounded-lg border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 hover:opacity-90 transition-colors disabled:opacity-40 cursor-pointer min-h-11 min-w-11 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]"
                       title="삭제"
                       aria-label={`${league.name} 삭제`}
                     >

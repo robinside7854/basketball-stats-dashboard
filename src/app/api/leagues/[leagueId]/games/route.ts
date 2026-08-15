@@ -157,10 +157,27 @@ export async function PATCH(
   const gameId = searchParams.get('gameId')
   if (!gameId) return NextResponse.json({ error: 'gameId is required' }, { status: 400 })
   const body = await req.json()
+
+  // 허용 컬럼만 통과시킨다. 받은 객체를 그대로 update 에 넘기면 요청 하나로 league_id 를
+  // 바꿔 경기를 통째로 다른 리그로 옮길 수 있다(대량 할당) — 아래 league_id 스코프도
+  // 그때는 소용이 없다. 화면이 그런 요청을 안 보낼 뿐, 막혀 있진 않았다.
+  const ALLOWED = new Set([
+    'home_team_id', 'away_team_id', 'home_score', 'away_score',
+    'is_complete', 'is_started', 'is_exhibition', 'plus_one_player_id',
+    'youtube_url', 'youtube_start_offset',
+  ])
+  const patch: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(body ?? {})) {
+    if (ALLOWED.has(k)) patch[k] = v
+  }
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: '변경할 수 있는 항목이 없습니다' }, { status: 400 })
+  }
+
   const supabase = createClient()
   const { data, error } = await supabase
     .from('league_games')
-    .update(body)
+    .update(patch)
     .eq('id', gameId)
     .eq('league_id', leagueId)
     .select()

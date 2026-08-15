@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { isDraftManager } from '@/lib/draftManagerAuth'
+import { logAudit } from '@/lib/audit'
 
 export async function PATCH(
   req: Request,
@@ -13,14 +14,31 @@ export async function PATCH(
   // 페이지에서 팀명·색상을 인라인 수정할 수 있게 하기 위함.
   if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const body = await req.json()
+
+  // 허용 컬럼만 통과시킨다. 받은 객체를 그대로 update 에 넘기면 요청 하나로 league_id 를
+  // 바꿔 팀을 다른 클럽으로 옮길 수 있다(대량 할당). 화면은 name·color 만 보낸다.
+  const ALLOWED = new Set(['name', 'color'])
+  const patch: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(body ?? {})) {
+    if (ALLOWED.has(k)) patch[k] = v
+  }
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: '변경할 수 있는 항목이 없습니다' }, { status: 400 })
+  }
+
   const supabase = createClient()
+  // isDraftManager 는 leagueId 를 인가했을 뿐 teamId 는 URL 로 들어온 값이다 —
+  // league_id 로 함께 스코프해 다른 클럽의 팀명·색상이 바뀌는 것을 막는다.
   const { data, error } = await supabase
     .from('league_teams')
-    .update(body)
+    .update(patch)
     .eq('id', teamId)
+    .eq('league_id', leagueId)
     .select()
-    .single()
+    .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // 이 리그 소속이 아니면 갱신된 행이 없다. 존재 여부를 알려주지 않기 위해 404 로 답한다.
+  if (!data) return NextResponse.json({ error: '팀을 찾을 수 없습니다' }, { status: 404 })
 
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
   revalidateTag(`league-${leagueId}`, 'max')
@@ -35,8 +53,24 @@ export async function DELETE(
   const { leagueId, teamId } = await params
   if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = createClient()
-  const { error } = await supabase.from('league_teams').delete().eq('id', teamId)
+  // canEditLeague 는 leagueId 를 인가했을 뿐 teamId 는 URL 로 들어온 값이다.
+  // league_id 를 함께 걸지 않으면 A 리그 권한으로 다른 클럽의 팀이 지워진다.
+  // 지워진 행이 있는지는 select 로 확인한다 — 상태코드만 보면 "안 지워졌는데 성공"이 된다.
+  const { data: deleted, error } = await supabase
+    .from('league_teams')
+    .delete()
+    .eq('id', teamId)
+    .eq('league_id', leagueId)
+    .select('id')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // 이 리그 소속이 아니면 지워진 행이 0 이다. 존재 여부를 알려주지 않기 위해 404 로 답한다.
+  if (!deleted || deleted.length === 0) {
+    return NextResponse.json({ error: '팀을 찾을 수 없습니다' }, { status: 404 })
+  }
+
+  await logAudit({
+    req, action: 'league_team.delete', targetTable: 'league_teams', targetId: teamId, leagueId,
+  })
 
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
   revalidateTag(`league-${leagueId}`, 'max')

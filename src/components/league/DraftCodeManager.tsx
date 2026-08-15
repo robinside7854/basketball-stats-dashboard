@@ -5,6 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Trash2, Copy, Check, ToggleLeft, ToggleRight, ShieldCheck, Pencil, Plus, X, AlertCircle } from 'lucide-react'
 
+// 운영자가 카톡으로 그대로 배포해야 하는 값이라, 두 테마 모두에서 확실히 읽혀야 한다.
+// 예전에는 gray-900/amber-300 처럼 다크 전용 색을 박아 뒀는데, 라이트 모드에서는
+// globals.css 가 gray-900 을 흰색으로 뒤집기 때문에 코드가 흰 배경 위 연노랑(1.44:1)이 되고
+// 복사 버튼은 거의 보이지 않았다. mm 토큰만 쓰면 두 테마 모두 4.5:1 이상이 보장된다.
 function PlainCodeLine({ plain }: { plain: string | null }) {
   const [copied, setCopied] = useState(false)
   function copy() {
@@ -16,19 +20,20 @@ function PlainCodeLine({ plain }: { plain: string | null }) {
   }
   if (!plain) {
     return (
-      <div className="mt-1.5 flex items-center gap-1 text-[10px] text-amber-400">
+      <div className="mt-1.5 flex items-center gap-1 text-[10px] text-[var(--mm-yellow-strong)]">
         <AlertCircle size={10} />
         <span>이전 발급(평문 없음) — 수정에서 새 코드 설정 필요</span>
       </div>
     )
   }
   return (
-    <div className="mt-1.5 flex items-center gap-1.5 bg-gray-900/80 border border-gray-700 rounded-md px-2 py-1">
-      <code className="font-mono text-sm text-amber-300 tracking-wider flex-1 select-all">{plain}</code>
+    <div className="mt-1.5 flex items-center gap-1.5 bg-[var(--mm-yellow-soft)] border border-[var(--mm-rule)] rounded-md px-2 py-1">
+      <code className="font-mono text-sm text-[var(--mm-yellow-strong)] font-bold tracking-wider flex-1 select-all break-all">{plain}</code>
       <button
         type="button"
         onClick={copy}
-        className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer flex items-center gap-0.5 transition-colors ${copied ? 'bg-emerald-600 text-white' : 'bg-amber-700 hover:bg-amber-600 text-white'}`}
+        aria-label={copied ? '코드 복사됨' : '코드 복사'}
+        className={`shrink-0 px-2 py-1 rounded text-[10px] font-bold cursor-pointer flex items-center gap-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] ${copied ? 'bg-[var(--mm-positive-bg)] text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90'}`}
         title="복사"
       >
         {copied ? <Check size={10} /> : <Copy size={10} />}
@@ -181,25 +186,26 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
           const teamEditing = editingTeam?.id === t.id
           const codeEditing = existing && editingCode?.id === existing.id
           return (
-            <div key={t.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3" style={{ borderTopColor: t.color, borderTopWidth: 3 }}>
+            <div key={t.id} className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 space-y-3" style={{ borderTopColor: t.color, borderTopWidth: 3 }}>
               {/* 팀 헤더 — 인라인 수정 가능 */}
               {teamEditing ? (
                 <div className="space-y-2 -mt-1">
                   <div className="flex items-center gap-2">
-                    <input type="color" value={editingTeam.color} onChange={e => setEditingTeam(s => s ? { ...s, color: e.target.value } : s)} className="w-8 h-8 rounded border border-gray-700 bg-transparent cursor-pointer" />
-                    <Input value={editingTeam.name} onChange={e => setEditingTeam(s => s ? { ...s, name: e.target.value } : s)} placeholder="팀명" className="bg-gray-800 border-gray-700 text-white h-8 text-sm font-bold" onKeyDown={e => e.key === 'Enter' && saveTeamEdit()} autoFocus />
+                    <input type="color" aria-label="팀 색상" value={editingTeam.color} onChange={e => setEditingTeam(s => s ? { ...s, color: e.target.value } : s)} className="w-9 h-9 shrink-0 rounded border border-[var(--mm-rule)] bg-transparent cursor-pointer" />
+                    <Input value={editingTeam.name} onChange={e => setEditingTeam(s => s ? { ...s, name: e.target.value } : s)} placeholder="팀명" className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm font-bold" onKeyDown={e => e.key === 'Enter' && saveTeamEdit()} autoFocus />
                   </div>
                   <div className="flex gap-1.5">
-                    <Button onClick={saveTeamEdit} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white h-7 text-xs">저장</Button>
-                    <Button onClick={() => setEditingTeam(null)} variant="outline" className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 h-7 text-xs">취소</Button>
+                    <Button onClick={saveTeamEdit} className="flex-1 bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 h-9 text-xs cursor-pointer">저장</Button>
+                    <Button onClick={() => setEditingTeam(null)} variant="outline" className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] h-9 text-xs cursor-pointer">취소</Button>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-2 group">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.color }} />
-                  <span className="font-bold text-white text-base flex-1">{t.name}</span>
-                  <button onClick={() => setEditingTeam({ id: t.id, name: t.name, color: t.color })} className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-500 hover:text-blue-400 cursor-pointer transition" title="팀 정보 수정">
-                    <Pencil size={12} />
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                  <span className="font-bold text-[var(--mm-ink)] text-base flex-1 min-w-0 truncate">{t.name}</span>
+                  {/* 항상 보이는 편집 버튼 — hover 로만 나타나면 터치 기기에서는 존재 자체를 알 수 없다 */}
+                  <button onClick={() => setEditingTeam({ id: t.id, name: t.name, color: t.color })} aria-label={`${t.name} 팀 정보 수정`} className="shrink-0 w-11 h-11 -my-2 flex items-center justify-center rounded text-[var(--mm-muted)] hover:text-[var(--mm-ink)] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]" title="팀 정보 수정">
+                    <Pencil size={14} />
                   </button>
                 </div>
               )}
@@ -208,36 +214,37 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
               {existing ? (
                 codeEditing ? (
                   <div className="space-y-2">
-                    <Input value={editingCode.label} onChange={e => setEditingCode(s => s ? { ...s, label: e.target.value } : s)} placeholder="레이블 (단장명)" className="bg-gray-800 border-gray-700 text-white h-8 text-sm" />
-                    <Input value={editingCode.plain_code} onChange={e => setEditingCode(s => s ? { ...s, plain_code: e.target.value } : s)} placeholder="새 코드 (변경 시에만 입력)" maxLength={32} className="bg-gray-800 border-gray-700 text-white h-8 text-sm font-mono" />
-                    <p className="text-[10px] text-gray-500">코드를 비워두면 레이블만 변경됩니다.</p>
+                    <Input value={editingCode.label} onChange={e => setEditingCode(s => s ? { ...s, label: e.target.value } : s)} placeholder="레이블 (단장명)" className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm" />
+                    <Input value={editingCode.plain_code} onChange={e => setEditingCode(s => s ? { ...s, plain_code: e.target.value } : s)} placeholder="새 코드 (변경 시에만 입력)" maxLength={32} className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm font-mono" />
+                    <p className="text-[10px] text-[var(--mm-muted)]">코드를 비워두면 레이블만 변경됩니다.</p>
                     <div className="flex gap-1.5">
-                      <Button onClick={() => saveCodeEdit(existing, false)} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white h-7 text-xs">저장</Button>
-                      <Button onClick={() => setEditingCode(null)} variant="outline" className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 h-7 text-xs">취소</Button>
+                      <Button onClick={() => saveCodeEdit(existing, false)} className="flex-1 bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 h-9 text-xs cursor-pointer">저장</Button>
+                      <Button onClick={() => setEditingCode(null)} variant="outline" className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] h-9 text-xs cursor-pointer">취소</Button>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <div className={`px-3 py-2 rounded-lg border ${existing.is_active ? 'bg-emerald-950/40 border-emerald-700/50' : 'bg-gray-800/60 border-gray-700/50 opacity-60'}`}>
-                      <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">단장</p>
-                      <p className="text-sm text-white font-bold">{existing.label}</p>
+                    <div className={`px-3 py-2 rounded-lg border ${existing.is_active ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40' : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] opacity-70'}`}>
+                      <p className="text-xs text-[var(--mm-muted)] font-bold uppercase tracking-wider">단장</p>
+                      <p className="text-sm text-[var(--mm-ink)] font-bold">{existing.label}</p>
                       <PlainCodeLine plain={existing.plain_code} />
-                      <p className="text-[10px] text-gray-500 mt-1">{existing.last_used_at ? `마지막 사용: ${new Date(existing.last_used_at).toLocaleString('ko-KR')}` : '아직 사용 안 됨'}</p>
+                      <p className="text-[10px] text-[var(--mm-muted)] mt-1">{existing.last_used_at ? `마지막 사용: ${new Date(existing.last_used_at).toLocaleString('ko-KR')}` : '아직 사용 안 됨'}</p>
                     </div>
                     <div className="flex gap-1.5">
-                      <button onClick={() => setEditingCode({ id: existing.id, label: existing.label, plain_code: '' })} className="px-2.5 py-1.5 rounded-md bg-blue-900/40 hover:bg-blue-800 text-blue-300 text-xs font-bold cursor-pointer flex items-center gap-1" title="수정"><Pencil size={12} /></button>
-                      <button onClick={() => toggleActive(existing)} className={`flex-1 py-1.5 rounded-md text-xs font-bold cursor-pointer flex items-center justify-center gap-1 ${existing.is_active ? 'bg-emerald-900/60 hover:bg-emerald-800 text-emerald-300' : 'bg-gray-800 hover:bg-gray-700 text-gray-400'}`}>
+                      <button onClick={() => setEditingCode({ id: existing.id, label: existing.label, plain_code: '' })} aria-label={`${existing.label} 코드 수정`} className="px-3 min-h-11 rounded-md border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] hover:border-[var(--mm-muted)] text-[var(--mm-ink-soft)] text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]" title="수정"><Pencil size={12} /></button>
+                      <button onClick={() => toggleActive(existing)} className={`flex-1 min-h-11 rounded-md text-xs font-bold cursor-pointer flex items-center justify-center gap-1 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] ${existing.is_active ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-neutral-bg)] border-[var(--mm-rule)] text-[var(--mm-neutral-fg)]'}`}>
                         {existing.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}{existing.is_active ? '활성' : '비활성'}
                       </button>
-                      <button onClick={() => deleteCode(existing)} className="px-2.5 py-1.5 rounded-md bg-red-900/40 hover:bg-red-800 text-red-300 text-xs font-bold cursor-pointer flex items-center gap-1" title="삭제"><Trash2 size={12} /></button>
+                      {/* 파괴 액션 — 수정·활성 토글과 같은 톤이면 손이 안 멈춘다 */}
+                      <button onClick={() => deleteCode(existing)} aria-label={`${existing.label} 코드 삭제`} className="px-3 min-h-11 rounded-md border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]" title="삭제"><Trash2 size={12} /></button>
                     </div>
                   </div>
                 )
               ) : (
                 <div className="space-y-2">
-                  <Input value={form.label} onChange={e => setDrafting(d => ({ ...d, [t.id]: { ...form, label: e.target.value } }))} placeholder="레이블 (예: 구범준 단장)" className="bg-gray-800 border-gray-700 text-white h-8 text-sm" />
-                  <Input value={form.code} onChange={e => setDrafting(d => ({ ...d, [t.id]: { ...form, code: e.target.value } }))} placeholder="코드 (영문 3자, 예: LAK)" maxLength={32} className="bg-gray-800 border-gray-700 text-white h-8 text-sm font-mono" onKeyDown={e => e.key === 'Enter' && issueManager(t.id)} />
-                  <Button onClick={() => issueManager(t.id)} className="w-full bg-amber-600 hover:bg-amber-500 text-white text-xs h-8">코드 발급</Button>
+                  <Input value={form.label} onChange={e => setDrafting(d => ({ ...d, [t.id]: { ...form, label: e.target.value } }))} placeholder="레이블 (예: 구범준 단장)" className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm" />
+                  <Input value={form.code} onChange={e => setDrafting(d => ({ ...d, [t.id]: { ...form, code: e.target.value } }))} placeholder="코드 (영문 3자, 예: LAK)" maxLength={32} className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm font-mono" onKeyDown={e => e.key === 'Enter' && issueManager(t.id)} />
+                  <Button onClick={() => issueManager(t.id)} className="w-full bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:opacity-90 text-xs min-h-11 font-bold cursor-pointer">코드 발급</Button>
                 </div>
               )}
             </div>
@@ -246,11 +253,11 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
       </div>
 
       {/* 감독관(총무) 코드 영역 — 무제한 발급 가능 */}
-      <div className="bg-gray-900 border border-amber-800/40 rounded-xl p-4 space-y-3">
-        <div className="flex items-center gap-1.5">
-          <ShieldCheck size={16} className="text-amber-400" />
-          <span className="font-bold text-white text-sm">감독관(총무) 코드</span>
-          <span className="text-[10px] text-gray-500">준비·추첨 진행 제어 — 복수 발급 가능</span>
+      <div className="bg-[var(--mm-panel)] border border-[var(--mm-yellow-strong)]/40 rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <ShieldCheck size={16} className="text-[var(--mm-yellow-strong)]" />
+          <span className="font-bold text-[var(--mm-ink)] text-sm">감독관(총무) 코드</span>
+          <span className="text-[10px] text-[var(--mm-muted)]">준비·추첨 진행 제어 — 복수 발급 가능</span>
         </div>
 
         {/* 발급된 감독관 카드 그리드 */}
@@ -259,25 +266,25 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
             {supervisorCodes.map(c => {
               const isEditing = editingSup?.id === c.id
               return isEditing ? (
-                <div key={c.id} className="bg-gray-800 border border-blue-700/50 rounded-lg p-3 space-y-2">
-                  <Input value={editingSup.label} onChange={e => setEditingSup(s => s ? { ...s, label: e.target.value } : s)} placeholder="레이블" className="bg-gray-900 border-gray-700 text-white h-8 text-sm" />
-                  <Input value={editingSup.plain_code} onChange={e => setEditingSup(s => s ? { ...s, plain_code: e.target.value } : s)} placeholder="새 코드 (변경 시에만)" maxLength={32} className="bg-gray-900 border-gray-700 text-white h-8 text-sm font-mono" />
+                <div key={c.id} className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] rounded-lg p-3 space-y-2">
+                  <Input value={editingSup.label} onChange={e => setEditingSup(s => s ? { ...s, label: e.target.value } : s)} placeholder="레이블" className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm" />
+                  <Input value={editingSup.plain_code} onChange={e => setEditingSup(s => s ? { ...s, plain_code: e.target.value } : s)} placeholder="새 코드 (변경 시에만)" maxLength={32} className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm font-mono" />
                   <div className="flex gap-1.5">
-                    <Button onClick={() => saveCodeEdit(c, true)} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white h-7 text-xs">저장</Button>
-                    <Button onClick={() => setEditingSup(null)} variant="outline" className="bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 h-7 text-xs">취소</Button>
+                    <Button onClick={() => saveCodeEdit(c, true)} className="flex-1 bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 h-9 text-xs cursor-pointer">저장</Button>
+                    <Button onClick={() => setEditingSup(null)} variant="outline" className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] h-9 text-xs cursor-pointer">취소</Button>
                   </div>
                 </div>
               ) : (
-                <div key={c.id} className={`rounded-lg border p-3 space-y-2 ${c.is_active ? 'bg-emerald-950/40 border-emerald-700/50' : 'bg-gray-800/60 border-gray-700/50 opacity-60'}`}>
-                  <p className="text-sm text-white font-bold">{c.label}</p>
+                <div key={c.id} className={`rounded-lg border p-3 space-y-2 ${c.is_active ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40' : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] opacity-70'}`}>
+                  <p className="text-sm text-[var(--mm-ink)] font-bold">{c.label}</p>
                   <PlainCodeLine plain={c.plain_code} />
-                  <p className="text-[10px] text-gray-500">{c.last_used_at ? `사용: ${new Date(c.last_used_at).toLocaleString('ko-KR')}` : '아직 사용 안 됨'}</p>
+                  <p className="text-[10px] text-[var(--mm-muted)]">{c.last_used_at ? `사용: ${new Date(c.last_used_at).toLocaleString('ko-KR')}` : '아직 사용 안 됨'}</p>
                   <div className="flex gap-1.5 pt-1">
-                    <button onClick={() => setEditingSup({ id: c.id, label: c.label, plain_code: '' })} className="px-2 py-1 rounded-md bg-blue-900/40 hover:bg-blue-800 text-blue-300 text-[11px] font-bold cursor-pointer flex items-center gap-1" title="수정"><Pencil size={11} /></button>
-                    <button onClick={() => toggleActive(c)} className={`flex-1 py-1 rounded-md text-[11px] font-bold cursor-pointer flex items-center justify-center gap-1 ${c.is_active ? 'bg-emerald-900/60 hover:bg-emerald-800 text-emerald-300' : 'bg-gray-800 hover:bg-gray-700 text-gray-400'}`}>
+                    <button onClick={() => setEditingSup({ id: c.id, label: c.label, plain_code: '' })} aria-label={`${c.label} 코드 수정`} className="px-3 min-h-11 rounded-md border border-[var(--mm-rule)] bg-[var(--mm-panel)] hover:border-[var(--mm-muted)] text-[var(--mm-ink-soft)] text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]" title="수정"><Pencil size={11} /></button>
+                    <button onClick={() => toggleActive(c)} className={`flex-1 min-h-11 rounded-md text-[11px] font-bold cursor-pointer flex items-center justify-center gap-1 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] ${c.is_active ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-neutral-bg)] border-[var(--mm-rule)] text-[var(--mm-neutral-fg)]'}`}>
                       {c.is_active ? <ToggleRight size={12} /> : <ToggleLeft size={12} />}{c.is_active ? '활성' : '비활성'}
                     </button>
-                    <button onClick={() => deleteCode(c)} className="px-2 py-1 rounded-md bg-red-900/40 hover:bg-red-800 text-red-300 text-[11px] font-bold cursor-pointer flex items-center gap-1" title="삭제"><Trash2 size={11} /></button>
+                    <button onClick={() => deleteCode(c)} aria-label={`${c.label} 코드 삭제`} className="px-3 min-h-11 rounded-md border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]" title="삭제"><Trash2 size={11} /></button>
                   </div>
                 </div>
               )
@@ -287,16 +294,16 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
 
         {/* 신규 발급 폼 */}
         {supDraft.open ? (
-          <div className="bg-gray-800 border border-amber-700/50 rounded-lg p-3 space-y-2 max-w-md">
-            <Input value={supDraft.label} onChange={e => setSupDraft(s => ({ ...s, label: e.target.value }))} placeholder="레이블 (예: 홍길동 총무)" className="bg-gray-900 border-gray-700 text-white h-8 text-sm" autoFocus />
-            <Input value={supDraft.code} onChange={e => setSupDraft(s => ({ ...s, code: e.target.value }))} placeholder="코드 (영문 3자, 예: ADM)" maxLength={32} className="bg-gray-900 border-gray-700 text-white h-8 text-sm font-mono" onKeyDown={e => e.key === 'Enter' && issueSupervisor()} />
+          <div className="bg-[var(--mm-panel-alt)] border border-[var(--mm-yellow-strong)]/40 rounded-lg p-3 space-y-2 max-w-md">
+            <Input value={supDraft.label} onChange={e => setSupDraft(s => ({ ...s, label: e.target.value }))} placeholder="레이블 (예: 홍길동 총무)" className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm" autoFocus />
+            <Input value={supDraft.code} onChange={e => setSupDraft(s => ({ ...s, code: e.target.value }))} placeholder="코드 (영문 3자, 예: ADM)" maxLength={32} className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm font-mono" onKeyDown={e => e.key === 'Enter' && issueSupervisor()} />
             <div className="flex gap-1.5">
-              <Button onClick={issueSupervisor} className="flex-1 bg-amber-600 hover:bg-amber-500 text-white text-xs h-8">발급</Button>
-              <Button onClick={() => setSupDraft({ open: false, label: '', code: '' })} variant="outline" className="bg-gray-900 border-gray-700 text-gray-300 hover:bg-gray-800 h-8 text-xs"><X size={14} /></Button>
+              <Button onClick={issueSupervisor} className="flex-1 bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:opacity-90 text-xs min-h-11 font-bold cursor-pointer">발급</Button>
+              <Button onClick={() => setSupDraft({ open: false, label: '', code: '' })} aria-label="발급 취소" variant="outline" className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] min-h-11 text-xs cursor-pointer"><X size={14} /></Button>
             </div>
           </div>
         ) : (
-          <button onClick={() => setSupDraft({ open: true, label: '', code: '' })} className="w-full sm:w-auto inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-900/30 hover:bg-amber-900/50 border border-amber-700/50 text-amber-300 text-xs font-bold cursor-pointer transition">
+          <button onClick={() => setSupDraft({ open: true, label: '', code: '' })} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 min-h-11 rounded-lg bg-[var(--mm-yellow-soft)] hover:opacity-90 border border-[var(--mm-yellow-strong)]/40 text-[var(--mm-yellow-strong)] text-xs font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]">
             <Plus size={14} /> 감독관 코드 추가 발급
           </button>
         )}

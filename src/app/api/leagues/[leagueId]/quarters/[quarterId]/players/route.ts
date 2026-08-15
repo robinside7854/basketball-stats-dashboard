@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { logAudit } from '@/lib/audit'
 import { canViewLeague } from '@/lib/auth/guard'
 import { fetchExternalPlayerIds } from '@/lib/league/externalPlayers'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -230,6 +231,13 @@ export async function DELETE(
     .eq('quarter_id', quarterId)
     .eq('league_player_id', playerId)
   if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 })
+
+  // 분기 정규 소속 해제 — 팀 구성이 분기마다 바뀌는 구조라 이 한 줄이 과거 경기의
+  // 팀 귀속 해석까지 바꾼다. 어느 분기의 누구를 뺐는지 남긴다.
+  await logAudit({
+    req, action: 'quarter_player.delete', targetTable: 'league_player_quarters',
+    targetId: playerId, leagueId, quarterId, detail: { quarterId },
+  })
 
   revalidateTag(`league-${leagueId}`, 'max')
 

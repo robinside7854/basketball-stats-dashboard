@@ -18,7 +18,7 @@
 // 별도 파일(`ceo.ts`)로 둔 이유이기도 하다.
 import { auth } from '@/lib/auth'
 import type { Session } from 'next-auth'
-import { isActiveAdminEmail, isBootstrapEmail } from './platformAdmin'
+import { checkSessionAdmin, isBootstrapEmail } from './platformAdmin'
 
 function missingEnvKeys(): string[] {
   const missing: string[] = []
@@ -88,7 +88,14 @@ export async function requireCeoSession(): Promise<Session | null> {
   if (isBootstrapEmail(email)) return session
 
   try {
-    if (await isActiveAdminEmail(email)) return session
+    // 비밀번호 재설정 이후에 발급된 세션인지도 함께 본다(마이그레이션 105). 비밀번호 분실은
+    // "누가 내 계정에 들어와 있다" 와 겹칠 수 있는데, 비밀번호만 바꾸면 침입자의 JWT 는
+    // 최대 30일 그대로 살아 있기 때문이다. loginAt 이 없는 옛 세션은 판정 근거가 없어 통과한다.
+    const verdict = await checkSessionAdmin(email, session.loginAt ?? 0)
+    if (verdict === 'ok') return session
+    if (verdict === 'password_changed') {
+      console.warn('[auth/ceo] 비밀번호 재설정 이전에 발급된 세션 — 거부')
+    }
   } catch (e) {
     // 조회 실패를 통과로 처리하면 DB 장애가 곧 인증 우회가 된다.
     console.error('[auth/ceo] 관리자 상태 확인 실패 — fail closed', e)

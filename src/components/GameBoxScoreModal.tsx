@@ -4,6 +4,7 @@ import { X, Play } from 'lucide-react'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { PlayerBoxScore } from '@/types/database'
 import { extractYouTubeId } from '@/lib/youtube/utils'
+import { CLUB_BASELINE, baselineCaption, type PctKind } from '@/lib/stats/shootingBaseline'
 
 interface GameInfo {
   game_id: string
@@ -43,15 +44,13 @@ interface Props {
 }
 
 // 지표별 '괜찮다' 기준선 — 하나(50%)로 통일하면 안 된다. (2026-08-15 수정)
-//   FT% 는 65~80% 가 보통이라 50% 는 사실 하위권인데 초록(좋음)으로 칭찬되고 있었고,
-//   3P% 는 30~35% 가 보통이라 40% 면 아주 좋은데 50% 미달이라 노랑으로 깎이고 있었다.
-//   기준선 값은 팀 스탯 탭(`(main)/[org]/[team]/stats/page.tsx`)·팀 박스스코어와 맞춘다 —
-//   화면마다 다르면 같은 선수가 화면 따라 다른 색으로 보인다.
-const PCT_GOOD = { fg: 40, fg3: 33, ft: 70 } as const
-type PctKind = keyof typeof PCT_GOOD
+//   FT% 는 50% 면 사실 하위권인데 초록(좋음)으로 칭찬되고 있었고,
+//   3P% 는 40% 면 아주 좋은데 50% 미달이라 노랑으로 깎이고 있었다.
+//   값은 `@/lib/stats/shootingBaseline` 한 곳에만 둔다 — 화면마다 하드코딩하면
+//   같은 선수가 화면 따라 다른 색이 된다. 여기는 팀 대시보드이므로 CLUB 기준선.
 
 function Pct({ val, kind }: { val: number; kind?: PctKind }) {
-  const good = kind ? PCT_GOOD[kind] : null
+  const good = kind ? CLUB_BASELINE[kind] : null
   const cls = val <= 0
     ? 'text-gray-600'
     : good == null
@@ -339,6 +338,10 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                       </tbody>
                     </table>
                   </div>
+
+                  {/* 색이 무슨 뜻인지 밝히지 않으면 "38%인데 왜 초록?" 이 된다 —
+                      프로 기준이 아니라 우리 팀 평균 기준임을 표에 붙여둔다. */}
+                  <p className="text-[11px] text-gray-500 break-keep">{baselineCaption(CLUB_BASELINE)}</p>
 
                   {fourFactors && (
                     <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">

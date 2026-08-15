@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { canViewLeague, isLeaguePublic } from '@/lib/auth/guard'
+import { logAudit } from '@/lib/audit'
 
 // GET /api/leagues/[leagueId]/visibility
 // 설정 화면이 현재 공개/비공개 상태를 표시하기 위해 조회한다.
@@ -48,6 +49,13 @@ export async function PATCH(
   const { error } = await supabase
     .from('teams').update({ is_public: body.is_public }).eq('id', league.team_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // 공개 전환은 팀 전체(모든 리그·대회)의 노출을 한 번에 바꾼다 — 되돌릴 수는 있지만
+  // 그 사이 공개된 사실은 되돌릴 수 없다.
+  await logAudit({
+    req, action: 'league.visibility.update', targetTable: 'teams', targetId: league.team_id,
+    leagueId, teamId: league.team_id, detail: { is_public: body.is_public },
+  })
 
   revalidateTag(`league-${leagueId}`, 'max')
   return NextResponse.json({ is_public: body.is_public })

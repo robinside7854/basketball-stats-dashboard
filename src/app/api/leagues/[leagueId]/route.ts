@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { requireCeoSession } from '@/lib/auth/ceo'
 import { canViewLeague } from '@/lib/auth/guard'
+import { logAudit } from '@/lib/audit'
 
 export async function GET(
   req: Request,
@@ -61,6 +62,13 @@ export async function PATCH(
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // 시즌 설정 변경은 삭제만큼 눈에 띄지 않지만 rules/status 를 바꾸면 스탯 해석이 통째로
+  // 달라진다 — 값이 아니라 "어떤 항목을 건드렸나" 를 남긴다.
+  await logAudit({
+    req, action: 'league.update', targetTable: 'leagues', targetId: leagueId,
+    leagueId, detail: { fields: Object.keys(patch) },
+  })
+
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
   revalidateTag(`league-${leagueId}`, 'max')
   revalidateTag(`league-${leagueId}-games`, 'max')
@@ -69,15 +77,28 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const session = await requireCeoSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { leagueId } = await params
   const supabase = createClient()
+  // 지우기 전에 이름을 확보한다 — 삭제 후에는 id 밖에 남지 않아 로그만 봐서는
+  // 어느 리그였는지 알 수 없다(감사 로그에 FK 를 걸지 않는 이유와 같은 맥락).
+  const { data: before } = await supabase.from('leagues').select('name').eq('id', leagueId).maybeSingle()
   const { error } = await supabase.from('leagues').delete().eq('id', leagueId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    await logAudit({
+      req, action: 'league.delete', targetTable: 'leagues', targetId: leagueId,
+      leagueId, result: 'failure', detail: { name: before?.name ?? null },
+    })
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  await logAudit({
+    req, action: 'league.delete', targetTable: 'leagues', targetId: leagueId,
+    leagueId, detail: { name: before?.name ?? null },
+  })
 
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
   revalidateTag(`league-${leagueId}`, 'max')

@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { requireCeoSession } from '@/lib/auth/ceo'
 import { setAccountRole, type AccountRole } from '@/lib/auth/setAccountRole'
+import { logAudit } from '@/lib/audit'
 
 export async function PATCH(
   req: Request,
@@ -23,6 +24,17 @@ export async function PATCH(
   }
 
   const result = await setAccountRole(leagueId, accountId, role as AccountRole)
-  if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+  if (!result.ok) {
+    await logAudit({
+      req, action: 'account.role.update', targetTable: 'league_user_accounts', targetId: accountId,
+      leagueId, result: 'failure', detail: { role, error: result.error },
+    })
+    return NextResponse.json({ error: result.error }, { status: result.status })
+  }
+  // 권한 상승은 되돌릴 수는 있어도 그 사이에 벌어진 일은 되돌릴 수 없다 — 반드시 남긴다.
+  await logAudit({
+    req, action: 'account.role.update', targetTable: 'league_user_accounts', targetId: accountId,
+    leagueId, detail: { role },
+  })
   return NextResponse.json({ ok: true, account: result.account })
 }

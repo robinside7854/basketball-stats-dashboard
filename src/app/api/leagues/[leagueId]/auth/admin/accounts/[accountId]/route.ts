@@ -8,6 +8,7 @@ import { canEditLeague, getLeagueAdminSession } from '@/lib/auth/leagueAdmin'
 import { isIdentifiedAdmin } from '@/lib/auth/identifiedAdmin'
 import { setAccountRole, type AccountRole } from '@/lib/auth/setAccountRole'
 import { hashPassword } from '@/lib/auth/password'
+import { logAudit } from '@/lib/audit'
 
 const RESET_PASSWORD = '123456'
 
@@ -57,7 +58,17 @@ export async function PATCH(
       }
     }
     const result = await setAccountRole(leagueId, accountId, role as AccountRole)
-    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status })
+    if (!result.ok) {
+      await logAudit({
+        req, action: 'account.role.update', targetTable: 'league_user_accounts', targetId: accountId,
+        leagueId, result: 'failure', detail: { role, error: result.error },
+      })
+      return NextResponse.json({ error: result.error }, { status: result.status })
+    }
+    await logAudit({
+      req, action: 'account.role.update', targetTable: 'league_user_accounts', targetId: accountId,
+      leagueId, detail: { role },
+    })
     return NextResponse.json({ ok: true, account: result.account })
   }
 
@@ -119,6 +130,15 @@ export async function PATCH(
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!data) return NextResponse.json({ error: '계정을 찾지 못했습니다' }, { status: 404 })
+
+  // 비밀번호 초기화는 "그 계정으로 로그인할 수 있게 된다" 는 뜻이라 권한 변경과 같은 무게다.
+  // ⚠ 초기 비밀번호 값은 남기지 않는다 — 사실만 남긴다.
+  await logAudit({
+    req,
+    action: action === 'reset_password' ? 'account.password.reset' : 'account.status.update',
+    targetTable: 'league_user_accounts', targetId: accountId, leagueId,
+    detail: { action, targetWasAdmin: targetIsAdmin },
+  })
 
   return NextResponse.json({
     ok: true,

@@ -3,7 +3,8 @@
 //        박스스코어·일정·명단·순위표·공지 = 공개.
 //   쿠키(mm_auth) 서명 검증만 믿지 않고 DB 에서 status='approved' 현재값을 재확인
 //   (반려/비활성 전환된 계정 즉시 차단).
-//   운영자는 편집 권한(어드민 role 회원 · 전환기의 편집 PIN)으로도 통과 — canEditLeague 참조.
+//   운영자는 편집 권한(CEO/공동관리자 세션 · 어드민 role 회원 · 전환기의 편집 PIN)으로도
+//   통과 — canEditLeague 참조.
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
 import { AUTH_COOKIE, verifySession, type SessionPayload } from './session'
@@ -50,6 +51,12 @@ export async function isLeaguePublic(leagueId: string): Promise<boolean> {
 
 // API 라우트용 — 공개 리그면 누구나, 비공개면 승인 회원 또는 편집 권한자만.
 // canViewStats 와 같은 규칙을 쓰되, 이쪽은 "리그 자체를 볼 수 있는가"를 본다.
+//
+// CEO/공동관리자는 마지막 줄의 canEditLeague 안에서 통과한다(2026-08-15). 여기에
+// requireCeoSession 을 또 부르지 않는 이유: 편집 권한자는 정의상 조회도 되므로 판정이
+// 이미 한 곳(canEditLeague)에 모여 있고, 중복 호출은 비공개 리그 조회 요청마다
+// NextAuth + DB 왕복을 한 번씩 더 만든다. 가드가 두 곳으로 갈리면 나중에 한쪽만
+// 고쳐져 화면마다 접근 여부가 달라진다 — 이 파일이 이미 여러 번 겪은 실수다.
 export async function canViewLeague(req: Request, leagueId: string): Promise<boolean> {
   if (await isLeaguePublic(leagueId)) return true
   if (await getApprovedSession(leagueId)) return true

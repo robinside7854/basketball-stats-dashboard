@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { isDraftManager } from '@/lib/draftManagerAuth'
 import { hashDraftCode } from '@/lib/leagueDraftAuth'
+import { logAudit } from '@/lib/audit'
 
 export async function PATCH(
   req: Request,
@@ -44,6 +45,12 @@ export async function PATCH(
     .select('id, quarter_id, team_id, label, is_active, last_used_at, created_at, plain_code')
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // ⚠ 값이 아니라 "무엇을 바꿨는지" 만 남긴다 — plain_code 가 로그로 새면 안 된다.
+  await logAudit({
+    req, action: 'draft_code.update', targetTable: 'league_draft_codes', targetId: codeId,
+    leagueId, detail: { fields: Object.keys(update).filter(k => k !== 'plain_code' && k !== 'code_hash')
+      .concat(update.code_hash ? ['code(재설정)'] : []) },
+  })
   return NextResponse.json(data)
 }
 
@@ -60,5 +67,8 @@ export async function DELETE(
     .eq('id', codeId)
     .eq('league_id', leagueId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await logAudit({
+    req, action: 'draft_code.delete', targetTable: 'league_draft_codes', targetId: codeId, leagueId,
+  })
   return NextResponse.json({ ok: true })
 }

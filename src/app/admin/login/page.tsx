@@ -126,7 +126,17 @@ export default function AdminLoginPage() {
             </label>
           </div>
 
-          {error && <p role="alert" className="text-xs text-[var(--mm-negative)]">{error}</p>}
+          {/* 오답 안내와 잠금 안내가 같은 자리에 뜬다 (문구는 서버가 정한다 — actions.ts).
+              잠금 안내는 "몇 분 뒤에 다시" 를 포함하므로, 한 줄로 흘리지 않고 박스로 세워
+              사용자가 계속 두드리지 않게 한다. */}
+          {error && (
+            <div
+              role="alert"
+              className="rounded-lg border border-[var(--mm-negative)]/30 bg-[var(--mm-negative)]/10 px-3 py-2.5"
+            >
+              <p className="text-xs text-[var(--mm-negative)] leading-relaxed">{error}</p>
+            </div>
+          )}
 
           <button
             type="submit"

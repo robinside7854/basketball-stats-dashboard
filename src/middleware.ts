@@ -93,7 +93,9 @@ export async function middleware(request: NextRequest) {
   //   방향으로 어긋나는 경우) 그 아래 계층이 fail-closed 이므로 뚫리지 않는다.
   //   초대 수락·접근 요청 화면은 아직 계정이 없는 사람이 여는 곳이라 로그인 검사에서 뺀다
   //   (토큰 자체가 인증이거나, 아예 인증이 필요 없는 창구다).
-  const ADMIN_PUBLIC = ['/admin/login', '/admin/invite', '/admin/request-access']
+  //   비밀번호 재설정도 같은 부류다 — 비밀번호를 잊어 로그인을 못 하는 사람이 여는 화면이라
+  //   로그인 검사를 통과할 수가 없다(인증은 URL 의 토큰이 한다).
+  const ADMIN_PUBLIC = ['/admin/login', '/admin/invite', '/admin/request-access', '/admin/reset-password']
   const isAdminPublic = ADMIN_PUBLIC.some((p) => pathname.startsWith(p))
   if (pathname.startsWith('/admin') && !isAdminPublic) {
     //   여기서는 DB 왕복이 없는 shallow 판정을 쓴다 — 미들웨어는 모든 /admin 요청마다 돌기

@@ -52,7 +52,10 @@ export function LeagueEditModeProvider({
   const [pin, setPin] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [digits, setDigits] = useState<string[]>([])
-  const [error, setError] = useState(false)
+  // 에러를 불리언이 아니라 문구로 든다 — 오답(401)과 시도 초과 잠금(429)을 구분해 보여줘야
+  // 사용자가 "왜 맞는 PIN 인데 안 되지" 하며 계속 두드리지 않는다 (2026-08-15).
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const error = errorMsg !== null
   const [loading, setLoading] = useState(false)
 
   const { user, loading: authLoading } = useCurrentUser()
@@ -82,7 +85,7 @@ export function LeagueEditModeProvider({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showModal, digits, loading])
 
-  function openPinModal() { setShowModal(true); setDigits([]); setError(false) }
+  function openPinModal() { setShowModal(true); setDigits([]); setErrorMsg(null) }
 
   // PIN 폴백만 해제한다. 어드민 role 로 켜진 편집 모드는 계정 권한이므로
   // 클라이언트에서 끌 수 없다 (해제하려면 어드민 권한을 회수해야 함).
@@ -96,7 +99,7 @@ export function LeagueEditModeProvider({
     if (loading || digits.length >= 4) return
     const next = [...digits, d]
     setDigits(next)
-    setError(false)
+    setErrorMsg(null)
     if (next.length < 4) return
 
     setLoading(true)
@@ -113,7 +116,11 @@ export function LeagueEditModeProvider({
         setPinVerified(true)
         setShowModal(false)
       } else {
-        setError(true)
+        // 429 = 시도 횟수 초과. 서버가 남은 잠금 시간을 담은 문구를 준다.
+        const payload = res.status === 429 ? await res.json().catch(() => null) : null
+        setErrorMsg(
+          (payload as { error?: string } | null)?.error ?? 'PIN이 올바르지 않습니다'
+        )
         setDigits([])
       }
     } finally {
@@ -121,7 +128,7 @@ export function LeagueEditModeProvider({
     }
   }
 
-  function handleDelete() { setDigits(prev => prev.slice(0, -1)); setError(false) }
+  function handleDelete() { setDigits(prev => prev.slice(0, -1)); setErrorMsg(null) }
 
   // PIN 변경(PATCH .../edit-pin) 성공 후 호출 — 세션의 PIN 을 새 값으로 교체한다.
   // PIN 폴백으로 편집 중일 때만 의미가 있다 (어드민 role 은 PIN 을 안 쓰므로 no-op).
@@ -166,7 +173,7 @@ export function LeagueEditModeProvider({
                 />
               ))}
             </div>
-            {error && <p className="text-red-400 text-sm -mt-2">PIN이 올바르지 않습니다</p>}
+            {error && <p role="alert" className="text-red-400 text-sm -mt-2 text-center px-2">{errorMsg}</p>}
 
             <div className="grid grid-cols-3 gap-3">
               {PAD.map((key, i) => (

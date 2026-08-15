@@ -24,6 +24,7 @@ import {
   normalizeEmail,
   setAdminDisabled,
 } from '@/lib/auth/platformAdmin'
+import { logAudit } from '@/lib/audit'
 
 function hasBootstrapAccount(): boolean {
   return Boolean(process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD)
@@ -64,6 +65,12 @@ export async function PATCH(
     }
 
     await setAdminDisabled(id, disabled)
+    // 공동관리자 회수/복구는 콘솔 전체의 접근권을 바꾸는 행위다 — 대상 이메일까지 남긴다
+    // (platform_admins 는 삭제하지 않고 비활성화만 하므로 이메일은 비밀값이 아니다).
+    await logAudit({
+      req, action: 'platform_admin.disabled.update', targetTable: 'platform_admins', targetId: id,
+      detail: { disabled, targetEmail: target.email },
+    })
     return NextResponse.json({ ok: true })
   } catch (e) {
     const message = e instanceof Error ? e.message : '알 수 없는 오류'

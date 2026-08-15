@@ -7,7 +7,7 @@
 // 실패 사유를 네 갈래로 나눠 보여주는 이유: '만료'는 다시 요청하면 되고, '이미 사용됨'은
 // 그냥 로그인하면 되고, '취소됨'은 초대한 사람에게 물어봐야 한다. 하나로 뭉뚱그리면
 // 받는 사람이 다음에 뭘 해야 할지 알 수 없다. (여긴 토큰 소지자만 오므로 열거 위험이 없다)
-import { use, useEffect, useState } from 'react'
+import { use, useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { AlertCircle, Loader2 } from 'lucide-react'
@@ -15,15 +15,18 @@ import { Basketball } from '@/components/league/BasketballIcons'
 
 const MIN_PASSWORD_LENGTH = 10
 
+// server_error 는 서버가 준 사유가 아니라 화면이 붙이는 사유다 — 조회 자체가 실패했을 때
+// 'not_found'(존재하지 않는 초대)로 뭉뚱그리면, 멀쩡한 초대를 받은 사람이 링크를 버린다.
 type Check =
   | { ok: true; email: string }
-  | { ok: false; reason: 'not_found' | 'expired' | 'used' | 'revoked' }
+  | { ok: false; reason: 'not_found' | 'expired' | 'used' | 'revoked' | 'server_error' }
 
 const REASON_TITLE: Record<string, string> = {
   not_found: '존재하지 않는 초대입니다',
   expired: '초대가 만료되었습니다',
   used: '이미 사용된 초대입니다',
   revoked: '취소된 초대입니다',
+  server_error: '초대를 확인하지 못했습니다',
 }
 
 const REASON_BODY: Record<string, string> = {
@@ -31,6 +34,7 @@ const REASON_BODY: Record<string, string> = {
   expired: '초대 링크는 만들어진 뒤 72시간 동안만 쓸 수 있습니다. 초대한 분께 새 링크를 요청해 주세요.',
   used: '이 초대로 계정이 이미 만들어졌습니다. 설정한 비밀번호로 로그인하세요.',
   revoked: '초대한 분이 이 링크를 회수했습니다. 필요하다면 새로 초대를 요청해 주세요.',
+  server_error: '링크에 문제가 있는 것이 아니라, 확인이 잠시 실패했습니다. 다시 시도해 주세요.',
 }
 
 export default function AdminInvitePage({ params }: { params: Promise<{ token: string }> }) {
@@ -44,14 +48,16 @@ export default function AdminInvitePage({ params }: { params: Promise<{ token: s
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    let alive = true
-    fetch(`/api/admin/invite/${encodeURIComponent(token)}`)
-      .then((r) => r.json())
-      .then((data: Check) => { if (alive) setCheck(data) })
-      .catch(() => { if (alive) setCheck({ ok: false, reason: 'not_found' }) })
-    return () => { alive = false }
+  // 이 라우트는 유효성 결과를 항상 200 으로 준다 — 따라서 !res.ok 는 진짜 서버 오류다.
+  const loadCheck = useCallback(async () => {
+    setCheck(null)
+    const res = await fetch(`/api/admin/invite/${encodeURIComponent(token)}`).catch(() => null)
+    if (!res?.ok) { setCheck({ ok: false, reason: 'server_error' }); return }
+    const data = await res.json().catch(() => null)
+    setCheck((data as Check | null) ?? { ok: false, reason: 'server_error' })
   }, [token])
+
+  useEffect(() => { void loadCheck() }, [loadCheck])
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -118,6 +124,16 @@ export default function AdminInvitePage({ params }: { params: Promise<{ token: s
               {REASON_BODY[check.reason]}
             </p>
             <div className="pt-2 flex flex-col gap-2">
+              {/* 조회 실패일 때만 재시도를 준다 — 만료·사용됨은 다시 눌러도 결과가 같다 */}
+              {check.reason === 'server_error' && (
+                <button
+                  type="button"
+                  onClick={() => void loadCheck()}
+                  className="min-h-11 flex items-center justify-center rounded-lg bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-sm font-medium transition-opacity cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:outline-none"
+                >
+                  다시 시도
+                </button>
+              )}
               <Link
                 href="/admin/login"
                 className="min-h-11 flex items-center justify-center rounded-lg bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-sm font-medium transition-opacity cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:outline-none"

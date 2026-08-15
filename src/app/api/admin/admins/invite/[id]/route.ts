@@ -4,9 +4,10 @@
 import { NextResponse } from 'next/server'
 import { requireCeoSession } from '@/lib/auth/ceo'
 import { revokeInvite } from '@/lib/auth/platformAdmin'
+import { logAudit } from '@/lib/audit'
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await requireCeoSession()
@@ -17,6 +18,10 @@ export async function DELETE(
 
   try {
     await revokeInvite(id)
+    await logAudit({
+      req, action: 'platform_admin.invite.revoke',
+      targetTable: 'platform_admin_invites', targetId: id,
+    })
     return NextResponse.json({ ok: true })
   } catch (e) {
     const message = e instanceof Error ? e.message : '알 수 없는 오류'

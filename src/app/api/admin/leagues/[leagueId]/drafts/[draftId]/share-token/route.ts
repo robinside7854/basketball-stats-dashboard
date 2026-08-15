@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { randomBytes } from 'node:crypto'
 import { createClient } from '@/lib/supabase/admin'
 import { isDraftSessionControllerByDraftId } from '@/lib/draftManagerAuth'
+import { logAudit } from '@/lib/audit'
 
 function newToken(): string {
   return randomBytes(12).toString('base64url') // 16자, URL-safe
@@ -30,6 +31,11 @@ export async function POST(
     .select('id, share_token')
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  // 재발급은 기존 공유 링크를 즉시 무효화한다(방에 있던 사람들이 튕긴다).
+  // ⚠ 토큰 원문은 로그에 남기지 않는다 — 로그가 곧 공유 링크가 되면 안 된다.
+  await logAudit({
+    req, action: 'draft.share_token.rotate', targetTable: 'league_drafts', targetId: draftId, leagueId,
+  })
   return NextResponse.json({ share_token: data.share_token, draft_id: data.id })
 }
 
@@ -48,5 +54,8 @@ export async function DELETE(
     .eq('id', draftId)
     .eq('league_id', leagueId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await logAudit({
+    req, action: 'draft.share_token.revoke', targetTable: 'league_drafts', targetId: draftId, leagueId,
+  })
   return NextResponse.json({ ok: true })
 }

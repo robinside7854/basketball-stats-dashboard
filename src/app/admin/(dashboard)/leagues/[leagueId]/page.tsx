@@ -9,6 +9,7 @@ import Link from 'next/link'
 import LeagueAdminRolePanel from '@/components/admin/LeagueAdminRolePanel'
 import type { League } from '@/types/league'
 import { siteUrl } from '@/lib/siteUrl'
+import { countLeagueScale } from '@/lib/admin/leagueScale'
 
 const DOW_LABELS: Record<string, string> = {
   monday: '월요일', tuesday: '화요일', wednesday: '수요일', thursday: '목요일',
@@ -188,8 +189,9 @@ export default function LeagueAdminSettingsPage() {
           리그 대시보드에서 편집 모드 진입 시 사용하는 4자리 PIN입니다.
           위 어드민 권한으로 대체 중이며, 어드민 지정이 자리잡으면 제거될 예정입니다.
         </p>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
+        {/* 375px 에서 입력 + 버튼 3개가 한 줄에 안 들어간다 — 줄바꿈 허용 */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-0 basis-40">
             <Input
               type={pinVisible ? 'text' : 'password'}
               value={pin}
@@ -201,18 +203,20 @@ export default function LeagueAdminSettingsPage() {
           </div>
           <button
             onClick={() => setPinVisible(v => !v)}
-            className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer shrink-0"
+            aria-label={pinVisible ? 'PIN 숨기기' : 'PIN 보기'}
+            className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer shrink-0 min-h-11 min-w-11 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]"
           >
             {pinVisible ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
           <button
             onClick={reissuePin}
             title="랜덤 재발급"
-            className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer shrink-0"
+            aria-label="랜덤 PIN 재발급"
+            className="p-2.5 rounded-lg border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer shrink-0 min-h-11 min-w-11 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]"
           >
             <RefreshCw size={14} />
           </button>
-          <Button onClick={savePin} disabled={saving} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer shrink-0">
+          <Button onClick={savePin} disabled={saving} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer shrink-0 min-h-11">
             저장
           </Button>
         </div>
@@ -227,7 +231,12 @@ export default function LeagueAdminSettingsPage() {
         <p className="text-xs text-[var(--mm-muted)]">리그 팀 구성 완료 후 일정을 자동 생성합니다. 기존 일정과 그 경기의 기록이 함께 삭제되므로, 기록이 있는 리그에서는 서버가 거절합니다.</p>
         <Button
           onClick={async () => {
-            if (!confirm('기존 일정이 모두 삭제되고 새로 생성됩니다.\n해당 경기의 기록(이벤트)도 함께 사라집니다.\n계속하시겠습니까?')) return
+            // "일정이 삭제됩니다"는 운영자가 '설정 몇 줄'로 읽는다 — 실제로 사라질 경기 수를 세어 보여준다.
+            const scale = await countLeagueScale(leagueId)
+            const scope = scale
+              ? `현재 등록된 ${scale.games}경기와 그 경기의 기록(이벤트)이 모두 삭제되고 새 일정이 만들어집니다.`
+              : '삭제될 경기 수를 확인하지 못했습니다. 기존 일정과 그 경기의 기록(이벤트)이 모두 사라집니다.'
+            if (!confirm(`${scope}\n이 작업은 되돌릴 수 없습니다.\n계속하시겠습니까?`)) return
             const res = await fetch(`/api/leagues/${leagueId}/schedule`, { method: 'POST' })
             const d = await res.json().catch(() => ({}))
             if (res.ok) {
@@ -237,9 +246,10 @@ export default function LeagueAdminSettingsPage() {
             }
           }}
           variant="outline"
-          className="w-full border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer"
+          // 이 버튼은 '생성'이라는 이름과 달리 기존 경기·기록을 먼저 지운다 — 파괴 액션 색으로 분리한다
+          className="w-full border-[var(--mm-negative)]/40 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/70 hover:bg-[var(--mm-negative-bg)] hover:text-[var(--mm-negative)] cursor-pointer min-h-11 focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]"
         >
-          일정 자동 생성
+          일정 자동 생성 (기존 기록 삭제)
         </Button>
       </div>
     </div>

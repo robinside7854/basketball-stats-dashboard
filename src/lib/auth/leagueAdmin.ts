@@ -9,6 +9,7 @@
 //      guard.ts 의 getApprovedSession 이 status 를 재확인하는 것과 같은 방식이다.
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/admin'
+import { requireCeoSession } from './ceo'
 import { AUTH_COOKIE, verifySession, type SessionPayload } from './session'
 import { verifyLeaguePin } from '@/lib/leaguePinAuth'
 import { sessionMatchesLeague } from './teamMatch'
@@ -44,9 +45,20 @@ export async function isLeagueAdmin(leagueId: string): Promise<boolean> {
   return (await getLeagueAdminSession(leagueId)) !== null
 }
 
-// mutation API 라우트용 편집 권한 가드 — 어드민 회원 세션 또는 (전환기) 리그 편집 PIN.
+// mutation API 라우트용 편집 권한 가드 —
+//   CEO/공동관리자 세션 ∥ 어드민 회원 세션 ∥ (전환기) 리그 편집 PIN.
 // verifyLeaguePin 과 시그니처가 같아 기존 호출부를 그대로 치환할 수 있다.
+//
+// ⚠ CEO 분기를 맨 앞에 두는 이유(2026-08-15): 이게 없으면 운영 콘솔(/admin)에 CEO 로
+//   로그인해도 리그 관리 탭이 전부 401 이라, CEO 가 실제로 일하려면 팀 대시보드로 가서
+//   4자리 PIN 을 쳐야 했다 — 폐지 대상인 PIN 이 CEO 의 유일한 실동작 경로가 돼 있었다.
+//   같은 콘솔의 드래프트 API(isDraftManager)는 이미 이 한 줄로 CEO 를 통과시킨다.
+//   판정은 requireCeoSession() 하나에만 맡긴다. auth() 를 직접 부르면 AUTH_SECRET 이
+//   빈 경우 truthy 한 비-세션 객체가 돌아와 fail-open 이 되기 때문(ceo.ts 주석 참조).
+//   requireCeoSession 은 실패·예외·권한 회수를 전부 null 로 떨어뜨리므로(fail-closed)
+//   여기서는 세션이 있을 때만 true 이고, 없으면 아래 기존 경로로 그대로 내려간다.
 export async function canEditLeague(req: Request, leagueId: string): Promise<boolean> {
+  if (await requireCeoSession()) return true
   if (await isLeagueAdmin(leagueId)) return true
   return verifyLeaguePin(req, leagueId)
 }

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { requireCeoSession } from '@/lib/auth/ceo'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
+import { logAudit } from '@/lib/audit'
 
 // 팀 어드민 세션·리그 편집 PIN(canEditLeague) 또는 CEO NextAuth 세션(requireCeoSession()) 중
 // 하나라도 통과하면 허용. requireCeoSession() 은 JWT 디코드라 가벼우므로 먼저 확인해 DB 조회를 아낀다.
@@ -61,6 +62,13 @@ export async function PATCH(
     .maybeSingle()
   if (error) return NextResponse.json({ error: 'PIN 저장 실패' }, { status: 500 })
   if (!data) return NextResponse.json({ error: 'not_found' }, { status: 404 })
+
+  // PIN 재발급은 진짜 운영진을 잠글 수 있는 행위다(바꾼 사람만 새 PIN 을 안다).
+  // ⚠ 새 PIN 값도 옛 PIN 값도 로그에 남기지 않는다 — "재발급했다" 는 사실만 남긴다.
+  await logAudit({
+    req, action: 'league.edit_pin.update', targetTable: 'leagues', targetId: leagueId, leagueId,
+  })
+
   // 응답에 PIN 을 되돌려주지 않는다.
   return NextResponse.json({ success: true })
 }

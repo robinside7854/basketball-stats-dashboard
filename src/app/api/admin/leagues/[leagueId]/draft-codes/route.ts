@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { isDraftManager } from '@/lib/draftManagerAuth'
 import { hashDraftCode } from '@/lib/leagueDraftAuth'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(
   req: Request,
@@ -75,6 +76,12 @@ export async function POST(
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+  // 코드 발급은 "권한을 하나 더 만드는" 행위다 — 감독관 코드는 드래프트 삭제·초기화까지 연다.
+  // ⚠ plain_code 는 절대 로그에 넣지 않는다. 레이블·역할·분기만 남긴다.
+  await logAudit({
+    req, action: 'draft_code.create', targetTable: 'league_draft_codes', targetId: data.id,
+    leagueId, teamId, quarterId: body.quarter_id, detail: { role, label },
+  })
   return NextResponse.json(data, { status: 201 })
 }
 

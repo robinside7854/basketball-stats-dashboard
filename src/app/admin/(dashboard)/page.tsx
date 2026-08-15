@@ -14,7 +14,13 @@ async function getStats() {
     supabase.from('league_games').select('id', { count: 'exact' }).eq('is_complete', true),
     supabase.from('leagues').select('id, name, org_slug, status, season_year').order('created_at', { ascending: false }).limit(5),
   ])
+  // 조회 실패를 0 · 빈 목록으로 그리면 "아직 아무것도 없다"로 읽혀,
+  // 운영자가 이미 있는 팀·리그를 다시 만들려 든다 — 실패는 실패로 알린다.
+  const failed = [orgs, players, tournaments, games, leagues, leagueTeams, leagueGames, recentLeagues]
+    .find(r => r.error)
+
   return {
+    loadError: failed?.error?.message ?? null,
     orgs: orgs.data ?? [],
     orgCount: orgs.count ?? 0,
     playerCount: players.count ?? 0,
@@ -34,8 +40,34 @@ const STATUS_STYLE: Record<string, string> = {
   completed: 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)]',
 }
 
+const dashboardHeader = (
+  <div>
+    <h1 className="text-2xl font-bold text-[var(--mm-ink)]">대시보드</h1>
+    <p className="text-[var(--mm-muted)] text-sm mt-1">전체 현황 요약</p>
+  </div>
+)
+
 export default async function AdminDashboardPage() {
-  const { orgs, orgCount, playerCount, tournamentCount, gameCount, leagueCount, leagueTeamCount, leagueGameCount, recentLeagues } = await getStats()
+  const { loadError, orgs, orgCount, playerCount, tournamentCount, gameCount, leagueCount, leagueTeamCount, leagueGameCount, recentLeagues } = await getStats()
+
+  // 서버 컴포넌트라 재조회 수단이 페이지 재요청뿐이다 — 링크로 다시 불러온다(스크립트 불필요).
+  if (loadError) {
+    return (
+      <div className="space-y-6">
+        {dashboardHeader}
+        <div role="alert" className="text-center py-12 px-4 border border-dashed border-[var(--mm-negative)]/40 rounded-xl text-[var(--mm-negative)] text-sm">
+          <p>현황을 불러오지 못했습니다</p>
+          <p className="mt-1 text-xs opacity-80 break-words">등록된 팀·리그가 없는 것이 아니라, 조회 자체가 실패한 상태입니다. ({loadError})</p>
+          <a
+            href="/admin"
+            className="inline-flex items-center justify-center min-h-11 mt-3 text-sm underline underline-offset-2 cursor-pointer"
+          >
+            다시 시도
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   const tournamentKpis = [
     { label: '등록 팀', value: orgCount, icon: Building2, color: 'text-[var(--mm-ink)]', bg: 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)]' },
@@ -52,10 +84,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <div className="space-y-10">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--mm-ink)]">대시보드</h1>
-        <p className="text-[var(--mm-muted)] text-sm mt-1">전체 현황 요약</p>
-      </div>
+      {dashboardHeader}
 
       {/* 토너먼트 섹션 */}
       <section className="space-y-4">
@@ -118,7 +147,8 @@ export default async function AdminDashboardPage() {
           <div className="flex-1 h-px bg-[var(--mm-rule)]" />
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        {/* 375px 에서 3열이면 카드 하나가 65px 남아 "완료 경기"가 글자 단위로 접힌다 */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {leagueKpis.map(({ label, value, icon: Icon, color, bg }) => (
             <div key={label} className={`rounded-xl border p-5 ${bg}`}>
               <div className="flex items-center justify-between mb-3">
