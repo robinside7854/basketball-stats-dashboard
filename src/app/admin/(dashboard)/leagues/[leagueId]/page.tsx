@@ -224,16 +224,15 @@ export default function LeagueAdminSettingsPage() {
       {/* 일정 생성 */}
       <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-5 space-y-3">
         <h2 className="font-semibold text-[var(--mm-ink)] text-sm">일정 관리</h2>
-        <p className="text-xs text-[var(--mm-muted)]">리그 팀 구성 완료 후 일정을 자동 생성합니다. 기존 일정은 삭제됩니다.</p>
+        <p className="text-xs text-[var(--mm-muted)]">리그 팀 구성 완료 후 일정을 자동 생성합니다. 기존 일정과 그 경기의 기록이 함께 삭제되므로, 기록이 있는 리그에서는 서버가 거절합니다.</p>
         <Button
           onClick={async () => {
-            if (!confirm('기존 일정이 모두 삭제되고 새로 생성됩니다. 계속하시겠습니까?')) return
+            if (!confirm('기존 일정이 모두 삭제되고 새로 생성됩니다.\n해당 경기의 기록(이벤트)도 함께 사라집니다.\n계속하시겠습니까?')) return
             const res = await fetch(`/api/leagues/${leagueId}/schedule`, { method: 'POST' })
+            const d = await res.json().catch(() => ({}))
             if (res.ok) {
-              const d = await res.json()
               toast.success(`일정 ${d.count}개 생성 완료`)
             } else {
-              const d = await res.json()
               toast.error(d.error ?? '생성 실패')
             }
           }}

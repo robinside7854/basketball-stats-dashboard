@@ -51,8 +51,61 @@ export async function POST(
   // 해당 요일의 모든 날짜 목록
   const matchDates = getMatchDates(startDate, endDate, league.match_day ?? 'saturday')
 
-  // 기존 일정 삭제
-  await supabase.from('league_games').delete().eq('league_id', leagueId)
+  // 파괴 전 확인 — league_games 삭제는 league_game_events 로 캐스케이드되고(021),
+  // 리그 스탯은 이벤트 재집계로만 만들어진다. 즉 여기서 지우면 시즌 기록 전체가 소멸한다.
+  // 기록이 하나라도 붙어 있으면 재생성을 거절한다.
+  const { data: existingGames, error: existingError } = await supabase
+    .from('league_games')
+    .select('id, is_started, is_complete')
+    .eq('league_id', leagueId)
+
+  if (existingError) {
+    // 조회 실패를 "기존 일정 없음"으로 넘기면 그대로 파괴로 이어진다 — 반드시 중단.
+    return NextResponse.json(
+      { error: '기존 일정을 확인하지 못해 중단했습니다. 잠시 후 다시 시도해주세요' },
+      { status: 500 }
+    )
+  }
+
+  const gameIds = (existingGames ?? []).map(g => g.id)
+  const recordedCount = (existingGames ?? []).filter(g => g.is_started || g.is_complete).length
+
+  // is_started 플래그가 없더라도 이벤트가 남아 있으면 실기록이다.
+  let eventCount = 0
+  if (gameIds.length > 0) {
+    const { count, error: eventError } = await supabase
+      .from('league_game_events')
+      .select('id', { count: 'exact', head: true })
+      .in('league_game_id', gameIds)
+    if (eventError) {
+      return NextResponse.json(
+        { error: '기존 경기 기록을 확인하지 못해 중단했습니다. 잠시 후 다시 시도해주세요' },
+        { status: 500 }
+      )
+    }
+    eventCount = count ?? 0
+  }
+
+  if (recordedCount > 0 || eventCount > 0) {
+    return NextResponse.json(
+      {
+        error: `이미 기록이 있는 경기 ${recordedCount}건(이벤트 ${eventCount}건)이 있어 일정을 재생성할 수 없습니다. 재생성하면 해당 경기의 기록까지 함께 사라집니다.`,
+        recordedCount,
+        eventCount,
+      },
+      { status: 409 }
+    )
+  }
+
+  // 기존 일정 삭제 — 위 가드를 통과한, 기록이 전혀 없는 일정만 남아 있는 상태
+  const { error: deleteError } = await supabase
+    .from('league_games')
+    .delete()
+    .eq('league_id', leagueId)
+    .select('id')
+  if (deleteError) {
+    return NextResponse.json({ error: '기존 일정 삭제에 실패했습니다' }, { status: 500 })
+  }
 
   const games: {
     league_id: string

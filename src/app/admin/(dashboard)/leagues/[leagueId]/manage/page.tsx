@@ -253,24 +253,36 @@ function PlayersTab({
 function ScheduleTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWithPlayers[] }) {
   const [games, setGames] = useState<LeagueGame[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
 
   const loadGames = useCallback(async () => {
     setLoading(true)
-    const res = await fetch(`/api/leagues/${leagueId}/games`)
-    if (res.ok) setGames(await res.json())
+    setLoadError(null)
+    const res = await fetch(`/api/leagues/${leagueId}/games`).catch(() => null)
+    if (res?.ok) {
+      setGames(await res.json())
+    } else {
+      // 조회 실패를 빈 목록처럼 보여주면 "일정이 없다"로 오인해 파괴적인 자동 생성을 누르게 된다.
+      const d = res ? await res.json().catch(() => ({})) : {}
+      setLoadError(d.error ?? '일정을 불러오지 못했습니다')
+      setGames([])
+    }
     setLoading(false)
   }, [leagueId])
 
   useEffect(() => { loadGames() }, [loadGames])
 
   async function generateSchedule() {
-    if (!confirm('기존 일정이 모두 삭제되고 새로 생성됩니다. 계속하시겠습니까?')) return
+    const scope = games.length > 0
+      ? `현재 등록된 ${games.length}경기가 모두 삭제되고, 그 경기의 기록(이벤트)도 함께 사라집니다.`
+      : '기존 일정이 모두 삭제되고 새로 생성됩니다.'
+    if (!confirm(`${scope}\n계속하시겠습니까?`)) return
     setGenerating(true)
     const res = await fetch(`/api/leagues/${leagueId}/schedule`, { method: 'POST' })
     setGenerating(false)
     if (res.ok) { toast.success('일정 생성 완료'); loadGames() }
-    else { const d = await res.json(); toast.error(d.error ?? '생성 실패') }
+    else { const d = await res.json().catch(() => ({})); toast.error(d.error ?? '생성 실패') }
   }
 
   const rounds = Array.from(new Set(games.map(g => g.round_num))).sort((a, b) => a - b)
@@ -282,7 +294,8 @@ function ScheduleTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamW
       <div className="flex justify-end">
         <Button
           onClick={generateSchedule}
-          disabled={generating || teams.length < 2}
+          disabled={generating || loading || !!loadError || teams.length < 2}
+          title={loadError ? '일정 조회에 실패해 현재 상태를 알 수 없습니다' : undefined}
           className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer"
         >
           {generating ? <Loader2 size={14} className="animate-spin mr-2" /> : <Calendar size={14} className="mr-2" />}
@@ -292,6 +305,17 @@ function ScheduleTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamW
 
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 size={20} className="animate-spin text-[var(--mm-muted)]" /></div>
+      ) : loadError ? (
+        <div role="alert" className="text-center py-10 border border-dashed border-[var(--mm-negative)]/40 rounded-xl text-[var(--mm-negative)] text-sm">
+          <p>{loadError}</p>
+          <p className="mt-1 text-xs opacity-80">현재 일정 상태를 알 수 없어 자동 생성을 막았습니다.</p>
+          <button
+            onClick={loadGames}
+            className="mt-3 text-sm underline underline-offset-2 cursor-pointer"
+          >
+            다시 시도
+          </button>
+        </div>
       ) : games.length === 0 ? (
         <div className="text-center py-10 text-[var(--mm-muted)] text-sm">일정이 없습니다. 자동 생성 버튼을 눌러주세요</div>
       ) : (
