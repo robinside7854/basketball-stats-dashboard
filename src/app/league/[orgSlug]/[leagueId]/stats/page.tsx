@@ -11,7 +11,6 @@ import RecordRoomBoard, { type SeasonHighCategory, type SeasonHigh } from '@/com
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 const PlayerCompareModal = dynamic(() => import('@/components/league/PlayerCompareModal'), { ssr: false })
 import StatHeader from '@/components/league/StatHeader'
-import { PercentBar } from '@/components/league/StatCell'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
