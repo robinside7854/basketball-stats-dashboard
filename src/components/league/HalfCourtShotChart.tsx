@@ -24,11 +24,14 @@ import { useState } from 'react'
 //   MD (미들레인지)     — 페인트 밖 · 3점 라인 안
 //   3P (3점슛)          — 3점 라인 바깥 (상단으로 페이드)
 //
-// 색상 (신호등 방식):
-//   ≥45%: 초록 (핫)
-//   30-44%: 노랑 (중간)
-//   <30%: 빨강 (콜드)
-//   시도 <3: 회색 (표본 부족)
+// 색상 (신호등 방식) — **절대값이 아니라 그 존의 평균 대비**로 잰다. (2026-08-15 수정)
+//   예전에는 네 존 전부 45/30 한 선으로 쟀는데, 존마다 난이도가 달라서 정확히 반대로 표시됐다.
+//   미들 30% 는 평균(29%) 이상인데 '중간'으로, 3점 25% 는 평균(22%) 이상인데 '콜드'로,
+//   골밑 46% 는 평균(55%) 미만인데 '핫'으로 나오던 상태다.
+//   기준선은 `@/lib/stats/shootingBaseline` 에서만 온다 — 리그/팀 모집단이 다르므로 prop 으로 받는다.
+//   평균 +15% 이상: 초록(핫) / ±15% 안: 노랑(중간) / -15% 미만: 빨강(콜드) / 시도 <3: 회색
+
+import { LEAGUE_BASELINE, zoneTier, type ShootingBaseline } from '@/lib/stats/shootingBaseline'
 
 interface Zone {
   m: number
@@ -44,6 +47,8 @@ interface Props {
     three: Zone
   }
   size?: number
+  /** 어느 모집단의 평균과 비교할지. 팀 대시보드에서 쓸 때는 CLUB_BASELINE 을 넘긴다. */
+  baseline?: ShootingBaseline
 }
 
 // ── 좌표 상수 ─────────────────────────────────────
@@ -65,12 +70,6 @@ const CORNER_X_R = 470
 const CORNER_Y = 370.33         // 3점 코너 직선-아크 교점
 
 // ── 효율 → 컬러 ─────────────────────────────────
-function tierOf(pct: number, attempts: number): 'high' | 'mid' | 'low' | 'none' {
-  if (attempts < 3) return 'none'
-  if (pct >= 45) return 'high'
-  if (pct >= 30) return 'mid'
-  return 'low'
-}
 const TIER_COLORS: Record<'high' | 'mid' | 'low' | 'none', { fill: string; text: string; label: string }> = {
   high: { fill: '#16a34a', text: 'text-emerald-100', label: '핫'    },
   mid:  { fill: '#f59e0b', text: 'text-yellow-100',  label: '중간'  },
@@ -78,16 +77,16 @@ const TIER_COLORS: Record<'high' | 'mid' | 'low' | 'none', { fill: string; text:
   none: { fill: '#6b7280', text: 'text-gray-300',    label: '표본 부족' },
 }
 
-export default function HalfCourtShotChart({ zones, size = 400 }: Props) {
+export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGUE_BASELINE }: Props) {
   const [hover, setHover] = useState<'post' | 'layup' | 'mid' | 'three' | null>(null)
 
   const totalAttempts = zones.post.a + zones.layup.a + zones.mid.a + zones.three.a
   const volumePct = (z: Zone) => totalAttempts === 0 ? 0 : Math.round(z.a / totalAttempts * 100)
 
-  const dsT = tierOf(zones.post.fg_pct, zones.post.a)
-  const luT = tierOf(zones.layup.fg_pct, zones.layup.a)
-  const mdT = tierOf(zones.mid.fg_pct, zones.mid.a)
-  const thT = tierOf(zones.three.fg_pct, zones.three.a)
+  const dsT = zoneTier(zones.post.fg_pct, zones.post.a, 'post', baseline)
+  const luT = zoneTier(zones.layup.fg_pct, zones.layup.a, 'layup', baseline)
+  const mdT = zoneTier(zones.mid.fg_pct, zones.mid.a, 'mid', baseline)
+  const thT = zoneTier(zones.three.fg_pct, zones.three.a, 'three', baseline)
 
   const dsC = TIER_COLORS[dsT]
   const luC = TIER_COLORS[luT]
@@ -309,21 +308,25 @@ export default function HalfCourtShotChart({ zones, size = 400 }: Props) {
         <div className="flex items-center justify-center gap-3 text-[10px] flex-wrap">
           <div className="inline-flex items-center gap-1">
             <div className="w-3 h-3 rounded" style={{ background: '#16a34a', opacity: 0.85 }} />
-            <span className="text-emerald-300 font-semibold">핫 ≥45%</span>
+            <span className="text-emerald-300 font-semibold">핫 (평균 이상)</span>
           </div>
           <div className="inline-flex items-center gap-1">
             <div className="w-3 h-3 rounded" style={{ background: '#f59e0b', opacity: 0.85 }} />
-            <span className="text-yellow-300 font-semibold">중간 30–44%</span>
+            <span className="text-yellow-300 font-semibold">중간 (평균권)</span>
           </div>
           <div className="inline-flex items-center gap-1">
             <div className="w-3 h-3 rounded" style={{ background: '#dc2626', opacity: 0.85 }} />
-            <span className="text-red-300 font-semibold">콜드 &lt;30%</span>
+            <span className="text-red-300 font-semibold">콜드 (평균 이하)</span>
           </div>
           <div className="inline-flex items-center gap-1">
             <div className="w-3 h-3 rounded" style={{ background: '#6b7280', opacity: 0.65 }} />
             <span className="text-gray-400 font-semibold">시도&lt;3</span>
           </div>
         </div>
+        {/* '평균'이 몇 %인지 안 밝히면 존마다 기준이 다르다는 걸 알 방법이 없다 */}
+        <p className="text-center text-[10px] text-gray-500 break-keep">
+          존별 평균 기준 · 골밑 {baseline.zone.post}% · 레이업 {baseline.zone.layup}% · 미들 {baseline.zone.mid}% · 3점 {baseline.zone.three}%
+        </p>
         <div className="min-h-[24px] text-center text-[11px]">
           {hover ? (() => {
             const z = zones[hover]

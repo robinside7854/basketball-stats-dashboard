@@ -10,6 +10,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const PlayerDetailModal = dynamic(() => import('@/components/roster/PlayerDetailModal'), { ssr: false })
 import type { Tournament, PlayerBoxScore } from '@/types/database'
+import { CLUB_BASELINE, baselineCaption, type PctKind } from '@/lib/stats/shootingBaseline'
+
+// 성공률 셀 색 — 기준선은 `@/lib/stats/shootingBaseline` 한 곳에서만 온다.
+// 예전에는 40/33/70 이 이 파일에 하드코딩돼 있었는데, 그 값들은 프로 기준이라
+// 우리 팀 실측(FG 37.5 · 3P 25.7 · FT 64.2)에 대면 사실상 전원이 노랑이었다.
+const PCT_KIND: Record<string, PctKind | undefined> = {
+  fg_pct: 'fg',
+  fg3_pct: 'fg3',
+  ft_pct: 'ft',
+}
+
+function pctClass(n: number, kind?: PctKind): string {
+  if (n <= 0) return 'text-[var(--mm-muted)]'
+  // 기준선을 정한 적 없는 지표(eFG%·TS%)는 칠하지 않는다 — 근거 없이 감점하지 않기 위해서다
+  if (!kind) return 'text-[var(--mm-ink)]'
+  return n >= CLUB_BASELINE[kind] ? 'text-green-400' : 'text-[var(--mm-yellow-strong)]'
+}
 
 // 합작 듀오 카드용 프로필 사진 — 3:4 비율 · 검정 테두리 · 음수 마진 겹침(깊이감)
 // (모듈 최상단 정의: 페이지 함수 안에 두면 리렌더마다 unmount 된다)
@@ -221,7 +238,7 @@ export default function StatsPage() {
 
     if (viewMode === 'per36') {
       if (['fg_pct', 'fg3_pct', 'ft_pct', 'ts_pct'].includes(key as string)) {
-        return <td key={key} className={`px-2 py-2 font-medium ${n >= 40 && key === 'fg_pct' ? 'text-green-400' : n >= 33 && key === 'fg3_pct' ? 'text-green-400' : n >= 70 && key === 'ft_pct' ? 'text-green-400' : n > 0 ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-muted)]'}`}>
+        return <td key={key} className={`px-2 py-2 font-medium ${pctClass(n, PCT_KIND[key as string])}`}>
           {n > 0 ? n.toFixed(1) : '-'}
         </td>
       }
@@ -240,9 +257,8 @@ export default function StatsPage() {
       if (key === 'usg_pct') return <td key={key} className="px-2 py-2 text-purple-400">{n > 0 ? n.toFixed(1) : '-'}</td>
       if (key === 'stl') return <td key={key} className="px-2 py-2 text-green-400">{n}</td>
       if (key === 'blk') return <td key={key} className="px-2 py-2 text-indigo-400">{n}</td>
-      if (key === 'fg_pct')  return <td key={key} className={`px-2 py-2 font-medium ${n >= 40 ? 'text-green-400' : n > 0 ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-muted)]'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
-      if (key === 'fg3_pct') return <td key={key} className={`px-2 py-2 font-medium ${n >= 33 ? 'text-green-400' : n > 0 ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-muted)]'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
-      if (key === 'ft_pct')  return <td key={key} className={`px-2 py-2 font-medium ${n >= 70 ? 'text-green-400' : n > 0 ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-muted)]'}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
+      if (key === 'fg_pct' || key === 'fg3_pct' || key === 'ft_pct')
+        return <td key={key} className={`px-2 py-2 font-medium ${pctClass(n, PCT_KIND[key])}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
       if (key === 'eff') return <td key={key} className={`px-2 py-2 font-bold ${n >= 10 ? 'text-[var(--mm-yellow-strong)]' : n >= 0 ? 'text-[var(--mm-ink)]' : 'text-red-400'}`}>{n.toFixed(1)}</td>
       if (['efg_pct','ts_pct','ast_tov'].includes(key as string))
         return <td key={key} className="px-2 py-2">{n > 0 ? n.toFixed(1) : '-'}</td>
@@ -433,6 +449,8 @@ export default function StatsPage() {
           </div>
           <div className="flex flex-wrap gap-4 mt-3">
             <p className="text-xs text-[var(--mm-muted)]">* 컬럼 클릭 시 정렬 변경 / 이름 클릭 시 선수 상세</p>
+            {/* 색이 무슨 뜻인지 밝히지 않으면 "38%인데 왜 초록?" 이 된다 */}
+            <p className="text-xs text-[var(--mm-muted)] break-keep">* {baselineCaption(CLUB_BASELINE)}</p>
             {viewMode === 'avg' && <p className="text-xs text-[var(--mm-muted)]">* USG%: 팀 전체 공격 점유 중 해당 선수 비율 / EFF: (PTS+REB+AST+STL+BLK)-(빗나간FG+빗나간FT+TOV) 경기당</p>}
             {viewMode === 'per36' && <p className="text-xs text-[var(--mm-muted)]">* 28분 기준 → 36분 환산 (× 1.286)</p>}
           </div>

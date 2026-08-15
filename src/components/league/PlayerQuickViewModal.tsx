@@ -16,6 +16,7 @@ import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 import { CountUp } from '@/components/league/StatCell'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import HalfCourtShotChart from '@/components/league/HalfCourtShotChart'
+import { LEAGUE_BASELINE, tierAgainst, type ShootingBaseline } from '@/lib/stats/shootingBaseline'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import PlayerMiniTabs, { type PlayerTabKey } from '@/components/league/player/PlayerMiniTabs'
 import DynamicDuoPanel, { type DuoEntry } from '@/components/league/player/DynamicDuoPanel'
@@ -146,10 +147,20 @@ function computeAccent(_rankings?: Detail['rankings']): AccentPalette {
 }
 
 // data emphasis (spec 5): 양수=emerald, 음수=red, muted 유지
-function pctColor(pct: number): string {
-  if (pct >= 50) return 'text-[color:#059669]'
-  if (pct >= 30) return 'text-[color:var(--mm-yellow-strong)]'
-  return 'text-[color:#DC2626]'
+// 성공률 색 — 50/30 절대선이 아니라 **그 항목의 리그 평균 대비**로 잰다. (2026-08-15 수정)
+//   한 선으로 재면 골밑(평균 55%)·3점(평균 22%)·자유투(평균 44%)가 같은 잣대를 쓰게 돼,
+//   평균 이상인 3점 슈터가 빨강, 평균 미만인 골밑 선수가 초록으로 나온다.
+type PctScope = keyof ShootingBaseline['zone'] | 'ft' | 'fg'
+
+function pctColor(pct: number, attempts: number, scope: PctScope): string {
+  const avg = scope === 'ft' ? LEAGUE_BASELINE.ft
+    : scope === 'fg' ? LEAGUE_BASELINE.fg
+    : LEAGUE_BASELINE.zone[scope]
+  const tier = tierAgainst(pct, attempts, avg)
+  if (tier === 'high') return 'text-[color:#059669]'
+  if (tier === 'low') return 'text-[color:#DC2626]'
+  if (tier === 'none') return 'text-[color:var(--mm-muted)]'
+  return 'text-[color:var(--mm-yellow-strong)]'
 }
 
 interface Props {
@@ -1247,11 +1258,12 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   const sb = activeDetail.shot_breakdown
                   // mm-brand: 존별 색은 데이터 구분 목적이라 정보시각화 관례 유지 (spec 5 data emphasis)
                   // 시도 비중이 높은 순 = 이 선수가 실제로 자주 쓰는 공격 옵션 순서
+                  // zone 키를 같이 들고 다녀야 존별 평균과 비교할 수 있다 — 라벨만으로는 판정 불가
                   const rawZones = [
-                    { label: '골밑',   color: '#0A0A0A', data: sb.post  },
-                    { label: '레이업', color: '#EAB308', data: sb.layup },
-                    { label: '미들슛', color: '#A16207', data: sb.mid   },
-                    { label: '3점슛',  color: '#6B7280', data: sb.three },
+                    { label: '골밑',   zone: 'post'  as const, color: '#0A0A0A', data: sb.post  },
+                    { label: '레이업', zone: 'layup' as const, color: '#EAB308', data: sb.layup },
+                    { label: '미들슛', zone: 'mid'   as const, color: '#A16207', data: sb.mid   },
+                    { label: '3점슛',  zone: 'three' as const, color: '#6B7280', data: sb.three },
                   ]
                     .filter(z => z.data.a > 0)
                     .sort((a, b) => b.data.dist - a.data.dist)
@@ -1329,7 +1341,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                                 <CountUp value={totalFGA} />
                               </p>
                               <p className="font-jersey text-xs font-bold mt-1" style={{ color: 'var(--mm-muted)' }}>야투 시도</p>
-                              <p className={`text-xs font-bold mt-0.5 ${pctColor(overallFGPct)}`}>성공률 {overallFGPct.toFixed(1)}%</p>
+                              <p className={`text-xs font-bold mt-0.5 ${pctColor(overallFGPct, totalFGA, 'fg')}`}>성공률 {overallFGPct.toFixed(1)}%</p>
                             </div>
                           </div>
                         </div>
@@ -1366,7 +1378,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                             </div>
                             {/* 성공률 */}
                             <div className="text-right">
-                              <p className={`font-jersey text-lg font-black leading-none tabular-nums ${pctColor(z.data.fg_pct)}`}>{z.data.fg_pct.toFixed(1)}%</p>
+                              <p className={`font-jersey text-lg font-black leading-none tabular-nums ${pctColor(z.data.fg_pct, z.data.a, z.zone)}`}>{z.data.fg_pct.toFixed(1)}%</p>
                               <p className="text-xs font-mono mt-0.5" style={{ color: 'var(--mm-muted)' }}>{z.data.m}/{z.data.a}</p>
                             </div>
                           </div>
@@ -1383,7 +1395,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                             </div>
                             <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>야투 비중 제외</span>
                             <div className="text-right">
-                              <p className={`font-jersey text-lg font-black leading-none tabular-nums ${pctColor(sb.ft.ft_pct)}`}>{sb.ft.ft_pct.toFixed(1)}%</p>
+                              <p className={`font-jersey text-lg font-black leading-none tabular-nums ${pctColor(sb.ft.ft_pct, sb.ft.a, 'ft')}`}>{sb.ft.ft_pct.toFixed(1)}%</p>
                               <p className="text-xs font-mono mt-0.5" style={{ color: 'var(--mm-muted)' }}>{sb.ft.m}/{sb.ft.a}</p>
                             </div>
                           </div>

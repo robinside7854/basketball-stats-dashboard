@@ -11,6 +11,7 @@ const PlayerDetailModal = dynamic(() => import('@/components/roster/PlayerDetail
 import type { Tournament, Game, PlayerBoxScore } from '@/types/database'
 import SubTabNav from '@/components/layout/SubTabNav'
 import { gameSubTabs } from '@/components/layout/subTabs'
+import { CLUB_BASELINE, baselineCaption, type PctKind } from '@/lib/stats/shootingBaseline'
 
 type SortKey = 'player_number' | 'pts' | 'fg_pct' | 'fg3_pct' | 'ft_pct' | 'oreb' | 'dreb' | 'reb' | 'ast' | 'stl' | 'blk' | 'tov' | 'pf' | 'efg_pct' | 'ts_pct'
 
@@ -45,14 +46,12 @@ type GameBoxData = {
 // 지표별 '괜찮다' 기준선 — 하나(50%)로 통일하면 안 된다. (2026-08-15 수정)
 //   FT% 는 65~80% 가 보통이라 50% 는 사실 하위권인데 초록(좋음)으로 칭찬되고 있었고,
 //   3P% 는 30~35% 가 보통이라 40% 면 아주 좋은데 50% 미달이라 노랑으로 깎이고 있었다.
-//   기준선 값은 팀 스탯 탭(`../stats/page.tsx`)이 이미 쓰던 것과 맞춘다 — 화면마다 다르면
-//   같은 선수가 화면 따라 다른 색으로 보인다.
+//   값은 `@/lib/stats/shootingBaseline` 한 곳에만 둔다 — 화면마다 하드코딩하면
+//   같은 선수가 화면 따라 다른 색이 된다. 여기는 팀 대시보드이므로 CLUB 기준선.
 //   eFG%·TS% 는 기준선을 정한 적이 없으므로 색을 칠하지 않는다(스탯 탭도 이 둘은 무채색).
-const PCT_GOOD = { fg: 40, fg3: 33, ft: 70 } as const
-type PctKind = keyof typeof PCT_GOOD
 
 function Pct({ val, kind }: { val: number; kind?: PctKind }) {
-  const good = kind ? PCT_GOOD[kind] : null
+  const good = kind ? CLUB_BASELINE[kind] : null
   const cls = val <= 0
     ? 'text-[var(--mm-muted)]'
     : good == null
@@ -670,6 +669,8 @@ export default function BoxScorePage() {
                       </table>
                       </div>
                       <p className="hidden md:block text-xs text-[var(--mm-muted)] mt-2">헤더 클릭 시 해당 스탯 기준 정렬 (↓ 내림차순 / ↑ 오름차순)</p>
+                      {/* 색이 무슨 뜻인지 밝히지 않으면 "38%인데 왜 초록?" 이 된다 */}
+                      <p className="text-[11px] text-[var(--mm-muted)] mt-1 break-keep">{baselineCaption(CLUB_BASELINE)}</p>
 
                       {/* ── AI MVP + X-FACTOR 선정 ── */}
                       <div className="mt-4 pt-3 border-t border-[var(--mm-rule)]">

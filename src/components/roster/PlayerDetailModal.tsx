@@ -8,6 +8,7 @@ import type { Player, PlayerBoxScore, Tournament } from '@/types/database'
 import { evaluateAllBadges, CATEGORY_LABELS } from '@/lib/stats/badges'
 import type { EvaluatedBadge } from '@/lib/stats/badges'
 import BadgeIcon, { TIER_STYLES } from '@/components/badges/BadgeIcon'
+import { CLUB_BASELINE } from '@/lib/stats/shootingBaseline'
 
 const BadgeMasterbook = dynamic(() => import('@/components/roster/BadgeMasterbook'), { ssr: false })
 const GameBoxScoreModal = dynamic(() => import('@/components/GameBoxScoreModal'), { ssr: false })
@@ -731,7 +732,8 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                     <span className="text-[11px] text-[var(--mm-muted)]">코트 위치별 야투율</span>
                   </div>
                   <div className="flex justify-center">
-                    <HalfCourtShotChart zones={courtZones} size={420} />
+                    {/* 팀 대시보드이므로 리그가 아니라 우리 팀 평균과 비교한다 */}
+                    <HalfCourtShotChart zones={courtZones} size={420} baseline={CLUB_BASELINE} />
                   </div>
                 </div>
               )}

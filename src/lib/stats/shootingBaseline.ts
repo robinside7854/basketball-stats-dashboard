@@ -67,25 +67,34 @@ export function isAboveBaseline(val: number, kind: PctKind, base: ShootingBaseli
   return val >= base[kind]
 }
 
-/** 존 색 판정에서 '평균 대비 잘함/못함'으로 볼 여유 폭 (±15%) */
-const ZONE_MARGIN = 0.15
+export type Tier = 'high' | 'mid' | 'low' | 'none'
+
+/** '평균 대비 잘함/못함'으로 볼 여유 폭 (±15%) */
+const MARGIN = 0.15
 
 /**
- * 3단계 색 판정 (슛 차트·존별 표)
- * 절대값이 아니라 **그 존의 평균 대비**로 잰다. 미들 30% 는 평균 이상이고
- * 골밑 45% 는 평균 미만인데, 45/30 한 선으로 재면 정확히 반대로 표시된다.
+ * 3단계 색 판정의 공통 규칙 — 절대값이 아니라 **주어진 평균 대비**로 잰다.
+ * 시도 3회 미만은 판정하지 않는다(1/1 = 100% 같은 표본 노이즈).
+ */
+export function tierAgainst(pct: number, attempts: number, avg: number): Tier {
+  if (attempts < 3) return 'none'
+  if (pct >= avg * (1 + MARGIN)) return 'high'
+  if (pct < avg * (1 - MARGIN)) return 'low'
+  return 'mid'
+}
+
+/**
+ * 존별 색 판정 (슛 차트·존별 표)
+ * 미들 30% 는 평균 이상이고 골밑 45% 는 평균 미만인데,
+ * 45/30 한 선으로 재면 정확히 반대로 표시된다.
  */
 export function zoneTier(
   pct: number,
   attempts: number,
   zone: keyof ShootingBaseline['zone'],
   base: ShootingBaseline,
-): 'high' | 'mid' | 'low' | 'none' {
-  if (attempts < 3) return 'none'
-  const avg = base.zone[zone]
-  if (pct >= avg * (1 + ZONE_MARGIN)) return 'high'
-  if (pct < avg * (1 - ZONE_MARGIN)) return 'low'
-  return 'mid'
+): Tier {
+  return tierAgainst(pct, attempts, base.zone[zone])
 }
 
 /** 화면 하단 캡션용 — 색이 무슨 뜻인지 밝히지 않으면 "40%인데 왜 초록?" 이 된다 */

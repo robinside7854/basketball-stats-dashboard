@@ -202,11 +202,14 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
             {!authLoading && !user && (
               <button
                 onClick={onOpenLogin}
-                aria-label={signupPending ? '가입 승인 대기중 — 로그인' : '로그인'}
+                aria-label={signupPending ? '가입 승인 대기중 — 로그인' : '가입 또는 로그인'}
                 className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-md bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] text-xs font-medium cursor-pointer transition-colors min-h-[44px]"
               >
                 <LogIn size={16} />
-                <span className="hidden sm:inline">{signupPending ? '승인 대기중' : '로그인'}</span>
+                {/* 프로필 칩이 우측 상단으로 오면서 데스크톱의 '가입하기' 탭이 사라졌다 (2026-08-15).
+                    이 버튼이 여는 모달은 로그인과 가입 요청을 모두 담고 있으므로, 라벨에도 둘 다
+                    적어야 신규 회원이 들어올 입구가 있다는 걸 알 수 있다. */}
+                <span className="hidden sm:inline">{signupPending ? '승인 대기중' : '가입/로그인'}</span>
                 {signupPending && <span aria-hidden className="sm:hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[color:var(--color-hoop-orange-500)]" />}
               </button>
             )}
