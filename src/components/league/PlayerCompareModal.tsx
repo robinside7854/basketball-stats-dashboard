@@ -14,6 +14,10 @@ type Detail = {
     gp: number; ppg: number; rpg: number; apg: number; spg: number; bpg: number; topg: number
     fg_pct: number; fg3_pct: number; ft_pct: number
   } | null
+  rankings?: {
+    ppg?: number; rpg?: number; apg?: number; spg?: number; bpg?: number
+    total?: number
+  }
 }
 
 interface Props {
@@ -55,12 +59,31 @@ export default function PlayerCompareModal({ leagueId, player1Id, player2Id, pla
   const ps1 = d1?.player_stats ?? null
   const ps2 = d2?.player_stats ?? null
 
+  // 레이더 축 = 리그 백분위 (100 = 1위). 2026-08-15 수정.
+  //   전에는 축마다 임의 배율(PPG×10 · RPG×15 · APG×20 · SPG×40 · BPG×50)을 곱해 100 에서
+  //   잘랐다. 근거가 없는 배율이라 블록 0.8개와 득점 4점이 같은 반경으로 찍혔고, 레이더는
+  //   "어느 축이 더 튀어나왔나"로 읽히므로 그 자체가 잘못된 비교를 만들었다.
+  //   같은 리그 안의 '몇 등인가' 로 바꾸면 다섯 축이 전부 같은 뜻의 값이 된다 —
+  //   선수 퀵뷰 모달의 레이더가 원래 쓰던 방식과 동일하게 맞춘 것이다.
+  //   rank 0(최소 경기 수 미달로 순위 없음)은 퀵뷰와 같이 50 으로 둔다.
+  const pctile = (rank: number | undefined, total: number | undefined) => {
+    const t = total ?? 0
+    const r = rank ?? 0
+    return r > 0 && t > 0 ? Math.round((t - r + 1) / t * 100) : 50
+  }
+  const rk1 = d1?.rankings
+  const rk2 = d2?.rankings
+  const axis = (label: string, key: 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg') => ({
+    stat: label,
+    [player1Name]: pctile(rk1?.[key], rk1?.total),
+    [player2Name]: pctile(rk2?.[key], rk2?.total),
+  })
   const radarData = [
-    { stat: '득점',     [player1Name]: Math.min((ps1?.ppg ?? 0) * 10, 100), [player2Name]: Math.min((ps2?.ppg ?? 0) * 10, 100) },
-    { stat: '리바운드', [player1Name]: Math.min((ps1?.rpg ?? 0) * 15, 100), [player2Name]: Math.min((ps2?.rpg ?? 0) * 15, 100) },
-    { stat: '어시스트', [player1Name]: Math.min((ps1?.apg ?? 0) * 20, 100), [player2Name]: Math.min((ps2?.apg ?? 0) * 20, 100) },
-    { stat: '스틸',     [player1Name]: Math.min((ps1?.spg ?? 0) * 40, 100), [player2Name]: Math.min((ps2?.spg ?? 0) * 40, 100) },
-    { stat: '블록',     [player1Name]: Math.min((ps1?.bpg ?? 0) * 50, 100), [player2Name]: Math.min((ps2?.bpg ?? 0) * 50, 100) },
+    axis('득점', 'ppg'),
+    axis('리바운드', 'rpg'),
+    axis('어시스트', 'apg'),
+    axis('스틸', 'spg'),
+    axis('블록', 'bpg'),
   ]
 
   type StatKey = 'gp' | 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg' | 'fg_pct' | 'fg3_pct'
@@ -108,6 +131,10 @@ export default function PlayerCompareModal({ leagueId, player1Id, player2Id, pla
                 color1={COLOR1}
                 color2={COLOR2}
               />
+              {/* 축이 무슨 값인지 밝힌다 — 안 밝히면 '득점 80' 을 80점으로 읽는다. */}
+              <p className="text-[11px] text-center mt-0.5 uppercase tracking-[0.16em] font-bold text-gray-500">
+                리그 백분위 (100 = 1위)
+              </p>
             </div>
 
             {/* 스탯 비교 테이블 */}

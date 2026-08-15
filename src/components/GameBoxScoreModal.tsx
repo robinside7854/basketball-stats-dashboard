@@ -42,8 +42,22 @@ interface Props {
   onPlayerClick?: (playerId: string) => void
 }
 
-function Pct({ val }: { val: number }) {
-  return <span className={val >= 50 ? 'text-green-400' : val > 0 ? 'text-yellow-400' : 'text-gray-600'}>{val > 0 ? `${val.toFixed(1)}%` : '-'}</span>
+// 지표별 '괜찮다' 기준선 — 하나(50%)로 통일하면 안 된다. (2026-08-15 수정)
+//   FT% 는 65~80% 가 보통이라 50% 는 사실 하위권인데 초록(좋음)으로 칭찬되고 있었고,
+//   3P% 는 30~35% 가 보통이라 40% 면 아주 좋은데 50% 미달이라 노랑으로 깎이고 있었다.
+//   기준선 값은 팀 스탯 탭(`(main)/[org]/[team]/stats/page.tsx`)·팀 박스스코어와 맞춘다 —
+//   화면마다 다르면 같은 선수가 화면 따라 다른 색으로 보인다.
+const PCT_GOOD = { fg: 40, fg3: 33, ft: 70 } as const
+type PctKind = keyof typeof PCT_GOOD
+
+function Pct({ val, kind }: { val: number; kind?: PctKind }) {
+  const good = kind ? PCT_GOOD[kind] : null
+  const cls = val <= 0
+    ? 'text-gray-600'
+    : good == null
+      ? 'text-gray-200'
+      : val >= good ? 'text-green-400' : 'text-yellow-400'
+  return <span className={cls}>{val > 0 ? `${val.toFixed(1)}%` : '-'}</span>
 }
 
 function formatTime(sec: number | null | undefined): string {
@@ -118,16 +132,31 @@ function formatEvent(e: TimelineEvent): EventStyle | null {
   }
 }
 
-function FactorBar({ label, value, suffix, max, help }: { label: string; value: number; suffix: string; max: number; help: string }) {
+// Four Factors 게이지. max 는 지표마다 따로 준다(eFG% 70 / TOV% 30 / ORB% 60 / FTr 0.5) —
+// 실제 범위가 다르므로 공용 척도를 쓰면 안 된다.
+//
+// lowerBetter: 막대가 길수록 좋다는 시각 언어가 기본값인데 TOV%(턴오버율)만 방향이 반대다.
+//   전부 같은 파란 막대로 두면 TOV% 25%(거의 꽉 찬 막대)가 eFG% 55%(비슷하게 찬 막대)와
+//   똑같이 '잘 채웠다'로 읽힌다. 색을 붉은 계열로 뒤집고 라벨에 ↓ 를 붙여 방향을 밝힌다.
+//   (2026-08-15)
+function FactorBar({ label, value, suffix, max, help, lowerBetter = false }: {
+  label: string; value: number; suffix: string; max: number; help: string; lowerBetter?: boolean
+}) {
   const pct = Math.min(100, Math.max(0, (value / max) * 100))
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1">
-        <span className="text-xs text-gray-400 font-medium">{label}</span>
+        <span className="text-xs text-gray-400 font-medium">
+          {label}
+          {lowerBetter && <span className="ml-1 text-[10px] text-orange-400 font-normal">↓ 낮을수록 좋음</span>}
+        </span>
         <span className="text-sm font-bold font-mono text-white">{value.toFixed(suffix === '%' ? 1 : 3)}{suffix}</span>
       </div>
       <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
-        <div className="h-full bg-gradient-to-r from-blue-500 to-cyan-400" style={{ width: `${pct}%` }} />
+        <div
+          className={`h-full bg-gradient-to-r ${lowerBetter ? 'from-orange-600 to-red-400' : 'from-blue-500 to-cyan-400'}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
       <p className="text-[10px] text-gray-600 mt-1">{help}</p>
     </div>
@@ -284,11 +313,11 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                             <td className="px-2 py-2 text-red-400">{s.tov}</td>
                             <td className="px-2 py-2 font-bold text-amber-300">{s.game_score?.toFixed(1) ?? '-'}</td>
                             <td className="px-2 py-2 text-gray-300">{s.fgm}-{s.fga}</td>
-                            <td className="px-2 py-2"><Pct val={s.fg_pct} /></td>
+                            <td className="px-2 py-2"><Pct val={s.fg_pct} kind="fg" /></td>
                             <td className="px-2 py-2 text-gray-300">{s.fg3m}-{s.fg3a}</td>
-                            <td className="px-2 py-2"><Pct val={s.fg3_pct} /></td>
+                            <td className="px-2 py-2"><Pct val={s.fg3_pct} kind="fg3" /></td>
                             <td className="px-2 py-2 text-gray-300">{s.ftm}-{s.fta}</td>
-                            <td className="px-2 py-2"><Pct val={s.ft_pct} /></td>
+                            <td className="px-2 py-2"><Pct val={s.ft_pct} kind="ft" /></td>
                           </tr>
                         ))}
                         <tr className="bg-gray-800/60 font-bold border-t-2 border-blue-500/50">
@@ -319,7 +348,7 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <FactorBar label="eFG% (실야투율)" value={fourFactors.efg_pct} suffix="%" max={70} help="3점 가중한 슛 효율" />
-                        <FactorBar label="TOV% (턴오버율)" value={fourFactors.tov_pct} suffix="%" max={30} help="점유당 턴오버 비율" />
+                        <FactorBar label="TOV% (턴오버율)" value={fourFactors.tov_pct} suffix="%" max={30} help="점유당 턴오버 비율" lowerBetter />
                         <FactorBar label="ORB% (공격RB 비중)" value={fourFactors.orb_pct} suffix="%" max={60} help="리바운드 중 공격 비율" />
                         <FactorBar label="FT/FGA (자유투 유도)" value={fourFactors.ft_rate} suffix="" max={0.5} help="FGA 대비 FTA" />
                       </div>

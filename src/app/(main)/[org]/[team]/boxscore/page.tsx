@@ -42,8 +42,23 @@ type GameBoxData = {
   quarterPts: Record<string, Record<number, number>>
 }
 
-function Pct({ val }: { val: number }) {
-  return <span className={val >= 50 ? 'text-green-400' : val > 0 ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-muted)]'}>{val > 0 ? val.toFixed(1) : '-'}</span>
+// 지표별 '괜찮다' 기준선 — 하나(50%)로 통일하면 안 된다. (2026-08-15 수정)
+//   FT% 는 65~80% 가 보통이라 50% 는 사실 하위권인데 초록(좋음)으로 칭찬되고 있었고,
+//   3P% 는 30~35% 가 보통이라 40% 면 아주 좋은데 50% 미달이라 노랑으로 깎이고 있었다.
+//   기준선 값은 팀 스탯 탭(`../stats/page.tsx`)이 이미 쓰던 것과 맞춘다 — 화면마다 다르면
+//   같은 선수가 화면 따라 다른 색으로 보인다.
+//   eFG%·TS% 는 기준선을 정한 적이 없으므로 색을 칠하지 않는다(스탯 탭도 이 둘은 무채색).
+const PCT_GOOD = { fg: 40, fg3: 33, ft: 70 } as const
+type PctKind = keyof typeof PCT_GOOD
+
+function Pct({ val, kind }: { val: number; kind?: PctKind }) {
+  const good = kind ? PCT_GOOD[kind] : null
+  const cls = val <= 0
+    ? 'text-[var(--mm-muted)]'
+    : good == null
+      ? 'text-[var(--mm-ink)]'
+      : val >= good ? 'text-green-400' : 'text-[var(--mm-yellow-strong)]'
+  return <span className={cls}>{val > 0 ? val.toFixed(1) : '-'}</span>
 }
 
 export default function BoxScorePage() {
@@ -611,11 +626,11 @@ export default function BoxScorePage() {
                               <td className="px-2 py-2 text-[var(--mm-muted)] text-xs">{quarterPts[s.player_id]?.[4] || '-'}</td>
                               <td className="px-2 py-2 text-[var(--mm-muted)] text-xs">{quarterPts[s.player_id]?.[5] || '-'}</td>
                               <td className="px-2 py-2 text-[var(--mm-ink)]">{s.fgm}-{s.fga}</td>
-                              <td className="px-2 py-2"><Pct val={s.fg_pct} /></td>
+                              <td className="px-2 py-2"><Pct val={s.fg_pct} kind="fg" /></td>
                               <td className="px-2 py-2 text-[var(--mm-ink)]">{s.fg3m}-{s.fg3a}</td>
-                              <td className="px-2 py-2"><Pct val={s.fg3_pct} /></td>
+                              <td className="px-2 py-2"><Pct val={s.fg3_pct} kind="fg3" /></td>
                               <td className="px-2 py-2 text-[var(--mm-ink)]">{s.ftm}-{s.fta}</td>
-                              <td className="px-2 py-2"><Pct val={s.ft_pct} /></td>
+                              <td className="px-2 py-2"><Pct val={s.ft_pct} kind="ft" /></td>
                               <td className="px-2 py-2">{s.oreb}</td>
                               <td className="px-2 py-2">{s.dreb}</td>
                               <td className={`px-2 py-2 font-medium ${sortKey === 'reb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{s.reb}</td>
@@ -636,11 +651,11 @@ export default function BoxScorePage() {
                               return <td key={q} className="px-2 py-2 text-[var(--mm-ink)] text-xs">{qTotal || '-'}</td>
                             })}
                             <td className="px-2 py-2">{teamTotals.fgm ?? 0}-{teamTotals.fga ?? 0}</td>
-                            <td className="px-2 py-2"><Pct val={teamTotals.fga ? Math.round((teamTotals.fgm! / teamTotals.fga!) * 1000) / 10 : 0} /></td>
+                            <td className="px-2 py-2"><Pct val={teamTotals.fga ? Math.round((teamTotals.fgm! / teamTotals.fga!) * 1000) / 10 : 0} kind="fg" /></td>
                             <td className="px-2 py-2">{teamTotals.fg3m ?? 0}-{teamTotals.fg3a ?? 0}</td>
-                            <td className="px-2 py-2"><Pct val={teamTotals.fg3a ? Math.round((teamTotals.fg3m! / teamTotals.fg3a!) * 1000) / 10 : 0} /></td>
+                            <td className="px-2 py-2"><Pct val={teamTotals.fg3a ? Math.round((teamTotals.fg3m! / teamTotals.fg3a!) * 1000) / 10 : 0} kind="fg3" /></td>
                             <td className="px-2 py-2">{teamTotals.ftm ?? 0}-{teamTotals.fta ?? 0}</td>
-                            <td className="px-2 py-2"><Pct val={teamTotals.fta ? Math.round((teamTotals.ftm! / teamTotals.fta!) * 1000) / 10 : 0} /></td>
+                            <td className="px-2 py-2"><Pct val={teamTotals.fta ? Math.round((teamTotals.ftm! / teamTotals.fta!) * 1000) / 10 : 0} kind="ft" /></td>
                             <td className="px-2 py-2">{teamTotals.oreb ?? 0}</td>
                             <td className="px-2 py-2">{teamTotals.dreb ?? 0}</td>
                             <td className="px-2 py-2">{teamTotals.reb ?? 0}</td>
@@ -844,11 +859,11 @@ export default function BoxScorePage() {
                             <td key={q} className="px-2 py-1.5 text-[var(--mm-muted)]">{g.team_quarter_pts[q] || '-'}</td>
                           ))}
                           <td className="px-2 py-1.5 text-[var(--mm-ink)]">{g.totals.fgm ?? 0}-{g.totals.fga ?? 0}</td>
-                          <td className="px-2 py-1.5"><Pct val={fgPct} /></td>
+                          <td className="px-2 py-1.5"><Pct val={fgPct} kind="fg" /></td>
                           <td className="px-2 py-1.5 text-[var(--mm-ink)]">{g.totals.fg3m ?? 0}-{g.totals.fg3a ?? 0}</td>
-                          <td className="px-2 py-1.5"><Pct val={fg3Pct} /></td>
+                          <td className="px-2 py-1.5"><Pct val={fg3Pct} kind="fg3" /></td>
                           <td className="px-2 py-1.5 text-[var(--mm-ink)]">{g.totals.ftm ?? 0}-{g.totals.fta ?? 0}</td>
-                          <td className="px-2 py-1.5"><Pct val={(g.totals.fta ?? 0) > 0 ? Math.round(((g.totals.ftm ?? 0) / g.totals.fta!) * 1000) / 10 : 0} /></td>
+                          <td className="px-2 py-1.5"><Pct val={(g.totals.fta ?? 0) > 0 ? Math.round(((g.totals.ftm ?? 0) / g.totals.fta!) * 1000) / 10 : 0} kind="ft" /></td>
                           <td className="px-2 py-1.5">{g.totals.oreb ?? 0}</td>
                           <td className="px-2 py-1.5">{g.totals.dreb ?? 0}</td>
                           <td className="px-2 py-1.5">{g.totals.reb ?? 0}</td>
@@ -939,11 +954,11 @@ export default function BoxScorePage() {
                       <td className={`px-2 py-2 font-bold ${seasonSortKey === 'pts' ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>{s.pts}</td>
                       <td className={`px-2 py-2 ${seasonSortKey === 'pts_avg' ? 'text-[var(--mm-yellow-strong)] font-bold' : 'text-[var(--mm-ink)]'}`}>{s.pts_avg}</td>
                       <td className="px-2 py-2 text-[var(--mm-ink)]">{s.fgm}-{s.fga}</td>
-                      <td className="px-2 py-2"><Pct val={s.fg_pct} /></td>
+                      <td className="px-2 py-2"><Pct val={s.fg_pct} kind="fg" /></td>
                       <td className="px-2 py-2 text-[var(--mm-ink)]">{s.fg3m}-{s.fg3a}</td>
-                      <td className="px-2 py-2"><Pct val={s.fg3_pct} /></td>
+                      <td className="px-2 py-2"><Pct val={s.fg3_pct} kind="fg3" /></td>
                       <td className="px-2 py-2 text-[var(--mm-ink)]">{s.ftm}-{s.fta}</td>
-                      <td className="px-2 py-2"><Pct val={s.ft_pct} /></td>
+                      <td className="px-2 py-2"><Pct val={s.ft_pct} kind="ft" /></td>
                       <td className={`px-2 py-2 ${seasonSortKey === 'oreb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{s.oreb}</td>
                       <td className={`px-2 py-2 ${seasonSortKey === 'dreb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{s.dreb}</td>
                       <td className={`px-2 py-2 font-medium ${seasonSortKey === 'reb' ? 'text-[var(--mm-yellow-strong)]' : ''}`}>{s.reb}</td>
@@ -964,11 +979,11 @@ export default function BoxScorePage() {
                     <td className="px-2 py-2 text-[var(--mm-ink)]">{seasonTotals.pts ?? 0}</td>
                     <td className="px-2 py-2 text-[var(--mm-muted)]">{totalGames > 0 ? Math.round(((seasonTotals.pts ?? 0) / totalGames) * 10) / 10 : '-'}</td>
                     <td className="px-2 py-2">{seasonTotals.fgm ?? 0}-{seasonTotals.fga ?? 0}</td>
-                    <td className="px-2 py-2"><Pct val={seasonTotals.fga ? Math.round((seasonTotals.fgm! / seasonTotals.fga!) * 1000) / 10 : 0} /></td>
+                    <td className="px-2 py-2"><Pct val={seasonTotals.fga ? Math.round((seasonTotals.fgm! / seasonTotals.fga!) * 1000) / 10 : 0} kind="fg" /></td>
                     <td className="px-2 py-2">{seasonTotals.fg3m ?? 0}-{seasonTotals.fg3a ?? 0}</td>
-                    <td className="px-2 py-2"><Pct val={seasonTotals.fg3a ? Math.round((seasonTotals.fg3m! / seasonTotals.fg3a!) * 1000) / 10 : 0} /></td>
+                    <td className="px-2 py-2"><Pct val={seasonTotals.fg3a ? Math.round((seasonTotals.fg3m! / seasonTotals.fg3a!) * 1000) / 10 : 0} kind="fg3" /></td>
                     <td className="px-2 py-2">{seasonTotals.ftm ?? 0}-{seasonTotals.fta ?? 0}</td>
-                    <td className="px-2 py-2"><Pct val={seasonTotals.fta ? Math.round((seasonTotals.ftm! / seasonTotals.fta!) * 1000) / 10 : 0} /></td>
+                    <td className="px-2 py-2"><Pct val={seasonTotals.fta ? Math.round((seasonTotals.ftm! / seasonTotals.fta!) * 1000) / 10 : 0} kind="ft" /></td>
                     <td className="px-2 py-2">{seasonTotals.oreb ?? 0}</td>
                     <td className="px-2 py-2">{seasonTotals.dreb ?? 0}</td>
                     <td className="px-2 py-2">{seasonTotals.reb ?? 0}</td>
