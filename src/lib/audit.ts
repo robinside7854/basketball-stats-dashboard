@@ -60,6 +60,7 @@ export type AuditAction =
   | 'team.update'
   // 경기 · 기록
   | 'game.reset'
+  | 'game.delete'
   | 'event.update'
   | 'event.delete'
   | 'schedule.regenerate'

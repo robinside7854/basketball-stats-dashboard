@@ -5,6 +5,7 @@ import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { canViewLeague } from '@/lib/auth/guard'
 import { syncBadgesForGame } from '@/lib/badges/computeBadges'
 import { syncYoutubeForLeague } from '@/lib/youtube/syncYoutubeForLeague'
+import { logAudit } from '@/lib/audit'
 
 export async function GET(
   req: Request,
@@ -237,4 +238,85 @@ export async function PATCH(
   }
 
   return NextResponse.json(data)
+}
+
+/**
+ * DELETE /api/leagues/[leagueId]/games?gameId=…  — 경기 슬랏 삭제
+ *
+ * 왜 새로 만드는가 (2026-08-15)
+ *   일정 화면의 "날짜 삭제" 가 그날의 경기를 지우려고 PATCH 에 `{ _delete: true }` 를
+ *   보내고 있었는데, PATCH 에 그런 처리가 없어 **그동안 계속 조용히 실패했다.**
+ *   화면은 응답을 안 보고 성공 토스트를 띄웠기 때문에 아무도 눈치채지 못했고,
+ *   날짜만 사라지고 경기 슬랏은 리그에 그대로 남았다.
+ *
+ * 기록이 붙은 경기는 지우지 않는다
+ *   league_games 삭제는 league_game_events 로 캐스케이드된다(021). 리그 스탯은 그
+ *   이벤트 재집계로만 만들어지므로, 여기서 지우면 그 경기 기록이 영구 소멸한다 —
+ *   일정 재생성(schedule/route.ts)을 막은 것과 정확히 같은 이유다. 빈 슬랏만 지운다.
+ */
+export async function DELETE(
+  req: Request,
+  { params }: { params: Promise<{ leagueId: string }> }
+) {
+  const { leagueId } = await params
+  if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { searchParams } = new URL(req.url)
+  const gameId = searchParams.get('gameId')
+  if (!gameId) return NextResponse.json({ error: 'gameId is required' }, { status: 400 })
+
+  const supabase = createClient()
+
+  // 소속 확인 — 인가는 이 리그에 대해 받았을 뿐이다. id 하나로 지우면 다른 클럽의
+  // 경기가 지워진다(감사 02). 없거나 남의 것이면 존재 여부를 알리지 않도록 404.
+  const { data: game, error: findError } = await supabase
+    .from('league_games')
+    .select('id, date, is_started, is_complete')
+    .eq('id', gameId)
+    .eq('league_id', leagueId)
+    .maybeSingle()
+  if (findError) {
+    return NextResponse.json({ error: '경기를 확인하지 못했습니다' }, { status: 500 })
+  }
+  if (!game) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const { count, error: eventError } = await supabase
+    .from('league_game_events')
+    .select('id', { count: 'exact', head: true })
+    .eq('league_game_id', gameId)
+  if (eventError) {
+    return NextResponse.json({ error: '경기 기록을 확인하지 못했습니다' }, { status: 500 })
+  }
+  const eventCount = count ?? 0
+
+  if (game.is_started || game.is_complete || eventCount > 0) {
+    await logAudit({
+      req, action: 'game.delete', targetTable: 'league_games', targetId: gameId,
+      leagueId, result: 'denied', detail: { eventCount, date: game.date },
+    })
+    return NextResponse.json(
+      { error: `기록이 있는 경기입니다(이벤트 ${eventCount}건). 삭제하면 기록도 함께 사라지므로 막았습니다.`, eventCount },
+      { status: 409 }
+    )
+  }
+
+  // 성공 판정은 반환 행 수로 — PostgREST 는 RLS 에 막혀도 204 를 준다(감사 04 ②).
+  const { data: removed, error: deleteError } = await supabase
+    .from('league_games')
+    .delete()
+    .eq('id', gameId)
+    .eq('league_id', leagueId)
+    .select('id')
+  if (deleteError || !removed || removed.length === 0) {
+    return NextResponse.json({ error: '삭제하지 못했습니다' }, { status: 500 })
+  }
+
+  await logAudit({
+    req, action: 'game.delete', targetTable: 'league_games', targetId: gameId,
+    leagueId, detail: { date: game.date },
+  })
+
+  revalidateTag(`league-${leagueId}`, 'max')
+  revalidateTag(`league-${leagueId}-games`, 'max')
+
+  return NextResponse.json({ success: true })
 }

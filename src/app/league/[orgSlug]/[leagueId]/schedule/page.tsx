@@ -284,30 +284,51 @@ function ScheduleContent() {
   }
 
   async function removeDate(date: string) {
-    if (!confirm(`${date} 일정을 삭제하시겠습니까?\n해당 날짜의 경기 슬랏도 모두 삭제됩니다.`)) return
+    if (!confirm(`${date} 일정을 삭제하시겠습니까?\n해당 날짜의 경기 슬랏과 참여신청도 함께 삭제됩니다.\n(이미 기록이 있는 경기는 지워지지 않습니다)`)) return
     setDeletingDate(date)
 
-    // 해당 날짜 게임도 삭제
-    const supaRes = await fetch(
-      `/api/leagues/${leagueId}/games?date=${date}`,
-    )
-    const games = supaRes.ok ? await supaRes.json() : []
-    await Promise.all(
-      games.map((g: { id: string }) =>
+    // 해당 날짜의 경기 슬랏부터 지운다.
+    // 이전 구현은 PATCH 에 `{ _delete: true }` 를 보냈는데 그런 처리가 라우트에 없어
+    // 계속 조용히 실패했다 — 응답을 안 봤기 때문에 화면만 성공으로 보였고, 날짜만
+    // 사라지고 슬랏은 리그에 남았다. 이제 전용 DELETE 를 쓰고 결과를 확인한다.
+    const gamesRes = await fetch(`/api/leagues/${leagueId}/games?date=${date}`).catch(() => null)
+    if (!gamesRes?.ok) {
+      setDeletingDate(null)
+      toast.error('해당 날짜의 경기를 확인하지 못해 중단했습니다')
+      return
+    }
+    const games: { id: string }[] = await gamesRes.json()
+
+    const results = await Promise.all(
+      games.map(g =>
         fetch(`/api/leagues/${leagueId}/games?gameId=${g.id}`, {
-          method: 'PATCH',
+          method: 'DELETE',
           headers: leagueHeaders,
-          body: JSON.stringify({ _delete: true }),
-        })
+        }).catch(() => null)
       )
     )
+    // 409 = 기록이 있어 서버가 거절한 경기. 남은 슬랏이 있으면 날짜를 지우면 안 된다 —
+    // 날짜만 사라지고 경기가 떠도는 게 바로 지금까지의 상태였다.
+    const blocked = results.filter(r => r?.status === 409).length
+    const failed = results.filter(r => !r || (!r.ok && r.status !== 409)).length
+    if (blocked > 0 || failed > 0) {
+      setDeletingDate(null)
+      toast.error(
+        blocked > 0
+          ? `기록이 있는 경기 ${blocked}건이 있어 일정을 삭제하지 않았습니다`
+          : '경기 슬랏을 지우지 못해 일정을 삭제하지 않았습니다'
+      )
+      load()
+      return
+    }
 
-    await fetch(`/api/leagues/${leagueId}/schedule-dates?date=${date}`, {
+    const dateRes = await fetch(`/api/leagues/${leagueId}/schedule-dates?date=${date}`, {
       method: 'DELETE',
       headers: leagueHeaders,
-    })
+    }).catch(() => null)
     setDeletingDate(null)
-    toast.success('일정 삭제 완료')
+    if (dateRes?.ok) toast.success('일정 삭제 완료')
+    else toast.error('일정을 삭제하지 못했습니다')
     load()
   }
 
