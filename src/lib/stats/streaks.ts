@@ -128,7 +128,9 @@ export async function computeAttendanceStreaks(
       .from('league_games')
       .select('id, date, quarter_id, home_team_id, away_team_id')
       .eq('league_id', leagueId)
-      .eq('is_started', true),
+      .eq('is_started', true)
+      // 친선전(비공식 라운드)은 집계에서 제외한다. 연속 기록은 "정규 라운드가 이어졌는가"가 뜻이라 비공식 경기가 끼면 끊김·이어짐이 왜곡된다.
+      .eq('is_exhibition', false),
     sb
       .from('league_players')
       .select('id, name, number, is_guest')

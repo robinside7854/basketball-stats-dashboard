@@ -39,6 +39,7 @@ interface GameRow {
   away_score: number | null
   is_started: boolean | null
   is_complete: boolean | null
+  is_exhibition: boolean | null
   plus_one_player_id: string | null
 }
 
@@ -153,13 +154,15 @@ export async function computePerGameBadges(
 ): Promise<BadgePayload[]> {
   const { data: game } = await supabase
     .from('league_games')
-    .select('id, league_id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, plus_one_player_id')
+    .select('id, league_id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, is_exhibition, plus_one_player_id')
     .eq('id', gameId)
     .maybeSingle()
 
   if (!game) return []
   const g = game as GameRow
   if (!g.is_complete) return []
+  // 친선전(비공식 라운드)은 집계에서 제외한다. 비공식 경기에 라운드 배지(득점왕 등)를 주면 정규 라운드 수상과 구분되지 않는다.
+  if (g.is_exhibition) return []
   if (!g.date) return []
   if (!g.home_team_id || !g.away_team_id) return []
 
@@ -261,10 +264,12 @@ export async function computeRoundBadges(
 
   const { data: games } = await supabase
     .from('league_games')
-    .select('id, league_id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, plus_one_player_id')
+    .select('id, league_id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, is_exhibition, plus_one_player_id')
     .eq('league_id', leagueId)
     .eq('date', date)
     .eq('is_complete', true)
+    // 친선전(비공식 라운드)은 집계에서 제외한다. 같은 날 정규 경기가 함께 있으면 그쪽만으로 하루 배지를 계산한다.
+    .eq('is_exhibition', false)
     .not('home_team_id', 'is', null)
     .not('away_team_id', 'is', null)
 

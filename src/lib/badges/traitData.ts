@@ -51,6 +51,8 @@ export async function fetchTraitDataset(
     .select('id, date')
     .eq('league_id', leagueId)
     .eq('is_started', true)
+    // 친선전(비공식 라운드)은 집계에서 제외한다. 개인특성 배지는 모집단 안 상위 백분율로 판정하므로 표본이 섞이면 순위가 흔들린다.
+    .eq('is_exhibition', false)
   if (gErr) throw new Error(`fetchTraitDataset: leagueId=${leagueId} league_games 조회 실패 — ${gErr.message}`)
   const gameDate = new Map<string, string>((gameRows ?? []).map(g => [g.id as string, g.date as string]))
   const gameIds = [...gameDate.keys()]

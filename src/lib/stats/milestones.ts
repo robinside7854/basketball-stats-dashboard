@@ -74,6 +74,8 @@ export async function computeMilestones(
     .select('id, date, youtube_url, plus_one_player_id')
     .eq('league_id', leagueId)
     .eq('is_started', true)
+    // 친선전(비공식 라운드)은 집계에서 제외한다. 통산 마일스톤(1000득점 등)에 비공식 경기가 들어가면 달성 시점이 앞당겨진다.
+    .eq('is_exhibition', false)
   // 쿼리 실패를 빈 배열로 넘기면 "경기 없음"과 구분이 안 돼 마일스톤 트래커가 조용히 텅 빈다.
   if (gErr) throw new Error(`computeMilestones: leagueId=${leagueId} league_games 조회 실패 — ${gErr.message}`)
   const gameRows = (games ?? []) as Array<{ id: string; date: string; youtube_url: string | null; plus_one_player_id: string | null }>

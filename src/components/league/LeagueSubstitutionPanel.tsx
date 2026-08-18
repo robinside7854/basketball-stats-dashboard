@@ -22,6 +22,8 @@ interface Props {
   minutes: MinRow[]
   leagueHeaders: Record<string, string>
   onSubstitution: () => void | Promise<void>
+  /** 기록 중인 경기 쿼터 — 교체 이벤트와 출전시간 행에 함께 남긴다. 기본 1(쿼터 미구분 경기). */
+  currentQuarter?: number
 }
 
 const COURT_SIZE = 5
@@ -29,7 +31,7 @@ const COURT_SIZE = 5
 export default function LeagueSubstitutionPanel({
   leagueId, gameId,
   players, homeRoster, awayRoster, homeTeam, awayTeam,
-  minutes, leagueHeaders, onSubstitution,
+  minutes, leagueHeaders, onSubstitution, currentQuarter = 1,
 }: Props) {
   const { getCurrentTimestamp } = useGameStore()
   const { onCourt, addPlayer, removePlayer } = useLineupStore()
@@ -79,18 +81,18 @@ export default function LeagueSubstitutionPanel({
     }
     await fetch(`/api/leagues/${leagueId}/events`, {
       method: 'POST', headers: leagueHeaders,
-      body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: ts, type: 'sub_out', league_player_id: playerId }),
+      body: JSON.stringify({ league_game_id: gameId, quarter: currentQuarter, video_timestamp: ts, type: 'sub_out', league_player_id: playerId }),
     })
   }
 
   async function recordSubIn(playerId: string, ts: number) {
     await fetch(`/api/leagues/${leagueId}/minutes`, {
       method: 'POST', headers: leagueHeaders,
-      body: JSON.stringify({ league_game_id: gameId, league_player_id: playerId, quarter: 1, in_time: ts }),
+      body: JSON.stringify({ league_game_id: gameId, league_player_id: playerId, quarter: currentQuarter, in_time: ts }),
     })
     await fetch(`/api/leagues/${leagueId}/events`, {
       method: 'POST', headers: leagueHeaders,
-      body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: ts, type: 'sub_in', league_player_id: playerId }),
+      body: JSON.stringify({ league_game_id: gameId, quarter: currentQuarter, video_timestamp: ts, type: 'sub_in', league_player_id: playerId }),
     })
   }
 

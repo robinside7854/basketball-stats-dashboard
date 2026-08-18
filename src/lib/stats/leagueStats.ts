@@ -98,6 +98,10 @@ export async function computeLeagueStats(
     .select('id, plus_one_player_id, date, round_num')
     .eq('league_id', leagueId)
     .eq('is_started', true)
+    // 친선전(비공식 라운드)은 집계에서 제외한다. 039 는 "순위만 빼고 개인 스탯엔 포함"으로 시작했으나, 팀을 새로 짜서
+    // 치르는 비공식 경기의 기록이 시즌 스탯에 섞이면 같은 분기의 다른 선수와 비교가
+    // 성립하지 않는다(모집단이 다르다). 박스스코어·게임로그는 경기 단위 조회라 그대로 남는다.
+    .eq('is_exhibition', false)
 
   if (quarterId) gQuery = gQuery.eq('quarter_id', quarterId)
   else if (quarterIds && quarterIds.length > 0) gQuery = gQuery.in('quarter_id', quarterIds)

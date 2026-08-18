@@ -57,7 +57,7 @@ export async function GET(
   const gameIds = games.map(g => g.id)
   const { data: events } = await supabase
     .from('league_game_events')
-    .select('league_game_id, league_player_id, related_player_id, type, result, points')
+    .select('league_game_id, league_player_id, related_player_id, type, result, points, quarter, team_id')
     .in('league_game_id', gameIds)
     .not('league_player_id', 'is', null)
 
@@ -92,6 +92,13 @@ export async function GET(
   // per game → per player stats
   const gamePlayerStats: Record<string, Record<string, GS>> = {}
   for (const g of games) gamePlayerStats[g.id] = {}
+
+  // 쿼터별 스코어 — 1~4쿼터(+연장)로 치른 정식 경기에서만 의미가 있다.
+  //   미라클의 짧은 슬롯 경기는 전부 quarter=1 이라 항목이 1개뿐이고, 화면이 그때는 줄을 그리지 않는다.
+  //   팀 판정은 이벤트의 team_id(트리거가 경기별 배정 → 분기 소속 순으로 채운다)를 쓰고,
+  //   비어 있으면 아래 게임별/분기별 배정 맵으로 되짚는다.
+  const gameById = Object.fromEntries(games.map(g => [g.id, g]))
+  const quarterScores: Record<string, Record<number, { home: number; away: number }>> = {}
 
   const SHOT_TYPES = ['shot_3p','shot_2p_mid','shot_layup','shot_post']
 
@@ -130,6 +137,23 @@ export async function GET(
       case 'turnover': s.tov++; break
       case 'foul': s.pf++; break
     }
+    // 쿼터별 스코어 — 득점이 난 이벤트만 홈/어웨이로 가른다.
+    if (pts > 0) {
+      const gm = gameById[gId] as { quarter_id: string | null; home_team_id: string | null; away_team_id: string | null } | undefined
+      const teamId = (e.team_id as string | null)
+        ?? gpTeamMap[gId]?.[pid]
+        ?? (gm?.quarter_id ? qTeamMap[gm.quarter_id]?.[pid] : null)
+        ?? null
+      const side = teamId && gm
+        ? (teamId === gm.home_team_id ? 'home' : teamId === gm.away_team_id ? 'away' : null)
+        : null
+      if (side) {
+        const q = Math.min(Math.max(Number(e.quarter) || 1, 1), 6)
+        const bucket = (quarterScores[gId] ||= {})
+        ;(bucket[q] ||= { home: 0, away: 0 })[side] += pts
+      }
+    }
+
     // assists
     if (e.related_player_id && made && SHOT_TYPES.includes(e.type as string)) {
       const ap = e.related_player_id as string
@@ -177,6 +201,18 @@ export async function GET(
       away_team: awayIdentity ? { id: awayIdentity.team_id, name: awayIdentity.display_name, color: awayIdentity.color } : null,
       youtube_url: g.youtube_url ?? null,
       youtube_start_offset: g.youtube_start_offset ?? 0,
+      // 쿼터 오름차순. 항목이 1개면 쿼터를 나누지 않은 경기라는 뜻이라 화면에서 감춘다.
+      //   ⚠ 쿼터 합이 저장된 스코어와 어긋나면 아예 내보내지 않는다. 팀 판정이 안 되는 이벤트가
+      //   섞이면(team_id 가 비고 경기별·분기별 배정에도 없는 옛 기록) 그 득점만 쿼터에서 빠져
+      //   "9+12+8 = 29 인데 합계 31" 같은 표가 된다. 숫자가 맞지 않는 표는 없는 편이 낫다.
+      quarter_scores: (() => {
+        const list = Object.entries(quarterScores[g.id] ?? {})
+          .map(([q, s]) => ({ quarter: Number(q), home: s.home, away: s.away }))
+          .sort((a, b) => a.quarter - b.quarter)
+        if (list.length < 2) return []
+        const sum = list.reduce((t, s) => ({ home: t.home + s.home, away: t.away + s.away }), { home: 0, away: 0 })
+        return sum.home === (g.home_score ?? 0) && sum.away === (g.away_score ?? 0) ? list : []
+      })(),
       players: rows,
     }
   })

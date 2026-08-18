@@ -24,6 +24,11 @@ interface Props {
    * 없으면 기존 명단 순서 그대로 — 이 기능이 꺼져도 기록은 그대로 된다.
    */
   tendencies?: { assist: Record<string, string[]>; rebound: string[] }
+  /**
+   * 기록 중인 경기 쿼터(1~4, 연장 5~6). league_game_events.quarter 에 그대로 저장된다.
+   * 미라클 리그의 짧은 슬롯 경기는 쿼터를 나누지 않아 기본값 1 로 두면 기존과 동일하게 동작한다.
+   */
+  currentQuarter?: number
   // 대회형 즉석 등록으로 상대 선수가 새로 생겼을 때 알림 — 부모가 전체 로스터를 다시
   // 불러와(loadRoster) 교체 화면 등 다른 화면에도 이 선수가 반영되게 한다.
   // 패드 자체 렌더링은 로컬 상태(addedOpponents)로 즉시 반영되므로 이 콜백이 없어도 동작한다.
@@ -69,9 +74,12 @@ const EVENT_GROUPS: { label: string; cols: number; buttons: EventBtn[] }[] = [
   {
     label: '자유투', cols: 4,
     buttons: [
-      { type: 'and_one',  label: '앤드원',     color: 'bg-amber-600 hover:bg-amber-500', activeColor: 'bg-amber-500' },
-      { type: 'ft_2pt',   label: '2P파울 FT',  color: 'bg-teal-600 hover:bg-teal-500',  activeColor: 'bg-teal-500',  needsResult: true },
-      { type: 'ft_3pt_1', label: '3P파울 FT',  color: 'bg-teal-700 hover:bg-teal-600',  activeColor: 'bg-teal-600',  needsResult: true },
+      { type: 'and_one',    label: '앤드원',      color: 'bg-amber-600 hover:bg-amber-500', activeColor: 'bg-amber-500' },
+      // 정식 룰(1구 1점). 미라클 자체룰 경기와 한 화면에 공존하므로 라벨에 득점을 박아 둔다 —
+      // 버튼만 보고는 어느 룰인지 구분되지 않아 잘못 누르면 그대로 점수가 어긋난다.
+      { type: 'free_throw', label: 'FT 1점',      color: 'bg-teal-500 hover:bg-teal-400',   activeColor: 'bg-teal-400',  needsResult: true },
+      { type: 'ft_2pt',     label: '2P파울 2점',  color: 'bg-teal-600 hover:bg-teal-500',   activeColor: 'bg-teal-500',  needsResult: true },
+      { type: 'ft_3pt_1',   label: '3P파울 2+1',  color: 'bg-teal-700 hover:bg-teal-600',   activeColor: 'bg-teal-600',  needsResult: true },
     ],
   },
 ]
@@ -95,6 +103,7 @@ export default function LeagueEventInputPad({
   activePlusOneIds,
   tendencies,
   onOpponentRegistered,
+  currentQuarter = 1,
 }: Props) {
   const { getCurrentTimestamp } = useGameStore()
 
@@ -273,7 +282,7 @@ export default function LeagueEventInputPad({
       // 백그라운드 저장
       fetch(`/api/leagues/${leagueId}/events`, {
         method: 'POST', headers: leagueHeaders,
-        body: JSON.stringify({ league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(), type: shot.type, league_player_id: pid, team_id: tid, result: res, related_player_id: null }),
+        body: JSON.stringify({ league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(), type: shot.type, league_player_id: pid, team_id: tid, result: res, related_player_id: null }),
       })
         .then(r => r.ok ? r.json() : null)
         .then(saved => {
@@ -306,7 +315,7 @@ export default function LeagueEventInputPad({
   function saveShot(result: 'made' | 'missed', assistId?: string) {
     if (!selectedPlayer || !pendingShot) return
     const body = {
-      league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
+      league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(),
       type: pendingShot.type, league_player_id: selectedPlayer, team_id: selectedTeamId,
       result, related_player_id: assistId ?? null,
     }
@@ -332,7 +341,10 @@ export default function LeagueEventInputPad({
       setPendingShot(null)
     }
     // Phase 1-B: 마지막 자유투 실패 시 리바운드 피커 자동 등장 (즉시)
-    const LAST_FT = ['ft_2pt', 'ft_3pt_2', 'free_throw', 'and_one']
+    // 마지막 자유투 실패에만 리바운드 피커를 띄운다. free_throw(정식 1구)는 몇 구 중 몇 번째인지
+    // 알 수 없어 제외한다 — 1구째 실패에 피커가 뜨면 없는 리바운드를 기록하게 된다.
+    // 마지막 구 실패 후 리바운드는 기록원이 REB 버튼으로 직접 찍는다.
+    const LAST_FT = ['ft_2pt', 'ft_3pt_2', 'and_one']
     if (result === 'missed' && LAST_FT.includes(shotType)) {
       setReboundShooterTeamId(shooterTeamId)
       setAwaitingRebound(true)
@@ -363,7 +375,7 @@ export default function LeagueEventInputPad({
     if (tovPlayerId) {
       const p = allPlayers.find(x => x.id === tovPlayerId)
       const id = await saveEvent({
-        league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
+        league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(),
         type: 'turnover', league_player_id: tovPlayerId,
         team_id: p?.team_id ?? null, result: null, related_player_id: null,
       })
@@ -389,7 +401,7 @@ export default function LeagueEventInputPad({
     if (!selectedPlayer) return
     const isAndOne = btn.type === 'and_one'
     const body = {
-      league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
+      league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(),
       type: btn.type, league_player_id: selectedPlayer, team_id: selectedTeamId,
       result: isAndOne ? 'made' : null, related_player_id: null,
     }
@@ -458,7 +470,7 @@ export default function LeagueEventInputPad({
       const rebounder = allPlayers.find(p => p.id === rebounderId)
       const rebType = rebounder?.team_id === reboundShooterTeamId ? 'oreb' : 'dreb'
       const rebId = await saveEvent({
-        league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
+        league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(),
         type: rebType, league_player_id: rebounderId,
         team_id: rebounder?.team_id ?? null,
         result: null, related_player_id: null,
@@ -517,7 +529,7 @@ export default function LeagueEventInputPad({
   async function finishAssistForLast(assistId?: string) {
     if (!lastEvent || !pendingShot) return
     const id = await saveEvent({
-      league_game_id: gameId, quarter: 1, video_timestamp: getCurrentTimestamp(),
+      league_game_id: gameId, quarter: currentQuarter, video_timestamp: getCurrentTimestamp(),
       type: lastEvent.type, league_player_id: lastEvent.playerId, team_id: allPlayers.find(p => p.id === lastEvent.playerId)?.team_id ?? null,
       result: 'made', related_player_id: assistId ?? null,
     })

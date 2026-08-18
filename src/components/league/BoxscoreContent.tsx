@@ -30,6 +30,8 @@ type GameData = {
   home_team: { id: string; name: string; color: string } | null
   away_team: { id: string; name: string; color: string } | null
   youtube_url: string | null; youtube_start_offset: number
+  /** 쿼터별 스코어. 쿼터를 나누지 않은 경기는 항목이 1개(또는 0개)라 화면에 그리지 않는다. */
+  quarter_scores?: { quarter: number; home: number; away: number }[]
   players: PlayerRow[]
 }
 
@@ -50,6 +52,9 @@ type TeamAgg = {
   ast: number; stl: number; blk: number; tov: number; pf: number
   fgm: number; fga: number; fg3m: number; fg3a: number; ftm: number; fta: number
 }
+
+// 5·6 은 league_game_events.quarter CHECK(1~6) 상한에서 온 연장 슬롯이다.
+const quarterLabel = (q: number) => (q <= 4 ? `${q}Q` : q === 5 ? '연장' : '연장2')
 
 type ColDef = { key: string; label: string; sortKey?: string }
 
@@ -652,6 +657,48 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                           </div>
                         </div>
                       </button>
+
+                      {/* 쿼터별 스코어 — 1~4쿼터로 치른 정식 경기에만 나온다.
+                          좁은 화면에서 쿼터가 늘어나면 이 줄만 가로로 스크롤한다(본문은 그대로). */}
+                      {(g.quarter_scores?.length ?? 0) > 1 && (
+                        <div className="px-4 sm:px-5 pb-3 overflow-x-auto">
+                          <table className="w-full text-xs tabular-nums" style={{ minWidth: '18rem' }}>
+                            <caption className="sr-only">
+                              {`${g.home_team?.name ?? '홈'} 대 ${g.away_team?.name ?? '원정'} 쿼터별 스코어`}
+                            </caption>
+                            <thead>
+                              <tr>
+                                <th scope="col" className="text-left font-bold uppercase tracking-widest text-[10px] py-1 pr-2" style={{ color: 'var(--mm-muted)' }}>팀</th>
+                                {g.quarter_scores!.map(q => (
+                                  <th key={q.quarter} scope="col" className="font-bold uppercase tracking-widest text-[10px] py-1 px-2 text-right" style={{ color: 'var(--mm-muted)' }}>
+                                    {quarterLabel(q.quarter)}
+                                  </th>
+                                ))}
+                                <th scope="col" className="font-black uppercase tracking-widest text-[10px] py-1 pl-2 text-right" style={{ color: 'var(--mm-ink-soft)' }}>합계</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {([
+                                { side: 'home' as const, team: g.home_team, total: g.home_score },
+                                { side: 'away' as const, team: g.away_team, total: g.away_score },
+                              ]).map(row => (
+                                <tr key={row.side} style={{ borderTop: '1px solid var(--mm-rule)' }}>
+                                  <th scope="row" className="text-left py-1.5 pr-2 font-jersey font-bold truncate max-w-[7rem]" style={{ color: 'var(--mm-ink-soft)' }}>
+                                    <span className="inline-flex items-center gap-1.5 min-w-0">
+                                      {row.team && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: row.team.color }} />}
+                                      <span className="truncate">{row.team?.name ?? '미정'}</span>
+                                    </span>
+                                  </th>
+                                  {g.quarter_scores!.map(q => (
+                                    <td key={q.quarter} className="py-1.5 px-2 text-right" style={{ color: 'var(--mm-ink-soft)' }}>{q[row.side]}</td>
+                                  ))}
+                                  <td className="py-1.5 pl-2 text-right font-black" style={{ color: 'var(--mm-ink)' }}>{row.total}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
 
                       {/* 펼쳐진 상세 — 하이라이트 + 경기별 박스스코어 */}
                       {isExpanded && (

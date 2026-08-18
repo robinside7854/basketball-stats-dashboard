@@ -25,6 +25,14 @@ import GameLogModal from '@/components/league/GameLogModal'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 
+// 정식 경기(1~4쿼터 + 연장)용 선택지. league_game_events.quarter 는 CHECK(1~6) 이라 연장은 2회까지.
+// 미라클의 짧은 슬롯 경기는 쿼터를 나누지 않으므로 1 을 그대로 두면 기존 기록과 동일하다.
+const QUARTER_OPTIONS = [
+  { value: 1, label: '1Q' }, { value: 2, label: '2Q' },
+  { value: 3, label: '3Q' }, { value: 4, label: '4Q' },
+  { value: 5, label: '연장' }, { value: 6, label: '연장2' },
+] as const
+
 type ScheduleDate = { id: string; date: string }
 type GameSlot = {
   id: string; slot_num: number; date: string; is_complete: boolean; is_started: boolean
@@ -165,6 +173,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [completing, setCompleting] = useState(false)
   const [reopening, setReopening] = useState(false)
   const [liveScore, setLiveScore] = useState<{ home: number; away: number } | null>(null)
+  const [currentQuarter, setCurrentQuarter] = useState(1)
   const [showGameLog, setShowGameLog] = useState(false)
   const [showSubModal, setShowSubModal] = useState(false)
   const [showBoxscoreModal, setShowBoxscoreModal] = useState(false)
@@ -779,7 +788,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       fetch(`/api/leagues/${leagueId}/minutes`, {
         method: 'POST',
         headers: leagueHeaders,
-        body: JSON.stringify({ league_game_id: selectedSlotId, league_player_id: pid, quarter: 1, in_time: 0 }),
+        body: JSON.stringify({ league_game_id: selectedSlotId, league_player_id: pid, quarter: currentQuarter, in_time: 0 }),
       })
     ))
     setLineup(starterIds)
@@ -961,6 +970,23 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     }
   }
 
+  // 선택한 경기의 쿼터 복원 — 새로고침·경기 전환 후에도 마지막으로 기록하던 쿼터에서 이어간다.
+  //   전용 컬럼을 두지 않고 이미 저장된 이벤트의 최대 쿼터를 읽는다(기록이 곧 진실).
+  //   복원에 실패해도 기본값 1 로 두고 기록 자체는 막지 않는다.
+  useEffect(() => {
+    if (!selectedSlotId) { setCurrentQuarter(1); return }
+    let cancelled = false
+    fetch(`/api/leagues/${leagueId}/events?gameId=${selectedSlotId}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((rows: Array<{ quarter?: number | null }> | null) => {
+        if (cancelled || !Array.isArray(rows)) return
+        const max = rows.reduce((m, e) => Math.max(m, e.quarter ?? 1), 1)
+        setCurrentQuarter(Math.min(Math.max(max, 1), 6))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [leagueId, selectedSlotId])
+
   // Backspace 단축키용: 최신 selectedSlotId와 deleteLastEvent 함수를 ref로 노출
   useEffect(() => {
     selectedSlotIdRef.current = selectedSlotId
@@ -1010,7 +1036,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       await fetch(`/api/leagues/${leagueId}/minutes`, {
         method: 'POST',
         headers: leagueHeaders,
-        body: JSON.stringify({ league_game_id: selectedSlotId, league_player_id: player.id, quarter: 1, in_time: 0 }),
+        body: JSON.stringify({ league_game_id: selectedSlotId, league_player_id: player.id, quarter: currentQuarter, in_time: 0 }),
       })
       const r = await fetch(`/api/leagues/${leagueId}/minutes?gameId=${selectedSlotId}`)
       if (r.ok) setMinutes(await r.json())
@@ -1750,9 +1776,34 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         </div>
                       </div>
 
+                      {/* 쿼터 선택 — 1~4쿼터 정식 경기용. 안 건드리면 1Q 고정이라 기존 슬롯 경기와 동일하다. */}
+                      <div className="flex items-center gap-1.5 px-2 py-2 border-t border-gray-800 bg-gray-900/60 overflow-x-auto" role="group" aria-label="기록 중인 쿼터">
+                        <span className="pl-1 shrink-0 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500">쿼터</span>
+                        {QUARTER_OPTIONS.map(q => {
+                          const active = currentQuarter === q.value
+                          return (
+                            <button
+                              key={q.value}
+                              type="button"
+                              onClick={() => setCurrentQuarter(q.value)}
+                              aria-pressed={active}
+                              aria-label={`${q.label} 로 기록`}
+                              className={`h-11 min-w-11 shrink-0 px-3 text-xs font-black tabular-nums border cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ${
+                                active
+                                  ? 'bg-amber-500 border-amber-400 text-gray-950'
+                                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white'
+                              }`}
+                            >
+                              {q.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+
                       <LeagueEventInputPad
                         leagueId={leagueId}
                         gameId={selectedSlotId}
+                        currentQuarter={currentQuarter}
                         leagueHeaders={leagueHeaders}
                         homePlayers={homeRoster.filter(p => onCourt.includes(p.id))}
                         awayPlayers={awayRoster.filter(p => onCourt.includes(p.id))}
@@ -2041,6 +2092,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     <LeagueSubstitutionPanel
                       leagueId={leagueId}
                       gameId={selectedSlotId}
+                      currentQuarter={currentQuarter}
                       leagueHeaders={leagueHeaders}
                       players={allPlayers}
                       homeRoster={homeRoster}
