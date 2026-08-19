@@ -311,6 +311,16 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       setAwayRoster(away)
       assignedIrregularIds = rd.assigned_irregular_ids ?? []
       if (rd.quarter_id) effectiveQuarterId = rd.quarter_id
+      // 친선전 = 스팟 구성. 서버가 "이 팀 명단 전체 − 이미 배정된 사람"을 후보로 내려준다.
+      //   분기 명단(quarters/[id]/players)을 부르지 않는 게 핵심이다 — 부르는 순간
+      //   "원래 어느 팀 소속" 이라는 개념이 화면에 다시 새어들어 스팟 구성 전제가 깨진다.
+      if (rd.is_exhibition) {
+        setIrregularRoster((rd.unassigned ?? []).map((p: LeaguePlayer) => ({
+          ...p, team_id: null, is_regular: false,
+        })) as IrregularPlayer[])
+        setRosterLoading(false)
+        return
+      }
 
       // 이미 시작된 경기 로드 시: plus_one 충돌 있으면 자동 팝업
       if (slot.is_started) {
@@ -559,8 +569,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     const current = !!selectedSlot.is_exhibition
     const next = !current
     const msg = next
-      ? '이 경기를 친선전으로 표시하시겠습니까?\n\n· 리그 순위(승·패) 집계에서 제외됨\n· 개인 스탯에는 그대로 반영됨'
-      : '이 경기를 정규전으로 되돌리시겠습니까?\n\n· 리그 순위 집계에 다시 포함됨'
+      ? '이 경기를 친선전으로 표시하시겠습니까?\n\n· 리그 순위·개인 스탯·배지·마일스톤 집계에서 모두 제외됨\n· 박스스코어·하이라이트에는 그대로 남음\n\n· 팀 구성이 이 경기 전용으로 바뀝니다 — 분기 소속을 따르지 않고\n  이 화면에서 직접 배정한 선수만 명단이 됩니다'
+      : '이 경기를 정규전으로 되돌리시겠습니까?\n\n· 리그 순위·개인 스탯 집계에 다시 포함됨\n· 명단이 분기 소속 기준으로 돌아갑니다'
     if (!confirm(msg)) return
     const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
       method: 'PATCH',
@@ -568,8 +578,12 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       body: JSON.stringify({ is_exhibition: next }),
     })
     if (res.ok) {
-      toast.success(next ? '친선전으로 변경됨' : '정규전으로 복귀')
+      toast.success(next ? '친선전으로 변경 — 팀 구성을 이 화면에서 직접 배정하세요' : '정규전으로 복귀')
       await refreshSlots()
+      // 명단 기준이 통째로 바뀌므로(분기 소속 ↔ 이 경기 전용) 다시 읽는다.
+      //   refreshSlots 는 슬랏만 갱신해서, 안 하면 바뀌기 전 명단이 화면에 그대로 남는다.
+      const reloaded = { ...selectedSlot, is_exhibition: next }
+      if (reloaded.home_team_id && reloaded.away_team_id) await loadRoster(reloaded)
     } else {
       toast.error('변경 실패')
     }
@@ -1483,6 +1497,19 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 </button>
               )}
             </div>
+
+            {/* 친선전 안내 — 명단 기준이 평소와 다르다는 걸 화면에서 알 수 있어야 한다.
+                안 밝히면 "왜 우리 팀 사람들이 명단에 없지?" 가 된다. */}
+            {selectedSlot.is_exhibition && (
+              <p
+                className="mt-2 text-xs leading-relaxed"
+                style={{ color: 'var(--mm-muted)' }}
+              >
+                <span className="font-bold" style={{ color: 'var(--mm-ink-soft)' }}>스팟 구성</span>
+                {' — 이 경기의 팀은 분기 소속을 따르지 않습니다. 아래 미배정 목록에서 선수를 끌어다 직접 배정하세요. '}
+                {'여기서 한 배정은 이 경기에만 적용되고 분기 팀 구성은 바뀌지 않습니다.'}
+              </p>
+            )}
           </div>
 
           {/* 영상 먼저 — 팀 미지정 시 절반 크기로 표시 (16:9 비율 유지) */}

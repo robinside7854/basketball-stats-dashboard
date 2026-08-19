@@ -33,7 +33,7 @@ export async function GET(
   // 게임 정보 조회 (date 포함 — 같은 날짜 비정규 상속용)
   const { data: game, error: gErr } = await supabase
     .from('league_games')
-    .select('quarter_id, home_team_id, away_team_id, date')
+    .select('quarter_id, home_team_id, away_team_id, date, is_exhibition')
     .eq('id', gameId)
     .eq('league_id', leagueId)
     // maybeSingle: single() 은 "행 없음" 도 에러로 돌려줘서, 없는 경기와 DB 장애가
@@ -87,13 +87,25 @@ export async function GET(
   // 박스스코어·게임로그에서 탈퇴 회원의 실제 기록이 사라지지 않는다.
   const { data: playedRows, error: pErr } = await supabase
     .from('league_game_events')
-    .select('league_player_id')
+    .select('league_player_id, team_id')
     .eq('league_game_id', gameId)
     .not('league_player_id', 'is', null)
   // 실패를 빈 집합으로 넘기면 위 주석의 예외 규칙이 통째로 무너진다 — 탈퇴 회원이
   //   실제로 뛴 옛 경기에서 그 사람이 명단에서 사라진다. 지우면 안 되는 기록이라 막는다.
   if (pErr) return queryFailed('경기 이벤트', pErr.message)
   const playedIds = new Set((playedRows ?? []).map(r => r.league_player_id as string))
+  // 선수 → 그 경기에서 실제로 기록된 팀. 배정 행이 없어도 이 사람이 어느 편이었는지 알려준다.
+  const playedTeam = new Map<string, string>()
+  for (const r of playedRows ?? []) {
+    const tid = r.team_id as string | null
+    if (tid && !playedTeam.has(r.league_player_id as string)) playedTeam.set(r.league_player_id as string, tid)
+  }
+
+  // 친선전 = 스팟 구성. 팀이 이 경기에서만 유효하므로 분기 소속(league_player_quarters)을
+  //   아예 보지 않고, 기록 화면에서 명시적으로 배정한 것(league_game_players)만 명단으로 친다.
+  //   같은 날짜 상속도 함께 끈다 — 상속은 "같은 팀으로 계속 뛴다"는 가정 위에 있는데
+  //   스팟 팀에는 그 가정이 성립하지 않는다.
+  const isExhibition = game.is_exhibition === true
 
   // 분기 여전히 없거나 팀 배정 자체가 없는 경우: 전체 선수를 unassigned로 반환
   if (!resolvedQuarterId || (!game.home_team_id && !game.away_team_id)) {
@@ -113,25 +125,39 @@ export async function GET(
       away: [],
       unassigned: filtered,
       quarter_id: null,
+      // 분기를 못 푼 경우에도 친선전이면 화면이 이 응답의 후보 풀을 그대로 쓰게 한다 —
+      //   그러지 않으면 기록 화면이 분기 명단을 부르러 갔다가 quarter_id 가 없어 후보 0명이 된다.
+      is_exhibition: game.is_exhibition === true,
     })
   }
 
   // 분기별 팀 배정 선수 조회 (resolvedQuarterId 사용)
   const teamIds = [game.home_team_id, game.away_team_id].filter(Boolean) as string[]
 
-  const { data: memberships, error: mErr } = await supabase
-    .from('league_player_quarters')
-    .select(`
-      team_id,
-      is_regular,
-      league_player_id,
-      league_players!inner(id, name, number, position, birth_date, plus_one, is_active)
-    `)
-    .eq('league_id', leagueId)
-    .eq('quarter_id', resolvedQuarterId)
-    .in('team_id', teamIds)
+  type MembershipRow = {
+    team_id: string
+    is_regular: boolean
+    league_player_id: string
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    league_players: any
+  }
+  let memberships: MembershipRow[] = []
+  if (!isExhibition) {
+    const { data: mRows, error: mErr } = await supabase
+      .from('league_player_quarters')
+      .select(`
+        team_id,
+        is_regular,
+        league_player_id,
+        league_players!inner(id, name, number, position, birth_date, plus_one, is_active)
+      `)
+      .eq('league_id', leagueId)
+      .eq('quarter_id', resolvedQuarterId)
+      .in('team_id', teamIds)
 
-  if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 })
+    if (mErr) return NextResponse.json({ error: mErr.message }, { status: 500 })
+    memberships = (mRows ?? []) as unknown as MembershipRow[]
+  }
 
   // 비정규 선수 / 타팀 임시 출전: league_game_players
   // 먼저 조회해야 quarter 배정 루프에서 override 스킵이 가능함
@@ -192,7 +218,7 @@ export async function GET(
   //    같은 날 다른 경기로 계속 번졌다. 실제 배정은 여전히 explicit POST
   //    (irregular-players / opponent-players) 로만 확정된다 — 이 블록은 화면 편의를
   //    위해 후보를 보여줄 뿐, league_game_players 행을 만들지 않는다.)
-  if (game.date) {
+  if (game.date && !isExhibition) {
     const { data: sameDateGames, error: sdErr } = await supabase
       .from('league_games')
       .select('id, home_team_id, away_team_id')
@@ -250,6 +276,44 @@ export async function GET(
     .filter(gp => gp.team_id === game.home_team_id || gp.team_id === game.away_team_id)
     .map(gp => gp.league_player_id)
 
+  // ── 친선전 전용 처리 ──────────────────────────────────────────────
+  //   후보 풀을 여기서 만들어 내려보낸다. 기록 화면이 분기 명단(quarters/[id]/players)을
+  //   따로 부르지 않게 하기 위해서다 — 스팟 구성인데 분기에서 후보를 가져오면 "이 사람은
+  //   원래 어느 팀" 이라는 개념이 화면에 다시 새어든다.
+  let unassigned: unknown[] = []
+  if (isExhibition) {
+    const teamId = await resolveTeamId(leagueId)
+    const { data: pool, error: poolErr } = await supabase
+      .from('league_players')
+      .select('id, name, number, position, birth_date, plus_one, is_active')
+      .eq('team_id', teamId)
+      .order('name')
+    if (poolErr) return queryFailed('선수 명단', poolErr.message)
+    const byId = new Map((pool ?? []).map(p => [p.id as string, p]))
+
+    // 안전망 — 이미 이 경기에 기록이 있는데 배정 행이 없는 선수를 되살린다.
+    //   정규전으로 기록하다 친선전으로 바꾸면(분기 소속으로 잡히던 사람들) 명단이 통째로
+    //   비어 이어서 기록할 수 없게 된다. 이벤트에 남은 team_id 가 어느 편이었는지 알려준다.
+    for (const [pid, tid] of playedTeam) {
+      if (includedIds.has(pid)) continue
+      if (tid !== game.home_team_id && tid !== game.away_team_id) continue
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const p = byId.get(pid) as any
+      if (!p) continue
+      const row: PlayerRow = {
+        id: p.id, name: p.name, number: p.number, position: p.position,
+        birth_date: p.birth_date ?? null, plus_one: p.plus_one ?? false,
+        is_regular: false, team_id: tid,
+      }
+      if (tid === game.home_team_id) { home.push(row); includedIds.add(p.id) }
+      else { away.push(row); includedIds.add(p.id) }
+    }
+
+    // 후보 = 이 팀 명단 전체 − 이미 이 경기에 배정된 사람.
+    //   탈퇴 회원은 후보에서 뺀다(이 경기에 이미 기록이 있으면 위에서 명단에 들어갔다).
+    unassigned = (pool ?? []).filter(p => !includedIds.has(p.id as string) && p.is_active !== false)
+  }
+
   // 이름 정렬
   home.sort((a, b) => a.name.localeCompare(b.name))
   away.sort((a, b) => a.name.localeCompare(b.name))
@@ -257,8 +321,9 @@ export async function GET(
   return NextResponse.json({
     home,
     away,
-    unassigned: [],
+    unassigned,
     quarter_id: resolvedQuarterId,
     assigned_irregular_ids: assignedIrregularIds,
+    is_exhibition: isExhibition,
   })
 }
