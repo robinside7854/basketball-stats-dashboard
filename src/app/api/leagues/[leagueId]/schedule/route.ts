@@ -41,7 +41,8 @@ export async function POST(
   const { data: league } = await supabase.from('leagues').select('*').eq('id', leagueId).single()
   if (!league) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const { data: teams } = await supabase.from('league_teams').select('*').eq('league_id', leagueId)
+  // 임시팀(친선전 전용)은 일정 편성 대상이 아니다 — 섞이면 정규 라운드 대진에 그날짜 팀이 들어간다
+  const { data: teams } = await supabase.from('league_teams').select('*').eq('league_id', leagueId).is('exhibition_date', null)
   if (!teams || teams.length < 2) return NextResponse.json({ error: '팀이 2개 이상 필요합니다' }, { status: 400 })
 
   // 기간 계산: annual = 12개월, quarterly = 3개월

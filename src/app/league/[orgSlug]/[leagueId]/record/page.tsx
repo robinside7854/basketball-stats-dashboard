@@ -159,6 +159,14 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [pendingIrregular, setPendingIrregular] = useState<IrregularPlayer | null>(null)
   const [addingIrregular, setAddingIrregular] = useState(false)
 
+  // 친선전 전용 임시팀 — 선택한 날짜에만 유효하다(109). 상시 3팀과 별도로 들고 있는 이유는
+  //   둘의 수명이 다르기 때문이다. teams 는 분기 override 로 이름이 갈리고, 이쪽은 그날로 끝난다.
+  const [adhocTeams, setAdhocTeams] = useState<LeagueTeam[]>([])
+  const [newTeamName, setNewTeamName] = useState('')
+  const [newTeamColor, setNewTeamColor] = useState('#3b82f6')
+  const [creatingTeam, setCreatingTeam] = useState(false)
+  const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null)
+
   // 팀 선택 (슬랏별)
   const [pendingHome, setPendingHome] = useState('')
   const [pendingAway, setPendingAway] = useState('')
@@ -293,6 +301,21 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       .then(ts => { if (Array.isArray(ts)) setTeams(ts) })
       .catch(() => null)
   }, [leagueId, selectedDate, selectedSlotId, dateQuarterMap, slots])
+
+  // 이 날짜의 임시팀 로드 — 날짜를 고르는 순간 받아 둔다. 친선전 토글 뒤에 로드하면
+  //   드롭다운이 한 박자 비어 보이고, 기록원은 그걸 "팀을 못 만든다"로 읽는다.
+  async function loadAdhocTeams(date: string) {
+    if (!date) { setAdhocTeams([]); return }
+    const res = await fetch(`/api/leagues/${leagueId}/teams?exhibitionDate=${date}`, { cache: 'no-store' })
+      .catch(() => null)
+    if (res?.ok) {
+      const ts = await res.json()
+      setAdhocTeams(Array.isArray(ts) ? ts : [])
+    } else {
+      setAdhocTeams([])
+    }
+  }
+  useEffect(() => { loadAdhocTeams(selectedDate) }, [leagueId, selectedDate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadRoster(slot: GameSlot) {
     if (!slot.home_team_id || !slot.away_team_id) return
@@ -429,6 +452,76 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     }
   }
 
+  // ── 팀 드롭다운 후보 ──────────────────────────────────────────
+  //   정규전: 상시팀(분기 override 적용된 이름).
+  //   친선전: 이 날짜 임시팀만. 상시 3팀은 뺀다 — 친선전은 그날 짠 팀으로 하는 경기이지
+  //           락다운/굿모닝이 뛴 경기가 아니고, 섞어 놓으면 손이 미끄러져 상시팀이 들어간다.
+  //   예외: 이미 이 경기에 배정돼 있는 팀은 상시팀이라도 남긴다. 임시팀 개념이 없던 시절의
+  //         친선전이 "팀 없음"으로 보이면 기록원이 그걸 덮어쓰고, 그 순간 옛 기록의
+  //         team_id 와 경기 팀이 어긋난다.
+  const teamOptions: { id: string; name: string }[] = (() => {
+    if (!selectedSlot?.is_exhibition) return teams
+    const opts: { id: string; name: string }[] = adhocTeams.map(t => ({ id: t.id, name: t.name }))
+    const seen = new Set(opts.map(o => o.id))
+    for (const t of [selectedSlot.home_team, selectedSlot.away_team]) {
+      if (t && !seen.has(t.id)) { opts.push({ id: t.id, name: `${t.name} (상시팀)` }); seen.add(t.id) }
+    }
+    return opts
+  })()
+
+  // 이름 조회는 상시팀·임시팀을 함께 본다 — 친선전 화면에서 teams 만 뒤지면 항상 미스가 난다
+  function teamNameById(id: string | null | undefined): string | null {
+    if (!id) return null
+    return teams.find(t => t.id === id)?.name ?? adhocTeams.find(t => t.id === id)?.name ?? null
+  }
+
+  // 이 날짜 전용 임시팀 만들기. 만든 즉시 비어 있는 쪽(홈 → 어웨이)에 꽂아 준다 —
+  //   현장에서 만들고 다시 드롭다운을 여는 동작을 없애기 위해서다.
+  async function createAdhocTeam() {
+    const name = newTeamName.trim()
+    if (!name) { toast.error('팀 이름을 입력하세요'); return }
+    if (!selectedDate) { toast.error('날짜를 먼저 선택하세요'); return }
+    setCreatingTeam(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/teams`, {
+        method: 'POST',
+        headers: leagueHeaders,
+        body: JSON.stringify({ name, color: newTeamColor, exhibition_date: selectedDate }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(body.error ?? `팀 생성 실패 (${res.status})`); return }
+      setNewTeamName('')
+      await loadAdhocTeams(selectedDate)
+      if (!pendingHome) setPendingHome(body.id)
+      else if (!pendingAway && body.id !== pendingHome) setPendingAway(body.id)
+      toast.success(`임시팀 "${name}" 생성 — ${selectedDate} 친선전에서만 쓰입니다`)
+    } catch (e) {
+      toast.error(`팀 생성 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`)
+    } finally {
+      setCreatingTeam(false)
+    }
+  }
+
+  // 잘못 만든 임시팀 정리. 경기에 물려 있으면 서버가 409 로 막는다(기록이 끊기므로).
+  async function deleteAdhocTeam(teamId: string, name: string) {
+    if (!confirm(`임시팀 "${name}" 을 삭제하시겠습니까?\n\n· 이 팀이 배정된 경기가 있으면 삭제되지 않습니다`)) return
+    setDeletingTeamId(teamId)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/teams/${teamId}`, {
+        method: 'DELETE',
+        headers: leagueHeaders,
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(body.error ?? `삭제 실패 (${res.status})`, { duration: 6000 }); return }
+      if (pendingHome === teamId) setPendingHome('')
+      if (pendingAway === teamId) setPendingAway('')
+      await loadAdhocTeams(selectedDate)
+      toast.success('임시팀 삭제됨')
+    } finally {
+      setDeletingTeamId(null)
+    }
+  }
+
   async function saveTeams() {
     if (!pendingHome || !pendingAway) { toast.error('홈·어웨이 팀을 모두 선택하세요'); return }
     if (pendingHome === pendingAway) { toast.error('같은 팀을 선택할 수 없습니다'); return }
@@ -444,7 +537,11 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       await refreshSlots()
       const updated = slots.find(s => s.id === selectedSlotId)
       if (updated) await loadRoster({ ...updated, home_team_id: pendingHome, away_team_id: pendingAway })
-    } else toast.error('팀 저장 실패')
+    } else {
+      // 서버가 거절 이유를 준다(임시팀·날짜 불일치 등). 뭉개면 기록원이 같은 시도를 반복한다.
+      const body = await res.json().catch(() => ({}))
+      toast.error(body.error ?? '팀 저장 실패', { duration: 6000 })
+    }
   }
 
   // ── 대진 자동 편성 ───────────────────────────────────────────────
@@ -454,6 +551,15 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     const ordered = [...slots].sort((a, b) => (a.slot_num ?? 0) - (b.slot_num ?? 0))
     const first = ordered[0]
     if (!first) { toast.error('이 날짜에 슬롯이 없습니다'); return }
+    // 친선전은 승자 잔류 규칙이 없는 스팟 경기다. 회전 대진을 덮어씌우면 그날 짠 팀이
+    //   상시 3팀으로 바뀌어 버린다.
+    if (first.is_exhibition) {
+      toast.error('친선전 날짜에는 자동 편성을 쓸 수 없습니다', {
+        description: '친선전 팀은 그날 만든 임시팀이라 승자 잔류 회전 규칙이 적용되지 않습니다',
+        duration: 6000,
+      })
+      return
+    }
     if (!first.is_complete) {
       toast.error('1경기를 먼저 기록·마감해야 합니다', {
         description: '누가 이겼는지 알아야 2경기부터의 대진이 정해집니다',
@@ -476,7 +582,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     const rest = ordered.slice(1)
     // 이미 기록이 들어간 경기는 건드리지 않는다 — 대진을 바꾸면 그 경기 이벤트의 팀이 어긋난다
     const locked = rest.filter(s => s.is_started || s.is_complete)
-    const targets = rest.filter(s => !s.is_started && !s.is_complete)
+    // 친선 슬롯도 건드리지 않는다 — 임시팀 배정이 회전 대진으로 덮여 사라진다
+    const targets = rest.filter(s => !s.is_started && !s.is_complete && !s.is_exhibition)
     if (targets.length === 0) { toast('채울 슬롯이 없습니다 (전부 기록 시작됨)'); return }
     if (!confirm(
       `${targets.length}개 슬롯의 대진을 자동으로 채웁니다.\n\n` +
@@ -492,7 +599,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       let saved = 0
       for (let i = 0; i < rest.length; i++) {
         const slot = rest[i]
-        if (slot.is_started || slot.is_complete) continue
+        if (slot.is_started || slot.is_complete || slot.is_exhibition) continue
         const r = await fetch(`/api/leagues/${leagueId}/games?gameId=${slot.id}`, {
           method: 'PATCH',
           headers: leagueHeaders,
@@ -569,8 +676,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     const current = !!selectedSlot.is_exhibition
     const next = !current
     const msg = next
-      ? '이 경기를 친선전으로 표시하시겠습니까?\n\n· 리그 순위·개인 스탯·배지·마일스톤 집계에서 모두 제외됨\n· 박스스코어·하이라이트에는 그대로 남음\n\n· 팀 구성이 이 경기 전용으로 바뀝니다 — 분기 소속을 따르지 않고\n  이 화면에서 직접 배정한 선수만 명단이 됩니다'
-      : '이 경기를 정규전으로 되돌리시겠습니까?\n\n· 리그 순위·개인 스탯 집계에 다시 포함됨\n· 명단이 분기 소속 기준으로 돌아갑니다'
+      ? '이 경기를 친선전으로 표시하시겠습니까?\n\n· 리그 순위·개인 스탯·배지·마일스톤 집계에서 모두 제외됨\n· 박스스코어·하이라이트에는 그대로 남음\n\n· 팀 구성이 이 경기 전용으로 바뀝니다 — 분기 소속을 따르지 않고\n  이 화면에서 직접 배정한 선수만 명단이 됩니다\n\n· 팀도 이 날짜 전용 임시팀에서 고릅니다 — 아래에서 만들어 배정하세요'
+      : '이 경기를 정규전으로 되돌리시겠습니까?\n\n· 리그 순위·개인 스탯 집계에 다시 포함됨\n· 명단이 분기 소속 기준으로 돌아갑니다\n\n· 임시팀이 배정돼 있으면 되돌릴 수 없습니다 (상시팀으로 먼저 교체)'
     if (!confirm(msg)) return
     const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
       method: 'PATCH',
@@ -585,7 +692,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       const reloaded = { ...selectedSlot, is_exhibition: next }
       if (reloaded.home_team_id && reloaded.away_team_id) await loadRoster(reloaded)
     } else {
-      toast.error('변경 실패')
+      // 409 = 임시팀이 배정된 채로 정규전 복귀를 시도한 경우. 이유를 그대로 보여준다.
+      const body = await res.json().catch(() => ({}))
+      toast.error(body.error ?? '변경 실패', { duration: 7000 })
     }
   }
 
@@ -759,7 +868,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   function renderDraggableChip(p: IrregularPlayer) {
     const isDragging = draggingPlayerId === p.id
     const isOtherTeam = p.is_regular === true && !!p.team_id
-    const teamName = isOtherTeam ? teams.find(t => t.id === p.team_id)?.name : null
+    const teamName = isOtherTeam ? teamNameById(p.team_id) : null
     // 타팀 임대 vs 비정규 구분: mm-yellow tint 로 통일 (임대는 얇은 outline 강조)
     const chipStyle: React.CSSProperties = isOtherTeam
       ? { background: 'var(--mm-panel)', border: '1px solid var(--mm-yellow-strong)', color: 'var(--mm-ink)', borderRadius: '4px' }
@@ -1438,8 +1547,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 className="flex-1 px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50 min-h-[44px]"
                 style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
               >
-                <option value="">홈 팀 선택</option>
-                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                <option value="">{selectedSlot.is_exhibition ? '홈 임시팀 선택' : '홈 팀 선택'}</option>
+                {teamOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
               {/* 좌우 교체 — 코트 배치가 현장에서 무작위로 정해져 매번 두 셀렉트를 다시 고르던 자리 */}
               <button
@@ -1461,8 +1570,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 className="flex-1 px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50 min-h-[44px]"
                 style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
               >
-                <option value="">어웨이 팀 선택</option>
-                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                <option value="">{selectedSlot.is_exhibition ? '어웨이 임시팀 선택' : '어웨이 팀 선택'}</option>
+                {teamOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
               {!gameStarted && (
                 <button
@@ -1506,9 +1615,96 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 style={{ color: 'var(--mm-muted)' }}
               >
                 <span className="font-bold" style={{ color: 'var(--mm-ink-soft)' }}>스팟 구성</span>
-                {' — 이 경기의 팀은 분기 소속을 따르지 않습니다. 아래 미배정 목록에서 선수를 끌어다 직접 배정하세요. '}
+                {' — 이 경기의 팀은 분기 소속을 따르지 않습니다. 위 드롭다운의 팀도, 아래 미배정 목록의 선수도 이 날짜 전용입니다. '}
                 {'여기서 한 배정은 이 경기에만 적용되고 분기 팀 구성은 바뀌지 않습니다.'}
               </p>
+            )}
+
+            {/* 이 날짜 전용 임시팀 관리 — 친선전은 상시 3팀이 아니라 그날 짠 팀으로 한다.
+                만든 팀은 이 날짜의 친선 슬롯에서만 보이고, 순위·명단·드래프트·일정에는 등장하지 않는다. */}
+            {selectedSlot.is_exhibition && (
+              <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
+                <div className="flex items-baseline gap-2 flex-wrap mb-2">
+                  <span className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+                    임시팀
+                  </span>
+                  <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                    {selectedDate} 전용 · 같은 날 다른 친선 경기에서도 그대로 씁니다
+                  </span>
+                </div>
+
+                {adhocTeams.length > 0 ? (
+                  <ul className="flex flex-wrap gap-1.5 mb-2 list-none p-0 m-0">
+                    {adhocTeams.map(t => (
+                      <li
+                        key={t.id}
+                        className="inline-flex items-center gap-1.5 pl-2.5 text-xs font-bold min-h-[44px]"
+                        style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
+                      >
+                        <span
+                          aria-hidden
+                          className="w-2.5 h-2.5 shrink-0"
+                          style={{ background: t.color, borderRadius: '9999px' }}
+                        />
+                        {t.name}
+                        <button
+                          type="button"
+                          onClick={() => deleteAdhocTeam(t.id, t.name)}
+                          disabled={deletingTeamId === t.id}
+                          aria-label={`임시팀 ${t.name} 삭제`}
+                          title="삭제 (경기에 배정돼 있으면 막힙니다)"
+                          className="inline-flex items-center justify-center w-11 h-11 shrink-0 cursor-pointer transition-colors duration-200 hover:opacity-70 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          style={{ color: 'var(--mm-muted)' }}
+                        >
+                          {deletingTeamId === t.id
+                            ? <Loader2 size={12} className="animate-spin" aria-hidden />
+                            : <X size={12} strokeWidth={2.5} aria-hidden />}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs mb-2" style={{ color: 'var(--mm-muted)' }}>
+                    아직 만든 팀이 없습니다 — 아래에서 이름을 넣어 두 팀을 만드세요 (예: 흰팀 / 검은팀)
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label htmlFor="adhoc-team-name" className="sr-only">임시팀 이름</label>
+                  <input
+                    id="adhoc-team-name"
+                    value={newTeamName}
+                    onChange={e => setNewTeamName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !creatingTeam) { e.preventDefault(); createAdhocTeam() } }}
+                    placeholder="팀 이름 (예: 흰팀)"
+                    maxLength={20}
+                    className="px-2.5 py-1.5 text-xs min-h-[44px] w-[160px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
+                  />
+                  <label htmlFor="adhoc-team-color" className="sr-only">임시팀 색상</label>
+                  <input
+                    id="adhoc-team-color"
+                    type="color"
+                    value={newTeamColor}
+                    onChange={e => setNewTeamColor(e.target.value)}
+                    title="임시팀 색상 — 박스스코어·기록 화면에서 두 팀을 가르는 색"
+                    className="w-11 h-11 shrink-0 cursor-pointer p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={createAdhocTeam}
+                    disabled={creatingTeam || newTeamName.trim().length === 0}
+                    className="inline-flex items-center gap-1.5 cursor-pointer shrink-0 text-xs font-bold uppercase tracking-[0.14em] px-3 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
+                  >
+                    {creatingTeam
+                      ? <Loader2 size={12} className="animate-spin" aria-hidden />
+                      : <UserPlus size={12} strokeWidth={2.5} aria-hidden />}
+                    팀 만들기
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 

@@ -65,7 +65,8 @@ export async function GET(
       .select('id, quarter_id, home_team_id, away_team_id, home_score, away_score, is_exhibition, is_started, is_complete')
       .eq('league_id', leagueId)
       .eq('is_started', true),
-    supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
+    // 임시팀은 정체성(프랜차이즈) 후보가 아니다 — 넣으면 분기 × 임시팀 조합만큼 유령 정체성이 생긴다
+    supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId).is('exhibition_date', null),
     supabase.from('league_team_quarter_overrides').select('quarter_id, team_id, name, color').eq('league_id', leagueId),
     supabase.from('league_quarters').select('id, year, quarter').eq('league_id', leagueId).order('year').order('quarter'),
   ])

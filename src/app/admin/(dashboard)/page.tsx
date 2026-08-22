@@ -10,7 +10,7 @@ async function getStats() {
     supabase.from('tournaments').select('id', { count: 'exact' }),
     supabase.from('games').select('id', { count: 'exact' }),
     supabase.from('leagues').select('id', { count: 'exact' }),
-    supabase.from('league_teams').select('id', { count: 'exact' }),
+    supabase.from('league_teams').select('id', { count: 'exact' }).is('exhibition_date', null),
     supabase.from('league_games').select('id', { count: 'exact' }).eq('is_complete', true),
     supabase.from('leagues').select('id, name, org_slug, status, season_year').order('created_at', { ascending: false }).limit(5),
   ])

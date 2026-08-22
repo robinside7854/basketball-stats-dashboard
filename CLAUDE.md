@@ -129,12 +129,26 @@ PIN은 단톡방을 떠도는 4자리 공유 비밀이라, 그걸로 **영구 �
 - `league_game_events`: `league_game_id`, `league_player_id`, **`team_id`** (이벤트 발생 시 선수 소속 팀), `type`, `result`, `points`, `related_player_id` (어시스트·STL-TOV 페어), `video_timestamp`
 - `league_player_quarters`: 분기별 정규 소속 (team_id)
 - `league_game_players`: **이 경기 한정 배정** (비정규/타팀 임시 출전) — `quarters`보다 **우선** 적용
-- `league_teams`: 팀명 + 색상
+- `league_teams`: 팀명 + 색상 + `is_external`(대회 상대팀) + `exhibition_date`(친선 임시팀, 109)
 
-### 친선 4쿼터·2경기 모드
-- `is_exhibition = true` 게임은 **리그 순위(standings) 제외, 개인 스탯 포함**
-- 미라클 vs 모닝 2팀 자동 생성 + 8개 슬롯 (`/api/leagues/[leagueId]/exhibition/init`)
-- 스케줄 페이지 "친선전 추가" 버튼
+### 친선전 (`is_exhibition = true`)
+
+- **집계에서 전량 제외** — 리그 순위·개인 스탯·배지·마일스톤 전부. 박스스코어·하이라이트에는 남는다.
+  (예전 이 문서에 "개인 스탯 포함"이라 적혀 있었으나 코드와 어긋난 서술이었다)
+- **지정 경로**: 기록 화면(`/league/.../record`)에서 날짜 → 슬롯 선택 → "친선전으로 표시" 토글.
+  ~~`/api/leagues/[leagueId]/exhibition/init`~~ 과 스케줄 페이지의 "친선전 추가" 버튼은 **더 이상 없다.**
+- **명단은 스팟 구성** — 분기 소속(`league_player_quarters`)을 아예 보지 않고, 이 경기에서 직접 배정한
+  것(`league_game_players`)만 명단으로 친다. 같은 날짜 비정규 상속도 끈다.
+- **팀도 스팟 구성 (2026-08-22, 마이그레이션 109)** — 친선전 팀은 상시 3팀이 아니라
+  `league_teams.exhibition_date` 가 그 날짜인 **임시팀**에서 고른다.
+  - `exhibition_date IS NULL` = 상시팀 / 값이 있으면 그 날짜 친선전 전용
+  - 임시팀은 **팀 목록 API 기본 응답에서 빠진다** — `GET /teams` 는 상시팀만,
+    `GET /teams?exhibitionDate=YYYY-MM-DD` 가 그 날짜 임시팀만 준다.
+  - ⚠ **`league_teams` 를 직접 열거하는 새 코드에는 `.is('exhibition_date', null)` 를 붙일 것.**
+    안 붙이면 순위표·명단·드래프트·일정 편성에 "8/23 흰팀" 같은 유령 팀이 등장한다.
+    (id → 이름 매핑용 조회는 반대로 **붙이면 안 된다** — 박스스코어에서 임시팀 이름이 사라진다)
+  - 서버 불변식(`games` PATCH): 임시팀은 ① 친선 경기에만 ② 자기 날짜 경기에만 붙는다.
+    임시팀이 배정된 경기는 정규전으로 되돌릴 수 없다(409).
 
 ### AI 기능
 - `src/app/api/ai/mvp/route.ts` — DB 영구 저장 `games.ai_mvp jsonb`

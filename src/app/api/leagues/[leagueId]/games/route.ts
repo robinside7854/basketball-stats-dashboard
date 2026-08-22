@@ -176,6 +176,61 @@ export async function PATCH(
   }
 
   const supabase = createClient()
+
+  // ── 임시팀 불변식 ────────────────────────────────────────────────
+  //   league_teams.exhibition_date 가 있는 팀(=그날 친선전 전용 임시팀)은
+  //     ① 친선전 경기에만,  ② 자기 날짜 경기에만  붙을 수 있다.
+  //   이걸 안 막으면 임시팀이 정규전에 들어가 순위표에 유령 팀이 생기고, 그 경기의
+  //   승패가 실제로 존재하지 않는 팀에 쌓인다. 화면이 그런 요청을 안 보낼 뿐 막혀 있진 않다 —
+  //   특히 "친선전 해제"(is_exhibition=false)는 팀을 건드리지 않고도 같은 결과를 만든다.
+  if ('home_team_id' in patch || 'away_team_id' in patch || 'is_exhibition' in patch) {
+    const { data: game, error: gErr } = await supabase
+      .from('league_games')
+      .select('date, is_exhibition, home_team_id, away_team_id')
+      .eq('id', gameId)
+      .eq('league_id', leagueId)
+      .maybeSingle()
+    if (gErr) return NextResponse.json({ error: '경기를 확인하지 못했습니다' }, { status: 500 })
+    if (!game) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    const nextHome = ('home_team_id' in patch ? patch.home_team_id : game.home_team_id) as string | null
+    const nextAway = ('away_team_id' in patch ? patch.away_team_id : game.away_team_id) as string | null
+    const nextExhibition = 'is_exhibition' in patch ? patch.is_exhibition === true : game.is_exhibition === true
+    const ids = [nextHome, nextAway].filter(Boolean) as string[]
+
+    if (ids.length > 0) {
+      const { data: teamRows, error: tErr } = await supabase
+        .from('league_teams')
+        .select('id, name, exhibition_date')
+        .eq('league_id', leagueId)
+        .in('id', ids)
+      if (tErr) return NextResponse.json({ error: '팀을 확인하지 못했습니다' }, { status: 500 })
+
+      // 이 리그 팀이 아니면 거절 — 지금까지는 다른 클럽 팀 id 를 그대로 저장할 수 있었다.
+      const known = new Set((teamRows ?? []).map(t => t.id))
+      if (ids.some(id => !known.has(id))) {
+        return NextResponse.json({ error: '이 리그의 팀이 아닙니다' }, { status: 400 })
+      }
+
+      const adhoc = (teamRows ?? []).filter(t => t.exhibition_date)
+      if (adhoc.length > 0) {
+        if (!nextExhibition) {
+          return NextResponse.json(
+            { error: `임시팀(${adhoc.map(t => t.name).join(', ')})이 배정된 경기는 정규전이 될 수 없습니다. 팀을 상시팀으로 먼저 바꾸세요.` },
+            { status: 409 },
+          )
+        }
+        const wrongDate = adhoc.filter(t => t.exhibition_date !== game.date)
+        if (wrongDate.length > 0) {
+          return NextResponse.json(
+            { error: `임시팀 "${wrongDate[0].name}" 은 ${wrongDate[0].exhibition_date} 전용입니다 (이 경기는 ${game.date})` },
+            { status: 400 },
+          )
+        }
+      }
+    }
+  }
+
   const { data, error } = await supabase
     .from('league_games')
     .update(patch)

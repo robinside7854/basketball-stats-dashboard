@@ -42,7 +42,8 @@ export async function POST(
 
   // 모두 준비 확인 (force 옵션)
   if (!body.force) {
-    const { data: teams } = await supabase.from('league_teams').select('id').eq('league_id', leagueId)
+    // 드래프트 참가 단장 = 상시팀뿐. 임시팀이 섞이면 영원히 '모두 준비' 가 안 된다
+    const { data: teams } = await supabase.from('league_teams').select('id').eq('league_id', leagueId).is('exhibition_date', null)
     const teamIds = (teams ?? []).map(t => t.id)
     const { data: supCode } = await supabase
       .from('league_draft_codes')

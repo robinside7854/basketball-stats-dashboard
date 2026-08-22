@@ -52,7 +52,31 @@ export async function DELETE(
 ) {
   const { leagueId, teamId } = await params
   if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // teamId 는 아래 `.or()` 에 문자열로 그대로 들어간다 — PostgREST 필터 문법이라
+  //   임의 문자열을 넣으면 필터를 갈아끼울 수 있다. 형식부터 못 박는다.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(teamId)) {
+    return NextResponse.json({ error: '팀을 찾을 수 없습니다' }, { status: 404 })
+  }
   const supabase = createClient()
+
+  // 경기에 물린 팀은 지우지 않는다 — league_games 의 FK 는 CASCADE 가 아니라 RESTRICT 라
+  //   어차피 DB 가 막지만, 그대로 두면 화면에는 23503 원문이 뜬다. 무엇이 막았는지 알려준다.
+  //   (친선전 임시팀을 잘못 만들었을 때 지우는 경로가 이 라우트다)
+  const { count: usedCount, error: usedError } = await supabase
+    .from('league_games')
+    .select('id', { count: 'exact', head: true })
+    .eq('league_id', leagueId)
+    .or(`home_team_id.eq.${teamId},away_team_id.eq.${teamId}`)
+  if (usedError) {
+    return NextResponse.json({ error: '팀 사용 여부를 확인하지 못했습니다' }, { status: 500 })
+  }
+  if ((usedCount ?? 0) > 0) {
+    return NextResponse.json(
+      { error: `이 팀이 배정된 경기가 ${usedCount}개 있습니다. 경기에서 팀을 먼저 바꾼 뒤 삭제하세요.` },
+      { status: 409 },
+    )
+  }
+
   // canEditLeague 는 leagueId 를 인가했을 뿐 teamId 는 URL 로 들어온 값이다.
   // league_id 를 함께 걸지 않으면 A 리그 권한으로 다른 클럽의 팀이 지워진다.
   // 지워진 행이 있는지는 select 로 확인한다 — 상태코드만 보면 "안 지워졌는데 성공"이 된다.

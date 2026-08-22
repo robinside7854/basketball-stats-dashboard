@@ -57,6 +57,8 @@ export async function POST(
     .from('league_teams')
     .select('id')
     .eq('league_id', leagueId)
+    // 임시팀(친선전 전용)은 추첨 대상이 아니다
+    .is('exhibition_date', null)
   const teamIds = (teams ?? []).map(t => t.id)
   if (teamIds.length === 0) return NextResponse.json({ error: '리그에 팀이 없습니다' }, { status: 400 })
 

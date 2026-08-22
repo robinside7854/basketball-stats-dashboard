@@ -76,7 +76,9 @@ export async function GET(
     supabase
       .from('league_teams')
       .select('id, name, color')
-      .eq('league_id', leagueId),
+      .eq('league_id', leagueId)
+      // 임시팀(친선전 전용)은 드래프트에 등장하지 않는다
+      .is('exhibition_date', null),
     supabase
       .from('league_players')
       .select('id, name, number, position, plus_one')

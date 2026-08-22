@@ -26,6 +26,9 @@ export interface LeagueTeam {
   color: string
   // [임시·단계D에서 제거] 이관 원본 teams.id 또는 외부팀 생성 근거 (083)
   legacy_id: string | null
+  // 친선전 전용 임시팀의 유효 날짜 (109). null = 상시팀.
+  //   값이 있으면 그 날짜 친선 경기에서만 고를 수 있고 순위·명단·드래프트·일정에서 빠진다.
+  exhibition_date?: string | null
 }
 
 export interface LeaguePlayer {
