@@ -161,6 +161,21 @@ export async function GET(
     }
   }
 
+  // 이벤트에 박힌 team_id — **선수가 어느 편이었는지에 대한 가장 확실한 근거**다.
+  //   기록원이 득점을 남길 때마다 팀을 함께 저장하므로 배정 행이 없어도 판정할 수 있다.
+  //   (2026-08-23: 친선전에서 명단 상속이 응답 전용이라 league_game_players 행이 없는 슬롯이
+  //    많았고, 그 선수들이 아래 분기 소속으로 떨어져 **락다운/굿모닝 같은 이 경기와 무관한 팀**에
+  //    붙었다. 팀 비교 차트가 한쪽만 나오던 원인이 이것이다.)
+  const eventTeamMap: Record<string, Record<string, string>> = {}
+  for (const e of events ?? []) {
+    const gid = e.league_game_id as string
+    const pid = e.league_player_id as string | null
+    const tid = e.team_id as string | null
+    if (!gid || !pid || !tid) continue
+    if (!eventTeamMap[gid]) eventTeamMap[gid] = {}
+    if (!eventTeamMap[gid][pid]) eventTeamMap[gid][pid] = tid
+  }
+
   const pct = (m: number, a: number) => a > 0 ? +(m / a * 100).toFixed(1) : null
 
   // Build game list with boxscores (슬롯 단위 — 아래에서 대진별로 롤업한다)
@@ -174,7 +189,18 @@ export async function GET(
     const rows = Object.entries(gps).map(([pid, s]) => {
       const p = playerMap[pid]
       // 1차: league_game_players (이 경기 한정 배정 — 비정규/타팀 임시 출전) → 2차: league_player_quarters (정규 분기 소속)
-      const teamId = gpTeamMap[g.id]?.[pid] || (qId && qTeamMap[qId]?.[pid]) || null
+      // 이 경기에서 **실제로 어느 편이었나**. 후보를 모아 "이 경기의 두 팀 중 하나" 를 먼저 고른다.
+      //   순서만 정해 놓고 첫 값을 그냥 쓰면, 분기 소속(qTeamMap)이 이 경기와 무관한 팀을 돌려줘도
+      //   그대로 박힌다 — 그 선수는 홈도 어웨이도 아닌 팀이 되어 박스스코어·팀비교에서 사라진다.
+      const teamCandidates = [
+        gpTeamMap[g.id]?.[pid],                 // 이 경기 한정 배정
+        eventTeamMap[g.id]?.[pid],              // 기록에 남은 팀
+        qId ? qTeamMap[qId]?.[pid] : null,      // 분기 소속 (정규전 폴백)
+      ].filter(Boolean) as string[]
+      const teamId =
+        teamCandidates.find(t => t === g.home_team_id || t === g.away_team_id)
+        ?? teamCandidates[0]
+        ?? null
       // 선수 팀 표시도 identity 기반 (락다운 vs 굿모닝 분리)
       const playerIdentity = teamId ? identityResolver(teamId, qId) : null
       return {
@@ -348,6 +374,7 @@ export async function GET(
     }))
     .sort((a, b) => b.pts - a.pts)
 
-  // slots: 롤업 전 슬롯 단위 원본. 화면에서 "슬롯별로 보기" 로 되돌릴 때 쓴다.
-  return NextResponse.json({ games: gameList, daily_stats: dailyStats, slots: slotList, rolled_up: rolledUp })
+  // games 는 이미 대진 롤업 결과(= 경기)다. 슬롯 단위 원본은 내려보내지 않는다 —
+  //   화면에 "슬롯별 보기" 가 없고(2026-08-23 요청), 응답만 두 배로 불린다.
+  return NextResponse.json({ games: gameList, daily_stats: dailyStats, rolled_up: rolledUp })
 }

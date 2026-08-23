@@ -277,10 +277,8 @@ function getYoutubeEmbedUrl(url: string, offset: number): string {
 // 기본값은 다른 클럽명이 아닌 빈 문자열로 폴백 (호출부 fallback 미전달 시에도 특정 클럽명 노출 방지)
 export default function BoxscoreContent({ leagueId, date, leagueName = '', initialGameId }: Props) {
   const [games, setGames] = useState<GameData[]>([])
-  // 롤업 전 슬롯 단위 원본 — "슬롯별로 보기" 로 되돌릴 때 쓴다
-  const [slotGames, setSlotGames] = useState<GameData[]>([])
+  // 이 날짜에 대진 롤업이 걸렸는지 — 화면에는 안내 문구로만 쓴다(슬롯별 보기는 제공하지 않는다)
   const [rolledUp, setRolledUp] = useState(false)
-  const [groupMode, setGroupMode] = useState(true)
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([])
   const [loading, setLoading] = useState(true)
   // 초기값으로 넣는다 — 마운트 후 effect 로 펼치면 화면이 한 번 접힌 채 그려졌다 열린다.
@@ -356,7 +354,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
         const d = await r.json()
         const gs: GameData[] = d.games ?? []
         setGames(gs)
-        setSlotGames(d.slots ?? [])
         setRolledUp(d.rolled_up === true)
         setDailyStats(d.daily_stats ?? [])
         // ?game= 딥링크가 묶인 중간 슬롯을 가리킬 수 있다. 롤업 뒤에는 그 id 가 카드 key 가
@@ -370,10 +367,6 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   }, [leagueId, date, initialGameId])
 
   useEffect(() => { load() }, [load])
-
-  // 카드 목록만 토글한다 — 승패표·비교·공유 이미지·daily_stats 는 롤업(경기 단위)이 정답이라
-  //   같이 뒤집으면 "순위는 3경기인데 카드는 10개" 같은 어긋난 화면이 된다.
-  const cardGames = groupMode && rolledUp ? games : (rolledUp ? slotGames : games)
 
   const completedCount = games.filter(g => g.is_complete).length
   const recordedCount = games.filter(g => g.is_started || g.is_complete).length  // 실제 진행된 경기 (미사용 슬롯 제외)
@@ -578,33 +571,16 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                   style={{ color: 'var(--mm-muted)', letterSpacing: '0.20em' }}
                 >경기별 스코어</p>
 
-                {/* 대진 롤업 안내 + 슬롯별 되돌리기 — 슬롯을 쿼터 단위로 쓴 날에만 뜬다.
+                {/* 대진 롤업 안내 — 슬롯을 쿼터 단위로 쓴 날에만 뜬다.
                     정규전은 같은 대진이 연속될 수 없어(2연속 뛴 팀 강제 휴식) 한 칸도 묶이지 않는다. */}
                 {rolledUp && (
-                  <div className="flex items-center gap-2 flex-wrap mb-2.5">
-                    <div className="inline-flex" style={{ border: '1px solid var(--mm-rule)', borderRadius: '4px' }}>
-                      {([['경기별', true], ['슬롯별', false]] as const).map(([label, on]) => (
-                        <button
-                          key={label}
-                          type="button"
-                          onClick={() => setGroupMode(on)}
-                          aria-pressed={groupMode === on}
-                          className="px-3 min-h-11 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
-                          style={groupMode === on
-                            ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
-                            : { background: 'transparent', color: 'var(--mm-muted)' }}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                      같은 대진이 이어진 슬롯을 한 경기로 묶었습니다 (쿼터별로 나눠 올린 날)
-                    </span>
-                  </div>
+                  <p className="text-xs mb-2.5" style={{ color: 'var(--mm-muted)' }}>
+                    쿼터별로 나눠 올린 날입니다 — 같은 대진이 이어진 슬롯을 한 경기로 묶어 보여줍니다.
+                    카드를 누르면 그 경기의 박스스코어가 열립니다.
+                  </p>
                 )}
 
-                {cardGames.map(g => {
+                {games.map(g => {
                   const isExpanded = expandedGame === g.id
                   const videoList = (g.videos && g.videos.length > 0)
                     ? g.videos
