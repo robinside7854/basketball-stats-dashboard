@@ -33,6 +33,12 @@ type GameData = {
   /** 쿼터별 스코어. 쿼터를 나누지 않은 경기는 항목이 1개(또는 0개)라 화면에 그리지 않는다. */
   quarter_scores?: { quarter: number; home: number; away: number }[]
   players: PlayerRow[]
+  /** 이 경기를 이루는 슬롯 번호. 대진 롤업으로 여러 슬롯이 묶이면 2개 이상이 된다(쿼터별 영상 등). */
+  slot_nums?: number[]
+  /** 묶인 슬롯 id 전부 — ?game= 딥링크가 중간 슬롯을 가리켜도 이 경기를 찾아야 한다. */
+  slot_ids?: string[]
+  /** 슬롯마다 붙은 영상. 쿼터별로 쪼갠 날은 여러 개다. */
+  videos?: { slot_num: number; url: string; start_offset: number }[]
 }
 
 type DailyStat = {
@@ -271,6 +277,10 @@ function getYoutubeEmbedUrl(url: string, offset: number): string {
 // 기본값은 다른 클럽명이 아닌 빈 문자열로 폴백 (호출부 fallback 미전달 시에도 특정 클럽명 노출 방지)
 export default function BoxscoreContent({ leagueId, date, leagueName = '', initialGameId }: Props) {
   const [games, setGames] = useState<GameData[]>([])
+  // 롤업 전 슬롯 단위 원본 — "슬롯별로 보기" 로 되돌릴 때 쓴다
+  const [slotGames, setSlotGames] = useState<GameData[]>([])
+  const [rolledUp, setRolledUp] = useState(false)
+  const [groupMode, setGroupMode] = useState(true)
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([])
   const [loading, setLoading] = useState(true)
   // 초기값으로 넣는다 — 마운트 후 effect 로 펼치면 화면이 한 번 접힌 채 그려졌다 열린다.
@@ -344,13 +354,26 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
       const r = await fetch(`/api/leagues/${leagueId}/daily-boxscore?date=${date}`)
       if (r.ok) {
         const d = await r.json()
-        setGames(d.games ?? [])
+        const gs: GameData[] = d.games ?? []
+        setGames(gs)
+        setSlotGames(d.slots ?? [])
+        setRolledUp(d.rolled_up === true)
         setDailyStats(d.daily_stats ?? [])
+        // ?game= 딥링크가 묶인 중간 슬롯을 가리킬 수 있다. 롤업 뒤에는 그 id 가 카드 key 가
+        //   아니므로 슬롯 id 목록으로 되짚어 그 경기를 펼친다(명경기 카드 → 그 경기로 보내는 진입점).
+        if (initialGameId) {
+          const owner = gs.find(g => g.id === initialGameId || g.slot_ids?.includes(initialGameId))
+          if (owner && owner.id !== initialGameId) setExpandedGame(owner.id)
+        }
       }
     } finally { setLoading(false) }
-  }, [leagueId, date])
+  }, [leagueId, date, initialGameId])
 
   useEffect(() => { load() }, [load])
+
+  // 카드 목록만 토글한다 — 승패표·비교·공유 이미지·daily_stats 는 롤업(경기 단위)이 정답이라
+  //   같이 뒤집으면 "순위는 3경기인데 카드는 10개" 같은 어긋난 화면이 된다.
+  const cardGames = groupMode && rolledUp ? games : (rolledUp ? slotGames : games)
 
   const completedCount = games.filter(g => g.is_complete).length
   const recordedCount = games.filter(g => g.is_started || g.is_complete).length  // 실제 진행된 경기 (미사용 슬롯 제외)
@@ -555,9 +578,37 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                   style={{ color: 'var(--mm-muted)', letterSpacing: '0.20em' }}
                 >경기별 스코어</p>
 
-                {games.map(g => {
+                {/* 대진 롤업 안내 + 슬롯별 되돌리기 — 슬롯을 쿼터 단위로 쓴 날에만 뜬다.
+                    정규전은 같은 대진이 연속될 수 없어(2연속 뛴 팀 강제 휴식) 한 칸도 묶이지 않는다. */}
+                {rolledUp && (
+                  <div className="flex items-center gap-2 flex-wrap mb-2.5">
+                    <div className="inline-flex" style={{ border: '1px solid var(--mm-rule)', borderRadius: '4px' }}>
+                      {([['경기별', true], ['슬롯별', false]] as const).map(([label, on]) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => setGroupMode(on)}
+                          aria-pressed={groupMode === on}
+                          className="px-3 min-h-11 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                          style={groupMode === on
+                            ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
+                            : { background: 'transparent', color: 'var(--mm-muted)' }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                      같은 대진이 이어진 슬롯을 한 경기로 묶었습니다 (쿼터별로 나눠 올린 날)
+                    </span>
+                  </div>
+                )}
+
+                {cardGames.map(g => {
                   const isExpanded = expandedGame === g.id
-                  const embedUrl = g.youtube_url ? getYoutubeEmbedUrl(g.youtube_url, g.youtube_start_offset) : ''
+                  const videoList = (g.videos && g.videos.length > 0)
+                    ? g.videos
+                    : g.youtube_url ? [{ slot_num: g.slot_num, url: g.youtube_url, start_offset: g.youtube_start_offset }] : []
                   const homeWin = g.is_complete && g.home_score > g.away_score
                   const awayWin = g.is_complete && g.away_score > g.home_score
                   const draw = g.is_complete && g.home_score === g.away_score
@@ -592,7 +643,12 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                       >
                         {/* 상단 라인: 슬롯 · 상태 배지 · YT · 화살표 */}
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-mono shrink-0" style={{ color: 'var(--mm-muted)' }}>#{g.slot_num}</span>
+                          {/* 묶인 경기는 슬롯 범위를 보여준다 — "#1" 만 뜨면 나머지 세 칸이 어디 갔는지 알 수 없다 */}
+                          <span className="text-xs font-mono shrink-0" style={{ color: 'var(--mm-muted)' }}>
+                            {g.slot_nums && g.slot_nums.length > 1
+                              ? `#${g.slot_nums[0]}~${g.slot_nums[g.slot_nums.length - 1]}`
+                              : `#${g.slot_num}`}
+                          </span>
                           {g.is_complete && (
                             <span
                               className="text-[10px] font-black uppercase tracking-widest shrink-0"
@@ -703,17 +759,12 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                       {/* 펼쳐진 상세 — 하이라이트 + 경기별 박스스코어 */}
                       {isExpanded && (
                         <div id={`game-details-${g.id}`} className="space-y-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-                          {embedUrl && (
+                          {videoList.length > 0 && (
                             <div className="px-4 sm:px-5 pt-4">
-                              <div className="aspect-video overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
-                                <iframe
-                                  src={embedUrl}
-                                  title={`${g.home_team?.name ?? '?'} vs ${g.away_team?.name ?? '?'} 하이라이트`}
-                                  className="w-full h-full"
-                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                  allowFullScreen
-                                />
-                              </div>
+                              <GameVideos
+                                videos={videoList}
+                                label={`${g.home_team?.name ?? '?'} vs ${g.away_team?.name ?? '?'}`}
+                              />
                             </div>
                           )}
                           <div className="px-4 sm:px-5 pb-4">
@@ -960,6 +1011,48 @@ function aggregateHeadToHead(
   }
 
   return { A, B, gameCount: h2hGames.length }
+}
+
+// 한 경기에 붙은 영상들. 슬롯을 쿼터 단위로 쓴 날은 영상이 여러 개라 탭으로 고른다.
+//   한 개뿐이면 탭 없이 그대로 그린다 — 정규전 화면을 건드리지 않기 위해서다.
+function GameVideos({ videos, label }: { videos: { slot_num: number; url: string; start_offset: number }[]; label: string }) {
+  const [idx, setIdx] = useState(0)
+  const active = videos[Math.min(idx, videos.length - 1)]
+  const embedUrl = getYoutubeEmbedUrl(active.url, active.start_offset)
+  if (!embedUrl) return null
+  return (
+    <div className="space-y-2">
+      {videos.length > 1 && (
+        <div className="flex items-center gap-1.5 flex-wrap" role="tablist" aria-label={`${label} 쿼터 영상`}>
+          {videos.map((v, i) => (
+            <button
+              key={v.slot_num}
+              type="button"
+              role="tab"
+              aria-selected={i === idx}
+              onClick={() => setIdx(i)}
+              className="px-3 min-h-11 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+              style={i === idx
+                ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }
+                : { background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+            >
+              {quarterLabel(i + 1)}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="aspect-video overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
+        <iframe
+          key={active.url}
+          src={embedUrl}
+          title={`${label} ${videos.length > 1 ? quarterLabel(idx + 1) + ' ' : ''}하이라이트`}
+          className="w-full h-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    </div>
+  )
 }
 
 function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; games: GameData[] }) {

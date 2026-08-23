@@ -164,8 +164,8 @@ export async function GET(
 
   const pct = (m: number, a: number) => a > 0 ? +(m / a * 100).toFixed(1) : null
 
-  // Build game list with boxscores
-  const gameList = games.map(g => {
+  // Build game list with boxscores (슬롯 단위 — 아래에서 대진별로 롤업한다)
+  const slotList = games.map(g => {
     const qId = g.quarter_id as string | null
     // game.quarter_id 를 기준으로 identity 해결 (Q3 게임이면 굿모닝/챗지피지기 등으로)
     const homeIdentity = g.home_team_id ? identityResolver(g.home_team_id, qId) : null
@@ -217,6 +217,110 @@ export async function GET(
     }
   })
 
+  // ── 대진 롤업 ───────────────────────────────────────────────────────
+  //   같은 대진(팀 조합)이 **연속된 슬롯**으로 이어지면 한 경기로 본다.
+  //
+  //   왜 필요한가 (2026-08-22)
+  //     영상이 쿼터별로 쪼개져 올라오는 날은 슬롯을 쿼터 단위로 쓴다(3경기 → 슬롯 10칸).
+  //     그대로 두면 화면에 경기가 10개로 보이고, 승패도 10경기로 세고, 선수 `gp` 가 쿼터 수가 된다.
+  //
+  //   왜 "연속" 조건이 붙는가
+  //     정규전은 승자 잔류 로테이션이라 **같은 대진이 하루에 여러 번** 나온다. 대진만으로 묶으면
+  //     서로 다른 경기가 합쳐진다. 다만 로테이션 규칙상 2연속 뛴 팀은 강제 휴식이라 같은 대진이
+  //     연속될 수 없다 — 즉 이 조건 아래에서 **정규전은 한 칸도 묶이지 않고 종전과 똑같이 보인다.**
+  //
+  //   홈/어웨이가 쿼터마다 뒤집혀 있어도 묶는다. 대신 점수·쿼터표는 첫 슬롯의 좌우 기준으로 맞춘다 —
+  //   안 맞추면 2쿼터에 코트를 바꾼 경기의 합계가 서로 반대편에 쌓인다.
+  type SlotGame = (typeof slotList)[number]
+  type PlayerRow = SlotGame['players'][number]
+  type GroupGame = Omit<SlotGame, 'players'> & {
+    players: PlayerRow[]
+    /** 이 경기를 이루는 슬롯 번호 (롤업 안 된 경기는 1개) */
+    slot_nums: number[]
+    /** 슬롯 id 전부 — 딥링크(?game=)가 중간 슬롯을 가리켜도 찾을 수 있어야 한다 */
+    slot_ids: string[]
+    /** 슬롯마다 붙은 영상. 쿼터별로 쪼갠 날은 여러 개가 된다 */
+    videos: { slot_num: number; url: string; start_offset: number }[]
+  }
+
+  const pairKey = (a: string | null | undefined, b: string | null | undefined) =>
+    a && b ? [a, b].sort().join('|') : null
+
+  const groups: GroupGame[] = []
+  const groupKeys: (string | null)[] = []
+
+  for (const g of slotList) {
+    const key = pairKey(g.home_team?.id, g.away_team?.id)
+    const prev = groups[groups.length - 1]
+    const prevKey = groupKeys[groupKeys.length - 1]
+    // 슬롯 **번호**가 바로 다음일 때만 잇는다. 이 목록은 기록이 시작된 슬롯만 담고 있어서
+    //   목록상 이웃이 곧 슬롯상 이웃은 아니다 — 중간 슬롯이 미기록이면 3경기와 5경기가 붙는다.
+    //   3팀 로테이션에서 같은 대진은 한 칸 건너 다시 나올 수 있으므로(A-B, A-C, A-B) 실제로 위험하다.
+    //   한 쿼터를 기록 안 한 날은 대신 경기가 둘로 갈려 보인다 — 조용히 잘못 합치는 것보다 낫다.
+    const adjacent = prev ? g.slot_num === prev.slot_nums[prev.slot_nums.length - 1] + 1 : false
+    // key 가 null(팀 미배정)이면 절대 묶지 않는다 — 빈 슬롯끼리 한 덩어리가 되면 표가 거짓말을 한다
+    if (!prev || !key || key !== prevKey || !adjacent) {
+      groups.push({
+        ...g,
+        players: g.players.map(r => ({ ...r })),
+        slot_nums: [g.slot_num],
+        slot_ids: [g.id],
+        videos: g.youtube_url
+          ? [{ slot_num: g.slot_num, url: g.youtube_url, start_offset: g.youtube_start_offset }]
+          : [],
+      })
+      groupKeys.push(key)
+      continue
+    }
+
+    // 같은 대진이 이어진다 → 합친다. 좌우가 뒤집혀 있으면 첫 슬롯 기준으로 되돌려 더한다.
+    const flipped = g.home_team?.id !== prev.home_team?.id
+    const addHome = flipped ? (g.away_score ?? 0) : (g.home_score ?? 0)
+    const addAway = flipped ? (g.home_score ?? 0) : (g.away_score ?? 0)
+    prev.home_score = (prev.home_score ?? 0) + addHome
+    prev.away_score = (prev.away_score ?? 0) + addAway
+    prev.slot_nums.push(g.slot_num)
+    prev.slot_ids.push(g.id)
+    if (g.youtube_url) prev.videos.push({ slot_num: g.slot_num, url: g.youtube_url, start_offset: g.youtube_start_offset })
+    prev.is_started = prev.is_started || g.is_started
+    prev.is_complete = prev.is_complete && g.is_complete
+
+    const byId = new Map(prev.players.map(r => [r.player_id, r]))
+    for (const r of g.players) {
+      const cur = byId.get(r.player_id)
+      if (!cur) { const copy = { ...r }; prev.players.push(copy); byId.set(r.player_id, copy); continue }
+      cur.pts += r.pts; cur.reb += r.reb; cur.oreb += r.oreb; cur.dreb += r.dreb
+      cur.ast += r.ast; cur.stl += r.stl; cur.blk += r.blk; cur.tov += r.tov; cur.pf += r.pf
+      cur.fgm += r.fgm; cur.fga += r.fga; cur.fg3m += r.fg3m; cur.fg3a += r.fg3a
+      cur.ftm += r.ftm; cur.fta += r.fta
+    }
+  }
+
+  for (const grp of groups) {
+    if (grp.slot_nums.length > 1) {
+      // 슬롯 하나가 곧 한 쿼터인 날 — 쿼터표는 슬롯 순서로 다시 만든다.
+      //   슬롯 자체에 들어 있던 쿼터표는 의미가 겹치므로 버린다(전부 1Q 로 기록돼 있다).
+      grp.quarter_scores = grp.slot_nums.map((sn, i) => {
+        const slot = slotList.find(x => x.slot_num === sn)!
+        const flipped = slot.home_team?.id !== grp.home_team?.id
+        return {
+          quarter: i + 1,
+          home: flipped ? (slot.away_score ?? 0) : (slot.home_score ?? 0),
+          away: flipped ? (slot.home_score ?? 0) : (slot.away_score ?? 0),
+        }
+      })
+      grp.players.sort((a, b) => b.pts - a.pts)
+      for (const r of grp.players) {
+        r.fg_pct = pct(r.fgm, r.fga)
+        r.fg3_pct = pct(r.fg3m, r.fg3a)
+      }
+    }
+  }
+
+  // 롤업 결과가 곧 "경기" 다. 아래 daily_stats 의 gp 도 이걸 세므로 쿼터 수가 아니라 경기 수가 된다.
+  const gameList = groups
+  const rolledUp = groups.some(g => g.slot_nums.length > 1)
+
   // Aggregate daily stats per player (팀 정보 포함)
   // photo_url: playerMap 에서 직접 조회(게임별 row 에는 안 실어둠 — StatTable 은 안 쓰므로 불필요한
   // 필드 증식 방지) · "그날의 주인공" 히어로(2026-08-10, BoxscoreContent 최다득점자 얼굴)용
@@ -245,5 +349,6 @@ export async function GET(
     }))
     .sort((a, b) => b.pts - a.pts)
 
-  return NextResponse.json({ games: gameList, daily_stats: dailyStats })
+  // slots: 롤업 전 슬롯 단위 원본. 화면에서 "슬롯별로 보기" 로 되돌릴 때 쓴다.
+  return NextResponse.json({ games: gameList, daily_stats: dailyStats, slots: slotList, rolled_up: rolledUp })
 }
