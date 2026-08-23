@@ -11,7 +11,7 @@ import {
   Lock, Loader2, Play, Square, ChevronLeft,
   CheckCircle2, Circle, Youtube, RefreshCw, UserPlus, ClipboardList,
   CalendarDays, PlayCircle, Zap, AlertTriangle, Sparkles, X, ArrowLeftRight, Wand2,
-  Link2, Search,
+  Link2, Search, Plus, Trash2,
 } from 'lucide-react'
 import { volumeForRound } from '@/lib/social/volume'
 import { generateRotation, resolveFirstGame } from '@/lib/league/rotation'
@@ -159,6 +159,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [rosterLoading, setRosterLoading] = useState(false)
   const [pendingIrregular, setPendingIrregular] = useState<IrregularPlayer | null>(null)
   const [addingIrregular, setAddingIrregular] = useState(false)
+
+  // 슬롯 수동 추가·삭제 — games_per_round 는 시즌 설정이라 특정 날짜만 늘릴 수단이 없었다.
+  const [addingSlot, setAddingSlot] = useState(false)
+  const [deletingSlot, setDeletingSlot] = useState(false)
 
   // 영상 수동 연동 — 자동 매핑은 제목 규칙에 기대므로 규칙이 깨지는 날이 있다(쿼터별로 쪼갠
   //   영상 등). 그때 손으로 붙일 수단이 없으면 그 날짜 기록 전체가 영상 없이 진행된다.
@@ -801,6 +805,60 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       toast.error(`네트워크 오류: ${e instanceof Error ? e.message : '알 수 없는 오류'}`, { duration: 6000 })
     } finally {
       setYtSyncing(false)
+    }
+  }
+
+  // 이 날짜에 슬롯 한 칸 추가. 리그 설정(games_per_round)은 건드리지 않는다 —
+  //   그걸 바꾸면 모든 날짜가 같이 늘어난다.
+  async function addSlot() {
+    if (!selectedDate) { toast.error('날짜를 먼저 선택하세요'); return }
+    setAddingSlot(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/games`, {
+        method: 'POST',
+        headers: leagueHeaders,
+        body: JSON.stringify({ date: selectedDate, addSlot: true }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(body.error ?? `슬롯 추가 실패 (${res.status})`, { duration: 6000 }); return }
+      setSlots(body.slots ?? [])
+      toast.success(
+        `${body.added_slot}경기 슬롯 추가됨${body.is_exhibition ? ' · 친선전' : ''}`,
+        { description: body.is_exhibition ? '이 날짜의 다른 슬롯과 같은 친선전으로 만들어졌습니다' : undefined },
+      )
+    } catch (e) {
+      toast.error(`슬롯 추가 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`)
+    } finally {
+      setAddingSlot(false)
+    }
+  }
+
+  // 선택된 슬롯 삭제. 기록이 붙은 슬롯은 서버가 409 로 막는다 —
+  //   league_games 삭제는 league_game_events 로 캐스케이드돼 그 경기 기록이 영구 소멸한다.
+  async function deleteSlot() {
+    if (!selectedSlot) return
+    if (!confirm(
+      `${selectedSlot.slot_num}경기 슬롯을 삭제하시겠습니까?
+
+` +
+      `· 기록(이벤트)이 하나라도 있으면 삭제되지 않습니다
+` +
+      `· 뒤 슬롯 번호는 다시 매기지 않습니다 (번호가 비어도 기록에는 지장 없음)`
+    )) return
+    setDeletingSlot(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlot.id}`, {
+        method: 'DELETE',
+        headers: leagueHeaders,
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(body.error ?? `삭제 실패 (${res.status})`, { duration: 7000 }); return }
+      setSelectedSlotId('')
+      resetLineup()
+      await refreshSlots()
+      toast.success('슬롯 삭제됨')
+    } finally {
+      setDeletingSlot(false)
     }
   }
 
@@ -1592,6 +1650,23 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             </button>
           )
         })}
+
+        {/* 슬롯 한 칸 추가 — 리그 설정(games_per_round)은 시즌 전체에 걸리므로 그 날짜에만 붙인다.
+            8/22 친선전처럼 쿼터별로 쪼갠 영상이 10개인 날은 기본 9칸으로 모자란다. */}
+        <button
+          type="button"
+          onClick={addSlot}
+          disabled={addingSlot || !selectedDate}
+          aria-label="이 날짜에 경기 슬롯 추가"
+          title="이 날짜에 슬롯을 한 칸 더 만듭니다 (리그 설정은 바뀌지 않습니다)"
+          className="flex flex-col items-center justify-center px-2 py-2.5 min-h-[44px] rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          style={{ border: '1px dashed var(--mm-rule)', background: 'transparent', color: 'var(--mm-muted)' }}
+        >
+          {addingSlot
+            ? <Loader2 size={16} className="animate-spin" aria-hidden />
+            : <Plus size={16} strokeWidth={2.5} aria-hidden />}
+          <span className="mt-1">추가</span>
+        </button>
       </div>
 
       {/* 슬랏 미선택 */}
@@ -1682,6 +1757,21 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                 >
                   영상 링크 제거
+                </button>
+              )}
+              {!selectedSlot.is_started && !selectedSlot.is_complete && (
+                <button
+                  onClick={deleteSlot}
+                  disabled={deletingSlot}
+                  title="이 슬롯 삭제 (기록이 있으면 막힙니다)"
+                  aria-label={`${selectedSlot.slot_num}경기 슬롯 삭제`}
+                  className="inline-flex items-center gap-1.5 shrink-0 text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 transition-colors duration-200 cursor-pointer min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                >
+                  {deletingSlot
+                    ? <Loader2 size={12} className="animate-spin" aria-hidden />
+                    : <Trash2 size={12} strokeWidth={2.5} aria-hidden />}
+                  슬롯 삭제
                 </button>
               )}
             </div>

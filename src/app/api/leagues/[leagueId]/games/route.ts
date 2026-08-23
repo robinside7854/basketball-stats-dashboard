@@ -72,17 +72,83 @@ export async function GET(
   return NextResponse.json(games)
 }
 
+// 하루에 만들 수 있는 슬롯 상한. 실수로 버튼을 연타했을 때의 방어선일 뿐 의미 있는 규칙은 아니다.
+const MAX_SLOTS_PER_DATE = 30
+
 // 날짜에 대한 게임 슬랏 초기화 (games_per_round 개수만큼 생성)
+//   `addSlot: true` 면 초기화 대신 **슬롯 한 칸만** 뒤에 덧붙인다 (2026-08-23).
+//   games_per_round 는 시즌 설정이라 특정 날짜만 늘릴 수단이 없었다 — 8/22 친선전처럼
+//   쿼터별로 쪼갠 영상이 10개인 날은 기본 9칸으로는 한 칸이 모자란다. 설정값을 건드리면
+//   모든 날짜가 같이 바뀌므로 그 날짜에만 붙이는 경로를 따로 둔다.
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
 ) {
   const { leagueId } = await params
   if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { date } = await req.json()
+  const { date, addSlot } = await req.json()
   if (!date) return NextResponse.json({ error: 'date is required' }, { status: 400 })
 
   const supabase = createClient()
+
+  if (addSlot === true) {
+    const { data: rows, error: exErr } = await supabase
+      .from('league_games')
+      .select('slot_num, is_exhibition')
+      .eq('league_id', leagueId)
+      .eq('date', date)
+    if (exErr) return NextResponse.json({ error: '기존 슬롯을 확인하지 못했습니다' }, { status: 500 })
+
+    const current = rows ?? []
+    if (current.length >= MAX_SLOTS_PER_DATE) {
+      return NextResponse.json(
+        { error: `하루 슬롯은 ${MAX_SLOTS_PER_DATE}개까지입니다 (현재 ${current.length}개)` },
+        { status: 409 },
+      )
+    }
+
+    const nextSlot = Math.max(0, ...current.map(g => g.slot_num ?? 0)) + 1
+    // 그 날짜의 성격을 따라간다 — 친선전 날에 정규전 슬롯이 끼면 거기 기록한 게 순위·개인
+    //   스탯에 섞인다. YouTube 자동 매핑이 슬롯을 만들던 시절에 실제로 그렇게 됐다(8/22 4경기).
+    const isExhibition = current.some(g => g.is_exhibition === true)
+
+    const { error: insErr } = await supabase.from('league_games').insert({
+      league_id: leagueId,
+      date,
+      slot_num: nextSlot,
+      round_num: nextSlot,
+      home_score: 0,
+      away_score: 0,
+      is_complete: false,
+      is_started: false,
+      is_exhibition: isExhibition,
+    })
+    // 23505 = 동시 요청이 같은 slot_num 을 먼저 넣은 경우(league_games_slot_unique).
+    //   버튼 연타로 충분히 난다. 실패로 알리고 다시 누르게 하는 편이 조용히 넘기는 것보다 낫다.
+    if (insErr) {
+      const msg = insErr.code === '23505'
+        ? '같은 번호의 슬롯이 방금 생성됐습니다. 목록을 확인하고 다시 시도하세요.'
+        : insErr.message
+      return NextResponse.json({ error: msg }, { status: insErr.code === '23505' ? 409 : 500 })
+    }
+
+    const { data: after, error: afterErr } = await supabase
+      .from('league_games')
+      .select(`
+        *,
+        home_team:league_teams!league_games_home_team_id_fkey(id, name, color, is_external),
+        away_team:league_teams!league_games_away_team_id_fkey(id, name, color, is_external)
+      `)
+      .eq('league_id', leagueId)
+      .eq('date', date)
+      .order('slot_num', { ascending: true })
+    if (afterErr) return NextResponse.json({ error: afterErr.message }, { status: 500 })
+
+    revalidateTag(`league-${leagueId}`, 'max')
+    revalidateTag(`league-${leagueId}-games`, 'max')
+
+    return NextResponse.json({ added_slot: nextSlot, is_exhibition: isExhibition, slots: after ?? [] })
+  }
 
   // 리그 설정에서 games_per_round 가져오기
   const { data: league } = await supabase.from('leagues').select('games_per_round').eq('id', leagueId).single()
