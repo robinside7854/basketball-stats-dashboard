@@ -541,6 +541,46 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   async function saveTeams() {
     if (!pendingHome || !pendingAway) { toast.error('홈·어웨이 팀을 모두 선택하세요'); return }
     if (pendingHome === pendingAway) { toast.error('같은 팀을 선택할 수 없습니다'); return }
+
+    // 이미 기록이 들어간 경기의 팀 교체는 **이벤트 이관과 한 묶음**이어야 한다.
+    //   경기의 home/away 만 바꾸면 league_game_events.team_id 가 이 경기와 무관한 팀을 가리켜
+    //   그 선수들이 박스스코어에서 통째로 사라진다(화면은 멀쩡하고 점수만 빈다).
+    const recorded = !!selectedSlot && (selectedSlot.is_started || selectedSlot.is_complete)
+    if (recorded) {
+      const nameOf = (id: string) => teamOptions.find(t => t.id === id)?.name ?? teamNameById(id) ?? '?'
+      if (!confirm(
+        `기록이 있는 경기의 팀을 바꿉니다.
+
+` +
+        `· 홈: ${teamNameById(selectedSlot!.home_team_id) ?? '-'} → ${nameOf(pendingHome)}
+` +
+        `· 어웨이: ${teamNameById(selectedSlot!.away_team_id) ?? '-'} → ${nameOf(pendingAway)}
+
+` +
+        `이 경기에 저장된 기록(이벤트·명단)의 소속 팀도 함께 옮깁니다.
+` +
+        `좌우가 통째로 뒤집히는 경우에는 스코어도 같이 뒤집습니다.`
+      )) return
+      setSavingTeam(true)
+      try {
+        const r = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/reassign-teams`, {
+          method: 'POST',
+          headers: leagueHeaders,
+          body: JSON.stringify({ home_team_id: pendingHome, away_team_id: pendingAway }),
+        })
+        const b = await r.json().catch(() => ({}))
+        if (!r.ok) { toast.error(b.error ?? `팀 교체 실패 (${r.status})`, { duration: 8000 }); return }
+        toast.success(`팀 교체 완료 — 기록 ${b.moved ?? 0}건 이관${b.swapped_scores ? ' · 스코어 좌우 교체' : ''}`)
+        await refreshSlots()
+        const updated = slots.find(x => x.id === selectedSlotId)
+        if (updated) await loadRoster({ ...updated, home_team_id: pendingHome, away_team_id: pendingAway })
+        setStatsRefresh(v => v + 1)
+      } finally {
+        setSavingTeam(false)
+      }
+      return
+    }
+
     setSavingTeam(true)
     const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
       method: 'PATCH',
@@ -1697,7 +1737,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               <select
                 value={pendingHome}
                 onChange={e => setPendingHome(e.target.value)}
-                disabled={gameStarted}
                 className="flex-1 px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50 min-h-[44px]"
                 style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
               >
@@ -1720,23 +1759,27 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               <select
                 value={pendingAway}
                 onChange={e => setPendingAway(e.target.value)}
-                disabled={gameStarted}
                 className="flex-1 px-2 py-1.5 text-xs cursor-pointer disabled:opacity-50 min-h-[44px]"
                 style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
               >
                 <option value="">{selectedSlot.is_exhibition ? '어웨이 임시팀 선택' : '어웨이 팀 선택'}</option>
                 {teamOptions.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
-              {!gameStarted && (
-                <button
-                  onClick={saveTeams}
-                  disabled={savingTeam}
-                  className="cursor-pointer shrink-0 text-xs font-bold uppercase tracking-[0.14em] px-3 py-1.5 disabled:opacity-50 transition-colors min-h-[44px]"
-                  style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
-                >
-                  {savingTeam ? <Loader2 size={11} className="animate-spin" /> : '저장'}
-                </button>
-              )}
+              {/* 기록이 시작된 뒤에도 팀을 고칠 수 있어야 한다 — 잘못 지정한 채 마감하면
+                  지금까지는 되돌릴 방법이 아예 없었다. 기록은 서버가 함께 옮긴다. */}
+              <button
+                onClick={saveTeams}
+                disabled={savingTeam}
+                title={(selectedSlot.is_started || selectedSlot.is_complete)
+                  ? '팀을 바꾸고 이 경기 기록의 소속 팀도 함께 옮깁니다'
+                  : '이 경기의 홈·어웨이 팀 저장'}
+                className="cursor-pointer shrink-0 text-xs font-bold uppercase tracking-[0.14em] px-3 py-1.5 disabled:opacity-50 transition-colors min-h-[44px]"
+                style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
+              >
+                {savingTeam
+                  ? <Loader2 size={11} className="animate-spin" />
+                  : (selectedSlot.is_started || selectedSlot.is_complete) ? '팀 교체' : '저장'}
+              </button>
               <button
                 onClick={toggleExhibition}
                 title={selectedSlot.is_exhibition ? '정규전으로 되돌리기' : '친선전으로 표시 (리그 순위 제외)'}

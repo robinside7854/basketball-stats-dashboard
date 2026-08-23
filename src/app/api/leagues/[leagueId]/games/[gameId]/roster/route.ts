@@ -105,6 +105,13 @@ export async function GET(
   //   아예 보지 않고, 기록 화면에서 명시적으로 배정한 것(league_game_players)만 명단으로 친다.
   //   같은 날짜 상속도 함께 끈다 — 상속은 "같은 팀으로 계속 뛴다"는 가정 위에 있는데
   //   스팟 팀에는 그 가정이 성립하지 않는다.
+  //
+  //   ⚠ 2026-08-23 정정: **같은 날짜 상속은 친선전에서도 켠다.**
+  //     임시팀(league_teams.exhibition_date, 109)이 생기면서 "대회준비팀" 은 그 날짜 안에서
+  //     같은 team_id 하나다 — 즉 슬롯(쿼터)이 바뀌어도 같은 팀이라는 가정이 이제 성립한다.
+  //     끄고 두면 쿼터마다 선수를 처음부터 다시 배정해야 한다(현장에서 가장 번거로운 지점).
+  //     분기 소속(league_player_quarters)을 보지 않는다는 원칙은 그대로다 — 상속은 어디까지나
+  //     "이 날짜에 이 팀으로 배정한 사람"만 따라온다.
   const isExhibition = game.is_exhibition === true
 
   // 분기 여전히 없거나 팀 배정 자체가 없는 경우: 전체 선수를 unassigned로 반환
@@ -218,7 +225,7 @@ export async function GET(
   //    같은 날 다른 경기로 계속 번졌다. 실제 배정은 여전히 explicit POST
   //    (irregular-players / opponent-players) 로만 확정된다 — 이 블록은 화면 편의를
   //    위해 후보를 보여줄 뿐, league_game_players 행을 만들지 않는다.)
-  if (game.date && !isExhibition) {
+  if (game.date) {
     const { data: sameDateGames, error: sdErr } = await supabase
       .from('league_games')
       .select('id, home_team_id, away_team_id')

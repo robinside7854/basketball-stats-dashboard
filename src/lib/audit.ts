@@ -61,6 +61,8 @@ export type AuditAction =
   // 경기 · 기록
   | 'game.reset'
   | 'game.delete'
+  // 기록이 있는 경기의 팀 교체 — 이벤트·명단의 team_id 를 함께 옮기므로 흔적을 남긴다
+  | 'game.reassign_teams'
   | 'event.update'
   | 'event.delete'
   | 'schedule.regenerate'
