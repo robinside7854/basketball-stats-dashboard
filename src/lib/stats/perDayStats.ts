@@ -10,7 +10,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
+import { scorePoints, fetchScoringRules, isPlusOneFor, type ScoringRules, type GamePlusOne } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 
 export interface PerDayStats {
@@ -58,7 +58,7 @@ export async function computePerDayStats(
   // 1) 게임 목록 (id, date, home/away team, 스코어, exhibition 여부)
   let gQuery = supabase
     .from('league_games')
-    .select('id, date, home_team_id, away_team_id, home_score, away_score, is_exhibition, plus_one_player_id')
+    .select('id, date, home_team_id, away_team_id, home_score, away_score, is_exhibition, plus_one_player_id, plus_one_extra_ids')
     .eq('league_id', leagueId)
     .eq('is_started', true)
   if (opts.quarterId) gQuery = gQuery.eq('quarter_id', opts.quarterId)
@@ -72,6 +72,7 @@ export async function computePerDayStats(
     home_score: number; away_score: number
     is_exhibition: boolean | null
     plus_one_player_id: string | null
+    plus_one_extra_ids: string[] | null
   }>
   if (gameRows.length === 0) {
     return { dayStats: new Map(), dayWL: new Map(), allDates: [] }
@@ -152,7 +153,7 @@ export async function computePerDayStats(
       const s = ensurePlayerDay(pid, date)
       const made = e.result === 'made'
       // 플러스원 판정 후 scorePoints 로 재계산 — 저장된 points 컬럼은 더 이상 신뢰하지 않는다(Task 5).
-      const isP1 = g.plus_one_player_id !== null ? pid === g.plus_one_player_id : plusOneSet.has(pid)
+      const isP1 = isPlusOneFor(pid, g as GamePlusOne, plusOneSet)
       const pts = scorePoints(e.type, e.result, isP1, rules)
 
       switch (e.type) {

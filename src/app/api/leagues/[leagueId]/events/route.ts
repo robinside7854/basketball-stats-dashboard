@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { canViewLeague } from '@/lib/auth/guard'
-import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 
 export async function GET(
   req: Request,
@@ -44,7 +44,7 @@ export async function POST(
   // 소속인지는 여기서 확인해야 한다).
   const { data: g, error: gErr } = await supabase
     .from('league_games')
-    .select('plus_one_player_id')
+    .select('plus_one_player_id, plus_one_extra_ids')
     .eq('id', body.league_game_id)
     .eq('league_id', leagueId)
     .maybeSingle()
@@ -64,11 +64,13 @@ export async function POST(
   if (plErr) {
     throw new Error(`league_players: league_player_id=${body.league_player_id} 조회 실패 — ${plErr.message}`)
   }
-  // 캐노니컬 플러스원 판정: 게임별 override(plus_one_player_id)가 있으면 그것으로,
-  // 없으면 선수 플래그로 폴백 — computeBadges/highlights loader 와 동일 규칙.
-  const isPlusOne = g.plus_one_player_id != null
-    ? body.league_player_id === g.plus_one_player_id
-    : Boolean(pl?.plus_one)
+  // 캐노니컬 플러스원 판정 — scoring.ts 의 isPlusOneFor() 하나로만 푼다.
+  //   (경기 한정 추가 → 게임별 배타 지정 → 선수 전역 플래그)
+  const isPlusOne = isPlusOneFor(
+    body.league_player_id,
+    g as GamePlusOne,
+    pl?.plus_one ? new Set([body.league_player_id as string]) : new Set<string>(),
+  )
   const points = scorePoints(body.type, body.result, isPlusOne, scoringRules)
 
   const { data, error } = await supabase

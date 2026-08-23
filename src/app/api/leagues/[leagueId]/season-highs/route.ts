@@ -27,7 +27,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canViewStats } from '@/lib/auth/guard'
-import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { scorePoints, fetchScoringRules, isPlusOneFor } from '@/lib/stats/scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 
 const SHOT_TYPES = ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] as const
@@ -95,7 +95,7 @@ export async function GET(
   // 1-3) 선수 메타 · 게임 · 분기 메타 병렬 실행 — 서로 독립적.
   let gQuery = supabase
     .from('league_games')
-    .select('id, date, quarter_id, plus_one_player_id')
+    .select('id, date, quarter_id, plus_one_player_id, plus_one_extra_ids')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     .eq('is_exhibition', false)
@@ -177,9 +177,8 @@ export async function GET(
     const g = gameById.get(e.league_game_id)
     if (!g) continue
     const date = g.date
-    // +1 선수 득점 가중: 게임별 지정 우선 → 없으면 시즌 플래그
-    const gpo = g.plus_one_player_id
-    const isP1 = gpo !== null ? pid === gpo : plusOneSet.has(pid)
+    // +1 판정은 scoring.ts 단일 진실 (경기 한정 추가 → 배타 지정 → 전역 플래그)
+    const isP1 = isPlusOneFor(pid, g, plusOneSet)
     const made = e.result === 'made'
     const s = ensure(pid, date)
     const pts = scorePoints(e.type, e.result, isP1, scoringRules)

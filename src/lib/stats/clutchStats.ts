@@ -20,7 +20,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
+import { scorePoints, fetchScoringRules, isPlusOneFor, type ScoringRules, type GamePlusOne } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 
 const CLUTCH_TIME_WINDOW_SECONDS = 120
@@ -78,7 +78,7 @@ export async function computeClutchStats(
   // 1) 게임 조회
   let gQuery = supabase
     .from('league_games')
-    .select('id, home_team_id, away_team_id, plus_one_player_id, is_exhibition')
+    .select('id, home_team_id, away_team_id, plus_one_player_id, plus_one_extra_ids, is_exhibition')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     .eq('is_exhibition', false)  // 친선전 제외
@@ -92,6 +92,7 @@ export async function computeClutchStats(
     home_team_id: string | null
     away_team_id: string | null
     plus_one_player_id: string | null
+    plus_one_extra_ids: string[] | null
     is_exhibition: boolean | null
   }>
   if (gameRows.length === 0) return []
@@ -199,9 +200,8 @@ export async function computeClutchStats(
       const pid = e.league_player_id
       const tid = e.team_id
       const made = e.result === 'made'
-      // 플러스원 판정 — 게임에 지정된 플러스원 선수가 있으면 그 선수, 없으면 리그 전체 플러스원 플래그.
-      // leagueStats.ts 와 동일 규칙.
-      const isP1 = pid != null && (game.plus_one_player_id !== null ? pid === game.plus_one_player_id : plusOneSet.has(pid))
+      // 플러스원 판정은 scoring.ts 의 isPlusOneFor() 하나로만 푼다(단일 진실).
+      const isP1 = isPlusOneFor(pid, game as GamePlusOne, plusOneSet)
       const pts = scorePoints(e.type, e.result, isP1, rules)
 
       const inClutchTime = clutchStart != null && e.video_timestamp != null && e.video_timestamp >= clutchStart

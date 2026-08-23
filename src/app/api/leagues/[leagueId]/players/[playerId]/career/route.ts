@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { canViewStats } from '@/lib/auth/guard'
 import { fetchTeamCompetitions } from '@/lib/league/competitions'
 import { resolveTeamId } from '@/lib/league/teamScope'
-import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 
 // GET /api/leagues/[leagueId]/players/[playerId]/career
 //
@@ -36,7 +36,7 @@ async function summarizeInCompetition(
 ): Promise<CompetitionSummary> {
   const { data: games, error: gamesErr } = await sb
     .from('league_games')
-    .select('id, plus_one_player_id')
+    .select('id, plus_one_player_id, plus_one_extra_ids')
     .eq('league_id', competitionLeagueId)
     .eq('is_started', true)
   if (gamesErr) {
@@ -45,8 +45,8 @@ async function summarizeInCompetition(
   const gameIds = (games ?? []).map(g => g.id as string)
   if (gameIds.length === 0) return { gp: 0, pts: 0, reb: 0, ast: 0 }
 
-  const plusOneByGame: Record<string, string | null> = {}
-  for (const g of games ?? []) plusOneByGame[g.id as string] = (g as { plus_one_player_id: string | null }).plus_one_player_id
+  const plusOneByGame: Record<string, GamePlusOne> = {}
+  for (const g of games ?? []) plusOneByGame[g.id as string] = g as GamePlusOne
 
   const scoringRules = await fetchScoringRules(sb, competitionLeagueId)
 
@@ -97,9 +97,11 @@ async function summarizeInCompetition(
   for (const e of ownEvents) {
     if (e.type === 'sub_in' || e.type === 'sub_out') continue
     gpSet.add(e.league_game_id)
-    const isPlusOne = plusOneByGame[e.league_game_id] != null
-      ? plusOneByGame[e.league_game_id] === playerId
-      : defaultPlusOne
+    const isPlusOne = isPlusOneFor(
+      playerId,
+      plusOneByGame[e.league_game_id],
+      defaultPlusOne ? new Set([playerId]) : new Set<string>(),
+    )
     pts += scorePoints(e.type, e.result, isPlusOne, scoringRules)
     if (e.type === 'oreb' || e.type === 'dreb') reb++
   }

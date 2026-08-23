@@ -28,7 +28,7 @@
 import { NextResponse } from 'next/server'
 import { computeClutchStats } from '@/lib/stats/clutchStats'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
-import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
 import { canViewStats } from '@/lib/auth/guard'
@@ -103,7 +103,7 @@ export async function GET(
   //      · clutchSplits: 클러치 스탯 (CLUTCH 카테고리)
   let gamesQuery = supabase
     .from('league_games')
-    .select('id, date, quarter_id, plus_one_player_id')
+    .select('id, date, quarter_id, plus_one_player_id, plus_one_extra_ids')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     .eq('is_exhibition', false)
@@ -133,12 +133,12 @@ export async function GET(
   const gameIds: string[] = []
   const gameToDate = new Map<string, string>()  // gid → 'YYYY-MM-DD' · DD 라운드 단위 집계용
   // 게임별 플러스원 지명 — 더블더블 득점 계산의 plus_one 판정에 쓴다
-  const gamePlusOne = new Map<string, string | null>()
-  for (const g of (gameRows ?? []) as { id: string; date: string; quarter_id: string | null; plus_one_player_id: string | null }[]) {
+  const gamePlusOne = new Map<string, GamePlusOne>()
+  for (const g of (gameRows ?? []) as { id: string; date: string; quarter_id: string | null; plus_one_player_id: string | null; plus_one_extra_ids: string[] | null }[]) {
     uniqueDates.add(g.date)
     gameIds.push(g.id)
     gameToDate.set(g.id, g.date)
-    gamePlusOne.set(g.id, g.plus_one_player_id ?? null)
+    gamePlusOne.set(g.id, g)
   }
   const totalRounds = uniqueDates.size
   const requiredRounds = Math.max(1, Math.ceil(totalRounds * ATTENDANCE_THRESHOLD))
@@ -439,8 +439,7 @@ export async function GET(
             // 득점은 시즌 rules 로 계산한다.
             // 예전엔 야투는 저장된 points 를, 자유투·앤드원은 미라클 배점(ft_2pt=2 등)을
             // 코드에 박아 계산했다 — 자유투 배점이 다른 동호회에서 더블더블이 조작되는 결함이었다.
-            const gp1 = gamePlusOne.get(e.league_game_id) ?? null
-            const isPlusOne = gp1 !== null ? pid === gp1 : plusOneSet.has(pid)
+            const isPlusOne = isPlusOneFor(pid, gamePlusOne.get(e.league_game_id), plusOneSet)
             s.pts += scorePoints(e.type, e.result, isPlusOne, scoringRules)
             if (e.type === 'oreb' || e.type === 'dreb') s.reb++
             else if (e.type === 'steal') s.stl++

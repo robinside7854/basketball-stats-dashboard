@@ -15,7 +15,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
 import type { PlayerStat } from '@/types/league'
-import { scorePoints, fetchScoringRules, type ScoringRules } from './scoring'
+import { scorePoints, fetchScoringRules, type ScoringRules, isPlusOneFor, type GamePlusOne } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { estimatePlayerGameSeconds, minutesFromStartToEnd } from './estimateMinutes'
 
@@ -95,7 +95,7 @@ export async function computeLeagueStats(
   // 2) 대상 게임 ID 추출
   let gQuery = sb
     .from('league_games')
-    .select('id, plus_one_player_id, date, round_num')
+    .select('id, plus_one_player_id, plus_one_extra_ids, date, round_num')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     // 친선전(비공식 라운드)은 집계에서 제외한다. 039 는 "순위만 빼고 개인 스탯엔 포함"으로 시작했으나, 팀을 새로 짜서
@@ -114,10 +114,10 @@ export async function computeLeagueStats(
   const gameIds = (games ?? []).map(g => g.id)
   if (gameIds.length === 0) return { players: [], total_rounds: 0 }
 
-  const gamePlusOneMap: Record<string, string | null> = {}
+  const gamePlusOneMap: Record<string, GamePlusOne> = {}
   const gameToDate: Record<string, string> = {}
   for (const g of (games ?? [])) {
-    gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
+    gamePlusOneMap[g.id] = g as GamePlusOne
     gameToDate[g.id] = (g as Record<string, unknown>).date as string ?? g.id
   }
   // 기간 내 열린 라운드 수 = 경기일(date) 유니크 카운트.
@@ -268,10 +268,7 @@ export async function computeLeagueStats(
     }
 
     const made = e.result === 'made'
-    const gamePlusOneOverride = gamePlusOneMap[e.league_game_id]
-    const isPlusOne = gamePlusOneOverride !== null
-      ? pid === gamePlusOneOverride
-      : plusOneSet.has(pid)
+    const isPlusOne = isPlusOneFor(pid, gamePlusOneMap[e.league_game_id], plusOneSet)
 
     const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
     switch (e.type) {

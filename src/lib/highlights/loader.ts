@@ -10,7 +10,7 @@ import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 // 어긋나면 그 뒤 모든 이벤트의 margin 이 함께 틀어진다. leagueStats.ts 등 다른 화면은 이미
 // scorePoints 로 채점하므로, 여기서도 저장값을 그대로 쓰면 관리자가 룰을 고친 직후
 // 하이라이트 화면만 옛 값으로 클러치를 판정하는 불일치가 생긴다.
-import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { resolveTeamId } from '@/lib/league/teamScope'
 import type {
   HighlightRound, HighlightRoundDetail, HighlightClip,
@@ -198,7 +198,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       .from('league_games')
       .select(`
         id, quarter_id, youtube_url, youtube_start_offset,
-        home_team_id, away_team_id, plus_one_player_id,
+        home_team_id, away_team_id, plus_one_player_id, plus_one_extra_ids,
         home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
         away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
       `)
@@ -220,6 +220,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     home_team_id: string | null
     away_team_id: string | null
     plus_one_player_id: string | null
+    plus_one_extra_ids: string[] | null
     home_team: { id: string; name: string; color: string } | null
     away_team: { id: string; name: string; color: string } | null
   }>
@@ -311,11 +312,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
       const marginBefore = Math.abs(home - away)
       const hb = home, ab = away
       // 스코어 반영 — 저장된 points 컬럼 대신 scorePoints 로 룰 기반 재계산 (team_id 매칭으로 홈/원정 판별)
-      const isPlusOne = e.league_player_id != null && (
-        game.plus_one_player_id !== null
-          ? e.league_player_id === game.plus_one_player_id
-          : plusOneSet.has(e.league_player_id)
-      )
+      const isPlusOne = isPlusOneFor(e.league_player_id, game as GamePlusOne, plusOneSet)
       const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
       if (pts > 0 && e.team_id) {
         if (e.team_id === game.home_team_id) home += pts
@@ -486,7 +483,7 @@ export async function loadPlayerHighlights(
       .from('league_games')
       .select(`
         id, date, quarter_id, youtube_url, youtube_start_offset,
-        home_team_id, away_team_id, plus_one_player_id,
+        home_team_id, away_team_id, plus_one_player_id, plus_one_extra_ids,
         home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
         away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
       `)
@@ -519,6 +516,7 @@ export async function loadPlayerHighlights(
     home_team_id: string | null
     away_team_id: string | null
     plus_one_player_id: string | null
+    plus_one_extra_ids: string[] | null
     home_team: { id: string; name: string; color: string } | null
     away_team: { id: string; name: string; color: string } | null
   }>
@@ -600,11 +598,7 @@ export async function loadPlayerHighlights(
       const marginBefore = Math.abs(home - away)
       const hb = home, ab = away
       // 스코어 반영 — 저장된 points 컬럼 대신 scorePoints 로 룰 기반 재계산 (loadRoundDetail 과 동일 이유)
-      const isPlusOne = e.league_player_id != null && (
-        g.plus_one_player_id !== null
-          ? e.league_player_id === g.plus_one_player_id
-          : plusOneSet.has(e.league_player_id)
-      )
+      const isPlusOne = isPlusOneFor(e.league_player_id, g as GamePlusOne, plusOneSet)
       const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
       if (pts > 0 && e.team_id) {
         if (e.team_id === g.home_team_id) home += pts
@@ -807,7 +801,7 @@ export async function loadClipsByEventIds(
   const { data: games, error: gErr } = await supabase
     .from('league_games')
     .select(`
-      id, quarter_id, youtube_url, home_team_id, away_team_id, plus_one_player_id,
+      id, quarter_id, youtube_url, home_team_id, away_team_id, plus_one_player_id, plus_one_extra_ids,
       home_team:league_teams!league_games_home_team_id_fkey(id, name, color),
       away_team:league_teams!league_games_away_team_id_fkey(id, name, color)
     `)
@@ -824,6 +818,7 @@ export async function loadClipsByEventIds(
     home_team_id: string | null
     away_team_id: string | null
     plus_one_player_id: string | null
+    plus_one_extra_ids: string[] | null
     home_team: { id: string; name: string; color: string } | null
     away_team: { id: string; name: string; color: string } | null
   }>
@@ -892,11 +887,7 @@ export async function loadClipsByEventIds(
       for (const e of evs) {
         const hb = home, ab = away
         // 저장된 points 대신 scorePoints 재계산 — 사유는 위 scoreEvents 조회 주석과 동일
-        const isPlusOne = e.league_player_id != null && (
-          g.plus_one_player_id !== null
-            ? e.league_player_id === g.plus_one_player_id
-            : plusOneSet.has(e.league_player_id)
-        )
+        const isPlusOne = isPlusOneFor(e.league_player_id, g as GamePlusOne, plusOneSet)
         const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
         if (e.team_id === g.home_team_id) home += pts
         else if (e.team_id === g.away_team_id) away += pts

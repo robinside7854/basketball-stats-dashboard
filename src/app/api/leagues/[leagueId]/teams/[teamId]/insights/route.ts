@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { canViewLeague } from '@/lib/auth/guard'
 
 // GET /api/leagues/[leagueId]/teams/[teamId]/insights?quarterId=xxx
@@ -72,7 +72,7 @@ export async function GET(
   // 1) 이 팀이 출전한 완료 경기 (친선전 제외)
   let gamesQuery = supabase
     .from('league_games')
-    .select('id, date, home_team_id, away_team_id, home_score, away_score, quarter_id, is_exhibition, is_complete, plus_one_player_id')
+    .select('id, date, home_team_id, away_team_id, home_score, away_score, quarter_id, is_exhibition, is_complete, plus_one_player_id, plus_one_extra_ids')
     .eq('league_id', leagueId)
     .eq('is_complete', true)
     .eq('is_exhibition', false)
@@ -117,8 +117,8 @@ export async function GET(
     return NextResponse.json({ error: `league_players 조회 실패 — ${playersErr.message}` }, { status: 500 })
   }
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
-  const gamePlusOneMap: Record<string, string | null> = {}
-  for (const g of games) gamePlusOneMap[g.id] = (g as Record<string, unknown>).plus_one_player_id as string | null ?? null
+  const gamePlusOneMap: Record<string, GamePlusOne> = {}
+  for (const g of games) gamePlusOneMap[g.id] = g as GamePlusOne
 
   // 2) 해당 경기들의 모든 이벤트 (league_player_id — plus_one 판정용 · related_player_id — 어시스트 카운트용)
   const gameIds = games.map(g => g.id)
@@ -172,8 +172,7 @@ export async function GET(
     const target = e.team_id === teamId ? g.team : (e.team_id ? g.opp : null)
     if (!target) continue
     const pid = e.league_player_id
-    const gpo = gamePlusOneMap[e.league_game_id] ?? null
-    const isP1 = pid != null && (gpo !== null ? pid === gpo : plusOneSet.has(pid))
+    const isP1 = isPlusOneFor(pid, gamePlusOneMap[e.league_game_id], plusOneSet)
     const pts = scorePoints(e.type, e.result, isP1, scoringRules)
     addToAgg(target, e, pts)
     // 일자 누적도 동시에

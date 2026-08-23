@@ -39,6 +39,41 @@ export const STANDARD_SCORING: ScoringRules = {
 }
 
 /**
+ * 플러스원 판정 — **단일 진실**.
+ *
+ * 이 함수가 생기기 전에는 판정식이 28곳에 복붙돼 있었다(득점 계산이 15곳에 흩어져 있던 것과
+ * 같은 병). 규칙이 하나 늘 때마다 28곳을 똑같이 고쳐야 하고, 하나만 빠뜨려도 화면마다
+ * 점수가 갈린다 — 그런데 숫자는 그럴듯해서 아무도 눈치채지 못한다.
+ *
+ * 우선순위
+ *   1. `plus_one_extra_ids` 에 있으면 +1 (**이 경기 한정 추가**, 110).
+ *      다른 두 갈래를 밀어내지 않고 *더해지는* 집합이다.
+ *   2. `plus_one_player_id` 가 지정돼 있으면 **그 사람만** +1 (충돌 해소용 배타 지정).
+ *   3. 아무 지정도 없으면 선수 단위 전역 플래그(`league_players.plus_one`).
+ *
+ * ⚠ 2 번이 배타라는 점이 핵심이다. 한 팀에 +1 이 둘이라 하나를 고른 경기에서는, 고르지 않은
+ *   쪽이 전역 플래그가 켜져 있어도 +1 이 아니다. "추가" 는 1 번으로만 한다.
+ */
+export interface GamePlusOne {
+  plus_one_player_id?: string | null
+  /** 이 경기에서만 +1 (110). 없거나 빈 배열이면 영향 없음. */
+  plus_one_extra_ids?: string[] | null
+}
+
+export function isPlusOneFor(
+  playerId: string | null | undefined,
+  game: GamePlusOne | null | undefined,
+  globalPlusOne: Set<string>,
+): boolean {
+  if (!playerId) return false
+  const extra = game?.plus_one_extra_ids
+  if (extra && extra.length > 0 && extra.includes(playerId)) return true
+  const designated = game?.plus_one_player_id
+  if (designated != null) return playerId === designated
+  return globalPlusOne.has(playerId)
+}
+
+/**
  * 이벤트 하나의 득점.
  * 성공(made)이 아니면 0점 — 실패 슛·교체·파울처럼 result 가 null 인 이벤트도 여기서 걸러진다.
  */

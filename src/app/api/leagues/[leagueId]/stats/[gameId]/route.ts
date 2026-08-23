@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { canViewLeague } from '@/lib/auth/guard'
 
 type EventRow = {
@@ -46,11 +46,11 @@ export async function GET(
     supabase.from('league_game_events').select('league_player_id,type,result,points,related_player_id').eq('league_game_id', gameId),
     supabase.from('league_player_minutes').select('league_player_id,in_time,out_time').eq('league_game_id', gameId),
     supabase.from('league_players').select('id,plus_one').eq('league_id', leagueId),
-    supabase.from('league_games').select('id,home_team_id,away_team_id,quarter_id,plus_one_player_id').eq('id', gameId).single(),
+    supabase.from('league_games').select('id,home_team_id,away_team_id,quarter_id,plus_one_player_id, plus_one_extra_ids').eq('id', gameId).single(),
   ])
 
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
-  const gamePlusOneOverride = (gameRow as Record<string, unknown> | null)?.plus_one_player_id as string | null ?? null
+  const gamePlusOne = (gameRow ?? null) as GamePlusOne | null
 
   const statsMap: Record<string, PlayerStat> = {}
   function getOrCreate(pid: string): PlayerStat {
@@ -62,10 +62,8 @@ export async function GET(
     if (!e.league_player_id) continue
     const s = getOrCreate(e.league_player_id)
     const made = e.result === 'made'
-    // 필드골 득점: 게임별 plus_one_player_id 오버라이드 우선, 없으면 영구 플래그 사용
-    const isPlusOne = gamePlusOneOverride !== null
-      ? e.league_player_id === gamePlusOneOverride
-      : plusOneSet.has(e.league_player_id)
+    // +1 판정은 scoring.ts 단일 진실에 위임 (경기 한정 추가 → 배타 지정 → 전역 플래그 순)
+    const isPlusOne = isPlusOneFor(e.league_player_id, gamePlusOne, plusOneSet)
     const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
 
     if (e.type === 'shot_3p') { s.fg3a++; s.fga++; if (made) { s.fg3m++; s.fgm++; s.pts += pts } }

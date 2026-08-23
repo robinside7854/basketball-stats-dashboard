@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { scorePoints, fetchScoringRules } from '@/lib/stats/scoring'
+import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { resolveTeamId } from '@/lib/league/teamScope'
 
 type Ctx = { params: Promise<{ leagueId: string; gameId: string }> }
@@ -24,7 +24,7 @@ export async function POST(
   const scoringRules = await fetchScoringRules(supabase, leagueId)
 
   const [{ data: game, error: gErr }, { data: leaguePlayers }] = await Promise.all([
-    supabase.from('league_games').select('home_team_id, away_team_id, quarter_id, plus_one_player_id').eq('id', gameId).eq('league_id', leagueId).single(),
+    supabase.from('league_games').select('home_team_id, away_team_id, quarter_id, plus_one_player_id, plus_one_extra_ids').eq('id', gameId).eq('league_id', leagueId).single(),
     // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 대회 묶음에서 0명이 나와
     //   plus_one 맵이 비고, 가산점이 에러 없이 조용히 빠진다.
     supabase.from('league_players').select('id, plus_one').eq('team_id', await resolveTeamId(leagueId)),
@@ -32,15 +32,13 @@ export async function POST(
 
   if (gErr || !game) return NextResponse.json({ error: '게임을 찾을 수 없습니다' }, { status: 404 })
 
-  // plus_one 플래그 맵 (stats API와 동일한 방식으로 득점 계산)
-  // game.plus_one_player_id가 설정된 경우 해당 선수만 +1 (충돌 해결 결과)
-  const plusOneSet = (game as { plus_one_player_id?: string | null }).plus_one_player_id
-    ? new Set([(game as { plus_one_player_id: string }).plus_one_player_id])
-    : new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
+  // +1 판정은 scoring.ts 단일 진실에 위임한다. 예전에는 여기서 plusOneSet 을 직접 좁혀
+  //   (배타 지정이면 그 한 명만 담기) 만들었는데, 규칙이 늘 때마다 이런 지역 구현이 갈린다.
+  const leaguePlusOne = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
+  const gamePlusOne = game as GamePlusOne
 
   function calcPts(type: string, result: string, playerId: string): number {
-    const isP1 = plusOneSet.has(playerId)
-    return scorePoints(type, result, isP1, scoringRules)
+    return scorePoints(type, result, isPlusOneFor(playerId, gamePlusOne, leaguePlusOne), scoringRules)
   }
 
   // 이벤트 조회 (team_id + 이벤트 타입/결과)

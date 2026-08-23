@@ -65,7 +65,10 @@ check('표준 룰: 플러스원 보너스 없음 · 자유투 ft_2pt=2 (국내 �
 // 안 변하지만, 명시하지 않으면 다음에 대회 경기가 쌓였을 때 조용히 새어 든다).
 const rows = await query(`
   SELECT e.id, e.type, e.result, e.points, g.date,
-         ((g.plus_one_player_id IS NOT NULL AND e.league_player_id = g.plus_one_player_id)
+         -- +1 판정 (scoring.ts isPlusOneFor 와 같은 순서):
+         --   1) 경기 한정 추가(plus_one_extra_ids, 110)  2) 경기별 배타 지정  3) 선수 전역 플래그
+         (e.league_player_id = ANY(COALESCE(g.plus_one_extra_ids, '{}'))
+          OR (g.plus_one_player_id IS NOT NULL AND e.league_player_id = g.plus_one_player_id)
           OR (g.plus_one_player_id IS NULL AND p.plus_one)) AS is_p1
     FROM league_game_events e
     JOIN league_games   g ON g.id = e.league_game_id

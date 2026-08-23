@@ -2,7 +2,7 @@
 // stats API(route)의 핵심 이벤트 집계 로직을 함수로 제공한다.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { scorePoints, fetchScoringRules, type ScoringRules } from './stats/scoring'
+import { scorePoints, fetchScoringRules, isPlusOneFor, type ScoringRules, type GamePlusOne } from './stats/scoring'
 
 export interface PlayerAgg {
   player_id: string
@@ -42,17 +42,17 @@ export async function aggregateQuarterStats(
 
   const { data: games } = await supabase
     .from('league_games')
-    .select('id, plus_one_player_id, date')
+    .select('id, plus_one_player_id, plus_one_extra_ids, date')
     .eq('league_id', leagueId)
     .eq('quarter_id', quarterId)
     .eq('is_started', true)
   const gameIds = (games ?? []).map(g => g.id)
   if (gameIds.length === 0) return {}
-  const gamePlusOneMap: Record<string, string | null> = {}
+  const gamePlusOneMap: Record<string, GamePlusOne> = {}
   const gameToDate: Record<string, string> = {}
   for (const g of games ?? []) {
-    const gg = g as { id: string; plus_one_player_id: string | null; date: string | null }
-    gamePlusOneMap[gg.id] = gg.plus_one_player_id ?? null
+    const gg = g as { id: string; plus_one_player_id: string | null; plus_one_extra_ids: string[] | null; date: string | null }
+    gamePlusOneMap[gg.id] = gg
     gameToDate[gg.id] = gg.date ?? gg.id
   }
 
@@ -89,8 +89,7 @@ export async function aggregateQuarterStats(
       gpMap[pid].add(gameToDate[gId] ?? gId)  // 날짜 기준 (날짜 평균)
     }
     const made = e.result === 'made'
-    const override = gamePlusOneMap[gId]
-    const isPlusOne = override !== null ? pid === override : plusOneSet.has(pid)
+    const isPlusOne = isPlusOneFor(pid, gamePlusOneMap[gId], plusOneSet)
     const pts = scorePoints(e.type, e.result, isPlusOne, rules)
     switch (e.type) {
       case 'shot_3p': s.fg3a++; s.fga++; if (made) { s.fg3m++; s.fgm++; s.pts += pts } break

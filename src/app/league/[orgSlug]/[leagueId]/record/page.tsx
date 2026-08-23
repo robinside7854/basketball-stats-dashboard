@@ -38,6 +38,8 @@ type ScheduleDate = { id: string; date: string }
 type GameSlot = {
   id: string; slot_num: number; date: string; is_complete: boolean; is_started: boolean
   is_exhibition?: boolean
+  /** 이 경기에서만 +1 로 치는 선수 (110). 전역 플래그·배타 지정에 더해진다. */
+  plus_one_extra_ids?: string[] | null
   home_score: number; away_score: number
   youtube_url?: string | null; youtube_start_offset?: number
   home_team_id?: string | null; away_team_id?: string | null
@@ -161,6 +163,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [addingIrregular, setAddingIrregular] = useState(false)
 
   // 슬롯 수동 추가·삭제 — games_per_round 는 시즌 설정이라 특정 날짜만 늘릴 수단이 없었다.
+  const [savingExtraP1, setSavingExtraP1] = useState<string | null>(null)
+  // 슬롯을 쿼터 단위로 쓰는 날은 한 경기가 슬롯 4칸이라, 한 칸씩 지정하면 네 번을 눌러야 한다
+  const [extraP1AllSlots, setExtraP1AllSlots] = useState(false)
   const [addingSlot, setAddingSlot] = useState(false)
   const [deletingSlot, setDeletingSlot] = useState(false)
 
@@ -899,6 +904,50 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       toast.success('슬롯 삭제됨')
     } finally {
       setDeletingSlot(false)
+    }
+  }
+
+  // 이 경기 한정 +1 토글.
+  //   선수 목록의 +1 은 **전역 플래그**라 켜는 순간 과거 마감 경기까지 소급된다 —
+  //   그 선수의 과거 야투마다 점수가 올라가 순위·기록이 통째로 바뀐다. 그래서 "이번 경기만"은
+  //   반드시 경기 쪽(league_games.plus_one_extra_ids)에 담는다. 판정 정본은 scoring.ts isPlusOneFor().
+  async function toggleExtraPlusOne(playerId: string, playerName: string) {
+    if (!selectedSlot) return
+    const cur = selectedSlot.plus_one_extra_ids ?? []
+    const on = cur.includes(playerId)
+    const next = on ? cur.filter(id => id !== playerId) : [...cur, playerId]
+    // 이 날짜 전 슬롯에 적용 — 쿼터를 슬롯으로 쪼갠 날은 한 경기가 4칸이라 한 칸씩 누르면 어긋나기 쉽다.
+    const targets = extraP1AllSlots ? slots : [selectedSlot]
+    setSavingExtraP1(playerId)
+    try {
+      const failed: number[] = []
+      for (const sl of targets) {
+        const c = sl.plus_one_extra_ids ?? []
+        const n = on ? c.filter(id => id !== playerId) : (c.includes(playerId) ? c : [...c, playerId])
+        const r = await fetch(`/api/leagues/${leagueId}/games?gameId=${sl.id}`, {
+          method: 'PATCH',
+          headers: leagueHeaders,
+          body: JSON.stringify({ plus_one_extra_ids: n }),
+        })
+        if (!r.ok) { failed.push(sl.slot_num); continue }
+        // 이미 기록된 이벤트의 저장 점수를 다시 맞춘다 — 안 하면 화면 집계와 저장 스코어가 갈린다.
+        if (sl.is_started || sl.is_complete) {
+          const sc = await fetch(`/api/leagues/${leagueId}/games/${sl.id}/recompute`, {
+            method: 'POST', headers: { ...leagueHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+          }).then(res => res.ok ? res.json() : null).catch(() => null)
+          if (sc && sl.id === selectedSlotId) setLiveScore({ home: sc.home_score ?? sc.home ?? 0, away: sc.away_score ?? sc.away ?? 0 })
+        }
+      }
+      await refreshSlots()
+      setStatsRefresh(v => v + 1)
+      if (failed.length > 0) {
+        toast.error(`${failed.join(', ')}경기 슬롯 저장 실패 — 다시 시도하세요`, { duration: 7000 })
+      } else {
+        const scope = extraP1AllSlots ? `${selectedDate} 전 슬롯` : '이 경기'
+        toast.success(on ? `${playerName} — ${scope} +1 해제` : `${playerName} — ${scope}에만 +1 적용`)
+      }
+    } finally {
+      setSavingExtraP1(null)
     }
   }
 
@@ -1901,6 +1950,63 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 </ul>
               )}
             </div>
+
+            {/* 이 경기 한정 +1 — 선수 목록의 +1 은 전역 플래그라 켜면 과거 마감 경기까지 소급된다.
+                (미라클은 plus_one_bonus=1 이라 그 선수의 과거 야투마다 점수가 올라간다)
+                대회 연습처럼 그날만 룰이 다른 경우를 위해 경기 쪽에 담는다. */}
+            {(homeRoster.length > 0 || awayRoster.length > 0) && (
+              <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
+                <div className="flex items-baseline gap-2 flex-wrap mb-2">
+                  <span className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+                    이 경기 한정 +1
+                  </span>
+                  <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                    이 경기에서만 적용됩니다 · 과거 기록은 그대로입니다
+                  </span>
+                  <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer min-h-11" style={{ color: 'var(--mm-ink-soft)' }}>
+                    <input
+                      type="checkbox"
+                      checked={extraP1AllSlots}
+                      onChange={e => setExtraP1AllSlots(e.target.checked)}
+                      className="cursor-pointer w-4 h-4"
+                    />
+                    이 날짜 전 슬롯에 함께 적용
+                  </label>
+                </div>
+                <ul className="flex flex-wrap gap-1.5 list-none p-0 m-0">
+                  {[...homeRoster, ...awayRoster].map(pl => {
+                    const extra = (selectedSlot.plus_one_extra_ids ?? []).includes(pl.id)
+                    const always = !!pl.plus_one
+                    const busy = savingExtraP1 === pl.id
+                    return (
+                      <li key={pl.id}>
+                        <button
+                          type="button"
+                          onClick={() => toggleExtraPlusOne(pl.id, pl.name)}
+                          disabled={busy || always}
+                          aria-pressed={extra || always}
+                          title={always
+                            ? '선수 목록에서 상시 +1 로 지정된 선수입니다 (여기서 끌 수 없습니다)'
+                            : extra ? '이 경기 +1 해제' : '이 경기에서만 +1 로 지정'}
+                          className="inline-flex items-center gap-1.5 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                          style={always
+                            ? { background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px dashed var(--mm-rule)', borderRadius: '4px' }
+                            : extra
+                            ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
+                            : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                        >
+                          {busy
+                            ? <Loader2 size={11} className="animate-spin" aria-hidden />
+                            : <Zap size={11} strokeWidth={2.5} aria-hidden style={{ opacity: (extra || always) ? 1 : 0.35 }} />}
+                          {pl.name}
+                          {always && <span className="text-[10px]">상시</span>}
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
 
             {/* 친선전 안내 — 명단 기준이 평소와 다르다는 걸 화면에서 알 수 있어야 한다.
                 안 밝히면 "왜 우리 팀 사람들이 명단에 없지?" 가 된다. */}

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
-import { scorePoints, fetchScoringRules, type ScoringRules } from '@/lib/stats/scoring'
+import { scorePoints, fetchScoringRules, type ScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { logAudit } from '@/lib/audit'
 
 // PATCH · 이벤트 부분 수정
@@ -95,7 +95,7 @@ export async function PATCH(
       let isPlusOne = false
       if (finalPid && current.league_game_id) {
         const [{ data: g, error: gErr }, { data: lp, error: lpErr }] = await Promise.all([
-          supabase.from('league_games').select('plus_one_player_id').eq('id', current.league_game_id).single(),
+          supabase.from('league_games').select('plus_one_player_id, plus_one_extra_ids').eq('id', current.league_game_id).single(),
           supabase.from('league_players').select('plus_one').eq('id', finalPid).single(),
         ])
         // 여기서 삼키면 플러스원 선수의 3점슛이 3점(4점이어야 함)으로 영구 저장된다 —
@@ -106,8 +106,12 @@ export async function PATCH(
         if (lpErr) {
           throw new Error(`league_players: league_player_id=${finalPid} 조회 실패 — ${lpErr.message}`)
         }
-        if (g?.plus_one_player_id) isPlusOne = g.plus_one_player_id === finalPid
-        else isPlusOne = !!lp?.plus_one
+        // scoring.ts 단일 진실 — 경기 한정 추가(110) → 게임별 배타 지정 → 선수 전역 플래그
+        isPlusOne = isPlusOneFor(
+          finalPid as string,
+          (g ?? null) as GamePlusOne | null,
+          lp?.plus_one ? new Set([finalPid as string]) : new Set<string>(),
+        )
       }
       // leagueId 는 이 라우트의 params 에 이미 있어 게임을 거쳐 조회할 필요가 없다
       const scoringRules = await fetchScoringRules(supabase, leagueId)

@@ -230,7 +230,7 @@ export async function PATCH(
   // 그때는 소용이 없다. 화면이 그런 요청을 안 보낼 뿐, 막혀 있진 않았다.
   const ALLOWED = new Set([
     'home_team_id', 'away_team_id', 'home_score', 'away_score',
-    'is_complete', 'is_started', 'is_exhibition', 'plus_one_player_id',
+    'is_complete', 'is_started', 'is_exhibition', 'plus_one_player_id', 'plus_one_extra_ids',
     'youtube_url', 'youtube_start_offset',
   ])
   const patch: Record<string, unknown> = {}
@@ -239,6 +239,20 @@ export async function PATCH(
   }
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: '변경할 수 있는 항목이 없습니다' }, { status: 400 })
+  }
+
+  // 경기 한정 +1 명단(110) — UUID 배열만 받는다. 배열이 아니거나 형식이 틀리면 거절한다.
+  //   이 값은 득점 계산에 그대로 들어가므로 쓰레기가 섞이면 그 경기 점수가 조용히 어긋난다.
+  if ('plus_one_extra_ids' in patch) {
+    const v = patch.plus_one_extra_ids
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (v === null) {
+      patch.plus_one_extra_ids = []
+    } else if (!Array.isArray(v) || v.some(x => typeof x !== 'string' || !UUID.test(x))) {
+      return NextResponse.json({ error: 'plus_one_extra_ids 는 선수 UUID 배열이어야 합니다' }, { status: 400 })
+    } else {
+      patch.plus_one_extra_ids = Array.from(new Set(v as string[]))
+    }
   }
 
   const supabase = createClient()

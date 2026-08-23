@@ -3,6 +3,29 @@
 최종 갱신 2026-08-23. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
 
+**최근 결정 (2026-08-23, 경기 한정 +1 — 마이그레이션 110 + 판정 단일화):**
+- 문제: "이번 경기만 이 사람도 +1" 을 표현할 방법이 없었다.
+  - `league_players.plus_one` 은 **전역** — 켜면 과거 마감 경기까지 소급(미라클 bonus=1).
+    허승용은 과거 이벤트 **451건**이라 이 경로가 불가능했다.
+  - `league_games.plus_one_player_id` 는 **배타 지정**("이 경기의 +1 은 이 사람 하나") —
+    한 명 *추가* 가 아니라 나머지를 제외시킨다.
+- `league_games.plus_one_extra_ids UUID[]`(110) 신설. 기존 두 갈래에 **더해지는** 집합.
+- ⚠ **판정식이 28곳에 복붙돼 있었다.** `scoring.ts` 에 `isPlusOneFor()` 를 만들고 28곳을 전부
+  거기로 모았다 — 득점 계산이 15곳에 흩어져 있던 것과 같은 병이다. 하나만 빠뜨려도 화면마다
+  점수가 갈리는데 숫자가 그럴듯해 발견되지 않는다. **다시 지역 판정식을 쓰지 말 것.**
+  - 손댄 곳: awards · daily-boxscore · stats/[gameId] · players/detail(6) · players/career ·
+    teams/insights · season-highs · events(POST/PATCH) · recompute · computeBadges(4) ·
+    highlights/loader(3) · leagueStats(2) · clutchStats · milestones · perDayStats
+  - `league_games` 를 새로 select 하는 집계는 **`plus_one_extra_ids` 도 함께 읽어야 한다.**
+- 검증: `node scripts/verify-scoring.mjs` **전부 통과** — 2026-08-04 이전 총득점 **7114 불변**,
+  저장 points == 계산값 전량 일치. 즉 이 리팩터링이 기존 점수를 하나도 바꾸지 않았다.
+  (스크립트의 SQL 판정식에도 `plus_one_extra_ids` 를 반영했다)
+- 실측: 1경기 슬롯에서 김로빈(야투 5개)을 임시 지정 → 11점 → **16점**(+5) → 해제 → 11점.
+- 화면: 팀 설정 아래 "이 경기 한정 +1" 칩. **`이 날짜 전 슬롯에 함께 적용` 체크박스**가 핵심 —
+  슬롯을 쿼터 단위로 쓰는 날은 한 경기가 4칸이라 한 칸씩 누르면 반드시 어긋난다.
+  전역 +1 선수는 `상시` 라벨로 표시하고 여기서 끌 수 없게 한다(전역 플래그를 화면에서 만지면
+  과거가 바뀐다). 토글하면 그 슬롯의 저장 스코어를 `recompute` 로 다시 맞춘다.
+
 **최근 결정 (2026-08-23, 기록된 경기의 팀 교체 + 친선전 명단 상속):**
 - **팀 교체(`POST /games/[gameId]/reassign-teams`)** — 지금까지 기록이 시작되면 팀 셀렉트가
   `disabled` 라, 잘못 지정한 채 마감하면 되돌릴 방법이 **아예 없었다**(8/22 1경기가 그 상태).
