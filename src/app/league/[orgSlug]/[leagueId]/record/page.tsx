@@ -11,6 +11,7 @@ import {
   Lock, Loader2, Play, Square, ChevronLeft,
   CheckCircle2, Circle, Youtube, RefreshCw, UserPlus, ClipboardList,
   CalendarDays, PlayCircle, Zap, AlertTriangle, Sparkles, X, ArrowLeftRight, Wand2,
+  Link2, Search,
 } from 'lucide-react'
 import { volumeForRound } from '@/lib/social/volume'
 import { generateRotation, resolveFirstGame } from '@/lib/league/rotation'
@@ -158,6 +159,14 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [rosterLoading, setRosterLoading] = useState(false)
   const [pendingIrregular, setPendingIrregular] = useState<IrregularPlayer | null>(null)
   const [addingIrregular, setAddingIrregular] = useState(false)
+
+  // 영상 수동 연동 — 자동 매핑은 제목 규칙에 기대므로 규칙이 깨지는 날이 있다(쿼터별로 쪼갠
+  //   영상 등). 그때 손으로 붙일 수단이 없으면 그 날짜 기록 전체가 영상 없이 진행된다.
+  const [ytInput, setYtInput] = useState('')
+  const [ytSaving, setYtSaving] = useState(false)
+  const [ytPickerOpen, setYtPickerOpen] = useState(false)
+  const [ytList, setYtList] = useState<{ video_id: string; title: string; url: string; thumbnail: string | null }[]>([])
+  const [ytListLoading, setYtListLoading] = useState(false)
 
   // 친선전 전용 임시팀 — 선택한 날짜에만 유효하다(109). 상시 3팀과 별도로 들고 있는 이유는
   //   둘의 수명이 다르기 때문이다. teams 는 분기 override 로 이름이 갈리고, 이쪽은 그날로 끝난다.
@@ -316,6 +325,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     }
   }
   useEffect(() => { loadAdhocTeams(selectedDate) }, [leagueId, selectedDate]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 날짜가 바뀌면 영상 목록 캐시를 버린다 — 안 버리면 다른 날짜 영상이 그대로 뜬다
+  useEffect(() => { setYtList([]); setYtPickerOpen(false); setYtInput('') }, [selectedDate, selectedSlotId])
 
   async function loadRoster(slot: GameSlot) {
     if (!slot.home_team_id || !slot.away_team_id) return
@@ -649,6 +661,73 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       toast.error(e instanceof Error ? e.message : '좌우 교체 실패')
     } finally {
       setSwappingId(null)
+    }
+  }
+
+  // 붙여넣은 값에서 videoId 를 뽑는다. watch?v= · youtu.be/ · shorts/ · embed/ · 순수 ID 를 받는다.
+  //   기록원이 주소창을 통째로 복사하면 `&t=` `?si=` 같은 꼬리가 붙는데, 그대로 저장하면
+  //   플레이어가 못 읽는 경우가 있어 여기서 ID 만 남긴다.
+  function extractVideoId(raw: string): string | null {
+    const v = raw.trim()
+    if (!v) return null
+    if (/^[\w-]{11}$/.test(v)) return v
+    const m = v.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/)
+    return m ? m[1] : null
+  }
+
+  // 이 슬롯에 영상 링크를 직접 지정. 쿼터별로 쪼갠 영상은 기록 중에 갈아끼우게 된다.
+  async function saveYoutubeUrl(raw: string) {
+    if (!selectedSlotId) return
+    const id = extractVideoId(raw)
+    if (!id) {
+      toast.error('YouTube 링크를 인식하지 못했습니다', {
+        description: 'youtube.com/watch?v=… · youtu.be/… 또는 영상 ID 11자리를 넣으세요',
+        duration: 6000,
+      })
+      return
+    }
+    setYtSaving(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
+        method: 'PATCH',
+        headers: leagueHeaders,
+        body: JSON.stringify({ youtube_url: `https://www.youtube.com/watch?v=${id}`, youtube_start_offset: 0 }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        toast.error(body.error ?? `영상 연동 실패 (${res.status})`, { duration: 6000 })
+        return
+      }
+      setYtInput('')
+      setYtPickerOpen(false)
+      await refreshSlots()
+      toast.success('영상 연동됨')
+    } finally {
+      setYtSaving(false)
+    }
+  }
+
+  // 이 날짜에 올라온 채널 영상 목록 — 제목을 눈으로 보고 고른다(번호 추측 없음).
+  async function loadYoutubeList() {
+    if (!selectedDate) { toast.error('날짜를 먼저 선택하세요'); return }
+    setYtPickerOpen(true)
+    if (ytList.length > 0) return
+    setYtListLoading(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/youtube-videos?date=${selectedDate}`, {
+        headers: leagueHeaders,
+        cache: 'no-store',
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(body.error ?? `영상 목록을 불러오지 못했습니다 (${res.status})`, { duration: 6000 })
+        setYtPickerOpen(false)
+        return
+      }
+      setYtList(body.videos ?? [])
+      if ((body.videos ?? []).length === 0) toast('이 날짜에 올라온 영상이 없습니다')
+    } finally {
+      setYtListLoading(false)
     }
   }
 
@@ -1604,6 +1683,89 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 >
                   영상 링크 제거
                 </button>
+              )}
+            </div>
+
+            {/* 영상 수동 연동 — 자동 매핑은 제목에서 경기 번호를 읽는다. 규칙이 깨지는 날
+                (쿼터별로 쪼갠 영상 등)에는 못 붙거나 엉뚱한 슬롯에 붙는다. 그때 손으로 붙일
+                수단이 없으면 그날 기록 전체가 영상 없이 진행된다. */}
+            <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs shrink-0 font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+                  영상
+                </span>
+                <label htmlFor="yt-url-input" className="sr-only">YouTube 영상 링크</label>
+                <input
+                  id="yt-url-input"
+                  value={ytInput}
+                  onChange={e => setYtInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !ytSaving) { e.preventDefault(); saveYoutubeUrl(ytInput) } }}
+                  placeholder={selectedSlot.youtube_url ? '다른 영상으로 교체 — 링크 붙여넣기' : 'YouTube 링크 붙여넣기'}
+                  className="flex-1 min-w-[180px] px-2.5 py-1.5 text-xs min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => saveYoutubeUrl(ytInput)}
+                  disabled={ytSaving || ytInput.trim().length === 0}
+                  className="inline-flex items-center gap-1.5 shrink-0 cursor-pointer text-xs font-bold uppercase tracking-[0.14em] px-3 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
+                >
+                  {ytSaving
+                    ? <Loader2 size={12} className="animate-spin" aria-hidden />
+                    : <Link2 size={12} strokeWidth={2.5} aria-hidden />}
+                  연동
+                </button>
+                <button
+                  type="button"
+                  onClick={loadYoutubeList}
+                  disabled={ytListLoading}
+                  title="이 날짜에 올라온 채널 영상을 목록으로 불러와 고릅니다"
+                  className="inline-flex items-center gap-1.5 shrink-0 cursor-pointer text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                >
+                  {ytListLoading
+                    ? <Loader2 size={12} className="animate-spin" aria-hidden />
+                    : <Search size={12} strokeWidth={2.5} aria-hidden />}
+                  목록에서 고르기
+                </button>
+              </div>
+
+              {/* 이 날짜 영상 목록 — 제목을 그대로 보여준다. 번호를 추측하지 않는 게 핵심이다.
+                  이미 다른 슬롯에 붙은 영상은 어디에 붙었는지 표시해 중복 배정을 막는다. */}
+              {ytPickerOpen && ytList.length > 0 && (
+                <ul
+                  className="mt-2 list-none p-0 m-0 overflow-y-auto max-h-[260px]"
+                  style={{ border: '1px solid var(--mm-rule)', borderRadius: '4px', background: 'var(--mm-panel-alt)' }}
+                >
+                  {ytList.map(v => {
+                    const usedBy = slots.find(sl => sl.youtube_url?.includes(v.video_id))
+                    const isThis = usedBy?.id === selectedSlot.id
+                    return (
+                      <li key={v.video_id} style={{ borderBottom: '1px solid var(--mm-rule)' }}>
+                        <button
+                          type="button"
+                          onClick={() => saveYoutubeUrl(v.url)}
+                          disabled={ytSaving || isThis}
+                          className="w-full text-left flex items-center gap-2.5 px-2.5 py-2 min-h-[44px] cursor-pointer transition-colors duration-200 hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        >
+                          {v.thumbnail && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={v.thumbnail} alt="" className="w-14 h-10 object-cover shrink-0 opacity-80" style={{ borderRadius: '3px' }} />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-xs leading-snug" style={{ color: 'var(--mm-ink)' }}>{v.title}</span>
+                            {usedBy && (
+                              <span className="block text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>
+                                {isThis ? '지금 이 슬롯에 연결됨' : `${usedBy.slot_num}경기에 연결됨`}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
               )}
             </div>
 
