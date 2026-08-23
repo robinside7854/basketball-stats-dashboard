@@ -42,6 +42,10 @@ export async function GET(
       .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num, plus_one_player_id, plus_one_extra_ids, is_exhibition')
       .eq('league_id', leagueId)
       .eq('is_started', true)   // 마감 여부와 무관하게 기록 시작된 게임 전체 포함
+      // 친선전(비공식)은 제외 — 이 라우트는 순위·통산최고·월별·승패·스트릭을 만드는 스탯 페이지다.
+      //   빠뜨리면 비공식 경기로 개인 최고 기록이 갱신되고 순위가 흔들린다.
+      //   (2026-08-23 발견: 8/22 친선전 10경기·592이벤트가 그대로 섞여 있었다)
+      .eq('is_exhibition', false)
       .order('date', { ascending: false }),
     supabase.from('league_teams').select('id, name, color').eq('league_id', leagueId),
     supabase.from('leagues').select('name').eq('id', leagueId).single(),

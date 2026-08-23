@@ -44,7 +44,7 @@ export async function POST(
   // 이벤트 조회 (team_id + 이벤트 타입/결과)
   const { data: events } = await supabase
     .from('league_game_events')
-    .select('team_id, type, result, league_player_id')
+    .select('id, team_id, type, result, league_player_id, points')
     .eq('league_game_id', gameId)
     .not('league_player_id', 'is', null)
 
@@ -92,6 +92,42 @@ export async function POST(
     else if (teamId === game.away_team_id) awayScore += pts
   }
 
+  // ── 이벤트 저장 점수 재동기화 ──────────────────────────────────────
+  //   `league_game_events.points` 는 **기록 시점의** 룰·플러스원으로 굳어 있다.
+  //   나중에 +1 지정을 바꾸면(경기 한정 +1 등) 그 이전에 남긴 이벤트의 저장값만 옛 점수로 남는다.
+  //   화면 집계는 전부 scorePoints() 로 재계산해서 표시는 맞지만, 저장값을 쓰는 경로가
+  //   하나라도 있으면 거기서만 틀린 점수가 나온다(예전에 실제로 6건 어긋난 적이 있다).
+  //   2026-08-23 에 허승용 이벤트 1건이 이 상태로 남아 verify-scoring 이 잡아냈다.
+  //   같은 값끼리 묶어 update 한다 — 이벤트가 수십 건이라 한 건씩 왕복할 이유가 없다.
+  const byPoints = new Map<number, string[]>()
+  for (const e of events ?? []) {
+    if (!e.league_player_id) continue
+    const want = calcPts(e.type, e.result ?? '', e.league_player_id)
+    if ((e.points ?? 0) === want) continue
+    const list = byPoints.get(want) ?? []
+    list.push(e.id as string)
+    byPoints.set(want, list)
+  }
+  let resynced = 0
+  for (const [want, ids] of byPoints) {
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200)
+      // 성공 판정은 반환 행 수로만 — PostgREST 는 RLS 에 막혀도 204 를 준다(감사 04 ②)
+      const { data: upd, error } = await supabase
+        .from('league_game_events')
+        .update({ points: want })
+        .in('id', chunk)
+        .select('id')
+      if (error || !upd || upd.length !== chunk.length) {
+        return NextResponse.json(
+          { error: `이벤트 점수 재동기화 실패 — ${error?.message ?? `${chunk.length}건 중 ${upd?.length ?? 0}건만 반영`}` },
+          { status: 500 },
+        )
+      }
+      resynced += upd.length
+    }
+  }
+
   // DB 점수 업데이트
   const { error: updateErr } = await supabase
     .from('league_games')
@@ -105,5 +141,5 @@ export async function POST(
   revalidateTag(`league-${leagueId}`, 'max')
   revalidateTag(`league-${leagueId}-games`, 'max')
 
-  return NextResponse.json({ home_score: homeScore, away_score: awayScore })
+  return NextResponse.json({ home_score: homeScore, away_score: awayScore, resynced_events: resynced })
 }

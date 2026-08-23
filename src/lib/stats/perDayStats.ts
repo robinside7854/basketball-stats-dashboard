@@ -61,6 +61,10 @@ export async function computePerDayStats(
     .select('id, date, home_team_id, away_team_id, home_score, away_score, is_exhibition, plus_one_player_id, plus_one_extra_ids')
     .eq('league_id', leagueId)
     .eq('is_started', true)
+    // 친선전 제외 — 이 집계는 스트릭(10득점 연속·더블더블 연속 등)의 소스다.
+    //   빠뜨리면 비공식 경기가 "그날"로 끼어들어 스트릭이 부풀거나(잘한 날) 끊긴다(못한 날).
+    //   아래 승패 판정에도 같은 조건이 있지만, 그건 W/L 만 막을 뿐 선수 스탯 누적은 못 막는다.
+    .eq('is_exhibition', false)
   if (opts.quarterId) gQuery = gQuery.eq('quarter_id', opts.quarterId)
 
   const { data: games, error: gErr } = await gQuery

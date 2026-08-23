@@ -46,6 +46,9 @@ export async function aggregateQuarterStats(
     .eq('league_id', leagueId)
     .eq('quarter_id', quarterId)
     .eq('is_started', true)
+    // 친선전 제외 — 이 값은 드래프트 자동픽·드래프트 화면의 선수 점수가 된다.
+    //   비공식 경기가 섞이면 지명 순서가 실제 실력과 어긋난다.
+    .eq('is_exhibition', false)
   const gameIds = (games ?? []).map(g => g.id)
   if (gameIds.length === 0) return {}
   const gamePlusOneMap: Record<string, GamePlusOne> = {}
