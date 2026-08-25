@@ -61,6 +61,11 @@ export type AuditAction =
   // 경기 · 기록
   | 'game.reset'
   | 'game.delete'
+  // 대회(파란날개) 기록기 — 마감 해제(비파괴)와 기록 전체 삭제(파괴)를
+  // 반드시 다른 행위로 남긴다. 둘이 같은 버튼이었던 것이 2026-08-07·08-22 사고의 원인이다.
+  | 'game.reopen'
+  | 'game.records.clear'
+  | 'game.records.restore'
   // 기록이 있는 경기의 팀 교체 — 이벤트·명단의 team_id 를 함께 옮기므로 흔적을 남긴다
   | 'game.reassign_teams'
   | 'event.update'

@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
+import { AlertTriangle, Check, CircleCheckBig, PlayCircle, Trash2, Undo2 } from 'lucide-react'
 import { sortJerseyNum } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -21,6 +22,17 @@ const SESS_TID = 'bball_record_tid'
 const SESS_GID = 'bball_record_gid'
 const SESS_YT_TIME = 'bball_record_yt_time'
 const SESS_YT_GID  = 'bball_record_yt_gid'
+
+/** 삭제 시각 표시용 — "8월 22일 23:32" (보는 사람의 로컬 시간대) */
+function fmtDeletedAt(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('ko-KR', {
+      month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    })
+  } catch {
+    return ''
+  }
+}
 
 export default function RecordPage() {
   const { isEditMode, openPinModal } = useEditMode()
@@ -68,6 +80,21 @@ function RecordPageInner() {
   // Feature 3: opponent score modal
   const [showCompleteModal, setShowCompleteModal] = useState(false)
   const [oppScoreInput, setOppScoreInput] = useState('')
+
+  // 기록 전체 삭제 — 파괴적 동작은 건수를 보여주고 문구를 받아 적게 한 뒤에만 실행한다.
+  // (2026-08-07·08-22 두 번 모두 "다시 기록하기" 라벨의 버튼 한 번으로 전량이 사라졌다)
+  const [showClearModal, setShowClearModal] = useState(false)
+  const [clearCounts, setClearCounts] = useState<{ events: number; minutes: number } | null>(null)
+  const [clearConfirmText, setClearConfirmText] = useState('')
+  const [clearing, setClearing] = useState(false)
+  const [reopening, setReopening] = useState(false)
+
+  // 되돌리기 — 마이그레이션 088 아카이브에 남은 삭제분
+  const [restorable, setRestorable] = useState<
+    { events: number; minutes: number; lastDeletedAt: string | null } | null
+  >(null)
+  const [restoring, setRestoring] = useState(false)
+  const [restoreRefresh, setRestoreRefresh] = useState(0)
 
   // Feature 2: add player inline
   const [showAddPlayer, setShowAddPlayer] = useState(false)
@@ -196,7 +223,6 @@ function RecordPageInner() {
     setMinutes([])
     fetch(`/api/minutes?gameId=${selectedGId}`).then(r => r.json()).then((data: PlayerMinutes[]) => {
       setMinutes(data)
-      const isComplete = game?.is_complete ?? false
       const open = data.filter((m: PlayerMinutes) => m.out_time == null)
       if (open.length > 0) {
         const maxQ = Math.max(...open.map((m: PlayerMinutes) => m.quarter))
@@ -204,7 +230,10 @@ function RecordPageInner() {
         const uniqueIds = [...new Set(open.filter((m: PlayerMinutes) => m.quarter === maxQ).map((m: PlayerMinutes) => m.player_id))]
         setLineup(uniqueIds)
         setGameStarted(true)
-      } else if (isComplete && data.length > 0) {
+      } else if (data.length > 0) {
+        // 마감 여부를 보지 않는다 — 출전기록이 있으면 이미 시작된 경기다.
+        // 예전엔 isComplete 일 때만 복원해서, 마감을 해제(reopenGame)하는 순간
+        // 코트가 비고 '선발 5명 선택' 화면으로 돌아가 버렸다.
         const maxQ = Math.max(...data.map((m: PlayerMinutes) => m.quarter))
         setCurrentQuarter(maxQ)
         const lastIds = [...new Set(data.filter((m: PlayerMinutes) => m.quarter === maxQ).map((m: PlayerMinutes) => m.player_id))]
@@ -220,6 +249,25 @@ function RecordPageInner() {
     }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGId, games])
+
+  // 이 경기에 되살릴 수 있는 삭제분이 있는지 확인한다(마이그레이션 088 아카이브).
+  // "지워진 기록이 있다" 는 사실 자체가 정보라, 서버는 편집 PIN 이 있을 때만 알려준다.
+  useEffect(() => {
+    if (!selectedGId) { setRestorable(null); return }
+    let cancelled = false
+    fetch(`/api/games/${selectedGId}/restore`, { headers: { ...teamHeaders } })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (cancelled) return
+        setRestorable(
+          d?.restorable ? { events: d.events, minutes: d.minutes, lastDeletedAt: d.lastDeletedAt } : null
+        )
+      })
+      .catch(() => { if (!cancelled) setRestorable(null) })
+    return () => { cancelled = true }
+  // teamHeaders 는 매 렌더 새 객체다 — 의존성에 넣으면 무한 루프가 된다.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGId, restoreRefresh])
 
   const fetchMinutes = useCallback(async () => {
     if (!selectedGId) return
@@ -303,25 +351,118 @@ function RecordPageInner() {
     setStatsRefresh(k => k + 1)
   }
 
-  async function resetGame() {
+  /**
+   * 마감 해제 — **비파괴**. is_complete 만 내리고 이벤트·출전기록은 그대로 둔다.
+   * 리그 기록기의 reopenGame 과 같은 동작이며, 마감된 경기를 이어서 손보는 정상 경로다.
+   * 예전에는 이 경로가 없어서 "다시 기록하기" 라벨이 전량 삭제로 연결돼 있었다.
+   */
+  async function reopenGame() {
     if (!currentGame) return
-    if (!confirm('이 경기의 모든 기록(이벤트, 출전시간)을 삭제하고 처음부터 다시 시작하시겠습니까?')) return
-    await Promise.all([
-      fetch(`/api/events?gameId=${currentGame.id}`, { method: 'DELETE', headers: { ...teamHeaders } }),
-      fetch(`/api/minutes?gameId=${currentGame.id}`, { method: 'DELETE', headers: { ...teamHeaders } }),
-      fetch(`/api/games/${currentGame.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ is_complete: false }) }),
-    ])
-    sessionStorage.removeItem(SESS_YT_TIME)
-    sessionStorage.removeItem(SESS_YT_GID)
-    setYtResumeAt(undefined)
-    resetLineup()
-    setGameStarted(false)
+    setReopening(true)
+    const res = await fetch(`/api/games/${currentGame.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...teamHeaders },
+      body: JSON.stringify({ is_complete: false }),
+    })
+    setReopening(false)
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      toast.error(`전환 실패: ${d.error ?? res.status}`)
+      return
+    }
     setGameComplete(false)
-    setCurrentQuarter(1)
-    setMinutes([])
-    setStarterIds([])
-    setStatsRefresh(k => k + 1)
-    toast.success('초기화 완료. 선발 5명을 다시 선택하세요.')
+    setCurrentGame({ ...currentGame, is_complete: false })
+    setGames(prev => prev.map(g => (g.id === currentGame.id ? { ...g, is_complete: false } : g)))
+    toast.success('기록 모드로 복귀했습니다. 기존 기록은 그대로 유지됩니다.')
+  }
+
+  /** 삭제 전에 "몇 건이 사라지는지" 를 실제로 세어서 보여준다. */
+  async function openClearModal() {
+    if (!currentGame) return
+    setClearConfirmText('')
+    setClearCounts(null)
+    setShowClearModal(true)
+    const [ev, mn] = await Promise.all([
+      fetch(`/api/events?gameId=${currentGame.id}`).then(r => r.json()).catch(() => []),
+      fetch(`/api/minutes?gameId=${currentGame.id}`).then(r => r.json()).catch(() => []),
+    ])
+    setClearCounts({
+      events: Array.isArray(ev) ? ev.length : 0,
+      minutes: Array.isArray(mn) ? mn.length : 0,
+    })
+  }
+
+  /** 기록 전체 삭제 — 파괴적. 확인 문구를 정확히 받아 적어야만 실행된다. */
+  async function confirmClear() {
+    if (!currentGame || clearConfirmText.trim() !== '삭제') return
+    setClearing(true)
+    try {
+      const [evRes, mnRes] = await Promise.all([
+        fetch(`/api/events?gameId=${currentGame.id}`, { method: 'DELETE', headers: { ...teamHeaders } }),
+        fetch(`/api/minutes?gameId=${currentGame.id}`, { method: 'DELETE', headers: { ...teamHeaders } }),
+      ])
+      if (!evRes.ok || !mnRes.ok) {
+        toast.error('삭제 실패 — 권한(편집 PIN)을 확인하세요')
+        return
+      }
+      const evData = await evRes.json().catch(() => ({}))
+      const mnData = await mnRes.json().catch(() => ({}))
+      await fetch(`/api/games/${currentGame.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...teamHeaders },
+        body: JSON.stringify({ is_complete: false }),
+      })
+      sessionStorage.removeItem(SESS_YT_TIME)
+      sessionStorage.removeItem(SESS_YT_GID)
+      setYtResumeAt(undefined)
+      resetLineup()
+      setGameStarted(false)
+      setGameComplete(false)
+      setCurrentQuarter(1)
+      setMinutes([])
+      setStarterIds([])
+      setStatsRefresh(k => k + 1)
+      setGames(prev => prev.map(g => (g.id === currentGame.id ? { ...g, is_complete: false } : g)))
+      setShowClearModal(false)
+      setRestoreRefresh(k => k + 1)
+      toast.success(
+        `이벤트 ${evData.deleted ?? 0}건 · 출전기록 ${mnData.deleted ?? 0}건을 삭제했습니다. 되돌리기로 복구할 수 있습니다.`,
+        { duration: 8000 },
+      )
+    } finally {
+      setClearing(false)
+    }
+  }
+
+  /** 되돌리기 — 삭제 트리거가 *_archive 에 남겨둔 행을 되살린다(멱등). */
+  async function restoreRecords() {
+    if (!currentGame) return
+    setRestoring(true)
+    try {
+      const res = await fetch(`/api/games/${currentGame.id}/restore`, {
+        method: 'POST',
+        headers: { ...teamHeaders },
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(`복구 실패: ${d.error ?? res.status}`)
+        return
+      }
+      const orphan = (d.orphanEvents ?? 0) + (d.orphanMinutes ?? 0)
+      toast.success(
+        `이벤트 ${d.events}건 · 출전기록 ${d.minutes}건을 되살렸습니다.` +
+          (d.reCompleted ? ' 경기 마감 상태도 복구했습니다.' : '') +
+          (orphan > 0 ? ` (선수가 삭제된 ${orphan}건은 제외)` : ''),
+        { duration: 8000 },
+      )
+      setRestoreRefresh(k => k + 1)
+      setStatsRefresh(k => k + 1)
+      // 경기를 다시 읽어 코트·마감 상태를 서버 기준으로 맞춘다.
+      const games2 = await fetch(`/api/games?tournamentId=${selectedTId}`).then(r => r.json()).catch(() => null)
+      if (Array.isArray(games2)) setGames(games2)
+    } finally {
+      setRestoring(false)
+    }
   }
 
   async function recordOppScore(pts: number) {
@@ -459,6 +600,110 @@ function RecordPageInner() {
         </div>
       )}
 
+      {/* 기록 전체 삭제 확인 — 건수를 실제로 세어 보여주고, 문구를 받아 적게 한다.
+          window.confirm 한 줄로는 "몇 건이 사라지는지" 를 말할 수 없었다. */}
+      {showClearModal && (
+        <div
+          className="fixed inset-0 z-[200] bg-[var(--mm-ink)]/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget && !clearing) setShowClearModal(false) }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clear-modal-title"
+        >
+          <div className="bg-[var(--mm-panel)] border border-red-900/70 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl w-full max-w-sm">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={22} className="text-red-400 shrink-0 mt-0.5" aria-hidden />
+              <div>
+                <div id="clear-modal-title" className="text-lg font-bold text-[var(--mm-ink)]">기록 전체 삭제</div>
+                <div className="text-[var(--mm-muted)] text-sm mt-0.5">
+                  {currentGame?.opponent ? `vs ${currentGame.opponent}` : '이 경기'} 기록을 모두 지웁니다
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] p-3 text-sm">
+              {clearCounts === null ? (
+                <p className="text-[var(--mm-muted)]">삭제될 기록을 세는 중…</p>
+              ) : (
+                <ul className="space-y-1 text-[var(--mm-ink-soft)]">
+                  <li className="flex justify-between">
+                    <span>이벤트</span>
+                    <b className="text-red-400 font-mono">{clearCounts.events}건</b>
+                  </li>
+                  <li className="flex justify-between">
+                    <span>출전기록</span>
+                    <b className="text-red-400 font-mono">{clearCounts.minutes}건</b>
+                  </li>
+                  <li className="flex justify-between border-t border-[var(--mm-rule)] pt-1 mt-1">
+                    <span>경기 마감</span>
+                    <span className="text-[var(--mm-muted)]">해제됨</span>
+                  </li>
+                </ul>
+              )}
+            </div>
+
+            <p className="text-xs text-[var(--mm-muted)] leading-relaxed">
+              마감만 해제하고 이어서 기록하려면 <b className="text-[var(--mm-ink-soft)]">이어서 기록하기</b> 를 쓰세요.
+              삭제한 기록은 이 화면의 <b className="text-amber-300">되돌리기</b> 로 복구할 수 있습니다.
+            </p>
+
+            <div>
+              <label htmlFor="clear-confirm" className="block text-xs text-[var(--mm-ink-soft)] mb-1.5">
+                계속하려면 <b className="text-red-400">삭제</b> 라고 입력하세요
+              </label>
+              <input
+                id="clear-confirm"
+                type="text"
+                value={clearConfirmText}
+                onChange={e => setClearConfirmText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && clearConfirmText.trim() === '삭제') confirmClear() }}
+                autoComplete="off"
+                autoFocus
+                className="w-full min-h-11 px-3 bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] rounded-xl text-[var(--mm-ink)] text-sm focus:outline-none focus:border-red-600"
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowClearModal(false)}
+                disabled={clearing}
+                className="flex-1 min-h-11 py-2.5 rounded-xl border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:bg-[var(--mm-panel-alt)] hover:text-[var(--mm-ink)] text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                취소
+              </button>
+              <button
+                onClick={confirmClear}
+                disabled={clearing || clearConfirmText.trim() !== '삭제'}
+                className="flex-1 min-h-11 py-2.5 rounded-xl bg-red-700 hover:bg-red-600 text-white text-sm font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {clearing ? '삭제 중…' : '삭제'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 되돌리기 — 삭제 트리거(088)가 남긴 아카이브가 있으면 여기서 알린다.
+          예전에는 이 사실을 아무도 몰랐고, 복구하려면 service role SQL 이 필요했다. */}
+      {restorable && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-700/60 bg-amber-950/20 px-3 py-2 mb-3">
+          <AlertTriangle size={16} className="text-amber-400 shrink-0" aria-hidden />
+          <p className="flex-1 min-w-[14rem] text-xs text-[var(--mm-ink-soft)] leading-relaxed">
+            삭제된 기록이 남아 있습니다 —{' '}
+            <b className="text-amber-300">이벤트 {restorable.events}건 · 출전기록 {restorable.minutes}건</b>
+            {restorable.lastDeletedAt && <> ({fmtDeletedAt(restorable.lastDeletedAt)} 삭제)</>}
+          </p>
+          <button
+            onClick={restoreRecords}
+            disabled={restoring}
+            className="inline-flex items-center gap-1.5 min-h-11 px-3 py-2 rounded-lg border border-amber-600 text-amber-300 hover:bg-amber-900/30 text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <Undo2 size={14} aria-hidden />
+            {restoring ? '되돌리는 중…' : '되돌리기'}
+          </button>
+        </div>
+      )}
+
       <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl px-3 py-2 flex-shrink-0 mb-3">
         <div className="flex flex-wrap items-center gap-2">
           <Select
@@ -530,24 +775,35 @@ function RecordPageInner() {
                   <span className="text-[var(--mm-muted)] text-xs">코트:{onCourt.length}</span>
                 </div>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={resetGame}
-                className="h-7 min-h-7 text-xs border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-red-400 hover:border-red-600 px-2 cursor-pointer"
-              >
-                초기화
-              </Button>
               {gameComplete ? (
-                <span className="text-green-400 text-sm font-semibold">✓ 기록 완료</span>
-              ) : (
-                <Button
-                  size="sm"
-                  onClick={completeGame}
-                  className="h-7 text-xs bg-green-700 hover:bg-green-600 text-white px-3 cursor-pointer"
-                >
+                <span className="inline-flex items-center gap-1 text-green-400 text-sm font-semibold">
+                  <Check size={15} aria-hidden />
                   기록 완료
-                </Button>
+                </span>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    onClick={completeGame}
+                    className="h-9 min-h-9 text-xs bg-green-700 hover:bg-green-600 text-white px-3 cursor-pointer"
+                  >
+                    기록 완료
+                  </Button>
+                  {/* 파괴적 동작은 '기록 완료' 와 붙여 두지 않는다 — 구분선으로 떼고, 색·아이콘으로
+                      위험을 표시하고, 마감된 경기에서는 아예 툴바에서 내린다(마감 화면에만 둔다).
+                      예전엔 h-7(28px) '초기화' 버튼이 '기록 완료' 바로 옆에 상시 노출돼 있었다. */}
+                  <span className="w-px h-5 bg-[var(--mm-rule)] mx-0.5" aria-hidden />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={openClearModal}
+                    aria-label="이 경기의 기록 전체 삭제"
+                    className="h-11 min-h-11 gap-1 text-xs border-red-900/70 text-red-400 hover:bg-red-950/40 hover:text-red-300 hover:border-red-600 px-2.5 cursor-pointer"
+                  >
+                    <Trash2 size={14} aria-hidden />
+                    기록 삭제
+                  </Button>
+                </>
               )}
             </div>
           )}
@@ -594,17 +850,39 @@ function RecordPageInner() {
           <div className={`lg:sticky lg:top-[60px] lg:self-start bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-3 lg:max-h-[calc(100vh-80px)] lg:overflow-y-auto space-y-3 ${mobileTab !== 'record' ? 'hidden lg:block' : ''}`}>
             {gameComplete ? (
               <div className="flex flex-col items-center justify-center text-center gap-4 py-10">
-                <div className="text-5xl">✅</div>
+                <CircleCheckBig size={44} className="text-green-400" aria-hidden />
                 <div>
                   <p className="text-green-400 font-bold text-lg">기록이 완료된 경기입니다</p>
                   <p className="text-[var(--mm-muted)] text-sm mt-1">박스스코어 탭에서 최종 스탯을 확인하세요</p>
                 </div>
+
+                {/* 기본 경로는 비파괴다. 예전엔 이 자리의 버튼이 "다시 기록하기" 라는 이름으로
+                    이벤트·출전기록을 전량 삭제했고, 그게 2026-08-07·08-22 기록 유실의 원인이었다.
+                    리그 기록기의 같은 라벨은 마감만 해제하므로, 두 화면의 동작을 여기서 일치시킨다. */}
                 <button
-                  onClick={resetGame}
-                  className="mt-2 min-h-11 px-4 py-2 rounded-lg border border-red-800 text-red-400 hover:bg-red-900/30 text-sm font-medium transition-colors cursor-pointer"
+                  onClick={reopenGame}
+                  disabled={reopening}
+                  className="mt-1 inline-flex items-center gap-2 min-h-11 px-5 py-2 rounded-xl bg-[var(--mm-ink)] text-[var(--mm-panel)] text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  다시 기록하기
+                  <PlayCircle size={16} aria-hidden />
+                  {reopening ? '전환 중…' : '이어서 기록하기'}
                 </button>
+                <p className="text-[var(--mm-muted)] text-xs -mt-1">
+                  기존 기록은 그대로 두고 마감만 해제합니다
+                </p>
+
+                <div className="w-full max-w-xs border-t border-[var(--mm-rule)] pt-4 mt-2">
+                  <button
+                    onClick={openClearModal}
+                    className="inline-flex items-center gap-1.5 min-h-11 px-3 py-2 rounded-lg text-red-400 hover:bg-red-950/30 hover:text-red-300 text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    <Trash2 size={14} aria-hidden />
+                    기록 전체 삭제
+                  </button>
+                  <p className="text-[var(--mm-muted)] text-[11px] mt-0.5">
+                    처음부터 다시 기록할 때만 사용하세요
+                  </p>
+                </div>
               </div>
             ) : !gameStarted ? (
               <div>

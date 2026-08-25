@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { resolveTeamIdForGame, resolveTeamIdForPlayerMinutes, verifyTeamPinForTeam } from '@/lib/teamPinAuth'
+import { logAudit } from '@/lib/audit'
 
 export async function GET(req: Request) {
   const supabase = createClient()
@@ -26,9 +27,24 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const supabase = createClient()
-  const { error } = await supabase.from('player_minutes').delete().eq('game_id', gameId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+  const { data: removed, error } = await supabase
+    .from('player_minutes')
+    .delete()
+    .eq('game_id', gameId)
+    .select('id')
+  if (error) {
+    await logAudit({
+      req, action: 'game.records.clear', targetTable: 'player_minutes', targetId: gameId,
+      teamId, result: 'failure',
+    })
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  const deleted = removed?.length ?? 0
+  await logAudit({
+    req, action: 'game.records.clear', targetTable: 'player_minutes', targetId: gameId,
+    teamId, detail: { deletedMinutes: deleted },
+  })
+  return NextResponse.json({ success: true, deleted })
 }
 
 export async function POST(req: Request) {

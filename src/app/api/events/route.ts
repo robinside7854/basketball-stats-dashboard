@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { resolveTeamIdForGame, verifyTeamPinForTeam } from '@/lib/teamPinAuth'
+import { logAudit } from '@/lib/audit'
 
 export async function GET(req: Request) {
   const supabase = createClient()
@@ -27,9 +28,27 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const supabase = createClient()
-  const { error } = await supabase.from('game_events').delete().eq('game_id', gameId)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+  // 몇 건이 사라졌는지를 함께 남긴다 — "초기화했다" 보다 "이벤트 147건이 사라졌다" 가
+  // 사후 조사에서 훨씬 유용하다. 대회 스탯은 이 이벤트 재집계로만 만들어진다.
+  // (2026-08-07·08-22 두 번의 기록 유실은 이 라우트에 흔적이 없어 지문 추적으로 찾아야 했다)
+  const { data: removed, error } = await supabase
+    .from('game_events')
+    .delete()
+    .eq('game_id', gameId)
+    .select('id')
+  if (error) {
+    await logAudit({
+      req, action: 'game.records.clear', targetTable: 'game_events', targetId: gameId,
+      teamId, result: 'failure',
+    })
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  const deleted = removed?.length ?? 0
+  await logAudit({
+    req, action: 'game.records.clear', targetTable: 'game_events', targetId: gameId,
+    teamId, detail: { deletedEvents: deleted },
+  })
+  return NextResponse.json({ success: true, deleted })
 }
 
 export async function POST(req: Request) {
