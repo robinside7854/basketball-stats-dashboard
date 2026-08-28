@@ -1,5 +1,6 @@
 'use client'
 import { createContext, useContext, useEffect, useState } from 'react'
+import { X } from 'lucide-react'
 
 const SESSION_KEY = 'edit_mode'
 const PIN_KEY = 'edit_pin'
@@ -108,10 +109,13 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
           <div className="relative bg-gray-900 border border-gray-700 rounded-2xl p-8 flex flex-col items-center gap-6 shadow-2xl w-full max-w-sm">
+            {/* p-3 -m-3 — 아이콘(20px)은 그대로 두고 터치 영역만 44×44 로 넓힌다.
+                음수 마진이 패딩만큼 되돌려서 버튼이 보이는 위치는 안 밀린다. */}
             <button
               onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-white text-lg leading-none"
-            >✕</button>
+              aria-label="닫기"
+              className="absolute top-4 right-4 p-3 -m-3 text-gray-500 hover:text-white transition-colors duration-200 cursor-pointer"
+            ><X size={20} /></button>
 
             <div className="text-center">
               <div className="text-xl font-bold mb-1">편집 모드 전환</div>
