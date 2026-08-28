@@ -492,17 +492,17 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
             <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
               <p className="text-xs text-[var(--mm-ink-soft)] font-bold uppercase tracking-widest">참가자 준비 현황</p>
               <button onClick={() => fetchData(true)} className={`inline-flex items-center gap-1 ${chipButton}`} aria-label="준비 현황 새로고침">
-                <RefreshCw size={12} /> 새로고침
+                <RefreshCw size={14} /> 새로고침
               </button>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {teams.map(t => (
                 <span key={t.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${ready[t.id] ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)]'}`}>
-                  {ready[t.id] ? <CheckCircle2 size={13} /> : <Circle size={13} />}{t.name} 단장
+                  {ready[t.id] ? <CheckCircle2 size={14} /> : <Circle size={14} />}{t.name} 단장
                 </span>
               ))}
               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${ready['supervisor'] ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)]'}`}>
-                {ready['supervisor'] ? <CheckCircle2 size={13} /> : <Circle size={13} />}감독관
+                {ready['supervisor'] ? <CheckCircle2 size={14} /> : <Circle size={14} />}감독관
               </span>
             </div>
           </div>
@@ -534,7 +534,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       {draft.status !== 'completed' && (
         <div className="rounded-lg border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] p-3 space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <Link2 size={15} className="text-[var(--mm-ink-soft)]" />
+            <Link2 size={16} className="text-[var(--mm-ink-soft)]" />
             <p className="text-sm font-bold text-[var(--mm-ink)] uppercase tracking-widest">공유 링크</p>
             <span className="text-xs text-[var(--mm-muted)]">단장·감독관 전용 진입 페이지</span>
           </div>
@@ -546,17 +546,17 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
                   {typeof window !== 'undefined' ? `${window.location.origin}/draft/${draft.share_token}` : `/draft/${draft.share_token}`}
                 </code>
                 <button onClick={copyShareUrl} aria-label={tokenCopied ? '공유 링크 복사됨' : '공유 링크 복사'} className={`px-2.5 rounded text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors min-h-11 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)] ${tokenCopied ? 'bg-[var(--mm-positive-bg)] text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90'}`}>
-                  {tokenCopied ? <Check size={12} /> : <Copy size={12} />}
+                  {tokenCopied ? <Check size={14} /> : <Copy size={14} />}
                   {tokenCopied ? '복사됨' : '복사'}
                 </button>
               </div>
               <div className="flex gap-1.5 flex-wrap">
                 <Button onClick={generateShareToken} disabled={acting} variant="outline" className="text-sm min-h-11 bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer">
-                  <RotateCcw size={12} className="mr-1" /> 재발급
+                  <RotateCcw size={14} className="mr-1" /> 재발급
                 </Button>
                 {/* 폐기는 기존 링크를 죽이는 파괴 액션 — 재발급과 같은 톤으로 두지 않는다 */}
                 <Button onClick={revokeShareToken} disabled={acting} variant="outline" className="text-sm min-h-11 bg-[var(--mm-negative-bg)] border-[var(--mm-negative)]/40 text-[var(--mm-negative)] hover:text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/70 cursor-pointer">
-                  <X size={12} className="mr-1" /> 폐기
+                  <X size={14} className="mr-1" /> 폐기
                 </Button>
               </div>
             </div>

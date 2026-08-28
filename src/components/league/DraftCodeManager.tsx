@@ -21,7 +21,7 @@ function PlainCodeLine({ plain }: { plain: string | null }) {
   if (!plain) {
     return (
       <div className="mt-1.5 flex items-center gap-1 text-[10px] text-[var(--mm-yellow-strong)]">
-        <AlertCircle size={10} />
+        <AlertCircle size={14} />
         <span>이전 발급(평문 없음) — 수정에서 새 코드 설정 필요</span>
       </div>
     )
@@ -36,7 +36,7 @@ function PlainCodeLine({ plain }: { plain: string | null }) {
         className={`shrink-0 px-2 py-1 rounded text-[10px] font-bold cursor-pointer flex items-center gap-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] ${copied ? 'bg-[var(--mm-positive-bg)] text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90'}`}
         title="복사"
       >
-        {copied ? <Check size={10} /> : <Copy size={10} />}
+        {copied ? <Check size={14} /> : <Copy size={14} />}
         {copied ? '복사됨' : '복사'}
       </button>
     </div>
@@ -231,12 +231,12 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
                       <p className="text-[10px] text-[var(--mm-muted)] mt-1">{existing.last_used_at ? `마지막 사용: ${new Date(existing.last_used_at).toLocaleString('ko-KR')}` : '아직 사용 안 됨'}</p>
                     </div>
                     <div className="flex gap-1.5">
-                      <button onClick={() => setEditingCode({ id: existing.id, label: existing.label, plain_code: '' })} aria-label={`${existing.label} 코드 수정`} className="px-3 min-h-11 rounded-md border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] hover:border-[var(--mm-muted)] text-[var(--mm-ink-soft)] text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]" title="수정"><Pencil size={12} /></button>
+                      <button onClick={() => setEditingCode({ id: existing.id, label: existing.label, plain_code: '' })} aria-label={`${existing.label} 코드 수정`} className="px-3 min-h-11 rounded-md border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] hover:border-[var(--mm-muted)] text-[var(--mm-ink-soft)] text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]" title="수정"><Pencil size={14} /></button>
                       <button onClick={() => toggleActive(existing)} className={`flex-1 min-h-11 rounded-md text-xs font-bold cursor-pointer flex items-center justify-center gap-1 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] ${existing.is_active ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-neutral-bg)] border-[var(--mm-rule)] text-[var(--mm-neutral-fg)]'}`}>
                         {existing.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}{existing.is_active ? '활성' : '비활성'}
                       </button>
                       {/* 파괴 액션 — 수정·활성 토글과 같은 톤이면 손이 안 멈춘다 */}
-                      <button onClick={() => deleteCode(existing)} aria-label={`${existing.label} 코드 삭제`} className="px-3 min-h-11 rounded-md border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]" title="삭제"><Trash2 size={12} /></button>
+                      <button onClick={() => deleteCode(existing)} aria-label={`${existing.label} 코드 삭제`} className="px-3 min-h-11 rounded-md border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]" title="삭제"><Trash2 size={14} /></button>
                     </div>
                   </div>
                 )
@@ -280,11 +280,11 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
                   <PlainCodeLine plain={c.plain_code} />
                   <p className="text-[10px] text-[var(--mm-muted)]">{c.last_used_at ? `사용: ${new Date(c.last_used_at).toLocaleString('ko-KR')}` : '아직 사용 안 됨'}</p>
                   <div className="flex gap-1.5 pt-1">
-                    <button onClick={() => setEditingSup({ id: c.id, label: c.label, plain_code: '' })} aria-label={`${c.label} 코드 수정`} className="px-3 min-h-11 rounded-md border border-[var(--mm-rule)] bg-[var(--mm-panel)] hover:border-[var(--mm-muted)] text-[var(--mm-ink-soft)] text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]" title="수정"><Pencil size={11} /></button>
+                    <button onClick={() => setEditingSup({ id: c.id, label: c.label, plain_code: '' })} aria-label={`${c.label} 코드 수정`} className="px-3 min-h-11 rounded-md border border-[var(--mm-rule)] bg-[var(--mm-panel)] hover:border-[var(--mm-muted)] text-[var(--mm-ink-soft)] text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]" title="수정"><Pencil size={14} /></button>
                     <button onClick={() => toggleActive(c)} className={`flex-1 min-h-11 rounded-md text-[11px] font-bold cursor-pointer flex items-center justify-center gap-1 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] ${c.is_active ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-neutral-bg)] border-[var(--mm-rule)] text-[var(--mm-neutral-fg)]'}`}>
-                      {c.is_active ? <ToggleRight size={12} /> : <ToggleLeft size={12} />}{c.is_active ? '활성' : '비활성'}
+                      {c.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}{c.is_active ? '활성' : '비활성'}
                     </button>
-                    <button onClick={() => deleteCode(c)} aria-label={`${c.label} 코드 삭제`} className="px-3 min-h-11 rounded-md border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]" title="삭제"><Trash2 size={11} /></button>
+                    <button onClick={() => deleteCode(c)} aria-label={`${c.label} 코드 삭제`} className="px-3 min-h-11 rounded-md border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]" title="삭제"><Trash2 size={14} /></button>
                   </div>
                 </div>
               )

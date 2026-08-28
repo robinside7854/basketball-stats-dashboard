@@ -78,7 +78,7 @@ export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuar
             </p>
             <p className="text-[10px] text-gray-500">{prevQuarterLabel ? `${prevQuarterLabel} 기록` : '지난 분기 기록'} · 드래프트 풀 내 랭킹</p>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white cursor-pointer"><X size={18} /></button>
+          <button onClick={onClose} className="text-gray-500 hover:text-white cursor-pointer"><X size={20} /></button>
         </div>
 
         {!row || row.gp <= 0 ? (

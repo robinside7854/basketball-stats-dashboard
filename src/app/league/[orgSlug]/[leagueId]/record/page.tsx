@@ -60,7 +60,7 @@ export default function LeagueRecordPage() {
   if (!isEditMode) {
     return (
       <div className="mm-brand flex flex-col items-center justify-center min-h-[50vh] gap-4 text-center">
-        <Lock size={32} style={{ color: 'var(--mm-muted)' }} />
+        <Lock size={24} style={{ color: 'var(--mm-muted)' }} />
         <div>
           <h3
             className="font-bold text-2xl"
@@ -1402,7 +1402,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
   // ── 로딩 ─────────────────────────────────────────────────
   if (loadingDates) {
-    return <div className="flex justify-center py-12"><BasketballLoader size={32} /></div>
+    return <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
   }
 
   // ── 날짜 없음 ─────────────────────────────────────────────
@@ -1460,17 +1460,17 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
           >
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 size={13} style={{ color: '#059669' }} />
+              <CheckCircle2 size={14} style={{ color: '#059669' }} />
               <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>완료</span>
               <span className="text-sm font-black ml-1" style={{ color: '#059669' }}>{totalComplete}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Play size={13} style={{ color: 'var(--mm-yellow-strong)' }} />
+              <Play size={14} style={{ color: 'var(--mm-yellow-strong)' }} />
               <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>기록 중</span>
               <span className="text-sm font-black ml-1" style={{ color: 'var(--mm-yellow-strong)' }}>{totalStarted}</span>
             </div>
             <div className="flex items-center gap-1.5" title="아직 진행되지 않은 미래·오늘 슬롯">
-              <Circle size={13} style={{ color: 'var(--mm-muted)' }} />
+              <Circle size={14} style={{ color: 'var(--mm-muted)' }} />
               <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>미시작</span>
               <span className="text-sm font-black ml-1" style={{ color: 'var(--mm-ink-soft)' }}>{totalPending}</span>
             </div>
@@ -1554,7 +1554,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }
                       }
                     >
-                      <CheckCircle2 size={11} />
+                      <CheckCircle2 size={14} />
                       {stat.complete}/{activeTotal}
                       {allDone && <span className="ml-0.5">완료</span>}
                     </span>
@@ -1565,7 +1565,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                       className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5"
                       style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-yellow-strong)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }}
                     >
-                      <Play size={11} />
+                      <Play size={14} />
                       {stat.started} 진행
                     </span>
                   )}
@@ -1588,7 +1588,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                       className="flex items-center gap-1 text-xs font-mono"
                       style={{ color: allLinked ? '#DC2626' : 'var(--mm-muted)' }}
                     >
-                      <Youtube size={11} />
+                      <Youtube size={14} />
                       {stat.yt}/{stat.total}
                     </span>
                   )}
@@ -1681,7 +1681,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
             aria-label="YouTube 연동"
           >
-            {ytSyncing ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+            {ytSyncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
             <span className="hidden sm:inline">YouTube 연동</span>
           </button>
         </div>
@@ -1697,8 +1697,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
           >
             {autoFilling
-              ? <Loader2 size={13} className="animate-spin" aria-hidden />
-              : <Wand2 size={13} strokeWidth={2} aria-hidden />}
+              ? <Loader2 size={14} className="animate-spin" aria-hidden />
+              : <Wand2 size={14} strokeWidth={2} aria-hidden />}
             {autoFilling ? '편성 중…' : '대진 자동 채우기'}
           </button>
           <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
@@ -1727,13 +1727,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             >
               <span className="text-base">{slot.slot_num}</span>
               <div className="flex items-center gap-0.5 mt-1">
-                {hasYT && <Youtube size={10} className="text-red-400" />}
+                {hasYT && <Youtube size={14} className="text-red-400" />}
                 {slot.is_complete
-                  ? <CheckCircle2 size={10} className="text-green-400" />
+                  ? <CheckCircle2 size={14} className="text-green-400" />
                   : slot.is_started
-                  ? <Circle size={10} className="text-yellow-400" />
+                  ? <Circle size={14} className="text-yellow-400" />
                   : hasTeams
-                  ? <Circle size={10} className="text-gray-500" />
+                  ? <Circle size={14} className="text-gray-500" />
                   : null}
               </div>
             </button>
@@ -1802,8 +1802,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
               >
                 {swappingId === selectedSlot.id
-                  ? <Loader2 size={13} className="animate-spin" aria-hidden />
-                  : <ArrowLeftRight size={13} strokeWidth={2} aria-hidden />}
+                  ? <Loader2 size={14} className="animate-spin" aria-hidden />
+                  : <ArrowLeftRight size={14} strokeWidth={2} aria-hidden />}
               </button>
               <select
                 value={pendingAway}
@@ -1826,7 +1826,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
               >
                 {savingTeam
-                  ? <Loader2 size={11} className="animate-spin" />
+                  ? <Loader2 size={14} className="animate-spin" />
                   : (selectedSlot.is_started || selectedSlot.is_complete) ? '팀 교체' : '저장'}
               </button>
               <button
@@ -1861,8 +1861,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                 >
                   {deletingSlot
-                    ? <Loader2 size={12} className="animate-spin" aria-hidden />
-                    : <Trash2 size={12} strokeWidth={2.5} aria-hidden />}
+                    ? <Loader2 size={14} className="animate-spin" aria-hidden />
+                    : <Trash2 size={14} strokeWidth={2.5} aria-hidden />}
                   슬롯 삭제
                 </button>
               )}
@@ -1894,8 +1894,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
                 >
                   {ytSaving
-                    ? <Loader2 size={12} className="animate-spin" aria-hidden />
-                    : <Link2 size={12} strokeWidth={2.5} aria-hidden />}
+                    ? <Loader2 size={14} className="animate-spin" aria-hidden />
+                    : <Link2 size={14} strokeWidth={2.5} aria-hidden />}
                   연동
                 </button>
                 <button
@@ -1907,8 +1907,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                 >
                   {ytListLoading
-                    ? <Loader2 size={12} className="animate-spin" aria-hidden />
-                    : <Search size={12} strokeWidth={2.5} aria-hidden />}
+                    ? <Loader2 size={14} className="animate-spin" aria-hidden />
+                    : <Search size={14} strokeWidth={2.5} aria-hidden />}
                   목록에서 고르기
                 </button>
               </div>
@@ -1996,8 +1996,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                         >
                           {busy
-                            ? <Loader2 size={11} className="animate-spin" aria-hidden />
-                            : <Zap size={11} strokeWidth={2.5} aria-hidden style={{ opacity: (extra || always) ? 1 : 0.35 }} />}
+                            ? <Loader2 size={14} className="animate-spin" aria-hidden />
+                            : <Zap size={14} strokeWidth={2.5} aria-hidden style={{ opacity: (extra || always) ? 1 : 0.35 }} />}
                           {pl.name}
                           {always && <span className="text-[10px]">상시</span>}
                         </button>
@@ -2058,8 +2058,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           style={{ color: 'var(--mm-muted)' }}
                         >
                           {deletingTeamId === t.id
-                            ? <Loader2 size={12} className="animate-spin" aria-hidden />
-                            : <X size={12} strokeWidth={2.5} aria-hidden />}
+                            ? <Loader2 size={14} className="animate-spin" aria-hidden />
+                            : <X size={14} strokeWidth={2.5} aria-hidden />}
                         </button>
                       </li>
                     ))}
@@ -2100,8 +2100,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
                   >
                     {creatingTeam
-                      ? <Loader2 size={12} className="animate-spin" aria-hidden />
-                      : <UserPlus size={12} strokeWidth={2.5} aria-hidden />}
+                      ? <Loader2 size={14} className="animate-spin" aria-hidden />
+                      : <UserPlus size={14} strokeWidth={2.5} aria-hidden />}
                     팀 만들기
                   </button>
                 </div>
@@ -2148,14 +2148,14 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                       className="flex items-center justify-center gap-2 py-1.5 text-xs font-medium min-h-[44px]"
                       style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: '4px' }}
                     >
-                      <CheckCircle2 size={13} style={{ color: 'var(--mm-muted)' }} />경기 마감 완료
+                      <CheckCircle2 size={14} style={{ color: 'var(--mm-muted)' }} />경기 마감 완료
                     </div>
                   ) : !gameStarted ? (
                     <div
                       className="flex items-center justify-center gap-2 py-1.5 text-xs min-h-[44px]"
                       style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)', borderRadius: '4px' }}
                     >
-                      <Play size={12} />우측에서 선발 선수 선택 후 시작
+                      <Play size={14} />우측에서 선발 선수 선택 후 시작
                     </div>
                   ) : (
                     <div className="flex gap-2">
@@ -2170,7 +2170,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         className="flex items-center gap-1 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors btn-press min-h-[44px]"
                         style={{ background: 'var(--mm-live-bg)', color: '#FFFFFF', borderRadius: '4px' }}
                       >
-                        <Square size={11} />마감
+                        <Square size={14} />마감
                       </button>
                     </div>
                   )}
@@ -2202,7 +2202,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         <button onClick={togglePlay}
                           className="min-h-[44px] min-w-[44px] rounded-lg text-white hover:bg-white/20 cursor-pointer transition-colors mx-0.5 inline-flex items-center justify-center"
                           aria-label="재생/일시정지">
-                          <PlayCircle size={28} strokeWidth={2} />
+                          <PlayCircle size={24} strokeWidth={2} />
                         </button>
                         {[
                           { label: '+5',  delta: 5  },
@@ -2304,7 +2304,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         {/* 마감 배너 */}
                         <div className="border-t border-gray-800 py-4 px-6 flex flex-col items-center gap-1.5">
                           <div className="flex items-center gap-2">
-                            <CheckCircle2 size={18} className="text-gray-500" />
+                            <CheckCircle2 size={20} className="text-gray-500" />
                             <span className="text-lg font-black text-gray-400 tracking-tight">마감된 경기입니다</span>
                           </div>
                           <p className="text-xs text-gray-500">이벤트 로그에서 수정·삭제, 또는 아래에서 기록 모드로 복귀할 수 있습니다</p>
@@ -2315,7 +2315,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             onClick={() => setShowGameLog(true)}
                             className="py-2.5 flex items-center justify-center gap-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-900/60 text-xs font-medium transition-colors cursor-pointer border-r border-gray-800/60"
                           >
-                            <ClipboardList size={12} />
+                            <ClipboardList size={14} />
                             이벤트 로그
                           </button>
                           <button
@@ -2324,8 +2324,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             className="py-2.5 flex items-center justify-center gap-1.5 text-blue-500 hover:text-blue-400 hover:bg-blue-900/20 text-xs font-medium transition-colors cursor-pointer disabled:opacity-50 btn-press"
                           >
                             {reopening
-                              ? <><Loader2 size={12} className="animate-spin" />복귀 중...</>
-                              : <><RefreshCw size={12} />다시 기록하기</>}
+                              ? <><Loader2 size={14} className="animate-spin" />복귀 중...</>
+                              : <><RefreshCw size={14} />다시 기록하기</>}
                           </button>
                         </div>
                       </div>
@@ -2359,7 +2359,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             onClick={() => setShowGameLog(true)}
                             className="border-l border-gray-800 px-3 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
                           >
-                            <ClipboardList size={11} />
+                            <ClipboardList size={14} />
                             <span className="hidden sm:inline">로그</span>
                           </button>
                           {/* 플러스원 선수 재설정 버튼 — plus_one 선수가 있을 때만 표시 */}
@@ -2379,7 +2379,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                               className="border-l border-gray-800 px-2.5 flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
                               title="플러스원 선수 설정"
                             >
-                              <Zap size={12} strokeWidth={2} aria-hidden />
+                              <Zap size={14} strokeWidth={2} aria-hidden />
                               <span className="hidden sm:inline">+1</span>
                             </button>
                           )}
@@ -2387,14 +2387,14 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             onClick={() => setShowSubModal(true)}
                             className="border-l border-gray-800 px-2.5 flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
                           >
-                            <RefreshCw size={11} />
+                            <RefreshCw size={14} />
                             <span className="hidden sm:inline">교체</span>
                           </button>
                           <button
                             onClick={() => setShowBoxscoreModal(true)}
                             className="border-l border-gray-800 px-2.5 flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
                           >
-                            <ClipboardList size={11} />
+                            <ClipboardList size={14} />
                             <span className="hidden sm:inline">스탯</span>
                           </button>
                         </div>
@@ -2455,7 +2455,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                         >
                           <div className="flex items-center gap-1.5 mb-2">
-                            <UserPlus size={12} style={{ color: 'var(--mm-muted)' }} />
+                            <UserPlus size={14} style={{ color: 'var(--mm-muted)' }} />
                             <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>비정규 선수 추가</p>
                           </div>
                           <div className="flex flex-wrap gap-1">
@@ -2491,7 +2491,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }}
                           >
                             <div className="flex items-center gap-1.5">
-                              <RefreshCw size={12} strokeWidth={2} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+                              <RefreshCw size={14} strokeWidth={2} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
                               <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>타팀 임시 출전</p>
                               <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>이번 경기에만 적용</span>
                             </div>
@@ -2539,13 +2539,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                                 className={hc > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
                                 style={{ color: hc > 5 ? 'var(--mm-live)' : 'var(--mm-muted)' }}
                               >
-                                홈 {hc}/5{hc > 5 && <AlertTriangle size={12} strokeWidth={2} aria-hidden />}
+                                홈 {hc}/5{hc > 5 && <AlertTriangle size={14} strokeWidth={2} aria-hidden />}
                               </span>
                               <span
                                 className={ac > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
                                 style={{ color: ac > 5 ? 'var(--mm-live)' : 'var(--mm-muted)' }}
                               >
-                                어웨이 {ac}/5{ac > 5 && <AlertTriangle size={12} strokeWidth={2} aria-hidden />}
+                                어웨이 {ac}/5{ac > 5 && <AlertTriangle size={14} strokeWidth={2} aria-hidden />}
                               </span>
                             </div>
                           </div>
@@ -2837,7 +2837,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         className="flex-1 bg-blue-600 hover:bg-blue-500 cursor-pointer disabled:opacity-50"
                         size="sm"
                       >
-                        {completing ? <><Loader2 size={12} className="mr-1 animate-spin" />처리 중...</> : '완료 처리'}
+                        {completing ? <><Loader2 size={14} className="mr-1 animate-spin" />처리 중...</> : '완료 처리'}
                       </Button>
                       <Button
                         onClick={() => { setShowComplete(false); setLiveScore(null) }}

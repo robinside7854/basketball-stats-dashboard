@@ -272,7 +272,7 @@ export default function LeagueSubstitutionPanel({
           {/* 팀 컬러가 흰색에 가까우면 accentOrInk 가 --mm-ink 로 대체 — 그대로 쓰면
               라이트 모드 흰 패널 위에서 라벨이 사라진다(2026-08-08 핫픽스). */}
           <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accentOrInk(color) }}>{label}</span>
-          {overCapacity && <span className="inline-flex items-center gap-1 text-xs font-bold text-red-400"><AlertTriangle size={12} strokeWidth={2} aria-hidden /> 정원 초과</span>}
+          {overCapacity && <span className="inline-flex items-center gap-1 text-xs font-bold text-red-400"><AlertTriangle size={14} strokeWidth={2} aria-hidden /> 정원 초과</span>}
         </div>
         <div className="flex flex-wrap gap-1.5 min-h-[28px]">
           {children}
@@ -331,7 +331,7 @@ export default function LeagueSubstitutionPanel({
       {/* 미배정 코트 (유령 상태) */}
       {unassignedOnCourt.length > 0 && (
         <div className="rounded-lg px-2 py-1.5 bg-amber-900/15 border border-amber-700/40">
-          <p className="inline-flex items-center gap-1 text-xs font-bold text-amber-400 mb-1"><AlertTriangle size={12} strokeWidth={2} aria-hidden /> 미배정 코트 ({unassignedOnCourt.length}) — 드래그로 팀에 배정하세요</p>
+          <p className="inline-flex items-center gap-1 text-xs font-bold text-amber-400 mb-1"><AlertTriangle size={14} strokeWidth={2} aria-hidden /> 미배정 코트 ({unassignedOnCourt.length}) — 드래그로 팀에 배정하세요</p>
           <div className="flex flex-wrap gap-1.5">
             {unassignedOnCourt.map(p => <PlayerChip key={p.id} p={p} accent="ghost" />)}
           </div>
@@ -353,7 +353,7 @@ export default function LeagueSubstitutionPanel({
       )}
 
       {busy && (
-        <p className="inline-flex items-center gap-1.5 justify-center text-xs text-blue-400 text-center w-full"><Loader2 size={12} strokeWidth={2} className="animate-spin" aria-hidden /> 처리 중...</p>
+        <p className="inline-flex items-center gap-1.5 justify-center text-xs text-blue-400 text-center w-full"><Loader2 size={14} strokeWidth={2} className="animate-spin" aria-hidden /> 처리 중...</p>
       )}
     </div>
   )

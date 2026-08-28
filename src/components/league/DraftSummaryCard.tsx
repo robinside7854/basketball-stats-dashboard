@@ -63,7 +63,7 @@ export default function DraftSummaryCard({ teams, picks, leaders, playerNames }:
             <div className="p-2 space-y-1">
               {r.leaderName && (
                 <div className="flex items-center gap-2 text-sm px-2 py-1 rounded bg-amber-500/10">
-                  <Crown size={13} className="text-amber-400" />
+                  <Crown size={14} className="text-amber-400" />
                   <span className="text-amber-200 font-bold">{r.leaderName}</span>
                   <span className="text-[10px] text-amber-400/70">팀장</span>
                 </div>

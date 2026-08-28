@@ -143,7 +143,7 @@ export default function DraftCommissioner({ event }: Props) {
           aria-label="총무 말풍선 닫기"
           className="pointer-events-auto absolute top-1 right-1 w-5 h-5 sm:w-6 sm:h-6 inline-flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 hover:text-gray-900 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
         >
-          <X size={12} />
+          <X size={14} />
         </button>
         <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-0.5">미라클 총무</p>
         <p className="text-sm sm:text-base font-bold leading-snug break-keep">

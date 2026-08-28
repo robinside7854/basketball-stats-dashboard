@@ -274,7 +274,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
           className="lg:hidden fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-2.5 min-h-[48px] min-w-[48px] rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
           style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
         >
-          <MessageCircle size={18} />
+          <MessageCircle size={20} />
           <span className="text-sm font-bold hidden sm:inline">채팅</span>
           {unread > 0 && (
             <span className="min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>
@@ -339,7 +339,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
               return (
                 <div key={`sys-${s.id}`} className="flex justify-center">
                   <div className="max-w-[92%] flex items-start gap-2 px-3 py-2 rounded-lg border-l-2 border-amber-500 bg-amber-950/50 text-amber-100">
-                    <Megaphone size={13} className="text-amber-300 mt-0.5 shrink-0" />
+                    <Megaphone size={14} className="text-amber-300 mt-0.5 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase tracking-widest text-amber-300 mb-0.5">
                         {s.kind === 'commissioner' ? '미라클 총무' : '시스템'}
@@ -358,7 +358,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
             return (
               <div key={`chat-${m.id}`} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
                 <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                  {isSup ? <ShieldCheck size={12} style={{ color }} /> : <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />}
+                  {isSup ? <ShieldCheck size={14} style={{ color }} /> : <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />}
                   <span className="text-xs font-bold" style={{ color: accentOrInk(color) }}>
                     {isSup ? '감독관' : team?.name ?? ''} · {m.sender_label}
                   </span>

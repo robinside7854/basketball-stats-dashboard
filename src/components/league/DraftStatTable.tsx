@@ -95,7 +95,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
         <div className="ml-auto flex items-center gap-2">
           {canPick && (
             <button onClick={recommend} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-purple-700/70 hover:bg-purple-600 text-purple-100 cursor-pointer">
-              <Shuffle size={13} /> 랜덤픽(추천)
+              <Shuffle size={14} /> 랜덤픽(추천)
             </button>
           )}
           <div className="flex bg-gray-800 rounded-lg p-0.5">
@@ -122,7 +122,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                     className="text-center p-2.5 font-bold min-w-[54px] cursor-pointer hover:text-white select-none">
                     <span className="inline-flex items-center gap-0.5">
                       {c.label}
-                      {sortKey === c.key && (dir === 'desc' ? <ArrowDown size={11} /> : <ArrowUp size={11} />)}
+                      {sortKey === c.key && (dir === 'desc' ? <ArrowDown size={14} /> : <ArrowUp size={14} />)}
                     </span>
                   </th>
                 ))}

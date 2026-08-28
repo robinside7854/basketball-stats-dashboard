@@ -52,6 +52,8 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
         }}>
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <span aria-hidden className="inline-flex items-center shrink-0 text-amber-100">
+            {/* 아이콘 4단계(14/16/20/24) 예외 — 옆 제목이 lg 에서 text-5xl(48px)까지 커지는
+                전광판 락업이다. 제목 크기를 따라가야 해서 아이콘 스케일 대상이 아니다. */}
             <Trophy className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12" strokeWidth={2} />
           </span>
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white leading-none truncate break-keep"

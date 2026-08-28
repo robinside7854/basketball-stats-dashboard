@@ -70,17 +70,17 @@ export default function RecordAuditPanel({ leagueId, gameId, players, refreshKey
         {open
           ? <ChevronDown size={14} strokeWidth={2} aria-hidden style={{ color: 'var(--mm-muted)' }} />
           : <ChevronRight size={14} strokeWidth={2} aria-hidden style={{ color: 'var(--mm-muted)' }} />}
-        <SearchCheck size={13} strokeWidth={2} aria-hidden style={{ color: 'var(--mm-muted)' }} />
+        <SearchCheck size={14} strokeWidth={2} aria-hidden style={{ color: 'var(--mm-muted)' }} />
         <span className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
           기록 점검
         </span>
         <span className="ml-auto flex items-center gap-1.5">
-          {loading && <Loader2 size={12} className="animate-spin" aria-hidden style={{ color: 'var(--mm-muted)' }} />}
+          {loading && <Loader2 size={14} className="animate-spin" aria-hidden style={{ color: 'var(--mm-muted)' }} />}
           {error ? (
             <span className="text-xs font-bold" style={{ color: '#ef4444' }}>실패</span>
           ) : count === 0 ? (
             <span className="inline-flex items-center gap-1 text-xs font-bold" style={{ color: '#22c55e' }}>
-              <CircleCheck size={12} strokeWidth={2} aria-hidden />확인할 지점 없음
+              <CircleCheck size={14} strokeWidth={2} aria-hidden />확인할 지점 없음
             </span>
           ) : (
             <span

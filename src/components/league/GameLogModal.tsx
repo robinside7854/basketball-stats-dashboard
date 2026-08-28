@@ -255,12 +255,12 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                 onClick={() => setConfirmReset(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-900/30 hover:bg-red-900/50 border border-red-800/40 text-red-400 text-xs font-bold cursor-pointer transition-colors"
               >
-                <RotateCcw size={12} />
+                <RotateCcw size={14} />
                 전체 초기화
               </button>
             )}
             <button onClick={onClose} className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
-              <X size={18} />
+              <X size={20} />
             </button>
           </div>
         </div>
@@ -395,7 +395,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
                   <div className="flex gap-2 pt-0.5">
                     <button onClick={() => handleSave(e.id)} disabled={saving}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg cursor-pointer disabled:opacity-50 transition-colors">
-                      {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}저장
+                      {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}저장
                     </button>
                     <button onClick={() => setEditingId(null)}
                       className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-bold rounded-lg cursor-pointer transition-colors">
@@ -480,7 +480,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
           <div className="absolute inset-0 bg-black/60" onClick={() => setConfirmReset(false)} />
           <div className="relative bg-gray-900 border border-red-800/50 rounded-2xl p-6 w-full max-w-sm z-10 space-y-4">
             <div className="text-center space-y-2">
-              <RotateCcw size={32} className="text-red-400 mx-auto" />
+              <RotateCcw size={24} className="text-red-400 mx-auto" />
               <h3 className="text-white font-bold text-base">경기 스탯 초기화</h3>
               <p className="text-gray-400 text-sm">모든 이벤트가 삭제되고 스코어가 0으로 초기화됩니다.<br/>이 작업은 되돌릴 수 없습니다.</p>
             </div>

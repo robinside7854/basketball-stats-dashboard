@@ -129,7 +129,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
           aria-label="닫기"
           className="absolute -top-1 right-0 sm:top-2 sm:right-2 z-10 w-10 h-10 rounded-full bg-gray-900/80 border border-gray-700 text-gray-200 hover:bg-gray-800 cursor-pointer flex items-center justify-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
         >
-          <X size={18} />
+          <X size={20} />
         </button>
 
         {/* 캡처 대상 영역 */}
@@ -144,6 +144,8 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
           {/* 헤더 */}
           <div className="text-center space-y-2 sm:space-y-3">
             <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 shadow-[0_0_30px_rgba(245,158,11,0.6)]">
+              {/* 아이콘 4단계(14/16/20/24) 예외 — 64/80px 원형 메달 안을 채우는 장식 마크다.
+                  24 로 줄이면 원 한가운데 점만 남는다. 원 크기에 맞춘 값. */}
               <Trophy className="w-9 h-9 sm:w-11 sm:h-11 text-white" />
             </div>
             <p className="text-xs sm:text-sm font-black uppercase tracking-[0.3em] text-amber-300">DRAFT COMPLETE</p>
@@ -251,7 +253,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
             disabled={downloading}
             className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-base sm:text-lg h-12 sm:h-14 px-6 sm:px-8 shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
-            <Download size={18} className="mr-2" />
+            <Download size={20} className="mr-2" />
             {downloading ? '저장 중...' : '이미지로 저장'}
           </Button>
           <Button

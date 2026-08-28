@@ -1010,7 +1010,7 @@ export default function DraftPortalClient({
       {/* 상단 헤더 */}
       <div className="flex items-center justify-between gap-3 mb-3 sm:mb-5">
         <div className="flex items-center gap-3">
-          <Trophy className="text-amber-400 w-8 h-8 sm:w-9 sm:h-9 shrink-0" />
+          <Trophy size={24} className="text-amber-400 shrink-0" />
           <div className="min-w-0 flex-1">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight leading-tight break-keep">{leagueName} 드래프트</h1>
             <p className="text-xs sm:text-sm text-gray-300 truncate">{year ? `${year}.${quarter}Q` : ''} {orgSlug && <span className="ml-1">· {orgSlug}</span>}</p>
@@ -1123,7 +1123,7 @@ export default function DraftPortalClient({
             {draft.method === 'linear' && <Tag color="blue">리니어</Tag>}
             {draft.status === 'in_progress' && currentTeam && (
               <Tag color="amber">
-                <Crown size={13} className="inline mr-1" />
+                <Crown size={14} className="inline mr-1" />
                 현재: <span className="font-bold ml-1">{currentTeam.name}</span>
               </Tag>
             )}
@@ -1229,7 +1229,7 @@ export default function DraftPortalClient({
                     } : { borderColor: '#b45309' }}
                   >
                     <p className="text-amber-300 text-base font-bold flex items-center gap-2">
-                      <CheckCircle2 size={18} /> 픽 액션
+                      <CheckCircle2 size={20} /> 픽 액션
                     </p>
                     <p className="text-base text-gray-200 leading-relaxed">아래에서 선수를 선택하고 픽 확정을 누르세요.</p>
                     <PlayerPicker
@@ -1268,7 +1268,7 @@ export default function DraftPortalClient({
                   </div>
                 ) : (
                   <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 text-center">
-                    <Lock className="w-7 h-7 text-gray-400 mx-auto mb-2" />
+                    <Lock size={24} className="text-gray-400 mx-auto mb-2" />
                     <p className="text-base text-gray-200 font-bold">본인 차례가 아닙니다</p>
                     {currentTeam && <p className="text-sm text-gray-300 mt-1.5"><span className="font-bold text-white">{currentTeam.name}</span> 단장 차례</p>}
                     <p className="text-xs text-gray-400 mt-2 leading-relaxed">내 차례가 되면 화면 상단에 안내됩니다.</p>
@@ -1278,7 +1278,7 @@ export default function DraftPortalClient({
 
               {draft.status === 'completed' && (
                 <div className="bg-emerald-950/40 border border-emerald-700/50 rounded-2xl p-4 text-center">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                  <CheckCircle2 size={24} className="text-emerald-400 mx-auto mb-2" />
                   <p className="text-base sm:text-lg text-emerald-300 font-bold">드래프트 완료</p>
                   <p className="text-sm text-gray-300 mt-1.5 leading-relaxed">멤버십이 즉시 반영되었습니다</p>
                   <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
@@ -1575,7 +1575,7 @@ function ReadyPanel({
     }`}>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <Users size={18} className={allReady ? 'text-emerald-300' : 'text-blue-300'} />
+          <Users size={20} className={allReady ? 'text-emerald-300' : 'text-blue-300'} />
           <h3 className="text-base sm:text-lg font-bold uppercase tracking-widest">
             {allReady ? <span className="text-emerald-200">전원 준비 완료 — 추첨 가능</span> : <span className="text-blue-100">READY 체크</span>}
           </h3>
@@ -1603,7 +1603,7 @@ function ReadyPanel({
             <span key={t.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs sm:text-sm break-keep ${
               ready ? 'bg-emerald-900/40 border-emerald-700/60 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-200'
             }`}>
-              {ready ? <CheckCircle2 size={13} className="shrink-0" /> : <Circle size={13} className="shrink-0" />}
+              {ready ? <CheckCircle2 size={14} className="shrink-0" /> : <Circle size={14} className="shrink-0" />}
               <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
               <span>{t.name} 단장</span>
             </span>
@@ -1613,8 +1613,8 @@ function ReadyPanel({
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${
             readyState['supervisor'] ? 'bg-emerald-900/40 border-emerald-700/60 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-200'
           }`}>
-            {readyState['supervisor'] ? <CheckCircle2 size={13} /> : <Circle size={13} />}
-            <ShieldCheck size={13} className="text-amber-400" />
+            {readyState['supervisor'] ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+            <ShieldCheck size={14} className="text-amber-400" />
             감독관
           </span>
         )}
