@@ -482,7 +482,7 @@ export default function AdminAdminsPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-semibold text-[var(--mm-ink)] break-all">{bootstrapEmail}</p>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--mm-yellow-soft)] text-[var(--mm-yellow-strong)] font-semibold inline-flex items-center gap-1">
-                    <ShieldCheck size={12} aria-hidden="true" />
+                    <ShieldCheck size={14} aria-hidden="true" />
                     소유자
                   </span>
                 </div>
@@ -594,7 +594,7 @@ export default function AdminAdminsPage() {
                 {openReset && (
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 rounded-lg border border-dashed border-[var(--mm-rule)] px-3 py-2.5">
                     <p className="flex-1 text-xs text-[var(--mm-muted)]">
-                      <KeyRound size={12} className="inline align-[-2px] mr-1" aria-hidden="true" />
+                      <KeyRound size={14} className="inline align-[-2px] mr-1" aria-hidden="true" />
                       재설정 링크 발급됨 · {formatDate(openReset.created_at)}
                       {openReset.issued_by ? ` · ${openReset.issued_by}` : ''} · {remaining(openReset.expires_at)}
                     </p>

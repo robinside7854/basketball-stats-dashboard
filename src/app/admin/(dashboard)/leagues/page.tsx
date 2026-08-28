@@ -158,7 +158,7 @@ export default function AdminLeaguesPage() {
             href="/admin/leagues/new"
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-sm font-medium transition-colors cursor-pointer min-h-11"
           >
-            <Plus size={15} />
+            <Plus size={16} />
             새 대회 생성
           </Link>
         </div>
@@ -181,7 +181,7 @@ export default function AdminLeaguesPage() {
           </div>
         ) : totalTeams === 0 ? (
           <div className="text-center py-16 border border-dashed border-[var(--mm-rule)] rounded-xl text-[var(--mm-muted)]">
-            <Trophy size={32} className="mx-auto mb-3 text-[var(--mm-muted)]" />
+            <Trophy size={24} className="mx-auto mb-3 text-[var(--mm-muted)]" />
             <p>아직 등록된 팀이 없습니다</p>
             <p className="text-sm mt-1">온보딩 스크립트로 팀을 먼저 등록하세요</p>
           </div>
@@ -201,7 +201,7 @@ export default function AdminLeaguesPage() {
                     <p className="font-semibold text-[var(--mm-ink)]">{group.team?.name ?? '(팀 정보 없음)'}</p>
                     {group.team && !group.team.is_public && (
                       <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[var(--mm-panel)] text-[var(--mm-muted)] border border-[var(--mm-rule)]">
-                        <Shield size={10} />
+                        <Shield size={14} />
                         비공개
                       </span>
                     )}
@@ -220,7 +220,7 @@ export default function AdminLeaguesPage() {
                   className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] px-2.5 py-1.5 rounded-lg border border-[var(--mm-rule)] hover:border-[var(--mm-muted)] transition-colors cursor-pointer shrink-0 min-h-11"
                   title="팀 설정"
                 >
-                  <SlidersHorizontal size={12} />
+                  <SlidersHorizontal size={14} />
                   설정
                 </Link>
               </div>
@@ -261,7 +261,7 @@ export default function AdminLeaguesPage() {
                           href={`/admin/leagues/${league.id}`}
                           className="flex items-center gap-1 text-xs text-[var(--mm-yellow-strong)] hover:opacity-80 px-2.5 py-1.5 rounded-lg border border-[var(--mm-yellow-strong)]/30 bg-[var(--mm-yellow-soft)] hover:border-[var(--mm-yellow-strong)]/60 transition-colors cursor-pointer min-h-11"
                         >
-                          <Settings size={12} />
+                          <Settings size={14} />
                           관리
                         </Link>
                         <Link
@@ -269,7 +269,7 @@ export default function AdminLeaguesPage() {
                           target="_blank"
                           className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] px-2.5 py-1.5 rounded-lg border border-[var(--mm-rule)] hover:border-[var(--mm-muted)] transition-colors cursor-pointer min-h-11"
                         >
-                          <ExternalLink size={12} />
+                          <ExternalLink size={14} />
                           대시보드
                         </Link>
                         <button
@@ -282,8 +282,8 @@ export default function AdminLeaguesPage() {
                           aria-label={`${league.name} 삭제`}
                         >
                           {deletingId === league.id
-                            ? <Loader2 size={15} className="animate-spin" />
-                            : <Trash2 size={15} />}
+                            ? <Loader2 size={16} className="animate-spin" />
+                            : <Trash2 size={16} />}
                         </button>
                       </div>
                     </div>
@@ -316,7 +316,7 @@ export default function AdminLeaguesPage() {
                           target="_blank"
                           className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] px-2.5 py-1.5 rounded-lg border border-[var(--mm-rule)] hover:border-[var(--mm-muted)] transition-colors cursor-pointer min-h-11"
                         >
-                          <ExternalLink size={12} />
+                          <ExternalLink size={14} />
                           대시보드
                         </Link>
                       )}

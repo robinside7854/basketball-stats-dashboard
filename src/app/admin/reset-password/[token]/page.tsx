@@ -110,7 +110,7 @@ export default function AdminResetPasswordPage({ params }: { params: Promise<{ t
 
         {done && (
           <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-2xl p-6 space-y-3 text-center">
-            <CheckCircle2 size={28} className="text-[var(--mm-positive)] mx-auto" aria-hidden="true" />
+            <CheckCircle2 size={24} className="text-[var(--mm-positive)] mx-auto" aria-hidden="true" />
             <h2 className="text-base font-bold text-[var(--mm-ink)]">비밀번호를 바꿨습니다</h2>
             <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed">
               새 비밀번호로 로그인하세요. 이 링크는 소진되어 다시 쓸 수 없습니다.
@@ -135,7 +135,7 @@ export default function AdminResetPasswordPage({ params }: { params: Promise<{ t
 
         {!done && check && !check.ok && (
           <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-2xl p-6 space-y-3 text-center">
-            <AlertCircle size={28} className="text-[var(--mm-negative)] mx-auto" aria-hidden="true" />
+            <AlertCircle size={24} className="text-[var(--mm-negative)] mx-auto" aria-hidden="true" />
             <h2 className="text-base font-bold text-[var(--mm-ink)]">
               {REASON_TITLE[check.reason]}
             </h2>

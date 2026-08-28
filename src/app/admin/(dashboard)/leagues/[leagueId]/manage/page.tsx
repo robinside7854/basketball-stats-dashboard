@@ -496,7 +496,7 @@ function ResultsTab({ leagueId, teams }: { leagueId: string; teams: LeagueTeamWi
               onClick={() => saveResult(game.id, true)}
               className="text-xs bg-[var(--mm-positive)] text-[var(--mm-panel)] hover:opacity-90 cursor-pointer"
             >
-              {isSaving ? <Loader2 size={12} className="animate-spin" /> : '완료 처리'}
+              {isSaving ? <Loader2 size={14} className="animate-spin" /> : '완료 처리'}
             </Button>
           )}
         </div>
@@ -619,16 +619,16 @@ export default function LeagueManagePage() {
       {/* 탭 */}
       <div className="flex gap-1 flex-wrap">
         <Tab active={activeTab === 'teams'} onClick={() => setActiveTab('teams')}>
-          <div className="flex items-center gap-1.5"><Trophy size={13} /> 팀 구성</div>
+          <div className="flex items-center gap-1.5"><Trophy size={14} /> 팀 구성</div>
         </Tab>
         <Tab active={activeTab === 'players'} onClick={() => setActiveTab('players')}>
-          <div className="flex items-center gap-1.5"><Users size={13} /> 선수 배정</div>
+          <div className="flex items-center gap-1.5"><Users size={14} /> 선수 배정</div>
         </Tab>
         <Tab active={activeTab === 'schedule'} onClick={() => setActiveTab('schedule')}>
-          <div className="flex items-center gap-1.5"><Calendar size={13} /> 일정</div>
+          <div className="flex items-center gap-1.5"><Calendar size={14} /> 일정</div>
         </Tab>
         <Tab active={activeTab === 'results'} onClick={() => setActiveTab('results')}>
-          <div className="flex items-center gap-1.5"><ClipboardList size={13} /> 결과 입력</div>
+          <div className="flex items-center gap-1.5"><ClipboardList size={14} /> 결과 입력</div>
         </Tab>
       </div>
 

@@ -167,7 +167,7 @@ export default function AdminShell({ pending, signOutAction, children }: Props) 
               aria-label="메뉴 닫기"
               className="absolute top-2 right-2 w-11 h-11 flex items-center justify-center rounded-lg text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)] transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]"
             >
-              <X size={18} />
+              <X size={20} />
             </button>
             {nav}
           </aside>

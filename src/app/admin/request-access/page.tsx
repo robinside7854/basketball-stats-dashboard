@@ -52,7 +52,7 @@ export default function RequestAccessPage() {
 
         {done ? (
           <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-2xl p-6 space-y-3 text-center">
-            <CheckCircle2 size={28} className="text-[var(--mm-positive)] mx-auto" aria-hidden="true" />
+            <CheckCircle2 size={24} className="text-[var(--mm-positive)] mx-auto" aria-hidden="true" />
             <h2 className="text-base font-bold text-[var(--mm-ink)]">요청이 접수되었습니다</h2>
             <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed">
               승인되면 초대 링크를 받게 됩니다.

@@ -102,7 +102,7 @@ export default function LeagueAdminRolePanel({ leagueId }: { leagueId: string })
 
       {loading ? (
         <div className="py-6 flex justify-center">
-          <Loader2 size={18} className="animate-spin text-[var(--mm-muted)]" />
+          <Loader2 size={20} className="animate-spin text-[var(--mm-muted)]" />
         </div>
       ) : visible.length === 0 ? (
         <p className="py-6 text-center text-xs text-[var(--mm-muted)]">
@@ -132,7 +132,7 @@ export default function LeagueAdminRolePanel({ leagueId }: { leagueId: string })
                     <span className="text-sm font-medium text-[var(--mm-ink)] truncate">{name}</span>
                     {isAdmin && (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--mm-yellow)] text-[var(--mm-black)]">
-                        <ShieldCheck size={10} aria-hidden />어드민
+                        <ShieldCheck size={14} aria-hidden />어드민
                       </span>
                     )}
                     {row.status !== 'approved' && (
@@ -158,8 +158,8 @@ export default function LeagueAdminRolePanel({ leagueId }: { leagueId: string })
                   }`}
                 >
                   {busyId === row.id
-                    ? <Loader2 size={12} className="animate-spin" />
-                    : isAdmin ? <ShieldOff size={12} /> : <ShieldCheck size={12} />}
+                    ? <Loader2 size={14} className="animate-spin" />
+                    : isAdmin ? <ShieldOff size={14} /> : <ShieldCheck size={14} />}
                   {isAdmin ? '해제' : '어드민 지정'}
                 </button>
               </li>

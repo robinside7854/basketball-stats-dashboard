@@ -148,7 +148,7 @@ export default function TeamDetailClient({ team, playerCount }: Props) {
             <h1 className="text-2xl font-bold text-[var(--mm-ink)] truncate">{team.name}</h1>
             {!team.is_public && (
               <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] border border-[var(--mm-rule)]">
-                <Shield size={10} /> 비공개
+                <Shield size={14} /> 비공개
               </span>
             )}
           </div>
@@ -160,7 +160,7 @@ export default function TeamDetailClient({ team, playerCount }: Props) {
           rel="noopener noreferrer"
           className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] px-2.5 py-1.5 rounded-lg border border-[var(--mm-rule)] hover:border-[var(--mm-muted)] transition-colors cursor-pointer shrink-0 min-h-11"
         >
-          <ExternalLink size={12} />
+          <ExternalLink size={14} />
           사이트
         </a>
       </div>
@@ -235,14 +235,14 @@ export default function TeamDetailClient({ team, playerCount }: Props) {
             href={`/admin/leagues/new?team_id=${team.id}`}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-sm font-medium transition-colors cursor-pointer min-h-11"
           >
-            <Plus size={15} />
+            <Plus size={16} />
             새 대회 생성
           </Link>
         </div>
 
         {loadingLeagues ? (
           <div className="flex justify-center py-10">
-            <Loader2 size={22} className="animate-spin text-[var(--mm-muted)]" />
+            <Loader2 size={20} className="animate-spin text-[var(--mm-muted)]" />
           </div>
         ) : loadError ? (
           <div className="text-center py-10 border border-dashed border-[var(--mm-negative)]/40 rounded-xl text-[var(--mm-negative)]">
@@ -277,14 +277,14 @@ export default function TeamDetailClient({ team, playerCount }: Props) {
                       href={`/admin/leagues/${league.id}`}
                       className="flex items-center gap-1 text-xs text-[var(--mm-yellow-strong)] hover:opacity-80 px-2.5 py-1.5 rounded-lg border border-[var(--mm-yellow-strong)]/30 bg-[var(--mm-yellow-soft)] hover:border-[var(--mm-yellow-strong)]/60 transition-colors cursor-pointer min-h-11"
                     >
-                      <Settings size={12} /> 관리
+                      <Settings size={14} /> 관리
                     </Link>
                     <Link
                       href={`/league/${team.org_slug}/${league.id}`}
                       target="_blank"
                       className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] px-2.5 py-1.5 rounded-lg border border-[var(--mm-rule)] hover:border-[var(--mm-muted)] transition-colors cursor-pointer min-h-11"
                     >
-                      <ExternalLink size={12} /> 대시보드
+                      <ExternalLink size={14} /> 대시보드
                     </Link>
                     <button
                       onClick={() => deleteLeague(league)}
@@ -294,7 +294,7 @@ export default function TeamDetailClient({ team, playerCount }: Props) {
                       title="삭제"
                       aria-label={`${league.name} 삭제`}
                     >
-                      {deletingId === league.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                      {deletingId === league.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                     </button>
                   </div>
                 </div>

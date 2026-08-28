@@ -115,7 +115,7 @@ export default function LeagueAdminSettingsPage() {
           rel="noopener noreferrer"
           className="flex items-center gap-1 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] px-2.5 py-1.5 rounded-lg border border-[var(--mm-rule)] hover:border-[var(--mm-muted)] transition-colors shrink-0 cursor-pointer"
         >
-          <ExternalLink size={12} />
+          <ExternalLink size={14} />
           대시보드
         </a>
       </div>

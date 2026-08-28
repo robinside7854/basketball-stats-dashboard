@@ -116,7 +116,7 @@ export default function AdminInvitePage({ params }: { params: Promise<{ token: s
 
         {check && !check.ok && (
           <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-2xl p-6 space-y-3 text-center">
-            <AlertCircle size={28} className="text-[var(--mm-negative)] mx-auto" aria-hidden="true" />
+            <AlertCircle size={24} className="text-[var(--mm-negative)] mx-auto" aria-hidden="true" />
             <h2 className="text-base font-bold text-[var(--mm-ink)]">
               {REASON_TITLE[check.reason]}
             </h2>
