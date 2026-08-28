@@ -52,7 +52,7 @@ export default function PendingSignupsAlert({ leagueId }: { leagueId: string }) 
         style={{ background: 'var(--mm-yellow)' }}
         aria-hidden
       >
-        <UserPlus size={18} style={{ color: 'var(--mm-black)' }} />
+        <UserPlus size={20} style={{ color: 'var(--mm-black)' }} />
       </span>
 
       <span className="min-w-0 flex-1">
@@ -69,7 +69,7 @@ export default function PendingSignupsAlert({ leagueId }: { leagueId: string }) 
         </span>
       </span>
 
-      <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+      <ChevronRight size={20} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
     </Link>
   )
 }

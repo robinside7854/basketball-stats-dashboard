@@ -127,7 +127,7 @@ export default function TournamentBoard({
   if (quarters === null || games === null) {
     return (
       <div className="flex justify-center py-16">
-        <BasketballLoader size={32} />
+        <BasketballLoader size={24} />
       </div>
     )
   }
@@ -173,7 +173,7 @@ export default function TournamentBoard({
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
-        <Trophy size={28} className="lg:w-9 lg:h-9" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+        <Trophy size={24} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
         <div>
           <h1
             className="font-bold text-2xl lg:text-4xl"
@@ -214,12 +214,12 @@ export default function TournamentBoard({
                     className="mt-1 flex items-center gap-1 text-[11px] font-bold"
                     style={{ color: 'var(--mm-muted)' }}
                   >
-                    <CalendarRange size={12} aria-hidden />
+                    <CalendarRange size={14} aria-hidden />
                     {fmtPeriod(q.start_date, q.end_date)}
                   </div>
                 </div>
                 {isChampion && (
-                  <Trophy size={22} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+                  <Trophy size={20} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
                 )}
               </div>
 
@@ -255,7 +255,7 @@ export default function TournamentBoard({
               <div className="mt-3 flex items-center justify-between gap-2">
                 {clickable ? (
                   <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
-                    경기 목록 <ChevronRight size={12} />
+                    경기 목록 <ChevronRight size={14} />
                   </span>
                 ) : <span />}
 
@@ -273,7 +273,7 @@ export default function TournamentBoard({
                     style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
                     aria-label={`${q.name ?? '대회'} 참가 인원 등록`}
                   >
-                    <UserCheck size={12} aria-hidden />
+                    <UserCheck size={14} aria-hidden />
                     참가 등록
                   </button>
                 )}

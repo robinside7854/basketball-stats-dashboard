@@ -204,13 +204,13 @@ export default function LeagueSettingsPage() {
     else toast.error('저장 실패')
   }
 
-  if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={32} /></div>
+  if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
   if (!league) return null
 
   if (!isEditMode) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4 text-center">
-        <Lock size={28} className="text-[color:var(--mm-muted)]" />
+        <Lock size={24} className="text-[color:var(--mm-muted)]" />
         <div>
           <div className="font-bold text-xl text-[color:var(--mm-ink)]">편집 모드에서 설정 가능합니다</div>
           <p className="text-[color:var(--mm-muted)] text-sm mt-1">PIN을 입력해 편집 모드를 활성화하세요</p>
@@ -264,7 +264,7 @@ export default function LeagueSettingsPage() {
             ? '링크를 아는 사람은 로그인 없이 경기 기록·명단·순위를 볼 수 있습니다.'
             : '로그인한 승인 회원만 볼 수 있습니다. 링크가 있어도 로그인 전에는 아무것도 보이지 않습니다.'}
         </p>
-        {savingVisibility && <Loader2 size={13} className="animate-spin text-[color:var(--mm-muted)]" />}
+        {savingVisibility && <Loader2 size={14} className="animate-spin text-[color:var(--mm-muted)]" />}
       </div>
 
       {/* 인스타 카드 생성기 진입 (2026-07-27) */}
@@ -273,7 +273,7 @@ export default function LeagueSettingsPage() {
         className="flex items-center gap-3 bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-4 hover:border-[color:var(--color-hoop-orange-500)] transition-colors cursor-pointer group"
       >
         <span className="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-md bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)]">
-          <Instagram size={22} />
+          <Instagram size={20} />
         </span>
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-lg text-[color:var(--mm-ink)] leading-tight">인스타 카드 생성기</h3>
@@ -311,7 +311,7 @@ export default function LeagueSettingsPage() {
           className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold uppercase tracking-[0.14em] rounded-none"
           size="sm"
         >
-          {saving === 'status' ? <Loader2 size={13} className="animate-spin mr-1" /> : null}상태 저장
+          {saving === 'status' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}상태 저장
         </Button>
       </div>
 
@@ -378,7 +378,7 @@ export default function LeagueSettingsPage() {
           className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold uppercase tracking-[0.14em] rounded-none"
           size="sm"
         >
-          {saving === 'schedule-settings' ? <Loader2 size={13} className="animate-spin mr-1" /> : null}설정 저장
+          {saving === 'schedule-settings' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}설정 저장
         </Button>
       </div>
 
@@ -432,7 +432,7 @@ export default function LeagueSettingsPage() {
           className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold uppercase tracking-[0.14em] rounded-none"
           size="sm"
         >
-          {saving === 'default-venue' ? <Loader2 size={13} className="animate-spin mr-1" /> : null}고정 대관 저장
+          {saving === 'default-venue' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}고정 대관 저장
         </Button>
       </div>
 
@@ -461,7 +461,7 @@ export default function LeagueSettingsPage() {
             className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold uppercase tracking-[0.14em] rounded-none"
             size="sm"
           >
-            {saving === 'youtube' ? <Loader2 size={13} className="animate-spin" /> : '저장'}
+            {saving === 'youtube' ? <Loader2 size={14} className="animate-spin" /> : '저장'}
           </Button>
         </div>
         {league.youtube_channel && (
@@ -493,7 +493,7 @@ export default function LeagueSettingsPage() {
             className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold uppercase tracking-[0.14em] rounded-none"
             size="sm"
           >
-            {saving === 'plus_one_age' ? <Loader2 size={13} className="animate-spin" /> : '저장'}
+            {saving === 'plus_one_age' ? <Loader2 size={14} className="animate-spin" /> : '저장'}
           </Button>
         </div>
         {league.plus_one_age && (
@@ -590,7 +590,7 @@ export default function LeagueSettingsPage() {
                       <Button size="sm" onClick={() => saveQuarterDates(q.id)}
                         disabled={savingQuarter === q.id}
                         className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold uppercase tracking-[0.14em] rounded-none">
-                        {savingQuarter === q.id ? <Loader2 size={11} className="animate-spin" /> : '저장'}
+                        {savingQuarter === q.id ? <Loader2 size={14} className="animate-spin" /> : '저장'}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setEditingQuarter(null)}
                         className="border-[color:var(--mm-rule)] bg-transparent text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel)] hover:text-[color:var(--mm-ink)] cursor-pointer text-xs font-bold uppercase tracking-[0.14em] rounded-none">취소</Button>

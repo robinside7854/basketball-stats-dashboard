@@ -503,7 +503,7 @@ export default async function LeagueDetailPage({
           style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-ink)', background: 'var(--mm-panel)' }}
         >
           내 기록 보기
-          <ChevronRight size={18} style={{ color: 'var(--mm-muted)' }} aria-hidden />
+          <ChevronRight size={20} style={{ color: 'var(--mm-muted)' }} aria-hidden />
         </Link>
       )}
 

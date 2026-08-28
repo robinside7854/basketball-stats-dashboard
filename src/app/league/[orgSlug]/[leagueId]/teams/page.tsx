@@ -129,10 +129,10 @@ const SHOOT_COLOR: Partial<Record<ShootingKey, string>> = {
 }
 
 function SortIcon({ active, dir }: { active: boolean; dir: 'asc'|'desc' }) {
-  if (!active) return <ChevronsUpDown size={9} className="inline ml-0.5 opacity-30" />
+  if (!active) return <ChevronsUpDown size={14} className="inline ml-0.5 opacity-30" />
   return dir === 'desc'
-    ? <ChevronDown size={9} className="inline ml-0.5" style={{ color: 'var(--mm-ink)' }} />
-    : <ChevronUp   size={9} className="inline ml-0.5" style={{ color: 'var(--mm-ink)' }} />
+    ? <ChevronDown size={14} className="inline ml-0.5" style={{ color: 'var(--mm-ink)' }} />
+    : <ChevronUp   size={14} className="inline ml-0.5" style={{ color: 'var(--mm-ink)' }} />
 }
 
 function calcAdv(p: PlayerStat): Record<AdvKey, number> {
@@ -338,7 +338,7 @@ function StatsTable({
                 style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
-                  {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
+                  {isLeader && <Crown size={14} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
@@ -348,7 +348,7 @@ function StatsTable({
                   <div className="text-right shrink-0">
                     <div className="font-jersey font-black tabular-nums leading-none" style={{ color: color ?? 'var(--mm-ink)', fontSize: '26px' }}>{basicVal(p, basicSortKey)}</div>
                     <div className="text-xs font-bold uppercase tracking-wider mt-0.5 flex items-center justify-end" style={{ color: 'var(--mm-muted)' }}>
-                      <StatHeader term={basicSortKey === 'gp' ? 'R' : sortLabel} label={sortLabel} helpSize={10} />
+                      <StatHeader term={basicSortKey === 'gp' ? 'R' : sortLabel} label={sortLabel} />
                     </div>
                   </div>
                 </div>
@@ -358,7 +358,7 @@ function StatsTable({
                     return (
                       <div key={k} className="text-center">
                         <div className="text-xs font-bold uppercase tracking-wider flex items-center justify-center" style={{ color: 'var(--mm-muted)' }}>
-                          <StatHeader term={k === 'gp' ? 'R' : lbl} label={lbl} helpSize={9} />
+                          <StatHeader term={k === 'gp' ? 'R' : lbl} label={lbl} />
                         </div>
                         <div className="text-xs font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{basicVal(p, k)}</div>
                       </div>
@@ -382,7 +382,7 @@ function StatsTable({
                 style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
-                  {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
+                  {isLeader && <Crown size={14} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
@@ -392,7 +392,7 @@ function StatsTable({
                   <div className="text-right shrink-0">
                     <div className="font-jersey font-black tabular-nums leading-none" style={{ color: color ?? 'var(--mm-ink)', fontSize: '26px' }}>{shootVal(sh, shootSortKey)}</div>
                     <div className="text-xs font-bold uppercase tracking-wider mt-0.5 flex items-center justify-end" style={{ color: 'var(--mm-muted)' }}>
-                      <StatHeader term={sortLabel} label={sortLabel} helpSize={10} />
+                      <StatHeader term={sortLabel} label={sortLabel} />
                     </div>
                   </div>
                 </div>
@@ -402,7 +402,7 @@ function StatsTable({
                     return (
                       <div key={k} className="text-center">
                         <div className="text-xs font-bold uppercase tracking-wider flex items-center justify-center" style={{ color: 'var(--mm-muted)' }}>
-                          <StatHeader term={lbl} label={lbl} helpSize={9} />
+                          <StatHeader term={lbl} label={lbl} />
                         </div>
                         <div className="text-xs font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{shootVal(sh, k)}</div>
                       </div>
@@ -426,7 +426,7 @@ function StatsTable({
                 style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="font-jersey font-black tabular-nums w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
-                  {isLeader && <Crown size={11} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
+                  {isLeader && <Crown size={14} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
@@ -436,7 +436,7 @@ function StatsTable({
                   <div className="text-right shrink-0">
                     <div className="font-jersey font-black tabular-nums leading-none" style={{ color: color ?? 'var(--mm-ink)', fontSize: '26px' }}>{advVal(adv, advSortKey)}</div>
                     <div className="text-xs font-bold uppercase tracking-wider mt-0.5 flex items-center justify-end" style={{ color: 'var(--mm-muted)' }}>
-                      <StatHeader term={sortLabel} label={sortLabel} helpSize={10} />
+                      <StatHeader term={sortLabel} label={sortLabel} />
                     </div>
                   </div>
                 </div>
@@ -446,7 +446,7 @@ function StatsTable({
                     return (
                       <div key={k} className="text-center">
                         <div className="text-xs font-bold uppercase tracking-wider flex items-center justify-center" style={{ color: 'var(--mm-muted)' }}>
-                          <StatHeader term={lbl} label={lbl} helpSize={9} />
+                          <StatHeader term={lbl} label={lbl} />
                         </div>
                         <div className="text-xs font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{advVal(adv, k)}</div>
                       </div>
@@ -474,7 +474,7 @@ function StatsTable({
                   <th key={key} onClick={() => handleBasicSort(key)}
                     className="py-2 px-1.5 text-xs font-black uppercase cursor-pointer select-none text-right transition-colors"
                     style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>
-                    <StatHeader term={term} label={label} helpSize={10} />
+                    <StatHeader term={term} label={label} />
                     <SortIcon active={active} dir={basicSortDir} />
                   </th>
                 )
@@ -487,7 +487,7 @@ function StatsTable({
                   <th key={key} onClick={() => handleShootSort(key)} title={desc}
                     className="py-2 px-1.5 text-xs font-black uppercase cursor-pointer select-none text-right transition-colors"
                     style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', ...divider }}>
-                    <StatHeader term={label} label={label} helpSize={10} />
+                    <StatHeader term={label} label={label} />
                     <SortIcon active={active} dir={shootSortDir} />
                   </th>
                 )
@@ -499,7 +499,7 @@ function StatsTable({
                   <th key={key} onClick={() => handleAdvSort(key)} title={desc}
                     className="py-2 px-1.5 text-xs font-black uppercase cursor-pointer select-none text-right transition-colors"
                     style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>
-                    <StatHeader term={label} label={label} helpSize={10} />
+                    <StatHeader term={label} label={label} />
                     <SortIcon active={active} dir={advSortDir} />
                   </th>
                 )
@@ -516,7 +516,7 @@ function StatsTable({
                   <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
                       className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
-                      {isLeader && <Crown size={10} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
+                      {isLeader && <Crown size={14} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                       <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                         {p.name}
@@ -544,7 +544,7 @@ function StatsTable({
                   <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
                       className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
-                      {isLeader && <Crown size={10} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
+                      {isLeader && <Crown size={14} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                       <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                         {p.name}
@@ -573,7 +573,7 @@ function StatsTable({
                   <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
                       className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
-                      {isLeader && <Crown size={10} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
+                      {isLeader && <Crown size={14} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
                       <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '14px', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                         {p.name}
@@ -1102,7 +1102,7 @@ export default function LeagueTeamsPage() {
   const rosterHref = `/league/${orgSlug}/${leagueId}/roster`
   const base = `/league/${orgSlug}/${leagueId}`
 
-  if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={32} /></div>
+  if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
 
   if (quarters.length === 0) return (
     <div className="mm-brand text-center py-16" style={{ color: 'var(--mm-muted)' }}>
@@ -1152,7 +1152,7 @@ export default function LeagueTeamsPage() {
       </div>
 
       {dataLoading ? (
-        <div className="flex justify-center py-12"><BasketballLoader size={28} /></div>
+        <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
       ) : (
         <>
         {/* ── 섹션 1: 팀별 전적 + 상대 전적 ── */}

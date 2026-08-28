@@ -61,7 +61,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
       </div>
 
       {authLoading ? (
-        <div className="flex justify-center py-12"><BasketballLoader size={32} /></div>
+        <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
       ) : user ? (
         <>
           <PersonalDashboard leagueId={leagueId} orgSlug={orgSlug} />
@@ -83,7 +83,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
                     className="inline-flex items-center gap-1.5 min-h-11 px-3 -mr-1 text-xs font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                     style={{ color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
                   >
-                    <HelpCircle size={15} strokeWidth={2} aria-hidden />
+                    <HelpCircle size={16} strokeWidth={2} aria-hidden />
                     배지 도감
                   </button>
                 </div>
@@ -161,13 +161,13 @@ function ShortcutRow({
         className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-md"
         style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)' }}
       >
-        <Icon size={18} aria-hidden />
+        <Icon size={20} aria-hidden />
       </span>
       <div className="flex-1 min-w-0">
         <div className="font-bold text-sm md:text-base" style={{ color: 'var(--mm-ink)' }}>{label}</div>
         <div className="text-[12px]" style={{ color: 'var(--mm-muted)' }}>{sub}</div>
       </div>
-      <ChevronRight size={18} className="shrink-0" style={{ color: 'var(--mm-muted)' }} aria-hidden />
+      <ChevronRight size={20} className="shrink-0" style={{ color: 'var(--mm-muted)' }} aria-hidden />
     </Link>
   )
 }

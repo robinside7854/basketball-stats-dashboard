@@ -25,7 +25,7 @@ export default function InfoTip({ text, label = '설명 보기' }: { text: strin
         aria-label={label}
         className="inline-flex items-center justify-center cursor-pointer text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] transition-colors min-h-[24px] min-w-[24px]"
       >
-        <Info size={15} />
+        <Info size={16} />
       </button>
       {open && (
         <span

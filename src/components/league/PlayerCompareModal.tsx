@@ -114,7 +114,7 @@ export default function PlayerCompareModal({ leagueId, player1Id, player2Id, pla
             </h2>
           </div>
           <button onClick={onClose} className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors inline-flex items-center justify-center min-h-11 min-w-11">
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 

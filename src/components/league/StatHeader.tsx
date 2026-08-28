@@ -11,7 +11,7 @@ interface Props {
   label?: string
   className?: string
   children?: React.ReactNode
-  /** 물음표 아이콘 사이즈 (기본 11) */
+  /** 물음표 아이콘 사이즈 — 아이콘 4단계(14/16/20/24) 안에서만 (기본 14) */
   helpSize?: number
   /** 물음표 숨기고 라벨만 (예: 툴팁 표시 필요 없을 때) */
   hideHelp?: boolean
@@ -25,7 +25,7 @@ interface Props {
  *   <StatHeader term="APG" label="A" /> → "A" 라벨, 툴팁은 APG 설명
  *   <StatHeader term="TS%" hideHelp />  → 툴팁 없이 라벨만
  */
-export default function StatHeader({ term, label, className, children, helpSize = 11, hideHelp = false }: Props) {
+export default function StatHeader({ term, label, className, children, helpSize = 14, hideHelp = false }: Props) {
   const def = statDef(term)
   const display = children ?? label ?? def?.short ?? term
 
@@ -44,7 +44,7 @@ export default function StatHeader({ term, label, className, children, helpSize 
           aria-label="낮을수록 좋은 지표"
           style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--mm-negative-fg)', marginLeft: 1 }}
         >
-          <ArrowDown size={Math.max(9, helpSize - 2)} strokeWidth={2.5} aria-hidden />
+          <ArrowDown size={14} strokeWidth={2.5} aria-hidden />
         </span>
       )}
     </span>

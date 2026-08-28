@@ -239,7 +239,7 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
             </div>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-gray-800 shrink-0 inline-flex items-center justify-center min-h-11 min-w-11">
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 

@@ -163,7 +163,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                     }}
                     aria-label={`${r.weekLabel} 박스스코어 보기`}
                   >
-                    <ClipboardList size={13} aria-hidden />
+                    <ClipboardList size={14} aria-hidden />
                     박스스코어
                   </Link>
                   {/* 영상 재생 CTA — 브랜드 주황(hoop-orange)으로 강조 · 검정 텍스트(WCAG AA 5.9:1)

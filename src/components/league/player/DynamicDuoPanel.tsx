@@ -51,7 +51,7 @@ export default function DynamicDuoPanel({
   return (
     <div className="px-5 py-4">
       <p className="text-xs uppercase tracking-[0.20em] font-black mb-1 flex items-center gap-1.5" style={{ color: 'var(--mm-yellow-strong)' }}>
-        <Users size={13} aria-hidden />
+        <Users size={14} aria-hidden />
         다이나믹 듀오
       </p>
       <p className="text-xs mb-3 break-keep" style={{ color: 'var(--mm-muted)' }}>

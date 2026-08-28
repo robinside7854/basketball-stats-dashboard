@@ -53,7 +53,7 @@ export default function LeagueStandings({ standings }: Props) {
               >
                 <td className="py-3 lg:py-4 px-2 lg:px-3 text-center">
                   <span className={`text-xs lg:text-sm font-black inline-flex items-center justify-center gap-0.5 ${rankColor}`}>
-                    {idx === 0 && <Crown size={10} className="lg:w-3.5 lg:h-3.5" />}
+                    {idx === 0 && <Crown size={14} />}
                     {idx + 1}
                   </span>
                 </td>
@@ -103,7 +103,7 @@ export default function LeagueStandings({ standings }: Props) {
                         : 'text-[color:var(--mm-muted)] font-medium'
                     return (
                       <span className={`inline-flex items-center gap-0.5 text-xs lg:text-sm ${cls}`}>
-                        {type}{count}{hot && <Flame size={12} strokeWidth={2} aria-hidden />}
+                        {type}{count}{hot && <Flame size={14} strokeWidth={2} aria-hidden />}
                       </span>
                     )
                   })() : <span className="text-[color:var(--mm-muted)] text-xs">—</span>}

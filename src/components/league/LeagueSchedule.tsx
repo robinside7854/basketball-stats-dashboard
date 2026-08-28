@@ -99,7 +99,7 @@ export default function LeagueSchedule({ games, leagueId, limit, orgSlug }: Prop
               >
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 lg:gap-4">
                   <div className="flex items-center gap-2.5 lg:gap-3 shrink-0 min-w-0">
-                    <CalendarOff size={14} className="lg:w-4 lg:h-4 text-[color:var(--mm-muted)] shrink-0" aria-hidden />
+                    <CalendarOff size={14} className="text-[color:var(--mm-muted)] shrink-0" aria-hidden />
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="text-base lg:text-lg font-bold whitespace-nowrap text-[color:var(--mm-muted)]">{formatDate(date)}</p>
@@ -128,7 +128,7 @@ export default function LeagueSchedule({ games, leagueId, limit, orgSlug }: Prop
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 lg:gap-4">
                 {/* 날짜 + 경기 수 */}
                 <div className="flex items-center gap-2.5 lg:gap-3 shrink-0 min-w-0">
-                  <BarChart2 size={14} className="lg:w-4 lg:h-4 text-[color:var(--mm-muted)] group-hover:text-[color:var(--mm-yellow-strong)] transition-colors shrink-0" />
+                  <BarChart2 size={14} className="text-[color:var(--mm-muted)] group-hover:text-[color:var(--mm-yellow-strong)] transition-colors shrink-0" />
                   <div>
                     <div className="flex items-center gap-2">
                       <p className={`text-base lg:text-lg font-bold whitespace-nowrap ${hasCompleted ? 'text-[color:var(--mm-ink-soft)]' : 'text-[color:var(--mm-ink)]'}`}>{formatDate(date)}</p>
@@ -178,7 +178,7 @@ export default function LeagueSchedule({ games, leagueId, limit, orgSlug }: Prop
                   </div>
                 )}
 
-                <ChevronRight size={14} className="lg:w-4 lg:h-4 text-[color:var(--mm-muted)] group-hover:text-[color:var(--mm-yellow-strong)] transition-colors shrink-0" />
+                <ChevronRight size={14} className="text-[color:var(--mm-muted)] group-hover:text-[color:var(--mm-yellow-strong)] transition-colors shrink-0" />
               </div>
             </Link>
           )

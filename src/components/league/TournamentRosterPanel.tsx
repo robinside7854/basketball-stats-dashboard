@@ -142,7 +142,7 @@ export default function TournamentRosterPanel({ leagueId, quarterId, quarterName
             type="button" onClick={onClose} aria-label="닫기"
             className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded transition-colors hover:bg-black/10 cursor-pointer text-[color:var(--mm-black)] shrink-0"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
@@ -169,7 +169,7 @@ export default function TournamentRosterPanel({ leagueId, quarterId, quarterName
             </div>
           ) : players === null ? (
             <div className="flex justify-center py-10">
-              <BasketballLoader size={28} />
+              <BasketballLoader size={24} />
             </div>
           ) : players.length === 0 ? (
             <p className="py-10 text-center text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>

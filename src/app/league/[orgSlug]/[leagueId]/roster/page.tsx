@@ -654,7 +654,7 @@ export default function LeagueRosterPage() {
                   <div className="flex items-start gap-2 mb-1.5 lg:mb-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        {isAnyLeader && <Crown size={12} className="lg:w-3.5 lg:h-3.5 text-[var(--mm-ink)] shrink-0" />}
+                        {isAnyLeader && <Crown size={14} className="text-[var(--mm-ink)] shrink-0" />}
                         <span className="font-jersey text-[20px] lg:text-[26px] font-bold text-[var(--mm-ink)] break-keep min-w-0 tracking-tight group-hover:underline underline-offset-4 decoration-[3px] decoration-[var(--mm-yellow-soft)]" style={{ lineHeight: 1.15, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{p.name}</span>
                       </div>
                       {p.number !== null && (
@@ -687,7 +687,7 @@ export default function LeagueRosterPage() {
                         title="선수 삭제"
                         aria-label="선수 삭제"
                       >
-                        {deletingId === p.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                        {deletingId === p.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                       </button>
                     )}
                   </div>
@@ -712,7 +712,7 @@ export default function LeagueRosterPage() {
                         className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-[0.12em] bg-[var(--mm-yellow)] text-[var(--mm-black)]"
                         title="로그인 계정을 등록·인증한 회원"
                       >
-                        <ShieldCheck size={11} aria-hidden className="shrink-0" />
+                        <ShieldCheck size={14} aria-hidden className="shrink-0" />
                         인증
                       </span>
                     )}
@@ -756,7 +756,7 @@ export default function LeagueRosterPage() {
                               {String(q.year).slice(2)}.{q.quarter}Q
                             </span>
                             {isSaving ? (
-                              <Loader2 size={12} className="animate-spin text-[var(--mm-muted)] ml-auto" />
+                              <Loader2 size={14} className="animate-spin text-[var(--mm-muted)] ml-auto" />
                             ) : isEditingCell && isEditMode ? (
                               /* 인라인 chip 팝오버 — 팀 선택 */
                               <div
@@ -799,7 +799,7 @@ export default function LeagueRosterPage() {
                                   className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] p-0.5 cursor-pointer"
                                   title="닫기"
                                 >
-                                  <X size={12} />
+                                  <X size={14} />
                                 </button>
                               </div>
                             ) : (
@@ -811,9 +811,9 @@ export default function LeagueRosterPage() {
                                         onClick={e => { e.stopPropagation(); toggleLeader(q.id, teamId, p.id) }}
                                         className="transition-colors cursor-pointer"
                                         style={{ color: isPlayerLeader ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
-                                      ><Crown size={12} /></button>
+                                      ><Crown size={14} /></button>
                                     ) : isPlayerLeader ? (
-                                      <Crown size={12} style={{ color: 'var(--mm-ink)' }} />
+                                      <Crown size={14} style={{ color: 'var(--mm-ink)' }} />
                                     ) : null}
                                   </>
                                 )}
@@ -866,7 +866,7 @@ export default function LeagueRosterPage() {
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors cursor-pointer font-bold uppercase tracking-[0.1em]"
               title="엑셀 템플릿 다운로드"
             >
-              <Download size={12} />템플릿
+              <Download size={14} />템플릿
             </button>
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -874,7 +874,7 @@ export default function LeagueRosterPage() {
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors cursor-pointer disabled:opacity-40 font-bold uppercase tracking-[0.1em]"
               title="엑셀 파일로 대량 등록"
             >
-              {bulkUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}대량 등록
+              {bulkUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}대량 등록
             </button>
             <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleBulkUpload} />
             <button
@@ -889,7 +889,7 @@ export default function LeagueRosterPage() {
             onClick={openPinModal}
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors cursor-pointer font-bold uppercase tracking-[0.1em]"
           >
-            <Lock size={12} />편집 모드
+            <Lock size={14} />편집 모드
           </button>
         )}
       </div>
@@ -939,7 +939,7 @@ export default function LeagueRosterPage() {
               disabled={saving}
               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-[0.14em] bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-all cursor-pointer"
             >
-              {saving ? <Loader2 size={13} className="animate-spin mr-1" /> : null}추가
+              {saving ? <Loader2 size={14} className="animate-spin mr-1" /> : null}추가
             </button>
             <button
               onClick={() => setShowForm(false)}
@@ -1014,7 +1014,7 @@ export default function LeagueRosterPage() {
                 title="로그인 계정을 등록·인증한 회원만 표시"
               >
                 <ShieldCheck
-                  size={13}
+                  size={14}
                   aria-hidden
                   className="shrink-0"
                   style={{ color: onlyVerified ? 'var(--color-hoop-orange-500)' : 'var(--mm-muted)' }}
@@ -1033,7 +1033,7 @@ export default function LeagueRosterPage() {
       {/* 선수 카드 그리드 */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <BasketballLoader size={32} />
+          <BasketballLoader size={24} />
         </div>
       ) : players.length === 0 ? (
         <EmptyState
@@ -1112,7 +1112,7 @@ export default function LeagueRosterPage() {
               onClick={() => setShowQForm(v => !v)}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] cursor-pointer transition-colors font-bold uppercase tracking-[0.1em]"
             >
-              <Plus size={12} />분기 추가
+              <Plus size={14} />분기 추가
             </button>
           </div>
           {quarters.length === 0 && !showQForm && (
@@ -1171,7 +1171,7 @@ export default function LeagueRosterPage() {
                   disabled={savingQ}
                   className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-[0.14em] bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-all cursor-pointer"
                 >
-                  {savingQ ? <Loader2 size={13} className="animate-spin" /> : '생성'}
+                  {savingQ ? <Loader2 size={14} className="animate-spin" /> : '생성'}
                 </button>
                 <button
                   onClick={() => setShowQForm(false)}

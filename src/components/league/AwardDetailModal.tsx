@@ -119,7 +119,7 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
               <span className="text-gray-500">순위 지표:</span>
               <span className={`font-bold inline-flex items-center ${style.text}`}>
                 {award.metric}
-                <StatHelpTooltip statKey={award.metric} size={12} />
+                <StatHelpTooltip statKey={award.metric} />
               </span>
             </div>
             <span className="text-xs text-gray-500 tabular-nums">

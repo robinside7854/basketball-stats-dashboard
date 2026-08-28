@@ -104,7 +104,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
         </header>
 
         {loading ? (
-          <div className="flex justify-center py-10"><BasketballLoader size={28} /></div>
+          <div className="flex justify-center py-10"><BasketballLoader size={24} /></div>
         ) : players.length === 0 ? (
           <div className="text-center py-10 text-sm" style={{ color: 'var(--mm-muted)' }}>아직 기록된 스탯이 없습니다</div>
         ) : (

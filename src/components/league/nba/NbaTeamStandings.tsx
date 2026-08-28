@@ -64,7 +64,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
               style={{ color: 'var(--mm-ink-soft)' }}
             >
               팀 명단
-              <ChevronRight size={13} aria-hidden />
+              <ChevronRight size={14} aria-hidden />
             </Link>
           )}
         </div>

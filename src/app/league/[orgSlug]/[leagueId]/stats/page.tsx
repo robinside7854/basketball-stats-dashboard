@@ -720,7 +720,7 @@ function LeagueStatsPageInner() {
                       <div className="text-right shrink-0">
                         <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '30px', letterSpacing: '-0.015em' }}>{sortVal}</div>
                         <div className="text-[11px] font-black uppercase mt-1 flex items-center justify-end" style={{ color: 'var(--mm-ink)', letterSpacing: '0.16em' }}>
-                          <StatHeader term={sortTerm} helpSize={12} />
+                          <StatHeader term={sortTerm} />
                         </div>
                       </div>
                     </div>
@@ -730,7 +730,7 @@ function LeagueStatsPageInner() {
                         return (
                           <div key={key} className="text-center">
                             <div className="text-[11px] font-bold uppercase flex items-center justify-center" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
-                              <StatHeader term={term} helpSize={10} />
+                              <StatHeader term={term} />
                             </div>
                             <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '15px' }}>{cellVal(p, key)}</div>
                           </div>

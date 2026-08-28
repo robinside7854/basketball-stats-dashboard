@@ -111,7 +111,7 @@ function RosterGroup({
           const label = `${m.name} · ${m.hasAccount ? mark.label : '미가입'}`
           const inner = (
             <>
-              <mark.Icon size={15} aria-hidden className="shrink-0" style={{ color: m.hasAccount ? mark.color : 'var(--mm-rule)' }} />
+              <mark.Icon size={16} aria-hidden className="shrink-0" style={{ color: m.hasAccount ? mark.color : 'var(--mm-rule)' }} />
               <span
                 className="truncate"
                 style={{
@@ -218,16 +218,16 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
             다음 경기{rel ? ` · ${rel}` : ''}
           </p>
           <p className="mt-0.5 font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(17px, 4.4vw, 20px)', lineHeight: 1.2 }}>
-            <CalendarDays size={17} className="inline-block mr-1.5 -mt-0.5" aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
+            <CalendarDays size={16} className="inline-block mr-1.5 -mt-0.5" aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
             {formatDate(date.date)}
           </p>
           {(date.start_time || date.place) && (
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12.5px]" style={{ color: 'var(--mm-ink-soft)' }}>
               {date.start_time && (
-                <span className="inline-flex items-center gap-1"><Clock size={13} aria-hidden style={{ color: 'var(--mm-muted)' }} />{date.start_time.slice(0, 5)}</span>
+                <span className="inline-flex items-center gap-1"><Clock size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />{date.start_time.slice(0, 5)}</span>
               )}
               {date.place && (
-                <span className="inline-flex items-center gap-1 min-w-0"><MapPin size={13} aria-hidden className="shrink-0" style={{ color: 'var(--mm-muted)' }} /><span className="break-keep">{date.place}</span></span>
+                <span className="inline-flex items-center gap-1 min-w-0"><MapPin size={14} aria-hidden className="shrink-0" style={{ color: 'var(--mm-muted)' }} /><span className="break-keep">{date.place}</span></span>
               )}
             </div>
           )}
@@ -236,7 +236,7 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
         {summary && (
           <div className="shrink-0 text-right">
             <p className="inline-flex items-center gap-1 text-[12px] font-bold" style={{ color: 'var(--mm-ink-soft)' }}>
-              <Users size={13} aria-hidden style={{ color: 'var(--mm-muted)' }} />
+              <Users size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />
               참석 <span className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>{summary.going}</span>
               {date.capacity ? <span style={{ color: 'var(--mm-muted)' }}>/{date.capacity}</span> : null}명
             </p>
@@ -268,7 +268,7 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
                     transitionDuration: 'var(--mm-motion-fast)',
                   }}
                 >
-                  {saving === value ? <Loader2 size={13} className="animate-spin" aria-hidden /> : <Icon size={13} aria-hidden />}
+                  {saving === value ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Icon size={14} aria-hidden />}
                   {label}
                 </button>
               )

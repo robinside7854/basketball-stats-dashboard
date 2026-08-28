@@ -432,7 +432,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 : { background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', color: 'var(--mm-ink-soft)' }
               }
             >
-              <Pencil size={12} aria-hidden /> 편집
+              <Pencil size={14} aria-hidden /> 편집
             </button>
           )}
           <button
@@ -441,7 +441,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             className="rounded-sm cursor-pointer transition-colors duration-200 inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 hover:bg-[color:var(--mm-panel-alt)]"
             style={{ color: 'var(--mm-muted)' }}
           >
-            <X size={18} />
+            <X size={20} />
           </button>
           </div>
         </div>
@@ -517,8 +517,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   style={{ background: 'rgba(0,0,0,0.60)' }}
                 >
                   {uploadingPhoto
-                    ? <Loader2 size={18} className="animate-spin text-white" />
-                    : <span className="text-white text-xs font-bold text-center px-2 inline-flex items-center gap-1"><Camera size={12} aria-hidden /> 사진</span>}
+                    ? <Loader2 size={20} className="animate-spin text-white" />
+                    : <span className="text-white text-xs font-bold text-center px-2 inline-flex items-center gap-1"><Camera size={14} aria-hidden /> 사진</span>}
                   <input type="file" accept="image/*" className="hidden"
                     disabled={uploadingPhoto || generatingAI}
                     onChange={async e => {
@@ -595,10 +595,10 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   title={isAIGenerated ? '동일 원본에서 AI 프로필 재생성' : 'Gemini 2.5 로 실사 프로필 생성'}
                 >
                   {generatingAI
-                    ? <><Loader2 size={10} className="animate-spin" /> 생성중</>
+                    ? <><Loader2 size={14} className="animate-spin" /> 생성중</>
                     : isAIGenerated
-                      ? <><RefreshCw size={10} aria-hidden /> 재생성</>
-                      : <><Sparkles size={10} aria-hidden /> AI 프로필</>}
+                      ? <><RefreshCw size={14} aria-hidden /> 재생성</>
+                      : <><Sparkles size={14} aria-hidden /> AI 프로필</>}
                 </button>
               )}
             </div>
@@ -643,7 +643,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
                     title="로그인 계정을 등록·인증한 회원"
                   >
-                    <ShieldCheck size={13} aria-hidden /> 인증
+                    <ShieldCheck size={14} aria-hidden /> 인증
                   </span>
                 )}
                 {orgSlug && (
@@ -654,7 +654,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     style={{ background: 'var(--mm-black)', color: 'var(--mm-yellow)', border: '1px solid var(--mm-black)' }}
                     aria-label={`${player?.name ?? playerName} 하이라이트 보기`}
                   >
-                    <Film size={12} aria-hidden /> 하이라이트
+                    <Film size={14} aria-hidden /> 하이라이트
                   </Link>
                 )}
                 {/* 베스트샷 재생 — 포지션 옆 · 핀 있을 때만 노출 */}
@@ -812,7 +812,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
         <div className="h-px w-full" style={{ background: 'var(--mm-yellow)' }} />
 
         {loading ? (
-          <div className="flex justify-center py-16"><BasketballLoader size={28} /></div>
+          <div className="flex justify-center py-16"><BasketballLoader size={24} /></div>
         ) : gated ? (
           /* 스탯 게이팅 — 프로필(이름·사진)은 공개, 상세 스탯은 승인 회원 전용 */
           <div className="flex flex-col items-center text-center px-6 py-12">
@@ -835,7 +835,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               className="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md font-bold text-sm cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] min-h-[44px]"
               style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
             >
-              <LogIn size={15} aria-hidden />
+              <LogIn size={16} aria-hidden />
               로그인 · 가입 요청
             </button>
           </div>
@@ -882,7 +882,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {activeTab === 'season' && (activeDetail?.player_stats ? (
               <div className="px-5 py-4">
                 {quarterLoading ? (
-                  <div className="flex justify-center py-8"><BasketballLoader size={22} /></div>
+                  <div className="flex justify-center py-8"><BasketballLoader size={20} /></div>
                 ) : (
                   <>
                     <p className="text-xs uppercase tracking-[0.20em] font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>시즌 스탯</p>
@@ -921,8 +921,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                                 className="relative text-[11px] font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
                                 style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
                               >
-                                {isChamp && <Crown size={11} aria-hidden strokeWidth={2.5} />}
-                                {(rank === 2 || rank === 3) && <Medal size={11} aria-hidden strokeWidth={2.5} />}
+                                {isChamp && <Crown size={14} aria-hidden strokeWidth={2.5} />}
+                                {(rank === 2 || rank === 3) && <Medal size={14} aria-hidden strokeWidth={2.5} />}
                                 {rank}위{total > 0 && <span className="opacity-60"> · {total}</span>}
                               </p>
                             )}
@@ -951,7 +951,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                           >
                             <p className="text-xs mb-1 uppercase tracking-[0.16em] font-bold flex items-center justify-center" style={{ color: isChamp ? 'rgba(0,0,0,0.6)' : 'var(--mm-muted)' }}>
                               <span>{label}</span>
-                              <StatHelpTooltip statKey={label} size={11} />
+                              <StatHelpTooltip statKey={label} />
                             </p>
                             <p className="font-jersey text-xl font-black leading-none tabular-nums" style={{ color: isChamp ? 'var(--mm-black)' : 'var(--mm-ink)' }}>
                               {a > 0 ? <><CountUp value={pct} decimals={1} />%</> : '—'}
@@ -962,8 +962,8 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                                 className="text-[11px] font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
                                 style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
                               >
-                                {isChamp && <Crown size={11} aria-hidden strokeWidth={2.5} />}
-                                {(rank === 2 || rank === 3) && <Medal size={11} aria-hidden strokeWidth={2.5} />}
+                                {isChamp && <Crown size={14} aria-hidden strokeWidth={2.5} />}
+                                {(rank === 2 || rank === 3) && <Medal size={14} aria-hidden strokeWidth={2.5} />}
                                 {rank}위{total > 0 && <span className="opacity-60"> · {total}</span>}
                               </p>
                             )}
@@ -1103,7 +1103,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                                 className="inline-flex items-center gap-1 px-2 py-1 rounded-sm text-xs font-bold"
                                 style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)' }}
                               >
-                                <Icon size={12} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
+                                <Icon size={14} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
                                 <span>{c.label}</span>
                                 <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{c.count}{'R'}</span>
                               </span>
@@ -1198,7 +1198,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       className="inline-flex items-center gap-1.5 min-h-11 px-3 -mr-1 text-xs font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                       style={{ color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
                     >
-                      <HelpCircle size={15} strokeWidth={2} aria-hidden />
+                      <HelpCircle size={16} strokeWidth={2} aria-hidden />
                       배지 도감
                     </button>
                   </div>

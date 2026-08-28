@@ -3,7 +3,7 @@
 //
 // 사용법:
 //   <StatHelpTooltip statKey="TS%" />
-//   <StatHelpTooltip statKey="eFG%" size={13} />
+//   <StatHelpTooltip statKey="eFG%" size={16} />  // 4단계(14/16/20/24) 안에서만
 //
 // GLOSSARY(src/lib/stats/glossary.ts) 에서 long/formula/description 조회.
 // 매치 안 되는 key 는 null (렌더 안 함).
@@ -29,7 +29,7 @@ const BEAUTIFUL_SM_SHADOW =
   '0px 1px 0px 0px rgba(25,28,33,0.02),' +
   '0px 0px 0px 1px rgba(25,28,33,0.08)'
 
-export default function StatHelpTooltip({ statKey, size = 12, className, ariaLabel }: Props) {
+export default function StatHelpTooltip({ statKey, size = 14, className, ariaLabel }: Props) {
   const [open, setOpen] = useState(false)
   const [coords, setCoords] = useState<{ top: number; left: number; placement: 'top' | 'bottom' } | null>(null)
   const [mounted, setMounted] = useState(false)

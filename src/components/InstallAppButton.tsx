@@ -112,7 +112,7 @@ export default function InstallAppButton() {
                 className="shrink-0 inline-flex items-center justify-center w-11 h-11 -m-2 rounded-md cursor-pointer"
                 style={{ color: 'var(--mm-muted)' }}
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
             <ol className="space-y-2 text-sm leading-relaxed" style={{ color: 'var(--mm-ink-soft)' }}>
