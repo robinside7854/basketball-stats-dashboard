@@ -88,7 +88,7 @@ export default function ClassicBoxscoreModal({ leagueId, game, onClose }: Props)
             className="shrink-0 min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded-md cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
             style={{ color: 'var(--mm-ink-soft)' }}
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
@@ -103,7 +103,7 @@ export default function ClassicBoxscoreModal({ leagueId, game, onClose }: Props)
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={hero.photoUrl} alt="" className="w-full h-full object-cover" />
               ) : (
-                <User size={22} aria-hidden style={{ color: 'var(--mm-muted)' }} />
+                <User size={20} aria-hidden style={{ color: 'var(--mm-muted)' }} />
               )}
             </div>
             <div className="min-w-0">

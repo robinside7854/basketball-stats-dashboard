@@ -55,7 +55,7 @@ export default function ShareLeagueButton({ leagueName }: { leagueName: string }
         transitionDuration: 'var(--mm-motion-fast)',
       }}
     >
-      {copied ? <Check size={18} aria-hidden /> : <Share2 size={18} aria-hidden />}
+      {copied ? <Check size={20} aria-hidden /> : <Share2 size={20} aria-hidden />}
     </button>
   )
 }

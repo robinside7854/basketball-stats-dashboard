@@ -92,7 +92,7 @@ export default async function BoxscorePage({
             className="inline-flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 shrink-0"
             style={{ color: 'var(--mm-ink-soft)' }}
           >
-            <ChevronLeft size={22} aria-hidden />
+            <ChevronLeft size={20} aria-hidden />
           </Link>
           <div className="min-w-0">
             <h1

@@ -103,7 +103,7 @@ function ScheduleDetailEditor({
           className="inline-flex items-center justify-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-4 py-2 min-h-[44px] cursor-pointer disabled:opacity-50 transition-shadow duration-200"
           style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)' }}
         >
-          {saving && <Loader2 size={13} className="animate-spin" aria-hidden />}
+          {saving && <Loader2 size={14} className="animate-spin" aria-hidden />}
           저장
         </button>
         <button
@@ -389,7 +389,7 @@ function ScheduleContent() {
               color: 'var(--mm-black)',
             }}
           >
-            {autoGenerating ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} />}
+            {autoGenerating ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
             일정 등록 + 영상 연동
           </button>
         ) : (
@@ -402,7 +402,7 @@ function ScheduleContent() {
               background: 'var(--mm-panel)',
             }}
           >
-            <Lock size={12} />편집 모드
+            <Lock size={14} />편집 모드
           </button>
         )}
       </div>
@@ -445,7 +445,7 @@ function ScheduleContent() {
               color: 'var(--mm-panel)',
             }}
           >
-            {adding ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+            {adding ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
             정규전 추가
           </button>
         </div>
@@ -454,7 +454,7 @@ function ScheduleContent() {
       {/* 날짜 목록 */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <BasketballLoader size={32} />
+          <BasketballLoader size={24} />
         </div>
       ) : dates.length === 0 ? (
         <EmptyState
@@ -512,14 +512,14 @@ function ScheduleContent() {
                 className="inline-flex items-center justify-center gap-1.5 text-[11px] font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-colors cursor-pointer btn-press"
                 style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-yellow-strong)', border: '1px solid var(--mm-yellow)' }}
               >
-                <BarChart2 size={12} />박스스코어
+                <BarChart2 size={14} />박스스코어
               </Link>
             ) : (
               <span
                 className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-4 py-2 min-h-[44px] cursor-not-allowed select-none"
                 style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', opacity: 0.6 }}
               >
-                <BarChart2 size={12} />박스스코어
+                <BarChart2 size={14} />박스스코어
               </span>
             )
             return (
@@ -534,7 +534,7 @@ function ScheduleContent() {
             >
               <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                <CalendarDays size={18} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />
+                <CalendarDays size={20} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} />
                 {/* ⚠ overflowWrap:'anywhere' 를 걸면 안 된다. 편집 모드에서 오른쪽 버튼들이
                     자리를 차지하면 남은 폭이 한 글자까지 좁아지고, 그때 날짜가 세로로
                     한 글자씩 쪼개진다("2 0 2 6 년 8 월..."). 날짜는 절대 단어 중간에서
@@ -596,7 +596,7 @@ function ScheduleContent() {
                       className="inline-flex items-center gap-1.5 justify-center text-[11px] font-bold tracking-widest uppercase px-3 py-2 min-h-[44px] transition-colors cursor-pointer disabled:opacity-50 hover:bg-[color:var(--mm-panel-alt)]"
                       style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
                     >
-                      <CalendarOff size={12} aria-hidden />
+                      <CalendarOff size={14} aria-hidden />
                       {sd.is_skipped ? '되돌리기' : '대관 없음'}
                     </button>
                   )}
@@ -607,7 +607,7 @@ function ScheduleContent() {
                       style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
                       aria-expanded={editingDate === sd.date}
                     >
-                      <Pencil size={12} aria-hidden />
+                      <Pencil size={14} aria-hidden />
                       {hasOwnDetails ? '수정' : '시간·장소'}
                     </button>
                   )}
@@ -630,13 +630,13 @@ function ScheduleContent() {
               {hasDetails && (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-[30px] text-[12.5px]" style={{ color: 'var(--mm-ink-soft)' }}>
                   {eff.start_time && (
-                    <span className="inline-flex items-center gap-1"><Clock size={13} aria-hidden style={{ color: 'var(--mm-muted)' }} />{hhmm(eff.start_time)}</span>
+                    <span className="inline-flex items-center gap-1"><Clock size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />{hhmm(eff.start_time)}</span>
                   )}
                   {eff.place && (
-                    <span className="inline-flex items-center gap-1 min-w-0"><MapPin size={13} aria-hidden className="shrink-0" style={{ color: 'var(--mm-muted)' }} /><span className="break-keep">{eff.place}</span></span>
+                    <span className="inline-flex items-center gap-1 min-w-0"><MapPin size={14} aria-hidden className="shrink-0" style={{ color: 'var(--mm-muted)' }} /><span className="break-keep">{eff.place}</span></span>
                   )}
                   {eff.capacity && (
-                    <span className="inline-flex items-center gap-1"><Users size={13} aria-hidden style={{ color: 'var(--mm-muted)' }} />정원 {eff.capacity}명</span>
+                    <span className="inline-flex items-center gap-1"><Users size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />정원 {eff.capacity}명</span>
                   )}
                   {/* 고정 대관을 그대로 따르는 날인지 밝힌다. 안 밝히면 그 날만 따로 입력해 둔
                       값인 줄 알고, 설정에서 장소를 바꿨을 때 왜 여기까지 바뀌는지 모른다. */}

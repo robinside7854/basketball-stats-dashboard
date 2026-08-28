@@ -135,7 +135,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={user.photo_url} alt="" className="w-full h-full object-cover" />
             ) : (
-              <UserIcon size={22} style={{ color: 'var(--mm-muted)' }} />
+              <UserIcon size={20} style={{ color: 'var(--mm-muted)' }} />
             )}
           </div>
           <div className="flex-1 min-w-0">
@@ -187,7 +187,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
           style={{ borderTop: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
         >
           <div className="flex items-center gap-2 min-w-0 text-[12px]" style={{ color: 'var(--mm-muted)' }}>
-            <UserIcon size={13} aria-hidden />
+            <UserIcon size={14} aria-hidden />
             <span className="truncate">아이디 <b style={{ color: 'var(--mm-ink-soft)' }}>{user.login_id}</b></span>
             {user.is_default_password && (
               <span className="inline-flex items-center text-[10px] font-black uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-sm"
@@ -207,7 +207,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
                 border: `1px solid ${user.is_default_password ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
               }}
             >
-              <KeyRound size={12} aria-hidden />
+              <KeyRound size={14} aria-hidden />
               비밀번호 변경
             </button>
           </div>
@@ -383,7 +383,7 @@ function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md"
             style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
           >
-            <Flame size={13} className="mm-flicker" style={{ color: 'var(--color-hoop-orange-500)' }} />
+            <Flame size={14} className="mm-flicker" style={{ color: 'var(--color-hoop-orange-500)' }} />
             <span className="font-jersey font-black tabular-nums text-lg md:text-xl leading-none" style={{ color: 'var(--mm-ink)' }}>
               {s.count}{s.unit}
             </span>

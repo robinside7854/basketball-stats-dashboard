@@ -38,9 +38,9 @@ export default function StatGate({
         className="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md font-bold text-sm cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] min-h-[44px]"
         style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
       >
-        <LogIn size={15} aria-hidden />
+        <LogIn size={16} aria-hidden />
         로그인 · 가입 요청
-        <ChevronRight size={15} aria-hidden />
+        <ChevronRight size={16} aria-hidden />
       </button>
       <p className="text-[11px] mt-3" style={{ color: 'var(--mm-muted)' }}>
         우리 팀 선수라면 이름으로 가입 요청 → 운영자 승인 후 바로 열려요

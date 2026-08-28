@@ -104,7 +104,7 @@ export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: 
             className="p-1 -m-1 shrink-0 cursor-pointer"
             style={{ color: 'var(--mm-muted)' }}
           >
-            <RefreshCw size={13} aria-hidden />
+            <RefreshCw size={14} aria-hidden />
           </button>
         </div>
 
@@ -164,7 +164,7 @@ export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: 
               style={{ color: 'var(--mm-ink-soft)' }}
             >
               <ChevronDown
-                size={13}
+                size={14}
                 aria-hidden
                 style={{ transform: showNames ? 'rotate(180deg)' : 'none', transition: 'transform 150ms' }}
               />

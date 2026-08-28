@@ -43,8 +43,8 @@ function ThemeToggleButton() {
       onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
       className="flex items-center justify-center w-11 h-11 rounded-md text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)] transition-colors cursor-pointer btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
     >
-      <Moon size={18} aria-hidden className="block dark:hidden" />
-      <Sun size={18} aria-hidden className="hidden dark:block" />
+      <Moon size={20} aria-hidden className="block dark:hidden" />
+      <Sun size={20} aria-hidden className="hidden dark:block" />
       {/* 접근성 이름도 같은 방식으로 갈라 둔다 — 아이콘만으로는 무엇으로 바뀌는지 안 읽힌다 */}
       <span className="sr-only block dark:hidden">다크 모드로 전환</span>
       <span className="sr-only hidden dark:block">라이트 모드로 전환</span>
@@ -241,7 +241,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                 aria-label={pendingCount > 0 ? `리그 설정 · 가입 신청 ${pendingCount}건 대기` : '리그 설정'}
                 className="relative flex items-center justify-center w-11 h-11 rounded-md text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel-alt)] transition-colors cursor-pointer btn-press"
               >
-                <Settings size={18} />
+                <Settings size={20} />
                 {/* 대기 중인 가입 신청 배지 — 홈이 아닌 탭에 있어도 알 수 있게 한다.
                     홈 카드(PendingSignupsAlert)와 같은 훅을 보므로 승인 직후 둘이 함께 사라진다.
                     ⚠ 숫자를 적는다. 점만 찍으면 "뭔가 있다"까지만 알고 열어봐야 몇 건인지 안다.
@@ -400,7 +400,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
                     <img src={user.photo_url} alt="" className="w-full h-full object-cover" />
                   </span>
                 ) : (
-                  <Icon size={22} strokeWidth={active ? 2.25 : 1.75} />
+                  <Icon size={20} strokeWidth={active ? 2.25 : 1.75} />
                 )}
                 {/* 긴 이름이 5분할 탭(375px÷5=75px)을 깨뜨리지 않도록 내 기록 탭 라벨만 truncate.
                     나머지 탭은 고정 짧은 한글 라벨이라 그대로 둔다. */}

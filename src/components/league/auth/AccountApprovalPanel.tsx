@@ -112,7 +112,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
         style={{ borderBottom: '1px solid var(--mm-rule)' }}
       >
         <div className="flex items-center gap-2.5">
-          <UserPlus size={18} style={{ color: 'var(--mm-yellow-strong)' }} />
+          <UserPlus size={20} style={{ color: 'var(--mm-yellow-strong)' }} />
           <h3 className="font-bold text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
             회원 가입 · 계정 관리
           </h3>
@@ -181,7 +181,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={r.player.photo_url} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <UserIcon size={18} style={{ color: 'var(--mm-muted)' }} />
+                  <UserIcon size={20} style={{ color: 'var(--mm-muted)' }} />
                 )}
               </div>
               {/* 이름 · 정보 */}
@@ -206,7 +206,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                       style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '2px' }}
                       title="편집 권한 보유 — 로그인만으로 편집 모드가 켜집니다"
                     >
-                      <ShieldCheck size={10} aria-hidden />어드민
+                      <ShieldCheck size={14} aria-hidden />어드민
                     </span>
                   )}
                 </div>
@@ -227,7 +227,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                       className="inline-flex items-center gap-1 text-xs font-black uppercase px-2.5 py-1.5 min-h-[36px] cursor-pointer"
                       style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: '3px', letterSpacing: '0.10em', opacity: busyId === r.id ? 0.5 : 1 }}
                     >
-                      <Check size={12} />
+                      <Check size={14} />
                       승인
                     </button>
                     <button
@@ -236,7 +236,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                       className="inline-flex items-center gap-1 text-xs font-black uppercase px-2.5 py-1.5 min-h-[36px] cursor-pointer"
                       style={{ background: 'var(--mm-panel-alt)', color: '#DC2626', border: '1px solid #DC2626', borderRadius: '3px', letterSpacing: '0.10em', opacity: busyId === r.id ? 0.5 : 1 }}
                     >
-                      <X size={12} />
+                      <X size={14} />
                       반려
                     </button>
                   </>
@@ -256,7 +256,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                         opacity: busyId === r.id ? 0.5 : 1,
                       }}
                     >
-                      {r.role === 'admin' ? <ShieldOff size={12} /> : <ShieldCheck size={12} />}
+                      {r.role === 'admin' ? <ShieldOff size={14} /> : <ShieldCheck size={14} />}
                       {r.role === 'admin' ? '어드민 해제' : '어드민 지정'}
                     </button>
                     <button
@@ -266,7 +266,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                       className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1.5 min-h-[36px] cursor-pointer"
                       style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '3px', opacity: busyId === r.id ? 0.5 : 1 }}
                     >
-                      <RotateCcw size={12} />
+                      <RotateCcw size={14} />
                       비번 초기화
                     </button>
                     <button
@@ -275,7 +275,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                       className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1.5 min-h-[36px] cursor-pointer"
                       style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '3px', opacity: busyId === r.id ? 0.5 : 1 }}
                     >
-                      <Ban size={12} />
+                      <Ban size={14} />
                       비활성화
                     </button>
                   </>

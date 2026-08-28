@@ -142,8 +142,8 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
                   style={{ color: isActive ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>
                   {c.label}
                   {c.sortKey && (isActive
-                    ? (sortDir === 'desc' ? <ChevronDown size={9} className="inline ml-0.5" /> : <ChevronUp size={9} className="inline ml-0.5" />)
-                    : <ChevronsUpDown size={9} className="inline ml-0.5 opacity-30" />)}
+                    ? (sortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" /> : <ChevronUp size={14} className="inline ml-0.5" />)
+                    : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-30" />)}
                 </th>
               )
             })}
@@ -449,7 +449,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               )}
             </span>
             <p className="text-xs sm:text-sm min-w-0 truncate" style={{ color: 'var(--mm-ink-soft)' }}>
-              <Trophy size={11} className="inline mr-1 -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+              <Trophy size={14} className="inline mr-1 -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
               오늘의 주인공 · <span className="font-black" style={{ color: 'var(--mm-ink)' }}>{hero.name}</span>
               {hero.team_name && <span style={{ color: 'var(--mm-muted)' }}> ({hero.team_name})</span>}
               {' '}<span className="font-black tabular-nums" style={{ color: accentOrInk(heroColor) }}>{hero.pts}점</span>
@@ -498,7 +498,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
       )}
 
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 size={28} className="animate-spin" style={{ color: 'var(--mm-muted)' }} /></div>
+        <div className="flex justify-center py-20"><Loader2 size={24} className="animate-spin" style={{ color: 'var(--mm-muted)' }} /></div>
       ) : games.length === 0 ? (
         <div className="text-center py-20" style={{ color: 'var(--mm-muted)' }}>
           <p className="text-base">이 날 기록된 경기가 없습니다</p>
@@ -652,7 +652,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                         <div className="flex items-center gap-2 sm:gap-3">
                           {/* HOME */}
                           <div className="flex items-center gap-1.5 min-w-0 flex-1 justify-end">
-                            {homeWin && <Trophy size={12} className="shrink-0 mm-stamp-in" style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" aria-label="승" />}
+                            {homeWin && <Trophy size={14} className="shrink-0 mm-stamp-in" style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" aria-label="승" />}
                             <span
                               className="font-jersey font-bold text-sm truncate min-w-0"
                               style={{
@@ -685,7 +685,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                                 letterSpacing: '-0.005em',
                               }}
                             >{g.away_team?.name ?? '미정'}</span>
-                            {awayWin && <Trophy size={12} className="shrink-0 mm-stamp-in" style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" aria-label="승" />}
+                            {awayWin && <Trophy size={14} className="shrink-0 mm-stamp-in" style={{ color: 'var(--mm-yellow-strong)' }} fill="currentColor" aria-label="승" />}
                           </div>
                         </div>
                       </button>

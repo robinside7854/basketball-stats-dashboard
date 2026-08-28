@@ -193,7 +193,7 @@ export default function ShareableBoxscore({ dateLabel, games, dailyStats, teamRe
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: g.home_team?.color ?? C.muted }} />
-                      {homeWin && <Trophy size={12} style={{ color: C.yellowStrong, fill: C.yellowStrong, flexShrink: 0 }} />}
+                      {homeWin && <Trophy size={14} style={{ color: C.yellowStrong, fill: C.yellowStrong, flexShrink: 0 }} />}
                       <div style={{
                         fontFamily: FONT_JERSEY, fontSize: '15px',
                         fontWeight: homeWin ? 900 : 700,
@@ -224,7 +224,7 @@ export default function ShareableBoxscore({ dateLabel, games, dailyStats, teamRe
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         textAlign: 'right',
                       }}>{g.away_team?.name ?? '미정'}</div>
-                      {awayWin && <Trophy size={12} style={{ color: C.yellowStrong, fill: C.yellowStrong, flexShrink: 0 }} />}
+                      {awayWin && <Trophy size={14} style={{ color: C.yellowStrong, fill: C.yellowStrong, flexShrink: 0 }} />}
                       <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: g.away_team?.color ?? C.muted }} />
                     </div>
                   </div>

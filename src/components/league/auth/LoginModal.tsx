@@ -51,7 +51,7 @@ export default function LoginModal({ leagueId, onClose }: Props) {
             {step === 'intro' ? '로그인 안내' : step === 'login' ? '로그인' : '가입 요청'}
           </h2>
           <button onClick={onClose} className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center rounded cursor-pointer" style={{ color: 'var(--mm-muted)' }} aria-label="닫기">
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 

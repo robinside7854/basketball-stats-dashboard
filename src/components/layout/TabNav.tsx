@@ -82,7 +82,7 @@ export default function TabNav() {
               >
                 <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', TEAM_STYLES[team].dot)} />
                 {TEAM_LABELS[team]}
-                <ArrowLeftRight size={11} className="opacity-60 ml-0.5" />
+                <ArrowLeftRight size={14} className="opacity-60 ml-0.5" />
               </Link>
             )}
 
@@ -125,7 +125,7 @@ export default function TabNav() {
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[var(--mm-yellow)]/20 border border-[var(--mm-yellow)]/50 text-[var(--mm-yellow-strong)] hover:bg-red-900/30 hover:border-red-500/50 hover:text-red-400 transition-colors cursor-pointer"
                 style={{ borderRadius: 'var(--mm-radius-ctl)' }}
               >
-                <Unlock size={13} />
+                <Unlock size={14} />
                 <span className="hidden sm:inline">편집 모드</span>
               </button>
             ) : (
@@ -134,7 +134,7 @@ export default function TabNav() {
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-muted)] transition-colors cursor-pointer"
                 style={{ borderRadius: 'var(--mm-radius-ctl)' }}
               >
-                <Lock size={13} />
+                <Lock size={14} />
                 <span className="hidden sm:inline">편집 모드</span>
               </button>
             )}

@@ -73,7 +73,7 @@ export default function PasswordChangeModal({ leagueId, isDefaultPassword, onClo
           </div>
           <button type="button" onClick={onClose} aria-label="닫기"
             className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded transition-colors hover:bg-black/10 cursor-pointer text-[color:var(--mm-black)]">
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 
@@ -116,7 +116,7 @@ export default function PasswordChangeModal({ leagueId, isDefaultPassword, onClo
           <button type="button" onClick={submit} disabled={saving}
             className="min-h-[40px] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] rounded-sm cursor-pointer transition-colors inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}>
-            {saving ? <Loader2 size={13} className="animate-spin" /> : <KeyRound size={13} aria-hidden />}
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} aria-hidden />}
             변경
           </button>
         </div>
