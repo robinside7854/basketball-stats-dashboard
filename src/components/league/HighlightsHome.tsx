@@ -11,7 +11,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { HeartCrack, ChevronRight, PlayCircle, Play } from 'lucide-react'
+import { HeartCrack, ChevronRight, PlayCircle, Play, Star } from 'lucide-react'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
 import HighlightsClipModal from '@/components/highlights/HighlightsClipModal'
@@ -202,9 +202,9 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                       className="flex items-center justify-center gap-1 py-1.5 text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase"
                       style={{ background: kindStyle.bg, color: kindStyle.fg }}
                     >
-                      {isWinning && <span aria-hidden>★</span>}
+                      {isWinning && <Star size={14} fill="currentColor" aria-hidden />}
                       {kindLabel}
-                      {isWinning && <span aria-hidden>★</span>}
+                      {isWinning && <Star size={14} fill="currentColor" aria-hidden />}
                     </div>
                   ) : (
                     <div

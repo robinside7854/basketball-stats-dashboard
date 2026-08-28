@@ -1,6 +1,6 @@
 'use client'
 import { createContext, useContext, useEffect, useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Delete } from 'lucide-react'
 
 const SESSION_KEY = 'edit_mode'
 const PIN_KEY = 'edit_pin'
@@ -97,7 +97,7 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
 
   function handleDelete() { setDigits(prev => prev.slice(0, -1)); setErrorMsg(null) }
 
-  const PAD = ['1','2','3','4','5','6','7','8','9','','0','⌫']
+  const PAD = ['1','2','3','4','5','6','7','8','9','','0','del']
 
   return (
     <EditModeContext.Provider
@@ -134,14 +134,14 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
             <div className="grid grid-cols-3 gap-3">
               {PAD.map((key, i) => (
                 key === '' ? <div key={i} /> :
-                key === '⌫' ? (
-                  <button key={i} onClick={handleDelete}
-                    className="w-16 h-16 rounded-2xl bg-gray-800 text-gray-300 text-xl font-medium hover:bg-gray-700 active:scale-95 transition-all">
-                    {key}
+                key === 'del' ? (
+                  <button key={i} onClick={handleDelete} aria-label="지우기"
+                    className="w-16 h-16 rounded-2xl bg-gray-800 text-gray-300 flex items-center justify-center hover:bg-gray-700 active:scale-95 transition-[background-color,transform] duration-200 cursor-pointer">
+                    <Delete size={24} aria-hidden />
                   </button>
                 ) : (
                   <button key={i} onClick={() => handleDigit(key)} disabled={digits.length >= 4 || loading}
-                    className="w-16 h-16 rounded-2xl bg-gray-800 text-white text-2xl font-bold hover:bg-gray-700 active:scale-95 transition-all disabled:opacity-40">
+                    className="w-16 h-16 rounded-2xl bg-gray-800 text-white text-2xl font-bold hover:bg-gray-700 active:scale-95 transition-[background-color,transform] duration-200 disabled:opacity-40 cursor-pointer">
                     {key}
                   </button>
                 )

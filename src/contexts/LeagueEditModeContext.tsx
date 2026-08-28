@@ -5,7 +5,7 @@
 // 어느 쪽이든 isEditMode 는 UI 노출 판단일 뿐이고, 실제 인가는 서버의 canEditLeague 가
 // 매 요청 DB 에서 재확인한다 (src/lib/auth/leagueAdmin.ts).
 import { createContext, useContext, useEffect, useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Delete } from 'lucide-react'
 import { useCurrentUser } from '@/contexts/LeagueAuthContext'
 
 interface LeagueEditModeCtx {
@@ -139,7 +139,7 @@ export function LeagueEditModeProvider({
     setPin(newPin)
   }
 
-  const PAD = ['1','2','3','4','5','6','7','8','9','','0','⌫']
+  const PAD = ['1','2','3','4','5','6','7','8','9','','0','del']
 
   // 어드민 role 경로는 쿠키(mm_auth)가 same-origin fetch 에 자동 동봉되므로 헤더가 필요 없다.
   // PIN 폴백일 때만 X-League-Pin 을 싣는다 — 소비처 시그니처는 그대로 유지.
@@ -182,14 +182,14 @@ export function LeagueEditModeProvider({
             <div className="grid grid-cols-3 gap-3">
               {PAD.map((key, i) => (
                 key === '' ? <div key={i} /> :
-                key === '⌫' ? (
-                  <button key={i} onClick={handleDelete}
-                    className="w-16 h-16 rounded-2xl bg-gray-800 text-gray-300 text-xl font-medium hover:bg-gray-700 active:scale-95 transition-all cursor-pointer">
-                    {key}
+                key === 'del' ? (
+                  <button key={i} onClick={handleDelete} aria-label="지우기"
+                    className="w-16 h-16 rounded-2xl bg-gray-800 text-gray-300 flex items-center justify-center hover:bg-gray-700 active:scale-95 transition-[background-color,transform] duration-200 cursor-pointer">
+                    <Delete size={24} aria-hidden />
                   </button>
                 ) : (
                   <button key={i} onClick={() => handleDigit(key)} disabled={digits.length >= 4 || loading}
-                    className="w-16 h-16 rounded-2xl bg-gray-800 text-white text-2xl font-bold hover:bg-gray-700 active:scale-95 transition-all disabled:opacity-40 cursor-pointer">
+                    className="w-16 h-16 rounded-2xl bg-gray-800 text-white text-2xl font-bold hover:bg-gray-700 active:scale-95 transition-[background-color,transform] duration-200 disabled:opacity-40 cursor-pointer">
                     {key}
                   </button>
                 )
