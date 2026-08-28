@@ -44,7 +44,7 @@ export default async function TeamHighlightsLandingPage({
     <div className="space-y-5 mm-brand">
 
       <div className="flex items-center gap-3">
-        <Film size={28} className="lg:w-9 lg:h-9" style={{ color: 'var(--mm-yellow-strong)' }} />
+        <Film size={24} style={{ color: 'var(--mm-yellow-strong)' }} />
         <div>
           <h1
             className="font-bold text-2xl lg:text-4xl"
@@ -69,7 +69,7 @@ export default async function TeamHighlightsLandingPage({
           className="rounded p-8 text-center"
           style={{ background: 'var(--mm-panel)', border: '1px dashed var(--mm-rule)' }}
         >
-          <Film size={32} className="mx-auto mb-2" style={{ color: 'var(--mm-muted)' }} aria-hidden />
+          <Film size={24} className="mx-auto mb-2" style={{ color: 'var(--mm-muted)' }} aria-hidden />
           <p className="text-sm font-bold" style={{ color: 'var(--mm-ink-soft)' }}>아직 대회가 없습니다</p>
           <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>
             대회 관리에서 경기에 유튜브 영상을 연동하고 기록하면 자동으로 재생 가능해집니다.
@@ -110,7 +110,7 @@ export default async function TeamHighlightsLandingPage({
                     </div>
                   </div>
                   <StatusIcon
-                    size={32}
+                    size={24}
                     style={{ color: iconColor }}
                     className={isReady ? 'transition-transform group-hover:scale-110 shrink-0' : 'shrink-0'}
                     aria-hidden
@@ -148,7 +148,7 @@ export default async function TeamHighlightsLandingPage({
 
                 {isReady && (
                   <div className="mt-3 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
-                    재생 <ChevronRight size={12} />
+                    재생 <ChevronRight size={14} />
                   </div>
                 )}
               </>

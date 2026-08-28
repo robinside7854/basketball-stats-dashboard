@@ -147,7 +147,7 @@ export default function GameLogPage() {
 
       {isEditMode && selectedGId && events.length > 0 && (
         <div className="mb-4 px-4 py-2.5 bg-[var(--mm-yellow-soft)] border border-[var(--mm-yellow)] rounded-lg text-xs text-[var(--mm-yellow-strong)] flex items-center gap-2">
-          <Scissors size={12} className="shrink-0" />
+          <Scissors size={14} className="shrink-0" />
           각 이벤트 우측의 <strong>✂️ 버튼</strong>을 클릭하면 해당 이벤트부터 쿼터를 분리할 수 있습니다
         </div>
       )}
@@ -194,7 +194,7 @@ export default function GameLogPage() {
                         className="opacity-0 group-hover:opacity-100 transition-opacity text-[var(--mm-yellow-strong)] hover:brightness-90 p-1 min-h-11 min-w-11 flex items-center justify-center cursor-pointer"
                         title="이 이벤트부터 쿼터 분리"
                       >
-                        <Scissors size={13} />
+                        <Scissors size={14} />
                       </button>
                       <button onClick={() => deleteEvent(e.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-400 p-1 min-h-11 min-w-11 flex items-center justify-center cursor-pointer">
                         <Trash2 size={14} />
@@ -211,7 +211,7 @@ export default function GameLogPage() {
                       className="fixed bottom-0 inset-x-0 sm:absolute sm:right-16 sm:top-0 sm:bottom-auto sm:inset-x-auto z-50 bg-[var(--mm-panel)] border border-[var(--mm-yellow)] rounded-t-2xl sm:rounded-xl shadow-2xl p-4 w-full sm:w-64 pb-safe-or-4 sm:pb-4"
                     >
                       <div className="text-xs text-[var(--mm-yellow-strong)] font-bold mb-2 flex items-center gap-1.5">
-                        <Scissors size={12} />
+                        <Scissors size={14} />
                         쿼터 분리
                       </div>
                       <p className="text-xs text-[var(--mm-ink-soft)] mb-3">

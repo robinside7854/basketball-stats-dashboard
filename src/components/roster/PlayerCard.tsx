@@ -58,7 +58,7 @@ export default function PlayerCard({ player, onEdit, onDelete, onDetail }: Props
             )}
           </div>
           <div className="flex items-center gap-0.5 text-xs text-[var(--mm-yellow-strong)] opacity-60">
-            <span>상세 보기</span><ChevronRight size={11} aria-hidden="true" />
+            <span>상세 보기</span><ChevronRight size={14} className="shrink-0" aria-hidden="true" />
           </div>
         </div>
       </button>
@@ -69,14 +69,14 @@ export default function PlayerCard({ player, onEdit, onDelete, onDetail }: Props
           {onEdit && (
             <>
               <button onClick={onEdit} className="flex-1 py-2 text-xs text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)]/60 transition-colors flex items-center justify-center gap-1 cursor-pointer">
-                <Pencil size={11} aria-hidden="true" /> 수정
+                <Pencil size={14} aria-hidden="true" /> 수정
               </button>
               <div className="w-px bg-[var(--mm-rule)]" />
             </>
           )}
           {onDelete && (
             <button onClick={onDelete} className="flex-1 py-2 text-xs text-red-500 hover:text-red-400 hover:bg-[var(--mm-panel-alt)]/60 transition-colors flex items-center justify-center gap-1 cursor-pointer">
-              <Trash2 size={11} aria-hidden="true" /> 삭제
+              <Trash2 size={14} aria-hidden="true" /> 삭제
             </button>
           )}
         </div>

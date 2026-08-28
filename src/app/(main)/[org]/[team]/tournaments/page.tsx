@@ -112,7 +112,7 @@ export default function TournamentsPage() {
             className="flex items-center gap-1.5 px-2.5 py-1 min-h-9 rounded-lg text-xs font-medium bg-[var(--mm-panel)] border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors cursor-pointer"
             title="정렬 순서 변경"
           >
-            <ArrowUpDown size={13} />
+            <ArrowUpDown size={14} />
             {sortDesc ? '최신순' : '오래된순'}
           </button>
         </div>
@@ -123,7 +123,7 @@ export default function TournamentsPage() {
               onClick={() => setShowYtImport(true)}
               className="border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer"
             >
-              <Youtube size={15} className="mr-1.5 text-red-400" /> YouTube 가져오기
+              <Youtube size={16} className="mr-1.5 text-red-400" /> YouTube 가져오기
             </Button>
             <Button onClick={() => { setEditT(null); setShowTForm(true) }} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 cursor-pointer">
               <Plus size={16} className="mr-2" /> 대회 추가
@@ -153,7 +153,7 @@ export default function TournamentsPage() {
                     aria-label={`${t.name} 대회 상세 ${expanded === t.id ? '접기' : '펼치기'}`}
                     className="flex items-center gap-3 text-left cursor-pointer min-w-0 min-h-[44px] flex-1"
                   >
-                    {expanded === t.id ? <ChevronUp size={18} className="text-[var(--mm-muted)] shrink-0" /> : <ChevronDown size={18} className="text-[var(--mm-muted)] shrink-0" />}
+                    {expanded === t.id ? <ChevronUp size={20} className="text-[var(--mm-muted)] shrink-0" /> : <ChevronDown size={20} className="text-[var(--mm-muted)] shrink-0" />}
                     <div className="min-w-0">
                       <span className="font-semibold text-[var(--mm-ink)]">{t.name}</span>
                       <span className="ml-3 text-sm text-[var(--mm-ink-soft)]">{t.year}년 · {TYPE_LABELS[t.type]}</span>
@@ -172,13 +172,13 @@ export default function TournamentsPage() {
                   {isEditMode && (
                     <div className="flex gap-2 shrink-0">
                       <Button size="sm" variant="outline" onClick={() => { setEditT(t); setShowTForm(true) }} className="h-8 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] cursor-pointer">
-                        <Pencil size={12} />
+                        <Pencil size={14} />
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => deleteT(t.id)} className="h-8 border-[var(--mm-rule)] text-red-400 cursor-pointer">
-                        <Trash2 size={12} />
+                        <Trash2 size={14} />
                       </Button>
                       <Button size="sm" onClick={() => { setEditG(null); setShowGForm(t.id) }} className="h-8 bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 cursor-pointer">
-                        <Plus size={12} className="mr-1" /> 경기
+                        <Plus size={14} className="mr-1" /> 경기
                       </Button>
                     </div>
                   )}
@@ -220,10 +220,10 @@ export default function TournamentsPage() {
                             {isEditMode && (
                               <div className="flex gap-2 flex-shrink-0">
                                 <Button size="sm" variant="outline" onClick={() => { setEditG(g); setShowGForm(t.id) }} className="h-7 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] cursor-pointer">
-                                  <Pencil size={11} />
+                                  <Pencil size={14} />
                                 </Button>
                                 <Button size="sm" variant="outline" onClick={() => deleteG(g.id, t.id)} className="h-7 border-[var(--mm-rule)] text-red-400 cursor-pointer">
-                                  <Trash2 size={11} />
+                                  <Trash2 size={14} />
                                 </Button>
                               </div>
                             )}

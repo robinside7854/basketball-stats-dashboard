@@ -310,7 +310,7 @@ export default function BoxScorePage() {
             <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-2xl p-6 w-full max-w-sm flex flex-col gap-5 shadow-2xl">
               <div className="text-center">
                 <div className="text-xl font-bold mb-1 flex items-center justify-center gap-1.5">
-                  {hintIsLoss ? <><Flame className="h-4 w-4 text-orange-400" aria-hidden /> 투혼상 후보 힌트</> : '후보 힌트 지정'}
+                  {hintIsLoss ? <><Flame size={16} className="text-orange-400" aria-hidden /> 투혼상 후보 힌트</> : '후보 힌트 지정'}
                 </div>
                 <p className="text-[var(--mm-muted)] text-xs leading-relaxed">
                   선택사항입니다. AI가 해당 선수를 우선 검토하며,<br/>
@@ -320,7 +320,7 @@ export default function BoxScorePage() {
               <div className="space-y-3">
                 {hintIsLoss ? (
                   <div>
-                    <label className="text-xs text-orange-400 font-semibold mb-1.5 flex items-center gap-1"><Flame className="h-3.5 w-3.5" aria-hidden /> 투혼상 추천 (선택)</label>
+                    <label className="text-xs text-orange-400 font-semibold mb-1.5 flex items-center gap-1"><Flame size={14} aria-hidden /> 투혼상 추천 (선택)</label>
                     <select
                       value={hintWarrior}
                       onChange={e => setHintWarrior(e.target.value)}
@@ -335,7 +335,7 @@ export default function BoxScorePage() {
                 ) : (
                   <>
                     <div>
-                      <label className="text-xs text-[var(--mm-yellow-strong)] font-semibold mb-1.5 flex items-center gap-1"><Award className="h-3.5 w-3.5" aria-hidden /> MVP 추천 (선택)</label>
+                      <label className="text-xs text-[var(--mm-yellow-strong)] font-semibold mb-1.5 flex items-center gap-1"><Award size={14} aria-hidden /> MVP 추천 (선택)</label>
                       <select
                         value={hintMvp}
                         onChange={e => setHintMvp(e.target.value)}
@@ -348,7 +348,7 @@ export default function BoxScorePage() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs text-purple-400 font-semibold mb-1.5 flex items-center gap-1"><Zap className="h-3.5 w-3.5" aria-hidden /> X-FACTOR 추천 (선택)</label>
+                      <label className="text-xs text-purple-400 font-semibold mb-1.5 flex items-center gap-1"><Zap size={14} aria-hidden /> X-FACTOR 추천 (선택)</label>
                       <select
                         value={hintXf}
                         onChange={e => setHintXf(e.target.value)}
@@ -363,7 +363,7 @@ export default function BoxScorePage() {
                   </>
                 )}
                 <div>
-                  <label className="text-xs text-[var(--mm-muted)] font-semibold mb-1.5 flex items-center gap-1"><StickyNote className="h-3.5 w-3.5" aria-hidden /> 경기 메모 (선택)</label>
+                  <label className="text-xs text-[var(--mm-muted)] font-semibold mb-1.5 flex items-center gap-1"><StickyNote size={14} aria-hidden /> 경기 메모 (선택)</label>
                   <textarea
                     value={hintMemo}
                     onChange={e => setHintMemo(e.target.value)}
@@ -450,7 +450,7 @@ export default function BoxScorePage() {
               </>
             ) : (
               <>
-                <Sparkles className="h-4 w-4" aria-hidden /> 전체 AI 선정
+                <Sparkles size={16} aria-hidden /> 전체 AI 선정
               </>
             )}
           </button>
@@ -507,10 +507,10 @@ export default function BoxScorePage() {
                   {mvpResults[g.id] && mvpResults[g.id] !== 'loading' && mvpResults[g.id] !== 'error' && (() => {
                     const r = mvpResults[g.id] as MvpResult
                     return r.warrior
-                      ? <Flame className="h-3.5 w-3.5 text-orange-400" aria-hidden />
+                      ? <Flame size={14} className="text-orange-400" aria-hidden />
                       : <div className="flex items-center gap-1">
-                          <Award className="h-3.5 w-3.5 text-[var(--mm-yellow-strong)]" aria-hidden />
-                          <Zap className="h-3.5 w-3.5 text-purple-400" aria-hidden />
+                          <Award size={14} className="text-[var(--mm-yellow-strong)]" aria-hidden />
+                          <Zap size={14} className="text-purple-400" aria-hidden />
                         </div>
                   })()}
                   <div className="text-right shrink-0">
@@ -684,7 +684,7 @@ export default function BoxScorePage() {
                                   : 'bg-gradient-to-r from-[var(--mm-yellow)]/30 to-purple-600/30 border-[color:var(--mm-yellow)]/40 text-[var(--mm-yellow-strong)] hover:from-[var(--mm-yellow)]/50 hover:to-purple-600/50'
                               }`}
                             >
-                              <Sparkles className="h-4 w-4" aria-hidden />
+                              <Sparkles size={16} aria-hidden />
                               {g.our_score < g.opponent_score ? 'AI 투혼상 선정' : 'AI MVP + X-FACTOR 선정'}
                             </button>
                           ) : null
@@ -720,7 +720,7 @@ export default function BoxScorePage() {
                                 /* 투혼상 카드 (패배 경기) */
                                 <div className="rounded-xl bg-orange-900/20 border border-orange-600/40 p-3.5">
                                   <div className="flex items-center gap-2 mb-2">
-                                    <Flame className="h-4 w-4 text-orange-400" aria-hidden />
+                                    <Flame size={16} className="text-orange-400" aria-hidden />
                                     <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">투혼상</span>
                                   </div>
                                   <p className="text-base font-bold text-[var(--mm-ink)] mb-1.5">{result.warrior.player_name}</p>
@@ -732,7 +732,7 @@ export default function BoxScorePage() {
                                   {result.mvp && (
                                     <div className="rounded-xl bg-[var(--mm-yellow-soft)] border border-[color:var(--mm-yellow)]/40 p-3.5">
                                       <div className="flex items-center gap-2 mb-2">
-                                        <Award className="h-4 w-4 text-[var(--mm-yellow-strong)]" aria-hidden />
+                                        <Award size={16} className="text-[var(--mm-yellow-strong)]" aria-hidden />
                                         <span className="text-xs font-bold text-[var(--mm-yellow-strong)] uppercase tracking-widest">MVP</span>
                                       </div>
                                       <p className="text-base font-bold text-[var(--mm-ink)] mb-1.5">{result.mvp.player_name}</p>
@@ -743,7 +743,7 @@ export default function BoxScorePage() {
                                   {result.x_factor ? (
                                     <div className="rounded-xl bg-purple-900/20 border border-purple-600/40 p-3.5">
                                       <div className="flex items-center gap-2 mb-2">
-                                        <Zap className="h-4 w-4 text-purple-400" aria-hidden />
+                                        <Zap size={16} className="text-purple-400" aria-hidden />
                                         <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">X-FACTOR</span>
                                       </div>
                                       <p className="text-base font-bold text-[var(--mm-ink)] mb-1.5">{result.x_factor.player_name}</p>

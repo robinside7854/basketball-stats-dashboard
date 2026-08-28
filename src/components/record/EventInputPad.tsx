@@ -221,7 +221,7 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
               : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-[var(--mm-ink)]'
           }`}
         >
-          <Target className="h-3.5 w-3.5" aria-hidden="true" /> 차트 {chartMode ? 'ON' : 'OFF'}
+          <Target size={14} aria-hidden="true" /> 차트 {chartMode ? 'ON' : 'OFF'}
         </button>
         {lastEventLabel && (
           <span className="flex-1 min-w-0 text-xs text-[var(--mm-muted)] truncate">{lastEventLabel}</span>
@@ -232,7 +232,7 @@ export default function EventInputPad({ players, onEventSaved }: Props) {
           title="마지막 기록 취소"
           className="shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-muted)] hover:text-orange-400 hover:border-orange-600 disabled:opacity-25 disabled:cursor-not-allowed transition-colors cursor-pointer inline-flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)]"
         >
-          <Undo2 className="h-3.5 w-3.5" aria-hidden="true" /> 취소
+          <Undo2 size={14} aria-hidden="true" /> 취소
         </button>
       </div>
 

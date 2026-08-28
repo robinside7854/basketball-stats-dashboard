@@ -198,12 +198,12 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
         {/* 헤더 */}
         <div className="flex items-center justify-between px-5 pt-safe-or-4 pb-4 border-b border-[var(--mm-rule)] shrink-0">
           <div className="flex items-center gap-2">
-            <Youtube size={18} className="text-red-500" aria-hidden="true" />
+            <Youtube size={20} className="text-red-500" aria-hidden="true" />
             <span className="font-semibold">YouTube에서 경기 가져오기</span>
             <span className="text-xs text-[var(--mm-muted)]">@{channelHandle} · {teamName}</span>
           </div>
           <button onClick={onClose} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] rounded-lg hover:bg-[var(--mm-panel-alt)] transition-colors inline-flex items-center justify-center min-h-11 min-w-11 cursor-pointer">
-            <X size={18} aria-hidden="true" />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
@@ -292,7 +292,7 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
           {groups.length === 0 && !loading && totalFound !== null && totalFound === 0 && (
             <div className="text-center py-12 text-[var(--mm-muted)]">
-              <Youtube size={32} className="mx-auto mb-3 opacity-30" aria-hidden="true" />
+              <Youtube size={24} className="mx-auto mb-3 opacity-30" aria-hidden="true" />
               <p>해당 기간에 완료된 라이브 스트림이 없습니다</p>
               <p className="text-xs mt-1 text-[var(--mm-muted)]">날짜 범위를 조정하거나 YouTube 채널을 확인해주세요</p>
             </div>
@@ -422,7 +422,7 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
                                     className="text-xs text-red-500 hover:text-red-400 flex items-center gap-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] rounded"
                                     onClick={e => e.stopPropagation()}
                                   >
-                                    <Youtube size={11} aria-hidden="true" /> 영상
+                                    <Youtube size={14} aria-hidden="true" /> 영상
                                   </a>
                                 </div>
 

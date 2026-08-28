@@ -612,7 +612,7 @@ function RecordPageInner() {
         >
           <div className="bg-[var(--mm-panel)] border border-red-900/70 rounded-2xl p-6 flex flex-col gap-4 shadow-2xl w-full max-w-sm">
             <div className="flex items-start gap-3">
-              <AlertTriangle size={22} className="text-red-400 shrink-0 mt-0.5" aria-hidden />
+              <AlertTriangle size={20} className="text-red-400 shrink-0 mt-0.5" aria-hidden />
               <div>
                 <div id="clear-modal-title" className="text-lg font-bold text-[var(--mm-ink)]">기록 전체 삭제</div>
                 <div className="text-[var(--mm-muted)] text-sm mt-0.5">
@@ -777,7 +777,7 @@ function RecordPageInner() {
               )}
               {gameComplete ? (
                 <span className="inline-flex items-center gap-1 text-green-400 text-sm font-semibold">
-                  <Check size={15} aria-hidden />
+                  <Check size={16} aria-hidden />
                   기록 완료
                 </span>
               ) : (
@@ -850,7 +850,7 @@ function RecordPageInner() {
           <div className={`lg:sticky lg:top-[60px] lg:self-start bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-3 lg:max-h-[calc(100vh-80px)] lg:overflow-y-auto space-y-3 ${mobileTab !== 'record' ? 'hidden lg:block' : ''}`}>
             {gameComplete ? (
               <div className="flex flex-col items-center justify-center text-center gap-4 py-10">
-                <CircleCheckBig size={44} className="text-green-400" aria-hidden />
+                <CircleCheckBig size={24} className="text-green-400" aria-hidden />
                 <div>
                   <p className="text-green-400 font-bold text-lg">기록이 완료된 경기입니다</p>
                   <p className="text-[var(--mm-muted)] text-sm mt-1">박스스코어 탭에서 최종 스탯을 확인하세요</p>

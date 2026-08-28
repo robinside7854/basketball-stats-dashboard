@@ -54,7 +54,7 @@ function PlayerPicker({
       ) : (
         <div className="rounded-xl border border-[var(--mm-rule)] bg-[var(--mm-panel)] overflow-hidden">
           <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--mm-rule)]">
-            <Search size={13} className="text-[var(--mm-muted)] shrink-0" aria-hidden="true" />
+            <Search size={14} className="text-[var(--mm-muted)] shrink-0" aria-hidden="true" />
             <input
               className="flex-1 bg-transparent text-sm text-[var(--mm-ink)] placeholder-[var(--mm-muted)] outline-none"
               placeholder="이름 또는 번호 검색"
@@ -131,7 +131,7 @@ export default function PlayerMergeModal({ players, onClose, onMerged }: Props) 
             <p className="text-xs text-[var(--mm-muted)] mt-0.5">중복 등록된 선수의 기록을 하나로 합칩니다</p>
           </div>
           <button onClick={onClose} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] rounded-lg hover:bg-[var(--mm-panel-alt)] transition-colors cursor-pointer inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)]" aria-label="닫기">
-            <X size={18} aria-hidden="true" />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
@@ -161,7 +161,7 @@ export default function PlayerMergeModal({ players, onClose, onMerged }: Props) 
 
           {/* 경고 */}
           <div className="mt-4 flex items-start gap-2.5 bg-yellow-950/40 border border-yellow-700/40 rounded-xl px-4 py-3">
-            <AlertTriangle size={15} className="text-yellow-500 shrink-0 mt-0.5" aria-hidden="true" />
+            <AlertTriangle size={16} className="text-yellow-500 shrink-0 mt-0.5" aria-hidden="true" />
             <p className="text-xs text-yellow-300/80 leading-relaxed">
               <strong>통합될 선수</strong>의 모든 경기 이벤트·출전 기록이 <strong>유지할 선수</strong>에게 이전됩니다.
               통합된 선수는 비활성화되며 목록에서 사라집니다.

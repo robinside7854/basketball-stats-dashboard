@@ -249,7 +249,7 @@ export default function RosterPage() {
                 }`}
               >
                 {label}
-                {active && <Icon size={11} />}
+                {active && <Icon size={14} />}
               </button>
             )
           })}

@@ -87,7 +87,7 @@ function GameRecordCard({ icon: Icon, title, value, unit, record, onClick }: {
       onClick={onClick}
     >
       <div className="flex items-center gap-2 mb-2">
-        <Icon className="h-5 w-5 text-[var(--mm-ink-soft)]" aria-hidden />
+        <Icon size={20} className="text-[var(--mm-ink-soft)]" aria-hidden />
         <span className="text-xs text-[var(--mm-muted)]">{title}</span>
       </div>
       <div className="text-2xl font-black font-mono text-[var(--mm-ink)] mb-2">
@@ -153,8 +153,8 @@ export default function TeamHomePage() {
             }`}>
               {streak.count}연{streak.type === 'win' ? '승' : '패'}
               {streak.type === 'win'
-                ? <Flame className="h-3.5 w-3.5" aria-hidden />
-                : <Frown className="h-3.5 w-3.5" aria-hidden />}
+                ? <Flame size={14} aria-hidden />
+                : <Frown size={14} aria-hidden />}
             </span>
           )}
         </div>
@@ -215,7 +215,7 @@ export default function TeamHomePage() {
           {incompleteCount > 0 && (
             <div className="flex items-center justify-between gap-3 bg-[var(--mm-yellow-soft)] border border-[color:var(--mm-yellow)]/40 rounded-xl px-4 py-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <AlertTriangle className="h-5 w-5 shrink-0 text-[var(--mm-yellow-strong)]" aria-hidden />
+                <AlertTriangle size={20} className="shrink-0 text-[var(--mm-yellow-strong)]" aria-hidden />
                 <div>
                   <p className="text-sm font-semibold text-[var(--mm-yellow-strong)]">
                     기록 미완료 경기 {incompleteCount}경기
@@ -295,7 +295,7 @@ export default function TeamHomePage() {
                       onClick={() => setPlayerModal(leader.player_id)}
                       className="bg-[var(--mm-panel)] border border-[color:var(--mm-yellow)]/50 rounded-xl p-5 text-center cursor-pointer hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] hover:bg-[var(--mm-panel-alt)] transition-shadow duration-200"
                     >
-                      <Icon className="h-6 w-6 mx-auto mb-2 text-[var(--mm-yellow-strong)]" aria-hidden />
+                      <Icon size={24} className="mx-auto mb-2 text-[var(--mm-yellow-strong)]" aria-hidden />
                       <div className="text-xs text-[var(--mm-muted)] mb-1">{label}</div>
                       <div className="font-semibold text-[var(--mm-ink)] mb-1 text-sm">
                         #{leader.player_number} {leader.player_name}

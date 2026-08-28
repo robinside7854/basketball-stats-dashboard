@@ -187,7 +187,7 @@ export default function PlayerCompareModal({ candidates, initialIds, onClose }: 
             <span className="font-semibold text-[var(--mm-ink)]">선수 비교</span>
           </div>
           <button onClick={onClose} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] rounded-lg hover:bg-[var(--mm-panel-alt)] transition-colors inline-flex items-center justify-center min-h-11 min-w-11 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)]" aria-label="닫기">
-            <X size={18} aria-hidden="true" />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 

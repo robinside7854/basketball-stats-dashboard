@@ -313,7 +313,7 @@ export default function StatsPage() {
 
       {viewMode === 'per36' && (
         <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3">
-          <Ruler className="text-amber-400 h-5 w-5 shrink-0" aria-hidden />
+          <Ruler size={20} className="text-amber-400 shrink-0" aria-hidden />
           <div>
             <p className="text-sm text-amber-300 font-medium">NBA 스타일 36분 환산</p>
             <p className="text-xs text-[var(--mm-muted)] mt-0.5">파란날개 기준 28분(7분×4쿼터)을 NBA 기준 36분으로 환산한 예상 수치입니다. FG%·3P%·FT%·TS%는 비율 지표로 환산하지 않습니다.</p>

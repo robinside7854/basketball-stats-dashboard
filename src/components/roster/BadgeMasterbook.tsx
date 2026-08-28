@@ -50,7 +50,7 @@ export default function BadgeMasterbook({ evaluatedBadges, onClose }: Props) {
             <p className="text-xs md:text-sm text-[var(--mm-muted)] mt-0.5">총 {BADGE_DEFINITIONS.length}종 · 4카테고리 · 3티어</p>
           </div>
           <button onClick={onClose} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] rounded-lg hover:bg-[var(--mm-panel-alt)] transition-colors cursor-pointer inline-flex items-center justify-center min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)]" aria-label="닫기">
-            <X size={18} aria-hidden="true" />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
@@ -112,9 +112,9 @@ export default function BadgeMasterbook({ evaluatedBadges, onClose }: Props) {
                   <span className="text-xs md:text-sm text-[var(--mm-muted)]">{badges.length}종</span>
                   {evaluatedBadges && (
                     <div className="ml-auto flex items-center gap-2 text-[11px]">
-                      {catGold   > 0 && <span className="inline-flex items-center gap-0.5 font-bold" style={{ color: MEDAL_COLOR.gold }}><Medal className="h-3.5 w-3.5" aria-hidden="true" />{catGold}</span>}
-                      {catSilver > 0 && <span className="inline-flex items-center gap-0.5 font-bold" style={{ color: MEDAL_COLOR.silver }}><Medal className="h-3.5 w-3.5" aria-hidden="true" />{catSilver}</span>}
-                      {catBronze > 0 && <span className="inline-flex items-center gap-0.5 font-bold" style={{ color: MEDAL_COLOR.bronze }}><Medal className="h-3.5 w-3.5" aria-hidden="true" />{catBronze}</span>}
+                      {catGold   > 0 && <span className="inline-flex items-center gap-0.5 font-bold" style={{ color: MEDAL_COLOR.gold }}><Medal size={14} aria-hidden="true" />{catGold}</span>}
+                      {catSilver > 0 && <span className="inline-flex items-center gap-0.5 font-bold" style={{ color: MEDAL_COLOR.silver }}><Medal size={14} aria-hidden="true" />{catSilver}</span>}
+                      {catBronze > 0 && <span className="inline-flex items-center gap-0.5 font-bold" style={{ color: MEDAL_COLOR.bronze }}><Medal size={14} aria-hidden="true" />{catBronze}</span>}
                     </div>
                   )}
                 </div>
@@ -168,7 +168,7 @@ export default function BadgeMasterbook({ evaluatedBadges, onClose }: Props) {
                                 : t === 'silver' ? 'text-slate-400/80'
                                 :                  'text-orange-500/70'
                               }`}>
-                                <Medal className="h-3.5 w-3.5 shrink-0" aria-hidden="true" style={{ color: t === 'gold' ? MEDAL_COLOR.gold : t === 'silver' ? MEDAL_COLOR.silver : MEDAL_COLOR.bronze }} />
+                                <Medal size={14} className="shrink-0" aria-hidden="true" style={{ color: t === 'gold' ? MEDAL_COLOR.gold : t === 'silver' ? MEDAL_COLOR.silver : MEDAL_COLOR.bronze }} />
                                 <span className={isCurrent ? 'font-semibold' : ''}>{badge.tierCriteria[t]}</span>
                                 {isCurrent && <span className="ml-auto shrink-0 text-[10px] md:text-xs opacity-70 font-bold">← 달성</span>}
                                 {isSurpassed && <span className="ml-auto shrink-0 text-[10px] opacity-50">✓</span>}

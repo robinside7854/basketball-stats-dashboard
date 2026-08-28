@@ -293,7 +293,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
             {player ? <><span className="text-[var(--mm-yellow-strong)] font-bold">#{player.number}</span> <span className="text-[var(--mm-ink)]">{player.name}</span></> : '선수 상세 정보'}
           </span>
           <button onClick={onClose} className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] transition-colors rounded-lg hover:bg-[var(--mm-panel-alt)] inline-flex items-center justify-center min-h-11 min-w-11 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)]" aria-label="닫기">
-            <X size={18} aria-hidden="true" />
+            <X size={20} aria-hidden="true" />
           </button>
         </div>
 
@@ -301,7 +301,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
         <div className="overflow-y-auto flex-1 p-5 space-y-6">
           {loading ? (
             <div className="flex items-center justify-center py-24 text-[var(--mm-muted)]">
-              <div className="text-center"><Loader2 className="h-10 w-10 mx-auto mb-4 animate-spin" aria-hidden="true" /><p>로딩 중...</p></div>
+              <div className="text-center"><Loader2 size={24} className="mx-auto mb-4 animate-spin" aria-hidden="true" /><p>로딩 중...</p></div>
             </div>
           ) : !player ? (
             <div className="text-center py-24 text-[var(--mm-muted)]">선수를 찾을 수 없습니다</div>
@@ -341,7 +341,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                               : <div className="w-full h-full flex items-center justify-center"><span className="text-7xl font-black text-blue-300/30">{player.number}</span></div>
                             }
                             <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity gap-1">
-                              {uploading ? <span className="text-white text-xs">업로드 중...</span> : <><Camera size={22} className="text-white" /><span className="text-white text-xs">사진 변경</span></>}
+                              {uploading ? <span className="text-white text-xs">업로드 중...</span> : <><Camera size={20} className="text-white" /><span className="text-white text-xs">사진 변경</span></>}
                             </div>
                           </div>
                           <div className="absolute inset-y-0 right-0 w-10 pointer-events-none" style={{ background: 'linear-gradient(to right, transparent, #070E1A)' }} />
@@ -377,7 +377,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                         <span className="text-xs text-gray-600 uppercase tracking-wider mr-1">Awards</span>
                         {awards.mvp_count > 0 && (
                           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-900/30 border border-yellow-700/50">
-                            <Award className="h-3.5 w-3.5 text-yellow-400" aria-hidden="true" />
+                            <Award size={14} className="text-yellow-400" aria-hidden="true" />
                             <span className="text-xs font-bold text-yellow-400">MVP</span>
                             <span className="text-xs font-black text-yellow-300 ml-0.5">{awards.mvp_count}</span>
                             <span className="text-xs text-yellow-600">회</span>
@@ -385,7 +385,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                         )}
                         {awards.xfactor_count > 0 && (
                           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-900/30 border border-purple-700/50">
-                            <Zap className="h-3.5 w-3.5 text-purple-400" aria-hidden="true" />
+                            <Zap size={14} className="text-purple-400" aria-hidden="true" />
                             <span className="text-xs font-bold text-purple-400">X-FACTOR</span>
                             <span className="text-xs font-black text-purple-300 ml-0.5">{awards.xfactor_count}</span>
                             <span className="text-xs text-purple-600">회</span>
@@ -393,7 +393,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                         )}
                         {awards.warrior_count > 0 && (
                           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-900/30 border border-orange-700/50">
-                            <Flame className="h-3.5 w-3.5 text-orange-400" aria-hidden="true" />
+                            <Flame size={14} className="text-orange-400" aria-hidden="true" />
                             <span className="text-xs font-bold text-orange-400">투혼상</span>
                             <span className="text-xs font-black text-orange-300 ml-0.5">{awards.warrior_count}</span>
                             <span className="text-xs text-orange-600">회</span>
@@ -420,14 +420,14 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                             {/* 티어 요약 */}
                             <div className="flex items-center gap-2 text-xs">
                               <span className="text-gray-600 uppercase tracking-wider text-[10px] mr-1">Badges</span>
-                              {goldC   > 0 && <span className="inline-flex items-center gap-0.5 text-amber-400 font-bold"><Medal className="h-3.5 w-3.5" aria-hidden="true" /> {goldC}</span>}
-                              {silverC > 0 && <span className="inline-flex items-center gap-0.5 text-slate-400 font-bold"><Medal className="h-3.5 w-3.5" aria-hidden="true" /> {silverC}</span>}
-                              {bronzeC > 0 && <span className="inline-flex items-center gap-0.5 text-orange-400 font-bold"><Medal className="h-3.5 w-3.5" aria-hidden="true" /> {bronzeC}</span>}
+                              {goldC   > 0 && <span className="inline-flex items-center gap-0.5 text-amber-400 font-bold"><Medal size={14} aria-hidden="true" /> {goldC}</span>}
+                              {silverC > 0 && <span className="inline-flex items-center gap-0.5 text-slate-400 font-bold"><Medal size={14} aria-hidden="true" /> {silverC}</span>}
+                              {bronzeC > 0 && <span className="inline-flex items-center gap-0.5 text-orange-400 font-bold"><Medal size={14} aria-hidden="true" /> {bronzeC}</span>}
                               <button
                                 onClick={() => setMasterbookOpen(true)}
                                 className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-700/50 bg-gray-800/40 text-xs text-gray-500 hover:text-gray-300 hover:border-gray-600 transition-colors cursor-pointer"
                               >
-                                <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                                <BookOpen size={14} aria-hidden="true" />
                                 <span>도감</span>
                               </button>
                             </div>
@@ -495,7 +495,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                         if (!r || r.rank === 0) return null
                         return (
                           <div className="flex items-center justify-center gap-1 mt-1">
-                            {MEDAL_COLOR[r.rank] && <Medal className="h-3.5 w-3.5" style={{ color: MEDAL_COLOR[r.rank] }} aria-hidden="true" />}
+                            {MEDAL_COLOR[r.rank] && <Medal size={14} style={{ color: MEDAL_COLOR[r.rank] }} aria-hidden="true" />}
                             <span className={`text-xs font-bold ${r.rank === 1 ? 'text-yellow-400' : r.rank === 2 ? 'text-gray-300' : r.rank === 3 ? 'text-amber-600' : 'text-gray-500'}`}>
                               {r.isTie ? `(T)${r.rank}위` : `${r.rank}위`}
                             </span>

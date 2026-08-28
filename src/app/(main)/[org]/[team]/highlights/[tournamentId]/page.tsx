@@ -52,7 +52,7 @@ export default async function TournamentHighlightsPage({
             style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: '4px' }}
             aria-label="대회 목록으로"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={20} />
           </Link>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -77,7 +77,7 @@ export default async function TournamentHighlightsPage({
           className="rounded p-8 text-center"
           style={{ background: 'var(--mm-panel)', border: '1px dashed var(--mm-rule)' }}
         >
-          <Film size={32} className="mx-auto mb-2" style={{ color: 'var(--mm-muted)' }} aria-hidden />
+          <Film size={24} className="mx-auto mb-2" style={{ color: 'var(--mm-muted)' }} aria-hidden />
           <p className="text-sm font-bold" style={{ color: 'var(--mm-ink-soft)' }}>이 대회에는 하이라이트가 없습니다</p>
           <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>
             YouTube 영상 연동 + 타임스탬프 기록된 성공 슛만 표시됩니다.
