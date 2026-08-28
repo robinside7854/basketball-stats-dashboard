@@ -195,7 +195,7 @@ export default function TraitBadgePanel({ leagueId, playerId }: Props) {
       </div>
 
       <p className="flex items-start gap-1.5 text-[11px] leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-        <Info size={11} strokeWidth={2} aria-hidden className="mt-0.5 shrink-0" />
+        <Info size={14} strokeWidth={2} aria-hidden className="mt-0.5 shrink-0" />
         <span>배지를 누르면 획득 기준이 나옵니다. <b>/R 은 라운드(하루)당</b> 값입니다.</span>
       </p>
 

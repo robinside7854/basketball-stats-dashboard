@@ -141,7 +141,7 @@ export default function PlayerPickerGrid({ endpoint, hrefBase }: Props) {
               borderRadius: 'var(--mm-radius-ctl)',
             }}
           >
-            <Search size={15} style={{ color: 'var(--mm-muted)' }} aria-hidden="true" />
+            <Search size={16} style={{ color: 'var(--mm-muted)' }} aria-hidden="true" />
             <input
               id={searchId}
               type="search"

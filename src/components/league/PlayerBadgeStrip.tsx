@@ -60,7 +60,7 @@ export default function PlayerBadgeStrip({ leagueId, playerId, summary }: Props)
         <div className="flex items-center gap-2">
           <p className="text-xs text-[color:var(--mm-muted)] uppercase tracking-widest font-bold">자동 배지</p>
           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)]">
-            <Trophy size={12} strokeWidth={2} aria-hidden /> 총 {total}회
+            <Trophy size={14} strokeWidth={2} aria-hidden /> 총 {total}회
           </span>
         </div>
         <p className="text-xs text-[color:var(--mm-muted)]">경기 하이라이트 자동 집계 · 클릭하여 경기 보기</p>
@@ -88,7 +88,7 @@ export default function PlayerBadgeStrip({ leagueId, playerId, summary }: Props)
 
           const content = (
             <>
-              <c.Icon size={22} className={iconColor} aria-hidden />
+              <c.Icon size={20} className={iconColor} aria-hidden />
               <p className={`text-[10px] font-bold uppercase tracking-widest text-center ${labelColor}`}>{c.label}</p>
               <p className={`font-jersey font-black text-2xl leading-none tabular-nums ${countColor}`}>{count}</p>
             </>

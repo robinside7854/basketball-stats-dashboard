@@ -123,7 +123,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
           style={{ borderBottom: '1px solid var(--mm-rule)' }}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <Trophy size={18} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />
+            <Trophy size={20} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />
             <h3
               className="font-bold break-keep"
               style={{
@@ -282,7 +282,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
               }}
             >
               전체 마일스톤 보기
-              <ChevronRight size={12} />
+              <ChevronRight size={14} />
             </Link>
           </div>
         )}

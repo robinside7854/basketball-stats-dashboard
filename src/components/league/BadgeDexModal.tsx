@@ -97,7 +97,7 @@ function DexRow({
           color: owned ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)',
         }}
       >
-        <Icon size={18} strokeWidth={2} />
+        <Icon size={20} strokeWidth={2} />
       </span>
 
       <div className="min-w-0 flex-1">
@@ -118,7 +118,7 @@ function DexRow({
               borderRadius: 'var(--mm-radius-chip)',
             }}
           >
-            {owned ? <Check size={11} strokeWidth={3} aria-hidden /> : <Lock size={11} strokeWidth={2.5} aria-hidden />}
+            {owned ? <Check size={14} strokeWidth={3} aria-hidden /> : <Lock size={14} strokeWidth={2.5} aria-hidden />}
             {owned ? '보유' : '미보유'}
           </span>
         </div>
@@ -301,7 +301,7 @@ export default function BadgeDexModal({ leagueId, playerId, onClose }: Props) {
             className="shrink-0 inline-flex items-center justify-center w-11 h-11 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
             style={{ color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 

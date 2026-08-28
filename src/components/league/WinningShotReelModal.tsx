@@ -76,7 +76,7 @@ export default function WinningShotReelModal({ leagueId, playerId, onClose }: Pr
           {error ? (
             <p className="text-xs text-[color:var(--mm-muted)] mb-4">불러오지 못했습니다: {error}</p>
           ) : clips === null ? (
-            <div className="py-2 flex justify-center"><BasketballLoader size={22} /></div>
+            <div className="py-2 flex justify-center"><BasketballLoader size={20} /></div>
           ) : (
             <p className="text-xs text-[color:var(--mm-muted)] mb-4">
               위닝샷 이벤트에 영상/타임스탬프가 아직 연결되지 않았습니다.

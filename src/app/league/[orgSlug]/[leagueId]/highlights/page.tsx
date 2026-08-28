@@ -123,7 +123,7 @@ export default async function HighlightsLandingPage({
       <LeagueGroupTabs tabs={groupTabs} />
 
       <div className="flex items-center gap-3">
-        <Film size={28} className="lg:w-9 lg:h-9" style={{ color: 'var(--mm-yellow-strong)' }} />
+        <Film size={24} style={{ color: 'var(--mm-yellow-strong)' }} />
         <div>
           <h1
             className="font-bold text-2xl lg:text-4xl"
@@ -193,7 +193,7 @@ export default async function HighlightsLandingPage({
                     </div>
                   </div>
                   <StatusIcon
-                    size={32}
+                    size={24}
                     style={{ color: iconColor }}
                     className={isReady ? 'transition-transform group-hover:scale-110' : ''}
                     aria-hidden
@@ -272,7 +272,7 @@ export default async function HighlightsLandingPage({
 
                 {isReady && (
                   <div className="mt-3 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
-                    재생 <ChevronRight size={12} />
+                    재생 <ChevronRight size={14} />
                   </div>
                 )}
               </>

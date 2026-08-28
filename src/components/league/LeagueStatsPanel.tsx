@@ -121,10 +121,10 @@ export default function LeagueStatsPanel({
   }
 
   function sortIcon(col: SortCol) {
-    if (col !== sortCol) return <ChevronsUpDown size={8} className="inline ml-0.5 opacity-30" />
+    if (col !== sortCol) return <ChevronsUpDown size={14} className="inline ml-0.5 opacity-30" />
     return sortDir === 'desc'
-      ? <ChevronDown size={8} className="inline ml-0.5" />
-      : <ChevronUp size={8} className="inline ml-0.5" />
+      ? <ChevronDown size={14} className="inline ml-0.5" />
+      : <ChevronUp size={14} className="inline ml-0.5" />
   }
 
   function renderThead() {

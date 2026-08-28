@@ -78,7 +78,7 @@ export default async function PlayerHighlightsPage({
             style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: '4px' }}
             aria-label="라운드 목록으로"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={20} />
           </Link>
 
           {/* 선수 사진 (있으면) */}
@@ -100,13 +100,13 @@ export default async function PlayerHighlightsPage({
                 className="object-cover object-top"
               />
             ) : (
-              <UserSquare size={28} style={{ color: 'var(--mm-muted)' }} />
+              <UserSquare size={24} style={{ color: 'var(--mm-muted)' }} />
             )}
           </div>
 
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <Film size={18} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+              <Film size={20} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
               <h1
                 className="font-bold text-2xl lg:text-3xl truncate"
                 style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}

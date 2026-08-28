@@ -211,7 +211,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                       className="flex items-center justify-center gap-1 py-1.5 text-[12px] font-black tracking-[0.14em] uppercase"
                       style={{ background: 'var(--clutch-1-bg)', color: 'var(--clutch-1-fg)' }}
                     >
-                      <HeartCrack size={12} aria-hidden />
+                      <HeartCrack size={14} aria-hidden />
                       클러치
                     </div>
                   )}
@@ -249,6 +249,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                           className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                           style={{ background: 'rgba(0,0,0,0.5)' }}
                         >
+                          {/* 아이콘 4단계(14/16/20/24) 예외 — 썸네일 전체를 덮는 재생 오버레이(그래픽) */}
                           <PlayCircle size={32} style={{ color: 'var(--color-hoop-orange-500)' }} fill="rgba(0,0,0,0.4)" />
                         </span>
                       </div>
@@ -262,7 +263,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                           boxShadow: '0 2px 6px -2px rgba(0,0,0,0.4)',
                         }}
                       >
-                        <Play size={12} style={{ color: '#ffffff' }} fill="#ffffff" />
+                        <Play size={14} style={{ color: '#ffffff' }} fill="#ffffff" />
                       </span>
                     </div>
                   </div>
@@ -328,7 +329,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
               className="inline-flex items-center gap-2 text-sm font-bold mb-2"
               style={{ color: 'var(--mm-ink-soft)' }}
             >
-              <HeartCrack size={18} style={{ color: 'var(--mm-muted)' }} aria-hidden />
+              <HeartCrack size={20} style={{ color: 'var(--mm-muted)' }} aria-hidden />
               이번 주는 해당 기준에 맞는 경기가 없어요
             </div>
             <p className="text-[11px] leading-relaxed" style={{ color: 'var(--mm-muted)' }}>

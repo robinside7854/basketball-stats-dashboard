@@ -65,7 +65,7 @@ export default async function BestShotsReelPage({
             style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: '4px' }}
             aria-label="하이라이트 목록으로"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={20} />
           </Link>
           <div className="min-w-0">
             <div className="flex items-center gap-2">

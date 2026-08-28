@@ -103,7 +103,7 @@ export default function HighlightsClipModal({
             className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded transition-colors hover:bg-[color:var(--mm-panel-alt)] cursor-pointer shrink-0"
             style={{ color: 'var(--mm-ink-soft)' }}
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
         <div style={{ background: '#000' }}>

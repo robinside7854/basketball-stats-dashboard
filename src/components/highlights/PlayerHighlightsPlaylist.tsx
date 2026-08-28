@@ -188,7 +188,7 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect }
                           aria-label="클러치 슛"
                           title="경기 마지막 2분 · 3점차 이내 접전 상황의 슛"
                         >
-                          <HeartCrack size={10} aria-hidden />
+                          <HeartCrack size={14} aria-hidden />
                           클러치
                         </span>
                       )}

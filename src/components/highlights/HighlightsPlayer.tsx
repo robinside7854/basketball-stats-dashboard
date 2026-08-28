@@ -341,7 +341,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
                   style={{ background: '#ef4444', color: '#fff', borderRadius: '3px' }}
                   aria-label="클러치 슛"
                 >
-                  <HeartCrack size={10} aria-hidden />
+                  <HeartCrack size={14} aria-hidden />
                   <span className="hidden sm:inline">클러치</span>
                 </span>
               )}
@@ -363,7 +363,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
           aria-label="이전 클립"
         >
-          <SkipBack size={18} />
+          <SkipBack size={20} />
         </button>
         {/* 주 재생/정지 CTA — 브랜드 노랑 · 채워진 삼각형 · hover 밝기 · active 눌림 · focus 링 */}
         <button
@@ -373,7 +373,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px', boxShadow: '0 2px 8px -3px rgba(0,0,0,0.35)' }}
           aria-label="재생/정지"
         >
-          <Play size={18} fill="currentColor" />
+          <Play size={20} fill="currentColor" />
         </button>
         <button
           type="button"
@@ -383,7 +383,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
           aria-label="다음 클립"
         >
-          <SkipForward size={18} />
+          <SkipForward size={20} />
         </button>
 
         {/* 진행 표시 */}

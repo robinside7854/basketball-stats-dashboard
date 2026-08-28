@@ -186,7 +186,7 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
             }}
             aria-label="선수 지정 해제"
           >
-            <X size={12} />
+            <X size={14} />
             해제
           </button>
         )}
@@ -627,7 +627,7 @@ function PlayerMilestonePopover({
           style={{ color: 'var(--mm-muted)' }}
           aria-label="닫기"
         >
-          <X size={18} />
+          <X size={20} />
         </button>
 
         {/* 프로필 확대 */}

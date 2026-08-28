@@ -144,7 +144,7 @@ export default function MilestoneClipModal({ clip, onClose }: Props) {
             }}
             aria-label="닫기"
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
 

@@ -576,10 +576,10 @@ function LeagueStatsPageInner() {
       />
 
       {loading ? (
-        <div className="flex justify-center py-16"><BasketballLoader size={32} /></div>
+        <div className="flex justify-center py-16"><BasketballLoader size={24} /></div>
       ) : players.length === 0 ? (
         <div className="text-center py-16" style={{ color: 'var(--mm-muted)' }}>
-          <Trophy size={32} className="mx-auto mb-3" style={{ color: 'var(--mm-muted)' }} />
+          <Trophy size={24} className="mx-auto mb-3" style={{ color: 'var(--mm-muted)' }} />
           <p>아직 완료된 경기 데이터가 없습니다</p>
           <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>경기를 기록하고 완료 처리하면 스탯이 집계됩니다</p>
         </div>
@@ -762,8 +762,8 @@ function LeagueStatsPageInner() {
                           }}>
                           <StatHeader term={term} />
                           {sortKey === key
-                            ? (sortDir === 'desc' ? <ChevronDown size={13} className="inline ml-0.5" /> : <ChevronUp size={13} className="inline ml-0.5" />)
-                            : <ChevronsUpDown size={13} className="inline ml-0.5 opacity-50" />}
+                            ? (sortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" /> : <ChevronUp size={14} className="inline ml-0.5" />)
+                            : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-50" />}
                         </th>
                       )
                     })}
@@ -958,8 +958,8 @@ function LeagueStatsPageInner() {
                           }}>
                           <StatHeader term={label} />
                           {shootSortKey === key
-                            ? (shootSortDir === 'desc' ? <ChevronDown size={13} className="inline ml-0.5" /> : <ChevronUp size={13} className="inline ml-0.5" />)
-                            : <ChevronsUpDown size={13} className="inline ml-0.5 opacity-50" />}
+                            ? (shootSortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" /> : <ChevronUp size={14} className="inline ml-0.5" />)
+                            : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-50" />}
                         </th>
                       )
                     })}
@@ -1076,8 +1076,8 @@ function LeagueStatsPageInner() {
                         }}>
                         <StatHeader term={label} />
                         {advSortKey === key
-                          ? (advSortDir === 'desc' ? <ChevronDown size={13} className="inline ml-0.5" /> : <ChevronUp size={13} className="inline ml-0.5" />)
-                          : <ChevronsUpDown size={13} className="inline ml-0.5 opacity-50" />}
+                          ? (advSortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" /> : <ChevronUp size={14} className="inline ml-0.5" />)
+                          : <ChevronsUpDown size={14} className="inline ml-0.5 opacity-50" />}
                       </th>
                     ))}
                   </tr>
@@ -1174,7 +1174,7 @@ function LeagueStatsPageInner() {
 // useSearchParams 는 Suspense 경계 내에서 호출해야 하므로 default export 에서 감싼다.
 export default function LeagueStatsPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-16"><BasketballLoader size={32} /></div>}>
+    <Suspense fallback={<div className="flex justify-center py-16"><BasketballLoader size={24} /></div>}>
       <LeagueStatsPageInner />
     </Suspense>
   )

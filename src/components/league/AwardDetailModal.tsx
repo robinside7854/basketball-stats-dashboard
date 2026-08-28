@@ -109,7 +109,7 @@ export default function AwardDetailModal({ leagueId, award, style, onClose }: Pr
             <button onClick={onClose}
               aria-label="닫기"
               className="rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white cursor-pointer transition-colors duration-200 inline-flex items-center justify-center w-11 h-11 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1">
-              <X size={18} aria-hidden="true" />
+              <X size={20} aria-hidden="true" />
             </button>
           </div>
 

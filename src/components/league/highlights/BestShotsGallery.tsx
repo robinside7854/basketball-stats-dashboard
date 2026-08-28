@@ -107,6 +107,8 @@ export default function BestShotsGallery({ players, clips, photoMap = {} }: Prop
                   style={{ background: 'rgba(0,0,0,0.55)' }}
                   aria-hidden
                 >
+                  {/* 아이콘 4단계(14/16/20/24) 예외 — 썸네일 전체를 덮는 재생 오버레이라
+                      UI 아이콘이 아니라 그래픽이다. 24 로 줄이면 카드 한가운데 점처럼 보인다. */}
                   <PlayCircle size={44} style={{ color: 'var(--mm-yellow)' }} className="drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]" fill="rgba(0,0,0,0.5)" />
                 </span>
                 {/* 핀 개수 뱃지 (우상단) */}
@@ -114,7 +116,7 @@ export default function BestShotsGallery({ players, clips, photoMap = {} }: Prop
                   className="absolute top-2 right-2 inline-flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.10em] px-1.5 py-0.5"
                   style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}
                 >
-                  <Pin size={10} aria-hidden />
+                  <Pin size={14} aria-hidden />
                   {playerClips.length}
                 </span>
               </div>

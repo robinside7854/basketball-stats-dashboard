@@ -84,7 +84,7 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
         <div className="flex items-center gap-2">
           <p className="text-xs text-[color:var(--mm-muted)] uppercase tracking-widest font-bold">게임 스탯 리더</p>
           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-[color:var(--mm-ink)] text-[color:var(--mm-panel)]">
-            <Trophy size={12} strokeWidth={2} aria-hidden /> 총 {total}회
+            <Trophy size={14} strokeWidth={2} aria-hidden /> 총 {total}회
           </span>
         </div>
         <p className="text-xs text-[color:var(--mm-muted)]">경기 있는 날 부문별 1등 횟수{clickable && ' · 클릭하여 날짜 보기'}</p>
@@ -134,7 +134,7 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
           <div className="relative z-10 w-full max-w-md max-h-[80vh] bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-md shadow-[0_20px_60px_-12px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col">
             <div className={`flex items-center justify-between px-5 py-3.5 border-b border-[color:var(--mm-rule)] ${activeCategory.bg}`}>
               <div className="flex items-center gap-2">
-                <activeCategory.Icon size={18} className={activeCategory.color} />
+                <activeCategory.Icon size={20} className={activeCategory.color} />
                 <p className={`text-sm font-black uppercase tracking-widest ${activeCategory.color}`}>
                   {activeCategory.label} 리더 등극 · {badges[activeCategory.key]}회
                 </p>
@@ -200,7 +200,7 @@ export function LeaderBadgeInline({ badges, className = '' }: { badges: LeaderBa
           className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-bold ${c.bg} ${c.border} ${c.color}`}
           title={`${c.label} 리더 ${badges[c.key]}회`}
         >
-          <c.Icon size={9} />
+          <c.Icon size={14} />
           <span>{badges[c.key]}</span>
         </span>
       ))}

@@ -128,7 +128,7 @@ export default function PlayerBadgeDetailModal({ leagueId, playerId, badgeKey, c
       <div className="relative z-10 w-full max-w-md max-h-[80vh] bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm shadow-[0_20px_60px_-12px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col mm-modal-in">
         <div className={`flex items-center justify-between px-5 py-3.5 border-b border-[color:var(--mm-rule)] ${headerBg}`}>
           <div className="flex items-center gap-2">
-            <Icon size={18} className={headerFg} aria-hidden />
+            <Icon size={20} className={headerFg} aria-hidden />
             <p id="badge-detail-title" className={`text-sm font-black uppercase tracking-widest ${headerFg}`}>
               {categoryLabel} · {rows?.length ?? 0}회
             </p>
@@ -143,7 +143,7 @@ export default function PlayerBadgeDetailModal({ leagueId, playerId, badgeKey, c
         </div>
         <div className="overflow-y-auto p-3">
           {loading ? (
-            <div className="py-8 flex justify-center"><BasketballLoader size={22} /></div>
+            <div className="py-8 flex justify-center"><BasketballLoader size={20} /></div>
           ) : !rows || rows.length === 0 ? (
             <div className="py-8 text-center text-xs text-[color:var(--mm-muted)]">획득 이력이 없습니다</div>
           ) : (

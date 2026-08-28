@@ -85,11 +85,11 @@ export default async function MilestonesPage({
             }}
             aria-label="하이라이트 랜딩으로"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={20} />
           </Link>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Trophy size={22} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+              <Trophy size={20} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
               <h1
                 className="font-bold text-2xl lg:text-3xl truncate"
                 style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}

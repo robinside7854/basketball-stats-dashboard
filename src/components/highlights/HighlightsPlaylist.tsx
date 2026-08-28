@@ -116,7 +116,7 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect }: Prop
                   className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                   style={{ background: 'rgba(0,0,0,0.35)', borderRadius: '4px' }}
                 >
-                  <Play size={18} style={{ color: 'var(--color-hoop-orange-500)' }} fill="currentColor" />
+                  <Play size={20} style={{ color: 'var(--color-hoop-orange-500)' }} fill="currentColor" />
                 </span>
               )}
               {/* 팀 색상 표식 */}
@@ -154,7 +154,7 @@ export default function HighlightsPlaylist({ clips, currentIdx, onSelect }: Prop
                     aria-label="클러치 슛"
                     title="경기 마지막 2분 · 3점차 이내 접전 상황의 슛"
                   >
-                    <HeartCrack size={10} aria-hidden />
+                    <HeartCrack size={14} aria-hidden />
                     클러치
                   </span>
                 )}

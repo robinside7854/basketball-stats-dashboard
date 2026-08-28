@@ -259,7 +259,7 @@ export default function AwardsPage() {
       >
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <Trophy size={28} className="lg:w-9 lg:h-9" style={{ color: 'var(--mm-yellow-strong)' }} />
+            <Trophy size={24} style={{ color: 'var(--mm-yellow-strong)' }} />
             <div>
               <h1
                 className="font-bold"
@@ -359,7 +359,7 @@ export default function AwardsPage() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16"><BasketballLoader size={32} /></div>
+        <div className="flex justify-center py-16"><BasketballLoader size={24} /></div>
       ) : (() => {
         const coreAwards = awards.filter(a => a.section === 'core')
         const specialAwards = awards.filter(a => a.section === 'special')
@@ -409,7 +409,7 @@ export default function AwardsPage() {
                       border: `2px solid ${accent}`,
                     }}
                   >
-                    <style.Icon size={18} style={{ color: accent }} />
+                    <style.Icon size={20} style={{ color: accent }} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3
@@ -478,9 +478,9 @@ export default function AwardsPage() {
                       }}
                     >
                       {isDuo ? (
-                        <Users size={22} className="md:w-7 md:h-7" style={{ color: 'var(--mm-yellow)' }} />
+                        <Users size={20} style={{ color: 'var(--mm-yellow)' }} />
                       ) : (
-                        <Crown size={22} className="md:w-7 md:h-7" style={{ color: 'var(--mm-yellow)' }} />
+                        <Crown size={20} style={{ color: 'var(--mm-yellow)' }} />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">

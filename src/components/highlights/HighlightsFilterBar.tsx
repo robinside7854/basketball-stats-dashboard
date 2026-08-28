@@ -204,7 +204,7 @@ export default function HighlightsFilterBar({
                 aria-label={clutchTitle ? `클러치 슛만 보기 (${clutchTitle})` : '클러치 슛만 보기'}
                 title={off ? offTitle : (clutchTitle ?? '경기 마지막 2분 · 슛 직전 6점차 이내(2포제션) → 이 슛으로 3점차 이내(1포제션) 로 좁혀진 결정타')}
               >
-                <HeartCrack size={12} aria-hidden />
+                <HeartCrack size={14} aria-hidden />
                 클러치
                 <span className="text-[10px] opacity-80">{n}</span>
               </button>

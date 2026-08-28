@@ -119,7 +119,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
                 className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.10em] px-2 py-1 min-h-[32px] cursor-pointer transition-colors"
                 style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
               >
-                <X size={12} aria-hidden /> 초기화
+                <X size={14} aria-hidden /> 초기화
               </button>
             )}
           </div>
@@ -139,7 +139,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
             className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
             style={chipStyle(tab === 'recent')}
           >
-            <Trophy size={12} aria-hidden />
+            <Trophy size={14} aria-hidden />
             최근 달성
           </button>
           <button
@@ -149,7 +149,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
             className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
             style={chipStyle(tab === 'upcoming')}
           >
-            <TrendingUp size={12} aria-hidden />
+            <TrendingUp size={14} aria-hidden />
             임박
           </button>
         </div>
