@@ -47,7 +47,7 @@ export default function DraftSummaryCard({ teams, picks, leaders, playerNames }:
   return (
     <div className="bg-gradient-to-b from-gray-900 to-gray-950 border border-emerald-700/40 rounded-2xl overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-800 flex items-center gap-2">
-        <p className="inline-flex items-center gap-1.5 text-base font-bold text-white"><Trophy size={16} strokeWidth={2} className="text-amber-300" aria-hidden /> 드래프트 결과 요약</p>
+        <p className="inline-flex items-center gap-1.5 text-base font-bold text-white"><Trophy size={16} className="text-amber-300" aria-hidden /> 드래프트 결과 요약</p>
         <button onClick={share} className="ml-auto inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white cursor-pointer">
           {copied ? <><Check size={14} /> 복사됨</> : <><Share2 size={14} /> 공유</>}
         </button>

@@ -1198,7 +1198,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       className="inline-flex items-center gap-1.5 min-h-11 px-3 -mr-1 text-xs font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                       style={{ color: 'var(--mm-ink-soft)', borderRadius: 'var(--mm-radius-ctl)' }}
                     >
-                      <HelpCircle size={16} strokeWidth={2} aria-hidden />
+                      <HelpCircle size={16} aria-hidden />
                       배지 도감
                     </button>
                   </div>

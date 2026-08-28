@@ -174,7 +174,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     })
     setActing(false)
     const d = await res.json()
-    if (res.ok) { toast.success('드래프트 시작!', { icon: <Trophy size={16} strokeWidth={2} /> }); fetchData(true); onChanged?.() }
+    if (res.ok) { toast.success('드래프트 시작!', { icon: <Trophy size={16} /> }); fetchData(true); onChanged?.() }
     else { toast.error(d.error ?? '시작 실패') }
   }
 
@@ -371,8 +371,8 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   if (draft.status === 'ready_check') {
     primary = {
       label: allTeamsReady
-        ? (<span className="inline-flex items-center gap-2"><Video size={20} strokeWidth={2} aria-hidden /> 추첨 대기 화면 열기</span>)
-        : (<span className="inline-flex items-center gap-2"><Hand size={20} strokeWidth={2} aria-hidden /> 전원 준비 대기 중</span>),
+        ? (<span className="inline-flex items-center gap-2"><Video size={20} aria-hidden /> 추첨 대기 화면 열기</span>)
+        : (<span className="inline-flex items-center gap-2"><Hand size={20} aria-hidden /> 전원 준비 대기 중</span>),
       onClick: () => openLotteryWait(false),
       disabled: acting || !allTeamsReady,
       helper: allTeamsReady
@@ -381,14 +381,14 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     }
   } else if (draft.status === 'lottery_waiting') {
     primary = {
-      label: (<span className="inline-flex items-center gap-2"><Dice5 size={20} strokeWidth={2} aria-hidden /> 추첨 시작</span>),
+      label: (<span className="inline-flex items-center gap-2"><Dice5 size={20} aria-hidden /> 추첨 시작</span>),
       onClick: runLottery,
       disabled: acting,
       helper: '준비가 끝났다면 즉시 NBA 스타일 추첨 연출이 모두에게 재생됩니다.',
     }
   } else if (draft.status === 'lottery_done') {
     primary = {
-      label: (<span className="inline-flex items-center gap-2"><Trophy size={20} strokeWidth={2} aria-hidden /> 드래프트 시작</span>),
+      label: (<span className="inline-flex items-center gap-2"><Trophy size={20} aria-hidden /> 드래프트 시작</span>),
       onClick: startDraft,
       disabled: acting,
       helper: '버튼을 누르면 픽 타이머가 시작되고 1번 팀부터 픽이 진행됩니다.',
@@ -436,7 +436,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         {(draft.status === 'ready_check') && (
           <div className="flex flex-wrap gap-1.5 justify-center">
             <Button onClick={() => openLotteryWait(true)} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]">
-              <Zap size={14} strokeWidth={2} className="mr-1" aria-hidden /> 강제 열기 (READY 무시)
+              <Zap size={14} className="mr-1" aria-hidden /> 강제 열기 (READY 무시)
             </Button>
           </div>
         )}
@@ -445,7 +445,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       {/* 위험 액션 격리 — details 로 접어둠 */}
       <details className="rounded-lg border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] group">
         <summary className="cursor-pointer select-none px-3 py-2.5 min-h-11 text-sm font-bold text-[var(--mm-negative)] flex items-center gap-2 list-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)] rounded-lg">
-          <span className="inline-flex items-center justify-center text-[var(--mm-negative)]" aria-hidden><AlertTriangle size={14} strokeWidth={2} /></span>
+          <span className="inline-flex items-center justify-center text-[var(--mm-negative)]" aria-hidden><AlertTriangle size={14} /></span>
           <span className="uppercase tracking-wider">위험 액션</span>
           <span className="ml-auto text-xs text-[var(--mm-negative)] opacity-80 group-open:hidden">펼치기</span>
           <span className="ml-auto text-xs text-[var(--mm-negative)] opacity-80 hidden group-open:inline">접기</span>

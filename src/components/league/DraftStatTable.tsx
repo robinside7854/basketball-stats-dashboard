@@ -122,7 +122,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                     className="text-center p-2.5 font-bold min-w-[54px] cursor-pointer hover:text-white select-none">
                     <span className="inline-flex items-center gap-0.5">
                       {c.label}
-                      {sortKey === c.key && (dir === 'desc' ? <ArrowDown size={14} /> : <ArrowUp size={14} />)}
+                      {sortKey === c.key && (dir === 'desc' ? <ArrowDown size={14} className="shrink-0" /> : <ArrowUp size={14} className="shrink-0" />)}
                     </span>
                   </th>
                 ))}

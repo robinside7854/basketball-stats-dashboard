@@ -44,7 +44,7 @@ export default function StatHeader({ term, label, className, children, helpSize 
           aria-label="낮을수록 좋은 지표"
           style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--mm-negative-fg)', marginLeft: 1 }}
         >
-          <ArrowDown size={14} strokeWidth={2.5} aria-hidden />
+          <ArrowDown size={14} strokeWidth={2.5} className="shrink-0" aria-hidden />
         </span>
       )}
     </span>

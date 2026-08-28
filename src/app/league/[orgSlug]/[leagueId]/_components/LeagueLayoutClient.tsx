@@ -400,7 +400,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
                     <img src={user.photo_url} alt="" className="w-full h-full object-cover" />
                   </span>
                 ) : (
-                  <Icon size={20} strokeWidth={active ? 2.25 : 1.75} />
+                  <Icon size={20} strokeWidth={active ? 2.5 : 2} />
                 )}
                 {/* 긴 이름이 5분할 탭(375px÷5=75px)을 깨뜨리지 않도록 내 기록 탭 라벨만 truncate.
                     나머지 탭은 고정 짧은 한글 라벨이라 그대로 둔다. */}

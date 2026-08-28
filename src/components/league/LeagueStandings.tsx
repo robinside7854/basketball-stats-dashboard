@@ -103,7 +103,7 @@ export default function LeagueStandings({ standings }: Props) {
                         : 'text-[color:var(--mm-muted)] font-medium'
                     return (
                       <span className={`inline-flex items-center gap-0.5 text-xs lg:text-sm ${cls}`}>
-                        {type}{count}{hot && <Flame size={14} strokeWidth={2} aria-hidden />}
+                        {type}{count}{hot && <Flame size={14} aria-hidden />}
                       </span>
                     )
                   })() : <span className="text-[color:var(--mm-muted)] text-xs">—</span>}

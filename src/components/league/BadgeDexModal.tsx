@@ -97,7 +97,7 @@ function DexRow({
           color: owned ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)',
         }}
       >
-        <Icon size={20} strokeWidth={2} />
+        <Icon size={20} />
       </span>
 
       <div className="min-w-0 flex-1">
@@ -118,7 +118,7 @@ function DexRow({
               borderRadius: 'var(--mm-radius-chip)',
             }}
           >
-            {owned ? <Check size={14} strokeWidth={3} aria-hidden /> : <Lock size={14} strokeWidth={2.5} aria-hidden />}
+            {owned ? <Check size={14} strokeWidth={2.5} aria-hidden /> : <Lock size={14} strokeWidth={2.5} aria-hidden />}
             {owned ? '보유' : '미보유'}
           </span>
         </div>
@@ -286,7 +286,7 @@ export default function BadgeDexModal({ leagueId, playerId, onClose }: Props) {
         >
           <div className="min-w-0">
             <p id="badge-dex-title" className="text-sm font-bold flex items-center gap-1.5" style={{ color: 'var(--mm-ink)' }}>
-              <Trophy size={16} strokeWidth={2} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
+              <Trophy size={16} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
               배지 도감
             </p>
             <p className="text-[11px] font-mono tabular-nums mt-0.5" style={{ color: 'var(--mm-ink-soft)' }}>

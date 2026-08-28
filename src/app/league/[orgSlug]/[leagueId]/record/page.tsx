@@ -1624,7 +1624,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
           className="flex items-center gap-3 flex-wrap p-3"
           style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-ink)', borderRadius: '4px' }}
         >
-          <Sparkles size={16} strokeWidth={2} aria-hidden style={{ color: 'var(--mm-ink)' }} />
+          <Sparkles size={16} aria-hidden style={{ color: 'var(--mm-ink)' }} />
           <div className="min-w-0">
             <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>
               {roundDone.date} 라운드 마감 완료 — 인스타 카드{' '}
@@ -1648,7 +1648,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               className="inline-flex items-center justify-center min-h-11 min-w-11 cursor-pointer transition-colors"
               style={{ color: 'var(--mm-ink-soft)' }}
             >
-              <X size={16} strokeWidth={2} aria-hidden />
+              <X size={16} aria-hidden />
             </button>
           </div>
         </div>
@@ -1698,7 +1698,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
           >
             {autoFilling
               ? <Loader2 size={14} className="animate-spin" aria-hidden />
-              : <Wand2 size={14} strokeWidth={2} aria-hidden />}
+              : <Wand2 size={14} aria-hidden />}
             {autoFilling ? '편성 중…' : '대진 자동 채우기'}
           </button>
           <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
@@ -1803,7 +1803,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               >
                 {swappingId === selectedSlot.id
                   ? <Loader2 size={14} className="animate-spin" aria-hidden />
-                  : <ArrowLeftRight size={14} strokeWidth={2} aria-hidden />}
+                  : <ArrowLeftRight size={14} aria-hidden />}
               </button>
               <select
                 value={pendingAway}
@@ -2202,7 +2202,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         <button onClick={togglePlay}
                           className="min-h-[44px] min-w-[44px] rounded-lg text-white hover:bg-white/20 cursor-pointer transition-colors mx-0.5 inline-flex items-center justify-center"
                           aria-label="재생/일시정지">
-                          <PlayCircle size={24} strokeWidth={2} />
+                          <PlayCircle size={24} />
                         </button>
                         {[
                           { label: '+5',  delta: 5  },
@@ -2379,7 +2379,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                               className="border-l border-gray-800 px-2.5 flex items-center gap-1 text-xs text-amber-400 hover:text-amber-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
                               title="플러스원 선수 설정"
                             >
-                              <Zap size={14} strokeWidth={2} aria-hidden />
+                              <Zap size={14} aria-hidden />
                               <span className="hidden sm:inline">+1</span>
                             </button>
                           )}
@@ -2491,7 +2491,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }}
                           >
                             <div className="flex items-center gap-1.5">
-                              <RefreshCw size={14} strokeWidth={2} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+                              <RefreshCw size={14} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
                               <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>타팀 임시 출전</p>
                               <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>이번 경기에만 적용</span>
                             </div>
@@ -2539,13 +2539,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                                 className={hc > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
                                 style={{ color: hc > 5 ? 'var(--mm-live)' : 'var(--mm-muted)' }}
                               >
-                                홈 {hc}/5{hc > 5 && <AlertTriangle size={14} strokeWidth={2} aria-hidden />}
+                                홈 {hc}/5{hc > 5 && <AlertTriangle size={14} aria-hidden />}
                               </span>
                               <span
                                 className={ac > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
                                 style={{ color: ac > 5 ? 'var(--mm-live)' : 'var(--mm-muted)' }}
                               >
-                                어웨이 {ac}/5{ac > 5 && <AlertTriangle size={14} strokeWidth={2} aria-hidden />}
+                                어웨이 {ac}/5{ac > 5 && <AlertTriangle size={14} aria-hidden />}
                               </span>
                             </div>
                           </div>
@@ -2772,7 +2772,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   <div className="relative bg-gray-900 border border-amber-600/50 rounded-2xl p-6 w-full max-w-sm z-10 space-y-4 shadow-2xl"
                     onClick={e => e.stopPropagation()}>
                     <div className="text-center space-y-1.5">
-                      <div className="flex justify-center text-amber-300" aria-hidden><Zap size={24} strokeWidth={2} /></div>
+                      <div className="flex justify-center text-amber-300" aria-hidden><Zap size={24} /></div>
                       <h3 className="text-white font-black text-base">플러스원 선수 선택</h3>
                       <p className="text-gray-400 text-sm">
                         <span className="text-amber-300 font-bold">{plusOneConflict.teamName}</span>에 +1 선수가 {plusOneConflict.players.length}명입니다.<br/>

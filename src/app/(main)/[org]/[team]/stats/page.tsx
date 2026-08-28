@@ -63,11 +63,11 @@ function DuoPhoto({ url, name, number, overlap = false }: {
 // 부문별 리더 카드 아이콘 — 이모지 대신 lucide/자체 SVG (UI 아이콘에 이모지 사용 금지 규칙)
 // 🤝(어시스트)와 3️⃣(3점)는 매핑에 적합한 lucide 아이콘이 없어 콘텐츠성 심볼로 유지
 function LeaderIcon({ icon }: { icon: string }) {
-  const cls = 'h-5 w-5 mx-auto mb-1'
+  const cls = 'mx-auto mb-1'
   if (icon === 'ball') return <Basketball size={20} className={cls} />
-  if (icon === 'dumbbell') return <Dumbbell className={cls} aria-hidden />
-  if (icon === 'target') return <Target className={cls} aria-hidden />
-  if (icon === 'chart') return <BarChart3 className={cls} aria-hidden />
+  if (icon === 'dumbbell') return <Dumbbell size={20} className={cls} aria-hidden />
+  if (icon === 'target') return <Target size={20} className={cls} aria-hidden />
+  if (icon === 'chart') return <BarChart3 size={20} className={cls} aria-hidden />
   return <div className="text-2xl mb-1" aria-hidden>{icon}</div>
 }
 

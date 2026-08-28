@@ -133,7 +133,7 @@ export default function StatHelpTooltip({ statKey, size = 14, className, ariaLab
         onMouseOver={(e) => { e.currentTarget.style.color = 'var(--mm-ink)' }}
         onMouseOut={(e) => { if (!open) e.currentTarget.style.color = 'var(--mm-muted)' }}
       >
-        <HelpCircle size={size} aria-hidden strokeWidth={2.2} />
+        <HelpCircle size={size} aria-hidden strokeWidth={2.5} />
       </button>
 
       {mounted && open && coords && createPortal(
