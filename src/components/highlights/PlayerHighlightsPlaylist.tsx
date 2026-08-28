@@ -95,9 +95,10 @@ export default function PlayerHighlightsPlaylist({ clips, currentIdx, onSelect }
       {groups.map((group) => (
         <div key={`${group.date}-${group.startIdx}`} className="mb-3 last:mb-0">
           <div
-            className="sticky top-0 z-10 px-2 py-1.5 flex items-center justify-between gap-2 backdrop-blur-sm"
+            className="sticky top-0 z-10 px-2 py-1.5 flex items-center justify-between gap-2"
             style={{
-              background: 'color-mix(in srgb, var(--mm-panel-alt) 92%, transparent)',
+              // 불투명 단색 — 스크롤 중 뒤 클립이 비쳐 날짜가 안 읽히던 문제도 같이 사라진다
+              background: 'var(--mm-panel-alt)',
               borderBottom: '1px solid var(--mm-rule)',
             }}
           >

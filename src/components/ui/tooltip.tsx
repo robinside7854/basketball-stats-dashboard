@@ -37,7 +37,7 @@ export function Tooltip({ content, children, side = 'top', align = 'center', del
         <TooltipPrimitive.Positioner side={side} align={align} sideOffset={6}>
           <TooltipPrimitive.Popup
             className={cn(
-              'z-50 max-w-xs rounded-lg border border-gray-700 bg-gray-900/95 backdrop-blur px-3 py-2 text-xs text-gray-100 shadow-lg',
+              'z-50 max-w-xs rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-xs text-gray-100 shadow-lg',
               'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
               className,
             )}

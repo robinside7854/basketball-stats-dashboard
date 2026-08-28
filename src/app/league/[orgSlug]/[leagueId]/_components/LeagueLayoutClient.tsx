@@ -356,7 +356,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
       {/* 하단 탭바 — 편집 모드 시 상단 얇은 노랑 라인으로 상태 힌트 */}
       <nav
         aria-label="주요 메뉴"
-        className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--mm-panel)]/95 backdrop-blur-md border-t ${isEditMode ? 'border-[color:var(--color-hoop-orange-500)]' : 'border-[color:var(--mm-rule)]'}`}
+        className={`lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[color:var(--mm-panel)] border-t ${isEditMode ? 'border-[color:var(--color-hoop-orange-500)]' : 'border-[color:var(--mm-rule)]'}`}
       >
         <div className="relative flex items-stretch justify-around h-14">
           {/* 활성 인디케이터 — 탭마다 따로 그리지 않고 하나를 옮긴다.

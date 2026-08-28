@@ -196,7 +196,7 @@ export function PlayerShotDonut({ data }: { data: DonutEntry[] }) {
             const p = payload[0].payload as DonutEntry
             return (
               <div
-                className="rounded-sm px-2.5 py-1.5 text-xs backdrop-blur-sm"
+                className="rounded-sm px-2.5 py-1.5 text-xs"
                 style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', boxShadow: '0 10px 24px -8px rgba(0,0,0,0.25)' }}
               >
                 <p className="font-black" style={{ color: p.color }}>{p.name}</p>
