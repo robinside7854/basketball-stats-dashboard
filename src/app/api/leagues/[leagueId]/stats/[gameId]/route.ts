@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { canViewLeague } from '@/lib/auth/guard'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 type EventRow = {
   league_player_id: string | null
@@ -46,7 +47,7 @@ export async function GET(
   const [{ data: events }, { data: mins }, { data: leaguePlayers }, { data: gameRow }] = await Promise.all([
     supabase.from('league_game_events').select('league_player_id,type,result,points,related_player_id,quarter').eq('league_game_id', gameId),
     supabase.from('league_player_minutes').select('league_player_id,in_time,out_time').eq('league_game_id', gameId),
-    supabase.from('league_players').select('id,plus_one').eq('league_id', leagueId),
+    supabase.from('league_players').select('id,plus_one').eq('team_id', await resolveTeamId(leagueId)),
     supabase.from('league_games').select('id,home_team_id,away_team_id,quarter_id,plus_one_player_id, plus_one_extra_ids, plus_one_quarters').eq('id', gameId).single(),
   ])
 

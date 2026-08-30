@@ -22,6 +22,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type ScoringRules, type GamePlusOne } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 const CLUTCH_TIME_WINDOW_SECONDS = 120
 const CLUTCH_MARGIN_BEFORE_MAX = 6    // 슛 직전 (2포제션)
@@ -108,7 +109,9 @@ export async function computeClutchStats(
   const { data: playerRows, error: plErr } = await supabase
     .from('league_players')
     .select('id, name, number, plus_one')
-    .eq('league_id', leagueId)
+    // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 **대회 묶음에서 0명**이 나와
+    //   이름이 '알 수 없음' 으로, plus_one 이 꺼진 것으로 조용히 계산된다(2026-08-31 실측).
+    .eq('team_id', await resolveTeamId(leagueId))
   // 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점된다 (scoring.ts 와 동일 이유로 throw).
   if (plErr) throw new Error(`computeClutchStats: leagueId=${leagueId} league_players 조회 실패 — ${plErr.message}`)
   const playerMeta = new Map<string, { name: string; number: number | null }>()

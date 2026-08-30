@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { canViewLeague } from '@/lib/auth/guard'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 // GET /api/leagues/[leagueId]/teams/[teamId]/insights?quarterId=xxx
 // 팀의 단일 일자 기록 + Four Factors + Advanced Metrics (자기 팀 + 상대 비교)
@@ -111,7 +112,9 @@ export async function GET(
   const { data: leaguePlayers, error: playersErr } = await supabase
     .from('league_players')
     .select('id, plus_one')
-    .eq('league_id', leagueId)
+    // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 **대회 묶음에서 0명**이 나와
+    //   이름이 '알 수 없음' 으로, plus_one 이 꺼진 것으로 조용히 계산된다(2026-08-31 실측).
+    .eq('team_id', await resolveTeamId(leagueId))
   // 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점된다 (scoring.ts 와 동일 이유).
   if (playersErr) {
     return NextResponse.json({ error: `league_players 조회 실패 — ${playersErr.message}` }, { status: 500 })

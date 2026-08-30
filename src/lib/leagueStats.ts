@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type ScoringRules, type GamePlusOne } from './stats/scoring'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 export interface PlayerAgg {
   player_id: string
@@ -36,7 +37,9 @@ export async function aggregateQuarterStats(
   const { data: leaguePlayers } = await supabase
     .from('league_players')
     .select('id, plus_one')
-    .eq('league_id', leagueId)
+    // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 **대회 묶음에서 0명**이 나와
+    //   이름이 '알 수 없음' 으로, plus_one 이 꺼진 것으로 조용히 계산된다(2026-08-31 실측).
+    .eq('team_id', await resolveTeamId(leagueId))
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
 
   // 채점 룰 — 드래프트 자동픽도 실제 경기 화면과 같은 룰로 계산해야 추천이 어긋나지 않는다.

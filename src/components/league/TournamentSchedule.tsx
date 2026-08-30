@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   Plus, Pencil, Trash2, ChevronDown, ChevronUp, Trophy, CalendarRange,
-  Youtube, UserCheck, ClipboardList, Lock, ArrowUpDown,
+  Youtube, UserCheck, ClipboardList, Lock, ArrowUpDown, BarChart2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
@@ -402,7 +402,21 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
                                 </span>
                               </div>
 
-                              <div className="flex items-center gap-1 shrink-0">
+                              <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                                {/* 박스스코어 — 리그에서는 '일정·결과'의 날짜 카드가 진입점이었는데,
+                                    대회는 이 화면이 그 자리를 대신하므로 여기에 둔다.
+                                    안 두면 기록을 해도 결과를 볼 길이 없다(2026-08-31 사용자 지적). */}
+                                {g.is_started && (
+                                  <Link
+                                    href={`${base}/boxscore/${g.date}?game=${g.id}`}
+                                    aria-label={`${fmtDate(g.date)} vs ${v?.oppName ?? '상대'} 박스스코어`}
+                                    className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-[11px] font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                                    style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                                  >
+                                    <BarChart2 size={14} aria-hidden />
+                                    기록지
+                                  </Link>
+                                )}
                                 <Link
                                   href={`${base}/record?date=${g.date}&game=${g.id}`}
                                   aria-label={`${fmtDate(g.date)} vs ${v?.oppName ?? '상대'} 기록하기`}

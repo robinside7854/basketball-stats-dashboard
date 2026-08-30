@@ -18,6 +18,7 @@ import type { PlayerStat } from '@/types/league'
 import { scorePoints, fetchScoringRules, type ScoringRules, isPlusOneFor, type GamePlusOne } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { estimatePlayerGameSeconds, minutesFromStartToEnd } from './estimateMinutes'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 export type LeagueStatsUnit = 'round'
 
@@ -67,7 +68,9 @@ export async function computeLeagueStats(
   const { data: allLeaguePlayers, error: playersErr } = await sb
     .from('league_players')
     .select('id, name, number, position, plus_one, photo_url, is_guest')
-    .eq('league_id', leagueId)
+    // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 **대회 묶음에서 0명**이 나와
+    //   이름이 '알 수 없음' 으로, plus_one 이 꺼진 것으로 조용히 계산된다(2026-08-31 실측).
+    .eq('team_id', await resolveTeamId(leagueId))
   // 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점되고, 이름/사진도 통째로 빠진다.
   if (playersErr) throw new Error(`computeLeagueStats: leagueId=${leagueId} league_players 조회 실패 — ${playersErr.message}`)
 

@@ -12,6 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type ScoringRules, type GamePlusOne } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 export interface PerDayStats {
   pts: number
@@ -91,7 +92,9 @@ export async function computePerDayStats(
   const { data: leaguePlayers, error: lpErr } = await supabase
     .from('league_players')
     .select('id, plus_one')
-    .eq('league_id', leagueId)
+    // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 **대회 묶음에서 0명**이 나와
+    //   이름이 '알 수 없음' 으로, plus_one 이 꺼진 것으로 조용히 계산된다(2026-08-31 실측).
+    .eq('team_id', await resolveTeamId(leagueId))
   // 조용히 넘기면 plusOneSet 이 비어 모든 플러스원 선수가 일반 선수로 채점된다 (scoring.ts 와 동일 이유로 throw).
   if (lpErr) throw new Error(`computePerDayStats: leagueId=${leagueId} league_players(plus_one) 조회 실패 — ${lpErr.message}`)
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id as string))
@@ -252,7 +255,9 @@ export async function fetchPlayerMeta(
   const { data, error } = await supabase
     .from('league_players')
     .select('id, name, number')
-    .eq('league_id', leagueId)
+    // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 **대회 묶음에서 0명**이 나와
+    //   이름이 '알 수 없음' 으로, plus_one 이 꺼진 것으로 조용히 계산된다(2026-08-31 실측).
+    .eq('team_id', await resolveTeamId(leagueId))
   if (error) throw new Error(`fetchPlayerMeta: leagueId=${leagueId} league_players 조회 실패 — ${error.message}`)
   const map: Record<string, { name: string; number: number | null }> = {}
   for (const p of (data ?? []) as { id: string; name: string; number: number | null }[]) {

@@ -22,6 +22,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 /** 점수차 이하면 '마지막 공격이 승부를 갈랐다'로 본다 (평균 6.2점차 대비) */
 const CLOSE_MARGIN = 2
@@ -121,7 +122,7 @@ export async function computeClassicGames(
     if (rows.length < PAGE) break
   }
 
-  const { data: playerRows } = await sb.from('league_players').select('id, name, photo_url').eq('league_id', leagueId)
+  const { data: playerRows } = await sb.from('league_players').select('id, name, photo_url').eq('team_id', await resolveTeamId(leagueId))
   const playerName = new Map((playerRows ?? []).map((p: { id: string; name: string }) => [p.id, p.name]))
   const playerPhoto = new Map((playerRows ?? []).map((p: { id: string; photo_url: string | null }) => [p.id, p.photo_url]))
 

@@ -9,6 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/admin'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import type { TraitInput } from './traitBadges'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 const FIELD_SHOTS = new Set(['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'])
 
@@ -37,7 +38,9 @@ export async function fetchTraitDataset(
   const { data: playerRows, error: pErr } = await sb
     .from('league_players')
     .select('id, name, number, photo_url, is_guest, is_active')
-    .eq('league_id', leagueId)
+    // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 **대회 묶음에서 0명**이 나와
+    //   이름이 '알 수 없음' 으로, plus_one 이 꺼진 것으로 조용히 계산된다(2026-08-31 실측).
+    .eq('team_id', await resolveTeamId(leagueId))
   if (pErr) throw new Error(`fetchTraitDataset: leagueId=${leagueId} league_players 조회 실패 — ${pErr.message}`)
 
   const players = (playerRows ?? [])

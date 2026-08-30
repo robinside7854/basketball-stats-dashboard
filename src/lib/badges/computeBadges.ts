@@ -17,6 +17,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scorePoints, fetchScoringRules, type ScoringRules, isPlusOneFor, type GamePlusOne } from '../stats/scoring'
 import { fetchExternalTeamIds } from '../league/externalPlayers'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 export type BadgeType = 'perfect_game' | 'double_double' | 'triple_double' | 'winning_shot'
 
@@ -100,7 +101,9 @@ async function fetchLeaguePlusOneSet(supabase: SupabaseClient, leagueId: string)
   const { data } = await supabase
     .from('league_players')
     .select('id, plus_one')
-    .eq('league_id', leagueId)
+    // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 **대회 묶음에서 0명**이 나와
+    //   이름이 '알 수 없음' 으로, plus_one 이 꺼진 것으로 조용히 계산된다(2026-08-31 실측).
+    .eq('team_id', await resolveTeamId(leagueId))
   return new Set((data ?? []).filter(p => p.plus_one).map(p => p.id as string))
 }
 
