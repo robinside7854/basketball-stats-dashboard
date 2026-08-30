@@ -3,6 +3,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { extractYouTubeId } from '@/lib/youtube/utils'
+import { fetchQuarterVideos, resolveGameVideo } from '@/lib/youtube/gameVideo'
 import { isHighlightShot, getClipBounds, SHOT_TYPE_LABEL, shouldShowAssist, mergeAndOneClips } from './clip'
 import { loadIdentityResolver } from '@/lib/stats/teamIdentity'
 // 러닝 스코어(홈/원정 누적 점수) 계산 — 저장된 points 컬럼이 아니라 리그 채점 룰로 재계산한다.
@@ -230,6 +231,10 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
   for (const g of gameRows) gameMap[g.id] = g
   const gameIds = gameRows.map(g => g.id)
 
+  // 쿼터별 영상 — 촬영본이 쿼터로 쪼개진 경기(대회)는 이벤트마다 재생할 영상이 다르다.
+  //   경기 목록을 통째로 한 번에 읽고 아래에서 메모리로 푼다(이벤트마다 조회하면 안 된다).
+  const quarterVideos = await fetchQuarterVideos(supabase, gameIds)
+
   // 2. 이벤트 (성공 + 하이라이트 슛 유형만, timestamp 있음)
   // 페이지네이션 (Supabase 기본 1000행 캡 대비 · 한 라운드 클립이 많을 수 있음)
   type DetailEvtRow = {
@@ -242,13 +247,14 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     result: string | null
     points: number | null
     video_timestamp: number
+    quarter: number | null
   }
   const eventRows: DetailEvtRow[] = []
   const PAGE = 1000
   for (let pg = 0; ; pg++) {
     const { data: chunk, error: eErr } = await supabase
       .from('league_game_events')
-      .select('id, league_game_id, league_player_id, team_id, related_player_id, type, result, points, video_timestamp, created_at')
+      .select('id, league_game_id, league_player_id, team_id, related_player_id, type, result, points, video_timestamp, quarter, created_at')
       .in('league_game_id', gameIds)
       .eq('result', 'made')
       .not('video_timestamp', 'is', null)
@@ -342,7 +348,10 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
     if (!isHighlightShot(ev.type)) continue
     const game = gameMap[ev.league_game_id]
     if (!game) continue
-    const videoId = extractYouTubeId(game.youtube_url)
+    // 이 이벤트의 쿼터 영상 → 없으면 경기 대표 영상. 판정은 gameVideo.ts 하나뿐이다.
+    const video = resolveGameVideo(quarterVideos, game.id, ev.quarter, game)
+    if (!video) continue
+    const videoId = extractYouTubeId(video.url)
     if (!videoId) continue
 
     // 팀 정보: event 에 저장된 team_id 우선, 없으면 홈/어웨이 미상은 홈으로
@@ -373,7 +382,7 @@ export async function loadRoundDetail(supabase: SupabaseClient, leagueId: string
 
     const clip: HighlightClip = {
       event_id: ev.id,
-      video_url: game.youtube_url,
+      video_url: video.url,
       video_id: videoId,
       video_timestamp: ev.video_timestamp,
       clip_start: start,
@@ -526,6 +535,9 @@ export async function loadPlayerHighlights(
   for (const g of gameRows) gameMap[g.id] = g
   const gameIds = gameRows.map(g => g.id)
 
+  // 쿼터별 영상 — 쿼터로 쪼갠 촬영본은 이벤트마다 재생할 영상이 다르다(gameVideo.ts).
+  const quarterVideos = await fetchQuarterVideos(supabase, gameIds)
+
   // 3. 해당 선수의 성공 슛 이벤트 (video_timestamp 필수) — 페이지네이션 필수
   type EvtRow = {
     id: string
@@ -535,13 +547,14 @@ export async function loadPlayerHighlights(
     type: string
     points: number | null
     video_timestamp: number
+    quarter: number | null
   }
   const events: EvtRow[] = []
   const PAGE = 1000
   for (let pg = 0; ; pg++) {
     const { data: chunk, error: eErr } = await supabase
       .from('league_game_events')
-      .select('id, league_game_id, team_id, related_player_id, type, result, points, video_timestamp, created_at')
+      .select('id, league_game_id, team_id, related_player_id, type, result, points, video_timestamp, quarter, created_at')
       .eq('league_player_id', playerId)
       .in('league_game_id', gameIds)
       .eq('result', 'made')
@@ -650,7 +663,10 @@ export async function loadPlayerHighlights(
     if (!isHighlightShot(ev.type)) continue
     const game = gameMap[ev.league_game_id]
     if (!game) continue
-    const videoId = extractYouTubeId(game.youtube_url)
+    // 이 이벤트의 쿼터 영상 → 없으면 경기 대표 영상(gameVideo.ts).
+    const video = resolveGameVideo(quarterVideos, game.id, ev.quarter, game)
+    if (!video) continue
+    const videoId = extractYouTubeId(video.url)
     if (!videoId) continue
 
     // 팀 결정: event.team_id 우선 → 매칭 실패 시 홈/어웨이 중 아무거나 (라벨용)
@@ -685,7 +701,7 @@ export async function loadPlayerHighlights(
 
     clips.push({
       event_id: ev.id,
-      video_url: game.youtube_url,
+      video_url: video.url,
       video_id: videoId,
       video_timestamp: ev.video_timestamp,
       clip_start: start,
@@ -761,7 +777,7 @@ export async function loadClipsByEventIds(
   const [{ data: events, error: eErr }, resolver, scoringRules, { data: allLeaguePlayers, error: plErr }] = await Promise.all([
     supabase
       .from('league_game_events')
-      .select('id, league_game_id, league_player_id, team_id, related_player_id, type, points, video_timestamp')
+      .select('id, league_game_id, league_player_id, team_id, related_player_id, type, points, video_timestamp, quarter')
       .in('id', eventIds),
     loadIdentityResolver(supabase, leagueId),
     // 러닝 스코어 재계산용 채점 룰 · 리그 전체 plus_one 플래그
@@ -791,6 +807,7 @@ export async function loadClipsByEventIds(
     type: string
     points: number | null
     video_timestamp: number | null
+    quarter: number | null
   }
   const evRows = (events as unknown as EvtRow[]).filter(
     e => e.video_timestamp !== null && isHighlightShot(e.type),
@@ -824,6 +841,9 @@ export async function loadClipsByEventIds(
   }>
   const gameMap: Record<string, typeof gameRows[number]> = {}
   for (const g of gameRows) gameMap[g.id] = g
+
+  // 쿼터별 영상 — 핀한 베스트샷이 2~4쿼터 것이면 1쿼터 영상으로는 그 장면이 안 나온다.
+  const quarterVideos = await fetchQuarterVideos(supabase, gameIds)
 
   const playerIds = Array.from(new Set([
     ...evRows.map(e => e.league_player_id).filter((x): x is string => !!x),
@@ -902,7 +922,10 @@ export async function loadClipsByEventIds(
   for (const ev of evRows) {
     const game = gameMap[ev.league_game_id]
     if (!game) continue
-    const videoId = extractYouTubeId(game.youtube_url)
+    // 이 이벤트의 쿼터 영상 → 없으면 경기 대표 영상(gameVideo.ts).
+    const video = resolveGameVideo(quarterVideos, game.id, ev.quarter, game)
+    if (!video) continue
+    const videoId = extractYouTubeId(video.url)
     if (!videoId || ev.video_timestamp === null) continue
 
     let team = ev.team_id === game.home_team?.id ? game.home_team
@@ -927,7 +950,7 @@ export async function loadClipsByEventIds(
 
     byId[ev.id] = {
       event_id: ev.id,
-      video_url: game.youtube_url,
+      video_url: video.url,
       video_id: videoId,
       video_timestamp: ev.video_timestamp,
       clip_start: start,

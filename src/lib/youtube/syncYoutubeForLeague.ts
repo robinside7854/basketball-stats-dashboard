@@ -100,6 +100,29 @@ export async function syncYoutubeForLeague(
   date: string,
   apiKey: string
 ): Promise<SyncOutcome> {
+  // 0. 대회 묶음에서는 돌지 않는다.
+  //
+  //   이 함수의 매핑 규칙은 통째로 미라클 리그용이다 — 제목의 `경기 N` 을 읽어 **그 날짜의
+  //   slot_num N** 에 꽂는다. 대회는 슬롯 번호에 아무 의미가 없고(같은 날 1·2경기가 그냥
+  //   등록 순서다), 촬영본이 쿼터로 쪼개져 있어 "경기 하나 = 영상 하나" 전제부터 성립하지 않는다.
+  //   억지로 돌리면 2026-08-22 처럼 **틀린 자리에 조용히 붙는다** — 개수가 아니라 그게 문제였다.
+  //
+  //   대회의 연동 경로는 기록 화면의 "목록에서 고르기"(쿼터별 4칸) 하나로 못 박는다.
+  //   여기서 막는 이유: 수동 버튼·주간 cron·경기 시작 훅 세 경로가 전부 이 함수를 지난다.
+  //   호출부마다 조건을 달면 하나를 빠뜨렸을 때 그 경로로만 오배정이 되살아난다.
+  const { data: lg, error: lgErr } = await supabase
+    .from('leagues')
+    .select('mode')
+    .eq('id', leagueId)
+    .maybeSingle()
+  if (lgErr) return { ok: false, reason: `리그 확인 실패: ${lgErr.message}` }
+  if (lg?.mode === 'tournament') {
+    return {
+      ok: false,
+      reason: '대회는 영상 자동 매핑을 쓰지 않습니다. 기록 화면에서 경기를 고른 뒤 쿼터별로 "목록에서 고르기"로 연결하세요.',
+    }
+  }
+
   // 1. 채널 ID
   const { id: channelId } = await getChannelId(channelHandle, apiKey)
   if (!channelId) return { ok: false, reason: `채널을 찾을 수 없습니다: ${channelHandle}` }

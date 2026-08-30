@@ -40,11 +40,29 @@ export async function GET(
   const supabase = createClient()
   const { data: league, error: lErr } = await supabase
     .from('leagues')
-    .select('youtube_channel')
+    .select('youtube_channel, team_id')
     .eq('id', leagueId)
     .maybeSingle()
   if (lErr) return NextResponse.json({ error: '리그를 확인하지 못했습니다' }, { status: 500 })
-  const handle = league?.youtube_channel
+
+  let handle = league?.youtube_channel ?? null
+
+  // 형제 묶음 폴백 — 채널은 **팀의 것**이지 묶음의 것이 아니다.
+  //   대회 묶음(mode='tournament')은 리그와 같은 팀·같은 채널에 영상을 올리는데
+  //   leagues.youtube_channel 이 묶음마다 따로 있어 대회 쪽은 비어 있다. 그대로 두면
+  //   "설정에서 채널을 지정하세요" 로 끝나 대회에서는 목록 고르기를 아예 쓸 수 없다.
+  //   같은 팀의 다른 묶음에 채널이 있으면 그것을 쓴다.
+  if (!handle && league?.team_id) {
+    const { data: sibling } = await supabase
+      .from('leagues')
+      .select('youtube_channel')
+      .eq('team_id', league.team_id)
+      .not('youtube_channel', 'is', null)
+      .limit(1)
+      .maybeSingle()
+    handle = sibling?.youtube_channel ?? null
+  }
+
   if (!handle) {
     return NextResponse.json({ error: '설정 탭에서 YouTube 채널을 먼저 지정하세요' }, { status: 400 })
   }

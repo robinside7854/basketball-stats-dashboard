@@ -4,6 +4,7 @@ import { makeIdentityResolver, type QuarterOverride, type TeamBase } from '@/lib
 import { scorePoints, fetchScoringRules, isPlusOneFor, type GamePlusOne } from '@/lib/stats/scoring'
 import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { fetchQuarterVideos } from '@/lib/youtube/gameVideo'
 
 // GET /api/leagues/[leagueId]/daily-boxscore?date=YYYY-MM-DD
 export async function GET(
@@ -55,6 +56,9 @@ export async function GET(
   if (!games || games.length === 0) return NextResponse.json({ games: [], daily_stats: [] })
 
   const gameIds = games.map(g => g.id)
+  // 쿼터별 영상 — 경기 하나에 쿼터 영상이 붙어 있으면 카드에 쿼터 탭으로 내려준다.
+  //   붙은 게 없으면 빈 Map 이라 종전대로 대표 영상 하나만 나간다.
+  const quarterVideos = await fetchQuarterVideos(supabase, gameIds)
   const { data: events } = await supabase
     .from('league_game_events')
     .select('league_game_id, league_player_id, related_player_id, type, result, points, quarter, team_id')
@@ -264,8 +268,26 @@ export async function GET(
     slot_nums: number[]
     /** 슬롯 id 전부 — 딥링크(?game=)가 중간 슬롯을 가리켜도 찾을 수 있어야 한다 */
     slot_ids: string[]
-    /** 슬롯마다 붙은 영상. 쿼터별로 쪼갠 날은 여러 개가 된다 */
-    videos: { slot_num: number; url: string; start_offset: number }[]
+    /**
+     * 이 경기를 볼 수 있는 영상들. 두 갈래가 같은 배열로 들어온다.
+     *   - 슬롯을 쿼터 단위로 쓴 날(친선전) → 슬롯마다 하나씩, `quarter` 는 null
+     *   - 경기 하나에 쿼터 영상을 단 경우(대회) → 쿼터마다 하나씩, `quarter` 有
+     * 화면은 `quarter` 가 있으면 "N쿼터", 없으면 "N경기" 로 라벨을 만든다.
+     */
+    videos: { slot_num: number; quarter: number | null; url: string; start_offset: number }[]
+  }
+
+  /** 이 슬롯에서 볼 수 있는 영상 목록. 쿼터 영상이 있으면 그것들, 없으면 대표 영상 하나. */
+  const videosOf = (g: SlotGame): GroupGame['videos'] => {
+    const qs = quarterVideos.get(g.id)
+    if (qs && qs.size > 0) {
+      return [...qs.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([quarter, v]) => ({ slot_num: g.slot_num, quarter, url: v.url, start_offset: v.startOffset }))
+    }
+    return g.youtube_url
+      ? [{ slot_num: g.slot_num, quarter: null, url: g.youtube_url, start_offset: g.youtube_start_offset }]
+      : []
   }
 
   const pairKey = (a: string | null | undefined, b: string | null | undefined) =>
@@ -290,9 +312,7 @@ export async function GET(
         players: g.players.map(r => ({ ...r })),
         slot_nums: [g.slot_num],
         slot_ids: [g.id],
-        videos: g.youtube_url
-          ? [{ slot_num: g.slot_num, url: g.youtube_url, start_offset: g.youtube_start_offset }]
-          : [],
+        videos: videosOf(g),
       })
       groupKeys.push(key)
       continue
@@ -306,7 +326,7 @@ export async function GET(
     prev.away_score = (prev.away_score ?? 0) + addAway
     prev.slot_nums.push(g.slot_num)
     prev.slot_ids.push(g.id)
-    if (g.youtube_url) prev.videos.push({ slot_num: g.slot_num, url: g.youtube_url, start_offset: g.youtube_start_offset })
+    prev.videos.push(...videosOf(g))
     prev.is_started = prev.is_started || g.is_started
     prev.is_complete = prev.is_complete && g.is_complete
 

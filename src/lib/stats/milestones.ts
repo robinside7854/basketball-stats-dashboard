@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { fetchPlayerMeta } from './perDayStats'
 import { getClipBounds, isHighlightShot } from '@/lib/highlights/clip'
 import { extractYouTubeId } from '@/lib/youtube/utils'
+import { fetchQuarterVideos, resolveGameVideo } from '@/lib/youtube/gameVideo'
 import { scorePoints, fetchScoringRules, isPlusOneFor, type ScoringRules, type GamePlusOne } from './scoring'
 import { fetchExternalTeamIds } from '@/lib/league/externalPlayers'
 import { resolveTeamId } from '@/lib/league/teamScope'
@@ -107,6 +108,7 @@ export async function computeMilestones(
     result: string | null
     points: number | null
     video_timestamp: number | null
+    quarter: number | null
     created_at: string | null
   }
   const events: EvRow[] = []
@@ -114,7 +116,7 @@ export async function computeMilestones(
   for (let p = 0; ; p++) {
     const { data: chunk, error: evErr } = await sb
       .from('league_game_events')
-      .select('id, league_game_id, league_player_id, related_player_id, team_id, type, result, points, video_timestamp, created_at')
+      .select('id, league_game_id, league_player_id, related_player_id, team_id, type, result, points, video_timestamp, quarter, created_at')
       .in('league_game_id', gameIds)
       .order('id', { ascending: true })
       .range(p * PAGE, (p + 1) * PAGE - 1)
@@ -124,6 +126,10 @@ export async function computeMilestones(
     events.push(...(chunk as EvRow[]))
     if (chunk.length < PAGE) break
   }
+
+  // 쿼터별 영상 — 촬영본이 쿼터로 쪼개진 경기에서는 마일스톤 순간이 담긴 영상이 이벤트마다 다르다.
+  //   경기 대표 영상만 쓰면 2~4쿼터 달성 장면이 1쿼터 영상의 엉뚱한 지점을 가리킨다.
+  const quarterVideos = await fetchQuarterVideos(sb, gameIds)
 
   const playerMeta = await playerMetaPromise
   const rules: ScoringRules = await rulesPromise
@@ -176,19 +182,17 @@ export async function computeMilestones(
     let ce: number | null = null
     let shotType: string | null = null
     // 하이라이트 재생 가능 조건: (1) 그 이벤트가 하이라이트 슛 유형 · made · timestamp 有
-    //                             (2) 게임에 youtube_url 매핑
-    if (
-      isHighlightShot(ev.type)
-      && ev.result === 'made'
-      && ev.video_timestamp != null
-      && ev.youtube_url
-    ) {
-      const vid = extractYouTubeId(ev.youtube_url)
+    //                             (2) 그 쿼터 영상 또는 게임 대표 영상이 있음
+    const evVideo = (isHighlightShot(ev.type) && ev.result === 'made' && ev.video_timestamp != null)
+      ? resolveGameVideo(quarterVideos, ev.league_game_id, ev.quarter, { youtube_url: ev.youtube_url })
+      : null
+    if (evVideo && ev.video_timestamp != null) {
+      const vid = extractYouTubeId(evVideo.url)
       if (vid) {
         vTs = ev.video_timestamp
-        vUrl = ev.youtube_url
+        vUrl = evVideo.url
         vId = vid
-        const b = getClipBounds(ev.type, vTs)
+        const b = getClipBounds(ev.type, ev.video_timestamp)
         cs = b.start
         ce = b.end
         shotType = ev.type

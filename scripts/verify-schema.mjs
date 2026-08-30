@@ -120,12 +120,25 @@ await check(
 )
 
 // ── Task 3: 세그먼트 · 외부 팀 ────────────────────────
+//
+// ⚠ 2026-08-30 에 세 어서션을 고쳐 썼다. 원래는 "대회 기능이 아직 안 쓰였다"를 단정했다
+//   (세그먼트 정확히 3건 · 외부 팀 0건). 대회 등록·경기 등록 화면이 생기면서 그 전제가
+//   깨졌고, 그대로 두면 운영진이 대회를 하나 만드는 순간 **매번 3건씩 실패**한다.
+//   위 Task 4 주석이 적어 둔 병("깨지면 숫자를 고친다"가 습관이 되면 어서션은 있으나 마나")에
+//   정확히 걸리므로, 시간이 지나도 안 변하는 **불변식**으로 바꿨다:
+//     · 리그 묶음의 분기 3건은 그대로일 것
+//     · 외부(상대) 팀은 **대회 묶음에만** 있을 것
+//   후자가 진짜 지켜야 할 선이다 — 리그 묶음에 외부 팀이 끼면 순위표에 상대 동호회가 올라온다.
 await check(
-  '미라클 세그먼트(kind=quarter) 3건 모두 이름이 붙음',
-  // 대회형 통일 시도가 되돌려지며(2026-08-05) kind='tournament' 세그먼트도 함께 삭제됐다
-  // (league_quarters legacy_id 전 테이블 0건으로 실측 확인). kind 필터는 더 이상 아무것도
-  // 걷어내지 않지만 단순 형태로 되돌린다.
-  `SELECT kind, name, ord FROM league_quarters ORDER BY ord`,
+  '미라클 리그 묶음의 분기(kind=quarter) 3건이 그대로',
+  // 대회 세그먼트(kind='tournament')는 운영진이 늘려 가는 것이므로 개수를 단정하지 않는다.
+  // 여기서 지키는 것은 "리그 시즌의 분기 구성이 안 바뀌었다" 하나다.
+  `SELECT lq.kind, lq.name, lq.ord
+     FROM league_quarters lq
+     JOIN leagues l ON l.id = lq.league_id
+    WHERE l.mode = 'league' AND lq.kind = 'quarter'
+      AND l.team_id IN (SELECT t.id FROM teams t JOIN orgs o ON o.id = t.org_id WHERE o.slug IN ${BASELINE_ORGS})
+    ORDER BY lq.ord`,
   rows => {
     const got = rows.map(r => `${r.kind}:${r.name}:${r.ord}`)
     const want = ['quarter:26.1Q:1', 'quarter:26.2Q:2', 'quarter:26.3Q:3']
@@ -134,18 +147,24 @@ await check(
 )
 
 await check(
-  'league_teams 는 전부 내부 팀',
-  // 대회형 통일 시도가 되돌려지며 외부 상대팀 43건도 함께 삭제됐다(league_teams
-  // is_external=true 0건으로 실측 확인) — mode<>'tournament' 필터는 더 이상 아무것도
-  // 걷어내지 않으므로 단순 형태로 되돌린다.
-  `SELECT count(*)::int AS n FROM league_teams WHERE is_external IS DISTINCT FROM false`,
-  rows => rows[0].n === 0 || `is_external 이 false 가 아닌 행이 ${rows[0].n}건`
+  '리그 묶음(mode=league)의 팀은 전부 내부 팀',
+  // is_external=true 인 팀이 리그 묶음에 있으면 순위표·드래프트·명단에 상대 동호회가 등장한다.
+  `SELECT lt.league_id, lt.name FROM league_teams lt
+     JOIN leagues l ON l.id = lt.league_id
+    WHERE l.mode = 'league' AND lt.is_external IS DISTINCT FROM false`,
+  rows => rows.length === 0
+    || `리그 묶음에 외부 팀이 ${rows.length}건 있음: ${JSON.stringify(rows.map(r => r.name))}`
 )
 
 await check(
-  '외부 팀은 아직 0건',
-  `SELECT count(*)::int AS n FROM league_teams WHERE is_external = true`,
-  rows => rows[0].n === 0 || `외부 팀이 벌써 ${rows[0].n}건 있음`
+  '외부(상대) 팀은 대회 묶음에만 존재한다',
+  `SELECT l.mode, count(*)::int AS n FROM league_teams lt
+     JOIN leagues l ON l.id = lt.league_id
+    WHERE lt.is_external = true GROUP BY l.mode`,
+  rows => {
+    const bad = rows.filter(r => r.mode !== 'tournament')
+    return bad.length === 0 || `대회가 아닌 묶음에 외부 팀이 있음: ${JSON.stringify(bad)}`
+  }
 )
 
 // ── Task 4: 회귀 방지 — 단계 1 은 데이터를 바꾸지 않았다 ──

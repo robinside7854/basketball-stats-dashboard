@@ -38,7 +38,8 @@ type GameData = {
   /** 묶인 슬롯 id 전부 — ?game= 딥링크가 중간 슬롯을 가리켜도 이 경기를 찾아야 한다. */
   slot_ids?: string[]
   /** 슬롯마다 붙은 영상. 쿼터별로 쪼갠 날은 여러 개다. */
-  videos?: { slot_num: number; url: string; start_offset: number }[]
+  // quarter 가 있으면 경기 하나에 붙은 쿼터 영상(대회), 없으면 슬롯마다 붙은 영상(친선전).
+  videos?: { slot_num: number; quarter?: number | null; url: string; start_offset: number }[]
 }
 
 type DailyStat = {
@@ -584,7 +585,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                   const isExpanded = expandedGame === g.id
                   const videoList = (g.videos && g.videos.length > 0)
                     ? g.videos
-                    : g.youtube_url ? [{ slot_num: g.slot_num, url: g.youtube_url, start_offset: g.youtube_start_offset }] : []
+                    : g.youtube_url ? [{ slot_num: g.slot_num, quarter: null, url: g.youtube_url, start_offset: g.youtube_start_offset }] : []
                   const homeWin = g.is_complete && g.home_score > g.away_score
                   const awayWin = g.is_complete && g.away_score > g.home_score
                   const draw = g.is_complete && g.home_score === g.away_score
@@ -991,7 +992,11 @@ function aggregateHeadToHead(
 
 // 한 경기에 붙은 영상들. 슬롯을 쿼터 단위로 쓴 날은 영상이 여러 개라 탭으로 고른다.
 //   한 개뿐이면 탭 없이 그대로 그린다 — 정규전 화면을 건드리지 않기 위해서다.
-function GameVideos({ videos, label }: { videos: { slot_num: number; url: string; start_offset: number }[]; label: string }) {
+// 경기 영상 탭. 두 갈래가 같은 배열로 들어온다(daily-boxscore 의 videos 주석 참고).
+//   - 슬롯을 쿼터 단위로 쓴 날 → 슬롯마다 하나, quarter 는 null → 순서대로 1·2·3쿼터로 읽는다
+//   - 경기 하나에 쿼터 영상을 단 경우(대회) → quarter 가 있으므로 **그 값을 그대로 쓴다**.
+//     순서로 매기면 1·3쿼터만 연결된 경기가 "1쿼터·2쿼터" 로 잘못 표시된다.
+function GameVideos({ videos, label }: { videos: { slot_num: number; quarter?: number | null; url: string; start_offset: number }[]; label: string }) {
   const [idx, setIdx] = useState(0)
   const active = videos[Math.min(idx, videos.length - 1)]
   const embedUrl = getYoutubeEmbedUrl(active.url, active.start_offset)
@@ -1002,7 +1007,8 @@ function GameVideos({ videos, label }: { videos: { slot_num: number; url: string
         <div className="flex items-center gap-1.5 flex-wrap" role="tablist" aria-label={`${label} 쿼터 영상`}>
           {videos.map((v, i) => (
             <button
-              key={v.slot_num}
+              // 대회 경기는 슬롯 번호가 4개 다 같다 — slot_num 만 쓰면 key 가 겹친다.
+              key={`${v.slot_num}-${v.quarter ?? i}`}
               type="button"
               role="tab"
               aria-selected={i === idx}
@@ -1012,7 +1018,7 @@ function GameVideos({ videos, label }: { videos: { slot_num: number; url: string
                 ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }
                 : { background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
             >
-              {quarterLabel(i + 1)}
+              {quarterLabel(v.quarter ?? i + 1)}
             </button>
           ))}
         </div>
@@ -1021,7 +1027,7 @@ function GameVideos({ videos, label }: { videos: { slot_num: number; url: string
         <iframe
           key={active.url}
           src={embedUrl}
-          title={`${label} ${videos.length > 1 ? quarterLabel(idx + 1) + ' ' : ''}하이라이트`}
+          title={`${label} ${videos.length > 1 ? quarterLabel(active.quarter ?? idx + 1) + ' ' : ''}하이라이트`}
           className="w-full h-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen

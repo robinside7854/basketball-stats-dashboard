@@ -5,13 +5,16 @@
 //
 // 카드 어휘(패널·룰·그리드 hover)는 highlights 랜딩(하이라이트 라운드 카드 그리드)을 참고했다:
 //   src/app/league/[orgSlug]/[leagueId]/highlights/page.tsx
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Trophy, ChevronRight, CalendarRange, UserCheck } from 'lucide-react'
+import { Trophy, ChevronRight, CalendarRange, UserCheck, Plus, CalendarPlus, Pencil, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import TournamentRosterPanel from '@/components/league/TournamentRosterPanel'
+import TournamentFormModal, { type TournamentDraft } from '@/components/league/TournamentFormModal'
+import TournamentGameFormModal from '@/components/league/TournamentGameFormModal'
 
 // ── 성적 판정 규칙 — 레거시에서 그대로 옮겨왔다(새로 만들지 않음) ──────────────
 //   출처: src/app/(main)/[org]/[team]/tournaments/page.tsx 의 ROUND_ORDER / getTournamentSummary
@@ -72,6 +75,8 @@ type ApiQuarter = {
   name: string | null
   start_date: string | null
   end_date: string | null
+  tournament_type?: string | null
+  description?: string | null
 }
 
 type TournamentCard = {
@@ -103,26 +108,68 @@ export default function TournamentBoard({
   const [games, setGames] = useState<ApiGame[] | null>(null)
   // 참가 인원 등록 패널 — 편집 권한자가 특정 대회 카드에서 열면 그 quarter 를 담는다.
   const [rosterQuarter, setRosterQuarter] = useState<ApiQuarter | null>(null)
+  // 대회 등록/수정 모달. `{}` 면 신규, 값이 차 있으면 그 대회를 수정한다.
+  const [editing, setEditing] = useState<TournamentDraft | null>(null)
+  // 경기 등록 모달 — 어느 대회의 경기인지 담는다.
+  const [gameFor, setGameFor] = useState<ApiQuarter | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const [qRes, gRes] = await Promise.all([
+        fetch(`/api/leagues/${leagueId}/quarters`, { headers: leagueHeaders }),
+        fetch(`/api/leagues/${leagueId}/games`, { headers: leagueHeaders }),
+      ])
+      setQuarters(qRes.ok ? await qRes.json() : [])
+      setGames(gRes.ok ? await gRes.json() : [])
+    } catch {
+      setQuarters([]); setGames([])
+    }
+    // leagueHeaders 는 매 렌더 새 객체라 의존성에 넣으면 무한 재조회가 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leagueId])
 
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
-      try {
-        const [qRes, gRes] = await Promise.all([
-          fetch(`/api/leagues/${leagueId}/quarters`, { headers: leagueHeaders }),
-          fetch(`/api/leagues/${leagueId}/games`, { headers: leagueHeaders }),
-        ])
-        if (cancelled) return
-        setQuarters(qRes.ok ? await qRes.json() : [])
-        setGames(gRes.ok ? await gRes.json() : [])
-      } catch {
-        if (!cancelled) { setQuarters([]); setGames([]) }
-      }
-    })()
+    ;(async () => { await load(); if (cancelled) return })()
     return () => { cancelled = true }
     // isEditMode 가 바뀌면(PIN 입력·로그인) 다시 조회 — 편집 권한 안내 문구가 즉시 반영되도록.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId, isEditMode])
+
+  // 이미 붙어 본 상대 이름 — 경기 등록에서 오타로 같은 팀이 둘로 갈리는 걸 줄인다.
+  const knownOpponents = Array.from(new Set(
+    (games ?? []).flatMap(g => [g.home_team, g.away_team])
+      .filter((t): t is NonNullable<ApiTeam> => !!t && t.is_external === true)
+      .map(t => t.name)
+      .filter((n): n is string => !!n),
+  )).sort((a, b) => a.localeCompare(b, 'ko'))
+
+  async function removeTournament(q: ApiQuarter, gamesCount: number) {
+    if (deletingId) return
+    // 경기가 붙어 있으면 서버가 409 로 막는다. 화면에서도 먼저 알려 헛클릭을 줄인다.
+    if (gamesCount > 0) {
+      toast.error(`경기 ${gamesCount}건이 등록된 대회입니다`, { description: '경기를 먼저 삭제해야 대회를 지울 수 있습니다' })
+      return
+    }
+    if (!window.confirm(`"${q.name ?? '이 대회'}" 를 삭제하시겠습니까?`)) return
+    setDeletingId(q.id)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/quarters?quarterId=${q.id}`, {
+        method: 'DELETE', headers: leagueHeaders,
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j?.error ?? `삭제 실패 (${res.status})`)
+      }
+      toast.success('대회를 삭제했습니다')
+      await load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '삭제 실패')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   if (quarters === null || games === null) {
     return (
@@ -155,39 +202,72 @@ export default function TournamentBoard({
   })
 
   if (cards.length === 0) {
-    // 미라클의 대회 묶음은 지금 비어 있다 — 이 화면이 회원이 처음 보는 유일한 화면이므로
-    // "데이터가 없습니다" 로 끝내지 않는다. 편집 권한자에게는 어떻게 채우는지 알려주고,
-    // 일반 회원에게는 조용히 "아직 없다" 는 사실만 전한다.
+    // 이 화면이 회원이 처음 보는 유일한 화면이므로 "데이터가 없습니다" 로 끝내지 않는다.
+    // 편집 권한자에게는 바로 등록 버튼을 주고, 일반 회원에게는 "아직 없다" 는 사실만 전한다.
     return (
-      <EmptyState
-        Icon={Trophy}
-        title="아직 참가한 대회가 없습니다"
-        description="여기에 대회를 등록하면 대회별 전적과 최종 성적(우승·준우승·N강 탈락)이 표시됩니다."
-        isEditMode={isEditMode}
-        editorHint="대회 등록 UI는 아직 준비 중입니다 — 온볼 운영팀에 대회명과 기간을 알려주시면 등록해 드립니다."
-        size="lg"
-      />
+      <>
+        <EmptyState
+          Icon={Trophy}
+          title="아직 참가한 대회가 없습니다"
+          description="여기에 대회를 등록하면 대회별 전적과 최종 성적(우승·준우승·N강 탈락)이 표시됩니다."
+          isEditMode={isEditMode}
+          editorHint="아래 “대회 등록” 으로 대회명과 기간을 넣으면 바로 경기를 붙일 수 있습니다."
+          size="lg"
+        />
+        {isEditMode && (
+          <div className="flex justify-center mt-4">
+            <button
+              type="button"
+              onClick={() => setEditing({ name: '', start_date: null, end_date: null, tournament_type: null, description: null })}
+              className="inline-flex items-center gap-2 min-h-[44px] px-5 text-sm font-black rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+              style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)' }}
+            >
+              <Plus size={16} aria-hidden />
+              대회 등록
+            </button>
+          </div>
+        )}
+        {editing && (
+          <TournamentFormModal
+            leagueId={leagueId}
+            initial={editing.name || editing.id ? editing : undefined}
+            onClose={() => setEditing(null)}
+            onSaved={load}
+          />
+        )}
+      </>
     )
   }
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Trophy size={24} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
-        <div>
-          <h1
-            className="font-bold text-2xl lg:text-4xl"
-            style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
-          >
-            대회
-          </h1>
-          <p
-            className="text-xs lg:text-sm mt-1 font-bold uppercase"
-            style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
-          >
-            참가한 대회별 전적 · 최종 성적
-          </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Trophy size={24} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
+          <div className="min-w-0">
+            <h1
+              className="font-bold text-2xl lg:text-4xl"
+              style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
+            >
+              대회
+            </h1>
+            {/* break-keep — 안 주면 375px 에서 "최종 성 / 적" 으로 글자 단위로 끊긴다(실측) */}
+            <p className="text-xs lg:text-sm mt-1 font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
+              참가한 대회별 전적 · 최종 성적
+            </p>
+          </div>
         </div>
+        {isEditMode && (
+          <button
+            type="button"
+            onClick={() => setEditing({ name: '', start_date: null, end_date: null, tournament_type: null, description: null })}
+            className="shrink-0 inline-flex items-center gap-1.5 min-h-[44px] px-4 text-sm font-black rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+            style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)' }}
+          >
+            <Plus size={16} aria-hidden />
+            대회 등록
+          </button>
+        )}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -252,32 +332,57 @@ export default function TournamentBoard({
                 )}
               </div>
 
-              <div className="mt-3 flex items-center justify-between gap-2">
-                {clickable ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
-                    경기 목록 <ChevronRight size={14} />
-                  </span>
-                ) : <span />}
-
-                {isEditMode && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      // cardInner 가 Link 안에 들어갈 수 있어 클릭이 그 위로 새면 경기 목록으로
-                      // 이동해버린다 — 버튼 클릭은 등록 패널만 열어야 하므로 여기서 끊는다.
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setRosterQuarter(q)
-                    }}
-                    className="inline-flex items-center gap-1 min-h-[36px] px-2.5 text-[11px] font-bold uppercase tracking-[0.08em] rounded-sm cursor-pointer transition-colors hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
-                    style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
-                    aria-label={`${q.name ?? '대회'} 참가 인원 등록`}
+              {clickable && (
+                <div className="mt-3">
+                  {/* 줄바꿈 금지 — 3열 그리드에서 카드가 좁아 "경기 목 / 록" 으로 쪼개졌었다 */}
+                  <span
+                    className="inline-flex items-center gap-1 text-xs font-bold whitespace-nowrap"
+                    style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.06em' }}
                   >
-                    <UserCheck size={14} aria-hidden />
-                    참가 등록
-                  </button>
-                )}
-              </div>
+                    경기 목록 <ChevronRight size={14} aria-hidden />
+                  </span>
+                </div>
+              )}
+
+              {isEditMode && (
+                // 액션은 **별도 행**으로 내린다. 링크와 같은 줄에 두면 버튼 4개에 밀려
+                // 링크가 두 줄로 깨지고 카드 높이가 카드마다 달라진다(실측).
+                // cardInner 가 Link 안에 들어갈 수 있어 클릭이 그 위로 새면 경기 목록으로
+                // 이동해버린다 — 버튼 클릭은 각자의 패널만 열어야 하므로 아래에서 끊는다.
+                <div
+                  className="mt-3 pt-3 flex items-center gap-1 flex-wrap"
+                  style={{ borderTop: '1px dashed var(--mm-rule)' }}
+                >
+                  <CardAction
+                    Icon={CalendarPlus} label="경기 추가"
+                    ariaLabel={`${q.name ?? '대회'} 경기 추가`}
+                    onClick={() => setGameFor(q)}
+                  />
+                  <CardAction
+                    Icon={UserCheck} label="참가 등록"
+                    ariaLabel={`${q.name ?? '대회'} 참가 인원 등록`}
+                    onClick={() => setRosterQuarter(q)}
+                  />
+                  <CardAction
+                    Icon={Pencil} label="수정"
+                    ariaLabel={`${q.name ?? '대회'} 정보 수정`}
+                    onClick={() => setEditing({
+                      id: q.id,
+                      name: q.name ?? '',
+                      start_date: q.start_date,
+                      end_date: q.end_date,
+                      tournament_type: q.tournament_type ?? null,
+                      description: q.description ?? null,
+                    })}
+                  />
+                  <CardAction
+                    Icon={Trash2} label="삭제"
+                    ariaLabel={`${q.name ?? '대회'} 삭제`}
+                    disabled={deletingId === q.id}
+                    onClick={() => removeTournament(q, gamesCount)}
+                  />
+                </div>
+              )}
             </>
           )
 
@@ -314,6 +419,54 @@ export default function TournamentBoard({
           onClose={() => setRosterQuarter(null)}
         />
       )}
+
+      {editing && (
+        <TournamentFormModal
+          leagueId={leagueId}
+          initial={editing.id ? editing : undefined}
+          onClose={() => setEditing(null)}
+          onSaved={load}
+        />
+      )}
+
+      {gameFor && (
+        <TournamentGameFormModal
+          leagueId={leagueId}
+          quarterId={gameFor.id}
+          quarterName={gameFor.name ?? '대회'}
+          startDate={gameFor.start_date}
+          endDate={gameFor.end_date}
+          knownOpponents={knownOpponents}
+          onClose={() => setGameFor(null)}
+          onSaved={load}
+        />
+      )}
     </div>
+  )
+}
+
+// 카드 안의 작은 조작 버튼. 네 개가 같은 모양이라 한 곳에 둔다 —
+//   따로 쓰면 터치 영역·포커스 링이 버튼마다 어긋난다.
+function CardAction({
+  Icon, label, ariaLabel, onClick, disabled,
+}: {
+  Icon: typeof UserCheck
+  label: string
+  ariaLabel: string
+  onClick: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick() }}
+      className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-[11px] font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+      style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+      aria-label={ariaLabel}
+    >
+      <Icon size={14} aria-hidden />
+      {label}
+    </button>
   )
 }

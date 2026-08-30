@@ -1,6 +1,6 @@
 'use client'
 import LeagueSubTabs from '@/components/league/LeagueSubTabs'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { useGameStore } from '@/store/gameStore'
@@ -217,7 +217,26 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [plusOneConflict, setPlusOneConflict] = useState<{ teamName: string; players: RosterPlayer[] } | null>(null)
   const [activePlusOneIds, setActivePlusOneIds] = useState<string[]>([])
 
+  // ── 대회 묶음의 쿼터별 영상 ────────────────────────────────────────
+  //   촬영본이 쿼터로 쪼개져 올라오는 경기(대회)는 "경기 하나 = 영상 하나" 전제가 깨진다.
+  //   경기를 슬롯 4칸으로 쪼개는 우회(8/22 친선전)는 대회에서 쓸 수 없다 — 대회 보드의
+  //   전적 판정이 경기 행을 세므로 4쿼터짜리 2경기가 "4승 4패" 로 읽힌다.
+  const [isTournament, setIsTournament] = useState(false)
+  const [quarterVideos, setQuarterVideos] = useState<Record<number, { url: string; start_offset: number }>>({})
+  // 링크 입력·목록 고르기가 어느 쿼터를 채우는지. 기본은 지금 기록 중인 쿼터.
+  const [ytTargetQuarter, setYtTargetQuarter] = useState(1)
+
   const selectedSlot = slots.find(s => s.id === selectedSlotId) ?? null
+
+  // 지금 화면에서 재생해야 할 영상 — 대회는 기록 중인 쿼터의 영상, 없으면 경기 대표 영상.
+  //   판정 규칙은 서버의 gameVideo.ts 와 같다(쿼터 영상 우선 → 대표 폴백).
+  const activeVideo: { url: string; startOffset: number } | null = (() => {
+    if (!selectedSlot) return null
+    const q = quarterVideos[currentQuarter]
+    if (q) return { url: q.url, startOffset: q.start_offset }
+    if (selectedSlot.youtube_url) return { url: selectedSlot.youtube_url, startOffset: selectedSlot.youtube_start_offset ?? 0 }
+    return null
+  })()
 
   // 슬롯 단위로 한 번만 자동 초기화 — 비정규 선수 추가 등 같은 슬롯 내 roster 변경 시엔 유지
   const initializedSlotRef = useRef<string | null>(null)
@@ -281,6 +300,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         const ld = await lRes.json()
         setLeagueYtChannel(ld.youtube_channel ?? null)
         setPlusOneAge(ld.plus_one_age ?? null)
+        // 대회 묶음이면 영상 연동이 통째로 다르다 — 경기 하나에 쿼터별 영상 4개가 붙고,
+        //   제목 추측 방식의 자동 매핑은 쓰지 않는다(엉뚱한 자리에 조용히 붙는다).
+        setIsTournament(ld.mode === 'tournament')
       }
       if (qRes.ok) setQuarters(await qRes.json())
       if (gRes.ok) {
@@ -753,6 +775,89 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       toast.success('영상 연동됨')
     } finally {
       setYtSaving(false)
+    }
+  }
+
+  // 링크 입력·목록 고르기의 단일 입구. 대회면 쿼터 칸에, 리그면 종전대로 경기에 붙인다.
+  //   호출부 세 곳(입력 Enter · 연동 버튼 · 목록 항목)이 각자 분기하면 하나를 빠뜨렸을 때
+  //   그 경로로만 대회 영상이 경기 대표 자리에 덮어써진다.
+  function attachVideo(raw: string) {
+    if (isTournament) return saveQuarterVideo(ytTargetQuarter, raw)
+    return saveYoutubeUrl(raw)
+  }
+
+  // ── 쿼터별 영상 (대회) ─────────────────────────────────────────────
+  const loadQuarterVideos = useCallback(async (gameId: string | null) => {
+    if (!gameId) { setQuarterVideos({}); return }
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/games/${gameId}/videos`, { cache: 'no-store' })
+      if (!res.ok) { setQuarterVideos({}); return }
+      const rows = (await res.json()) as Array<{ quarter: number; youtube_url: string; start_offset: number }>
+      const map: Record<number, { url: string; start_offset: number }> = {}
+      for (const r of rows) map[r.quarter] = { url: r.youtube_url, start_offset: r.start_offset ?? 0 }
+      setQuarterVideos(map)
+    } catch {
+      setQuarterVideos({})
+    }
+  }, [leagueId])
+
+  // 슬롯이 바뀌면 그 경기의 쿼터 영상을 다시 읽는다. 안 읽으면 앞 경기의 영상이 그대로 남아
+  //   기록원이 다른 경기 영상을 보면서 기록하게 된다 — 화면상으로는 정상이라 눈치채기 어렵다.
+  useEffect(() => {
+    if (!isTournament) { setQuarterVideos({}); return }
+    loadQuarterVideos(selectedSlotId)
+  }, [isTournament, selectedSlotId, loadQuarterVideos])
+
+  // 쿼터가 넘어가면 링크 입력 대상도 따라간다(기록 중 4번 중 3번은 지금 쿼터를 채운다).
+  useEffect(() => { setYtTargetQuarter(currentQuarter) }, [currentQuarter])
+
+  async function saveQuarterVideo(quarter: number, raw: string) {
+    if (!selectedSlotId) return
+    const id = extractVideoId(raw)
+    if (!id) {
+      toast.error('YouTube 링크를 인식하지 못했습니다', {
+        description: 'youtube.com/watch?v=… · youtu.be/… 또는 영상 ID 11자리를 넣으세요',
+        duration: 6000,
+      })
+      return
+    }
+    setYtSaving(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/videos`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...leagueHeaders },
+        body: JSON.stringify({ quarter, youtube_url: `https://www.youtube.com/watch?v=${id}` }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        toast.error(body.error ?? `영상 연동 실패 (${res.status})`, { duration: 6000 })
+        return
+      }
+      setYtInput('')
+      setYtPickerOpen(false)
+      await loadQuarterVideos(selectedSlotId)
+      // 대표 영상(league_games.youtube_url)이 서버에서 함께 바뀌므로 슬롯도 다시 읽는다.
+      await refreshSlots()
+      toast.success(`${quarter}쿼터 영상 연동됨`)
+    } finally {
+      setYtSaving(false)
+    }
+  }
+
+  async function clearQuarterVideo(quarter: number) {
+    if (!selectedSlotId) return
+    if (!confirm(`${quarter}쿼터 영상 연결을 해제하시겠습니까?\n\n· 기록한 내용은 지워지지 않습니다\n· 다시 연결하면 그대로 재생됩니다`)) return
+    const res = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/videos?quarter=${quarter}`, {
+      method: 'DELETE',
+      headers: leagueHeaders,
+    })
+    if (res.ok) {
+      await loadQuarterVideos(selectedSlotId)
+      await refreshSlots()
+      toast.success(`${quarter}쿼터 영상 해제됨`)
+    } else {
+      const body = await res.json().catch(() => ({}))
+      toast.error(body.error ?? '해제 실패')
     }
   }
 
@@ -1670,25 +1775,31 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         >
           {dateLabel} 경기 기록
         </h2>
-        {/* YouTube sync — compact, moved inline */}
-        <div className="ml-auto flex items-center gap-2 shrink-0">
-          {leagueYtChannel && (
-            <span className="text-xs font-mono text-red-300/70 hidden sm:inline">{leagueYtChannel}</span>
-          )}
-          <button
-            onClick={syncYoutube}
-            disabled={ytSyncing}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
-            aria-label="YouTube 연동"
-          >
-            {ytSyncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-            <span className="hidden sm:inline">YouTube 연동</span>
-          </button>
-        </div>
+        {/* YouTube 자동 연동 — 제목의 `경기 N` 을 그날 슬롯 N 에 꽂는 **리그 전용** 기능이다.
+            대회에서는 감춘다: 슬롯 번호에 의미가 없고 촬영본이 쿼터로 쪼개져 있어, 돌리면
+            엉뚱한 자리에 조용히 붙는다(2026-08-22 사고). 서버(syncYoutubeForLeague)도 같이 막혀 있다 —
+            여기서만 감추면 cron·경기시작 훅으로 되살아난다. */}
+        {!isTournament && (
+          <div className="ml-auto flex items-center gap-2 shrink-0">
+            {leagueYtChannel && (
+              <span className="text-xs font-mono text-red-300/70 hidden sm:inline">{leagueYtChannel}</span>
+            )}
+            <button
+              onClick={syncYoutube}
+              disabled={ytSyncing}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              aria-label="YouTube 연동"
+            >
+              {ytSyncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+              <span className="hidden sm:inline">YouTube 연동</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* 대진 자동 편성 — 1경기(현장 가위바위보) 결과만 있으면 나머지가 규칙으로 정해진다 */}
-      {slots.length > 1 && (
+      {/* 대진 자동 편성 — 승자 잔류 로테이션은 미라클 리그의 3팀 편성 규칙이다.
+          대회는 대진이 주최측 편성이라 이 버튼이 짜 주는 대진이 실제와 무관하다. */}
+      {!isTournament && slots.length > 1 && (
         <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={autoFillMatchups}
@@ -1741,7 +1852,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         })}
 
         {/* 슬롯 한 칸 추가 — 리그 설정(games_per_round)은 시즌 전체에 걸리므로 그 날짜에만 붙인다.
-            8/22 친선전처럼 쿼터별로 쪼갠 영상이 10개인 날은 기본 9칸으로 모자란다. */}
+            8/22 친선전처럼 쿼터별로 쪼갠 영상이 10개인 날은 기본 9칸으로 모자란다.
+            ⚠ 대회에서는 감춘다. 여기서 만든 슬롯은 대회(quarter_id)에도 상대팀에도 묶이지 않아
+              어느 대회 카드에도 안 잡히는 미아 경기가 된다 — 대회 경기는 대회 보드에서 등록한다. */}
+        {!isTournament && (
         <button
           type="button"
           onClick={addSlot}
@@ -1756,7 +1870,15 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             : <Plus size={16} strokeWidth={2.5} aria-hidden />}
           <span className="mt-1">추가</span>
         </button>
+        )}
       </div>
+
+      {isTournament && slots.length === 0 && selectedDate && (
+        <p className="text-center py-6 text-sm leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+          이 날짜에 등록된 대회 경기가 없습니다.<br />
+          <span className="text-xs">대회 화면에서 <strong style={{ color: 'var(--mm-ink-soft)' }}>경기 추가</strong> 로 상대팀과 라운드를 넣어 등록하세요.</span>
+        </p>
+      )}
 
       {/* 슬랏 미선택 */}
       {!selectedSlotId && (
@@ -1829,6 +1951,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   ? <Loader2 size={14} className="animate-spin" />
                   : (selectedSlot.is_started || selectedSlot.is_complete) ? '팀 교체' : '저장'}
               </button>
+              {/* 친선 토글은 대회에서 감춘다 — 대회 경기를 친선으로 표시하면 집계 15곳이
+                  전부 걸러내 그 대회의 스탯·순위가 통째로 비어 버린다. 대회 경기는 정의상 공식전이다. */}
+              {!isTournament && (
               <button
                 onClick={toggleExhibition}
                 title={selectedSlot.is_exhibition ? '정규전으로 되돌리기' : '친선전으로 표시 (리그 순위 제외)'}
@@ -1841,7 +1966,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               >
                 {selectedSlot.is_exhibition ? '친선전 해제' : '친선전으로 표시'}
               </button>
-              {selectedSlot.youtube_url && (
+              )}
+              {/* 대회는 쿼터 칸마다 해제 버튼이 따로 있다 — 여기서 대표 영상만 지우면
+                  쿼터 영상은 남아 화면이 서로 어긋난다. */}
+              {!isTournament && selectedSlot.youtube_url && (
                 <button
                   onClick={clearYoutubeUrl}
                   title="잘못 매핑된 YouTube 영상 링크 제거"
@@ -1872,23 +2000,99 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 (쿼터별로 쪼갠 영상 등)에는 못 붙거나 엉뚱한 슬롯에 붙는다. 그때 손으로 붙일
                 수단이 없으면 그날 기록 전체가 영상 없이 진행된다. */}
             <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
+              {/* 대회 — 쿼터별 영상 4칸. 촬영본이 쿼터로 쪼개져 올라오므로 한 칸으로는 담기지 않는다.
+                  아래 링크 입력·목록 고르기는 여기서 고른 쿼터를 채운다. */}
+              {isTournament && (
+                <div className="mb-3">
+                  <div className="flex items-baseline gap-2 flex-wrap mb-2">
+                    <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>쿼터별 영상</span>
+                    <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                      기록 중 쿼터를 바꾸면 그 쿼터 영상으로 자동 전환됩니다
+                    </span>
+                  </div>
+                  <ul className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 list-none p-0 m-0">
+                    {[1, 2, 3, 4].map(q => {
+                      const v = quarterVideos[q]
+                      const isTarget = ytTargetQuarter === q
+                      const isPlaying = currentQuarter === q
+                      return (
+                        <li key={q} className="flex items-stretch gap-1">
+                          <button
+                            type="button"
+                            onClick={() => { setYtTargetQuarter(q); setYtPickerOpen(false) }}
+                            aria-pressed={isTarget}
+                            aria-label={`${q}쿼터 영상 ${v ? '교체' : '연결'}`}
+                            title={v ? `${q}쿼터 영상 연결됨 — 눌러서 교체 대상으로 지정` : `${q}쿼터에 영상 연결`}
+                            className="flex-1 min-w-0 flex flex-col items-start justify-center px-2 py-1.5 min-h-[44px] text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                            style={{
+                              background: isTarget ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
+                              color: isTarget ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
+                              border: `1px solid ${isTarget ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
+                              borderRadius: '4px',
+                            }}
+                          >
+                            <span className="inline-flex items-center gap-1.5">
+                              {q}쿼터
+                              {/* 노란 배경은 "지금 링크를 붙일 대상", 이 배지는 "지금 재생 중".
+                                  둘이 겹칠 때가 많아 아이콘으로 두면 무슨 뜻인지 구분되지 않는다. */}
+                              {isPlaying && (
+                                <span
+                                  className="px-1 py-px text-[10px] font-bold rounded-sm"
+                                  style={{
+                                    background: isTarget ? 'rgba(0,0,0,0.18)' : 'var(--mm-panel)',
+                                    color: isTarget ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
+                                  }}
+                                >
+                                  재생 중
+                                </span>
+                              )}
+                            </span>
+                            <span className="inline-flex items-center gap-1 mt-0.5 font-normal">
+                              {v
+                                ? <><Youtube size={14} aria-hidden /> 연결됨</>
+                                : <span style={{ color: isTarget ? 'var(--mm-black)' : 'var(--mm-muted)' }}>미연결</span>}
+                            </span>
+                          </button>
+                          {v && (
+                            <button
+                              type="button"
+                              onClick={() => clearQuarterVideo(q)}
+                              aria-label={`${q}쿼터 영상 해제`}
+                              title={`${q}쿼터 영상 해제`}
+                              className="shrink-0 w-11 min-h-[44px] inline-flex items-center justify-center cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                              style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                            >
+                              <Trash2 size={14} aria-hidden />
+                            </button>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs shrink-0 font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
-                  영상
+                <span className="text-xs shrink-0 font-bold" style={{ color: 'var(--mm-muted)' }}>
+                  {isTournament ? `${ytTargetQuarter}쿼터 영상` : '영상'}
                 </span>
                 <label htmlFor="yt-url-input" className="sr-only">YouTube 영상 링크</label>
                 <input
                   id="yt-url-input"
                   value={ytInput}
                   onChange={e => setYtInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && !ytSaving) { e.preventDefault(); saveYoutubeUrl(ytInput) } }}
-                  placeholder={selectedSlot.youtube_url ? '다른 영상으로 교체 — 링크 붙여넣기' : 'YouTube 링크 붙여넣기'}
+                  onKeyDown={e => { if (e.key === 'Enter' && !ytSaving) { e.preventDefault(); attachVideo(ytInput) } }}
+                  placeholder={
+                    isTournament
+                      ? (quarterVideos[ytTargetQuarter] ? `${ytTargetQuarter}쿼터 영상 교체 — 링크 붙여넣기` : `${ytTargetQuarter}쿼터 영상 링크 붙여넣기`)
+                      : selectedSlot.youtube_url ? '다른 영상으로 교체 — 링크 붙여넣기' : 'YouTube 링크 붙여넣기'
+                  }
                   className="flex-1 min-w-[180px] px-2.5 py-1.5 text-xs min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
                 />
                 <button
                   type="button"
-                  onClick={() => saveYoutubeUrl(ytInput)}
+                  onClick={() => attachVideo(ytInput)}
                   disabled={ytSaving || ytInput.trim().length === 0}
                   className="inline-flex items-center gap-1.5 shrink-0 cursor-pointer text-xs font-bold uppercase tracking-[0.14em] px-3 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
@@ -1913,6 +2117,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 </button>
               </div>
 
+              {isTournament && (
+                <p className="mt-1.5 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+                  {/* 조사는 강조 태그 안에 붙인다 — 밖에 두면 "1쿼터 에" 로 한 칸 벌어진다 */}
+                  고른 영상은 위에서 선택한 <strong style={{ color: 'var(--mm-ink-soft)' }}>{ytTargetQuarter}쿼터에</strong> 연결됩니다.
+                </p>
+              )}
+
               {/* 이 날짜 영상 목록 — 제목을 그대로 보여준다. 번호를 추측하지 않는 게 핵심이다.
                   이미 다른 슬롯에 붙은 영상은 어디에 붙었는지 표시해 중복 배정을 막는다. */}
               {ytPickerOpen && ytList.length > 0 && (
@@ -1921,13 +2132,20 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   style={{ border: '1px solid var(--mm-rule)', borderRadius: '4px', background: 'var(--mm-panel-alt)' }}
                 >
                   {ytList.map(v => {
-                    const usedBy = slots.find(sl => sl.youtube_url?.includes(v.video_id))
-                    const isThis = usedBy?.id === selectedSlot.id
+                    // 대회는 이 경기의 쿼터 칸들과 대조한다 — 슬롯 대표 영상만 보면
+                    //   2~4쿼터에 이미 붙은 영상이 "안 붙음"으로 보여 같은 영상을 두 번 붙이게 된다.
+                    const usedQuarter = isTournament
+                      ? ([1, 2, 3, 4].find(q => quarterVideos[q]?.url.includes(v.video_id)) ?? null)
+                      : null
+                    const usedBy = isTournament ? null : slots.find(sl => sl.youtube_url?.includes(v.video_id))
+                    const isThis = isTournament
+                      ? usedQuarter === ytTargetQuarter
+                      : usedBy?.id === selectedSlot.id
                     return (
                       <li key={v.video_id} style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                         <button
                           type="button"
-                          onClick={() => saveYoutubeUrl(v.url)}
+                          onClick={() => attachVideo(v.url)}
                           disabled={ytSaving || isThis}
                           className="w-full text-left flex items-center gap-2.5 px-2.5 py-2 min-h-[44px] cursor-pointer transition-colors duration-200 hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                         >
@@ -1937,9 +2155,11 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           )}
                           <span className="min-w-0 flex-1">
                             <span className="block text-xs leading-snug" style={{ color: 'var(--mm-ink)' }}>{v.title}</span>
-                            {usedBy && (
+                            {(usedBy || usedQuarter) && (
                               <span className="block text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>
-                                {isThis ? '지금 이 슬롯에 연결됨' : `${usedBy.slot_num}경기에 연결됨`}
+                                {usedQuarter
+                                  ? (isThis ? `지금 이 ${usedQuarter}쿼터에 연결됨` : `${usedQuarter}쿼터에 연결됨`)
+                                  : isThis ? '지금 이 슬롯에 연결됨' : `${usedBy!.slot_num}경기에 연결됨`}
                               </span>
                             )}
                           </span>
@@ -2110,13 +2330,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
           </div>
 
           {/* 영상 먼저 — 팀 미지정 시 절반 크기로 표시 (16:9 비율 유지) */}
-          {selectedSlot.youtube_url && !selectedSlot.home_team_id && (
+          {activeVideo && !selectedSlot.home_team_id && (
             <div className="mb-3 flex justify-center">
               <div className="w-1/2 rounded-xl overflow-hidden bg-black">
                 <YouTubePlayer
-                  key={selectedSlot.youtube_url + '-pre'}
-                  youtubeUrl={selectedSlot.youtube_url}
-                  startOffset={selectedSlot.youtube_start_offset ?? 0}
+                  key={activeVideo.url + '-pre'}
+                  youtubeUrl={activeVideo.url}
+                  startOffset={activeVideo.startOffset}
                 />
               </div>
             </div>
@@ -2176,15 +2396,17 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   )}
                 </div>
 
-                {selectedSlot.youtube_url ? (
+                {activeVideo ? (
                   <div
                     className="sticky z-[5] mb-2 lg:relative lg:top-auto lg:z-auto lg:mb-0 bg-black rounded-xl overflow-hidden"
                     style={{ top: 'var(--record-header-offset, 56px)' }}
                   >
+                    {/* key 에 영상 주소가 들어가므로 쿼터를 넘기면 플레이어가 그 쿼터 영상으로 다시 뜬다.
+                        (대회는 쿼터마다 영상이 다르다 — activeVideo 가 그 판정을 담당) */}
                     <YouTubePlayer
-                      key={selectedSlot.youtube_url ?? selectedSlot.id}
-                      youtubeUrl={selectedSlot.youtube_url}
-                      startOffset={selectedSlot.youtube_start_offset ?? 0}
+                      key={activeVideo.url}
+                      youtubeUrl={activeVideo.url}
+                      startOffset={activeVideo.startOffset}
                     />
                     {/* 트랜스포트 컨트롤 오버레이 — 영상 좌하단 (44px 터치 타겟) */}
                     {ytPlayer && (

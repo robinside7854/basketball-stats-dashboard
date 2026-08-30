@@ -51,10 +51,24 @@ export async function POST(
 
   const { data: league, error: leagueErr } = await supabase
     .from('leagues')
-    .select('start_date, youtube_channel')
+    .select('start_date, youtube_channel, mode')
     .eq('id', leagueId)
     .single()
   if (leagueErr || !league) return NextResponse.json({ error: '리그를 찾을 수 없습니다' }, { status: 404 })
+
+  // 대회 묶음에서는 돌지 않는다.
+  //   이 루틴은 "매주 같은 요일에 모인다" 는 정기 리그 전제로 start_date 부터 8주 뒤까지
+  //   주간 날짜를 깐다. 대회는 주최측이 정한 날에만 열리므로 그 날짜들이 전부 허수다 —
+  //   실제로 미라클 대회 묶음에 토요일 43개가 깔려 있었고(34개는 '미실시'로 접힌 채),
+  //   기록 화면의 날짜 목록이 그 허수로 채워져 진짜 대회 날을 찾기 어려웠다.
+  //   대회 날짜는 경기를 등록할 때 그 경기의 날짜로 하나씩 들어간다(games POST).
+  if (league.mode === 'tournament') {
+    return NextResponse.json(
+      { error: '대회는 주간 일정을 자동 생성하지 않습니다. 대회 화면에서 경기를 등록하면 그 날짜가 일정에 함께 등록됩니다.' },
+      { status: 400 },
+    )
+  }
+
   if (!league.start_date) {
     return NextResponse.json({ error: '설정 탭에서 첫 정기 일정 날짜를 먼저 지정하세요' }, { status: 400 })
   }

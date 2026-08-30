@@ -86,7 +86,17 @@ export async function POST(
 ) {
   const { leagueId } = await params
   if (!await canEditLeague(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { date, addSlot } = await req.json()
+  const body = await req.json()
+  const { date, addSlot } = body
+
+  // 대회 경기 등록 — 리그의 "그날 9칸 일괄 생성"과는 만드는 것이 완전히 다르다.
+  //   대회 경기는 ① 어느 대회(quarter_id)에 속하고 ② 상대가 외부 팀이며 ③ 8강·결승 같은
+  //   라운드 표기를 단다. 슬롯 초기화 경로에 조건을 얹으면 두 의미가 한 함수 안에서 싸우므로
+  //   입구에서 갈라 놓는다.
+  if (body?.mode === 'tournament') {
+    return createTournamentGame(req, leagueId, body)
+  }
+
   if (!date) return NextResponse.json({ error: 'date is required' }, { status: 400 })
 
   const supabase = createClient()
@@ -214,6 +224,160 @@ export async function POST(
   return NextResponse.json(slots ?? [])
 }
 
+// 대회 라운드 표기 — TournamentBoard 의 성적 판정(ROUND_ORDER)이 아는 값만 받는다.
+//   여기서 자유 입력을 허용하면 "8강전" 같은 변형이 들어와 성적이 '탈락 라운드 미상'으로 빠진다.
+const ROUND_LABELS = ['조별예선', '16강', '8강', '4강', '준결승', '결승'] as const
+
+/**
+ * 대회 경기 한 건 등록.
+ *
+ * 만드는 것: 우리 팀(is_external=false) 1행 · 상대 팀(is_external=true) 1행 · 경기 1행.
+ *   팀 두 행은 **이미 있으면 재사용**한다. 같은 상대와 두 번 붙을 때마다 새 팀을 만들면
+ *   그 상대의 전적이 이름만 같은 여러 팀으로 흩어진다.
+ *
+ * ⚠ is_external 플래그 하나가 통계·어워즈·라커룸 노출 전체를 가른다(teams POST 주석).
+ *   상대팀이 실수로 false 로 만들어지면 상대 선수가 우리 팀 명단에 섞이고, 반대로 우리 팀이
+ *   true 가 되면 우리 기록이 통계에서 통째로 사라진다.
+ */
+async function createTournamentGame(req: Request, leagueId: string, body: Record<string, unknown>) {
+  const date = typeof body.date === 'string' ? body.date : ''
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return NextResponse.json({ error: '경기 날짜(YYYY-MM-DD)는 필수입니다' }, { status: 400 })
+  }
+  const quarterId = typeof body.quarter_id === 'string' ? body.quarter_id : ''
+  if (!quarterId) return NextResponse.json({ error: '어느 대회의 경기인지 지정해야 합니다' }, { status: 400 })
+
+  const opponent = typeof body.opponent_name === 'string' ? body.opponent_name.trim() : ''
+  if (!opponent) return NextResponse.json({ error: '상대팀 이름은 필수입니다' }, { status: 400 })
+  if (opponent.length > 40) return NextResponse.json({ error: '상대팀 이름은 40자까지입니다' }, { status: 400 })
+
+  const roundLabel = typeof body.round_label === 'string' && body.round_label ? body.round_label : null
+  if (roundLabel && !ROUND_LABELS.includes(roundLabel as typeof ROUND_LABELS[number])) {
+    return NextResponse.json(
+      { error: `라운드는 ${ROUND_LABELS.join(' · ')} 중 하나여야 합니다` },
+      { status: 400 },
+    )
+  }
+  const venue = typeof body.venue === 'string' ? body.venue.trim().slice(0, 60) || null : null
+  // 홈/원정 — 대회는 코트 배치가 주최측 편성이라 우리가 어느 쪽인지 그때그때 다르다.
+  //   기본은 홈(우리가 왼쪽). 박스스코어·쿼터표가 이 기준으로 그려진다.
+  const weAreAway = body.we_are_away === true
+
+  const supabase = createClient()
+
+  // 이 대회가 이 리그의 것인지 확인 — id 만 믿으면 남의 클럽 대회에 경기가 붙는다.
+  const { data: q, error: qErr } = await supabase
+    .from('league_quarters')
+    .select('id, kind, name')
+    .eq('id', quarterId)
+    .eq('league_id', leagueId)
+    .maybeSingle()
+  if (qErr) return NextResponse.json({ error: '대회를 확인하지 못했습니다' }, { status: 500 })
+  if (!q) return NextResponse.json({ error: '대회를 찾을 수 없습니다' }, { status: 404 })
+  if (q.kind !== 'tournament') {
+    return NextResponse.json({ error: '대회가 아닌 분기에는 이 방식으로 경기를 만들 수 없습니다' }, { status: 400 })
+  }
+
+  // ── 팀 두 행 확보 ────────────────────────────────────────────────
+  //   상시팀만 본다(exhibition_date IS NULL). 친선 임시팀이 후보에 섞이면 대회 경기에
+  //   그날짜 전용 팀이 붙어 순위표에 유령 팀이 생긴다(109 의 노출 경계).
+  const { data: teamRows, error: tErr } = await supabase
+    .from('league_teams')
+    .select('id, name, is_external')
+    .eq('league_id', leagueId)
+    .is('exhibition_date', null)
+  if (tErr) return NextResponse.json({ error: '팀 목록을 확인하지 못했습니다' }, { status: 500 })
+  const teams = (teamRows ?? []) as Array<{ id: string; name: string; is_external: boolean | null }>
+
+  let ourTeamId = teams.find(t => t.is_external === false)?.id ?? null
+  if (!ourTeamId) {
+    const { data: created, error: cErr } = await supabase
+      .from('league_teams')
+      .insert({ league_id: leagueId, name: '우리 팀', color: '#3b82f6', is_external: false })
+      .select('id')
+      .single()
+    if (cErr || !created) return NextResponse.json({ error: '참가팀을 만들지 못했습니다' }, { status: 500 })
+    ourTeamId = created.id
+  }
+
+  let oppTeamId = teams.find(t => t.is_external === true && t.name === opponent)?.id ?? null
+  if (!oppTeamId) {
+    const { data: created, error: cErr } = await supabase
+      .from('league_teams')
+      .insert({ league_id: leagueId, name: opponent, color: '#ef4444', is_external: true })
+      .select('id')
+      .single()
+    if (cErr || !created) return NextResponse.json({ error: '상대팀을 만들지 못했습니다' }, { status: 500 })
+    oppTeamId = created.id
+  }
+
+  // ── 슬롯 번호 ────────────────────────────────────────────────────
+  //   대회에서도 slot_num 은 필요하다 — UNIQUE (league_id, date, slot_num) 와 목록 정렬이
+  //   이 값을 쓴다. 같은 날 여러 경기를 치르므로 그 날짜 안에서 다음 번호를 잡는다.
+  const { data: sameDay, error: sErr } = await supabase
+    .from('league_games')
+    .select('slot_num')
+    .eq('league_id', leagueId)
+    .eq('date', date)
+  if (sErr) return NextResponse.json({ error: '그날 경기를 확인하지 못했습니다' }, { status: 500 })
+  const nextSlot = Math.max(0, ...(sameDay ?? []).map(g => g.slot_num ?? 0)) + 1
+
+  const { data: game, error: gErr } = await supabase
+    .from('league_games')
+    .insert({
+      league_id: leagueId,
+      quarter_id: quarterId,
+      date,
+      slot_num: nextSlot,
+      round_num: nextSlot,
+      round_label: roundLabel,
+      venue,
+      home_team_id: weAreAway ? oppTeamId : ourTeamId,
+      away_team_id: weAreAway ? ourTeamId : oppTeamId,
+      home_score: 0,
+      away_score: 0,
+      is_complete: false,
+      is_started: false,
+      // ⚠ 대회 경기는 친선전이 아니다. is_exhibition 을 켜면 이 대회 묶음 안에서도
+      //   집계 15곳이 통째로 걸러내 대회 스탯이 비어 버린다.
+      is_exhibition: false,
+    })
+    .select(`
+      *,
+      home_team:league_teams!league_games_home_team_id_fkey(id, name, color, is_external),
+      away_team:league_teams!league_games_away_team_id_fkey(id, name, color, is_external)
+    `)
+    .single()
+
+  if (gErr?.code === '23505') {
+    return NextResponse.json({ error: '같은 번호의 경기가 방금 등록됐습니다. 다시 시도해 주세요.' }, { status: 409 })
+  }
+  if (gErr || !game) return NextResponse.json({ error: gErr?.message ?? '경기를 만들지 못했습니다' }, { status: 500 })
+
+  // 기록 화면의 날짜 목록은 league_schedule_dates 에서 온다 — 여기에 없으면 경기를 등록해도
+  //   기록할 날짜가 화면에 안 뜬다("등록은 됐는데 기록을 못 하는" 상태). 그래서 함께 넣는다.
+  //   ⚠ is_skipped=false 로 되살린다. 대회 묶음에는 리그용 주간 일정 자동생성이 남긴 '미실시'
+  //     날짜가 섞여 있는데, 그 날 실제로 대회 경기를 치르면 그건 더 이상 미실시가 아니다.
+  const { error: sdErr } = await supabase
+    .from('league_schedule_dates')
+    .upsert({ league_id: leagueId, date, is_skipped: false }, { onConflict: 'league_id,date' })
+  // 경기는 이미 만들어졌다 — 여기서 실패해도 되돌리지 않고 알리기만 한다(경기가 진짜다).
+  if (sdErr) {
+    console.error(`[tournament_game.create] 일정 날짜 등록 실패 date=${date}:`, sdErr.message)
+  }
+
+  await logAudit({
+    req, action: 'tournament_game.create', targetTable: 'league_games',
+    targetId: (game as { id: string }).id, leagueId, quarterId,
+    detail: { date, opponent, roundLabel, tournament: q.name },
+  })
+
+  revalidateTag(`league-${leagueId}`, 'max')
+  revalidateTag(`league-${leagueId}-games`, 'max')
+
+  return NextResponse.json(game, { status: 201 })
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
@@ -232,6 +396,8 @@ export async function PATCH(
     'home_team_id', 'away_team_id', 'home_score', 'away_score',
     'is_complete', 'is_started', 'is_exhibition', 'plus_one_player_id', 'plus_one_extra_ids',
     'youtube_url', 'youtube_start_offset',
+    // 대회 경기 편집 — 라운드 표기와 경기장. 리그 경기에는 화면이 보내지 않는다.
+    'round_label', 'venue',
   ])
   const patch: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(body ?? {})) {
