@@ -88,7 +88,9 @@ export default function LeagueRecordPage() {
 
 // ── 내부 컴포넌트 ─────────────────────────────────────────────
 function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; leagueId: string; leagueHeaders: Record<string, string> }) {
-  const { setCurrentGame, ytPlayer } = useGameStore()
+  // getCurrentTimestamp — 상대 득점도 영상 시각을 남겨야 클립·러닝스코어가 맞는다
+  //   (LeagueEventInputPad 가 자기 이벤트에 쓰는 것과 같은 함수)
+  const { setCurrentGame, ytPlayer, getCurrentTimestamp } = useGameStore()
   const { setLineup, resetLineup, onCourt } = useLineupStore()
 
   // ── YouTube 원격 제어 ────────────────────────────────────────
@@ -228,6 +230,21 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
   const selectedSlot = slots.find(s => s.id === selectedSlotId) ?? null
 
+  // ── 대회는 "우리 한 팀" 이다 ────────────────────────────────────────
+  //   리그는 양 팀 모두 우리 동호회 사람이라 홈·어웨이를 나란히 기록한다.
+  //   대회는 상대가 외부 동호회다 — 상대 선수는 명단조차 알 수 없고, 우리 통계에 섞이면 안 된다.
+  //   그래서 대회에서는 **우리 쪽만** 기록하고 상대는 점수만 남긴다(scoring.ts 의 OPPONENT_SCORING).
+  //   `is_external === false` 인 쪽이 우리다. 좌우는 대회마다 뒤집히므로 매번 판정한다.
+  const ourSide: 'home' | 'away' | null = !isTournament ? null
+    : selectedSlot?.home_team?.is_external === false ? 'home'
+    : selectedSlot?.away_team?.is_external === false ? 'away'
+    : null
+  const oppTeam = ourSide === 'home' ? selectedSlot?.away_team
+    : ourSide === 'away' ? selectedSlot?.home_team
+    : null
+  /** 대회에서 기록 대상이 되는 우리 팀 명단. 리그면 홈+어웨이 둘 다가 대상이라 여기 안 쓴다. */
+  const ourRoster = ourSide === 'home' ? homeRoster : ourSide === 'away' ? awayRoster : []
+
   // 지금 화면에서 재생해야 할 영상 — 대회는 기록 중인 쿼터의 영상, 없으면 경기 대표 영상.
   //   판정 규칙은 서버의 gameVideo.ts 와 같다(쿼터 영상 우선 → 대표 폴백).
   const activeVideo: { url: string; startOffset: number } | null = (() => {
@@ -247,13 +264,24 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     // 같은 슬롯에서 이미 초기화 완료 → 추가 갱신은 사용자의 선택을 보존
     if (initializedSlotRef.current === selectedSlotId) return
 
+    // ⚠ 대회는 **아무도 미리 체크하지 않는다.**
+    //   리그는 팀당 5명 안팎이라 "정규 선수 전원 체크"가 곧 코트 5명이었다. 대회 참가 명단은
+    //   10명 넘는 게 정상이라 그 기본값이 그대로 켜지면 `팀당 선발 최대 5명` 검증에 걸려
+    //   **경기 시작 버튼이 아예 안 먹는다**(실측: 참가 6명 → "6/5" 로 막힘).
+    //   기록원이 그 경기에 처음 나선 5명을 직접 고르는 게 대회의 실제 흐름이기도 하다.
+    if (isTournament) {
+      setSelectedStarters(new Set())
+      initializedSlotRef.current = selectedSlotId
+      return
+    }
+
     // 정규 선수만 기본 체크 (비정규는 기본 미체크 — GP 오염 방지)
     const regularIds = [...homeRoster, ...awayRoster]
       .filter(p => p.is_regular !== false)
       .map(p => p.id)
     setSelectedStarters(new Set(regularIds))
     initializedSlotRef.current = selectedSlotId
-  }, [homeRoster, awayRoster, gameStarted, selectedSlotId])
+  }, [homeRoster, awayRoster, gameStarted, selectedSlotId, isTournament])
 
 
   // 날짜별 집계 — 서버가 이미 세어 준 값을 받는다(`/games/date-summary`).
@@ -1212,7 +1240,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             비정규
           </span>
         )}
-        {/* 모바일 전용: 다른 팀으로 이동 (iOS Safari DnD 불가 대체) */}
+        {/* 모바일 전용: 다른 팀으로 이동 (iOS Safari DnD 불가 대체)
+            ⚠ 대회에는 옮겨 갈 "다른 팀" 이 없다 — 상대는 외부 동호회다. 이 버튼을 남기면
+              우리 선수가 상대팀 소속으로 배정돼 그 득점이 상대 점수로 들어간다. */}
+        {!isTournament && (
         <button
           onClick={e => {
             e.stopPropagation()
@@ -1226,6 +1257,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         >
           → {otherTeamName}
         </button>
+        )}
       </div>
     )
   }
@@ -1447,6 +1479,68 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     if (res.ok) {
       const data = await res.json()
       setLiveScore({ home: data.home_score ?? data.home ?? 0, away: data.away_score ?? data.away ?? 0 })
+    }
+  }
+
+  // ── 상대 득점 (대회 전용) ──────────────────────────────────────────
+  //   상대 선수는 기록하지 않는다 — 선수 없이 **팀에만** 붙는 득점 이벤트를 남긴다.
+  //   타입이 곧 점수다(opp_score_1|2|3). 서버가 시즌 룰로 다시 채점하므로 여기서 보낸
+  //   점수는 신뢰되지 않는다 — 그래서 points 를 아예 보내지 않는다.
+  const [oppSaving, setOppSaving] = useState<number | null>(null)
+
+  async function recordOppScore(pts: 1 | 2 | 3) {
+    if (!selectedSlotId || !oppTeam?.id || oppSaving) return
+    setOppSaving(pts)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/events`, {
+        method: 'POST',
+        headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          league_game_id: selectedSlotId,
+          quarter: currentQuarter,
+          video_timestamp: getCurrentTimestamp(),
+          type: `opp_score_${pts}`,
+          result: 'made',
+          team_id: oppTeam.id,
+          league_player_id: null,
+        }),
+      })
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}))
+        toast.error(b?.error ?? `상대 득점 저장 실패 (${res.status})`)
+        return
+      }
+      await fetchLiveScore()
+      toast(`${oppTeam.name ?? '상대'} +${pts}점`, { duration: 1500 })
+    } finally {
+      setOppSaving(null)
+    }
+  }
+
+  /** 마지막 상대 득점 1건 취소 — 잘못 누른 걸 되돌릴 유일한 경로다(선수가 없어 게임로그에서 못 지운다). */
+  async function undoOppScore() {
+    if (!selectedSlotId || oppSaving) return
+    setOppSaving(0)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/events?gameId=${selectedSlotId}`)
+      if (!res.ok) { toast.error('기록을 불러오지 못했습니다'); return }
+      // GET 은 created_at 오름차순이라 마지막 원소가 가장 최근이다.
+      const rows = (await res.json()) as Array<{ id: string; type: string }>
+      const opp = rows.filter(e => e.type?.startsWith('opp_score_'))
+      if (opp.length === 0) { toast('취소할 상대 득점이 없습니다'); return }
+      const last = opp[opp.length - 1]
+      const del = await fetch(`/api/leagues/${leagueId}/events/${last.id}`, {
+        method: 'DELETE', headers: leagueHeaders,
+      })
+      if (!del.ok) {
+        const b = await del.json().catch(() => ({}))
+        toast.error(b?.error ?? '취소 실패')
+        return
+      }
+      await fetchLiveScore()
+      toast.success('상대 득점 1건 취소됨')
+    } finally {
+      setOppSaving(null)
     }
   }
 
@@ -2693,6 +2787,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         activePlusOneIds={activePlusOneIds.length > 0 ? activePlusOneIds : undefined}
                         tendencies={tendencies}
                         onOpponentRegistered={() => { if (selectedSlot) loadRoster(selectedSlot) }}
+                        // 대회는 상대 선수를 기록하지 않는다 — 점수만 위 「상대 득점」 으로 남긴다
+                        opponentRecording={!isTournament}
                       />
 
                       {/* 기록 누락 자동 점검 — 놓친 지점만 뽑아 영상 그 시각으로 보낸다.
@@ -2704,8 +2800,51 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         refreshKey={statsRefresh}
                       />
 
-                      {/* 비정규 선수 추가 */}
-                      {irregularRoster.length > 0 && (
+                      {/* 상대 득점 (대회 전용) — 상대 선수는 기록하지 않고 점수만 남긴다.
+                          이 버튼이 없으면 대회 경기의 스코어가 우리 득점만 쌓여 항상 이긴 것으로 보인다. */}
+                      {isTournament && oppTeam && (
+                        <div
+                          className="p-3 space-y-2"
+                          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                        >
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
+                              상대 득점 — {oppTeam.name ?? '상대팀'}
+                            </p>
+                            <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>선수는 기록하지 않습니다</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {([1, 2, 3] as const).map(pts => (
+                              <button
+                                key={pts}
+                                type="button"
+                                onClick={() => recordOppScore(pts)}
+                                disabled={oppSaving !== null}
+                                aria-label={`상대팀 ${pts}점 추가`}
+                                className="inline-flex items-center justify-center min-h-[44px] min-w-[56px] px-3 text-sm font-black rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                style={{ background: 'var(--mm-panel)', color: 'var(--mm-live)', border: '1px solid var(--mm-live)' }}
+                              >
+                                {oppSaving === pts ? <Loader2 size={16} className="animate-spin" aria-hidden /> : `+${pts}`}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={undoOppScore}
+                              disabled={oppSaving !== null}
+                              aria-label="상대 득점 마지막 1건 취소"
+                              title="잘못 누른 상대 득점을 되돌립니다"
+                              className="inline-flex items-center gap-1 min-h-[44px] px-3 text-xs font-bold rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                              style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                            >
+                              {oppSaving === 0 ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <RefreshCw size={14} aria-hidden />}
+                              취소
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 비정규 선수 추가 — 대회에는 비정규 개념이 없다(참가 등록이 곧 명단) */}
+                      {!isTournament && irregularRoster.length > 0 && (
                         <div
                           className="p-3"
                           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
@@ -2736,8 +2875,11 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         </div>
                       )}
 
-                      {/* 타팀 임시 출전 (경기 진행 중) — 칩 클릭 시 팀 선택 모달 사용 */}
+                      {/* 타팀 임시 출전 (경기 진행 중) — 칩 클릭 시 팀 선택 모달 사용.
+                          ⚠ 대회에는 "타 팀" 이 없다(미라클 원팀 vs 외부 상대). 여기에 상대팀으로
+                            선수를 보내면 우리 선수 기록이 상대 점수로 들어간다. */}
                       {(() => {
+                        if (isTournament) return null
                         const homeLendable = homeRoster.filter(p => p.is_regular !== false)
                         const awayLendable = awayRoster.filter(p => p.is_regular !== false)
                         if (homeLendable.length === 0 && awayLendable.length === 0) return null
@@ -2787,33 +2929,91 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                       {(() => {
                         const hc = homeRoster.filter(p => selectedStarters.has(p.id)).length
                         const ac = awayRoster.filter(p => selectedStarters.has(p.id)).length
+                        const oc = ourRoster.filter(p => selectedStarters.has(p.id)).length
                         return (
                           <div className="flex items-center justify-between">
                             <h4 className="font-bold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>선발 선수 선택</h4>
                             <div className="flex items-center gap-2 text-xs">
-                              <span
-                                className={hc > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
-                                style={{ color: hc > 5 ? 'var(--mm-live)' : 'var(--mm-muted)' }}
-                              >
-                                홈 {hc}/5{hc > 5 && <AlertTriangle size={14} aria-hidden />}
-                              </span>
-                              <span
-                                className={ac > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
-                                style={{ color: ac > 5 ? 'var(--mm-live)' : 'var(--mm-muted)' }}
-                              >
-                                어웨이 {ac}/5{ac > 5 && <AlertTriangle size={14} aria-hidden />}
-                              </span>
+                              {/* 대회는 우리 한 팀뿐이라 홈/어웨이를 나눠 세지 않는다 */}
+                              {isTournament ? (
+                                <span
+                                  className={oc > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
+                                  style={{ color: oc > 5 ? 'var(--mm-live)' : 'var(--mm-muted)' }}
+                                >
+                                  {oc}/5{oc > 5 && <AlertTriangle size={14} aria-hidden />}
+                                </span>
+                              ) : (
+                                <>
+                                  <span
+                                    className={hc > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
+                                    style={{ color: hc > 5 ? 'var(--mm-live)' : 'var(--mm-muted)' }}
+                                  >
+                                    홈 {hc}/5{hc > 5 && <AlertTriangle size={14} aria-hidden />}
+                                  </span>
+                                  <span
+                                    className={ac > 5 ? 'inline-flex items-center gap-1 font-bold' : ''}
+                                    style={{ color: ac > 5 ? 'var(--mm-live)' : 'var(--mm-muted)' }}
+                                  >
+                                    어웨이 {ac}/5{ac > 5 && <AlertTriangle size={14} aria-hidden />}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </div>
                         )
                       })()}
                       <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                        <span className="hidden lg:inline">선수를 끌어다 팀에 배정하세요. </span>
-                        <span className="lg:hidden">카드를 탭하여 선발 체크 · 오른쪽 버튼으로 다른 팀 이동. </span>
-                        정규선수 이동은 이번 경기만 적용됩니다.
+                        {isTournament ? (
+                          <>이 경기에 뛴 선수를 고르세요. 상대팀 선수는 기록하지 않습니다.</>
+                        ) : (
+                          <>
+                            <span className="hidden lg:inline">선수를 끌어다 팀에 배정하세요. </span>
+                            <span className="lg:hidden">카드를 탭하여 선발 체크 · 오른쪽 버튼으로 다른 팀 이동. </span>
+                            정규선수 이동은 이번 경기만 적용됩니다.
+                          </>
+                        )}
                       </p>
 
-                      {/* 드롭 존 — 홈/어웨이 2컬럼 (홈=파랑 / 어웨이=빨강은 팀 시맨틱 유지) */}
+                      {/* 대회 — 우리 팀 한 칸만. 상대 칸을 두면 "여기에 상대 선수를 넣나?" 로 읽히고
+                          실제로 넣으면 상대 선수 기록이 우리 통계에 섞인다. */}
+                      {isTournament ? (
+                        <div
+                          className="min-h-[180px] p-2"
+                          style={{ border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                        >
+                          <div className="flex items-center justify-between mb-2 px-1">
+                            <span
+                              className="text-xs font-bold px-2 py-0.5"
+                              style={{
+                                color: accentOrInk((ourSide === 'home' ? selectedSlot?.home_team?.color : selectedSlot?.away_team?.color) ?? '#3b82f6'),
+                                backgroundColor: `${(ourSide === 'home' ? selectedSlot?.home_team?.color : selectedSlot?.away_team?.color) ?? '#3b82f6'}22`,
+                                borderRadius: '4px',
+                              }}
+                            >
+                              {(ourSide === 'home' ? selectedSlot?.home_team?.name : selectedSlot?.away_team?.name) ?? '우리 팀'}
+                            </span>
+                            {ourSide && (
+                              <button
+                                onClick={() => selectAllTeam(ourSide)}
+                                className="text-xs font-bold cursor-pointer transition-colors"
+                                style={{ color: 'var(--mm-yellow-strong)' }}
+                              >
+                                전체
+                              </button>
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            {ourSide && ourRoster.map(p => renderStarterCard(p, ourSide))}
+                            {ourRoster.length === 0 && (
+                              <p className="text-xs px-2 py-4 text-center leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+                                이 대회에 등록된 선수가 없습니다.<br />
+                                대회 화면의 <strong style={{ color: 'var(--mm-ink-soft)' }}>참가 등록</strong> 에서 뛸 선수를 골라 주세요.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                      /* 드롭 존 — 홈/어웨이 2컬럼 (홈=파랑 / 어웨이=빨강은 팀 시맨틱 유지) */
                       <div className="grid grid-cols-2 gap-3">
                         {/* 홈팀 드롭 존 */}
                         <div
@@ -2867,9 +3067,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           </div>
                         </div>
                       </div>
+                      )}
 
-                      {/* 미배정 풀 — 비정규 선수 */}
-                      {irregularRoster.length > 0 && (
+                      {/* 미배정 풀 — 비정규 선수. 대회에는 비정규 개념이 없다(참가 등록이 곧 명단). */}
+                      {!isTournament && irregularRoster.length > 0 && (
                         <div>
                           <p className="text-xs mb-2" style={{ color: 'var(--mm-muted)' }}>
                             <span className="hidden lg:inline">위로 드래그하여 팀 배정 / </span>

@@ -42,17 +42,21 @@ export async function POST(
   }
 
   // 이벤트 조회 (team_id + 이벤트 타입/결과)
+  //   ⚠ 예전에는 `.not('league_player_id','is',null)` 로 선수 없는 이벤트를 걸렀다.
+  //     대회의 **상대 득점**은 선수 없이 팀에만 붙으므로(우리는 상대 선수를 기록하지 않는다)
+  //     그 필터가 남아 있으면 상대 점수가 항상 0이 된다 — 화면은 멀쩡하고 스코어만 한쪽이 빈다.
+  //     선수 없는 이벤트는 아래에서 team_id 로만 가산한다.
   const { data: events } = await supabase
     .from('league_game_events')
     .select('id, team_id, type, result, league_player_id, points')
     .eq('league_game_id', gameId)
-    .not('league_player_id', 'is', null)
 
   let homeScore = 0
   let awayScore = 0
 
-  // team_id 없는 이벤트를 위한 팀 역추적
-  const eventsWithoutTeam = (events ?? []).filter(e => !e.team_id)
+  // team_id 없는 이벤트를 위한 팀 역추적 — **선수가 있는 것만** 역추적할 수 있다.
+  //   (선수도 팀도 없는 이벤트는 어느 쪽 점수인지 알 방법이 없어 아래 루프에서 버려진다)
+  const eventsWithoutTeam = (events ?? []).filter(e => !e.team_id && e.league_player_id)
   const playerTeamMap: Record<string, string> = {}
 
   if (eventsWithoutTeam.length > 0) {
@@ -84,10 +88,14 @@ export async function POST(
   }
 
   for (const e of events ?? []) {
-    if (!e.league_player_id) continue
-    const pts = calcPts(e.type, e.result ?? '', e.league_player_id)
+    // 선수 있는 이벤트는 종전대로(+1 판정 포함). 선수 없는 이벤트는 대회의 상대 득점뿐이고,
+    //   플러스원 개념이 없으므로 룰 표만으로 채점한다.
+    const pts = e.league_player_id
+      ? calcPts(e.type, e.result ?? '', e.league_player_id)
+      : scorePoints(e.type, e.result ?? '', false, scoringRules)
     if (pts === 0) continue
-    const teamId = e.team_id ?? playerTeamMap[e.league_player_id] ?? null
+    // 선수가 없으면 team_id 가 유일한 근거다 — 없으면 어느 쪽 점수인지 알 수 없어 버린다.
+    const teamId = e.team_id ?? (e.league_player_id ? playerTeamMap[e.league_player_id] : null) ?? null
     if (teamId === game.home_team_id) homeScore += pts
     else if (teamId === game.away_team_id) awayScore += pts
   }
@@ -101,8 +109,9 @@ export async function POST(
   //   같은 값끼리 묶어 update 한다 — 이벤트가 수십 건이라 한 건씩 왕복할 이유가 없다.
   const byPoints = new Map<number, string[]>()
   for (const e of events ?? []) {
-    if (!e.league_player_id) continue
-    const want = calcPts(e.type, e.result ?? '', e.league_player_id)
+    const want = e.league_player_id
+      ? calcPts(e.type, e.result ?? '', e.league_player_id)
+      : scorePoints(e.type, e.result ?? '', false, scoringRules)
     if ((e.points ?? 0) === want) continue
     const list = byPoints.get(want) ?? []
     list.push(e.id as string)

@@ -59,17 +59,25 @@ export async function POST(
       { status: 400 },
     )
   }
-  const { data: pl, error: plErr } = await supabase
-    .from('league_players').select('plus_one').eq('id', body.league_player_id).maybeSingle()
-  if (plErr) {
-    throw new Error(`league_players: league_player_id=${body.league_player_id} 조회 실패 — ${plErr.message}`)
+  // ⚠ 선수 없는 이벤트가 있다 — 대회의 **상대 득점**은 선수 없이 팀에만 붙는다
+  //   (우리는 상대 선수를 기록하지 않는다). 예전에는 그대로 `.eq('id', null)` 을 태워
+  //   `invalid input syntax for type uuid: "null"` 로 500 이 났다.
+  //   선수가 없으면 플러스원도 없으므로 조회 자체를 건너뛴다.
+  let plusOneFlag = false
+  if (body.league_player_id) {
+    const { data: pl, error: plErr } = await supabase
+      .from('league_players').select('plus_one').eq('id', body.league_player_id).maybeSingle()
+    if (plErr) {
+      throw new Error(`league_players: league_player_id=${body.league_player_id} 조회 실패 — ${plErr.message}`)
+    }
+    plusOneFlag = !!pl?.plus_one
   }
   // 캐노니컬 플러스원 판정 — scoring.ts 의 isPlusOneFor() 하나로만 푼다.
   //   (경기 한정 추가 → 게임별 배타 지정 → 선수 전역 플래그)
   const isPlusOne = isPlusOneFor(
     body.league_player_id,
     g as GamePlusOne,
-    pl?.plus_one ? new Set([body.league_player_id as string]) : new Set<string>(),
+    plusOneFlag ? new Set([body.league_player_id as string]) : new Set<string>(),
   )
   const points = scorePoints(body.type, body.result, isPlusOne, scoringRules)
 

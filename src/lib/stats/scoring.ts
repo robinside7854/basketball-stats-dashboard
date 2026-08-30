@@ -24,6 +24,25 @@ export interface ScoringRules {
 }
 
 /**
+ * 상대(외부) 팀 득점 — **대회 전용**.
+ *
+ * 대회는 상대 선수를 기록하지 않는다(우리 동호회 통계를 만드는 도구이고, 상대 선수 명단은
+ * 알 수도 없다). 그런데 점수는 남아야 승패·전적·러닝 스코어가 성립한다. 그래서 선수 없이
+ * **팀에만 붙는 득점 이벤트**를 둔다 — `league_player_id = null`, `team_id = 상대팀`.
+ *
+ * 왜 `opp_score` 하나에 points 를 담지 않고 1/2/3 세 타입으로 나눴는가
+ *   이 파일의 채점은 "타입 → 점수" 표 하나로만 이뤄진다. 한 타입에 가변 점수를 담으면
+ *   클라이언트가 보낸 points 를 믿어야 하는데(events POST 가 그 값을 통째로 무시하는 이유),
+ *   그러면 저장값과 재계산값이 갈리는 이 모듈이 없애려던 바로 그 병이 돌아온다.
+ *   타입으로 나누면 기존 파이프라인(scorePoints → team_id 로 홈/원정 가산)이 **그대로** 동작한다.
+ *
+ * ⚠ 리그 경기에는 이 타입이 쓰이지 않는다 — 양 팀 모두 우리 선수라 선수 단위로 기록한다.
+ */
+export const OPPONENT_SCORING: Record<string, number> = {
+  opp_score_1: 1, opp_score_2: 2, opp_score_3: 3,
+}
+
+/**
  * 표준 아마추어 농구 룰. leagues.rules 컬럼 기본값(마이그레이션 080)과 같은 값.
  *
  * 자유투는 국내 동호회 자체전 관행을 따른다 — 2점슛 파울은 1구에 2점(ft_2pt),
@@ -34,6 +53,7 @@ export const STANDARD_SCORING: ScoringRules = {
   event_points: {
     shot_3p: 3, shot_2p_mid: 2, shot_layup: 2, shot_post: 2,
     ft_2pt: 2, ft_3pt_1: 2, ft_3pt_2: 1, free_throw: 1, and_one: 1,
+    ...OPPONENT_SCORING,
   },
   plus_one_bonus: { amount: 0, applies_to: ['shot_3p', 'shot_2p_mid', 'shot_layup', 'shot_post'] },
 }
@@ -112,5 +132,9 @@ export async function fetchScoringRules(sb: SupabaseClient, leagueId: string): P
   }
   const r = data?.rules as Partial<ScoringRules> | undefined
   if (!r?.event_points || !r?.plus_one_bonus) return STANDARD_SCORING
-  return { event_points: r.event_points, plus_one_bonus: r.plus_one_bonus }
+  // 상대 득점 타입은 **룰 데이터가 아니라 구조**다 — 동호회가 정할 여지가 없고(2점은 2점),
+  //   시즌 rules 에 안 적혀 있다고 상대 점수가 0이 되면 대회 스코어가 통째로 비어 버린다.
+  //   그래서 밑에 깔고 시즌 룰로 덮는다(시즌 룰이 같은 키를 쓰면 그쪽이 이긴다).
+  //   기존 리그에는 이 타입의 이벤트가 0건이라 채점 결과가 하나도 바뀌지 않는다.
+  return { event_points: { ...OPPONENT_SCORING, ...r.event_points }, plus_one_bonus: r.plus_one_bonus }
 }

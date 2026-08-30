@@ -33,6 +33,14 @@ interface Props {
   // 불러와(loadRoster) 교체 화면 등 다른 화면에도 이 선수가 반영되게 한다.
   // 패드 자체 렌더링은 로컬 상태(addedOpponents)로 즉시 반영되므로 이 콜백이 없어도 동작한다.
   onOpponentRegistered?: () => void
+  /**
+   * 상대(외부) 선수를 즉석 등록해 **개인 기록까지 남길지**. 기본 true(기존 동작).
+   *
+   * 대회 기록기는 false 로 넘긴다 — 상대는 우리 동호회 사람이 아니라 명단을 알 수도 없고,
+   * 그 기록이 우리 통계에 섞이면 안 된다. 대회의 상대는 **점수만** 남긴다
+   * (기록 화면의 「상대 득점」 버튼 → scoring.ts 의 OPPONENT_SCORING).
+   */
+  opponentRecording?: boolean
 }
 
 type EventBtn = {
@@ -103,6 +111,7 @@ export default function LeagueEventInputPad({
   activePlusOneIds,
   tendencies,
   onOpponentRegistered,
+  opponentRecording = true,
   currentQuarter = 1,
 }: Props) {
   const { getCurrentTimestamp } = useGameStore()
@@ -582,6 +591,8 @@ export default function LeagueEventInputPad({
 
   // 대회형 상대(외부) 팀에만 뜨는 즉석 등록 UI. 화면 전환·모달 없이 그 자리에서 처리.
   function renderOpponentRegister(side: 'home' | 'away') {
+    // 대회 기록기는 상대 개인 기록을 남기지 않는다 — 점수만 별도 버튼으로 받는다.
+    if (!opponentRecording) return null
     const team = side === 'home' ? homeTeam : awayTeam
     if (!team?.is_external) return null
     const draft = oppDraft[side]
