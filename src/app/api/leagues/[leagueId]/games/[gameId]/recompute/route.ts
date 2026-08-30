@@ -24,7 +24,7 @@ export async function POST(
   const scoringRules = await fetchScoringRules(supabase, leagueId)
 
   const [{ data: game, error: gErr }, { data: leaguePlayers }] = await Promise.all([
-    supabase.from('league_games').select('home_team_id, away_team_id, quarter_id, plus_one_player_id, plus_one_extra_ids').eq('id', gameId).eq('league_id', leagueId).single(),
+    supabase.from('league_games').select('home_team_id, away_team_id, quarter_id, plus_one_player_id, plus_one_extra_ids, plus_one_quarters, opponent_score_manual').eq('id', gameId).eq('league_id', leagueId).single(),
     // 선수는 팀에 매달려 있다(087) — league_id 로 찾으면 대회 묶음에서 0명이 나와
     //   plus_one 맵이 비고, 가산점이 에러 없이 조용히 빠진다.
     supabase.from('league_players').select('id, plus_one').eq('team_id', await resolveTeamId(leagueId)),
@@ -37,8 +37,10 @@ export async function POST(
   const leaguePlusOne = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
   const gamePlusOne = game as GamePlusOne
 
-  function calcPts(type: string, result: string, playerId: string): number {
-    return scorePoints(type, result, isPlusOneFor(playerId, gamePlusOne, leaguePlusOne), scoringRules)
+  // ⚠ 쿼터를 함께 받는다 — 전/후반 +1 이 다른 경기(113)는 같은 선수·같은 슛도 쿼터에 따라
+  //   점수가 다르다. 여기서 빠뜨리면 저장 스코어와 화면 집계가 갈린다.
+  function calcPts(type: string, result: string, playerId: string, quarter: number | null): number {
+    return scorePoints(type, result, isPlusOneFor(playerId, gamePlusOne, leaguePlusOne, quarter), scoringRules)
   }
 
   // 이벤트 조회 (team_id + 이벤트 타입/결과)
@@ -48,7 +50,7 @@ export async function POST(
   //     선수 없는 이벤트는 아래에서 team_id 로만 가산한다.
   const { data: events } = await supabase
     .from('league_game_events')
-    .select('id, team_id, type, result, league_player_id, points')
+    .select('id, team_id, type, result, league_player_id, points, quarter')
     .eq('league_game_id', gameId)
 
   let homeScore = 0
@@ -91,13 +93,33 @@ export async function POST(
     // 선수 있는 이벤트는 종전대로(+1 판정 포함). 선수 없는 이벤트는 대회의 상대 득점뿐이고,
     //   플러스원 개념이 없으므로 룰 표만으로 채점한다.
     const pts = e.league_player_id
-      ? calcPts(e.type, e.result ?? '', e.league_player_id)
+      ? calcPts(e.type, e.result ?? '', e.league_player_id, e.quarter ?? null)
       : scorePoints(e.type, e.result ?? '', false, scoringRules)
     if (pts === 0) continue
     // 선수가 없으면 team_id 가 유일한 근거다 — 없으면 어느 쪽 점수인지 알 수 없어 버린다.
     const teamId = e.team_id ?? (e.league_player_id ? playerTeamMap[e.league_player_id] : null) ?? null
     if (teamId === game.home_team_id) homeScore += pts
     else if (teamId === game.away_team_id) awayScore += pts
+  }
+
+  // ── 대회: 손으로 넣은 상대 최종 점수 ───────────────────────────────
+  //   대회는 상대 선수를 기록하지 않으므로 상대 점수는 이벤트에서 나올 수 없다(우리 이벤트뿐).
+  //   마감할 때 넣은 값이 있으면 **외부(상대) 팀 쪽 점수를 그 값으로 덮는다.**
+  //   ⚠ 우리 팀 점수는 절대 덮지 않는다 — 그건 기록에서 나오는 값이고 이 도구의 존재 이유다.
+  //   값이 없으면(리그 경기 전부, 아직 마감 안 한 대회 경기) 위에서 계산한 이벤트 합을 그대로 쓴다.
+  const manualOpp = (game as { opponent_score_manual?: number | null }).opponent_score_manual
+  if (manualOpp != null) {
+    const teamIds = [game.home_team_id, game.away_team_id].filter(Boolean) as string[]
+    if (teamIds.length > 0) {
+      const { data: teamRows, error: tErr } = await supabase
+        .from('league_teams').select('id, is_external').in('id', teamIds)
+      // 조용히 넘기면 상대 점수가 이벤트 합(=0)으로 남아 항상 우리가 이긴 것으로 보인다.
+      if (tErr) return NextResponse.json({ error: `팀을 확인하지 못했습니다 — ${tErr.message}` }, { status: 500 })
+      const externalId = (teamRows ?? []).find(t => t.is_external === true)?.id ?? null
+      if (externalId === game.home_team_id) homeScore = manualOpp
+      else if (externalId === game.away_team_id) awayScore = manualOpp
+      // 외부 팀이 없으면(리그 경기에 값이 잘못 들어간 경우) 아무것도 덮지 않는다.
+    }
   }
 
   // ── 이벤트 저장 점수 재동기화 ──────────────────────────────────────
@@ -110,7 +132,7 @@ export async function POST(
   const byPoints = new Map<number, string[]>()
   for (const e of events ?? []) {
     const want = e.league_player_id
-      ? calcPts(e.type, e.result ?? '', e.league_player_id)
+      ? calcPts(e.type, e.result ?? '', e.league_player_id, e.quarter ?? null)
       : scorePoints(e.type, e.result ?? '', false, scoringRules)
     if ((e.points ?? 0) === want) continue
     const list = byPoints.get(want) ?? []

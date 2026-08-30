@@ -585,9 +585,13 @@ export async function PATCH(
   const ALLOWED = new Set([
     'home_team_id', 'away_team_id', 'home_score', 'away_score',
     'is_complete', 'is_started', 'is_exhibition', 'plus_one_player_id', 'plus_one_extra_ids',
+    // 쿼터별 +1 (113) — 전/후반 +1 선수가 다른 경기에서 쓴다.
+    'plus_one_quarters',
     'youtube_url', 'youtube_start_offset',
     // 대회 경기 편집 — 라운드 표기와 경기장. 리그 경기에는 화면이 보내지 않는다.
     'round_label', 'venue',
+    // 대회 상대팀 최종 점수(112) — 마감할 때 손으로 넣는다.
+    'opponent_score_manual',
   ])
   const patch: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(body ?? {})) {
@@ -595,6 +599,48 @@ export async function PATCH(
   }
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: '변경할 수 있는 항목이 없습니다' }, { status: 400 })
+  }
+
+  // 대회 상대 최종 점수(112) — 이 값이 그대로 경기 스코어의 한쪽이 되므로 숫자만 받는다.
+  //   빈 문자열·null 은 "지움"(다시 이벤트 합산 기준으로 돌아간다)으로 해석한다.
+  if ('opponent_score_manual' in patch) {
+    const v = patch.opponent_score_manual
+    if (v === null || v === '') {
+      patch.opponent_score_manual = null
+    } else {
+      const n = Number(v)
+      if (!Number.isInteger(n) || n < 0 || n > 300) {
+        return NextResponse.json({ error: '상대 점수는 0~300 사이의 정수여야 합니다' }, { status: 400 })
+      }
+      patch.opponent_score_manual = n
+    }
+  }
+
+  // 쿼터별 +1 (113) — `{ "<playerId>": [1,2] }`. 이 값이 그대로 득점 계산에 들어가므로
+  //   쓰레기가 섞이면 그 경기 점수가 조용히 어긋난다(110 의 plus_one_extra_ids 와 같은 이유).
+  if ('plus_one_quarters' in patch) {
+    const v = patch.plus_one_quarters
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (v === null) {
+      patch.plus_one_quarters = null
+    } else if (typeof v !== 'object' || Array.isArray(v)) {
+      return NextResponse.json({ error: 'plus_one_quarters 는 { 선수id: [쿼터…] } 형태여야 합니다' }, { status: 400 })
+    } else {
+      const out: Record<string, number[]> = {}
+      for (const [pid, qs] of Object.entries(v as Record<string, unknown>)) {
+        if (!UUID.test(pid)) {
+          return NextResponse.json({ error: 'plus_one_quarters 의 키는 선수 UUID 여야 합니다' }, { status: 400 })
+        }
+        if (!Array.isArray(qs) || qs.some(q => !Number.isInteger(q) || (q as number) < 1 || (q as number) > 6)) {
+          return NextResponse.json({ error: '쿼터는 1~6 사이의 정수 배열이어야 합니다' }, { status: 400 })
+        }
+        // 빈 배열은 "제한 없음"과 구분이 안 되므로 키 자체를 뺀다 — 남겨 두면
+        //   isPlusOneFor 가 `limit.length > 0` 로 무시해 의도가 화면과 어긋난다.
+        const uniq = Array.from(new Set(qs as number[])).sort((a, b) => a - b)
+        if (uniq.length > 0) out[pid] = uniq
+      }
+      patch.plus_one_quarters = Object.keys(out).length > 0 ? out : null
+    }
   }
 
   // 경기 한정 +1 명단(110) — UUID 배열만 받는다. 배열이 아니거나 형식이 틀리면 거절한다.

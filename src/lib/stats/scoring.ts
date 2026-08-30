@@ -78,19 +78,44 @@ export interface GamePlusOne {
   plus_one_player_id?: string | null
   /** 이 경기에서만 +1 (110). 없거나 빈 배열이면 영향 없음. */
   plus_one_extra_ids?: string[] | null
+  /**
+   * 선수별 +1 유효 쿼터 (113). `{ "<playerId>": [1,2] }`
+   *
+   * 전반과 후반의 +1 선수가 다른 경기가 있다. 위 세 갈래는 전부 **경기 단위**라
+   * 둘 중 하나만 고를 수 있었고, 어느 쪽으로 정하든 절반이 틀린 점수가 됐다.
+   * 키가 없으면 전 쿼터 적용 = 기존 동작. 그래서 기존 경기의 채점은 하나도 안 바뀐다.
+   */
+  plus_one_quarters?: Record<string, number[]> | null
 }
 
+/**
+ * @param quarter 이 이벤트의 쿼터. **명시적으로 넘긴다** — 옵셔널로 두면 안 넘긴 곳이
+ *   조용히 "전 쿼터 +1" 로 계산돼 화면마다 점수가 갈린다(이 파일이 없애려는 바로 그 병).
+ *   쿼터를 알 수 없는 자리(집계 단위가 경기인 곳 등)는 `null` 을 넘겨 그 사실을 드러낸다.
+ */
 export function isPlusOneFor(
   playerId: string | null | undefined,
   game: GamePlusOne | null | undefined,
   globalPlusOne: Set<string>,
+  quarter: number | null | undefined,
 ): boolean {
   if (!playerId) return false
+
+  // 1) 경기 단위 판정 — 기존 삼단논법 그대로
+  let eligible: boolean
   const extra = game?.plus_one_extra_ids
-  if (extra && extra.length > 0 && extra.includes(playerId)) return true
   const designated = game?.plus_one_player_id
-  if (designated != null) return playerId === designated
-  return globalPlusOne.has(playerId)
+  if (extra && extra.length > 0 && extra.includes(playerId)) eligible = true
+  else if (designated != null) eligible = playerId === designated
+  else eligible = globalPlusOne.has(playerId)
+  if (!eligible) return false
+
+  // 2) 쿼터 제한 — 지정이 있을 때만 좁힌다.
+  //    쿼터를 모르는 호출(quarter == null)은 좁히지 않는다. 좁히면 "모르니까 +1 아님" 이 되어
+  //    통산 집계에서 점수가 조용히 줄어든다 — 모를 때는 기존 동작(경기 단위)을 유지하는 게 맞다.
+  const limit = game?.plus_one_quarters?.[playerId]
+  if (limit && limit.length > 0 && quarter != null) return limit.includes(quarter)
+  return true
 }
 
 /**

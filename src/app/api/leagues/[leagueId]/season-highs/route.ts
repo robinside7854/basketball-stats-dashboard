@@ -95,7 +95,7 @@ export async function GET(
   // 1-3) 선수 메타 · 게임 · 분기 메타 병렬 실행 — 서로 독립적.
   let gQuery = supabase
     .from('league_games')
-    .select('id, date, quarter_id, plus_one_player_id, plus_one_extra_ids')
+    .select('id, date, quarter_id, plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     .eq('is_exhibition', false)
@@ -142,7 +142,7 @@ export async function GET(
   for (let pg = 0; ; pg++) {
     const { data: chunk, error: chunkErr } = await supabase
       .from('league_game_events')
-      .select('league_player_id, related_player_id, type, result, league_game_id, team_id')
+      .select('league_player_id, related_player_id, type, result, league_game_id, team_id, quarter')
       .in('league_game_id', gameIds)
       .not('league_player_id', 'is', null)
       .order('id', { ascending: true })
@@ -178,7 +178,7 @@ export async function GET(
     if (!g) continue
     const date = g.date
     // +1 판정은 scoring.ts 단일 진실 (경기 한정 추가 → 배타 지정 → 전역 플래그)
-    const isP1 = isPlusOneFor(pid, g, plusOneSet)
+    const isP1 = isPlusOneFor(pid, g, plusOneSet, (e as { quarter?: number | null }).quarter ?? null)
     const made = e.result === 'made'
     const s = ensure(pid, date)
     const pts = scorePoints(e.type, e.result, isP1, scoringRules)

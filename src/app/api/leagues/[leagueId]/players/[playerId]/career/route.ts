@@ -36,7 +36,7 @@ async function summarizeInCompetition(
 ): Promise<CompetitionSummary> {
   const { data: games, error: gamesErr } = await sb
     .from('league_games')
-    .select('id, plus_one_player_id, plus_one_extra_ids')
+    .select('id, plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
     .eq('league_id', competitionLeagueId)
     .eq('is_started', true)
   if (gamesErr) {
@@ -71,7 +71,7 @@ async function summarizeInCompetition(
   const [ownEvents, assistEvents] = await Promise.all([
     fetchPaged((from, to) =>
       sb.from('league_game_events')
-        .select('league_game_id, type, result')
+        .select('league_game_id, type, result, quarter')
         .in('league_game_id', gameIds)
         .eq('league_player_id', playerId)
         .order('id', { ascending: true })
@@ -80,7 +80,7 @@ async function summarizeInCompetition(
     ),
     fetchPaged((from, to) =>
       sb.from('league_game_events')
-        .select('league_game_id, type, result')
+        .select('league_game_id, type, result, quarter')
         .in('league_game_id', gameIds)
         .eq('related_player_id', playerId)
         .eq('result', 'made')
@@ -101,6 +101,7 @@ async function summarizeInCompetition(
       playerId,
       plusOneByGame[e.league_game_id],
       defaultPlusOne ? new Set([playerId]) : new Set<string>(),
+      (e as { quarter?: number | null }).quarter ?? null,
     )
     pts += scorePoints(e.type, e.result, isPlusOne, scoringRules)
     if (e.type === 'oreb' || e.type === 'dreb') reb++

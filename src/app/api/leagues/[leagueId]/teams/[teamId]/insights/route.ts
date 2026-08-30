@@ -72,7 +72,7 @@ export async function GET(
   // 1) 이 팀이 출전한 완료 경기 (친선전 제외)
   let gamesQuery = supabase
     .from('league_games')
-    .select('id, date, home_team_id, away_team_id, home_score, away_score, quarter_id, is_exhibition, is_complete, plus_one_player_id, plus_one_extra_ids')
+    .select('id, date, home_team_id, away_team_id, home_score, away_score, quarter_id, is_exhibition, is_complete, plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
     .eq('league_id', leagueId)
     .eq('is_complete', true)
     .eq('is_exhibition', false)
@@ -129,7 +129,7 @@ export async function GET(
   while (true) {
     const { data: chunk, error: evErr } = await supabase
       .from('league_game_events')
-      .select('league_game_id, team_id, type, result, league_player_id, related_player_id')
+      .select('league_game_id, team_id, type, result, league_player_id, related_player_id, quarter')
       .in('league_game_id', gameIds)
       .order('id', { ascending: true })
       .range(page * PAGE, (page + 1) * PAGE - 1)
@@ -172,7 +172,7 @@ export async function GET(
     const target = e.team_id === teamId ? g.team : (e.team_id ? g.opp : null)
     if (!target) continue
     const pid = e.league_player_id
-    const isP1 = isPlusOneFor(pid, gamePlusOneMap[e.league_game_id], plusOneSet)
+    const isP1 = isPlusOneFor(pid, gamePlusOneMap[e.league_game_id], plusOneSet, (e as { quarter?: number | null }).quarter ?? null)
     const pts = scorePoints(e.type, e.result, isP1, scoringRules)
     addToAgg(target, e, pts)
     // 일자 누적도 동시에

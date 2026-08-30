@@ -78,7 +78,7 @@ export async function computeClutchStats(
   // 1) 게임 조회
   let gQuery = supabase
     .from('league_games')
-    .select('id, home_team_id, away_team_id, plus_one_player_id, plus_one_extra_ids, is_exhibition')
+    .select('id, home_team_id, away_team_id, plus_one_player_id, plus_one_extra_ids, plus_one_quarters, is_exhibition')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     .eq('is_exhibition', false)  // 친선전 제외
@@ -92,7 +92,7 @@ export async function computeClutchStats(
     home_team_id: string | null
     away_team_id: string | null
     plus_one_player_id: string | null
-    plus_one_extra_ids: string[] | null
+    plus_one_extra_ids: string[] | null; plus_one_quarters: Record<string, number[]> | null
     is_exhibition: boolean | null
   }>
   if (gameRows.length === 0) return []
@@ -120,6 +120,8 @@ export async function computeClutchStats(
 
   // 2) 이벤트 페이지네이션 (video_timestamp 포함)
   type EvRow = {
+  /** 쿼터별 +1(113) 판정용. */
+  quarter: number | null
     id: number
     league_game_id: string
     league_player_id: string | null
@@ -135,7 +137,7 @@ export async function computeClutchStats(
   for (let p = 0; ; p++) {
     const { data: chunk, error: evErr } = await supabase
       .from('league_game_events')
-      .select('id, league_game_id, league_player_id, related_player_id, team_id, type, result, points, video_timestamp')
+      .select('id, league_game_id, league_player_id, related_player_id, team_id, type, result, points, video_timestamp, quarter')
       .in('league_game_id', gameIds)
       .order('id', { ascending: true })
       .range(p * PAGE, (p + 1) * PAGE - 1)
@@ -201,7 +203,7 @@ export async function computeClutchStats(
       const tid = e.team_id
       const made = e.result === 'made'
       // 플러스원 판정은 scoring.ts 의 isPlusOneFor() 하나로만 푼다(단일 진실).
-      const isP1 = isPlusOneFor(pid, game as GamePlusOne, plusOneSet)
+      const isP1 = isPlusOneFor(pid, game as GamePlusOne, plusOneSet, e.quarter ?? null)
       const pts = scorePoints(e.type, e.result, isP1, rules)
 
       const inClutchTime = clutchStart != null && e.video_timestamp != null && e.video_timestamp >= clutchStart

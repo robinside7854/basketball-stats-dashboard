@@ -39,7 +39,7 @@ export async function GET(
     supabase.from('league_players').select('id, name, number, photo_url, plus_one').eq('team_id', await resolveTeamId(leagueId)),
     supabase
       .from('league_games')
-      .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num, plus_one_player_id, plus_one_extra_ids, is_exhibition')
+      .select('id, date, quarter_id, home_team_id, away_team_id, home_score, away_score, round_num, plus_one_player_id, plus_one_extra_ids, plus_one_quarters, is_exhibition')
       .eq('league_id', leagueId)
       .eq('is_started', true)   // 마감 여부와 무관하게 기록 시작된 게임 전체 포함
       // 친선전(비공식)은 제외 — 이 라우트는 순위·통산최고·월별·승패·스트릭을 만드는 스탯 페이지다.
@@ -149,7 +149,7 @@ export async function GET(
     fetchPaged<PlayerEventRow>((from, to) =>
       supabase
         .from('league_game_events')
-        .select('league_game_id, type, result, points, team_id')
+        .select('league_game_id, type, result, points, team_id, quarter')
         .in('league_game_id', gameIds)
         .eq('league_player_id', playerId)
         .order('id', { ascending: true })
@@ -169,7 +169,7 @@ export async function GET(
     fetchPaged<AllEventRow>((from, to) =>
       supabase
         .from('league_game_events')
-        .select('league_player_id, league_game_id, related_player_id, type, result, points, team_id')
+        .select('league_player_id, league_game_id, related_player_id, type, result, points, team_id, quarter')
         .in('league_game_id', gameIds)
         .not('league_player_id', 'is', null)
         .order('id', { ascending: true })
@@ -234,7 +234,7 @@ export async function GET(
     if (e.type === 'sub_in' || e.type === 'sub_out') continue
     const s = ensureG(e.league_game_id)
     const made = e.result === 'made'
-    const isPlusOne = isPlusOneFor(playerId, gamePlusOneMap[e.league_game_id], plusOneSet)
+    const isPlusOne = isPlusOneFor(playerId, gamePlusOneMap[e.league_game_id], plusOneSet, (e as { quarter?: number | null }).quarter ?? null)
     const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
     switch (e.type) {
       case 'shot_3p':
@@ -433,7 +433,7 @@ export async function GET(
     const pid = e.league_player_id as string
     const made = e.result === 'made'
     const gId = e.league_game_id as string
-    const isP1 = isPlusOneFor(pid, gamePlusOneMap[gId], plusOneSet)
+    const isP1 = isPlusOneFor(pid, gamePlusOneMap[gId], plusOneSet, (e as { quarter?: number | null }).quarter ?? null)
     const pts = scorePoints(e.type, e.result, isP1, scoringRules)
     if (!allMap[pid]) allMap[pid] = emptyAS()
     // 일수 기준 GP 카운트 (날짜로 중복 제거)
@@ -595,7 +595,7 @@ export async function GET(
       while (true) {
         const { data: chunk } = await supabase
           .from('league_game_events')
-          .select('league_player_id, league_game_id, related_player_id, type, result, points, team_id')
+          .select('league_player_id, league_game_id, related_player_id, type, result, points, team_id, quarter')
           .in('league_game_id', seasonGameIds)
           .not('league_player_id', 'is', null)
           .order('id', { ascending: true })
@@ -614,7 +614,7 @@ export async function GET(
         const pid = e.league_player_id as string
         const made = e.result === 'made'
         const gId = e.league_game_id as string
-        const isP1 = isPlusOneFor(pid, gamePlusOneMap[gId], plusOneSet)
+        const isP1 = isPlusOneFor(pid, gamePlusOneMap[gId], plusOneSet, (e as { quarter?: number | null }).quarter ?? null)
         const pts = scorePoints(e.type, e.result, isP1, scoringRules)
         if (!badgeMap[pid]) badgeMap[pid] = emptyAS()
         if (e.type !== 'sub_in' && e.type !== 'sub_out') {
@@ -709,7 +709,7 @@ export async function GET(
     const unitKey = unit === 'round' ? (badgeGameMap[gId]?.date ?? gId) : gId
     const pid = e.league_player_id
     const made = e.result === 'made'
-    const isP1 = isPlusOneFor(pid, gamePlusOneMap[gId], plusOneSet)
+    const isP1 = isPlusOneFor(pid, gamePlusOneMap[gId], plusOneSet, (e as { quarter?: number | null }).quarter ?? null)
     const pts = scorePoints(e.type, e.result, isP1, scoringRules)
     if (pid && e.type !== 'sub_in' && e.type !== 'sub_out') {
       t.playerUnits.add(`${pid}:${unitKey}`)
@@ -945,7 +945,7 @@ export async function GET(
       if (scorer !== playerId && assister !== playerId) continue
 
       // 저장된 points 폴백은 6건이 틀린 것으로 확인되어 룰 계산으로 통일 (득점자 scorer 기준 plus-one 판정).
-      const isPlusOneForEvent = isPlusOneFor(scorer, gamePlusOneMap[e.league_game_id], plusOneSet)
+      const isPlusOneForEvent = isPlusOneFor(scorer, gamePlusOneMap[e.league_game_id], plusOneSet, (e as { quarter?: number | null }).quarter ?? null)
       const pts = scorePoints(e.type, e.result, isPlusOneForEvent, scoringRules)
       const partnerId = scorer === playerId ? assister : scorer
       if (!acc[partnerId]) acc[partnerId] = { total: 0, iScored: 0, partnerScored: 0, iAssists: 0, partnerAssists: 0 }

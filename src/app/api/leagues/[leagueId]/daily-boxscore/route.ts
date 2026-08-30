@@ -34,7 +34,7 @@ export async function GET(
   ] = await Promise.all([
     supabase
       .from('league_games')
-      .select('id, slot_num, date, home_team_id, away_team_id, home_score, away_score, is_complete, is_started, youtube_url, youtube_start_offset, quarter_id, round_num, plus_one_player_id, plus_one_extra_ids')
+      .select('id, slot_num, date, home_team_id, away_team_id, home_score, away_score, is_complete, is_started, youtube_url, youtube_start_offset, quarter_id, round_num, plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
       .eq('league_id', leagueId)
       .eq('date', date)
       .eq('is_started', true)
@@ -110,7 +110,7 @@ export async function GET(
     const gId = e.league_game_id as string
     const pid = e.league_player_id as string
     const made = e.result === 'made'
-    const isP1 = isPlusOneFor(pid, gamePlusOneMap[gId], plusOneSet)
+    const isP1 = isPlusOneFor(pid, gamePlusOneMap[gId], plusOneSet, (e.quarter as number | null) ?? null)
     const pts = scorePoints(e.type as string, e.result as string | null, isP1, scoringRules)
     if (!gamePlayerStats[gId]) continue
     if (!gamePlayerStats[gId][pid]) gamePlayerStats[gId][pid] = emptyGS()

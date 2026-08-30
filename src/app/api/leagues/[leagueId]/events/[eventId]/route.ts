@@ -78,7 +78,9 @@ export async function PATCH(
     // 현재 저장돼있는 이벤트를 먼저 읽어 최종 값 조합 (editable 필드만 부분 병합)
     const { data: current, error: currentErr } = await supabase
       .from('league_game_events')
-      .select('type, result, league_player_id, league_game_id')
+      // quarter 도 읽는다 — 전/후반 +1 이 다른 경기(113)에서 이 값으로 점수가 갈린다.
+      //   편집이 쿼터를 바꿀 수도 있으므로 아래에서 payload 값을 우선한다.
+      .select('type, result, league_player_id, league_game_id, quarter')
       .eq('id', eventId)
       .single()
     // 이 읽기가 조용히 실패하면 아래 if(current) 가 그냥 건너뛰어져 payload.points 가
@@ -95,7 +97,7 @@ export async function PATCH(
       let isPlusOne = false
       if (finalPid && current.league_game_id) {
         const [{ data: g, error: gErr }, { data: lp, error: lpErr }] = await Promise.all([
-          supabase.from('league_games').select('plus_one_player_id, plus_one_extra_ids').eq('id', current.league_game_id).single(),
+          supabase.from('league_games').select('plus_one_player_id, plus_one_extra_ids, plus_one_quarters').eq('id', current.league_game_id).single(),
           supabase.from('league_players').select('plus_one').eq('id', finalPid).single(),
         ])
         // 여기서 삼키면 플러스원 선수의 3점슛이 3점(4점이어야 함)으로 영구 저장된다 —
@@ -111,6 +113,9 @@ export async function PATCH(
           finalPid as string,
           (g ?? null) as GamePlusOne | null,
           lp?.plus_one ? new Set([finalPid as string]) : new Set<string>(),
+          // 편집으로 쿼터가 바뀌면 바뀐 쿼터 기준으로 채점해야 한다 — 안 그러면
+          //   "3쿼터로 옮겼는데 점수는 1쿼터 기준" 인 저장값이 남는다.
+          typeof payload.quarter === 'number' ? payload.quarter : (current.quarter ?? null),
         )
       }
       // leagueId 는 이 라우트의 params 에 이미 있어 게임을 거쳐 조회할 필요가 없다

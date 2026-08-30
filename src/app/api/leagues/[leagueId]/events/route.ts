@@ -44,7 +44,7 @@ export async function POST(
   // 소속인지는 여기서 확인해야 한다).
   const { data: g, error: gErr } = await supabase
     .from('league_games')
-    .select('plus_one_player_id, plus_one_extra_ids')
+    .select('plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
     .eq('id', body.league_game_id)
     .eq('league_id', leagueId)
     .maybeSingle()
@@ -78,6 +78,8 @@ export async function POST(
     body.league_player_id,
     g as GamePlusOne,
     plusOneFlag ? new Set([body.league_player_id as string]) : new Set<string>(),
+    // 이 이벤트가 남는 쿼터 — 전/후반 +1 이 다른 경기(113)에서 이 값으로 갈린다.
+    typeof body.quarter === 'number' ? body.quarter : null,
   )
   const points = scorePoints(body.type, body.result, isPlusOne, scoringRules)
 

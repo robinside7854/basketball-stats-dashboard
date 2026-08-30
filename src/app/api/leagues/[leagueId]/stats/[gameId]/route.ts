@@ -5,6 +5,7 @@ import { canViewLeague } from '@/lib/auth/guard'
 
 type EventRow = {
   league_player_id: string | null
+  quarter: number | null
   type: string
   result: string | null
   points: number
@@ -43,10 +44,10 @@ export async function GET(
   const scoringRules = await fetchScoringRules(supabase, leagueId)
 
   const [{ data: events }, { data: mins }, { data: leaguePlayers }, { data: gameRow }] = await Promise.all([
-    supabase.from('league_game_events').select('league_player_id,type,result,points,related_player_id').eq('league_game_id', gameId),
+    supabase.from('league_game_events').select('league_player_id,type,result,points,related_player_id,quarter').eq('league_game_id', gameId),
     supabase.from('league_player_minutes').select('league_player_id,in_time,out_time').eq('league_game_id', gameId),
     supabase.from('league_players').select('id,plus_one').eq('league_id', leagueId),
-    supabase.from('league_games').select('id,home_team_id,away_team_id,quarter_id,plus_one_player_id, plus_one_extra_ids').eq('id', gameId).single(),
+    supabase.from('league_games').select('id,home_team_id,away_team_id,quarter_id,plus_one_player_id, plus_one_extra_ids, plus_one_quarters').eq('id', gameId).single(),
   ])
 
   const plusOneSet = new Set((leaguePlayers ?? []).filter(p => p.plus_one).map(p => p.id))
@@ -63,7 +64,7 @@ export async function GET(
     const s = getOrCreate(e.league_player_id)
     const made = e.result === 'made'
     // +1 판정은 scoring.ts 단일 진실에 위임 (경기 한정 추가 → 배타 지정 → 전역 플래그 순)
-    const isPlusOne = isPlusOneFor(e.league_player_id, gamePlusOne, plusOneSet)
+    const isPlusOne = isPlusOneFor(e.league_player_id, gamePlusOne, plusOneSet, e.quarter ?? null)
     const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
 
     if (e.type === 'shot_3p') { s.fg3a++; s.fga++; if (made) { s.fg3m++; s.fgm++; s.pts += pts } }

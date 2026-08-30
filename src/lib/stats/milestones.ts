@@ -72,14 +72,14 @@ export async function computeMilestones(
   // 1) 게임 목록 (is_started=true) — 날짜/youtube 매핑 + 게임별 플러스원 지정 확보
   const { data: games, error: gErr } = await sb
     .from('league_games')
-    .select('id, date, youtube_url, plus_one_player_id, plus_one_extra_ids')
+    .select('id, date, youtube_url, plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     // 친선전(비공식 라운드)은 집계에서 제외한다. 통산 마일스톤(1000득점 등)에 비공식 경기가 들어가면 달성 시점이 앞당겨진다.
     .eq('is_exhibition', false)
   // 쿼리 실패를 빈 배열로 넘기면 "경기 없음"과 구분이 안 돼 마일스톤 트래커가 조용히 텅 빈다.
   if (gErr) throw new Error(`computeMilestones: leagueId=${leagueId} league_games 조회 실패 — ${gErr.message}`)
-  const gameRows = (games ?? []) as Array<{ id: string; date: string; youtube_url: string | null; plus_one_player_id: string | null; plus_one_extra_ids: string[] | null }>
+  const gameRows = (games ?? []) as Array<{ id: string; date: string; youtube_url: string | null; plus_one_player_id: string | null; plus_one_extra_ids: string[] | null; plus_one_quarters: Record<string, number[]> | null }>
   if (gameRows.length === 0) {
     return { upcoming: [], recent: [] }
   }
@@ -142,12 +142,12 @@ export async function computeMilestones(
 
   // 4) 이벤트 정렬: (경기일 asc → created_at asc → id asc)
   //    각 이벤트에 game.date/plus_one_player_id 를 attach 하고 정렬. crossing 감지에 시간 순서가 결정적.
-  type EnrichedEv = EvRow & { date: string; youtube_url: string | null; plus_one_player_id: string | null; plus_one_extra_ids: string[] | null }
+  type EnrichedEv = EvRow & { date: string; youtube_url: string | null; plus_one_player_id: string | null; plus_one_extra_ids: string[] | null; plus_one_quarters: Record<string, number[]> | null }
   const enriched: EnrichedEv[] = []
   for (const e of internalEvents) {
     const g = gameById.get(e.league_game_id)
     if (!g) continue
-    enriched.push({ ...e, date: g.date, youtube_url: g.youtube_url, plus_one_player_id: g.plus_one_player_id, plus_one_extra_ids: g.plus_one_extra_ids })
+    enriched.push({ ...e, date: g.date, youtube_url: g.youtube_url, plus_one_player_id: g.plus_one_player_id, plus_one_extra_ids: g.plus_one_extra_ids, plus_one_quarters: g.plus_one_quarters })
   }
   enriched.sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date)
@@ -237,7 +237,7 @@ export async function computeMilestones(
     const pid = ev.league_player_id
     if (!pid) continue
     // PTS crossing 만 트래킹 — 플러스원 판정은 scoring.ts 의 isPlusOneFor() 단일 진실
-    const isP1 = isPlusOneFor(pid, ev as GamePlusOne, plusOneSet)
+    const isP1 = isPlusOneFor(pid, ev as GamePlusOne, plusOneSet, ev.quarter ?? null)
     const pts = scorePoints(ev.type, ev.result, isP1, rules)
     if (pts > 0) bump(pid, 'PTS', pts, ev)
   }

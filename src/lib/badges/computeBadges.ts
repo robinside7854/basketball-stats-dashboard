@@ -44,6 +44,8 @@ interface GameRow {
 }
 
 interface EventRow {
+  /** 쿼터별 +1(113) 판정용. */
+  quarter: number | null
   id: number
   league_game_id: string
   league_player_id: string | null
@@ -78,7 +80,7 @@ async function fetchEvents(supabase: SupabaseClient, gameId: string, externalTea
   for (let pg = 0; ; pg++) {
     const { data: chunk } = await supabase
       .from('league_game_events')
-      .select('id, league_game_id, league_player_id, related_player_id, team_id, type, result, points, video_timestamp')
+      .select('id, league_game_id, league_player_id, related_player_id, team_id, type, result, points, video_timestamp, quarter')
       .eq('league_game_id', gameId)
       .order('id', { ascending: true })
       .range(pg * PAGE, (pg + 1) * PAGE - 1)
@@ -120,7 +122,7 @@ function accumulateStats(
     if (e.type === 'sub_in' || e.type === 'sub_out') continue
     const s = ensure(pid)
     const made = e.result === 'made'
-    const isP1 = isPlusOneFor(pid, gamePlusOne, leaguePlusOneSet)
+    const isP1 = isPlusOneFor(pid, gamePlusOne, leaguePlusOneSet, e.quarter ?? null)
 
     // FGA/FGM — 자유투 제외 (perfect_game 조건)
     if ((SHOT_TYPES as readonly string[]).includes(e.type)) {
@@ -154,7 +156,7 @@ export async function computePerGameBadges(
 ): Promise<BadgePayload[]> {
   const { data: game } = await supabase
     .from('league_games')
-    .select('id, league_id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, is_exhibition, plus_one_player_id, plus_one_extra_ids')
+    .select('id, league_id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, is_exhibition, plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
     .eq('id', gameId)
     .maybeSingle()
 
@@ -213,7 +215,7 @@ export async function computePerGameBadges(
     const scoringEvents = events
       .filter(e => e.result === 'made' && e.league_player_id && e.team_id && e.video_timestamp !== null)
       .filter(e => {
-        const isP1 = isPlusOneFor(e.league_player_id, gamePlusOne, leaguePlusOneSet)
+        const isP1 = isPlusOneFor(e.league_player_id, gamePlusOne, leaguePlusOneSet, e.quarter ?? null)
         return scorePoints(e.type, e.result, isP1, rules) > 0
       })
       .sort((a, b) => (b.video_timestamp ?? 0) - (a.video_timestamp ?? 0))
@@ -221,7 +223,7 @@ export async function computePerGameBadges(
     const lastShot = scoringEvents[0]
     if (lastShot && lastShot.team_id === winnerTeamId) {
       const pid = lastShot.league_player_id!
-      const isP1 = isPlusOneFor(pid, gamePlusOne, leaguePlusOneSet)
+      const isP1 = isPlusOneFor(pid, gamePlusOne, leaguePlusOneSet, lastShot.quarter ?? null)
       const pts = scorePoints(lastShot.type, lastShot.result, isP1, rules)
       const winnerFinal = winnerTeamId === g.home_team_id ? homeScore : awayScore
       const loserFinal  = winnerTeamId === g.home_team_id ? awayScore : homeScore
@@ -264,7 +266,7 @@ export async function computeRoundBadges(
 
   const { data: games } = await supabase
     .from('league_games')
-    .select('id, league_id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, is_exhibition, plus_one_player_id, plus_one_extra_ids')
+    .select('id, league_id, date, home_team_id, away_team_id, home_score, away_score, is_started, is_complete, is_exhibition, plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
     .eq('league_id', leagueId)
     .eq('date', date)
     .eq('is_complete', true)

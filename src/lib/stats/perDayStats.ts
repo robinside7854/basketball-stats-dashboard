@@ -58,7 +58,7 @@ export async function computePerDayStats(
   // 1) 게임 목록 (id, date, home/away team, 스코어, exhibition 여부)
   let gQuery = supabase
     .from('league_games')
-    .select('id, date, home_team_id, away_team_id, home_score, away_score, is_exhibition, plus_one_player_id, plus_one_extra_ids')
+    .select('id, date, home_team_id, away_team_id, home_score, away_score, is_exhibition, plus_one_player_id, plus_one_extra_ids, plus_one_quarters')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     // 친선전 제외 — 이 집계는 스트릭(10득점 연속·더블더블 연속 등)의 소스다.
@@ -76,7 +76,7 @@ export async function computePerDayStats(
     home_score: number; away_score: number
     is_exhibition: boolean | null
     plus_one_player_id: string | null
-    plus_one_extra_ids: string[] | null
+    plus_one_extra_ids: string[] | null; plus_one_quarters: Record<string, number[]> | null
   }>
   if (gameRows.length === 0) {
     return { dayStats: new Map(), dayWL: new Map(), allDates: [] }
@@ -102,6 +102,7 @@ export async function computePerDayStats(
   const PAGE = 1000
   type EvRow = {
     league_game_id: string
+    quarter: number | null
     league_player_id: string | null
     related_player_id: string | null
     team_id: string | null
@@ -113,7 +114,7 @@ export async function computePerDayStats(
   for (let p = 0; ; p++) {
     const { data: chunk, error: evErr } = await supabase
       .from('league_game_events')
-      .select('league_game_id, league_player_id, related_player_id, team_id, type, result, points')
+      .select('league_game_id, league_player_id, related_player_id, team_id, type, result, points, quarter')
       .in('league_game_id', gameIds)
       .order('id', { ascending: true })
       .range(p * PAGE, (p + 1) * PAGE - 1)
@@ -157,7 +158,7 @@ export async function computePerDayStats(
       const s = ensurePlayerDay(pid, date)
       const made = e.result === 'made'
       // 플러스원 판정 후 scorePoints 로 재계산 — 저장된 points 컬럼은 더 이상 신뢰하지 않는다(Task 5).
-      const isP1 = isPlusOneFor(pid, g as GamePlusOne, plusOneSet)
+      const isP1 = isPlusOneFor(pid, g as GamePlusOne, plusOneSet, e.quarter ?? null)
       const pts = scorePoints(e.type, e.result, isP1, rules)
 
       switch (e.type) {

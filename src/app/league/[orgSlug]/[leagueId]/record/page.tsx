@@ -40,7 +40,11 @@ type GameSlot = {
   is_exhibition?: boolean
   /** 이 경기에서만 +1 로 치는 선수 (110). 전역 플래그·배타 지정에 더해진다. */
   plus_one_extra_ids?: string[] | null
+  /** 선수별 +1 유효 쿼터 (113). 키가 없으면 전 쿼터. `{ "<playerId>": [1,2] }` */
+  plus_one_quarters?: Record<string, number[]> | null
   home_score: number; away_score: number
+  /** 대회 상대팀 최종 점수(112) — 마감할 때 손으로 넣는다. null 이면 아직 안 넣은 것. */
+  opponent_score_manual?: number | null
   youtube_url?: string | null; youtube_start_offset?: number
   home_team_id?: string | null; away_team_id?: string | null
   quarter_id?: string | null
@@ -88,9 +92,7 @@ export default function LeagueRecordPage() {
 
 // ── 내부 컴포넌트 ─────────────────────────────────────────────
 function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; leagueId: string; leagueHeaders: Record<string, string> }) {
-  // getCurrentTimestamp — 상대 득점도 영상 시각을 남겨야 클립·러닝스코어가 맞는다
-  //   (LeagueEventInputPad 가 자기 이벤트에 쓰는 것과 같은 함수)
-  const { setCurrentGame, ytPlayer, getCurrentTimestamp } = useGameStore()
+  const { setCurrentGame, ytPlayer } = useGameStore()
   const { setLineup, resetLineup, onCourt } = useLineupStore()
 
   // ── YouTube 원격 제어 ────────────────────────────────────────
@@ -244,6 +246,15 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     : null
   /** 대회에서 기록 대상이 되는 우리 팀 명단. 리그면 홈+어웨이 둘 다가 대상이라 여기 안 쓴다. */
   const ourRoster = ourSide === 'home' ? homeRoster : ourSide === 'away' ? awayRoster : []
+
+  // 마감 모달에서 넣는 상대 최종 점수(112). 우리 점수는 기록에서 나오므로 여기 없다.
+  const [oppFinalScore, setOppFinalScore] = useState('')
+  const [savingOppScore, setSavingOppScore] = useState(false)
+  // 경기를 바꾸거나 마감 모달을 열 때 저장돼 있던 값을 채운다 — 마감 해제 후 다시 마감할 때
+  //   이전에 넣은 점수가 그대로 보여야 "다시 입력"이 아니라 "고치기"가 된다.
+  useEffect(() => {
+    setOppFinalScore(selectedSlot?.opponent_score_manual != null ? String(selectedSlot.opponent_score_manual) : '')
+  }, [selectedSlotId, selectedSlot?.opponent_score_manual])
 
   // 지금 화면에서 재생해야 할 영상 — 대회는 기록 중인 쿼터의 영상, 없으면 경기 대표 영상.
   //   판정 규칙은 서버의 gameVideo.ts 와 같다(쿼터 영상 우선 → 대표 폴백).
@@ -1078,6 +1089,49 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   //   선수 목록의 +1 은 **전역 플래그**라 켜는 순간 과거 마감 경기까지 소급된다 —
   //   그 선수의 과거 야투마다 점수가 올라가 순위·기록이 통째로 바뀐다. 그래서 "이번 경기만"은
   //   반드시 경기 쪽(league_games.plus_one_extra_ids)에 담는다. 판정 정본은 scoring.ts isPlusOneFor().
+  /**
+   * 한 선수의 +1 을 특정 쿼터에서만 적용/해제 (113).
+   *
+   * 전반과 후반의 +1 선수가 다른 경기가 있다. 경기 단위 지정만으로는 둘 중 하나만 고를 수
+   * 있어 어느 쪽으로 정하든 절반이 틀린 점수가 된다.
+   * ⚠ 저장 후 반드시 recompute — 이미 기록된 이벤트의 저장 점수가 옛 판정으로 남으면
+   *   화면 집계(재계산)와 저장 스코어가 갈린다(2026-08-23 에 실제로 1건 어긋난 적이 있다).
+   */
+  async function togglePlusOneQuarter(playerId: string, quarter: number) {
+    if (!selectedSlot || savingExtraP1) return
+    const cur = (selectedSlot.plus_one_quarters ?? {}) as Record<string, number[]>
+    // 지정이 없으면 "전 쿼터" 다 — 거기서 한 쿼터를 끄면 나머지 전부가 남는다.
+    const base = cur[playerId] ?? QUARTER_OPTIONS.map(q => q.value)
+    const next = base.includes(quarter) ? base.filter(q => q !== quarter) : [...base, quarter].sort((a, b) => a - b)
+
+    const merged: Record<string, number[]> = { ...cur }
+    // 전 쿼터가 켜졌으면 제한이 없는 것과 같다 — 키를 지워 "제한 없음" 으로 되돌린다.
+    if (next.length === 0 || next.length === QUARTER_OPTIONS.length) delete merged[playerId]
+    else merged[playerId] = next
+
+    setSavingExtraP1(playerId)
+    try {
+      const r = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlot.id}`, {
+        method: 'PATCH',
+        headers: leagueHeaders,
+        body: JSON.stringify({ plus_one_quarters: Object.keys(merged).length > 0 ? merged : null }),
+      })
+      if (!r.ok) {
+        const b = await r.json().catch(() => ({}))
+        toast.error(b?.error ?? '쿼터별 +1 저장 실패')
+        return
+      }
+      const sc = await fetch(`/api/leagues/${leagueId}/games/${selectedSlot.id}/recompute`, {
+        method: 'POST', headers: { ...leagueHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+      }).then(res => res.ok ? res.json() : null).catch(() => null)
+      if (sc) setLiveScore({ home: sc.home_score ?? sc.home ?? 0, away: sc.away_score ?? sc.away ?? 0 })
+      await refreshSlots()
+      setStatsRefresh(v => v + 1)
+    } finally {
+      setSavingExtraP1(null)
+    }
+  }
+
   async function toggleExtraPlusOne(playerId: string, playerName: string) {
     if (!selectedSlot) return
     const cur = selectedSlot.plus_one_extra_ids ?? []
@@ -1395,8 +1449,44 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     }
   }
 
+  /** 대회 상대 최종 점수를 저장하고 스코어를 다시 계산한다. 마감 모달에서 쓴다. */
+  async function saveOppFinalScore(): Promise<boolean> {
+    if (!selectedSlotId) return false
+    const raw = oppFinalScore.trim()
+    const value = raw === '' ? null : Number(raw)
+    if (value !== null && (!Number.isInteger(value) || value < 0 || value > 300)) {
+      toast.error('상대 점수는 0~300 사이의 정수로 입력하세요')
+      return false
+    }
+    setSavingOppScore(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
+        method: 'PATCH',
+        headers: leagueHeaders,
+        body: JSON.stringify({ opponent_score_manual: value }),
+      })
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}))
+        toast.error(b?.error ?? '상대 점수 저장 실패')
+        return false
+      }
+      await refreshSlots()
+      // 저장 직후 재계산해야 모달의 스코어가 방금 넣은 값으로 바뀐다.
+      await fetchLiveScore()
+      return true
+    } finally {
+      setSavingOppScore(false)
+    }
+  }
+
   async function completeGame() {
     if (!selectedSlotId) { toast.error('경기를 선택하세요'); return }
+    // 대회는 마감이 곧 상대 점수를 확정하는 시점이다 — 재계산 **전에** 저장해야
+    //   아래 recompute 가 그 값을 반영한다(순서가 바뀌면 한 박자 늦게 반영된다).
+    if (isTournament) {
+      const ok = await saveOppFinalScore()
+      if (!ok) return
+    }
     setCompleting(true)
     try {
       const recomputeRes = await fetch(`/api/leagues/${leagueId}/games/${selectedSlotId}/recompute`, {
@@ -1479,68 +1569,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     if (res.ok) {
       const data = await res.json()
       setLiveScore({ home: data.home_score ?? data.home ?? 0, away: data.away_score ?? data.away ?? 0 })
-    }
-  }
-
-  // ── 상대 득점 (대회 전용) ──────────────────────────────────────────
-  //   상대 선수는 기록하지 않는다 — 선수 없이 **팀에만** 붙는 득점 이벤트를 남긴다.
-  //   타입이 곧 점수다(opp_score_1|2|3). 서버가 시즌 룰로 다시 채점하므로 여기서 보낸
-  //   점수는 신뢰되지 않는다 — 그래서 points 를 아예 보내지 않는다.
-  const [oppSaving, setOppSaving] = useState<number | null>(null)
-
-  async function recordOppScore(pts: 1 | 2 | 3) {
-    if (!selectedSlotId || !oppTeam?.id || oppSaving) return
-    setOppSaving(pts)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/events`, {
-        method: 'POST',
-        headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          league_game_id: selectedSlotId,
-          quarter: currentQuarter,
-          video_timestamp: getCurrentTimestamp(),
-          type: `opp_score_${pts}`,
-          result: 'made',
-          team_id: oppTeam.id,
-          league_player_id: null,
-        }),
-      })
-      if (!res.ok) {
-        const b = await res.json().catch(() => ({}))
-        toast.error(b?.error ?? `상대 득점 저장 실패 (${res.status})`)
-        return
-      }
-      await fetchLiveScore()
-      toast(`${oppTeam.name ?? '상대'} +${pts}점`, { duration: 1500 })
-    } finally {
-      setOppSaving(null)
-    }
-  }
-
-  /** 마지막 상대 득점 1건 취소 — 잘못 누른 걸 되돌릴 유일한 경로다(선수가 없어 게임로그에서 못 지운다). */
-  async function undoOppScore() {
-    if (!selectedSlotId || oppSaving) return
-    setOppSaving(0)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/events?gameId=${selectedSlotId}`)
-      if (!res.ok) { toast.error('기록을 불러오지 못했습니다'); return }
-      // GET 은 created_at 오름차순이라 마지막 원소가 가장 최근이다.
-      const rows = (await res.json()) as Array<{ id: string; type: string }>
-      const opp = rows.filter(e => e.type?.startsWith('opp_score_'))
-      if (opp.length === 0) { toast('취소할 상대 득점이 없습니다'); return }
-      const last = opp[opp.length - 1]
-      const del = await fetch(`/api/leagues/${leagueId}/events/${last.id}`, {
-        method: 'DELETE', headers: leagueHeaders,
-      })
-      if (!del.ok) {
-        const b = await del.json().catch(() => ({}))
-        toast.error(b?.error ?? '취소 실패')
-        return
-      }
-      await fetchLiveScore()
-      toast.success('상대 득점 1건 취소됨')
-    } finally {
-      setOppSaving(null)
     }
   }
 
@@ -2353,6 +2381,77 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     )
                   })}
                 </ul>
+
+                {/* 쿼터별 +1 (113) — 전반과 후반의 +1 선수가 다른 경기가 있다.
+                    +1 이 켜진 선수만 보여준다(꺼진 선수에겐 의미가 없다).
+                    지정이 없으면 전 쿼터 적용이라 처음엔 네 칸이 다 켜져 보인다. */}
+                {(() => {
+                  const active = [...homeRoster, ...awayRoster].filter(
+                    pl => pl.plus_one || (selectedSlot.plus_one_extra_ids ?? []).includes(pl.id),
+                  )
+                  if (active.length === 0) return null
+                  const limits = (selectedSlot.plus_one_quarters ?? {}) as Record<string, number[]>
+                  return (
+                    <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
+                      <div className="flex items-baseline gap-2 flex-wrap mb-2">
+                        <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>쿼터별 +1</span>
+                        <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                          전·후반 +1 선수가 다를 때 씁니다 · 끄면 그 쿼터에는 +1 이 붙지 않습니다
+                        </span>
+                      </div>
+                      {/* 선수마다 한 칸 — 이름과 토글을 같은 줄에 두면 좁은 화면에서 감겨
+                          "연장2 전 쿼터" 가 누구 것인지 흐려진다(375px 실측). */}
+                      <ul className="space-y-2 list-none p-0 m-0">
+                        {active.map(pl => {
+                          const on = limits[pl.id] ?? QUARTER_OPTIONS.map(q => q.value)
+                          const busy = savingExtraP1 === pl.id
+                          const limited = !!limits[pl.id]
+                          return (
+                            <li
+                              key={pl.id}
+                              className="p-2"
+                              style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                            >
+                              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                <span className="text-xs font-bold break-keep" style={{ color: 'var(--mm-ink)' }}>
+                                  {pl.name}
+                                </span>
+                                <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                                  {limited ? `${on.map(v => QUARTER_OPTIONS.find(q => q.value === v)?.label ?? v).join('·')} 만` : '전 쿼터'}
+                                </span>
+                                {busy && <Loader2 size={14} className="animate-spin" aria-hidden style={{ color: 'var(--mm-muted)' }} />}
+                              </div>
+                              <div className="flex gap-1 flex-wrap">
+                              {QUARTER_OPTIONS.map(q => {
+                                const active2 = on.includes(q.value)
+                                return (
+                                  <button
+                                    key={q.value}
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => togglePlusOneQuarter(pl.id, q.value)}
+                                    aria-pressed={active2}
+                                    aria-label={`${pl.name} ${q.label} +1 ${active2 ? '해제' : '적용'}`}
+                                    className="inline-flex items-center justify-center min-h-11 min-w-11 px-2 text-xs font-bold cursor-pointer transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                                    style={active2
+                                      ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
+                                      : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                                  >
+                                    {q.label}
+                                  </button>
+                                )
+                              })}
+                              </div>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                      <p className="mt-2 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+                        이미 기록한 경기도 여기서 고치면 점수가 다시 계산됩니다.
+                      </p>
+                    </div>
+                  )
+                })()}
               </div>
             )}
 
@@ -2800,46 +2899,21 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         refreshKey={statsRefresh}
                       />
 
-                      {/* 상대 득점 (대회 전용) — 상대 선수는 기록하지 않고 점수만 남긴다.
-                          이 버튼이 없으면 대회 경기의 스코어가 우리 득점만 쌓여 항상 이긴 것으로 보인다. */}
+                      {/* 상대 점수 안내 (대회) — 실시간으로 따라 누르지 않는다.
+                          사용자 결정(2026-08-30): 우리 기록만으로도 손이 모자라므로
+                          **마감할 때 최종 점수를 한 번에** 넣는다. 그 입력은 마감 모달에 있다. */}
                       {isTournament && oppTeam && (
                         <div
-                          className="p-3 space-y-2"
+                          className="p-3"
                           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                         >
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
-                              상대 득점 — {oppTeam.name ?? '상대팀'}
-                            </p>
-                            <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>선수는 기록하지 않습니다</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {([1, 2, 3] as const).map(pts => (
-                              <button
-                                key={pts}
-                                type="button"
-                                onClick={() => recordOppScore(pts)}
-                                disabled={oppSaving !== null}
-                                aria-label={`상대팀 ${pts}점 추가`}
-                                className="inline-flex items-center justify-center min-h-[44px] min-w-[56px] px-3 text-sm font-black rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                                style={{ background: 'var(--mm-panel)', color: 'var(--mm-live)', border: '1px solid var(--mm-live)' }}
-                              >
-                                {oppSaving === pts ? <Loader2 size={16} className="animate-spin" aria-hidden /> : `+${pts}`}
-                              </button>
-                            ))}
-                            <button
-                              type="button"
-                              onClick={undoOppScore}
-                              disabled={oppSaving !== null}
-                              aria-label="상대 득점 마지막 1건 취소"
-                              title="잘못 누른 상대 득점을 되돌립니다"
-                              className="inline-flex items-center gap-1 min-h-[44px] px-3 text-xs font-bold rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                              style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
-                            >
-                              {oppSaving === 0 ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <RefreshCw size={14} aria-hidden />}
-                              취소
-                            </button>
-                          </div>
+                          <p className="text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+                            <strong style={{ color: 'var(--mm-ink-soft)' }}>{oppTeam.name ?? '상대팀'}</strong> 점수는
+                            경기 <strong style={{ color: 'var(--mm-ink-soft)' }}>마감</strong>할 때 최종 점수로 한 번에 넣습니다.
+                            {selectedSlot.opponent_score_manual != null && (
+                              <> · 현재 입력값 <strong style={{ color: 'var(--mm-ink)' }}>{selectedSlot.opponent_score_manual}점</strong></>
+                            )}
+                          </p>
                         </div>
                       )}
 
@@ -3258,7 +3332,33 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                   <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm space-y-4">
                     <h3 className="text-white font-bold">경기 마감</h3>
-                    <p className="text-xs text-gray-400">이벤트 기반 점수로 자동 계산됩니다.</p>
+                    <p className="text-xs text-gray-400">
+                      {isTournament
+                        ? '우리 팀 점수는 기록에서 자동 계산됩니다. 상대 점수만 입력하세요.'
+                        : '이벤트 기반 점수로 자동 계산됩니다.'}
+                    </p>
+
+                    {/* 대회 — 상대 최종 점수. 상대는 선수를 기록하지 않으므로 점수가 여기서만 들어온다.
+                        마감 해제 후 다시 열면 저장된 값이 채워져 "고치기" 가 된다. */}
+                    {isTournament && oppTeam && (
+                      <div className="space-y-1.5">
+                        <label htmlFor="opp-final" className="block text-xs font-bold text-gray-300">
+                          {oppTeam.name ?? '상대팀'} 최종 점수
+                        </label>
+                        <input
+                          id="opp-final"
+                          type="number" inputMode="numeric" min={0} max={300}
+                          value={oppFinalScore}
+                          onChange={e => setOppFinalScore(e.target.value)}
+                          onBlur={() => { if (oppFinalScore.trim() !== '') fetchLiveScore() }}
+                          placeholder="예: 42"
+                          className="w-full min-h-[44px] px-3 rounded-lg bg-gray-800 border border-gray-700 text-white text-lg font-bold tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        />
+                        <p className="text-xs text-gray-500">
+                          비워 두면 상대 점수는 0으로 남습니다. 나중에 마감을 해제하고 고칠 수 있습니다.
+                        </p>
+                      </div>
+                    )}
                     {liveScore && (
                       <div className="bg-gray-800 rounded-xl p-4 text-center">
                         <div className="flex items-center justify-center gap-4">
@@ -3290,11 +3390,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     <div className="flex gap-2">
                       <Button
                         onClick={completeGame}
-                        disabled={completing}
+                        disabled={completing || savingOppScore}
                         className="flex-1 bg-blue-600 hover:bg-blue-500 cursor-pointer disabled:opacity-50"
                         size="sm"
                       >
-                        {completing ? <><Loader2 size={14} className="mr-1 animate-spin" />처리 중...</> : '완료 처리'}
+                        {completing || savingOppScore
+                          ? <><Loader2 size={14} className="mr-1 animate-spin" />처리 중...</>
+                          : selectedSlot?.is_complete ? '다시 마감' : '완료 처리'}
                       </Button>
                       <Button
                         onClick={() => { setShowComplete(false); setLiveScore(null) }}

@@ -67,9 +67,18 @@ const rows = await query(`
   SELECT e.id, e.type, e.result, e.points, g.date,
          -- +1 판정 (scoring.ts isPlusOneFor 와 같은 순서):
          --   1) 경기 한정 추가(plus_one_extra_ids, 110)  2) 경기별 배타 지정  3) 선수 전역 플래그
-         (e.league_player_id = ANY(COALESCE(g.plus_one_extra_ids, '{}'))
-          OR (g.plus_one_player_id IS NOT NULL AND e.league_player_id = g.plus_one_player_id)
-          OR (g.plus_one_player_id IS NULL AND p.plus_one)) AS is_p1
+         --   그 뒤 4) 쿼터 제한(plus_one_quarters, 113) — 그 선수에게 지정이 있으면 그 쿼터에만.
+         --   ⚠ 이 SQL 은 isPlusOne 판정의 **복제본**이다. scoring.ts 를 고치면 여기도 같이 고친다
+         --     (안 고치면 검사가 옛 규칙으로 통과시켜 진짜 불일치를 놓친다).
+         ((e.league_player_id = ANY(COALESCE(g.plus_one_extra_ids, '{}'))
+           OR (g.plus_one_player_id IS NOT NULL AND e.league_player_id = g.plus_one_player_id)
+           OR (g.plus_one_player_id IS NULL AND p.plus_one))
+          AND (
+            g.plus_one_quarters IS NULL
+            OR NOT (g.plus_one_quarters ? e.league_player_id::text)
+            OR jsonb_array_length(g.plus_one_quarters -> e.league_player_id::text) = 0
+            OR (g.plus_one_quarters -> e.league_player_id::text) @> to_jsonb(e.quarter)
+          )) AS is_p1
     FROM league_game_events e
     JOIN league_games   g ON g.id = e.league_game_id
     JOIN league_players p ON p.id = e.league_player_id

@@ -95,7 +95,7 @@ export async function computeLeagueStats(
   // 2) 대상 게임 ID 추출
   let gQuery = sb
     .from('league_games')
-    .select('id, plus_one_player_id, plus_one_extra_ids, date, round_num')
+    .select('id, plus_one_player_id, plus_one_extra_ids, plus_one_quarters, date, round_num')
     .eq('league_id', leagueId)
     .eq('is_started', true)
     // 친선전(비공식 라운드)은 집계에서 제외한다. 039 는 "순위만 빼고 개인 스탯엔 포함"으로 시작했으나, 팀을 새로 짜서
@@ -127,6 +127,7 @@ export async function computeLeagueStats(
   // 3) 이벤트 페이지네이션
   type EventRow = {
     league_player_id: string | null
+    quarter: number | null
     related_player_id: string | null
     team_id: string | null
     type: string
@@ -141,7 +142,7 @@ export async function computeLeagueStats(
   while (true) {
     let q = sb
       .from('league_game_events')
-      .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id, video_timestamp')
+      .select('league_player_id, related_player_id, team_id, type, result, points, league_game_id, video_timestamp, quarter')
       .in('league_game_id', gameIds)
       .not('league_player_id', 'is', null)
       // ⚠ ORDER BY 없으면 페이지네이션 중복/누락 발생
@@ -268,7 +269,7 @@ export async function computeLeagueStats(
     }
 
     const made = e.result === 'made'
-    const isPlusOne = isPlusOneFor(pid, gamePlusOneMap[e.league_game_id], plusOneSet)
+    const isPlusOne = isPlusOneFor(pid, gamePlusOneMap[e.league_game_id], plusOneSet, e.quarter ?? null)
 
     const pts = scorePoints(e.type, e.result, isPlusOne, scoringRules)
     switch (e.type) {
