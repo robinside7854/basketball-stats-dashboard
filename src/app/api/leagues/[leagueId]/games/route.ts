@@ -6,6 +6,7 @@ import { canViewLeague } from '@/lib/auth/guard'
 import { syncBadgesForGame } from '@/lib/badges/computeBadges'
 import { syncYoutubeForLeague } from '@/lib/youtube/syncYoutubeForLeague'
 import { logAudit } from '@/lib/audit'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 export async function GET(
   req: Request,
@@ -66,6 +67,28 @@ export async function GET(
         if (ov[g.away_team.id].name) g.away_team.name = ov[g.away_team.id].name
         if (ov[g.away_team.id].color) g.away_team.color = ov[g.away_team.id].color
       }
+    }
+  }
+
+  // `?withVideos=1` — 각 경기에 붙은 **쿼터 영상 번호**를 함께 준다.
+  //   대회 관리 화면이 경기마다 "영상 3/4" 를 보여줘야 하는데, 경기 수만큼 조회를 돌리면
+  //   대회 하나 펼칠 때마다 왕복이 그만큼 늘어난다. 한 번에 읽어 붙인다.
+  if (searchParams.get('withVideos') === '1' && games.length > 0) {
+    const ids = games.map(g => (g as { id: string }).id)
+    const { data: vids, error: vErr } = await supabase
+      .from('league_game_videos')
+      .select('league_game_id, quarter')
+      .in('league_game_id', ids)
+    // 조용히 빈 배열로 넘기면 "영상 0개" 로 보여 기록원이 이미 붙인 영상을 다시 붙인다.
+    if (vErr) return NextResponse.json({ error: `쿼터 영상 조회 실패 — ${vErr.message}` }, { status: 500 })
+    const byGame = new Map<string, number[]>()
+    for (const v of (vids ?? []) as Array<{ league_game_id: string; quarter: number }>) {
+      const arr = byGame.get(v.league_game_id) ?? []
+      arr.push(v.quarter)
+      byGame.set(v.league_game_id, arr)
+    }
+    for (const g of games as Array<{ id: string; video_quarters?: number[] }>) {
+      g.video_quarters = (byGame.get(g.id) ?? []).sort((a, b) => a - b)
     }
   }
 
@@ -228,6 +251,57 @@ export async function POST(
 //   여기서 자유 입력을 허용하면 "8강전" 같은 변형이 들어와 성적이 '탈락 라운드 미상'으로 빠진다.
 const ROUND_LABELS = ['조별예선', '16강', '8강', '4강', '준결승', '결승'] as const
 
+type Sb = ReturnType<typeof createClient>
+
+/**
+ * 그 날짜를 일정에 등록한다.
+ *
+ * 기록 화면의 날짜 목록이 league_schedule_dates 에서 오므로, 여기에 없으면 경기를 등록해도
+ * **기록할 날짜가 화면에 안 뜬다**("등록은 됐는데 기록을 못 하는" 상태).
+ * ⚠ is_skipped=false 로 되살린다 — 대회 묶음에는 리그용 주간 일정 자동생성이 남긴 '미실시'
+ *   날짜가 섞여 있는데, 그 날 실제로 대회 경기를 치르면 그건 더 이상 미실시가 아니다.
+ */
+async function ensureScheduleDate(supabase: Sb, leagueId: string, date: string) {
+  const { error } = await supabase
+    .from('league_schedule_dates')
+    .upsert({ league_id: leagueId, date, is_skipped: false }, { onConflict: 'league_id,date' })
+  // 경기가 진짜다 — 여기서 실패해도 되돌리지 않고 기록만 남긴다.
+  if (error) console.error(`[tournament] 일정 날짜 등록 실패 date=${date}:`, error.message)
+}
+
+/** 이 날짜의 다음 슬롯 번호. UNIQUE (league_id, date, slot_num) 와 목록 정렬이 이 값을 쓴다. */
+async function nextSlotNum(supabase: Sb, leagueId: string, date: string): Promise<number | null> {
+  const { data, error } = await supabase
+    .from('league_games')
+    .select('slot_num')
+    .eq('league_id', leagueId)
+    .eq('date', date)
+  if (error) return null
+  return Math.max(0, ...(data ?? []).map(g => g.slot_num ?? 0)) + 1
+}
+
+/**
+ * 상대(외부)팀을 이름으로 확보한다 — 있으면 재사용, 없으면 만든다.
+ *
+ * ⚠ 매번 새로 만들면 같은 상대와의 전적이 **이름만 같은 여러 팀으로 흩어진다.**
+ * ⚠ is_external 플래그 하나가 통계·어워즈·명단 노출 전체를 가른다(teams POST 주석).
+ */
+async function ensureOpponentTeam(supabase: Sb, leagueId: string, name: string): Promise<string | null> {
+  const { data: rows } = await supabase
+    .from('league_teams')
+    .select('id, name, is_external')
+    .eq('league_id', leagueId)
+    .is('exhibition_date', null)
+  const hit = (rows ?? []).find(t => t.is_external === true && t.name === name)
+  if (hit) return hit.id
+  const { data: created } = await supabase
+    .from('league_teams')
+    .insert({ league_id: leagueId, name, color: '#ef4444', is_external: true })
+    .select('id')
+    .single()
+  return created?.id ?? null
+}
+
 /**
  * 대회 경기 한 건 등록.
  *
@@ -291,36 +365,27 @@ async function createTournamentGame(req: Request, leagueId: string, body: Record
 
   let ourTeamId = teams.find(t => t.is_external === false)?.id ?? null
   if (!ourTeamId) {
+    // 이름은 **실제 팀명**을 쓴다. '우리 팀' 같은 자리표시자를 넣으면 박스스코어·전적·공유
+    //   이미지에 그대로 노출된다(상대는 진짜 이름인데 우리만 '우리 팀'으로 뜬다).
+    const { data: team } = await supabase
+      .from('teams')
+      .select('name')
+      .eq('id', await resolveTeamId(leagueId))
+      .maybeSingle()
     const { data: created, error: cErr } = await supabase
       .from('league_teams')
-      .insert({ league_id: leagueId, name: '우리 팀', color: '#3b82f6', is_external: false })
+      .insert({ league_id: leagueId, name: team?.name || '우리 팀', color: '#3b82f6', is_external: false })
       .select('id')
       .single()
     if (cErr || !created) return NextResponse.json({ error: '참가팀을 만들지 못했습니다' }, { status: 500 })
     ourTeamId = created.id
   }
 
-  let oppTeamId = teams.find(t => t.is_external === true && t.name === opponent)?.id ?? null
-  if (!oppTeamId) {
-    const { data: created, error: cErr } = await supabase
-      .from('league_teams')
-      .insert({ league_id: leagueId, name: opponent, color: '#ef4444', is_external: true })
-      .select('id')
-      .single()
-    if (cErr || !created) return NextResponse.json({ error: '상대팀을 만들지 못했습니다' }, { status: 500 })
-    oppTeamId = created.id
-  }
+  const oppTeamId = await ensureOpponentTeam(supabase, leagueId, opponent)
+  if (!oppTeamId) return NextResponse.json({ error: '상대팀을 만들지 못했습니다' }, { status: 500 })
 
-  // ── 슬롯 번호 ────────────────────────────────────────────────────
-  //   대회에서도 slot_num 은 필요하다 — UNIQUE (league_id, date, slot_num) 와 목록 정렬이
-  //   이 값을 쓴다. 같은 날 여러 경기를 치르므로 그 날짜 안에서 다음 번호를 잡는다.
-  const { data: sameDay, error: sErr } = await supabase
-    .from('league_games')
-    .select('slot_num')
-    .eq('league_id', leagueId)
-    .eq('date', date)
-  if (sErr) return NextResponse.json({ error: '그날 경기를 확인하지 못했습니다' }, { status: 500 })
-  const nextSlot = Math.max(0, ...(sameDay ?? []).map(g => g.slot_num ?? 0)) + 1
+  const nextSlot = await nextSlotNum(supabase, leagueId, date)
+  if (nextSlot == null) return NextResponse.json({ error: '그날 경기를 확인하지 못했습니다' }, { status: 500 })
 
   const { data: game, error: gErr } = await supabase
     .from('league_games')
@@ -354,17 +419,7 @@ async function createTournamentGame(req: Request, leagueId: string, body: Record
   }
   if (gErr || !game) return NextResponse.json({ error: gErr?.message ?? '경기를 만들지 못했습니다' }, { status: 500 })
 
-  // 기록 화면의 날짜 목록은 league_schedule_dates 에서 온다 — 여기에 없으면 경기를 등록해도
-  //   기록할 날짜가 화면에 안 뜬다("등록은 됐는데 기록을 못 하는" 상태). 그래서 함께 넣는다.
-  //   ⚠ is_skipped=false 로 되살린다. 대회 묶음에는 리그용 주간 일정 자동생성이 남긴 '미실시'
-  //     날짜가 섞여 있는데, 그 날 실제로 대회 경기를 치르면 그건 더 이상 미실시가 아니다.
-  const { error: sdErr } = await supabase
-    .from('league_schedule_dates')
-    .upsert({ league_id: leagueId, date, is_skipped: false }, { onConflict: 'league_id,date' })
-  // 경기는 이미 만들어졌다 — 여기서 실패해도 되돌리지 않고 알리기만 한다(경기가 진짜다).
-  if (sdErr) {
-    console.error(`[tournament_game.create] 일정 날짜 등록 실패 date=${date}:`, sdErr.message)
-  }
+  await ensureScheduleDate(supabase, leagueId, date)
 
   await logAudit({
     req, action: 'tournament_game.create', targetTable: 'league_games',
@@ -378,6 +433,135 @@ async function createTournamentGame(req: Request, leagueId: string, body: Record
   return NextResponse.json(game, { status: 201 })
 }
 
+/**
+ * 대회 경기 수정 — 날짜 · 상대팀 · 라운드 · 장소 · 좌우.
+ *
+ * 기록이 시작된 뒤에는 **라운드·장소만** 고칠 수 있다.
+ *   날짜를 옮기면 slot_num 을 다시 잡아야 하고, 상대·좌우를 바꾸면 league_game_events.team_id 가
+ *   이 경기와 무관한 팀을 가리켜 **그 선수들이 박스스코어에서 통째로 사라진다**(화면은 멀쩡하고
+ *   점수만 빈다 — 2026-08-23 에 실제로 당했다). 그 이관은 이미 전용 경로가 있다:
+ *   `POST /games/[gameId]/reassign-teams`.
+ */
+async function updateTournamentGame(
+  leagueId: string, gameId: string, body: Record<string, unknown>,
+) {
+  const supabase = createClient()
+
+  const { data: game, error: gErr } = await supabase
+    .from('league_games')
+    .select('id, date, slot_num, is_started, is_complete, home_team_id, away_team_id')
+    .eq('id', gameId)
+    .eq('league_id', leagueId)
+    .maybeSingle()
+  if (gErr) return NextResponse.json({ error: '경기를 확인하지 못했습니다' }, { status: 500 })
+  if (!game) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const { count: evCount, error: cErr } = await supabase
+    .from('league_game_events')
+    .select('id', { count: 'exact', head: true })
+    .eq('league_game_id', gameId)
+  if (cErr) return NextResponse.json({ error: '경기 기록을 확인하지 못했습니다' }, { status: 500 })
+  const locked = (evCount ?? 0) > 0 || game.is_started === true || game.is_complete === true
+
+  const patch: Record<string, unknown> = {}
+
+  // ── 언제든 고칠 수 있는 것 ──────────────────────────────
+  if (body.round_label !== undefined) {
+    const r = body.round_label
+    if (r != null && r !== '' && !ROUND_LABELS.includes(r as typeof ROUND_LABELS[number])) {
+      return NextResponse.json({ error: `라운드는 ${ROUND_LABELS.join(' · ')} 중 하나여야 합니다` }, { status: 400 })
+    }
+    patch.round_label = (r === '' || r == null) ? null : r
+  }
+  if (body.venue !== undefined) {
+    patch.venue = typeof body.venue === 'string' ? (body.venue.trim().slice(0, 60) || null) : null
+  }
+
+  // ── 기록 시작 전에만 고칠 수 있는 것 ────────────────────
+  const wantsDate = typeof body.date === 'string' && body.date && body.date !== game.date
+  const opponentName = typeof body.opponent_name === 'string' ? body.opponent_name.trim() : ''
+  const wantsAwayFlag = body.we_are_away !== undefined
+
+  if ((wantsDate || opponentName || wantsAwayFlag) && locked) {
+    // 라운드·장소만 바꾸려던 요청이 여기 걸리면 안 되므로, 실제로 바뀌는 게 있을 때만 막는다.
+    const changingTeams = !!opponentName || wantsAwayFlag
+    if (wantsDate || changingTeams) {
+      return NextResponse.json(
+        {
+          error: '기록이 시작된 경기는 날짜·상대팀을 여기서 바꿀 수 없습니다. 라운드와 장소만 수정됩니다.',
+          hint: '팀을 바로잡아야 하면 기록 화면의 팀 교체를 쓰세요(기록의 소속 팀도 함께 옮깁니다).',
+        },
+        { status: 409 },
+      )
+    }
+  }
+
+  if (!locked) {
+    if (wantsDate) {
+      const date = body.date as string
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        return NextResponse.json({ error: '경기 날짜는 YYYY-MM-DD 형식이어야 합니다' }, { status: 400 })
+      }
+      // 날짜가 바뀌면 슬롯 번호를 그 날짜 기준으로 다시 잡는다 —
+      //   안 잡으면 UNIQUE (league_id, date, slot_num) 에 걸려 23505 로 실패한다.
+      const slot = await nextSlotNum(supabase, leagueId, date)
+      if (slot == null) return NextResponse.json({ error: '그날 경기를 확인하지 못했습니다' }, { status: 500 })
+      patch.date = date
+      patch.slot_num = slot
+      patch.round_num = slot
+    }
+
+    if (opponentName || wantsAwayFlag) {
+      // 지금 우리 팀이 어느 쪽인지 먼저 판정한다(좌우가 이미 뒤집혀 있을 수 있다).
+      const ids = [game.home_team_id, game.away_team_id].filter(Boolean) as string[]
+      const { data: cur } = await supabase
+        .from('league_teams').select('id, is_external').eq('league_id', leagueId).in('id', ids)
+      const ourId = (cur ?? []).find(t => t.is_external === false)?.id ?? null
+      if (!ourId) return NextResponse.json({ error: '이 경기의 우리 팀을 찾지 못했습니다' }, { status: 400 })
+
+      let oppId = (cur ?? []).find(t => t.is_external === true)?.id ?? null
+      if (opponentName) {
+        if (opponentName.length > 40) {
+          return NextResponse.json({ error: '상대팀 이름은 40자까지입니다' }, { status: 400 })
+        }
+        oppId = await ensureOpponentTeam(supabase, leagueId, opponentName)
+        if (!oppId) return NextResponse.json({ error: '상대팀을 만들지 못했습니다' }, { status: 500 })
+      }
+      if (!oppId) return NextResponse.json({ error: '이 경기의 상대팀을 찾지 못했습니다' }, { status: 400 })
+
+      const away = wantsAwayFlag ? body.we_are_away === true : game.away_team_id === ourId
+      patch.home_team_id = away ? oppId : ourId
+      patch.away_team_id = away ? ourId : oppId
+    }
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: '변경할 수 있는 항목이 없습니다' }, { status: 400 })
+  }
+
+  const { data, error } = await supabase
+    .from('league_games')
+    .update(patch)
+    .eq('id', gameId)
+    .eq('league_id', leagueId)
+    .select(`
+      *,
+      home_team:league_teams!league_games_home_team_id_fkey(id, name, color, is_external),
+      away_team:league_teams!league_games_away_team_id_fkey(id, name, color, is_external)
+    `)
+    .single()
+  if (error?.code === '23505') {
+    return NextResponse.json({ error: '그 날짜에 같은 번호의 경기가 방금 생겼습니다. 다시 시도해 주세요.' }, { status: 409 })
+  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  if (typeof patch.date === 'string') await ensureScheduleDate(supabase, leagueId, patch.date)
+
+  revalidateTag(`league-${leagueId}`, 'max')
+  revalidateTag(`league-${leagueId}-games`, 'max')
+  return NextResponse.json(data)
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
@@ -388,6 +572,12 @@ export async function PATCH(
   const gameId = searchParams.get('gameId')
   if (!gameId) return NextResponse.json({ error: 'gameId is required' }, { status: 400 })
   const body = await req.json()
+
+  // 대회 경기 수정은 만드는 것과 마찬가지로 성격이 다르다(날짜 이동 시 슬롯 재배정 ·
+  //   상대팀 이름 확보). 아래 일반 PATCH 에 조건을 얹으면 두 의미가 한 함수 안에서 싸운다.
+  if (body?.mode === 'tournament') {
+    return updateTournamentGame(leagueId, gameId, body)
+  }
 
   // 허용 컬럼만 통과시킨다. 받은 객체를 그대로 update 에 넘기면 요청 하나로 league_id 를
   // 바꿔 경기를 통째로 다른 리그로 옮길 수 있다(대량 할당) — 아래 league_id 스코프도

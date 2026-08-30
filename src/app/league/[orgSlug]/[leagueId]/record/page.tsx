@@ -325,6 +325,34 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     init()
   }, [leagueId])
 
+  // 대회 관리 화면의 「기록」 버튼이 보내는 딥링크 — `?date=YYYY-MM-DD&game=<id>`.
+  //   없으면 종전대로 날짜 목록부터 시작한다.
+  //   ⚠ `useSearchParams()` 를 쓰지 않는다 — 이 페이지는 Suspense 경계가 없어서 그걸 쓰면
+  //     빌드가 깨진다(일정 화면이 같은 이유로 내부 컴포넌트를 분리해 뒀다).
+  //     여기서 필요한 건 최초 1회 읽기뿐이라 location 으로 충분하다.
+  const deepLinkRef = useRef(false)
+  useEffect(() => {
+    if (deepLinkRef.current) return
+    if (loadingDates || scheduleDates.length === 0) return
+    const sp = new URLSearchParams(window.location.search)
+    const date = sp.get('date')
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { deepLinkRef.current = true; return }
+    deepLinkRef.current = true
+    ;(async () => {
+      await selectDate(date)
+      // 슬롯은 selectDate 의 setState 가 반영된 뒤에야 목록에 있다 — 여기서 직접 다시 읽는다.
+      const gameId = sp.get('game')
+      if (!gameId) return
+      const res = await fetch(`/api/leagues/${leagueId}/games?date=${date}`, { cache: 'no-store' })
+      if (!res.ok) return
+      const rows = (await res.json()) as GameSlot[]
+      const hit = rows.find(s => s.id === gameId)
+      if (hit) await selectSlot(hit)
+    })()
+    // selectDate/selectSlot 은 매 렌더 새로 만들어진다 — 넣으면 매번 다시 돈다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadingDates, scheduleDates.length, leagueId])
+
   // 선택한 날짜/슬랏의 분기로 teams 자동 갱신 — 분기별 팀명/색상 override 적용
   //   버그 수정 (2026-07-18): dateQuarterMap 이 초기 로딩 타이밍 문제로 미준비 상태이거나
   //     이전 분기 teams 상태(락다운 등)가 남아있는 경우 잘못된 이름이 dropdown 에 노출됨.
@@ -440,14 +468,20 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
     if (!date) return
     setInitializingSlots(true)
-    const res = await fetch(`/api/leagues/${leagueId}/games`, {
-      method: 'POST',
-      headers: leagueHeaders,
-      body: JSON.stringify({ date }),
-    })
+    // ⚠ 대회는 **슬롯을 만들지 않는다.** 리그는 날짜를 열면 games_per_round 만큼 빈 슬롯을
+    //   깔지만, 대회 경기는 대회(quarter_id)·상대팀과 함께 등록돼야 한다 — 여기서 만든 빈 슬롯은
+    //   어느 대회 카드에도 안 잡히는 미아 경기가 되고, 기록하면 그 기록도 갈 곳이 없다.
+    //   그래서 있는 경기만 읽는다.
+    const res = isTournament
+      ? await fetch(`/api/leagues/${leagueId}/games?date=${date}`, { cache: 'no-store' })
+      : await fetch(`/api/leagues/${leagueId}/games`, {
+          method: 'POST',
+          headers: leagueHeaders,
+          body: JSON.stringify({ date }),
+        })
     setInitializingSlots(false)
     if (res.ok) setSlots(await res.json())
-    else toast.error('슬랏 생성 실패')
+    else toast.error(isTournament ? '경기를 불러오지 못했습니다' : '슬랏 생성 실패')
   }
 
   // 슬랏 선택

@@ -193,7 +193,9 @@ await check(
      (SELECT count(*)::int FROM league_players WHERE league_id IN (${BASELINE_LEAGUES}))                               AS players,
      (SELECT count(*)::int FROM league_game_events WHERE league_game_id IN
         (SELECT id FROM league_games WHERE league_id IN (${BASELINE_LEAGUES})))                                         AS events,
-     (SELECT count(*)::int FROM league_teams  WHERE league_id IN (${BASELINE_LEAGUES}))                                AS teams`,
+     (SELECT count(*)::int FROM league_teams lt JOIN leagues l2 ON l2.id = lt.league_id
+       WHERE l2.mode = 'league' AND lt.exhibition_date IS NULL
+         AND lt.league_id IN (${BASELINE_LEAGUES}))                                                                    AS teams`,
   rows => {
     const r = rows[0]
     // 2026-08-04 단계 1 착수 시점 실측값 — games 는 그 날짜까지, 전부 기존 두 조직으로 스코프됨.
@@ -211,8 +213,17 @@ await check(
     //   사용자가 "지우지 말고 표시만 하고 진행률에서 빼라" 고 판단해 보존한다.
     //   ⚠ 이 숫자가 또 움직이면 그때는 다시 조사할 것 — 자동으로 올리지 말 것.
     if (r.games !== 273) return `games(~${BASELINE_DATE}) 기대 273, 실제 ${r.games}`
-    if (r.players !== 45) return `players 기대 45, 실제 ${r.players}`
-    if (r.teams !== 3) return `league_teams 기대 3, 실제 ${r.teams}`
+    // ⚠ 2026-08-30: players / teams 를 **"줄지 않았는가"** 로 바꿨다.
+    //   원래는 정확한 수(45 / 3)를 단정했는데, 늘어나는 쪽이 전부 정상 운영이라 이 검사가
+    //   상시 빨간불이 됐다 — 그러면 진짜 소실이 나도 아무도 안 본다(이 파일 M8 주석과 같은 병).
+    //     · players 46 — 2026-08-22 에 게스트(유승원게스트C)가 등록됐다. 게스트 등록은 정상.
+    //     · teams   — 친선 임시팀(109)과 대회 상대팀이 계속 늘어난다. 그래서 아래 count 는
+    //       **리그 묶음의 상시팀만**(mode='league' AND exhibition_date IS NULL) 센다.
+    //       그게 분기 로테이션 3팀이고, 이 숫자가 줄면 과거 경기의 팀 귀속이 깨진다.
+    //   지켜야 할 것은 "지워지지 않았는가" 이므로 하한으로 본다. 늘어난 이유가 궁금하면
+    //   위 두 줄의 내력을 갱신할 것 — 숫자를 올려 통과시키지 말 것.
+    if (r.players < 45) return `players 가 45 미만으로 줄었다 — 실제 ${r.players} (선수 삭제 의심)`
+    if (r.teams < 3) return `리그 상시팀이 3개 미만 — 실제 ${r.teams} (분기 로테이션 팀 삭제 의심)`
     if (r.events <= 0) return `events 가 0건`
     return true
   }

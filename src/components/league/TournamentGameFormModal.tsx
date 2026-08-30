@@ -15,6 +15,18 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 
 const ROUND_LABELS = ['조별예선', '16강', '8강', '4강', '준결승', '결승'] as const
 
+/** 수정 대상. 없으면 신규 등록. */
+export type TournamentGameDraft = {
+  id: string
+  date: string
+  opponentName: string
+  roundLabel: string | null
+  venue: string | null
+  weAreAway: boolean
+  /** 기록이 시작됐으면 날짜·상대는 여기서 못 바꾼다(기록의 소속 팀이 어긋난다) */
+  locked: boolean
+}
+
 interface Props {
   leagueId: string
   quarterId: string
@@ -24,6 +36,8 @@ interface Props {
   endDate: string | null
   /** 이미 붙어 본 상대 이름들 — 오타로 같은 팀이 둘로 갈리는 걸 줄인다 */
   knownOpponents: string[]
+  /** 있으면 수정 */
+  initial?: TournamentGameDraft
   onClose: () => void
   onSaved: () => void
 }
@@ -41,15 +55,17 @@ function todayYmd(): string {
 }
 
 export default function TournamentGameFormModal({
-  leagueId, quarterId, quarterName, startDate, endDate, knownOpponents, onClose, onSaved,
+  leagueId, quarterId, quarterName, startDate, endDate, knownOpponents, initial, onClose, onSaved,
 }: Props) {
   const { leagueHeaders } = useLeagueEditMode()
+  const isEdit = !!initial
+  const locked = initial?.locked === true
 
-  const [date, setDate] = useState(startDate ?? todayYmd())
-  const [opponent, setOpponent] = useState('')
-  const [roundLabel, setRoundLabel] = useState('')
-  const [venue, setVenue] = useState('')
-  const [weAreAway, setWeAreAway] = useState(false)
+  const [date, setDate] = useState(initial?.date ?? startDate ?? todayYmd())
+  const [opponent, setOpponent] = useState(initial?.opponentName ?? '')
+  const [roundLabel, setRoundLabel] = useState(initial?.roundLabel ?? '')
+  const [venue, setVenue] = useState(initial?.venue ?? '')
+  const [weAreAway, setWeAreAway] = useState(initial?.weAreAway ?? false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -66,30 +82,42 @@ export default function TournamentGameFormModal({
 
     setSaving(true)
     try {
-      const res = await fetch(`/api/leagues/${leagueId}/games`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...leagueHeaders },
-        body: JSON.stringify({
-          mode: 'tournament',
-          quarter_id: quarterId,
-          date,
-          opponent_name: opp,
-          round_label: roundLabel || null,
-          venue: venue.trim() || null,
-          we_are_away: weAreAway,
-        }),
-      })
+      // 기록이 시작된 경기는 날짜·상대·좌우를 아예 보내지 않는다 — 서버가 409 로 막지만,
+      //   안 바꿀 값을 보내 놓고 거절당하면 "라운드만 고치려던" 수정까지 통째로 실패한다.
+      const teamFields = locked ? {} : {
+        date,
+        opponent_name: opp,
+        we_are_away: weAreAway,
+      }
+      const res = await fetch(
+        isEdit ? `/api/leagues/${leagueId}/games?gameId=${initial!.id}` : `/api/leagues/${leagueId}/games`,
+        {
+          method: isEdit ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json', ...leagueHeaders },
+          body: JSON.stringify(isEdit
+            ? { mode: 'tournament', ...teamFields, round_label: roundLabel || null, venue: venue.trim() || null }
+            : {
+                mode: 'tournament',
+                quarter_id: quarterId,
+                date,
+                opponent_name: opp,
+                round_label: roundLabel || null,
+                venue: venue.trim() || null,
+                we_are_away: weAreAway,
+              }),
+        },
+      )
       if (!res.ok) {
         const j = await res.json().catch(() => ({}))
-        throw new Error(j?.error ?? `등록 실패 (${res.status})`)
+        throw new Error(j?.error ?? `${isEdit ? '수정' : '등록'} 실패 (${res.status})`)
       }
-      toast.success(`vs ${opp} 경기를 등록했습니다`, {
-        description: '기록 화면에서 쿼터별 영상을 연결하면 기록을 시작할 수 있습니다',
+      toast.success(isEdit ? '경기를 수정했습니다' : `vs ${opp} 경기를 등록했습니다`, {
+        description: isEdit ? undefined : '기록 화면에서 쿼터별 영상을 연결하면 기록을 시작할 수 있습니다',
       })
       onSaved()
       onClose()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '등록 실패')
+      toast.error(e instanceof Error ? e.message : `${isEdit ? '수정' : '등록'} 실패`)
     } finally {
       setSaving(false)
     }
@@ -101,7 +129,7 @@ export default function TournamentGameFormModal({
       onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose() }}
       role="dialog"
       aria-modal="true"
-      aria-label={`${quarterName} 경기 등록`}
+      aria-label={`${quarterName} 경기 ${isEdit ? '수정' : '등록'}`}
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
@@ -121,7 +149,7 @@ export default function TournamentGameFormModal({
           <span className="inline-flex items-center gap-2 min-w-0">
             <CalendarPlus size={16} className="shrink-0" style={{ color: 'var(--mm-black)' }} aria-hidden />
             <span className="text-sm font-black truncate" style={{ color: 'var(--mm-black)' }}>
-              {quarterName} · 경기 등록
+              {quarterName} · 경기 {isEdit ? '수정' : '등록'}
             </span>
           </span>
           <button
@@ -134,15 +162,25 @@ export default function TournamentGameFormModal({
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          {locked && (
+            <p
+              className="text-xs leading-relaxed px-3 py-2"
+              style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: 4, color: 'var(--mm-ink-soft)' }}
+            >
+              기록이 시작된 경기입니다. <strong>라운드와 장소만</strong> 수정됩니다 —
+              날짜·상대팀을 바꾸면 이미 기록된 이벤트의 소속 팀이 어긋나 박스스코어에서 선수들이 사라집니다.
+              팀을 바로잡아야 하면 기록 화면의 <strong>팀 교체</strong>를 쓰세요.
+            </p>
+          )}
           <div>
             <label htmlFor="tg-date" className="block text-xs font-bold mb-1.5" style={{ color: 'var(--mm-ink-soft)' }}>
               경기 날짜 <span style={{ color: 'var(--mm-yellow-strong)' }}>*</span>
             </label>
             <input
-              id="tg-date" type="date" value={date}
+              id="tg-date" type="date" value={date} disabled={locked}
               min={startDate ?? undefined} max={endDate ?? undefined}
               onChange={e => setDate(e.target.value)}
-              className="w-full min-h-[44px] px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+              className="w-full min-h-[44px] px-3 text-sm outline-none disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
               style={FIELD}
             />
           </div>
@@ -152,11 +190,11 @@ export default function TournamentGameFormModal({
               상대팀 <span style={{ color: 'var(--mm-yellow-strong)' }}>*</span>
             </label>
             <input
-              id="tg-opp" type="text" value={opponent} maxLength={40}
+              id="tg-opp" type="text" value={opponent} maxLength={40} disabled={locked}
               list={knownOpponents.length > 0 ? 'tg-known-opponents' : undefined}
               onChange={e => setOpponent(e.target.value)}
               placeholder="상대 동호회 이름"
-              className="w-full min-h-[44px] px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+              className="w-full min-h-[44px] px-3 text-sm outline-none disabled:opacity-50 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
               style={FIELD}
             />
             {knownOpponents.length > 0 && (
@@ -198,13 +236,13 @@ export default function TournamentGameFormModal({
           </div>
 
           <label
-            className="flex items-center gap-3 min-h-[44px] px-3 cursor-pointer"
-            style={{ ...FIELD, background: 'var(--mm-panel-alt)' }}
+            className={`flex items-center gap-3 min-h-[44px] px-3 ${locked ? '' : 'cursor-pointer'}`}
+            style={{ ...FIELD, background: 'var(--mm-panel-alt)', opacity: locked ? 0.5 : 1 }}
           >
             <input
-              type="checkbox" checked={weAreAway}
+              type="checkbox" checked={weAreAway} disabled={locked}
               onChange={e => setWeAreAway(e.target.checked)}
-              className="w-5 h-5 shrink-0 cursor-pointer"
+              className="w-5 h-5 shrink-0 cursor-pointer disabled:cursor-not-allowed"
               style={{ accentColor: 'var(--mm-yellow-strong)' }}
             />
             <span className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>
@@ -233,7 +271,7 @@ export default function TournamentGameFormModal({
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)' }}
           >
             {saving && <Loader2 size={16} className="animate-spin" aria-hidden />}
-            경기 등록
+            {isEdit ? '저장' : '경기 등록'}
           </button>
         </div>
       </div>

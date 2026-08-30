@@ -52,10 +52,13 @@ export default function TournamentRosterPanel({ leagueId, quarterId, quarterName
       let internal = teams.find(t => t.is_external === false) ?? null
       if (!internal) {
         // 이 대회에 아직 "우리 팀" 행이 없다 — 등록을 쓰려면 있어야 하므로 하나 만든다.
+        //   이름은 실제 동호회명을 쓴다. 자리표시자를 넣으면 박스스코어·전적에 그대로 노출돼
+        //   상대는 진짜 이름인데 우리만 '우리 팀'으로 뜬다.
+        const lg = await fetch(`/api/leagues/${leagueId}`).then(r => r.ok ? r.json() : null).catch(() => null)
         const createRes = await fetch(`/api/leagues/${leagueId}/teams`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...leagueHeaders },
-          body: JSON.stringify({ name: '우리 팀' }),
+          body: JSON.stringify({ name: lg?.team_name || lg?.name || '우리 팀' }),
         })
         if (!createRes.ok) throw new Error('참가팀 생성에 실패했습니다')
         internal = (await createRes.json()) as ApiTeam

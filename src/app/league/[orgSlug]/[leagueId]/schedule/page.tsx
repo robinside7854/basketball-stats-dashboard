@@ -10,6 +10,7 @@ import { CalendarDays, Plus, Trash2, Loader2, Lock, Zap, BarChart2, ChevronDown,
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import SubTabLoadingSkeleton from '@/components/league/SubTabLoadingSkeleton'
+import TournamentSchedule from '@/components/league/TournamentSchedule'
 
 // is_skipped = 휴관 등으로 안 모인 주. 지우는 대신 표시로 남긴다 —
 // 지우면 '일정 등록'을 누를 때마다 start_date 기준으로 다시 만들어져 되살아난다.
@@ -117,6 +118,42 @@ function ScheduleDetailEditor({
       </div>
     </div>
   )
+}
+
+/**
+ * 「경기」 탭 본문 — 묶음 성격에 따라 완전히 다른 화면이다.
+ *
+ *   리그   → 아래 ScheduleContent (날짜를 깔고 그 날짜에 슬롯을 채운다)
+ *   대회   → TournamentSchedule   (대회 → 경기 를 손으로 등록한다)
+ *
+ * 리그 일정은 "매주 같은 요일에 모인다"를 전제로 start_date 부터 주간 날짜를 자동 생성한다.
+ * 대회 묶음에 그게 돌아 **토요일 43개**가 깔려 있었고, 정작 대회 경기는 한 건도 없는데
+ * 화면은 일정으로 가득 차 있었다(2026-08-30 사용자 지적). 이제 대회는 이 갈래로 빠진다.
+ */
+function GamesTab() {
+  const { leagueId, orgSlug } = useParams<{ orgSlug: string; leagueId: string }>()
+  const [mode, setMode] = useState<'league' | 'tournament' | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/leagues/${leagueId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(l => { if (!cancelled) setMode(l?.mode === 'tournament' ? 'tournament' : 'league') })
+      // 못 읽으면 리그로 본다 — 기존 동작이라 되돌아갈 자리로 안전하다.
+      .catch(() => { if (!cancelled) setMode('league') })
+    return () => { cancelled = true }
+  }, [leagueId])
+
+  if (mode === null) return <SubTabLoadingSkeleton />
+  if (mode === 'tournament') {
+    return (
+      <div className="mm-brand space-y-6">
+        <LeagueSubTabs group="games" />
+        <TournamentSchedule leagueId={leagueId} base={`/league/${orgSlug}/${leagueId}`} />
+      </div>
+    )
+  }
+  return <ScheduleContent />
 }
 
 function ScheduleContent() {
@@ -687,7 +724,7 @@ function ScheduleContent() {
 export default function LeagueSchedulePage() {
   return (
     <Suspense fallback={<SubTabLoadingSkeleton />}>
-      <ScheduleContent />
+      <GamesTab />
     </Suspense>
   )
 }

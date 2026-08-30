@@ -26,7 +26,16 @@ export async function GET(
   // 쿼리 자체가 실패한 경우(장애)와 행이 없는 경우(없음)를 구분한다. DB 원문 메시지는 노출하지 않는다.
   if (error) return NextResponse.json({ error: '리그 조회 실패' }, { status: 500 })
   if (!data) return NextResponse.json({ error: 'not_found' }, { status: 404 })
-  return NextResponse.json(data)
+
+  // 동호회 이름 — 대회에서 "우리 팀" 행을 처음 만들 때 자리표시자 대신 이 이름을 쓴다.
+  //   (자리표시자를 넣으면 상대는 진짜 이름인데 우리만 '우리 팀' 으로 박스스코어에 뜬다)
+  //   공개 정보이고 화면 상단에 이미 노출되므로 여기 실어도 새는 것이 없다.
+  let team_name: string | null = null
+  if (data.team_id) {
+    const { data: team } = await supabase.from('teams').select('name').eq('id', data.team_id).maybeSingle()
+    team_name = team?.name ?? null
+  }
+  return NextResponse.json({ ...data, team_name })
 }
 
 export async function PATCH(
