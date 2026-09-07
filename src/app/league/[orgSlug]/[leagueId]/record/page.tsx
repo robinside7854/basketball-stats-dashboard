@@ -10,11 +10,10 @@ import { toast } from 'sonner'
 import {
   Lock, Loader2, Play, Square, ChevronLeft,
   CheckCircle2, Circle, Youtube, RefreshCw, UserPlus, ClipboardList,
-  CalendarDays, PlayCircle, Zap, AlertTriangle, Sparkles, X, ArrowLeftRight, Wand2,
-  Link2, Search, Plus, Trash2,
+  CalendarDays, PlayCircle, Zap, AlertTriangle, Sparkles, X, ArrowLeftRight,
+  Link2, Search, Plus, Trash2, ChevronDown,
 } from 'lucide-react'
 import { volumeForRound } from '@/lib/social/volume'
-import { generateRotation, resolveFirstGame } from '@/lib/league/rotation'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
@@ -193,7 +192,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [pendingHome, setPendingHome] = useState('')
   const [pendingAway, setPendingAway] = useState('')
   const [savingTeam, setSavingTeam] = useState(false)
-  const [autoFilling, setAutoFilling] = useState(false)
+  // 기록 준비 카드의 접힘 상태. 영상·고급 설정은 대부분의 경기에서 손대지 않으므로 접어 둔다
+  //   (실측 2026-09-07: 리그 282경기 중 +1 조정 4% · 쿼터별 +1 0% · 영상은 100% 자동 연결).
+  const [videoPanelOpen, setVideoPanelOpen] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const [swappingId, setSwappingId] = useState<string | null>(null)
 
   // 경기 진행
@@ -700,78 +702,12 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     }
   }
 
-  // ── 대진 자동 편성 ───────────────────────────────────────────────
-  // 1경기는 현장 가위바위보라 사람이 넣는다. 그 결과만 있으면 2~9경기는 규칙으로 정해진다
-  // (승자 잔류 · 2연속 뛴 팀은 강제 휴식) — 근거와 증명은 src/lib/league/rotation.ts.
-  async function autoFillMatchups() {
-    const ordered = [...slots].sort((a, b) => (a.slot_num ?? 0) - (b.slot_num ?? 0))
-    const first = ordered[0]
-    if (!first) { toast.error('이 날짜에 슬롯이 없습니다'); return }
-    // 친선전은 승자 잔류 규칙이 없는 스팟 경기다. 회전 대진을 덮어씌우면 그날 짠 팀이
-    //   상시 3팀으로 바뀌어 버린다.
-    if (first.is_exhibition) {
-      toast.error('친선전 날짜에는 자동 편성을 쓸 수 없습니다', {
-        description: '친선전 팀은 그날 만든 임시팀이라 승자 잔류 회전 규칙이 적용되지 않습니다',
-        duration: 6000,
-      })
-      return
-    }
-    if (!first.is_complete) {
-      toast.error('1경기를 먼저 기록·마감해야 합니다', {
-        description: '누가 이겼는지 알아야 2경기부터의 대진이 정해집니다',
-        duration: 6000,
-      })
-      return
-    }
-    const resolved = resolveFirstGame(
-      first.home_team_id ?? null, first.away_team_id ?? null,
-      first.home_score ?? null, first.away_score ?? null,
-      teams.map(t => t.id),
-    )
-    if (!resolved) {
-      toast.error('1경기 결과로 승자를 가릴 수 없습니다', {
-        description: '무승부이거나 팀·점수가 비어 있습니다. 좌우 배치와 점수를 확인하세요',
-        duration: 6000,
-      })
-      return
-    }
-    const rest = ordered.slice(1)
-    // 이미 기록이 들어간 경기는 건드리지 않는다 — 대진을 바꾸면 그 경기 이벤트의 팀이 어긋난다
-    const locked = rest.filter(s => s.is_started || s.is_complete)
-    // 친선 슬롯도 건드리지 않는다 — 임시팀 배정이 회전 대진으로 덮여 사라진다
-    const targets = rest.filter(s => !s.is_started && !s.is_complete && !s.is_exhibition)
-    if (targets.length === 0) { toast('채울 슬롯이 없습니다 (전부 기록 시작됨)'); return }
-    if (!confirm(
-      `${targets.length}개 슬롯의 대진을 자동으로 채웁니다.\n\n` +
-      `· 1경기 승자 기준으로 승자 잔류 + 2연속 휴식 규칙 적용\n` +
-      `· 좌우(홈/어웨이)는 임의 배정이니 각 슬롯에서 바꾸세요\n` +
-      (locked.length > 0 ? `· 이미 기록이 시작된 ${locked.length}개는 건드리지 않습니다\n` : '')
-    )) return
-
-    setAutoFilling(true)
-    try {
-      // 회전은 "몇 번째 경기인가"로 정해지므로, 잠긴 슬롯도 순번에는 포함해 계산한다
-      const plan = generateRotation(resolved.winnerId, resolved.loserId, resolved.restingId, rest.length)
-      let saved = 0
-      for (let i = 0; i < rest.length; i++) {
-        const slot = rest[i]
-        if (slot.is_started || slot.is_complete || slot.is_exhibition) continue
-        const r = await fetch(`/api/leagues/${leagueId}/games?gameId=${slot.id}`, {
-          method: 'PATCH',
-          headers: leagueHeaders,
-          body: JSON.stringify({ home_team_id: plan[i].homeTeamId, away_team_id: plan[i].awayTeamId }),
-        })
-        if (!r.ok) throw new Error(`${slot.slot_num}경기 저장 실패 (${r.status})`)
-        saved++
-      }
-      await refreshSlots()
-      toast.success(`대진 ${saved}경기 자동 편성 완료`, { description: '좌우 배치는 각 슬롯에서 바꿀 수 있습니다' })
-    } catch (e) {
-      toast.error(`자동 편성 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`, { duration: 6000 })
-    } finally {
-      setAutoFilling(false)
-    }
-  }
+  // ── 대진 자동 편성 — 2026-09-07 제거 ─────────────────────────────
+  // 「승자 잔류 · 2연속 뛰면 휴식」은 **하루 9경기 로테이션** 규칙이었다. 9/5 부터 미라클은
+  // 3대진 라운드로빈(대진당 3~4쿼터)으로 바뀌어, 이 버튼이 짜 주는 대진이 실제와 달라졌다.
+  // 게다가 영상 자동 매핑이 제목(`260905 지피티vs빅현욱 1Q`)에서 대진을 읽어 빈 슬롯의 팀을
+  // 채워 주므로 하는 일도 겹친다. 규칙 자체는 src/lib/league/rotation.ts 에 남겨 뒀다 —
+  // 로테이션 방식으로 돌아가면 이 함수와 버튼만 다시 붙이면 된다.
 
   // 좌우(홈↔어웨이) 뒤집기 — 코트 배치가 무작위라 매번 손으로 다시 고르지 않게 한다.
   // 이미 기록이 들어간 경기는 점수 대응이 어긋나므로 막는다.
@@ -851,6 +787,17 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   useEffect(() => {
     loadQuarterVideos(selectedSlotId)
   }, [selectedSlotId, loadQuarterVideos])
+
+  // 슬롯을 바꾸면 기록 준비 카드는 접힌 상태로 시작한다. 영상이 아직 없는 슬롯만 펼쳐 준다 —
+  //   그때가 실제로 손을 대야 하는 유일한 경우다.
+  //   ⚠ quarterVideos 를 의존성에 넣지 말 것: 1쿼터를 붙이는 순간 패널이 스스로 닫혀
+  //     2~4쿼터를 붙이던 손이 끊긴다.
+  useEffect(() => {
+    const slot = slots.find(s => s.id === selectedSlotId)
+    setVideoPanelOpen(!!selectedSlotId && !slot?.youtube_url)
+    setAdvancedOpen(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSlotId])
 
   // 쿼터가 넘어가면 링크 입력 대상도 따라간다(기록 중 4번 중 3번은 지금 쿼터를 채운다).
   useEffect(() => { setYtTargetQuarter(currentQuarter) }, [currentQuarter])
@@ -1706,13 +1653,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>미시작</span>
               <span className="text-sm font-black ml-1" style={{ color: 'var(--mm-ink-soft)' }}>{totalPending}</span>
             </div>
-            {totalUnused > 0 && (
-              <div className="flex items-center gap-1.5" title="과거 날짜에 만들어졌으나 영상·기록이 없는 슬롯 (영상 9개 미만 진행된 날의 잔여)">
-                <span className="text-base leading-none" style={{ color: 'var(--mm-muted)' }}>○</span>
-                <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>미사용</span>
-                <span className="text-sm font-black ml-1" style={{ color: 'var(--mm-muted)' }}>{totalUnused}</span>
-              </div>
-            )}
+            {/* '미사용' 칸은 2026-09-07 제거 — 설명이 "영상 9개 미만 진행된 날의 잔여"였다.
+                하루 9경기 로테이션 시절의 개념이라 3대진 방식에서는 뜻이 통하지 않는다.
+                집계(totalUnused)는 진행률 분모에 그대로 쓰인다 — 숫자가 아니라 그 칸만 뺐다. */}
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>진행 대상 {totalActive}/{totalGames}경기</span>
               <div className="w-24 h-1.5 overflow-hidden" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
@@ -1924,29 +1867,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         )}
       </div>
 
-      {/* 대진 자동 편성 — 승자 잔류 로테이션은 미라클 리그의 3팀 편성 규칙이다.
-          대회는 대진이 주최측 편성이라 이 버튼이 짜 주는 대진이 실제와 무관하다. */}
-      {!isTournament && slots.length > 1 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={autoFillMatchups}
-            disabled={autoFilling}
-            className="inline-flex items-center gap-1.5 px-3 min-h-11 text-xs font-bold cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-            style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
-          >
-            {autoFilling
-              ? <Loader2 size={14} className="animate-spin" aria-hidden />
-              : <Wand2 size={14} aria-hidden />}
-            {autoFilling ? '편성 중…' : '대진 자동 채우기'}
-          </button>
-          <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-            1경기 마감 후 누르면 나머지 대진이 채워집니다 (승자 잔류 · 2연속 뛰면 휴식)
-          </span>
-        </div>
-      )}
-
-      {/* 슬랏 그리드 — PC에서 크게 */}
-      <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-9 gap-2">
+      {/* 슬랏 그리드 — 하루 경기 수만큼. 9열 고정이던 것을 슬롯 수에 맞췄다(2026-09-07):
+          하루 9경기 로테이션에서 3대진으로 바뀌어 9열이면 3칸이 왼쪽에 몰리고 나머지가 빈다. */}
+      <div className={`grid grid-cols-4 sm:grid-cols-5 gap-2 ${slots.length <= 4 ? 'lg:grid-cols-4' : slots.length <= 6 ? 'lg:grid-cols-6' : 'lg:grid-cols-9'}`}>
         {slots.map(slot => {
           const isSelected = slot.id === selectedSlotId
           const hasTeams = slot.home_team_id && slot.away_team_id
@@ -2017,21 +1940,71 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       {/* 선택된 슬랏 기록 UI */}
       {selectedSlot && (
         <div className="pt-4" style={{ borderTop: '1px solid var(--mm-rule)' }}>
-          {/* 팀 설정 (항상 상단 compact) */}
+          {/* ── 기록 준비 ─────────────────────────────────────────────────────────
+              경기를 시작하기 전에 정할 것만 남긴 카드 (2026-09-07 재구성).
+              종전에는 셀렉트 2개 + 버튼 6개가 한 줄에 섞여 있었고, 그 아래로 영상 패널과
+              +1 설정이 **항상 펼쳐진 채** 513줄을 차지했다. 실측(리그 282경기): 영상은 100%
+              자동으로 붙고, 경기한정 +1 은 4%, 쿼터별 +1 은 0% 에서만 쓰였다.
+              → 매 경기 정하는 것(종류·팀)만 펼쳐 두고 나머지는 접는다. 기능은 그대로 있다. */}
           <div
-            className="p-3 mb-4"
+            className="p-3 mb-4 space-y-3"
             style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
           >
+            {/* 1행 — 이 경기가 무엇인가.
+                종전엔 「친선전으로 표시」 버튼 하나가 다른 버튼 다섯 개 사이에 섞여 있었다.
+                잘못 눌리면 그 경기가 리그 순위·개인 스탯에서 통째로 빠지는데도, 지금 어느
+                상태인지는 노란 배지 하나로만 알 수 있었다. 상태를 먼저 보여주고 고르게 한다. */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs shrink-0 font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>경기 {selectedSlot.slot_num}</span>
-              {selectedSlot.is_exhibition && (
+              <span className="text-xs shrink-0 font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+                경기 {selectedSlot.slot_num}
+              </span>
+              {isTournament ? (
+                /* 대회 경기는 정의상 공식전이다 — 고를 것이 없으므로 버튼을 두지 않는다.
+                   (친선으로 표시하면 집계 15곳이 전부 걸러내 그 대회 스탯이 통째로 빈다) */
                 <span
-                  className="text-xs font-bold px-1.5 py-0.5 shrink-0 uppercase tracking-[0.12em]"
-                  style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
+                  className="text-xs font-bold px-2 min-h-11 inline-flex items-center uppercase tracking-[0.12em]"
+                  style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                 >
-                  친선
+                  대회 경기
                 </span>
+              ) : (
+                <div className="inline-flex" role="group" aria-label="경기 종류">
+                  {([
+                    { ex: false, label: '정규전', title: '리그 순위·개인 스탯에 집계됩니다' },
+                    { ex: true, label: '친선전', title: '리그 순위·개인 스탯에서 제외됩니다 (박스스코어·하이라이트에는 남습니다)' },
+                  ] as const).map((opt, i) => {
+                    const active = !!selectedSlot.is_exhibition === opt.ex
+                    return (
+                      <button
+                        key={opt.label}
+                        type="button"
+                        /* 이미 그 상태면 아무 일도 하지 않는다 — toggleExhibition 은 토글이라
+                           같은 값을 다시 누르면 반대로 뒤집힌다 */
+                        onClick={() => { if (!active) toggleExhibition() }}
+                        aria-pressed={active}
+                        title={opt.title}
+                        className="px-3 min-h-11 text-xs font-bold uppercase tracking-[0.12em] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        style={{
+                          background: active ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
+                          color: active ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
+                          border: `1px solid ${active ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
+                          borderRadius: i === 0 ? '4px 0 0 4px' : '0 4px 4px 0',
+                          marginLeft: i === 0 ? 0 : '-1px',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
               )}
+              {selectedSlot.is_exhibition && (
+                <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>순위·개인 스탯에서 빠집니다</span>
+              )}
+            </div>
+
+            {/* 2행 — 팀 */}
+            <div className="flex items-center gap-2 flex-wrap">
               <select
                 value={pendingHome}
                 onChange={e => setPendingHome(e.target.value)}
@@ -2078,56 +2051,50 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   ? <Loader2 size={14} className="animate-spin" />
                   : (selectedSlot.is_started || selectedSlot.is_complete) ? '팀 교체' : '저장'}
               </button>
-              {/* 친선 토글은 대회에서 감춘다 — 대회 경기를 친선으로 표시하면 집계 15곳이
-                  전부 걸러내 그 대회의 스탯·순위가 통째로 비어 버린다. 대회 경기는 정의상 공식전이다. */}
-              {!isTournament && (
-              <button
-                onClick={toggleExhibition}
-                title={selectedSlot.is_exhibition ? '정규전으로 되돌리기' : '친선전으로 표시 (리그 순위 제외)'}
-                className="shrink-0 text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 transition-colors cursor-pointer min-h-[44px]"
-                style={
-                  selectedSlot.is_exhibition
-                    ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
-                    : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }
-                }
-              >
-                {selectedSlot.is_exhibition ? '친선전 해제' : '친선전으로 표시'}
-              </button>
-              )}
-              {/* 쿼터 칸마다 해제 버튼이 따로 있다 — 쿼터 영상이 하나라도 붙어 있는데 여기서
-                  대표 영상만 지우면 쿼터 영상은 남아 화면이 서로 어긋난다. 옛 방식으로 대표 자리에만
-                  붙어 있는 경기(2026-09-07 이전 리그 기록)를 정리할 때만 보인다. */}
-              {Object.keys(quarterVideos).length === 0 && selectedSlot.youtube_url && (
-                <button
-                  onClick={clearYoutubeUrl}
-                  title="잘못 매핑된 YouTube 영상 링크 제거"
-                  className="shrink-0 text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 transition-colors cursor-pointer min-h-[44px]"
-                  style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                >
-                  영상 링크 제거
-                </button>
-              )}
-              {!selectedSlot.is_started && !selectedSlot.is_complete && (
-                <button
-                  onClick={deleteSlot}
-                  disabled={deletingSlot}
-                  title="이 슬롯 삭제 (기록이 있으면 막힙니다)"
-                  aria-label={`${selectedSlot.slot_num}경기 슬롯 삭제`}
-                  className="inline-flex items-center gap-1.5 shrink-0 text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 transition-colors duration-200 cursor-pointer min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                  style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
-                >
-                  {deletingSlot
-                    ? <Loader2 size={14} className="animate-spin" aria-hidden />
-                    : <Trash2 size={14} strokeWidth={2.5} aria-hidden />}
-                  슬롯 삭제
-                </button>
-              )}
             </div>
 
-            {/* 영상 수동 연동 — 자동 매핑은 제목에서 경기 번호를 읽는다. 규칙이 깨지는 날
-                (쿼터별로 쪼갠 영상 등)에는 못 붙거나 엉뚱한 슬롯에 붙는다. 그때 손으로 붙일
-                수단이 없으면 그날 기록 전체가 영상 없이 진행된다. */}
-            <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
+            {/* 영상 — 접어 둔다. 제목 규칙이 맞는 날은 자동 매핑이 전부 붙이므로(리그 282경기
+                중 281건) 여기를 열 일이 없다. 규칙이 깨진 날에만 펼쳐 손으로 붙인다.
+                ⚠ 손으로 붙일 수단 자체를 없애면 그날 기록 전체가 영상 없이 진행된다 — 감추는 것이지
+                  치우는 것이 아니다. 영상이 하나도 없으면 처음부터 펼쳐서 보여 준다. */}
+            <details
+              className="mt-3 pt-3"
+              style={{ borderTop: '1px dashed var(--mm-rule)' }}
+              open={videoPanelOpen}
+              onToggle={e => setVideoPanelOpen(e.currentTarget.open)}
+            >
+              <summary
+                className="flex items-center gap-2 min-h-11 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              >
+                <ChevronDown
+                  size={14}
+                  aria-hidden
+                  className="shrink-0 transition-transform duration-200"
+                  style={{ color: 'var(--mm-muted)', transform: videoPanelOpen ? 'none' : 'rotate(-90deg)' }}
+                />
+                <span className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>영상</span>
+                {(() => {
+                  const qs = Object.keys(quarterVideos).map(Number).sort((a, b) => a - b)
+                  if (qs.length > 0) {
+                    return (
+                      <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--mm-ink-soft)' }}>
+                        <Youtube size={14} aria-hidden style={{ color: 'var(--mm-live)' }} />
+                        {qs.length}개 연결됨 · {qs.map(q => `${q}Q`).join('·')}
+                      </span>
+                    )
+                  }
+                  if (selectedSlot.youtube_url) {
+                    return (
+                      <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--mm-ink-soft)' }}>
+                        <Youtube size={14} aria-hidden style={{ color: 'var(--mm-live)' }} />
+                        대표 영상 1개
+                      </span>
+                    )
+                  }
+                  return <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>연결 안 됨 — 눌러서 붙이기</span>
+                })()}
+              </summary>
+              <div className="mt-2">
               {/* 쿼터별 영상 4칸. 촬영본이 쿼터로 쪼개져 올라오므로 한 칸으로는 담기지 않는다.
                   아래 링크 입력·목록 고르기는 여기서 고른 쿼터를 채운다.
                   ⚠ 2026-09-07 리그에도 열었다 — 미라클이 쿼터제로 바뀌어 영상이 대진×쿼터로 올라온다. */}
@@ -2296,7 +2263,40 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   })}
                 </ul>
               )}
-            </div>
+              </div>
+            </details>
+
+            {/* 고급 설정 — 접어 둔다. 실측(리그 282경기): 경기한정 +1 4% · 쿼터별 +1 0%.
+                96%의 경기에서 손대지 않는 것이 선수 수만큼 토글을 펼친 채 자리를 차지하고 있었다.
+                기능을 없앤 것이 아니라 한 줄로 접었다 — 필요한 4%에서는 그대로 다 있다. */}
+            <details
+              className="mt-3 pt-3"
+              style={{ borderTop: '1px dashed var(--mm-rule)' }}
+              open={advancedOpen}
+              onToggle={e => setAdvancedOpen(e.currentTarget.open)}
+            >
+              <summary className="flex items-center gap-2 min-h-11 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
+                <ChevronDown
+                  size={14}
+                  aria-hidden
+                  className="shrink-0 transition-transform duration-200"
+                  style={{ color: 'var(--mm-muted)', transform: advancedOpen ? 'none' : 'rotate(-90deg)' }}
+                />
+                <span className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>고급</span>
+                <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                  이 경기 +1 · 슬롯 삭제
+                </span>
+                {/* 지금 켜져 있으면 접힌 채로도 보이게 — 켜 놓고 잊으면 그 경기 점수가 통째로 달라진다 */}
+                {((selectedSlot.plus_one_extra_ids ?? []).length > 0
+                  || Object.keys(selectedSlot.plus_one_quarters ?? {}).length > 0) && (
+                  <span
+                    className="text-xs font-bold px-1.5 py-0.5 uppercase tracking-[0.12em]"
+                    style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
+                  >
+                    +1 지정됨
+                  </span>
+                )}
+              </summary>
 
             {/* 이 경기 한정 +1 — 선수 목록의 +1 은 전역 플래그라 켜면 과거 마감 경기까지 소급된다.
                 (미라클은 plus_one_bonus=1 이라 그 선수의 과거 야투마다 점수가 올라간다)
@@ -2425,6 +2425,43 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 })()}
               </div>
             )}
+
+              {/* 위험한 정리 동작 두 개. 종전에는 팀 셀렉트 옆에 나란히 있어서, 매 경기 쓰는
+                  버튼(저장·좌우교체) 사이에 「슬롯 삭제」가 섞여 있었다. 여기로 내린다.
+                  ⚠ 슬롯 삭제는 이벤트가 하나라도 있으면 서버가 409 로 막는다(기록 영구 소멸 방지). */}
+              <div className="mt-3 pt-3 flex items-center gap-2 flex-wrap" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
+                {Object.keys(quarterVideos).length === 0 && selectedSlot.youtube_url && (
+                  <button
+                    onClick={clearYoutubeUrl}
+                    title="잘못 매핑된 YouTube 영상 링크 제거"
+                    className="shrink-0 text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 transition-colors duration-200 cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                  >
+                    영상 링크 제거
+                  </button>
+                )}
+                {!selectedSlot.is_started && !selectedSlot.is_complete && (
+                  <button
+                    onClick={deleteSlot}
+                    disabled={deletingSlot}
+                    title="이 슬롯 삭제 (기록이 있으면 막힙니다)"
+                    aria-label={`${selectedSlot.slot_num}경기 슬롯 삭제`}
+                    className="inline-flex items-center gap-1.5 shrink-0 text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 transition-colors duration-200 cursor-pointer min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                  >
+                    {deletingSlot
+                      ? <Loader2 size={14} className="animate-spin" aria-hidden />
+                      : <Trash2 size={14} strokeWidth={2.5} aria-hidden />}
+                    슬롯 삭제
+                  </button>
+                )}
+                {selectedSlot.is_started && (
+                  <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
+                    기록이 시작된 경기라 슬롯을 지울 수 없습니다
+                  </span>
+                )}
+              </div>
+            </details>
 
             {/* 친선전 안내 — 명단 기준이 평소와 다르다는 걸 화면에서 알 수 있어야 한다.
                 안 밝히면 "왜 우리 팀 사람들이 명단에 없지?" 가 된다. */}
