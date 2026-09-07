@@ -67,6 +67,14 @@ export default function LeagueSettingsPage() {
   // 플러스원 나이 기준
   const [plusOneAge, setPlusOneAge] = useState<string>('')
 
+  // 영상 제목의 팀 표기(별칭) — 업로더는 팀명을 줄여 쓴다(`챗지피지기` → `지피티`).
+  //   자동 매핑은 여기 등록된 것만 인정한다. 추측해서 붙이면 그럴듯하게 틀린 자리에 조용히 들어간다.
+  const [aliases, setAliases] = useState<Array<{ id: string; alias: string; team_id: string; team_name: string }>>([])
+  const [aliasTeams, setAliasTeams] = useState<Array<{ id: string; name: string }>>([])
+  const [aliasTeamId, setAliasTeamId] = useState('')
+  const [aliasText, setAliasText] = useState('')
+  const [aliasSaving, setAliasSaving] = useState(false)
+
   // 고정 대관 — 매주 반복되는 기본 시간·장소·정원. 일정별로 다른 날만 예외로 덮는다.
   const [defTime, setDefTime] = useState('')
   const [defPlace, setDefPlace] = useState('')
@@ -104,6 +112,50 @@ export default function LeagueSettingsPage() {
     if (qRes.ok) setQuarters(await qRes.json())
     if (visRes.ok) setIsPublic((await visRes.json()).is_public)
     setLoading(false)
+  }
+
+  // 별칭 목록 + 팀 목록. 편집 권한 헤더가 필요해 리그 로딩과 분리한다(미인증이면 401 로 조용히 빈 목록).
+  async function loadAliases() {
+    const [aRes, tRes] = await Promise.all([
+      fetch(`/api/leagues/${leagueId}/team-aliases`, { headers: leagueHeaders, cache: 'no-store' }),
+      fetch(`/api/leagues/${leagueId}/teams`, { cache: 'no-store' }),
+    ])
+    if (aRes.ok) setAliases(await aRes.json())
+    if (tRes.ok) {
+      const rows = (await tRes.json()) as Array<{ id: string; name: string }>
+      setAliasTeams(rows)
+      setAliasTeamId(prev => prev || rows[0]?.id || '')
+    }
+  }
+
+  async function addAlias() {
+    const alias = aliasText.normalize('NFC').trim()
+    if (!alias || !aliasTeamId) return
+    setAliasSaving(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/team-aliases`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...leagueHeaders },
+        body: JSON.stringify({ team_id: aliasTeamId, alias }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) { toast.error(body.error ?? `등록 실패 (${res.status})`, { duration: 6000 }); return }
+      setAliasText('')
+      await loadAliases()
+      toast.success(`'${alias}' 별칭 등록됨`)
+    } finally {
+      setAliasSaving(false)
+    }
+  }
+
+  async function removeAlias(id: string, alias: string) {
+    const res = await fetch(`/api/leagues/${leagueId}/team-aliases?id=${id}`, {
+      method: 'DELETE',
+      headers: leagueHeaders,
+    })
+    if (!res.ok) { toast.error('삭제 실패'); return }
+    await loadAliases()
+    toast.success(`'${alias}' 별칭 삭제됨`)
   }
 
   // 비공개로 바꿀 때만 확인창을 띄운다 — 지금 이 순간부터 비회원·미승인 회원이 전부 차단된다.
@@ -150,6 +202,8 @@ export default function LeagueSettingsPage() {
   }
 
   useEffect(() => { load() }, [leagueId])
+  // 별칭은 편집 권한이 붙은 뒤에 읽는다 — isInitialized 전에 부르면 헤더가 비어 401 이 난다.
+  useEffect(() => { if (isInitialized && isEditMode) loadAliases() }, [leagueId, isInitialized, isEditMode])
 
   // 현재 PIN 은 전용 엔드포인트(GET .../edit-pin)로만 조회한다 — 공개 GET /api/leagues/[id] 에는
   // 더 이상 edit_pin 이 실리지 않는다. leagueHeaders 가 정해지는 시점(어드민 role 또는 PIN 확인 완료)
@@ -446,7 +500,9 @@ export default function LeagueSettingsPage() {
         </div>
         <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
           경기 기록 탭에서 날짜별 YouTube 자동 연동에 사용됩니다.<br />
-          영상 제목 형식: <span className="font-mono text-[color:var(--mm-ink-soft)]">260418 경기 9</span>
+          영상 제목 형식: <span className="font-mono text-[color:var(--mm-ink-soft)]">260905 굿모닝vs빅현욱 1Q</span>
+          {' '}— 대진과 쿼터를 읽어 그 경기의 쿼터별 영상으로 붙습니다.<br />
+          옛 형식(<span className="font-mono text-[color:var(--mm-ink-soft)]">260418 경기 9</span>)도 그대로 인식합니다.
         </p>
         <div className="flex gap-2">
           <Input
@@ -466,6 +522,73 @@ export default function LeagueSettingsPage() {
         </div>
         {league.youtube_channel && (
           <p className="text-xs text-[color:var(--mm-muted)]">현재: <span className="text-[color:var(--mm-yellow-strong)] font-mono">{league.youtube_channel}</span></p>
+        )}
+      </div>
+
+      {/* 영상 제목의 팀 별칭 —
+          업로더는 팀명을 줄여 쓴다(`챗지피지기` → `지피티`). 자동 매핑은 **여기 등록된 표기만**
+          인정하고, 모르는 표기가 나오면 붙이지 않고 이유를 남긴다. 유사도로 추측해서 붙이면
+          그럴듯하게 틀린 자리에 조용히 들어간다(2026-08-22 사고). */}
+      <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <Youtube size={16} className="text-[color:var(--mm-live)]" />
+          <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">영상 제목의 팀 별칭</h3>
+        </div>
+        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
+          영상 제목에 팀명이 줄여 적힐 때 등록합니다. 예: 제목의 <span className="font-mono text-[color:var(--mm-ink-soft)]">지피티</span> = 팀 <span className="font-mono text-[color:var(--mm-ink-soft)]">챗지피지기</span><br />
+          등록되지 않은 표기는 자동 연동이 <strong className="text-[color:var(--mm-ink-soft)]">붙이지 않고 건너뜁니다</strong> — 틀린 경기에 붙는 것보다 낫기 때문입니다.
+        </p>
+
+        <div className="flex gap-2 flex-wrap">
+          <label htmlFor="alias-team" className="sr-only">팀</label>
+          <select
+            id="alias-team"
+            value={aliasTeamId}
+            onChange={e => setAliasTeamId(e.target.value)}
+            className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none px-3 py-2 text-sm min-h-11 cursor-pointer focus:outline-none focus:border-[color:var(--mm-ink)]"
+          >
+            {aliasTeams.length === 0 && <option value="">팀 없음</option>}
+            {aliasTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+          <label htmlFor="alias-text" className="sr-only">제목에 적히는 표기</label>
+          <Input
+            id="alias-text"
+            placeholder="제목에 적히는 표기 (예: 지피티)"
+            value={aliasText}
+            onChange={e => setAliasText(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !aliasSaving) { e.preventDefault(); addAlias() } }}
+            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none flex-1 min-w-[160px] min-h-11"
+          />
+          <Button
+            onClick={addAlias}
+            disabled={aliasSaving || aliasText.trim().length === 0 || !aliasTeamId}
+            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold uppercase tracking-[0.14em] rounded-none min-h-11"
+            size="sm"
+          >
+            {aliasSaving ? <Loader2 size={14} className="animate-spin" /> : '추가'}
+          </Button>
+        </div>
+
+        {aliases.length === 0 ? (
+          <p className="text-xs text-[color:var(--mm-muted)]">등록된 별칭이 없습니다.</p>
+        ) : (
+          <ul className="list-none p-0 m-0 divide-y divide-[color:var(--mm-rule)] border border-[color:var(--mm-rule)]">
+            {aliases.map(a => (
+              <li key={a.id} className="flex items-center gap-2 px-3 py-2 min-h-11">
+                <span className="font-mono text-sm text-[color:var(--mm-ink)]">{a.alias}</span>
+                <ChevronRight size={14} className="text-[color:var(--mm-muted)] shrink-0" aria-hidden />
+                <span className="text-sm text-[color:var(--mm-ink-soft)] flex-1 min-w-0 truncate">{a.team_name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeAlias(a.id, a.alias)}
+                  aria-label={`'${a.alias}' 별칭 삭제`}
+                  className="shrink-0 px-3 min-h-11 text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                >
+                  삭제
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

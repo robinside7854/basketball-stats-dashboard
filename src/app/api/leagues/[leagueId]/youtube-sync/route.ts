@@ -27,13 +27,17 @@ export async function POST(
       return NextResponse.json({ error: 'YouTube API 키 미설정 — Vercel 환경변수에 YOUTUBE_API_KEY를 추가하세요' }, { status: 500 })
     }
 
-    let body: { channelHandle?: string; date?: string } = {}
+    let body: { channelHandle?: string; date?: string; dryRun?: boolean } = {}
     try { body = await req.json() } catch { return NextResponse.json({ error: 'request body 파싱 실패' }, { status: 400 }) }
     const { channelHandle, date } = body
     if (!channelHandle || !date) return NextResponse.json({ error: '채널명과 날짜를 입력하세요' }, { status: 400 })
 
+    // dryRun — 아무것도 저장하지 않고 "무엇을 하려 했는지"만 돌려준다.
+    //   제목 규칙이 바뀔 때마다 운영 데이터로 먼저 확인하기 위한 통로다(2026-09-07).
+    const dryRun = body.dryRun === true
+
     const supabase = createClient()
-    const outcome = await syncYoutubeForLeague(supabase, leagueId, channelHandle, date, apiKey)
+    const outcome = await syncYoutubeForLeague(supabase, leagueId, channelHandle, date, apiKey, { dryRun })
 
     if (!outcome.ok) {
       return NextResponse.json({
@@ -55,6 +59,9 @@ export async function POST(
     return NextResponse.json({
       mapped: outcome.mapped,
       total_videos: outcome.totalVideos,
+      // 'quarter' = 대진+쿼터 제목 / 'legacy' = 옛 `경기 N` 제목. 왜 그렇게 붙었는지 설명하는 값이다.
+      mode: outcome.mode,
+      dry_run: outcome.dryRun ?? false,
       details: outcome.details,
       db_state: (verifyGames ?? []).map(g => ({
         slot: g.slot_num,

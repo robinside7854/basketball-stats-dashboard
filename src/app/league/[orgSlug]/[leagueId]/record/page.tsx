@@ -819,47 +819,19 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     return m ? m[1] : null
   }
 
-  // 이 슬롯에 영상 링크를 직접 지정. 쿼터별로 쪼갠 영상은 기록 중에 갈아끼우게 된다.
-  async function saveYoutubeUrl(raw: string) {
-    if (!selectedSlotId) return
-    const id = extractVideoId(raw)
-    if (!id) {
-      toast.error('YouTube 링크를 인식하지 못했습니다', {
-        description: 'youtube.com/watch?v=… · youtu.be/… 또는 영상 ID 11자리를 넣으세요',
-        duration: 6000,
-      })
-      return
-    }
-    setYtSaving(true)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
-        method: 'PATCH',
-        headers: leagueHeaders,
-        body: JSON.stringify({ youtube_url: `https://www.youtube.com/watch?v=${id}`, youtube_start_offset: 0 }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        toast.error(body.error ?? `영상 연동 실패 (${res.status})`, { duration: 6000 })
-        return
-      }
-      setYtInput('')
-      setYtPickerOpen(false)
-      await refreshSlots()
-      toast.success('영상 연동됨')
-    } finally {
-      setYtSaving(false)
-    }
-  }
-
-  // 링크 입력·목록 고르기의 단일 입구. 대회면 쿼터 칸에, 리그면 종전대로 경기에 붙인다.
+  // 링크 입력·목록 고르기의 단일 입구 — 항상 **고른 쿼터 칸**에 붙인다.
   //   호출부 세 곳(입력 Enter · 연동 버튼 · 목록 항목)이 각자 분기하면 하나를 빠뜨렸을 때
-  //   그 경로로만 대회 영상이 경기 대표 자리에 덮어써진다.
+  //   그 경로로만 영상이 엉뚱한 자리에 덮어써진다.
+  //
+  //   2026-09-07 이전에는 리그에서 경기 대표 자리(league_games.youtube_url)에 직접 붙였다.
+  //   미라클이 쿼터제로 바뀌면서 리그도 촬영본이 쿼터로 쪼개져 올라온다 — 한 칸으로는 담기지 않는다.
+  //   쿼터 칸에 저장하면 서버가 대표 영상(가장 이른 쿼터)까지 함께 맞춰 주므로,
+  //   `.not('youtube_url','is',null)` 로 "영상 있는 경기"를 고르는 하이라이트 로더들도 그대로 돈다.
   function attachVideo(raw: string) {
-    if (isTournament) return saveQuarterVideo(ytTargetQuarter, raw)
-    return saveYoutubeUrl(raw)
+    return saveQuarterVideo(ytTargetQuarter, raw)
   }
 
-  // ── 쿼터별 영상 (대회) ─────────────────────────────────────────────
+  // ── 쿼터별 영상 ────────────────────────────────────────────────────
   const loadQuarterVideos = useCallback(async (gameId: string | null) => {
     if (!gameId) { setQuarterVideos({}); return }
     try {
@@ -877,9 +849,8 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   // 슬롯이 바뀌면 그 경기의 쿼터 영상을 다시 읽는다. 안 읽으면 앞 경기의 영상이 그대로 남아
   //   기록원이 다른 경기 영상을 보면서 기록하게 된다 — 화면상으로는 정상이라 눈치채기 어렵다.
   useEffect(() => {
-    if (!isTournament) { setQuarterVideos({}); return }
     loadQuarterVideos(selectedSlotId)
-  }, [isTournament, selectedSlotId, loadQuarterVideos])
+  }, [selectedSlotId, loadQuarterVideos])
 
   // 쿼터가 넘어가면 링크 입력 대상도 따라간다(기록 중 4번 중 3번은 지금 쿼터를 채운다).
   useEffect(() => { setYtTargetQuarter(currentQuarter) }, [currentQuarter])
@@ -2123,9 +2094,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 {selectedSlot.is_exhibition ? '친선전 해제' : '친선전으로 표시'}
               </button>
               )}
-              {/* 대회는 쿼터 칸마다 해제 버튼이 따로 있다 — 여기서 대표 영상만 지우면
-                  쿼터 영상은 남아 화면이 서로 어긋난다. */}
-              {!isTournament && selectedSlot.youtube_url && (
+              {/* 쿼터 칸마다 해제 버튼이 따로 있다 — 쿼터 영상이 하나라도 붙어 있는데 여기서
+                  대표 영상만 지우면 쿼터 영상은 남아 화면이 서로 어긋난다. 옛 방식으로 대표 자리에만
+                  붙어 있는 경기(2026-09-07 이전 리그 기록)를 정리할 때만 보인다. */}
+              {Object.keys(quarterVideos).length === 0 && selectedSlot.youtube_url && (
                 <button
                   onClick={clearYoutubeUrl}
                   title="잘못 매핑된 YouTube 영상 링크 제거"
@@ -2156,9 +2128,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 (쿼터별로 쪼갠 영상 등)에는 못 붙거나 엉뚱한 슬롯에 붙는다. 그때 손으로 붙일
                 수단이 없으면 그날 기록 전체가 영상 없이 진행된다. */}
             <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
-              {/* 대회 — 쿼터별 영상 4칸. 촬영본이 쿼터로 쪼개져 올라오므로 한 칸으로는 담기지 않는다.
-                  아래 링크 입력·목록 고르기는 여기서 고른 쿼터를 채운다. */}
-              {isTournament && (
+              {/* 쿼터별 영상 4칸. 촬영본이 쿼터로 쪼개져 올라오므로 한 칸으로는 담기지 않는다.
+                  아래 링크 입력·목록 고르기는 여기서 고른 쿼터를 채운다.
+                  ⚠ 2026-09-07 리그에도 열었다 — 미라클이 쿼터제로 바뀌어 영상이 대진×쿼터로 올라온다. */}
+              {(
                 <div className="mb-3">
                   <div className="flex items-baseline gap-2 flex-wrap mb-2">
                     <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>쿼터별 영상</span>
@@ -2230,7 +2203,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs shrink-0 font-bold" style={{ color: 'var(--mm-muted)' }}>
-                  {isTournament ? `${ytTargetQuarter}쿼터 영상` : '영상'}
+                  {ytTargetQuarter}쿼터 영상
                 </span>
                 <label htmlFor="yt-url-input" className="sr-only">YouTube 영상 링크</label>
                 <input
@@ -2239,9 +2212,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   onChange={e => setYtInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !ytSaving) { e.preventDefault(); attachVideo(ytInput) } }}
                   placeholder={
-                    isTournament
-                      ? (quarterVideos[ytTargetQuarter] ? `${ytTargetQuarter}쿼터 영상 교체 — 링크 붙여넣기` : `${ytTargetQuarter}쿼터 영상 링크 붙여넣기`)
-                      : selectedSlot.youtube_url ? '다른 영상으로 교체 — 링크 붙여넣기' : 'YouTube 링크 붙여넣기'
+                    quarterVideos[ytTargetQuarter]
+                      ? `${ytTargetQuarter}쿼터 영상 교체 — 링크 붙여넣기`
+                      : `${ytTargetQuarter}쿼터 영상 링크 붙여넣기`
                   }
                   className="flex-1 min-w-[180px] px-2.5 py-1.5 text-xs min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
@@ -2273,12 +2246,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 </button>
               </div>
 
-              {isTournament && (
-                <p className="mt-1.5 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-                  {/* 조사는 강조 태그 안에 붙인다 — 밖에 두면 "1쿼터 에" 로 한 칸 벌어진다 */}
-                  고른 영상은 위에서 선택한 <strong style={{ color: 'var(--mm-ink-soft)' }}>{ytTargetQuarter}쿼터에</strong> 연결됩니다.
-                </p>
-              )}
+              <p className="mt-1.5 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+                {/* 조사는 강조 태그 안에 붙인다 — 밖에 두면 "1쿼터 에" 로 한 칸 벌어진다 */}
+                고른 영상은 위에서 선택한 <strong style={{ color: 'var(--mm-ink-soft)' }}>{ytTargetQuarter}쿼터에</strong> 연결됩니다.
+              </p>
 
               {/* 이 날짜 영상 목록 — 제목을 그대로 보여준다. 번호를 추측하지 않는 게 핵심이다.
                   이미 다른 슬롯에 붙은 영상은 어디에 붙었는지 표시해 중복 배정을 막는다. */}
@@ -2288,15 +2259,15 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   style={{ border: '1px solid var(--mm-rule)', borderRadius: '4px', background: 'var(--mm-panel-alt)' }}
                 >
                   {ytList.map(v => {
-                    // 대회는 이 경기의 쿼터 칸들과 대조한다 — 슬롯 대표 영상만 보면
-                    //   2~4쿼터에 이미 붙은 영상이 "안 붙음"으로 보여 같은 영상을 두 번 붙이게 된다.
-                    const usedQuarter = isTournament
-                      ? ([1, 2, 3, 4].find(q => quarterVideos[q]?.url.includes(v.video_id)) ?? null)
-                      : null
-                    const usedBy = isTournament ? null : slots.find(sl => sl.youtube_url?.includes(v.video_id))
-                    const isThis = isTournament
-                      ? usedQuarter === ytTargetQuarter
-                      : usedBy?.id === selectedSlot.id
+                    // 이 경기의 쿼터 칸들과 먼저 대조한다 — 슬롯 대표 영상만 보면 2~4쿼터에
+                    //   이미 붙은 영상이 "안 붙음"으로 보여 같은 영상을 두 번 붙이게 된다.
+                    const usedQuarter = [1, 2, 3, 4, 5, 6].find(q => quarterVideos[q]?.url.includes(v.video_id)) ?? null
+                    // 다른 슬롯에 붙었는지는 그 슬롯의 **대표 영상**으로만 알 수 있다
+                    //   (다른 경기의 쿼터 표까지 읽지는 않는다 — 대표는 가장 이른 쿼터라 대개 1쿼터가 잡힌다).
+                    const usedBy = usedQuarter
+                      ? null
+                      : slots.find(sl => sl.id !== selectedSlot.id && sl.youtube_url?.includes(v.video_id))
+                    const isThis = usedQuarter === ytTargetQuarter
                     return (
                       <li key={v.video_id} style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                         <button
