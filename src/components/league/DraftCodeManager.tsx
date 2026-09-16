@@ -4,6 +4,8 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Trash2, Copy, Check, ToggleLeft, ToggleRight, ShieldCheck, Pencil, Plus, X, AlertCircle } from 'lucide-react'
+import ConfirmModal from './ConfirmModal'
+import { isGuestPlayer } from '@/lib/draft/guests'
 
 // 운영자가 카톡으로 그대로 배포해야 하는 값이라, 두 테마 모두에서 확실히 읽혀야 한다.
 // 예전에는 gray-900/amber-300 처럼 다크 전용 색을 박아 뒀는데, 라이트 모드에서는
@@ -44,12 +46,15 @@ function PlainCodeLine({ plain }: { plain: string | null }) {
 }
 
 interface Team { id: string; name: string; color: string }
+interface Player { id: string; name: string; number: number | null; is_active?: boolean }
 interface DraftCode {
   id: string
   quarter_id: string
   team_id: string | null
   role: 'manager' | 'supervisor'
   label: string
+  /** 단장 코드의 주인(선수) — migration 117. 그 이전에 발급된 코드는 null 이라 label 로 표시한다. */
+  league_player_id?: string | null
   is_active: boolean
   last_used_at: string | null
   created_at: string
@@ -68,12 +73,16 @@ interface Props {
 
 export default function DraftCodeManager({ leagueId, quarterId, teams, authHeaders = {}, onTeamsChanged }: Props) {
   const [codes, setCodes] = useState<DraftCode[]>([])
-  const [drafting, setDrafting] = useState<Record<string, { label: string; code: string }>>({})
+  const [players, setPlayers] = useState<Player[]>([])
+  // 단장 코드는 이제 "누가 단장인지" 를 선수로 고른다 — 레이블은 그 이름에서 파생된다
+  const [drafting, setDrafting] = useState<Record<string, { playerId: string; code: string }>>({})
   const [supDraft, setSupDraft] = useState<{ open: boolean; label: string; code: string }>({ open: false, label: '', code: '' })
   // 인라인 수정 상태 — 단장 코드 행 또는 팀 행 단위
-  const [editingCode, setEditingCode] = useState<{ id: string; label: string; plain_code: string } | null>(null)
+  const [editingCode, setEditingCode] = useState<{ id: string; label: string; plain_code: string; playerId: string } | null>(null)
   const [editingTeam, setEditingTeam] = useState<{ id: string; name: string; color: string } | null>(null)
   const [editingSup, setEditingSup] = useState<{ id: string; label: string; plain_code: string } | null>(null)
+  // 삭제 확인 — 카톡 인앱 브라우저에서 네이티브 confirm() 이 잘리는 문제 때문에 앱 모달을 쓴다
+  const [pendingDelete, setPendingDelete] = useState<DraftCode | null>(null)
 
   const jsonHeaders = { 'Content-Type': 'application/json', ...authHeaders }
 
@@ -88,19 +97,39 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
 
   useEffect(() => { fetchCodes() }, [fetchCodes])
 
+  // 단장 후보 명단 — 드래프트 대상과 같은 기준(탈퇴·게스트 제외)으로 고른다
+  useEffect(() => {
+    let alive = true
+    fetch(`/api/leagues/${leagueId}/players`)
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { if (alive) setPlayers(Array.isArray(d) ? d : []) })
+      .catch(() => null)
+    return () => { alive = false }
+  }, [leagueId])
+
+  const selectablePlayers = players
+    .filter(p => p.is_active !== false && !isGuestPlayer(p.name))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  const playerMap = Object.fromEntries(players.map(p => [p.id, p]))
+
+  /** 코드가 가리키는 사람 이름 — 연결이 있으면 선수명, 없으면(117 이전 발급) 레이블 */
+  function codeOwnerName(c: DraftCode) {
+    return (c.league_player_id && playerMap[c.league_player_id]?.name) || c.label
+  }
+
   // ───── 단장 코드 발급
   async function issueManager(teamId: string) {
     const form = drafting[teamId]
-    if (!form || !form.label.trim() || !form.code.trim()) { toast.error('레이블과 코드를 모두 입력하세요'); return }
+    if (!form || !form.playerId || !form.code.trim()) { toast.error('단장 선수와 코드를 모두 입력하세요'); return }
     if (form.code.trim().length < 3) { toast.error('코드는 최소 3자 이상이어야 합니다'); return }
     const res = await fetch(`/api/admin/leagues/${leagueId}/draft-codes`, {
       method: 'POST', headers: jsonHeaders,
-      body: JSON.stringify({ quarter_id: quarterId, team_id: teamId, plain_code: form.code.trim(), label: form.label.trim() }),
+      body: JSON.stringify({ quarter_id: quarterId, team_id: teamId, plain_code: form.code.trim(), league_player_id: form.playerId }),
     })
     const data = await res.json()
     if (!res.ok) { toast.error(data.error ?? '코드 발급 실패'); return }
     toast.success('단장 코드 발급 완료 — 카드에 평문이 표시됩니다')
-    setDrafting(d => ({ ...d, [teamId]: { label: '', code: '' } }))
+    setDrafting(d => ({ ...d, [teamId]: { playerId: '', code: '' } }))
     fetchCodes()
   }
 
@@ -119,7 +148,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
   }
 
   // ───── 코드 PATCH (label / plain_code / is_active)
-  async function patchCode(id: string, payload: { label?: string; plain_code?: string; is_active?: boolean }) {
+  async function patchCode(id: string, payload: { label?: string; plain_code?: string; is_active?: boolean; league_player_id?: string | null }) {
     const res = await fetch(`/api/admin/leagues/${leagueId}/draft-codes/${id}`, {
       method: 'PATCH', headers: jsonHeaders, body: JSON.stringify(payload),
     })
@@ -131,9 +160,14 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
   async function saveCodeEdit(prevCode: DraftCode, isSupervisor: boolean) {
     const state = isSupervisor ? editingSup : editingCode
     if (!state) return
-    const payload: { label?: string; plain_code?: string } = {}
+    const payload: { label?: string; plain_code?: string; league_player_id?: string | null } = {}
     if (state.label.trim() !== prevCode.label) payload.label = state.label.trim()
     if (state.plain_code.trim().length > 0) payload.plain_code = state.plain_code.trim()
+    // 단장 코드만 선수 연결을 가진다. 빈 선택은 "연결 해제" 로 보낸다.
+    if (!isSupervisor && editingCode) {
+      const next = editingCode.playerId || null
+      if (next !== (prevCode.league_player_id ?? null)) payload.league_player_id = next
+    }
     if (Object.keys(payload).length === 0) {
       isSupervisor ? setEditingSup(null) : setEditingCode(null)
       return
@@ -151,8 +185,6 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
   }
 
   async function deleteCode(c: DraftCode) {
-    const who = c.role === 'supervisor' ? `감독관 "${c.label}"` : (teams.find(t => t.id === c.team_id)?.name ?? '?') + ` 단장`
-    if (!confirm(`${who} 코드 "${c.label}" 를 삭제하시겠습니까?`)) return
     const res = await fetch(`/api/admin/leagues/${leagueId}/draft-codes/${c.id}`, { method: 'DELETE', headers: authHeaders })
     if (res.ok) { toast.success('삭제 완료'); fetchCodes() } else toast.error('삭제 실패')
   }
@@ -182,7 +214,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {teams.map(t => {
           const existing = codesByTeam[t.id]
-          const form = drafting[t.id] ?? { label: '', code: '' }
+          const form = drafting[t.id] ?? { playerId: '', code: '' }
           const teamEditing = editingTeam?.id === t.id
           const codeEditing = existing && editingCode?.id === existing.id
           return (
@@ -214,9 +246,18 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
               {existing ? (
                 codeEditing ? (
                   <div className="space-y-2">
+                    <select
+                      aria-label={`${t.name} 단장 선수`}
+                      value={editingCode.playerId}
+                      onChange={e => setEditingCode(s => s ? { ...s, playerId: e.target.value } : s)}
+                      className="w-full bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] rounded-md px-2 min-h-11 text-sm text-[var(--mm-ink)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]"
+                    >
+                      <option value="">— 단장 선수 연결 없음 —</option>
+                      {selectablePlayers.map(p => <option key={p.id} value={p.id}>{p.name}{p.number != null ? ` #${p.number}` : ''}</option>)}
+                    </select>
                     <Input value={editingCode.label} onChange={e => setEditingCode(s => s ? { ...s, label: e.target.value } : s)} placeholder="레이블 (단장명)" className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm" />
                     <Input value={editingCode.plain_code} onChange={e => setEditingCode(s => s ? { ...s, plain_code: e.target.value } : s)} placeholder="새 코드 (변경 시에만 입력)" maxLength={32} className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm font-mono" />
-                    <p className="text-[10px] text-[var(--mm-muted)]">코드를 비워두면 레이블만 변경됩니다.</p>
+                    <p className="text-sm text-[var(--mm-muted)]">코드를 비워두면 선수 연결·레이블만 바뀝니다.</p>
                     <div className="flex gap-1.5">
                       <Button onClick={() => saveCodeEdit(existing, false)} className="flex-1 bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 h-9 text-xs cursor-pointer">저장</Button>
                       <Button onClick={() => setEditingCode(null)} variant="outline" className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] h-9 text-xs cursor-pointer">취소</Button>
@@ -226,23 +267,35 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
                   <div className="space-y-2">
                     <div className={`px-3 py-2 rounded-lg border ${existing.is_active ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40' : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] opacity-70'}`}>
                       <p className="text-xs text-[var(--mm-muted)] font-bold uppercase tracking-wider">단장</p>
-                      <p className="text-sm text-[var(--mm-ink)] font-bold">{existing.label}</p>
+                      <p className="text-sm text-[var(--mm-ink)] font-bold">{codeOwnerName(existing)}</p>
+                      {!existing.league_player_id && (
+                        <p className="text-[10px] text-[var(--mm-muted)] mt-0.5">선수 연결 없음 — 수정에서 연결하면 세션 생성 때 팀장이 자동으로 채워집니다</p>
+                      )}
                       <PlainCodeLine plain={existing.plain_code} />
                       <p className="text-[10px] text-[var(--mm-muted)] mt-1">{existing.last_used_at ? `마지막 사용: ${new Date(existing.last_used_at).toLocaleString('ko-KR')}` : '아직 사용 안 됨'}</p>
                     </div>
                     <div className="flex gap-1.5">
-                      <button onClick={() => setEditingCode({ id: existing.id, label: existing.label, plain_code: '' })} aria-label={`${existing.label} 코드 수정`} className="px-3 min-h-11 rounded-md border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] hover:border-[var(--mm-muted)] text-[var(--mm-ink-soft)] text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]" title="수정"><Pencil size={14} /></button>
+                      <button onClick={() => setEditingCode({ id: existing.id, label: existing.label, plain_code: '', playerId: existing.league_player_id ?? '' })} aria-label={`${codeOwnerName(existing)} 코드 수정`} className="px-3 min-h-11 rounded-md border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] hover:border-[var(--mm-muted)] text-[var(--mm-ink-soft)] text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]" title="수정"><Pencil size={14} /></button>
                       <button onClick={() => toggleActive(existing)} className={`flex-1 min-h-11 rounded-md text-xs font-bold cursor-pointer flex items-center justify-center gap-1 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] ${existing.is_active ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-neutral-bg)] border-[var(--mm-rule)] text-[var(--mm-neutral-fg)]'}`}>
                         {existing.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}{existing.is_active ? '활성' : '비활성'}
                       </button>
                       {/* 파괴 액션 — 수정·활성 토글과 같은 톤이면 손이 안 멈춘다 */}
-                      <button onClick={() => deleteCode(existing)} aria-label={`${existing.label} 코드 삭제`} className="px-3 min-h-11 rounded-md border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]" title="삭제"><Trash2 size={14} /></button>
+                      <button onClick={() => setPendingDelete(existing)} aria-label={`${codeOwnerName(existing)} 코드 삭제`} className="px-3 min-h-11 rounded-md border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]" title="삭제"><Trash2 size={14} /></button>
                     </div>
                   </div>
                 )
               ) : (
                 <div className="space-y-2">
-                  <Input value={form.label} onChange={e => setDrafting(d => ({ ...d, [t.id]: { ...form, label: e.target.value } }))} placeholder="레이블 (예: 구범준 단장)" className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm" />
+                  {/* 레이블 자유 입력 → 선수 선택. 여기서 고른 사람이 세션 생성 때 팀장으로 자동 지정된다. */}
+                  <select
+                    aria-label={`${t.name} 단장 선수`}
+                    value={form.playerId}
+                    onChange={e => setDrafting(d => ({ ...d, [t.id]: { ...form, playerId: e.target.value } }))}
+                    className="w-full bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] rounded-md px-2 min-h-11 text-sm text-[var(--mm-ink)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)]"
+                  >
+                    <option value="">— 단장 선수 선택 —</option>
+                    {selectablePlayers.map(p => <option key={p.id} value={p.id}>{p.name}{p.number != null ? ` #${p.number}` : ''}</option>)}
+                  </select>
                   <Input value={form.code} onChange={e => setDrafting(d => ({ ...d, [t.id]: { ...form, code: e.target.value } }))} placeholder="코드 (영문 3자, 예: LAK)" maxLength={32} className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-9 text-sm font-mono" onKeyDown={e => e.key === 'Enter' && issueManager(t.id)} />
                   <Button onClick={() => issueManager(t.id)} className="w-full bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:opacity-90 text-xs min-h-11 font-bold cursor-pointer">코드 발급</Button>
                 </div>
@@ -284,7 +337,7 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
                     <button onClick={() => toggleActive(c)} className={`flex-1 min-h-11 rounded-md text-[11px] font-bold cursor-pointer flex items-center justify-center gap-1 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] ${c.is_active ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-neutral-bg)] border-[var(--mm-rule)] text-[var(--mm-neutral-fg)]'}`}>
                       {c.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}{c.is_active ? '활성' : '비활성'}
                     </button>
-                    <button onClick={() => deleteCode(c)} aria-label={`${c.label} 코드 삭제`} className="px-3 min-h-11 rounded-md border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]" title="삭제"><Trash2 size={14} /></button>
+                    <button onClick={() => setPendingDelete(c)} aria-label={`${c.label} 코드 삭제`} className="px-3 min-h-11 rounded-md border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/60 text-[11px] font-bold cursor-pointer flex items-center gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]" title="삭제"><Trash2 size={14} /></button>
                   </div>
                 </div>
               )
@@ -308,6 +361,27 @@ export default function DraftCodeManager({ leagueId, quarterId, teams, authHeade
           </button>
         )}
       </div>
+
+      <ConfirmModal
+        open={!!pendingDelete}
+        title="코드를 삭제할까요?"
+        lines={pendingDelete ? [
+          pendingDelete.role === 'supervisor'
+            ? `감독관 "${pendingDelete.label}" 코드가 삭제됩니다.`
+            : `${teams.find(t => t.id === pendingDelete.team_id)?.name ?? '?'} 단장 "${codeOwnerName(pendingDelete)}" 코드가 삭제됩니다.`,
+          '이 코드로 접속 중인 사람은 새로고침 시 접속이 끊깁니다.',
+          '',
+          '이 작업은 되돌릴 수 없습니다.',
+        ] : []}
+        danger
+        confirmLabel="삭제"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          const target = pendingDelete
+          setPendingDelete(null)
+          if (target) void deleteCode(target)
+        }}
+      />
     </div>
   )
 }

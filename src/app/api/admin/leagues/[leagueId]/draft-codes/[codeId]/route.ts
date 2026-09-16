@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { isDraftManager } from '@/lib/draftManagerAuth'
 import { hashDraftCode } from '@/lib/leagueDraftAuth'
 import { logAudit } from '@/lib/audit'
+import { resolveTeamId } from '@/lib/league/teamScope'
 
 export async function PATCH(
   req: Request,
@@ -12,10 +13,12 @@ export async function PATCH(
 ) {
   const { leagueId, codeId } = await params
   if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const body = await req.json().catch(() => null) as { is_active?: boolean; label?: string; plain_code?: string } | null
+  const body = await req.json().catch(() => null) as { is_active?: boolean; label?: string; plain_code?: string; league_player_id?: string | null } | null
   if (!body) return NextResponse.json({ error: '본문 누락' }, { status: 400 })
 
-  const update: { is_active?: boolean; label?: string; code_hash?: string; plain_code?: string } = {}
+  const supabase = createClient()
+
+  const update: { is_active?: boolean; label?: string; code_hash?: string; plain_code?: string; league_player_id?: string | null } = {}
   if (typeof body.is_active === 'boolean') update.is_active = body.is_active
   if (typeof body.label === 'string') {
     const trimmed = body.label.trim()
@@ -32,17 +35,34 @@ export async function PATCH(
     update.code_hash = await hashDraftCode(trimmed)
     update.plain_code = trimmed
   }
+  // 옛 코드(117 이전 발급)에 선수를 뒤늦게 연결할 수 있게 한다. null 은 연결 해제.
+  if (body.league_player_id !== undefined) {
+    if (body.league_player_id === null || body.league_player_id === '') {
+      update.league_player_id = null
+    } else {
+      // 남의 팀 선수를 연결하면 세션 생성 시 팀장이 엉뚱한 사람으로 자동 지정된다 → 입구에서 차단
+      const teamId = await resolveTeamId(leagueId)
+      const { data: player } = await supabase
+        .from('league_players')
+        .select('id, team_id')
+        .eq('id', body.league_player_id)
+        .maybeSingle()
+      if (!player || player.team_id !== teamId) {
+        return NextResponse.json({ error: '이 팀 명단에 없는 선수입니다' }, { status: 400 })
+      }
+      update.league_player_id = body.league_player_id
+    }
+  }
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: '변경할 필드 없음' }, { status: 400 })
   }
 
-  const supabase = createClient()
   const { data, error } = await supabase
     .from('league_draft_codes')
     .update(update)
     .eq('id', codeId)
     .eq('league_id', leagueId)
-    .select('id, quarter_id, team_id, label, is_active, last_used_at, created_at, plain_code')
+    .select('id, quarter_id, team_id, label, league_player_id, is_active, last_used_at, created_at, plain_code')
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   // ⚠ 값이 아니라 "무엇을 바꿨는지" 만 남긴다 — plain_code 가 로그로 새면 안 된다.

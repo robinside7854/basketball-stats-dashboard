@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Play, Square, RotateCcw, CheckCircle2, Circle, Crown, Users, RefreshCw, Trash2, Save, Link2, Copy, Check, X, Trophy, Video, Dice5, Hand, Zap, AlertTriangle, FlaskConical } from 'lucide-react'
 import ConfirmModal from './ConfirmModal'
+import { isGuestPlayer } from '@/lib/draft/guests'
 
 interface Team { id: string; name: string; color: string }
 interface Player { id: string; name: string; number: number | null; position: string | null; plus_one?: boolean; is_active?: boolean }
@@ -38,6 +39,14 @@ interface Pick {
 }
 
 interface Leader { team_id: string; leader_player_id: string | null }
+
+/** 팀장 자동 지정에 쓰는 단장 코드 — 필요한 필드만 */
+interface ManagerCode {
+  team_id: string | null
+  role: 'manager' | 'supervisor'
+  label: string
+  league_player_id?: string | null
+}
 
 interface Props {
   leagueId: string
@@ -79,16 +88,25 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   // 리허설 여부는 생성 시점에만 정한다 — 세션이 만들어진 뒤에는 바꿀 수 없다
   // (진행 중에 껐다 켜면 "어디까지가 진짜인지" 를 아무도 답할 수 없게 된다)
   const [isTestNew, setIsTestNew] = useState(false)
+  // 단장 코드에서 팀장을 자동으로 채웠는지 — 안내 한 줄을 띄울지 판단한다
+  const [leaderPrefilled, setLeaderPrefilled] = useState(false)
 
   const jsonHeaders = { 'Content-Type': 'application/json', ...authHeaders }
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     try {
-      const [dRes, pRes] = await Promise.all([
+      const [dRes, pRes, cRes] = await Promise.all([
         fetch(`/api/admin/leagues/${leagueId}/drafts?quarterId=${quarterId}`, { headers: authHeaders }),
         fetch(`/api/leagues/${leagueId}/players`),
+        // 팀장 자동 지정용. 감독관 코드 보유자에게는 401 이라 조용히 건너뛴다.
+        fetch(`/api/admin/leagues/${leagueId}/draft-codes?quarterId=${quarterId}`, { headers: authHeaders }),
       ])
+      const playerList: Player[] = pRes.ok ? await pRes.json() : []
+      if (pRes.ok) setPlayers(playerList)
+      // 지금 뽑을 수 있는 후보 — 탈퇴 회원·게스트 제외
+      const selectable = playerList.filter(p => p.is_active !== false && !isGuestPlayer(p.name))
+
       if (dRes.ok) {
         const d = await dRes.json()
         setDraft(d.draft ?? null)
@@ -97,13 +115,47 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         setLeaders(d.leaders ?? [])
         const lmap: Record<string, string> = {}
         for (const l of (d.leaders ?? []) as Leader[]) if (l.leader_player_id) lmap[l.team_id] = l.leader_player_id
+
+        // ── 팀장 자동 지정 ──
+        // 단장 코드를 발급할 때 "누가 단장인지" 를 이미 골랐다(league_draft_codes.league_player_id).
+        // 세션을 만들 때 같은 이름을 다시 손으로 고르게 하지 않는다. 이미 지정된 팀은 건드리지 않는다.
+        // 별도 effect 로 빼지 않는 이유: setState 를 effect 에서 부르면 렌더 후 한 프레임이 더 돌고,
+        // 그 사이 사용자가 고른 값이 덮일 수 있다.
+        let prefilled = 0
+        const canPrefill = !d.draft || d.draft.status === 'setup'
+        if (canPrefill && cRes.ok) {
+          const codes = (await cRes.json().catch(() => [])) as ManagerCode[]
+          for (const c of Array.isArray(codes) ? codes : []) {
+            if (c.role === 'supervisor' || !c.team_id) continue
+            if (lmap[c.team_id]) continue
+            let pid = c.league_player_id ?? null
+            if (!pid && typeof c.label === 'string') {
+              // 117 이전에 발급된 코드는 연결이 없다 → 레이블을 이름으로 보고 정확히 일치할 때만 채운다
+              // ("구범준 단장" 처럼 뒤에 직함이 붙는 관행까지만 벗겨 본다).
+              const raw = c.label.trim()
+              const bare = raw.replace(/\s*단장$/, '').trim()
+              pid = (selectable.find(p => p.name === raw) ?? selectable.find(p => p.name === bare))?.id ?? null
+            }
+            if (pid && selectable.some(p => p.id === pid)) { lmap[c.team_id] = pid; prefilled++ }
+          }
+        }
         setLeaderDraft(lmap)
+        setLeaderPrefilled(prefilled > 0)
+
         // setup(또는 세션 없음) 일 때 풀 선택 동기화
-        if (!d.draft || d.draft.status === 'setup') setPoolSel(new Set(d.pool ?? []))
+        if (canPrefill) {
+          const poolIds: string[] = d.pool ?? []
+          if (!d.draft && poolIds.length === 0) {
+            // 세션 생성 화면의 기본값 = 팀장을 뺀 전원. 매번 「전체 선택」을 누르게 할 이유가 없다.
+            const leaderSet = new Set(Object.values(lmap))
+            setPoolSel(new Set(selectable.filter(p => !leaderSet.has(p.id)).map(p => p.id)))
+          } else {
+            setPoolSel(new Set(poolIds))
+          }
+        }
       } else {
         setDraft(null); setPicks([]); setPool([]); setLeaders([])
       }
-      if (pRes.ok) setPlayers(await pRes.json())
     } finally {
       if (!silent) setLoading(false)
     }
@@ -118,8 +170,11 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   const playerMap = Object.fromEntries(players.map(p => [p.id, p]))
   const leaderIds = new Set(Object.values(leaderDraft).filter(Boolean))
   // 반면 풀·팀장 "선택" UI(editorBlock)는 지금 뽑을 수 있는 후보만 보여줘야 한다 →
-  // 탈퇴 회원(is_active=false) 제외한 별도 리스트.
-  const activePlayers = players.filter(p => p.is_active !== false)
+  // 탈퇴 회원(is_active=false)·게스트 제외한 별도 리스트. 게스트는 그날 한 번 뛰러 온 사람이라
+  // 분기 소속을 정하는 드래프트 대상이 아니다.
+  const rosterPlayers = players.filter(p => p.is_active !== false)
+  const activePlayers = rosterPlayers.filter(p => !isGuestPlayer(p.name))
+  const guestExcluded = rosterPlayers.length - activePlayers.length
 
   async function createSession() {
     if (poolSel.size === 0) { toast.error('드래프트 대상 선수를 1명 이상 선택하세요'); return }
@@ -403,12 +458,20 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
             </div>
           ))}
         </div>
+        {leaderPrefilled && (
+          <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed mt-2 break-keep">
+            단장 코드에 연결된 선수를 자동으로 채웠습니다 — 필요하면 바꾸세요
+          </p>
+        )}
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <label className="text-sm text-[var(--mm-ink-soft)] font-bold uppercase tracking-wider flex items-center gap-1.5">
+          <label className="text-sm text-[var(--mm-ink-soft)] font-bold uppercase tracking-wider flex items-center gap-1.5 flex-wrap">
             <Users size={14} className="text-[var(--mm-positive)]" /> 드래프트 참여 선수 ({poolSel.size}명 선택 / 전체 {activePlayers.length}명)
+            {guestExcluded > 0 && (
+              <span className="normal-case tracking-normal text-[var(--mm-muted)] font-normal">(게스트 {guestExcluded}명 제외)</span>
+            )}
           </label>
           <div className="flex gap-1.5">
             <button onClick={() => setPoolSel(new Set(activePlayers.filter(p => !leaderIds.has(p.id)).map(p => p.id)))} className={chipButton}>전체 선택</button>
