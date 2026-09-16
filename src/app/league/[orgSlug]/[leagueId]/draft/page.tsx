@@ -907,7 +907,7 @@ export default function LeagueDraftPage() {
               <p className="font-jersey text-sm text-[color:var(--mm-muted)] uppercase tracking-widest">진행 현황</p>
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div><p className="font-jersey font-black text-3xl text-[color:var(--mm-ink)] tabular-nums">{draft.total_picks}</p><p className="text-sm text-[color:var(--mm-muted)] font-bold uppercase tracking-[0.16em]">총 픽</p></div>
-                <div><p className="font-jersey font-black text-3xl text-[color:var(--mm-yellow-strong)] tabular-nums">{draft.current_round}</p><p className="text-sm text-[color:var(--mm-muted)] font-bold uppercase tracking-[0.16em]">라운드</p></div>
+                <div><p className="font-jersey font-black text-3xl text-[color:var(--mm-yellow-strong)] tabular-nums">{draft.status === 'completed' ? Math.max(1, ...state!.picks.map(p => p.round_number)) : draft.current_round}</p><p className="text-sm text-[color:var(--mm-muted)] font-bold uppercase tracking-[0.16em]">라운드</p></div>
                 <div><p className="font-jersey font-black text-3xl text-[color:var(--mm-ink)] tabular-nums">{state?.available_players.length}</p><p className="text-sm text-[color:var(--mm-muted)] font-bold uppercase tracking-[0.16em]">남은 선수</p></div>
               </div>
             </div>
