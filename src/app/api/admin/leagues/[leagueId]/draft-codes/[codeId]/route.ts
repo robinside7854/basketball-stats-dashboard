@@ -13,6 +13,8 @@ export async function PATCH(
 ) {
   const { leagueId, codeId } = await params
   if (!await isDraftManager(req, leagueId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // uuid 가 아니면 PostgREST 가 500 을 낸다(2026-09-16 실측) — 없는 코드로 취급한다
+  if (!/^[0-9a-f-]{36}$/i.test(codeId)) return NextResponse.json({ error: '코드를 찾을 수 없습니다' }, { status: 404 })
   const body = await req.json().catch(() => null) as { is_active?: boolean; label?: string; plain_code?: string; league_player_id?: string | null } | null
   if (!body) return NextResponse.json({ error: '본문 누락' }, { status: 400 })
 
