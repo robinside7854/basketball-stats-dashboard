@@ -6,8 +6,8 @@
 //   const [reveal, setReveal] = useState<PickRevealData | null>(null)
 //   <DraftPickReveal data={reveal} onClose={() => setReveal(null)} />
 
-import { useEffect, useRef } from 'react'
-import { Trophy, Zap } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Trophy, Zap, User } from 'lucide-react'
 
 export interface PickRevealData {
   pickNumber: number
@@ -17,6 +17,122 @@ export interface PickRevealData {
   playerName: string
   playerNumber: number | null
   playerPosition: string | null
+  /** 선수 사진 — 없으면 팀 컬러 실루엣 카드로 폴백 */
+  playerPhotoUrl?: string | null
+}
+
+/** 뒷면(팀 컬러 · PICK #n)이 먼저 보이고, 사진이 준비되면 뒤집혀 얼굴이 나오기까지의 최소 대기 */
+const FLIP_MIN_DELAY_MS = 550
+/** 사진 로드가 이보다 늦으면 기다리지 않고 뒤집는다(폴백 면이 나올 수 있다) */
+const FLIP_MAX_WAIT_MS = 1400
+
+/**
+ * 픽 카드 플립 — 앞면은 팀 컬러 카드(PICK #n), 사진이 로드되면 rotateY 로 뒤집혀 얼굴이 나온다.
+ * 미라클 명단은 등번호가 전부 비어 있어(2026-09-16 실측 47/47) 이 자리가 공백이었다. 사진은 37/47.
+ * 관전 페이지의 인라인 히어로도 같은 컴포넌트를 쓴다.
+ */
+export function PickPhotoFlip(props: {
+  photoUrl: string | null | undefined
+  playerName: string
+  pickNumber: number
+  teamColor: string
+  size?: 'md' | 'lg'
+}) {
+  // 픽이 바뀌면 key 로 다시 마운트 — 상태 초기화를 effect 안 setState 로 하지 않는다
+  return <PickPhotoFlipInner key={`${props.pickNumber}:${props.photoUrl ?? ''}`} {...props} />
+}
+
+function PickPhotoFlipInner({
+  photoUrl,
+  playerName,
+  pickNumber,
+  teamColor,
+  size = 'lg',
+}: {
+  photoUrl: string | null | undefined
+  playerName: string
+  pickNumber: number
+  teamColor: string
+  size?: 'md' | 'lg'
+}) {
+  const [flipped, setFlipped] = useState(false)
+  const [loaded, setLoaded] = useState<boolean | null>(null) // null=대기, true=성공, false=실패/없음
+
+  // 사진 선로드 — 뒤집혔을 때 빈 면이 보이지 않게. 최소 대기 뒤 로드 완료 또는 최대 대기 초과 시 뒤집는다.
+  useEffect(() => {
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    let done = false
+    const finish = (ok: boolean) => { if (done) return; done = true; setLoaded(ok) }
+    if (photoUrl) {
+      const img = new Image()
+      img.onload = () => finish(true)
+      img.onerror = () => finish(false)
+      img.src = photoUrl
+    } else {
+      finish(false)
+    }
+    const started = Date.now()
+    const tick = window.setInterval(() => {
+      const elapsed = Date.now() - started
+      if ((done && elapsed >= (reduce ? 0 : FLIP_MIN_DELAY_MS)) || elapsed >= FLIP_MAX_WAIT_MS) {
+        window.clearInterval(tick)
+        setFlipped(true)
+      }
+    }, 50)
+    return () => window.clearInterval(tick)
+  }, [photoUrl])
+
+  const box = size === 'lg' ? 'w-44 h-44 sm:w-60 sm:h-60' : 'w-36 h-36 sm:w-44 sm:h-44'
+  const showPhoto = loaded === true && !!photoUrl
+
+  return (
+    <div className={`pick-flip mx-auto ${box}`} aria-live="off">
+      <div className={`pick-flip-inner ${flipped ? 'is-flipped' : ''}`}>
+        {/* 앞면 — 팀 컬러 카드 */}
+        <div
+          className="pick-flip-face rounded-3xl flex flex-col items-center justify-center gap-1"
+          style={{ background: teamColor, border: `4px solid ${teamColor}`, boxShadow: `0 0 40px ${teamColor}88` }}
+          aria-hidden
+        >
+          <span className="text-black/70 text-sm sm:text-base font-black tracking-[0.3em] uppercase">Pick</span>
+          <span className="text-black text-6xl sm:text-8xl font-black leading-none tabular-nums" style={{ fontFamily: 'var(--font-bebas, sans-serif)' }}>#{pickNumber}</span>
+        </div>
+        {/* 뒷면 — 사진 또는 실루엣 */}
+        <div
+          className="pick-flip-face pick-flip-back rounded-3xl overflow-hidden bg-neutral-900"
+          style={{ border: `4px solid ${teamColor}`, boxShadow: `0 0 60px ${teamColor}aa` }}
+        >
+          {showPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photoUrl!} alt={`${playerName} 사진`} className="w-full h-full object-cover object-top" draggable={false} />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-2" style={{ background: `linear-gradient(160deg, ${teamColor}55, #111 80%)` }} role="img" aria-label={`${playerName} (사진 없음)`}>
+              <span className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center" style={{ background: `${teamColor}33`, color: teamColor }}>
+                <User size={24} aria-hidden />
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+      <style jsx>{`
+        .pick-flip { perspective: 1200px; }
+        .pick-flip-inner {
+          position: relative; width: 100%; height: 100%;
+          transform-style: preserve-3d;
+          transition: transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .pick-flip-inner.is-flipped { transform: rotateY(180deg); }
+        .pick-flip-face {
+          position: absolute; inset: 0;
+          backface-visibility: hidden; -webkit-backface-visibility: hidden;
+        }
+        .pick-flip-back { transform: rotateY(180deg); }
+        @media (prefers-reduced-motion: reduce) {
+          .pick-flip-inner { transition: none; }
+        }
+      `}</style>
+    </div>
+  )
 }
 
 const DURATION_MS = 4500
@@ -225,18 +341,13 @@ export default function DraftPickReveal({
           <p className="text-xs sm:text-base font-black tracking-[0.5em] uppercase text-gray-300 mt-1.5">SELECTS</p>
         </div>
 
-        {/* 메인 — 선수 번호 + 이름 + 포지션 */}
-        <div className="space-y-1 sm:space-y-2">
+        {/* 메인 — 사진 카드 플립 + 이름 + 포지션 */}
+        <div className="space-y-2 sm:space-y-3">
+          <div className="pick-reveal-number" style={{ animation: 'numberPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both' }}>
+            <PickPhotoFlip photoUrl={data.playerPhotoUrl} playerName={data.playerName} pickNumber={data.pickNumber} teamColor={data.teamColor} />
+          </div>
           {data.playerNumber != null && (
-            <p
-              className="pick-reveal-number text-8xl sm:text-[10rem] font-black tracking-tighter leading-none drop-shadow-2xl"
-              style={{
-                color: data.teamColor,
-                fontFamily: 'var(--font-bebas, sans-serif)',
-                textShadow: `0 0 40px ${data.teamColor}aa, 0 0 80px ${data.teamColor}55`,
-                animation: 'numberPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both',
-              }}
-            >
+            <p className="text-2xl sm:text-4xl font-black tabular-nums leading-none" style={{ color: data.teamColor, fontFamily: 'var(--font-bebas, sans-serif)' }}>
               #{data.playerNumber}
             </p>
           )}
@@ -302,10 +413,10 @@ export default function DraftPickReveal({
           0%, 100% { opacity: 0.4; }
           50% { opacity: 0.8; }
         }
-        /* 가로 모드 폰 — 등번호가 카드 밖으로 잘리던 자리(2026-09-16 실측) */
+        /* 가로 모드 폰 — 카드가 화면 높이를 넘지 않게(2026-09-16 실측) */
         @media (orientation: landscape) and (max-height: 500px) {
           .pick-reveal-card { padding: 1rem 1.5rem; }
-          .pick-reveal-number { font-size: 3rem; line-height: 1; }
+          .pick-reveal-number { transform: scale(0.6); transform-origin: center top; margin-bottom: -3.5rem; }
         }
         @media (prefers-reduced-motion: reduce) {
           .pick-reveal-card { animation: none !important; }

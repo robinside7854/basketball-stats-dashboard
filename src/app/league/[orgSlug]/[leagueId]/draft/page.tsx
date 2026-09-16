@@ -16,6 +16,7 @@ import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
 import DraftTeamStats from '@/components/league/DraftTeamStats'
 import DraftStatTable from '@/components/league/DraftStatTable'
 import DraftSummaryCard from '@/components/league/DraftSummaryCard'
+import { PickPhotoFlip } from '@/components/league/DraftPickReveal'
 import Confetti from '@/components/league/Confetti'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS, PICK_SECONDS } from '@/lib/draftTimer'
 import { playBeep, playBuzzer, primeAudio, setMuted as setSoundMuted } from '@/lib/draftSounds'
@@ -37,6 +38,7 @@ interface Pick {
   player_id: string
   player_name: string
   player_number: number | null
+  player_photo_url?: string | null
   picked_at: string
 }
 interface Leader { team_id: string; leader_player_id: string | null }
@@ -500,7 +502,10 @@ export default function LeagueDraftPage() {
                 <span className="text-white font-bold text-xl">{teamMap[reveal.team_id]?.name}</span>
                 <span className="text-white/80 text-base">{reveal.round_number}R · 전체 {reveal.pick_number}순위</span>
               </div>
-              <p className="font-jersey text-lg uppercase tracking-[0.4em] mb-2 animate-pulse" style={{ color: rc }}>THE PICK IS IN</p>
+              <p className="font-jersey text-lg uppercase tracking-[0.4em] mb-3 animate-pulse" style={{ color: rc }}>THE PICK IS IN</p>
+              <div className="mb-4 animate-in zoom-in-75 duration-500">
+                <PickPhotoFlip photoUrl={reveal.player_photo_url} playerName={reveal.player_name} pickNumber={reveal.pick_number} teamColor={rc} size="md" />
+              </div>
               <h2 className="font-jersey text-6xl sm:text-8xl font-bold text-white animate-in zoom-in-90 duration-500"
                 style={{ textShadow: `0 0 40px ${rc}, 0 0 80px ${rc}88` }}>
                 {reveal.player_name}

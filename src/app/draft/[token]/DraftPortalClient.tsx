@@ -38,6 +38,7 @@ interface Pick {
   player_name: string
   player_number: number | null
   player_position: string | null
+  player_photo_url?: string | null
   picked_at: string
 }
 interface DraftState {
@@ -441,6 +442,7 @@ export default function DraftPortalClient({
       playerName: latest.player_name,
       playerNumber: latest.player_number,
       playerPosition: latest.player_position,
+      playerPhotoUrl: latest.player_photo_url ?? null,
     }
     lastPickNumberRef.current = latest.pick_number
     if (showLottery) {
