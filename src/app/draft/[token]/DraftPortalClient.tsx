@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { KeyRound, Trophy, Crown, ShieldCheck, CheckCircle2, Circle, LogOut, Lock, Timer, Zap, AlertTriangle, Info, Users, Dice5, Hand, Video, Clock, Volume2, VolumeX } from 'lucide-react'
+import { KeyRound, Trophy, Crown, ShieldCheck, CheckCircle2, Circle, LogOut, Lock, Timer, Zap, AlertTriangle, Info, Users, Dice5, Hand, Video, Clock, Volume2, VolumeX, FlaskConical } from 'lucide-react'
 import DraftSessionControl from '@/components/league/DraftSessionControl'
 import DraftChat from '@/components/league/DraftChat'
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
@@ -61,6 +61,8 @@ interface DraftState {
     lottery_done: boolean
     pick_deadline: string | null
     extensions_used: Record<string, number>
+    /** 리허설 세션 — 픽·팀장이 리그(분기 소속)에 반영되지 않는다 (migration 115) */
+    is_test?: boolean
   } | null
   current_team_id: string | null
   picks: Pick[]
@@ -1192,6 +1194,14 @@ export default function DraftPortalClient({
           )}
         </div>
       )}
+      {/* 테스트 세션 고지 — 모든 단계에서 계속 보인다.
+          리허설 중 "이거 진짜 반영되는 거 아니냐"는 질문이 한 번이라도 나오면 진행이 멈춘다. */}
+      {draft?.is_test && (
+        <div className="mb-2 rounded-lg px-3 py-2 min-h-11 flex items-center gap-2 bg-amber-400 text-black">
+          <FlaskConical size={16} aria-hidden className="shrink-0" />
+          <span className="text-sm sm:text-base font-bold break-keep">테스트 세션 — 결과가 리그에 반영되지 않습니다</span>
+        </div>
+      )}
       {/* 가로채기 배너 — 현황 바 바로 아래(z-20), 3초 후 스스로 사라진다 */}
       <DraftStealBanner data={stealBanner} onDone={() => setStealBanner(null)} />
       {/* 내 차례 펄스 keyframes — 콜아웃 카드 + 외곽 래퍼에서 사용 */}
@@ -1321,7 +1331,7 @@ export default function DraftPortalClient({
               tint = isMyTurn ? 'border-emerald-500 bg-emerald-950/40' : 'border-amber-700/40 bg-amber-950/20'
             } else if (status === 'completed') {
               title = '드래프트 완료'
-              helper = '멤버십이 자동 반영되었습니다.'
+              helper = draft.is_test ? '테스트 세션 — 리그에 반영되지 않았습니다.' : '멤버십이 자동 반영되었습니다.'
               tint = 'border-emerald-700/50 bg-emerald-950/30'
             }
             return (
@@ -1577,8 +1587,9 @@ export default function DraftPortalClient({
                 teams={state?.teams ?? []}
                 authHeaders={{ 'X-Draft-Code': auth.plain }}
                 onChanged={fetchState}
-                // 감독관 코드로는 DELETE 라우트가 401 — 눌러도 실패하는 버튼은 아예 감춘다
-                canDelete={false}
+                // 감독관 코드로는 DELETE 라우트가 401 — 눌러도 실패하는 버튼은 아예 감춘다.
+                // 단 테스트 세션은 서버가 감독관 코드 삭제를 허용한다(리허설 뒷정리).
+                canDelete={!!state?.draft?.is_test}
               />
             </div>
           )}

@@ -31,12 +31,12 @@ export async function POST(
   // 드래프트 + 분기 조회
   const { data: draft } = await supabase
     .from('league_drafts')
-    .select('id, quarter_id')
+    .select('id, quarter_id, is_test')
     .eq('id', draftId)
     .eq('league_id', leagueId)
     .maybeSingle()
   if (!draft) return NextResponse.json({ error: '세션을 찾을 수 없습니다' }, { status: 404 })
-  const d = draft as { id: string; quarter_id: string }
+  const d = draft as { id: string; quarter_id: string; is_test: boolean }
 
   // 감사 로그에 "몇 명의 분기 멤버십이 되돌아갔는지" 를 남기기 위해 블록 밖에서 센다.
   let revertedMemberships = 0
@@ -47,16 +47,19 @@ export async function POST(
       .from('league_draft_picks')
       .select('team_id, league_player_id')
       .eq('draft_id', draftId)
-    revertedMemberships = (picks ?? []).length
-
     // 멤버십 되돌림 — 같은 (quarter_id, league_player_id) AND team_id 정확히 일치
-    for (const p of (picks ?? []) as { team_id: string; league_player_id: string }[]) {
-      await supabase
-        .from('league_player_quarters')
-        .delete()
-        .eq('quarter_id', d.quarter_id)
-        .eq('league_player_id', p.league_player_id)
-        .eq('team_id', p.team_id)
+    // ⚠ 테스트 세션은 멤버십을 쓴 적이 없다. 되돌릴 것이 없는데 지우면, 같은 분기에
+    //    다른 경로로 들어온 진짜 소속을 대신 지우게 된다(픽과 (선수, 팀) 조합이 겹칠 수 있다).
+    if (!d.is_test) {
+      revertedMemberships = (picks ?? []).length
+      for (const p of (picks ?? []) as { team_id: string; league_player_id: string }[]) {
+        await supabase
+          .from('league_player_quarters')
+          .delete()
+          .eq('quarter_id', d.quarter_id)
+          .eq('league_player_id', p.league_player_id)
+          .eq('team_id', p.team_id)
+      }
     }
 
     // 픽 삭제
@@ -106,7 +109,7 @@ export async function POST(
   // 리셋은 픽·채팅·분기 멤버십을 함께 되돌린다 — 삭제만큼 되돌리기 어려운 행위다.
   await logAudit({
     req, action: 'draft.reset', targetTable: 'league_drafts', targetId: draftId,
-    leagueId, quarterId: d.quarter_id, detail: { deletePicks, revertedMemberships },
+    leagueId, quarterId: d.quarter_id, detail: { deletePicks, revertedMemberships, isTest: d.is_test },
   })
 
   return NextResponse.json({ draft: updated, deleted_picks: deletePicks })

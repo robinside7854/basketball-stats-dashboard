@@ -5,11 +5,12 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2, Minimize2, Maximize2, Shuffle, Check, ChevronDown, Volume2, VolumeX, Hand, Clock } from 'lucide-react'
+import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2, Minimize2, Maximize2, Shuffle, Check, ChevronDown, Volume2, VolumeX, Hand, Clock, FlaskConical } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import DraftCodeManager from '@/components/league/DraftCodeManager'
 import DraftSessionControl from '@/components/league/DraftSessionControl'
+import NextQuarterButton from '@/components/league/NextQuarterButton'
 import DraftChat from '@/components/league/DraftChat'
 import DraftPlayerStatsModal, { type DraftStatRow } from '@/components/league/DraftPlayerStatsModal'
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
@@ -59,6 +60,8 @@ interface DraftState {
     extensions_used: Record<string, number>
     started_at: string | null
     completed_at: string | null
+    /** 리허설 세션 — 픽·팀장이 리그(분기 소속)에 반영되지 않는다 (migration 115) */
+    is_test?: boolean
   } | null
   current_team_id: string | null
   picks: Pick[]
@@ -130,15 +133,17 @@ export default function LeagueDraftPage() {
 
   const sessionKey = selectedQid ? `draft_code_${leagueId}_${selectedQid}` : null
 
-  useEffect(() => {
-    fetch(`/api/leagues/${leagueId}/quarters`)
-      .then(r => r.json())
-      .then((qs: Quarter[]) => {
-        setQuarters(qs)
-        const current = qs.find(q => q.is_current) ?? qs[qs.length - 1] ?? qs[0]
-        if (current) setSelectedQid(current.id)
-      })
+  // 분기 목록 재조회 — 「다음 분기 추가」 후에도 같은 경로를 쓴다.
+  // selectQid 를 주면 그 분기를 선택하고, 없으면 현재 분기(없으면 마지막)를 고른다.
+  const loadQuarters = useCallback(async (selectQid?: string) => {
+    const qs: Quarter[] = await fetch(`/api/leagues/${leagueId}/quarters`).then(r => r.json()).catch(() => [])
+    setQuarters(qs ?? [])
+    if (selectQid) { setSelectedQid(selectQid); return }
+    const current = (qs ?? []).find(q => q.is_current) ?? (qs ?? [])[(qs ?? []).length - 1] ?? (qs ?? [])[0]
+    if (current) setSelectedQid(current.id)
   }, [leagueId])
+
+  useEffect(() => { void loadQuarters() }, [loadQuarters])
 
   // 분기 변경 시 인증 복구
   useEffect(() => {
@@ -536,9 +541,15 @@ export default function LeagueDraftPage() {
       {/* 헤더 + 분기 */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="font-jersey text-3xl sm:text-4xl font-bold text-[color:var(--mm-ink)] flex items-center gap-2">
+          {/* flex-wrap 필수 — 375px 에서 TEST 배지 + LIVE 배지가 함께 붙으면 제목 줄이 넘친다 */}
+          <h1 className="font-jersey text-3xl sm:text-4xl font-bold text-[color:var(--mm-ink)] flex items-center gap-2 flex-wrap min-w-0">
             <Sparkles size={24} className="text-[color:var(--mm-yellow-strong)]" /> 드래프트
-            {isFocus && <span className="text-sm font-bold px-2.5 py-1 rounded-sm bg-[color:var(--mm-live-bg)] text-white uppercase tracking-wider animate-pulse-red">집중 모드 · LIVE</span>}
+            {state?.draft?.is_test && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] text-sm font-black tracking-wider">
+                <FlaskConical size={16} aria-hidden /> TEST · 리그 미반영
+              </span>
+            )}
+            {isFocus &&<span className="text-sm font-bold px-2.5 py-1 rounded-sm bg-[color:var(--mm-live-bg)] text-white uppercase tracking-wider animate-pulse-red">집중 모드 · LIVE</span>}
           </h1>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <button onClick={() => { primeAudio(); setMuted(v => !v) }} title={muted ? '소리 켜기' : '소리 끄기'}
@@ -581,6 +592,15 @@ export default function LeagueDraftPage() {
                 {q.is_current && <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-[color:var(--mm-yellow-strong)] inline-block" />}
               </button>
             ))}
+            {/* 분기 생성은 편집 권한(리그 PIN·어드민)이 있을 때만 */}
+            {isEditMode && (
+              <NextQuarterButton
+                leagueId={leagueId}
+                quarters={quarters}
+                authHeaders={leagueHeaders}
+                onCreated={newId => { void loadQuarters(newId) }}
+              />
+            )}
           </div>
         )}
       </div>
@@ -852,7 +872,9 @@ export default function LeagueDraftPage() {
             {draft.status === 'completed' && (
               <div className="bg-[color:var(--mm-yellow)] rounded-sm p-5 text-center">
                 <p className="font-jersey text-[color:var(--mm-black)] font-bold text-lg sm:text-xl">드래프트 완료</p>
-                <p className="text-sm text-[color:var(--mm-black)]/75 mt-1.5 leading-relaxed">분기 멤버십이 자동 반영되었습니다</p>
+                <p className="text-sm text-[color:var(--mm-black)]/75 mt-1.5 leading-relaxed">
+                  {draft.is_test ? '테스트 세션 — 리그에 반영되지 않았습니다' : '분기 멤버십이 자동 반영되었습니다'}
+                </p>
                 <Link href={`/league/${orgSlug}/${leagueId}/teams`} className="inline-flex items-center gap-1 mt-3 text-base text-[color:var(--mm-black)] hover:underline underline-offset-4 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] rounded-sm">
                   팀 구성 페이지로 <ChevronRight size={16} />
                 </Link>

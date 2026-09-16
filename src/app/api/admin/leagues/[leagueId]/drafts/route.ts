@@ -5,6 +5,7 @@
 //   method?: 'snake'|'linear',           // 기본 snake
 //   leaders?: { [team_id]: league_player_id },  // 팀장(단장) 지정 — 풀에서 자동 제외
 //   pool_player_ids: string[],           // 드래프트 대상(정규선수) 풀
+//   is_test?: boolean,                   // 리허설 세션 — 리그 데이터에 흔적을 남기지 않는다
 // }
 //   - draft_order 는 빈 배열로 생성 (이후 승률 가중 추첨으로 확정)
 //   - status='setup' 으로 생성
@@ -12,6 +13,15 @@
 //   - 풀은 league_draft_pool 에 저장 (팀장 id 는 방어적으로 제외)
 //
 // GET: ?quarterId=X — 해당 분기 세션 + 픽 + 풀 + 팀장 조회 (어드민 화면용)
+//
+// ── 테스트 세션(is_test) 규칙 ────────────────────────────────────────────────
+// 리허설은 리그 데이터에 한 줄도 남기면 안 된다. 그래서 테스트 세션은
+//   league_team_quarter_leaders / league_player_quarters 에 **아무것도 쓰지 않는다.**
+// 대신 팀장은 세션 행 안의 `test_leaders` jsonb 에 보관한다(migration 116).
+//   { "<team_id>": "<league_player_id>" } 형태이고, 실전 세션은 항상 NULL 이다.
+//   이 값은 리그 표가 아니라 세션에 매달려 있으므로 세션을 지우면 함께 사라진다 —
+//   "흔적 0" 을 지키면서도 리허설 중 화면을 다시 열었을 때 팀장이 비지 않는다.
+// GET 은 테스트 세션에 대해 test_leaders 를 풀어 leaders 배열로 돌려준다.
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
@@ -26,7 +36,7 @@ export async function POST(
   const { leagueId } = await params
   const session = await requireCeoSession()
   const body = await req.json().catch(() => null) as
-    | { quarter_id?: string; method?: 'snake'|'linear'; leaders?: Record<string, string | null>; pool_player_ids?: string[] }
+    | { quarter_id?: string; method?: 'snake'|'linear'; leaders?: Record<string, string | null>; pool_player_ids?: string[]; is_test?: boolean }
     | null
 
   if (!body?.quarter_id) {
@@ -42,6 +52,7 @@ export async function POST(
   }
   const method = body.method === 'linear' ? 'linear' : 'snake'
   const leaders = body.leaders ?? {}
+  const isTest = body.is_test === true
 
   const supabase = createClient()
 
@@ -62,6 +73,12 @@ export async function POST(
   const leaderPlayerIds = new Set(
     Object.values(leaders).filter((v): v is string => typeof v === 'string' && v.length > 0),
   )
+  // test_leaders 는 "지정된 팀장" 만 담는다 — 미지정(null/'')을 그대로 넣으면
+  // 조회 쪽에서 '' 를 선수 id 로 오해해 이름 조회가 헛돈다.
+  const testLeaders: Record<string, string> = {}
+  for (const [teamId, pid] of Object.entries(leaders)) {
+    if (typeof pid === 'string' && pid) testLeaders[teamId] = pid
+  }
   const finalPool = poolIds.filter(id => !leaderPlayerIds.has(id))
   if (finalPool.length === 0) {
     return NextResponse.json({ error: '팀장을 제외하면 풀이 비어 있습니다' }, { status: 400 })
@@ -76,6 +93,9 @@ export async function POST(
       status: 'setup',
       draft_order: [],
       method,
+      is_test: isTest,
+      // 실전 세션은 항상 NULL — 팀장은 league_team_quarter_leaders 가 정본이다
+      test_leaders: isTest ? testLeaders : null,
       created_by: session?.user?.email ?? null,
     })
     .select()
@@ -84,17 +104,21 @@ export async function POST(
   const draftId = (draft as { id: string }).id
 
   // 팀장 기록 + 본인 팀 정규 멤버십 반영
-  for (const [teamId, playerId] of Object.entries(leaders)) {
-    await supabase
-      .from('league_team_quarter_leaders')
-      .upsert({ quarter_id: body.quarter_id, team_id: teamId, leader_player_id: playerId ?? null })
-    if (playerId) {
+  // 테스트 세션은 이 두 쓰기를 통째로 건너뛴다 — 리그 데이터에 남는 유일한 경로가 여기다.
+  // (팀장은 위에서 세션 행의 test_leaders 에 이미 들어갔다)
+  if (!isTest) {
+    for (const [teamId, playerId] of Object.entries(leaders)) {
       await supabase
-        .from('league_player_quarters')
-        .upsert(
-          { league_id: leagueId, quarter_id: body.quarter_id, league_player_id: playerId, team_id: teamId, is_regular: true },
-          { onConflict: 'quarter_id,league_player_id' },
-        )
+        .from('league_team_quarter_leaders')
+        .upsert({ quarter_id: body.quarter_id, team_id: teamId, leader_player_id: playerId ?? null })
+      if (playerId) {
+        await supabase
+          .from('league_player_quarters')
+          .upsert(
+            { league_id: leagueId, quarter_id: body.quarter_id, league_player_id: playerId, team_id: teamId, is_regular: true },
+            { onConflict: 'quarter_id,league_player_id' },
+          )
+      }
     }
   }
 
@@ -116,10 +140,14 @@ export async function POST(
   await logAudit({
     req, action: 'draft.create', targetTable: 'league_drafts', targetId: draftId,
     leagueId, quarterId: body.quarter_id,
-    detail: { method, poolCount: finalPool.length, createdBy: session?.user?.email ?? null },
+    detail: { method, poolCount: finalPool.length, isTest, createdBy: session?.user?.email ?? null },
   })
 
-  return NextResponse.json({ ...draft, pool_count: finalPool.length }, { status: 201 })
+  return NextResponse.json({
+    ...draft,
+    pool_count: finalPool.length,
+    leaders: Object.entries(leaders).map(([team_id, leader_player_id]) => ({ team_id, leader_player_id })),
+  }, { status: 201 })
 }
 
 export async function GET(
@@ -148,7 +176,14 @@ export async function GET(
 
   if (!draft) return NextResponse.json({ draft: null, picks: [], pool: [], leaders: leaders ?? [] })
 
-  const draftId = (draft as { id: string }).id
+  const d = draft as { id: string; is_test?: boolean; test_leaders?: Record<string, string> | null }
+  const draftId = d.id
+  // 테스트 세션의 팀장은 league_team_quarter_leaders 가 아니라 세션 행 안에 있다.
+  // 이 분기에 (다른 경로로 만들어진) 팀장 행이 있어도 그건 이 세션이 지정한 것이 아니므로
+  // 섞지 않고, test_leaders 만 풀어서 돌려준다.
+  const testLeaderList = Object.entries(d.test_leaders ?? {})
+    .filter(([, pid]) => typeof pid === 'string' && pid)
+    .map(([team_id, leader_player_id]) => ({ team_id, leader_player_id }))
   const [{ data: picks }, { data: pool }] = await Promise.all([
     supabase
       .from('league_draft_picks')
@@ -165,6 +200,6 @@ export async function GET(
     draft,
     picks: picks ?? [],
     pool: (pool ?? []).map(p => p.league_player_id),
-    leaders: leaders ?? [],
+    leaders: d.is_test === true ? testLeaderList : (leaders ?? []),
   })
 }

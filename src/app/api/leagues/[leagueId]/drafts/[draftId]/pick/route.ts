@@ -6,6 +6,7 @@
 //   3. 현재 차례의 team_id 가 본인 팀과 같은지 확인 (snake/linear 둘 다 처리)
 //   4. 선수가 이 드래프트에서 이미 픽되지 않았는지 확인 (UNIQUE 제약도 보장)
 //   5. league_draft_picks INSERT + league_player_quarters UPSERT
+//      (is_test 세션이면 league_player_quarters UPSERT 는 건너뛴다 — 리허설은 리그에 반영하지 않는다)
 //   6. draft.current_pick_index/current_round/total_picks 갱신
 //   7. 모든 선수 픽 완료 시 status='completed'
 //
@@ -29,6 +30,8 @@ interface DraftRow {
   total_picks: number
   method: 'snake' | 'linear'
   pick_seconds: number
+  /** 리허설 세션 — true 면 분기 멤버십(league_player_quarters)을 쓰지 않는다 */
+  is_test: boolean
 }
 
 /**
@@ -64,7 +67,7 @@ export async function POST(
   // 드래프트 조회
   const { data: draft } = await supabase
     .from('league_drafts')
-    .select('id, league_id, quarter_id, status, draft_order, current_pick_index, current_round, total_picks, method, pick_seconds')
+    .select('id, league_id, quarter_id, status, draft_order, current_pick_index, current_round, total_picks, method, pick_seconds, is_test')
     .eq('id', draftId)
     .eq('league_id', leagueId)
     .maybeSingle()
@@ -141,22 +144,26 @@ export async function POST(
   }
 
   // 2) league_player_quarters UPSERT (정규 멤버십 자동 반영)
-  const { error: lpqErr } = await supabase
-    .from('league_player_quarters')
-    .upsert(
-      {
-        league_id: leagueId,
-        quarter_id: d.quarter_id,
-        league_player_id: body.league_player_id,
-        team_id: body.team_id,
-        is_regular: true,
-      },
-      { onConflict: 'quarter_id,league_player_id' },
-    )
-  if (lpqErr) {
-    // 멤버십 실패 — 픽 롤백
-    await supabase.from('league_draft_picks').delete().eq('draft_id', draftId).eq('pick_number', pickNumber)
-    return NextResponse.json({ error: `멤버십 반영 실패: ${lpqErr.message}` }, { status: 500 })
+  //    테스트 세션은 건너뛴다 — 픽 자체는 세션 안(league_draft_picks)에만 남고,
+  //    세션을 지우면 흔적 없이 사라진다.
+  if (!d.is_test) {
+    const { error: lpqErr } = await supabase
+      .from('league_player_quarters')
+      .upsert(
+        {
+          league_id: leagueId,
+          quarter_id: d.quarter_id,
+          league_player_id: body.league_player_id,
+          team_id: body.team_id,
+          is_regular: true,
+        },
+        { onConflict: 'quarter_id,league_player_id' },
+      )
+    if (lpqErr) {
+      // 멤버십 실패 — 픽 롤백
+      await supabase.from('league_draft_picks').delete().eq('draft_id', draftId).eq('pick_number', pickNumber)
+      return NextResponse.json({ error: `멤버십 반영 실패: ${lpqErr.message}` }, { status: 500 })
+    }
   }
 
   // 3) 드래프트 진행 상태 갱신

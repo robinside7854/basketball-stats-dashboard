@@ -33,6 +33,10 @@ interface DraftRow {
   lottery_done: boolean
   pick_deadline: string | null
   extensions_used: Record<string, number>
+  /** 리허설 세션 — 분기 소속·팀장을 리그에 반영하지 않는다 (migration 115) */
+  is_test: boolean
+  /** 테스트 세션 전용 팀장 { team_id: league_player_id } — 실전 세션은 NULL (migration 116) */
+  test_leaders: Record<string, string> | null
 }
 
 function computeCurrentTeam(d: DraftRow): string | null {
@@ -69,7 +73,7 @@ export async function GET(
   const [{ data: draft }, { data: teamsRaw }, { data: overrides }, { data: players }, { data: leaders }, { data: supCodes }] = await Promise.all([
     supabase
       .from('league_drafts')
-      .select('id, status, draft_order, current_pick_index, current_round, total_picks, method, started_at, completed_at, pick_seconds, ready_state, lottery_odds, lottery_done, pick_deadline, extensions_used')
+      .select('id, status, draft_order, current_pick_index, current_round, total_picks, method, started_at, completed_at, pick_seconds, ready_state, lottery_odds, lottery_done, pick_deadline, extensions_used, is_test, test_leaders')
       .eq('league_id', leagueId)
       .eq('quarter_id', quarterId)
       .maybeSingle(),
@@ -140,6 +144,17 @@ export async function GET(
   }
   const d = draft as DraftRow
 
+  // 테스트 세션의 팀장은 리그 표가 아니라 세션 행(test_leaders)에 있다 (migration 116).
+  // 실전 세션과 같은 모양(이름·등번호 enrichment 포함)으로 맞춰 내려보내야 화면이 갈라지지 않는다.
+  const testLeaderList = Object.entries(d.test_leaders ?? {})
+    .filter((e): e is [string, string] => typeof e[1] === 'string' && e[1].length > 0)
+    .map(([teamId, pid]) => ({
+      team_id: teamId,
+      leader_player_id: pid,
+      leader_player_name: playerMapFull[pid]?.name ?? null,
+      leader_player_number: playerMapFull[pid]?.number ?? null,
+    }))
+
   // 픽 + 풀 병렬 조회
   const [{ data: picksRaw }, { data: poolRaw }] = await Promise.all([
     supabase
@@ -178,7 +193,9 @@ export async function GET(
     pool_size: poolIds.size,
     pool_player_ids: Array.from(poolIds),
     teams,
-    leaders: leaderList,
+    // 테스트 세션은 league_team_quarter_leaders 를 쓰지 않는다 — 이 분기에 남아 있는 다른
+    // 팀장 행을 "이 리허설이 정한 팀장"처럼 보여주지 않도록 섞지 않고 test_leaders 만 쓴다.
+    leaders: d.is_test ? testLeaderList : leaderList,
     supervisor_exists: supervisorExists,
     // 클라이언트가 서버 시간과 자기 시간 간 오프셋을 계산해 타이머 캘리브레이션에 사용
     server_time_ms: Date.now(),

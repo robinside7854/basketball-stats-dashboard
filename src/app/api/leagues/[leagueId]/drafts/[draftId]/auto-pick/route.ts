@@ -22,6 +22,8 @@ interface DraftRow {
   draft_order: string[]; current_pick_index: number; current_round: number
   total_picks: number; method: 'snake' | 'linear'; pick_deadline: string | null
   pick_seconds: number
+  /** 리허설 세션 — true 면 분기 멤버십(league_player_quarters)을 쓰지 않는다 */
+  is_test: boolean
 }
 
 function teamOnTurn(d: DraftRow): string | null {
@@ -58,7 +60,7 @@ export async function POST(
 
   const { data: draft } = await supabase
     .from('league_drafts')
-    .select('id, quarter_id, status, draft_order, current_pick_index, current_round, total_picks, method, pick_deadline, pick_seconds')
+    .select('id, quarter_id, status, draft_order, current_pick_index, current_round, total_picks, method, pick_deadline, pick_seconds, is_test')
     .eq('id', draftId)
     .eq('league_id', leagueId)
     .maybeSingle()
@@ -137,10 +139,13 @@ export async function POST(
     if (pickErr.code === '23505') return NextResponse.json({ error: '이미 처리됨' }, { status: 409 })
     return NextResponse.json({ error: pickErr.message }, { status: 500 })
   }
-  await supabase.from('league_player_quarters').upsert(
-    { league_id: leagueId, quarter_id: d.quarter_id, league_player_id: chosen, team_id: teamId, is_regular: true },
-    { onConflict: 'quarter_id,league_player_id' },
-  )
+  // 테스트 세션은 분기 멤버십을 쓰지 않는다 (pick/route.ts 와 같은 규칙)
+  if (!d.is_test) {
+    await supabase.from('league_player_quarters').upsert(
+      { league_id: leagueId, quarter_id: d.quarter_id, league_player_id: chosen, team_id: teamId, is_regular: true },
+      { onConflict: 'quarter_id,league_player_id' },
+    )
+  }
 
   let nextIndex = d.current_pick_index + 1
   let nextRound = d.current_round

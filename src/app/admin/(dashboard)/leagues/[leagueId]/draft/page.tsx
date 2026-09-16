@@ -7,6 +7,7 @@ import Link from 'next/link'
 import type { Quarter } from '@/types/league'
 import DraftCodeManager from '@/components/league/DraftCodeManager'
 import DraftSessionControl from '@/components/league/DraftSessionControl'
+import NextQuarterButton from '@/components/league/NextQuarterButton'
 
 // /admin/orgs/[orgSlug]/leagues/[leagueId]/draft 에서 이관 (2026-08-06, 조직 개념 제거).
 // orgSlug 는 원래도 뒤로가기 링크 외에는 쓰이지 않았다 — 이 화면의 모든 데이터는
@@ -85,6 +86,12 @@ export default function AdminDraftPage() {
             {q.is_current && <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-[var(--mm-positive)] inline-block" />}
           </button>
         ))}
+        {/* 어드민은 쿠키 세션 — 별도 인증 헤더가 필요 없다 */}
+        <NextQuarterButton
+          leagueId={leagueId}
+          quarters={quarters}
+          onCreated={async newId => { await load(); if (newId) setSelectedQid(newId) }}
+        />
       </div>
 
       {loading ? (

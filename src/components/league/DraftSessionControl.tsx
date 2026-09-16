@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Play, Square, RotateCcw, CheckCircle2, Circle, Crown, Users, RefreshCw, Trash2, Save, Link2, Copy, Check, X, Trophy, Video, Dice5, Hand, Zap, AlertTriangle } from 'lucide-react'
+import { Play, Square, RotateCcw, CheckCircle2, Circle, Crown, Users, RefreshCw, Trash2, Save, Link2, Copy, Check, X, Trophy, Video, Dice5, Hand, Zap, AlertTriangle, FlaskConical } from 'lucide-react'
 import ConfirmModal from './ConfirmModal'
 
 interface Team { id: string; name: string; color: string }
@@ -24,6 +24,8 @@ interface Draft {
   started_at: string | null
   completed_at: string | null
   share_token: string | null
+  /** 리허설 세션 — 픽·팀장이 분기 소속에 반영되지 않는다 (migration 115) */
+  is_test?: boolean
 }
 
 interface Pick {
@@ -74,6 +76,9 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   const [leaderDraft, setLeaderDraft] = useState<Record<string, string>>({})
   const [poolSel, setPoolSel] = useState<Set<string>>(new Set())
   const [tokenCopied, setTokenCopied] = useState(false)
+  // 리허설 여부는 생성 시점에만 정한다 — 세션이 만들어진 뒤에는 바꿀 수 없다
+  // (진행 중에 껐다 켜면 "어디까지가 진짜인지" 를 아무도 답할 수 없게 된다)
+  const [isTestNew, setIsTestNew] = useState(false)
 
   const jsonHeaders = { 'Content-Type': 'application/json', ...authHeaders }
 
@@ -121,12 +126,12 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     setActing(true)
     const res = await fetch(`/api/admin/leagues/${leagueId}/drafts`, {
       method: 'POST', headers: jsonHeaders,
-      body: JSON.stringify({ quarter_id: quarterId, method: 'snake', leaders: leaderDraft, pool_player_ids: Array.from(poolSel) }),
+      body: JSON.stringify({ quarter_id: quarterId, method: 'snake', leaders: leaderDraft, pool_player_ids: Array.from(poolSel), is_test: isTestNew }),
     })
     setActing(false)
     const data = await res.json()
     if (!res.ok) { toast.error(data.error ?? '생성 실패'); return }
-    toast.success('세션 생성 완료 — 준비 체크를 시작하세요')
+    toast.success(isTestNew ? '테스트 세션 생성 완료 — 리그에는 반영되지 않습니다' : '세션 생성 완료 — 준비 체크를 시작하세요')
     fetchData(true); onChanged?.()
   }
 
@@ -233,7 +238,9 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     setPendingConfirm({
       title: '드래프트를 리셋할까요?',
       lines: [
-        `확정된 픽 ${picks.length}건이 삭제됩니다 (선수 ${picks.length}명의 소속이 사라집니다).`,
+        draft.is_test
+          ? `확정된 픽 ${picks.length}건이 삭제됩니다 (테스트 세션이라 분기 소속에는 처음부터 반영되지 않았습니다).`
+          : `확정된 픽 ${picks.length}건이 삭제됩니다 (선수 ${picks.length}명의 소속이 사라집니다).`,
         `추첨 결과와 팀 ${teams.length}개의 준비 상태가 초기화됩니다 (풀 ${pool.length}명·팀장은 유지).`,
         '세션이 준비(setup) 단계로 되돌아갑니다.',
         '',
@@ -258,10 +265,12 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   function requestDeleteSession() {
     if (!draft) return
     setPendingConfirm({
-      title: '세션을 완전히 삭제할까요?',
+      title: draft.is_test ? '테스트 세션을 삭제할까요?' : '세션을 완전히 삭제할까요?',
       lines: [
         `확정된 픽 ${picks.length}건, 참여 선수 ${pool.length}명의 풀 설정, 팀 ${teams.length}개의 추첨 결과와 채팅 기록이 모두 삭제됩니다.`,
-        '단장·감독관 코드는 그대로 유지됩니다.',
+        draft.is_test
+          ? '테스트 세션이라 분기 소속·팀장은 처음부터 기록되지 않았습니다 — 리그 데이터는 그대로입니다.'
+          : '단장·감독관 코드는 그대로 유지됩니다.',
         '',
         '이 작업은 되돌릴 수 없습니다.',
       ],
@@ -342,6 +351,17 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   // 색은 전부 mm 토큰으로 간다. 예전에는 gray-800 위 gray-100 처럼 다크 전용 조합이 박혀 있었는데,
   // 라이트 모드에서 globals.css 가 gray 스케일을 뒤집기 때문에 그대로 두면
   // 흰 배경 위 흰 글자(1.0:1)가 되는 곳이 여러 군데였다.
+  const isTest = !!draft?.is_test
+  // 테스트 세션은 리그에 아무것도 안 남기므로, 감독관 코드로도 지울 수 있게 서버가 허용한다.
+  // 버튼을 감춰 두면 리허설 뒷정리를 CEO 에게 부탁해야 한다.
+  const showDelete = canDelete || isTest
+
+  const testBadge = isTest ? (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--mm-yellow)] text-[var(--mm-black)] text-sm font-black tracking-wider shrink-0">
+      <FlaskConical size={16} aria-hidden /> TEST · 리그 미반영
+    </span>
+  ) : null
+
   const chipButton = 'text-xs px-2.5 min-h-11 rounded bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]'
 
   // 위험 액션 확인 모달 — 이른 return 이 여러 갈래라 JSX 를 한 번 만들어 각 갈래에 붙인다.
@@ -431,7 +451,30 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
           <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed">팀장(단장)을 지정하고 드래프트 참여 선수를 선별하세요. 픽 순서는 추첨으로 정합니다 (모든 팀 같은 확률, 스네이크 방식).</p>
         </div>
         {editorBlock}
-        <Button onClick={createSession} disabled={acting} className="w-full bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:opacity-90 text-base sm:text-lg font-bold h-12 cursor-pointer">드래프트 세션 생성</Button>
+
+        {/* 리허설 스위치 — 생성 시점에만 고를 수 있다 */}
+        <div className="rounded-lg border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] p-3">
+          <label className="flex items-start gap-3 min-h-11 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isTestNew}
+              onChange={e => setIsTestNew(e.target.checked)}
+              className="mt-1 w-5 h-5 shrink-0 cursor-pointer accent-[var(--mm-yellow-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
+            />
+            <span className="min-w-0">
+              <span className="block text-base font-bold text-[var(--mm-ink)] break-keep">
+                테스트 세션 — 리그에 반영하지 않음 (리허설용)
+              </span>
+              <span className="block text-sm text-[var(--mm-ink-soft)] leading-relaxed mt-1 break-keep">
+                픽·추첨·채팅은 그대로 진행되지만 분기 소속과 팀장은 기록되지 않습니다. 끝나면 세션을 삭제하세요.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        <Button onClick={createSession} disabled={acting} className="w-full bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:opacity-90 text-base sm:text-lg font-bold h-12 cursor-pointer">
+          {isTestNew ? '테스트 세션 생성' : '드래프트 세션 생성'}
+        </Button>
       </div>
     )
   }
@@ -447,16 +490,22 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
           <div className="flex items-center gap-2">
             <h3 className="font-bold text-[var(--mm-ink)] text-lg sm:text-xl">참여 설정 (준비 단계)</h3>
             <span className="text-sm font-bold px-2 py-0.5 rounded-full bg-[var(--mm-neutral-bg)] border border-[var(--mm-rule)] text-[var(--mm-neutral-fg)] uppercase tracking-wider">준비</span>
+            {testBadge}
           </div>
           <div className="flex gap-1.5 flex-wrap">
             <Button onClick={savePoolLeaders} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer"><Save size={14} className="mr-1" /> 설정 저장</Button>
             <Button onClick={openReady} disabled={acting} className="bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:opacity-90 text-sm min-h-11 font-bold cursor-pointer"><Play size={14} className="mr-1" /> 준비 체크 시작</Button>
             {/* 세션 삭제만 negative — 나머지 두 버튼과 같은 톤이면 손이 안 멈춘다 */}
-            {canDelete && (
+            {showDelete && (
               <Button onClick={requestDeleteSession} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-negative)]/40 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/70 hover:text-[var(--mm-negative)] cursor-pointer"><Trash2 size={14} className="mr-1" /> 세션 삭제</Button>
             )}
           </div>
         </div>
+        {isTest && (
+          <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed break-keep">
+            <b className="text-[var(--mm-ink)]">테스트 세션</b>입니다. 팀장·픽 결과가 분기 소속에 반영되지 않습니다 — 진행은 실전과 똑같습니다.
+          </p>
+        )}
         <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed">현재 풀 {pool.length}명 · 팀장 {Object.values(leaderDraft).filter(Boolean).length}명. 변경 후 <b className="text-[var(--mm-ink)]">설정 저장</b>을 누른 뒤 <b className="text-[var(--mm-yellow-strong)]">준비 체크 시작</b>으로 진행하세요.</p>
         {editorBlock}
         {confirmModal}
@@ -510,6 +559,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
           <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed min-w-0 flex-1">
             풀 <b className="text-[var(--mm-ink)] tabular-nums">{pool.length}</b>명 · 팀장 <b className="text-[var(--mm-ink)] tabular-nums">{leaders.filter(l => l.leader_player_id).length}</b>명 · <b className="text-[var(--mm-ink)] tabular-nums">{draft.total_picks}</b>픽 완료
           </p>
+          {testBadge}
           {draft.status === 'in_progress' && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[var(--mm-positive-bg)] border border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)] text-sm font-bold uppercase tracking-wider">
               <span className="w-2 h-2 rounded-full bg-[var(--mm-positive)] animate-pulse" /> 진행 중
@@ -565,7 +615,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
           <Button onClick={requestResetSession} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-negative)]/40 text-[var(--mm-negative)] bg-[var(--mm-panel)] hover:text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/70 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]">
             <RotateCcw size={14} className="mr-1" /> 리셋
           </Button>
-          {canDelete && (
+          {showDelete && (
             <Button onClick={requestDeleteSession} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-negative)]/40 text-[var(--mm-negative)] bg-[var(--mm-panel)] hover:text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/70 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)]">
               <Trash2 size={14} className="mr-1" /> 세션 삭제
             </Button>

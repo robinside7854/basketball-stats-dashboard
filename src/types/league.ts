@@ -112,6 +112,9 @@ export type Quarter = {
   year: number
   quarter: number
   is_current: boolean
+  // 'quarter'(리그형 분기) | 'tournament'(대회). 대회는 year/quarter 가 서버 채번한 값이라
+  // 의미가 없으므로, 분기 계산에 쓰는 쪽은 반드시 이 값으로 걸러야 한다 (083·084)
+  kind?: string | null
   start_date?: string | null
   end_date?: string | null
   // kind='tournament' 일 때만 의미가 있다 ('pro'|'amateur') (083)
