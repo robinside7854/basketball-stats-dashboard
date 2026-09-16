@@ -11,22 +11,19 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { toast } from 'sonner'
-import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { KeyRound, Trophy, Crown, ShieldCheck, CheckCircle2, Circle, LogOut, Lock, Timer, Zap, AlertTriangle, Info, Users, Dice5, Hand, Video, Clock, Volume2, VolumeX, FlaskConical } from 'lucide-react'
+import { KeyRound, Trophy, Crown, ShieldCheck, CheckCircle2, Circle, LogOut, Timer, Users, Dice5, Hand, Video, Volume2, VolumeX, FlaskConical } from 'lucide-react'
 import DraftSessionControl from '@/components/league/DraftSessionControl'
-import DraftChat from '@/components/league/DraftChat'
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
 import DraftPickReveal, { type PickRevealData } from '@/components/league/DraftPickReveal'
+import DraftPickModal from '@/components/league/DraftPickModal'
 import DraftScoreboard from '@/components/league/DraftScoreboard'
 import DraftFinalResult from '@/components/league/DraftFinalResult'
-import DraftCommissioner, { type CommissionerEvent } from '@/components/league/DraftCommissioner'
 import DraftNextUpChips from '@/components/league/DraftNextUpChips'
 import DraftRoundSlate from '@/components/league/DraftRoundSlate'
 import DraftStealBanner, { type StealBannerData } from '@/components/league/DraftStealBanner'
-import { pickLine } from '@/lib/commissionerLines'
-import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
+import { EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { primeAudio, playMyTurnBeep, playBeep, setMuted, isMuted } from '@/lib/draftSounds'
 import { getReadableTextColor } from '@/lib/colorContrast'
 import { createClient } from '@/lib/supabase/client'
@@ -82,14 +79,6 @@ interface SessionAuth {
   plain: string // 헤더로 재사용
 }
 
-// 채팅 패널에 inline 표시되는 ephemeral 시스템 메시지 — 총무 발화/픽 안내/READY 변경 등
-export interface SystemMessage {
-  id: string                          // 발화 key — 중복 방지용
-  text: string
-  timestamp: number
-  kind: 'commissioner' | 'system'
-}
-
 interface LeaderRow {
   team_id: string
   leader_player_id: string | null
@@ -132,17 +121,12 @@ export default function DraftPortalClient({
   }, [])
   const [picking, setPicking] = useState(false)
   const [extending, setExtending] = useState(false)
-  // 픽 확정 전 한 번 더 확인 — 실수 픽 방지용 모달 상태.
-  // null 이면 모달 닫힘. 값이 있으면 모달 표시 + 확정 버튼 클릭 시 makePick(id) 호출.
-  const [confirmPick, setConfirmPick] = useState<{
-    playerId: string
-    playerName: string
-    playerNumber: number | null
-    playerPosition: string | null
-  } | null>(null)
-  // 채팅 열림 상태 — 부모에서 보유해야 lg+ 에서 본문 우측에 패널 공간을 확보할 수 있다.
-  // 닫힘 상태에서는 FAB(56px) 만 있어 본문을 가리지 않으므로 패딩 불필요.
-  const [chatOpen, setChatOpen] = useState(false)
+  // 선수 선택 전체화면 모달 — 내 차례가 되면 pick_deadline 당 한 번 자동으로 열린다.
+  // 닫아도 페이즈 카드의 「선수 선택하기」 CTA 로 언제든 다시 연다.
+  const [pickModalOpen, setPickModalOpen] = useState(false)
+  // 감독관 운영 패널(<details>) 열림 — 기본 닫힘. 1.5초 폴링 재렌더가 사용자의 열기를
+  // 되돌리지 않도록 상태로 제어한다.
+  const [opsOpen, setOpsOpen] = useState(false)
   // 소리 음소거 — draftSounds 모듈 전역 플래그의 UI 미러. 빔 프로젝터 한 대만 소리를 내도록.
   const [soundMuted, setSoundMuted] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -197,7 +181,7 @@ export default function DraftPortalClient({
   }, [fetchState])
 
   // ────────────────── Supabase Realtime 구독 ──────────────────
-  // 1.5s 폴링은 안전망. websocket 으로 league_drafts / league_draft_picks / league_draft_chat
+  // 1.5s 폴링은 안전망. websocket 으로 league_drafts / league_draft_picks
   // INSERT·UPDATE 를 받자마자 fetchState() 호출 → 클라이언트 간 체감 지연 <200ms.
   // RLS 가 막아도 폴링 fallback 으로 정상 동작.
   useEffect(() => {
@@ -209,7 +193,6 @@ export default function DraftPortalClient({
     channel
       .on('postgres_changes', { event: '*', schema: 'public', table: 'league_drafts', filter: `id=eq.${draftId}` }, refetch)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'league_draft_picks', filter: `draft_id=eq.${draftId}` }, refetch)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'league_draft_chat', filter: `draft_id=eq.${draftId}` }, refetch)
       .subscribe()
     return () => {
       cancelled = true
@@ -361,15 +344,13 @@ export default function DraftPortalClient({
     } catch { setShowLottery(true) }
   }, [state?.draft, draftId])
 
-  // ────────────────── 리셋 감지 → 채팅 클리어 ──────────────────
-  // 감독관이 reset 호출 시 DB 의 chat / picks 가 삭제되어도, 클라이언트 msgs 상태는 그대로 남는다.
+  // ────────────────── 리셋 감지 → 연출 상태 클리어 ──────────────────
+  // 감독관이 reset 호출 시 DB 의 picks 가 삭제되어도 클라이언트의 발화 latch 는 그대로 남아,
+  // 새 사이클의 첫 픽·라운드 연출이 "이미 봤다"로 판정돼 통째로 사라진다.
   // 다음 조건 중 하나라도 만족하면 reset 으로 판단:
   //   1) status 가 후방 단계(setup/ready_check)로 되돌아옴
   //   2) total_picks 가 N → 0 으로 떨어짐 (in_progress 도중 reset)
   //   3) lottery_done 이 true → false 로 바뀜 (추첨 도중 reset)
-  // 감지 시 chatRemountKey 를 증가 → <DraftChat key={chatRemountKey}> 로 강제 unmount/remount.
-  // chatSystemMessages(총무 발화) 도 모두 클리어해 깨끗한 상태로 다시 시작.
-  const [chatRemountKey, setChatRemountKey] = useState(0)
   const prevStatusRef = useRef<string | null>(null)
   const prevTotalPicksRef = useRef<number | null>(null)
   const prevLotteryDoneRef = useRef<boolean | null>(null)
@@ -387,23 +368,16 @@ export default function DraftPortalClient({
       const picksDropped = prevTotal != null && totalPicks != null && prevTotal > 0 && totalPicks === 0
       const lotteryUndone = prevLottery === true && lotteryDone === false
       if (regressed || picksDropped || lotteryUndone) {
-        setChatRemountKey(k => k + 1)
-        setChatSystemMessages([])
-        // 예약돼 있던 총무 후속 멘트도 취소 — 리셋 후 이전 사이클 대사가 튀어나오지 않도록
-        clearCommTimers()
         lastPickFiredRef.current = null
         // 발화 latch ref 도 리셋 — 새 사이클에서 다시 발화하도록
-        lastCommKeyRef.current = null
-        lastAnnouncedPickRef.current = 0
         initialPicksSnapshotRef.current = null
         lastPickNumberRef.current = 0
-        introFiredRef.current = false
         lotteryShownRef.current = false
         lastLotteryDoneRef.current = null
         // 이전 사이클의 연출 잔상도 거둔다
         setStealBanner(null)
         setSlateRound(null)
-        finalDismissedThisSession && setFinalDismissedThisSession(false)
+        if (finalDismissedThisSession) setFinalDismissedThisSession(false)
       }
     }
     prevStatusRef.current = status
@@ -426,10 +400,6 @@ export default function DraftPortalClient({
   const [showFinal, setShowFinal] = useState(false)
   // 사용자가 명시적으로 닫기를 눌렀는지 — true 면 자동 재오픈 안 함 (페이지 다시 진입하면 false 복원)
   const [finalDismissedThisSession, setFinalDismissedThisSession] = useState(false)
-  const [commEvent, setCommEvent] = useState<CommissionerEvent | null>(null)
-  const lastCommKeyRef = useRef<string | null>(null)
-  // 채팅 시스템 메시지 (총무 발화 + 시스템 알림) — 클라이언트 ephemeral, DB 미저장.
-  const [chatSystemMessages, setChatSystemMessages] = useState<SystemMessage[]>([])
   const initialPicksSnapshotRef = useRef<number | null>(null)
   const lastPickNumberRef = useRef<number>(0)
   const pendingRevealRef = useRef<PickRevealData | null>(null)
@@ -508,128 +478,7 @@ export default function DraftPortalClient({
     }
   }, [state?.draft?.status, finalDismissedThisSession])
 
-  // ────────────────── 미라클 총무 중계 트리거 ──────────────────
-  // status 전환, 추첨 결과, 새 픽 도착에 맞춰 멘트를 띄운다.
-  // lastCommKeyRef 로 같은 이벤트 중복 발화 차단.
-  // pushCommAndChat(): 말풍선 + 채팅 시스템 메시지 동시 발화 — 시청자 전원 동일 정보.
-  // ── 총무 후속 멘트 예약 ──
-  // 예전엔 각 effect 안의 setTimeout 이었는데, effect 의 deps 가 state?.draft / state?.picks
-  // (폴링마다 새 객체)라 1.5초마다 cleanup 이 돌아 예약이 매번 취소됐다 → 후속 멘트가
-  // 사실상 한 번도 안 나왔다(2026-09-16 점검). 타이머를 ref 가 소유하고 같은 key 는 한 번만
-  // 예약한다. 정리는 언마운트·리셋에서만.
-  const commTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
-  const scheduleComm = useCallback((key: string, delayMs: number, run: () => void) => {
-    const m = commTimersRef.current
-    if (m.has(key)) return
-    m.set(key, setTimeout(() => { m.delete(key); run() }, delayMs))
-  }, [])
-  const clearCommTimers = useCallback(() => {
-    for (const t of commTimersRef.current.values()) clearTimeout(t)
-    commTimersRef.current.clear()
-  }, [])
-  useEffect(() => () => clearCommTimers(), [clearCommTimers])
-
-  function fireComm(next: CommissionerEvent) {
-    if (lastCommKeyRef.current === next.key) return
-    lastCommKeyRef.current = next.key
-    setCommEvent(next)
-  }
-  function pushCommAndChat(next: CommissionerEvent) {
-    fireComm(next)
-    // 같은 key 의 중복 추가 방지
-    setChatSystemMessages(prev => {
-      if (prev.some(m => m.id === next.key)) return prev
-      const added: SystemMessage = { id: next.key, text: next.text, timestamp: Date.now(), kind: 'commissioner' }
-      const merged = [...prev, added]
-      // 메모리 leak 방지 — 최근 50개만 유지
-      return merged.length > 50 ? merged.slice(merged.length - 50) : merged
-    })
-  }
-
-  // 1) 드래프트 시작 / 종료
-  useEffect(() => {
-    if (!state?.draft) return
-    const s = state.draft.status
-    if (s === 'in_progress' && state.draft.total_picks === 0) {
-      pushCommAndChat({ key: `${draftId}:draftStart`, text: pickLine('draftStart', draftId), durationMs: 5000 })
-    }
-    if (s === 'completed') {
-      pushCommAndChat({ key: `${draftId}:draftEnd`, text: pickLine('draftEnd', draftId), durationMs: 6000 })
-      // 최종 픽 코멘트 — 별도 라인으로 자연스러운 마무리
-      scheduleComm(`${draftId}:finalPick`, 5200, () => {
-        pushCommAndChat({ key: `${draftId}:finalPick`, text: pickLine('finalPick', draftId), durationMs: 5500 })
-      })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.draft?.status, state?.draft?.total_picks, draftId, scheduleComm])
-
-  // 2) 추첨 — 자기소개(intro) → 시작 안내(lotteryStart) → 결과 발표(lotteryResult)
-  // status 가 lottery_waiting 으로 처음 들어왔을 때 인트로 한 번.
-  const introFiredRef = useRef<boolean>(false)
-  // 1픽 팀 이름 — 객체가 아닌 문자열이라 폴링마다 deps 가 흔들리지 않는다.
-  const lotteryFirstTeamName = (() => {
-    const d = state?.draft
-    if (!d?.lottery_done || !d.draft_order?.length) return null
-    return state?.teams?.find(t => t.id === d.draft_order[0])?.name ?? null
-  })()
-  useEffect(() => {
-    const status = state?.draft?.status
-    if (!status) return
-    if (status === 'lottery_waiting' && !introFiredRef.current) {
-      introFiredRef.current = true
-      pushCommAndChat({ key: `${draftId}:intro`, text: pickLine('intro', draftId), durationMs: 6000 })
-      // 인트로 직후 5.5s 뒤 추첨 시작 안내 (말풍선이 인트로 발화를 덮지 않도록)
-      scheduleComm(`${draftId}:lotteryStart`, 5500, () => {
-        pushCommAndChat({ key: `${draftId}:lotteryStart`, text: pickLine('lotteryStart', draftId), durationMs: 4500 })
-      })
-      return
-    }
-    if (lotteryFirstTeamName) {
-      scheduleComm(`${draftId}:lotteryResult`, 4500, () => {
-        pushCommAndChat({
-          key: `${draftId}:lotteryResult`,
-          text: pickLine('lotteryResult', draftId, { teamName: lotteryFirstTeamName }),
-          durationMs: 6000,
-        })
-      })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.draft?.status, state?.draft?.lottery_done, lotteryFirstTeamName, draftId, scheduleComm])
-
-  // 3) 새 픽 도착 → announce + 3초 뒤 reaction (commissioner + chat 모두에 발화)
-  const lastAnnouncedPickRef = useRef<number>(0)
-  useEffect(() => {
-    if (!state?.picks || state.picks.length === 0) return
-    const sorted = [...state.picks].sort((a, b) => a.pick_number - b.pick_number)
-    const latest = sorted[sorted.length - 1]
-    if (latest.pick_number <= lastAnnouncedPickRef.current) return
-    lastAnnouncedPickRef.current = latest.pick_number
-    const team = state.teams.find(t => t.id === latest.team_id)
-    if (!team) return
-    const ctx = {
-      teamName: team.name,
-      playerName: latest.player_name,
-      round: latest.round_number,
-      pick: latest.pick_number,
-    }
-    pushCommAndChat({
-      key: `${draftId}:pick:${latest.pick_number}:announce`,
-      text: pickLine('pickAnnounce', `${draftId}:${latest.pick_number}`, ctx),
-      durationMs: 4500,
-    })
-    const reactionTeamName = team.name
-    const reactionPickNumber = latest.pick_number
-    scheduleComm(`${draftId}:pick:${reactionPickNumber}:reaction`, 4800, () => {
-      pushCommAndChat({
-        key: `${draftId}:pick:${reactionPickNumber}:reaction`,
-        text: pickLine('pickReaction', `${draftId}:${reactionPickNumber}:r`, { teamName: reactionTeamName }),
-        durationMs: 4000,
-      })
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.picks?.length, draftId, scheduleComm])
-
-  // 4) 라운드 전환 감지 — current_round 가 증가하면 commissioner 안내 + 라운드 슬레이트
+  // 라운드 전환 감지 — current_round 가 증가하면 라운드 슬레이트 연출
   const prevRoundRef = useRef<number | null>(null)
   // 슬레이트로 띄울 라운드. 1라운드는 드래프트 시작 연출이 이미 있으므로 제외(아래 조건).
   const [slateRound, setSlateRound] = useState<number | null>(null)
@@ -641,17 +490,9 @@ export default function DraftPortalClient({
       return
     }
     const prev = prevRoundRef.current
-    if (prev != null && round > prev) {
-      pushCommAndChat({
-        key: `${draftId}:roundTransition:${round}`,
-        text: pickLine('roundTransition', `${draftId}:r${round}`, { round }),
-        durationMs: 5000,
-      })
-      if (round > 1) setSlateRound(round)
-    }
+    if (prev != null && round > prev && round > 1) setSlateRound(round)
     prevRoundRef.current = round
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.draft?.current_round, state?.draft?.status, draftId])
+  }, [state?.draft?.current_round, state?.draft?.status])
 
   // 추첨 reveal 이 닫힌 직후 — 큐된 픽 reveal 발화
   useEffect(() => {
@@ -713,34 +554,24 @@ export default function DraftPortalClient({
     return { inGrace: true, remaining: Math.max(0, Math.ceil((AUTOPICK_GRACE_SECONDS * 1000 - elapsedAfterDeadline) / 1000)) }
   }, [draftRow?.pick_deadline, now])
 
-  // 시간 임박 알림 (15초, 5초) + 유예 진입 토스트
-  const warnedAtRef = useRef<{ deadline: string | null; warned15: boolean; warned5: boolean; warnedGrace: boolean }>({
-    deadline: null, warned15: false, warned5: false, warnedGrace: false,
+  // 마감 초과(유예 진입) 토스트.
+  // 15초·5초 예고 토스트는 없앴다 — 선수 선택 모달이 헤더에 큰 초시계를 띄우고 있어
+  // 같은 정보를 덮는 토스트가 두 번 더 뜨면 선수 목록만 가린다.
+  const warnedAtRef = useRef<{ deadline: string | null; warnedGrace: boolean }>({
+    deadline: null, warnedGrace: false,
   })
   useEffect(() => {
     if (!draftRow?.pick_deadline || draftRow.status !== 'in_progress') return
-    const w = warnedAtRef.current
-    if (w.deadline !== draftRow.pick_deadline) {
+    if (warnedAtRef.current.deadline !== draftRow.pick_deadline) {
       // 새 픽 데드라인 — reset
-      warnedAtRef.current = { deadline: draftRow.pick_deadline, warned15: false, warned5: false, warnedGrace: false }
-    }
-    if (remainingSeconds != null && !graceInfo.inGrace) {
-      if (!warnedAtRef.current.warned15 && remainingSeconds <= 15 && remainingSeconds > 5) {
-        warnedAtRef.current.warned15 = true
-        // 상단 토스트는 바로 아래 타이머·hero 를 가린다 → 드래프트 경고는 하단 중앙으로.
-        toast.warning(`⏰ 15초 남음 — 픽을 서둘러주세요`, { duration: 3000, position: 'bottom-center' })
-      }
-      if (!warnedAtRef.current.warned5 && remainingSeconds <= 5 && remainingSeconds > 0) {
-        warnedAtRef.current.warned5 = true
-        toast.error(`🚨 5초 — 픽 임박!`, { duration: 3000, position: 'bottom-center' })
-      }
+      warnedAtRef.current = { deadline: draftRow.pick_deadline, warnedGrace: false }
     }
     // 유예 진입 — 처음 한 번만
     if (graceInfo.inGrace && !warnedAtRef.current.warnedGrace) {
       warnedAtRef.current.warnedGrace = true
       toast.error(`⏰ 시간 초과 — ${AUTOPICK_GRACE_SECONDS}초 안에 픽하지 않으면 무작위 자동 픽됩니다`, { duration: 5000, position: 'bottom-center' })
     }
-  }, [remainingSeconds, draftRow?.pick_deadline, draftRow?.status, graceInfo.inGrace])
+  }, [draftRow?.pick_deadline, draftRow?.status, graceInfo.inGrace])
 
   // ────────────────── 유예 종료 → 무작위 자동 픽 ──────────────────
   // 같은 마감건에 대해 1번만 호출. 인증 사용자만 트리거.
@@ -921,52 +752,7 @@ export default function DraftPortalClient({
     }
   }
 
-  // READY 토글 변경 감지 — 단장/감독관 READY on/off 시 commissioner + chat 안내.
-  // 본인의 토글은 본인의 onToggle 함수에서 직접 toast 로 안내하므로 중복 발화는 자연스럽게 OK.
-  const prevReadyStateRef = useRef<Record<string, boolean> | null>(null)
-  useEffect(() => {
-    const next = state?.draft?.ready_state
-    if (!next || typeof next !== 'object') return
-    const prev = prevReadyStateRef.current
-    if (prev) {
-      const keys = new Set([...Object.keys(prev), ...Object.keys(next)])
-      for (const k of keys) {
-        const before = !!prev[k]
-        const after = !!next[k]
-        if (before === after) continue
-        const teamName = k === 'supervisor' ? '감독관' : (state?.teams.find(t => t.id === k)?.name ?? '?')
-        const lineEvt = after ? 'readyToggledOn' : 'readyToggledOff'
-        pushCommAndChat({
-          key: `${draftId}:ready:${k}:${after ? 'on' : 'off'}:${Date.now()}`,
-          text: pickLine(lineEvt, `${draftId}:${k}:${after}`, { teamName }),
-          durationMs: 4000,
-        })
-      }
-    }
-    prevReadyStateRef.current = { ...next }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.draft?.ready_state, draftId])
-
-  // 픽 시간 변경 감지 → 모든 클라이언트에게 미라클 총무 안내 + 채팅 시스템 메시지.
-  // 이전 값과 다르고 마운트 직후 첫 폴링이 아닐 때만 발화 (초기 로드 시 false-positive 방지).
-  // 토스트는 더 이상 발화하지 않음 — broadcast 정보는 commissioner + chat 로만.
-  const prevPickSecondsRef = useRef<number | null>(null)
-  useEffect(() => {
-    const next = state?.draft?.pick_seconds
-    if (typeof next !== 'number') return
-    const prev = prevPickSecondsRef.current
-    if (prev != null && prev !== next) {
-      pushCommAndChat({
-        key: `${draftId}:pickSeconds:${next}:${Date.now()}`,
-        text: pickLine('pickSecondsChanged', `${draftId}:${next}`, { seconds: next }),
-        durationMs: 5000,
-      })
-    }
-    prevPickSecondsRef.current = next
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state?.draft?.pick_seconds, draftId])
-
-  // 실제 픽 제출 — 확인 모달에서 사용자가 '확정' 을 누르면 호출.
+  // 실제 픽 제출 — 선수 선택 모달의 확정 바에서 호출.
   // playerId 를 명시적으로 받아 모달 상태와 selectedPlayerId 의 desync 위험 차단.
   async function makePick(playerId: string) {
     if (!auth || auth.role !== 'manager' || !auth.teamId || !playerId) return
@@ -989,27 +775,15 @@ export default function DraftPortalClient({
         // 단장 본인은 클릭 직후 빠른 확인용으로 작은 토스트만.
         toast.success('픽 전송됨', { duration: 1800, position: 'bottom-center' })
         selectPlayer(null)
+        // 확정됐으면 모달을 닫는다 — 열린 채로 두면 이미 뽑힌 선수가 잠깐 남아 다시 눌린다.
+        setPickModalOpen(false)
         fetchState()
       }
     } catch {
       toast.error('네트워크 오류')
     } finally {
       setPicking(false)
-      setConfirmPick(null)
     }
-  }
-
-  // 픽 확정 버튼 클릭 → 확인 모달 오픈. selectedPlayerId 기반으로 메타데이터 스냅샷.
-  function requestConfirmPick() {
-    if (!auth || auth.role !== 'manager' || !auth.teamId || !selectedPlayerId) return
-    const player = state?.available_players.find(p => p.id === selectedPlayerId)
-    if (!player) { toast.error('선택한 선수를 찾을 수 없습니다'); return }
-    setConfirmPick({
-      playerId: player.id,
-      playerName: player.name,
-      playerNumber: player.number,
-      playerPosition: player.position,
-    })
   }
 
   // 마지막 픽 자동 등록 — useEffect 는 isMyTurn 정의 이후로 배치 (아래)
@@ -1092,13 +866,13 @@ export default function DraftPortalClient({
 
   // ────────────────── 마지막 픽 자동 등록 ──────────────────
   // 본인 차례 + 풀에 1명 남음 + 픽 진행 가능 상태 → 사용자에게 선택지가 없으므로 자동 등록.
-  // 토스트 + 총무 멘트 1.5초 빌드업 후 자동 makePick.
+  // 토스트 1.5초 빌드업 후 자동 makePick.
   // deadlineKey(pick_deadline) 단위로 1회만 발화. 동시 클라가 있어도 서버 멱등성으로 안전.
   const onlyAvailablePlayerId = state?.available_players?.length === 1 ? state.available_players[0].id : null
   useEffect(() => {
     // 조건을 벗어나면(픽이 들어와 후보가 바뀌었거나 내 차례가 끝났거나) 예약을 거둔다.
     const eligible = !!auth && auth.role === 'manager' && !!auth.teamId
-      && isMyTurn && draft?.status === 'in_progress' && !picking && !confirmPick
+      && isMyTurn && draft?.status === 'in_progress' && !picking
       && !!onlyAvailablePlayerId
     if (!eligible) { cancelLastPickTimer(); return }
     const onlyPlayer = state!.available_players[0]
@@ -1109,13 +883,7 @@ export default function DraftPortalClient({
     const deadlineKey = draft?.pick_deadline ?? `nodl:${draft?.total_picks ?? 0}`
     if (lastPickFiredRef.current !== deadlineKey) {
       lastPickFiredRef.current = deadlineKey
-      const teamName = myTeam?.name ?? '내 팀'
       toast.message(`🎯 마지막 선수입니다 — ${onlyPlayer.name} 자동 등록됩니다`, { duration: 4000, position: 'bottom-center' })
-      pushCommAndChat({
-        key: `${draftId}:lastPickAuto:${deadlineKey}`,
-        text: pickLine('lastPickAuto', `${draftId}:lpa:${deadlineKey}`, { teamName, playerName: onlyPlayer.name }),
-        durationMs: 5000,
-      })
     }
     lastPickTimerRef.current = {
       key: timerKey,
@@ -1126,7 +894,7 @@ export default function DraftPortalClient({
     }
     // cleanup 없음 — 폴링 재실행이 예약을 죽이던 것이 원래 버그다. 정리는 위 조건 분기와 언마운트에서만.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMyTurn, draft?.status, onlyAvailablePlayerId, auth, picking, confirmPick, draftId, cancelLastPickTimer])
+  }, [isMyTurn, draft?.status, onlyAvailablePlayerId, auth, picking, draftId, cancelLastPickTimer])
 
   // 내 차례 배경 틴팅 — 외곽 래퍼에만 적용 (안쪽 카드는 영향 X).
   // 강한 블렌드(80%~A6)로 팀 컬러가 확실히 지배해 절대 놓치지 않도록.
@@ -1134,9 +902,40 @@ export default function DraftPortalClient({
   const myTurnColor = isMyTurn && myTeam?.color ? myTeam.color : null
   const myTurnTextMode = myTurnColor ? getReadableTextColor(myTurnColor) : 'light'
   void myTurnTextMode // 향후 활용 — 현재는 흰 텍스트 + shadow 로 안전.
-  // 채팅 패널은 인증 사용자에게만 렌더되고 lg+ 에서 고정 사이드바가 된다.
-  // 시청자·빔 화면까지 360px 여백을 비워두던 것이 PC 에서 본문을 좁히던 원인.
-  const chatPinned = !!(auth && state?.draft)
+
+  // ────────────────── 선수 선택 모달 자동 오픈 ──────────────────
+  // 내 차례가 되면 pick_deadline 당 딱 한 번 자동으로 연다. 사용자가 닫았는데 폴링(1.5초)마다
+  // 다시 열리면 스코어보드를 볼 수가 없다 → deadline 을 latch 로 써서 픽당 1회로 묶는다.
+  const autoOpenedDeadlineRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!isMyTurn) {
+      // 내 차례가 끝나면 열려 있던 모달을 닫는다(남의 차례에 선수 목록이 떠 있으면 오조작).
+      setPickModalOpen(false)
+      return
+    }
+    const key = draftRow?.pick_deadline ?? `nodl:${draftRow?.total_picks ?? 0}`
+    if (autoOpenedDeadlineRef.current === key) return
+    autoOpenedDeadlineRef.current = key
+    setPickModalOpen(true)
+  }, [isMyTurn, draftRow?.pick_deadline, draftRow?.total_picks])
+
+  // 모달 (b) 영역용 파생값
+  const myPicks = useMemo(
+    () => (state?.picks ?? [])
+      .filter(p => p.team_id === auth?.teamId)
+      .sort((a, b) => a.pick_number - b.pick_number),
+    [state?.picks, auth?.teamId],
+  )
+  const myCaptainName = useMemo(
+    () => (state?.leaders ?? []).find(l => l.team_id === auth?.teamId)?.leader_player_name ?? null,
+    [state?.leaders, auth?.teamId],
+  )
+  // 총 라운드 = 팀당 슬롯 수. TeamPickRoster 의 expectedRounds 와 같은 식이라 두 화면 숫자가 어긋나지 않는다.
+  const totalRounds = Math.max(
+    1,
+    Math.ceil((state?.pool_size ?? state?.picks?.length ?? 1) / Math.max(1, state?.teams?.length ?? 1)),
+  )
+
   const outerStyle = {
     ...(myTurnColor
       ? {
@@ -1152,9 +951,7 @@ export default function DraftPortalClient({
     'pt-[max(0.5rem,env(safe-area-inset-top))] sm:pt-[max(0.75rem,env(safe-area-inset-top))] lg:pt-[max(1rem,env(safe-area-inset-top))]',
     'pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:pb-[max(1rem,env(safe-area-inset-bottom))]',
     'pl-[max(0.5rem,env(safe-area-inset-left))] sm:pl-[max(0.75rem,env(safe-area-inset-left))] lg:pl-[max(1rem,env(safe-area-inset-left))]',
-    chatPinned
-      ? 'pr-[max(0.5rem,env(safe-area-inset-right))] sm:pr-[max(0.75rem,env(safe-area-inset-right))] lg:pr-[360px]'
-      : 'pr-[max(0.5rem,env(safe-area-inset-right))] sm:pr-[max(0.75rem,env(safe-area-inset-right))] lg:pr-[max(1rem,env(safe-area-inset-right))]',
+    'pr-[max(0.5rem,env(safe-area-inset-right))] sm:pr-[max(0.75rem,env(safe-area-inset-right))] lg:pr-[max(1rem,env(safe-area-inset-right))]',
   ].join(' ')
 
   return (
@@ -1320,10 +1117,10 @@ export default function DraftPortalClient({
               const pickNo = draft.total_picks + 1
               if (isMyTurn) {
                 title = `${draft.current_round}라운드 ${pickNo}픽 — 본인 차례입니다!`
-                helper = '아래 액션 카드에서 선수를 선택하고 픽 확정을 누르세요.'
+                helper = '「선수 선택하기」를 눌러 선수를 고르고 픽을 확정하세요.'
               } else if (currentTeam) {
-                title = `${draft.current_round}라운드 ${pickNo}픽 — ${currentTeam.name} 차례`
-                helper = '내 차례가 되면 화면 상단·소리·바탕색으로 알려드립니다.'
+                title = `${draft.current_round}라운드 ${pickNo}픽 — ${currentTeam.name} 선택 중`
+                helper = ''
               } else {
                 title = `${draft.current_round}라운드 ${pickNo}픽 진행 중`
                 helper = ''
@@ -1336,75 +1133,31 @@ export default function DraftPortalClient({
             }
             return (
               <div className={`mb-3 sm:mb-4 rounded-2xl border-2 px-4 py-3 sm:px-5 sm:py-4 ${tint}`}>
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold uppercase tracking-widest text-gray-300 mb-1">현재 단계</p>
-                    {/* 빔 프로젝터에서 멀리서 읽혀야 한다 — lg 에서 5xl */}
-                    <h2 className="text-xl sm:text-3xl lg:text-5xl font-black text-white leading-tight break-keep text-balance">{title}</h2>
-                    {helper && <p className="text-sm sm:text-base text-gray-200 mt-2 leading-relaxed break-keep">{helper}</p>}
-                  </div>
-                  {/* 타이머 — in_progress 단계에서만 같은 hero 안에 표시 (스크롤 없이 항상 보임) */}
-                  {status === 'in_progress' && remainingSeconds != null && (
-                    <BigTimer
-                      seconds={remainingSeconds}
-                      extensionsUsed={(auth?.role === 'manager' && auth.teamId) ? (draft.extensions_used?.[auth.teamId] ?? 0) : 0}
-                      canExtend={!!isMyTurn && !graceInfo.inGrace}
-                      onExtend={extendPick}
-                      extending={extending}
-                      gracePhase={graceInfo.inGrace}
-                      graceSeconds={graceInfo.remaining}
-                    />
-                  )}
-                </div>
+                {/* 빔 프로젝터에서 멀리서 읽혀야 한다 — lg 에서 5xl */}
+                <h2 className="text-xl sm:text-3xl lg:text-5xl font-black text-white leading-tight break-keep text-balance">{title}</h2>
+                {helper && <p className="text-sm sm:text-base text-gray-200 mt-2 leading-relaxed break-keep">{helper}</p>}
+                {/* 이 카드의 유일한 주요 액션 */}
+                {status === 'in_progress' && isMyTurn && (
+                  <button
+                    type="button"
+                    onClick={() => setPickModalOpen(true)}
+                    className="mt-3 w-full sm:w-auto min-h-[56px] px-6 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-lg font-black cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                  >
+                    선수 선택하기
+                  </button>
+                )}
+                {status === 'completed' && (
+                  <button
+                    type="button"
+                    onClick={() => setShowFinal(true)}
+                    className="mt-3 w-full sm:w-auto min-h-11 px-5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-base font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                  >
+                    결과 다시 보기
+                  </button>
+                )}
               </div>
             )
           })()}
-
-          <div className="mb-3 sm:mb-4 flex flex-wrap items-center gap-2">
-            <StatusBadge status={draft.status} />
-            {draft.method === 'snake' && <Tag color="purple">스네이크</Tag>}
-            {draft.method === 'linear' && <Tag color="blue">리니어</Tag>}
-            {draft.status === 'in_progress' && currentTeam && (
-              <Tag color="amber">
-                <Crown size={14} className="inline mr-1" />
-                현재: <span className="font-bold ml-1">{currentTeam.name}</span>
-              </Tag>
-            )}
-          </div>
-
-          {/* 드래프트 설정 정보 (시작 전 — 모두에게 보임) */}
-          {(draft.status === 'setup' || draft.status === 'ready_check') && (
-            <div className="mb-4 rounded-2xl border border-blue-800/40 bg-gradient-to-br from-blue-950/30 to-indigo-950/20 p-4 sm:p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Info size={16} className="text-blue-300" />
-                <h3 className="text-base font-bold text-blue-100 uppercase tracking-widest">드래프트 설정</h3>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <SettingPill label="픽 시간" value={`${draft.pick_seconds ?? 80}초`} />
-                <SettingPill label="추첨 방식" value="완전 무작위" />
-                <SettingPill label="진행 방식" value={draft.method === 'snake' ? '스네이크' : '리니어'} />
-                <SettingPill label="연장 찬스" value={`+${EXTENSION_SECONDS}초 × ${MAX_EXTENSIONS}`} />
-              </div>
-              {/* 픽 순서 — 추첨 후에만 표시 */}
-              {draft.lottery_done && draft.draft_order.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-blue-800/30">
-                  <p className="text-xs uppercase tracking-widest text-blue-300 font-bold mb-2">픽 순서 (추첨 완료)</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {draft.draft_order.map((tid, idx) => {
-                      const t = teamsById[tid]
-                      return (
-                        <div key={`${tid}-${idx}`} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-gray-900/60 border border-gray-700 break-keep">
-                          <span className="text-xs font-black text-gray-300 tabular-nums shrink-0">{idx + 1}.</span>
-                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t?.color }} />
-                          <span className="text-sm sm:text-base font-bold text-white">{t?.name ?? '?'}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* READY 진행 상황 패널 (ready_check 단계) — 모두 준비 시 감독관에게 '추첨 대기 화면 열기' 버튼 */}
           {draft.status === 'ready_check' && (
@@ -1458,111 +1211,8 @@ export default function DraftPortalClient({
             />
           )}
 
-          {/* 액션 패널 — 상단 스코어보드가 모든 픽을 단일 소스로 보여주므로
-              상세 픽 보드는 중복이라 제거. 단장/감독관 액션 카드만 노출.
-              카드 폭은 본문 가독성을 위해 제한 (모바일은 풀폭). */}
-          <aside className="space-y-3 sm:space-y-4 lg:max-w-md">
-              {draft.status === 'in_progress' && auth?.role === 'manager' && (
-                isMyTurn ? (
-                  <div
-                    className="bg-amber-950/40 border-2 rounded-2xl p-4 space-y-3 transition-[box-shadow,border-color] duration-300"
-                    style={myTeam?.color ? {
-                      borderColor: myTeam.color,
-                      boxShadow: `0 0 0 1px ${myTeam.color}66, 0 0 32px ${myTeam.color}55`,
-                      animation: 'myTurnPulse 2s ease-in-out infinite',
-                    } : { borderColor: '#b45309' }}
-                  >
-                    <p className="text-amber-300 text-base font-bold flex items-center gap-2">
-                      <CheckCircle2 size={20} /> 픽 액션
-                    </p>
-                    <p className="text-base text-gray-200 leading-relaxed">아래에서 선수를 선택하고 픽 확정을 누르세요.</p>
-                    <PlayerPicker
-                      players={state?.available_players ?? []}
-                      selectedId={selectedPlayerId}
-                      onSelect={selectPlayer}
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={requestConfirmPick}
-                        disabled={!selectedPlayerId || picking || !!confirmPick}
-                        className="flex-1 bg-amber-600 hover:bg-amber-500 text-white font-bold disabled:opacity-40 min-h-[56px] text-base sm:text-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 transition-colors"
-                      >
-                        {picking
-                          ? '픽 등록 중...'
-                          : selectedPlayerId
-                            ? `✓ ${state?.available_players.find(p => p.id === selectedPlayerId)?.name ?? '선수'} 픽 확정`
-                            : '선수를 선택하세요'}
-                      </Button>
-                      {(() => {
-                        const used = auth?.teamId ? (draft.extensions_used?.[auth.teamId] ?? 0) : 0
-                        const left = Math.max(0, MAX_EXTENSIONS - used)
-                        return (
-                          <Button
-                            onClick={extendPick}
-                            disabled={left === 0 || extending}
-                            variant="outline"
-                            className="bg-gray-800 border-gray-700 text-gray-100 hover:bg-gray-700 disabled:opacity-40 text-sm min-h-[56px] px-3 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
-                            title={`연장 ${left}회 남음`}
-                          >
-                            <span className="inline-flex items-center gap-1.5"><Clock size={20} aria-hidden /> +{EXTENSION_SECONDS}s ({left}/{MAX_EXTENSIONS})</span>
-                          </Button>
-                        )
-                      })()}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 text-center">
-                    <Lock size={24} className="text-gray-400 mx-auto mb-2" />
-                    <p className="text-base text-gray-200 font-bold">본인 차례가 아닙니다</p>
-                    {currentTeam && <p className="text-sm text-gray-300 mt-1.5"><span className="font-bold text-white">{currentTeam.name}</span> 단장 차례</p>}
-                    <p className="text-xs text-gray-400 mt-2 leading-relaxed">내 차례가 되면 화면 상단에 안내됩니다.</p>
-                  </div>
-                )
-              )}
-
-              {draft.status === 'completed' && (
-                <div className="bg-emerald-950/40 border border-emerald-700/50 rounded-2xl p-4 text-center">
-                  <CheckCircle2 size={24} className="text-emerald-400 mx-auto mb-2" />
-                  <p className="text-base sm:text-lg text-emerald-300 font-bold">드래프트 완료</p>
-                  <p className="text-sm text-gray-300 mt-1.5 leading-relaxed">멤버십이 즉시 반영되었습니다</p>
-                  <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
-                    <button
-                      onClick={() => setShowFinal(true)}
-                      className="text-base px-4 py-2 min-h-11 rounded-md bg-amber-700/60 hover:bg-amber-600/80 text-amber-50 font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
-                    >
-                      결과 화면 다시 보기
-                    </button>
-                    {orgSlug && (
-                      <Link href={`/league/${orgSlug}/${leagueId}/teams`} className="text-base px-4 py-2 min-h-11 inline-flex items-center rounded-md bg-blue-900/40 hover:bg-blue-800 text-blue-200 font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
-                        팀 구성 보기 →
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {!auth && (draft.status === 'setup' || draft.status === 'in_progress') && (
-                <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 text-center text-base text-gray-200 leading-relaxed">
-                  단장/감독관이라면<br className="sm:hidden"/> 우측 상단에서 코드를 입력하세요.
-                </div>
-              )}
-
-              {auth?.role === 'supervisor' && draft.status !== 'completed' && (
-                <PickSecondsCard
-                  currentSeconds={draft.pick_seconds ?? 80}
-                  onChange={changePickSeconds}
-                />
-              )}
-
-              {auth?.role === 'supervisor' && (
-                <div className="bg-amber-950/30 border border-amber-700/40 rounded-2xl p-4 space-y-1.5">
-                  <p className="text-amber-300 text-base font-bold flex items-center gap-2">
-                    <ShieldCheck size={16} /> 감독관 모드
-                  </p>
-                  <p className="text-sm text-gray-200 leading-relaxed">아래 세션 관리 패널에서 풀·팀장·추첨·시작/완료 등 모든 진행을 제어할 수 있습니다.</p>
-                </div>
-              )}
-            </aside>
+          {/* 액션은 전부 위 페이즈 카드 하나로 모았다 — 예전의 픽 액션/차례 아님/완료/안내 카드
+              4종은 같은 정보를 네 번 반복하며 스코어보드를 화면 밖으로 밀어내고 있었다. */}
 
           {/* 팀별 누적 픽 — 포지션 밸런스 확인용 (in_progress / completed) */}
           {(draft.status === 'in_progress' || draft.status === 'completed') && (
@@ -1575,51 +1225,62 @@ export default function DraftPortalClient({
             />
           )}
 
-          {/* 감독관 전용 — 세션 관리 패널 (방 안에서 모든 진행 제어) */}
+          {/* 감독관 전용 — 운영 패널. 기본은 접혀 있다.
+              진행 중에 풀·리셋·삭제 버튼이 펼쳐져 있으면 스코어보드를 밀어낼 뿐 아니라
+              빔 화면에 파괴적인 버튼이 그대로 노출된다. */}
           {auth?.role === 'supervisor' && (
-            <div className="mt-4 sm:mt-6 space-y-3">
-              <h2 className="text-base font-bold text-gray-200 uppercase tracking-widest flex items-center gap-2">
-                <ShieldCheck size={16} className="text-amber-400" /> 세션 관리
-              </h2>
-              <DraftSessionControl
-                leagueId={leagueId}
-                quarterId={quarterId}
-                teams={state?.teams ?? []}
-                authHeaders={{ 'X-Draft-Code': auth.plain }}
-                onChanged={fetchState}
-                // 감독관 코드로는 DELETE 라우트가 401 — 눌러도 실패하는 버튼은 아예 감춘다.
-                // 단 테스트 세션은 서버가 감독관 코드 삭제를 허용한다(리허설 뒷정리).
-                canDelete={!!state?.draft?.is_test}
-              />
-            </div>
+            <details
+              open={opsOpen}
+              onToggle={e => setOpsOpen(e.currentTarget.open)}
+              className="mt-4 sm:mt-6 rounded-2xl border border-gray-800 bg-gray-900/60"
+            >
+              <summary className="min-h-11 flex items-center gap-2 px-4 py-3 cursor-pointer text-base font-bold text-gray-100 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 rounded-2xl">
+                <ShieldCheck size={16} className="text-amber-400 shrink-0" aria-hidden /> 운영 패널
+              </summary>
+              <div className="px-4 pb-4 space-y-3">
+                {draft.status !== 'completed' && (
+                  <PickSecondsCard currentSeconds={draft.pick_seconds ?? 80} onChange={changePickSeconds} />
+                )}
+                <DraftSessionControl
+                  leagueId={leagueId}
+                  quarterId={quarterId}
+                  teams={state?.teams ?? []}
+                  authHeaders={{ 'X-Draft-Code': auth.plain }}
+                  onChanged={fetchState}
+                  // 감독관 코드로는 DELETE 라우트가 401 — 눌러도 실패하는 버튼은 아예 감춘다.
+                  // 단 테스트 세션은 서버가 감독관 코드 삭제를 허용한다(리허설 뒷정리).
+                  canDelete={!!state?.draft?.is_test}
+                />
+              </div>
+            </details>
           )}
         </>
       )}
 
-      {/* 채팅 — 인증된 사용자에게만 floating.
-          open/setOpen 을 부모에서 보유 → 열림 시 본문 컨테이너에 lg:pr-[360px] 가 붙어
-          데스크탑(≥lg)에서 채팅 패널이 본문을 덮지 않고 오른쪽 공간으로 자리잡는다.
-          모바일(<lg)은 기존처럼 오버레이로 슬라이드인 — 사용자가 직접 열고 닫는 UX. */}
-      {auth && state?.draft && (
-        <DraftChat
-          // key 변경 시 DraftChat 강제 unmount/remount → msgs/lastTs/localStorage cache 모두 초기화.
-          // 감독관 reset 감지 시 chatRemountKey 가 증가하므로 페이지 새로고침 없이 깨끗한 채팅으로 재시작.
-          key={`draft-chat-${state.draft.id}-${chatRemountKey}`}
-          leagueId={leagueId}
-          draftId={state.draft.id}
-          authedCode={auth.plain}
-          teams={state.teams ?? []}
-          authedRole={auth.role}
-          authedTeamId={auth.teamId}
-          authedLabel={auth.label}
-          open={chatOpen}
-          onOpenChange={setChatOpen}
-          systemMessages={chatSystemMessages}
-          // 모바일에서 채팅을 열면 타이머·픽 버튼이 완전히 가려진다 → 패널 상단에 얇은 현황 띠
-          currentTeamName={state.draft.status === 'in_progress' ? (currentTeam?.name ?? null) : null}
-          currentTeamColor={currentTeam?.color ?? null}
-          remainingSeconds={state.draft.status === 'in_progress' ? remainingSeconds : null}
-          isMyTurn={isMyTurn}
+      {/* 선수 선택 — 전체화면 모달. 내 차례에 픽당 1회 자동으로 열리고, 닫아도
+          페이즈 카드의 「선수 선택하기」로 다시 연다. 첫 탭이 선택, 하단 바가 유일한 확정. */}
+      {isMyTurn && draft && (
+        <DraftPickModal
+          // 픽마다 remount — 이전 픽의 검색어가 남아 "선수가 없다"로 보이는 것을 막는다.
+          key={draft.pick_deadline ?? `nodl:${draft.total_picks}`}
+          open={pickModalOpen}
+          onClose={() => setPickModalOpen(false)}
+          players={state?.available_players ?? []}
+          selectedId={selectedPlayerId}
+          onSelect={selectPlayer}
+          onConfirm={() => { if (selectedPlayerId) makePick(selectedPlayerId) }}
+          confirming={picking}
+          pickNumber={draft.total_picks + 1}
+          remainingSeconds={remainingSeconds}
+          inGrace={graceInfo.inGrace}
+          graceSeconds={graceInfo.remaining}
+          extensionsUsed={auth?.teamId ? (draft.extensions_used?.[auth.teamId] ?? 0) : 0}
+          onExtend={extendPick}
+          extending={extending}
+          team={myTeam ?? null}
+          captainName={myCaptainName}
+          myPicks={myPicks}
+          totalRounds={totalRounds}
         />
       )}
 
@@ -1632,11 +1293,6 @@ export default function DraftPortalClient({
           라운드는 '직전 라운드 마지막 픽'과 동시에 오르므로 픽 공개가 떠 있는 동안에는 보류한다
           (z-95 에 깔려 통째로 가려지면 연출이 버려진다). 공개가 닫히면 그때 마운트되어 재생된다. */}
       <DraftRoundSlate round={pickReveal ? null : slateRound} onDone={() => setSlateRound(null)} />
-
-      {/* 미라클 총무 — 픽셀 캐릭터가 말풍선으로 중계 (setup/ready_check 단계에서는 숨김) */}
-      {state?.draft && state.draft.status !== 'setup' && state.draft.status !== 'ready_check' && (
-        <DraftCommissioner event={commEvent} />
-      )}
 
       {/* 추첨 결과 애니메이션 — lottery_done 직후 한 번만 (모두에게 동시).
           waiting/ready_check 단계에서는 절대 노출되지 않도록 status 가드 포함. */}
@@ -1704,17 +1360,6 @@ export default function DraftPortalClient({
         </button>
       )}
 
-      {/* 픽 확정 확인 모달 — 실수로 잘못된 선수를 픽하는 사고 방지.
-          배경/Escape 로 취소, '확정' 버튼만 실제 픽 제출. */}
-      {confirmPick && (
-        <ConfirmPickModal
-          data={confirmPick}
-          loading={picking}
-          onCancel={() => setConfirmPick(null)}
-          onConfirm={() => makePick(confirmPick.playerId)}
-        />
-      )}
-
       {/* 코드 입력 모달 */}
       {showCodeModal && (
         <div
@@ -1749,85 +1394,7 @@ export default function DraftPortalClient({
   )
 }
 
-function BigTimer({ seconds, extensionsUsed, canExtend, onExtend, extending, gracePhase, graceSeconds }: {
-  seconds: number
-  extensionsUsed: number
-  canExtend: boolean
-  onExtend: () => Promise<void>
-  extending?: boolean
-  gracePhase?: boolean
-  graceSeconds?: number
-}) {
-  const urgent = seconds <= 10
-  const warn = seconds <= 30
-  const leftExt = Math.max(0, MAX_EXTENSIONS - extensionsUsed)
 
-  // 유예(grace) 단계: 빨간 펄스 배지로 별도 표시
-  if (gracePhase) {
-    const g = Math.max(0, graceSeconds ?? 0)
-    return (
-      <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-red-500 bg-red-950/80 text-red-200 font-mono animate-pulse shadow-[0_0_18px_rgba(239,68,68,0.6)]">
-        <AlertTriangle size={16} className="text-red-300" />
-        <span className="text-sm font-black uppercase tracking-widest text-red-300">추가 시간</span>
-        <span className="font-black text-2xl lg:text-6xl leading-none tabular-nums text-white">{g}s</span>
-        <span className="text-sm text-red-300/90">(이후 무작위 자동픽)</span>
-      </div>
-    )
-  }
-
-  return (
-    <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border font-mono ${
-      urgent ? 'bg-red-950/70 border-red-500/60 text-red-300 animate-pulse' :
-      warn ? 'bg-amber-950/60 border-amber-600/50 text-amber-300' :
-      'bg-gray-900 border-gray-700 text-gray-100'
-    }`}>
-      <Timer size={20} className={urgent ? 'text-red-400' : warn ? 'text-amber-400' : 'text-gray-300'} />
-      {/* 10초 이하 심박 — key={seconds} 로 1초마다 다시 마운트되어 애니메이션이 매초 새로 돈다.
-          색(빨강)은 위 컨테이너가 이미 바꾸므로, 모션 최소화면 색만 남는다. */}
-      <span
-        key={urgent ? seconds : 'calm'}
-        className={`font-black text-2xl lg:text-6xl leading-none tabular-nums inline-block ${urgent ? 'dp-heartbeat' : ''}`}
-      >
-        {seconds}s
-      </span>
-      {canExtend && leftExt > 0 && (
-        <button
-          onClick={onExtend}
-          disabled={extending}
-          className="ml-1 px-3 py-1.5 rounded text-sm font-bold bg-emerald-700/40 hover:bg-emerald-600/60 text-emerald-100 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 transition-colors"
-          title={`연장 ${leftExt}회 남음`}
-          aria-label={`픽 시간 ${EXTENSION_SECONDS}초 연장 (${leftExt}회 남음)`}
-        >
-          +{EXTENSION_SECONDS}s
-        </button>
-      )}
-      <style jsx>{`
-        .dp-heartbeat {
-          animation: dp-heartbeat 1s cubic-bezier(0.4, 0, 0.2, 1) both;
-          transform-origin: center;
-        }
-        @keyframes dp-heartbeat {
-          0%   { transform: scale(1); }
-          18%  { transform: scale(1.06); }
-          45%  { transform: scale(1); }
-          100% { transform: scale(1); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .dp-heartbeat { animation: none; transform: none; }
-        }
-      `}</style>
-    </div>
-  )
-}
-
-function SettingPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md bg-gray-900/60 border border-gray-700 px-3 py-2">
-      <p className="text-xs uppercase tracking-widest text-gray-300 font-bold">{label}</p>
-      <p className="text-base sm:text-lg font-bold text-white mt-1 tabular-nums">{value}</p>
-    </div>
-  )
-}
 
 function ReadyPanel({
   teams,
@@ -2202,139 +1769,6 @@ function PickSecondsCard({ currentSeconds, onChange }: { currentSeconds: number;
   )
 }
 
-function StatusBadge({ status }: { status: 'setup' | 'ready_check' | 'lottery_waiting' | 'lottery_done' | 'in_progress' | 'completed' }) {
-  const map = {
-    setup: { label: '준비', color: 'bg-gray-800 text-gray-400 border-gray-700' },
-    ready_check: { label: '레디 체크', color: 'bg-blue-950/60 text-blue-300 border-blue-700/50' },
-    lottery_waiting: { label: '추첨 대기', color: 'bg-purple-950/60 text-purple-300 border-purple-700/50' },
-    lottery_done: { label: '추첨 완료', color: 'bg-amber-950/60 text-amber-300 border-amber-700/50' },
-    in_progress: { label: '진행 중', color: 'bg-amber-950/60 text-amber-300 border-amber-700/50' },
-    completed: { label: '완료', color: 'bg-emerald-950/60 text-emerald-300 border-emerald-700/50' },
-  } as const
-  const v = map[status]
-  return <span className={`px-3 py-1.5 rounded-md border text-xs font-bold uppercase tracking-wider ${v.color}`}>{v.label}</span>
-}
 
-function Tag({ color, children }: { color: 'amber' | 'purple' | 'blue' | 'gray'; children: React.ReactNode }) {
-  const colors = {
-    amber: 'bg-amber-950/40 text-amber-200 border-amber-700/40',
-    purple: 'bg-purple-950/40 text-purple-200 border-purple-700/40',
-    blue: 'bg-blue-950/40 text-blue-200 border-blue-700/40',
-    gray: 'bg-gray-800 text-gray-300 border-gray-700',
-  }
-  return <span className={`px-3 py-1.5 rounded-md border text-sm font-bold ${colors[color]}`}>{children}</span>
-}
 
-function ConfirmPickModal({
-  data,
-  loading,
-  onCancel,
-  onConfirm,
-}: {
-  data: { playerId: string; playerName: string; playerNumber: number | null; playerPosition: string | null }
-  loading: boolean
-  onCancel: () => void
-  onConfirm: () => void
-}) {
-  // Escape 키로 취소 + 백드롭 클릭으로 취소. 단, 로딩 중에는 모두 무시(중복 제출/사용자 혼란 방지).
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !loading) onCancel()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [loading, onCancel])
 
-  const numberSuffix = data.playerNumber != null ? ` #${data.playerNumber}` : ''
-
-  return (
-    <div
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
-      style={{
-        paddingTop: 'max(1rem, env(safe-area-inset-top))',
-        paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
-      }}
-      onClick={loading ? undefined : onCancel}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-pick-title"
-    >
-      <div
-        className="bg-gray-900 border-2 border-amber-500 rounded-2xl p-5 sm:p-6 max-w-md w-full shadow-2xl"
-        style={{ boxShadow: '0 0 60px rgba(245, 158, 11, 0.35)' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <h3
-          id="confirm-pick-title"
-          className="text-lg sm:text-xl font-black text-amber-300 mb-3 flex items-center gap-2"
-        >
-          <CheckCircle2 size={20} className="shrink-0" /> 픽 확인
-        </h3>
-        <p className="text-xl sm:text-2xl font-bold text-white leading-relaxed break-keep">
-          정말로{' '}
-          <span className="text-amber-300">
-            {data.playerName}
-            {numberSuffix && <span className="tabular-nums">{numberSuffix}</span>}
-          </span>
-          을(를) 드래프트하시겠습니까?
-        </p>
-        {data.playerPosition && (
-          <p className="text-sm text-gray-300 mt-2 font-mono">
-            포지션: <span className="text-gray-100">{data.playerPosition.split(',').map(s => s.trim()).join(' · ')}</span>
-          </p>
-        )}
-        <p className="text-sm text-amber-200/80 mt-3 leading-relaxed">⚠ 확정 후에는 되돌릴 수 없습니다.</p>
-        <div className="flex gap-3 mt-5">
-          <Button
-            onClick={onCancel}
-            disabled={loading}
-            variant="outline"
-            className="flex-1 bg-gray-800 border-gray-700 text-gray-100 hover:bg-gray-700 min-h-[48px] h-12 text-base font-bold disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
-          >
-            취소
-          </Button>
-          <Button
-            onClick={onConfirm}
-            disabled={loading}
-            autoFocus
-            className="flex-1 bg-amber-600 hover:bg-amber-500 text-black font-black min-h-[48px] h-12 text-base disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 transition-colors"
-          >
-            {loading ? '확정 중...' : '✓ 확정'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function PlayerPicker({ players, selectedId, onSelect }: { players: Player[]; selectedId: string | null; onSelect: (id: string) => void }) {
-  const [query, setQuery] = useState('')
-  const filtered = players.filter(p => !query.trim() || p.name.includes(query) || (p.number != null && String(p.number).includes(query)))
-  return (
-    <div className="space-y-2">
-      <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="이름·번호 검색" className="bg-gray-900 border-gray-700 text-white h-12 text-base" />
-      <div className="max-h-72 overflow-y-auto space-y-1 -mr-2 pr-2">
-        {filtered.length === 0 && <p className="text-center text-sm text-gray-300 py-6">선수가 없습니다</p>}
-        {filtered.map(p => (
-          <button
-            key={p.id}
-            onClick={() => onSelect(p.id)}
-            className={`w-full text-left px-3 py-3 min-h-[48px] rounded-md border transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 ${
-              selectedId === p.id
-                ? 'bg-amber-950/60 border-amber-500 text-white'
-                : 'bg-gray-900/40 border-gray-800 text-gray-100 hover:border-gray-600'
-            }`}
-          >
-            <div className="flex items-center justify-between gap-2 min-w-0">
-              <span className="font-bold text-base sm:text-lg truncate">
-                {p.number != null && <span className="text-amber-300 mr-1.5 tabular-nums">#{p.number}</span>}
-                {p.name}
-              </span>
-              {p.position && <span className="text-sm text-gray-300 font-mono shrink-0">{p.position}</span>}
-            </div>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}

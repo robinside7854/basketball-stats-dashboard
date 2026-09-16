@@ -11,7 +11,6 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import DraftCodeManager from '@/components/league/DraftCodeManager'
 import DraftSessionControl from '@/components/league/DraftSessionControl'
 import NextQuarterButton from '@/components/league/NextQuarterButton'
-import DraftChat from '@/components/league/DraftChat'
 import DraftPlayerStatsModal, { type DraftStatRow } from '@/components/league/DraftPlayerStatsModal'
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
 import DraftTeamStats from '@/components/league/DraftTeamStats'
@@ -1002,10 +1001,6 @@ export default function LeagueDraftPage() {
         />
       )}
 
-      {/* 드래프트 채팅 — 코드 인증한 단장/감독관 전용 */}
-      {isAuthed && draft && authedCode && (
-        <DraftChat leagueId={leagueId} draftId={draft.id} authedCode={authedCode} teams={teams} authedRole={authedRole} authedTeamId={authedTeamId} authedLabel={authedLabel} />
-      )}
     </div>
   )
 }
