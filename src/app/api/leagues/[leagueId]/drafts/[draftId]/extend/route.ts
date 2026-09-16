@@ -67,14 +67,25 @@ export async function POST(
   const nextDeadline = new Date(base + EXTENSION_SECONDS * 1000).toISOString()
   const nextExt = { ...(d.extensions_used ?? {}), [body.team_id]: used + 1 }
 
-  const { data: updated, error } = await supabase
+  // extensions_used 는 read-modify-write 라, 같은 코드로 폰+PC 가 동시에 누르면
+  // 60초가 붙고 1회만 차감된다. 우리가 읽은 pick_deadline 이 아직 그대로일 때만
+  // 쓰도록 CAS 를 건다 — 연장이 성공할 때마다 마감이 바뀌므로 두 번째 쓰기는 0행이 되고,
+  // 그때 409 로 돌려보낸다.
+  let updQuery = supabase
     .from('league_drafts')
     .update({ pick_deadline: nextDeadline, extensions_used: nextExt })
     .eq('id', draftId)
     .eq('status', 'in_progress')
-    .select()
-    .single()
+  updQuery = d.pick_deadline
+    ? updQuery.eq('pick_deadline', d.pick_deadline)
+    : updQuery.is('pick_deadline', null)
+
+  const { data: updatedRows, error } = await updQuery.select()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!updatedRows || updatedRows.length === 0) {
+    return NextResponse.json({ error: '이미 처리됨' }, { status: 409 })
+  }
+  const updated = updatedRows[0]
 
   return NextResponse.json({ ok: true, pick_deadline: nextDeadline, extensions_used: nextExt, remaining: MAX_EXTENSIONS - (used + 1), draft: updated })
 }

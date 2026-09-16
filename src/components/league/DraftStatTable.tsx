@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { ArrowDown, ArrowUp, Shuffle, Check, BarChart3 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Shuffle, Check, BarChart3, Lock, LogIn } from 'lucide-react'
 import type { DraftStatRow } from './DraftPlayerStatsModal'
 import { overallScorePerGame } from '@/lib/leagueStats'
 
@@ -11,6 +11,8 @@ interface Props {
   prevStats: Record<string, DraftStatRow>
   prevQuarterId: string | null
   prevQuarterLabel: string | null
+  /** 부모(지난 분기 스탯)가 401 을 받았는지 — 이 컴포넌트의 전체 누적 요청과 OR 로 합쳐 쓴다 */
+  gated?: boolean
   // 픽 기능 (현재 차례 단장에게만) — 선택 상태는 부모가 제어
   canPick?: boolean
   picking?: boolean
@@ -20,6 +22,7 @@ interface Props {
   onShowStats?: (p: PlayerLite) => void
 }
 
+type SortKey = ColKey | 'name'
 type ColKey = 'gp' | 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg' | 'topg' | 'fg_pct' | 'fg3_pct' | 'ft_pct' | 'overall'
 const COLS: { key: ColKey; label: string; pct?: boolean }[] = [
   { key: 'gp', label: '일' },
@@ -40,22 +43,30 @@ function overallOf(s?: DraftStatRow): number {
   return overallScorePerGame({ ppg: s.ppg, rpg: s.rpg, apg: s.apg, spg: s.spg, bpg: s.bpg, topg: s.topg })
 }
 
-export default function DraftStatTable({ leagueId, availablePlayers, prevStats, prevQuarterId, prevQuarterLabel, canPick, picking, selectedId = null, onSelectId, onPick, onShowStats }: Props) {
+export default function DraftStatTable({ leagueId, availablePlayers, prevStats, prevQuarterId, prevQuarterLabel, gated = false, canPick, picking, selectedId = null, onSelectId, onPick, onShowStats }: Props) {
   const [scope, setScope] = useState<'prev' | 'all'>('prev')
   const [allStats, setAllStats] = useState<Record<string, DraftStatRow>>({})
-  const [sortKey, setSortKey] = useState<ColKey>('overall')
+  const [sortKey, setSortKey] = useState<SortKey>('overall')
   const [dir, setDir] = useState<'desc' | 'asc'>('desc')
+  const [selfGated, setSelfGated] = useState(false)
 
   useEffect(() => {
     fetch(`/api/leagues/${leagueId}/stats?unit=round`)
-      .then(r => r.json())
-      .then((d: { players?: DraftStatRow[] }) => {
+      .then(async r => {
+        // 회원 전용 스탯 잠금 — 401 이면 빈 표가 아니라 로그인 안내를 보여준다
+        if (r.status === 401) { setSelfGated(true); setAllStats({}); return }
+        setSelfGated(false)
+        const d = await r.json() as { players?: DraftStatRow[] }
         const m: Record<string, DraftStatRow> = {}
         for (const p of d.players ?? []) m[p.player_id] = p
         setAllStats(m)
       })
       .catch(() => null)
   }, [leagueId])
+
+  const isGated = gated || selfGated
+  // 잠긴 상태에서는 모든 지표가 0 이라 '종합' 정렬이 무의미하다 → 이름순으로 떨어뜨린다
+  const activeSort: SortKey = isGated && sortKey === 'overall' ? 'name' : sortKey
 
   // 선택한 선수가 이미 픽되어 목록에서 사라지면 자동 무효화 (파생값)
   const activeId = selectedId && availablePlayers.some(p => p.id === selectedId) ? selectedId : null
@@ -67,13 +78,13 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
     return s ? Number(s[key] ?? 0) : 0
   }
 
-  function clickHeader(key: ColKey) {
-    if (sortKey === key) setDir(d => (d === 'desc' ? 'asc' : 'desc'))
-    else { setSortKey(key); setDir('desc') }
+  function clickHeader(key: SortKey) {
+    if (activeSort === key) setDir(d => (d === 'desc' ? 'asc' : 'desc'))
+    else { setSortKey(key); setDir(key === 'name' ? 'asc' : 'desc') }
   }
 
   function recommend() {
-    if (availablePlayers.length === 0) return
+    if (availablePlayers.length === 0 || isGated) return
     // 추천은 항상 지난 분기 기준 (자동픽과 동일)
     let best = availablePlayers[0].id, bestScore = -1
     for (const p of availablePlayers) { const sc = overallOf(prevStats[p.id]); if (sc > bestScore) { bestScore = sc; best = p.id } }
@@ -82,7 +93,11 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
   }
 
   const rows = [...availablePlayers].sort((a, b) => {
-    const av = valOf(a, sortKey), bv = valOf(b, sortKey)
+    if (activeSort === 'name') {
+      const c = a.name.localeCompare(b.name, 'ko')
+      return dir === 'desc' ? -c : c
+    }
+    const av = valOf(a, activeSort), bv = valOf(b, activeSort)
     return dir === 'desc' ? bv - av : av - bv
   })
   const selectedName = availablePlayers.find(p => p.id === activeId)?.name
@@ -91,23 +106,35 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-800 flex items-center gap-2 flex-wrap">
         <p className="text-sm font-bold text-gray-200">남은 선수 성적표</p>
-        <span className="text-[11px] text-gray-500">{availablePlayers.length}명 · 지표 클릭 정렬{canPick ? ' · 행 선택 후 픽' : ''}</span>
+        <span className="text-sm text-gray-400">{availablePlayers.length}명 · 지표 클릭 정렬{canPick ? ' · 행 선택 후 픽' : ''}</span>
         <div className="ml-auto flex items-center gap-2">
-          {canPick && (
-            <button onClick={recommend} className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-purple-700/70 hover:bg-purple-600 text-purple-100 cursor-pointer">
+          {canPick && !isGated && (
+            <button onClick={recommend} className="inline-flex items-center gap-1 text-sm px-3 min-h-11 rounded-lg bg-purple-700/70 hover:bg-purple-600 text-purple-100 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400">
               <Shuffle size={14} /> 랜덤픽(추천)
             </button>
           )}
           <div className="flex bg-gray-800 rounded-lg p-0.5">
             {(['prev', 'all'] as const).map(s => (
               <button key={s} onClick={() => setScope(s)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-bold cursor-pointer transition-colors ${scope === s ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                className={`px-3 min-h-11 rounded-md text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${scope === s ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
                 {s === 'prev' ? (prevQuarterLabel ?? '지난 분기') : '전체 누적'}
               </button>
             ))}
           </div>
         </div>
       </div>
+
+      {/* 스탯 잠금 안내 — 빈칸(—)만 보여주면 "기록이 없다"로 오해한다 */}
+      {isGated && (
+        <div className="px-4 py-2.5 border-b border-gray-800 bg-gray-800/40 flex items-center gap-2 flex-wrap">
+          <Lock size={16} className="text-amber-300 shrink-0" aria-hidden />
+          <span className="text-sm text-gray-200">로그인하면 지난 분기 성적이 보입니다</span>
+          <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
+            className="ml-auto inline-flex items-center gap-1.5 px-3 min-h-11 rounded-lg bg-amber-500 hover:brightness-95 text-gray-900 text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
+            <LogIn size={16} aria-hidden /> 로그인
+          </button>
+        </div>
+      )}
 
       {scope === 'prev' && !prevQuarterId ? (
         <div className="p-6 text-center text-sm text-gray-500">지난 분기가 없습니다. ‘전체 누적’을 선택하세요.</div>
@@ -116,13 +143,19 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-gray-900 z-10">
               <tr className="border-b border-gray-800 text-gray-400">
-                <th className="text-left p-2.5 font-bold sticky left-0 bg-gray-900">선수</th>
+                <th onClick={() => clickHeader('name')}
+                  className="text-left p-2.5 font-bold sticky left-0 bg-gray-900 cursor-pointer hover:text-white select-none">
+                  <span className="inline-flex items-center gap-0.5">
+                    선수
+                    {activeSort === 'name' && (dir === 'desc' ? <ArrowDown size={14} className="shrink-0" /> : <ArrowUp size={14} className="shrink-0" />)}
+                  </span>
+                </th>
                 {COLS.map(c => (
                   <th key={c.key} onClick={() => clickHeader(c.key)}
                     className="text-center p-2.5 font-bold min-w-[54px] cursor-pointer hover:text-white select-none">
                     <span className="inline-flex items-center gap-0.5">
                       {c.label}
-                      {sortKey === c.key && (dir === 'desc' ? <ArrowDown size={14} className="shrink-0" /> : <ArrowUp size={14} className="shrink-0" />)}
+                      {activeSort === c.key && (dir === 'desc' ? <ArrowDown size={14} className="shrink-0" /> : <ArrowUp size={14} className="shrink-0" />)}
                     </span>
                   </th>
                 ))}
@@ -146,7 +179,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                           </button>
                         )}
                         <span className="text-white font-bold">{p.name}</span>
-                        {p.number != null && <span className="text-gray-600 text-[11px]">#{p.number}</span>}
+                        {p.number != null && <span className="text-gray-400 text-sm">#{p.number}</span>}
                       </div>
                     </td>
                     {COLS.map(c => {
@@ -156,7 +189,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                         : c.key === 'overall' ? v.toFixed(1)
                         : c.pct ? `${v.toFixed(1)}%`
                         : v.toFixed(1)
-                      const isSort = sortKey === c.key
+                      const isSort = activeSort === c.key
                       return (
                         <td key={c.key} className={`p-2.5 text-center font-display tabular-nums ${isSort ? 'text-amber-300 font-bold' : 'text-gray-200'}`}>
                           {display}
@@ -165,7 +198,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                     })}
                     {canPick && (
                       <td className="p-2 text-center">
-                        {sel ? <Check size={16} className="text-emerald-300 inline" /> : <span className="text-[10px] text-gray-600">선택</span>}
+                        {sel ? <Check size={16} className="text-emerald-300 inline" /> : <span className="text-sm text-gray-400">선택</span>}
                       </td>
                     )}
                   </tr>

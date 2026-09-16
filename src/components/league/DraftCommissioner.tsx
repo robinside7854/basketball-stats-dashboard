@@ -97,14 +97,16 @@ export default function DraftCommissioner({ event }: Props) {
 
   return (
     <div
-      className="fixed bottom-4 left-3 sm:left-4 z-[110] flex items-end gap-2 pointer-events-none"
+      className="fixed left-3 sm:left-4 z-50 flex items-end gap-2 pointer-events-none"
       style={{
         // 모바일에서 채팅 FAB(우측 56px) + safe area 고려하여 commissioner 가 차지할 수 있는 폭 제한.
-        // z-[110]: DraftPickReveal(z-[100]) · DraftLotteryReveal(z-58) 위에 떠
-        // 픽 발표·추첨 진행 중에도 NBA 중계처럼 캐릭터 멘트가 항상 보이도록 한다.
+        // z-50: 픽 공개(z-100)·확인 모달(z-90)·최종 결과(z-60) 아래.
+        //   예전엔 z-110 이라 말풍선이 결과 화면과 확인 모달 위를 덮었다(2026-09-16 점검).
+        //   중계 멘트는 보조 정보라 결정을 요구하는 화면을 가려선 안 된다.
         // 채팅 패널(z-40)·sonner(z-99999) 와는 충돌하지 않음(좌하단 코너 + pointer-events-none).
         // 외부 래퍼는 pointer-events-none — X 버튼만 pointer-events-auto 로 켜 본문 클릭을 막지 않음.
-        bottom: 'max(1rem, env(safe-area-inset-bottom))',
+        // bottom 5.5rem: 하단 FAB·액션 바 위로 띄운다(모바일에서 서로 겹치던 자리).
+        bottom: 'calc(5.5rem + env(safe-area-inset-bottom, 0px))',
         left: 'max(0.75rem, env(safe-area-inset-left))',
         maxWidth: 'min(calc(100vw - 6rem), 380px)',
       }}
@@ -141,11 +143,14 @@ export default function DraftCommissioner({ event }: Props) {
           type="button"
           onClick={() => setDismissed(true)}
           aria-label="총무 말풍선 닫기"
-          className="pointer-events-auto absolute top-1 right-1 w-5 h-5 sm:w-6 sm:h-6 inline-flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 hover:text-gray-900 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+          // 44×44 터치 타깃 — 보이는 원은 24px 지만 잡히는 영역은 버튼 전체.
+          className="pointer-events-auto absolute -top-3 -right-3 min-w-11 min-h-11 inline-flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded-full"
         >
-          <X size={14} />
+          <span className="w-6 h-6 inline-flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 hover:text-gray-900 border border-gray-900 transition-colors duration-200">
+            <X size={14} />
+          </span>
         </button>
-        <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-0.5">미라클 총무</p>
+        <p className="text-sm font-black uppercase tracking-widest text-amber-700 mb-0.5">미라클 총무</p>
         <p className="text-sm sm:text-base font-bold leading-snug break-keep">
           {typed}
           {speaking && <span className="inline-block w-1.5 h-3 bg-gray-900 ml-0.5 animate-pulse align-middle" />}

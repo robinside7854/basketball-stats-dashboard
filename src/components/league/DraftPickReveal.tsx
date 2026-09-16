@@ -7,7 +7,7 @@
 //   <DraftPickReveal data={reveal} onClose={() => setReveal(null)} />
 
 import { useEffect, useRef } from 'react'
-import { Trophy } from 'lucide-react'
+import { Trophy, Zap } from 'lucide-react'
 
 export interface PickRevealData {
   pickNumber: number
@@ -20,24 +20,41 @@ export interface PickRevealData {
 }
 
 const DURATION_MS = 4500
+/** 내가 다음 픽 주인일 때 — 내 시계는 이미 돌고 있으므로 축약 노출 */
+const MY_TURN_DURATION_MS = 1200
+/** 연속 픽이 들어와도 새로 4.5초를 세지 않고 이만큼만 연장한다 */
+const CONSECUTIVE_EXTEND_MS = 1500
 const CONFETTI_PIECES = 220
 
 export default function DraftPickReveal({
   data,
   onClose,
+  isMyTurn = false,
 }: {
   data: PickRevealData | null
   onClose: () => void
+  /** 이 픽 직후 화면 주인이 다음 차례인지 — true 면 1.2초로 축약 + 「지금 내 차례」 배지 */
+  isMyTurn?: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rafRef = useRef<number | null>(null)
+  // 연출이 열려 있는 동안 유지되는 마감 시각. 연속 픽은 이 값을 연장만 한다.
+  const closeAtRef = useRef<number | null>(null)
 
   // 자동 닫기
   useEffect(() => {
-    if (!data) return
-    const t = setTimeout(onClose, DURATION_MS)
+    if (!data) { closeAtRef.current = null; return }
+    const now = Date.now()
+    const base = isMyTurn ? MY_TURN_DURATION_MS : DURATION_MS
+    // 이미 열려 있으면(연속 픽) 남은 시간에 최대 1.5초만 더한다 — 다음 단장의 시계를 잡아먹지 않도록.
+    const prev = closeAtRef.current
+    const next = prev != null && prev > now
+      ? Math.min(prev + CONSECUTIVE_EXTEND_MS, now + base)
+      : now + base
+    closeAtRef.current = next
+    const t = setTimeout(() => { closeAtRef.current = null; onClose() }, Math.max(0, next - now))
     return () => clearTimeout(t)
-  }, [data, onClose])
+  }, [data, onClose, isMyTurn])
 
   // 폭죽 (캔버스) — data 변경 시 발사
   useEffect(() => {
@@ -147,9 +164,20 @@ export default function DraftPickReveal({
       {/* 폭죽 캔버스 */}
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }} />
 
+      {/* 내 차례 배지 — 픽 공개가 덮고 있는 동안에도 "지금 내 시계가 돈다"를 즉시 알린다 */}
+      {isMyTurn && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-10 inline-flex items-center gap-2 px-4 py-2.5 min-h-11 rounded-full bg-emerald-500 text-black text-base sm:text-lg font-black shadow-2xl"
+          style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
+          role="status"
+        >
+          <Zap size={20} aria-hidden /> 지금 내 차례 — 탭해서 닫기
+        </div>
+      )}
+
       {/* 메인 카드 */}
       <div
-        className="relative w-[94vw] max-w-3xl rounded-3xl p-6 sm:p-12 shadow-2xl text-center overflow-hidden"
+        className="pick-reveal-card relative w-[94vw] max-w-3xl rounded-3xl p-6 sm:p-12 shadow-2xl text-center overflow-hidden"
         style={{
           border: `4px solid ${data.teamColor}`,
           background: `linear-gradient(135deg, ${data.teamColor}33, ${data.teamColor}0a, #050505 70%)`,
@@ -201,7 +229,7 @@ export default function DraftPickReveal({
         <div className="space-y-1 sm:space-y-2">
           {data.playerNumber != null && (
             <p
-              className="text-8xl sm:text-[10rem] font-black tracking-tighter leading-none drop-shadow-2xl"
+              className="pick-reveal-number text-8xl sm:text-[10rem] font-black tracking-tighter leading-none drop-shadow-2xl"
               style={{
                 color: data.teamColor,
                 fontFamily: 'var(--font-bebas, sans-serif)',
@@ -273,6 +301,15 @@ export default function DraftPickReveal({
         @keyframes pulseBg {
           0%, 100% { opacity: 0.4; }
           50% { opacity: 0.8; }
+        }
+        /* 가로 모드 폰 — 등번호가 카드 밖으로 잘리던 자리(2026-09-16 실측) */
+        @media (orientation: landscape) and (max-height: 500px) {
+          .pick-reveal-card { padding: 1rem 1.5rem; }
+          .pick-reveal-number { font-size: 3rem; line-height: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .pick-reveal-card { animation: none !important; }
+          .pick-reveal-number { animation: none !important; }
         }
       `}</style>
     </div>

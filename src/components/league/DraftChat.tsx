@@ -37,12 +37,17 @@ interface Props {
   onOpenChange?: (open: boolean) => void
   /** 미라클 총무 발화 + 시스템 알림 (READY/픽 시간 변경 등) — 메시지 흐름에 inline 으로 표시 */
   systemMessages?: ChatSystemMessage[]
+  /** 모바일 상단 현황 띠 — 채팅이 화면을 덮는 동안에도 누구 차례·몇 초인지 보이게 */
+  currentTeamName?: string | null
+  currentTeamColor?: string | null
+  remainingSeconds?: number | null
+  isMyTurn?: boolean
 }
 
 const POLL_MS = 2500
 const DING_COOLDOWN_MS = 1500
 
-export default function DraftChat({ leagueId, draftId, authedCode, teams, authedRole, authedTeamId, authedLabel, open: openProp, onOpenChange, systemMessages }: Props) {
+export default function DraftChat({ leagueId, draftId, authedCode, teams, authedRole, authedTeamId, authedLabel, open: openProp, onOpenChange, systemMessages, currentTeamName, currentTeamColor, remainingSeconds, isMyTurn }: Props) {
   const [msgs, setMsgs] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -106,7 +111,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
       if (!res.ok) {
         const d = await res.json().catch(() => ({}))
         setError(/relation|table|does not exist|schema cache/i.test(d.error ?? '')
-          ? '채팅 테이블이 아직 없습니다 — 051_draft_chat.sql 마이그레이션을 적용하세요.'
+          ? '채팅을 불러오지 못했습니다. 새로고침해 주세요.'
           : (d.error ?? '채팅을 불러오지 못했습니다'))
         return
       }
@@ -172,22 +177,24 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
 
   // 모바일 디바이스 뒤로가기 시 채팅만 닫히게 — 페이지 이동/세션 종료 차단.
   // 패널 열림 → history entry 추가 → popstate 시 setOpen(false) 만 실행.
-  // 사용자가 X/backdrop 으로 닫은 경우엔 cleanup 에서 우리 entry 만 정리(history.back).
+  // 우리가 push 한 entry 는 정확히 한 번만 되돌린다:
+  //   - popstate 로 닫혔으면 브라우저가 이미 pop 했으므로 back() 금지
+  //   - X/backdrop 으로 닫혔으면 cleanup 에서 back() 1회
+  // (예전 조건은 history.state 만 보고 판단해서 우리가 밀지 않은 entry 까지 되돌릴 수 있었다)
   // lg+ (1024px+) 에서는 패널이 항상 열린 고정 사이드바라 trap 불필요 → 모바일에서만 활성화.
   useEffect(() => {
     if (!open) return
     if (typeof window === 'undefined') return
-    const isLg = window.matchMedia('(min-width: 1024px)').matches
-    if (isLg) return
-    try { window.history.pushState({ draftChatOpen: true }, '') } catch { /* ignore */ }
-    const onPopState = () => setOpen(false)
+    if (window.matchMedia('(min-width: 1024px)').matches) return
+    let pushed = false
+    let poppedByBrowser = false
+    try { window.history.pushState({ draftChatOpen: true }, ''); pushed = true } catch { /* ignore */ }
+    const onPopState = () => { poppedByBrowser = true; setOpen(false) }
     window.addEventListener('popstate', onPopState)
     return () => {
       window.removeEventListener('popstate', onPopState)
-      try {
-        const s = window.history.state as { draftChatOpen?: boolean } | null
-        if (s?.draftChatOpen) window.history.back()
-      } catch { /* ignore */ }
+      if (!pushed || poppedByBrowser) return
+      try { window.history.back() } catch { /* ignore */ }
     }
   }, [open, setOpen])
 
@@ -241,7 +248,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
       } else {
         const d = await res.json().catch(() => ({}))
         setError(/relation|table|does not exist|schema cache/i.test(d.error ?? '')
-          ? '채팅 테이블이 아직 없습니다 — 051_draft_chat.sql 마이그레이션을 적용하세요.'
+          ? '채팅을 불러오지 못했습니다. 새로고침해 주세요.'
           : (d.error ?? '전송 실패'))
       }
     } catch {
@@ -293,8 +300,14 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
       )}
 
       {/* 본 패널 — 모바일: open=true 일 때만 표시(슬라이드 인). lg+: 항상 표시(고정 사이드바) */}
-      <div className={`${open ? 'flex' : 'hidden'} lg:flex fixed top-0 right-0 z-40 h-screen w-[88vw] sm:w-[340px] flex-col bg-gray-900 border-l border-gray-700 shadow-2xl ${open ? 'animate-slideInRight' : ''}`}>
+      {/* 높이는 아래 .draft-chat-panel 에서 100vh → 100dvh 순으로 준다.
+          iOS 사파리의 100vh 는 주소창 높이를 빼지 않아 입력창이 화면 밖으로 밀렸다. */}
+      <div className={`draft-chat-panel ${open ? 'flex' : 'hidden'} lg:flex fixed top-0 right-0 z-40 w-[88vw] sm:w-[340px] flex-col bg-gray-900 border-l border-gray-700 shadow-2xl ${open ? 'animate-slideInRight' : ''}`}>
       <style jsx>{`
+        .draft-chat-panel {
+          height: 100vh;
+          height: 100dvh;
+        }
         @keyframes slideInRight {
           from { transform: translateX(100%); }
           to { transform: translateX(0); }
@@ -310,12 +323,27 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
         <MessageCircle size={16} className="text-blue-400" />
         <p className="text-sm font-bold text-gray-100 uppercase tracking-widest">드래프트 채팅</p>
         <span className="hidden sm:inline text-xs text-gray-300">단장·감독관</span>
-        <span className="lg:hidden text-[11px] text-gray-400 italic">← 밖을 탭해 닫기</span>
+        <span className="lg:hidden text-sm text-gray-300 italic">← 밖을 탭해 닫기</span>
         {/* 닫기 버튼: PC 에서는 항상 고정이라 닫을 수 없게 숨김 */}
         <button onClick={() => setOpen(false)} aria-label="채팅 닫기" className="lg:hidden ml-auto px-2.5 py-1.5 min-w-[44px] min-h-[44px] flex items-center gap-1 rounded-lg bg-gray-800 text-gray-200 hover:text-white hover:bg-gray-700 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
           <X size={16} /><span className="text-xs font-bold">닫기</span>
         </button>
       </div>
+
+      {/* 진행 현황 띠 — 모바일에서 채팅이 화면을 덮는 동안에도 누구 차례·몇 초인지 보이게.
+          PC 는 본문이 옆에 그대로 있으므로 숨긴다. */}
+      {currentTeamName && (
+        <div className="lg:hidden px-3 py-2 min-h-11 flex items-center gap-2 border-b border-gray-800 bg-gray-950">
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentTeamColor ?? '#6b7280' }} aria-hidden />
+          <span className="text-sm font-bold text-white truncate min-w-0">{currentTeamName}</span>
+          {isMyTurn && <span className="shrink-0 px-2 py-0.5 rounded bg-emerald-500 text-black text-sm font-black">내 차례</span>}
+          {remainingSeconds != null && (
+            <span className={`ml-auto shrink-0 text-base font-black font-mono tabular-nums ${remainingSeconds <= 10 ? 'text-red-300' : 'text-gray-100'}`}>
+              {remainingSeconds}s
+            </span>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="px-3 py-2.5 bg-amber-950/40 border-b border-amber-800/40 flex items-start gap-1.5">
@@ -341,7 +369,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
                   <div className="max-w-[92%] flex items-start gap-2 px-3 py-2 rounded-lg border-l-2 border-amber-500 bg-amber-950/50 text-amber-100">
                     <Megaphone size={14} className="text-amber-300 mt-0.5 shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-amber-300 mb-0.5">
+                      <p className="text-sm font-black uppercase tracking-widest text-amber-300 mb-0.5">
                         {s.kind === 'commissioner' ? '미라클 총무' : '시스템'}
                       </p>
                       <p className="text-sm sm:text-base italic leading-snug break-keep">{s.text}</p>

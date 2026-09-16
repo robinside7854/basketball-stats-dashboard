@@ -1,4 +1,5 @@
 'use client'
+import { Lock, LogIn } from 'lucide-react'
 import type { DraftStatRow } from './DraftPlayerStatsModal'
 
 interface Team { id: string; name: string; color: string }
@@ -10,6 +11,8 @@ interface Props {
   picks: Pick[]
   leaders: Leader[]
   stats: Record<string, DraftStatRow>  // 지난 분기 (날짜 평균)
+  /** 스탯 API 가 401(회원 전용)을 반환한 상태 — 표 전체가 '—' 인 이유를 한 줄로 알린다 */
+  gated?: boolean
 }
 
 type Col = { key: keyof DraftStatRow; label: string; lowerBetter?: boolean }
@@ -22,7 +25,7 @@ const COLS: Col[] = [
   { key: 'topg', label: '턴오버', lowerBetter: true },
 ]
 
-export default function DraftTeamStats({ teams, picks, leaders, stats }: Props) {
+export default function DraftTeamStats({ teams, picks, leaders, stats, gated = false }: Props) {
   // 팀별 멤버 = 팀장 + 픽된 선수
   const rows = teams.map(t => {
     const ids = new Set<string>()
@@ -51,11 +54,22 @@ export default function DraftTeamStats({ teams, picks, leaders, stats }: Props) 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-800">
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">팀 구성 성적 (지난 분기 평균)</p>
-        <p className="text-[10px] text-gray-500 mt-0.5">드래프트된 선수 + 팀장의 평균. 초록=강점 · 빨강=약점 (다음 픽 참고)</p>
+        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">팀 구성 성적 (지난 분기 평균)</p>
+        <p className="text-sm text-gray-400 mt-0.5">드래프트된 선수 + 팀장의 평균. 초록=강점 · 빨강=약점 (다음 픽 참고)</p>
       </div>
+      {/* 잠금 안내는 표 위에 한 번만 — 행마다 반복하면 '—' 보다 더 시끄럽다 */}
+      {gated && (
+        <div className="px-4 py-2.5 border-b border-gray-800 bg-gray-800/40 flex items-center gap-2 flex-wrap">
+          <Lock size={16} className="text-amber-300 shrink-0" aria-hidden />
+          <span className="text-sm text-gray-200">로그인하면 지난 분기 성적이 보입니다</span>
+          <button type="button" onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
+            className="ml-auto inline-flex items-center gap-1.5 px-3 min-h-11 rounded-lg bg-amber-500 hover:brightness-95 text-gray-900 text-sm font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300">
+            <LogIn size={16} aria-hidden /> 로그인
+          </button>
+        </div>
+      )}
       <div className="overflow-x-auto">
-        <table className="w-full text-xs">
+        <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-800/50 text-gray-500">
               <th className="text-left p-2 font-bold">팀</th>

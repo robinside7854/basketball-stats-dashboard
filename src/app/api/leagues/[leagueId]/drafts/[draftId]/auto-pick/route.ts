@@ -149,11 +149,13 @@ export async function POST(
   const { count: poolCount } = await supabase
     .from('league_draft_pool').select('league_player_id', { count: 'exact', head: true }).eq('draft_id', draftId)
   const isComplete = typeof poolCount === 'number' && pickNumber >= poolCount
+  // 완료 픽이면 라운드를 올리지 않는다 (pick/route.ts 와 동일) — 빈 마지막 라운드 방지
+  const finalRound = isComplete ? d.current_round : nextRound
 
   const { data: updated, error: updErr } = await supabase
     .from('league_drafts')
     .update({
-      current_pick_index: nextIndex, current_round: nextRound, total_picks: pickNumber,
+      current_pick_index: nextIndex, current_round: finalRound, total_picks: pickNumber,
       ...(isComplete
         ? { status: 'completed', completed_at: new Date().toISOString(), pick_deadline: null }
         : { pick_deadline: newPickDeadline(Date.now(), d.pick_seconds) }),

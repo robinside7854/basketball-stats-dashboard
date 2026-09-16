@@ -5,9 +5,9 @@
 //   {
 //     draft: { id, status, draft_order, current_pick_index, current_round, total_picks, method, started_at, completed_at } | null
 //     current_team_id: string | null   (현재 차례 팀; setup/completed 면 null)
-//     picks: [{ pick_number, round_number, team_id, player_id, player_name, player_number, picked_at }]
-//     available_players: [{ id, name, number, position, plus_one }]
-//     teams: [{ id, name, color }]
+//     picks: [{ pick_number, round_number, team_id, player_id, player_name, player_number, player_photo_url, picked_at }]
+//     available_players: [{ id, name, number, position, plus_one, photo_url }]
+//     teams: [{ id, name, color }]  ← 분기 override(league_team_quarter_overrides) 적용본
 //   }
 //
 // 클라이언트가 폴링하거나 Realtime 구독 (Phase 3 옵션) 으로 갱신.
@@ -65,8 +65,8 @@ export async function GET(
   // 뽑을 수 있어야 "명단 공유"가 실제로 성립한다.
   const teamId = await resolveTeamId(leagueId)
 
-  // 병렬: draft, teams, all players, 팀장, 감독관 코드 존재여부
-  const [{ data: draft }, { data: teams }, { data: players }, { data: leaders }, { data: supCode }] = await Promise.all([
+  // 병렬: draft, teams, 분기 override, all players, 팀장, 감독관 코드 존재여부
+  const [{ data: draft }, { data: teamsRaw }, { data: overrides }, { data: players }, { data: leaders }, { data: supCodes }] = await Promise.all([
     supabase
       .from('league_drafts')
       .select('id, status, draft_order, current_pick_index, current_round, total_picks, method, started_at, completed_at, pick_seconds, ready_state, lottery_odds, lottery_done, pick_deadline, extensions_used')
@@ -79,9 +79,16 @@ export async function GET(
       .eq('league_id', leagueId)
       // 임시팀(친선전 전용)은 드래프트에 등장하지 않는다
       .is('exhibition_date', null),
+    // 분기별 팀명·색상 override — teams/route.ts 와 같은 규칙.
+    //   이게 없으면 새 분기 팀 이름을 지어도 드래프트 화면엔 지난 분기 명패가 뜬다.
+    supabase
+      .from('league_team_quarter_overrides')
+      .select('team_id, name, color')
+      .eq('league_id', leagueId)
+      .eq('quarter_id', quarterId),
     supabase
       .from('league_players')
-      .select('id, name, number, position, plus_one')
+      .select('id, name, number, position, plus_one, photo_url')
       .eq('team_id', teamId)
       .order('name'),
     supabase
@@ -95,8 +102,19 @@ export async function GET(
       .eq('quarter_id', quarterId)
       .eq('role', 'supervisor')
       .eq('is_active', true)
-      .maybeSingle(),
+      // maybeSingle() 이면 감독관 코드가 2개 이상일 때 에러가 나서 "감독관 없음" 으로 응답했다.
+      // 존재 여부만 알면 되므로 1건만 가져와 길이로 판정한다.
+      .limit(1),
   ])
+
+  const overrideMap = Object.fromEntries(
+    ((overrides ?? []) as { team_id: string; name: string | null; color: string | null }[])
+      .map(o => [o.team_id, { name: o.name, color: o.color }]),
+  ) as Record<string, { name: string | null; color: string | null }>
+  const teams = ((teamsRaw ?? []) as { id: string; name: string; color: string | null }[]).map(t => {
+    const ov = overrideMap[t.id]
+    return { ...t, name: ov?.name ?? t.name, color: ov?.color ?? t.color }
+  })
 
   const playerMapFull = Object.fromEntries((players ?? []).map(p => [p.id, p]))
   // 팀장 응답에 이름/번호 enrichment — 최종 결과 화면에서 별도 조회 없이 표시 가능.
@@ -106,7 +124,7 @@ export async function GET(
     leader_player_name: l.leader_player_id ? (playerMapFull[l.leader_player_id]?.name ?? null) : null,
     leader_player_number: l.leader_player_id ? (playerMapFull[l.leader_player_id]?.number ?? null) : null,
   }))
-  const supervisorExists = !!supCode
+  const supervisorExists = (supCodes ?? []).length > 0
 
   if (!draft) {
     return NextResponse.json({
@@ -114,7 +132,7 @@ export async function GET(
       current_team_id: null,
       picks: [],
       available_players: [],
-      teams: teams ?? [],
+      teams,
       leaders: leaderList,
       supervisor_exists: supervisorExists,
       server_time_ms: Date.now(),
@@ -142,6 +160,8 @@ export async function GET(
     player_name: playerMapFull[p.league_player_id]?.name ?? '?',
     player_number: playerMapFull[p.league_player_id]?.number ?? null,
     player_position: playerMapFull[p.league_player_id]?.position ?? null,
+    // 픽 공개 카드에서 선수 사진을 뒤집어 보여주기 위해 함께 내려준다
+    player_photo_url: playerMapFull[p.league_player_id]?.photo_url ?? null,
     picked_at: p.picked_at,
   }))
 
@@ -157,7 +177,7 @@ export async function GET(
     available_players: available,
     pool_size: poolIds.size,
     pool_player_ids: Array.from(poolIds),
-    teams: teams ?? [],
+    teams,
     leaders: leaderList,
     supervisor_exists: supervisorExists,
     // 클라이언트가 서버 시간과 자기 시간 간 오프셋을 계산해 타이머 캘리브레이션에 사용

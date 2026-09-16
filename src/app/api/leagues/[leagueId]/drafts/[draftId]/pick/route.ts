@@ -177,11 +177,15 @@ export async function POST(
     .eq('draft_id', draftId)
   const isComplete = typeof poolCount === 'number' && newTotalPicks >= poolCount
 
+  // 완료 픽이면 라운드를 올리지 않는다 — 올리면 완료 후 "6라운드"로 표시되고
+  // 픽 기록표에 아무도 없는 마지막 줄이 하나 더 생긴다.
+  const finalRound = isComplete ? roundNumber : nextRound
+
   const { data: updated, error: updErr } = await supabase
     .from('league_drafts')
     .update({
       current_pick_index: nextIndex,
-      current_round: nextRound,
+      current_round: finalRound,
       total_picks: newTotalPicks,
       ...(isComplete
         ? { status: 'completed', completed_at: new Date().toISOString(), pick_deadline: null }

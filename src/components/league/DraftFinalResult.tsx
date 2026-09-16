@@ -8,6 +8,7 @@
 // - "닫기" 로 일반 사용자 dismiss; 감독관 노출은 부모가 제어
 
 import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { Trophy, Download, X, Users, Clock, Crown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Confetti from './Confetti'
@@ -107,14 +108,16 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
       document.body.removeChild(a)
     } catch (e) {
       console.error('[final-result] PNG export failed', e)
-      alert('이미지 저장에 실패했습니다. 화면 캡처를 사용해 주세요.')
+      toast.error('이미지 저장에 실패했습니다 — 화면 캡처를 사용해 주세요', { duration: 5000, position: 'bottom-center' })
     } finally {
       setDownloading(false)
     }
   }
 
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/85 backdrop-blur-sm p-3 sm:p-6"
+    // 1920×1080 에서 「이미지로 저장」·「닫기」가 화면 밖으로 밀려나 있었다(2026-09-16 실측).
+    // 루트를 flex column 으로 잡고 카드만 내부 스크롤시켜 버튼을 항상 첫 화면 안에 둔다.
+    <div className="fixed inset-0 z-[60] flex flex-col bg-black/85 backdrop-blur-sm p-3 sm:p-4"
       style={{
         paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
         paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
@@ -122,20 +125,22 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       {/* 1회 burst — 3.5s (3차 스태거 200+ particle). trigger 가 같은 값이면 재발화 X */}
       <Confetti trigger={trigger} durationMs={3500} />
-      <div className="relative max-w-4xl mx-auto">
+      <div className="relative max-w-6xl w-full mx-auto flex flex-col min-h-0 flex-1">
         {/* 닫기 버튼 */}
         <button
           onClick={onClose}
           aria-label="닫기"
-          className="absolute -top-1 right-0 sm:top-2 sm:right-2 z-10 w-10 h-10 rounded-full bg-gray-900/80 border border-gray-700 text-gray-200 hover:bg-gray-800 cursor-pointer flex items-center justify-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          className="absolute top-0 right-0 sm:top-2 sm:right-2 z-10 min-w-11 min-h-11 rounded-full bg-gray-900/80 border border-gray-700 text-gray-200 hover:bg-gray-800 cursor-pointer flex items-center justify-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
         >
           <X size={20} />
         </button>
 
+        {/* 스크롤 래퍼 — 캡처 대상(captureRef)은 높이 제한 밖에 둬야 PNG 가 잘리지 않는다 */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
         {/* 캡처 대상 영역 */}
         <div
           ref={captureRef}
-          className="rounded-2xl border-2 border-amber-600/60 p-5 sm:p-8 lg:p-10 space-y-5 sm:space-y-7"
+          className="rounded-2xl border-2 border-amber-600/60 p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6"
           style={{
             background: 'linear-gradient(180deg, #1a1208 0%, #0a0a0f 70%, #050505 100%)',
             boxShadow: '0 0 64px rgba(245,158,11,0.18)',
@@ -167,7 +172,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
           </div>
 
           {/* 팀별 로스터 카드 그리드 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {orderedTeams.map((t, idx) => {
               const list = picksByTeam[t.id] ?? []
               const leaderId = leaderByTeam[t.id]
@@ -205,7 +210,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                     >
                       <Crown size={14} className="text-amber-300 shrink-0" />
                       <span
-                        className="text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0"
+                        className="text-sm font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0"
                         style={{ background: t.color, color: '#0a0a0a' }}
                       >
                         팀장
@@ -221,13 +226,13 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                     <div className="space-y-1">
                       {list.map(p => (
                         <div key={p.pick_number} className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-[10px] sm:text-xs font-mono tabular-nums w-8 shrink-0 text-gray-400">#{p.pick_number}</span>
+                          <span className="text-sm font-mono tabular-nums w-8 shrink-0 text-gray-400">#{p.pick_number}</span>
                           {p.player_number != null && (
                             <span className="text-amber-300 font-mono font-bold w-8 shrink-0 text-xs sm:text-sm tabular-nums">#{p.player_number}</span>
                           )}
                           <span className="text-white font-bold text-sm sm:text-base truncate min-w-0 break-keep flex-1">{p.player_name}</span>
                           {p.player_position && (
-                            <span className="text-[10px] sm:text-xs text-gray-300 font-mono shrink-0">
+                            <span className="text-sm text-gray-300 font-mono shrink-0">
                               {p.player_position.split(',').map(s => s.trim()).join('·')}
                             </span>
                           )}
@@ -245,13 +250,14 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
             Generated by 미라클 농구 드래프트 시스템 · {new Date().toLocaleDateString('ko-KR')}
           </div>
         </div>
+        </div>
 
-        {/* 액션 — 캡처 영역 바깥 */}
-        <div className="mt-4 flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
+        {/* 액션 — 캡처 영역 바깥. flex column 의 고정 footer 라 스크롤과 무관하게 항상 보인다. */}
+        <div className="mt-3 shrink-0 flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
           <Button
             onClick={downloadPng}
             disabled={downloading}
-            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-base sm:text-lg h-12 sm:h-14 px-6 sm:px-8 shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-base sm:text-lg min-h-11 h-12 sm:h-14 px-6 sm:px-8 shadow-2xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
             <Download size={20} className="mr-2" />
             {downloading ? '저장 중...' : '이미지로 저장'}
@@ -259,7 +265,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
           <Button
             onClick={onClose}
             variant="outline"
-            className="bg-gray-900 border-gray-700 text-gray-100 hover:bg-gray-800 text-base sm:text-lg h-12 sm:h-14 px-5 sm:px-6 font-bold"
+            className="bg-gray-900 border-gray-700 text-gray-100 hover:bg-gray-800 text-base sm:text-lg min-h-11 h-12 sm:h-14 px-5 sm:px-6 font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
             닫기
           </Button>
