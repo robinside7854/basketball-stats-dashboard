@@ -40,6 +40,8 @@ interface Pick {
   player_position: string | null
   player_photo_url?: string | null
   picked_at: string
+  /** 타이머 만료 자동픽 (picked_by_code_id 없음) */
+  is_auto?: boolean
 }
 interface DraftState {
   draft: {
@@ -529,6 +531,18 @@ export default function DraftPortalClient({
   // 실제 시계 시작(start-clock, 클라이언트가 폴링 후 호출)보다 1~2초 이르다. 1픽만 그만큼 후하게 잡힌다.
   // pick_deadline 은 현재 픽 것 하나뿐이고 +30초 연장으로 변형되기까지 해서 과거 픽의
   // 시작 시각을 되돌려 계산할 수 없다 — 그래서 직전 픽 시각을 쓴다.
+  // 사람이 고르지 않은 픽 — ① 타이머 만료 자동픽(is_auto) ② 풀이 1명 남아 자동 등록된 마지막 픽.
+  // 최속/최장 시상과 스코어보드 "자동" 표시에 쓴다. ②는 서버에 표시가 없어 "완료 + 풀 소진 + 마지막 픽"으로 판정.
+  const autoPickNumbers = useMemo(() => {
+    const picks = state?.picks ?? []
+    const out = picks.filter(p => p.is_auto).map(p => p.pick_number)
+    if (state?.draft?.status === 'completed' && (state?.available_players?.length ?? 0) === 0 && picks.length > 0) {
+      const last = Math.max(...picks.map(p => p.pick_number))
+      if (!out.includes(last)) out.push(last)
+    }
+    return out
+  }, [state?.picks, state?.draft?.status, state?.available_players])
+
   const pickDurations = useMemo(() => {
     const out: Record<number, number> = {}
     const sorted = [...(state?.picks ?? [])].sort((a, b) => a.pick_number - b.pick_number)
@@ -1208,6 +1222,7 @@ export default function DraftPortalClient({
               currentPickIndex={draft.current_pick_index}
               status={draft.status}
               pickDurations={pickDurations}
+              autoPickNumbers={autoPickNumbers}
             />
           )}
 
@@ -1341,6 +1356,7 @@ export default function DraftPortalClient({
             completedAt={state.draft.completed_at}
             leaders={state.leaders ?? []}
             playerNames={playerNames}
+            autoPickNumbers={autoPickNumbers}
             pickDurations={pickDurations}
           />
         )

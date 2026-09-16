@@ -40,6 +40,8 @@ interface Props {
   completedAt: string | null
   /** pick_number → 그 픽에 걸린 초. 2건 미만이면 시상 스트립·팀 평균을 렌더하지 않는다. */
   pickDurations?: Record<number, number>
+  /** 사람이 고르지 않은 픽(타이머 자동픽·마지막 1명 자동 등록) — 최속/최장 시상에서 뺀다 */
+  autoPickNumbers?: number[]
   /** 분기별 팀장 — `league_team_quarter_leaders` rows. team 카드 상단 👑 영역에 표시 */
   leaders?: Leader[]
   /** player id → 이름 매핑 (팀장 이름 표시용). 누락된 ID 는 "팀장" 라벨로 fallback */
@@ -66,7 +68,7 @@ function formatDuration(startedAt: string | null | undefined, completedAt: strin
   return `${s}초`
 }
 
-export default function DraftFinalResult({ open, onClose, title, teams, picks, draftOrder, startedAt, completedAt, leaders, playerNames, pickDurations }: Props) {
+export default function DraftFinalResult({ open, onClose, title, teams, picks, draftOrder, startedAt, completedAt, leaders, playerNames, pickDurations, autoPickNumbers }: Props) {
   const captureRef = useRef<HTMLDivElement | null>(null)
   const [downloading, setDownloading] = useState(false)
   const [trigger, setTrigger] = useState<number | null>(null)
@@ -99,7 +101,11 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
   const nameMap = playerNames ?? {}
 
   // ── 소요 시간 시상 (pickDurations 가 2건 이상일 때만) ──────────────────────
+  // 자동픽(타이머 만료)·마지막 1명 자동 등록은 사람이 고른 게 아니다 — 시상·평균 모두에서 뺀다.
+  // (2026-09-16 리허설: 마지막 자동 등록 3초가 "최속 픽"으로 뜬 것이 계기)
+  const autoSet = new Set(autoPickNumbers ?? [])
   const timedPicks = picks
+    .filter(p => !autoSet.has(p.pick_number))
     .map(p => ({ pick: p, sec: pickDurations?.[p.pick_number] }))
     .filter((e): e is { pick: Pick; sec: number } => typeof e.sec === 'number' && Number.isFinite(e.sec) && e.sec >= 0)
     .sort((a, b) => a.sec - b.sec)

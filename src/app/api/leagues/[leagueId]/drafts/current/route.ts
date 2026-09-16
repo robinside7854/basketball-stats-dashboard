@@ -159,7 +159,7 @@ export async function GET(
   const [{ data: picksRaw }, { data: poolRaw }] = await Promise.all([
     supabase
       .from('league_draft_picks')
-      .select('pick_number, round_number, team_id, league_player_id, picked_at')
+      .select('pick_number, round_number, team_id, league_player_id, picked_at, picked_by_code_id')
       .eq('draft_id', d.id)
       .order('pick_number', { ascending: true }),
     supabase
@@ -178,6 +178,9 @@ export async function GET(
     // 픽 공개 카드에서 선수 사진을 뒤집어 보여주기 위해 함께 내려준다
     player_photo_url: playerMapFull[p.league_player_id]?.photo_url ?? null,
     picked_at: p.picked_at,
+    // 타이머 만료 자동픽은 코드 없이 들어온다(auto-pick 라우트가 picked_by_code_id=null 로 저장) —
+    // 최속 픽 시상·"자동" 표시에 쓴다
+    is_auto: p.picked_by_code_id == null,
   }))
 
   const pickedPlayerIds = new Set(picks.map(p => p.player_id))

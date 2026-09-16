@@ -32,6 +32,8 @@ interface Props {
   status: string
   /** pick_number → 그 픽에 걸린 초. 없으면 소요 시간 칩을 렌더하지 않는다. */
   pickDurations?: Record<number, number>
+  /** 자동픽·마지막 자동 등록 — 소요 시간 대신 "자동" 으로 표시 */
+  autoPickNumbers?: number[]
   /**
    * draft.started_at (ISO). 소요 시간은 pickDurations 에 이미 계산돼 들어오므로
    * 이 컴포넌트는 값을 쓰지 않는다. 호출부가 두 컴포넌트에 같은 props 를 넘길 수 있도록 받아만 둔다.
@@ -46,7 +48,8 @@ function formatSec(sec: number): string {
   return `${Math.floor(s / 60)}분 ${s % 60}초`
 }
 
-export default function DraftScoreboard({ title, teams, picks, draftOrder, method, totalPicks, currentPickIndex, status, pickDurations }: Props) {
+export default function DraftScoreboard({ title, teams, picks, draftOrder, method, totalPicks, currentPickIndex, status, pickDurations, autoPickNumbers }: Props) {
+  const autoSet = new Set(autoPickNumbers ?? [])
   if (draftOrder.length === 0) return null
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
   const rounds = Math.max(1, Math.ceil(totalPicks / draftOrder.length))
@@ -113,7 +116,8 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                     : isCompleted
                       ? { background: 'rgba(15,15,15,0.85)', borderColor: `${color}55` }
                       : { background: 'rgba(20,20,20,0.5)', borderColor: 'rgba(75,85,99,0.3)' }
-                  const durationSec = pickDurations?.[pickNumber]
+                  const durationSec = autoSet.has(pickNumber) ? undefined : pickDurations?.[pickNumber]
+                  const isAutoPick = autoSet.has(pickNumber)
                   return (
                     <div
                       key={pickNumber}
@@ -174,6 +178,9 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                             <p className="text-sm font-mono tabular-nums leading-none -mt-0.5 text-gray-400 truncate relative">
                               {formatSec(durationSec)}
                             </p>
+                          )}
+                          {isAutoPick && (
+                            <p className="text-sm leading-none -mt-0.5 text-gray-400 truncate relative">자동</p>
                           )}
                         </>
                       ) : isCurrent ? (
