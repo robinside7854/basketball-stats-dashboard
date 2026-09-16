@@ -22,6 +22,9 @@ import DraftPickReveal, { type PickRevealData } from '@/components/league/DraftP
 import DraftScoreboard from '@/components/league/DraftScoreboard'
 import DraftFinalResult from '@/components/league/DraftFinalResult'
 import DraftCommissioner, { type CommissionerEvent } from '@/components/league/DraftCommissioner'
+import DraftNextUpChips from '@/components/league/DraftNextUpChips'
+import DraftRoundSlate from '@/components/league/DraftRoundSlate'
+import DraftStealBanner, { type StealBannerData } from '@/components/league/DraftStealBanner'
 import { pickLine } from '@/lib/commissionerLines'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { primeAudio, playMyTurnBeep, playBeep, setMuted, isMuted } from '@/lib/draftSounds'
@@ -118,6 +121,13 @@ export default function DraftPortalClient({
   const [codeInput, setCodeInput] = useState('')
   const [authing, setAuthing] = useState(false)
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
+  // 픽 감지 effect 는 1.5초마다 재실행되므로 selectedPlayerId 를 deps 에 넣으면 의존성이 흔들린다.
+  // 가로채기 판정은 ref 로 읽는다 — 값 갱신은 아래 selectPlayer() 한 곳에서만.
+  const selectedPlayerIdRef = useRef<string | null>(null)
+  const selectPlayer = useCallback((id: string | null) => {
+    selectedPlayerIdRef.current = id
+    setSelectedPlayerId(id)
+  }, [])
   const [picking, setPicking] = useState(false)
   const [extending, setExtending] = useState(false)
   // 픽 확정 전 한 번 더 확인 — 실수 픽 방지용 모달 상태.
@@ -253,7 +263,7 @@ export default function DraftPortalClient({
       try { primeAudio() } catch { /* ignore */ }
       setShowCodeModal(false)
       setCodeInput('')
-      setSelectedPlayerId(null)
+      selectPlayer(null)
       const teamName = state?.teams.find(t => t.id === sa.teamId)?.name
       toast.success(
         sa.role === 'supervisor'
@@ -273,7 +283,7 @@ export default function DraftPortalClient({
     try { sessionStorage.removeItem(authKey) } catch { /* ignore */ }
     setAuth(null)
     setCodeInput('')
-    setSelectedPlayerId(null)
+    selectPlayer(null)
     setShowCodeModal(false)
     toast('인증 해제 — 다른 코드로 입장하세요')
   }
@@ -388,6 +398,9 @@ export default function DraftPortalClient({
         introFiredRef.current = false
         lotteryShownRef.current = false
         lastLotteryDoneRef.current = null
+        // 이전 사이클의 연출 잔상도 거둔다
+        setStealBanner(null)
+        setSlateRound(null)
         finalDismissedThisSession && setFinalDismissedThisSession(false)
       }
     }
@@ -418,6 +431,9 @@ export default function DraftPortalClient({
   const initialPicksSnapshotRef = useRef<number | null>(null)
   const lastPickNumberRef = useRef<number>(0)
   const pendingRevealRef = useRef<PickRevealData | null>(null)
+  // 가로채기 배너 — 내가 골라 둔 선수를 남이 먼저 뽑았을 때. 초기 로드에서는 절대 뜨지 않는다
+  // (아래 effect 의 initialPicksSnapshotRef 가드를 그대로 탄다).
+  const [stealBanner, setStealBanner] = useState<StealBannerData | null>(null)
   useEffect(() => {
     if (!state?.picks) return
     const picks = state.picks
@@ -445,6 +461,26 @@ export default function DraftPortalClient({
       playerPhotoUrl: latest.player_photo_url ?? null,
     }
     lastPickNumberRef.current = latest.pick_number
+    // 가로채기 판정 — 내가 찍어둔 선수를 다른 팀이 가져갔다. 고른 선수는 이미 사라졌으니
+    // 선택도 함께 비운다(빈 선택 상태로 두면 픽 버튼이 없는 선수를 확정하려 든다).
+    if (
+      auth?.role === 'manager'
+      && selectedPlayerIdRef.current
+      && selectedPlayerIdRef.current === latest.player_id
+      && latest.team_id !== auth.teamId
+    ) {
+      selectPlayer(null)
+      setStealBanner({
+        pickNumber: latest.pick_number,
+        playerName: latest.player_name,
+        teamName: team?.name ?? '상대 팀',
+        teamColor: team?.color ?? '#6b7280',
+      })
+      toast.warning(`${latest.player_name} 선수를 ${team?.name ?? '상대 팀'}에 빼앗겼습니다 — 다시 골라 주세요`, {
+        duration: 4000,
+        position: 'bottom-center',
+      })
+    }
     if (showLottery) {
       // 추첨 reveal 진행 중 — 픽 reveal 큐잉만, 마운트는 추첨 종료 후
       // 동시에 여러 픽이 들어와도 항상 가장 최신 픽만 보여준다 (overwrite OK)
@@ -452,7 +488,7 @@ export default function DraftPortalClient({
       return
     }
     setPickReveal(data)
-  }, [state?.picks, state?.teams, state?.available_players, showLottery])
+  }, [state?.picks, state?.teams, state?.available_players, showLottery, auth?.role, auth?.teamId, selectPlayer])
 
   // 드래프트 완료 감지 — completed 진입 시 자동 풀스크린 결과 모달.
   // 사용자가 명시적으로 '닫기' 누르기 전까지는 새로고침/재방문 시에도 자동 재오픈.
@@ -591,8 +627,10 @@ export default function DraftPortalClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.picks?.length, draftId, scheduleComm])
 
-  // 4) 라운드 전환 감지 — current_round 가 증가하면 commissioner 안내
+  // 4) 라운드 전환 감지 — current_round 가 증가하면 commissioner 안내 + 라운드 슬레이트
   const prevRoundRef = useRef<number | null>(null)
+  // 슬레이트로 띄울 라운드. 1라운드는 드래프트 시작 연출이 이미 있으므로 제외(아래 조건).
+  const [slateRound, setSlateRound] = useState<number | null>(null)
   useEffect(() => {
     const round = state?.draft?.current_round
     if (typeof round !== 'number') return
@@ -607,6 +645,7 @@ export default function DraftPortalClient({
         text: pickLine('roundTransition', `${draftId}:r${round}`, { round }),
         durationMs: 5000,
       })
+      if (round > 1) setSlateRound(round)
     }
     prevRoundRef.current = round
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -639,6 +678,27 @@ export default function DraftPortalClient({
     const diff = Math.max(0, Math.floor((new Date(draftRow.pick_deadline).getTime() - now) / 1000))
     return diff
   }, [draftRow?.pick_deadline, now])
+
+  // ────────────────── 픽별 소요 시간 ──────────────────
+  // pick_number → 걸린 초. 기준점(시계 시작)은 **직전 픽의 picked_at** 으로 잡는다.
+  // 서버는 픽이 확정되는 순간 다음 픽의 시계를 돌리므로(pick/route 가 pick_deadline 재설정)
+  // 직전 픽 시각이 곧 이번 픽의 시작이다. 1픽만 draft.started_at 기준 — 이건 start-draft 시각이라
+  // 실제 시계 시작(start-clock, 클라이언트가 폴링 후 호출)보다 1~2초 이르다. 1픽만 그만큼 후하게 잡힌다.
+  // pick_deadline 은 현재 픽 것 하나뿐이고 +30초 연장으로 변형되기까지 해서 과거 픽의
+  // 시작 시각을 되돌려 계산할 수 없다 — 그래서 직전 픽 시각을 쓴다.
+  const pickDurations = useMemo(() => {
+    const out: Record<number, number> = {}
+    const sorted = [...(state?.picks ?? [])].sort((a, b) => a.pick_number - b.pick_number)
+    const startedMs = state?.draft?.started_at ? new Date(state.draft.started_at).getTime() : NaN
+    let prevMs = Number.isFinite(startedMs) ? startedMs : null
+    for (const p of sorted) {
+      const t = new Date(p.picked_at).getTime()
+      if (!Number.isFinite(t)) continue
+      if (prevMs != null && t >= prevMs) out[p.pick_number] = Math.max(0, Math.round((t - prevMs) / 1000))
+      prevMs = t
+    }
+    return out
+  }, [state?.picks, state?.draft?.started_at])
 
   // 유예(grace) 단계 — 마감 후 ~ 마감+GRACE 사이
   const graceInfo = useMemo(() => {
@@ -926,7 +986,7 @@ export default function DraftPortalClient({
         // 본 화면에서 폭죽 이팩트(DraftPickReveal)가 메인 피드백.
         // 단장 본인은 클릭 직후 빠른 확인용으로 작은 토스트만.
         toast.success('픽 전송됨', { duration: 1800, position: 'bottom-center' })
-        setSelectedPlayerId(null)
+        selectPlayer(null)
         fetchState()
       }
     } catch {
@@ -1107,9 +1167,21 @@ export default function DraftPortalClient({
           style={{ top: 'env(safe-area-inset-top, 0px)' }}
         >
           <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentTeam?.color ?? '#6b7280' }} aria-hidden />
-          <span className="text-base font-bold text-white truncate min-w-0">{currentTeam?.name ?? '대기 중'}</span>
+          <span className="text-base font-bold text-white truncate min-w-0 max-w-[40%] lg:max-w-none">{currentTeam?.name ?? '대기 중'}</span>
           {isMyTurn && (
             <span className="shrink-0 px-2 py-0.5 rounded-md bg-emerald-500 text-black text-sm font-black">내 차례</span>
+          )}
+          {/* 다음 2팀 — 스네이크 방향을 반영해 계산 (빔에서 "다음 누구"가 항상 보이게) */}
+          {draft.draft_order.length > 0 && (
+            <DraftNextUpChips
+              teams={state?.teams ?? []}
+              draftOrder={draft.draft_order}
+              method={draft.method}
+              currentRound={draft.current_round}
+              currentPickIndex={draft.current_pick_index}
+              picksMade={draft.total_picks}
+              poolSize={state?.pool_size ?? null}
+            />
           )}
           {remainingSeconds != null && (
             <span className={`ml-auto shrink-0 text-lg font-black tabular-nums font-mono ${
@@ -1120,6 +1192,8 @@ export default function DraftPortalClient({
           )}
         </div>
       )}
+      {/* 가로채기 배너 — 현황 바 바로 아래(z-20), 3초 후 스스로 사라진다 */}
+      <DraftStealBanner data={stealBanner} onDone={() => setStealBanner(null)} />
       {/* 내 차례 펄스 keyframes — 콜아웃 카드 + 외곽 래퍼에서 사용 */}
       {myTurnColor && (
         <style>{`
@@ -1370,6 +1444,7 @@ export default function DraftPortalClient({
               totalPicks={draft.total_picks}
               currentPickIndex={draft.current_pick_index}
               status={draft.status}
+              pickDurations={pickDurations}
             />
           )}
 
@@ -1394,7 +1469,7 @@ export default function DraftPortalClient({
                     <PlayerPicker
                       players={state?.available_players ?? []}
                       selectedId={selectedPlayerId}
-                      onSelect={setSelectedPlayerId}
+                      onSelect={selectPlayer}
                     />
                     <div className="flex gap-2">
                       <Button
@@ -1485,6 +1560,8 @@ export default function DraftPortalClient({
               teams={state?.teams ?? []}
               picks={state?.picks ?? []}
               draftOrder={draft.draft_order}
+              poolSize={state?.pool_size ?? null}
+              pickDurations={pickDurations}
             />
           )}
 
@@ -1540,6 +1617,11 @@ export default function DraftPortalClient({
           내가 그 다음이면 4.5초 전면 연출이 내 시간을 먹으므로 1.2초로 줄이고 배지를 띄운다. */}
       <DraftPickReveal data={pickReveal} onClose={() => setPickReveal(null)} isMyTurn={isMyTurn} />
 
+      {/* 라운드 슬레이트 — 라운드가 오를 때 0.9초. 픽 공개(z-100) 아래(z-95), 탭을 막지 않는다.
+          라운드는 '직전 라운드 마지막 픽'과 동시에 오르므로 픽 공개가 떠 있는 동안에는 보류한다
+          (z-95 에 깔려 통째로 가려지면 연출이 버려진다). 공개가 닫히면 그때 마운트되어 재생된다. */}
+      <DraftRoundSlate round={pickReveal ? null : slateRound} onDone={() => setSlateRound(null)} />
+
       {/* 미라클 총무 — 픽셀 캐릭터가 말풍선으로 중계 (setup/ready_check 단계에서는 숨김) */}
       {state?.draft && state.draft.status !== 'setup' && state.draft.status !== 'ready_check' && (
         <DraftCommissioner event={commEvent} />
@@ -1592,6 +1674,7 @@ export default function DraftPortalClient({
             completedAt={state.draft.completed_at}
             leaders={state.leaders ?? []}
             playerNames={playerNames}
+            pickDurations={pickDurations}
           />
         )
       })()}
@@ -1688,7 +1771,14 @@ function BigTimer({ seconds, extensionsUsed, canExtend, onExtend, extending, gra
       'bg-gray-900 border-gray-700 text-gray-100'
     }`}>
       <Timer size={20} className={urgent ? 'text-red-400' : warn ? 'text-amber-400' : 'text-gray-300'} />
-      <span className="font-black text-2xl lg:text-6xl leading-none tabular-nums">{seconds}s</span>
+      {/* 10초 이하 심박 — key={seconds} 로 1초마다 다시 마운트되어 애니메이션이 매초 새로 돈다.
+          색(빨강)은 위 컨테이너가 이미 바꾸므로, 모션 최소화면 색만 남는다. */}
+      <span
+        key={urgent ? seconds : 'calm'}
+        className={`font-black text-2xl lg:text-6xl leading-none tabular-nums inline-block ${urgent ? 'dp-heartbeat' : ''}`}
+      >
+        {seconds}s
+      </span>
       {canExtend && leftExt > 0 && (
         <button
           onClick={onExtend}
@@ -1700,6 +1790,21 @@ function BigTimer({ seconds, extensionsUsed, canExtend, onExtend, extending, gra
           +{EXTENSION_SECONDS}s
         </button>
       )}
+      <style jsx>{`
+        .dp-heartbeat {
+          animation: dp-heartbeat 1s cubic-bezier(0.4, 0, 0.2, 1) both;
+          transform-origin: center;
+        }
+        @keyframes dp-heartbeat {
+          0%   { transform: scale(1); }
+          18%  { transform: scale(1.06); }
+          45%  { transform: scale(1); }
+          100% { transform: scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .dp-heartbeat { animation: none; transform: none; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -1922,10 +2027,14 @@ function LotteryDoneScreen({ teams, draftOrder, isSupervisor, onStartDraft, acti
   )
 }
 
-function TeamPickRoster({ teams, picks, draftOrder }: {
+function TeamPickRoster({ teams, picks, draftOrder, poolSize, pickDurations }: {
   teams: Team[]
   picks: Pick[]
   draftOrder: string[]
+  /** 풀 인원 — 팀당 몇 칸을 미리 그릴지(라운드 수) 계산에 쓴다 */
+  poolSize?: number | null
+  /** pick_number → 걸린 초 */
+  pickDurations?: Record<number, number>
 }) {
   // draftOrder 순서대로 정렬 + draftOrder 에 없는 팀도 뒤에 표시
   const orderedTeams = [
@@ -1935,6 +2044,10 @@ function TeamPickRoster({ teams, picks, draftOrder }: {
   const picksByTeam: Record<string, Pick[]> = {}
   for (const p of picks) (picksByTeam[p.team_id] ||= []).push(p)
   for (const tid of Object.keys(picksByTeam)) picksByTeam[tid].sort((a, b) => a.pick_number - b.pick_number)
+
+  // 팀당 슬롯 수 = 예상 라운드 수. 빈 칸을 미리 그려두면 "몇 명 더 뽑나"가 눈에 보인다.
+  const teamCount = Math.max(1, orderedTeams.length)
+  const expectedRounds = Math.max(1, Math.ceil((poolSize ?? picks.length) / teamCount))
 
   return (
     <div className="mt-4 sm:mt-6 space-y-3">
@@ -1972,28 +2085,61 @@ function TeamPickRoster({ teams, picks, draftOrder }: {
                   ))}
                 </div>
               )}
-              {list.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-3">아직 픽 없음</p>
-              ) : (
-                <div className="space-y-1">
-                  {list.map(p => (
-                    <div key={p.pick_number} className="flex items-center gap-1.5 min-w-0">
+              {/* 슬롯 — 예상 라운드 수만큼 빈 칸을 먼저 그리고, 픽이 들어오면 그 자리가 채워진다.
+                  채워지는 칸은 key(pick_number)가 새로 생기며 마운트되므로 CSS 애니메이션이 1회만 돈다.
+                  JS 타이머 없음. */}
+              <div className="space-y-1">
+                {list.map(p => {
+                  const dur = pickDurations?.[p.pick_number]
+                  return (
+                    <div key={p.pick_number} className="dp-slot-in flex items-center gap-1.5 min-w-0">
                       <span className="text-sm text-gray-300 font-mono w-9 shrink-0 tabular-nums">#{p.pick_number}</span>
                       {p.player_number != null && (
                         <span className="text-amber-300 font-mono font-bold w-8 shrink-0 text-sm tabular-nums">#{p.player_number}</span>
                       )}
                       <span className="text-white font-bold flex-1 truncate text-sm sm:text-base min-w-0 break-keep">{p.player_name}</span>
                       {p.player_position && (
-                        <span className="text-xs text-gray-300 font-mono shrink-0">{p.player_position.split(',').map(s => s.trim()).join('·')}</span>
+                        <span className="text-sm text-gray-300 font-mono shrink-0">{p.player_position.split(',').map(s => s.trim()).join('·')}</span>
+                      )}
+                      {dur != null && (
+                        <span
+                          className="text-sm text-gray-300 font-mono tabular-nums shrink-0 px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700"
+                          title="이 픽까지 걸린 시간"
+                        >
+                          {dur}초
+                        </span>
                       )}
                     </div>
-                  ))}
-                </div>
-              )}
+                  )
+                })}
+                {Array.from({ length: Math.max(0, expectedRounds - list.length) }).map((_, i) => (
+                  <div
+                    key={`empty-${i}`}
+                    className="flex items-center gap-1.5 min-w-0 rounded border border-dashed border-gray-700 px-2 py-1"
+                    aria-hidden
+                  >
+                    <span className="text-sm text-gray-400 font-mono w-9 shrink-0 tabular-nums">—</span>
+                    <span className="text-sm text-gray-400 flex-1 min-w-0 truncate">빈 자리</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )
         })}
       </div>
+      <style jsx>{`
+        /* 픽이 들어와 슬롯이 채워지는 순간에만 1회 재생 — 마운트 애니메이션이라 타이머가 필요 없다 */
+        .dp-slot-in {
+          animation: dp-slot-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        @keyframes dp-slot-in {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .dp-slot-in { animation: none; opacity: 1; transform: none; }
+        }
+      `}</style>
     </div>
   )
 }

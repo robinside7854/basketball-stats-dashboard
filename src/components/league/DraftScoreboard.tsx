@@ -30,9 +30,23 @@ interface Props {
   totalPicks: number
   currentPickIndex: number              // 0-based; 다음 픽 = currentPickIndex + 1
   status: string
+  /** pick_number → 그 픽에 걸린 초. 없으면 소요 시간 칩을 렌더하지 않는다. */
+  pickDurations?: Record<number, number>
+  /**
+   * draft.started_at (ISO). 소요 시간은 pickDurations 에 이미 계산돼 들어오므로
+   * 이 컴포넌트는 값을 쓰지 않는다. 호출부가 두 컴포넌트에 같은 props 를 넘길 수 있도록 받아만 둔다.
+   */
+  startedAt?: string | null
 }
 
-export default function DraftScoreboard({ title, teams, picks, draftOrder, method, totalPicks, currentPickIndex, status }: Props) {
+/** 47 → "47초", 92 → "1분 32초" */
+function formatSec(sec: number): string {
+  const s = Math.max(0, Math.round(sec))
+  if (s < 60) return `${s}초`
+  return `${Math.floor(s / 60)}분 ${s % 60}초`
+}
+
+export default function DraftScoreboard({ title, teams, picks, draftOrder, method, totalPicks, currentPickIndex, status, pickDurations }: Props) {
   if (draftOrder.length === 0) return null
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
   const rounds = Math.max(1, Math.ceil(totalPicks / draftOrder.length))
@@ -99,15 +113,45 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                     : isCompleted
                       ? { background: 'rgba(15,15,15,0.85)', borderColor: `${color}55` }
                       : { background: 'rgba(20,20,20,0.5)', borderColor: 'rgba(75,85,99,0.3)' }
+                  const durationSec = pickDurations?.[pickNumber]
                   return (
                     <div
                       key={pickNumber}
                       className={`relative rounded-lg border-2 p-4 sm:p-5 lg:p-6 min-h-[80px] sm:min-h-[100px] lg:min-h-[120px] flex flex-col gap-1.5 sm:gap-2 min-w-0 transition-all duration-200 ${
-                        isCurrent ? 'animate-pulse' : ''
+                        isCurrent ? 'draft-current-cell animate-pulse' : ''
                       } ${isCompleted ? '' : 'opacity-80'}`}
                       style={cellStyle}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
+                      {/* 러닝 보더 — 현재 픽 칸 테두리를 팀 컬러 조각이 시계방향으로 2초에 한 바퀴.
+                          svg 를 기존 border-2 밴드 중앙선 위에 겹쳐 깔아서 셀 크기·레이아웃은 그대로다(아래 CSS).
+                          pathLength=100 으로 둘레를 정규화해서 390px 작은 칸과 1920px 넓은 칸에서
+                          조각 길이 비율이 같게 보인다(실제 둘레를 재지 않아도 됨). */}
+                      {isCurrent && (
+                        <svg
+                          aria-hidden
+                          className="draft-run-border"
+                          width="100%"
+                          height="100%"
+                          preserveAspectRatio="none"
+                        >
+                          <rect
+                            className="draft-run-rect"
+                            x="0"
+                            y="0"
+                            width="100%"
+                            height="100%"
+                            rx="7"
+                            ry="7"
+                            fill="none"
+                            stroke={color}
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            pathLength={100}
+                            strokeDasharray="22 78"
+                          />
+                        </svg>
+                      )}
+                      <div className="flex items-center gap-2 min-w-0 relative">
                         <span className="text-base sm:text-lg font-black tabular-nums shrink-0"
                           style={{ color, fontFamily: 'var(--font-bebas, system-ui, sans-serif)' }}>
                           #{pickNumber}
@@ -118,14 +162,22 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                         </span>
                       </div>
                       {pick ? (
-                        <p className="text-xl sm:text-2xl lg:text-3xl font-black text-white truncate leading-tight break-keep">
-                          {pick.player_number != null && (
-                            <span className="text-amber-300 mr-1 tabular-nums">#{pick.player_number}</span>
+                        <>
+                          <p className="text-xl sm:text-2xl lg:text-3xl font-black text-white truncate leading-tight break-keep relative">
+                            {pick.player_number != null && (
+                              <span className="text-amber-300 mr-1 tabular-nums">#{pick.player_number}</span>
+                            )}
+                            {pick.player_name}
+                          </p>
+                          {/* 소요 시간 칩 — gap-1.5(6px) + leading-none(14px) - 2px = +18px 로 행 높이 증가를 묶는다. */}
+                          {typeof durationSec === 'number' && (
+                            <p className="text-sm font-mono tabular-nums leading-none -mt-0.5 text-gray-400 truncate relative">
+                              {formatSec(durationSec)}
+                            </p>
                           )}
-                          {pick.player_name}
-                        </p>
+                        </>
                       ) : isCurrent ? (
-                        <p className="text-xl sm:text-2xl lg:text-3xl font-black text-amber-200 tracking-wide">선택 중...</p>
+                        <p className="text-xl sm:text-2xl lg:text-3xl font-black text-amber-200 tracking-wide relative">선택 중...</p>
                       ) : (
                         <p className="text-base sm:text-lg text-gray-500 font-mono">—</p>
                       )}
@@ -137,6 +189,35 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
           )
         })}
       </div>
+
+      <style jsx>{`
+        .draft-run-border {
+          position: absolute;
+          /* absolute 의 포함 블록은 셀의 padding box(=border 안쪽)다.
+             border-2 밴드 중앙선까지 나가려면 각 변으로 1px 확장해야 한다.
+             그래야 stroke-width:2 가 기존 테두리에 정확히 겹쳐 셀 크기가 안 변한다. */
+          top: -1px;
+          left: -1px;
+          width: calc(100% + 2px);
+          height: calc(100% + 2px);
+          pointer-events: none;
+          overflow: visible;
+        }
+        .draft-run-rect {
+          stroke-dashoffset: 0;
+          animation: draftRunBorder 2s linear infinite;
+        }
+        @keyframes draftRunBorder {
+          /* 음수 방향 = SVG rect 패스 진행 방향 = 시계방향 */
+          to { stroke-dashoffset: -100; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          /* 움직이는 조각을 아예 빼고, 이미 깔린 팀 컬러 2px 정적 테두리만 남긴다. */
+          .draft-run-border { display: none; }
+          /* Tailwind animate-pulse(투명도 펄스) 끄기 */
+          .draft-current-cell { animation: none !important; }
+        }
+      `}</style>
     </div>
   )
 }
