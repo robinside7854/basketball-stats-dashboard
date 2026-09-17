@@ -227,7 +227,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                 <Unlock size={16} /><span className="hidden sm:inline">편집 중</span>
               </button>
             ) : (
-              <button onClick={openPinModal}
+              <button onClick={openPinModal} aria-label="편집 모드 켜기"
                 className="flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-md min-h-[44px] border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer btn-press">
                 <Lock size={16} /><span className="hidden sm:inline">편집</span>
               </button>
