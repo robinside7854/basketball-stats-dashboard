@@ -81,6 +81,10 @@ export type AuditAction =
   | 'league_player.delete'
   | 'league_team_player.delete'
   | 'quarter_player.delete'
+  // 이전 분기 소속 이어받기 — 한 번에 수십 명의 분기 소속이 생기고, 분기 소속은 과거 경기의
+  // 팀 귀속 해석까지 바꾼다. 덮어쓰지는 않지만 "누가 언제 무엇을 이어받았는지"는 남겨야
+  // 나중에 드래프트 결과와 섞였을 때 구분할 수 있다.
+  | 'quarter_player.inherit'
   // 권한
   | 'account.role.update'
   | 'account.status.update'

@@ -22,7 +22,24 @@ import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
 const POSITION_FILTER_OPTIONS = ['ALL', 'PG', 'SG', 'SF', 'PF', 'C']
 
-type Quarter = { id: string; year: number; quarter: number; is_current: boolean }
+type Quarter = {
+  id: string; year: number; quarter: number; is_current: boolean
+  // /quarters 는 select('*') 라 이미 내려오고 있다. 대회 분기를 이어받기 대상에서 빼는 데 쓴다.
+  name?: string | null; kind?: string | null; start_date?: string | null
+}
+
+/** POST …/players/inherit 응답. dryRun 이면 filled 가 0 이고 candidates 만 의미가 있다. */
+type InheritResult = {
+  source: { quarter_id: string; label: string }
+  target: { quarter_id: string; label: string }
+  candidates: number
+  skipped_existing: number
+  skipped_inactive: number
+  dry_run: boolean
+  filled: number
+  failed: number
+  errors: string[]
+}
 type PlayerQuarterMap = Record<string, Record<string, { team_id: string | null; is_regular: boolean | null }>>
 type LeaderMap = Record<string, Record<string, string | null>>
 type SortKey = 'name' | 'attendance_desc'
@@ -200,6 +217,12 @@ export default function LeagueRosterPage() {
   const [editingCell, setEditingCell] = useState<{ playerId: string; quarterId: string } | null>(null)
   const [savingCell, setSavingCell] = useState<string | null>(null)
 
+  // 이전 분기 소속 이어받기 — 새 분기는 소속 0명에서 시작하므로(승계 로직이 없다) 기록 화면의
+  //   「선발 선수 선택」이 통째로 비어 보인다. 26.3Q 가 실제로 소속 4명으로 분기 절반을 보냈다.
+  const [inheritTargetId, setInheritTargetId] = useState('')
+  const [inheritPreview, setInheritPreview] = useState<InheritResult | null>(null)
+  const [inheriting, setInheriting] = useState(false)
+
   // Quarter form
   const [showQForm, setShowQForm] = useState(false)
   const [qYear, setQYear] = useState(new Date().getFullYear())
@@ -273,6 +296,22 @@ export default function LeagueRosterPage() {
   const displayQuarters = quarters.filter(q => q.year === currentYear).length > 0
     ? quarters.filter(q => q.year === currentYear)
     : quarters
+
+  // 이어받기 대상 후보 — 시간순, 대회 제외. 대회에서 league_player_quarters 는 소속이 아니라
+  //   **참가 등록**이라 여기에 전원을 부으면 전부 참가자가 된다(서버도 400 으로 막는다).
+  //   맨 앞 분기는 앞에 이어받을 것이 없어 목록에는 두되 고를 수 없게 한다.
+  const inheritQuarters = quarters
+    .filter(q => q.kind !== 'tournament')
+    .slice()
+    .sort((a, b) => (a.year - b.year) || (a.quarter - b.quarter))
+
+  // 기본 선택은 현재 분기. 없으면 가장 마지막 분기 — 새로 만든 분기를 채우는 것이 보통이다.
+  useEffect(() => {
+    if (inheritTargetId || inheritQuarters.length < 2) return
+    const fallback = inheritQuarters.find(q => q.is_current) ?? inheritQuarters[inheritQuarters.length - 1]
+    if (fallback && fallback.id !== inheritQuarters[0].id) setInheritTargetId(fallback.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quarters])
 
   async function load() {
     setLoading(true)
@@ -510,6 +549,49 @@ export default function LeagueRosterPage() {
       setEditingCell(null)
     } else {
       toast.error('저장 실패')
+    }
+  }
+
+  /**
+   * 이전 분기 소속 이어받기.
+   *
+   * 확인을 `confirm()` 이 아니라 dryRun 왕복으로 하는 이유: **몇 명이 채워지는지는 서버만
+   * 정확히 안다.** 탈퇴·외부 선수 제외와 "이미 정해진 칸" 판정이 전부 서버에 있어서,
+   * 화면에서 어림한 숫자를 보여 주면 실제 결과와 다른 수를 말하게 된다.
+   */
+  async function runInherit(quarterId: string, dryRun: boolean) {
+    setInheriting(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/quarters/${quarterId}/players/inherit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...leagueHeaders },
+        body: JSON.stringify({ dryRun }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(body.error ?? `이어받기 실패 (${res.status})`, { duration: 8000 })
+        setInheritPreview(null)
+        return
+      }
+      const result = body as InheritResult
+      if (dryRun) { setInheritPreview(result); return }
+
+      setInheritPreview(null)
+      // 일부만 저장됐으면 성공이라고 말하지 않는다.
+      if (result.failed > 0) {
+        toast.error(`${result.filled}명 저장 · ${result.failed}명 실패`, {
+          description: result.errors[0], duration: 10000,
+        })
+      } else if (result.filled === 0) {
+        toast(`채울 칸이 없습니다 — 이미 정해진 ${result.skipped_existing}명은 그대로 둡니다`)
+      } else {
+        toast.success(`${result.filled}명을 ${result.target.label} 소속으로 이어받았습니다`)
+      }
+      await load()   // 43칸을 손으로 맞추느니 재조회가 정본이다
+    } catch (e) {
+      toast.error(`이어받기 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`)
+    } finally {
+      setInheriting(false)
     }
   }
 
@@ -1134,6 +1216,67 @@ export default function LeagueRosterPage() {
               ))}
             </div>
           )}
+          {/* 이전 분기 소속 이어받기 —
+              새 분기는 소속 0명에서 시작한다(승계 로직이 없다). 그러면 기록 화면의
+              「선발 선수 선택」이 통째로 비어 보이는데 에러가 없어서 원인이 안 드러난다.
+              26.3Q 가 실제로 소속 4명인 채로 분기 절반을 보냈다(2026-09-18). */}
+          {inheritQuarters.length >= 2 && (
+            <div className="pt-1 space-y-2" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
+              <p className="text-base text-[var(--mm-ink-soft)] leading-relaxed break-keep pt-2">
+                <strong className="text-[var(--mm-ink)]">이전 분기 소속 이어받기</strong> — 비어 있는 칸만 채웁니다.
+                이미 팀이 정해진 선수는 그대로 둡니다. 드래프트로 나중에 덮어쓸 수 있습니다.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <label htmlFor="inherit-q" className="sr-only">이어받을 분기</label>
+                <select
+                  id="inherit-q"
+                  value={inheritTargetId}
+                  onChange={e => { setInheritTargetId(e.target.value); setInheritPreview(null) }}
+                  className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 min-h-11 text-base cursor-pointer transition-colors duration-200"
+                >
+                  {inheritQuarters.map((q, i) => (
+                    <option key={q.id} value={q.id} disabled={i === 0}>
+                      {String(q.year).slice(2)}.{q.quarter}Q{q.is_current ? ' ●' : ''}{i === 0 ? ' (앞 분기 없음)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => inheritTargetId && runInherit(inheritTargetId, true)}
+                  disabled={inheriting || !inheritTargetId}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 min-h-11 rounded-md text-base font-bold border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+                >
+                  {inheriting && !inheritPreview ? <Loader2 size={16} className="animate-spin" /> : <Users size={16} />}
+                  미리보기
+                </button>
+              </div>
+
+              {inheritPreview && (
+                <div className="p-3 rounded-md border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] space-y-2">
+                  <p className="text-base text-[var(--mm-ink)] leading-relaxed break-keep">
+                    {inheritPreview.source.label} → {inheritPreview.target.label} ·{' '}
+                    <strong>{inheritPreview.candidates}명</strong>을 채웁니다
+                    {inheritPreview.skipped_existing > 0 && (
+                      <span className="text-[var(--mm-muted)]"> (이미 정해진 {inheritPreview.skipped_existing}명은 그대로)</span>
+                    )}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => runInherit(inheritPreview.target.quarter_id, false)}
+                      disabled={inheriting || inheritPreview.candidates === 0}
+                      className="inline-flex items-center justify-center gap-1 px-4 min-h-11 rounded-md text-base font-black bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+                    >
+                      {inheriting ? <Loader2 size={16} className="animate-spin" /> : '실행'}
+                    </button>
+                    <button
+                      onClick={() => setInheritPreview(null)}
+                      className="inline-flex items-center justify-center px-4 min-h-11 rounded-md text-base font-bold border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] transition-colors duration-200 cursor-pointer"
+                    >취소</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {showQForm && (
             <div className="space-y-2 pt-1">
               <p className="text-base text-[var(--mm-ink-soft)] leading-relaxed break-keep">

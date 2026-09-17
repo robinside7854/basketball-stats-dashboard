@@ -231,6 +231,12 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [quarterVideos, setQuarterVideos] = useState<Record<number, { url: string; start_offset: number }>>({})
   // 링크 입력·목록 고르기가 어느 쿼터를 채우는지. 기본은 지금 기록 중인 쿼터.
   const [ytTargetQuarter, setYtTargetQuarter] = useState(1)
+  // quarterVideos 가 **어느 경기 것인지**. setQuarterVideos 와 항상 같은 배치로 바꾼다 —
+  //   따로 두면 "앞 경기 영상 표 + 지금 경기 id" 조합이 생겨, 아래 시작 쿼터 보정이
+  //   남의 경기 영상을 근거로 기록 쿼터를 정하게 된다.
+  const [videosLoadedFor, setVideosLoadedFor] = useState<string | null>(null)
+  // 이 슬롯에 저장된 기록이 있는지. 쿼터 복원(이벤트 최대 쿼터)이 끝났다는 신호도 겸한다.
+  const [quarterRestore, setQuarterRestore] = useState<{ slotId: string; hasEvents: boolean } | null>(null)
 
   const selectedSlot = slots.find(s => s.id === selectedSlotId) ?? null
 
@@ -258,15 +264,48 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     setOppFinalScore(selectedSlot?.opponent_score_manual != null ? String(selectedSlot.opponent_score_manual) : '')
   }, [selectedSlotId, selectedSlot?.opponent_score_manual])
 
-  // 지금 화면에서 재생해야 할 영상 — 대회는 기록 중인 쿼터의 영상, 없으면 경기 대표 영상.
+  // 지금 화면에서 재생해야 할 영상 — 기록 중인 쿼터의 영상, 없으면 경기 대표 영상.
   //   판정 규칙은 서버의 gameVideo.ts 와 같다(쿼터 영상 우선 → 대표 폴백).
-  const activeVideo: { url: string; startOffset: number } | null = (() => {
+  //
+  // ⚠ **폴백했다는 사실을 버리지 않는다** (2026-09-18).
+  //   예전에는 `{url, startOffset}` 만 돌려줘서, 1쿼터 영상이 없을 때 조용히 2쿼터 영상을
+  //   틀면서도 화면은 계속 "1쿼터"라고 말했다. 배지는 `currentQuarter` 를, 플레이어는 이
+  //   폴백 결과를 보니 **둘이 다른 변수**라 구조적으로 어긋났다. 운영자는 그걸 보고
+  //   "영상 연동이 깨졌다"고 신고했는데 DB 는 멀쩡했다.
+  //   배지·배너가 **이 값 하나만** 읽게 해서 어긋날 수 없게 만든다.
+  const activeVideo: {
+    url: string
+    startOffset: number
+    source: 'quarter' | 'representative'
+    /** 폴백 중일 때 그 영상이 몇 쿼터 것인지. 못 알아내면 null — 틀린 번호를 말하느니 안 말한다. */
+    representativeQuarter: number | null
+  } | null = (() => {
     if (!selectedSlot) return null
     const q = quarterVideos[currentQuarter]
-    if (q) return { url: q.url, startOffset: q.start_offset }
-    if (selectedSlot.youtube_url) return { url: selectedSlot.youtube_url, startOffset: selectedSlot.youtube_start_offset ?? 0 }
-    return null
+    if (q) return { url: q.url, startOffset: q.start_offset, source: 'quarter', representativeQuarter: null }
+    if (!selectedSlot.youtube_url) return null
+
+    // 대표 영상이 몇 쿼터 것인지 되짚는다. 서버(games/[gameId]/videos 의 syncRepresentative)가
+    //   저장할 때마다 **가장 이른 쿼터**를 대표로 맞추고 URL 도 정규화하므로, 최소 쿼터의 URL 과
+    //   문자열이 같으면 그 번호가 맞다. 정규화 이전에 저장된 옛 행이면 안 맞아 null 로 떨어진다.
+    const keys = Object.keys(quarterVideos).map(Number).filter(Number.isFinite)
+    const earliest = keys.length > 0 ? Math.min(...keys) : null
+    const repQuarter = earliest != null && quarterVideos[earliest]?.url === selectedSlot.youtube_url
+      ? earliest
+      : null
+
+    return {
+      url: selectedSlot.youtube_url,
+      startOffset: selectedSlot.youtube_start_offset ?? 0,
+      source: 'representative',
+      representativeQuarter: repQuarter,
+    }
   })()
+
+  /** 지금 **실제로 재생 중인 영상**의 쿼터. 없으면 null. 쿼터 카드 배지는 이것만 본다. */
+  const playingQuarter: number | null = activeVideo == null
+    ? null
+    : activeVideo.source === 'quarter' ? currentQuarter : activeVideo.representativeQuarter
 
   // 슬롯 단위로 한 번만 자동 초기화 — 비정규 선수 추가 등 같은 슬롯 내 roster 변경 시엔 유지
   const initializedSlotRef = useRef<string | null>(null)
@@ -768,17 +807,28 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   }
 
   // ── 쿼터별 영상 ────────────────────────────────────────────────────
+  // ⚠ 늦게 도착한 앞 경기 응답이 지금 경기 표를 덮지 않도록 요청 토큰으로 막는다.
+  //   슬롯을 빠르게 넘기면 실제로 일어나고, 아래 시작 쿼터 보정이 그 표를 근거로 삼으면
+  //   남의 경기 영상을 보며 기록하게 된다.
+  const videoReqRef = useRef(0)
   const loadQuarterVideos = useCallback(async (gameId: string | null) => {
-    if (!gameId) { setQuarterVideos({}); return }
+    const token = ++videoReqRef.current
+    // 성공·실패·빈 경기 **모든 경로**에서 표와 "어느 경기 것인지"를 같이 세운다.
+    const settle = (map: Record<number, { url: string; start_offset: number }>) => {
+      if (videoReqRef.current !== token) return
+      setQuarterVideos(map)
+      setVideosLoadedFor(gameId)
+    }
+    if (!gameId) { settle({}); return }
     try {
       const res = await fetch(`/api/leagues/${leagueId}/games/${gameId}/videos`, { cache: 'no-store' })
-      if (!res.ok) { setQuarterVideos({}); return }
+      if (!res.ok) { settle({}); return }
       const rows = (await res.json()) as Array<{ quarter: number; youtube_url: string; start_offset: number }>
       const map: Record<number, { url: string; start_offset: number }> = {}
       for (const r of rows) map[r.quarter] = { url: r.youtube_url, start_offset: r.start_offset ?? 0 }
-      setQuarterVideos(map)
+      settle(map)
     } catch {
-      setQuarterVideos({})
+      settle({})
     }
   }, [leagueId])
 
@@ -801,6 +851,35 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
   // 쿼터가 넘어가면 링크 입력 대상도 따라간다(기록 중 4번 중 3번은 지금 쿼터를 채운다).
   useEffect(() => { setYtTargetQuarter(currentQuarter) }, [currentQuarter])
+
+  // 슬롯을 처음 열 때 **영상이 연결된 첫 쿼터**에서 시작한다.
+  //
+  //   왜: 1쿼터 영상이 없는 경기(업로더가 그 쿼터를 안 올린 날)를 열면 빈 1쿼터에 멈춰 서서
+  //   "미연결"만 보였다. 기록원이 매번 손으로 쿼터를 옮겨야 했고, 그걸 연동 실패로 오해했다.
+  //
+  // ⚠ 지켜야 할 두 가지 — 이 가드가 없으면 기록 중 쿼터를 빼앗는 사고가 난다.
+  //   ① hasEvents: 이미 기록이 있으면 **마지막 기록 쿼터 복원이 이긴다**(기록이 곧 진실).
+  //   ② appliedRef: 슬롯당 한 번만. quarterVideos 가 의존성에 있어서, 이게 없으면
+  //      기록 도중 1쿼터 영상을 붙이는 순간 기록 쿼터가 1로 튄다.
+  //   두 비동기(영상 표 · 이벤트 조회)는 어느 쪽이 늦게 와도 되게 각각의 도착을 확인한다.
+  const autoStartAppliedRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!selectedSlotId) { autoStartAppliedRef.current = null; return }
+    if (autoStartAppliedRef.current === selectedSlotId) return
+    if (videosLoadedFor !== selectedSlotId) return
+    if (quarterRestore?.slotId !== selectedSlotId) return
+
+    autoStartAppliedRef.current = selectedSlotId
+    if (quarterRestore.hasEvents) return
+    // 시작된 경기는 손대지 않는다 — 막 시작해 이벤트가 아직 0건인 경기(라이브 기록 직전)까지
+    //   영상 있는 쿼터로 끌고 가면, 1쿼터를 실시간으로 적으려던 기록원이 2쿼터에 적게 된다.
+    if (slots.find(s => s.id === selectedSlotId)?.is_started) return
+
+    const keys = Object.keys(quarterVideos).map(Number).filter(Number.isFinite)
+    if (keys.length === 0) return
+    setCurrentQuarter(Math.min(...keys))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSlotId, videosLoadedFor, quarterRestore, quarterVideos])
 
   async function saveQuarterVideo(quarter: number, raw: string) {
     if (!selectedSlotId) return
@@ -1515,16 +1594,24 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   //   전용 컬럼을 두지 않고 이미 저장된 이벤트의 최대 쿼터를 읽는다(기록이 곧 진실).
   //   복원에 실패해도 기본값 1 로 두고 기록 자체는 막지 않는다.
   useEffect(() => {
-    if (!selectedSlotId) { setCurrentQuarter(1); return }
+    if (!selectedSlotId) { setCurrentQuarter(1); setQuarterRestore(null); return }
     let cancelled = false
-    fetch(`/api/leagues/${leagueId}/events?gameId=${selectedSlotId}`)
+    const slotId = selectedSlotId
+    fetch(`/api/leagues/${leagueId}/events?gameId=${slotId}`)
       .then(r => (r.ok ? r.json() : null))
       .then((rows: Array<{ quarter?: number | null }> | null) => {
-        if (cancelled || !Array.isArray(rows)) return
+        if (cancelled) return
+        if (!Array.isArray(rows)) {
+          // 조회 실패도 "끝났다"고 알려야 한다 — 안 그러면 시작 쿼터 보정이 영영 안 돈다.
+          setQuarterRestore({ slotId, hasEvents: false })
+          return
+        }
         const max = rows.reduce((m, e) => Math.max(m, e.quarter ?? 1), 1)
         setCurrentQuarter(Math.min(Math.max(max, 1), 6))
+        // 기록이 있으면 위 복원값이 정본이다. 시작 쿼터 보정은 여기서 물러난다.
+        setQuarterRestore({ slotId, hasEvents: rows.length > 0 })
       })
-      .catch(() => {})
+      .catch(() => { if (!cancelled) setQuarterRestore({ slotId, hasEvents: false }) })
     return () => { cancelled = true }
   }, [leagueId, selectedSlotId])
 
@@ -2089,10 +2176,16 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 {(() => {
                   const qs = Object.keys(quarterVideos).map(Number).sort((a, b) => a - b)
                   if (qs.length > 0) {
+                    // 빠진 쿼터를 함께 적는다. 안 적으면 "2개 연결됨"이 정상인지 사고인지 구분되지
+                    //   않는다 — 업로더가 안 올린 쿼터가 있는 날이 실제로 있다(9/12).
+                    const missing = [1, 2, 3, 4].filter(q => !quarterVideos[q])
                     return (
-                      <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--mm-ink-soft)' }}>
+                      <span className="inline-flex items-center gap-1.5 text-xs flex-wrap" style={{ color: 'var(--mm-ink-soft)' }}>
                         <Youtube size={14} aria-hidden style={{ color: 'var(--mm-live)' }} />
                         {qs.length}개 연결됨 · {qs.map(q => `${q}Q`).join('·')}
+                        {missing.length > 0 && (
+                          <span style={{ color: 'var(--mm-muted)' }}>· 없음 {missing.map(q => `${q}Q`).join('·')}</span>
+                        )}
                       </span>
                     )
                   }
@@ -2123,7 +2216,16 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     {[1, 2, 3, 4].map(q => {
                       const v = quarterVideos[q]
                       const isTarget = ytTargetQuarter === q
-                      const isPlaying = currentQuarter === q
+                      // ⚠ `재생 중` 은 **실제 재생 중인 영상의 쿼터**에만 붙인다(playingQuarter).
+                      //   예전에는 `currentQuarter === q` 여서, 영상 없는 쿼터로 기록하고 있으면
+                      //   그 칸에 `재생 중`+`미연결` 이 동시에 붙고 화면에는 다른 쿼터 영상이 돌았다.
+                      //   `기록 중` 과 `재생 중` 은 서로 다른 말이므로 갈릴 때는 갈린 대로 보여 준다.
+                      const isRecording = currentQuarter === q
+                      const isPlaying = playingQuarter === q
+                      const badge = isRecording && isPlaying ? '기록·재생'
+                        : isPlaying ? '재생 중'
+                        : isRecording ? '기록 중'
+                        : null
                       return (
                         <li key={q} className="flex items-stretch gap-1">
                           <button
@@ -2142,9 +2244,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           >
                             <span className="inline-flex items-center gap-1.5">
                               {q}쿼터
-                              {/* 노란 배경은 "지금 링크를 붙일 대상", 이 배지는 "지금 재생 중".
+                              {/* 노란 배경은 "지금 링크를 붙일 대상", 이 배지는 "기록/재생 중".
                                   둘이 겹칠 때가 많아 아이콘으로 두면 무슨 뜻인지 구분되지 않는다. */}
-                              {isPlaying && (
+                              {badge && (
                                 <span
                                   className="px-1 py-px text-[10px] font-bold rounded-sm"
                                   style={{
@@ -2152,7 +2254,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                                     color: isTarget ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
                                   }}
                                 >
-                                  재생 중
+                                  {badge}
                                 </span>
                               )}
                             </span>
@@ -2649,6 +2751,28 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     className="sticky z-[5] mb-2 lg:relative lg:top-auto lg:z-auto lg:mb-0 bg-black rounded-xl overflow-hidden"
                     style={{ top: 'var(--record-header-offset, 56px)' }}
                   >
+                    {/* 폴백 재생을 말로 알린다. 이 줄이 없던 동안 기록원은 "1쿼터"라고 적힌 화면에서
+                        2쿼터 영상을 보며 기록할 뻔했고, 그걸 연동 실패로 신고했다.
+                        ⚠ 영상 위에 겹치지 않고 **위에 쌓는다** — 반투명·블러로 가리지 않는다. */}
+                    {activeVideo.source === 'representative' && (
+                      <div
+                        className="flex items-start gap-1.5 px-3 py-2 text-xs leading-relaxed"
+                        style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', borderBottom: '1px solid var(--mm-rule)' }}
+                      >
+                        <AlertTriangle size={14} aria-hidden className="shrink-0 mt-px" style={{ color: 'var(--mm-yellow-strong)' }} />
+                        <span>
+                          {currentQuarter}쿼터 영상이 없어{' '}
+                          {activeVideo.representativeQuarter != null
+                            ? `${activeVideo.representativeQuarter}쿼터 영상을`
+                            : '경기 대표 영상을'} 재생 중입니다
+                        </span>
+                      </div>
+                    )}
+                    {/* ⚠ 오버레이들은 **영상에만** 붙어야 한다.
+                        이 relative 래퍼가 없으면 `absolute top-2` 가 바깥 sticky 박스를 기준으로 잡혀,
+                        위에 쌓은 경고 배너를 LIVE 스코어보드가 덮는다. 경기 시작 뒤에는 스코어보드가
+                        항상 켜져 있으므로, 배너가 정작 필요한 상황에서만 안 보이게 된다(육안 검증에서 잡음). */}
+                    <div className="relative">
                     {/* key 에 영상 주소가 들어가므로 쿼터를 넘기면 플레이어가 그 쿼터 영상으로 다시 뜬다.
                         (대회는 쿼터마다 영상이 다르다 — activeVideo 가 그 판정을 담당) */}
                     <YouTubePlayer
@@ -2719,6 +2843,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         </div>
                       </div>
                     )}
+                    </div>
                   </div>
                 ) : (
                   <div
