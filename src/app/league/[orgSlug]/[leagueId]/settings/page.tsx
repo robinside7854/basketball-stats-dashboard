@@ -6,7 +6,7 @@ import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube, Calendar, Instagram, ChevronRight, Globe, MapPin } from 'lucide-react'
+import { Loader2, Lock, Eye, EyeOff, RefreshCw, Youtube, Calendar, Instagram, ChevronRight, Globe, MapPin, Users } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import AccountApprovalPanel from '@/components/league/auth/AccountApprovalPanel'
 import type { League } from '@/types/league'
@@ -79,6 +79,15 @@ export default function LeagueSettingsPage() {
   const [defTime, setDefTime] = useState('')
   const [defPlace, setDefPlace] = useState('')
   const [defCapacity, setDefCapacity] = useState('')
+
+  // 분기별 팀 이름 — 미라클은 분기마다 팀을 새로 짜고 이름도 바뀐다(3분기 굿모닝 → 4분기 락다운).
+  //   여기 비어 있으면 그 분기는 league_teams 의 기본 이름으로 떨어진다. 에러가 안 나서
+  //   "옛 이름으로 나온다"는 것을 사람이 눈치채기 전까지 아무도 모른다(2026-09-17).
+  //   { quarter_id: { team_id: name } }
+  const [qTeamNames, setQTeamNames] = useState<Record<string, Record<string, string>>>({})
+  const [editingQTeams, setEditingQTeams] = useState<string | null>(null)
+  const [qTeamDraft, setQTeamDraft] = useState<Record<string, string>>({})
+  const [savingQTeams, setSavingQTeams] = useState(false)
 
   // 분기 날짜 범위 관리
   const [quarters, setQuarters] = useState<Quarter[]>([])
@@ -158,6 +167,57 @@ export default function LeagueSettingsPage() {
     toast.success(`'${alias}' 별칭 삭제됨`)
   }
 
+  // 분기별 팀 이름 — 전 분기 override 를 한 번에 읽는다(행이 팀 수 × 분기 수라 작다).
+  async function loadQuarterTeamNames() {
+    const res = await fetch(`/api/leagues/${leagueId}/team-overrides`, { cache: 'no-store' })
+    if (!res.ok) return
+    const rows = (await res.json()) as Array<{ quarter_id: string; team_id: string; name: string | null }>
+    const map: Record<string, Record<string, string>> = {}
+    for (const r of rows) {
+      if (!r.name) continue
+      ;(map[r.quarter_id] ||= {})[r.team_id] = r.name
+    }
+    setQTeamNames(map)
+  }
+
+  /**
+   * 한 분기의 팀 이름들을 저장한다. 바뀐 칸만 보낸다.
+   *
+   * 빈 칸으로 지우면 그 분기는 기본 이름으로 돌아간다 — 지우는 것도 뜻이 있는 조작이라
+   * "바뀐 것이 없다"와 구분해서 보낸다.
+   */
+  async function saveQuarterTeamNames(quarterId: string) {
+    const current = qTeamNames[quarterId] ?? {}
+    const changed = aliasTeams.filter(t => (qTeamDraft[t.id] ?? '').trim() !== (current[t.id] ?? ''))
+    if (changed.length === 0) { setEditingQTeams(null); return }
+
+    setSavingQTeams(true)
+    try {
+      const failed: string[] = []
+      for (const t of changed) {
+        const res = await fetch(`/api/leagues/${leagueId}/team-overrides`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...leagueHeaders },
+          body: JSON.stringify({ quarter_id: quarterId, team_id: t.id, name: (qTeamDraft[t.id] ?? '').trim() }),
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          failed.push(`${t.name}: ${body.error ?? res.status}`)
+        }
+      }
+      await loadQuarterTeamNames()
+      if (failed.length > 0) {
+        // 일부만 저장된 채로 성공이라고 말하지 않는다.
+        toast.error(`${changed.length}개 중 ${failed.length}개 저장 실패`, { description: failed.join('\n'), duration: 10000 })
+        return
+      }
+      setEditingQTeams(null)
+      toast.success(`${changed.length}개 팀 이름 저장됨`, { description: '과거 경기는 그때 이름 그대로 남습니다' })
+    } finally {
+      setSavingQTeams(false)
+    }
+  }
+
   // 비공개로 바꿀 때만 확인창을 띄운다 — 지금 이 순간부터 비회원·미승인 회원이 전부 차단된다.
   // 공개로 여는 건 언제든 되돌릴 수 있으니 그냥 바로 적용한다.
   async function setVisibility(next: boolean) {
@@ -203,7 +263,11 @@ export default function LeagueSettingsPage() {
 
   useEffect(() => { load() }, [leagueId])
   // 별칭은 편집 권한이 붙은 뒤에 읽는다 — isInitialized 전에 부르면 헤더가 비어 401 이 난다.
-  useEffect(() => { if (isInitialized && isEditMode) loadAliases() }, [leagueId, isInitialized, isEditMode])
+  useEffect(() => {
+    if (!isInitialized || !isEditMode) return
+    loadAliases()
+    loadQuarterTeamNames()
+  }, [leagueId, isInitialized, isEditMode])
 
   // 현재 PIN 은 전용 엔드포인트(GET .../edit-pin)로만 조회한다 — 공개 GET /api/leagues/[id] 에는
   // 더 이상 edit_pin 이 실리지 않는다. leagueHeaders 가 정해지는 시점(어드민 role 또는 PIN 확인 완료)
@@ -666,6 +730,96 @@ export default function LeagueSettingsPage() {
         )}
         <p className="text-xs text-[color:var(--mm-muted)]">PIN 변경 시 이 세션에는 즉시 적용됩니다. 어드민 로그인 세션은 PIN을 쓰지 않아 영향 없고, 다른 기기의 PIN 세션은 새 PIN을 다시 입력해야 합니다.</p>
       </div>
+
+      {/* 분기별 팀 이름 —
+          미라클은 분기마다 팀을 새로 짜고 이름도 바뀐다(1·2분기 락다운 → 3분기 굿모닝 → 4분기 락다운).
+          이 표에 넣을 화면이 없어서 3분기 행이 통째로 비어 있었고, 그 결과 3분기 내내 순위표가
+          옛 이름으로 나왔으며 영상 제목의 `굿모닝` 도 아는 팀이 없어 연동이 끊겼다(2026-09-17).
+          빈 칸은 에러가 아니라 "기본 이름 사용"으로 조용히 떨어지기 때문에 아무도 몰랐다. */}
+      {quarters.length > 0 && aliasTeams.length > 0 && (
+        <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Users size={16} className="text-[color:var(--mm-muted)]" />
+            <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">분기별 팀 이름</h3>
+          </div>
+          <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
+            분기마다 팀 이름이 바뀌면 여기에 적어 둡니다. 비워 두면 그 분기는 기본 이름을 씁니다.<br />
+            <strong className="text-[color:var(--mm-ink-soft)]">과거 경기는 그때 이름 그대로 남습니다</strong> — 순위표·박스스코어·하이라이트가 전부 이 표를 봅니다.<br />
+            분기별 <Link href={pathname.replace(/\/settings.*$/, '') + '/roster'} className="underline underline-offset-2 hover:text-[color:var(--mm-ink)] cursor-pointer">선수 소속은 명단 화면</Link>에서 정합니다.
+          </p>
+
+          <div className="space-y-2">
+            {quarters.map(q => {
+              const names = qTeamNames[q.id] ?? {}
+              const isEditing = editingQTeams === q.id
+              return (
+                <div key={q.id} className="bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] p-3">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className={`font-bold text-sm tracking-tight tabular-nums ${q.is_current ? 'text-[color:var(--mm-yellow-strong)]' : 'text-[color:var(--mm-ink)]'}`}>
+                      {String(q.year).slice(2)}.{q.quarter}Q {q.is_current ? '● 현재' : ''}
+                    </span>
+                    {!isEditing && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingQTeams(q.id)
+                          setQTeamDraft(Object.fromEntries(aliasTeams.map(t => [t.id, names[t.id] ?? ''])))
+                        }}
+                        className="shrink-0 px-3 min-h-11 text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                      >편집</button>
+                    )}
+                  </div>
+
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      {aliasTeams.map(t => (
+                        <div key={t.id} className="flex items-center gap-2">
+                          <label
+                            htmlFor={`qteam-${q.id}-${t.id}`}
+                            className="text-xs text-[color:var(--mm-muted)] w-24 shrink-0 truncate"
+                          >{t.name}</label>
+                          <ChevronRight size={14} className="text-[color:var(--mm-muted)] shrink-0" aria-hidden />
+                          <Input
+                            id={`qteam-${q.id}-${t.id}`}
+                            value={qTeamDraft[t.id] ?? ''}
+                            onChange={e => setQTeamDraft(prev => ({ ...prev, [t.id]: e.target.value }))}
+                            placeholder={`${t.name} (기본 이름)`}
+                            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-sm rounded-none flex-1 min-w-0 min-h-11"
+                          />
+                        </div>
+                      ))}
+                      <div className="flex gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          onClick={() => saveQuarterTeamNames(q.id)}
+                          disabled={savingQTeams}
+                          className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold uppercase tracking-[0.14em] rounded-none min-h-11"
+                        >
+                          {savingQTeams ? <Loader2 size={14} className="animate-spin" /> : '저장'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setEditingQTeams(null)}
+                          disabled={savingQTeams}
+                          className="border-[color:var(--mm-rule)] bg-transparent text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel)] hover:text-[color:var(--mm-ink)] cursor-pointer text-xs font-bold uppercase tracking-[0.14em] rounded-none min-h-11"
+                        >취소</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[color:var(--mm-ink-soft)] leading-relaxed">
+                      {aliasTeams.map(t => names[t.id] ?? t.name).join(' · ')}
+                      {aliasTeams.every(t => !names[t.id]) && (
+                        <span className="text-[color:var(--mm-muted)]"> (전부 기본 이름)</span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 분기 날짜 범위 설정 */}
       {quarters.length > 0 && (
