@@ -1,6 +1,6 @@
 // 드래프트 풀 선수의 "시즌 한 줄 소개" — 1라운드 드라마틱 공개 연출용.
 //
-// GET → { prev_quarter, season_label, rank_min_gp, briefs: { [league_player_id]: Brief } }
+// GET → { prev_quarter, season_label, rank_min_gp, season_rounds, briefs: { [league_player_id]: Brief } }
 //
 // 왜 별도 라우트인가: 포털(단장)은 X-Draft-Code 만 들고 있어 회원 전용인
 // /api/leagues/[id]/stats 를 부르면 401 로 조용히 빈다. 연출이 스탯을 못 받으면
@@ -22,7 +22,7 @@ import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import type { PlayerStat } from '@/types/league'
 
 /** 순위를 매길 지표 키 */
-export type BriefRankKey = 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg' | 'fg_pct'
+export type BriefRankKey = 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg'
 
 export interface DraftPlayerBrief {
   name: string
@@ -30,16 +30,20 @@ export interface DraftPlayerBrief {
   photo_url: string | null
   /** 지난 분기에 뛰던 팀 이름(그 분기 override 적용). 소속 기록이 없으면 null */
   prev_team_name: string | null
+  /**
+   * 출전 라운드 수. computeLeagueStats 의 gp 는 경기(game id)가 아니라 **경기일(date) 유니크**로 센다
+   * (leagueStats.ts 주석 "gp 는 항상 하루(YYYY-MM-DD) = 1라운드 단위"). 그래서 참석율 분자로 그대로 쓴다.
+   */
   gp: number
+  /** 시즌 전체 라운드 수 = 같은 필터(is_started·친선전 제외)로 연 경기일 유니크 수. 참석율 분모 */
+  season_rounds: number
+  /** 참석율(%) = gp / season_rounds × 100. 소수 1자리 */
+  attendance_pct: number
   ppg: number
   rpg: number
   apg: number
   spg: number
   bpg: number
-  stl: number
-  blk: number
-  fg_pct: number
-  fg3_pct: number
   /** 리그 전체 순위(1-based, 동점은 경쟁 순위 1·1·3). 자격 미달(gp < rank_min_gp)이면 각 값 null */
   rank: Record<BriefRankKey, number | null>
   /** 순위 모집단 크기(자격을 채운 선수 수) */
@@ -71,9 +75,9 @@ function competitionRank(rows: { id: string; v: number }[]): Record<string, numb
   return out
 }
 
-const RANK_KEYS: BriefRankKey[] = ['ppg', 'rpg', 'apg', 'spg', 'bpg', 'fg_pct']
+const RANK_KEYS: BriefRankKey[] = ['ppg', 'rpg', 'apg', 'spg', 'bpg']
 const EMPTY_RANK: Record<BriefRankKey, number | null> = {
-  ppg: null, rpg: null, apg: null, spg: null, bpg: null, fg_pct: null,
+  ppg: null, rpg: null, apg: null, spg: null, bpg: null,
 }
 
 function toBrief(
@@ -82,12 +86,16 @@ function toBrief(
   stat: PlayerStat | undefined,
   rank: Record<BriefRankKey, number | null>,
   rankTotal: number,
+  seasonRounds: number,
 ): DraftPlayerBrief {
   const gp = stat?.gp ?? 0
+  // gp 는 라운드(경기일) 단위이고 분모도 같은 필터의 경기일 유니크라 100% 를 넘을 수 없다.
+  const attendance = seasonRounds > 0 ? r1(Math.min(100, (gp / seasonRounds) * 100)) : 0
   if (!stat || gp <= 0) {
     return {
       ...base, prev_team_name: prevTeamName,
-      gp: 0, ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0, stl: 0, blk: 0, fg_pct: 0, fg3_pct: 0,
+      gp: 0, season_rounds: seasonRounds, attendance_pct: 0,
+      ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0,
       rank: EMPTY_RANK, rank_total: rankTotal,
     }
   }
@@ -95,15 +103,13 @@ function toBrief(
     ...base,
     prev_team_name: prevTeamName,
     gp,
+    season_rounds: seasonRounds,
+    attendance_pct: attendance,
     ppg: r1(stat.ppg),
     rpg: r1(stat.rpg),
     apg: r1(stat.apg),
     spg: r1(stat.spg),
     bpg: r1(stat.bpg),
-    stl: stat.stl,
-    blk: stat.blk,
-    fg_pct: r1(stat.fg_pct),
-    fg3_pct: r1(stat.fg3_pct),
     rank,
     rank_total: rankTotal,
   }
@@ -187,6 +193,11 @@ export async function GET(
     prevQuarter = { id: prevQid, label: q ? `${String(q.year).slice(2)}.${q.quarter}Q` : '지난 분기' }
   }
 
+  // 참석율 분모. computeLeagueStats 가 같은 필터(league_id·is_started·is_exhibition=false)로 이미
+  // 센 경기일 유니크 수를 그대로 쓴다 — 여기서 league_games 를 다시 세면 필터가 갈라지는 순간
+  // 분자(gp)와 분모가 다른 모집단이 되어 100% 를 넘는 참석율이 조용히 나온다.
+  const seasonRounds = season.total_rounds ?? 0
+
   const briefs: Record<string, DraftPlayerBrief> = {}
   for (const p of players) {
     briefs[p.id] = toBrief(
@@ -195,6 +206,7 @@ export async function GET(
       statByPlayer[p.id],
       rankOf(p.id),
       rankTotal,
+      seasonRounds,
     )
   }
 
@@ -202,6 +214,7 @@ export async function GET(
     prev_quarter: prevQuarter,
     season_label: seasonLabel,
     rank_min_gp: RANK_MIN_GP,
+    season_rounds: seasonRounds,
     briefs,
   }, { headers: { 'Cache-Control': 'private, max-age=60' } })
 }

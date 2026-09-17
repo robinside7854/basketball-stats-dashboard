@@ -446,7 +446,8 @@ function StandardPickReveal({
             <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-gray-400 mb-2">
               {seasonLabel ?? '시즌'} 기록
             </p>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {/* 모바일 2열 × 3행 — 3열이면 "18 / 25 라운드"와 순위 알약이 칸 폭을 넘는다(390px 실측) */}
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
               {standardBoxes.map(b => (
                 <StatBoxCell key={b.key} box={b} teamColor={data.teamColor} rankTotal={brief?.rank_total ?? 0} visible compact />
               ))}
@@ -527,37 +528,44 @@ interface StatBox {
   key: string
   label: string
   value: string
-  /** 전체 순위(1-based). null 이면 순위 알약을 렌더하지 않는다(경기 수·자격 미달) */
+  /** 전체 순위(1-based). null 이면 순위 알약을 렌더하지 않는다(자격 미달·참석율 칸) */
   rank: number | null
+  /** 순위 대신 붙는 보조 줄(참석율의 "18 / 25 라운드"). rank 와 같은 자리를 쓴다 */
+  sub?: string
 }
 
 /**
- * 공개할 기록 칸. 순서는 경기 → 득점 → 리바운드 → 어시스트 → 스틸 → 야투%.
- * 값이 0 인 칸은 뺀다 — "0.0 스틸 · 전체 38위"는 선수를 깎는 연출이 된다.
+ * 공개할 기록 칸 — 참석율 → 득점 → 리바운드 → 어시스트 → 스틸 → 블락, 항상 이 여섯 칸.
+ * 값이 0 인 칸도 뺄 수 없다: 여섯 칸이 3×2(sm 이상)·2×3(모바일) 격자로 고정이라
+ * 한 칸만 빠져도 격자가 어긋나고, 단계 연출의 칸 수가 선수마다 달라진다.
  * 기록이 아예 없으면 빈 배열(호출부가 "시즌 기록 없음" 한 칸을 그린다).
  */
 function buildStatBoxes(brief: DraftPlayerBrief | null | undefined): StatBox[] {
   if (!brief || !brief.gp) return []
-  const rank = brief.rank ?? { ppg: null, rpg: null, apg: null, spg: null, bpg: null, fg_pct: null }
-  const boxes: StatBox[] = [{ key: 'gp', label: '경기', value: String(brief.gp), rank: null }]
-  const add = (key: StatBox['key'], label: string, v: number, r: number | null, suffix = '') => {
-    if (!v) return
-    boxes.push({ key, label, value: `${v}${suffix}`, rank: r })
-  }
-  add('ppg', '득점', brief.ppg, rank.ppg)
-  add('rpg', '리바운드', brief.rpg, rank.rpg)
-  add('apg', '어시스트', brief.apg, rank.apg)
-  add('spg', '스틸', brief.spg, rank.spg)
-  add('fg_pct', '야투', brief.fg_pct, rank.fg_pct, '%')
-  return boxes
+  const rank = brief.rank ?? { ppg: null, rpg: null, apg: null, spg: null, bpg: null }
+  return [
+    {
+      key: 'att',
+      label: '참석율',
+      value: `${Math.round(brief.attendance_pct)}%`,
+      rank: null,
+      sub: `${brief.gp} / ${brief.season_rounds} 라운드`,
+    },
+    { key: 'ppg', label: '평균 득점', value: brief.ppg.toFixed(1), rank: rank.ppg },
+    { key: 'rpg', label: '평균 리바운드', value: brief.rpg.toFixed(1), rank: rank.rpg },
+    { key: 'apg', label: '평균 어시스트', value: brief.apg.toFixed(1), rank: rank.apg },
+    { key: 'spg', label: '평균 스틸', value: brief.spg.toFixed(1), rank: rank.spg },
+    { key: 'bpg', label: '평균 블락', value: brief.bpg.toFixed(1), rank: rank.bpg },
+  ]
 }
 
 /** 순위 알약 — 3위 이내는 팀 컬러, 그 밖은 차분한 회색. 색만으로 구분하지 않도록 숫자를 그대로 쓴다. */
 function RankPill({ rank, total, teamColor, small = false }: { rank: number; total: number; teamColor: string; small?: boolean }) {
   const top = rank <= 3
+  // small(요약 카드)은 한 줄에 6칸이라 text-xs 면 알약이 칸 밖으로 비어져 나온다(2026-09-17 실측)
   return (
     <span
-      className={`inline-block rounded-full font-bold tabular-nums whitespace-nowrap ${small ? 'text-xs px-1.5 py-0.5' : 'text-xs sm:text-sm px-2 py-0.5'}`}
+      className={`inline-block rounded-full font-bold tabular-nums whitespace-nowrap ${small ? 'text-[11px] px-1.5 py-0.5' : 'text-xs sm:text-sm px-2 py-0.5'}`}
       style={top
         ? { background: teamColor, color: '#0a0a0a' }
         : { background: '#27272a', color: '#d4d4d8' }}
@@ -592,7 +600,15 @@ function StatBoxCell({
         {box.value}
       </span>
       <span className={`${compact ? 'text-xs' : 'text-xs sm:text-sm'} font-bold text-gray-300 leading-none break-keep`}>{box.label}</span>
-      {box.rank != null && <RankPill rank={box.rank} total={rankTotal} teamColor={teamColor} small={compact} />}
+      {box.rank != null
+        ? <RankPill rank={box.rank} total={rankTotal} teamColor={teamColor} small={compact} />
+        : box.sub
+          ? (
+            <span className={`${compact ? 'text-[11px]' : 'text-xs sm:text-sm'} font-bold tabular-nums whitespace-nowrap text-gray-300`}>
+              {box.sub}
+            </span>
+          )
+          : null}
       <style jsx>{`
         .stat-box-in { animation: statBoxIn 250ms ease-out both; }
         @keyframes statBoxIn {
