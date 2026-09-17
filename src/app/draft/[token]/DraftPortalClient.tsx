@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { KeyRound, Trophy, Crown, ShieldCheck, CheckCircle2, Circle, LogOut, Timer, Users, Dice5, Hand, Video, Volume2, VolumeX, FlaskConical } from 'lucide-react'
 import DraftSessionControl from '@/components/league/DraftSessionControl'
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
-import DraftPickReveal, { type PickRevealData } from '@/components/league/DraftPickReveal'
+import DraftPickReveal, { type PickRevealData, type DraftPlayerBrief } from '@/components/league/DraftPickReveal'
 import DraftPickModal from '@/components/league/DraftPickModal'
 import DraftScoreboard from '@/components/league/DraftScoreboard'
 import DraftFinalResult from '@/components/league/DraftFinalResult'
@@ -315,6 +315,34 @@ export default function DraftPortalClient({
     }).then(() => fetchState()).catch(() => null)
   }, [state?.draft, draftId, leagueId, auth, fetchState])
 
+  // ────────────────── 지난 분기 선수 요약(1라운드 드라마틱 공개용) ──────────────────
+  // 드래프트가 시작되면 풀 전체의 요약을 한 번만 받아 둔다. 1픽이 들어온 뒤에 받으면
+  // 연출이 이미 시작된 뒤라 "기록 없음"으로 보인다. 실패해도 UI 를 막지 않는다(1회 재시도).
+  const briefsRef = useRef<string | null>(null)
+  const [briefsData, setBriefsData] = useState<{ prevQuarterLabel: string | null; map: Record<string, DraftPlayerBrief> } | null>(null)
+  useEffect(() => {
+    if (!draftId) return
+    if (state?.draft?.status !== 'in_progress') return
+    if (briefsRef.current === draftId) return
+    briefsRef.current = draftId
+    let cancelled = false
+    const load = async (attempt: number): Promise<void> => {
+      try {
+        const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/briefs`, { cache: 'no-store' })
+        if (!r.ok) throw new Error(String(r.status))
+        const j = await r.json() as { prev_quarter: { label: string } | null; briefs: Record<string, DraftPlayerBrief> }
+        if (cancelled) return
+        setBriefsData({ prevQuarterLabel: j.prev_quarter?.label ?? null, map: j.briefs ?? {} })
+      } catch {
+        if (cancelled || attempt >= 1) return
+        await new Promise(res => setTimeout(res, 1500))
+        if (!cancelled) await load(attempt + 1)
+      }
+    }
+    void load(0)
+    return () => { cancelled = true }
+  }, [draftId, leagueId, state?.draft?.status])
+
   // ────────────────── 추첨 결과 1회 표시 ──────────────────
   // 모든 클라이언트에게 동시 자동 연출 — 감독관의 "추첨 시작" 직후 폴링 → lottery_done=true 감지.
   // sessionStorage 가드로 새로고침/재방문 시 중복 노출 차단.
@@ -433,6 +461,7 @@ export default function DraftPortalClient({
       playerNumber: latest.player_number,
       playerPosition: latest.player_position,
       playerPhotoUrl: latest.player_photo_url ?? null,
+      playerId: latest.player_id,
     }
     lastPickNumberRef.current = latest.pick_number
     // 가로채기 판정 — 내가 찍어둔 선수를 다른 팀이 가져갔다. 고른 선수는 이미 사라졌으니
@@ -1302,7 +1331,15 @@ export default function DraftPortalClient({
       {/* 픽 이팩트 — 새 픽 들어올 때 3초간 전체화면 */}
       {/* isMyTurn: 이 픽이 끝나면 서버는 이미 다음 단장의 시계를 돌린다.
           내가 그 다음이면 4.5초 전면 연출이 내 시간을 먹으므로 1.2초로 줄이고 배지를 띄운다. */}
-      <DraftPickReveal data={pickReveal} onClose={() => setPickReveal(null)} isMyTurn={isMyTurn} />
+      {/* 1라운드는 이름을 감춘 채 지난 시즌 기록부터 여는 드라마틱 공개(약 9~10초). 탭하면 즉시 공개. */}
+      <DraftPickReveal
+        data={pickReveal}
+        onClose={() => setPickReveal(null)}
+        isMyTurn={isMyTurn}
+        dramatic={pickReveal?.roundNumber === 1}
+        brief={pickReveal?.playerId ? (briefsData?.map[pickReveal.playerId] ?? null) : null}
+        prevQuarterLabel={briefsData?.prevQuarterLabel ?? null}
+      />
 
       {/* 라운드 슬레이트 — 라운드가 오를 때 0.9초. 픽 공개(z-100) 아래(z-95), 탭을 막지 않는다.
           라운드는 '직전 라운드 마지막 픽'과 동시에 오르므로 픽 공개가 떠 있는 동안에는 보류한다
