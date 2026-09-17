@@ -80,13 +80,13 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                 전광판 락업이다. 제목 크기를 따라가야 해서 아이콘 스케일 대상이 아니다. */}
             <Trophy className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12" />
           </span>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-white leading-none truncate break-keep"
+          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight text-[#ffffff] leading-none truncate break-keep"
             style={{ textShadow: '0 2px 4px rgba(0,0,0,0.6), 0 0 12px rgba(245,158,11,0.5)' }}>
             {title}
           </h2>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-sm sm:text-base uppercase tracking-widest font-black text-amber-100 bg-black/50 px-3 py-1.5 rounded">LIVE</span>
+          <span className="text-sm sm:text-base uppercase tracking-widest font-black text-amber-100 bg-[#000000]/50 px-3 py-1.5 rounded">LIVE</span>
           <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
         </div>
       </div>
@@ -105,15 +105,15 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                 >
                   <div className="flex items-center gap-2 mb-2 min-w-0">
                     <span className="w-4 h-4 rounded-full shrink-0 border" style={{ background: teamInk(team.color).bg, borderColor: teamInk(team.color).border }} />
-                    <span className="text-base sm:text-lg font-black text-white truncate min-w-0 break-keep">{team.name}</span>
-                    <span className="ml-auto text-sm font-mono tabular-nums text-gray-400 shrink-0">{roster.length}명</span>
+                    <span className="text-base sm:text-lg font-black text-[#ffffff] truncate min-w-0 break-keep">{team.name}</span>
+                    <span className="ml-auto text-sm font-mono tabular-nums text-[#9ca3af] shrink-0">{roster.length}명</span>
                   </div>
                   {roster.length === 0 ? (
-                    <p className="text-sm text-gray-500 py-2">—</p>
+                    <p className="text-sm text-[#6b7280] py-2">—</p>
                   ) : (
                     <div className="space-y-1">
                       {roster.map(p => (
-                        <p key={p.player_id} className="text-base sm:text-lg font-bold text-gray-100 truncate min-w-0 break-keep">
+                        <p key={p.player_id} className="text-base sm:text-lg font-bold text-[#f3f4f6] truncate min-w-0 break-keep">
                           {p.player_name}
                         </p>
                       ))}
@@ -204,13 +204,13 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                           #{pickNumber}
                         </span>
                         <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full shrink-0 border" style={{ background: teamInk(color).bg, borderColor: teamInk(color).border }} />
-                        <span className="text-sm sm:text-base font-bold text-gray-100 truncate min-w-0 break-keep">
+                        <span className="text-sm sm:text-base font-bold text-[#f3f4f6] truncate min-w-0 break-keep">
                           {team?.name ?? '?'}
                         </span>
                       </div>
                       {pick ? (
                         <>
-                          <p className="text-xl sm:text-2xl lg:text-3xl font-black text-white truncate leading-tight break-keep relative">
+                          <p className="text-xl sm:text-2xl lg:text-3xl font-black text-[#ffffff] truncate leading-tight break-keep relative">
                             {pick.player_number != null && (
                               <span className="text-amber-300 mr-1 tabular-nums">#{pick.player_number}</span>
                             )}
@@ -218,18 +218,18 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                           </p>
                           {/* 소요 시간 칩 — gap-1.5(6px) + leading-none(14px) - 2px = +18px 로 행 높이 증가를 묶는다. */}
                           {typeof durationSec === 'number' && (
-                            <p className="text-sm font-mono tabular-nums leading-none -mt-0.5 text-gray-400 truncate relative">
+                            <p className="text-sm font-mono tabular-nums leading-none -mt-0.5 text-[#9ca3af] truncate relative">
                               {formatSec(durationSec)}
                             </p>
                           )}
                           {isAutoPick && (
-                            <p className="text-sm leading-none -mt-0.5 text-gray-400 truncate relative">자동</p>
+                            <p className="text-sm leading-none -mt-0.5 text-[#9ca3af] truncate relative">자동</p>
                           )}
                         </>
                       ) : isCurrent ? (
                         <p className="text-xl sm:text-2xl lg:text-3xl font-black text-amber-200 tracking-wide relative">선택 중...</p>
                       ) : (
-                        <p className="text-base sm:text-lg text-gray-500 font-mono">—</p>
+                        <p className="text-base sm:text-lg text-[#6b7280] font-mono">—</p>
                       )}
                     </div>
                   )

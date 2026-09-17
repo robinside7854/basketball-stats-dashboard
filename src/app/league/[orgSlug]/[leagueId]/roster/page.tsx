@@ -1110,9 +1110,9 @@ export default function LeagueRosterPage() {
             <h3 className="font-bold text-[20px] text-[var(--mm-ink)] tracking-tight">분기 관리</h3>
             <button
               onClick={() => setShowQForm(v => !v)}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] cursor-pointer transition-colors font-bold uppercase tracking-[0.1em]"
+              className="flex items-center gap-1.5 text-sm px-3.5 min-h-11 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] cursor-pointer transition-colors duration-200 font-bold"
             >
-              <Plus size={14} />분기 추가
+              <Plus size={16} />지난 분기 직접 추가
             </button>
           </div>
           {quarters.length === 0 && !showQForm && (
@@ -1136,46 +1136,57 @@ export default function LeagueRosterPage() {
           )}
           {showQForm && (
             <div className="space-y-2 pt-1">
+              <p className="text-base text-[var(--mm-ink-soft)] leading-relaxed break-keep">
+                다음 분기는 드래프트 화면에서 한 번에 만들 수 있습니다. 여기는 지난 분기를 소급해 넣을 때만 쓰세요.
+              </p>
               <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={qYear}
-                  onChange={e => setQYear(Number(e.target.value))}
-                  className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 py-2 text-sm cursor-pointer"
-                >
-                  {[currentYear - 1, currentYear, currentYear + 1].map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-                <select
-                  value={qQuarter}
-                  onChange={e => setQQuarter(Number(e.target.value))}
-                  className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 py-2 text-sm cursor-pointer"
-                >
-                  {[1, 2, 3, 4].map(q => <option key={q} value={q}>{q}Q</option>)}
-                </select>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="q-year" className="text-sm text-[var(--mm-muted)] font-bold">연도</label>
+                  <select
+                    id="q-year"
+                    value={qYear}
+                    onChange={e => setQYear(Number(e.target.value))}
+                    className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 min-h-11 text-base cursor-pointer"
+                  >
+                    {[currentYear - 1, currentYear, currentYear + 1].map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="q-quarter" className="text-sm text-[var(--mm-muted)] font-bold">분기</label>
+                  <select
+                    id="q-quarter"
+                    value={qQuarter}
+                    onChange={e => setQQuarter(Number(e.target.value))}
+                    className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 min-h-11 text-base cursor-pointer"
+                  >
+                    {[1, 2, 3, 4].map(q => <option key={q} value={q}>{q}Q</option>)}
+                  </select>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex flex-col gap-0.5">
-                  <label className="text-xs text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">시작일</label>
-                  <input type="date" value={qStart} onChange={e => setQStart(e.target.value)}
-                    className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 py-2 text-sm cursor-pointer" />
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="q-start" className="text-sm text-[var(--mm-muted)] font-bold">시작일</label>
+                  <input id="q-start" type="date" value={qStart} onChange={e => setQStart(e.target.value)}
+                    className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 min-h-11 text-base cursor-pointer" />
                 </div>
-                <div className="flex flex-col gap-0.5">
-                  <label className="text-xs text-[var(--mm-muted)] font-bold uppercase tracking-[0.14em]">종료일</label>
-                  <input type="date" value={qEnd} onChange={e => setQEnd(e.target.value)}
-                    className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 py-2 text-sm cursor-pointer" />
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="q-end" className="text-sm text-[var(--mm-muted)] font-bold">종료일</label>
+                  <input id="q-end" type="date" value={qEnd} onChange={e => setQEnd(e.target.value)}
+                    className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 min-h-11 text-base cursor-pointer" />
                 </div>
               </div>
-              <p className="text-xs text-[var(--mm-muted)]">기간은 분기 선택 시 자동 입력됩니다 (Q3 = 7~9월, Q4 = 10~12월). 필요 시 직접 수정하세요.</p>
+              <p className="text-sm text-[var(--mm-muted)] leading-relaxed break-keep">분기를 고르면 기간이 자동으로 채워집니다 (3분기 = 7~9월, 4분기 = 10~12월). 필요하면 직접 고치세요.</p>
               <div className="flex items-center gap-2">
                 <button
                   onClick={createQuarter}
                   disabled={savingQ}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-black uppercase tracking-[0.14em] bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-all cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1 px-4 min-h-11 rounded-md text-base font-black bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
                 >
-                  {savingQ ? <Loader2 size={14} className="animate-spin" /> : '생성'}
+                  {savingQ ? <Loader2 size={16} className="animate-spin" /> : '생성'}
                 </button>
                 <button
                   onClick={() => setShowQForm(false)}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-[0.12em] border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] transition-colors cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1 px-4 min-h-11 rounded-md text-base font-bold border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] transition-colors duration-200 cursor-pointer"
                 >
                   취소
                 </button>

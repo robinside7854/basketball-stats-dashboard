@@ -119,7 +119,7 @@ export default function DraftPickModal({
       aria-label={`${pickNumber}순위 선수 선택`}
       // z-96: 픽 공개 연출(z-100) 아래, 라운드 슬레이트(z-95) 위.
       // 표면은 불투명 단색 — 전체화면이라 뒤를 비칠 이유가 없다.
-      className="fixed inset-0 z-[96] flex flex-col bg-gray-950"
+      className="fixed inset-0 z-[96] flex flex-col bg-[var(--mm-panel)]"
       style={{
         paddingTop: 'max(0.5rem, env(safe-area-inset-top))',
         paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
@@ -128,28 +128,28 @@ export default function DraftPickModal({
       }}
     >
       {/* (a) 헤더 — 내 차례 / 남은 초 / 연장 / 닫기 */}
-      <div className="shrink-0 flex items-center gap-2 px-1 pb-2 border-b border-gray-800">
+      <div className="shrink-0 flex items-center gap-2 px-1 pb-2 border-b border-[var(--mm-rule)]">
         <div className="min-w-0 flex-1">
-          <p className="text-sm sm:text-base font-black text-white truncate">
+          <p className="text-sm sm:text-base font-black text-[var(--mm-ink)] truncate">
             내 차례 · <span className="tabular-nums">{pickNumber}</span>순위
           </p>
           {team && (
-            <p className="text-xs sm:text-sm text-gray-300 truncate">{team.name}</p>
+            <p className="text-xs sm:text-sm text-[var(--mm-muted)] truncate">{team.name}</p>
           )}
         </div>
         {clockPending ? (
-          <span className="shrink-0 text-base sm:text-lg font-bold text-gray-400 break-keep leading-tight">
+          <span className="shrink-0 text-base sm:text-lg font-bold text-[var(--mm-muted)] break-keep leading-tight">
             공개 중 · 곧 시작
           </span>
         ) : inGrace ? (
-          <span className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md border-2 border-red-500 bg-red-950 text-red-200 font-mono">
+          <span className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md border-2 border-[var(--mm-negative)] bg-[var(--mm-negative-bg)] text-[var(--mm-negative-fg)] font-mono">
             <AlertTriangle size={16} aria-hidden />
             <span className="text-2xl sm:text-3xl font-black tabular-nums leading-none">{Math.max(0, graceSeconds)}s</span>
           </span>
         ) : remainingSeconds != null ? (
           <span
             className={`shrink-0 text-3xl sm:text-4xl font-black tabular-nums font-mono leading-none ${
-              remainingSeconds <= 10 ? 'text-red-400' : 'text-gray-100'
+              remainingSeconds <= 10 ? 'text-[var(--mm-negative)]' : 'text-[var(--mm-ink)]'
             }`}
             aria-label={`${remainingSeconds}초 남음`}
           >
@@ -161,7 +161,7 @@ export default function DraftPickModal({
           onClick={onExtend}
           // 시계 시작 전 연장은 서버가 409 로 막는다 — 누를 수 있게 두면 실패 토스트만 뜬다
           disabled={extLeft === 0 || extending || inGrace || clockPending}
-          className="shrink-0 min-h-11 px-2.5 inline-flex items-center gap-1 rounded-md bg-emerald-800 hover:bg-emerald-700 text-emerald-50 text-xs sm:text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+          className="shrink-0 min-h-11 px-2.5 inline-flex items-center gap-1 rounded-md bg-[var(--mm-panel-alt)] hover:brightness-95 text-[var(--mm-ink)] border border-[var(--mm-rule)] text-xs sm:text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
           aria-label={`픽 시간 ${EXTENSION_SECONDS}초 연장, ${extLeft}회 남음`}
         >
           <Clock size={14} aria-hidden />+{EXTENSION_SECONDS}s ({extensionsUsed}/{MAX_EXTENSIONS})
@@ -171,33 +171,33 @@ export default function DraftPickModal({
           onClick={onClose}
           disabled={confirming}
           aria-label="선수 선택 창 닫기"
-          className="shrink-0 min-w-11 min-h-11 inline-flex items-center justify-center rounded-md text-gray-300 hover:text-white hover:bg-gray-800 cursor-pointer transition-colors duration-200 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+          className="shrink-0 min-w-11 min-h-11 inline-flex items-center justify-center rounded-md text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)] cursor-pointer transition-colors duration-200 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
         >
           <X size={20} />
         </button>
       </div>
 
       {/* (b) 내 팀 지금까지 — 같은 포지션을 또 뽑는 사고를 막는 유일한 근거라 항상 고정 노출 */}
-      <div className="shrink-0 flex items-center gap-2 flex-wrap px-1 py-2 border-b border-gray-800">
+      <div className="shrink-0 flex items-center gap-2 flex-wrap px-1 py-2 border-b border-[var(--mm-rule)]">
         <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} aria-hidden />
         {captainName && (
-          <span className="inline-flex items-center gap-1 text-xs sm:text-sm text-amber-200 font-bold shrink-0">
+          <span className="inline-flex items-center gap-1 text-xs sm:text-sm text-[var(--mm-yellow-strong)] font-bold shrink-0">
             <Crown size={14} aria-hidden />{captainName}
           </span>
         )}
-        <span className="text-xs sm:text-sm text-gray-300 font-bold tabular-nums shrink-0">
+        <span className="text-xs sm:text-sm text-[var(--mm-muted)] font-bold tabular-nums shrink-0">
           내 픽 {myPicks.length}/{totalRounds}
         </span>
         {myPicks.length === 0 ? (
-          <span className="text-xs text-gray-400">아직 없음</span>
+          <span className="text-xs text-[var(--mm-muted)]">아직 없음</span>
         ) : (
           myPicks.map(p => (
             <span
               key={p.pick_number}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-900 border border-gray-700 text-xs sm:text-sm text-gray-100"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[var(--mm-panel)] border border-[var(--mm-rule)] text-xs sm:text-sm text-[var(--mm-ink)]"
             >
               <span className="font-bold">{p.player_name}</span>
-              {p.player_position && <span className="text-gray-400 font-mono">{p.player_position}</span>}
+              {p.player_position && <span className="text-[var(--mm-muted)] font-mono">{p.player_position}</span>}
             </span>
           ))
         )}
@@ -210,7 +210,7 @@ export default function DraftPickModal({
           onChange={e => setQuery(e.target.value)}
           placeholder="이름·번호 검색"
           aria-label="선수 이름 또는 등번호 검색"
-          className="bg-gray-900 border-gray-700 text-white h-10 text-base"
+          className="bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)] h-10 text-base"
         />
       </div>
 
@@ -218,7 +218,7 @@ export default function DraftPickModal({
           (헤더·내 팀·확정 바는 고정이라 남은 시간과 확정 버튼은 절대 사라지지 않는다). */}
       <div className="flex-1 min-h-0 overflow-y-auto px-1">
         {groups.length === 0 ? (
-          <p className="text-center text-base text-gray-300 py-10">해당하는 선수가 없습니다</p>
+          <p className="text-center text-base text-[var(--mm-muted)] py-10">해당하는 선수가 없습니다</p>
         ) : (
           <div
             className="grid grid-cols-2 gap-x-2 gap-y-3 lg:[grid-template-columns:repeat(var(--dpm-cols),minmax(0,1fr))]"
@@ -230,7 +230,7 @@ export default function DraftPickModal({
               return (
               // scroll-mt: 모바일에서 그룹으로 튈 때 머리띠가 상단 고정 영역에 가리지 않게.
               // 위쪽 얇은 구분선은 모바일(2열 스택)에서만 — lg 는 열이 나란히라 선이 노이즈다.
-              <div key={g.key} id={`dpm-group-${g.key}`} className="min-w-0 scroll-mt-2 border-t border-gray-800 pt-2 lg:border-t-0 lg:pt-0">
+              <div key={g.key} id={`dpm-group-${g.key}`} className="min-w-0 scroll-mt-2 border-t border-[var(--mm-rule)] pt-2 lg:border-t-0 lg:pt-0">
                 {/* 포지션 머리띠 — 색 + 아이콘 + 코드 + 인원. 색만으로 구분하지 않도록
                     코드 글자와 아이콘을 항상 함께 둔다(색각 이상·흑백 프린트 대비). */}
                 <div
@@ -252,8 +252,8 @@ export default function DraftPickModal({
                           type="button"
                           onClick={() => onSelect(isSel ? null : p.id)}
                           aria-pressed={isSel}
-                          className={`w-full min-h-11 px-2 rounded-md border flex items-center gap-1.5 text-sm font-bold text-left cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 ${
-                            isSel ? 'border-transparent' : 'bg-gray-900 border-gray-700 text-gray-100 hover:border-gray-500'
+                          className={`w-full min-h-11 px-2 rounded-md border flex items-center gap-1.5 text-sm font-bold text-left cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)] ${
+                            isSel ? 'border-transparent' : 'bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink)] hover:border-[var(--mm-yellow)]'
                           }`}
                           // 좌측 4px 은 포지션 색 — 행 하나만 봐도 어느 열의 선수인지 알 수 있다.
                           style={{
@@ -293,7 +293,7 @@ export default function DraftPickModal({
                                 disabled={confirming}
                                 tabIndex={isSel ? 0 : -1}
                                 aria-hidden={!isSel}
-                                className="w-full min-h-11 rounded-md text-base font-black cursor-pointer disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-400 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                                className="w-full min-h-11 rounded-md text-base font-black cursor-pointer disabled:cursor-not-allowed disabled:bg-[var(--mm-panel-alt)] disabled:text-[var(--mm-muted)] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
                                 style={confirming ? undefined : { backgroundColor: color, color: onColor, boxShadow: `inset 0 0 0 1px ${ink.border}` }}
                               >
                                 {confirming ? '픽 등록 중...' : `${p.name} 픽 확정`}
@@ -304,7 +304,7 @@ export default function DraftPickModal({
                                 disabled={confirming}
                                 tabIndex={isSel ? 0 : -1}
                                 aria-hidden={!isSel}
-                                className="w-full min-h-11 rounded-md text-sm font-bold text-gray-300 hover:text-white hover:bg-gray-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                                className="w-full min-h-11 rounded-md text-sm font-bold text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
                               >
                                 취소
                               </button>
@@ -323,12 +323,12 @@ export default function DraftPickModal({
       </div>
 
       {/* 확정 바 — 첫 탭은 선택, 이 버튼이 유일한 확정 단계다. */}
-      <div className="shrink-0 pt-2 px-1 border-t border-gray-800">
+      <div className="shrink-0 pt-2 px-1 border-t border-[var(--mm-rule)]">
         <button
           type="button"
           onClick={onConfirm}
           disabled={!selectedId || confirming}
-          className="w-full min-h-[56px] rounded-xl text-lg font-black cursor-pointer disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-400 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+          className="w-full min-h-[56px] rounded-xl text-lg font-black cursor-pointer disabled:cursor-not-allowed disabled:bg-[var(--mm-panel-alt)] disabled:text-[var(--mm-muted)] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
           style={selectedId && !confirming ? { backgroundColor: color, color: onColor, boxShadow: `inset 0 0 0 1px ${ink.border}` } : undefined}
         >
           {confirming ? '픽 등록 중...' : selected ? `${selected.name} 픽 확정` : '선수를 선택하세요'}

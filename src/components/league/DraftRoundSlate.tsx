@@ -9,7 +9,7 @@
 // 토큰(var(--mm-ground))은 라이트 테마에서 아이보리로 뒤집히는데 이 포털은 항상 어두운 화면이라
 // 뒤집히면 노란 글자가 읽히지 않는다.
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 const SLATE_MS = 900
 const SLATE_REDUCED_MS = 400
@@ -21,12 +21,16 @@ export default function DraftRoundSlate({ round, onDone }: { round: number | nul
 }
 
 function RoundSlateInner({ round, onDone }: { round: number; onDone: () => void }) {
+  // onDone 을 deps 에 넣으면 부모가 인라인 화살표를 넘길 때 재렌더마다 타이머가 새로 걸려
+  // 슬레이트가 영영 언마운트되지 않는다 — 최신 함수는 ref 로, 타이머는 마운트 1회만.
+  const onDoneRef = useRef(onDone)
+  useEffect(() => { onDoneRef.current = onDone }, [onDone])
   useEffect(() => {
     // 모션 최소화 설정이면 페이드/스케일 없이 0.4초만 띄우고 걷는다
     const reduce = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    const t = setTimeout(onDone, (reduce ? SLATE_REDUCED_MS : SLATE_MS) + 60)
+    const t = setTimeout(() => onDoneRef.current(), (reduce ? SLATE_REDUCED_MS : SLATE_MS) + 60)
     return () => clearTimeout(t)
-  }, [onDone])
+  }, [])
 
   return (
     <div

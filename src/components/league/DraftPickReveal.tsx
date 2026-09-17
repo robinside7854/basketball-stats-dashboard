@@ -92,7 +92,7 @@ function PickPhotoFlipInner({
 
   const box = size === 'lg' ? 'w-44 h-44 sm:w-60 sm:h-60' : 'w-36 h-36 sm:w-44 sm:h-44'
   const showPhoto = loaded === true && !!photoUrl
-  // 카드 앞면은 팀 컬러 **배경**이다 — 흰 팀(빅현욱)이면 text-black, 빨강(챗지피지기)이면
+  // 카드 앞면은 팀 컬러 **배경**이다 — 흰 팀(빅현욱)이면 text-[#000000], 빨강(챗지피지기)이면
   // 흰색이 4.0:1 로 AA 미달이라 역시 검정. 고정색을 쓰면 둘 중 하나는 반드시 깨진다.
   const front = teamInk(teamColor)
 
@@ -278,10 +278,18 @@ function StandardPickReveal({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   // 연출이 열려 있는 동안 유지되는 마감 시각. 연속 픽은 이 값을 연장만 한다.
   const closeAtRef = useRef<number | null>(null)
+  // onClose 는 부모가 인라인 화살표로 넘긴다 → 렌더마다 새 함수다. 이걸 effect deps 에 두면
+  // 부모의 250ms 시계 tick 마다 effect 가 재실행되며 setTimeout 이 매번 새로 걸리고,
+  // 동시에 closeAtRef 가 now+base 로 다시 밀려 **자동 닫기가 영원히 오지 않았다**
+  // (2026-09-18 실측: 진행 중 세션에서 픽 공개가 전체화면으로 고정). 최신 함수만 ref 로 들고,
+  // 타이머는 픽 번호가 바뀔 때만 다시 건다.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
+  const pickKey = data?.pickNumber ?? null
 
   // 자동 닫기
   useEffect(() => {
-    if (!data) { closeAtRef.current = null; return }
+    if (pickKey == null) { closeAtRef.current = null; return }
     const now = Date.now()
     const base = isMyTurn ? MY_TURN_DURATION_MS : DURATION_MS
     // 이미 열려 있으면(연속 픽) 남은 시간에 최대 1.5초만 더한다 — 다음 단장의 시계를 잡아먹지 않도록.
@@ -290,9 +298,17 @@ function StandardPickReveal({
       ? Math.min(prev + CONSECUTIVE_EXTEND_MS, now + base)
       : now + base
     closeAtRef.current = next
-    const t = setTimeout(() => { closeAtRef.current = null; onClose() }, Math.max(0, next - now))
+    const t = setTimeout(() => { closeAtRef.current = null; onCloseRef.current() }, Math.max(0, next - now))
     return () => clearTimeout(t)
-  }, [data, onClose, isMyTurn])
+  }, [pickKey, isMyTurn])
+
+  // 어떤 오버레이든 Esc 로 닫힌다 — 탭이 먹히지 않는 상황(빔 노트북, 포인터 없는 기기)의 탈출구.
+  useEffect(() => {
+    if (pickKey == null) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { closeAtRef.current = null; onCloseRef.current() } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pickKey])
 
   // 폭죽 (캔버스) — data 변경 시 발사
   useEffect(() => {
@@ -315,8 +331,12 @@ function StandardPickReveal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md cursor-pointer overflow-hidden"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000000]/90 backdrop-blur-md cursor-pointer overflow-hidden"
       onClick={onClose}
+      role="button"
+      tabIndex={0}
+      aria-label="탭하여 닫기"
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose() } }}
       style={{
         animation: 'pickFadeIn 0.25s ease-out',
         paddingTop: 'max(1rem, env(safe-area-inset-top))',
@@ -350,7 +370,7 @@ function StandardPickReveal({
       {/* 내 차례 배지 — 픽 공개가 덮고 있는 동안에도 "지금 내 시계가 돈다"를 즉시 알린다 */}
       {isMyTurn && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-10 inline-flex items-center gap-2 px-4 py-2.5 min-h-11 rounded-full bg-emerald-500 text-black text-base sm:text-lg font-black shadow-2xl"
+          className="absolute left-1/2 -translate-x-1/2 z-10 inline-flex items-center gap-2 px-4 py-2.5 min-h-11 rounded-full bg-emerald-500 text-[#000000] text-base sm:text-lg font-black shadow-2xl"
           style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
           role="status"
         >
@@ -381,10 +401,10 @@ function StandardPickReveal({
 
         {/* 라운드 + 픽 번호 */}
         <div className="mb-3 flex items-center justify-center gap-3 flex-wrap">
-          <div className="text-xs sm:text-sm font-bold tracking-[0.3em] uppercase text-gray-200">
+          <div className="text-xs sm:text-sm font-bold tracking-[0.3em] uppercase text-[#e5e7eb]">
             Round {data.roundNumber}
           </div>
-          <div className="h-3 w-px bg-gray-700" />
+          <div className="h-3 w-px bg-[#374151]" />
           <div
             className="inline-flex items-center gap-1.5 text-sm sm:text-base font-black tracking-[0.25em] uppercase px-4 py-1.5 rounded-full shadow-lg"
             style={{ background: ink.bg, color: ink.fg, border: `1px solid ${ink.border}`, boxShadow: `0 0 20px ${data.teamColor}` }}
@@ -402,10 +422,10 @@ function StandardPickReveal({
         <div className="mb-3 sm:mb-5">
           <div className="flex items-center justify-center gap-3">
             <div className="w-3 h-3 rounded-full shadow-lg" style={{ background: data.teamColor, boxShadow: `0 0 12px ${data.teamColor}` }} />
-            <p className="text-xl sm:text-3xl font-bold text-white">{data.teamName}</p>
+            <p className="text-xl sm:text-3xl font-bold text-[#ffffff]">{data.teamName}</p>
             <div className="w-3 h-3 rounded-full shadow-lg" style={{ background: data.teamColor, boxShadow: `0 0 12px ${data.teamColor}` }} />
           </div>
-          <p className="text-xs sm:text-base font-black tracking-[0.5em] uppercase text-gray-300 mt-1.5">SELECTS</p>
+          <p className="text-xs sm:text-base font-black tracking-[0.5em] uppercase text-[#d1d5db] mt-1.5">SELECTS</p>
         </div>
 
         {/* 메인 — 사진 카드 플립 + 이름 + 포지션 */}
@@ -419,7 +439,7 @@ function StandardPickReveal({
             </p>
           )}
           <p
-            className="text-3xl sm:text-6xl font-black text-white tracking-tight drop-shadow-lg"
+            className="text-3xl sm:text-6xl font-black text-[#ffffff] tracking-tight drop-shadow-lg"
             style={{
               fontFamily: 'var(--font-barlow-condensed, sans-serif)',
               textShadow: '0 4px 30px rgba(0,0,0,0.8)',
@@ -430,7 +450,7 @@ function StandardPickReveal({
           </p>
           {data.playerPosition && (
             <div className="flex items-center justify-center gap-2 mt-2">
-              <div className="h-px w-8 bg-gray-700" />
+              <div className="h-px w-8 bg-[#374151]" />
               {data.playerPosition.split(',').map(s => s.trim()).filter(Boolean).map((pos, i) => (
                 <span
                   key={i}
@@ -444,7 +464,7 @@ function StandardPickReveal({
                   {pos}
                 </span>
               ))}
-              <div className="h-px w-8 bg-gray-700" />
+              <div className="h-px w-8 bg-[#374151]" />
             </div>
           )}
         </div>
@@ -453,7 +473,7 @@ function StandardPickReveal({
         {standardBoxes.length > 0 && (
           <div className="mt-4 sm:mt-5 rounded-2xl border px-3 py-3 text-left"
             style={{ background: '#111114', borderColor: `${data.teamColor}55` }}>
-            <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-gray-400 mb-2">
+            <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-[#9ca3af] mb-2">
               {seasonLabel ?? '시즌'} 기록
             </p>
             {/* 모바일 2열 × 3행 — 3열이면 "18 / 25 라운드"와 순위 알약이 칸 폭을 넘는다(390px 실측) */}
@@ -465,7 +485,7 @@ function StandardPickReveal({
           </div>
         )}
 
-        <p className="mt-6 text-xs sm:text-sm uppercase tracking-[0.3em] text-gray-300">탭하여 닫기</p>
+        <p className="mt-6 text-xs sm:text-sm uppercase tracking-[0.3em] text-[#d1d5db]">탭하여 닫기</p>
       </div>
 
       <style jsx>{`
@@ -605,17 +625,17 @@ function StatBoxCell({
       style={{ background: '#111114', borderColor: `${teamColor}66` }}
     >
       <span
-        className={`font-black tabular-nums leading-none text-white ${compact ? 'text-xl sm:text-2xl' : 'text-2xl lg:text-4xl'}`}
+        className={`font-black tabular-nums leading-none text-[#ffffff] ${compact ? 'text-xl sm:text-2xl' : 'text-2xl lg:text-4xl'}`}
         style={{ fontFamily: 'var(--font-bebas, sans-serif)' }}
       >
         {box.value}
       </span>
-      <span className={`${compact ? 'text-xs' : 'text-xs sm:text-sm'} font-bold text-gray-300 leading-none break-keep`}>{box.label}</span>
+      <span className={`${compact ? 'text-xs' : 'text-xs sm:text-sm'} font-bold text-[#d1d5db] leading-none break-keep`}>{box.label}</span>
       {box.rank != null
         ? <RankPill rank={box.rank} total={rankTotal} teamColor={teamColor} small={compact} />
         : box.sub
           ? (
-            <span className={`${compact ? 'text-[11px]' : 'text-xs sm:text-sm'} font-bold tabular-nums whitespace-nowrap text-gray-300`}>
+            <span className={`${compact ? 'text-[11px]' : 'text-xs sm:text-sm'} font-bold tabular-nums whitespace-nowrap text-[#d1d5db]`}>
               {box.sub}
             </span>
           )
@@ -720,7 +740,14 @@ function DramaticPickReveal({
   }, [step, REVEAL, data.teamColor])
 
   const revealed = step >= REVEAL
-  const onTap = () => { if (revealed) onClose(); else reveal() }
+  const onTap = useCallback(() => { if (revealedRef.current) onClose(); else reveal() }, [onClose, reveal])
+
+  // Esc 탈출구 — 탭이 먹히지 않는 기기에서도 전면 연출을 닫을 수 있어야 한다.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   return (
     <div
@@ -742,7 +769,7 @@ function DramaticPickReveal({
       {/* 내 차례 배지 — 드라마틱 공개는 길다. 건너뛰는 법을 명시한다. */}
       {isMyTurn && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-10 inline-flex items-center gap-2 px-4 py-2.5 min-h-11 rounded-full bg-emerald-500 text-black text-base sm:text-lg font-black shadow-2xl"
+          className="absolute left-1/2 -translate-x-1/2 z-10 inline-flex items-center gap-2 px-4 py-2.5 min-h-11 rounded-full bg-emerald-500 text-[#000000] text-base sm:text-lg font-black shadow-2xl"
           style={{ top: 'max(0.5rem, env(safe-area-inset-top))' }}
           role="status"
         >
@@ -761,11 +788,11 @@ function DramaticPickReveal({
       >
         {/* 스테이지 0 — 팀과 순번만. 이름은 없다. */}
         <p
-          className="text-base sm:text-2xl lg:text-3xl font-black text-white tracking-tight"
+          className="text-base sm:text-2xl lg:text-3xl font-black text-[#ffffff] tracking-tight"
           style={{ textShadow: '0 4px 24px rgba(0,0,0,0.8)' }}
         >
           <span style={{ color: dAccent }}>ROUND {data.roundNumber}</span>
-          <span className="mx-2 text-gray-500">·</span>
+          <span className="mx-2 text-[#6b7280]">·</span>
           {data.teamName}의 1순위 지명
         </p>
 
@@ -799,14 +826,14 @@ function DramaticPickReveal({
             모바일 2열 × 3행 / sm 이상 3열 × 2행. 아직 안 나온 칸도 invisible 로 자리를 잡아 둔다. */}
         <div className="dramatic-stats mt-3 sm:mt-5">
           {step >= 2 && (
-            <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-gray-400 mb-1.5 sm:mb-2">
+            <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-[#9ca3af] mb-1.5 sm:mb-2">
               {seasonLabel ?? '시즌'} 기록
             </p>
           )}
           {boxes.length === 0 ? (
             <div className={`rounded-xl border px-3 py-3 ${step >= 2 ? '' : 'invisible'}`}
               style={{ background: '#111114', borderColor: `${data.teamColor}66` }}>
-              <p className="text-base sm:text-xl font-bold text-gray-300 break-keep">시즌 기록 없음</p>
+              <p className="text-base sm:text-xl font-bold text-[#d1d5db] break-keep">시즌 기록 없음</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
@@ -834,7 +861,7 @@ function DramaticPickReveal({
           ))}
           {revealed && (
             <p
-              className="d-name text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-none"
+              className="d-name text-3xl sm:text-5xl lg:text-6xl font-black text-[#ffffff] tracking-tight leading-none"
               style={{ fontFamily: 'var(--font-barlow-condensed, sans-serif)', textShadow: '0 4px 30px rgba(0,0,0,0.8)' }}
             >
               {data.playerName.toUpperCase()}
@@ -842,7 +869,7 @@ function DramaticPickReveal({
           )}
         </div>
 
-        <p className="mt-4 text-xs sm:text-sm uppercase tracking-[0.3em] text-gray-300">
+        <p className="mt-4 text-xs sm:text-sm uppercase tracking-[0.3em] text-[#d1d5db]">
           {revealed ? '탭하여 닫기' : '탭하면 바로 공개'}
         </p>
       </div>

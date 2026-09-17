@@ -473,7 +473,7 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
 
   return (
     <div
-      className="fixed inset-0 z-[58] flex items-center justify-center bg-black/90 p-4 cursor-pointer"
+      className="fixed inset-0 z-[58] flex items-center justify-center bg-[#000000]/90 p-4 cursor-pointer"
       style={{
         paddingTop: 'max(1rem, env(safe-area-inset-top))',
         paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
@@ -518,7 +518,7 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
 
       <div className="relative text-center max-w-lg sm:max-w-xl md:max-w-2xl w-full flex flex-col items-center" style={{ zIndex: 3 }}>
         <p className="font-jersey text-base uppercase tracking-[0.3em] text-amber-400 mb-1.5">DRAFT LOTTERY</p>
-        <h2 className="text-2xl sm:text-4xl font-black text-white mb-3 sm:mb-4 min-h-[2.25rem]">
+        <h2 className="text-2xl sm:text-4xl font-black text-[#ffffff] mb-3 sm:mb-4 min-h-[2.25rem]">
           {phase === 'intro' && '추첨 기계에 팀 공 투입'}
           {phase === 'drawing' && (<span className="inline-flex items-center gap-2"><Dice5 size={24} aria-hidden /> 추첨 진행 중...</span>)}
           {phase === 'revealing' && (
@@ -548,7 +548,7 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
                 <p className="text-amber-300 font-black text-2xl tracking-widest animate-pulse">● ● ●</p>
               )}
               {phase === 'intro' && (
-                <p className="text-gray-200 text-base sm:text-lg leading-relaxed">팀 공이 기계로 들어가는 중...</p>
+                <p className="text-[#e5e7eb] text-base sm:text-lg leading-relaxed">팀 공이 기계로 들어가는 중...</p>
               )}
               {phase === 'revealing' && (
                 <>
@@ -585,25 +585,25 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
                 return (
                   <div
                     key={`${tid}-${idx}`}
-                    className="lotto-anim flex items-center gap-3 rounded-xl px-3 sm:px-4 py-3 border bg-gray-900"
+                    className="lotto-anim flex items-center gap-3 rounded-xl px-3 sm:px-4 py-3 border bg-[#111827]"
                     style={{
                       borderColor: idx === 0 ? firstColor : '#374151',
                       animation: reducedMotion ? undefined : `lottoRise 300ms ease-out ${Math.min(idx * 70, 560)}ms both`,
                     }}
                   >
-                    <span className={`font-display text-2xl sm:text-3xl w-8 shrink-0 ${idx === 0 ? 'text-amber-300' : 'text-gray-200'}`}>{idx + 1}</span>
+                    <span className={`font-display text-2xl sm:text-3xl w-8 shrink-0 ${idx === 0 ? 'text-amber-300' : 'text-[#e5e7eb]'}`}>{idx + 1}</span>
                     <div
                       className="w-3.5 h-3.5 rounded-full shrink-0"
                       style={{ backgroundColor: ink.bg, border: `1px solid ${ink.border}` }}
                     />
-                    <span className="text-white font-black flex-1 text-left text-lg sm:text-xl truncate min-w-0">{t?.name}</span>
+                    <span className="text-[#ffffff] font-black flex-1 text-left text-lg sm:text-xl truncate min-w-0">{t?.name}</span>
                     {idx === 0 && <span className="text-xs font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wider">1픽</span>}
-                    {oddsVary && odd != null && <span className="text-sm text-gray-200 shrink-0 tabular-nums">{(odd * 100).toFixed(0)}%</span>}
+                    {oddsVary && odd != null && <span className="text-sm text-[#e5e7eb] shrink-0 tabular-nums">{(odd * 100).toFixed(0)}%</span>}
                   </div>
                 )
               })}
             </div>
-            <p className="text-sm text-gray-300 mt-4 leading-relaxed">탭하여 닫기 · 10초 후 자동 닫힘</p>
+            <p className="text-sm text-[#d1d5db] mt-4 leading-relaxed">탭하여 닫기 · 10초 후 자동 닫힘</p>
           </>
         )}
       </div>

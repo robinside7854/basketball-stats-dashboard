@@ -129,9 +129,11 @@ export default function DraftPortalClient({
   // 선수 선택 전체화면 모달 — 내 차례가 되면 pick_deadline 당 한 번 자동으로 열린다.
   // 닫아도 페이즈 카드의 「선수 선택하기」 CTA 로 언제든 다시 연다.
   const [pickModalOpen, setPickModalOpen] = useState(false)
-  // 감독관 운영 패널(<details>) 열림 — 기본 닫힘. 1.5초 폴링 재렌더가 사용자의 열기를
-  // 되돌리지 않도록 상태로 제어한다.
-  const [opsOpen, setOpsOpen] = useState(false)
+  // 총무 운영 패널(<details>) 열림. null = 사용자가 아직 손대지 않음 → 단계가 기본값을 정한다.
+  // setup/준비 단계에서는 이 패널이 화면의 유일한 할 일이라 닫아 두면 1280 에서 빈 캔버스만 남는다.
+  // 픽이 시작되면(진행/완료) 파괴적인 버튼이 빔에 노출되지 않도록 다시 접는다.
+  // 1.5초 폴링 재렌더가 사용자의 열기를 되돌리지 않도록 상태로 제어한다.
+  const [opsOpen, setOpsOpen] = useState<boolean | null>(null)
   // 소리 음소거 — draftSounds 모듈 전역 플래그의 UI 미러. 빔 프로젝터 한 대만 소리를 내도록.
   const [soundMuted, setSoundMuted] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -257,8 +259,8 @@ export default function DraftPortalClient({
       const teamName = state?.teams.find(t => t.id === sa.teamId)?.name
       toast.success(
         sa.role === 'supervisor'
-          ? `감독관으로 입장했습니다 — 단계별 안내가 표시됩니다 (${sa.label})`
-          : `${teamName ?? ''} 팀장으로 입장했습니다 — READY를 눌러주세요 (${sa.label})`,
+          ? `총무로 입장했습니다 — 단계별 안내가 표시됩니다 (${sa.label})`
+          : `${teamName ?? ''} 단장으로 입장했습니다 — 준비 완료를 눌러주세요 (${sa.label})`,
         { duration: 5000 },
       )
     } catch {
@@ -421,6 +423,12 @@ export default function DraftPortalClient({
   // 가로채기 배너 — 내가 골라 둔 선수를 남이 먼저 뽑았을 때. 초기 로드에서는 절대 뜨지 않는다
   // (아래 effect 의 initialPicksSnapshotRef 가드를 그대로 탄다).
   const [stealBanner, setStealBanner] = useState<StealBannerData | null>(null)
+  // 연출 컴포넌트에 넘기는 닫기 콜백은 반드시 안정적이어야 한다.
+  // 이 화면은 250ms 시계 tick 으로 상시 재렌더되는데, 인라인 화살표를 넘기면 자식의
+  // "N초 뒤 닫기" effect 가 tick 마다 재실행되며 타이머가 영원히 다시 걸린다(2026-09-18 실측).
+  const closePickReveal = useCallback(() => setPickReveal(null), [])
+  const clearStealBanner = useCallback(() => setStealBanner(null), [])
+  const clearSlateRound = useCallback(() => setSlateRound(null), [])
   useEffect(() => {
     if (!state?.picks) return
     const picks = state.picks
@@ -735,7 +743,7 @@ export default function DraftPortalClient({
       })
       const data = await r.json()
       if (!r.ok) { toast.error(data.error ?? '추첨 실패'); return }
-      toast.success('🎲 추첨 완료!')
+      toast.success('추첨 완료!')
       fetchState()
     } finally {
       setActingLottery(false)
@@ -780,7 +788,7 @@ export default function DraftPortalClient({
       })
       const data = await r.json()
       if (!r.ok) { toast.error(data.error ?? 'READY 변경 실패'); return }
-      toast.success(currentlyReady ? '준비 해제' : '✅ 준비 완료 — 감독관에게 알림 전송됨')
+      toast.success(currentlyReady ? '준비 해제' : '✅ 준비 완료 — 총무에게 신호 전송됨')
       fetchState()
     } finally {
       setTogglingReady(false)
@@ -1028,10 +1036,11 @@ export default function DraftPortalClient({
     transition: 'background 600ms ease',
   } as const
 
-  // 채팅 패널이 떠 있는 동안에만 우측 360px 을 비운다.
-  // 패널은 코드 인증자에게만 렌더되고 lg(≥1024px)에서는 항상 펼친 고정 사이드바이므로,
-  // 「렌더됨」과 「열림」이 lg 에서 같은 뜻이다. 인증 전에 여백만 남으면 본문이 이유 없이 좁아진다.
-  const chatPinned = !!(auth && state?.draft)
+  // 채팅 패널이 PC 에서 고정 사이드바로 떠 있는 동안에만 우측 360px 을 비운다.
+  // 픽이 돌기 전(setup·준비·추첨)에는 채팅에 오갈 말이 없는데 340px 을 상시로 먹으면
+  // 정작 봐야 할 준비 현황이 좁아진다 → 그 단계에서는 FAB 만 띄운다.
+  const chatPinned = !!(auth && state?.draft
+    && (state.draft.status === 'in_progress' || state.draft.status === 'completed'))
 
   // iOS 안전 영역 패딩 — 인라인 style 은 미디어쿼리를 못 써서 클래스 arbitrary value 로 준다.
   // (인라인으로 주면 sm:/lg: 패딩이 통째로 죽는다)
@@ -1052,13 +1061,13 @@ export default function DraftPortalClient({
       {/* 상단 고정 1줄 상태 바 — 스크롤해도 "지금 누구 차례, 몇 초 남았나"가 사라지지 않게 */}
       {draft?.status === 'in_progress' && (
         <div
-          className="sticky z-30 mb-2 rounded-lg px-3 py-2 min-h-11 flex items-center gap-2 bg-gray-950 border border-gray-800"
+          className="sticky z-30 mb-2 rounded-lg px-3 py-2 min-h-11 flex items-center gap-2 bg-[var(--mm-panel)] border border-[var(--mm-rule)]"
           style={{ top: 'env(safe-area-inset-top, 0px)' }}
         >
           <span className="w-3 h-3 rounded-full shrink-0 border" style={{ backgroundColor: teamInk(currentTeam?.color).bg, borderColor: teamInk(currentTeam?.color).border }} aria-hidden />
-          <span className="text-base font-bold text-white truncate min-w-0 max-w-[40%] lg:max-w-none">{currentTeam?.name ?? '대기 중'}</span>
+          <span className="text-base font-bold text-[var(--mm-ink)] truncate min-w-0 max-w-[40%] lg:max-w-none">{currentTeam?.name ?? '대기 중'}</span>
           {isMyTurn && (
-            <span className="shrink-0 px-2 py-0.5 rounded-md bg-emerald-500 text-black text-sm font-black">내 차례</span>
+            <span className="shrink-0 px-2 py-0.5 rounded-md bg-[var(--mm-positive-bg)] text-[var(--mm-positive-fg)] border border-[var(--mm-positive)] text-sm font-black">내 차례</span>
           )}
           {/* 다음 2팀 — 스네이크 방향을 반영해 계산 (빔에서 "다음 누구"가 항상 보이게) */}
           {draft.draft_order.length > 0 && (
@@ -1073,10 +1082,10 @@ export default function DraftPortalClient({
             />
           )}
           {clockPending ? (
-            <span className="ml-auto shrink-0 text-base font-bold text-gray-400 break-keep">공개 중 · 곧 시작</span>
+            <span className="ml-auto shrink-0 text-base font-bold text-[var(--mm-muted)] break-keep">공개 중 · 곧 시작</span>
           ) : remainingSeconds != null ? (
             <span className={`ml-auto shrink-0 text-lg font-black tabular-nums font-mono ${
-              graceInfo.inGrace ? 'text-red-400' : remainingSeconds <= 10 ? 'text-red-300' : 'text-gray-100'
+              graceInfo.inGrace ? 'text-[var(--mm-negative)]' : remainingSeconds <= 10 ? 'text-[var(--mm-negative)]' : 'text-[var(--mm-ink)]'
             }`}>
               {graceInfo.inGrace ? `+${graceInfo.remaining}s` : `${remainingSeconds}s`}
             </span>
@@ -1086,13 +1095,13 @@ export default function DraftPortalClient({
       {/* 테스트 세션 고지 — 모든 단계에서 계속 보인다.
           리허설 중 "이거 진짜 반영되는 거 아니냐"는 질문이 한 번이라도 나오면 진행이 멈춘다. */}
       {draft?.is_test && (
-        <div className="mb-2 rounded-lg px-3 py-2 min-h-11 flex items-center gap-2 bg-amber-400 text-black">
+        <div className="mb-2 rounded-lg px-3 py-2 min-h-11 flex items-center gap-2 bg-[var(--mm-yellow)] text-[var(--mm-black)]">
           <FlaskConical size={16} aria-hidden className="shrink-0" />
           <span className="text-sm sm:text-base font-bold break-keep">테스트 세션 — 결과가 리그에 반영되지 않습니다</span>
         </div>
       )}
       {/* 가로채기 배너 — 현황 바 바로 아래(z-20), 3초 후 스스로 사라진다 */}
-      <DraftStealBanner data={stealBanner} onDone={() => setStealBanner(null)} />
+      <DraftStealBanner data={stealBanner} onDone={clearStealBanner} />
       {/* 내 차례 펄스 keyframes — 콜아웃 카드 + 외곽 래퍼에서 사용 */}
       {myTurnColor && (
         <style>{`
@@ -1119,10 +1128,10 @@ export default function DraftPortalClient({
       {/* 상단 헤더 */}
       <div className="flex items-center justify-between gap-2 sm:gap-3 mb-3 sm:mb-5">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          <Trophy size={24} className="text-amber-400 shrink-0" />
+          <Trophy size={24} className="text-[var(--mm-yellow-strong)] shrink-0" />
           <div className="min-w-0 flex-1">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight leading-tight truncate">{leagueName} 드래프트</h1>
-            <p className="text-sm text-gray-300 truncate">{year ? `${year}.${quarter}Q` : ''} {orgSlug && <span className="ml-1">· {orgSlug}</span>}</p>
+            <p className="text-sm text-[var(--mm-muted)] truncate">{year ? `${year}.${quarter}Q` : ''} {orgSlug && <span className="ml-1">· {orgSlug}</span>}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -1133,7 +1142,7 @@ export default function DraftPortalClient({
             aria-label={soundMuted ? '소리 켜기' : '소리 끄기'}
             aria-pressed={soundMuted}
             title={soundMuted ? '소리 켜기' : '소리 끄기'}
-            className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-md text-gray-300 hover:text-white hover:bg-gray-800 cursor-pointer transition-colors duration-200 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+            className="min-w-11 min-h-11 inline-flex items-center justify-center rounded-md text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)] cursor-pointer transition-colors duration-200 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
           >
             {soundMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
           </button>
@@ -1143,23 +1152,23 @@ export default function DraftPortalClient({
               <button
                 type="button"
                 onClick={openCodeModal}
-                aria-label="단장/감독관 입장"
-                className="sm:hidden min-w-11 min-h-11 inline-flex items-center justify-center rounded-md bg-amber-600 hover:bg-amber-500 text-white cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                aria-label="단장/총무 입장"
+                className="sm:hidden min-w-11 min-h-11 inline-flex items-center justify-center rounded-md bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
               >
                 <KeyRound size={20} />
               </button>
-              <Button onClick={openCodeModal} className="hidden sm:inline-flex bg-amber-600 hover:bg-amber-500 text-white text-base font-bold min-h-[44px] px-5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 transition-colors">
-                <KeyRound size={16} className="mr-1.5" /> 단장/감독관 입장
+              <Button onClick={openCodeModal} className="hidden sm:inline-flex bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] text-base font-bold min-h-[44px] px-5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)] transition-colors">
+                <KeyRound size={16} className="mr-1.5" /> 단장/총무 입장
               </Button>
             </>
           ) : (
             <div className="flex items-center gap-2">
-              <div className={`px-2.5 sm:px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 border min-w-0 max-w-[40vw] sm:max-w-[40vw] lg:max-w-none ${auth.role === 'supervisor' ? 'bg-amber-950/40 border-amber-700/50 text-amber-200' : 'bg-blue-950/40 border-blue-700/50 text-blue-200'}`}>
+              <div className={`px-2.5 sm:px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-1.5 border min-w-0 max-w-[40vw] sm:max-w-[40vw] lg:max-w-none ${auth.role === 'supervisor' ? 'bg-[var(--mm-yellow-soft)] border-[var(--mm-yellow)] text-[var(--mm-yellow-strong)]' : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]'}`}>
                 {auth.role === 'supervisor' ? <ShieldCheck size={14} className="shrink-0" /> : <Crown size={14} className="shrink-0" />}
                 <span className="truncate min-w-0">{auth.label}</span>
                 {myTeam && <span className="opacity-70 truncate hidden sm:inline">· {myTeam.name}</span>}
               </div>
-              <button onClick={logout} className="p-2 min-w-11 min-h-11 flex items-center justify-center rounded-md text-gray-300 hover:text-white hover:bg-gray-800 cursor-pointer transition-colors duration-200 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950" title="인증 해제" aria-label="인증 해제">
+              <button onClick={logout} className="p-2 min-w-11 min-h-11 flex items-center justify-center rounded-md text-[var(--mm-muted)] hover:text-[var(--mm-ink)] hover:bg-[var(--mm-panel-alt)] cursor-pointer transition-colors duration-200 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]" title="인증 해제" aria-label="인증 해제">
                 <LogOut size={16} />
               </button>
             </div>
@@ -1169,80 +1178,128 @@ export default function DraftPortalClient({
 
       {/* 상태 배지 */}
       {!draft ? (
-        <div className="text-center py-16 sm:py-20 text-gray-200">
+        <div className="text-center py-16 sm:py-20 text-[var(--mm-ink-soft)]">
           <p className="text-lg sm:text-xl leading-relaxed">아직 드래프트 세션이 생성되지 않았습니다</p>
-          <p className="text-sm text-gray-400 mt-2">감독관이 세션을 만들면 자동으로 표시됩니다.</p>
+          <p className="text-sm text-[var(--mm-muted)] mt-2">총무가 세션을 만들면 자동으로 표시됩니다.</p>
         </div>
       ) : (
         <>
           {/* ── Phase Hero — 모든 사용자에게 현재 단계와 다음 행동을 1줄로 명시 ── */}
           {(() => {
             const status = draft.status
+            // 제목 = 「내 상태」, 헬퍼 1문장 = 「지금 뭘 하면 되나」, 버튼은 최대 1개.
+            // 화면에 보이는 말에는 내부 단계명(ready_check…)·운영자 직함(감독관/어드민) 대신
+            // 참가자가 실제로 쓰는 말(총무·단장)만 쓴다.
+            const isManager = auth?.role === 'manager' && !!auth.teamId
+            const isSupervisor = auth?.role === 'supervisor'
+            const readyState = draft.ready_state ?? {}
+            const readyTotal = (state?.teams?.length ?? 0) + (state?.supervisor_exists ? 1 : 0)
+            const readyDone = (state?.teams ?? []).filter(t => readyState[t.id]).length
+              + (state?.supervisor_exists && readyState['supervisor'] ? 1 : 0)
+            const iAmReady = auth
+              ? !!readyState[isSupervisor ? 'supervisor' : (auth.teamId ?? '')]
+              : false
+            const notYet = Math.max(0, (state?.teams?.length ?? 0) - (state?.teams ?? []).filter(t => readyState[t.id]).length)
+            const myOrder = auth?.teamId ? draft.draft_order.indexOf(auth.teamId) + 1 : 0
+
             let title = ''
             let helper = ''
-            let tint = 'border-gray-800 bg-gray-900/50'
+            let tint = 'border-[var(--mm-rule)] bg-[var(--mm-panel)]'
+            let action: 'ready' | 'pick' | 'final' | null = null
+
             if (status === 'setup') {
-              title = '드래프트 준비 중'
-              helper = '감독관이 참여 설정을 마치면 READY 단계로 넘어갑니다.'
-              tint = 'border-blue-800/40 bg-blue-950/30'
+              title = '곧 시작합니다'
+              helper = isSupervisor
+                ? '아래 운영 패널에서 참가 명단과 단장 코드를 정리하세요.'
+                : '총무가 참가 명단을 정리하는 중입니다. 이 화면을 켜두세요.'
             } else if (status === 'ready_check') {
-              title = auth?.role === 'manager' ? '준비 단계 — READY를 눌러주세요' : auth?.role === 'supervisor' ? '준비 단계 — 모두의 READY 대기 중' : '준비 단계 — 모두의 READY 대기 중'
-              helper = auth?.role === 'manager'
-                ? '아래 READY 카드에서 ✋ 준비 완료를 누르면 감독관에게 신호가 전송됩니다.'
-                : auth?.role === 'supervisor'
-                  ? '모든 팀이 준비되면 추첨 대기 화면 열기 버튼이 활성화됩니다.'
-                  : '단장·감독관 모두가 준비되면 추첨이 시작됩니다.'
-              tint = 'border-blue-800/50 bg-blue-950/30'
+              if (isManager && iAmReady) {
+                title = `준비 완료 — ${readyDone}/${readyTotal}명`
+                helper = notYet > 0 ? `아직 안 누른 단장이 ${notYet}명 있습니다.` : '모두 준비됐습니다. 곧 순서 추첨이 시작됩니다.'
+                action = 'ready'
+              } else if (isManager) {
+                title = '준비되셨나요?'
+                helper = '아래 버튼을 누르면 총무에게 신호가 갑니다.'
+                action = 'ready'
+              } else if (isSupervisor) {
+                title = `준비 확인 중 — ${readyDone}/${readyTotal}명`
+                helper = notYet > 0 ? `아직 안 누른 단장이 ${notYet}명 있습니다.` : '전원 준비됐습니다. 아래에서 추첨 화면을 여세요.'
+              } else {
+                title = '준비 체크 진행 중'
+                helper = `단장 ${readyDone}/${readyTotal}명이 준비를 마쳤습니다.`
+              }
             } else if (status === 'lottery_waiting') {
-              title = '추첨 임박 — 시작 신호 대기'
-              helper = auth?.role === 'supervisor'
-                ? '준비 끝났다면 아래 🎲 추첨 시작을 누르세요.'
-                : '감독관이 추첨을 시작할 때까지 기다려주세요.'
-              tint = 'border-purple-700/50 bg-purple-950/30'
+              title = '잠시 후 순서 추첨'
+              helper = isSupervisor ? '아래 추첨 시작을 누르면 모두의 화면에서 추첨이 돕니다.' : '화면을 보고 계세요.'
             } else if (status === 'lottery_done') {
-              title = '추첨 완료 — 드래프트 시작 대기'
-              helper = auth?.role === 'supervisor'
-                ? '아래 🏀 드래프트 시작을 누르면 픽 타이머가 작동합니다.'
-                : '감독관이 드래프트를 시작할 때까지 기다려주세요.'
-              tint = 'border-amber-700/50 bg-amber-950/30'
+              if (isManager && myOrder > 0) {
+                title = `내 순서 ${myOrder}번`
+                helper = '총무가 시작하면 타이머가 돕니다.'
+              } else if (isSupervisor) {
+                title = '순서 확정'
+                helper = '아래 드래프트 시작을 누르면 타이머가 돕니다.'
+              } else {
+                title = '순서 추첨 완료'
+                helper = '총무가 시작하면 타이머가 돕니다.'
+              }
+              tint = 'border-[var(--mm-yellow)] bg-[var(--mm-yellow-soft)]'
             } else if (status === 'in_progress') {
               const pickNo = draft.total_picks + 1
               if (isMyTurn) {
-                title = `${draft.current_round}라운드 ${pickNo}픽 — 본인 차례입니다!`
-                helper = '「선수 선택하기」를 눌러 선수를 고르고 픽을 확정하세요.'
+                title = `내 차례 — ${draft.current_round}라운드 ${pickNo}픽`
+                helper = clockPending
+                  ? '공개 중 · 곧 시작'
+                  : graceInfo.inGrace
+                    ? `시간 초과 — ${graceInfo.remaining}초 뒤 자동 픽`
+                    : `남은 시간 ${remainingSeconds ?? 0}초`
+                action = 'pick'
+                tint = 'border-[var(--mm-positive)] bg-[var(--mm-positive-bg)]'
               } else if (currentTeam) {
-                title = `${draft.current_round}라운드 ${pickNo}픽 — ${currentTeam.name} 선택 중`
-                helper = ''
+                title = `${currentTeam.name} 선택 중`
+                helper = `${draft.current_round}라운드 ${pickNo}픽`
               } else {
                 title = `${draft.current_round}라운드 ${pickNo}픽 진행 중`
-                helper = ''
               }
-              tint = isMyTurn ? 'border-emerald-500 bg-emerald-950/40' : 'border-amber-700/40 bg-amber-950/20'
             } else if (status === 'completed') {
               title = '드래프트 완료'
               helper = draft.is_test ? '테스트 세션 — 리그에 반영되지 않았습니다.' : '멤버십이 자동 반영되었습니다.'
-              tint = 'border-emerald-700/50 bg-emerald-950/30'
+              tint = 'border-[var(--mm-positive)] bg-[var(--mm-positive-bg)]'
+              action = 'final'
             }
             return (
               <div className={`mb-3 sm:mb-4 rounded-2xl border-2 px-4 py-3 sm:px-5 sm:py-4 ${tint}`}>
                 {/* 빔 프로젝터에서 멀리서 읽혀야 한다 — lg 에서 5xl */}
-                <h2 className="text-xl sm:text-3xl lg:text-5xl font-black text-white leading-tight break-keep text-balance">{title}</h2>
-                {helper && <p className="text-sm sm:text-base text-gray-200 mt-2 leading-relaxed break-keep">{helper}</p>}
+                <h2 className="text-xl sm:text-3xl lg:text-5xl font-black text-[var(--mm-ink)] leading-tight break-keep text-balance">{title}</h2>
+                {helper && <p className="text-sm sm:text-base text-[var(--mm-ink-soft)] mt-2 leading-relaxed break-keep">{helper}</p>}
                 {/* 이 카드의 유일한 주요 액션 */}
-                {status === 'in_progress' && isMyTurn && (
+                {action === 'ready' && (
+                  <button
+                    type="button"
+                    onClick={toggleReady}
+                    disabled={togglingReady}
+                    className={`mt-3 w-full sm:w-auto min-h-[56px] px-6 rounded-xl text-lg font-black cursor-pointer transition-colors duration-200 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)] ${
+                      iAmReady
+                        ? 'bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] hover:brightness-95'
+                        : 'bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)]'
+                    }`}
+                  >
+                    {iAmReady ? '준비 해제' : '준비 완료'}
+                  </button>
+                )}
+                {action === 'pick' && (
                   <button
                     type="button"
                     onClick={() => setPickModalOpen(true)}
-                    className="mt-3 w-full sm:w-auto min-h-[56px] px-6 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-lg font-black cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                    className="mt-3 w-full sm:w-auto min-h-[56px] px-6 rounded-xl bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] text-lg font-black cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
                   >
-                    선수 선택하기
+                    선수 고르기
                   </button>
                 )}
-                {status === 'completed' && (
+                {action === 'final' && (
                   <button
                     type="button"
                     onClick={() => setShowFinal(true)}
-                    className="mt-3 w-full sm:w-auto min-h-11 px-5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-base font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                    className="mt-3 w-full sm:w-auto min-h-11 px-5 rounded-xl bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] text-base font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
                   >
                     결과 다시 보기
                   </button>
@@ -1327,12 +1384,12 @@ export default function DraftPortalClient({
               빔 화면에 파괴적인 버튼이 그대로 노출된다. */}
           {auth?.role === 'supervisor' && (
             <details
-              open={opsOpen}
+              open={opsOpen ?? !(draft.status === 'in_progress' || draft.status === 'completed')}
               onToggle={e => setOpsOpen(e.currentTarget.open)}
-              className="mt-4 sm:mt-6 rounded-2xl border border-gray-800 bg-gray-900/60"
+              className="mt-4 sm:mt-6 rounded-2xl border border-[var(--mm-rule)] bg-[var(--mm-panel)]"
             >
-              <summary className="min-h-11 flex items-center gap-2 px-4 py-3 cursor-pointer text-base font-bold text-gray-100 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 rounded-2xl">
-                <ShieldCheck size={16} className="text-amber-400 shrink-0" aria-hidden /> 운영 패널
+              <summary className="min-h-11 flex items-center gap-2 px-4 py-3 cursor-pointer text-base font-bold text-[var(--mm-ink)] select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)] rounded-2xl">
+                <ShieldCheck size={16} className="text-[var(--mm-yellow-strong)] shrink-0" aria-hidden /> 운영 패널
               </summary>
               <div className="px-4 pb-4 space-y-3">
                 {draft.status !== 'completed' && (
@@ -1347,6 +1404,8 @@ export default function DraftPortalClient({
                   // 감독관 코드로는 DELETE 라우트가 401 — 눌러도 실패하는 버튼은 아예 감춘다.
                   // 단 테스트 세션은 서버가 감독관 코드 삭제를 허용한다(리허설 뒷정리).
                   canDelete={!!state?.draft?.is_test}
+                  // 포털에는 페이즈 카드가 이미 단계별 주요 액션을 들고 있다 — 컨트롤의 자체 주요 버튼은 감춘다
+                  showPrimary={false}
                 />
               </div>
             </details>
@@ -1399,6 +1458,7 @@ export default function DraftPortalClient({
           authedLabel={auth.label}
           open={chatOpen}
           onOpenChange={setChatOpen}
+          pinned={chatPinned}
           // 모바일에서 채팅을 열면 타이머·픽 버튼이 완전히 가려진다 → 패널 상단에 얇은 현황 띠
           currentTeamName={state.draft.status === 'in_progress' ? (currentTeam?.name ?? null) : null}
           currentTeamColor={currentTeam?.color ?? null}
@@ -1413,7 +1473,7 @@ export default function DraftPortalClient({
       {/* 1라운드는 이름을 감춘 채 지난 시즌 기록부터 여는 드라마틱 공개(약 9~10초). 탭하면 즉시 공개. */}
       <DraftPickReveal
         data={pickReveal}
-        onClose={() => setPickReveal(null)}
+        onClose={closePickReveal}
         isMyTurn={isMyTurn}
         dramatic={pickReveal?.roundNumber === 1}
         brief={pickReveal?.playerId ? (briefsData?.map[pickReveal.playerId] ?? null) : null}
@@ -1424,7 +1484,7 @@ export default function DraftPortalClient({
       {/* 라운드 슬레이트 — 라운드가 오를 때 0.9초. 픽 공개(z-100) 아래(z-95), 탭을 막지 않는다.
           라운드는 '직전 라운드 마지막 픽'과 동시에 오르므로 픽 공개가 떠 있는 동안에는 보류한다
           (z-95 에 깔려 통째로 가려지면 연출이 버려진다). 공개가 닫히면 그때 마운트되어 재생된다. */}
-      <DraftRoundSlate round={pickReveal ? null : slateRound} onDone={() => setSlateRound(null)} />
+      <DraftRoundSlate round={pickReveal ? null : slateRound} onDone={clearSlateRound} />
 
       {/* 추첨 결과 애니메이션 — lottery_done 직후 한 번만 (모두에게 동시).
           waiting/ready_check 단계에서는 절대 노출되지 않도록 status 가드 포함. */}
@@ -1488,7 +1548,7 @@ export default function DraftPortalClient({
           type="button"
           onClick={() => setShowFinal(true)}
           aria-label="드래프트 결과 다시 보기"
-          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[55] inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-full bg-amber-600 hover:bg-amber-500 text-white text-sm sm:text-base font-bold shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[55] inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-full bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] text-sm sm:text-base font-bold shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
           style={{ bottom: 'max(5rem, calc(env(safe-area-inset-bottom) + 5rem))' }}
         >
           <Trophy size={16} /> 결과 다시 보기
@@ -1505,20 +1565,20 @@ export default function DraftPortalClient({
           }}
           onClick={closeCodeModal}
         >
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
-            <h3 className="font-black text-xl sm:text-2xl mb-1.5">단장/감독관 입장</h3>
-            <p className="text-sm text-gray-200 mb-4 leading-relaxed">어드민에게 발급받은 코드를 입력하세요. (대소문자 구분)</p>
+          <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-2xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+            <h3 className="font-black text-xl sm:text-2xl mb-1.5">단장/총무 입장</h3>
+            <p className="text-sm text-[var(--mm-ink-soft)] mb-4 leading-relaxed">총무에게 받은 코드를 입력하세요. (대소문자 구분)</p>
             <Input
               value={codeInput}
               onChange={e => setCodeInput(e.target.value)}
               placeholder="코드"
-              className="bg-gray-800 border-gray-700 text-white text-lg font-mono tracking-wider h-12"
+              className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] text-lg font-mono tracking-wider h-12"
               onKeyDown={e => e.key === 'Enter' && submitCode()}
               autoFocus
             />
             <div className="flex gap-2 mt-4">
-              <Button onClick={closeCodeModal} variant="outline" className="flex-1 bg-gray-800 border-gray-700 text-gray-100 hover:bg-gray-700 min-h-[48px] text-base font-bold">취소</Button>
-              <Button onClick={submitCode} disabled={authing} className="flex-1 bg-amber-600 hover:bg-amber-500 text-white min-h-[48px] text-base font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
+              <Button onClick={closeCodeModal} variant="outline" className="flex-1 bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] hover:brightness-95 min-h-[48px] text-base font-bold">취소</Button>
+              <Button onClick={submitCode} disabled={authing} className="flex-1 bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] min-h-[48px] text-base font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]">
                 {authing ? '확인 중...' : '입장'}
               </Button>
             </div>
@@ -1557,37 +1617,36 @@ function ReadyPanel({
   const allReady = total > 0 && readyCount === total
   return (
     <div className={`mb-4 rounded-2xl border p-4 transition-colors ${
-      allReady ? 'border-emerald-700/60 bg-emerald-950/30' : 'border-blue-800/40 bg-blue-950/20'
+      allReady ? 'border-[var(--mm-positive)] bg-[var(--mm-positive-bg)]' : 'border-[var(--mm-rule)] bg-[var(--mm-panel)]'
     }`}>
       <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <Users size={20} className={allReady ? 'text-emerald-300' : 'text-blue-300'} />
-          <h3 className="text-base sm:text-lg font-bold uppercase tracking-widest">
-            {allReady ? <span className="text-emerald-200">전원 준비 완료 — 추첨 가능</span> : <span className="text-blue-100">READY 체크</span>}
+          <Users size={20} className={allReady ? 'text-[var(--mm-positive-fg)]' : 'text-[var(--mm-muted)]'} />
+          <h3 className="text-base sm:text-lg font-bold tracking-wide">
+            {allReady ? <span className="text-[var(--mm-positive-fg)]">전원 준비 완료 — 추첨 가능</span> : <span className="text-[var(--mm-ink)]">준비 확인</span>}
           </h3>
-          <span className="text-sm text-gray-200 font-mono tabular-nums">{readyCount}/{total}</span>
+          <span className="text-sm text-[var(--mm-ink-soft)] font-mono tabular-nums">{readyCount}/{total}</span>
         </div>
-        {auth && myKey && (
+        {/* 단장의 준비 버튼은 위 페이즈 카드가 이미 들고 있다 — 같은 버튼이 두 개면
+            어느 쪽을 눌렀는지 모른 채 토글이 뒤집힌다. 여기는 총무 것만 남긴다. */}
+        {auth?.role === 'supervisor' && myKey && (
           <Button
             onClick={onToggle}
             disabled={toggling}
-            className={`text-base sm:text-lg min-h-[52px] sm:min-h-[56px] px-6 font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 ${
-              iAmReady ? 'bg-gray-700 hover:bg-gray-600 text-gray-100' : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+            className={`text-base sm:text-lg min-h-[52px] sm:min-h-[56px] px-6 font-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)] ${
+              iAmReady ? 'bg-[var(--mm-panel-alt)] hover:brightness-95 text-[var(--mm-ink)] border border-[var(--mm-rule)]' : 'bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)]'
             }`}
           >
             {iAmReady ? '준비 해제' : <span className="inline-flex items-center gap-2"><Hand size={20} aria-hidden /> 준비 완료</span>}
           </Button>
         )}
       </div>
-      {auth?.role === 'manager' && !iAmReady && (
-        <p className="text-sm text-blue-100 mb-2 leading-relaxed">감독관이 추첨을 시작할 수 있도록 <b className="text-white">준비 완료</b>를 눌러주세요.</p>
-      )}
       <div className="flex flex-wrap gap-1.5">
         {teams.map(t => {
           const ready = !!readyState[t.id]
           return (
             <span key={t.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs sm:text-sm break-keep ${
-              ready ? 'bg-emerald-900/40 border-emerald-700/60 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-200'
+              ready ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)] text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)]'
             }`}>
               {ready ? <CheckCircle2 size={14} className="shrink-0" /> : <Circle size={14} className="shrink-0" />}
               <div className="w-2 h-2 rounded-full shrink-0 border" style={{ backgroundColor: teamInk(t.color).bg, borderColor: teamInk(t.color).border }} />
@@ -1597,25 +1656,25 @@ function ReadyPanel({
         })}
         {supervisorExists && (
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${
-            readyState['supervisor'] ? 'bg-emerald-900/40 border-emerald-700/60 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-200'
+            readyState['supervisor'] ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)] text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)]'
           }`}>
             {readyState['supervisor'] ? <CheckCircle2 size={14} /> : <Circle size={14} />}
-            <ShieldCheck size={14} className="text-amber-400" />
-            감독관
+            <ShieldCheck size={14} className="text-[var(--mm-yellow-strong)]" />
+            총무
           </span>
         )}
       </div>
       {/* 전원 준비 시 감독관에게 노출 */}
       {allReady && onOpenLottery && (
-        <div className="mt-4 pt-4 border-t border-emerald-700/40 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm sm:text-base text-emerald-100 flex items-center gap-2 leading-relaxed">
-            <ShieldCheck size={16} className="text-amber-400 shrink-0" />
-            감독관 권한: 모두 추첨 대기 화면으로 이동합니다
+        <div className="mt-4 pt-4 border-t border-[var(--mm-rule)] flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm sm:text-base text-[var(--mm-ink-soft)] flex items-center gap-2 leading-relaxed">
+            <ShieldCheck size={16} className="text-[var(--mm-yellow-strong)] shrink-0" />
+            모두 추첨 대기 화면으로 이동합니다
           </p>
           <Button
             onClick={onOpenLottery}
             disabled={opening}
-            className="bg-purple-600 hover:bg-purple-500 text-white font-black text-base sm:text-lg h-12 sm:h-14 px-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+            className="bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] font-black text-base sm:text-lg h-12 sm:h-14 px-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
           >
             <span className="inline-flex items-center gap-2"><Video size={20} aria-hidden /> 추첨 대기 화면 열기</span>
           </Button>
@@ -1633,26 +1692,23 @@ function LotteryWaitScreen({ teams, draftOrder, isSupervisor, onStartLottery, ac
   acting: boolean
 }) {
   return (
-    <div className="mb-3 sm:mb-4 rounded-2xl border-2 border-purple-700/50 bg-gradient-to-br from-purple-950/50 via-indigo-950/40 to-gray-950 p-5 sm:p-8 lg:p-10 text-center overflow-hidden relative">
-      {/* 배경 글로우 */}
-      <div className="absolute inset-0 opacity-20 pointer-events-none"
-        style={{ background: 'radial-gradient(circle at center, rgba(168,85,247,0.3), transparent 60%)' }} />
+    <div className="mb-3 sm:mb-4 rounded-2xl border-2 border-[var(--mm-rule)] bg-[var(--mm-panel)] p-5 sm:p-8 lg:p-10 text-center overflow-hidden relative">
 
       <div className="relative">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-900/60 border border-purple-600/60 text-purple-100 text-sm font-bold uppercase tracking-widest mb-4">
-          <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" /> 추첨 대기 중
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] text-sm font-bold tracking-wide mb-4">
+          <span className="w-2 h-2 rounded-full bg-[var(--mm-yellow)] animate-pulse" /> 추첨 대기 중
         </div>
-        <h2 className="text-4xl sm:text-6xl font-black text-white mb-3 tracking-tight" style={{ fontFamily: 'var(--font-bebas, sans-serif)' }}>
-          🎰 추첨 임박 🎰
+        <h2 className="text-4xl sm:text-6xl font-black text-[var(--mm-ink)] mb-3 tracking-tight" style={{ fontFamily: 'var(--font-bebas, sans-serif)' }}>
+          추첨 임박
         </h2>
-        <p className="text-base sm:text-lg text-purple-100 mb-6 leading-relaxed">
-          감독관의 신호를 기다리고 있습니다 —<br className="sm:hidden"/> 곧 NBA 스타일 로또볼 추첨이 시작됩니다
+        <p className="text-base sm:text-lg text-[var(--mm-ink-soft)] mb-6 leading-relaxed">
+          총무의 신호를 기다리고 있습니다 —<br className="sm:hidden"/> 곧 순서 추첨이 시작됩니다
         </p>
 
         {/* 참가 팀들 표시 */}
         <div className="flex flex-wrap justify-center gap-2 mb-6">
           {teams.map(t => (
-            <div key={t.id} className="px-2.5 sm:px-3 py-2 rounded-lg bg-gray-900/80 border-2 text-sm sm:text-base font-bold animate-pulse break-keep" style={{ borderColor: t.color, color: '#fff' }}>
+            <div key={t.id} className="px-2.5 sm:px-3 py-2 rounded-lg bg-[var(--mm-panel)] border-2 text-sm sm:text-base font-bold animate-pulse break-keep" style={{ borderColor: t.color }}>
               <div className="w-2 h-2 inline-block rounded-full mr-2" style={{ background: t.color }} />
               {t.name}
             </div>
@@ -1663,13 +1719,13 @@ function LotteryWaitScreen({ teams, draftOrder, isSupervisor, onStartLottery, ac
           <Button
             onClick={onStartLottery}
             disabled={acting || draftOrder.length > 0}
-            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-lg sm:text-xl px-10 h-14 sm:h-16 shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+            className="bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] font-black text-lg sm:text-xl px-10 h-14 sm:h-16 shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
           >
             {acting ? '추첨 중...' : <span className="inline-flex items-center gap-2"><Dice5 size={20} aria-hidden /> 추첨 시작</span>}
           </Button>
         )}
         {!isSupervisor && (
-          <p className="text-base text-gray-200 mt-3 leading-relaxed">감독관이 추첨을 시작할 때까지 기다려주세요</p>
+          <p className="text-base text-[var(--mm-ink-soft)] mt-3 leading-relaxed">총무가 시작할 때까지 기다려주세요</p>
         )}
       </div>
     </div>
@@ -1687,16 +1743,14 @@ function LotteryDoneScreen({ teams, draftOrder, isSupervisor, onStartDraft, acti
 }) {
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
   return (
-    <div className="mb-3 sm:mb-4 rounded-2xl border-2 border-amber-700/60 bg-gradient-to-br from-amber-950/40 via-orange-950/30 to-gray-950 p-5 sm:p-7 lg:p-8 overflow-hidden relative">
-      <div className="absolute inset-0 opacity-20 pointer-events-none"
-        style={{ background: 'radial-gradient(circle at center, rgba(245,158,11,0.3), transparent 60%)' }} />
+    <div className="mb-3 sm:mb-4 rounded-2xl border-2 border-[var(--mm-yellow)] bg-[var(--mm-yellow-soft)] p-5 sm:p-7 lg:p-8 overflow-hidden relative">
 
       <div className="relative">
         <div className="text-center mb-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-900/60 border border-amber-600/60 text-amber-100 text-sm font-bold uppercase tracking-widest mb-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--mm-yellow-soft)] border border-[var(--mm-yellow)] text-[var(--mm-yellow-strong)] text-sm font-bold tracking-wide mb-3">
             🎲 추첨 완료
           </div>
-          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">픽 순서 확정</h2>
+          <h2 className="text-3xl sm:text-4xl font-black text-[var(--mm-ink)] tracking-tight">픽 순서 확정</h2>
         </div>
 
         {/* 픽 순서 큰 카드 */}
@@ -1706,33 +1760,33 @@ function LotteryDoneScreen({ teams, draftOrder, isSupervisor, onStartDraft, acti
             return (
               <div
                 key={`${tid}-${idx}`}
-                className="flex items-center gap-2 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-xl border-2 bg-gray-900/80 shadow-lg min-w-0 max-w-full"
+                className="flex items-center gap-2 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-xl border-2 bg-[var(--mm-panel)] shadow-lg min-w-0 max-w-full"
                 style={{ borderColor: t?.color }}
               >
                 <span className="text-2xl sm:text-3xl font-black tabular-nums shrink-0" style={{ color: teamAccentOnDark(t?.color), fontFamily: 'var(--font-bebas, sans-serif)' }}>
                   {idx + 1}
                 </span>
                 <div className="text-left min-w-0">
-                  <p className="text-sm sm:text-base lg:text-lg font-bold text-white leading-tight break-keep">{t?.name ?? '?'}</p>
+                  <p className="text-sm sm:text-base lg:text-lg font-bold text-[var(--mm-ink)] leading-tight break-keep">{t?.name ?? '?'}</p>
                 </div>
               </div>
             )
           })}
         </div>
 
-        <p className="text-center text-sm text-gray-300 mb-4">가중치 없음 · 균등 확률</p>
+        <p className="text-center text-sm text-[var(--mm-muted)] mb-4">가중치 없음 · 균등 확률</p>
 
         <div className="text-center">
           {isSupervisor ? (
             <Button
               onClick={onStartDraft}
               disabled={acting}
-              className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 text-white font-black text-lg sm:text-xl px-10 h-14 sm:h-16 shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+              className="bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] font-black text-lg sm:text-xl px-10 h-14 sm:h-16 shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
             >
               {acting ? '시작 중...' : <span className="inline-flex items-center gap-2"><Trophy size={20} aria-hidden /> 드래프트 시작</span>}
             </Button>
           ) : (
-            <p className="text-base text-gray-200 leading-relaxed">감독관이 드래프트를 시작할 때까지 기다려주세요</p>
+            <p className="text-base text-[var(--mm-ink-soft)] leading-relaxed">총무가 시작할 때까지 기다려주세요</p>
           )}
         </div>
       </div>
@@ -1765,9 +1819,9 @@ function TeamPickRoster({ teams, picks, draftOrder, poolSize, pickDurations }: {
   return (
     <div className="mt-4 sm:mt-6 space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
-        <Users size={16} className="text-blue-300" />
-        <h2 className="text-base font-bold text-gray-100 uppercase tracking-widest">팀별 누적 픽</h2>
-        <span className="text-xs text-gray-300">포지션 밸런스 확인용</span>
+        <Users size={16} className="text-[var(--mm-muted)]" />
+        <h2 className="text-base font-bold text-[var(--mm-ink)] tracking-wide">팀별 누적 픽</h2>
+        <span className="text-xs text-[var(--mm-muted)]">포지션 밸런스 확인용</span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3">
         {orderedTeams.map(t => {
@@ -1781,19 +1835,19 @@ function TeamPickRoster({ teams, picks, draftOrder, poolSize, pickDurations }: {
           return (
             <div
               key={t.id}
-              className="bg-gray-900/60 border border-gray-800 rounded-xl p-3"
+              className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-3"
               style={{ borderTopColor: t.color, borderTopWidth: 3 }}
             >
               <div className="flex items-center gap-2 mb-2 min-w-0">
                 <div className="w-2.5 h-2.5 rounded-full shrink-0 border" style={{ backgroundColor: teamInk(t.color).bg, borderColor: teamInk(t.color).border }} />
-                <p className="text-base font-bold text-white truncate">{t.name}</p>
-                <span className="text-xs text-gray-300 ml-auto font-mono shrink-0 tabular-nums">{list.length}명</span>
+                <p className="text-base font-bold text-[var(--mm-ink)] truncate">{t.name}</p>
+                <span className="text-xs text-[var(--mm-muted)] ml-auto font-mono shrink-0 tabular-nums">{list.length}명</span>
               </div>
               {Object.keys(posCount).length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-2 pb-2 border-b border-gray-800">
+                <div className="flex flex-wrap gap-1 mb-2 pb-2 border-b border-[var(--mm-rule)]">
                   {Object.entries(posCount).map(([pos, n]) => (
-                    <span key={pos} className="px-2 py-0.5 rounded bg-blue-950/40 border border-blue-800/40 text-xs font-bold text-blue-200">
-                      {pos} <span className="text-blue-300">×{n}</span>
+                    <span key={pos} className="px-2 py-0.5 rounded bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-xs font-bold text-[var(--mm-ink)]">
+                      {pos} <span className="text-[var(--mm-muted)]">×{n}</span>
                     </span>
                   ))}
                 </div>
@@ -1806,17 +1860,17 @@ function TeamPickRoster({ teams, picks, draftOrder, poolSize, pickDurations }: {
                   const dur = pickDurations?.[p.pick_number]
                   return (
                     <div key={p.pick_number} className="dp-slot-in flex items-center gap-1.5 min-w-0">
-                      <span className="text-sm text-gray-300 font-mono w-9 shrink-0 tabular-nums">#{p.pick_number}</span>
+                      <span className="text-sm text-[var(--mm-muted)] font-mono w-9 shrink-0 tabular-nums">#{p.pick_number}</span>
                       {p.player_number != null && (
-                        <span className="text-amber-300 font-mono font-bold w-8 shrink-0 text-sm tabular-nums">#{p.player_number}</span>
+                        <span className="text-[var(--mm-yellow-strong)] font-mono font-bold w-8 shrink-0 text-sm tabular-nums">#{p.player_number}</span>
                       )}
-                      <span className="text-white font-bold flex-1 truncate text-sm sm:text-base min-w-0 break-keep">{p.player_name}</span>
+                      <span className="text-[var(--mm-ink)] font-bold flex-1 truncate text-sm sm:text-base min-w-0 break-keep">{p.player_name}</span>
                       {p.player_position && (
-                        <span className="text-sm text-gray-300 font-mono shrink-0">{p.player_position.split(',').map(s => s.trim()).join('·')}</span>
+                        <span className="text-sm text-[var(--mm-muted)] font-mono shrink-0">{p.player_position.split(',').map(s => s.trim()).join('·')}</span>
                       )}
                       {dur != null && (
                         <span
-                          className="text-sm text-gray-300 font-mono tabular-nums shrink-0 px-1.5 py-0.5 rounded bg-gray-800 border border-gray-700"
+                          className="text-sm text-[var(--mm-muted)] font-mono tabular-nums shrink-0 px-1.5 py-0.5 rounded bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)]"
                           title="이 픽까지 걸린 시간"
                         >
                           {dur}초
@@ -1828,11 +1882,11 @@ function TeamPickRoster({ teams, picks, draftOrder, poolSize, pickDurations }: {
                 {Array.from({ length: Math.max(0, expectedRounds - list.length) }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
-                    className="flex items-center gap-1.5 min-w-0 rounded border border-dashed border-gray-700 px-2 py-1"
+                    className="flex items-center gap-1.5 min-w-0 rounded border border-dashed border-[var(--mm-rule)] px-2 py-1"
                     aria-hidden
                   >
-                    <span className="text-sm text-gray-400 font-mono w-9 shrink-0 tabular-nums">—</span>
-                    <span className="text-sm text-gray-400 flex-1 min-w-0 truncate">빈 자리</span>
+                    <span className="text-sm text-[var(--mm-muted)] font-mono w-9 shrink-0 tabular-nums">—</span>
+                    <span className="text-sm text-[var(--mm-muted)] flex-1 min-w-0 truncate">빈 자리</span>
                   </div>
                 ))}
               </div>
@@ -1871,11 +1925,11 @@ function PickSecondsCard({ currentSeconds, onChange }: { currentSeconds: number;
     setSaving(false)
   }
   return (
-    <div className="bg-blue-950/30 border border-blue-800/40 rounded-2xl p-4 space-y-2.5">
-      <p className="text-blue-200 text-base font-bold flex items-center gap-2">
+    <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-2xl p-4 space-y-2.5">
+      <p className="text-[var(--mm-ink)] text-base font-bold flex items-center gap-2">
         <Timer size={16} /> 픽 시간 (초)
       </p>
-      <p className="text-sm text-gray-200 leading-relaxed">단장들과 채팅 합의 후 변경. 기본은 다음 픽부터 적용.</p>
+      <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed">단장들과 채팅 합의 후 변경. 기본은 다음 픽부터 적용.</p>
       <div className="flex gap-2">
         <Input
           type="number"
@@ -1884,22 +1938,22 @@ function PickSecondsCard({ currentSeconds, onChange }: { currentSeconds: number;
           step={5}
           value={val}
           onChange={e => setVal(e.target.value)}
-          className="bg-gray-900 border-gray-700 text-white text-base h-10 flex-1 font-mono"
+          className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] text-base h-10 flex-1 font-mono"
         />
-        <Button onClick={submit} disabled={saving || parseInt(val, 10) === currentSeconds} className="bg-blue-600 hover:bg-blue-500 text-white h-10 text-sm font-bold px-4">
+        <Button onClick={submit} disabled={saving || parseInt(val, 10) === currentSeconds} className="bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] h-10 text-sm font-bold px-4">
           {saving ? '저장 중...' : '적용'}
         </Button>
       </div>
-      <label className="flex items-center gap-2 text-sm text-gray-100 cursor-pointer select-none pt-1 min-h-[32px]">
+      {/* 「현재: n초」 줄은 뺐다 — 바로 위 입력칸이 같은 숫자를 이미 들고 있다 */}
+      <label className="flex items-center gap-2 text-sm text-[var(--mm-ink)] cursor-pointer select-none pt-1 min-h-[32px]">
         <input
           type="checkbox"
           checked={applyNow}
           onChange={e => setApplyNow(e.target.checked)}
-          className="w-4 h-4 rounded border-gray-600 bg-gray-900 cursor-pointer accent-blue-500"
+          className="w-4 h-4 rounded border-[var(--mm-rule)] bg-[var(--mm-panel)] cursor-pointer accent-[var(--mm-yellow-strong)]"
         />
         <span>현재 픽에도 즉시 적용 (마감 시각 재계산)</span>
       </label>
-      <p className="text-sm text-gray-300 tabular-nums">현재: <b className="text-white">{currentSeconds}초</b></p>
     </div>
   )
 }

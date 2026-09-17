@@ -27,6 +27,12 @@ interface Props {
   /** open/close 를 부모에서 제어 — 패널 열림 시 본문 폭을 줄여 가리지 않도록 */
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  /**
+   * PC(lg+)에서 340px 고정 사이드바로 띄울지. false 면 어느 폭에서든 FAB → 오버레이만 쓴다.
+   * 픽이 시작되기 전(준비·추첨 단계)에는 채팅에 아직 할 말이 없는데 340px 을 상시로 먹으면
+   * 정작 봐야 할 준비 현황이 좁아진다. 기본 true(기존 동작).
+   */
+  pinned?: boolean
   /** 모바일 상단 현황 띠 — 채팅이 화면을 덮는 동안에도 누구 차례·몇 초인지 보이게 */
   currentTeamName?: string | null
   currentTeamColor?: string | null
@@ -37,7 +43,7 @@ interface Props {
 const POLL_MS = 2500
 const DING_COOLDOWN_MS = 1500
 
-export default function DraftChat({ leagueId, draftId, authedCode, teams, authedRole, authedTeamId, authedLabel, open: openProp, onOpenChange, currentTeamName, currentTeamColor, remainingSeconds, isMyTurn }: Props) {
+export default function DraftChat({ leagueId, draftId, authedCode, teams, authedRole, authedTeamId, authedLabel, open: openProp, onOpenChange, currentTeamName, currentTeamColor, remainingSeconds, isMyTurn, pinned = true }: Props) {
   const [msgs, setMsgs] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -60,7 +66,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
     mq.addEventListener?.('change', update)
     return () => mq.removeEventListener?.('change', update)
   }, [])
-  const open = openRaw || isLg
+  const open = openRaw || (isLg && pinned)
 
   const [error, setError] = useState<string | null>(null)
   const lastTsRef = useRef<string | null>(null)
@@ -269,13 +275,15 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
       {showMobileFab && (
         <button onClick={() => setOpen(true)}
           aria-label={unread > 0 ? `채팅 (읽지 않은 메시지 ${unread}건)` : '채팅 열기'}
-          className="lg:hidden fixed bottom-4 right-4 z-40 flex items-center gap-2 px-4 py-2.5 min-h-[48px] min-w-[48px] rounded-full bg-blue-600 hover:bg-blue-500 text-white shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
-          style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+          className={`${pinned ? 'lg:hidden ' : ''}fixed right-4 z-40 flex items-center gap-2 px-4 py-2.5 min-h-[48px] min-w-[48px] rounded-full bg-[var(--mm-yellow)] hover:brightness-95 text-[var(--mm-black)] shadow-2xl cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]`}
+          // 390px 에서 bottom-4 는 운영 패널의 「팀장 지정」 select 위에 그대로 얹혔다(2026-09-18 실측).
+          // 한 칸(5.5rem) 올려 폼 컨트롤과 겹치지 않게 한다.
+          style={{ bottom: 'calc(5.5rem + env(safe-area-inset-bottom))' }}
         >
           <MessageCircle size={20} />
           <span className="text-sm font-bold hidden sm:inline">채팅</span>
           {unread > 0 && (
-            <span className="min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>
+            <span className="min-w-5 h-5 px-1.5 rounded-full bg-[var(--mm-black)] text-[var(--mm-yellow)] text-xs font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>
           )}
         </button>
       )}
@@ -286,14 +294,14 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
           type="button"
           onClick={() => setOpen(false)}
           aria-label="채팅 닫기 — 채팅창 밖을 탭하세요"
-          className="lg:hidden fixed inset-0 z-30 bg-black/60 backdrop-blur-sm cursor-pointer animate-fadeIn"
+          className={`${pinned ? 'lg:hidden ' : ''}fixed inset-0 z-30 bg-black/60 backdrop-blur-sm cursor-pointer animate-fadeIn`}
         />
       )}
 
       {/* 본 패널 — 모바일: open=true 일 때만 표시(슬라이드 인). lg+: 항상 표시(고정 사이드바) */}
       {/* 높이는 아래 .draft-chat-panel 에서 100vh → 100dvh 순으로 준다.
           iOS 사파리의 100vh 는 주소창 높이를 빼지 않아 입력창이 화면 밖으로 밀렸다. */}
-      <div className={`draft-chat-panel ${open ? 'flex' : 'hidden'} lg:flex fixed top-0 right-0 z-40 w-[88vw] sm:w-[340px] flex-col bg-gray-900 border-l border-gray-700 shadow-2xl ${open ? 'animate-slideInRight' : ''}`}>
+      <div className={`draft-chat-panel ${open ? 'flex' : 'hidden'} ${pinned ? 'lg:flex' : ''} fixed top-0 right-0 z-40 w-[88vw] sm:w-[340px] flex-col bg-[var(--mm-panel)] border-l border-[var(--mm-rule)] shadow-2xl ${open ? 'animate-slideInRight' : ''}`}>
       <style jsx>{`
         .draft-chat-panel {
           height: 100vh;
@@ -310,13 +318,13 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
         .animate-slideInRight { animation: slideInRight 0.22s ease-out; }
         .animate-fadeIn { animation: fadeIn 0.18s ease-out; }
       `}</style>
-      <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-2">
-        <MessageCircle size={16} className="text-blue-400" />
-        <p className="text-sm font-bold text-gray-100 uppercase tracking-widest">드래프트 채팅</p>
-        <span className="hidden sm:inline text-xs text-gray-300">단장·감독관</span>
-        <span className="lg:hidden text-sm text-gray-300 italic">← 밖을 탭해 닫기</span>
+      <div className="px-4 py-3 border-b border-[var(--mm-rule)] flex items-center gap-2">
+        <MessageCircle size={16} className="text-[var(--mm-yellow-strong)]" />
+        <p className="text-sm font-bold text-[var(--mm-ink)] tracking-wide">드래프트 채팅</p>
+        <span className="hidden sm:inline text-xs text-[var(--mm-muted)]">단장·총무</span>
+        <span className={`${pinned ? 'lg:hidden ' : ''}text-sm text-[var(--mm-muted)] italic`}>← 밖을 탭해 닫기</span>
         {/* 닫기 버튼: PC 에서는 항상 고정이라 닫을 수 없게 숨김 */}
-        <button onClick={() => setOpen(false)} aria-label="채팅 닫기" className="lg:hidden ml-auto px-2.5 py-1.5 min-w-[44px] min-h-[44px] flex items-center gap-1 rounded-lg bg-gray-800 text-gray-200 hover:text-white hover:bg-gray-700 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
+        <button onClick={() => setOpen(false)} aria-label="채팅 닫기" className={`${pinned ? 'lg:hidden ' : ''}ml-auto px-2.5 py-1.5 min-w-[44px] min-h-[44px] flex items-center gap-1 rounded-lg bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:brightness-95 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]`}>
           <X size={16} /><span className="text-xs font-bold">닫기</span>
         </button>
       </div>
@@ -324,12 +332,12 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
       {/* 진행 현황 띠 — 모바일에서 채팅이 화면을 덮는 동안에도 누구 차례·몇 초인지 보이게.
           PC 는 본문이 옆에 그대로 있으므로 숨긴다. */}
       {currentTeamName && (
-        <div className="lg:hidden px-3 py-2 min-h-11 flex items-center gap-2 border-b border-gray-800 bg-gray-950">
+        <div className="lg:hidden px-3 py-2 min-h-11 flex items-center gap-2 border-b border-[var(--mm-rule)] bg-[var(--mm-panel)]">
           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentTeamColor ?? '#6b7280' }} aria-hidden />
-          <span className="text-sm font-bold text-white truncate min-w-0">{currentTeamName}</span>
-          {isMyTurn && <span className="shrink-0 px-2 py-0.5 rounded bg-emerald-500 text-black text-sm font-black">내 차례</span>}
+          <span className="text-sm font-bold text-[var(--mm-ink)] truncate min-w-0">{currentTeamName}</span>
+          {isMyTurn && <span className="shrink-0 px-2 py-0.5 rounded bg-[var(--mm-positive-bg)] text-[var(--mm-positive-fg)] border border-[var(--mm-positive)] text-sm font-black">내 차례</span>}
           {remainingSeconds != null && (
-            <span className={`ml-auto shrink-0 text-base font-black font-mono tabular-nums ${remainingSeconds <= 10 ? 'text-red-300' : 'text-gray-100'}`}>
+            <span className={`ml-auto shrink-0 text-base font-black font-mono tabular-nums ${remainingSeconds <= 10 ? 'text-[var(--mm-negative)]' : 'text-[var(--mm-ink)]'}`}>
               {remainingSeconds}s
             </span>
           )}
@@ -337,15 +345,15 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
       )}
 
       {error && (
-        <div className="px-3 py-2.5 bg-amber-950/40 border-b border-amber-800/40 flex items-start gap-1.5">
-          <AlertTriangle size={14} className="text-amber-400 mt-0.5 shrink-0" />
-          <p className="text-sm text-amber-200 leading-relaxed">{error}</p>
+        <div className="px-3 py-2.5 bg-[var(--mm-yellow-soft)] border-b border-[var(--mm-rule)] flex items-start gap-1.5">
+          <AlertTriangle size={14} className="text-[var(--mm-yellow-strong)] mt-0.5 shrink-0" />
+          <p className="text-sm text-[var(--mm-yellow-strong)] leading-relaxed">{error}</p>
         </div>
       )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
         {msgs.length === 0 && !error && (
-          <p className="text-center text-base text-gray-300 py-8 leading-relaxed">아직 메시지가 없습니다.<br/>첫 메시지를 남겨보세요!</p>
+          <p className="text-center text-base text-[var(--mm-muted)] py-8 leading-relaxed">아직 메시지가 없습니다.<br/>첫 메시지를 남겨보세요!</p>
         )}
         {msgs.map(m => {
           const team = m.team_id ? teamMap[m.team_id] : null
@@ -357,12 +365,12 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
               <div className="flex items-center gap-1.5 mb-1 flex-wrap">
                 {isSup ? <ShieldCheck size={14} style={{ color }} /> : <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: color }} />}
                 <span className="text-xs font-bold" style={{ color: accentOrInk(color) }}>
-                  {isSup ? '감독관' : team?.name ?? ''} · {m.sender_label}
+                  {isSup ? '총무' : team?.name ?? ''} · {m.sender_label}
                 </span>
-                <span className="text-xs text-gray-400">{new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="text-xs text-[var(--mm-muted)]">{new Date(m.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
               </div>
-              {/* 팀 컬러가 흰색이면 하드코딩 text-white 가 사라진다 → textOnBg 로 대비색 결정 (2026-08-08 핫픽스) */}
-              <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm sm:text-base break-words leading-relaxed ${mine ? 'rounded-tr-sm' : 'rounded-tl-sm bg-gray-800 text-gray-100'}`}
+              {/* 팀 컬러가 흰색이면 하드코딩 text-[var(--mm-ink)] 가 사라진다 → textOnBg 로 대비색 결정 (2026-08-08 핫픽스) */}
+              <div className={`max-w-[85%] px-3 py-2 rounded-2xl text-sm sm:text-base break-words leading-relaxed ${mine ? 'rounded-tr-sm' : 'rounded-tl-sm bg-[var(--mm-panel-alt)] text-[var(--mm-ink)]'}`}
                 style={mine ? { backgroundColor: color + '33', border: `1px solid ${color}66`, color: textOnBg(color) } : undefined}>
                 {m.message}
               </div>
@@ -371,7 +379,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
         })}
       </div>
 
-      <div className="p-2.5 border-t border-gray-800 flex gap-2" style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}>
+      <div className="p-2.5 border-t border-[var(--mm-rule)] flex gap-2" style={{ paddingBottom: 'max(0.625rem, env(safe-area-inset-bottom))' }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
@@ -379,10 +387,10 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
           placeholder="메시지 입력..."
           maxLength={500}
           aria-label="채팅 메시지 입력"
-          className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 min-h-[44px] text-base text-white placeholder:text-gray-400 focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-400"
+          className="flex-1 bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] rounded-lg px-3 py-2 min-h-[44px] text-base text-[var(--mm-ink)] placeholder:text-[var(--mm-muted)] focus:outline-none focus:border-[var(--mm-yellow)] focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)]"
         />
         <button onClick={send} disabled={sending || !input.trim()} aria-label="메시지 전송"
-          className="px-4 min-w-[44px] min-h-[44px] rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white cursor-pointer flex items-center justify-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950">
+          className="px-4 min-w-[44px] min-h-[44px] rounded-lg bg-[var(--mm-yellow)] hover:brightness-95 disabled:opacity-40 text-[var(--mm-black)] cursor-pointer flex items-center justify-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]">
           <Send size={16} />
         </button>
       </div>

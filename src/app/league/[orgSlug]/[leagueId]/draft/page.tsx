@@ -5,12 +5,10 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, CheckCircle2, Circle, Dice5, Crown, ShieldCheck, Settings2, Minimize2, Maximize2, Shuffle, Check, ChevronDown, Volume2, VolumeX, Hand, Clock, FlaskConical } from 'lucide-react'
+import { KeyRound, Trophy, ChevronRight, Lock, Sparkles, CheckCircle2, Circle, Crown, ShieldCheck, Settings2, Minimize2, Maximize2, Shuffle, Check, ChevronDown, Volume2, VolumeX, Hand, Clock, FlaskConical } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
-import DraftCodeManager from '@/components/league/DraftCodeManager'
-import DraftSessionControl from '@/components/league/DraftSessionControl'
-import NextQuarterButton from '@/components/league/NextQuarterButton'
+import DraftSetupStepper from '@/components/league/DraftSetupStepper'
 import DraftPlayerStatsModal, { type DraftStatRow } from '@/components/league/DraftPlayerStatsModal'
 import DraftLotteryReveal from '@/components/league/DraftLotteryReveal'
 import DraftTeamStats from '@/components/league/DraftTeamStats'
@@ -118,9 +116,6 @@ export default function LeagueDraftPage() {
   const [selectedPickId, setSelectedPickId] = useState<string | null>(null)  // 성적표에서 선택한 픽 후보
   const [muted, setMuted] = useState(false)
   const [statsGated, setStatsGated] = useState(false) // 비로그인/미승인 — 지난 분기 성적 잠김
-  // 강제 추첨 2단계 확인 (브라우저 confirm 대체) — 4초 안에 한 번 더 눌러야 실행
-  const [forceArmed, setForceArmed] = useState(false)
-  const forceArmTimer = useRef<number | null>(null)
   const autoPickRef = useRef<string | null>(null) // 자동픽 중복 방지 (deadline 키)
   const startClockRef = useRef<string | null>(null) // 첫 픽 타이머 시작 중복 방지
   const beepSecRef = useRef<number>(-1) // 카운트다운 비프 중복 방지
@@ -367,7 +362,7 @@ export default function LeagueDraftPage() {
       sessionStorage.setItem(sessionKey!, JSON.stringify({ teamId: team_id, role, label, code: plain }))
       setAuthedTeamId(team_id); setAuthedRole(role); setAuthedLabel(label); setAuthedCode(plain)
       setShowCodeModal(false); setCodeInput('')
-      if (role === 'supervisor') toast.success(`감독관 인증 완료 — ${label}`)
+      if (role === 'supervisor') toast.success(`총무 인증 완료 — ${label}`)
       else {
         const teamName = state?.teams.find(t => t.id === team_id)?.name
         toast.success(`${teamName ?? '팀'} 단장 인증 완료 — ${label}`)
@@ -399,46 +394,10 @@ export default function LeagueDraftPage() {
     } finally { setActing(false) }
   }
 
-  // 감독관: 준비 체크 시작
-  async function openReady() {
-    if (!state?.draft || !authedCode) return
-    setActing(true)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/drafts/${state.draft.id}/open-ready`, {
-        method: 'POST', headers: { 'X-Draft-Code': authedCode },
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) { toast.error(data.error ?? '실패'); return }
-      toast.success('준비 체크 시작')
-      fetchState()
-    } finally { setActing(false) }
-  }
-
-  // 감독관: 추첨 진행
-  async function runLottery(force: boolean) {
-    if (!state?.draft || !authedCode) return
-    setActing(true)
-    try {
-      const res = await fetch(`/api/leagues/${leagueId}/drafts/${state.draft.id}/lottery`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Draft-Code': authedCode },
-        body: JSON.stringify({ force }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) { toast.error(data.error ?? '추첨 실패'); return }
-      toast.success('추첨 완료!')
-      fetchState()
-    } finally { setActing(false) }
-  }
-
-  // 강제 추첨 — 브라우저 confirm 은 카톡 인앱·사파리에서 잘리고 버튼이 작다.
-  // 같은 버튼을 두 번 누르는 방식으로 대체한다(4초 뒤 자동 해제).
-  function armOrRunForce() {
-    if (forceArmTimer.current) { window.clearTimeout(forceArmTimer.current); forceArmTimer.current = null }
-    if (forceArmed) { setForceArmed(false); runLottery(true); return }
-    setForceArmed(true)
-    forceArmTimer.current = window.setTimeout(() => { setForceArmed(false); forceArmTimer.current = null }, 4000)
-  }
-  useEffect(() => () => { if (forceArmTimer.current) window.clearTimeout(forceArmTimer.current) }, [])
+  // 진행(준비 체크·추첨·드래프트 시작)은 이 화면에 없다 — 포털(/draft/<token>)에서 총무가 한다.
+  // 예전에는 여기에도 「준비 체크 시작」·「추첨 시작」·「강제 추첨」이 있었는데, 그 경로는
+  // /lottery/open 을 건너뛰어 모두가 함께 보는 추첨 대기 화면이 통째로 사라졌다.
+  // 같은 세션인데 운영자가 어느 탭에 있었느냐로 참가자 연출이 달라지는 상태였다.
 
   // 추가 시간 (현재 차례 단장)
   async function extendTime() {
@@ -595,7 +554,7 @@ export default function LeagueDraftPage() {
                   authedRole === 'supervisor' ? 'bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)]' : 'bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)]'
                 }`}>
                   {authedRole === 'supervisor' ? <ShieldCheck size={14} /> : <div className="w-2 h-2 rounded-full border" style={{ backgroundColor: teamInk(authedTeam?.color).bg, borderColor: teamInk(authedTeam?.color).border }} />}
-                  {authedRole === 'supervisor' ? '감독관' : authedTeam?.name} · {authedLabel}
+                  {authedRole === 'supervisor' ? '총무' : authedTeam?.name} · {authedLabel}
                 </span>
                 <button onClick={exitAuth} className="text-sm text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-live)] cursor-pointer font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] rounded-sm">해제</button>
               </>
@@ -618,15 +577,6 @@ export default function LeagueDraftPage() {
                 {q.is_current && <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-[color:var(--mm-yellow-strong)] inline-block" />}
               </button>
             ))}
-            {/* 분기 생성은 편집 권한(리그 PIN·어드민)이 있을 때만 */}
-            {isEditMode && (
-              <NextQuarterButton
-                leagueId={leagueId}
-                quarters={quarters}
-                authHeaders={leagueHeaders}
-                onCreated={newId => { void loadQuarters(newId) }}
-              />
-            )}
           </div>
         )}
       </div>
@@ -637,23 +587,22 @@ export default function LeagueDraftPage() {
           <button onClick={() => setShowManage(v => !v)}
             className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] transition-colors cursor-pointer">
             <span className="flex items-center gap-2 text-[color:var(--mm-yellow-strong)] font-bold text-sm uppercase tracking-[0.16em]">
-              <Settings2 size={16} /> 드래프트 관리 (편집 모드)
+              <Settings2 size={16} /> 드래프트 준비
             </span>
             <span className="text-sm text-[color:var(--mm-muted)]">{showManage ? '접기 ▲' : '펼치기 ▼'}</span>
           </button>
           {showManage && (
-            <div className="p-4 space-y-6 bg-[color:var(--mm-panel)]">
-              <p className="text-sm text-[color:var(--mm-ink-soft)] leading-relaxed">
-                리그 PIN으로 드래프트를 직접 관리합니다. 어드민 콘솔 없이 코드 발급·팀장 지정·풀 선별·추첨까지 여기서 진행할 수 있습니다.
-              </p>
-              <section className="space-y-2">
-                <h3 className="text-sm font-bold text-[color:var(--mm-ink)] uppercase tracking-widest">코드 발급</h3>
-                <DraftCodeManager leagueId={leagueId} quarterId={selectedQid} teams={state?.teams ?? []} authHeaders={leagueHeaders} />
-              </section>
-              <section className="space-y-2">
-                <h3 className="text-sm font-bold text-[color:var(--mm-ink)] uppercase tracking-widest">드래프트 세션</h3>
-                <DraftSessionControl leagueId={leagueId} quarterId={selectedQid} teams={state?.teams ?? []} authHeaders={leagueHeaders} onChanged={fetchState} />
-              </section>
+            <div className="p-4 bg-[color:var(--mm-panel)]">
+              <DraftSetupStepper
+                leagueId={leagueId}
+                quarters={quarters}
+                selectedQid={selectedQid}
+                teams={state?.teams ?? []}
+                authHeaders={leagueHeaders}
+                onQuarterCreated={newId => { void loadQuarters(newId) }}
+                onTeamsChanged={fetchState}
+                onSessionChanged={fetchState}
+              />
             </div>
           )}
         </div>
@@ -667,9 +616,9 @@ export default function LeagueDraftPage() {
               <Lock size={20} className="text-[color:var(--mm-yellow-strong)]" />
               <h3 className="font-jersey text-[color:var(--mm-ink)] font-bold text-xl sm:text-2xl">코드 입력</h3>
             </div>
-            <p className="text-sm text-[color:var(--mm-ink-soft)] mb-4 leading-relaxed">단장 코드는 팀 픽 권한, 감독관 코드는 준비·추첨 진행 권한이 부여됩니다.</p>
+            <p className="text-base text-[color:var(--mm-ink-soft)] mb-4 leading-relaxed break-keep">단장 코드는 우리 팀 픽을, 총무 코드는 진행을 맡습니다.</p>
             <Input autoFocus value={codeInput} onChange={e => { setCodeInput(e.target.value); setAuthError(null) }}
-              placeholder="단장/감독관 코드" className="bg-[color:var(--mm-panel-alt)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] font-mono text-lg h-12"
+              placeholder="단장/총무 코드" className="bg-[color:var(--mm-panel-alt)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] font-mono text-lg h-12"
               onKeyDown={e => e.key === 'Enter' && submitCode()} />
             {authError && <p className="text-[color:var(--mm-live)] text-sm mt-2 font-bold">{authError}</p>}
             <div className="flex gap-2 mt-4">
@@ -687,24 +636,19 @@ export default function LeagueDraftPage() {
         <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] border-dashed rounded-sm p-12 text-center">
           <Trophy size={24} className="mx-auto text-[color:var(--mm-muted)] mb-3" />
           <p className="font-jersey text-[color:var(--mm-ink)] text-lg sm:text-xl font-bold">이 분기는 아직 드래프트 세션이 만들어지지 않았습니다</p>
-          <p className="text-base text-[color:var(--mm-ink-soft)] mt-2 leading-relaxed">어드민이 세션을 생성하면 여기에 표시됩니다</p>
+          <p className="text-base text-[color:var(--mm-ink-soft)] mt-2 leading-relaxed break-keep">총무가 세션을 만들면 여기에 표시됩니다</p>
         </div>
       ) : draft.status === 'setup' ? (
         <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm p-8 text-center space-y-3">
           <p className="font-jersey text-[color:var(--mm-ink)] font-bold text-2xl sm:text-3xl">드래프트 준비 중</p>
-          <p className="text-base text-[color:var(--mm-ink-soft)] leading-relaxed">감독관 또는 어드민이 준비 체크를 시작하면 진행됩니다</p>
-          {authedRole === 'supervisor' && (
-            <Button onClick={openReady} disabled={acting} className="bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] text-base sm:text-lg font-bold h-12 px-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]">
-              <Dice5 size={16} className="mr-1.5" /> 준비 체크 시작
-            </Button>
-          )}
+          <p className="text-base text-[color:var(--mm-ink-soft)] leading-relaxed break-keep">총무가 공유 링크에서 준비를 시작하면 여기에도 표시됩니다</p>
         </div>
       ) : draft.status === 'ready_check' ? (
         <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm p-6 space-y-5">
           <div className="text-center">
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-[color:var(--mm-yellow-strong)]">READY CHECK</p>
+            <p className="text-base font-bold text-[color:var(--mm-yellow-strong)]">준비 확인</p>
             <p className="font-jersey text-[color:var(--mm-ink)] font-bold text-3xl sm:text-4xl mt-2">모든 참가자 준비 대기</p>
-            <p className="text-base text-[color:var(--mm-ink-soft)] mt-2 leading-relaxed">단장 {teams.length}명{state?.supervisor_exists ? ' + 감독관' : ''}이 모두 준비하면<br className="sm:hidden"/> 추첨을 진행할 수 있습니다</p>
+            <p className="text-base text-[color:var(--mm-ink-soft)] mt-2 leading-relaxed break-keep">단장 {teams.length}명{state?.supervisor_exists ? ' + 총무' : ''}이 모두 준비하면<br className="sm:hidden"/> 추첨을 진행할 수 있습니다</p>
           </div>
 
           {/* 참가자 준비 현황 */}
@@ -721,7 +665,7 @@ export default function LeagueDraftPage() {
               <span className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-sm border text-base font-bold ${
                 ready['supervisor'] ? 'bg-[color:var(--mm-yellow)] border-[color:var(--mm-yellow)] text-[color:var(--mm-black)]' : 'bg-[color:var(--mm-panel-alt)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)]'
               }`}>
-                {ready['supervisor'] ? <CheckCircle2 size={16} /> : <Circle size={16} />} 감독관
+                {ready['supervisor'] ? <CheckCircle2 size={16} /> : <Circle size={16} />} 총무
               </span>
             )}
           </div>
@@ -734,18 +678,12 @@ export default function LeagueDraftPage() {
                 {myReady ? '준비 해제' : (<span className="inline-flex items-center gap-2"><Hand size={20} aria-hidden /> 준비 완료</span>)}
               </Button>
               {authedRole === 'supervisor' && (
-                <div className="flex gap-2 flex-wrap justify-center">
-                  <Button onClick={() => runLottery(false)} disabled={acting || !allReady} className="bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] text-base sm:text-lg font-bold h-12 px-6">
-                    <Dice5 size={16} className="mr-1.5" /> 추첨 시작
-                  </Button>
-                  <Button onClick={armOrRunForce} disabled={acting} variant="outline"
-                    className={`text-base h-12 font-bold ${forceArmed ? 'border-[color:var(--mm-live)] text-[color:var(--mm-live)]' : ''}`}>
-                    {forceArmed ? '한 번 더 누르면 강제 추첨' : '강제 추첨'}
-                  </Button>
-                </div>
+                <p className="text-base text-[color:var(--mm-ink-soft)] text-center leading-relaxed break-keep">
+                  추첨과 드래프트 시작은 공유 링크(드래프트 방)에서 진행하세요.
+                </p>
               )}
               {!myReady && authedRole === 'manager' && (
-                <p className="text-sm text-[color:var(--mm-yellow-strong)] text-center leading-relaxed">버튼을 누르면 감독관에게 준비 신호가 전송됩니다.</p>
+                <p className="text-base text-[color:var(--mm-yellow-strong)] text-center leading-relaxed break-keep">버튼을 누르면 총무에게 준비 신호가 전송됩니다.</p>
               )}
             </div>
           ) : (
@@ -936,7 +874,7 @@ export default function LeagueDraftPage() {
                 {authedRole !== 'manager' ? (
                   <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm p-5 text-center">
                     {authedRole === 'supervisor'
-                      ? <p className="text-[color:var(--mm-yellow-strong)] text-base font-bold uppercase tracking-[0.16em]">감독관 — 진행 관전 중</p>
+                      ? <p className="text-[color:var(--mm-yellow-strong)] text-base font-bold">총무 — 진행 관전 중</p>
                       : <>
                           <KeyRound size={24} className="mx-auto text-[color:var(--mm-yellow-strong)] mb-2" />
                           <p className="text-[color:var(--mm-ink)] font-bold text-lg mb-2">단장 코드를 입력하세요</p>

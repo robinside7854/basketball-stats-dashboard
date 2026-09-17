@@ -81,7 +81,7 @@ export default function DraftNextUpChips({
 
   return (
     <div className="flex items-center gap-1 min-w-0 shrink" aria-label="다음 픽 순서">
-      <span className="text-sm text-gray-400 font-bold shrink-0">다음</span>
+      <span className="text-sm text-[var(--mm-muted)] font-bold shrink-0">다음</span>
       {ids.map((id, i) => {
         const t = byId[id]
         return (
@@ -89,9 +89,9 @@ export default function DraftNextUpChips({
             key={`${id}-${i}`}
             className={`inline-flex items-center gap-1 min-w-0 ${i === 0 ? '' : 'hidden sm:inline-flex'}`}
           >
-            {i > 0 && <ChevronRight size={14} className="text-gray-500 shrink-0" aria-hidden />}
+            {i > 0 && <ChevronRight size={14} className="text-[var(--mm-muted)] shrink-0" aria-hidden />}
             <span className="w-2.5 h-2.5 rounded-full shrink-0 border" style={{ backgroundColor: teamInk(t?.color).bg, borderColor: teamInk(t?.color).border }} aria-hidden />
-            <span className="text-sm font-bold text-gray-200 truncate min-w-0 max-w-[5.5rem] lg:max-w-none">
+            <span className="text-sm font-bold text-[var(--mm-ink-soft)] truncate min-w-0 max-w-[5.5rem] lg:max-w-none">
               {t?.name ?? '?'}
             </span>
           </span>

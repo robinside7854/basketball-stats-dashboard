@@ -178,7 +178,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
   return (
     // 1920×1080 에서 「이미지로 저장」·「닫기」가 화면 밖으로 밀려나 있었다(2026-09-16 실측).
     // 루트를 flex column 으로 잡고 카드만 내부 스크롤시켜 버튼을 항상 첫 화면 안에 둔다.
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black/85 backdrop-blur-sm p-3 sm:p-4"
+    <div className="fixed inset-0 z-[60] flex flex-col bg-[#000000]/85 backdrop-blur-sm p-3 sm:p-4"
       style={{
         paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
         paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
@@ -191,7 +191,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
         <button
           onClick={onClose}
           aria-label="닫기"
-          className="absolute top-0 right-0 sm:top-2 sm:right-2 z-10 min-w-11 min-h-11 rounded-full bg-gray-900/80 border border-gray-700 text-gray-200 hover:bg-gray-800 cursor-pointer flex items-center justify-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          className="absolute top-0 right-0 sm:top-2 sm:right-2 z-10 min-w-11 min-h-11 rounded-full bg-[#111827]/80 border border-[#374151] text-[#e5e7eb] hover:bg-[#1f2937] cursor-pointer flex items-center justify-center transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
         >
           <X size={20} />
         </button>
@@ -212,10 +212,10 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
             <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 shadow-[0_0_30px_rgba(245,158,11,0.6)]">
               {/* 아이콘 4단계(14/16/20/24) 예외 — 64/80px 원형 메달 안을 채우는 장식 마크다.
                   24 로 줄이면 원 한가운데 점만 남는다. 원 크기에 맞춘 값. */}
-              <Trophy className="w-9 h-9 sm:w-11 sm:h-11 text-white" />
+              <Trophy className="w-9 h-9 sm:w-11 sm:h-11 text-[#ffffff]" />
             </div>
             <p className="text-xs sm:text-sm font-black uppercase tracking-[0.3em] text-amber-300">DRAFT COMPLETE</p>
-            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white break-keep text-balance leading-tight"
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[#ffffff] break-keep text-balance leading-tight"
               style={{ textShadow: '0 2px 12px rgba(245,158,11,0.4)' }}>
               {title}
             </h1>
@@ -259,12 +259,12 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                       </span>
                     )}
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: teamInk(t.color).bg, border: `1px solid ${teamInk(t.color).border}` }} />
-                    <h3 className="text-base sm:text-lg lg:text-xl font-black text-white truncate break-keep min-w-0">{t.name}</h3>
+                    <h3 className="text-base sm:text-lg lg:text-xl font-black text-[#ffffff] truncate break-keep min-w-0">{t.name}</h3>
                     <span className="ml-auto flex items-center gap-2 shrink-0">
                       {typeof teamAvgSec[t.id] === 'number' && (
-                        <span className="text-sm font-mono tabular-nums text-gray-300">평균 {formatSec(teamAvgSec[t.id])}</span>
+                        <span className="text-sm font-mono tabular-nums text-[#d1d5db]">평균 {formatSec(teamAvgSec[t.id])}</span>
                       )}
-                      <span className="text-xs sm:text-sm font-mono tabular-nums text-gray-300">{totalMembers}명</span>
+                      <span className="text-xs sm:text-sm font-mono tabular-nums text-[#d1d5db]">{totalMembers}명</span>
                     </span>
                   </div>
                   {/* 팀장 라인 — 카드 최상단에 강조 표시 */}
@@ -283,26 +283,26 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                       >
                         팀장
                       </span>
-                      <span className="text-white font-bold text-sm sm:text-base truncate break-keep min-w-0">
+                      <span className="text-[#ffffff] font-bold text-sm sm:text-base truncate break-keep min-w-0">
                         {leaderName}
                       </span>
                     </div>
                   )}
                   {list.length === 0 ? (
-                    <p className="text-sm text-gray-500 text-center py-4">{leaderName ? '추가 픽 없음' : '픽 없음'}</p>
+                    <p className="text-sm text-[#6b7280] text-center py-4">{leaderName ? '추가 픽 없음' : '픽 없음'}</p>
                   ) : (
                     <div className="space-y-1">
                       {list.map(p => (
                         <div key={p.pick_number} className="flex items-center gap-1.5 min-w-0">
                           {!hideOrder && (
-                            <span className="text-sm font-mono tabular-nums w-8 shrink-0 text-gray-400">#{p.pick_number}</span>
+                            <span className="text-sm font-mono tabular-nums w-8 shrink-0 text-[#9ca3af]">#{p.pick_number}</span>
                           )}
                           {p.player_number != null && (
                             <span className="text-amber-300 font-mono font-bold w-8 shrink-0 text-xs sm:text-sm tabular-nums">#{p.player_number}</span>
                           )}
-                          <span className="text-white font-bold text-sm sm:text-base truncate min-w-0 break-keep flex-1">{p.player_name}</span>
+                          <span className="text-[#ffffff] font-bold text-sm sm:text-base truncate min-w-0 break-keep flex-1">{p.player_name}</span>
                           {p.player_position && (
-                            <span className="text-sm text-gray-300 font-mono shrink-0">
+                            <span className="text-sm text-[#d1d5db] font-mono shrink-0">
                               {p.player_position.split(',').map(s => s.trim()).join('·')}
                             </span>
                           )}
@@ -336,12 +336,12 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                     style={{ background: '#101018', borderColor: `${teamColor}66` }}
                   >
                     <Icon size={20} className="shrink-0" style={{ color: teamAccentOnDark(teamColor) }} aria-hidden />
-                    <span className="text-sm sm:text-base text-gray-100 truncate break-keep min-w-0">
+                    <span className="text-sm sm:text-base text-[#f3f4f6] truncate break-keep min-w-0">
                       <span className="font-black" style={{ color: teamAccentOnDark(teamColor) }}>{label}</span>
-                      <span className="text-gray-400 mx-1.5">·</span>
+                      <span className="text-[#9ca3af] mx-1.5">·</span>
                       <span className="font-bold">{entry.pick.player_name}</span>
                       <span className="font-mono tabular-nums ml-1.5">{formatSec(entry.sec)}</span>
-                      <span className="text-gray-400 ml-1.5">({teamName})</span>
+                      <span className="text-[#9ca3af] ml-1.5">({teamName})</span>
                     </span>
                   </span>
                 )
@@ -350,7 +350,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
           )}
 
           {/* 푸터 */}
-          <div className="text-center text-xs sm:text-sm text-gray-400 pt-2">
+          <div className="text-center text-xs sm:text-sm text-[#9ca3af] pt-2">
             Generated by 미라클 농구 드래프트 시스템 · {new Date().toLocaleDateString('ko-KR')}
           </div>
         </div>
@@ -365,7 +365,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
               onClick={() => setOrderShown(v => !v)}
               variant="outline"
               aria-pressed={orderShown}
-              className="bg-gray-900 border-gray-700 text-gray-100 hover:bg-gray-800 text-base sm:text-lg min-h-11 h-12 sm:h-14 px-5 font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+              className="bg-[#111827] border-[#374151] text-[#f3f4f6] hover:bg-[#1f2937] text-base sm:text-lg min-h-11 h-12 sm:h-14 px-5 font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             >
               {orderShown
                 ? <><Eye size={20} className="mr-2" /> 픽 순서 표시</>
@@ -375,7 +375,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
           <Button
             onClick={downloadPng}
             disabled={downloading}
-            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white font-black text-base sm:text-lg min-h-11 h-12 sm:h-14 px-6 sm:px-8 shadow-2xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-[#ffffff] font-black text-base sm:text-lg min-h-11 h-12 sm:h-14 px-6 sm:px-8 shadow-2xl cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
             <Download size={20} className="mr-2" />
             {downloading ? '저장 중...' : '이미지로 저장'}
@@ -383,7 +383,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
           <Button
             onClick={onClose}
             variant="outline"
-            className="bg-gray-900 border-gray-700 text-gray-100 hover:bg-gray-800 text-base sm:text-lg min-h-11 h-12 sm:h-14 px-5 sm:px-6 font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            className="bg-[#111827] border-[#374151] text-[#f3f4f6] hover:bg-[#1f2937] text-base sm:text-lg min-h-11 h-12 sm:h-14 px-5 sm:px-6 font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ca3af] focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
             닫기
           </Button>

@@ -62,6 +62,20 @@ interface Props {
    * 그 경로에서는 false 로 내려 아예 감춘다.
    */
   canDelete?: boolean
+  /**
+   * 페이즈 진행 Primary CTA(추첨 대기 열기 / 추첨 시작 / 드래프트 시작) 노출 여부. 기본 true.
+   * 포털은 페이즈 카드(ReadyPanel·LotteryWaitScreen·LotteryDoneScreen)가 같은 버튼을 이미
+   * 크게 내고 있다 → 운영 패널까지 켜면 한 화면에 같은 액션 버튼이 둘이 된다. 그쪽은 false.
+   */
+  showPrimary?: boolean
+  /**
+   * 렌더할 구획. 리그 페이지 스테퍼가 한 컴포넌트를 두 칸(③ 세션 / ④ 링크)에 나눠 쓴다.
+   *  - 'all'    기본. 예전과 동일한 단일 카드.
+   *  - 'editor' 세션 생성·참여 설정만 (공유 링크 제외)
+   *  - 'share'  공유 링크 블록만
+   * 로직은 그대로 두고 어느 JSX 를 내보낼지만 고른다.
+   */
+  section?: 'all' | 'editor' | 'share'
 }
 
 /** ConfirmModal 로 띄울 위험 액션 — 확인 시 실행할 함수를 함께 들고 있는다. */
@@ -72,7 +86,7 @@ interface PendingConfirm {
   run: () => void | Promise<void>
 }
 
-export default function DraftSessionControl({ leagueId, quarterId, teams, authHeaders = {}, onChanged, canDelete = true }: Props) {
+export default function DraftSessionControl({ leagueId, quarterId, teams, authHeaders = {}, onChanged, canDelete = true, showPrimary = true, section = 'all' }: Props) {
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [picks, setPicks] = useState<Pick[]>([])
@@ -354,7 +368,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         `확정된 픽 ${picks.length}건, 참여 선수 ${pool.length}명의 풀 설정, 팀 ${teams.length}개의 추첨 결과와 채팅 기록이 모두 삭제됩니다.`,
         draft.is_test
           ? '테스트 세션이라 분기 소속·팀장은 처음부터 기록되지 않았습니다 — 리그 데이터는 그대로입니다.'
-          : '단장·감독관 코드는 그대로 유지됩니다.',
+          : '단장·총무 코드는 그대로 유지됩니다.',
         '',
         '이 작업은 되돌릴 수 없습니다.',
       ],
@@ -402,7 +416,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     if (!draft || !draft.share_token) return
     setPendingConfirm({
       title: '공유 링크를 폐기할까요?',
-      lines: ['기존 링크는 더 이상 동작하지 않습니다.', '단장·감독관이 이미 링크로 들어와 있다면 새로고침 시 접속이 끊깁니다.'],
+      lines: ['기존 링크는 더 이상 동작하지 않습니다.', '단장·총무가 이미 링크로 들어와 있다면 새로고침 시 접속이 끊깁니다.'],
       confirmLabel: '폐기',
       run: revokeShareToken,
     })
@@ -446,7 +460,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     </span>
   ) : null
 
-  const chipButton = 'text-xs px-2.5 min-h-11 rounded bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]'
+  const chipButton = 'text-sm px-2.5 min-h-11 rounded bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]'
 
   // 위험 액션 확인 모달 — 이른 return 이 여러 갈래라 JSX 를 한 번 만들어 각 갈래에 붙인다.
   const confirmModal = (
@@ -469,7 +483,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   const editorBlock = (
     <div className="space-y-5">
       <div>
-        <label className="text-sm text-[var(--mm-ink-soft)] font-bold uppercase tracking-wider flex items-center gap-1.5 mb-2">
+        <label className="text-sm text-[var(--mm-ink-soft)] font-bold flex items-center gap-1.5 mb-2">
           <Crown size={14} className="text-[var(--mm-yellow-strong)]" /> 팀장(단장) 지정 — 드래프트 풀에서 자동 제외
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -496,10 +510,10 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
 
       <div>
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <label className="text-sm text-[var(--mm-ink-soft)] font-bold uppercase tracking-wider flex items-center gap-1.5 flex-wrap">
+          <label className="text-sm text-[var(--mm-ink-soft)] font-bold flex items-center gap-1.5 flex-wrap">
             <Users size={14} className="text-[var(--mm-positive)]" /> 드래프트 참여 선수 ({poolSel.size}명 선택 / 전체 {activePlayers.length}명)
             {guestExcluded > 0 && (
-              <span className="normal-case tracking-normal text-[var(--mm-muted)] font-normal">(게스트 {guestExcluded}명 제외)</span>
+              <span className="text-[var(--mm-muted)] font-normal">(게스트 {guestExcluded}명 제외)</span>
             )}
           </label>
           <div className="flex gap-1.5">
@@ -521,7 +535,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
                 }`}>
                 {isLeader ? <Crown size={14} className="text-[var(--mm-yellow-strong)] shrink-0" /> : checked ? <CheckCircle2 size={14} className="text-[var(--mm-positive)] shrink-0" /> : <Circle size={14} className="text-[var(--mm-muted)] shrink-0" />}
                 <span className="text-[var(--mm-ink)] font-bold truncate min-w-0">{p.name}</span>
-                {p.number != null && <span className="text-xs text-[var(--mm-muted)] shrink-0">#{p.number}</span>}
+                {p.number != null && <span className="text-sm text-[var(--mm-muted)] shrink-0">#{p.number}</span>}
                 {isLeader && <span className="text-sm text-[var(--mm-yellow-strong)] ml-auto shrink-0 font-bold">팀장</span>}
               </button>
             )
@@ -533,6 +547,58 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       </div>
     </div>
   )
+
+  // ── 공유 링크 블록 ──
+  // 예전에는 마지막 return(ready_check 이후)에만 있었다. 그래서 세션을 막 만든 setup 단계에서는
+  // 링크를 꺼낼 방법이 없었고, 운영자가 링크를 보내려면 먼저 「준비 체크 시작」을 눌러야 했다
+  // — 아무도 입장하지 않았는데 전원 화면이 READY 로 넘어가 버린다. 모든 단계에서 렌더한다.
+  const shareBlock = !draft ? (
+    <div className="rounded-lg border border-dashed border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] p-3">
+      <p className="text-base text-[var(--mm-ink-soft)] leading-relaxed break-keep">
+        세션을 먼저 만들면 여기에서 공유 링크를 발급할 수 있습니다.
+      </p>
+    </div>
+  ) : draft.status === 'completed' ? null : (
+    <div className="rounded-lg border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] p-3 space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Link2 size={16} className="text-[var(--mm-ink-soft)]" />
+        <p className="text-base font-bold text-[var(--mm-ink)]">공유 링크</p>
+        <span className="text-sm text-[var(--mm-muted)]">단장·총무가 들어오는 주소입니다</span>
+      </div>
+      {draft.share_token ? (
+        <div className="space-y-2">
+          {/* 운영자가 카톡으로 그대로 보내는 값 — 두 테마 모두에서 확실히 읽혀야 한다 */}
+          <div className="flex items-center gap-1.5 bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-md p-2">
+            <code className="font-mono text-sm text-[var(--mm-ink)] flex-1 truncate select-all">
+              {typeof window !== 'undefined' ? `${window.location.origin}/draft/${draft.share_token}` : `/draft/${draft.share_token}`}
+            </code>
+            <button onClick={copyShareUrl} aria-label={tokenCopied ? '공유 링크 복사됨' : '공유 링크 복사'} className={`px-3 min-h-11 rounded text-sm font-bold cursor-pointer flex items-center gap-1 transition-colors duration-200 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)] ${tokenCopied ? 'bg-[var(--mm-positive-bg)] text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90'}`}>
+              {tokenCopied ? <Check size={16} /> : <Copy size={16} />}
+              {tokenCopied ? '복사됨' : '복사'}
+            </button>
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            <Button onClick={requestGenerateShareToken} disabled={acting} variant="outline" className="text-sm min-h-11 bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer">
+              <RotateCcw size={16} className="mr-1" /> 재발급
+            </Button>
+            {/* 폐기는 기존 링크를 죽이는 파괴 액션 — 재발급과 같은 톤으로 두지 않는다 */}
+            <Button onClick={requestRevokeShareToken} disabled={acting} variant="outline" className="text-sm min-h-11 bg-[var(--mm-negative-bg)] border-[var(--mm-negative)]/40 text-[var(--mm-negative)] hover:text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/70 cursor-pointer">
+              <X size={16} className="mr-1" /> 폐기
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button onClick={requestGenerateShareToken} disabled={acting} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-base min-h-11 w-full sm:w-auto font-bold cursor-pointer">
+          <Link2 size={16} className="mr-1" /> 공유 링크 생성
+        </Button>
+      )}
+    </div>
+  )
+
+  // 스테퍼 ④ 칸 — 공유 링크만 떼어 쓴다
+  if (section === 'share') {
+    return <>{shareBlock}{confirmModal}</>
+  }
 
   // ── 세션 없음 — 생성 ──
   if (!draft) {
@@ -579,27 +645,34 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     return (
       <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 sm:p-5 space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold text-[var(--mm-ink)] text-lg sm:text-xl">참여 설정 (준비 단계)</h3>
-            <span className="text-sm font-bold px-2 py-0.5 rounded-full bg-[var(--mm-neutral-bg)] border border-[var(--mm-rule)] text-[var(--mm-neutral-fg)] uppercase tracking-wider">준비</span>
-            {testBadge}
-          </div>
+          {/* 페이즈 이름은 상단 hero(포털) · 스테퍼 헤더(리그 페이지)가 이미 말한다.
+              여기서 또 「참여 설정 (준비 단계)」+「준비」 배지를 내면 한 화면에 3번이 된다. */}
+          <div className="flex items-center gap-2">{testBadge}</div>
           <div className="flex gap-1.5 flex-wrap">
-            <Button onClick={savePoolLeaders} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer"><Save size={14} className="mr-1" /> 설정 저장</Button>
-            <Button onClick={openReady} disabled={acting} className="bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:opacity-90 text-sm min-h-11 font-bold cursor-pointer"><Play size={14} className="mr-1" /> 준비 체크 시작</Button>
+            <Button onClick={savePoolLeaders} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer"><Save size={16} className="mr-1" /> 설정 저장</Button>
+            {/* 진행(준비 체크)은 총무가 포털에서 한다 — 리그 페이지 스테퍼(section='editor')에서는 감춘다 */}
+            {section === 'all' && (
+              <Button onClick={openReady} disabled={acting} className="bg-[var(--mm-yellow)] text-[var(--mm-black)] hover:opacity-90 text-sm min-h-11 font-bold cursor-pointer"><Play size={16} className="mr-1" /> 준비 체크 시작</Button>
+            )}
             {/* 세션 삭제만 negative — 나머지 두 버튼과 같은 톤이면 손이 안 멈춘다 */}
             {showDelete && (
-              <Button onClick={requestDeleteSession} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-negative)]/40 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/70 hover:text-[var(--mm-negative)] cursor-pointer"><Trash2 size={14} className="mr-1" /> 세션 삭제</Button>
+              <Button onClick={requestDeleteSession} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-negative)]/40 bg-[var(--mm-negative-bg)] text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/70 hover:text-[var(--mm-negative)] cursor-pointer"><Trash2 size={16} className="mr-1" /> 세션 삭제</Button>
             )}
           </div>
         </div>
         {isTest && (
-          <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed break-keep">
+          <p className="text-base text-[var(--mm-ink-soft)] leading-relaxed break-keep">
             <b className="text-[var(--mm-ink)]">테스트 세션</b>입니다. 팀장·픽 결과가 분기 소속에 반영되지 않습니다 — 진행은 실전과 똑같습니다.
           </p>
         )}
-        <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed">현재 풀 {pool.length}명 · 팀장 {Object.values(leaderDraft).filter(Boolean).length}명. 변경 후 <b className="text-[var(--mm-ink)]">설정 저장</b>을 누른 뒤 <b className="text-[var(--mm-yellow-strong)]">준비 체크 시작</b>으로 진행하세요.</p>
+        <p className="text-base text-[var(--mm-ink-soft)] leading-relaxed break-keep">
+          현재 풀 {pool.length}명 · 팀장 {Object.values(leaderDraft).filter(Boolean).length}명.
+          {section === 'all'
+            ? <> 변경 후 <b className="text-[var(--mm-ink)]">설정 저장</b>을 누른 뒤 <b className="text-[var(--mm-yellow-strong)]">준비 체크 시작</b>으로 진행하세요.</>
+            : <> 바꿨다면 <b className="text-[var(--mm-ink)]">설정 저장</b>을 누르세요.</>}
+        </p>
         {editorBlock}
+        {section === 'all' && shareBlock}
         {confirmModal}
       </div>
     )
@@ -653,24 +726,25 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       <div className="space-y-3">
         {/* 메타 — 풀/팀장/픽 진행 수치만. phase 텍스트 중복 제거. */}
         <div className="flex items-start justify-between flex-wrap gap-3">
-          <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed min-w-0 flex-1">
+          <p className="text-base text-[var(--mm-ink-soft)] leading-relaxed min-w-0 flex-1">
             풀 <b className="text-[var(--mm-ink)] tabular-nums">{pool.length}</b>명 · 팀장 <b className="text-[var(--mm-ink)] tabular-nums">{leaders.filter(l => l.leader_player_id).length}</b>명 · <b className="text-[var(--mm-ink)] tabular-nums">{draft.total_picks}</b>픽 완료
           </p>
           {testBadge}
           {draft.status === 'in_progress' && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[var(--mm-positive-bg)] border border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)] text-sm font-bold uppercase tracking-wider">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[var(--mm-positive-bg)] border border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)] text-sm font-bold">
               <span className="w-2 h-2 rounded-full bg-[var(--mm-positive)] animate-pulse" /> 진행 중
             </span>
           )}
           {draft.status === 'completed' && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[var(--mm-neutral-bg)] border border-[var(--mm-rule)] text-[var(--mm-neutral-fg)] text-sm font-bold uppercase tracking-wider">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[var(--mm-neutral-bg)] border border-[var(--mm-rule)] text-[var(--mm-neutral-fg)] text-sm font-bold">
               종료
             </span>
           )}
         </div>
 
-        {/* Primary CTA — phase 에서 가장 자연스러운 다음 단계, full-width 모바일 친화 */}
-        {primary && (
+        {/* Primary CTA — phase 에서 가장 자연스러운 다음 단계, full-width 모바일 친화.
+            포털은 페이즈 카드가 같은 버튼을 이미 크게 내므로 showPrimary=false 로 끈다. */}
+        {primary && showPrimary && (
           <div className="space-y-2">
             <Button
               onClick={primary.onClick}
@@ -680,7 +754,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
               {primary.label}
             </Button>
             {primary.helper && (
-              <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed text-center">{primary.helper}</p>
+              <p className="text-base text-[var(--mm-ink-soft)] leading-relaxed text-center break-keep">{primary.helper}</p>
             )}
           </div>
         )}
@@ -690,7 +764,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
           <div className="flex flex-wrap gap-1.5 justify-center">
             {draft.status === 'ready_check' && (
               <Button onClick={() => requestOpenLotteryWait(true)} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]">
-                <Zap size={14} className="mr-1" aria-hidden /> 강제 열기 (READY 무시)
+                <Zap size={16} className="mr-1" aria-hidden /> 준비 안 된 사람 빼고 열기
               </Button>
             )}
             {/* 위험 액션 details 안이 아니라 여기 둔다 — 리허설에서는 "한 번 더 돌리기"가
@@ -707,10 +781,10 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       {/* 위험 액션 격리 — details 로 접어둠 */}
       <details className="rounded-lg border border-[var(--mm-negative)]/30 bg-[var(--mm-negative-bg)] group">
         <summary className="cursor-pointer select-none px-3 py-2.5 min-h-11 text-sm font-bold text-[var(--mm-negative)] flex items-center gap-2 list-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-negative)] rounded-lg">
-          <span className="inline-flex items-center justify-center text-[var(--mm-negative)]" aria-hidden><AlertTriangle size={14} /></span>
-          <span className="uppercase tracking-wider">위험 액션</span>
-          <span className="ml-auto text-xs text-[var(--mm-negative)] opacity-80 group-open:hidden">펼치기</span>
-          <span className="ml-auto text-xs text-[var(--mm-negative)] opacity-80 hidden group-open:inline">접기</span>
+          <span className="inline-flex items-center justify-center text-[var(--mm-negative)]" aria-hidden><AlertTriangle size={16} /></span>
+          <span>되돌릴 수 없는 작업</span>
+          <span className="ml-auto text-sm text-[var(--mm-negative)] group-open:hidden">펼치기</span>
+          <span className="ml-auto text-sm text-[var(--mm-negative)] hidden group-open:inline">접기</span>
         </summary>
         <div className="border-t border-[var(--mm-negative)]/30 p-3 flex flex-wrap gap-1.5">
           {draft.status === 'in_progress' && (
@@ -733,8 +807,8 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
       <div className="rounded-lg border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] p-3 sm:p-4 space-y-3">
         {/* 팀장 라인업 — 항상 표시 */}
         <div>
-          <p className="text-xs text-[var(--mm-ink-soft)] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
-            <Crown size={14} className="text-[var(--mm-yellow-strong)]" /> 팀장 라인업
+          <p className="text-sm text-[var(--mm-ink-soft)] font-bold mb-2 flex items-center gap-1.5">
+            <Crown size={16} className="text-[var(--mm-yellow-strong)]" /> 팀장 라인업
           </p>
           <div className="flex flex-wrap gap-1.5">
             {teams.map(t => {
@@ -754,19 +828,19 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         {draft.status === 'ready_check' && (
           <div className="pt-3 border-t border-[var(--mm-rule)]">
             <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-              <p className="text-xs text-[var(--mm-ink-soft)] font-bold uppercase tracking-widest">참가자 준비 현황</p>
+              <p className="text-sm text-[var(--mm-ink-soft)] font-bold">참가자 준비 현황</p>
               <button onClick={() => fetchData(true)} className={`inline-flex items-center gap-1 ${chipButton}`} aria-label="준비 현황 새로고침">
-                <RefreshCw size={14} /> 새로고침
+                <RefreshCw size={16} /> 새로고침
               </button>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {teams.map(t => (
                 <span key={t.id} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${ready[t.id] ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)]'}`}>
-                  {ready[t.id] ? <CheckCircle2 size={14} /> : <Circle size={14} />}{t.name} 단장
+                  {ready[t.id] ? <CheckCircle2 size={16} /> : <Circle size={16} />}{t.name} 단장
                 </span>
               ))}
               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${ready['supervisor'] ? 'bg-[var(--mm-positive-bg)] border-[var(--mm-positive)]/40 text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)]'}`}>
-                {ready['supervisor'] ? <CheckCircle2 size={14} /> : <Circle size={14} />}감독관
+                {ready['supervisor'] ? <CheckCircle2 size={16} /> : <Circle size={16} />}총무
               </span>
             </div>
           </div>
@@ -775,17 +849,16 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         {/* 추첨 결과 — lottery_done 이후 */}
         {draft.lottery_done && draft.draft_order.length > 0 && (
           <div className="pt-3 border-t border-[var(--mm-rule)]">
-            <p className="text-xs text-[var(--mm-ink-soft)] font-bold uppercase tracking-widest mb-2">추첨 결과 — 픽 순서</p>
+            <p className="text-sm text-[var(--mm-ink-soft)] font-bold mb-2">추첨 결과 — 픽 순서</p>
             <div className="flex flex-wrap gap-1.5">
+              {/* 확률(%)은 뺐다 — 균등 추첨이라 팀마다 같은 숫자가 찍힌다. 정보가 0인 칸이었다. */}
               {draft.draft_order.map((tid, idx) => {
                 const t = teamMap[tid]
-                const odd = draft.lottery_odds?.[tid]
                 return (
                   <div key={`${tid}-${idx}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[var(--mm-panel)] border border-[var(--mm-rule)] text-sm">
                     <span className="text-[var(--mm-ink-soft)] font-bold tabular-nums">{idx + 1}.</span>
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color }} />
                     <span className="text-[var(--mm-ink)] font-bold">{t?.name ?? '?'}</span>
-                    {odd != null && <span className="text-xs text-[var(--mm-yellow-strong)] font-bold tabular-nums">{(odd * 100).toFixed(0)}%</span>}
                   </div>
                 )
               })}
@@ -794,43 +867,8 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
         )}
       </div>
 
-      {/* 공유 링크 — 단장·감독관용 별도 진입 페이지 */}
-      {draft.status !== 'completed' && (
-        <div className="rounded-lg border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] p-3 space-y-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link2 size={16} className="text-[var(--mm-ink-soft)]" />
-            <p className="text-sm font-bold text-[var(--mm-ink)] uppercase tracking-widest">공유 링크</p>
-            <span className="text-xs text-[var(--mm-muted)]">단장·감독관 전용 진입 페이지</span>
-          </div>
-          {draft.share_token ? (
-            <div className="space-y-2">
-              {/* 운영자가 카톡으로 그대로 보내는 값 — 두 테마 모두에서 확실히 읽혀야 한다 */}
-              <div className="flex items-center gap-1.5 bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-md p-2">
-                <code className="font-mono text-xs sm:text-sm text-[var(--mm-ink)] flex-1 truncate select-all">
-                  {typeof window !== 'undefined' ? `${window.location.origin}/draft/${draft.share_token}` : `/draft/${draft.share_token}`}
-                </code>
-                <button onClick={copyShareUrl} aria-label={tokenCopied ? '공유 링크 복사됨' : '공유 링크 복사'} className={`px-2.5 rounded text-xs font-bold cursor-pointer flex items-center gap-1 transition-colors min-h-11 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)] ${tokenCopied ? 'bg-[var(--mm-positive-bg)] text-[var(--mm-positive-fg)]' : 'bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90'}`}>
-                  {tokenCopied ? <Check size={14} /> : <Copy size={14} />}
-                  {tokenCopied ? '복사됨' : '복사'}
-                </button>
-              </div>
-              <div className="flex gap-1.5 flex-wrap">
-                <Button onClick={requestGenerateShareToken} disabled={acting} variant="outline" className="text-sm min-h-11 bg-[var(--mm-panel)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer">
-                  <RotateCcw size={14} className="mr-1" /> 재발급
-                </Button>
-                {/* 폐기는 기존 링크를 죽이는 파괴 액션 — 재발급과 같은 톤으로 두지 않는다 */}
-                <Button onClick={requestRevokeShareToken} disabled={acting} variant="outline" className="text-sm min-h-11 bg-[var(--mm-negative-bg)] border-[var(--mm-negative)]/40 text-[var(--mm-negative)] hover:text-[var(--mm-negative)] hover:border-[var(--mm-negative)]/70 cursor-pointer">
-                  <X size={14} className="mr-1" /> 폐기
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button onClick={requestGenerateShareToken} disabled={acting} className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 text-sm min-h-11 w-full sm:w-auto font-bold cursor-pointer">
-              <Link2 size={14} className="mr-1" /> 공유 링크 생성
-            </Button>
-          )}
-        </div>
-      )}
+      {/* 공유 링크 — 정의는 위 shareBlock 한 곳. 모든 단계에서 같은 마크업이 나간다. */}
+      {section === 'all' && shareBlock}
 
       {/* 최근 픽 목록 제거 — 상단 스코어보드(DraftScoreboard)가 모든 픽을
           단일 소스로 보여주므로 여기서 중복 노출하지 않음. */}

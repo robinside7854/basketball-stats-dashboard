@@ -5,7 +5,7 @@
 // 픽 공개(z-100)보다 아래이므로 전면 연출과 싸우지 않는다.
 // 아이콘은 lucide AlertTriangle 20 하나. 액센트는 가로챈 팀의 컬러(왼쪽 보더)뿐.
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { AlertTriangle } from 'lucide-react'
 
 export interface StealBannerData {
@@ -24,14 +24,18 @@ export default function DraftStealBanner({ data, onDone }: { data: StealBannerDa
 }
 
 function StealBannerInner({ data, onDone }: { data: StealBannerData; onDone: () => void }) {
+  // onDone 을 deps 에 넣으면 부모가 인라인 화살표를 넘길 때 재렌더마다 타이머가 새로 걸려
+  // 배너가 영영 안 사라진다 — 최신 함수는 ref 로 들고, 타이머는 마운트 1회만 건다.
+  const onDoneRef = useRef(onDone)
+  useEffect(() => { onDoneRef.current = onDone }, [onDone])
   useEffect(() => {
-    const t = setTimeout(onDone, BANNER_MS)
+    const t = setTimeout(() => onDoneRef.current(), BANNER_MS)
     return () => clearTimeout(t)
-  }, [onDone])
+  }, [])
 
   return (
     <div
-      className="dp-steal sticky z-20 mb-2 rounded-lg pl-3 pr-3 py-2.5 min-h-11 flex items-center gap-2 bg-gray-950 border border-gray-800"
+      className="dp-steal sticky z-20 mb-2 rounded-lg pl-3 pr-3 py-2.5 min-h-11 flex items-center gap-2 bg-[var(--mm-panel)] border border-[var(--mm-rule)]"
       style={{
         top: 'calc(env(safe-area-inset-top, 0px) + 3.25rem)',
         borderLeftColor: data.teamColor,
@@ -39,8 +43,8 @@ function StealBannerInner({ data, onDone }: { data: StealBannerData; onDone: () 
       }}
       role="alert"
     >
-      <AlertTriangle size={20} className="text-amber-300 shrink-0" aria-hidden />
-      <p className="text-base font-bold text-white leading-snug break-keep min-w-0">
+      <AlertTriangle size={20} className="text-[var(--mm-yellow-strong)] shrink-0" aria-hidden />
+      <p className="text-base font-bold text-[var(--mm-ink)] leading-snug break-keep min-w-0">
         {data.playerName} 선수를 {data.teamName}에 빼앗겼습니다 — 다시 골라 주세요
       </p>
       <style jsx>{`
