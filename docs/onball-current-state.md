@@ -124,6 +124,10 @@
   타이머를 재설정해 영영 안 닫혔다(연속 픽 연장 로직이 무한 연장으로) → ref 고정 + Esc. 남은 것:
   구 조직 경로 `admin/(dashboard)/orgs/[orgSlug]/leagues/[leagueId]/draft` 는 스테퍼 미적용(정리 후보) ·
   4Q 테스트 세션 토큰이 `kpdot0AsbcY43emq` 로 바뀜(사용자가 재생성).
+- **노란 팀 이름 확정 (사용자 결정 9/18)** — 기본 `락다운`, **3Q 만 override `굿모닝`**(1·2·4Q override 도
+  락다운). API 실측: 3Q 굿모닝/빅현욱/챗지피지기 · 4Q 락다운/빅현욱/챗지피지기. 9/16 「확인 필요」 항목 해소.
+- 옛 조직 경로 `admin/(dashboard)/orgs/[orgSlug]/leagues/[leagueId]/draft`(redirect 스텁) 삭제. 나머지
+  `orgs/*` 스텁은 그대로(옛 북마크 리다이렉트용).
 - ⚠ **확인 필요(데이터, 2026-09-16 15:40 실측)**: 노란 팀(`75140c73`)의 `league_teams.name` 이
   오전엔 `굿모닝` 이었는데 오후엔 `락다운` 으로 바뀌어 있다. 3Q override 행은 없고(1Q·2Q 만 있음)
   `league_teams` 엔 수정 시각 컬럼이 없어 누가 언제 바꿨는지 추적 불가. 이 상태면 **3Q 경기·
