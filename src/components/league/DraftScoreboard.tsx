@@ -8,6 +8,7 @@
 
 import type { CSSProperties } from 'react'
 import { Trophy } from 'lucide-react'
+import { seededShuffle } from '@/lib/draft/shuffle'
 
 interface Team { id: string; name: string; color: string }
 interface Pick {
@@ -39,6 +40,11 @@ interface Props {
    * 이 컴포넌트는 값을 쓰지 않는다. 호출부가 두 컴포넌트에 같은 props 를 넘길 수 있도록 받아만 둔다.
    */
   startedAt?: string | null
+  /**
+   * 발표 모드 — 픽 순서를 숨기고 "팀별 명단"만 보여준다.
+   * 라운드 보드는 격자 자체가 픽 순서라 번호만 지워도 순서가 그대로 읽힌다. 그래서 통째로 바꾼다.
+   */
+  hideOrder?: boolean
 }
 
 /** 47 → "47초", 92 → "1분 32초" */
@@ -48,7 +54,7 @@ function formatSec(sec: number): string {
   return `${Math.floor(s / 60)}분 ${s % 60}초`
 }
 
-export default function DraftScoreboard({ title, teams, picks, draftOrder, method, totalPicks, currentPickIndex, status, pickDurations, autoPickNumbers }: Props) {
+export default function DraftScoreboard({ title, teams, picks, draftOrder, method, totalPicks, currentPickIndex, status, pickDurations, autoPickNumbers, hideOrder = false }: Props) {
   const autoSet = new Set(autoPickNumbers ?? [])
   if (draftOrder.length === 0) return null
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
@@ -84,7 +90,41 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
         </div>
       </div>
 
-      {/* 본문 — 라운드별 그리드. auto-fit + minmax 로 가용 폭을 모두 채워 픽 셀이 좌측에만 몰리는 현상 방지. */}
+      {/* 발표 모드 — 팀별 명단만. 번호·라운드 없이, 팀마다 고정 시드로 섞은 순서. */}
+      {hideOrder ? (
+        <div className="p-3 sm:p-4 lg:p-5">
+          <div className="grid gap-3 sm:gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            {seededShuffle(teams, `teams:${teams.map(t => t.id).join(',')}`).map(team => {
+              const roster = seededShuffle(picks.filter(p => p.team_id === team.id), team.id)
+              return (
+                <div
+                  key={team.id}
+                  className="rounded-lg border-2 p-3 sm:p-4 min-w-0"
+                  style={{ background: 'rgba(15,15,15,0.85)', borderColor: `${team.color}66` }}
+                >
+                  <div className="flex items-center gap-2 mb-2 min-w-0">
+                    <span className="w-4 h-4 rounded-full shrink-0 border border-black/30" style={{ background: team.color }} />
+                    <span className="text-base sm:text-lg font-black text-white truncate min-w-0 break-keep">{team.name}</span>
+                    <span className="ml-auto text-sm font-mono tabular-nums text-gray-400 shrink-0">{roster.length}명</span>
+                  </div>
+                  {roster.length === 0 ? (
+                    <p className="text-sm text-gray-500 py-2">—</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {roster.map(p => (
+                        <p key={p.player_id} className="text-base sm:text-lg font-bold text-gray-100 truncate min-w-0 break-keep">
+                          {p.player_name}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+      /* 본문 — 라운드별 그리드. auto-fit + minmax 로 가용 폭을 모두 채워 픽 셀이 좌측에만 몰리는 현상 방지. */
       <div className="p-3 sm:p-4 lg:p-5 space-y-6 sm:space-y-8">
         {Array.from({ length: rounds }).map((_, idx) => {
           const round = idx + 1
@@ -196,6 +236,7 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
           )
         })}
       </div>
+      )}
 
       <style jsx>{`
         .draft-run-border {

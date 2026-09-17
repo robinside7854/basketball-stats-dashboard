@@ -225,16 +225,20 @@ export default function DraftPickReveal({
   dramatic = false,
   brief = null,
   prevQuarterLabel = null,
+  seasonLabel = null,
 }: {
   data: PickRevealData | null
   onClose: () => void
   /** 이 픽 직후 화면 주인이 다음 차례인지 — true 면 1.2초로 축약 + 「지금 내 차례」 배지 */
   isMyTurn?: boolean
-  /** 1라운드 지명 — 이름을 감춘 채 지난 시즌 기록부터 한 줄씩 여는 단계 연출 */
+  /** 1라운드 지명 — 이름을 감춘 채 시즌 기록 박스를 하나씩 여는 단계 연출 */
   dramatic?: boolean
-  /** 드라마틱 공개에서 읽어 줄 지난 분기 요약 (없으면 "기록 없음" 한 줄) */
+  /** 읽어 줄 시즌 요약 (없으면 "시즌 기록 없음" 한 칸) */
   brief?: DraftPlayerBrief | null
+  /** 직전 분기 라벨 — 소속 팀명 옆 보조 표기용(호환 유지) */
   prevQuarterLabel?: string | null
+  /** 집계 범위 라벨 — 예 "2026 시즌". 기록 헤더에 그대로 쓴다 */
+  seasonLabel?: string | null
 }) {
   // 드라마틱 공개는 픽마다 처음부터 다시 시작해야 한다 — key 로 재마운트해 상태를 초기화한다
   //   (effect 안 setState 로 리셋하지 않는다).
@@ -247,20 +251,25 @@ export default function DraftPickReveal({
         isMyTurn={isMyTurn}
         brief={brief}
         prevQuarterLabel={prevQuarterLabel}
+        seasonLabel={seasonLabel}
       />
     )
   }
-  return <StandardPickReveal data={data} onClose={onClose} isMyTurn={isMyTurn} />
+  return <StandardPickReveal data={data} onClose={onClose} isMyTurn={isMyTurn} brief={brief} seasonLabel={seasonLabel} />
 }
 
 function StandardPickReveal({
   data,
   onClose,
   isMyTurn = false,
+  brief = null,
+  seasonLabel = null,
 }: {
   data: PickRevealData | null
   onClose: () => void
   isMyTurn?: boolean
+  brief?: DraftPlayerBrief | null
+  seasonLabel?: string | null
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   // 연출이 열려 있는 동안 유지되는 마감 시각. 연속 픽은 이 값을 연장만 한다.
@@ -288,6 +297,9 @@ function StandardPickReveal({
     if (!canvas) return
     return runConfetti(canvas, data.teamColor, DURATION_MS)
   }, [data])
+
+  // brief 가 없으면 빈 배열 → 요약 카드를 통째로 렌더하지 않는다(기존 화면 그대로).
+  const standardBoxes = useMemo(() => buildStatBoxes(brief), [brief])
 
   if (!data) return null
 
@@ -427,7 +439,22 @@ function StandardPickReveal({
           )}
         </div>
 
-        <p className="mt-8 text-xs sm:text-sm uppercase tracking-[0.3em] text-gray-300">탭하여 닫기</p>
+        {/* 2라운드 이후 픽 — 요약 카드 한 장. 단계 연출 없이 한 번에 뜬다(4.5초 안에 읽혀야 한다). */}
+        {standardBoxes.length > 0 && (
+          <div className="mt-4 sm:mt-5 rounded-2xl border px-3 py-3 text-left"
+            style={{ background: '#111114', borderColor: `${data.teamColor}55` }}>
+            <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-gray-400 mb-2">
+              {seasonLabel ?? '시즌'} 기록
+            </p>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {standardBoxes.map(b => (
+                <StatBoxCell key={b.key} box={b} teamColor={data.teamColor} rankTotal={brief?.rank_total ?? 0} visible compact />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p className="mt-6 text-xs sm:text-sm uppercase tracking-[0.3em] text-gray-300">탭하여 닫기</p>
       </div>
 
       <style jsx>{`
@@ -479,10 +506,10 @@ function StandardPickReveal({
 
 /** 단계 0(헤더) → 1(포지션 칩) */
 const D_CHIPS_MS = 1000
-/** 기록 첫 줄 시작 시각 · 줄 간격 */
+/** 기록 박스 첫 칸 시작 시각 · 칸 간격 */
 const D_LINE_START_MS = 2000
-const D_LINE_GAP_MS = 1000
-/** 마지막 기록 줄 이후 "…" 펄스까지 */
+const D_LINE_GAP_MS = 1100
+/** 마지막 기록 박스 이후 "…" 펄스까지 */
 const D_DOTS_DELAY_MS = 1200
 /** "…" 펄스 길이 */
 const D_DOTS_MS = 800
@@ -491,18 +518,94 @@ const D_CLOSE_AFTER_REVEAL_MS = 4000
 /** 폭죽 지속 — 자동 닫힘과 맞춘다 */
 const D_CONFETTI_MS = D_CLOSE_AFTER_REVEAL_MS
 
-/** 읽어 줄 기록 줄. 값이 전부 0/없음인 줄은 빼고, 아예 기록이 없으면 한 줄만. */
-function buildBriefLines(brief: DraftPlayerBrief | null | undefined, prevQuarterLabel: string | null | undefined): string[] {
-  if (!brief || !brief.gp) return ['지난 시즌 기록 없음']
-  const season = prevQuarterLabel ? `지난 시즌(${prevQuarterLabel})` : '지난 시즌'
-  const lines = [`${season} · ${brief.prev_team_name ?? '—'} · ${brief.gp}경기`]
-  if (brief.ppg || brief.rpg || brief.apg) {
-    lines.push(`평균 ${brief.ppg}점 · ${brief.rpg}리바운드 · ${brief.apg}어시스트`)
+// ── 시즌 기록 박스 ──────────────────────────────────────────────────────────
+// 문장 세 줄이 아니라 숫자 박스로 바꾼 이유(2026-09-16 리허설): 현장에서 소리내어 읽는
+// 사람이 "평균 12.4점 · 5.1리바운드 · 4.2어시스트" 한 줄을 끝까지 읽기 전에 다음 줄이 떠서
+// 어느 숫자를 말하는지 따라가지 못했다. 한 번에 한 칸만 나오면 읽을 대상이 하나로 고정된다.
+
+interface StatBox {
+  key: string
+  label: string
+  value: string
+  /** 전체 순위(1-based). null 이면 순위 알약을 렌더하지 않는다(경기 수·자격 미달) */
+  rank: number | null
+}
+
+/**
+ * 공개할 기록 칸. 순서는 경기 → 득점 → 리바운드 → 어시스트 → 스틸 → 야투%.
+ * 값이 0 인 칸은 뺀다 — "0.0 스틸 · 전체 38위"는 선수를 깎는 연출이 된다.
+ * 기록이 아예 없으면 빈 배열(호출부가 "시즌 기록 없음" 한 칸을 그린다).
+ */
+function buildStatBoxes(brief: DraftPlayerBrief | null | undefined): StatBox[] {
+  if (!brief || !brief.gp) return []
+  const rank = brief.rank ?? { ppg: null, rpg: null, apg: null, spg: null, bpg: null, fg_pct: null }
+  const boxes: StatBox[] = [{ key: 'gp', label: '경기', value: String(brief.gp), rank: null }]
+  const add = (key: StatBox['key'], label: string, v: number, r: number | null, suffix = '') => {
+    if (!v) return
+    boxes.push({ key, label, value: `${v}${suffix}`, rank: r })
   }
-  if (brief.fg_pct || brief.fg3_pct) {
-    lines.push(`야투 ${brief.fg_pct}% · 3점 ${brief.fg3_pct}%`)
-  }
-  return lines
+  add('ppg', '득점', brief.ppg, rank.ppg)
+  add('rpg', '리바운드', brief.rpg, rank.rpg)
+  add('apg', '어시스트', brief.apg, rank.apg)
+  add('spg', '스틸', brief.spg, rank.spg)
+  add('fg_pct', '야투', brief.fg_pct, rank.fg_pct, '%')
+  return boxes
+}
+
+/** 순위 알약 — 3위 이내는 팀 컬러, 그 밖은 차분한 회색. 색만으로 구분하지 않도록 숫자를 그대로 쓴다. */
+function RankPill({ rank, total, teamColor, small = false }: { rank: number; total: number; teamColor: string; small?: boolean }) {
+  const top = rank <= 3
+  return (
+    <span
+      className={`inline-block rounded-full font-bold tabular-nums whitespace-nowrap ${small ? 'text-xs px-1.5 py-0.5' : 'text-xs sm:text-sm px-2 py-0.5'}`}
+      style={top
+        ? { background: teamColor, color: '#0a0a0a' }
+        : { background: '#27272a', color: '#d4d4d8' }}
+    >
+      전체 {rank}위{total > 0 ? ` / ${total}` : ''}
+    </span>
+  )
+}
+
+/** 기록 한 칸. 불투명 패널 + 팀 컬러 헤어라인(블러 없음). */
+function StatBoxCell({
+  box, teamColor, rankTotal, visible, compact = false,
+}: {
+  box: StatBox
+  teamColor: string
+  rankTotal: number
+  /** 아직 차례가 아닌 칸도 자리는 잡아 둔다 — 칸이 늘 때마다 카드가 흔들리지 않게 */
+  visible: boolean
+  compact?: boolean
+}) {
+  return (
+    // styled-jsx 는 컴포넌트 단위 스코프다 — 부모(DramaticPickReveal)에 적은 .d-in 은
+    // 이 자식 엘리먼트에 붙지 않는다. 그래서 등장 애니메이션을 여기서 다시 정의한다.
+    <div
+      className={`stat-box ${visible ? 'stat-box-in' : 'invisible'} rounded-xl border px-2 ${compact ? 'py-1.5' : 'py-2'} flex flex-col items-center justify-center gap-0.5 min-w-0`}
+      style={{ background: '#111114', borderColor: `${teamColor}66` }}
+    >
+      <span
+        className={`font-black tabular-nums leading-none text-white ${compact ? 'text-xl sm:text-2xl' : 'text-2xl lg:text-4xl'}`}
+        style={{ fontFamily: 'var(--font-bebas, sans-serif)' }}
+      >
+        {box.value}
+      </span>
+      <span className={`${compact ? 'text-xs' : 'text-xs sm:text-sm'} font-bold text-gray-300 leading-none break-keep`}>{box.label}</span>
+      {box.rank != null && <RankPill rank={box.rank} total={rankTotal} teamColor={teamColor} small={compact} />}
+      <style jsx>{`
+        .stat-box-in { animation: statBoxIn 250ms ease-out both; }
+        @keyframes statBoxIn {
+          from { transform: translateY(10px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .stat-box-in { animation: statBoxFade 250ms ease-out both; }
+          @keyframes statBoxFade { from { opacity: 0; } to { opacity: 1; } }
+        }
+      `}</style>
+    </div>
+  )
 }
 
 /** 뒤집히지 않는 앞면 카드 — 이름 공개 전까지 이 면만 보인다(사진·이름 노출 0) */
@@ -526,20 +629,23 @@ function DramaticPickReveal({
   onClose,
   isMyTurn,
   brief,
-  prevQuarterLabel,
+  seasonLabel,
 }: {
   data: PickRevealData
   onClose: () => void
   isMyTurn: boolean
   brief: DraftPlayerBrief | null | undefined
   prevQuarterLabel: string | null | undefined
+  seasonLabel: string | null | undefined
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const timersRef = useRef<number[]>([])
   const revealedRef = useRef(false)
 
-  const lines = useMemo(() => buildBriefLines(brief, prevQuarterLabel), [brief, prevQuarterLabel])
-  // 단계: 0 헤더 · 1 포지션 · 2..(1+n) 기록 줄 · DOTS · REVEAL
+  const boxes = useMemo(() => buildStatBoxes(brief), [brief])
+  // 기록이 없으면 "시즌 기록 없음" 한 칸만 — 단계 수는 1로 유지해 연출 길이가 무너지지 않게 한다.
+  const lines = boxes.length > 0 ? boxes : [null]
+  // 단계: 0 헤더 · 1 포지션 · 2..(1+n) 기록 칸 · DOTS · REVEAL
   const DOTS = 2 + lines.length
   const REVEAL = DOTS + 1
   const [step, setStep] = useState(0)
@@ -658,18 +764,32 @@ function DramaticPickReveal({
           ))}
         </div>
 
-        {/* 스테이지 2 — 지난 시즌 기록, 한 줄씩.
-            break-keep: 390px 에서 "4.2어시 / 스트" 처럼 한글 단어 중간이 끊기던 것을 막는다(실측).
-            아직 안 나온 줄도 invisible 로 자리를 잡아 둔다 — 줄이 늘 때마다 카드가 흔들리지 않게. */}
-        <div className="dramatic-stats mt-4 sm:mt-6 space-y-1.5 sm:space-y-2 font-mono tabular-nums">
-          {lines.map((line, i) => (
-            <p
-              key={i}
-              className={`text-lg sm:text-2xl lg:text-3xl font-semibold text-white leading-snug break-keep ${step >= 2 + i ? 'd-in' : 'invisible'}`}
-            >
-              {line}
+        {/* 스테이지 2 — 시즌 기록 박스, 한 칸씩.
+            모바일 2열 × 3행 / sm 이상 3열 × 2행. 아직 안 나온 칸도 invisible 로 자리를 잡아 둔다. */}
+        <div className="dramatic-stats mt-3 sm:mt-5">
+          {step >= 2 && (
+            <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-gray-400 mb-1.5 sm:mb-2">
+              {seasonLabel ?? '시즌'} 기록
             </p>
-          ))}
+          )}
+          {boxes.length === 0 ? (
+            <div className={`rounded-xl border px-3 py-3 ${step >= 2 ? '' : 'invisible'}`}
+              style={{ background: '#111114', borderColor: `${data.teamColor}66` }}>
+              <p className="text-base sm:text-xl font-bold text-gray-300 break-keep">시즌 기록 없음</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+              {boxes.map((b, i) => (
+                <StatBoxCell
+                  key={b.key}
+                  box={b}
+                  teamColor={data.teamColor}
+                  rankTotal={brief?.rank_total ?? 0}
+                  visible={step >= 2 + i}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 스테이지 3 직전 — "…" 펄스 */}

@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Share2, Crown, Check, Trophy } from 'lucide-react'
+import { seededShuffle } from '@/lib/draft/shuffle'
 
 interface Team { id: string; name: string; color: string }
 interface Pick { team_id: string; player_id: string; player_name: string; pick_number: number }
@@ -11,14 +12,22 @@ interface Props {
   picks: Pick[]
   leaders: Leader[]
   playerNames: Record<string, string>
+  /**
+   * 픽 순서(번호)를 드러낼지. 기본 false = 발표 모드 — 번호 없이 고정 시드로 섞은 명단만.
+   * 공유 텍스트도 같이 바뀐다. 카드만 숨기고 복사본에 순서가 남으면 숨긴 의미가 없다.
+   */
+  showOrder?: boolean
 }
 
-export default function DraftSummaryCard({ teams, picks, leaders, playerNames }: Props) {
+export default function DraftSummaryCard({ teams, picks, leaders, playerNames, showOrder = false }: Props) {
   const [copied, setCopied] = useState(false)
 
   const rosters = teams.map(t => {
     const leaderId = leaders.find(l => l.team_id === t.id)?.leader_player_id
-    const teamPicks = picks.filter(p => p.team_id === t.id).sort((a, b) => a.pick_number - b.pick_number)
+    const mine = picks.filter(p => p.team_id === t.id)
+    const teamPicks = showOrder
+      ? [...mine].sort((a, b) => a.pick_number - b.pick_number)
+      : seededShuffle(mine, t.id)
     return { team: t, leaderName: leaderId ? (playerNames[leaderId] ?? '팀장') : null, picks: teamPicks }
   })
 
@@ -27,7 +36,7 @@ export default function DraftSummaryCard({ teams, picks, leaders, playerNames }:
     for (const r of rosters) {
       s += `\n[${r.team.name}]\n`
       if (r.leaderName) s += `  👑 ${r.leaderName} (팀장)\n`
-      r.picks.forEach((p, i) => { s += `  ${i + 1}. ${p.player_name}\n` })
+      r.picks.forEach((p, i) => { s += showOrder ? `  ${i + 1}. ${p.player_name}\n` : `  · ${p.player_name}\n` })
     }
     return s
   }
@@ -70,7 +79,7 @@ export default function DraftSummaryCard({ teams, picks, leaders, playerNames }:
               )}
               {r.picks.map((p, i) => (
                 <div key={p.player_id} className="flex items-center gap-2 text-sm px-2 py-1">
-                  <span className="text-gray-600 font-display w-5 text-center">{i + 1}</span>
+                  {showOrder && <span className="text-gray-600 font-display w-5 text-center">{i + 1}</span>}
                   <span className="text-gray-100">{p.player_name}</span>
                 </div>
               ))}

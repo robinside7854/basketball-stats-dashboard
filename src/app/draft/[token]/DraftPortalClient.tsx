@@ -23,6 +23,7 @@ import DraftFinalResult from '@/components/league/DraftFinalResult'
 import DraftNextUpChips from '@/components/league/DraftNextUpChips'
 import DraftRoundSlate from '@/components/league/DraftRoundSlate'
 import DraftStealBanner, { type StealBannerData } from '@/components/league/DraftStealBanner'
+import DraftChat from '@/components/league/DraftChat'
 import { EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { primeAudio, playMyTurnBeep, playBeep, setMuted, isMuted } from '@/lib/draftSounds'
 import { getReadableTextColor } from '@/lib/colorContrast'
@@ -113,6 +114,8 @@ export default function DraftPortalClient({
   const [showCodeModal, setShowCodeModal] = useState(false)
   const [codeInput, setCodeInput] = useState('')
   const [authing, setAuthing] = useState(false)
+  // 채팅 패널 열림 — 부모가 들고 있어야 본문 컨테이너의 우측 여백(lg:pr-[360px])을 같이 움직인다.
+  const [chatOpen, setChatOpen] = useState(false)
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   // 픽 감지 effect 는 1.5초마다 재실행되므로 selectedPlayerId 를 deps 에 넣으면 의존성이 흔들린다.
   // 가로채기 판정은 ref 로 읽는다 — 값 갱신은 아래 selectPlayer() 한 곳에서만.
@@ -319,7 +322,7 @@ export default function DraftPortalClient({
   // 드래프트가 시작되면 풀 전체의 요약을 한 번만 받아 둔다. 1픽이 들어온 뒤에 받으면
   // 연출이 이미 시작된 뒤라 "기록 없음"으로 보인다. 실패해도 UI 를 막지 않는다(1회 재시도).
   const briefsRef = useRef<string | null>(null)
-  const [briefsData, setBriefsData] = useState<{ prevQuarterLabel: string | null; map: Record<string, DraftPlayerBrief> } | null>(null)
+  const [briefsData, setBriefsData] = useState<{ prevQuarterLabel: string | null; seasonLabel: string | null; map: Record<string, DraftPlayerBrief> } | null>(null)
   useEffect(() => {
     if (!draftId) return
     if (state?.draft?.status !== 'in_progress') return
@@ -330,9 +333,9 @@ export default function DraftPortalClient({
       try {
         const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/briefs`, { cache: 'no-store' })
         if (!r.ok) throw new Error(String(r.status))
-        const j = await r.json() as { prev_quarter: { label: string } | null; briefs: Record<string, DraftPlayerBrief> }
+        const j = await r.json() as { prev_quarter: { label: string } | null; season_label?: string | null; briefs: Record<string, DraftPlayerBrief> }
         if (cancelled) return
-        setBriefsData({ prevQuarterLabel: j.prev_quarter?.label ?? null, map: j.briefs ?? {} })
+        setBriefsData({ prevQuarterLabel: j.prev_quarter?.label ?? null, seasonLabel: j.season_label ?? null, map: j.briefs ?? {} })
       } catch {
         if (cancelled || attempt >= 1) return
         await new Promise(res => setTimeout(res, 1500))
@@ -988,13 +991,20 @@ export default function DraftPortalClient({
     transition: 'background 600ms ease',
   } as const
 
+  // 채팅 패널이 떠 있는 동안에만 우측 360px 을 비운다.
+  // 패널은 코드 인증자에게만 렌더되고 lg(≥1024px)에서는 항상 펼친 고정 사이드바이므로,
+  // 「렌더됨」과 「열림」이 lg 에서 같은 뜻이다. 인증 전에 여백만 남으면 본문이 이유 없이 좁아진다.
+  const chatPinned = !!(auth && state?.draft)
+
   // iOS 안전 영역 패딩 — 인라인 style 은 미디어쿼리를 못 써서 클래스 arbitrary value 로 준다.
   // (인라인으로 주면 sm:/lg: 패딩이 통째로 죽는다)
   const safeAreaPadding = [
     'pt-[max(0.5rem,env(safe-area-inset-top))] sm:pt-[max(0.75rem,env(safe-area-inset-top))] lg:pt-[max(1rem,env(safe-area-inset-top))]',
     'pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:pb-[max(1rem,env(safe-area-inset-bottom))]',
     'pl-[max(0.5rem,env(safe-area-inset-left))] sm:pl-[max(0.75rem,env(safe-area-inset-left))] lg:pl-[max(1rem,env(safe-area-inset-left))]',
-    'pr-[max(0.5rem,env(safe-area-inset-right))] sm:pr-[max(0.75rem,env(safe-area-inset-right))] lg:pr-[max(1rem,env(safe-area-inset-right))]',
+    chatPinned
+      ? 'pr-[max(0.5rem,env(safe-area-inset-right))] sm:pr-[max(0.75rem,env(safe-area-inset-right))] lg:pr-[360px]'
+      : 'pr-[max(0.5rem,env(safe-area-inset-right))] sm:pr-[max(0.75rem,env(safe-area-inset-right))] lg:pr-[max(1rem,env(safe-area-inset-right))]',
   ].join(' ')
 
   return (
@@ -1252,6 +1262,8 @@ export default function DraftPortalClient({
               status={draft.status}
               pickDurations={pickDurations}
               autoPickNumbers={autoPickNumbers}
+              // 완료된 드래프트를 코드 없이 보는 사람(대외 열람)에게는 픽 순서를 감춘다.
+              hideOrder={draft.status === 'completed' && !auth}
             />
           )}
 
@@ -1328,6 +1340,29 @@ export default function DraftPortalClient({
         />
       )}
 
+      {/* 참가자 채팅 — 코드 인증자(단장·감독관) 전용. 사람 메시지만 오간다.
+          open/setOpen 을 부모가 들고 있어 열림 시 본문 컨테이너에 lg:pr-[360px] 가 붙고,
+          데스크탑에서 패널이 본문을 덮지 않는다. 모바일은 FAB → 오버레이 슬라이드인. */}
+      {auth && state?.draft && (
+        <DraftChat
+          key={`draft-chat-${state.draft.id}`}
+          leagueId={leagueId}
+          draftId={state.draft.id}
+          authedCode={auth.plain}
+          teams={state.teams ?? []}
+          authedRole={auth.role}
+          authedTeamId={auth.teamId}
+          authedLabel={auth.label}
+          open={chatOpen}
+          onOpenChange={setChatOpen}
+          // 모바일에서 채팅을 열면 타이머·픽 버튼이 완전히 가려진다 → 패널 상단에 얇은 현황 띠
+          currentTeamName={state.draft.status === 'in_progress' ? (currentTeam?.name ?? null) : null}
+          currentTeamColor={currentTeam?.color ?? null}
+          remainingSeconds={state.draft.status === 'in_progress' ? remainingSeconds : null}
+          isMyTurn={isMyTurn}
+        />
+      )}
+
       {/* 픽 이팩트 — 새 픽 들어올 때 3초간 전체화면 */}
       {/* isMyTurn: 이 픽이 끝나면 서버는 이미 다음 단장의 시계를 돌린다.
           내가 그 다음이면 4.5초 전면 연출이 내 시간을 먹으므로 1.2초로 줄이고 배지를 띄운다. */}
@@ -1339,6 +1374,7 @@ export default function DraftPortalClient({
         dramatic={pickReveal?.roundNumber === 1}
         brief={pickReveal?.playerId ? (briefsData?.map[pickReveal.playerId] ?? null) : null}
         prevQuarterLabel={briefsData?.prevQuarterLabel ?? null}
+        seasonLabel={briefsData?.seasonLabel ?? null}
       />
 
       {/* 라운드 슬레이트 — 라운드가 오를 때 0.9초. 픽 공개(z-100) 아래(z-95), 탭을 막지 않는다.
@@ -1395,6 +1431,8 @@ export default function DraftPortalClient({
             playerNames={playerNames}
             autoPickNumbers={autoPickNumbers}
             pickDurations={pickDurations}
+            // 순서 공개는 코드 인증자에게만 — 비인증 열람자에게는 잠긴 채로 둔다.
+            canRevealOrder={!!auth}
           />
         )
       })()}

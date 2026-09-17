@@ -5,6 +5,7 @@ import { X, Clock, AlertTriangle, Crown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { getReadableTextColor } from '@/lib/colorContrast'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS } from '@/lib/draftTimer'
+import { POSITION_ORDER, OTHER, POSITION_META, primaryPosition, type PositionCode } from '@/lib/draft/positions'
 
 export interface PickModalPlayer {
   id: string
@@ -19,19 +20,7 @@ export interface PickModalMyPick {
   player_position: string | null
 }
 
-/** 화면에 세로 열로 세울 포지션 순서. 여기 없는 값(또는 빈 값)은 전부 「기타」로 모은다. */
-const POSITION_ORDER = ['PG', 'SG', 'SF', 'PF', 'C'] as const
-const OTHER = '기타'
-
-/**
- * "SG, SF" 처럼 복수 포지션인 선수는 **첫 번째로 적힌 포지션**의 열에만 넣는다.
- * 양쪽에 중복 노출하면 "몇 명 남았나"를 눈으로 셀 수 없게 된다(같은 이름이 두 번 보임).
- */
-function primaryPosition(raw: string | null): string {
-  const first = (raw ?? '').split(',')[0]?.trim().toUpperCase()
-  if (!first) return OTHER
-  return (POSITION_ORDER as readonly string[]).includes(first) ? first : OTHER
-}
+// 포지션 색·아이콘·분류는 @/lib/draft/positions 단일 진실. 여기서 다시 정의하지 않는다.
 
 export default function DraftPickModal({
   open,
@@ -57,7 +46,8 @@ export default function DraftPickModal({
   onClose: () => void
   players: PickModalPlayer[]
   selectedId: string | null
-  onSelect: (id: string) => void
+  /** null = 선택 해제(행 안의 「취소」). 부모 selectPlayer 가 이미 null 을 받는다. */
+  onSelect: (id: string | null) => void
   onConfirm: () => void
   confirming: boolean
   pickNumber: number
@@ -91,14 +81,14 @@ export default function DraftPickModal({
     const filtered = q
       ? players.filter(p => p.name.includes(q) || (p.number != null && String(p.number).includes(q)))
       : players
-    const buckets = new Map<string, PickModalPlayer[]>()
+    const buckets = new Map<PositionCode, PickModalPlayer[]>()
     for (const p of filtered) {
       const key = primaryPosition(p.position)
       const arr = buckets.get(key)
       if (arr) arr.push(p)
       else buckets.set(key, [p])
     }
-    const ordered: { key: string; list: PickModalPlayer[] }[] = []
+    const ordered: { key: PositionCode; list: PickModalPlayer[] }[] = []
     for (const key of POSITION_ORDER) {
       const list = buckets.get(key)
       if (list?.length) ordered.push({ key, list })
@@ -223,32 +213,100 @@ export default function DraftPickModal({
             className="grid grid-cols-2 gap-x-2 gap-y-3 lg:[grid-template-columns:repeat(var(--dpm-cols),minmax(0,1fr))]"
             style={{ '--dpm-cols': groups.length } as React.CSSProperties}
           >
-            {groups.map(g => (
-              <div key={g.key} className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-widest text-gray-300 mb-1.5 px-0.5">
-                  {g.key} <span className="text-gray-500 tabular-nums">{g.list.length}</span>
-                </p>
+            {groups.map(g => {
+              const meta = POSITION_META[g.key]
+              const PosIcon = meta.Icon
+              return (
+              // scroll-mt: 모바일에서 그룹으로 튈 때 머리띠가 상단 고정 영역에 가리지 않게.
+              // 위쪽 얇은 구분선은 모바일(2열 스택)에서만 — lg 는 열이 나란히라 선이 노이즈다.
+              <div key={g.key} id={`dpm-group-${g.key}`} className="min-w-0 scroll-mt-2 border-t border-gray-800 pt-2 lg:border-t-0 lg:pt-0">
+                {/* 포지션 머리띠 — 색 + 아이콘 + 코드 + 인원. 색만으로 구분하지 않도록
+                    코드 글자와 아이콘을 항상 함께 둔다(색각 이상·흑백 프린트 대비). */}
+                <div
+                  className="mb-1.5 px-2 min-h-9 flex items-center gap-1.5 rounded-md"
+                  style={{ backgroundColor: meta.color, color: meta.ink }}
+                >
+                  <PosIcon size={16} aria-hidden />
+                  <span className="text-sm font-black tracking-widest">{meta.label}</span>
+                  <span className="ml-auto text-sm font-bold tabular-nums" aria-label={`${meta.label} ${g.list.length}명`}>
+                    {g.list.length}
+                  </span>
+                </div>
                 <div className="space-y-1">
                   {g.list.map(p => {
                     const isSel = p.id === selectedId
                     return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => onSelect(p.id)}
-                        aria-pressed={isSel}
-                        className={`w-full min-h-11 px-2 rounded-md border text-sm font-bold text-left truncate cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 ${
-                          isSel ? 'border-transparent' : 'bg-gray-900 border-gray-700 text-gray-100 hover:border-gray-500'
-                        }`}
-                        style={isSel ? { backgroundColor: color, color: onColor } : undefined}
-                      >
-                        {p.name}
-                      </button>
+                      <div key={p.id}>
+                        <button
+                          type="button"
+                          onClick={() => onSelect(isSel ? null : p.id)}
+                          aria-pressed={isSel}
+                          className={`w-full min-h-11 px-2 rounded-md border flex items-center gap-1.5 text-sm font-bold text-left cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950 ${
+                            isSel ? 'border-transparent' : 'bg-gray-900 border-gray-700 text-gray-100 hover:border-gray-500'
+                          }`}
+                          // 좌측 4px 은 포지션 색 — 행 하나만 봐도 어느 열의 선수인지 알 수 있다.
+                          style={{
+                            borderLeft: `4px solid ${meta.color}`,
+                            ...(isSel ? { backgroundColor: color, color: onColor } : null),
+                          }}
+                        >
+                          <span className="truncate min-w-0">{p.name}</span>
+                          <span
+                            className="ml-auto shrink-0 px-1.5 py-0.5 rounded text-xs font-black font-mono tabular-nums"
+                            style={isSel
+                              ? { backgroundColor: 'rgba(0,0,0,0.18)', color: onColor }
+                              : { backgroundColor: meta.color, color: meta.ink }}
+                          >
+                            {p.position?.trim() || meta.label}
+                          </span>
+                        </button>
+
+                        {/* 인라인 확정 — 확정 버튼이 목록 맨 아래에만 있으면 PC 5열에서 손이
+                            화면을 가로질러야 했다(리허설 지적). 고른 그 자리에서 끝낸다.
+                            펼침은 grid-template-rows 0fr→1fr + opacity/translate 로만 —
+                            width/height 애니메이션은 매 프레임 레이아웃을 다시 계산한다. */}
+                        <div
+                          className={`grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none ${
+                            isSel ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                          }`}
+                        >
+                          <div className="overflow-hidden">
+                            <div
+                              className={`pt-1 pb-1.5 space-y-1 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
+                                isSel ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={onConfirm}
+                                disabled={confirming}
+                                tabIndex={isSel ? 0 : -1}
+                                aria-hidden={!isSel}
+                                className="w-full min-h-11 rounded-md text-base font-black cursor-pointer disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-400 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                                style={confirming ? undefined : { backgroundColor: color, color: onColor }}
+                              >
+                                {confirming ? '픽 등록 중...' : `${p.name} 픽 확정`}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onSelect(null)}
+                                disabled={confirming}
+                                tabIndex={isSel ? 0 : -1}
+                                aria-hidden={!isSel}
+                                className="w-full min-h-11 rounded-md text-sm font-bold text-gray-300 hover:text-white hover:bg-gray-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
+                              >
+                                취소
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     )
                   })}
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

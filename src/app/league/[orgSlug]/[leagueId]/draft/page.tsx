@@ -796,6 +796,11 @@ export default function LeagueDraftPage() {
               )
             })()}
 
+            {/* 픽 기록(라운드 표) — 완료된 세션은 PIN/어드민에게만.
+                회원에게는 아래 요약 카드(번호 없는 팀별 명단)만 보인다. 발표 전에 순서가 새면
+                "누가 몇 번째로 뽑혔나"가 명단보다 먼저 돌아다닌다(2026-09-16 리허설 피드백).
+                진행 중(in_progress)에는 그대로 둔다 — 라이브 관전은 픽이 나오는 걸 보는 화면이다. */}
+            {(draft.status !== 'completed' || isEditMode) && (
             <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-[color:var(--mm-rule)] flex items-center justify-between">
                 <p className="text-sm font-bold text-[color:var(--mm-ink)] uppercase tracking-widest">픽 기록</p>
@@ -867,6 +872,7 @@ export default function LeagueDraftPage() {
                 </table>
               </div>
             </div>
+            )}
 
             {draft.status === 'completed' && (
               <div className="bg-[color:var(--mm-yellow)] rounded-sm p-5 text-center">
@@ -943,6 +949,7 @@ export default function LeagueDraftPage() {
         {/* 완료 시 결과 요약 카드 */}
         {draft.status === 'completed' && (
           <DraftSummaryCard
+            showOrder={false}
             teams={teams}
             picks={(state?.picks ?? []).map(p => ({ team_id: p.team_id, player_id: p.player_id, player_name: p.player_name, pick_number: p.pick_number }))}
             leaders={state?.leaders ?? []}

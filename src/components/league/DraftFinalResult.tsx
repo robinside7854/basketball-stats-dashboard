@@ -9,8 +9,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { Trophy, Download, X, Users, Clock, Crown, Zap, Hourglass } from 'lucide-react'
+import { Trophy, Download, X, Users, Clock, Crown, Zap, Hourglass, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { seededShuffle } from '@/lib/draft/shuffle'
 import Confetti from './Confetti'
 
 interface Team { id: string; name: string; color: string }
@@ -46,6 +47,12 @@ interface Props {
   leaders?: Leader[]
   /** player id → 이름 매핑 (팀장 이름 표시용). 누락된 ID 는 "팀장" 라벨로 fallback */
   playerNames?: Record<string, string>
+  /**
+   * 픽 순서를 볼 자격이 있는가(코드 인증 단장·감독관). true 여야 토글이 보인다.
+   * false 면 토글 없이 항상 숨김 — 단체방에 결과를 먼저 뿌릴 때 순서가 새지 않게.
+   * 기본값 false 로 둔 이유: 호출부가 아직 안 넘겼는데 순서가 노출되는 쪽이 더 나쁜 사고다.
+   */
+  canRevealOrder?: boolean
 }
 
 /** 47 → "47초", 92 → "1분 32초" */
@@ -68,10 +75,12 @@ function formatDuration(startedAt: string | null | undefined, completedAt: strin
   return `${s}초`
 }
 
-export default function DraftFinalResult({ open, onClose, title, teams, picks, draftOrder, startedAt, completedAt, leaders, playerNames, pickDurations, autoPickNumbers }: Props) {
+export default function DraftFinalResult({ open, onClose, title, teams, picks, draftOrder, startedAt, completedAt, leaders, playerNames, pickDurations, autoPickNumbers, canRevealOrder = false }: Props) {
   const captureRef = useRef<HTMLDivElement | null>(null)
   const [downloading, setDownloading] = useState(false)
   const [trigger, setTrigger] = useState<number | null>(null)
+  // 기본은 숨김(발표 모드). 자격이 있는 사람이 직접 눌러야 순서가 열린다.
+  const [orderShown, setOrderShown] = useState(false)
 
   // 마운트 시 폭죽 — 1회 burst (Confetti 가 자체적으로 stop. trigger 가 같은 값이면 재발화 X)
   useEffect(() => {
@@ -84,14 +93,23 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
 
   if (!open) return null
 
+  // 순서 숨김이 걸리면 픽 번호·라운드·시상은 물론 "팀이 놓인 자리"까지 지워야 한다.
+  // 팀 카드가 draft_order 대로 늘어서 있으면 번호만 지워도 1순위 팀이 그대로 드러난다.
+  const hideOrder = !(canRevealOrder && orderShown)
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
-  const orderedTeams = [
-    ...draftOrder.map(id => teamMap[id]).filter(Boolean) as Team[],
-    ...teams.filter(t => !draftOrder.includes(t.id)),
-  ]
+  const orderedTeams = hideOrder
+    ? seededShuffle(teams, `teams:${teams.map(t => t.id).join(',')}`)
+    : [
+        ...draftOrder.map(id => teamMap[id]).filter(Boolean) as Team[],
+        ...teams.filter(t => !draftOrder.includes(t.id)),
+      ]
   const picksByTeam: Record<string, Pick[]> = {}
   for (const p of picks) (picksByTeam[p.team_id] ||= []).push(p)
-  for (const tid of Object.keys(picksByTeam)) picksByTeam[tid].sort((a, b) => a.pick_number - b.pick_number)
+  for (const tid of Object.keys(picksByTeam)) {
+    picksByTeam[tid] = hideOrder
+      ? seededShuffle(picksByTeam[tid], tid)
+      : picksByTeam[tid].sort((a, b) => a.pick_number - b.pick_number)
+  }
   const duration = formatDuration(startedAt, completedAt)
   // 팀장 매핑 — team_id → leader_player_id (있는 경우만)
   const leaderByTeam: Record<string, string | null> = {}
@@ -233,10 +251,12 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                   }}
                 >
                   <div className="flex items-center gap-2 mb-3 min-w-0">
-                    <span className="text-xl sm:text-2xl font-black tabular-nums shrink-0"
-                      style={{ color: t.color, fontFamily: 'var(--font-bebas, system-ui, sans-serif)' }}>
-                      {idx + 1}
-                    </span>
+                    {!hideOrder && (
+                      <span className="text-xl sm:text-2xl font-black tabular-nums shrink-0"
+                        style={{ color: t.color, fontFamily: 'var(--font-bebas, system-ui, sans-serif)' }}>
+                        {idx + 1}
+                      </span>
+                    )}
                     <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
                     <h3 className="text-base sm:text-lg lg:text-xl font-black text-white truncate break-keep min-w-0">{t.name}</h3>
                     <span className="ml-auto flex items-center gap-2 shrink-0">
@@ -273,7 +293,9 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                     <div className="space-y-1">
                       {list.map(p => (
                         <div key={p.pick_number} className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-sm font-mono tabular-nums w-8 shrink-0 text-gray-400">#{p.pick_number}</span>
+                          {!hideOrder && (
+                            <span className="text-sm font-mono tabular-nums w-8 shrink-0 text-gray-400">#{p.pick_number}</span>
+                          )}
                           {p.player_number != null && (
                             <span className="text-amber-300 font-mono font-bold w-8 shrink-0 text-xs sm:text-sm tabular-nums">#{p.player_number}</span>
                           )}
@@ -294,7 +316,8 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
 
           {/* 소요 시간 시상 — 캡처 영역(captureRef) 안이라 저장된 PNG 에도 함께 담긴다.
               클릭 대상이 아니라 높이는 32px 이상이면 충분. */}
-          {fastest && slowest && (
+          {/* 최속/최장 시상은 픽 번호를 그대로 부르는 것과 같다 — 숨김 모드에서는 통째로 뺀다. */}
+          {!hideOrder && fastest && slowest && (
             <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
               {([
                 { key: 'fast', icon: Zap, label: '최속 픽', entry: fastest },
@@ -334,6 +357,20 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
 
         {/* 액션 — 캡처 영역 바깥. flex column 의 고정 footer 라 스크롤과 무관하게 항상 보인다. */}
         <div className="mt-3 shrink-0 flex items-center justify-center gap-2 sm:gap-3 flex-wrap">
+          {/* 캡처 영역(captureRef) 바깥이라 버튼 자체는 PNG 에 안 담기지만,
+              토글 상태는 캡처 대상 DOM 을 바꾸므로 저장된 이미지에 그대로 반영된다. */}
+          {canRevealOrder && (
+            <Button
+              onClick={() => setOrderShown(v => !v)}
+              variant="outline"
+              aria-pressed={orderShown}
+              className="bg-gray-900 border-gray-700 text-gray-100 hover:bg-gray-800 text-base sm:text-lg min-h-11 h-12 sm:h-14 px-5 font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            >
+              {orderShown
+                ? <><Eye size={20} className="mr-2" /> 픽 순서 표시</>
+                : <><EyeOff size={20} className="mr-2" /> 픽 순서 숨김</>}
+            </Button>
+          )}
           <Button
             onClick={downloadPng}
             disabled={downloading}
