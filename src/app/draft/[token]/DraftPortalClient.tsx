@@ -1270,8 +1270,10 @@ export default function DraftPortalClient({
           {/* 액션은 전부 위 페이즈 카드 하나로 모았다 — 예전의 픽 액션/차례 아님/완료/안내 카드
               4종은 같은 정보를 네 번 반복하며 스코어보드를 화면 밖으로 밀어내고 있었다. */}
 
-          {/* 팀별 누적 픽 — 포지션 밸런스 확인용 (in_progress / completed) */}
-          {(draft.status === 'in_progress' || draft.status === 'completed') && (
+          {/* 팀별 누적 픽 — 포지션 밸런스 확인용 (in_progress / completed).
+              완료 후 무인증 열람자에게는 빼야 한다 — 이 카드의 #번호·소요 초가 픽 순서를 그대로 드러내
+              위 스코어보드의 발표 모드(순서 숨김)를 무효로 만든다(2026-09-17 운영 실측). */}
+          {(draft.status === 'in_progress' || (draft.status === 'completed' && !!auth)) && (
             <TeamPickRoster
               teams={state?.teams ?? []}
               picks={state?.picks ?? []}
