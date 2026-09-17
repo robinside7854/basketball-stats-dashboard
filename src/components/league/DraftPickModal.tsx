@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { X, Clock, AlertTriangle, Crown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { getReadableTextColor } from '@/lib/colorContrast'
+import { teamInk } from '@/lib/util/contrastColor'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS } from '@/lib/draftTimer'
 import { POSITION_ORDER, OTHER, POSITION_META, primaryPosition, type PositionCode } from '@/lib/draft/positions'
 
@@ -101,8 +101,11 @@ export default function DraftPickModal({
 
   if (!open) return null
 
-  const color = team?.color ?? '#f59e0b'
-  const onColor = getReadableTextColor(color) === 'dark' ? '#0a0a0a' : '#ffffff'
+  // 팀 컬러 위 잉크는 휘도 임계값이 아니라 실측 대비비로 고른다 —
+  // 챗지피지기(#ff0000)는 임계값 방식이 흰 글자(4.00:1, AA 미달)를 골랐다.
+  const ink = teamInk(team?.color ?? '#f59e0b')
+  const color = ink.bg
+  const onColor = ink.fg
   const selected = players.find(p => p.id === selectedId) ?? null
   const extLeft = Math.max(0, MAX_EXTENSIONS - extensionsUsed)
 
@@ -247,7 +250,7 @@ export default function DraftPickModal({
                           // 좌측 4px 은 포지션 색 — 행 하나만 봐도 어느 열의 선수인지 알 수 있다.
                           style={{
                             borderLeft: `4px solid ${meta.color}`,
-                            ...(isSel ? { backgroundColor: color, color: onColor } : null),
+                            ...(isSel ? { backgroundColor: color, color: onColor, boxShadow: `inset 0 0 0 1px ${ink.border}` } : null),
                           }}
                         >
                           <span className="truncate min-w-0">{p.name}</span>
@@ -283,7 +286,7 @@ export default function DraftPickModal({
                                 tabIndex={isSel ? 0 : -1}
                                 aria-hidden={!isSel}
                                 className="w-full min-h-11 rounded-md text-base font-black cursor-pointer disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-400 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
-                                style={confirming ? undefined : { backgroundColor: color, color: onColor }}
+                                style={confirming ? undefined : { backgroundColor: color, color: onColor, boxShadow: `inset 0 0 0 1px ${ink.border}` }}
                               >
                                 {confirming ? '픽 등록 중...' : `${p.name} 픽 확정`}
                               </button>
@@ -318,7 +321,7 @@ export default function DraftPickModal({
           onClick={onConfirm}
           disabled={!selectedId || confirming}
           className="w-full min-h-[56px] rounded-xl text-lg font-black cursor-pointer disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-400 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
-          style={selectedId && !confirming ? { backgroundColor: color, color: onColor } : undefined}
+          style={selectedId && !confirming ? { backgroundColor: color, color: onColor, boxShadow: `inset 0 0 0 1px ${ink.border}` } : undefined}
         >
           {confirming ? '픽 등록 중...' : selected ? `${selected.name} 픽 확정` : '선수를 선택하세요'}
         </button>

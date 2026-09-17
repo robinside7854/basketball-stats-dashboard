@@ -10,6 +10,12 @@
 //
 // body (optional): { delete_picks?: boolean }  default true
 //   false 이면 status·인덱스만 setup 으로 되돌리고 픽은 보존 (잘 사용 안 됨)
+//
+// body (optional): { mode?: 'full' | 'lottery' }  default 'full'
+//   'lottery' = 「추첨부터 다시」 — 리허설에서 같은 세팅으로 추첨만 다시 돌리려는 용도.
+//   픽·멤버십·채팅은 full 과 똑같이 지우되, 되돌아가는 지점이 setup 이 아니라 lottery_waiting 이고
+//   풀·팀장·코드·share_token·ready_state 를 그대로 둔다. 리허설마다 참여 설정과 준비 체크를
+//   처음부터 다시 하지 않아도 되는 것이 이 모드의 전부다.
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
@@ -23,8 +29,9 @@ export async function POST(
   const { leagueId, draftId } = await params
   if (!await isDraftSessionControllerByDraftId(req, leagueId, draftId)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json().catch(() => ({})) as { delete_picks?: boolean }
+  const body = await req.json().catch(() => ({})) as { delete_picks?: boolean; mode?: string }
   const deletePicks = body.delete_picks !== false  // 기본 true
+  const lotteryMode = body.mode === 'lottery'
 
   const supabase = createClient()
 
@@ -79,22 +86,31 @@ export async function POST(
     .then(() => null, () => null)
 
   // 세션 상태 리셋
+  // 두 모드의 차이는 딱 두 줄이다: 되돌아가는 status, 그리고 ready_state 를 비우는지.
+  // share_token·test_leaders·pick_seconds 는 어느 모드에서도 건드리지 않는다(update payload 밖).
+  //
+  // ⚠ lottery 모드에서 draft_order 를 반드시 비운다 — 포털의 LotteryWaitScreen 이
+  //    draftOrder.length > 0 이면 감독관의 「추첨 시작」 버튼을 disabled 로 둔다.
+  //    지난 추첨 결과가 남아 있으면 대기 화면까지는 가 놓고 아무도 추첨을 못 돌린다.
+  const resetPayload = {
+    status: lotteryMode ? 'lottery_waiting' : 'setup',
+    current_pick_index: 0,
+    current_round: 1,
+    total_picks: 0,
+    started_at: null,
+    completed_at: null,
+    draft_order: [],
+    lottery_odds: null,
+    lottery_done: false,
+    pick_deadline: null,
+    extensions_used: {},
+    // 준비 체크를 다시 받을 이유가 없다 — lottery 모드는 ready_state 를 그대로 둔다.
+    ...(lotteryMode ? {} : { ready_state: {} }),
+  }
+
   const { data: updated, error } = await supabase
     .from('league_drafts')
-    .update({
-      status: 'setup',
-      current_pick_index: 0,
-      current_round: 1,
-      total_picks: 0,
-      started_at: null,
-      completed_at: null,
-      draft_order: [],
-      ready_state: {},
-      lottery_odds: null,
-      lottery_done: false,
-      pick_deadline: null,
-      extensions_used: {},
-    })
+    .update(resetPayload)
     .eq('id', draftId)
     .select()
     .single()
@@ -102,6 +118,7 @@ export async function POST(
     await logAudit({
       req, action: 'draft.reset', targetTable: 'league_drafts', targetId: draftId,
       leagueId, quarterId: d.quarter_id, result: 'failure',
+      detail: { mode: lotteryMode ? 'lottery' : 'full' },
     })
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
@@ -109,8 +126,9 @@ export async function POST(
   // 리셋은 픽·채팅·분기 멤버십을 함께 되돌린다 — 삭제만큼 되돌리기 어려운 행위다.
   await logAudit({
     req, action: 'draft.reset', targetTable: 'league_drafts', targetId: draftId,
-    leagueId, quarterId: d.quarter_id, detail: { deletePicks, revertedMemberships, isTest: d.is_test },
+    leagueId, quarterId: d.quarter_id,
+    detail: { mode: lotteryMode ? 'lottery' : 'full', deletePicks, revertedMemberships, isTest: d.is_test },
   })
 
-  return NextResponse.json({ draft: updated, deleted_picks: deletePicks })
+  return NextResponse.json({ draft: updated, deleted_picks: deletePicks, mode: lotteryMode ? 'lottery' : 'full' })
 }

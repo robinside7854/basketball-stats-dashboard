@@ -13,6 +13,7 @@ import { Trophy, Download, X, Users, Clock, Crown, Zap, Hourglass, Eye, EyeOff }
 import { Button } from '@/components/ui/button'
 import { seededShuffle } from '@/lib/draft/shuffle'
 import Confetti from './Confetti'
+import { teamInk, teamAccentOnDark } from '@/lib/util/contrastColor'
 
 interface Team { id: string; name: string; color: string }
 interface Pick {
@@ -253,11 +254,11 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                   <div className="flex items-center gap-2 mb-3 min-w-0">
                     {!hideOrder && (
                       <span className="text-xl sm:text-2xl font-black tabular-nums shrink-0"
-                        style={{ color: t.color, fontFamily: 'var(--font-bebas, system-ui, sans-serif)' }}>
+                        style={{ color: teamAccentOnDark(t.color), fontFamily: 'var(--font-bebas, system-ui, sans-serif)' }}>
                         {idx + 1}
                       </span>
                     )}
-                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: teamInk(t.color).bg, border: `1px solid ${teamInk(t.color).border}` }} />
                     <h3 className="text-base sm:text-lg lg:text-xl font-black text-white truncate break-keep min-w-0">{t.name}</h3>
                     <span className="ml-auto flex items-center gap-2 shrink-0">
                       {typeof teamAvgSec[t.id] === 'number' && (
@@ -278,7 +279,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                       <Crown size={14} className="text-amber-300 shrink-0" />
                       <span
                         className="text-sm font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0"
-                        style={{ background: t.color, color: '#0a0a0a' }}
+                        style={{ background: teamInk(t.color).bg, color: teamInk(t.color).fg, border: `1px solid ${teamInk(t.color).border}` }}
                       >
                         팀장
                       </span>
@@ -334,9 +335,9 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                     className="inline-flex items-center gap-2 min-h-8 px-3 py-1.5 rounded-lg border min-w-0"
                     style={{ background: '#101018', borderColor: `${teamColor}66` }}
                   >
-                    <Icon size={20} className="shrink-0" style={{ color: teamColor }} aria-hidden />
+                    <Icon size={20} className="shrink-0" style={{ color: teamAccentOnDark(teamColor) }} aria-hidden />
                     <span className="text-sm sm:text-base text-gray-100 truncate break-keep min-w-0">
-                      <span className="font-black" style={{ color: teamColor }}>{label}</span>
+                      <span className="font-black" style={{ color: teamAccentOnDark(teamColor) }}>{label}</span>
                       <span className="text-gray-400 mx-1.5">·</span>
                       <span className="font-bold">{entry.pick.player_name}</span>
                       <span className="font-mono tabular-nums ml-1.5">{formatSec(entry.sec)}</span>

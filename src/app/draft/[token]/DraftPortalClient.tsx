@@ -26,7 +26,7 @@ import DraftStealBanner, { type StealBannerData } from '@/components/league/Draf
 import DraftChat from '@/components/league/DraftChat'
 import { EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 import { primeAudio, playMyTurnBeep, playBeep, setMuted, isMuted } from '@/lib/draftSounds'
-import { getReadableTextColor } from '@/lib/colorContrast'
+import { teamInk, teamAccentOnDark, maxTintAlphaForLightText } from '@/lib/util/contrastColor'
 import { createClient } from '@/lib/supabase/client'
 
 interface Team { id: string; name: string; color: string }
@@ -946,8 +946,11 @@ export default function DraftPortalClient({
   // 강한 블렌드(80%~A6)로 팀 컬러가 확실히 지배해 절대 놓치지 않도록.
   // 텍스트는 흰색 + text-shadow 로 안전 (안쪽 카드는 자체 bg 유지하므로 본문 가독성 OK).
   const myTurnColor = isMyTurn && myTeam?.color ? myTeam.color : null
-  const myTurnTextMode = myTurnColor ? getReadableTextColor(myTurnColor) : 'light'
-  void myTurnTextMode // 향후 활용 — 현재는 흰 텍스트 + shadow 로 안전.
+  // 「내 차례」 틴트는 화면 **전체 배경**이다. 설계값 0.7 을 그대로 쓰면 빅현욱(#ffffff)에서
+  // 표면이 #9d9d9d 가 되어 그 위 흰 글자가 2.1:1 로 무너진다(실측). 팀별로 알파 상한을 재서
+  // 어두운 팀은 설계값 그대로, 밝은 팀만 옅게 깐다 — 색은 남기고 글자는 살린다.
+  const tintA = myTurnColor ? maxTintAlphaForLightText(myTurnColor) : 0.7
+  const hexA = (f: number) => Math.round(Math.max(0, Math.min(1, tintA * f)) * 255).toString(16).padStart(2, '0')
 
   // ────────────────── 선수 선택 모달 자동 오픈 ──────────────────
   // 내 차례가 되면 pick_deadline 당 딱 한 번 자동으로 연다. 사용자가 닫았는데 폴링(1.5초)마다
@@ -985,7 +988,7 @@ export default function DraftPortalClient({
   const outerStyle = {
     ...(myTurnColor
       ? {
-          background: `radial-gradient(ellipse at top, ${myTurnColor}66 0%, transparent 60%), linear-gradient(180deg, ${myTurnColor}99 0%, ${myTurnColor}B3 50%, ${myTurnColor}99 100%), #0a0a0a`,
+          background: `radial-gradient(ellipse at top, ${myTurnColor}${hexA(0.57)} 0%, transparent 60%), linear-gradient(180deg, ${myTurnColor}${hexA(0.86)} 0%, ${myTurnColor}${hexA(1)} 50%, ${myTurnColor}${hexA(0.86)} 100%), #0a0a0a`,
         }
       : {}),
     transition: 'background 600ms ease',
@@ -1018,7 +1021,7 @@ export default function DraftPortalClient({
           className="sticky z-30 mb-2 rounded-lg px-3 py-2 min-h-11 flex items-center gap-2 bg-gray-950 border border-gray-800"
           style={{ top: 'env(safe-area-inset-top, 0px)' }}
         >
-          <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: currentTeam?.color ?? '#6b7280' }} aria-hidden />
+          <span className="w-3 h-3 rounded-full shrink-0 border" style={{ backgroundColor: teamInk(currentTeam?.color).bg, borderColor: teamInk(currentTeam?.color).border }} aria-hidden />
           <span className="text-base font-bold text-white truncate min-w-0 max-w-[40%] lg:max-w-none">{currentTeam?.name ?? '대기 중'}</span>
           {isMyTurn && (
             <span className="shrink-0 px-2 py-0.5 rounded-md bg-emerald-500 text-black text-sm font-black">내 차례</span>
@@ -1548,7 +1551,7 @@ function ReadyPanel({
               ready ? 'bg-emerald-900/40 border-emerald-700/60 text-emerald-300' : 'bg-gray-800 border-gray-700 text-gray-200'
             }`}>
               {ready ? <CheckCircle2 size={14} className="shrink-0" /> : <Circle size={14} className="shrink-0" />}
-              <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+              <div className="w-2 h-2 rounded-full shrink-0 border" style={{ backgroundColor: teamInk(t.color).bg, borderColor: teamInk(t.color).border }} />
               <span>{t.name} 단장</span>
             </span>
           )
@@ -1667,7 +1670,7 @@ function LotteryDoneScreen({ teams, draftOrder, isSupervisor, onStartDraft, acti
                 className="flex items-center gap-2 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-xl border-2 bg-gray-900/80 shadow-lg min-w-0 max-w-full"
                 style={{ borderColor: t?.color }}
               >
-                <span className="text-2xl sm:text-3xl font-black tabular-nums shrink-0" style={{ color: t?.color, fontFamily: 'var(--font-bebas, sans-serif)' }}>
+                <span className="text-2xl sm:text-3xl font-black tabular-nums shrink-0" style={{ color: teamAccentOnDark(t?.color), fontFamily: 'var(--font-bebas, sans-serif)' }}>
                   {idx + 1}
                 </span>
                 <div className="text-left min-w-0">
@@ -1743,7 +1746,7 @@ function TeamPickRoster({ teams, picks, draftOrder, poolSize, pickDurations }: {
               style={{ borderTopColor: t.color, borderTopWidth: 3 }}
             >
               <div className="flex items-center gap-2 mb-2 min-w-0">
-                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                <div className="w-2.5 h-2.5 rounded-full shrink-0 border" style={{ backgroundColor: teamInk(t.color).bg, borderColor: teamInk(t.color).border }} />
                 <p className="text-base font-bold text-white truncate">{t.name}</p>
                 <span className="text-xs text-gray-300 ml-auto font-mono shrink-0 tabular-nums">{list.length}명</span>
               </div>

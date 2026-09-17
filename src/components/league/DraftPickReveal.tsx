@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Trophy, Zap, User } from 'lucide-react'
 import { playBeep, playBuzzer } from '@/lib/draftSounds'
+import { teamInk, teamAccentOnDark, blendHex } from '@/lib/util/contrastColor'
 // 타입만 가져온다(SWC 가 지운다) — 라우트 모듈이 클라이언트 번들에 섞이지 않는다.
 import type { DraftPlayerBrief } from '@/app/api/leagues/[leagueId]/drafts/[draftId]/briefs/route'
 
@@ -91,6 +92,9 @@ function PickPhotoFlipInner({
 
   const box = size === 'lg' ? 'w-44 h-44 sm:w-60 sm:h-60' : 'w-36 h-36 sm:w-44 sm:h-44'
   const showPhoto = loaded === true && !!photoUrl
+  // 카드 앞면은 팀 컬러 **배경**이다 — 흰 팀(빅현욱)이면 text-black, 빨강(챗지피지기)이면
+  // 흰색이 4.0:1 로 AA 미달이라 역시 검정. 고정색을 쓰면 둘 중 하나는 반드시 깨진다.
+  const front = teamInk(teamColor)
 
   return (
     <div className={`pick-flip mx-auto ${box}`} aria-live="off">
@@ -98,11 +102,11 @@ function PickPhotoFlipInner({
         {/* 앞면 — 팀 컬러 카드 */}
         <div
           className="pick-flip-face rounded-3xl flex flex-col items-center justify-center gap-1"
-          style={{ background: teamColor, border: `4px solid ${teamColor}`, boxShadow: `0 0 40px ${teamColor}88` }}
+          style={{ background: front.bg, border: `4px solid ${front.border}`, boxShadow: `0 0 40px ${teamColor}88` }}
           aria-hidden
         >
-          <span className="text-black/70 text-sm sm:text-base font-black tracking-[0.3em] uppercase">Pick</span>
-          <span className="text-black text-6xl sm:text-8xl font-black leading-none tabular-nums" style={{ fontFamily: 'var(--font-bebas, sans-serif)' }}>#{pickNumber}</span>
+          <span className="text-sm sm:text-base font-black tracking-[0.3em] uppercase" style={{ color: front.fg, opacity: 0.75 }}>Pick</span>
+          <span className="text-6xl sm:text-8xl font-black leading-none tabular-nums" style={{ color: front.fg, fontFamily: 'var(--font-bebas, sans-serif)' }}>#{pickNumber}</span>
         </div>
         {/* 뒷면 — 사진 또는 실루엣 */}
         <div
@@ -114,7 +118,7 @@ function PickPhotoFlipInner({
             <img src={photoUrl!} alt={`${playerName} 사진`} className="w-full h-full object-cover object-top" draggable={false} />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-2" style={{ background: `linear-gradient(160deg, ${teamColor}55, #111 80%)` }} role="img" aria-label={`${playerName} (사진 없음)`}>
-              <span className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center" style={{ background: `${teamColor}33`, color: teamColor }}>
+              <span className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center" style={{ background: `${teamColor}33`, color: teamAccentOnDark(teamColor) }}>
                 <User size={24} aria-hidden />
               </span>
             </div>
@@ -303,6 +307,12 @@ function StandardPickReveal({
 
   if (!data) return null
 
+  // 팀 컬러를 배경으로 쓰는 자리(알약)와 글자색으로 쓰는 자리(등번호·포지션)는 규칙이 다르다.
+  const ink = teamInk(data.teamColor)
+  const accent = teamAccentOnDark(data.teamColor)
+  // 포지션 칩은 배경이 팀 컬러 20% 틴트라 검정 기준 액센트가 그대로는 미달한다
+  const chipAccent = teamAccentOnDark(data.teamColor, blendHex(data.teamColor, '#0a0a0f', 0.2))
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md cursor-pointer overflow-hidden"
@@ -377,7 +387,7 @@ function StandardPickReveal({
           <div className="h-3 w-px bg-gray-700" />
           <div
             className="inline-flex items-center gap-1.5 text-sm sm:text-base font-black tracking-[0.25em] uppercase px-4 py-1.5 rounded-full shadow-lg"
-            style={{ background: data.teamColor, color: '#000', boxShadow: `0 0 20px ${data.teamColor}` }}
+            style={{ background: ink.bg, color: ink.fg, border: `1px solid ${ink.border}`, boxShadow: `0 0 20px ${data.teamColor}` }}
           >
             <Trophy size={14} aria-hidden /> Pick #{data.pickNumber}
           </div>
@@ -404,7 +414,7 @@ function StandardPickReveal({
             <PickPhotoFlip photoUrl={data.playerPhotoUrl} playerName={data.playerName} pickNumber={data.pickNumber} teamColor={data.teamColor} />
           </div>
           {data.playerNumber != null && (
-            <p className="text-2xl sm:text-4xl font-black tabular-nums leading-none" style={{ color: data.teamColor, fontFamily: 'var(--font-bebas, sans-serif)' }}>
+            <p className="text-2xl sm:text-4xl font-black tabular-nums leading-none" style={{ color: accent, fontFamily: 'var(--font-bebas, sans-serif)' }}>
               #{data.playerNumber}
             </p>
           )}
@@ -427,7 +437,7 @@ function StandardPickReveal({
                   className="text-sm sm:text-lg font-black tracking-[0.2em] uppercase px-3 py-1 rounded-md"
                   style={{
                     background: `${data.teamColor}33`,
-                    color: data.teamColor,
+                    color: chipAccent,
                     border: `1.5px solid ${data.teamColor}66`,
                   }}
                 >
@@ -562,12 +572,13 @@ function buildStatBoxes(brief: DraftPlayerBrief | null | undefined): StatBox[] {
 /** 순위 알약 — 3위 이내는 팀 컬러, 그 밖은 차분한 회색. 색만으로 구분하지 않도록 숫자를 그대로 쓴다. */
 function RankPill({ rank, total, teamColor, small = false }: { rank: number; total: number; teamColor: string; small?: boolean }) {
   const top = rank <= 3
+  const pill = teamInk(teamColor)
   // small(요약 카드)은 한 줄에 6칸이라 text-xs 면 알약이 칸 밖으로 비어져 나온다(2026-09-17 실측)
   return (
     <span
       className={`inline-block rounded-full font-bold tabular-nums whitespace-nowrap ${small ? 'text-[11px] px-1.5 py-0.5' : 'text-xs sm:text-sm px-2 py-0.5'}`}
       style={top
-        ? { background: teamColor, color: '#0a0a0a' }
+        ? { background: pill.bg, color: pill.fg, border: `1px solid ${pill.border}` }
         : { background: '#27272a', color: '#d4d4d8' }}
     >
       전체 {rank}위{total > 0 ? ` / ${total}` : ''}
@@ -626,15 +637,16 @@ function StatBoxCell({
 
 /** 뒤집히지 않는 앞면 카드 — 이름 공개 전까지 이 면만 보인다(사진·이름 노출 0) */
 function PickCardFrontOnly({ pickNumber, teamColor }: { pickNumber: number; teamColor: string }) {
+  const front = teamInk(teamColor)
   return (
     <div className="pick-front-box mx-auto w-44 h-44 sm:w-60 sm:h-60">
       <div
         className="w-full h-full rounded-3xl flex flex-col items-center justify-center gap-1"
-        style={{ background: teamColor, border: `4px solid ${teamColor}`, boxShadow: `0 0 40px ${teamColor}88` }}
+        style={{ background: front.bg, border: `4px solid ${front.border}`, boxShadow: `0 0 40px ${teamColor}88` }}
         aria-hidden
       >
-        <span className="text-black/70 text-sm sm:text-base font-black tracking-[0.3em] uppercase">Pick</span>
-        <span className="text-black text-5xl sm:text-7xl font-black leading-none tabular-nums" style={{ fontFamily: 'var(--font-bebas, sans-serif)' }}>#{pickNumber}</span>
+        <span className="text-sm sm:text-base font-black tracking-[0.3em] uppercase" style={{ color: front.fg, opacity: 0.75 }}>Pick</span>
+        <span className="text-5xl sm:text-7xl font-black leading-none tabular-nums" style={{ color: front.fg, fontFamily: 'var(--font-bebas, sans-serif)' }}>#{pickNumber}</span>
       </div>
     </div>
   )
@@ -659,6 +671,9 @@ function DramaticPickReveal({
   const revealedRef = useRef(false)
 
   const boxes = useMemo(() => buildStatBoxes(brief), [brief])
+  // 검은 배경 위에 팀 컬러를 **글자색**으로 쓰는 자리 — 어두운 팀 컬러는 밝기를 올려 AA 확보
+  const dAccent = teamAccentOnDark(data.teamColor)
+  const dChipAccent = teamAccentOnDark(data.teamColor, blendHex(data.teamColor, '#0a0a0f', 0.2))
   // 기록이 없으면 "시즌 기록 없음" 한 칸만 — 단계 수는 1로 유지해 연출 길이가 무너지지 않게 한다.
   const lines = boxes.length > 0 ? boxes : [null]
   // 단계: 0 헤더 · 1 포지션 · 2..(1+n) 기록 칸 · DOTS · REVEAL
@@ -749,7 +764,7 @@ function DramaticPickReveal({
           className="text-base sm:text-2xl lg:text-3xl font-black text-white tracking-tight"
           style={{ textShadow: '0 4px 24px rgba(0,0,0,0.8)' }}
         >
-          <span style={{ color: data.teamColor }}>ROUND {data.roundNumber}</span>
+          <span style={{ color: dAccent }}>ROUND {data.roundNumber}</span>
           <span className="mx-2 text-gray-500">·</span>
           {data.teamName}의 1순위 지명
         </p>
@@ -770,7 +785,7 @@ function DramaticPickReveal({
               className="d-in text-sm sm:text-lg font-black tracking-[0.2em] uppercase px-3 py-1 rounded-md"
               style={{
                 background: `${data.teamColor}33`,
-                color: data.teamColor,
+                color: dChipAccent,
                 border: `1.5px solid ${data.teamColor}66`,
                 animationDelay: `${i * 80}ms`,
               }}

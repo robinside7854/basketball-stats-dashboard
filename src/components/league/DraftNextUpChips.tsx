@@ -6,6 +6,7 @@
 // 서버는 "현재" 팀만 내려주므로 다음 2팀은 클라이언트가 같은 규칙으로 앞서 나가야 한다.
 
 import { ChevronRight } from 'lucide-react'
+import { teamInk } from '@/lib/util/contrastColor'
 
 interface Team { id: string; name: string; color: string }
 
@@ -89,7 +90,7 @@ export default function DraftNextUpChips({
             className={`inline-flex items-center gap-1 min-w-0 ${i === 0 ? '' : 'hidden sm:inline-flex'}`}
           >
             {i > 0 && <ChevronRight size={14} className="text-gray-500 shrink-0" aria-hidden />}
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t?.color ?? '#6b7280' }} aria-hidden />
+            <span className="w-2.5 h-2.5 rounded-full shrink-0 border" style={{ backgroundColor: teamInk(t?.color).bg, borderColor: teamInk(t?.color).border }} aria-hidden />
             <span className="text-sm font-bold text-gray-200 truncate min-w-0 max-w-[5.5rem] lg:max-w-none">
               {t?.name ?? '?'}
             </span>

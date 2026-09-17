@@ -9,6 +9,7 @@
 import type { CSSProperties } from 'react'
 import { Trophy } from 'lucide-react'
 import { seededShuffle } from '@/lib/draft/shuffle'
+import { teamInk, teamAccentOnDark, blendHex } from '@/lib/util/contrastColor'
 
 interface Team { id: string; name: string; color: string }
 interface Pick {
@@ -103,7 +104,7 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                   style={{ background: 'rgba(15,15,15,0.85)', borderColor: `${team.color}66` }}
                 >
                   <div className="flex items-center gap-2 mb-2 min-w-0">
-                    <span className="w-4 h-4 rounded-full shrink-0 border border-black/30" style={{ background: team.color }} />
+                    <span className="w-4 h-4 rounded-full shrink-0 border" style={{ background: teamInk(team.color).bg, borderColor: teamInk(team.color).border }} />
                     <span className="text-base sm:text-lg font-black text-white truncate min-w-0 break-keep">{team.name}</span>
                     <span className="ml-auto text-sm font-mono tabular-nums text-gray-400 shrink-0">{roster.length}명</span>
                   </div>
@@ -156,6 +157,8 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                     : isCompleted
                       ? { background: 'rgba(15,15,15,0.85)', borderColor: `${color}55` }
                       : { background: 'rgba(20,20,20,0.5)', borderColor: 'rgba(75,85,99,0.3)' }
+                  // 현재 칸은 배경이 팀 컬러 40% 틴트다 — 검정 기준으로 잰 액센트는 여기서 미달한다
+                  const numberColor = teamAccentOnDark(color, isCurrent ? blendHex(color, '#0a0a0f', 0.4) : '#0a0a0f')
                   const durationSec = autoSet.has(pickNumber) ? undefined : pickDurations?.[pickNumber]
                   const isAutoPick = autoSet.has(pickNumber)
                   return (
@@ -197,10 +200,10 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                       )}
                       <div className="flex items-center gap-2 min-w-0 relative">
                         <span className="text-base sm:text-lg font-black tabular-nums shrink-0"
-                          style={{ color, fontFamily: 'var(--font-bebas, system-ui, sans-serif)' }}>
+                          style={{ color: numberColor, fontFamily: 'var(--font-bebas, system-ui, sans-serif)' }}>
                           #{pickNumber}
                         </span>
-                        <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full shrink-0 border border-black/30" style={{ background: color }} />
+                        <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full shrink-0 border" style={{ background: teamInk(color).bg, borderColor: teamInk(color).border }} />
                         <span className="text-sm sm:text-base font-bold text-gray-100 truncate min-w-0 break-keep">
                           {team?.name ?? '?'}
                         </span>

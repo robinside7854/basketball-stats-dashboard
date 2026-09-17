@@ -317,6 +317,35 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     else { const d = await res.json(); toast.error(d.error ?? '실패') }
   }
 
+  // 「추첨부터 다시」 — 리허설 전용. 세팅(풀·팀장·코드·share_token)과 준비 상태를 그대로 두고
+  // 추첨 대기 화면으로만 되돌린다.
+  // ⚠ 실전에서 픽을 지우는 건 전체 리셋으로만 — 실전 픽은 분기 소속을 만들고 되돌리기가 무겁다.
+  //   한 번 누르면 끝나는 버튼을 Primary 영역에 두면 라이브 진행 중 오클릭이 그대로 사고가 된다.
+  function requestRestartLottery() {
+    if (!draft) return
+    setPendingConfirm({
+      title: '추첨부터 다시 시작',
+      lines: [
+        `확정된 픽 ${picks.length}건과 추첨 결과가 지워집니다.`,
+        '풀·팀장·코드·준비 상태는 그대로 두고 추첨 대기 화면으로 돌아갑니다.',
+        '테스트 세션이라 리그 데이터는 영향 없습니다.',
+      ],
+      confirmLabel: '추첨부터 다시',
+      run: restartLottery,
+    })
+  }
+
+  async function restartLottery() {
+    if (!draft) return
+    setActing(true)
+    const res = await fetch(`/api/admin/leagues/${leagueId}/drafts/${draft.id}/reset`, {
+      method: 'POST', headers: jsonHeaders, body: JSON.stringify({ mode: 'lottery' }),
+    })
+    setActing(false)
+    if (res.ok) { toast.success('추첨 대기 화면으로 되돌렸습니다 — 추첨 시작을 누르세요'); fetchData(true); onChanged?.() }
+    else { const d = await res.json(); toast.error(d.error ?? '실패') }
+  }
+
   function requestDeleteSession() {
     if (!draft) return
     setPendingConfirm({
@@ -585,6 +614,11 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
   //
   // NOTE: phase 헤드라인/단계 stepper 는 DraftPortalClient 상단 hero 가 이미 표시한다.
   // 감독관 패널에서 중복 노출하지 않고, Primary CTA 자체가 phase 를 함축하도록 한다.
+  // 「추첨부터 다시」 노출 조건 — 추첨 이후 단계의 테스트 세션에만.
+  // 실전 세션에는 일부러 안 낸다(실전에서 픽을 지우는 건 전체 리셋으로만).
+  const showRestartLottery = isTest
+    && (['lottery_waiting', 'lottery_done', 'in_progress', 'completed'] as const).some(s => s === draft.status)
+
   let primary: { label: ReactNode; onClick: () => void | Promise<void>; disabled?: boolean; helper?: string } | null = null
   if (draft.status === 'ready_check') {
     primary = {
@@ -651,12 +685,21 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
           </div>
         )}
 
-        {/* 보조 액션 — 강제 옵션 등 */}
-        {(draft.status === 'ready_check') && (
+        {/* 보조 액션 — 강제 옵션 / 리허설 재시작 */}
+        {(draft.status === 'ready_check' || showRestartLottery) && (
           <div className="flex flex-wrap gap-1.5 justify-center">
-            <Button onClick={() => requestOpenLotteryWait(true)} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]">
-              <Zap size={14} className="mr-1" aria-hidden /> 강제 열기 (READY 무시)
-            </Button>
+            {draft.status === 'ready_check' && (
+              <Button onClick={() => requestOpenLotteryWait(true)} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]">
+                <Zap size={14} className="mr-1" aria-hidden /> 강제 열기 (READY 무시)
+              </Button>
+            )}
+            {/* 위험 액션 details 안이 아니라 여기 둔다 — 리허설에서는 "한 번 더 돌리기"가
+                예외가 아니라 기본 동작이라, 매번 접힌 서랍을 열게 할 이유가 없다. */}
+            {showRestartLottery && (
+              <Button onClick={requestRestartLottery} disabled={acting} variant="outline" className="text-sm min-h-11 border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]">
+                <RotateCcw size={16} className="mr-1" aria-hidden /> 추첨부터 다시
+              </Button>
+            )}
           </div>
         )}
       </div>

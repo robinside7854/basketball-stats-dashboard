@@ -21,6 +21,7 @@ import Confetti from '@/components/league/Confetti'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS, AUTOPICK_GRACE_SECONDS, PICK_SECONDS } from '@/lib/draftTimer'
 import { playBeep, playBuzzer, primeAudio, setMuted as setSoundMuted } from '@/lib/draftSounds'
 import { overallScorePerGame } from '@/lib/leagueStats'
+import { teamInk, teamAccentOnDark } from '@/lib/util/contrastColor'
 import type { Quarter } from '@/types/league'
 
 interface Team { id: string; name: string; color: string }
@@ -502,11 +503,11 @@ export default function LeagueDraftPage() {
               )}
               <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-sm mb-5 animate-in slide-in-from-top-4 duration-500"
                 style={{ backgroundColor: `${rc}33`, border: `2px solid ${rc}` }}>
-                <div className="w-3.5 h-3.5 rounded-full animate-pulse" style={{ backgroundColor: rc }} />
+                <div className="w-3.5 h-3.5 rounded-full animate-pulse border" style={{ backgroundColor: teamInk(rc).bg, borderColor: teamInk(rc).border }} />
                 <span className="text-white font-bold text-xl">{teamMap[reveal.team_id]?.name}</span>
                 <span className="text-white/80 text-base">{reveal.round_number}R · 전체 {reveal.pick_number}순위</span>
               </div>
-              <p className="font-jersey text-lg uppercase tracking-[0.4em] mb-3 animate-pulse" style={{ color: rc }}>THE PICK IS IN</p>
+              <p className="font-jersey text-lg uppercase tracking-[0.4em] mb-3 animate-pulse" style={{ color: teamAccentOnDark(rc) }}>THE PICK IS IN</p>
               <div className="mb-4 animate-in zoom-in-75 duration-500">
                 <PickPhotoFlip photoUrl={reveal.player_photo_url} playerName={reveal.player_name} pickNumber={reveal.pick_number} teamColor={rc} size="md" />
               </div>
@@ -567,7 +568,7 @@ export default function LeagueDraftPage() {
                 <span className={`px-3 py-1.5 rounded-sm text-sm font-bold inline-flex items-center gap-1.5 ${
                   authedRole === 'supervisor' ? 'bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)]' : 'bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)]'
                 }`}>
-                  {authedRole === 'supervisor' ? <ShieldCheck size={14} /> : <div className="w-2 h-2 rounded-full" style={{ backgroundColor: authedTeam?.color }} />}
+                  {authedRole === 'supervisor' ? <ShieldCheck size={14} /> : <div className="w-2 h-2 rounded-full border" style={{ backgroundColor: teamInk(authedTeam?.color).bg, borderColor: teamInk(authedTeam?.color).border }} />}
                   {authedRole === 'supervisor' ? '감독관' : authedTeam?.name} · {authedLabel}
                 </span>
                 <button onClick={exitAuth} className="text-sm text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-live)] cursor-pointer font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] rounded-sm">해제</button>
@@ -743,7 +744,7 @@ export default function LeagueDraftPage() {
               return (
                 <div className={`rounded-sm p-4 sm:p-5 border-2 transition-colors ${isMyTurn ? 'bg-[color:var(--mm-yellow-soft)] border-[color:var(--mm-yellow)]' : 'bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)]'} ${expired ? 'animate-pulse border-[color:var(--mm-live)]' : ''}`}>
                   <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full shrink-0 ${isMyTurn ? 'animate-pulse' : ''}`} style={{ backgroundColor: currentTeam.color }} />
+                    <div className={`w-4 h-4 rounded-full shrink-0 border ${isMyTurn ? 'animate-pulse' : ''}`} style={{ backgroundColor: teamInk(currentTeam.color).bg, borderColor: teamInk(currentTeam.color).border }} />
                     <div className="flex-1 min-w-0">
                       <p className="font-jersey text-sm uppercase tracking-widest text-[color:var(--mm-muted)]">현재 차례 · {draft.total_picks + 1}순위</p>
                       <p className="font-bold text-2xl sm:text-3xl text-[color:var(--mm-ink)] break-keep leading-tight" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
@@ -816,7 +817,7 @@ export default function LeagueDraftPage() {
                         return (
                           <th key={`${tid}-${idx}`} className="text-center p-2 min-w-[100px]">
                             <div className="flex items-center justify-center gap-1.5">
-                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t?.color }} />
+                              <div className="w-2 h-2 rounded-full border" style={{ backgroundColor: teamInk(t?.color).bg, borderColor: teamInk(t?.color).border }} />
                               <span className="text-[color:var(--mm-ink)] font-bold text-sm">{t?.name}</span>
                             </div>
                           </th>
@@ -926,7 +927,7 @@ export default function LeagueDraftPage() {
                     if (!lid) return null
                     return (
                       <div key={t.id} className="flex items-center gap-2 text-sm">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />
+                        <div className="w-2 h-2 rounded-full border" style={{ backgroundColor: teamInk(t.color).bg, borderColor: teamInk(t.color).border }} />
                         <span className="text-[color:var(--mm-ink)] font-bold">{t.name}</span>
                       </div>
                     )
