@@ -98,6 +98,13 @@
   볼 것. 균등 확률이면 % 숨김(`hasVaryingOdds`). 기록 박스 = **참석율(gp/시즌 라운드, 분모는
   `computeLeagueStats.total_rounds` 와 같은 집합 = 경기일 유니크, 현재 31) + 평균 득점·리바운드·
   어시스트·스틸·블락**. 경기 수·야투% 제거. 항상 6칸 고정이라 1라운드 연출은 13.5초 고정.
+- **3D 추첨 폐기 → 2D 캔버스 · 팀 컬러 글자색 자동 · 「추첨부터 다시」 (9/18)** — 사용자 판정
+  "3D 퀄리티 낮음". `three` 언인스톨, `DraftLotteryReveal` 은 2D 캔버스 물리(rAF, dt 캡, 공 충돌·
+  송풍). **팀 컬러 위 글자는 `teamInk()`, 어두운 배경 위 팀 컬러 글자는 `teamAccentOnDark()`**
+  (`src/lib/util/contrastColor.ts`) — 빅현욱 `#fff`·락다운 `#ffea00`·챗지피지기 `#f00` 전부 4.5:1
+  실측. ⚠ `getReadableTextColor`(Rec.601, 빨강에 흰 글자 4.0:1 선택)는 파일째 삭제했다 — 되살리지
+  말 것. 「추첨부터 다시」 = `POST reset { mode:'lottery' }`(픽·추첨만 지우고 풀·팀장·코드·
+  ready_state 유지 → `lottery_waiting`), **테스트 세션에서만** 버튼. 채팅은 이때도 지워진다.
 - ⚠ **확인 필요(데이터, 2026-09-16 15:40 실측)**: 노란 팀(`75140c73`)의 `league_teams.name` 이
   오전엔 `굿모닝` 이었는데 오후엔 `락다운` 으로 바뀌어 있다. 3Q override 행은 없고(1Q·2Q 만 있음)
   `league_teams` 엔 수정 시각 컬럼이 없어 누가 언제 바꿨는지 추적 불가. 이 상태면 **3Q 경기·
