@@ -300,24 +300,6 @@ export default function DraftPortalClient({
     setShowCodeModal(false)
   }
 
-  // ────────────────── 첫 픽 타이머 자동 시작 ──────────────────
-  // status=in_progress 이고 pick_deadline=null 이며 첫 픽 전 — start-clock 호출.
-  // 라우트가 멱등이라 여러 클라가 동시 호출해도 안전.
-  const startClockTriedRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (!auth) return // 시청자는 호출 안 함
-    if (!state?.draft || !draftId) return
-    if (state.draft.status !== 'in_progress') return
-    if (state.draft.pick_deadline) return
-    if (state.draft.total_picks > 0) return
-    if (startClockTriedRef.current === draftId) return
-    startClockTriedRef.current = draftId
-    fetch(`/api/leagues/${leagueId}/drafts/${draftId}/start-clock`, {
-      method: 'POST',
-      headers: { 'X-Draft-Code': auth.plain },
-    }).then(() => fetchState()).catch(() => null)
-  }, [state?.draft, draftId, leagueId, auth, fetchState])
-
   // ────────────────── 지난 분기 선수 요약(1라운드 드라마틱 공개용) ──────────────────
   // 드래프트가 시작되면 풀 전체의 요약을 한 번만 받아 둔다. 1픽이 들어온 뒤에 받으면
   // 연출이 이미 시작된 뒤라 "기록 없음"으로 보인다. 실패해도 UI 를 막지 않는다(1회 재시도).
@@ -556,11 +538,18 @@ export default function DraftPortalClient({
     return diff
   }, [draftRow?.pick_deadline, now])
 
+  // 진행 중인데 마감이 아직 없음 = 공개 연출이 끝나기를 기다리는 구간.
+  // 0초/만료로 보이면 안 된다 — 시계는 아직 시작조차 안 했다.
+  const clockPending = draftRow?.status === 'in_progress' && !draftRow.pick_deadline
+
   // ────────────────── 픽별 소요 시간 ──────────────────
   // pick_number → 걸린 초. 기준점(시계 시작)은 **직전 픽의 picked_at** 으로 잡는다.
-  // 서버는 픽이 확정되는 순간 다음 픽의 시계를 돌리므로(pick/route 가 pick_deadline 재설정)
-  // 직전 픽 시각이 곧 이번 픽의 시작이다. 1픽만 draft.started_at 기준 — 이건 start-draft 시각이라
-  // 실제 시계 시작(start-clock, 클라이언트가 폴링 후 호출)보다 1~2초 이르다. 1픽만 그만큼 후하게 잡힌다.
+  // 1픽만 draft.started_at 기준 — 이건 start-draft 시각이다.
+  // ⚠ 알려진 오차: 픽 확정 후 시계는 공개 연출이 끝난 뒤에야 시작한다(pick/route 가 pick_deadline=null,
+  //   클라이언트가 start-clock). 그래서 여기 값에는 공개 연출 시간(1라운드 약 13.5초, 이후 4.5초)이
+  //   그대로 얹혀 있다 — 실제로 「고민한 시간」보다 그만큼 길게 나온다. 최속/최장 시상은 모든 픽에
+  //   같은 상수가 얹히므로 순위는 유지되지만(1라운드/이후 경계는 예외), 절대 초수는 과대다.
+  //   정확히 재려면 시계 시작 시각을 픽마다 저장해야 한다(미구현).
   // pick_deadline 은 현재 픽 것 하나뿐이고 +30초 연장으로 변형되기까지 해서 과거 픽의
   // 시작 시각을 되돌려 계산할 수 없다 — 그래서 직전 픽 시각을 쓴다.
   // 사람이 고르지 않은 픽 — ① 타이머 만료 자동픽(is_auto) ② 풀이 1명 남아 자동 등록된 마지막 픽.
@@ -669,6 +658,49 @@ export default function DraftPortalClient({
       if (autoPickFiredRef.current === deadlineKey) autoPickFiredRef.current = null
     })
   }, [now, auth, draftRow, leagueId, draftId, state?.current_team_id, state?.available_players, fetchState])
+
+  // ────────────────── 픽 시계 시작 — 공개 연출이 닫힌 뒤 ──────────────────
+  // 서버는 픽이 확정돼도 다음 시계를 걸지 않는다(pick_deadline=null). 픽 공개 연출이
+  // 도는 동안(1라운드 약 13.5초, 이후 4.5초) 시계가 흐르면 다음 단장이 그만큼을 빼앗긴다.
+  // 그래서 연출을 닫은 클라이언트가 start-clock 을 눌러 시계를 시작한다.
+  // 라우트가 멱등(조건부 UPDATE)이라 여러 클라가 동시에 눌러도 마감은 한 번만 정해진다.
+  const startClockLatchRef = useRef<number | null>(null)
+  const revealOpen = pickReveal != null || showLottery
+  const fireStartClock = useCallback((latchKey: number) => {
+    if (!auth || !draftId) return
+    if (startClockLatchRef.current === latchKey) return
+    startClockLatchRef.current = latchKey
+    fetch(`/api/leagues/${leagueId}/drafts/${draftId}/start-clock`, {
+      method: 'POST',
+      headers: { 'X-Draft-Code': auth.plain },
+    }).then(() => fetchState()).catch(() => {
+      // 네트워크 실패는 재시도 대상 — latch 를 풀어 다음 폴링에서 다시 쏜다
+      if (startClockLatchRef.current === latchKey) startClockLatchRef.current = null
+    })
+  }, [auth, draftId, leagueId, fetchState])
+
+  // 마감이 생기면 latch 해제 — 다음 픽에서 다시 발화할 수 있게
+  useEffect(() => {
+    if (draftRow?.pick_deadline) startClockLatchRef.current = null
+  }, [draftRow?.pick_deadline])
+
+  useEffect(() => {
+    if (!auth || !draftRow || draftRow.status !== 'in_progress') return
+    if (draftRow.pick_deadline) return
+    if (revealOpen) return
+    fireStartClock(draftRow.total_picks ?? 0)
+  }, [auth, draftRow, revealOpen, fireStartClock])
+
+  // 폴백 — 마감이 빈 채로 25초가 지나면 연출이 떠 있어도 시계를 건다.
+  // 단장이 자리를 비워 공개 화면을 안 닫으면 나머지 전원이 같이 멈추기 때문.
+  const pendingClockKey = draftRow?.status === 'in_progress' && !draftRow.pick_deadline
+    ? (draftRow.total_picks ?? 0)
+    : null
+  useEffect(() => {
+    if (pendingClockKey == null || !auth) return
+    const t = setTimeout(() => fireStartClock(pendingClockKey), 25_000)
+    return () => clearTimeout(t)
+  }, [pendingClockKey, auth, fireStartClock])
 
   // ────────────────── lottery 흐름 (감독관 전용) ──────────────────
   const [actingLottery, setActingLottery] = useState(false)
@@ -962,11 +994,13 @@ export default function DraftPortalClient({
       setPickModalOpen(false)
       return
     }
-    const key = draftRow?.pick_deadline ?? `nodl:${draftRow?.total_picks ?? 0}`
+    // latch 키를 pick_deadline 이 아니라 total_picks 로 잡는다 — 마감은 시계 시작(null→값)과
+    // 연장(+15s)으로 픽 도중에도 바뀌어서, 사용자가 닫은 모달이 그때마다 다시 열렸다.
+    const key = `pick:${draftRow?.total_picks ?? 0}`
     if (autoOpenedDeadlineRef.current === key) return
     autoOpenedDeadlineRef.current = key
     setPickModalOpen(true)
-  }, [isMyTurn, draftRow?.pick_deadline, draftRow?.total_picks])
+  }, [isMyTurn, draftRow?.total_picks])
 
   // 모달 (b) 영역용 파생값
   const myPicks = useMemo(
@@ -1038,13 +1072,15 @@ export default function DraftPortalClient({
               poolSize={state?.pool_size ?? null}
             />
           )}
-          {remainingSeconds != null && (
+          {clockPending ? (
+            <span className="ml-auto shrink-0 text-base font-bold text-gray-400 break-keep">공개 중 · 곧 시작</span>
+          ) : remainingSeconds != null ? (
             <span className={`ml-auto shrink-0 text-lg font-black tabular-nums font-mono ${
               graceInfo.inGrace ? 'text-red-400' : remainingSeconds <= 10 ? 'text-red-300' : 'text-gray-100'
             }`}>
               {graceInfo.inGrace ? `+${graceInfo.remaining}s` : `${remainingSeconds}s`}
             </span>
-          )}
+          ) : null}
         </div>
       )}
       {/* 테스트 세션 고지 — 모든 단계에서 계속 보인다.
@@ -1323,7 +1359,9 @@ export default function DraftPortalClient({
       {isMyTurn && draft && (
         <DraftPickModal
           // 픽마다 remount — 이전 픽의 검색어가 남아 "선수가 없다"로 보이는 것을 막는다.
-          key={draft.pick_deadline ?? `nodl:${draft.total_picks}`}
+          // 마감이 아니라 픽 번호로 키를 잡는다: 시계 시작·연장으로 마감이 바뀔 때마다
+          // remount 되면 입력 중이던 검색어가 지워진다.
+          key={`pick:${draft.total_picks}`}
           open={pickModalOpen}
           onClose={() => setPickModalOpen(false)}
           players={state?.available_players ?? []}
@@ -1335,6 +1373,7 @@ export default function DraftPortalClient({
           remainingSeconds={remainingSeconds}
           inGrace={graceInfo.inGrace}
           graceSeconds={graceInfo.remaining}
+          clockPending={clockPending}
           extensionsUsed={auth?.teamId ? (draft.extensions_used?.[auth.teamId] ?? 0) : 0}
           onExtend={extendPick}
           extending={extending}

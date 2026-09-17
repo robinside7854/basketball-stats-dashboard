@@ -16,7 +16,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { verifyDraftCode } from '@/lib/leagueDraftAuth'
-import { newPickDeadline } from '@/lib/draftTimer'
 import { resolveTeamId } from '@/lib/league/teamScope'
 
 interface DraftRow {
@@ -194,9 +193,11 @@ export async function POST(
       current_pick_index: nextIndex,
       current_round: finalRound,
       total_picks: newTotalPicks,
+      // 시계는 클라이언트가 공개 연출을 닫은 뒤 start-clock 으로 시작한다.
+      // (여기서 마감을 걸면 4.5초~13.5초짜리 픽 공개가 도는 동안 다음 단장의 시간이 먼저 흐른다)
       ...(isComplete
         ? { status: 'completed', completed_at: new Date().toISOString(), pick_deadline: null }
-        : { pick_deadline: newPickDeadline(Date.now(), d.pick_seconds) }),
+        : { pick_deadline: null }),
     })
     .eq('id', draftId)
     .select()

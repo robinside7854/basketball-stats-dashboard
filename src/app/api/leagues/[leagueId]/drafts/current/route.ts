@@ -16,6 +16,10 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
 import { canViewLeague } from '@/lib/auth/guard'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { newPickDeadline } from '@/lib/draftTimer'
+
+/** 마감이 비어 있는 채로 이만큼 지나면 서버가 대신 시계를 건다(공개 연출 최장 13.5초 + 여유) */
+const STALL_GUARD_MS = 30_000
 
 interface DraftRow {
   id: string
@@ -182,6 +186,28 @@ export async function GET(
     // 최속 픽 시상·"자동" 표시에 쓴다
     is_auto: p.picked_by_code_id == null,
   }))
+
+  // ── 안전망: 아무도 공개 화면을 안 닫아도 30초 뒤엔 시계가 돌아간다 ──
+  // 픽이 끝나면 서버는 pick_deadline 을 비우고, 공개 연출을 닫은 클라이언트가 start-clock 으로
+  // 시계를 건다. 그 단장이 자리를 비우거나 브라우저가 죽으면 마감이 영영 NULL 로 남아
+  // 드래프트가 통째로 멈춘다 — 마지막 픽(픽이 없으면 시작) 이후 30초가 지나면 여기서 대신 건다.
+  // start-clock 과 같은 조건부 UPDATE 라 동시 호출돼도 마감은 한 번만 정해진다.
+  if (d.status === 'in_progress' && !d.pick_deadline) {
+    const lastAt = picks.length > 0 ? picks[picks.length - 1].picked_at : d.started_at
+    const baseMs = lastAt ? new Date(lastAt).getTime() : NaN
+    if (Number.isFinite(baseMs) && Date.now() - baseMs > STALL_GUARD_MS) {
+      const { data: bumped } = await supabase
+        .from('league_drafts')
+        .update({ pick_deadline: newPickDeadline(Date.now(), d.pick_seconds) })
+        .eq('id', d.id)
+        .eq('status', 'in_progress')
+        .is('pick_deadline', null)
+        .select('pick_deadline')
+      if (bumped && bumped.length > 0) {
+        d.pick_deadline = (bumped[0] as { pick_deadline: string | null }).pick_deadline
+      }
+    }
+  }
 
   const pickedPlayerIds = new Set(picks.map(p => p.player_id))
   const poolIds = new Set((poolRaw ?? []).map(p => p.league_player_id))

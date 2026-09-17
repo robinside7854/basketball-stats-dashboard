@@ -15,7 +15,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { lookupDraftCode } from '@/lib/leagueDraftAuth'
 import { canEditLeague } from '@/lib/auth/leagueAdmin'
 import { aggregateQuarterStats, aggToScore, getPreviousQuarterId } from '@/lib/leagueStats'
-import { newPickDeadline, AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
+import { AUTOPICK_GRACE_SECONDS } from '@/lib/draftTimer'
 
 interface DraftRow {
   id: string; quarter_id: string; status: string
@@ -161,9 +161,10 @@ export async function POST(
     .from('league_drafts')
     .update({
       current_pick_index: nextIndex, current_round: finalRound, total_picks: pickNumber,
+      // 시계는 클라이언트가 공개 연출을 닫은 뒤 start-clock 으로 시작한다.
       ...(isComplete
         ? { status: 'completed', completed_at: new Date().toISOString(), pick_deadline: null }
-        : { pick_deadline: newPickDeadline(Date.now(), d.pick_seconds) }),
+        : { pick_deadline: null }),
     })
     .eq('id', draftId)
     .select()

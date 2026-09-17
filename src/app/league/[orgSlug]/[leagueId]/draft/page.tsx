@@ -260,17 +260,43 @@ export default function LeagueDraftPage() {
     })
   }, [nowMs, state?.draft, authedCode, isEditMode, leagueHeaders, leagueId, fetchState])
 
-  // 첫 픽 타이머 시작 — 추첨 연출(showLottery)이 닫힌 뒤, 아직 시계가 없으면 시작
-  useEffect(() => {
-    const d = state?.draft
-    if (!d || d.status !== 'in_progress' || d.pick_deadline || d.total_picks > 0 || showLottery) return
+  // 픽 시계 시작 — 공개 연출(추첨 showLottery · 픽 공개 reveal)이 닫힌 뒤 시작한다.
+  // 서버는 추첨 직후뿐 아니라 매 픽 직후에도 pick_deadline 을 비워 두므로(연출이 도는 동안
+  // 다음 단장의 시간이 흐르지 않게), 연출을 닫은 화면이 눌러 줘야 시계가 돈다.
+  // latch 는 (세션, 픽 수) 단위 — 예전엔 total_picks === 0 조건이라 2픽부터는 아예 안 돌았다.
+  const startClock = useCallback((key: string, dId: string) => {
     const headers: Record<string, string> | null = authedCode ? { 'X-Draft-Code': authedCode } : (isEditMode ? leagueHeaders : null)
     if (!headers) return
-    if (startClockRef.current === d.id) return
-    startClockRef.current = d.id
-    fetch(`/api/leagues/${leagueId}/drafts/${d.id}/start-clock`, { method: 'POST', headers })
-      .then(() => fetchState()).catch(() => null)
-  }, [state?.draft, showLottery, authedCode, isEditMode, leagueHeaders, leagueId, fetchState])
+    if (startClockRef.current === key) return
+    startClockRef.current = key
+    fetch(`/api/leagues/${leagueId}/drafts/${dId}/start-clock`, { method: 'POST', headers })
+      .then(() => fetchState())
+      .catch(() => { if (startClockRef.current === key) startClockRef.current = null })
+  }, [authedCode, isEditMode, leagueHeaders, leagueId, fetchState])
+
+  useEffect(() => {
+    const d = state?.draft
+    if (!d || d.status !== 'in_progress' || d.pick_deadline) return
+    if (showLottery || reveal) return
+    startClock(`${d.id}:${d.total_picks}`, d.id)
+  }, [state?.draft, showLottery, reveal, startClock])
+
+  // 마감이 생기면 latch 해제 — 다음 픽에서 다시 발화할 수 있게
+  useEffect(() => {
+    if (state?.draft?.pick_deadline) startClockRef.current = null
+  }, [state?.draft?.pick_deadline])
+
+  // 폴백 — 마감이 빈 채로 25초가 지나면 연출이 떠 있어도 시계를 건다(아무도 안 닫는 경우).
+  const pendingClock = state?.draft && state.draft.status === 'in_progress' && !state.draft.pick_deadline
+    ? { key: `${state.draft.id}:${state.draft.total_picks}`, id: state.draft.id }
+    : null
+  const pendingClockKey = pendingClock?.key ?? null
+  const pendingClockId = pendingClock?.id ?? null
+  useEffect(() => {
+    if (!pendingClockKey || !pendingClockId) return
+    const t = window.setTimeout(() => startClock(pendingClockKey, pendingClockId), 25_000)
+    return () => window.clearTimeout(t)
+  }, [pendingClockKey, pendingClockId, startClock])
 
   // 재추첨 대비 — lottery_done 이 false 가 되면 연출/시계 플래그 초기화
   useEffect(() => {
@@ -735,6 +761,8 @@ export default function LeagueDraftPage() {
             {draft.status === 'in_progress' && currentTeam && (() => {
               const deadline = draft.pick_deadline ? new Date(draft.pick_deadline).getTime() : null
               const remain = deadline ? Math.max(0, Math.ceil((deadline - nowMs) / 1000)) : null
+              // 마감이 없음 = 픽 공개 연출이 끝나기를 기다리는 구간. 만료(0초·빨강)가 아니다.
+              const clockPending = deadline === null
               const expired = remain !== null && remain <= 0
               // 만료 후 자동 선택까지 남은 유예(초)
               const graceLeft = deadline && expired ? Math.max(0, Math.ceil((deadline + AUTOPICK_GRACE_SECONDS * 1000 - nowMs) / 1000)) : null
@@ -752,27 +780,39 @@ export default function LeagueDraftPage() {
                         {isMyTurn && <span className="ml-2 text-[color:var(--mm-yellow-strong)] text-base sm:text-lg">← 내 차례!</span>}
                       </p>
                     </div>
-                    {remain !== null && (() => {
+                    {(remain !== null || clockPending) && (() => {
                       // 감독관이 픽 시간을 바꾸면(예: 120초) 서버가 주는 값으로 링을 그려야 한다
                       const ringSeconds = draft.pick_seconds || PICK_SECONDS
-                      const frac = Math.max(0, Math.min(1, remain / ringSeconds))
+                      // 시계 시작 전에는 링을 꽉 찬 회색으로 — 아직 한 톨도 쓰지 않았다는 뜻
+                      const frac = clockPending ? 1 : Math.max(0, Math.min(1, (remain ?? 0) / ringSeconds))
                       const R = 26, C = 2 * Math.PI * R
-                      const stroke = expired ? '#DC2626' : remain <= 10 ? '#DC2626' : remain <= 30 ? '#A16207' : '#059669'
+                      const stroke = clockPending
+                        ? 'var(--mm-rule-strong, #9CA3AF)'
+                        : expired ? '#DC2626' : (remain ?? 0) <= 10 ? '#DC2626' : (remain ?? 0) <= 30 ? '#A16207' : '#059669'
                       return (
-                        <div className="relative w-16 h-16 shrink-0">
-                          <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+                        <div className="relative w-16 h-16 shrink-0" aria-label={clockPending ? '픽 공개 중 — 시계는 곧 시작됩니다' : undefined} role={clockPending ? 'img' : undefined}>
+                          <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64" aria-hidden>
                             <circle cx="32" cy="32" r={R} fill="none" stroke="var(--mm-rule)" strokeWidth="6" />
                             <circle cx="32" cy="32" r={R} fill="none" stroke={stroke} strokeWidth="6" strokeLinecap="round"
                               strokeDasharray={C} strokeDashoffset={C * (1 - frac)} className="transition-all duration-500" />
                           </svg>
                           <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`font-jersey font-black text-2xl leading-none tabular-nums ${timerColor}`}>{expired ? '0' : remain}</span>
-                            <span className="text-sm text-[color:var(--mm-muted)]">초</span>
+                            {clockPending ? (
+                              <Clock size={24} className="text-[color:var(--mm-muted)]" aria-hidden />
+                            ) : (
+                              <>
+                                <span className={`font-jersey font-black text-2xl leading-none tabular-nums ${timerColor}`}>{expired ? '0' : remain}</span>
+                                <span className="text-sm text-[color:var(--mm-muted)]">초</span>
+                              </>
+                            )}
                           </div>
                         </div>
                       )
                     })()}
                   </div>
+                  {clockPending && (
+                    <p className="mt-3 text-base text-[color:var(--mm-ink-soft)] leading-relaxed">공개 중 · 곧 시작</p>
+                  )}
                   {/* 시간 종료 — 자동 선택 최종 카운트다운 */}
                   {expired && graceLeft !== null && (
                     <div className="mt-3 rounded-sm bg-[color:var(--mm-live-bg)] px-3 py-2.5 flex items-center justify-center gap-2 animate-pulse flex-wrap">
@@ -784,7 +824,8 @@ export default function LeagueDraftPage() {
                   {isMyTurn && (
                     <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-sm text-[color:var(--mm-ink-soft)] tabular-nums">추가 시간 {myUsed}/{MAX_EXTENSIONS} 사용</span>
-                      <Button onClick={extendTime} disabled={extending || myUsed >= MAX_EXTENSIONS}
+                      {/* 시계 시작 전 연장은 서버가 409 로 막는다 */}
+                      <Button onClick={extendTime} disabled={extending || myUsed >= MAX_EXTENSIONS || clockPending}
                         className="bg-[color:var(--mm-yellow)] hover:brightness-95 text-[color:var(--mm-black)] text-sm h-10 font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]">
                         +{EXTENSION_SECONDS}초 추가 {myUsed >= MAX_EXTENSIONS ? '(소진)' : `(${MAX_EXTENSIONS - myUsed}회 남음)`}
                       </Button>

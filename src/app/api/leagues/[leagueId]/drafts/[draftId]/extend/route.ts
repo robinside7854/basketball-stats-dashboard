@@ -50,6 +50,12 @@ export async function POST(
   const d = draft as DraftRow
   if (d.status !== 'in_progress') return NextResponse.json({ error: '진행 중이 아닙니다' }, { status: 409 })
 
+  // 시계가 아직 시작되지 않은 구간(공개 연출 중)은 마감이 NULL 이다.
+  // 이때 연장을 허용하면 "지금부터 15초"가 걸려 오히려 80초를 15초로 깎는다.
+  if (!d.pick_deadline) {
+    return NextResponse.json({ error: '아직 시계가 시작되지 않았습니다' }, { status: 409 })
+  }
+
   const auth = await verifyDraftCode(req, leagueId, d.quarter_id, body.team_id)
   if (!auth.valid) return NextResponse.json({ error: '단장 코드 인증 실패' }, { status: 401 })
 

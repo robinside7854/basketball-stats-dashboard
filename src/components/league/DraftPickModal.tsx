@@ -34,6 +34,7 @@ export default function DraftPickModal({
   remainingSeconds,
   inGrace,
   graceSeconds,
+  clockPending = false,
   extensionsUsed,
   onExtend,
   extending,
@@ -54,6 +55,8 @@ export default function DraftPickModal({
   remainingSeconds: number | null
   inGrace: boolean
   graceSeconds: number
+  /** 진행 중이지만 픽 마감이 아직 없음(공개 연출 대기) — 0초가 아니라 「곧 시작」으로 보여야 한다 */
+  clockPending?: boolean
   extensionsUsed: number
   onExtend: () => void
   extending: boolean
@@ -134,7 +137,11 @@ export default function DraftPickModal({
             <p className="text-xs sm:text-sm text-gray-300 truncate">{team.name}</p>
           )}
         </div>
-        {inGrace ? (
+        {clockPending ? (
+          <span className="shrink-0 text-base sm:text-lg font-bold text-gray-400 break-keep leading-tight">
+            공개 중 · 곧 시작
+          </span>
+        ) : inGrace ? (
           <span className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md border-2 border-red-500 bg-red-950 text-red-200 font-mono">
             <AlertTriangle size={16} aria-hidden />
             <span className="text-2xl sm:text-3xl font-black tabular-nums leading-none">{Math.max(0, graceSeconds)}s</span>
@@ -152,7 +159,8 @@ export default function DraftPickModal({
         <button
           type="button"
           onClick={onExtend}
-          disabled={extLeft === 0 || extending || inGrace}
+          // 시계 시작 전 연장은 서버가 409 로 막는다 — 누를 수 있게 두면 실패 토스트만 뜬다
+          disabled={extLeft === 0 || extending || inGrace || clockPending}
           className="shrink-0 min-h-11 px-2.5 inline-flex items-center gap-1 rounded-md bg-emerald-800 hover:bg-emerald-700 text-emerald-50 text-xs sm:text-sm font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-950"
           aria-label={`픽 시간 ${EXTENSION_SECONDS}초 연장, ${extLeft}회 남음`}
         >
