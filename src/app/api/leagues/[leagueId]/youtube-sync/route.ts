@@ -59,6 +59,9 @@ export async function POST(
     return NextResponse.json({
       mapped: outcome.mapped,
       total_videos: outcome.totalVideos,
+      // 부분 성공을 성공으로 보고하지 않기 위한 값 — 화면은 이 둘을 반드시 함께 보여준다.
+      skipped: outcome.skipped,
+      skipped_reasons: outcome.skippedReasons,
       // 'quarter' = 대진+쿼터 제목 / 'legacy' = 옛 `경기 N` 제목. 왜 그렇게 붙었는지 설명하는 값이다.
       mode: outcome.mode,
       dry_run: outcome.dryRun ?? false,

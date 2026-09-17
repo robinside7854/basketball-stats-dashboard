@@ -59,7 +59,9 @@ export async function GET(req: Request) {
   let skippedNoGame = 0
   let skippedAllMapped = 0
   let videosMatched = 0
+  let videosSkipped = 0
   const failures: { leagueId: string; reason: string }[] = []
+  const partials: { leagueId: string; mapped: number; skipped: number; reasons: string[] }[] = []
 
   for (const lg of leagueRows) {
     if (!lg.youtube_channel) continue
@@ -85,7 +87,14 @@ export async function GET(req: Request) {
       if (outcome.ok) {
         processed++
         videosMatched += outcome.mapped
-        console.log(`[cron/youtube-sync] league=${lg.id} name=${lg.name ?? '?'} mapped=${outcome.mapped}/${outcome.totalVideos}`)
+        videosSkipped += outcome.skipped
+        console.log(`[cron/youtube-sync] league=${lg.id} name=${lg.name ?? '?'} mapped=${outcome.mapped}/${outcome.totalVideos} skipped=${outcome.skipped}`)
+        // 절반만 붙는 것은 조용히 지나간다 — mapped>0 이라 성공으로 집계되고 에러도 안 난다.
+        //   업로더가 팀 표기를 바꾸면 매주 이렇게 된다. 응답에 남겨 두면 사람이 확인할 수 있다.
+        if (outcome.skipped > 0) {
+          partials.push({ leagueId: lg.id, mapped: outcome.mapped, skipped: outcome.skipped, reasons: outcome.skippedReasons })
+          console.warn(`[cron/youtube-sync] league=${lg.id} 부분 연동: ${outcome.skippedReasons.join(' / ')}`)
+        }
       } else {
         failures.push({ leagueId: lg.id, reason: outcome.reason })
         console.log(`[cron/youtube-sync] league=${lg.id} no-match: ${outcome.reason}`)
@@ -97,7 +106,7 @@ export async function GET(req: Request) {
     }
   }
 
-  console.log(`[cron/youtube-sync] date=${date} leagues_total=${leagueRows.length} processed=${processed} videos_matched=${videosMatched} skipped_no_game=${skippedNoGame} skipped_all_mapped=${skippedAllMapped} failures=${failures.length}`)
+  console.log(`[cron/youtube-sync] date=${date} leagues_total=${leagueRows.length} processed=${processed} videos_matched=${videosMatched} videos_skipped=${videosSkipped} partial_leagues=${partials.length} skipped_no_game=${skippedNoGame} skipped_all_mapped=${skippedAllMapped} failures=${failures.length}`)
 
   return NextResponse.json({
     ok: true,
@@ -105,6 +114,8 @@ export async function GET(req: Request) {
     leagues_total: leagueRows.length,
     processed_leagues: processed,
     videos_matched: videosMatched,
+    videos_skipped: videosSkipped,
+    partials,
     skipped_no_game: skippedNoGame,
     skipped_all_mapped: skippedAllMapped,
     failures,

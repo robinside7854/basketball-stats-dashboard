@@ -25,8 +25,36 @@ import { pickRepresentative } from './gameVideo'
 const YT_API = 'https://www.googleapis.com/youtube/v3'
 
 export type SyncOutcome =
-  | { ok: true; mapped: number; totalVideos: number; channelId: string; details: SyncDetail[]; mode: 'quarter' | 'legacy'; dryRun?: boolean }
+  | {
+      ok: true
+      mapped: number
+      totalVideos: number
+      channelId: string
+      details: SyncDetail[]
+      mode: 'quarter' | 'legacy'
+      dryRun?: boolean
+      /** 못 붙인 영상 수. **0 이 아니면 절반만 붙은 것이다** — 호출부는 이것을 반드시 보여줘야 한다. */
+      skipped: number
+      /** 못 붙인 이유(중복 제거). 운영자가 할 조치가 여기에 들어 있다. */
+      skippedReasons: string[]
+    }
   | { ok: false; reason: string; channelId?: string; searchedVideos?: number; foundTitles?: string[] }
+
+/**
+ * 못 붙인 영상 집계.
+ *
+ * ⚠ 이 함수가 있는 이유 (2026-09-17)
+ *   9/12 영상 9개 중 3개만 붙었는데 화면에는 `3개 경기 YouTube 연동 완료` 라는 **성공 토스트**만
+ *   떴다. 나머지 6개는 업로더가 팀 표기를 바꿔(`락다운`→`굿모닝`, `지피티`→`챗지피`) 이름을
+ *   못 찾은 것이었고, 그 사유는 details 안에만 남아 아무도 보지 않았다. 사람이 재생목록을
+ *   눈으로 세어 보고서야 드러났다 — 에러가 없으니 검사도 통과한다.
+ *   **부분 성공은 성공이 아니다.** mapped 만 보고 성공을 말하지 않는다.
+ */
+function summarizeSkipped(details: SyncDetail[]): { skipped: number; skippedReasons: string[] } {
+  const bad = details.filter(d => d.action.startsWith('skipped:') || d.action.startsWith('err:'))
+  const reasons = [...new Set(bad.map(d => d.action.replace(/^(skipped|err):/, '')))]
+  return { skipped: bad.length, skippedReasons: reasons }
+}
 
 export interface SyncDetail {
   title: string
@@ -422,7 +450,10 @@ async function mapQuarterVideos(
     }
   }
 
-  return { ok: true, mapped, totalVideos: allVideos.length, channelId, details, mode: 'quarter', dryRun }
+  return {
+    ok: true, mapped, totalVideos: allVideos.length, channelId, details, mode: 'quarter', dryRun,
+    ...summarizeSkipped(details),
+  }
 }
 
 /** 그날 경기에 quarter_id 가 없을 때 날짜로 분기를 찾는다 (분기 팀명 override 를 쓰기 위해). */
@@ -507,5 +538,8 @@ async function mapLegacyVideos(
   }
 
   const mapped = details.filter(d => !d.action.startsWith('err') && !d.action.startsWith('skipped')).length
-  return { ok: true, mapped, totalVideos: matched.length, channelId, details, mode: 'legacy', dryRun }
+  return {
+    ok: true, mapped, totalVideos: matched.length, channelId, details, mode: 'legacy', dryRun,
+    ...summarizeSkipped(details),
+  }
 }

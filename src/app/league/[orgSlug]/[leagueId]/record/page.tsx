@@ -935,7 +935,20 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       let data: Record<string, unknown> = {}
       try { data = await res.json() } catch { /* non-JSON response */ }
       if (res.ok) {
-        toast.success(`${data.mapped}개 경기 YouTube 연동 완료`)
+        // 부분 성공을 성공이라고 말하지 않는다 (2026-09-17).
+        //   9/12 에 영상 9개 중 3개만 붙었는데 `3개 연동 완료` 만 떠서, 나머지 6개가 빠진 것을
+        //   사람이 재생목록을 눈으로 세어 보고서야 알았다. 못 붙인 것이 있으면 그 수와 사유를
+        //   같은 자리에서 보여준다 — 조치(팀 별칭 등록)가 사유 안에 들어 있다.
+        const skipped = Number(data.skipped ?? 0)
+        const reasons = (data.skipped_reasons as string[] | undefined) ?? []
+        if (skipped > 0) {
+          toast.warning(`영상 ${data.total_videos}개 중 ${data.mapped}개만 연동됨 · ${skipped}개 실패`, {
+            description: reasons.slice(0, 3).join('\n'),
+            duration: 12000,
+          })
+        } else {
+          toast.success(`${data.mapped}개 영상 YouTube 연동 완료`)
+        }
         await refreshSlots()
         fetch(`/api/leagues/${leagueId}/games/date-summary`).then(r => r.json()).then(applyDateSummaries).catch(() => null)
       } else {
