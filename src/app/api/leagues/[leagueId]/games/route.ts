@@ -8,6 +8,48 @@ import { syncYoutubeForLeague } from '@/lib/youtube/syncYoutubeForLeague'
 import { logAudit } from '@/lib/audit'
 import { resolveTeamId } from '@/lib/league/teamScope'
 
+/**
+ * 경기에 딸려 나가는 팀 이름·색을 **그 경기 분기의 이름**으로 바꾼다.
+ *
+ * 미라클은 분기마다 팀 이름이 바뀐다(1·2분기 락다운 → 3분기 굿모닝). `league_teams.name` 을
+ * 그대로 내보내면 3분기 경기에 `락다운` 이 붙는다. 정본은 언제나 `(team_id, quarter_id)` 다.
+ *
+ * ⚠ GET 에만 있던 것을 함수로 뺐다(2026-09-18). 기록 화면은 슬롯을 **POST 응답**으로 받는데
+ *   그쪽에는 이 치환이 없어서, 슬롯 탭에는 `락다운` 이 팀 드롭다운에는 `굿모닝` 이 떴다.
+ *   같은 화면 안에서 같은 팀이 두 이름으로 보였고 에러는 없었다 — 새 반환 지점을 만들면
+ *   여기를 반드시 통과시킬 것.
+ */
+async function applyQuarterTeamNames(
+  supabase: ReturnType<typeof createClient>,
+  games: unknown[],
+): Promise<void> {
+  type TeamLite = { id: string; name: string | null; color: string | null } | null
+  type GameRow = { quarter_id: string | null; home_team: TeamLite; away_team: TeamLite }
+  const rows = games as unknown as GameRow[]
+  const qids = Array.from(new Set(rows.map(g => g.quarter_id).filter(Boolean) as string[]))
+  const tids = Array.from(new Set(rows.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[]))
+  if (qids.length === 0 || tids.length === 0) return
+
+  const { data: overrides } = await supabase
+    .from('league_team_quarter_overrides')
+    .select('quarter_id, team_id, name, color')
+    .in('quarter_id', qids)
+    .in('team_id', tids)
+
+  const ovMap: Record<string, Record<string, { name: string | null; color: string | null }>> = {}
+  for (const o of (overrides ?? []) as { quarter_id: string; team_id: string; name: string | null; color: string | null }[]) {
+    (ovMap[o.quarter_id] ||= {})[o.team_id] = { name: o.name, color: o.color }
+  }
+  for (const g of rows) {
+    const ov = g.quarter_id ? ovMap[g.quarter_id] : null
+    for (const side of [g.home_team, g.away_team]) {
+      if (!side || !ov?.[side.id]) continue
+      if (ov[side.id].name) side.name = ov[side.id].name
+      if (ov[side.id].color) side.color = ov[side.id].color
+    }
+  }
+}
+
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ leagueId: string }> }
@@ -41,34 +83,8 @@ export async function GET(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   const games = data ?? []
 
-  // 분기별 팀명/색상 override 자동 적용 — home_team / away_team 의 name/color 를 그 게임의 quarter_id 기반 override 로 치환
-  type TeamLite = { id: string; name: string | null; color: string | null } | null
-  type GameRow = { quarter_id: string | null; home_team: TeamLite; away_team: TeamLite }
-  const rows = games as unknown as GameRow[]
-  const qids = Array.from(new Set(rows.map(g => g.quarter_id).filter(Boolean) as string[]))
-  const tids = Array.from(new Set(rows.flatMap(g => [g.home_team?.id, g.away_team?.id]).filter(Boolean) as string[]))
-  if (qids.length > 0 && tids.length > 0) {
-    const { data: overrides } = await supabase
-      .from('league_team_quarter_overrides')
-      .select('quarter_id, team_id, name, color')
-      .in('quarter_id', qids)
-      .in('team_id', tids)
-    const ovMap: Record<string, Record<string, { name: string | null; color: string | null }>> = {}
-    for (const o of (overrides ?? []) as { quarter_id: string; team_id: string; name: string | null; color: string | null }[]) {
-      (ovMap[o.quarter_id] ||= {})[o.team_id] = { name: o.name, color: o.color }
-    }
-    for (const g of rows) {
-      const ov = g.quarter_id ? ovMap[g.quarter_id] : null
-      if (g.home_team && ov?.[g.home_team.id]) {
-        if (ov[g.home_team.id].name) g.home_team.name = ov[g.home_team.id].name
-        if (ov[g.home_team.id].color) g.home_team.color = ov[g.home_team.id].color
-      }
-      if (g.away_team && ov?.[g.away_team.id]) {
-        if (ov[g.away_team.id].name) g.away_team.name = ov[g.away_team.id].name
-        if (ov[g.away_team.id].color) g.away_team.color = ov[g.away_team.id].color
-      }
-    }
-  }
+  // 분기별 팀명/색상 override 자동 적용
+  await applyQuarterTeamNames(supabase, games)
 
   // `?withVideos=1` — 각 경기에 붙은 **쿼터 영상 번호**를 함께 준다.
   //   대회 관리 화면이 경기마다 "영상 3/4" 를 보여줘야 하는데, 경기 수만큼 조회를 돌리면
@@ -176,6 +192,7 @@ export async function POST(
       .eq('date', date)
       .order('slot_num', { ascending: true })
     if (afterErr) return NextResponse.json({ error: afterErr.message }, { status: 500 })
+    await applyQuarterTeamNames(supabase, after ?? [])
 
     revalidateTag(`league-${leagueId}`, 'max')
     revalidateTag(`league-${leagueId}-games`, 'max')
@@ -239,6 +256,7 @@ export async function POST(
     .order('slot_num', { ascending: true })
 
   if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 })
+  await applyQuarterTeamNames(supabase, slots ?? [])
 
   // F6: 홈 페이지 unstable_cache 무효화 (Sprint 2 B2 태그)
   revalidateTag(`league-${leagueId}`, 'max')

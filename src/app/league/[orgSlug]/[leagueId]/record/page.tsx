@@ -1986,7 +1986,17 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   : 'bg-gray-900 border-gray-800 text-gray-300 hover:border-gray-600'
               }`}
             >
-              <span className="text-base">{slot.slot_num}</span>
+              {/* 번호 대신 대진명. 숫자만 있으면 어느 탭이 어느 경기인지 알 수 없어
+                  매번 눌러서 확인해야 했다. 팀이 아직 안 정해진 슬롯만 번호로 남긴다. */}
+              {hasTeams ? (
+                <span className="flex flex-col items-center leading-tight w-full min-w-0">
+                  <span className="text-xs font-bold truncate w-full text-center">{slot.home_team?.name ?? '홈'}</span>
+                  <span className="text-[10px] font-normal opacity-60">vs</span>
+                  <span className="text-xs font-bold truncate w-full text-center">{slot.away_team?.name ?? '어웨이'}</span>
+                </span>
+              ) : (
+                <span className="text-xs" style={{ opacity: 0.8 }}>경기 {slot.slot_num}</span>
+              )}
               <div className="flex items-center gap-0.5 mt-1">
                 {hasYT && <Youtube size={14} className="text-red-400" />}
                 {slot.is_complete
@@ -2209,11 +2219,14 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   <div className="flex items-baseline gap-2 flex-wrap mb-2">
                     <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>쿼터별 영상</span>
                     <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
-                      기록 중 쿼터를 바꾸면 그 쿼터 영상으로 자동 전환됩니다
+                      쿼터를 누르면 그 쿼터 영상으로 바뀝니다
                     </span>
                   </div>
+                  {/* ⚠ **올라온 쿼터만 칸으로 만든다.** 1~4를 늘 네 칸 그리면 업로더가 안 올린 쿼터가
+                      `미연결` 이라는 이름의 실패처럼 읽힌다(9/12 가 실제로 그랬다). 없는 쿼터는
+                      아래 점선 `+ N쿼터` 로만 남겨 "붙일 자리"라는 뜻을 분명히 한다. */}
                   <ul className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 list-none p-0 m-0">
-                    {[1, 2, 3, 4].map(q => {
+                    {[1, 2, 3, 4, 5, 6].filter(q => quarterVideos[q]).map(q => {
                       const v = quarterVideos[q]
                       const isTarget = ytTargetQuarter === q
                       // ⚠ `재생 중` 은 **실제 재생 중인 영상의 쿼터**에만 붙인다(playingQuarter).
@@ -2226,14 +2239,24 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         : isPlaying ? '재생 중'
                         : isRecording ? '기록 중'
                         : null
+                      // 카드를 누르면 **그 쿼터로 넘어간다** — 재생도 기록도 함께.
+                      //   예전에는 붙일 대상(ytTargetQuarter)만 바꿔서, 3쿼터를 눌러도 2쿼터
+                      //   영상이 계속 돌았다. "눌러도 안 바뀐다"는 신고가 이것이다.
+                      //   쿼터를 넘기는 다른 입구(기록 패드 위 탭)는 경기 시작 뒤에만 나타나서,
+                      //   시작 전에는 영상을 넘길 방법이 화면에 아예 없었다.
+                      const goToQuarter = () => {
+                        setCurrentQuarter(q)
+                        setYtTargetQuarter(q)
+                        setYtPickerOpen(false)
+                      }
                       return (
                         <li key={q} className="flex items-stretch gap-1">
                           <button
                             type="button"
-                            onClick={() => { setYtTargetQuarter(q); setYtPickerOpen(false) }}
+                            onClick={goToQuarter}
                             aria-pressed={isTarget}
-                            aria-label={`${q}쿼터 영상 ${v ? '교체' : '연결'}`}
-                            title={v ? `${q}쿼터 영상 연결됨 — 눌러서 교체 대상으로 지정` : `${q}쿼터에 영상 연결`}
+                            aria-label={`${q}쿼터로 이동 — 영상 재생·기록 대상`}
+                            title={`${q}쿼터 영상을 재생하고 이 쿼터로 기록합니다`}
                             className="flex-1 min-w-0 flex flex-col items-start justify-center px-2 py-1.5 min-h-[44px] text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                             style={{
                               background: isTarget ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
@@ -2259,9 +2282,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                               )}
                             </span>
                             <span className="inline-flex items-center gap-1 mt-0.5 font-normal">
-                              {v
-                                ? <><Youtube size={14} aria-hidden /> 연결됨</>
-                                : <span style={{ color: isTarget ? 'var(--mm-black)' : 'var(--mm-muted)' }}>미연결</span>}
+                              <Youtube size={14} aria-hidden /> 연결됨
                             </span>
                           </button>
                           {v && (
@@ -2280,6 +2301,41 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                       )
                     })}
                   </ul>
+
+                  {/* 아직 영상이 없는 쿼터 — 칸이 아니라 "붙일 자리"로 보이게 점선 칩으로 둔다.
+                      ⚠ 1~4쿼터만. 연장(5·6)은 "혹시 몰라서" 칸을 열어 두면 4쿼터가 다 찬 날에도
+                        `영상 없음` 줄이 남아, 없는 칸을 지운 효과가 사라진다. 연장 영상이 이미
+                        붙어 있으면 위 카드 목록에 그대로 나온다. */}
+                  {(() => {
+                    const open = [1, 2, 3, 4].filter(q => !quarterVideos[q])
+                    if (open.length === 0) return null
+                    return (
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                        <span className="text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>영상 없음</span>
+                        {open.map(q => {
+                          const isTarget = ytTargetQuarter === q
+                          return (
+                            <button
+                              key={q}
+                              type="button"
+                              onClick={() => { setYtTargetQuarter(q); setYtPickerOpen(false) }}
+                              aria-pressed={isTarget}
+                              title={`${q}쿼터에 붙일 영상을 고릅니다`}
+                              className="inline-flex items-center gap-1 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                              style={{
+                                background: isTarget ? 'var(--mm-yellow)' : 'transparent',
+                                color: isTarget ? 'var(--mm-black)' : 'var(--mm-muted)',
+                                border: `1px dashed ${isTarget ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
+                                borderRadius: '4px',
+                              }}
+                            >
+                              <Plus size={14} strokeWidth={2.5} aria-hidden />{q}쿼터
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
 
