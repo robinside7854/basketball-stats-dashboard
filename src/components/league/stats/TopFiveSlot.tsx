@@ -74,7 +74,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
       <div className="flex items-center gap-2 mb-3">
         <Trophy size={14} style={{ color: 'var(--mm-ink-soft)' }} />
         <span
-          className="text-[11px] font-black uppercase"
+          className="text-xs font-black uppercase"
           style={{ color: 'var(--mm-ink)', letterSpacing: '0.16em' }}
         >
           TOP 5 리더
@@ -171,7 +171,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                       {p.value}
                     </span>
                     <span
-                      className="text-[10px] font-black uppercase"
+                      className="text-xs font-black uppercase"
                       style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}
                     >
                       {metricLabel}

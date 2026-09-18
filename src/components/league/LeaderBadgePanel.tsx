@@ -83,7 +83,7 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <p className="text-xs text-[color:var(--mm-muted)] uppercase tracking-widest font-bold">게임 스탯 리더</p>
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded-md bg-[color:var(--mm-ink)] text-[color:var(--mm-panel)]">
+          <span className="inline-flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-md bg-[color:var(--mm-ink)] text-[color:var(--mm-panel)]">
             <Trophy size={14} aria-hidden /> 총 {total}회
           </span>
         </div>
@@ -102,7 +102,7 @@ export default function LeaderBadgePanel({ badges, leagueId, playerId }: Props) 
           const content = (
             <>
               <c.Icon size={16} className={active ? c.color : 'text-[color:var(--mm-muted)]'} />
-              <p className={`text-[11px] font-bold uppercase tracking-widest ${active ? c.color : 'text-[color:var(--mm-muted)]'}`}>{c.label}</p>
+              <p className={`text-xs font-bold uppercase tracking-widest ${active ? c.color : 'text-[color:var(--mm-muted)]'}`}>{c.label}</p>
               <p className={`text-lg font-black leading-none tabular-nums ${active ? 'text-[color:var(--mm-ink)]' : 'text-[color:var(--mm-muted)]'}`}>
                 {count}
               </p>

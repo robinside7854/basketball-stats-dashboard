@@ -98,7 +98,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
           >
             리그 리더
           </h3>
-          <span className="text-[11px] sm:text-[12px] tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
+          <span className="text-xs tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
             최소 {effectiveMinGP} R
           </span>
         </header>

@@ -184,7 +184,7 @@ export default function TraitBadgePanel({ leagueId, playerId }: Props) {
                 <span className="block text-xs font-bold leading-tight" style={{ color: 'var(--mm-ink)' }}>
                   {def.name}
                 </span>
-                <span className="block text-[10px] font-mono leading-tight tabular-nums" style={{ color: st.fg }}>
+                <span className="block text-xs font-mono leading-tight tabular-nums" style={{ color: st.fg }}>
                   {st.label} · {formatTraitValue(b.code, b.value)}
                   {b.rank != null && ` · ${b.rank}/${b.poolSize}위`}
                 </span>
@@ -194,7 +194,7 @@ export default function TraitBadgePanel({ leagueId, playerId }: Props) {
         })}
       </div>
 
-      <p className="flex items-start gap-1.5 text-[11px] leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+      <p className="flex items-start gap-1.5 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
         <Info size={14} aria-hidden className="mt-0.5 shrink-0" />
         <span>배지를 누르면 획득 기준이 나옵니다. <b>/R 은 라운드(하루)당</b> 값입니다.</span>
       </p>

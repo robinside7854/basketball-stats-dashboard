@@ -54,7 +54,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
           >
             최근 라운드
           </h3>
-          <span className="text-[11px] sm:text-[12px] tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
+          <span className="text-xs tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
             최근 {rounds.length}주 · 하루 = 1라운드
           </span>
         </header>
@@ -80,13 +80,13 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                     <div className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em', lineHeight: 1.1 }}>
                       {r.weekLabel}
                     </div>
-                    <div className="text-[11px] tracking-[0.16em] uppercase font-bold mt-1" style={{ color: 'var(--mm-muted)' }}>
+                    <div className="text-xs tracking-[0.16em] uppercase font-bold mt-1" style={{ color: 'var(--mm-muted)' }}>
                       {r.gamesCount}경기 진행
                     </div>
                   </div>
                   {topTeam && (
                     <span
-                      className="text-[11px] font-black tracking-[0.14em] uppercase shrink-0 break-keep"
+                      className="text-xs font-black tracking-[0.14em] uppercase shrink-0 break-keep"
                       style={{
                         background: 'var(--mm-yellow-soft)',
                         color: 'var(--mm-ink)',
@@ -154,7 +154,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                 >
                   <Link
                     href={`${base}/boxscore/${r.date}`}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-xs font-black tracking-[0.14em] uppercase cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
                     style={{
                       background: 'var(--mm-panel-alt)',
                       color: 'var(--mm-ink)',
@@ -170,7 +170,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
                       hover 밝기 · active 눌림 · focus 링 · 200ms */}
                   <Link
                     href={`${base}/highlights/${r.date}`}
-                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-[11px] font-black tracking-[0.14em] uppercase cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-hoop-orange-500)] focus-visible:ring-offset-1"
+                    className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-2 text-xs font-black tracking-[0.14em] uppercase cursor-pointer transition-all duration-200 hover:brightness-95 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-hoop-orange-500)] focus-visible:ring-offset-1"
                     style={{
                       background: 'var(--color-hoop-orange-500)',
                       color: 'var(--mm-black)',
@@ -193,7 +193,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
         <div className="px-4 sm:px-6 md:px-8 lg:px-10 py-5 md:py-6 flex justify-center">
           <Link
             href={`/league/${resolvedOrgSlug}/${leagueId}/highlights`}
-            className="mm-brand inline-flex items-center justify-center gap-2 font-bold min-h-[44px] px-6 sm:px-8 py-3 text-[13px] sm:text-[14px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-2 hover:brightness-95"
+            className="mm-brand inline-flex items-center justify-center gap-2 font-bold min-h-[44px] px-6 sm:px-8 py-3 text-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)] focus-visible:ring-offset-2 hover:brightness-95"
             style={{
               background: 'var(--mm-ink)',
               color: 'var(--mm-panel)',

@@ -87,11 +87,11 @@ function EmptyCell({ short }: { short: string }) {
       className="min-h-[92px] rounded-md flex flex-col items-center justify-center gap-1 px-1"
       style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
     >
-      <span className="text-[10px] font-black uppercase whitespace-nowrap" style={{ color: 'var(--mm-muted)', letterSpacing: '0.12em' }}>
+      <span className="text-xs font-black uppercase whitespace-nowrap" style={{ color: 'var(--mm-muted)', letterSpacing: '0.12em' }}>
         {short}
       </span>
       <span className="font-jersey font-black" style={{ color: 'var(--mm-muted)', fontSize: '20px' }}>—</span>
-      <span className="text-[10px] font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>기록 없음</span>
+      <span className="text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>기록 없음</span>
     </div>
   )
 }
@@ -104,10 +104,10 @@ export default function RecordRoomBoard({ categoryHighs, highlightCategory, orgS
     <SectionCard variant="standalone" ariaLabel="기록실 — 시즌 최고 기록">
       <div className="flex items-center gap-2 px-3 sm:px-4 pt-3 pb-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
         <Crown size={14} style={{ color: 'var(--mm-ink-soft)' }} aria-hidden />
-        <span className="text-[11px] font-black uppercase" style={{ color: 'var(--mm-ink)', letterSpacing: '0.16em' }}>
+        <span className="text-xs font-black uppercase" style={{ color: 'var(--mm-ink)', letterSpacing: '0.16em' }}>
           기록실
         </span>
-        <span className="ml-auto text-[11px] font-bold uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
+        <span className="ml-auto text-xs font-bold uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
           {year} 시즌 최고
         </span>
       </div>
@@ -140,7 +140,7 @@ export default function RecordRoomBoard({ categoryHighs, highlightCategory, orgS
                   aria-label={`${high.label} 시즌 최고 ${high.value}${unit} ${high.player.name} — ${formatDateFull(high.date)} 경기 박스스코어 보기`}
                 >
                   <span
-                    className="text-[10px] font-black uppercase whitespace-nowrap"
+                    className="text-xs font-black uppercase whitespace-nowrap"
                     style={{ color: isHighlight ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)', letterSpacing: '0.12em' }}
                   >
                     {short}
@@ -153,10 +153,10 @@ export default function RecordRoomBoard({ categoryHighs, highlightCategory, orgS
                     className="font-jersey font-black leading-none"
                     style={{ color: isHighlight ? 'var(--mm-yellow-strong)' : 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.01em' }}
                   />
-                  <span className="text-[11px] font-bold truncate w-full" style={{ color: 'var(--mm-ink-soft)' }}>
+                  <span className="text-xs font-bold truncate w-full" style={{ color: 'var(--mm-ink-soft)' }}>
                     {high.player.name}
                   </span>
-                  <span className="text-[10px] font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+                  <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
                     {formatDateShort(high.date)}
                   </span>
                 </Link>

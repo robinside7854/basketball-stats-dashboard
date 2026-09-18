@@ -165,7 +165,7 @@ function ShortcutRow({
       </span>
       <div className="flex-1 min-w-0">
         <div className="font-bold text-sm md:text-base" style={{ color: 'var(--mm-ink)' }}>{label}</div>
-        <div className="text-[12px]" style={{ color: 'var(--mm-muted)' }}>{sub}</div>
+        <div className="text-xs" style={{ color: 'var(--mm-muted)' }}>{sub}</div>
       </div>
       <ChevronRight size={20} className="shrink-0" style={{ color: 'var(--mm-muted)' }} aria-hidden />
     </Link>

@@ -63,7 +63,7 @@ export default function ClassicGameClips({ leagueId, game }: Props) {
           type="button"
           onClick={openCollection}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 text-[12px] font-black uppercase tracking-[0.1em] cursor-pointer transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 text-xs font-black uppercase tracking-[0.1em] cursor-pointer transition-colors disabled:opacity-50"
           style={{
             background: 'var(--mm-yellow)', color: 'var(--mm-black)',
             borderRadius: 'var(--mm-radius-ctl)',
@@ -82,7 +82,7 @@ export default function ClassicGameClips({ leagueId, game }: Props) {
         <button
           type="button"
           onClick={() => setBoxOpen(true)}
-          className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 text-[12px] font-bold uppercase tracking-[0.1em] cursor-pointer transition-colors"
+          className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 text-xs font-bold uppercase tracking-[0.1em] cursor-pointer transition-colors"
           style={{
             border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)',
             borderRadius: 'var(--mm-radius-ctl)',
@@ -94,7 +94,7 @@ export default function ClassicGameClips({ leagueId, game }: Props) {
         </button>
 
         {error && (
-          <span className="text-[12px]" style={{ color: 'var(--mm-muted)' }} role="status">
+          <span className="text-xs" style={{ color: 'var(--mm-muted)' }} role="status">
             {error}
           </span>
         )}

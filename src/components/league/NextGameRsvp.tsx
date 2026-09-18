@@ -98,7 +98,7 @@ function RosterGroup({
         borderRadius: 'var(--mm-radius-ctl)',
       }}
     >
-      <p className="flex items-baseline justify-between gap-1.5 text-[12px] font-black">
+      <p className="flex items-baseline justify-between gap-1.5 text-xs font-black">
         <span className="truncate" style={{ color: dashed ? 'var(--mm-muted)' : 'var(--mm-ink)' }}>{title}</span>
         <span className="tabular-nums shrink-0" style={{ color: 'var(--mm-yellow-strong)' }}>
           {going}<span style={{ color: 'var(--mm-muted)' }}>/{members.length}</span>
@@ -123,8 +123,8 @@ function RosterGroup({
               >
                 {m.name}
               </span>
-              {m.isMe && <span className="shrink-0 text-[10px] font-black" style={{ color: 'var(--mm-yellow-strong)' }}>나</span>}
-              {!m.hasAccount && <span className="shrink-0 text-[10px]" style={{ color: 'var(--mm-muted)' }}>미가입</span>}
+              {m.isMe && <span className="shrink-0 text-xs font-black" style={{ color: 'var(--mm-yellow-strong)' }}>나</span>}
+              {!m.hasAccount && <span className="shrink-0 text-xs" style={{ color: 'var(--mm-muted)' }}>미가입</span>}
             </>
           )
           return (
@@ -135,12 +135,12 @@ function RosterGroup({
                   onClick={() => onCycle(m.status)}
                   disabled={saving}
                   aria-label={`내 응답 ${mark.label} — 눌러서 변경`}
-                  className="w-full flex items-center gap-1.5 min-h-[32px] py-1 text-[12.5px] text-left cursor-pointer disabled:opacity-50 transition-colors rounded hover:bg-[color:var(--mm-panel)]"
+                  className="w-full flex items-center gap-1.5 min-h-[32px] py-1 text-xs text-left cursor-pointer disabled:opacity-50 transition-colors rounded hover:bg-[color:var(--mm-panel)]"
                 >
                   {inner}
                 </button>
               ) : (
-                <span className="w-full flex items-center gap-1.5 min-h-[32px] py-1 text-[12.5px]" aria-label={label}>
+                <span className="w-full flex items-center gap-1.5 min-h-[32px] py-1 text-xs" aria-label={label}>
                   {inner}
                 </span>
               )}
@@ -214,7 +214,7 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
     >
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
+          <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
             다음 경기{rel ? ` · ${rel}` : ''}
           </p>
           <p className="mt-0.5 font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(17px, 4.4vw, 20px)', lineHeight: 1.2 }}>
@@ -222,7 +222,7 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
             {formatDate(date.date)}
           </p>
           {(date.start_time || date.place) && (
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12.5px]" style={{ color: 'var(--mm-ink-soft)' }}>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs" style={{ color: 'var(--mm-ink-soft)' }}>
               {date.start_time && (
                 <span className="inline-flex items-center gap-1"><Clock size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />{date.start_time.slice(0, 5)}</span>
               )}
@@ -235,13 +235,13 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
 
         {summary && (
           <div className="shrink-0 text-right">
-            <p className="inline-flex items-center gap-1 text-[12px] font-bold" style={{ color: 'var(--mm-ink-soft)' }}>
+            <p className="inline-flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--mm-ink-soft)' }}>
               <Users size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />
               참석 <span className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>{summary.going}</span>
               {date.capacity ? <span style={{ color: 'var(--mm-muted)' }}>/{date.capacity}</span> : null}명
             </p>
             {summary.maybe > 0 && (
-              <p className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>미정 {summary.maybe}명</p>
+              <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>미정 {summary.maybe}명</p>
             )}
           </div>
         )}
@@ -259,7 +259,7 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
                   onClick={() => choose(value)}
                   disabled={saving !== null}
                   aria-pressed={active}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] text-[12px] font-black tracking-[0.08em] uppercase cursor-pointer transition-colors disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] text-xs font-black tracking-[0.08em] uppercase cursor-pointer transition-colors disabled:opacity-50"
                   style={{
                     background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                     color: active ? 'var(--mm-panel)' : 'var(--mm-ink-soft)',
@@ -277,7 +277,7 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
 
           {/* 배정 결과 — 참석일 때만 말한다. 불참인데 팀 이름이 뜨면 나가는 줄 안다. */}
           {me?.status === 'going' && (
-            <p className="mt-2 text-[12px]" style={{ color: me.waiting ? 'var(--mm-muted)' : 'var(--mm-ink-soft)' }}>
+            <p className="mt-2 text-xs" style={{ color: me.waiting ? 'var(--mm-muted)' : 'var(--mm-ink-soft)' }}>
               {me.waiting
                 ? '배정 대기 — 운영진 회의에서 팀이 정해집니다'
                 : me.teamName ? <>배정 팀 · <b style={{ color: 'var(--mm-ink)' }}>{me.teamName}</b></> : null}
@@ -322,7 +322,7 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
         <button
           type="button"
           onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
-          className="mt-3 w-full flex items-center justify-center gap-1.5 min-h-[44px] text-[12px] font-black tracking-[0.08em] uppercase cursor-pointer transition-colors"
+          className="mt-3 w-full flex items-center justify-center gap-1.5 min-h-[44px] text-xs font-black tracking-[0.08em] uppercase cursor-pointer transition-colors"
           style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-ctl)' }}
         >
           <LogIn size={14} aria-hidden />

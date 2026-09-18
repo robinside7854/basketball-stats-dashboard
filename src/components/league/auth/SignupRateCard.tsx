@@ -94,7 +94,7 @@ export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: 
             >
               회원 가입율
             </h3>
-            <span className="text-[10px] lg:text-[11px] font-bold uppercase tracking-[0.12em] shrink-0" style={{ color: 'var(--mm-muted)' }}>
+            <span className="text-xs font-bold uppercase tracking-[0.12em] shrink-0" style={{ color: 'var(--mm-muted)' }}>
               게스트 제외
             </span>
           </div>
@@ -116,11 +116,11 @@ export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: 
           >
             {data.rate}%
           </span>
-          <span className="text-[13px] lg:text-sm font-bold tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
+          <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
             {data.approved} / {data.eligible}명 가입 완료
           </span>
           {data.guestCount > 0 && (
-            <span className="text-[11px] font-bold uppercase tracking-[0.1em] tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+            <span className="text-xs font-bold uppercase tracking-[0.1em] tabular-nums" style={{ color: 'var(--mm-muted)' }}>
               (게스트 {data.guestCount}명 제외)
             </span>
           )}
@@ -143,12 +143,12 @@ export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: 
           <Legend swatch="var(--mm-yellow-strong)" swatchOpacity={0.45} label="승인 대기" value={data.pending} />
           <Legend swatch="var(--mm-rule)" label="미가입" value={data.notSignedUp} />
           {data.pending > 0 && (
-            <span className="text-[11px] font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+            <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
               신청률 {data.requestedRate}%
             </span>
           )}
           {(data.rejected > 0 || data.disabled > 0) && (
-            <span className="text-[11px] font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+            <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
               반려 {data.rejected} · 비활성 {data.disabled}
             </span>
           )}
@@ -160,7 +160,7 @@ export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: 
             <button
               onClick={() => setShowNames(v => !v)}
               aria-expanded={showNames}
-              className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] cursor-pointer"
+              className="flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.12em] cursor-pointer"
               style={{ color: 'var(--mm-ink-soft)' }}
             >
               <ChevronDown
@@ -200,7 +200,7 @@ function Legend({ swatch, swatchOpacity, label, value }: {
   value: number
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] lg:text-xs font-bold tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
+    <span className="inline-flex items-center gap-1.5 text-xs font-bold tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
       <span
         aria-hidden
         className="inline-block w-2.5 h-2.5 shrink-0"
@@ -215,14 +215,14 @@ function Legend({ swatch, swatchOpacity, label, value }: {
 function NameList({ title, names }: { title: string; names: string[] }) {
   return (
     <div>
-      <p className="text-[10px] font-black uppercase tracking-[0.14em] mb-1" style={{ color: 'var(--mm-muted)' }}>
+      <p className="text-xs font-black uppercase tracking-[0.14em] mb-1" style={{ color: 'var(--mm-muted)' }}>
         {title} ({names.length})
       </p>
       <div className="flex flex-wrap gap-1">
         {names.map(n => (
           <span
             key={n}
-            className="px-1.5 py-0.5 text-[11px] font-bold"
+            className="px-1.5 py-0.5 text-xs font-bold"
             style={{
               background: 'var(--mm-panel-alt)',
               border: '1px solid var(--mm-rule)',

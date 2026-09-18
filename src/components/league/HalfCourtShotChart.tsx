@@ -305,7 +305,7 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
 
       {/* 범례 + 호버 상세 */}
       <div className="mt-2.5 space-y-1.5">
-        <div className="flex items-center justify-center gap-3 text-[10px] flex-wrap">
+        <div className="flex items-center justify-center gap-3 text-xs flex-wrap">
           <div className="inline-flex items-center gap-1">
             <div className="w-3 h-3 rounded" style={{ background: '#16a34a', opacity: 0.85 }} />
             <span className="text-emerald-300 font-semibold">핫 (평균 이상)</span>
@@ -324,10 +324,10 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
           </div>
         </div>
         {/* '평균'이 몇 %인지 안 밝히면 존마다 기준이 다르다는 걸 알 방법이 없다 */}
-        <p className="text-center text-[10px] text-gray-500 break-keep">
+        <p className="text-center text-xs text-gray-500 break-keep">
           존별 평균 기준 · 골밑 {baseline.zone.post}% · 레이업 {baseline.zone.layup}% · 미들 {baseline.zone.mid}% · 3점 {baseline.zone.three}%
         </p>
-        <div className="min-h-[24px] text-center text-[11px]">
+        <div className="min-h-[24px] text-center text-xs">
           {hover ? (() => {
             const z = zones[hover]
             const c = { post: dsC, layup: luC, mid: mdC, three: thC }[hover]

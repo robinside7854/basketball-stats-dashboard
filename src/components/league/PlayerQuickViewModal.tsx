@@ -586,7 +586,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       }
                     } catch { toast.error('네트워크 오류') } finally { setGeneratingAI(false) }
                   }}
-                  className="absolute -bottom-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-sm text-[10px] font-bold transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-wait z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                  className="absolute -bottom-2 -right-2 flex items-center gap-1 px-2 py-1 rounded-sm text-xs font-bold transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-wait z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                   style={{
                     background: 'var(--mm-yellow)',
                     color: 'var(--mm-black)',
@@ -689,7 +689,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
           >
             <p className="text-xs font-black uppercase tracking-[0.20em]" style={{ color: 'var(--mm-yellow-strong)' }}>선수 정보 수정</p>
-            <p className="text-[11px] -mt-1" style={{ color: 'var(--mm-muted)' }}>프로필 사진은 위 아바타에 마우스를 올려 업로드/AI 생성하세요.</p>
+            <p className="text-xs -mt-1" style={{ color: 'var(--mm-muted)' }}>프로필 사진은 위 아바타에 마우스를 올려 업로드/AI 생성하세요.</p>
 
             <div className="grid grid-cols-1 gap-2">
               <div>
@@ -826,7 +826,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             <p className="font-bold text-lg" style={{ color: 'var(--mm-ink)' }}>
               상세 스탯은 회원 전용
             </p>
-            <p className="text-[13px] mt-1.5 leading-relaxed max-w-xs break-keep" style={{ color: 'var(--mm-muted)' }}>
+            <p className="text-sm mt-1.5 leading-relaxed max-w-xs break-keep" style={{ color: 'var(--mm-muted)' }}>
               선수별 시즌 기록·배지·차트는 가입 승인된 회원만 볼 수 있어요.
             </p>
             <button
@@ -918,7 +918,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                             </p>
                             {rank > 0 && (
                               <p
-                                className="relative text-[11px] font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
+                                className="relative text-xs font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
                                 style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
                               >
                                 {isChamp && <Crown size={14} aria-hidden strokeWidth={2.5} />}
@@ -959,7 +959,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                             <p className="text-xs mt-0.5 font-mono" style={{ color: isChamp ? 'rgba(0,0,0,0.65)' : 'var(--mm-muted)' }}>{m}/{a}</p>
                             {rank > 0 && a > 0 && (
                               <p
-                                className="text-[11px] font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
+                                className="text-xs font-black mt-1 flex items-center justify-center gap-1 whitespace-nowrap tabular-nums"
                                 style={{ color: isChamp ? 'var(--mm-black)' : rank <= 3 ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
                               >
                                 {isChamp && <Crown size={14} aria-hidden strokeWidth={2.5} />}
@@ -1153,7 +1153,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                             >
                               <span className="flex items-center gap-1.5 min-w-0">
                                 <span
-                                  className="shrink-0 px-1.5 py-0.5 rounded-sm text-[10px] font-black uppercase"
+                                  className="shrink-0 px-1.5 py-0.5 rounded-sm text-xs font-black uppercase"
                                   style={c.mode === 'tournament'
                                     ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
                                     : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)' }
@@ -1263,7 +1263,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     { label: '골밑',   zone: 'post'  as const, color: '#0A0A0A', data: sb.post  },
                     { label: '레이업', zone: 'layup' as const, color: '#EAB308', data: sb.layup },
                     { label: '미들슛', zone: 'mid'   as const, color: '#A16207', data: sb.mid   },
-                    { label: '3점슛',  zone: 'three' as const, color: '#6B7280', data: sb.three },
+                    { label: '3점슛',  zone: 'three' as const, color: 'var(--mm-muted)', data: sb.three },
                   ]
                     .filter(z => z.data.a > 0)
                     .sort((a, b) => b.data.dist - a.data.dist)
@@ -1304,7 +1304,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {primary && (
                           <div className="px-3 py-2.5" style={{ background: 'var(--mm-yellow)', border: '1px solid var(--mm-black)' }}>
-                            <p className="text-[11px] font-black uppercase" style={{ color: 'rgba(0,0,0,0.65)', letterSpacing: '0.16em' }}>주 공격 옵션</p>
+                            <p className="text-xs font-black uppercase" style={{ color: 'rgba(0,0,0,0.65)', letterSpacing: '0.16em' }}>주 공격 옵션</p>
                             <p className="font-bold mt-0.5" style={{ color: 'var(--mm-black)', fontSize: '20px', letterSpacing: '-0.005em' }}>
                               {primary.label}
                             </p>
@@ -1315,7 +1315,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         )}
                         {bestPct && (
                           <div className="px-3 py-2.5" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
-                            <p className="text-[11px] font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}>가장 정확한 존</p>
+                            <p className="text-xs font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}>가장 정확한 존</p>
                             <p className="font-bold mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '20px', letterSpacing: '-0.005em' }}>
                               {bestPct.label}
                             </p>
@@ -1353,9 +1353,9 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                           className="grid items-center gap-2 px-2.5 py-1.5"
                           style={{ gridTemplateColumns: ROW_COLS, borderBottom: '1px solid var(--mm-rule)' }}
                         >
-                          <span className="text-[11px] font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.12em' }}>존</span>
-                          <span className="text-[11px] font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.12em' }}>시도 비중</span>
-                          <span className="text-[11px] font-black uppercase text-right" style={{ color: 'var(--mm-muted)', letterSpacing: '0.12em' }}>성공률</span>
+                          <span className="text-xs font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.12em' }}>존</span>
+                          <span className="text-xs font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.12em' }}>시도 비중</span>
+                          <span className="text-xs font-black uppercase text-right" style={{ color: 'var(--mm-muted)', letterSpacing: '0.12em' }}>성공률</span>
                         </div>
                         {rawZones.map(z => (
                           <div

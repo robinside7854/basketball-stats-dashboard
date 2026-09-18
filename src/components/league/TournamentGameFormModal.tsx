@@ -202,7 +202,7 @@ export default function TournamentGameFormModal({
                 {knownOpponents.map(o => <option key={o} value={o} />)}
               </datalist>
             )}
-            <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+            <p className="mt-1.5 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
               같은 이름으로 등록하면 그 상대와의 전적이 한 팀으로 모입니다.
             </p>
           </div>
@@ -249,7 +249,7 @@ export default function TournamentGameFormModal({
               우리 팀이 원정(오른쪽)
             </span>
           </label>
-          <p className="text-[11px] leading-relaxed -mt-2" style={{ color: 'var(--mm-muted)' }}>
+          <p className="text-xs leading-relaxed -mt-2" style={{ color: 'var(--mm-muted)' }}>
             박스스코어·쿼터 표가 이 기준으로 좌우를 그립니다. 기록을 시작하기 전에는 나중에 바꿀 수 있습니다.
           </p>
         </div>

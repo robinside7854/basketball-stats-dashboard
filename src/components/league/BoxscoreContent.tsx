@@ -131,7 +131,7 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
         <thead>
           <tr style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
             <th
-              className="text-left py-2.5 px-3 text-[11px] font-black uppercase tracking-widest sticky left-0 min-w-[150px]"
+              className="text-left py-2.5 px-3 text-xs font-black uppercase tracking-widest sticky left-0 min-w-[150px]"
               style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel-alt)' }}
             >선수 / 팀</th>
             {COLS.map(c => {
@@ -139,7 +139,7 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
               return (
                 <th key={c.key}
                   onClick={() => c.sortKey && handleSort(c.sortKey)}
-                  className="py-2.5 px-2 text-center text-[11px] font-jersey font-bold whitespace-nowrap cursor-pointer select-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
+                  className="py-2.5 px-2 text-center text-xs font-jersey font-bold whitespace-nowrap cursor-pointer select-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
                   style={{ color: isActive ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>
                   {c.label}
                   {c.sortKey && (isActive
@@ -217,14 +217,14 @@ function MobileStatCards({ rows, showGP = false }: { rows: (PlayerRow | DailySta
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-1.5">
-        <span className="text-[10px] font-black uppercase tracking-widest mr-1" style={{ color: 'var(--mm-muted)' }}>정렬</span>
+        <span className="text-xs font-black uppercase tracking-widest mr-1" style={{ color: 'var(--mm-muted)' }}>정렬</span>
         {sortBtns.map(b => {
           const active = sortKey === b.key
           return (
             <button
               key={b.key}
               onClick={() => setSortKey(b.key)}
-              className="px-2.5 py-1 text-[11px] font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+              className="px-2.5 py-1 text-xs font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               style={active
                 ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
                 : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
@@ -240,12 +240,12 @@ function MobileStatCards({ rows, showGP = false }: { rows: (PlayerRow | DailySta
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {rr.team_color && <div aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
                 <span className="font-jersey font-bold text-sm truncate min-w-0" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{rr.name}</span>
-                {rr.team_name && <span className="text-[11px] shrink-0" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</span>}
-                {showGP && <span className="text-[10px] font-bold shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>{rr.gp}G</span>}
+                {rr.team_name && <span className="text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</span>}
+                {showGP && <span className="text-xs font-bold shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>{rr.gp}G</span>}
               </div>
               <div className="flex items-baseline gap-1 shrink-0">
                 <span className="text-xl font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{rr.pts}</span>
-                <span className="text-[10px] font-bold uppercase" style={{ color: 'var(--mm-muted)' }}>PTS</span>
+                <span className="text-xs font-bold uppercase" style={{ color: 'var(--mm-muted)' }}>PTS</span>
               </div>
             </div>
             <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-xs tabular-nums">
@@ -396,7 +396,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             </h2>
             {allRecordedComplete && (
               <span
-                className="text-[11px] font-black uppercase tracking-widest"
+                className="text-xs font-black uppercase tracking-widest"
                 style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', padding: '3px 8px' }}
               >
                 완료
@@ -448,7 +448,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               {hero.photo_url ? (
                 <Image src={hero.photo_url} alt={hero.name} fill sizes="32px" className="object-cover object-top" />
               ) : (
-                <span className="font-jersey font-black text-[11px] leading-none" style={{ color: heroColor ? textOnBg(heroColor) : 'var(--mm-ink)' }}>
+                <span className="font-jersey font-black text-xs leading-none" style={{ color: heroColor ? textOnBg(heroColor) : 'var(--mm-ink)' }}>
                   {hero.name.length > 1 ? hero.name.slice(1) : hero.name}
                 </span>
               )}
@@ -494,7 +494,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               >
                 {tab.label}
                 {tab.count > 0 && (
-                  <span className="ml-2 text-[11px] tabular-nums" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>{tab.count}</span>
+                  <span className="ml-2 text-xs tabular-nums" style={{ color: active ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>{tab.count}</span>
                 )}
               </button>
             )
@@ -552,7 +552,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                             <span className="text-xl font-jersey font-black tabular-nums leading-none">
                               <span style={{ color: '#059669' }}>{r.W}</span>
                               <span style={{ color: 'var(--mm-muted)' }}> - </span>
-                              <span style={{ color: '#DC2626' }}>{r.L}</span>
+                              <span style={{ color: 'var(--mm-negative)' }}>{r.L}</span>
                               {r.D > 0 && (<>
                                 <span style={{ color: 'var(--mm-muted)' }}> - </span>
                                 <span style={{ color: 'var(--mm-muted)' }}>{r.D}</span>
@@ -632,25 +632,25 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                           </span>
                           {g.is_complete && (
                             <span
-                              className="text-[10px] font-black uppercase tracking-widest shrink-0"
+                              className="text-xs font-black uppercase tracking-widest shrink-0"
                               style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', padding: '2px 6px' }}
                             >완료</span>
                           )}
                           {!g.is_complete && g.is_started && (
                             <span
-                              className="text-[10px] font-black uppercase tracking-widest shrink-0"
+                              className="text-xs font-black uppercase tracking-widest shrink-0"
                               style={{ background: 'var(--mm-live-bg)', color: '#fff', padding: '2px 6px' }}
                             >진행 중</span>
                           )}
                           {!g.is_started && (
-                            <span className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color: 'var(--mm-muted)' }}>예정</span>
+                            <span className="text-xs font-bold uppercase tracking-widest shrink-0" style={{ color: 'var(--mm-muted)' }}>예정</span>
                           )}
                           <div className="ml-auto flex items-center gap-2 shrink-0">
                             {g.youtube_url && <Youtube size={14} style={{ color: 'var(--mm-live)' }} aria-label="하이라이트 영상 있음" />}
                             {/* 아이콘만으로는 눌러서 열 수 있다는 게 안 읽힌다 — 글자로 적는다.
                                 모바일에서 숨기지 않는다(이 화면을 실제로 보는 곳이 휴대폰이다).
                                 좁은 폭에서는 팀명 쪽이 truncate 되므로 이 글자가 밀어내지 않는다. */}
-                            <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
+                            <span className="text-xs font-black uppercase tracking-widest whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
                               {isExpanded ? '접기' : '박스스코어'}
                             </span>
                             {isExpanded
@@ -711,13 +711,13 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                             </caption>
                             <thead>
                               <tr>
-                                <th scope="col" className="text-left font-bold uppercase tracking-widest text-[10px] py-1 pr-2" style={{ color: 'var(--mm-muted)' }}>팀</th>
+                                <th scope="col" className="text-left font-bold uppercase tracking-widest text-xs py-1 pr-2" style={{ color: 'var(--mm-muted)' }}>팀</th>
                                 {g.quarter_scores!.map(q => (
-                                  <th key={q.quarter} scope="col" className="font-bold uppercase tracking-widest text-[10px] py-1 px-2 text-right" style={{ color: 'var(--mm-muted)' }}>
+                                  <th key={q.quarter} scope="col" className="font-bold uppercase tracking-widest text-xs py-1 px-2 text-right" style={{ color: 'var(--mm-muted)' }}>
                                     {quarterLabel(q.quarter)}
                                   </th>
                                 ))}
-                                <th scope="col" className="font-black uppercase tracking-widest text-[10px] py-1 pl-2 text-right" style={{ color: 'var(--mm-ink-soft)' }}>합계</th>
+                                <th scope="col" className="font-black uppercase tracking-widest text-xs py-1 pl-2 text-right" style={{ color: 'var(--mm-ink-soft)' }}>합계</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -917,7 +917,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                           <div className="flex items-center gap-1 mb-1">
                             <span className="text-sm">{icon}</span>
                             <span
-                              className="text-[11px] font-black uppercase tracking-widest"
+                              className="text-xs font-black uppercase tracking-widest"
                               style={{ color: 'var(--mm-muted)' }}
                             >{label}</span>
                           </div>
@@ -1190,7 +1190,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
 
       {/* 조합 버튼 — 팀 3개면 3쌍이 자연스럽게 grid-cols-3 */}
       <div>
-        <p className="text-[11px] font-black uppercase tracking-widest mb-1.5" style={{ color: 'var(--mm-muted)' }}>
+        <p className="text-xs font-black uppercase tracking-widest mb-1.5" style={{ color: 'var(--mm-muted)' }}>
           비교할 팀 조합
         </p>
         <div
@@ -1243,7 +1243,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
           >
             <div className="text-right min-w-0">
               <div className="text-base sm:text-lg font-bold truncate" style={{ color: accentOrInk(colorA), letterSpacing: '-0.005em' }}>{A.name}</div>
-              <div className="text-[11px] font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>HOME</div>
+              <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>HOME</div>
             </div>
             <div className="flex flex-col items-center shrink-0">
               <span className="font-jersey font-black text-sm" style={{ color: 'var(--mm-muted)' }}>VS</span>
@@ -1251,7 +1251,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
             </div>
             <div className="text-left min-w-0">
               <div className="text-base sm:text-lg font-bold truncate" style={{ color: accentOrInk(colorB), letterSpacing: '-0.005em' }}>{B.name}</div>
-              <div className="text-[11px] font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>AWAY</div>
+              <div className="text-xs font-bold tracking-widest uppercase" style={{ color: 'var(--mm-muted)' }}>AWAY</div>
             </div>
           </div>
 
@@ -1288,7 +1288,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
                   {/* 중앙 라벨 */}
                   <div className="text-center px-2">
                     <span
-                      className="text-[11px] font-black uppercase tracking-widest whitespace-pre-line leading-tight block"
+                      className="text-xs font-black uppercase tracking-widest whitespace-pre-line leading-tight block"
                       style={{ color: 'var(--mm-muted)' }}
                     >
                       {item.label}

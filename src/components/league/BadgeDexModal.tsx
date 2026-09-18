@@ -110,7 +110,7 @@ function DexRow({
           </p>
           {/* 색만으로 구분하지 않는다 — 아이콘 + 글자를 함께 둔다 */}
           <span
-            className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold"
+            className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold"
             style={{
               background: owned ? 'var(--mm-yellow)' : 'transparent',
               color: owned ? 'var(--mm-black)' : 'var(--mm-muted)',
@@ -123,14 +123,14 @@ function DexRow({
           </span>
         </div>
 
-        <p className="mt-1 text-[12px] leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+        <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
           <span className="font-bold" style={{ color: 'var(--mm-ink-soft)' }}>{scope}</span>
           {' · '}
           {criteria}
         </p>
 
         {meta && (
-          <p className="mt-1.5 text-[11px] font-mono tabular-nums leading-relaxed" style={{ color: 'var(--mm-ink)' }}>
+          <p className="mt-1.5 text-xs font-mono tabular-nums leading-relaxed" style={{ color: 'var(--mm-ink)' }}>
             {meta}
           </p>
         )}
@@ -172,7 +172,7 @@ function DexSection({
           }}
         />
         <span className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>{title}</span>
-        <span className="text-[12px] font-mono tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+        <span className="text-xs font-mono tabular-nums" style={{ color: 'var(--mm-muted)' }}>
           {owned}/{total}
         </span>
       </button>
@@ -180,7 +180,7 @@ function DexSection({
       {open && (
         <div id={id}>
           {note && (
-            <p className="px-1 pb-2 text-[11px] leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+            <p className="px-1 pb-2 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
               {note}
             </p>
           )}
@@ -289,7 +289,7 @@ export default function BadgeDexModal({ leagueId, playerId, onClose }: Props) {
               <Trophy size={16} aria-hidden style={{ color: 'var(--mm-yellow-strong)' }} />
               배지 도감
             </p>
-            <p className="text-[11px] font-mono tabular-nums mt-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
+            <p className="text-xs font-mono tabular-nums mt-0.5" style={{ color: 'var(--mm-ink-soft)' }}>
               보유 {ownedCount} / 전체 {total}
             </p>
           </div>
@@ -308,7 +308,7 @@ export default function BadgeDexModal({ leagueId, playerId, onClose }: Props) {
         <div className="overflow-y-auto overscroll-contain px-3 py-3 space-y-4">
           {gated && (
             <p
-              className="px-3 py-2 text-[12px] leading-relaxed"
+              className="px-3 py-2 text-xs leading-relaxed"
               style={{
                 background: 'var(--mm-panel-alt)',
                 border: '1px solid var(--mm-rule)',

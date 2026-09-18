@@ -23,7 +23,7 @@ export default function PlayerCompareRadarChart({
         <PolarAngleAxis dataKey="stat" tick={{ fill: '#d1d5db', fontSize: 11, fontWeight: 600 }} />
         <Radar name={player1Name} dataKey={player1Name} stroke={color1} fill={color1} fillOpacity={0.25} strokeWidth={2} />
         <Radar name={player2Name} dataKey={player2Name} stroke={color2} fill={color2} fillOpacity={0.25} strokeWidth={2} />
-        <Legend wrapperStyle={{ fontSize: 11, color: '#9ca3af' }} />
+        <Legend wrapperStyle={{ fontSize: 11, color: 'var(--mm-muted)' }} />
       </RadarChart>
     </ResponsiveContainer>
   )

@@ -445,7 +445,7 @@ export default async function LeagueDetailPage({
         <p className="mt-1.5 text-sm sm:text-base font-medium break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
           매주 아침을 여는 농구 · 우리끼리 진짜 리그처럼 기록합니다
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] sm:text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
+        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
           <span>멤버 {memberCount}명</span>
           {quarterStandings.gamesCount > 0 && (
             <>

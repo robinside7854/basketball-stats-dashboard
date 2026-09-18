@@ -107,18 +107,20 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
         overflow: 'hidden',
       }}
     >
+      {/* 390px 에서 제목이 버튼에 밀려 「회원 가입 · 계정 / 관리」 로 꺾였다.
+          좁으면 버튼 묶음이 제목 아래로 내려가게 두고 제목은 한 줄로 고정. */}
       <header
-        className="flex items-center justify-between gap-3 px-4 py-3.5"
+        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3.5"
         style={{ borderBottom: '1px solid var(--mm-rule)' }}
       >
         <div className="flex items-center gap-2.5">
           <UserPlus size={20} style={{ color: 'var(--mm-yellow-strong)' }} />
-          <h3 className="font-black text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+          <h3 className="font-black text-lg whitespace-nowrap" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
             회원 가입 · 계정 관리
           </h3>
           {filter === 'pending' && pendingCount > 0 && (
             <span
-              className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-black tracking-[0.14em]"
+              className="inline-flex items-center px-1.5 py-0.5 text-xs font-black tracking-[0.14em]"
               style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}
             >
               대기 {pendingCount}건
@@ -128,24 +130,22 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
         <div className="flex items-center gap-1">
           <button
             onClick={() => setFilter('pending')}
-            className="px-2.5 py-1.5 text-xs font-black uppercase min-h-[36px] cursor-pointer"
+            className="px-3 py-1.5 text-xs font-black whitespace-nowrap min-h-11 cursor-pointer transition-colors duration-200"
             style={{
               background: filter === 'pending' ? 'var(--mm-black)' : 'var(--mm-panel-alt)',
               color: filter === 'pending' ? 'var(--mm-yellow)' : 'var(--mm-ink-soft)',
               border: `1px solid ${filter === 'pending' ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
               borderRadius: '3px',
-              letterSpacing: '0.10em',
             }}
           >대기</button>
           <button
             onClick={() => setFilter('all')}
-            className="px-2.5 py-1.5 text-xs font-black uppercase min-h-[36px] cursor-pointer"
+            className="px-3 py-1.5 text-xs font-black whitespace-nowrap min-h-11 cursor-pointer transition-colors duration-200"
             style={{
               background: filter === 'all' ? 'var(--mm-black)' : 'var(--mm-panel-alt)',
               color: filter === 'all' ? 'var(--mm-yellow)' : 'var(--mm-ink-soft)',
               border: `1px solid ${filter === 'all' ? 'var(--mm-black)' : 'var(--mm-rule)'}`,
               borderRadius: '3px',
-              letterSpacing: '0.10em',
             }}
           >전체</button>
           <button
@@ -164,7 +164,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
           로딩중…
         </div>
       ) : rows.length === 0 ? (
-        <div className="py-10 text-center text-[13px]" style={{ color: 'var(--mm-muted)' }}>
+        <div className="py-10 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>
           {filter === 'pending' ? '승인 대기 중인 요청이 없습니다' : '계정 없음'}
         </div>
       ) : (
@@ -191,7 +191,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                     {r.player?.number != null ? `#${r.player.number} ` : ''}{r.player?.name ?? '(선수 정보 없음)'}
                   </span>
                   <span
-                    className="inline-flex items-center text-[10px] font-black uppercase tracking-[0.12em] px-1.5 py-0.5"
+                    className="inline-flex items-center text-xs font-black uppercase tracking-[0.12em] px-1.5 py-0.5"
                     style={{
                       background: STATUS_COLOR[r.status].bg,
                       color: STATUS_COLOR[r.status].fg,
@@ -202,7 +202,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                   </span>
                   {r.role === 'admin' && (
                     <span
-                      className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] px-1.5 py-0.5"
+                      className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-[0.12em] px-1.5 py-0.5"
                       style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '2px' }}
                       title="편집 권한 보유 — 로그인만으로 편집 모드가 켜집니다"
                     >
@@ -210,7 +210,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                     </span>
                   )}
                 </div>
-                <div className="text-[11px] mt-1" style={{ color: 'var(--mm-muted)' }}>
+                <div className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>
                   아이디: <b style={{ color: 'var(--mm-ink-soft)' }}>{r.login_id}</b>
                   {' · 요청: '}
                   {new Date(r.requested_at).toLocaleDateString('ko-KR')}
@@ -234,7 +234,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                       onClick={() => act(r.id, 'reject')}
                       disabled={busyId === r.id}
                       className="inline-flex items-center gap-1 text-xs font-black uppercase px-2.5 py-1.5 min-h-[36px] cursor-pointer"
-                      style={{ background: 'var(--mm-panel-alt)', color: '#DC2626', border: '1px solid #DC2626', borderRadius: '3px', letterSpacing: '0.10em', opacity: busyId === r.id ? 0.5 : 1 }}
+                      style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-negative)', border: '1px solid #DC2626', borderRadius: '3px', letterSpacing: '0.10em', opacity: busyId === r.id ? 0.5 : 1 }}
                     >
                       <X size={14} />
                       반려

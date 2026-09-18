@@ -583,7 +583,7 @@ export default function LeagueEventInputPad({
           {hasPossession ? `▶ ${p.name}` : p.name}
         </div>
         {(activePlusOneIds !== undefined ? activePlusOneIds.includes(p.id) : p.plus_one) && (
-          <span className="absolute top-1 right-1 text-[10px] font-black text-amber-300 leading-none">+1</span>
+          <span className="absolute top-1 right-1 text-xs font-black text-amber-300 leading-none">+1</span>
         )}
       </button>
     )
@@ -633,7 +633,7 @@ export default function LeagueEventInputPad({
         ) : (
           <button
             onClick={() => patchOppDraft(side, { showName: true })}
-            className="w-full min-h-11 flex items-center text-[11px] text-gray-500 hover:text-gray-300 cursor-pointer underline-offset-2 hover:underline"
+            className="w-full min-h-11 flex items-center text-xs text-gray-500 hover:text-gray-300 cursor-pointer underline-offset-2 hover:underline"
           >
             이름도 입력 (선택)
           </button>
@@ -795,13 +795,13 @@ export default function LeagueEventInputPad({
                   aria-label="성공 (단축키 A)"
                   className="relative py-4 bg-green-600 hover:bg-green-500 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                   ✓ 성공
-                  <kbd className="absolute top-1 right-2 text-[10px] font-mono opacity-70 bg-black/25 rounded px-1">A</kbd>
+                  <kbd className="absolute top-1 right-2 text-xs font-mono opacity-70 bg-black/25 rounded px-1">A</kbd>
                 </button>
                 <button onClick={() => handleResult('missed')}
                   aria-label="실패 (단축키 S)"
                   className="relative py-4 bg-red-700 hover:bg-red-600 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                   ✗ 실패
-                  <kbd className="absolute top-1 right-2 text-[10px] font-mono opacity-70 bg-black/25 rounded px-1">S</kbd>
+                  <kbd className="absolute top-1 right-2 text-xs font-mono opacity-70 bg-black/25 rounded px-1">S</kbd>
                 </button>
               </div>
             </div>
@@ -825,13 +825,13 @@ export default function LeagueEventInputPad({
                       aria-label="성공 (단축키 A)"
                       className="relative py-4 bg-green-600 hover:bg-green-500 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                       ✓ 성공
-                      <kbd className="absolute top-1 right-2 text-[10px] font-mono opacity-70 bg-black/25 rounded px-1">A</kbd>
+                      <kbd className="absolute top-1 right-2 text-xs font-mono opacity-70 bg-black/25 rounded px-1">A</kbd>
                     </button>
                     <button onClick={() => handleResult('missed')}
                       aria-label="실패 (단축키 S)"
                       className="relative py-4 bg-red-700 hover:bg-red-600 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                       ✗ 실패
-                      <kbd className="absolute top-1 right-2 text-[10px] font-mono opacity-70 bg-black/25 rounded px-1">S</kbd>
+                      <kbd className="absolute top-1 right-2 text-xs font-mono opacity-70 bg-black/25 rounded px-1">S</kbd>
                     </button>
                   </div>
                 ) : (

@@ -248,7 +248,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
                     색만으로 알리지 않도록 aria-label 에도 건수를 넣었다. */}
                 {pendingCount > 0 && (
                   <span
-                    className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center text-[10px] font-black tabular-nums"
+                    className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center text-xs font-black tabular-nums"
                     style={{
                       background: 'var(--mm-live-bg)',
                       color: '#FFFFFF',
@@ -404,7 +404,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
                 )}
                 {/* 긴 이름이 5분할 탭(375px÷5=75px)을 깨뜨리지 않도록 내 기록 탭 라벨만 truncate.
                     나머지 탭은 고정 짧은 한글 라벨이라 그대로 둔다. */}
-                <span className={`text-[11px] leading-tight max-w-full ${isMeTab ? 'truncate px-0.5' : ''} ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
+                <span className={`text-xs leading-tight max-w-full ${isMeTab ? 'truncate px-0.5' : ''} ${active ? 'font-bold' : 'font-medium'}`}>{label}</span>
               </Link>
             )
           })}

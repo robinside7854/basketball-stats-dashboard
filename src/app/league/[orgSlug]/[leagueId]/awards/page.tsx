@@ -273,7 +273,7 @@ export default function AwardsPage() {
                 시즌 어워즈
               </h1>
               <p
-                className="text-[12px] font-bold uppercase tracking-[0.18em] mt-1.5"
+                className="text-xs font-bold uppercase tracking-[0.18em] mt-1.5"
                 style={{ color: 'var(--mm-muted)' }}
               >
                 Season Awards · 코어 8 + 특수 3
@@ -289,7 +289,7 @@ export default function AwardsPage() {
               }}
             >
               <p
-                className="text-[11px] font-black uppercase tracking-[0.22em]"
+                className="text-xs font-black uppercase tracking-[0.22em]"
                 style={{ color: 'var(--mm-yellow-strong)' }}
               >
                 자격 요건
@@ -425,14 +425,14 @@ export default function AwardsPage() {
                     </h3>
                     {/* 접힌 상태에서 남는 정보 — 수상자 이름 · 기록값 */}
                     <p
-                      className="text-[12px] truncate mt-0.5"
+                      className="text-xs truncate mt-0.5"
                       style={{ color: a.winner ? 'var(--mm-ink-soft)' : 'var(--mm-muted)', lineHeight: 1.3 }}
                     >
                       {winnerLine}
                     </p>
                   </div>
                   <span
-                    className="shrink-0 text-[11px] font-bold tabular-nums"
+                    className="shrink-0 text-xs font-bold tabular-nums"
                     style={{ color: 'var(--mm-muted)' }}
                     title={`후보 ${a.allCandidates.length}명`}
                   >
@@ -452,7 +452,7 @@ export default function AwardsPage() {
 
                 {/* 부문 설명 — 요약 줄은 수상자 이름에 자리를 내주고, 설명은 본문 맨 위로 내렸다 */}
                 <p
-                  className="px-3 md:px-4 py-2.5 text-[11px] md:text-xs break-keep"
+                  className="px-3 md:px-4 py-2.5 text-xs break-keep"
                   style={{ color: 'var(--mm-muted)', lineHeight: 1.4, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                 >
                   {a.description}
@@ -485,7 +485,7 @@ export default function AwardsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p
-                        className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.22em]"
+                        className="text-xs font-black uppercase tracking-[0.22em]"
                         style={{ color: 'rgba(0,0,0,0.65)' }}
                       >
                         {isDuo ? 'Winner Duo' : 'Winner'}
@@ -546,7 +546,7 @@ export default function AwardsPage() {
                         {a.winner.displayValue}
                       </p>
                       <p
-                        className="text-[11px] md:text-xs font-bold uppercase tracking-[0.12em] mt-1.5 break-keep"
+                        className="text-xs font-bold uppercase tracking-[0.12em] mt-1.5 break-keep"
                         style={{ color: 'rgba(0,0,0,0.6)', lineHeight: 1.3, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                       >
                         {isDuo ? a.metric : `${a.winner.gp}게임 · ${a.metric}`}
@@ -633,7 +633,7 @@ export default function AwardsPage() {
                       style={{ borderTop: '1.5px solid rgba(0,0,0,0.18)' }}
                     >
                       {Object.entries(a.winner.supportingStats).map(([key, val]) => (
-                        <div key={key} className="text-[11px] md:text-xs min-w-0">
+                        <div key={key} className="text-xs min-w-0">
                           <span className="uppercase tracking-[0.1em] font-bold" style={{ color: 'rgba(0,0,0,0.6)' }}>
                             {key}:{' '}
                           </span>
@@ -667,7 +667,7 @@ export default function AwardsPage() {
               {a.runners.length > 0 && (
                 <div className="px-4 py-3 md:px-5 md:py-3.5" style={{ background: 'var(--mm-panel)' }}>
                   <p
-                    className="text-[11px] font-bold mb-2"
+                    className="text-xs font-bold mb-2"
                     style={{ color: 'var(--mm-muted)' }}
                   >
                     후보
@@ -690,7 +690,7 @@ export default function AwardsPage() {
                             {idx + 2}
                           </span>
                           <span
-                            className="text-[14px] md:text-[15px] font-bold break-keep min-w-0"
+                            className="text-sm md:text-base font-bold break-keep min-w-0"
                             style={{ color: 'var(--mm-ink)', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                           >
                             {r.partner ? (
@@ -704,7 +704,7 @@ export default function AwardsPage() {
                                 {r.name}
                                 {r.number != null && (
                                   <span
-                                    className="ml-1.5 text-[11px] font-mono tabular-nums"
+                                    className="ml-1.5 text-xs font-mono tabular-nums"
                                     style={{ color: 'var(--mm-muted)' }}
                                   >
                                     #{r.number}
@@ -733,7 +733,7 @@ export default function AwardsPage() {
                 <button
                   type="button"
                   onClick={() => setOpenAward(a)}
-                  className="w-full inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 text-[11px] font-bold uppercase tracking-[0.12em] cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  className="w-full inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 text-xs font-bold uppercase tracking-[0.12em] cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                   style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
                 >
                   전체 순위 {a.allCandidates.length}명 보기
@@ -750,7 +750,7 @@ export default function AwardsPage() {
                   }}
                 >
                   <p
-                    className="text-[11px] uppercase tracking-[0.12em] font-bold"
+                    className="text-xs uppercase tracking-[0.12em] font-bold"
                     style={{ color: 'var(--mm-muted)' }}
                   >
                     {a.minRequirement}

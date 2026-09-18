@@ -103,7 +103,7 @@ export default function CompetitionSwitcher({
                   <span className="flex-1 truncate">{c.name}</span>
                   {/* 대회 묶음 시각적 구분 — 같은 이름의 두 묶음을 헷갈리면 엉뚱한 곳에 기록하게 된다 */}
                   {c.mode === 'tournament' && (
-                    <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-black)]">대회</span>
+                    <span className="shrink-0 text-xs font-bold px-1.5 py-0.5 rounded bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-black)]">대회</span>
                   )}
                 </Link>
               ))}

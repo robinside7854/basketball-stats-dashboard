@@ -149,11 +149,11 @@ export default function TournamentRosterPanel({ leagueId, quarterId, quarterName
           </button>
         </div>
 
-        <p className="px-4 pt-3 text-[12px] leading-relaxed" style={{ color: 'var(--mm-ink-soft)' }}>
+        <p className="px-4 pt-3 text-xs leading-relaxed" style={{ color: 'var(--mm-ink-soft)' }}>
           체크한 선수만 이 대회 경기 기록 화면(로스터)에 뜹니다. 이미 기록이 있는 선수는 체크를 풀 수 없어요.
         </p>
 
-        <div className="px-4 pt-2 pb-1 text-[11px] font-bold" style={{ color: 'var(--mm-muted)' }}>
+        <div className="px-4 pt-2 pb-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
           {players ? `등록 ${registeredCount}명 / 전체 ${players.length}명` : ' '}
         </div>
 
@@ -200,7 +200,7 @@ export default function TournamentRosterPanel({ leagueId, quarterId, quarterName
                         aria-label={`${p.name} 참가 등록`}
                       />
                       <span
-                        className="inline-flex items-center justify-center shrink-0 text-[11px] font-black w-6 h-6 rounded-full"
+                        className="inline-flex items-center justify-center shrink-0 text-xs font-black w-6 h-6 rounded-full"
                         style={{ background: 'var(--mm-panel)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)' }}
                       >
                         {p.number ?? '-'}
@@ -210,7 +210,7 @@ export default function TournamentRosterPanel({ leagueId, quarterId, quarterName
                       </span>
                       {busy && <Loader2 size={14} className="animate-spin shrink-0" style={{ color: 'var(--mm-muted)' }} />}
                       {!busy && locked && (
-                        <span className="text-[10px] font-bold shrink-0" style={{ color: 'var(--mm-muted)' }}>
+                        <span className="text-xs font-bold shrink-0" style={{ color: 'var(--mm-muted)' }}>
                           기록 있음
                         </span>
                       )}

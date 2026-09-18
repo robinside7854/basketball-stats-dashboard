@@ -129,7 +129,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
               <InfoTip text="경기 마지막 2분, 6점차 이내 접전에서 3점차 이내로 좁힌 '결정타' 슛만 모아 보여줘요. 카드를 누르면 순차 재생됩니다." label="클러치샷 설명" />
               {hasClutch && (
                 <span
-                  className="text-[11px] font-black tracking-[0.14em] uppercase px-1.5 py-0.5 ml-1"
+                  className="text-xs font-black tracking-[0.14em] uppercase px-1.5 py-0.5 ml-1"
                   style={{
                     background: '#ef4444',
                     color: '#fff',
@@ -141,7 +141,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                 </span>
               )}
               <span
-                className="text-[11px] sm:text-[12px] tracking-[0.14em] uppercase font-bold ml-1"
+                className="text-xs tracking-[0.14em] uppercase font-bold ml-1"
                 style={{ color: 'var(--mm-muted)' }}
               >
                 {dateLabel}
@@ -149,7 +149,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
             </div>
             {/* 클러치샷 정의 부연 설명 (작은 카피) */}
             <p
-              className="text-[11px] sm:text-xs mt-1.5 leading-relaxed"
+              className="text-xs mt-1.5 leading-relaxed"
               style={{ color: 'var(--mm-muted)' }}
             >
               {CLUTCH_DEFINITION}
@@ -157,7 +157,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
           </div>
           <Link
             href={roundHref}
-            className="inline-flex items-center gap-1 text-[11px] sm:text-[12px] font-black tracking-[0.14em] uppercase min-h-[36px] px-2 -mx-2 cursor-pointer transition-colors"
+            className="inline-flex items-center gap-1 text-xs font-black tracking-[0.14em] uppercase min-h-[36px] px-2 -mx-2 cursor-pointer transition-colors"
             style={{ color: 'var(--mm-ink-soft)' }}
             aria-label="이번 라운드 하이라이트 전체 보기"
           >
@@ -199,7 +199,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                       상단 모서리는 부모를 따라 자연히 둥글게 클리핑된다 (2026-08-07 리뷰 수정). */}
                   {kindStyle && kindLabel ? (
                     <div
-                      className="flex items-center justify-center gap-1 py-1.5 text-[12px] sm:text-[13px] font-black tracking-[0.14em] uppercase"
+                      className="flex items-center justify-center gap-1 py-1.5 text-xs sm:text-sm font-black tracking-[0.14em] uppercase"
                       style={{ background: kindStyle.bg, color: kindStyle.fg }}
                     >
                       {isWinning && <Star size={14} fill="currentColor" aria-hidden />}
@@ -208,7 +208,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                     </div>
                   ) : (
                     <div
-                      className="flex items-center justify-center gap-1 py-1.5 text-[12px] font-black tracking-[0.14em] uppercase"
+                      className="flex items-center justify-center gap-1 py-1.5 text-xs font-black tracking-[0.14em] uppercase"
                       style={{ background: 'var(--clutch-1-bg)', color: 'var(--clutch-1-fg)' }}
                     >
                       <HeartCrack size={14} aria-hidden />
@@ -279,7 +279,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   {/* vs 상대팀 — 별도 라인 · 명확히 강조 */}
                   {c.opponent_name && (
                     <div
-                      className="mx-3 mt-1.5 flex items-center justify-center gap-1 text-[11px] sm:text-[12px] py-0.5"
+                      className="mx-3 mt-1.5 flex items-center justify-center gap-1 text-xs py-0.5"
                       style={{ color: 'var(--mm-muted)' }}
                     >
                       <span className="font-bold uppercase tracking-[0.10em]" style={{ color: 'var(--mm-muted)' }}>vs</span>
@@ -295,7 +295,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                   {/* 공격방식 + 점수 — 하단 */}
                   <div className="mt-auto p-3 flex items-center justify-center gap-1.5 flex-wrap">
                     <span
-                      className="text-[11px] font-bold uppercase tracking-[0.10em] px-1.5 py-0.5"
+                      className="text-xs font-bold uppercase tracking-[0.10em] px-1.5 py-0.5"
                       style={{
                         background: 'var(--mm-panel-alt)',
                         color: 'var(--mm-ink-soft)',
@@ -307,7 +307,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
                     </span>
                     {c.points > 0 && (
                       <span
-                        className="text-[11px] font-black px-1.5 py-0.5"
+                        className="text-xs font-black px-1.5 py-0.5"
                         style={{
                           background: 'var(--color-hoop-orange-500)',
                           color: '#ffffff',
@@ -332,7 +332,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
               <HeartCrack size={20} style={{ color: 'var(--mm-muted)' }} aria-hidden />
               이번 주는 해당 기준에 맞는 경기가 없어요
             </div>
-            <p className="text-[11px] leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
               마지막 2분 · 2포제션 접전에서 1포제션으로 좁힌 결정타가 이번 라운드엔 없었습니다.
             </p>
           </div>
@@ -340,7 +340,7 @@ export default function HighlightsHome({ data, orgSlug, leagueId }: Props) {
 
         {hasClutch && data.totalClips > 0 && (
           <div
-            className="px-4 sm:px-6 md:px-10 pb-4 md:pb-5 text-[11px] uppercase tracking-[0.14em] font-bold"
+            className="px-4 sm:px-6 md:px-10 pb-4 md:pb-5 text-xs uppercase tracking-[0.14em] font-bold"
             style={{ color: 'var(--mm-muted)' }}
           >
             이 라운드 · 클러치 {data.clips.length} / 전체 {data.totalClips}

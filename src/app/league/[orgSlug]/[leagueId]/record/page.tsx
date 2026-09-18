@@ -1353,7 +1353,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         <span className="font-medium min-w-0 break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>{p.name}</span>
         {isIrregular && (
           <span
-            className="shrink-0 text-[11px] font-bold px-1 uppercase tracking-[0.10em]"
+            className="shrink-0 text-xs font-bold px-1 uppercase tracking-[0.10em]"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
           >
             비정규
@@ -1369,7 +1369,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             addIrregularToTeam(p as IrregularPlayer, otherSide)
           }}
           disabled={addingIrregular}
-          className="lg:hidden ml-auto shrink-0 inline-flex items-center justify-center min-h-[36px] min-w-[36px] px-2 text-[11px] font-bold cursor-pointer transition-colors disabled:opacity-40"
+          className="lg:hidden ml-auto shrink-0 inline-flex items-center justify-center min-h-[36px] min-w-[36px] px-2 text-xs font-bold cursor-pointer transition-colors disabled:opacity-40"
           style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: '4px' }}
           aria-label={`${p.name} → ${otherTeamName} 팀으로 이동`}
           title={`→ ${otherTeamName}`}
@@ -1410,7 +1410,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         {p.number ? `#${p.number} ` : ''}{p.name}
         {teamName && (
           <span
-            className="text-[11px] font-bold px-1 ml-0.5"
+            className="text-xs font-bold px-1 ml-0.5"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
           >
             {teamName}
@@ -2046,7 +2046,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               {hasTeams ? (
                 <span className="flex flex-col items-center leading-tight w-full min-w-0">
                   <span className="text-xs font-bold truncate w-full text-center">{slot.home_team?.name ?? '홈'}</span>
-                  <span className="text-[10px] font-normal opacity-60">vs</span>
+                  <span className="text-xs font-normal opacity-60">vs</span>
                   <span className="text-xs font-bold truncate w-full text-center">{slot.away_team?.name ?? '어웨이'}</span>
                 </span>
               ) : (
@@ -2340,25 +2340,25 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                               borderRadius: '4px',
                             }}
                           >
-                            <span className="inline-flex items-center gap-1.5">
-                              {q}쿼터
-                              {/* 노란 배경은 "지금 링크를 붙일 대상", 이 배지는 "기록/재생 중".
-                                  둘이 겹칠 때가 많아 아이콘으로 두면 무슨 뜻인지 구분되지 않는다. */}
-                              {badge && (
-                                <span
-                                  className="px-1 py-px text-[10px] font-bold rounded-sm"
-                                  style={{
-                                    background: isTarget ? 'rgba(0,0,0,0.18)' : 'var(--mm-panel)',
-                                    color: isTarget ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
-                                  }}
-                                >
-                                  {badge}
-                                </span>
-                              )}
-                            </span>
-                            <span className="inline-flex items-center gap-1 mt-0.5 font-normal">
-                              <Youtube size={14} aria-hidden /> 연결됨
-                            </span>
+                            <span className="whitespace-nowrap">{q}쿼터</span>
+                            {/* 둘째 줄은 배지 아니면 「연결됨」 — 둘을 같이 두면 390px 타일(114px)에서 3줄이 된다.
+                                배지(기록 중/재생 중)가 붙은 쿼터는 영상이 있는 쿼터이므로 「연결됨」을 따로
+                                적을 이유가 없다. 노란 배경은 "지금 링크를 붙일 대상", 배지는 "기록/재생 중". */}
+                            {badge ? (
+                              <span
+                                className="mt-0.5 px-1 py-px text-xs font-bold rounded-sm whitespace-nowrap"
+                                style={{
+                                  background: isTarget ? 'rgba(0,0,0,0.18)' : 'var(--mm-panel)',
+                                  color: isTarget ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
+                                }}
+                              >
+                                {badge}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 mt-0.5 font-normal whitespace-nowrap">
+                                <Youtube size={14} aria-hidden /> 연결됨
+                              </span>
+                            )}
                           </button>
                           {v && (
                             <button
@@ -2592,7 +2592,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             ? <Loader2 size={14} className="animate-spin" aria-hidden />
                             : <Zap size={14} strokeWidth={2.5} aria-hidden style={{ opacity: (extra || always) ? 1 : 0.35 }} />}
                           {pl.name}
-                          {always && <span className="text-[10px]">상시</span>}
+                          {always && <span className="text-xs">상시</span>}
                         </button>
                       </li>
                     )
@@ -2939,7 +2939,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             {label}
                           </button>
                         ))}
-                        <span className="text-[11px] text-gray-500 ml-1 hidden lg:inline">Space·←·→</span>
+                        <span className="text-xs text-gray-500 ml-1 hidden lg:inline">Space·←·→</span>
                       </div>
                     )}
                     {/* 스코어보드 오버레이 — 영상 상단 좌측 (풀스크린 버튼과 겹치지 않도록 우하단→좌상단 이동) */}
@@ -2966,7 +2966,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                                 {cell(L)}
                                 {/* 구분선 + LIVE */}
                                 <div className="flex flex-col items-center justify-center px-2 border-x border-white/10">
-                                  <span className="text-[11px] text-green-400 font-black tracking-widest">LIVE</span>
+                                  <span className="text-xs text-green-400 font-black tracking-widest">LIVE</span>
                                   <span className="text-lg font-black text-gray-500 leading-none">:</span>
                                 </div>
                                 {cell(R)}
@@ -3073,7 +3073,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             </span>
                           </div>
                           <div className="flex flex-col items-center justify-center px-2 border-x border-gray-800 shrink-0">
-                            <span className="text-[10px] text-green-400 font-bold tracking-widest">LIVE</span>
+                            <span className="text-xs text-green-400 font-bold tracking-widest">LIVE</span>
                             <span className="text-sm text-gray-500 font-black leading-none">:</span>
                           </div>
                           <div className="flex-1 py-2 px-3 flex items-center gap-2">
@@ -3131,7 +3131,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
                       {/* 쿼터 선택 — 1~4쿼터 정식 경기용. 안 건드리면 1Q 고정이라 기존 슬롯 경기와 동일하다. */}
                       <div className="flex items-center gap-1.5 px-2 py-2 border-t border-gray-800 bg-gray-900/60 overflow-x-auto" role="group" aria-label="기록 중인 쿼터">
-                        <span className="pl-1 shrink-0 text-[10px] font-bold uppercase tracking-[0.14em] text-gray-500">쿼터</span>
+                        <span className="pl-1 shrink-0 text-xs font-bold uppercase tracking-[0.14em] text-gray-500">쿼터</span>
                         {QUARTER_OPTIONS.map(q => {
                           const active = currentQuarter === q.value
                           return (

@@ -188,7 +188,7 @@ export default async function HighlightsLandingPage({
                         ({days[d.getDay()]})
                       </span>
                     </div>
-                    <div className="text-[11px] font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+                    <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
                       {d.getFullYear()}년
                     </div>
                   </div>
@@ -203,7 +203,7 @@ export default async function HighlightsLandingPage({
                 {/* 상태 배지 */}
                 {statusLabel && (
                   <div
-                    className="mt-2 inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded"
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-black uppercase px-2 py-0.5 rounded"
                     style={{
                       background: 'var(--mm-panel-alt)',
                       color: 'var(--mm-muted)',
@@ -219,14 +219,14 @@ export default async function HighlightsLandingPage({
                 <div className="mt-3 flex items-center gap-3 flex-wrap">
                   <div className="flex items-baseline gap-1">
                     <span className="text-lg font-black" style={{ color: 'var(--mm-ink)' }}>{r.clips_count}</span>
-                    <span className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>클립</span>
+                    <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>클립</span>
                   </div>
                   <div className="flex items-baseline gap-1">
                     <span className="text-lg font-black" style={{ color: 'var(--mm-ink)' }}>
                       {r.games_with_video}
-                      <span className="text-[11px] font-normal" style={{ color: 'var(--mm-muted)' }}>/{r.games_count}</span>
+                      <span className="text-xs font-normal" style={{ color: 'var(--mm-muted)' }}>/{r.games_count}</span>
                     </span>
-                    <span className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>영상 매핑</span>
+                    <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>영상 매핑</span>
                   </div>
                 </div>
 
@@ -241,7 +241,7 @@ export default async function HighlightsLandingPage({
                       return (
                         <span
                           key={t.key}
-                          className="inline-flex items-center gap-1 text-[10px] font-black uppercase px-1.5 py-0.5 rounded"
+                          className="inline-flex items-center gap-1 text-xs font-black uppercase px-1.5 py-0.5 rounded"
                           style={{
                             background: isWinner ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
                             color: isWinner ? 'var(--mm-black)' : 'var(--mm-muted)',
@@ -257,14 +257,14 @@ export default async function HighlightsLandingPage({
                       )
                     })}
                     {teamRecords.length > 6 && (
-                      <span className="text-[10px] font-bold" style={{ color: 'var(--mm-muted)' }}>
+                      <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
                         +{teamRecords.length - 6}
                       </span>
                     )}
                   </div>
                 ) : r.team_names.length > 0 ? (
                   // W-L 데이터 없을 때 fallback — 팀명만 텍스트로 나열
-                  <div className="mt-2 text-[11px] truncate" style={{ color: 'var(--mm-muted)' }}>
+                  <div className="mt-2 text-xs truncate" style={{ color: 'var(--mm-muted)' }}>
                     {r.team_names.slice(0, 4).join(' · ')}
                     {r.team_names.length > 4 ? ` +${r.team_names.length - 4}` : ''}
                   </div>
@@ -308,7 +308,7 @@ export default async function HighlightsLandingPage({
 
       {/* 각주 안내 */}
       {rounds.some(r => r.status !== 'ready') && (
-        <p className="text-[11px] mt-2" style={{ color: 'var(--mm-muted)', lineHeight: 1.6 }}>
+        <p className="text-xs mt-2" style={{ color: 'var(--mm-muted)', lineHeight: 1.6 }}>
           <span className="font-bold">클립 수</span>는 유튜브 영상 시각과 매핑된 성공 슛(video_timestamp)만 집계합니다.
           영상 매핑 없는 게임은 재생 불가.
         </p>

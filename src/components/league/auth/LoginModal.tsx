@@ -83,7 +83,7 @@ function IntroStep({ onProceed }: { onProceed: () => void }) {
     <div className="space-y-4">
       <div className="flex gap-2.5" style={{ background: 'var(--mm-yellow-soft)', border: '1px solid var(--mm-yellow)', padding: '12px 14px', borderRadius: '4px' }}>
         <Info size={16} className="shrink-0 mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} />
-        <div className="text-[13px] leading-relaxed" style={{ color: 'var(--mm-ink)' }}>
+        <div className="text-sm leading-relaxed" style={{ color: 'var(--mm-ink)' }}>
           {/* 멀티테넌트 전환(온볼): LoginModal 은 leagueName prop 없이 leagueId 만 받으므로 특정 클럽명 대신 중립 문구 사용 */}
           <p className="font-bold mb-1">지금도 우리 팀 스탯 서비스를 이용할 수 있어요.</p>
           <p style={{ color: 'var(--mm-ink-soft)' }}>
@@ -92,7 +92,7 @@ function IntroStep({ onProceed }: { onProceed: () => void }) {
         </div>
       </div>
 
-      <div className="text-[12px] space-y-2 pt-1" style={{ color: 'var(--mm-muted)' }}>
+      <div className="text-xs space-y-2 pt-1" style={{ color: 'var(--mm-muted)' }}>
         <p>· 가입은 <b>이름 + 생년월일 6자리</b> 만 필요합니다.</p>
         <p>· 어드민 승인 후 로그인 가능해요.</p>
         <p>· 초기 아이디는 <b>이름</b>, 초기 비밀번호는 <b>생년월일 6자리</b> · 언제든 변경 가능.</p>
@@ -174,7 +174,7 @@ function LoginForm({ leagueId, onSuccess, onSwitchSignup }: { leagueId: string; 
           아직 계정이 없나요? 가입 요청 →
         </button>
       </div>
-      <p className="text-[11px] text-center pt-2" style={{ color: 'var(--mm-muted)' }}>
+      <p className="text-xs text-center pt-2" style={{ color: 'var(--mm-muted)' }}>
         비밀번호를 잊었다면 관리자에게 초기화 요청하세요 (초기화 시 <b>123456</b>)
       </p>
     </form>
@@ -239,7 +239,7 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
       <div className="space-y-4 text-center py-4">
         <div className="text-4xl">✅</div>
         <p className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>가입 요청이 접수되었습니다</p>
-        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+        <p className="text-sm leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
           관리자 승인 후 로그인 가능해요.<br />
           승인되면 <b>이름</b> / <b>생년월일 6자리</b> 로 로그인하세요.
         </p>
@@ -282,7 +282,7 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
         style={inputStyle}
         placeholder="예: 900101 (YYMMDD)"
       />
-      <p className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>
+      <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>
         · 이름은 선수 명단에 등록된 이름과 동일해야 해요<br />
         · 생년월일 6자리는 <b>초기 로그인 비밀번호</b>로 사용됩니다 (로그인 후 변경 가능)<br />
         · 접수 후 관리자가 승인하면 로그인 가능
@@ -312,7 +312,7 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[11px] font-black uppercase tracking-[0.10em] mt-3 mb-1" style={{ color: 'var(--mm-muted)' }}>
+    <label className="block text-xs font-black uppercase tracking-[0.10em] mt-3 mb-1" style={{ color: 'var(--mm-muted)' }}>
       {children}
     </label>
   )

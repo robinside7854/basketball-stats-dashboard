@@ -74,10 +74,10 @@ export default function ClassicBoxscoreModal({ leagueId, game, onClose }: Props)
         {/* 헤더 — 스코어 */}
         <div className="flex items-center justify-between gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
           <div className="min-w-0">
-            <p className="text-[11px] font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+            <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
               박스스코어
             </p>
-            <p className="font-bold text-[15px] truncate" style={{ color: 'var(--mm-ink)' }}>
+            <p className="font-bold text-base truncate" style={{ color: 'var(--mm-ink)' }}>
               {game.homeName} {game.homeScore} : {game.awayScore} {game.awayName}
             </p>
           </div>
@@ -107,11 +107,11 @@ export default function ClassicBoxscoreModal({ leagueId, game, onClose }: Props)
               )}
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
+              <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
                 이 경기의 주인공 · {hero.role}
               </p>
               <p className="font-bold text-[17px] truncate" style={{ color: 'var(--mm-ink)' }}>{hero.name}</p>
-              <p className="text-[12px]" style={{ color: 'var(--mm-ink-soft)' }}>{hero.line}</p>
+              <p className="text-xs" style={{ color: 'var(--mm-ink-soft)' }}>{hero.line}</p>
             </div>
           </div>
         )}
@@ -119,18 +119,18 @@ export default function ClassicBoxscoreModal({ leagueId, game, onClose }: Props)
         {/* 표 */}
         <div className="overflow-y-auto">
           {error ? (
-            <p className="px-4 py-6 text-center text-[13px]" style={{ color: 'var(--mm-muted)' }} role="status">{error}</p>
+            <p className="px-4 py-6 text-center text-sm" style={{ color: 'var(--mm-muted)' }} role="status">{error}</p>
           ) : !rows ? (
             <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin" style={{ color: 'var(--mm-muted)' }} /></div>
           ) : rows.length === 0 ? (
-            <p className="px-4 py-6 text-center text-[13px]" style={{ color: 'var(--mm-muted)' }}>기록된 스탯이 없습니다</p>
+            <p className="px-4 py-6 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>기록된 스탯이 없습니다</p>
           ) : (
-            <table className="w-full text-[13px]">
+            <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                  <th className="text-left px-4 py-2 text-[11px] font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.1em' }}>선수</th>
+                  <th className="text-left px-4 py-2 text-xs font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.1em' }}>선수</th>
                   {['PTS', 'REB', 'AST', 'STL', 'BLK'].map(h => (
-                    <th key={h} className="text-center px-2 py-2 text-[11px] font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.1em' }}>{h}</th>
+                    <th key={h} className="text-center px-2 py-2 text-xs font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.1em' }}>{h}</th>
                   ))}
                 </tr>
               </thead>

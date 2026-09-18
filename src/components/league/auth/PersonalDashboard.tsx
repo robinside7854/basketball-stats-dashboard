@@ -145,7 +145,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
               </span>
               <Sparkles size={16} style={{ color: 'var(--mm-ink-soft)' }} />
             </div>
-            <div className="text-[12px] md:text-[13px] font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+            <div className="text-xs md:text-sm font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
               나의 이번 시즌 대시보드
             </div>
           </div>
@@ -186,11 +186,11 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
           className="flex items-center justify-between gap-2 flex-wrap px-4 md:px-5 py-3"
           style={{ borderTop: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}
         >
-          <div className="flex items-center gap-2 min-w-0 text-[12px]" style={{ color: 'var(--mm-muted)' }}>
+          <div className="flex items-center gap-2 min-w-0 text-xs" style={{ color: 'var(--mm-muted)' }}>
             <UserIcon size={14} aria-hidden />
             <span className="truncate">아이디 <b style={{ color: 'var(--mm-ink-soft)' }}>{user.login_id}</b></span>
             {user.is_default_password && (
-              <span className="inline-flex items-center text-[10px] font-black uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-sm"
+              <span className="inline-flex items-center text-xs font-black uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-sm"
                 style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}>
                 초기 비번
               </span>
@@ -200,7 +200,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
             <button
               type="button"
               onClick={() => setPwOpen(true)}
-              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-black uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors"
               style={{
                 background: user.is_default_password ? 'var(--mm-yellow)' : 'var(--mm-panel)',
                 color: user.is_default_password ? 'var(--mm-black)' : 'var(--mm-ink)',
@@ -248,7 +248,7 @@ function SeasonSummary({ season }: { season: Season }) {
       <div className="flex items-baseline gap-2 mb-3">
         <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)' }}>이번 시즌</span>
         <span
-          className="inline-flex items-center text-[12px] md:text-[13px] font-black px-2 py-0.5"
+          className="inline-flex items-center text-xs md:text-sm font-black px-2 py-0.5"
           style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-chip)' }}
         >
           {season.attended_rounds}R 참석
@@ -284,7 +284,7 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
     >
       {/* 지표 라벨 */}
       <div
-        className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.14em] mt-0.5"
+        className="text-xs font-black uppercase tracking-[0.14em] mt-0.5"
         style={{ color: 'var(--mm-muted)' }}
       >
         {METRIC_LABEL[metricKey]}
@@ -307,7 +307,7 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
           랭킹 정보 없음: 렌더 안 함 (— 제거) */}
       {rank && rank.total > 0 && rs && (
         <div
-          className="inline-flex items-center gap-0.5 text-[11px] md:text-[12px] font-black tabular-nums px-1.5 py-0.5"
+          className="inline-flex items-center gap-0.5 text-xs font-black tabular-nums px-1.5 py-0.5"
           style={{
             color: rs.color,
             background: rs.bg ?? 'transparent',
@@ -338,7 +338,7 @@ export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="font-bold text-lg md:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>내 기록, 여기 다 있어요</div>
-          <p className="text-[13px] mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+          <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
             우리 팀 선수라면 로그인하고 <b style={{ color: 'var(--mm-ink-soft)' }}>시즌 득점·리바운드 랭킹</b>과 <b style={{ color: 'var(--mm-ink-soft)' }}>진행 중 스트릭·마일스톤</b>을 확인하세요.
             <br className="hidden sm:block" />아직 회원이 아니면 가입 신청부터 해주세요.
           </p>
@@ -374,7 +374,7 @@ function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
             투명도만 흔들어 크기는 그대로 둔다. 크기를 흔들면 옆 글자가 밀린다. */}
         <Flame size={16} className="mm-flicker" style={{ color: 'var(--color-hoop-orange-500)' }} />
         <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>진행 중 스트릭</span>
-        <span className="text-[11px] md:text-[12px] font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>다음 경기에 이어가요</span>
+        <span className="text-xs font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>다음 경기에 이어가요</span>
       </div>
       <div className="flex flex-wrap gap-2">
         {streaks.map(s => (
@@ -387,7 +387,7 @@ function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
             <span className="font-jersey font-black tabular-nums text-lg md:text-xl leading-none" style={{ color: 'var(--mm-ink)' }}>
               {s.count}{s.unit}
             </span>
-            <span className="text-[12px] md:text-[13px] font-bold" style={{ color: 'var(--mm-muted)' }}>{s.label}</span>
+            <span className="text-xs md:text-sm font-bold" style={{ color: 'var(--mm-muted)' }}>{s.label}</span>
           </span>
         ))}
       </div>
@@ -412,7 +412,7 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
           <div className="font-bold text-base md:text-lg" style={{ letterSpacing: '-0.005em' }}>
             나의 최근 하이라이트
           </div>
-          <div className="text-[12px] md:text-[13px] font-bold uppercase mt-0.5" style={{ letterSpacing: '0.10em' }}>
+          <div className="text-xs md:text-sm font-bold uppercase mt-0.5" style={{ letterSpacing: '0.10em' }}>
             {available ? `${formatDate(date)} 참여 · 클립 자동재생` : '아직 참여 기록이 없어요'}
           </div>
         </div>
@@ -464,19 +464,19 @@ function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: n
         <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
           마일스톤 체이서
         </span>
-        <span className="text-[11px] md:text-[12px] font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+        <span className="text-xs font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
           가까운 것부터
         </span>
       </div>
       {shown.length === 0 ? (
-        <p className="text-[13px]" style={{ color: 'var(--mm-muted)' }}>아직 통계 데이터가 부족해요</p>
+        <p className="text-sm" style={{ color: 'var(--mm-muted)' }}>아직 통계 데이터가 부족해요</p>
       ) : (
         <div className="space-y-2.5 md:space-y-3">
           {shown.map((c, idx) => {
             const prox = proximityStyle(c.progressPct)
             return (
               <div key={c.metric}>
-                <div className="flex items-center justify-between text-[12px] md:text-[13px] mb-1">
+                <div className="flex items-center justify-between text-xs md:text-sm mb-1">
                   <span className="font-bold" style={{ color: METRIC_COLOR[c.metric] }}>
                     <b style={{ letterSpacing: '0.10em' }}>{c.metricLabel}</b>
                     <span className="ml-1.5" style={{ color: 'var(--mm-ink-soft)' }}>{METRIC_KOREAN[c.metric]}</span>
@@ -485,7 +485,7 @@ function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: n
                     {/* 누적 기록만 카운트업한다 — 목표치(nextThreshold)와 남은 수(-remaining)는
                         고정된 기준값이라 같이 움직이면 무엇이 오르는 중인지 흐려진다. */}
                     <b><CountUp value={c.current} delay={idx * 60} /></b> / {c.nextThreshold}
-                    <span className="ml-1.5 text-[11px] font-black px-1.5 py-0.5" style={{ background: prox.bg, color: prox.fg, borderRadius: 'var(--mm-radius-chip)' }}>
+                    <span className="ml-1.5 text-xs font-black px-1.5 py-0.5" style={{ background: prox.bg, color: prox.fg, borderRadius: 'var(--mm-radius-chip)' }}>
                       -{c.remaining}
                     </span>
                   </span>

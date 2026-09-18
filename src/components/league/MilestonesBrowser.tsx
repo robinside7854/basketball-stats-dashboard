@@ -116,7 +116,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
               <button
                 type="button"
                 onClick={() => setPlayerId(null)}
-                className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.10em] px-2 py-1 min-h-[32px] cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.10em] px-2 py-1 min-h-[32px] cursor-pointer transition-colors"
                 style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
               >
                 <X size={14} aria-hidden /> 초기화
@@ -158,7 +158,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
         {playerOptions.length > 0 && (
           <div className="space-y-1.5">
             <label
-              className="text-[11px] font-bold uppercase tracking-[0.14em] block"
+              className="text-xs font-bold uppercase tracking-[0.14em] block"
               htmlFor="milestone-player-filter"
               style={{ color: 'var(--mm-muted)' }}
             >

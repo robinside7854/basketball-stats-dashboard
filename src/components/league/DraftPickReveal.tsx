@@ -485,7 +485,7 @@ function StandardPickReveal({
         {standardBoxes.length > 0 && (
           <div className="mt-4 sm:mt-5 rounded-2xl border px-3 py-3 text-left"
             style={{ background: '#111114', borderColor: `${data.teamColor}55` }}>
-            <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-[#9ca3af] mb-2">
+            <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-[color:var(--mm-muted)] mb-2">
               {seasonLabel ?? '시즌'} 기록
             </p>
             {/* 모바일 4열 × 2행 · lg 이상은 한 줄 8칸. 칸이 좁아지므로 순위 알약은
@@ -626,7 +626,7 @@ function RankPill({ rank, total, teamColor, small = false }: { rank: number; tot
   // 색만으로 구분하지 않도록 숫자("전체 n위")는 어느 쪽이든 그대로 남긴다.
   return (
     <span
-      className={`inline-block rounded-full font-bold tabular-nums whitespace-nowrap ${small ? 'text-[10px] px-1 py-0.5' : 'text-xs sm:text-sm px-2 py-0.5'}`}
+      className={`inline-block rounded-full font-bold tabular-nums whitespace-nowrap ${small ? 'text-xs px-1 py-0.5' : 'text-xs sm:text-sm px-2 py-0.5'}`}
       style={top
         ? { background: pill.bg, color: pill.fg, border: `1px solid ${pill.border}` }
         : { background: '#27272a', color: '#d4d4d8' }}
@@ -661,12 +661,12 @@ function StatBoxCell({
       >
         {box.value}
       </span>
-      <span className={`${compact ? 'text-[11px]' : 'text-xs sm:text-sm'} font-bold text-[#d1d5db] leading-none break-keep text-center`}>{box.label}</span>
+      <span className={`${compact ? 'text-xs' : 'text-xs sm:text-sm'} font-bold text-[#d1d5db] leading-none break-keep text-center`}>{box.label}</span>
       {box.rank != null
         ? <RankPill rank={box.rank} total={rankTotal} teamColor={teamColor} small={compact} />
         : box.sub
           ? (
-            <span className={`${compact ? 'text-[10px]' : 'text-xs sm:text-sm'} font-bold tabular-nums whitespace-nowrap text-[#d1d5db]`}>
+            <span className={`${compact ? 'text-xs' : 'text-xs sm:text-sm'} font-bold tabular-nums whitespace-nowrap text-[#d1d5db]`}>
               {compact ? (box.subShort ?? box.sub) : box.sub}
             </span>
           )
@@ -832,7 +832,7 @@ function DramaticPickReveal({
           style={{ textShadow: '0 4px 24px rgba(0,0,0,0.8)' }}
         >
           <span style={{ color: dAccent }}>ROUND {data.roundNumber}</span>
-          <span className="mx-2 text-[#6b7280]">·</span>
+          <span className="mx-2 text-[color:var(--mm-muted)]">·</span>
           {data.teamName}의 1순위 지명
         </p>
 
@@ -877,7 +877,7 @@ function DramaticPickReveal({
             모바일 2열 × 4행 / sm 이상 4열 × 2행. 아직 안 나온 칸도 invisible 로 자리를 잡아 둔다. */}
         <div className="dramatic-stats mt-2 sm:mt-3">
           {step >= 2 && (
-            <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-[#9ca3af] mb-1.5 sm:mb-2">
+            <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-[color:var(--mm-muted)] mb-1.5 sm:mb-2">
               {seasonLabel ?? '시즌'} 기록
             </p>
           )}

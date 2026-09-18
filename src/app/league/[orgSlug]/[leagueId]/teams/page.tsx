@@ -1287,7 +1287,9 @@ export default function LeagueTeamsPage() {
               <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀별 선수 스탯</h3>
               <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>이 팀에서 뛴 경기 기준 (정규/비정규 무관) · 한 선수가 여러 팀에서 뛰었다면 각 팀에 분리 표시</p>
             </div>
-            <div className="flex items-center gap-2">
+            {/* 390px 에서 두 토글 묶음이 한 줄에 안 들어가 페이지가 406px 로 넘쳤다(글자 13.6px 로 키운 뒤).
+                묶음 단위로 줄바꿈하게 두고 버튼은 44px 터치 높이·줄바꿈 금지. */}
+            <div className="flex items-center gap-2 flex-wrap">
               {/* Basic / Shooting / Advanced */}
               <div className="flex overflow-hidden shrink-0" style={{ border: '1px solid var(--mm-rule)' }}>
                 {([
@@ -1298,7 +1300,7 @@ export default function LeagueTeamsPage() {
                   const active = statMode === k
                   return (
                     <button key={k} onClick={() => setStatMode(k)}
-                      className="px-3 py-1.5 text-xs font-black uppercase tracking-wider cursor-pointer transition-colors min-h-[36px]"
+                      className="px-3 py-1.5 text-xs font-black uppercase tracking-wider whitespace-nowrap cursor-pointer transition-colors duration-200 min-h-11"
                       style={{
                         background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                         color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -1314,7 +1316,7 @@ export default function LeagueTeamsPage() {
                   const active = viewMode === m
                   return (
                     <button key={m} onClick={() => setViewMode(m)}
-                      className="px-3 py-1.5 text-xs font-black uppercase tracking-wider cursor-pointer transition-colors min-h-[36px]"
+                      className="px-3 py-1.5 text-xs font-black whitespace-nowrap cursor-pointer transition-colors duration-200 min-h-11"
                       style={{
                         background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                         color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -1462,7 +1464,7 @@ export default function LeagueTeamsPage() {
                                 </div>
                               )}
                             </div>
-                            <p className="text-[10px] font-bold mt-1 truncate" style={{ color: 'var(--mm-ink-soft)' }}>{p.name}</p>
+                            <p className="text-xs font-bold mt-1 truncate" style={{ color: 'var(--mm-ink-soft)' }}>{p.name}</p>
                           </div>
                         ))}
                       </div>

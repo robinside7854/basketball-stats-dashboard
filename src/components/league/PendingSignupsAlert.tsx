@@ -56,13 +56,13 @@ export default function PendingSignupsAlert({ leagueId }: { leagueId: string }) 
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-black" style={{ color: 'var(--mm-ink)' }}>
+        <span className="block text-sm font-black" style={{ color: 'var(--mm-ink)' }}>
           가입 신청 {pending.length}건
           {oldest && oldest !== '오늘' && (
             <span className="ml-1.5 font-bold" style={{ color: 'var(--mm-negative)' }}>· {oldest} 대기</span>
           )}
         </span>
-        <span className="block text-[12px] truncate" style={{ color: 'var(--mm-ink-soft)' }}>
+        <span className="block text-xs truncate" style={{ color: 'var(--mm-ink-soft)' }}>
           {names.length > 0
             ? `${names.join(' · ')}${rest > 0 ? ` 외 ${rest}명` : ''}`
             : '승인 대기 중입니다'}

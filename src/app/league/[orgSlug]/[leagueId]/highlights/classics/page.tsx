@@ -75,7 +75,7 @@ export default async function ClassicGamesPage({
         >
           명경기
         </h2>
-        <p className="text-[12px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+        <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
           월별 1경기 · {games.length}개월
         </p>
       </div>
@@ -83,7 +83,7 @@ export default async function ClassicGamesPage({
       {/* 기준을 화면에 적어 둔다. 왜 이 경기가 뽑혔는지 설명할 수 없으면 목록을 신뢰하지 않는다 —
           환호 기반 하이라이트를 보류한 이유와 같다. */}
       <SectionCard variant="standalone">
-        <div className="px-4 py-3 text-[13px] leading-relaxed" style={{ color: 'var(--mm-ink-soft)' }}>
+        <div className="px-4 py-3 text-sm leading-relaxed" style={{ color: 'var(--mm-ink-soft)' }}>
           <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>뽑는 방법 · </span>
           위닝샷 · 역전 3회 이상 · 2점 차 이내 · 총 38점 이상 — 이 넷 중{' '}
           <b style={{ color: 'var(--mm-ink)' }}>3개 이상</b>을 채운 경기를 그 달의 명경기로 고릅니다.
@@ -124,12 +124,12 @@ function ClassicCard({ g, leagueId }: { g: ClassicGame; leagueId: string }) {
         >
           {formatMonth(g.month)}
         </span>
-        <span className="text-[12px] font-bold" style={{ color: 'var(--mm-muted)' }}>
+        <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
           {formatDate(g.date)}
         </span>
         {g.relaxed && (
           <span
-            className="text-[10px] font-black uppercase px-2 py-0.5"
+            className="text-xs font-black uppercase px-2 py-0.5"
             style={{
               background: 'var(--mm-neutral-bg)', color: 'var(--mm-neutral-fg)',
               borderRadius: 'var(--mm-radius-chip)', letterSpacing: '0.1em',
@@ -145,7 +145,7 @@ function ClassicCard({ g, leagueId }: { g: ClassicGame; leagueId: string }) {
       <div className="px-4 py-3 flex items-center gap-3">
         <div className="flex-1 min-w-0 text-right">
           <span
-            className="font-bold text-[15px] break-keep"
+            className="font-bold text-base break-keep"
             style={{ color: homeWin ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
           >
             {g.homeName}
@@ -158,7 +158,7 @@ function ClassicCard({ g, leagueId }: { g: ClassicGame; leagueId: string }) {
           >
             {g.homeScore}
           </span>
-          <span className="text-[13px] font-bold" style={{ color: 'var(--mm-muted)' }}>:</span>
+          <span className="text-sm font-bold" style={{ color: 'var(--mm-muted)' }}>:</span>
           <span
             className="font-jersey font-black tabular-nums"
             style={{ fontSize: '26px', color: awayWin ? 'var(--mm-ink)' : 'var(--mm-muted)', letterSpacing: '-0.01em' }}
@@ -168,7 +168,7 @@ function ClassicCard({ g, leagueId }: { g: ClassicGame; leagueId: string }) {
         </div>
         <div className="flex-1 min-w-0">
           <span
-            className="font-bold text-[15px] break-keep"
+            className="font-bold text-base break-keep"
             style={{ color: awayWin ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
           >
             {g.awayName}
@@ -181,7 +181,7 @@ function ClassicCard({ g, leagueId }: { g: ClassicGame; leagueId: string }) {
         {g.reasons.map(r => (
           <span
             key={r}
-            className="inline-flex items-center text-[11px] font-black px-2.5 py-1"
+            className="inline-flex items-center text-xs font-black px-2.5 py-1"
             style={{
               background: 'var(--mm-yellow-soft)', color: 'var(--mm-yellow-strong)',
               borderRadius: 'var(--mm-radius-chip)',
@@ -201,7 +201,7 @@ function ClassicCard({ g, leagueId }: { g: ClassicGame; leagueId: string }) {
         {g.columnLines.map((line, i) => (
           <p
             key={i}
-            className="text-[13px] leading-relaxed break-keep"
+            className="text-sm leading-relaxed break-keep"
             style={{
               color: i === 2 ? 'var(--mm-muted)' : 'var(--mm-ink-soft)',
               fontWeight: i === 0 ? 700 : 400,

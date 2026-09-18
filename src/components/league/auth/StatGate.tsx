@@ -29,7 +29,7 @@ export default function StatGate({
       <h3 className="font-black text-lg sm:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
         {title}
       </h3>
-      <p className="text-[13px] mt-1.5 leading-relaxed max-w-sm break-keep" style={{ color: 'var(--mm-muted)' }}>
+      <p className="text-sm mt-1.5 leading-relaxed max-w-sm break-keep" style={{ color: 'var(--mm-muted)' }}>
         {description}
       </p>
       <button
@@ -42,7 +42,7 @@ export default function StatGate({
         로그인 · 가입 요청
         <ChevronRight size={16} aria-hidden />
       </button>
-      <p className="text-[11px] mt-3" style={{ color: 'var(--mm-muted)' }}>
+      <p className="text-xs mt-3" style={{ color: 'var(--mm-muted)' }}>
         우리 팀 선수라면 이름으로 가입 요청 → 운영자 승인 후 바로 열려요
       </p>
     </div>

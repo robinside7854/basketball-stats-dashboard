@@ -96,7 +96,7 @@ const SHOT_MIX_COLORS = {
 function ShotMixBar({ p, width, height = 12 }: { p: PlayerStat; width?: number; height?: number }) {
   const fga = p.fga
   if (fga <= 0) {
-    return <span className="text-[11px] font-bold" style={{ color: 'var(--mm-muted)' }}>—</span>
+    return <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>—</span>
   }
   const ds    = ((p.ds_a ?? 0) / fga) * 100
   const lu    = ((p.lu_a ?? 0) / fga) * 100
@@ -666,7 +666,7 @@ function LeagueStatsPageInner() {
                 </div>
                 {/* 자동 임계값 뱃지 · 정규 참여자 필터 (수동 컨트롤 제거) */}
                 <span
-                  className="shrink-0 text-[11px] font-bold uppercase"
+                  className="shrink-0 text-xs font-bold uppercase"
                   style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}
                   title={`이 기간에 열린 ${roundBase}라운드의 30% 이상 참여 · 정규 참여자 자동 필터`}
                 >
@@ -719,7 +719,7 @@ function LeagueStatsPageInner() {
                       </div>
                       <div className="text-right shrink-0">
                         <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '30px', letterSpacing: '-0.015em' }}>{sortVal}</div>
-                        <div className="text-[11px] font-black uppercase mt-1 flex items-center justify-end" style={{ color: 'var(--mm-ink)', letterSpacing: '0.16em' }}>
+                        <div className="text-xs font-black uppercase mt-1 flex items-center justify-end" style={{ color: 'var(--mm-ink)', letterSpacing: '0.16em' }}>
                           <StatHeader term={sortTerm} />
                         </div>
                       </div>
@@ -729,7 +729,7 @@ function LeagueStatsPageInner() {
                         const term = key === 'gp' ? 'R' : label
                         return (
                           <div key={key} className="text-center">
-                            <div className="text-[11px] font-bold uppercase flex items-center justify-center" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
+                            <div className="text-xs font-bold uppercase flex items-center justify-center" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
                               <StatHeader term={term} />
                             </div>
                             <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '15px' }}>{cellVal(p, key)}</div>
@@ -865,7 +865,7 @@ function LeagueStatsPageInner() {
                           <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '14px' }}>
                             {viewMode === 'avg' ? '리그 평균' : '리그 총합'}
                           </span>
-                          <div className="text-[11px] font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>자격자 {filtered.length}명</div>
+                          <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>자격자 {filtered.length}명</div>
                         </td>
                         {COLS.map(({ key }) => (
                           <td key={key} className="px-3 py-3 text-center font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)', fontSize: '15px' }}>
@@ -879,7 +879,7 @@ function LeagueStatsPageInner() {
               </table>
               {/* 범례 — 특정 분기 뷰에서만 노출 */}
               {selectedQuarterId !== 'all' && (
-                <div className="px-4 py-2 text-[11px] flex flex-wrap gap-x-4 gap-y-1" style={{ borderTop: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}>
+                <div className="px-4 py-2 text-xs flex flex-wrap gap-x-4 gap-y-1" style={{ borderTop: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}>
                   <span><span className="font-jersey font-black" style={{ color: 'var(--mm-ink)' }}>굵게</span> = 리그 리더</span>
                 </div>
               )}
@@ -913,14 +913,14 @@ function LeagueStatsPageInner() {
                       <span className="font-jersey font-black tabular-nums w-5 h-5 shrink-0 inline-flex items-center justify-center rounded-full"
                         style={{ color: rt.color, background: rt.bg, border: rt.border, fontSize: '11px' }}>{i+1}</span>
                       <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '-0.005em' }}>{p.name}</span>
-                      <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{'R'}</span>
+                      <span className="text-xs font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{'R'}</span>
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                       {SHOOTING_COLS.slice(0, 7).map(({ key, label }) => {
                         const active = shootSortKey === key
                         return (
                           <div key={key} className="text-center">
-                            <div className="text-[11px] font-bold uppercase" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
+                            <div className="text-xs font-bold uppercase" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
                             <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink)', fontSize: '15px' }}>{fmt1(sh[key])}%</div>
                           </div>
                         )
@@ -928,7 +928,7 @@ function LeagueStatsPageInner() {
                     </div>
                     {/* 슛 분포 스택 막대 (모바일 · 전체 폭) */}
                     <div className="flex items-center gap-2 mt-3">
-                      <span className="text-[10px] font-bold uppercase tracking-[0.10em] shrink-0" style={{ color: shootSortKey === 'shot_mix' ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>SHOT MIX</span>
+                      <span className="text-xs font-bold uppercase tracking-[0.10em] shrink-0" style={{ color: shootSortKey === 'shot_mix' ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>SHOT MIX</span>
                       <div className="flex-1"><ShotMixBar p={p} height={10} /></div>
                     </div>
                   </button>
@@ -1038,7 +1038,7 @@ function LeagueStatsPageInner() {
                       <span className="font-jersey font-black tabular-nums w-5 h-5 shrink-0 inline-flex items-center justify-center rounded-full"
                         style={{ color: rt.color, background: rt.bg, border: rt.border, fontSize: '11px' }}>{i+1}</span>
                       <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '-0.005em' }}>{p.name}</span>
-                      <span className="text-[11px] font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{'R'}</span>
+                      <span className="text-xs font-bold uppercase ml-auto" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>{p.gp}{'R'}</span>
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                       {ADV_COLS.map(({ key, label }) => {
@@ -1047,7 +1047,7 @@ function LeagueStatsPageInner() {
                         const active = advSortKey === key
                         return (
                           <div key={key} className="text-center">
-                            <div className="text-[11px] font-bold uppercase" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
+                            <div className="text-xs font-bold uppercase" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)', letterSpacing: '0.10em' }}>{label}</div>
                             <div className="font-jersey font-black tabular-nums mt-0.5" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink)', fontSize: '15px' }}>{isCount ? adv[key] : isRatio ? adv[key].toFixed(2) : `${fmt1(adv[key])}%`}</div>
                           </div>
                         )
@@ -1136,7 +1136,7 @@ function LeagueStatsPageInner() {
                 <button
                   type="button"
                   onClick={() => setVisibleCount(c => c + REVEAL_STEP)}
-                  className="inline-flex items-center justify-center gap-1.5 text-[11px] font-bold tracking-widest uppercase px-5 py-2.5 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  className="inline-flex items-center justify-center gap-1.5 text-xs font-bold tracking-widest uppercase px-5 py-2.5 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                   style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
                 >
                   <ChevronDown size={14} aria-hidden />

@@ -98,7 +98,7 @@ export default async function MilestonesPage({
               </h1>
             </div>
             <p
-              className="text-[11px] lg:text-xs mt-1 font-bold uppercase"
+              className="text-xs mt-1 font-bold uppercase"
               style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
             >
               선수별 5대 지표 진행도 · 임계값 자동 확장
@@ -124,7 +124,7 @@ export default async function MilestonesPage({
       {/* 각주 */}
       {!isEmpty && (
         <p
-          className="text-[11px] pt-2"
+          className="text-xs pt-2"
           style={{ color: 'var(--mm-muted)', lineHeight: 1.6 }}
         >
           <span className="font-bold">임계값</span>은 각 지표의 기본 사다리 (예: PTS 100·250·500·1000·2000) 에서 시작하며,

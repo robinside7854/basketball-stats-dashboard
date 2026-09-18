@@ -132,7 +132,7 @@ export default function PlayerCompareModal({ leagueId, player1Id, player2Id, pla
                 color2={COLOR2}
               />
               {/* 축이 무슨 값인지 밝힌다 — 안 밝히면 '득점 80' 을 80점으로 읽는다. */}
-              <p className="text-[11px] text-center mt-0.5 uppercase tracking-[0.16em] font-bold text-gray-500">
+              <p className="text-xs text-center mt-0.5 uppercase tracking-[0.16em] font-bold text-gray-500">
                 리그 백분위 (100 = 1위)
               </p>
             </div>

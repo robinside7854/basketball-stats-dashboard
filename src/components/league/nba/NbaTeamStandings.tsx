@@ -54,13 +54,13 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
           팀 승률
         </h3>
         <div className="flex items-center gap-3">
-          <span className="text-[11px] sm:text-[12px] tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
+          <span className="text-xs tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
             {quarterLabel} · {gamesCount}경기
           </span>
           {orgSlug && leagueId && (
             <Link
               href={`/league/${orgSlug}/${leagueId}/roster`}
-              className="inline-flex items-center gap-0.5 min-h-[44px] py-1.5 text-[11px] sm:text-[12px] font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors hover:brightness-90"
+              className="inline-flex items-center gap-0.5 min-h-[44px] py-1.5 text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors hover:brightness-90"
               style={{ color: 'var(--mm-ink-soft)' }}
             >
               팀 명단
@@ -132,7 +132,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                 >
                   {t.winRate.toFixed(1)}
                   <span
-                    className="text-[13px] font-bold ml-0.5 align-baseline"
+                    className="text-sm font-bold ml-0.5 align-baseline"
                     style={{ color: 'var(--mm-muted)' }}
                   >
                     %

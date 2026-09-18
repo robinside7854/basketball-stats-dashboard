@@ -112,7 +112,7 @@ export default function RecordAuditPanel({ leagueId, gameId, players, refreshKey
               style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
             >
               <span
-                className="shrink-0 px-1.5 py-0.5 text-[10px] font-black rounded"
+                className="shrink-0 px-1.5 py-0.5 text-xs font-black rounded"
                 style={{ background: `${KIND_COLOR[f.kind]}22`, color: KIND_COLOR[f.kind] }}
               >
                 {AUDIT_KIND_LABEL[f.kind]}
@@ -123,7 +123,7 @@ export default function RecordAuditPanel({ leagueId, gameId, players, refreshKey
             </button>
           ))}
           {count > 0 && (
-            <p className="text-[11px] leading-relaxed pt-1" style={{ color: 'var(--mm-muted)' }}>
+            <p className="text-xs leading-relaxed pt-1" style={{ color: 'var(--mm-muted)' }}>
               누르면 영상의 해당 지점으로 이동합니다. 아웃바운드로 나간 공이나 촬영이 끊긴
               구간은 정상이므로, 실제로 빠진 것만 채워 넣으면 됩니다.
             </p>

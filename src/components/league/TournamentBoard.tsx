@@ -291,7 +291,7 @@ export default function TournamentBoard({
                     {q.name ?? '이름 없는 대회'}
                   </div>
                   <div
-                    className="mt-1 flex items-center gap-1 text-[11px] font-bold"
+                    className="mt-1 flex items-center gap-1 text-xs font-bold"
                     style={{ color: 'var(--mm-muted)' }}
                   >
                     <CalendarRange size={14} aria-hidden />
@@ -307,14 +307,14 @@ export default function TournamentBoard({
                 {summary ? (
                   <>
                     <span
-                      className="inline-flex items-center text-[11px] font-black tracking-wide px-2 py-1 rounded"
+                      className="inline-flex items-center text-xs font-black tracking-wide px-2 py-1 rounded"
                       style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}
                     >
                       {summary.record}
                     </span>
                     {summary.placement && (
                       <span
-                        className="inline-flex items-center text-[11px] font-black tracking-wide px-2 py-1 rounded"
+                        className="inline-flex items-center text-xs font-black tracking-wide px-2 py-1 rounded"
                         style={{
                           background: isChampion ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
                           color: isChampion ? 'var(--mm-black)' : 'var(--mm-muted)',
@@ -326,7 +326,7 @@ export default function TournamentBoard({
                     )}
                   </>
                 ) : (
-                  <span className="text-[11px] font-bold" style={{ color: 'var(--mm-muted)' }}>
+                  <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
                     {gamesCount > 0 ? '결과 대기 중' : '경기 예정'}
                   </span>
                 )}
@@ -461,7 +461,7 @@ function CardAction({
       type="button"
       disabled={disabled}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick() }}
-      className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-[11px] font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+      className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
       style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
       aria-label={ariaLabel}
     >

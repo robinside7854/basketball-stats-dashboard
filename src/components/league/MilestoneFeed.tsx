@@ -136,7 +136,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
             </h3>
           </div>
           <span
-            className="text-[11px] md:text-[12px] font-bold uppercase tabular-nums shrink-0"
+            className="text-xs font-bold uppercase tabular-nums shrink-0"
             style={{ color: 'var(--mm-muted)', letterSpacing: '0.18em' }}
           >
             최근 {recentShown.length}
@@ -273,7 +273,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
           >
             <Link
               href={milestonesHref}
-              className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] min-h-[36px] px-3 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)]"
+              className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em] min-h-[36px] px-3 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)]"
               style={{
                 color: 'var(--mm-ink-soft)',
                 background: 'var(--mm-panel-alt)',

@@ -302,7 +302,7 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
                         </span>
                         {champion && <Trophy size={16} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />}
                       </span>
-                      <span className="mt-1 flex items-center gap-2 flex-wrap text-[11px] font-bold" style={{ color: 'var(--mm-muted)' }}>
+                      <span className="mt-1 flex items-center gap-2 flex-wrap text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
                         <span className="inline-flex items-center gap-1">
                           <CalendarRange size={14} aria-hidden />
                           {fmtPeriod(q.start_date, q.end_date)}
@@ -369,7 +369,7 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
                               <div className="flex items-center gap-2 flex-wrap min-w-0">
                                 {g.round_label && (
                                   <span
-                                    className="text-[11px] font-bold px-1.5 py-0.5 rounded-sm shrink-0"
+                                    className="text-xs font-bold px-1.5 py-0.5 rounded-sm shrink-0"
                                     style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
                                   >
                                     {g.round_label}
@@ -379,7 +379,7 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
                                 <span className="text-sm font-bold break-keep" style={{ color: 'var(--mm-ink)' }}>
                                   vs {v?.oppName ?? '상대 미지정'}
                                 </span>
-                                {g.venue && <span className="text-[11px]" style={{ color: 'var(--mm-muted)' }}>@ {g.venue}</span>}
+                                {g.venue && <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>@ {g.venue}</span>}
                                 {v?.played && (
                                   <span
                                     className="text-sm font-black"
@@ -389,11 +389,11 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
                                   </span>
                                 )}
                                 {g.is_complete && (
-                                  <span className="text-[11px] font-bold" style={{ color: 'var(--mm-muted)' }}>마감</span>
+                                  <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>마감</span>
                                 )}
                                 {/* 쿼터 영상 진행도 — 대회는 촬영본이 쿼터로 쪼개져 올라온다 */}
                                 <span
-                                  className="inline-flex items-center gap-1 text-[11px] font-bold shrink-0"
+                                  className="inline-flex items-center gap-1 text-xs font-bold shrink-0"
                                   style={{ color: vq.length > 0 ? 'var(--mm-ink-soft)' : 'var(--mm-muted)' }}
                                   title={vq.length > 0 ? `연결된 쿼터: ${vq.join('·')}쿼터` : '연결된 영상 없음'}
                                 >
@@ -410,7 +410,7 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
                                   <Link
                                     href={`${base}/boxscore/${g.date}?game=${g.id}`}
                                     aria-label={`${fmtDate(g.date)} vs ${v?.oppName ?? '상대'} 박스스코어`}
-                                    className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-[11px] font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                                    className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                                     style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
                                   >
                                     <BarChart2 size={14} aria-hidden />
@@ -420,7 +420,7 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
                                 <Link
                                   href={`${base}/record?date=${g.date}&game=${g.id}`}
                                   aria-label={`${fmtDate(g.date)} vs ${v?.oppName ?? '상대'} 기록하기`}
-                                  className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-[11px] font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                                  className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                                   style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
                                 >
                                   <ClipboardList size={14} aria-hidden />
@@ -513,7 +513,7 @@ function Action({
       disabled={disabled}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick() }}
       aria-label={ariaLabel}
-      className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-[11px] font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+      className="inline-flex items-center gap-1 min-h-[44px] px-2.5 text-xs font-bold whitespace-nowrap rounded-sm cursor-pointer transition-colors duration-200 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
       style={primary
         ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)' }
         : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}

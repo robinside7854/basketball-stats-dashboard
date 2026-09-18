@@ -91,8 +91,8 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
   ] : []
 
   // 공용 섹션 헤드라인 스타일
-  const sectionHeadCls = 'font-bold text-[13px] mb-3'
-  const sectionSubCls = 'text-[11px] ml-2 font-bold uppercase tracking-[0.16em]'
+  const sectionHeadCls = 'font-bold text-sm mb-3'
+  const sectionSubCls = 'text-xs ml-2 font-bold uppercase tracking-[0.16em]'
 
   return (
     <div className="space-y-6">

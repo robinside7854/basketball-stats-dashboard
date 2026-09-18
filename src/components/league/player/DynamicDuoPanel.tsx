@@ -107,7 +107,7 @@ export default function DynamicDuoPanel({
                   <p className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.015em' }}>
                     {d.total_pts}
                   </p>
-                  <p className="text-[11px] font-black uppercase mt-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>합작 득점</p>
+                  <p className="text-xs font-black uppercase mt-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>합작 득점</p>
                 </div>
               </div>
 
@@ -119,7 +119,7 @@ export default function DynamicDuoPanel({
 
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <div className="px-2.5 py-2" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderLeft: `3px solid ${RECEIVED_COLOR}` }}>
-                  <p className="text-[11px] font-bold uppercase truncate" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
+                  <p className="text-xs font-bold uppercase truncate" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
                     {d.partner_name} → {playerName}
                   </p>
                   <p className="font-jersey font-black tabular-nums mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '18px' }}>
@@ -129,7 +129,7 @@ export default function DynamicDuoPanel({
                   <p className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>어시스트 {d.assists_from_partner}회</p>
                 </div>
                 <div className="px-2.5 py-2" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderLeft: `3px solid ${GIVEN_COLOR}` }}>
-                  <p className="text-[11px] font-bold uppercase truncate" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
+                  <p className="text-xs font-bold uppercase truncate" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
                     {playerName} → {d.partner_name}
                   </p>
                   <p className="font-jersey font-black tabular-nums mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '18px' }}>

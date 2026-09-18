@@ -65,7 +65,7 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
             비공개로 운영되는 페이지입니다
           </h1>
           <p
-            className="text-[14px] leading-relaxed break-keep"
+            className="text-sm leading-relaxed break-keep"
             style={{ color: 'var(--mm-ink-soft)' }}
           >
             가입 승인된 회원만 볼 수 있어요.
@@ -84,7 +84,7 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
             <ChevronRight size={16} aria-hidden />
           </button>
 
-          <p className="text-[11px] mt-4" style={{ color: 'var(--mm-muted)' }}>
+          <p className="text-xs mt-4" style={{ color: 'var(--mm-muted)' }}>
             소속 동호회의 회원이라면 이름으로 가입 요청 → 운영자 승인 후 바로 열려요
           </p>
         </div>

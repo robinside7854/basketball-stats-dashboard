@@ -76,7 +76,7 @@ export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuar
             <p className="text-white font-black text-lg truncate">
               {player.name}{player.number != null && <span className="text-gray-500 text-sm ml-1.5">#{player.number}</span>}
             </p>
-            <p className="text-[10px] text-gray-500">{prevQuarterLabel ? `${prevQuarterLabel} 기록` : '지난 분기 기록'} · 드래프트 풀 내 랭킹</p>
+            <p className="text-xs text-gray-500">{prevQuarterLabel ? `${prevQuarterLabel} 기록` : '지난 분기 기록'} · 드래프트 풀 내 랭킹</p>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-white cursor-pointer"><X size={20} /></button>
         </div>
@@ -94,7 +94,7 @@ export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuar
                   </button>
                 ))}
               </div>
-              <span className="text-[10px] text-gray-500 ml-auto">{row.gp}일 출전 · 날짜 평균</span>
+              <span className="text-xs text-gray-500 ml-auto">{row.gp}일 출전 · 날짜 평균</span>
             </div>
 
             <div className="p-4 overflow-y-auto space-y-1.5">
@@ -110,14 +110,14 @@ export default function DraftPlayerStatsModal({ player, stats, poolIds, prevQuar
                     className={`flex items-center gap-3 rounded-lg px-3 py-2 border ${top5 ? 'bg-amber-500/15 border-amber-500/50' : 'bg-gray-800/50 border-transparent'}`}>
                     <span className="text-sm text-gray-300 font-bold w-20">{def.label}</span>
                     <span className={`font-display text-xl tabular-nums ${top5 ? 'text-amber-300' : 'text-white'}`}>{display}</span>
-                    {madeAtt && <span className="text-[11px] text-gray-500">({madeAtt})</span>}
+                    {madeAtt && <span className="text-xs text-gray-500">({madeAtt})</span>}
                     <span className="flex-1" />
                     {r ? (
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${top1 ? 'bg-amber-500 text-black' : top5 ? 'bg-amber-500/30 text-amber-200' : 'bg-gray-700/60 text-gray-300'}`}>
                         {r.rank}위 / {r.total}
                       </span>
                     ) : (
-                      <span className="text-[10px] text-gray-600">—</span>
+                      <span className="text-xs text-gray-600">—</span>
                     )}
                   </div>
                 )

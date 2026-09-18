@@ -136,7 +136,7 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
         style={{ borderBottom: '1px solid var(--mm-rule)' }}
       >
         <label
-          className="text-[11px] font-black uppercase"
+          className="text-xs font-black uppercase"
           style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}
           htmlFor="milestone-player-select"
         >
@@ -147,7 +147,7 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
             id="milestone-player-select"
             value={pinnedPid ?? ''}
             onChange={e => setPinnedPid(e.target.value || null)}
-            className="w-full appearance-none cursor-pointer text-[13px] font-bold min-h-[36px] px-3 pr-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+            className="w-full appearance-none cursor-pointer text-sm font-bold min-h-[36px] px-3 pr-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
             style={{
               background: pinnedPid ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
               color: pinnedPid ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
@@ -166,7 +166,7 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
           {/* select 우측 드롭 화살표 */}
           <span
             aria-hidden
-            className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-[10px]"
+            className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-xs"
             style={{ color: pinnedPid ? 'var(--mm-black)' : 'var(--mm-muted)' }}
           >
             ▼
@@ -176,7 +176,7 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
           <button
             type="button"
             onClick={() => setPinnedPid(null)}
-            className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase px-2.5 py-1.5 min-h-[36px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+            className="inline-flex items-center gap-1.5 text-xs font-black uppercase px-2.5 py-1.5 min-h-[36px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
             style={{
               background: 'var(--mm-panel-alt)',
               color: 'var(--mm-ink-soft)',
@@ -212,7 +212,7 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
 
       {/* 각주 */}
       <div
-        className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] pt-3"
+        className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs pt-3"
         style={{ borderTop: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
       >
         <span>
@@ -350,14 +350,14 @@ function MetricTree({
       {/* 헤더 · 지표 라벨 + 리그 리더 값 */}
       <div className="text-center mb-2">
         <div
-          className="font-bold text-[15px]"
+          className="font-bold text-base"
           style={{ color, letterSpacing: '0.10em' }}
         >
           {label}
         </div>
         {leader && (
           <div
-            className="text-[10px] font-bold uppercase mt-0.5 truncate"
+            className="text-xs font-bold uppercase mt-0.5 truncate"
             style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}
             title={`리그 1위 · ${leader.name} · ${leader[metricKey]}`}
           >
@@ -409,7 +409,7 @@ function MetricTree({
             >
               {/* 눈금 라벨 (좌측) */}
               <span
-                className="text-[9px] font-black tabular-nums pr-1 text-right"
+                className="text-xs font-black tabular-nums pr-1 text-right"
                 style={{
                   color: isTop ? color : 'var(--mm-muted)',
                   letterSpacing: '0.04em',
@@ -460,7 +460,7 @@ function MetricTree({
             }}
           >
             <span
-              className="inline-block text-[10px] font-black px-1 py-0.5"
+              className="inline-block text-xs font-black px-1 py-0.5"
               style={{
                 background: 'var(--mm-panel-alt)',
                 color: 'var(--mm-ink-soft)',
@@ -539,7 +539,7 @@ function PlayerPin({
       title={`${player.name} · ${value}`}
     >
       <span
-        className="absolute inset-0 flex items-center justify-center font-jersey font-black text-[10px]"
+        className="absolute inset-0 flex items-center justify-center font-jersey font-black text-xs"
         style={{ color: 'var(--mm-ink)' }}
         aria-hidden
       >
@@ -558,7 +558,7 @@ function PlayerPin({
       {/* 툴팁 · pinned 이거나 hover 일 때 · 이름 + 값 · scale 역보정으로 원 크기 유지 */}
       {emphasized && (
         <span
-          className="absolute pointer-events-none whitespace-nowrap text-[10px] font-black"
+          className="absolute pointer-events-none whitespace-nowrap text-xs font-black"
           style={{
             background: pinned ? 'var(--mm-yellow)' : 'var(--mm-black)',
             color: pinned ? 'var(--mm-black)' : 'var(--mm-yellow)',
@@ -664,7 +664,7 @@ function PlayerMilestonePopover({
             {player.number != null ? `#${player.number} ` : ''}{player.name}
           </div>
           {player.position && (
-            <div className="text-[11px] font-bold uppercase mt-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+            <div className="text-xs font-bold uppercase mt-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
               {player.position}
             </div>
           )}
@@ -684,7 +684,7 @@ function PlayerMilestonePopover({
               }}
             >
               <div
-                className="text-[10px] font-black uppercase"
+                className="text-xs font-black uppercase"
                 style={{ color: m.color, letterSpacing: '0.12em' }}
               >
                 {m.label}

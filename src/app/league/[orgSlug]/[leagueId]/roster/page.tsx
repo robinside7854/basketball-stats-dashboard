@@ -142,7 +142,7 @@ function BirthDateInput({ value, onChange, className }: {
 function PositionBadge({ pos }: { pos: string }) {
   return (
     <span
-      className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-black uppercase tracking-[0.12em] border bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] border-[var(--mm-rule)]"
+      className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-black uppercase tracking-[0.12em] border bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] border-[var(--mm-rule)]"
     >
       {pos}
     </span>
@@ -782,7 +782,7 @@ export default function LeagueRosterPage() {
                     }
                     {isPlayerGuest(p) && (
                       <span
-                        className="px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-[0.12em] border bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] border-[var(--mm-rule)]"
+                        className="px-1.5 py-0.5 rounded-md text-xs font-black uppercase tracking-[0.12em] border bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] border-[var(--mm-rule)]"
                         title="단발성 게스트 선수 — 로스터 하단으로 정렬됩니다"
                       >
                         게스트
@@ -791,7 +791,7 @@ export default function LeagueRosterPage() {
                     {/* 인증 뱃지 — 로그인 계정을 등록·승인받은 회원 (브랜드 옐로 채움으로 중립 뱃지와 구분) */}
                     {p.has_account && (
                       <span
-                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-[0.12em] bg-[var(--mm-yellow)] text-[var(--mm-black)]"
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-black uppercase tracking-[0.12em] bg-[var(--mm-yellow)] text-[var(--mm-black)]"
                         title="로그인 계정을 등록·인증한 회원"
                       >
                         <ShieldCheck size={14} aria-hidden className="shrink-0" />
@@ -801,7 +801,7 @@ export default function LeagueRosterPage() {
                     {/* 참석율 (R 라운드 기준) — 참여 이력 있는 선수만 노출 */}
                     {attendance.perPlayer[p.id] && attendance.totalRounds > 0 && (
                       <span
-                        className="px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-[0.12em] border bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] border-[var(--mm-rule)] tabular-nums"
+                        className="px-1.5 py-0.5 rounded-md text-xs font-black uppercase tracking-[0.12em] border bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] border-[var(--mm-rule)] tabular-nums"
                         title={`참석율 · ${attendance.perPlayer[p.id].rounds}/${attendance.totalRounds} 라운드`}
                       >
                         참석 {attendance.perPlayer[p.id].rate}%
@@ -922,7 +922,7 @@ export default function LeagueRosterPage() {
                   )}
 
                   {/* 카드 클릭 힌트 */}
-                  <p className="mt-2 pt-2 border-t border-[var(--mm-rule)] text-[11px] uppercase tracking-[0.14em] font-bold text-[var(--mm-muted)] group-hover:text-[var(--mm-ink)] transition-colors">
+                  <p className="mt-2 pt-2 border-t border-[var(--mm-rule)] text-xs uppercase tracking-[0.14em] font-bold text-[var(--mm-muted)] group-hover:text-[var(--mm-ink)] transition-colors">
                     카드 열기 →
                   </p>
                   </div>{/* flex-1 end */}
@@ -1103,7 +1103,7 @@ export default function LeagueRosterPage() {
                 />
                 <span>{onlyVerified ? '인증회원만' : '전체'}</span>
                 <span
-                  className="text-[10px] lg:text-xs"
+                  className="text-xs"
                   style={{ color: onlyVerified ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
                 >({verifiedCount})</span>
               </button>
@@ -1171,7 +1171,7 @@ export default function LeagueRosterPage() {
                 <span className="text-xs font-black tabular-nums" style={{ color: 'var(--mm-muted)' }}>
                   {guestPlayers.length}명
                 </span>
-                <span className="ml-auto text-[11px]" style={{ color: 'var(--mm-muted)' }}>
+                <span className="ml-auto text-xs" style={{ color: 'var(--mm-muted)' }}>
                   {guestsOpen ? '접기' : '펼치기'}
                 </span>
               </summary>

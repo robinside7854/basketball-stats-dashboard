@@ -79,17 +79,17 @@ export default function PasswordChangeModal({ leagueId, isDefaultPassword, onClo
 
         <div className="p-4 space-y-3">
           {isDefaultPassword && (
-            <p className="text-[12px] leading-relaxed px-3 py-2 rounded-sm" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}>
+            <p className="text-xs leading-relaxed px-3 py-2 rounded-sm" style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}>
               현재 <b>초기 비밀번호</b>를 사용 중이에요. 안전을 위해 나만 아는 비밀번호로 변경하세요.
             </p>
           )}
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>현재 비밀번호</label>
+            <label className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>현재 비밀번호</label>
             <input type={show ? 'text' : 'password'} value={cur} onChange={e => setCur(e.target.value)}
               autoComplete="current-password" className={inputCls} style={{ color: 'var(--mm-ink)' }} placeholder="현재 비밀번호" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>새 비밀번호</label>
+            <label className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>새 비밀번호</label>
             <div className="relative">
               <input type={show ? 'text' : 'password'} value={nw} onChange={e => setNw(e.target.value)}
                 autoComplete="new-password" className={inputCls} style={{ color: 'var(--mm-ink)', paddingRight: 44 }} placeholder="새 비밀번호 (4자 이상)" />
@@ -100,7 +100,7 @@ export default function PasswordChangeModal({ leagueId, isDefaultPassword, onClo
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>새 비밀번호 확인</label>
+            <label className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>새 비밀번호 확인</label>
             <input type={show ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)}
               autoComplete="new-password" className={inputCls} style={{ color: 'var(--mm-ink)' }} placeholder="새 비밀번호 다시 입력"
               onKeyDown={e => { if (e.key === 'Enter') submit() }} />
