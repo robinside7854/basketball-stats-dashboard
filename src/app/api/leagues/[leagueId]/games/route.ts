@@ -605,6 +605,9 @@ export async function PATCH(
     'is_complete', 'is_started', 'is_exhibition', 'plus_one_player_id', 'plus_one_extra_ids',
     // 쿼터별 +1 (113) — 전/후반 +1 선수가 다른 경기에서 쓴다.
     'plus_one_quarters',
+    // 쿼터별 화면 좌우 뒤집기 (118) — **표시 전용**. 코트 좌우가 쿼터마다 바뀌는 날에
+    // 기록 화면 배치를 영상에 맞춘다. home_team_id 는 절대 따라 바뀌지 않는다.
+    'sides_swapped_quarters',
     'youtube_url', 'youtube_start_offset',
     // 대회 경기 편집 — 라운드 표기와 경기장. 리그 경기에는 화면이 보내지 않는다.
     'round_label', 'venue',

@@ -41,6 +41,11 @@ type GameSlot = {
   plus_one_extra_ids?: string[] | null
   /** 선수별 +1 유효 쿼터 (113). 키가 없으면 전 쿼터. `{ "<playerId>": [1,2] }` */
   plus_one_quarters?: Record<string, number[]> | null
+  /**
+   * 화면 좌우를 뒤집어 그릴 쿼터 (118). `[2,4]` 형태.
+   * ⚠ **표시 전용.** home_team_id/away_team_id 와 기록·점수에는 영향이 없다.
+   */
+  sides_swapped_quarters?: number[] | null
   home_score: number; away_score: number
   /** 대회 상대팀 최종 점수(112) — 마감할 때 손으로 넣는다. null 이면 아직 안 넣은 것. */
   opponent_score_manual?: number | null
@@ -306,6 +311,58 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const playingQuarter: number | null = activeVideo == null
     ? null
     : activeVideo.source === 'quarter' ? currentQuarter : activeVideo.representativeQuarter
+
+  // ── 쿼터별 코트 좌우 ───────────────────────────────────────────────
+  //   같은 경기라도 쿼터마다 두 팀의 코트 좌우가 바뀐다. 영상과 화면 배치가 반대면
+  //   기록원이 매번 머리로 뒤집어 눌러야 한다.
+  //
+  // ⚠ **표시만 뒤집는다.** 기록은 선수의 team_id 로, 점수는 team_id 비교로 붙기 때문에
+  //   화면을 뒤집어도 스탯·점수는 한 건도 달라지지 않는다. 반대로 이 값을 보고
+  //   home_team_id 를 바꾸면(= 기존 ⇄ 버튼이 하는 일) 과거 기록의 홈·원정이 통째로 어긋난다.
+  //   그래서 팀을 **저장**하는 입력(팀 드롭다운·비정규 배정)에는 절대 태우지 않는다.
+  const swappedQuarters = selectedSlot?.sides_swapped_quarters ?? []
+  const sidesFlipped = swappedQuarters.includes(currentQuarter)
+  /** 화면 왼쪽/오른쪽이 각각 어느 쪽인지. 좌우로 그리는 위젯은 이 둘만 본다. */
+  const leftSide: 'home' | 'away' = sidesFlipped ? 'away' : 'home'
+  const rightSide: 'home' | 'away' = sidesFlipped ? 'home' : 'away'
+
+  /** 한쪽(홈 또는 어웨이)의 팀·점수 묶음. 좌우로 그리는 위젯은 전부 이걸 통해 읽는다 —
+   *  이름만 뒤집고 점수를 그대로 두는 부분 반전이 가장 흔한 오표기다. */
+  function sideView(side: 'home' | 'away') {
+    const team = side === 'home' ? selectedSlot?.home_team : selectedSlot?.away_team
+    const score = side === 'home'
+      ? (liveScore?.home ?? selectedSlot?.home_score ?? 0)
+      : (liveScore?.away ?? selectedSlot?.away_score ?? 0)
+    return {
+      side,
+      team,
+      score,
+      roster: side === 'home' ? homeRoster : awayRoster,
+      // 팀 색은 팀을 따라간다. 좌우가 바뀌어도 같은 팀은 같은 색이어야 한다.
+      color: team?.color ?? (side === 'home' ? '#3b82f6' : '#ef4444'),
+      label: side === 'home' ? 'HOME' : 'AWAY',
+    }
+  }
+
+  /** 지금 쿼터의 좌우를 뒤집는다(그 쿼터에만 적용, 즉시 저장). */
+  async function toggleQuarterSides() {
+    if (!selectedSlotId || !selectedSlot) return
+    const next = sidesFlipped
+      ? swappedQuarters.filter(q => q !== currentQuarter)
+      : [...swappedQuarters, currentQuarter].sort((a, b) => a - b)
+    // 화면을 먼저 뒤집는다 — 영상을 보며 누르는 버튼이라 왕복을 기다리면 손이 끊긴다.
+    setSlots(prev => prev.map(s => s.id === selectedSlotId ? { ...s, sides_swapped_quarters: next } : s))
+    const res = await fetch(`/api/leagues/${leagueId}/games?gameId=${selectedSlotId}`, {
+      method: 'PATCH',
+      headers: leagueHeaders,
+      body: JSON.stringify({ sides_swapped_quarters: next }),
+    })
+    if (!res.ok) {
+      // 저장에 실패했으면 화면도 되돌린다. 안 되돌리면 새로고침 때 조용히 제자리로 간다.
+      setSlots(prev => prev.map(s => s.id === selectedSlotId ? { ...s, sides_swapped_quarters: swappedQuarters } : s))
+      toast.error('좌우 저장에 실패했습니다')
+    }
+  }
 
   // 슬롯 단위로 한 번만 자동 초기화 — 비정규 선수 추가 등 같은 슬롯 내 roster 변경 시엔 유지
   const initializedSlotRef = useRef<string | null>(null)
@@ -838,15 +895,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     loadQuarterVideos(selectedSlotId)
   }, [selectedSlotId, loadQuarterVideos])
 
-  // 슬롯을 바꾸면 기록 준비 카드는 접힌 상태로 시작한다. 영상이 아직 없는 슬롯만 펼쳐 준다 —
-  //   그때가 실제로 손을 대야 하는 유일한 경우다.
-  //   ⚠ quarterVideos 를 의존성에 넣지 말 것: 1쿼터를 붙이는 순간 패널이 스스로 닫혀
-  //     2~4쿼터를 붙이던 손이 끊긴다.
+  // 영상 패널은 **항상 펼친 채로** 연다 (2026-09-18).
+  //   접어 둔 것은 "자동 매핑이 다 붙이니 열 일이 없다"는 전제였는데, 쿼터 카드가 곧
+  //   재생 쿼터를 고르는 자리가 되면서 전제가 깨졌다. 기록할 때마다 펼쳐야 해서
+  //   "쿼터를 바꿀 수 없다"로 읽혔다.
   useEffect(() => {
-    const slot = slots.find(s => s.id === selectedSlotId)
-    setVideoPanelOpen(!!selectedSlotId && !slot?.youtube_url)
+    setVideoPanelOpen(!!selectedSlotId)
     setAdvancedOpen(false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSlotId])
 
   // 쿼터가 넘어가면 링크 입력 대상도 따라간다(기록 중 4번 중 3번은 지금 쿼터를 채운다).
@@ -2221,6 +2276,26 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
                       쿼터를 누르면 그 쿼터 영상으로 바뀝니다
                     </span>
+                    {/* 쿼터별 코트 좌우 — 영상과 화면 배치가 반대인 쿼터에서 누른다.
+                        표시만 바뀌고 기록·점수는 그대로다(팀 id 로 저장되므로). */}
+                    {selectedSlot.home_team_id && selectedSlot.away_team_id && !isTournament && (
+                      <button
+                        type="button"
+                        onClick={toggleQuarterSides}
+                        aria-pressed={sidesFlipped}
+                        title={`${currentQuarter}쿼터 화면 좌우를 바꿉니다 — 기록·점수는 그대로입니다`}
+                        className="ml-auto inline-flex items-center gap-1.5 shrink-0 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        style={{
+                          background: sidesFlipped ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
+                          color: sidesFlipped ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
+                          border: `1px solid ${sidesFlipped ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
+                          borderRadius: '4px',
+                        }}
+                      >
+                        <ArrowLeftRight size={14} strokeWidth={2.5} aria-hidden />
+                        {currentQuarter}쿼터 좌우{sidesFlipped ? ' 바뀜' : ' 바꾸기'}
+                      </button>
+                    )}
                   </div>
                   {/* ⚠ **올라온 쿼터만 칸으로 만든다.** 1~4를 늘 네 칸 그리면 업로더가 안 올린 쿼터가
                       `미연결` 이라는 이름의 실패처럼 읽힌다(9/12 가 실제로 그랬다). 없는 쿼터는
@@ -2870,32 +2945,34 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     {/* 스코어보드 오버레이 — 영상 상단 좌측 (풀스크린 버튼과 겹치지 않도록 우하단→좌상단 이동) */}
                     {gameStarted && (
                       <div className="absolute top-2 left-2 z-10 pointer-events-none">
+                        {/* 좌우는 이 쿼터의 코트 배치를 따른다(sidesFlipped). 팀명·색·점수를
+                            한 묶음(sideView)으로 꺼내 쓰므로 셋이 따로 놀 수 없다. */}
                         <div className="flex items-stretch gap-px rounded-xl overflow-hidden shadow-2xl bg-black/80 backdrop-blur-sm border border-white/10 text-white">
-                          {/* 홈팀 */}
-                          <div className="flex flex-col items-center px-3 py-1.5 min-w-[64px] max-w-[140px]">
-                            <span className="text-xs font-bold truncate w-full text-center"
-                              style={{ color: selectedSlot.home_team?.color ?? '#3b82f6' }}>
-                              {selectedSlot.home_team?.name ?? 'HOME'}
-                            </span>
-                            <span className="text-2xl lg:text-3xl font-black tabular-nums leading-none mt-0.5">
-                              {liveScore?.home ?? selectedSlot.home_score ?? 0}
-                            </span>
-                          </div>
-                          {/* 구분선 + LIVE */}
-                          <div className="flex flex-col items-center justify-center px-2 border-x border-white/10">
-                            <span className="text-[11px] text-green-400 font-black tracking-widest">LIVE</span>
-                            <span className="text-lg font-black text-gray-500 leading-none">:</span>
-                          </div>
-                          {/* 어웨이팀 */}
-                          <div className="flex flex-col items-center px-3 py-1.5 min-w-[64px] max-w-[140px]">
-                            <span className="text-xs font-bold truncate w-full text-center"
-                              style={{ color: selectedSlot.away_team?.color ?? '#ef4444' }}>
-                              {selectedSlot.away_team?.name ?? 'AWAY'}
-                            </span>
-                            <span className="text-2xl lg:text-3xl font-black tabular-nums leading-none mt-0.5">
-                              {liveScore?.away ?? selectedSlot.away_score ?? 0}
-                            </span>
-                          </div>
+                          {(() => {
+                            const L = sideView(leftSide)
+                            const R = sideView(rightSide)
+                            const cell = (v: ReturnType<typeof sideView>) => (
+                              <div className="flex flex-col items-center px-3 py-1.5 min-w-[64px] max-w-[140px]">
+                                <span className="text-xs font-bold truncate w-full text-center" style={{ color: v.color }}>
+                                  {v.team?.name ?? v.label}
+                                </span>
+                                <span className="text-2xl lg:text-3xl font-black tabular-nums leading-none mt-0.5">
+                                  {v.score}
+                                </span>
+                              </div>
+                            )
+                            return (
+                              <>
+                                {cell(L)}
+                                {/* 구분선 + LIVE */}
+                                <div className="flex flex-col items-center justify-center px-2 border-x border-white/10">
+                                  <span className="text-[11px] text-green-400 font-black tracking-widest">LIVE</span>
+                                  <span className="text-lg font-black text-gray-500 leading-none">:</span>
+                                </div>
+                                {cell(R)}
+                              </>
+                            )
+                          })()}
                         </div>
                       </div>
                     )}
@@ -2986,12 +3063,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                       {/* 컴팩트 스코어 스트립 */}
                       <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
                         <div className="flex items-stretch">
+                          {/* 좌우는 이 쿼터의 코트 배치를 따른다(위 스코어보드와 같은 sideView) */}
                           <div className="flex-1 py-2 px-3 flex items-center gap-2">
-                            <span className="text-xs font-bold truncate" style={{ color: accentOrInk(selectedSlot?.home_team?.color ?? '#3b82f6') }}>
-                              {selectedSlot?.home_team?.name ?? '홈팀'}
+                            <span className="text-xs font-bold truncate" style={{ color: accentOrInk(sideView(leftSide).color) }}>
+                              {sideView(leftSide).team?.name ?? (leftSide === 'home' ? '홈팀' : '어웨이팀')}
                             </span>
                             <span className="text-2xl font-black text-white tabular-nums leading-none ml-auto">
-                              {liveScore?.home ?? selectedSlot?.home_score ?? 0}
+                              {sideView(leftSide).score}
                             </span>
                           </div>
                           <div className="flex flex-col items-center justify-center px-2 border-x border-gray-800 shrink-0">
@@ -3000,10 +3078,10 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           </div>
                           <div className="flex-1 py-2 px-3 flex items-center gap-2">
                             <span className="text-2xl font-black text-white tabular-nums leading-none mr-auto">
-                              {liveScore?.away ?? selectedSlot?.away_score ?? 0}
+                              {sideView(rightSide).score}
                             </span>
-                            <span className="text-xs font-bold truncate" style={{ color: accentOrInk(selectedSlot?.away_team?.color ?? '#ef4444') }}>
-                              {selectedSlot?.away_team?.name ?? '어웨이팀'}
+                            <span className="text-xs font-bold truncate" style={{ color: accentOrInk(sideView(rightSide).color) }}>
+                              {sideView(rightSide).team?.name ?? (rightSide === 'home' ? '홈팀' : '어웨이팀')}
                             </span>
                           </div>
                           <button
@@ -3075,15 +3153,20 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         })}
                       </div>
 
+                      {/* 좌우가 뒤집힌 쿼터에서는 패드에 **넘기는 짝을 통째로 맞바꾼다.**
+                          패드 안에서는 '왼쪽/오른쪽' 으로만 쓰이고 이벤트의 team_id 는 선수
+                          객체에서 나오므로, 바꿔 넘겨도 기록은 그대로다.
+                          ⚠ 선수와 팀을 **한 쌍으로** 같이 바꿔야 한다 — 하나만 바꾸면 상대 선수
+                            즉석 등록이 반대 팀으로 들어간다. */}
                       <LeagueEventInputPad
                         leagueId={leagueId}
                         gameId={selectedSlotId}
                         currentQuarter={currentQuarter}
                         leagueHeaders={leagueHeaders}
-                        homePlayers={homeRoster.filter(p => onCourt.includes(p.id))}
-                        awayPlayers={awayRoster.filter(p => onCourt.includes(p.id))}
-                        homeTeam={selectedSlot?.home_team ?? undefined}
-                        awayTeam={selectedSlot?.away_team ?? undefined}
+                        homePlayers={sideView(leftSide).roster.filter(p => onCourt.includes(p.id))}
+                        awayPlayers={sideView(rightSide).roster.filter(p => onCourt.includes(p.id))}
+                        homeTeam={sideView(leftSide).team ?? undefined}
+                        awayTeam={sideView(rightSide).team ?? undefined}
                         onEventSaved={() => { handleEventSaved(); fetchLiveScore() }}
                         activePlusOneIds={activePlusOneIds.length > 0 ? activePlusOneIds : undefined}
                         tendencies={tendencies}
@@ -3290,58 +3373,40 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         </div>
                       ) : (
                       /* 드롭 존 — 홈/어웨이 2컬럼 (홈=파랑 / 어웨이=빨강은 팀 시맨틱 유지) */
+                      /* 두 칸의 **위치만** 이 쿼터의 코트 배치를 따른다. side 값(home/away)은
+                         그대로 넘어가므로 드롭·전체선택·카드 렌더는 언제나 올바른 팀에 붙는다. */
                       <div className="grid grid-cols-2 gap-3">
-                        {/* 홈팀 드롭 존 */}
-                        <div
-                          onDragOver={e => { e.preventDefault(); setDragOverSide('home') }}
-                          onDragLeave={() => setDragOverSide(null)}
-                          onDrop={e => handleDrop(e, 'home')}
-                          className="min-h-[180px] p-2 border-2 border-dashed transition-colors"
-                          style={dragOverSide === 'home'
-                            ? { borderColor: '#3b82f6', background: 'rgba(59,130,246,0.10)', borderRadius: '4px' }
-                            : { borderColor: 'var(--mm-rule)', borderRadius: '4px' }
-                          }
-                        >
-                          <div className="flex items-center justify-between mb-2 px-1">
-                            <span className="text-xs font-bold px-2 py-0.5"
-                              style={{ color: accentOrInk(selectedSlot?.home_team?.color ?? '#3b82f6'), backgroundColor: `${selectedSlot?.home_team?.color ?? '#3b82f6'}22`, borderRadius: '4px' }}>
-                              {selectedSlot?.home_team?.name ?? '홈팀'}
-                            </span>
-                            <button onClick={() => selectAllTeam('home')} className="text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors" style={{ color: '#3b82f6' }}>전체</button>
-                          </div>
-                          <div className="space-y-1">
-                            {homeRoster.map(p => renderStarterCard(p, 'home'))}
-                            {homeRoster.length === 0 && (
-                              <p className="text-xs px-2 py-4 text-center" style={{ color: 'var(--mm-muted)' }}>선수를 여기로 드래그</p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* 어웨이팀 드롭 존 */}
-                        <div
-                          onDragOver={e => { e.preventDefault(); setDragOverSide('away') }}
-                          onDragLeave={() => setDragOverSide(null)}
-                          onDrop={e => handleDrop(e, 'away')}
-                          className="min-h-[180px] p-2 border-2 border-dashed transition-colors"
-                          style={dragOverSide === 'away'
-                            ? { borderColor: '#ef4444', background: 'rgba(239,68,68,0.10)', borderRadius: '4px' }
-                            : { borderColor: 'var(--mm-rule)', borderRadius: '4px' }
-                          }
-                        >
-                          <div className="flex items-center justify-between mb-2 px-1">
-                            <span className="text-xs font-bold px-2 py-0.5"
-                              style={{ color: accentOrInk(selectedSlot?.away_team?.color ?? '#ef4444'), backgroundColor: `${selectedSlot?.away_team?.color ?? '#ef4444'}22`, borderRadius: '4px' }}>
-                              {selectedSlot?.away_team?.name ?? '어웨이팀'}
-                            </span>
-                            <button onClick={() => selectAllTeam('away')} className="text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors" style={{ color: '#ef4444' }}>전체</button>
-                          </div>
-                          <div className="space-y-1">
-                            {awayRoster.map(p => renderStarterCard(p, 'away'))}
-                            {awayRoster.length === 0 && (
-                              <p className="text-xs px-2 py-4 text-center" style={{ color: 'var(--mm-muted)' }}>선수를 여기로 드래그</p>
-                            )}
-                          </div>
-                        </div>
+                        {[leftSide, rightSide].map(side => {
+                          const v = sideView(side)
+                          const fallback = side === 'home' ? '#3b82f6' : '#ef4444'
+                          return (
+                            <div
+                              key={side}
+                              onDragOver={e => { e.preventDefault(); setDragOverSide(side) }}
+                              onDragLeave={() => setDragOverSide(null)}
+                              onDrop={e => handleDrop(e, side)}
+                              className="min-h-[180px] p-2 border-2 border-dashed transition-colors"
+                              style={dragOverSide === side
+                                ? { borderColor: v.color, background: `${v.color}1A`, borderRadius: '4px' }
+                                : { borderColor: 'var(--mm-rule)', borderRadius: '4px' }
+                              }
+                            >
+                              <div className="flex items-center justify-between mb-2 px-1">
+                                <span className="text-xs font-bold px-2 py-0.5"
+                                  style={{ color: accentOrInk(v.color), backgroundColor: `${v.color}22`, borderRadius: '4px' }}>
+                                  {v.team?.name ?? (side === 'home' ? '홈팀' : '어웨이팀')}
+                                </span>
+                                <button onClick={() => selectAllTeam(side)} className="text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors duration-200" style={{ color: fallback }}>전체</button>
+                              </div>
+                              <div className="space-y-1">
+                                {v.roster.map(p => renderStarterCard(p, side))}
+                                {v.roster.length === 0 && (
+                                  <p className="text-xs px-2 py-4 text-center" style={{ color: 'var(--mm-muted)' }}>선수를 여기로 드래그</p>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                       )}
 
