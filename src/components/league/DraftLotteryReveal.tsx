@@ -1,26 +1,38 @@
 'use client'
-// 추첨 결과 풀스크린 연출 — 2D 캔버스 단일 구현.
+// 추첨 결과 풀스크린 연출 — **마블 레이스**(2026-09-18 전면 교체).
 //
-// 2026-09-17: three.js 3D 버전을 들어냈다(구단주 판정 "품질이 낮다"). 동시에 그 이전 2D 판정
-// "촌스럽고 애니메이션이 부드럽지 않다"의 원인도 같이 고쳤다 — 옛 2D 는 공 하나하나에
-// CSS keyframe(lottoChaos)을 물려 N개가 제각각 타임라인을 돌았다. 프레임이 밀리면 공끼리
-// 겹치고 튀어서 "끊긴다"로 읽혔다. 지금은 공 전체를 **한 캔버스에서 한 물리 루프로** 돌린다:
-// 중력 + 원형 보울 경계 + 감쇠 + 송풍기, rAF 에 dt 상한(1/30s)을 걸어 탭 복귀 시 폭발하지 않는다.
+// 이전 버전은 로또 추첨기(원형 보울 + 송풍기)였다. 그 전에는 three.js 3D 였고, 그 전에는
+// CSS keyframe 이었다. 이번에는 세로형 하프코트를 굴러 내려오는 농구공 레이스다.
+// 참고: lazygyu/roulette (MIT, https://github.com/lazygyu/roulette) — 세로 코스 구성·리더 추적
+// 카메라·바닥 골라인이라는 골격을 참고했다. 물리 엔진(그쪽은 box2d-wasm)과 코드는 쓰지 않았다.
 //
-// 페이즈·타이밍·onClose 계약은 3D/옛 2D 와 **완전히 동일**하다. 같은 추첨을 보는 클라이언트가
-// 서로 다른 시각에 닫히면 진행자가 다음 단계를 못 넘어간다.
+// ── 순서는 어떻게 보장되나 ────────────────────────────────────────────────
+// **레이스 결과는 순위와 아무 상관이 없다.** 서버가 이미 정한 `order` 가 유일한 진실이고,
+// 레이스는 그저 공을 아래로 모으는 연출이다. 순위는 마지막 **공개 단계**가 정한다:
+// 바닥 볼랙에 모인 공을 `order` 순서대로 하나씩 꺼내 골대에 꽂는다. 1등으로 내려온 공이
+// 1픽이 아니어도 아무 문제가 없다 — 그래서 물리가 아무리 흔들려도 결과가 틀릴 수 없다.
 //
-//   'intro'     : 2.0s — 팀 공이 보울 안으로 떨어져 정착
-//   'drawing'   : 4.0s — 송풍기가 공을 띄워 텀블링. 드럼롤. 스포트라이트.
-//   'revealing' : 1.5s — 1픽 공이 상단 튜브로 ease-out 상승 + 폭죽 + 호른.
-//   'revealed'  : 결과 노출. 10s 후 자동 닫힘. revealing 진입 후 탭하면 즉시 revealed 로 점프.
+// ── 그래도 물리를 결정론으로 만든 이유 ───────────────────────────────────
+// 같은 추첨을 여러 사람이 각자 기기로 본다. 레이스가 기기마다 다르면 "내 화면에선 락다운이
+// 1등이었는데?" 가 나온다. 그래서 시드(order 해시) 난수 + 고정 스텝(1/120s) + 초월함수 없는
+// 물리로 **모든 기기가 같은 궤적**을 그린다. 검증은 Node 에서 두 번 돌려 체크섬 비교
+// (scripts 로 남기지 않고 개발 중 확인 — sim.ts/course.ts/rng.ts 는 DOM 의존이 0이다).
 //
-// prefers-reduced-motion: 공은 정지 배치로 한 번만 그리고, 당첨 공은 즉시 튜브에 놓는다.
+// ── 타이밍 (마운트 기준, onClose 계약은 종전과 동일) ─────────────────────
+//   intro   0.0~1.7s   팁오프. 공이 코트 위에서 쏟아진다
+//   race    1.7~14.7s  램프·수비수·스핀무브 휠. 카메라가 선두 팀 공을 따라간다
+//   settle  14.7~16.9s 낙오 공 정리. 카메라 줌아웃
+//   reveal  16.9s~     order 순서대로 슛 → 스위시마다 "{n}순위 {팀}"
+//   list    reveal 종료 직후. 10초 뒤 자동 닫힘(종전과 동일)
+// 최대(12팀) 합계 약 27.7초 < 30초.
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Dice5 } from 'lucide-react'
-import { playDrumroll, playLotteryHorn, primeAudio } from '@/lib/draftSounds'
+import { playBeep, playBuzzer, playDrumroll, playLotteryHorn, primeAudio } from '@/lib/draftSounds'
 import { teamInk, teamAccentOnDark } from '@/lib/util/contrastColor'
+import { createWorld, stepWorld, leaderIndex, SIM_HZ, type World } from './lottery/sim'
+import { COURSE_W, NET_BOTTOM, SHELF_INNER_Y, RIM_Y } from './lottery/course'
+import { drawScene, shotArc, type Cam, type FlyingBall, type TeamInfo } from './lottery/render'
 
 interface Team { id: string; name: string; color: string }
 
@@ -31,7 +43,7 @@ interface Props {
   onClose: () => void
 }
 
-type Phase = 'intro' | 'drawing' | 'revealing' | 'revealed'
+type Phase = 'race' | 'reveal' | 'list'
 
 /** 확률이 팀마다 실제로 다를 때만 true. 균등 추첨(전원 1/N)이거나 odds 가 없으면 false.
  *  실제 드래프트는 대부분 균등이라 같은 숫자가 N번 반복될 뿐이고, 그 배지는 정보가 0이다. */
@@ -43,353 +55,220 @@ export function hasVaryingOdds(order: string[], odds: Record<string, number> | n
   return Math.max(...values) - Math.min(...values) > 0.0005
 }
 
-const INTRO_MS = 2000
-const DRAWING_MS = 4000
-const REVEALING_MS = 1500
+const INTRO_MS = 1700
+const RACE_MS = 13000
+const SETTLE_MS = 2200
+const RACE_END_MS = INTRO_MS + RACE_MS          // 14700
+const SETTLE_END_MS = RACE_END_MS + SETTLE_MS   // 16900
+const RACE_END_STEPS = Math.round((RACE_END_MS / 1000) * SIM_HZ)
+const SETTLE_END_STEPS = Math.round((SETTLE_END_MS / 1000) * SIM_HZ)
 const REVEALED_AUTO_CLOSE_MS = 10000
+/** reduced-motion 경로: 레이스 없이 3초 안에 순차 공개 */
+const REDUCED_TOTAL_MS = 3000
 
-const CONFETTI_PIECES = 80
+/** 팀 수가 많으면 공개 한 건을 짧게 — 12팀에서도 총 30초를 넘기지 않는다 */
+function gateMs(n: number): number { return n <= 6 ? 1150 : 900 }
 
-/** 공 물리 — 픽셀/초 단위. dt 상한이 있으므로 값은 화면 크기에 비례해 스케일한다. */
-interface Ball {
-  x: number; y: number
-  vx: number; vy: number
-  r: number
-  /** 팀 공이면 팀 컬러, 채움 공이면 null */
-  color: string | null
-  ink: string
-  edge: string
-  label: string
-  winner: boolean
-  /** revealing 에서 튜브를 타고 올라가는 중 — 물리에서 빠진다 */
-  escaping: boolean
-  /** 탈출 시작 좌표 (ease-out 보간용) */
-  fromX: number; fromY: number
-  t0: number
-}
-
-/** rgb 를 흰색/검은색 쪽으로 섞는다 — 캔버스 하이라이트/그림자용(밝기만, 색상 유지) */
-function mix(hex: string, target: 0 | 255, amount: number): string {
-  const h = hex.replace('#', '')
-  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
-  const r = parseInt(full.slice(0, 2), 16)
-  const g = parseInt(full.slice(2, 4), 16)
-  const b = parseInt(full.slice(4, 6), 16)
-  const f = (v: number) => Math.round(v + (target - v) * amount)
-  return `rgb(${f(r)},${f(g)},${f(b)})`
-}
+/** 레이스 중 세로로 보이는 월드 높이. 코스 폭(24)과 이 값 중 빡빡한 쪽이 배율을 정한다. */
+const RACE_VIEW_H = 44
+/** 마무리 줌아웃 배율 */
+const FINISH_ZOOM = 0.92
+/** 마무리에 화면 가운데에 둘 월드 y — 페인트존 위부터 네트 끝까지가 들어온다.
+ *  이 값이 낮으면(=아래) 네트 아래 빈 검은 화면이 1/3 을 차지한다(1280 실측). */
+const FINISH_CAM_Y = 114
 
 export default function DraftLotteryReveal({ order, odds, teams, onClose }: Props) {
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
-  const [phase, setPhase] = useState<Phase>('intro')
+  const teamInfo: Record<string, TeamInfo> = Object.fromEntries(
+    teams.map(t => [t.id, { name: t.name, color: t.color }]),
+  )
   const [reducedMotion] = useState(() =>
     typeof window !== 'undefined' && !!window.matchMedia
       ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
       : false,
   )
+  const [phase, setPhase] = useState<Phase>(reducedMotion ? 'reveal' : 'race')
+  /** 지금까지 공개된 순위 수 */
+  const [revealed, setRevealed] = useState(0)
 
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const confettiRef = useRef<HTMLCanvasElement | null>(null)
-  const ballsRef = useRef<Ball[]>([])
   const rafRef = useRef<number | null>(null)
-  const confettiRafRef = useRef<number | null>(null)
-  // reduced-motion 경로는 rAF 루프가 없다 — 페이즈가 바뀌어도 아무도 다시 그려 주지 않으므로
-  // 정지 배치 렌더러를 밖에서 부를 수 있게 잡아 둔다(당첨 공을 튜브로 즉시 옮겨야 한다).
-  const redrawStaticRef = useRef<(() => void) | null>(null)
-  // 물리 루프는 마운트 1회만 돈다 — 페이즈를 클로저로 잡으면 옛 값을 본다
-  const phaseRef = useRef<Phase>('intro')
-  phaseRef.current = phase
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const doneRef = useRef(false)
 
-  // ── 자동 페이즈 전환 (타이밍 고정) ─────────────────────
-  useEffect(() => {
-    const timers: ReturnType<typeof setTimeout>[] = []
-    timers.push(setTimeout(() => {
-      setPhase('drawing')
-      try { primeAudio(); playDrumroll() } catch { /* ignore */ }
-      timers.push(setTimeout(() => {
-        setPhase('revealing')
-        try { playLotteryHorn() } catch { /* ignore */ }
-        launchConfetti()
-        timers.push(setTimeout(() => {
-          setPhase('revealed')
-          timers.push(setTimeout(() => onClose(), REVEALED_AUTO_CLOSE_MS))
-        }, REVEALING_MS))
-      }, DRAWING_MS))
-    }, INTRO_MS))
-    return () => {
-      for (const t of timers) clearTimeout(t)
-      if (rafRef.current) cancelAnimationFrame(rafRef.current)
-      if (confettiRafRef.current) cancelAnimationFrame(confettiRafRef.current)
-    }
-    // 마운트 시 1회만 — onClose 는 부모가 재생성하지 않는다고 가정
+  const GATE = gateMs(order.length)
+  const revealTotal = order.length * GATE
+  const listAtMs = SETTLE_END_MS + revealTotal
+
+  const finish = useCallback(() => {
+    if (doneRef.current) return
+    doneRef.current = true
+    setRevealed(order.length)
+    setPhase('list')
+    try { playLotteryHorn() } catch { /* ignore */ }
+    timersRef.current.push(setTimeout(() => onClose(), REVEALED_AUTO_CLOSE_MS))
+    // onClose 는 부모가 재생성하지 않는다고 가정(종전 구현과 동일한 전제)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [order.length])
 
-  // ── 캔버스 물리 루프 ──────────────────────────────────
+  // ── reduced-motion: 레이스 없이 3초 순차 공개 ───────────────────────
   useEffect(() => {
-    if (phase === 'revealed') return          // 결과 화면에선 캔버스가 언마운트된다
+    if (!reducedMotion) return
+    const per = REDUCED_TOTAL_MS / Math.max(1, order.length)
+    for (let i = 0; i < order.length; i++) {
+      timersRef.current.push(setTimeout(() => {
+        setRevealed(i + 1)
+        try { playBuzzer() } catch { /* ignore */ }
+      }, per * (i + 1)))
+    }
+    timersRef.current.push(setTimeout(finish, REDUCED_TOTAL_MS + 200))
+    const timers = timersRef.current
+    return () => { for (const t of timers) clearTimeout(t) }
+  }, [reducedMotion, order.length, finish])
+
+  // ── 레이스 + 공개 (캔버스) ────────────────────────────────────────────
+  useEffect(() => {
+    if (reducedMotion) return
+    if (phase === 'list') return
     const canvas = canvasRef.current
     const wrap = wrapRef.current
     if (!canvas || !wrap) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    let W = 0, H = 0
-    let cx = 0, cy = 0, R = 0, ballR = 0, tubeTop = 0
-    let seeded = false
+    const w: World = createWorld(order)
+    let viewW = 1, viewH = 1, baseScale = 1
+    const cam: Cam = { x: COURSE_W / 2, y: 0, zoom: 1 }
+    let camInit = false
 
     function layout() {
-      const dpr = Math.min(2, window.devicePixelRatio || 1)
+      const dpr = Math.min(2, window.devicePixelRatio || 1)  // DPR 상한 2
       const rect = wrap!.getBoundingClientRect()
-      W = Math.max(1, Math.round(rect.width))
-      H = Math.max(1, Math.round(rect.height))
-      canvas!.width = Math.round(W * dpr)
-      canvas!.height = Math.round(H * dpr)
-      canvas!.style.width = `${W}px`
-      canvas!.style.height = `${H}px`
+      viewW = Math.max(1, Math.round(rect.width))
+      viewH = Math.max(1, Math.round(rect.height))
+      canvas!.width = Math.round(viewW * dpr)
+      canvas!.height = Math.round(viewH * dpr)
+      canvas!.style.width = `${viewW}px`
+      canvas!.style.height = `${viewH}px`
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0)
-
-      // 튜브가 보울 위로 뻗을 자리를 남기고 보울을 아래쪽에 앉힌다
-      tubeTop = H * 0.06
-      R = Math.min(W * 0.42, (H - tubeTop) * 0.44)
-      cx = W / 2
-      cy = H - R - H * 0.06
-      ballR = Math.max(9, Math.min(26, R * 0.155))
-
-      if (!seeded) { seed(); seeded = true }
-      else {
-        // 리사이즈 — 보울 밖으로 나간 공만 안으로 당긴다(배치는 유지)
-        for (const b of ballsRef.current) {
-          b.r = ballR
-          const dx = b.x - cx, dy = b.y - cy
-          const d = Math.hypot(dx, dy) || 1
-          if (d > R - b.r) { b.x = cx + (dx / d) * (R - b.r); b.y = cy + (dy / d) * (R - b.r) }
-        }
-      }
+      // 세로 코스를 유지하고 가로는 여백으로 둔다(넓은 화면에서 레터박스)
+      baseScale = Math.min(viewW / COURSE_W, viewH / RACE_VIEW_H)
+      if (!camInit) { cam.zoom = baseScale; camInit = true }
     }
-
-    function seed() {
-      const list: Ball[] = []
-      // 팀 공 + 채움 공 — 보울이 헐렁하면 텀블링이 안 보인다. 총 12개 선.
-      const fillers = Math.max(0, 12 - order.length)
-      order.forEach((tid, i) => {
-        const t = teamMap[tid]
-        const raw = t?.color ?? '#8b93a7'
-        const ink = teamInk(raw)
-        list.push(makeBall(ink.bg, ink.fg, ink.border, t?.name?.slice(0, 3) ?? '?', i === 0))
-      })
-      for (let i = 0; i < fillers; i++) {
-        list.push(makeBall(null, '#9ca3af', 'rgba(255,255,255,0.18)', '', false))
-      }
-      ballsRef.current = list
-    }
-
-    function makeBall(color: string | null, ink: string, edge: string, label: string, winner: boolean): Ball {
-      // intro 는 "위에서 떨어져 정착" — 보울 위쪽에서 시작시킨다
-      const a = Math.random() * Math.PI * 2
-      const d = Math.random() * (R - ballR) * 0.7
-      return {
-        x: cx + Math.cos(a) * d,
-        y: cy + Math.sin(a) * d - R * 1.2,
-        vx: (Math.random() - 0.5) * R * 0.6,
-        vy: 0,
-        r: ballR, color, ink, edge, label, winner,
-        escaping: false, fromX: 0, fromY: 0, t0: 0,
-      }
-    }
-
     layout()
-    const ro = new ResizeObserver(() => { layout(); if (reducedMotion) drawStatic() })
+    const ro = new ResizeObserver(layout)
     ro.observe(wrap)
 
-    // ── 정지 배치(reduced-motion) — 바닥에 나란히 눕힌다
-    function drawStatic() {
-      const balls = ballsRef.current
-      const perRow = Math.max(1, Math.floor((R * 1.7) / (ballR * 2.1)))
-      balls.forEach((b, i) => {
-        const row = Math.floor(i / perRow)
-        const inRow = i % perRow
-        const count = Math.min(perRow, balls.length - row * perRow)
-        b.x = cx + (inRow - (count - 1) / 2) * ballR * 2.1
-        b.y = cy + R * 0.55 - row * ballR * 2.1
-        b.vx = 0; b.vy = 0
-        if (b.winner && phaseRef.current !== 'intro' && phaseRef.current !== 'drawing') {
-          b.x = cx; b.y = tubeTop + b.r * 1.2
-        }
-      })
-      render()
-    }
+    const t0 = performance.now()
+    let lastTick = 0
+    const sparks: { x: number; y: number; life: number }[] = []
+    let rimFlash = 0
+    let netWave = 0
+    let flying: FlyingBall | null = null
+    let flyFrom = { x: 0, y: 0 }
+    let flyIndex = -1
+    let swished = -1
+    let drumAt = 0
 
-    // ── 물리 한 스텝
-    function step(dt: number) {
-      const balls = ballsRef.current
-      const p = phaseRef.current
-      const g = R * 6.5                                   // 중력(px/s²) — 보울 크기에 비례
-      const blow = p === 'drawing' ? R * 9.5 : 0           // 송풍기 상승력
-      const now = performance.now()
+    try { primeAudio(); playDrumroll() } catch { /* ignore */ }
 
-      for (const b of balls) {
-        if (b.escaping) continue
-        if (b.winner && p === 'revealing') {
-          b.escaping = true; b.fromX = b.x; b.fromY = b.y; b.t0 = now
-          continue
-        }
-        b.vy += g * dt
-        if (blow > 0) {
-          // 바닥에 가까울수록 세게 — 실제 추첨기처럼 아래에서 불어 올린다
-          // 상수항을 두면 위로만 밀려 전원이 천장에 눌려붙는다(첫 렌더 실측) — 천장 근처에선 0
-          const depth = Math.max(0, Math.min(1, (b.y - (cy - R)) / (2 * R)))
-          b.vy -= blow * dt * depth * depth * 2.2
-          b.vx += (Math.random() - 0.5) * R * 11 * dt
-          b.vy += (Math.random() - 0.5) * R * 6 * dt
-        }
-        // 공기 저항 — 이게 없으면 송풍기가 공을 계속 가속시켜 화면 밖처럼 보인다
-        const drag = Math.pow(blow > 0 ? 0.55 : 0.25, dt)
-        b.vx *= drag; b.vy *= drag
-        b.x += b.vx * dt
-        b.y += b.vy * dt
-      }
+    function frame(now: number) {
+      const elapsed = now - t0
 
-      // 공끼리 충돌 — 12개라 O(n²)로 충분하다
-      for (let i = 0; i < balls.length; i++) {
-        const a = balls[i]
-        if (a.escaping) continue
-        for (let j = i + 1; j < balls.length; j++) {
-          const c = balls[j]
-          if (c.escaping) continue
-          const dx = c.x - a.x, dy = c.y - a.y
-          const dist = Math.hypot(dx, dy) || 0.0001
-          const min = a.r + c.r
-          if (dist >= min) continue
-          const nx = dx / dist, ny = dy / dist
-          const push = (min - dist) / 2
-          a.x -= nx * push; a.y -= ny * push
-          c.x += nx * push; c.y += ny * push
-          const rel = (c.vx - a.vx) * nx + (c.vy - a.vy) * ny
-          if (rel > 0) continue
-          const imp = -1.55 * rel / 2            // 반발계수 0.55
-          a.vx -= imp * nx; a.vy -= imp * ny
-          c.vx += imp * nx; c.vy += imp * ny
-        }
-      }
-
-      // 보울 경계
-      for (const b of balls) {
-        if (b.escaping) continue
-        const dx = b.x - cx, dy = b.y - cy
-        const d = Math.hypot(dx, dy)
-        const lim = R - b.r
-        if (d <= lim) continue
-        const nx = dx / (d || 1), ny = dy / (d || 1)
-        b.x = cx + nx * lim
-        b.y = cy + ny * lim
-        const vn = b.vx * nx + b.vy * ny
-        if (vn > 0) {
-          b.vx -= 1.45 * vn * nx     // 반발 0.45
-          b.vy -= 1.45 * vn * ny
-          b.vx *= 0.92; b.vy *= 0.92 // 벽 마찰
-        }
-      }
-
-      // 당첨 공 상승 — 튜브를 타고 ease-out (cubic)
-      for (const b of balls) {
-        if (!b.escaping) continue
-        const k = Math.min(1, (now - b.t0) / REVEALING_MS)
-        const e = 1 - Math.pow(1 - k, 3)
-        b.x = b.fromX + (cx - b.fromX) * Math.min(1, e * 1.6)
-        b.y = b.fromY + (tubeTop + b.r * 1.2 - b.fromY) * e
-      }
-    }
-
-    // ── 그리기
-    function render() {
-      ctx!.clearRect(0, 0, W, H)
-      const p = phaseRef.current
-
-      // 튜브 — 보울 위로 뻗은 유리관
-      const tubeW = ballR * 2.7
-      ctx!.save()
-      ctx!.beginPath()
-      ctx!.roundRect(cx - tubeW / 2, tubeTop, tubeW, cy - R + tubeW * 0.4 - tubeTop, tubeW / 2)
-      ctx!.fillStyle = 'rgba(148,163,184,0.07)'
-      ctx!.fill()
-      ctx!.strokeStyle = 'rgba(148,163,184,0.35)'
-      ctx!.lineWidth = 2
-      ctx!.stroke()
-      ctx!.restore()
-
-      // 보울
-      ctx!.save()
-      const bowl = ctx!.createRadialGradient(cx - R * 0.3, cy - R * 0.4, R * 0.1, cx, cy, R)
-      bowl.addColorStop(0, 'rgba(255,255,255,0.10)')
-      bowl.addColorStop(1, 'rgba(15,17,26,0.65)')
-      ctx!.beginPath()
-      ctx!.arc(cx, cy, R, 0, Math.PI * 2)
-      ctx!.fillStyle = bowl
-      ctx!.fill()
-      ctx!.lineWidth = 3
-      ctx!.strokeStyle = p === 'drawing' ? 'rgba(251,191,36,0.75)' : 'rgba(148,163,184,0.5)'
-      ctx!.stroke()
-      // 유리 반사
-      ctx!.beginPath()
-      ctx!.ellipse(cx - R * 0.38, cy - R * 0.52, R * 0.26, R * 0.13, -0.5, 0, Math.PI * 2)
-      ctx!.fillStyle = 'rgba(255,255,255,0.12)'
-      ctx!.fill()
-      ctx!.restore()
-
-      for (const b of ballsRef.current) drawBall(b, p)
-    }
-
-    function drawBall(b: Ball, p: Phase) {
-      const dim = p === 'revealing' && !b.winner ? 0.3 : 1
-      const base = b.color ?? '#333845'
-      ctx!.save()
-      ctx!.globalAlpha = dim
-      if (b.winner && b.escaping) {
-        ctx!.shadowColor = base
-        ctx!.shadowBlur = b.r * 1.6
-      }
-      const grad = ctx!.createRadialGradient(
-        b.x - b.r * 0.35, b.y - b.r * 0.42, b.r * 0.08,
-        b.x, b.y, b.r,
+      // ── 물리: 경과 시간이 정하는 **스텝 번호**까지 따라간다.
+      // 느린 기기는 한 프레임에 여러 스텝을 돌 뿐, 스텝 N 의 상태는 어디서나 같다.
+      const raceMode = w.step < RACE_END_STEPS
+      const targetStep = Math.min(
+        SETTLE_END_STEPS,
+        Math.floor((elapsed / 1000) * SIM_HZ),
       )
-      grad.addColorStop(0, mix(base, 255, 0.45))
-      grad.addColorStop(0.55, base)
-      grad.addColorStop(1, mix(base, 0, 0.28))
-      ctx!.beginPath()
-      ctx!.arc(b.x, b.y, b.r, 0, Math.PI * 2)
-      ctx!.fillStyle = grad
-      ctx!.fill()
-      ctx!.shadowBlur = 0
-      // 가장자리 — 흰 팀 공이 어두운 표면에 묻히지 않게 반대쪽 헤어라인
-      ctx!.lineWidth = 1.5
-      ctx!.strokeStyle = b.edge
-      ctx!.stroke()
-      if (b.label && b.r >= 13) {
-        ctx!.fillStyle = b.ink
-        ctx!.font = `700 ${Math.round(b.r * 0.62)}px ui-sans-serif, system-ui, sans-serif`
-        ctx!.textAlign = 'center'
-        ctx!.textBaseline = 'middle'
-        ctx!.fillText(b.label, b.x, b.y)
+      // 한 프레임 상한 — 탭 복귀 같은 큰 점프에 프레임을 통째로 잡아먹지 않게.
+      // 단 마지막(정리 끝)에는 남은 걸 몰아서 끝낸다 — 공개 시작 시점의 배치가 정본이라야 한다.
+      const cap = targetStep >= SETTLE_END_STEPS ? 600 : 24
+      let n = 0
+      while (w.step < targetStep && n < cap) {
+        stepWorld(w, w.step < RACE_END_STEPS ? 'race' : 'settle')
+        for (let i = 0; i < w.hitCount; i++) {
+          const p = w.course.pegs[w.hits[i]]
+          if (sparks.length < 26) sparks.push({ x: p.x, y: p.y, life: 1 })
+          // 틱은 속도 제한 — 매 충돌마다 울리면 소음이 된다
+          if (raceMode && now - lastTick > 150) {
+            lastTick = now
+            try { playBeep() } catch { /* ignore */ }
+          }
+        }
+        n++
       }
-      ctx!.restore()
-    }
+      // 레이스 막판 드럼롤 한 번 더
+      if (drumAt === 0 && elapsed > RACE_END_MS - 3200) {
+        drumAt = 1
+        try { playDrumroll() } catch { /* ignore */ }
+      }
 
-    if (reducedMotion) {
-      redrawStaticRef.current = drawStatic
-      drawStatic()
-      return () => { ro.disconnect(); redrawStaticRef.current = null }
-    }
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        sparks[i].life -= 0.06
+        if (sparks[i].life <= 0) sparks.splice(i, 1)
+      }
+      rimFlash = Math.max(0, rimFlash - 0.045)
+      netWave = Math.max(0, netWave - 0.03)
 
-    let last = performance.now()
-    function frame(t: number) {
-      // dt 상한 — 탭을 떠났다 돌아오면 t 점프가 크고, 그대로 적분하면 공이 보울을 관통한다
-      const dt = Math.min(1 / 30, Math.max(0, (t - last) / 1000))
-      last = t
-      // 2 서브스텝 — 큰 dt 에서도 충돌 해소가 안정적이다
-      step(dt / 2); step(dt / 2)
-      render()
+      // ── 카메라
+      const finishing = elapsed >= RACE_END_MS
+      let targetY: number
+      let targetZoom: number
+      if (finishing) {
+        targetY = FINISH_CAM_Y
+        targetZoom = baseScale * FINISH_ZOOM
+      } else {
+        const li = leaderIndex(w)
+        targetY = (li >= 0 ? w.marbles[li].y : 0) + 6
+        targetZoom = baseScale
+      }
+      cam.y += (targetY - cam.y) * 0.075
+      cam.zoom += (targetZoom - cam.zoom) * 0.06
+
+      // ── 공개 단계 — order 순서대로 슛
+      if (elapsed >= SETTLE_END_MS) {
+        const idx = Math.min(order.length - 1, Math.floor((elapsed - SETTLE_END_MS) / GATE))
+        const p = ((elapsed - SETTLE_END_MS) % GATE) / GATE
+        if (idx !== flyIndex) {
+          flyIndex = idx
+          const m = w.marbles.find(mm => mm.team === order[idx])
+          if (m) {
+            // 카메라 밖에서 날아오지 않게 시작점을 코트 안으로 당긴다
+            flyFrom = { x: m.x, y: Math.max(m.y, SHELF_INNER_Y - 6) }
+            m.out = true
+          } else {
+            flyFrom = { x: COURSE_W / 2, y: SHELF_INNER_Y }
+          }
+        }
+        if (p < 0.6) {
+          const a = shotArc(flyFrom.x, flyFrom.y, p / 0.6)
+          flying = { x: a.x, y: a.y, rot: p * 9, teamId: order[idx], through: false }
+        } else if (p < 0.9) {
+          const k = (p - 0.6) / 0.3
+          flying = {
+            x: 12, y: RIM_Y + (NET_BOTTOM + 1.5 - RIM_Y) * k,
+            rot: p * 9, teamId: order[idx], through: true,
+          }
+          if (swished !== idx) {
+            swished = idx
+            rimFlash = 1
+            netWave = 1
+            setRevealed(idx + 1)
+            try { playBuzzer() } catch { /* ignore */ }
+          }
+        } else {
+          flying = null
+        }
+      }
+
+      drawScene(ctx!, w, {
+        viewW, viewH, cam, teams: teamInfo, flying, rimFlash, netWave, sparks,
+      })
+
+      if (elapsed >= listAtMs) { finish(); return }
       rafRef.current = requestAnimationFrame(frame)
     }
     rafRef.current = requestAnimationFrame(frame)
@@ -398,64 +277,30 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
       ro.disconnect()
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-    // phase 는 phaseRef 로 읽는다 — 'revealed' 진입 시에만 루프를 접는다
+    // 루프는 마운트 1회만 돈다 — 'list' 로 넘어갈 때만 접는다
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase === 'revealed', reducedMotion])
+  }, [phase === 'list', reducedMotion])
 
-  // reduced-motion: 페이즈가 바뀌면 즉시 다시 그린다(애니메이션 없이 결과만 갈아끼운다)
+  // 레이스 → 공개 단계 전환 (헤더 문구용). 캔버스 루프는 이 상태를 보지 않는다.
   useEffect(() => {
-    if (reducedMotion) redrawStaticRef.current?.()
-  }, [phase, reducedMotion])
-
-  // ── 폭죽 ──────────────────────────────────────────────
-  function launchConfetti() {
     if (reducedMotion) return
-    const canvas = confettiRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const W = canvas.width = window.innerWidth
-    const H = canvas.height = window.innerHeight
-    const first = teamMap[order[0]]?.color ?? '#f59e0b'
-    const colors = [first, '#f59e0b', '#ffffff', '#fbbf24', '#3b82f6', '#10b981']
+    const t = setTimeout(() => setPhase(p => (p === 'race' ? 'reveal' : p)), SETTLE_END_MS)
+    timersRef.current.push(t)
+    return () => clearTimeout(t)
+  }, [reducedMotion])
 
-    interface Piece { x: number; y: number; vx: number; vy: number; rot: number; vr: number; size: number; color: string; shape: 'rect' | 'circle' }
-    const pieces: Piece[] = Array.from({ length: CONFETTI_PIECES }, () => ({
-      x: W / 2 + (Math.random() - 0.5) * 200,
-      y: H / 2 + (Math.random() - 0.5) * 60,
-      vx: (Math.random() - 0.5) * 18,
-      vy: -Math.random() * 20 - 6,
-      rot: Math.random() * Math.PI,
-      vr: (Math.random() - 0.5) * 0.5,
-      size: 5 + Math.random() * 10,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      shape: Math.random() > 0.4 ? 'rect' : 'circle',
-    }))
+  // 공개가 다 끝나면 목록으로 (rAF 가 멈춘 경우의 안전망)
+  useEffect(() => {
+    if (reducedMotion) return
+    const t = setTimeout(finish, listAtMs + 400)
+    timersRef.current.push(t)
+    return () => clearTimeout(t)
+  }, [reducedMotion, listAtMs, finish])
 
-    const DUR = 1500
-    const start = performance.now()
-    function frame(t: number) {
-      const elapsed = t - start
-      ctx!.clearRect(0, 0, W, H)
-      for (const p of pieces) {
-        p.vy += 0.32
-        p.x += p.vx
-        p.y += p.vy
-        p.rot += p.vr
-        ctx!.save()
-        ctx!.translate(p.x, p.y)
-        ctx!.rotate(p.rot)
-        ctx!.fillStyle = p.color
-        ctx!.globalAlpha = Math.max(0, 1 - elapsed / DUR)
-        if (p.shape === 'rect') ctx!.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6)
-        else { ctx!.beginPath(); ctx!.arc(0, 0, p.size / 2, 0, Math.PI * 2); ctx!.fill() }
-        ctx!.restore()
-      }
-      if (elapsed < DUR) confettiRafRef.current = requestAnimationFrame(frame)
-      else ctx!.clearRect(0, 0, W, H)
-    }
-    confettiRafRef.current = requestAnimationFrame(frame)
-  }
+  useEffect(() => {
+    const timers = timersRef.current
+    return () => { for (const t of timers) clearTimeout(t) }
+  }, [])
 
   const firstId = order[0]
   const firstTeam = teamMap[firstId]
@@ -463,150 +308,144 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
   const firstInk = teamInk(firstColor)
   // 팀 컬러를 **글자색**으로 검은 배경에 쓰는 자리 — 어두운 팀 컬러는 그대로 두면 사라진다
   const firstAccent = teamAccentOnDark(firstColor)
-  const showSpotlight = phase === 'drawing' || phase === 'revealing'
   const oddsVary = hasVaryingOdds(order, odds)
 
   function handleTap() {
-    if (phase === 'revealing') setPhase('revealed')
-    else if (phase === 'revealed') onClose()
+    if (phase === 'list') onClose()
+    else finish()
   }
+
+  const latest = revealed > 0 ? order[revealed - 1] : null
+  const latestTeam = latest ? teamMap[latest] : null
 
   return (
     <div
-      className="fixed inset-0 z-[58] flex items-center justify-center bg-[#000000]/90 p-4 cursor-pointer"
+      className="fixed inset-0 z-[58] flex flex-col bg-[#000000]/95 cursor-pointer overflow-hidden"
       style={{
-        paddingTop: 'max(1rem, env(safe-area-inset-top))',
-        paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
-        paddingLeft: 'max(1rem, env(safe-area-inset-left))',
-        paddingRight: 'max(1rem, env(safe-area-inset-right))',
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
       }}
       onClick={handleTap}
+      role="dialog"
+      aria-label="드래프트 추첨 결과"
     >
       <style>{`
-        /* 등장은 opacity/transform 만 — width/height 는 매 프레임 레이아웃을 다시 계산한다 */
         @keyframes lottoRise {
           from { transform: scale(0.88) translateY(14px); opacity: 0; }
           to   { transform: scale(1)    translateY(0);    opacity: 1; }
         }
-        @keyframes spotlightGlow {
-          0%, 100% { opacity: 0.22; transform: scale(1); }
-          50%      { opacity: 0.5;  transform: scale(1.08); }
-        }
-        @keyframes winnerText {
-          from { transform: scale(0.82); opacity: 0; }
-          to   { transform: scale(1);    opacity: 1; }
+        @keyframes swishPop {
+          from { transform: scale(0.8); opacity: 0; }
+          to   { transform: scale(1);   opacity: 1; }
         }
         @media (prefers-reduced-motion: reduce) {
           .lotto-anim { animation: none !important; }
         }
       `}</style>
 
-      {/* 스포트라이트 글로우 */}
-      {showSpotlight && (
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: `radial-gradient(circle at 50% 50%, ${firstColor}33, transparent 55%)`,
-            animation: reducedMotion ? undefined : 'spotlightGlow 2s ease-in-out infinite',
-            zIndex: 0,
-          }}
-        />
-      )}
-
-      {/* 폭죽 캔버스 */}
-      <canvas ref={confettiRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 2 }} aria-hidden />
-
-      <div className="relative text-center max-w-lg sm:max-w-xl md:max-w-2xl w-full flex flex-col items-center" style={{ zIndex: 3 }}>
-        <p className="font-jersey text-base uppercase tracking-[0.3em] text-amber-400 mb-1.5">DRAFT LOTTERY</p>
-        <h2 className="text-2xl sm:text-4xl font-black text-[#ffffff] mb-3 sm:mb-4 min-h-[2.25rem]">
-          {phase === 'intro' && '추첨 기계에 팀 공 투입'}
-          {phase === 'drawing' && (<span className="inline-flex items-center gap-2"><Dice5 size={24} aria-hidden /> 추첨 진행 중...</span>)}
-          {phase === 'revealing' && (
-            <span
-              className="lotto-anim"
-              style={{ display: 'inline-block', animation: 'winnerText 320ms cubic-bezier(0.2,0.8,0.2,1) both', color: firstAccent }}
-            >
-              1픽 결정!
+      {/* 헤더 — 캔버스는 이 아래를 전부 채운다 */}
+      <div className="shrink-0 px-4 pt-3 pb-2 text-center">
+        <p className="font-jersey text-sm uppercase tracking-[0.3em] text-amber-400">DRAFT LOTTERY</p>
+        <h2 className="text-xl sm:text-3xl font-black text-[#ffffff] leading-tight">
+          {phase === 'race' && (
+            <span className="inline-flex items-center gap-2">
+              <Dice5 size={20} aria-hidden /> 마블 레이스 진행 중
             </span>
           )}
-          {phase === 'revealed' && '1픽 당첨!'}
+          {phase === 'reveal' && (latestTeam
+            ? (
+              <span
+                className="lotto-anim inline-block"
+                style={{ color: teamAccentOnDark(latestTeam.color), animation: 'swishPop 260ms cubic-bezier(0.2,0.8,0.2,1) both' }}
+                key={revealed}
+              >
+                {revealed}순위 · {latestTeam.name}
+              </span>
+            )
+            : '골대 앞 정렬 중')}
+          {phase === 'list' && '추첨 결과'}
         </h2>
+      </div>
 
-        {phase !== 'revealed' ? (
-          <>
-            <div
-              ref={wrapRef}
-              className="w-full"
-              style={{ height: 'min(52vh, 420px)' }}
-              aria-hidden
-            >
-              <canvas ref={canvasRef} className="block" />
-            </div>
-
-            <div className="mt-3 h-14 flex flex-col items-center justify-center gap-1">
-              {phase === 'drawing' && (
-                <p className="text-amber-300 font-black text-2xl tracking-widest animate-pulse">● ● ●</p>
-              )}
-              {phase === 'intro' && (
-                <p className="text-[#e5e7eb] text-base sm:text-lg leading-relaxed">팀 공이 기계로 들어가는 중...</p>
-              )}
-              {phase === 'revealing' && (
-                <>
-                  <p className="text-xl sm:text-2xl font-black" style={{ color: firstAccent }}>
-                    1순위 · {firstTeam?.name ?? '?'}
-                  </p>
-                  <p className="text-amber-200 text-base font-bold tracking-wider">탭하여 결과 보기 →</p>
-                </>
-              )}
-            </div>
-          </>
-        ) : (
-          <>
-            <div
-              className="lotto-anim mx-auto w-36 h-36 sm:w-40 sm:h-40 rounded-full flex flex-col items-center justify-center shadow-2xl"
-              style={{
-                backgroundColor: firstInk.bg,
-                color: firstInk.fg,
-                border: `2px solid ${firstInk.border}`,
-                boxShadow: `0 0 50px ${firstColor}80`,
-                animation: reducedMotion ? undefined : 'lottoRise 380ms cubic-bezier(0.2,0.8,0.2,1) both',
-              }}
-            >
-              <span className="text-xs font-black tracking-widest opacity-80">1픽</span>
-              <span className="font-black text-xl sm:text-2xl px-4 text-center leading-tight break-keep">{firstTeam?.name}</span>
-            </div>
-
-            {/* 전체 순서 — 스크롤 가능 (8팀 이상 대응) */}
-            <div className="mt-5 w-full space-y-2 max-h-[38vh] overflow-y-auto pr-1">
-              {order.map((tid, idx) => {
+      {phase !== 'list' ? (
+        <div ref={wrapRef} className="relative flex-1 min-h-0">
+          <canvas ref={canvasRef} className="block absolute inset-0" aria-hidden />
+          {/* 공개된 순위 — 캔버스 위 DOM 오버레이 */}
+          {revealed > 0 && (
+            <div className="absolute left-2 top-2 right-2 flex flex-col gap-1 pointer-events-none max-h-[46%] overflow-hidden">
+              {order.slice(0, revealed).map((tid, i) => {
                 const t = teamMap[tid]
                 const ink = teamInk(t?.color)
-                const odd = odds?.[tid]
                 return (
                   <div
-                    key={`${tid}-${idx}`}
-                    className="lotto-anim flex items-center gap-3 rounded-xl px-3 sm:px-4 py-3 border bg-[#111827]"
-                    style={{
-                      borderColor: idx === 0 ? firstColor : '#374151',
-                      animation: reducedMotion ? undefined : `lottoRise 300ms ease-out ${Math.min(idx * 70, 560)}ms both`,
-                    }}
+                    key={`${tid}-${i}`}
+                    className="lotto-anim flex items-center gap-2 self-start rounded-lg px-2.5 py-1 bg-[#111827] border"
+                    style={{ borderColor: ink.bg, animation: 'swishPop 220ms ease-out both' }}
                   >
-                    <span className={`font-display text-2xl sm:text-3xl w-8 shrink-0 ${idx === 0 ? 'text-amber-300' : 'text-[#e5e7eb]'}`}>{idx + 1}</span>
-                    <div
-                      className="w-3.5 h-3.5 rounded-full shrink-0"
+                    <span className="font-display text-base text-amber-300 tabular-nums">{i + 1}</span>
+                    <span
+                      className="w-3 h-3 rounded-full shrink-0"
                       style={{ backgroundColor: ink.bg, border: `1px solid ${ink.border}` }}
                     />
-                    <span className="text-[#ffffff] font-black flex-1 text-left text-lg sm:text-xl truncate min-w-0">{t?.name}</span>
-                    {idx === 0 && <span className="text-xs font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wider">1픽</span>}
-                    {oddsVary && odd != null && <span className="text-sm text-[#e5e7eb] shrink-0 tabular-nums">{(odd * 100).toFixed(0)}%</span>}
+                    <span className="text-[#ffffff] font-bold text-base">{t?.name ?? '?'}</span>
                   </div>
                 )
               })}
             </div>
-            <p className="text-sm text-[#d1d5db] mt-4 leading-relaxed">탭하여 닫기 · 10초 후 자동 닫힘</p>
-          </>
-        )}
-      </div>
+          )}
+          <p className="absolute bottom-0 inset-x-0 text-center text-sm text-[#e5e7eb] py-2 bg-gradient-to-t from-[#000000] via-[#000000cc] to-transparent">탭하여 건너뛰기</p>
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 flex flex-col items-center px-4 pb-3 overflow-hidden">
+          <div
+            className="lotto-anim shrink-0 mt-1 w-28 h-28 sm:w-32 sm:h-32 rounded-full flex flex-col items-center justify-center shadow-2xl"
+            style={{
+              backgroundColor: firstInk.bg,
+              color: firstInk.fg,
+              border: `2px solid ${firstInk.border}`,
+              boxShadow: `0 0 50px ${firstColor}80`,
+              animation: reducedMotion ? undefined : 'lottoRise 380ms cubic-bezier(0.2,0.8,0.2,1) both',
+            }}
+          >
+            <span className="text-xs font-black tracking-widest opacity-80">1픽</span>
+            <span className="font-black text-lg sm:text-xl px-3 text-center leading-tight break-keep">{firstTeam?.name}</span>
+          </div>
+          <p className="shrink-0 text-base font-black mt-2" style={{ color: firstAccent }}>
+            {firstTeam?.name} 1픽 확정
+          </p>
+
+          {/* 전체 순서 — 스크롤 가능 (8팀 이상 대응) */}
+          <div className="mt-3 w-full max-w-lg space-y-2 flex-1 min-h-0 overflow-y-auto pr-1">
+            {order.map((tid, idx) => {
+              const t = teamMap[tid]
+              const ink = teamInk(t?.color)
+              const odd = odds?.[tid]
+              return (
+                <div
+                  key={`${tid}-${idx}`}
+                  className="lotto-anim flex items-center gap-3 rounded-xl px-3 sm:px-4 py-2.5 border bg-[#111827]"
+                  style={{
+                    borderColor: idx === 0 ? firstColor : '#374151',
+                    animation: reducedMotion ? undefined : `lottoRise 300ms ease-out ${Math.min(idx * 60, 480)}ms both`,
+                  }}
+                >
+                  <span className={`font-display text-2xl sm:text-3xl w-8 shrink-0 ${idx === 0 ? 'text-amber-300' : 'text-[#e5e7eb]'}`}>{idx + 1}</span>
+                  <div
+                    className="w-3.5 h-3.5 rounded-full shrink-0"
+                    style={{ backgroundColor: ink.bg, border: `1px solid ${ink.border}` }}
+                  />
+                  <span className="text-[#ffffff] font-black flex-1 text-left text-lg sm:text-xl truncate min-w-0">{t?.name}</span>
+                  {idx === 0 && <span className="text-xs font-black text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wider">1픽</span>}
+                  {oddsVary && odd != null && <span className="text-sm text-[#e5e7eb] shrink-0 tabular-nums">{(odd * 100).toFixed(0)}%</span>}
+                </div>
+              )
+            })}
+          </div>
+          <p className="shrink-0 text-sm text-[#d1d5db] mt-3 leading-relaxed">탭하여 닫기 · 10초 후 자동 닫힘</p>
+        </div>
+      )}
     </div>
   )
 }
