@@ -184,12 +184,12 @@ export function LeagueEditModeProvider({
                 key === '' ? <div key={i} /> :
                 key === 'del' ? (
                   <button key={i} onClick={handleDelete} aria-label="지우기"
-                    className="w-16 h-16 rounded-2xl bg-gray-800 text-gray-300 flex items-center justify-center hover:bg-gray-700 active:scale-95 transition-[background-color,transform] duration-200 cursor-pointer">
+                    className="w-16 h-16 rounded-2xl bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] flex items-center justify-center hover:bg-[color:var(--mm-yellow-soft)] active:scale-95 transition-[background-color,transform] duration-200 cursor-pointer">
                     <Delete size={24} aria-hidden />
                   </button>
                 ) : (
                   <button key={i} onClick={() => handleDigit(key)} disabled={digits.length >= 4 || loading}
-                    className="w-16 h-16 rounded-2xl bg-gray-800 text-white text-2xl font-bold hover:bg-gray-700 active:scale-95 transition-[background-color,transform] duration-200 disabled:opacity-40 cursor-pointer">
+                    className="w-16 h-16 rounded-2xl bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-2xl font-bold hover:bg-[color:var(--mm-yellow-soft)] active:scale-95 transition-[background-color,transform] duration-200 disabled:opacity-40 cursor-pointer">
                     {key}
                   </button>
                 )

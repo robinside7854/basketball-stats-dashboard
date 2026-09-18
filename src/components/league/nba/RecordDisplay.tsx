@@ -29,23 +29,24 @@ interface ResultChipProps {
 
 export function ResultChip({ label, count, variant, isTop = false, compact = false }: ResultChipProps) {
   const c = isTop ? RESULT_COLORS_TOP[variant] : RESULT_COLORS[variant]
+  // compact 는 이제 패딩만 줄인다 — 글자 크기는 양쪽 다 바닥값(13.6px) 위에 둔다.
+  // 예전엔 10/11px 라벨 + 12/13px 숫자였고, 홈 화면 12px 미만 27건의 큰 몫이었다.
   const pad = compact ? '2px 6px' : '3px 8px'
-  const labelSize = compact ? '10px' : '11px'
-  const countSize = compact ? '12px' : '13px'
   return (
     <span
-      className="inline-flex items-center gap-1 font-black uppercase"
+      className="inline-flex items-center gap-1 whitespace-nowrap"
       style={{
         background: c.bg,
         color: c.fg,
         padding: pad,
         borderRadius: 'var(--mm-radius-chip)',
         lineHeight: 1.15,
-        whiteSpace: 'nowrap',
       }}
     >
-      <span style={{ letterSpacing: '0.14em', fontSize: labelSize }}>{label}</span>
-      <span className="tabular-nums" style={{ fontSize: countSize, letterSpacing: '-0.01em' }}>{count}</span>
+      {/* 라벨은 보조(500) · 숫자가 주인공(700). 자간 벌림은 뺐다 — 영문 3~4글자에선
+          읽기를 돕지 않고 좁은 칩만 넓힌다. */}
+      <span className="text-xs font-medium">{label}</span>
+      <span className="text-sm font-black t-num">{count}</span>
     </span>
   )
 }
@@ -87,12 +88,8 @@ export function HeadToHead({ records }: HeadToHeadProps) {
   if (records.length === 0) return null
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span
-        className="uppercase font-bold shrink-0"
-        style={{ color: 'var(--mm-muted)', fontSize: '10px', letterSpacing: '0.12em' }}
-      >
-        상대전적
-      </span>
+      {/* 한글 라벨이라 uppercase·자간 벌림은 효과 없이 가독성만 깎는다 → t-label */}
+      <span className="t-label shrink-0">상대전적</span>
       {records.map(r => {
         // 우세/열세 판정은 승패만 본다 — 무승부는 어느 쪽으로도 기울지 않는다.
         const c = r.wins > r.losses ? RESULT_COLORS.win
@@ -102,25 +99,22 @@ export function HeadToHead({ records }: HeadToHeadProps) {
         return (
           <span
             key={r.key}
-            className="inline-flex items-center gap-1 font-bold"
+            className="inline-flex items-center gap-1 whitespace-nowrap max-w-full"
             style={{
               background: c.bg,
               color: c.fg,
               padding: '2px 7px',
               borderRadius: 'var(--mm-radius-chip)',
               lineHeight: 1.15,
-              whiteSpace: 'nowrap',
-              maxWidth: '100%',
             }}
             aria-label={`${r.name} 상대 ${r.wins}승 ${r.losses}패${r.draws > 0 ? ` ${r.draws}무` : ''}`}
           >
-            <span
-              className="truncate"
-              style={{ fontSize: '11px', letterSpacing: '-0.005em', maxWidth: '9ch' }}
-            >
+            {/* 상한을 9ch → 7.5rem 로. ch 는 영문 '0' 폭 기준이라 한글은 9ch 에 4~5자만
+                들어갔고, 팀명이 거의 항상 잘렸다(CLAUDE.md 의 ch 단위 함정). */}
+            <span className="truncate text-xs font-medium max-w-[7.5rem]">
               {r.name}
             </span>
-            <span className="font-jersey font-black tabular-nums" style={{ fontSize: '13px', letterSpacing: '-0.01em' }}>
+            <span className="text-sm font-black t-num">
               {score}
             </span>
           </span>
@@ -141,7 +135,6 @@ export function ScoreTable({ ptsFor, ptsAgainst, isTop = false, compact = false 
   const diff = ptsFor - ptsAgainst
   // 텍스트는 항상 테마 토큰 사용 (1위 행 배경이 다크모드에서 어두워져도 대비 유지 · 2026-07-26 수정).
   const diffColor = diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-muted)'
-  const labelColor = 'var(--mm-muted)'
   const valueColor = 'var(--mm-ink)'
   // 1위 강조는 테마 인식 토큰으로만 (프레임을 살짝 진하게) — 하드코딩 rgba(0,0,0) 제거
   const tableBorder = isTop ? 'var(--mm-ink-soft)' : 'var(--mm-rule)'
@@ -150,9 +143,9 @@ export function ScoreTable({ ptsFor, ptsAgainst, isTop = false, compact = false 
     { label: '실점', value: String(ptsAgainst), color: valueColor },
     { label: '마진', value: diff > 0 ? `+${diff}` : String(diff), color: diffColor },
   ]
+  // 라벨 9/10px 은 홈 화면에서 가장 작은 글자였다(순위 카드마다 3칸 × 9행).
+  // compact 는 패딩만 줄이고, 라벨은 바닥값 t-label, 값만 한 단계 차이를 둔다.
   const cellPad = compact ? '3px 5px' : '4px 6px'
-  const labelSize = compact ? '9px' : '10px'
-  const valueSize = compact ? '13px' : '15px'
   return (
     <div
       className="grid grid-cols-3 overflow-hidden"
@@ -173,26 +166,10 @@ export function ScoreTable({ ptsFor, ptsAgainst, isTop = false, compact = false 
           }}
           role="cell"
         >
+          <div className="t-label">{cell.label}</div>
           <div
-            className="uppercase font-bold"
-            style={{
-              color: labelColor,
-              fontSize: labelSize,
-              letterSpacing: '0.12em',
-              lineHeight: 1,
-            }}
-          >
-            {cell.label}
-          </div>
-          <div
-            className="font-jersey font-black tabular-nums"
-            style={{
-              color: cell.color,
-              fontSize: valueSize,
-              lineHeight: 1.1,
-              marginTop: '2px',
-              letterSpacing: '-0.01em',
-            }}
+            className={`t-num font-black ${compact ? 'text-sm' : 'text-base'}`}
+            style={{ color: cell.color, lineHeight: 1.1, marginTop: '2px' }}
           >
             {cell.value}
           </div>

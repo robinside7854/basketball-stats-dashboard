@@ -103,7 +103,7 @@ export default function LeagueSchedule({ games, leagueId, limit, orgSlug }: Prop
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="text-base lg:text-lg font-bold whitespace-nowrap text-[color:var(--mm-muted)]">{formatDate(date)}</p>
-                        <span className="text-xs font-bold px-1.5 py-0.5 rounded text-[color:var(--mm-muted)] bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)]">
+                        <span className="text-xs font-medium whitespace-nowrap px-1.5 py-0.5 rounded text-[color:var(--mm-muted)] bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)]">
                           미실시
                         </span>
                       </div>
@@ -134,15 +134,15 @@ export default function LeagueSchedule({ games, leagueId, limit, orgSlug }: Prop
                       <p className={`text-base lg:text-lg font-bold whitespace-nowrap ${hasCompleted ? 'text-[color:var(--mm-ink-soft)]' : 'text-[color:var(--mm-ink)]'}`}>{formatDate(date)}</p>
                       {allUpcoming && (
                         isToday ? (
-                          <span className="flex items-center gap-1 text-xs lg:text-xs font-bold text-[color:var(--mm-black)] bg-[color:var(--mm-yellow)] px-1.5 py-0.5 rounded">
+                          <span className="flex items-center gap-1 text-xs font-medium whitespace-nowrap text-[color:var(--mm-black)] bg-[color:var(--mm-yellow)] px-1.5 py-0.5 rounded">
                             <span className="w-1.5 h-1.5 rounded-full bg-[color:var(--mm-black)] animate-pulse inline-block" />오늘
                           </span>
                         ) : (
-                          <span className="text-xs lg:text-xs font-bold text-[color:var(--mm-muted)] px-1.5 py-0.5 rounded bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)]">예정</span>
+                          <span className="text-xs font-medium whitespace-nowrap text-[color:var(--mm-muted)] px-1.5 py-0.5 rounded bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)]">예정</span>
                         )
                       )}
                       {allDone && (
-                        <span className="text-xs lg:text-xs font-bold text-[color:var(--mm-black)] bg-[color:var(--mm-yellow)] px-1.5 py-0.5 rounded">완료</span>
+                        <span className="text-xs font-medium whitespace-nowrap text-[color:var(--mm-black)] bg-[color:var(--mm-yellow)] px-1.5 py-0.5 rounded">완료</span>
                       )}
                     </div>
                     <p className="text-xs lg:text-sm text-[color:var(--mm-muted)] mt-0.5 whitespace-nowrap">
@@ -162,12 +162,12 @@ export default function LeagueSchedule({ games, leagueId, limit, orgSlug }: Prop
                       return (
                         <div key={t.name} className="flex items-center gap-1.5 lg:gap-2">
                           <div className="w-2 h-2 lg:w-2.5 lg:h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
-                          <span className="text-xs lg:text-base text-[color:var(--mm-ink-soft)] font-medium break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>{t.name}</span>
-                          <span className="text-xs lg:text-base font-bold text-[color:var(--mm-ink)] tabular-nums">
+                          <span className="text-sm lg:text-base text-[color:var(--mm-ink-soft)] font-medium break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>{t.name}</span>
+                          <span className="text-sm lg:text-base font-black t-num text-[color:var(--mm-ink)]">
                             {t.w}W {t.d > 0 ? <span className="text-[color:var(--mm-yellow-strong)]">{t.d}D </span> : ''}{t.l}L
                           </span>
                           <span
-                            className="text-xs lg:text-base font-bold tabular-nums"
+                            className="text-sm lg:text-base font-black t-num"
                             style={{ color: winPct >= 50 ? 'var(--mm-positive)' : 'var(--mm-negative)' }}
                           >
                             {winPct}%

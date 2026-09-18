@@ -74,15 +74,15 @@ function ScheduleDetailEditor({
     >
       <div className="grid grid-cols-2 sm:grid-cols-[120px_1fr_110px] gap-2">
         <label className="flex flex-col gap-1 min-w-0">
-          <span className="text-xs font-black uppercase tracking-[0.12em]" style={{ color: 'var(--mm-muted)' }}>시작 시간</span>
+          <span className="t-label font-medium">시작 시간</span>
           <Input type="time" value={time} onChange={e => setTime(e.target.value)} className="min-h-[44px]" />
         </label>
         <label className="flex flex-col gap-1 min-w-0 col-span-2 sm:col-span-1">
-          <span className="text-xs font-black uppercase tracking-[0.12em]" style={{ color: 'var(--mm-muted)' }}>장소</span>
+          <span className="t-label font-medium">장소</span>
           <Input value={place} onChange={e => setPlace(e.target.value)} placeholder={ph.place} className="min-h-[44px]" />
         </label>
         <label className="flex flex-col gap-1 min-w-0">
-          <span className="text-xs font-black uppercase tracking-[0.12em]" style={{ color: 'var(--mm-muted)' }}>정원</span>
+          <span className="t-label font-medium">정원</span>
           <Input
             type="number" min={1} inputMode="numeric"
             value={capacity} onChange={e => setCapacity(e.target.value)}
@@ -101,7 +101,7 @@ function ScheduleDetailEditor({
           type="button"
           onClick={() => onSave({ start_time: time, place, capacity })}
           disabled={saving}
-          className="inline-flex items-center justify-center gap-1.5 text-xs font-black tracking-widest uppercase px-4 py-2 min-h-[44px] cursor-pointer disabled:opacity-50 transition-shadow duration-200"
+          className="inline-flex items-center justify-center gap-1.5 text-sm font-black whitespace-nowrap px-4 py-2 min-h-[44px] cursor-pointer disabled:opacity-50 transition-shadow duration-200"
           style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)' }}
         >
           {saving && <Loader2 size={14} className="animate-spin" aria-hidden />}
@@ -110,7 +110,7 @@ function ScheduleDetailEditor({
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex items-center justify-center text-xs font-bold tracking-widest uppercase px-4 py-2 min-h-[44px] cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+          className="inline-flex items-center justify-center text-sm font-medium whitespace-nowrap px-4 py-2 min-h-[44px] cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
           style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
         >
           취소
@@ -410,8 +410,7 @@ function ScheduleContent() {
             경기 일정
           </h2>
           <p
-            className="text-xs tracking-[0.16em] uppercase font-bold mt-1"
-            style={{ color: 'var(--mm-muted)' }}
+            className="t-label font-medium mt-1"
           >
             총 {dates.length}개 날짜 등록됨
           </p>
@@ -420,7 +419,7 @@ function ScheduleContent() {
           <button
             onClick={autoGenerate}
             disabled={autoGenerating}
-            className="inline-flex items-center justify-center gap-1.5 text-xs font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 text-sm font-black whitespace-nowrap px-4 py-2 min-h-[44px] transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50"
             style={{
               background: 'var(--mm-yellow)',
               color: 'var(--mm-black)',
@@ -432,7 +431,7 @@ function ScheduleContent() {
         ) : (
           <button
             onClick={openPinModal}
-            className="inline-flex items-center justify-center gap-1.5 text-xs font-bold tracking-widest uppercase px-4 py-2 min-h-[44px] transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 text-sm font-medium whitespace-nowrap px-4 py-2 min-h-[44px] transition-colors cursor-pointer"
             style={{
               border: '1px solid var(--mm-rule)',
               color: 'var(--mm-muted)',
@@ -455,8 +454,7 @@ function ScheduleContent() {
         >
           <div className="flex-1 min-w-[220px] space-y-1.5">
             <label
-              className="text-xs tracking-[0.16em] uppercase font-bold"
-              style={{ color: 'var(--mm-muted)' }}
+              className="t-label font-medium"
             >
               경기 날짜 추가
             </label>
@@ -476,7 +474,7 @@ function ScheduleContent() {
           <button
             onClick={addDate}
             disabled={adding}
-            className="inline-flex items-center justify-center gap-1.5 text-xs font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50 shrink-0"
+            className="inline-flex items-center justify-center gap-1.5 text-sm font-black whitespace-nowrap px-4 py-2 min-h-[44px] transition-shadow duration-200 hover:shadow-[0_10px_28px_-10px_rgba(0,0,0,0.35)] cursor-pointer disabled:opacity-50 shrink-0"
             style={{
               background: 'var(--mm-ink)',
               color: 'var(--mm-panel)',
@@ -512,7 +510,7 @@ function ScheduleContent() {
                 <button
                   key={tab.id}
                   onClick={() => setSelectedQFilter(tab.id)}
-                  className="inline-flex items-center justify-center px-4 py-2 min-h-[44px] min-w-[44px] text-xs font-black tracking-widest uppercase transition-colors cursor-pointer"
+                  className="inline-flex items-center justify-center px-4 py-2 min-h-[44px] min-w-[44px] text-sm font-black whitespace-nowrap transition-colors cursor-pointer"
                   style={{
                     background: active ? 'var(--mm-yellow)' : 'var(--mm-panel)',
                     color: active ? 'var(--mm-black)' : 'var(--mm-muted)',
@@ -546,15 +544,15 @@ function ScheduleContent() {
             const boxscoreEl = datesWithStats.has(sd.date) ? (
               <Link
                 href={`/league/${orgSlug}/${leagueId}/boxscore/${sd.date}`}
-                className="inline-flex items-center justify-center gap-1.5 text-xs font-black tracking-widest uppercase px-4 py-2 min-h-[44px] transition-colors cursor-pointer btn-press"
+                className="inline-flex items-center justify-center gap-1.5 text-sm font-black whitespace-nowrap px-4 py-2 min-h-[44px] transition-colors cursor-pointer btn-press"
                 style={{ background: 'var(--mm-yellow-soft)', color: 'var(--mm-yellow-strong)', border: '1px solid var(--mm-yellow)' }}
               >
                 <BarChart2 size={14} />박스스코어
               </Link>
             ) : (
               <span
-                className="inline-flex items-center justify-center gap-1.5 text-xs font-bold tracking-widest uppercase px-4 py-2 min-h-[44px] cursor-not-allowed select-none"
-                style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', opacity: 0.6 }}
+                className="inline-flex items-center justify-center gap-1.5 text-sm font-medium whitespace-nowrap px-4 py-2 min-h-[44px] cursor-not-allowed select-none"
+                style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px dashed var(--mm-rule)' }}
               >
                 <BarChart2 size={14} />박스스코어
               </span>
@@ -584,13 +582,12 @@ function ScheduleContent() {
                 </span>
                 {upcoming && (
                   <span
-                    className="shrink-0 text-xs font-black uppercase px-2 py-0.5"
+                    className="shrink-0 t-label font-medium whitespace-nowrap px-2 py-0.5"
                     style={{
                       background: 'var(--mm-yellow-soft)',
                       color: 'var(--mm-yellow-strong)',
                       border: '1px solid var(--mm-yellow)',
                       borderRadius: 'var(--mm-radius-chip)',
-                      letterSpacing: '0.12em',
                     }}
                   >
                     예정
@@ -600,12 +597,11 @@ function ScheduleContent() {
                     같다. 앞으로의 주에 '미실시'라고 쓰면 아직 벌어지지도 않은 일을 단정하게 된다. */}
                 {sd.is_skipped && (
                   <span
-                    className="shrink-0 text-xs font-black uppercase px-2 py-0.5"
+                    className="shrink-0 t-label font-medium whitespace-nowrap px-2 py-0.5"
                     style={{
                       background: 'var(--mm-neutral-bg)',
                       color: 'var(--mm-neutral-fg)',
                       borderRadius: 'var(--mm-radius-chip)',
-                      letterSpacing: '0.12em',
                     }}
                     title={isFuture
                       ? '대관이 없어 이번 주는 모이지 않습니다. 참여신청도 받지 않습니다.'
@@ -630,7 +626,7 @@ function ScheduleContent() {
                     <button
                       onClick={() => toggleSkip(sd.date, !sd.is_skipped)}
                       disabled={savingDate === sd.date}
-                      className="inline-flex items-center gap-1.5 justify-center text-xs font-bold tracking-widest uppercase px-3 py-2 min-h-[44px] transition-colors cursor-pointer disabled:opacity-50 hover:bg-[color:var(--mm-panel-alt)]"
+                      className="inline-flex items-center gap-1.5 justify-center text-sm font-medium whitespace-nowrap px-3 py-2 min-h-[44px] transition-colors cursor-pointer disabled:opacity-50 hover:bg-[color:var(--mm-panel-alt)]"
                       style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
                     >
                       <CalendarOff size={14} aria-hidden />
@@ -640,7 +636,7 @@ function ScheduleContent() {
                   {upcoming && (
                     <button
                       onClick={() => setEditingDate(editingDate === sd.date ? null : sd.date)}
-                      className="inline-flex items-center justify-center gap-1.5 text-xs font-bold tracking-widest uppercase px-3 py-2 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)]"
+                      className="inline-flex items-center justify-center gap-1.5 text-sm font-medium whitespace-nowrap px-3 py-2 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)]"
                       style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
                       aria-expanded={editingDate === sd.date}
                     >
@@ -703,7 +699,7 @@ function ScheduleContent() {
             <button
               type="button"
               onClick={() => setVisibleCount(c => c + REVEAL_STEP)}
-              className="inline-flex items-center justify-center gap-1.5 text-xs font-bold tracking-widest uppercase px-5 py-2.5 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)]"
+              className="inline-flex items-center justify-center gap-1.5 text-sm font-medium whitespace-nowrap px-5 py-2.5 min-h-[44px] transition-colors cursor-pointer hover:bg-[color:var(--mm-panel-alt)]"
               style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }}
             >
               <ChevronDown size={14} aria-hidden />

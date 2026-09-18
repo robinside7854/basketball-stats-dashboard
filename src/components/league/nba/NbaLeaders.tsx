@@ -98,7 +98,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
           >
             리그 리더
           </h3>
-          <span className="text-xs tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
+          <span className="t-label break-keep">
             최소 {effectiveMinGP} R
           </span>
         </header>
@@ -118,13 +118,12 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                     key={String(cat.key)}
                     type="button"
                     onClick={() => setSelectedCatKey(cat.key)}
-                    className="shrink-0 min-h-[36px] px-3 py-1.5 text-xs font-black uppercase transition-colors cursor-pointer whitespace-nowrap"
+                    className="shrink-0 min-h-11 px-3 py-1.5 text-sm font-black transition-colors duration-200 cursor-pointer whitespace-nowrap"
                     style={{
                       background: active ? 'var(--mm-ink)' : 'var(--mm-panel-alt)',
                       color: active ? 'var(--mm-panel)' : 'var(--mm-ink-soft)',
                       border: `1px solid ${active ? 'var(--mm-ink)' : 'var(--mm-rule)'}`,
                       borderRadius: '4px',
-                      letterSpacing: '0.10em',
                     }}
                     aria-pressed={active}
                   >
@@ -159,10 +158,9 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                     className="px-5 pt-4 pb-3"
                     style={{ borderBottom: '1px solid var(--mm-rule)' }}
                   >
-                    <h4
-                      className="font-black uppercase break-keep"
-                      style={{ color: 'var(--mm-ink-soft)', fontSize: '13px', letterSpacing: 'var(--track-label)', lineHeight: 1.3 }}
-                    >
+                    {/* "득점 · PPG" 처럼 한글이 섞인 라벨 — uppercase 는 한글에 효과가 없고
+                        track-label(0.14em)은 자간만 벌렸다. t-label 로 통일. */}
+                    <h4 className="t-label font-black break-keep">
                       {cat.label}
                     </h4>
                   </div>
@@ -236,12 +234,12 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
 
                           {/* 이름 + GP - 크게 */}
                           <span className="min-w-0">
+                            {/* 선수명은 본문체 — 유니폼체(좁음) + 한글에 무효한 uppercase 제거 */}
                             <span
-                              className="block font-jersey uppercase break-keep"
+                              className={`block break-keep ${isTop ? 'font-black' : 'font-semibold'}`}
                               style={{
                                 color: 'var(--mm-ink)',
                                 fontSize: isTop ? 'clamp(20px, 5.2vw, 26px)' : 'clamp(17px, 4.4vw, 22px)',
-                                fontWeight: 700,
                                 letterSpacing: '-0.005em',
                                 lineHeight: '1.1',
                                 wordBreak: 'break-word',
@@ -250,14 +248,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                             >
                               {p.name}
                             </span>
-                            <span
-                              className="block font-bold uppercase mt-1.5"
-                              style={{
-                                color: 'var(--mm-muted)',
-                                fontSize: '11px',
-                                letterSpacing: '0.16em',
-                              }}
-                            >
+                            <span className="block t-label font-medium mt-1.5">
                               {p.gp} 라운드
                             </span>
                           </span>
@@ -277,14 +268,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                               {cat.format(p[cat.key] as number)}
                             </span>
                             {cat.subFormat && (
-                              <span
-                                className="font-mono tabular-nums mt-1"
-                                style={{
-                                  color: 'var(--mm-muted)',
-                                  fontSize: '11px',
-                                  letterSpacing: '0.04em',
-                                }}
-                              >
+                              <span className="t-num text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>
                                 {cat.subFormat(p)}
                               </span>
                             )}

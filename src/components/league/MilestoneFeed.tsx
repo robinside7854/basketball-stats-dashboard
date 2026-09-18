@@ -98,11 +98,10 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
   if (loading) {
     return (
       <div
-        className="mm-brand p-6 text-center text-xs font-bold uppercase tracking-[0.20em]"
+        className="mm-brand p-6 text-center t-label"
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
-          color: 'var(--mm-muted)',
         }}
       >
         마일스톤 스캔 중...
@@ -135,10 +134,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
               최근 <span style={{ color: 'var(--mm-ink-soft)' }}>마일스톤</span>
             </h3>
           </div>
-          <span
-            className="text-xs font-bold uppercase tabular-nums shrink-0"
-            style={{ color: 'var(--mm-muted)', letterSpacing: '0.18em' }}
-          >
+          <span className="t-label t-num shrink-0 whitespace-nowrap">
             최근 {recentShown.length}
           </span>
         </header>
@@ -166,12 +162,10 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                     aria-label={`${r.name} 선수 상세 보기`}
                   >
                     <span
-                      className="font-black uppercase tabular-nums shrink-0"
+                      className="text-xs font-black t-num shrink-0 whitespace-nowrap"
                       style={{
                         background: 'var(--mm-ink)',
                         color: 'var(--mm-panel)',
-                        fontSize: '10px',
-                        letterSpacing: '0.10em',
                         padding: '3px 6px',
                       }}
                     >
@@ -179,11 +173,10 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                     </span>
                     <div className="flex-1 min-w-0">
                       <p
-                        className="font-jersey uppercase break-keep"
+                        className="font-black break-keep"
                         style={{
                           color: 'var(--mm-ink)',
-                          fontSize: 'clamp(15px, 4vw, 18px)',
-                          fontWeight: 700,
+                          fontSize: 'clamp(16px, 4vw, 18px)',
                           letterSpacing: '-0.005em',
                           lineHeight: '1.15',
                           wordBreak: 'break-word',
@@ -192,46 +185,23 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                       >
                         {r.name}
                         {r.number != null && (
-                          <span
-                            className="ml-1.5 tabular-nums"
-                            style={{
-                              color: 'var(--mm-muted)',
-                              fontSize: '12px',
-                              fontWeight: 700,
-                            }}
-                          >
+                          <span className="ml-1.5 t-num text-xs font-medium" style={{ color: 'var(--mm-muted)' }}>
                             #{r.number}
                           </span>
                         )}
                         <span
-                          className="ml-1.5 tabular-nums"
-                          style={{
-                            color: 'var(--mm-ink)',
-                            fontSize: 'clamp(15px, 4vw, 18px)',
-                            fontWeight: 700,
-                          }}
+                          className="ml-1.5 t-num font-black"
+                          style={{ color: 'var(--mm-ink)', fontSize: 'clamp(16px, 4vw, 18px)' }}
                         >
                           {r.target}
                         </span>
-                        <span
-                          className="ml-1"
-                          style={{
-                            color: 'var(--mm-ink)',
-                            fontSize: 'clamp(13px, 3.4vw, 15px)',
-                            fontWeight: 700,
-                          }}
-                        >
+                        {/* 서술부는 보조 — 이름·수치와 같은 700 이면 한 줄이 통째로 굵어 위계가 사라진다 */}
+                        <span className="ml-1 text-sm font-medium" style={{ color: 'var(--mm-ink)' }}>
                           {CATEGORY_LABEL[r.category]} 달성!
                         </span>
                       </p>
                       <p
-                        className="font-bold uppercase mt-1 break-keep"
-                        style={{
-                          color: 'var(--mm-muted)',
-                          fontSize: '10px',
-                          letterSpacing: '0.14em',
-                          lineHeight: 1.3,
-                        }}
+                        className="t-label font-medium mt-1 break-keep"
                       >
                         {formatKoreanDate(r.achieved_at)}
                       </p>
@@ -273,7 +243,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
           >
             <Link
               href={milestonesHref}
-              className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em] min-h-[36px] px-3 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)]"
+              className="inline-flex items-center gap-1 text-sm font-bold whitespace-nowrap min-h-11 px-3 cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)]"
               style={{
                 color: 'var(--mm-ink-soft)',
                 background: 'var(--mm-panel-alt)',

@@ -54,14 +54,14 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
           팀 승률
         </h3>
         <div className="flex items-center gap-3">
-          <span className="text-xs tracking-[0.14em] sm:tracking-[0.18em] uppercase font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>
+          {/* 한글 메타라 uppercase·자간 벌림이 무의미 → t-label 로 통일 */}
+          <span className="t-label break-keep">
             {quarterLabel} · {gamesCount}경기
           </span>
           {orgSlug && leagueId && (
             <Link
               href={`/league/${orgSlug}/${leagueId}/roster`}
-              className="inline-flex items-center gap-0.5 min-h-[44px] py-1.5 text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors hover:brightness-90"
-              style={{ color: 'var(--mm-ink-soft)' }}
+              className="t-label inline-flex items-center gap-0.5 min-h-[44px] py-1.5 whitespace-nowrap cursor-pointer transition-colors hover:brightness-90"
             >
               팀 명단
               <ChevronRight size={14} aria-hidden />
@@ -105,11 +105,12 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                   className="block h-6 rounded-sm"
                   style={{ background: t.color, opacity: isTop ? 0.85 : 1, border: '1px solid var(--mm-rule)' }}
                 />
+                {/* 팀명은 본문 크기 글자 — 유니폼체(좁음)와 uppercase(한글에 무효) 제거.
+                    최소값을 14 → 16px 로 올렸다. 행의 주인공이 화면에서 가장 작은 축이었다. */}
                 <span
-                  className="font-jersey uppercase min-w-0 break-keep"
+                  className="font-black min-w-0 break-keep"
                   style={{
-                    fontSize: isTop ? 'clamp(16px, 4.6vw, 22px)' : 'clamp(14px, 3.8vw, 18px)',
-                    fontWeight: 700,
+                    fontSize: isTop ? 'clamp(18px, 4.6vw, 22px)' : 'clamp(16px, 3.8vw, 18px)',
                     letterSpacing: '-0.005em',
                     color: accentOrInk(t.color),
                     lineHeight: 1.15,
@@ -122,7 +123,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                 <span
                   className="font-jersey font-black tabular-nums leading-none"
                   style={{
-                    fontSize: isTop ? 'clamp(18px, 5.2vw, 24px)' : 'clamp(16px, 4.6vw, 20px)',
+                    fontSize: isTop ? 'clamp(18px, 5.2vw, 24px)' : 'clamp(18px, 4.6vw, 20px)',
                     color: rateColor,
                     minWidth: '64px',
                     textAlign: 'right',

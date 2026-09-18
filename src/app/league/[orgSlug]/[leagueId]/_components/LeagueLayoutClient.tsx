@@ -137,10 +137,14 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
           <Link
             href={base}
             aria-label={`${leagueName ?? '온볼'} 홈으로`}
-            className="shrink-0 flex items-center min-h-[44px] pr-2 sm:pr-3 lg:pr-4"
+            className="min-w-0 flex items-center min-h-[44px] pr-2 sm:pr-3 lg:pr-4"
           >
+            {/* 폭 상한을 고정값(110px)으로 두니 390px 에서 「미라클모닝농구단」(122px)이 늘 잘렸다.
+                모바일·태블릿은 상한을 없애고, 우측 액션(shrink-0)이 자리를 잡은 뒤 남는 폭을
+                이 링크가 쓰게 한다(min-w-0 → 정말 모자랄 때만 말줄임). lg 는 탭 자리를 지켜야
+                하므로 220px 상한을 유지. 헤더 높이·탭 동작은 그대로. */}
             <span
-              className="font-jersey font-black text-sm sm:text-base lg:text-lg truncate max-w-[110px] sm:max-w-[160px] lg:max-w-[220px]"
+              className="font-jersey font-black text-sm sm:text-base lg:text-lg truncate lg:max-w-[220px]"
               style={{ color: 'var(--mm-ink)' }}
             >
               {leagueName ?? '온볼'}
@@ -203,7 +207,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
               <button
                 onClick={onOpenLogin}
                 aria-label={signupPending ? '가입 승인 대기중 — 로그인' : '가입 또는 로그인'}
-                className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-md bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] text-xs font-medium cursor-pointer transition-colors min-h-[44px]"
+                className="relative flex items-center gap-1.5 px-2.5 py-2 rounded-md bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] border border-[color:var(--mm-rule)] text-[color:var(--mm-ink-soft)] hover:text-[color:var(--mm-ink)] text-xs font-medium cursor-pointer transition-colors min-h-[44px] min-w-[44px] justify-center"
               >
                 <LogIn size={16} />
                 {/* 프로필 칩이 우측 상단으로 오면서 데스크톱의 '가입하기' 탭이 사라졌다 (2026-08-15).
@@ -228,7 +232,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
               </button>
             ) : (
               <button onClick={openPinModal} aria-label="편집 모드 켜기"
-                className="flex items-center gap-1.5 text-xs px-2.5 py-2 rounded-md min-h-[44px] border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer btn-press">
+                className="flex items-center justify-center gap-1.5 text-xs px-2.5 py-2 rounded-md min-h-[44px] min-w-[44px] border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-ink-soft)] transition-colors cursor-pointer btn-press">
                 <Lock size={16} /><span className="hidden sm:inline">편집</span>
               </button>
             )}

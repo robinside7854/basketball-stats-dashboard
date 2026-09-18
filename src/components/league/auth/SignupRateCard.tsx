@@ -94,14 +94,14 @@ export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: 
             >
               회원 가입율
             </h3>
-            <span className="text-xs font-bold uppercase tracking-[0.12em] shrink-0" style={{ color: 'var(--mm-muted)' }}>
+            <span className="t-label font-medium shrink-0 whitespace-nowrap">
               게스트 제외
             </span>
           </div>
           <button
             onClick={load}
             aria-label="가입율 새로고침"
-            className="p-1 -m-1 shrink-0 cursor-pointer"
+            className="size-11 -m-3 inline-flex items-center justify-center shrink-0 cursor-pointer"
             style={{ color: 'var(--mm-muted)' }}
           >
             <RefreshCw size={14} aria-hidden />
@@ -116,11 +116,11 @@ export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: 
           >
             {data.rate}%
           </span>
-          <span className="text-sm font-bold tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
+          <span className="text-sm font-medium t-num" style={{ color: 'var(--mm-ink-soft)' }}>
             {data.approved} / {data.eligible}명 가입 완료
           </span>
           {data.guestCount > 0 && (
-            <span className="text-xs font-bold uppercase tracking-[0.1em] tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+            <span className="t-label font-medium t-num whitespace-nowrap">
               (게스트 {data.guestCount}명 제외)
             </span>
           )}
@@ -143,12 +143,12 @@ export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: 
           <Legend swatch="var(--mm-yellow-strong)" swatchOpacity={0.45} label="승인 대기" value={data.pending} />
           <Legend swatch="var(--mm-rule)" label="미가입" value={data.notSignedUp} />
           {data.pending > 0 && (
-            <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+            <span className="text-xs font-medium t-num whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
               신청률 {data.requestedRate}%
             </span>
           )}
           {(data.rejected > 0 || data.disabled > 0) && (
-            <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--mm-muted)' }}>
+            <span className="text-xs font-medium t-num whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
               반려 {data.rejected} · 비활성 {data.disabled}
             </span>
           )}
@@ -160,7 +160,7 @@ export default function SignupRateCard({ leagueId, leagueHeaders, isEditMode }: 
             <button
               onClick={() => setShowNames(v => !v)}
               aria-expanded={showNames}
-              className="flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.12em] cursor-pointer"
+              className="flex items-center gap-1.5 text-sm font-bold whitespace-nowrap min-h-11 cursor-pointer transition-colors duration-200"
               style={{ color: 'var(--mm-ink-soft)' }}
             >
               <ChevronDown
@@ -200,13 +200,13 @@ function Legend({ swatch, swatchOpacity, label, value }: {
   value: number
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs font-bold tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
+    <span className="inline-flex items-center gap-1.5 text-xs font-medium t-num whitespace-nowrap" style={{ color: 'var(--mm-ink-soft)' }}>
       <span
         aria-hidden
         className="inline-block w-2.5 h-2.5 shrink-0"
         style={{ background: swatch, opacity: swatchOpacity ?? 1, borderRadius: '2px' }}
       />
-      <span className="uppercase tracking-[0.1em]" style={{ color: 'var(--mm-muted)' }}>{label}</span>
+      <span style={{ color: 'var(--mm-muted)' }}>{label}</span>
       <b style={{ color: 'var(--mm-ink)' }}>{value}</b>
     </span>
   )
@@ -215,14 +215,14 @@ function Legend({ swatch, swatchOpacity, label, value }: {
 function NameList({ title, names }: { title: string; names: string[] }) {
   return (
     <div>
-      <p className="text-xs font-black uppercase tracking-[0.14em] mb-1" style={{ color: 'var(--mm-muted)' }}>
+      <p className="t-label font-black mb-1">
         {title} ({names.length})
       </p>
       <div className="flex flex-wrap gap-1">
         {names.map(n => (
           <span
             key={n}
-            className="px-1.5 py-0.5 text-xs font-bold"
+            className="px-1.5 py-0.5 text-xs font-medium whitespace-nowrap"
             style={{
               background: 'var(--mm-panel-alt)',
               border: '1px solid var(--mm-rule)',
