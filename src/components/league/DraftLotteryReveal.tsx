@@ -77,8 +77,8 @@ const RACE_VIEW_H = 44
 /** 골대 프레이밍 — 슈트 입구부터 네트 끝까지가 들어오는 높이·폭 */
 const FINISH_VIEW_H = 30
 const FINISH_VIEW_W = 18
-/** 슈트 입구(132)~네트 끝(146)이 화면 가운데에 오게. 낮추면 네트 아래 검은 띠가 커진다. */
-const FINISH_CAM_Y = 134
+/** 림 프로텍터(129)~네트 끝(148)이 화면 가운데에 오게. 낮추면 네트 아래 검은 띠가 커진다. */
+const FINISH_CAM_Y = 136
 /** 대기 화면 — 스폰 구역(-16~0)만 담는다. 전체 배율로 잡으면 위쪽 절반이 검게 빈다. */
 const WAIT_CAM_Y = -6
 const WAIT_VIEW_H = 24

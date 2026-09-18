@@ -9,6 +9,15 @@
 // 슈트 게이트를 켜서 order 순서대로 한 개씩 내보낸다(sim.ts 참조). 맞는 시드를 찾은
 // 경우 게이트는 만들어지지도 않으므로 연출에 흔적이 남지 않는다.
 //
+// ⚠ **성공률은 코스를 손봐서 올릴 수 없다.** 목표 order 가 균등 무작위이므로 한 시드가
+// 맞을 확률의 기댓값은 코스와 무관하게 정확히 1/n! 이다. 따라서 400회 예산의 기대
+// 성공률 상한은 6팀에서 1-(1-1/720)^400 = 42.6% 이고, 그 이상 나온 과거 측정치(52%)는
+// 50판 표본의 잡음이었다(σ≈7%). 실제로 올릴 수 있는 것은 **시도 횟수뿐**이라 시간
+// 예산(2.5초)이 진짜 한도가 되도록 maxTries 를 넉넉히 뒀다 — 팁오프 대기 중에 도는
+// 작업이라 사람은 이 시간을 보지 못한다.
+// 이 코스의 실측 분포: 6팀 시드 1438개에서 서로 다른 도착 순서 606/720 → 400회 기대
+// 성공률 38.1%(균등 상한 42.6%). 코스는 거의 균등하다.
+//
 // DOM 을 참조하지 않는다 — Node 에서 그대로 돌려 통계를 잰다.
 
 import { hashSeed } from './rng'
@@ -72,7 +81,7 @@ export interface SearchOpts {
  * 못 찾으면 matched:false 와 base 시드를 돌려준다 — 호출자가 슈트 게이트를 켜야 한다.
  */
 export function findSeed(order: string[], opts: SearchOpts = {}): SeedSearch {
-  const maxTries = opts.maxTries ?? 400
+  const maxTries = opts.maxTries ?? 2000
   const budgetMs = opts.budgetMs ?? 2500
   const now = opts.now ?? (typeof performance !== 'undefined' ? () => performance.now() : () => Date.now())
   const base = hashSeed(order.join('|'))
@@ -99,9 +108,10 @@ export function findSeedChunked(
   onDone: (r: SeedSearch) => void,
   opts: SearchOpts & { chunk?: number } = {},
 ): () => void {
-  const maxTries = opts.maxTries ?? 400
+  const maxTries = opts.maxTries ?? 2000
   const budgetMs = opts.budgetMs ?? 2500
-  const chunk = opts.chunk ?? 8
+  // 한 틱에 4판(약 20ms). 8판이면 40ms 짜리 롱태스크라 「출발」 버튼이 굼떠 보인다.
+  const chunk = opts.chunk ?? 4
   const now = opts.now ?? (typeof performance !== 'undefined' ? () => performance.now() : () => Date.now())
   const base = hashSeed(order.join('|'))
   const t0 = now()
@@ -118,6 +128,8 @@ export function findSeedChunked(
         onDone({ seed, matched: true, tries: k + 1, ms: now() - t0, endStep: r.endStep })
         return
       }
+      // 청크 안에서도 시간을 본다 — 느린 기기에서 한 청크가 예산을 통째로 넘길 수 있다
+      if (now() - t0 > budgetMs) break
     }
     if (k >= maxTries || now() - t0 > budgetMs) {
       onDone({ seed: base, matched: false, tries: k, ms: now() - t0, endStep: -1 })

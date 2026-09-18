@@ -20,9 +20,11 @@
 // 이 파일은 DOM 을 참조하지 않는다. Node 에서 두 번 돌려 체크섬을 비교할 수 있다.
 
 import {
-  BUMPER_REST, bucketFor, buildCourse, CHUTE_TOP, CHUTE_X0, CHUTE_X1, clockClosed, clockReadout,
-  CLOCK_Y, COURSE_W, FUNNEL_TOP_Y, HOOP_HALF, HOOP_X, NET_BOTTOM, RIM_Y,
-  SCREEN_LEN, SCREEN_TILT, SCREEN_Y, screenX, TOP_Y,
+  BUMPER_REST, bucketFor, buildCourse, CHUTE_TOP, CHUTE_X0, CHUTE_X1, clockBar, clockClosed,
+  clockGapLeft, clockReadout, CLOCK_Y, COURSE_W, FUNNEL_TOP_Y, HOOP_HALF, HOOP_X, NET_BOTTOM,
+  PROT_ARM, PROT_R, PROT_Y, protectorX, RIM_Y,
+  SCREEN1_Y, SCREEN2_Y, SCREEN_LEN, SCREEN_TILT, screenX, screenX2, TOP_Y,
+  ZONE_DRAG, ZONE_Y0, ZONE_Y1,
   type Course,
 } from './course'
 import { hashSeed, intRange, mulberry32, range } from './rng'
@@ -58,6 +60,10 @@ export interface Marble {
   out: boolean
   /** 슈트 게이트 통과 허가 (폴백 전용) */
   released: boolean
+  /** 스크린(픽)에 막힌 횟수 — 코스 난이도 계측용. 붙어 있는 동안은 1회로 센다(상승 엣지). */
+  screenTouches: number
+  /** 직전 스텝에 스크린에 닿아 있었는가 */
+  screenPrev: boolean
   /** 마지막으로 "내려갔다"고 인정한 y — 끼임 감지 기준선 */
   markY: number
   /** 그 기준선 이후 진전 없이 흐른 스텝 수 */
@@ -94,8 +100,11 @@ export interface World {
   teamTotal: number
   /** 렌더용 파생값 */
   screenX: number
+  screenX2: number
   clockShut: boolean
+  clockGapLeft: boolean
   clockNum: number
+  protX: number
   gate: GateState | null
   /** 적분 전 y — 림 통과 판정용 (매 스텝 재사용, 할당 없음) */
   prevY: number[]
@@ -141,6 +150,8 @@ export function createWorld(order: string[], seed?: number, gateOn = false): Wor
       scoredStep: -1,
       out: false,
       released: false,
+      screenTouches: 0,
+      screenPrev: false,
       markY: -1e9,
       still: 0,
     })
@@ -155,7 +166,9 @@ export function createWorld(order: string[], seed?: number, gateOn = false): Wor
     bumpHits: [], bumpHitCount: 0,
     goals: [], goalSteps: [], justScored: null,
     teamTotal: order.length,
-    screenX: screenX(0), clockShut: clockClosed(0), clockNum: clockReadout(0),
+    screenX: screenX(0), screenX2: screenX2(0),
+    clockShut: clockClosed(0), clockGapLeft: clockGapLeft(0), clockNum: clockReadout(0),
+    protX: protectorX(0),
     gate: gateOn ? { order: [...order], nextIdx: 0, lastReleaseStep: -RELEASE_GAP, openAll: false } : null,
     prevY: new Array(marbles.length).fill(0),
   }
@@ -183,10 +196,16 @@ export function stepWorld(w: World): void {
 
   // 장애물 상태 — step 만으로 정해진다
   const sx = screenX(w.step)
+  const sx2 = screenX2(w.step)
   const shut = clockClosed(w.step)
+  const bar = clockBar(w.step)
+  const px = protectorX(w.step)
   w.screenX = sx
+  w.screenX2 = sx2
   w.clockShut = shut
+  w.clockGapLeft = clockGapLeft(w.step)
   w.clockNum = clockReadout(w.step)
+  w.protX = px
 
   // ── 폴백 게이트: 슈트가 비었을 때만 다음 한 개를 내보낸다
   const g = w.gate
@@ -257,6 +276,11 @@ export function stepWorld(w: World): void {
 
     m.vx *= DRAG
     m.vy *= DRAG
+    // 지역방어 슬로우존 — 순수 곱셈. 충돌체가 아니라 감속이라 끼임을 만들지 않는다.
+    if (!m.scored && m.y > ZONE_Y0 && m.y < ZONE_Y1) {
+      m.vx *= ZONE_DRAG
+      m.vy *= ZONE_DRAG
+    }
     const sp2 = m.vx * m.vx + m.vy * m.vy
     if (sp2 > VMAX * VMAX) {
       const k = VMAX / Math.sqrt(sp2)
@@ -268,8 +292,9 @@ export function stepWorld(w: World): void {
   }
 
   // ── 정적 선분 / 페그 / 범퍼 / 장애물
-  const scrY1 = SCREEN_Y - SCREEN_TILT
-  const scrY2 = SCREEN_Y + SCREEN_TILT
+  // 스크린 2는 기울기를 반대로 준다 — 두 개가 같은 쪽으로 공을 흘리면 한쪽 레인만 뚫린다.
+  const s1a = SCREEN1_Y - SCREEN_TILT, s1b = SCREEN1_Y + SCREEN_TILT
+  const s2a = SCREEN2_Y + SCREEN_TILT, s2b = SCREEN2_Y - SCREEN_TILT
   for (let i = 0; i < ms.length; i++) {
     const m = ms[i]
     if (m.out || m.scored) continue
@@ -292,13 +317,27 @@ export function stepWorld(w: World): void {
       }
     }
 
-    // 스크린(픽) — 좌우로 미끄러지는 기울어진 벽
-    if (m.y > scrY1 - 2 && m.y < scrY2 + 2) {
-      collideSegment(m, sx, scrY1, sx + SCREEN_LEN, scrY2, 0.24, 0.36)
+    // 스크린(픽) 2개 — 좌우로 미끄러지는 기울어진 벽
+    let onScreen = false
+    if (m.y > s1a - 2 && m.y < s1b + 2) {
+      if (collideSegment(m, sx, s1a, sx + SCREEN_LEN, s1b, 0.24, 0.36)) onScreen = true
     }
-    // 샷클락 게이트 — 닫혀 있는 동안만 존재. 벽에서 벽까지 틈이 없다(구석 끼임 방지).
+    if (m.y > s2b - 2 && m.y < s2a + 2) {
+      if (collideSegment(m, sx2, s2a, sx2 + SCREEN_LEN, s2b, 0.24, 0.36)) onScreen = true
+    }
+    if (!m.screenPrev && onScreen) m.screenTouches++
+    m.screenPrev = onScreen
+    // 샷클락 게이트 — 닫혀 있는 동안만 존재. 한쪽 끝에 공 한 개 폭 틈이 남아 조금씩 샌다.
     if (shut && m.y > CLOCK_Y - 2 && m.y < CLOCK_Y + 2) {
-      collideSegment(m, 0, CLOCK_Y, COURSE_W, CLOCK_Y, 0.05, 0.3)
+      collideSegment(m, bar[0], CLOCK_Y, bar[1], CLOCK_Y, 0.05, 0.3)
+    }
+    // 림 프로텍터 — 슈트 입구 위에서 흔들리는 큰 수비수 + 들어올린 팔
+    if (m.y > PROT_Y + PROT_ARM.oy - 2 && m.y < PROT_Y + PROT_R + 2) {
+      collideCircle(m, px, PROT_Y, PROT_R, 0.4)
+      collideSegment(m, px - PROT_ARM.ix, PROT_Y + PROT_ARM.iy,
+        px - PROT_ARM.ox, PROT_Y + PROT_ARM.oy, 0.3, PROT_ARM.thick)
+      collideSegment(m, px + PROT_ARM.ix, PROT_Y + PROT_ARM.iy,
+        px + PROT_ARM.ox, PROT_Y + PROT_ARM.oy, 0.3, PROT_ARM.thick)
     }
     // 리바운드 범퍼 — 반발 1.4
     const bl = course.bumpers
@@ -390,7 +429,7 @@ export function stepWorld(w: World): void {
 function collideSegment(
   m: Marble, x1: number, y1: number, x2: number, y2: number, rest: number, thick: number,
   cx = 0, cy = 0, omega = 0,
-): void {
+): boolean {
   const dx = x2 - x1, dy = y2 - y1
   const L2 = dx * dx + dy * dy
   let t = L2 === 0 ? 0 : ((m.x - x1) * dx + (m.y - y1) * dy) / L2
@@ -399,7 +438,7 @@ function collideSegment(
   let ox = m.x - px, oy = m.y - py
   const d2 = ox * ox + oy * oy
   const reach = m.r + thick
-  if (d2 >= reach * reach) return
+  if (d2 >= reach * reach) return false
   let d = Math.sqrt(d2)
   if (d === 0) {
     // 선분 위에 정확히 겹침 — 법선을 선분 수직으로 잡는다
@@ -435,6 +474,7 @@ function collideSegment(
     m.vx += cvx * 0.22
     m.vy += cvy * 0.22
   }
+  return true
 }
 
 /** 원 vs 정적 원. 세게 맞으면 true(소리·플래시용). */

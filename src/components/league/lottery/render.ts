@@ -2,9 +2,10 @@
 // 여기서는 sin/cos 를 마음껏 쓴다(그림은 기기마다 달라도 되지만, 궤적은 달라지면 안 된다).
 
 import {
-  BOARD_X0, BOARD_X1, BOARD_Y0, BOARD_Y1, CHUTE_TOP, CHUTE_X0, CHUTE_X1, COURSE_W, FLOOR_Y,
-  CLOCK_Y, HOOP_HALF, HOOP_X, NET_BOTTOM, RIM_Y, SCREEN_LEN, SCREEN_TILT, SCREEN_Y,
-  START_LINE_Y, TOP_Y,
+  BOARD_X0, BOARD_X1, BOARD_Y0, BOARD_Y1, CHUTE_TOP, CHUTE_X0, CHUTE_X1, clockBar, COURSE_W,
+  FLOOR_Y, CLOCK_Y, HOOP_HALF, HOOP_X, NET_BOTTOM, PROT_ARM, PROT_R, PROT_Y, RIM_Y,
+  SCREEN1_Y, SCREEN2_Y, SCREEN_LEN, SCREEN_TILT, START_LINE_Y, TOP_Y,
+  ZONE_MARKS, ZONE_Y0, ZONE_Y1,
   type Course,
 } from './course'
 import type { World } from './sim'
@@ -66,11 +67,14 @@ export function drawScene(ctx: CanvasRenderingContext2D, w: World, o: SceneOpts)
   drawFloor(ctx, yTop, yBot)
   drawPaintedKey(ctx, yTop, yBot)
   drawHoop(ctx, o, yTop, yBot)          // 백보드·네트는 코스 선분 뒤에
+  drawZone(ctx, yTop, yBot, s)          // 존은 바닥 위·장애물 아래
   drawCourse(ctx, w.course, yTop, yBot, s)
-  drawScreen(ctx, w, yTop, yBot, s)
+  drawScreen(ctx, w.screenX, SCREEN1_Y, 1, w.course.screenNum, yTop, yBot, s)
+  drawScreen(ctx, w.screenX2, SCREEN2_Y, -1, w.course.screenNum2, yTop, yBot, s)
   drawShotClock(ctx, w, yTop, yBot, s)
   drawBumpers(ctx, w, o, yTop, yBot, s)
   drawWheel(ctx, w, yTop, yBot)
+  drawProtector(ctx, w, yTop, yBot, s)
   if (o.waiting) drawStartLine(ctx, yTop, yBot)
   drawSparks(ctx, o)
 
@@ -129,13 +133,15 @@ function drawPaintedKey(ctx: CanvasRenderingContext2D, yTop: number, yBot: numbe
   ctx.moveTo(COURSE_W - 0.55, yTop); ctx.lineTo(COURSE_W - 0.55, Math.min(FLOOR_Y, yBot))
   ctx.stroke()
   // 골밑 페인트존 — 퍼널이 시작되는 높이까지
-  if (yBot > 100) {
+  // ⚠ 시작 높이를 슬로우존(103~108) 위로 올리지 말 것 — 자유투 서클이 ZONE 띠를 덮어
+  //    빗금 위에 반원 그릇이 얹힌 것처럼 보였다.
+  if (yBot > 112) {
     const ky1 = Math.min(FLOOR_Y, yBot)
     ctx.fillStyle = PAINT
-    ctx.fillRect(7, 100, 10, ky1 - 100)
-    ctx.strokeRect(7, 100, 10, ky1 - 100)
+    ctx.fillRect(7, 112, 10, ky1 - 112)
+    ctx.strokeRect(7, 112, 10, ky1 - 112)
     ctx.beginPath()
-    ctx.arc(12, 100, 5, 0, Math.PI)
+    ctx.arc(12, 112, 5, 0, Math.PI)
     ctx.stroke()
   }
   // 센터 서클
@@ -221,11 +227,14 @@ function drawCourse(ctx: CanvasRenderingContext2D, c: Course, yTop: number, yBot
   }
 }
 
-// ── 스크린(픽) — 유니폼 색 블록 + 등번호. 좌우로 미끄러진다.
-function drawScreen(ctx: CanvasRenderingContext2D, w: World, yTop: number, yBot: number, scale: number) {
-  if (SCREEN_Y + 3 < yTop || SCREEN_Y - 3 > yBot) return
-  const x1 = w.screenX, y1 = SCREEN_Y - SCREEN_TILT
-  const x2 = x1 + SCREEN_LEN, y2 = SCREEN_Y + SCREEN_TILT
+// ── 스크린(픽) — 유니폼 색 블록 + 등번호. 좌우로 미끄러진다. tilt=+1/-1 로 기울기가 갈린다.
+function drawScreen(
+  ctx: CanvasRenderingContext2D, sx: number, cy: number, tilt: number, num: number,
+  yTop: number, yBot: number, scale: number,
+) {
+  if (cy + 3 < yTop || cy - 3 > yBot) return
+  const x1 = sx, y1 = cy - SCREEN_TILT * tilt
+  const x2 = x1 + SCREEN_LEN, y2 = cy + SCREEN_TILT * tilt
   ctx.save()
   ctx.lineCap = 'round'
   ctx.strokeStyle = 'rgba(0,0,0,0.4)'
@@ -251,7 +260,7 @@ function drawScreen(ctx: CanvasRenderingContext2D, w: World, yTop: number, yBot:
     ctx.font = '700 1.05px ui-sans-serif, system-ui, sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(String(w.course.screenNum), mx, my + 0.05)
+    ctx.fillText(String(num), mx, my + 0.05)
   }
   ctx.restore()
 }
@@ -261,15 +270,17 @@ function drawShotClock(ctx: CanvasRenderingContext2D, w: World, yTop: number, yB
   if (CLOCK_Y + 4 < yTop || CLOCK_Y - 4 > yBot) return
   ctx.save()
   if (w.clockShut) {
+    // 한쪽 끝에 공 한 개 폭 틈 — 그림에서도 그 틈이 보여야 "샌다"가 읽힌다
+    const [bx1, bx2] = clockBar(w.step)
     ctx.strokeStyle = 'rgba(0,0,0,0.4)'
     ctx.lineWidth = 0.8
-    ctx.beginPath(); ctx.moveTo(0, CLOCK_Y + 0.28); ctx.lineTo(COURSE_W, CLOCK_Y + 0.28); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(bx1, CLOCK_Y + 0.28); ctx.lineTo(bx2, CLOCK_Y + 0.28); ctx.stroke()
     ctx.strokeStyle = '#b91c1c'
     ctx.lineWidth = 0.6
-    ctx.beginPath(); ctx.moveTo(0, CLOCK_Y); ctx.lineTo(COURSE_W, CLOCK_Y); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(bx1, CLOCK_Y); ctx.lineTo(bx2, CLOCK_Y); ctx.stroke()
     ctx.strokeStyle = 'rgba(254,226,226,0.85)'
     ctx.lineWidth = 0.12
-    ctx.beginPath(); ctx.moveTo(0, CLOCK_Y); ctx.lineTo(COURSE_W, CLOCK_Y); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(bx1, CLOCK_Y); ctx.lineTo(bx2, CLOCK_Y); ctx.stroke()
   } else {
     ctx.setLineDash([0.7, 0.9])
     ctx.strokeStyle = 'rgba(148,163,184,0.5)'
@@ -324,6 +335,101 @@ function drawBumpers(ctx: CanvasRenderingContext2D, w: World, o: SceneOpts, yTop
     }
     ctx.restore()
   }
+}
+
+// ── 지역방어 슬로우존 — 빗금 친 반투명 띠 + 웅크린 수비수 실루엣(등번호 없음)
+function drawZone(ctx: CanvasRenderingContext2D, yTop: number, yBot: number, scale: number) {
+  if (ZONE_Y1 < yTop || ZONE_Y0 > yBot) return
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(0, ZONE_Y0, COURSE_W, ZONE_Y1 - ZONE_Y0)
+  ctx.fillStyle = 'rgba(30,64,175,0.26)'
+  ctx.fill()
+  ctx.save()
+  ctx.clip()
+  ctx.strokeStyle = 'rgba(147,197,253,0.30)'
+  ctx.lineWidth = 0.22
+  ctx.beginPath()
+  for (let x = -6; x < COURSE_W + 6; x += 1.5) {
+    ctx.moveTo(x, ZONE_Y1)
+    ctx.lineTo(x + (ZONE_Y1 - ZONE_Y0), ZONE_Y0)
+  }
+  ctx.stroke()
+  ctx.restore()
+  ctx.strokeStyle = 'rgba(147,197,253,0.6)'
+  ctx.lineWidth = 0.16
+  ctx.beginPath()
+  ctx.moveTo(0, ZONE_Y0); ctx.lineTo(COURSE_W, ZONE_Y0)
+  ctx.moveTo(0, ZONE_Y1); ctx.lineTo(COURSE_W, ZONE_Y1)
+  ctx.stroke()
+
+  // 웅크린 수비수 — 등번호 없는 육각(코스의 다른 페그와 구분된다)
+  for (const m of ZONE_MARKS) {
+    ctx.beginPath()
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 3) * i - Math.PI / 2
+      const hx = m.x + Math.cos(a) * 1.0
+      const hy = m.y + Math.sin(a) * 0.72
+      if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy)
+    }
+    ctx.closePath()
+    ctx.fillStyle = 'rgba(30,58,138,0.92)'
+    ctx.fill()
+    ctx.lineWidth = 0.14
+    ctx.strokeStyle = 'rgba(191,219,254,0.95)'
+    ctx.stroke()
+  }
+  if (scale > 7) {
+    ctx.fillStyle = 'rgba(191,219,254,0.85)'
+    ctx.font = '800 1.5px ui-sans-serif, system-ui, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('ZONE', HOOP_X, (ZONE_Y0 + ZONE_Y1) / 2)
+  }
+  ctx.restore()
+}
+
+// ── 림 프로텍터 — 슈트 입구 위에서 좌우로 흔들리는 큰 수비수 + 들어올린 팔
+function drawProtector(ctx: CanvasRenderingContext2D, w: World, yTop: number, yBot: number, scale: number) {
+  if (PROT_Y + 3 < yTop || PROT_Y - 4 > yBot) return
+  const cx = w.protX
+  ctx.save()
+  ctx.lineCap = 'round'
+  // 팔
+  ctx.strokeStyle = '#111827'
+  ctx.lineWidth = PROT_ARM.thick * 2 + 0.16
+  ctx.beginPath()
+  ctx.moveTo(cx - PROT_ARM.ix, PROT_Y + PROT_ARM.iy); ctx.lineTo(cx - PROT_ARM.ox, PROT_Y + PROT_ARM.oy)
+  ctx.moveTo(cx + PROT_ARM.ix, PROT_Y + PROT_ARM.iy); ctx.lineTo(cx + PROT_ARM.ox, PROT_Y + PROT_ARM.oy)
+  ctx.stroke()
+  ctx.strokeStyle = JERSEY
+  ctx.lineWidth = PROT_ARM.thick * 2
+  ctx.beginPath()
+  ctx.moveTo(cx - PROT_ARM.ix, PROT_Y + PROT_ARM.iy); ctx.lineTo(cx - PROT_ARM.ox, PROT_Y + PROT_ARM.oy)
+  ctx.moveTo(cx + PROT_ARM.ix, PROT_Y + PROT_ARM.iy); ctx.lineTo(cx + PROT_ARM.ox, PROT_Y + PROT_ARM.oy)
+  ctx.stroke()
+  // 몸통 — 큰 육각
+  ctx.beginPath()
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 3) * i - Math.PI / 2
+    const hx = cx + Math.cos(a) * PROT_R * 1.2
+    const hy = PROT_Y + Math.sin(a) * PROT_R * 1.2
+    if (i === 0) ctx.moveTo(hx, hy); else ctx.lineTo(hx, hy)
+  }
+  ctx.closePath()
+  ctx.fillStyle = JERSEY
+  ctx.fill()
+  ctx.lineWidth = 0.16
+  ctx.strokeStyle = '#e2e8f0'
+  ctx.stroke()
+  if (scale * PROT_R > 8) {
+    ctx.fillStyle = '#ffffff'
+    ctx.font = `800 ${(PROT_R * 1.05).toFixed(2)}px ui-sans-serif, system-ui, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(String(w.course.protNum), cx, PROT_Y + 0.05)
+  }
+  ctx.restore()
 }
 
 // ── 스핀무브 휠
