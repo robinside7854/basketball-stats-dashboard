@@ -286,6 +286,10 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   const [expandedGame, setExpandedGame] = useState<string | null>(initialGameId ?? null)
   const [activeTab, setActiveTab] = useState<'result' | 'boxscore' | 'compare'>('result')
   const [teamFilter, setTeamFilter] = useState<string>('all')
+  // 박스스코어 탭에서 보고 있는 대진. 'all' 이면 그날 전체 합산.
+  //   하루에 대진이 3개인데 이 탭에는 합산표 하나뿐이라, 운영자가 "맞대결 박스스코어가
+  //   안 보인다"고 했다. 자료는 이미 games[].players 로 경기별로 와 있었다(2026-09-18).
+  const [gameFilter, setGameFilter] = useState<string>('all')
   // 이미지 저장 진행 상태
   const [savingImage, setSavingImage] = useState(false)
   // 공유용 hidden 캡처 대상 ref (실제 캡처는 ShareableBoxscore)
@@ -572,14 +576,14 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                   style={{ color: 'var(--mm-muted)', letterSpacing: '0.20em' }}
                 >경기별 스코어</p>
 
-                {/* 대진 롤업 안내 — 슬롯을 쿼터 단위로 쓴 날에만 뜬다.
-                    정규전은 같은 대진이 연속될 수 없어(2연속 뛴 팀 강제 휴식) 한 칸도 묶이지 않는다. */}
-                {rolledUp && (
-                  <p className="text-xs mb-2.5" style={{ color: 'var(--mm-muted)' }}>
-                    쿼터별로 나눠 올린 날입니다 — 같은 대진이 이어진 슬롯을 한 경기로 묶어 보여줍니다.
-                    카드를 누르면 그 경기의 박스스코어가 열립니다.
-                  </p>
-                )}
+                {/* ⚠ "카드를 누르면 박스스코어가 열린다"는 안내가 rolledUp 일 때만 떴다.
+                    정규전은 같은 대진이 연속될 수 없어(2연속 뛴 팀 강제 휴식) 롤업이 한 칸도
+                    안 일어나므로, 이 안내가 **영영 안 떴다.** 접힌 카드에 셰브론 아이콘 하나뿐이라
+                    맞대결 기록이 있는 줄도 몰랐다는 신고로 이어졌다(2026-09-18). 안내는 늘 띄운다. */}
+                <p className="text-xs mb-2.5" style={{ color: 'var(--mm-muted)' }}>
+                  {rolledUp && '쿼터별로 나눠 올린 날입니다 — 같은 대진이 이어진 슬롯을 한 경기로 묶어 보여줍니다. '}
+                  카드를 누르면 그 경기의 박스스코어가 열립니다.
+                </p>
 
                 {games.map(g => {
                   const isExpanded = expandedGame === g.id
@@ -643,6 +647,12 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                           )}
                           <div className="ml-auto flex items-center gap-2 shrink-0">
                             {g.youtube_url && <Youtube size={14} style={{ color: 'var(--mm-live)' }} aria-label="하이라이트 영상 있음" />}
+                            {/* 아이콘만으로는 눌러서 열 수 있다는 게 안 읽힌다 — 글자로 적는다.
+                                모바일에서 숨기지 않는다(이 화면을 실제로 보는 곳이 휴대폰이다).
+                                좁은 폭에서는 팀명 쪽이 truncate 되므로 이 글자가 밀어내지 않는다. */}
+                            <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
+                              {isExpanded ? '접기' : '박스스코어'}
+                            </span>
                             {isExpanded
                               ? <ChevronUp size={16} style={{ color: 'var(--mm-muted)' }} />
                               : <ChevronDown size={16} style={{ color: 'var(--mm-muted)' }} />}
@@ -771,17 +781,23 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
 
           {/* 탭 2: 박스스코어 — 팀 필터 + 스탯 리더 + 전체 선수 스탯 (모바일 카드 + 데스크탑 테이블) */}
           {activeTab === 'boxscore' && (() => {
-            // 팀 목록 추출 (team_id 있는 선수만)
+            // 고른 대진의 선수 기록. 'all' 이면 그날 전체 합산(daily_stats).
+            //   games[].players 는 그 경기만의 기록이라 표를 그대로 먹이면 된다 —
+            //   경기별 집계를 새로 만들면 두 화면 숫자가 갈린다.
+            const pickedGame = gameFilter === 'all' ? null : games.find(g => g.id === gameFilter) ?? null
+            const baseRows: (DailyStat | PlayerRow)[] = pickedGame ? pickedGame.players : dailyStats
+
+            // 팀 목록은 지금 보고 있는 범위에서 뽑는다. 대진을 고르면 그 두 팀만 남는다.
             const teamList = Array.from(
               new Map(
-                dailyStats
+                baseRows
                   .filter(d => d.team_id && d.team_name)
                   .map(d => [d.team_id!, { id: d.team_id!, name: d.team_name!, color: d.team_color }])
               ).values()
             )
             const filteredStats = teamFilter === 'all'
-              ? dailyStats
-              : dailyStats.filter(d => d.team_id === teamFilter)
+              ? baseRows
+              : baseRows.filter(d => d.team_id === teamFilter)
 
             return (
             <div
@@ -790,6 +806,45 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               aria-labelledby="daily-boxscore-tab-boxscore"
               className="p-4 sm:p-5 space-y-4"
             >
+              {/* 대진 선택 — 그날 경기가 둘 이상일 때만. 이게 없던 동안 이 탭에는
+                  그날 전체 합산표 하나뿐이라 맞대결 기록을 볼 방법이 없었다. */}
+              {games.length > 1 && (
+                <div className="space-y-1.5">
+                  <span className="block text-xs font-black uppercase tracking-widest" style={{ color: 'var(--mm-muted)' }}>대진</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      onClick={() => { setGameFilter('all'); setTeamFilter('all') }}
+                      aria-pressed={gameFilter === 'all'}
+                      className="px-3 py-2 text-xs font-black tracking-wide transition-colors duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                      style={gameFilter === 'all'
+                        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
+                        : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                    >하루 전체</button>
+                    {games.map(g => {
+                      const label = `${g.home_team?.name ?? '홈'} vs ${g.away_team?.name ?? '어웨이'}`
+                      const on = gameFilter === g.id
+                      return (
+                        <button
+                          key={g.id}
+                          onClick={() => { setGameFilter(g.id); setTeamFilter('all') }}
+                          aria-pressed={on}
+                          title={`${label} — 이 경기만의 박스스코어`}
+                          className="px-3 py-2 text-xs font-black tracking-wide transition-colors duration-200 cursor-pointer min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                          style={on
+                            ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
+                            : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                        >
+                          {label}
+                          <span className="ml-1.5 tabular-nums font-bold" style={{ opacity: 0.75 }}>
+                            {g.home_score}:{g.away_score}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* 팀 필터 chip */}
               {teamList.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -830,12 +885,17 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                   .filter(p => p.fg3a >= MIN_FG3A)
                   .sort((a,b) => b.fg3m - a.fg3m)[0]
 
+                // 대진 하나를 보고 있을 때 "1경기" 는 아무것도 알려주지 않는다 — 비운다.
+                //   games[].players 에는 gp 가 없으므로 접근 자체도 좁혀서 한다.
+                const gpSub = (r?: DailyStat | PlayerRow) =>
+                  pickedGame ? '' : `${(r && 'gp' in r ? r.gp : 0)}경기`
+
                 const leaders = [
-                  { icon: '🏀', label: '득점',   name: byPts?.name,   val: byPts?.pts != null ? `${byPts.pts}점` : null,      sub: `${byPts?.gp ?? 0}경기` },
+                  { icon: '🏀', label: '득점',   name: byPts?.name,   val: byPts?.pts != null ? `${byPts.pts}점` : null,      sub: gpSub(byPts) },
                   { icon: '💪', label: '리바운드', name: byReb?.name,   val: byReb?.reb != null ? `${byReb.reb}개` : null,      sub: `OR ${byReb?.oreb ?? 0} / DR ${byReb?.dreb ?? 0}` },
-                  { icon: '🎯', label: '어시스트', name: byAst?.name,   val: byAst?.ast != null ? `${byAst.ast}개` : null,      sub: `${byAst?.gp ?? 0}경기` },
-                  { icon: '🚫', label: '블락',    name: byBlk?.name,   val: byBlk?.blk != null ? `${byBlk.blk}개` : null,      sub: `${byBlk?.gp ?? 0}경기` },
-                  { icon: '✋', label: '스틸',    name: byStl?.name,   val: byStl?.stl != null ? `${byStl.stl}개` : null,      sub: `${byStl?.gp ?? 0}경기` },
+                  { icon: '🎯', label: '어시스트', name: byAst?.name,   val: byAst?.ast != null ? `${byAst.ast}개` : null,      sub: gpSub(byAst) },
+                  { icon: '🚫', label: '블락',    name: byBlk?.name,   val: byBlk?.blk != null ? `${byBlk.blk}개` : null,      sub: gpSub(byBlk) },
+                  { icon: '✋', label: '스틸',    name: byStl?.name,   val: byStl?.stl != null ? `${byStl.stl}개` : null,      sub: gpSub(byStl) },
                   { icon: '📊', label: '야투율',   name: byFgPct?.name, val: byFgPct?.fg_pct != null ? `${byFgPct.fg_pct}%` : null, sub: byFgPct ? `${byFgPct.fgm}/${byFgPct.fga}` : '' },
                   { icon: '🎪', label: '3점슛',   name: byFg3?.name,   val: byFg3?.fg3m != null ? `${byFg3.fg3m}개` : null,   sub: byFg3 && byFg3.fg3a > 0 ? `${byFg3.fg3_pct}%` : '' },
                 ]
@@ -886,13 +946,29 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
               {filteredStats.length > 0
                 ? (
                   <>
-                    {/* 데스크탑 테이블 */}
+                    {/* 대진 하나를 고르면 어느 팀 대 어느 팀의 표인지 위에 적는다 —
+                        칩만으로는 스크롤 뒤에 표만 남아 무슨 표인지 알 수 없다. */}
+                    {pickedGame && (
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <span className="text-sm font-black" style={{ color: 'var(--mm-ink)' }}>
+                          {pickedGame.home_team?.name ?? '홈'} <span style={{ color: 'var(--mm-muted)' }}>vs</span> {pickedGame.away_team?.name ?? '어웨이'}
+                        </span>
+                        <span className="text-sm font-black tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>
+                          {pickedGame.home_score} : {pickedGame.away_score}
+                        </span>
+                        {!pickedGame.is_complete && (
+                          <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>기록 중</span>
+                        )}
+                      </div>
+                    )}
+                    {/* 데스크탑 테이블 — G(경기수) 는 하루 합산일 때만 뜻이 있다.
+                        대진 하나에서는 전부 1 이라 자리만 차지한다. */}
                     <div className="hidden md:block overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
-                      <StatTable rows={filteredStats} showGP />
+                      <StatTable rows={filteredStats} showGP={!pickedGame} />
                     </div>
                     {/* 모바일 카드 뷰 */}
                     <div className="md:hidden">
-                      <MobileStatCards rows={filteredStats} showGP />
+                      <MobileStatCards rows={filteredStats} showGP={!pickedGame} />
                     </div>
                   </>
                 )
