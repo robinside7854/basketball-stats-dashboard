@@ -2,13 +2,14 @@
 // 여기서는 sin/cos 를 마음껏 쓴다(그림은 기기마다 달라도 되지만, 궤적은 달라지면 안 된다).
 
 import {
-  BOARD_X0, BOARD_X1, COURSE_W, FLOOR_Y, GATE_APEX_Y, GATE_X0, GATE_X1,
-  HOOP_HALF, HOOP_X, NET_BOTTOM, RIM_Y, SHELF_INNER_Y, TOP_Y,
+  BOARD_X0, BOARD_X1, BOARD_Y0, BOARD_Y1, CHUTE_TOP, CHUTE_X0, CHUTE_X1, COURSE_W, FLOOR_Y,
+  CLOCK_Y, HOOP_HALF, HOOP_X, NET_BOTTOM, RIM_Y, SCREEN_LEN, SCREEN_TILT, SCREEN_Y,
+  START_LINE_Y, TOP_Y,
   type Course,
 } from './course'
 import type { World } from './sim'
 
-/** 그리기에 필요한 최소 정보 — 심의 Marble 도, 날아가는 공도 이 모양이면 된다 */
+/** 그리기에 필요한 최소 정보 */
 interface Drawable { x: number; y: number; r: number; rot: number; team: string | null }
 import { teamInk } from '@/lib/util/contrastColor'
 
@@ -16,26 +17,21 @@ export interface Cam { x: number; y: number; zoom: number }
 
 export interface TeamInfo { name: string; color: string }
 
-/** 공개 단계에서 날아가는 공 */
-export interface FlyingBall {
-  x: number; y: number; rot: number
-  teamId: string
-  /** 림을 통과했는지 — 네트 앞/뒤 그리기 순서가 갈린다 */
-  through: boolean
-}
-
 export interface SceneOpts {
   viewW: number
   viewH: number
   cam: Cam
   teams: Record<string, TeamInfo>
-  flying: FlyingBall | null
   /** 림 플래시 0~1 */
   rimFlash: number
   /** 네트 출렁임 0~1 */
   netWave: number
   /** 페그 타격 잔상 */
   sparks: { x: number; y: number; life: number }[]
+  /** 범퍼별 잔광 0~1 */
+  bumperFlash: number[]
+  /** 출발 전 — 팁오프 라인을 그린다 */
+  waiting: boolean
 }
 
 const WOOD_A = '#8a5a2b'
@@ -44,6 +40,7 @@ const WOOD_LINE = 'rgba(0,0,0,0.22)'
 const PAINT = 'rgba(200,86,24,0.30)'
 const LINE = 'rgba(255,255,255,0.72)'
 const APRON = '#0a0a0f'
+const JERSEY = '#1e40af'
 
 /** 캔버스 좌표계를 월드로 바꾼다. 호출 후 반드시 ctx.restore(). */
 function applyCam(ctx: CanvasRenderingContext2D, o: SceneOpts): number {
@@ -68,9 +65,13 @@ export function drawScene(ctx: CanvasRenderingContext2D, w: World, o: SceneOpts)
 
   drawFloor(ctx, yTop, yBot)
   drawPaintedKey(ctx, yTop, yBot)
+  drawHoop(ctx, o, yTop, yBot)          // 백보드·네트는 코스 선분 뒤에
   drawCourse(ctx, w.course, yTop, yBot, s)
-  drawHoop(ctx, o, yTop, yBot)
+  drawScreen(ctx, w, yTop, yBot, s)
+  drawShotClock(ctx, w, yTop, yBot, s)
+  drawBumpers(ctx, w, o, yTop, yBot, s)
   drawWheel(ctx, w, yTop, yBot)
+  if (o.waiting) drawStartLine(ctx, yTop, yBot)
   drawSparks(ctx, o)
 
   for (const m of w.marbles) {
@@ -78,17 +79,15 @@ export function drawScene(ctx: CanvasRenderingContext2D, w: World, o: SceneOpts)
     drawMarble(ctx, m, m.team ? o.teams[m.team] : undefined, s)
   }
 
-  if (o.flying) {
-    const t = o.teams[o.flying.teamId]
-    drawMarble(ctx, { x: o.flying.x, y: o.flying.y, r: 0.62, rot: o.flying.rot, team: o.flying.teamId }, t, s, true)
-  }
-
+  drawRim(ctx, o, yTop, yBot)           // 림은 공 앞에 — 통과가 보이게
   ctx.restore()
 }
 
 // ── 마룻바닥 (절차적 널판)
 function drawFloor(ctx: CanvasRenderingContext2D, yTop: number, yBot: number) {
-  const y0 = Math.max(TOP_Y, yTop)
+  // ⚠ 위쪽을 TOP_Y 에서 끊지 않는다. 좁은 화면(390px)에서는 코스 폭이 배율을 정해서
+  //    세로로 남는 공간이 생기는데, 거기가 검게 비면 팁오프 대기 화면 절반이 빈 화면이 된다.
+  const y0 = yTop
   const y1 = Math.min(FLOOR_Y, yBot)
   if (y1 <= y0) return
   ctx.save()
@@ -125,19 +124,18 @@ function drawPaintedKey(ctx: CanvasRenderingContext2D, yTop: number, yBot: numbe
   ctx.save()
   ctx.lineWidth = 0.22
   ctx.strokeStyle = LINE
-  // 사이드라인
   ctx.beginPath()
-  ctx.moveTo(0.55, Math.max(TOP_Y, yTop)); ctx.lineTo(0.55, Math.min(FLOOR_Y, yBot))
-  ctx.moveTo(COURSE_W - 0.55, Math.max(TOP_Y, yTop)); ctx.lineTo(COURSE_W - 0.55, Math.min(FLOOR_Y, yBot))
+  ctx.moveTo(0.55, yTop); ctx.lineTo(0.55, Math.min(FLOOR_Y, yBot))
+  ctx.moveTo(COURSE_W - 0.55, yTop); ctx.lineTo(COURSE_W - 0.55, Math.min(FLOOR_Y, yBot))
   ctx.stroke()
-  // 골밑 페인트존
-  if (yBot > 92) {
+  // 골밑 페인트존 — 퍼널이 시작되는 높이까지
+  if (yBot > 100) {
+    const ky1 = Math.min(FLOOR_Y, yBot)
     ctx.fillStyle = PAINT
-    ctx.fillRect(7, 92, 10, Math.min(SHELF_INNER_Y, yBot) - 92)
-    ctx.strokeRect(7, 92, 10, Math.min(SHELF_INNER_Y, yBot) - 92)
-    // 자유투 서클
+    ctx.fillRect(7, 100, 10, ky1 - 100)
+    ctx.strokeRect(7, 100, 10, ky1 - 100)
     ctx.beginPath()
-    ctx.arc(12, 92, 5, 0, Math.PI)
+    ctx.arc(12, 100, 5, 0, Math.PI)
     ctx.stroke()
   }
   // 센터 서클
@@ -149,7 +147,21 @@ function drawPaintedKey(ctx: CanvasRenderingContext2D, yTop: number, yBot: numbe
   ctx.restore()
 }
 
-// ── 램프·퍼널·선반 + 수비수 페그
+// ── 팁오프 라인 (출발 전)
+function drawStartLine(ctx: CanvasRenderingContext2D, yTop: number, yBot: number) {
+  if (START_LINE_Y < yTop || START_LINE_Y > yBot) return
+  ctx.save()
+  ctx.setLineDash([1.1, 0.8])
+  ctx.lineWidth = 0.34
+  ctx.strokeStyle = '#fbbf24'
+  ctx.beginPath()
+  ctx.moveTo(0.4, START_LINE_Y)
+  ctx.lineTo(COURSE_W - 0.4, START_LINE_Y)
+  ctx.stroke()
+  ctx.restore()
+}
+
+// ── 램프·퍼널·슈트 + 수비수 페그
 function drawCourse(ctx: CanvasRenderingContext2D, c: Course, yTop: number, yBot: number, scale: number) {
   for (const sg of c.segs) {
     if (Math.max(sg.y1, sg.y2) < yTop || Math.min(sg.y1, sg.y2) > yBot) continue
@@ -167,20 +179,13 @@ function drawCourse(ctx: CanvasRenderingContext2D, c: Course, yTop: number, yBot
       ctx.strokeStyle = 'rgba(200,86,24,0.85)'
       ctx.lineWidth = 0.2
       ctx.beginPath(); ctx.moveTo(sg.x1, sg.y1); ctx.lineTo(sg.x2, sg.y2); ctx.stroke()
-    } else if (sg.kind === 'funnel') {
-      ctx.strokeStyle = '#2b3242'
-      ctx.lineWidth = 0.95
-      ctx.beginPath(); ctx.moveTo(sg.x1, sg.y1); ctx.lineTo(sg.x2, sg.y2); ctx.stroke()
-      ctx.strokeStyle = 'rgba(245,158,11,0.6)'
-      ctx.lineWidth = 0.18
-      ctx.beginPath(); ctx.moveTo(sg.x1, sg.y1); ctx.lineTo(sg.x2, sg.y2); ctx.stroke()
     } else {
-      // 선반(볼랙) · 가운데 능선
-      ctx.strokeStyle = '#171b24'
-      ctx.lineWidth = 1.1
+      // 퍼널·슈트 — 골대로 모으는 벽
+      ctx.strokeStyle = '#2b3242'
+      ctx.lineWidth = sg.kind === 'chute' ? 0.7 : 0.95
       ctx.beginPath(); ctx.moveTo(sg.x1, sg.y1); ctx.lineTo(sg.x2, sg.y2); ctx.stroke()
       ctx.strokeStyle = 'rgba(245,158,11,0.75)'
-      ctx.lineWidth = 0.2
+      ctx.lineWidth = 0.18
       ctx.beginPath(); ctx.moveTo(sg.x1, sg.y1); ctx.lineTo(sg.x2, sg.y2); ctx.stroke()
     }
     ctx.restore()
@@ -216,6 +221,111 @@ function drawCourse(ctx: CanvasRenderingContext2D, c: Course, yTop: number, yBot
   }
 }
 
+// ── 스크린(픽) — 유니폼 색 블록 + 등번호. 좌우로 미끄러진다.
+function drawScreen(ctx: CanvasRenderingContext2D, w: World, yTop: number, yBot: number, scale: number) {
+  if (SCREEN_Y + 3 < yTop || SCREEN_Y - 3 > yBot) return
+  const x1 = w.screenX, y1 = SCREEN_Y - SCREEN_TILT
+  const x2 = x1 + SCREEN_LEN, y2 = SCREEN_Y + SCREEN_TILT
+  ctx.save()
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = 'rgba(0,0,0,0.4)'
+  ctx.lineWidth = 0.92
+  ctx.beginPath(); ctx.moveTo(x1, y1 + 0.3); ctx.lineTo(x2, y2 + 0.3); ctx.stroke()
+  ctx.strokeStyle = JERSEY
+  ctx.lineWidth = 0.72
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke()
+  ctx.strokeStyle = 'rgba(226,232,240,0.9)'
+  ctx.lineWidth = 0.14
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke()
+  // 등번호
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2
+  ctx.beginPath()
+  ctx.arc(mx, my, 0.95, 0, Math.PI * 2)
+  ctx.fillStyle = JERSEY
+  ctx.fill()
+  ctx.lineWidth = 0.12
+  ctx.strokeStyle = '#e2e8f0'
+  ctx.stroke()
+  if (scale > 9) {
+    ctx.fillStyle = '#ffffff'
+    ctx.font = '700 1.05px ui-sans-serif, system-ui, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(String(w.course.screenNum), mx, my + 0.05)
+  }
+  ctx.restore()
+}
+
+// ── 샷클락 게이트 — 24초 시계가 달린 가로 바. 닫혀 있을 때만 실체가 있다.
+function drawShotClock(ctx: CanvasRenderingContext2D, w: World, yTop: number, yBot: number, scale: number) {
+  if (CLOCK_Y + 4 < yTop || CLOCK_Y - 4 > yBot) return
+  ctx.save()
+  if (w.clockShut) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'
+    ctx.lineWidth = 0.8
+    ctx.beginPath(); ctx.moveTo(0, CLOCK_Y + 0.28); ctx.lineTo(COURSE_W, CLOCK_Y + 0.28); ctx.stroke()
+    ctx.strokeStyle = '#b91c1c'
+    ctx.lineWidth = 0.6
+    ctx.beginPath(); ctx.moveTo(0, CLOCK_Y); ctx.lineTo(COURSE_W, CLOCK_Y); ctx.stroke()
+    ctx.strokeStyle = 'rgba(254,226,226,0.85)'
+    ctx.lineWidth = 0.12
+    ctx.beginPath(); ctx.moveTo(0, CLOCK_Y); ctx.lineTo(COURSE_W, CLOCK_Y); ctx.stroke()
+  } else {
+    ctx.setLineDash([0.7, 0.9])
+    ctx.strokeStyle = 'rgba(148,163,184,0.5)'
+    ctx.lineWidth = 0.14
+    ctx.beginPath(); ctx.moveTo(0, CLOCK_Y); ctx.lineTo(COURSE_W, CLOCK_Y); ctx.stroke()
+    ctx.setLineDash([])
+  }
+  // 24초 판 — 바 위에 붙은 작은 전광판
+  const bw = 3.1, bh = 2.0
+  const bx = COURSE_W - bw - 0.9, by = CLOCK_Y - bh - 0.7
+  ctx.beginPath()
+  ctx.roundRect(bx, by, bw, bh, 0.3)
+  ctx.fillStyle = '#0b0f17'
+  ctx.fill()
+  ctx.lineWidth = 0.12
+  ctx.strokeStyle = w.clockShut ? '#ef4444' : 'rgba(148,163,184,0.7)'
+  ctx.stroke()
+  if (scale > 7) {
+    ctx.fillStyle = w.clockShut ? '#fca5a5' : '#94a3b8'
+    ctx.font = '700 1.35px ui-monospace, SFMono-Regular, monospace'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(String(w.clockNum).padStart(2, '0'), bx + bw / 2, by + bh / 2 + 0.06)
+  }
+  ctx.restore()
+}
+
+// ── 리바운드 범퍼 — 맞으면 튕겨 나가는 주황 원반
+function drawBumpers(ctx: CanvasRenderingContext2D, w: World, o: SceneOpts, yTop: number, yBot: number, scale: number) {
+  const bl = w.course.bumpers
+  for (let i = 0; i < bl.length; i++) {
+    const b = bl[i]
+    if (b.y + b.r < yTop || b.y - b.r > yBot) continue
+    const f = o.bumperFlash[i] ?? 0
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2)
+    const g = ctx.createRadialGradient(b.x - b.r * 0.3, b.y - b.r * 0.35, b.r * 0.1, b.x, b.y, b.r)
+    g.addColorStop(0, f > 0 ? '#fde68a' : '#f59e0b')
+    g.addColorStop(1, f > 0 ? '#f59e0b' : '#b45309')
+    ctx.fillStyle = g
+    ctx.fill()
+    ctx.lineWidth = 0.16 + f * 0.2
+    ctx.strokeStyle = f > 0 ? '#fef3c7' : 'rgba(255,255,255,0.65)'
+    ctx.stroke()
+    if (scale * b.r > 11) {
+      ctx.fillStyle = '#3b1d05'
+      ctx.font = '800 0.62px ui-sans-serif, system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('REB', b.x, b.y + 0.03)
+    }
+    ctx.restore()
+  }
+}
+
 // ── 스핀무브 휠
 function drawWheel(ctx: CanvasRenderingContext2D, w: World, yTop: number, yBot: number) {
   const wh = w.course.wheel
@@ -242,19 +352,17 @@ function drawWheel(ctx: CanvasRenderingContext2D, w: World, yTop: number, yBot: 
   ctx.restore()
 }
 
-// ── 골대 — 코트가 끝나는 선 아래(에이프런)에 매달려 있다.
-// 공개 단계의 공은 이 앞으로 날아가 림에 꽂힌다. 코트 바닥은 절대 열리지 않으므로
-// 선반 위에 굴러다니는 공이 허공에 뜨는 일이 없다.
+// ── 골대 — 코트 한가운데 바닥. 슈트가 곧 골대 위 통로다.
+// 백보드·네트는 공보다 뒤에, 림은 공보다 앞에 그린다(통과가 눈에 보이게).
 function drawHoop(ctx: CanvasRenderingContext2D, o: SceneOpts, yTop: number, yBot: number) {
-  if (NET_BOTTOM < yTop || RIM_Y - 14 > yBot) return
+  if (NET_BOTTOM < yTop || BOARD_Y0 - 6 > yBot) return
   ctx.save()
   // 백보드
-  const bY0 = SHELF_INNER_Y + 2
-  ctx.fillStyle = 'rgba(15,18,26,0.92)'
+  ctx.fillStyle = 'rgba(15,18,26,0.95)'
   ctx.strokeStyle = '#e8edf5'
   ctx.lineWidth = 0.22
   ctx.beginPath()
-  ctx.rect(BOARD_X0, bY0, BOARD_X1 - BOARD_X0, RIM_Y - 0.6 - bY0)
+  ctx.rect(BOARD_X0, BOARD_Y0, BOARD_X1 - BOARD_X0, BOARD_Y1 - BOARD_Y0)
   ctx.fill(); ctx.stroke()
   // 백보드 안쪽 사각 타깃
   ctx.strokeStyle = o.rimFlash > 0 ? '#fbbf24' : 'rgba(232,237,245,0.85)'
@@ -285,16 +393,28 @@ function drawHoop(ctx: CanvasRenderingContext2D, o: SceneOpts, yTop: number, yBo
     ctx.ellipse(HOOP_X, y, r, r * 0.26, 0, 0, Math.PI * 2)
     ctx.stroke()
   }
+  ctx.restore()
+}
 
-  // 림
-  ctx.lineWidth = 0.42
+function drawRim(ctx: CanvasRenderingContext2D, o: SceneOpts, yTop: number, yBot: number) {
+  if (RIM_Y < yTop - 4 || RIM_Y > yBot + 4) return
+  ctx.save()
+  ctx.lineWidth = 0.42 + o.rimFlash * 0.25
   ctx.strokeStyle = o.rimFlash > 0 ? '#fde68a' : '#e2762a'
   if (o.rimFlash > 0) {
     ctx.shadowColor = '#fbbf24'
-    ctx.shadowBlur = 14 * o.rimFlash
+    ctx.shadowBlur = 18 * o.rimFlash
   }
   ctx.beginPath()
   ctx.ellipse(HOOP_X, RIM_Y, HOOP_HALF, HOOP_HALF * 0.34, 0, 0, Math.PI * 2)
+  ctx.stroke()
+  // 슈트 벽에서 림으로 이어지는 짧은 연결 — 통로가 골대에 꽂혀 있다는 신호
+  ctx.shadowBlur = 0
+  ctx.lineWidth = 0.18
+  ctx.strokeStyle = 'rgba(245,158,11,0.5)'
+  ctx.beginPath()
+  ctx.moveTo(CHUTE_X0, RIM_Y - 0.2); ctx.lineTo(HOOP_X - HOOP_HALF, RIM_Y)
+  ctx.moveTo(CHUTE_X1, RIM_Y - 0.2); ctx.lineTo(HOOP_X + HOOP_HALF, RIM_Y)
   ctx.stroke()
   ctx.restore()
 }
@@ -314,7 +434,7 @@ function drawSparks(ctx: CanvasRenderingContext2D, o: SceneOpts) {
 
 // ── 농구공
 function drawMarble(
-  ctx: CanvasRenderingContext2D, m: Drawable, t: TeamInfo | undefined, scale: number, front = false,
+  ctx: CanvasRenderingContext2D, m: Drawable, t: TeamInfo | undefined, scale: number,
 ) {
   const r = m.r
   ctx.save()
@@ -328,10 +448,6 @@ function drawMarble(
 
   const neutral = !t
   const ink = teamInk(t?.color)
-  if (front) {
-    ctx.shadowColor = ink.bg
-    ctx.shadowBlur = 18
-  }
   // 공 본체 — 중립은 어두운 회색, 팀 공은 주황 농구공
   const g = ctx.createRadialGradient(m.x - r * 0.35, m.y - r * 0.4, r * 0.1, m.x, m.y, r)
   if (neutral) { g.addColorStop(0, '#4b5260'); g.addColorStop(0.6, '#33383f'); g.addColorStop(1, '#1b1e24') }
@@ -340,7 +456,6 @@ function drawMarble(
   ctx.arc(m.x, m.y, r, 0, Math.PI * 2)
   ctx.fillStyle = g
   ctx.fill()
-  ctx.shadowBlur = 0
 
   // 실밥 — 회전한다
   ctx.save()
@@ -398,13 +513,4 @@ function drawMarble(
   ctx.restore()
 }
 
-/** 공개 단계에서 공이 그리는 슛 아치. t 0→1. */
-export function shotArc(fromX: number, fromY: number, t: number): { x: number; y: number } {
-  const x = fromX + (HOOP_X - fromX) * t
-  // 포물선 — 시작점과 림을 잇고 위로 솟는다
-  const base = fromY + (RIM_Y - fromY) * t
-  const apex = 16 + Math.abs(fromX - HOOP_X) * 0.5
-  return { x, y: base - apex * 4 * t * (1 - t) }
-}
-
-export { GATE_APEX_Y, GATE_X0, GATE_X1, RIM_Y, NET_BOTTOM, FLOOR_Y, SHELF_INNER_Y, HOOP_X, COURSE_W, TOP_Y }
+export { CHUTE_TOP, COURSE_W, FLOOR_Y, HOOP_X, NET_BOTTOM, RIM_Y, TOP_Y }

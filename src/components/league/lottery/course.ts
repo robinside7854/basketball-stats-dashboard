@@ -1,42 +1,79 @@
-// 코스 — 세로형 하프코트. 월드 단위(1 = 골대 링 반지름의 약 0.4배), y 는 아래로 증가.
+// 코스 — 세로형 하프코트. 월드 단위, y 는 아래로 증가.
 //
 // 참고: lazygyu/roulette (MIT, https://github.com/lazygyu/roulette) 의 코스 구성 방식을 참고했다.
-// 그쪽은 폭 25 × 높이 111 의 세로 코스에 폴리라인 벽 + 회전 장애물을 배치하고 goalY 선 통과로
-// 순위를 매긴다. 여기서는 그 "세로 지그재그 + 회전체 + 바닥 골라인" 골격만 빌리고,
-// 물리 엔진(box2d-wasm)·맵 데이터·렌더러는 쓰지 않았다(코드 복제 없음).
+// 그쪽은 세로 코스에 폴리라인 벽 + 회전 장애물을 배치하고 goalY 선 통과로 순위를 매긴다.
+// 여기서는 그 "세로 지그재그 + 회전체 + 바닥 골라인" 골격만 빌렸다(물리 엔진·맵·렌더러 미사용).
+//
+// ⚠ 2026-09-19 전면 개편: **골인 = 바닥 한가운데 골대**.
+// 예전엔 좌우 볼랙 선반에 공을 모아 두고, 레이스가 끝난 뒤에 order 순서대로 한 개씩
+// 골대에 쏘았다("구석에 들어가서 레이스가 끝난 느낌이 안 난다"). 지금은 양쪽 벽이
+// 가운데 **공 한 개 폭 슈트**로 모이고, 슈트 아래 림을 통과하는 순간이 곧 골인이다.
+// 순위는 도착 순서 그 자체 — 연출과 결과가 같은 사건이 됐다.
 //
 // 이 파일은 DOM/React 를 전혀 참조하지 않는다 — Node 에서 그대로 import 해 결정론을 검증한다.
 
 import { intRange, mulberry32, range, type Rng } from './rng'
 
 export const COURSE_W = 24
-/** 볼랙 선반의 바깥(낮은) 끝 — 구슬이 최종적으로 쌓이는 높이 */
-export const FLOOR_Y = 124
-/** 선반의 안쪽(높은) 끝 */
-export const SHELF_INNER_Y = 119
 /** 코트 위쪽 여백(구슬 스폰 구역) */
 export const TOP_Y = -16
+/** 팁오프 라인 — 출발 전 공이 이 위에 멈춰 있다(그림 전용, 심은 스텝을 돌리지 않는다) */
+export const START_LINE_Y = 0
+
 /** 림 중심 x 와 반폭 */
 export const HOOP_X = 12
 export const HOOP_HALF = 2.5
-/** 게이트(림 덮개) 텐트의 좌우 끝과 꼭대기 */
-export const GATE_X0 = 8.5
-export const GATE_X1 = 15.5
-export const GATE_APEX_Y = 115.5
+
+// ── 피니시: 퍼널 → 슈트 → 림 → 네트
+/** 슈트 반폭. 공 지름 1.1 → 두 개가 나란히 못 들어간다(2.2 > 1.9). 이게 "한 줄 도착"의 근거다. */
+export const CHUTE_HALF = 0.95
+export const CHUTE_X0 = HOOP_X - CHUTE_HALF
+export const CHUTE_X1 = HOOP_X + CHUTE_HALF
+/** 슈트 입구(퍼널 목) */
+export const CHUTE_TOP = 132
+/** 퍼널이 벽에서 시작하는 높이 */
+export const FUNNEL_TOP_Y = 120
 /** 림 높이 · 네트 끝 */
-export const RIM_Y = 131
-export const NET_BOTTOM = 137
-/** 백보드 (퍼널 목과 폭이 같다 — 퍼널 벽이 곧 백보드 지지대로 읽힌다) */
-export const BOARD_X0 = 7.5
-export const BOARD_X1 = 16.5
-export const BOARD_Y0 = 103
-export const BOARD_Y1 = 117
+export const RIM_Y = 140
+export const NET_BOTTOM = 146
+/** 마룻바닥이 끝나는 높이(= 슈트 입구). 이 아래는 골대만 있는 어두운 공간. */
+export const FLOOR_Y = CHUTE_TOP
+/** 백보드 — 슈트 뒤에 선다 */
+export const BOARD_X0 = 7
+export const BOARD_X1 = 17
+export const BOARD_Y0 = CHUTE_TOP - 2
+export const BOARD_Y1 = RIM_Y - 0.6
+
+// ── 농구 장애물 (전부 step 카운트만으로 움직인다 → 결정론)
+/** 스크린(픽) — 좌우로 미끄러지는 짧은 벽 */
+export const SCREEN_Y = 82
+export const SCREEN_LEN = 7
+/** 기울기 — 수평이면 마찰 0.004 에서 공이 그 위에 그대로 얹혀 3초를 기다린다 */
+export const SCREEN_TILT = 1.2
+export const SCREEN_X_MIN = 2.5
+export const SCREEN_X_MAX = 14.5
+/** 왕복 주기 3초 = 360스텝 */
+export const SCREEN_PERIOD = 360
+
+/** 샷클락 게이트 — 2초 닫히고 2초 열린다 */
+export const CLOCK_Y = 91
+export const CLOCK_PERIOD = 480
+export const CLOCK_CLOSED_STEPS = 240
+
+/** 리바운드 범퍼 — 반발 1.4 */
+export const BUMPER_REST = 1.4
+export interface Bumper { x: number; y: number; r: number }
+export const BUMPERS: Bumper[] = [
+  { x: 5.5, y: 96, r: 1.0 },
+  { x: 12, y: 97.6, r: 1.0 },
+  { x: 18.5, y: 96, r: 1.0 },
+]
 
 /** 정적 선분. kind 는 렌더러가 무엇으로 그릴지 결정한다. */
 export interface Seg {
   x1: number; y1: number; x2: number; y2: number
   rest: number
-  kind: 'wall' | 'ramp' | 'floor' | 'gate' | 'funnel' | 'tip'
+  kind: 'wall' | 'ramp' | 'floor' | 'funnel' | 'tip' | 'chute'
 }
 
 /** 수비수 페그 */
@@ -52,7 +89,6 @@ export interface Wheel {
   len: number
   /** 팔 두께(충돌 반경) */
   thick: number
-  /** 스텝당 회전(도가 아니라 미리 계산된 cos/sin 상수로 돈다 — sim.ts 참조) */
   arms: number
 }
 
@@ -60,6 +96,9 @@ export interface Course {
   segs: Seg[]
   pegs: Peg[]
   wheel: Wheel
+  bumpers: Bumper[]
+  /** 스크린 등번호(그림 전용) */
+  screenNum: number
   /** y 버킷 broad-phase (버킷 크기 BUCKET) */
   segBuckets: number[][]
   pegBuckets: number[][]
@@ -72,6 +111,26 @@ function bucketIndex(y: number): number {
   return Math.floor((y - TOP_Y) / BUCKET)
 }
 
+/** 스크린의 현재 왼쪽 끝 x — 삼각파(초월함수 없음). */
+export function screenX(step: number): number {
+  const p = step % SCREEN_PERIOD
+  const half = SCREEN_PERIOD / 2
+  const t = p < half ? p / half : (SCREEN_PERIOD - p) / half
+  return SCREEN_X_MIN + t * (SCREEN_X_MAX - SCREEN_X_MIN)
+}
+
+/** 샷클락이 닫혀 있는가 */
+export function clockClosed(step: number): boolean {
+  return step % CLOCK_PERIOD < CLOCK_CLOSED_STEPS
+}
+
+/** 샷클락 표시값 24→0 (그림 전용) */
+export function clockReadout(step: number): number {
+  const p = step % CLOCK_PERIOD
+  const within = p < CLOCK_CLOSED_STEPS ? p / CLOCK_CLOSED_STEPS : (p - CLOCK_CLOSED_STEPS) / CLOCK_CLOSED_STEPS
+  return Math.max(0, 24 - Math.floor(within * 25))
+}
+
 /** 시드에서 코스를 짓는다. 같은 시드 → 완전히 같은 코스. */
 export function buildCourse(seed: number): Course {
   const rng: Rng = mulberry32(seed ^ 0x5bf03635)
@@ -81,34 +140,26 @@ export function buildCourse(seed: number): Course {
   const push = (x1: number, y1: number, x2: number, y2: number, rest: number, kind: Seg['kind']) =>
     segs.push({ x1, y1, x2, y2, rest, kind })
 
-  // ── 사이드라인(벽)
-  push(0, TOP_Y, 0, FLOOR_Y, 0.08, 'wall')
-  push(COURSE_W, TOP_Y, COURSE_W, FLOOR_Y, 0.08, 'wall')
+  // ── 사이드라인(벽) — 퍼널이 시작되는 높이까지만. 그 아래는 퍼널이 벽 노릇을 한다.
+  push(0, TOP_Y, 0, FUNNEL_TOP_Y, 0.08, 'wall')
+  push(COURSE_W, TOP_Y, COURSE_W, FUNNEL_TOP_Y, 0.08, 'wall')
 
   // ── 팁오프 — 가운데 텐트가 공을 좌우로 가른다
-  push(12, 2, 4.8, 10, 0.2, 'tip')
-  push(12, 2, 19.2, 10, 0.2, 'tip')
+  push(12, 3, 4.8, 11, 0.2, 'tip')
+  push(12, 3, 19.2, 11, 0.2, 'tip')
 
-  // ── 지그재그 램프 (페인트존 라인처럼 그려진다). 램프 끝에 6.2 폭의 통로를 남겨 공이 쏟아진다.
+  // ── 지그재그 램프 (페인트존 라인처럼 그려진다).
   //
   // ⚠ **페그를 램프와 같은 y 띠에 놓지 말 것.** 첫 튜닝에서 수비수 줄을 "램프 끝 4.2 아래"에
   // 뒀는데, 그 높이를 다음 램프가 가로질러서 페그와 비탈 사이 V 홈에 공이 끼었다 — 전원이
   // y=33 에 붙어 레이스가 6초째에 멈췄다. 램프 띠와 페그 띠는 **번갈아** 놓는다.
   const RAMP_PITCH = 15
-  const RAMP_COUNT = 5
-  // ⚠ 마지막 램프의 **진행 방향**이 공이 쌓일 선반을 결정한다(실측: 270개 중 242개가 한쪽).
-  // 퍼널·휠·페그로는 그 수평 관성이 지워지지 않는다 — 휠의 밀어내는 힘을 0 으로 해도
-  // 분포가 그대로였다. 그래서 방향 자체를 시드로 뒤집는다: 추첨마다 쌓이는 쪽이 바뀌고,
-  // 같은 추첨을 보는 사람끼리는 여전히 똑같은 화면을 본다.
-  const lastGoesRight = rng() < 0.5
+  const RAMP_COUNT = 4
   for (let i = 0; i < RAMP_COUNT; i++) {
     const y0 = 18 + i * RAMP_PITCH
     const drop = range(rng, 10.5, 12.0)
-    // ⚠ 마지막 램프는 **가운데**로 내보낸다. 끝을 한쪽에 두면 공이 전부 그쪽 선반에만
-    // 쌓여(첫 렌더 실측: 9개 전부 오른쪽) 반대쪽 볼랙이 텅 빈 채로 결과 화면이 나온다.
-    const last = i === RAMP_COUNT - 1
-    const goesRight = last ? lastGoesRight : i % 2 === 0
-    const endX = last ? HOOP_X : (goesRight ? 17.8 : 6.2)
+    const goesRight = i % 2 === 0
+    const endX = goesRight ? 17.8 : 6.2
     if (goesRight) {
       push(0.5, y0, endX, y0 + drop, 0.16, 'ramp')
     } else {
@@ -123,47 +174,54 @@ export function buildCourse(seed: number): Course {
     }
   }
 
-  // ── 스핀무브 휠 (회전 장애물). 마지막 램프(78~88) 아래 빈 공간.
-  const wheel: Wheel = { x: 12, y: 99, len: 4.6, thick: 0.45, arms: 4 }
+  // ── 스핀무브 휠 (회전 장애물). 범퍼(96~98.6)와 아래 수비 필드(114.5~) 사이 빈 공간.
+  const wheel: Wheel = { x: 12, y: 106, len: 4.6, thick: 0.45, arms: 4 }
 
   // ── 퍼널 직전 조밀한 수비 필드. x 는 5~19 로 좁힌다 — 더 넓히면 퍼널 벽과 페그 사이에
   // 공 지름(1.1)보다 좁은 틈이 생겨 또 낀다.
+  // ⚠ 간격을 좁히지 말 것. n=6·r=0.58 이었을 때 이웃한 두 페그 표면 사이가 1.17 로,
+  //    공 지름 1.1 과 0.07 밖에 차이가 안 났다 — 실측에서 공이 그 틈에 물려 영영 안 내려왔다.
+  //    n=5·r=0.5 이면 틈이 1.8 이라 공이 지나간다.
   for (let row = 0; row < 2; row++) {
-    const y = 106 + row * 3.4
-    const n = 6
+    const y = 114.5 + row * 3.4
+    const n = 5
     for (let k = 0; k < n; k++) {
       const off = row % 2 === 0 ? 0 : 14 / n / 2
       const x = 5 + (14 * (k + 0.5)) / n + off + range(rng, -0.35, 0.35)
-      pegs.push({ x, y, r: 0.58, num: intRange(rng, 0, 55) })
+      pegs.push({ x, y, r: 0.5, num: intRange(rng, 0, 55) })
     }
   }
 
-  // ── 퍼널 — 백보드 폭으로 좁힌다
-  push(0, 108, 7.2, 115, 0.1, 'funnel')
-  push(COURSE_W, 108, 16.8, 115, 0.1, 'funnel')
-
-  // ── 볼랙 선반 + 게이트 텐트.
-  //
-  // ⚠ 림 위를 "힘으로" 비우려던 첫 설계는 실패했다 — 정리 단계에 바깥으로 미는 힘을 주니
-  // 구슬이 오른쪽 벽과 퍼널 모서리에 **눌려 박혀** 12개 중 7개가 바닥에 못 갔다.
-  // 지금은 힘이 아니라 **모양**으로 비운다: 가운데 게이트가 텐트(↑)라 구슬이 저절로 좌우로
-  // 굴러떨어지고, 선반은 바깥쪽이 낮아 벽 쪽에 모인다. 정리 단계는 중력만 키운다.
-  push(0, FLOOR_Y, GATE_X0, SHELF_INNER_Y, 0.05, 'floor')
-  push(GATE_X1, SHELF_INNER_Y, COURSE_W, FLOOR_Y, 0.05, 'floor')
-  push(GATE_X0, SHELF_INNER_Y, HOOP_X, GATE_APEX_Y, 0.05, 'gate')
-  push(HOOP_X, GATE_APEX_Y, GATE_X1, SHELF_INNER_Y, 0.05, 'gate')
+  // ── 퍼널 → 슈트 → 림.
+  // ⚠ 퍼널 끝점과 슈트 벽 위끝을 **정확히 같은 점**으로 둔다. 어긋나면 그 모서리가 오목해져
+  //    공이 낀다(예전 볼랙 설계에서 실제로 12개 중 7개가 못 내려왔다).
+  push(0, FUNNEL_TOP_Y, CHUTE_X0, CHUTE_TOP, 0.06, 'funnel')
+  push(COURSE_W, FUNNEL_TOP_Y, CHUTE_X1, CHUTE_TOP, 0.06, 'funnel')
+  // 슈트 — 림까지 수직. 공 한 개 폭이라 도착이 한 줄로 정렬된다.
+  push(CHUTE_X0, CHUTE_TOP, CHUTE_X0, RIM_Y, 0.04, 'chute')
+  push(CHUTE_X1, CHUTE_TOP, CHUTE_X1, RIM_Y, 0.04, 'chute')
 
   // ── ⚠ 끼임 방지 불변식: **선분에서 공 지름보다 가까운 페그는 버린다.**
   // 손으로 배치를 피해 다니는 것으로는 안 된다 — 두 번(램프 교차·램프 끝 모서리) 당했고,
   // 그때마다 레이스가 중간에 멎었다(에러는 없고 공만 안 내려온다). 규칙으로 못박는다.
   const MARBLE_D = 1.1
-  const kept = pegs.filter(p => {
+  const near = (p: Peg) => {
     for (const s of segs) {
-      if (s.kind === 'floor' || s.kind === 'gate') continue
-      if (pointSegDist(p.x, p.y, s) < p.r + MARBLE_D + 0.25) return false
+      if (pointSegDist(p.x, p.y, s) < p.r + MARBLE_D + 0.25) return true
     }
-    return true
-  })
+    // 범퍼·휠과도 겹치면 안 된다
+    for (const b of BUMPERS) {
+      const dx = p.x - b.x, dy = p.y - b.y
+      if (Math.sqrt(dx * dx + dy * dy) < p.r + b.r + MARBLE_D + 0.25) return true
+    }
+    const wdx = p.x - wheel.x, wdy = p.y - wheel.y
+    if (Math.sqrt(wdx * wdx + wdy * wdy) < wheel.len + wheel.thick + MARBLE_D + 0.25) return true
+    // 스크린이 지나다니는 띠도 비운다
+    if (p.y > SCREEN_Y - SCREEN_TILT - 2.5 && p.y < SCREEN_Y + SCREEN_TILT + 2.5) return true
+    if (p.y > CLOCK_Y - 2.5 && p.y < CLOCK_Y + 2.5) return true
+    return false
+  }
+  const kept = pegs.filter(p => !near(p))
   pegs.length = 0
   pegs.push(...kept)
 
@@ -182,7 +240,11 @@ export function buildCourse(seed: number): Course {
     for (let b = lo; b <= hi; b++) pegBuckets[b].push(i)
   })
 
-  return { segs, pegs, wheel, segBuckets, pegBuckets, bucketCount }
+  return {
+    segs, pegs, wheel, bumpers: BUMPERS,
+    screenNum: intRange(rng, 0, 55),
+    segBuckets, pegBuckets, bucketCount,
+  }
 }
 
 function pointSegDist(px: number, py: number, s: Seg): number {

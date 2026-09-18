@@ -59,6 +59,8 @@ interface DraftState {
     ready_state: Record<string, boolean>
     lottery_odds: Record<string, number> | null
     lottery_done: boolean
+    /** 추첨 레이스 출발 시각 — null 이면 팁오프 대기 (migration 118) */
+    race_started_at?: string | null
     pick_deadline: string | null
     extensions_used: Record<string, number>
     /** 리허설 세션 — 픽·팀장이 리그(분기 소속)에 반영되지 않는다 (migration 115) */
@@ -747,6 +749,22 @@ export default function DraftPortalClient({
       fetchState()
     } finally {
       setActingLottery(false)
+    }
+  }
+
+  /** 레이스 출발 — 순서는 이미 정해져 있고, 이 버튼이 모두의 화면에서 공을 굴린다 */
+  async function startRace() {
+    if (!auth || auth.role !== 'supervisor') return
+    try { primeAudio() } catch { /* ignore */ }
+    try {
+      const r = await fetch(`/api/leagues/${leagueId}/drafts/${draftId}/lottery/go`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Draft-Code': auth.plain },
+      })
+      const data = await r.json()
+      if (!r.ok) { toast.error(data.error ?? '출발 실패'); return }
+    } finally {
+      fetchState()
     }
   }
 
@@ -1497,6 +1515,9 @@ export default function DraftPortalClient({
           order={state.draft.draft_order}
           odds={state.draft.lottery_odds}
           teams={state.teams ?? []}
+          raceStartedAt={state.draft.race_started_at ?? null}
+          canStart={auth?.role === 'supervisor'}
+          onStart={startRace}
           onClose={() => {
             setShowLottery(false)
             // 같은 추첨 결과(draft_order)는 새로고침 시 재노출 차단.

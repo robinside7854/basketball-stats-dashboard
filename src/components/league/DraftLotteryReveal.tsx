@@ -1,38 +1,42 @@
 'use client'
-// 추첨 결과 풀스크린 연출 — **마블 레이스**(2026-09-18 전면 교체).
+// 추첨 결과 풀스크린 연출 — **마블 레이스**.
 //
-// 이전 버전은 로또 추첨기(원형 보울 + 송풍기)였다. 그 전에는 three.js 3D 였고, 그 전에는
-// CSS keyframe 이었다. 이번에는 세로형 하프코트를 굴러 내려오는 농구공 레이스다.
-// 참고: lazygyu/roulette (MIT, https://github.com/lazygyu/roulette) — 세로 코스 구성·리더 추적
-// 카메라·바닥 골라인이라는 골격을 참고했다. 물리 엔진(그쪽은 box2d-wasm)과 코드는 쓰지 않았다.
+// 2026-09-19 개편: 「구석 볼랙에 모았다가 끝나고 쏘기」를 버렸다. 이제 골대는 **바닥 한가운데**
+// 에 있고, 공 한 개 폭 슈트를 지나 림을 통과하는 순서가 곧 픽 순서다. n번째로 들어온 팀 공이
+// n순위 — 연출이 끝난 뒤 결과를 알려 주는 게 아니라, 연출 도중에 결과가 정해지는 것처럼 보인다
+// (실제로는 서버가 정한 order 가 유일한 진실이고, 아래 두 장치가 그것을 화면에 강제한다).
 //
 // ── 순서는 어떻게 보장되나 ────────────────────────────────────────────────
-// **레이스 결과는 순위와 아무 상관이 없다.** 서버가 이미 정한 `order` 가 유일한 진실이고,
-// 레이스는 그저 공을 아래로 모으는 연출이다. 순위는 마지막 **공개 단계**가 정한다:
-// 바닥 볼랙에 모인 공을 `order` 순서대로 하나씩 꺼내 골대에 꽂는다. 1등으로 내려온 공이
-// 1픽이 아니어도 아무 문제가 없다 — 그래서 물리가 아무리 흔들려도 결과가 틀릴 수 없다.
+//  1) **시드 탐색**(lottery/search.ts) — 물리가 결정론이라 (order, seed) 하나가 도착 순서
+//     하나를 정한다. 팁오프 대기 동안 헤드리스로 돌려 도착 순서가 order 와 같아지는 시드를
+//     찾는다. 3팀 평균 3.4회·11ms, 4팀 23.3회·85ms 로 사실상 항상 찾는다.
+//  2) **슈트 게이트**(폴백) — 6팀 이상은 기대 시도 횟수가 n! 이라 예산(400회·2.5초) 안에
+//     못 찾는 일이 흔하다(6팀 실측 성공률 40%). 그때만 슈트 입구에 마개를 두고 order
+//     순서대로 한 개씩 내보낸다. 시드를 찾았을 때 이 게이트는 만들어지지도 않는다.
 //
-// ── 그래도 물리를 결정론으로 만든 이유 ───────────────────────────────────
+// ── 왜 물리를 결정론으로 만들었나 ────────────────────────────────────────
 // 같은 추첨을 여러 사람이 각자 기기로 본다. 레이스가 기기마다 다르면 "내 화면에선 락다운이
-// 1등이었는데?" 가 나온다. 그래서 시드(order 해시) 난수 + 고정 스텝(1/120s) + 초월함수 없는
-// 물리로 **모든 기기가 같은 궤적**을 그린다. 검증은 Node 에서 두 번 돌려 체크섬 비교
-// (scripts 로 남기지 않고 개발 중 확인 — sim.ts/course.ts/rng.ts 는 DOM 의존이 0이다).
+// 1등이었는데?" 가 나온다. 시드 난수 + 고정 스텝(1/120s) + 초월함수 없는 물리로 모든 기기가
+// 같은 궤적을 그린다. 기기 간 몇 초의 시작 시차는 허용한다.
 //
-// ── 타이밍 (마운트 기준, onClose 계약은 종전과 동일) ─────────────────────
-//   intro   0.0~1.7s   팁오프. 공이 코트 위에서 쏟아진다
-//   race    1.7~14.7s  램프·수비수·스핀무브 휠. 카메라가 선두 팀 공을 따라간다
-//   settle  14.7~16.9s 낙오 공 정리. 카메라 줌아웃
-//   reveal  16.9s~     order 순서대로 슛 → 스위시마다 "{n}순위 {팀}"
-//   list    reveal 종료 직후. 10초 뒤 자동 닫힘(종전과 동일)
-// 최대(12팀) 합계 약 27.7초 < 30초.
+// ── 타이밍 (출발 기준) ───────────────────────────────────────────────────
+//   대기      총무가 「출발」을 누를 때까지 (모두 같은 팁오프 화면)
+//   레이스    12~16초 — 마지막 팀 공이 림을 통과하면 끝
+//   홀드      1.5초
+//   목록      10초 뒤 자동 닫힘
+// 12팀 최장 실측 26.0초 + 1.5 = 27.5초 < 30초. 그래도 26초에 강제 종료 상한을 건다.
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Dice5 } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback, type MouseEvent } from 'react'
+import { Dice5, Flag, Loader2 } from 'lucide-react'
 import { playBeep, playBuzzer, playDrumroll, playLotteryHorn, primeAudio } from '@/lib/draftSounds'
 import { teamInk, teamAccentOnDark } from '@/lib/util/contrastColor'
-import { createWorld, stepWorld, leaderIndex, SIM_HZ, type World } from './lottery/sim'
-import { COURSE_W, NET_BOTTOM, SHELF_INNER_Y, RIM_Y } from './lottery/course'
-import { drawScene, shotArc, type Cam, type FlyingBall, type TeamInfo } from './lottery/render'
+import {
+  createWorld, leaderIndex, raceOver, SIM_HZ, stepWorld, teamInChute, type World,
+} from './lottery/sim'
+import { findSeedChunked } from './lottery/search'
+import { hashSeed } from './lottery/rng'
+import { COURSE_W } from './lottery/course'
+import { drawScene, type Cam, type TeamInfo } from './lottery/render'
 
 interface Team { id: string; name: string; color: string }
 
@@ -41,9 +45,14 @@ interface Props {
   odds: Record<string, number> | null
   teams: Team[]
   onClose: () => void
+  /** 총무가 「출발」을 누른 시각. null 이면 아직 대기 — 레이스가 시작되지 않는다. */
+  raceStartedAt: string | null
+  /** 이 화면에서 출발을 누를 수 있는가 (총무/PIN 어드민) */
+  canStart?: boolean
+  onStart?: () => void
 }
 
-type Phase = 'race' | 'reveal' | 'list'
+type Phase = 'wait' | 'race' | 'list'
 
 /** 확률이 팀마다 실제로 다를 때만 true. 균등 추첨(전원 1/N)이거나 odds 가 없으면 false.
  *  실제 드래프트는 대부분 균등이라 같은 숫자가 N번 반복될 뿐이고, 그 배지는 정보가 0이다. */
@@ -55,29 +64,28 @@ export function hasVaryingOdds(order: string[], odds: Record<string, number> | n
   return Math.max(...values) - Math.min(...values) > 0.0005
 }
 
-const INTRO_MS = 1700
-const RACE_MS = 13000
-const SETTLE_MS = 2200
-const RACE_END_MS = INTRO_MS + RACE_MS          // 14700
-const SETTLE_END_MS = RACE_END_MS + SETTLE_MS   // 16900
-const RACE_END_STEPS = Math.round((RACE_END_MS / 1000) * SIM_HZ)
-const SETTLE_END_STEPS = Math.round((SETTLE_END_MS / 1000) * SIM_HZ)
-const REVEALED_AUTO_CLOSE_MS = 10000
+/** 마지막 팀 골인 뒤 목록으로 넘어가기 전 여운 */
+const HOLD_AFTER_MS = 1500
+/** 레이스 강제 종료 상한 — 무슨 일이 있어도 출발→목록 30초를 넘기지 않는다 */
+const RACE_CAP_MS = 26_000
+const REVEALED_AUTO_CLOSE_MS = 10_000
 /** reduced-motion 경로: 레이스 없이 3초 안에 순차 공개 */
 const REDUCED_TOTAL_MS = 3000
 
-/** 팀 수가 많으면 공개 한 건을 짧게 — 12팀에서도 총 30초를 넘기지 않는다 */
-function gateMs(n: number): number { return n <= 6 ? 1150 : 900 }
-
 /** 레이스 중 세로로 보이는 월드 높이. 코스 폭(24)과 이 값 중 빡빡한 쪽이 배율을 정한다. */
 const RACE_VIEW_H = 44
-/** 마무리 줌아웃 배율 */
-const FINISH_ZOOM = 0.92
-/** 마무리에 화면 가운데에 둘 월드 y — 페인트존 위부터 네트 끝까지가 들어온다.
- *  이 값이 낮으면(=아래) 네트 아래 빈 검은 화면이 1/3 을 차지한다(1280 실측). */
-const FINISH_CAM_Y = 114
+/** 골대 프레이밍 — 슈트 입구부터 네트 끝까지가 들어오는 높이·폭 */
+const FINISH_VIEW_H = 30
+const FINISH_VIEW_W = 18
+/** 슈트 입구(132)~네트 끝(146)이 화면 가운데에 오게. 낮추면 네트 아래 검은 띠가 커진다. */
+const FINISH_CAM_Y = 134
+/** 대기 화면 — 스폰 구역(-16~0)만 담는다. 전체 배율로 잡으면 위쪽 절반이 검게 빈다. */
+const WAIT_CAM_Y = -6
+const WAIT_VIEW_H = 24
 
-export default function DraftLotteryReveal({ order, odds, teams, onClose }: Props) {
+export default function DraftLotteryReveal({
+  order, odds, teams, onClose, raceStartedAt, canStart = false, onStart,
+}: Props) {
   const teamMap = Object.fromEntries(teams.map(t => [t.id, t]))
   const teamInfo: Record<string, TeamInfo> = Object.fromEntries(
     teams.map(t => [t.id, { name: t.name, color: t.color }]),
@@ -87,19 +95,25 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
       ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
       : false,
   )
-  const [phase, setPhase] = useState<Phase>(reducedMotion ? 'reveal' : 'race')
+  const started = !!raceStartedAt
+  const [phase, setPhase] = useState<Phase>('wait')
   /** 지금까지 공개된 순위 수 */
   const [revealed, setRevealed] = useState(0)
+  const [starting, setStarting] = useState(false)
+  const [seedReady, setSeedReady] = useState(false)
 
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rafRef = useRef<number | null>(null)
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const doneRef = useRef(false)
-
-  const GATE = gateMs(order.length)
-  const revealTotal = order.length * GATE
-  const listAtMs = SETTLE_END_MS + revealTotal
+  /** 탐색 결과 — rAF 루프가 읽는다 */
+  const seedRef = useRef<{ seed: number; gate: boolean; ready: boolean }>({
+    seed: hashSeed(order.join('|')), gate: true, ready: false,
+  })
+  /** 출발 관측 여부 — rAF 루프가 읽는다 */
+  const startedRef = useRef(false)
+  startedRef.current = started
 
   const finish = useCallback(() => {
     if (doneRef.current) return
@@ -112,9 +126,27 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.length])
 
+  // ── 시드 탐색 — 팁오프 대기 동안 조각내 돌린다(「출발」 버튼이 먹통이 되면 안 된다) ──
+  useEffect(() => {
+    const cancel = findSeedChunked(order, r => {
+      seedRef.current = { seed: r.seed, gate: !r.matched, ready: true }
+      setSeedReady(true)
+    })
+    return cancel
+    // order 는 서버가 확정한 뒤 바뀌지 않는다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── 출발 관측 → 레이스 단계 ──────────────────────────────────────────
+  useEffect(() => {
+    if (!started || phase !== 'wait') return
+    if (!seedReady) return       // 코스가 정해지기 전에 시작하면 도중에 코스가 바뀐다
+    setPhase('race')
+  }, [started, seedReady, phase])
+
   // ── reduced-motion: 레이스 없이 3초 순차 공개 ───────────────────────
   useEffect(() => {
-    if (!reducedMotion) return
+    if (!reducedMotion || phase !== 'race') return
     const per = REDUCED_TOTAL_MS / Math.max(1, order.length)
     for (let i = 0; i < order.length; i++) {
       timersRef.current.push(setTimeout(() => {
@@ -125,21 +157,22 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
     timersRef.current.push(setTimeout(finish, REDUCED_TOTAL_MS + 200))
     const timers = timersRef.current
     return () => { for (const t of timers) clearTimeout(t) }
-  }, [reducedMotion, order.length, finish])
+  }, [reducedMotion, phase, order.length, finish])
 
-  // ── 레이스 + 공개 (캔버스) ────────────────────────────────────────────
+  // ── 캔버스: 대기 화면 + 레이스 ────────────────────────────────────────
+  const canvasActive = !reducedMotion && phase !== 'list'
   useEffect(() => {
-    if (reducedMotion) return
-    if (phase === 'list') return
+    if (!canvasActive) return
     const canvas = canvasRef.current
     const wrap = wrapRef.current
     if (!canvas || !wrap) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const w: World = createWorld(order)
-    let viewW = 1, viewH = 1, baseScale = 1
-    const cam: Cam = { x: COURSE_W / 2, y: 0, zoom: 1 }
+    let w: World = createWorld(order, seedRef.current.seed, seedRef.current.gate)
+    let applied = seedRef.current.ready
+    let viewW = 1, viewH = 1, baseScale = 1, finishScale = 1, waitScale = 1
+    const cam: Cam = { x: COURSE_W / 2, y: WAIT_CAM_Y, zoom: 1 }
     let camInit = false
 
     function layout() {
@@ -154,121 +187,95 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0)
       // 세로 코스를 유지하고 가로는 여백으로 둔다(넓은 화면에서 레터박스)
       baseScale = Math.min(viewW / COURSE_W, viewH / RACE_VIEW_H)
-      if (!camInit) { cam.zoom = baseScale; camInit = true }
+      finishScale = Math.min(viewW / FINISH_VIEW_W, viewH / FINISH_VIEW_H)
+      waitScale = Math.min(viewW / COURSE_W, viewH / WAIT_VIEW_H)
+      if (!camInit) { cam.zoom = waitScale; camInit = true }
     }
     layout()
     const ro = new ResizeObserver(layout)
     ro.observe(wrap)
 
-    const t0 = performance.now()
+    let t0 = 0
+    let running = false
     let lastTick = 0
+    let seenGoals = 0
+    let chuteCam = false
+    let endAt = -1
     const sparks: { x: number; y: number; life: number }[] = []
+    const bumperFlash = [0, 0, 0]
     let rimFlash = 0
     let netWave = 0
-    let flying: FlyingBall | null = null
-    let flyFrom = { x: 0, y: 0 }
-    let flyIndex = -1
-    let swished = -1
-    let drumAt = 0
-
-    try { primeAudio(); playDrumroll() } catch { /* ignore */ }
 
     function frame(now: number) {
-      const elapsed = now - t0
+      // 탐색이 끝나면 확정된 시드로 월드를 다시 짓는다(아직 한 스텝도 안 돌렸으므로 무손실)
+      if (!applied && seedRef.current.ready) {
+        w = createWorld(order, seedRef.current.seed, seedRef.current.gate)
+        applied = true
+      }
+      if (!running && applied && startedRef.current) {
+        running = true
+        t0 = now
+        try { primeAudio(); playDrumroll() } catch { /* ignore */ }
+      }
 
-      // ── 물리: 경과 시간이 정하는 **스텝 번호**까지 따라간다.
-      // 느린 기기는 한 프레임에 여러 스텝을 돌 뿐, 스텝 N 의 상태는 어디서나 같다.
-      const raceMode = w.step < RACE_END_STEPS
-      const targetStep = Math.min(
-        SETTLE_END_STEPS,
-        Math.floor((elapsed / 1000) * SIM_HZ),
-      )
-      // 한 프레임 상한 — 탭 복귀 같은 큰 점프에 프레임을 통째로 잡아먹지 않게.
-      // 단 마지막(정리 끝)에는 남은 걸 몰아서 끝낸다 — 공개 시작 시점의 배치가 정본이라야 한다.
-      const cap = targetStep >= SETTLE_END_STEPS ? 600 : 24
-      let n = 0
-      while (w.step < targetStep && n < cap) {
-        stepWorld(w, w.step < RACE_END_STEPS ? 'race' : 'settle')
-        for (let i = 0; i < w.hitCount; i++) {
-          const p = w.course.pegs[w.hits[i]]
-          if (sparks.length < 26) sparks.push({ x: p.x, y: p.y, life: 1 })
-          // 틱은 속도 제한 — 매 충돌마다 울리면 소음이 된다
-          if (raceMode && now - lastTick > 150) {
+      if (running) {
+        const elapsed = now - t0
+        // ── 물리: 경과 시간이 정하는 **스텝 번호**까지 따라간다.
+        // 느린 기기는 한 프레임에 여러 스텝을 돌 뿐, 스텝 N 의 상태는 어디서나 같다.
+        const targetStep = Math.floor((elapsed / 1000) * SIM_HZ)
+        let n = 0
+        while (w.step < targetStep && n < 30 && endAt < 0) {
+          stepAndCollect(w, sparks, bumperFlash)
+          if (w.hitCount > 0 && now - lastTick > 150) {
             lastTick = now
             try { playBeep() } catch { /* ignore */ }
           }
+          if (w.goals.length > seenGoals) {
+            seenGoals = w.goals.length
+            rimFlash = 1
+            netWave = 1
+            setRevealed(seenGoals)
+            try { playBuzzer() } catch { /* ignore */ }
+          } else if (w.justScored === '') {
+            netWave = Math.max(netWave, 0.5)
+          }
+          if (raceOver(w) && endAt < 0) endAt = now
+          n++
         }
-        n++
-      }
-      // 레이스 막판 드럼롤 한 번 더
-      if (drumAt === 0 && elapsed > RACE_END_MS - 3200) {
-        drumAt = 1
-        try { playDrumroll() } catch { /* ignore */ }
+        if (endAt < 0 && elapsed > RACE_CAP_MS) endAt = now
+        if (endAt > 0 && now - endAt > HOLD_AFTER_MS) { finish(); return }
       }
 
       for (let i = sparks.length - 1; i >= 0; i--) {
         sparks[i].life -= 0.06
         if (sparks[i].life <= 0) sparks.splice(i, 1)
       }
-      rimFlash = Math.max(0, rimFlash - 0.045)
-      netWave = Math.max(0, netWave - 0.03)
+      for (let i = 0; i < bumperFlash.length; i++) bumperFlash[i] = Math.max(0, bumperFlash[i] - 0.07)
+      rimFlash = Math.max(0, rimFlash - 0.04)
+      netWave = Math.max(0, netWave - 0.028)
 
-      // ── 카메라
-      const finishing = elapsed >= RACE_END_MS
-      let targetY: number
-      let targetZoom: number
-      if (finishing) {
-        targetY = FINISH_CAM_Y
-        targetZoom = baseScale * FINISH_ZOOM
-      } else {
-        const li = leaderIndex(w)
-        targetY = (li >= 0 ? w.marbles[li].y : 0) + 6
+      // ── 카메라: 선두 추적 → 첫 팀 공이 슈트에 들어오면 골대 프레이밍
+      let targetY = WAIT_CAM_Y
+      let targetZoom = waitScale
+      if (running) {
         targetZoom = baseScale
+        if (!chuteCam && teamInChute(w)) chuteCam = true
+        if (chuteCam) {
+          targetY = FINISH_CAM_Y
+          targetZoom = finishScale
+        } else {
+          const li = leaderIndex(w)
+          targetY = (li >= 0 ? w.marbles[li].y : 0) + 6
+        }
       }
       cam.y += (targetY - cam.y) * 0.075
       cam.zoom += (targetZoom - cam.zoom) * 0.06
 
-      // ── 공개 단계 — order 순서대로 슛
-      if (elapsed >= SETTLE_END_MS) {
-        const idx = Math.min(order.length - 1, Math.floor((elapsed - SETTLE_END_MS) / GATE))
-        const p = ((elapsed - SETTLE_END_MS) % GATE) / GATE
-        if (idx !== flyIndex) {
-          flyIndex = idx
-          const m = w.marbles.find(mm => mm.team === order[idx])
-          if (m) {
-            // 카메라 밖에서 날아오지 않게 시작점을 코트 안으로 당긴다
-            flyFrom = { x: m.x, y: Math.max(m.y, SHELF_INNER_Y - 6) }
-            m.out = true
-          } else {
-            flyFrom = { x: COURSE_W / 2, y: SHELF_INNER_Y }
-          }
-        }
-        if (p < 0.6) {
-          const a = shotArc(flyFrom.x, flyFrom.y, p / 0.6)
-          flying = { x: a.x, y: a.y, rot: p * 9, teamId: order[idx], through: false }
-        } else if (p < 0.9) {
-          const k = (p - 0.6) / 0.3
-          flying = {
-            x: 12, y: RIM_Y + (NET_BOTTOM + 1.5 - RIM_Y) * k,
-            rot: p * 9, teamId: order[idx], through: true,
-          }
-          if (swished !== idx) {
-            swished = idx
-            rimFlash = 1
-            netWave = 1
-            setRevealed(idx + 1)
-            try { playBuzzer() } catch { /* ignore */ }
-          }
-        } else {
-          flying = null
-        }
-      }
-
       drawScene(ctx!, w, {
-        viewW, viewH, cam, teams: teamInfo, flying, rimFlash, netWave, sparks,
+        viewW, viewH, cam, teams: teamInfo,
+        rimFlash, netWave, sparks, bumperFlash, waiting: !running,
       })
 
-      if (elapsed >= listAtMs) { finish(); return }
       rafRef.current = requestAnimationFrame(frame)
     }
     rafRef.current = requestAnimationFrame(frame)
@@ -277,25 +284,17 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
       ro.disconnect()
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-    // 루프는 마운트 1회만 돈다 — 'list' 로 넘어갈 때만 접는다
+    // 루프는 캔버스가 살아 있는 동안 한 번만 돈다 — 'list' 로 넘어갈 때만 접는다
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase === 'list', reducedMotion])
+  }, [canvasActive])
 
-  // 레이스 → 공개 단계 전환 (헤더 문구용). 캔버스 루프는 이 상태를 보지 않는다.
+  // 안전망 — rAF 가 멈춘(탭 비활성 등) 경우에도 출발 후 30초면 목록으로
   useEffect(() => {
-    if (reducedMotion) return
-    const t = setTimeout(() => setPhase(p => (p === 'race' ? 'reveal' : p)), SETTLE_END_MS)
+    if (phase !== 'race' || reducedMotion) return
+    const t = setTimeout(finish, RACE_CAP_MS + HOLD_AFTER_MS + 1500)
     timersRef.current.push(t)
     return () => clearTimeout(t)
-  }, [reducedMotion])
-
-  // 공개가 다 끝나면 목록으로 (rAF 가 멈춘 경우의 안전망)
-  useEffect(() => {
-    if (reducedMotion) return
-    const t = setTimeout(finish, listAtMs + 400)
-    timersRef.current.push(t)
-    return () => clearTimeout(t)
-  }, [reducedMotion, listAtMs, finish])
+  }, [phase, reducedMotion, finish])
 
   useEffect(() => {
     const timers = timersRef.current
@@ -312,7 +311,16 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
 
   function handleTap() {
     if (phase === 'list') onClose()
-    else finish()
+    else if (phase === 'race') finish()
+    // 대기 중에는 탭으로 건너뛸 수 없다 — 출발은 총무만 누른다
+  }
+
+  function handleStart(e: MouseEvent) {
+    e.stopPropagation()
+    if (!onStart || starting) return
+    setStarting(true)
+    try { primeAudio() } catch { /* ignore */ }
+    onStart()
   }
 
   const latest = revealed > 0 ? order[revealed - 1] : null
@@ -320,7 +328,7 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
 
   return (
     <div
-      className="fixed inset-0 z-[58] flex flex-col bg-[#000000]/95 cursor-pointer overflow-hidden"
+      className={`fixed inset-0 z-[58] flex flex-col bg-[#000000]/95 overflow-hidden ${phase === 'wait' ? '' : 'cursor-pointer'}`}
       style={{
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -349,12 +357,8 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
       <div className="shrink-0 px-4 pt-3 pb-2 text-center">
         <p className="font-jersey text-sm uppercase tracking-[0.3em] text-amber-400">DRAFT LOTTERY</p>
         <h2 className="text-xl sm:text-3xl font-black text-[#ffffff] leading-tight">
-          {phase === 'race' && (
-            <span className="inline-flex items-center gap-2">
-              <Dice5 size={20} aria-hidden /> 마블 레이스 진행 중
-            </span>
-          )}
-          {phase === 'reveal' && (latestTeam
+          {phase === 'wait' && '팁오프 대기'}
+          {phase === 'race' && (latestTeam
             ? (
               <span
                 className="lotto-anim inline-block"
@@ -364,7 +368,11 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
                 {revealed}순위 · {latestTeam.name}
               </span>
             )
-            : '골대 앞 정렬 중')}
+            : (
+              <span className="inline-flex items-center gap-2">
+                <Dice5 size={20} aria-hidden /> 마블 레이스 진행 중
+              </span>
+            ))}
           {phase === 'list' && '추첨 결과'}
         </h2>
       </div>
@@ -372,6 +380,31 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
       {phase !== 'list' ? (
         <div ref={wrapRef} className="relative flex-1 min-h-0">
           <canvas ref={canvasRef} className="block absolute inset-0" aria-hidden />
+
+          {/* 출발 대기 오버레이 — 모두에게 안내, 총무에게만 버튼 */}
+          {phase === 'wait' && (
+            <div className="absolute inset-0 flex flex-col items-center justify-end gap-4 px-4 pb-10 bg-gradient-to-t from-[#000000] via-[#000000b3] to-transparent">
+              <p className="text-base sm:text-lg text-[#f3f4f6] font-bold text-center leading-relaxed break-keep">
+                총무가 출발을 누르면 레이스가 시작됩니다
+              </p>
+              {canStart ? (
+                <button
+                  type="button"
+                  onClick={handleStart}
+                  disabled={starting || !seedReady}
+                  className="h-14 min-w-[180px] px-8 rounded-2xl bg-[var(--mm-yellow)] text-[var(--mm-black)] text-lg font-black inline-flex items-center justify-center gap-2 cursor-pointer transition-colors duration-200 hover:bg-[var(--mm-yellow-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300/70 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {starting || !seedReady
+                    ? <Loader2 size={20} className="animate-spin" aria-hidden />
+                    : <Flag size={20} aria-hidden />}
+                  {starting ? '출발 신호 전송 중' : !seedReady ? '코스 준비 중' : '출발'}
+                </button>
+              ) : (
+                <p className="text-sm text-[#d1d5db]">잠시만 기다려 주세요</p>
+              )}
+            </div>
+          )}
+
           {/* 공개된 순위 — 캔버스 위 DOM 오버레이 */}
           {revealed > 0 && (
             <div className="absolute left-2 top-2 right-2 flex flex-col gap-1 pointer-events-none max-h-[46%] overflow-hidden">
@@ -395,7 +428,9 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
               })}
             </div>
           )}
-          <p className="absolute bottom-0 inset-x-0 text-center text-sm text-[#e5e7eb] py-2 bg-gradient-to-t from-[#000000] via-[#000000cc] to-transparent">탭하여 건너뛰기</p>
+          {phase === 'race' && (
+            <p className="absolute bottom-0 inset-x-0 text-center text-sm text-[#e5e7eb] py-2 bg-gradient-to-t from-[#000000] via-[#000000cc] to-transparent">탭하여 건너뛰기</p>
+          )}
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex flex-col items-center px-4 pb-3 overflow-hidden">
@@ -448,4 +483,18 @@ export default function DraftLotteryReveal({ order, odds, teams, onClose }: Prop
       )}
     </div>
   )
+}
+
+/** 한 스텝 돌리고 이번 스텝의 타격을 잔상으로 옮긴다 */
+function stepAndCollect(
+  w: World,
+  sparks: { x: number; y: number; life: number }[],
+  bumperFlash: number[],
+) {
+  stepWorld(w)
+  for (let i = 0; i < w.hitCount; i++) {
+    const p = w.course.pegs[w.hits[i]]
+    if (sparks.length < 26) sparks.push({ x: p.x, y: p.y, life: 1 })
+  }
+  for (let i = 0; i < w.bumpHitCount; i++) bumperFlash[w.bumpHits[i]] = 1
 }

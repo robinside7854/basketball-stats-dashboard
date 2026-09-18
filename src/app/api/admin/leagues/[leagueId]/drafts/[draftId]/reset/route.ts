@@ -102,6 +102,8 @@ export async function POST(
     draft_order: [],
     lottery_odds: null,
     lottery_done: false,
+    // 레이스 출발 시각도 비운다 — 안 비우면 다시 추첨했을 때 팁오프 대기 없이 곧바로 달린다
+    race_started_at: null,
     pick_deadline: null,
     extensions_used: {},
     // 준비 체크를 다시 받을 이유가 없다 — lottery 모드는 ready_state 를 그대로 둔다.

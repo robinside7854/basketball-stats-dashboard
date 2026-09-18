@@ -92,6 +92,9 @@ export async function POST(
       lottery_odds: odds,
       lottery_done: true,
       status: 'lottery_done',
+      // 「추첨」과 「출발」의 분리 — 순서는 지금 정해지지만 레이스는 총무가 /lottery/go 를
+      // 누를 때까지 팁오프 대기로 멈춰 있다. 재추첨이면 지난 출발 시각을 반드시 지운다.
+      race_started_at: null,
       current_pick_index: 0,
       current_round: 1,
       pick_deadline: null,

@@ -53,6 +53,8 @@ interface DraftState {
     ready_state: Record<string, boolean>
     lottery_odds: Record<string, number> | null
     lottery_done: boolean
+    /** 추첨 레이스 출발 시각 — null 이면 팁오프 대기 (migration 118) */
+    race_started_at?: string | null
     pick_deadline: string | null
     pick_seconds: number
     extensions_used: Record<string, number>
@@ -378,6 +380,28 @@ export default function LeagueDraftPage() {
     toast.success('인증 해제')
   }
 
+  /** 추첨 레이스 「출발」. 진행 권한과 같은 자격 — 감독관 코드 또는 편집(PIN) 모드. */
+  const canStartRace = authedRole === 'supervisor' || isEditMode
+  async function startRace() {
+    const d = state?.draft
+    if (!d || !canStartRace) return
+    const headers: Record<string, string> | null = authedCode
+      ? { 'X-Draft-Code': authedCode }
+      : (isEditMode ? leagueHeaders : null)
+    if (!headers) return
+    try { primeAudio() } catch { /* ignore */ }
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/drafts/${d.id}/lottery/go`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      if (!res.ok) toast.error(data.error ?? '출발 실패')
+    } finally {
+      fetchState()
+    }
+  }
+
   // 준비 토글
   async function toggleReady(ready: boolean) {
     if (!state?.draft || !authedCode) return
@@ -519,6 +543,9 @@ export default function LeagueDraftPage() {
           order={draft.draft_order}
           odds={draft.lottery_odds}
           teams={teams}
+          raceStartedAt={draft.race_started_at ?? null}
+          canStart={canStartRace}
+          onStart={startRace}
           onClose={() => setShowLottery(false)}
         />
       )}

@@ -35,6 +35,8 @@ interface DraftRow {
   ready_state: Record<string, boolean>
   lottery_odds: Record<string, number> | null
   lottery_done: boolean
+  /** 추첨 레이스 출발 시각 — NULL 이면 아직 팁오프 대기 (migration 118) */
+  race_started_at: string | null
   pick_deadline: string | null
   extensions_used: Record<string, number>
   /** 리허설 세션 — 분기 소속·팀장을 리그에 반영하지 않는다 (migration 115) */
@@ -77,7 +79,7 @@ export async function GET(
   const [{ data: draft }, { data: teamsRaw }, { data: overrides }, { data: players }, { data: leaders }, { data: supCodes }] = await Promise.all([
     supabase
       .from('league_drafts')
-      .select('id, status, draft_order, current_pick_index, current_round, total_picks, method, started_at, completed_at, pick_seconds, ready_state, lottery_odds, lottery_done, pick_deadline, extensions_used, is_test, test_leaders')
+      .select('id, status, draft_order, current_pick_index, current_round, total_picks, method, started_at, completed_at, pick_seconds, ready_state, lottery_odds, lottery_done, race_started_at, pick_deadline, extensions_used, is_test, test_leaders')
       .eq('league_id', leagueId)
       .eq('quarter_id', quarterId)
       .maybeSingle(),
