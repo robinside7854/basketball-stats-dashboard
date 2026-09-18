@@ -47,7 +47,7 @@ export default function LoginModal({ leagueId, onClose }: Props) {
       >
         {/* 헤더 */}
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-          <h2 className="font-bold text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+          <h2 className="font-black text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
             {step === 'intro' ? '로그인 안내' : step === 'login' ? '로그인' : '가입 요청'}
           </h2>
           <button onClick={onClose} className="p-1.5 min-h-[36px] min-w-[36px] flex items-center justify-center rounded cursor-pointer" style={{ color: 'var(--mm-muted)' }} aria-label="닫기">

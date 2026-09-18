@@ -59,7 +59,7 @@ export default function PrivateLeagueGate({ leagueId }: Props) {
           </span>
 
           <h1
-            className="font-bold text-xl sm:text-2xl mb-2"
+            className="font-black text-xl sm:text-2xl mb-2"
             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
           >
             비공개로 운영되는 페이지입니다

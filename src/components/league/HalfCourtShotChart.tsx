@@ -275,7 +275,7 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
                 </text>
                 {/* FG% */}
                 <text x={x + w / 2} y={y + (small ? 20 : 32)} textAnchor="middle"
-                      style={{ fontSize: small ? 11 : 18, fontWeight: 900 }}
+                      style={{ fontSize: small ? 11 : 18, fontWeight: 700 }}
                       className={c.text}
                       fill="currentColor">
                   {z.a > 0 ? `${z.fg_pct.toFixed(0)}%` : '—'}

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "check:type-scale": "node scripts/check-type-scale.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",

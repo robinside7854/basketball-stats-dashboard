@@ -57,7 +57,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
   return (
     <div className="space-y-4 lg:space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="font-bold text-[28px] lg:text-[40px] leading-none text-[color:var(--mm-ink)] tracking-tight">내 기록</h2>
+        <h2 className="font-black text-[28px] lg:text-[40px] leading-none text-[color:var(--mm-ink)] tracking-tight">내 기록</h2>
       </div>
 
       {authLoading ? (

@@ -436,7 +436,7 @@ export default async function LeagueDetailPage({
         <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
         <h1
-          className="text-2xl sm:text-3xl lg:text-5xl font-bold break-keep"
+          className="text-2xl sm:text-3xl lg:text-5xl font-black break-keep"
           style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.1 }}
         >
           {l.name}

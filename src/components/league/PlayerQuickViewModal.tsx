@@ -615,7 +615,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
               )}
               <h1
                 id="player-modal-name"
-                className="font-jersey text-4xl sm:text-5xl font-bold leading-[0.95] tracking-tight mb-3 break-words mm-rise-in"
+                className="font-jersey text-4xl sm:text-5xl font-black leading-[0.95] tracking-tight mb-3 break-words mm-rise-in"
                 style={{ color: 'var(--mm-ink)', animationDelay: '140ms', animationDuration: '500ms', animationFillMode: 'backwards' }}
               >
                 {player?.name ?? playerName}

@@ -526,7 +526,7 @@ function StatsTable({
                   {basicCols.map(({ key }) => {
                     const isSortLeader = key === basicSortKey
                     const baseClass = BASIC_COLOR[key] ?? 'text-[color:var(--mm-ink-soft)]'
-                    const style = isSortLeader && color ? { color, fontWeight: 900 } : undefined
+                    const style = isSortLeader && color ? { color, fontWeight: 700 } : undefined
                     return (
                       <td key={key} className={`py-2 px-1.5 text-right tabular-nums ${baseClass}`} style={style}>
                         {basicVal(p, key)}
@@ -583,7 +583,7 @@ function StatsTable({
                   {ADV_COLS.map(({ key }) => {
                     const isSortLeader = key === advSortKey
                     const baseClass = ADV_COLOR[key] ?? 'text-[color:var(--mm-ink-soft)]'
-                    const style = isSortLeader && color ? { color, fontWeight: 900 } : undefined
+                    const style = isSortLeader && color ? { color, fontWeight: 700 } : undefined
                     return (
                       <td key={key} className={`py-2 px-1.5 text-right tabular-nums ${baseClass}`} style={style}>
                         {advVal(adv, key)}
@@ -1119,7 +1119,7 @@ export default function LeagueTeamsPage() {
       <LeagueGroupTabs tabs={getStatsGroupTabs(base, 'teams')} />
       {/* ── 분기 버튼 탭 ── */}
       <div>
-        <h2 className="font-bold mb-4" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀 순위</h2>
+        <h2 className="font-black mb-4" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀 순위</h2>
         <div className="flex flex-wrap gap-2">
           {/* 전체 버튼 */}
           <button
@@ -1157,7 +1157,7 @@ export default function LeagueTeamsPage() {
         <>
         {/* ── 섹션 1: 팀별 전적 + 상대 전적 ── */}
         <div className="space-y-3">
-          <h3 className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀 전적</h3>
+          <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀 전적</h3>
 
           {/* 팀 카드 그리드 — 정체성(identityKey) 기준. 전체 뷰에서 5팀 노출 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -1284,7 +1284,7 @@ export default function LeagueTeamsPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <h3 className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀별 선수 스탯</h3>
+              <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀별 선수 스탯</h3>
               <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>이 팀에서 뛴 경기 기준 (정규/비정규 무관) · 한 선수가 여러 팀에서 뛰었다면 각 팀에 분리 표시</p>
             </div>
             <div className="flex items-center gap-2">
@@ -1488,7 +1488,7 @@ export default function LeagueTeamsPage() {
         {/* ── 섹션 3: 비정규 선수 스탯 ── */}
         {irregularStats.length > 0 && (
           <div className="space-y-2">
-            <h3 className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>비정규 선수</h3>
+            <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>비정규 선수</h3>
             <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)</p>
             <SectionCard variant="standalone">
               <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--mm-rule)' }}>

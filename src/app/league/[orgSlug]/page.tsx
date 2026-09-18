@@ -33,7 +33,7 @@ export default async function LeagueIndexPage({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
           </svg>
         </div>
-        <h1 className="text-xl font-bold text-white">리그 준비 중</h1>
+        <h1 className="text-xl font-black text-white">리그 준비 중</h1>
         <p className="text-gray-500 text-sm">현재 진행 중인 리그가 없습니다</p>
       </div>
     </div>

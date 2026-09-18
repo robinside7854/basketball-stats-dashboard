@@ -234,7 +234,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
                       style={{
                         color: 'var(--mm-ink)',
                         fontSize: 'clamp(15px, 4vw, 18px)',
-                        fontWeight: 900,
+                        fontWeight: 700,
                         letterSpacing: '-0.005em',
                         lineHeight: '1.15',
                         wordBreak: 'break-word',
@@ -332,7 +332,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
                     style={{
                       color: 'var(--mm-ink)',
                       fontSize: 'clamp(15px, 4vw, 18px)',
-                      fontWeight: 900,
+                      fontWeight: 700,
                       letterSpacing: '-0.005em',
                       lineHeight: '1.15',
                       wordBreak: 'break-word',
@@ -355,7 +355,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
                   style={{ color: 'var(--mm-ink-soft)', fontSize: '13px', letterSpacing: '0.02em' }}
                 >
                   {u.target}까지{' '}
-                  <span className="font-jersey" style={{ color: 'var(--mm-yellow-strong)', fontSize: '18px', fontWeight: 900 }}>
+                  <span className="font-jersey" style={{ color: 'var(--mm-yellow-strong)', fontSize: '18px', fontWeight: 700 }}>
                     {u.distance}
                   </span>
                 </span>

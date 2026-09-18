@@ -404,7 +404,7 @@ function ScheduleContent() {
       >
         <div>
           <h2
-            className="font-bold"
+            className="font-black"
             style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}
           >
             경기 일정

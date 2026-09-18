@@ -242,7 +242,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-safe-or-3 pb-3.5 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-3">
-            <h2 className="text-white font-bold text-sm">게임 이벤트 로그</h2>
+            <h2 className="text-white font-black text-sm">게임 이벤트 로그</h2>
             {!loading && (
               <span className="text-xs text-gray-600">
                 {isFiltered ? `${filteredEvents.length}/${events.length}개` : `${events.length}개`}
@@ -481,7 +481,7 @@ export default function GameLogModal({ gameId, leagueId, leagueHeaders, allPlaye
           <div className="relative bg-gray-900 border border-red-800/50 rounded-2xl p-6 w-full max-w-sm z-10 space-y-4">
             <div className="text-center space-y-2">
               <RotateCcw size={24} className="text-red-400 mx-auto" />
-              <h3 className="text-white font-bold text-base">경기 스탯 초기화</h3>
+              <h3 className="text-white font-black text-base">경기 스탯 초기화</h3>
               <p className="text-gray-400 text-sm">모든 이벤트가 삭제되고 스코어가 0으로 초기화됩니다.<br/>이 작업은 되돌릴 수 없습니다.</p>
             </div>
             <div className="flex gap-3">

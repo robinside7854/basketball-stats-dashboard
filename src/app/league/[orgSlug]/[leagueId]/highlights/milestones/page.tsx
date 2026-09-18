@@ -91,7 +91,7 @@ export default async function MilestonesPage({
             <div className="flex items-center gap-2">
               <Trophy size={20} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
               <h1
-                className="font-bold text-2xl lg:text-3xl truncate"
+                className="font-black text-2xl lg:text-3xl truncate"
                 style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
               >
                 커리어 <span style={{ color: 'var(--mm-yellow-strong)' }}>마일스톤</span>

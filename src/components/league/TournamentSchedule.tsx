@@ -214,7 +214,7 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
         style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}
       >
         <div className="min-w-0">
-          <h2 className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: 28, letterSpacing: '-0.005em' }}>
+          <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: 28, letterSpacing: '-0.005em' }}>
             대회 관리
           </h2>
           <p className="text-xs mt-1 font-bold break-keep" style={{ color: 'var(--mm-muted)' }}>

@@ -38,6 +38,10 @@ colors:
   # ── 농구 정체성 (캐주얼 전환 범위 밖 · 무변경) ──
   hoop-orange: "#EA580C"
   hoop-orange-deep: "#C2410C"
+  # ── 박스스코어 리바운드 열 강조 (가독성 업그레이드 2026-09-18) — 흰 배경 6.8:1 / 8.4:1 ──
+  #    이전 하드코딩 #EA580C(3.9:1) · #2563EB(다크 3.17:1) 를 대체. clutch-5-fg 와 값이 같지만 참조 금지(복제).
+  or: "#98401A"
+  dr: "#175278"
   # ── 클러치샷 5단계 위기 강도 — 배경/전경 쌍 (2026-08-06 신규) ──
   clutch-1-dagger-bg: "#EDEFF1"
   clutch-1-dagger-fg: "#414B55"
@@ -72,12 +76,16 @@ typography:
     fontWeight: 400
     lineHeight: 1
     letterSpacing: 0.01em
+  # jersey-num: 20px 이상 점수판·등번호·리더 카드 큰 숫자 전용 (2026-09-18 운영자 결정).
+  #   표 셀·선수명 같은 본문 크기에는 쓰지 않는다 — 좁은 서체라 같은 px 라도 덜 읽힌다.
   jersey-num:
     fontFamily: Barlow Condensed
-    fontSize: 1rem
-    fontWeight: 800
+    fontSize: 1.25rem
+    fontWeight: 700
     lineHeight: 1.2
     letterSpacing: 0.02em
+  # 굵기 토큰 (2026-09-18): font-bold=600 · font-black=700 · font-heavy=900(점수판 전용 탈출구).
+  #   리그 화면 글자의 95% 가 700·900 이라 굵기로 위계를 만들 여지가 없었다. 한 단계씩 내림.
   h1:
     fontFamily: Pretendard Variable
     fontSize: 1.5rem
@@ -87,7 +95,7 @@ typography:
   h2:
     fontFamily: Pretendard Variable
     fontSize: 1.2rem
-    fontWeight: 700
+    fontWeight: 600
     lineHeight: 1.4
     letterSpacing: -0.01em
   body-md:
@@ -101,19 +109,29 @@ typography:
     fontSize: 15px
     fontWeight: 400
     lineHeight: 1.7
-  label-caps:
-    fontFamily: Barlow Condensed
-    fontSize: 0.75rem
-    fontWeight: 700
-    lineHeight: 1.2
-    letterSpacing: 0.14em
-  stat-num:
-    fontFamily: ui-monospace
+  # label (구 label-caps, 2026-09-18): 10~11px · 900 · 대문자 · 자간 0.14em 조합이 시력 나쁜 사용자에게
+  #   가장 나쁜 4중 조합이었다. 13.6px · 600 · 자간 0.02em · 대문자 변환 없음. globals.css 의 @utility t-label.
+  label:
+    fontFamily: Pretendard Variable
+    fontSize: 0.8rem
+    fontWeight: 600
+    lineHeight: 1.4
+    letterSpacing: 0.02em
+  # table-cell (구 stat-num, 2026-09-18): 표 셀은 본문체 + tabular-nums, 바닥 1rem(17px), 행높이 ≥44px.
+  #   globals.css 의 td/th 전역 규칙 + @utility t-td / t-td-key / t-th. 모노스페이스는 뺐다.
+  table-cell:
+    fontFamily: Pretendard Variable
     fontSize: 1rem
-    fontWeight: 700
-    lineHeight: 1.2
-    letterSpacing: -0.02em
+    fontWeight: 400
+    lineHeight: 1.6
+    letterSpacing: 0em
     fontFeature: "'tnum' 1"
+  table-head:
+    fontFamily: Pretendard Variable
+    fontSize: 0.8rem
+    fontWeight: 600
+    lineHeight: 1.4
+    letterSpacing: 0.02em
 spacing:
   xs: 4px
   sm: 8px

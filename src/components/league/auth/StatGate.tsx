@@ -26,7 +26,7 @@ export default function StatGate({
       >
         <Lock size={20} style={{ color: 'var(--mm-ink)' }} />
       </span>
-      <h3 className="font-bold text-lg sm:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+      <h3 className="font-black text-lg sm:text-xl" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
         {title}
       </h3>
       <p className="text-[13px] mt-1.5 leading-relaxed max-w-sm break-keep" style={{ color: 'var(--mm-muted)' }}>

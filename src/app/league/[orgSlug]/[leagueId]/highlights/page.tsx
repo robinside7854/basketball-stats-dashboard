@@ -126,7 +126,7 @@ export default async function HighlightsLandingPage({
         <Film size={24} style={{ color: 'var(--mm-yellow-strong)' }} />
         <div>
           <h1
-            className="font-bold text-2xl lg:text-4xl"
+            className="font-black text-2xl lg:text-4xl"
             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
           >
             하이라이트

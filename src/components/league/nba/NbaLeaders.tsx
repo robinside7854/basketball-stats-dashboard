@@ -93,7 +93,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
           style={{ borderBottom: '1px solid var(--mm-rule)' }}
         >
           <h3
-            className="font-bold break-keep"
+            className="font-black break-keep"
             style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 28px)', letterSpacing: '-0.005em', lineHeight: 1.1 }}
           >
             리그 리더
@@ -241,7 +241,7 @@ export default function NbaLeaders({ leagueId, minGP, initialPlayers, initialPho
                               style={{
                                 color: 'var(--mm-ink)',
                                 fontSize: isTop ? 'clamp(20px, 5.2vw, 26px)' : 'clamp(17px, 4.4vw, 22px)',
-                                fontWeight: 900,
+                                fontWeight: 700,
                                 letterSpacing: '-0.005em',
                                 lineHeight: '1.1',
                                 wordBreak: 'break-word',

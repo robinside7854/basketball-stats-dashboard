@@ -246,7 +246,7 @@ export default function TournamentBoard({
           <Trophy size={24} className="shrink-0" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
           <div className="min-w-0">
             <h1
-              className="font-bold text-2xl lg:text-4xl"
+              className="font-black text-2xl lg:text-4xl"
               style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
             >
               대회

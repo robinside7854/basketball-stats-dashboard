@@ -96,7 +96,7 @@ export default async function BoxscorePage({
           </Link>
           <div className="min-w-0">
             <h1
-              className="font-bold break-keep"
+              className="font-black break-keep"
               style={{ color: 'var(--mm-ink)', fontSize: 'clamp(20px, 5vw, 28px)', letterSpacing: '-0.005em', lineHeight: 1.15 }}
             >
               {formatKorean(date)} 박스스코어

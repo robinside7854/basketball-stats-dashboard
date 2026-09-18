@@ -345,13 +345,13 @@ export default function LeagueSettingsPage() {
 
   return (
     <div className="space-y-5 max-w-lg">
-      <h2 className="font-bold text-3xl tracking-tight text-[color:var(--mm-ink)]">리그 설정</h2>
+      <h2 className="font-black text-3xl tracking-tight text-[color:var(--mm-ink)]">리그 설정</h2>
 
       {/* 공개 범위 (2026-08-04 신규) — 링크만으로 열람 가능한지, 승인 회원만 볼 수 있는지 */}
       <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
         <div className="flex items-center gap-2">
           {isPublic ? <Globe size={16} className="text-[color:var(--mm-muted)]" /> : <Lock size={16} className="text-[color:var(--mm-muted)]" />}
-          <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">공개 범위</h3>
+          <h3 className="font-black text-lg text-[color:var(--mm-ink)]">공개 범위</h3>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -394,7 +394,7 @@ export default function LeagueSettingsPage() {
           <Instagram size={20} />
         </span>
         <div className="flex-1 min-w-0">
-          <h3 className="font-bold text-lg text-[color:var(--mm-ink)] leading-tight">인스타 카드 생성기</h3>
+          <h3 className="font-black text-lg text-[color:var(--mm-ink)] leading-tight">인스타 카드 생성기</h3>
           <p className="text-xs text-[color:var(--mm-muted)] mt-0.5">주간 데이터를 매거진 카드(4:5)로 만들어 PNG 저장 · 표지/스코어보드/TOP3/마일스톤 8종</p>
         </div>
         <ChevronRight size={20} className="shrink-0 text-[color:var(--mm-muted)] group-hover:text-[color:var(--mm-ink)] transition-colors" />
@@ -407,7 +407,7 @@ export default function LeagueSettingsPage() {
 
       {/* 리그 상태 */}
       <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
-        <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">리그 상태</h3>
+        <h3 className="font-black text-lg text-[color:var(--mm-ink)]">리그 상태</h3>
         <div className="flex gap-2">
           {STATUS_OPTIONS.map(opt => (
             <button
@@ -435,7 +435,7 @@ export default function LeagueSettingsPage() {
 
       {/* 정기 일정 설정 */}
       <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-4">
-        <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">정기 일정 설정</h3>
+        <h3 className="font-black text-lg text-[color:var(--mm-ink)]">정기 일정 설정</h3>
 
         <div className="space-y-1.5">
           <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">정기 경기 요일</label>
@@ -507,7 +507,7 @@ export default function LeagueSettingsPage() {
       <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-4">
         <div className="flex items-center gap-2">
           <MapPin size={16} className="text-[color:var(--mm-yellow-strong)]" />
-          <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">고정 대관</h3>
+          <h3 className="font-black text-lg text-[color:var(--mm-ink)]">고정 대관</h3>
         </div>
         <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
           매주 반복되는 기본 시간·장소입니다. 참여신청 화면과 일정에 자동으로 표시됩니다.<br />
@@ -560,7 +560,7 @@ export default function LeagueSettingsPage() {
       <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
         <div className="flex items-center gap-2">
           <Youtube size={16} className="text-[color:var(--mm-live)]" />
-          <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">YouTube 채널 설정</h3>
+          <h3 className="font-black text-lg text-[color:var(--mm-ink)]">YouTube 채널 설정</h3>
         </div>
         <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
           경기 기록 탭에서 날짜별 YouTube 자동 연동에 사용됩니다.<br />
@@ -596,7 +596,7 @@ export default function LeagueSettingsPage() {
       <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
         <div className="flex items-center gap-2">
           <Youtube size={16} className="text-[color:var(--mm-live)]" />
-          <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">영상 제목의 팀 별칭</h3>
+          <h3 className="font-black text-lg text-[color:var(--mm-ink)]">영상 제목의 팀 별칭</h3>
         </div>
         <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
           영상 제목에 팀명이 줄여 적힐 때 등록합니다. 예: 제목의 <span className="font-mono text-[color:var(--mm-ink-soft)]">지피티</span> = 팀 <span className="font-mono text-[color:var(--mm-ink-soft)]">챗지피지기</span><br />
@@ -660,7 +660,7 @@ export default function LeagueSettingsPage() {
       <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
         <div className="flex items-center gap-2">
           <span className="text-xs font-black bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] px-2 py-0.5 tracking-tight">+1</span>
-          <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">플러스원 나이 기준</h3>
+          <h3 className="font-black text-lg text-[color:var(--mm-ink)]">플러스원 나이 기준</h3>
         </div>
         <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
           해당 만 나이 이상 선수에게 자유투 제외 득점 +1이 가산됩니다.<br />
@@ -690,7 +690,7 @@ export default function LeagueSettingsPage() {
 
       {/* PIN 변경 */}
       <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
-        <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">편집 PIN 변경</h3>
+        <h3 className="font-black text-lg text-[color:var(--mm-ink)]">편집 PIN 변경</h3>
         <div className="flex items-center gap-2">
           <Input
             type={pinVisible ? 'text' : 'password'}
@@ -740,7 +740,7 @@ export default function LeagueSettingsPage() {
         <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Users size={16} className="text-[color:var(--mm-muted)]" />
-            <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">분기별 팀 이름</h3>
+            <h3 className="font-black text-lg text-[color:var(--mm-ink)]">분기별 팀 이름</h3>
           </div>
           <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
             분기마다 팀 이름이 바뀌면 여기에 적어 둡니다. 비워 두면 그 분기는 기본 이름을 씁니다.<br />
@@ -826,7 +826,7 @@ export default function LeagueSettingsPage() {
         <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-[color:var(--mm-muted)]" />
-            <h3 className="font-bold text-lg text-[color:var(--mm-ink)]">분기별 날짜 범위</h3>
+            <h3 className="font-black text-lg text-[color:var(--mm-ink)]">분기별 날짜 범위</h3>
           </div>
           <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
             각 분기의 시작일/종료일을 지정하면 경기 날짜 → 분기 자동 매핑, 분기별 스탯 집계에 사용됩니다.

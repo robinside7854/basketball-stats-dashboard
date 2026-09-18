@@ -70,7 +70,7 @@ export default async function ClassicGamesPage({
 
       <div className="flex items-baseline justify-between gap-3 flex-wrap">
         <h2
-          className="font-bold break-keep"
+          className="font-black break-keep"
           style={{ color: 'var(--mm-ink)', fontSize: 'clamp(24px, 6vw, 32px)', letterSpacing: '-0.005em', lineHeight: 1.1 }}
         >
           명경기

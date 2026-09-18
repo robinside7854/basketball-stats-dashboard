@@ -520,7 +520,7 @@ export default function LeagueDraftPage() {
               <div className="mb-4 animate-in zoom-in-75 duration-500">
                 <PickPhotoFlip photoUrl={reveal.player_photo_url} playerName={reveal.player_name} pickNumber={reveal.pick_number} teamColor={rc} size="md" />
               </div>
-              <h2 className="font-jersey text-6xl sm:text-8xl font-bold text-white animate-in zoom-in-90 duration-500"
+              <h2 className="font-jersey text-6xl sm:text-8xl font-black text-white animate-in zoom-in-90 duration-500"
                 style={{ textShadow: `0 0 40px ${rc}, 0 0 80px ${rc}88` }}>
                 {reveal.player_name}
               </h2>
@@ -554,7 +554,7 @@ export default function LeagueDraftPage() {
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           {/* flex-wrap 필수 — 375px 에서 TEST 배지 + LIVE 배지가 함께 붙으면 제목 줄이 넘친다 */}
-          <h1 className="font-jersey text-3xl sm:text-4xl font-bold text-[color:var(--mm-ink)] flex items-center gap-2 flex-wrap min-w-0">
+          <h1 className="font-jersey text-3xl sm:text-4xl font-black text-[color:var(--mm-ink)] flex items-center gap-2 flex-wrap min-w-0">
             <Sparkles size={24} className="text-[color:var(--mm-yellow-strong)]" /> 드래프트
             {state?.draft?.is_test && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] text-sm font-black tracking-wider">
@@ -641,7 +641,7 @@ export default function LeagueDraftPage() {
           <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-1.5">
               <Lock size={20} className="text-[color:var(--mm-yellow-strong)]" />
-              <h3 className="font-jersey text-[color:var(--mm-ink)] font-bold text-xl sm:text-2xl">코드 입력</h3>
+              <h3 className="font-jersey text-[color:var(--mm-ink)] font-black text-xl sm:text-2xl">코드 입력</h3>
             </div>
             <p className="text-base text-[color:var(--mm-ink-soft)] mb-4 leading-relaxed break-keep">단장 코드는 우리 팀 픽을, 총무 코드는 진행을 맡습니다.</p>
             <Input autoFocus value={codeInput} onChange={e => { setCodeInput(e.target.value); setAuthError(null) }}

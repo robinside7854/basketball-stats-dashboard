@@ -49,7 +49,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
           style={{ borderBottom: '1px solid var(--mm-rule)' }}
         >
           <h3
-            className="font-bold break-keep"
+            className="font-black break-keep"
             style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 28px)', letterSpacing: '-0.005em', lineHeight: 1.1 }}
           >
             최근 라운드

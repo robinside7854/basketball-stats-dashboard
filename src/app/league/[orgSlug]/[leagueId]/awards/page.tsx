@@ -262,7 +262,7 @@ export default function AwardsPage() {
             <Trophy size={24} style={{ color: 'var(--mm-yellow-strong)' }} />
             <div>
               <h1
-                className="font-bold"
+                className="font-black"
                 style={{
                   color: 'var(--mm-ink)',
                   fontSize: 'clamp(28px, 4.5vw, 40px)',
@@ -413,7 +413,7 @@ export default function AwardsPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <h3
-                      className="font-bold truncate"
+                      className="font-black truncate"
                       style={{
                         color: 'var(--mm-ink)',
                         fontSize: '16px',
@@ -496,7 +496,7 @@ export default function AwardsPage() {
                         style={{
                           color: 'var(--mm-black)',
                           fontSize: isDuo ? 'clamp(17px, 4.6vw, 24px)' : 'clamp(20px, 5.5vw, 28px)',
-                          fontWeight: 900,
+                          fontWeight: 700,
                           letterSpacing: '-0.005em',
                           lineHeight: 1.1,
                           textDecorationColor: 'var(--mm-black)',

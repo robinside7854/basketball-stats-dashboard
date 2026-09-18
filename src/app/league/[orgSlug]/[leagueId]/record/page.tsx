@@ -71,7 +71,7 @@ export default function LeagueRecordPage() {
         <Lock size={24} style={{ color: 'var(--mm-muted)' }} />
         <div>
           <h3
-            className="font-bold text-2xl"
+            className="font-black text-2xl"
             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
           >
             편집 모드 전용
@@ -1772,7 +1772,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h2
-              className="font-bold text-3xl"
+              className="font-black text-3xl"
               style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
             >
               경기 기록
@@ -1995,7 +1995,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
           <ChevronLeft size={20} />
         </button>
         <h2
-          className="font-bold text-xl"
+          className="font-black text-xl"
           style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
         >
           {dateLabel} 경기 기록
@@ -3462,7 +3462,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     className="p-5 w-full max-w-xs space-y-3"
                     style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                   >
-                    <h3 className="font-bold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
+                    <h3 className="font-black text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
                       {pendingIrregular.name}을(를) 어느 팀에 추가할까요?
                     </h3>
                     <div className="flex gap-2">
@@ -3508,7 +3508,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   <div className="relative w-full max-w-lg bg-gray-900 border border-gray-700 rounded-2xl p-4 shadow-2xl"
                     onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-bold text-white">선수 교체</h3>
+                      <h3 className="text-sm font-black text-white">선수 교체</h3>
                       <button onClick={() => setShowSubModal(false)} className="text-gray-500 hover:text-white cursor-pointer transition-colors text-xs">닫기</button>
                     </div>
                     <LeagueSubstitutionPanel
@@ -3546,7 +3546,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-gray-900 border border-gray-700 rounded-2xl p-4 shadow-2xl"
                     onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-bold text-white">실시간 박스스코어</h3>
+                      <h3 className="text-sm font-black text-white">실시간 박스스코어</h3>
                       <button onClick={() => setShowBoxscoreModal(false)} className="text-gray-500 hover:text-white cursor-pointer transition-colors text-xs">닫기</button>
                     </div>
                     <LeagueStatsPanel
@@ -3598,7 +3598,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               {showComplete && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
                   <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm space-y-4">
-                    <h3 className="text-white font-bold">경기 마감</h3>
+                    <h3 className="text-white font-black">경기 마감</h3>
                     <p className="text-xs text-gray-400">
                       {isTournament
                         ? '우리 팀 점수는 기록에서 자동 계산됩니다. 상대 점수만 입력하세요.'

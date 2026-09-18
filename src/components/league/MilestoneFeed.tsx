@@ -125,7 +125,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
           <div className="flex items-center gap-2 min-w-0">
             <Trophy size={20} aria-hidden style={{ color: 'var(--mm-ink-soft)' }} />
             <h3
-              className="font-bold break-keep"
+              className="font-black break-keep"
               style={{
                 color: 'var(--mm-ink)',
                 fontSize: '22px',
@@ -183,7 +183,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                         style={{
                           color: 'var(--mm-ink)',
                           fontSize: 'clamp(15px, 4vw, 18px)',
-                          fontWeight: 900,
+                          fontWeight: 700,
                           letterSpacing: '-0.005em',
                           lineHeight: '1.15',
                           wordBreak: 'break-word',
@@ -208,7 +208,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                           style={{
                             color: 'var(--mm-ink)',
                             fontSize: 'clamp(15px, 4vw, 18px)',
-                            fontWeight: 900,
+                            fontWeight: 700,
                           }}
                         >
                           {r.target}
@@ -218,7 +218,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
                           style={{
                             color: 'var(--mm-ink)',
                             fontSize: 'clamp(13px, 3.4vw, 15px)',
-                            fontWeight: 900,
+                            fontWeight: 700,
                           }}
                         >
                           {CATEGORY_LABEL[r.category]} 달성!

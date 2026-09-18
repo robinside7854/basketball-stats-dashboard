@@ -541,7 +541,7 @@ function LeagueStatsPageInner() {
 
       {/* 헤더 + 필터 — 모바일 2줄 / PC 가로 정렬 */}
       <div className="space-y-3">
-        <h2 className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}>리그 스탯</h2>
+        <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}>리그 스탯</h2>
         {/* 1줄: 분기 선택 */}
         <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
           <button onClick={() => setSelectedQuarterId('all')}

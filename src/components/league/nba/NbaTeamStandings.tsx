@@ -48,7 +48,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
         style={{ borderBottom: '1px solid var(--mm-rule)' }}
       >
         <h3
-          className="font-bold break-keep"
+          className="font-black break-keep"
           style={{ color: 'var(--mm-ink)', fontSize: 'clamp(22px, 6vw, 28px)', letterSpacing: '-0.005em', lineHeight: 1.1 }}
         >
           팀 승률
@@ -109,7 +109,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
                   className="font-jersey uppercase min-w-0 break-keep"
                   style={{
                     fontSize: isTop ? 'clamp(16px, 4.6vw, 22px)' : 'clamp(14px, 3.8vw, 18px)',
-                    fontWeight: 900,
+                    fontWeight: 700,
                     letterSpacing: '-0.005em',
                     color: accentOrInk(t.color),
                     lineHeight: 1.15,

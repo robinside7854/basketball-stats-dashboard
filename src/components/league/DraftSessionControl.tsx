@@ -605,7 +605,7 @@ export default function DraftSessionControl({ leagueId, quarterId, teams, authHe
     return (
       <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl p-4 sm:p-5 space-y-5">
         <div>
-          <h3 className="font-bold text-[var(--mm-ink)] text-lg sm:text-xl mb-1.5">드래프트 세션 생성</h3>
+          <h3 className="font-black text-[var(--mm-ink)] text-lg sm:text-xl mb-1.5">드래프트 세션 생성</h3>
           <p className="text-sm text-[var(--mm-ink-soft)] leading-relaxed">팀장(단장)을 지정하고 드래프트 참여 선수를 선별하세요. 픽 순서는 추첨으로 정합니다 (모든 팀 같은 확률, 스네이크 방식).</p>
         </div>
         {editorBlock}

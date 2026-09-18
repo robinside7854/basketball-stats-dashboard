@@ -389,7 +389,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
           <div className="flex items-center gap-2 flex-wrap">
             <h2
               id="daily-boxscore-title"
-              className="font-bold"
+              className="font-black"
               style={{ color: 'var(--mm-ink)', fontSize: '18px', letterSpacing: '-0.005em' }}
             >
               {dateLabel} 요약

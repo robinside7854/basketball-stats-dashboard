@@ -32,6 +32,13 @@
   --mm-negative: #A33328;
   --mm-neutral-strong: #55534E;
 
+  /* ===== 박스스코어 리바운드 열 강조 (가독성 업그레이드, 2026-09-18) =====
+     OR 주황 #EA580C · DR 파랑 #2563EB 가 하드코딩이라 라이트 3.9:1 / 다크 3.17:1 로 미달이었다.
+     흰 배경(#FFFFFF) 기준 6.8:1 / 8.4:1. clutch-5-fg 와 값이 같지만 참조하지 않고 복제한다 —
+     클러치 의미색과 묶이면 한쪽을 고칠 때 다른 쪽이 따라 움직인다. */
+  --mm-or: #98401A;
+  --mm-dr: #175278;
+
   /* ===== 의미색 배경/전경 쌍 (캐주얼 전환, 2026-08-06) =====
      채움+흰글씨 대신 틴트 배경 + 진한 전경 텍스트로. ResultChip 등 칩류가 소비. */
   --mm-positive-bg: #E8F1E9;  --mm-positive-fg: #2E6B3D;
@@ -117,6 +124,10 @@
   --mm-negative: #F5998C;
   --mm-neutral-strong: #C9C3B6;
 
+  /* 리바운드 열 강조 — 다크 패널(#221F1B) 기준 8.1:1 / 9.5:1 */
+  --mm-or: #EFA579;
+  --mm-dr: #8FC2E8;
+
   /* ===== 의미색 배경/전경 쌍 (캐주얼 전환, 2026-08-06) ===== */
   --mm-positive-bg: rgba(96, 196, 128, 0.15);  --mm-positive-fg: #82D89D;
   --mm-negative-bg: rgba(240, 120, 105, 0.15); --mm-negative-fg: #F5998C;
@@ -144,8 +155,14 @@
 
 /* ===== 파란날개 팀 컬러 테마 ===== */
 @theme {
-  /* 폰트 — Pretendard 를 최상위. Fira Sans 는 라틴 fallback */
-  --font-sans: 'Pretendard Variable', Pretendard, var(--font-fira-sans), 'Fira Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* 폰트 — Pretendard 를 최상위.
+     ⚠ 이 값 안에 next/font 변수(var(--font-fira-sans) 류)를 넣지 말 것 (2026-09-18).
+       그 변수는 layout.tsx 가 <body> 클래스에 정의하는데 --font-sans 는 :root 에서 계산된다.
+       :root 에는 그 변수가 없으므로 값 전체가 무효(guaranteed-invalid) → font-family 가 unset →
+       앱 전체가 Times New Roman/맑은 고딕으로 렌더됐다. 초기 커밋부터 두 달간 그랬고 에러는 0.
+       (@theme inline 의 --font-sans: var(--font-sans) 순환 참조도 같은 날 제거.)
+       Fira Sans 는 라틴 폴백이었는데 Pretendard 가 라틴을 포함하므로 뺀다. */
+  --font-sans: 'Pretendard Variable', Pretendard, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
   /* 농구 정체성 — Bebas Neue (스코어보드 디스플레이), Barlow Condensed (저지·헤더) */
   --font-display: var(--font-bebas), 'Bebas Neue', 'Barlow Condensed', 'Impact', sans-serif;
@@ -188,6 +205,33 @@
 
   /* 라벨 tracking 통일 (0.14 · 0.16 · 0.18 혼재 해소) · NbaLeaders.tsx 등에서 소비 중 */
   --track-label: 0.14em;
+
+  /* ===== 글자 크기 스케일 (가독성 업그레이드, 2026-09-18) =====
+     html 17px 기준 text-xs 가 12.75px 였다. 실측: 홈@390 텍스트의 45.9% 가 12px 이하,
+     로스터@390 은 429건이 12px 이하이고 그중 424건이 굵기 700 이상 — 시력 나쁜 사용자가
+     못 읽는 직접 원인. 운영자 결정: 라벨 13px · 표/본문 16px(모바일) 17px(PC) 이 바닥.
+
+     ⚠ html font-size 는 건드리지 않는다. spacing · min-h-11 · px-4 가 전부 rem 이라
+       루트를 키우면 여백·터치 타깃이 같이 움직여 화면 전체가 재배치된다. 여기서 글자
+       크기 토큰만 키우면 글자만 커지고 여백은 그대로라 회귀 범위가 텍스트로 한정된다.
+     행간을 단위 없는 비율로 두는 이유: v4 기본은 calc(1.25/0.875) 식이라 크기를 바꾸면 깨진다.
+     px 리터럴(text-[11px] 류)은 이 토큰을 안 타므로 소스에서 text-xs 로 치환한다
+     (scripts/check-type-scale.mjs 가 재발을 막는다). */
+  --text-xs: 0.8rem;    --text-xs--line-height: 1.45;   /* 13.6 / 14 / 14.4px */
+  --text-sm: 0.9rem;    --text-sm--line-height: 1.5;    /* 15.3 / 15.75 / 16.2px */
+  --text-base: 1rem;    --text-base--line-height: 1.6;  /* 17 / 17.5 / 18px — 크기 불변, 행간만 body 와 일치 */
+
+  /* ===== 굵기 (같은 날) =====
+     리그 화면 글자의 95.4% 가 bold(700)·black(900) 이었다. 굵기로 위계를 만들 여지가 없고
+     작은 숫자가 뭉개지는 직접 원인. 한 단계씩 내린다 — 위계(black > bold) 는 그대로.
+     font-semibold(600) 과 font-bold 가 같은 값이 되는 것은 의도. 위계가 필요하면 font-black.
+     font-heavy(900) 는 20px 이상 점수판·히어로 숫자 전용 탈출구다 — 인라인 fontWeight:900 이
+     다시 번식하는 것을 막고 grep 으로 셀 수 있게 한다.
+     ⚠ 후일 html 을 16px 로 낮추면 min-h-11 이 정확히 44.0px 이 되어 여유가 0 이다.
+       그때는 min-h-[44px] 로 바꿔야 한다. */
+  --font-weight-bold: 600;
+  --font-weight-black: 700;
+  --font-weight-heavy: 900;
 
   /* 마일스톤 근접도 3티어 · 클러치샷 5단계는 :root / .dark 블록으로 이전됨 (캐주얼 전환, 2026-08-06).
      @theme 안에서는 테마 반전이 되지 않기 때문 — 배경 전경 쌍(milestone bg fg, clutch bg fg)은
@@ -358,7 +402,6 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -496,15 +539,74 @@
   @media (min-width: 1024px) {
     html { font-size: 18px; }
   }
-  /* 테이블 숫자 셀: 시스템 모노스페이스 + tabular-nums (Fira Code 제거, 시스템 폰트로 대체) */
-  td {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  /* 표 셀 바닥값 (가독성 업그레이드, 2026-09-18)
+     공용 표 컴포넌트가 없어 표가 11벌이고 셀 크기 기준이 네 가지였다(text-xs / text-sm /
+     text-[13px] / 인라인 15px). 이 규칙이 표 본문 전체에 걸린 유일한 훅이라 여기서 바닥을 깐다:
+     본문체 + tabular-nums + 1rem(17px). 예전의 모노스페이스는 운영자 결정으로 뺐다 —
+     표 숫자는 본문체, 20px 이상 점수판만 유니폼체(.font-jersey).
+     셀에 직접 붙은 유틸리티(text-xs 등)가 이 값을 이기므로 그런 표는 소스에서 고친다.
+     th 의 UA 기본 bold 는 키워드 700 이라 --font-weight-* 토큰을 안 탄다 → 직접 지정. */
+  td, th {
+    font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
+    font-size: 1rem;
   }
-  /* 첫 번째 열(선수명)은 제외 */
-  td:first-child {
-    font-family: var(--font-fira-sans), 'Fira Sans', system-ui, sans-serif;
+  th {
+    font-weight: var(--font-weight-semibold);
   }
+  /* <b>/<strong> 의 UA 기본은 'bolder' — 부모가 600 이면 900 으로 튄다(실측: 로스터 b 11px/900).
+     굵기 토큰 하향의 구멍이므로 절대값으로 고정. */
+  b, strong {
+    font-weight: var(--font-weight-black);
+  }
+}
+
+/* ===== 텍스트 역할 유틸 (가독성 업그레이드, 2026-09-18) =====
+   표 셀·라벨 클래스 세트를 한 곳에 둔다. 11벌 표가 저마다 py-2 px-2 text-sm font-jersey …
+   를 들고 다니다가 네 가지 크기로 갈라졌다. @utility 라 lg: 같은 변형과 결합된다.
+   ⚠ t-label 에 uppercase 를 넣지 않는다. PTS/REB 는 소스가 이미 대문자라 무의미했고,
+     한글 라벨엔 효과 없이 자간만 벌어진다(CLAUDE.md). 소스가 소문자인 영문 약어는 문자열을 고친다. */
+@utility t-label {
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--mm-ink-soft);
+  letter-spacing: 0.02em;
+}
+@utility t-th {
+  padding: 0.625rem 0.5rem;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--mm-ink-soft);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  text-align: center;
+}
+/* 행높이 = 10.6×2 + 17×1.6 = 48.5px ≥ 44 (모바일 17px 기준) */
+@utility t-td {
+  padding: 0.625rem 0.5rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: center;
+}
+@utility t-td-key {
+  padding: 0.625rem 0.5rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: center;
+  font-weight: 700;
+  color: var(--mm-ink);
+}
+/* 표 밖 본문 숫자 — 카드 값·요약 그리드. font-jersey font-black tabular-nums 를 대체 */
+@utility t-num {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 /* 헥사곤 뱃지 클립 */
@@ -523,13 +625,8 @@
   .pb-safe-or-4 { padding-bottom: max(1rem,    env(safe-area-inset-bottom)); }
   .pt-safe-or-3 { padding-top: max(0.75rem,    env(safe-area-inset-top)); }
 
-  /* ── Typography scale-up (league pages) ── */
+  /* .stat-num 은 2026-09-18 삭제 — 소비처 0. 같은 역할은 위 @utility t-num. */
 
-  /* Stat number emphasis */
-  .stat-num {
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.02em;
-  }
   /* Smooth button press */
   .btn-press {
     transition: transform 120ms ease, box-shadow 120ms ease, background-color 150ms ease;
