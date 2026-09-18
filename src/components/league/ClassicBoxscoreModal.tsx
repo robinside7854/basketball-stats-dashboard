@@ -125,24 +125,25 @@ export default function ClassicBoxscoreModal({ leagueId, game, onClose }: Props)
           ) : rows.length === 0 ? (
             <p className="px-4 py-6 text-center text-sm" style={{ color: 'var(--mm-muted)' }}>기록된 스탯이 없습니다</p>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full">
+              {/* 셀 크기·굵기는 globals.css 의 t-th / t-td / t-td-key 가 정본 (가독성 업그레이드 2026-09-18) */}
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                  <th className="text-left px-4 py-2 text-xs font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.1em' }}>선수</th>
+                  <th className="t-th text-left px-4">선수</th>
                   {['PTS', 'REB', 'AST', 'STL', 'BLK'].map(h => (
-                    <th key={h} className="text-center px-2 py-2 text-xs font-black uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.1em' }}>{h}</th>
+                    <th key={h} className="t-th">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {rows.map(r => (
                   <tr key={r.player_id} style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-                    <td className="px-4 py-2 font-bold truncate max-w-[120px]" style={{ color: 'var(--mm-ink)' }}>{r.name}</td>
+                    <td className="px-4 py-2.5 font-semibold truncate max-w-[140px]" style={{ color: 'var(--mm-ink)' }}>{r.name}</td>
                     {([r.pts, r.reb, r.ast, r.stl, r.blk]).map((v, i) => (
                       <td
                         key={i}
-                        className="text-center px-2 py-2 tabular-nums"
-                        style={{ color: v > 0 ? 'var(--mm-ink)' : 'var(--mm-muted)', fontWeight: i === 0 ? 800 : 400 }}
+                        className={i === 0 ? 't-td-key' : 't-td'}
+                        style={v > 0 ? undefined : { color: 'var(--mm-muted)' }}
                       >
                         {v}
                       </td>

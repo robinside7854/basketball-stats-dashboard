@@ -8,7 +8,7 @@
 // 데이터 · 계산 로직 · 3-탭 구조 (경기결과 · 박스스코어 · 팀별 비교) 무변경.
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
-import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 // html-to-image 는 카메라 버튼 클릭 시에만 필요 → 동적 로드로 초기 번들에서 제거
@@ -127,20 +127,22 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      {/* 셀 크기·굵기는 globals.css 의 t-th / t-td / t-td-key 가 정본이다(가독성 업그레이드 2026-09-18).
+          여기서 text-sm 같은 크기를 다시 주면 11벌 표가 또 갈라진다. 숫자는 본문체 tabular. */}
+      <table className="w-full">
         <thead>
           <tr style={{ borderBottom: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
             <th
-              className="text-left py-2.5 px-3 text-xs font-black uppercase tracking-widest sticky left-0 min-w-[150px]"
-              style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel-alt)' }}
+              className="t-th text-left px-3 sticky left-0 min-w-[150px]"
+              style={{ background: 'var(--mm-panel-alt)' }}
             >선수 / 팀</th>
             {COLS.map(c => {
               const isActive = sortKey === c.sortKey
               return (
                 <th key={c.key}
                   onClick={() => c.sortKey && handleSort(c.sortKey)}
-                  className="py-2.5 px-2 text-center text-xs font-jersey font-bold whitespace-nowrap cursor-pointer select-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
-                  style={{ color: isActive ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}>
+                  className="t-th cursor-pointer select-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-inset"
+                  style={isActive ? { color: 'var(--mm-yellow-strong)' } : undefined}>
                   {c.label}
                   {c.sortKey && (isActive
                     ? (sortDir === 'desc' ? <ChevronDown size={14} className="inline ml-0.5" /> : <ChevronUp size={14} className="inline ml-0.5" />)
@@ -161,33 +163,27 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--mm-yellow-soft)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = rowBg }}
               >
-                <td className="py-2 px-3 sticky left-0" style={{ background: 'inherit' }}>
+                <td className="py-2.5 px-3 sticky left-0" style={{ background: 'inherit' }}>
                   <div className="flex items-center gap-2">
                     {rr.team_color && <div aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
-                    <div>
-                      <span
-                        className="font-jersey font-bold text-sm whitespace-nowrap"
-                        style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
-                      >{rr.name}</span>
-                      {rr.team_name && <p className="text-xs leading-none mt-0.5" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</p>}
+                    <div className="leading-tight">
+                      {/* 선수명은 본문체 600 — 유니폼체(좁음)와 900 굵기를 뺀 것이 이번 작업의 요지 */}
+                      <span className="font-semibold text-base whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{rr.name}</span>
+                      {rr.team_name && <p className="text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</p>}
                     </div>
                   </div>
                 </td>
                 {COLS.map(c => {
                   const isActive = sortKey === c.sortKey
-                  // 셀 색상 우선순위: 정렬 활성 > 특수 컬럼 > 기본
-                  let color = 'var(--mm-ink-soft)'
-                  let fontWeight: number | undefined
-                  if (isActive) { color = 'var(--mm-yellow-strong)'; fontWeight = 900 }
-                  else if (c.key === 'pts') { color = 'var(--mm-ink)'; fontWeight = 900 }
-                  else if (c.key === 'oreb') { color = '#EA580C' }  // orange accent
-                  else if (c.key === 'dreb') { color = '#2563EB' }  // blue accent
+                  // 강조는 굵기(t-td-key = 700)로만. 예전엔 인라인 900 이라 토큰 하향을 안 탔다.
+                  // OR/DR 색은 토큰 — 하드코딩 주황·파랑이 라이트 3.9:1 / 다크 3.17:1 로 미달이었다.
+                  const key = isActive || c.key === 'pts'
+                  const color = isActive ? 'var(--mm-yellow-strong)'
+                    : c.key === 'oreb' ? 'var(--mm-or)'
+                    : c.key === 'dreb' ? 'var(--mm-dr)'
+                    : undefined
                   return (
-                    <td
-                      key={c.key}
-                      className="py-2 px-2 text-center text-sm whitespace-nowrap tabular-nums font-jersey"
-                      style={{ color, fontWeight }}
-                    >
+                    <td key={c.key} className={key ? 't-td-key' : 't-td'} style={color ? { color } : undefined}>
                       {cellVal(rr, c.key)}
                     </td>
                   )
@@ -217,14 +213,14 @@ function MobileStatCards({ rows, showGP = false }: { rows: (PlayerRow | DailySta
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-1.5">
-        <span className="text-xs font-black uppercase tracking-widest mr-1" style={{ color: 'var(--mm-muted)' }}>정렬</span>
+        <span className="t-label mr-1">정렬</span>
         {sortBtns.map(b => {
           const active = sortKey === b.key
           return (
             <button
               key={b.key}
               onClick={() => setSortKey(b.key)}
-              className="px-2.5 py-1 text-xs font-black uppercase tracking-widest transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+              className="px-3 min-h-11 text-sm font-black transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               style={active
                 ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
                 : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
@@ -239,22 +235,25 @@ function MobileStatCards({ rows, showGP = false }: { rows: (PlayerRow | DailySta
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {rr.team_color && <div aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
-                <span className="font-jersey font-bold text-sm truncate min-w-0" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{rr.name}</span>
+                <span className="font-semibold text-base truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>{rr.name}</span>
                 {rr.team_name && <span className="text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</span>}
-                {showGP && <span className="text-xs font-bold shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>{rr.gp}G</span>}
+                {showGP && <span className="text-xs font-semibold shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>{rr.gp}G</span>}
               </div>
               <div className="flex items-baseline gap-1 shrink-0">
+                {/* 큰 점수 숫자(≥20px)만 유니폼체 유지 — 운영자 결정 */}
                 <span className="text-xl font-jersey font-black tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{rr.pts}</span>
-                <span className="text-xs font-bold uppercase" style={{ color: 'var(--mm-muted)' }}>PTS</span>
+                <span className="t-label">PTS</span>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-xs tabular-nums">
-              <div><span style={{ color: 'var(--mm-muted)' }}>REB </span><span className="font-jersey font-black" style={{ color: 'var(--mm-ink)' }}>{rr.reb}</span></div>
-              <div><span style={{ color: 'var(--mm-muted)' }}>AST </span><span className="font-jersey font-black" style={{ color: 'var(--mm-ink)' }}>{rr.ast}</span></div>
-              <div><span style={{ color: 'var(--mm-muted)' }}>STL </span><span className="font-jersey font-black" style={{ color: 'var(--mm-ink)' }}>{rr.stl}</span></div>
-              <div><span style={{ color: 'var(--mm-muted)' }}>BLK </span><span className="font-jersey font-black" style={{ color: 'var(--mm-ink)' }}>{rr.blk}</span></div>
-              <div className="col-span-2"><span style={{ color: 'var(--mm-muted)' }}>FG </span><span className="font-jersey font-black" style={{ color: 'var(--mm-ink)' }}>{rr.fgm}/{rr.fga}</span>{rr.fg_pct != null && <span style={{ color: 'var(--mm-muted)' }}> ({rr.fg_pct}%)</span>}</div>
-              <div className="col-span-2"><span style={{ color: 'var(--mm-muted)' }}>3P </span><span className="font-jersey font-black" style={{ color: 'var(--mm-ink)' }}>{rr.fg3m}/{rr.fg3a}</span>{rr.fg3_pct != null && <span style={{ color: 'var(--mm-muted)' }}> ({rr.fg3_pct}%)</span>}</div>
+            {/* 카드 본문은 17px(text-base). 12.75px 한 단계에 몰려 있던 것이 모바일 가독성의 주범이었다.
+                값 숫자는 본문체 tabular(t-num) 600 — 유니폼체 900 을 뺀다. */}
+            <div className="grid grid-cols-4 gap-x-2 gap-y-1 text-base tabular-nums">
+              <div><span style={{ color: 'var(--mm-muted)' }}>REB </span><span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{rr.reb}</span></div>
+              <div><span style={{ color: 'var(--mm-muted)' }}>AST </span><span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{rr.ast}</span></div>
+              <div><span style={{ color: 'var(--mm-muted)' }}>STL </span><span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{rr.stl}</span></div>
+              <div><span style={{ color: 'var(--mm-muted)' }}>BLK </span><span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{rr.blk}</span></div>
+              <div className="col-span-2"><span style={{ color: 'var(--mm-muted)' }}>FG </span><span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{rr.fgm}/{rr.fga}</span>{rr.fg_pct != null && <span style={{ color: 'var(--mm-muted)' }}> ({rr.fg_pct}%)</span>}</div>
+              <div className="col-span-2"><span style={{ color: 'var(--mm-muted)' }}>3P </span><span className="t-num font-semibold" style={{ color: 'var(--mm-ink)' }}>{rr.fg3m}/{rr.fg3a}</span>{rr.fg3_pct != null && <span style={{ color: 'var(--mm-muted)' }}> ({rr.fg3_pct}%)</span>}</div>
             </div>
           </div>
         )
@@ -705,19 +704,19 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                           좁은 화면에서 쿼터가 늘어나면 이 줄만 가로로 스크롤한다(본문은 그대로). */}
                       {(g.quarter_scores?.length ?? 0) > 1 && (
                         <div className="px-4 sm:px-5 pb-3 overflow-x-auto">
-                          <table className="w-full text-xs tabular-nums" style={{ minWidth: '18rem' }}>
+                          <table className="w-full text-xs tabular-nums" style={{ minWidth: '15rem' }}>
                             <caption className="sr-only">
                               {`${g.home_team?.name ?? '홈'} 대 ${g.away_team?.name ?? '원정'} 쿼터별 스코어`}
                             </caption>
                             <thead>
                               <tr>
-                                <th scope="col" className="text-left font-bold uppercase tracking-widest text-xs py-1 pr-2" style={{ color: 'var(--mm-muted)' }}>팀</th>
+                                <th scope="col" className="t-label text-left py-1 pr-2" style={{ color: 'var(--mm-muted)' }}>팀</th>
                                 {g.quarter_scores!.map(q => (
-                                  <th key={q.quarter} scope="col" className="font-bold uppercase tracking-widest text-xs py-1 px-2 text-right" style={{ color: 'var(--mm-muted)' }}>
+                                  <th key={q.quarter} scope="col" className="t-label py-1 px-2 text-right" style={{ color: 'var(--mm-muted)' }}>
                                     {quarterLabel(q.quarter)}
                                   </th>
                                 ))}
-                                <th scope="col" className="font-black uppercase tracking-widest text-xs py-1 pl-2 text-right" style={{ color: 'var(--mm-ink-soft)' }}>합계</th>
+                                <th scope="col" className="t-label py-1 pl-2 text-right" style={{ color: 'var(--mm-ink-soft)' }}>합계</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -726,8 +725,10 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                                 { side: 'away' as const, team: g.away_team, total: g.away_score },
                               ]).map(row => (
                                 <tr key={row.side} style={{ borderTop: '1px solid var(--mm-rule)' }}>
-                                  <th scope="row" className="text-left py-1.5 pr-2 font-jersey font-bold truncate max-w-[7rem]" style={{ color: 'var(--mm-ink-soft)' }}>
-                                    <span className="inline-flex items-center gap-1.5 min-w-0">
+                                  {/* 말줄임은 셀이 아니라 안쪽 span 에 걸어야 먹는다(표 셀의 max-width 는 무시된다).
+                                      390px 에서 「챗지피지기」 행이 표를 7px 넘겼다. */}
+                                  <th scope="row" className="text-left py-1.5 pr-2 text-sm" style={{ color: 'var(--mm-ink-soft)' }}>
+                                    <span className="inline-flex items-center gap-1.5 min-w-0 max-w-[6rem]">
                                       {row.team && <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: row.team.color }} />}
                                       <span className="truncate">{row.team?.name ?? '미정'}</span>
                                     </span>
@@ -890,49 +891,38 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                 const gpSub = (r?: DailyStat | PlayerRow) =>
                   pickedGame ? '' : `${(r && 'gp' in r ? r.gp : 0)}경기`
 
+                // 아이콘은 lucide 단일 패밀리 — 이모지는 OS 마다 모양이 다르고 아이콘 자리에 쓰지 않는다(CLAUDE.md)
                 const leaders = [
-                  { icon: '🏀', label: '득점',   name: byPts?.name,   val: byPts?.pts != null ? `${byPts.pts}점` : null,      sub: gpSub(byPts) },
-                  { icon: '💪', label: '리바운드', name: byReb?.name,   val: byReb?.reb != null ? `${byReb.reb}개` : null,      sub: `OR ${byReb?.oreb ?? 0} / DR ${byReb?.dreb ?? 0}` },
-                  { icon: '🎯', label: '어시스트', name: byAst?.name,   val: byAst?.ast != null ? `${byAst.ast}개` : null,      sub: gpSub(byAst) },
-                  { icon: '🚫', label: '블락',    name: byBlk?.name,   val: byBlk?.blk != null ? `${byBlk.blk}개` : null,      sub: gpSub(byBlk) },
-                  { icon: '✋', label: '스틸',    name: byStl?.name,   val: byStl?.stl != null ? `${byStl.stl}개` : null,      sub: gpSub(byStl) },
-                  { icon: '📊', label: '야투율',   name: byFgPct?.name, val: byFgPct?.fg_pct != null ? `${byFgPct.fg_pct}%` : null, sub: byFgPct ? `${byFgPct.fgm}/${byFgPct.fga}` : '' },
-                  { icon: '🎪', label: '3점슛',   name: byFg3?.name,   val: byFg3?.fg3m != null ? `${byFg3.fg3m}개` : null,   sub: byFg3 && byFg3.fg3a > 0 ? `${byFg3.fg3_pct}%` : '' },
+                  { Icon: Flame,     label: '득점',   name: byPts?.name,   val: byPts?.pts != null ? `${byPts.pts}점` : null,      sub: gpSub(byPts) },
+                  { Icon: Hand,      label: '리바운드', name: byReb?.name,   val: byReb?.reb != null ? `${byReb.reb}개` : null,      sub: `OR ${byReb?.oreb ?? 0} / DR ${byReb?.dreb ?? 0}` },
+                  { Icon: Handshake, label: '어시스트', name: byAst?.name,   val: byAst?.ast != null ? `${byAst.ast}개` : null,      sub: gpSub(byAst) },
+                  { Icon: Shield,    label: '블락',    name: byBlk?.name,   val: byBlk?.blk != null ? `${byBlk.blk}개` : null,      sub: gpSub(byBlk) },
+                  { Icon: Zap,       label: '스틸',    name: byStl?.name,   val: byStl?.stl != null ? `${byStl.stl}개` : null,      sub: gpSub(byStl) },
+                  { Icon: Target,    label: '야투율',   name: byFgPct?.name, val: byFgPct?.fg_pct != null ? `${byFgPct.fg_pct}%` : null, sub: byFgPct ? `${byFgPct.fgm}/${byFgPct.fga}` : '' },
+                  { Icon: Sparkles,  label: '3점슛',   name: byFg3?.name,   val: byFg3?.fg3m != null ? `${byFg3.fg3m}개` : null,   sub: byFg3 && byFg3.fg3a > 0 ? `${byFg3.fg3_pct}%` : '' },
                 ]
 
                 return (
                   <div>
-                    <p
-                      className="text-xs uppercase tracking-widest font-black mb-2.5"
-                      style={{ color: 'var(--mm-yellow-strong)', letterSpacing: '0.20em' }}
-                    >당일 스탯 리더</p>
+                    <p className="t-label mb-2.5" style={{ color: 'var(--mm-yellow-strong)' }}>당일 스탯 리더</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                      {leaders.map(({ icon, label, name, val, sub }) => (
+                      {leaders.map(({ Icon, label, name, val, sub }) => (
                         <div
                           key={label}
                           className="p-3 flex flex-col gap-0.5"
                           style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
                         >
                           {/* 카테고리 레이블 */}
-                          <div className="flex items-center gap-1 mb-1">
-                            <span className="text-sm">{icon}</span>
-                            <span
-                              className="text-xs font-black uppercase tracking-widest"
-                              style={{ color: 'var(--mm-muted)' }}
-                            >{label}</span>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Icon size={16} aria-hidden style={{ color: 'var(--mm-muted)' }} />
+                            <span className="t-label">{label}</span>
                           </div>
-                          {/* 선수 이름 — 주인공 */}
-                          <p
-                            className="text-base font-jersey font-bold leading-tight truncate"
-                            style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
-                          >
+                          {/* 선수 이름 — 주인공. 본문체 600(유니폼체·900 제거) */}
+                          <p className="text-base font-semibold leading-tight truncate" style={{ color: 'var(--mm-ink)' }}>
                             {name ?? '—'}
                           </p>
                           {/* 기록 — 보조 */}
-                          <p
-                            className="text-sm font-jersey font-black tabular-nums"
-                            style={{ color: 'var(--mm-yellow-strong)' }}
-                          >
+                          <p className="t-num text-base font-black" style={{ color: 'var(--mm-yellow-strong)' }}>
                             {val ?? ''}
                           </p>
                           {sub && <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>{sub}</p>}
