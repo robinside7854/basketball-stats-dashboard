@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { X, Clock, AlertTriangle, Crown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import ConfirmModal from '@/components/league/ConfirmModal'
 import { teamInk } from '@/lib/util/contrastColor'
 import { MAX_EXTENSIONS, EXTENSION_SECONDS } from '@/lib/draftTimer'
-import { POSITION_ORDER, OTHER, POSITION_META, primaryPosition, type PositionCode } from '@/lib/draft/positions'
+import { POSITION_GROUP_ORDER, POSITION_META, primaryPosition, type PositionGroup } from '@/lib/draft/positions'
 
 export interface PickModalPlayer {
   id: string
@@ -66,16 +67,20 @@ export default function DraftPickModal({
   totalRounds: number
 }) {
   const [query, setQuery] = useState('')
+  // 지명 확인 대화상자 대상. 행 안의 「픽 확정」은 이 창을 열 뿐이고,
+  // 실제 전송은 창에서 한 번 더 누를 때만 일어난다(리허설: 목록에서 손가락이 미끄러져 오지명).
+  const [confirmId, setConfirmId] = useState<string | null>(null)
 
-  // Escape 로 닫기 — 확정 전송 중에는 무시(중복 제출/혼란 방지)
+  // Escape 로 닫기 — 확정 전송 중에는 무시(중복 제출/혼란 방지).
+  // 확인 창이 떠 있으면 Esc 는 그 창만 닫아야 한다 → 여기서는 건너뛴다.
   useEffect(() => {
     if (!open) return
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !confirming) onClose()
+      if (e.key === 'Escape' && !confirming && confirmId == null) onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, confirming, onClose])
+  }, [open, confirming, confirmId, onClose])
 
   // 검색어 초기화는 부모가 픽마다 key 를 갈아 remount 하는 것으로 처리한다.
   // (effect 안에서 setQuery 를 부르면 cascading render 가 된다)
@@ -84,23 +89,25 @@ export default function DraftPickModal({
     const filtered = q
       ? players.filter(p => p.name.includes(q) || (p.number != null && String(p.number).includes(q)))
       : players
-    const buckets = new Map<PositionCode, PickModalPlayer[]>()
+    const buckets = new Map<PositionGroup, PickModalPlayer[]>()
     for (const p of filtered) {
       const key = primaryPosition(p.position)
       const arr = buckets.get(key)
       if (arr) arr.push(p)
       else buckets.set(key, [p])
     }
-    const ordered: { key: PositionCode; list: PickModalPlayer[] }[] = []
-    for (const key of POSITION_ORDER) {
+    // 비어 있는 그룹(대개 「기타」)은 열 자체를 만들지 않는다 — 빈 칸이 가로폭만 먹는다.
+    const ordered: { key: PositionGroup; list: PickModalPlayer[] }[] = []
+    for (const key of POSITION_GROUP_ORDER) {
       const list = buckets.get(key)
       if (list?.length) ordered.push({ key, list })
     }
-    // 「기타」는 비어 있으면 열 자체를 만들지 않는다 — 빈 칸이 가로폭만 먹는다.
-    const other = buckets.get(OTHER)
-    if (other?.length) ordered.push({ key: OTHER, list: other })
     return ordered
   }, [players, query])
+
+  const confirmPlayer = players.find(p => p.id === confirmId) ?? null
+  const closeConfirm = useCallback(() => setConfirmId(null), [])
+  const acceptConfirm = useCallback(() => { setConfirmId(null); onConfirm() }, [onConfirm])
 
   if (!open) return null
 
@@ -109,7 +116,6 @@ export default function DraftPickModal({
   const ink = teamInk(team?.color ?? '#f59e0b')
   const color = ink.bg
   const onColor = ink.fg
-  const selected = players.find(p => p.id === selectedId) ?? null
   const extLeft = Math.max(0, MAX_EXTENSIONS - extensionsUsed)
 
   return (
@@ -214,14 +220,17 @@ export default function DraftPickModal({
         />
       </div>
 
-      {/* (c) 포지션별 선수 목록 — 1280 에서는 전체가 한 화면. 390 에서는 이 영역만 스크롤한다
-          (헤더·내 팀·확정 바는 고정이라 남은 시간과 확정 버튼은 절대 사라지지 않는다). */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-1">
+      {/* (c) 포지션 그룹별 선수 목록 — 1280 에서는 전체가 한 화면. 390 에서는 이 영역만 스크롤한다
+          (헤더·내 팀은 고정이라 남은 시간은 절대 사라지지 않는다).
+          모바일은 **세로 스택**이다: 390px 을 3열로 쪼개면 한 칸이 약 120px 이라
+          「홍길동 픽 확정」 인라인 버튼이 두 줄로 접히고 이름도 잘린다(실측). 그룹이 3개뿐이라
+          스택해도 스크롤이 길지 않다. sm 이상부터 그룹 수만큼 열을 세운다. */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-1 pb-2">
         {groups.length === 0 ? (
           <p className="text-center text-base text-[var(--mm-muted)] py-10">해당하는 선수가 없습니다</p>
         ) : (
           <div
-            className="grid grid-cols-2 gap-x-2 gap-y-3 lg:[grid-template-columns:repeat(var(--dpm-cols),minmax(0,1fr))]"
+            className="grid grid-cols-1 gap-x-2 gap-y-3 sm:[grid-template-columns:repeat(var(--dpm-cols),minmax(0,1fr))]"
             style={{ '--dpm-cols': groups.length } as React.CSSProperties}
           >
             {groups.map(g => {
@@ -229,8 +238,8 @@ export default function DraftPickModal({
               const PosIcon = meta.Icon
               return (
               // scroll-mt: 모바일에서 그룹으로 튈 때 머리띠가 상단 고정 영역에 가리지 않게.
-              // 위쪽 얇은 구분선은 모바일(2열 스택)에서만 — lg 는 열이 나란히라 선이 노이즈다.
-              <div key={g.key} id={`dpm-group-${g.key}`} className="min-w-0 scroll-mt-2 border-t border-[var(--mm-rule)] pt-2 lg:border-t-0 lg:pt-0">
+              // 위쪽 얇은 구분선은 모바일(세로 스택)에서만 — sm 이상은 열이 나란히라 선이 노이즈다.
+              <div key={g.key} id={`dpm-group-${g.key}`} className="min-w-0 scroll-mt-2 border-t border-[var(--mm-rule)] pt-2 sm:border-t-0 sm:pt-0">
                 {/* 포지션 머리띠 — 색 + 아이콘 + 코드 + 인원. 색만으로 구분하지 않도록
                     코드 글자와 아이콘을 항상 함께 둔다(색각 이상·흑백 프린트 대비). */}
                 <div
@@ -272,8 +281,9 @@ export default function DraftPickModal({
                           </span>
                         </button>
 
-                        {/* 인라인 확정 — 확정 버튼이 목록 맨 아래에만 있으면 PC 5열에서 손이
-                            화면을 가로질러야 했다(리허설 지적). 고른 그 자리에서 끝낸다.
+                        {/* 인라인 확정 — 고른 그 자리에서 끝낸다. 하단 고정 확정 바는 없앴다
+                            (같은 일을 하는 버튼이 둘이라 어느 쪽이 "진짜"인지 매번 물었다).
+                            이 버튼은 전송하지 않고 확인 창을 연다 — 지명은 되돌릴 수 없다.
                             펼침은 grid-template-rows 0fr→1fr + opacity/translate 로만 —
                             width/height 애니메이션은 매 프레임 레이아웃을 다시 계산한다. */}
                         <div
@@ -289,7 +299,7 @@ export default function DraftPickModal({
                             >
                               <button
                                 type="button"
-                                onClick={onConfirm}
+                                onClick={() => setConfirmId(p.id)}
                                 disabled={confirming}
                                 tabIndex={isSel ? 0 : -1}
                                 aria-hidden={!isSel}
@@ -322,18 +332,22 @@ export default function DraftPickModal({
         )}
       </div>
 
-      {/* 확정 바 — 첫 탭은 선택, 이 버튼이 유일한 확정 단계다. */}
-      <div className="shrink-0 pt-2 px-1 border-t border-[var(--mm-rule)]">
-        <button
-          type="button"
-          onClick={onConfirm}
-          disabled={!selectedId || confirming}
-          className="w-full min-h-[56px] rounded-xl text-lg font-black cursor-pointer disabled:cursor-not-allowed disabled:bg-[var(--mm-panel-alt)] disabled:text-[var(--mm-muted)] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--mm-ground)]"
-          style={selectedId && !confirming ? { backgroundColor: color, color: onColor, boxShadow: `inset 0 0 0 1px ${ink.border}` } : undefined}
-        >
-          {confirming ? '픽 등록 중...' : selected ? `${selected.name} 픽 확정` : '선수를 선택하세요'}
-        </button>
-      </div>
+      {/* 지명 확인 — 되돌릴 수 없는 액션이므로 팀·포지션을 다시 읽히고 한 번 더 받는다.
+          Esc·배경 탭은 취소(ConfirmModal 이 이미 둘 다 처리한다). */}
+      <ConfirmModal
+        open={confirmPlayer != null}
+        title={`${confirmPlayer?.name ?? ''} 선수를 지명할까요?`}
+        lines={[
+          team?.name ?? '내 팀',
+          confirmPlayer?.position?.trim() || '포지션 미등록',
+          '확정 후 되돌릴 수 없습니다',
+        ]}
+        danger
+        confirmLabel="지명 확정"
+        cancelLabel="취소"
+        onConfirm={acceptConfirm}
+        onCancel={closeConfirm}
+      />
     </div>
   )
 }

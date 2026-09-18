@@ -1,5 +1,5 @@
 'use client'
-// 픽 이팩트 — 새 픽이 들어오면 전체화면으로 약 4.5초간 표시.
+// 픽 이팩트 — 새 픽이 들어오면 전체화면으로 표시. 탭·Esc 로 닫거나 이름이 다 보인 뒤 5초.
 // 폭죽 + 농구 카드 느낌 + 광채 + pulse 백라이트 + 스포트라이트 빔.
 //
 // 사용 패턴:
@@ -44,10 +44,19 @@ export function PickPhotoFlip(props: {
   playerName: string
   pickNumber: number
   teamColor: string
-  size?: 'md' | 'lg'
+  /** drama = 1라운드 연출 전용. 같은 카드 안에 기록 8칸이 함께 서므로 모바일에서만 한 치수 작다 */
+  size?: PhotoSize
 }) {
   // 픽이 바뀌면 key 로 다시 마운트 — 상태 초기화를 effect 안 setState 로 하지 않는다
   return <PickPhotoFlipInner key={`${props.pickNumber}:${props.photoUrl ?? ''}`} {...props} />
+}
+
+type PhotoSize = 'md' | 'lg' | 'drama'
+const PHOTO_BOX: Record<PhotoSize, string> = {
+  md: 'w-36 h-36 sm:w-44 sm:h-44',
+  lg: 'w-44 h-44 sm:w-60 sm:h-60',
+  // 390×844 에 기록 8칸 + 이름까지 들어가야 한다 — 모바일만 176→144 로 줄여 약 32px 을 돌려받는다.
+  drama: 'w-36 h-36 sm:w-48 sm:h-48',
 }
 
 function PickPhotoFlipInner({
@@ -61,7 +70,7 @@ function PickPhotoFlipInner({
   playerName: string
   pickNumber: number
   teamColor: string
-  size?: 'md' | 'lg'
+  size?: PhotoSize
 }) {
   const [flipped, setFlipped] = useState(false)
   const [loaded, setLoaded] = useState<boolean | null>(null) // null=대기, true=성공, false=실패/없음
@@ -90,7 +99,7 @@ function PickPhotoFlipInner({
     return () => window.clearInterval(tick)
   }, [photoUrl])
 
-  const box = size === 'lg' ? 'w-44 h-44 sm:w-60 sm:h-60' : 'w-36 h-36 sm:w-44 sm:h-44'
+  const box = PHOTO_BOX[size]
   const showPhoto = loaded === true && !!photoUrl
   // 카드 앞면은 팀 컬러 **배경**이다 — 흰 팀(빅현욱)이면 text-[#000000], 빨강(챗지피지기)이면
   // 흰색이 4.0:1 로 AA 미달이라 역시 검정. 고정색을 쓰면 둘 중 하나는 반드시 깨진다.
@@ -146,11 +155,15 @@ function PickPhotoFlipInner({
   )
 }
 
-const DURATION_MS = 4500
-/** 내가 다음 픽 주인일 때 — 내 시계는 이미 돌고 있으므로 축약 노출 */
-const MY_TURN_DURATION_MS = 1200
-/** 연속 픽이 들어와도 새로 4.5초를 세지 않고 이만큼만 연장한다 */
-const CONSECUTIVE_EXTEND_MS = 1500
+/**
+ * 일반 공개 자동 닫기 — 이름이 다 보인 뒤(= 마운트 시점) 5초.
+ *
+ * 2026-09-18 리허설: 예전에는 내 차례면 1.2초로 줄였다. 그런데 다음 픽의 시계는 **연출이
+ * 닫힌 뒤에야** 시작하도록 바뀌었으므로(포털의 start-clock) 축약할 이유가 사라졌고,
+ * 정작 카드를 읽던 단장의 화면만 순식간에 사라졌다. 이제 두 연출 모두 같은 규칙이다 —
+ * 탭(또는 Esc)으로 닫거나, 이름이 다 보인 뒤 5초에 자동으로 닫힌다.
+ */
+const DURATION_MS = 5000
 const CONFETTI_PIECES = 220
 
 /** 폭죽 1발 — 캔버스에 즉시 발사하고 정리 함수를 돌려준다. 일반 공개/드라마틱 공개가 함께 쓴다. */
@@ -233,7 +246,8 @@ export default function DraftPickReveal({
 }: {
   data: PickRevealData | null
   onClose: () => void
-  /** 이 픽 직후 화면 주인이 다음 차례인지 — true 면 1.2초로 축약 + 「지금 내 차례」 배지 */
+  /** 이 픽 직후 화면 주인이 다음 차례인지 — 「지금 내 차례」 배지를 띄운다.
+   *  연출 길이는 줄이지 않는다(축약하면 정작 읽던 단장 화면만 사라졌다, 2026-09-18 리허설). */
   isMyTurn?: boolean
   /** 1라운드 지명 — 이름을 감춘 채 시즌 기록 박스를 하나씩 여는 단계 연출 */
   dramatic?: boolean
@@ -276,36 +290,27 @@ function StandardPickReveal({
   seasonLabel?: string | null
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  // 연출이 열려 있는 동안 유지되는 마감 시각. 연속 픽은 이 값을 연장만 한다.
-  const closeAtRef = useRef<number | null>(null)
   // onClose 는 부모가 인라인 화살표로 넘긴다 → 렌더마다 새 함수다. 이걸 effect deps 에 두면
-  // 부모의 250ms 시계 tick 마다 effect 가 재실행되며 setTimeout 이 매번 새로 걸리고,
-  // 동시에 closeAtRef 가 now+base 로 다시 밀려 **자동 닫기가 영원히 오지 않았다**
-  // (2026-09-18 실측: 진행 중 세션에서 픽 공개가 전체화면으로 고정). 최신 함수만 ref 로 들고,
-  // 타이머는 픽 번호가 바뀔 때만 다시 건다.
+  // 부모의 250ms 시계 tick 마다 effect 가 재실행되며 setTimeout 이 매번 새로 걸려
+  // **자동 닫기가 영원히 오지 않았다**(2026-09-18 실측: 픽 공개가 전체화면으로 고정).
+  // 최신 함수만 ref 로 들고, 타이머는 픽 번호가 바뀔 때만 다시 건다.
   const onCloseRef = useRef(onClose)
   useEffect(() => { onCloseRef.current = onClose }, [onClose])
   const pickKey = data?.pickNumber ?? null
 
-  // 자동 닫기
+  // 자동 닫기 — 이름은 마운트 즉시 보이므로 마운트에서 5초를 센다.
+  // 카드가 열려 있는 중에 새 픽이 오면 pickKey 가 바뀌어 이 effect 가 다시 돌고,
+  // 옛 타이머는 cleanup 으로 죽는다 → 새 카드가 자리를 갈아타며 5초를 새로 받는다.
   useEffect(() => {
-    if (pickKey == null) { closeAtRef.current = null; return }
-    const now = Date.now()
-    const base = isMyTurn ? MY_TURN_DURATION_MS : DURATION_MS
-    // 이미 열려 있으면(연속 픽) 남은 시간에 최대 1.5초만 더한다 — 다음 단장의 시계를 잡아먹지 않도록.
-    const prev = closeAtRef.current
-    const next = prev != null && prev > now
-      ? Math.min(prev + CONSECUTIVE_EXTEND_MS, now + base)
-      : now + base
-    closeAtRef.current = next
-    const t = setTimeout(() => { closeAtRef.current = null; onCloseRef.current() }, Math.max(0, next - now))
+    if (pickKey == null) return
+    const t = setTimeout(() => onCloseRef.current(), DURATION_MS)
     return () => clearTimeout(t)
-  }, [pickKey, isMyTurn])
+  }, [pickKey])
 
   // 어떤 오버레이든 Esc 로 닫힌다 — 탭이 먹히지 않는 상황(빔 노트북, 포인터 없는 기기)의 탈출구.
   useEffect(() => {
     if (pickKey == null) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { closeAtRef.current = null; onCloseRef.current() } }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCloseRef.current() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [pickKey])
@@ -339,7 +344,10 @@ function StandardPickReveal({
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose() } }}
       style={{
         animation: 'pickFadeIn 0.25s ease-out',
-        paddingTop: 'max(1rem, env(safe-area-inset-top))',
+        // 배지가 떠 있으면 그만큼 위를 비운다 — 안 그러면 카드 머리(ROUND·PICK)를 덮는다.
+        paddingTop: isMyTurn
+          ? 'calc(max(1rem, env(safe-area-inset-top)) + 4rem)'
+          : 'max(1rem, env(safe-area-inset-top))',
         paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
       }}
     >
@@ -367,14 +375,18 @@ function StandardPickReveal({
       {/* 폭죽 캔버스 */}
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }} />
 
-      {/* 내 차례 배지 — 픽 공개가 덮고 있는 동안에도 "지금 내 시계가 돈다"를 즉시 알린다 */}
+      {/* 내 차례 배지 — 픽 공개가 덮고 있는 동안에도 "지금 내 시계가 돈다"를 즉시 알린다.
+          한 줄로 붙이면 390px 에서 세 줄로 접혀 카드 머리를 덮는다(실측) → 제목/힌트 두 줄로 나눈다. */}
       {isMyTurn && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-10 inline-flex items-center gap-2 px-4 py-2.5 min-h-11 rounded-full bg-emerald-500 text-[#000000] text-base sm:text-lg font-black shadow-2xl"
-          style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
+          className="absolute left-1/2 -translate-x-1/2 z-10 max-w-[92vw] px-4 py-2 rounded-2xl bg-emerald-500 text-[#000000] shadow-2xl text-center"
+          style={{ top: 'max(0.5rem, env(safe-area-inset-top))' }}
           role="status"
         >
-          <Zap size={20} aria-hidden /> 지금 내 차례 — 탭해서 닫기
+          <span className="flex items-center justify-center gap-1.5 text-base sm:text-lg font-black leading-tight">
+            <Zap size={20} aria-hidden /> 지금 내 차례
+          </span>
+          <span className="block text-xs sm:text-sm font-bold leading-tight break-keep">탭하면 닫고 선수 선택으로</span>
         </div>
       )}
 
@@ -476,8 +488,9 @@ function StandardPickReveal({
             <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-[#9ca3af] mb-2">
               {seasonLabel ?? '시즌'} 기록
             </p>
-            {/* 모바일 2열 × 3행 — 3열이면 "18 / 25 라운드"와 순위 알약이 칸 폭을 넘는다(390px 실측) */}
-            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+            {/* 모바일 4열 × 2행 · lg 이상은 한 줄 8칸. 칸이 좁아지므로 순위 알약은
+                compact 에서 모집단 수를 떼고 "전체 7위"까지만 쓴다(390px 실측). */}
+            <div className="grid grid-cols-4 lg:grid-cols-8 gap-1.5 sm:gap-2">
               {standardBoxes.map(b => (
                 <StatBoxCell key={b.key} box={b} teamColor={data.teamColor} rankTotal={brief?.rank_total ?? 0} visible compact />
               ))}
@@ -537,17 +550,25 @@ function StandardPickReveal({
 
 /** 단계 0(헤더) → 1(포지션 칩) */
 const D_CHIPS_MS = 1000
-/** 기록 박스 첫 칸 시작 시각 · 칸 간격 */
+/** 기록 박스 첫 칸 시작 시각 · 칸 간격.
+ *  칸이 6 → 8 로 늘어 간격을 1.1s 에서 0.9s 로 줄였다 — 기록 구간 길이가 5.5s → 6.3s 로
+ *  거의 그대로다(칸 하나를 읽는 데 0.9s 면 리허설에서 따라 읽혔다). */
 const D_LINE_START_MS = 2000
-const D_LINE_GAP_MS = 1100
+const D_LINE_GAP_MS = 900
 /** 마지막 기록 박스 이후 "…" 펄스까지 */
 const D_DOTS_DELAY_MS = 1200
 /** "…" 펄스 길이 */
 const D_DOTS_MS = 800
-/** 이름 공개 후 자동 닫기까지 */
-const D_CLOSE_AFTER_REVEAL_MS = 4000
-/** 폭죽 지속 — 자동 닫힘과 맞춘다 */
-const D_CONFETTI_MS = D_CLOSE_AFTER_REVEAL_MS
+/**
+ * 카드가 뒤집혀 사진이 선 뒤 이름이 **사진 아래로** 슬라이드인 하기까지.
+ * 플립 자체가 550~700ms 이므로 그 뒤 약 1초를 더 둔다 — 사진을 먼저 보고
+ * "누구지?" 하는 순간을 만든 다음 이름이 들어와야 한다(리허설 요구).
+ */
+const D_NAME_AFTER_REVEAL_MS = 1600
+/** 이름이 다 보인 뒤 자동 닫기까지 — 일반 공개와 같은 5초 */
+const D_CLOSE_AFTER_NAME_MS = 5000
+/** 폭죽 지속 — 플립(=공개) 순간에 터진다 */
+const D_CONFETTI_MS = 4000
 
 // ── 시즌 기록 박스 ──────────────────────────────────────────────────────────
 // 문장 세 줄이 아니라 숫자 박스로 바꾼 이유(2026-09-16 리허설): 현장에서 소리내어 읽는
@@ -562,17 +583,21 @@ interface StatBox {
   rank: number | null
   /** 순위 대신 붙는 보조 줄(참석율의 "18 / 25 라운드"). rank 와 같은 자리를 쓴다 */
   sub?: string
+  /** compact(요약 카드 8칸) 전용 축약형 — 한 칸이 ~69px 이라 원문이 칸을 넘는다 */
+  subShort?: string
 }
 
 /**
- * 공개할 기록 칸 — 참석율 → 득점 → 리바운드 → 어시스트 → 스틸 → 블락, 항상 이 여섯 칸.
- * 값이 0 인 칸도 뺄 수 없다: 여섯 칸이 3×2(sm 이상)·2×3(모바일) 격자로 고정이라
- * 한 칸만 빠져도 격자가 어긋나고, 단계 연출의 칸 수가 선수마다 달라진다.
+ * 공개할 기록 칸 — 참석율 → 득점 → 리바운드 → 어시스트 → 스틸 → 블락 → 야투% → 3점%,
+ * 항상 이 여덟 칸. 값이 0 인 칸도 뺄 수 없다: 여덟 칸이 4×2(sm 이상)·2×4(모바일) 격자로
+ * 고정이라 한 칸만 빠져도 격자가 어긋나고, 단계 연출의 칸 수가 선수마다 달라진다.
  * 기록이 아예 없으면 빈 배열(호출부가 "시즌 기록 없음" 한 칸을 그린다).
  */
 function buildStatBoxes(brief: DraftPlayerBrief | null | undefined): StatBox[] {
   if (!brief || !brief.gp) return []
-  const rank = brief.rank ?? { ppg: null, rpg: null, apg: null, spg: null, bpg: null }
+  const rank = brief.rank ?? {
+    ppg: null, rpg: null, apg: null, spg: null, bpg: null, fg_pct: null, fg3_pct: null,
+  }
   return [
     {
       key: 'att',
@@ -580,12 +605,16 @@ function buildStatBoxes(brief: DraftPlayerBrief | null | undefined): StatBox[] {
       value: `${Math.round(brief.attendance_pct)}%`,
       rank: null,
       sub: `${brief.gp} / ${brief.season_rounds} 라운드`,
+      subShort: `${brief.gp}/${brief.season_rounds}R`,
     },
     { key: 'ppg', label: '평균 득점', value: brief.ppg.toFixed(1), rank: rank.ppg },
     { key: 'rpg', label: '평균 리바운드', value: brief.rpg.toFixed(1), rank: rank.rpg },
     { key: 'apg', label: '평균 어시스트', value: brief.apg.toFixed(1), rank: rank.apg },
     { key: 'spg', label: '평균 스틸', value: brief.spg.toFixed(1), rank: rank.spg },
     { key: 'bpg', label: '평균 블락', value: brief.bpg.toFixed(1), rank: rank.bpg },
+    // 야투율은 brief 가 이미 %(소수 1자리)로 준다 — 여기서 다시 100 을 곱하지 않는다.
+    { key: 'fg', label: '야투%', value: `${(brief.fg_pct ?? 0).toFixed(1)}%`, rank: rank.fg_pct },
+    { key: 'fg3', label: '3점%', value: `${(brief.fg3_pct ?? 0).toFixed(1)}%`, rank: rank.fg3_pct },
   ]
 }
 
@@ -593,15 +622,17 @@ function buildStatBoxes(brief: DraftPlayerBrief | null | undefined): StatBox[] {
 function RankPill({ rank, total, teamColor, small = false }: { rank: number; total: number; teamColor: string; small?: boolean }) {
   const top = rank <= 3
   const pill = teamInk(teamColor)
-  // small(요약 카드)은 한 줄에 6칸이라 text-xs 면 알약이 칸 밖으로 비어져 나온다(2026-09-17 실측)
+  // small(요약 카드)은 한 줄에 8칸(~69px)이라 모집단 수까지 넣으면 알약이 칸 밖으로 비어져 나온다.
+  // 색만으로 구분하지 않도록 숫자("전체 n위")는 어느 쪽이든 그대로 남긴다.
   return (
     <span
-      className={`inline-block rounded-full font-bold tabular-nums whitespace-nowrap ${small ? 'text-[11px] px-1.5 py-0.5' : 'text-xs sm:text-sm px-2 py-0.5'}`}
+      className={`inline-block rounded-full font-bold tabular-nums whitespace-nowrap ${small ? 'text-[10px] px-1 py-0.5' : 'text-xs sm:text-sm px-2 py-0.5'}`}
       style={top
         ? { background: pill.bg, color: pill.fg, border: `1px solid ${pill.border}` }
         : { background: '#27272a', color: '#d4d4d8' }}
+      title={total > 0 ? `전체 ${rank}위 / ${total}명` : undefined}
     >
-      전체 {rank}위{total > 0 ? ` / ${total}` : ''}
+      전체 {rank}위{!small && total > 0 ? ` / ${total}` : ''}
     </span>
   )
 }
@@ -621,7 +652,7 @@ function StatBoxCell({
     // styled-jsx 는 컴포넌트 단위 스코프다 — 부모(DramaticPickReveal)에 적은 .d-in 은
     // 이 자식 엘리먼트에 붙지 않는다. 그래서 등장 애니메이션을 여기서 다시 정의한다.
     <div
-      className={`stat-box ${visible ? 'stat-box-in' : 'invisible'} rounded-xl border px-2 ${compact ? 'py-1.5' : 'py-2'} flex flex-col items-center justify-center gap-0.5 min-w-0`}
+      className={`stat-box ${visible ? 'stat-box-in' : 'invisible'} rounded-xl border ${compact ? 'px-1 py-1.5' : 'px-2 py-2'} flex flex-col items-center justify-center gap-0.5 min-w-0`}
       style={{ background: '#111114', borderColor: `${teamColor}66` }}
     >
       <span
@@ -630,13 +661,13 @@ function StatBoxCell({
       >
         {box.value}
       </span>
-      <span className={`${compact ? 'text-xs' : 'text-xs sm:text-sm'} font-bold text-[#d1d5db] leading-none break-keep`}>{box.label}</span>
+      <span className={`${compact ? 'text-[11px]' : 'text-xs sm:text-sm'} font-bold text-[#d1d5db] leading-none break-keep text-center`}>{box.label}</span>
       {box.rank != null
         ? <RankPill rank={box.rank} total={rankTotal} teamColor={teamColor} small={compact} />
         : box.sub
           ? (
-            <span className={`${compact ? 'text-[11px]' : 'text-xs sm:text-sm'} font-bold tabular-nums whitespace-nowrap text-[#d1d5db]`}>
-              {box.sub}
+            <span className={`${compact ? 'text-[10px]' : 'text-xs sm:text-sm'} font-bold tabular-nums whitespace-nowrap text-[#d1d5db]`}>
+              {compact ? (box.subShort ?? box.sub) : box.sub}
             </span>
           )
           : null}
@@ -656,10 +687,10 @@ function StatBoxCell({
 }
 
 /** 뒤집히지 않는 앞면 카드 — 이름 공개 전까지 이 면만 보인다(사진·이름 노출 0) */
-function PickCardFrontOnly({ pickNumber, teamColor }: { pickNumber: number; teamColor: string }) {
+function PickCardFrontOnly({ pickNumber, teamColor, size = 'lg' }: { pickNumber: number; teamColor: string; size?: PhotoSize }) {
   const front = teamInk(teamColor)
   return (
-    <div className="pick-front-box mx-auto w-44 h-44 sm:w-60 sm:h-60">
+    <div className={`pick-front-box mx-auto ${PHOTO_BOX[size]}`}>
       <div
         className="w-full h-full rounded-3xl flex flex-col items-center justify-center gap-1"
         style={{ background: front.bg, border: `4px solid ${front.border}`, boxShadow: `0 0 40px ${teamColor}88` }}
@@ -700,6 +731,8 @@ function DramaticPickReveal({
   const DOTS = 2 + lines.length
   const REVEAL = DOTS + 1
   const [step, setStep] = useState(0)
+  // 이름은 플립보다 늦게 들어온다 — 사진 먼저, 그 다음 이름. 자동 닫기는 이름 기준으로 센다.
+  const [nameShown, setNameShown] = useState(false)
 
   const reveal = useCallback(() => {
     if (revealedRef.current) return
@@ -708,7 +741,8 @@ function DramaticPickReveal({
     timersRef.current = []
     setStep(REVEAL)
     try { playBuzzer() } catch { /* 오디오 차단 환경 — 연출은 계속 */ }
-    timersRef.current.push(window.setTimeout(onClose, D_CLOSE_AFTER_REVEAL_MS))
+    timersRef.current.push(window.setTimeout(() => setNameShown(true), D_NAME_AFTER_REVEAL_MS))
+    timersRef.current.push(window.setTimeout(onClose, D_NAME_AFTER_REVEAL_MS + D_CLOSE_AFTER_NAME_MS))
   }, [REVEAL, onClose])
 
   // 단계 스케줄 — 픽마다 key 로 재마운트되므로 마운트 시 한 번만 건다.
@@ -760,25 +794,31 @@ function DramaticPickReveal({
       style={{
         // 스테이지 0 부터 팀 컬러가 화면을 덮는다 — "어느 팀 차례인가"가 먼저 읽히게.
         background: `radial-gradient(ellipse at center, ${data.teamColor}44, #050505 70%)`,
-        paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+        // 배지가 떠 있으면 그만큼 위를 비운다 — 안 그러면 "ROUND n · 팀명의 1순위 지명" 줄을 덮는다.
+        paddingTop: isMyTurn
+          ? 'calc(max(0.5rem, env(safe-area-inset-top)) + 4rem)'
+          : 'max(0.75rem, env(safe-area-inset-top))',
         paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
       }}
     >
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }} />
 
-      {/* 내 차례 배지 — 드라마틱 공개는 길다. 건너뛰는 법을 명시한다. */}
+      {/* 내 차례 배지 — 두 줄로 나눈다(한 줄이면 390px 에서 세 줄로 접혀 카드 머리를 덮는다). */}
       {isMyTurn && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-10 inline-flex items-center gap-2 px-4 py-2.5 min-h-11 rounded-full bg-emerald-500 text-[#000000] text-base sm:text-lg font-black shadow-2xl"
+          className="absolute left-1/2 -translate-x-1/2 z-10 max-w-[92vw] px-4 py-2 rounded-2xl bg-emerald-500 text-[#000000] shadow-2xl text-center"
           style={{ top: 'max(0.5rem, env(safe-area-inset-top))' }}
           role="status"
         >
-          <Zap size={20} aria-hidden /> 지금 내 차례 — 탭하면 바로 공개
+          <span className="flex items-center justify-center gap-1.5 text-base sm:text-lg font-black leading-tight">
+            <Zap size={20} aria-hidden /> 지금 내 차례
+          </span>
+          <span className="block text-xs sm:text-sm font-bold leading-tight break-keep">탭하면 닫고 선수 선택으로</span>
         </div>
       )}
 
       <div
-        className="dramatic-card relative w-[94vw] max-w-4xl max-h-full overflow-hidden rounded-3xl px-5 py-6 sm:px-10 sm:py-7 text-center"
+        className="dramatic-card relative w-[94vw] max-w-4xl max-h-full overflow-hidden rounded-3xl px-4 py-4 sm:px-10 sm:py-5 text-center"
         style={{
           border: `4px solid ${data.teamColor}`,
           background: `linear-gradient(135deg, ${data.teamColor}33, ${data.teamColor}0a, #050505 70%)`,
@@ -796,16 +836,27 @@ function DramaticPickReveal({
           {data.teamName}의 1순위 지명
         </p>
 
-        <div className="mt-4 sm:mt-6">
+        <div className="mt-3 sm:mt-4">
           {revealed ? (
-            <PickPhotoFlip photoUrl={data.playerPhotoUrl} playerName={data.playerName} pickNumber={data.pickNumber} teamColor={data.teamColor} />
+            <PickPhotoFlip photoUrl={data.playerPhotoUrl} playerName={data.playerName} pickNumber={data.pickNumber} teamColor={data.teamColor} size="drama" />
           ) : (
-            <PickCardFrontOnly pickNumber={data.pickNumber} teamColor={data.teamColor} />
+            <PickCardFrontOnly pickNumber={data.pickNumber} teamColor={data.teamColor} size="drama" />
           )}
         </div>
 
+        {/* 이름 — 사진 **바로 아래**. 플립이 끝나고 약 1초 뒤에 들어온다.
+            자리는 미리 잡아 두지 않는다: 이름이 들어오며 아래가 밀리는 움직임 자체가 신호다. */}
+        {nameShown && (
+          <p
+            className="d-name mt-2 text-3xl sm:text-4xl lg:text-5xl font-black text-[#ffffff] tracking-tight leading-none"
+            style={{ fontFamily: 'var(--font-barlow-condensed, sans-serif)', textShadow: '0 4px 30px rgba(0,0,0,0.8)' }}
+          >
+            {data.playerName.toUpperCase()}
+          </p>
+        )}
+
         {/* 스테이지 1 — 포지션 칩 */}
-        <div className="mt-3 sm:mt-4 min-h-9 flex items-center justify-center gap-2">
+        <div className="mt-2 sm:mt-4 min-h-9 flex items-center justify-center gap-2">
           {step >= 1 && data.playerPosition && data.playerPosition.split(',').map(s => s.trim()).filter(Boolean).map((pos, i) => (
             <span
               key={i}
@@ -823,8 +874,8 @@ function DramaticPickReveal({
         </div>
 
         {/* 스테이지 2 — 시즌 기록 박스, 한 칸씩.
-            모바일 2열 × 3행 / sm 이상 3열 × 2행. 아직 안 나온 칸도 invisible 로 자리를 잡아 둔다. */}
-        <div className="dramatic-stats mt-3 sm:mt-5">
+            모바일 2열 × 4행 / sm 이상 4열 × 2행. 아직 안 나온 칸도 invisible 로 자리를 잡아 둔다. */}
+        <div className="dramatic-stats mt-2 sm:mt-3">
           {step >= 2 && (
             <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-[#9ca3af] mb-1.5 sm:mb-2">
               {seasonLabel ?? '시즌'} 기록
@@ -836,7 +887,7 @@ function DramaticPickReveal({
               <p className="text-base sm:text-xl font-bold text-[#d1d5db] break-keep">시즌 기록 없음</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
               {boxes.map((b, i) => (
                 <StatBoxCell
                   key={b.key}
@@ -850,26 +901,21 @@ function DramaticPickReveal({
           )}
         </div>
 
-        {/* 스테이지 3 직전 — "…" 펄스 */}
-        <div className="mt-4 sm:mt-6 min-h-10 flex items-center justify-center gap-2" aria-hidden>
-          {step === DOTS && [0, 1, 2].map(i => (
-            <span
-              key={i}
-              className="d-dot w-3 h-3 sm:w-4 sm:h-4 rounded-full"
-              style={{ background: data.teamColor, animationDelay: `${i * 180}ms` }}
-            />
-          ))}
-          {revealed && (
-            <p
-              className="d-name text-3xl sm:text-5xl lg:text-6xl font-black text-[#ffffff] tracking-tight leading-none"
-              style={{ fontFamily: 'var(--font-barlow-condensed, sans-serif)', textShadow: '0 4px 30px rgba(0,0,0,0.8)' }}
-            >
-              {data.playerName.toUpperCase()}
-            </p>
-          )}
-        </div>
+        {/* 스테이지 3 직전 — "…" 펄스. 이름은 사진 아래로 옮겼으므로 여기는 점만 쓴다.
+            공개 후에는 자리를 접어 카드 높이를 돌려준다(390×844 에서 8칸이 들어가야 한다). */}
+        {!revealed && (
+          <div className="mt-4 sm:mt-6 min-h-10 flex items-center justify-center gap-2" aria-hidden>
+            {step === DOTS && [0, 1, 2].map(i => (
+              <span
+                key={i}
+                className="d-dot w-3 h-3 sm:w-4 sm:h-4 rounded-full"
+                style={{ background: data.teamColor, animationDelay: `${i * 180}ms` }}
+              />
+            ))}
+          </div>
+        )}
 
-        <p className="mt-4 text-xs sm:text-sm uppercase tracking-[0.3em] text-[#d1d5db]">
+        <p className="mt-3 sm:mt-4 text-xs sm:text-sm uppercase tracking-[0.3em] text-[#d1d5db]">
           {revealed ? '탭하여 닫기' : '탭하면 바로 공개'}
         </p>
       </div>
@@ -890,10 +936,24 @@ function DramaticPickReveal({
           0% { transform: translateY(30px); opacity: 0; letter-spacing: -0.1em; }
           100% { transform: translateY(0); opacity: 1; letter-spacing: -0.01em; }
         }
+        /* 낮은 화면(프로젝터·노트북 1280×720 등) — 기록이 8칸으로 늘어 sm 기본값으로는
+           카드가 화면보다 커진다. 사진과 여백을 줄이고, 그래도 넘치면 잘라 버리는 대신
+           카드 안에서 스크롤되게 둔다(아무것도 닿을 수 없는 상태를 만들지 않는다).
+           사진 박스는 자식 컴포넌트라 styled-jsx 스코프가 달라 :global 로 지정한다. */
+        @media (max-height: 820px) {
+          .dramatic-card { overflow-y: auto; }
+        }
+        @media (min-width: 640px) and (max-height: 820px) {
+          .dramatic-card { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+          .dramatic-card :global(.pick-flip),
+          .dramatic-card :global(.pick-front-box) { width: 9rem; height: 9rem; }
+          .d-name { font-size: 2rem; }
+        }
         /* 가로 모드 폰 — 카드/사진/기록 블록이 화면 높이를 넘지 않게 */
         @media (orientation: landscape) and (max-height: 500px) {
           .dramatic-card { padding: 0.75rem 1.25rem; }
-          .pick-front-box { width: 5.5rem; height: 5.5rem; }
+          .dramatic-card :global(.pick-flip),
+          .dramatic-card :global(.pick-front-box) { width: 5.5rem; height: 5.5rem; }
           .dramatic-stats :global(p) { font-size: 1rem; line-height: 1.35; }
         }
         @media (prefers-reduced-motion: reduce) {

@@ -21,8 +21,8 @@ import { getPreviousQuarterId } from '@/lib/leagueStats'
 import { computeLeagueStats } from '@/lib/stats/leagueStats'
 import type { PlayerStat } from '@/types/league'
 
-/** 순위를 매길 지표 키 */
-export type BriefRankKey = 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg'
+/** 순위를 매길 지표 키. 전부 **값이 클수록 1위**다(야투율 포함). */
+export type BriefRankKey = 'ppg' | 'rpg' | 'apg' | 'spg' | 'bpg' | 'fg_pct' | 'fg3_pct'
 
 export interface DraftPlayerBrief {
   name: string
@@ -44,6 +44,9 @@ export interface DraftPlayerBrief {
   apg: number
   spg: number
   bpg: number
+  /** 야투 성공률(%) · 3점 성공률(%) — computeLeagueStats 가 이미 소수 1자리로 낸다 */
+  fg_pct: number
+  fg3_pct: number
   /** 리그 전체 순위(1-based, 동점은 경쟁 순위 1·1·3). 자격 미달(gp < rank_min_gp)이면 각 값 null */
   rank: Record<BriefRankKey, number | null>
   /** 순위 모집단 크기(자격을 채운 선수 수) */
@@ -75,9 +78,9 @@ function competitionRank(rows: { id: string; v: number }[]): Record<string, numb
   return out
 }
 
-const RANK_KEYS: BriefRankKey[] = ['ppg', 'rpg', 'apg', 'spg', 'bpg']
+const RANK_KEYS: BriefRankKey[] = ['ppg', 'rpg', 'apg', 'spg', 'bpg', 'fg_pct', 'fg3_pct']
 const EMPTY_RANK: Record<BriefRankKey, number | null> = {
-  ppg: null, rpg: null, apg: null, spg: null, bpg: null,
+  ppg: null, rpg: null, apg: null, spg: null, bpg: null, fg_pct: null, fg3_pct: null,
 }
 
 function toBrief(
@@ -95,7 +98,7 @@ function toBrief(
     return {
       ...base, prev_team_name: prevTeamName,
       gp: 0, season_rounds: seasonRounds, attendance_pct: 0,
-      ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0,
+      ppg: 0, rpg: 0, apg: 0, spg: 0, bpg: 0, fg_pct: 0, fg3_pct: 0,
       rank: EMPTY_RANK, rank_total: rankTotal,
     }
   }
@@ -110,6 +113,8 @@ function toBrief(
     apg: r1(stat.apg),
     spg: r1(stat.spg),
     bpg: r1(stat.bpg),
+    fg_pct: r1(stat.fg_pct),
+    fg3_pct: r1(stat.fg3_pct),
     rank,
     rank_total: rankTotal,
   }
