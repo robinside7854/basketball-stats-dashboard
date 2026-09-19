@@ -3,10 +3,10 @@
 export default function LeagueHomeLoading() {
   const box = 'rounded-md bg-[color:var(--mm-panel-alt)] animate-pulse'
   return (
-    <div className="space-y-3" aria-hidden>
+    <div className="space-y-4 lg:space-y-5" aria-hidden>
       {/* 헤더 — 실제 헤더(page.tsx)와 동일하게 테마 추종 카드로 (2026-08 캐주얼 전환) */}
       <div
-        className="px-5 py-6 lg:px-6 lg:py-8 -mx-2 sm:mx-0 border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)]"
+        className="px-5 py-6 lg:px-6 lg:py-8 border border-[color:var(--mm-rule)] bg-[color:var(--mm-panel)]"
         style={{ borderRadius: 'var(--mm-radius-card)' }}
       >
         <div className={`${box} h-9 lg:h-12 w-3/5 max-w-md`} />

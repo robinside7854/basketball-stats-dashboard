@@ -130,7 +130,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
 
   return (
     <div className="sticky top-0 z-10 bg-[color:var(--mm-panel)] border-b border-[color:var(--mm-rule)]">
-      <div className="max-w-7xl mx-auto px-4 lg:px-6">
+      <div className="max-w-[1600px] mx-auto px-4 lg:px-6">
         <div className="flex items-center">
           {/* 좌측: 리그/팀 이름 — 홈 링크. 모바일에서 예전 '현재 페이지 제목' 자리를 대체하고,
               데스크톱에서도 탭 바 왼쪽 고정 위치에 둔다(Task 4-B, CompetitionSwitcher 병합은 별도 이월). */}

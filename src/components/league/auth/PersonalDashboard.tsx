@@ -123,7 +123,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
 
   return (
     <>
-      <SectionCard variant="standalone" emphasized>
+      <SectionCard variant="standalone" emphasized pad="none">
         {/* 헤더 · 유저 프로필 + 프로필카드 CTA · PC 확대 */}
         <header className="flex items-center gap-3 md:gap-4 px-4 md:px-5 py-3 md:py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
           <div
@@ -328,7 +328,7 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
 // 홈 위젯의 30일 억제 로직과 분리된, 이 페이지 자체가 목적지인 경우용.
 export function LoginTeaser({ onDismiss }: { onDismiss?: () => void }) {
   return (
-    <SectionCard variant="standalone" emphasized>
+    <SectionCard variant="standalone" emphasized pad="none">
       <div className="relative flex items-center gap-4 px-4 md:px-5 py-4 md:py-5">
         {/* 블러 처리된 가짜 스탯 실루엣 (장식) */}
         <div aria-hidden className="hidden sm:grid grid-cols-5 gap-1.5 w-[220px] shrink-0" style={{ filter: 'blur(3px)', opacity: 0.5 }}>

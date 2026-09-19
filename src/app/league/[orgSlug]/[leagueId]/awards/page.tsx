@@ -246,13 +246,13 @@ export default function AwardsPage() {
   }
 
   return (
-    <div className="mm-brand space-y-5 lg:space-y-6" style={{ color: 'var(--mm-ink)' }}>
+    <div className="mm-brand space-y-4 lg:space-y-5" style={{ color: 'var(--mm-ink)' }}>
       {/* 스탯 우산 서브탭 — 리더보드 · 어워즈 · 선수 명단 · 팀 순위 (2026-08-09 시즌하이 흡수) */}
       <LeagueGroupTabs tabs={groupTabs} />
 
       {/* 헤더 — E안: 흰 패널 + 검정 잉크 */}
       <div
-        className="relative px-5 py-5 lg:px-6 lg:py-6 -mx-2 sm:mx-0"
+        className="relative px-5 py-5 lg:px-6 lg:py-6"
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
@@ -764,7 +764,7 @@ export default function AwardsPage() {
         }
 
         return (
-          <div ref={gridRef} className="space-y-6 lg:space-y-8">
+          <div ref={gridRef} className="space-y-4 lg:space-y-5">
             {/* 코어 8부문 */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
               {coreAwards.map(renderCard)}

@@ -12,6 +12,9 @@ interface Props {
   ariaLabel?: string
   className?: string
   background?: string  // CSS color; default var(--mm-panel)
+  /** 'none': 사용처가 헤더/표/탭처럼 edge-to-edge 구획을 직접 그린다(자체 padding+divider 보유).
+   *  'base'(기본): 단일 콘텐츠 영역 — 카드가 패딩을 준다. (가독성 업그레이드 ⑥, 2026-09-19) */
+  pad?: 'none' | 'base'
   children: ReactNode
 }
 
@@ -21,8 +24,10 @@ export default function SectionCard({
   ariaLabel,
   className = '',
   background = 'var(--mm-panel)',
+  pad = 'base',
   children,
 }: Props) {
+  const padClass = pad === 'base' ? 'px-4 py-4 lg:px-6 lg:py-5' : ''
   // 캐주얼 전환(2026-08) — stack/standalone 모두 개별 카드로 라디우스 부여.
   // emphasized 상단 3px 옐로우-soft 라인은 variant 와 무관하게 항상 적용.
   // DESIGN.md: 1px rule 테두리는 유지한 채 3px 라인을 "위에 얹는다" — rule 을 대체하면
@@ -32,7 +37,7 @@ export default function SectionCard({
   return (
     <section
       aria-label={ariaLabel}
-      className={`mm-brand ${className}`}
+      className={`mm-brand ${padClass} ${className}`}
       style={{
         background,
         border: '1px solid var(--mm-rule)',

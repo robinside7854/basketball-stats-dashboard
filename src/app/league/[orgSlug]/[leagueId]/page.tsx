@@ -421,11 +421,11 @@ export default async function LeagueDetailPage({
   const isMember = !!approvedSession
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4 lg:space-y-5">
       {/* 헤더 — 리그명만 좌측 상단 (2026-07-21 클린업 · 진행중 배지 / 서브 라벨 삭제)
           2026-08 캐주얼 전환: 고정 다크 배너 → 테마 추종 카드 (라이트 모드 대비 확보) */}
       <div
-        className="relative px-5 py-4 lg:px-6 lg:py-5 -mx-2 sm:mx-0"
+        className="relative px-5 py-4 lg:px-6 lg:py-5"
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',

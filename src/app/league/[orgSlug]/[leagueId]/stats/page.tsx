@@ -625,7 +625,7 @@ function LeagueStatsPageInner() {
           ]} />
 
           {/* 전체 스탯 테이블 */}
-          <SectionCard variant="standalone">
+          <SectionCard variant="standalone" pad="none">
             {/* 테이블 컨트롤 — 모바일 2줄 / PC 1줄 */}
             <div className="px-4 py-3 space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-3" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
               <div className="flex items-center gap-2 shrink-0">

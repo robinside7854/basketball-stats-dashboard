@@ -68,7 +68,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
           {/* 내 특성 배지 — "내 기록이 게임처럼 남는" 자리. 선수 상세 모달까지 들어가지 않아도
               자기 유형을 바로 보게 한다. */}
           {user.player_id && (
-            <SectionCard variant="standalone">
+            <SectionCard variant="standalone" pad="base">
               <div className="space-y-2">
                 {/* 도움말 버튼은 라벨 줄에 둔다 — 배지가 없는 회원에게도 "받을 수 있는 게 뭔지"로
                     가는 입구가 항상 보여야 한다(패널 안에 넣으면 빈 상태에서 같이 사라진다). */}
@@ -106,7 +106,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
       {/* 바로가기 — 선수 명단·팀 순위는 스탯 탭으로, 설정은 상단 바 어드민 버튼으로 옮겨졌다
           (Task 4-B, 2026-08-08 갱신). 남는 항목이 하나도 없으면(비로그인 + 드래프트 없음) 빈 카드를 렌더하지 않는다. */}
       {(user || showDraft) && (
-        <SectionCard variant="standalone">
+        <SectionCard variant="standalone" pad="none">
           {user && (
             <ShortcutRow
               href={`${base}/highlights/player/${user.player_id}`}
@@ -126,8 +126,8 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
           라이트/다크 토글은 2026-08-15 에 헤더 우측 아이콘으로 옮겼다(`LeagueLayoutClient`).
           여기 있으면 테마를 바꾸려고 개인 화면까지 들어와야 했다. 같은 설정을 두 곳에 두면
           '설정 탭 vs 톱니바퀴'와 똑같은 중복이 되므로 이 자리에는 남기지 않는다. */}
-      <SectionCard variant="standalone">
-        <div className="flex flex-wrap items-center gap-2 p-4">
+      <SectionCard variant="standalone" pad="base">
+        <div className="flex flex-wrap items-center gap-2">
           {/* 앱 설치 — 브라우저 메뉴를 뒤지지 않도록 앱 안에 입구를 둔다.
               설치 불가·이미 설치됨이면 스스로 아무것도 렌더하지 않는다. */}
           <InstallAppButton />

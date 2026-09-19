@@ -69,7 +69,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
   const active = metricKey !== null && players.length > 0
 
   return (
-    <SectionCard variant="standalone" ariaLabel="TOP 5 리더 슬롯" className="p-3 sm:p-4">
+    <SectionCard variant="standalone" ariaLabel="TOP 5 리더 슬롯" pad="base">
       {/* 헤더 */}
       <div className="flex items-center gap-2 mb-3">
         <Trophy size={14} style={{ color: 'var(--mm-ink-soft)' }} />

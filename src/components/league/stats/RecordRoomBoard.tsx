@@ -101,7 +101,7 @@ export default function RecordRoomBoard({ categoryHighs, highlightCategory, orgS
   const year = new Date().getFullYear()
 
   return (
-    <SectionCard variant="standalone" ariaLabel="기록실 — 시즌 최고 기록">
+    <SectionCard variant="standalone" ariaLabel="기록실 — 시즌 최고 기록" pad="none">
       <div className="flex items-center gap-2 px-3 sm:px-4 pt-3 pb-2.5" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
         <Crown size={14} style={{ color: 'var(--mm-ink-soft)' }} aria-hidden />
         <span className="text-xs font-black" style={{ color: 'var(--mm-ink)' }}>

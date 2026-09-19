@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
 import type { LeaguePlayer } from '@/types/league'
-import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
+import { textOnBg, accentOrInk, teamInk } from '@/lib/util/contrastColor'
 
 interface MinRow { id: string; league_player_id: string; league_game_id: string; out_time: number | null }
 type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
@@ -213,9 +213,9 @@ export default function LeagueSubstitutionPanel({
   function PlayerChip({ p, accent }: { p: LeaguePlayer; accent: 'home' | 'away' | 'ghost' }) {
     const isDragging = draggingId === p.id
     const isDragOver = dragOverKey === `chip:${p.id}` && draggingId !== p.id
-    const color =
-      accent === 'home' ? (homeTeam?.color ?? '#dc2626') :
-      accent === 'away' ? (awayTeam?.color ?? '#2563eb') : '#6b7280'
+    // 팀 색이 없을 때(미배정 ghost 포함) teamInk 가 중립 회색으로 정규화한다 —
+    // 여기 색은 ${color}33 / textOnBg 로 들어가므로 hex 여야 하고, CSS 변수는 쓸 수 없다.
+    const color = teamInk(accent === 'home' ? homeTeam?.color : accent === 'away' ? awayTeam?.color : null).bg
 
     return (
       <div
@@ -225,7 +225,7 @@ export default function LeagueSubstitutionPanel({
         onDragOver={e => overEl(e, `chip:${p.id}`)}
         onDragLeave={leaveEl}
         onDrop={e => onDropOnChip(e, p.id)}
-        className={`px-2.5 py-1 rounded-lg text-xs font-medium border whitespace-nowrap transition-[opacity,box-shadow,border-color,background-color] duration-150 select-none
+        className={`px-2.5 py-1 min-h-11 inline-flex items-center rounded-lg text-xs font-medium border whitespace-nowrap transition-[opacity,box-shadow,border-color,background-color] duration-150 select-none
           ${busy ? 'cursor-wait' : 'cursor-grab active:cursor-grabbing'}
           ${isDragging ? 'opacity-40' : ''}
           ${isDragOver ? 'ring-2 ring-blue-300 z-10 relative' : ''}
@@ -242,7 +242,7 @@ export default function LeagueSubstitutionPanel({
           userSelect: 'none',
         }}
       >
-        {p.number != null && <span className="font-mono mr-1 text-xs opacity-70" style={{ pointerEvents: 'none' }}>#{p.number}</span>}
+        {p.number != null && <span className="font-mono mr-1 text-xs" style={{ pointerEvents: 'none' }}>#{p.number}</span>}
         <span style={{ pointerEvents: 'none' }}>{p.name}</span>
       </div>
     )
@@ -271,15 +271,15 @@ export default function LeagueSubstitutionPanel({
         <div className="flex items-center gap-2 mb-1">
           {/* 팀 컬러가 흰색에 가까우면 accentOrInk 가 --mm-ink 로 대체 — 그대로 쓰면
               라이트 모드 흰 패널 위에서 라벨이 사라진다(2026-08-08 핫픽스). */}
-          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: accentOrInk(color) }}>{label}</span>
+          <span className="t-label" style={{ color: accentOrInk(color) }}>{label}</span>
           {overCapacity && <span className="inline-flex items-center gap-1 text-xs font-bold text-red-400"><AlertTriangle size={14} aria-hidden /> 정원 초과</span>}
         </div>
-        <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+        <div className="flex flex-wrap gap-1.5 min-h-11">
           {children}
           {goCourt && Array.from({ length: openSlots }).map((_, i) => (
             <div key={`empty-${i}`}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium border border-dashed transition-all ${
-                isOver ? 'border-blue-400 text-blue-200' : 'border-gray-700 text-gray-600'
+              className={`px-2.5 py-1 min-h-11 inline-flex items-center rounded-lg text-xs font-medium border border-dashed transition-all ${
+                isOver ? 'border-blue-400 text-blue-200' : 'border-gray-600 text-gray-400'
               }`}>
               + 빈자리
             </div>
@@ -301,7 +301,7 @@ export default function LeagueSubstitutionPanel({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between px-1">
           <span className="text-sm font-black" style={{ color: accentOrInk(team.color) }}>{team.name}</span>
-          <span className={`text-xs font-bold tabular-nums ${overCap ? 'text-red-400' : 'text-gray-500'}`}>
+          <span className={`text-xs font-bold tabular-nums ${overCap ? 'text-red-400' : 'text-gray-400'}`}>
             {onCourtPlayers.length}/{COURT_SIZE}
           </span>
         </div>
@@ -310,7 +310,7 @@ export default function LeagueSubstitutionPanel({
         </AreaDropZone>
         <AreaDropZone teamId={team.id} goCourt={false} label={`벤치 (${benchPlayers.length})`} color={team.color}>
           {benchPlayers.map(p => <PlayerChip key={p.id} p={p} accent={accent} />)}
-          {benchPlayers.length === 0 && <p className="text-xs text-gray-600 italic">선수를 드래그해 배정하세요</p>}
+          {benchPlayers.length === 0 && <p className="text-xs text-gray-400 italic">선수를 드래그해 배정하세요</p>}
         </AreaDropZone>
       </div>
     )
@@ -318,7 +318,7 @@ export default function LeagueSubstitutionPanel({
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-400">
         드래그로 자유롭게 이동 — 코트로 보내면 그 팀 소속으로 출전 처리됩니다.
         선수끼리 드래그하면 자리를 교환하고, 빈 영역에 드롭하면 그쪽으로 이동합니다.
       </p>
@@ -341,7 +341,7 @@ export default function LeagueSubstitutionPanel({
       {/* 기타 선수 풀 (어느 팀에도 없음, 벤치) */}
       {unassignedBench.length > 0 && (
         <details className="rounded-lg bg-gray-800/40 border border-gray-700/60">
-          <summary className="cursor-pointer px-2.5 py-1.5 text-xs text-gray-400 font-medium hover:text-white">
+          <summary className="cursor-pointer px-2.5 py-1.5 min-h-11 flex items-center text-xs text-gray-300 font-medium hover:text-white">
             기타 선수 ({unassignedBench.length}) — 드래그로 팀에 배정
           </summary>
           <div className="px-2.5 pb-2 pt-1">

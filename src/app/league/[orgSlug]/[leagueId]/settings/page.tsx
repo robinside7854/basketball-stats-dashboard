@@ -377,7 +377,7 @@ export default function LeagueSettingsPage() {
             비공개
           </button>
         </div>
-        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
+        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
           {isPublic
             ? '링크를 아는 사람은 로그인 없이 경기 기록·명단·순위를 볼 수 있습니다.'
             : '로그인한 승인 회원만 볼 수 있습니다. 링크가 있어도 로그인 전에는 아무것도 보이지 않습니다.'}
@@ -509,7 +509,7 @@ export default function LeagueSettingsPage() {
           <MapPin size={16} className="text-[color:var(--mm-yellow-strong)]" />
           <h3 className="font-black text-lg text-[color:var(--mm-ink)]">고정 대관</h3>
         </div>
-        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
+        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
           매주 반복되는 기본 시간·장소입니다. 참여신청 화면과 일정에 자동으로 표시됩니다.<br />
           특정 주만 다르면 <span className="text-[color:var(--mm-ink-soft)]">경기 &gt; 일정</span> 에서 그 날짜만 바꾸고,
           아예 안 모이는 주는 <span className="text-[color:var(--mm-ink-soft)]">「대관 없음」</span> 으로 지정하세요.
@@ -562,7 +562,7 @@ export default function LeagueSettingsPage() {
           <Youtube size={16} className="text-[color:var(--mm-live)]" />
           <h3 className="font-black text-lg text-[color:var(--mm-ink)]">YouTube 채널 설정</h3>
         </div>
-        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
+        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
           경기 기록 탭에서 날짜별 YouTube 자동 연동에 사용됩니다.<br />
           영상 제목 형식: <span className="font-mono text-[color:var(--mm-ink-soft)]">260905 굿모닝vs빅현욱 1Q</span>
           {' '}— 대진과 쿼터를 읽어 그 경기의 쿼터별 영상으로 붙습니다.<br />
@@ -598,7 +598,7 @@ export default function LeagueSettingsPage() {
           <Youtube size={16} className="text-[color:var(--mm-live)]" />
           <h3 className="font-black text-lg text-[color:var(--mm-ink)]">영상 제목의 팀 별칭</h3>
         </div>
-        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
+        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
           영상 제목에 팀명이 줄여 적힐 때 등록합니다. 예: 제목의 <span className="font-mono text-[color:var(--mm-ink-soft)]">지피티</span> = 팀 <span className="font-mono text-[color:var(--mm-ink-soft)]">챗지피지기</span><br />
           등록되지 않은 표기는 자동 연동이 <strong className="text-[color:var(--mm-ink-soft)]">붙이지 않고 건너뜁니다</strong> — 틀린 경기에 붙는 것보다 낫기 때문입니다.
         </p>
@@ -662,7 +662,7 @@ export default function LeagueSettingsPage() {
           <span className="text-xs font-semibold bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] px-2 py-0.5 tracking-tight">+1</span>
           <h3 className="font-black text-lg text-[color:var(--mm-ink)]">플러스원 나이 기준</h3>
         </div>
-        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
+        <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
           해당 만 나이 이상 선수에게 자유투 제외 득점 +1이 가산됩니다.<br />
           비워두면 플러스원 제도 미사용.
         </p>
@@ -742,7 +742,7 @@ export default function LeagueSettingsPage() {
             <Users size={16} className="text-[color:var(--mm-muted)]" />
             <h3 className="font-black text-lg text-[color:var(--mm-ink)]">분기별 팀 이름</h3>
           </div>
-          <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
+          <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
             분기마다 팀 이름이 바뀌면 여기에 적어 둡니다. 비워 두면 그 분기는 기본 이름을 씁니다.<br />
             <strong className="text-[color:var(--mm-ink-soft)]">과거 경기는 그때 이름 그대로 남습니다</strong> — 순위표·박스스코어·하이라이트가 전부 이 표를 봅니다.<br />
             분기별 <Link href={pathname.replace(/\/settings.*$/, '') + '/roster'} className="underline underline-offset-2 hover:text-[color:var(--mm-ink)] cursor-pointer">선수 소속은 명단 화면</Link>에서 정합니다.
@@ -828,7 +828,7 @@ export default function LeagueSettingsPage() {
             <Calendar size={16} className="text-[color:var(--mm-muted)]" />
             <h3 className="font-black text-lg text-[color:var(--mm-ink)]">분기별 날짜 범위</h3>
           </div>
-          <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
+          <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
             각 분기의 시작일/종료일을 지정하면 경기 날짜 → 분기 자동 매핑, 분기별 스탯 집계에 사용됩니다.
           </p>
           <div className="space-y-2">

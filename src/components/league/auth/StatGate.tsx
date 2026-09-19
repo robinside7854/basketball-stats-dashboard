@@ -51,9 +51,9 @@ export default function StatGate({
   if (fullPage) {
     return (
       <div className="max-w-2xl mx-auto">
-        <SectionCard variant="standalone" emphasized>{body}</SectionCard>
+        <SectionCard variant="standalone" emphasized pad="none">{body}</SectionCard>
       </div>
     )
   }
-  return <SectionCard variant="standalone">{body}</SectionCard>
+  return <SectionCard variant="standalone" pad="none">{body}</SectionCard>
 }

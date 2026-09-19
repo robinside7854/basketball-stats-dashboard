@@ -47,14 +47,14 @@ export default function HomeSectionTabs({
   // 캐주얼 전환(2026-08) — 탭 안에 들어가는 SectionCard(variant="stack")가 이제 자체
   // border+radius 를 갖는 독립 카드라서, 예전처럼 이 래퍼가 둘러싸는 카드 프레임 역할을
   // 하면 이중 테두리가 생긴다. 탭 바는 카드 프레임 없이 얇은 하단 룰선만 갖고,
-  // 아래 카드와는 간격(space-y-3)으로 분리한다.
+  // 아래 카드와는 간격(mb-4 lg:mb-5, 다른 탭 3종과 통일 — 가독성 업그레이드 ⑥)으로 분리한다.
   return (
-    <div className="space-y-3">
+    <div>
       {/* 탭 바 */}
       <div
         role="tablist"
         aria-label="홈 요약 섹션"
-        className="flex items-stretch gap-1 overflow-x-auto scrollbar-hide border-b border-[color:var(--mm-rule)] px-1"
+        className="mb-4 lg:mb-5 flex items-stretch gap-1 overflow-x-auto scrollbar-hide border-b border-[color:var(--mm-rule)] px-1"
       >
         {tabs.map(t => {
           const on = active === t.key
@@ -65,7 +65,7 @@ export default function HomeSectionTabs({
               aria-selected={on}
               aria-current={on ? 'page' : undefined}
               onClick={() => setActive(t.key)}
-              className={`relative shrink-0 px-4 py-3.5 text-sm lg:text-base font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 ${
+              className={`relative shrink-0 px-3.5 py-2.5 min-h-11 text-sm lg:text-base font-bold cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 ${
                 on
                   ? 'text-[color:var(--mm-ink)]'
                   : 'text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)]'

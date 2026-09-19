@@ -82,8 +82,8 @@ export default async function ClassicGamesPage({
 
       {/* 기준을 화면에 적어 둔다. 왜 이 경기가 뽑혔는지 설명할 수 없으면 목록을 신뢰하지 않는다 —
           환호 기반 하이라이트를 보류한 이유와 같다. */}
-      <SectionCard variant="standalone">
-        <div className="px-4 py-3 text-sm leading-relaxed" style={{ color: 'var(--mm-ink-soft)' }}>
+      <SectionCard variant="standalone" pad="base">
+        <div className="text-sm leading-relaxed" style={{ color: 'var(--mm-ink-soft)' }}>
           <span className="font-bold" style={{ color: 'var(--mm-ink)' }}>뽑는 방법 · </span>
           위닝샷 · 역전 3회 이상 · 2점 차 이내 · 총 38점 이상 — 이 넷 중{' '}
           <b style={{ color: 'var(--mm-ink)' }}>3개 이상</b>을 채운 경기를 그 달의 명경기로 고릅니다.
@@ -112,7 +112,7 @@ function ClassicCard({ g, leagueId }: { g: ClassicGame; leagueId: string }) {
   const awayWin = g.awayScore > g.homeScore
 
   return (
-    <SectionCard variant="standalone">
+    <SectionCard variant="standalone" pad="none">
       {/* 월 + 날짜 */}
       <div
         className="px-4 py-2.5 flex items-center gap-2 flex-wrap"

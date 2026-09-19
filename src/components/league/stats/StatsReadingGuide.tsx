@@ -37,7 +37,7 @@ export default function StatsReadingGuide({ items, className }: Props) {
       </summary>
       <div className="px-3 pb-3 pt-1 space-y-1.5" style={{ borderTop: '1px solid var(--mm-rule)' }}>
         {items.map(item => (
-          <p key={item.term} className="text-xs leading-relaxed" style={{ color: 'var(--mm-ink-soft)' }}>
+          <p key={item.term} className="text-xs leading-relaxed max-w-prose" style={{ color: 'var(--mm-ink-soft)' }}>
             <span className="font-black" style={{ color: 'var(--mm-ink)' }}>{item.term}</span> {item.text}
           </p>
         ))}

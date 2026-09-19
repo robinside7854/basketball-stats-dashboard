@@ -82,7 +82,7 @@ export default function LeagueRecordPage() {
         </div>
         <button
           onClick={openPinModal}
-          className="px-5 py-2 text-sm font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors"
+          className="px-5 py-2 min-h-11 whitespace-nowrap text-sm font-bold cursor-pointer transition-colors"
           style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
         >
           PIN 입력
@@ -1353,7 +1353,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         <span className="font-medium min-w-0 break-keep" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>{p.name}</span>
         {isIrregular && (
           <span
-            className="shrink-0 text-xs font-bold px-1 uppercase tracking-[0.10em]"
+            className="shrink-0 text-xs font-bold px-1"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
           >
             비정규
@@ -1369,7 +1369,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             addIrregularToTeam(p as IrregularPlayer, otherSide)
           }}
           disabled={addingIrregular}
-          className="lg:hidden ml-auto shrink-0 inline-flex items-center justify-center min-h-[36px] min-w-[36px] px-2 text-xs font-bold cursor-pointer transition-colors disabled:opacity-40"
+          className="lg:hidden ml-auto shrink-0 inline-flex items-center justify-center min-h-11 min-w-11 px-2 text-xs font-bold cursor-pointer transition-colors disabled:opacity-40"
           style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', borderRadius: '4px' }}
           aria-label={`${p.name} → ${otherTeamName} 팀으로 이동`}
           title={`→ ${otherTeamName}`}
@@ -1401,7 +1401,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         }}
         onDragEnd={() => setDraggingPlayerId(null)}
         onClick={() => setPendingIrregular(p)}
-        className={`flex items-center gap-1 px-2.5 py-1 min-h-[36px] text-xs font-medium cursor-pointer lg:cursor-grab transition-colors select-none ${
+        className={`flex items-center gap-1 px-2.5 py-1 min-h-11 text-xs font-medium cursor-pointer lg:cursor-grab transition-colors select-none ${
           isDragging ? 'opacity-40' : ''
         }`}
         style={chipStyle}
@@ -1794,9 +1794,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
           >
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 size={14} style={{ color: '#059669' }} />
+              <CheckCircle2 size={14} style={{ color: 'var(--mm-positive)' }} />
               <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>완료</span>
-              <span className="text-sm font-black ml-1" style={{ color: '#059669' }}>{totalComplete}</span>
+              <span className="text-sm font-black ml-1" style={{ color: 'var(--mm-positive)' }}>{totalComplete}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Play size={14} style={{ color: 'var(--mm-yellow-strong)' }} />
@@ -1814,9 +1814,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>진행 대상 {totalActive}/{totalGames}경기</span>
               <div className="w-24 h-1.5 overflow-hidden" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
-                <div className="h-full transition-all" style={{ width: `${completionPct}%`, background: '#059669' }} />
+                <div className="h-full transition-all" style={{ width: `${completionPct}%`, background: 'var(--mm-positive)' }} />
               </div>
-              <span className="text-xs font-bold" style={{ color: '#059669' }}>{Math.round(completionPct)}%</span>
+              <span className="text-xs font-bold" style={{ color: 'var(--mm-positive)' }}>{Math.round(completionPct)}%</span>
             </div>
           </div>
         )}
@@ -1828,7 +1828,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               <button
                 key={tab.id}
                 onClick={() => setSelectedQFilter(tab.id)}
-                className="inline-flex items-center justify-center px-4 py-2 min-h-[44px] min-w-[44px] text-xs font-bold uppercase tracking-[0.14em] transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center px-4 py-2 min-h-[44px] min-w-[44px] text-xs font-bold transition-colors cursor-pointer"
                 style={
                   selectedQFilter === tab.id
                     ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
@@ -1878,7 +1878,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                       className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5"
                       style={
                         allDone
-                          ? { background: '#059669', color: '#FFFFFF', border: '1px solid #059669', borderRadius: '4px' }
+                          ? { background: 'var(--mm-positive-bg)', color: 'var(--mm-positive-fg)', border: '1px solid var(--mm-positive)', borderRadius: '4px' }
                           : stat.complete > 0
                           ? { background: 'var(--mm-yellow-soft)', color: 'var(--mm-yellow-strong)', border: '1px solid var(--mm-yellow)', borderRadius: '4px' }
                           : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }
@@ -1912,11 +1912,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     </span>
                   )}
 
-                  {/* YouTube 연동 — 다른 배지들과 같은 줄, 인접 배치 (YouTube 브랜드 레드 유지) */}
+                  {/* YouTube 연동 — 다른 배지들과 같은 줄, 인접 배치.
+                      브랜드 레드 #DC2626 은 다크 패널에서 3.3:1 이라 같은 계열의 --mm-negative 로 바꿨다
+                      (라이트 #A33328 · 다크 #F5998C — 빨강은 유지, 대비만 확보) */}
                   {stat && stat.total > 0 && stat.yt > 0 && (
                     <span
                       className="flex items-center gap-1 text-xs font-mono"
-                      style={{ color: allLinked ? '#DC2626' : 'var(--mm-muted)' }}
+                      style={{ color: allLinked ? 'var(--mm-negative)' : 'var(--mm-muted)' }}
                     >
                       <Youtube size={14} />
                       {stat.yt}/{stat.total}
@@ -1967,7 +1969,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
           <div className="ml-auto flex items-center gap-2">
             <a
               href={`/league/${orgSlug}/${leagueId}/social?date=${roundDone.date}`}
-              className="inline-flex items-center justify-center px-4 min-h-11 text-xs font-black uppercase tracking-wider cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+              className="inline-flex items-center justify-center px-4 min-h-11 text-xs font-black cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
               style={{ background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderRadius: '4px' }}
             >
               카드 만들러 가기
@@ -2007,7 +2009,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         {!isTournament && (
           <div className="ml-auto flex items-center gap-2 shrink-0">
             {leagueYtChannel && (
-              <span className="text-xs font-mono text-red-300/70 hidden sm:inline">{leagueYtChannel}</span>
+              <span className="text-xs font-mono hidden sm:inline" style={{ color: 'var(--mm-muted)' }}>{leagueYtChannel}</span>
             )}
             <button
               onClick={syncYoutube}
@@ -2046,11 +2048,12 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               {hasTeams ? (
                 <span className="flex flex-col items-center leading-tight w-full min-w-0">
                   <span className="text-xs font-bold truncate w-full text-center">{slot.home_team?.name ?? '홈'}</span>
-                  <span className="text-xs font-normal opacity-60">vs</span>
+                  {/* opacity 로 흐리게 두니 선택 상태(파란 배경)에서 2.7:1 이었다 — 위계는 굵기로만 준다 */}
+                  <span className="text-xs font-normal">vs</span>
                   <span className="text-xs font-bold truncate w-full text-center">{slot.away_team?.name ?? '어웨이'}</span>
                 </span>
               ) : (
-                <span className="text-xs" style={{ opacity: 0.8 }}>경기 {slot.slot_num}</span>
+                <span className="text-xs">경기 {slot.slot_num}</span>
               )}
               <div className="flex items-center gap-0.5 mt-1">
                 {hasYT && <Youtube size={14} className="text-red-400" />}
@@ -2120,14 +2123,14 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 잘못 눌리면 그 경기가 리그 순위·개인 스탯에서 통째로 빠지는데도, 지금 어느
                 상태인지는 노란 배지 하나로만 알 수 있었다. 상태를 먼저 보여주고 고르게 한다. */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs shrink-0 font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+              <span className="t-label shrink-0" style={{ color: 'var(--mm-muted)' }}>
                 경기 {selectedSlot.slot_num}
               </span>
               {isTournament ? (
                 /* 대회 경기는 정의상 공식전이다 — 고를 것이 없으므로 버튼을 두지 않는다.
                    (친선으로 표시하면 집계 15곳이 전부 걸러내 그 대회 스탯이 통째로 빈다) */
                 <span
-                  className="text-xs font-bold px-2 min-h-11 inline-flex items-center uppercase tracking-[0.12em]"
+                  className="text-xs font-bold px-2 min-h-11 inline-flex items-center"
                   style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                 >
                   대회 경기
@@ -2148,7 +2151,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         onClick={() => { if (!active) toggleExhibition() }}
                         aria-pressed={active}
                         title={opt.title}
-                        className="px-3 min-h-11 text-xs font-bold uppercase tracking-[0.12em] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                        className="px-3 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                         style={{
                           background: active ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
                           color: active ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
@@ -2209,7 +2212,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 title={(selectedSlot.is_started || selectedSlot.is_complete)
                   ? '팀을 바꾸고 이 경기 기록의 소속 팀도 함께 옮깁니다'
                   : '이 경기의 홈·어웨이 팀 저장'}
-                className="cursor-pointer shrink-0 text-xs font-bold uppercase tracking-[0.14em] px-3 py-1.5 disabled:opacity-50 transition-colors min-h-[44px]"
+                className="cursor-pointer shrink-0 text-xs font-bold px-3 py-1.5 disabled:opacity-50 transition-colors min-h-[44px]"
                 style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
               >
                 {savingTeam
@@ -2237,7 +2240,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   className="shrink-0 transition-transform duration-200"
                   style={{ color: 'var(--mm-muted)', transform: videoPanelOpen ? 'none' : 'rotate(-90deg)' }}
                 />
-                <span className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>영상</span>
+                <span className="t-label" style={{ color: 'var(--mm-muted)' }}>영상</span>
                 {(() => {
                   const qs = Object.keys(quarterVideos).map(Number).sort((a, b) => a - b)
                   if (qs.length > 0) {
@@ -2272,7 +2275,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               {(
                 <div className="mb-3">
                   <div className="flex items-baseline gap-2 flex-wrap mb-2">
-                    <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>쿼터별 영상</span>
+                    <span className="t-label" style={{ color: 'var(--mm-muted)' }}>쿼터별 영상</span>
                     <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
                       쿼터를 누르면 그 쿼터 영상으로 바뀝니다
                     </span>
@@ -2415,7 +2418,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               )}
 
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs shrink-0 font-bold" style={{ color: 'var(--mm-muted)' }}>
+                <span className="t-label shrink-0" style={{ color: 'var(--mm-muted)' }}>
                   {ytTargetQuarter}쿼터 영상
                 </span>
                 <label htmlFor="yt-url-input" className="sr-only">YouTube 영상 링크</label>
@@ -2436,7 +2439,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   type="button"
                   onClick={() => attachVideo(ytInput)}
                   disabled={ytSaving || ytInput.trim().length === 0}
-                  className="inline-flex items-center gap-1.5 shrink-0 cursor-pointer text-xs font-bold uppercase tracking-[0.14em] px-3 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className="inline-flex items-center gap-1.5 shrink-0 cursor-pointer text-xs font-bold px-3 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
                 >
                   {ytSaving
@@ -2449,7 +2452,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   onClick={loadYoutubeList}
                   disabled={ytListLoading}
                   title="이 날짜에 올라온 채널 영상을 목록으로 불러와 고릅니다"
-                  className="inline-flex items-center gap-1.5 shrink-0 cursor-pointer text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className="inline-flex items-center gap-1.5 shrink-0 cursor-pointer text-xs font-bold px-2.5 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                 >
                   {ytListLoading
@@ -2528,7 +2531,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   className="shrink-0 transition-transform duration-200"
                   style={{ color: 'var(--mm-muted)', transform: advancedOpen ? 'none' : 'rotate(-90deg)' }}
                 />
-                <span className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>고급</span>
+                <span className="t-label" style={{ color: 'var(--mm-muted)' }}>고급</span>
                 <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
                   이 경기 +1 · 슬롯 삭제
                 </span>
@@ -2536,7 +2539,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 {((selectedSlot.plus_one_extra_ids ?? []).length > 0
                   || Object.keys(selectedSlot.plus_one_quarters ?? {}).length > 0) && (
                   <span
-                    className="text-xs font-bold px-1.5 py-0.5 uppercase tracking-[0.12em]"
+                    className="text-xs font-bold px-1.5 py-0.5"
                     style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
                   >
                     +1 지정됨
@@ -2550,7 +2553,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             {(homeRoster.length > 0 || awayRoster.length > 0) && (
               <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
                 <div className="flex items-baseline gap-2 flex-wrap mb-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+                  <span className="t-label" style={{ color: 'var(--mm-muted)' }}>
                     이 경기 한정 +1
                   </span>
                   <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
@@ -2611,7 +2614,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   return (
                     <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
                       <div className="flex items-baseline gap-2 flex-wrap mb-2">
-                        <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>쿼터별 +1</span>
+                        <span className="t-label" style={{ color: 'var(--mm-muted)' }}>쿼터별 +1</span>
                         <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
                           전·후반 +1 선수가 다를 때 씁니다 · 끄면 그 쿼터에는 +1 이 붙지 않습니다
                         </span>
@@ -2680,7 +2683,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   <button
                     onClick={clearYoutubeUrl}
                     title="잘못 매핑된 YouTube 영상 링크 제거"
-                    className="shrink-0 text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 transition-colors duration-200 cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    className="shrink-0 text-xs font-bold px-2.5 py-1.5 transition-colors duration-200 cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                   >
                     영상 링크 제거
@@ -2692,7 +2695,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     disabled={deletingSlot}
                     title="이 슬롯 삭제 (기록이 있으면 막힙니다)"
                     aria-label={`${selectedSlot.slot_num}경기 슬롯 삭제`}
-                    className="inline-flex items-center gap-1.5 shrink-0 text-xs font-bold uppercase tracking-[0.12em] px-2.5 py-1.5 transition-colors duration-200 cursor-pointer min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    className="inline-flex items-center gap-1.5 shrink-0 text-xs font-bold px-2.5 py-1.5 transition-colors duration-200 cursor-pointer min-h-[44px] disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
                   >
                     {deletingSlot
@@ -2727,7 +2730,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
             {selectedSlot.is_exhibition && (
               <div className="mt-3 pt-3" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
                 <div className="flex items-baseline gap-2 flex-wrap mb-2">
-                  <span className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+                  <span className="t-label" style={{ color: 'var(--mm-muted)' }}>
                     임시팀
                   </span>
                   <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
@@ -2797,7 +2800,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     type="button"
                     onClick={createAdhocTeam}
                     disabled={creatingTeam || newTeamName.trim().length === 0}
-                    className="inline-flex items-center gap-1.5 cursor-pointer shrink-0 text-xs font-bold uppercase tracking-[0.14em] px-3 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    className="inline-flex items-center gap-1.5 cursor-pointer shrink-0 text-xs font-bold px-3 py-1.5 min-h-[44px] transition-colors duration-200 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                     style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }}
                   >
                     {creatingTeam
@@ -2861,14 +2864,14 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   ) : (
                     <div className="flex gap-2">
                       <div
-                        className="flex-1 py-1.5 text-xs text-center font-bold uppercase tracking-[0.14em] min-h-[44px] flex items-center justify-center"
-                        style={{ background: 'rgba(5,150,105,0.12)', border: '1px solid #059669', color: '#059669', borderRadius: '4px' }}
+                        className="flex-1 py-1.5 text-xs text-center font-bold min-h-[44px] flex items-center justify-center"
+                        style={{ background: 'var(--mm-positive-bg)', border: '1px solid var(--mm-positive)', color: 'var(--mm-positive-fg)', borderRadius: '4px' }}
                       >
                         경기 진행 중
                       </div>
                       <button
                         onClick={openCompleteModal}
-                        className="flex items-center gap-1 px-4 py-1.5 text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors btn-press min-h-[44px]"
+                        className="flex items-center gap-1 px-4 py-1.5 text-xs font-bold cursor-pointer transition-colors btn-press min-h-[44px]"
                         style={{ background: 'var(--mm-live-bg)', color: '#FFFFFF', borderRadius: '4px' }}
                       >
                         <Square size={14} />마감
@@ -2996,7 +2999,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 <div className="flex gap-1 lg:hidden">
                   {(['record', 'stats'] as const).map(tab => (
                     <button key={tab} onClick={() => setMobileTab(tab)}
-                      className="flex-1 py-2 text-xs font-bold uppercase tracking-[0.14em] transition-colors cursor-pointer min-h-[44px]"
+                      className="flex-1 py-2 text-xs font-bold transition-colors cursor-pointer min-h-[44px]"
                       style={mobileTab === tab
                         ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '4px' }
                         : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }
@@ -3035,13 +3038,13 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             <CheckCircle2 size={20} className="text-gray-500" />
                             <span className="text-lg font-black text-gray-400 tracking-tight">마감된 경기입니다</span>
                           </div>
-                          <p className="text-xs text-gray-500">이벤트 로그에서 수정·삭제, 또는 아래에서 기록 모드로 복귀할 수 있습니다</p>
+                          <p className="text-xs text-gray-400">이벤트 로그에서 수정·삭제, 또는 아래에서 기록 모드로 복귀할 수 있습니다</p>
                         </div>
                         {/* 하단 버튼 행 */}
                         <div className="grid grid-cols-2 border-t border-gray-800/60">
                           <button
                             onClick={() => setShowGameLog(true)}
-                            className="py-2.5 flex items-center justify-center gap-1.5 text-gray-600 hover:text-gray-300 hover:bg-gray-900/60 text-xs font-medium transition-colors cursor-pointer border-r border-gray-800/60"
+                            className="py-2.5 min-h-11 flex items-center justify-center gap-1.5 text-gray-300 hover:text-white hover:bg-gray-900/60 text-xs font-medium transition-colors cursor-pointer border-r border-gray-800/60"
                           >
                             <ClipboardList size={14} />
                             이벤트 로그
@@ -3049,7 +3052,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           <button
                             onClick={reopenGame}
                             disabled={reopening}
-                            className="py-2.5 flex items-center justify-center gap-1.5 text-blue-500 hover:text-blue-400 hover:bg-blue-900/20 text-xs font-medium transition-colors cursor-pointer disabled:opacity-50 btn-press"
+                            className="py-2.5 min-h-11 flex items-center justify-center gap-1.5 text-blue-400 hover:text-blue-300 hover:bg-blue-900/20 text-xs font-medium transition-colors cursor-pointer disabled:opacity-50 btn-press"
                           >
                             {reopening
                               ? <><Loader2 size={14} className="animate-spin" />복귀 중...</>
@@ -3062,7 +3065,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     <>
                       {/* 컴팩트 스코어 스트립 */}
                       <div className="bg-gray-950 border border-gray-800 rounded-xl overflow-hidden">
-                        <div className="flex items-stretch">
+                        <div className="flex items-stretch min-h-11">
                           {/* 좌우는 이 쿼터의 코트 배치를 따른다(위 스코어보드와 같은 sideView) */}
                           <div className="flex-1 py-2 px-3 flex items-center gap-2">
                             <span className="text-xs font-bold truncate" style={{ color: accentOrInk(sideView(leftSide).color) }}>
@@ -3086,7 +3089,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           </div>
                           <button
                             onClick={() => setShowGameLog(true)}
-                            className="border-l border-gray-800 px-3 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
+                            className="border-l border-gray-800 px-3 min-h-11 flex items-center gap-1 text-xs text-gray-300 hover:text-white hover:bg-gray-800/60 cursor-pointer transition-colors shrink-0"
                           >
                             <ClipboardList size={14} />
                             <span className="hidden sm:inline">로그</span>
@@ -3131,7 +3134,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
 
                       {/* 쿼터 선택 — 1~4쿼터 정식 경기용. 안 건드리면 1Q 고정이라 기존 슬롯 경기와 동일하다. */}
                       <div className="flex items-center gap-1.5 px-2 py-2 border-t border-gray-800 bg-gray-900/60 overflow-x-auto" role="group" aria-label="기록 중인 쿼터">
-                        <span className="pl-1 shrink-0 text-xs font-bold uppercase tracking-[0.14em] text-gray-500">쿼터</span>
+                        <span className="pl-1 shrink-0 text-xs font-semibold text-gray-400">쿼터</span>
                         {QUARTER_OPTIONS.map(q => {
                           const active = currentQuarter === q.value
                           return (
@@ -3210,7 +3213,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         >
                           <div className="flex items-center gap-1.5 mb-2">
                             <UserPlus size={14} style={{ color: 'var(--mm-muted)' }} />
-                            <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>비정규 선수 추가</p>
+                            <p className="t-label" style={{ color: 'var(--mm-muted)' }}>비정규 선수 추가</p>
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {irregularRoster.map(p => {
@@ -3249,7 +3252,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           >
                             <div className="flex items-center gap-1.5">
                               <RefreshCw size={14} style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
-                              <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>타팀 임시 출전</p>
+                              <p className="t-label" style={{ color: 'var(--mm-yellow-strong)' }}>타팀 임시 출전</p>
                               <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>이번 경기에만 적용</span>
                             </div>
                             <div className="flex flex-wrap gap-1.5">
@@ -3396,7 +3399,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                                   style={{ color: accentOrInk(v.color), backgroundColor: `${v.color}22`, borderRadius: '4px' }}>
                                   {v.team?.name ?? (side === 'home' ? '홈팀' : '어웨이팀')}
                                 </span>
-                                <button onClick={() => selectAllTeam(side)} className="text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors duration-200" style={{ color: fallback }}>전체</button>
+                                <button onClick={() => selectAllTeam(side)} className="text-xs font-bold cursor-pointer transition-colors duration-200" style={{ color: fallback }}>전체</button>
                               </div>
                               <div className="space-y-1">
                                 {v.roster.map(p => renderStarterCard(p, side))}
@@ -3474,7 +3477,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             <button
                               onClick={() => addIrregularToTeam(pendingIrregular, 'home')}
                               disabled={addingIrregular}
-                              className="flex-1 py-2 text-xs font-bold uppercase tracking-[0.14em] cursor-pointer disabled:opacity-50 transition-opacity min-h-[44px]"
+                              className="flex-1 py-2 text-xs font-bold cursor-pointer disabled:opacity-50 transition-opacity min-h-[44px]"
                               style={{ backgroundColor: hBg, color: textOnBg(hBg), borderRadius: '4px' }}
                             >
                               {selectedSlot?.home_team?.name ?? '홈팀'}
@@ -3482,7 +3485,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                             <button
                               onClick={() => addIrregularToTeam(pendingIrregular, 'away')}
                               disabled={addingIrregular}
-                              className="flex-1 py-2 text-xs font-bold uppercase tracking-[0.14em] cursor-pointer disabled:opacity-50 transition-opacity min-h-[44px]"
+                              className="flex-1 py-2 text-xs font-bold cursor-pointer disabled:opacity-50 transition-opacity min-h-[44px]"
                               style={{ backgroundColor: aBg, color: textOnBg(aBg), borderRadius: '4px' }}
                             >
                               {selectedSlot?.away_team?.name ?? '어웨이팀'}

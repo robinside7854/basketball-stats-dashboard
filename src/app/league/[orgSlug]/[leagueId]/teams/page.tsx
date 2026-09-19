@@ -680,7 +680,7 @@ function TeamDetailPanel({
   const ptsDiff = standing.gf - standing.ga
 
   return (
-    <SectionCard variant="standalone" className="mt-3 relative">
+    <SectionCard variant="standalone" pad="none" className="mt-3 relative">
       {/* 팀 컬러 좌측 accent bar */}
       <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: team.color }} aria-hidden />
       {/* Header */}
@@ -1116,7 +1116,7 @@ export default function LeagueTeamsPage() {
   const totalPlayed = standings.reduce((s, t) => s + t.w + t.d + t.l, 0) / 2
 
   return (
-    <div className="mm-brand space-y-6">
+    <div className="mm-brand space-y-4 lg:space-y-5">
       {/* 스탯 우산 서브탭 — 리더보드 · 어워즈 · 선수 명단 · 팀 순위 (2026-08-08 이동, 2026-08-09 시즌하이 흡수) */}
       <LeagueGroupTabs tabs={getStatsGroupTabs(base, 'teams')} />
       {/* ── 분기 버튼 탭 ── */}
@@ -1351,7 +1351,7 @@ export default function LeagueTeamsPage() {
             ref={statsTabBarRef}
             role="tablist"
             aria-label="팀별 선수 스탯 · 팀 선택"
-            className="-mx-2 sm:mx-0 px-2 sm:px-0 flex gap-2 overflow-x-auto scrollbar-hide"
+            className="flex gap-2 overflow-x-auto scrollbar-hide"
             style={{ scrollMarginTop: '12px' }}
           >
             {standings.map((s, i) => {
@@ -1411,7 +1411,7 @@ export default function LeagueTeamsPage() {
                 id={`stats-team-panel-${standings.indexOf(s)}`}
                 aria-labelledby={`stats-team-tab-${standings.indexOf(s)}`}
               >
-              <SectionCard variant="standalone" className="relative">
+              <SectionCard variant="standalone" pad="none" className="relative">
                 {/* 팀 컬러 좌측 accent bar */}
                 <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: s.color }} aria-hidden />
                 <div className="px-4 py-3 pl-5 flex items-center gap-2" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
@@ -1495,7 +1495,7 @@ export default function LeagueTeamsPage() {
           <div className="space-y-2">
             <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>비정규 선수</h3>
             <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)</p>
-            <SectionCard variant="standalone">
+            <SectionCard variant="standalone" pad="none">
               <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <span className="font-bold" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>비정규 참가자</span>
                 <span className="text-xs font-bold tracking-wider" style={{ color: 'var(--mm-muted)' }}>{irregularStats.length}명</span>

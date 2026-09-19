@@ -1196,7 +1196,7 @@ export default function LeagueRosterPage() {
 
       {/* 분기 관리 */}
       {isEditMode && (
-        <SectionCard variant="standalone" className="p-4 space-y-3">
+        <SectionCard variant="standalone" pad="base" className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-black text-[20px] text-[var(--mm-ink)] tracking-tight">분기 관리</h3>
             <button

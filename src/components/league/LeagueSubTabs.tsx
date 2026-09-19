@@ -27,10 +27,10 @@ export default function LeagueSubTabs({ group }: { group: 'games' }) {
 
   return (
     <nav
-      className="mb-4 -mx-2 sm:mx-0 overflow-x-auto scrollbar-hide border-b border-[color:var(--mm-rule)]"
+      className="mb-4 lg:mb-5 overflow-x-auto scrollbar-hide border-b border-[color:var(--mm-rule)]"
       aria-label="경기 서브 메뉴"
     >
-      <div className="flex items-center gap-1 px-2 sm:px-0 whitespace-nowrap">
+      <div className="flex items-center gap-1 whitespace-nowrap">
         {items.map(t => {
           const href = `${base}/${t.seg}`
           // /boxscore/[date](박스스코어 상세)는 흡수된 목록의 목적지라 '일정·결과' 탭 소속으로
@@ -41,7 +41,7 @@ export default function LeagueSubTabs({ group }: { group: 'games' }) {
           return (
             <Link key={t.seg} href={href}
               aria-current={active ? 'page' : undefined}
-              className={`shrink-0 min-h-[44px] flex items-center px-4 lg:px-5 text-sm lg:text-base border-b-2 -mb-px transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 ${
+              className={`shrink-0 min-h-11 flex items-center px-3.5 py-2.5 text-sm lg:text-base border-b-2 -mb-px transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1 ${
                 active
                   ? 'border-[color:var(--color-hoop-orange-500)] text-[color:var(--mm-ink)] font-bold'
                   : 'border-transparent text-[color:var(--mm-muted)] font-medium hover:text-[color:var(--mm-ink)]'

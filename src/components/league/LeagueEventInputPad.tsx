@@ -4,7 +4,7 @@ import { Handshake, CircleDashed, Crosshair, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useGameStore } from '@/store/gameStore'
 import type { LeaguePlayer } from '@/types/league'
-import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
+import { textOnBg, accentOrInk, teamInk } from '@/lib/util/contrastColor'
 
 type RosterPlayer = LeaguePlayer & { team_id?: string; is_regular?: boolean }
 
@@ -576,7 +576,7 @@ export default function LeagueEventInputPad({
         style={isSelected ? { backgroundColor: selectedBg, borderColor: selectedBg, color: selectedText } : {}}
       >
         {p.number != null && (
-          <div className="text-base font-black font-mono leading-none mb-0.5 opacity-70">#{p.number}</div>
+          <div className="text-base font-black font-mono leading-none mb-0.5">#{p.number}</div>
         )}
         <div className={`font-semibold leading-tight px-0.5 break-keep ${p.number != null ? 'text-xs' : 'text-sm'}`}
           style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
@@ -607,7 +607,7 @@ export default function LeagueEventInputPad({
             placeholder="번호"
             aria-label={`${team.name} 상대 선수 등번호`}
             disabled={draft.busy}
-            className="w-12 min-h-11 text-center text-sm font-bold rounded-lg bg-gray-900 border border-gray-700 text-gray-200 placeholder-gray-600 cursor-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50"
+            className="w-12 min-h-11 text-center text-sm font-bold rounded-lg bg-gray-900 border border-gray-700 text-gray-200 placeholder-gray-400 cursor-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50"
           />
           <button
             onClick={() => registerOpponent(side)}
@@ -628,12 +628,12 @@ export default function LeagueEventInputPad({
             placeholder="이름 (선택, 모르면 비워두세요)"
             aria-label={`${team.name} 상대 선수 이름`}
             disabled={draft.busy}
-            className="w-full min-h-11 text-xs px-2 rounded-lg bg-gray-900 border border-gray-700 text-gray-200 placeholder-gray-600 cursor-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50"
+            className="w-full min-h-11 text-xs px-2 rounded-lg bg-gray-900 border border-gray-700 text-gray-200 placeholder-gray-400 cursor-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50"
           />
         ) : (
           <button
             onClick={() => patchOppDraft(side, { showName: true })}
-            className="w-full min-h-11 flex items-center text-xs text-gray-500 hover:text-gray-300 cursor-pointer underline-offset-2 hover:underline"
+            className="w-full min-h-11 flex items-center text-xs text-gray-400 hover:text-gray-200 cursor-pointer underline-offset-2 hover:underline"
           >
             이름도 입력 (선택)
           </button>
@@ -643,9 +643,9 @@ export default function LeagueEventInputPad({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {/* ── 헤더: 선택된 선수 + 마지막 이벤트 + 취소 ── */}
-      <div className="flex items-center gap-2 min-h-[32px] relative">
+      <div className="flex items-center gap-2 min-h-11 relative">
         {selectedObj ? (() => {
           // 팀 컬러가 흰/노랑 등 밝은 색이면 흰 텍스트가 안 보이므로 자동 대비 처리
           const bg = selectedTeam?.color ?? '#3b82f6'
@@ -669,7 +669,7 @@ export default function LeagueEventInputPad({
         {lastEvent && (
           <button
             onClick={() => setShowLastMenu(v => !v)}
-            className="flex-1 text-xs text-gray-400 truncate text-left hover:text-gray-200 cursor-pointer transition-colors"
+            className="flex-1 min-h-11 text-xs text-gray-400 truncate text-left hover:text-gray-200 cursor-pointer transition-colors"
           >
             {lastEvent.label}
           </button>
@@ -677,7 +677,7 @@ export default function LeagueEventInputPad({
 
         {/* Phase 1-D: Undo — lastEvent 있으면 오렌지로 강조 */}
         <button onClick={undoLast} disabled={!lastEvent}
-          className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed ${
+          className={`shrink-0 px-3 py-1.5 min-h-11 rounded-lg text-xs font-bold border transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed ${
             lastEvent
               ? 'bg-orange-900/30 border-orange-600/60 text-orange-400 hover:bg-orange-900/50'
               : 'bg-gray-800 border-gray-700 text-gray-600'
@@ -690,16 +690,16 @@ export default function LeagueEventInputPad({
           <div className="absolute top-full left-0 mt-1 z-30 bg-gray-900 border border-gray-700 rounded-xl shadow-2xl overflow-hidden min-w-[180px]">
             {canAddAssist && (
               <button onClick={startAddAssistForLast}
-                className="w-full text-left px-4 py-2.5 text-sm text-blue-300 hover:bg-gray-800 cursor-pointer transition-colors flex items-center gap-2">
+                className="w-full text-left px-4 py-2.5 min-h-11 text-sm text-blue-300 hover:bg-gray-800 cursor-pointer transition-colors flex items-center gap-2">
                 <Handshake size={14} aria-hidden /> 어시스트 추가
               </button>
             )}
             <button onClick={undoLast}
-              className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-gray-800 cursor-pointer transition-colors flex items-center gap-2">
+              className="w-full text-left px-4 py-2.5 min-h-11 text-sm text-red-400 hover:bg-gray-800 cursor-pointer transition-colors flex items-center gap-2">
               <span>↩</span> 이벤트 취소
             </button>
             <button onClick={() => setShowLastMenu(false)}
-              className="w-full text-left px-4 py-2.5 text-xs text-gray-600 hover:bg-gray-800 cursor-pointer transition-colors">
+              className="w-full text-left px-4 py-2.5 min-h-11 text-xs text-gray-400 hover:bg-gray-800 cursor-pointer transition-colors">
               닫기
             </button>
           </div>
@@ -713,7 +713,7 @@ export default function LeagueEventInputPad({
           <div className="flex items-center justify-between mb-1.5 px-2 py-1 rounded-lg"
             style={{ backgroundColor: `${homeTeam?.color ?? '#3b82f6'}18` }}>
             <span className="text-xs font-bold" style={{ color: accentOrInk(homeTeam?.color ?? '#3b82f6') }}>{homeTeam?.name ?? '홈팀'}</span>
-            <span className="text-xs font-bold opacity-60" style={{ color: accentOrInk(homeTeam?.color ?? '#3b82f6') }}>코트 {homeDisplay.length}명</span>
+            <span className="text-xs font-bold" style={{ color: accentOrInk(homeTeam?.color ?? '#3b82f6') }}>코트 {homeDisplay.length}명</span>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             {homeDisplay.map(p => renderPlayerBtn(p, homeTeam?.color ?? '#3b82f6'))}
@@ -724,7 +724,7 @@ export default function LeagueEventInputPad({
           <div className="flex items-center justify-between mb-1.5 px-2 py-1 rounded-lg"
             style={{ backgroundColor: `${awayTeam?.color ?? '#ef4444'}18` }}>
             <span className="text-xs font-bold" style={{ color: accentOrInk(awayTeam?.color ?? '#ef4444') }}>{awayTeam?.name ?? '어웨이팀'}</span>
-            <span className="text-xs font-bold opacity-60" style={{ color: accentOrInk(awayTeam?.color ?? '#ef4444') }}>코트 {awayDisplay.length}명</span>
+            <span className="text-xs font-bold" style={{ color: accentOrInk(awayTeam?.color ?? '#ef4444') }}>코트 {awayDisplay.length}명</span>
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             {awayDisplay.map(p => renderPlayerBtn(p, awayTeam?.color ?? '#ef4444'))}
@@ -740,7 +740,7 @@ export default function LeagueEventInputPad({
           <p className="text-xs text-gray-400">리바운드 선수 선택</p>
           <button
             onClick={() => doRebound(null)}
-            className="w-full py-2 rounded-xl text-sm font-bold bg-gray-700/60 border border-gray-600/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 cursor-pointer transition-colors"
+            className="w-full py-2 min-h-11 rounded-xl text-sm font-bold bg-gray-700/60 border border-gray-600/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 cursor-pointer transition-colors"
           >
             <span className="inline-flex items-center gap-1.5 justify-center"><CircleDashed size={14} aria-hidden /> 아웃바운드 / 미기록</span>
           </button>
@@ -754,16 +754,18 @@ export default function LeagueEventInputPad({
             )
             return (
             <div key={team?.id ?? 'team'}>
-              <p className="text-xs font-bold mb-1.5 px-1" style={{ color: accentOrInk(team?.color ?? '#9ca3af') }}>
+              {/* 팀 색이 없을 때 회색 리터럴로 떨어뜨리면 라이트 모드에서 3:1 이 안 나온다 —
+                  accentOrInk 는 인자가 없으면 테마 잉크로 간다. */}
+              <p className="t-label mb-1.5 px-1" style={{ color: accentOrInk(team?.color) }}>
                 {team?.name ?? '팀'} — {isShooterTeam ? '공격리바' : '수비리바'}
               </p>
               <div className="grid grid-cols-3 gap-1.5">
                 {tPlayers.map(p => {
-                  const bg = team?.color ?? '#6b7280'
+                  const bg = teamInk(team?.color).bg
                   const fg = textOnBg(bg)
                   return (
                     <button key={p.id} onClick={() => doRebound(p.id)}
-                      className="py-2 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition-all"
+                      className="py-2 min-h-11 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition-all"
                       style={{ backgroundColor: `${bg}cc`, color: fg }}>
                       {p.name}
                     </button>
@@ -774,7 +776,7 @@ export default function LeagueEventInputPad({
             )
           })())}
           <button onClick={() => doRebound(null)}
-            className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center py-1">
+            className="text-xs text-gray-400 hover:text-gray-200 cursor-pointer w-full text-center min-h-11">
             리바운드 건너뛰기
           </button>
         </div>
@@ -782,26 +784,26 @@ export default function LeagueEventInputPad({
 
       {/* ── 이벤트 버튼 (선수 선택 후) ── */}
       {selectedPlayer && !awaitingAssist && !addingAssistForLast && !awaitingRebound && !awaitingTovPair && (
-        <div className="space-y-1.5 pt-1">
+        <div className="space-y-1 pt-0.5">
           {/* ft_3pt_2: EVENT_GROUPS에 없는 자동 진입 2구 — 직접 O/X 표시 */}
           {pendingShot?.type === 'ft_3pt_2' ? (
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-xs text-gray-500">3P파울 2구</p>
-                <button onClick={() => setPendingShot(null)} className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer">취소</button>
+              <div className="flex items-center justify-between mb-0.5">
+                <p className="text-xs font-semibold text-gray-400">3P파울 2구</p>
+                <button onClick={() => setPendingShot(null)} className="text-xs text-gray-400 hover:text-gray-200 cursor-pointer min-h-11 px-2 inline-flex items-center">취소</button>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => handleResult('made')}
                   aria-label="성공 (단축키 A)"
                   className="relative py-4 bg-green-600 hover:bg-green-500 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                   ✓ 성공
-                  <kbd className="absolute top-1 right-2 text-xs font-mono opacity-70 bg-black/25 rounded px-1">A</kbd>
+                  <kbd className="absolute top-1 right-2 text-xs font-mono bg-black/25 rounded px-1">A</kbd>
                 </button>
                 <button onClick={() => handleResult('missed')}
                   aria-label="실패 (단축키 S)"
                   className="relative py-4 bg-red-700 hover:bg-red-600 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                   ✗ 실패
-                  <kbd className="absolute top-1 right-2 text-xs font-mono opacity-70 bg-black/25 rounded px-1">S</kbd>
+                  <kbd className="absolute top-1 right-2 text-xs font-mono bg-black/25 rounded px-1">S</kbd>
                 </button>
               </div>
             </div>
@@ -811,11 +813,11 @@ export default function LeagueEventInputPad({
             const groupHasPending = pendingShot && group.buttons.some(b => b.type === pendingShot.type)
             return (
               <div key={group.label}>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-xs text-gray-500">{group.label}</p>
+                <div className="flex items-center justify-between mb-0.5">
+                  <p className="text-xs font-semibold text-gray-400">{group.label}</p>
                   {groupHasPending && (
                     <button onClick={() => { setPendingShot(null); setAwaitingAssist(false) }}
-                      className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer">취소</button>
+                      className="text-xs text-gray-400 hover:text-gray-200 cursor-pointer min-h-11 px-2 inline-flex items-center">취소</button>
                   )}
                 </div>
                 {groupHasPending ? (
@@ -825,13 +827,13 @@ export default function LeagueEventInputPad({
                       aria-label="성공 (단축키 A)"
                       className="relative py-4 bg-green-600 hover:bg-green-500 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                       ✓ 성공
-                      <kbd className="absolute top-1 right-2 text-xs font-mono opacity-70 bg-black/25 rounded px-1">A</kbd>
+                      <kbd className="absolute top-1 right-2 text-xs font-mono bg-black/25 rounded px-1">A</kbd>
                     </button>
                     <button onClick={() => handleResult('missed')}
                       aria-label="실패 (단축키 S)"
                       className="relative py-4 bg-red-700 hover:bg-red-600 text-white text-xl font-black rounded-2xl active:scale-95 cursor-pointer transition-all shadow-lg">
                       ✗ 실패
-                      <kbd className="absolute top-1 right-2 text-xs font-mono opacity-70 bg-black/25 rounded px-1">S</kbd>
+                      <kbd className="absolute top-1 right-2 text-xs font-mono bg-black/25 rounded px-1">S</kbd>
                     </button>
                   </div>
                 ) : (
@@ -866,7 +868,7 @@ export default function LeagueEventInputPad({
         <div className="pt-1 space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-xs text-gray-400">어시스트 선수</p>
-            <span className={`text-xs font-bold tabular-nums ${assistCountdown <= 1 ? 'text-red-400' : 'text-gray-600'}`}>
+            <span className={`text-xs font-bold tabular-nums ${assistCountdown <= 1 ? 'text-red-400' : 'text-gray-400'}`}>
               {assistCountdown}초 후 자동 없음 처리
             </span>
           </div>
@@ -898,7 +900,7 @@ export default function LeagueEventInputPad({
             ))}
           </div>
           <button onClick={() => { setAddingAssistForLast(false); setPendingShot(null) }}
-            className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center py-1">취소</button>
+            className="text-xs text-gray-400 hover:text-gray-200 cursor-pointer w-full text-center min-h-11">취소</button>
         </div>
       )}
 
@@ -907,7 +909,7 @@ export default function LeagueEventInputPad({
         <div className="pt-1 space-y-2">
           <p className="inline-flex items-center gap-1.5 text-xs text-gray-400"><Crosshair size={14} aria-hidden /> 스틸 → 턴오버 선수 선택</p>
           <button onClick={() => handleTovPair(null)}
-            className="w-full py-2 rounded-xl text-sm font-bold bg-gray-700/60 border border-gray-600/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 cursor-pointer transition-colors">
+            className="w-full py-2 min-h-11 rounded-xl text-sm font-bold bg-gray-700/60 border border-gray-600/50 text-gray-400 hover:bg-gray-700 hover:text-gray-200 cursor-pointer transition-colors">
             불명 / 미기록
           </button>
           {(() => {
@@ -915,16 +917,16 @@ export default function LeagueEventInputPad({
             const oppTeam = opposing[0]?.team_id === homeTeam?.id ? homeTeam : awayTeam
             return opposing.length > 0 ? (
               <div>
-                <p className="text-xs font-bold mb-1.5 px-1" style={{ color: accentOrInk(oppTeam?.color ?? '#9ca3af') }}>
+                <p className="t-label mb-1.5 px-1" style={{ color: accentOrInk(oppTeam?.color) }}>
                   {oppTeam?.name ?? '상대팀'}
                 </p>
                 <div className="grid grid-cols-3 gap-1.5">
                   {opposing.map(p => {
-                    const bg = `${oppTeam?.color ?? '#6b7280'}cc`
+                    const base = teamInk(oppTeam?.color).bg
                     return (
                     <button key={p.id} onClick={() => handleTovPair(p.id)}
-                      className="py-2 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition-all"
-                      style={{ backgroundColor: bg, color: textOnBg(oppTeam?.color ?? '#6b7280') }}>
+                      className="py-2 min-h-11 rounded-xl text-sm font-bold cursor-pointer active:scale-95 transition-all"
+                      style={{ backgroundColor: `${base}cc`, color: textOnBg(base) }}>
                       {p.name}
                     </button>
                     )
@@ -934,7 +936,7 @@ export default function LeagueEventInputPad({
             ) : null
           })()}
           <button onClick={() => handleTovPair(null)}
-            className="text-xs text-gray-600 hover:text-gray-400 cursor-pointer w-full text-center py-1">
+            className="text-xs text-gray-400 hover:text-gray-200 cursor-pointer w-full text-center min-h-11">
             건너뛰기
           </button>
         </div>

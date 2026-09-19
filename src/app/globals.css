@@ -233,6 +233,11 @@
   --font-weight-black: 700;
   --font-weight-heavy: 900;
 
+  /* 한글 본문 한 줄 길이 — 가독성 업그레이드 ⑥ (2026-09-19).
+     기본 max-w-prose(65ch)는 영문 기준. 한글은 1ch ≈ 영문의 2배 폭이라 62~65ch 면 33자 정도밖에
+     안 들어가 한 줄이 너무 짧게 끊긴다(CLAUDE.md ch_korean 참조). 88ch 로 늘려 한글 기준 65~75자를 맞춘다. */
+  --container-prose: 88ch;
+
   /* 마일스톤 근접도 3티어 · 클러치샷 5단계는 :root / .dark 블록으로 이전됨 (캐주얼 전환, 2026-08-06).
      @theme 안에서는 테마 반전이 되지 않기 때문 — 배경 전경 쌍(milestone bg fg, clutch bg fg)은
      이 파일 상단 :root / .dark 블록을 참조.

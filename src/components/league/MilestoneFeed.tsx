@@ -115,7 +115,7 @@ export default function MilestoneFeed({ leagueId, initialData }: Props) {
 
   return (
     <>
-      <SectionCard variant="stack">
+      <SectionCard variant="stack" pad="none">
         {/* 헤더 */}
         <header
           className="flex items-center justify-between gap-3 px-5 md:px-8 py-4 md:py-5"
