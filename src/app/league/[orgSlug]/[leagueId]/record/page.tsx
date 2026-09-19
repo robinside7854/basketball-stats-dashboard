@@ -25,6 +25,17 @@ import GameLogModal from '@/components/league/GameLogModal'
 import type { LeaguePlayer, LeagueTeam } from '@/types/league'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 
+// YouTube 영상 제목 규칙. 서버(`lib/youtube/syncYoutubeForLeague`)의 TitleRule 과 같은 축이다.
+//   'legacy'  `260919 경기1`              → 그날 1번 슬롯의 대표 영상
+//   'quarter' `260905 지피티vs빅현욱 1Q`  → 그 대진의 1쿼터 영상
+// **둘 다 살아 있다.** 업로더의 습관이 날마다 달라서, 평소에는 서버가 그날 제목을 보고 고르고
+// 어긋난 날에만 운영자가 토스트 버튼으로 다른 쪽을 고른다.
+type YtTitleRule = 'quarter' | 'legacy'
+const YT_RULE_LABEL: Record<YtTitleRule, string> = {
+  quarter: '대진 + 쿼터',
+  legacy: '경기 번호',
+}
+
 // 정식 경기(1~4쿼터 + 연장)용 선택지. league_game_events.quarter 는 CHECK(1~6) 이라 연장은 2회까지.
 // 미라클의 짧은 슬롯 경기는 쿼터를 나누지 않으므로 1 을 그대로 두면 기존 기록과 동일하다.
 const QUARTER_OPTIONS = [
@@ -1056,7 +1067,45 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
     }
   }
 
-  async function syncYoutube() {
+  // 이 날짜에 슬롯을 n 칸 덧붙인 뒤 다시 연동한다.
+  //   영상 연동은 **슬롯을 만들지 않는다**(2026-08-22 사고 — 그렇게 생긴 칸은 is_exhibition 이
+  //   기본값 false 라 친선 날짜에 정규전 칸이 끼었다). 그래서 칸을 늘리는 일은 사람이 누르는
+  //   이 경로(`addSlot: true`, 그 날짜의 친선 여부를 상속)로만 한다.
+  async function growSlotsAndResync(count: number, titleRule?: YtTitleRule) {
+    if (!selectedDate || count < 1) return
+    setYtSyncing(true)
+    try {
+      for (let i = 0; i < count; i++) {
+        const res = await fetch(`/api/leagues/${leagueId}/games`, {
+          method: 'POST',
+          headers: leagueHeaders,
+          body: JSON.stringify({ date: selectedDate, addSlot: true }),
+        })
+        const body = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          toast.error(body.error ?? `슬롯 추가 실패 (${res.status})`, { duration: 6000 })
+          return
+        }
+        if (body.slots) setSlots(body.slots)
+      }
+    } catch (e) {
+      toast.error(`슬롯 추가 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`)
+      return
+    } finally {
+      setYtSyncing(false)
+    }
+    await syncYoutube(titleRule)
+  }
+
+  /**
+   * YouTube 자동 연동.
+   *
+   * 제목 규칙이 **두 가지**이고 업로더의 습관이 날마다 다르다 —
+   *   `260919 경기1`(경기 번호 → 그날 1번 슬롯) · `260905 지피티vs빅현욱 1Q`(대진 + 쿼터).
+   * 기본값은 서버의 자동 판정('auto')이고, 어긋났을 때 토스트의 버튼으로 다른 규칙을 골라
+   * 다시 돌릴 수 있다. `titleRule` 이 그 재시도용 인자다.
+   */
+  async function syncYoutube(titleRule?: YtTitleRule) {
     if (!leagueYtChannel) { toast.error('설정 탭에서 YouTube 채널을 먼저 지정하세요'); return }
     if (!selectedDate) { toast.error('날짜를 먼저 선택하세요'); return }
     setYtSyncing(true)
@@ -1064,10 +1113,44 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
       const res = await fetch(`/api/leagues/${leagueId}/youtube-sync`, {
         method: 'POST',
         headers: { ...leagueHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelHandle: leagueYtChannel, date: selectedDate }),
+        body: JSON.stringify({
+          channelHandle: leagueYtChannel,
+          date: selectedDate,
+          ...(titleRule ? { titleRule } : {}),
+        }),
       })
       let data: Record<string, unknown> = {}
       try { data = await res.json() } catch { /* non-JSON response */ }
+
+      // 어느 규칙으로 읽었고, 다른 규칙이면 몇 개가 읽히는가.
+      //   규칙이 둘이라는 사실을 운영자가 알 수 있어야 "왜 안 붙었지"에서 멈추지 않는다.
+      const counts = (data.rule_counts as { quarter?: number; legacy?: number } | undefined) ?? {}
+      const usedRule: YtTitleRule | null =
+        data.mode === 'quarter' || data.mode === 'legacy' ? data.mode
+        : titleRule ?? null
+      const otherRule: YtTitleRule | null =
+        usedRule === 'quarter' ? 'legacy'
+        : usedRule === 'legacy' ? 'quarter'
+        : (counts.legacy ?? 0) > 0 ? 'legacy'
+        : (counts.quarter ?? 0) > 0 ? 'quarter'
+        : null
+      const otherCount = otherRule ? (counts[otherRule] ?? 0) : 0
+      const needSlots = Number(data.need_slots ?? 0)
+
+      // 버튼은 하나만 둔다 — 칸이 모자란 것이 더 구체적인 원인이므로 그쪽을 먼저 권한다.
+      const retryAction =
+        needSlots > 0
+          ? {
+              label: `칸 ${needSlots}개 늘리고 다시 연동`,
+              onClick: () => { void growSlotsAndResync(needSlots, titleRule) },
+            }
+          : otherRule && otherCount > 0
+          ? {
+              label: `'${YT_RULE_LABEL[otherRule]}' 규칙으로 다시 연동`,
+              onClick: () => { void syncYoutube(otherRule) },
+            }
+          : undefined
+
       if (res.ok) {
         // 부분 성공을 성공이라고 말하지 않는다 (2026-09-17).
         //   9/12 에 영상 9개 중 3개만 붙었는데 `3개 연동 완료` 만 떠서, 나머지 6개가 빠진 것을
@@ -1075,19 +1158,22 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         //   같은 자리에서 보여준다 — 조치(팀 별칭 등록)가 사유 안에 들어 있다.
         const skipped = Number(data.skipped ?? 0)
         const reasons = (data.skipped_reasons as string[] | undefined) ?? []
+        const ruleNote = usedRule ? `'${YT_RULE_LABEL[usedRule]}' 규칙` : ''
         if (skipped > 0) {
           toast.warning(`영상 ${data.total_videos}개 중 ${data.mapped}개만 연동됨 · ${skipped}개 실패`, {
-            description: reasons.slice(0, 3).join('\n'),
+            description: [ruleNote ? `${ruleNote}으로 읽었습니다` : '', ...reasons.slice(0, 3)]
+              .filter(Boolean).join('\n'),
             duration: 12000,
+            action: retryAction,
           })
         } else {
-          toast.success(`${data.mapped}개 영상 YouTube 연동 완료`)
+          toast.success(`${data.mapped}개 영상 YouTube 연동 완료${ruleNote ? ` · ${ruleNote}` : ''}`)
         }
         await refreshSlots()
         fetch(`/api/leagues/${leagueId}/games/date-summary`).then(r => r.json()).then(applyDateSummaries).catch(() => null)
       } else {
         const msg = (data.error as string) ?? `YouTube 연동 실패 (${res.status})`
-        toast.error(msg, { duration: 6000 })
+        toast.error(msg, { duration: 10000, action: retryAction })
       }
     } catch (e) {
       toast.error(`네트워크 오류: ${e instanceof Error ? e.message : '알 수 없는 오류'}`, { duration: 6000 })
@@ -2013,7 +2099,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               <span className="text-xs font-mono hidden sm:inline" style={{ color: 'var(--mm-muted)' }}>{leagueYtChannel}</span>
             )}
             <button
-              onClick={syncYoutube}
+              onClick={() => syncYoutube()}
               disabled={ytSyncing}
               className="inline-flex items-center justify-center gap-1.5 px-3 py-2 min-h-[44px] min-w-[44px] rounded-lg text-xs font-medium bg-red-700 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
               aria-label="YouTube 연동"

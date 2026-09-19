@@ -77,12 +77,25 @@ export function parseQuarterTitle(rawTitle: string): QuarterTitle | null {
 }
 
 /**
+ * 한 날짜에 둘 수 있는 슬롯 상한. `games` 라우트의 `MAX_SLOTS_PER_DATE` 와 같은 값이다.
+ *
+ * ⚠ 예전에는 이 파서가 9 까지만 읽었다 — 하루 9경기 로테이션 시절의 숫자다.
+ *   2026-09-19 에 업로더가 `260919 경기1` ~ `경기9` 형식으로 돌아왔는데, 그날처럼
+ *   10칸을 넘기면 `경기10` 부터가 조용히 안 붙는다. 상한을 슬롯 상한과 맞춰 둔다.
+ */
+export const MAX_LEGACY_GAME_NUMBER = 30
+
+/**
  * 옛 규칙: 제목의 `경기 N` → 그날 N 번 슬롯.
  *
  * ⚠ **제목에 쿼터 표기가 있으면 숫자 폴백을 쓰지 않는다** (2026-08-22 사고).
  *   `260822 준비팀vs대항팀B 1쿼터` 에서 폴백이 돌면 쿼터 번호가 경기 번호로 읽혀
  *   같은 경기의 1쿼터·4쿼터가 1경기·4경기 슬롯에 따로 붙었다. 아무 경고도 없었다.
  *   틀리게 붙이느니 안 붙이는 게 낫다.
+ *
+ * 범위가 두 가지인 이유: `경기 N` 이라고 **적혀 있으면** 슬롯 번호가 확실하므로 1~30 을 읽지만,
+ *   글자 없이 숫자만 있는 폴백은 `15분 하이라이트` 같은 제목을 15번 슬롯으로 오독할 수 있어
+ *   옛 범위(1~9)에 묶어 둔다.
  */
 export function parseLegacyGameNumber(rawTitle: string): number | null {
   const title = rawTitle.normalize('NFC')
@@ -90,7 +103,7 @@ export function parseLegacyGameNumber(rawTitle: string): number | null {
   const explicit = title.match(/경기\s*(\d+)/)
   if (explicit) {
     const n = parseInt(explicit[1], 10)
-    if (n >= 1 && n <= 9) return n
+    if (n >= 1 && n <= MAX_LEGACY_GAME_NUMBER) return n
   }
 
   const looksLikeQuarter = /\d\s*쿼터/.test(title) || /\d\s*Q(?![a-z])/i.test(title) || /quarter/i.test(title)

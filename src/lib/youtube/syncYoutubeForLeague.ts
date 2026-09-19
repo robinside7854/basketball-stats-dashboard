@@ -5,11 +5,18 @@
 //   2. GET  /api/cron/youtube-sync                (매주 토 22:00 KST 자동)
 //   3. PATCH /api/leagues/[leagueId]/games       (게임 저장 시 백그라운드 시도)
 //
-// 제목 규칙이 두 가지다 (2026-09-07)
+// 제목 규칙이 두 가지다 (2026-09-07, 2026-09-19 갱신)
 //   ┌ 쿼터형 `260905 지피티vs빅현욱 1Q` → **대진 + 쿼터**. 경기 1행 + league_game_videos 로 붙는다.
-//   └ 옛 번호형 `260801 경기 3`         → 그날 3번 슬롯의 대표 영상 한 칸.
-//   그날 영상에 쿼터형이 하나라도 있으면 쿼터형으로만 처리한다. 두 규칙을 섞으면 같은 영상이
-//   대표와 쿼터에 이중으로 붙어 화면마다 다른 것이 재생된다.
+//   └ 옛 번호형 `260919 경기3`          → 그날 3번 슬롯의 대표 영상 한 칸.
+//
+//   **어느 쪽도 폐기되지 않았다.** 업로더의 습관이 날마다 다르다 — 9/5 는 쿼터형이었고
+//   9/19 는 다시 번호형(`260919 경기1` ~ `경기9`)이었다. 그래서 규칙은 **날짜마다** 고른다:
+//     titleRule 'auto'(기본) = 그날 영상에 쿼터형이 하나라도 있으면 쿼터형, 아니면 번호형
+//     titleRule 'legacy'     = 번호형으로 강제 (제목이 섞인 날의 탈출구)
+//     titleRule 'quarter'    = 쿼터형으로 강제
+//   ⚠ 한 날짜 안에서 두 규칙을 **동시에** 적용하지는 않는다. 섞으면 같은 영상이 대표와 쿼터에
+//     이중으로 붙어 화면마다 다른 것이 재생된다. 고르되, 고르지 않은 쪽 영상이 몇 개였는지는
+//     ruleCounts 로 알려서 화면이 "다른 규칙으로 다시 연동" 을 권할 수 있게 한다.
 //
 // ⚠ 이 함수는 **슬롯(경기 행)을 새로 만들지 않는다.** 영상 때문에 슬롯을 만들면 is_exhibition
 //   기본값 false 로 들어가 친선 날짜에 정규전 슬롯이 끼고, 거기 기록한 게 순위·개인 스탯에
@@ -24,6 +31,16 @@ import { pickRepresentative } from './gameVideo'
 
 const YT_API = 'https://www.googleapis.com/youtube/v3'
 
+/** 제목 해석 규칙. 'auto' 는 그날 영상을 보고 고른다. */
+export type TitleRule = 'auto' | 'quarter' | 'legacy'
+
+/** 그날 영상 중 각 규칙으로 **읽히는** 제목의 수. 어느 규칙을 쓸지 고른 근거이자, 화면이
+ *  "다른 규칙으로 다시 연동" 을 권할지 판단하는 값이다. */
+export interface RuleCounts {
+  quarter: number
+  legacy: number
+}
+
 export type SyncOutcome =
   | {
       ok: true
@@ -37,8 +54,21 @@ export type SyncOutcome =
       skipped: number
       /** 못 붙인 이유(중복 제거). 운영자가 할 조치가 여기에 들어 있다. */
       skippedReasons: string[]
+      ruleCounts: RuleCounts
+      /** 이 날짜에 **몇 칸이 모자라서** 못 붙였는가. 0 보다 크면 화면이 칸 추가를 권한다.
+       *  영상 때문에 슬롯을 만들지 않는다는 규칙(2026-08-22 사고)은 그대로다 — 만드는 것은
+       *  사람이 누르는 「+ 추가」 뿐이고, 여기서는 **몇 칸이 필요한지 알려 주기만** 한다. */
+      needSlots: number
     }
-  | { ok: false; reason: string; channelId?: string; searchedVideos?: number; foundTitles?: string[] }
+  | {
+      ok: false
+      reason: string
+      channelId?: string
+      searchedVideos?: number
+      foundTitles?: string[]
+      ruleCounts?: RuleCounts
+      needSlots?: number
+    }
 
 /**
  * 못 붙인 영상 집계.
@@ -168,6 +198,10 @@ async function searchVideos(channelId: string, dateStr: string, apiKey: string):
  *
  * @param opts.dryRun true 면 **아무것도 저장하지 않고** 무엇을 하려 했는지만 details 로 돌려준다.
  *                    제목 규칙이 바뀔 때마다 운영 데이터로 먼저 확인하기 위한 통로다.
+ * @param opts.titleRule 제목 해석 규칙을 손으로 고른다. 기본 'auto'.
+ *                    ⚠ 자동 판정은 **그날 제목이 한 규칙으로만 쓰였다**는 전제 위에 있다.
+ *                    섞여 올라온 날(쿼터형 1개 + 번호형 8개)에는 다수가 아니라 쿼터형이 이기므로,
+ *                    운영자가 번호형으로 되돌릴 수 있어야 한다.
  */
 export async function syncYoutubeForLeague(
   supabase: SupabaseClient,
@@ -175,9 +209,10 @@ export async function syncYoutubeForLeague(
   channelHandle: string,
   date: string,
   apiKey: string,
-  opts: { dryRun?: boolean } = {},
+  opts: { dryRun?: boolean; titleRule?: TitleRule } = {},
 ): Promise<SyncOutcome> {
   const dryRun = opts.dryRun === true
+  const titleRule: TitleRule = opts.titleRule ?? 'auto'
 
   // 0. 대회 묶음에서는 돌지 않는다.
   //
@@ -209,17 +244,42 @@ export async function syncYoutubeForLeague(
     return { ok: false, reason: `이 날짜(${date})에 올라온 영상을 찾지 못했습니다`, channelId, searchedVideos: 0 }
   }
 
-  // 3. 제목 해석 — 쿼터형이 하나라도 있으면 쿼터형으로 간다
+  // 3. 제목 해석 — 두 규칙 중 **하나**를 고른다.
+  //
+  //   'auto' 의 기준은 다수결이 아니라 "쿼터형이 하나라도 있는가" 다. 쿼터형 제목은 대진·쿼터를
+  //   명시하므로 오독할 여지가 거의 없는 반면, 번호형은 숫자 하나에 기대고 있어 쿼터 번호를
+  //   경기 번호로 읽는 사고(2026-08-22)가 실제로 났다. 확실한 쪽을 택한다.
+  //   대신 고르지 않은 쪽이 몇 개였는지를 ruleCounts 로 남겨, 화면이 "번호형으로 다시 연동"을
+  //   권할 수 있게 한다.
   const quarterItems: Array<{ video: VideoItem; parsed: QuarterTitle }> = []
   for (const v of videos) {
     const parsed = parseQuarterTitle(v.title)
     if (parsed) quarterItems.push({ video: v, parsed })
   }
-
-  if (quarterItems.length > 0) {
-    return mapQuarterVideos(supabase, leagueId, date, channelId, videos, quarterItems, dryRun)
+  const ruleCounts: RuleCounts = {
+    quarter: quarterItems.length,
+    legacy: videos.filter(v => parseLegacyGameNumber(v.title) != null).length,
   }
-  return mapLegacyVideos(supabase, leagueId, date, channelId, videos, dryRun)
+
+  const useQuarter = titleRule === 'quarter' ? true
+    : titleRule === 'legacy' ? false
+    : quarterItems.length > 0
+
+  if (useQuarter) {
+    if (quarterItems.length === 0) {
+      return {
+        ok: false,
+        reason: `영상 ${videos.length}개 중 '대진 + 쿼터' 제목(\`260919 지피티vs빅현욱 1Q\`)이 하나도 없습니다.`
+          + (ruleCounts.legacy > 0 ? ` '경기 번호' 규칙으로는 ${ruleCounts.legacy}개를 읽을 수 있습니다 — 그 규칙으로 다시 연동해 보세요.` : ''),
+        channelId,
+        searchedVideos: videos.length,
+        foundTitles: videos.slice(0, 10).map(v => v.title),
+        ruleCounts,
+      }
+    }
+    return mapQuarterVideos(supabase, leagueId, date, channelId, videos, quarterItems, dryRun, ruleCounts)
+  }
+  return mapLegacyVideos(supabase, leagueId, date, channelId, videos, dryRun, ruleCounts)
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -236,8 +296,11 @@ async function mapQuarterVideos(
   allVideos: VideoItem[],
   items: Array<{ video: VideoItem; parsed: QuarterTitle }>,
   dryRun: boolean,
+  ruleCounts: RuleCounts,
 ): Promise<SyncOutcome> {
   const details: SyncDetail[] = []
+  // 대진은 있는데 붙일 칸이 없어 못 붙인 수. 화면이 「칸 N개 늘리고 다시 연동」을 권하는 근거다.
+  let needSlots = 0
 
   // 3-1. 그날 슬롯
   const { data: gamesRaw, error: gErr } = await supabase
@@ -246,7 +309,7 @@ async function mapQuarterVideos(
     .eq('league_id', leagueId)
     .eq('date', date)
     .order('slot_num', { ascending: true })
-  if (gErr) return { ok: false, reason: `DB error: ${gErr.message}`, channelId }
+  if (gErr) return { ok: false, reason: `DB error: ${gErr.message}`, channelId, ruleCounts }
 
   const games = (gamesRaw ?? []) as GameRow[]
   if (games.length === 0) {
@@ -255,6 +318,7 @@ async function mapQuarterVideos(
       reason: `${date} 에 경기 슬롯이 없습니다. 기록 화면에서 날짜를 먼저 여세요 — 영상 연동은 슬롯을 새로 만들지 않습니다.`,
       channelId,
       searchedVideos: allVideos.length,
+      ruleCounts,
     }
   }
 
@@ -295,7 +359,11 @@ async function mapQuarterVideos(
   // 쿼터형 날짜에 섞여 있는 옛 번호형 제목은 처리하지 않는다 — 이중 배정을 막는다.
   for (const v of allVideos) {
     if (items.some(i => i.video.videoId === v.videoId)) continue
-    details.push({ title: v.title, url: v.url, action: 'skipped:쿼터 표기가 없는 제목 (이 날짜는 쿼터형으로 처리했습니다)' })
+    details.push({
+      title: v.title, url: v.url,
+      action: 'skipped:쿼터 표기가 없는 제목입니다 (이 날짜는 \'대진 + 쿼터\' 규칙으로 처리했습니다 — '
+        + '번호형 제목이면 \'경기 번호\' 규칙으로 다시 연동하세요)',
+    })
   }
 
   // 3-4. 대진별로 묶는다. 업로드가 이른 대진부터 처리해야 빈 슬롯을 경기 순서대로 채운다.
@@ -347,10 +415,12 @@ async function mapQuarterVideos(
         g => !g.home_team_id && !g.away_team_id && !g.is_started && !claimed.has(g.id),
       )
       if (!empty) {
+        needSlots++
         for (const r of group.videos) {
           details.push({
             title: r.video.title, url: r.video.url, quarter: r.quarter,
-            action: `skipped:${index.displayName(group.teamA)} vs ${index.displayName(group.teamB)} 대진의 슬롯이 없고 비어 있는 슬롯도 없습니다`,
+            action: `skipped:${index.displayName(group.teamA)} vs ${index.displayName(group.teamB)} 대진의 슬롯이 없고 비어 있는 슬롯도 없습니다`
+              + ` (이 날짜는 ${games.length}칸) — 기록 화면에서 칸을 늘린 뒤 다시 연동하세요`,
           })
         }
         continue
@@ -447,11 +517,14 @@ async function mapQuarterVideos(
       channelId,
       searchedVideos: allVideos.length,
       foundTitles: allVideos.slice(0, 10).map(v => v.title),
+      ruleCounts,
+      needSlots,
     }
   }
 
   return {
     ok: true, mapped, totalVideos: allVideos.length, channelId, details, mode: 'quarter', dryRun,
+    ruleCounts, needSlots,
     ...summarizeSkipped(details),
   }
 }
@@ -481,15 +554,34 @@ async function mapLegacyVideos(
   channelId: string,
   videos: VideoItem[],
   dryRun: boolean,
+  ruleCounts: RuleCounts,
 ): Promise<SyncOutcome> {
+  const details: SyncDetail[] = []
   const matched: Array<{ video: VideoItem; gameNum: number }> = []
-  const seen = new Set<number>()
+  const seen = new Map<number, VideoItem>()
 
+  // ⚠ 못 읽은 제목·중복 번호를 **조용히 버리지 않는다** (2026-09-17 의 교훈).
+  //   예전에는 여기서 `continue` 만 하고 끝나 details 에 흔적이 없었다. 그러면 영상 9개 중
+  //   3개만 붙어도 화면은 `3개 연동 완료` 라는 성공 토스트만 띄운다 — 나머지 6개가 어디로
+  //   갔는지 아무도 모른다. 버리는 이유를 남겨야 부분 성공이 부분 성공으로 보인다.
   for (const v of videos) {
     const gameNum = parseLegacyGameNumber(v.title)
-    if (gameNum == null) continue
-    if (seen.has(gameNum)) continue
-    seen.add(gameNum)
+    if (gameNum == null) {
+      details.push({
+        title: v.title, url: v.url,
+        action: `skipped:제목에서 경기 번호를 읽지 못했습니다 (\`${date.slice(2).replace(/-/g, '')} 경기3\` 형식)`,
+      })
+      continue
+    }
+    const dup = seen.get(gameNum)
+    if (dup) {
+      details.push({
+        title: v.title, url: v.url, gameNum,
+        action: `skipped:${gameNum}경기 영상이 둘 이상입니다 ('${dup.title}' 을 먼저 붙였습니다) — 목록에서 고르기로 연결하세요`,
+      })
+      continue
+    }
+    seen.set(gameNum, v)
     matched.push({ video: v, gameNum })
   }
 
@@ -501,6 +593,7 @@ async function mapLegacyVideos(
       channelId,
       searchedVideos: videos.length,
       foundTitles: videos.slice(0, 10).map(v => v.title),
+      ruleCounts,
     }
   }
 
@@ -510,18 +603,24 @@ async function mapLegacyVideos(
     .eq('league_id', leagueId)
     .eq('date', date)
     .order('id', { ascending: true })
-  if (gErr) return { ok: false, reason: `DB error: ${gErr.message}`, channelId }
+  if (gErr) return { ok: false, reason: `DB error: ${gErr.message}`, channelId, ruleCounts }
 
   const slotToId = new Map<number, string>()
   for (const g of (existingGames ?? []) as { id: string; slot_num: number }[]) {
     if (!slotToId.has(g.slot_num)) slotToId.set(g.slot_num, g.id)
   }
+  const slotCount = slotToId.size
+  const maxSlot = Math.max(0, ...slotToId.keys())
 
-  const details: SyncDetail[] = []
   for (const { video, gameNum } of matched) {
     if (!slotToId.has(gameNum)) {
-      // 슬롯을 새로 만들지 않는다 (2026-08-22 사고). 없는 번호면 그냥 건너뛴다.
-      details.push({ title: video.title, url: video.url, gameNum, action: `skipped:슬롯 ${gameNum} 없음(영상 때문에 슬롯을 만들지 않습니다)` })
+      // 슬롯을 새로 만들지 않는다 (2026-08-22 사고 — 영상이 만든 슬롯은 is_exhibition 이
+      //   기본값 false 로 들어가, 친선 날짜에 정규전 칸이 끼고 거기 기록한 게 순위에 섞였다).
+      //   대신 **몇 번 칸이 없는지**를 남겨 사람이 「+ 추가」로 늘릴 수 있게 한다.
+      details.push({
+        title: video.title, url: video.url, gameNum,
+        action: `skipped:${gameNum}경기 슬롯이 없습니다 (이 날짜는 ${slotCount}칸) — 기록 화면에서 칸을 늘린 뒤 다시 연동하세요`,
+      })
       continue
     }
     if (dryRun) {
@@ -537,9 +636,16 @@ async function mapLegacyVideos(
     details.push({ title: video.title, url: video.url, gameNum, slotNum: gameNum, action: error ? `err:${error.message}` : 'updated' })
   }
 
+  // 「+ 추가」는 max(slot_num)+1 로 뒤에 붙이므로, 필요한 칸 수는 "가장 큰 경기 번호 - 지금 마지막 번호".
+  //   중간 번호가 비어 있는 경우(슬롯을 지운 날)는 추가로 메워지지 않는다 — 그 건은 details 에
+  //   번호가 그대로 남아 있으니 사람이 보고 판단한다.
+  const maxGameNum = Math.max(...matched.map(m => m.gameNum))
+  const needSlots = Math.max(0, maxGameNum - maxSlot)
+
   const mapped = details.filter(d => !d.action.startsWith('err') && !d.action.startsWith('skipped')).length
   return {
-    ok: true, mapped, totalVideos: matched.length, channelId, details, mode: 'legacy', dryRun,
+    ok: true, mapped, totalVideos: videos.length, channelId, details, mode: 'legacy', dryRun,
+    ruleCounts, needSlots,
     ...summarizeSkipped(details),
   }
 }
