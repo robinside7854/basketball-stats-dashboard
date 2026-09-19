@@ -335,8 +335,12 @@ function StandardPickReveal({
   const chipAccent = teamAccentOnDark(data.teamColor, blendHex(data.teamColor, '#0a0a0f', 0.2))
 
   return (
+    // 세로 가운데 정렬이 아니라 **위에서 자란다**. 가운데 정렬은 카드가 화면보다 높아지는 순간
+    // 머리와 꼬리를 동시에 잘라 먹었다(2026-09-19 실측 1506×775: top −79 · bottom 926).
+    // 위 기준이면 잘리는 건 언제나 꼬리 쪽이고, 오너가 요청한 "화면 맨 위"와도 같다.
+    // overflow 는 hidden 이 아니라 auto — 혹시 넘쳐도 닿을 수 없는 상태는 만들지 않는다.
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000000]/90 backdrop-blur-md cursor-pointer overflow-hidden"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-start bg-[#000000]/90 backdrop-blur-md cursor-pointer overflow-y-auto overflow-x-hidden"
       onClick={onClose}
       role="button"
       tabIndex={0}
@@ -344,15 +348,14 @@ function StandardPickReveal({
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClose() } }}
       style={{
         animation: 'pickFadeIn 0.25s ease-out',
-        // 배지가 떠 있으면 그만큼 위를 비운다 — 안 그러면 카드 머리(ROUND·PICK)를 덮는다.
-        paddingTop: isMyTurn
-          ? 'calc(max(1rem, env(safe-area-inset-top)) + 4rem)'
-          : 'max(1rem, env(safe-area-inset-top))',
-        paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+        paddingTop: 'max(0.5rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
       }}
     >
-      {/* 스포트라이트 회전 빔 */}
-      <div className="absolute inset-0 pointer-events-none opacity-40">
+      {/* 스포트라이트 회전 빔 — overflow-hidden 필수. 안쪽 빔이 300vmax × 60vh 라
+          오버레이가 스크롤 가능해진 뒤로는 이 장식 하나가 152px 짜리 스크롤바를 만들었다
+          (2026-09-19 실측 1506×775). 잘라 두면 스크롤 영역에 기여하지 않는다. */}
+      <div className="absolute inset-0 pointer-events-none opacity-40 overflow-hidden">
         <div
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300vmax] h-[60vh]"
           style={{
@@ -376,23 +379,26 @@ function StandardPickReveal({
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }} />
 
       {/* 내 차례 배지 — 픽 공개가 덮고 있는 동안에도 "지금 내 시계가 돈다"를 즉시 알린다.
-          한 줄로 붙이면 390px 에서 세 줄로 접혀 카드 머리를 덮는다(실측) → 제목/힌트 두 줄로 나눈다. */}
+          absolute 로 띄우고 오버레이에 4rem 패딩을 주던 방식을 버렸다: 배지 실제 높이와 무관한
+          고정 4rem 이 카드를 그만큼 아래로 밀어 잘림의 큰 몫이었다. 이제 흐름 안에 두고
+          제 높이만큼만 차지한다(좁은 화면에서 두 줄, sm 이상 한 줄). */}
       {isMyTurn && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-10 max-w-[92vw] px-4 py-2 rounded-2xl bg-emerald-500 text-[#000000] shadow-2xl text-center"
-          style={{ top: 'max(0.5rem, env(safe-area-inset-top))' }}
+          className="pr-badge shrink-0 z-10 mb-2 max-w-[92vw] px-4 py-1.5 rounded-2xl bg-emerald-500 text-[#000000] shadow-2xl text-center"
           role="status"
         >
-          <span className="flex items-center justify-center gap-1.5 text-base sm:text-lg font-black leading-tight">
-            <Zap size={20} aria-hidden /> 지금 내 차례
+          <span className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0 leading-tight">
+            <span className="inline-flex items-center gap-1.5 text-base sm:text-lg font-black">
+              <Zap size={20} aria-hidden /> 지금 내 차례
+            </span>
+            <span className="text-sm font-bold break-keep">탭하면 닫고 선수 선택으로</span>
           </span>
-          <span className="block text-xs sm:text-sm font-bold leading-tight break-keep">탭하면 닫고 선수 선택으로</span>
         </div>
       )}
 
       {/* 메인 카드 */}
       <div
-        className="pick-reveal-card relative w-[94vw] max-w-3xl rounded-3xl p-6 sm:p-12 shadow-2xl text-center overflow-hidden"
+        className="pick-reveal-card relative shrink-0 w-[94vw] max-w-3xl rounded-3xl p-6 sm:p-12 shadow-2xl text-center overflow-hidden"
         style={{
           border: `4px solid ${data.teamColor}`,
           background: `linear-gradient(135deg, ${data.teamColor}33, ${data.teamColor}0a, #050505 70%)`,
@@ -412,7 +418,7 @@ function StandardPickReveal({
         />
 
         {/* 라운드 + 픽 번호 */}
-        <div className="mb-3 flex items-center justify-center gap-3 flex-wrap">
+        <div className="pr-head mb-3 flex items-center justify-center gap-3 flex-wrap">
           <div className="text-xs sm:text-sm font-bold text-[#e5e7eb]">
             Round {data.roundNumber}
           </div>
@@ -426,32 +432,32 @@ function StandardPickReveal({
         </div>
 
         {/* WITH THE PICK 문구 */}
-        <p className="text-xs sm:text-sm font-bold text-amber-300/90 mb-2">
+        <p className="pr-flavor text-xs sm:text-sm font-bold text-amber-300/90 mb-2">
           ─── With The {ordinal(data.pickNumber)} Pick ───
         </p>
 
         {/* 팀명 + 'SELECTS' */}
-        <div className="mb-3 sm:mb-5">
+        <div className="pr-team mb-3 sm:mb-5">
           <div className="flex items-center justify-center gap-3">
             <div className="w-3 h-3 rounded-full shadow-lg" style={{ background: data.teamColor, boxShadow: `0 0 12px ${data.teamColor}` }} />
-            <p className="text-xl sm:text-3xl font-bold text-[#ffffff]">{data.teamName}</p>
+            <p className="pr-teamname text-xl sm:text-3xl font-bold text-[#ffffff]">{data.teamName}</p>
             <div className="w-3 h-3 rounded-full shadow-lg" style={{ background: data.teamColor, boxShadow: `0 0 12px ${data.teamColor}` }} />
           </div>
           <p className="text-xs sm:text-base font-black text-[#e5e7eb] mt-1.5">SELECTS</p>
         </div>
 
         {/* 메인 — 사진 카드 플립 + 이름 + 포지션 */}
-        <div className="space-y-2 sm:space-y-3">
+        <div className="pr-main space-y-2 sm:space-y-3">
           <div className="pick-reveal-number" style={{ animation: 'numberPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both' }}>
             <PickPhotoFlip photoUrl={data.playerPhotoUrl} playerName={data.playerName} pickNumber={data.pickNumber} teamColor={data.teamColor} />
           </div>
           {data.playerNumber != null && (
-            <p className="text-2xl sm:text-4xl font-black tabular-nums leading-none" style={{ color: accent, fontFamily: 'var(--font-bebas, sans-serif)' }}>
+            <p className="pr-num text-2xl sm:text-4xl font-black tabular-nums leading-none" style={{ color: accent, fontFamily: 'var(--font-bebas, sans-serif)' }}>
               #{data.playerNumber}
             </p>
           )}
           <p
-            className="text-3xl sm:text-6xl font-black text-[#ffffff] tracking-tight drop-shadow-lg"
+            className="pr-name text-3xl sm:text-6xl font-black text-[#ffffff] tracking-tight drop-shadow-lg"
             style={{
               fontFamily: 'var(--font-barlow-condensed, sans-serif)',
               textShadow: '0 4px 30px rgba(0,0,0,0.8)',
@@ -483,7 +489,7 @@ function StandardPickReveal({
 
         {/* 2라운드 이후 픽 — 요약 카드 한 장. 단계 연출 없이 한 번에 뜬다(4.5초 안에 읽혀야 한다). */}
         {standardBoxes.length > 0 && (
-          <div className="mt-4 sm:mt-5 rounded-2xl border px-3 py-3 text-left"
+          <div className="pr-stats mt-4 sm:mt-5 rounded-2xl border px-3 py-3 text-left"
             style={{ background: '#111114', borderColor: `${data.teamColor}55` }}>
             <p className="text-xs sm:text-sm font-bold text-[color:var(--mm-muted)] mb-2">
               {seasonLabel ?? '시즌'} 기록
@@ -498,7 +504,7 @@ function StandardPickReveal({
           </div>
         )}
 
-        <p className="mt-6 text-xs sm:text-sm text-[#e5e7eb]">탭하여 닫기</p>
+        <p className="pr-hint mt-6 text-sm text-[#e5e7eb]">탭하여 닫기</p>
       </div>
 
       <style jsx>{`
@@ -529,10 +535,49 @@ function StandardPickReveal({
           0%, 100% { opacity: 0.4; }
           50% { opacity: 0.8; }
         }
+        /* ── 낮은 화면 두 단계 ────────────────────────────────────────────────
+           왜 단계가 필요한가(2026-09-19 실측): 기록 8칸이 붙은 뒤 이 카드는 1006px 이다.
+           노트북·프로젝터는 대부분 720~900px 이라 1920×1080 을 뺀 전 viewport 에서 잘렸다.
+           넘치면 스크롤시키는 대신 **줄여서 담는다** — 연출은 한 화면에 다 보여야 의미가 있다.
+           줄이는 순서는 장식 → 여백 → 사진 → 글자. 본문 최소 14px 은 어느 단계에서도 안 넘는다. */
+        @media (max-height: 1000px) {
+          .pick-reveal-card { padding: 1.5rem 1.75rem; }
+          .pick-reveal-card :global(.pick-flip) { width: min(11rem, 24vh); height: min(11rem, 24vh); }
+          .pr-head { margin-bottom: 0.5rem; }
+          .pr-team { margin-bottom: 0.5rem; }
+          .pr-teamname { font-size: 1.5rem; line-height: 1.2; }
+          .pr-name { font-size: 2.75rem; line-height: 1; }
+          .pr-num { font-size: 1.75rem; }
+          .pr-stats { margin-top: 0.75rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
+          .pr-hint { margin-top: 0.75rem; }
+        }
+        @media (max-height: 860px) {
+          .pick-reveal-card { padding: 1rem 1.25rem; }
+          .pick-reveal-card :global(.pick-flip) { width: min(9rem, 22vh); height: min(9rem, 22vh); }
+          /* 장식 한 줄 — 높이가 없을 때 가장 먼저 포기한다(정보가 아니다) */
+          .pr-flavor { display: none; }
+          .pr-teamname { font-size: 1.25rem; }
+          .pr-name { font-size: 2.25rem; }
+          .pr-num { font-size: 1.5rem; }
+          .pr-stats { margin-top: 0.5rem; }
+          .pr-hint { margin-top: 0.5rem; }
+        }
+        /* 1280×720 · 360×740 — 위 단계로도 각각 13px · 27px 이 모자랐다(실측). */
+        @media (max-height: 800px) {
+          .pick-reveal-card { padding: 0.75rem 1.25rem; }
+          .pick-reveal-card :global(.pick-flip) { width: min(8rem, 20vh); height: min(8rem, 20vh); }
+          .pr-main { display: flex; flex-direction: column; gap: 0.25rem; }
+          .pr-main > :global(*) { margin-top: 0 !important; }
+          .pr-team { margin-bottom: 0.25rem; }
+          .pr-stats { margin-top: 0.375rem; padding-top: 0.375rem; padding-bottom: 0.375rem; }
+          .pr-stats :global(.stat-box) { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+          .pr-hint { margin-top: 0.375rem; }
+        }
         /* 가로 모드 폰 — 카드가 화면 높이를 넘지 않게(2026-09-16 실측) */
         @media (orientation: landscape) and (max-height: 500px) {
-          .pick-reveal-card { padding: 1rem 1.5rem; }
-          .pick-reveal-number { transform: scale(0.6); transform-origin: center top; margin-bottom: -3.5rem; }
+          .pick-reveal-card { padding: 0.75rem 1.25rem; }
+          .pick-reveal-card :global(.pick-flip) { width: min(7rem, 30vh); height: min(7rem, 30vh); }
+          .pr-name { font-size: 1.75rem; }
         }
         @media (prefers-reduced-motion: reduce) {
           .pick-reveal-card { animation: none !important; }
@@ -785,7 +830,9 @@ function DramaticPickReveal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center cursor-pointer overflow-hidden"
+      // 일반 공개와 같은 규칙 — 위에서 자란다. 가운데 정렬이면 단계마다 기록 칸이 늘 때
+      // 카드 전체가 위아래로 출렁였고(읽는 중에 글자가 움직인다), 높이가 모자라면 머리부터 잘렸다.
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-start cursor-pointer overflow-y-auto overflow-x-hidden"
       onClick={onTap}
       role="button"
       tabIndex={0}
@@ -794,31 +841,29 @@ function DramaticPickReveal({
       style={{
         // 스테이지 0 부터 팀 컬러가 화면을 덮는다 — "어느 팀 차례인가"가 먼저 읽히게.
         background: `radial-gradient(ellipse at center, ${data.teamColor}44, #050505 70%)`,
-        // 배지가 떠 있으면 그만큼 위를 비운다 — 안 그러면 "ROUND n · 팀명의 1순위 지명" 줄을 덮는다.
-        paddingTop: isMyTurn
-          ? 'calc(max(0.5rem, env(safe-area-inset-top)) + 4rem)'
-          : 'max(0.75rem, env(safe-area-inset-top))',
-        paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+        paddingTop: 'max(0.5rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
       }}
     >
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }} />
 
-      {/* 내 차례 배지 — 두 줄로 나눈다(한 줄이면 390px 에서 세 줄로 접혀 카드 머리를 덮는다). */}
+      {/* 내 차례 배지 — 흐름 안. 고정 4rem 패딩으로 카드를 밀던 방식을 버렸다(일반 공개와 동일). */}
       {isMyTurn && (
         <div
-          className="absolute left-1/2 -translate-x-1/2 z-10 max-w-[92vw] px-4 py-2 rounded-2xl bg-emerald-500 text-[#000000] shadow-2xl text-center"
-          style={{ top: 'max(0.5rem, env(safe-area-inset-top))' }}
+          className="pr-badge shrink-0 z-10 mb-2 max-w-[92vw] px-4 py-1.5 rounded-2xl bg-emerald-500 text-[#000000] shadow-2xl text-center"
           role="status"
         >
-          <span className="flex items-center justify-center gap-1.5 text-base sm:text-lg font-black leading-tight">
-            <Zap size={20} aria-hidden /> 지금 내 차례
+          <span className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0 leading-tight">
+            <span className="inline-flex items-center gap-1.5 text-base sm:text-lg font-black">
+              <Zap size={20} aria-hidden /> 지금 내 차례
+            </span>
+            <span className="text-sm font-bold break-keep">탭하면 닫고 선수 선택으로</span>
           </span>
-          <span className="block text-xs sm:text-sm font-bold leading-tight break-keep">탭하면 닫고 선수 선택으로</span>
         </div>
       )}
 
       <div
-        className="dramatic-card relative w-[94vw] max-w-4xl max-h-full overflow-hidden rounded-3xl px-4 py-4 sm:px-10 sm:py-5 text-center"
+        className="dramatic-card relative shrink-0 w-[94vw] max-w-4xl overflow-hidden rounded-3xl px-4 py-4 sm:px-10 sm:py-5 text-center"
         style={{
           border: `4px solid ${data.teamColor}`,
           background: `linear-gradient(135deg, ${data.teamColor}33, ${data.teamColor}0a, #050505 70%)`,
@@ -828,7 +873,7 @@ function DramaticPickReveal({
       >
         {/* 스테이지 0 — 팀과 순번만. 이름은 없다. */}
         <p
-          className="text-base sm:text-2xl lg:text-3xl font-black text-[#ffffff] tracking-tight"
+          className="d-head text-base sm:text-2xl lg:text-3xl font-black text-[#ffffff] tracking-tight"
           style={{ textShadow: '0 4px 24px rgba(0,0,0,0.8)' }}
         >
           <span style={{ color: dAccent }}>ROUND {data.roundNumber}</span>
@@ -836,7 +881,7 @@ function DramaticPickReveal({
           {data.teamName}의 1순위 지명
         </p>
 
-        <div className="mt-3 sm:mt-4">
+        <div className="d-photo mt-3 sm:mt-4">
           {revealed ? (
             <PickPhotoFlip photoUrl={data.playerPhotoUrl} playerName={data.playerName} pickNumber={data.pickNumber} teamColor={data.teamColor} size="drama" />
           ) : (
@@ -856,7 +901,7 @@ function DramaticPickReveal({
         )}
 
         {/* 스테이지 1 — 포지션 칩 */}
-        <div className="mt-2 sm:mt-4 min-h-9 flex items-center justify-center gap-2">
+        <div className="d-chips mt-2 sm:mt-4 min-h-9 flex items-center justify-center gap-2">
           {step >= 1 && data.playerPosition && data.playerPosition.split(',').map(s => s.trim()).filter(Boolean).map((pos, i) => (
             <span
               key={i}
@@ -904,7 +949,7 @@ function DramaticPickReveal({
         {/* 스테이지 3 직전 — "…" 펄스. 이름은 사진 아래로 옮겼으므로 여기는 점만 쓴다.
             공개 후에는 자리를 접어 카드 높이를 돌려준다(390×844 에서 8칸이 들어가야 한다). */}
         {!revealed && (
-          <div className="mt-4 sm:mt-6 min-h-10 flex items-center justify-center gap-2" aria-hidden>
+          <div className="d-dots mt-4 sm:mt-6 min-h-10 flex items-center justify-center gap-2" aria-hidden>
             {step === DOTS && [0, 1, 2].map(i => (
               <span
                 key={i}
@@ -915,7 +960,7 @@ function DramaticPickReveal({
           </div>
         )}
 
-        <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-[#e5e7eb]">
+        <p className="d-hint mt-3 sm:mt-4 text-sm text-[#e5e7eb]">
           {revealed ? '탭하여 닫기' : '탭하면 바로 공개'}
         </p>
       </div>
@@ -936,22 +981,36 @@ function DramaticPickReveal({
           0% { transform: translateY(30px); opacity: 0; letter-spacing: -0.1em; }
           100% { transform: translateY(0); opacity: 1; letter-spacing: -0.01em; }
         }
-        /* 낮은 화면(프로젝터·노트북 1280×720 등) — 기록이 8칸으로 늘어 sm 기본값으로는
-           카드가 화면보다 커진다. 사진과 여백을 줄이고, 그래도 넘치면 잘라 버리는 대신
-           카드 안에서 스크롤되게 둔다(아무것도 닿을 수 없는 상태를 만들지 않는다).
+        /* 낮은 화면(프로젝터·노트북 1280×720 등) — 기록이 8칸으로 늘어 기본값으로는 카드가
+           화면보다 커진다. 예전에는 넘치는 만큼 카드 안을 스크롤시켰는데, 연출 도중에
+           누가 스크롤을 내릴 리가 없어 사실상 잘린 것과 같았다(2026-09-19 실측: 1280×720 에서
+           '탭하여 닫기'가 fold 아래). 이제 스크롤 대신 **줄여서 담는다**.
            사진 박스는 자식 컴포넌트라 styled-jsx 스코프가 달라 :global 로 지정한다. */
-        @media (max-height: 820px) {
-          .dramatic-card { overflow-y: auto; }
-        }
-        @media (min-width: 640px) and (max-height: 820px) {
+        @media (max-height: 900px) {
           .dramatic-card { padding-top: 0.75rem; padding-bottom: 0.75rem; }
           .dramatic-card :global(.pick-flip),
-          .dramatic-card :global(.pick-front-box) { width: 9rem; height: 9rem; }
-          .d-name { font-size: 2rem; }
+          .dramatic-card :global(.pick-front-box) { width: min(9rem, 20vh); height: min(9rem, 20vh); }
+          .d-name { font-size: 2rem; line-height: 1; }
+          .d-photo { margin-top: 0.5rem; }
+          .d-chips { margin-top: 0.5rem; }
+          .d-dots { margin-top: 0.75rem; }
+          .d-hint { margin-top: 0.5rem; }
+        }
+        @media (max-height: 780px) {
+          .d-head { font-size: 1.125rem; line-height: 1.25; }
+          .dramatic-card :global(.pick-flip),
+          .dramatic-card :global(.pick-front-box) { width: min(7.5rem, 18vh); height: min(7.5rem, 18vh); }
+          .d-name { font-size: 1.75rem; }
+          .d-chips { min-height: 2rem; }
+          .d-dots { margin-top: 0.5rem; min-height: 1.75rem; }
+          /* 기록 8칸이 세로 높이의 절반이다 — 칸 자체를 낮추는 게 가장 큰 한 수.
+             숫자는 20px, 라벨·순위는 14px 로 남아 최소 글자 크기 규칙 안이다. */
+          .dramatic-stats :global(.stat-box) { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+          .dramatic-stats :global(.stat-box) > :global(span:first-child) { font-size: 1.25rem; }
         }
         /* 가로 모드 폰 — 카드/사진/기록 블록이 화면 높이를 넘지 않게 */
         @media (orientation: landscape) and (max-height: 500px) {
-          .dramatic-card { padding: 0.75rem 1.25rem; }
+          .dramatic-card { padding: 0.5rem 1.25rem; }
           .dramatic-card :global(.pick-flip),
           .dramatic-card :global(.pick-front-box) { width: 5.5rem; height: 5.5rem; }
           .dramatic-stats :global(p) { font-size: 1rem; line-height: 1.35; }
