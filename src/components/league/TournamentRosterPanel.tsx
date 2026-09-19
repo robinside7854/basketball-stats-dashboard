@@ -137,7 +137,7 @@ export default function TournamentRosterPanel({ leagueId, quarterId, quarterName
         <div className="flex items-center justify-between gap-3 px-4 py-3 shrink-0" style={{ background: 'var(--mm-yellow)', borderBottom: '1px solid var(--mm-black)' }}>
           <div className="inline-flex items-center gap-2 min-w-0">
             <UserCheck size={16} className="text-[color:var(--mm-black)] shrink-0" aria-hidden />
-            <span className="text-xs font-black uppercase tracking-[0.12em] text-[color:var(--mm-black)] truncate">
+            <span className="text-xs font-black text-[color:var(--mm-black)] truncate">
               {quarterName} · 참가 인원
             </span>
           </div>
@@ -164,7 +164,7 @@ export default function TournamentRosterPanel({ leagueId, quarterId, quarterName
               <p className="text-xs font-bold" style={{ color: 'var(--mm-ink-soft)' }}>{loadError}</p>
               <button
                 type="button" onClick={load}
-                className="mt-1 min-h-[40px] px-4 text-xs font-bold uppercase tracking-[0.10em] rounded-sm cursor-pointer"
+                className="mt-1 min-h-[40px] px-4 text-xs font-bold rounded-sm cursor-pointer"
                 style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink)', border: '1px solid var(--mm-rule)' }}
               >
                 다시 시도

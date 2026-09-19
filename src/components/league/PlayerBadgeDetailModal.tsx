@@ -129,7 +129,7 @@ export default function PlayerBadgeDetailModal({ leagueId, playerId, badgeKey, c
         <div className={`flex items-center justify-between px-5 py-3.5 border-b border-[color:var(--mm-rule)] ${headerBg}`}>
           <div className="flex items-center gap-2">
             <Icon size={20} className={headerFg} aria-hidden />
-            <p id="badge-detail-title" className={`text-sm font-black uppercase tracking-widest ${headerFg}`}>
+            <p id="badge-detail-title" className={`text-sm font-black ${headerFg}`}>
               {categoryLabel} · {rows?.length ?? 0}회
             </p>
           </div>
@@ -165,7 +165,7 @@ export default function PlayerBadgeDetailModal({ leagueId, playerId, badgeKey, c
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <span className="text-sm font-bold text-[color:var(--mm-ink)]">{formatKoreanDate(row.earned_at_date)}</span>
                       {row.game_id && (row.opponent_name || row.score) ? (
-                        <span className={`text-xs font-bold uppercase tracking-widest ${resultChip}`}>
+                        <span className={`text-xs font-bold ${resultChip}`}>
                           {row.result ? `${row.result} ` : ''}{row.opponent_name ? `vs ${row.opponent_name}` : ''}{row.score ? ` (${row.score})` : ''}
                         </span>
                       ) : null}

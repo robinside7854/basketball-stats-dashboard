@@ -46,8 +46,8 @@ const STATUS_LABEL: Record<Status, string> = {
 const STATUS_COLOR: Record<Status, { bg: string; fg: string }> = {
   pending:  { bg: 'var(--mm-yellow)', fg: 'var(--mm-black)' },
   approved: { bg: '#059669', fg: '#fff' },
-  rejected: { bg: '#DC2626', fg: '#fff' },
-  disabled: { bg: '#6B7280', fg: '#fff' },
+  rejected: { bg: '#C4362B', fg: '#fff' },
+  disabled: { bg: '#57534E', fg: '#fff' },
 }
 
 export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props) {
@@ -120,7 +120,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
           </h3>
           {filter === 'pending' && pendingCount > 0 && (
             <span
-              className="inline-flex items-center px-1.5 py-0.5 text-xs font-black tracking-[0.14em]"
+              className="inline-flex items-center px-1.5 py-0.5 text-xs font-black"
               style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}
             >
               대기 {pendingCount}건
@@ -160,7 +160,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
       </header>
 
       {loading ? (
-        <div className="py-8 text-center text-xs font-bold uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+        <div className="py-8 text-center text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
           로딩중…
         </div>
       ) : rows.length === 0 ? (
@@ -191,7 +191,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                     {r.player?.number != null ? `#${r.player.number} ` : ''}{r.player?.name ?? '(선수 정보 없음)'}
                   </span>
                   <span
-                    className="inline-flex items-center text-xs font-black uppercase tracking-[0.12em] px-1.5 py-0.5"
+                    className="inline-flex items-center text-xs font-black px-1.5 py-0.5"
                     style={{
                       background: STATUS_COLOR[r.status].bg,
                       color: STATUS_COLOR[r.status].fg,
@@ -202,7 +202,7 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                   </span>
                   {r.role === 'admin' && (
                     <span
-                      className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-[0.12em] px-1.5 py-0.5"
+                      className="inline-flex items-center gap-1 text-xs font-black px-1.5 py-0.5"
                       style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '2px' }}
                       title="편집 권한 보유 — 로그인만으로 편집 모드가 켜집니다"
                     >
@@ -224,8 +224,8 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                     <button
                       onClick={() => act(r.id, 'approve')}
                       disabled={busyId === r.id}
-                      className="inline-flex items-center gap-1 text-xs font-black uppercase px-2.5 py-1.5 min-h-[36px] cursor-pointer"
-                      style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: '3px', letterSpacing: '0.10em', opacity: busyId === r.id ? 0.5 : 1 }}
+                      className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1.5 min-h-[36px] cursor-pointer"
+                      style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: '3px', opacity: busyId === r.id ? 0.5 : 1 }}
                     >
                       <Check size={14} />
                       승인
@@ -233,8 +233,8 @@ export default function AccountApprovalPanel({ leagueId, leagueHeaders }: Props)
                     <button
                       onClick={() => act(r.id, 'reject')}
                       disabled={busyId === r.id}
-                      className="inline-flex items-center gap-1 text-xs font-black uppercase px-2.5 py-1.5 min-h-[36px] cursor-pointer"
-                      style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-negative)', border: '1px solid #DC2626', borderRadius: '3px', letterSpacing: '0.10em', opacity: busyId === r.id ? 0.5 : 1 }}
+                      className="inline-flex items-center gap-1 text-xs font-black px-2.5 py-1.5 min-h-[36px] cursor-pointer"
+                      style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-negative)', border: '1px solid var(--mm-negative)', borderRadius: '3px', opacity: busyId === r.id ? 0.5 : 1 }}
                     >
                       <X size={14} />
                       반려

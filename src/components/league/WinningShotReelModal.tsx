@@ -85,7 +85,7 @@ export default function WinningShotReelModal({ leagueId, playerId, onClose }: Pr
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] px-4 py-2 text-xs font-black uppercase tracking-widest bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] rounded cursor-pointer"
+            className="min-h-[44px] px-4 py-2 text-xs font-black bg-[color:var(--mm-panel-alt)] border border-[color:var(--mm-rule)] rounded cursor-pointer"
           >
             닫기
           </button>

@@ -73,7 +73,7 @@ export default function MePageClient({ orgSlug, leagueId }: Props) {
                 {/* 도움말 버튼은 라벨 줄에 둔다 — 배지가 없는 회원에게도 "받을 수 있는 게 뭔지"로
                     가는 입구가 항상 보여야 한다(패널 안에 넣으면 빈 상태에서 같이 사라진다). */}
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+                  <p className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
                     내 특성
                   </p>
                   <button

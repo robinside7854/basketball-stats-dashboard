@@ -101,12 +101,10 @@ export default function MilestoneClipModal({ clip, onClose }: Props) {
         >
           <div className="min-w-0 flex items-center gap-2 flex-wrap">
             <span
-              className="font-black uppercase tabular-nums shrink-0"
+              className="t-label tabular-nums shrink-0"
               style={{
                 background: 'var(--mm-ink)',
                 color: 'var(--mm-panel)',
-                fontSize: '10px',
-                letterSpacing: '0.10em',
                 padding: '3px 6px',
               }}
             >
@@ -127,7 +125,7 @@ export default function MilestoneClipModal({ clip, onClose }: Props) {
                   #{clip.player_number}
                 </span>
               )}
-              <span className="ml-2 font-jersey" style={{ color: 'var(--mm-yellow-strong)' }}>
+              <span className="ml-2 t-num font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>
                 {clip.target}
               </span>
             </h3>
@@ -156,8 +154,8 @@ export default function MilestoneClipModal({ clip, onClose }: Props) {
             onIndexChange={() => { /* 단일 클립 · 무시 */ }}
           />
           <p
-            className="mt-3 text-xs font-bold uppercase"
-            style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}
+            className="mt-3 text-xs font-bold"
+            style={{ color: 'var(--mm-muted)' }}
           >
             {formatKoreanDate(clip.achieved_at)}
             {' · '}

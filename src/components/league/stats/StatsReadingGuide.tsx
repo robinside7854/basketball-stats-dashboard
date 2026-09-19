@@ -27,7 +27,7 @@ export default function StatsReadingGuide({ items, className }: Props) {
         style={{ color: 'var(--mm-ink-soft)', listStyle: 'none' }}
       >
         <HelpCircle size={14} aria-hidden style={{ color: 'var(--mm-muted)', flexShrink: 0 }} />
-        <span className="text-xs font-black uppercase" style={{ letterSpacing: '0.08em' }}>이 표 읽는 법</span>
+        <span className="text-xs font-black" style={{ letterSpacing: '0.08em' }}>이 표 읽는 법</span>
         <ChevronDown
           size={14}
           aria-hidden

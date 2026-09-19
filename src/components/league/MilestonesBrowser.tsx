@@ -116,7 +116,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
               <button
                 type="button"
                 onClick={() => setPlayerId(null)}
-                className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.10em] px-2 py-1 min-h-[32px] cursor-pointer transition-colors"
+                className="inline-flex items-center gap-1 t-label px-2 py-1 min-h-11 whitespace-nowrap cursor-pointer transition-colors"
                 style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
               >
                 <X size={14} aria-hidden /> 초기화
@@ -136,7 +136,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
             type="button"
             onClick={() => setTab('recent')}
             aria-pressed={tab === 'recent'}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-11 whitespace-nowrap t-label cursor-pointer transition-colors"
             style={chipStyle(tab === 'recent')}
           >
             <Trophy size={14} aria-hidden />
@@ -146,7 +146,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
             type="button"
             onClick={() => setTab('upcoming')}
             aria-pressed={tab === 'upcoming'}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] text-xs font-bold uppercase tracking-[0.10em] cursor-pointer transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-11 whitespace-nowrap t-label cursor-pointer transition-colors"
             style={chipStyle(tab === 'upcoming')}
           >
             <TrendingUp size={14} aria-hidden />
@@ -158,7 +158,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
         {playerOptions.length > 0 && (
           <div className="space-y-1.5">
             <label
-              className="text-xs font-bold uppercase tracking-[0.14em] block"
+              className="t-label block"
               htmlFor="milestone-player-filter"
               style={{ color: 'var(--mm-muted)' }}
             >
@@ -192,7 +192,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 mm-brand">
           {filteredRecent.length === 0 ? (
             <p
-              className="col-span-full p-6 text-center text-xs font-bold uppercase tracking-[0.16em]"
+              className="col-span-full p-6 text-center t-label"
               style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel)', border: '1px dashed var(--mm-rule)', borderRadius: '4px' }}
             >
               조건에 맞는 최근 달성이 없습니다
@@ -217,12 +217,10 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
                   aria-label={`${r.name} 선수 상세 보기`}
                 >
                   <span
-                    className="font-black uppercase tabular-nums shrink-0"
+                    className="t-label tabular-nums shrink-0"
                     style={{
                       background: 'var(--mm-ink)',
                       color: 'var(--mm-panel)',
-                      fontSize: '10px',
-                      letterSpacing: '0.10em',
                       padding: '3px 6px',
                     }}
                   >
@@ -230,11 +228,10 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
                   </span>
                   <div className="flex-1 min-w-0">
                     <p
-                      className="font-jersey uppercase break-keep"
+                      className="font-semibold break-keep"
                       style={{
                         color: 'var(--mm-ink)',
-                        fontSize: 'clamp(15px, 4vw, 18px)',
-                        fontWeight: 700,
+                        fontSize: 'clamp(17px, 4vw, 18px)',
                         letterSpacing: '-0.005em',
                         lineHeight: '1.15',
                         wordBreak: 'break-word',
@@ -244,16 +241,16 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
                       {r.name}
                       {r.number != null && (
                         <span
-                          className="ml-1.5 tabular-nums"
-                          style={{ color: 'var(--mm-muted)', fontSize: '12px', fontWeight: 700 }}
+                          className="t-label ml-1.5 tabular-nums"
+                          style={{ color: 'var(--mm-muted)' }}
                         >
                           #{r.number}
                         </span>
                       )}
                     </p>
                     <p
-                      className="font-bold uppercase mt-1"
-                      style={{ color: 'var(--mm-muted)', fontSize: '10px', letterSpacing: '0.14em', lineHeight: 1.3 }}
+                      className="t-label mt-1"
+                      style={{ color: 'var(--mm-muted)' }}
                     >
                       {formatKoreanDate(r.achieved_at)} · {CATEGORY_LABEL[r.category]}
                     </p>
@@ -296,7 +293,7 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 mm-brand">
           {filteredUpcoming.length === 0 ? (
             <p
-              className="col-span-full p-6 text-center text-xs font-bold uppercase tracking-[0.16em]"
+              className="col-span-full p-6 text-center t-label"
               style={{ color: 'var(--mm-muted)', background: 'var(--mm-panel)', border: '1px dashed var(--mm-rule)', borderRadius: '4px' }}
             >
               조건에 맞는 임박 마일스톤이 없습니다
@@ -316,23 +313,20 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
               <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5 mb-2">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span
-                    className="font-black uppercase tabular-nums shrink-0"
+                    className="t-label tabular-nums shrink-0"
                     style={{
                       background: 'var(--mm-ink)',
                       color: 'var(--mm-panel)',
-                      fontSize: '10px',
-                      letterSpacing: '0.10em',
                       padding: '3px 6px',
                     }}
                   >
                     {u.category}
                   </span>
                   <span
-                    className="font-jersey uppercase break-keep min-w-0"
+                    className="font-semibold break-keep min-w-0"
                     style={{
                       color: 'var(--mm-ink)',
-                      fontSize: 'clamp(15px, 4vw, 18px)',
-                      fontWeight: 700,
+                      fontSize: 'clamp(17px, 4vw, 18px)',
                       letterSpacing: '-0.005em',
                       lineHeight: '1.15',
                       wordBreak: 'break-word',
@@ -342,8 +336,8 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
                     {u.name}
                     {u.number != null && (
                       <span
-                        className="ml-1.5 tabular-nums"
-                        style={{ color: 'var(--mm-muted)', fontSize: '12px', fontWeight: 700 }}
+                        className="t-label ml-1.5 tabular-nums"
+                        style={{ color: 'var(--mm-muted)' }}
                       >
                         #{u.number}
                       </span>
@@ -351,11 +345,11 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
                   </span>
                 </div>
                 <span
-                  className="font-jersey font-black tabular-nums shrink-0"
-                  style={{ color: 'var(--mm-ink-soft)', fontSize: '13px', letterSpacing: '0.02em' }}
+                  className="t-label t-num shrink-0"
+                  style={{ color: 'var(--mm-ink-soft)' }}
                 >
                   {u.target}까지{' '}
-                  <span className="font-jersey" style={{ color: 'var(--mm-yellow-strong)', fontSize: '18px', fontWeight: 700 }}>
+                  <span className="t-num font-bold" style={{ color: 'var(--mm-yellow-strong)', fontSize: '18px' }}>
                     {u.distance}
                   </span>
                 </span>
@@ -368,15 +362,15 @@ export default function MilestonesBrowser({ leagueId, upcoming, recent }: Props)
                   />
                 </div>
                 <span
-                  className="tabular-nums shrink-0 w-10 text-right font-bold"
-                  style={{ color: 'var(--mm-muted)', fontSize: '11px', letterSpacing: '0.02em' }}
+                  className="t-label tabular-nums shrink-0 w-10 text-right"
+                  style={{ color: 'var(--mm-muted)' }}
                 >
                   {u.percent.toFixed(0)}%
                 </span>
               </div>
               <p
-                className="mt-2 font-bold uppercase"
-                style={{ color: 'var(--mm-muted)', fontSize: '10px', letterSpacing: '0.14em' }}
+                className="t-label mt-2"
+                style={{ color: 'var(--mm-muted)' }}
               >
                 {CATEGORY_LABEL[u.category]} · 현재 {u.current}
               </p>

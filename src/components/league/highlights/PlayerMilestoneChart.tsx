@@ -136,8 +136,8 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
         style={{ borderBottom: '1px solid var(--mm-rule)' }}
       >
         <label
-          className="text-xs font-black uppercase"
-          style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}
+          className="text-xs font-black"
+          style={{ color: 'var(--mm-muted)' }}
           htmlFor="milestone-player-select"
         >
           내 선수 찾기
@@ -176,13 +176,12 @@ export default function PlayerMilestoneChart({ players, leagueId }: Props) {
           <button
             type="button"
             onClick={() => setPinnedPid(null)}
-            className="inline-flex items-center gap-1.5 text-xs font-black uppercase px-2.5 py-1.5 min-h-[36px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+            className="inline-flex items-center gap-1.5 text-xs font-black px-2.5 py-1.5 min-h-[36px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
             style={{
               background: 'var(--mm-panel-alt)',
               color: 'var(--mm-ink-soft)',
               border: '1px solid var(--mm-rule)',
               borderRadius: '3px',
-              letterSpacing: '0.10em',
             }}
             aria-label="선수 지정 해제"
           >
@@ -351,14 +350,14 @@ function MetricTree({
       <div className="text-center mb-2">
         <div
           className="font-bold text-base"
-          style={{ color, letterSpacing: '0.10em' }}
+          style={{ color }}
         >
           {label}
         </div>
         {leader && (
           <div
-            className="text-xs font-bold uppercase mt-0.5 truncate"
-            style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}
+            className="text-xs font-bold mt-0.5 truncate"
+            style={{ color: 'var(--mm-muted)' }}
             title={`리그 1위 · ${leader.name} · ${leader[metricKey]}`}
           >
             1위 {leader[metricKey]}
@@ -539,7 +538,7 @@ function PlayerPin({
       title={`${player.name} · ${value}`}
     >
       <span
-        className="absolute inset-0 flex items-center justify-center font-jersey font-black text-xs"
+        className="absolute inset-0 flex items-center justify-center font-semibold text-xs"
         style={{ color: 'var(--mm-ink)' }}
         aria-hidden
       >
@@ -658,13 +657,13 @@ function PlayerMilestonePopover({
             )}
           </div>
           <div
-            className="font-jersey font-black text-lg text-center"
+            className="font-bold text-lg text-center"
             style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}
           >
             {player.number != null ? `#${player.number} ` : ''}{player.name}
           </div>
           {player.position && (
-            <div className="text-xs font-bold uppercase mt-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+            <div className="text-xs font-bold mt-1" style={{ color: 'var(--mm-muted)' }}>
               {player.position}
             </div>
           )}
@@ -684,13 +683,13 @@ function PlayerMilestonePopover({
               }}
             >
               <div
-                className="text-xs font-black uppercase"
-                style={{ color: m.color, letterSpacing: '0.12em' }}
+                className="text-xs font-black"
+                style={{ color: m.color }}
               >
                 {m.label}
               </div>
               <div
-                className="font-jersey font-black tabular-nums text-lg mt-1"
+                className="t-num font-bold text-lg mt-1"
                 style={{ color: 'var(--mm-ink)', letterSpacing: '-0.01em' }}
               >
                 {player[m.key]}

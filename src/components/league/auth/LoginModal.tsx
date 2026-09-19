@@ -312,7 +312,7 @@ function SignupForm({ leagueId, onDone, onSwitchLogin }: { leagueId: string; onD
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-black uppercase tracking-[0.10em] mt-3 mb-1" style={{ color: 'var(--mm-muted)' }}>
+    <label className="block text-xs font-black mt-3 mb-1" style={{ color: 'var(--mm-muted)' }}>
       {children}
     </label>
   )
@@ -325,7 +325,7 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--mm-ink)',
   border: '1px solid var(--mm-rule)',
   borderRadius: '3px',
-  fontSize: '14px',
+  fontSize: '17px',
   minHeight: 44,
   outline: 'none',
 }

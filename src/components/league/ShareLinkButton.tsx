@@ -49,7 +49,7 @@ export default function ShareLinkButton({ label = '링크 복사', url }: Props)
     <button
       onClick={copy}
       aria-label="현재 페이지 링크 복사"
-      className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black uppercase tracking-widest cursor-pointer transition-colors duration-200 min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
+      className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-black cursor-pointer transition-colors duration-200 min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)] focus-visible:ring-offset-1"
       style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
     >
       {copied ? <Check size={14} aria-hidden /> : <Link2 size={14} aria-hidden />}

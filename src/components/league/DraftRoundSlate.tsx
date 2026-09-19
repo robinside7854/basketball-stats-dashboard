@@ -38,7 +38,7 @@ function RoundSlateInner({ round, onDone }: { round: number; onDone: () => void 
       role="status"
       aria-live="polite"
     >
-      <p className="dp-slate-text font-black leading-none tracking-[0.12em] text-[15vw] sm:text-[12vw] lg:text-[10vw]">
+      <p className="dp-slate-text font-black leading-none text-[15vw] sm:text-[12vw] lg:text-[10vw]">
         ROUND {round}
       </p>
       <style jsx>{`

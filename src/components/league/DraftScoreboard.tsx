@@ -86,7 +86,7 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
           </h2>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-sm sm:text-base uppercase tracking-widest font-black text-amber-100 bg-[#000000]/50 px-3 py-1.5 rounded">LIVE</span>
+          <span className="text-sm sm:text-base font-black text-amber-100 bg-[#000000]/50 px-3 py-1.5 rounded">LIVE</span>
           <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shrink-0" />
         </div>
       </div>
@@ -132,7 +132,7 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
           const orderForRound = method === 'snake' && round % 2 === 0 ? [...draftOrder].reverse() : draftOrder
           return (
             <div key={round}>
-              <p className="text-base sm:text-lg lg:text-xl font-black uppercase tracking-widest text-amber-300/90 mb-2 sm:mb-3"
+              <p className="text-base sm:text-lg lg:text-xl font-black text-amber-300/90 mb-2 sm:mb-3"
                 style={{ fontFamily: 'var(--font-bebas, system-ui, sans-serif)' }}>
                 Round {round}
               </p>
@@ -147,7 +147,8 @@ export default function DraftScoreboard({ title, teams, picks, draftOrder, metho
                   const pick = picksByNumber.get(pickNumber)
                   const isCurrent = pickNumber === currentPickNumber
                   const isCompleted = !!pick
-                  const color = team?.color ?? '#6b7280'
+                  // blendHex·teamAccentOnDark 가 hex 파싱을 하므로 CSS 변수 불가
+                  const color = team?.color ?? '#A8A29E'
                   const cellStyle: CSSProperties = isCurrent
                     ? {
                         background: `linear-gradient(180deg, ${color}66 0%, ${color}33 100%)`,

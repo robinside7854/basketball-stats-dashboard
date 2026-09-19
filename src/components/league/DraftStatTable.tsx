@@ -170,7 +170,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                   <tr key={p.id}
                     onClick={canPick ? () => onSelectId?.(sel ? null : p.id) : undefined}
                     className={`border-b border-gray-800/30 ${canPick ? 'cursor-pointer' : ''} ${sel ? 'bg-emerald-700/30' : 'hover:bg-gray-800/30'}`}>
-                    <td className={`p-2.5 text-left sticky left-0 ${sel ? 'bg-emerald-900/40' : 'bg-gray-900'}`}>
+                    <td className={`p-2.5 text-base text-left sticky left-0 ${sel ? 'bg-emerald-900/40' : 'bg-gray-900'}`}>
                       <div className="flex items-center gap-1.5">
                         {onShowStats && (
                           <button onClick={e => { e.stopPropagation(); onShowStats(p) }}
@@ -191,7 +191,7 @@ export default function DraftStatTable({ leagueId, availablePlayers, prevStats, 
                         : v.toFixed(1)
                       const isSort = activeSort === c.key
                       return (
-                        <td key={c.key} className={`p-2.5 text-center font-display tabular-nums ${isSort ? 'text-amber-300 font-bold' : 'text-gray-200'}`}>
+                        <td key={c.key} className={`t-td ${isSort ? 'text-amber-300 font-bold' : 'text-gray-200'}`}>
                           {display}
                         </td>
                       )

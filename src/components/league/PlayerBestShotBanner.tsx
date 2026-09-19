@@ -53,7 +53,7 @@ export default function PlayerBestShotBanner({ leagueId, playerName, pinnedEvent
         type="button"
         onClick={open}
         disabled={loading}
-        className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 text-xs font-black uppercase tracking-[0.14em] rounded-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 min-h-[36px] px-2.5 py-1 text-xs font-black rounded-sm cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] disabled:opacity-60"
         style={{
           background: 'var(--mm-yellow)',
           color: 'var(--mm-black)',

@@ -247,7 +247,7 @@ export default function DraftPickModal({
                   style={{ backgroundColor: meta.color, color: meta.ink }}
                 >
                   <PosIcon size={16} aria-hidden />
-                  <span className="text-sm font-black tracking-widest">{meta.label}</span>
+                  <span className="text-sm font-black">{meta.label}</span>
                   <span className="ml-auto text-sm font-bold tabular-nums" aria-label={`${meta.label} ${g.list.length}명`}>
                     {g.list.length}
                   </span>

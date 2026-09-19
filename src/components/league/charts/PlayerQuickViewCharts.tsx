@@ -28,12 +28,12 @@ export function MonthlyStatsChart({ data }: { data: MonthPoint[] }) {
   const [monthStat, setMonthStat] = useState<MonthStatKey>('ppg')
   return (
     <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-      <div className="flex items-center justify-between mb-2">
-        <p className="font-jersey text-xs font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>월별 성장지표</p>
-        <div className="flex gap-1">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
+        <p className="t-label whitespace-nowrap" style={{ color: 'var(--mm-yellow-strong)' }}>월별 성장지표</p>
+        <div className="flex flex-wrap gap-1">
           {MONTH_STATS.map(s => (
             <button key={s.key} onClick={() => setMonthStat(s.key)}
-              className="px-2 py-0.5 text-xs font-bold rounded-sm border cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2"
+              className="px-2.5 min-h-11 whitespace-nowrap text-sm font-semibold rounded-sm border cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2"
               style={monthStat === s.key
                 ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', color: 'var(--mm-black)' }
                 : { background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', color: 'var(--mm-muted)' }
@@ -44,10 +44,10 @@ export function MonthlyStatsChart({ data }: { data: MonthPoint[] }) {
       </div>
       <ResponsiveContainer width="100%" height={100}>
         <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-          <XAxis dataKey="label" tick={{ fill: 'var(--mm-muted)', fontSize: 10 }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fill: 'var(--mm-muted)', fontSize: 9 }} axisLine={false} tickLine={false} />
+          <XAxis dataKey="label" tick={{ fill: 'var(--mm-muted)', fontSize: 13 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: 'var(--mm-muted)', fontSize: 13 }} axisLine={false} tickLine={false} />
           <Tooltip
-            contentStyle={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 4, fontSize: 11, color: 'var(--mm-ink)' }}
+            contentStyle={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 4, fontSize: 14, color: 'var(--mm-ink)' }}
             formatter={(v) => [String(v), MONTH_STATS.find(s => s.key === monthStat)?.label ?? '']}
           />
           <Bar dataKey={monthStat} fill="var(--mm-yellow)" radius={[2, 2, 0, 0]} />
@@ -92,15 +92,15 @@ export function GameTrendChart({ log }: { log: GameLogPoint[] }) {
 
   return (
     <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
         <div className="flex items-center gap-2">
-          <p className="font-jersey text-xs font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>게임별 트렌드</p>
+          <p className="t-label whitespace-nowrap" style={{ color: 'var(--mm-yellow-strong)' }}>게임별 트렌드</p>
           <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>{log.length}경기</span>
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {TREND_STATS.map(s => (
             <button key={s.key} onClick={() => setTrendStat(s.key)}
-              className="px-2 py-0.5 text-xs font-bold rounded-sm border cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2"
+              className="px-2.5 min-h-11 whitespace-nowrap text-sm font-semibold rounded-sm border cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2"
               style={trendStat === s.key
                 ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', color: 'var(--mm-black)' }
                 : { background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', color: 'var(--mm-muted)' }
@@ -114,21 +114,21 @@ export function GameTrendChart({ log }: { log: GameLogPoint[] }) {
           <CartesianGrid strokeDasharray="2 4" stroke="var(--mm-rule)" vertical={false} />
           <XAxis
             dataKey="idx"
-            tick={{ fill: 'var(--mm-muted)', fontSize: 9 }}
+            tick={{ fill: 'var(--mm-muted)', fontSize: 13 }}
             axisLine={false}
             tickLine={false}
             interval={Math.max(0, Math.floor(chartData.length / 6) - 1)}
           />
-          <YAxis tick={{ fill: 'var(--mm-muted)', fontSize: 9 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: 'var(--mm-muted)', fontSize: 13 }} axisLine={false} tickLine={false} />
           <Tooltip
-            contentStyle={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 4, fontSize: 11, color: 'var(--mm-ink)' }}
+            contentStyle={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 4, fontSize: 14, color: 'var(--mm-ink)' }}
             labelFormatter={(v, payload) => {
               const p = payload?.[0]?.payload as { date?: string } | undefined
               return `#${v}${p?.date ? ` (${p.date})` : ''}`
             }}
             formatter={(val) => [val as (string | number), activeMeta.label]}
           />
-          <ReferenceLine y={seasonAvg} stroke="var(--mm-muted)" strokeDasharray="3 3" label={{ value: `평균 ${seasonAvg}`, position: 'insideTopRight', fill: 'var(--mm-muted)', fontSize: 9 }} />
+          <ReferenceLine y={seasonAvg} stroke="var(--mm-muted)" strokeDasharray="3 3" label={{ value: `평균 ${seasonAvg}`, position: 'insideTopRight', fill: 'var(--mm-muted)', fontSize: 13 }} />
           <Line type="monotone" dataKey="value" stroke={activeMeta.color} strokeWidth={2.5} dot={{ r: 2, fill: activeMeta.color }} activeDot={{ r: 4 }} />
         </LineChart>
       </ResponsiveContainer>
@@ -153,7 +153,7 @@ export function PlayerRadarChart({ data, accent }: { data: RadarStat[]; accent: 
           </radialGradient>
         </defs>
         <PolarGrid stroke="var(--mm-rule)" />
-        <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--mm-ink-soft)', fontSize: 10, fontWeight: 700 }} />
+        <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--mm-ink-soft)', fontSize: 13, fontWeight: 600 }} />
         <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
         <Radar dataKey="value" stroke={accent.stroke} fill="url(#playerRadarFill)" strokeWidth={2.25} />
       </RadarChart>

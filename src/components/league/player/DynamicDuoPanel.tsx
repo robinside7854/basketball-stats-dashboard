@@ -50,7 +50,7 @@ export default function DynamicDuoPanel({
 
   return (
     <div className="px-5 py-4">
-      <p className="text-xs uppercase tracking-[0.20em] font-black mb-1 flex items-center gap-1.5" style={{ color: 'var(--mm-yellow-strong)' }}>
+      <p className="text-xs font-black mb-1 flex items-center gap-1.5" style={{ color: 'var(--mm-yellow-strong)' }}>
         <Users size={14} aria-hidden />
         다이나믹 듀오
       </p>
@@ -70,8 +70,8 @@ export default function DynamicDuoPanel({
             <>
               <div className="flex items-center gap-3">
                 <span
-                  className="font-jersey font-black tabular-nums w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
-                  style={{ color: rank.color, background: rank.bg, border: rank.border, fontSize: '13px' }}
+                  className="t-num t-label w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
+                  style={{ color: rank.color, background: rank.bg, border: rank.border }}
                   aria-label={`${i + 1}위`}
                 >
                   {i + 1}
@@ -85,7 +85,7 @@ export default function DynamicDuoPanel({
                   {d.partner_photo_url ? (
                     <Image src={d.partner_photo_url} alt="" fill sizes="36px" className="object-cover" />
                   ) : (
-                    <span className="font-jersey font-black text-sm" style={{ color: 'var(--mm-muted)' }}>
+                    <span className="font-semibold text-sm" style={{ color: 'var(--mm-muted)' }}>
                       {d.partner_name.slice(0, 1)}
                     </span>
                   )}
@@ -98,7 +98,7 @@ export default function DynamicDuoPanel({
                     {d.partner_name}
                   </p>
                   {d.partner_number != null && (
-                    <p className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
+                    <p className="text-xs font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>
                       #{d.partner_number}
                     </p>
                   )}
@@ -107,7 +107,7 @@ export default function DynamicDuoPanel({
                   <p className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.015em' }}>
                     {d.total_pts}
                   </p>
-                  <p className="text-xs font-black uppercase mt-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>합작 득점</p>
+                  <p className="text-xs font-black mt-1" style={{ color: 'var(--mm-muted)' }}>합작 득점</p>
                 </div>
               </div>
 
@@ -119,20 +119,20 @@ export default function DynamicDuoPanel({
 
               <div className="grid grid-cols-2 gap-2 mt-2">
                 <div className="px-2.5 py-2" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderLeft: `3px solid ${RECEIVED_COLOR}` }}>
-                  <p className="text-xs font-bold uppercase truncate" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
+                  <p className="text-xs font-bold truncate" style={{ color: 'var(--mm-muted)' }}>
                     {d.partner_name} → {playerName}
                   </p>
-                  <p className="font-jersey font-black tabular-nums mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '18px' }}>
+                  <p className="t-num font-bold mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '18px' }}>
                     {d.pts_from_partner}
                     <span className="ml-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>점</span>
                   </p>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>어시스트 {d.assists_from_partner}회</p>
                 </div>
                 <div className="px-2.5 py-2" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', borderLeft: `3px solid ${GIVEN_COLOR}` }}>
-                  <p className="text-xs font-bold uppercase truncate" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
+                  <p className="text-xs font-bold truncate" style={{ color: 'var(--mm-muted)' }}>
                     {playerName} → {d.partner_name}
                   </p>
-                  <p className="font-jersey font-black tabular-nums mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '18px' }}>
+                  <p className="t-num font-bold mt-0.5" style={{ color: 'var(--mm-ink)', fontSize: '18px' }}>
                     {d.pts_to_partner}
                     <span className="ml-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>점</span>
                   </p>

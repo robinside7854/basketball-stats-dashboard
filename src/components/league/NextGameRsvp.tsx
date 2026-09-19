@@ -214,7 +214,7 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
     >
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
+          <p className="text-xs font-black" style={{ color: 'var(--mm-yellow-strong)' }}>
             다음 경기{rel ? ` · ${rel}` : ''}
           </p>
           <p className="mt-0.5 font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: 'clamp(17px, 4.4vw, 20px)', lineHeight: 1.2 }}>
@@ -259,7 +259,7 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
                   onClick={() => choose(value)}
                   disabled={saving !== null}
                   aria-pressed={active}
-                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] text-xs font-black tracking-[0.08em] uppercase cursor-pointer transition-colors disabled:opacity-50"
+                  className="inline-flex items-center justify-center gap-1.5 min-h-[44px] text-xs font-black cursor-pointer transition-colors disabled:opacity-50"
                   style={{
                     background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                     color: active ? 'var(--mm-panel)' : 'var(--mm-ink-soft)',
@@ -322,7 +322,7 @@ export default function NextGameRsvp({ leagueId }: { leagueId: string }) {
         <button
           type="button"
           onClick={() => window.dispatchEvent(new CustomEvent('mm-open-login'))}
-          className="mt-3 w-full flex items-center justify-center gap-1.5 min-h-[44px] text-xs font-black tracking-[0.08em] uppercase cursor-pointer transition-colors"
+          className="mt-3 w-full flex items-center justify-center gap-1.5 min-h-[44px] text-xs font-black cursor-pointer transition-colors"
           style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: 'var(--mm-radius-ctl)' }}
         >
           <LogIn size={14} aria-hidden />

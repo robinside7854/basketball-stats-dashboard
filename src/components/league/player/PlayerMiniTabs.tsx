@@ -51,7 +51,7 @@ export default function PlayerMiniTabs({
               role="tab"
               aria-selected={isActive}
               onClick={() => onChange(t.key)}
-              className="shrink-0 px-3 min-h-[36px] text-xs font-black uppercase cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+              className="shrink-0 px-3 min-h-[36px] text-xs font-black cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               style={isActive
                 ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }
                 : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }

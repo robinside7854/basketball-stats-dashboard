@@ -98,8 +98,8 @@ export default async function MilestonesPage({
               </h1>
             </div>
             <p
-              className="text-xs mt-1 font-bold uppercase"
-              style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
+              className="text-xs mt-1 font-bold"
+              style={{ color: 'var(--mm-muted)' }}
             >
               선수별 5대 지표 진행도 · 임계값 자동 확장
             </p>

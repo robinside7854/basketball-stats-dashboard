@@ -54,7 +54,7 @@ export default function DraftTeamStats({ teams, picks, leaders, stats, gated = f
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       <div className="px-4 py-2.5 border-b border-gray-800">
-        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">팀 구성 성적 (지난 분기 평균)</p>
+        <p className="text-sm font-bold text-gray-400">팀 구성 성적 (지난 분기 평균)</p>
         <p className="text-sm text-gray-400 mt-0.5">드래프트된 선수 + 팀장의 평균. 초록=강점 · 빨강=약점 (다음 픽 참고)</p>
       </div>
       {/* 잠금 안내는 표 위에 한 번만 — 행마다 반복하면 '—' 보다 더 시끄럽다 */}
@@ -86,14 +86,14 @@ export default function DraftTeamStats({ teams, picks, leaders, stats, gated = f
                     <span className="text-gray-200 font-bold">{r.team.name}</span>
                   </div>
                 </td>
-                <td className="p-2 text-center text-gray-400">{r.count}</td>
+                <td className="t-td text-gray-400">{r.count}</td>
                 {COLS.map(c => {
                   const v = r.avg[c.key]
                   const bw = bestWorst[c.key]
                   const isBest = bw && r.ranked > 0 && v === bw.best
                   const isWorst = bw && r.ranked > 0 && v === bw.worst && bw.best !== bw.worst
                   return (
-                    <td key={String(c.key)} className={`p-2 text-center font-display tabular-nums ${
+                    <td key={String(c.key)} className={`t-td ${
                       isBest ? 'text-emerald-300 font-bold' : isWorst ? 'text-red-400' : 'text-white'
                     }`}>
                       {r.ranked > 0 ? v.toFixed(1) : '—'}

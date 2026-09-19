@@ -102,7 +102,7 @@ export default async function BoxscorePage({
               {formatKorean(date)} 박스스코어
             </h1>
             <p
-              className="text-xs tracking-[0.16em] uppercase font-bold mt-1"
+              className="text-xs font-bold mt-1"
               style={{ color: 'var(--mm-muted)' }}
             >
               {leagueName}

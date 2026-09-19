@@ -69,7 +69,7 @@ export default function PasswordChangeModal({ leagueId, isDefaultPassword, onClo
         <div className="flex items-center justify-between gap-3 px-4 py-3 shrink-0" style={{ background: 'var(--mm-yellow)', borderBottom: '1px solid var(--mm-black)' }}>
           <div className="inline-flex items-center gap-2">
             <KeyRound size={16} className="text-[color:var(--mm-black)]" aria-hidden />
-            <span className="text-xs font-black uppercase tracking-[0.14em] text-[color:var(--mm-black)]">비밀번호 변경</span>
+            <span className="text-xs font-black text-[color:var(--mm-black)]">비밀번호 변경</span>
           </div>
           <button type="button" onClick={onClose} aria-label="닫기"
             className="min-w-[44px] min-h-[44px] inline-flex items-center justify-center rounded transition-colors hover:bg-black/10 cursor-pointer text-[color:var(--mm-black)]">
@@ -84,12 +84,12 @@ export default function PasswordChangeModal({ leagueId, isDefaultPassword, onClo
             </p>
           )}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>현재 비밀번호</label>
+            <label className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>현재 비밀번호</label>
             <input type={show ? 'text' : 'password'} value={cur} onChange={e => setCur(e.target.value)}
               autoComplete="current-password" className={inputCls} style={{ color: 'var(--mm-ink)' }} placeholder="현재 비밀번호" />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>새 비밀번호</label>
+            <label className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>새 비밀번호</label>
             <div className="relative">
               <input type={show ? 'text' : 'password'} value={nw} onChange={e => setNw(e.target.value)}
                 autoComplete="new-password" className={inputCls} style={{ color: 'var(--mm-ink)', paddingRight: 44 }} placeholder="새 비밀번호 (4자 이상)" />
@@ -100,7 +100,7 @@ export default function PasswordChangeModal({ leagueId, isDefaultPassword, onClo
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>새 비밀번호 확인</label>
+            <label className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>새 비밀번호 확인</label>
             <input type={show ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)}
               autoComplete="new-password" className={inputCls} style={{ color: 'var(--mm-ink)' }} placeholder="새 비밀번호 다시 입력"
               onKeyDown={e => { if (e.key === 'Enter') submit() }} />
@@ -109,12 +109,12 @@ export default function PasswordChangeModal({ leagueId, isDefaultPassword, onClo
 
         <div className="flex items-center justify-end gap-2 px-4 py-3 shrink-0" style={{ borderTop: '1px solid var(--mm-rule)', background: 'var(--mm-panel-alt)' }}>
           <button type="button" onClick={onClose}
-            className="min-h-[40px] px-4 py-2 text-xs font-bold uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors"
+            className="min-h-[40px] px-4 py-2 text-xs font-bold rounded-sm cursor-pointer transition-colors"
             style={{ background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}>
             취소
           </button>
           <button type="button" onClick={submit} disabled={saving}
-            className="min-h-[40px] px-4 py-2 text-xs font-black uppercase tracking-[0.14em] rounded-sm cursor-pointer transition-colors inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-h-[40px] px-4 py-2 text-xs font-black rounded-sm cursor-pointer transition-colors inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}>
             {saving ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} aria-hidden />}
             변경

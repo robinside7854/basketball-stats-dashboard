@@ -383,7 +383,7 @@ export default function TournamentSchedule({ leagueId, base }: { leagueId: strin
                                 {v?.played && (
                                   <span
                                     className="text-sm font-black"
-                                    style={{ color: won ? 'var(--mm-positive, #16a34a)' : 'var(--mm-live, #dc2626)' }}
+                                    style={{ color: won ? 'var(--mm-positive)' : 'var(--mm-live)' }}
                                   >
                                     {v.ourScore} - {v.oppScore} ({won ? 'W' : 'L'})
                                   </span>

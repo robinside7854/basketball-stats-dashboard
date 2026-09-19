@@ -54,6 +54,15 @@ function pct(made: number, att: number): string {
   return att > 0 ? `${Math.round(made / att * 100)}%` : '-'
 }
 
+// 팀 색이 없을 때의 폴백. 예전엔 회색 hex 리터럴을 accentOrInk 에 흘려보냈는데 그 값이
+// 라이트 모드에서 2.9:1 이라 토큰으로 바꿨다(accentOrInk 는 hex 만 계산할 수 있어 분기한다).
+function teamAccent(color?: string): string {
+  return color ? accentOrInk(color) : 'var(--mm-muted)'
+}
+function teamTint(color?: string): string {
+  return color ? `${color}22` : 'var(--mm-panel-alt)'
+}
+
 function pctVal(made: number, att: number): number {
   return att > 0 ? made / att : -1
 }
@@ -130,12 +139,14 @@ export default function LeagueStatsPanel({
   function renderThead() {
     return (
       <tr>
-        <th className="text-left pb-1.5 pr-2 text-gray-500 text-xs">선수</th>
-        {HEADERS.map(({ col, label, small, mdOnly }) => (
+        <th className="t-th text-left">선수</th>
+        {HEADERS.map(({ col, mdOnly, label }) => (
           <th
             key={col}
             onClick={() => handleSort(col)}
-            className={`pb-1.5 px-1 cursor-pointer select-none whitespace-nowrap transition-colors hover:text-gray-200 ${small ? 'text-xs' : 'text-xs'} ${sortCol === col ? 'text-blue-400' : 'text-gray-500'} ${mdOnly ? 'hidden md:table-cell' : ''}`}
+            className={`t-th cursor-pointer select-none transition-colors duration-200 ${mdOnly ? 'hidden md:table-cell' : ''}`}
+            // 정렬 중인 열 강조 — 예전 blue-400 은 라이트 모드 패널에서 2.3:1 이라 읽히지 않았다
+            style={sortCol === col ? { color: 'var(--mm-yellow-strong)' } : undefined}
           >
             {label}{sortIcon(col)}
           </th>
@@ -148,32 +159,33 @@ export default function LeagueStatsPanel({
   const mdOnlyCols = new Set(HEADERS.filter(h => h.mdOnly).map(h => h.col))
 
   function renderRow(s: PlayerStat, p: RosterPlayer | undefined) {
-    const cells: { content: React.ReactNode; col: SortCol; extraClass?: string }[] = [
-      { col: 'pts',     content: s.pts,               extraClass: 'font-bold text-white' },
+    // 셀 클래스는 t-td / t-td-key 가 정본(가독성 업그레이드 2026-09-18). extraClass 는 색만 얹는다.
+    const cells: { content: React.ReactNode; col: SortCol; key?: boolean; extraClass?: string }[] = [
+      { col: 'pts',     content: s.pts,               key: true },
       { col: 'reb',     content: s.reb },
       { col: 'ast',     content: s.ast },
       { col: 'stl',     content: s.stl },
       { col: 'blk',     content: s.blk },
-      { col: 'tov',     content: s.tov,               extraClass: 'text-red-400' },
+      { col: 'tov',     content: s.tov,               extraClass: 'text-[color:var(--mm-negative)]' },
       { col: 'fgm',     content: `${s.fgm}/${s.fga}` },
-      { col: 'fg_pct',  content: pct(s.fgm, s.fga),  extraClass: 'text-gray-500 text-xs' },
+      { col: 'fg_pct',  content: pct(s.fgm, s.fga),  extraClass: 'text-[color:var(--mm-muted)]' },
       { col: 'fg3m',    content: `${s.fg3m}/${s.fg3a}` },
-      { col: 'fg3_pct', content: pct(s.fg3m, s.fg3a), extraClass: 'text-gray-500 text-xs' },
+      { col: 'fg3_pct', content: pct(s.fg3m, s.fg3a), extraClass: 'text-[color:var(--mm-muted)]' },
       { col: 'ftm',     content: `${s.ftm}/${s.fta}` },
-      { col: 'ft_pct',  content: pct(s.ftm, s.fta),  extraClass: 'text-gray-500 text-xs' },
+      { col: 'ft_pct',  content: pct(s.ftm, s.fta),  extraClass: 'text-[color:var(--mm-muted)]' },
     ]
     return (
-      <tr key={s.player_id} className="text-gray-300">
-        <td className="py-1 pr-2 font-medium text-white whitespace-nowrap">
+      <tr key={s.player_id} className="text-[color:var(--mm-ink-soft)]">
+        <td className="t-td text-left">
           <button
             onClick={() => setQuickViewId(s.player_id)}
-            className="hover:text-blue-300 transition-colors cursor-pointer text-left underline-offset-2 hover:underline"
+            className="font-semibold text-[color:var(--mm-ink)] hover:text-[color:var(--mm-yellow-strong)] transition-colors duration-200 cursor-pointer text-left underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
           >
             {p ? `${p.number ? `#${p.number} ` : ''}${p.name}` : s.player_id.slice(0, 6)}
           </button>
         </td>
-        {cells.map(({ col, content, extraClass }) => (
-          <td key={col} className={`py-1 px-1 text-center ${extraClass ?? ''} ${mdOnlyCols.has(col) ? 'hidden md:table-cell' : ''}`}>
+        {cells.map(({ col, content, key, extraClass }) => (
+          <td key={col} className={`${key ? 't-td-key' : 't-td'} ${extraClass ?? ''} ${mdOnlyCols.has(col) ? 'hidden md:table-cell' : ''}`}>
             {content}
           </td>
         ))}
@@ -186,20 +198,20 @@ export default function LeagueStatsPanel({
     const fg3m = t.fg3m ?? 0; const fg3a = t.fg3a ?? 0
     const ftm = t.ftm ?? 0; const fta = t.fta ?? 0
     return (
-      <tr className="bg-gray-800/40 border-t border-gray-700 text-xs font-bold">
-        <td className="py-1 pr-2 font-bold" style={{ color: accentOrInk(color ?? '#9ca3af') }}>{label} 소계</td>
-        <td className="py-1 px-1 text-center text-white">{t.pts ?? 0}</td>
-        <td className="py-1 px-1 text-center">{t.reb ?? 0}</td>
-        <td className="py-1 px-1 text-center">{t.ast ?? 0}</td>
-        <td className="py-1 px-1 text-center hidden md:table-cell">{t.stl ?? 0}</td>
-        <td className="py-1 px-1 text-center hidden md:table-cell">{t.blk ?? 0}</td>
-        <td className="py-1 px-1 text-center">{t.tov ?? 0}</td>
-        <td className="py-1 px-1 text-center">{fgm}/{fga}</td>
-        <td className="py-1 px-1 text-center text-gray-500 hidden md:table-cell">{pct(fgm, fga)}</td>
-        <td className="py-1 px-1 text-center">{fg3m}/{fg3a}</td>
-        <td className="py-1 px-1 text-center text-gray-500 hidden md:table-cell">{pct(fg3m, fg3a)}</td>
-        <td className="py-1 px-1 text-center">{ftm}/{fta}</td>
-        <td className="py-1 px-1 text-center text-gray-500 hidden md:table-cell">{pct(ftm, fta)}</td>
+      <tr className="bg-[color:var(--mm-panel-alt)] border-t border-[color:var(--mm-rule)] font-bold">
+        <td className="t-td text-left" style={{ color: teamAccent(color) }}>{label} 소계</td>
+        <td className="t-td-key">{t.pts ?? 0}</td>
+        <td className="t-td">{t.reb ?? 0}</td>
+        <td className="t-td">{t.ast ?? 0}</td>
+        <td className="t-td hidden md:table-cell">{t.stl ?? 0}</td>
+        <td className="t-td hidden md:table-cell">{t.blk ?? 0}</td>
+        <td className="t-td">{t.tov ?? 0}</td>
+        <td className="t-td">{fgm}/{fga}</td>
+        <td className="t-td text-[color:var(--mm-muted)] hidden md:table-cell">{pct(fgm, fga)}</td>
+        <td className="t-td">{fg3m}/{fg3a}</td>
+        <td className="t-td text-[color:var(--mm-muted)] hidden md:table-cell">{pct(fg3m, fg3a)}</td>
+        <td className="t-td">{ftm}/{fta}</td>
+        <td className="t-td text-[color:var(--mm-muted)] hidden md:table-cell">{pct(ftm, fta)}</td>
       </tr>
     )
   }
@@ -209,8 +221,8 @@ export default function LeagueStatsPanel({
       <tr>
         <td colSpan={COL_COUNT} className="pt-2 pb-1">
           <div
-            className="inline-block px-2 py-0.5 rounded text-xs font-bold"
-            style={{ color: accentOrInk(color ?? '#9ca3af'), backgroundColor: `${color ?? '#9ca3af'}22` }}
+            className="inline-block px-2 py-0.5 rounded t-label font-bold"
+            style={{ color: teamAccent(color), backgroundColor: teamTint(color) }}
           >
             {label}
           </div>
@@ -223,24 +235,24 @@ export default function LeagueStatsPanel({
     return (
       <button
         onClick={() => setQuickViewId(s.player_id)}
-        className="w-full text-left bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-2 hover:bg-gray-800/60 transition-colors active:bg-gray-800/80"
+        className="w-full text-left bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-lg px-2.5 py-2 min-h-11 cursor-pointer hover:bg-[color:var(--mm-yellow-soft)] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
       >
         <div className="flex items-center gap-2 mb-1.5">
           <div className="flex-1 min-w-0">
-            <div className="font-bold text-white text-sm truncate">
-              {p ? <>{p.number != null && <span className="text-gray-600 font-mono mr-1 text-xs">#{p.number}</span>}{p.name}</> : s.player_id.slice(0, 6)}
+            <div className="font-semibold text-[color:var(--mm-ink)] text-base truncate">
+              {p ? <>{p.number != null && <span className="t-num text-[color:var(--mm-muted)] mr-1">#{p.number}</span>}{p.name}</> : s.player_id.slice(0, 6)}
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <div className="text-right"><div className="text-lg font-black text-white leading-none">{s.pts}</div><div className="text-xs text-gray-500 font-bold">PTS</div></div>
-            <div className="text-right"><div className="text-base font-bold text-gray-300 leading-none">{s.reb}</div><div className="text-xs text-gray-500 font-bold">REB</div></div>
-            <div className="text-right"><div className="text-base font-bold text-blue-400 leading-none">{s.ast}</div><div className="text-xs text-gray-500 font-bold">AST</div></div>
+            <div className="text-right"><div className="t-num text-lg font-black text-[color:var(--mm-ink)] leading-none">{s.pts}</div><div className="t-label font-bold">PTS</div></div>
+            <div className="text-right"><div className="t-num text-base font-bold text-[color:var(--mm-ink-soft)] leading-none">{s.reb}</div><div className="t-label font-bold">REB</div></div>
+            <div className="text-right"><div className="t-num text-base font-bold text-[color:var(--mm-ink-soft)] leading-none">{s.ast}</div><div className="t-label font-bold">AST</div></div>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-1 pt-1 border-t border-gray-800/60 text-xs text-gray-400">
-          <div className="text-center">FG <span className="font-bold text-gray-200">{s.fgm}/{s.fga}</span> <span className="text-gray-600">({pct(s.fgm, s.fga)})</span></div>
-          <div className="text-center">3P <span className="font-bold text-gray-200">{s.fg3m}/{s.fg3a}</span></div>
-          <div className="text-center">FT <span className="font-bold text-gray-200">{s.ftm}/{s.fta}</span></div>
+        <div className="grid grid-cols-3 gap-1 pt-1 border-t border-[color:var(--mm-rule)] text-base text-[color:var(--mm-muted)]">
+          <div className="text-center">FG <span className="t-num font-semibold text-[color:var(--mm-ink)]">{s.fgm}/{s.fga}</span> <span>({pct(s.fgm, s.fga)})</span></div>
+          <div className="text-center">3P <span className="t-num font-semibold text-[color:var(--mm-ink)]">{s.fg3m}/{s.fg3a}</span></div>
+          <div className="text-center">FT <span className="t-num font-semibold text-[color:var(--mm-ink)]">{s.ftm}/{s.fta}</span></div>
         </div>
       </button>
     )
@@ -264,28 +276,28 @@ export default function LeagueStatsPanel({
         ))}
       </div>
       {/* 데스크탑 테이블 */}
-      <div className="hidden md:block bg-gray-900 border border-gray-800 rounded-xl p-3 overflow-x-auto">
-        <table className="w-full text-xs whitespace-nowrap">
+      <div className="hidden md:block bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-xl p-3 overflow-x-auto">
+        <table className="w-full">
           <thead>{renderThead()}</thead>
-          <tbody className="divide-y divide-gray-800/50">
+          <tbody className="divide-y divide-[color:var(--mm-rule)]">
             {sorted.map(s => renderRow(s, playerMap[s.player_id] as RosterPlayer | undefined))}
           </tbody>
           {active.length > 1 && (
             <tfoot>
-              <tr className="text-gray-500 border-t border-gray-700 text-xs">
-                <td className="pt-1.5 pr-2 font-medium">합계</td>
-                <td className="pt-1.5 px-1 text-center font-bold">{totals.pts ?? 0}</td>
-                <td className="pt-1.5 px-1 text-center">{totals.reb ?? 0}</td>
-                <td className="pt-1.5 px-1 text-center">{totals.ast ?? 0}</td>
-                <td className="pt-1.5 px-1 text-center">{totals.stl ?? 0}</td>
-                <td className="pt-1.5 px-1 text-center">{totals.blk ?? 0}</td>
-                <td className="pt-1.5 px-1 text-center">{totals.tov ?? 0}</td>
-                <td className="pt-1.5 px-1 text-center">{totals.fgm ?? 0}/{totals.fga ?? 0}</td>
-                <td className="pt-1.5 px-1 text-center text-gray-500">{pct(totals.fgm ?? 0, totals.fga ?? 0)}</td>
-                <td className="pt-1.5 px-1 text-center">{totals.fg3m ?? 0}/{totals.fg3a ?? 0}</td>
-                <td className="pt-1.5 px-1 text-center text-gray-500">{pct(totals.fg3m ?? 0, totals.fg3a ?? 0)}</td>
-                <td className="pt-1.5 px-1 text-center">{totals.ftm ?? 0}/{totals.fta ?? 0}</td>
-                <td className="pt-1.5 px-1 text-center text-gray-500">{pct(totals.ftm ?? 0, totals.fta ?? 0)}</td>
+              <tr className="text-[color:var(--mm-muted)] border-t border-[color:var(--mm-rule)]">
+                <td className="t-td text-left font-semibold">합계</td>
+                <td className="t-td font-bold">{totals.pts ?? 0}</td>
+                <td className="t-td">{totals.reb ?? 0}</td>
+                <td className="t-td">{totals.ast ?? 0}</td>
+                <td className="t-td">{totals.stl ?? 0}</td>
+                <td className="t-td">{totals.blk ?? 0}</td>
+                <td className="t-td">{totals.tov ?? 0}</td>
+                <td className="t-td">{totals.fgm ?? 0}/{totals.fga ?? 0}</td>
+                <td className="t-td">{pct(totals.fgm ?? 0, totals.fga ?? 0)}</td>
+                <td className="t-td">{totals.fg3m ?? 0}/{totals.fg3a ?? 0}</td>
+                <td className="t-td">{pct(totals.fg3m ?? 0, totals.fg3a ?? 0)}</td>
+                <td className="t-td">{totals.ftm ?? 0}/{totals.fta ?? 0}</td>
+                <td className="t-td">{pct(totals.ftm ?? 0, totals.fta ?? 0)}</td>
               </tr>
             </tfoot>
           )}
@@ -327,40 +339,40 @@ export default function LeagueStatsPanel({
     <div className="md:hidden space-y-2">
       {homePlayers.length > 0 && (
         <>
-          <div className="inline-block px-2 py-0.5 rounded text-xs font-bold mb-1"
-            style={{ color: accentOrInk(homeTeam?.color ?? '#9ca3af'), backgroundColor: `${homeTeam?.color ?? '#9ca3af'}22` }}>
+          <div className="inline-block px-2 py-0.5 rounded t-label font-bold mb-1"
+            style={{ color: teamAccent(homeTeam?.color), backgroundColor: teamTint(homeTeam?.color) }}>
             {homeTeam?.name ?? '홈팀'}
           </div>
           <div className="space-y-1.5">
             {homeStats.map(s => <MobileCard key={s.player_id} s={s} p={homePlayerMap[s.player_id]} />)}
           </div>
-          <div className="bg-gray-800/40 rounded-lg px-2.5 py-1.5 text-xs flex items-center justify-between">
-            <span style={{ color: accentOrInk(homeTeam?.color ?? '#9ca3af') }} className="font-bold">{homeTeam?.name ?? '홈팀'} 합계</span>
-            <span className="text-gray-300">PTS <b className="text-white">{homeTotals.pts ?? 0}</b> · REB {homeTotals.reb ?? 0} · AST {homeTotals.ast ?? 0}</span>
+          <div className="bg-[color:var(--mm-panel-alt)] rounded-lg px-2.5 py-1.5 text-base flex items-center justify-between gap-2 flex-wrap">
+            <span style={{ color: teamAccent(homeTeam?.color) }} className="font-bold">{homeTeam?.name ?? '홈팀'} 합계</span>
+            <span className="t-num text-[color:var(--mm-ink-soft)]">PTS <b className="text-[color:var(--mm-ink)]">{homeTotals.pts ?? 0}</b> · REB {homeTotals.reb ?? 0} · AST {homeTotals.ast ?? 0}</span>
           </div>
         </>
       )}
       {awayPlayers.length > 0 && (
         <>
-          <div className="inline-block px-2 py-0.5 rounded text-xs font-bold mt-3 mb-1"
-            style={{ color: accentOrInk(awayTeam?.color ?? '#9ca3af'), backgroundColor: `${awayTeam?.color ?? '#9ca3af'}22` }}>
+          <div className="inline-block px-2 py-0.5 rounded t-label font-bold mt-3 mb-1"
+            style={{ color: teamAccent(awayTeam?.color), backgroundColor: teamTint(awayTeam?.color) }}>
             {awayTeam?.name ?? '어웨이팀'}
           </div>
           <div className="space-y-1.5">
             {awayStats.map(s => <MobileCard key={s.player_id} s={s} p={awayPlayerMap[s.player_id]} />)}
           </div>
-          <div className="bg-gray-800/40 rounded-lg px-2.5 py-1.5 text-xs flex items-center justify-between">
-            <span style={{ color: accentOrInk(awayTeam?.color ?? '#9ca3af') }} className="font-bold">{awayTeam?.name ?? '어웨이팀'} 합계</span>
-            <span className="text-gray-300">PTS <b className="text-white">{awayTotals.pts ?? 0}</b> · REB {awayTotals.reb ?? 0} · AST {awayTotals.ast ?? 0}</span>
+          <div className="bg-[color:var(--mm-panel-alt)] rounded-lg px-2.5 py-1.5 text-base flex items-center justify-between gap-2 flex-wrap">
+            <span style={{ color: teamAccent(awayTeam?.color) }} className="font-bold">{awayTeam?.name ?? '어웨이팀'} 합계</span>
+            <span className="t-num text-[color:var(--mm-ink-soft)]">PTS <b className="text-[color:var(--mm-ink)]">{awayTotals.pts ?? 0}</b> · REB {awayTotals.reb ?? 0} · AST {awayTotals.ast ?? 0}</span>
           </div>
         </>
       )}
     </div>
     {/* 데스크탑 테이블 */}
-    <div className="hidden md:block bg-gray-900 border border-gray-800 rounded-xl p-3 overflow-x-auto">
-      <table className="w-full text-xs whitespace-nowrap">
+    <div className="hidden md:block bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-xl p-3 overflow-x-auto">
+      <table className="w-full">
         <thead>{renderThead()}</thead>
-        <tbody className="divide-y divide-gray-800/50">
+        <tbody className="divide-y divide-[color:var(--mm-rule)]">
           {homePlayers.length > 0 && renderHeader(homeTeam?.name ?? '홈팀', homeTeam?.color)}
           {homeStats.map(s => renderRow(s, homePlayerMap[s.player_id]))}
           {homePlayers.length > 0 && renderSubtotal(homeTeam?.name ?? '홈팀', homeTeam?.color, homeTotals)}
@@ -370,20 +382,20 @@ export default function LeagueStatsPanel({
           {awayPlayers.length > 0 && renderSubtotal(awayTeam?.name ?? '어웨이팀', awayTeam?.color, awayTotals)}
         </tbody>
         <tfoot>
-          <tr className="text-gray-400 border-t-2 border-gray-600 text-xs">
-            <td className="pt-1.5 pr-2 font-bold">전체 합계</td>
-            <td className="pt-1.5 px-1 text-center font-bold text-white">{allTotals.pts ?? 0}</td>
-            <td className="pt-1.5 px-1 text-center">{allTotals.reb ?? 0}</td>
-            <td className="pt-1.5 px-1 text-center">{allTotals.ast ?? 0}</td>
-            <td className="pt-1.5 px-1 text-center">{allTotals.stl ?? 0}</td>
-            <td className="pt-1.5 px-1 text-center">{allTotals.blk ?? 0}</td>
-            <td className="pt-1.5 px-1 text-center">{allTotals.tov ?? 0}</td>
-            <td className="pt-1.5 px-1 text-center">{allTotals.fgm ?? 0}/{allTotals.fga ?? 0}</td>
-            <td className="pt-1.5 px-1 text-center text-gray-500">{pct(allTotals.fgm ?? 0, allTotals.fga ?? 0)}</td>
-            <td className="pt-1.5 px-1 text-center">{allTotals.fg3m ?? 0}/{allTotals.fg3a ?? 0}</td>
-            <td className="pt-1.5 px-1 text-center text-gray-500">{pct(allTotals.fg3m ?? 0, allTotals.fg3a ?? 0)}</td>
-            <td className="pt-1.5 px-1 text-center">{allTotals.ftm ?? 0}/{allTotals.fta ?? 0}</td>
-            <td className="pt-1.5 px-1 text-center text-gray-500">{pct(allTotals.ftm ?? 0, allTotals.fta ?? 0)}</td>
+          <tr className="text-[color:var(--mm-ink-soft)] border-t-2 border-[color:var(--mm-rule)]">
+            <td className="t-td text-left font-bold">전체 합계</td>
+            <td className="t-td-key">{allTotals.pts ?? 0}</td>
+            <td className="t-td">{allTotals.reb ?? 0}</td>
+            <td className="t-td">{allTotals.ast ?? 0}</td>
+            <td className="t-td">{allTotals.stl ?? 0}</td>
+            <td className="t-td">{allTotals.blk ?? 0}</td>
+            <td className="t-td">{allTotals.tov ?? 0}</td>
+            <td className="t-td">{allTotals.fgm ?? 0}/{allTotals.fga ?? 0}</td>
+            <td className="t-td text-[color:var(--mm-muted)]">{pct(allTotals.fgm ?? 0, allTotals.fga ?? 0)}</td>
+            <td className="t-td">{allTotals.fg3m ?? 0}/{allTotals.fg3a ?? 0}</td>
+            <td className="t-td text-[color:var(--mm-muted)]">{pct(allTotals.fg3m ?? 0, allTotals.fg3a ?? 0)}</td>
+            <td className="t-td">{allTotals.ftm ?? 0}/{allTotals.fta ?? 0}</td>
+            <td className="t-td text-[color:var(--mm-muted)]">{pct(allTotals.ftm ?? 0, allTotals.fta ?? 0)}</td>
           </tr>
         </tfoot>
       </table>

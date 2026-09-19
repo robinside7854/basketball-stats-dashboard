@@ -79,11 +79,11 @@ export default function DraftSummaryCard({ teams, picks, leaders, playerNames, s
               )}
               {r.picks.map((p, i) => (
                 <div key={p.player_id} className="flex items-center gap-2 text-sm px-2 py-1">
-                  {showOrder && <span className="text-gray-600 font-display w-5 text-center">{i + 1}</span>}
+                  {showOrder && <span className="t-num text-gray-400 w-5 text-center">{i + 1}</span>}
                   <span className="text-gray-100">{p.player_name}</span>
                 </div>
               ))}
-              {r.picks.length === 0 && !r.leaderName && <p className="text-xs text-gray-600 px-2 py-1">기록 없음</p>}
+              {r.picks.length === 0 && !r.leaderName && <p className="text-xs text-gray-400 px-2 py-1">기록 없음</p>}
             </div>
           </div>
         ))}

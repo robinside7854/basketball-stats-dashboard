@@ -92,7 +92,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
 
   // 공용 섹션 헤드라인 스타일
   const sectionHeadCls = 'font-bold text-sm mb-3'
-  const sectionSubCls = 'text-xs ml-2 font-bold uppercase tracking-[0.16em]'
+  const sectionSubCls = 't-label ml-2'
 
   return (
     <div className="space-y-6">
@@ -117,10 +117,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
             >
               <div className="flex items-center gap-1.5 mb-1.5">
                 <span style={{ color: 'var(--mm-ink-soft)' }}>{c.icon}</span>
-                <span
-                  className="font-bold uppercase tracking-[0.16em]"
-                  style={{ color: 'var(--mm-ink)', fontSize: '10px' }}
-                >
+                <span className="t-label" style={{ color: 'var(--mm-ink)' }}>
                   {c.label}
                 </span>
               </div>
@@ -129,23 +126,14 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
                 style={{ color: 'var(--mm-ink)', fontSize: 'clamp(24px, 4.2vw, 30px)' }}
               >
                 {c.record!.value}
-                <span
-                  className="ml-1 font-bold uppercase tracking-[0.12em]"
-                  style={{ color: 'var(--mm-muted)', fontSize: '11px' }}
-                >
+                <span className="t-label ml-1" style={{ color: 'var(--mm-muted)' }}>
                   {c.suffix}
                 </span>
               </div>
-              <div
-                className="mt-1.5 truncate font-bold uppercase tracking-[0.12em]"
-                style={{ color: 'var(--mm-ink-soft)', fontSize: '10px' }}
-              >
+              <div className="t-label mt-1.5 truncate" style={{ color: 'var(--mm-ink-soft)' }}>
                 {c.record!.date.slice(5)} · vs {c.record!.vs}
               </div>
-              <div
-                className="font-mono tabular-nums"
-                style={{ color: 'var(--mm-muted)', fontSize: '10px' }}
-              >
+              <div className="t-label tabular-nums" style={{ color: 'var(--mm-muted)' }}>
                 {c.record!.score}
               </div>
             </div>
@@ -171,7 +159,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
                   {/* 좌: 우리 팀 */}
                   <div className="flex items-center justify-end gap-2 min-h-[28px]">
                     <span
-                      className="text-sm tabular-nums font-jersey font-black"
+                      className="t-num text-sm font-bold"
                       style={{ color: teamWins ? accentOrInk(teamColor) : 'var(--mm-muted)' }}
                     >
                       {row.team}{row.suffix}
@@ -188,10 +176,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
                   </div>
                   {/* 중앙 라벨 */}
                   <div className="text-center px-2 min-w-[60px]">
-                    <span
-                      className="font-bold uppercase tracking-[0.16em]"
-                      style={{ color: 'var(--mm-ink)', fontSize: '11px' }}
-                    >
+                    <span className="t-label" style={{ color: 'var(--mm-ink)' }}>
                       {row.label}
                     </span>
                   </div>
@@ -207,7 +192,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
                       }}
                     />
                     <span
-                      className="text-sm tabular-nums font-jersey font-black"
+                      className="t-num text-sm font-bold"
                       style={{ color: !teamWins ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
                     >
                       {row.opp}{row.suffix}
@@ -217,10 +202,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               )
             })}
           </div>
-          <p
-            className="mt-2 italic"
-            style={{ color: 'var(--mm-muted)', fontSize: '10px' }}
-          >
+          <p className="mt-2 italic text-xs" style={{ color: 'var(--mm-muted)' }}>
             ※ TOV%는 낮을수록 좋고, 나머지는 높을수록 좋음. 라벨에 마우스를 올리면 공식이 표시됩니다.
           </p>
         </div>
@@ -242,10 +224,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               className="p-4 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
-              <div
-                className="font-bold uppercase tracking-[0.20em]"
-                style={{ color: 'var(--mm-ink-soft)', fontSize: '11px' }}
-              >
+              <div className="t-label" style={{ color: 'var(--mm-ink-soft)' }}>
                 ORtg
               </div>
               <div
@@ -254,10 +233,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               >
                 {adv.ortg}
               </div>
-              <div
-                className="mt-1.5 font-bold uppercase tracking-[0.12em]"
-                style={{ color: 'var(--mm-muted)', fontSize: '10px' }}
-              >
+              <div className="t-label mt-1.5" style={{ color: 'var(--mm-muted)' }}>
                 100 포제션당 득점
               </div>
             </div>
@@ -266,10 +242,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               className="p-4 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
-              <div
-                className="font-bold uppercase tracking-[0.20em]"
-                style={{ color: 'var(--mm-ink-soft)', fontSize: '11px' }}
-              >
+              <div className="t-label" style={{ color: 'var(--mm-ink-soft)' }}>
                 DRtg
               </div>
               <div
@@ -278,10 +251,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               >
                 {adv.drtg}
               </div>
-              <div
-                className="mt-1.5 font-bold uppercase tracking-[0.12em]"
-                style={{ color: 'var(--mm-muted)', fontSize: '10px' }}
-              >
+              <div className="t-label mt-1.5" style={{ color: 'var(--mm-muted)' }}>
                 100 포제션당 실점
               </div>
             </div>
@@ -290,10 +260,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               className="p-4 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
-              <div
-                className="font-bold uppercase tracking-[0.20em]"
-                style={{ color: 'var(--mm-ink-soft)', fontSize: '11px' }}
-              >
+              <div className="t-label" style={{ color: 'var(--mm-ink-soft)' }}>
                 Net Rtg
               </div>
               <div
@@ -305,10 +272,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               >
                 {adv.net_rtg >= 0 ? '+' : ''}{adv.net_rtg}
               </div>
-              <div
-                className="mt-1.5 font-bold uppercase tracking-[0.12em]"
-                style={{ color: 'var(--mm-muted)', fontSize: '10px' }}
-              >
+              <div className="t-label mt-1.5" style={{ color: 'var(--mm-muted)' }}>
                 ORtg − DRtg
               </div>
             </div>
@@ -317,10 +281,7 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               className="p-4 sm:p-5 rounded-md"
               style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
             >
-              <div
-                className="font-bold uppercase tracking-[0.20em]"
-                style={{ color: 'var(--mm-ink-soft)', fontSize: '11px' }}
-              >
+              <div className="t-label" style={{ color: 'var(--mm-ink-soft)' }}>
                 Pace
               </div>
               <div
@@ -329,18 +290,12 @@ export default function TeamInsights({ leagueId, teamId, quarterId, teamColor }:
               >
                 {adv.pace}
               </div>
-              <div
-                className="mt-1.5 font-bold uppercase tracking-[0.12em]"
-                style={{ color: 'var(--mm-muted)', fontSize: '10px' }}
-              >
+              <div className="t-label mt-1.5" style={{ color: 'var(--mm-muted)' }}>
                 경기당 평균 포제션
               </div>
             </div>
           </div>
-          <p
-            className="mt-2 italic"
-            style={{ color: 'var(--mm-muted)', fontSize: '10px' }}
-          >
+          <p className="mt-2 italic text-xs" style={{ color: 'var(--mm-muted)' }}>
             포제션 = FGA + 0.44×FTA + TOV (Dean Oliver 추정). 우리 팀 누적 {adv.team_poss} / 상대 누적 {adv.opp_poss}.
           </p>
         </div>

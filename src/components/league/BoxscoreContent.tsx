@@ -558,7 +558,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                               </>)}
                             </span>
                             <span className="text-xs tabular-nums" style={{ color: 'var(--mm-muted)' }}>
-                              {r.PF}득 · {r.PA}실 · <span style={{ color: diff > 0 ? '#059669' : diff < 0 ? '#DC2626' : 'var(--mm-muted)' }}>{diff >= 0 ? '+' : ''}{diff}</span>
+                              {r.PF}득 · {r.PA}실 · <span style={{ color: diff > 0 ? 'var(--mm-positive)' : diff < 0 ? 'var(--mm-negative)' : 'var(--mm-muted)' }}>{diff >= 0 ? '+' : ''}{diff}</span>
                             </span>
                           </div>
                         </div>
@@ -1148,7 +1148,7 @@ function TeamComparePanel({ dailyStats, games }: { dailyStats: DailyStat[]; game
   const h2h = aggregateHeadToHead(games, activePair.a, activePair.b, teamMeta)
   const A = h2h.A
   const B = h2h.B
-  const colorA = A.color ?? '#dc2626'
+  const colorA = A.color ?? '#C4362B' // accentOrInk 가 hex 만 파싱한다 — 토큰 못 씀
   const colorB = B.color ?? '#2563eb'
 
   const pct = (m: number, a: number) => a > 0 ? Math.round(m / a * 1000) / 10 : 0

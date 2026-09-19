@@ -9,6 +9,7 @@ import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import StatGate from '@/components/league/auth/StatGate'
+import { accentOrInk } from '@/lib/util/contrastColor'
 
 // gsap · PlayerQuickView · AwardDetail 은 카드 클릭 후 실행되는 인터랙션 — 초기 번들에서 분리
 // gsap 3.15 은 ~70KB, PlayerQuickView 는 1441줄 (recharts 4종 내부 lazy)
@@ -273,7 +274,7 @@ export default function AwardsPage() {
                 시즌 어워즈
               </h1>
               <p
-                className="text-xs font-bold uppercase tracking-[0.18em] mt-1.5"
+                className="text-xs font-bold mt-1.5"
                 style={{ color: 'var(--mm-muted)' }}
               >
                 Season Awards · 코어 8 + 특수 3
@@ -289,7 +290,7 @@ export default function AwardsPage() {
               }}
             >
               <p
-                className="text-xs font-black uppercase tracking-[0.22em]"
+                className="text-xs font-semibold"
                 style={{ color: 'var(--mm-yellow-strong)' }}
               >
                 자격 요건
@@ -302,11 +303,11 @@ export default function AwardsPage() {
                   const q = quarters.find(qq => qq.id === selectedQuarterId)
                   return q ? `${String(q.year).slice(2)}.${q.quarter}Q` : '분기'
                 })()}{' '}
-                <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>
+                <span className="t-num font-bold" style={{ color: 'var(--mm-ink)' }}>
                   {attendance.totalRounds}
                 </span>
                 일 중{' '}
-                <span className="font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>
+                <span className="t-num font-bold" style={{ color: 'var(--mm-ink)' }}>
                   {attendance.requiredRounds}
                 </span>
                 일 이상 참석
@@ -323,7 +324,7 @@ export default function AwardsPage() {
       <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
         <button
           onClick={() => setSelectedQuarterId('all')}
-          className="shrink-0 px-4 py-2 text-sm font-black uppercase tracking-[0.16em] transition-colors cursor-pointer btn-press min-h-[44px]"
+          className="shrink-0 px-4 py-2 text-sm font-black transition-colors cursor-pointer btn-press min-h-11"
           style={{
             background: selectedQuarterId === 'all' ? 'var(--mm-ink)' : 'var(--mm-panel)',
             color: selectedQuarterId === 'all' ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -338,7 +339,7 @@ export default function AwardsPage() {
             <button
               key={q.id}
               onClick={() => setSelectedQuarterId(q.id)}
-              className="shrink-0 px-4 py-2 text-sm font-bold transition-colors cursor-pointer btn-press min-h-[44px] font-jersey tabular-nums"
+              className="shrink-0 px-4 py-2 text-sm font-bold transition-colors cursor-pointer btn-press min-h-11 whitespace-nowrap tabular-nums"
               style={{
                 background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                 color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -399,7 +400,7 @@ export default function AwardsPage() {
                 onToggle={e => toggleCat(a.category, (e.currentTarget as HTMLDetailsElement).open)}
               >
                 <summary
-                  className="flex items-center gap-2.5 px-3 py-2.5 md:px-4 md:py-3 min-h-[44px] cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  className="flex items-center gap-2.5 px-3 py-2.5 md:px-4 md:py-3 min-h-11 cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                   style={{ borderBottom: '1px solid var(--mm-rule)' }}
                 >
                   <div
@@ -485,14 +486,14 @@ export default function AwardsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p
-                        className="text-xs font-black uppercase tracking-[0.22em]"
+                        className="text-xs font-semibold"
                         style={{ color: 'rgba(0,0,0,0.65)' }}
                       >
                         {isDuo ? 'Winner Duo' : 'Winner'}
                       </p>
                       <p
                         data-award-winner-name
-                        className="font-jersey uppercase break-keep group-hover:underline underline-offset-4 decoration-[3px]"
+                        className="break-keep group-hover:underline underline-offset-4 decoration-[3px]"
                         style={{
                           color: 'var(--mm-black)',
                           fontSize: isDuo ? 'clamp(17px, 4.6vw, 24px)' : 'clamp(20px, 5.5vw, 28px)',
@@ -546,7 +547,7 @@ export default function AwardsPage() {
                         {a.winner.displayValue}
                       </p>
                       <p
-                        className="text-xs font-bold uppercase tracking-[0.12em] mt-1.5 break-keep"
+                        className="text-xs font-bold mt-1.5 break-keep"
                         style={{ color: 'rgba(0,0,0,0.6)', lineHeight: 1.3, wordBreak: 'break-word', overflowWrap: 'anywhere' }}
                       >
                         {isDuo ? a.metric : `${a.winner.gp}게임 · ${a.metric}`}
@@ -634,7 +635,7 @@ export default function AwardsPage() {
                     >
                       {Object.entries(a.winner.supportingStats).map(([key, val]) => (
                         <div key={key} className="text-xs min-w-0">
-                          <span className="uppercase tracking-[0.1em] font-bold" style={{ color: 'rgba(0,0,0,0.6)' }}>
+                          <span className="font-bold" style={{ color: 'rgba(0,0,0,0.6)' }}>
                             {key}:{' '}
                           </span>
                           <span className="font-black tabular-nums" style={{ color: 'var(--mm-black)' }}>
@@ -677,14 +678,14 @@ export default function AwardsPage() {
                       <button
                         key={`${r.player_id}-${idx}`}
                         onClick={() => setQuickPlayer({ id: r.player_id, name: r.name })}
-                        className="w-full flex items-center justify-between gap-2 px-2 py-1.5 md:px-2.5 md:py-2 transition-colors cursor-pointer group"
+                        className="w-full flex items-center justify-between gap-2 px-2 py-1.5 md:px-2.5 md:py-2 min-h-11 transition-colors cursor-pointer group"
                         style={{ background: 'transparent' }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--mm-yellow-soft)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         <div className="flex items-center gap-2 md:gap-2.5 min-w-0">
                           <span
-                            className="font-jersey font-black tabular-nums w-4 md:w-5 shrink-0 text-right"
+                            className="t-num font-bold w-4 md:w-5 shrink-0 text-right"
                             style={{ color: 'var(--mm-muted)', fontSize: '16px', lineHeight: 1 }}
                           >
                             {idx + 2}
@@ -715,8 +716,8 @@ export default function AwardsPage() {
                           </span>
                         </div>
                         <span
-                          className="font-jersey font-black tabular-nums shrink-0"
-                          style={{ color: accent, fontSize: '17px', lineHeight: 1 }}
+                          className="t-num font-bold shrink-0 text-base"
+                          style={{ color: accentOrInk(accent), lineHeight: 1 }}
                         >
                           {r.displayValue}
                         </span>
@@ -733,7 +734,7 @@ export default function AwardsPage() {
                 <button
                   type="button"
                   onClick={() => setOpenAward(a)}
-                  className="w-full inline-flex items-center justify-center gap-1.5 min-h-[44px] px-4 text-xs font-bold uppercase tracking-[0.12em] cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  className="w-full inline-flex items-center justify-center gap-1.5 min-h-11 px-4 text-xs font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                   style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
                 >
                   전체 순위 {a.allCandidates.length}명 보기
@@ -750,7 +751,7 @@ export default function AwardsPage() {
                   }}
                 >
                   <p
-                    className="text-xs uppercase tracking-[0.12em] font-bold"
+                    className="text-xs font-bold"
                     style={{ color: 'var(--mm-muted)' }}
                   >
                     {a.minRequirement}
@@ -774,14 +775,7 @@ export default function AwardsPage() {
               <>
                 <div className="flex items-center gap-3 pt-1">
                   <div aria-hidden style={{ flex: 1, height: '1px', background: 'var(--mm-rule)' }} />
-                  <p
-                    className="font-bold whitespace-nowrap"
-                    style={{
-                      color: 'var(--mm-ink)',
-                      fontSize: '13px',
-                      letterSpacing: '0.24em',
-                    }}
-                  >
+                  <p className="t-label whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>
                     특수 부문{' '}
                     <span style={{ color: 'var(--mm-yellow-strong)' }}>· Special</span>
                   </p>

@@ -73,8 +73,8 @@ const CORNER_Y = 370.33         // 3점 코너 직선-아크 교점
 const TIER_COLORS: Record<'high' | 'mid' | 'low' | 'none', { fill: string; text: string; label: string }> = {
   high: { fill: '#16a34a', text: 'text-emerald-100', label: '핫'    },
   mid:  { fill: '#f59e0b', text: 'text-yellow-100',  label: '중간'  },
-  low:  { fill: '#dc2626', text: 'text-red-100',     label: '콜드'  },
-  none: { fill: '#6b7280', text: 'text-gray-300',    label: '표본 부족' },
+  low:  { fill: '#B91C1C', text: 'text-red-100',     label: '콜드'  },
+  none: { fill: '#57534E', text: 'text-gray-300',    label: '표본 부족' },
 }
 
 export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGUE_BASELINE }: Props) {
@@ -308,23 +308,23 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
         <div className="flex items-center justify-center gap-3 text-xs flex-wrap">
           <div className="inline-flex items-center gap-1">
             <div className="w-3 h-3 rounded" style={{ background: '#16a34a', opacity: 0.85 }} />
-            <span className="text-emerald-300 font-semibold">핫 (평균 이상)</span>
+            <span className="font-semibold text-[color:var(--mm-ink-soft)]">핫 (평균 이상)</span>
           </div>
           <div className="inline-flex items-center gap-1">
             <div className="w-3 h-3 rounded" style={{ background: '#f59e0b', opacity: 0.85 }} />
-            <span className="text-yellow-300 font-semibold">중간 (평균권)</span>
+            <span className="font-semibold text-[color:var(--mm-ink-soft)]">중간 (평균권)</span>
           </div>
           <div className="inline-flex items-center gap-1">
-            <div className="w-3 h-3 rounded" style={{ background: '#dc2626', opacity: 0.85 }} />
-            <span className="text-red-300 font-semibold">콜드 (평균 이하)</span>
+            <div className="w-3 h-3 rounded" style={{ background: '#B91C1C', opacity: 0.85 }} />
+            <span className="font-semibold text-[color:var(--mm-ink-soft)]">콜드 (평균 이하)</span>
           </div>
           <div className="inline-flex items-center gap-1">
-            <div className="w-3 h-3 rounded" style={{ background: '#6b7280', opacity: 0.65 }} />
-            <span className="text-gray-400 font-semibold">시도&lt;3</span>
+            <div className="w-3 h-3 rounded" style={{ background: '#57534E', opacity: 0.65 }} />
+            <span className="font-semibold text-[color:var(--mm-ink-soft)]">시도&lt;3</span>
           </div>
         </div>
         {/* '평균'이 몇 %인지 안 밝히면 존마다 기준이 다르다는 걸 알 방법이 없다 */}
-        <p className="text-center text-xs text-gray-500 break-keep">
+        <p className="text-center text-xs text-[color:var(--mm-muted)] break-keep">
           존별 평균 기준 · 골밑 {baseline.zone.post}% · 레이업 {baseline.zone.layup}% · 미들 {baseline.zone.mid}% · 3점 {baseline.zone.three}%
         </p>
         <div className="min-h-[24px] text-center text-xs">
@@ -334,17 +334,17 @@ export default function HalfCourtShotChart({ zones, size = 400, baseline = LEAGU
             const label = { post: '골밑 (DS · 노차지 제한구역)', layup: '레이업 (LU · 페인트 안)', mid: '미드레인지 (MD · 페인트 밖 · 3점 안)', three: '3점 (3P · 코너 + 아크)' }[hover]
             return (
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-gray-900/90 border border-gray-700/60 flex-wrap">
-                <span className="font-bold text-white">{label}</span>
-                <span className="text-gray-400">{z.m}/{z.a}</span>
+                <span className="font-bold text-[color:var(--mm-ink)]">{label}</span>
+                <span className="text-[color:var(--mm-ink-soft)]">{z.m}/{z.a}</span>
                 <span className={`font-black ${c.text}`}>{z.a > 0 ? `${z.fg_pct}%` : '—'}</span>
-                <span className="text-gray-500">· {c.label}</span>
+                <span className="text-[color:var(--mm-muted)]">· {c.label}</span>
                 {totalAttempts > 0 && (
-                  <span className="text-gray-500">· 비중 <span className="font-bold text-white">{volumePct(z)}%</span></span>
+                  <span className="text-[color:var(--mm-muted)]">· 비중 <span className="font-bold text-[color:var(--mm-ink)]">{volumePct(z)}%</span></span>
                 )}
               </div>
             )
           })() : (
-            <span className="text-gray-600">존 위에 마우스 올려 상세 보기</span>
+            <span className="text-[color:var(--mm-muted)]">존 위에 마우스 올려 상세 보기</span>
           )}
         </div>
       </div>

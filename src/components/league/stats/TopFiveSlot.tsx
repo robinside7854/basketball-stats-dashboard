@@ -74,15 +74,15 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
       <div className="flex items-center gap-2 mb-3">
         <Trophy size={14} style={{ color: 'var(--mm-ink-soft)' }} />
         <span
-          className="text-xs font-black uppercase"
-          style={{ color: 'var(--mm-ink)', letterSpacing: '0.16em' }}
+          className="t-label"
+          style={{ color: 'var(--mm-ink)' }}
         >
           TOP 5 리더
         </span>
         {active && (
           <span
-            className="ml-auto font-bold truncate"
-            style={{ color: 'var(--mm-ink)', fontSize: '15px', letterSpacing: '0.02em' }}
+            className="ml-auto font-bold truncate text-base"
+            style={{ color: 'var(--mm-ink)', letterSpacing: '0.02em' }}
           >
             {metricFullLabel ?? metricLabel}
             <span className="ml-1.5" style={{ color: 'var(--mm-ink-soft)', fontWeight: 700 }}>
@@ -97,7 +97,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
           className="flex items-center justify-center py-8 sm:py-10 text-center"
           style={{ color: 'var(--mm-muted)' }}
         >
-          <p className="text-xs sm:text-sm font-bold uppercase" style={{ letterSpacing: '0.10em' }}>
+          <p className="t-label">
             테이블 컬럼을 클릭해 TOP 5 리더 보기
           </p>
         </div>
@@ -139,11 +139,11 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                     <BigAvatar photo={p.photo_url} name={p.name} />
                   </div>
                   <span
-                    className="absolute top-1.5 left-1.5 inline-flex items-center justify-center font-jersey font-black tabular-nums rounded-md"
+                    className="absolute top-1.5 left-1.5 inline-flex items-center justify-center t-num font-bold rounded-md"
                     style={{
-                      minWidth: 22, height: 22, padding: '0 6px', fontSize: 13, lineHeight: 1,
+                      minWidth: 26, height: 26, padding: '0 6px', fontSize: 16, lineHeight: 1,
                       background: isFirst ? 'var(--mm-yellow-strong)' : 'var(--mm-panel)',
-                      color: isFirst ? 'var(--mm-black)' : rankColor,
+                      color: isFirst ? 'var(--mm-panel)' : rankColor,
                       border: '1px solid var(--mm-rule)',
                     }}
                   >
@@ -156,7 +156,7 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                     className="font-bold break-keep truncate"
                     style={{
                       color: 'var(--mm-ink)',
-                      fontSize: 'clamp(13px, 3.2vw, 15px)',
+                      fontSize: 'clamp(16px, 3.2vw, 17px)',
                       lineHeight: 1.15,
                       letterSpacing: '-0.005em',
                     }}
@@ -171,8 +171,8 @@ export default function TopFiveSlot({ metricKey, metricLabel, metricFullLabel, p
                       {p.value}
                     </span>
                     <span
-                      className="text-xs font-black uppercase"
-                      style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}
+                      className="t-label"
+                      style={{ color: 'var(--mm-muted)' }}
                     >
                       {metricLabel}
                     </span>

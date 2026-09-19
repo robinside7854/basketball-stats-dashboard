@@ -132,8 +132,8 @@ export default async function HighlightsLandingPage({
             하이라이트
           </h1>
           <p
-            className="text-xs lg:text-sm mt-1 font-bold uppercase"
-            style={{ color: 'var(--mm-muted)', letterSpacing: '0.16em' }}
+            className="text-xs lg:text-sm mt-1 font-bold"
+            style={{ color: 'var(--mm-muted)' }}
           >
             라운드별 득점 하이라이트 · 선수·팀·유형별 필터
           </p>
@@ -188,7 +188,7 @@ export default async function HighlightsLandingPage({
                         ({days[d.getDay()]})
                       </span>
                     </div>
-                    <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+                    <div className="text-xs font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>
                       {d.getFullYear()}년
                     </div>
                   </div>
@@ -203,12 +203,11 @@ export default async function HighlightsLandingPage({
                 {/* 상태 배지 */}
                 {statusLabel && (
                   <div
-                    className="mt-2 inline-flex items-center gap-1 text-xs font-black uppercase px-2 py-0.5 rounded"
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded"
                     style={{
                       background: 'var(--mm-panel-alt)',
                       color: 'var(--mm-muted)',
                       border: '1px solid var(--mm-rule)',
-                      letterSpacing: '0.12em',
                     }}
                     title={statusHint ?? undefined}
                   >
@@ -241,7 +240,7 @@ export default async function HighlightsLandingPage({
                       return (
                         <span
                           key={t.key}
-                          className="inline-flex items-center gap-1 text-xs font-black uppercase px-1.5 py-0.5 rounded"
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded"
                           style={{
                             background: isWinner ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
                             color: isWinner ? 'var(--mm-black)' : 'var(--mm-muted)',
@@ -252,7 +251,7 @@ export default async function HighlightsLandingPage({
                           aria-label={`${t.name} ${rec}`}
                         >
                           <span className="max-w-[6em] truncate">{t.name}</span>
-                          <span className="font-jersey tabular-nums tracking-normal">{rec}</span>
+                          <span className="t-num font-bold">{rec}</span>
                         </span>
                       )
                     })}
@@ -271,7 +270,7 @@ export default async function HighlightsLandingPage({
                 ) : null}
 
                 {isReady && (
-                  <div className="mt-3 inline-flex items-center gap-1 text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-yellow-strong)' }}>
+                  <div className="mt-3 inline-flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--mm-yellow-strong)' }}>
                     재생 <ChevronRight size={14} />
                   </div>
                 )}

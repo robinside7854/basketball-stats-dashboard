@@ -114,7 +114,7 @@ function PickPhotoFlipInner({
           style={{ background: front.bg, border: `4px solid ${front.border}`, boxShadow: `0 0 40px ${teamColor}88` }}
           aria-hidden
         >
-          <span className="text-sm sm:text-base font-black tracking-[0.3em] uppercase" style={{ color: front.fg, opacity: 0.75 }}>Pick</span>
+          <span className="text-sm sm:text-base font-black" style={{ color: front.fg, opacity: 0.75 }}>Pick</span>
           <span className="text-6xl sm:text-8xl font-black leading-none tabular-nums" style={{ color: front.fg, fontFamily: 'var(--font-bebas, sans-serif)' }}>#{pickNumber}</span>
         </div>
         {/* 뒷면 — 사진 또는 실루엣 */}
@@ -413,12 +413,12 @@ function StandardPickReveal({
 
         {/* 라운드 + 픽 번호 */}
         <div className="mb-3 flex items-center justify-center gap-3 flex-wrap">
-          <div className="text-xs sm:text-sm font-bold tracking-[0.3em] uppercase text-[#e5e7eb]">
+          <div className="text-xs sm:text-sm font-bold text-[#e5e7eb]">
             Round {data.roundNumber}
           </div>
           <div className="h-3 w-px bg-[#374151]" />
           <div
-            className="inline-flex items-center gap-1.5 text-sm sm:text-base font-black tracking-[0.25em] uppercase px-4 py-1.5 rounded-full shadow-lg"
+            className="inline-flex items-center gap-1.5 text-sm sm:text-base font-black px-4 py-1.5 rounded-full shadow-lg"
             style={{ background: ink.bg, color: ink.fg, border: `1px solid ${ink.border}`, boxShadow: `0 0 20px ${data.teamColor}` }}
           >
             <Trophy size={14} aria-hidden /> Pick #{data.pickNumber}
@@ -426,7 +426,7 @@ function StandardPickReveal({
         </div>
 
         {/* WITH THE PICK 문구 */}
-        <p className="text-xs sm:text-sm font-bold tracking-[0.4em] uppercase text-amber-300/90 mb-2">
+        <p className="text-xs sm:text-sm font-bold text-amber-300/90 mb-2">
           ─── With The {ordinal(data.pickNumber)} Pick ───
         </p>
 
@@ -437,7 +437,7 @@ function StandardPickReveal({
             <p className="text-xl sm:text-3xl font-bold text-[#ffffff]">{data.teamName}</p>
             <div className="w-3 h-3 rounded-full shadow-lg" style={{ background: data.teamColor, boxShadow: `0 0 12px ${data.teamColor}` }} />
           </div>
-          <p className="text-xs sm:text-base font-black tracking-[0.5em] uppercase text-[#d1d5db] mt-1.5">SELECTS</p>
+          <p className="text-xs sm:text-base font-black text-[#e5e7eb] mt-1.5">SELECTS</p>
         </div>
 
         {/* 메인 — 사진 카드 플립 + 이름 + 포지션 */}
@@ -466,7 +466,7 @@ function StandardPickReveal({
               {data.playerPosition.split(',').map(s => s.trim()).filter(Boolean).map((pos, i) => (
                 <span
                   key={i}
-                  className="text-sm sm:text-lg font-black tracking-[0.2em] uppercase px-3 py-1 rounded-md"
+                  className="text-sm sm:text-lg font-black px-3 py-1 rounded-md"
                   style={{
                     background: `${data.teamColor}33`,
                     color: chipAccent,
@@ -485,7 +485,7 @@ function StandardPickReveal({
         {standardBoxes.length > 0 && (
           <div className="mt-4 sm:mt-5 rounded-2xl border px-3 py-3 text-left"
             style={{ background: '#111114', borderColor: `${data.teamColor}55` }}>
-            <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-[color:var(--mm-muted)] mb-2">
+            <p className="text-xs sm:text-sm font-bold text-[color:var(--mm-muted)] mb-2">
               {seasonLabel ?? '시즌'} 기록
             </p>
             {/* 모바일 4열 × 2행 · lg 이상은 한 줄 8칸. 칸이 좁아지므로 순위 알약은
@@ -498,7 +498,7 @@ function StandardPickReveal({
           </div>
         )}
 
-        <p className="mt-6 text-xs sm:text-sm uppercase tracking-[0.3em] text-[#d1d5db]">탭하여 닫기</p>
+        <p className="mt-6 text-xs sm:text-sm text-[#e5e7eb]">탭하여 닫기</p>
       </div>
 
       <style jsx>{`
@@ -661,12 +661,12 @@ function StatBoxCell({
       >
         {box.value}
       </span>
-      <span className={`${compact ? 'text-xs' : 'text-xs sm:text-sm'} font-bold text-[#d1d5db] leading-none break-keep text-center`}>{box.label}</span>
+      <span className={`${compact ? 'text-xs' : 'text-xs sm:text-sm'} font-bold text-[#e5e7eb] leading-none break-keep text-center`}>{box.label}</span>
       {box.rank != null
         ? <RankPill rank={box.rank} total={rankTotal} teamColor={teamColor} small={compact} />
         : box.sub
           ? (
-            <span className={`${compact ? 'text-xs' : 'text-xs sm:text-sm'} font-bold tabular-nums whitespace-nowrap text-[#d1d5db]`}>
+            <span className={`${compact ? 'text-xs' : 'text-xs sm:text-sm'} font-bold tabular-nums whitespace-nowrap text-[#e5e7eb]`}>
               {compact ? (box.subShort ?? box.sub) : box.sub}
             </span>
           )
@@ -696,7 +696,7 @@ function PickCardFrontOnly({ pickNumber, teamColor, size = 'lg' }: { pickNumber:
         style={{ background: front.bg, border: `4px solid ${front.border}`, boxShadow: `0 0 40px ${teamColor}88` }}
         aria-hidden
       >
-        <span className="text-sm sm:text-base font-black tracking-[0.3em] uppercase" style={{ color: front.fg, opacity: 0.75 }}>Pick</span>
+        <span className="text-sm sm:text-base font-black" style={{ color: front.fg, opacity: 0.75 }}>Pick</span>
         <span className="text-5xl sm:text-7xl font-black leading-none tabular-nums" style={{ color: front.fg, fontFamily: 'var(--font-bebas, sans-serif)' }}>#{pickNumber}</span>
       </div>
     </div>
@@ -860,7 +860,7 @@ function DramaticPickReveal({
           {step >= 1 && data.playerPosition && data.playerPosition.split(',').map(s => s.trim()).filter(Boolean).map((pos, i) => (
             <span
               key={i}
-              className="d-in text-sm sm:text-lg font-black tracking-[0.2em] uppercase px-3 py-1 rounded-md"
+              className="d-in text-sm sm:text-lg font-black px-3 py-1 rounded-md"
               style={{
                 background: `${data.teamColor}33`,
                 color: dChipAccent,
@@ -877,14 +877,14 @@ function DramaticPickReveal({
             모바일 2열 × 4행 / sm 이상 4열 × 2행. 아직 안 나온 칸도 invisible 로 자리를 잡아 둔다. */}
         <div className="dramatic-stats mt-2 sm:mt-3">
           {step >= 2 && (
-            <p className="text-xs sm:text-sm font-bold uppercase tracking-[0.2em] text-[color:var(--mm-muted)] mb-1.5 sm:mb-2">
+            <p className="text-xs sm:text-sm font-bold text-[color:var(--mm-muted)] mb-1.5 sm:mb-2">
               {seasonLabel ?? '시즌'} 기록
             </p>
           )}
           {boxes.length === 0 ? (
             <div className={`rounded-xl border px-3 py-3 ${step >= 2 ? '' : 'invisible'}`}
               style={{ background: '#111114', borderColor: `${data.teamColor}66` }}>
-              <p className="text-base sm:text-xl font-bold text-[#d1d5db] break-keep">시즌 기록 없음</p>
+              <p className="text-base sm:text-xl font-bold text-[#e5e7eb] break-keep">시즌 기록 없음</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
@@ -915,7 +915,7 @@ function DramaticPickReveal({
           </div>
         )}
 
-        <p className="mt-3 sm:mt-4 text-xs sm:text-sm uppercase tracking-[0.3em] text-[#d1d5db]">
+        <p className="mt-3 sm:mt-4 text-xs sm:text-sm text-[#e5e7eb]">
           {revealed ? '탭하여 닫기' : '탭하면 바로 공개'}
         </p>
       </div>

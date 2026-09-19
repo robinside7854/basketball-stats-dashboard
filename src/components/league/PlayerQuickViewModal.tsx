@@ -158,7 +158,7 @@ function pctColor(pct: number, attempts: number, scope: PctScope): string {
     : LEAGUE_BASELINE.zone[scope]
   const tier = tierAgainst(pct, attempts, avg)
   if (tier === 'high') return 'text-[color:#059669]'
-  if (tier === 'low') return 'text-[color:#DC2626]'
+  if (tier === 'low') return 'text-[color:var(--mm-negative)]'
   if (tier === 'none') return 'text-[color:var(--mm-muted)]'
   return 'text-[color:var(--mm-yellow-strong)]'
 }
@@ -426,7 +426,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
           {isEditMode && (
             <button
               onClick={() => setShowEditPanel(v => !v)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-xs font-bold cursor-pointer transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm text-xs font-bold cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
               style={showEditPanel
                 ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', color: 'var(--mm-black)' }
                 : { background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', color: 'var(--mm-ink-soft)' }
@@ -713,7 +713,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         type="button"
                         aria-pressed={active}
                         onClick={() => togglePosition(p)}
-                        className="px-3 py-1.5 rounded-sm text-xs font-bold border transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                        className="px-3 py-1.5 rounded-sm text-xs font-bold border transition-colors duration-200 cursor-pointer min-h-11 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                         style={active
                           ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', color: 'var(--mm-black)' }
                           : { background: 'var(--mm-panel)', borderColor: 'var(--mm-rule)', color: 'var(--mm-ink-soft)' }
@@ -741,7 +741,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   }
                   onSaved?.(); setShowEditPanel(false)
                 }} disabled={savingEdit}
-                  className="w-full py-2 rounded-sm text-xs font-black uppercase tracking-[0.16em] cursor-pointer transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
+                  className="w-full py-2 rounded-sm text-xs font-black uppercase tracking-[0.16em] cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow-strong)]"
                   style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }}
                 >
                   {savingEdit ? '저장 중...' : '저장'}
@@ -767,7 +767,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                 }}
                 disabled={togglingP1}
                 aria-pressed={player?.plus_one ?? false}
-                className="px-3 py-1 rounded-sm text-xs font-bold cursor-pointer transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                className="px-3 py-1 rounded-sm text-xs font-bold cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                 style={player?.plus_one
                   ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', border: '1px solid var(--mm-black)', color: 'var(--mm-black)' }
                   : { background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-muted)' }
@@ -780,7 +780,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {!confirmDelete ? (
               <button
                 onClick={() => setConfirmDelete(true)}
-                className="w-full py-2 rounded-sm text-xs font-bold uppercase tracking-[0.14em] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] focus-visible:ring-offset-1"
+                className="w-full py-2 rounded-sm text-xs font-bold uppercase tracking-[0.14em] cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] focus-visible:ring-offset-1"
                 style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-live)' }}
               >
                 선수 삭제
@@ -793,14 +793,14 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, { method: 'DELETE', headers: leagueHeaders })
                   setDeleting(false); onDeleted?.(); onClose()
                 }} disabled={deleting}
-                  className="flex-1 py-2 rounded-sm text-xs font-black uppercase tracking-[0.14em] text-white cursor-pointer transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] focus-visible:ring-offset-1"
+                  className="flex-1 py-2 rounded-sm text-xs font-black uppercase tracking-[0.14em] text-white cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-live)] focus-visible:ring-offset-1"
                   style={{ background: 'var(--mm-live-bg)', border: '1px solid var(--mm-black)' }}
                 >
                   {deleting ? '삭제 중...' : '삭제 확인'}
                 </button>
                 <button
                   onClick={() => setConfirmDelete(false)}
-                  className="flex-1 py-2 rounded-sm text-xs font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                  className="flex-1 py-2 rounded-sm text-xs font-bold cursor-pointer min-h-11 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                   style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)' }}
                 >취소</button>
               </div>
@@ -848,7 +848,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                     <>
                       <button
                         onClick={() => setSelectedQuarterId(null)}
-                        className="shrink-0 px-3 py-1 rounded-sm text-xs font-bold cursor-pointer transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                        className="shrink-0 px-3 py-1 rounded-sm text-xs font-bold cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                         style={selectedQuarterId === null
                           ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', color: 'var(--mm-black)' }
                           : { background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', color: 'var(--mm-ink-soft)' }
@@ -860,7 +860,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         <button
                           key={q.id}
                           onClick={() => setSelectedQuarterId(q.id)}
-                          className="shrink-0 px-3 py-1 rounded-sm text-xs font-bold cursor-pointer transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                          className="shrink-0 px-3 py-1 rounded-sm text-xs font-bold cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                           style={selectedQuarterId === q.id
                             ? { background: 'var(--mm-yellow)', borderColor: 'var(--mm-black)', color: 'var(--mm-black)' }
                             : { background: 'var(--mm-panel-alt)', borderColor: 'var(--mm-rule)', color: 'var(--mm-ink-soft)' }
@@ -1243,7 +1243,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                   >
                     {(['court', 'donut'] as const).map(v => (
                       <button key={v} onClick={() => setShotView(v)}
-                        className="px-2.5 py-1 text-xs font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                        className="px-2.5 py-1 text-xs font-bold cursor-pointer min-h-11 whitespace-nowrap transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
                         style={shotView === v
                           ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)' }
                           : { background: 'var(--mm-panel-alt)', color: 'var(--mm-muted)' }
@@ -1372,7 +1372,7 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                               <div className="flex-1 h-2.5 overflow-hidden" style={{ background: 'var(--mm-rule)' }} aria-hidden>
                                 <div className="h-full transition-all duration-300" style={{ width: `${Math.min(z.data.dist, 100)}%`, backgroundColor: z.color }} />
                               </div>
-                              <span className="font-jersey font-black tabular-nums shrink-0" style={{ color: 'var(--mm-ink)', fontSize: '14px', minWidth: 44, textAlign: 'right' }}>
+                              <span className="t-num text-base font-black shrink-0" style={{ color: 'var(--mm-ink)', minWidth: 44, textAlign: 'right' }}>
                                 {z.data.dist.toFixed(1)}%
                               </span>
                             </div>
@@ -1487,13 +1487,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
             {/* 최근 5R (R = 라운드 단위, 같은 날 여러 경기는 합산. 단일 상대 개념 없음) */}
             {activeTab === 'trend' && detail && detail.recent_games.length > 0 && (
               <div className="px-5 py-4">
-                <p className="text-xs uppercase tracking-[0.20em] font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>최근 5R</p>
+                <p className="t-label font-black mb-3" style={{ color: 'var(--mm-yellow-strong)' }}>최근 5R</p>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  {/* 셀 크기는 globals.css 의 t-th / t-td 가 정본(가독성 업그레이드 2026-09-18).
+                      모달이 좁아 첫 열은 sticky — 가로로 밀어도 날짜가 남는다. */}
+                  <table className="w-full">
                     <thead>
                       <tr style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                         {['날짜','PTS','REB','AST','STL','BLK','FG','FG%','3P%'].map(h => (
-                          <th key={h} className="pb-1.5 text-xs font-bold uppercase tracking-[0.14em] text-right first:text-left" style={{ color: 'var(--mm-muted)' }}>{h}</th>
+                          <th key={h} className={`t-th ${h === '날짜' ? 'text-left sticky left-0' : 'text-right'}`} style={h === '날짜' ? { color: 'var(--mm-muted)', background: 'var(--mm-panel)' } : { color: 'var(--mm-muted)' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -1504,15 +1506,15 @@ export default function PlayerQuickViewModal({ leagueId, playerId, playerName, o
                         const fg3Pct = (r.fg3a ?? 0) > 0 ? Math.round((r.fg3m ?? 0) / (r.fg3a ?? 1) * 100) : null
                         return (
                         <tr key={i} style={{ borderBottom: '1px solid var(--mm-rule)' }} className="last:border-0">
-                          <td className="py-1.5 text-xs pr-2 whitespace-nowrap font-mono" style={{ color: 'var(--mm-ink-soft)' }}>{g.date?.slice(5) ?? '—'}</td>
-                          <td className="py-1.5 text-right font-jersey font-black tabular-nums" style={{ color: 'var(--mm-ink)' }}>{g.pts}</td>
-                          <td className="py-1.5 text-right tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{g.reb}</td>
-                          <td className="py-1.5 text-right tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{g.ast}</td>
-                          <td className="py-1.5 text-right tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{r.stl ?? 0}</td>
-                          <td className="py-1.5 text-right tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{r.blk ?? 0}</td>
-                          <td className="py-1.5 text-right text-xs font-mono" style={{ color: 'var(--mm-muted)' }}>{g.fgm}/{g.fga}</td>
-                          <td className="py-1.5 text-right text-xs tabular-nums" style={{ color: 'var(--mm-ink-soft)' }}>{fgPct != null ? `${fgPct}%` : '—'}</td>
-                          <td className="py-1.5 text-right text-xs tabular-nums" style={{ color: 'var(--mm-yellow-strong)' }}>{fg3Pct != null ? `${fg3Pct}%` : '—'}</td>
+                          <td className="t-td text-left pr-2 sticky left-0" style={{ color: 'var(--mm-ink-soft)', background: 'var(--mm-panel)' }}>{g.date?.slice(5) ?? '—'}</td>
+                          <td className="t-td-key text-right">{g.pts}</td>
+                          <td className="t-td text-right" style={{ color: 'var(--mm-ink-soft)' }}>{g.reb}</td>
+                          <td className="t-td text-right" style={{ color: 'var(--mm-ink-soft)' }}>{g.ast}</td>
+                          <td className="t-td text-right" style={{ color: 'var(--mm-yellow-strong)' }}>{r.stl ?? 0}</td>
+                          <td className="t-td text-right" style={{ color: 'var(--mm-yellow-strong)' }}>{r.blk ?? 0}</td>
+                          <td className="t-td text-right" style={{ color: 'var(--mm-muted)' }}>{g.fgm}/{g.fga}</td>
+                          <td className="t-td text-right" style={{ color: 'var(--mm-ink-soft)' }}>{fgPct != null ? `${fgPct}%` : '—'}</td>
+                          <td className="t-td text-right" style={{ color: 'var(--mm-yellow-strong)' }}>{fg3Pct != null ? `${fg3Pct}%` : '—'}</td>
                         </tr>
                         )
                       })}

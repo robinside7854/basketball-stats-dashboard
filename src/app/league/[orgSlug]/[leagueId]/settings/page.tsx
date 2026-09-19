@@ -335,7 +335,7 @@ export default function LeagueSettingsPage() {
         </div>
         <button
           onClick={openPinModal}
-          className="px-6 py-2.5 bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] text-sm font-bold uppercase tracking-[0.16em] cursor-pointer transition-colors hover:brightness-95"
+          className="px-6 py-2.5 min-h-11 whitespace-nowrap bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] text-sm font-bold cursor-pointer transition-colors hover:brightness-95"
         >
           PIN 입력
         </button>
@@ -357,22 +357,22 @@ export default function LeagueSettingsPage() {
           <button
             onClick={() => setVisibility(true)}
             disabled={savingVisibility || isPublic === null}
-            className={`min-h-11 py-2.5 px-3 border text-sm font-bold uppercase tracking-[0.12em] transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)] ${
-              isPublic === true
-                ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
-                : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
-            }`}
+            className={`min-h-11 py-2.5 px-3 border text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)] ${
+ isPublic === true
+ ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
+ : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
+ }`}
           >
             공개
           </button>
           <button
             onClick={() => setVisibility(false)}
             disabled={savingVisibility || isPublic === null}
-            className={`min-h-11 py-2.5 px-3 border text-sm font-bold uppercase tracking-[0.12em] transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)] ${
-              isPublic === false
-                ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
-                : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
-            }`}
+            className={`min-h-11 py-2.5 px-3 border text-sm font-bold transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--mm-ink)] ${
+ isPublic === false
+ ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
+ : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
+ }`}
           >
             비공개
           </button>
@@ -413,11 +413,11 @@ export default function LeagueSettingsPage() {
             <button
               key={opt.value}
               onClick={() => setStatus(opt.value)}
-              className={`flex-1 py-2.5 border text-sm font-bold uppercase tracking-[0.12em] transition-colors cursor-pointer ${
-                status === opt.value
-                  ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
-                  : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
-              }`}
+              className={`flex-1 py-2.5 min-h-11 whitespace-nowrap border text-sm font-bold transition-colors cursor-pointer ${
+ status === opt.value
+ ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
+ : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
+ }`}
             >
               <span className={status === opt.value ? opt.color : ''}>{opt.label}</span>
             </button>
@@ -426,7 +426,7 @@ export default function LeagueSettingsPage() {
         <Button
           onClick={() => save('status', { status })}
           disabled={saving === 'status' || status === league.status}
-          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold uppercase tracking-[0.14em] rounded-none"
+          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none"
           size="sm"
         >
           {saving === 'status' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}상태 저장
@@ -438,7 +438,7 @@ export default function LeagueSettingsPage() {
         <h3 className="font-black text-lg text-[color:var(--mm-ink)]">정기 일정 설정</h3>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">정기 경기 요일</label>
+          <label className="t-label">정기 경기 요일</label>
           <select
             value={matchDay}
             onChange={e => setMatchDay(e.target.value)}
@@ -449,7 +449,7 @@ export default function LeagueSettingsPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">첫 정기 일정 날짜</label>
+          <label className="t-label">첫 정기 일정 날짜</label>
           <Input
             type="date"
             value={startDate}
@@ -459,7 +459,7 @@ export default function LeagueSettingsPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">시즌 구분</label>
+          <label className="t-label">시즌 구분</label>
           <div className="grid grid-cols-2 gap-2">
             {[
               { value: 'annual', label: '연간 (1년)' },
@@ -468,11 +468,11 @@ export default function LeagueSettingsPage() {
               <button
                 key={opt.value}
                 onClick={() => setSeasonType(opt.value as 'annual' | 'quarterly')}
-                className={`py-2.5 px-3 border text-sm font-bold uppercase tracking-[0.12em] transition-colors cursor-pointer ${
-                  seasonType === opt.value
-                    ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
-                    : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
-                }`}
+                className={`py-2.5 px-3 min-h-11 whitespace-nowrap border text-sm font-bold transition-colors cursor-pointer ${
+ seasonType === opt.value
+ ? 'border-[color:var(--mm-ink)] bg-[color:var(--mm-yellow-soft)] text-[color:var(--mm-ink)]'
+ : 'border-[color:var(--mm-rule)] bg-[color:var(--mm-panel-alt)] text-[color:var(--mm-muted)] hover:border-[color:var(--mm-ink-soft)]'
+ }`}
               >
                 {opt.label}
               </button>
@@ -481,7 +481,7 @@ export default function LeagueSettingsPage() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">정규일정 당 경기 수</label>
+          <label className="t-label">정규일정 당 경기 수</label>
           <Input
             type="number" min={1} max={10}
             value={gamesPerRound}
@@ -493,7 +493,7 @@ export default function LeagueSettingsPage() {
         <Button
           onClick={() => save('schedule-settings', { match_day: matchDay, start_date: startDate, season_type: seasonType, games_per_round: gamesPerRound })}
           disabled={saving === 'schedule-settings'}
-          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold uppercase tracking-[0.14em] rounded-none"
+          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none"
           size="sm"
         >
           {saving === 'schedule-settings' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}설정 저장
@@ -517,21 +517,21 @@ export default function LeagueSettingsPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">시작 시간</label>
+            <label className="t-label">시작 시간</label>
             <Input
               type="time" value={defTime} onChange={e => setDefTime(e.target.value)}
               className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none"
             />
           </div>
           <div className="space-y-1.5 col-span-2 sm:col-span-1">
-            <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">장소</label>
+            <label className="t-label">장소</label>
             <Input
               value={defPlace} onChange={e => setDefPlace(e.target.value)} placeholder="예: 상암 체육관"
               className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] rounded-none"
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-[0.16em] text-[color:var(--mm-muted)]">정원</label>
+            <label className="t-label">정원</label>
             <Input
               type="number" min={1} inputMode="numeric" value={defCapacity}
               onChange={e => setDefCapacity(e.target.value)} placeholder="무제한"
@@ -547,7 +547,7 @@ export default function LeagueSettingsPage() {
             default_capacity: defCapacity ? Number(defCapacity) : null,
           })}
           disabled={saving === 'default-venue'}
-          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold uppercase tracking-[0.14em] rounded-none"
+          className="w-full bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer font-bold rounded-none"
           size="sm"
         >
           {saving === 'default-venue' ? <Loader2 size={14} className="animate-spin mr-1" /> : null}고정 대관 저장
@@ -578,7 +578,7 @@ export default function LeagueSettingsPage() {
           <Button
             onClick={() => save('youtube', { youtube_channel: ytChannel.trim() || null })}
             disabled={saving === 'youtube'}
-            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold uppercase tracking-[0.14em] rounded-none"
+            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none"
             size="sm"
           >
             {saving === 'youtube' ? <Loader2 size={14} className="animate-spin" /> : '저장'}
@@ -626,7 +626,7 @@ export default function LeagueSettingsPage() {
           <Button
             onClick={addAlias}
             disabled={aliasSaving || aliasText.trim().length === 0 || !aliasTeamId}
-            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold uppercase tracking-[0.14em] rounded-none min-h-11"
+            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none min-h-11"
             size="sm"
           >
             {aliasSaving ? <Loader2 size={14} className="animate-spin" /> : '추가'}
@@ -646,7 +646,7 @@ export default function LeagueSettingsPage() {
                   type="button"
                   onClick={() => removeAlias(a.id, a.alias)}
                   aria-label={`'${a.alias}' 별칭 삭제`}
-                  className="shrink-0 px-3 min-h-11 text-xs font-bold uppercase tracking-[0.12em] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  className="shrink-0 px-3 min-h-11 whitespace-nowrap t-label hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                 >
                   삭제
                 </button>
@@ -659,7 +659,7 @@ export default function LeagueSettingsPage() {
       {/* 플러스원(+1) 나이 기준 */}
       <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-black bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] px-2 py-0.5 tracking-tight">+1</span>
+          <span className="text-xs font-semibold bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] px-2 py-0.5 tracking-tight">+1</span>
           <h3 className="font-black text-lg text-[color:var(--mm-ink)]">플러스원 나이 기준</h3>
         </div>
         <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed">
@@ -677,7 +677,7 @@ export default function LeagueSettingsPage() {
           <Button
             onClick={() => save('plus_one_age', { plus_one_age: plusOneAge ? Number(plusOneAge) : null })}
             disabled={saving === 'plus_one_age'}
-            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold uppercase tracking-[0.14em] rounded-none"
+            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none"
             size="sm"
           >
             {saving === 'plus_one_age' ? <Loader2 size={14} className="animate-spin" /> : '저장'}
@@ -701,7 +701,7 @@ export default function LeagueSettingsPage() {
             onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
             maxLength={4}
             placeholder={pinLoadFailed ? '조회 실패 — 새 PIN 입력' : '4자리 PIN'}
-            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] font-mono text-xl tracking-[0.5em] flex-1 rounded-none"
+            className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] font-mono text-xl flex-1 rounded-none"
           />
           <button
             onClick={() => setPinVisible(v => !v)}
@@ -719,7 +719,7 @@ export default function LeagueSettingsPage() {
           <Button
             onClick={savePin}
             disabled={saving === 'pin'}
-            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold uppercase tracking-[0.14em] rounded-none"
+            className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer shrink-0 font-bold rounded-none"
             size="sm"
           >
             저장
@@ -765,7 +765,7 @@ export default function LeagueSettingsPage() {
                           setEditingQTeams(q.id)
                           setQTeamDraft(Object.fromEntries(aliasTeams.map(t => [t.id, names[t.id] ?? ''])))
                         }}
-                        className="shrink-0 px-3 min-h-11 text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                        className="shrink-0 px-3 min-h-11 whitespace-nowrap t-label hover:text-[color:var(--mm-ink)] cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
                       >편집</button>
                     )}
                   </div>
@@ -793,7 +793,7 @@ export default function LeagueSettingsPage() {
                           size="sm"
                           onClick={() => saveQuarterTeamNames(q.id)}
                           disabled={savingQTeams}
-                          className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold uppercase tracking-[0.14em] rounded-none min-h-11"
+                          className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold rounded-none min-h-11"
                         >
                           {savingQTeams ? <Loader2 size={14} className="animate-spin" /> : '저장'}
                         </Button>
@@ -802,7 +802,7 @@ export default function LeagueSettingsPage() {
                           variant="outline"
                           onClick={() => setEditingQTeams(null)}
                           disabled={savingQTeams}
-                          className="border-[color:var(--mm-rule)] bg-transparent text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel)] hover:text-[color:var(--mm-ink)] cursor-pointer text-xs font-bold uppercase tracking-[0.14em] rounded-none min-h-11"
+                          className="border-[color:var(--mm-rule)] bg-transparent text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel)] hover:text-[color:var(--mm-ink)] cursor-pointer text-xs font-bold rounded-none min-h-11"
                         >취소</Button>
                       </div>
                     </div>
@@ -845,7 +845,7 @@ export default function LeagueSettingsPage() {
                         setQStartDate(q.start_date ?? '')
                         setQEndDate(q.end_date ?? '')
                       }}
-                      className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] cursor-pointer"
+                      className="t-label min-h-11 whitespace-nowrap inline-flex items-center hover:text-[color:var(--mm-ink)] cursor-pointer"
                     >편집</button>
                   )}
                 </div>
@@ -853,12 +853,12 @@ export default function LeagueSettingsPage() {
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--mm-muted)]">시작일</label>
+                        <label className="t-label">시작일</label>
                         <Input type="date" value={qStartDate} onChange={e => setQStartDate(e.target.value)}
                           className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-xs mt-0.5 rounded-none" />
                       </div>
                       <div>
-                        <label className="text-xs font-bold uppercase tracking-[0.14em] text-[color:var(--mm-muted)]">종료일</label>
+                        <label className="t-label">종료일</label>
                         <Input type="date" value={qEndDate} onChange={e => setQEndDate(e.target.value)}
                           className="bg-[color:var(--mm-panel)] border-[color:var(--mm-rule)] text-[color:var(--mm-ink)] text-xs mt-0.5 rounded-none" />
                       </div>
@@ -866,11 +866,11 @@ export default function LeagueSettingsPage() {
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => saveQuarterDates(q.id)}
                         disabled={savingQuarter === q.id}
-                        className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold uppercase tracking-[0.14em] rounded-none">
+                        className="bg-[color:var(--mm-yellow)] text-[color:var(--mm-black)] hover:brightness-95 hover:bg-[color:var(--mm-yellow)] cursor-pointer text-xs font-bold rounded-none">
                         {savingQuarter === q.id ? <Loader2 size={14} className="animate-spin" /> : '저장'}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => setEditingQuarter(null)}
-                        className="border-[color:var(--mm-rule)] bg-transparent text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel)] hover:text-[color:var(--mm-ink)] cursor-pointer text-xs font-bold uppercase tracking-[0.14em] rounded-none">취소</Button>
+                        className="border-[color:var(--mm-rule)] bg-transparent text-[color:var(--mm-ink)] hover:bg-[color:var(--mm-panel)] hover:text-[color:var(--mm-ink)] cursor-pointer text-xs font-bold rounded-none">취소</Button>
                     </div>
                   </div>
                 ) : (

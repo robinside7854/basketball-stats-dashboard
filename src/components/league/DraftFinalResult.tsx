@@ -214,7 +214,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                   24 로 줄이면 원 한가운데 점만 남는다. 원 크기에 맞춘 값. */}
               <Trophy className="w-9 h-9 sm:w-11 sm:h-11 text-[#ffffff]" />
             </div>
-            <p className="text-xs sm:text-sm font-black uppercase tracking-[0.3em] text-amber-300">DRAFT COMPLETE</p>
+            <p className="text-xs sm:text-sm font-black text-amber-300">DRAFT COMPLETE</p>
             <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight text-[#ffffff] break-keep text-balance leading-tight"
               style={{ textShadow: '0 2px 12px rgba(245,158,11,0.4)' }}>
               {title}
@@ -262,9 +262,9 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                     <h3 className="text-base sm:text-lg lg:text-xl font-black text-[#ffffff] truncate break-keep min-w-0">{t.name}</h3>
                     <span className="ml-auto flex items-center gap-2 shrink-0">
                       {typeof teamAvgSec[t.id] === 'number' && (
-                        <span className="text-sm font-mono tabular-nums text-[#d1d5db]">평균 {formatSec(teamAvgSec[t.id])}</span>
+                        <span className="text-sm font-mono tabular-nums text-[#e5e7eb]">평균 {formatSec(teamAvgSec[t.id])}</span>
                       )}
-                      <span className="text-xs sm:text-sm font-mono tabular-nums text-[#d1d5db]">{totalMembers}명</span>
+                      <span className="text-xs sm:text-sm font-mono tabular-nums text-[#e5e7eb]">{totalMembers}명</span>
                     </span>
                   </div>
                   {/* 팀장 라인 — 카드 최상단에 강조 표시 */}
@@ -278,7 +278,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                     >
                       <Crown size={14} className="text-amber-300 shrink-0" />
                       <span
-                        className="text-sm font-black uppercase tracking-widest px-1.5 py-0.5 rounded shrink-0"
+                        className="text-sm font-black px-1.5 py-0.5 rounded shrink-0"
                         style={{ background: teamInk(t.color).bg, color: teamInk(t.color).fg, border: `1px solid ${teamInk(t.color).border}` }}
                       >
                         팀장
@@ -302,7 +302,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                           )}
                           <span className="text-[#ffffff] font-bold text-sm sm:text-base truncate min-w-0 break-keep flex-1">{p.player_name}</span>
                           {p.player_position && (
-                            <span className="text-sm text-[#d1d5db] font-mono shrink-0">
+                            <span className="text-sm text-[#e5e7eb] font-mono shrink-0">
                               {p.player_position.split(',').map(s => s.trim()).join('·')}
                             </span>
                           )}
@@ -327,7 +327,8 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
                   ? []
                   : [{ key: 'slow', icon: Hourglass, label: '최장 고민', entry: slowest }]),
               ] as const).map(({ key, icon: Icon, label, entry }) => {
-                const teamColor = teamMap[entry.pick.team_id]?.color ?? '#9ca3af'
+                // teamAccentOnDark 가 hex 파싱을 하므로 CSS 변수 불가
+                const teamColor = teamMap[entry.pick.team_id]?.color ?? '#A8A29E'
                 const teamName = teamMap[entry.pick.team_id]?.name ?? '—'
                 return (
                   <span
@@ -383,7 +384,7 @@ export default function DraftFinalResult({ open, onClose, title, teams, picks, d
           <Button
             onClick={onClose}
             variant="outline"
-            className="bg-[#111827] border-[#374151] text-[#f3f4f6] hover:bg-[#1f2937] text-base sm:text-lg min-h-11 h-12 sm:h-14 px-5 sm:px-6 font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9ca3af] focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+            className="bg-[#111827] border-[#374151] text-[#f3f4f6] hover:bg-[#1f2937] text-base sm:text-lg min-h-11 h-12 sm:h-14 px-5 sm:px-6 font-bold cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
             닫기
           </Button>

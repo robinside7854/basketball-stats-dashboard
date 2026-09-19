@@ -97,7 +97,7 @@ export default function BestShotsGallery({ players, clips, photoMap = {} }: Prop
                     })}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-xs uppercase font-bold" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+                  <div className="flex items-center justify-center h-full text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
                     영상 없음
                   </div>
                 )}
@@ -113,7 +113,7 @@ export default function BestShotsGallery({ players, clips, photoMap = {} }: Prop
                 </span>
                 {/* 핀 개수 뱃지 (우상단) */}
                 <span
-                  className="absolute top-2 right-2 inline-flex items-center gap-1 text-xs font-black uppercase tracking-[0.10em] px-1.5 py-0.5"
+                  className="absolute top-2 right-2 inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5"
                   style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)', borderRadius: '3px' }}
                 >
                   <Pin size={14} aria-hidden />
@@ -148,7 +148,7 @@ export default function BestShotsGallery({ players, clips, photoMap = {} }: Prop
                   <div className="text-sm font-black truncate" style={{ color: 'var(--mm-ink)' }}>
                     {p.number != null ? `#${p.number} ` : ''}{p.name}
                   </div>
-                  <div className="text-xs font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.10em' }}>
+                  <div className="text-xs font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>
                     베스트샷 {playerClips.length}개
                   </div>
                 </div>

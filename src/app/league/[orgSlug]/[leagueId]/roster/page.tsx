@@ -725,8 +725,9 @@ export default function LeagueRosterPage() {
                         className="object-cover object-top"
                       />
                     ) : (
-                      <span className="font-jersey text-2xl lg:text-3xl font-bold text-[var(--mm-muted)] leading-none text-center px-0.5">
-                        {p.name.length > 1 ? p.name.slice(1) : p.name}
+                      <span className="font-jersey text-2xl lg:text-3xl font-bold text-[var(--mm-muted)] leading-none text-center px-0.5 whitespace-nowrap">
+                        {/* 두 글자까지만 — 「131게스트A」 같은 긴 이름이 원 안에서 음절 중간에 꺾였다 */}
+                        {p.name.length > 1 ? p.name.slice(1, 3) : p.name}
                       </span>
                     )}
                   </div>

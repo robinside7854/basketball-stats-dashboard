@@ -333,7 +333,7 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
           PC 는 본문이 옆에 그대로 있으므로 숨긴다. */}
       {currentTeamName && (
         <div className="lg:hidden px-3 py-2 min-h-11 flex items-center gap-2 border-b border-[var(--mm-rule)] bg-[var(--mm-panel)]">
-          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentTeamColor ?? '#6b7280' }} aria-hidden />
+          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: currentTeamColor ?? 'var(--mm-muted)' }} aria-hidden />
           <span className="text-sm font-bold text-[var(--mm-ink)] truncate min-w-0">{currentTeamName}</span>
           {isMyTurn && <span className="shrink-0 px-2 py-0.5 rounded bg-[var(--mm-positive-bg)] text-[var(--mm-positive-fg)] border border-[var(--mm-positive)] text-sm font-black">내 차례</span>}
           {remainingSeconds != null && (
@@ -358,7 +358,8 @@ export default function DraftChat({ leagueId, draftId, authedCode, teams, authed
         {msgs.map(m => {
           const team = m.team_id ? teamMap[m.team_id] : null
           const isSup = m.sender_role === 'supervisor'
-          const color = isSup ? '#f59e0b' : (team?.color ?? '#9ca3af')
+          // hex 문자열이 accentOrInk·`color + '33'` 색연산에 들어가므로 CSS 변수를 못 쓴다
+          const color = isSup ? '#f59e0b' : (team?.color ?? '#A8A29E')
           const mine = isMine(m)
           return (
             <div key={`chat-${m.id}`} className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}>

@@ -145,15 +145,15 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
               </span>
               <Sparkles size={16} style={{ color: 'var(--mm-ink-soft)' }} />
             </div>
-            <div className="text-xs md:text-sm font-bold uppercase mt-0.5" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+            <div className="text-xs md:text-sm font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>
               나의 이번 시즌 대시보드
             </div>
           </div>
           <button
             type="button"
             onClick={() => setProfileOpen(true)}
-            className="shrink-0 inline-flex items-center gap-1.5 px-3 md:px-4 py-2 text-xs md:text-sm font-black uppercase min-h-[40px] md:min-h-[44px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
-            style={{ background: 'var(--mm-black)', color: '#ffffff', border: '1px solid var(--mm-black)', borderRadius: '4px', letterSpacing: '0.12em' }}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 md:px-4 py-2 text-xs md:text-sm font-black min-h-[40px] md:min-h-[44px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-black)]"
+            style={{ background: 'var(--mm-black)', color: '#ffffff', border: '1px solid var(--mm-black)', borderRadius: '4px' }}
             aria-label="선수카드 열기"
           >
             <IdCard size={14} />
@@ -162,7 +162,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
         </header>
 
         {loading || !data ? (
-          <div className="py-8 text-center text-xs font-bold uppercase" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+          <div className="py-8 text-center text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
             로딩중…
           </div>
         ) : (
@@ -190,7 +190,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
             <UserIcon size={14} aria-hidden />
             <span className="truncate">아이디 <b style={{ color: 'var(--mm-ink-soft)' }}>{user.login_id}</b></span>
             {user.is_default_password && (
-              <span className="inline-flex items-center text-xs font-black uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-sm"
+              <span className="inline-flex items-center text-xs font-black px-1.5 py-0.5 rounded-sm"
                 style={{ background: 'var(--mm-yellow)', color: 'var(--mm-black)' }}>
                 초기 비번
               </span>
@@ -200,7 +200,7 @@ export default function PersonalDashboard({ leagueId, orgSlug }: Props) {
             <button
               type="button"
               onClick={() => setPwOpen(true)}
-              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-black uppercase tracking-[0.10em] rounded-sm cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1.5 min-h-[36px] px-3 py-1.5 text-xs font-black rounded-sm cursor-pointer transition-colors"
               style={{
                 background: user.is_default_password ? 'var(--mm-yellow)' : 'var(--mm-panel)',
                 color: user.is_default_password ? 'var(--mm-black)' : 'var(--mm-ink)',
@@ -284,7 +284,7 @@ function StatCard({ metricKey, value, rank }: { metricKey: Chaser['metric']; val
     >
       {/* 지표 라벨 */}
       <div
-        className="text-xs font-black uppercase tracking-[0.14em] mt-0.5"
+        className="text-xs font-black mt-0.5"
         style={{ color: 'var(--mm-muted)' }}
       >
         {METRIC_LABEL[metricKey]}
@@ -374,7 +374,7 @@ function StreakBoard({ streaks }: { streaks: StreakItem[] }) {
             투명도만 흔들어 크기는 그대로 둔다. 크기를 흔들면 옆 글자가 밀린다. */}
         <Flame size={16} className="mm-flicker" style={{ color: 'var(--color-hoop-orange-500)' }} />
         <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>진행 중 스트릭</span>
-        <span className="text-xs font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>다음 경기에 이어가요</span>
+        <span className="text-xs font-bold ml-1" style={{ color: 'var(--mm-muted)' }}>다음 경기에 이어가요</span>
       </div>
       <div className="flex flex-wrap gap-2">
         {streaks.map(s => (
@@ -412,7 +412,7 @@ function HighlightCTA({ available, href, date }: { available: boolean; href: str
           <div className="font-bold text-base md:text-lg" style={{ letterSpacing: '-0.005em' }}>
             나의 최근 하이라이트
           </div>
-          <div className="text-xs md:text-sm font-bold uppercase mt-0.5" style={{ letterSpacing: '0.10em' }}>
+          <div className="text-xs md:text-sm font-bold mt-0.5">
             {available ? `${formatDate(date)} 참여 · 클립 자동재생` : '아직 참여 기록이 없어요'}
           </div>
         </div>
@@ -464,7 +464,7 @@ function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: n
         <span className="font-bold text-base md:text-lg" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
           마일스톤 체이서
         </span>
-        <span className="text-xs font-bold uppercase ml-1" style={{ color: 'var(--mm-muted)', letterSpacing: '0.14em' }}>
+        <span className="text-xs font-bold ml-1" style={{ color: 'var(--mm-muted)' }}>
           가까운 것부터
         </span>
       </div>
@@ -478,7 +478,7 @@ function MilestoneChaser({ chasers, playerId }: { chasers: Chaser[]; playerId: n
               <div key={c.metric}>
                 <div className="flex items-center justify-between text-xs md:text-sm mb-1">
                   <span className="font-bold" style={{ color: METRIC_COLOR[c.metric] }}>
-                    <b style={{ letterSpacing: '0.10em' }}>{c.metricLabel}</b>
+                    <b>{c.metricLabel}</b>
                     <span className="ml-1.5" style={{ color: 'var(--mm-ink-soft)' }}>{METRIC_KOREAN[c.metric]}</span>
                   </span>
                   <span className="tabular-nums" style={{ color: 'var(--mm-ink)' }}>

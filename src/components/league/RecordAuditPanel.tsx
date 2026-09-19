@@ -71,7 +71,7 @@ export default function RecordAuditPanel({ leagueId, gameId, players, refreshKey
           ? <ChevronDown size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />
           : <ChevronRight size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />}
         <SearchCheck size={14} aria-hidden style={{ color: 'var(--mm-muted)' }} />
-        <span className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+        <span className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
           기록 점검
         </span>
         <span className="ml-auto flex items-center gap-1.5">

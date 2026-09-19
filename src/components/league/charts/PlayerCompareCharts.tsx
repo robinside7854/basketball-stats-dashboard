@@ -19,11 +19,11 @@ export default function PlayerCompareRadarChart({
   return (
     <ResponsiveContainer width="100%" height={240}>
       <RadarChart data={data} margin={{ top: 8, right: 24, bottom: 8, left: 24 }}>
-        <PolarGrid stroke="#374151" />
-        <PolarAngleAxis dataKey="stat" tick={{ fill: '#d1d5db', fontSize: 11, fontWeight: 600 }} />
+        <PolarGrid stroke="var(--mm-rule)" />
+        <PolarAngleAxis dataKey="stat" tick={{ fill: 'var(--mm-ink-soft)', fontSize: 13, fontWeight: 600 }} />
         <Radar name={player1Name} dataKey={player1Name} stroke={color1} fill={color1} fillOpacity={0.25} strokeWidth={2} />
         <Radar name={player2Name} dataKey={player2Name} stroke={color2} fill={color2} fillOpacity={0.25} strokeWidth={2} />
-        <Legend wrapperStyle={{ fontSize: 11, color: 'var(--mm-muted)' }} />
+        <Legend wrapperStyle={{ fontSize: 14, color: 'var(--mm-muted)' }} />
       </RadarChart>
     </ResponsiveContainer>
   )

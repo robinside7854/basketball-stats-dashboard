@@ -75,7 +75,7 @@ export default async function ClassicGamesPage({
         >
           명경기
         </h2>
-        <p className="text-xs font-bold uppercase tracking-[0.14em]" style={{ color: 'var(--mm-muted)' }}>
+        <p className="text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
           월별 1경기 · {games.length}개월
         </p>
       </div>
@@ -119,7 +119,7 @@ function ClassicCard({ g, leagueId }: { g: ClassicGame; leagueId: string }) {
         style={{ borderBottom: '1px solid var(--mm-rule)' }}
       >
         <span
-          className="font-jersey font-black"
+          className="font-bold"
           style={{ color: 'var(--mm-ink)', fontSize: '18px', letterSpacing: '-0.01em' }}
         >
           {formatMonth(g.month)}
@@ -129,7 +129,7 @@ function ClassicCard({ g, leagueId }: { g: ClassicGame; leagueId: string }) {
         </span>
         {g.relaxed && (
           <span
-            className="text-xs font-black uppercase px-2 py-0.5"
+            className="text-xs font-semibold px-2 py-0.5"
             style={{
               background: 'var(--mm-neutral-bg)', color: 'var(--mm-neutral-fg)',
               borderRadius: 'var(--mm-radius-chip)', letterSpacing: '0.1em',
@@ -181,7 +181,7 @@ function ClassicCard({ g, leagueId }: { g: ClassicGame; leagueId: string }) {
         {g.reasons.map(r => (
           <span
             key={r}
-            className="inline-flex items-center text-xs font-black px-2.5 py-1"
+            className="inline-flex items-center text-xs font-semibold px-2.5 py-1"
             style={{
               background: 'var(--mm-yellow-soft)', color: 'var(--mm-yellow-strong)',
               borderRadius: 'var(--mm-radius-chip)',

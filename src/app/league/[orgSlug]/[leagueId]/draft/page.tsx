@@ -516,7 +516,7 @@ export default function LeagueDraftPage() {
                 <span className="text-white font-bold text-xl">{teamMap[reveal.team_id]?.name}</span>
                 <span className="text-white/80 text-base">{reveal.round_number}R · 전체 {reveal.pick_number}순위</span>
               </div>
-              <p className="font-jersey text-lg uppercase tracking-[0.4em] mb-3 animate-pulse" style={{ color: teamAccentOnDark(rc) }}>THE PICK IS IN</p>
+              <p className="font-jersey text-lg mb-3 animate-pulse" style={{ color: teamAccentOnDark(rc) }}>THE PICK IS IN</p>
               <div className="mb-4 animate-in zoom-in-75 duration-500">
                 <PickPhotoFlip photoUrl={reveal.player_photo_url} playerName={reveal.player_name} pickNumber={reveal.pick_number} teamColor={rc} size="md" />
               </div>
@@ -561,7 +561,7 @@ export default function LeagueDraftPage() {
                 <FlaskConical size={16} aria-hidden /> TEST · 리그 미반영
               </span>
             )}
-            {isFocus &&<span className="text-sm font-bold px-2.5 py-1 rounded-sm bg-[color:var(--mm-live-bg)] text-white uppercase tracking-wider animate-pulse-red">집중 모드 · LIVE</span>}
+            {isFocus &&<span className="text-sm font-bold px-2.5 py-1 rounded-sm bg-[color:var(--mm-live-bg)] text-white tracking-wider animate-pulse-red">집중 모드 · LIVE</span>}
           </h1>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <button onClick={() => { primeAudio(); setMuted(v => !v) }} title={muted ? '소리 켜기' : '소리 끄기'}
@@ -613,7 +613,7 @@ export default function LeagueDraftPage() {
         <div className="border border-[color:var(--mm-rule)] rounded-sm overflow-hidden">
           <button onClick={() => setShowManage(v => !v)}
             className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-[color:var(--mm-panel-alt)] hover:bg-[color:var(--mm-yellow-soft)] transition-colors cursor-pointer">
-            <span className="flex items-center gap-2 text-[color:var(--mm-yellow-strong)] font-bold text-sm uppercase tracking-[0.16em]">
+            <span className="flex items-center gap-2 text-[color:var(--mm-yellow-strong)] font-bold text-sm">
               <Settings2 size={16} /> 드래프트 준비
             </span>
             <span className="text-sm text-[color:var(--mm-muted)]">{showManage ? '접기 ▲' : '펼치기 ▼'}</span>
@@ -662,7 +662,7 @@ export default function LeagueDraftPage() {
       {!draft ? (
         <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] border-dashed rounded-sm p-12 text-center">
           <Trophy size={24} className="mx-auto text-[color:var(--mm-muted)] mb-3" />
-          <p className="font-jersey text-[color:var(--mm-ink)] text-lg sm:text-xl font-bold">이 분기는 아직 드래프트 세션이 만들어지지 않았습니다</p>
+          <p className="text-[color:var(--mm-ink)] text-lg sm:text-xl font-bold">이 분기는 아직 드래프트 세션이 만들어지지 않았습니다</p>
           <p className="text-base text-[color:var(--mm-ink-soft)] mt-2 leading-relaxed break-keep">총무가 세션을 만들면 여기에 표시됩니다</p>
         </div>
       ) : draft.status === 'setup' ? (
@@ -739,7 +739,7 @@ export default function LeagueDraftPage() {
                   <div className="flex items-center gap-3">
                     <div className={`w-4 h-4 rounded-full shrink-0 border ${isMyTurn ? 'animate-pulse' : ''}`} style={{ backgroundColor: teamInk(currentTeam.color).bg, borderColor: teamInk(currentTeam.color).border }} />
                     <div className="flex-1 min-w-0">
-                      <p className="font-jersey text-sm uppercase tracking-widest text-[color:var(--mm-muted)]">현재 차례 · {draft.total_picks + 1}순위</p>
+                      <p className="t-label">현재 차례 · {draft.total_picks + 1}순위</p>
                       <p className="font-bold text-2xl sm:text-3xl text-[color:var(--mm-ink)] break-keep leading-tight" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         {currentTeam.name}
                         {isMyTurn && <span className="ml-2 text-[color:var(--mm-yellow-strong)] text-base sm:text-lg">← 내 차례!</span>}
@@ -752,8 +752,8 @@ export default function LeagueDraftPage() {
                       const frac = clockPending ? 1 : Math.max(0, Math.min(1, (remain ?? 0) / ringSeconds))
                       const R = 26, C = 2 * Math.PI * R
                       const stroke = clockPending
-                        ? 'var(--mm-rule-strong, #9CA3AF)'
-                        : expired ? '#DC2626' : (remain ?? 0) <= 10 ? '#DC2626' : (remain ?? 0) <= 30 ? '#A16207' : '#059669'
+                        ? 'var(--mm-ink-soft)'
+                        : expired || (remain ?? 0) <= 10 ? 'var(--mm-negative)' : (remain ?? 0) <= 30 ? '#A16207' : '#059669'
                       return (
                         <div className="relative w-16 h-16 shrink-0" aria-label={clockPending ? '픽 공개 중 — 시계는 곧 시작됩니다' : undefined} role={clockPending ? 'img' : undefined}>
                           <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64" aria-hidden>
@@ -810,7 +810,7 @@ export default function LeagueDraftPage() {
             {(draft.status !== 'completed' || isEditMode) && (
             <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-[color:var(--mm-rule)] flex items-center justify-between">
-                <p className="text-sm font-bold text-[color:var(--mm-ink)] uppercase tracking-widest">픽 기록</p>
+                <p className="text-sm font-bold text-[color:var(--mm-ink)]">픽 기록</p>
                 <p className="text-sm text-[color:var(--mm-muted)] tabular-nums">{draft.method === 'snake' ? 'Snake' : 'Linear'} · {draft.total_picks}픽</p>
               </div>
               <div className="overflow-x-auto">
@@ -883,7 +883,7 @@ export default function LeagueDraftPage() {
 
             {draft.status === 'completed' && (
               <div className="bg-[color:var(--mm-yellow)] rounded-sm p-5 text-center">
-                <p className="font-jersey text-[color:var(--mm-black)] font-bold text-lg sm:text-xl">드래프트 완료</p>
+                <p className="text-[color:var(--mm-black)] font-bold text-lg sm:text-xl">드래프트 완료</p>
                 <p className="text-sm text-[color:var(--mm-black)]/75 mt-1.5 leading-relaxed">
                   {draft.is_test ? '테스트 세션 — 리그에 반영되지 않았습니다' : '분기 멤버십이 자동 반영되었습니다'}
                 </p>
@@ -926,7 +926,7 @@ export default function LeagueDraftPage() {
             {/* 팀장 명단 */}
             {(state?.leaders ?? []).some(l => l.leader_player_id) && (
               <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm p-4">
-                <p className="font-jersey text-sm text-[color:var(--mm-muted)] uppercase tracking-widest mb-2 flex items-center gap-1.5"><Crown size={14} className="text-[color:var(--mm-yellow-strong)]" /> 팀장</p>
+                <p className="t-label mb-2 flex items-center gap-1.5"><Crown size={14} className="text-[color:var(--mm-yellow-strong)]" /> 팀장</p>
                 <div className="space-y-1.5">
                   {teams.map(t => {
                     const lid = state?.leaders.find(l => l.team_id === t.id)?.leader_player_id
@@ -943,11 +943,11 @@ export default function LeagueDraftPage() {
             )}
 
             <div className="bg-[color:var(--mm-panel)] border border-[color:var(--mm-rule)] rounded-sm p-4 space-y-2.5">
-              <p className="font-jersey text-sm text-[color:var(--mm-muted)] uppercase tracking-widest">진행 현황</p>
+              <p className="t-label">진행 현황</p>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div><p className="font-jersey font-black text-3xl text-[color:var(--mm-ink)] tabular-nums">{draft.total_picks}</p><p className="text-sm text-[color:var(--mm-muted)] font-bold uppercase tracking-[0.16em]">총 픽</p></div>
-                <div><p className="font-jersey font-black text-3xl text-[color:var(--mm-yellow-strong)] tabular-nums">{draft.status === 'completed' ? Math.max(1, ...state!.picks.map(p => p.round_number)) : draft.current_round}</p><p className="text-sm text-[color:var(--mm-muted)] font-bold uppercase tracking-[0.16em]">라운드</p></div>
-                <div><p className="font-jersey font-black text-3xl text-[color:var(--mm-ink)] tabular-nums">{state?.available_players.length}</p><p className="text-sm text-[color:var(--mm-muted)] font-bold uppercase tracking-[0.16em]">남은 선수</p></div>
+                <div><p className="font-jersey font-black text-3xl text-[color:var(--mm-ink)] tabular-nums">{draft.total_picks}</p><p className="text-sm text-[color:var(--mm-muted)] font-bold">총 픽</p></div>
+                <div><p className="font-jersey font-black text-3xl text-[color:var(--mm-yellow-strong)] tabular-nums">{draft.status === 'completed' ? Math.max(1, ...state!.picks.map(p => p.round_number)) : draft.current_round}</p><p className="text-sm text-[color:var(--mm-muted)] font-bold">라운드</p></div>
+                <div><p className="font-jersey font-black text-3xl text-[color:var(--mm-ink)] tabular-nums">{state?.available_players.length}</p><p className="text-sm text-[color:var(--mm-muted)] font-bold">남은 선수</p></div>
               </div>
             </div>
           </div>
