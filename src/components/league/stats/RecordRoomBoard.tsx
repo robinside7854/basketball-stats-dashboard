@@ -87,7 +87,7 @@ function EmptyCell({ short }: { short: string }) {
       className="min-h-[92px] rounded-md flex flex-col items-center justify-center gap-1 px-1"
       style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
     >
-      <span className="text-xs font-black whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
+      <span className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>
         {short}
       </span>
       <span className="t-num font-bold" style={{ color: 'var(--mm-muted)', fontSize: '20px' }}>—</span>
@@ -140,7 +140,7 @@ export default function RecordRoomBoard({ categoryHighs, highlightCategory, orgS
                   aria-label={`${high.label} 시즌 최고 ${high.value}${unit} ${high.player.name} — ${formatDateFull(high.date)} 경기 박스스코어 보기`}
                 >
                   <span
-                    className="text-xs font-black whitespace-nowrap"
+                    className="text-xs font-semibold whitespace-nowrap"
                     style={{ color: isHighlight ? 'var(--mm-yellow-strong)' : 'var(--mm-muted)' }}
                   >
                     {short}

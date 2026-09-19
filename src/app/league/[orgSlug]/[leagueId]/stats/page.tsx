@@ -545,14 +545,14 @@ function LeagueStatsPageInner() {
         {/* 1줄: 분기 선택 */}
         <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
           <button onClick={() => setSelectedQuarterId('all')}
-            className="shrink-0 px-3 py-2 text-sm font-black transition-colors cursor-pointer btn-press min-h-[44px]"
+            className="shrink-0 px-3 py-2 text-sm font-semibold transition-colors cursor-pointer btn-press min-h-[44px]"
             style={selectedQuarterId === 'all'
               ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)' }
               : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
             }>전체</button>
           {quarters.map(q => (
             <button key={q.id} onClick={() => setSelectedQuarterId(q.id)}
-              className="shrink-0 px-3 py-2 text-sm font-black transition-colors cursor-pointer btn-press min-h-[44px]"
+              className="shrink-0 px-3 py-2 text-sm font-semibold transition-colors cursor-pointer btn-press min-h-[44px]"
               style={selectedQuarterId === q.id
                 ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)' }
                 : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
@@ -681,7 +681,7 @@ function LeagueStatsPageInner() {
               <div className="flex gap-1.5 whitespace-nowrap">
                 {COLS.map(({ key, label }) => (
                   <button key={key} onClick={() => handleSort(key)}
-                    className="px-2.5 py-1 text-xs font-black transition-colors shrink-0"
+                    className="px-2.5 py-1 text-xs font-semibold transition-colors shrink-0"
                     style={sortKey === key
                       ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }
                       : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
@@ -888,7 +888,7 @@ function LeagueStatsPageInner() {
               <div className="flex gap-1.5 whitespace-nowrap">
                 {SHOOTING_COLS.map(({ key, label }) => (
                   <button key={key} onClick={() => handleShootSort(key)}
-                    className="px-2.5 py-1 text-xs font-black transition-colors shrink-0"
+                    className="px-2.5 py-1 text-xs font-semibold transition-colors shrink-0"
                     style={shootSortKey === key
                       ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }
                       : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }
@@ -1012,7 +1012,7 @@ function LeagueStatsPageInner() {
               <div className="flex gap-1.5 whitespace-nowrap">
                 {ADV_COLS.map(({ key, label }) => (
                   <button key={key} onClick={() => handleAdvSort(key)}
-                    className="px-2.5 py-1 text-xs font-black transition-colors shrink-0"
+                    className="px-2.5 py-1 text-xs font-semibold transition-colors shrink-0"
                     style={advSortKey === key
                       ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)', letterSpacing: '0.08em' }
                       : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', letterSpacing: '0.08em' }

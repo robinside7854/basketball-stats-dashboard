@@ -278,7 +278,7 @@ function StatsTable({
               const active = basicSortKey === key
               return (
                 <button key={key} onClick={() => handleBasicSort(key)}
-                  className="px-2.5 py-1 text-xs font-black tracking-wider transition-colors shrink-0 cursor-pointer"
+                  className="px-2.5 py-1 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
                   style={{
                     background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                     color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -293,7 +293,7 @@ function StatsTable({
               const active = shootSortKey === key
               return (
                 <button key={key} onClick={() => handleShootSort(key)}
-                  className="px-2.5 py-1 text-xs font-black tracking-wider transition-colors shrink-0 cursor-pointer"
+                  className="px-2.5 py-1 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
                   style={{
                     background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                     color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -308,7 +308,7 @@ function StatsTable({
               const active = advSortKey === key
               return (
                 <button key={key} onClick={() => handleAdvSort(key)}
-                  className="px-2.5 py-1 text-xs font-black tracking-wider transition-colors shrink-0 cursor-pointer"
+                  className="px-2.5 py-1 text-xs font-semibold transition-colors shrink-0 cursor-pointer"
                   style={{
                     background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                     color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -710,7 +710,7 @@ function TeamDetailPanel({
                   ].map(card => (
                     <div key={card.label} className="p-3 text-center" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
                       <div className="font-jersey font-black tabular-nums leading-none" style={{ color: card.color, fontSize: '30px' }}>{card.value}</div>
-                      <div className="text-xs font-black mt-2 tracking-wider" style={{ color: 'var(--mm-ink)' }}>{card.label}</div>
+                      <div className="t-label mt-2" style={{ color: 'var(--mm-ink)' }}>{card.label}</div>
                       <div className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>{card.sub}</div>
                     </div>
                   ))}
@@ -736,7 +736,7 @@ function TeamDetailPanel({
                       className="shrink-0 px-3.5 py-2.5 text-left transition-colors cursor-pointer hover:bg-[color:var(--mm-yellow-soft)]"
                       style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}
                     >
-                      <div className="text-xs font-black tracking-wider mb-1" style={{ color: 'var(--mm-muted)' }}>{item.label}</div>
+                      <div className="t-label mb-1" style={{ color: 'var(--mm-muted)' }}>{item.label}</div>
                       <div className="font-bold whitespace-nowrap" style={{ color: 'var(--mm-ink)', fontSize: '16px' }}>{item.player?.name}</div>
                       <div className="text-xs font-black tabular-nums whitespace-nowrap mt-0.5" style={{ color: team.color }}>{item.val}</div>
                     </button>
@@ -778,7 +778,7 @@ function TeamDetailPanel({
                   ].map(tile => (
                     <div key={tile.title} className="p-3" style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)' }}>
                       <div className="font-jersey font-black tabular-nums leading-none" style={{ color: tile.color, fontSize: '26px' }}>{tile.value}</div>
-                      <div className="text-xs font-black tracking-wider mt-2" style={{ color: 'var(--mm-ink)' }}>{tile.title}</div>
+                      <div className="t-label mt-2" style={{ color: 'var(--mm-ink)' }}>{tile.title}</div>
                       <div className="text-xs mt-0.5" style={{ color: 'var(--mm-muted)' }}>{tile.desc}</div>
                     </div>
                   ))}
@@ -1126,7 +1126,7 @@ export default function LeagueTeamsPage() {
           {/* 전체 버튼 */}
           <button
             onClick={() => setSelectedQId('all')}
-            className="px-4 py-1.5 text-xs font-black tracking-wider transition-all cursor-pointer"
+            className="px-4 py-1.5 text-xs font-semibold transition-all cursor-pointer"
             style={{
               background: selectedQId === 'all' ? 'var(--mm-ink)' : 'var(--mm-panel)',
               color: selectedQId === 'all' ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -1139,7 +1139,7 @@ export default function LeagueTeamsPage() {
             const active = selectedQId === q.id
             return (
               <button key={q.id} onClick={() => setSelectedQId(q.id)}
-                className="px-4 py-1.5 text-xs font-black tracking-wider transition-all cursor-pointer"
+                className="px-4 py-1.5 text-xs font-semibold transition-all cursor-pointer"
                 style={{
                   background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                   color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -1211,7 +1211,7 @@ export default function LeagueTeamsPage() {
                   </button>
                   {/* 상대 전적 — 정체성 기준 (같은 정체성 그룹 안의 다른 정체성들과 대전) */}
                   <div className="px-4 py-3 pl-5">
-                    <p className="text-xs font-black tracking-wider mb-2" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>상대 전적</p>
+                    <p className="t-label mb-2" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 60%, transparent)' : 'var(--mm-muted)' }}>상대 전적</p>
                     {standings.filter(op => op.identityKey !== s.identityKey).map(op => {
                       const rec = h2h[s.identityKey]?.[op.identityKey] ?? { w: 0, d: 0, l: 0 }
                       const total = rec.w + rec.d + rec.l
@@ -1229,7 +1229,7 @@ export default function LeagueTeamsPage() {
                           {total === 0 ? (
                             <span className="text-xs shrink-0" style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 65%, transparent)' : 'var(--mm-muted)' }}>기록 없음</span>
                           ) : (
-                            <div className="flex items-center gap-1 text-xs font-black tabular-nums shrink-0">
+                            <div className="flex items-center gap-1 text-xs font-semibold tabular-nums shrink-0">
                               {/* isFirst 를 먼저 본다 — 1위 카드는 배경이 ink 라 positive 초록이 1.5~2.7:1 로 묻혔다 */}
                               <span style={{ color: isFirst ? 'var(--mm-panel)' : isWin ? 'var(--mm-positive)' : 'var(--mm-muted)' }}>{rec.w}W</span>
                               {rec.d > 0 && <><span style={{ color: isFirst ? 'color-mix(in srgb, var(--mm-panel) 70%, transparent)' : 'var(--mm-muted)' }}>·</span><span style={{ color: isFirst ? 'var(--mm-panel)' : 'var(--mm-neutral-strong)' }}>{rec.d}D</span></>}
@@ -1303,7 +1303,7 @@ export default function LeagueTeamsPage() {
                   const active = statMode === k
                   return (
                     <button key={k} onClick={() => setStatMode(k)}
-                      className="px-3 py-1.5 text-xs font-black tracking-wider whitespace-nowrap cursor-pointer transition-colors duration-200 min-h-11"
+                      className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors duration-200 min-h-11"
                       style={{
                         background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                         color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
@@ -1319,7 +1319,7 @@ export default function LeagueTeamsPage() {
                   const active = viewMode === m
                   return (
                     <button key={m} onClick={() => setViewMode(m)}
-                      className="px-3 py-1.5 text-xs font-black whitespace-nowrap cursor-pointer transition-colors duration-200 min-h-11"
+                      className="px-3 py-1.5 text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors duration-200 min-h-11"
                       style={{
                         background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
                         color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
