@@ -18,7 +18,6 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
 import LeagueEventInputPad from '@/components/league/LeagueEventInputPad'
-import RecordAuditPanel from '@/components/league/RecordAuditPanel'
 import LeagueSubstitutionPanel from '@/components/league/LeagueSubstitutionPanel'
 import LeagueStatsPanel from '@/components/league/LeagueStatsPanel'
 import GameLogModal from '@/components/league/GameLogModal'
@@ -166,8 +165,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [initializingSlots, setInitializingSlots] = useState(false)
   const [ytSyncing, setYtSyncing] = useState(false)
   const [minutes, setMinutes] = useState<MinRow[]>([])
-  // 후보 버튼 정렬 힌트 — 실패해도 기록에는 지장이 없어 조용히 비워 둔다(순서만 기본값이 된다)
-  const [tendencies, setTendencies] = useState<{ assist: Record<string, string[]>; rebound: string[] }>()
   const [statsRefresh, setStatsRefresh] = useState(0)
   // 라운드가 방금 전수 마감됐을 때 뜨는 안내 (인스타 카드 발행 유도). null = 안 뜸
   const [roundDone, setRoundDone] = useState<{ date: string; vol: number | null } | null>(null)
@@ -253,6 +250,15 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   const [videosLoadedFor, setVideosLoadedFor] = useState<string | null>(null)
   // 이 슬롯에 저장된 기록이 있는지. 쿼터 복원(이벤트 최대 쿼터)이 끝났다는 신호도 겸한다.
   const [quarterRestore, setQuarterRestore] = useState<{ slotId: string; hasEvents: boolean } | null>(null)
+  // 쿼터 영상이 하나도 없는 경기(옛 `260919 경기3` 번호형)에서 쿼터 UI 를 손으로 펼친 상태.
+  //   왜: 그런 날은 쿼터 개념 자체가 없어 화면에서 감추지만, 나중에 쿼터별로 쪼갠 영상을
+  //   붙이려면 되돌아올 길이 있어야 한다.
+  const [quarterSplitOpen, setQuarterSplitOpen] = useState(false)
+
+  // 쿼터 태그된 영상이 하나라도 있으면 "쿼터가 있는 경기". 없으면 쿼터를 화면에 꺼내지 않는다.
+  //   기록 데이터의 quarter 값은 그대로다 — 표시만 감춘다.
+  const hasQuarterVideos = Object.keys(quarterVideos).length > 0
+  const showQuarterUi = hasQuarterVideos || quarterSplitOpen
 
   const selectedSlot = slots.find(s => s.id === selectedSlotId) ?? null
 
@@ -464,11 +470,6 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
         setDateQuarterMap(dqMap)
       }
       setLoadingDates(false)
-      // 후보 정렬 힌트는 있으면 좋은 것이라 초기 로딩을 붙잡지 않는다(뒤늦게 채워도 무해)
-      fetch(`/api/leagues/${leagueId}/tendencies`)
-        .then(r => r.ok ? r.json() : null)
-        .then(t => { if (t) setTendencies(t) })
-        .catch(() => {})
     }
     init()
   }, [leagueId])
@@ -913,6 +914,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   useEffect(() => {
     setVideoPanelOpen(!!selectedSlotId)
     setAdvancedOpen(false)
+    setQuarterSplitOpen(false)
   }, [selectedSlotId])
 
   // 쿼터가 넘어가면 링크 입력 대상도 따라간다(기록 중 4번 중 3번은 지금 쿼터를 채운다).
@@ -2358,34 +2360,16 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
               <div className="mt-2">
               {/* 쿼터별 영상 4칸. 촬영본이 쿼터로 쪼개져 올라오므로 한 칸으로는 담기지 않는다.
                   아래 링크 입력·목록 고르기는 여기서 고른 쿼터를 채운다.
-                  ⚠ 2026-09-07 리그에도 열었다 — 미라클이 쿼터제로 바뀌어 영상이 대진×쿼터로 올라온다. */}
-              {(
+                  ⚠ 2026-09-07 리그에도 열었다 — 미라클이 쿼터제로 바뀌어 영상이 대진×쿼터로 올라온다.
+                  쿼터 태그된 영상이 하나도 없는 날(옛 번호형 제목)은 통째로 감춘다 — 그 경기에는
+                  쿼터 개념이 없어서 빈 칸 네 개가 "연동 실패"처럼 읽힌다. */}
+              {showQuarterUi && (
                 <div className="mb-3">
                   <div className="flex items-baseline gap-2 flex-wrap mb-2">
                     <span className="t-label" style={{ color: 'var(--mm-muted)' }}>쿼터별 영상</span>
                     <span className="text-xs" style={{ color: 'var(--mm-muted)' }}>
                       쿼터를 누르면 그 쿼터 영상으로 바뀝니다
                     </span>
-                    {/* 쿼터별 코트 좌우 — 영상과 화면 배치가 반대인 쿼터에서 누른다.
-                        표시만 바뀌고 기록·점수는 그대로다(팀 id 로 저장되므로). */}
-                    {selectedSlot.home_team_id && selectedSlot.away_team_id && !isTournament && (
-                      <button
-                        type="button"
-                        onClick={toggleQuarterSides}
-                        aria-pressed={sidesFlipped}
-                        title={`${currentQuarter}쿼터 화면 좌우를 바꿉니다 — 기록·점수는 그대로입니다`}
-                        className="ml-auto inline-flex items-center gap-1.5 shrink-0 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
-                        style={{
-                          background: sidesFlipped ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
-                          color: sidesFlipped ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
-                          border: `1px solid ${sidesFlipped ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
-                          borderRadius: '4px',
-                        }}
-                      >
-                        <ArrowLeftRight size={14} strokeWidth={2.5} aria-hidden />
-                        {currentQuarter}쿼터 좌우{sidesFlipped ? ' 바뀜' : ' 바꾸기'}
-                      </button>
-                    )}
                   </div>
                   {/* ⚠ **올라온 쿼터만 칸으로 만든다.** 1~4를 늘 네 칸 그리면 업로더가 안 올린 쿼터가
                       `미연결` 이라는 이름의 실패처럼 읽힌다(9/12 가 실제로 그랬다). 없는 쿼터는
@@ -2504,9 +2488,45 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 </div>
               )}
 
+              {/* 좌우 바꾸기는 **영상과 무관하다** — 코트 배치가 화면과 반대인 날에 쓴다.
+                  쿼터 UI 를 감춘 경기에서도 닿아야 해서 게이트 밖에 둔다. */}
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                {selectedSlot.home_team_id && selectedSlot.away_team_id && !isTournament && (
+                  <button
+                    type="button"
+                    onClick={toggleQuarterSides}
+                    aria-pressed={sidesFlipped}
+                    title={showQuarterUi
+                      ? `${currentQuarter}쿼터 화면 좌우를 바꿉니다 — 기록·점수는 그대로입니다`
+                      : '화면 좌우를 바꿉니다 — 기록·점수는 그대로입니다'}
+                    className="inline-flex items-center gap-1.5 shrink-0 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    style={{
+                      background: sidesFlipped ? 'var(--mm-yellow)' : 'var(--mm-panel-alt)',
+                      color: sidesFlipped ? 'var(--mm-black)' : 'var(--mm-ink-soft)',
+                      border: `1px solid ${sidesFlipped ? 'var(--mm-yellow)' : 'var(--mm-rule)'}`,
+                      borderRadius: '4px',
+                    }}
+                  >
+                    <ArrowLeftRight size={14} strokeWidth={2.5} aria-hidden />
+                    {showQuarterUi ? `${currentQuarter}쿼터 좌우` : '좌우'}{sidesFlipped ? ' 바뀜' : ' 바꾸기'}
+                  </button>
+                )}
+                {/* 되돌아올 길 — 쿼터 영상이 없는 날도 나중에 쿼터별로 쪼갠 영상을 붙일 수 있어야 한다 */}
+                {!showQuarterUi && (
+                  <button
+                    type="button"
+                    onClick={() => setQuarterSplitOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-2.5 min-h-11 text-xs font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+                    style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)', borderRadius: '4px' }}
+                  >
+                    <Plus size={14} strokeWidth={2.5} aria-hidden />쿼터별로 나눠 붙이기
+                  </button>
+                )}
+              </div>
+
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="t-label shrink-0" style={{ color: 'var(--mm-muted)' }}>
-                  {ytTargetQuarter}쿼터 영상
+                  {showQuarterUi ? `${ytTargetQuarter}쿼터 영상` : '경기 영상'}
                 </span>
                 <label htmlFor="yt-url-input" className="sr-only">YouTube 영상 링크</label>
                 <input
@@ -2515,9 +2535,11 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   onChange={e => setYtInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !ytSaving) { e.preventDefault(); attachVideo(ytInput) } }}
                   placeholder={
-                    quarterVideos[ytTargetQuarter]
-                      ? `${ytTargetQuarter}쿼터 영상 교체 — 링크 붙여넣기`
-                      : `${ytTargetQuarter}쿼터 영상 링크 붙여넣기`
+                    showQuarterUi
+                      ? (quarterVideos[ytTargetQuarter]
+                          ? `${ytTargetQuarter}쿼터 영상 교체 — 링크 붙여넣기`
+                          : `${ytTargetQuarter}쿼터 영상 링크 붙여넣기`)
+                      : (selectedSlot.youtube_url ? '영상 교체 — 링크 붙여넣기' : '영상 링크 붙여넣기')
                   }
                   className="flex-1 min-w-[180px] px-2.5 py-1.5 text-xs min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                   style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
@@ -2549,10 +2571,12 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                 </button>
               </div>
 
-              <p className="mt-1.5 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
-                {/* 조사는 강조 태그 안에 붙인다 — 밖에 두면 "1쿼터 에" 로 한 칸 벌어진다 */}
-                고른 영상은 위에서 선택한 <strong style={{ color: 'var(--mm-ink-soft)' }}>{ytTargetQuarter}쿼터에</strong> 연결됩니다.
-              </p>
+              {showQuarterUi && (
+                <p className="mt-1.5 text-xs leading-relaxed" style={{ color: 'var(--mm-muted)' }}>
+                  {/* 조사는 강조 태그 안에 붙인다 — 밖에 두면 "1쿼터 에" 로 한 칸 벌어진다 */}
+                  고른 영상은 위에서 선택한 <strong style={{ color: 'var(--mm-ink-soft)' }}>{ytTargetQuarter}쿼터에</strong> 연결됩니다.
+                </p>
+              )}
 
               {/* 이 날짜 영상 목록 — 제목을 그대로 보여준다. 번호를 추측하지 않는 게 핵심이다.
                   이미 다른 슬롯에 붙은 영상은 어디에 붙었는지 표시해 중복 배정을 막는다. */}
@@ -2975,7 +2999,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                     {/* 폴백 재생을 말로 알린다. 이 줄이 없던 동안 기록원은 "1쿼터"라고 적힌 화면에서
                         2쿼터 영상을 보며 기록할 뻔했고, 그걸 연동 실패로 신고했다.
                         ⚠ 영상 위에 겹치지 않고 **위에 쌓는다** — 반투명·블러로 가리지 않는다. */}
-                    {activeVideo.source === 'representative' && (
+                    {activeVideo.source === 'representative' && showQuarterUi && (
                       <div
                         className="flex items-start gap-1.5 px-3 py-2 text-xs leading-relaxed"
                         style={{ background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', borderBottom: '1px solid var(--mm-rule)' }}
@@ -3219,7 +3243,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         </div>
                       </div>
 
-                      {/* 쿼터 선택 — 1~4쿼터 정식 경기용. 안 건드리면 1Q 고정이라 기존 슬롯 경기와 동일하다. */}
+                      {/* 쿼터 선택 — 1~4쿼터 정식 경기용. 안 건드리면 1Q 고정이라 기존 슬롯 경기와 동일하다.
+                          쿼터 영상이 없는 날은 쿼터가 나뉘지 않은 경기라 감춘다(이벤트는 그대로 1쿼터로 저장). */}
+                      {showQuarterUi && (
                       <div className="flex items-center gap-1.5 px-2 py-2 border-t border-gray-800 bg-gray-900/60 overflow-x-auto" role="group" aria-label="기록 중인 쿼터">
                         <span className="pl-1 shrink-0 text-xs font-semibold text-gray-400">쿼터</span>
                         {QUARTER_OPTIONS.map(q => {
@@ -3242,6 +3268,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                           )
                         })}
                       </div>
+                      )}
 
                       {/* 좌우가 뒤집힌 쿼터에서는 패드에 **넘기는 짝을 통째로 맞바꾼다.**
                           패드 안에서는 '왼쪽/오른쪽' 으로만 쓰이고 이벤트의 team_id 는 선수
@@ -3259,19 +3286,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                         awayTeam={sideView(rightSide).team ?? undefined}
                         onEventSaved={() => { handleEventSaved(); fetchLiveScore() }}
                         activePlusOneIds={activePlusOneIds.length > 0 ? activePlusOneIds : undefined}
-                        tendencies={tendencies}
                         onOpponentRegistered={() => { if (selectedSlot) loadRoster(selectedSlot) }}
                         // 대회는 상대 선수를 기록하지 않는다 — 점수만 위 「상대 득점」 으로 남긴다
                         opponentRecording={!isTournament}
-                      />
-
-                      {/* 기록 누락 자동 점검 — 놓친 지점만 뽑아 영상 그 시각으로 보낸다.
-                          이름 표시용 명단은 즉석 등록된 상대 선수까지 덮도록 셋을 합친다. */}
-                      <RecordAuditPanel
-                        leagueId={leagueId}
-                        gameId={selectedSlotId}
-                        players={[...allPlayers, ...homeRoster, ...awayRoster]}
-                        refreshKey={statsRefresh}
                       />
 
                       {/* 상대 점수 안내 (대회) — 실시간으로 따라 누르지 않는다.
