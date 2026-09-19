@@ -964,20 +964,20 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
 
                 // 아이콘은 lucide 단일 패밀리 — 이모지는 OS 마다 모양이 다르고 아이콘 자리에 쓰지 않는다(CLAUDE.md)
                 const leaders = [
-                  { Icon: Flame,     label: '득점',   name: byPts?.name,   val: byPts?.pts != null ? `${byPts.pts}점` : null,      sub: gpSub(byPts) },
-                  { Icon: Hand,      label: '리바운드', name: byReb?.name,   val: byReb?.reb != null ? `${byReb.reb}개` : null,      sub: `OR ${byReb?.oreb ?? 0} / DR ${byReb?.dreb ?? 0}` },
-                  { Icon: Handshake, label: '어시스트', name: byAst?.name,   val: byAst?.ast != null ? `${byAst.ast}개` : null,      sub: gpSub(byAst) },
-                  { Icon: Shield,    label: '블락',    name: byBlk?.name,   val: byBlk?.blk != null ? `${byBlk.blk}개` : null,      sub: gpSub(byBlk) },
-                  { Icon: Zap,       label: '스틸',    name: byStl?.name,   val: byStl?.stl != null ? `${byStl.stl}개` : null,      sub: gpSub(byStl) },
-                  { Icon: Target,    label: '야투율',   name: byFgPct?.name, val: byFgPct?.fg_pct != null ? `${byFgPct.fg_pct}%` : null, sub: byFgPct ? `${byFgPct.fgm}/${byFgPct.fga}` : '' },
-                  { Icon: Sparkles,  label: '3점슛',   name: byFg3?.name,   val: byFg3?.fg3m != null ? `${byFg3.fg3m}개` : null,   sub: byFg3 && byFg3.fg3a > 0 ? `${byFg3.fg3_pct}%` : '' },
+                  { Icon: Flame,     label: '득점',   p: byPts,   val: byPts?.pts != null ? `${byPts.pts}점` : null,      sub: gpSub(byPts) },
+                  { Icon: Hand,      label: '리바운드', p: byReb,   val: byReb?.reb != null ? `${byReb.reb}개` : null,      sub: `OR ${byReb?.oreb ?? 0} / DR ${byReb?.dreb ?? 0}` },
+                  { Icon: Handshake, label: '어시스트', p: byAst,   val: byAst?.ast != null ? `${byAst.ast}개` : null,      sub: gpSub(byAst) },
+                  { Icon: Shield,    label: '블락',    p: byBlk,   val: byBlk?.blk != null ? `${byBlk.blk}개` : null,      sub: gpSub(byBlk) },
+                  { Icon: Zap,       label: '스틸',    p: byStl,   val: byStl?.stl != null ? `${byStl.stl}개` : null,      sub: gpSub(byStl) },
+                  { Icon: Target,    label: '야투율',   p: byFgPct, val: byFgPct?.fg_pct != null ? `${byFgPct.fg_pct}%` : null, sub: byFgPct ? `${byFgPct.fgm}/${byFgPct.fga}` : '' },
+                  { Icon: Sparkles,  label: '3점슛',   p: byFg3,   val: byFg3?.fg3m != null ? `${byFg3.fg3m}개` : null,   sub: byFg3 && byFg3.fg3a > 0 ? `${byFg3.fg3_pct}%` : '' },
                 ]
 
                 return (
                   <div>
                     <p className="t-label mb-2.5" style={{ color: 'var(--mm-yellow-strong)' }}>당일 스탯 리더</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                      {leaders.map(({ Icon, label, name, val, sub }) => (
+                      {leaders.map(({ Icon, label, p, val, sub }) => (
                         <div
                           key={label}
                           className="p-3 flex flex-col gap-0.5"
@@ -988,10 +988,14 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                             <Icon size={16} aria-hidden style={{ color: 'var(--mm-muted)' }} />
                             <span className="t-label">{label}</span>
                           </div>
-                          {/* 선수 이름 — 주인공. 본문체 600(유니폼체·900 제거) */}
-                          <p className="text-base font-semibold leading-tight truncate" style={{ color: 'var(--mm-ink)' }}>
-                            {name ?? '—'}
-                          </p>
+                          {/* 선수 이름 — 주인공. 본문체 600(유니폼체·900 제거).
+                              칩이 이름에 밀려 잘리지 않게 이름 쪽만 줄어든다(min-w-0 + shrink-0). */}
+                          <div className="flex items-center gap-1 min-w-0">
+                            {p
+                              ? <PlayerName row={p} onPlayerPick={pickPlayer} className="truncate min-w-0 leading-tight" />
+                              : <span className="text-base font-semibold leading-tight" style={{ color: 'var(--mm-ink)' }}>—</span>}
+                            {p && ddKinds.get(p.player_id) && <DdChip kind={ddKinds.get(p.player_id)!} />}
+                          </div>
                           {/* 기록 — 보조 */}
                           <p className="t-num text-base font-black" style={{ color: 'var(--mm-yellow-strong)' }}>
                             {val ?? ''}

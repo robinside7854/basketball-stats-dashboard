@@ -13,6 +13,7 @@
 // 톤: mm-brand 다크 팔레트 (docs/mm-brand-style.md 참조)
 
 import { Trophy } from 'lucide-react'
+import { doubleDoubleKind } from '@/lib/stats/doubleDouble'
 
 type PlayerRow = {
   player_id: string; name: string; number: number | null
@@ -66,7 +67,24 @@ const C = {
 const FONT_BODY   = "'Pretendard Variable', Pretendard, system-ui, -apple-system, sans-serif"
 const FONT_JERSEY = "'Barlow Condensed', 'Bebas Neue', system-ui, -apple-system, sans-serif"
 
+// DD/TD 칩 — 판정은 화면과 같은 doubleDouble.ts 를 쓴다.
+//   색만 인라인인 이유: html-to-image 로 굽는 화면이라 CSS 변수를 읽지 못한다(이 파일의 기존 방식).
+function DdChip({ kind }: { kind: 'DD' | 'TD' }) {
+  return (
+    <span style={{
+      display: 'inline-block', marginLeft: '5px', padding: '1px 4px',
+      fontFamily: FONT_JERSEY, fontSize: '11px', fontWeight: 900, lineHeight: 1.4,
+      letterSpacing: '0.04em', whiteSpace: 'nowrap', verticalAlign: 'middle',
+      backgroundColor: kind === 'TD' ? C.yellow : 'transparent',
+      color: kind === 'TD' ? C.black : C.yellowStrong,
+      border: `1px solid ${kind === 'TD' ? C.yellow : C.yellowStrong}`,
+    }}>{kind}</span>
+  )
+}
+
 export default function ShareableBoxscore({ dateLabel, games, dailyStats, teamRecords, leagueName }: Props) {
+  // 하루 합산 기준 — 화면 박스스코어와 같은 근거(dailyStats)로 판정한다.
+  const ddKinds = new Map(dailyStats.map(p => [p.player_id, doubleDoubleKind(p)] as const))
   const completed = games.filter(g => g.is_complete)
   const ongoing   = games.filter(g => g.is_started && !g.is_complete)
   const upcoming  = games.filter(g => !g.is_started && !g.is_complete)
@@ -291,7 +309,7 @@ export default function ShareableBoxscore({ dateLabel, games, dailyStats, teamRe
                     color: C.ink, letterSpacing: '-0.005em', textTransform: 'uppercase',
                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     lineHeight: 1.1,
-                  }}>{player.name}</div>
+                  }}>{player.name}{ddKinds.get(player.player_id) && <DdChip kind={ddKinds.get(player.player_id)!} />}</div>
                   <div style={{
                     fontFamily: FONT_JERSEY, fontSize: '16px', fontWeight: 900,
                     color: C.yellowStrong, fontVariantNumeric: 'tabular-nums',
@@ -356,7 +374,7 @@ export default function ShareableBoxscore({ dateLabel, games, dailyStats, teamRe
                           <div style={{
                             fontFamily: FONT_JERSEY, fontSize: '14px', fontWeight: 900,
                             color: C.ink, textTransform: 'uppercase', letterSpacing: '-0.005em',
-                          }}>{p.name}</div>
+                          }}>{p.name}{ddKinds.get(p.player_id) && <DdChip kind={ddKinds.get(p.player_id)!} />}</div>
                           {p.team_name && (
                             <div style={{ fontSize: '11px', color: C.muted, lineHeight: 1, marginTop: '2px' }}>{p.team_name}</div>
                           )}
