@@ -109,6 +109,7 @@ typography:
     fontSize: 15px
     fontWeight: 400
     lineHeight: 1.7
+    maxWidth: 88ch   # --container-prose. 62ch 는 한글로 33자라 너무 좁다 (2026-09-18)
   # label (구 label-caps, 2026-09-18): 10~11px · 900 · 대문자 · 자간 0.14em 조합이 시력 나쁜 사용자에게
   #   가장 나쁜 4중 조합이었다. 13.6px · 600 · 자간 0.02em · 대문자 변환 없음. globals.css 의 @utility t-label.
   label:
@@ -139,6 +140,12 @@ spacing:
   lg: 24px
   xl: 32px
   touch-target: 44px
+  # 2026-09-18 여백 통일: 모바일 좌우 여백은 셸의 px-4(16px) 하나뿐이다.
+  #   카드·표를 -mx-2 로 밖으로 밀어 8/12/16px 세 종류가 공존하던 것을 정리했다.
+  card-pad: px-4 py-4 lg:px-6 lg:py-5   # SectionCard pad="base" 기본값
+  section-gap: space-y-4 lg:space-y-5   # 섹션 사이
+  tab-gap: mb-4 lg:mb-5                 # 탭바 아래
+  container-max: 1600px                 # 헤더 바와 본문이 같은 폭
 rounded:
   ctl: 10px       # var(--mm-radius-ctl) — 버튼 · 인풋 · 작은 컨트롤
   card: 14px      # var(--mm-radius-card) — 카드 · 섹션
@@ -162,7 +169,7 @@ components:
   card-meta:
     backgroundColor: "{colors.panel}"
     textColor: "{colors.muted}"
-    typography: "{typography.label-caps}"
+    typography: "{typography.label}"
   button-primary:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.ground}"
@@ -298,12 +305,16 @@ sticky 첫 열), 레이아웃 구조는 이번 전환에서 건드리지 않았�
 
 **헤딩은 900이 아니라 700(`font-bold`)이며 대문자를 강제하지 않는다** (2026-08-06 전환 — 방송 그래픽
 톤이던 `font-jersey font-black uppercase` 조합 135곳을 `font-bold` 로 교체하며 대소문자를 원문 그대로
-남겼다). 단 `font-jersey font-black tabular-nums`(대문자가 없는 스코어보드 숫자 조합)는 예외로
-그대로 남는다 — 스코어 숫자는 여전히 Barlow Condensed 굵은 조판을 쓴다.
+남겼다).
+
+**표·스탯 숫자는 Barlow Condensed 를 쓰지 않는다** (2026-09-18). 좁은 유니폼체는 같은 px 라도 본문체보다
+눈에 띄게 덜 읽힌다. 표 셀은 `t-td`(Pretendard + `tabular-nums`, 바닥 1rem), 표 밖 숫자는 `t-num` 이다.
+`font-jersey` 가 남는 자리는 **20px 이상 점수판·등번호·리더 카드 큰 숫자**뿐이다.
 
 본문 `line-height` 는 1.6, `letter-spacing` 은 **0** 이다. 한글은 자간을 벌리면 오히려 읽기 어려워진다.
-자간을 넓히는 건 라틴 대문자 라벨(`label-caps`, 0.14em)처럼 여전히 대문자인 작은 라벨뿐이다 — 헤딩이
-`font-bold`로 바뀌며 대문자가 아니게 된 자리에는 넓은 자간을 남기지 않는다.
+작은 라벨(`label`)도 2026-09-18 부터 대문자·넓은 자간을 쓰지 않는다(0.02em). 한글에 `uppercase` 는
+효과가 없고 자간만 벌어져 읽기 나빠지기 때문이다. 0.14em 자간은 `LIVE` 처럼 **라틴 대문자 그대로인
+짧은 배지**에만 남긴다.
 
 루트 폰트 크기는 모바일 17px / 태블릿 17.5px / 데스크톱 18px 로 올려 잡는다 —
 40~50대 사용자가 체육관에서 서서 보는 화면이기 때문이다.

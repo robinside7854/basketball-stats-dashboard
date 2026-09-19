@@ -104,18 +104,23 @@ typography:
     fontSize: 15px
     fontWeight: 400
     lineHeight: 1.7
-  label-caps:
-    fontFamily: Barlow Condensed
-    fontSize: 0.75rem
-    fontWeight: 700
-    lineHeight: 1.2
-    letterSpacing: 0.14em
-  stat-num:
-    fontFamily: ui-monospace
+    maxWidth: 88ch   # --container-prose. 62ch 는 한글로 33자라 너무 좁다 (2026-09-18)
+  # label (구 label-caps, 2026-09-18): 대문자·0.14em 자간을 버렸다. 한글엔 uppercase 가 안 먹고
+  #   자간만 벌어져 읽기 나빠진다. 0.14em 은 LIVE 같은 라틴 대문자 배지에만 남는다.
+  label:
+    fontFamily: Pretendard Variable
+    fontSize: 0.8rem
+    fontWeight: 600
+    lineHeight: 1.4
+    letterSpacing: 0.02em
+  # table-cell (구 stat-num, 2026-09-18): 모노스페이스를 버리고 본문체 + tabular-nums.
+  #   바닥 1rem(17px), 행높이 44px 이상.
+  table-cell:
+    fontFamily: Pretendard Variable
     fontSize: 1rem
-    fontWeight: 700
-    lineHeight: 1.2
-    letterSpacing: -0.02em
+    fontWeight: 400
+    lineHeight: 1.6
+    letterSpacing: 0em
     fontFeature: "'tnum' 1"
 spacing:
   xs: 4px
@@ -140,7 +145,7 @@ components:
   card-meta:
     backgroundColor: "{colors.panel}"
     textColor: "{colors.muted}"
-    typography: "{typography.label-caps}"
+    typography: "{typography.label}"
   button-primary:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.ground}"

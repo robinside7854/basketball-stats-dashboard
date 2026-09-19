@@ -1913,8 +1913,9 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
                   )}
 
                   {/* YouTube 연동 — 다른 배지들과 같은 줄, 인접 배치.
-                      브랜드 레드 #DC2626 은 다크 패널에서 3.3:1 이라 같은 계열의 --mm-negative 로 바꿨다
-                      (라이트 #A33328 · 다크 #F5998C — 빨강은 유지, 대비만 확보) */}
+                      원래 유튜브 브랜드 레드를 그대로 썼는데 다크 패널에서 3.3:1 이었다.
+                      같은 빨강 계열인 --mm-negative 로 바꿔 색은 지키고 대비만 확보한다.
+                      (가드가 주석 속 hex 리터럴도 센다 — 값은 globals.css 에서 확인) */}
                   {stat && stat.total > 0 && stat.yt > 0 && (
                     <span
                       className="flex items-center gap-1 text-xs font-mono"
