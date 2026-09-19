@@ -202,6 +202,27 @@ function drawCourse(ctx: CanvasRenderingContext2D, c: Course, yTop: number, yBot
       ctx.lineWidth = 0.26
       ctx.beginPath(); ctx.moveTo(sg.x1, sg.y1); ctx.lineTo(sg.x2, sg.y2); ctx.stroke()
       ctx.restore(); continue
+    } else if (sg.kind === 'deflect') {
+      // 레인 디플렉터 — 벽에 붙어 선 수비수가 뻗은 팔. 스크린과 같은 유니폼 색으로 묶어
+      // "이것도 사람이 막는 것" 으로 읽히게 한다(페그 육각형과 구별되는 굵은 막대).
+      ctx.strokeStyle = 'rgba(0,0,0,0.42)'
+      ctx.lineWidth = 0.86
+      ctx.beginPath(); ctx.moveTo(sg.x1, sg.y1 + 0.3); ctx.lineTo(sg.x2, sg.y2 + 0.3); ctx.stroke()
+      ctx.strokeStyle = JERSEY
+      ctx.lineWidth = 0.66
+      ctx.beginPath(); ctx.moveTo(sg.x1, sg.y1); ctx.lineTo(sg.x2, sg.y2); ctx.stroke()
+      ctx.strokeStyle = 'rgba(226,232,240,0.9)'
+      ctx.lineWidth = 0.13
+      ctx.beginPath(); ctx.moveTo(sg.x1, sg.y1); ctx.lineTo(sg.x2, sg.y2); ctx.stroke()
+      // 벽 쪽 어깨 — 팔이 어디서 나오는지 보이게
+      ctx.beginPath()
+      ctx.arc(sg.x1, sg.y1, 0.52, 0, Math.PI * 2)
+      ctx.fillStyle = JERSEY
+      ctx.fill()
+      ctx.lineWidth = 0.12
+      ctx.strokeStyle = 'rgba(226,232,240,0.85)'
+      ctx.stroke()
+      ctx.restore(); continue
     } else if (sg.kind === 'divider') {
       ctx.strokeStyle = '#141922'
       ctx.lineWidth = 0.78

@@ -79,7 +79,17 @@ export interface Marble {
   markY: number
   /** 그 기준선 이후 진전 없이 흐른 스텝 수 */
   still: number
+  /** 끼임 해제가 몇 번 연달아 불렸나 — 세게 밀수록 확실히 빠진다 */
+  nudges: number
 }
+
+/** 범퍼에 맞고 **위로** 튈 수 있는 최대 속도.
+ * ⚠ 반발 1.4 는 에너지를 더한다. 범퍼 바로 위에 디플렉터가 있으면 공이 판 → 범퍼 → 판 으로
+ * 영원히 왕복한다(실측: seed 20003 에서 한 공이 (6, 109) 부근을 50초 넘게 오갔다).
+ * 6 이면 다시 올라갈 수 있는 높이가 0.53 — 끼임 검사가 보장하는 최소 간격 2.25 의 1/4 이라
+ * 어떤 배치에서도 위층으로 못 돌아간다(10 으로 뒀을 때는 1.47 이라 아직 왕복이 남았다).
+ * 옆으로 날리는 속도는 그대로다 — 리바운드의 맛은 가로 방향이다. */
+const BUMPER_MAX_UP = 6
 
 /** 폴백 게이트 — 맞는 시드를 못 찾았을 때만 켠다 */
 interface GateState {
@@ -174,6 +184,7 @@ export function createWorld(order: string[], seed?: number, gateOn = false): Wor
       beamSteps: 0,
       markY: -1e9,
       still: 0,
+      nudges: 0,
     })
   }
 
@@ -297,12 +308,17 @@ export function stepWorld(w: World): void {
       // 마찰이 0.004 라 **영원히** 그 자리에 있는다(실측: 6팀 판에서 t2 가 (7.2,114.1)
       // 에 45초간 정지). 「0.5초 동안 0.35 도 못 내려갔다」를 끼임으로 보고 옆으로 턴다.
       // 조건이 심 상태에서만 나오므로 결정론은 유지된다.
-      if (m.y > m.markY + 0.5) { m.markY = m.y; m.still = 0 }
+      if (m.y > m.markY + 0.5) { m.markY = m.y; m.still = 0; m.nudges = 0 }
       else if (++m.still > 45) {
-        // 옆으로만 털면 장애물 위에 올라탄 공은 제자리로 돌아온다 — 아래로도 민다
-        m.vx += (((i + (w.step >> 6)) & 1) === 0 ? -3 : 3)
-        m.vy += 2.5
+        // 옆으로만 털면 장애물 위에 올라탄 공은 제자리로 돌아온다 — 아래로도 민다.
+        // ⚠ 세기가 고정이면 안 된다. 같은 세기로 계속 밀면 **같은 왕복이 계속된다**
+        //    (실측: 판↔범퍼 사이를 오가던 공이 50초 뒤에도 그 자리에 있었다).
+        //    부를 때마다 세게 민다 — 3초쯤이면 어떤 홈에서도 빠져나온다.
+        const k = m.nudges < 8 ? m.nudges : 8
+        m.vx += (((i + (w.step >> 6)) & 1) === 0 ? -1 : 1) * (3 + k * 1.6)
+        m.vy += 2.5 + k * 1.2
         m.still = 0
+        m.nudges++
         m.markY = m.y
       }
       // 게이트가 허가한 공은 입구로 안내한다(다른 공을 통과해서라도 내려가야 교착이 없다)
@@ -321,7 +337,11 @@ export function stepWorld(w: World): void {
     if (!m.scored) {
       const rx = m.x - bex, ry = m.y - BEAM_EY
       const along = rx * bux + ry * buy
-      if (along > 0 && along < blen) {
+      // ⚠ 발사점에서 3 안쪽은 빼야 한다. 빔은 발사점을 축으로 **회전**하므로 그 바로 앞에
+      //    있는 공은 각도가 어떻든 **항상** 빔 안이다. 그 벽에 붙은 공은 종단속도 2.1 로
+      //    영원히 기어간다(실측: 레인2 윗단 판이 같은 벽 y≈99 에 서자 3·4팀에서 미완주가
+      //    났고, 멈춘 공의 속도가 정확히 2.2 였다). 그림에서도 발사점 쪽은 좁으니 맞다.
+      if (along > 3 && along < blen) {
         const perp = rx * buy - ry * bux
         if (perp < BEAM_HALF && perp > -BEAM_HALF) {
           m.vx *= BEAM_DRAG
@@ -406,6 +426,8 @@ export function stepWorld(w: World): void {
       const bp = bl[k]
       if (m.y < bp.y - bp.r - 2 || m.y > bp.y + bp.r + 2) continue
       if (collideCircle(m, bp.x, bp.y, bp.r, BUMPER_REST)) {
+        // 위로 튀는 속도만 잘라 낸다(옆으로 날리는 맛은 그대로) — 위 주석 참조
+        if (m.vy < -BUMPER_MAX_UP) m.vy = -BUMPER_MAX_UP
         w.bumpHits[w.bumpHitCount++] = k
         m.bumpTouches++
       }
