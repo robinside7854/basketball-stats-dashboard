@@ -8,11 +8,47 @@
 // 데이터 · 계산 로직 · 3-탭 구조 (경기결과 · 박스스코어 · 팀별 비교) 무변경.
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import { Loader2, ChevronDown, ChevronUp, ChevronsUpDown, Youtube, Trophy, Camera, Flame, Hand, Handshake, Shield, Zap, Target, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
+import { doubleDoubleKind } from '@/lib/stats/doubleDouble'
 // html-to-image 는 카메라 버튼 클릭 시에만 필요 → 동적 로드로 초기 번들에서 제거
 import ShareableBoxscore from '@/components/league/ShareableBoxscore'
+
+// recharts 를 물고 있는 모달 — 이름을 눌렀을 때만 로드한다(초기 번들 제외)
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
+
+/** 선수 id → DD/TD. 그날 합산(dailyStats) 기준이라 경기별 표에서도 같은 값이 붙는다. */
+type DdMap = Map<string, 'DD' | 'TD'>
+
+/** 이름 클릭 핸들러. 없으면 이름은 버튼이 아니라 글자 그대로 그린다. */
+type PlayerPick = (playerId: string, name: string) => void
+
+const DD_LABEL = { DD: '더블더블', TD: '트리플더블' } as const
+
+// 하루 합산 기준 DD/TD 칩. TD 는 채움(노랑), DD 는 테두리만 — 눈에 띄는 정도를 다르게 둔다.
+function DdChip({ kind }: { kind: 'DD' | 'TD' }) {
+  const full = DD_LABEL[kind]
+  return (
+    <span
+      title={full}
+      aria-label={full}
+      className="inline-flex items-center px-1.5 text-xs font-black tracking-wider whitespace-nowrap shrink-0 align-middle"
+      style={kind === 'TD'
+        ? { background: 'var(--mm-yellow)', color: 'var(--mm-black)', border: '1px solid var(--mm-black)' }
+        : { background: 'var(--mm-panel-alt)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+    >{kind}</span>
+  )
+}
+
+function DdLegend() {
+  return (
+    <p className="t-label" style={{ color: 'var(--mm-muted)' }}>
+      DD = 더블더블 (득점·리바운드·어시스트·스틸·블락 중 2개가 두 자릿수) · TD = 트리플더블 (3개 이상)
+    </p>
+  )
+}
 
 type PlayerRow = {
   player_id: string; name: string; number: number | null
@@ -75,7 +111,25 @@ interface Props {
   initialGameId?: string
 }
 
-function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean }) {
+// 선수명. 누르면 선수 카드 모달이 열린다 — 글자 크기·굵기·색은 기존 그대로 두고
+// 눌린다는 신호(커서·밑줄·포커스 링)만 더한다. player_id 가 없으면 글자로만 그린다.
+function PlayerName({ row, onPlayerPick, className = 'whitespace-nowrap' }: { row: PlayerRow | DailyStat; onPlayerPick?: PlayerPick; className?: string }) {
+  const base = `font-semibold text-base ${className}`
+  if (!onPlayerPick || !row.player_id) {
+    return <span className={base} style={{ color: 'var(--mm-ink)' }}>{row.name}</span>
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => onPlayerPick(row.player_id, row.name)}
+      title={`${row.name} 선수 카드 열기`}
+      className={`${base} text-left cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]`}
+      style={{ color: 'var(--mm-ink)' }}
+    >{row.name}</button>
+  )
+}
+
+function StatTable({ rows, showGP = false, ddKinds, onPlayerPick }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick }) {
   const [sortKey, setSortKey] = useState('pts')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
@@ -166,9 +220,12 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
                 <td className="py-2.5 px-3 sticky left-0" style={{ background: 'inherit' }}>
                   <div className="flex items-center gap-2">
                     {rr.team_color && <div aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
-                    <div className="leading-tight">
+                    <div className="leading-tight min-w-0">
                       {/* 선수명은 본문체 600 — 유니폼체(좁음)와 900 굵기를 뺀 것이 이번 작업의 요지 */}
-                      <span className="font-semibold text-base whitespace-nowrap" style={{ color: 'var(--mm-ink)' }}>{rr.name}</span>
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <PlayerName row={rr} onPlayerPick={onPlayerPick} />
+                        {ddKinds?.get(rr.player_id) && <DdChip kind={ddKinds.get(rr.player_id)!} />}
+                      </span>
                       {rr.team_name && <p className="text-xs leading-tight mt-0.5" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</p>}
                     </div>
                   </div>
@@ -198,7 +255,7 @@ function StatTable({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; 
 }
 
 // 모바일 카드 뷰 — 세로 스택, 스크롤 없이 한눈에 요약
-function MobileStatCards({ rows, showGP = false }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean }) {
+function MobileStatCards({ rows, showGP = false, ddKinds, onPlayerPick }: { rows: (PlayerRow | DailyStat)[]; showGP?: boolean; ddKinds?: DdMap; onPlayerPick?: PlayerPick }) {
   const [sortKey, setSortKey] = useState<'pts' | 'reb' | 'ast'>('pts')
   const sorted = [...rows].sort((a, b) => {
     const av = (a as Record<string, unknown>)[sortKey] as number ?? 0
@@ -235,7 +292,8 @@ function MobileStatCards({ rows, showGP = false }: { rows: (PlayerRow | DailySta
             <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 {rr.team_color && <div aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: rr.team_color }} />}
-                <span className="font-semibold text-base truncate min-w-0" style={{ color: 'var(--mm-ink)' }}>{rr.name}</span>
+                <PlayerName row={rr} onPlayerPick={onPlayerPick} className="truncate min-w-0" />
+                {ddKinds?.get(rr.player_id) && <DdChip kind={ddKinds.get(rr.player_id)!} />}
                 {rr.team_name && <span className="text-xs shrink-0" style={{ color: 'var(--mm-muted)' }}>{rr.team_name}</span>}
                 {showGP && <span className="text-xs font-semibold shrink-0 tabular-nums" style={{ color: 'var(--mm-muted)' }}>{rr.gp}G</span>}
               </div>
@@ -295,6 +353,17 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
   const shareCaptureRef = useRef<HTMLDivElement>(null)
   // 공유 렌더링 표시 flag — true 일 때만 off-screen 렌더
   const [renderingShare, setRenderingShare] = useState(false)
+  // 이름을 눌러 연 선수 카드. 탭·필터·스크롤 state 와 독립이라 닫으면 보던 화면 그대로다.
+  const [quickView, setQuickView] = useState<{ id: string; name: string } | null>(null)
+  const pickPlayer: PlayerPick = useCallback((id, name) => setQuickView({ id, name }), [])
+
+  // 운영자 기준은 "총 하루의 기록" — 경기별 표에서도 이 하루 합산 판정을 그대로 붙인다.
+  const ddKinds: DdMap = new Map(
+    dailyStats
+      .map(d => [d.player_id, doubleDoubleKind(d)] as const)
+      .filter((e): e is readonly [string, 'DD' | 'TD'] => e[1] !== null),
+  )
+  const hasDd = ddKinds.size > 0
 
   const dateLabel = (() => {
     const d = new Date(date + 'T00:00:00')
@@ -455,6 +524,7 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             <p className="text-xs sm:text-sm min-w-0 truncate" style={{ color: 'var(--mm-ink-soft)' }}>
               <Trophy size={14} className="inline mr-1 -mt-0.5" style={{ color: 'var(--mm-yellow-strong)' }} aria-hidden />
               오늘의 주인공 · <span className="font-black" style={{ color: 'var(--mm-ink)' }}>{hero.name}</span>
+              {ddKinds.get(hero.player_id) && <> <DdChip kind={ddKinds.get(hero.player_id)!} /></>}
               {hero.team_name && <span style={{ color: 'var(--mm-muted)' }}> ({hero.team_name})</span>}
               {' '}<span className="font-black tabular-nums" style={{ color: accentOrInk(heroColor) }}>{hero.pts}점</span>
             </p>
@@ -761,12 +831,13 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                                 <>
                                   {/* 데스크탑 테이블 */}
                                   <div className="hidden md:block">
-                                    <StatTable rows={g.players} />
+                                    <StatTable rows={g.players} ddKinds={ddKinds} onPlayerPick={pickPlayer} />
                                   </div>
                                   {/* 모바일 카드 뷰 */}
                                   <div className="md:hidden">
-                                    <MobileStatCards rows={g.players} />
+                                    <MobileStatCards rows={g.players} ddKinds={ddKinds} onPlayerPick={pickPlayer} />
                                   </div>
+                                  {hasDd && <div className="mt-2"><DdLegend /></div>}
                                 </>
                               )
                               : <p className="text-sm text-center py-4" style={{ color: 'var(--mm-muted)' }}>기록된 선수 데이터가 없습니다</p>}
@@ -954,12 +1025,14 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
                     {/* 데스크탑 테이블 — G(경기수) 는 하루 합산일 때만 뜻이 있다.
                         대진 하나에서는 전부 1 이라 자리만 차지한다. */}
                     <div className="hidden md:block overflow-hidden" style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)' }}>
-                      <StatTable rows={filteredStats} showGP={!pickedGame} />
+                      <StatTable rows={filteredStats} showGP={!pickedGame} ddKinds={ddKinds} onPlayerPick={pickPlayer} />
                     </div>
                     {/* 모바일 카드 뷰 */}
                     <div className="md:hidden">
-                      <MobileStatCards rows={filteredStats} showGP={!pickedGame} />
+                      <MobileStatCards rows={filteredStats} showGP={!pickedGame} ddKinds={ddKinds} onPlayerPick={pickPlayer} />
                     </div>
+                    {/* 약어는 처음 보는 사람에게 읽히지 않는다 — 표 바로 아래 한 줄 범례 */}
+                    {hasDd && <DdLegend />}
                   </>
                 )
                 : <p className="text-sm text-center py-10" style={{ color: 'var(--mm-muted)' }}>집계된 스탯이 없습니다</p>}
@@ -979,6 +1052,15 @@ export default function BoxscoreContent({ leagueId, date, leagueName = '', initi
             </div>
           )}
         </div>
+      )}
+
+      {quickView && (
+        <PlayerQuickViewModal
+          leagueId={leagueId}
+          playerId={quickView.id}
+          playerName={quickView.name}
+          onClose={() => setQuickView(null)}
+        />
       )}
 
       {/* Hidden 공유용 캡처 대상 — 저장 클릭 시에만 렌더 (off-screen) */}

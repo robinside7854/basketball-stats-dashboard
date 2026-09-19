@@ -16,6 +16,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { scorePoints, fetchScoringRules, type ScoringRules, isPlusOneFor, type GamePlusOne } from '../stats/scoring'
+import { doubleDoubleCategories, doubleDoubleKind } from '../stats/doubleDouble'
 import { fetchExternalTeamIds } from '../league/externalPlayers'
 import { resolveTeamId } from '@/lib/league/teamScope'
 
@@ -312,14 +313,13 @@ export async function computeRoundBadges(
   const badges: BadgePayload[] = []
 
   for (const [pid, s] of Object.entries(ps)) {
-    const cats: Array<['pts'|'reb'|'ast'|'stl'|'blk', number]> = [
-      ['pts', s.pts], ['reb', s.reb], ['ast', s.ast], ['stl', s.stl], ['blk', s.blk],
-    ]
-    const hitCats = cats.filter(([, v]) => v >= 10).map(([k]) => k)
+    // 판정은 doubleDouble.ts 단일 진실 — 박스스코어 화면의 DD/TD 칩이 같은 함수를 쓴다.
+    const hitCats = doubleDoubleCategories(s)
+    const kind = doubleDoubleKind(s)
     const gameIds = Array.from(gameIdsByPlayer[pid] ?? [])
     const gameCount = gameIds.length
 
-    if (hitCats.length >= 3) {
+    if (kind === 'TD') {
       badges.push({
         league_id: leagueId,
         player_id: pid,
@@ -334,7 +334,7 @@ export async function computeRoundBadges(
         },
       })
       // TD 부여 시 DD 는 배타적으로 미부여
-    } else if (hitCats.length === 2) {
+    } else if (kind === 'DD') {
       badges.push({
         league_id: leagueId,
         player_id: pid,
