@@ -31,11 +31,11 @@ import { Dice5, Flag, Loader2 } from 'lucide-react'
 import { playBeep, playBuzzer, playDrumroll, playLotteryHorn, primeAudio } from '@/lib/draftSounds'
 import { teamInk, teamAccentOnDark } from '@/lib/util/contrastColor'
 import {
-  createWorld, leaderIndex, raceOver, SIM_HZ, stepWorld, teamInChute, type World,
+  createWorld, leaderIndex, raceOver, SIM_HZ, stepWorld, type World,
 } from './lottery/sim'
 import { findSeedChunked } from './lottery/search'
 import { hashSeed } from './lottery/rng'
-import { COURSE_W } from './lottery/course'
+import { CHUTE_TOP, COURSE_W } from './lottery/course'
 import { drawScene, type Cam, type TeamInfo } from './lottery/render'
 
 interface Team { id: string; name: string; color: string }
@@ -199,7 +199,6 @@ export default function DraftLotteryReveal({
     let running = false
     let lastTick = 0
     let seenGoals = 0
-    let chuteCam = false
     let endAt = -1
     const sparks: { x: number; y: number; life: number }[] = []
     const bumperFlash = [0, 0, 0]
@@ -259,13 +258,16 @@ export default function DraftLotteryReveal({
       let targetZoom = waitScale
       if (running) {
         targetZoom = baseScale
-        if (!chuteCam && teamInChute(w)) chuteCam = true
-        if (chuteCam) {
+        // 선두가 골인하면 leaderIndex 는 그 다음 공(2등)을 가리킨다. 그 공이 아직 코스
+        // 위에 있으면 카메라도 따라 올라가야 한다 — 골대에 눌러앉으면 남은 순위 경쟁이
+        // 화면 밖에서 끝난다(사용자 신고 2026-09-20). 그래서 매 프레임 다시 판정한다.
+        const li = leaderIndex(w)
+        const lead = li >= 0 ? w.marbles[li] : null
+        if (!lead || lead.y > CHUTE_TOP - 2) {
           targetY = FINISH_CAM_Y
           targetZoom = finishScale
         } else {
-          const li = leaderIndex(w)
-          targetY = (li >= 0 ? w.marbles[li].y : 0) + 6
+          targetY = lead.y + 6
         }
       }
       cam.y += (targetY - cam.y) * 0.075
