@@ -344,12 +344,19 @@ function drawShotClock(ctx: CanvasRenderingContext2D, w: World, yTop: number, yB
   ctx.lineWidth = 0.12
   ctx.strokeStyle = w.clockShut ? '#ef4444' : 'rgba(148,163,184,0.7)'
   ctx.stroke()
-  if (scale > 7) {
-    ctx.fillStyle = w.clockShut ? '#fca5a5' : '#94a3b8'
-    ctx.font = '700 1.35px ui-monospace, SFMono-Regular, monospace'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(String(w.clockNum).padStart(2, '0'), bx + bw / 2, by + bh / 2 + 0.06)
+  // 숫자가 아니라 **남은 시간 막대**다. 게이트 주기가 1.8초라(2026-09-20 단축) 24→00 숫자를
+  // 그대로 띄우면 1초에 13개씩 흘러 읽을 수 없다. 막대는 어느 속도에서도 "곧 바뀐다"가 읽힌다.
+  const remain = Math.max(0, Math.min(1, w.clockNum / 24))
+  const px = bx + 0.34, py = by + bh / 2 - 0.3, pw = bw - 0.68, ph = 0.6
+  ctx.beginPath()
+  ctx.roundRect(px, py, pw, ph, 0.18)
+  ctx.fillStyle = 'rgba(148,163,184,0.22)'
+  ctx.fill()
+  if (remain > 0.001) {
+    ctx.beginPath()
+    ctx.roundRect(px, py, pw * remain, ph, 0.18)
+    ctx.fillStyle = w.clockShut ? '#ef4444' : '#94a3b8'
+    ctx.fill()
   }
   ctx.restore()
 }

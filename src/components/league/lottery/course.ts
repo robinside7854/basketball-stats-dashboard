@@ -116,7 +116,14 @@ export const CLOCK_Y = 124
 //    y=137.5 로 내려도 0.17회였다 — 벽을 타는 공은 퍼널이 **정말로** 좁아지는 데까지
 //    가야 만난다. y=138.8 에서 퍼널 폭은 5.96, 프로텍터가 3.2 를 막고 양옆에 1.38 씩
 //    남는다(공 지름 1.1). 더 내리면 양옆이 1.1 미만이 되어 통째로 막힌다.
-export const PROT_Y = 138.8
+// ── 2026-09-20: 프로텍터가 「있긴 한데 순위를 못 흔든다」의 원인 ─────────
+// PROT_Y 를 지나는 팀 공의 x 를 재 봤더니 **가운데가 아예 없었다**:
+//   p10 9.79 · 중앙 14.03 · p75 14.16 (퍼널 벽이 y=138.8 에서 9.02 / 14.98)
+// 공은 퍼널 벽에 딱 붙어 양쪽 끝으로 새 나간다. 몸통이 가운데에 있는 시간에는 아무도 없고,
+// 흔들림이 끝(±0.8)에 닿는 **짧은 순간**에만 걸린다 — 접촉률 0.472 가 그 그림자였다.
+// 그래서 (1) 통로가 조금 더 넓은 높이로 올려 몸통과 흔들림 폭을 함께 키우고,
+// (2) 삼각파를 **사다리꼴파**로 바꿔 흔들림이 양 끝에 머무는 시간을 늘린다.
+export const PROT_Y = 138.5
 
 /** 레인 i(0~2) 의 [x0, x1] */
 export function laneSpan(i: number): [number, number] {
@@ -144,14 +151,24 @@ export const SCREEN2_X_MAX = 11
 /** 왕복 주기 3초 = 360스텝 */
 export const SCREEN_PERIOD = 360
 
-// ── 샷클락 게이트 — 1.25초 닫히고 2.75초 열린다(주기 4초) ────────────────
+// ── 샷클락 게이트 ────────────────────────────────────────────────────────
 // ⚠ 2초/2초 였을 때 팀 공의 p95 대기가 2.07초였다. 닫힌 바는 한쪽 끝에 **공 한 개 폭 틈**을
 //    남겨(매 주기 좌우 교대) 쌓이지 않고 샌다.
 // ⚠ 0.8초(96스텝)일 때 접촉률이 0.201 이었다 — 닫혀 있는 시간 비율(96/480=0.20)과
 //    소수점까지 같다. 게이트는 **자리를 옮길 수 없는 장애물**이라(이미 전폭이다) 접촉률을
-//    올릴 손잡이는 듀티비뿐이다. 150/480 = 0.31 로 올린다.
-export const CLOCK_PERIOD = 480
-export const CLOCK_CLOSED_STEPS = 150
+//    올릴 손잡이는 듀티비뿐이다.
+//
+// ── 2026-09-20: 「쿨타임이 너무 길다」의 진짜 원인은 주기가 아니었다 ──────
+// 코드상 주기는 4초인데 사람이 보는 활성화 간격은 그보다 훨씬 길었다. 실측(3·4·6팀 각 40판):
+//   · 팀 공이 클락 높이(±3)에 머무는 시간 **0.46~0.54초**
+//   · 한 번이라도 닫힌 바에 막힌 팀 공 **28~36%** · 공당 접촉 0.28~0.36회
+// 즉 공은 4초 주기를 한 번밖에 못 본다 — **닫힘을 만나느냐는 거의 동전 던지기**이고,
+// 한 판(16~21초)에 팀 공이 실제로 막히는 사건은 1~2번뿐이라 체감 간격이 7초쯤이 된다.
+// 주기를 늘리면(840=7초) 이 사건이 **더 줄어든다.** 그래서 반대로 간다:
+// 주기를 절반으로 줄이고 듀티를 올려, 0.5초짜리 통과 창 안에서 닫힘을 만날 확률을 키운다.
+// 닫힘 시간은 0.8초로 **줄인다** — 듀티는 올라가되 한 번 막혔을 때의 대기는 짧아진다.
+export const CLOCK_PERIOD = 216
+export const CLOCK_CLOSED_STEPS = 96
 export const CLOCK_GAP = 1.9
 
 /** 리바운드 범퍼 — 반발 1.4 */
@@ -268,16 +285,29 @@ export function beamTargetY(step: number): number {
 }
 
 /** 림 프로텍터의 현재 중심 x */
-export const PROT_R = 1.0
+// ⚠ 여유 계산(y=138.3 에서 퍼널 우벽 15.44): 흔들림 끝에서 몸통 겉면과 벽 사이가
+//    15.44 - (12 + PROT_SWAY + PROT_R) 이어야 하고, 이것이 공 지름 1.1 보다 좁으면
+//    공이 벽과 프로텍터 사이에 **박힌다**. 1.15 + 1.0 = 2.15 → 여유 1.29.
+//    (옛 138.8 · 0.8+1.0 일 때 여유가 1.18 이었으니 오히려 넉넉해졌다)
+export const PROT_R = 1.2
 /** 흔들림 폭. 키우면 퍼널 벽과의 여유가 줄어 끼임 위험이 커진다. */
 export const PROT_SWAY = 0.8
-export const PROT_PERIOD = 300
+export const PROT_PERIOD = 56
+/** 사다리꼴파의 평탄부 비율 — 흔들림이 양 끝에 머무는 시간. 삼각파(0)면 끝에 **스치기만**
+ *  한다. 공이 벽에 붙어 지나가므로, 끝에 머무는 시간이 곧 접촉률이다. */
+const PROT_FLAT = 2.6
 /** 들어올린 팔 — 중심 기준 오프셋 (안쪽 끝 → 바깥 위 끝) */
 // ⚠ 팔을 눕히지 말 것. dx1.13 : dy1.28(48°) 이었을 때 공이 **팔 위에 올라타** 흔들림과 함께
 //    끌려다녔다 — 50판 중 9판이 (11.0, 134.6) 부근에서 안 내려왔다. 67° 로 세우면 미끄러진다.
-export const PROT_ARM = { ix: 0.55, iy: -0.55, ox: 1.25, oy: -2.2, thick: 0.2 }
+// 2026-09-20: 팔을 길게 뺐다. 각도(67°)는 그대로다 — dx:dy = 0.95:2.24.
+// ⚠ 팔은 **충돌하지 않는다**(아래 sim.ts 주석 참조). 길이를 키운 것은 그림과 끼임 검사
+//    제외 구역에만 영향을 준다. 프로텍터의 실제 영향력은 몸통 원 하나로만 정해진다.
+export const PROT_ARM = { ix: 0.6, iy: -0.6, ox: 1.55, oy: -2.84, thick: 0.22 }
 export function protectorX(step: number): number {
-  return HOOP_X + (triangle(step, PROT_PERIOD) * 2 - 1) * PROT_SWAY
+  // 사다리꼴파 — 삼각파를 늘려 자른다. clamp 뿐이라 초월함수가 없다(결정론 유지).
+  let v = (triangle(step, PROT_PERIOD) * 2 - 1) * PROT_FLAT
+  if (v > 1) v = 1; else if (v < -1) v = -1
+  return HOOP_X + v * PROT_SWAY
 }
 
 /** 샷클락이 닫혀 있는가 */
@@ -328,17 +358,118 @@ export function buildCourse(seed: number): Course {
   // 여기서는 "어디가 길목인가" 만 후보로 적어 둔다.
   interface PegCand { x: number; y: number }
 
+  // ── 꺾인 램프 ─────────────────────────────────────────────────────────────
+  // 2026-09-20: 램프가 **벽에서 반대쪽 끝까지 한 번에 가로지르는 직선**이었다. 한 번 올라탄
+  // 공은 끝까지 같은 방향으로 미끄러져 내려오므로 이 구간에서 순위가 거의 안 섞였다.
+  // 이제 램프 하나를 2~4 구간의 **꺾인 선**으로 만든다 — 구간마다 기울기가 다르고,
+  // 가운데 한 구간은 왔던 쪽으로 **되돌아간다**(스위치백).
+  //
+  // ⚠ 꺾임이 끼임을 만들지 않게 하는 불변식 두 개.
+  //   1) **모든 구간이 아래로 내려간다(dy>0).** 위로 꺾이는 구간이 있으면 그 이음매가 V 홈이
+  //      되어 공이 눌러앉는다. 내려가기만 하면 어떤 이음매도 공을 못 가둔다 — 되돌아가는
+  //      구간의 이음매는 x 국소 최대(또는 최소)점이라 오히려 **볼록한 꼭짓점**이다.
+  //   2) 기울기를 14°~71.6° 안에 둔다. 더 눕히면 선반이 되어 공이 얹히고, 더 세우면
+  //      꼭짓점 위에 공이 올라앉는다.
+  // 그리고 옛 주석의 경고 — 「한 램프가 끝나는 곳이 곧 다음 램프의 몸통 속」 — 을 **검사로**
+  // 못박는다. 실측한 현재(직선) 램프쌍 최소 거리가 1.72 라 1.45 를 문턱으로 잡았다.
+  // 후보가 다 막히면 직선으로 되돌아간다(= 지금까지의 동작이라 더 나빠질 수 없다).
+  //
+  // ⚠ 기울기 하한을 0.30(16.7°)으로 잡았더니 **80%가 2구간으로 주저앉았다**(스위치백 2.1%).
+  //    이유는 기하다: 낙차(8~9.5)는 고정인데 되돌아가는 구간이 가로 이동 거리를 1+2B 배로
+  //    늘리므로 **램프 전체가 그만큼 완만해진다.** 직선 램프의 기울기가 이미 0.53(28°)뿐이라
+  //    하한 0.30 은 스위치백을 통째로 금지하는 값이었다. 0.25(14°)로 내린다 — 접선 마찰이
+  //    0.004 라 14° 면 공은 확실히 미끄러진다(끼임 0 으로 재검증).
+  const RAMP_CLEAR = 1.45
+  const RAMP_MARGIN = 2.2
+  const RAMP_SLOPE_MIN = 0.25
+  const RAMP_SLOPE_MAX = 3.0
+  const probe: Seg = { x1: 0, y1: 0, x2: 0, y2: 0, rest: 0, kind: 'ramp' }
+  /** 두 선분의 최소 거리(양쪽에서 샘플링) */
+  const segGap = (ax1: number, ay1: number, ax2: number, ay2: number, s: Seg): number => {
+    probe.x1 = ax1; probe.y1 = ay1; probe.x2 = ax2; probe.y2 = ay2
+    let d = Infinity
+    for (let i = 0; i <= 8; i++) {
+      const t = i / 8
+      const da = pointSegDist(ax1 + (ax2 - ax1) * t, ay1 + (ay2 - ay1) * t, s)
+      if (da < d) d = da
+      const db = pointSegDist(s.x1 + (s.x2 - s.x1) * t, s.y1 + (s.y2 - s.y1) * t, probe)
+      if (db < d) d = db
+    }
+    return d
+  }
+  /** 램프 하나를 꺾인 선으로 놓는다. 돌려주는 값은 실제로 놓인 구간 수(1 = 직선 폴백). */
+  const pushRamp = (x0: number, y0: number, x1: number, y1: number): number => {
+    const dx = x1 - x0, dy = y1 - y0
+    // ⚠ 난수는 **시도 전에** 전부 뽑는다. 시도 횟수에 따라 소비량이 달라지면 뒤따르는
+    //    모든 배치(스크린 높이·레인·페그)가 밀려 결정론 밖의 변수가 된다.
+    const kinks = intRange(rng, 2, 4)
+    /** 구간별 가로 폭 가중치 — 균등하게 나눠야 한 구간이 폭을 다 먹지 않는다 */
+    const wxw = [range(rng, 0.75, 1.45), range(rng, 0.75, 1.45), range(rng, 0.75, 1.45), range(rng, 0.75, 1.45)]
+    /** 구간별 기울기 배수 — 이것이 「완만 ↔ 가파름」을 만든다(최대 2배 차) */
+    const mm = [range(rng, 0.8, 1.6), range(rng, 0.8, 1.6), range(rng, 0.8, 1.6), range(rng, 0.8, 1.6)]
+    /** 되돌아가는 폭(전체 대비) */
+    const bk = range(rng, 0.12, 0.22)
+    const revPick = rng()
+    for (let k = kinks; k >= 2; k--) {
+      // 되돌아가는 **구간 인덱스**. 마지막 구간은 반드시 전진이어야 끝점이 제자리에 온다.
+      const rev = k >= 3 ? Math.floor(revPick * (k - 1)) : -1
+      const B = rev >= 0 ? bk : 0
+      let fwSum = 0
+      for (let j = 0; j < k; j++) if (j !== rev) fwSum += wxw[j]
+      const dp: number[] = []
+      for (let j = 0; j < k; j++) dp.push(j === rev ? -B : (wxw[j] / fwSum) * (1 + B))
+      // 낙차를 |Δp| × 기울기배수 에 비례해 나누면 **구간 기울기가 곧 mm 비율**이 된다.
+      let sw = 0
+      for (let j = 0; j < k; j++) sw += (dp[j] < 0 ? -dp[j] : dp[j]) * mm[j]
+      const lo = RAMP_MARGIN, hi = COURSE_W - RAMP_MARGIN
+      const vx: number[] = [x0], vy: number[] = [y0]
+      let p = 0, q = 0
+      for (let j = 0; j < k; j++) {
+        p += dp[j]
+        q += ((dp[j] < 0 ? -dp[j] : dp[j]) * mm[j]) / sw
+        if (j === k - 1) { vx.push(x1); vy.push(y1); break }
+        let x = x0 + dx * p
+        x = x < lo ? lo : x > hi ? hi : x
+        vx.push(x); vy.push(y0 + dy * q)
+      }
+      let ok = true
+      for (let j = 0; j < k && ok; j++) {
+        const sdx = vx[j + 1] - vx[j], sdy = vy[j + 1] - vy[j]
+        if (sdy < 0.8) { ok = false; break }
+        const ax = sdx < 0 ? -sdx : sdx
+        const slope = sdy / (ax < 0.0001 ? 0.0001 : ax)
+        if (slope < RAMP_SLOPE_MIN || slope > RAMP_SLOPE_MAX) { ok = false; break }
+        for (const s of segs) {
+          if (s.kind !== 'ramp') continue
+          if (segGap(vx[j], vy[j], vx[j + 1], vy[j + 1], s) < RAMP_CLEAR) { ok = false; break }
+        }
+        // 자기 자신의 **비인접** 구간 — 되돌아간 구간이 앞 구간 밑으로 파고들 수 있다
+        for (let o = 0; o < j - 1 && ok; o++) {
+          const own: Seg = { x1: vx[o], y1: vy[o], x2: vx[o + 1], y2: vy[o + 1], rest: 0, kind: 'ramp' }
+          if (segGap(vx[j], vy[j], vx[j + 1], vy[j + 1], own) < RAMP_CLEAR) ok = false
+        }
+      }
+      if (!ok) continue
+      for (let j = 0; j < k; j++) push(vx[j], vy[j], vx[j + 1], vy[j + 1], 0.16, 'ramp')
+      return k
+    }
+    push(x0, y0, x1, y1, 0.16, 'ramp')
+    return 1
+  }
+
   const rampCount = intRange(rng, 2, 3)
   const firstRight = rng() < 0.5
   const RAMP_PITCH = 9
   let lastEndX = HOOP_X, lastEndY = 30, lastGoesRight = true
+  /** 램프 꺾임 지문 — 레이아웃 비교(layoutId)에 쓴다 */
+  const rampSig: string[] = []
   for (let i = 0; i < rampCount; i++) {
     const y0 = 18 + i * RAMP_PITCH
     const drop = range(rng, 8.0, 9.5)
     const goesRight = firstRight ? i % 2 === 0 : i % 2 === 1
     const endX = goesRight ? range(rng, 16.5, 18.5) : range(rng, 5.5, 7.5)
-    if (goesRight) push(0.5, y0, endX, y0 + drop, 0.16, 'ramp')
-    else push(COURSE_W - 0.5, y0, endX, y0 + drop, 0.16, 'ramp')
+    const x0 = goesRight ? 0.5 : COURSE_W - 0.5
+    rampSig.push(String(pushRamp(x0, y0, endX, y0 + drop)))
     lastEndX = endX; lastEndY = y0 + drop; lastGoesRight = goesRight
   }
   // ⚠ 램프 끝 아래에 페그를 놓아 봤다 — 접촉률 0.003 이 나왔다. 이유는 기하다:
@@ -596,7 +727,7 @@ export function buildCourse(seed: number): Course {
 
   const beamLeft = rng() < 0.5
   const layoutId = [
-    rampCount, firstRight ? 'R' : 'L', kinds.join(''), pegPattern,
+    rampCount, firstRight ? 'R' : 'L', rampSig.join(''), kinds.join(''), pegPattern,
     beamLeft ? 'BL' : 'BR', screen1Y.toFixed(1), bumpers.map(b => b.x.toFixed(1)).join(','),
     segs.filter(s => s.kind === 'deflect').map(s => `${s.x1.toFixed(0)}@${s.y1.toFixed(1)}`).join(','),
     pegs.map(p => p.x.toFixed(1)).join(','),

@@ -149,47 +149,57 @@ export function createWorld(order: string[], seed?: number, gateOn = false): Wor
   const rng = mulberry32(s)
   const marbles: Marble[] = []
 
-  // 스폰 순서: 팀 구슬 먼저, 그 다음 중립. 순서가 곧 충돌 해소 순서라 결정론에 포함된다.
-  const total = order.length + NEUTRAL_COUNT
-  const lanes: number[] = []
-  for (let i = 0; i < total; i++) lanes.push(i)
-  // 시드 셔플(Fisher-Yates) — 팀 구슬이 항상 왼쪽에서 출발하지 않게
-  for (let i = lanes.length - 1; i > 0; i--) {
+  // ── 출발선 ───────────────────────────────────────────────────────────────
+  // ⚠ 2026-09-20 이전에는 팀 공과 중립 공을 6열 × N행 격자에 **섞어** 뿌렸다. 팀이 3개만
+  //    돼도 중립 6개와 합쳐 9개라 2행이 되고, 뒷줄을 뽑은 팀은 다른 팀보다 2.6 위에서
+  //    출발했다 — 추첨인데 출발선이 달랐다.
+  //    이제 **팀 공은 예외 없이 한 줄**(TEAM_ROW_Y)에 좌우 균등 간격으로 선다. y 랜덤
+  //    오프셋은 뺐다. 중립 공은 그 **위쪽** 두 줄로 올려 출발 공정성에서 빼낸다.
+  //    x 의 작은 흔들림과 초기 속도 랜덤은 남긴다 — 시드마다 판이 갈리는 재료라 이게 없으면
+  //    시드 탐색이 레이아웃 변화에만 기대게 된다(n=6 성공률이 떨어진다). 좌우 대칭이라
+  //    어느 팀에도 유불리가 없고, 흔들림 폭은 간격에서 겹치지 않을 만큼만 준다.
+  const TEAM_ROW_Y = TOP_Y + 6.5
+  const NEUTRAL_ROW_Y = TOP_Y + 1.6
+  /** 팀 수에 맞춘 좌우 간격. 12팀이 한 줄에 들어가는 것이 상한이다(24 - 여백 1.5 = 22.5). */
+  const n = order.length
+  const teamGap = Math.min(3.1, 22.5 / Math.max(n, 1))
+  /** 간격에서 공 지름(1.1)을 빼고 남는 여유의 절반 — 이웃과 겹치지 않는 최대 흔들림 */
+  const teamJit = Math.max(0, Math.min(0.55, (teamGap - 1.25) / 2))
+
+  // 어느 팀이 몇 번째 자리에 서는가 — 시드 셔플(Fisher-Yates)
+  const slots: number[] = []
+  for (let i = 0; i < n; i++) slots.push(i)
+  for (let i = slots.length - 1; i > 0; i--) {
     const j = intRange(rng, 0, i)
-    const t = lanes[i]; lanes[i] = lanes[j]; lanes[j] = t
+    const t = slots[i]; slots[i] = slots[j]; slots[j] = t
   }
 
-  const spawn = (team: string | null, lane: number) => {
-    const col = lane % 6
-    const row = Math.floor(lane / 6)
-    marbles.push({
+  const spawnTeam = (team: string, slot: number) => {
+    marbles.push(newMarble(
       team,
-      x: 2.6 + col * 3.76 + range(rng, -0.55, 0.55),
-      y: TOP_Y + 1.5 + row * 2.6 + range(rng, -0.4, 0.4),
-      vx: range(rng, -2.2, 2.2),
-      vy: range(rng, 0, 1.5),
-      r: MARBLE_R,
-      rot: range(rng, 0, 6),
-      scored: false,
-      scoredStep: -1,
-      out: false,
-      released: false,
-      ghost: false,
-      screenTouches: 0,
-      screenPrev: false,
-      protTouches: 0,
-      protPrev: false,
-      bumpTouches: 0,
-      beamT: 0,
-      beamSteps: 0,
-      markY: -1e9,
-      still: 0,
-      nudges: 0,
-    })
+      HOOP_X + (slot - (n - 1) / 2) * teamGap + range(rng, -teamJit, teamJit),
+      TEAM_ROW_Y,
+      range(rng, -2.2, 2.2),
+      range(rng, 0, 1.5),
+      range(rng, 0, 6),
+    ))
+  }
+  const spawnNeutral = (i: number) => {
+    const col = i % 6
+    const row = Math.floor(i / 6)
+    marbles.push(newMarble(
+      null,
+      2.6 + col * 3.76 + range(rng, -0.55, 0.55),
+      NEUTRAL_ROW_Y - row * 2.6 + range(rng, -0.3, 0.3),
+      range(rng, -2.2, 2.2),
+      range(rng, 0, 1.5),
+      range(rng, 0, 6),
+    ))
   }
 
-  order.forEach((tid, i) => spawn(tid, lanes[i]))
-  for (let i = 0; i < NEUTRAL_COUNT; i++) spawn(null, lanes[order.length + i])
+  // 스폰 순서: 팀 구슬 먼저, 그 다음 중립. 순서가 곧 충돌 해소 순서라 결정론에 포함된다.
+  order.forEach((tid, i) => spawnTeam(tid, slots[i]))
+  for (let i = 0; i < NEUTRAL_COUNT; i++) spawnNeutral(i)
 
   return {
     course, marbles, step: 0, wc: 1, ws: 0,
@@ -204,6 +214,31 @@ export function createWorld(order: string[], seed?: number, gateOn = false): Wor
     beamTx: course.beamLeft ? COURSE_W : 0, beamTy: beamTargetY(0),
     gate: gateOn ? { order: [...order], nextIdx: 0, lastReleaseStep: -RELEASE_GAP, openAll: false } : null,
     prevY: new Array(marbles.length).fill(0),
+  }
+}
+
+function newMarble(
+  team: string | null, x: number, y: number, vx: number, vy: number, rot: number,
+): Marble {
+  return {
+    team, x, y, vx, vy,
+    r: MARBLE_R,
+    rot,
+    scored: false,
+    scoredStep: -1,
+    out: false,
+    released: false,
+    ghost: false,
+    screenTouches: 0,
+    screenPrev: false,
+    protTouches: 0,
+    protPrev: false,
+    bumpTouches: 0,
+    beamT: 0,
+    beamSteps: 0,
+    markY: -1e9,
+    still: 0,
+    nudges: 0,
   }
 }
 
@@ -411,8 +446,14 @@ export function stepWorld(w: World): void {
     // ⚠ 게이트가 호송 중인 공은 프로텍터를 통과시킨다. 안 그러면 슈트 입구로 조준된 공이
     //    프로텍터에 정면으로 박혀 멎고, **폴백 자체가 깨진다**(12팀 실측: 순서일치 18/20,
     //    최장 45초, 정착률 67%). 폴백은 순서를 보장하는 마지막 장치라 여기서 막히면 안 된다.
+    // ⚠ 게이트가 켜지면 **허가를 못 받은 공이 슈트 마개 위에 줄 서 있다**(y≈140). 프로텍터
+    //    몸통을 키우는 튜닝 중에 이 대기줄이 프로텍터와 퍼널 벽 사이에 박혔다
+    //    (PROT_Y 138.3 · R 1.15 일 때 12팀 40판 중 3판 미완주, 멈춘 자리 (10.8,139.9)).
+    //    마개 위 대기줄은 프로텍터에서 뺀다 — 거기서는 게이트가 순서를 정하는 중이라
+    //    프로텍터가 개입할 이유가 없고, 개입하면 폴백이 통째로 멎는다.
+    const atPlug = gateActive && m.y > CHUTE_TOP - 2.5
     let onProt = false
-    if (!(gateActive && m.released) && m.y > PROT_Y - 4 && m.y < PROT_Y + PROT_R + 2) {
+    if (!(gateActive && m.released) && !atPlug && m.y > PROT_Y - 4 && m.y < PROT_Y + PROT_R + 2) {
       collideCircle(m, px, PROT_Y, PROT_R, 0.4)
       // collideCircle 의 true 는 "세게 맞았나"(소리용)라 접촉 계측에는 못 쓴다 — 거리로 센다
       const ddx = m.x - px, ddy = m.y - PROT_Y, reach = m.r + PROT_R + 0.02
