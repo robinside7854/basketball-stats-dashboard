@@ -20,11 +20,11 @@
 // 이 파일은 DOM 을 참조하지 않는다. Node 에서 두 번 돌려 체크섬을 비교할 수 있다.
 
 import {
-  BUMPER_REST, bucketFor, buildCourse, CHUTE_TOP, CHUTE_X0, CHUTE_X1, clockBar, clockClosed,
-  clockGapLeft, clockReadout, CLOCK_Y, COURSE_W, FUNNEL_TOP_Y, HOOP_HALF, HOOP_X, NET_BOTTOM,
-  PROT_ARM, PROT_R, PROT_Y, protectorX, RIM_Y,
-  SCREEN1_Y, SCREEN2_Y, SCREEN_LEN, SCREEN_TILT, screenX, screenX2, TOP_Y,
-  ZONE_DRAG, ZONE_Y0, ZONE_Y1,
+  BEAM_DRAG, BEAM_EY, BEAM_HALF, beamTargetY, BUMPER_REST, bucketFor, buildCourse, CHUTE_TOP,
+  CHUTE_X0, CHUTE_X1, clockBar, clockClosed, clockGapLeft, clockReadout, CLOCK_Y, COURSE_W,
+  FUNNEL_TOP_Y, HOOP_HALF, HOOP_X, LANE_Y0, NET_BOTTOM,
+  PROT_R, PROT_Y, protectorX, RIM_Y,
+  SCREEN_LEN, SCREEN_TILT, screenX, screenX2, TOP_Y,
   type Course,
 } from './course'
 import { hashSeed, intRange, mulberry32, range } from './rng'
@@ -33,7 +33,7 @@ export const SIM_HZ = 120
 export const SIM_DT = 1 / SIM_HZ
 
 /** 중력(월드단위/s²) */
-const G = 28
+const G = 34
 /** 스텝당 공기저항 (상수 곱 — Math.pow 를 쓰지 않는다) */
 const DRAG = 0.99925
 /** 속도 상한. dt=1/120 에서 한 스텝 이동 0.45 < 반지름 0.55 → 터널링 없음 */
@@ -60,10 +60,21 @@ export interface Marble {
   out: boolean
   /** 슈트 게이트 통과 허가 (폴백 전용) */
   released: boolean
+  /** 감시 시계에 걸려 **강제 호송** 중 — 장애물을 통과해 곧장 골대로 간다(폴백 전용) */
+  ghost: boolean
   /** 스크린(픽)에 막힌 횟수 — 코스 난이도 계측용. 붙어 있는 동안은 1회로 센다(상승 엣지). */
   screenTouches: number
   /** 직전 스텝에 스크린에 닿아 있었는가 */
   screenPrev: boolean
+  /** 림 프로텍터에 막힌 횟수 (상승 엣지) */
+  protTouches: number
+  protPrev: boolean
+  /** 리바운드 범퍼에 맞은 횟수 */
+  bumpTouches: number
+  /** 슬로우 빔에 맞은 잔광 0~1 (그림 전용) */
+  beamT: number
+  /** 빔 안에 있던 스텝 수 — 효과가 실제로 걸리는지 계측용 */
+  beamSteps: number
   /** 마지막으로 "내려갔다"고 인정한 y — 끼임 감지 기준선 */
   markY: number
   /** 그 기준선 이후 진전 없이 흐른 스텝 수 */
@@ -105,6 +116,9 @@ export interface World {
   clockGapLeft: boolean
   clockNum: number
   protX: number
+  /** 슬로우 빔 — 발사점과 반대쪽 벽에 닿는 점 (그림·물리 공용) */
+  beamEx: number; beamEy: number
+  beamTx: number; beamTy: number
   gate: GateState | null
   /** 적분 전 y — 림 통과 판정용 (매 스텝 재사용, 할당 없음) */
   prevY: number[]
@@ -150,8 +164,14 @@ export function createWorld(order: string[], seed?: number, gateOn = false): Wor
       scoredStep: -1,
       out: false,
       released: false,
+      ghost: false,
       screenTouches: 0,
       screenPrev: false,
+      protTouches: 0,
+      protPrev: false,
+      bumpTouches: 0,
+      beamT: 0,
+      beamSteps: 0,
       markY: -1e9,
       still: 0,
     })
@@ -169,6 +189,8 @@ export function createWorld(order: string[], seed?: number, gateOn = false): Wor
     screenX: screenX(0), screenX2: screenX2(0),
     clockShut: clockClosed(0), clockGapLeft: clockGapLeft(0), clockNum: clockReadout(0),
     protX: protectorX(0),
+    beamEx: course.beamLeft ? 0 : COURSE_W, beamEy: BEAM_EY,
+    beamTx: course.beamLeft ? COURSE_W : 0, beamTy: beamTargetY(0),
     gate: gateOn ? { order: [...order], nextIdx: 0, lastReleaseStep: -RELEASE_GAP, openAll: false } : null,
     prevY: new Array(marbles.length).fill(0),
   }
@@ -200,6 +222,13 @@ export function stepWorld(w: World): void {
   const shut = clockClosed(w.step)
   const bar = clockBar(w.step)
   const px = protectorX(w.step)
+  const bex = course.beamLeft ? 0 : COURSE_W
+  const btx = course.beamLeft ? COURSE_W : 0
+  const bty = beamTargetY(w.step)
+  const bdx = btx - bex, bdy = bty - BEAM_EY
+  const blen = Math.sqrt(bdx * bdx + bdy * bdy)
+  const bux = bdx / blen, buy = bdy / blen
+  w.beamEx = bex; w.beamEy = BEAM_EY; w.beamTx = btx; w.beamTy = bty
   w.screenX = sx
   w.screenX2 = sx2
   w.clockShut = shut
@@ -230,8 +259,15 @@ export function stepWorld(w: World): void {
           const m = ms[i]
           if (m.team === want && !m.released && !m.out) { pick = i; break }
         }
-        if (pick >= 0 && ms[pick].y > CHUTE_TOP - 18) {
+        // ⚠ 감시 시계: 3초를 기다렸으면 **어디 있든** 호송을 시작한다. 예전엔 "퍼널 근처에
+        //    와 있을 때만" 내보냈는데, 기다리는 팀 공이 위쪽 레인에서 늦어지면 게이트가
+        //    영원히 멈췄다(12팀 실측: 45초 초과·정착률 67%). 폴백이 멎으면 순서 보장이 없다.
+        const overdue = w.step - g.lastReleaseStep > 360
+        if (pick >= 0 && (overdue || ms[pick].y > CHUTE_TOP - 18)) {
           ms[pick].released = true
+          // 늦어서 불려 나온 공은 장애물을 통과시킨다. 안 그러면 위쪽 레인에 갇힌 공을
+          // 기다리다 폴백이 통째로 멎는다(12팀에서 45초 초과가 남아 있었다).
+          if (overdue) ms[pick].ghost = true
           g.nextIdx++
           g.lastReleaseStep = w.step
         } else {
@@ -261,25 +297,39 @@ export function stepWorld(w: World): void {
       // 마찰이 0.004 라 **영원히** 그 자리에 있는다(실측: 6팀 판에서 t2 가 (7.2,114.1)
       // 에 45초간 정지). 「0.5초 동안 0.35 도 못 내려갔다」를 끼임으로 보고 옆으로 턴다.
       // 조건이 심 상태에서만 나오므로 결정론은 유지된다.
-      if (m.y > m.markY + 0.35) { m.markY = m.y; m.still = 0 }
-      else if (++m.still > 60) {
-        m.vx += (((i + (w.step >> 6)) & 1) === 0 ? -2 : 2)
+      if (m.y > m.markY + 0.5) { m.markY = m.y; m.still = 0 }
+      else if (++m.still > 45) {
+        // 옆으로만 털면 장애물 위에 올라탄 공은 제자리로 돌아온다 — 아래로도 민다
+        m.vx += (((i + (w.step >> 6)) & 1) === 0 ? -3 : 3)
+        m.vy += 2.5
         m.still = 0
         m.markY = m.y
       }
       // 게이트가 허가한 공은 입구로 안내한다(다른 공을 통과해서라도 내려가야 교착이 없다)
-      if (gateActive && m.released && m.y > CHUTE_TOP - 18 && m.y < CHUTE_TOP + 1) {
-        m.vx += (HOOP_X - m.x) * 7 * SIM_DT
-        m.vy += 16 * SIM_DT
+      // 호송 구간을 레인 아래 전체로 넓힌다 — 감시 시계가 위쪽 공을 부를 수 있으므로
+      if (gateActive && m.released && (m.ghost || m.y > LANE_Y0) && m.y < CHUTE_TOP + 1) {
+        m.vx += (HOOP_X - m.x) * (m.ghost ? 10 : 7) * SIM_DT
+        m.vy += (m.ghost ? 40 : 22) * SIM_DT
       }
     }
 
     m.vx *= DRAG
     m.vy *= DRAG
-    // 지역방어 슬로우존 — 순수 곱셈. 충돌체가 아니라 감속이라 끼임을 만들지 않는다.
-    if (!m.scored && m.y > ZONE_Y0 && m.y < ZONE_Y1) {
-      m.vx *= ZONE_DRAG
-      m.vy *= ZONE_DRAG
+    // 슬로우 빔 — 충돌체가 아니라 감속이라 끼임을 만들지 않는다. 순수 곱셈 + sqrt 뿐.
+    // ×0.90/스텝 은 중력(28)과 균형이 맞는 종단속도 2.1 을 만든다 → 멈추지 않고 **기어간다**.
+    m.beamT = m.beamT > 0 ? m.beamT - 0.06 : 0
+    if (!m.scored) {
+      const rx = m.x - bex, ry = m.y - BEAM_EY
+      const along = rx * bux + ry * buy
+      if (along > 0 && along < blen) {
+        const perp = rx * buy - ry * bux
+        if (perp < BEAM_HALF && perp > -BEAM_HALF) {
+          m.vx *= BEAM_DRAG
+          m.vy *= BEAM_DRAG
+          m.beamT = 1
+          m.beamSteps++
+        }
+      }
     }
     const sp2 = m.vx * m.vx + m.vy * m.vy
     if (sp2 > VMAX * VMAX) {
@@ -293,11 +343,12 @@ export function stepWorld(w: World): void {
 
   // ── 정적 선분 / 페그 / 범퍼 / 장애물
   // 스크린 2는 기울기를 반대로 준다 — 두 개가 같은 쪽으로 공을 흘리면 한쪽 레인만 뚫린다.
-  const s1a = SCREEN1_Y - SCREEN_TILT, s1b = SCREEN1_Y + SCREEN_TILT
-  const s2a = SCREEN2_Y + SCREEN_TILT, s2b = SCREEN2_Y - SCREEN_TILT
+  const s1a = course.screen1Y - SCREEN_TILT, s1b = course.screen1Y + SCREEN_TILT
+  const s2a = course.screen2Y + SCREEN_TILT, s2b = course.screen2Y - SCREEN_TILT
   for (let i = 0; i < ms.length; i++) {
     const m = ms[i]
     if (m.out || m.scored) continue
+    const ghost = m.ghost
     const b = bucketFor(m.y, course.bucketCount)
     for (let d = -1; d <= 1; d++) {
       const bi = b + d
@@ -305,9 +356,10 @@ export function stepWorld(w: World): void {
       const sl = course.segBuckets[bi]
       for (let k = 0; k < sl.length; k++) {
         const s = course.segs[sl[k]]
+        if (ghost && s.kind !== 'wall' && s.kind !== 'funnel' && s.kind !== 'chute') continue
         collideSegment(m, s.x1, s.y1, s.x2, s.y2, s.rest, 0)
       }
-      const pl = course.pegBuckets[bi]
+      const pl = ghost ? [] : course.pegBuckets[bi]
       for (let k = 0; k < pl.length; k++) {
         const pi = pl[k]
         const p = course.pegs[pi]
@@ -319,33 +371,43 @@ export function stepWorld(w: World): void {
 
     // 스크린(픽) 2개 — 좌우로 미끄러지는 기울어진 벽
     let onScreen = false
-    if (m.y > s1a - 2 && m.y < s1b + 2) {
+    if (!ghost && m.y > s1a - 2 && m.y < s1b + 2) {
       if (collideSegment(m, sx, s1a, sx + SCREEN_LEN, s1b, 0.24, 0.36)) onScreen = true
     }
-    if (m.y > s2b - 2 && m.y < s2a + 2) {
+    if (!ghost && m.y > s2b - 2 && m.y < s2a + 2) {
       if (collideSegment(m, sx2, s2a, sx2 + SCREEN_LEN, s2b, 0.24, 0.36)) onScreen = true
     }
     if (!m.screenPrev && onScreen) m.screenTouches++
     m.screenPrev = onScreen
     // 샷클락 게이트 — 닫혀 있는 동안만 존재. 한쪽 끝에 공 한 개 폭 틈이 남아 조금씩 샌다.
-    if (shut && m.y > CLOCK_Y - 2 && m.y < CLOCK_Y + 2) {
+    // 호송 중인 공은 샷클락도 통과시킨다 — 0.8초라도 호송이 막히면 폴백이 늘어진다
+    if (shut && !(gateActive && m.released) && m.y > CLOCK_Y - 2 && m.y < CLOCK_Y + 2) {
       collideSegment(m, bar[0], CLOCK_Y, bar[1], CLOCK_Y, 0.05, 0.3)
     }
     // 림 프로텍터 — 슈트 입구 위에서 흔들리는 큰 수비수 + 들어올린 팔
-    if (m.y > PROT_Y + PROT_ARM.oy - 2 && m.y < PROT_Y + PROT_R + 2) {
+    // ⚠ 팔에 **충돌을 주지 않는다.** 팔을 달았더니 어깨와 머리 사이 오목한 홈이 생겨 공이
+    //    거기 얹혔다 — 팔을 세워도(67°) 50판 중 8판이 (11.1, 134.5)에서 안 내려왔다.
+    //    몸통 원 하나만 충돌시키면 **볼록한 도형**이라 낄 자리가 없다. 팔은 그림 전용.
+    // ⚠ 게이트가 호송 중인 공은 프로텍터를 통과시킨다. 안 그러면 슈트 입구로 조준된 공이
+    //    프로텍터에 정면으로 박혀 멎고, **폴백 자체가 깨진다**(12팀 실측: 순서일치 18/20,
+    //    최장 45초, 정착률 67%). 폴백은 순서를 보장하는 마지막 장치라 여기서 막히면 안 된다.
+    let onProt = false
+    if (!(gateActive && m.released) && m.y > PROT_Y - 4 && m.y < PROT_Y + PROT_R + 2) {
       collideCircle(m, px, PROT_Y, PROT_R, 0.4)
-      collideSegment(m, px - PROT_ARM.ix, PROT_Y + PROT_ARM.iy,
-        px - PROT_ARM.ox, PROT_Y + PROT_ARM.oy, 0.3, PROT_ARM.thick)
-      collideSegment(m, px + PROT_ARM.ix, PROT_Y + PROT_ARM.iy,
-        px + PROT_ARM.ox, PROT_Y + PROT_ARM.oy, 0.3, PROT_ARM.thick)
+      // collideCircle 의 true 는 "세게 맞았나"(소리용)라 접촉 계측에는 못 쓴다 — 거리로 센다
+      const ddx = m.x - px, ddy = m.y - PROT_Y, reach = m.r + PROT_R + 0.02
+      if (ddx * ddx + ddy * ddy < reach * reach) onProt = true
     }
+    if (!m.protPrev && onProt) m.protTouches++
+    m.protPrev = onProt
     // 리바운드 범퍼 — 반발 1.4
-    const bl = course.bumpers
+    const bl = ghost ? [] : course.bumpers
     for (let k = 0; k < bl.length; k++) {
       const bp = bl[k]
       if (m.y < bp.y - bp.r - 2 || m.y > bp.y + bp.r + 2) continue
       if (collideCircle(m, bp.x, bp.y, bp.r, BUMPER_REST)) {
         w.bumpHits[w.bumpHitCount++] = k
+        m.bumpTouches++
       }
     }
     // 슈트 마개 — 허가받지 않은 공을 입구에서 세운다(폴백일 때만 존재)
@@ -354,22 +416,25 @@ export function stepWorld(w: World): void {
     }
   }
 
-  // ── 회전 휠 (팔 4개)
-  const wh = course.wheel
+  // ── 회전체 2개: 레인 안의 스핀무브 휠 + V 아래의 분배기
+  for (const wh of [course.wheel, ...course.distributors]) {
   for (let a = 0; a < wh.arms; a++) {
     // 팔 방향 = (wc,ws) 를 90°씩 돌린 것 — 부호 교환뿐이라 정확하다
-    let dx = w.wc, dy = w.ws
-    if (a === 1) { dx = -w.ws; dy = w.wc }
-    else if (a === 2) { dx = -w.wc; dy = -w.ws }
-    else if (a === 3) { dx = w.ws; dy = -w.wc }
+    const sgn = wh.spin
+    const wcx = w.wc, wsy = w.ws * sgn
+    let dx = wcx, dy = wsy
+    if (a === 1) { dx = -wsy; dy = wcx }
+    else if (a === 2) { dx = -wcx; dy = -wsy }
+    else if (a === 3) { dx = wsy; dy = -wcx }
     const ex = wh.x + dx * wh.len
     const ey = wh.y + dy * wh.len
     for (let i = 0; i < ms.length; i++) {
       const m = ms[i]
-      if (m.out || m.scored) continue
+      if (m.out || m.scored || m.ghost) continue
       if (m.y < wh.y - wh.len - 3 || m.y > wh.y + wh.len + 3) continue
-      collideSegment(m, wh.x, wh.y, ex, ey, 0.42, wh.thick, wh.x, wh.y, WHEEL_OMEGA)
+      collideSegment(m, wh.x, wh.y, ex, ey, 0.42, wh.thick, wh.x, wh.y, WHEEL_OMEGA * sgn)
     }
+  }
   }
 
   // ── 구슬끼리 (최대 20개 — O(n²) 로 충분하고, 고정 순회 순서가 결정론을 지킨다).

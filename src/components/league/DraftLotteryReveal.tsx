@@ -296,6 +296,14 @@ export default function DraftLotteryReveal({
     return () => clearTimeout(t)
   }, [phase, reducedMotion, finish])
 
+  // Esc — 최종 목록에서만 닫는다(레이스 중에는 건너뛸 수 없다)
+  useEffect(() => {
+    if (phase !== 'list') return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [phase, onClose])
+
   useEffect(() => {
     const timers = timersRef.current
     return () => { for (const t of timers) clearTimeout(t) }
@@ -309,10 +317,11 @@ export default function DraftLotteryReveal({
   const firstAccent = teamAccentOnDark(firstColor)
   const oddsVary = hasVaryingOdds(order, odds)
 
+  // ⚠ 레이스 중에는 탭으로 건너뛸 수 없다. 모두가 같은 추첨을 **같이** 보는 것이 이 연출의
+  // 전부인데, 화면 아무 데나 눌러 결과 목록으로 점프하는 길이 있으면 한 사람의 실수로
+  // 그 판이 사라진다. 닫기는 최종 목록에서만(탭 또는 Esc), 10초 자동 닫힘은 그대로.
   function handleTap() {
     if (phase === 'list') onClose()
-    else if (phase === 'race') finish()
-    // 대기 중에는 탭으로 건너뛸 수 없다 — 출발은 총무만 누른다
   }
 
   function handleStart(e: MouseEvent) {
@@ -328,7 +337,7 @@ export default function DraftLotteryReveal({
 
   return (
     <div
-      className={`fixed inset-0 z-[58] flex flex-col bg-[#000000]/95 overflow-hidden ${phase === 'wait' ? '' : 'cursor-pointer'}`}
+      className={`fixed inset-0 z-[58] flex flex-col bg-[#000000]/95 overflow-hidden ${phase === 'list' ? 'cursor-pointer' : ''}`}
       style={{
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -427,9 +436,6 @@ export default function DraftLotteryReveal({
                 )
               })}
             </div>
-          )}
-          {phase === 'race' && (
-            <p className="absolute bottom-0 inset-x-0 text-center text-sm text-[#e5e7eb] py-2 bg-gradient-to-t from-[#000000] via-[#000000cc] to-transparent">탭하여 건너뛰기</p>
           )}
         </div>
       ) : (

@@ -4,6 +4,9 @@
 // 헤드리스로 돌려 보고, 도착 순서가 order 와 같아지는 seed 를 쓴다. 렌더링은 하지 않으므로
 // 한 번 돌리는 데 수 ms 면 끝난다.
 //
+// ⚠ 시드는 **코스 레이아웃도** 정한다(course.ts). 즉 탐색 한 번은 레이아웃 한 개를 시험해
+// 보는 것이기도 하고, 완주 검증이 그 자리에서 돌아가므로 공이 끼는 배치는 채택되지 않는다.
+//
 // ⚠ 기대 시도 횟수는 팀 수의 계승이다 — 3팀 6회, 4팀 24회, 6팀 720회.
 // 즉 **5팀 이상에서는 예산 안에 거의 못 찾는다**. 그때는 실패가 아니라 폴백이다:
 // 슈트 게이트를 켜서 order 순서대로 한 개씩 내보낸다(sim.ts 참조). 맞는 시드를 찾은
@@ -15,8 +18,6 @@
 // 50판 표본의 잡음이었다(σ≈7%). 실제로 올릴 수 있는 것은 **시도 횟수뿐**이라 시간
 // 예산(2.5초)이 진짜 한도가 되도록 maxTries 를 넉넉히 뒀다 — 팁오프 대기 중에 도는
 // 작업이라 사람은 이 시간을 보지 못한다.
-// 이 코스의 실측 분포: 6팀 시드 1438개에서 서로 다른 도착 순서 606/720 → 400회 기대
-// 성공률 38.1%(균등 상한 42.6%). 코스는 거의 균등하다.
 //
 // DOM 을 참조하지 않는다 — Node 에서 그대로 돌려 통계를 잰다.
 
@@ -29,7 +30,7 @@ export const MAX_SIM_STEPS = SIM_HZ * 25
 export interface SimOutcome {
   /** 팀 공이 림을 통과한 순서 */
   goals: string[]
-  /** 팀 공이 전부 들어왔는가 */
+  /** 팀 공이 전부 들어왔는가 (expect 를 줬다면 순서까지 일치) */
   complete: boolean
   /** 마지막 팀 골인 스텝 */
   endStep: number
@@ -39,7 +40,7 @@ export interface SimOutcome {
 
 /**
  * 한 판을 헤드리스로 돌린다.
- * expect 를 주면 순서가 어긋나는 즉시 중단한다(탐색 실패를 싸게 버린다).
+ * expect 를 주면 순서가 어긋나는 즉시 중단한다(탐색 실패를 싸게 버린다 — 6.0ms → 3.6ms).
  */
 export function simulateOnce(order: string[], seed: number, expect?: string[]): SimOutcome {
   const w = createWorld(order, seed, false)
@@ -77,8 +78,21 @@ export interface SearchOpts {
 }
 
 /**
+ * 폴백에 쓸 시드 — 순서는 안 맞아도 **모든 팀 공이 25초 안에 완주하는 레이아웃**이어야 한다.
+ * 레이아웃이 시드에서 나오므로 base 시드가 끼는 배치일 수 있다(실측 1440판 중 0.1~0.6%).
+ * 한 판 6ms 라 몇 번 돌려도 싸다.
+ */
+function findFallbackSeed(order: string[], base: number, tries = 12): number {
+  for (let k = 0; k < tries; k++) {
+    const seed = (base + k) >>> 0
+    if (simulateOnce(order, seed).complete) return seed
+  }
+  return base
+}
+
+/**
  * order 와 도착 순서가 같은 시드를 찾는다.
- * 못 찾으면 matched:false 와 base 시드를 돌려준다 — 호출자가 슈트 게이트를 켜야 한다.
+ * 못 찾으면 matched:false — 호출자가 슈트 게이트를 켜야 한다.
  */
 export function findSeed(order: string[], opts: SearchOpts = {}): SeedSearch {
   const maxTries = opts.maxTries ?? 2000
@@ -93,10 +107,10 @@ export function findSeed(order: string[], opts: SearchOpts = {}): SeedSearch {
       return { seed, matched: true, tries: k + 1, ms: now() - t0, endStep: r.endStep }
     }
     if (now() - t0 > budgetMs) {
-      return { seed: base, matched: false, tries: k + 1, ms: now() - t0, endStep: -1 }
+      return { seed: findFallbackSeed(order, base), matched: false, tries: k + 1, ms: now() - t0, endStep: -1 }
     }
   }
-  return { seed: base, matched: false, tries: maxTries, ms: now() - t0, endStep: -1 }
+  return { seed: findFallbackSeed(order, base), matched: false, tries: maxTries, ms: now() - t0, endStep: -1 }
 }
 
 /**
@@ -132,7 +146,7 @@ export function findSeedChunked(
       if (now() - t0 > budgetMs) break
     }
     if (k >= maxTries || now() - t0 > budgetMs) {
-      onDone({ seed: base, matched: false, tries: k, ms: now() - t0, endStep: -1 })
+      onDone({ seed: findFallbackSeed(order, base), matched: false, tries: k, ms: now() - t0, endStep: -1 })
       return
     }
     timer = setTimeout(run, 0)
