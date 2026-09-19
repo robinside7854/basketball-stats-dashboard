@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/admin'
+import { ROUND_PRIORITY, UNKNOWN_ROUND_PRIORITY } from '@/lib/tournament/rounds'
+import { findMatchingTournament } from '@/lib/tournament/name'
 
 const YT_BASE = 'https://www.googleapis.com/youtube/v3'
 
@@ -44,9 +46,6 @@ function parseTitle(title: string, teamName: string) {
   return null
 }
 
-const ROUND_PRIORITY: Record<string, number> = {
-  '결승': 0, '4강': 1, '준결승': 1, '8강': 2, '16강': 3, '조별예선': 4,
-}
 
 export interface GameData {
   video_id: string
@@ -58,11 +57,28 @@ export interface GameData {
   already_registered: boolean
 }
 
+export interface TournamentRef {
+  id: string
+  name: string
+  year: number
+  type: string
+}
+
 export interface TournamentGroup {
   tournament_name: string
   year: number
-  existing_tournament: { id: string; name: string; year: number; type: string } | null
+  existing_tournament: TournamentRef | null
   games: GameData[]
+}
+
+export interface ImportResponse {
+  groups: TournamentGroup[]
+  total: number
+  /**
+   * 이 팀의 **기존 대회 전체 목록** — 모달의 「기존 대회에 추가」 드롭다운이 쓴다.
+   * 그룹마다 복사하지 않고 응답 최상위에 한 번만 싣는다.
+   */
+  all_tournaments: TournamentRef[]
 }
 
 export async function GET(req: Request) {
@@ -166,6 +182,11 @@ export async function GET(req: Request) {
 
   const teamTournamentIds = (existingTournaments ?? []).map(t => t.id)
 
+  // 최신 연도 먼저 — 모달 드롭다운이 이 순서를 그대로 쓴다.
+  const tournamentRefs: TournamentRef[] = (existingTournaments ?? [])
+    .map(t => ({ id: t.id as string, name: (t.name as string) ?? '', year: (t.year as number) ?? 0, type: (t.type as string) ?? '' }))
+    .sort((a, b) => (b.year - a.year) || a.name.localeCompare(b.name))
+
   // 기등록 경기 조회 (youtube_url + date + opponent)
   const { data: existingGames } = teamTournamentIds.length > 0
     ? await supabase
@@ -200,12 +221,10 @@ export async function GET(req: Request) {
   const groups: TournamentGroup[] = Array.from(groupMap.entries()).map(([tournament_name, vids]) => {
     const year = vids[0].parsed.year
 
-    // 기존 대회 이름 매칭 (부분 포함)
-    const existing = existingTournaments?.find(t =>
-      t.name === tournament_name ||
-      t.name.includes(tournament_name) ||
-      tournament_name.includes(t.name)
-    ) ?? null
+    // 기존 대회 매칭 — 정본은 findMatchingTournament(). 표기 차이(공백·괄호·제N회·2026년)를
+    //   정규화로 걷어내고, **연도가 다르면 부분 포함만으로는 묶지 않는다.**
+    //   종전에는 연도를 아예 안 봤고 정규화도 없어서 「2026 바다배」가 DB 에 두 개 생겼다.
+    const existing = findMatchingTournament(tournamentRefs, tournament_name, year)
 
     const games: GameData[] = vids
       .map(v => ({
@@ -218,8 +237,8 @@ export async function GET(req: Request) {
         already_registered: isAlreadyRegistered(v.video_id, v.parsed.date, v.parsed.opponent),
       }))
       .sort((a, b) => {
-        const ra = ROUND_PRIORITY[a.round] ?? 9
-        const rb = ROUND_PRIORITY[b.round] ?? 9
+        const ra = ROUND_PRIORITY[a.round] ?? UNKNOWN_ROUND_PRIORITY
+        const rb = ROUND_PRIORITY[b.round] ?? UNKNOWN_ROUND_PRIORITY
         if (ra !== rb) return ra - rb
         return b.date.localeCompare(a.date)
       })
@@ -230,5 +249,6 @@ export async function GET(req: Request) {
   // 연도 내림차순 정렬
   groups.sort((a, b) => b.year - a.year)
 
-  return NextResponse.json({ groups, total: rawVideos.length })
+  const payload: ImportResponse = { groups, total: rawVideos.length, all_tournaments: tournamentRefs }
+  return NextResponse.json(payload)
 }

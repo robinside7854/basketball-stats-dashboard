@@ -12,6 +12,7 @@ import type { Tournament, Game, PlayerBoxScore } from '@/types/database'
 import SubTabNav from '@/components/layout/SubTabNav'
 import { gameSubTabs } from '@/components/layout/subTabs'
 import { CLUB_BASELINE, baselineCaption, type PctKind } from '@/lib/stats/shootingBaseline'
+import { ROUND_PRIORITY, UNKNOWN_ROUND_PRIORITY, KNOCKOUT_ROUNDS } from '@/lib/tournament/rounds'
 
 type SortKey = 'player_number' | 'pts' | 'fg_pct' | 'fg3_pct' | 'ft_pct' | 'oreb' | 'dreb' | 'reb' | 'ast' | 'stl' | 'blk' | 'tov' | 'pf' | 'efg_pct' | 'ts_pct'
 
@@ -458,10 +459,11 @@ export default function BoxScorePage() {
       </div>
 
       {viewMode === 'game' && selectedTId && games.length > 0 && (() => {
-        const ROUND_ORDER: Record<string, number> = { '결승': 0, '4강': 1, '8강': 2, '16강': 3, '조별예선': 4 }
-        const knockout = ['결승', '4강', '8강', '16강']
+        // 정본 = src/lib/tournament/rounds.ts. 종전에는 여기 '준결승' 이 빠져 있어
+        // 준결승 경기 묶음이 '친선' 과 같은 폴백값으로 밀려 맨 뒤에 붙었다.
         const groupRounds = [...new Set(games.map(g => g.round ?? '친선'))]
-          .sort((a, b) => (ROUND_ORDER[a] ?? 5) - (ROUND_ORDER[b] ?? 5))
+          .sort((a, b) =>
+            (ROUND_PRIORITY[a] ?? UNKNOWN_ROUND_PRIORITY) - (ROUND_PRIORITY[b] ?? UNKNOWN_ROUND_PRIORITY))
 
         function GameCardWithScore({ g }: { g: Game }) {
           const isWin = g.our_score > g.opponent_score
@@ -772,7 +774,7 @@ export default function BoxScorePage() {
           <div className="mb-6 space-y-6">
             {groupRounds.map(round => {
               const roundGames = games.filter(g => (g.round ?? '친선') === round)
-              const isKnockout = knockout.includes(round)
+              const isKnockout = (KNOCKOUT_ROUNDS as readonly string[]).includes(round)
               return (
                 <div key={round}>
                   <div className="flex items-center gap-3 mb-3">

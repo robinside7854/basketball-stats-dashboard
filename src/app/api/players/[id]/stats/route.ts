@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { roundPoints } from '@/lib/tournament/rounds'
 
 const SHOT_LABELS: Record<string, string> = {
   shot_post: '골밑슛',
@@ -9,22 +10,9 @@ const SHOT_LABELS: Record<string, string> = {
 }
 
 // 라운드 우선순위 (높을수록 나중 라운드)
-const ROUND_KEYWORDS: [string, number][] = [
-  ['결승', 100], ['final', 100],
-  ['3위', 90], ['3-4위', 90],
-  ['준결승', 80], ['4강', 80], ['semi', 80],
-  ['8강', 70], ['준준결승', 70], ['quarter', 70],
-  ['16강', 60],
-  ['조별', 20], ['예선', 10], ['group', 10],
-]
-function roundPriority(round?: string | null): number {
-  if (!round) return 50
-  const lower = round.toLowerCase()
-  for (const [key, val] of ROUND_KEYWORDS) {
-    if (lower.includes(key.toLowerCase())) return val
-  }
-  return 50
-}
+//   정본 = src/lib/tournament/rounds.ts 의 roundPoints(). 별칭(준준결승·3위·영문)은
+//   그 모듈이 정본 표 위에 얹어 한 벌로 관리한다.
+const roundPriority = roundPoints
 
 // 출전 시간 합산 (in_time/out_time은 숫자 초 단위)
 function totalMinutes(minutes: { in_time: number; out_time: number | null }[]): number {
@@ -360,8 +348,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     }
   }
 
+  // 구간 경계는 roundPoints() 의 값을 가른다. 라운드 미표기(UNKNOWN_ROUND_POINTS=45)는
+  // 어느 구간에도 안 들어가야 하므로 32강(50) 칸을 45 초과로 연다.
   const ROUND_BUCKETS: { name: string; min: number; max: number }[] = [
     { name: '예선/조별',  min: 0,   max: 35  },
+    { name: '32강',       min: 45,  max: 55  },
     { name: '16강',       min: 55,  max: 65  },
     { name: '8강',        min: 65,  max: 75  },
     { name: '준결승/3위', min: 75,  max: 95  },

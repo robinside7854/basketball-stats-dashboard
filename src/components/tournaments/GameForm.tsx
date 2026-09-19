@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useEditMode } from '@/contexts/EditModeContext'
 import type { Game } from '@/types/database'
+import { ROUND_LABELS } from '@/lib/tournament/rounds'
 
 interface YTVideo {
   video_id: string
@@ -18,7 +19,6 @@ interface YTVideo {
   score: number
 }
 
-const ROUNDS = ['조별예선', '16강', '8강', '4강', '결승']
 
 interface Props { tournamentId: string; game: Game | null; onClose: () => void; onSaved: () => void }
 
@@ -107,7 +107,7 @@ export default function GameForm({ tournamentId, game, onClose, onSaved }: Props
                   <SelectValue placeholder="선택" />
                 </SelectTrigger>
                 <SelectContent className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]">
-                  {ROUNDS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  {ROUND_LABELS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useEditMode } from '@/contexts/EditModeContext'
 import { useOrg } from '@/contexts/OrgContext'
-import type { TournamentGroup, GameData } from '@/app/api/youtube/import/route'
+import type { TournamentGroup, GameData, TournamentRef } from '@/app/api/youtube/import/route'
+import { ROUND_LABELS } from '@/lib/tournament/rounds'
 
 // ── 타입 ─────────────────────────────────────────────────────────────
 interface GroupState {
@@ -30,14 +31,19 @@ interface Props {
 }
 
 const TYPE_LABELS = { pro: '선출부', amateur: '비선출부' }
-const ROUND_BADGE: Record<string, string> = {
-  '결승': 'bg-[var(--mm-yellow)]/20 text-[var(--mm-yellow-strong)] border-[var(--mm-yellow)]/40',
-  '4강': 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] border-[var(--mm-rule)]',
-  '준결승': 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] border-[var(--mm-rule)]',
-  '8강': 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] border-[var(--mm-rule)]',
-  '16강': 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] border-[var(--mm-rule)]',
-  '조별예선': 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] border-[var(--mm-rule)]',
-}
+
+// 라운드 배지 — **결승만 노란 강조**, 나머지는 공통 스타일.
+//   종전에는 라운드마다 같은 문자열이 한 줄씩 복붙돼 있어, 새 라운드를 추가하면 배지가
+//   조용히 폴백으로 빠졌다. 목록은 정본에서 돌린다.
+const ROUND_BADGE_DEFAULT = 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] border-[var(--mm-rule)]'
+const ROUND_BADGE: Record<string, string> = Object.fromEntries(
+  ROUND_LABELS.map(label => [
+    label,
+    label === '결승'
+      ? 'bg-[var(--mm-yellow)]/20 text-[var(--mm-yellow-strong)] border-[var(--mm-yellow)]/40'
+      : ROUND_BADGE_DEFAULT,
+  ]),
+)
 
 export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
   const org = useOrg()
@@ -48,6 +54,7 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
   const [loading, setLoading] = useState(false)
   const [registering, setRegistering] = useState(false)
   const [groups, setGroups] = useState<TournamentGroup[]>([])
+  const [allTournaments, setAllTournaments] = useState<TournamentRef[]>([])
   const [groupStates, setGroupStates] = useState<Record<string, GroupState>>({})
   const [gameStates, setGameStates] = useState<Record<string, GameState>>({})
   const [totalFound, setTotalFound] = useState<number | null>(null)
@@ -58,6 +65,7 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
     if (!after) { toast.error('시작 날짜를 입력해주세요'); return }
     setLoading(true)
     setGroups([])
+    setAllTournaments([])
     setGroupStates({})
     setGameStates({})
 
@@ -73,6 +81,7 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
 
     const fetched: TournamentGroup[] = data.groups ?? []
     setGroups(fetched)
+    setAllTournaments(data.all_tournaments ?? [])
     setTotalFound(data.total ?? 0)
 
     // 초기 상태 설정
@@ -117,6 +126,14 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
   // ── 선택된 경기 수 ───────────────────────────────────────────────
   const selectedCount = Object.values(gameStates).filter(s => s.selected).length
 
+  // 「기존 대회에 추가」인데 대회를 안 고른 그룹 — 등록을 막는다. 그냥 진행하면 서버가
+  // 새 대회를 만들어 같은 대회가 두 개가 된다(이 모달이 실제로 그렇게 만들었다).
+  const unresolvedLinkGroups = groups.filter(g => {
+    const gs = groupStates[g.tournament_name]
+    if (!gs || gs.action !== 'link' || gs.linked_id) return false
+    return g.games.some(game => gameStates[game.video_id]?.selected)
+  })
+
   // ── 일괄 등록 ───────────────────────────────────────────────────
   async function handleRegister() {
     setRegistering(true)
@@ -133,7 +150,16 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
       // 대회 ID 확보
       let tournamentId: string
 
-      if (gs.action === 'link' && gs.linked_id) {
+      // ⚠ '기존 대회에 추가'인데 고른 대회가 없으면 **조용히 새로 만들지 않는다.**
+      //   종전에는 이 경우가 else(새 대회 생성) 로 떨어져, 운영 DB 에 같은 이름의 대회가
+      //   하나 더 생기고도 성공 토스트만 떴다.
+      if (gs.action === 'link' && !gs.linked_id) {
+        toast.error(`대회를 선택해주세요: ${group.tournament_name}`)
+        errorCount++
+        continue
+      }
+
+      if (gs.action === 'link') {
         tournamentId = gs.linked_id
       } else {
         // 새 대회 생성
@@ -146,7 +172,8 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
             name: group.tournament_name,
             year: group.year,
             type: gs.tournament_type,
-            team_type: team,
+            // team_type 은 보내지 않는다 — `tournaments.team_type` 은 마이그레이션
+            // 003_clean_isolation.sql 에서 삭제된 컬럼이다(소속은 team_id 로만 정해진다).
           }),
         })
         if (!res.ok) {
@@ -359,14 +386,39 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
                       </Select>
                     )}
 
-                    {gs.action === 'link' && group.existing_tournament && (
-                      <span className="text-xs text-[var(--mm-positive)] bg-green-900/30 border border-green-700/50 px-2.5 py-1 rounded-lg">
-                        → {group.existing_tournament.name} ({group.existing_tournament.year}) · {TYPE_LABELS[group.existing_tournament.type as keyof typeof TYPE_LABELS] ?? group.existing_tournament.type}
-                      </span>
-                    )}
-
-                    {gs.action === 'link' && !group.existing_tournament && (
-                      <span className="text-xs text-orange-400">DB에 일치하는 대회 없음 → ID 직접 입력 필요</span>
+                    {gs.action === 'link' && (
+                      allTournaments.length === 0 ? (
+                        <span className="text-xs text-orange-400">
+                          등록된 대회가 없습니다 — 「새 대회 생성」을 선택하세요
+                        </span>
+                      ) : (
+                        <>
+                          <label className="sr-only" htmlFor={`link-${group.tournament_name}`}>
+                            {group.tournament_name} — 추가할 기존 대회
+                          </label>
+                          <Select
+                            value={gs.linked_id || undefined}
+                            onValueChange={v => updateGroup(group.tournament_name, { linked_id: v ?? '' })}
+                          >
+                            <SelectTrigger
+                              id={`link-${group.tournament_name}`}
+                              className="h-9 text-xs bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)] min-w-56 max-w-full cursor-pointer"
+                            >
+                              <SelectValue placeholder="대회 선택" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]">
+                              {allTournaments.map(t => (
+                                <SelectItem key={t.id} value={t.id} className="cursor-pointer">
+                                  {t.name} ({t.year}) · {TYPE_LABELS[t.type as keyof typeof TYPE_LABELS] ?? t.type}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {!gs.linked_id && (
+                            <span className="text-xs text-orange-400">추가할 대회를 골라주세요</span>
+                          )}
+                        </>
+                      )
                     )}
                   </div>
                 </div>
@@ -404,7 +456,7 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
                                 {/* 경기 메타 */}
                                 <div className="flex items-center gap-2 flex-wrap mb-2">
                                   {game.round && (
-                                    <span className={`text-xs px-2 py-0.5 rounded border font-medium ${ROUND_BADGE[game.round] ?? 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] border-[var(--mm-rule)]'}`}>
+                                    <span className={`text-xs px-2 py-0.5 rounded border font-medium ${ROUND_BADGE[game.round] ?? ROUND_BADGE_DEFAULT}`}>
                                       {game.round}
                                     </span>
                                   )}
@@ -467,6 +519,11 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
             <p className="text-sm text-[var(--mm-muted)]">
               <span className="text-[var(--mm-ink)] font-semibold">{selectedCount}경기</span> 선택됨
               <span className="text-[var(--mm-muted)] ml-2">· 점수는 나중에 수정 가능</span>
+              {unresolvedLinkGroups.length > 0 && (
+                <span className="block text-orange-400 mt-1">
+                  대회를 고르지 않은 그룹 {unresolvedLinkGroups.length}개: {unresolvedLinkGroups.map(g => g.tournament_name).join(' · ')}
+                </span>
+              )}
             </p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={onClose} className="border-[var(--mm-rule)] text-[var(--mm-ink-soft)] cursor-pointer">
@@ -474,7 +531,7 @@ export default function YoutubeImportModal({ team, onClose, onSaved }: Props) {
               </Button>
               <Button
                 onClick={handleRegister}
-                disabled={registering || selectedCount === 0}
+                disabled={registering || selectedCount === 0 || unresolvedLinkGroups.length > 0}
                 className="bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:opacity-90 disabled:opacity-50 cursor-pointer"
               >
                 {registering

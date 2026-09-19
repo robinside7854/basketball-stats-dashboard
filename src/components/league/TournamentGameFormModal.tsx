@@ -5,15 +5,14 @@
 //   8강·결승 같은 라운드 표기가 붙는다. 서버가 상대팀(is_external=true)을 이름으로 찾아
 //   재사용하거나 새로 만든다 — 같은 상대와 두 번 붙을 때 전적이 흩어지지 않게 하려는 것이다.
 //
-//   ⚠ 라운드는 자유 입력이 아니라 목록에서 고른다. 대회 보드의 성적 판정(ROUND_ORDER)이
+//   ⚠ 라운드는 자유 입력이 아니라 목록에서 고른다. 대회 보드의 성적 판정(ROUND_DEPTH)이
 //     아는 값만 성적으로 읽히기 때문에, "8강전" 같은 변형이 들어오면 우승·N강 탈락 표기가
-//     조용히 비어 버린다.
+//     조용히 비어 버린다. 목록·깊이·점수의 정본은 `src/lib/tournament/rounds.ts` 하나다.
 import { useEffect, useState } from 'react'
 import { X, CalendarPlus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
-
-const ROUND_LABELS = ['조별예선', '16강', '8강', '4강', '준결승', '결승'] as const
+import { ROUND_LABELS } from '@/lib/tournament/rounds'
 
 /** 수정 대상. 없으면 신규 등록. */
 export type TournamentGameDraft = {

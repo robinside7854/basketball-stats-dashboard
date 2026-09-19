@@ -1,25 +1,13 @@
 import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { roundPoints } from '@/lib/tournament/rounds'
 import { calculateBoxScore, calculateTeamTotals } from '@/lib/stats/calculator'
 import type { PlayerBoxScore } from '@/types/database'
 
 // 라운드 우선순위 (숫자 클수록 나중 라운드 → 우측 배치)
-const ROUND_KEYWORDS: [string, number][] = [
-  ['결승', 100], ['final', 100],
-  ['3위', 90], ['3-4위', 90],
-  ['준결승', 80], ['4강', 80], ['semi', 80],
-  ['8강', 70], ['준준결승', 70], ['quarter', 70],
-  ['16강', 60],
-  ['조별', 20], ['예선', 10], ['group', 10],
-]
-function roundPriority(round?: string | null): number {
-  if (!round) return 50
-  const lower = round.toLowerCase()
-  for (const [key, val] of ROUND_KEYWORDS) {
-    if (lower.includes(key.toLowerCase())) return val
-  }
-  return 50
-}
+//   정본 = src/lib/tournament/rounds.ts 의 roundPoints(). 별칭(준준결승·3위·영문)은
+//   그 모듈이 정본 표 위에 얹어 한 벌로 관리한다.
+const roundPriority = roundPoints
 
 export async function GET(req: Request) {
   const supabase = createClient()

@@ -22,13 +22,12 @@ import EmptyState from '@/components/league/EmptyState'
 import TournamentFormModal, { type TournamentDraft } from '@/components/league/TournamentFormModal'
 import TournamentGameFormModal, { type TournamentGameDraft } from '@/components/league/TournamentGameFormModal'
 import TournamentRosterPanel from '@/components/league/TournamentRosterPanel'
+import { ROUND_DEPTH } from '@/lib/tournament/rounds'
 
 // 토너먼트 진행 깊이 — 성적 판정이 "가장 깊이 간 경기"를 이 값으로 고른다.
-//   ⚠ 여기 없는 라운드명은 0 으로 떨어져 조별예선보다 얕게 취급된다. 새 라운드명이 생기면 함께 추가.
-//   '준결승'과 '4강'은 같은 라운드의 두 표기다(대회마다 부르는 이름이 다르다).
-const ROUND_ORDER: Record<string, number> = {
-  '결승': 5, '준결승': 4, '4강': 4, '8강': 3, '16강': 2, '조별예선': 1,
-}
+//   ⚠ 여기 없는 라운드명은 0 으로 떨어져 조별예선보다 얕게 취급된다.
+//   새 라운드명은 정본(`src/lib/tournament/rounds.ts`)에만 추가한다.
+const ROUND_ORDER = ROUND_DEPTH
 
 const TYPE_LABELS: Record<string, string> = { pro: '선출 포함', amateur: '동호인' }
 

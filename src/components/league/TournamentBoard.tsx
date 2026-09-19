@@ -15,16 +15,14 @@ import EmptyState from '@/components/league/EmptyState'
 import TournamentRosterPanel from '@/components/league/TournamentRosterPanel'
 import TournamentFormModal, { type TournamentDraft } from '@/components/league/TournamentFormModal'
 import TournamentGameFormModal from '@/components/league/TournamentGameFormModal'
+import { ROUND_DEPTH } from '@/lib/tournament/rounds'
 
-// ── 성적 판정 규칙 — 레거시에서 그대로 옮겨왔다(새로 만들지 않음) ──────────────
-//   출처: src/app/(main)/[org]/[team]/tournaments/page.tsx 의 ROUND_ORDER / getTournamentSummary
-//   (import 하지 않는다 — 그 트리는 파란날개 전용이며 언젠가 사라진다. 규칙만 옮겨온다.)
-//   '준결승' 은 795da50b 에서 뒤늦게 추가된 수정본이다 — 이게 빠지면 준결승까지 간 대회가
-//   8강 탈락으로 표시된다(4강/준결승 모두 값 4). 같은 대회가 두 화면에서 다른 성적으로
-//   읽히면 안 되므로 그 수정본을 그대로 가져온다.
-const ROUND_ORDER: Record<string, number> = {
-  '결승': 5, '준결승': 4, '4강': 4, '8강': 3, '16강': 2, '조별예선': 1,
-}
+// ── 성적 판정 규칙 ────────────────────────────────────────────────
+//   판정 로직(getTournamentSummary)은 레거시 트리에서 옮겨왔지만, **라운드 깊이 표는 정본을 쓴다**
+//   (`src/lib/tournament/rounds.ts`). 종전에는 이 파일이 표를 복제하고 있었고, 그래서 `준결승` 이
+//   795da50b 까지 빠져 있어 준결승까지 간 대회가 8강 탈락으로 표시됐다. 같은 대회가 화면마다
+//   다른 성적으로 읽히는 것을 구조적으로 막으려면 표가 한 벌이어야 한다.
+const ROUND_ORDER = ROUND_DEPTH
 
 type PlayedGame = { round_label: string | null; ourScore: number; oppScore: number }
 

@@ -7,6 +7,7 @@ import { syncBadgesForGame } from '@/lib/badges/computeBadges'
 import { syncYoutubeForLeague } from '@/lib/youtube/syncYoutubeForLeague'
 import { logAudit } from '@/lib/audit'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { ROUND_LABELS, isRoundLabel } from '@/lib/tournament/rounds'
 
 /**
  * 경기에 딸려 나가는 팀 이름·색을 **그 경기 분기의 이름**으로 바꾼다.
@@ -265,9 +266,9 @@ export async function POST(
   return NextResponse.json(slots ?? [])
 }
 
-// 대회 라운드 표기 — TournamentBoard 의 성적 판정(ROUND_ORDER)이 아는 값만 받는다.
-//   여기서 자유 입력을 허용하면 "8강전" 같은 변형이 들어와 성적이 '탈락 라운드 미상'으로 빠진다.
-const ROUND_LABELS = ['조별예선', '16강', '8강', '4강', '준결승', '결승'] as const
+// 대회 라운드 표기 — 화이트리스트의 정본은 `src/lib/tournament/rounds.ts`.
+//   여기서 자유 입력을 허용하면 "8강전" 같은 변형이 들어와 성적이 '탈락 라운드 미상'으로 빠진다
+//   (대회 보드의 성적 판정이 ROUND_DEPTH 에 있는 값만 읽는다).
 
 type Sb = ReturnType<typeof createClient>
 
@@ -344,7 +345,7 @@ async function createTournamentGame(req: Request, leagueId: string, body: Record
   if (opponent.length > 40) return NextResponse.json({ error: '상대팀 이름은 40자까지입니다' }, { status: 400 })
 
   const roundLabel = typeof body.round_label === 'string' && body.round_label ? body.round_label : null
-  if (roundLabel && !ROUND_LABELS.includes(roundLabel as typeof ROUND_LABELS[number])) {
+  if (roundLabel && !isRoundLabel(roundLabel)) {
     return NextResponse.json(
       { error: `라운드는 ${ROUND_LABELS.join(' · ')} 중 하나여야 합니다` },
       { status: 400 },
@@ -486,7 +487,7 @@ async function updateTournamentGame(
   // ── 언제든 고칠 수 있는 것 ──────────────────────────────
   if (body.round_label !== undefined) {
     const r = body.round_label
-    if (r != null && r !== '' && !ROUND_LABELS.includes(r as typeof ROUND_LABELS[number])) {
+    if (r != null && r !== '' && !isRoundLabel(r)) {
       return NextResponse.json({ error: `라운드는 ${ROUND_LABELS.join(' · ')} 중 하나여야 합니다` }, { status: 400 })
     }
     patch.round_label = (r === '' || r == null) ? null : r
