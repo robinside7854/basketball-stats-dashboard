@@ -58,6 +58,18 @@ export function isRoundLabel(value: unknown): value is RoundLabel {
   return typeof value === 'string' && (ROUND_LABELS as readonly string[]).includes(value)
 }
 
+/**
+ * **같은 날짜 안에서의 진행 순서** — 얕은 라운드(조별예선) → 깊은 라운드(결승).
+ * 대회는 하루에 여러 라운드를 치르는데(8강 오전 · 준결승 오후) `games` 테이블에는 날짜만 있어
+ * 날짜로만 정렬하면 같은 날 경기들의 순서가 **DB 가 주는 대로** 정해진다 — 준결승이 8강 위에
+ * 뜨는 일이 실제로 있었다(2026-09-20 바다배).
+ * 미표기·미등록 라운드는 맨 뒤. 라운드가 늘어나도 이 관계가 유지된다.
+ */
+export function roundSequence(round?: string | null): number {
+  if (!round) return MAX_DEPTH + 1
+  return ROUND_DEPTH[round.trim()] ?? MAX_DEPTH + 1
+}
+
 // ── 자유 입력 라운드명의 점수 환산 ─────────────────────────────────────────
 //   레거시 `games.round` 는 자유 텍스트라 `준준결승` · `3-4위` · `Final` 같은 표기가 섞여 있다.
 //   정본 표에 없는 그 별칭들만 여기 둔다.

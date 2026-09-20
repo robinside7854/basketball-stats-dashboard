@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { calculateBoxScore, calculateTeamTotals, calculateQuarterPoints } from '@/lib/stats/calculator'
 import type { PlayerBoxScore, GameEvent, PlayerMinutes } from '@/types/database'
+import { roundSequence } from '@/lib/tournament/rounds'
 
 export async function GET(req: Request) {
   const supabase = createClient()
@@ -103,6 +104,8 @@ export async function GET(req: Request) {
         team_quarter_pts: teamQPts,
       }
     })
+    // 날짜만으로는 같은 날 경기의 순서가 정해지지 않는다 — 라운드 진행 순서로 2차 정렬한다.
+    .sort((a, b) => a.date.localeCompare(b.date) || roundSequence(a.round) - roundSequence(b.round))
 
   // ── 팀 슛 zone 집계 ──────────────────────────────────────
   const PAINT_AUTO = new Set(['shot_layup', 'shot_post'])
