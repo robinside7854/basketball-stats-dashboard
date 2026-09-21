@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { Dumbbell, Target, BarChart3, Ruler } from 'lucide-react'
+import { Dumbbell, Target, BarChart3, Ruler, HelpCircle, ChevronDown } from 'lucide-react'
 import { Basketball } from '@/components/league/BasketballIcons'
 import { sortJerseyNum } from '@/lib/utils'
 import { useTeam } from '@/contexts/TeamContext'
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 const PlayerDetailModal = dynamic(() => import('@/components/roster/PlayerDetailModal'), { ssr: false })
 import type { Tournament, PlayerBoxScore } from '@/types/database'
 import { CLUB_BASELINE, baselineCaption, type PctKind } from '@/lib/stats/shootingBaseline'
+import { statDef } from '@/lib/stats/glossary'
 
 // 성공률 셀 색 — 기준선은 `@/lib/stats/shootingBaseline` 한 곳에서만 온다.
 // 예전에는 40/33/70 이 이 파일에 하드코딩돼 있었는데, 그 값들은 프로 기준이라
@@ -144,9 +145,15 @@ export default function StatsPage() {
     setSortKey(mode === 'avg' || mode === 'per36' ? 'pts_avg' : 'pts')
   }
 
+  // 36분 환산의 STL·BLK 는 "누적 ÷ 경기수" 를 환산한 값이다 — 누적으로 정렬하면 화면 숫자와 순서가 어긋난다.
+  function sortValue(p: SeasonPlayer): number {
+    const n = Number(p[sortKey]) || 0
+    if (viewMode === 'per36' && (sortKey === 'stl' || sortKey === 'blk')) return n / (p.games_played || 1)
+    return n
+  }
   const sorted = [...players].sort((a, b) => {
     if (sortKey === 'player_number') return sortJerseyNum(a.player_number, b.player_number)
-    return (Number(b[sortKey]) || 0) - (Number(a[sortKey]) || 0)
+    return sortValue(b) - sortValue(a)
   })
 
   const leaders = [
@@ -227,51 +234,60 @@ export default function StatsPage() {
     )
   }
 
-  function renderCell(s: SeasonPlayer, key: keyof SeasonPlayer) {
-    const v = s[key]
-    if (key === 'player_number') return <td key={key} className="px-2 py-2 font-bold text-[var(--mm-ink)]">{v as string}</td>
-    if (key === 'player_name') return <NameCell key={key} s={s} />
-    if (key === 'games_played') return <td key={key} className="px-2 py-2 text-[var(--mm-muted)]">{v as number}</td>
-
-    const n = Number(v) || 0
-    const gp = s.games_played || 1
-
+  // 표와 모바일 카드가 같은 숫자를 보이도록 값 포맷은 여기 한 곳에서만 한다.
+  //   예전에는 카드가 원본 값을 그대로 찍어서, 36분 환산 모드의 모바일 화면이
+  //   환산 안 된 경기당 평균을 "P/36" 이라는 이름으로 보여주고 있었다.
+  function cellText(s: SeasonPlayer, key: keyof SeasonPlayer): string {
+    const n = Number(s[key]) || 0
+    if (key === 'games_played') return String(n)
+    if (['fg_pct', 'fg3_pct', 'ft_pct', 'efg_pct', 'ts_pct', 'usg_pct', 'ast_tov'].includes(key as string)) {
+      return n > 0 ? n.toFixed(1) : '-'
+    }
     if (viewMode === 'per36') {
-      if (['fg_pct', 'fg3_pct', 'ft_pct', 'ts_pct'].includes(key as string)) {
-        return <td key={key} className={`px-2 py-2 font-medium ${pctClass(n, PCT_KIND[key as string])}`}>
-          {n > 0 ? n.toFixed(1) : '-'}
-        </td>
-      }
-      if (key === 'pts_avg') return <td key={key} className="px-2 py-2 font-bold text-[var(--mm-ink)]">{toPer36(n)}</td>
-      if (key === 'reb_avg') return <td key={key} className="px-2 py-2">{toPer36(n)}</td>
-      if (key === 'ast_avg') return <td key={key} className="px-2 py-2 text-[var(--mm-ink)]">{toPer36(n)}</td>
-      if (key === 'stl') return <td key={key} className="px-2 py-2 text-green-400">{toPer36(n / gp)}</td>
-      if (key === 'blk') return <td key={key} className="px-2 py-2 text-indigo-400">{toPer36(n / gp)}</td>
-      return <td key={key} className="px-2 py-2">{n > 0 ? n.toFixed(1) : '-'}</td>
+      if (key === 'pts_avg' || key === 'reb_avg' || key === 'ast_avg') return String(toPer36(n))
+      if (key === 'stl' || key === 'blk') return String(toPer36(n / (s.games_played || 1)))
     }
-
-    if (viewMode === 'avg') {
-      if (key === 'pts_avg') return <td key={key} className="px-2 py-2 font-bold text-[var(--mm-ink)]">{n.toFixed(1)}</td>
-      if (key === 'reb_avg') return <td key={key} className="px-2 py-2">{n.toFixed(1)}</td>
-      if (key === 'ast_avg') return <td key={key} className="px-2 py-2 text-[var(--mm-ink)]">{n.toFixed(1)}</td>
-      if (key === 'usg_pct') return <td key={key} className="px-2 py-2 text-purple-400">{n > 0 ? n.toFixed(1) : '-'}</td>
-      if (key === 'stl') return <td key={key} className="px-2 py-2 text-green-400">{n}</td>
-      if (key === 'blk') return <td key={key} className="px-2 py-2 text-indigo-400">{n}</td>
-      if (key === 'fg_pct' || key === 'fg3_pct' || key === 'ft_pct')
-        return <td key={key} className={`px-2 py-2 font-medium ${pctClass(n, PCT_KIND[key])}`}>{n > 0 ? n.toFixed(1) : '-'}</td>
-      if (key === 'eff') return <td key={key} className={`px-2 py-2 font-bold ${n >= 10 ? 'text-[var(--mm-yellow-strong)]' : n >= 0 ? 'text-[var(--mm-ink)]' : 'text-red-400'}`}>{n.toFixed(1)}</td>
-      if (['efg_pct','ts_pct','ast_tov'].includes(key as string))
-        return <td key={key} className="px-2 py-2">{n > 0 ? n.toFixed(1) : '-'}</td>
-    } else {
-      if (key === 'pts') return <td key={key} className="px-2 py-2 font-bold text-[var(--mm-ink)]">{n}</td>
-      if (key === 'reb') return <td key={key} className="px-2 py-2">{n}</td>
-      if (key === 'ast') return <td key={key} className="px-2 py-2 text-[var(--mm-ink)]">{n}</td>
-      if (key === 'stl') return <td key={key} className="px-2 py-2 text-green-400">{n}</td>
-      if (key === 'blk') return <td key={key} className="px-2 py-2 text-indigo-400">{n}</td>
-      if (key === 'tov') return <td key={key} className="px-2 py-2 text-red-400">{n}</td>
-    }
-    return <td key={key} className="px-2 py-2">{n}</td>
+    if (['pts_avg', 'reb_avg', 'ast_avg', 'eff'].includes(key as string)) return n.toFixed(1)
+    return String(n)
   }
+
+  function cellTone(s: SeasonPlayer, key: keyof SeasonPlayer): string {
+    const n = Number(s[key]) || 0
+    if (key === 'pts_avg' || key === 'pts') return 'font-bold text-[var(--mm-ink)]'
+    if (key === 'ast_avg' || key === 'ast') return 'text-[var(--mm-ink)]'
+    if (key === 'usg_pct') return 'text-purple-400'
+    if (key === 'stl') return 'text-green-400'
+    if (key === 'blk') return 'text-indigo-400'
+    if (key === 'tov') return 'text-red-400'
+    if (key === 'eff') return `font-bold ${n >= 10 ? 'text-[var(--mm-yellow-strong)]' : n >= 0 ? 'text-[var(--mm-ink)]' : 'text-red-400'}`
+    if (PCT_KIND[key as string] || (viewMode === 'per36' && key === 'ts_pct')) return `font-medium ${pctClass(n, PCT_KIND[key as string])}`
+    return ''
+  }
+
+  function renderCell(s: SeasonPlayer, key: keyof SeasonPlayer) {
+    if (key === 'player_number') return <td key={key} className="px-2 py-2 font-bold text-[var(--mm-ink)]">{s.player_number}</td>
+    if (key === 'player_name') return <NameCell key={key} s={s} />
+    if (key === 'games_played') return <td key={key} className="px-2 py-2 text-[var(--mm-muted)]">{s.games_played}</td>
+    return <td key={key} className={`px-2 py-2 ${cellTone(s, key)}`}>{cellText(s, key)}</td>
+  }
+
+  // 모바일 카드에 올릴 항목 — 그 보기의 표 컬럼에서 고른다(야투 3종은 아래 성공/시도 줄이 따로 맡는다).
+  const cardKeys: (keyof SeasonPlayer)[] = viewMode === 'vol'
+    ? ['games_played', 'pts', 'reb', 'ast', 'stl', 'blk', 'tov']
+    : viewMode === 'per36'
+    ? ['games_played', 'pts_avg', 'reb_avg', 'ast_avg', 'stl', 'blk', 'ts_pct']
+    : ['games_played', 'pts_avg', 'reb_avg', 'ast_avg', 'stl', 'blk', 'ast_tov', 'eff', 'usg_pct', 'efg_pct', 'ts_pct']
+
+  const shotGroups: { label: string; made: keyof SeasonPlayer; att: keyof SeasonPlayer; pct: keyof SeasonPlayer }[] = [
+    { label: 'FG', made: 'fgm', att: 'fga', pct: 'fg_pct' },
+    { label: '3P', made: 'fg3m', att: 'fg3a', pct: 'fg3_pct' },
+    { label: 'FT', made: 'ftm', att: 'fta', pct: 'ft_pct' },
+  ]
+
+  // 설명이 없으면 읽기 어려운 지표만 — 득점·리바운드까지 풀면 정작 필요한 설명이 묻힌다.
+  const helpKeys = viewMode === 'avg' ? ['USG%', 'eFG%', 'TS%', 'A/T', 'EFF']
+    : viewMode === 'per36' ? ['TS%']
+    : ['TOV', 'OREB', 'DREB']
 
   return (
     <div className="space-y-8">
@@ -360,6 +376,30 @@ export default function StatsPage() {
               {viewMode === 'avg' ? '경기당 평균' : viewMode === 'per36' ? '36분 환산' : '시즌 누적'}
             </span>
           </h2>
+          {/* 지표 설명 — 약어만 보고는 뜻을 알 수 없다는 의견이 있었다. 내용은 용어 사전(glossary.ts) 한 곳에서 온다 */}
+          <details className="group mb-3 rounded-xl border border-[var(--mm-rule)] bg-[var(--mm-panel)]">
+            <summary className="flex items-center gap-2 min-h-11 px-3 text-sm font-medium text-[var(--mm-ink)] cursor-pointer list-none [&::-webkit-details-marker]:hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--mm-yellow)]">
+              <HelpCircle size={16} className="text-[var(--mm-muted)] shrink-0" aria-hidden />
+              지표 설명
+              <span className="text-xs font-normal text-[var(--mm-muted)]">{helpKeys.map(k => statDef(k)?.short ?? k).join(' · ')}</span>
+              <ChevronDown size={16} className="ml-auto text-[var(--mm-muted)] shrink-0 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none" aria-hidden />
+            </summary>
+            <dl className="px-3 pb-3 space-y-3 border-t border-[var(--mm-rule)]/60 pt-3">
+              {helpKeys.map(k => {
+                const def = statDef(k)
+                if (!def) return null
+                return (
+                  <div key={k}>
+                    <dt className="text-sm font-bold text-[var(--mm-ink)]">
+                      {def.short} <span className="font-normal text-[var(--mm-muted)]">{def.long}</span>
+                    </dt>
+                    <dd className="text-sm leading-relaxed text-[var(--mm-ink-soft)] break-keep">{def.description}</dd>
+                    {def.formula && <dd className="mt-1 text-xs font-mono text-[var(--mm-muted)] break-words">{def.formula}</dd>}
+                  </div>
+                )
+              })}
+            </dl>
+          </details>
           {/* 모바일 정렬 칩 + 카드뷰 (md 미만) */}
           <div className="md:hidden">
             <div className="px-1 pb-2 overflow-x-auto">
@@ -377,13 +417,6 @@ export default function StatsPage() {
             <div className="space-y-2">
               {sorted.map((s, i) => {
                 const sortLabel = cols.find(c => c.key === sortKey)?.label ?? ''
-                const sortVal = (s as unknown as Record<string, unknown>)[sortKey as string]
-                const subKeys: (keyof SeasonPlayer)[] = (viewMode === 'vol'
-                  ? ['games_played','pts','reb','ast']
-                  : viewMode === 'per36'
-                  ? ['games_played','pts_avg','reb_avg','ast_avg']
-                  : ['games_played','pts_avg','reb_avg','ast_avg']) as (keyof SeasonPlayer)[]
-                const filteredSubKeys = subKeys.filter(k => k !== sortKey).slice(0, 4)
                 return (
                   <button key={s.player_id} onClick={() => setPlayerModal(s.player_id)}
                     className="w-full text-left bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-xl px-3 py-2.5 hover:bg-[var(--mm-panel-alt)] transition-colors active:bg-[var(--mm-panel-alt)]/80 cursor-pointer">
@@ -396,20 +429,43 @@ export default function StatsPage() {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-xl font-black text-[var(--mm-yellow-strong)] leading-none">
-                          {typeof sortVal === 'number' ? sortVal : String(sortVal ?? '-')}
+                        <div className="text-xl font-black text-[var(--mm-yellow-strong)] leading-none tabular-nums">
+                          {cellText(s, sortKey)}
                         </div>
                         <div className="text-xs text-[var(--mm-muted)] font-bold mt-0.5">{sortLabel}</div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-[var(--mm-rule)]/60">
-                      {filteredSubKeys.map(k => {
-                        const lbl = cols.find(c => c.key === k)?.label ?? String(k)
-                        const v = (s as unknown as Record<string, unknown>)[k as string]
+                    {/* 항목 자리는 정렬을 바꿔도 움직이지 않는다 — 36명을 내려 훑을 때 같은 자리에서 같은 지표를 읽게 하려는 것 */}
+                    <div className="grid grid-cols-4 gap-x-1 gap-y-2 pt-2 border-t border-[var(--mm-rule)]/60">
+                      {cardKeys.map(k => (
+                        <div key={k as string} className="text-center">
+                          <div className="text-xs text-[var(--mm-muted)]">{cols.find(c => c.key === k)?.label ?? String(k)}</div>
+                          <div className={`text-sm font-bold tabular-nums ${k === sortKey ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>
+                            {cellText(s, k)}
+                          </div>
+                        </div>
+                      ))}
+                      {viewMode === 'vol' && (
+                        <div className="text-center">
+                          <div className="text-xs text-[var(--mm-muted)]">OR/DR</div>
+                          <div className="text-sm font-bold tabular-nums text-[var(--mm-ink)]">{s.oreb}/{s.dreb}</div>
+                        </div>
+                      )}
+                    </div>
+                    {/* 야투는 성공/시도를 붙여 쓴다 — 볼륨과 정확도를 한 칸에서 같이 읽는다 */}
+                    <div className="grid grid-cols-3 gap-1 mt-2 pt-2 border-t border-[var(--mm-rule)]/60">
+                      {shotGroups.map(g => {
+                        const pct = Number(s[g.pct]) || 0
+                        const active = sortKey === g.made || sortKey === g.att || sortKey === g.pct
                         return (
-                          <div key={k as string} className="text-center">
-                            <div className="text-xs text-[var(--mm-muted)]">{lbl}</div>
-                            <div className="text-xs font-bold text-[var(--mm-ink)]">{typeof v === 'number' ? v : String(v ?? '-')}</div>
+                          <div key={g.label} className="text-center">
+                            <div className="text-xs text-[var(--mm-muted)]">{g.label} 성공/시도</div>
+                            <div className={`text-sm font-bold tabular-nums ${active ? 'text-[var(--mm-yellow-strong)]' : 'text-[var(--mm-ink)]'}`}>
+                              {Number(s[g.made]) || 0}/{Number(s[g.att]) || 0}
+                            </div>
+                            <div className={`text-xs font-medium tabular-nums ${pctClass(pct, PCT_KIND[g.pct as string])}`}>
+                              {pct > 0 ? `${pct.toFixed(1)}%` : '-'}
+                            </div>
                           </div>
                         )
                       })}
@@ -448,10 +504,9 @@ export default function StatsPage() {
             </table>
           </div>
           <div className="flex flex-wrap gap-4 mt-3">
-            <p className="text-xs text-[var(--mm-muted)]">* 컬럼 클릭 시 정렬 변경 / 이름 클릭 시 선수 상세</p>
+            <p className="hidden md:block text-xs text-[var(--mm-muted)]">* 컬럼 클릭 시 정렬 변경 / 이름 클릭 시 선수 상세</p>
             {/* 색이 무슨 뜻인지 밝히지 않으면 "38%인데 왜 초록?" 이 된다 */}
             <p className="text-xs text-[var(--mm-muted)] break-keep">* {baselineCaption(CLUB_BASELINE)}</p>
-            {viewMode === 'avg' && <p className="text-xs text-[var(--mm-muted)]">* USG%: 팀 전체 공격 점유 중 해당 선수 비율 / EFF: (PTS+REB+AST+STL+BLK)-(빗나간FG+빗나간FT+TOV) 경기당</p>}
             {viewMode === 'per36' && <p className="text-xs text-[var(--mm-muted)]">* 28분 기준 → 36분 환산 (× 1.286)</p>}
           </div>
         </div>

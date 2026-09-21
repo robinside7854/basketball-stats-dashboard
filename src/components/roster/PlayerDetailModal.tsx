@@ -1,5 +1,6 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
+import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 import dynamic from 'next/dynamic'
 import { X, Camera, Award, Zap, Flame, BookOpen, Medal, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -827,7 +828,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                               <th className="px-3 py-2">APG</th>
                               <th className="px-3 py-2">FG%</th>
                               <th className="px-3 py-2">3P%</th>
-                              <th className="px-3 py-2 text-amber-300">GmSc</th>
+                              <th className="px-3 py-2 text-amber-300">GmSc<StatHelpTooltip statKey="GmSc" /></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -873,7 +874,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                               <th className="px-3 py-2">APG</th>
                               <th className="px-3 py-2">FG%</th>
                               <th className="px-3 py-2">3P%</th>
-                              <th className="px-3 py-2 text-amber-300">GmSc</th>
+                              <th className="px-3 py-2 text-amber-300">GmSc<StatHelpTooltip statKey="GmSc" /></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1013,7 +1014,7 @@ export default function PlayerDetailModal({ playerId, team, onClose, onPlayerUpd
                           <th className="px-3 py-2">AST</th>
                           <th className="px-3 py-2">FG</th>
                           <th className="px-3 py-2">3P</th>
-                          <th className="px-3 py-2" title="Hollinger Game Score">GmSc</th>
+                          <th className="px-3 py-2" title="Hollinger Game Score">GmSc<StatHelpTooltip statKey="GmSc" /></th>
                         </tr>
                       </thead>
                       <tbody>

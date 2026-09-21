@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import StatHelpTooltip from '@/components/stats/StatHelpTooltip'
 import { X, Play } from 'lucide-react'
 import PlayerDetailModal from '@/components/roster/PlayerDetailModal'
 import type { PlayerBoxScore } from '@/types/database'
@@ -281,7 +282,7 @@ export default function GameBoxScoreModal({ gameInfo, onClose, onPlayerClick }: 
                           <th className="px-2 py-2">STL</th>
                           <th className="px-2 py-2">BLK</th>
                           <th className="px-2 py-2">TOV</th>
-                          <th className="px-2 py-2" title="Hollinger Game Score">GmSc</th>
+                          <th className="px-2 py-2" title="Hollinger Game Score">GmSc<StatHelpTooltip statKey="GmSc" /></th>
                           <th className="px-2 py-2">FG</th>
                           <th className="px-2 py-2">FG%</th>
                           <th className="px-2 py-2">3P</th>

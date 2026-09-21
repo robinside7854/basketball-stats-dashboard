@@ -35,6 +35,9 @@ export default function StatHelpTooltip({ statKey, size = 14, className, ariaLab
   const [mounted, setMounted] = useState(false)
   const btnRef = useRef<HTMLButtonElement | null>(null)
   const tooltipRef = useRef<HTMLDivElement | null>(null)
+  // 탭 한 번은 focus → click 순으로 온다. focus 가 연 것을 같은 탭의 click 이 토글로 닫아 버려서
+  //   모바일에서는 두 번 눌러야 설명이 보였다 — focus 직후의 click 은 "열기"로만 본다.
+  const focusOpenedAt = useRef(0)
   const def = statDef(statKey)
 
   const updateCoords = useCallback(() => {
@@ -103,6 +106,7 @@ export default function StatHelpTooltip({ statKey, size = 14, className, ariaLab
         onClick={(e) => {
           e.stopPropagation()
           e.preventDefault()
+          if (Date.now() - focusOpenedAt.current < 400) { setOpen(true); return }
           setOpen(v => !v)
         }}
         onMouseEnter={() => {
@@ -111,7 +115,7 @@ export default function StatHelpTooltip({ statKey, size = 14, className, ariaLab
         onMouseLeave={() => {
           if (hoverSupported) setOpen(false)
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => { focusOpenedAt.current = Date.now(); setOpen(true) }}
         onBlur={() => setOpen(false)}
         aria-label={ariaLabel ?? `${def.long} 설명`}
         title={def.long}
