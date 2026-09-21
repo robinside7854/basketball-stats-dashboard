@@ -1070,6 +1070,8 @@
 | 사용자 | **도메인 구매** (`onball.app` / `onball.kr`) | 사면 `NEXT_PUBLIC_SITE_URL` 만 바꾸고 재배포. 주소는 이미 `src/lib/siteUrl.ts` 한 곳으로 모아 뒀다. **Vercel 프로젝트 이름은 바꾸지 말 것** — 기존 `.vercel.app` 주소가 죽는다 |
 | 중 | 어드민 **계정·접속현황·권한** 화면이 아직 `league_id` 기준 | 형제 대회에서 빈 목록으로 보인다. 회원 기능은 정상 |
 | 중 | **팀 어드민의 리그 설정 저장이 401 로 실패** | `PATCH /api/leagues/[leagueId]` 가 NextAuth 전용이라 팀 어드민(회원 role·PIN)은 상태·일정·YouTube·플러스원 나이 저장이 전부 막힌다. 또 `.update(body)` 라 mass assignment 위험. 어느 필드까지 팀 어드민에게 허용할지 사용자 확인 필요(2026-08-07 Phase M Task 4, 기록만 하고 미수정) |
+| 중 | **검증 스크립트 2종 실패 (2026-09-21 확인, 원인 미조사)** | ① `verify-schema` — 분기 기준선이 26.1~3Q 3건인데 26.4Q(9/16 생성)가 생겨 실패. 기준선 갱신만 하면 된다. ② `verify-scoring` — 8/4 이전 총득점 7114 → **7112**, 7/1 `유승원게스트A` 이벤트 2건이 stored=3·computed=2(+1 판정이 과거 경기에서 바뀐 흔적). 9/21 26.4Q 반영 작업(분기 소속·팀장만 씀)과는 무관 |
+| 기록 | **26.4Q 드래프트 결과 반영 (2026-09-21)** | 9/20 드래프트는 테스트 세션(`d41f869c`, `is_test`)으로 진행돼 리그 표에 안 들어갔다. 세션의 15픽 + `test_leaders` 3명을 `league_player_quarters`(18행, 팀당 6)·`league_team_quarter_leaders`(3행)에 실전 경로와 같은 형태로 쓰고, 세션을 `is_test=false, test_leaders=null` 로 승격했다 — 이제 실전 세션과 구분되지 않으며 리셋하면 멤버십도 되돌아간다 |
 | 낮 | 세션 옛 쿠키 호환 갈래 제거 | `src/lib/auth/teamMatch.ts`. 2026-09-05 이후(모든 쿠키 만료 뒤) |
 | 낮 | 실제 동호회 온보딩 | 스크립트 준비됨. `docs/onboarding-checklist.md` |
 
