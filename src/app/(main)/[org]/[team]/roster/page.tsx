@@ -65,7 +65,9 @@ export default function RosterPage() {
   async function fetchPlayers() {
     const res = await fetch(`/api/players?team=${team}`)
     const data = await res.json()
-    setPlayers(data)
+    // 삭제는 행을 지우지 않고 is_active=false 로만 표시한다(과거 기록의 이름이 남아야 하므로).
+    //   API 는 그 선수들도 돌려주니 명단에서는 여기서 걸러야 한다 — 기록 화면과 같은 방식.
+    setPlayers(Array.isArray(data) ? data.filter((p: Player) => p.is_active !== false) : [])
   }
 
   async function downloadTemplate() {
@@ -92,7 +94,11 @@ export default function RosterPage() {
 
   async function handleDelete(id: string) {
     if (!confirm('선수를 삭제하시겠습니까?')) return
-    await fetch(`/api/players/${id}`, { method: 'DELETE', headers: { ...teamHeaders } })
+    const res = await fetch(`/api/players/${id}`, { method: 'DELETE', headers: { ...teamHeaders } })
+    if (!res.ok) {
+      toast.error(res.status === 403 ? '편집 PIN 확인이 필요합니다' : '선수 삭제에 실패했습니다')
+      return
+    }
     toast.success('선수가 삭제되었습니다')
     fetchPlayers()
   }
