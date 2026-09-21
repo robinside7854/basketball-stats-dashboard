@@ -51,14 +51,46 @@ type GameBoxData = {
 //   같은 선수가 화면 따라 다른 색이 된다. 여기는 팀 대시보드이므로 CLUB 기준선.
 //   eFG%·TS% 는 기준선을 정한 적이 없으므로 색을 칠하지 않는다(스탯 탭도 이 둘은 무채색).
 
-function Pct({ val, kind }: { val: number; kind?: PctKind }) {
+function Pct({ val, kind, suffix = '' }: { val: number; kind?: PctKind; suffix?: string }) {
   const good = kind ? CLUB_BASELINE[kind] : null
   const cls = val <= 0
     ? 'text-[var(--mm-muted)]'
     : good == null
       ? 'text-[var(--mm-ink)]'
       : val >= good ? 'text-green-400' : 'text-[var(--mm-yellow-strong)]'
-  return <span className={cls}>{val > 0 ? val.toFixed(1) : '-'}</span>
+  return <span className={cls}>{val > 0 ? `${val.toFixed(1)}${suffix}` : '-'}</span>
+}
+
+// 모바일 카드 본문 — 경기별·대회 전체가 같은 모양을 쓴다(스탯 탭 카드와 같은 구조).
+//   종전에는 REB·AST·FG%·3P% 네 칸뿐이라 스틸·블락·야투 볼륨(성공/시도)을 폰에서 볼 수 없었다.
+//   (모듈 최상단 정의: 페이지 함수 안에 두면 리렌더마다 unmount 된다)
+function MobileStatBody({ cells, s }: { cells: { label: string; value: React.ReactNode }[]; s: PlayerBoxScore }) {
+  const shots: { label: string; made: number; att: number; pct: number; kind: PctKind }[] = [
+    { label: 'FG', made: s.fgm, att: s.fga, pct: s.fg_pct, kind: 'fg' },
+    { label: '3P', made: s.fg3m, att: s.fg3a, pct: s.fg3_pct, kind: 'fg3' },
+    { label: 'FT', made: s.ftm, att: s.fta, pct: s.ft_pct, kind: 'ft' },
+  ]
+  return (
+    <>
+      <div className="grid grid-cols-4 gap-x-1 gap-y-2 pt-2 border-t border-[var(--mm-rule)]/60">
+        {cells.map(c => (
+          <div key={c.label} className="text-center">
+            <div className="text-xs text-[var(--mm-muted)]">{c.label}</div>
+            <div className="text-sm font-bold tabular-nums text-[var(--mm-ink)]">{c.value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-1 mt-2 pt-2 border-t border-[var(--mm-rule)]/60">
+        {shots.map(g => (
+          <div key={g.label} className="text-center">
+            <div className="text-xs text-[var(--mm-muted)]">{g.label} 성공/시도</div>
+            <div className="text-sm font-bold tabular-nums text-[var(--mm-ink)]">{g.made}/{g.att}</div>
+            <div className="text-xs font-medium tabular-nums"><Pct val={g.pct} kind={g.kind} suffix="%" /></div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
 }
 
 export default function BoxScorePage() {
@@ -556,24 +588,11 @@ export default function BoxScorePage() {
                                 <div className="text-xs text-[var(--mm-muted)] font-bold mt-0.5">PTS</div>
                               </div>
                             </div>
-                            <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-[var(--mm-rule)]/60">
-                              <div className="text-center">
-                                <div className="text-xs text-[var(--mm-muted)]">REB</div>
-                                <div className="text-xs font-bold text-[var(--mm-ink)]">{s.reb}</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-xs text-[var(--mm-muted)]">AST</div>
-                                <div className="text-xs font-bold text-[var(--mm-ink)]">{s.ast}</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-xs text-[var(--mm-muted)]">FG%</div>
-                                <div className="text-xs font-bold text-[var(--mm-ink)]">{s.fg_pct > 0 ? `${s.fg_pct.toFixed(0)}%` : '-'}</div>
-                              </div>
-                              <div className="text-center">
-                                <div className="text-xs text-[var(--mm-muted)]">3P%</div>
-                                <div className="text-xs font-bold text-[var(--mm-ink)]">{s.fg3_pct > 0 ? `${s.fg3_pct.toFixed(0)}%` : '-'}</div>
-                              </div>
-                            </div>
+                            <MobileStatBody s={s} cells={[
+                              { label: 'REB', value: s.reb }, { label: 'AST', value: s.ast }, { label: 'STL', value: s.stl }, { label: 'BLK', value: s.blk },
+                              { label: 'TOV', value: s.tov }, { label: 'PF', value: s.pf }, { label: 'OR/DR', value: `${s.oreb}/${s.dreb}` },
+                              { label: 'TS%', value: s.ts_pct > 0 ? s.ts_pct.toFixed(1) : '-' },
+                            ]} />
                           </button>
                         ))}
                       </div>
@@ -904,12 +923,13 @@ export default function BoxScorePage() {
                         <div className="text-xs text-[var(--mm-muted)] font-bold mt-0.5">PPG</div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-1 pt-1.5 border-t border-[var(--mm-rule)]/60">
-                      <div className="text-center"><div className="text-xs text-[var(--mm-muted)]">RPG</div><div className="text-xs font-bold text-[var(--mm-ink)]">{s.reb_avg}</div></div>
-                      <div className="text-center"><div className="text-xs text-[var(--mm-muted)]">APG</div><div className="text-xs font-bold text-[var(--mm-ink)]">{s.ast_avg}</div></div>
-                      <div className="text-center"><div className="text-xs text-[var(--mm-muted)]">FG%</div><div className="text-xs font-bold text-[var(--mm-ink)]">{s.fg_pct > 0 ? `${s.fg_pct.toFixed(0)}%` : '-'}</div></div>
-                      <div className="text-center"><div className="text-xs text-[var(--mm-muted)]">3P%</div><div className="text-xs font-bold text-[var(--mm-ink)]">{s.fg3_pct > 0 ? `${s.fg3_pct.toFixed(0)}%` : '-'}</div></div>
-                    </div>
+                    <MobileStatBody s={s} cells={[
+                      { label: 'PTS', value: s.pts }, { label: 'REB', value: s.reb }, { label: 'AST', value: s.ast },
+                      { label: 'TS%', value: s.ts_pct > 0 ? s.ts_pct.toFixed(1) : '-' },
+                      { label: 'RPG', value: s.reb_avg }, { label: 'APG', value: s.ast_avg }, { label: 'STL', value: s.stl }, { label: 'BLK', value: s.blk },
+                      { label: 'TOV', value: s.tov }, { label: 'PF', value: s.pf }, { label: 'OR/DR', value: `${s.oreb}/${s.dreb}` },
+                      { label: 'eFG%', value: s.efg_pct > 0 ? s.efg_pct.toFixed(1) : '-' },
+                    ]} />
                   </button>
                 ))}
               </div>
