@@ -621,13 +621,16 @@ function StatsTable({
 type StandingEntry = { teamId: string; w: number; d: number; l: number; gf: number; ga: number }
 
 function TeamDetailPanel({
-  teamId, team, standing, h2h, players, regularIds, allTeams, leagueId, games, quarterId,
+  teamId, team, standing, h2h, players, tablePlayers, regularIds, allTeams, leagueId, games, quarterId,
 }: {
   teamId: string
   team: Team
   standing: StandingEntry
   h2h: Record<string, { w: number; d: number; l: number }>
   players: PlayerStat[]
+  // 「선수 스탯」 표에 보일 행 — 팀별 선수와 같은 필터(게스트 제외 · 비정규 보기 토글).
+  // 팀 스탯 카드는 전원 합계라 players 를 그대로 쓴다.
+  tablePlayers: PlayerStat[]
   // 팀 내 1위 후보 — 그 분기 정규 명단(team_id 일치 + is_regular)
   regularIds: ReadonlySet<string>
   allTeams: Team[]
@@ -805,7 +808,7 @@ function TeamDetailPanel({
             {/* E. Player Stats Table */}
             <div>
               <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-ink-soft)' }}>선수 스탯</p>
-              <StatsTable players={players} leagueId={leagueId} color={team.color} viewMode="avg" statMode="basic" />
+              <StatsTable players={tablePlayers} leagueId={leagueId} color={team.color} viewMode="avg" statMode="basic" />
             </div>
           </>
         )}
@@ -1360,6 +1363,7 @@ function LeagueTeamsPageInner() {
                   standing={{ w: selStanding.w, d: selStanding.d, l: selStanding.l, gf: selStanding.gf, ga: selStanding.ga, teamId: selStanding.teamId }}
                   h2h={h2hByIdentity}
                   players={teamStats[selectedTeamId] ?? []}
+                  tablePlayers={visibleTeamPlayers(selectedTeamId)}
                   regularIds={regularIdsByIdentity[selectedTeamId] ?? EMPTY_IDS}
                   allTeams={oppositeTeams}
                   leagueId={leagueId}
