@@ -11,11 +11,14 @@ import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X, Users, Pencil } from 
 import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
 import RosterEditor from './_components/RosterEditor'
 import type { Team } from './_types'
+import { pickTeamLeader } from './_lib/teamLeaders'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import TeamInsights from '@/components/league/TeamInsights'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
 
+// 명단 로드 전 기본값 — 렌더마다 새 Set 을 만들면 TeamDetailPanel useMemo 가 매번 다시 돈다
+const EMPTY_IDS: ReadonlySet<string> = new Set()
 const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
 import StatHeader from '@/components/league/StatHeader'
 import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
@@ -618,13 +621,15 @@ function StatsTable({
 type StandingEntry = { teamId: string; w: number; d: number; l: number; gf: number; ga: number }
 
 function TeamDetailPanel({
-  teamId, team, standing, h2h, players, allTeams, leagueId, games, quarterId,
+  teamId, team, standing, h2h, players, regularIds, allTeams, leagueId, games, quarterId,
 }: {
   teamId: string
   team: Team
   standing: StandingEntry
   h2h: Record<string, { w: number; d: number; l: number }>
   players: PlayerStat[]
+  // 팀 내 1위 후보 — 그 분기 정규 명단(team_id 일치 + is_regular)
+  regularIds: ReadonlySet<string>
   allTeams: Team[]
   leagueId: string
   games: Game[]
@@ -660,19 +665,19 @@ function TeamDetailPanel({
     const ftPct  = totFta  > 0 ? totFtm / totFta * 100 : 0
     const threePct = totFga > 0 ? totFg3a / totFga * 100 : 0
 
-    // Top performers
-    const byPpg   = [...players].sort((a, b) => b.ppg   - a.ppg)[0]
-    const byRpg   = [...players].sort((a, b) => b.rpg   - a.rpg)[0]
-    const byApg   = [...players].sort((a, b) => b.apg   - a.apg)[0]
-    const byDef   = [...players].sort((a, b) => (b.spg + b.bpg) - (a.spg + a.bpg))[0]
-    const byEfg   = [...players].filter(p => p.fga > 0).sort((a, b) => b.efg_pct - a.efg_pct)[0]
+    // Top performers — 정규 명단만 후보 (비정규·게스트가 1경기로 1위 차지 방지)
+    const byPpg   = pickTeamLeader(players, regularIds, p => p.ppg)
+    const byRpg   = pickTeamLeader(players, regularIds, p => p.rpg)
+    const byApg   = pickTeamLeader(players, regularIds, p => p.apg)
+    const byDef   = pickTeamLeader(players, regularIds, p => p.spg + p.bpg)
+    const byEfg   = pickTeamLeader(players.filter(p => p.fga > 0), regularIds, p => p.efg_pct)
 
     // Fun: ace dependency
     const topScorer = byPpg
     const acePct = totPts > 0 && topScorer ? topScorer.pts / totPts * 100 : 0
 
     return { ppg, fgPct, efgPct, defPg, ftPct, threePct, acePct, byPpg, byRpg, byApg, byDef, byEfg }
-  }, [players, gp])
+  }, [players, regularIds, gp])
 
   const played = standing.w + standing.d + standing.l
   const winPct = played > 0 ? (standing.w / played * 100).toFixed(1) : '—'
@@ -857,7 +862,8 @@ function LeagueTeamsPageInner() {
   // 분기 정규 명단 (team_id + is_regular=true)
   // — 아직 경기 없는 분기(예: Q3)에도 등록된 선수를 표시하기 위함
   type RosterRow = { id: string; name: string; number: number | null; position: string | null; team_id: string | null; is_regular: boolean | null }
-  const [quarterRoster, setQuarterRoster] = useState<Record<string, RosterRow[]>>({})
+  // quarterId → 그 분기 정규 명단. 특정 분기면 그 분기만, 「전체」면 모든 분기(팀 내 1위 후보 판정용)
+  const [rosterByQuarter, setRosterByQuarter] = useState<Record<string, RosterRow[]>>({})
   // 팀 정체성 그룹 (team_id × override 조합) — 전체 뷰에서 5팀 노출
   type TeamIdentity = {
     key: string
@@ -1003,25 +1009,41 @@ function LeagueTeamsPageInner() {
       .catch(() => null)
   }, [leagueId, selectedQId, quartersReady])
 
-  // 분기 정규 명단 페치 — 특정 분기 선택 시 (스탯 없어도 명단 노출)
+  // 분기 정규 명단 페치 — 특정 분기: 스탯 없어도 명단 노출(0-fill) + 팀 내 1위 후보.
+  // 「전체」: 정체성(팀×분기)마다 자기 분기 명단으로 1위 후보를 가려야 해서 전 분기를 받는다.
   useEffect(() => {
-    if (!selectedQId || selectedQId === 'all') { setQuarterRoster({}); return }
+    if (!selectedQId || !quartersReady) { setRosterByQuarter({}); return }
+    const qids = selectedQId === 'all' ? quarters.map(q => q.id) : [selectedQId]
     let cancelled = false
-    fetch(`/api/leagues/${leagueId}/quarters/${selectedQId}/players`)
-      .then(r => r.ok ? r.json() : [])
-      .then((rows: RosterRow[]) => {
-        if (cancelled) return
-        const map: Record<string, RosterRow[]> = {}
-        for (const r of rows) {
-          if (!r.team_id || !r.is_regular) continue
-          if (!map[r.team_id]) map[r.team_id] = []
-          map[r.team_id].push(r)
-        }
-        setQuarterRoster(map)
-      })
-      .catch(() => null)
+    Promise.all(qids.map(qid =>
+      fetch(`/api/leagues/${leagueId}/quarters/${qid}/players`)
+        .then(r => r.ok ? r.json() : [])
+        .then((rows: RosterRow[]) => [qid, Array.isArray(rows) ? rows.filter(r => r.team_id && r.is_regular !== false) : []] as const)
+        .catch(() => [qid, [] as RosterRow[]] as const)
+    )).then(results => {
+      if (!cancelled) setRosterByQuarter(Object.fromEntries(results))
+    })
     return () => { cancelled = true }
-  }, [leagueId, selectedQId, reloadKey])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leagueId, selectedQId, quartersReady, reloadKey])
+
+  // 0-fill 은 특정 분기에서만 (예전 동작 유지) — team_id → 정규 명단
+  const quarterRoster = useMemo(() => {
+    const map: Record<string, RosterRow[]> = {}
+    if (selectedQId === 'all') return map
+    for (const r of rosterByQuarter[selectedQId] ?? []) (map[r.team_id!] ??= []).push(r)
+    return map
+  }, [rosterByQuarter, selectedQId])
+
+  // 정체성별 정규 선수 id — 팀 내 1위 후보이자 「비정규 선수 보기」 끔일 때 남길 행
+  const regularIdsByIdentity = useMemo(() => {
+    const m: Record<string, Set<string>> = {}
+    for (const id of identities) {
+      const qids = selectedQId === 'all' ? id.quarter_ids : [selectedQId]
+      m[id.key] = new Set(qids.flatMap(q => (rosterByQuarter[q] ?? []).filter(r => r.team_id === id.team_id).map(r => r.id)))
+    }
+    return m
+  }, [identities, rosterByQuarter, selectedQId])
 
   // ── 데이터 가공 ───────────────────────────────────────────
   const teamMap = useMemo(() => Object.fromEntries(teams.map(t => [t.id, t])), [teams])
@@ -1150,34 +1172,23 @@ function LeagueTeamsPageInner() {
     return base.filter(s => !identityPlayerIds.has(s.player_id))
   }, [allStats, currentQuarterStats, selectedQId, teamStatsApi])
   // 게스트 판정은 roster/page.tsx 와 같은 규칙(is_guest 또는 이름에 '게스트').
+  // is_guest=true 는 /stats 가 이미 빼고 내려준다(leagueStats.ts guestIds) — 여기선 이름 규칙이 실질 필터.
   const isGuest = (p: { name: string; is_guest?: boolean | null }) => Boolean(p.is_guest) || p.name.includes('게스트')
   const irregularStats = irregularAll.filter(p => !isGuest(p))
 
-  // 게스트 목록은 스탯이 아니라 명단(/players)에서 가져온다 — /stats 는 is_guest=true 선수를
-  // 개인 순위표에서 빼고 내려주므로(leagueStats.ts guestIds) 스탯에서 고르면 늘 비어 있다.
-  // 그래서 이름·등번호만 보여준다. 탈퇴 회원 제외는 roster 와 같은 activeOnly.
-  type GuestRow = { id: string; name: string; number: number | null; is_guest?: boolean | null }
-  const [guestPlayers, setGuestPlayers] = useState<GuestRow[]>([])
+  // 「비정규 선수 보기」 — 기본 켬, 끈 상태만 브라우저에 기억(리그별)
+  const showIrregularKey = `league:${leagueId}:teams:showIrregular`
+  const [showIrregular, setShowIrregular] = useState(true)
   useEffect(() => {
-    let cancelled = false
-    fetch(`/api/leagues/${leagueId}/players?activeOnly=1`)
-      .then(r => r.ok ? r.json() : [])
-      .then((rows: GuestRow[]) => { if (!cancelled && Array.isArray(rows)) setGuestPlayers(rows.filter(isGuest)) })
-      .catch(() => null)
-    return () => { cancelled = true }
-  }, [leagueId])
-
-  // 게스트 접이식 — 기본 접힘, 열림 상태만 브라우저에 기억(리그별)
-  const guestsOpenKey = `league:${leagueId}:teams:guestsOpen`
-  const [guestsOpen, setGuestsOpen] = useState(false)
-  useEffect(() => {
-    try { setGuestsOpen(localStorage.getItem(guestsOpenKey) === '1') } catch { /* private mode */ }
-  }, [guestsOpenKey])
-  const toggleGuests = () => setGuestsOpen(prev => {
-    const next = !prev
-    try { localStorage.setItem(guestsOpenKey, next ? '1' : '0') } catch { /* private mode */ }
-    return next
-  })
+    try { setShowIrregular(localStorage.getItem(showIrregularKey) !== '0') } catch { /* private mode */ }
+  }, [showIrregularKey])
+  const toggleShowIrregular = (next: boolean) => {
+    setShowIrregular(next)
+    try { localStorage.setItem(showIrregularKey, next ? '1' : '0') } catch { /* private mode */ }
+  }
+  // 팀별 선수 탭에 보일 행 — 게스트는 늘 빼고, 끔이면 정규 명단만
+  const visibleTeamPlayers = (key: string) => (teamStats[key] ?? []).filter(p =>
+    !isGuest(p) && (showIrregular || (regularIdsByIdentity[key]?.has(p.player_id) ?? false)))
   const scopeSuffix = selectedQId === 'all' ? ' (현재 분기)' : ''
 
   const base = `/league/${orgSlug}/${leagueId}`
@@ -1349,6 +1360,7 @@ function LeagueTeamsPageInner() {
                   standing={{ w: selStanding.w, d: selStanding.d, l: selStanding.l, gf: selStanding.gf, ga: selStanding.ga, teamId: selStanding.teamId }}
                   h2h={h2hByIdentity}
                   players={teamStats[selectedTeamId] ?? []}
+                  regularIds={regularIdsByIdentity[selectedTeamId] ?? EMPTY_IDS}
                   allTeams={oppositeTeams}
                   leagueId={leagueId}
                   games={games}
@@ -1407,6 +1419,20 @@ function LeagueTeamsPageInner() {
                   )
                 })}
               </div>
+              {/* 비정규 선수 보기 — 끄면 비정규 섹션과 팀 탭의 비정규 행이 함께 숨는다 */}
+              <label
+                className="inline-flex items-center gap-2 px-3 min-h-11 text-xs font-semibold whitespace-nowrap cursor-pointer transition-colors duration-200 shrink-0 hover:bg-[color:var(--mm-panel-alt)] focus-within:ring-2 focus-within:ring-[color:var(--mm-yellow)] focus-within:ring-offset-1"
+                style={{ border: '1px solid var(--mm-rule)', color: 'var(--mm-ink-soft)', background: 'var(--mm-panel)' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={showIrregular}
+                  onChange={e => toggleShowIrregular(e.target.checked)}
+                  className="w-4 h-4 cursor-pointer focus:outline-none"
+                  style={{ accentColor: 'var(--mm-ink)' }}
+                />
+                비정규 선수 보기
+              </label>
             </div>
           </div>
 
@@ -1434,7 +1460,7 @@ function LeagueTeamsPageInner() {
           >
             {standings.map((s, i) => {
               const on = s.identityKey === activeStatsTeamKey
-              const count = (teamStats[s.identityKey] ?? []).length
+              const count = visibleTeamPlayers(s.identityKey).length
               return (
                 <button
                   key={s.identityKey}
@@ -1480,7 +1506,7 @@ function LeagueTeamsPageInner() {
           </div>
 
           {standings.filter(s => s.identityKey === activeStatsTeamKey).map(s => {
-            const players = teamStats[s.identityKey] ?? []
+            const players = visibleTeamPlayers(s.identityKey)
             const leaderId = leaderMap[s.teamId] ?? null
             return (
               <div
@@ -1569,7 +1595,7 @@ function LeagueTeamsPageInner() {
         </div>
 
         {/* ── 섹션 3: 비정규 선수 스탯 ── */}
-        {irregularStats.length > 0 && (
+        {showIrregular && irregularStats.length > 0 && (
           <div className="space-y-2">
             <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>비정규 선수{scopeSuffix}</h3>
             <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)</p>
@@ -1590,41 +1616,6 @@ function LeagueTeamsPageInner() {
           </div>
         )}
 
-        {/* ── 섹션 4: 게스트 (기본 접힘) — 명단 기준 이름·등번호만. 분기와 무관한 명단이라 (현재 분기) 표기 없음 ── */}
-        {guestPlayers.length > 0 && (
-          <div className="space-y-2">
-            <button
-              type="button"
-              onClick={toggleGuests}
-              aria-expanded={guestsOpen}
-              aria-controls="teams-guests-panel"
-              className="w-full min-h-[44px] flex items-center gap-2 text-left cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
-            >
-              <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>게스트</h3>
-              <span className="text-xs font-bold tracking-wider" style={{ color: 'var(--mm-muted)' }}>{guestPlayers.length}명 · {guestsOpen ? '접기' : '펼치기'}</span>
-              <ChevronDown
-                size={16}
-                aria-hidden
-                className={`ml-auto shrink-0 transition-transform duration-200 ${guestsOpen ? 'rotate-180' : ''}`}
-                style={{ color: 'var(--mm-muted)' }}
-              />
-            </button>
-            {guestsOpen && (
-              <div id="teams-guests-panel">
-                <SectionCard variant="standalone" pad="none">
-                  <ul className="px-4 py-2">
-                    {guestPlayers.map(p => (
-                      <li key={p.id} className="py-2 text-base font-bold break-keep" style={{ color: 'var(--mm-ink)', borderBottom: '1px solid var(--mm-rule)' }}>
-                        {p.name}
-                        {p.number != null && <span className="font-mono ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                </SectionCard>
-              </div>
-            )}
-          </div>
-        )}
         </>)}
         </>
       )}
