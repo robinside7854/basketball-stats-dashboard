@@ -16,6 +16,7 @@ import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
 import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
+import { QuarterChips } from '@/components/league/QuarterChips'
 import type { Quarter, PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
 
@@ -543,25 +544,11 @@ function LeagueStatsPageInner() {
       <div className="space-y-3">
         <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '28px', letterSpacing: '-0.005em' }}>리그 스탯</h2>
         {/* 1줄: 분기 선택 */}
-        <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
-          <button onClick={() => setSelectedQuarterId('all')}
-            className="shrink-0 px-3 py-2 text-sm font-semibold transition-colors cursor-pointer btn-press min-h-[44px]"
-            style={selectedQuarterId === 'all'
-              ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)' }
-              : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
-            }>전체</button>
-          {quarters.map(q => (
-            <button key={q.id} onClick={() => setSelectedQuarterId(q.id)}
-              className="shrink-0 px-3 py-2 text-sm font-semibold transition-colors cursor-pointer btn-press min-h-[44px]"
-              style={selectedQuarterId === q.id
-                ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)' }
-                : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }
-              }>
-              {String(q.year).slice(2)}.{q.quarter}Q
-              {q.is_current && <span className="ml-1 w-1.5 h-1.5 rounded-full inline-block" style={{ background: 'var(--mm-live)' }} />}
-            </button>
-          ))}
-        </div>
+        <QuarterChips
+          quarters={quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q`, isCurrent: q.is_current }))}
+          value={selectedQuarterId}
+          onChange={setSelectedQuarterId}
+        />
       </div>
 
       {/* 기록실 — 시즌 최고 8칸 보드. 메인 스탯(loading)과 독립적으로 항상 렌더하고

@@ -8,6 +8,7 @@ import { BasketballLoader } from '@/components/league/BasketballIcons'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
+import { QuarterChips } from '@/components/league/QuarterChips'
 import StatGate from '@/components/league/auth/StatGate'
 import { accentOrInk } from '@/lib/util/contrastColor'
 
@@ -321,43 +322,11 @@ export default function AwardsPage() {
       </div>
 
       {/* 분기 필터 탭 — 활성: 검정, 비활성: 흰 + 뮤트 */}
-      <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
-        <button
-          onClick={() => setSelectedQuarterId('all')}
-          className="shrink-0 px-4 py-2 text-sm font-black transition-colors cursor-pointer btn-press min-h-11"
-          style={{
-            background: selectedQuarterId === 'all' ? 'var(--mm-ink)' : 'var(--mm-panel)',
-            color: selectedQuarterId === 'all' ? 'var(--mm-panel)' : 'var(--mm-muted)',
-            border: `1px solid ${selectedQuarterId === 'all' ? 'var(--mm-ink)' : 'var(--mm-rule)'}`,
-          }}
-        >
-          시즌 전체
-        </button>
-        {quarters.map(q => {
-          const active = selectedQuarterId === q.id
-          return (
-            <button
-              key={q.id}
-              onClick={() => setSelectedQuarterId(q.id)}
-              className="shrink-0 px-4 py-2 text-sm font-bold transition-colors cursor-pointer btn-press min-h-11 whitespace-nowrap tabular-nums"
-              style={{
-                background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
-                color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
-                border: `1px solid ${active ? 'var(--mm-ink)' : 'var(--mm-rule)'}`,
-              }}
-            >
-              {String(q.year).slice(2)}.{q.quarter}Q
-              {q.is_current && (
-                <span
-                  className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full align-middle"
-                  style={{ background: active ? 'var(--mm-yellow)' : 'var(--mm-yellow-strong)' }}
-                  aria-hidden
-                />
-              )}
-            </button>
-          )
-        })}
-      </div>
+      <QuarterChips
+        quarters={quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q`, isCurrent: q.is_current }))}
+        value={selectedQuarterId}
+        onChange={setSelectedQuarterId}
+      />
 
       {loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={24} /></div>

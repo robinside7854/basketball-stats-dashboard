@@ -1,6 +1,8 @@
 'use client'
 import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
+import { QuarterChips } from '@/components/league/QuarterChips'
+import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
@@ -821,7 +823,10 @@ export default function LeagueTeamsPage() {
   const { orgSlug, leagueId } = params
 
   const [quarters, setQuarters] = useState<Quarter[]>([])
-  const [selectedQId, setSelectedQId] = useState<string | 'all'>('all')
+  // 분기 선택은 리더보드·어워즈와 공유한다(페이지 이동 시 같은 분기 유지). 이름은 기존 참조를 살리려 그대로 둔다.
+  const { selectedQuarterId: selectedQId, setSelectedQuarterId: setSelectedQId } = useLeagueQuarter()
+  // 분기 목록이 오기 전에 'all' 로 fetch 하면 리더 집계(quarters 순회)가 빈 채로 끝나므로 로드 후에만 데이터 fetch
+  const [quartersReady, setQuartersReady] = useState(false)
   const [teams, setTeams] = useState<Team[]>([])
   const [games, setGames] = useState<Game[]>([])
   const [allStats, setAllStats] = useState<PlayerStat[]>([])
@@ -864,10 +869,15 @@ export default function LeagueTeamsPage() {
       setQuarters(qs ?? [])
       setTeams(ts ?? [])
       const cur = (qs ?? []).find((q: Quarter) => q.is_current) ?? (qs ?? []).at(-1)
-      // Default: current quarter if exists, otherwise 'all'
-      if (cur) setSelectedQId(cur.id)
-      else { setSelectedQId('all'); setLoading(false) }
+      // 팀순위의 기본은 「현재 분기」였다. 다른 화면에서 고른 적이 없을 때(저장값 없음)만 그 기본을 적용해
+      // 사용자가 이미 고른 분기(「전체」 포함)를 덮어쓰지 않는다. 저장 키는 LeagueQuarterContext 와 같다.
+      let saved: string | null = null
+      try { saved = localStorage.getItem(`league:${leagueId}:selectedQuarterId`) } catch { /* private mode */ }
+      if (cur && !saved && selectedQId === 'all') setSelectedQId(cur.id)
+      setQuartersReady(true)
     }).catch(() => setLoading(false))
+  // 마운트(리그) 당 1회만 — selectedQId 변화로 기본값을 다시 적용하면 안 된다
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leagueId])
 
   // 분기별 데이터 로드
@@ -876,7 +886,7 @@ export default function LeagueTeamsPage() {
   //    'all' 응답이 늦게 도착하면 최신 분기 데이터를 덮어써 시즌누적으로 보임.
   //    → cancelled 플래그로 stale 응답 무시.
   useEffect(() => {
-    if (!selectedQId) return
+    if (!selectedQId || !quartersReady) return
     setDataLoading(true)
     let cancelled = false
 
@@ -924,7 +934,7 @@ export default function LeagueTeamsPage() {
     }
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueId, selectedQId])
+  }, [leagueId, selectedQId, quartersReady])
 
   // 팀 정체성 페치 — 팀명 override 반영한 정체성 그룹
   useEffect(() => {
@@ -1122,35 +1132,11 @@ export default function LeagueTeamsPage() {
       {/* ── 분기 버튼 탭 ── */}
       <div>
         <h2 className="font-black mb-4" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀 순위</h2>
-        <div className="flex flex-wrap gap-2">
-          {/* 전체 버튼 */}
-          <button
-            onClick={() => setSelectedQId('all')}
-            className="px-4 py-1.5 text-xs font-semibold transition-all cursor-pointer"
-            style={{
-              background: selectedQId === 'all' ? 'var(--mm-ink)' : 'var(--mm-panel)',
-              color: selectedQId === 'all' ? 'var(--mm-panel)' : 'var(--mm-muted)',
-              border: '1px solid var(--mm-rule)',
-            }}
-          >
-            전체
-          </button>
-          {quarters.map(q => {
-            const active = selectedQId === q.id
-            return (
-              <button key={q.id} onClick={() => setSelectedQId(q.id)}
-                className="px-4 py-1.5 text-xs font-semibold transition-all cursor-pointer"
-                style={{
-                  background: active ? 'var(--mm-ink)' : 'var(--mm-panel)',
-                  color: active ? 'var(--mm-panel)' : 'var(--mm-muted)',
-                  border: '1px solid var(--mm-rule)',
-                }}>
-                {String(q.year).slice(2)}.{q.quarter}Q
-                {q.is_current && <span className="ml-1.5 w-1.5 h-1.5 rounded-full inline-block" style={{ background: active ? 'var(--mm-panel)' : 'var(--mm-positive)' }} />}
-              </button>
-            )
-          })}
-        </div>
+        <QuarterChips
+          quarters={quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q`, isCurrent: q.is_current }))}
+          value={selectedQId}
+          onChange={setSelectedQId}
+        />
       </div>
 
       {dataLoading ? (
