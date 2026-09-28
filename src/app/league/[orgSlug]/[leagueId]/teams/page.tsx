@@ -1102,14 +1102,50 @@ export default function LeagueTeamsPage() {
     statsTabBarRef.current?.scrollIntoView({ block: 'nearest' })
   }, [statsTeamKey])
 
+  // 「전체」에서 비정규·게스트는 시즌 누적이 아니라 현재 분기 기준으로 보여준다 —
+  // 비정규 참가자는 분기마다 바뀌어서 누적으로 합치면 이미 떠난 사람이 목록을 채운다.
+  const currentQuarterId = (quarters.find(q => q.is_current) ?? quarters.at(-1))?.id ?? null
+  const [currentQuarterStats, setCurrentQuarterStats] = useState<PlayerStat[]>([])
+  useEffect(() => {
+    if (selectedQId !== 'all' || !currentQuarterId) { setCurrentQuarterStats([]); return }
+    let cancelled = false
+    fetch(`/api/leagues/${leagueId}/stats?quarterId=${currentQuarterId}`)
+      .then(r => r.json())
+      .then(st => { if (!cancelled) setCurrentQuarterStats(st.players ?? []) })
+      .catch(() => null)
+    return () => { cancelled = true }
+  }, [leagueId, selectedQId, currentQuarterId])
+
   // 비정규 섹션 — 어떤 정체성에도 귀속되지 않은 선수 (이벤트의 team_id 가 모두 null)
-  const irregularStats = useMemo(() => {
+  // ponytail: 「전체」일 때 정체성 스탯은 전 분기 합이라, 앞선 분기에 팀으로 뛰고 현재 분기엔
+  // 팀 없이만 뛴 선수는 비정규에서 빠진다. 문제가 되면 현재 분기 team-identities 로 따로 대조.
+  const irregularAll = useMemo(() => {
     const identityPlayerIds = new Set<string>()
     for (const key of Object.keys(teamStatsApi)) {
       for (const p of teamStatsApi[key]) identityPlayerIds.add(p.player_id)
     }
-    return allStats.filter(s => !identityPlayerIds.has(s.player_id))
-  }, [allStats, teamStatsApi])
+    const base = selectedQId === 'all' ? currentQuarterStats : allStats
+    return base.filter(s => !identityPlayerIds.has(s.player_id))
+  }, [allStats, currentQuarterStats, selectedQId, teamStatsApi])
+  // 게스트 판정은 roster/page.tsx 와 같은 규칙(is_guest 또는 이름에 '게스트').
+  // /stats 는 is_guest=true 선수를 이미 빼고 내려주므로(leagueStats.ts guestIds) 여기서 걸리는 건
+  // 플래그 없이 이름으로만 게스트인 옛 데이터다 — 그래도 규칙은 그대로 둔다(API 가 바뀌어도 안전).
+  const isGuestStat = (p: PlayerStat) => Boolean((p as PlayerStat & { is_guest?: boolean }).is_guest) || p.name.includes('게스트')
+  const irregularStats = irregularAll.filter(p => !isGuestStat(p))
+  const guestStats = irregularAll.filter(isGuestStat)
+
+  // 게스트 접이식 — 기본 접힘, 열림 상태만 브라우저에 기억(리그별)
+  const guestsOpenKey = `league:${leagueId}:teams:guestsOpen`
+  const [guestsOpen, setGuestsOpen] = useState(false)
+  useEffect(() => {
+    try { setGuestsOpen(localStorage.getItem(guestsOpenKey) === '1') } catch { /* private mode */ }
+  }, [guestsOpenKey])
+  const toggleGuests = () => setGuestsOpen(prev => {
+    const next = !prev
+    try { localStorage.setItem(guestsOpenKey, next ? '1' : '0') } catch { /* private mode */ }
+    return next
+  })
+  const scopeSuffix = selectedQId === 'all' ? ' (현재 분기)' : ''
 
   const rosterHref = `/league/${orgSlug}/${leagueId}/roster`
   const base = `/league/${orgSlug}/${leagueId}`
@@ -1269,11 +1305,11 @@ export default function LeagueTeamsPage() {
           })()}
         </div>
 
-        {/* ── 섹션 2: 팀별 선수 스탯 ── */}
+        {/* ── 섹션 2: 팀별 선수 ── */}
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀별 선수 스탯</h3>
+              <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>팀별 선수</h3>
               <p className="text-xs mt-1" style={{ color: 'var(--mm-muted)' }}>이 팀에서 뛴 경기 기준 (정규/비정규 무관) · 한 선수가 여러 팀에서 뛰었다면 각 팀에 분리 표시</p>
             </div>
             {/* 390px 에서 두 토글 묶음이 한 줄에 안 들어가 페이지가 406px 로 넘쳤다(글자 13.6px 로 키운 뒤).
@@ -1336,7 +1372,7 @@ export default function LeagueTeamsPage() {
           <div
             ref={statsTabBarRef}
             role="tablist"
-            aria-label="팀별 선수 스탯 · 팀 선택"
+            aria-label="팀별 선수 · 팀 선택"
             className="flex gap-2 overflow-x-auto scrollbar-hide"
             style={{ scrollMarginTop: '12px' }}
           >
@@ -1479,7 +1515,7 @@ export default function LeagueTeamsPage() {
         {/* ── 섹션 3: 비정규 선수 스탯 ── */}
         {irregularStats.length > 0 && (
           <div className="space-y-2">
-            <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>비정규 선수</h3>
+            <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>비정규 선수{scopeSuffix}</h3>
             <p className="text-xs" style={{ color: 'var(--mm-muted)' }}>팀 배정 없이 게임에 참가한 선수 (이벤트의 team_id가 모두 비어있음)</p>
             <SectionCard variant="standalone" pad="none">
               <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--mm-rule)' }}>
@@ -1495,6 +1531,42 @@ export default function LeagueTeamsPage() {
                 />
               </div>
             </SectionCard>
+          </div>
+        )}
+
+        {/* ── 섹션 4: 게스트 (기본 접힘) — 비정규에서 빼낸 게스트만 ── */}
+        {guestStats.length > 0 && (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={toggleGuests}
+              aria-expanded={guestsOpen}
+              aria-controls="teams-guests-panel"
+              className="w-full min-h-[44px] flex items-center gap-2 text-left cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+            >
+              <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>게스트{scopeSuffix}</h3>
+              <span className="text-xs font-bold tracking-wider" style={{ color: 'var(--mm-muted)' }}>{guestStats.length}명 · {guestsOpen ? '접기' : '펼치기'}</span>
+              <ChevronDown
+                size={16}
+                aria-hidden
+                className={`ml-auto shrink-0 transition-transform duration-200 ${guestsOpen ? 'rotate-180' : ''}`}
+                style={{ color: 'var(--mm-muted)' }}
+              />
+            </button>
+            {guestsOpen && (
+              <div id="teams-guests-panel">
+                <SectionCard variant="standalone" pad="none">
+                  <div className="px-4 py-3">
+                    <StatsTable
+                      players={guestStats}
+                      leagueId={leagueId}
+                      viewMode={viewMode}
+                      statMode={statMode}
+                    />
+                  </div>
+                </SectionCard>
+              </div>
+            )}
           </div>
         )}
         </>
