@@ -730,7 +730,8 @@ function TeamDetailPanel({
             )}
 
             {/* C. Top Performers */}
-            {computed && (
+            {/* byPpg 가 없으면 정규 후보가 0명 — 나머지 1위도 전부 없으니 제목째 숨긴다 */}
+            {computed?.byPpg && (
               <div>
                 <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-ink-soft)' }}>팀 내 1위</p>
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -762,12 +763,13 @@ function TeamDetailPanel({
                 <p className="text-xs font-black mb-3" style={{ color: 'var(--mm-ink-soft)' }}>팀 특성</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {[
-                    {
+                    // 에이스(정규 득점 1위)가 없으면 0% 가 초록으로 '좋음'처럼 보인다 — 카드째 뺀다
+                    ...(computed.byPpg ? [{
                       title: '에이스 의존도',
                       value: `${computed.acePct.toFixed(0)}%`,
                       desc: `에이스 비중 ${computed.acePct.toFixed(0)}%`,
                       color: computed.acePct > 40 ? 'var(--mm-negative)' : computed.acePct > 30 ? 'var(--mm-neutral-strong)' : 'var(--mm-positive)',
-                    },
+                    }] : []),
                     {
                       title: '외곽 스타일',
                       value: `${computed.threePct.toFixed(0)}%`,
@@ -864,7 +866,8 @@ function LeagueTeamsPageInner() {
   const [teamStatsApi, setTeamStatsApi] = useState<Record<string, PlayerStat[]>>({})
   // 분기 정규 명단 (team_id + is_regular=true)
   // — 아직 경기 없는 분기(예: Q3)에도 등록된 선수를 표시하기 위함
-  type RosterRow = { id: string; name: string; number: number | null; position: string | null; team_id: string | null; is_regular: boolean | null }
+  type RosterRow = { id: string; name: string; number: number | null; position: string | null; team_id: string | null; is_regular: boolean | null; is_guest?: boolean | null }
+  // 게스트는 정규로 등록돼 있어도 뺀다 — 이 API 는 is_guest 를 안 내려줘서 이름 규칙('게스트')으로 거른다.
   // quarterId → 그 분기 정규 명단. 특정 분기면 그 분기만, 「전체」면 모든 분기(팀 내 1위 후보 판정용)
   const [rosterByQuarter, setRosterByQuarter] = useState<Record<string, RosterRow[]>>({})
   // 팀 정체성 그룹 (team_id × override 조합) — 전체 뷰에서 5팀 노출
@@ -1015,13 +1018,15 @@ function LeagueTeamsPageInner() {
   // 분기 정규 명단 페치 — 특정 분기: 스탯 없어도 명단 노출(0-fill) + 팀 내 1위 후보.
   // 「전체」: 정체성(팀×분기)마다 자기 분기 명단으로 1위 후보를 가려야 해서 전 분기를 받는다.
   useEffect(() => {
-    if (!selectedQId || !quartersReady) { setRosterByQuarter({}); return }
+    // 분기 전환(단일 ↔ 전체) 시 옛 명단으로 1위를 잠깐 잘못 고르지 않게 먼저 비운다
+    setRosterByQuarter({})
+    if (!selectedQId || !quartersReady) return
     const qids = selectedQId === 'all' ? quarters.map(q => q.id) : [selectedQId]
     let cancelled = false
     Promise.all(qids.map(qid =>
       fetch(`/api/leagues/${leagueId}/quarters/${qid}/players`)
         .then(r => r.ok ? r.json() : [])
-        .then((rows: RosterRow[]) => [qid, Array.isArray(rows) ? rows.filter(r => r.team_id && r.is_regular !== false) : []] as const)
+        .then((rows: RosterRow[]) => [qid, Array.isArray(rows) ? rows.filter(r => r.team_id && r.is_regular !== false && !r.is_guest && !r.name.includes('게스트')) : []] as const)
         .catch(() => [qid, [] as RosterRow[]] as const)
     )).then(results => {
       if (!cancelled) setRosterByQuarter(Object.fromEntries(results))
