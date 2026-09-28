@@ -26,17 +26,16 @@ import { getApprovedSession, isLeaguePrivateGated } from '@/lib/auth/guard'
 import { fetchLeagueMode } from '@/lib/league/competitions'
 import TournamentBoard from '@/components/league/TournamentBoard'
 import { resolveTeamId } from '@/lib/league/teamScope'
+import { pickRecentRounds, RECENT_ROUNDS } from '@/lib/league/recentRounds'
 import type { League } from '@/types/league'
 
-// 최근 4주 라운드 요약 — NbaRoundsSummary 용.
+// 기록이 있는 최근 RECENT_ROUNDS 라운드 요약 — NbaRoundsSummary 용.
 // 미라클모닝은 하루 = 1라운드 (여러 경기 진행). 각 라운드마다 팀별 W-L-득실차 요약.
 async function computeRecentRounds(
   supabase: ReturnType<typeof createClient>,
   leagueId: string,
   resolverPromise: IdentityResolverPromise,
-  weeks: number = 4,
 ): Promise<RoundSummary[]> {
-  const from = new Date(Date.now() - weeks * 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const today = new Date().toISOString().slice(0, 10)
 
   // 게임 조회와 resolver await 를 병렬로
@@ -47,20 +46,16 @@ async function computeRecentRounds(
       .eq('league_id', leagueId)
       .eq('is_exhibition', false)
       .eq('is_complete', true)
-      .gte('date', from)
       .lte('date', today)
-      .order('date', { ascending: false }),
+      .order('date', { ascending: false })
+      // ponytail: 날짜 창 대신 행 상한 — 하루 50경기를 넘기면 4번째 라운드가 잘릴 수 있다.
+      //   그럴 일이 생기면 날짜만 먼저 뽑고 .in('date', dates) 로 2단 조회.
+      .limit(200),
     resolverPromise,
   ])
 
-  // 라운드(=date) 별로 grouping — 최신순 유지
-  const byDate = new Map<string, typeof games>()
-  for (const g of games ?? []) {
-    const d = g.date as string
-    if (!byDate.has(d)) byDate.set(d, [])
-    byDate.get(d)!.push(g)
-  }
-  const dates = [...byDate.keys()].sort((a, b) => b.localeCompare(a)).slice(0, weeks)
+  // 라운드(=date) 별로 grouping — 최신순, 기록 있는 날만 RECENT_ROUNDS 개
+  const recent = pickRecentRounds(games ?? [])
 
   const fmtWeek = (iso: string): string => {
     const d = new Date(iso + 'T00:00:00')
@@ -69,8 +64,7 @@ async function computeRecentRounds(
   }
 
   const rounds: RoundSummary[] = []
-  for (const date of dates) {
-    const roundGames = byDate.get(date) ?? []
+  for (const [date, roundGames] of recent) {
     const teamAgg = new Map<string, RoundTeamSummary>()
     const ensureTeam = (team_id: string | null, quarter_id: string | null) => {
       const id = resolver(team_id, quarter_id)
@@ -234,14 +228,14 @@ async function computeCurrentQuarterStandings(
 //   - tags 는 향후 편집 API 완료 시 `revalidateTag('league-${leagueId}')` 로 무효화 (다음 iteration)
 //   - revalidate 60s TTL — 편집 반영 지연 상한
 // supabase / resolverPromise 는 클로저에서 재구성 (unstable_cache 는 serializable 인자만 허용)
-const getCachedRecentRounds = (leagueId: string, weeks: number) =>
+const getCachedRecentRounds = (leagueId: string) =>
   unstable_cache(
     async () => {
       const sb = createClient()
       const resolverPromise = loadIdentityResolver(sb, leagueId)
-      return computeRecentRounds(sb, leagueId, resolverPromise, weeks)
+      return computeRecentRounds(sb, leagueId, resolverPromise)
     },
-    ['home-recent-rounds', leagueId, String(weeks)],
+    ['home-recent-rounds', leagueId, String(RECENT_ROUNDS)],
     { tags: [`league-${leagueId}`, `league-${leagueId}-games`], revalidate: 60 },
   )
 
@@ -400,7 +394,7 @@ export default async function LeagueDetailPage({
     approvedSession,
   ] = await Promise.all([
     getCachedLeagueMeta(leagueId, orgSlug)(),
-    getCachedRecentRounds(leagueId, 4)(),
+    getCachedRecentRounds(leagueId)(),
     getCachedQuarterStandings(leagueId)(),
     getCachedLeaderStats(leagueId)(),
     getCachedPhotoMap(leagueId)(),

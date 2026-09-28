@@ -1,5 +1,5 @@
 'use client'
-// 미라클모닝 브랜드 — 최근 4주 라운드 요약
+// 미라클모닝 브랜드 — 기록이 있는 최근 4라운드 요약
 // 각 카드 = 1 라운드(=하루). 그 날 참여 팀별 W-L-득실차 요약.
 // 하단 2개 버튼으로 분리 (v2 · 2026-07-15):
 //   · 박스스코어 → /boxscore/{date}
@@ -11,6 +11,7 @@ import { useParams } from 'next/navigation'
 import { ClipboardList, PlayCircle, ArrowRight } from 'lucide-react'
 import { ResultChips, ScoreTable } from './RecordDisplay'
 import SectionCard from '@/components/league/ui/SectionCard'
+import { RECENT_ROUNDS } from '@/lib/league/recentRounds'
 
 export type RoundTeamSummary = {
   key: string
@@ -55,7 +56,7 @@ export default function NbaRoundsSummary({ rounds, leagueId, orgSlug }: Props) {
             최근 라운드
           </h3>
           <span className="t-label break-keep">
-            최근 {rounds.length}주 · 하루 = 1라운드
+            기록이 있는 최근 {RECENT_ROUNDS}라운드 · 하루 = 1라운드
           </span>
         </header>
 
