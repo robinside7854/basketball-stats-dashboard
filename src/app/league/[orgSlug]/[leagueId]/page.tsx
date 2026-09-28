@@ -445,6 +445,13 @@ export default async function LeagueDetailPage({
         </div>
       </div>
 
+      {/* 가입 신청 대기 알림 — 어드민에게만, 대기 건이 있을 때만 보인다.
+          지금까지 신청은 설정 탭 안에서만 보였는데 어드민이 설정에 들어갈 일은 드물어서,
+          신청한 사람은 승인될 때까지 아무것도 못 보고 기다렸다. 가입률이 관문인 지금
+          그 지연은 그대로 이탈이 된다. 참여신청 카드보다 위에 두는 이유는 이게
+          '나만 처리할 수 있는 일'이기 때문이다. */}
+      <PendingSignupsAlert leagueId={leagueId} />
+
       {/* 요약 탭을 헤더 바로 아래로 올렸다(2026-09-28) — 방문자가 홈에서 찾는 건 순위·라운드다.
           대회 링크 알약(시즌 전환)은 같은 날 홈 본문에서 뺐다 — 상단 전환 칩(CompetitionSwitcher)
           드롭다운이 이미 같은 팀의 대회 묶음을 나열한다. */}
@@ -481,15 +488,9 @@ export default async function LeagueDetailPage({
             <StatGate title="하이라이트는 회원 전용" description="클러치샷·경기 클립 영상은 가입 승인된 회원만 볼 수 있어요." />
           )
         }
-        highlightsAvailable={highlightsAvailable}
+        // 비회원에게는 하이라이트가 잠금 카드라 첫 화면을 잠금으로 열지 않게 기본 탭을 팀 승률로 둔다.
+        highlightsAvailable={isMember && highlightsAvailable}
       />
-
-      {/* 가입 신청 대기 알림 — 어드민에게만, 대기 건이 있을 때만 보인다.
-          지금까지 신청은 설정 탭 안에서만 보였는데 어드민이 설정에 들어갈 일은 드물어서,
-          신청한 사람은 승인될 때까지 아무것도 못 보고 기다렸다. 가입률이 관문인 지금
-          그 지연은 그대로 이탈이 된다. 참여신청 카드보다 위에 두는 이유는 이게
-          '나만 처리할 수 있는 일'이기 때문이다. */}
-      <PendingSignupsAlert leagueId={leagueId} />
 
       {/* 다음 경기 참여신청(일정 카드) — 2026-08-15 홈에서 숨김.
           기능 자체가 2026-08-14 부터 공동 CEO 논의 대기(보류)인데 화면에는 계속 떠 있었다.
