@@ -22,8 +22,11 @@ interface LeagueQuarterContextValue {
 
 const Ctx = createContext<LeagueQuarterContextValue | null>(null)
 
+/** localStorage 키 — 페이지가 마운트 직후(컨텍스트 복원 전) 저장값을 봐야 할 때 이걸로 읽는다 */
+export const quarterStorageKey = (leagueId: string) => `league:${leagueId}:selectedQuarterId`
+
 export function LeagueQuarterProvider({ leagueId, children }: { leagueId: string; children: React.ReactNode }) {
-  const storageKey = `league:${leagueId}:selectedQuarterId`
+  const storageKey = quarterStorageKey(leagueId)
 
   // 초기 로드 시 localStorage 에서 복원 (SSR-safe)
   const [selectedQuarterId, setSelectedQuarterIdInner] = useState<string>('all')
