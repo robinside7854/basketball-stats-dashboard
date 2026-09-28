@@ -13,7 +13,7 @@
 //     · 다음 이동은 SkipForward 버튼 or 플레이리스트 클릭
 import { useEffect, useRef, useCallback } from 'react'
 import { Play, Pause, SkipBack, SkipForward, HeartCrack } from 'lucide-react'
-import { extractYouTubeId, formatTimestamp } from '@/lib/youtube/utils'
+import { extractYouTubeId, formatTimestamp, seekBy } from '@/lib/youtube/utils'
 import { SHOT_TYPE_LABEL } from '@/lib/highlights/clip'
 import type { HighlightClip } from '@/lib/highlights/types'
 
@@ -36,6 +36,8 @@ interface Props {
 
 export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, captionOverride, hideScoreboard }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
+  // 키보드 모달 판정용 — containerRef 의 div 는 YT.Player 가 iframe 으로 갈아끼워 DOM 에서 떨어지므로 못 쓴다
+  const rootRef = useRef<HTMLDivElement>(null)
   const playerRef = useRef<YT.Player | null>(null)
   const readyRef = useRef(false)
   const currentVideoIdRef = useRef<string | null>(null)
@@ -207,6 +209,40 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
       else player.playVideo()
     } catch { /* ignore */ }
   }
+  const seek = (delta: number) => {
+    const player = playerRef.current
+    if (!player || !readyRef.current) return
+    try { seekBy(player, delta) } catch { /* ignore */ }
+  }
+
+  // 키보드 조작 — 기록 화면과 같은 키(Space·←/→ ±5초) + 클립 이동(, / .)
+  // iframe 안에 포커스가 있으면 이 리스너에 안 오고 YouTube 자체 단축키가 처리한다.
+  // 매 렌더 새 핸들러를 쓰도록 ref 로 최신 클로저를 잡아 리스너는 1회만 등록.
+  const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  keyHandlerRef.current = (e: KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return  // 브라우저 단축키 방해 금지
+    const t = e.target as HTMLElement | null
+    if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return
+    // 이 플레이어를 담지 않은 모달이 열려 있으면 뒤 페이지 영상이 움직이면 안 된다.
+    // (모달 안의 HighlightsPlayer 는 자기 모달이 rootRef 를 포함하므로 계속 동작)
+    const el = rootRef.current
+    const dialogs = document.querySelectorAll('[aria-modal="true"], [role="dialog"]')
+    if (!el || Array.from(dialogs).some(d => !d.contains(el))) return
+    if (e.code === 'Space') {
+      // 포커스된 버튼·링크는 Space 로 스스로 눌리게 둔다 — 여기서 또 토글하면 두 번 눌림
+      if (t && t.closest('button, a, [role="button"]')) return
+      e.preventDefault(); togglePlay()
+    }
+    else if (e.code === 'ArrowLeft')  { e.preventDefault(); seek(-5) }
+    else if (e.code === 'ArrowRight') { e.preventDefault(); seek(5) }
+    else if (e.key === ',') { e.preventDefault(); goPrev() }
+    else if (e.key === '.') { e.preventDefault(); goNext() }
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => keyHandlerRef.current(e)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   // ── Empty / Fallback ────────────────────────────────────────
   if (!clip) {
@@ -243,7 +279,7 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
   const awayScored = clip.team_name === clip.away_team_name
 
   return (
-    <div className="space-y-2">
+    <div ref={rootRef} className="space-y-2">
       <div
         className="relative rounded-xl overflow-hidden aspect-video bg-black"
         aria-live="polite"
@@ -365,6 +401,16 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
         >
           <SkipBack size={20} />
         </button>
+        {/* ±5초 — 기록 화면 트랜스포트와 같이 아이콘 없이 숫자 라벨 */}
+        <button
+          type="button"
+          onClick={() => seek(-5)}
+          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 text-sm font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
+          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
+          aria-label="5초 뒤로"
+        >
+          −5초
+        </button>
         {/* 주 재생/정지 CTA — 브랜드 노랑 · 채워진 삼각형 · hover 밝기 · active 눌림 · focus 링 */}
         <button
           type="button"
@@ -374,6 +420,15 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
           aria-label="재생/정지"
         >
           <Play size={20} fill="currentColor" />
+        </button>
+        <button
+          type="button"
+          onClick={() => seek(5)}
+          className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 text-sm font-bold cursor-pointer transition-colors duration-200 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-rule)] focus-visible:ring-offset-1"
+          style={{ background: 'var(--mm-panel-alt)', border: '1px solid var(--mm-rule)', color: 'var(--mm-ink)', borderRadius: '4px' }}
+          aria-label="5초 앞으로"
+        >
+          +5초
         </button>
         <button
           type="button"
@@ -416,6 +471,10 @@ export default function HighlightsPlayer({ clips, currentIdx, onIndexChange, cap
 
         {/* 자동재생 토글 제거 (2026-07-15 사용자 요구) — 다음 클립은 SkipForward 로만 이동 */}
       </div>
+      {/* 키보드 안내 — 물리 키보드 전제라 데스크톱만 */}
+      <p className="hidden md:block text-sm px-1" style={{ color: 'var(--mm-muted)' }}>
+        ← → 5초 · Space 재생/정지 · 쉼표(,) 마침표(.) 이전/다음 클립
+      </p>
     </div>
   )
 }

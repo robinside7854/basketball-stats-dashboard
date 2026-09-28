@@ -17,6 +17,7 @@ import { volumeForRound } from '@/lib/social/volume'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import EmptyState from '@/components/league/EmptyState'
 import YouTubePlayer from '@/components/record/YouTubePlayer'
+import { seekBy } from '@/lib/youtube/utils'
 import LeagueEventInputPad from '@/components/league/LeagueEventInputPad'
 import LeagueSubstitutionPanel from '@/components/league/LeagueSubstitutionPanel'
 import LeagueStatsPanel from '@/components/league/LeagueStatsPanel'
@@ -113,7 +114,7 @@ function RecordInner({ orgSlug, leagueId, leagueHeaders }: { orgSlug: string; le
   function seekRelative(delta: number) {
     if (!ytPlayer) return
     try {
-      ytPlayer.seekTo((ytPlayer.getCurrentTime() ?? 0) + delta, true)
+      seekBy(ytPlayer, delta)
       ytPlayer.unMute()
     } catch {}
   }

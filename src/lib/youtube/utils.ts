@@ -23,3 +23,9 @@ export function formatTimestamp(seconds: number): string {
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
   return `${m}:${String(s).padStart(2, '0')}`
 }
+
+// 기록 화면·하이라이트 플레이어가 같은 ±초 이동을 쓰도록 한 곳에 둔다.
+// 0 미만으로 보내면 영상 앞 구간에서 위치가 튀는 대신 처음에 멈추게 clamp.
+export function seekBy(player: YT.Player, delta: number): void {
+  player.seekTo(Math.max(0, (player.getCurrentTime() ?? 0) + delta), true)
+}
