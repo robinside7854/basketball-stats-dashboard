@@ -15,7 +15,7 @@ import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import SectionCard from '@/components/league/ui/SectionCard'
 import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
-import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
+import { useLeagueQuarter, quarterStorageKey } from '@/contexts/LeagueQuarterContext'
 import { QuarterChips } from '@/components/league/QuarterChips'
 import type { Quarter, PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
@@ -217,9 +217,11 @@ function LeagueStatsPageInner() {
       .then(r => r.json())
       .then((qs: Quarter[]) => {
         setQuarters(qs)
-        // 사용자가 이전에 선택한 분기 (localStorage) 가 없을 때만 현재 분기로 자동 설정
-        // selectedQuarterId 가 이미 'all' 이 아닌 값이면 context 로부터 복원된 것 → 유지
-        if (selectedQuarterId === 'all') {
+        // 사용자가 이전에 선택한 분기 (localStorage) 가 없을 때만 현재 분기로 자동 설정.
+        // selectedQuarterId 는 첫 렌더 값('all')이라 context 복원 여부를 알 수 없다 → 저장값을 직접 본다(팀 페이지와 같은 가드)
+        let saved: string | null = null
+        try { saved = localStorage.getItem(quarterStorageKey(leagueId)) } catch { /* private mode */ }
+        if (!saved && selectedQuarterId === 'all') {
           const current = qs.find(q => q.is_current)
           if (current) setSelectedQuarterId(current.id)
         }
@@ -557,7 +559,7 @@ function LeagueStatsPageInner() {
         { k: 'advanced'   as StatMode, label: 'Advanced' },
         { k: 'awards'     as StatMode, label: '어워즈' },
       ]).map(({ k, label }) => (
-        <button key={k} onClick={() => setStatMode(k)}
+        <button key={k} type="button" aria-pressed={statMode === k} onClick={() => setStatMode(k)}
           className="px-3 py-2 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors btn-press min-h-11"
           style={statMode === k
             ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', letterSpacing: '0.08em' }

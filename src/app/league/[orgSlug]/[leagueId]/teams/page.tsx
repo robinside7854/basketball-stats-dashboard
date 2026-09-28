@@ -830,9 +830,11 @@ function LeagueTeamsPageInner() {
   const router = useRouter()
   const pathname = usePathname()
   const editing = isEditMode && searchParams.get('edit') === '1'
+  // 편집기에서 바꾼 명단·분기·팀은 이 페이지 로드 effect 의 의존성에 안 걸리므로, 편집을 닫을 때 재조회를 건다
+  const [reloadKey, setReloadKey] = useState(0)
   function toggleEditing() {
     const qs = new URLSearchParams(searchParams.toString())
-    if (editing) qs.delete('edit')
+    if (editing) { qs.delete('edit'); setReloadKey(k => k + 1) }
     else qs.set('edit', '1')
     const q = qs.toString()
     router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
@@ -878,6 +880,9 @@ function LeagueTeamsPageInner() {
 
   // 분기 + 팀 초기 로드
   useEffect(() => {
+    // 재조회 중엔 분기별 로드를 막는다 — 옛 quarters(분기 0개 포함)로 리더 집계하지 않도록.
+    // 목록이 오면 true 로 돌아가며 데이터 로드가 새 quarters 로 다시 돈다.
+    setQuartersReady(false)
     Promise.all([
       fetch(`/api/leagues/${leagueId}/quarters`).then(r => r.json()),
       fetch(`/api/leagues/${leagueId}/teams`).then(r => r.json()),
@@ -892,9 +897,9 @@ function LeagueTeamsPageInner() {
       if (cur && !saved && selectedQId === 'all') setSelectedQId(cur.id)
       setQuartersReady(true)
     }).catch(() => setLoading(false))
-  // 마운트(리그) 당 1회만 — selectedQId 변화로 기본값을 다시 적용하면 안 된다
+  // 마운트(리그) 당 1회 + 편집 닫기(reloadKey) — selectedQId 변화로 기본값을 다시 적용하면 안 된다
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueId])
+  }, [leagueId, reloadKey])
 
   // 분기별 데이터 로드
   // ⚠ race condition fix: 초기 마운트 시 selectedQId='all' 로 fetch 시작 후
@@ -967,7 +972,7 @@ function LeagueTeamsPageInner() {
       })
       .catch(() => null)
     return () => { cancelled = true }
-  }, [leagueId, selectedQId])
+  }, [leagueId, selectedQId, reloadKey])
 
   // 정체성별 팀 스탯 페치 — 각 정체성의 quarter_ids 기반 (다중 분기 지원)
   useEffect(() => {
@@ -989,13 +994,14 @@ function LeagueTeamsPageInner() {
   }, [leagueId, identities])
 
   // 분기별 팀명/색상 override 자동 반영 — selectedQId 변경 시 teams 재fetch
+  // quartersReady 를 기다린다 — 초기/재조회의 override 없는 setTeams 가 이 응답을 덮어쓰지 않게
   useEffect(() => {
-    if (!selectedQId || selectedQId === 'all') return
+    if (!selectedQId || selectedQId === 'all' || !quartersReady) return
     fetch(`/api/leagues/${leagueId}/teams?quarterId=${selectedQId}`)
       .then(r => r.ok ? r.json() : null)
       .then(ts => { if (Array.isArray(ts)) setTeams(ts) })
       .catch(() => null)
-  }, [leagueId, selectedQId])
+  }, [leagueId, selectedQId, quartersReady])
 
   // 분기 정규 명단 페치 — 특정 분기 선택 시 (스탯 없어도 명단 노출)
   useEffect(() => {
@@ -1015,7 +1021,7 @@ function LeagueTeamsPageInner() {
       })
       .catch(() => null)
     return () => { cancelled = true }
-  }, [leagueId, selectedQId])
+  }, [leagueId, selectedQId, reloadKey])
 
   // ── 데이터 가공 ───────────────────────────────────────────
   const teamMap = useMemo(() => Object.fromEntries(teams.map(t => [t.id, t])), [teams])
