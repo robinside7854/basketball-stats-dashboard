@@ -1010,7 +1010,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
             <div className="flex gap-1">
               {([
                 { key: 'name', label: '이름' },
-                { key: 'attendance_desc', label: '참석율↓' },
+                { key: 'attendance_desc', label: '참석율 높은순' },
               ] as { key: SortKey; label: string }[]).map(({ key, label }) => (
                 <button
                   key={key}
@@ -1179,7 +1179,7 @@ export default function RosterEditor({ leagueId, quarterId, teams: initialTeams,
                       : 'border-[var(--mm-rule)] text-[var(--mm-ink-soft)]'
                   }`}
                 >
-                  {String(q.year).slice(2)}.{q.quarter}Q{q.is_current ? ' ●' : ''}
+                  {String(q.year).slice(2)}.{q.quarter}Q{q.is_current ? ' 현재' : ''}
                 </span>
               ))}
             </div>

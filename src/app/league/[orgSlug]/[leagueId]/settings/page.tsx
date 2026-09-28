@@ -745,7 +745,7 @@ export default function LeagueSettingsPage() {
           <p className="text-xs text-[color:var(--mm-muted)] leading-relaxed max-w-prose">
             분기마다 팀 이름이 바뀌면 여기에 적어 둡니다. 비워 두면 그 분기는 기본 이름을 씁니다.<br />
             <strong className="text-[color:var(--mm-ink-soft)]">과거 경기는 그때 이름 그대로 남습니다</strong> — 순위표·박스스코어·하이라이트가 전부 이 표를 봅니다.<br />
-            분기별 <Link href={pathname.replace(/\/settings.*$/, '') + '/roster'} className="underline underline-offset-2 hover:text-[color:var(--mm-ink)] cursor-pointer">선수 소속은 명단 화면</Link>에서 정합니다.
+            분기별 <Link href={pathname.replace(/\/settings.*$/, '') + '/teams?edit=1'} className="underline underline-offset-2 hover:text-[color:var(--mm-ink)] cursor-pointer">선수 소속은 명단 화면</Link>에서 정합니다.
           </p>
 
           <div className="space-y-2">

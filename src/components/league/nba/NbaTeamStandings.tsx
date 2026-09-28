@@ -60,7 +60,7 @@ export default function NbaTeamStandings({ standings, quarterLabel, gamesCount, 
           </span>
           {orgSlug && leagueId && (
             <Link
-              href={`/league/${orgSlug}/${leagueId}/roster`}
+              href={`/league/${orgSlug}/${leagueId}/teams`}
               className="t-label inline-flex items-center gap-0.5 min-h-[44px] py-1.5 whitespace-nowrap cursor-pointer transition-colors hover:brightness-90"
             >
               팀 명단

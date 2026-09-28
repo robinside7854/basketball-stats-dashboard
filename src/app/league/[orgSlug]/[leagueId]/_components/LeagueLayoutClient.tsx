@@ -90,7 +90,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   const tabs: { href: string; label: string; match: string[]; ariaLabel?: string }[] = [
     { href: base, label: '홈', match: [] },
     { href: `${base}/schedule`, label: '경기', match: [`${base}/schedule`, `${base}/boxscore`, `${base}/record`] },
-    { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/awards`, `${base}/roster`, `${base}/teams`] },
+    { href: `${base}/stats`, label: '스탯', match: [`${base}/stats`, `${base}/teams`] },
     { href: `${base}/highlights`, label: '하이라이트', match: [`${base}/highlights`] },
     ...(showDraft ? [{ href: `${base}/draft`, label: '드래프트', match: [`${base}/draft`] }] : []),
   ]
@@ -99,7 +99,7 @@ function TabNav({ orgSlug, leagueId, leagueName, onOpenLogin, showDraft }: { org
   // 탭에서 빠졌으므로 이 경로들에서는 상단 밑줄 인디케이터가 꺼지고, 대신 칩이 켜진다.
   const meActive = pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/social`)
   // 홈 탭은 완전일치. (공지 아카이브 /archive 우산은 공지 기능 폐지로 2026-08-13 제거)
-  // 선수 명단·팀 순위(/roster·/teams)는 스탯 탭의 match 배열로 옮겨졌다(위 tabs 참조, 2026-08-08) —
+  // 팀(/teams)은 스탯 탭의 match 배열에 있다(위 tabs 참조, 2026-08-08; /awards·/roster 는 2026-09-28 흡수·리다이렉트) —
   // 경기 탭 match 에서는 반드시 빠져야 두 탭이 동시에 켜지는 걸 막는다.
   const tabActive = (tab: { href: string; match: string[] }) =>
     tab.href === base
@@ -335,8 +335,8 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
     { href: `${base}/me`,          label: meLabel,   Icon: user ? UserIcon : UserPlus, ariaLabel: meAriaLabel },
   ]
 
-  // 스탯 우산 매칭 — /stats·/awards 뿐 아니라 /roster·/teams(선수 명단·팀 순위)도 스탯 탭 활성
-  //   (2026-08-08, 데스크톱 TabNav match 배열과 동일 반영). 안 옮기면 /roster·/teams 에서
+  // 스탯 우산 매칭 — /stats 뿐 아니라 /teams(팀)도 스탯 탭 활성(2026-08-08; 옛 /awards·/roster 는
+  //   2026-09-28 리다이렉트로 바뀌어 빠졌다. 데스크톱 tabs match 배열과 동일 반영). 안 넣으면 /teams 에서
   //   홈과 스탯 두 탭이 동시에 켜지거나, 반대로 어느 탭도 안 켜지는 문제가 생긴다.
   // 홈 매칭 — 완전일치. (공지 아카이브 /archive 우산은 공지 기능 폐지로 2026-08-13 제거)
   // 경기 우산 매칭 — /schedule 이면서 /boxscore·/record 도 경기 탭 활성.
@@ -345,7 +345,7 @@ function BottomNav({ orgSlug, leagueId }: { orgSlug: string; leagueId: string })
   //   꺼진다. /social(인스타 매거진 카드 생성기)은 설정에서만 진입하는 운영자 전용 화면(리뷰 항목 5).
   const isActive = (href: string) => {
     if (href === base) return pathname === base
-    if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/awards`) || pathname.startsWith(`${base}/roster`) || pathname.startsWith(`${base}/teams`)
+    if (href === `${base}/stats`) return pathname.startsWith(`${base}/stats`) || pathname.startsWith(`${base}/teams`)
     if (href === `${base}/schedule`) return pathname.startsWith(`${base}/schedule`) || pathname.startsWith(`${base}/boxscore`) || pathname.startsWith(`${base}/record`)
     if (href === `${base}/me`) return pathname.startsWith(`${base}/me`) || pathname.startsWith(`${base}/draft`) || pathname.startsWith(`${base}/settings`) || pathname.startsWith(`${base}/social`)
     return pathname.startsWith(href)

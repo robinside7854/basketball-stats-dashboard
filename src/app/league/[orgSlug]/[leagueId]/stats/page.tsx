@@ -542,9 +542,8 @@ function LeagueStatsPageInner() {
   }, [statMode, sortKey])
 
   const base = `/league/${orgSlug}/${leagueId}`
-  // 리더보드·어워즈·선수 명단·팀 순위 4개 서브탭 (2026-08-08 — 플레이 맵 삭제, 어워즈 승격 /
-  // 선수 명단·팀 순위를 스탯 우산으로 이동. 2026-08-09 — 시즌하이 탭을 리더보드에 흡수).
-  // 배열은 공유 헬퍼(statsTabs.ts)에서 가져온다 — stats/awards/roster/teams 4곳에 배열이
+  // 리더보드·팀 2개 서브탭 (2026-09-28 — 어워즈는 ?mode=awards 표 모드로, 명단은 팀 화면으로 흡수).
+  // 배열은 공유 헬퍼(statsTabs.ts)에서 가져온다 — 페이지마다 배열이
   // 복제되면 한 곳이 빠질 때 그 화면만 탭이 달라지는 사고가 난다.
   const groupTabs = getStatsGroupTabs(base, 'leaderboard')
 

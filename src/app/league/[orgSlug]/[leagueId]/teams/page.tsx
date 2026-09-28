@@ -1208,12 +1208,12 @@ function LeagueTeamsPageInner() {
 
   return (
     <div className="mm-brand space-y-4 lg:space-y-5">
-      {/* 스탯 우산 서브탭 — 리더보드 · 어워즈 · 선수 명단 · 팀 순위 (2026-08-08 이동, 2026-08-09 시즌하이 흡수) */}
+      {/* 스탯 우산 서브탭 — 리더보드 · 팀 (2026-09-28 4→2, 어워즈·명단 흡수) */}
       <LeagueGroupTabs tabs={getStatsGroupTabs(base, 'teams')} />
       {/* ── 분기 버튼 탭 ── */}
       <div>
         <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
-          <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀 순위</h2>
+          <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀</h2>
           {editToggle}
         </div>
         <QuarterChips
