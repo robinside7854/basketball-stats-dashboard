@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo, Suspense } from 'react'
 import dynamic from 'next/dynamic'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFiveSlot'
@@ -19,6 +19,7 @@ import { useLeagueQuarter } from '@/contexts/LeagueQuarterContext'
 import { QuarterChips } from '@/components/league/QuarterChips'
 import type { Quarter, PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
+import AwardsBoard from './_components/AwardsBoard'
 
 type ViewMode = 'avg' | 'total'
 
@@ -37,7 +38,7 @@ const REVEAL_STEP = 12
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'
 type AdvKey = 'at_ratio'|'a1_total'|'a1_rate'|'trb_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'ts_pct'|'shot_mix'
-type StatMode = 'basic'|'shooting'|'advanced'
+type StatMode = 'basic'|'shooting'|'advanced'|'awards'
 
 // 시즌 최고(옛 '시즌하이' 탭 → 2026-08-08 리더보드 흡수 한 줄 표시 → 2026-08-09 기록실 8칸 보드)
 // 카테고리 타입은 RecordRoomBoard 가 소유 — GET /api/leagues/[leagueId]/season-highs 의
@@ -152,7 +153,9 @@ function LeagueStatsPageInner() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
   // ?tab=seasonHigh 옛 링크(흡수 전 시즌하이 서브탭) 는 리더보드로 그대로 폴백된다 — 이 페이지는
-  // 더 이상 ?tab 쿼리를 읽지 않으므로(자체 상태만으로 basic 진입) 자연히 폴백된다.
+  // ?tab 쿼리를 읽지 않으므로(자체 상태만으로 basic 진입) 자연히 폴백된다.
+  // ?mode=awards 는 옛 /awards 페이지가 리다이렉트로 보내는 진입점 — 초기 모드로만 읽는다.
+  const searchParams = useSearchParams()
 
   const [quarters, setQuarters] = useState<Quarter[]>([])
   // 페이지 간 분기 선택 공유 (LeagueQuarterContext)
@@ -163,7 +166,7 @@ function LeagueStatsPageInner() {
   const [gated, setGated] = useState(false)  // 401 — 회원 전용
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
-  const [statMode, setStatMode] = useState<StatMode>('basic')
+  const [statMode, setStatMode] = useState<StatMode>(() => searchParams.get('mode') === 'awards' ? 'awards' : 'basic')
   const [advSortKey, setAdvSortKey] = useState<AdvKey>('at_ratio')
   const [advSortDir, setAdvSortDir] = useState<'asc'|'desc'>('desc')
   const [shootSortKey, setShootSortKey] = useState<ShootingKey>('ts_pct')
@@ -531,6 +534,28 @@ function LeagueStatsPageInner() {
   // 복제되면 한 곳이 빠질 때 그 화면만 탭이 달라지는 사고가 난다.
   const groupTabs = getStatsGroupTabs(base, 'leaderboard')
 
+  // Basic / Shooting / Advanced / 어워즈 토글 — 헤더(분기 칩 아래)에 한 번만 둔다. 어워즈 모드는 표·로딩
+  // 게이트 바깥에서 렌더되므로 표 카드 안에 두면 어워즈에서 표로 돌아갈 칩이 사라진다.
+  const modeChips = (
+    <div className="flex overflow-hidden shrink-0" style={{ border: '1px solid var(--mm-rule)' }}>
+      {([
+        { k: 'basic'      as StatMode, label: 'Basic' },
+        { k: 'shooting'   as StatMode, label: 'Shooting' },
+        { k: 'advanced'   as StatMode, label: 'Advanced' },
+        { k: 'awards'     as StatMode, label: '어워즈' },
+      ]).map(({ k, label }) => (
+        <button key={k} onClick={() => setStatMode(k)}
+          className="px-3 py-2 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors btn-press min-h-11"
+          style={statMode === k
+            ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', letterSpacing: '0.08em' }
+            : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', letterSpacing: '0.08em' }
+          }>
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+
   if (gated) {
     return <StatGate fullPage title="스탯은 회원 전용" description="시즌 스탯·리더보드·어워즈는 가입 승인된 회원만 볼 수 있어요." />
   }
@@ -549,20 +574,27 @@ function LeagueStatsPageInner() {
           value={selectedQuarterId}
           onChange={setSelectedQuarterId}
         />
+        {/* 2줄: 표 모드 — 표 카드 안에 두면 375px 에서 4번째 칩이 잘려서, 모든 모드 공통 위치로 뺐다 */}
+        <div className="flex">{modeChips}</div>
       </div>
 
       {/* 기록실 — 시즌 최고 8칸 보드. 메인 스탯(loading)과 독립적으로 항상 렌더하고
           자체 highsLoading 으로 스켈레톤을 보여준다 — 리더보드가 비어 있어도(경기 데이터 없음)
           이 보드는 8칸 자리를 그대로 유지한다(사용자 지시: "8칸이 가장 안정적"). */}
-      <RecordRoomBoard
-        categoryHighs={categoryHighs}
-        highlightCategory={highlightCategory}
-        orgSlug={orgSlug}
-        leagueId={leagueId}
-        loading={highsLoading}
-      />
+      {statMode !== 'awards' && (
+        <RecordRoomBoard
+          categoryHighs={categoryHighs}
+          highlightCategory={highlightCategory}
+          orgSlug={orgSlug}
+          leagueId={leagueId}
+          loading={highsLoading}
+        />
+      )}
 
-      {loading ? (
+      {/* 어워즈 모드 — 표·TOP5·읽는 법·기록실 없이 어워즈 보드만. 스탯 로딩과 무관하게 바로 렌더 */}
+      {statMode === 'awards' ? (
+        <AwardsBoard leagueId={leagueId} quarterId={selectedQuarterId} />
+      ) : loading ? (
         <div className="flex justify-center py-16"><BasketballLoader size={24} /></div>
       ) : players.length === 0 ? (
         <div className="text-center py-16" style={{ color: 'var(--mm-muted)' }}>
@@ -621,23 +653,6 @@ function LeagueStatsPageInner() {
               </div>
               {/* 컨트롤 그룹 — 모바일에서 스크롤 가능한 가로 행 */}
               <div className="flex flex-wrap items-center gap-2 pb-0.5 sm:ml-auto">
-                {/* Basic / Shooting / Advanced 토글 */}
-                <div className="flex overflow-hidden shrink-0" style={{ border: '1px solid var(--mm-rule)' }}>
-                  {([
-                    { k: 'basic'      as StatMode, label: 'Basic' },
-                    { k: 'shooting'   as StatMode, label: 'Shooting' },
-                    { k: 'advanced'   as StatMode, label: 'Advanced' },
-                  ]).map(({ k, label }) => (
-                    <button key={k} onClick={() => setStatMode(k)}
-                      className="px-3 py-2 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors btn-press min-h-11"
-                      style={statMode === k
-                        ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', letterSpacing: '0.08em' }
-                        : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', letterSpacing: '0.08em' }
-                      }>
-                      {label}
-                    </button>
-                  ))}
-                </div>
                 {/* 누적/평균 토글 (Basic 모드에서만 의미 있음) */}
                 <div className={`flex overflow-hidden shrink-0 ${statMode !== 'basic' ? 'opacity-40 pointer-events-none' : ''}`} style={{ border: '1px solid var(--mm-rule)' }}>
                   {(['avg','total'] as ViewMode[]).map(m => (
