@@ -347,11 +347,9 @@ const getCachedLeagueMeta = (leagueId: string, orgSlug: string) =>
   unstable_cache(
     async () => {
       const sb = createClient()
-      const [{ data: league }, { data: allLeagues }] = await Promise.all([
-        sb.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single(),
-        sb.from('leagues').select('id, name, status, season_year').eq('org_slug', orgSlug).order('created_at', { ascending: false }),
-      ])
-      return { league, allLeagues }
+      // 형제 묶음 목록(allLeagues)은 홈 대회 알약과 함께 2026-09-28 뺐다 — 상단 전환 칩이 담당.
+      const { data: league } = await sb.from('leagues').select('*').eq('id', leagueId).eq('org_slug', orgSlug).single()
+      return { league }
     },
     ['home-league-meta', leagueId, orgSlug],
     { tags: [`league-${leagueId}`], revalidate: 60 },
@@ -384,7 +382,7 @@ export default async function LeagueDetailPage({
   //   - 편집 API(events/games/players/quarters 등)가 `revalidateTag('league-${leagueId}[-games]')`
   //     로 무효화하므로 편집 반영 최대 지연은 순간(태그 무효화 후 다음 요청).
   const [
-    { league, allLeagues },
+    { league },
     recentRounds,
     quarterStandings,
     leaderStats,
@@ -407,7 +405,6 @@ export default async function LeagueDetailPage({
   if (!league) notFound()
 
   const l = league as League
-  const otherLeagues = (allLeagues ?? []).filter(ol => ol.id !== leagueId)
   // 첫 사용자용 헤더 메타(추가 쿼리 없이 기존 데이터 재사용) · 하이라이트 유무(팬 기본 탭용)
   const memberCount = Object.keys(initialPhotoMap ?? {}).length
   const highlightsAvailable = (homeHighlights?.clips?.length ?? 0) > 0
@@ -416,30 +413,25 @@ export default async function LeagueDetailPage({
 
   return (
     <div className="space-y-4 lg:space-y-5">
-      {/* 헤더 — 리그명만 좌측 상단 (2026-07-21 클린업 · 진행중 배지 / 서브 라벨 삭제)
-          2026-08 캐주얼 전환: 고정 다크 배너 → 테마 추종 카드 (라이트 모드 대비 확보) */}
+      {/* 헤더 — 팀 이름 큰 제목은 2026-09-28 뺐다. 첫 화면에 팀 이름이 전환 칩·네비 브랜드·제목으로
+          세 번 반복돼 요약 탭이 스크롤 아래로 밀렸다. 남은 건 한 줄 소개 · 메타 · 공유 버튼뿐이라
+          세로 여백도 줄였다. 제목 문맥(스크린리더 헤딩 탐색)은 잃지 않도록 h1 은 sr-only 로 남긴다 —
+          네비 브랜드는 모든 하위 화면에 공통이라 h1 으로 바꾸면 하위 화면 제목과 중복된다. */}
       <div
-        className="relative px-5 py-4 lg:px-6 lg:py-5"
+        className="relative px-4 py-3 lg:px-5 lg:py-3.5"
         style={{
           background: 'var(--mm-panel)',
           border: '1px solid var(--mm-rule)',
           borderRadius: 'var(--mm-radius-card)',
         }}
       >
-        {/* 공유 버튼을 제목과 같은 행에 둔다 — absolute 로 겹쳐 놓으면 긴 팀 이름과 부딪힌다. */}
-        <div className="flex items-start justify-between gap-3">
+        <h1 className="sr-only">{l.name}</h1>
+        <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-        <h1
-          className="text-2xl sm:text-3xl lg:text-5xl font-black break-keep"
-          style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.1 }}
-        >
-          {l.name}
-        </h1>
-        {/* 첫 방문자용 한 줄 아이덴티티 + 인라인 메타 (KPI 카드 아님 · 헤더 내부 캡션 수준) */}
-        <p className="mt-1.5 text-sm sm:text-base font-medium break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
+        <p className="text-sm sm:text-base font-medium break-keep" style={{ color: 'var(--mm-ink-soft)' }}>
           매주 아침을 여는 농구 · 우리끼리 진짜 리그처럼 기록합니다
         </p>
-        <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-bold" style={{ color: 'var(--mm-muted)' }}>
           <span>멤버 {memberCount}명</span>
           {quarterStandings.gamesCount > 0 && (
             <>
@@ -453,62 +445,9 @@ export default async function LeagueDetailPage({
         </div>
       </div>
 
-      {/* 가입 신청 대기 알림 — 어드민에게만, 대기 건이 있을 때만 보인다.
-          지금까지 신청은 설정 탭 안에서만 보였는데 어드민이 설정에 들어갈 일은 드물어서,
-          신청한 사람은 승인될 때까지 아무것도 못 보고 기다렸다. 가입률이 관문인 지금
-          그 지연은 그대로 이탈이 된다. 참여신청 카드보다 위에 두는 이유는 이게
-          '나만 처리할 수 있는 일'이기 때문이다. */}
-      <PendingSignupsAlert leagueId={leagueId} />
-
-      {/* 다음 경기 참여신청(일정 카드) — 2026-08-15 홈에서 숨김.
-          기능 자체가 2026-08-14 부터 공동 CEO 논의 대기(보류)인데 화면에는 계속 떠 있었다.
-          보류 중인 기능이 홈 최상단에 있으면 회원들이 여기다 응답을 쌓고, 나중에 설계가 바뀌면
-          그 데이터가 근거 없이 남는다. 그래서 노출만 끊는다 —
-          컴포넌트·API(`/api/leagues/[id]/rsvp`)·마이그레이션(099·100)은 그대로 두었으므로
-          재개할 때 아래 한 줄과 상단 import 주석만 되살리면 원상 복구된다.
-          원래 위치: 헤더(리그 이름) 바로 아래, 실질적인 첫 카드.
-      <NextGameRsvp leagueId={leagueId} /> */}
-
-      {/* 시즌 전환 */}
-      {otherLeagues.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {otherLeagues.map(ol => (
-            <Link
-              key={ol.id}
-              href={`/league/${orgSlug}/${ol.id}`}
-              className="text-sm px-4 py-2 border border-[color:var(--mm-rule)] text-[color:var(--mm-muted)] hover:text-[color:var(--mm-ink)] hover:border-[color:var(--mm-muted)] transition-colors cursor-pointer btn-press"
-              style={{ borderRadius: 'var(--mm-radius-chip)' }}
-            >
-              {ol.name} ({ol.season_year})
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* "내 기록" 진입 CTA — PersonalDashboard 전체는 이제 /me 전용(Important 1, 중복 제거).
-          로그인 상태(서버에서 이미 판정된 approvedSession 재사용, 신규 쿼리 아님)일 때만 한 줄
-          CTA 로 안내한다. 비로그인 유도는 상단 네비 '로그인' 버튼 + 하단/상단 탭의 '내 기록'
-          탭이 이미 상시 노출되어 있어(그 탭을 누르면 /me 에서 로그인 티저를 항상 보여준다),
-          홈에 별도 비로그인 티저를 복제하지 않기로 판단 — 근거는 보고서 참조. */}
-      {isMember && (
-        <Link
-          href={`/league/${orgSlug}/${leagueId}/me`}
-          className="flex items-center justify-between gap-2 px-4 md:px-5 py-3.5 min-h-[44px] rounded-md border text-sm font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
-          style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-ink)', background: 'var(--mm-panel)' }}
-        >
-          내 기록 보기
-          <ChevronRight size={20} style={{ color: 'var(--mm-muted)' }} aria-hidden />
-        </Link>
-      )}
-
-      {/* 마일스톤 — 공지 기능 폐지(2026-08-13)로 짝이던 카드가 사라져 2열 그리드를 접고
-          한 폭으로 되돌렸다. 아래 HomeSectionTabs·상단 헤더와 같은 전폭 리듬이라 빈 열이 남지 않는다. */}
-      {isMember ? (
-        <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
-      ) : (
-        <StatGate title="마일스톤은 회원 전용" description="선수들의 누적 기록 달성 소식은 가입 승인된 회원만 볼 수 있어요." />
-      )}
-
+      {/* 요약 탭을 헤더 바로 아래로 올렸다(2026-09-28) — 방문자가 홈에서 찾는 건 순위·라운드다.
+          대회 링크 알약(시즌 전환)은 같은 날 홈 본문에서 뺐다 — 상단 전환 칩(CompetitionSwitcher)
+          드롭다운이 이미 같은 팀의 대회 묶음을 나열한다. */}
       {/* 미라클모닝 브랜드 홈 — 팀 승률 · 최근 라운드 · 리그 리더 · 하이라이트를 탭으로 묶어
           스크롤 길이 단축 (2026-07-27). 활성 탭만 노출 · 기본=팀 승률(첫 방문 투어 타깃 보존).
           2026-08-10 정책 변경: 이 중 '리그 리더' 탭만 전체 공개로 전환 (스탯 탭·어워즈·하이라이트
@@ -544,6 +483,45 @@ export default async function LeagueDetailPage({
         }
         highlightsAvailable={highlightsAvailable}
       />
+
+      {/* 가입 신청 대기 알림 — 어드민에게만, 대기 건이 있을 때만 보인다.
+          지금까지 신청은 설정 탭 안에서만 보였는데 어드민이 설정에 들어갈 일은 드물어서,
+          신청한 사람은 승인될 때까지 아무것도 못 보고 기다렸다. 가입률이 관문인 지금
+          그 지연은 그대로 이탈이 된다. 참여신청 카드보다 위에 두는 이유는 이게
+          '나만 처리할 수 있는 일'이기 때문이다. */}
+      <PendingSignupsAlert leagueId={leagueId} />
+
+      {/* 다음 경기 참여신청(일정 카드) — 2026-08-15 홈에서 숨김.
+          기능 자체가 2026-08-14 부터 공동 CEO 논의 대기(보류)인데 화면에는 계속 떠 있었다.
+          보류 중인 기능이 홈 최상단에 있으면 회원들이 여기다 응답을 쌓고, 나중에 설계가 바뀌면
+          그 데이터가 근거 없이 남는다. 그래서 노출만 끊는다 —
+          컴포넌트·API(`/api/leagues/[id]/rsvp`)·마이그레이션(099·100)은 그대로 두었으므로
+          재개할 때 아래 한 줄과 상단 import 주석만 되살리면 원상 복구된다.
+          원래 위치: 헤더(리그 이름) 바로 아래, 실질적인 첫 카드.
+      <NextGameRsvp leagueId={leagueId} /> */}
+
+      {/* "내 기록" 진입 CTA — PersonalDashboard 전체는 이제 /me 전용(Important 1, 중복 제거).
+          로그인 상태(서버에서 이미 판정된 approvedSession 재사용, 신규 쿼리 아님)일 때만 한 줄
+          CTA 로 안내한다. 비로그인 유도는 상단 네비 '로그인' 버튼 + 하단/상단 탭의 '내 기록'
+          탭이 이미 상시 노출되어 있어(그 탭을 누르면 /me 에서 로그인 티저를 항상 보여준다),
+          홈에 별도 비로그인 티저를 복제하지 않기로 판단 — 근거는 보고서 참조. */}
+      {isMember && (
+        <Link
+          href={`/league/${orgSlug}/${leagueId}/me`}
+          className="flex items-center justify-between gap-2 px-4 md:px-5 py-3.5 min-h-[44px] rounded-md border text-sm font-bold cursor-pointer transition-colors hover:bg-[color:var(--mm-panel-alt)]"
+          style={{ borderColor: 'var(--mm-rule)', color: 'var(--mm-ink)', background: 'var(--mm-panel)' }}
+        >
+          내 기록 보기
+          <ChevronRight size={20} style={{ color: 'var(--mm-muted)' }} aria-hidden />
+        </Link>
+      )}
+
+      {/* 마일스톤 — 2026-09-28 홈 맨 아래로 내렸다(요약 탭이 먼저). */}
+      {isMember ? (
+        <MilestoneFeed leagueId={leagueId} initialData={milestonesData} />
+      ) : (
+        <StatGate title="마일스톤은 회원 전용" description="선수들의 누적 기록 달성 소식은 가입 승인된 회원만 볼 수 있어요." />
+      )}
     </div>
   )
 }
