@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
-import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown, Users } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFiveSlot'
 import RecordRoomBoard, { type SeasonHighCategory, type SeasonHigh } from '@/components/league/stats/RecordRoomBoard'
@@ -21,6 +21,7 @@ import type { Quarter, PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
 import AwardsBoard from './_components/AwardsBoard'
 import { calcUsg } from '@/lib/stats/advanced'
+import { splitEligible } from '@/lib/stats/eligibility'
 
 type ViewMode = 'avg' | 'total'
 
@@ -142,6 +143,11 @@ function ShotMixBar({ p, width, height = 12 }: { p: PlayerStat; width?: number; 
 // (auth/PersonalDashboard.tsx rankStyle 동일 팔레트 · 도미노 확장 통일 · 옐로우 실색상 1곳 원칙 준수)
 // border: 라이트 모드에서 rank-*-bg 가 흰 행 대비 1.13~1.18 로 옅어 배지 형태가 거의 안 보이는 문제
 // (2026-08-07 리뷰) → -fg 색의 얇은 테두리로 형태를 살린다. 텍스트 대비엔 영향 없음(색값 무변경).
+// 흐리게(opacity) 만으로는 색·명도에 기대는 신호라, 「자격 미달」을 글자로 함께 붙인다.
+function IneligibleTag() {
+  return <span className="ml-1 text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>· 자격 미달</span>
+}
+
 function rankTier(rank: number): { color: string; bg: string; accent: string; border: string } {
   if (rank === 1) return { color: 'var(--rank-1-fg)', bg: 'var(--rank-1-bg)', accent: 'var(--rank-1-fg)', border: '1px solid var(--rank-1-fg)' }  // gold
   if (rank === 2) return { color: 'var(--rank-2-fg)', bg: 'var(--rank-2-bg)', accent: 'var(--rank-2-fg)', border: '1px solid var(--rank-2-fg)' }  // silver
@@ -201,6 +207,18 @@ function LeagueStatsPageInner() {
   // "더 보기" 노출 상한 — 모바일 카드뷰와 데스크탑 표뷰가 **한 상태를 공유**한다.
   // 뷰마다 따로 두면 화면 폭이 바뀔 때(회전·창 크기) 보이는 인원이 튄다.
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
+  // 「전체 명단 보기」 — 자격 미달 선수도 표에 올린다. TOP5·기록실·1위 굵게·어워즈는 계속 자격자만.
+  // SSR 과 첫 렌더를 맞추려고 false 로 시작하고 저장값은 effect 에서 읽는다.
+  const showAllKey = `league:${leagueId}:stats:showAll`
+  const [showAll, setShowAll] = useState(false)
+  useEffect(() => {
+    try { setShowAll(localStorage.getItem(showAllKey) === '1') } catch { /* private mode */ }
+  }, [showAllKey])
+  const toggleShowAll = () => {
+    const next = !showAll
+    setShowAll(next)
+    try { localStorage.setItem(showAllKey, next ? '1' : '0') } catch { /* private mode */ }
+  }
 
   const toggleCompare = (player: PlayerStat) => {
     setCompareIds(prev => {
@@ -265,7 +283,7 @@ function LeagueStatsPageInner() {
   // 엉뚱한 구간이 이어서 보인다.
   useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE)
-  }, [sortKey, sortDir, statMode, viewMode, advSortKey, advSortDir, shootSortKey, shootSortDir, selectedQuarterId])
+  }, [sortKey, sortDir, statMode, viewMode, advSortKey, advSortDir, shootSortKey, shootSortDir, selectedQuarterId, showAll])
 
   function handleSort(key: SortKey) {
     if (!topFiveActive) setTopFiveActive(true)
@@ -280,8 +298,10 @@ function LeagueStatsPageInner() {
   const autoMinGP = Math.max(1, Math.ceil(roundBase * MIN_ROUND_RATIO))
   const effectiveMinGP = autoMinGP
 
-  const filtered = players
-    .filter(p => p.gp >= effectiveMinGP)
+  const { eligible, ineligible } = splitEligible(players, effectiveMinGP)
+  const isIneligible = (p: PlayerStat) => p.gp < effectiveMinGP
+  // 정렬은 자격·미달 구분 없이 한 줄로 — 미달자가 늘 아래에 깔리면 「정렬」이 거짓말이 된다.
+  const filtered = (showAll ? [...eligible, ...ineligible] : eligible)
     .sort((a, b) => {
       const diff = (a[sortKey] as number) - (b[sortKey] as number)
       return sortDir === 'desc' ? -diff : diff
@@ -697,8 +717,20 @@ function LeagueStatsPageInner() {
                   style={{ color: 'var(--mm-muted)' }}
                   title={`이 기간에 열린 ${roundBase}라운드의 30% 이상 참여 · 정규 참여자 자동 필터`}
                 >
-                  최소 {autoMinGP}R 자격 · 전체 {roundBase}R
+                  {showAll ? `전체 명단 · 자격 최소 ${autoMinGP}R` : `최소 ${autoMinGP}R 자격 · 전체 ${roundBase}R`}
                 </span>
+                <button
+                  type="button"
+                  onClick={toggleShowAll}
+                  aria-pressed={showAll}
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 min-h-11 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)]"
+                  style={showAll
+                    ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', border: '1px solid var(--mm-ink)' }
+                    : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', border: '1px solid var(--mm-rule)' }}
+                >
+                  <Users size={16} aria-hidden="true" />
+                  전체 명단 보기
+                </button>
               </div>
             </div>
 
@@ -735,14 +767,14 @@ function LeagueStatsPageInner() {
                   <div key={p.player_id} role="button" tabIndex={0}
                     onClick={openPlayer}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer() } }}
-                    className="w-full text-left px-4 py-3 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+                    className={`w-full text-left px-4 py-3 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${isIneligible(p) ? 'opacity-60' : ''}`}
                     style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
                     <div className="flex items-center gap-3 mb-2">
                       <span className="t-num text-xs font-black w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
                         style={{ color: rt.color, background: rt.bg, border: rt.border }}>{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <div className="font-bold break-keep" style={{ color: 'var(--mm-ink)', fontSize: '16px', letterSpacing: '-0.005em', lineHeight: 1.2, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{p.name}</div>
-                        <div className="text-xs font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}{'R'}</div>
+                        <div className="text-xs font-bold mt-0.5" style={{ color: 'var(--mm-muted)' }}>{p.position ?? '—'}{p.number ? ` · #${p.number}` : ''} · {p.gp}{'R'}{isIneligible(p) && <IneligibleTag />}</div>
                       </div>
                       <div className="text-right shrink-0">
                         <div className="font-jersey font-black tabular-nums leading-none" style={{ color: 'var(--mm-ink)', fontSize: '30px', letterSpacing: '-0.015em' }}>{sortVal}</div>
@@ -798,7 +830,7 @@ function LeagueStatsPageInner() {
                 <tbody>
                   {visibleBasic.map((p, i) => (
                     <tr key={p.player_id}
-                      className="transition-colors"
+                      className={`transition-colors ${isIneligible(p) ? 'opacity-60' : ''}`}
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
@@ -832,6 +864,7 @@ function LeagueStatsPageInner() {
                               style={{ color: cellColor }}
                               title={leader ? '리그 리더' : undefined}>
                             {cellVal(p, key)}
+                            {key === 'gp' && isIneligible(p) && <IneligibleTag />}
                           </td>
                         )
                       })}
@@ -839,9 +872,10 @@ function LeagueStatsPageInner() {
                   ))}
                 </tbody>
                 {/* Career Totals Footer — 자격자 대상 리그 총합/평균 */}
-                {filtered.length > 0 && (() => {
-                  const totalOf = (k: keyof PlayerStat) => filtered.reduce((s, p) => s + ((p[k] as number) ?? 0), 0)
-                  const avgOf = (k: keyof PlayerStat) => filtered.length > 0 ? totalOf(k) / filtered.length : 0
+                {/* 푸터는 토글과 무관하게 자격자 기준 — 「리그 평균」에 1경기 뛴 선수가 섞이면 기준선이 흔들린다 */}
+                {eligible.length > 0 && (() => {
+                  const totalOf = (k: keyof PlayerStat) => eligible.reduce((s, p) => s + ((p[k] as number) ?? 0), 0)
+                  const avgOf = (k: keyof PlayerStat) => eligible.length > 0 ? totalOf(k) / eligible.length : 0
                   const totalFgm  = totalOf('fgm')
                   const totalFga  = totalOf('fga')
                   const totalFg3m = totalOf('fg3m')
@@ -890,7 +924,7 @@ function LeagueStatsPageInner() {
                           <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)' }}>
                             {viewMode === 'avg' ? '리그 평균' : '리그 총합'}
                           </span>
-                          <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>자격자 {filtered.length}명</div>
+                          <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>자격자 {eligible.length}명</div>
                         </td>
                         {COLS.map(({ key }) => (
                           <td key={key} className="t-td-key">
@@ -932,13 +966,13 @@ function LeagueStatsPageInner() {
                 const rt = rankTier(i + 1)
                 return (
                   <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                    className="w-full text-left px-4 py-3 transition-colors"
+                    className={`w-full text-left px-4 py-3 transition-colors ${isIneligible(p) ? 'opacity-60' : ''}`}
                     style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="t-num text-xs font-black w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
                         style={{ color: rt.color, background: rt.bg, border: rt.border }}>{i+1}</span>
                       <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{p.name}</span>
-                      <span className="text-xs font-bold ml-auto" style={{ color: 'var(--mm-muted)' }}>{p.gp}{'R'}</span>
+                      <span className="text-xs font-bold ml-auto" style={{ color: 'var(--mm-muted)' }}>{p.gp}{'R'}{isIneligible(p) && <IneligibleTag />}</span>
                     </div>
                     <div className="grid grid-cols-4 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                       {SHOOTING_COLS.slice(0, 7).map(({ key, label }) => {
@@ -992,7 +1026,7 @@ function LeagueStatsPageInner() {
                 <tbody>
                   {visibleShoot.map(({ p, sh }, i) => (
                     <tr key={p.player_id}
-                      className="transition-colors"
+                      className={`transition-colors ${isIneligible(p) ? 'opacity-60' : ''}`}
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
@@ -1006,7 +1040,7 @@ function LeagueStatsPageInner() {
                         </button>
                         <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
-                      <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}</td>
+                      <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}{isIneligible(p) && <IneligibleTag />}</td>
                       {SHOOTING_COLS.map(({ key }, idx) => {
                         const val = sh[key]
                         const active = shootSortKey === key
@@ -1056,13 +1090,13 @@ function LeagueStatsPageInner() {
                 const rt = rankTier(i + 1)
                 return (
                   <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                    className="w-full text-left px-4 py-3 transition-colors"
+                    className={`w-full text-left px-4 py-3 transition-colors ${isIneligible(p) ? 'opacity-60' : ''}`}
                     style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="t-num text-xs font-black w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
                         style={{ color: rt.color, background: rt.bg, border: rt.border }}>{i+1}</span>
                       <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{p.name}</span>
-                      <span className="text-xs font-bold ml-auto" style={{ color: 'var(--mm-muted)' }}>{p.gp}{'R'}</span>
+                      <span className="text-xs font-bold ml-auto" style={{ color: 'var(--mm-muted)' }}>{p.gp}{'R'}{isIneligible(p) && <IneligibleTag />}</span>
                     </div>
                     <div className="grid grid-cols-5 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                       {ADV_COLS.map(({ key, label }) => {
@@ -1109,7 +1143,7 @@ function LeagueStatsPageInner() {
                 <tbody>
                   {visibleAdv.map(({ p, adv }, i) => (
                     <tr key={p.player_id}
-                      className="transition-colors"
+                      className={`transition-colors ${isIneligible(p) ? 'opacity-60' : ''}`}
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
@@ -1123,7 +1157,7 @@ function LeagueStatsPageInner() {
                         </button>
                         <div className="text-sm font-medium mt-0.5" style={{ color: 'var(--mm-muted)' }}>{p.position ?? ''}{p.number ? ` #${p.number}` : ''}</div>
                       </td>
-                      <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}</td>
+                      <td className="t-td" style={{ color: 'var(--mm-muted)' }}>{p.gp}{isIneligible(p) && <IneligibleTag />}</td>
                       {ADV_COLS.map(({ key }) => {
                         const val = adv[key]
                         const isRatio = key === 'at_ratio'
