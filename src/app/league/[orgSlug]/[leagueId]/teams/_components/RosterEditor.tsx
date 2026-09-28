@@ -1,0 +1,1326 @@
+'use client'
+// 옛 /roster(선수 명단) 화면의 운영자 편집 부분을 그대로 옮긴 컴포넌트(2026-09-28, 스탯 탭 4→2 정리).
+// 팀 페이지 헤더의 「명단 편집」(?edit=1)으로만 열린다 — 읽기 전용 명단은 팀 페이지의
+// 팀별 선수·게스트 섹션이 맡으므로 여기에는 운영진용 화면만 남았다.
+import { useState, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
+import Image from 'next/image'
+import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
+import { Input } from '@/components/ui/input'
+import { toast } from 'sonner'
+import { Plus, Trash2, Loader2, Download, Upload, Crown, X, Users, ShieldCheck, ChevronDown, ArrowRight } from 'lucide-react'
+import { BasketballLoader } from '@/components/league/BasketballIcons'
+import EmptyState from '@/components/league/EmptyState'
+import SectionCard from '@/components/league/ui/SectionCard'
+
+const PlayerQuickViewModal = dynamic(() => import('@/components/league/PlayerQuickViewModal'), { ssr: false })
+import SignupRateCard from '@/components/league/auth/SignupRateCard'
+import { LeaderBadgeInline } from '@/components/league/LeaderBadgePanel'
+import type { LeaguePlayer, LeagueTeam, Quarter } from '@/types/league'
+import type { Team } from '../_types'
+
+const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
+const POSITION_FILTER_OPTIONS = ['ALL', 'PG', 'SG', 'SF', 'PF', 'C']
+
+
+/** POST …/players/inherit 응답. dryRun 이면 filled 가 0 이고 candidates 만 의미가 있다. */
+type InheritResult = {
+  source: { quarter_id: string; label: string }
+  target: { quarter_id: string; label: string }
+  candidates: number
+  skipped_existing: number
+  skipped_inactive: number
+  dry_run: boolean
+  filled: number
+  failed: number
+  errors: string[]
+}
+type PlayerQuarterMap = Record<string, Record<string, { team_id: string | null; is_regular: boolean | null }>>
+type LeaderMap = Record<string, Record<string, string | null>>
+type SortKey = 'name' | 'attendance_desc'
+
+function parsePositions(pos: string | null): string[] {
+  if (!pos) return []
+  return pos.split(',').map(p => p.trim()).filter(Boolean)
+}
+
+// ── 수정 1: BirthDateInput — 년도 텍스트 입력으로 변경 ──────────────────────
+function BirthDateInput({ value, onChange, className }: {
+  value: string
+  onChange: (v: string) => void
+  className?: string
+}) {
+  // rawYear: 로컬 년도 raw 문자열 (4자리 완성 전에도 표시)
+  const parts = value ? value.split('-') : ['', '', '']
+  const storedY = parts[0] ?? ''
+  const m = parts[1] ?? ''
+  const d = parts[2] ?? ''
+
+  const [rawYear, setRawYear] = useState(storedY)
+
+  // value prop이 외부에서 변경될 때 rawYear 동기화
+  useEffect(() => {
+    const p = value ? value.split('-') : ['', '', '']
+    setRawYear(p[0] ?? '')
+  }, [value])
+
+  function buildDate(y: string, mm: string, dd: string): string {
+    // 4자리 완성 시에만 YYYY-MM-DD 조합
+    if (y.length === 4 && /^\d{4}$/.test(y)) {
+      const mmPad = mm.padStart(2, '0').slice(0, 2)
+      const ddPad = dd.padStart(2, '0').slice(0, 2)
+      return `${y}-${mmPad}-${ddPad}`
+    }
+    return ''
+  }
+
+  function handleYearChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const raw = e.target.value.replace(/\D/g, '').slice(0, 4)
+    setRawYear(raw)
+    if (raw.length === 4) {
+      const result = buildDate(raw, m, d)
+      if (result) onChange(result)
+      else if (!m && !d) onChange('')
+    } else {
+      // 미완성이면 날짜 저장 안 함 — 단 기존 m/d 보존 위해 빈 날짜 전달
+      onChange('')
+    }
+  }
+
+  function handleMonthChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = String(e.target.value).padStart(2, '0').slice(0, 2)
+    if (rawYear.length === 4) {
+      const result = buildDate(rawYear, val, d)
+      if (result) onChange(result)
+    }
+  }
+
+  function handleDayChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = String(e.target.value).padStart(2, '0').slice(0, 2)
+    if (rawYear.length === 4) {
+      const result = buildDate(rawYear, m, val)
+      if (result) onChange(result)
+    }
+  }
+
+  const base = `bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] text-center focus:outline-none focus:border-[var(--color-hoop-orange-500)] ${className ?? ''}`
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        placeholder="년도"
+        maxLength={4}
+        value={rawYear}
+        onChange={handleYearChange}
+        className={`${base} w-16 px-1 py-1.5 text-xs`}
+      />
+      <span className="text-[var(--mm-muted)] text-xs">/</span>
+      <input
+        type="number" placeholder="월" min={1} max={12}
+        value={Number(m) || ''}
+        onChange={handleMonthChange}
+        className={`${base} w-12 px-1 py-1.5 text-xs`}
+      />
+      <span className="text-[var(--mm-muted)] text-xs">/</span>
+      <input
+        type="number" placeholder="일" min={1} max={31}
+        value={Number(d) || ''}
+        onChange={handleDayChange}
+        className={`${base} w-12 px-1 py-1.5 text-xs`}
+      />
+    </div>
+  )
+}
+
+function PositionBadge({ pos }: { pos: string }) {
+  return (
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap border bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] border-[var(--mm-rule)]"
+    >
+      {pos}
+    </span>
+  )
+}
+
+// teams·quarters 는 팀 페이지가 이미 받아 둔 값으로 첫 화면을 그리고, load() 가 옛 명단 화면과 똑같이
+// 다시 받아 덮는다. 팀 페이지의 teams 는 분기를 고르면 그 분기 override 이름이 입혀진 목록이라,
+// 여러 분기 칩을 한 카드에 그리는 이 화면이 그대로 쓰면 다른 분기 칩에 엉뚱한 팀명이 붙는다.
+export default function RosterEditor({ leagueId, quarterId, teams: initialTeams, quarters: initialQuarters }: {
+  leagueId: string
+  quarterId: string
+  teams: Team[]
+  quarters: Quarter[]
+}) {
+  // 이 컴포넌트는 팀 페이지가 isEditMode 일 때만 렌더한다 — 아래 isEditMode 분기는 옮기기 전 그대로 둔다.
+  const { isEditMode, leagueHeaders } = useLeagueEditMode()
+
+  const [players, setPlayers] = useState<LeaguePlayer[]>([])
+  const [teams, setTeams] = useState<Team[]>(initialTeams)
+  const [quarters, setQuarters] = useState<Quarter[]>(initialQuarters)
+  const [membershipMap, setMembershipMap] = useState<PlayerQuarterMap>({})
+  const [leaderMap, setLeaderMap] = useState<LeaderMap>({})
+  const [leaderBadges, setLeaderBadges] = useState<Record<string, import('@/components/league/LeaderBadgePanel').LeaderBadgeCounts>>({})
+  // (quarter_id → team_id → {name, color}) 분기별 팀명/색상 override 룩업
+  const [teamOverrides, setTeamOverrides] = useState<Record<string, Record<string, { name: string | null; color: string | null }>>>({})
+  const [loading, setLoading] = useState(true)
+
+  // Add form
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({ name: '', position: [] as string[], birth_date: '' })
+
+  // Bulk
+  const [bulkUploading, setBulkUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Delete (카드 인라인)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // 수정 3: 선수 상세 모달
+  const [selectedPlayer, setSelectedPlayer] = useState<LeaguePlayer | null>(null)
+
+  // Quarter cell edit
+  const [editingCell, setEditingCell] = useState<{ playerId: string; quarterId: string } | null>(null)
+  const [savingCell, setSavingCell] = useState<string | null>(null)
+
+  // 이전 분기 소속 이어받기 — 새 분기는 소속 0명에서 시작하므로(승계 로직이 없다) 기록 화면의
+  //   「선발 선수 선택」이 통째로 비어 보인다. 26.3Q 가 실제로 소속 4명으로 분기 절반을 보냈다.
+  const [inheritTargetId, setInheritTargetId] = useState('')
+  const [inheritPreview, setInheritPreview] = useState<InheritResult | null>(null)
+  const [inheriting, setInheriting] = useState(false)
+
+  // Quarter form
+  const [showQForm, setShowQForm] = useState(false)
+  const [qYear, setQYear] = useState(new Date().getFullYear())
+  const [qQuarter, setQQuarter] = useState(1)
+  const [qStart, setQStart] = useState('')
+  const [qEnd, setQEnd] = useState('')
+  const [savingQ, setSavingQ] = useState(false)
+
+  // 수정 2: 정렬/필터 state
+  const [sortKey, setSortKey] = useState<SortKey>('name')
+  const [filterPosition, setFilterPosition] = useState<string>('ALL')
+  // 참석율(라운드 참여율) — 참석율 정렬 · 카드 표시용
+  const [attendance, setAttendance] = useState<{ totalRounds: number; perPlayer: Record<string, { rounds: number; rate: number }> }>({ totalRounds: 0, perPlayer: {} })
+  useEffect(() => {
+    fetch(`/api/leagues/${leagueId}/attendance`)
+      .then(r => r.ok ? r.json() : { totalRounds: 0, perPlayer: {} })
+      .then(setAttendance)
+      .catch(() => { /* ignore */ })
+  }, [leagueId])
+  // 게스트 섹션 펼침 상태 — 기본 접힘(정회원 명단만 세로로 그린다).
+  // 옛 '게스트 숨김' 필터 칩을 대체한다: 접이식 자체가 표시/숨김 컨트롤이라
+  // 같은 관심사를 두 곳에서 조작하면 어느 쪽이 이겼는지 알 수 없다.
+  const [guestsOpen, setGuestsOpen] = useState<boolean>(false)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`roster:guestsOpen:${leagueId}`)
+      if (saved === '1') setGuestsOpen(true)
+    } catch { /* SSR 등 접근 실패 무시 */ }
+  }, [leagueId])
+  useEffect(() => {
+    try {
+      localStorage.setItem(`roster:guestsOpen:${leagueId}`, guestsOpen ? '1' : '0')
+    } catch { /* ignore */ }
+  }, [leagueId, guestsOpen])
+
+  // 인증회원(로그인 계정 등록·승인)만 보기 토글 — localStorage 로 세션 간 유지
+  const [onlyVerified, setOnlyVerified] = useState<boolean>(false)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`roster:onlyVerified:${leagueId}`)
+      if (saved === '1') setOnlyVerified(true)
+    } catch { /* SSR 등 접근 실패 무시 */ }
+  }, [leagueId])
+  useEffect(() => {
+    try {
+      localStorage.setItem(`roster:onlyVerified:${leagueId}`, onlyVerified ? '1' : '0')
+    } catch { /* ignore */ }
+  }, [leagueId, onlyVerified])
+
+  const currentYear = new Date().getFullYear()
+
+  // 분기별 기본 기간 (Q1: 1~3월, Q2: 4~6월, Q3: 7~9월, Q4: 10~12월)
+  const defaultQuarterDates = (year: number, quarter: number) => {
+    const startMonth = (quarter - 1) * 3 + 1            // 1, 4, 7, 10
+    const endMonth = startMonth + 2                      // 3, 6, 9, 12
+    const lastDay = new Date(year, endMonth, 0).getDate()
+    const mm = (m: number) => String(m).padStart(2, '0')
+    return {
+      start: `${year}-${mm(startMonth)}-01`,
+      end: `${year}-${mm(endMonth)}-${lastDay}`,
+    }
+  }
+
+  // 연도/분기 변경 시 기본 기간 자동 채움
+  useEffect(() => {
+    const { start, end } = defaultQuarterDates(qYear, qQuarter)
+    setQStart(start)
+    setQEnd(end)
+  }, [qYear, qQuarter])
+
+  // 「전체」면 옛 명단 화면처럼 올해 분기를 전부, 특정 분기를 고르면 그 분기 칩만 그린다.
+  const yearQuarters = quarters.filter(q => q.year === currentYear).length > 0
+    ? quarters.filter(q => q.year === currentYear)
+    : quarters
+  const displayQuarters = quarterId === 'all' ? yearQuarters : quarters.filter(q => q.id === quarterId)
+
+  // 이어받기 대상 후보 — 시간순, 대회 제외. 대회에서 league_player_quarters 는 소속이 아니라
+  //   **참가 등록**이라 여기에 전원을 부으면 전부 참가자가 된다(서버도 400 으로 막는다).
+  //   맨 앞 분기는 앞에 이어받을 것이 없어 목록에는 두되 고를 수 없게 한다.
+  const inheritQuarters = quarters
+    .filter(q => q.kind !== 'tournament')
+    .slice()
+    .sort((a, b) => (a.year - b.year) || (a.quarter - b.quarter))
+
+  // 기본 선택은 현재 분기. 없으면 가장 마지막 분기 — 새로 만든 분기를 채우는 것이 보통이다.
+  useEffect(() => {
+    if (inheritTargetId || inheritQuarters.length < 2) return
+    const fallback = inheritQuarters.find(q => q.is_current) ?? inheritQuarters[inheritQuarters.length - 1]
+    if (fallback && fallback.id !== inheritQuarters[0].id) setInheritTargetId(fallback.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quarters])
+
+  async function load() {
+    setLoading(true)
+    const [pRes, tRes, qRes] = await Promise.all([
+      // 명단 화면 = "지금 팀에 있는 선수" 를 보여주는 화면 → 탈퇴 회원(is_active=false) 제외.
+      // 그 선수의 과거 기록은 스탯·하이라이트 화면에서 그대로 남는다(의도적 분리).
+      fetch(`/api/leagues/${leagueId}/players?activeOnly=1`),
+      fetch(`/api/leagues/${leagueId}/teams`),
+      fetch(`/api/leagues/${leagueId}/quarters`),
+    ])
+
+    const playersData: LeaguePlayer[] = pRes.ok ? await pRes.json() : []
+    const teamsData: LeagueTeam[] = tRes.ok ? (await tRes.json()).map((t: LeagueTeam & { players?: unknown[] }) => {
+      const { players: _, ...rest } = t as LeagueTeam & { players?: unknown[] }
+      void _
+      return rest
+    }) : []
+    const quartersData: Quarter[] = qRes.ok ? await qRes.json() : []
+
+    setPlayers(playersData)
+    setTeams(teamsData)
+    setQuarters(quartersData)
+
+    if (quartersData.length > 0) {
+      const results = await Promise.all(quartersData.map(q =>
+        Promise.all([
+          fetch(`/api/leagues/${leagueId}/quarters/${q.id}/players`),
+          fetch(`/api/leagues/${leagueId}/quarters/${q.id}/leaders`),
+        ])
+      ))
+
+      const newMembership: PlayerQuarterMap = {}
+      const newLeader: LeaderMap = {}
+
+      for (let i = 0; i < quartersData.length; i++) {
+        const q = quartersData[i]
+        const [mRes, lRes] = results[i]
+        newMembership[q.id] = {}
+        newLeader[q.id] = {}
+        if (mRes.ok) {
+          const rows = await mRes.json() as Array<{ id: string; team_id: string | null; is_regular: boolean | null }>
+          for (const r of rows) {
+            newMembership[q.id][r.id] = { team_id: r.team_id, is_regular: r.is_regular }
+          }
+        }
+        if (lRes.ok) {
+          const rows = await lRes.json() as Array<{ team_id: string; leader_player_id: string | null }>
+          for (const r of rows) {
+            newLeader[q.id][r.team_id] = r.leader_player_id
+          }
+        }
+      }
+
+      setMembershipMap(newMembership)
+      setLeaderMap(newLeader)
+    }
+
+    // 리더 뱃지 (경기일 부문별 1등 카운트) — 실패해도 UI 나머지는 그대로
+    fetch(`/api/leagues/${leagueId}/leader-badges`)
+      .then(r => r.ok ? r.json() : {})
+      .then(data => setLeaderBadges(data ?? {}))
+      .catch(() => null)
+
+    // 분기별 팀명/색상 override 룩업 — 각 셀 표시에 사용
+    fetch(`/api/leagues/${leagueId}/team-overrides`)
+      .then(r => r.ok ? r.json() : [])
+      .then((rows: { quarter_id: string; team_id: string; name: string | null; color: string | null }[]) => {
+        const map: Record<string, Record<string, { name: string | null; color: string | null }>> = {}
+        for (const r of rows) {
+          (map[r.quarter_id] ||= {})[r.team_id] = { name: r.name, color: r.color }
+        }
+        setTeamOverrides(map)
+      })
+      .catch(() => null)
+
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [leagueId])
+
+  async function addPlayer() {
+    if (!form.name.trim()) { toast.error('이름을 입력하세요'); return }
+    setSaving(true)
+    const res = await fetch(`/api/leagues/${leagueId}/players`, {
+      method: 'POST',
+      headers: leagueHeaders,
+      body: JSON.stringify({
+        name: form.name.trim(),
+        position: form.position.length > 0 ? form.position.join(',') : null,
+        birth_date: form.birth_date || null,
+      }),
+    })
+    if (res.ok) {
+      const newPlayer = await res.json()
+      // 모든 분기에 비정규로 자동 등록
+      if (newPlayer?.id && quarters.length > 0) {
+        await Promise.all(quarters.map(q =>
+          fetch(`/api/leagues/${leagueId}/quarters/${q.id}/players`, {
+            method: 'PATCH',
+            headers: leagueHeaders,
+            body: JSON.stringify({ league_player_id: newPlayer.id, team_id: null, is_regular: false }),
+          })
+        ))
+      }
+      toast.success('선수 추가 완료 (비정규 등록)')
+      setForm({ name: '', position: [], birth_date: '' })
+      setShowForm(false)
+      load()
+    } else {
+      const d = await res.json()
+      toast.error(d.error ?? '추가 실패')
+    }
+    setSaving(false)
+  }
+
+  function togglePosition(pos: string, arr: string[], setArr: (v: string[]) => void) {
+    setArr(arr.includes(pos) ? arr.filter(p => p !== pos) : [...arr, pos])
+  }
+
+  async function downloadTemplate() {
+    const xlsx = await import('xlsx')
+    const ws = xlsx.utils.aoa_to_sheet([
+      ['이름', '포지션', '생년월일'],
+      ['홍길동', 'PG', '1995-03-15'],
+      ['김철수', 'SF,PF', '1998-07-22'],
+    ])
+    ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 14 }]
+    const wb = xlsx.utils.book_new()
+    xlsx.utils.book_append_sheet(wb, ws, '선수명단')
+    xlsx.writeFile(wb, '선수명단_템플릿.xlsx')
+  }
+
+  async function handleBulkUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+
+    setBulkUploading(true)
+    try {
+      const xlsx = await import('xlsx')
+      const buf = await file.arrayBuffer()
+      const wb = xlsx.read(buf)
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const rows = xlsx.utils.sheet_to_json<Record<string, string | number>>(ws, { defval: '' })
+
+      const uploadPlayers = rows
+        .filter(r => String(r['이름'] ?? '').trim())
+        .map(r => ({
+          name: String(r['이름']).trim(),
+          position: String(r['포지션'] ?? '').trim() || null,
+          birth_date: String(r['생년월일'] ?? '').trim() || null,
+          number: null as number | null,
+        }))
+
+      if (uploadPlayers.length === 0) { toast.error('유효한 선수 데이터가 없습니다'); setBulkUploading(false); return }
+
+      const res = await fetch(`/api/leagues/${leagueId}/players/bulk`, {
+        method: 'POST',
+        headers: leagueHeaders,
+        body: JSON.stringify({ players: uploadPlayers }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(`${data.inserted}명 등록 완료`)
+        load()
+      } else {
+        toast.error(data.error ?? '등록 실패')
+      }
+    } catch {
+      toast.error('파일 처리 중 오류가 발생했습니다')
+    }
+    setBulkUploading(false)
+  }
+
+  async function deletePlayer(id: string) {
+    if (!confirm('이 선수를 삭제하시겠습니까?')) return
+    setDeletingId(id)
+    const res = await fetch(`/api/leagues/${leagueId}/players?playerId=${id}`, {
+      method: 'DELETE',
+      headers: leagueHeaders,
+    })
+    setDeletingId(null)
+    if (res.ok) { toast.success('삭제 완료'); load() }
+    else toast.error('삭제 실패')
+  }
+
+  async function togglePlusOne(playerId: string, currentVal: boolean) {
+    const newVal = !currentVal
+    setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, plus_one: newVal } : p))
+    const res = await fetch(`/api/leagues/${leagueId}/players?playerId=${playerId}`, {
+      method: 'PATCH',
+      headers: leagueHeaders,
+      body: JSON.stringify({ plus_one: newVal }),
+    })
+    if (!res.ok) {
+      setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, plus_one: currentVal } : p))
+      toast.error('+1 업데이트 실패')
+    }
+  }
+
+  async function createQuarter() {
+    setSavingQ(true)
+    const res = await fetch(`/api/leagues/${leagueId}/quarters`, {
+      method: 'POST',
+      headers: leagueHeaders,
+      body: JSON.stringify({ year: qYear, quarter: qQuarter, is_current: false, start_date: qStart || null, end_date: qEnd || null }),
+    })
+    setSavingQ(false)
+    if (res.ok) {
+      toast.success(`${qYear % 100}.${qQuarter}Q 생성 완료`)
+      setShowQForm(false)
+      load()
+    } else {
+      const d = await res.json()
+      toast.error(d.error ?? '생성 실패')
+    }
+  }
+
+  async function updateMembership(quarterId: string, playerId: string, teamId: string | null, isRegular: boolean) {
+    const cellKey = `${quarterId}:${playerId}`
+    setSavingCell(cellKey)
+    const res = await fetch(`/api/leagues/${leagueId}/quarters/${quarterId}/players`, {
+      method: 'PATCH',
+      headers: leagueHeaders,
+      body: JSON.stringify({ league_player_id: playerId, team_id: teamId, is_regular: isRegular }),
+    })
+    setSavingCell(null)
+    if (res.ok) {
+      setMembershipMap(prev => ({
+        ...prev,
+        [quarterId]: { ...(prev[quarterId] ?? {}), [playerId]: { team_id: teamId, is_regular: isRegular } },
+      }))
+      setEditingCell(null)
+    } else {
+      toast.error('저장 실패')
+    }
+  }
+
+  /**
+   * 이전 분기 소속 이어받기.
+   *
+   * 확인을 `confirm()` 이 아니라 dryRun 왕복으로 하는 이유: **몇 명이 채워지는지는 서버만
+   * 정확히 안다.** 탈퇴·외부 선수 제외와 "이미 정해진 칸" 판정이 전부 서버에 있어서,
+   * 화면에서 어림한 숫자를 보여 주면 실제 결과와 다른 수를 말하게 된다.
+   */
+  async function runInherit(quarterId: string, dryRun: boolean) {
+    setInheriting(true)
+    try {
+      const res = await fetch(`/api/leagues/${leagueId}/quarters/${quarterId}/players/inherit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...leagueHeaders },
+        body: JSON.stringify({ dryRun }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(body.error ?? `이어받기 실패 (${res.status})`, { duration: 8000 })
+        setInheritPreview(null)
+        return
+      }
+      const result = body as InheritResult
+      if (dryRun) { setInheritPreview(result); return }
+
+      setInheritPreview(null)
+      // 일부만 저장됐으면 성공이라고 말하지 않는다.
+      if (result.failed > 0) {
+        toast.error(`${result.filled}명 저장 · ${result.failed}명 실패`, {
+          description: result.errors[0], duration: 10000,
+        })
+      } else if (result.filled === 0) {
+        toast(`채울 칸이 없습니다 — 이미 정해진 ${result.skipped_existing}명은 그대로 둡니다`)
+      } else {
+        toast.success(`${result.filled}명을 ${result.target.label} 소속으로 이어받았습니다`)
+      }
+      await load()   // 43칸을 손으로 맞추느니 재조회가 정본이다
+    } catch (e) {
+      toast.error(`이어받기 실패: ${e instanceof Error ? e.message : '알 수 없는 오류'}`)
+    } finally {
+      setInheriting(false)
+    }
+  }
+
+  async function toggleLeader(quarterId: string, teamId: string, playerId: string) {
+    const current = leaderMap[quarterId]?.[teamId]
+    const newLeader = current === playerId ? null : playerId
+    const res = await fetch(`/api/leagues/${leagueId}/quarters/${quarterId}/leaders`, {
+      method: 'PUT',
+      headers: leagueHeaders,
+      body: JSON.stringify({ team_id: teamId, leader_player_id: newLeader }),
+    })
+    if (res.ok) {
+      setLeaderMap(prev => ({
+        ...prev,
+        [quarterId]: { ...(prev[quarterId] ?? {}), [teamId]: newLeader },
+      }))
+    } else {
+      toast.error('리더 변경 실패')
+    }
+  }
+
+  function getCellLabel(quarterId: string, playerId: string): string {
+    const m = membershipMap[quarterId]?.[playerId]
+    // 팀 소속이 없는 분기는 모두 비정규로 분류 (미가입/멤버십없음/team_id null 통합)
+    if (!m || !m.team_id) return '비정규'
+    if (!m.is_regular) return '비정규'
+    // 분기별 override 우선, 없으면 base team 이름
+    const ov = teamOverrides[quarterId]?.[m.team_id]
+    if (ov?.name) return ov.name
+    const team = teams.find(t => t.id === m.team_id)
+    return team?.name ?? '비정규'
+  }
+
+  function getCellTeamColor(quarterId: string, playerId: string): string | null {
+    const m = membershipMap[quarterId]?.[playerId]
+    if (!m || !m.is_regular || !m.team_id) return null
+    const ov = teamOverrides[quarterId]?.[m.team_id]
+    if (ov?.color) return ov.color
+    const team = teams.find(t => t.id === m.team_id)
+    return team?.color ?? null
+  }
+
+  function getCellTeamId(quarterId: string, playerId: string): string | null {
+    return membershipMap[quarterId]?.[playerId]?.team_id ?? null
+  }
+
+  function isLeader(quarterId: string, teamId: string | null, playerId: string): boolean {
+    if (!teamId) return false
+    return leaderMap[quarterId]?.[teamId] === playerId
+  }
+
+  function getCellIsRegular(quarterId: string, playerId: string): boolean | null {
+    return membershipMap[quarterId]?.[playerId]?.is_regular ?? null
+  }
+
+  // 수정 2: 정렬 + 필터 적용
+  // - 포지션 필터
+  // - 게스트 숨김 필터 (is_guest=true 인 선수 완전 제외)
+  // - 정렬: is_guest 인 선수는 정렬 종류 무관하게 항상 최하단
+  //   (게스트 flag 없는 이전 버전 호환 위해 name.includes('게스트') 도 폴백)
+  const isPlayerGuest = (p: LeaguePlayer) => Boolean(p.is_guest) || p.name.includes('게스트')
+  const filteredAndSortedPlayers = players
+    .filter(p => {
+      // 게스트는 여기서 거르지 않는다 — 아래에서 정회원/게스트 두 묶음으로 갈라
+      // 게스트만 접이식에 넣는다. 필터에서 빼 버리면 운영진이 게스트 기록을 못 본다.
+      if (onlyVerified && !p.has_account) return false
+      if (filterPosition === 'ALL') return true
+      return parsePositions(p.position).includes(filterPosition)
+    })
+    .sort((a, b) => {
+      const aIsGuest = isPlayerGuest(a)
+      const bIsGuest = isPlayerGuest(b)
+      if (aIsGuest !== bIsGuest) return aIsGuest ? 1 : -1
+      if (sortKey === 'name') return a.name.localeCompare(b.name, 'ko')
+      if (sortKey === 'attendance_desc') {
+        const ra = attendance.perPlayer[a.id]?.rounds ?? 0
+        const rb = attendance.perPlayer[b.id]?.rounds ?? 0
+        if (ra !== rb) return rb - ra
+        return a.name.localeCompare(b.name, 'ko')
+      }
+      return 0
+    })
+  // guestCount 는 옛 '게스트 숨김' 칩이 쓰던 전체 카운트다. 접이식 요약은 필터가 반영된
+  // guestPlayers.length 를 쓰므로 소비처가 없어져 삭제했다(2026-08-13).
+  const verifiedCount = players.filter(p => p.has_account).length
+
+  // 정회원 / 게스트 분리 — 세로 길이를 줄이는 핵심. 45행을 한 화면에 세로로 잇지 않는다.
+  //   정렬이 끝난 배열을 그대로 쪼갠다(정렬 규칙을 두 곳에서 반복하지 않는다).
+  //   ⚠ 게스트를 '지우지' 않는다. 운영진이 게스트 기록을 확인해야 하므로 접어 둘 뿐이다.
+  const memberPlayers = filteredAndSortedPlayers.filter(p => !isPlayerGuest(p))
+  const guestPlayers = filteredAndSortedPlayers.filter(p => isPlayerGuest(p))
+
+  // 선수 카드 렌더러 — 정회원 그리드와 게스트 접이식이 **같은 마크업**을 쓴다.
+  // 복제하면 언젠가 한쪽만 고쳐진다.
+  const renderPlayerCard = (p: LeaguePlayer) => {
+            const positions = parsePositions(p.position)
+            const isAnyLeader = displayQuarters.some(q => {
+              const teamId = getCellTeamId(q.id, p.id)
+              return teamId ? isLeader(q.id, teamId, p.id) : false
+            })
+            // 현재 분기(특정 분기를 골랐으면 그 분기) 팀 컬러 → 카드 왼쪽 스트립
+            const curQ = quarterId === 'all' ? displayQuarters.find(q => q.is_current) : displayQuarters[0]
+            const cardAccent = curQ ? getCellTeamColor(curQ.id, p.id) : null
+            return (
+              <div
+                key={p.id}
+                className="relative bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-md overflow-hidden hover:shadow-[0_10px_36px_-8px_rgba(0,0,0,0.20)] hover:-translate-y-0.5 transition-[box-shadow,transform] duration-200 cursor-pointer group"
+                onClick={() => setSelectedPlayer(p)}
+              >
+                {/* 팀 컬러 왼쪽 스트립 (팀 컬러 유지 — 팀 식별 데이터) · hover 시 노랑 accent 폴백 */}
+                {cardAccent ? (
+                  <div className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ backgroundColor: cardAccent }} />
+                ) : (
+                  <span
+                    aria-hidden
+                    className="absolute left-0 top-0 bottom-0 w-[3px] opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                    style={{ background: 'var(--mm-yellow-soft)' }}
+                  />
+                )}
+
+                <div className="p-2.5 pl-3.5 lg:p-3 lg:pl-4 flex gap-2.5 lg:gap-3">
+                  {/* 4:5 썸네일 — 프로 선수 프로필처럼 크게 (모바일에선 이름 여유 확보를 위해 축소) */}
+                  <div className="shrink-0 w-24 h-[120px] sm:w-32 sm:h-[160px] lg:w-40 lg:h-[200px] rounded-md overflow-hidden border border-[var(--mm-rule)] flex items-center justify-center bg-[var(--mm-panel-alt)] relative">
+                    {p.photo_url ? (
+                      // next/image · 로스터 그리드는 대량(30+명) → 기본 lazy · sizes 반응형
+                      <Image
+                        src={p.photo_url}
+                        alt={p.name}
+                        fill
+                        sizes="(max-width: 640px) 96px, (max-width: 1024px) 128px, 160px"
+                        className="object-cover object-top"
+                      />
+                    ) : (
+                      <span className="font-jersey text-2xl lg:text-3xl font-bold text-[var(--mm-muted)] leading-none text-center px-0.5 whitespace-nowrap">
+                        {/* 두 글자까지만 — 「131게스트A」 같은 긴 이름이 원 안에서 음절 중간에 꺾였다 */}
+                        {p.name.length > 1 ? p.name.slice(1, 3) : p.name}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                  {/* 헤더: 이름 + +1 + 삭제 */}
+                  <div className="flex items-start gap-2 mb-1.5 lg:mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {isAnyLeader && <Crown size={14} className="text-[var(--mm-ink)] shrink-0" />}
+                        {/* 카드의 주인공. 유니폼체(좁고 자간 좁음) 대신 본문체 — 1280px 에서
+                            「강경호」가 「강경/호」로 꺾이던 원인 중 하나였다. break-keep 만으로는
+                            overflowWrap:'anywhere' 를 못 이기므로 이름은 nowrap 으로 둔다. */}
+                        <span className="text-[20px] lg:text-[26px] font-black text-[var(--mm-ink)] whitespace-nowrap min-w-0 truncate tracking-tight group-hover:underline underline-offset-4 decoration-[3px] decoration-[var(--mm-yellow-soft)]" style={{ lineHeight: 1.15 }}>{p.name}</span>
+                      </div>
+                      {p.number !== null && (
+                        <span className="t-num text-sm text-[var(--mm-muted)] font-medium">#{p.number}</span>
+                      )}
+                    </div>
+                    {/* +1 배지/토글 */}
+                    {isEditMode ? (
+                      <button
+                        onClick={e => { e.stopPropagation(); togglePlusOne(p.id, p.plus_one) }}
+                        className={`shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-2 rounded-md text-sm font-black whitespace-nowrap border transition-colors duration-200 cursor-pointer ${
+                          p.plus_one
+                            ? 'bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] border-[var(--mm-ink-soft)] hover:brightness-95'
+                            : 'bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] border-[var(--mm-rule)] hover:border-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)]'
+                        }`}
+                        title={p.plus_one ? '+1 해제' : '+1 활성화'}
+                      >
+                        +1
+                      </button>
+                    ) : p.plus_one ? (
+                      <span className="shrink-0 px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap bg-[var(--mm-panel-alt)] text-[var(--mm-ink)] border border-[var(--mm-rule)]">
+                        +1
+                      </span>
+                    ) : null}
+                    {isEditMode && (
+                      <button
+                        onClick={e => { e.stopPropagation(); deletePlayer(p.id) }}
+                        disabled={deletingId === p.id}
+                        className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-[var(--mm-muted)] hover:text-[var(--mm-live)] transition-colors cursor-pointer disabled:opacity-40 shrink-0"
+                        title="선수 삭제"
+                        aria-label="선수 삭제"
+                      >
+                        {deletingId === p.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 포지션 배지 (한 줄) + 게스트 뱃지 */}
+                  <div className="flex flex-wrap items-center gap-1 lg:gap-1.5 mb-1.5 lg:mb-2 min-h-[22px]">
+                    {positions.length > 0
+                      ? positions.map(pos => <PositionBadge key={pos} pos={pos} />)
+                      : <span className="t-label font-medium whitespace-nowrap">포지션 미지정</span>
+                    }
+                    {isPlayerGuest(p) && (
+                      <span
+                        className="px-1.5 py-0.5 rounded-md text-xs font-medium whitespace-nowrap border bg-[var(--mm-panel-alt)] text-[var(--mm-muted)] border-[var(--mm-rule)]"
+                        title="단발성 게스트 선수 — 로스터 하단으로 정렬됩니다"
+                      >
+                        게스트
+                      </span>
+                    )}
+                    {/* 인증 뱃지 — 로그인 계정을 등록·승인받은 회원 (브랜드 옐로 채움으로 중립 뱃지와 구분) */}
+                    {p.has_account && (
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-medium whitespace-nowrap bg-[var(--mm-yellow)] text-[var(--mm-black)]"
+                        title="로그인 계정을 등록·인증한 회원"
+                      >
+                        <ShieldCheck size={14} aria-hidden className="shrink-0" />
+                        인증
+                      </span>
+                    )}
+                    {/* 참석율 (R 라운드 기준) — 참여 이력 있는 선수만 노출 */}
+                    {attendance.perPlayer[p.id] && attendance.totalRounds > 0 && (
+                      <span
+                        className="px-1.5 py-0.5 rounded-md text-xs font-medium whitespace-nowrap border bg-[var(--mm-panel-alt)] text-[var(--mm-ink-soft)] border-[var(--mm-rule)] t-num"
+                        title={`참석율 · ${attendance.perPlayer[p.id].rounds}/${attendance.totalRounds} 라운드`}
+                      >
+                        참석 {attendance.perPlayer[p.id].rate}%
+                        <span className="ml-1 text-[var(--mm-muted)]">
+                          ({attendance.perPlayer[p.id].rounds}R)
+                        </span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 리더 뱃지 요약 (경기일 부문별 1등 카운트) */}
+                  {leaderBadges[p.id] && (
+                    <LeaderBadgeInline badges={leaderBadges[p.id]} className="mb-2" />
+                  )}
+
+                  {/* 분기별 팀 배정 — 팀명을 버튼(chip) 형태로 */}
+                  {displayQuarters.length > 0 && (
+                    <div className="border-t border-[var(--mm-rule)] pt-2 mt-1 space-y-1.5">
+                      {displayQuarters.map(q => {
+                        const cellKey = `${q.id}:${p.id}`
+                        const isSaving = savingCell === cellKey
+                        const isEditingCell = editingCell?.quarterId === q.id && editingCell?.playerId === p.id
+                        const label = getCellLabel(q.id, p.id)
+                        const teamId = getCellTeamId(q.id, p.id)
+                        const teamColor = getCellTeamColor(q.id, p.id)
+                        const isRegular = getCellIsRegular(q.id, p.id)
+                        const isPlayerLeader = isLeader(q.id, teamId, p.id)
+                        // 읽기 모드의 팀 칩은 눌러도 아무 일이 없다 — button 이면 탭 포커스만 낭비한다
+                        const ChipTag = isEditMode ? 'button' : 'span'
+                        return (
+                          <div key={q.id} className="flex items-center gap-2">
+                            <span
+                              className="t-num text-xs lg:text-sm font-medium shrink-0 whitespace-nowrap"
+                              style={{ color: q.is_current ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
+                            >
+                              {String(q.year).slice(2)}.{q.quarter}Q
+                            </span>
+                            {isSaving ? (
+                              <Loader2 size={14} className="animate-spin text-[var(--mm-muted)] ml-auto" />
+                            ) : isEditingCell && isEditMode ? (
+                              /* 인라인 chip 팝오버 — 팀 선택 */
+                              <div
+                                className="flex flex-wrap items-center gap-1 ml-auto"
+                                onClick={e => e.stopPropagation()}
+                              >
+                                <button
+                                  onClick={() => updateMembership(q.id, p.id, null, false)}
+                                  className={`text-xs font-medium whitespace-nowrap px-2 min-h-11 rounded-md border transition-colors duration-200 cursor-pointer ${
+                                    isRegular === false
+                                      ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] text-[var(--mm-panel)]'
+                                      : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-muted)] hover:border-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)]'
+                                  }`}
+                                >
+                                  비정규
+                                </button>
+                                {teams.map(t => {
+                                  const ov = teamOverrides[q.id]?.[t.id]
+                                  const displayName = ov?.name ?? t.name
+                                  const displayColor = ov?.color ?? t.color
+                                  const active = isRegular && teamId === t.id
+                                  return (
+                                    <button
+                                      key={t.id}
+                                      onClick={() => updateMembership(q.id, p.id, t.id, true)}
+                                      className={`flex items-center gap-1 text-xs font-medium whitespace-nowrap px-2 min-h-11 rounded-md border transition-colors duration-200 cursor-pointer ${
+                                        active
+                                          ? 'text-[var(--mm-ink)]'
+                                          : 'border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:border-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)]'
+                                      }`}
+                                      style={active ? { backgroundColor: `${displayColor}20`, borderColor: displayColor } : undefined}
+                                    >
+                                      <span className="inline-block w-2 h-2 rounded-full shrink-0 ring-1 ring-[color:var(--mm-rule)]" style={{ backgroundColor: displayColor }} />
+                                      {displayName}
+                                    </button>
+                                  )
+                                })}
+                                <button
+                                  onClick={() => setEditingCell(null)}
+                                  className="text-[var(--mm-muted)] hover:text-[var(--mm-ink)] p-0.5 cursor-pointer"
+                                  title="닫기"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 ml-auto">
+                                {isRegular && teamId && (
+                                  <>
+                                    {isEditMode ? (
+                                      <button
+                                        onClick={e => { e.stopPropagation(); toggleLeader(q.id, teamId, p.id) }}
+                                        aria-label={isPlayerLeader ? '리더 해제' : '리더 지정'}
+                                        className="size-11 -my-2 inline-flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                                        style={{ color: isPlayerLeader ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
+                                      ><Crown size={14} /></button>
+                                    ) : isPlayerLeader ? (
+                                      <Crown size={14} style={{ color: 'var(--mm-ink)' }} />
+                                    ) : null}
+                                  </>
+                                )}
+                                <ChipTag
+                                  onClick={isEditMode ? (e: React.MouseEvent) => { e.stopPropagation(); setEditingCell({ playerId: p.id, quarterId: q.id }) } : undefined}
+                                  className={`inline-flex items-center gap-1.5 text-xs lg:text-sm font-medium whitespace-nowrap px-2.5 py-1 rounded-md border transition-colors duration-200 ${
+                                    label === '—' ? 'border-[var(--mm-rule)] text-[var(--mm-muted)]' :
+                                    label === '비정규' ? 'border-[var(--mm-rule)] text-[var(--mm-muted)]' :
+                                    'border-[var(--mm-rule)] text-[var(--mm-ink)]'
+                                  } ${isEditMode ? 'min-h-11 cursor-pointer hover:border-[var(--mm-ink-soft)]' : 'cursor-default'}`}
+                                  style={label !== '—' && label !== '비정규' && teamColor && !isEditMode ? { borderColor: `${teamColor}70` } : undefined}
+                                >
+                                  {label !== '—' && label !== '비정규' && teamColor
+                                    ? <span className="inline-block w-2 h-2 rounded-full shrink-0 ring-1 ring-[color:var(--mm-rule)]" style={{ backgroundColor: teamColor }} />
+                                    : null}
+                                  <span>{label}</span>
+                                </ChipTag>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* 카드 클릭 힌트 */}
+                  {/* 이모지·글리프 화살표 대신 lucide 아이콘 (CLAUDE.md 아이콘 규칙) */}
+                  <p className="mt-2 pt-2 border-t border-[var(--mm-rule)] t-label font-medium flex items-center gap-1 group-hover:text-[var(--mm-ink)] transition-colors duration-200">
+                    카드 열기
+                    <ArrowRight size={14} aria-hidden />
+                  </p>
+                  </div>{/* flex-1 end */}
+                </div>
+              </div>
+            )
+  }
+
+  return (
+    <div className="space-y-4 lg:space-y-5">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3 className="font-black text-[22px] leading-none text-[var(--mm-ink)] tracking-tight">선수 명단 편집</h3>
+          <p className="text-[var(--mm-muted)] text-sm lg:text-base mt-1 font-medium">{players.length}명 등록</p>
+        </div>
+        {isEditMode ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={downloadTemplate}
+              className="flex items-center gap-1.5 text-sm px-3 min-h-11 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors duration-200 cursor-pointer font-medium whitespace-nowrap"
+              title="엑셀 템플릿 다운로드"
+            >
+              <Download size={14} />템플릿
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={bulkUploading}
+              className="flex items-center gap-1.5 text-sm px-3 min-h-11 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] transition-colors duration-200 cursor-pointer disabled:opacity-40 font-medium whitespace-nowrap"
+              title="엑셀 파일로 대량 등록"
+            >
+              {bulkUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}대량 등록
+            </button>
+            <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleBulkUpload} />
+            <button
+              onClick={() => setShowForm(v => !v)}
+              className="inline-flex items-center gap-1 px-3 min-h-11 rounded-md text-sm font-black whitespace-nowrap bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 transition-colors duration-200 cursor-pointer"
+            >
+              <Plus size={14} className="mr-0.5" />선수 추가
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {/* 회원 가입율 — 게스트 제외 등록 회원 중 로그인 계정 승인 비율 */}
+      <SignupRateCard leagueId={leagueId} leagueHeaders={leagueHeaders} isEditMode={isEditMode} />
+
+      {/* 선수 추가 폼 */}
+      {showForm && isEditMode && (
+        <div className="bg-[var(--mm-panel)] border border-[var(--mm-rule)] rounded-md p-4 space-y-3" style={{ borderLeftWidth: '3px', borderLeftColor: 'var(--mm-yellow-soft)' }}>
+          <h3 className="font-black text-[20px] text-[var(--mm-ink)] tracking-tight">새 선수 추가</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              placeholder="이름 *"
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && addPlayer()}
+              className="bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink)]"
+            />
+            <BirthDateInput
+              value={form.birth_date}
+              onChange={v => setForm(f => ({ ...f, birth_date: v }))}
+            />
+          </div>
+          <div>
+            <p className="t-label font-medium mb-2">포지션 (복수 선택 가능)</p>
+            <div className="flex flex-wrap gap-2">
+              {POSITIONS.map(pos => (
+                <button
+                  key={pos}
+                  type="button"
+                  onClick={() => togglePosition(pos, form.position, v => setForm(f => ({ ...f, position: v })))}
+                  className={`px-3 min-h-11 rounded-md text-sm font-medium whitespace-nowrap border transition-colors duration-200 cursor-pointer ${
+                    form.position.includes(pos)
+                      ? 'bg-[var(--mm-ink)] border-[var(--mm-ink)] text-[var(--mm-panel)]'
+                      : 'bg-[var(--mm-panel-alt)] border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:border-[var(--mm-ink-soft)]'
+                  }`}
+                >
+                  {pos}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={addPlayer}
+              disabled={saving}
+              className="inline-flex items-center gap-1 px-3 min-h-11 rounded-md text-sm font-black whitespace-nowrap bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin mr-1" /> : null}추가
+            </button>
+            <button
+              onClick={() => setShowForm(false)}
+              className="inline-flex items-center gap-1 px-3 min-h-11 rounded-md text-sm font-medium whitespace-nowrap border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] transition-colors duration-200 cursor-pointer"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 수정 2: 정렬/필터 컨트롤 */}
+      {!loading && players.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 lg:gap-4">
+          {/* 정렬 */}
+          <div className="flex items-center gap-1.5 lg:gap-2">
+            <span className="t-label font-medium whitespace-nowrap">정렬</span>
+            <div className="flex gap-1">
+              {([
+                { key: 'name', label: '이름' },
+                { key: 'attendance_desc', label: '참석율↓' },
+              ] as { key: SortKey; label: string }[]).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setSortKey(key)}
+                  className={`px-2.5 lg:px-3 min-h-11 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-200 cursor-pointer ${
+                    sortKey === key
+                      ? 'bg-[var(--mm-ink)] text-[var(--mm-panel)] border border-[var(--mm-ink)]'
+                      : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 포지션 필터 */}
+          <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
+            <span className="t-label font-medium whitespace-nowrap">포지션</span>
+            <div className="flex flex-wrap gap-1">
+              {POSITION_FILTER_OPTIONS.map(pos => (
+                <button
+                  key={pos}
+                  onClick={() => setFilterPosition(pos)}
+                  className={`px-2.5 lg:px-3 min-h-11 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-200 cursor-pointer ${
+                    filterPosition === pos
+                      ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--color-hoop-orange-500)]'
+                      : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
+                  }`}
+                >
+                  {pos}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 옛 '게스트 숨김' 토글은 제거했다 — 아래 접이식 섹션이 표시/숨김을 겸한다. */}
+
+          {/* 인증회원만 보기 토글 — has_account(로그인 계정 등록·승인) 인 회원만 노출 */}
+          {verifiedCount > 0 && (
+            <div className="flex items-center gap-1.5 lg:gap-2 flex-wrap">
+              <span className="t-label font-medium whitespace-nowrap">인증</span>
+              <button
+                onClick={() => setOnlyVerified(v => !v)}
+                aria-pressed={onlyVerified}
+                className={`px-2.5 lg:px-3 min-h-11 rounded-md text-sm font-medium whitespace-nowrap transition-colors duration-200 cursor-pointer flex items-center gap-1.5 ${
+                  onlyVerified
+                    ? 'bg-[var(--mm-panel)] text-[var(--mm-ink)] border border-[color:var(--color-hoop-orange-500)]'
+                    : 'bg-[var(--mm-panel)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] border border-[var(--mm-rule)]'
+                }`}
+                title="로그인 계정을 등록·인증한 회원만 표시"
+              >
+                <ShieldCheck
+                  size={14}
+                  aria-hidden
+                  className="shrink-0"
+                  style={{ color: onlyVerified ? 'var(--color-hoop-orange-500)' : 'var(--mm-muted)' }}
+                />
+                <span>{onlyVerified ? '인증회원만' : '전체'}</span>
+                <span
+                  className="text-xs"
+                  style={{ color: onlyVerified ? 'var(--mm-ink)' : 'var(--mm-muted)' }}
+                >({verifiedCount})</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 선수 카드 그리드 */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <BasketballLoader size={24} />
+        </div>
+      ) : players.length === 0 ? (
+        <EmptyState
+          Icon={Users}
+          title="등록된 선수가 없습니다"
+          description="리그에 선수를 등록하면 명단·스탯·리더보드에 자동 반영됩니다."
+          isEditMode={isEditMode}
+          editorHint="위의 '선수 추가' 버튼 또는 CSV 업로드로 시작하세요"
+        />
+      ) : filteredAndSortedPlayers.length === 0 ? (
+        <EmptyState
+          Icon={Users}
+          title="조건에 맞는 선수가 없습니다"
+          description="포지션 · 정렬 필터를 조절하거나 초기화해 보세요."
+          size="sm"
+        >
+          <button
+            onClick={() => { setFilterPosition('ALL'); setSortKey('name'); setOnlyVerified(false) }}
+            className="text-sm font-medium whitespace-nowrap text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] cursor-pointer transition-colors duration-200 underline underline-offset-4 decoration-[var(--mm-ink-soft)]"
+          >
+            필터 초기화
+          </button>
+        </EmptyState>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5 lg:gap-3">
+            {memberPlayers.map(renderPlayerCard)}
+          </div>
+
+          {/* 게스트 — 기본 접힘. 지우는 게 아니라 접는 것이다(운영진이 기록을 확인해야 한다).
+              펼침 상태는 localStorage 로 유지해 매번 다시 펴지 않게 한다. */}
+          {guestPlayers.length > 0 && (
+            <details
+              className="mt-3"
+              open={guestsOpen}
+              onToggle={e => setGuestsOpen((e.currentTarget as HTMLDetailsElement).open)}
+            >
+              <summary
+                className="flex items-center gap-2 min-h-[44px] px-3 cursor-pointer list-none select-none"
+                style={{ background: 'var(--mm-panel)', border: '1px solid var(--mm-rule)', borderRadius: 'var(--mm-radius-ctl)' }}
+              >
+                <ChevronDown
+                  size={16}
+                  aria-hidden
+                  className="shrink-0"
+                  style={{
+                    color: 'var(--mm-muted)',
+                    transform: guestsOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                    transition: 'transform var(--mm-motion-fast) var(--mm-ease-out)',
+                  }}
+                />
+                <span className="text-sm font-bold" style={{ color: 'var(--mm-ink)' }}>게스트</span>
+                <span className="text-sm font-black t-num" style={{ color: 'var(--mm-muted)' }}>
+                  {guestPlayers.length}명
+                </span>
+                <span className="ml-auto text-xs" style={{ color: 'var(--mm-muted)' }}>
+                  {guestsOpen ? '접기' : '펼치기'}
+                </span>
+              </summary>
+              <div className="mt-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5 lg:gap-3">
+                  {guestPlayers.map(renderPlayerCard)}
+                </div>
+              </div>
+            </details>
+          )}
+        </>
+      )}
+
+      {/* 분기 관리 */}
+      {isEditMode && (
+        <SectionCard variant="standalone" pad="base" className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-black text-[20px] text-[var(--mm-ink)] tracking-tight">분기 관리</h3>
+            <button
+              onClick={() => setShowQForm(v => !v)}
+              className="flex items-center gap-1.5 text-sm px-3.5 min-h-11 rounded-md border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] cursor-pointer transition-colors duration-200 font-bold"
+            >
+              <Plus size={16} />지난 분기 직접 추가
+            </button>
+          </div>
+          {quarters.length === 0 && !showQForm && (
+            <p className="text-xs text-[var(--mm-muted)]">아직 등록된 분기가 없습니다. 분기를 추가해 팀 구성을 관리하세요.</p>
+          )}
+          {quarters.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {quarters.map(q => (
+                <span
+                  key={q.id}
+                  className={`t-num text-sm px-2.5 min-h-11 inline-flex items-center rounded-md border font-medium whitespace-nowrap ${
+                    q.is_current
+                      ? 'border-[var(--mm-ink)] bg-[var(--mm-ink)] text-[var(--mm-panel)]'
+                      : 'border-[var(--mm-rule)] text-[var(--mm-ink-soft)]'
+                  }`}
+                >
+                  {String(q.year).slice(2)}.{q.quarter}Q{q.is_current ? ' ●' : ''}
+                </span>
+              ))}
+            </div>
+          )}
+          {/* 이전 분기 소속 이어받기 —
+              새 분기는 소속 0명에서 시작한다(승계 로직이 없다). 그러면 기록 화면의
+              「선발 선수 선택」이 통째로 비어 보이는데 에러가 없어서 원인이 안 드러난다.
+              26.3Q 가 실제로 소속 4명인 채로 분기 절반을 보냈다(2026-09-18). */}
+          {inheritQuarters.length >= 2 && (
+            <div className="pt-1 space-y-2" style={{ borderTop: '1px dashed var(--mm-rule)' }}>
+              <p className="text-base text-[var(--mm-ink-soft)] leading-relaxed break-keep pt-2">
+                <strong className="text-[var(--mm-ink)]">이전 분기 소속 이어받기</strong> — 비어 있는 칸만 채웁니다.
+                이미 팀이 정해진 선수는 그대로 둡니다. 드래프트로 나중에 덮어쓸 수 있습니다.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <label htmlFor="inherit-q" className="sr-only">이어받을 분기</label>
+                <select
+                  id="inherit-q"
+                  value={inheritTargetId}
+                  onChange={e => { setInheritTargetId(e.target.value); setInheritPreview(null) }}
+                  className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 min-h-11 text-base cursor-pointer transition-colors duration-200"
+                >
+                  {inheritQuarters.map((q, i) => (
+                    <option key={q.id} value={q.id} disabled={i === 0}>
+                      {String(q.year).slice(2)}.{q.quarter}Q{q.is_current ? ' ●' : ''}{i === 0 ? ' (앞 분기 없음)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => inheritTargetId && runInherit(inheritTargetId, true)}
+                  disabled={inheriting || !inheritTargetId}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 min-h-11 rounded-md text-base font-bold border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] hover:border-[var(--mm-ink-soft)] disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+                >
+                  {inheriting && !inheritPreview ? <Loader2 size={16} className="animate-spin" /> : <Users size={16} />}
+                  미리보기
+                </button>
+              </div>
+
+              {inheritPreview && (
+                <div className="p-3 rounded-md border border-[var(--mm-rule)] bg-[var(--mm-panel-alt)] space-y-2">
+                  <p className="text-base text-[var(--mm-ink)] leading-relaxed break-keep">
+                    {inheritPreview.source.label} → {inheritPreview.target.label} ·{' '}
+                    <strong>{inheritPreview.candidates}명</strong>을 채웁니다
+                    {inheritPreview.skipped_existing > 0 && (
+                      <span className="text-[var(--mm-muted)]"> (이미 정해진 {inheritPreview.skipped_existing}명은 그대로)</span>
+                    )}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => runInherit(inheritPreview.target.quarter_id, false)}
+                      disabled={inheriting || inheritPreview.candidates === 0}
+                      className="inline-flex items-center justify-center gap-1 px-4 min-h-11 rounded-md text-base font-black bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+                    >
+                      {inheriting ? <Loader2 size={16} className="animate-spin" /> : '실행'}
+                    </button>
+                    <button
+                      onClick={() => setInheritPreview(null)}
+                      className="inline-flex items-center justify-center px-4 min-h-11 rounded-md text-base font-bold border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] transition-colors duration-200 cursor-pointer"
+                    >취소</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {showQForm && (
+            <div className="space-y-2 pt-1">
+              <p className="text-base text-[var(--mm-ink-soft)] leading-relaxed break-keep">
+                다음 분기는 드래프트 화면에서 한 번에 만들 수 있습니다. 여기는 지난 분기를 소급해 넣을 때만 쓰세요.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="q-year" className="text-sm text-[var(--mm-muted)] font-bold">연도</label>
+                  <select
+                    id="q-year"
+                    value={qYear}
+                    onChange={e => setQYear(Number(e.target.value))}
+                    className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 min-h-11 text-base cursor-pointer"
+                  >
+                    {[currentYear - 1, currentYear, currentYear + 1].map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="q-quarter" className="text-sm text-[var(--mm-muted)] font-bold">분기</label>
+                  <select
+                    id="q-quarter"
+                    value={qQuarter}
+                    onChange={e => setQQuarter(Number(e.target.value))}
+                    className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 min-h-11 text-base cursor-pointer"
+                  >
+                    {[1, 2, 3, 4].map(q => <option key={q} value={q}>{q}Q</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="q-start" className="text-sm text-[var(--mm-muted)] font-bold">시작일</label>
+                  <input id="q-start" type="date" value={qStart} onChange={e => setQStart(e.target.value)}
+                    className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 min-h-11 text-base cursor-pointer" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="q-end" className="text-sm text-[var(--mm-muted)] font-bold">종료일</label>
+                  <input id="q-end" type="date" value={qEnd} onChange={e => setQEnd(e.target.value)}
+                    className="bg-[var(--mm-panel-alt)] border border-[var(--mm-rule)] text-[var(--mm-ink)] rounded-md px-3 min-h-11 text-base cursor-pointer" />
+                </div>
+              </div>
+              <p className="text-sm text-[var(--mm-muted)] leading-relaxed break-keep">분기를 고르면 기간이 자동으로 채워집니다 (3분기 = 7~9월, 4분기 = 10~12월). 필요하면 직접 고치세요.</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={createQuarter}
+                  disabled={savingQ}
+                  className="inline-flex items-center justify-center gap-1 px-4 min-h-11 rounded-md text-base font-black bg-[var(--mm-ink)] text-[var(--mm-panel)] hover:brightness-95 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+                >
+                  {savingQ ? <Loader2 size={16} className="animate-spin" /> : '생성'}
+                </button>
+                <button
+                  onClick={() => setShowQForm(false)}
+                  className="inline-flex items-center justify-center gap-1 px-4 min-h-11 rounded-md text-base font-bold border border-[var(--mm-rule)] text-[var(--mm-ink-soft)] hover:text-[var(--mm-ink)] transition-colors duration-200 cursor-pointer"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          )}
+        </SectionCard>
+      )}
+
+      {/* 수정 3: 선수 상세 모달 */}
+      {selectedPlayer && (
+        <PlayerQuickViewModal
+          leagueId={leagueId}
+          playerId={selectedPlayer.id}
+          playerName={selectedPlayer.name}
+          isEditMode={isEditMode}
+          leagueHeaders={leagueHeaders}
+          onSaved={() => load()}
+          onDeleted={() => { setSelectedPlayer(null); load() }}
+          onClose={() => setSelectedPlayer(null)}
+        />
+      )}
+
+    </div>
+  )
+}

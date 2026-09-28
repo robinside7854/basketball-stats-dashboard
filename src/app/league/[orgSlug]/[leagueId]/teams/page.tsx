@@ -3,13 +3,15 @@ import LeagueGroupTabs from '@/components/league/LeagueGroupTabs'
 import { getStatsGroupTabs } from '@/components/league/statsTabs'
 import { QuarterChips } from '@/components/league/QuarterChips'
 import { useLeagueQuarter, quarterStorageKey } from '@/contexts/LeagueQuarterContext'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
-import { useParams } from 'next/navigation'
-import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X, Users } from 'lucide-react'
+import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
+import { Crown, ChevronUp, ChevronDown, ChevronsUpDown, X, Users, Pencil } from 'lucide-react'
+import { useLeagueEditMode } from '@/contexts/LeagueEditModeContext'
+import RosterEditor from './_components/RosterEditor'
+import type { Team } from './_types'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
-import Link from 'next/link'
 import TeamInsights from '@/components/league/TeamInsights'
 import SectionCard from '@/components/league/ui/SectionCard'
 import { textOnBg, accentOrInk } from '@/lib/util/contrastColor'
@@ -19,7 +21,6 @@ import StatHeader from '@/components/league/StatHeader'
 import StatsReadingGuide from '@/components/league/stats/StatsReadingGuide'
 import type { Quarter, PlayerStat, Leader } from '@/types/league'
 
-type Team = { id: string; name: string; color: string }
 type Game = {
   id: string
   home_team_id: string | null
@@ -818,9 +819,24 @@ function TeamDetailPanel({
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────
-export default function LeagueTeamsPage() {
+function LeagueTeamsPageInner() {
   const params = useParams<{ orgSlug: string; leagueId: string }>()
   const { orgSlug, leagueId } = params
+
+  // 명단 편집(옛 /roster 운영자 화면) — URL ?edit=1 이 단일 진실이라 새로고침·/roster 리다이렉트가 그대로 이어진다.
+  // 운영자가 아니면 ?edit=1 이 있어도 무시한다(토글도 안 보인다).
+  const { isEditMode } = useLeagueEditMode()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const editing = isEditMode && searchParams.get('edit') === '1'
+  function toggleEditing() {
+    const qs = new URLSearchParams(searchParams.toString())
+    if (editing) qs.delete('edit')
+    else qs.set('edit', '1')
+    const q = qs.toString()
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
+  }
 
   const [quarters, setQuarters] = useState<Quarter[]>([])
   // 분기 선택은 리더보드·어워즈와 공유한다(페이지 이동 시 같은 분기 유지). 이름은 기존 참조를 살리려 그대로 둔다.
@@ -1158,15 +1174,33 @@ export default function LeagueTeamsPage() {
   })
   const scopeSuffix = selectedQId === 'all' ? ' (현재 분기)' : ''
 
-  const rosterHref = `/league/${orgSlug}/${leagueId}/roster`
   const base = `/league/${orgSlug}/${leagueId}`
 
   if (loading) return <div className="flex justify-center py-12"><BasketballLoader size={24} /></div>
 
+  const editToggle = isEditMode && (
+    <button
+      type="button"
+      onClick={toggleEditing}
+      aria-pressed={editing}
+      className="inline-flex items-center gap-1.5 px-3 min-h-11 min-w-11 rounded-md text-sm font-bold whitespace-nowrap border cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
+      style={editing
+        ? { background: 'var(--mm-ink)', color: 'var(--mm-panel)', borderColor: 'var(--mm-ink)' }
+        : { background: 'var(--mm-panel)', color: 'var(--mm-ink-soft)', borderColor: 'var(--mm-rule)' }}
+    >
+      <Pencil size={16} aria-hidden />
+      {editing ? '편집 닫기' : '명단 편집'}
+    </button>
+  )
+
+  // 분기가 하나도 없으면 순위를 그릴 수 없다. 분기 추가는 명단 편집의 「분기 관리」에서 한다(옛 /roster 링크 대체).
   if (quarters.length === 0) return (
-    <div className="mm-brand text-center py-16" style={{ color: 'var(--mm-muted)' }}>
-      <p className="text-sm">등록된 분기가 없습니다</p>
-      <Link href={rosterHref} className="inline-block mt-3 text-xs font-bold tracking-wider hover:underline" style={{ color: 'var(--mm-ink-soft)' }}>→ 선수단 탭으로 이동</Link>
+    <div className="mm-brand space-y-4">
+      <div className="text-center py-16" style={{ color: 'var(--mm-muted)' }}>
+        <p className="text-sm">등록된 분기가 없습니다</p>
+        {editToggle && <div className="mt-3 flex justify-center">{editToggle}</div>}
+      </div>
+      {editing && <RosterEditor leagueId={leagueId} quarterId={selectedQId} teams={teams} quarters={quarters} />}
     </div>
   )
 
@@ -1178,7 +1212,10 @@ export default function LeagueTeamsPage() {
       <LeagueGroupTabs tabs={getStatsGroupTabs(base, 'teams')} />
       {/* ── 분기 버튼 탭 ── */}
       <div>
-        <h2 className="font-black mb-4" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀 순위</h2>
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+          <h2 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '32px', letterSpacing: '-0.005em' }}>팀 순위</h2>
+          {editToggle}
+        </div>
         <QuarterChips
           quarters={quarters.map(q => ({ id: q.id, label: `${String(q.year).slice(2)}.${q.quarter}Q`, isCurrent: q.is_current }))}
           value={selectedQId}
@@ -1316,6 +1353,8 @@ export default function LeagueTeamsPage() {
           })()}
         </div>
 
+        {/* 명단 편집 중에는 팀별 선수 이하(섹션 2~4)를 편집 화면(아래 RosterEditor)이 대신한다 */}
+        {!editing && (<>
         {/* ── 섹션 2: 팀별 선수 ── */}
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1580,8 +1619,20 @@ export default function LeagueTeamsPage() {
             )}
           </div>
         )}
+        </>)}
         </>
       )}
+      {/* dataLoading 분기 밖에 둔다 — 분기 칩을 바꿀 때 편집 중인 폼·펼침 상태가 날아가지 않게 */}
+      {editing && <RosterEditor leagueId={leagueId} quarterId={selectedQId} teams={teams} quarters={quarters} />}
     </div>
+  )
+}
+
+// useSearchParams 는 Suspense 경계 내에서 호출해야 하므로 default export 에서 감싼다(stats 페이지와 같은 패턴).
+export default function LeagueTeamsPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-12"><BasketballLoader size={24} /></div>}>
+      <LeagueTeamsPageInner />
+    </Suspense>
   )
 }
