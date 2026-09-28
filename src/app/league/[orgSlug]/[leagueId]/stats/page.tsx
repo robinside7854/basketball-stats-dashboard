@@ -143,7 +143,7 @@ function ShotMixBar({ p, width, height = 12 }: { p: PlayerStat; width?: number; 
 // (auth/PersonalDashboard.tsx rankStyle 동일 팔레트 · 도미노 확장 통일 · 옐로우 실색상 1곳 원칙 준수)
 // border: 라이트 모드에서 rank-*-bg 가 흰 행 대비 1.13~1.18 로 옅어 배지 형태가 거의 안 보이는 문제
 // (2026-08-07 리뷰) → -fg 색의 얇은 테두리로 형태를 살린다. 텍스트 대비엔 영향 없음(색값 무변경).
-// 흐리게(opacity) 만으로는 색·명도에 기대는 신호라, 「자격 미달」을 글자로 함께 붙인다.
+// 미달 행은 흐리게 하지 않는다(대비가 4.5:1 아래로 떨어짐) — 「자격 미달」 글자 + 왼쪽 강조 막대 없음으로 구분.
 function IneligibleTag() {
   return <span className="ml-1 text-xs font-bold whitespace-nowrap" style={{ color: 'var(--mm-muted)' }}>· 자격 미달</span>
 }
@@ -767,8 +767,8 @@ function LeagueStatsPageInner() {
                   <div key={p.player_id} role="button" tabIndex={0}
                     onClick={openPlayer}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPlayer() } }}
-                    className={`w-full text-left px-4 py-3 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1 ${isIneligible(p) ? 'opacity-60' : ''}`}
-                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
+                    className={`w-full text-left px-4 py-3 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1`}
+                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${isIneligible(p) ? 'transparent' : rt.accent}` }}>
                     <div className="flex items-center gap-3 mb-2">
                       <span className="t-num text-xs font-black w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
                         style={{ color: rt.color, background: rt.bg, border: rt.border }}>{i + 1}</span>
@@ -830,7 +830,7 @@ function LeagueStatsPageInner() {
                 <tbody>
                   {visibleBasic.map((p, i) => (
                     <tr key={p.player_id}
-                      className={`transition-colors ${isIneligible(p) ? 'opacity-60' : ''}`}
+                      className={`transition-colors`}
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
@@ -966,8 +966,8 @@ function LeagueStatsPageInner() {
                 const rt = rankTier(i + 1)
                 return (
                   <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                    className={`w-full text-left px-4 py-3 transition-colors ${isIneligible(p) ? 'opacity-60' : ''}`}
-                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
+                    className={`w-full text-left px-4 py-3 transition-colors`}
+                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${isIneligible(p) ? 'transparent' : rt.accent}` }}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="t-num text-xs font-black w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
                         style={{ color: rt.color, background: rt.bg, border: rt.border }}>{i+1}</span>
@@ -1026,7 +1026,7 @@ function LeagueStatsPageInner() {
                 <tbody>
                   {visibleShoot.map(({ p, sh }, i) => (
                     <tr key={p.player_id}
-                      className={`transition-colors ${isIneligible(p) ? 'opacity-60' : ''}`}
+                      className={`transition-colors`}
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
@@ -1090,8 +1090,8 @@ function LeagueStatsPageInner() {
                 const rt = rankTier(i + 1)
                 return (
                   <button key={p.player_id} onClick={() => setQuickViewPlayer({ id: p.player_id, name: p.name })}
-                    className={`w-full text-left px-4 py-3 transition-colors ${isIneligible(p) ? 'opacity-60' : ''}`}
-                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${rt.accent}` }}>
+                    className={`w-full text-left px-4 py-3 transition-colors`}
+                    style={{ borderTop: i === 0 ? 'none' : '1px solid var(--mm-rule)', borderLeft: `3px solid ${isIneligible(p) ? 'transparent' : rt.accent}` }}>
                     <div className="flex items-center gap-2 mb-2">
                       <span className="t-num text-xs font-black w-6 h-6 shrink-0 inline-flex items-center justify-center rounded-full"
                         style={{ color: rt.color, background: rt.bg, border: rt.border }}>{i+1}</span>
@@ -1143,7 +1143,7 @@ function LeagueStatsPageInner() {
                 <tbody>
                   {visibleAdv.map(({ p, adv }, i) => (
                     <tr key={p.player_id}
-                      className={`transition-colors ${isIneligible(p) ? 'opacity-60' : ''}`}
+                      className={`transition-colors`}
                       style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                       <td className="py-2 pl-2 pr-1 text-right">
                         <span className="t-num text-base font-bold inline-flex items-center justify-center rounded-full size-7"
