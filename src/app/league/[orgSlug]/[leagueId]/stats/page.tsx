@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo, Suspense } from 'react'
 import dynamic from 'next/dynamic'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Trophy, TrendingUp, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { BasketballLoader } from '@/components/league/BasketballIcons'
 import TopFiveSlot, { type TopFivePlayer } from '@/components/league/stats/TopFiveSlot'
@@ -166,7 +166,20 @@ function LeagueStatsPageInner() {
   const [gated, setGated] = useState(false)  // 401 — 회원 전용
   const [sortKey, setSortKey] = useState<SortKey>('ppg')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
-  const [statMode, setStatMode] = useState<StatMode>(() => searchParams.get('mode') === 'awards' ? 'awards' : 'basic')
+  const router = useRouter()
+  const pathname = usePathname()
+  // 어워즈 모드는 URL(?mode=awards)이 단일 진실 — 새로고침·뒤로가기·공유 링크·같은 페이지 내 링크가 모두 맞게 보인다.
+  // 표 모드(basic/shooting/advanced)는 기존처럼 로컬 상태로 둔다.
+  const [tableMode, setTableMode] = useState<Exclude<StatMode, 'awards'>>('basic')
+  const statMode: StatMode = searchParams.get('mode') === 'awards' ? 'awards' : tableMode
+  const isAwards = statMode === 'awards'
+  function setStatMode(k: StatMode) {
+    const qs = new URLSearchParams(searchParams.toString())
+    if (k === 'awards') qs.set('mode', 'awards')
+    else { qs.delete('mode'); setTableMode(k) }
+    const q = qs.toString()
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false })
+  }
   const [advSortKey, setAdvSortKey] = useState<AdvKey>('at_ratio')
   const [advSortDir, setAdvSortDir] = useState<'asc'|'desc'>('desc')
   const [shootSortKey, setShootSortKey] = useState<ShootingKey>('ts_pct')
@@ -235,13 +248,14 @@ function LeagueStatsPageInner() {
   // highsLoading 은 메인 스탯(loading)과 별개 — 기록실 보드는 표 로딩 게이트 바깥에서 항상
   // 렌더되므로(8칸 자리를 미리 잡아 레이아웃이 튀지 않게), 자체 로딩 상태로 스켈레톤을 보여준다.
   useEffect(() => {
+    if (isAwards) return  // 어워즈 모드엔 기록실이 없다 — 표 모드로 돌아올 때 조회
     setHighsLoading(true)
     const qs = selectedQuarterId !== 'all' ? `?quarterId=${selectedQuarterId}` : ''
     fetch(`/api/leagues/${leagueId}/season-highs${qs}`)
       .then(r => r.ok ? r.json() : { categoryHighs: [] })
       .then(d => { setCategoryHighs(d.categoryHighs ?? []); setHighsLoading(false) })
       .catch(() => { setCategoryHighs([]); setHighsLoading(false) })
-  }, [leagueId, selectedQuarterId])
+  }, [leagueId, selectedQuarterId, isAwards])
 
   // 정렬 지표·정렬 방향·스탯 모드·평균/누적·분기를 바꾸면 늘려둔 노출 수를 초기값으로 되돌린다.
   // 안 되돌리면 "PPG 로 30명까지 펼쳐 둔 상태" 가 3P% 정렬에 그대로 남아, 보려던 상위권이 아니라

@@ -159,6 +159,7 @@ export default function AwardsBoard({ leagueId, quarterId }: { leagueId: string;
     fetch(url)
       .then(r => {
         // 401 은 stats 페이지가 같은 canViewStats 가드의 stats API 로 이미 전체 StatGate 를 띄운다 — 여기서 또 게이트하면 이중 표시.
+        if (stale) return null
         if (r.status === 401) { setLoading(false); return null }
         return r.json()
       })
