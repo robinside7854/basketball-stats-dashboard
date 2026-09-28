@@ -340,7 +340,7 @@ function StatsTable({
                 style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="t-num font-bold w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
-                  {isLeader && <Crown size={14} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
+                  {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
@@ -384,7 +384,7 @@ function StatsTable({
                 style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="t-num font-bold w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
-                  {isLeader && <Crown size={14} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
+                  {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
@@ -428,7 +428,7 @@ function StatsTable({
                 style={{ borderBottom: '1px solid var(--mm-rule)' }}>
                 <div className="flex items-center gap-2 mb-1.5">
                   <span className="t-num font-bold w-5 shrink-0" style={{ color: 'var(--mm-muted)', fontSize: '18px' }}>{i + 1}</span>
-                  {isLeader && <Crown size={14} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
+                  {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-base break-keep" style={{ color: 'var(--mm-ink)', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: 1.2 }}>
                       {p.name}
@@ -520,7 +520,7 @@ function StatsTable({
                   <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
                       className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
-                      {isLeader && <Crown size={14} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
+                      {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
                       <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                         {p.name}
@@ -548,7 +548,7 @@ function StatsTable({
                   <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
                       className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
-                      {isLeader && <Crown size={14} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
+                      {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
                       <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                         {p.name}
@@ -577,7 +577,7 @@ function StatsTable({
                   <td className="py-2 pr-3 sticky left-0" style={{ background: 'var(--mm-panel)' }}>
                     <button onClick={() => setQuickView({ id: p.player_id, name: p.name })}
                       className="flex items-center gap-1.5 cursor-pointer transition-colors text-left hover:underline decoration-[color:var(--color-hoop-orange-500)] underline-offset-4">
-                      {isLeader && <Crown size={14} className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }} />}
+                      {isLeader && <Crown size={14} role="img" aria-label="리더" className="shrink-0" style={{ color: 'var(--mm-ink-soft)' }}><title>리더</title></Crown>}
                       <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>
                         {p.number != null && <span className="font-mono mr-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
                         {p.name}
@@ -1128,11 +1128,22 @@ export default function LeagueTeamsPage() {
     return base.filter(s => !identityPlayerIds.has(s.player_id))
   }, [allStats, currentQuarterStats, selectedQId, teamStatsApi])
   // 게스트 판정은 roster/page.tsx 와 같은 규칙(is_guest 또는 이름에 '게스트').
-  // /stats 는 is_guest=true 선수를 이미 빼고 내려주므로(leagueStats.ts guestIds) 여기서 걸리는 건
-  // 플래그 없이 이름으로만 게스트인 옛 데이터다 — 그래도 규칙은 그대로 둔다(API 가 바뀌어도 안전).
-  const isGuestStat = (p: PlayerStat) => Boolean((p as PlayerStat & { is_guest?: boolean }).is_guest) || p.name.includes('게스트')
-  const irregularStats = irregularAll.filter(p => !isGuestStat(p))
-  const guestStats = irregularAll.filter(isGuestStat)
+  const isGuest = (p: { name: string; is_guest?: boolean | null }) => Boolean(p.is_guest) || p.name.includes('게스트')
+  const irregularStats = irregularAll.filter(p => !isGuest(p))
+
+  // 게스트 목록은 스탯이 아니라 명단(/players)에서 가져온다 — /stats 는 is_guest=true 선수를
+  // 개인 순위표에서 빼고 내려주므로(leagueStats.ts guestIds) 스탯에서 고르면 늘 비어 있다.
+  // 그래서 이름·등번호만 보여준다. 탈퇴 회원 제외는 roster 와 같은 activeOnly.
+  type GuestRow = { id: string; name: string; number: number | null; is_guest?: boolean | null }
+  const [guestPlayers, setGuestPlayers] = useState<GuestRow[]>([])
+  useEffect(() => {
+    let cancelled = false
+    fetch(`/api/leagues/${leagueId}/players?activeOnly=1`)
+      .then(r => r.ok ? r.json() : [])
+      .then((rows: GuestRow[]) => { if (!cancelled && Array.isArray(rows)) setGuestPlayers(rows.filter(isGuest)) })
+      .catch(() => null)
+    return () => { cancelled = true }
+  }, [leagueId])
 
   // 게스트 접이식 — 기본 접힘, 열림 상태만 브라우저에 기억(리그별)
   const guestsOpenKey = `league:${leagueId}:teams:guestsOpen`
@@ -1534,8 +1545,8 @@ export default function LeagueTeamsPage() {
           </div>
         )}
 
-        {/* ── 섹션 4: 게스트 (기본 접힘) — 비정규에서 빼낸 게스트만 ── */}
-        {guestStats.length > 0 && (
+        {/* ── 섹션 4: 게스트 (기본 접힘) — 명단 기준 이름·등번호만. 분기와 무관한 명단이라 (현재 분기) 표기 없음 ── */}
+        {guestPlayers.length > 0 && (
           <div className="space-y-2">
             <button
               type="button"
@@ -1544,8 +1555,8 @@ export default function LeagueTeamsPage() {
               aria-controls="teams-guests-panel"
               className="w-full min-h-[44px] flex items-center gap-2 text-left cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--mm-yellow)] focus-visible:ring-offset-1"
             >
-              <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>게스트{scopeSuffix}</h3>
-              <span className="text-xs font-bold tracking-wider" style={{ color: 'var(--mm-muted)' }}>{guestStats.length}명 · {guestsOpen ? '접기' : '펼치기'}</span>
+              <h3 className="font-black" style={{ color: 'var(--mm-ink)', fontSize: '22px', letterSpacing: '-0.005em' }}>게스트</h3>
+              <span className="text-xs font-bold tracking-wider" style={{ color: 'var(--mm-muted)' }}>{guestPlayers.length}명 · {guestsOpen ? '접기' : '펼치기'}</span>
               <ChevronDown
                 size={16}
                 aria-hidden
@@ -1556,14 +1567,14 @@ export default function LeagueTeamsPage() {
             {guestsOpen && (
               <div id="teams-guests-panel">
                 <SectionCard variant="standalone" pad="none">
-                  <div className="px-4 py-3">
-                    <StatsTable
-                      players={guestStats}
-                      leagueId={leagueId}
-                      viewMode={viewMode}
-                      statMode={statMode}
-                    />
-                  </div>
+                  <ul className="px-4 py-2">
+                    {guestPlayers.map(p => (
+                      <li key={p.id} className="py-2 text-base font-bold break-keep" style={{ color: 'var(--mm-ink)', borderBottom: '1px solid var(--mm-rule)' }}>
+                        {p.name}
+                        {p.number != null && <span className="font-mono ml-1 text-xs" style={{ color: 'var(--mm-muted)' }}>#{p.number}</span>}
+                      </li>
+                    ))}
+                  </ul>
                 </SectionCard>
               </div>
             )}
