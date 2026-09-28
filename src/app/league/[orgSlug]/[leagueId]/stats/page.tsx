@@ -20,6 +20,7 @@ import { QuarterChips } from '@/components/league/QuarterChips'
 import type { Quarter, PlayerStat } from '@/types/league'
 import StatGate from '@/components/league/auth/StatGate'
 import AwardsBoard from './_components/AwardsBoard'
+import { calcUsg } from '@/lib/stats/advanced'
 
 type ViewMode = 'avg' | 'total'
 
@@ -36,7 +37,7 @@ const MIN_ROUND_RATIO = 0.3
 const INITIAL_VISIBLE = 12
 const REVEAL_STEP = 12
 type SortKey = 'ppg'|'rpg'|'orp'|'drp'|'apg'|'spg'|'bpg'|'topg'|'fg_pct'|'fg3_pct'|'ft_pct'|'efg_pct'|'gp'|'pts'|'reb'|'oreb'|'dreb'|'ast'|'stl'|'blk'|'tov'|'fgm'|'fg3m'|'ftm'|'minutes_est'
-type AdvKey = 'at_ratio'|'a1_total'|'a1_rate'|'trb_pct'
+type AdvKey = 'at_ratio'|'a1_total'|'a1_rate'|'trb_pct'|'usg_pct'
 type ShootingKey = 'fg_pct'|'fg2_pct'|'fg3_pct'|'ft_pct'|'ts_pct'|'shot_mix'
 type StatMode = 'basic'|'shooting'|'advanced'|'awards'
 
@@ -363,9 +364,11 @@ function LeagueStatsPageInner() {
     { key: 'a1_total',  label: 'A1',    desc: '성공한 앤드원(And-One) 횟수 (누적)' },
     { key: 'a1_rate',   label: 'A1%',   desc: '야투 성공 중 앤드원 비율 · A1/FGM' },
     { key: 'trb_pct',   label: 'TRB%',  desc: '본인 출전 경기에서 팀 리바운드 대비 본인 비중 · REB/팀 REB' },
+    { key: 'usg_pct',   label: 'USG%',  desc: '본인 출전 경기에서 팀 공격 점유율 · (FGA+0.44×FTA+TOV)/팀 합' },
   ]
 
-  function calcAdv(p: PlayerStat): Record<AdvKey, number> {
+  // usg_pct 만 null 가능(팀 분모 0) — 0% 로 찍으면 "공격을 안 했다"로 읽혀 거짓이 된다
+  function calcAdv(p: PlayerStat): Record<AdvKey, number | null> {
     const a1 = p.and_one ?? 0
     const teamReb = p.team_reb_in_games ?? 0
     return {
@@ -373,6 +376,7 @@ function LeagueStatsPageInner() {
       a1_total:  a1,
       a1_rate:   p.fgm > 0 ? +(a1 / p.fgm * 100).toFixed(1) : 0,
       trb_pct:   teamReb > 0 ? +(p.reb / teamReb * 100).toFixed(1) : 0,
+      usg_pct:   calcUsg(p, p.team_poss_in_games ?? 0),
     }
   }
 
@@ -392,7 +396,10 @@ function LeagueStatsPageInner() {
   const filteredAdv = [...filtered]
     .map(p => ({ p, adv: calcAdv(p) }))
     .sort((a, b) => {
-      const diff = a.adv[advSortKey] - b.adv[advSortKey]
+      // null(분모 없음)은 정렬 방향과 무관하게 맨 뒤
+      const av = a.adv[advSortKey], bv = b.adv[advSortKey]
+      if (av == null || bv == null) return av == null ? (bv == null ? 0 : 1) : -1
+      const diff = av - bv
       return advSortDir === 'desc' ? -diff : diff
     })
 
@@ -517,7 +524,9 @@ function LeagueStatsPageInner() {
     const col = ADV_COLS.find(c => c.key === advSortKey)
     const label = col?.label ?? advSortKey
     const fullLabel = (col?.desc ?? label).split('·')[0].trim() || label
-    const withVals = eligibleBase.map(p => ({ p, val: calcAdv(p)[advSortKey] }))
+    const withVals = eligibleBase
+      .map(p => ({ p, val: calcAdv(p)[advSortKey] }))
+      .filter((x): x is { p: PlayerStat; val: number } => x.val != null)
     const sorted = withVals.sort((a, b) => b.val - a.val).slice(0, 5)
     const isRatio = advSortKey === 'at_ratio'
     const isCount = advSortKey === 'a1_total'
@@ -656,6 +665,7 @@ function LeagueStatsPageInner() {
             { term: 'RPG', text: '한 경기에 평균 리바운드를 몇 개 잡는지예요. 높을수록 골밑 장악력이 좋아요.' },
             { term: 'APG', text: '한 경기에 평균 어시스트를 몇 개 하는지예요. 높을수록 동료를 잘 살려요.' },
             { term: 'TOPG', text: '한 경기에 평균 몇 번 공을 뺏기는지예요. 이건 반대로 낮을수록 좋아요.' },
+            { term: 'USG%', text: '팀 내 공격 점유율 · 본인이 뛴 경기에서 팀 야투+0.44×자유투+턴오버 중 본인 몫' },
           ]} />
 
           {/* 전체 스탯 테이블 */}
@@ -1054,15 +1064,16 @@ function LeagueStatsPageInner() {
                       <span className="font-semibold text-base" style={{ color: 'var(--mm-ink)', letterSpacing: '-0.005em' }}>{p.name}</span>
                       <span className="text-xs font-bold ml-auto" style={{ color: 'var(--mm-muted)' }}>{p.gp}{'R'}</span>
                     </div>
-                    <div className="grid grid-cols-4 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
+                    <div className="grid grid-cols-5 gap-2 pt-1" style={{ borderTop: '1px solid var(--mm-rule)' }}>
                       {ADV_COLS.map(({ key, label }) => {
+                        const v = adv[key]
                         const isRatio = key === 'at_ratio'
                         const isCount = key === 'a1_total'
                         const active = advSortKey === key
                         return (
                           <div key={key} className="text-center">
                             <div className="text-xs font-bold" style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-muted)' }}>{label}</div>
-                            <div className="t-num text-base font-black mt-0.5" style={{ color: 'var(--mm-ink)' }}>{isCount ? adv[key] : isRatio ? adv[key].toFixed(2) : `${fmt1(adv[key])}%`}</div>
+                            <div className="t-num text-base font-black mt-0.5" style={{ color: 'var(--mm-ink)' }}>{v == null ? '—' : isCount ? v : isRatio ? v.toFixed(2) : `${fmt1(v)}%`}</div>
                           </div>
                         )
                       })}
@@ -1121,7 +1132,7 @@ function LeagueStatsPageInner() {
                         return (
                           <td key={key} className={active ? 't-td-key' : 't-td'}
                             style={{ color: active ? 'var(--mm-ink)' : 'var(--mm-ink-soft)' }}>
-                            {isCount ? val : isRatio ? val.toFixed(2) : `${fmt1(val)}%`}
+                            {val == null ? '—' : isCount ? val : isRatio ? val.toFixed(2) : `${fmt1(val)}%`}
                           </td>
                         )
                       })}
