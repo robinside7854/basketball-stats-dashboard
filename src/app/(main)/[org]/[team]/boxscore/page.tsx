@@ -64,7 +64,14 @@ function Pct({ val, kind, suffix = '' }: { val: number; kind?: PctKind; suffix?:
 // 모바일 카드 본문 — 경기별·대회 전체가 같은 모양을 쓴다(스탯 탭 카드와 같은 구조).
 //   종전에는 REB·AST·FG%·3P% 네 칸뿐이라 스틸·블락·야투 볼륨(성공/시도)을 폰에서 볼 수 없었다.
 //   (모듈 최상단 정의: 페이지 함수 안에 두면 리렌더마다 unmount 된다)
-function MobileStatBody({ cells, s }: { cells: { label: string; value: React.ReactNode }[]; s: PlayerBoxScore }) {
+type ShotLine = Pick<PlayerBoxScore, 'fgm' | 'fga' | 'fg_pct' | 'fg3m' | 'fg3a' | 'fg3_pct' | 'ftm' | 'fta' | 'ft_pct'>
+
+function MobileStatBody({ cells, s, quarters }: {
+  cells: { label: string; value: React.ReactNode }[]
+  s: ShotLine
+  // 경기별 카드에만 넘긴다 — 쿼터 득점은 PC 표에만 있어 폰에서 볼 수 없었다
+  quarters?: { label: string; value: number }[]
+}) {
   const shots: { label: string; made: number; att: number; pct: number; kind: PctKind }[] = [
     { label: 'FG', made: s.fgm, att: s.fga, pct: s.fg_pct, kind: 'fg' },
     { label: '3P', made: s.fg3m, att: s.fg3a, pct: s.fg3_pct, kind: 'fg3' },
@@ -80,6 +87,16 @@ function MobileStatBody({ cells, s }: { cells: { label: string; value: React.Rea
           </div>
         ))}
       </div>
+      {quarters && (
+        <div className="grid gap-1 mt-2 pt-2 border-t border-[var(--mm-rule)]/60" style={{ gridTemplateColumns: `repeat(${quarters.length}, minmax(0, 1fr))` }}>
+          {quarters.map(q => (
+            <div key={q.label} className="text-center">
+              <div className="text-xs text-[var(--mm-muted)]">{q.label}</div>
+              <div className={`text-sm font-bold tabular-nums ${q.value ? 'text-[var(--mm-ink)]' : 'text-[var(--mm-muted)]'}`}>{q.value || '-'}</div>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-1 mt-2 pt-2 border-t border-[var(--mm-rule)]/60">
         {shots.map(g => (
           <div key={g.label} className="text-center">
@@ -90,6 +107,80 @@ function MobileStatBody({ cells, s }: { cells: { label: string; value: React.Rea
         ))}
       </div>
     </>
+  )
+}
+
+// 팀 합계(성공·시도만 있음)에 성공률을 채운다 — 표·카드·요약이 같은 계산을 쓰게
+function pctOf(made?: number, att?: number) {
+  return att ? Math.round(((made ?? 0) / att) * 1000) / 10 : 0
+}
+
+// 경기별 「주요 기록 요약」 — 전체 박스스코어(24칸)를 다 읽지 않고도 누가 무엇을 했는지 보이게.
+//   항목은 사용자 지정(2026-10-05): 득점·리바·어시·스틸·블락·야투%·3점%·자유투%.
+//   PC·모바일 같은 표 하나. 항목별 1위는 노랑 굵게(동률이면 모두). 정렬은 득점순 고정 —
+//   아래 전체 표의 정렬을 따라가면 요약이 매번 뒤섞여 요약 구실을 못 한다.
+const SUMMARY_COLS: { key: 'pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg_pct' | 'fg3_pct' | 'ft_pct'; label: string; kind?: PctKind }[] = [
+  { key: 'pts', label: '득점' }, { key: 'reb', label: '리바' }, { key: 'ast', label: '어시' },
+  { key: 'stl', label: '스틸' }, { key: 'blk', label: '블락' },
+  { key: 'fg_pct', label: '야투%', kind: 'fg' }, { key: 'fg3_pct', label: '3점%', kind: 'fg3' }, { key: 'ft_pct', label: '자유투%', kind: 'ft' },
+]
+
+function KeyStatSummary({ boxScores, teamTotals, onPlayer }: {
+  boxScores: PlayerBoxScore[]
+  teamTotals: Partial<PlayerBoxScore>
+  onPlayer: (id: string) => void
+}) {
+  const rows = [...boxScores].sort((a, b) => b.pts - a.pts || sortJerseyNum(a.player_number, b.player_number))
+  const best = Object.fromEntries(SUMMARY_COLS.map(c => [c.key, Math.max(0, ...rows.map(r => r[c.key]))])) as Record<string, number>
+  const team: Record<string, number> = {
+    pts: teamTotals.pts ?? 0, reb: teamTotals.reb ?? 0, ast: teamTotals.ast ?? 0, stl: teamTotals.stl ?? 0, blk: teamTotals.blk ?? 0,
+    fg_pct: pctOf(teamTotals.fgm, teamTotals.fga), fg3_pct: pctOf(teamTotals.fg3m, teamTotals.fg3a), ft_pct: pctOf(teamTotals.ftm, teamTotals.fta),
+  }
+  return (
+    <div className="mb-4">
+      <h4 className="text-sm font-bold text-[var(--mm-ink)] mb-2">주요 기록 요약</h4>
+      <div className="overflow-x-auto rounded-xl border border-[var(--mm-rule)] bg-[var(--mm-panel)]">
+        <table className="w-full text-xs md:text-sm text-center border-collapse tabular-nums">
+          <thead>
+            <tr className="bg-[var(--mm-panel-alt)] text-[var(--mm-muted)]">
+              <th className="sticky left-0 bg-[var(--mm-panel-alt)] px-2 py-2 text-left font-medium whitespace-nowrap">선수</th>
+              {SUMMARY_COLS.map(c => <th key={c.key} className="px-1.5 md:px-2 py-2 font-medium whitespace-nowrap">{c.label}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.player_id} className="border-t border-[var(--mm-rule)]">
+                <td className="sticky left-0 bg-[var(--mm-panel)] px-2 py-1.5 text-left whitespace-nowrap">
+                  <button onClick={() => onPlayer(r.player_id)} className="font-medium text-[var(--mm-ink)] hover:text-[var(--mm-yellow-strong)] hover:underline underline-offset-2 cursor-pointer inline-block max-w-[5.5rem] md:max-w-none truncate align-bottom">
+                    {r.player_name}
+                  </button>
+                </td>
+                {SUMMARY_COLS.map(c => {
+                  const v = r[c.key]
+                  const top = v > 0 && v === best[c.key]
+                  return (
+                    <td key={c.key} className={`px-1.5 md:px-2 py-1.5 ${top ? 'font-black' : ''}`}>
+                      {c.kind
+                        ? (top ? <span className="text-[var(--mm-yellow-strong)]">{v.toFixed(1)}</span> : <Pct val={v} kind={c.kind} />)
+                        : <span className={top ? 'text-[var(--mm-yellow-strong)]' : v ? 'text-[var(--mm-ink)]' : 'text-[var(--mm-muted)]'}>{v}</span>}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+            <tr className="border-t-2 border-[var(--mm-ink)] bg-[var(--mm-panel-alt)] font-bold">
+              <td className="sticky left-0 bg-[var(--mm-panel-alt)] px-2 py-1.5 text-left whitespace-nowrap text-[var(--mm-ink)]">팀 합계</td>
+              {SUMMARY_COLS.map(c => (
+                <td key={c.key} className="px-1.5 md:px-2 py-1.5">
+                  {c.kind ? <Pct val={team[c.key]} kind={c.kind} /> : <span className="text-[var(--mm-ink)]">{team[c.key]}</span>}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[11px] text-[var(--mm-muted)] mt-1">득점순 · 노란 굵은 숫자 = 이 경기 항목별 1위 · 선수 이름을 누르면 상세 기록</p>
+    </div>
   )
 }
 
@@ -506,6 +597,12 @@ export default function BoxScorePage() {
           const boxScores = (!isLoading && gData) ? gData.boxScores : []
           const teamTotals = (!isLoading && gData) ? gData.teamTotals : {}
           const quarterPts = (!isLoading && gData) ? gData.quarterPts : {}
+          const teamQuarterPts: Record<number, number> = {}
+          for (const pMap of Object.values(quarterPts)) for (const [q, v] of Object.entries(pMap)) teamQuarterPts[+q] = (teamQuarterPts[+q] || 0) + v
+          // 연장 칸은 이 경기에 연장 득점이 있을 때만 — 폰 폭에서 매번 빈 OT 칸을 두지 않는다
+          const hasOT = (teamQuarterPts[5] || 0) > 0
+          const quarterCells = (m?: Record<number, number>) =>
+            (hasOT ? [1, 2, 3, 4, 5] : [1, 2, 3, 4]).map(q => ({ label: q === 5 ? 'OT' : `Q${q}`, value: m?.[q] || 0 }))
 
           const sorted = [...boxScores].sort((a, b) => {
             if (sortKey === 'player_number') {
@@ -569,6 +666,9 @@ export default function BoxScorePage() {
                     <div className="text-center py-8 text-[var(--mm-muted)] text-sm">기록된 데이터가 없습니다</div>
                   ) : (
                     <>
+                      <KeyStatSummary boxScores={boxScores} teamTotals={teamTotals} onPlayer={setPlayerModal} />
+                      <h4 className="text-sm font-bold text-[var(--mm-ink)] mb-2">전체 박스스코어</h4>
+
                       {/* 모바일 카드뷰 (md 미만) */}
                       <div className="md:hidden space-y-2">
                         {sorted.map(s => (
@@ -592,9 +692,33 @@ export default function BoxScorePage() {
                               { label: 'REB', value: s.reb }, { label: 'AST', value: s.ast }, { label: 'STL', value: s.stl }, { label: 'BLK', value: s.blk },
                               { label: 'TOV', value: s.tov }, { label: 'PF', value: s.pf }, { label: 'OR/DR', value: `${s.oreb}/${s.dreb}` },
                               { label: 'TS%', value: s.ts_pct > 0 ? s.ts_pct.toFixed(1) : '-' },
-                            ]} />
+                            ]} quarters={quarterCells(quarterPts[s.player_id])} />
                           </button>
                         ))}
+                        {/* 팀 합계 — PC 표 맨 아래 줄과 같은 숫자 */}
+                        <div className="bg-[var(--mm-panel-alt)] border-2 border-[var(--mm-ink)] rounded-xl px-3 py-2.5">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <div className="flex-1 font-bold text-[var(--mm-ink)] text-sm">팀 합계</div>
+                            <div className="text-right shrink-0">
+                              <div className="text-2xl font-black text-[var(--mm-ink)] leading-none">{teamTotals.pts ?? 0}</div>
+                              <div className="text-xs text-[var(--mm-muted)] font-bold mt-0.5">PTS</div>
+                            </div>
+                          </div>
+                          <MobileStatBody
+                            s={{
+                              fgm: teamTotals.fgm ?? 0, fga: teamTotals.fga ?? 0, fg_pct: pctOf(teamTotals.fgm, teamTotals.fga),
+                              fg3m: teamTotals.fg3m ?? 0, fg3a: teamTotals.fg3a ?? 0, fg3_pct: pctOf(teamTotals.fg3m, teamTotals.fg3a),
+                              ftm: teamTotals.ftm ?? 0, fta: teamTotals.fta ?? 0, ft_pct: pctOf(teamTotals.ftm, teamTotals.fta),
+                            }}
+                            cells={[
+                              { label: 'REB', value: teamTotals.reb ?? 0 }, { label: 'AST', value: teamTotals.ast ?? 0 },
+                              { label: 'STL', value: teamTotals.stl ?? 0 }, { label: 'BLK', value: teamTotals.blk ?? 0 },
+                              { label: 'TOV', value: teamTotals.tov ?? 0 }, { label: 'PF', value: teamTotals.pf ?? 0 },
+                              { label: 'OR/DR', value: `${teamTotals.oreb ?? 0}/${teamTotals.dreb ?? 0}` },
+                            ]}
+                            quarters={quarterCells(teamQuarterPts)}
+                          />
+                        </div>
                       </div>
 
                       {/* 데스크탑 테이블 (md 이상) */}
@@ -671,11 +795,11 @@ export default function BoxScorePage() {
                               return <td key={q} className="px-2 py-2 text-[var(--mm-ink)] text-xs">{qTotal || '-'}</td>
                             })}
                             <td className="px-2 py-2">{teamTotals.fgm ?? 0}-{teamTotals.fga ?? 0}</td>
-                            <td className="px-2 py-2"><Pct val={teamTotals.fga ? Math.round((teamTotals.fgm! / teamTotals.fga!) * 1000) / 10 : 0} kind="fg" /></td>
+                            <td className="px-2 py-2"><Pct val={teamTotals.fga ? pctOf(teamTotals.fgm, teamTotals.fga) : 0} kind="fg" /></td>
                             <td className="px-2 py-2">{teamTotals.fg3m ?? 0}-{teamTotals.fg3a ?? 0}</td>
-                            <td className="px-2 py-2"><Pct val={teamTotals.fg3a ? Math.round((teamTotals.fg3m! / teamTotals.fg3a!) * 1000) / 10 : 0} kind="fg3" /></td>
+                            <td className="px-2 py-2"><Pct val={teamTotals.fg3a ? pctOf(teamTotals.fg3m, teamTotals.fg3a) : 0} kind="fg3" /></td>
                             <td className="px-2 py-2">{teamTotals.ftm ?? 0}-{teamTotals.fta ?? 0}</td>
-                            <td className="px-2 py-2"><Pct val={teamTotals.fta ? Math.round((teamTotals.ftm! / teamTotals.fta!) * 1000) / 10 : 0} kind="ft" /></td>
+                            <td className="px-2 py-2"><Pct val={teamTotals.fta ? pctOf(teamTotals.ftm, teamTotals.fta) : 0} kind="ft" /></td>
                             <td className="px-2 py-2">{teamTotals.oreb ?? 0}</td>
                             <td className="px-2 py-2">{teamTotals.dreb ?? 0}</td>
                             <td className="px-2 py-2">{teamTotals.reb ?? 0}</td>
