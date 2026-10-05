@@ -3,6 +3,17 @@
 최종 갱신 2026-10-05. 세션이 바뀌어도 여기만 읽으면 이어갈 수 있게 유지한다.
 **작업을 마칠 때마다 "다음에 할 일"과 "최근 결정"을 갱신할 것.**
 
+**최근 결정 (2026-10-05 ④, 파란날개 박스스코어 공유 링크 + 미리보기 카드):**
+- 링크: `/[org]/[team]/boxscore?t=<대회id>&g=<경기id>`(그 경기 펼침+스크롤) · `?t=<대회id>&view=season`(대회 전체).
+  버튼: 경기 펼침 상단 「이 경기 공유」, 대회 전체 상단 「대회 기록 공유」(`components/ShareBoxscoreButton.tsx` —
+  폰은 공유 시트, PC 는 링크 복사).
+- `boxscore/page.tsx` 는 이제 **서버 컴포넌트**(미리보기 메타데이터만), 화면은 `BoxScoreClient.tsx` 로 옮겼다.
+- 카드 이미지 `GET /api/og/team-boxscore?org&team&t[&g]` — 그림은 `lib/og/teamBoxscoreCard.tsx`,
+  조회·공개 판정은 `lib/og/teamBoxscoreShare.ts`. opengraph-image 파일 규칙은 쿼리를 못 읽어 라우트로 만들었다.
+  ⚠ **팀명·대회명·상대명은 `teams.is_public=true` 이고 URL 의 org/team 이 대회의 팀과 같을 때만** 바깥에 낸다
+  (리그 카드와 같은 원칙). 아니면 온볼 공용 카드·기본 제목 — 루트 opengraph-image 는 계속 클럽 정보 0 이어야 한다.
+- 카톡은 미리보기를 오래 캐시한다 — 같은 링크의 카드가 안 바뀌면 카카오 OG 캐시 초기화 도구로 지운다.
+
 **최근 결정 (2026-10-05 ②, 파란날개 기록 화면 — 기록 중 로그 수정 · 실시간 스탯 PF):**
 - 기록 화면(`[org]/[team]/record`) 입력 패드 아래에 **「기록 로그」**(`components/record/EventLogPanel.tsx`, 최신순 30건씩).
   각 줄 ✏️ → 선수·종류·성공/실패·어시스트·쿼터 수정, 🗑 → 두 번 눌러 삭제. 종전엔 「마지막 1건 취소」뿐이었다.
