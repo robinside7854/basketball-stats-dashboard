@@ -125,10 +125,13 @@ const SUMMARY_COLS: { key: 'pts' | 'reb' | 'ast' | 'stl' | 'blk' | 'fg_pct' | 'f
   { key: 'fg_pct', label: '야투%', kind: 'fg' }, { key: 'fg3_pct', label: '3점%', kind: 'fg3' }, { key: 'ft_pct', label: '자유투%', kind: 'ft' },
 ]
 
-function KeyStatSummary({ boxScores, teamTotals, onPlayer }: {
-  boxScores: PlayerBoxScore[]
+function KeyStatSummary({ boxScores, teamTotals, onPlayer, gp, teamGp }: {
+  boxScores: (PlayerBoxScore & { games_played?: number })[]
   teamTotals: Partial<PlayerBoxScore>
   onPlayer: (id: string) => void
+  // 대회 전체에서만 넘긴다 — 누적 숫자는 출전 경기 수를 같이 봐야 읽힌다
+  gp?: boolean
+  teamGp?: number
 }) {
   const rows = [...boxScores].sort((a, b) => b.pts - a.pts || sortJerseyNum(a.player_number, b.player_number))
   const best = Object.fromEntries(SUMMARY_COLS.map(c => [c.key, Math.max(0, ...rows.map(r => r[c.key]))])) as Record<string, number>
@@ -144,6 +147,7 @@ function KeyStatSummary({ boxScores, teamTotals, onPlayer }: {
           <thead>
             <tr className="bg-[var(--mm-panel-alt)] text-[var(--mm-muted)]">
               <th className="sticky left-0 bg-[var(--mm-panel-alt)] px-2 py-2 text-left font-medium whitespace-nowrap">선수</th>
+              {gp && <th className="px-1.5 md:px-2 py-2 font-medium whitespace-nowrap">경기</th>}
               {SUMMARY_COLS.map(c => <th key={c.key} className="px-1.5 md:px-2 py-2 font-medium whitespace-nowrap">{c.label}</th>)}
             </tr>
           </thead>
@@ -155,6 +159,7 @@ function KeyStatSummary({ boxScores, teamTotals, onPlayer }: {
                     {r.player_name}
                   </button>
                 </td>
+                {gp && <td className="px-1.5 md:px-2 py-1.5 text-[var(--mm-muted)]">{r.games_played ?? '-'}</td>}
                 {SUMMARY_COLS.map(c => {
                   const v = r[c.key]
                   const top = v > 0 && v === best[c.key]
@@ -170,6 +175,7 @@ function KeyStatSummary({ boxScores, teamTotals, onPlayer }: {
             ))}
             <tr className="border-t-2 border-[var(--mm-ink)] bg-[var(--mm-panel-alt)] font-bold">
               <td className="sticky left-0 bg-[var(--mm-panel-alt)] px-2 py-1.5 text-left whitespace-nowrap text-[var(--mm-ink)]">팀 합계</td>
+              {gp && <td className="px-1.5 md:px-2 py-1.5 text-[var(--mm-muted)]">{teamGp ?? '-'}</td>}
               {SUMMARY_COLS.map(c => (
                 <td key={c.key} className="px-1.5 md:px-2 py-1.5">
                   {c.kind ? <Pct val={team[c.key]} kind={c.kind} /> : <span className="text-[var(--mm-ink)]">{team[c.key]}</span>}
@@ -179,7 +185,7 @@ function KeyStatSummary({ boxScores, teamTotals, onPlayer }: {
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-[var(--mm-muted)] mt-1">득점순 · 노란 굵은 숫자 = 이 경기 항목별 1위 · 선수 이름을 누르면 상세 기록</p>
+      <p className="text-[11px] text-[var(--mm-muted)] mt-1">득점순{gp ? ' · 대회 누적' : ''} · 노란 굵은 숫자 = {gp ? '대회' : '이 경기'} 항목별 1위 · 선수 이름을 누르면 상세 기록</p>
     </div>
   )
 }
@@ -1028,6 +1034,8 @@ export default function BoxScorePage() {
 
           {seasonSorted.length > 0 && (
             <div>
+              <KeyStatSummary boxScores={seasonScores} teamTotals={seasonTotals} onPlayer={setPlayerModal} gp teamGp={totalGames} />
+              <h4 className="text-sm font-bold text-[var(--mm-ink)] mb-2">전체 기록</h4>
               <div className="flex items-center gap-3 mb-3">
                 <span className="text-sm text-[var(--mm-muted)]">총 <span className="text-[var(--mm-ink)] font-bold">{totalGames}</span>경기 · 평균은 실제 출전 경기 기준</span>
               </div>
