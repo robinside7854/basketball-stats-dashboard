@@ -19,7 +19,7 @@ export default function LiveStatsPanel({ gameId, refreshKey }: Props) {
       .catch(() => {})
   }, [gameId, refreshKey])
 
-  const active = boxScores.filter(b => b.min > 0 || b.pts > 0 || b.reb > 0 || b.ast > 0)
+  const active = boxScores.filter(b => b.min > 0 || b.pts > 0 || b.reb > 0 || b.ast > 0 || b.pf > 0)
   if (active.length === 0) return null
 
   const totalFgPct = (teamTotals.fga ?? 0) > 0
@@ -47,6 +47,7 @@ export default function LiveStatsPanel({ gameId, refreshKey }: Props) {
               <th className="py-1 px-1 text-center">STL</th>
               <th className="py-1 px-1 text-center">BLK</th>
               <th className="py-1 px-1 text-center text-red-400">TOV</th>
+              <th className="py-1 px-1 text-center text-orange-400">PF</th>
               <th className="py-1 px-1 text-center">FG%</th>
             </tr>
           </thead>
@@ -61,6 +62,8 @@ export default function LiveStatsPanel({ gameId, refreshKey }: Props) {
                 <td className="py-1 px-1 text-center text-[var(--mm-ink)]">{b.stl}</td>
                 <td className="py-1 px-1 text-center text-[var(--mm-ink)]">{b.blk}</td>
                 <td className="py-1 px-1 text-center text-red-400">{b.tov}</td>
+                {/* 파울 4개부터 경고색 — 동호회 대회는 대개 5반칙 퇴장 */}
+                <td className={`py-1 px-1 text-center ${b.pf >= 4 ? 'font-black text-white bg-red-600 rounded' : 'text-orange-400'}`}>{b.pf}</td>
                 <td className="py-1 px-1 text-center text-[var(--mm-muted)]">
                   {b.fga > 0 ? `${b.fg_pct.toFixed(1)}%` : '-'}
                 </td>
@@ -75,6 +78,7 @@ export default function LiveStatsPanel({ gameId, refreshKey }: Props) {
               <td className="py-1.5 px-1 text-center text-[var(--mm-ink)]">{teamTotals.stl ?? 0}</td>
               <td className="py-1.5 px-1 text-center text-[var(--mm-ink)]">{teamTotals.blk ?? 0}</td>
               <td className="py-1.5 px-1 text-center text-red-400">{teamTotals.tov ?? 0}</td>
+              <td className="py-1.5 px-1 text-center text-orange-400">{teamTotals.pf ?? 0}</td>
               <td className="py-1.5 px-1 text-center text-[var(--mm-muted)]">
                 {totalFgPct > 0 ? `${totalFgPct.toFixed(1)}%` : '-'}
                 <span className="text-[var(--mm-muted)] font-normal ml-1">({teamTotals.fgm ?? 0}/{teamTotals.fga ?? 0})</span>

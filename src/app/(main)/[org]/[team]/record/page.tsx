@@ -9,6 +9,7 @@ import YouTubePlayer from '@/components/record/YouTubePlayer'
 import EventInputPad from '@/components/record/EventInputPad'
 import SubstitutionPanel from '@/components/record/SubstitutionPanel'
 import LiveStatsPanel from '@/components/record/LiveStatsPanel'
+import EventLogPanel from '@/components/record/EventLogPanel'
 import { useGameStore } from '@/store/gameStore'
 import { useLineupStore } from '@/store/lineupStore'
 import { useEditMode } from '@/contexts/EditModeContext'
@@ -471,6 +472,7 @@ function RecordPageInner() {
     const ts = getCurrentTimestamp()
     await fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json', ...teamHeaders }, body: JSON.stringify({ game_id: currentGame.id, quarter: currentQuarter, video_timestamp: ts, type: 'opp_score', points: pts }) })
     toast(`상대팀 +${pts}점`)
+    handleEventSaved() // 기록 로그에 바로 보이게
   }
 
   // Feature 2: add player to tournament roster
@@ -944,6 +946,7 @@ function RecordPageInner() {
                       </button>
                     ))}
                   </div>
+                  <EventLogPanel gameId={currentGame.id} players={activePlayers} refreshKey={statsRefresh} onChanged={handleEventSaved} />
                   {/* Feature 2: add player during recording */}
                   <div className="border-t border-[var(--mm-rule)] pt-2">
                     <button
